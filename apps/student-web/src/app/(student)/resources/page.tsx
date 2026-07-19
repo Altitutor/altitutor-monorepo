@@ -1,6 +1,7 @@
 'use client';
 
 import { SubjectCard, useResourceSubjects } from '@/features/resources';
+import { getUcatSessionsUrl, isUcatSubject } from '@/features/resources/lib/ucat-resources';
 import { StudentPageContainer } from '@/shared/components/layouts';
 
 export default function ResourcesPage() {
@@ -30,13 +31,22 @@ export default function ResourcesPage() {
           id="tour-resources-subjects"
           className="grid gap-4 md:grid-cols-2 xl:grid-cols-3"
         >
-          {(subjects ?? []).map((subject) => (
-            <SubjectCard
-              key={subject.id}
-              subject={subject}
-              href={`/resources/${encodeURIComponent((subject.short_name || subject.name || '').toLowerCase())}`}
-            />
-          ))}
+          {(subjects ?? []).map((subject) => {
+            const isUcat = isUcatSubject(subject);
+
+            return (
+              <SubjectCard
+                key={subject.id}
+                subject={subject}
+                href={
+                  isUcat
+                    ? getUcatSessionsUrl()
+                    : `/resources/${encodeURIComponent((subject.short_name || subject.name || '').toLowerCase())}`
+                }
+                confirmUcatNavigation={isUcat}
+              />
+            );
+          })}
         </div>
       )}
     </StudentPageContainer>

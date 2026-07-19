@@ -96,8 +96,8 @@ test.describe("personalised Study plan", () => {
     await expect(page.getByText(/Full mock \d+/)).toHaveCount(0);
 
     await expect(
-      page.getByRole("complementary", { name: "Study plan companion" }),
-    ).toHaveCount(0);
+      page.getByRole("complementary", { name: "Study guidance" }),
+    ).toBeVisible();
     await page.goto("/dashboard");
     await expect(page.getByText("What now").first()).toBeVisible();
   });
@@ -450,8 +450,8 @@ test.describe("personalised Study plan", () => {
     await expect(page.getByText("100% complete")).toBeVisible();
     await expect(
       page
-        .getByRole("complementary", { name: "Study plan companion" })
-        .getByText("Task complete"),
+        .getByRole("complementary", { name: "Study guidance" })
+        .getByText(`${title} complete`),
     ).toBeVisible({ timeout: 15_000 });
 
     await page.goto("/study-plan");
@@ -695,7 +695,7 @@ test.describe("personalised Study plan", () => {
     });
 
     await expect(
-      page.getByRole("complementary", { name: "Study plan companion" }),
+      page.getByRole("complementary", { name: "Study guidance" }),
     ).toHaveCount(0);
     const { data: session, error: sessionError } = await admin
       .from("student_practice_sessions")
@@ -719,7 +719,7 @@ test.describe("personalised Study plan", () => {
     });
     await page.goto("/exam/tutorial");
     await expect(
-      page.getByRole("complementary", { name: "Study plan companion" }),
+      page.getByRole("complementary", { name: "Study guidance" }),
     ).toHaveCount(0);
   });
 });

@@ -7,6 +7,7 @@ import {
   type GenerationActor,
   type PreparedGenerationContext,
 } from '@/features/ucat/questions/server/generate-question-stems'
+import { upsertUcatGenerationNotification } from '@/features/ucat/questions/server/ucat-generation-notification'
 
 export type UcatQuestionGenerationQueueMessage = {
   runId: string
@@ -61,6 +62,13 @@ export async function runBackgroundUcatGeneration(
       ? result.payload.error
       : 'UCAT question generation failed'
     await finishFailedRun(admin, input, message, result.payload.debug ?? null)
+    await upsertUcatGenerationNotification(admin, {
+      staffId: input.staffId,
+      runId: input.runId,
+      status: 'failed',
+      requestedStemCount: input.body.stemCount,
+      message,
+    })
     return { runId: input.runId, stemIds: [] }
   }
 
@@ -97,7 +105,14 @@ export async function runBackgroundUcatGeneration(
     .eq('id', input.runId)
   if (completionError) throw completionError
 
-  await upsertCompletionNotification(admin, input, stemIds.length)
+  await upsertUcatGenerationNotification(admin, {
+    staffId: input.staffId,
+    runId: input.runId,
+    status: 'completed',
+    requestedStemCount: input.body.stemCount,
+    stemCount: stemIds.length,
+    generatedStemIds: stemIds,
+  })
   return { runId: input.runId, stemIds }
 }
 
@@ -147,23 +162,4 @@ async function finishFailedRun(
       updated_by: input.staffId,
     })
     .eq('id', input.runId)
-}
-
-async function upsertCompletionNotification(
-  admin: SupabaseClient<Database>,
-  input: UcatQuestionGenerationQueueMessage,
-  stemCount: number,
-) {
-  const noun = stemCount === 1 ? 'question stem is' : 'question stems are'
-  const { error } = await admin.from('notifications').upsert({
-    staff_id: input.staffId,
-    notification_type: 'ucat.ai_generation.completed',
-    app_scope: 'staff_web',
-    title: 'AI questions ready for review',
-    body: `${stemCount} ${noun} ready.`,
-    action_url: `/ucat/questions?tab=in_review&generationRun=${input.runId}`,
-    dedupe_key: `ucat-ai-generation:${input.runId}`,
-    metadata: { generationRunId: input.runId, stemCount },
-  }, { onConflict: 'dedupe_key' })
-  if (error) throw error
 }

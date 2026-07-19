@@ -915,11 +915,36 @@ function renderLegendSwatch(shape: Record<string, unknown>, index: number, x: nu
   return `<polygon points="${points}" ${common}/>`
 }
 
+export function wrapSetLegendText(value: unknown, maxCharacters = 14): string[] {
+  const words = String(value ?? '').trim().split(/\s+/u).filter(Boolean)
+  if (words.length === 0) return ['']
+  const lines: string[] = []
+  let current = ''
+  for (const word of words) {
+    const next = current ? `${current} ${word}` : word
+    if (current && next.length > maxCharacters) {
+      lines.push(current)
+      current = word
+    } else {
+      current = next
+    }
+  }
+  if (current) lines.push(current)
+  return lines
+}
+
 function renderSetLegend(labelledShapes: Array<{ record: Record<string, unknown>; index: number }>): string {
-  return labelledShapes.map(({ record, index }, legendIndex) => {
+  let nextY = 78
+  return labelledShapes.map(({ record, index }) => {
     const x = 560
-    const y = 78 + legendIndex * 62
-    return `${renderLegendSwatch(record, index, x, y)}<text x="${x + 50}" y="${y}" font-size="15" font-family="Arial, sans-serif">${escapeXml(String(record.label))}</text>`
+    const y = nextY
+    const lines = wrapSetLegendText(record.label)
+    const firstLineY = y - ((lines.length - 1) * 9)
+    const text = lines.map((line, lineIndex) =>
+      `<tspan x="${x + 50}" y="${firstLineY + lineIndex * 18}">${escapeXml(line)}</tspan>`
+    ).join('')
+    nextY += Math.max(62, lines.length * 18 + 26)
+    return `${renderLegendSwatch(record, index, x, y)}<text font-size="15" font-family="Arial, sans-serif">${text}</text>`
   }).join('')
 }
 
@@ -976,7 +1001,45 @@ function normalizeSetDiagramInputs(shapes: unknown[], values: unknown[]): {
   return normalizeSetDiagramGeometry(normalizedShapes, numericValues)
 }
 
-function renderSetDiagram(spec: Record<string, unknown>, title: string | null | undefined): string {
+export function normalizeSetDiagramSpecForEditing(spec: Record<string, unknown>): Record<string, unknown> {
+  const rawShapes = Array.isArray(spec.shapes) ? spec.shapes : []
+  const rawValues = Array.isArray(spec.regionLabels)
+    ? spec.regionLabels
+    : Array.isArray(spec.labels)
+      ? spec.labels
+      : Array.isArray(spec.regions)
+        ? spec.regions
+        : []
+  const { shapes, values } = normalizeSetDiagramInputs(rawShapes, rawValues)
+  const placedLabels: SvgLabelBox[] = []
+  const editableValues = values.map((raw) => {
+    const record = raw && typeof raw === 'object' ? raw as Record<string, unknown> : {}
+    const text = String(record.text ?? record.value ?? '')
+    const fontSize = finiteNumber(record.fontSize, 18)
+    const fallback = { x: finiteNumber(record.x, 320), y: finiteNumber(record.y, 220) }
+    const explicit = Number.isFinite(Number(record.x)) && Number.isFinite(Number(record.y))
+    const placement = record.manualPosition === true && explicit
+      ? { point: fallback, fontSize }
+      : hasSetRegionExpression(record)
+        ? semanticSetLabelPlacement(record, shapes, fallback, placedLabels, text, fontSize)
+        : { point: fallback, fontSize }
+    const point = placement?.point ?? fallback
+    placedLabels.push(labelBox(point, text, placement?.fontSize ?? fontSize))
+    return {
+      ...record,
+      x: point.x,
+      y: point.y,
+      fontSize: placement?.fontSize ?? fontSize,
+    }
+  })
+  return {
+    ...spec,
+    shapes,
+    regionLabels: editableValues,
+  }
+}
+
+export function renderSetDiagramSvg(spec: Record<string, unknown>, title: string | null | undefined): string {
   const rawShapes = Array.isArray(spec.shapes) ? spec.shapes : []
   const rawValues = Array.isArray(spec.regionLabels)
     ? spec.regionLabels
@@ -994,19 +1057,22 @@ function renderSetDiagram(spec: Record<string, unknown>, title: string | null | 
   const hasDuplicateLegendShape = labelledShapes.some(({ record }) => (shapeTypeCounts.get(setShapeType(record)) ?? 0) > 1)
   const useLegend = labelledShapes.length > 0 && !hasDuplicateLegendShape
   const shapeNodes = shapes
-    .map((raw, index) => renderSetShape(raw, index))
+    .map((raw, index) => `<g data-visual-kind="shape" data-visual-index="${index}">${renderSetShape(raw, index)}</g>`)
     .join('')
   const placedLabels: SvgLabelBox[] = []
   const shapeLabelNodes = useLegend ? '' : renderSetNameLabels(labelledShapes, shapes, placedLabels)
   const legend = useLegend ? renderSetLegend(labelledShapes) : ''
-  const labelNodes = values.map((raw) => {
+  const labelNodes = values.map((raw, labelIndex) => {
     const record = raw && typeof raw === 'object' ? raw as Record<string, unknown> : {}
     const text = String(record.text ?? record.value ?? '')
     const fontSize = Number(record.fontSize ?? 18)
     const fallbackPoint = { x: finiteNumber(record.x, 320), y: finiteNumber(record.y, 220) }
     const hasSemanticRegion = hasSetRegionExpression(record)
     const hasExplicitPoint = Number.isFinite(Number(record.x)) && Number.isFinite(Number(record.y))
-    const placement = hasSemanticRegion
+    const manualPosition = record.manualPosition === true && hasExplicitPoint
+    const placement = manualPosition
+      ? { point: fallbackPoint, fontSize }
+      : hasSemanticRegion
       ? semanticSetLabelPlacement(record, shapes, fallbackPoint, placedLabels, text, fontSize)
       : hasExplicitPoint
       ? { point: fallbackPoint, fontSize }
@@ -1031,14 +1097,14 @@ function renderSetDiagram(spec: Record<string, unknown>, title: string | null | 
     placedLabels.push(box)
     const numericHalo = /\d/u.test(text) ? ' paint-order="stroke" stroke="white" stroke-width="4" stroke-linejoin="round"' : ''
     const label = `<text x="${box.x}" y="${box.y}" font-size="${placement.fontSize}" font-family="Arial, sans-serif" text-anchor="middle" font-weight="${record.bold ? 700 : 500}"${numericHalo}>${escapeXml(text)}</text>`
-    return label
+    return `<g data-visual-kind="label" data-visual-index="${labelIndex}">${label}</g>`
   }).join('')
   const height = 430
   return `<svg xmlns="http://www.w3.org/2000/svg" width="720" height="${height}" viewBox="0 0 720 ${height}"><rect width="100%" height="100%" fill="white"/>${title ? renderSvgTitle(title, 40, 34) : ''}<g transform="translate(0 ${title ? 34 : 0})">${shapeNodes}${shapeLabelNodes}${labelNodes}</g>${legend}</svg>`
 }
 
 function renderVennDiagram(spec: Record<string, unknown>, title: string | null | undefined): string {
-  return renderSetDiagram(spec, title)
+  return renderSetDiagramSvg(spec, title)
 }
 
 function escapeXml(value: string): string {
@@ -1058,11 +1124,23 @@ export function generatedVisualBlockToImageNode(block: Extract<GeneratedContentB
     svg = renderVennDiagram(block.spec, block.title)
   }
 
+  return generatedVisualImageNode(block, svgDataUri(svg))
+}
+
+export function generatedVisualImageNode(
+  block: Extract<GeneratedContentBlock, { type: 'visual' }>,
+  src: string,
+): Json {
   return {
     type: 'image',
     attrs: {
-      src: svgDataUri(svg),
-      alt: '',
+      src,
+      alt: block.altText,
+      visualType: block.visualType,
+      visualSpec: block.spec as unknown as Json,
+      visualTitle: block.title ?? null,
+      visualAltText: block.altText,
+      visualVersion: 1,
     },
   }
 }
@@ -1094,6 +1172,27 @@ export function getGeneratedVisualSpecIssue(block: Extract<GeneratedContentBlock
   }
 
   return null
+}
+
+export function getSetDiagramManualPlacementWarnings(spec: Record<string, unknown>): string[] {
+  const normalized = normalizeSetDiagramSpecForEditing(spec)
+  const shapes = Array.isArray(normalized.shapes)
+    ? normalized.shapes.filter((shape): shape is Record<string, unknown> => Boolean(shape) && typeof shape === 'object' && !Array.isArray(shape))
+    : []
+  const labels = Array.isArray(normalized.regionLabels) ? normalized.regionLabels : []
+  const shapeRecords = shapes.map((raw, index) => ({ raw, index, id: setShapeId(raw, index) }))
+
+  return labels.flatMap((raw, index) => {
+    if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return []
+    const record = raw as Record<string, unknown>
+    if (!hasSetRegionExpression(record)) return []
+    if (!Number.isFinite(Number(record.x)) || !Number.isFinite(Number(record.y))) return []
+    const { include, exclude } = regionExpressionForLabel(record)
+    const point = { x: finiteNumber(record.x, 320), y: finiteNumber(record.y, 220) }
+    if (regionMatchesPoint(point, shapeRecords, include, exclude)) return []
+    const text = String(record.text ?? record.value ?? `Label ${index + 1}`)
+    return [`“${text}” is outside its declared set region.`]
+  })
 }
 
 function hasInlineVegaData(value: unknown): boolean {

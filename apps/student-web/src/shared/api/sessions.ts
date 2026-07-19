@@ -201,7 +201,7 @@ export const studentSessionsApi = {
     const subjectIds = [...new Set([...topicMeta.values()].map((t) => t.subject_id).filter(Boolean))] as string[];
 
     const { data: subjectsData, error: subjectsError } = subjectIds.length
-      ? await supabase.from('vstudent_subjects').select('id, short_name').in('id', subjectIds)
+      ? await supabase.from('vstudent_online_subjects').select('id, short_name').in('id', subjectIds)
       : { data: [] as const, error: null };
 
     if (subjectsError) throw subjectsError;

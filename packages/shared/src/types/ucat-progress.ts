@@ -37,6 +37,8 @@ export type SetAttemptRow = {
   wasTimed: boolean
   /** First section ID for sets with sections (for filtering by section) */
   sectionId: string | null
+  /** Null until the student completes the durable attempt review. */
+  reviewCompletedAt?: string | null
 }
 
 export type MockAttemptRow = {
@@ -47,6 +49,12 @@ export type MockAttemptRow = {
   mockName: string | null
   scorePoints: number | null
   totalPoints: number | null
+  rawScoreBreakdown?: Array<{
+    sectionNumber: number
+    sectionLabel: string
+    scorePoints: number
+    totalPoints: number
+  }>
   scaledScore: number | null
   /** Max possible scaled score (900 × section 1–3 sets). Section 4 excluded. */
   scaledScoreMax: number | null
@@ -55,6 +63,8 @@ export type MockAttemptRow = {
   studentSetSpeed: number | null
   studentExamSpeed: number | null
   wasTimed: boolean
+  /** Null until the student completes the durable attempt review. */
+  reviewCompletedAt?: string | null
 }
 
 export type PracticeAttemptRow = {
@@ -69,6 +79,8 @@ export type PracticeAttemptRow = {
   /** Session duration in seconds when start/end are known. */
   timeTakenSeconds: number | null
   unlimited: boolean
+  /** Null until the student completes the durable attempt review. */
+  reviewCompletedAt?: string | null
 }
 
 export type QuestionAttemptRow = {

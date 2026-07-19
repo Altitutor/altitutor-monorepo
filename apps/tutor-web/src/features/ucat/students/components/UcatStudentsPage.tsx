@@ -1,86 +1,96 @@
-'use client'
+"use client";
 
-import { useMemo, useState } from 'react'
-import type { ColumnDef } from '@tanstack/react-table'
-import type { DataTableColumnDefinition, DataTableFilterDefinition, DataTableSortOption } from '@altitutor/shared'
-import { DataTable, DataTableToolbar, TablePagination } from '@altitutor/ui'
-import { Eye } from 'lucide-react'
-import { useUcatAccess } from '@/features/ucat/shared/hooks/useUcatAccess'
-import { UcatAccessDenied, UcatPageHeader, UcatPageSkeleton } from '@/features/ucat/shared/components'
+import { useMemo } from "react";
+import type { ColumnDef } from "@tanstack/react-table";
+import type {
+  DataTableColumnDefinition,
+  DataTableFilterDefinition,
+  DataTableSortOption,
+} from "@altitutor/shared";
+import { DataTable, DataTableToolbar, TablePagination } from "@altitutor/ui";
+import { Eye } from "lucide-react";
+import { useUcatAccess } from "@/features/ucat/shared/hooks/useUcatAccess";
 import {
-  useUcatClassStudentIds,
-  useUcatClasses,
-  useUcatStudentProgressSummary,
-} from '@/features/ucat/students/hooks/useUcatStudents'
-import { applySort, useVisibleColumns } from '@/features/ucat/shared/hooks/useUcatTableState'
-import { useUcatTableUrlState } from '@/features/ucat/shared/hooks/useUcatTableUrlState'
-import { UcatRowActions } from '@/features/ucat/shared/row-actions'
-import { ProgressModeSelector } from '@/features/ucat/students/progress/components/progress-mode-selector'
+  UcatAccessDenied,
+  UcatPageHeader,
+  UcatPageSkeleton,
+} from "@/features/ucat/shared/components";
+import { useUcatStudentProgressSummary } from "@/features/ucat/students/hooks/useUcatStudents";
 import {
-  type ProgressMode,
-  type TimeFrameDays,
-  TIME_FRAME_OPTIONS,
-} from '@/features/ucat/students/progress/lib/progress-mode'
-import type { StudentProgressSummaryRow } from '@/features/ucat/students/api/students'
-import { tutorDataTableProps, tutorToolbarProps } from '@/shared/lib/tutor-visual'
+  applySort,
+  useVisibleColumns,
+} from "@/features/ucat/shared/hooks/useUcatTableState";
+import { useUcatTableUrlState } from "@/features/ucat/shared/hooks/useUcatTableUrlState";
+import { UcatRowActions } from "@/features/ucat/shared/row-actions";
+import type { StudentProgressSummaryRow } from "@/features/ucat/students/api/students";
+import {
+  tutorDataTableProps,
+  tutorToolbarProps,
+} from "@/shared/lib/tutor-visual";
+import {
+  getCognitivePredictedScore,
+  UcatPredictedScoreCell,
+} from "./UcatPredictedScoreCell";
 
 export function UcatStudentsPage() {
-  const [mode, setMode] = useState<ProgressMode>('all_time')
-  const [timeFrameDays, setTimeFrameDays] = useState<TimeFrameDays>(
-    TIME_FRAME_OPTIONS[2].value
-  )
-
-  const access = useUcatAccess()
-  const progress = useUcatStudentProgressSummary(mode, timeFrameDays)
-  const classes = useUcatClasses()
+  const access = useUcatAccess();
+  const progress = useUcatStudentProgressSummary();
   const tableState = useUcatTableUrlState(
     [
-      'student_name',
-      'total_questions',
-      'total_sets_attempted',
-      'total_mocks_attempted',
-      'exam',
-      'actions',
+      "student_name",
+      "predicted_score",
+      "delivery_mode",
+      "online_tier",
+      "actions",
     ],
     {
       availableColumns: [
-        'student_name',
-        'total_questions',
-        'total_sets_attempted',
-        'total_mocks_attempted',
-        'exam',
-        'actions',
+        "student_name",
+        "total_questions",
+        "total_sets_attempted",
+        "total_mocks_attempted",
+        "predicted_score",
+        "delivery_mode",
+        "online_tier",
+        "last_attempted_at",
+        "actions",
       ],
     },
-  )
+  );
 
-  const classFilterValue = (tableState.state.filters.class_id?.[0] as string | undefined) ?? 'all'
-  const classStudents = useUcatClassStudentIds(
-    classFilterValue === 'all' ? null : classFilterValue
-  )
+  const classFilterValue =
+    (tableState.state.filters.class_id?.[0] as string | undefined) ?? "all";
+  const deliveryFilterValue =
+    (tableState.state.filters.delivery_mode?.[0] as string | undefined) ??
+    "all";
+  const tierFilterValue =
+    (tableState.state.filters.online_tier?.[0] as string | undefined) ?? "all";
 
   const rows = useMemo(
     () => progress.data?.students ?? [],
-    [progress.data?.students]
-  )
+    [progress.data?.students],
+  );
   const filteredRows = useMemo(() => {
-    const search = tableState.state.search.trim().toLowerCase()
-    const allowedIds = new Set(classStudents.data ?? [])
-
+    const search = tableState.state.search.trim().toLowerCase();
     return rows.filter((row) => {
       const searchHit =
-        search.length === 0 ||
-        row.student_name.toLowerCase().includes(search)
+        search.length === 0 || row.student_name.toLowerCase().includes(search);
       const classHit =
-        classFilterValue === 'all' || allowedIds.has(row.student_id)
-      return searchHit && classHit
-    })
-  }, [rows, tableState.state.search, classStudents.data, classFilterValue])
-
-  const sectionKeys = useMemo(
-    () => (progress.data?.sections ?? []).map((s) => `section_${s.id}`),
-    [progress.data?.sections]
-  )
+        classFilterValue === "all" || row.class_ids.includes(classFilterValue);
+      const deliveryHit =
+        deliveryFilterValue === "all" ||
+        row.delivery_mode === deliveryFilterValue;
+      const tierHit =
+        tierFilterValue === "all" || row.online_tier === tierFilterValue;
+      return searchHit && classHit && deliveryHit && tierHit;
+    });
+  }, [
+    rows,
+    tableState.state.search,
+    classFilterValue,
+    deliveryFilterValue,
+    tierFilterValue,
+  ]);
 
   const sortedRows = useMemo(
     () =>
@@ -93,83 +103,100 @@ export function UcatStudentsPage() {
           total_questions: (r) => r.total_questions,
           total_sets_attempted: (r) => r.total_sets_attempted,
           total_mocks_attempted: (r) => r.total_mocks_attempted,
-          exam: (r) => r.exam ?? -1,
-          last_attempted_at: (r) => r.last_attempted_at ?? '',
-          ...Object.fromEntries(
-            sectionKeys.map((k) => {
-              const sectionId = k.replace('section_', '')
-              return [
-                k,
-                (r: StudentProgressSummaryRow) =>
-                  r.section_scores[sectionId] ?? -1,
-              ]
-            })
-          ),
-        }
+          predicted_score: (r) =>
+            getCognitivePredictedScore(r, progress.data?.sections ?? []) ?? -1,
+          delivery_mode: (r) => r.delivery_mode,
+          online_tier: (r) => r.online_tier,
+          last_attempted_at: (r) => r.last_attempted_at ?? "",
+        },
       ),
     [
       filteredRows,
       tableState.state.sortBy,
       tableState.state.sortDirection,
-      sectionKeys,
-    ]
-  )
+      progress.data?.sections,
+    ],
+  );
 
-  const allColumns: Array<{ key: string; column: ColumnDef<StudentProgressSummaryRow> }> = [
-    { key: 'student_name', column: { accessorKey: 'student_name', header: 'Student' } },
-    { key: 'total_questions', column: { accessorKey: 'total_questions', header: 'Question attempts' } },
+  const allColumns: Array<{
+    key: string;
+    column: ColumnDef<StudentProgressSummaryRow>;
+  }> = [
     {
-      key: 'total_sets_attempted',
-      column: { accessorKey: 'total_sets_attempted', header: 'Set attempts' },
+      key: "student_name",
+      column: { accessorKey: "student_name", header: "Student" },
     },
     {
-      key: 'total_mocks_attempted',
-      column: { accessorKey: 'total_mocks_attempted', header: 'Mock attempts' },
+      key: "total_questions",
+      column: { accessorKey: "total_questions", header: "Question attempts" },
     },
-    ...(progress.data?.sections ?? []).map((sec) => ({
-      key: `section_${sec.id}`,
+    {
+      key: "total_sets_attempted",
+      column: { accessorKey: "total_sets_attempted", header: "Set attempts" },
+    },
+    {
+      key: "total_mocks_attempted",
+      column: { accessorKey: "total_mocks_attempted", header: "Mock attempts" },
+    },
+    {
+      key: "predicted_score",
       column: {
-        id: `section_${sec.id}`,
-        header: `${sec.name} predicted`,
+        id: "predicted_score",
+        header: "Predicted score",
         accessorFn: (row: StudentProgressSummaryRow) =>
-          row.section_scores[sec.id] ?? null,
-        cell: ({ row }: { row: { original: StudentProgressSummaryRow } }) => {
-          const score = row.original.section_scores[sec.id]
-          return score != null ? String(Math.round(score)) : '-'
-        },
-      },
-    })),
-    {
-      key: 'exam',
-      column: {
-        accessorKey: 'exam',
-        header: 'Exam score (avg)',
-        cell: ({ row }) =>
-          row.original.exam != null ? String(row.original.exam) : '-',
+          getCognitivePredictedScore(row, progress.data?.sections ?? []),
+        cell: ({ row }: { row: { original: StudentProgressSummaryRow } }) => (
+          <UcatPredictedScoreCell
+            student={row.original}
+            sections={progress.data?.sections ?? []}
+          />
+        ),
       },
     },
     {
-      key: 'last_attempted_at',
+      key: "delivery_mode",
       column: {
-        accessorKey: 'last_attempted_at',
-        header: 'Last Attempted',
+        accessorKey: "delivery_mode",
+        header: "Delivery",
+        cell: ({ row }) =>
+          row.original.delivery_mode === "in_person" ? "In person" : "Online",
+      },
+    },
+    {
+      key: "online_tier",
+      column: {
+        accessorKey: "online_tier",
+        header: "Online plan",
+        cell: ({ row }) =>
+          row.original.online_tier === "pro"
+            ? "Pro"
+            : row.original.online_tier === "unlimited"
+              ? "Unlimited"
+              : "Free",
+      },
+    },
+    {
+      key: "last_attempted_at",
+      column: {
+        accessorKey: "last_attempted_at",
+        header: "Last Attempted",
         cell: ({ row }) =>
           row.original.last_attempted_at
             ? new Date(row.original.last_attempted_at).toLocaleString()
-            : '-',
+            : "-",
       },
     },
     {
-      key: 'actions',
+      key: "actions",
       column: {
-        id: 'actions',
-        header: '',
+        id: "actions",
+        header: "",
         cell: ({ row }) => (
           <div className="flex justify-end">
             <UcatRowActions
               actions={[
                 {
-                  label: 'View',
+                  label: "View",
                   icon: <Eye className="h-4 w-4" />,
                   href: `/ucat/students/${row.original.student_id}`,
                 },
@@ -179,68 +206,103 @@ export function UcatStudentsPage() {
         ),
       },
     },
-  ]
+  ];
 
   const visibleColumns = useVisibleColumns(
     allColumns,
-    [...tableState.state.visibleColumns, ...sectionKeys, 'actions'].filter(
-      (k, i, arr) => arr.indexOf(k) === i
-    )
-  )
-  const { page, pageSize } = tableState.state
-  const totalRows = sortedRows.length
-  const pageCount = Math.max(1, Math.ceil(totalRows / pageSize))
-  const effectivePage = Math.min(page, pageCount)
-  const paginatedRows = sortedRows.slice((effectivePage - 1) * pageSize, effectivePage * pageSize)
+    [...tableState.state.visibleColumns, "actions"].filter(
+      (k, i, arr) => arr.indexOf(k) === i,
+    ),
+  );
+  const { page, pageSize } = tableState.state;
+  const totalRows = sortedRows.length;
+  const pageCount = Math.max(1, Math.ceil(totalRows / pageSize));
+  const effectivePage = Math.min(page, pageCount);
+  const paginatedRows = sortedRows.slice(
+    (effectivePage - 1) * pageSize,
+    effectivePage * pageSize,
+  );
 
   const columnDefinitions = useMemo(
     () =>
       [
-        { key: 'student_name', label: 'Student', visibleByDefault: true },
-        { key: 'total_questions', label: 'Question attempts', visibleByDefault: true },
-        { key: 'total_sets_attempted', label: 'Set attempts', visibleByDefault: true },
-        { key: 'total_mocks_attempted', label: 'Mock attempts', visibleByDefault: true },
-        ...(progress.data?.sections ?? []).map((sec) => ({
-          key: `section_${sec.id}`,
-          label: `${sec.name} predicted`,
+        { key: "student_name", label: "Student", visibleByDefault: true },
+        {
+          key: "total_questions",
+          label: "Question attempts",
+          visibleByDefault: false,
+        },
+        {
+          key: "total_sets_attempted",
+          label: "Set attempts",
+          visibleByDefault: false,
+        },
+        {
+          key: "total_mocks_attempted",
+          label: "Mock attempts",
+          visibleByDefault: false,
+        },
+        {
+          key: "predicted_score",
+          label: "Predicted score",
           visibleByDefault: true,
-        })),
-        { key: 'exam', label: 'Exam', visibleByDefault: true },
-        { key: 'last_attempted_at', label: 'Last Attempted', visibleByDefault: false },
+        },
+        { key: "delivery_mode", label: "Delivery", visibleByDefault: true },
+        { key: "online_tier", label: "Online plan", visibleByDefault: true },
+        {
+          key: "last_attempted_at",
+          label: "Last Attempted",
+          visibleByDefault: false,
+        },
       ] as DataTableColumnDefinition[],
-    [progress.data?.sections]
-  )
+    [],
+  );
 
   const sortOptions: DataTableSortOption[] = useMemo(
     () => [
-      { key: 'student_name', label: 'Student' },
-      { key: 'total_questions', label: 'Question attempts' },
-      { key: 'total_sets_attempted', label: 'Set attempts' },
-      { key: 'total_mocks_attempted', label: 'Mock attempts' },
-      ...(progress.data?.sections ?? []).map((sec) => ({
-        key: `section_${sec.id}`,
-        label: `${sec.name} predicted`,
-      })),
-      { key: 'exam', label: 'Exam' },
-      { key: 'last_attempted_at', label: 'Last Attempted' },
+      { key: "student_name", label: "Student" },
+      { key: "total_questions", label: "Question attempts" },
+      { key: "total_sets_attempted", label: "Set attempts" },
+      { key: "total_mocks_attempted", label: "Mock attempts" },
+      { key: "predicted_score", label: "Predicted score" },
+      { key: "delivery_mode", label: "Delivery" },
+      { key: "online_tier", label: "Online plan" },
+      { key: "last_attempted_at", label: "Last Attempted" },
     ],
-    [progress.data?.sections]
-  )
+    [],
+  );
 
-  if (access.isLoading || progress.isLoading || classes.isLoading || classStudents.isLoading)
-    return <UcatPageSkeleton rows={8} />
-  if (!access.data) return <UcatAccessDenied />
+  if (access.isLoading || progress.isLoading)
+    return <UcatPageSkeleton rows={8} />;
+  if (!access.data) return <UcatAccessDenied />;
 
-  const classFilters: DataTableFilterDefinition[] = [
+  const filters: DataTableFilterDefinition[] = [
     {
-      key: 'class_id',
-      label: 'Class',
-      options: (classes.data ?? []).map((row) => ({
-        label: row.id ?? 'Unknown',
-        value: row.id ?? '',
+      key: "class_id",
+      label: "Class",
+      options: (progress.data?.classes ?? []).map((row) => ({
+        label: row.name,
+        value: row.id,
       })),
     },
-  ]
+    {
+      key: "delivery_mode",
+      label: "Delivery",
+      options: [
+        { label: "In person", value: "in_person" },
+        { label: "Online", value: "online" },
+      ],
+    },
+    {
+      key: "online_tier",
+      label: "Online plan",
+      options: [
+        { label: "Free", value: "free" },
+        { label: "Unlimited", value: "unlimited" },
+        { label: "Pro", value: "pro" },
+      ],
+    },
+  ];
 
   return (
     <div className="space-y-6 py-8 md:py-10">
@@ -248,16 +310,7 @@ export function UcatStudentsPage() {
         title="UCAT Students"
         description="Track student progress across sets and mocks"
         backHref="/ucat"
-        breadcrumbs={[{ label: 'UCAT', href: '/ucat' }, { label: 'Students' }]}
-      />
-
-      <ProgressModeSelector
-        mode={mode}
-        onModeChange={setMode}
-        timeFrameDays={timeFrameDays}
-        onTimeFrameDaysChange={setTimeFrameDays}
-        showAttemptFilter={false}
-        className="mb-4"
+        breadcrumbs={[{ label: "UCAT", href: "/ucat" }, { label: "Students" }]}
       />
 
       <DataTableToolbar
@@ -267,13 +320,14 @@ export function UcatStudentsPage() {
         onSortChange={tableState.actions.onSortChange}
         onGroupByChange={tableState.actions.onGroupByChange}
         onVisibleColumnsChange={(cols) =>
-          tableState.actions.onVisibleColumnsChange(
-            [...cols.filter((c) => c !== 'actions'), 'actions']
-          )
+          tableState.actions.onVisibleColumnsChange([
+            ...cols.filter((c) => c !== "actions"),
+            "actions",
+          ])
         }
         onQuickFilterApply={tableState.actions.onQuickFilterApply}
         onReset={tableState.actions.onReset}
-        filterDefinitions={classFilters}
+        filterDefinitions={filters}
         columnDefinitions={columnDefinitions}
         sortOptions={sortOptions}
         {...tutorToolbarProps}
@@ -299,5 +353,5 @@ export function UcatStudentsPage() {
         />
       </div>
     </div>
-  )
+  );
 }

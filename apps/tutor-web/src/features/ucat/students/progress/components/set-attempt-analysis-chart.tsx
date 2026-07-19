@@ -21,6 +21,8 @@ export type QuestionAttemptForChart = {
 type SetAttemptAnalysisChartProps = {
   data: QuestionAttemptForChart[]
   className?: string
+  selectedQuestionIndex?: number
+  onBarClick?: (index: number) => void
 }
 
 const RESULT_COLORS: Record<
@@ -46,6 +48,8 @@ const RESULT_LABELS: Record<
 export function SetAttemptAnalysisChart({
   data,
   className,
+  selectedQuestionIndex,
+  onBarClick,
 }: SetAttemptAnalysisChartProps) {
   const chartData = data.map((d) => ({
     name: String(d.questionNumber),
@@ -137,11 +141,19 @@ export function SetAttemptAnalysisChart({
                   isAnimationActive
                   animationDuration={600}
                   animationEasing="ease-out"
+                  onClick={(_, index) => onBarClick?.(index)}
                 >
                   {chartData.map((entry, index) => (
                     <Cell
                       key={index}
                       fill={RESULT_COLORS[entry.result]}
+                      opacity={
+                        selectedQuestionIndex == null ||
+                        selectedQuestionIndex === index
+                          ? 1
+                          : 0.4
+                      }
+                      className={onBarClick ? 'cursor-pointer' : undefined}
                     />
                   ))}
                 </Bar>

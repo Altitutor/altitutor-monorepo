@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react'
 import { Label, Switch, useToast } from '@altitutor/ui'
 import { UcatDialogShell } from '@/features/ucat/shared/dialog-shell'
 
-type UcatPdfExportSource =
+export type UcatPdfExportSource =
   | { kind: 'set'; title: string; stemIds: string[] }
   | { kind: 'mock'; title: string; setIds: string[] }
 

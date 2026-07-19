@@ -39,16 +39,21 @@ type UcatAuthoringAgentChatProps = {
     src?: string | null
     fileId?: string | null
     location?: string | null
+    visualType?: string | null
+    visualSpec?: Json | null
+    visualTitle?: string | null
+    visualAltText?: string | null
   } | null
   placeholder?: string
   className?: string
   onExecuteTool: UcatAuthoringToolExecutor
+  onAcceptImagePreview?: (imageNode: Json) => Promise<{ ok: boolean; message: string }> | { ok: boolean; message: string }
 }
 
 type PersistedChatState = {
   messages: UcatAuthoringChatMessage[]
   input: string
-  toolResults: Record<string, { ok: boolean; message: string }>
+  toolResults: Record<string, UcatAuthoringToolResult>
   pausedRuns: Record<string, UcatAuthoringChatMessage[]>
   modelProfileId: string | null
 }
@@ -90,7 +95,9 @@ function toolRequiresConfirmation(toolCall: UcatAuthoringToolCall) {
 }
 
 function toolCompletesRun(toolCall: UcatAuthoringToolCall, result: UcatAuthoringToolResult) {
-  return result.ok && toolCall.name === 'bulkParaphraseStem'
+  const output = result.output
+  const isPreview = Boolean(output && typeof output === 'object' && !Array.isArray(output) && output.kind === 'image_preview')
+  return result.ok && (toolCall.name === 'bulkParaphraseStem' || isPreview)
 }
 
 const TOOL_LABELS: Record<string, string> = {
@@ -127,6 +134,8 @@ const TOOL_LABELS: Record<string, string> = {
   insertImage: 'Generate Image',
   replaceImageFromPrompt: 'Replace Image',
   replaceVisualSpec: 'Insert Deterministic Visual',
+  reviseSelectedImage: 'Preview AI Image Revision',
+  previewSelectedImageConversion: 'Preview Editable Visual',
 }
 
 function toolLabel(name: string) {
@@ -171,15 +180,33 @@ function ToolCard({
   onDeny,
   isPending,
   result,
+  onUsePreview,
+  onTryPreviewAgain,
+  onCancelPreview,
 }: {
   toolCall: UcatAuthoringToolCall
   onApprove: () => void
   onDeny: () => void
   isPending: boolean
-  result?: { ok: boolean; message: string } | null
+  result?: UcatAuthoringToolResult | null
+  onUsePreview: () => void
+  onTryPreviewAgain: () => void
+  onCancelPreview: () => void
 }) {
   const isDelete = toolCall.name.toLowerCase().includes('delete')
   const requiresConfirmation = toolRequiresConfirmation(toolCall)
+  const preview = result?.output && typeof result.output === 'object' && !Array.isArray(result.output) && result.output.kind === 'image_preview'
+    ? result.output as Record<string, Json>
+    : null
+  const originalSrc = preview && typeof preview.originalSrc === 'string' ? preview.originalSrc : null
+  const imageNode = preview && preview.imageNode && typeof preview.imageNode === 'object' && !Array.isArray(preview.imageNode)
+    ? preview.imageNode as Record<string, Json>
+    : null
+  const imageAttrs = imageNode?.attrs && typeof imageNode.attrs === 'object' && !Array.isArray(imageNode.attrs)
+    ? imageNode.attrs as Record<string, Json>
+    : null
+  const previewSrc = imageAttrs && typeof imageAttrs.src === 'string' ? imageAttrs.src : null
+  const previewStatus = preview && typeof preview.status === 'string' ? preview.status : null
   return (
     <div className="rounded-md border border-black/[0.08] bg-background p-2 text-xs shadow-sm dark:border-white/10">
       <div className="flex items-start gap-2">
@@ -195,9 +222,35 @@ function ToolCard({
           <div className="font-medium text-foreground">{toolLabel(toolCall.name)}</div>
           <div className="mt-0.5 leading-relaxed text-muted-foreground">{toolCall.summary}</div>
           {result ? (
-            <div className={cn('mt-2 text-xs', result.ok ? 'text-emerald-700' : 'text-destructive')}>
-              {result.message}
-            </div>
+            <>
+              <div className={cn('mt-2 text-xs', result.ok ? 'text-emerald-700' : 'text-destructive')}>
+                {result.message}
+              </div>
+              {preview && originalSrc && previewSrc ? (
+                <div className="mt-3 space-y-2">
+                  <div className="grid grid-cols-2 gap-2">
+                    <figure className="space-y-1">
+                      <figcaption className="text-muted-foreground">Original</figcaption>
+                      {/* Signed and data-URI authoring previews cannot use the configured Next image loader. */}
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={originalSrc} alt="Original selected visual" className="aspect-video w-full rounded border bg-white object-contain" />
+                    </figure>
+                    <figure className="space-y-1">
+                      <figcaption className="text-muted-foreground">Preview</figcaption>
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={previewSrc} alt="Generated visual preview" className="aspect-video w-full rounded border bg-white object-contain" />
+                    </figure>
+                  </div>
+                  {!previewStatus ? (
+                    <div className="flex flex-wrap gap-2">
+                      <Button type="button" size="sm" className="h-7 text-xs" onClick={onUsePreview}>Use this image</Button>
+                      <Button type="button" size="sm" variant="outline" className="h-7 text-xs" onClick={onTryPreviewAgain}>Try again</Button>
+                      <Button type="button" size="sm" variant="ghost" className="h-7 text-xs" onClick={onCancelPreview}>Cancel</Button>
+                    </div>
+                  ) : null}
+                </div>
+              ) : null}
+            </>
           ) : requiresConfirmation ? (
             <div className="mt-2 flex items-center gap-2">
               <Button type="button" size="sm" className="h-7 gap-1 text-xs" onClick={onApprove} disabled={isPending}>
@@ -226,6 +279,7 @@ export function UcatAuthoringAgentChat({
   placeholder = 'Ask AI to edit this draft...',
   className,
   onExecuteTool,
+  onAcceptImagePreview,
 }: UcatAuthoringAgentChatProps) {
   const { toast } = useToast()
   const initialPersistedState = conversationKey ? persistedChatStates.get(conversationKey) : null
@@ -234,7 +288,7 @@ export function UcatAuthoringAgentChat({
   const [isSending, setIsSending] = useState(false)
   const [activityStatus, setActivityStatus] = useState<string | null>(null)
   const [pendingToolId, setPendingToolId] = useState<string | null>(null)
-  const [toolResults, setToolResults] = useState<Record<string, { ok: boolean; message: string }>>(initialPersistedState?.toolResults ?? {})
+  const [toolResults, setToolResults] = useState<Record<string, UcatAuthoringToolResult>>(initialPersistedState?.toolResults ?? {})
   const [pausedRuns, setPausedRuns] = useState<Record<string, UcatAuthoringChatMessage[]>>(initialPersistedState?.pausedRuns ?? {})
   const [modelProfileId, setModelProfileId] = useState<string | null>(initialPersistedState?.modelProfileId ?? null)
   const scrollRef = useRef<HTMLDivElement | null>(null)
@@ -301,7 +355,7 @@ export function UcatAuthoringAgentChat({
       const result = await onExecuteTool(toolCall)
       setToolResults((current) => ({
         ...current,
-        [toolCall.id]: { ok: result.ok, message: result.message },
+        [toolCall.id]: result,
       }))
       if (!result.ok) {
         toast({ description: result.message, variant: 'destructive' })
@@ -415,7 +469,7 @@ export function UcatAuthoringAgentChat({
         }
         setToolResults((current) => ({
           ...current,
-          [toolCall.id]: { ok: false, message: result.message },
+          [toolCall.id]: result,
         }))
       }
       setPausedRuns((current) => {
@@ -469,6 +523,49 @@ export function UcatAuthoringAgentChat({
     await submitAgentInstruction(action.prompt, { clearInput: false })
   }
 
+  async function applyImagePreview(toolCall: UcatAuthoringToolCall) {
+    const result = toolResults[toolCall.id]
+    const output = result?.output
+    if (!result || !output || typeof output !== 'object' || Array.isArray(output)) return
+    const imageNode = output.imageNode
+    if (!imageNode || typeof imageNode !== 'object' || Array.isArray(imageNode) || !onAcceptImagePreview) return
+    const accepted = await onAcceptImagePreview(imageNode as Json)
+    setToolResults((current) => ({
+      ...current,
+      [toolCall.id]: {
+        ...result,
+        ok: accepted.ok,
+        message: accepted.message,
+        output: { ...output, status: accepted.ok ? 'accepted' : 'failed' } as Json,
+      },
+    }))
+    if (!accepted.ok) toast({ description: accepted.message, variant: 'destructive' })
+  }
+
+  function retryImagePreview(toolCall: UcatAuthoringToolCall) {
+    const instructions = typeof toolCall.input.instructions === 'string' ? toolCall.input.instructions : ''
+    setInput(instructions ? `Try again, with these revised instructions: ${instructions}` : 'Try again with these changes: ')
+    const result = toolResults[toolCall.id]
+    if (result?.output && typeof result.output === 'object' && !Array.isArray(result.output)) {
+      const output = result.output as Record<string, Json>
+      setToolResults((current) => ({
+        ...current,
+        [toolCall.id]: { ...result, message: 'Preview not applied. Edit the instructions below and send again.', output: { ...output, status: 'retrying' } as Json },
+      }))
+    }
+  }
+
+  function cancelImagePreview(toolCall: UcatAuthoringToolCall) {
+    const result = toolResults[toolCall.id]
+    if (result?.output && typeof result.output === 'object' && !Array.isArray(result.output)) {
+      const output = result.output as Record<string, Json>
+      setToolResults((current) => ({
+        ...current,
+        [toolCall.id]: { ...result, message: 'Preview cancelled; the draft image was not changed.', output: { ...output, status: 'cancelled' } as Json },
+      }))
+    }
+  }
+
   return (
     <div className={cn('flex h-full min-h-0 flex-1 flex-col gap-3', className)}>
       <div className="flex flex-wrap gap-1.5">
@@ -508,6 +605,9 @@ export function UcatAuthoringAgentChat({
                       result={toolResults[toolCall.id] ?? null}
                       onApprove={() => void continueAfterToolDecision(toolCall, true)}
                       onDeny={() => void continueAfterToolDecision(toolCall, false)}
+                      onUsePreview={() => void applyImagePreview(toolCall)}
+                      onTryPreviewAgain={() => retryImagePreview(toolCall)}
+                      onCancelPreview={() => cancelImagePreview(toolCall)}
                     />
                   </div>
                 ))

@@ -30,7 +30,6 @@ import {
   ArrowLeft,
   ArrowRight,
   CalendarDays,
-  CheckCircle2,
   Clock3,
   Compass,
   Sparkles,
@@ -222,8 +221,11 @@ export function StudyPlanActivationPage() {
       ),
     [currentYear],
   );
-  const [stage, setStage] = useState<"destination" | "availability">(
-    "destination",
+  const [stage, setStage] = useState<
+    "preference" | "destination" | "availability"
+  >("preference");
+  const [studyPlanEnabled, setStudyPlanEnabled] = useState<boolean | null>(
+    null,
   );
   const [targetScore, setTargetScore] = useState(2200);
   const [targetUnsure, setTargetUnsure] = useState(false);
@@ -252,6 +254,12 @@ export function StudyPlanActivationPage() {
   const completionPhase = completion?.phase ?? null;
 
   useEffect(() => {
+    if (plan?.profile && !plan.profile.studyPlanEnabled && !completion) {
+      router.replace("/dashboard");
+    }
+  }, [completion, plan?.profile, router]);
+
+  useEffect(() => {
     if (completionPhase !== "confirming") return;
     const timer = window.setTimeout(
       () => setCompletionMinimumElapsed(true),
@@ -277,10 +285,7 @@ export function StudyPlanActivationPage() {
     setAvailability((current) =>
       current.some((day) => day.weekday === weekday)
         ? current.filter((day) => day.weekday !== weekday)
-        : [
-            ...current,
-            { weekday, maxMinutes: defaultMinutesForDay(weekday) },
-          ],
+        : [...current, { weekday, maxMinutes: defaultMinutesForDay(weekday) }],
     );
   }
 
@@ -312,6 +317,8 @@ export function StudyPlanActivationPage() {
     setError(null);
     try {
       const nextPlan = await saveStudyPlan({
+        studyPlanEnabled: true,
+        studySuggestionsEnabled: true,
         targetScore,
         testYear,
         testDate: testDate || null,
@@ -329,6 +336,37 @@ export function StudyPlanActivationPage() {
         caught instanceof Error
           ? caught.message
           : "Could not build your Study plan.",
+      );
+    } finally {
+      setPending(false);
+    }
+  }
+
+  async function saveWithoutPlan() {
+    if (testYear == null) return;
+    setPending(true);
+    setError(null);
+    try {
+      const nextPlan = await saveStudyPlan({
+        studyPlanEnabled: false,
+        studySuggestionsEnabled: true,
+        targetScore,
+        testYear,
+        testDate: testDate || null,
+        availableDays: [],
+        preferredMockWeekday: 6,
+      });
+      setSavedPlan(nextPlan);
+      queryClient.setQueryData(STUDY_PLAN_QUERY_KEY, nextPlan);
+      await runWorkspaceSetupTransition(
+        "skipped",
+        queryClient.invalidateQueries({ queryKey: STUDY_PLAN_QUERY_KEY }),
+      );
+    } catch (caught) {
+      setError(
+        caught instanceof Error
+          ? caught.message
+          : "Could not save your UCAT goal.",
       );
     } finally {
       setPending(false);
@@ -369,7 +407,7 @@ export function StudyPlanActivationPage() {
     );
   }
 
-  if (plan?.profile) {
+  if (plan?.profile?.studyPlanEnabled) {
     return (
       <ActivationShell>
         <motion.div
@@ -384,20 +422,37 @@ export function StudyPlanActivationPage() {
     );
   }
 
+  if (plan?.profile && !plan.profile.studyPlanEnabled) {
+    return (
+      <ActivationShell>
+        <Skeleton className="h-64 w-full max-w-3xl rounded-3xl" />
+      </ActivationShell>
+    );
+  }
+
   const heading =
-    stage === "destination"
+    stage === "preference"
       ? {
-          kicker: "Study plan setup · 1 of 2",
-          title: "What are you working towards?",
+          kicker: "UCAT setup · 1 of 3",
+          title: "How would you like to organise your study?",
           description:
-            "Set a direction now. Your real results will keep calibrating what comes next.",
+            "Choose a full calendar plan, or keep control of your own timetable while Altitutor suggests useful next steps.",
         }
-      : {
-          kicker: "Study plan setup · 2 of 2",
-          title: "When could you realistically study?",
-          description:
-            "Choose your preferred study days. The time you enter is a ceiling, not a commitment.",
-        };
+      : stage === "destination"
+        ? {
+            kicker: studyPlanEnabled
+              ? "Study plan setup · 2 of 3"
+              : "UCAT goal · 2 of 2",
+            title: "What are you working towards?",
+            description:
+              "Set a direction now. Your real results will keep calibrating what comes next.",
+          }
+        : {
+            kicker: "Study plan setup · 2 of 2",
+            title: "When could you realistically study?",
+            description:
+              "Choose your preferred study days. The time you enter is a ceiling, not a commitment.",
+          };
 
   return (
     <ActivationShell>
@@ -409,24 +464,13 @@ export function StudyPlanActivationPage() {
       >
         <div className="mb-5 flex items-center gap-2 text-sm text-marketing-cream/65">
           <span className="flex h-7 w-7 items-center justify-center rounded-full bg-marketing-accent text-marketing-charcoal">
-            {stage === "availability" ? (
-              <CheckCircle2 className="h-4 w-4" aria-hidden />
-            ) : (
-              "1"
-            )}
+            {stage === "preference" ? "1" : stage === "destination" ? "2" : "3"}
           </span>
-          <span className="h-px w-10 bg-white/15" />
-          <span
-            className={cn(
-              "flex h-7 w-7 items-center justify-center rounded-full",
-              stage === "availability"
-                ? "bg-marketing-accent text-marketing-charcoal"
-                : "bg-white/10",
-            )}
-          >
-            2
+          <span className="ml-1">
+            {studyPlanEnabled === false
+              ? "Set your UCAT goal"
+              : "Personalise your UCAT study"}
           </span>
-          <span className="ml-2">Build your Study plan</span>
         </div>
 
         <AnimatePresence mode="wait" initial={false}>
@@ -455,7 +499,55 @@ export function StudyPlanActivationPage() {
 
             <Card className={cn(UCAT_CARD_CHROME, "shadow-2xl")}>
               <CardContent className="p-6 sm:p-8">
-                {stage === "destination" ? (
+                {stage === "preference" ? (
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <button
+                      type="button"
+                      className="rounded-2xl border border-primary/30 bg-primary/5 p-5 text-left transition-colors hover:bg-primary/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                      onClick={() => {
+                        setStudyPlanEnabled(true);
+                        setStage("destination");
+                      }}
+                    >
+                      <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                        <CalendarDays className="h-5 w-5" aria-hidden />
+                      </span>
+                      <span className="mt-4 block text-lg font-semibold">
+                        Build me a Study plan
+                      </span>
+                      <span className="mt-2 block text-sm leading-relaxed text-muted-foreground">
+                        Altitutor creates and adapts a dated calendar around
+                        your target, test timing and availability.
+                      </span>
+                    </button>
+                    <button
+                      type="button"
+                      className="rounded-2xl border p-5 text-left transition-colors hover:bg-muted/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                      onClick={() => {
+                        setStudyPlanEnabled(false);
+                        setStage("destination");
+                      }}
+                    >
+                      <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-muted text-muted-foreground">
+                        <Compass className="h-5 w-5" aria-hidden />
+                      </span>
+                      <span className="mt-4 block text-lg font-semibold">
+                        I’ll manage my own plan
+                      </span>
+                      <span className="mt-2 block text-sm leading-relaxed text-muted-foreground">
+                        Keep control of your timetable. Altitutor will still
+                        suggest a primary and secondary next step.
+                      </span>
+                    </button>
+                    <Button
+                      variant="ghost"
+                      className="sm:col-span-2 sm:justify-self-start"
+                      onClick={() => setSkipDialogOpen(true)}
+                    >
+                      Skip for now
+                    </Button>
+                  </div>
+                ) : stage === "destination" ? (
                   <div className="space-y-6">
                     <div className="space-y-2">
                       <Label htmlFor="activation-target">
@@ -537,7 +629,9 @@ export function StudyPlanActivationPage() {
                               min={`${testYear}-01-01`}
                               max={`${testYear}-12-31`}
                               value={testDate}
-                              onChange={(event) => setTestDate(event.target.value)}
+                              onChange={(event) =>
+                                setTestDate(event.target.value)
+                              }
                             />
                             <p className="text-xs text-muted-foreground">
                               Leave this blank if you do not know your date yet.
@@ -547,18 +641,39 @@ export function StudyPlanActivationPage() {
                       ) : null}
                     </AnimatePresence>
 
+                    {error ? (
+                      <p className="text-sm text-destructive">{error}</p>
+                    ) : null}
+
                     <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-between">
+                      <div className="flex gap-2">
+                        <Button
+                          variant="ghost"
+                          onClick={() => setStage("preference")}
+                        >
+                          <ArrowLeft className="mr-2 h-4 w-4" aria-hidden />
+                          Back
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          onClick={() => setSkipDialogOpen(true)}
+                        >
+                          Skip for now
+                        </Button>
+                      </div>
                       <Button
-                        variant="ghost"
-                        onClick={() => setSkipDialogOpen(true)}
+                        disabled={pending || testYear == null}
+                        onClick={() =>
+                          studyPlanEnabled
+                            ? setStage("availability")
+                            : void saveWithoutPlan()
+                        }
                       >
-                        Skip for now
-                      </Button>
-                      <Button
-                        disabled={testYear == null}
-                        onClick={() => setStage("availability")}
-                      >
-                        Choose my study week
+                        {pending
+                          ? "Saving…"
+                          : studyPlanEnabled
+                            ? "Choose my study week"
+                            : "Save my goal"}
                         <ArrowRight className="ml-2 h-4 w-4" aria-hidden />
                       </Button>
                     </div>
@@ -683,8 +798,8 @@ export function StudyPlanActivationPage() {
             <AlertDialogTitle>Skip Study plan setup?</AlertDialogTitle>
             <AlertDialogDescription>
               You can continue without a plan and set one up later from Study
-              plan settings. Until then, Altitutor cannot schedule your next
-              recommended tasks around your target and availability.
+              plan settings. Altitutor will still suggest useful next steps, but
+              it will not schedule them around your weekly availability.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

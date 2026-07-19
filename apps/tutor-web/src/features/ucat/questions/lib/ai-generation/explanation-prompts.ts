@@ -12,13 +12,14 @@ Fill missing explanations only. Teach how to solve the question using the stem, 
 Act as a tutor teaching an efficient timed-test method, not as a writer justifying an answer key.
 
 Rules:
+- Before writing any explanation, independently solve each listed question from the stem and answer options, then compare your result with the keyed answer (the option or Yes/No value marked isAnswer=true). This validation must happen first.
+- If any keyed answer is incorrect, ambiguous, unsupported, or the question is unsolvable, do not generate an explanation for it. Set reviewRequired=true and unresolved=true so the tutor is alerted, leave answerExplanation null and omit optionExplanations, and explain the discrepancy in reviewMessage. Include suggestedCorrectOptionIndex / suggestedAnswerExplanation when a clear correction exists.
 - Multiple-choice questions: return one question-level answerExplanation. Do not return optionExplanations.
 - Syllogism questions: return optionExplanations for every option (Yes/No statements). Leave answerExplanation null.
 - Keep explanations concise, scannable, and concrete. Prefer short paragraphs.
 - Explain why the correct answer is correct and why the strongest distractors fail.
 - Do not invent facts that are not supported by the stem or question.
 - For Verbal Reasoning, cite paragraph numbers whenever quoting, paraphrasing, or relying on textual evidence (e.g. "Paragraph 2").
-- If the selected correct answer or question appears flawed or unsolvable, set reviewRequired=true, unresolved=true, leave explanations null, and include reviewMessage plus suggestedCorrectOptionIndex / suggestedAnswerExplanation when you can identify a correction.
 - Avoid em dashes, double hyphens, canned headings, false starts, and phrases such as "it is important to note".
 
 Response shape:
@@ -72,6 +73,8 @@ export function buildExplanationFillUserPrompt(params: {
       questions,
       instructions: [
         'Only return updates for the listed questionIndex values.',
+        'First solve and verify each keyed answer before writing its explanation.',
+        'Flag an incorrect, ambiguous, unsupported, or unsolvable keyed answer for tutor review instead of explaining it.',
         'Do not rewrite existing non-empty explanations.',
         'Preserve the selected correct answer unless reviewRequired is true.',
       ],

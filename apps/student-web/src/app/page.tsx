@@ -1,5 +1,5 @@
-import { permanentRedirect } from 'next/navigation';
+import { redirect } from 'next/navigation';
 
-export default function LandingRedirect() {
-  permanentRedirect('https://altitutor.com/online-learning/');
+export default function AppEntryRedirect() {
+  redirect('/login');
 }

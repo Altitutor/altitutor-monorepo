@@ -1,6 +1,8 @@
 "use client";
 
 import Link from "next/link";
+import { useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { motion } from "motion/react";
 import {
   Alert,
@@ -86,7 +88,14 @@ export function StudyPlanPage({
   const previewMode = Boolean(previewPlan);
   const query = useStudyPlan(!previewMode);
   const plan = previewPlan ?? query.data;
+  const router = useRouter();
   const { containerVariants, itemVariants } = useUcatStaggerMotion();
+
+  useEffect(() => {
+    if (!previewMode && plan?.profile && !plan.profile.studyPlanEnabled) {
+      router.replace("/settings/study-plan");
+    }
+  }, [plan?.profile, previewMode, router]);
 
   return (
     <motion.div
@@ -146,7 +155,7 @@ export function StudyPlanPage({
         </motion.div>
       ) : null}
 
-      {plan?.profile ? (
+      {plan?.profile?.studyPlanEnabled ? (
         <>
           {plan.generation?.capacityRisk.level === "warning" ? (
             <motion.div variants={itemVariants}>

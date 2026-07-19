@@ -2,6 +2,7 @@ import {
   generatedContentToPlainText,
   generatedContentToProseMirror,
   getGeneratedVisualSpecIssue,
+  getSetDiagramManualPlacementWarnings,
 } from '../content-blocks'
 import { GeneratedCandidateResponseSchema, type GeneratedContentBlock } from '../schema'
 
@@ -199,7 +200,7 @@ describe('generated content blocks', () => {
           yOffset: { field: 'type' },
         },
       },
-    }]) as { content?: Array<{ attrs?: { src?: string; alt?: string } }> }
+    }]) as { content?: Array<{ attrs?: { src?: string; alt?: string; visualType?: string; visualSpec?: unknown } }> }
 
     const src = doc.content?.[0]?.attrs?.src ?? ''
     const svg = decodeURIComponent(src)
@@ -209,6 +210,11 @@ describe('generated content blocks', () => {
     expect(svg).toContain('Order type')
     expect(svg).toContain('#111111')
     expect(doc.content?.[0]?.attrs?.alt).toBe('Black and white chart of deliveries by zone.')
+    expect(doc.content?.[0]?.attrs?.visualType).toBe('vega_lite_chart')
+    expect(doc.content?.[0]?.attrs?.visualSpec).toMatchObject({ data: { values: expect.any(Array) } })
+    expect((doc.content?.[0]?.attrs?.visualSpec as { data?: { values?: unknown[] } })?.data?.values?.[0]).toEqual({
+      zone: 'Inner', type: 'Normal', orders: 420,
+    })
   })
 
   it('renders layered QR bar-line charts with distinct line styling and right-axis padding', async () => {
@@ -317,7 +323,7 @@ describe('generated content blocks', () => {
       layer?: Array<{ mark?: Record<string, unknown> }>
     }
 
-    expect(compiledSpec.layer?.[0]?.mark?.stroke).toBe('#4b4b4b')
+    expect(compiledSpec.layer?.[0]?.mark?.stroke).toBe('#555555')
     expect(compiledSpec.layer?.[0]?.mark?.strokeWidth).toBe(3)
     expect(compiledSpec.layer?.[0]?.mark?.strokeDash).toBeUndefined()
     expect(compiledSpec.layer?.[1]?.mark).toEqual(expect.objectContaining({
@@ -364,6 +370,54 @@ describe('generated content blocks', () => {
       '#111111', '#4b4b4b', '#737373', '#9b9b9b', '#c4c4c4', '#e0e0e0',
     ])
     expect(compiledSpec.config?.legend?.symbolStrokeColor).toBeUndefined()
+  })
+
+  it('preserves tutor-selected Vega colours and common style overrides', async () => {
+    const { generatedContentToProseMirrorServer } = await import('../server-content-blocks')
+    await generatedContentToProseMirrorServer([{
+      type: 'visual',
+      visualType: 'vega_lite_chart',
+      title: 'Appointments by status',
+      altText: 'Colored bar chart of appointments by status.',
+      spec: {
+        background: '#fff7ed',
+        data: { values: [{ status: 'Attended', value: 18 }, { status: 'Missed', value: 4 }] },
+        mark: { type: 'bar', opacity: 0.72, strokeWidth: 2 },
+        encoding: {
+          x: { field: 'status', type: 'nominal' },
+          y: { field: 'value', type: 'quantitative' },
+          color: {
+            field: 'status',
+            type: 'nominal',
+            scale: { range: ['#16a34a', '#dc2626'] },
+          },
+        },
+        config: {
+          title: { color: '#7c2d12', fontSize: 24 },
+          axis: { grid: false, labelColor: '#334155', gridColor: '#fed7aa' },
+          legend: { orient: 'right', labelColor: '#475569' },
+        },
+      },
+    }])
+
+    const { compile } = jest.requireMock('vega-lite') as { compile: jest.Mock }
+    const compiledSpec = compile.mock.calls.at(-1)?.[0] as {
+      background?: string
+      mark?: Record<string, unknown>
+      encoding?: Record<string, { scale?: { range?: string[] } }>
+      config?: {
+        title?: Record<string, unknown>
+        axis?: Record<string, unknown>
+        legend?: Record<string, unknown>
+      }
+    }
+
+    expect(compiledSpec.background).toBe('#fff7ed')
+    expect(compiledSpec.encoding?.color?.scale?.range).toEqual(['#16a34a', '#dc2626'])
+    expect(compiledSpec.mark).toEqual(expect.objectContaining({ opacity: 0.72, strokeWidth: 2 }))
+    expect(compiledSpec.config?.title).toEqual(expect.objectContaining({ color: '#7c2d12', fontSize: 24 }))
+    expect(compiledSpec.config?.axis).toEqual(expect.objectContaining({ grid: false, labelColor: '#334155', gridColor: '#fed7aa' }))
+    expect(compiledSpec.config?.legend).toEqual(expect.objectContaining({ orient: 'right', labelColor: '#475569' }))
   })
 
   it('preserves parent layer colour encodings for grouped bars', async () => {
@@ -477,6 +531,53 @@ describe('generated content blocks', () => {
     expect(svg).toContain('>28<')
     expect(svg).toContain('>11<')
     expect(svg).toContain('>5<')
+  })
+
+  it('wraps long set legend labels inside the SVG canvas', () => {
+    const doc = generatedContentToProseMirror([{
+      type: 'visual',
+      visualType: 'set_diagram',
+      altText: 'Library service sets.',
+      spec: {
+        shapes: [
+          { id: 'A', shape: 'rect', label: 'Borrowed audiobooks', x: 80, y: 90, width: 300, height: 220 },
+          { id: 'B', shape: 'circle', label: 'Attended workshops', cx: 330, cy: 205, r: 110 },
+          { id: 'C', shape: 'diamond', label: 'Used study rooms', cx: 350, cy: 230, width: 220, height: 220 },
+        ],
+        regionLabels: [{ text: 3, include: ['A', 'B', 'C'] }],
+      },
+    }]) as { content?: Array<{ attrs?: { src?: string } }> }
+
+    const svg = decodeURIComponent(doc.content?.[0]?.attrs?.src ?? '')
+    expect(svg).toContain('<tspan x="610" y="69">Borrowed</tspan>')
+    expect(svg).toContain('<tspan x="610" y="87">audiobooks</tspan>')
+    expect(svg).not.toMatch(/<text[^>]*x="610"[^>]*>Borrowed audiobooks<\/text>/u)
+  })
+
+  it('preserves a tutor manual label override and reports only an advisory warning', () => {
+    const spec = {
+      shapes: [
+        { id: 'A', shape: 'circle' as const, label: 'Art', cx: 230, cy: 210, r: 160 },
+        { id: 'B', shape: 'circle' as const, label: 'Biology', cx: 430, cy: 210, r: 160 },
+      ],
+      regionLabels: [
+        { text: 12, include: ['A'], exclude: ['B'], x: 620, y: 350, manualPosition: true },
+      ],
+    }
+    const doc = generatedContentToProseMirror([{
+      type: 'visual',
+      visualType: 'venn_diagram',
+      altText: 'Two overlapping sets.',
+      spec,
+    }]) as { content?: Array<{ attrs?: { src?: string; visualSpec?: unknown } }> }
+
+    expect(getSetDiagramManualPlacementWarnings(spec)).toEqual([
+      '“12” is outside its declared set region.',
+    ])
+    expect(decodeURIComponent(doc.content?.[0]?.attrs?.src ?? '')).toContain('>12<')
+    expect(doc.content?.[0]?.attrs?.visualSpec).toMatchObject({
+      regionLabels: [{ manualPosition: true, x: 620, y: 350 }],
+    })
   })
 
   it('honours bounding-box ellipse geometry used by diagram answer options', () => {
@@ -698,7 +799,8 @@ describe('generated content blocks', () => {
     const doc = generatedContentToProseMirror([block]) as { content?: Array<{ attrs?: { src?: string } }> }
     const svg = decodeURIComponent(doc.content?.[0]?.attrs?.src ?? '')
     expect(svg).toContain('>4<')
-    expect(svg).toContain('Bought printed guide')
+    expect(svg).toContain('>Bought printed</tspan>')
+    expect(svg).toContain('>guide</tspan>')
   })
 
   it('renders a range of generated-like Venn and set diagrams without placement failures', () => {

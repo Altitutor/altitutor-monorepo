@@ -37,7 +37,7 @@ async function getUcatSubjectId(
   supabase: SupabaseClient<Database>,
 ): Promise<string | null> {
   const { data, error } = await supabase
-    .from("vstudent_subjects")
+    .from("vstudent_subscription_subjects")
     .select("id")
     .eq("name", "UCAT")
     .maybeSingle();

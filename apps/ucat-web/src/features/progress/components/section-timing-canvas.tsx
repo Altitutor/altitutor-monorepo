@@ -15,6 +15,8 @@ import {
 import { Badge } from "@altitutor/ui";
 import { Sparkles } from "lucide-react";
 import type { DailyProgressSeriesPoint } from "@/app/api/ucat/progress/series/route";
+import { UCAT_FLOATING_GRAPH_CARD } from "@/lib/ucat-surface-motion";
+import { cn } from "@/lib/utils";
 import { formatSpeedPercentAsMultiplier } from "../lib/format-speed-multiplier";
 
 type TimingChartPoint = {
@@ -319,12 +321,22 @@ export function SectionTimingCanvas({
           )}
         </div>
 
-        <aside className="absolute right-6 top-28 z-20 hidden w-[min(390px,calc(100%-3rem))] rounded-2xl border border-border/70 bg-card/88 p-6 shadow-xl backdrop-blur-xl lg:block">
+        <aside
+          className={cn(
+            UCAT_FLOATING_GRAPH_CARD,
+            "absolute right-6 top-28 z-20 hidden w-[min(390px,calc(100%-3rem))] p-6 lg:block",
+          )}
+        >
           {insightCard}
         </aside>
       </div>
 
-      <aside className="relative z-20 mx-4 -mt-20 mb-5 rounded-2xl border border-border/70 bg-card/92 p-5 shadow-xl backdrop-blur-xl lg:hidden">
+      <aside
+        className={cn(
+          UCAT_FLOATING_GRAPH_CARD,
+          "relative z-20 mx-4 -mt-20 mb-5 p-5 lg:hidden",
+        )}
+      >
         {insightCard}
       </aside>
     </section>

@@ -7,7 +7,10 @@ import { deriveTotalScoreProjection } from "@/features/score-projection/lib/tota
 import { useScoreProjection } from "@/features/score-projection/hooks/use-score-projection";
 import { useStudyPlan } from "@/features/study-plan/hooks/use-study-plan";
 import { todayIso } from "@/features/study-plan/lib/dates";
+import { allocateSectionTargets } from "@/features/study-plan/lib/section-targets";
 import { useProgressSummary } from "../hooks/use-progress";
+import { useProgressSeries } from "../hooks/use-progress-series";
+import { calculateRecentWeightedMockScore } from "../lib/mock-progress-insights";
 import { ProgressTrajectoryCanvas } from "./progress-trajectory-canvas";
 import { SectionProgressCards } from "./section-progress-cards";
 import { ReviewActivityCalendarCard } from "./review-activity-calendar-card";
@@ -37,12 +40,14 @@ export type ProgressPageContentProps = {
   sectionTargets: Record<string, number>;
   activityPreviewData?: UcatActivityResponse;
   linkToSections?: boolean;
+  mockRecentWeightedAverage?: number | null;
 };
 
 export function ProgressPage() {
   const progressQuery = useProgressSummary();
   const scoreProjectionQuery = useScoreProjection();
   const planQuery = useStudyPlan();
+  const mockSeriesQuery = useProgressSeries("mock");
 
   const totalProjection = useMemo(
     () =>
@@ -80,6 +85,20 @@ export function ProgressPage() {
   }
 
   const plan = planQuery.data;
+  const sectionTargets =
+    plan?.generation?.sectionTargets ??
+    (plan?.profile
+      ? allocateSectionTargets(
+          plan.profile.targetScore,
+          (scoreProjectionQuery.data?.sections ?? [])
+            .filter((section) => section.sectionNumber <= 3)
+            .sort((left, right) => left.sectionNumber - right.sectionNumber)
+            .map((section) => ({
+              sectionId: section.sectionId,
+              currentEstimate: section.currentEstimate,
+            })),
+        )
+      : {});
 
   return (
     <ProgressPageContent
@@ -89,7 +108,10 @@ export function ProgressPage() {
       targetScore={plan?.profile?.targetScore ?? null}
       testDate={plan?.profile?.testDate ?? null}
       today={plan?.today ?? todayIso()}
-      sectionTargets={plan?.generation?.sectionTargets ?? {}}
+      sectionTargets={sectionTargets}
+      mockRecentWeightedAverage={calculateRecentWeightedMockScore(
+        mockSeriesQuery.data?.points ?? [],
+      )}
     />
   );
 }
@@ -104,6 +126,7 @@ export function ProgressPageContent({
   sectionTargets,
   activityPreviewData,
   linkToSections = true,
+  mockRecentWeightedAverage = null,
 }: ProgressPageContentProps) {
   const currentEstimate = totalProjection?.currentEstimate ?? null;
   const history = totalProjection?.history ?? [];
@@ -125,8 +148,7 @@ export function ProgressPageContent({
   const targetBreakdown = scoreProjections
     .filter(
       (section) =>
-        section.sectionNumber <= 3 &&
-        sectionTargets[section.sectionId] != null,
+        section.sectionNumber <= 3 && sectionTargets[section.sectionId] != null,
     )
     .map((section) => ({
       sectionName: section.sectionName,
@@ -209,6 +231,7 @@ export function ProgressPageContent({
             timeFrameDays="30"
             scoreProjections={scoreProjections}
             sectionTargets={sectionTargets}
+            mockRecentWeightedAverage={mockRecentWeightedAverage}
           />
         </section>
       </div>

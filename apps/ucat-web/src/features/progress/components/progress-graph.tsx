@@ -180,6 +180,11 @@ const PROJECTION_SERIES_LABELS: Record<string, string> = {
   projectionOptimistic: "High",
 };
 
+const GRAPH_TOOLTIP_WRAPPER_STYLE = {
+  zIndex: 30,
+  pointerEvents: "none",
+} as const;
+
 function GraphColumnCursor({
   x,
   y,
@@ -517,7 +522,10 @@ export function ProgressGraph({
                 : undefined
           }
         />
-        <Tooltip content={tooltipContent} />
+        <Tooltip
+          content={tooltipContent}
+          wrapperStyle={GRAPH_TOOLTIP_WRAPPER_STYLE}
+        />
         {showProjection ? (
           <>
             <Area
@@ -665,7 +673,11 @@ export function ProgressGraph({
                 : undefined
           }
         />
-        <Tooltip content={tooltipContent} cursor={<GraphColumnCursor />} />
+        <Tooltip
+          content={tooltipContent}
+          cursor={<GraphColumnCursor />}
+          wrapperStyle={GRAPH_TOOLTIP_WRAPPER_STYLE}
+        />
         {selectedDate ? (
           <ReferenceLine
             x={selectedDate}

@@ -37,6 +37,8 @@ import { UcatAccessDenied, UcatPageHeader, UcatPageSkeleton } from '@/features/u
 import { useUcatAccess } from '@/features/ucat/shared/hooks/useUcatAccess'
 import { getUcatContentStatusTransitionOptions, type UcatContentStatus, type UcatQuestionSetPayload } from '@/features/ucat/shared/types'
 import { UcatRowActions } from '@/features/ucat/shared/row-actions'
+import { UcatPdfExportDialog, type UcatPdfExportSource } from '@/features/ucat/shared/components/UcatPdfExportDialog'
+import { buildUcatPdfExportAction } from '@/features/ucat/shared/pdf/pdf-export-action'
 import { minutesSecondsToTotal } from '@/features/ucat/shared/lib/time-utils'
 import { UcatSetEditorDialog } from '@/features/ucat/sets/components/UcatSetEditorDialog'
 import { UcatMockEditorDialog } from '@/features/ucat/mocks/components/UcatMockEditorDialog'
@@ -118,6 +120,7 @@ export function UcatSetsPage() {
   const [editingSetId, setEditingSetId] = useState<string | null>(null)
   const [editingMockId, setEditingMockId] = useState<string | null>(null)
   const [deletingSetId, setDeletingSetId] = useState<string | null>(null)
+  const [pdfExportSource, setPdfExportSource] = useState<UcatPdfExportSource | null>(null)
   const [form, setForm] = useState({
     name: '',
     description: '',
@@ -281,6 +284,25 @@ export function UcatSetsPage() {
   }
 
   const { toast } = useToast()
+
+  async function openSetPdfExport(row: SetRow) {
+    try {
+      const detail = await ucatSetsApi.detail(row.id)
+      if (!detail) throw new Error('Set not found')
+      const stems = (detail.stems as Array<{ stem_id: string }> | null) ?? []
+      setPdfExportSource({
+        kind: 'set',
+        title: row.name === '—' ? 'Untitled set' : row.name,
+        stemIds: stems.map((stem) => stem.stem_id),
+      })
+    } catch (error) {
+      toast({
+        title: 'Could not prepare export',
+        description: error instanceof Error ? error.message : 'Failed to load this set.',
+        variant: 'destructive',
+      })
+    }
+  }
 
   const bulkDeleteInMocksCount = countSetsInMocks(selectedSetIdsArray, rows)
   const singleDeleteInMocksCount = deletingSetId
@@ -658,6 +680,9 @@ export function UcatSetsPage() {
                     <UcatRowActions
                       actions={[
                         { label: 'Edit', icon: <Pencil className="h-4 w-4" />, onClick: () => setEditingSetId(r.id) },
+                        ...(!showDeleted
+                          ? [buildUcatPdfExportAction(() => void openSetPdfExport(r))]
+                          : []),
                         ...(!showDeleted && r.status === 'draft'
                           ? [{ label: 'Send for review', icon: <Send className="h-4 w-4" />, onClick: () => changeSetStatus(r.id, 'in_review', r.status, 'Cannot send for review') }]
                           : []),
@@ -1138,6 +1163,13 @@ export function UcatSetsPage() {
             : undefined
         }
       />
+      {pdfExportSource ? (
+        <UcatPdfExportDialog
+          open
+          onClose={() => setPdfExportSource(null)}
+          source={pdfExportSource}
+        />
+      ) : null}
       <UcatMockEditorDialog
         open={!!editingMockId}
         mockId={editingMockId}

@@ -57,12 +57,14 @@ import { useDashboardStudyPlan } from "@/features/study-plan/hooks/use-study-pla
 import { useStudyPlanTaskActions } from "@/features/study-plan/hooks/use-study-plan-task-actions";
 import { useStudyPlanExtraStudyDialog } from "@/features/study-plan/components/study-plan-extra-study";
 import { addDays, todayIso } from "@/features/study-plan/lib/dates";
+import { allocateSectionTargets } from "@/features/study-plan/lib/section-targets";
 import type {
   StudyPlanResponse,
   StudyPlanTask,
 } from "@/features/study-plan/model/types";
 import {
   UCAT_CARD_CHROME,
+  UCAT_FLOATING_GRAPH_CARD,
   UCAT_NEUTRAL_ACTION_HOVER,
 } from "@/lib/ucat-surface-motion";
 import { cn } from "@/lib/utils";
@@ -104,7 +106,7 @@ function findSessionToday(
   );
 }
 
-function TaskTypeIcon({ task }: { task: StudyPlanTask }) {
+function TaskTypeIcon({ task }: { task: Pick<StudyPlanTask, "taskType"> }) {
   const Icon: ComponentType<{ className?: string }> =
     task.taskType === "learn"
       ? BookOpen
@@ -126,6 +128,8 @@ function actionIcon(action: DashboardNextAction) {
       return <CalendarDays className="h-5 w-5" aria-hidden />;
     case "task":
       return <TaskTypeIcon task={action.task} />;
+    case "guidance":
+      return <TaskTypeIcon task={action.primary} />;
     case "caught_up":
       return <Check className="h-5 w-5" aria-hidden />;
     case "sampler":
@@ -193,6 +197,24 @@ function actionContent(action: DashboardNextAction): {
         secondaryLabel: "Open Study plan",
         secondaryHref: "/study-plan",
       };
+    case "guidance":
+      return {
+        eyebrow:
+          action.primary.taskType === "review"
+            ? "Most useful now"
+            : "Best next step",
+        title: action.primary.title,
+        description: action.primary.description,
+        rationale: action.primary.rationale || null,
+        meta: `About ${action.primary.estimatedMinutes} min`,
+        primaryLabel:
+          action.primary.taskType === "review" ? "Review result" : "Start",
+        primaryHref: action.primary.launchPath,
+        secondaryLabel: action.secondary
+          ? `Another option: ${action.secondary.title}`
+          : null,
+        secondaryHref: action.secondary?.launchPath ?? null,
+      };
     case "caught_up":
       return {
         eyebrow: action.hadTasksToday ? "Today’s work" : "Today",
@@ -244,7 +266,7 @@ function actionContent(action: DashboardNextAction): {
     case "plan_error":
       return {
         eyebrow: "Study plan unavailable",
-        title: "We couldn’t load your next recommendation",
+        title: "We couldn’t load your next step",
         description: "Your existing Study plan has not been changed.",
         rationale: "Try loading it again before starting unrelated work.",
         meta: null,
@@ -424,6 +446,7 @@ function trajectoryInsight(
   state: DashboardTrajectoryState,
   weakestSection: { name: string; gap: number } | null,
   recentImprovement: number | null,
+  studyPlanEnabled: boolean,
 ): { title: string; body: string; actionLabel?: string; actionHref?: string } {
   switch (state.stage) {
     case "building_baseline": {
@@ -460,7 +483,9 @@ function trajectoryInsight(
           : "Your current path supports the target",
         body: weakestSection
           ? `${weakestSection.name} still has the largest section gap at ${weakestSection.gap} points below its Study plan target, so today’s work keeps focus there.`
-          : "Keep following today’s Study plan so new evidence can confirm the direction.",
+          : studyPlanEnabled
+            ? "Keep following today’s Study plan so new evidence can confirm the direction."
+            : "Keep using your next steps to add evidence and confirm the direction.",
       };
     case "within_reach":
       return {
@@ -486,8 +511,10 @@ function trajectoryInsight(
       return {
         title: "Your current evidence suggests a gap",
         body: weakestSection
-          ? `${weakestSection.name} is furthest from its Study plan target at ${weakestSection.gap} points below it. Start with today’s recommendation; the plan will keep adapting.`
-          : "Start with today’s recommendation. Your Study plan will keep adapting as new evidence arrives.",
+          ? `${weakestSection.name} is furthest from its section target at ${weakestSection.gap} points below it. Start with today’s next step and keep building evidence.`
+          : studyPlanEnabled
+            ? "Start with today’s next step. Your Study plan will keep adapting as new evidence arrives."
+            : "Start with today’s next step. Altitutor will adapt the following choice as new evidence arrives.",
       };
   }
 }
@@ -560,9 +587,14 @@ export function DashboardTrajectoryHero({
             testDate={null}
             className="absolute inset-x-0 top-20 h-[410px] sm:h-[500px] lg:h-[570px]"
           />
-          <aside className="absolute right-6 top-24 z-20 hidden w-[min(390px,calc(100%-3rem))] rounded-2xl border border-border/70 bg-card/88 p-6 shadow-xl backdrop-blur-xl lg:block">
+          <aside
+            className={cn(
+              UCAT_FLOATING_GRAPH_CARD,
+              "absolute right-6 top-24 z-20 hidden w-[min(390px,calc(100%-3rem))] p-6 lg:block",
+            )}
+          >
             <p className="text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
-              Why
+              Your predictred score trajectory
             </p>
             <h2 className="mt-3 text-xl font-semibold tracking-tight">
               {planUnavailable
@@ -585,9 +617,14 @@ export function DashboardTrajectoryHero({
             </div>
           </aside>
         </div>
-        <aside className="relative z-20 mx-4 -mt-16 mb-5 rounded-2xl border border-border/70 bg-card/92 p-5 shadow-xl backdrop-blur-xl lg:hidden">
+        <aside
+          className={cn(
+            UCAT_FLOATING_GRAPH_CARD,
+            "relative z-20 mx-4 -mt-16 mb-5 p-5 lg:hidden",
+          )}
+        >
           <p className="text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
-            Why
+            Your predictred score trajectory
           </p>
           <h2 className="mt-2 text-lg font-semibold">
             {planUnavailable
@@ -636,12 +673,27 @@ export function DashboardTrajectoryHero({
   const insight = projectionError
     ? {
         title: "Your projection is temporarily unavailable",
-        body: "Your Study plan and today’s recommendation are still available while we reload the score evidence.",
+        body: "Your next step is still available while we reload the score evidence.",
       }
-    : trajectoryInsight(state, weakestSection, recentImprovement);
+    : trajectoryInsight(
+        state,
+        weakestSection,
+        recentImprovement,
+        plan.profile.studyPlanEnabled,
+      );
   const targetBreakdown = dashboardTargetBreakdown(
     sections,
-    plan.generation?.sectionTargets ?? {},
+    plan.generation?.sectionTargets ??
+      allocateSectionTargets(
+        plan.profile.targetScore,
+        sections
+          .filter((section) => section.sectionNumber <= 3)
+          .sort((left, right) => left.sectionNumber - right.sectionNumber)
+          .map((section) => ({
+            sectionId: section.sectionId,
+            currentEstimate: section.currentEstimate,
+          })),
+      ),
   );
   const outlook = projectionError
     ? "Score outlook temporarily unavailable"
@@ -685,7 +737,7 @@ export function DashboardTrajectoryHero({
                   Score trajectory unavailable
                 </p>
                 <p className="mt-1 text-xs text-muted-foreground">
-                  Your Study plan is unaffected.
+                  Your saved goal and next steps are unaffected.
                 </p>
               </div>
             </div>
@@ -706,11 +758,16 @@ export function DashboardTrajectoryHero({
             />
           )}
         </div>
-        <aside className="absolute right-6 top-24 z-20 hidden w-[min(390px,calc(100%-3rem))] rounded-2xl border border-border/70 bg-card/88 p-6 shadow-xl backdrop-blur-xl lg:block">
+        <aside
+          className={cn(
+            UCAT_FLOATING_GRAPH_CARD,
+            "absolute right-6 top-24 z-20 hidden w-[min(390px,calc(100%-3rem))] p-6 lg:block",
+          )}
+        >
           <section aria-labelledby="dashboard-why-title">
             <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
               <Sparkles className="size-3.5" aria-hidden />
-              Why
+              Your predictred score trajectory
             </div>
             <h2 id="dashboard-why-title" className="mt-3 text-lg font-semibold">
               {insight.title}
@@ -739,11 +796,16 @@ export function DashboardTrajectoryHero({
           </div>
         </aside>
       </div>
-      <aside className="relative z-20 mx-4 -mt-20 mb-5 rounded-2xl border border-border/70 bg-card/92 p-5 shadow-xl backdrop-blur-xl lg:hidden">
+      <aside
+        className={cn(
+          UCAT_FLOATING_GRAPH_CARD,
+          "relative z-20 mx-4 -mt-20 mb-5 p-5 lg:hidden",
+        )}
+      >
         <section aria-labelledby="dashboard-why-title-mobile">
           <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
             <Sparkles className="size-3.5" aria-hidden />
-            Why
+            Your predictred score trajectory
           </div>
           <h2
             id="dashboard-why-title-mobile"
@@ -973,7 +1035,9 @@ export function DashboardHome() {
   );
   const week = useMemo(
     () =>
-      planQuery.data?.profile ? summarizeDashboardWeek(planQuery.data) : null,
+      planQuery.data?.profile?.studyPlanEnabled
+        ? summarizeDashboardWeek(planQuery.data)
+        : null,
     [planQuery.data],
   );
   const sessionToday = useMemo(
@@ -1058,17 +1122,24 @@ export function DashboardHome() {
         onRetryPlan={() => void planQuery.refetch()}
       />
 
-      <div className="mx-auto grid w-full max-w-[1400px] gap-5 px-5 sm:px-6 lg:grid-cols-3">
-        <Card className={cn(UCAT_CARD_CHROME, "h-full")}>
-          <CardContent className="p-5 sm:p-6">
-            <DashboardWeekProgress
-              week={week}
-              sessionToday={sessionToday}
-              samplerDecided={samplerDecided}
-              samplerCompleted={samplerCompleted}
-            />
-          </CardContent>
-        </Card>
+      <div
+        className={cn(
+          "mx-auto grid w-full max-w-[1400px] gap-5 px-5 sm:px-6",
+          plan?.profile?.studyPlanEnabled ? "lg:grid-cols-3" : "lg:grid-cols-2",
+        )}
+      >
+        {plan?.profile?.studyPlanEnabled ? (
+          <Card className={cn(UCAT_CARD_CHROME, "h-full")}>
+            <CardContent className="p-5 sm:p-6">
+              <DashboardWeekProgress
+                week={week}
+                sessionToday={sessionToday}
+                samplerDecided={samplerDecided}
+                samplerCompleted={samplerCompleted}
+              />
+            </CardContent>
+          </Card>
+        ) : null}
         <Card className={cn(UCAT_CARD_CHROME, "h-full")}>
           <CardContent className="p-5 sm:p-6">
             <DashboardMembershipValue nextTask={nextTask} />

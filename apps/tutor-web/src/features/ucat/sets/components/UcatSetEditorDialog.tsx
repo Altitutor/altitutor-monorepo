@@ -29,7 +29,7 @@ import type { CategoryOption, TagOption } from '@/features/ucat/questions/compon
 import { mapCategoriesToOptions, mapTagsToOptions, buildTaxonomyPathLookup, categoriesToTaxonomyNodes } from '@/features/ucat/shared/lib/taxonomy-paths'
 import { buildStemCatalogFilterDefinitions, buildStemCatalogSetFilterOptions } from '@/features/ucat/shared/lib/stem-catalog-filters'
 import { useUcatSets } from '@/features/ucat/sets/hooks/useUcatSets'
-import { FileDown, Trash2 } from 'lucide-react'
+import { Trash2 } from 'lucide-react'
 import { useUcatCopyId } from '@/features/ucat/shared/hooks/useUcatCopyId'
 import { buildCopyIdRowAction, withCopyIdDescription } from '@/features/ucat/shared/lib/copy-id-actions'
 import { UcatRowActions } from '@/features/ucat/shared/row-actions'
@@ -39,6 +39,7 @@ import { UcatSetPreviewContent } from '@/features/ucat/sets/components/UcatSetPr
 import { UcatStemEditorHeaderControls } from '@/features/ucat/questions/components/stem-editor/UcatStemEditorHeaderControls'
 import type { StemEditorMode } from '@/features/ucat/questions/components/stem-editor/UcatStemEditorPropertiesPanel'
 import { UcatPdfExportDialog } from '@/features/ucat/shared/components/UcatPdfExportDialog'
+import { buildUcatPdfExportAction } from '@/features/ucat/shared/pdf/pdf-export-action'
 
 /** Shape of each stem in vtutor_ucat_question_set_detail.stems (from DB view) */
 type SetDetailStem = { stem_id: string; stem_text?: unknown; questions_meta?: Array<{ id: string; index: number }> }
@@ -321,11 +322,7 @@ export function UcatSetEditorDialog({
         <UcatRowActions
           actions={[
             ...(copyIdAction ? [copyIdAction] : []),
-            {
-              label: 'Export as PDF',
-              icon: <FileDown className="h-4 w-4" />,
-              onClick: () => setExportDialogOpen(true),
-            },
+            buildUcatPdfExportAction(() => setExportDialogOpen(true)),
             {
               label: 'Open in page',
               href: `/ucat/sets/${setId}`,

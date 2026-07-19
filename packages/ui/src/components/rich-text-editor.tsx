@@ -555,6 +555,45 @@ export const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>
               renderHTML: (attrs) =>
                 attrs.storagePath ? { 'data-storage-path': attrs.storagePath } : {},
             },
+            visualType: {
+              default: null,
+              parseHTML: (el) => el.getAttribute('data-visual-type'),
+              renderHTML: (attrs) =>
+                attrs.visualType ? { 'data-visual-type': attrs.visualType } : {},
+            },
+            visualSpec: {
+              default: null,
+              parseHTML: (el) => {
+                const value = el.getAttribute('data-visual-spec')
+                if (!value) return null
+                try {
+                  return JSON.parse(value)
+                } catch {
+                  return null
+                }
+              },
+              // The source spec is persisted in TipTap JSON. Avoid duplicating a potentially
+              // large JSON object into rendered HTML; visualType is enough for DOM affordances.
+              renderHTML: () => ({}),
+            },
+            visualTitle: {
+              default: null,
+              parseHTML: (el) => el.getAttribute('data-visual-title'),
+              renderHTML: () => ({}),
+            },
+            visualAltText: {
+              default: null,
+              parseHTML: (el) => el.getAttribute('data-visual-alt-text'),
+              renderHTML: () => ({}),
+            },
+            visualVersion: {
+              default: null,
+              parseHTML: (el) => {
+                const value = Number(el.getAttribute('data-visual-version'))
+                return Number.isFinite(value) ? value : null
+              },
+              renderHTML: () => ({}),
+            },
           };
         },
         addNodeView() {

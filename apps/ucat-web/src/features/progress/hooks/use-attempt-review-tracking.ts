@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import type {
   AttemptReviewState,
   AttemptReviewType,
@@ -57,6 +58,7 @@ export function useAttemptReviewTracking(input: {
   selectedQuestionId: string | null;
   ready: boolean;
 }) {
+  const queryClient = useQueryClient();
   const [review, setReview] = useState<AttemptReviewState | null>(null);
   const [isPending, setIsPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -92,6 +94,7 @@ export function useAttemptReviewTracking(input: {
     input.ready,
     input.requiredQuestionIds,
     requiredKey,
+    queryClient,
   ]);
 
   useEffect(() => {
@@ -115,12 +118,19 @@ export function useAttemptReviewTracking(input: {
     );
     viewQueue.current = viewQueue.current.then(async () => {
       try {
-        setReview(
-          await requestReview(input.attemptType, input.attemptId, "PATCH", {
+        const nextState = await requestReview(
+          input.attemptType,
+          input.attemptId,
+          "PATCH",
+          {
             action: "view",
             questionId,
-          }),
+          },
         );
+        setReview(nextState);
+        if (nextState.completedAt) {
+          void queryClient.invalidateQueries({ queryKey: ["ucat-study-plan"] });
+        }
       } catch {
         sentViews.current.delete(questionId);
         setReview((current) =>
@@ -141,6 +151,7 @@ export function useAttemptReviewTracking(input: {
     input.requiredQuestionIds,
     input.selectedQuestionId,
     review,
+    queryClient,
   ]);
 
   const completeManually = useCallback(async () => {
@@ -156,6 +167,7 @@ export function useAttemptReviewTracking(input: {
       );
       setReview(state);
       setError(null);
+      await queryClient.invalidateQueries({ queryKey: ["ucat-study-plan"] });
     } catch (caught) {
       setError(
         caught instanceof Error
@@ -165,7 +177,7 @@ export function useAttemptReviewTracking(input: {
     } finally {
       setIsPending(false);
     }
-  }, [input.attemptId, input.attemptType]);
+  }, [input.attemptId, input.attemptType, queryClient]);
 
   const nextUnviewedQuestionId = review
     ? findNextUnviewedReviewQuestion({

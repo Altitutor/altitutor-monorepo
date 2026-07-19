@@ -493,12 +493,12 @@ export function DashboardTrajectoryChart({
 
         {targetScore != null ? (
           <div
-            className="group absolute z-30 -translate-y-1/2"
-            style={{ left: "48%", top: `${targetTop}%` }}
+            className="group absolute z-30 -mt-2 -translate-y-full"
+            style={{ left: "max(56px, 9%)", top: `${targetTop}%` }}
           >
             <button
               type="button"
-              className="rounded-md bg-background/90 px-2 py-1 text-[11px] font-medium text-muted-foreground shadow-sm ring-1 ring-border/70 backdrop-blur focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              className="rounded-full border border-amber-950/15 bg-amber-400 px-3 py-1.5 text-xs font-semibold text-slate-950 shadow-[0_6px_18px_rgba(245,158,11,0.28)] ring-1 ring-white/60 transition-transform hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:border-amber-200/20 dark:bg-amber-300 dark:shadow-[0_8px_22px_rgba(0,0,0,0.38)] dark:ring-black/20"
               aria-label={`Target ${targetScore}. Show target breakdown.`}
             >
               Target {targetScore}

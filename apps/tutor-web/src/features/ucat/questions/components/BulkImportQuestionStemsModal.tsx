@@ -86,6 +86,8 @@ import {
   type BulkImportTagOption,
 } from '@/features/ucat/questions/components/bulk-import/StepQuestionTags'
 import { UcatRichTextToolbar } from '@/features/ucat/shared/components/UcatRichTextToolbar'
+import { BulkImportFormattingWarnings } from '@/features/ucat/questions/components/bulk-import/BulkImportFormattingWarnings'
+import { lintBulkImportFormatting } from '@/features/ucat/questions/components/bulk-import/bulkImportFormattingLint'
 
 export type BulkImportSubmitArgs = {
   sectionId: string
@@ -333,6 +335,41 @@ export function BulkImportQuestionStemsModal({
   const answerParseOptions = useMemo(
     () => answerParsingOptionsToParseOptions(answerParsingOptions),
     [answerParsingOptions]
+  )
+
+  const formattingSourceDocuments = useMemo(() => {
+    if (separateStemDocument) {
+      return [
+        { label: 'Pasted stem document', value: pastedStemDoc },
+        ...perStemQuestionDocs.map((value, index) => ({
+          label: `Pasted questions for stem ${index + 1}`,
+          value,
+        })),
+        {
+          label: 'Pasted answers document',
+          value: pastedAnswersJson,
+          compareTableCount: false,
+        },
+      ]
+    }
+    return [
+      { label: 'Pasted questions document', value: pastedContent },
+      {
+        label: 'Pasted answers document',
+        value: pastedAnswersJson,
+        compareTableCount: false,
+      },
+    ]
+  }, [separateStemDocument, pastedStemDoc, perStemQuestionDocs, pastedAnswersJson, pastedContent])
+
+  const formattingIssues = useMemo(
+    () =>
+      lintBulkImportFormatting({
+        sourceDocuments: formattingSourceDocuments,
+        stems: wizard.state.stems.map((stem) => stem.values),
+        compareParsedOutput: wizard.state.stems.length > 0,
+      }),
+    [formattingSourceDocuments, wizard.state.stems]
   )
 
   const canGoNext = useMemo(() => {
@@ -978,6 +1015,11 @@ export function BulkImportQuestionStemsModal({
             {useFullHeightLayout ? (
               <div className="flex h-full min-h-0 flex-col px-6 py-4">
                 <div className="min-h-0 flex-1 overflow-hidden">{renderBody()}</div>
+                {formattingIssues.length > 0 ? (
+                  <div className="mt-3 shrink-0">
+                    <BulkImportFormattingWarnings issues={formattingIssues} />
+                  </div>
+                ) : null}
                 {parseError ? (
                   <div className="mt-3 shrink-0 rounded-md border border-destructive/40 bg-destructive/5 px-3 py-2 text-xs text-destructive">
                     {parseError}
@@ -993,6 +1035,11 @@ export function BulkImportQuestionStemsModal({
               <div className="h-full overflow-y-auto">
                 <div className="px-6 py-4">
                   {renderBody()}
+                  {formattingIssues.length > 0 ? (
+                    <div className="mt-4">
+                      <BulkImportFormattingWarnings issues={formattingIssues} />
+                    </div>
+                  ) : null}
                   {parseError ? (
                     <div className="mt-4 rounded-md border border-destructive/40 bg-destructive/5 px-3 py-2 text-xs text-destructive">
                       {parseError}

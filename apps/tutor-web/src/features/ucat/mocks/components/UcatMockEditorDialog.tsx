@@ -10,7 +10,7 @@ import { useUcatMockDraft } from '@/features/ucat/mocks/hooks/useUcatMockDraft'
 import { useUcatCopyId } from '@/features/ucat/shared/hooks/useUcatCopyId'
 import { buildCopyIdRowAction, withCopyIdDescription } from '@/features/ucat/shared/lib/copy-id-actions'
 import { UcatRowActions } from '@/features/ucat/shared/row-actions'
-import { FileDown, Trash2 } from 'lucide-react'
+import { Trash2 } from 'lucide-react'
 import { UcatMockEditorContent } from '@/features/ucat/mocks/components/UcatMockEditorContent'
 import { parseUcatVisibilityError } from '@/features/ucat/shared/lib/visibility-error'
 import { proseMirrorToPlainText } from '@/features/ucat/shared/lib/rich-text'
@@ -21,6 +21,7 @@ import { UcatStemEditorHeaderControls } from '@/features/ucat/questions/componen
 import type { StemEditorMode } from '@/features/ucat/questions/components/stem-editor/UcatStemEditorPropertiesPanel'
 import { UcatMockPreviewContent } from '@/features/ucat/mocks/components/UcatMockPreviewContent'
 import { UcatPdfExportDialog } from '@/features/ucat/shared/components/UcatPdfExportDialog'
+import { buildUcatPdfExportAction } from '@/features/ucat/shared/pdf/pdf-export-action'
 
 export type SetOption = {
   id: string
@@ -147,11 +148,7 @@ export function UcatMockEditorDialog({
     <UcatRowActions
       actions={[
         ...(copyIdAction ? [copyIdAction] : []),
-        {
-          label: 'Export as PDF',
-          icon: <FileDown className="h-4 w-4" />,
-          onClick: () => setExportDialogOpen(true),
-        },
+        buildUcatPdfExportAction(() => setExportDialogOpen(true)),
         {
           label: 'Open in page',
           href: `/ucat/mocks/${mockId}`,

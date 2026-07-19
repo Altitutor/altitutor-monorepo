@@ -425,6 +425,7 @@ export async function callUcatAiJson(params: {
   providerSort?: 'price' | 'throughput' | 'latency'
   reasoningEffort?: 'none' | 'minimal' | 'low' | 'medium' | 'high'
   metadata?: Json | null
+  signal?: AbortSignal
 }): Promise<UcatAiJsonResult> {
   const config = await resolveUcatAiConfig(params.client, params.modelProfileId)
   await assertBudget(params.client, config.settings)
@@ -450,6 +451,7 @@ export async function callUcatAiJson(params: {
       userPrompt: params.userPrompt,
       userContentParts: codexContentParts,
       timeoutMs,
+      signal: params.signal,
     })
     content = result.content
     usage = result.usage
@@ -461,7 +463,14 @@ export async function callUcatAiJson(params: {
     }
 
     const controller = new AbortController()
-    const timeout = setTimeout(() => controller.abort(), timeoutMs)
+    let timedOut = false
+    const abortFromCaller = () => controller.abort(params.signal?.reason)
+    if (params.signal?.aborted) abortFromCaller()
+    else params.signal?.addEventListener('abort', abortFromCaller, { once: true })
+    const timeout = setTimeout(() => {
+      timedOut = true
+      controller.abort()
+    }, timeoutMs)
     let response: Response
     try {
       response = await fetch(`${config.provider.base_url.replace(/\/$/u, '')}/chat/completions`, {
@@ -498,11 +507,13 @@ export async function callUcatAiJson(params: {
       })
     } catch (error) {
       if (error instanceof Error && error.name === 'AbortError') {
+        if (!timedOut && params.signal?.aborted) throw error
         throw new Error(`UCAT AI ${params.operation} timed out after ${Math.round(timeoutMs / 1000)}s`)
       }
       throw error
     } finally {
       clearTimeout(timeout)
+      params.signal?.removeEventListener('abort', abortFromCaller)
     }
 
     if (!response.ok) {

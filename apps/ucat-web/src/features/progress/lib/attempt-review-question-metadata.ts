@@ -15,7 +15,9 @@ export type AttemptReviewQuestionTag = {
 export type AttemptReviewQuestionMetadata = {
   difficulty: number | null;
   timeBurdenSeconds: number | null;
+  /** Average time among submitted attempts that earned full marks. */
   averageTimeSeconds: number | null;
+  /** Number of full-mark attempts included in averageTimeSeconds. */
   averageTimeSampleSize: number;
   questionTags: AttemptReviewQuestionTag[];
 };
@@ -34,6 +36,68 @@ const EMPTY_METADATA: AttemptReviewQuestionMetadata = {
 };
 
 const MIN_AVERAGE_TIME_SAMPLE_SIZE = 5;
+
+type QuestionTimingDefinition = {
+  id: string;
+  question_type: "multiple_choice" | "syllogism";
+};
+
+type SubmittedQuestionTiming = {
+  question_id: string | null;
+  time_spent_seconds: number | null;
+  score: number;
+};
+
+export function calculateSuccessfulQuestionTiming(
+  questions: QuestionTimingDefinition[],
+  attempts: SubmittedQuestionTiming[],
+): Map<
+  string,
+  { averageTimeSeconds: number | null; sampleSize: number }
+> {
+  const maxScoreByQuestion = new Map(
+    questions.map((question) => [
+      question.id,
+      question.question_type === "syllogism" ? 2 : 1,
+    ]),
+  );
+  const totalsByQuestion = new Map<
+    string,
+    { totalSeconds: number; sampleSize: number }
+  >();
+
+  for (const attempt of attempts) {
+    if (
+      !attempt.question_id ||
+      attempt.time_spent_seconds == null ||
+      attempt.time_spent_seconds <= 0 ||
+      attempt.score < (maxScoreByQuestion.get(attempt.question_id) ?? 1)
+    ) {
+      continue;
+    }
+
+    const current = totalsByQuestion.get(attempt.question_id) ?? {
+      totalSeconds: 0,
+      sampleSize: 0,
+    };
+    current.totalSeconds += attempt.time_spent_seconds;
+    current.sampleSize += 1;
+    totalsByQuestion.set(attempt.question_id, current);
+  }
+
+  return new Map(
+    [...totalsByQuestion.entries()].map(([questionId, timing]) => [
+      questionId,
+      {
+        averageTimeSeconds:
+          timing.sampleSize >= MIN_AVERAGE_TIME_SAMPLE_SIZE
+            ? timing.totalSeconds / timing.sampleSize
+            : null,
+        sampleSize: timing.sampleSize,
+      },
+    ]),
+  );
+}
 
 function descriptionToText(description: unknown): string | null {
   if (description == null) return null;
@@ -57,7 +121,7 @@ export async function fetchAttemptReviewQuestionMetadata(
 
   const questionRowsPromise = supabase
     .from("ucat_questions")
-    .select("id, difficulty, time_burden_seconds")
+    .select("id, difficulty, time_burden_seconds, question_type")
     .in("id", ids);
 
   const tagRowsPromise = (
@@ -87,10 +151,11 @@ export async function fetchAttemptReviewQuestionMetadata(
   const timingRowsPromise = supabaseAdmin
     ? supabaseAdmin
         .from("student_question_attempts")
-        .select("question_id, time_spent_seconds")
+        .select("question_id, time_spent_seconds, score")
         .in("question_id", ids)
         .eq("is_submitted", true)
-        .not("time_spent_seconds", "is", null)
+        .gt("time_spent_seconds", 0)
+        .gt("score", 0)
     : Promise.resolve({ data: [] });
 
   const [questionResult, tagResult, timingResult] = await Promise.all([
@@ -129,28 +194,17 @@ export async function fetchAttemptReviewQuestionMetadata(
   }
 
   const timingRows = timingResult.data;
-
-  const timingByQuestion = new Map<string, { sum: number; count: number }>();
-  for (const row of timingRows ?? []) {
-    if (!row.question_id || row.time_spent_seconds == null) continue;
-    const current = timingByQuestion.get(row.question_id) ?? {
-      sum: 0,
-      count: 0,
-    };
-    current.sum += row.time_spent_seconds;
-    current.count += 1;
-    timingByQuestion.set(row.question_id, current);
-  }
+  const timingByQuestion = calculateSuccessfulQuestionTiming(
+    questionRows ?? [],
+    timingRows ?? [],
+  );
 
   for (const [questionId, timing] of timingByQuestion.entries()) {
     const current = result.get(questionId) ?? { ...EMPTY_METADATA };
     result.set(questionId, {
       ...current,
-      averageTimeSeconds:
-        timing.count >= MIN_AVERAGE_TIME_SAMPLE_SIZE
-          ? timing.sum / timing.count
-          : null,
-      averageTimeSampleSize: timing.count,
+      averageTimeSeconds: timing.averageTimeSeconds,
+      averageTimeSampleSize: timing.sampleSize,
     });
   }
 

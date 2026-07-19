@@ -27,6 +27,10 @@ import { ProgressGraph, type GraphDataType } from './progress-graph'
 import { ProgressTablePagination } from './progress-table-pagination'
 import { aggregateForGraph } from '../lib/progress-data-utils'
 import { formatTimeSeconds } from '../lib/format-time'
+import {
+  UnreviewedAttemptDot,
+  UnreviewedAttemptTooltip,
+} from './unreviewed-attempt-indicator'
 
 type MetricOption = { value: GraphDataType; label: string }
 type DateRange = 'all' | '30' | '90'
@@ -136,6 +140,9 @@ export function MockAttemptsCard({
           withScores.length
       )
     : null
+  const unreviewedCount = filteredAttempts.filter(
+    (attempt) => attempt.reviewCompletedAt == null
+  ).length
   const yAxisMax = Math.max(
     2700,
     ...filteredAttempts.map((attempt) => attempt.scaledScoreMax ?? 0)
@@ -279,9 +286,11 @@ export function MockAttemptsCard({
         <Card className={tutorCardCn()}>
           <CardContent className="pt-6">
             <p className="text-sm text-muted-foreground">Unreviewed attempts</p>
-            <p className="mt-2 text-3xl font-semibold tabular-nums">—</p>
+            <p className="mt-2 text-3xl font-semibold tabular-nums">
+              {unreviewedCount}
+            </p>
             <p className="mt-1 text-xs text-muted-foreground">
-              Review completion is not tracked in tutor view
+              Mocks without a completed review
             </p>
           </CardContent>
         </Card>
@@ -306,22 +315,47 @@ export function MockAttemptsCard({
             </TableHeader>
             <TableBody>
               {paginated.length ? (
-                paginated.map((attempt) => (
-                  <TableRow key={attempt.id} className={tutorTableBodyRow}>
-                    <TableCell>
-                      {format(new Date(attemptDate(attempt)), 'dd MMM yyyy')}
-                    </TableCell>
-                    <TableCell>{attempt.mockName ?? '—'}</TableCell>
-                    <TableCell>{formatMetric(attempt, metric)}</TableCell>
-                    <TableCell>
-                      <Button asChild size="sm" variant="ghost">
-                        <Link href={`${basePath}/mocks/${attempt.id}`}>
-                          View attempt
-                        </Link>
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                ))
+                paginated.map((attempt) => {
+                  const action = (
+                    <Button asChild size="sm" variant="ghost">
+                      <Link
+                        href={`${basePath}/mocks/${attempt.id}`}
+                        className="inline-flex items-center gap-1.5"
+                        aria-label={
+                          attempt.reviewCompletedAt == null
+                            ? 'View attempt. This attempt is unreviewed.'
+                            : 'View attempt'
+                        }
+                      >
+                        View attempt
+                        {attempt.reviewCompletedAt == null ? (
+                          <UnreviewedAttemptDot />
+                        ) : null}
+                      </Link>
+                    </Button>
+                  )
+                  return (
+                    <TableRow key={attempt.id} className={tutorTableBodyRow}>
+                      <TableCell>
+                        {format(
+                          new Date(attemptDate(attempt)),
+                          'dd MMM yyyy'
+                        )}
+                      </TableCell>
+                      <TableCell>{attempt.mockName ?? '—'}</TableCell>
+                      <TableCell>{formatMetric(attempt, metric)}</TableCell>
+                      <TableCell>
+                        {attempt.reviewCompletedAt == null ? (
+                          <UnreviewedAttemptTooltip>
+                            {action}
+                          </UnreviewedAttemptTooltip>
+                        ) : (
+                          action
+                        )}
+                      </TableCell>
+                    </TableRow>
+                  )
+                })
               ) : (
                 <TableRow className={tutorTableBodyRow}>
                   <TableCell

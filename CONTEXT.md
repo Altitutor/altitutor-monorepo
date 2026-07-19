@@ -262,6 +262,42 @@
 - **Question stem review queue** — The tutor workflow for reviewing all in-review question stems, applying edits, and either publishing or returning each stem to draft. AI-generated stems enter this queue automatically; tutor-authored stems enter only when a tutor sends them for review.
   _Avoid_: AI approval queue, bulk approval, generated questions tab
 
+- **AI question stem assessment** — A supplementary automated assessment of the exact saved content of an in-review question stem, composed of shared-stem findings and per-question findings. It runs only after the stem passes deterministic UCAT format checks, but its absence, status, or findings never prevent an authorised tutor from publishing. A shared-stem change makes every question finding stale, while an isolated question change makes only that question's finding stale; stale findings are not current assessments.
+  _Avoid_: AI approval, permanent quality score, generation warning
+
+- **AI assessment run** — The durable background execution that produces an AI question stem assessment without requiring any staff app to remain open. An initial run may assess all questions together to reuse shared context, while a later run targets only invalidated findings. Equivalent requests are deduplicated, superseded results are discarded, and transient failures receive three automatic attempts before the assessment becomes unavailable and offers a manual retry. Publishing does not cancel a run already requested for the published content; its eventual result remains supplementary and cannot reverse publication.
+  _Avoid_: Browser task, foreground review, indefinite retry loop
+
+- **Question stem review cycle** — A period beginning whenever a question stem enters or re-enters `in_review` and ending when it leaves that status. Each stem requests one automatic assessment for its submitted content during the cycle; relevant saved content changes refresh only invalidated findings. The tutor may publish before, during, or after that work. Changing the configured assessment model does not start another assessment, while a later review cycle does even when the submitted content is unchanged. Draft edits do not request assessment work; relevant edits to an already assessed published stem refresh affected findings in the background without changing its publication state.
+  _Avoid_: Model-change re-review, permanent assessment, app session
+
+- **AI assessment audit record** — The immutable, compact history of a completed or dismissed assessment, including the reviewed content fingerprint and compact snapshot, model provenance, structured findings and suggestions, tutor decisions, and dismissal reasons. It does not retain duplicated image binaries, rendered screenshots, complete prompts, hidden reasoning, or raw provider responses; the current assessment is shown by default while earlier records remain available for audit.
+  _Avoid_: Raw AI log archive, duplicated asset history, current assessment
+
+- **Post-publication AI assessment alert** — A deduplicated notification to the tutor who published a stem when an assessment that was still running at publication later returns a Critical finding. It links to the published stem and its AI Review panel but never changes publication state; passes, ordinary concerns, stale results, and provider failures do not send an alert.
+  _Avoid_: Automatic unpublish, general assessment notification, provider-failure alert
+
+- **UCAT format check** — A deterministic validation of structural requirements such as question and option counts, exact answer-mode labels and ordering, stored question type, required instructions, and required visual structure. A failed format check leaves the stem available in the question stem review queue, prevents the AI question stem assessment from running, and identifies the exact structural errors for the tutor. Saving a structurally valid version starts the assessment automatically. Format checks are displayed separately from AI findings, do not consume reviewer-model tokens, and do not add an AI-specific publication gate beyond the platform's ordinary content validation.
+  _Avoid_: Category-fit score, AI format opinion, UCAT authenticity assessment
+
+- **UCAT authenticity and task quality** — The judgement-based portion of an AI question stem assessment that evaluates whether the underlying cognitive task, scenario, reasoning demand, wording, and distractors genuinely resemble a fair UCAT question after deterministic format requirements have passed. It does not assess Quantitative Reasoning category fit because QR categories describe information presentation rather than strict question types; deterministic QR category inference remains metadata rather than a quality score.
+  _Avoid_: Category format compliance, QR category fit, answer-mode validation
+
+- **Blind question solution** — An answer and concise auditable justification produced from a question stem, question, options, and relevant images without access to the keyed answer, existing explanations, author rationale, or claimed difficulty. An AI question stem assessment compares this independent solution with the keyed answer and teaching explanation in a separate assessment stage.
+  _Avoid_: Hidden chain-of-thought, answer-key restatement, single-prompt self-check
+
+- **AI assessment finding** — An advisory review concern or improvement identified by an AI question stem assessment. Severity and confidence help the tutor prioritise attention, but findings never approve, reject, or block publication; the authorised tutor's judgement is final.
+  _Avoid_: Publication readiness issue, automatic rejection, generation gate
+
+- **AI finding dismissal** — A tutor's optional reasoned decision not to act on an AI assessment finding for the exact reviewed content in the current review cycle. Dismissal supports workflow organisation and audit rather than publication permission, and rejecting the associated suggestion does not dismiss the finding. A relevant content change or a later review cycle requires a fresh decision, while the earlier dismissal and reason remain in the AI assessment audit record.
+  _Avoid_: Suggestion rejection, permanent suppression, silent override
+
+- **AI assessment suggestion** — A tutor-accepted or tutor-rejected atomic set of bounded edits proposed to resolve one AI assessment finding. It previews exact before-and-after values and may update existing content, answer keys, explanations, metadata, or a supported semantic visual specification, but it does not add or delete questions or options, edit raw SVG/XML, or change saved content until the tutor saves the amended stem form.
+  _Avoid_: Automatic correction, whole-stem rewrite, raw SVG patch, direct save
+
+- **AI visual assessment** — The visual portion of an AI question stem assessment, comparing the original asset, its stored authoring specification and dimensions when available, and its rendered student view. It evaluates content accuracy, legibility, precision fairness, question dependency, and presentation quality; a required visual that cannot be inspected is a high-severity unreviewable finding rather than a pass.
+  _Avoid_: Alt-text check, original-image-only review, visual generation gate
+
 - **Reconciliation issue** — A content gap or inconsistency surfaced to tutors for correction, such as a missing question stem category, missing answer explanation, missing question tag, or private stem not assigned to a staff-authored set. A reconciliation issue is resolved by changing the underlying content; it is not the same as AI-generated question stem approval.
   _Avoid_: Approval status, generation warning, validation error
 
@@ -283,16 +319,16 @@
 - **Generation brief** — The structured intent for producing AI-generated UCAT content, including section, stem category, target skill tags, difficulty, time burden, format constraints, and optional calibration examples. A generation brief defines what should be created; source examples are optional style calibration and should not be required or copied.
   _Avoid_: Prompt, source stem selection
 
-- **Generation model profile** — An admin-managed UCAT generation model configuration containing only provider/model inference settings such as model ID, temperature, and maximum completion tokens. Tutors may choose among enabled model profiles. Prompt instructions and candidate counts do not belong to a model profile.
-  _Avoid_: Generation profile, prompt profile, UCAT model config
+- **UCAT AI model profile** — An admin-managed provider/model configuration available to UCAT AI workflows, with inference defaults such as model ID, temperature, and maximum completion tokens. Workflows assign enabled profiles to roles such as generation, blind question solving, or assessment; prompt instructions do not belong to a model profile.
+  _Avoid_: Generation model profile, prompt profile, UCAT model config
 
-- **Generation system prompts** — The model-independent base and role instructions used by UCAT generation, such as writer, planner, critic, and rewriter instructions. They are edited independently from generation model profiles and shared across enabled models.
+- **Generation system prompts** — The model-independent base and role instructions used by UCAT generation, such as writer, planner, critic, and rewriter instructions. They are edited independently from UCAT AI model profiles and shared across enabled models.
   _Avoid_: Model prompt, prompt profile
 
-- **AI generation provider** — An admin-approved OpenAI-compatible model provider used by UCAT generation, defined by endpoint, secret reference, and allowed model IDs. OpenRouter may be the default provider, but generation should not be coupled to one provider.
+- **UCAT AI provider** — An admin-approved model provider available to UCAT AI workflows and identified by its endpoint and secret reference. UCAT AI workflows must not be coupled to one provider.
   _Avoid_: OpenRouter-only integration, hard-coded model
 
-- **UCAT generation settings** — The admin-web settings area for managing generation system prompts, scoped prompt layers, providers, generation model profiles, budgets, and run limits. This is separate from score projection settings, which control score projection assumptions.
+- **UCAT AI settings** — The admin-web settings area for managing UCAT AI providers, model profiles, workflow role assignments, generation prompts, scoped prompt layers, budgets, and run limits. This is separate from score projection settings, which control score projection assumptions.
   _Avoid_: UCAT model config, tutor prompt settings
 
 - **Layered generation prompt** — The combined instructions used for AI generation, assembled from generation system prompts, UCAT section, stem category, question tags, and optional run instructions. Model selection is independent. Admin-managed layers define the stable quality contract; tutor-entered run instructions refine a single generation run without replacing that contract.
@@ -306,6 +342,18 @@
 
 - **Deterministic exam visual** — A data-bearing UCAT visual asset rendered by the app from a structured spec, such as a QR chart, DM Venn diagram, or simple schematic map. Deterministic exam visuals are preferred over generative image models whenever exact labels, values, and relationships matter.
   _Avoid_: Freeform generated chart, decorative diagram
+
+- **Data-aware chart editing** — Tutor changes to a deterministic chart's source values, labels, scales, legend, colours, or dimensions while the chart's marks remain derived from its data and scales.
+  _Avoid_: Freeform Vega editing, dragging data marks
+
+- **AI image revision** — A tutor-directed generative edit that uses an existing non-deterministic image together with its full question-stem context. The result is previewed before the tutor accepts it into the draft.
+  _Avoid_: Text-only regeneration, immediate image replacement
+
+- **Editable visual conversion** — Tutor-reviewed replacement of a legacy rendered exam visual with a deterministic exam visual whose structured source can be edited. Conversion is not assumed to recover the legacy visual losslessly.
+  _Avoid_: SVG reverse-engineering, automatic legacy migration
+
+- **Manual visual edit** — A tutor's direct change to an exam visual, treated as a human-review override of automatic visual-placement validation. Validation findings may inform the tutor but do not prevent the edit from being applied.
+  _Avoid_: Generated-candidate validation, blocked human override
 
 - **UCAT-realistic source visual** — A data-bearing UCAT visual that should be indistinguishable from source material in a real UCAT-style question while remaining logically auditable. It may be a chart, table, Venn/set diagram, map, timetable, or mixed source panel; visual style and layout are part of the tested data-interpretation burden, not decoration.
   _Avoid_: Generic chart, template diagram, decorative source image
@@ -322,14 +370,14 @@
 - **Generation warning** — A non-blocking quality issue shown during tutor review of an AI-generated question stem. Warnings should appear as lightweight summary and inline badges, with detail available on demand.
   _Avoid_: Rejection reason, validation error
 
-- **Generation metadata** — Audit information stored with an AI-generated question stem, such as generation model profile, system-prompt version, provider/model, generation brief, source stem IDs, gate results, warnings, usage, generated-at time, and generated-by tutor. Raw prompts and provider responses are not retained by default.
+- **Generation metadata** — Audit information stored with an AI-generated question stem, such as UCAT AI model profile, system-prompt version, provider/model, generation brief, source stem IDs, gate results, warnings, usage, generated-at time, and generated-by tutor. Raw prompts and provider responses are not retained by default.
   _Avoid_: Full prompt log, provider transcript
 
 - **Generation solver check** — A generation gate where a separate solver or critic attempts the generated UCAT question independently of the writer's rationale. Solver disagreement blocks high-confidence objective errors, such as QR arithmetic or DM logic mistakes, and warns on plausible ambiguity in more subjective areas such as Situational Judgement or some Verbal Reasoning items.
   _Avoid_: Answer key generation, tutor review
 
-- **Generation budget** — An admin-managed limit on UCAT AI generation cost or volume, such as daily spend, token usage, or requested stems per run. Generation budgets protect the organisation's API usage without treating ordinary tutor use as abuse.
-  _Avoid_: Tutor quota, student quota
+- **UCAT AI budget** — The shared admin-managed limit on UCAT AI cost or volume, such as daily spend and token usage. Automatic assessments, generation, and tutor-requested AI tools consume the same budget; operation-specific run limits may still constrain shapes such as the number of requested stems without creating separate spending pools.
+  _Avoid_: Automatic-review budget, tutor quota, student quota
 
 - **Generation similarity gate** — A generation gate that rejects disguised clones of selected source examples or existing UCAT content, such as reused scenario premises, near-identical data relationships, near-identical question wording, or high text overlap. Shared UCAT archetypes, broad topics, calculation skills, passage genres, generic table/chart dimensions, incidental answer-key patterns, and repeated ordinary names or places are acceptable and should not be rejected by themselves.
   _Avoid_: Answer pattern check, topic uniqueness, generic layout check
@@ -439,17 +487,26 @@
 - **Score projection snapshot** — The trusted total score estimate actually shown to a student on a calendar day, stored at most once per day in the student's timezone. Snapshot history must not be reconstructed later using a newer model.
   _Avoid_: Recomputed historical prediction, attempt average
 
-- **Dashboard trajectory** — The dashboard presentation that overlays a Study plan target, scheduled mocks, and an exact test date on the independent Score projection. The dashboard canvas shows at most 60 days of trusted snapshot history and the next 120 days of bounded projection so `Today` stays in a consistent position. It may describe exam-day progress only when the date is known, the projection has sufficient evidence, and the date falls inside the configured forecast horizon; otherwise it shows baseline progress or a bounded outlook without an on-track judgement. Its `Why` insight may report stored improvement or a section-to-section-target gap, but must not claim that a section caused a precise total-score deficit.
+- **Dashboard trajectory** — The dashboard presentation that overlays a UCAT preparation goal, Study-plan mocks when applicable, and an exact test date on the independent Score projection. The dashboard canvas shows at most 60 days of trusted snapshot history and the next 120 days of bounded projection so `Today` stays in a consistent position. It may describe exam-day progress only when the date is known, the projection has sufficient evidence, and the date falls inside the configured forecast horizon; otherwise it shows baseline progress or a bounded outlook without an on-track judgement. Its `Why` insight may report stored improvement or a section-to-section-target gap, but must not claim that a section caused a precise total-score deficit.
   _Avoid_: Guaranteed target path, sample personalised data, indefinite extrapolation
 
-- **Study plan** — A personalised calendar of UCAT study tasks generated through the student's test date from their target score, score projection, available study days, per-day time limits, and preferred mock day. It may use less than the student's available capacity when that is appropriate and normally increases practice as the test approaches. It is recalculated when progress or planning inputs materially change; it is separate from Score projection and must not present target attainment as guaranteed.
+- **Study plan** — An optional personalised calendar of UCAT study tasks generated through the student's test date from their UCAT preparation goal, score projection, available study days, per-day time limits, and preferred mock day. It may use less than the student's available capacity when that is appropriate and normally increases practice as the test approaches. It is recalculated when progress or planning inputs materially change; it is separate from Score projection and must not present target attainment as guaranteed. A student without a Study plan does not see its calendar or navigation entry.
   _Avoid_: Score projection, fixed timetable, target guarantee
 
-- **Study plan companion** — The persistent, compact guide to today's Study plan progress and next prescribed task. It preserves continuity while the student moves between activities and the full Study plan, but is not a second plan or an alternative task list.
-  _Avoid_: Study plan widget, floating task list, plan bubble
+- **Study guidance orb** — The compact guide that is available throughout UCAT study except during an active attempt. It expands from the same unobtrusive orb on mobile and desktop and shows a primary next step plus a less prominent secondary step. It follows today's scheduled work when a Study plan is enabled and follows Next-step guidance otherwise. A dismissible prompt may announce changed guidance without removing that guidance from the expanded orb.
+  _Avoid_: Desktop study-plan panel, chatbot, permanent notification banner
 
-- **Study plan activation setup** — The strongly encouraged but optional post-plan step that asks for the minimum inputs needed to build the first Study plan: overall cognitive target, test year or exact date, available study days, and maximum time per day. A student who is unsure may start with a clearly labelled working target, and the initial preferred mock day is inferred from availability rather than requested as another onboarding input. The student may defer setup and reach the dashboard.
+- **Next-step guidance** — The rolling pair of suggested activities shown to a student without a Study plan. It is not a hidden calendar and has no forecast, missed-work catch-up, or dated task debt. The primary item is the best immediate action and the secondary item is the next candidate in the same ordered queue. Exact incomplete Attempt review takes priority; otherwise the first guidance visit in the student's calendar day begins with their least-played Skill trainer. Later guidance uses reliable weakness evidence and the student's preparation stage, favouring learning and targeted practice earlier and exam-like sets or mocks closer to the test. Sparse Question-tag evidence must not create a confident weakness by itself.
+  _Avoid_: Recommendations mode, hidden Study plan, rolling calendar
+
+- **Study-plan preference** — The student's choice to use a Study plan or have no Study plan. Turning it off retires future scheduled work without deleting completed activity, historical plans, the UCAT preparation goal, or Score projection evidence. Turning it back on creates a fresh future plan from current evidence and planning availability rather than reviving stale scheduled tasks.
+  _Avoid_: Permanent opt-out, deleting plan history, recommendations plan
+
+- **Study plan activation setup** — The strongly encouraged but optional setup that first asks whether the student wants a Study plan, then always captures their UCAT preparation goal. Only students choosing a Study plan are asked for available study days and maximum time per day. A student who is unsure may start with a clearly labelled working target, and the initial preferred mock day is inferred from availability rather than requested as another onboarding input. The student may defer setup and reach the dashboard.
   _Avoid_: Required signup step, diagnostic, full settings form
+
+- **UCAT preparation goal** — The student's overall cognitive target score and test timing: an exact UCAT test date when booked, otherwise the test year. It exists with or without a Study plan and supports dashboard goal presentation and score-projection context; students do not enter target section scores. Situational Judgement is excluded from the cognitive total.
+  _Avoid_: Study-plan-only target, section target inputs, guaranteed score
 
 - **Available study day** — A weekday the student explicitly permits the Study plan to schedule. The student sets a maximum study duration for each available day; the plan may use fewer available days or less than the maximum duration, especially when the test is distant. A flexible student may instead ask the plan to choose days automatically.
   _Avoid_: Required study day, booked session, tutoring availability

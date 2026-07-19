@@ -62,7 +62,7 @@ describe("buildAttemptOverallInsight", () => {
 });
 
 describe("buildQuestionAttemptInsight", () => {
-  it("hides the insight for a correct answer at a sensible pace", () => {
+  it("shows a positive insight for a correct answer at a sensible pace", () => {
     const insight = buildQuestionAttemptInsight({
       result: "correct",
       timeSpentSeconds: 52,
@@ -70,7 +70,8 @@ describe("buildQuestionAttemptInsight", () => {
       averageTimeSampleSize: 12,
     });
 
-    expect(insight).toBeNull();
+    expect(insight.title).toBe("A strong, repeatable result");
+    expect(insight.body).toContain("students who answered it correctly");
   });
 
   it("varies the success message when the answer was especially efficient", () => {
@@ -81,7 +82,8 @@ describe("buildQuestionAttemptInsight", () => {
       averageTimeSampleSize: 12,
     });
 
-    expect(insight?.title).toBe("Nicely done");
+    expect(insight.title).toBe("Efficient and correct");
+    expect(insight.body).toContain("42% faster");
   });
 
   it("treats slow correct work as a foundation rather than a failure", () => {
@@ -92,11 +94,11 @@ describe("buildQuestionAttemptInsight", () => {
       averageTimeSampleSize: 12,
     });
 
-    expect(insight?.title).toBe("You got there");
-    expect(insight?.body).toContain("let speed follow understanding");
+    expect(insight.title).toBe("Correct, with room to streamline");
+    expect(insight.body).toContain("118% longer");
   });
 
-  it("defers to the explanation when there is no distinct coaching signal", () => {
+  it("always coaches an incorrect answer when timing is unavailable", () => {
     const insight = buildQuestionAttemptInsight({
       result: "incorrect",
       timeSpentSeconds: 12,
@@ -104,7 +106,8 @@ describe("buildQuestionAttemptInsight", () => {
       averageTimeSampleSize: 3,
     });
 
-    expect(insight).toBeNull();
+    expect(insight.title).toBe("Focus on the method, not the clock");
+    expect(insight.body).toContain("not enough successful timing data");
   });
 
   it("acknowledges a useful flag even without a timing signal", () => {
@@ -116,8 +119,8 @@ describe("buildQuestionAttemptInsight", () => {
       wasFlagged: true,
     });
 
-    expect(insight?.title).toBe("Good call to flag this one");
-    expect(insight?.body).toContain("explanation below");
+    expect(insight.title).toBe("Good call to flag this one");
+    expect(insight.body).toContain("explanation below");
   });
 
   it("distinguishes rushed and overlong incorrect answers", () => {
@@ -134,7 +137,31 @@ describe("buildQuestionAttemptInsight", () => {
       averageTimeSampleSize: 10,
     });
 
-    expect(rushed?.title).toBe("This one looks rushed");
-    expect(overlong?.title).toBe("This one took more time than it returned");
+    expect(rushed.title).toBe("This one looks rushed");
+    expect(overlong.title).toBe("This one took more time than it returned");
+  });
+
+  it("shows method-focused coaching for an ordinary incorrect answer", () => {
+    const insight = buildQuestionAttemptInsight({
+      result: "incorrect",
+      timeSpentSeconds: 60,
+      averageTimeSeconds: 60,
+      averageTimeSampleSize: 10,
+    });
+
+    expect(insight.title).toBe(
+      "Your timing was workable; the method is the next lever",
+    );
+  });
+
+  it("uses successful timing to coach an unanswered question", () => {
+    const insight = buildQuestionAttemptInsight({
+      result: "not_attempted",
+      timeSpentSeconds: 100,
+      averageTimeSeconds: 60,
+      averageTimeSampleSize: 10,
+    });
+
+    expect(insight.title).toBe("Set an earlier decision point");
   });
 });

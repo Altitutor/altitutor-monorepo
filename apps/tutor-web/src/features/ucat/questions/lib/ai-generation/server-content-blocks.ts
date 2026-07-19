@@ -1,6 +1,9 @@
 import 'server-only'
 import type { Json } from '@altitutor/shared'
-import { generatedContentToProseMirror } from '@/features/ucat/questions/lib/ai-generation/content-blocks'
+import {
+  generatedContentToProseMirror,
+  generatedVisualImageNode,
+} from '@/features/ucat/questions/lib/ai-generation/content-blocks'
 import type { GeneratedContentBlock } from '@/features/ucat/questions/lib/ai-generation/schema'
 
 const GRAYSCALE = ['#111111', '#4b4b4b', '#737373', '#9b9b9b', '#c4c4c4', '#e0e0e0']
@@ -21,28 +24,11 @@ function hasInlineVegaData(value: unknown): boolean {
   return Object.values(value).some(hasInlineVegaData)
 }
 
-function grayscaleFor(value: unknown): string {
-  const text = String(value ?? '')
-  let hash = 0
-  for (let index = 0; index < text.length; index += 1) hash = (hash * 31 + text.charCodeAt(index)) >>> 0
-  return GRAYSCALE[hash % GRAYSCALE.length] ?? '#111111'
-}
-
-function looksLikeColor(value: string): boolean {
-  return /^#(?:[0-9a-f]{3}|[0-9a-f]{6}|[0-9a-f]{8})$/iu.test(value) ||
-    /^rgba?\(/iu.test(value) ||
-    /^(?:red|green|blue|orange|purple|teal|cyan|magenta|yellow|pink|brown)$/iu.test(value)
-}
-
 function sanitizeVegaLiteValue(value: unknown, keyPath: string[] = []): unknown {
   if (Array.isArray(value)) {
-    const parentKey = keyPath[keyPath.length - 1]?.toLowerCase()
-    if (parentKey === 'range') return value.map((item, index) => typeof item === 'string' && looksLikeColor(item) ? GRAYSCALE[index % GRAYSCALE.length] : sanitizeVegaLiteValue(item, keyPath))
     return value.map((item, index) => sanitizeVegaLiteValue(item, [...keyPath, String(index)]))
   }
   if (!isRecord(value)) {
-    const key = keyPath[keyPath.length - 1]?.toLowerCase() ?? ''
-    if (typeof value === 'string' && /(color|fill|stroke)/u.test(key) && looksLikeColor(value)) return grayscaleFor(value)
     return value
   }
 
@@ -52,7 +38,6 @@ function sanitizeVegaLiteValue(value: unknown, keyPath: string[] = []): unknown 
     if (['url', 'href', 'src'].includes(lower) && typeof child === 'string' && child.trim()) {
       throw new Error('Vega-Lite chart specs must use inline data only.')
     }
-    if (lower === 'scheme') continue
     sanitized[key] = sanitizeVegaLiteValue(child, [...keyPath, key])
   }
   return sanitized
@@ -140,9 +125,10 @@ function enhanceEncoding(encoding: Record<string, unknown>): Record<string, unkn
       }
     }
     if (['color', 'fill', 'stroke'].includes(channel.toLowerCase()) && channelDefinition.scale !== null) {
+      const existingScale = isRecord(channelDefinition.scale) ? channelDefinition.scale : {}
       channelDefinition.scale = {
-        ...(isRecord(channelDefinition.scale) ? channelDefinition.scale : {}),
-        range: GRAYSCALE,
+        ...existingScale,
+        ...(!Array.isArray(existingScale.range) && typeof existingScale.scheme !== 'string' ? { range: GRAYSCALE } : {}),
       }
     }
     enhanced[channel] = channelDefinition
@@ -224,8 +210,8 @@ function enhanceMark(mark: unknown, encoding: unknown = null): unknown {
   if (type === 'text') {
     const styledMark: Record<string, unknown> = {
       ...markObject,
-      fill: '#111111',
-      font: 'Arial',
+      fill: markObject.fill ?? markObject.color ?? '#111111',
+      font: markObject.font ?? 'Arial',
       fontSize: markObject.fontSize ?? 14,
       fontWeight: markObject.fontWeight ?? 500,
     }
@@ -350,15 +336,14 @@ function withVegaLiteDefaults(spec: Record<string, unknown>, title: string | nul
     config: {
       ...config,
       title: {
-        ...(isRecord(config.title) ? config.title : {}),
         font: 'Arial',
         fontSize: 20,
         fontWeight: 600,
         anchor: 'start',
         color: '#111111',
+        ...(isRecord(config.title) ? config.title : {}),
       },
       axis: {
-        ...(isRecord(config.axis) ? config.axis : {}),
         labelFont: 'Arial',
         titleFont: 'Arial',
         labelFontSize: 13,
@@ -372,24 +357,25 @@ function withVegaLiteDefaults(spec: Record<string, unknown>, title: string | nul
         titlePadding: 14,
         labelBound: true,
         labelFlush: false,
+        ...(isRecord(config.axis) ? config.axis : {}),
       },
       legend: {
-        ...(isRecord(config.legend) ? config.legend : {}),
         labelFont: 'Arial',
         titleFont: 'Arial',
         orient: 'bottom',
         labelColor: '#111111',
         titleColor: '#111111',
         columns: 3,
+        ...(isRecord(config.legend) ? config.legend : {}),
       },
       view: {
         stroke: null,
         ...(isRecord(config.view) ? config.view : {}),
       },
       range: {
-        ...(isRecord(config.range) ? config.range : {}),
         category: GRAYSCALE,
         ordinal: GRAYSCALE,
+        ...(isRecord(config.range) ? config.range : {}),
       },
     },
   }
@@ -415,18 +401,28 @@ async function renderVegaLiteChart(block: Extract<GeneratedContentBlock, { type:
   return cleanVegaSvg(svg)
 }
 
-async function renderServerBlock(block: GeneratedContentBlock): Promise<GeneratedContentBlock> {
-  if (block.type !== 'visual' || block.visualType !== 'vega_lite_chart') return block
-  const svg = await renderVegaLiteChart(block)
-  return {
-    type: 'image',
-    src: svgDataUri(svg),
-    altText: block.altText,
+export async function generatedVisualBlockToImageNodeServer(
+  block: Extract<GeneratedContentBlock, { type: 'visual' }>,
+): Promise<Json> {
+  if (block.visualType !== 'vega_lite_chart') {
+    const doc = generatedContentToProseMirror([block]) as { content?: Json[] }
+    const node = doc.content?.find((item) => item && typeof item === 'object' && !Array.isArray(item) && (item as { type?: string }).type === 'image')
+    if (!node) throw new Error('Failed to render deterministic visual.')
+    return node
   }
+  const svg = await renderVegaLiteChart(block)
+  return generatedVisualImageNode(block, svgDataUri(svg))
 }
 
 export async function generatedContentToProseMirrorServer(value: string | GeneratedContentBlock[]): Promise<Json> {
   if (typeof value === 'string') return generatedContentToProseMirror(value)
-  const blocks = await Promise.all(value.map(renderServerBlock))
-  return generatedContentToProseMirror(blocks)
+  const content = (await Promise.all(value.map(async (block) => {
+    if (block.type === 'visual') return [await generatedVisualBlockToImageNodeServer(block)]
+    const doc = generatedContentToProseMirror([block]) as { content?: Json[] }
+    return doc.content ?? []
+  }))).flat()
+  return {
+    type: 'doc',
+    content: content.length > 0 ? content : [{ type: 'paragraph' }],
+  } as Json
 }

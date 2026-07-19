@@ -11,6 +11,7 @@ import {
   selectNextStudyPlanTask,
 } from "@/features/study-plan/lib/companion";
 import type {
+  StudyGuidanceItem,
   StudyPlanResponse,
   StudyPlanTask,
 } from "@/features/study-plan/model/types";
@@ -31,6 +32,11 @@ export type DashboardNextAction =
       kind: "task";
       task: StudyPlanTask;
       fromEarlierStudyDay: boolean;
+    }
+  | {
+      kind: "guidance";
+      primary: StudyGuidanceItem;
+      secondary: StudyGuidanceItem | null;
     }
   | {
       kind: "caught_up";
@@ -109,6 +115,13 @@ export function resolveDashboardNextAction({
   }
 
   if (plan?.profile) {
+    if (!plan.profile.studyPlanEnabled && plan.nextSteps[0]) {
+      return {
+        kind: "guidance",
+        primary: plan.nextSteps[0],
+        secondary: plan.nextSteps[1] ?? null,
+      };
+    }
     const currentTasks = selectCurrentStudyPlanTasks(plan.tasks, plan.today);
     const nextTask = selectNextStudyPlanTask(currentTasks);
     if (nextTask)

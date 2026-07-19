@@ -9,6 +9,7 @@ import { useScoreProjection } from "@/features/score-projection/hooks/use-score-
 import type { SectionScoreProjection } from "@/features/score-projection/types/score-projection";
 import { useStudyPlan } from "@/features/study-plan/hooks/use-study-plan";
 import { todayIso } from "@/features/study-plan/lib/dates";
+import { allocateSectionTargets } from "@/features/study-plan/lib/section-targets";
 import { useProgressSeries } from "../hooks/use-progress-series";
 import { Card, CardContent } from "@altitutor/ui";
 import { UCAT_CARD_CHROME, UCAT_DIVIDER_TOP } from "@/lib/ucat-surface-motion";
@@ -129,6 +130,20 @@ export function SectionProgressPage({
     examSpeedTotals.count > 0
       ? examSpeedTotals.sum / examSpeedTotals.count
       : null;
+  const sectionTargets =
+    planQuery.data?.generation?.sectionTargets ??
+    (planQuery.data?.profile
+      ? allocateSectionTargets(
+          planQuery.data.profile.targetScore,
+          (projectionQuery.data?.sections ?? [])
+            .filter((item) => item.sectionNumber <= 3)
+            .sort((left, right) => left.sectionNumber - right.sectionNumber)
+            .map((item) => ({
+              sectionId: item.sectionId,
+              currentEstimate: item.currentEstimate,
+            })),
+        )
+      : {});
   return (
     <SectionProgressContent
       section={section}
@@ -143,9 +158,7 @@ export function SectionProgressPage({
       timedSetsCompleted={data.timedSetsCompleted}
       categoryProgress={categoryProgress}
       scoreProjection={sectionProjection}
-      targetScore={
-        planQuery.data?.generation?.sectionTargets[section.sectionId] ?? null
-      }
+      targetScore={sectionTargets[section.sectionId] ?? null}
       testDate={planQuery.data?.profile?.testDate ?? null}
       today={planQuery.data?.today ?? todayIso()}
       averageExamSpeed={averageExamSpeed}

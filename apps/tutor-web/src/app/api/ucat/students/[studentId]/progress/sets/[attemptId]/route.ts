@@ -1,15 +1,39 @@
-import { captureApiError } from '@/lib/sentry/capture-api-error';
 import { NextRequest, NextResponse } from 'next/server'
-import type { Database } from '@altitutor/shared'
+import { captureApiError } from '@/lib/sentry/capture-api-error'
 import { requireUcatTutor } from '@/features/ucat/shared/server/guard'
-import { extractTextFromRichJson } from '@/features/ucat/shared/lib/rich-text'
-import type { JsonLike } from '@/features/ucat/shared/lib/rich-text'
+import { supabaseAdmin } from '@/shared/lib/supabase/server/admin'
+import {
+  extractTextFromRichJson,
+  type JsonLike,
+} from '@/features/ucat/shared/lib/rich-text'
+import {
+  parseAttemptContentSnapshot,
+  parseSyllogismAnswerSnapshot,
+  resultForAttempt,
+  snapshotToReviewQuestion,
+  type AttemptReviewQuestion,
+} from '@/features/ucat/students/progress/lib/attempt-content-snapshot'
 
-type SetAttemptDetailRow = Database['public']['Views']['vtutor_ucat_student_set_attempt_detail']['Row']
-type QuestionSetDetailRow = Database['public']['Views']['vtutor_ucat_question_set_detail']['Row']
-type QuestionStemRow = Database['public']['Views']['vtutor_ucat_question_stems']['Row']
-type CategoryRow = Database['public']['Views']['vtutor_ucat_question_stem_categories']['Row']
-type QuestionAttemptRow = Database['public']['Views']['vtutor_ucat_student_question_attempts_for_progress']['Row']
+export type SetAttemptQuestion = {
+  questionNumber: number
+  questionId: string
+  stemIndex: number
+  score: number | null
+  timeSpentSeconds: number | null
+  averageTimeSeconds: number | null
+  averageTimeSampleSize: number
+  timeBurdenSeconds: number | null
+  difficulty: number | null
+  questionTags: Array<{ name: string; description: string | null }>
+  isFlagged: boolean
+  questionType: 'multiple_choice' | 'syllogism' | null
+  result: 'correct' | 'partial' | 'incorrect' | 'not_attempted'
+  categoryName: string | null
+  categoryDescription: string | null
+  questionStemCategoryId: string | null
+  questionAnswerOptionId: string | null
+  answerSnapshot: Record<string, boolean> | null
+}
 
 export type SetAttemptDetailResponse = {
   id: string
@@ -18,24 +42,15 @@ export type SetAttemptDetailResponse = {
   scorePoints: number | null
   totalPoints: number | null
   scaledScore: number | null
+  timeTakenSeconds: number | null
+  setTimeLimitSeconds: number | null
+  examTimeLimitSeconds: number | null
+  studentSetSpeed: number | null
+  studentExamSpeed: number | null
   attemptedAt: string
   completedAt: string | null
-  questionAttempts: {
-    questionNumber: number
-    questionId: string
-    score: number | null
-    timeSpentSeconds: number | null
-    questionType: 'multiple_choice' | 'syllogism' | null
-    result: 'correct' | 'partial' | 'incorrect' | 'not_attempted'
-    categoryName: string | null
-    questionStemCategoryId: string | null
-  }[]
-}
-
-type StemWithQuestions = {
-  stem_id: string
-  stem_text?: string
-  questions_meta?: Array<{ id: string; index: number }>
+  questions: AttemptReviewQuestion[]
+  questionAttempts: SetAttemptQuestion[]
 }
 
 export async function GET(
@@ -47,174 +62,185 @@ export async function GET(
 
   const { studentId, attemptId } = await params
   if (!studentId || !attemptId) {
-    return NextResponse.json({ error: 'Missing studentId or attemptId' }, { status: 400 })
-  }
-
-  const supabase = access.userClient
-
-  const { data: attempt, error: attemptError } = await supabase
-    .from('vtutor_ucat_student_set_attempt_detail')
-    .select(
-      'attempt_id, question_set_id, attempted_at, completed_at, score_points, total_points, scaled_score, questions'
-    )
-    .eq('attempt_id', attemptId)
-    .eq('student_id', studentId)
-    .maybeSingle()
-
-  if (attemptError) {
-    captureApiError(attemptError, "/api/ucat/students/[studentId]/progress/sets/[attemptId]");
-    return NextResponse.json({ error: attemptError.message }, { status: 500 })
-  }
-
-  const attemptTyped = attempt as SetAttemptDetailRow | null
-  if (!attemptTyped) {
-    return NextResponse.json({ error: 'Set attempt not found' }, { status: 404 })
-  }
-
-  const questionSetId = attemptTyped.question_set_id
-  if (!questionSetId) {
     return NextResponse.json(
-      { error: 'Set attempt has no question set' },
+      { error: 'Missing studentId or attemptId' },
       { status: 400 }
     )
   }
 
-  const { data: setDetail, error: setError } = await supabase
-    .from('vtutor_ucat_question_set_detail')
-    .select('id, name, stems')
-    .eq('id', questionSetId)
+  const { data: authorizedAttempt, error: authorizationError } = await access.userClient
+    .from('vtutor_ucat_student_set_attempt_detail')
+    .select('attempt_id')
+    .eq('attempt_id', attemptId)
+    .eq('student_id', studentId)
     .maybeSingle()
 
-  if (setError) {
-    captureApiError(setError, "/api/ucat/students/[studentId]/progress/sets/[attemptId]");
-    return NextResponse.json({ error: setError.message }, { status: 500 })
+  if (authorizationError) {
+    captureApiError(
+      authorizationError,
+      '/api/ucat/students/[studentId]/progress/sets/[attemptId]'
+    )
+    return NextResponse.json(
+      { error: authorizationError.message },
+      { status: 500 }
+    )
+  }
+  if (!authorizedAttempt) {
+    return NextResponse.json({ error: 'Set attempt not found' }, { status: 404 })
+  }
+  if (!supabaseAdmin) {
+    return NextResponse.json(
+      { error: 'Attempt review is not configured on this server' },
+      { status: 500 }
+    )
   }
 
-  const setDetailTyped = setDetail as QuestionSetDetailRow | null
-  const stems = (setDetailTyped?.stems ?? []) as StemWithQuestions[]
-  const stemIds = stems.map((s) => s.stem_id).filter(Boolean)
-  const orderedQuestions: { questionId: string; stemId: string }[] = []
-  for (const stem of stems) {
-    const questions = stem.questions_meta ?? []
-    for (const q of questions.sort((a, b) => a.index - b.index)) {
-      orderedQuestions.push({ questionId: q.id, stemId: stem.stem_id })
-    }
+  const { data: attempt, error: attemptError } = await supabaseAdmin
+    .from('student_question_set_attempts')
+    .select(
+      'id, attempted_at, completed_at, question_set_id, score_points, total_points, scaled_score, time_taken_seconds, set_time_limit_seconds, set_time_limit_at_exam_speed_seconds, student_set_speed, student_exam_speed, content_snapshot'
+    )
+    .eq('id', attemptId)
+    .eq('student_id', studentId)
+    .maybeSingle()
+
+  if (attemptError) {
+    captureApiError(
+      attemptError,
+      '/api/ucat/students/[studentId]/progress/sets/[attemptId]'
+    )
+    return NextResponse.json({ error: attemptError.message }, { status: 500 })
+  }
+  if (!attempt) {
+    return NextResponse.json({ error: 'Set attempt not found' }, { status: 404 })
   }
 
-  const stemCategoryMap = new Map<string, { categoryId: string; categoryName: string }>()
-  if (stemIds.length > 0) {
-    const { data: stemCategories } = await supabase
-      .from('vtutor_ucat_question_stems')
-      .select('id, question_stem_category_id')
-      .in('id', stemIds)
-    const stemCategoriesTyped = (stemCategories ?? []) as QuestionStemRow[]
-    const categoryIds = [
-      ...new Set(
-        stemCategoriesTyped
-          .map((s) => s.question_stem_category_id)
-          .filter((id): id is string => !!id)
-      ),
-    ]
-    if (categoryIds.length > 0) {
-      const { data: categories } = await supabase
-        .from('vtutor_ucat_question_stem_categories')
-        .select('id, name')
-        .in('id', categoryIds)
-      const categoriesTyped = (categories ?? []) as CategoryRow[]
-      const categoryByName = new Map(
-        categoriesTyped.map((c) => [c.id, c.name ?? 'Unknown'])
-      )
-      for (const s of stemCategoriesTyped) {
-        const catId = s.question_stem_category_id
-        if (catId) {
-          stemCategoryMap.set(s.id ?? '', {
-            categoryId: catId,
-            categoryName: categoryByName.get(catId) ?? 'Unknown',
-          })
-        }
-      }
-    }
-  }
-
-  const { data: questionAttemptsRaw, error: qaError } = await supabase
-    .from('vtutor_ucat_student_question_attempts_for_progress')
-    .select('question_id, score, time_spent_seconds, question_type, category_name, question_stem_category_id')
+  const { data: rows, error: questionError } = await supabaseAdmin
+    .from('student_question_attempts')
+    .select(
+      'question_id, score, time_spent_seconds, question_answer_option_id, answer_snapshot, is_flagged, attempted_at, content_snapshot'
+    )
     .eq('student_question_set_attempt_id', attemptId)
     .eq('student_id', studentId)
     .eq('is_submitted', true)
 
-  if (qaError) {
-    captureApiError(qaError, "/api/ucat/students/[studentId]/progress/sets/[attemptId]");
-    return NextResponse.json({ error: qaError.message }, { status: 500 })
+  if (questionError) {
+    captureApiError(
+      questionError,
+      '/api/ucat/students/[studentId]/progress/sets/[attemptId]'
+    )
+    return NextResponse.json({ error: questionError.message }, { status: 500 })
   }
 
-  const questionAttemptsTyped = (questionAttemptsRaw ?? []) as QuestionAttemptRow[]
-  const attemptsByQuestionId = new Map(
-    questionAttemptsTyped.map((qa) => [
-      qa.question_id,
-      {
-        score: qa.score,
-        timeSpentSeconds: qa.time_spent_seconds,
-        questionType: qa.question_type as 'multiple_choice' | 'syllogism' | null,
-        categoryName: qa.category_name,
-        questionStemCategoryId: qa.question_stem_category_id,
-      },
-    ])
-  )
+  const setSnapshot = (attempt.content_snapshot ?? {}) as {
+    name?: unknown
+    stemIds?: string[]
+  }
+  const stemIds = Array.isArray(setSnapshot.stemIds)
+    ? setSnapshot.stemIds
+    : []
+  const stemOrder = new Map(stemIds.map((id, index) => [id, index]))
+  const ordered = (rows ?? [])
+    .map((row) => ({
+      row,
+      snapshot: parseAttemptContentSnapshot(row.content_snapshot),
+    }))
+    .filter(
+      (entry): entry is typeof entry & { snapshot: NonNullable<typeof entry.snapshot> } =>
+        entry.snapshot != null
+    )
+    .sort(
+      (a, b) =>
+        (stemOrder.get(a.snapshot.stem.id) ?? Number.MAX_SAFE_INTEGER) -
+          (stemOrder.get(b.snapshot.stem.id) ?? Number.MAX_SAFE_INTEGER) ||
+        a.snapshot.question.index - b.snapshot.question.index ||
+        a.row.attempted_at.localeCompare(b.row.attempted_at)
+    )
 
-  const questionAttempts = orderedQuestions.map(({ questionId, stemId }, index) => {
-    const attemptData = attemptsByQuestionId.get(questionId)
-    const stemCategory = stemCategoryMap.get(stemId)
-    const questionNumber = index + 1
-    const score = attemptData?.score ?? null
-    const timeSpentSeconds = attemptData?.timeSpentSeconds ?? null
-    const questionType = attemptData?.questionType ?? null
-
-    let result: 'correct' | 'partial' | 'incorrect' | 'not_attempted'
-    if (attemptData == null) {
-      result = 'not_attempted'
-    } else {
-      const maxScore = questionType === 'syllogism' ? 2 : 1
-      if (score == null) {
-        result = 'not_attempted'
-      } else if (score >= maxScore) {
-        result = 'correct'
-      } else if (score > 0) {
-        result = 'partial'
-      } else {
-        result = 'incorrect'
+  let currentStemId: string | null = null
+  let stemIndex = 0
+  const questionAttempts: SetAttemptQuestion[] = ordered.map(
+    ({ row, snapshot }, index) => {
+      if (snapshot.stem.id !== currentStemId) {
+        currentStemId = snapshot.stem.id
+        stemIndex += 1
+      }
+      const questionType = snapshot.question.questionType
+      const tags = (snapshot.question.tags ?? [])
+        .filter((tag) => Boolean(tag.name))
+        .map((tag) => ({
+          name: tag.name ?? '',
+          description: tag.description
+            ? extractTextFromRichJson(tag.description as JsonLike) || null
+            : null,
+        }))
+      return {
+        questionNumber: index + 1,
+        questionId: snapshot.question.id,
+        stemIndex,
+        score: row.score,
+        timeSpentSeconds: row.time_spent_seconds,
+        averageTimeSeconds: null,
+        averageTimeSampleSize: 0,
+        timeBurdenSeconds: snapshot.question.timeBurdenSeconds ?? null,
+        difficulty: snapshot.question.difficulty ?? null,
+        questionTags: tags,
+        isFlagged: row.is_flagged,
+        questionType,
+        result: resultForAttempt(row.score, questionType, true),
+        categoryName: snapshot.stem.categoryName ?? null,
+        categoryDescription: snapshot.stem.categoryDescription
+          ? extractTextFromRichJson(
+              snapshot.stem.categoryDescription as JsonLike
+            ) || null
+          : null,
+        questionStemCategoryId: snapshot.stem.categoryId ?? null,
+        questionAnswerOptionId: row.question_answer_option_id,
+        answerSnapshot: parseSyllogismAnswerSnapshot(row.answer_snapshot),
       }
     }
+  )
 
-    const categoryName = attemptData?.categoryName ?? stemCategory?.categoryName ?? null
-    const questionStemCategoryId = attemptData?.questionStemCategoryId ?? stemCategory?.categoryId ?? null
-
-    return {
-      questionNumber,
-      questionId,
-      score,
-      timeSpentSeconds,
-      questionType,
-      result,
-      categoryName,
-      questionStemCategoryId,
-    }
-  })
-
-  const questionSetName =
-    setDetailTyped?.name != null
-      ? extractTextFromRichJson(setDetailTyped.name as JsonLike) || null
-      : null
+  const questionSetName = setSnapshot.name
+    ? extractTextFromRichJson(setSnapshot.name as JsonLike) || null
+    : null
+  const timeTakenSeconds = attempt.time_taken_seconds
+  const setTimeLimitSeconds = attempt.set_time_limit_seconds
+  const examTimeLimitSeconds = attempt.set_time_limit_at_exam_speed_seconds
+  let studentSetSpeed = attempt.student_set_speed
+  let studentExamSpeed = attempt.student_exam_speed
+  if (timeTakenSeconds != null && timeTakenSeconds > 0) {
+    studentSetSpeed ??=
+      setTimeLimitSeconds != null && setTimeLimitSeconds > 0
+        ? setTimeLimitSeconds / timeTakenSeconds
+        : null
+    studentExamSpeed ??=
+      examTimeLimitSeconds != null && examTimeLimitSeconds > 0
+        ? examTimeLimitSeconds / timeTakenSeconds
+        : null
+  }
 
   const response: SetAttemptDetailResponse = {
-    id: attemptTyped.attempt_id ?? attemptId,
-    questionSetId,
+    id: attempt.id,
+    questionSetId: attempt.question_set_id,
     questionSetName,
-    scorePoints: attemptTyped.score_points,
-    totalPoints: attemptTyped.total_points,
-    scaledScore: attemptTyped.scaled_score,
-    attemptedAt: attemptTyped.attempted_at ?? '',
-    completedAt: attemptTyped.completed_at,
+    scorePoints: attempt.score_points,
+    totalPoints: attempt.total_points,
+    scaledScore: attempt.scaled_score,
+    timeTakenSeconds,
+    setTimeLimitSeconds,
+    examTimeLimitSeconds,
+    studentSetSpeed,
+    studentExamSpeed,
+    attemptedAt: attempt.attempted_at,
+    completedAt: attempt.completed_at,
+    questions: ordered.map(({ snapshot }, index) =>
+      snapshotToReviewQuestion(
+        snapshot,
+        index + 1,
+        attempt.question_set_id
+      )
+    ),
     questionAttempts,
   }
 

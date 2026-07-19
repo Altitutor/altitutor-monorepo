@@ -9,35 +9,34 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@altitutor/ui";
-import type { GraphDataType } from "./progress-graph";
 import { ProgressOutlineSelectTrigger } from "./progress-outline-select-trigger";
 
-export type AttemptMetricOption = {
-  value: GraphDataType;
+export type AttemptMetricOption<T extends string = string> = {
+  value: T;
   label: string;
 };
 
-type AttemptMetricColumnHeaderProps = {
-  options: AttemptMetricOption[];
-  value: GraphDataType;
-  onValueChange: (value: GraphDataType) => void;
+type AttemptMetricColumnHeaderProps<T extends string> = {
+  options: AttemptMetricOption<T>[];
+  value: T;
+  onValueChange: (value: T) => void;
   label: string;
   tooltip: string;
 };
 
 /** Table metric header that opens a searchable select to change the column. */
-export function AttemptMetricColumnHeader({
+export function AttemptMetricColumnHeader<T extends string>({
   options,
   value,
   onValueChange,
   label,
   tooltip,
-}: AttemptMetricColumnHeaderProps) {
+}: AttemptMetricColumnHeaderProps<T>) {
   const selected = options.find((option) => option.value === value) ?? null;
 
   return (
     <TableHead>
-      <SearchableSelect<AttemptMetricOption>
+      <SearchableSelect<AttemptMetricOption<T>>
         items={options}
         value={selected}
         onValueChange={(item) => {

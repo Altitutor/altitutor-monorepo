@@ -50,6 +50,8 @@ function plan(tasks: StudyPlanTask[]): StudyPlanResponse {
   return {
     profile: {
       id: "profile-1",
+      studyPlanEnabled: true,
+      studySuggestionsEnabled: true,
       targetScore: 2100,
       testYear: 2026,
       testDate: "2026-09-15",
@@ -61,6 +63,7 @@ function plan(tasks: StudyPlanTask[]): StudyPlanResponse {
     },
     generation: null,
     tasks,
+    nextSteps: [],
     today: "2026-07-15",
     todayTasks: tasks.filter((entry) => entry.scheduledDate === "2026-07-15"),
     completion: { completed: 0, scheduledThroughToday: 0, percent: 0 },

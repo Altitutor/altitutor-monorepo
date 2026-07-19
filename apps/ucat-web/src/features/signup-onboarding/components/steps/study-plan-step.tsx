@@ -2,11 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { MARKETING_TOKENS } from "@altitutor/shared";
-import {
-  SearchableSelect,
-  SmartDatePickerField,
-  Switch,
-} from "@altitutor/ui";
+import { SearchableSelect, SmartDatePickerField, Switch } from "@altitutor/ui";
 import { CalendarDays, Clock3, Target } from "lucide-react";
 import { saveStudyPlan } from "@/features/study-plan/api/study-plan";
 import type {
@@ -77,7 +73,9 @@ export function SignupCompleteStudyPlanStep({
   );
 
   const selectedYear =
-    yearOptions.find((option) => option.year === testYear) ?? yearOptions[0] ?? null;
+    yearOptions.find((option) => option.year === testYear) ??
+    yearOptions[0] ??
+    null;
   const selectedMockDay =
     mockDayOptions.find((day) => day.value === preferredMockWeekday) ??
     mockDayOptions[0] ??
@@ -87,7 +85,10 @@ export function SignupCompleteStudyPlanStep({
     setAvailability((current) => {
       if (enabled) {
         if (current.some((item) => item.weekday === day)) return current;
-        return [...current, { weekday: day, maxMinutes: defaultMinutesForDay(day) }];
+        return [
+          ...current,
+          { weekday: day, maxMinutes: defaultMinutesForDay(day) },
+        ];
       }
       const next = current.filter((item) => item.weekday !== day);
       if (preferredMockWeekday === day && next[0]) {
@@ -113,12 +114,16 @@ export function SignupCompleteStudyPlanStep({
       return;
     }
     if (knowsTestDate && !testDate) {
-      setError("Choose your UCAT test date, or select that you only know the year.");
+      setError(
+        "Choose your UCAT test date, or select that you only know the year.",
+      );
       return;
     }
     setIsSubmitting(true);
     try {
       await saveStudyPlan({
+        studyPlanEnabled: true,
+        studySuggestionsEnabled: true,
         targetScore,
         testYear,
         testDate: knowsTestDate ? testDate : null,
@@ -127,7 +132,11 @@ export function SignupCompleteStudyPlanStep({
       });
       onComplete();
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "We could not create your Study plan.");
+      setError(
+        caught instanceof Error
+          ? caught.message
+          : "We could not create your Study plan.",
+      );
       setIsSubmitting(false);
     }
   }
@@ -149,7 +158,9 @@ export function SignupCompleteStudyPlanStep({
             <Target className="h-4 w-4 text-marketing-accent" aria-hidden />
             <h2 className={`font-semibold ${typo.headingSans}`}>Your goal</h2>
           </div>
-          <label className={`block space-y-2 text-sm text-marketing-cream/70 ${typo.secondarySans}`}>
+          <label
+            className={`block space-y-2 text-sm text-marketing-cream/70 ${typo.secondarySans}`}
+          >
             <span>Target score</span>
             <input
               type="number"
@@ -164,7 +175,9 @@ export function SignupCompleteStudyPlanStep({
             />
           </label>
 
-          <div className={`space-y-2 text-sm text-marketing-cream/70 ${typo.secondarySans}`}>
+          <div
+            className={`space-y-2 text-sm text-marketing-cream/70 ${typo.secondarySans}`}
+          >
             <span className="block">Do you know your exact test date?</span>
             <div className="grid grid-cols-2 gap-2">
               {[
@@ -189,7 +202,9 @@ export function SignupCompleteStudyPlanStep({
           </div>
 
           {knowsTestDate ? (
-            <div className={`space-y-2 text-sm text-marketing-cream/70 ${typo.secondarySans}`}>
+            <div
+              className={`space-y-2 text-sm text-marketing-cream/70 ${typo.secondarySans}`}
+            >
               <span className="block">UCAT test date</span>
               <SmartDatePickerField
                 value={testDate}
@@ -206,7 +221,9 @@ export function SignupCompleteStudyPlanStep({
               />
             </div>
           ) : (
-            <div className={`space-y-2 text-sm text-marketing-cream/70 ${typo.secondarySans}`}>
+            <div
+              className={`space-y-2 text-sm text-marketing-cream/70 ${typo.secondarySans}`}
+            >
               <span className="block">UCAT year</span>
               <SearchableSelect<YearOption>
                 items={yearOptions}
@@ -233,10 +250,15 @@ export function SignupCompleteStudyPlanStep({
         <section className={cardClass}>
           <div className="flex items-center gap-2 text-marketing-cream">
             <Clock3 className="h-4 w-4 text-marketing-accent" aria-hidden />
-            <h2 className={`font-semibold ${typo.headingSans}`}>Your availability</h2>
+            <h2 className={`font-semibold ${typo.headingSans}`}>
+              Your availability
+            </h2>
           </div>
-          <p className={`text-sm text-marketing-cream/50 ${typo.secondarySans}`}>
-            This is the maximum time you would like to dedicate to study, not necessarily the time we will allocate for you every week.
+          <p
+            className={`text-sm text-marketing-cream/50 ${typo.secondarySans}`}
+          >
+            This is the maximum time you would like to dedicate to study, not
+            necessarily the time we will allocate for you every week.
           </p>
           <div className="space-y-2">
             {WEEKDAYS.map((day) => {
@@ -251,10 +273,14 @@ export function SignupCompleteStudyPlanStep({
                     <Switch
                       checked={isOn}
                       disabled={isSubmitting}
-                      onCheckedChange={(checked) => setDayEnabled(day.value, checked)}
+                      onCheckedChange={(checked) =>
+                        setDayEnabled(day.value, checked)
+                      }
                       className="data-[state=checked]:bg-marketing-accent data-[state=unchecked]:bg-white/20"
                     />
-                    <span className={`text-sm text-marketing-cream/70 ${typo.secondarySans}`}>
+                    <span
+                      className={`text-sm text-marketing-cream/70 ${typo.secondarySans}`}
+                    >
                       {day.label}
                     </span>
                   </div>
@@ -271,14 +297,18 @@ export function SignupCompleteStudyPlanStep({
                       max={360}
                       step={15}
                       tabIndex={isOn ? 0 : -1}
-                      value={enabled?.maxMinutes ?? defaultMinutesForDay(day.value)}
+                      value={
+                        enabled?.maxMinutes ?? defaultMinutesForDay(day.value)
+                      }
                       disabled={isSubmitting || !isOn}
                       onChange={(event) =>
                         setDayMinutes(day.value, Number(event.target.value))
                       }
                       className="w-20 rounded-lg border border-white/10 bg-white/5 px-2 py-1.5 text-right text-sm text-marketing-cream outline-none focus:border-marketing-accent/50"
                     />
-                    <span className="text-xs text-marketing-cream/40">min max</span>
+                    <span className="text-xs text-marketing-cream/40">
+                      min max
+                    </span>
                   </span>
                 </div>
               );
@@ -314,7 +344,11 @@ export function SignupCompleteStudyPlanStep({
       </div>
 
       {error ? (
-        <p className={`rounded-xl bg-red-500/10 px-4 py-3 text-sm text-red-400 ${typo.secondarySans}`}>{error}</p>
+        <p
+          className={`rounded-xl bg-red-500/10 px-4 py-3 text-sm text-red-400 ${typo.secondarySans}`}
+        >
+          {error}
+        </p>
       ) : null}
 
       <button

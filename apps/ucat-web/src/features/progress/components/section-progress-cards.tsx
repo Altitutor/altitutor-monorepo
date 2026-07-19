@@ -24,6 +24,7 @@ type SectionProgressCardsProps = {
   timeFrameDays: string;
   scoreProjections?: SectionScoreProjection[];
   sectionTargets?: Record<string, number>;
+  mockRecentWeightedAverage?: number | null;
 };
 
 export function SectionProgressCards({
@@ -34,6 +35,7 @@ export function SectionProgressCards({
   timeFrameDays: _timeFrameDays,
   scoreProjections,
   sectionTargets = {},
+  mockRecentWeightedAverage = null,
 }: SectionProgressCardsProps) {
   const showPredictedScores = scoreProjections != null;
   const scoreBySectionNumber = new Map(
@@ -187,6 +189,30 @@ export function SectionProgressCards({
           <Fragment key={section.sectionId}>{card}</Fragment>
         );
       })}
+      {linkToSection ? (
+        <Link
+          href="/progress/mocks"
+          className="group col-span-2 block"
+          aria-label="View mock progress"
+        >
+          <Card className={cn(UCAT_CARD_CHROME, UCAT_CARD_RAISED_HOVER)}>
+            <CardHeader className="relative space-y-0 pr-12">
+              <CardTitle className="text-base font-medium">Mocks</CardTitle>
+              <div className="pointer-events-none absolute inset-y-0 right-2 flex items-center sm:right-3">
+                <UcatHoverChevron className="h-4 w-4" />
+              </div>
+            </CardHeader>
+            <CardContent>
+              <p className="text-xs font-medium text-muted-foreground">
+                Recent-weighted average
+              </p>
+              <p className="text-3xl font-bold tabular-nums">
+                {mockRecentWeightedAverage ?? "—"}
+              </p>
+            </CardContent>
+          </Card>
+        </Link>
+      ) : null}
     </div>
   );
 }

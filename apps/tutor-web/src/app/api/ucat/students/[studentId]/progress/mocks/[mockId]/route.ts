@@ -1,16 +1,19 @@
-import { captureApiError } from '@/lib/sentry/capture-api-error';
 import { NextRequest, NextResponse } from 'next/server'
-import type { Database } from '@altitutor/shared'
+import { captureApiError } from '@/lib/sentry/capture-api-error'
 import { requireUcatTutor } from '@/features/ucat/shared/server/guard'
-import { extractTextFromRichJson } from '@/features/ucat/shared/lib/rich-text'
-import type { JsonLike } from '@/features/ucat/shared/lib/rich-text'
-
-type MockAttemptRow = Database['public']['Views']['vtutor_ucat_student_mock_attempts']['Row']
-type MockDetailRow = Database['public']['Views']['vtutor_ucat_mock_detail']['Row']
-type QuestionSetRow = Database['public']['Views']['vtutor_ucat_question_sets']['Row']
-type SetAttemptRow = Database['public']['Views']['vtutor_ucat_student_set_attempts']['Row']
-type QuestionAttemptRow = Database['public']['Views']['vtutor_ucat_student_question_attempts_for_progress']['Row']
-type QuestionSetDetailRow = Database['public']['Views']['vtutor_ucat_question_set_detail']['Row']
+import { supabaseAdmin } from '@/shared/lib/supabase/server/admin'
+import {
+  extractTextFromRichJson,
+  type JsonLike,
+} from '@/features/ucat/shared/lib/rich-text'
+import {
+  parseAttemptContentSnapshot,
+  parseSyllogismAnswerSnapshot,
+  resultForAttempt,
+  snapshotToReviewQuestion,
+  type AttemptReviewQuestion,
+} from '@/features/ucat/students/progress/lib/attempt-content-snapshot'
+import type { SetAttemptQuestion } from '../../sets/[attemptId]/route'
 
 export type MockSetInfo = {
   setAttemptId: string
@@ -21,49 +24,25 @@ export type MockSetInfo = {
   scaledScore: number | null
 }
 
+export type MockAttemptQuestion = SetAttemptQuestion & { setIndex: number }
+
 export type MockAttemptDetailResponse = {
   id: string
   ucatMockId: string
   mockName: string | null
   scaledScore: number | null
   scaledScoreMax: number | null
+  timeTakenSeconds: number | null
+  mockTimeLimitSeconds: number | null
+  examTimeLimitSeconds: number | null
+  studentMockSpeed: number | null
+  studentExamSpeed: number | null
   attemptedAt: string
   completedAt: string | null
   sets: MockSetInfo[]
-  questionAttempts: {
-    questionNumber: number
-    questionId: string
-    setIndex: number
-    score: number | null
-    timeSpentSeconds: number | null
-    questionType: 'multiple_choice' | 'syllogism' | null
-    result: 'correct' | 'partial' | 'incorrect' | 'not_attempted'
-  }[]
+  questions: AttemptReviewQuestion[]
+  questionAttempts: MockAttemptQuestion[]
   setBoundaryIndices: number[]
-}
-
-type StemWithQuestions = {
-  stem_id: string
-  stem_text?: string
-  questions_meta?: Array<{ id: string; index: number }>
-}
-
-type MockSetFromDetail = {
-  id: string
-  name?: JsonLike
-  description?: unknown
-  time_limit_seconds?: number | null
-}
-
-function getOrderedQuestionIds(stems: StemWithQuestions[]): string[] {
-  const ids: string[] = []
-  for (const stem of stems) {
-    const questions = stem.questions_meta ?? []
-    for (const q of questions.sort((a, b) => a.index - b.index)) {
-      ids.push(q.id)
-    }
-  }
-  return ids
 }
 
 export async function GET(
@@ -75,231 +54,288 @@ export async function GET(
 
   const { studentId, mockId } = await params
   if (!studentId || !mockId) {
-    return NextResponse.json({ error: 'Missing studentId or mockId' }, { status: 400 })
+    return NextResponse.json(
+      { error: 'Missing studentId or mockId' },
+      { status: 400 }
+    )
   }
 
-  const supabase = access.userClient
-
-  const { data: mockAttempt, error: mockError } = await supabase
+  const { data: authorizedAttempt, error: authorizationError } = await access.userClient
     .from('vtutor_ucat_student_mock_attempts')
-    .select('id, ucat_mock_id, attempted_at, completed_at')
+    .select('id')
+    .eq('id', mockId)
+    .eq('student_id', studentId)
+    .maybeSingle()
+
+  if (authorizationError) {
+    captureApiError(
+      authorizationError,
+      '/api/ucat/students/[studentId]/progress/mocks/[mockId]'
+    )
+    return NextResponse.json(
+      { error: authorizationError.message },
+      { status: 500 }
+    )
+  }
+  if (!authorizedAttempt) {
+    return NextResponse.json({ error: 'Mock attempt not found' }, { status: 404 })
+  }
+  if (!supabaseAdmin) {
+    return NextResponse.json(
+      { error: 'Attempt review is not configured on this server' },
+      { status: 500 }
+    )
+  }
+
+  const { data: mockAttempt, error: mockError } = await supabaseAdmin
+    .from('student_ucat_mock_attempts')
+    .select(
+      'id, ucat_mock_id, attempted_at, completed_at, scaled_score, time_taken, mock_time_limit_seconds, mock_time_limit_at_exam_speed_seconds, student_mock_speed, content_snapshot'
+    )
     .eq('id', mockId)
     .eq('student_id', studentId)
     .maybeSingle()
 
   if (mockError) {
-    captureApiError(mockError, "/api/ucat/students/[studentId]/progress/mocks/[mockId]");
+    captureApiError(
+      mockError,
+      '/api/ucat/students/[studentId]/progress/mocks/[mockId]'
+    )
     return NextResponse.json({ error: mockError.message }, { status: 500 })
   }
-
-  const mockAttemptTyped = mockAttempt as MockAttemptRow | null
-  if (!mockAttemptTyped) {
+  if (!mockAttempt) {
     return NextResponse.json({ error: 'Mock attempt not found' }, { status: 404 })
   }
 
-  const ucatMockId = mockAttemptTyped.ucat_mock_id
-  if (!ucatMockId) {
+  const { data: setRows, error: setError } = await supabaseAdmin
+    .from('student_question_set_attempts')
+    .select(
+      'id, question_set_id, score_points, total_points, scaled_score, content_snapshot, attempted_at'
+    )
+    .eq('student_ucat_mock_attempt_id', mockId)
+    .eq('student_id', studentId)
+
+  if (setError) {
+    captureApiError(
+      setError,
+      '/api/ucat/students/[studentId]/progress/mocks/[mockId]'
+    )
+    return NextResponse.json({ error: setError.message }, { status: 500 })
+  }
+
+  const setAttemptIds = (setRows ?? []).map((set) => set.id)
+  const questionResult = setAttemptIds.length
+    ? await supabaseAdmin
+        .from('student_question_attempts')
+        .select(
+          'question_id, score, time_spent_seconds, question_answer_option_id, answer_snapshot, is_flagged, attempted_at, content_snapshot, student_question_set_attempt_id'
+        )
+        .in('student_question_set_attempt_id', setAttemptIds)
+        .eq('student_id', studentId)
+        .eq('is_submitted', true)
+    : { data: [], error: null }
+
+  if (questionResult.error) {
+    captureApiError(
+      questionResult.error,
+      '/api/ucat/students/[studentId]/progress/mocks/[mockId]'
+    )
     return NextResponse.json(
-      { error: 'Mock attempt has no mock' },
-      { status: 400 }
+      { error: questionResult.error.message },
+      { status: 500 }
     )
   }
 
-  const { data: mockDetail, error: mockDetailError } = await supabase
-    .from('vtutor_ucat_mock_detail')
-    .select('id, name, sets')
-    .eq('id', ucatMockId)
-    .maybeSingle()
-
-  if (mockDetailError) {
-    captureApiError(mockDetailError, "/api/ucat/students/[studentId]/progress/mocks/[mockId]");
-    return NextResponse.json({ error: mockDetailError.message }, { status: 500 })
+  const mockSnapshot = (mockAttempt.content_snapshot ?? {}) as {
+    name?: unknown
+    setIds?: string[]
   }
-
-  const mockDetailTyped = mockDetail as MockDetailRow | null
-  const mockSets = (mockDetailTyped?.sets ?? []) as MockSetFromDetail[]
-  const mockSetIds = mockSets.map((s) => s.id)
-
-  const { data: setDetailsForSections } =
-    mockSetIds.length > 0
-      ? await supabase
-          .from('vtutor_ucat_question_sets')
-          .select('id, sections')
-          .in('id', mockSetIds)
-      : { data: [] }
-
-  const sectionNumberBySetId = new Map<string, number>()
-  const setDetailsTyped = (setDetailsForSections ?? []) as QuestionSetRow[]
-  for (const s of setDetailsTyped) {
-    const sections = s.sections as Array<{ section_number?: number }> | null
-    const firstNum =
-      Array.isArray(sections) && sections.length > 0
-        ? sections[0]?.section_number
-        : undefined
-    if (firstNum != null && s.id) sectionNumberBySetId.set(s.id, firstNum)
-  }
-
-  const SITUATIONAL_JUDGEMENT_SECTION = 4
-
-  const { data: setAttemptsRaw, error: setAttemptsError } = await supabase
-    .from('vtutor_ucat_student_set_attempts')
-    .select('attempt_id, set_id, score_points, total_points, scaled_score')
-    .eq('student_id', studentId)
-    .eq('student_ucat_mock_attempt_id', mockId)
-
-  if (setAttemptsError) {
-    captureApiError(setAttemptsError, "/api/ucat/students/[studentId]/progress/mocks/[mockId]");
-    return NextResponse.json({ error: setAttemptsError.message }, { status: 500 })
-  }
-
-  const setAttemptsTyped = (setAttemptsRaw ?? []) as SetAttemptRow[]
-  const setAttemptsBySetId = new Map(
-    setAttemptsTyped.map((a) => [a.set_id, a])
+  const snapshotSetIds = Array.isArray(mockSnapshot.setIds)
+    ? mockSnapshot.setIds
+    : []
+  const fallbackSetIds = [...(setRows ?? [])]
+    .sort((a, b) => a.attempted_at.localeCompare(b.attempted_at))
+    .map((set) => set.question_set_id)
+  const setIds = snapshotSetIds.length > 0 ? snapshotSetIds : fallbackSetIds
+  const setOrder = new Map(setIds.map((id, index) => [id, index]))
+  const setById = new Map((setRows ?? []).map((set) => [set.question_set_id, set]))
+  const setByAttemptId = new Map((setRows ?? []).map((set) => [set.id, set]))
+  const stemOrderByAttemptId = new Map(
+    (setRows ?? []).map((set) => {
+      const snapshot = (set.content_snapshot ?? {}) as { stemIds?: string[] }
+      return [
+        set.id,
+        new Map(
+          (Array.isArray(snapshot.stemIds) ? snapshot.stemIds : []).map(
+            (id, index) => [id, index]
+          )
+        ),
+      ] as const
+    })
   )
 
-  const attemptIds = setAttemptsTyped.map((a) => a.attempt_id).filter(Boolean)
-  const { data: allQuestionAttempts, error: qaError } = await supabase
-    .from('vtutor_ucat_student_question_attempts_for_progress')
-    .select(
-      'question_id, score, time_spent_seconds, question_type, student_question_set_attempt_id'
+  const ordered = (questionResult.data ?? [])
+    .map((row) => ({
+      row,
+      snapshot: parseAttemptContentSnapshot(row.content_snapshot),
+      set: row.student_question_set_attempt_id
+        ? setByAttemptId.get(row.student_question_set_attempt_id)
+        : undefined,
+    }))
+    .filter(
+      (entry): entry is typeof entry & {
+        snapshot: NonNullable<typeof entry.snapshot>
+        set: NonNullable<typeof entry.set>
+      } =>
+        entry.snapshot != null && entry.set != null
     )
-    .in('student_question_set_attempt_id', attemptIds)
-    .eq('student_id', studentId)
-    .eq('is_submitted', true)
-
-  if (qaError) {
-    captureApiError(qaError, "/api/ucat/students/[studentId]/progress/mocks/[mockId]");
-    return NextResponse.json({ error: qaError.message }, { status: 500 })
-  }
-
-  const questionAttemptsTyped = (allQuestionAttempts ?? []) as QuestionAttemptRow[]
-  const attemptsBySetAndQuestion = new Map<
-    string,
-    { score: number | null; timeSpentSeconds: number | null; questionType: 'multiple_choice' | 'syllogism' | null }
-  >()
-  for (const qa of questionAttemptsTyped) {
-    const setId = qa.student_question_set_attempt_id
-    if (!setId) continue
-    const key = `${setId}:${qa.question_id}`
-    attemptsBySetAndQuestion.set(key, {
-      score: qa.score,
-      timeSpentSeconds: qa.time_spent_seconds,
-      questionType: qa.question_type as 'multiple_choice' | 'syllogism' | null,
+    .sort((a, b) => {
+      const aSetOrder = setOrder.get(a.set.question_set_id) ?? Number.MAX_SAFE_INTEGER
+      const bSetOrder = setOrder.get(b.set.question_set_id) ?? Number.MAX_SAFE_INTEGER
+      const aStemOrder =
+        stemOrderByAttemptId.get(a.set.id)?.get(a.snapshot.stem.id) ??
+        Number.MAX_SAFE_INTEGER
+      const bStemOrder =
+        stemOrderByAttemptId.get(b.set.id)?.get(b.snapshot.stem.id) ??
+        Number.MAX_SAFE_INTEGER
+      return (
+        aSetOrder - bSetOrder ||
+        aStemOrder - bStemOrder ||
+        a.snapshot.question.index - b.snapshot.question.index ||
+        a.row.attempted_at.localeCompare(b.row.attempted_at)
+      )
     })
-  }
 
-  const sets: MockSetInfo[] = []
-  const questionAttempts: MockAttemptDetailResponse['questionAttempts'] = []
-  const setBoundaryIndices: number[] = []
-  let globalQuestionNumber = 0
-
-  for (let setIndex = 0; setIndex < mockSetIds.length; setIndex++) {
-    const questionSetId = mockSetIds[setIndex]
-    const setAttempt = setAttemptsBySetId.get(questionSetId)
-    const mockSet = mockSets[setIndex]
-
-    const setAttemptId = setAttempt?.attempt_id ?? ''
-    const questionSetName =
-      mockSet?.name != null
-        ? extractTextFromRichJson(mockSet.name as JsonLike) || null
-        : null
-
-    sets.push({
-      setAttemptId,
+  const sets: MockSetInfo[] = setIds.map((questionSetId) => {
+    const set = setById.get(questionSetId)
+    const snapshot = (set?.content_snapshot ?? {}) as { name?: unknown }
+    return {
+      setAttemptId: set?.id ?? '',
       questionSetId,
-      questionSetName,
-      scorePoints: setAttempt?.score_points ?? null,
-      totalPoints: setAttempt?.total_points ?? null,
-      scaledScore: setAttempt?.scaled_score ?? null,
-    })
-
-    const { data: setDetail } = await supabase
-      .from('vtutor_ucat_question_set_detail')
-      .select('id, stems')
-      .eq('id', questionSetId)
-      .maybeSingle()
-
-    const setDetailTyped = setDetail as QuestionSetDetailRow | null
-    const stems = (setDetailTyped?.stems ?? []) as StemWithQuestions[]
-    const orderedQuestionIds = getOrderedQuestionIds(stems)
-
-    for (let i = 0; i < orderedQuestionIds.length; i++) {
-      globalQuestionNumber++
-      const questionId = orderedQuestionIds[i]
-      const attemptData = setAttempt
-        ? attemptsBySetAndQuestion.get(`${setAttempt.attempt_id}:${questionId}`)
-        : undefined
-
-      const score = attemptData?.score ?? null
-      const timeSpentSeconds = attemptData?.timeSpentSeconds ?? null
-      const questionType = attemptData?.questionType ?? null
-
-      let result: 'correct' | 'partial' | 'incorrect' | 'not_attempted'
-      if (attemptData == null) {
-        result = 'not_attempted'
-      } else {
-        const maxScore = questionType === 'syllogism' ? 2 : 1
-        if (score == null) {
-          result = 'not_attempted'
-        } else if (score >= maxScore) {
-          result = 'correct'
-        } else if (score > 0) {
-          result = 'partial'
-        } else {
-          result = 'incorrect'
-        }
-      }
-
-      questionAttempts.push({
-        questionNumber: globalQuestionNumber,
-        questionId,
-        setIndex,
-        score,
-        timeSpentSeconds,
-        questionType,
-        result,
-      })
+      questionSetName: snapshot.name
+        ? extractTextFromRichJson(snapshot.name as JsonLike) || null
+        : null,
+      scorePoints: set?.score_points ?? null,
+      totalPoints: set?.total_points ?? null,
+      scaledScore: set?.scaled_score ?? null,
     }
+  })
 
-    if (setIndex < mockSetIds.length - 1 && orderedQuestionIds.length > 0) {
-      setBoundaryIndices.push(globalQuestionNumber - 1)
+  const questionAttempts: MockAttemptQuestion[] = []
+  const questions: AttemptReviewQuestion[] = []
+  const setBoundaryIndices: number[] = []
+  let questionNumber = 0
+  for (let setIndex = 0; setIndex < setIds.length; setIndex += 1) {
+    const questionSetId = setIds[setIndex]
+    const setEntries = ordered.filter(
+      (entry) => entry.set.question_set_id === questionSetId
+    )
+    let currentStemId: string | null = null
+    let stemIndex = 0
+    for (const { row, snapshot } of setEntries) {
+      questionNumber += 1
+      if (snapshot.stem.id !== currentStemId) {
+        currentStemId = snapshot.stem.id
+        stemIndex += 1
+      }
+      const questionType = snapshot.question.questionType
+      const tags = (snapshot.question.tags ?? [])
+        .filter((tag) => Boolean(tag.name))
+        .map((tag) => ({
+          name: tag.name ?? '',
+          description: tag.description
+            ? extractTextFromRichJson(tag.description as JsonLike) || null
+            : null,
+        }))
+      questionAttempts.push({
+        questionNumber,
+        questionId: snapshot.question.id,
+        setIndex,
+        stemIndex,
+        score: row.score,
+        timeSpentSeconds: row.time_spent_seconds,
+        averageTimeSeconds: null,
+        averageTimeSampleSize: 0,
+        timeBurdenSeconds: snapshot.question.timeBurdenSeconds ?? null,
+        difficulty: snapshot.question.difficulty ?? null,
+        questionTags: tags,
+        isFlagged: row.is_flagged,
+        questionType,
+        result: resultForAttempt(row.score, questionType, true),
+        categoryName: snapshot.stem.categoryName ?? null,
+        categoryDescription: snapshot.stem.categoryDescription
+          ? extractTextFromRichJson(
+              snapshot.stem.categoryDescription as JsonLike
+            ) || null
+          : null,
+        questionStemCategoryId: snapshot.stem.categoryId ?? null,
+        questionAnswerOptionId: row.question_answer_option_id,
+        answerSnapshot: parseSyllogismAnswerSnapshot(row.answer_snapshot),
+      })
+      questions.push(
+        snapshotToReviewQuestion(snapshot, questionNumber, questionSetId)
+      )
+    }
+    if (setIndex < setIds.length - 1 && setEntries.length > 0) {
+      setBoundaryIndices.push(questionNumber - 1)
     }
   }
 
-  const mockName =
-    mockDetailTyped?.name != null
-      ? extractTextFromRichJson(mockDetailTyped.name as JsonLike) || null
-      : null
-
-  const scoredSetCount = sets.filter((s) => {
-    const sectionNum = s.questionSetId
-      ? sectionNumberBySetId.get(s.questionSetId)
-      : undefined
-    return sectionNum !== SITUATIONAL_JUDGEMENT_SECTION
-  }).length
-
+  const sectionBySetId = new Map<string, number>()
+  for (const entry of ordered) {
+    if (entry.snapshot.stem.sectionNumber != null) {
+      sectionBySetId.set(
+        entry.set.question_set_id,
+        entry.snapshot.stem.sectionNumber
+      )
+    }
+  }
+  const scoredSetCount = sets.filter(
+    (set) => sectionBySetId.get(set.questionSetId) !== 4
+  ).length
   const scaledScore =
-    sets.length > 0
-      ? sets.reduce((sum, s) => {
-          const sectionNum = s.questionSetId
-            ? sectionNumberBySetId.get(s.questionSetId)
-            : undefined
-          if (sectionNum === SITUATIONAL_JUDGEMENT_SECTION) return sum
-          return sum + (s.scaledScore ?? 0)
-        }, 0)
-      : null
-
-  const scaledScoreMax = scoredSetCount > 0 ? scoredSetCount * 900 : null
+    mockAttempt.scaled_score ??
+    sets.reduce(
+      (total, set) =>
+        sectionBySetId.get(set.questionSetId) === 4
+          ? total
+          : total + (set.scaledScore ?? 0),
+      0
+    )
+  const timeTakenSeconds = mockAttempt.time_taken
+  const mockTimeLimitSeconds = mockAttempt.mock_time_limit_seconds
+  const examTimeLimitSeconds =
+    mockAttempt.mock_time_limit_at_exam_speed_seconds
+  let studentMockSpeed = mockAttempt.student_mock_speed
+  let studentExamSpeed: number | null = null
+  if (timeTakenSeconds != null && timeTakenSeconds > 0) {
+    studentMockSpeed ??=
+      mockTimeLimitSeconds != null && mockTimeLimitSeconds > 0
+        ? mockTimeLimitSeconds / timeTakenSeconds
+        : null
+    studentExamSpeed =
+      examTimeLimitSeconds != null && examTimeLimitSeconds > 0
+        ? examTimeLimitSeconds / timeTakenSeconds
+        : null
+  }
 
   const response: MockAttemptDetailResponse = {
-    id: mockAttemptTyped.id ?? '',
-    ucatMockId,
-    mockName,
+    id: mockAttempt.id,
+    ucatMockId: mockAttempt.ucat_mock_id,
+    mockName: mockSnapshot.name
+      ? extractTextFromRichJson(mockSnapshot.name as JsonLike) || null
+      : null,
     scaledScore,
-    scaledScoreMax,
-    attemptedAt: mockAttemptTyped.attempted_at ?? '',
-    completedAt: mockAttemptTyped.completed_at,
+    scaledScoreMax: scoredSetCount > 0 ? scoredSetCount * 900 : null,
+    timeTakenSeconds,
+    mockTimeLimitSeconds,
+    examTimeLimitSeconds,
+    studentMockSpeed,
+    studentExamSpeed,
+    attemptedAt: mockAttempt.attempted_at,
+    completedAt: mockAttempt.completed_at,
     sets,
+    questions,
     questionAttempts,
     setBoundaryIndices,
   }

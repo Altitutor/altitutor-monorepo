@@ -28,6 +28,7 @@ import {
   type UcatAuthoringWorkspaceTab,
 } from '@/features/ucat/shared/components/UcatAuthoringWorkspaceTabs'
 import { cn } from '@/shared/utils'
+import type { SelectedVisualImage } from '@/features/ucat/shared/lib/selected-visual-image'
 
 type UcatStemEditorShellProps = {
   form: UseFormReturn<UcatQuestionStemFormValues>
@@ -67,6 +68,8 @@ type UcatStemEditorShellProps = {
   statusChangedByFirstName?: string | null
   statusChangedByLastName?: string | null
   statusChangedAt?: string | null
+  selectedImage?: SelectedVisualImage | null
+  onAcceptSelectedImage?: (imageNode: Json) => Promise<{ ok: boolean; message: string }> | { ok: boolean; message: string }
 }
 
 export function UcatStemEditorShell({
@@ -100,6 +103,8 @@ export function UcatStemEditorShell({
   statusChangedByFirstName = null,
   statusChangedByLastName = null,
   statusChangedAt = null,
+  selectedImage = null,
+  onAcceptSelectedImage,
 }: UcatStemEditorShellProps) {
   const [localEditorMode, setLocalEditorMode] = useState<StemEditorMode>(initialEditorMode)
   const [localShowAnswer, setLocalShowAnswer] = useState(false)
@@ -189,6 +194,10 @@ export function UcatStemEditorShell({
     }
   }, [editorMode, onActiveTextEditorChange])
 
+  useEffect(() => {
+    if (selectedImage) setActiveWorkspace('ai')
+  }, [selectedImage])
+
   return (
     <div className={cn('flex min-h-0 flex-1 flex-col overflow-hidden', className)}>
       <UcatAuthoringWorkspaceTabs
@@ -258,6 +267,9 @@ export function UcatStemEditorShell({
         statusChangedAt={statusChangedAt}
         activeTab={activeWorkspace === 'editor' ? 'properties' : activeWorkspace}
         onActiveTabChange={setActiveWorkspace}
+        selectedImage={selectedImage}
+        onAcceptSelectedImage={onAcceptSelectedImage}
+        onNewImageFileIds={onNewImageFileIds}
         className={cn(activeWorkspace === 'editor' && 'hidden', 'lg:flex')}
       />
       </div>

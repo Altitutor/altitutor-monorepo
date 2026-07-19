@@ -596,7 +596,7 @@ export function SetAnswersCard({
             />
             {currentAttempt?.averageTimeSeconds != null ? (
               <MeterRow
-                label={`Average time`}
+                label="Correct-answer average"
                 value={currentAttempt.averageTimeSeconds}
                 max={timingMax}
                 tone="muted"

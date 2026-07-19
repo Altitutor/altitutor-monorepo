@@ -1,6 +1,6 @@
 'use client'
 
-import { Fragment, useCallback, useEffect, useMemo, useState } from 'react'
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { Editor } from '@tiptap/react'
 import { cn } from '@/shared/utils'
 import type { Json } from '@altitutor/shared'
@@ -14,7 +14,7 @@ import {
   TableRow,
   useToast,
 } from '@altitutor/ui'
-import { Loader2 } from 'lucide-react'
+import { Square } from 'lucide-react'
 import type { BulkImportStemDraft } from '@/features/ucat/questions/hooks/useBulkImportWizard'
 import type { UcatQuestionStemFormValues } from '@/features/ucat/questions/types/schema'
 import { proseMirrorToPlainText } from '@/features/ucat/shared/lib/rich-text'
@@ -160,6 +160,7 @@ export function Step3SetAnswers({
   const rows = useMemo(() => buildAnswerRows(stems), [stems])
   const [expandedRowKey, setExpandedRowKey] = useState<string | null>(null)
   const [isGenerating, setIsGenerating] = useState(false)
+  const generationAbortControllerRef = useRef<AbortController | null>(null)
   const [reviewFlagsByStemId, setReviewFlagsByStemId] = useState<Record<string, AiToolReviewFlag[]>>({})
   const missingExplanationTargets = useMemo(
     () =>
@@ -221,9 +222,14 @@ export function Step3SetAnswers({
 
   useEffect(() => {
     return () => {
+      generationAbortControllerRef.current?.abort()
       onActiveTextEditorChange?.(null)
     }
   }, [onActiveTextEditorChange])
+
+  const handleStopGeneratingExplanations = useCallback(() => {
+    generationAbortControllerRef.current?.abort()
+  }, [])
 
   const handleBulkGenerateExplanations = useCallback(async () => {
     if (!onUpdateStem || isGenerating) return
@@ -236,10 +242,13 @@ export function Step3SetAnswers({
       return
     }
 
+    const abortController = new AbortController()
+    generationAbortControllerRef.current = abortController
     setIsGenerating(true)
     try {
       const response = await ucatQuestionsApi.generateExplanations({
         concurrency: 4,
+        signal: abortController.signal,
         stems: stemsNeedingGeneration.map((stem) => {
           const payload = formValuesToExplanationStemPayload(stem.values)
           const sectionName =
@@ -319,12 +328,22 @@ export function Step3SetAnswers({
         variant: appliedCount > 0 || flaggedCount > 0 ? 'default' : 'destructive',
       })
     } catch (error) {
+      if (error instanceof Error && error.name === 'AbortError') {
+        toast({
+          title: 'Explanation generation stopped',
+          description: 'No new AI explanations were applied.',
+        })
+        return
+      }
       toast({
         title: 'Failed to generate explanations',
         description: error instanceof Error ? error.message : 'Please try again.',
         variant: 'destructive',
       })
     } finally {
+      if (generationAbortControllerRef.current === abortController) {
+        generationAbortControllerRef.current = null
+      }
       setIsGenerating(false)
     }
   }, [categories, isGenerating, onUpdateStem, reviewFlagsByStemId, sections, stems, toast])
@@ -389,14 +408,15 @@ export function Step3SetAnswers({
           <Button
             type="button"
             size="sm"
-            className={tutorBtnPrimary}
-            onClick={() => void handleBulkGenerateExplanations()}
-            disabled={isGenerating}
+            className={isGenerating ? tutorBtnOutline : tutorBtnPrimary}
+            onClick={isGenerating
+              ? handleStopGeneratingExplanations
+              : () => void handleBulkGenerateExplanations()}
           >
             {isGenerating ? (
               <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Generating...
+                <Square className="mr-2 h-3.5 w-3.5 fill-current" />
+                Stop generating
               </>
             ) : (
               'Bulk generate explanations'

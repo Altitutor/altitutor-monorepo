@@ -46,6 +46,10 @@ export type UcatAuthoringAgentRequest = {
     src?: string | null
     fileId?: string | null
     location?: string | null
+    visualType?: string | null
+    visualSpec?: Json | null
+    visualTitle?: string | null
+    visualAltText?: string | null
   } | null
   snapshot: Json
   messages: UcatAuthoringChatMessage[]

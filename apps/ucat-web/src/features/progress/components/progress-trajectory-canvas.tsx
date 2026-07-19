@@ -9,6 +9,8 @@ import {
 } from "@/features/dashboard/components/dashboard-trajectory-chart";
 import type { DashboardTrajectoryChartPoint } from "@/features/dashboard/lib/dashboard-trajectory";
 import { DASHBOARD_FORECAST_WINDOW_DAYS } from "@/features/dashboard/lib/dashboard-trajectory";
+import { UCAT_FLOATING_GRAPH_CARD } from "@/lib/ucat-surface-motion";
+import { cn } from "@/lib/utils";
 import type {
   HistoricalProjectionPoint,
   ProjectionPoint,
@@ -135,7 +137,12 @@ export function ProgressTrajectoryCanvas({
           />
         </div>
 
-        <aside className="absolute right-6 top-24 z-20 hidden w-[min(390px,calc(100%-3rem))] rounded-2xl border border-border/70 bg-card/88 p-6 shadow-xl backdrop-blur-xl lg:block">
+        <aside
+          className={cn(
+            UCAT_FLOATING_GRAPH_CARD,
+            "absolute right-6 top-24 z-20 hidden w-[min(390px,calc(100%-3rem))] p-6 lg:block",
+          )}
+        >
           <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
             <Sparkles className="size-3.5" aria-hidden />
             Insight
@@ -154,7 +161,12 @@ export function ProgressTrajectoryCanvas({
         </aside>
       </div>
 
-      <aside className="relative z-20 mx-4 -mt-20 mb-5 rounded-2xl border border-border/70 bg-card/92 p-5 shadow-xl backdrop-blur-xl lg:hidden">
+      <aside
+        className={cn(
+          UCAT_FLOATING_GRAPH_CARD,
+          "relative z-20 mx-4 -mt-20 mb-5 p-5 lg:hidden",
+        )}
+      >
         <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
           <Sparkles className="size-3.5" aria-hidden />
           Insight

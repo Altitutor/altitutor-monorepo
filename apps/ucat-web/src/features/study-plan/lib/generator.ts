@@ -4,6 +4,7 @@ import {
   parseIsoDate,
   weekday,
 } from "@/features/study-plan/lib/dates";
+import { allocateSectionTargets } from "@/features/study-plan/lib/section-targets";
 import type {
   GeneratedStudyPlanTask,
   StudyPlanAvailability,
@@ -133,44 +134,6 @@ function capacityRisk(
       ? `Your availability is about ${recommended - available} minutes below the weekly workload normally needed for this target. We will still build the best plan that fits.`
       : null,
   };
-}
-
-function allocateSectionTargets(
-  targetScore: number,
-  sections: StudyPlanSection[],
-  signals: StudyPlanSectionSignal[],
-): Record<string, number> {
-  const cognitive = sections.slice(0, COGNITIVE_SECTION_COUNT);
-  const signalMap = new Map(
-    signals.map((signal) => [signal.sectionId, signal]),
-  );
-  const known = cognitive
-    .map((section) => signalMap.get(section.id)?.currentEstimate ?? null)
-    .filter((value): value is number => value != null);
-  const mean = known.length
-    ? known.reduce((sum, value) => sum + value, 0) / known.length
-    : 600;
-  const raw = cognitive.map((section) => {
-    const estimate = signalMap.get(section.id)?.currentEstimate ?? mean;
-    return targetScore / COGNITIVE_SECTION_COUNT + (estimate - mean) * 0.25;
-  });
-  const rounded = raw.map((value) =>
-    Math.max(300, Math.min(900, Math.round(value / 10) * 10)),
-  );
-  let difference = targetScore - rounded.reduce((sum, value) => sum + value, 0);
-  let cursor = 0;
-  while (difference !== 0 && cursor < 200) {
-    const index = cursor % rounded.length;
-    const step = difference > 0 ? 10 : -10;
-    if (rounded[index] + step >= 300 && rounded[index] + step <= 900) {
-      rounded[index] += step;
-      difference -= step;
-    }
-    cursor += 1;
-  }
-  return Object.fromEntries(
-    cognitive.map((section, index) => [section.id, rounded[index]]),
-  );
 }
 
 function sectionPriority(
@@ -468,8 +431,14 @@ export function generateExtraStudyTasks(
       ? input.sectionTargets
       : allocateSectionTargets(
           input.targetScore,
-          input.sections,
-          input.signals,
+          input.sections
+            .filter((section) => section.sectionNumber <= 3)
+            .map((section) => ({
+              sectionId: section.id,
+              currentEstimate:
+                input.signals.find((signal) => signal.sectionId === section.id)
+                  ?.currentEstimate ?? null,
+            })),
         );
   const section =
     preferredSection ??
@@ -558,8 +527,14 @@ export function generateStudyPlan(
   const risk = capacityRisk(input.profile, input.signals, daysRemainingAtStart);
   const sectionTargets = allocateSectionTargets(
     input.profile.targetScore,
-    input.sections,
-    input.signals,
+    input.sections
+      .filter((section) => section.sectionNumber <= 3)
+      .map((section) => ({
+        sectionId: section.id,
+        currentEstimate:
+          input.signals.find((signal) => signal.sectionId === section.id)
+            ?.currentEstimate ?? null,
+      })),
   );
   const signals = new Map(
     input.signals.map((signal) => [signal.sectionId, signal]),

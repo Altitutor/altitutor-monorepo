@@ -11,8 +11,18 @@ import {
 import type { ProgressAttemptRow } from "@/app/api/ucat/progress/attempts/route";
 import { Button } from "@/components/ui/button";
 import { useProgressAttempts } from "@/features/progress/hooks/use-progress-attempts";
-import { UCAT_CARD_CHROME } from "@/lib/ucat-surface-motion";
+import {
+  UCAT_CARD_CHROME,
+  UCAT_CONTROL_PRESS,
+  UCAT_FOCUS_RING_INSET,
+  UCAT_NEUTRAL_ACTION_HOVER,
+  UCAT_PRESSABLE_SURFACE_HOVER,
+} from "@/lib/ucat-surface-motion";
 import { cn } from "@/lib/utils";
+import {
+  UnreviewedAttemptDot,
+  UnreviewedAttemptTooltip,
+} from "@/features/progress/components/unreviewed-attempt-indicator";
 
 function attemptName(attempt: ProgressAttemptRow): string {
   switch (attempt.source) {
@@ -80,7 +90,12 @@ export function DashboardRecentAttemptsCard() {
           <div>
             <h2 className="font-semibold">Recent attempts</h2>
           </div>
-          <Button asChild size="sm" variant="ghost">
+          <Button
+            asChild
+            size="sm"
+            variant="ghost"
+            className={UCAT_NEUTRAL_ACTION_HOVER}
+          >
             <Link href="/progress">All progress</Link>
           </Button>
         </div>
@@ -98,32 +113,56 @@ export function DashboardRecentAttemptsCard() {
           </p>
         ) : attemptsQuery.data?.attempts.length ? (
           <div className="mt-4 divide-y divide-border/60">
-            {attemptsQuery.data.attempts.map((attempt) => (
-              <Link
-                key={`${attempt.source}-${attempt.id}`}
-                href={attemptHref(attempt)}
-                className="group flex items-center gap-3 py-3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-              >
-                <span className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-muted text-muted-foreground transition-colors group-hover:text-foreground">
-                  <AttemptIcon source={attempt.source} />
-                </span>
-                <span className="min-w-0 flex-1">
-                  <span className="block truncate text-sm font-medium">
-                    {attemptName(attempt)}
+            {attemptsQuery.data.attempts.map((attempt) => {
+              const attemptLink = (
+                <Link
+                  key={`${attempt.source}-${attempt.id}`}
+                  href={attemptHref(attempt)}
+                  className={cn(
+                    "group flex items-center gap-3 rounded-xl px-2 py-2.5",
+                    UCAT_CONTROL_PRESS,
+                    UCAT_PRESSABLE_SURFACE_HOVER,
+                    UCAT_FOCUS_RING_INSET,
+                  )}
+                  aria-label={
+                    attempt.reviewCompletedAt == null
+                      ? `${attemptName(attempt)}. This attempt is unreviewed.`
+                      : undefined
+                  }
+                >
+                  <span className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-muted text-muted-foreground transition-colors group-hover:text-foreground">
+                    <AttemptIcon source={attempt.source} />
                   </span>
-                  <span className="mt-0.5 block text-xs text-muted-foreground">
-                    {attemptScore(attempt)} · {attemptDate(attempt)}
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-sm font-medium">
+                      {attemptName(attempt)}
+                    </span>
+                    <span className="mt-0.5 block text-xs text-muted-foreground">
+                      {attemptScore(attempt)} · {attemptDate(attempt)}
+                    </span>
                   </span>
-                </span>
-                <span className="flex shrink-0 items-center gap-1 text-xs font-medium text-primary">
-                  Review
-                  <ArrowRight
-                    className="size-3.5 transition-transform group-hover:translate-x-0.5"
-                    aria-hidden
-                  />
-                </span>
-              </Link>
-            ))}
+                  <span className="flex shrink-0 items-center gap-1.5 text-xs font-medium text-primary">
+                    Review
+                    {attempt.reviewCompletedAt == null ? (
+                      <UnreviewedAttemptDot />
+                    ) : null}
+                    <ArrowRight
+                      className="size-3.5 transition-transform group-hover:translate-x-0.5"
+                      aria-hidden
+                    />
+                  </span>
+                </Link>
+              );
+              return attempt.reviewCompletedAt == null ? (
+                <UnreviewedAttemptTooltip
+                  key={`${attempt.source}-${attempt.id}`}
+                >
+                  {attemptLink}
+                </UnreviewedAttemptTooltip>
+              ) : (
+                attemptLink
+              );
+            })}
           </div>
         ) : (
           <div className="mt-5 rounded-xl border border-dashed p-5 text-center">
