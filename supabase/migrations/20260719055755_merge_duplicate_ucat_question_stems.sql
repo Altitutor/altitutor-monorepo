@@ -59,16 +59,6 @@ BEGIN
     WHERE target.target_block = source.source_block
   );
 
-  UPDATE public.question_stems
-  SET stem_text = CASE
-        WHEN jsonb_typeof(stem_text) = 'object' AND jsonb_typeof(v_source.stem_text) = 'object'
-          THEN jsonb_set(stem_text, '{content}', v_target_content || v_unique_source_content, true)
-        ELSE stem_text
-      END,
-      updated_at = NOW(),
-      updated_by = public.current_tutor_id()
-  WHERE id = p_target_stem_id;
-
   SELECT COALESCE(MAX(index), -1) + 1
   INTO v_next_question_index
   FROM public.ucat_questions
@@ -82,9 +72,11 @@ BEGIN
   LOOP
     -- Collapse a byte-for-byte equivalent question already present on the target.
     -- Question text, explanation, metadata, tags, and ordered options must all match.
+    v_duplicate_question_id := NULL;
     SELECT candidate.id INTO v_duplicate_question_id
     FROM public.ucat_questions candidate
-    WHERE candidate.question_stem_id = p_target_stem_id
+    WHERE jsonb_array_length(v_unique_source_content) = 0
+      AND candidate.question_stem_id = p_target_stem_id
       AND candidate.deleted_at IS NULL
       AND candidate.question_text = v_question.question_text
       AND candidate.answer_explanation IS NOT DISTINCT FROM v_question.answer_explanation
@@ -123,9 +115,32 @@ BEGIN
       UPDATE public.ucat_questions
       SET question_stem_id = p_target_stem_id,
           index = v_next_question_index,
+          question_text = CASE
+            WHEN jsonb_array_length(v_unique_source_content) > 0
+              AND jsonb_typeof(question_text) = 'object'
+              AND jsonb_typeof(question_text->'content') = 'array'
+              THEN jsonb_set(
+                question_text,
+                '{content}',
+                v_unique_source_content || COALESCE(question_text->'content', '[]'::JSONB),
+                true
+              )
+            ELSE question_text
+          END,
           updated_at = NOW(),
           updated_by = public.current_tutor_id()
       WHERE id = v_question.id;
+
+      -- Source-only stem blocks may contain images which now live in the moved
+      -- question. Retain their file links at question scope as well.
+      IF jsonb_array_length(v_unique_source_content) > 0 THEN
+        INSERT INTO public.questions_files (question_id, file_id)
+        SELECT v_question.id, source_file.file_id
+        FROM public.question_stems_files source_file
+        WHERE source_file.question_stem_id = p_source_stem_id
+        ON CONFLICT (question_id, file_id) DO NOTHING;
+      END IF;
+
       v_next_question_index := v_next_question_index + 1;
     ELSE
       UPDATE public.question_answer_options
