@@ -30,7 +30,6 @@ import type {
   UnloggedSession,
   UnassignedClass,
   UnassignedTask,
-  FailedDeliveryMessage,
   StudentWithoutClasses,
   StudentWithoutPaymentMethod,
   TrialStudentNotSignedUp,
@@ -44,7 +43,6 @@ import { getProjectStatusLabel, getProjectPriorityLabel } from '@/features/proje
 import { useConversationsByContact } from '@/features/messages/api/queries';
 import type { AggregatedConversation } from '@/features/messages/types';
 import { formatContactName } from '@/features/messages/utils/formatContactName';
-import { useChatStore } from '@/features/messages/state/chatStore';
 import { useReconciliationHandlers } from './ReconciliationActions';
 
 /** Handlers used to open student / staff / parent modals from a message contact row. */
@@ -717,58 +715,6 @@ export function UnassignedClassesTable({
           </TableCell>
         </TableRow>
       )}
-    />
-  );
-}
-
-export function FailedDeliveryMessagesTable({
-  items,
-  isLoading,
-}: {
-  items: FailedDeliveryMessage[];
-  isLoading?: boolean;
-}) {
-  const openWindow = useChatStore((s) => s.openWindow);
-
-  return (
-    <ReconciliationTable
-      title="Messages which failed delivery"
-      items={items}
-      isLoading={isLoading}
-      columns={['Failed At', 'Contact', 'Status', 'Error']}
-      renderRow={(item, _index) => {
-        const hoursAgo = item.hours_since_failure
-          ? Math.floor(item.hours_since_failure)
-          : null;
-        const contactTitle = item.contact_name || item.contact_phone;
-
-        return (
-          <TableRow key={item.message_id}>
-            <TableCell>
-              {hoursAgo !== null ? `${hoursAgo}h ago` : '—'}
-            </TableCell>
-            <TableCell>
-              <ReconciliationTableLinkButton
-                className="font-medium"
-                onClick={() =>
-                  openWindow({ conversationId: item.conversation_id, title: contactTitle })
-                }
-              >
-                {contactTitle}
-              </ReconciliationTableLinkButton>
-            </TableCell>
-            <TableCell>
-              <Badge variant="destructive">{item.status}</Badge>
-            </TableCell>
-            <TableCell className="max-w-md truncate">
-              {item.error_message || item.error_code || '—'}
-            </TableCell>
-            <TableCell className={ACTIONS_CELL}>
-              <ReconciliationActions type="failed_delivery_messages" item={item} />
-            </TableCell>
-          </TableRow>
-        );
-      }}
     />
   );
 }

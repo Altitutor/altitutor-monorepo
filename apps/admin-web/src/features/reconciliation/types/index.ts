@@ -135,33 +135,6 @@ export interface UnassignedClass {
   updated_at: string;
 }
 
-// Failed Delivery Messages
-export interface FailedDeliveryMessage {
-  message_id: string;
-  conversation_id: string;
-  direction: string;
-  body: string;
-  status: string;
-  status_updated_at: string | null;
-  error_code: number | null;
-  error_message: string | null;
-  message_sid: string | null;
-  from_number_e164: string | null;
-  to_number_e164: string;
-  created_at: string;
-  updated_at: string | null;
-  conversation_status: string;
-  assigned_staff_id: string | null;
-  conversation_last_message_at: string | null;
-  contact_name: string | null;
-  contact_phone: string;
-  contact_type: string;
-  student_id: string | null;
-  parent_id: string | null;
-  staff_id: string | null;
-  hours_since_failure: number | null;
-}
-
 // Students Without Payment Method
 export interface StudentWithoutPaymentMethod {
   student_id: string;
@@ -273,7 +246,6 @@ export type ReconciliationItemType =
   | 'unlogged_sessions'
   | 'unassigned_classes'
   | 'unassigned_tasks'
-  | 'failed_delivery_messages'
   | 'students_without_classes'
   | 'students_without_payment_method'
   | 'trial_students_not_signed_up'
@@ -288,7 +260,6 @@ export interface ReconciliationCategoryData {
     unlogged_sessions?: UnloggedSession[];
     unassigned_classes?: UnassignedClass[];
     unassigned_tasks?: UnassignedTask[];
-    failed_delivery_messages?: FailedDeliveryMessage[];
     students_without_classes?: StudentWithoutClasses[];
     students_without_payment_method?: StudentWithoutPaymentMethod[];
     trial_students_not_signed_up?: TrialStudentNotSignedUp[];
@@ -299,7 +270,6 @@ export interface ReconciliationCategoryData {
     unlogged_sessions: number;
     unassigned_classes: number;
     unassigned_tasks: number;
-    failed_delivery_messages: number;
     students_without_classes: number;
     students_without_payment_method: number;
     trial_students_not_signed_up: number;

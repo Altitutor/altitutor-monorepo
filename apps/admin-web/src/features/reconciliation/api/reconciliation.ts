@@ -7,7 +7,6 @@ import type {
   UninvoicedSession,
   UnloggedSession,
   UnassignedClass,
-  FailedDeliveryMessage,
   UnpaidInvoice,
   StudentWithoutClasses,
   StudentWithoutPaymentMethod,
@@ -348,99 +347,6 @@ export const reconciliationApi = {
   },
 
   /**
-   * Get failed delivery messages
-   */
-  getFailedDeliveryMessages: async (): Promise<FailedDeliveryMessage[]> => {
-    const supabase = getSupabaseClient() as SupabaseClient<Database>;
-    
-    const { data: messages, error: messagesError } = await supabase
-      .from('messages')
-      .select(`
-        id,
-        conversation_id,
-        direction,
-        body,
-        status,
-        status_updated_at,
-        error_code,
-        error_message,
-        message_sid,
-        from_number_e164,
-        to_number_e164,
-        created_at,
-        updated_at,
-        conversation:conversations(
-          status,
-          assigned_staff_id,
-          last_message_at,
-          contact:contacts(
-            contact_type,
-            student_id,
-            parent_id,
-            staff_id,
-            phone_e164,
-            student:students(first_name, last_name),
-            parent:parents(first_name, last_name),
-            staff:staff(first_name, last_name)
-          )
-        )
-      `)
-      .eq('direction', 'OUTBOUND')
-      .in('status', ['FAILED', 'UNDELIVERED'])
-      .not('status_updated_at', 'is', null)
-      .order('status_updated_at', { ascending: false });
-    
-    if (messagesError) throw messagesError;
-    
-    type ConversationWithContact = { status?: string; assigned_staff_id?: string; last_message_at?: string; contact?: { contact_type?: string; student?: { first_name: string; last_name: string }; parent?: { first_name: string; last_name: string }; staff?: { first_name: string; last_name: string }; phone_e164?: string; student_id?: string; parent_id?: string; staff_id?: string } };
-    return (messages ?? []).map((msg) => {
-      const conv = msg.conversation as ConversationWithContact | null;
-      const contact = conv?.contact;
-      
-      // Build contact name
-      let contactName: string | null = null;
-      if (contact?.contact_type === 'STUDENT' && contact?.student) {
-        contactName = `${contact.student.first_name} ${contact.student.last_name}`;
-      } else if (contact?.contact_type === 'PARENT' && contact?.parent) {
-        contactName = `${contact.parent.first_name} ${contact.parent.last_name}`;
-      } else if (contact?.contact_type === 'STAFF' && contact?.staff) {
-        contactName = `${contact.staff.first_name} ${contact.staff.last_name}`;
-      }
-      
-      // Calculate hours since failure
-      const hoursSinceFailure = msg.status_updated_at
-        ? (Date.now() - new Date(msg.status_updated_at).getTime()) / (1000 * 60 * 60)
-        : null;
-      
-      return {
-        message_id: msg.id,
-        conversation_id: msg.conversation_id,
-        direction: msg.direction,
-        body: msg.body,
-        status: msg.status,
-        status_updated_at: msg.status_updated_at,
-        error_code: msg.error_code,
-        error_message: msg.error_message,
-        message_sid: msg.message_sid,
-        from_number_e164: msg.from_number_e164,
-        to_number_e164: msg.to_number_e164 ?? '',
-        created_at: msg.created_at ?? '',
-        updated_at: msg.updated_at,
-        conversation_status: conv?.status ?? '',
-        assigned_staff_id: conv?.assigned_staff_id,
-        conversation_last_message_at: conv?.last_message_at,
-        contact_name: contactName,
-        contact_phone: contact?.phone_e164 ?? '',
-        contact_type: contact?.contact_type ?? '',
-        student_id: contact?.student_id,
-        parent_id: contact?.parent_id,
-        staff_id: contact?.staff_id,
-        hours_since_failure: hoursSinceFailure,
-      } as FailedDeliveryMessage;
-    });
-  },
-
-  /**
    * Students who should have a class per subject but do not.
    *
    * Subject scope matches the student profile subject list (direct `students_subjects` rows plus
@@ -758,18 +664,6 @@ async function countUnpaidInvoicesExact(): Promise<number> {
   return count ?? 0;
 }
 
-async function countFailedDeliveryMessagesExact(): Promise<number> {
-  const supabase = getSupabaseClient() as SupabaseClient<Database>;
-  const { count, error } = await supabase
-    .from('messages')
-    .select('id', { count: 'exact', head: true })
-    .eq('direction', 'OUTBOUND')
-    .in('status', ['FAILED', 'UNDELIVERED'])
-    .not('status_updated_at', 'is', null);
-  if (error) throw error;
-  return count ?? 0;
-}
-
 async function countUnassignedTasksExact(): Promise<number> {
   const supabase = getSupabaseClient() as SupabaseClient<Database>;
   const { count, error } = await supabase
@@ -806,7 +700,6 @@ export async function getReconciliationTabCounts(): Promise<ReconciliationTabCou
     unassignedClassesCount,
     studentsWithoutClassesCount,
     trialCount,
-    failedCount,
     conversationsByContact,
     unassignedTasksCount,
     projectsNoLeadCount,
@@ -819,7 +712,6 @@ export async function getReconciliationTabCounts(): Promise<ReconciliationTabCou
     countReconciliationViewRows('vadmin_reconciliation_unassigned_classes'),
     reconciliationApi.getStudentsWithoutClasses().then((r) => r.length),
     reconciliationApi.getTrialStudentsNotSignedUp().then((r) => r.length),
-    countFailedDeliveryMessagesExact(),
     fetchConversationsByContact(),
     countUnassignedTasksExact(),
     countProjectsWithoutLeadExact(),
@@ -833,7 +725,7 @@ export async function getReconciliationTabCounts(): Promise<ReconciliationTabCou
   return {
     financial: uninvoicedCount + voidCount + unpaidCount + noPaymentCount,
     scheduling: unloggedCount + unassignedClassesCount + studentsWithoutClassesCount + trialCount,
-    communication: failedCount + unreadContacts + followUpContacts,
+    communication: unreadContacts + followUpContacts,
     operations: unassignedTasksCount + projectsNoLeadCount,
   };
 }

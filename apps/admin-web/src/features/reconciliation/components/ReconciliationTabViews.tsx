@@ -9,7 +9,6 @@ import {
   UnloggedSessionsTable,
   UnassignedClassesTable,
   UnassignedTasksTable,
-  FailedDeliveryMessagesTable,
   UnreadMessagesTable,
   MessagesToFollowUpTable,
   StudentsWithoutClassesTable,
@@ -20,7 +19,6 @@ import {
 import {
   useReconciliationFinancialData,
   useReconciliationSchedulingData,
-  useReconciliationCommunicationData,
   useReconciliationOperationsData,
 } from '../hooks';
 import { useFamilyCheckInsData } from '../api/queries';
@@ -44,16 +42,6 @@ function SchedulingTabSkeleton() {
       <SkeletonTable rows={3} columns={5} />
       <SkeletonTable rows={3} columns={4} />
       <SkeletonTable rows={3} columns={4} />
-    </div>
-  );
-}
-
-function CommunicationTabSkeleton() {
-  return (
-    <div className="space-y-6 mt-6" aria-busy="true">
-      <SkeletonTable rows={3} columns={5} />
-      <SkeletonTable rows={3} columns={2} />
-      <SkeletonTable rows={3} columns={2} />
     </div>
   );
 }
@@ -158,29 +146,8 @@ export function ReconciliationSchedulingTab() {
 }
 
 export function ReconciliationCommunicationTab() {
-  const data = useReconciliationCommunicationData();
-
-  if (data.isLoading) {
-    return <CommunicationTabSkeleton />;
-  }
-
-  if (data.hasError) {
-    return (
-      <div className="mt-6 rounded-md border border-destructive bg-destructive/10 p-4">
-        <div className="flex items-center gap-2 text-destructive">
-          <AlertCircle className="h-5 w-5" />
-          <p>Error loading communication reconciliation data. Please try again.</p>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div className="space-y-6 mt-6">
-      <FailedDeliveryMessagesTable
-        items={data.failedDeliveryMessages.data ?? []}
-        isLoading={data.failedDeliveryMessages.isLoading}
-      />
       <UnreadMessagesTable />
       <MessagesToFollowUpTable />
     </div>

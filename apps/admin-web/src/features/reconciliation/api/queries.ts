@@ -64,18 +64,6 @@ export function useUnassignedClasses() {
 }
 
 /**
- * Get failed delivery messages
- */
-export function useFailedDeliveryMessages() {
-  return useQuery({
-    queryKey: reconciliationKeys.failedDeliveryMessages(),
-    queryFn: () => reconciliationApi.getFailedDeliveryMessages(),
-    staleTime: 1000 * 60 * 1, // 1 minute (messages change frequently)
-    gcTime: 1000 * 60 * 3, // 3 minutes
-  });
-}
-
-/**
  * Get students without classes
  */
 export function useStudentsWithoutClasses() {
