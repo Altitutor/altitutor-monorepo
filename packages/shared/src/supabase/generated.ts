@@ -2446,6 +2446,7 @@ export type Database = {
           form_token_id: string | null
           form_version_id: string
           id: string
+          idempotency_key: string | null
           recorded_by_staff_id: string | null
           respondent_parent_id: string | null
           respondent_staff_id: string | null
@@ -2468,6 +2469,7 @@ export type Database = {
           form_token_id?: string | null
           form_version_id: string
           id?: string
+          idempotency_key?: string | null
           recorded_by_staff_id?: string | null
           respondent_parent_id?: string | null
           respondent_staff_id?: string | null
@@ -2490,6 +2492,7 @@ export type Database = {
           form_token_id?: string | null
           form_version_id?: string
           id?: string
+          idempotency_key?: string | null
           recorded_by_staff_id?: string | null
           respondent_parent_id?: string | null
           respondent_staff_id?: string | null
@@ -9690,6 +9693,90 @@ export type Database = {
           },
           {
             foreignKeyName: "student_ucat_attempt_reviews_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_ucat_student_progress_summary"
+            referencedColumns: ["student_id"]
+          },
+        ]
+      }
+      student_ucat_content_ratings: {
+        Row: {
+          context_key: string
+          created_at: string
+          displayed_content: Json
+          id: string
+          reason_code: string | null
+          reason_text: string | null
+          student_id: string
+          surface: string
+          target_key: string
+          target_type: string
+          target_version: string
+          updated_at: string
+          vote: number
+        }
+        Insert: {
+          context_key: string
+          created_at?: string
+          displayed_content: Json
+          id?: string
+          reason_code?: string | null
+          reason_text?: string | null
+          student_id: string
+          surface: string
+          target_key: string
+          target_type: string
+          target_version: string
+          updated_at?: string
+          vote: number
+        }
+        Update: {
+          context_key?: string
+          created_at?: string
+          displayed_content?: Json
+          id?: string
+          reason_code?: string | null
+          reason_text?: string | null
+          student_id?: string
+          surface?: string
+          target_key?: string
+          target_type?: string
+          target_version?: string
+          updated_at?: string
+          vote?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "student_ucat_content_ratings_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "student_ucat_content_ratings_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "vadmin_reconciliation_students_without_payment_method"
+            referencedColumns: ["student_id"]
+          },
+          {
+            foreignKeyName: "student_ucat_content_ratings_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_profile"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "student_ucat_content_ratings_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_students"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "student_ucat_content_ratings_student_id_fkey"
             columns: ["student_id"]
             isOneToOne: false
             referencedRelation: "vtutor_ucat_student_progress_summary"
@@ -28666,6 +28753,15 @@ export type Database = {
       undo_student_absences: {
         Args: { logged_by_staff_id: string; operations: Json }
         Returns: Json
+      }
+      upsert_ucat_question_attempt_batch: {
+        Args: {
+          p_attempts: Json
+          p_student_id: string
+          p_student_practice_session_id: string
+          p_student_question_set_attempt_id: string
+        }
+        Returns: number
       }
       use_ucat_free_quota_reset_entitlement: {
         Args: { p_student_id: string }
