@@ -178,6 +178,10 @@ begin
       returning 1
     )
     select count(*) into v_count from written;
+
+    if v_count <> jsonb_array_length(p_attempts) then
+      raise exception 'question_is_not_part_of_set_attempt';
+    end if;
   else
     if not exists (
       select 1
@@ -322,6 +326,10 @@ begin
       returning 1
     )
     select count(*) into v_count from written;
+
+    if v_count <> jsonb_array_length(p_attempts) then
+      raise exception 'question_attempt_batch_was_not_fully_persisted';
+    end if;
   end if;
 
   return v_count;
