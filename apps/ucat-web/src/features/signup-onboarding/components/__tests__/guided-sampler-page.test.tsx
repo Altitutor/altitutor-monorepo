@@ -16,6 +16,7 @@ jest.mock("next/navigation", () => ({
 
 jest.mock("motion/react", () => ({
   AnimatePresence: ({ children }: React.PropsWithChildren) => <>{children}</>,
+  useReducedMotion: () => false,
   motion: {
     div: ({ children }: React.PropsWithChildren) => <div>{children}</div>,
     span: ({ children }: React.PropsWithChildren) => <span>{children}</span>,
@@ -135,14 +136,39 @@ describe("GuidedSamplerPage marking", () => {
     expect(
       screen.getByRole("heading", { name: "What is the UCAT?" }),
     ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Back" }),
+    ).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Next" }));
     expect(
       screen.getByRole("heading", {
         name: "Each section tests a different skill",
       }),
     ).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        /Section 1: Verbal Reasoning.*tests your ability to read and comprehend/,
+      ),
+    ).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Back" }));
+    expect(
+      screen.getByRole("heading", { name: "What is the UCAT?" }),
+    ).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Next" }));
-    fireEvent.click(screen.getByRole("button", { name: "Start sampler" }));
+    fireEvent.click(screen.getByRole("button", { name: "Next" }));
+    expect(
+      screen.getByRole("heading", { name: "Scoring" }),
+    ).toBeInTheDocument();
+    expect(screen.getByText("900–2700")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Next" }));
+    expect(
+      screen.getByRole("heading", {
+        name: "Fast, focused and fully on screen",
+      }),
+    ).toBeInTheDocument();
+    fireEvent.click(
+      screen.getByRole("button", { name: "Start sample questions" }),
+    );
 
     expect(screen.getByRole("button", { name: "Submit" })).toBeInTheDocument();
   });

@@ -3,7 +3,14 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { Bug, LifeBuoy, LogOut, LayoutDashboard, User } from "lucide-react";
+import {
+  Bug,
+  Gift,
+  LifeBuoy,
+  LogOut,
+  LayoutDashboard,
+  User,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -16,6 +23,7 @@ import {
 } from "@altitutor/ui";
 import { useAuth } from "@/features/auth";
 import { useUcatProfile } from "@/features/layout/hooks/use-ucat-profile";
+import { ReferralDialog } from "@/features/subscription/components/referral-dialog";
 import { UCAT_HEADER_BTN_OUTLINE } from "@/lib/ucat-surface-motion";
 import { cn } from "@/lib/utils";
 
@@ -24,6 +32,7 @@ export function ProfileDropdown() {
   const { user, signOut } = useAuth();
   const { data: profile } = useUcatProfile(!!user);
   const [feedbackKind, setFeedbackKind] = useState<FeedbackKind | null>(null);
+  const [referralOpen, setReferralOpen] = useState(false);
 
   if (!user) return null;
 
@@ -86,6 +95,13 @@ export function ProfileDropdown() {
               Settings
             </Link>
           </DropdownMenuItem>
+          <DropdownMenuItem
+            onSelect={() => setReferralOpen(true)}
+            className="cursor-pointer"
+          >
+            <Gift className="mr-2 h-4 w-4" />
+            Refer a friend
+          </DropdownMenuItem>
           <DropdownMenuSeparator />
           <DropdownMenuItem
             onSelect={() => setFeedbackKind("contact")}
@@ -121,6 +137,7 @@ export function ProfileDropdown() {
           }}
         />
       ) : null}
+      <ReferralDialog open={referralOpen} onOpenChange={setReferralOpen} />
     </>
   );
 }

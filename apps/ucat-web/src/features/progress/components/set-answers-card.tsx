@@ -7,7 +7,7 @@ import {
   type ClipboardEvent,
   type ReactNode,
 } from "react";
-import { ArrowLeft, ArrowRight, Flag, Megaphone } from "lucide-react";
+import { ArrowLeft, ArrowRight, Flag } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Badge,
@@ -15,7 +15,6 @@ import {
   CardContent,
   CardHeader,
   CardTitle,
-  FeedbackDialog,
   Tooltip,
   TooltipContent,
   TooltipProvider,
@@ -42,6 +41,8 @@ import type {
 import { formatTimeSeconds } from "../lib/format-time";
 import { buildQuestionAttemptInsight } from "../lib/attempt-insights";
 import { AttemptInsightCard } from "./attempt-insight-card";
+import { ContentRatingControls } from "@/features/content-ratings/components/content-rating-controls";
+import { contentSnapshotVersion } from "@/features/content-ratings/lib";
 
 type QuestionAttemptForCard = {
   questionNumber?: number;
@@ -72,6 +73,8 @@ type SetAnswersCardProps = {
   exam?: QuestionEngineExam | null;
   /** Attempt review (set/mock/practice): site-themed viewer, natural height, no copy/paste. */
   attemptReview?: boolean;
+  /** Stable attempt identity used to keep ratings scoped to this review. */
+  ratingContextKey?: string;
 };
 
 function getQuestionMaxPoints(question: QuestionItem): number {
@@ -266,6 +269,7 @@ export function SetAnswersCard({
   onQuestionIndexChange,
   exam: examProp,
   attemptReview = false,
+  ratingContextKey = "attempt-preview",
 }: SetAnswersCardProps) {
   const {
     data: examFromQuery,
@@ -297,7 +301,6 @@ export function SetAnswersCard({
   }, [questionAttempts]);
 
   const [viewingIndex, setViewingIndex] = useState(initialQuestionIndex);
-  const [reportOpen, setReportOpen] = useState(false);
 
   const questions = useMemo(() => exam?.questions ?? [], [exam?.questions]);
 
@@ -557,27 +560,49 @@ export function SetAnswersCard({
           <AttemptInsightCard
             label="Question insight"
             insight={questionInsight}
+            ratingContextKey={`${ratingContextKey}:question:${currentQuestion?.id ?? currentAttempt?.questionId ?? viewingIndex}`}
           />
         ) : null}
 
         <Card className={cn(UCAT_CARD_CHROME, "min-w-0")}>
-          <CardHeader className="flex flex-row items-center justify-between gap-3 space-y-0 pb-3">
+          <CardHeader className="pb-3">
             <CardTitle className="text-base font-medium">
               Answer explanation
             </CardTitle>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={() => setReportOpen(true)}
-            >
-              <Megaphone className="h-3.5 w-3.5" />
-              Report a bug
-            </Button>
           </CardHeader>
           <CardContent className="space-y-3 text-sm leading-relaxed">
             {currentQuestion ? (
-              <ExplanationContent question={currentQuestion} />
+              <>
+                <ExplanationContent question={currentQuestion} />
+                {hasAnswerExplanation(currentQuestion) ||
+                currentQuestion.options.some(hasAnswerExplanation) ? (
+                  <ContentRatingControls
+                    className="border-t border-border/60 pt-3"
+                    descriptor={(() => {
+                      const displayedContent = {
+                        explanation: JSON.stringify({
+                          text: currentQuestion.answerExplanation ?? null,
+                          json: currentQuestion.answerExplanationJson ?? null,
+                          options: currentQuestion.options.map((option) => ({
+                            id: option.id,
+                            text: option.answerExplanation ?? null,
+                            json: option.answerExplanationJson ?? null,
+                          })),
+                        }),
+                      };
+                      return {
+                        targetType: "answer_explanation" as const,
+                        targetKey: `question:${currentQuestion.id}`,
+                        targetVersion:
+                          contentSnapshotVersion(displayedContent),
+                        contextKey: `${ratingContextKey}:question:${currentQuestion.id}`,
+                        surface: "attempt" as const,
+                        displayedContent,
+                      };
+                    })()}
+                  />
+                ) : null}
+              </>
             ) : null}
           </CardContent>
         </Card>
@@ -687,38 +712,6 @@ export function SetAnswersCard({
           </CardContent>
         </Card>
       </div>
-
-      <FeedbackDialog
-        open={reportOpen}
-        onOpenChange={setReportOpen}
-        kind="bug"
-        appName="ucat-web"
-        diagnostics={{
-          reviewType: "attempt-question-explanation",
-          questionId: currentQuestion?.id,
-          stemId: currentQuestion?.stemId,
-          questionSetId: currentQuestion?.questionSetId,
-          questionNumber: viewingIndex + 1,
-          selectedOptionId: currentQuestion
-            ? selectedAnswers[currentQuestion.id]
-            : null,
-          answerSnapshot: currentQuestion
-            ? syllogismSnapshots[currentQuestion.id]
-            : null,
-          correctOptionId: currentQuestion?.correctOptionId,
-          stemText: currentQuestion?.stemText,
-          questionText: currentQuestion?.questionText,
-          answerOptions: currentQuestion?.options.map((option) => ({
-            id: option.id,
-            index: option.index,
-            text: option.text,
-            isAnswer: option.isAnswer,
-            answerExplanation: option.answerExplanation,
-          })),
-          answerExplanation: currentQuestion?.answerExplanation,
-          attempt: currentAttempt,
-        }}
-      />
     </div>
   );
 }

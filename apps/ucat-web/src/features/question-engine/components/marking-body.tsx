@@ -3,7 +3,8 @@
 import {
   computeMaxRawScore,
   computeRawScore,
-  scaleTo300_900,
+  estimateUcatSectionScore,
+  resolveSingleUcatScoringSection,
 } from "@altitutor/ucat-marking";
 import type { QuestionMeta } from "@altitutor/ucat-marking";
 import { Card, CardContent, CardHeader, CardTitle } from "@altitutor/ui";
@@ -96,6 +97,7 @@ export type MarkingResult = {
   totalRawScore: number;
   maxRawScore: number;
   scaledScore: number | null;
+  scaledScoreStandardError: number | null;
 };
 
 function buildQuestionMeta(questions: QuestionItem[]): QuestionMeta[] {
@@ -181,8 +183,17 @@ export function computeMarkingResult(
   );
 
   const maxRawScore = computeMaxRawScore(questionMeta);
-  const scaledScore =
-    maxRawScore > 0 ? scaleTo300_900(totalRawScore, maxRawScore) : null;
+  const scoringSection = resolveSingleUcatScoringSection(
+    questionMeta.map((question) => question.sectionName),
+  );
+  const scoreEstimate =
+    maxRawScore > 0 && scoringSection
+      ? estimateUcatSectionScore({
+          section: scoringSection,
+          rawScore: totalRawScore,
+          maxRawScore,
+        })
+      : null;
 
   const optionByQuestionAndId = new Map<string, Map<string, string>>();
   for (const q of questions) {
@@ -215,7 +226,8 @@ export function computeMarkingResult(
     rows,
     totalRawScore,
     maxRawScore,
-    scaledScore,
+    scaledScore: scoreEstimate?.scaledScore ?? null,
+    scaledScoreStandardError: scoreEstimate?.standardError ?? null,
   };
 }
 
@@ -234,7 +246,13 @@ export function MarkingBody({
   /** When provided, show "View attempt" below score (links to progress detail for this attempt). */
   viewAttemptHref?: string;
 }) {
-  const { rows, totalRawScore, maxRawScore, scaledScore } = result;
+  const {
+    rows,
+    totalRawScore,
+    maxRawScore,
+    scaledScore,
+    scaledScoreStandardError,
+  } = result;
   const isSummaryView = viewAttemptHref != null;
 
   return (
@@ -265,7 +283,7 @@ export function MarkingBody({
               <Card className={cn(UCAT_CARD_CHROME, "max-w-[200px]")}>
                 <CardHeader className="pb-2">
                   <CardTitle className="text-base font-medium">
-                    Scaled score
+                    Estimated scaled score
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
@@ -277,6 +295,11 @@ export function MarkingBody({
                   >
                     {Math.round(scaledScore)}
                   </div>
+                  {scaledScoreStandardError != null && (
+                    <div className="mt-1 text-xs text-muted-foreground">
+                      Approx. ±{scaledScoreStandardError}
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             )}

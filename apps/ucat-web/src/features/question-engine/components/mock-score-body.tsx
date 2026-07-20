@@ -52,6 +52,7 @@ export function MockScoreBody({
   let totalRawScore = 0;
   let maxRawScore = 0;
   let totalScaledScore = 0;
+  let totalScaledVariance = 0;
   let scaledCount = 0;
 
   for (const summary of scoredSummaries) {
@@ -69,11 +70,21 @@ export function MockScoreBody({
     maxRawScore += result.maxRawScore;
     if (result.scaledScore != null) {
       totalScaledScore += result.scaledScore;
+      totalScaledVariance += Math.pow(
+        result.scaledScoreStandardError ?? 0,
+        2,
+      );
       scaledCount += 1;
     }
   }
 
-  const totalScaled = scaledCount > 0 ? totalScaledScore : null;
+  const hasCompleteScaledEstimate =
+    scaledCount > 0 && scaledCount === scoredSummaries.length;
+  const totalScaled = hasCompleteScaledEstimate ? totalScaledScore : null;
+  const totalScaledStandardError =
+    hasCompleteScaledEstimate
+      ? Math.round(Math.sqrt(totalScaledVariance) / 10) * 10
+      : null;
   const maxScaled =
     scoredSummaries.length > 0 ? scoredSummaries.length * SCALED_MAX : 0;
 
@@ -94,8 +105,12 @@ export function MockScoreBody({
           </span>
           {totalScaled != null && maxScaled > 0 && (
             <span>
-              <strong>Scaled score:</strong> {Math.round(totalScaled)} /{" "}
+              <strong>Estimated scaled score:</strong>{" "}
+              {Math.round(totalScaled)} /{" "}
               {maxScaled}
+              {totalScaledStandardError != null && (
+                <> (approx. ±{totalScaledStandardError})</>
+              )}
             </span>
           )}
         </div>
@@ -126,7 +141,7 @@ export function MockScoreBody({
                 {result.totalRawScore.toFixed(1)} / {result.maxRawScore} points
                 {result.scaledScore != null && (
                   <span className="ml-2">
-                    Scaled: {Math.round(result.scaledScore)}
+                    Estimated: {Math.round(result.scaledScore)}
                   </span>
                 )}
               </div>

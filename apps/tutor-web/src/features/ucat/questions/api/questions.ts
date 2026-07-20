@@ -277,6 +277,22 @@ export const ucatQuestionsApi = {
     return response.json() as Promise<{ queued: boolean }>;
   },
 
+  async requestAiAssessment(stemId: string) {
+    const response = await fetch(`/api/ucat/question-stems/${stemId}/ai-assessment`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "request" }),
+    });
+    if (!response.ok) {
+      const body = await response.json().catch(() => ({}));
+      throw new Error(body.error ?? "Failed to request AI review");
+    }
+    return response.json() as Promise<{
+      kind: "existing" | "format_blocked" | "unavailable" | "queued";
+      runId?: string;
+    }>;
+  },
+
   async recordAiAssessmentDecision(stemId: string, input: {
     runId: string;
     findingKey: string;

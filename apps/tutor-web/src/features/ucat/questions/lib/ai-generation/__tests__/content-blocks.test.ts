@@ -19,6 +19,49 @@ jest.mock('vega', () => ({
 }))
 
 describe('generated content blocks', () => {
+  it('keeps only the question-level explanation for multiple-choice output', () => {
+    const parsed = GeneratedCandidateResponseSchema.parse({
+      stems: [{
+        stemText: 'A valid stem.',
+        questions: [{
+          questionText: 'Which is correct?',
+          questionType: 'multiple_choice',
+          answerExplanation: 'The question-level teaching explanation.',
+          options: [
+            { answerText: 'A', isAnswer: true, answerExplanation: 'Redundant option explanation.' },
+            { answerText: 'B', isAnswer: false, answerExplanation: 'Another redundant explanation.' },
+          ],
+        }],
+      }],
+    })
+
+    expect(parsed.stems[0]?.questions[0]?.answerExplanation).toBe('The question-level teaching explanation.')
+    expect(parsed.stems[0]?.questions[0]?.options.every((option) => option.answerExplanation === null)).toBe(true)
+  })
+
+  it('keeps only option explanations for syllogism output', () => {
+    const parsed = GeneratedCandidateResponseSchema.parse({
+      stems: [{
+        stemText: 'A valid syllogism stem.',
+        questions: [{
+          questionText: "Place 'Yes' if the conclusion does follow. Place 'No' if the conclusion does not follow.",
+          questionType: 'syllogism',
+          answerExplanation: 'Redundant question-level explanation.',
+          options: [
+            { answerText: 'Conclusion one', isAnswer: true, answerExplanation: 'Yes, because it follows.' },
+            { answerText: 'Conclusion two', isAnswer: false, answerExplanation: 'No, because it does not follow.' },
+          ],
+        }],
+      }],
+    })
+
+    expect(parsed.stems[0]?.questions[0]?.answerExplanation).toBeNull()
+    expect(parsed.stems[0]?.questions[0]?.options.map((option) => option.answerExplanation)).toEqual([
+      'Yes, because it follows.',
+      'No, because it does not follow.',
+    ])
+  })
+
   it('converts bold markers into ProseMirror marks', () => {
     const doc = generatedContentToProseMirror('Which option **MUST** be true?')
 

@@ -21,6 +21,21 @@ export type QuestionWithNoExplanation = {
   questionIndex: number;
 };
 
+export type ExplanationFeedbackSummary = {
+  questionId: string;
+  upvotes: number;
+  downvotes: number;
+  reasonCounts: Record<string, number>;
+  comments: Array<{
+    reasonCode: string | null;
+    text: string;
+    createdAt: string;
+  }>;
+  latestAt: string;
+};
+
+export type DownvotedExplanation = QuestionWithNoExplanation & ExplanationFeedbackSummary;
+
 export type UntaggedQuestion = {
   stemId: string;
   stemText: unknown;
@@ -108,6 +123,7 @@ export type PotentialDuplicatePair = {
 export type ReconciliationData = {
   stemsWithNoCategory: StemWithNoCategory[];
   questionsWithNoExplanation: QuestionWithNoExplanation[];
+  downvotedExplanations: DownvotedExplanation[];
   untaggedQuestions: UntaggedQuestion[];
   privateStemsNotInSet: PrivateStemNotInSet[];
   potentialDuplicatePairs: PotentialDuplicatePair[];

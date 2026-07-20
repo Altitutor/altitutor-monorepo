@@ -78,7 +78,7 @@ const SCENARIOS: PreviewScenario[] = [
   {
     id: "baseline",
     label: "Building baseline",
-    description: "A plan exists, but only one cognitive section is ready.",
+    description: "A plan exists, but only one of Sections 1–3 is ready.",
     planTier: "free",
     targetScore: 2350,
     testDate: "exact",

@@ -4,7 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/features/auth";
 import { fetchPracticeDiscountProgress } from "@/features/subscription/api/fetch-practice-discount-progress";
 
-export function usePracticeDiscountDashboard() {
+export function usePracticeDiscountDashboard(enabled = true) {
   const { user } = useAuth();
 
   return useQuery({
@@ -16,7 +16,7 @@ export function usePracticeDiscountDashboard() {
       }
       return data;
     },
-    enabled: Boolean(user),
+    enabled: Boolean(user) && enabled,
     staleTime: 30_000,
   });
 }

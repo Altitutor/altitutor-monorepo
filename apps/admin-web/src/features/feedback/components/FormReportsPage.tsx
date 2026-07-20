@@ -284,7 +284,11 @@ export function FormReportsPage() {
         onClose={() => setSelectedQuestion(null)}
         onOpenResponse={(response) => setSelectedResponse(response)}
       />
-      <FormResponseDialog response={selectedResponse} onClose={() => setSelectedResponse(null)} />
+      <FormResponseDialog
+        response={selectedResponse}
+        onClose={() => setSelectedResponse(null)}
+        onDeleted={() => void loadReport()}
+      />
     </div>
   );
 }

@@ -16,6 +16,8 @@ import type {
   ProjectionPoint,
 } from "@/features/score-projection/types/score-projection";
 import { daysBetween } from "@/features/study-plan/lib/dates";
+import { ContentRatingControls } from "@/features/content-ratings/components/content-rating-controls";
+import { contentSnapshotVersion } from "@/features/content-ratings/lib";
 
 export type ProgressTrajectorySource = {
   currentEstimate: number | null;
@@ -76,6 +78,8 @@ type ProgressTrajectoryCanvasProps = {
   scoreMaximum?: number;
   insightTitle: string;
   insightBody: string;
+  ratingTargetKey: string;
+  ratingContextKey: string;
   insightMeta?: ReactNode;
   headerControl?: ReactNode;
 };
@@ -93,6 +97,8 @@ export function ProgressTrajectoryCanvas({
   scoreMaximum = 2700,
   insightTitle,
   insightBody,
+  ratingTargetKey,
+  ratingContextKey,
   insightMeta,
   headerControl,
 }: ProgressTrajectoryCanvasProps) {
@@ -104,6 +110,20 @@ export function ProgressTrajectoryCanvas({
     testDay != null &&
     testDay >= 0 &&
     testDay <= DASHBOARD_FORECAST_WINDOW_DAYS;
+  const displayedContent = { title: insightTitle, body: insightBody };
+  const ratingControls = (
+    <ContentRatingControls
+      className="mt-3"
+      descriptor={{
+        targetType: "progress_insight",
+        targetKey: ratingTargetKey,
+        targetVersion: contentSnapshotVersion(displayedContent),
+        contextKey: ratingContextKey,
+        surface: "progress",
+        displayedContent,
+      }}
+    />
+  );
 
   return (
     <section className="relative isolate overflow-hidden border-b border-border/50 bg-gradient-to-b from-background via-muted/15 to-background">
@@ -153,6 +173,7 @@ export function ProgressTrajectoryCanvas({
           <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
             {insightBody}
           </p>
+          {ratingControls}
           {insightMeta ? (
             <div className="mt-5 border-t border-border/60 pt-4">
               {insightMeta}
@@ -173,6 +194,7 @@ export function ProgressTrajectoryCanvas({
         </div>
         <h2 className="mt-2 text-lg font-semibold">{insightTitle}</h2>
         <p className="mt-2 text-sm text-muted-foreground">{insightBody}</p>
+        {ratingControls}
         {insightMeta ? (
           <div className="mt-4 border-t border-border/60 pt-4">
             {insightMeta}

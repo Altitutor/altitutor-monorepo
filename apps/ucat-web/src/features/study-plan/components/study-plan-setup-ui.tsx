@@ -4,24 +4,28 @@ import React, { type ReactNode } from "react";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { SearchableSelect } from "@altitutor/ui";
 import { Check } from "lucide-react";
+import { ThemeToggle } from "@/components/theme/theme-toggle";
 import { NoiseOverlay } from "@/features/landing/components/marketing/noise-overlay";
+import { UCAT_PRIMARY_ACTION_BUTTON } from "@/lib/ucat-surface-motion";
 import { cn } from "@/lib/utils";
 
 export type GoalYearOption = { year: number };
 
 export const STUDY_SETUP_FIELD_CLASS =
-  "w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-marketing-cream outline-none transition-[border-color,box-shadow] focus:border-marketing-accent/50 focus:ring-2 focus:ring-marketing-accent/20 disabled:opacity-50";
+  "w-full rounded-xl border border-border bg-background/70 px-4 py-3 text-foreground outline-none transition-[border-color,box-shadow,background-color] focus:border-primary/50 focus:ring-2 focus:ring-primary/20 disabled:opacity-50 dark:focus:border-accent/50 dark:focus:ring-accent/20";
 
-export const STUDY_SETUP_PRIMARY_BUTTON_CLASS =
-  "rounded-full bg-marketing-accent px-6 py-3 font-semibold text-marketing-charcoal transition-[transform,filter] hover:brightness-105 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50";
+export const STUDY_SETUP_PRIMARY_BUTTON_CLASS = UCAT_PRIMARY_ACTION_BUTTON;
 
 export const STUDY_SETUP_GHOST_BUTTON_CLASS =
-  "rounded-full px-5 py-3 font-medium text-marketing-cream/65 transition-colors hover:bg-white/10 hover:text-marketing-cream focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/30";
+  "rounded-ucatControl px-4 py-2 font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring";
 
 export function StudyPlanSetupShell({ children }: { children: ReactNode }) {
   return (
-    <main className="relative min-h-dvh overflow-y-auto bg-marketing-charcoal px-4 py-8 sm:px-6 sm:py-12">
+    <main className="relative min-h-dvh overflow-y-auto bg-background px-4 py-8 text-foreground transition-colors sm:px-6 sm:py-12">
       <NoiseOverlay />
+      <div className="fixed right-4 top-4 z-50 sm:right-6 sm:top-6">
+        <ThemeToggle />
+      </div>
       <div className="relative z-10 mx-auto flex min-h-[calc(100dvh-4rem)] w-full max-w-5xl items-center justify-center">
         {children}
       </div>
@@ -51,9 +55,10 @@ export function StudyPlanStepIndicator({
               className={cn(
                 "flex h-8 w-8 items-center justify-center rounded-full text-sm font-bold transition-all duration-300",
                 active &&
-                  "scale-105 bg-marketing-accent text-marketing-charcoal",
-                complete && "bg-marketing-accent/30 text-marketing-accent",
-                !active && !complete && "bg-white/10 text-marketing-cream/30",
+                  "scale-105 bg-primary text-primary-foreground dark:bg-accent dark:text-primary-foreground",
+                complete &&
+                  "bg-primary/15 text-primary dark:bg-accent/20 dark:text-accent",
+                !active && !complete && "bg-muted text-muted-foreground",
               )}
             >
               {complete ? <Check className="h-3.5 w-3.5" aria-hidden /> : step}
@@ -62,7 +67,7 @@ export function StudyPlanStepIndicator({
               <div
                 className={cn(
                   "h-px w-12 transition-colors duration-300",
-                  complete ? "bg-marketing-accent/50" : "bg-white/10",
+                  complete ? "bg-primary/40 dark:bg-accent/40" : "bg-border",
                 )}
               />
             ) : null}
@@ -103,13 +108,13 @@ export function StudyPlanGoalFields({
     yearOptions.find((option) => option.year === testYear) ?? null;
   const selectTriggerClass = cn(
     STUDY_SETUP_FIELD_CLASS,
-    "h-auto justify-between font-normal hover:bg-white/10 [&_svg]:text-marketing-cream/50",
+    "h-auto justify-between font-normal hover:bg-muted [&_svg]:text-muted-foreground",
   );
 
   return (
-    <div className="space-y-6 rounded-3xl bg-white/5 p-6 ring-1 ring-white/10 backdrop-blur sm:p-8">
+    <div className="space-y-6 rounded-3xl bg-card/80 p-6 shadow-sm ring-1 ring-border backdrop-blur sm:p-8">
       <label
-        className="block space-y-2 text-sm text-marketing-cream/70"
+        className="block space-y-2 text-sm text-muted-foreground"
         htmlFor={`${idPrefix}-target`}
       >
         <span>Target UCAT score</span>
@@ -131,7 +136,7 @@ export function StudyPlanGoalFields({
         <button
           type="button"
           disabled={disabled}
-          className="text-sm text-marketing-cream/55 transition-colors hover:text-marketing-cream hover:underline disabled:opacity-50"
+          className="text-sm text-muted-foreground transition-colors hover:text-foreground hover:underline disabled:opacity-50"
           onClick={onTargetUnsure}
         >
           Not sure what to set?
@@ -143,7 +148,7 @@ export function StudyPlanGoalFields({
               animate={{ opacity: 1, height: "auto", y: 0 }}
               exit={{ opacity: 0, height: 0, y: -4 }}
               transition={{ duration: reduceMotion ? 0 : 0.24 }}
-              className="mt-2 overflow-hidden rounded-xl bg-white/5 px-3 py-2 text-sm text-marketing-cream/50"
+              className="mt-2 overflow-hidden rounded-xl bg-muted/60 px-3 py-2 text-sm text-muted-foreground"
             >
               We’ll use 2200 as a sensible working target. It is not a
               prediction, and you can change it any time.
@@ -152,7 +157,7 @@ export function StudyPlanGoalFields({
         </AnimatePresence>
       </div>
 
-      <div className="space-y-2 text-sm text-marketing-cream/70">
+      <div className="space-y-2 text-sm text-muted-foreground">
         <span className="block">UCAT year</span>
         <SearchableSelect<GoalYearOption>
           items={yearOptions}
@@ -183,7 +188,7 @@ export function StudyPlanGoalFields({
             className="overflow-hidden"
           >
             <label
-              className="block space-y-2 text-sm text-marketing-cream/70"
+              className="block space-y-2 text-sm text-muted-foreground"
               htmlFor={`${idPrefix}-date`}
             >
               <span>Exact date (optional)</span>
@@ -197,7 +202,7 @@ export function StudyPlanGoalFields({
                 onChange={(event) => onTestDateChange(event.target.value)}
                 className={STUDY_SETUP_FIELD_CLASS}
               />
-              <span className="block text-xs text-marketing-cream/40">
+              <span className="block text-xs text-muted-foreground/75">
                 Leave this blank if you do not know your date yet.
               </span>
             </label>

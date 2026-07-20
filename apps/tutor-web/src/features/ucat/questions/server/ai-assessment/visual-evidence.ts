@@ -22,13 +22,22 @@ function dataUri(bytes: Buffer, mimeType = 'image/png'): string {
   return `data:${mimeType};base64,${bytes.toString('base64')}`
 }
 
-function parseDataUri(value: string): { bytes: Buffer; mimeType: string } | null {
-  const match = value.match(/^data:([^;,]+)?(;base64)?,([\s\S]*)$/iu)
-  if (!match) return null
+export function parseEmbeddedImageDataUri(value: string): { bytes: Buffer; mimeType: string } | null {
+  if (!value.startsWith('data:')) return null
+  const commaIndex = value.indexOf(',')
+  if (commaIndex < 5) return null
+  const metadata = value.slice(5, commaIndex).split(';')
+  const mimeType = metadata[0]?.includes('/') ? metadata[0] : 'application/octet-stream'
+  const isBase64 = metadata.some((item) => item.toLowerCase() === 'base64')
+  const payload = value.slice(commaIndex + 1)
   try {
+    const bytes = isBase64
+      ? Buffer.from(payload, 'base64')
+      : Buffer.from(decodeURIComponent(payload))
+    if (bytes.length === 0) return null
     return {
-      mimeType: match[1] || 'application/octet-stream',
-      bytes: match[2] ? Buffer.from(match[3] ?? '', 'base64') : Buffer.from(decodeURIComponent(match[3] ?? '')),
+      mimeType,
+      bytes,
     }
   } catch {
     return null
@@ -65,7 +74,7 @@ async function resolveImageBytes(
   image: UcatAssessmentImage,
 ): Promise<Buffer> {
   if (image.src?.startsWith('data:')) {
-    const parsed = parseDataUri(image.src)
+    const parsed = parseEmbeddedImageDataUri(image.src)
     if (!parsed) throw new Error('Invalid embedded image data')
     return parsed.bytes
   }

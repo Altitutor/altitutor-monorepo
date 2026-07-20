@@ -31,6 +31,8 @@ import { buildDailyProgressGraphData } from "../lib/daily-progress-series";
 import { useProgressAttempts } from "../hooks/use-progress-attempts";
 import type { MockProgressResponse } from "../types/mock-progress";
 import { calculateRecentWeightedMockScore } from "../lib/mock-progress-insights";
+import { ContentRatingControls } from "@/features/content-ratings/components/content-rating-controls";
+import { contentSnapshotVersion } from "@/features/content-ratings/lib";
 import {
   UCAT_CARD_CHROME,
   UCAT_FLOATING_GRAPH_CARD,
@@ -106,6 +108,18 @@ export function MockAttemptsCard({
     seriesQuery.data?.points ?? [],
   );
   const benchmark = lookupUcatAnzTotalPercentile(recentWeightedAverage);
+  const insightBody =
+    trend == null
+      ? "Use your next mock to Practice a consistent stuck-question rule. Afterwards, review the first avoidable miss in each section before changing your overall pace."
+      : trend > 0
+        ? `Your recent mock trajectory is up ${trend} points across the selected period. Check the section breakdown to see whether that improvement is balanced.`
+        : trend < 0
+          ? `Your recent mock trajectory is down ${Math.abs(trend)} points. Review timing and section-level misses before the next mock.`
+          : "Your mock scores are stable. Section-level review is the best way to find the next gain.";
+  const displayedInsight = {
+    title: "Mock insight",
+    body: insightBody,
+  };
   const attemptsTableTitleId = useId();
   const metricColumn = getAttemptTableMetricColumn(tableMetric, "mock");
 
@@ -168,14 +182,19 @@ export function MockAttemptsCard({
               </div>
             </div>
             <p className="mt-4 text-sm leading-relaxed text-muted-foreground">
-              {trend == null
-                ? "Complete at least two mocks to reveal whether your exam-day performance is improving."
-                : trend > 0
-                  ? `Your recent mock trajectory is up ${trend} points across the selected period. Check the section breakdown to see whether that improvement is balanced.`
-                  : trend < 0
-                    ? `Your recent mock trajectory is down ${Math.abs(trend)} points. Review timing and section-level misses before the next mock.`
-                    : "Your mock scores are stable. Section-level review is the best way to find the next gain."}
+              {insightBody}
             </p>
+            <ContentRatingControls
+              className="mt-3"
+              descriptor={{
+                targetType: "progress_insight",
+                targetKey: "mock-trajectory",
+                targetVersion: contentSnapshotVersion(displayedInsight),
+                contextKey: `progress:mocks:${dateRange}`,
+                surface: "progress",
+                displayedContent: displayedInsight,
+              }}
+            />
             <div className="mt-4 space-y-2 border-t border-border/60 pt-4">
               {summary.sections
                 .filter((section) => section.sectionNumber <= 3)

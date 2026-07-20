@@ -69,8 +69,8 @@ export function buildAttemptOverallInsight(
 
   if (accuracy == null) {
     return {
-      title: "This attempt is ready to review",
-      body: "Start with the questions you missed or left unanswered. Once more scored evidence is available, this insight will compare accuracy and pace.",
+      title: "Start with the questions that cost the most",
+      body: "Review unanswered and incorrect questions in order of time spent. For each one, identify whether the issue was the method, a missed clue, or the decision to keep going.",
       tone: "neutral",
     };
   }
@@ -290,11 +290,11 @@ export function buildQuestionAttemptInsight(
   return {
     title:
       timeRatio == null
-        ? "Focus on the method, not the clock"
+        ? "Find the first step that changed the answer"
         : "Your timing was workable; the method is the next lever",
     body:
       timeRatio == null
-        ? "There is not enough successful timing data for a fair comparison yet. Use the explanation to find the decisive reasoning step."
+        ? "Compare your approach with the explanation and find the first point where they diverged. Redo the question from that step before moving on."
         : "You used about the same amount of time as students who got this question right. Use the explanation to find where your reasoning diverged.",
     tone: "coaching",
   };

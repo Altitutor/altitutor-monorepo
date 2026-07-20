@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { motion } from "motion/react";
 import { Button } from "@/components/ui/button";
@@ -28,6 +28,11 @@ export function SkillTrainerDetailPage({
   const { openQuotaLimit } = useQuotaLimitDialog();
 
   const trainer = trainers?.find((t) => t.key === trainerKey);
+  const playHref = `/skill-trainer/${trainerKeyToSlug(trainerKey)}/play`;
+
+  useEffect(() => {
+    router.prefetch(playHref);
+  }, [playHref, router]);
 
   const skillTrainerQuota = quota?.areas.find(
     (a) => a.area === "skill_trainer",
@@ -55,7 +60,7 @@ export function SkillTrainerDetailPage({
     }
 
     setStarting(true);
-    router.push(`/skill-trainer/${trainerKeyToSlug(trainerKey)}/play`);
+    router.push(playHref);
   }
 
   if (!trainer && trainers) {

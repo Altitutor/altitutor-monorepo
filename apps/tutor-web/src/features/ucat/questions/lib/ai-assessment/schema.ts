@@ -1,7 +1,7 @@
 import { z } from 'zod'
 import type { Json } from '@altitutor/shared'
 
-export const AI_ASSESSMENT_PROMPT_VERSION = 1
+export const AI_ASSESSMENT_PROMPT_VERSION = 3
 
 export const UcatAssessmentCategorySchema = z.enum([
   'answer_validity',
@@ -102,7 +102,7 @@ export const UcatAssessmentSuggestionSchema = z.object({
 
 export const BlindQuestionSolutionSchema = z.object({
   questionId: z.string().uuid(),
-  selectedOptionId: z.string().uuid().nullable().optional(),
+  selectedOptionId: z.string().trim().min(1).nullable().optional(),
   proposedAnswer: z.string().trim().nullable().optional(),
   syllogismAnswers: z.array(z.object({
     optionId: z.string().uuid(),

@@ -55,6 +55,7 @@ import { TimeExpiredDialog } from "@/features/question-engine/components/time-ex
 import { getIncompleteCount } from "@/features/question-engine/lib/review";
 import {
   advanceMockAfterTimeExpired,
+  beginQuestionsFromReadyDialog,
   formatTimeRemaining,
   getCurrentMockSegment,
   getCurrentSegmentTimeLimitSeconds,
@@ -1199,21 +1200,8 @@ export function QuestionEnginePage({
             clientPracticeTimingRef.current,
           );
         await flushQuestionTiming();
-        const result = computeMarkingResult(
-          exam.questions,
-          state.selectedAnswers,
-          state.syllogismSnapshots,
-        );
         const response = await completePracticeSession.mutateAsync({
           sessionId: practiceSessionId,
-          scorePoints: result.totalRawScore,
-          totalPoints: result.maxRawScore,
-          questionCount: exam.questions.length,
-          stemsSnapshot: questionStemsForExam ?? questionStems ?? [],
-          questionScores: result.rows.map((row) => ({
-            questionId: row.question.id,
-            score: row.points,
-          })),
           answers: getFinalPracticeAnswers(),
         });
         completion = {
@@ -1258,12 +1246,8 @@ export function QuestionEnginePage({
     practiceSessionId,
     onPracticeSessionCompleted,
     exam,
-    state.selectedAnswers,
-    state.syllogismSnapshots,
     completePracticeSession,
     getFinalPracticeAnswers,
-    questionStemsForExam,
-    questionStems,
     flushQuestionTiming,
     examAttemptManaged,
     clearActiveExamAttempt,
@@ -1373,6 +1357,57 @@ export function QuestionEnginePage({
     attemptStateRef,
   ]);
 
+  const requestEndReview = useCallback(() => {
+    if (tutorialMode || !exam) return;
+
+    let incomplete = getIncompleteCount(
+      questions,
+      state.visitedQuestionIds,
+      state.selectedAnswers,
+      state.syllogismSnapshots,
+    );
+    if (
+      exam.sourceType === "mock" &&
+      state.phase === "review" &&
+      state.mockCurrentSetIndex != null &&
+      exam.mockSetSummaries
+    ) {
+      const summary = exam.mockSetSummaries[state.mockCurrentSetIndex];
+      if (summary) {
+        incomplete = getIncompleteCount(
+          questions.slice(summary.questionStartIndex, summary.questionEndIndex),
+          state.visitedQuestionIds,
+          state.selectedAnswers,
+          state.syllogismSnapshots,
+        );
+      }
+    }
+
+    if (incomplete > 0) {
+      setState((current) => ({
+        ...current,
+        showEndReviewDialog: true,
+      }));
+      return;
+    }
+    if (exam.sourceType === "set") {
+      setShowSubmitSetDialog(true);
+      return;
+    }
+    void handleEndReview();
+  }, [
+    tutorialMode,
+    exam,
+    questions,
+    state.visitedQuestionIds,
+    state.selectedAnswers,
+    state.syllogismSnapshots,
+    state.phase,
+    state.mockCurrentSetIndex,
+    setState,
+    handleEndReview,
+  ]);
+
   const hasPreviousQuestion =
     state.phase === "question" &&
     (exam?.sourceType === "mock"
@@ -1454,17 +1489,8 @@ export function QuestionEnginePage({
 
       if (practiceSessionId && practiceMarkingResult) {
         await flushQuestionTiming();
-        const questionScores = practiceMarkingResult.rows.map((r) => ({
-          questionId: r.question.id,
-          score: r.points,
-        }));
         const res = await completePracticeSession.mutateAsync({
           sessionId: practiceSessionId,
-          scorePoints: practiceMarkingResult.totalRawScore,
-          totalPoints: practiceMarkingResult.maxRawScore,
-          questionCount: qs.length,
-          stemsSnapshot: questionStemsForExam ?? questionStems ?? [],
-          questionScores,
           answers: getFinalPracticeAnswers(),
         });
         if (res?.earnedDiscount && (res?.discountCents ?? 0) > 0) {
@@ -1520,8 +1546,6 @@ export function QuestionEnginePage({
     onPracticeSessionCompleted,
     practiceMarkingResult,
     completePracticeSession,
-    questionStems,
-    questionStemsForExam,
     setState,
     toast,
     queryClient,
@@ -1754,7 +1778,8 @@ export function QuestionEnginePage({
         showConfirmSubmitDialog ||
         showConfirmNextStemDialog ||
         showConfirmFinishPracticeDialog ||
-        showSubmitSetDialog
+        showSubmitSetDialog ||
+        state.showEndReviewDialog
       ) {
         if (shortcutKey === "alt+y") {
           event.preventDefault();
@@ -1769,6 +1794,8 @@ export function QuestionEnginePage({
           } else if (showSubmitSetDialog) {
             setShowSubmitSetDialog(false);
             void handleEndReview();
+          } else if (state.showEndReviewDialog) {
+            void handleEndReview();
           } else {
             goNext();
             setShowConfirmNextStemDialog(false);
@@ -1781,6 +1808,12 @@ export function QuestionEnginePage({
           setShowConfirmNextStemDialog(false);
           setShowConfirmFinishPracticeDialog(false);
           setShowSubmitSetDialog(false);
+          if (state.showEndReviewDialog) {
+            setState((current) => ({
+              ...current,
+              showEndReviewDialog: false,
+            }));
+          }
           return;
         }
       }
@@ -1794,11 +1827,15 @@ export function QuestionEnginePage({
         event.preventDefault();
         if (shortcutKey === "alt+y") {
           if (state.phase === "intro" || state.showReadyDialog) {
-            setState((current) => ({
-              ...current,
-              phase: "question",
-              showReadyDialog: false,
-            }));
+            setState((current) =>
+              exam
+                ? beginQuestionsFromReadyDialog(exam, current)
+                : {
+                    ...current,
+                    phase: "question",
+                    showReadyDialog: false,
+                  },
+            );
           }
         } else {
           if (state.showReadyDialog) {
@@ -1862,7 +1899,7 @@ export function QuestionEnginePage({
         return;
       }
 
-      // On review screen, Alt+A / Alt+I / Alt+V = Review All / Incomplete / Flagged
+      // On review screen, Alt+A / Alt+I / Alt+V / Alt+E = Review All / Incomplete / Flagged / End Review
       if (state.phase === "review" && !state.reviewFilter) {
         if (shortcutKey === "alt+a") {
           event.preventDefault();
@@ -1877,6 +1914,11 @@ export function QuestionEnginePage({
         if (shortcutKey === "alt+v") {
           event.preventDefault();
           void runWithLag(() => startReviewFilter("flagged"));
+          return;
+        }
+        if (shortcutKey === "alt+e") {
+          event.preventDefault();
+          void runWithLag(() => requestEndReview());
           return;
         }
       }
@@ -2027,6 +2069,7 @@ export function QuestionEnginePage({
     toggleFlagCurrent,
     goToReviewScreen,
     startReviewFilter,
+    requestEndReview,
     submitCurrentPracticeUnit,
     isPracticeMode,
     practice,
@@ -2554,30 +2597,9 @@ export function QuestionEnginePage({
               description="If you are ready to begin the exam, select the Yes button. Otherwise, select the No button to return to the previous screen."
               onStart={() =>
                 void runWithLag(() => {
-                  const nextSeg =
-                    exam?.sourceType === "mock"
-                      ? getNextMockSegment(exam, state)
-                      : null;
-                  const questionsSegmentTimed =
-                    exam &&
-                    (exam.sourceType === "set"
-                      ? (exam.setModeTiming?.setTimeLimitSeconds ?? 0) > 0
-                      : (nextSeg?.timeLimitSeconds ?? 0) > 0);
-                  setState((current) => {
-                    const next = {
-                      ...current,
-                      phase: "question" as const,
-                      showReadyDialog: false,
-                      timerStartedAt: questionsSegmentTimed ? Date.now() : null,
-                    };
-                    if (exam?.sourceType === "set") {
-                      next.currentIndex = 0;
-                    } else if (nextSeg?.type === "questions") {
-                      next.currentIndex = nextSeg.questionStartIndex;
-                      next.mockCurrentSetIndex = nextSeg.setIndex;
-                    }
-                    return next;
-                  });
+                  setState((current) =>
+                    beginQuestionsFromReadyDialog(exam, current),
+                  );
                 })
               }
               onCancel={() =>
@@ -2833,7 +2855,7 @@ export function QuestionEnginePage({
                   )
                 }
               >
-                <span className="text-[13pt]">Instructions</span>
+                <span className="text-[13pt]">Review</span>
               </button>
             ) : isInstructionsPhase ? null : (
               <>
@@ -2936,20 +2958,7 @@ export function QuestionEnginePage({
               </UcatExamActionButton>
             ) : isReviewScreen ? (
               <UcatExamActionButton
-                onClick={() =>
-                  void runWithLag(() => {
-                    if (incompleteCount > 0) {
-                      setState((current) => ({
-                        ...current,
-                        showEndReviewDialog: true,
-                      }));
-                    } else if (exam?.sourceType === "set") {
-                      setShowSubmitSetDialog(true);
-                    } else {
-                      void runWithLag(handleEndReview);
-                    }
-                  })
-                }
+                onClick={() => void runWithLag(() => requestEndReview())}
                 icon={<LogOut className="h-4 w-4" />}
               >
                 <span className="text-[14pt]">

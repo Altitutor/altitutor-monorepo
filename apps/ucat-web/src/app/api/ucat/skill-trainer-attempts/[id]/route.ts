@@ -1,5 +1,6 @@
 import { captureApiError } from "@/lib/sentry/capture-api-error";
 import { NextResponse } from "next/server";
+import { isUcatSkillTrainerKey } from "@altitutor/shared";
 import { requireStudentAdminClient } from "@/lib/ucat/skill-trainer/api-auth";
 import {
   buildAttemptState,
@@ -42,7 +43,10 @@ export async function GET(
   }
 
   try {
-    const trainerKey = trainer.key ?? undefined;
+    const trainerKey = trainer.key;
+    if (!trainerKey || !isUcatSkillTrainerKey(trainerKey)) {
+      throw new Error("INVALID_TRAINER");
+    }
     const state = await buildAttemptState(auth.admin, {
       id: data.id,
       student_id: data.student_id,

@@ -42,13 +42,11 @@ import { UcatRowActions } from '@/features/ucat/shared/row-actions'
 import { UcatStemEditorShell } from '@/features/ucat/questions/components/stem-editor/UcatStemEditorShell'
 import type { StemEditorMode } from '@/features/ucat/questions/components/stem-editor/UcatStemEditorPropertiesPanel'
 import { UcatDetectedStemMetadataControl } from '@/features/ucat/questions/components/stem-editor/UcatDetectedStemMetadataControl'
-import { UcatAiAssessmentControl } from '@/features/ucat/questions/components/stem-editor/UcatAiAssessmentControl'
 import { UcatStemEditorHeaderControls } from '@/features/ucat/questions/components/stem-editor/UcatStemEditorHeaderControls'
 import { taxonomyDisplayLabel } from '@/features/ucat/shared/lib/taxonomy-paths'
 import { filterTagsForImportSection } from '@/features/ucat/shared/lib/taxonomy-reparent'
 import { lifecycleStatusSuccessToast } from '@/features/ucat/shared/lifecycle-errors'
 import { UcatDeleteConfirmDialog } from '@/features/ucat/shared/delete-confirm-dialog'
-import { UcatVisualEditorDialog } from '@/features/ucat/questions/components/stem-editor/UcatVisualEditorDialog'
 import {
   replaceSelectedImageAttrs,
   type SelectedVisualImage,
@@ -160,13 +158,8 @@ export function UcatQuestionStemDialog({
   const [createMore, setCreateMore] = useState(false)
   const [editorMode, setEditorMode] = useState<StemEditorMode>(initialEditorMode)
   const [showAnswer, setShowAnswer] = useState(false)
-  const [activeQuestionIndex, setActiveQuestionIndex] = useState(initialQuestionIndex ?? 0)
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false)
   const [selectedAiImageContext, setSelectedAiImageContext] = useState<{
-    image: SelectedVisualImage
-    editor: Editor
-  } | null>(null)
-  const [visualEditorContext, setVisualEditorContext] = useState<{
     image: SelectedVisualImage
     editor: Editor
   } | null>(null)
@@ -216,14 +209,12 @@ export function UcatQuestionStemDialog({
       createResetOpenRef.current = false
       setShowAnswer(false)
       setSelectedAiImageContext(null)
-      setVisualEditorContext(null)
     }
   }, [open])
 
   useEffect(() => {
     if (open) {
       setEditorMode(initialEditorMode)
-      setActiveQuestionIndex(initialQuestionIndex ?? 0)
     }
   }, [open, initial?.id, initialEditorMode, initialQuestionIndex])
 
@@ -459,13 +450,6 @@ export function UcatQuestionStemDialog({
       }
       headerControls={
         <>
-          {stemId ? (
-            <UcatAiAssessmentControl
-              stemId={stemId}
-              form={form}
-              activeQuestionIndex={activeQuestionIndex}
-            />
-          ) : null}
           <UcatDetectedStemMetadataControl
             pendingDiff={metadataDetection.pendingDiff}
             sections={sections}
@@ -488,8 +472,6 @@ export function UcatQuestionStemDialog({
       defaultExpanded
       mobileFullscreen
       richTextToolbarEditor={activeTextEditor}
-      onEditSelectedVisual={(image, editor) => setVisualEditorContext({ image, editor })}
-      onUseSelectedImageWithAi={(image, editor) => setSelectedAiImageContext({ image, editor })}
     >
       <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
         <UcatStemEditorShell
@@ -510,7 +492,6 @@ export function UcatQuestionStemDialog({
           sectionTitleOverride={initial?.section_name ?? undefined}
           displayColumnsFallback={initial?.display_columns ?? undefined}
           onActiveTextEditorChange={setActiveTextEditor}
-          onCurrentQuestionIndexChange={setActiveQuestionIndex}
           sourceChannel={initial?.source_channel ?? (initial ? null : 'individual')}
           aiGenerationMetadata={initial?.ai_generation_metadata ?? null}
           createdByFirstName={initial?.created_by_first_name ?? null}
@@ -518,6 +499,7 @@ export function UcatQuestionStemDialog({
           statusChangedByFirstName={initial?.status_changed_by_first_name ?? null}
           statusChangedByLastName={initial?.status_changed_by_last_name ?? null}
           statusChangedAt={initial?.status_changed_at ?? null}
+          aiReviewAvailable={Boolean(stemId) && initial?.status !== 'draft'}
           onNewImageFileIds={(fileIds) =>
             setNewImageFileIds((prev) => {
               const next = new Set(prev)
@@ -539,6 +521,7 @@ export function UcatQuestionStemDialog({
             setSelectedAiImageContext(null)
             return { ok: true, message: 'The reviewed image has been applied to the question stem.' }
           }}
+          onUseSelectedImageWithAi={(image, editor) => setSelectedAiImageContext({ image, editor })}
         />
       </div>
       </UcatDialogShell>
@@ -569,36 +552,6 @@ export function UcatQuestionStemDialog({
         }}
       />
 
-      {visualEditorContext?.image.visualType && visualEditorContext.image.visualSpec ? (
-        <UcatVisualEditorDialog
-          open
-          visualType={visualEditorContext.image.visualType}
-          spec={visualEditorContext.image.visualSpec}
-          title={visualEditorContext.image.visualTitle}
-          altText={visualEditorContext.image.visualAltText}
-          onOpenChange={(nextOpen) => {
-            if (!nextOpen) setVisualEditorContext(null)
-          }}
-          onApply={(imageNode) => {
-            const attrs = imageNodeAttrs(imageNode)
-            if (!attrs) {
-              toast({ title: 'Could not apply visual', description: 'The rendered visual was invalid.', variant: 'destructive' })
-              return
-            }
-            const replaced = replaceSelectedImageAttrs(
-              visualEditorContext.editor,
-              visualEditorContext.image,
-              attrs,
-            )
-            if (!replaced) {
-              toast({ title: 'Could not apply visual', description: 'The original image could not be found in the draft.', variant: 'destructive' })
-              return
-            }
-            setVisualEditorContext(null)
-            toast({ title: 'Visual updated' })
-          }}
-        />
-      ) : null}
     </>
   )
 }

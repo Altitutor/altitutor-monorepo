@@ -35,6 +35,9 @@ export const REPORTS_CHART_CONFIG = {
     },
   },
   scheduling: {
+    sessions: {
+      trialSessions: 'Trial sessions',
+    },
     students: {
       activeStudents: 'Active students',
       registrations: 'Student registrations',
@@ -69,6 +72,7 @@ export type ReportsVisibleCharts = {
     projects: { openProjects: boolean; finishedProjects: boolean };
   };
   scheduling: {
+    sessions: { trialSessions: boolean };
     students: {
       activeStudents: boolean;
       registrations: boolean;
@@ -99,6 +103,7 @@ function buildDefaultVisibleCharts(): ReportsVisibleCharts {
       projects: { openProjects: false, finishedProjects: true },
     },
     scheduling: {
+      sessions: { trialSessions: true },
       students: {
         activeStudents: false,
         registrations: true,

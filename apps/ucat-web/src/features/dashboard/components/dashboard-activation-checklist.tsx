@@ -2,16 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import {
-  Card,
-  CardContent,
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  Skeleton,
-} from "@altitutor/ui";
+import { Card, CardContent, Skeleton } from "@altitutor/ui";
 import { ArrowRight, Check, Circle, ListChecks } from "lucide-react";
 import { useOnboardingProgress } from "@/features/onboarding/hooks/use-onboarding-progress";
 import {
@@ -21,7 +12,7 @@ import {
 } from "@/features/onboarding/lib/activation-milestones";
 import { useProgressAttempts } from "@/features/progress/hooks/use-progress-attempts";
 import { useStudyPlan } from "@/features/study-plan/hooks/use-study-plan";
-import { ReferralSection } from "@/features/subscription/components/referral-section";
+import { ReferralDialog } from "@/features/subscription/components/referral-dialog";
 import {
   UCAT_CARD_CHROME,
   UCAT_COMPLETED_ITEM_SURFACE,
@@ -175,17 +166,7 @@ export function DashboardActivationChecklist() {
         </CardContent>
       </Card>
 
-      <Dialog open={referralOpen} onOpenChange={setReferralOpen}>
-        <DialogContent className="max-h-[90dvh] overflow-y-auto sm:max-w-4xl">
-          <DialogHeader className="text-left">
-            <DialogTitle>Refer a friend</DialogTitle>
-            <DialogDescription>
-              Copy your personal referral link or open your device’s share menu.
-            </DialogDescription>
-          </DialogHeader>
-          <ReferralSection />
-        </DialogContent>
-      </Dialog>
+      <ReferralDialog open={referralOpen} onOpenChange={setReferralOpen} />
     </>
   );
 }

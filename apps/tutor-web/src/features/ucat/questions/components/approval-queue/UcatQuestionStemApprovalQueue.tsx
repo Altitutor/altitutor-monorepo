@@ -22,7 +22,7 @@ import {
   DialogTitle,
   useToast,
 } from '@altitutor/ui'
-import { Trash2, X } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Trash2, X } from 'lucide-react'
 import { useQueryClient } from '@tanstack/react-query'
 import { ucatQuestionStemSchema, type UcatQuestionStemFormValues } from '@/features/ucat/questions/types/schema'
 import {
@@ -37,9 +37,12 @@ import {
 import { useManualStemMetadataDetection } from '@/features/ucat/questions/hooks/useManualStemMetadataDetection'
 import { UcatStemEditorLoadingSkeleton } from '@/features/ucat/questions/components/stem-editor/UcatStemEditorLoadingSkeleton'
 import { UcatDetectedStemMetadataControl } from '@/features/ucat/questions/components/stem-editor/UcatDetectedStemMetadataControl'
-import { UcatAiAssessmentControl } from '@/features/ucat/questions/components/stem-editor/UcatAiAssessmentControl'
+import { UcatStemEditorHeaderControls } from '@/features/ucat/questions/components/stem-editor/UcatStemEditorHeaderControls'
 import { UcatStemEditorShell } from '@/features/ucat/questions/components/stem-editor/UcatStemEditorShell'
-import type { StemEditorFocusTarget } from '@/features/ucat/questions/components/stem-editor/UcatStemEditorPropertiesPanel'
+import type {
+  StemEditorFocusTarget,
+  StemEditorMode,
+} from '@/features/ucat/questions/components/stem-editor/UcatStemEditorPropertiesPanel'
 import type { CategoryOption, TagOption } from '@/features/ucat/questions/components/UcatQuestionStemDialog'
 import { UcatRichTextToolbar } from '@/features/ucat/shared/components/UcatRichTextToolbar'
 import { mapCategoriesToOptions, mapTagsToOptions } from '@/features/ucat/shared/lib/taxonomy-paths'
@@ -71,6 +74,7 @@ import {
 import { useUcatCopyId } from '@/features/ucat/shared/hooks/useUcatCopyId'
 import { buildCopyIdRowAction, buildStemCopyIdEntries } from '@/features/ucat/shared/lib/copy-id-actions'
 import { UcatRowActions } from '@/features/ucat/shared/row-actions'
+import type { UcatAuthoringWorkspaceTab } from '@/features/ucat/shared/components/UcatAuthoringWorkspaceTabs'
 
 export type UcatApprovalQueueEntry =
   | {
@@ -85,7 +89,8 @@ export type UcatApprovalQueueEntry =
       questionId?: string
     }
 
-type SkipChoice = 'save' | 'discard' | null
+type NavigateChoice = 'save' | 'discard' | null
+type NavigateDirection = 'prev' | 'next'
 
 export function UcatQuestionStemApprovalQueueDialog({
   open,
@@ -169,11 +174,15 @@ function UcatQuestionStemApprovalQueue({
   const { copyId } = useUcatCopyId()
   const queryClient = useQueryClient()
   const [index, setIndex] = useState(0)
-  const [skipDialogOpen, setSkipDialogOpen] = useState(false)
+  const [navigateDialogOpen, setNavigateDialogOpen] = useState(false)
+  const [pendingNavigateDirection, setPendingNavigateDirection] = useState<NavigateDirection | null>(null)
   const [closeDialogOpen, setCloseDialogOpen] = useState(false)
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [activeTextEditor, setActiveTextEditor] = useState<Editor | null>(null)
   const [activeQuestionIndex, setActiveQuestionIndex] = useState(0)
+  const [activeWorkspaceTab, setActiveWorkspaceTab] = useState<UcatAuthoringWorkspaceTab>('editor')
+  const [editorMode, setEditorMode] = useState<StemEditorMode>('edit')
+  const [showAnswer, setShowAnswer] = useState(false)
 
   const currentEntry = entries[index] ?? null
   const initialActiveQuestionIndex =
@@ -211,6 +220,8 @@ function UcatQuestionStemApprovalQueue({
     baselineRef.current = snapshotQuestionStemFormValues(defaultValues)
     setActiveTextEditor(null)
     setActiveQuestionIndex(initialActiveQuestionIndex)
+    setEditorMode('edit')
+    setShowAnswer(false)
   }, [detailQuery.data, defaultValues, form, initialActiveQuestionIndex])
 
   const watchedValues = form.watch()
@@ -232,6 +243,8 @@ function UcatQuestionStemApprovalQueue({
   const currentNumber = entries.length === 0 ? 0 : index + 1
   const progressLabel = `${currentNumber} of ${entries.length}`
   const queueComplete = entries.length > 0 && index >= entries.length
+  const canGoPreviousStem = !queueComplete && index > 0
+  const canGoNextStem = !queueComplete && index < entries.length - 1
   const questionCount = watchedValues.questions?.length ?? 0
   const isLastAiQuestion = !isAiMode || questionCount <= 1 || activeQuestionIndex >= questionCount - 1
   const hasPreviousAiQuestion = isAiMode && activeQuestionIndex > 0
@@ -245,6 +258,16 @@ function UcatQuestionStemApprovalQueue({
   function goNext() {
     setActiveTextEditor(null)
     setIndex((prev) => Math.min(prev + 1, entries.length))
+  }
+
+  function goPreviousStem() {
+    setActiveTextEditor(null)
+    setIndex((prev) => Math.max(prev - 1, 0))
+  }
+
+  function goNextStem() {
+    setActiveTextEditor(null)
+    setIndex((prev) => Math.min(prev + 1, Math.max(entries.length - 1, 0)))
   }
 
   async function invalidateQueueData(stemId: string) {
@@ -402,23 +425,30 @@ function UcatQuestionStemApprovalQueue({
     void invalidateQueueData(currentEntry.stemId)
   }
 
-  function handleSkip() {
+  function requestNavigate(direction: NavigateDirection) {
+    if (direction === 'prev' && !canGoPreviousStem) return
+    if (direction === 'next' && !canGoNextStem) return
     if (hasUnsavedChanges) {
-      setSkipDialogOpen(true)
+      setPendingNavigateDirection(direction)
+      setNavigateDialogOpen(true)
       return
     }
-    goNext()
+    if (direction === 'prev') goPreviousStem()
+    else goNextStem()
   }
 
-  async function applySkip(choice: SkipChoice) {
-    if (!currentEntry || choice == null) return
-    setSkipDialogOpen(false)
+  async function applyNavigate(choice: NavigateChoice) {
+    if (!currentEntry || choice == null || pendingNavigateDirection == null) return
+    const direction = pendingNavigateDirection
+    setNavigateDialogOpen(false)
+    setPendingNavigateDirection(null)
     if (choice === 'save') {
       const saved = await saveCurrent()
       if (!saved) return
       void invalidateQueueData(currentEntry.stemId)
     }
-    goNext()
+    if (direction === 'prev') goPreviousStem()
+    else goNextStem()
   }
 
   function requestExit() {
@@ -452,13 +482,6 @@ function UcatQuestionStemApprovalQueue({
             </div>
           </div>
           <div className="flex shrink-0 items-center gap-2">
-            {currentEntry ? (
-              <UcatAiAssessmentControl
-                stemId={currentEntry.stemId}
-                form={form}
-                activeQuestionIndex={activeQuestionIndex}
-              />
-            ) : null}
             {isAiMode ? (
               <UcatDetectedStemMetadataControl
                 pendingDiff={metadataDetection.pendingDiff}
@@ -467,6 +490,14 @@ function UcatQuestionStemApprovalQueue({
                 tags={tags}
                 onAccept={metadataDetection.accept}
                 onDismiss={metadataDetection.dismiss}
+              />
+            ) : null}
+            {currentEntry && !queueComplete ? (
+              <UcatStemEditorHeaderControls
+                mode={editorMode}
+                onModeChange={setEditorMode}
+                showAnswer={showAnswer}
+                onShowAnswerChange={setShowAnswer}
               />
             ) : null}
             {onToggleExpanded && expanded != null ? (
@@ -516,6 +547,11 @@ function UcatQuestionStemApprovalQueue({
             stemId={currentEntry.stemId}
             initialQuestionIndex={currentEntry.mode === 'reconciliation' ? currentEntry.questionIndex : activeQuestionIndex}
             initialEditorMode="edit"
+            editorMode={editorMode}
+            onEditorModeChange={setEditorMode}
+            showAnswer={showAnswer}
+            onShowAnswerChange={setShowAnswer}
+            showModeControls={false}
             enableImages
             sectionTitleOverride={detailQuery.data?.section_name ?? undefined}
             displayColumnsFallback={detailQuery.data?.display_columns ?? undefined}
@@ -530,6 +566,8 @@ function UcatQuestionStemApprovalQueue({
             statusChangedByFirstName={detailQuery.data?.status_changed_by_first_name ?? null}
             statusChangedByLastName={detailQuery.data?.status_changed_by_last_name ?? null}
             statusChangedAt={detailQuery.data?.status_changed_at ?? null}
+            workspaceTab={activeWorkspaceTab}
+            onWorkspaceTabChange={setActiveWorkspaceTab}
           />
         )}
       </div>
@@ -542,9 +580,30 @@ function UcatQuestionStemApprovalQueue({
             </Button>
           ) : null}
           {entries.length > 0 && !queueComplete && currentEntry ? (
-            <Button type="button" variant="outline" className={tutorBtnOutline} onClick={handleSkip} disabled={isMutating}>
-              Skip
-            </Button>
+            <div className="flex shrink-0 items-center gap-1">
+              <Button
+                type="button"
+                variant="outline"
+                size="icon"
+                className={tutorBtnIconOutline}
+                onClick={() => requestNavigate('prev')}
+                disabled={isMutating || !canGoPreviousStem}
+                aria-label="Previous stem"
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                size="icon"
+                className={tutorBtnIconOutline}
+                onClick={() => requestNavigate('next')}
+                disabled={isMutating || !canGoNextStem}
+                aria-label="Next stem"
+              >
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+            </div>
           ) : null}
           {activeTextEditor ? (
             <div className="min-w-0 flex-1 overflow-x-auto">
@@ -586,18 +645,26 @@ function UcatQuestionStemApprovalQueue({
         </div>
       </DialogFooter>
 
-      <AlertDialog open={skipDialogOpen} onOpenChange={setSkipDialogOpen}>
+      <AlertDialog
+        open={navigateDialogOpen}
+        onOpenChange={(open) => {
+          setNavigateDialogOpen(open)
+          if (!open) setPendingNavigateDirection(null)
+        }}
+      >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Skip with unsaved changes?</AlertDialogTitle>
+            <AlertDialogTitle>Leave with unsaved changes?</AlertDialogTitle>
             <AlertDialogDescription>
-              Save this stem before skipping, or discard the edits and move to the next item.
+              Save this stem before moving to another item, or discard the edits and continue.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <Button type="button" variant="outline" onClick={() => void applySkip('discard')}>Discard and skip</Button>
-            <AlertDialogAction onClick={() => void applySkip('save')}>Save and skip</AlertDialogAction>
+            <Button type="button" variant="outline" onClick={() => void applyNavigate('discard')}>
+              Discard and continue
+            </Button>
+            <AlertDialogAction onClick={() => void applyNavigate('save')}>Save and continue</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

@@ -50,6 +50,7 @@ import { generatedVisualBlockToImageNode, getGeneratedVisualSpecIssue } from '@/
 import type { GeneratedContentBlock } from '@/features/ucat/questions/lib/ai-generation/schema'
 import type { UcatAuthoringWorkspaceTab } from '@/features/ucat/shared/components/UcatAuthoringWorkspaceTabs'
 import type { SelectedVisualImage } from '@/features/ucat/shared/lib/selected-visual-image'
+import { UcatAiAssessmentControl } from '@/features/ucat/questions/components/stem-editor/UcatAiAssessmentControl'
 
 export type StemEditorMode = 'edit' | 'view'
 export type StemEditorFocusTarget = 'category' | 'explanation' | 'tags' | 'sets'
@@ -81,6 +82,7 @@ type UcatStemEditorPropertiesPanelProps = {
   selectedImage?: SelectedVisualImage | null
   onAcceptSelectedImage?: (imageNode: Json) => Promise<{ ok: boolean; message: string }> | { ok: boolean; message: string }
   onNewImageFileIds?: (fileIds: string[]) => void
+  aiReviewAvailable?: boolean
   className?: string
 }
 
@@ -157,15 +159,16 @@ export function UcatStemEditorPropertiesPanel({
   selectedImage = null,
   onAcceptSelectedImage,
   onNewImageFileIds,
+  aiReviewAvailable = false,
   className,
 }: UcatStemEditorPropertiesPanelProps) {
   const { toast } = useToast()
   const { fields, append, remove } = useFieldArray({ control: form.control, name: 'questions' })
-  const [uncontrolledActiveTab, setUncontrolledActiveTab] = useState<'properties' | 'ai'>('properties')
+  const [uncontrolledActiveTab, setUncontrolledActiveTab] = useState<'properties' | 'ai' | 'review'>('properties')
   const activeTab = controlledActiveTab ?? uncontrolledActiveTab
 
   function handleActiveTabChange(value: string) {
-    const next = value as 'properties' | 'ai'
+    const next = value as 'properties' | 'ai' | 'review'
     setUncontrolledActiveTab(next)
     onActiveTabChange?.(next)
   }
@@ -764,6 +767,7 @@ export function UcatStemEditorPropertiesPanel({
             options={[
               { value: 'properties', label: 'Properties' },
               { value: 'ai', label: 'AI tools' },
+              ...(aiReviewAvailable ? [{ value: 'review', label: 'AI review' }] : []),
             ]}
           />
         </div>
@@ -1133,6 +1137,19 @@ export function UcatStemEditorPropertiesPanel({
             onAcceptImagePreview={onAcceptSelectedImage}
           />
         </TabsContent>
+        {aiReviewAvailable && stemId ? (
+          <TabsContent
+            forceMount
+            value="review"
+            className={cn('flex h-full min-h-0 flex-1 flex-col overflow-hidden', activeTab !== 'review' && 'hidden')}
+          >
+            <UcatAiAssessmentControl
+              stemId={stemId}
+              form={form}
+              activeQuestionIndex={safeQuestionIndex}
+            />
+          </TabsContent>
+        ) : null}
       </Tabs>
     </aside>
   )

@@ -142,25 +142,28 @@ export function SignupCompleteStudyPlanStep({
     }
   }
 
-  const fieldClass = `w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-marketing-cream outline-none transition-[border-color,box-shadow] focus:border-marketing-accent/50 focus:ring-2 focus:ring-marketing-accent/20 disabled:opacity-50 ${typo.secondarySans}`;
+  const fieldClass = `w-full rounded-xl border border-border bg-background/70 px-4 py-3 text-foreground outline-none transition-[border-color,box-shadow] focus:border-primary/50 focus:ring-2 focus:ring-primary/20 disabled:opacity-50 dark:focus:border-accent/50 dark:focus:ring-accent/20 ${typo.secondarySans}`;
   const selectTriggerClass = cn(
     fieldClass,
-    "h-auto justify-between font-normal hover:bg-white/10 [&_svg]:text-marketing-cream/50",
+    "h-auto justify-between font-normal hover:bg-muted [&_svg]:text-muted-foreground",
   );
 
   const cardClass =
-    "space-y-4 rounded-3xl bg-white/5 p-5 ring-1 ring-white/10 backdrop-blur-sm sm:p-6";
+    "space-y-4 rounded-3xl bg-card/80 p-5 shadow-sm ring-1 ring-border backdrop-blur-sm sm:p-6";
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
       <div className="grid gap-6 lg:grid-cols-2">
         <section className={cardClass}>
-          <div className="flex items-center gap-2 text-marketing-cream">
-            <Target className="h-4 w-4 text-marketing-accent" aria-hidden />
+          <div className="flex items-center gap-2 text-foreground">
+            <Target
+              className="h-4 w-4 text-primary dark:text-accent"
+              aria-hidden
+            />
             <h2 className={`font-semibold ${typo.headingSans}`}>Your goal</h2>
           </div>
           <label
-            className={`block space-y-2 text-sm text-marketing-cream/70 ${typo.secondarySans}`}
+            className={`block space-y-2 text-sm text-muted-foreground ${typo.secondarySans}`}
           >
             <span>Target score</span>
             <input
@@ -177,7 +180,7 @@ export function SignupCompleteStudyPlanStep({
           </label>
 
           <div
-            className={`space-y-2 text-sm text-marketing-cream/70 ${typo.secondarySans}`}
+            className={`space-y-2 text-sm text-muted-foreground ${typo.secondarySans}`}
           >
             <span className="block">Do you know your exact test date?</span>
             <div className="grid grid-cols-2 gap-2">
@@ -192,8 +195,8 @@ export function SignupCompleteStudyPlanStep({
                   className={cn(
                     "rounded-xl px-3 py-2.5 text-sm ring-1 transition-colors",
                     knowsTestDate === option.value
-                      ? "bg-marketing-accent/15 text-marketing-accent ring-marketing-accent/40"
-                      : "bg-white/5 text-marketing-cream/60 ring-white/10 hover:bg-white/10",
+                      ? "bg-primary/10 text-primary ring-primary/30 dark:bg-accent/15 dark:text-accent dark:ring-accent/40"
+                      : "bg-background/60 text-muted-foreground ring-border hover:bg-muted",
                   )}
                 >
                   {option.label}
@@ -204,7 +207,7 @@ export function SignupCompleteStudyPlanStep({
 
           {knowsTestDate ? (
             <div
-              className={`space-y-2 text-sm text-marketing-cream/70 ${typo.secondarySans}`}
+              className={`space-y-2 text-sm text-muted-foreground ${typo.secondarySans}`}
             >
               <span className="block">UCAT test date</span>
               <SmartDatePickerField
@@ -217,13 +220,13 @@ export function SignupCompleteStudyPlanStep({
                 showPresets={false}
                 className={cn(
                   selectTriggerClass,
-                  "hover:bg-white/10 dark:hover:bg-white/10 dark:hover:text-marketing-cream",
+                  "hover:bg-muted dark:hover:bg-muted dark:hover:text-foreground",
                 )}
               />
             </div>
           ) : (
             <div
-              className={`space-y-2 text-sm text-marketing-cream/70 ${typo.secondarySans}`}
+              className={`space-y-2 text-sm text-muted-foreground ${typo.secondarySans}`}
             >
               <span className="block">UCAT year</span>
               <SearchableSelect<YearOption>
@@ -241,7 +244,7 @@ export function SignupCompleteStudyPlanStep({
                 triggerClassName={selectTriggerClass}
                 contentWidth="var(--radix-popover-trigger-width)"
               />
-              <span className="block text-xs text-marketing-cream/40">
+              <span className="block text-xs text-muted-foreground/75">
                 You can add the real date later.
               </span>
             </div>
@@ -249,15 +252,16 @@ export function SignupCompleteStudyPlanStep({
         </section>
 
         <section className={cardClass}>
-          <div className="flex items-center gap-2 text-marketing-cream">
-            <Clock3 className="h-4 w-4 text-marketing-accent" aria-hidden />
+          <div className="flex items-center gap-2 text-foreground">
+            <Clock3
+              className="h-4 w-4 text-primary dark:text-accent"
+              aria-hidden
+            />
             <h2 className={`font-semibold ${typo.headingSans}`}>
               Your availability
             </h2>
           </div>
-          <p
-            className={`text-sm text-marketing-cream/50 ${typo.secondarySans}`}
-          >
+          <p className={`text-sm text-muted-foreground ${typo.secondarySans}`}>
             This is the maximum time you would like to dedicate to study, not
             necessarily the time we will allocate for you every week.
           </p>
@@ -268,7 +272,7 @@ export function SignupCompleteStudyPlanStep({
               return (
                 <div
                   key={day.value}
-                  className="flex items-center justify-between gap-4 rounded-xl bg-white/5 px-4 py-3"
+                  className="flex items-center justify-between gap-4 rounded-xl bg-background/60 px-4 py-3 ring-1 ring-border"
                 >
                   <div className="flex min-w-0 flex-1 items-center gap-3">
                     <Switch
@@ -277,10 +281,10 @@ export function SignupCompleteStudyPlanStep({
                       onCheckedChange={(checked) =>
                         setDayEnabled(day.value, checked)
                       }
-                      className="data-[state=checked]:bg-marketing-accent data-[state=unchecked]:bg-white/20"
+                      className="data-[state=checked]:bg-primary data-[state=unchecked]:bg-muted-foreground/30 dark:data-[state=checked]:bg-accent"
                     />
                     <span
-                      className={`text-sm text-marketing-cream/70 ${typo.secondarySans}`}
+                      className={`text-sm text-foreground ${typo.secondarySans}`}
                     >
                       {day.label}
                     </span>
@@ -305,9 +309,9 @@ export function SignupCompleteStudyPlanStep({
                       onChange={(event) =>
                         setDayMinutes(day.value, Number(event.target.value))
                       }
-                      className="w-20 rounded-lg border border-white/10 bg-white/5 px-2 py-1.5 text-right text-sm text-marketing-cream outline-none focus:border-marketing-accent/50"
+                      className="w-20 rounded-lg border border-border bg-background px-2 py-1.5 text-right text-sm text-foreground outline-none focus:border-primary/50 dark:focus:border-accent/50"
                     />
-                    <span className="text-xs text-marketing-cream/40">
+                    <span className="text-xs text-muted-foreground">
                       min max
                     </span>
                   </span>
@@ -317,7 +321,7 @@ export function SignupCompleteStudyPlanStep({
           </div>
           <div
             className={cn(
-              `space-y-2 text-sm text-marketing-cream/70 ${typo.secondarySans}`,
+              `space-y-2 text-sm text-muted-foreground ${typo.secondarySans}`,
               !mockDayOptions.length && "invisible pointer-events-none",
             )}
             aria-hidden={!mockDayOptions.length}
@@ -355,11 +359,7 @@ export function SignupCompleteStudyPlanStep({
       <button
         type="submit"
         disabled={isSubmitting}
-        className={cn(
-          UCAT_ACCENT_FILL_RISE,
-          "w-full rounded-full bg-marketing-accent px-8 py-3.5 text-base font-semibold text-marketing-charcoal disabled:cursor-not-allowed disabled:opacity-50",
-          typo.headingSans,
-        )}
+        className={cn(UCAT_ACCENT_FILL_RISE, "w-full", typo.headingSans)}
       >
         {isSubmitting ? "Building your plan…" : "Create my Study plan"}
       </button>

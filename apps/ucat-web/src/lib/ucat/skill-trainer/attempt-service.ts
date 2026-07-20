@@ -20,7 +20,8 @@ import type {
   SkillTrainerAttemptState,
   SubmitActionPayload,
 } from "@/features/skill-trainer/types/attempt";
-import { advanceQueue, buildItemQueue } from "@/lib/ucat/skill-trainer/queue";
+import type { QuotaExceededPayload } from "@/features/ucat-access/types/quota";
+import { advanceQueue } from "@/lib/ucat/skill-trainer/queue";
 
 export type { SkillTrainerAttemptState, SubmitActionPayload };
 import {
@@ -54,7 +55,7 @@ type AttemptRow = {
   started_at: string;
   completed_at: string | null;
   discarded_at: string | null;
-  trainer_key?: string;
+  trainer_key: UcatSkillTrainerKey;
   version: number;
 };
 
@@ -72,49 +73,32 @@ function parseConfig(
   snapshot: unknown,
   trainerKey: UcatSkillTrainerKey,
 ): SkillTrainerConfigSnapshot {
-  const raw = (snapshot ?? {}) as Partial<SkillTrainerConfigSnapshot>;
+  if (!snapshot || typeof snapshot !== "object" || Array.isArray(snapshot)) {
+    throw new Error("INVALID_CONFIG_SNAPSHOT");
+  }
+  const raw = snapshot as Partial<SkillTrainerConfigSnapshot>;
+  if (
+    typeof raw.time_limit_seconds !== "number" ||
+    typeof raw.points_correct !== "number" ||
+    typeof raw.points_wrong !== "number" ||
+    typeof raw.streak_enabled !== "boolean" ||
+    !Array.isArray(raw.streak_multiplier_steps) ||
+    typeof raw.speed_bonus_enabled !== "boolean" ||
+    typeof raw.speed_bonus_max_points !== "number" ||
+    typeof raw.speed_bonus_window_seconds !== "number" ||
+    raw.trainer_key !== trainerKey
+  ) {
+    throw new Error("INVALID_CONFIG_SNAPSHOT");
+  }
   return {
-    time_limit_seconds: raw.time_limit_seconds ?? 60,
-    points_correct: raw.points_correct ?? 10,
-    points_wrong: raw.points_wrong ?? 5,
-    streak_enabled: raw.streak_enabled ?? true,
-    streak_multiplier_steps: raw.streak_multiplier_steps ?? [
-      { min_streak: 3, multiplier: 1.5 },
-      { min_streak: 5, multiplier: 2 },
-    ],
-    speed_bonus_enabled: raw.speed_bonus_enabled ?? false,
-    speed_bonus_max_points: raw.speed_bonus_max_points ?? 0,
-    speed_bonus_window_seconds: raw.speed_bonus_window_seconds ?? 8,
-    trainer_key: trainerKey,
-  };
-}
-
-function buildConfigSnapshot(
-  configRow: {
-    time_limit_seconds: number;
-    points_correct: number;
-    points_wrong: number;
-    streak_enabled: boolean;
-    streak_multiplier_steps: unknown;
-    speed_bonus_enabled?: boolean | null;
-    speed_bonus_max_points?: number | null;
-    speed_bonus_window_seconds?: number | null;
-  },
-  trainerKey: UcatSkillTrainerKey,
-): SkillTrainerConfigSnapshot {
-  return {
-    time_limit_seconds: configRow.time_limit_seconds,
-    points_correct: Number(configRow.points_correct),
-    points_wrong: Number(configRow.points_wrong),
-    // All trainer types use streak scoring; multiplier steps still come from admin config.
-    streak_enabled: true,
-    streak_multiplier_steps: (configRow.streak_multiplier_steps ??
-      []) as SkillTrainerConfigSnapshot["streak_multiplier_steps"],
-    speed_bonus_enabled: configRow.speed_bonus_enabled ?? false,
-    speed_bonus_max_points: Number(configRow.speed_bonus_max_points ?? 0),
-    speed_bonus_window_seconds: Number(
-      configRow.speed_bonus_window_seconds ?? 8,
-    ),
+    time_limit_seconds: raw.time_limit_seconds,
+    points_correct: raw.points_correct,
+    points_wrong: raw.points_wrong,
+    streak_enabled: raw.streak_enabled,
+    streak_multiplier_steps: raw.streak_multiplier_steps,
+    speed_bonus_enabled: raw.speed_bonus_enabled,
+    speed_bonus_max_points: raw.speed_bonus_max_points,
+    speed_bonus_window_seconds: raw.speed_bonus_window_seconds,
     trainer_key: trainerKey,
   };
 }
@@ -194,12 +178,9 @@ export async function discardSkillTrainerAttempt(
 
 function mapAttemptRow(
   row: Record<string, unknown>,
-  trainerKey?: string,
+  trainerKey: string,
 ): AttemptRow {
-  let key: UcatSkillTrainerKey = "find_word";
-  if (trainerKey && isUcatSkillTrainerKey(trainerKey)) {
-    key = trainerKey;
-  }
+  if (!isUcatSkillTrainerKey(trainerKey)) throw new Error("INVALID_TRAINER");
   return {
     id: row.id as string,
     student_id: row.student_id as string,
@@ -211,7 +192,7 @@ function mapAttemptRow(
     current_item_started_at:
       (row.current_item_started_at as string | null) ?? null,
     progress: (row.progress as SkillTrainerAttemptProgress | null) ?? null,
-    config_snapshot: parseConfig(row.config_snapshot, key),
+    config_snapshot: parseConfig(row.config_snapshot, trainerKey),
     ends_at: row.ends_at as string,
     started_at: row.started_at as string,
     completed_at: (row.completed_at as string | null) ?? null,
@@ -331,7 +312,10 @@ export async function getUnfinishedSkillTrainerAttempt(
     return null;
   }
 
-  const trainerKey = trainer.key ?? undefined;
+  const trainerKey = trainer.key;
+  if (!trainerKey || !isUcatSkillTrainerKey(trainerKey)) {
+    throw new Error("INVALID_TRAINER");
+  }
   const attempt = mapAttemptRow(data as Record<string, unknown>, trainerKey);
 
   return attempt;
@@ -354,10 +338,10 @@ async function getAttemptForStudent(
   const trainer = (data as { ucat_skill_trainers?: AttemptTrainerRelation })
     .ucat_skill_trainers;
   if (trainer?.is_enabled !== true) throw new Error("TRAINER_NOT_FOUND");
-  return mapAttemptRow(
-    data as unknown as Record<string, unknown>,
-    trainer.key ?? undefined,
-  );
+  if (!trainer.key || !isUcatSkillTrainerKey(trainer.key)) {
+    throw new Error("INVALID_TRAINER");
+  }
+  return mapAttemptRow(data as unknown as Record<string, unknown>, trainer.key);
 }
 
 export async function buildAttemptState(
@@ -394,68 +378,58 @@ export async function buildAttemptState(
   };
 }
 
+export type StartSkillTrainerAttemptResult =
+  | { started: true; state: SkillTrainerAttemptState }
+  | { started: false; quota: QuotaExceededPayload };
+
+type StartSkillTrainerAttemptRpcResult = {
+  status?: string;
+  state?: SkillTrainerAttemptState;
+  quota?: QuotaExceededPayload;
+};
+
 export async function startSkillTrainerAttempt(
   supabase: AdminClient,
-  studentId: string,
+  userId: string,
   trainerKey: string,
-): Promise<SkillTrainerAttemptState> {
-  const trainer = await loadTrainerByKey(supabase, trainerKey);
-  if (!trainer) throw new Error("TRAINER_NOT_FOUND");
-
-  const [itemIds, configResult] = await Promise.all([
-    loadApprovedItemIds(supabase, trainer.id, 64),
-    supabase
-      .from("ucat_skill_trainer_config")
-      .select("*")
-      .eq("skill_trainer_id", trainer.id)
-      .maybeSingle(),
-  ]);
-  if (itemIds.length === 0) throw new Error("NO_ITEMS_AVAILABLE");
-
-  const { data: configRow, error: configError } = configResult;
-  if (configError) throw new Error(configError.message);
-  if (!configRow) throw new Error("TRAINER_CONFIG_NOT_FOUND");
-
-  const configSnapshot = buildConfigSnapshot(configRow, trainer.key);
-
-  const endsAt = new Date(
-    Date.now() + configSnapshot.time_limit_seconds * 1000,
-  ).toISOString();
-  const firstItemStartedAt = new Date().toISOString();
-  const queue = buildItemQueue(itemIds);
-
-  const { data: inserted, error: insertError } = await supabase
-    .from("student_skill_trainer_attempts")
-    .insert({
-      student_id: studentId,
-      skill_trainer_id: trainer.id,
-      item_queue_snapshot: queue,
-      current_item_index: 0,
-      current_item_started_at: firstItemStartedAt,
-      progress: defaultProgress(trainer.key),
-      config_snapshot: configSnapshot,
-      ends_at: endsAt,
-    })
-    .select("*")
-    .maybeSingle();
-
-  if (insertError) {
-    if (insertError.code === "23505")
-      throw new Error("ANOTHER_ATTEMPT_IN_PROGRESS");
-    throw new Error(insertError.message);
-  }
-  if (!inserted) throw new Error("FAILED_TO_START");
-
-  const attempt = mapAttemptRow(
-    {
-      ...(inserted as Record<string, unknown>),
-      item_queue_snapshot: queue,
-      config_snapshot: configSnapshot,
-    },
-    trainer.key,
+): Promise<StartSkillTrainerAttemptResult> {
+  if (!isUcatSkillTrainerKey(trainerKey)) throw new Error("TRAINER_NOT_FOUND");
+  const rpcClient = supabase as unknown as {
+    rpc: (
+      functionName: "start_ucat_skill_trainer_attempt",
+      params: { p_user_id: string; p_trainer_key: UcatSkillTrainerKey },
+    ) => Promise<{
+      data: StartSkillTrainerAttemptRpcResult | null;
+      error: { message: string } | null;
+    }>;
+  };
+  const { data, error } = await rpcClient.rpc(
+    "start_ucat_skill_trainer_attempt",
+    { p_user_id: userId, p_trainer_key: trainerKey },
   );
+  if (error) throw new Error(error.message);
+  if (!data?.status) throw new Error("FAILED_TO_START");
 
-  return buildAttemptState(supabase, attempt);
+  if (data.status === "started") {
+    if (!data.state?.attempt || !data.state.currentItem) {
+      throw new Error("INVALID_START_RESPONSE");
+    }
+    return { started: true, state: data.state };
+  }
+  if (data.status === "quota_exceeded") {
+    if (!data.quota) throw new Error("INVALID_QUOTA_RESPONSE");
+    return { started: false, quota: data.quota };
+  }
+
+  const errors: Record<string, string> = {
+    student_not_found: "STUDENT_NOT_FOUND",
+    trainer_not_found: "TRAINER_NOT_FOUND",
+    trainer_config_not_found: "TRAINER_CONFIG_NOT_FOUND",
+    quota_config_not_found: "QUOTA_CONFIG_NOT_FOUND",
+    invalid_quota_period: "INVALID_QUOTA_PERIOD",
+    no_items_available: "NO_ITEMS_AVAILABLE",
+  };
+  throw new Error(errors[data.status] ?? "FAILED_TO_START");
 }
 
 async function completeCurrentItem(

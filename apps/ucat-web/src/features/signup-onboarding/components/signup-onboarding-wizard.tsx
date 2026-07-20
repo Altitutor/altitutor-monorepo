@@ -26,12 +26,14 @@ import {
 import { SignupCompletePlanStep } from "@/features/signup-onboarding/components/steps/plan-step";
 import { useUcatAccess } from "@/features/ucat-access/hooks/use-ucat-access";
 import { NoiseOverlay } from "@/features/landing/components/marketing/noise-overlay";
+import { ThemeToggle } from "@/components/theme/theme-toggle";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
 import { parseSignupPlanIntent } from "@/features/auth/lib/signup-plan-intent";
 import {
   SignupSuccessTransition,
   type SignupSuccessJourney,
+  type SignupSuccessTransitionPhase,
 } from "@/features/signup-onboarding/components/signup-success-transition";
 import { fetchReferralGifts } from "@/features/subscription/api/referral-gifts";
 import { useOnboardingProgress } from "@/features/onboarding/hooks/use-onboarding-progress";
@@ -42,24 +44,29 @@ const { typography: typo } = MARKETING_TOKENS;
 
 function PlanChoiceHandoff({
   journey,
+  phase,
   takingLonger,
   error,
   onRetry,
+  onComplete,
 }: {
   journey: SignupSuccessJourney;
+  phase: SignupSuccessTransitionPhase;
   takingLonger: boolean;
   error: string | null;
   onRetry: () => void;
+  onComplete: () => void;
 }) {
   return (
     <SignupSuccessTransition
       journey={journey}
       occasion="signup"
-      phase="confirming"
+      phase={phase}
       isTakingLonger={takingLonger}
       error={error}
       onRetry={onRetry}
-      onComplete={() => undefined}
+      onComplete={onComplete}
+      preloadDashboard
     />
   );
 }
@@ -142,9 +149,10 @@ export function SignupOnboardingWizard({
     useState<SignupSuccessJourney | null>(() =>
       checkoutReturnedSuccessfully ? "paid" : null,
     );
-  const [signupSuccessPhase, setSignupSuccessPhase] = useState<
-    "confirming" | null
-  >(() => (checkoutReturnedSuccessfully ? "confirming" : null));
+  const [signupSuccessPhase, setSignupSuccessPhase] =
+    useState<SignupSuccessTransitionPhase | null>(() =>
+      checkoutReturnedSuccessfully ? "confirming" : null,
+    );
   const [signupSuccessTakingLonger, setSignupSuccessTakingLonger] =
     useState(false);
   const [signupSuccessError, setSignupSuccessError] = useState<string | null>(
@@ -192,7 +200,7 @@ export function SignupOnboardingWizard({
         await new Promise((resolve) => window.setTimeout(resolve, remaining));
       }
     }
-    router.replace("/dashboard");
+    setSignupSuccessPhase("welcome");
   }, [queryClient, refetchOnboardingProgress, router]);
 
   const completeFreeSignup = useCallback(async () => {
@@ -351,6 +359,7 @@ export function SignupOnboardingWizard({
     return (
       <PlanChoiceHandoff
         journey={signupSuccessJourney}
+        phase={signupSuccessPhase}
         takingLonger={signupSuccessTakingLonger}
         error={signupSuccessError}
         onRetry={() => {
@@ -364,13 +373,17 @@ export function SignupOnboardingWizard({
           setCheckoutConfirmationAttempt((current) => current + 1);
           void queryClient.invalidateQueries({ queryKey: ["ucat-access"] });
         }}
+        onComplete={() => router.replace("/dashboard")}
       />
     );
   }
 
   return (
-    <div className="relative flex min-h-dvh flex-col bg-marketing-charcoal">
+    <div className="relative flex min-h-dvh flex-col bg-background text-foreground transition-colors">
       <NoiseOverlay />
+      <div className="fixed right-4 top-4 z-50 sm:right-6 sm:top-6">
+        <ThemeToggle />
+      </div>
 
       <main className="relative z-10 flex flex-1 flex-col items-center justify-center px-4 py-12">
         <motion.div
@@ -390,17 +403,17 @@ export function SignupOnboardingWizard({
             <div className="space-y-6">
               <div>
                 <span
-                  className={`text-xs font-bold uppercase tracking-[0.2em] text-marketing-accent ${typo.dataMono}`}
+                  className={`text-xs font-bold uppercase tracking-[0.2em] text-primary dark:text-accent ${typo.dataMono}`}
                 >
                   {heading.kicker}
                 </span>
                 <h1
-                  className={`mt-2 text-3xl font-bold text-marketing-cream sm:text-4xl ${typo.headingSans}`}
+                  className={`mt-2 text-3xl font-bold text-foreground sm:text-4xl ${typo.headingSans}`}
                 >
                   {heading.title}
                 </h1>
                 <p
-                  className={`mt-2 text-marketing-cream/60 ${typo.secondarySans}`}
+                  className={`mt-2 text-muted-foreground ${typo.secondarySans}`}
                 >
                   {heading.desc}
                 </p>

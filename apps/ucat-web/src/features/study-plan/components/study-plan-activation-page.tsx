@@ -68,7 +68,10 @@ import type {
   StudyPlanResponse,
   StudyPlanWeekday,
 } from "@/features/study-plan/model/types";
-import { UCAT_CARD_CHROME } from "@/lib/ucat-surface-motion";
+import {
+  UCAT_CARD_CHROME,
+  UCAT_DIALOG_PRIMARY_ACTION,
+} from "@/lib/ucat-surface-motion";
 import { cn } from "@/lib/utils";
 
 const DAYS: Array<{ value: StudyPlanWeekday; label: string }> = [
@@ -417,6 +420,7 @@ export function StudyPlanActivationPage() {
         onRetry={() => undefined}
         onComplete={() => router.replace("/dashboard")}
         studyPlanStatus={completion.studyPlanStatus}
+        preloadDashboard
       />
     );
   }
@@ -491,7 +495,6 @@ export function StudyPlanActivationPage() {
   return (
     <StudyPlanSetupShell>
       <motion.div
-        layout={!reduceMotion}
         initial={reduceMotion ? false : { opacity: 0, y: 18 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{
@@ -501,211 +504,233 @@ export function StudyPlanActivationPage() {
         className="w-full max-w-3xl"
       >
         <StudyPlanStepIndicator activeStep={activeStep} stepCount={stepCount} />
-        <AnimatedStepPanel stepKey={stage} direction={direction}>
+        <AnimatedStepPanel
+          stepKey={`study-plan-heading-${stage}`}
+          direction={direction}
+        >
           <div className="mb-6">
-            <p className="text-xs font-bold uppercase tracking-[0.2em] text-marketing-accent">
+            <p className="text-xs font-bold uppercase tracking-[0.2em] text-primary dark:text-accent">
               {heading.kicker}
             </p>
-            <h1 className="mt-2 text-3xl font-bold tracking-tight text-marketing-cream sm:text-4xl">
+            <h1 className="mt-2 text-3xl font-bold tracking-tight text-foreground sm:text-4xl">
               {heading.title}
             </h1>
-            <p className="mt-2 max-w-2xl text-marketing-cream/60">
+            <p className="mt-2 max-w-2xl text-muted-foreground">
               {heading.description}
             </p>
           </div>
+        </AnimatedStepPanel>
 
-          {stage === "preference" ? (
-            <div>
-              <div className="grid gap-4 sm:grid-cols-2">
-                <PreferenceCard
-                  selected={studyPlanEnabled === true}
-                  icon={<CalendarDays className="h-5 w-5" aria-hidden />}
-                  title="Build me a Study plan"
-                  description="Altitutor schedules adaptive work around your availability and adjusts it as your performance changes."
-                  onClick={() => setStudyPlanEnabled(true)}
-                />
-                <PreferenceCard
-                  selected={studyPlanEnabled === false}
-                  icon={<Compass className="h-5 w-5" aria-hidden />}
-                  title="I’ll manage my own plan"
-                  description="Organise study yourself while Altitutor continues to suggest useful next activities."
-                  onClick={() => setStudyPlanEnabled(false)}
-                />
-              </div>
-              <SetupError message={error} />
-              <div className="mt-6 flex items-center justify-between gap-3">
-                <button
-                  type="button"
-                  className={STUDY_SETUP_GHOST_BUTTON_CLASS}
-                  onClick={() => setSkipDialogOpen(true)}
-                >
-                  Skip for now
-                </button>
-                <button
-                  type="button"
-                  className={STUDY_SETUP_PRIMARY_BUTTON_CLASS}
-                  disabled={studyPlanEnabled == null || pending}
-                  onClick={continueFromPreference}
-                >
-                  {pending ? "Saving…" : "Next"}
-                  {!pending ? (
-                    <ArrowRight className="ml-2 inline h-4 w-4" aria-hidden />
-                  ) : null}
-                </button>
-              </div>
-            </div>
-          ) : stage === "destination" ? (
-            <div>
-              <StudyPlanGoalFields
-                idPrefix="study-plan-goal"
-                targetScore={targetScore}
-                targetUnsure={targetUnsure}
-                testYear={testYear}
-                testDate={testDate}
-                yearOptions={yearOptions}
-                disabled={pending}
-                onTargetScoreChange={(score) => {
-                  setTargetScore(score);
-                  setTargetUnsure(false);
-                }}
-                onTargetUnsure={() => {
-                  setTargetScore(2200);
-                  setTargetUnsure(true);
-                }}
-                onTestYearChange={setTestYear}
-                onTestDateChange={setTestDate}
-              />
-              <SetupError message={error} />
-              <div className="mt-6 flex items-center justify-between gap-3">
-                <BackButton
-                  onClick={() => {
-                    setDirection(-1);
-                    setStage("preference");
-                  }}
-                />
-                <button
-                  type="button"
-                  className={STUDY_SETUP_PRIMARY_BUTTON_CLASS}
-                  disabled={pending || testYear == null}
-                  onClick={() => {
-                    if (studyPlanEnabled) {
-                      setDirection(1);
-                      setStage("availability");
-                    } else {
-                      void saveWithoutPlan();
-                    }
-                  }}
-                >
-                  {pending
-                    ? "Saving…"
-                    : studyPlanEnabled
-                      ? "Choose my study week"
-                      : "Save and finish"}
-                  {!pending ? (
-                    <ArrowRight className="ml-2 inline h-4 w-4" aria-hidden />
-                  ) : null}
-                </button>
-              </div>
-            </div>
-          ) : (
-            <div>
-              <div className="space-y-2 rounded-3xl bg-white/5 p-5 ring-1 ring-white/10 backdrop-blur sm:p-6">
-                {DAYS.map((day) => {
-                  const available = availability.find(
-                    (item) => item.weekday === day.value,
-                  );
-                  const enabled = Boolean(available);
-                  return (
-                    <div
-                      key={day.value}
-                      className="flex items-center justify-between gap-4 rounded-xl bg-white/5 px-4 py-3"
-                    >
-                      <div className="flex min-w-0 flex-1 items-center gap-3">
-                        <Switch
-                          checked={enabled}
-                          disabled={pending}
-                          onCheckedChange={() => toggleDay(day.value)}
-                          aria-label={`Study on ${day.label}`}
-                          className="data-[state=checked]:bg-marketing-accent data-[state=unchecked]:bg-white/20"
-                        />
-                        <span className="text-sm text-marketing-cream/70">
-                          {day.label}
-                        </span>
-                      </div>
-                      <span
-                        className={cn(
-                          "flex items-center gap-2",
-                          !enabled && "invisible pointer-events-none",
-                        )}
-                        aria-hidden={!enabled}
-                      >
-                        <input
-                          type="number"
-                          min={15}
-                          max={360}
-                          step={15}
-                          tabIndex={enabled ? 0 : -1}
-                          value={
-                            available?.maxMinutes ??
-                            defaultMinutesForDay(day.value)
-                          }
-                          disabled={pending || !enabled}
-                          onChange={(event) =>
-                            setAvailability((current) =>
-                              current.map((item) =>
-                                item.weekday === day.value
-                                  ? {
-                                      ...item,
-                                      maxMinutes: Number(event.target.value),
-                                    }
-                                  : item,
-                              ),
-                            )
-                          }
-                          className={cn(
-                            STUDY_SETUP_FIELD_CLASS,
-                            "w-20 px-2 py-1.5 text-right text-sm",
-                          )}
-                          aria-label={`${day.label} maximum minutes`}
-                        />
-                        <span className="text-xs text-marketing-cream/40">
-                          min max
-                        </span>
-                      </span>
-                    </div>
-                  );
-                })}
-                <div className="flex gap-3 rounded-xl bg-white/[0.04] px-4 py-3 text-sm text-marketing-cream/50">
-                  <Clock3 className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
-                  <p>
-                    This is a ceiling, not a quota. Altitutor can schedule less
-                    time, and you can change these days later.
-                  </p>
+        <motion.div
+          layout={!reduceMotion}
+          layoutDependency={stage}
+          transition={{
+            layout: reduceMotion
+              ? { duration: 0 }
+              : { type: "spring", stiffness: 270, damping: 30, mass: 0.85 },
+          }}
+          className="relative"
+        >
+          <AnimatedStepPanel
+            stepKey={`study-plan-cards-${stage}`}
+            direction={direction}
+            morphLayout
+            slide={false}
+          >
+            {stage === "preference" ? (
+              <div>
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <PreferenceCard
+                    selected={studyPlanEnabled === true}
+                    icon={<CalendarDays className="h-5 w-5" aria-hidden />}
+                    title="Build me a Study plan"
+                    description="Altitutor schedules adaptive work around your availability and adjusts it as your performance changes."
+                    onClick={() => setStudyPlanEnabled(true)}
+                  />
+                  <PreferenceCard
+                    selected={studyPlanEnabled === false}
+                    icon={<Compass className="h-5 w-5" aria-hidden />}
+                    title="I’ll manage my own plan"
+                    description="Organise study yourself while Altitutor continues to suggest useful next activities."
+                    onClick={() => setStudyPlanEnabled(false)}
+                  />
+                </div>
+                <SetupError message={error} />
+                <div className="mt-6 flex items-center justify-between gap-3">
+                  <button
+                    type="button"
+                    className={STUDY_SETUP_GHOST_BUTTON_CLASS}
+                    onClick={() => setSkipDialogOpen(true)}
+                  >
+                    Skip for now
+                  </button>
+                  <button
+                    type="button"
+                    className={STUDY_SETUP_PRIMARY_BUTTON_CLASS}
+                    disabled={studyPlanEnabled == null || pending}
+                    onClick={continueFromPreference}
+                  >
+                    {pending ? "Saving…" : "Next"}
+                    {!pending ? (
+                      <ArrowRight className="ml-2 inline h-4 w-4" aria-hidden />
+                    ) : null}
+                  </button>
                 </div>
               </div>
-              <SetupError message={error} />
-              <div className="mt-6 flex items-center justify-between gap-3">
-                <BackButton
-                  onClick={() => {
-                    setDirection(-1);
-                    setStage(hasSavedGoal ? "preference" : "destination");
+            ) : stage === "destination" ? (
+              <div>
+                <StudyPlanGoalFields
+                  idPrefix="study-plan-goal"
+                  targetScore={targetScore}
+                  targetUnsure={targetUnsure}
+                  testYear={testYear}
+                  testDate={testDate}
+                  yearOptions={yearOptions}
+                  disabled={pending}
+                  onTargetScoreChange={(score) => {
+                    setTargetScore(score);
+                    setTargetUnsure(false);
                   }}
+                  onTargetUnsure={() => {
+                    setTargetScore(2200);
+                    setTargetUnsure(true);
+                  }}
+                  onTestYearChange={setTestYear}
+                  onTestDateChange={setTestDate}
                 />
-                <button
-                  type="button"
-                  className={STUDY_SETUP_PRIMARY_BUTTON_CLASS}
-                  disabled={pending || !availability.length}
-                  onClick={() => void buildPlan()}
-                >
-                  {pending ? "Building…" : "Build my Study plan"}
-                  {!pending ? (
-                    <Sparkles className="ml-2 inline h-4 w-4" aria-hidden />
-                  ) : null}
-                </button>
+                <SetupError message={error} />
+                <div className="mt-6 flex items-center justify-between gap-3">
+                  <BackButton
+                    onClick={() => {
+                      setDirection(-1);
+                      setStage("preference");
+                    }}
+                  />
+                  <button
+                    type="button"
+                    className={STUDY_SETUP_PRIMARY_BUTTON_CLASS}
+                    disabled={pending || testYear == null}
+                    onClick={() => {
+                      if (studyPlanEnabled) {
+                        setDirection(1);
+                        setStage("availability");
+                      } else {
+                        void saveWithoutPlan();
+                      }
+                    }}
+                  >
+                    {pending
+                      ? "Saving…"
+                      : studyPlanEnabled
+                        ? "Choose my study week"
+                        : "Save and finish"}
+                    {!pending ? (
+                      <ArrowRight className="ml-2 inline h-4 w-4" aria-hidden />
+                    ) : null}
+                  </button>
+                </div>
               </div>
-            </div>
-          )}
-        </AnimatedStepPanel>
+            ) : (
+              <div>
+                <div className="space-y-3">
+                  {DAYS.map((day) => {
+                    const available = availability.find(
+                      (item) => item.weekday === day.value,
+                    );
+                    const enabled = Boolean(available);
+                    return (
+                      <div
+                        key={day.value}
+                        className="flex items-center justify-between gap-4 rounded-2xl bg-card px-4 py-4 shadow-sm ring-1 ring-border transition-colors hover:bg-muted/60 sm:px-5"
+                      >
+                        <div className="flex min-w-0 flex-1 items-center gap-3">
+                          <Switch
+                            checked={enabled}
+                            disabled={pending}
+                            onCheckedChange={() => toggleDay(day.value)}
+                            aria-label={`Study on ${day.label}`}
+                            className="data-[state=checked]:bg-primary data-[state=unchecked]:bg-muted-foreground/30 dark:data-[state=checked]:bg-accent"
+                          />
+                          <span className="text-sm text-foreground">
+                            {day.label}
+                          </span>
+                        </div>
+                        <span
+                          className={cn(
+                            "flex items-center gap-2",
+                            !enabled && "invisible pointer-events-none",
+                          )}
+                          aria-hidden={!enabled}
+                        >
+                          <input
+                            type="number"
+                            min={15}
+                            max={360}
+                            step={15}
+                            tabIndex={enabled ? 0 : -1}
+                            value={
+                              available?.maxMinutes ??
+                              defaultMinutesForDay(day.value)
+                            }
+                            disabled={pending || !enabled}
+                            onChange={(event) =>
+                              setAvailability((current) =>
+                                current.map((item) =>
+                                  item.weekday === day.value
+                                    ? {
+                                        ...item,
+                                        maxMinutes: Number(event.target.value),
+                                      }
+                                    : item,
+                                ),
+                              )
+                            }
+                            className={cn(
+                              STUDY_SETUP_FIELD_CLASS,
+                              "w-20 px-2 py-1.5 text-right text-sm",
+                            )}
+                            aria-label={`${day.label} maximum minutes`}
+                          />
+                          <span className="text-xs text-muted-foreground">
+                            min max
+                          </span>
+                        </span>
+                      </div>
+                    );
+                  })}
+                  <div className="flex gap-3 rounded-2xl bg-muted/50 px-4 py-3 text-sm text-muted-foreground ring-1 ring-border">
+                    <Clock3 className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
+                    <p>
+                      This is the maximum time you are available to study.
+                      Altitutor can schedule less time, and you can change these
+                      days later.
+                    </p>
+                  </div>
+                </div>
+                <SetupError message={error} />
+                <div className="mt-6 flex items-center justify-between gap-3">
+                  <BackButton
+                    onClick={() => {
+                      setDirection(-1);
+                      setStage(hasSavedGoal ? "preference" : "destination");
+                    }}
+                  />
+                  <button
+                    type="button"
+                    className={STUDY_SETUP_PRIMARY_BUTTON_CLASS}
+                    disabled={pending || !availability.length}
+                    onClick={() => void buildPlan()}
+                  >
+                    {pending ? "Building…" : "Build my Study plan"}
+                    {!pending ? (
+                      <Sparkles className="ml-2 inline h-4 w-4" aria-hidden />
+                    ) : null}
+                  </button>
+                </div>
+              </div>
+            )}
+          </AnimatedStepPanel>
+        </motion.div>
       </motion.div>
 
       <AlertDialog open={skipDialogOpen} onOpenChange={setSkipDialogOpen}>
@@ -720,6 +745,7 @@ export function StudyPlanActivationPage() {
           <AlertDialogFooter>
             <AlertDialogCancel>Keep setting up</AlertDialogCancel>
             <AlertDialogAction
+              className={UCAT_DIALOG_PRIMARY_ACTION}
               onClick={() => {
                 setSkipDialogOpen(false);
                 void runWorkspaceSetupTransition("skipped");
@@ -752,18 +778,16 @@ function PreferenceCard({
       type="button"
       aria-pressed={selected}
       className={cn(
-        "rounded-3xl p-6 text-left text-marketing-cream ring-1 transition-[background-color,box-shadow,transform] hover:-translate-y-0.5 hover:bg-white/[0.08] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/35",
-        selected
-          ? "bg-white/[0.11] ring-white/30"
-          : "bg-white/[0.04] ring-white/10",
+        "rounded-3xl p-6 text-left text-foreground ring-1 transition-[background-color,box-shadow,transform] hover:-translate-y-0.5 hover:bg-muted/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+        selected ? "bg-muted ring-foreground/20" : "bg-card ring-border",
       )}
       onClick={onClick}
     >
-      <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-white/[0.08] text-marketing-cream/65">
+      <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-muted text-muted-foreground">
         {icon}
       </span>
       <span className="mt-5 block text-lg font-semibold">{title}</span>
-      <span className="mt-2 block text-sm leading-relaxed text-marketing-cream/55">
+      <span className="mt-2 block text-sm leading-relaxed text-muted-foreground">
         {description}
       </span>
     </button>

@@ -2,7 +2,8 @@ import "server-only";
 
 import { randomUUID } from "node:crypto";
 import type { Database, Json } from "@altitutor/shared";
-import { scaleTo300_900 } from "@altitutor/ucat-marking";
+import { estimateUcatSectionScore } from "@altitutor/ucat-marking";
+import type { UcatScoringSection } from "@altitutor/ucat-marking";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import {
@@ -201,13 +202,13 @@ function predictedScoreFromEvidence(
   rows: Array<{
     source: string | null;
     completed_at: string | null;
-    scaled_score: number | null;
     score_points: number | null;
     total_points: number | null;
     was_timed: boolean | null;
     student_exam_speed: number | null;
   }>,
   settings: ScoreProjectionSettings,
+  section: UcatScoringSection,
 ): ReturnType<typeof estimateSectionScore> {
   const evidence: AttemptEvidence[] = rows.flatMap((row) => {
     if (
@@ -227,10 +228,11 @@ function predictedScoreFromEvidence(
       row.total_points < settings.minPracticeScoredPoints
     )
       return [];
-    const score =
-      row.source === "practice"
-        ? scaleTo300_900(row.score_points, row.total_points)
-        : row.scaled_score;
+    const score = estimateUcatSectionScore({
+      section,
+      rawScore: row.score_points,
+      maxRawScore: row.total_points,
+    }).scaledScore;
     const timestamp = row.completed_at
       ? new Date(row.completed_at).getTime()
       : Number.NaN;
@@ -289,7 +291,7 @@ async function loadGenerationInputs(
     supabase
       .from("vstudent_ucat_score_projection_evidence")
       .select(
-        "source, section_id, completed_at, scaled_score, score_points, total_points, was_timed, student_exam_speed",
+        "source, section_id, completed_at, score_points, total_points, was_timed, student_exam_speed",
       ),
     admin
       .from("ucat_score_projection_settings")
@@ -423,6 +425,7 @@ async function loadGenerationInputs(
     const estimate = predictedScoreFromEvidence(
       evidence,
       projectionSettings(settingsBySection.get(section.id)),
+      section.key,
     );
     return {
       sectionId: section.id,

@@ -15,21 +15,11 @@ function thenableQuery(result: unknown) {
 }
 
 describe("persistQuestionAttemptBatch", () => {
-  it("updates existing attempts and inserts new attempts in two bulk writes", async () => {
-    const selectQuery = thenableQuery({
-      data: [{ id: "attempt-1", question_id: "question-1" }],
-      error: null,
-    });
-    const updateUpsert = jest.fn().mockResolvedValue({ error: null });
-    const insertUpsert = jest.fn().mockResolvedValue({ error: null });
-    const from = jest
-      .fn()
-      .mockReturnValueOnce(selectQuery)
-      .mockReturnValueOnce({ upsert: updateUpsert })
-      .mockReturnValueOnce({ upsert: insertUpsert });
+  it("persists practice attempts with one atomic RPC", async () => {
+    const rpc = jest.fn().mockResolvedValue({ data: 2, error: null });
 
     await persistQuestionAttemptBatch(
-      { from } as never,
+      { rpc } as never,
       "student-1",
       {
         studentQuestionSetAttemptId: null,
@@ -54,32 +44,64 @@ describe("persistQuestionAttemptBatch", () => {
       ],
     );
 
-    expect(from).toHaveBeenCalledTimes(3);
-    expect(updateUpsert).toHaveBeenCalledWith(
-      [
-        expect.objectContaining({
-          id: "attempt-1",
-          question_id: "question-1",
-          question_answer_option_id: "option-1",
-          is_submitted: true,
-          score: 1,
-        }),
-      ],
-      { onConflict: "id" },
+    expect(rpc).toHaveBeenCalledWith(
+      "upsert_ucat_question_attempt_batch",
+      expect.objectContaining({
+        p_student_id: "student-1",
+        p_student_question_set_attempt_id: null,
+        p_student_practice_session_id: "session-1",
+        p_attempts: [
+          expect.objectContaining({
+            question_id: "question-1",
+            question_answer_option_id: "option-1",
+            is_submitted: true,
+            score: 1,
+            has_score: true,
+          }),
+          expect.objectContaining({
+            question_id: "question-2",
+            is_flagged: true,
+            has_is_flagged: true,
+            is_submitted: true,
+            score: 0,
+          }),
+        ],
+      }),
     );
-    expect(insertUpsert).toHaveBeenCalledWith(
+  });
+
+  it("persists set attempts with the parent/question UPSERT key", async () => {
+    const rpc = jest.fn().mockResolvedValue({ data: 1, error: null });
+
+    await persistQuestionAttemptBatch(
+      { rpc } as never,
+      "student-1",
+      {
+        studentQuestionSetAttemptId: "set-attempt-1",
+        studentPracticeSessionId: null,
+        learningModuleBlockId: null,
+      },
       [
-        expect.objectContaining({
-          student_id: "student-1",
-          student_question_set_attempt_id: null,
-          student_practice_session_id: "session-1",
-          question_id: "question-2",
-          is_flagged: true,
-          is_submitted: true,
-          score: 0,
-        }),
+        {
+          questionId: "question-1",
+          questionAnswerOptionId: "option-1",
+          submittedByStem: true,
+        },
       ],
-      { onConflict: "student_practice_session_id,question_id" },
+    );
+
+    expect(rpc).toHaveBeenCalledWith(
+      "upsert_ucat_question_attempt_batch",
+      expect.objectContaining({
+        p_student_question_set_attempt_id: "set-attempt-1",
+        p_student_practice_session_id: null,
+        p_attempts: [
+          expect.objectContaining({
+            question_id: "question-1",
+            is_submitted: true,
+          }),
+        ],
+      }),
     );
   });
 
@@ -117,29 +139,10 @@ describe("persistQuestionAttemptBatch", () => {
   });
 
   it("uses client timing as a completion fallback without reducing server timing", async () => {
-    const selectQuery = thenableQuery({
-      data: [
-        {
-          id: "attempt-1",
-          question_id: "question-1",
-          time_spent_milliseconds: 2400,
-        },
-        {
-          id: "attempt-2",
-          question_id: "question-2",
-          time_spent_milliseconds: 5100,
-        },
-      ],
-      error: null,
-    });
-    const updateUpsert = jest.fn().mockResolvedValue({ error: null });
-    const from = jest
-      .fn()
-      .mockReturnValueOnce(selectQuery)
-      .mockReturnValueOnce({ upsert: updateUpsert });
+    const rpc = jest.fn().mockResolvedValue({ data: 2, error: null });
 
     await persistQuestionAttemptBatch(
-      { from } as never,
+      { rpc } as never,
       "student-1",
       {
         studentQuestionSetAttemptId: null,
@@ -160,20 +163,22 @@ describe("persistQuestionAttemptBatch", () => {
       ],
     );
 
-    expect(updateUpsert).toHaveBeenCalledWith(
-      [
-        expect.objectContaining({
-          id: "attempt-1",
-          time_spent_milliseconds: 3900,
-          time_spent_seconds: 4,
-        }),
-        expect.objectContaining({
-          id: "attempt-2",
-          time_spent_milliseconds: 5100,
-          time_spent_seconds: 6,
-        }),
-      ],
-      { onConflict: "id" },
+    expect(rpc).toHaveBeenCalledWith(
+      "upsert_ucat_question_attempt_batch",
+      expect.objectContaining({
+        p_attempts: [
+          expect.objectContaining({
+            question_id: "question-1",
+            time_spent_milliseconds: 3900,
+            has_time_spent_milliseconds: true,
+          }),
+          expect.objectContaining({
+            question_id: "question-2",
+            time_spent_milliseconds: 1000,
+            has_time_spent_milliseconds: true,
+          }),
+        ],
+      }),
     );
   });
 });

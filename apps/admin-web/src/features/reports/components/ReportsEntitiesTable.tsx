@@ -30,6 +30,7 @@ export type ReportsEntitiesTableVariant =
   | 'resolvedIssues'
   | 'openProjects'
   | 'finishedProjects'
+  | 'trialSessions'
   | 'activeStudents'
   | 'studentRegistrations'
   | 'discontinuations'
@@ -78,6 +79,10 @@ const TABLE_CONFIG: Record<ReportsEntitiesTableVariant, ColumnConfig[]> = {
     { key: 'project', header: 'Project' },
     { key: 'projectLead', header: 'Project lead' },
     { key: 'completedAt', header: 'Completed at' },
+  ],
+  trialSessions: [
+    { key: 'student', header: 'Student' },
+    { key: 'sessionDate', header: 'Session date' },
   ],
   activeStudents: [{ key: 'student', header: 'Student' }],
   studentRegistrations: [
@@ -164,6 +169,7 @@ function getPrimaryLabelKey(variant: ReportsEntitiesTableVariant): string {
     case 'openProjects':
     case 'finishedProjects':
       return 'project';
+    case 'trialSessions':
     case 'activeStudents':
     case 'studentRegistrations':
     case 'discontinuations':

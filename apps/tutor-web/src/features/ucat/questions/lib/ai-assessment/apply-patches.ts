@@ -26,11 +26,13 @@ function cloneJson<T>(value: T): T {
 
 function replaceExactText(value: Json | null | undefined, beforeText: string, afterText: string): Json {
   const clone = cloneJson(value ?? { type: 'doc', content: [] }) as unknown
+  const textNodes: MutableRecord[] = []
   let matches = 0
   function count(node: unknown) {
     if (Array.isArray(node)) return node.forEach(count)
     if (!isRecord(node)) return
     if (node.type === 'text' && typeof node.text === 'string') {
+      textNodes.push(node)
       let cursor = 0
       while ((cursor = node.text.indexOf(beforeText, cursor)) >= 0) {
         matches += 1
@@ -40,6 +42,39 @@ function replaceExactText(value: Json | null | undefined, beforeText: string, af
     Object.values(node).forEach(count)
   }
   count(clone)
+  if (matches === 0) {
+    const joined = textNodes.map((node) => String(node.text ?? '')).join('')
+    const firstMatch = joined.indexOf(beforeText)
+    const secondMatch = firstMatch >= 0 ? joined.indexOf(beforeText, firstMatch + beforeText.length) : -1
+    if (firstMatch >= 0 && secondMatch < 0) {
+      let cursor = 0
+      const touched = textNodes.flatMap((node) => {
+        const text = String(node.text ?? '')
+        const start = Math.max(firstMatch, cursor)
+        const end = Math.min(firstMatch + beforeText.length, cursor + text.length)
+        const result = end > start
+          ? [{ node, text, start: start - cursor, end: end - cursor }]
+          : []
+        cursor += text.length
+        return result
+      })
+      if (touched.length === 2) {
+        const [first, last] = touched
+        const firstAffected = first.text.slice(first.start, first.end)
+        const lastAffected = last.text.slice(last.start, last.end)
+        if (afterText.startsWith(firstAffected)) {
+          first.node.text = first.text.slice(0, first.start) + firstAffected + first.text.slice(first.end)
+          last.node.text = last.text.slice(0, last.start) + afterText.slice(firstAffected.length).trimStart() + last.text.slice(last.end)
+          return clone as Json
+        }
+        if (afterText.endsWith(lastAffected)) {
+          first.node.text = first.text.slice(0, first.start) + afterText.slice(0, -lastAffected.length).trimEnd()
+          last.node.text = last.text.slice(0, last.start) + lastAffected + last.text.slice(last.end)
+          return clone as Json
+        }
+      }
+    }
+  }
   if (matches !== 1) {
     throw new Error(matches === 0
       ? 'The suggested source text no longer exactly matches the draft.'

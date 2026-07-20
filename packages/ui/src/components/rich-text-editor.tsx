@@ -850,8 +850,10 @@ export const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>
                 '[&_.ProseMirror_p]:my-2 [&_.ProseMirror_ul]:my-2 [&_.ProseMirror_ol]:my-2',
                 '[&_.ProseMirror_li]:my-1',
                 '[&_.ProseMirror_li_ol]:mt-2 [&_.ProseMirror_li_ul]:mt-2',
-                '[&_.ProseMirror_table]:my-4 [&_.ProseMirror_th]:border [&_.ProseMirror_th]:border-border [&_.ProseMirror_th]:p-2 [&_.ProseMirror_th]:bg-muted',
-                '[&_.ProseMirror_td]:border [&_.ProseMirror_td]:border-border [&_.ProseMirror_td]:p-2',
+                /* Tables: className is on view.dom (.ProseMirror) — use [&_table]/[&_td], not nested [&_.ProseMirror_table] */
+                '[&_table]:my-4 [&_table]:w-full [&_table]:border-collapse [&_table]:overflow-visible',
+                '[&_th]:border [&_th]:border-solid [&_th]:border-border [&_th]:bg-muted [&_th]:p-2 [&_th]:text-left',
+                '[&_td]:border [&_td]:border-solid [&_td]:border-border [&_td]:p-2 [&_td]:align-top',
                 '[&_details]:my-4 [&_details]:rounded-lg [&_details]:border [&_details]:border-border [&_details]:bg-card/40',
                 '[&_summary]:cursor-pointer [&_summary]:list-none [&_summary]:px-3 [&_summary]:py-2 [&_summary]:font-semibold [&_summary]:outline-none',
                 '[&_.details-content]:border-t [&_.details-content]:border-border [&_.details-content]:px-3 [&_.details-content]:pb-3 [&_.details-content]:pt-2',

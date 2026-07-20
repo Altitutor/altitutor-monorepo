@@ -92,6 +92,7 @@ export function BulkImportReviewStemEditor({
       onActiveTextEditorChange={onActiveTextEditorChange}
       sourceChannel={sourceChannel ?? null}
       aiGenerationMetadata={aiGenerationMetadata ?? null}
+      aiReviewAvailable={false}
       className="flex h-full min-h-0 overflow-hidden"
     />
   )

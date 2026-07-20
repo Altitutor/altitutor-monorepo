@@ -448,13 +448,8 @@ export function SkillTrainerPlayPage({
       }
     }
     applyState(next);
-    if (next.isCompleted) {
-      await queryClient.invalidateQueries({
-        queryKey: ["skill-trainers", "leaderboard", trainerKey],
-      });
-    }
     return next;
-  }, [applyState, initialState, localMode, queryClient, trainerKey]);
+  }, [applyState, initialState, localMode, trainerKey]);
 
   useEffect(() => {
     void (async () => {
@@ -614,11 +609,6 @@ export function SkillTrainerPlayPage({
         );
         trackResult(next, prev, localFeedback, actionOrigin);
         applyState(next);
-        if (next.isCompleted) {
-          await queryClient.invalidateQueries({
-            queryKey: ["skill-trainers", "leaderboard", trainerKey],
-          });
-        }
         if (next.isCompleted) return;
       } catch (err) {
         if ((err as { stale?: boolean }).stale) {
@@ -645,7 +635,6 @@ export function SkillTrainerPlayPage({
       applyState,
       localItemsById,
       localMode,
-      queryClient,
       resetActionInputs,
       showFeedback,
       trackResult,
@@ -704,21 +693,13 @@ export function SkillTrainerPlayPage({
       if (completionNotifiedRef.current === completedAttemptId) return;
       completionNotifiedRef.current = completedAttemptId;
       if (!localMode) {
-        void refresh();
         void queryClient.invalidateQueries({ queryKey: ["ucat-study-plan"] });
       }
       if (embedded || localMode) {
         onComplete?.();
       }
     }
-  }, [
-    completedAttemptId,
-    refresh,
-    embedded,
-    localMode,
-    onComplete,
-    queryClient,
-  ]);
+  }, [completedAttemptId, embedded, localMode, onComplete, queryClient]);
 
   useEffect(() => {
     setAnswerFocus(trainerKey === "calculator_maths");

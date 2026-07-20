@@ -1,16 +1,14 @@
 'use client'
 
-import { useEffect, useMemo, useRef, useState } from 'react'
-import { useSearchParams } from 'next/navigation'
+import { useMemo, useState, type ReactNode } from 'react'
 import type { UseFormReturn } from 'react-hook-form'
 import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
   Badge,
   Button,
-  Sheet,
-  SheetContent,
-  SheetDescription,
-  SheetHeader,
-  SheetTitle,
   Textarea,
   useToast,
 } from '@altitutor/ui'
@@ -31,6 +29,7 @@ import type {
 } from '@/features/ucat/questions/api/questions'
 import {
   useRecordUcatAiAssessmentDecision,
+  useRequestUcatAiAssessment,
   useRetryUcatAiAssessment,
   useUcatAiAssessment,
 } from '@/features/ucat/questions/hooks/useUcatQuestions'
@@ -38,10 +37,13 @@ import type {
   UcatAssessmentCategory,
   UcatAssessmentCategoryResultSchema,
   UcatAssessmentFinding,
+  UcatAssessmentPatch,
 } from '@/features/ucat/questions/lib/ai-assessment/schema'
 import { applyUcatAssessmentPatches } from '@/features/ucat/questions/lib/ai-assessment/apply-patches'
 import type { z } from 'zod'
 import { cn } from '@/shared/utils'
+import { tutorCardCn } from '@/shared/lib/tutor-visual'
+import { proseMirrorToPlainText } from '@/features/ucat/shared/lib/rich-text'
 
 type CategoryResult = z.infer<typeof UcatAssessmentCategoryResultSchema>
 
@@ -57,7 +59,7 @@ const CATEGORY_LABELS: Record<UcatAssessmentCategory, string> = {
 
 const STATUS_COPY: Record<UcatAiAssessment['status'], { label: string; className: string }> = {
   disabled: { label: 'AI review disabled', className: 'border-slate-300 text-slate-600' },
-  not_requested: { label: 'No AI review', className: 'border-slate-300 text-slate-600' },
+  not_requested: { label: 'AI review not requested', className: 'border-slate-300 text-slate-600' },
   reviewing: { label: 'AI reviewing', className: 'border-blue-300 bg-blue-50 text-blue-700 dark:bg-blue-950/30' },
   deferred: { label: 'AI review deferred', className: 'border-amber-300 bg-amber-50 text-amber-700 dark:bg-amber-950/30' },
   format_blocked: { label: 'Format checks', className: 'border-amber-300 bg-amber-50 text-amber-700 dark:bg-amber-950/30' },
@@ -106,13 +108,18 @@ function scopeResults(data: UcatAiAssessment, questionId: string | null) {
         : result.scopeType === 'question' && result.questionId === questionId && run.currentTargetQuestionIds.includes(questionId)),
     ({ result }) => result.category,
   )
+  const accepted = new Set(
+    data.decisions
+      .filter((decision) => decision.decision === 'suggestion_accepted')
+      .map((decision) => `${decision.run_id}:${decision.finding_key}`),
+  )
   const findings = latestByKey(
     runs.flatMap((run) => (run.assessment_result?.findings ?? []).map((finding) => ({ finding, run })))
       .filter(({ finding, run }) => questionId == null
         ? finding.scopeType === 'shared' && run.sharedCurrent
         : finding.scopeType === 'question' && finding.questionId === questionId && run.currentTargetQuestionIds.includes(questionId)),
     ({ finding, run }) => `${run.id}:${finding.key}`,
-  )
+  ).filter(({ finding, run }) => !accepted.has(`${run.id}:${finding.key}`))
   return { categories, findings }
 }
 
@@ -124,6 +131,107 @@ function StatusIcon({ status }: { status: UcatAiAssessment['status'] }) {
   if (status === 'deferred') return <Clock3 className="h-3.5 w-3.5" />
   if (status === 'unavailable') return <XCircle className="h-3.5 w-3.5" />
   return <Bot className="h-3.5 w-3.5" />
+}
+
+function ReviewAccordionCard({
+  value,
+  title,
+  badge,
+  children,
+}: {
+  value: string
+  title: string
+  badge?: ReactNode
+  children: ReactNode
+}) {
+  return (
+    <AccordionItem value={value} className="border-0">
+      <div className={tutorCardCn('overflow-hidden')}>
+        <AccordionTrigger className="gap-2 px-3 py-2.5 hover:no-underline [&>svg]:shrink-0 [&>svg]:text-muted-foreground">
+          <span className="flex min-w-0 flex-1 items-center justify-between gap-2 text-left">
+            <span className="min-w-0 text-sm font-semibold">{title}</span>
+            {badge}
+          </span>
+        </AccordionTrigger>
+        <AccordionContent className="space-y-3 border-t border-black/[0.06] px-3 pb-4 pt-3 dark:border-white/10">
+          {children}
+        </AccordionContent>
+      </div>
+    </AccordionItem>
+  )
+}
+
+type PatchPreviewRow = { label: string; before: string; after: string }
+
+function displayPatchValue(value: unknown): string {
+  if (value == null) return 'None'
+  if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') return String(value)
+  return JSON.stringify(value, null, 2)
+}
+
+function patchPreviewRows(
+  patch: UcatAssessmentPatch,
+  values: UcatQuestionStemFormValues,
+): PatchPreviewRow[] {
+  const questions = values.questions ?? []
+  const question = 'questionId' in patch
+    ? questions.find((item) => item.id === patch.questionId)
+    : null
+  const optionText = (id: string | null | undefined) => {
+    if (!id) return 'No keyed option'
+    const option = questions.flatMap((item) => item.options).find((item) => item.id === id)
+    return option ? proseMirrorToPlainText(option.answerText) : id
+  }
+  switch (patch.operation) {
+    case 'replace_text':
+      return [{ label: patch.target.field.replaceAll('_', ' '), before: patch.beforeText, after: patch.afterText }]
+    case 'set_answer_key':
+      return [{ label: 'Correct answer', before: optionText(patch.currentCorrectOptionId), after: optionText(patch.correctOptionId) }]
+    case 'replace_option_and_key':
+      return [
+        { label: 'Answer option', before: patch.beforeAnswerText, after: patch.answerText },
+        { label: 'Correct answer', before: optionText(question?.options.find((item) => item.isAnswer)?.id), after: patch.answerText },
+        ...(patch.answerExplanation !== undefined
+          ? [{
+              label: 'Option explanation',
+              before: proseMirrorToPlainText(question?.options.find((item) => item.id === patch.optionId)?.answerExplanation ?? null),
+              after: patch.answerExplanation ?? 'None',
+            }]
+          : []),
+      ]
+    case 'set_metadata':
+      return [{ label: patch.field.replaceAll('_', ' '), before: displayPatchValue(patch.before), after: displayPatchValue(patch.after) }]
+    case 'update_visual_spec':
+      return [{ label: `${patch.visualType.replaceAll('_', ' ')} specification`, before: displayPatchValue(patch.beforeSpec), after: displayPatchValue(patch.afterSpec) }]
+  }
+}
+
+function AssessmentPatchPreview({
+  patches,
+  values,
+}: {
+  patches: UcatAssessmentPatch[]
+  values: UcatQuestionStemFormValues
+}) {
+  const rows = patches.flatMap((patch) => patchPreviewRows(patch, values))
+  return (
+    <div className="space-y-3">
+      <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Proposed changes</p>
+      {rows.map((row, index) => (
+        <div key={`${row.label}:${index}`} className="space-y-2 rounded-md border bg-background p-2.5">
+          <p className="text-xs font-medium capitalize">{row.label}</p>
+          <div className="space-y-1">
+            <span className="text-[11px] font-medium text-red-700 dark:text-red-300">Before</span>
+            <pre className="max-h-40 overflow-auto whitespace-pre-wrap break-words rounded bg-red-50 p-2 font-sans text-xs text-red-950 dark:bg-red-950/30 dark:text-red-100">{row.before || 'Empty'}</pre>
+          </div>
+          <div className="space-y-1">
+            <span className="text-[11px] font-medium text-emerald-700 dark:text-emerald-300">After</span>
+            <pre className="max-h-40 overflow-auto whitespace-pre-wrap break-words rounded bg-emerald-50 p-2 font-sans text-xs text-emerald-950 dark:bg-emerald-950/30 dark:text-emerald-100">{row.after || 'Empty'}</pre>
+          </div>
+        </div>
+      ))}
+    </div>
+  )
 }
 
 function FindingCard({
@@ -192,27 +300,20 @@ function FindingCard({
   }
 
   return (
-    <div className="space-y-3 rounded-lg border p-4">
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <div className="flex flex-wrap items-center gap-2">
-            <h4 className="font-medium">{finding.title}</h4>
-            <Badge variant="outline" className={cn('capitalize', ratingClass(finding.rating))}>{ratingLabel(finding.rating)}</Badge>
-            <span className="text-xs text-muted-foreground">{Math.round(finding.confidence * 100)}% confidence</span>
-          </div>
-          <p className="mt-2 text-sm text-muted-foreground">{finding.detail}</p>
-        </div>
-      </div>
+    <div className="space-y-3">
+      <p className="text-sm text-muted-foreground">{finding.detail}</p>
+      <p className="text-xs text-muted-foreground">{Math.round(finding.confidence * 100)}% confidence</p>
       {finding.evidence.length > 0 ? (
         <ul className="list-disc space-y-1 pl-5 text-sm text-muted-foreground">
           {finding.evidence.map((evidence, index) => <li key={`${finding.key}:evidence:${index}`}>{evidence}</li>)}
         </ul>
       ) : null}
       {finding.suggestion ? (
-        <div className="rounded-md bg-muted/60 p-3 text-sm">
+        <div className="space-y-3 rounded-md bg-muted/60 p-3 text-sm">
           <p className="font-medium">Suggested edit: {finding.suggestion.summary}</p>
-          <p className="mt-1 text-muted-foreground">{finding.suggestion.rationale}</p>
-          <p className="mt-2 text-xs text-muted-foreground">
+          <p className="text-muted-foreground">{finding.suggestion.rationale}</p>
+          <AssessmentPatchPreview patches={finding.suggestion.patches} values={form.getValues()} />
+          <p className="text-xs text-muted-foreground">
             {finding.suggestion.patches.length} bounded {finding.suggestion.patches.length === 1 ? 'change' : 'changes'}; applied to the form only.
           </p>
         </div>
@@ -279,27 +380,37 @@ function ScopeSection({
 }) {
   const { categories, findings } = scopeResults(data, questionId)
   if (categories.length === 0 && findings.length === 0) return null
+  const defaultOpen = [
+    ...categories
+      .filter(({ result }) => result.rating !== 'pass' && result.rating !== 'not_applicable')
+      .map(({ result }) => `category:${questionId ?? 'shared'}:${result.category}`),
+    ...findings.map(({ finding, run }) => `finding:${run.id}:${finding.key}`),
+  ]
   return (
     <section className="space-y-3">
       <h3 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">{label}</h3>
-      <div className="grid gap-2 sm:grid-cols-2">
+      <Accordion type="multiple" defaultValue={defaultOpen} className="space-y-2">
         {categories.map(({ result }) => (
-          <div key={`${questionId ?? 'shared'}:${result.category}`} className="rounded-lg border p-3">
-            <div className="flex items-start justify-between gap-2">
-              <p className="text-sm font-medium">{CATEGORY_LABELS[result.category]}</p>
-              <Badge variant="outline" className={cn('shrink-0 capitalize', ratingClass(result.rating))}>{ratingLabel(result.rating)}</Badge>
-            </div>
-            <p className="mt-2 text-xs text-muted-foreground">{result.summary}</p>
-          </div>
+          <ReviewAccordionCard
+            key={`${questionId ?? 'shared'}:${result.category}`}
+            value={`category:${questionId ?? 'shared'}:${result.category}`}
+            title={CATEGORY_LABELS[result.category]}
+            badge={<Badge variant="outline" className={cn('shrink-0 capitalize', ratingClass(result.rating))}>{ratingLabel(result.rating)}</Badge>}
+          >
+            <p className="text-sm text-muted-foreground">{result.summary}</p>
+          </ReviewAccordionCard>
         ))}
-      </div>
-      {findings.length > 0 ? (
-        <div className="space-y-3">
-          {findings.map(({ finding, run }) => (
+        {findings.map(({ finding, run }) => (
+          <ReviewAccordionCard
+            key={`${run.id}:${finding.key}`}
+            value={`finding:${run.id}:${finding.key}`}
+            title={finding.title}
+            badge={<Badge variant="outline" className={cn('shrink-0 capitalize', ratingClass(finding.rating))}>{ratingLabel(finding.rating)}</Badge>}
+          >
             <FindingCard key={`${run.id}:${finding.key}`} stemId={stemId} run={run} finding={finding} data={data} form={form} />
-          ))}
-        </div>
-      ) : null}
+          </ReviewAccordionCard>
+        ))}
+      </Accordion>
     </section>
   )
 }
@@ -313,11 +424,9 @@ export function UcatAiAssessmentControl({
   form: UseFormReturn<UcatQuestionStemFormValues>
   activeQuestionIndex?: number
 }) {
-  const [open, setOpen] = useState(false)
   const { toast } = useToast()
-  const searchParams = useSearchParams()
-  const autoOpenedRef = useRef(false)
   const query = useUcatAiAssessment(stemId)
+  const requestMutation = useRequestUcatAiAssessment()
   const retryMutation = useRetryUcatAiAssessment()
   const data = query.data
   const status = data?.status ?? (query.isLoading ? 'reviewing' : 'unavailable')
@@ -349,32 +458,29 @@ export function UcatAiAssessmentControl({
     }
   }
 
-  useEffect(() => {
-    if (autoOpenedRef.current || searchParams.get('aiReview') !== '1') return
-    autoOpenedRef.current = true
-    setOpen(true)
-  }, [searchParams])
+  async function requestReview() {
+    try {
+      const result = await requestMutation.mutateAsync({ stemId })
+      toast({
+        title: result.kind === 'queued' ? 'AI review queued' : 'AI review already requested',
+        description: result.kind === 'queued'
+          ? 'It will continue in the background; you can close this dialog.'
+          : 'The current content already has a matching review request.',
+      })
+    } catch (error) {
+      toast({
+        title: 'Could not request AI review',
+        description: error instanceof Error ? error.message : 'Please try again.',
+        variant: 'destructive',
+      })
+    }
+  }
 
   return (
-    <Sheet open={open} onOpenChange={setOpen}>
-      <Button
-        type="button"
-        variant="outline"
-        size="sm"
-        onClick={() => setOpen(true)}
-        className={cn('h-8 rounded-full gap-1.5', statusCopy.className)}
-      >
-        <StatusIcon status={status} />
-        {statusCopy.label}
-      </Button>
-      <SheetContent className="flex w-[min(94vw,760px)] flex-col gap-0 p-0 sm:max-w-3xl">
-        <SheetHeader className="border-b px-6 py-5 pr-12">
-          <SheetTitle>AI question review</SheetTitle>
-          <SheetDescription>
-            Supplementary advice only. Publishing remains a tutor decision, and accepted edits stay unsaved until you save or publish.
-          </SheetDescription>
-        </SheetHeader>
-        <div className="min-h-0 flex-1 overflow-y-auto px-6 py-5">
+    <div className="h-full min-h-0 w-full overflow-y-auto overscroll-contain py-3 pr-1">
+      <div className="mb-4">
+        <h2 className="text-sm font-semibold">AI question review</h2>
+      </div>
           {query.isLoading ? (
             <div className="flex items-center gap-2 text-sm text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin" /> Loading AI review…</div>
           ) : query.isError || !data ? (
@@ -383,7 +489,7 @@ export function UcatAiAssessmentControl({
               <Button size="sm" variant="outline" onClick={() => void query.refetch()}>Try again</Button>
             </div>
           ) : (
-            <div className="space-y-7">
+            <div className="space-y-5 pb-4">
               <div className="flex flex-wrap items-center gap-2 rounded-lg border p-4">
                 <Badge variant="outline" className={cn('gap-1.5', statusCopy.className)}><StatusIcon status={status} />{statusCopy.label}</Badge>
                 {!data.environment.enabled ? (
@@ -392,20 +498,53 @@ export function UcatAiAssessmentControl({
                 {data.status === 'reviewing' ? <span className="text-xs text-muted-foreground">This panel refreshes automatically.</span> : null}
               </div>
 
+              {data.status === 'not_requested' ? (
+                <div className="space-y-3 rounded-lg border border-dashed p-4">
+                  <div>
+                    <p className="text-sm font-medium">Request an AI review</p>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      Add this stem to the background queue. Unchanged content is deduplicated, so repeated clicks do not create duplicate reviews.
+                    </p>
+                  </div>
+                  <Button
+                    type="button"
+                    size="sm"
+                    onClick={() => void requestReview()}
+                    disabled={requestMutation.isPending || !data.environment.enabled}
+                  >
+                    {requestMutation.isPending ? <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" /> : <Bot className="mr-2 h-3.5 w-3.5" />}
+                    {requestMutation.isPending ? 'Adding to queue…' : 'Request AI review'}
+                  </Button>
+                </div>
+              ) : null}
+
               {formatChecks.length > 0 ? (
                 <section className="space-y-3">
                   <h3 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">UCAT format checks</h3>
-                  <div className="space-y-2">
+                  <Accordion
+                    type="multiple"
+                    defaultValue={latestByKey(formatChecks, ({ check }) => `${check.code}:${check.questionId ?? ''}`).map(({ check }) => `format:${check.code}:${check.questionId ?? ''}`)}
+                    className="space-y-2"
+                  >
                     {latestByKey(formatChecks, ({ check }) => `${check.code}:${check.questionId ?? ''}`).map(({ check }) => (
-                      <div key={`${check.code}:${check.questionId ?? ''}`} className={cn(
-                        'rounded-lg border p-3 text-sm',
-                        check.severity === 'error' ? 'border-red-200 bg-red-50/70 dark:bg-red-950/20' : 'border-amber-200 bg-amber-50/70 dark:bg-amber-950/20',
-                      )}>
-                        <p className="font-medium">{check.severity === 'error' ? 'Format error' : 'Format warning'}</p>
-                        <p className="mt-1 text-muted-foreground">{check.message}</p>
-                      </div>
+                      <ReviewAccordionCard
+                        key={`${check.code}:${check.questionId ?? ''}`}
+                        value={`format:${check.code}:${check.questionId ?? ''}`}
+                        title={check.severity === 'error' ? 'Format error' : 'Format warning'}
+                        badge={(
+                          <Badge variant="outline" className={check.severity === 'error'
+                            ? 'shrink-0 border-red-300 bg-red-50 text-red-700 dark:bg-red-950/30'
+                            : 'shrink-0 border-amber-300 bg-amber-50 text-amber-700 dark:bg-amber-950/30'}
+                          >
+                            {check.severity === 'error' ? 'Error' : 'Warning'}
+                          </Badge>
+                        )}
+                      >
+                        <p className="text-sm text-muted-foreground">{check.message}</p>
+                        <p className="text-xs text-muted-foreground">{check.code.replaceAll('_', ' ')}</p>
+                      </ReviewAccordionCard>
                     ))}
-                  </div>
+                  </Accordion>
                   {data.status === 'format_blocked' ? (
                     <p className="text-xs text-muted-foreground">The model review was not called because deterministic format errors must be fixed first. Publishing is not blocked by this tool.</p>
                   ) : null}
@@ -425,40 +564,40 @@ export function UcatAiAssessmentControl({
               ) : null)}
 
               {unavailableRun ? (
-                <section className="space-y-3 rounded-lg border p-4">
-                  <div>
-                    <h3 className="font-medium">Review unavailable</h3>
-                    <p className="mt-1 text-sm text-muted-foreground">{unavailableRun.error_message ?? 'The provider did not complete this review after three attempts.'}</p>
-                  </div>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => void retryReview(unavailableRun.id)}
-                    disabled={retryMutation.isPending || !data.environment.enabled}
+                <Accordion type="multiple" defaultValue={['unavailable']}>
+                  <ReviewAccordionCard
+                    value="unavailable"
+                    title="Review unavailable"
+                    badge={<Badge variant="outline" className="shrink-0 border-slate-300 text-slate-600">Failed</Badge>}
                   >
-                    <RotateCcw className="mr-2 h-3.5 w-3.5" /> Retry review
-                  </Button>
-                </section>
-              ) : null}
-
-              {data.currentCycle == null ? (
-                <p className="rounded-lg border border-dashed p-4 text-sm text-muted-foreground">
-                  This stem has not entered a new review cycle since automatic review was enabled. No historical backfill is performed.
-                </p>
+                    <p className="text-sm text-muted-foreground">{unavailableRun.error_message ?? 'The provider did not complete this review after three attempts.'}</p>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => void retryReview(unavailableRun.id)}
+                      disabled={retryMutation.isPending || !data.environment.enabled}
+                    >
+                      <RotateCcw className="mr-2 h-3.5 w-3.5" /> Retry review
+                    </Button>
+                  </ReviewAccordionCard>
+                </Accordion>
               ) : null}
 
               {data.cycles.length > 0 ? (
                 <section className="space-y-3 border-t pt-5">
                   <h3 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">Review history</h3>
-                  <div className="space-y-2">
+                  <Accordion type="multiple" className="space-y-2">
                     {data.cycles.map((cycle, index) => {
                       const cycleRuns = data.runs.filter((run) => run.cycle_id === cycle.id)
                       return (
-                        <details key={cycle.id} open={index === 0} className="rounded-lg border p-3">
-                          <summary className="cursor-pointer text-sm font-medium">
-                            {cycle.is_current ? 'Current cycle' : 'Previous cycle'} · {formatDate(cycle.started_at)} · {cycleRuns.length} {cycleRuns.length === 1 ? 'run' : 'runs'}
-                          </summary>
-                          <div className="mt-3 space-y-2">
+                        <ReviewAccordionCard
+                          key={cycle.id}
+                          value={`cycle:${cycle.id}`}
+                          title={cycle.is_current ? 'Current cycle' : `Previous cycle ${index}`}
+                          badge={<Badge variant="outline" className="shrink-0">{cycleRuns.length} {cycleRuns.length === 1 ? 'run' : 'runs'}</Badge>}
+                        >
+                          <p className="text-xs text-muted-foreground">Started {formatDate(cycle.started_at)}</p>
+                          <div className="space-y-2">
                             {cycleRuns.map((run) => (
                               <div key={run.id} className="rounded-md bg-muted/50 p-2 text-xs text-muted-foreground">
                                 <span className="font-medium capitalize text-foreground">{run.status.replace('_', ' ')}</span>
@@ -468,16 +607,14 @@ export function UcatAiAssessmentControl({
                               </div>
                             ))}
                           </div>
-                        </details>
+                        </ReviewAccordionCard>
                       )
                     })}
-                  </div>
+                  </Accordion>
                 </section>
               ) : null}
             </div>
           )}
-        </div>
-      </SheetContent>
-    </Sheet>
+    </div>
   )
 }

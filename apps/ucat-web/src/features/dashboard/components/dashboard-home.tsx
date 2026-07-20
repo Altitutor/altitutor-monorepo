@@ -59,6 +59,8 @@ import { useStudyPlanTaskActions } from "@/features/study-plan/hooks/use-study-p
 import { useStudyPlanExtraStudyDialog } from "@/features/study-plan/components/study-plan-extra-study";
 import { addDays, todayIso } from "@/features/study-plan/lib/dates";
 import { allocateSectionTargets } from "@/features/study-plan/lib/section-targets";
+import { ContentRatingControls } from "@/features/content-ratings/components/content-rating-controls";
+import { contentSnapshotVersion } from "@/features/content-ratings/lib";
 import type {
   StudyPlanResponse,
   StudyPlanTask,
@@ -442,7 +444,7 @@ function trajectoryInsight(
       return {
         title: "First, establish where you’re starting",
         body: missing
-          ? `${state.readySectionCount} of 3 cognitive sections are ready. Timed evidence in ${missing} will unlock your total trajectory.`
+          ? `${state.readySectionCount} of Sections 1–3 are ready. Timed evidence in ${missing} will unlock your total trajectory.`
           : "Complete more timed sets or mocks to unlock a trustworthy total trajectory.",
       };
     }
@@ -666,6 +668,20 @@ export function DashboardTrajectoryHero({
         recentImprovement,
         plan.profile.studyPlanEnabled,
       );
+  const displayedInsight = { title: insight.title, body: insight.body };
+  const insightRating = (
+    <ContentRatingControls
+      className="mt-3"
+      descriptor={{
+        targetType: "dashboard_insight",
+        targetKey: `score-trajectory:${projectionError ? "unavailable" : state.stage}`,
+        targetVersion: contentSnapshotVersion(displayedInsight),
+        contextKey: "dashboard:score-trajectory",
+        surface: "dashboard",
+        displayedContent: displayedInsight,
+      }}
+    />
+  );
   const targetBreakdown = dashboardTargetBreakdown(
     sections,
     plan.generation?.sectionTargets ??
@@ -683,7 +699,7 @@ export function DashboardTrajectoryHero({
   const outlook = projectionError
     ? "Score outlook temporarily unavailable"
     : state.stage === "building_baseline"
-      ? `${state.readySectionCount}/3 cognitive sections ready`
+      ? `${state.readySectionCount}/3 of Sections 1–3 ready`
       : state.stage === "early_estimate" && state.projectedAtTest
         ? `Early test-day range ${state.projectedAtTest.pessimistic}–${state.projectedAtTest.optimistic}`
         : state.projectedAtTest
@@ -760,6 +776,7 @@ export function DashboardTrajectoryHero({
             <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
               {insight.body}
             </p>
+            {insightRating}
             {insight.actionHref && insight.actionLabel ? (
               <Link
                 href={insight.actionHref}
@@ -799,6 +816,7 @@ export function DashboardTrajectoryHero({
             {insight.title}
           </h2>
           <p className="mt-2 text-sm text-muted-foreground">{insight.body}</p>
+          {insightRating}
           {insight.actionHref && insight.actionLabel ? (
             <Link
               href={insight.actionHref}
@@ -876,12 +894,12 @@ export function DashboardWeekProgress({
               />
             </div>
             <SummaryRow
-              label="Guided sampler"
+              label="Sample questions"
               value={samplerCompleted ? "Complete" : "Next"}
             />
             <SummaryRow
               label="Personalised plan"
-              value={samplerCompleted ? "Next" : "After sampler"}
+              value={samplerCompleted ? "Next" : "After sample questions"}
             />
             <SummaryRow label="First real review" value="Later" />
           </>

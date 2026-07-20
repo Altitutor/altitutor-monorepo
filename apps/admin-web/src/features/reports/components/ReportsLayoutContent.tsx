@@ -66,6 +66,7 @@ function ReportsFilters() {
   };
 
   const SCHEDULING_SUBSECTION_LABELS: Record<SchedulingSubsection, string> = {
+    sessions: 'Sessions',
     students: 'Students',
     staff: 'Staff',
     classes: 'Classes',

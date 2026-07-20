@@ -40,9 +40,8 @@ export function UcatAnzBenchmarkCard({
                 </span>
               </TooltipTrigger>
               <TooltipContent side="top" className="max-w-[310px]">
-                Estimated from the published 2025 UCAT ANZ total cognitive
-                score deciles. This is a real-exam benchmark, not an Altitutor
-                student ranking.
+                Estimated from the published 2025 UCAT ANZ total-score deciles.
+                This is a real-exam benchmark, not an Altitutor student ranking.
               </TooltipContent>
             </Tooltip>
           </TooltipProvider>
@@ -59,7 +58,7 @@ export function UcatAnzBenchmarkCard({
 
         <p className="max-w-sm text-sm text-muted-foreground">
           {benchmark.percentileLabel == null
-            ? "A benchmark will appear when a total cognitive score is available."
+            ? "A benchmark will appear when a total score is available."
             : `Estimated against ${candidateCount} candidates who sat UCAT ANZ in ${benchmark.year}.`}
         </p>
       </CardContent>

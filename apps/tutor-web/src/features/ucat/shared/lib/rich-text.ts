@@ -443,6 +443,9 @@ export function proseMirrorToPlainText(value: Json | null | undefined): string {
     if (type === 'table') return parts.filter(Boolean).join('\n')
     if (type === 'tableRow') return parts.join('\t')
     if (type === 'doc') return parts.filter(Boolean).join('\n')
+    if (type === 'bulletList' || type === 'orderedList' || type === 'listItem') {
+      return parts.filter(Boolean).join('\n')
+    }
     return parts.join('')
   }
 

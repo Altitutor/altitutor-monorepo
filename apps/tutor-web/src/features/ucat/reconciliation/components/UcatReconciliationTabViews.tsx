@@ -4,6 +4,7 @@ import { AlertCircle } from 'lucide-react'
 import { SkeletonTable } from '@altitutor/ui'
 import { StemsWithNoCategoryTable } from '@/features/ucat/reconciliation/components/StemsWithNoCategoryTable'
 import { QuestionsWithNoExplanationTable } from '@/features/ucat/reconciliation/components/QuestionsWithNoExplanationTable'
+import { DownvotedExplanationsTable } from '@/features/ucat/reconciliation/components/DownvotedExplanationsTable'
 import { UntaggedQuestionsTable } from '@/features/ucat/reconciliation/components/UntaggedQuestionsTable'
 import { PrivateStemsNotInSetTable } from '@/features/ucat/reconciliation/components/PrivateStemsNotInSetTable'
 import { PotentialDuplicatesTable } from '@/features/ucat/reconciliation/components/PotentialDuplicatesTable'
@@ -57,6 +58,7 @@ function questionsTabCount(data: NonNullable<ReturnType<typeof useReconciliation
   return (
     data.stemsWithNoCategory.length +
     data.questionsWithNoExplanation.length +
+    data.downvotedExplanations.length +
     data.untaggedQuestions.length +
     data.privateStemsNotInSet.length +
     data.potentialDuplicatePairs.length
@@ -85,6 +87,7 @@ export function UcatReconciliationQuestionsTab() {
     <div className="mt-6 space-y-8">
       <StemsWithNoCategoryTable onOpenStemDialog={onOpenStemDialog} />
       <QuestionsWithNoExplanationTable onOpenStemDialog={onOpenStemDialog} />
+      <DownvotedExplanationsTable onOpenStemDialog={onOpenStemDialog} />
       <UntaggedQuestionsTable onOpenStemDialog={onOpenStemDialog} />
       <PrivateStemsNotInSetTable onOpenStemDialog={onOpenStemDialog} onEditSet={onEditSet} />
       <PotentialDuplicatesTable />

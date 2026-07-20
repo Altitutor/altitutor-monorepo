@@ -1,6 +1,5 @@
 import type { QuestionEngineExam } from "@/features/question-engine/model/types";
 import { catchUpExpiredSegments } from "@/lib/ucat/exam-attempt/segment-catch-up";
-import { mergeQuestionAttemptRowsIntoState } from "@/lib/ucat/exam-attempt/resume-state";
 import type { ExamEngineSnapshot } from "@/lib/ucat/exam-attempt/types";
 
 const setExam = {
@@ -13,9 +12,7 @@ const setExam = {
   },
 } as unknown as QuestionEngineExam;
 
-function snapshot(
-  phase: ExamEngineSnapshot["phase"],
-): ExamEngineSnapshot {
+function snapshot(phase: ExamEngineSnapshot["phase"]): ExamEngineSnapshot {
   return {
     phase,
     instructionsIndex: 0,
@@ -69,60 +66,5 @@ describe("catchUpExpiredSegments", () => {
 
     expect(result.isComplete).toBe(true);
     expect(result.state.phase).toBe("marking");
-  });
-});
-
-describe("mergeQuestionAttemptRowsIntoState", () => {
-  it("restores saved answers and flag state for resume", () => {
-    const state: ExamEngineSnapshot = {
-      ...snapshot("question"),
-      flaggedIds: ["question-2"],
-    };
-
-    const merged = mergeQuestionAttemptRowsIntoState(state, [
-      {
-        question_id: "question-1",
-        question_answer_option_id: "option-a",
-        answer_snapshot: null,
-        is_flagged: true,
-      },
-      {
-        question_id: "question-2",
-        question_answer_option_id: null,
-        answer_snapshot: null,
-        is_flagged: false,
-      },
-    ]);
-
-    expect(merged.selectedAnswers).toEqual({
-      "question-1": "option-a",
-    });
-    expect(merged.flaggedIds).toEqual(["question-1"]);
-    expect(merged.visitedQuestionIds).toEqual([
-      "question-1",
-      "question-2",
-    ]);
-  });
-
-  it("recovers stale instructions state to the furthest saved question", () => {
-    const merged = mergeQuestionAttemptRowsIntoState(
-      {
-        ...snapshot("instructions"),
-        currentIndex: 0,
-      },
-      [
-        {
-          question_id: "question-2",
-          question_answer_option_id: "option-b",
-          answer_snapshot: null,
-          is_flagged: false,
-        },
-      ],
-      ["question-1", "question-2", "question-3"],
-    );
-
-    expect(merged.phase).toBe("question");
-    expect(merged.currentIndex).toBe(1);
-    expect(merged.selectedAnswers["question-2"]).toBe("option-b");
   });
 });

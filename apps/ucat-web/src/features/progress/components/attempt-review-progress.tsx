@@ -24,6 +24,7 @@ export function AttemptReviewProgress({
   onFinish,
   onReviewNext,
   insight,
+  ratingContextKey,
 }: {
   review: AttemptReviewState | null;
   pending: boolean;
@@ -31,6 +32,7 @@ export function AttemptReviewProgress({
   onFinish: () => Promise<void>;
   onReviewNext: (() => void) | null;
   insight: AttemptInsight;
+  ratingContextKey: string;
 }) {
   const viewed =
     review?.viewedQuestionIds.filter((id) =>
@@ -40,7 +42,11 @@ export function AttemptReviewProgress({
   const complete = Boolean(review?.completedAt);
 
   return (
-    <AttemptInsightCard label="Overall insight" insight={insight}>
+    <AttemptInsightCard
+      label="Overall insight"
+      insight={insight}
+      ratingContextKey={ratingContextKey}
+    >
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-start gap-3">
           <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">

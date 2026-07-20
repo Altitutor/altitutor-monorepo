@@ -17,6 +17,7 @@ import {
   Layers,
   ClipboardList,
   MessageSquare,
+  Bug,
 } from 'lucide-react';
 import { AdminSettingsCard } from '@/shared/components';
 
@@ -135,6 +136,17 @@ export default function SettingsPage() {
           description: 'Configure UCAT score estimates, evidence weights, and trajectory assumptions',
           href: '/settings/score-projection',
           icon: GraduationCap,
+        },
+      ],
+    },
+    {
+      title: 'Developer tools',
+      items: [
+        {
+          title: 'UCAT insight feedback',
+          description: 'Review votes, reasons, and comments on student-facing UCAT insights',
+          href: '/settings/ucat-content-feedback',
+          icon: Bug,
         },
       ],
     },

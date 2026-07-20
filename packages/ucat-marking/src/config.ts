@@ -21,3 +21,18 @@ export const SCALED_RANGE = SCALED_MAX - SCALED_MIN
 
 /** Round scaled score to nearest multiple. */
 export const SCALED_ROUND_TO = 10
+
+/**
+ * Active scoring profile for the 2026 UCAT ANZ cycle.
+ *
+ * The 2026 technical report is not available during the testing window, so the
+ * provisional profile is calibrated from the latest complete (2025) UCAT form
+ * statistics. Persist this identifier with scored attempts so future profiles
+ * never silently change the meaning of historical results.
+ */
+export const UCAT_SCORING_MODEL = {
+  version: 'ucat-anz-2026-provisional-v1',
+  jurisdiction: 'anz',
+  testCycle: 2026,
+  evidenceCycle: 2025,
+} as const

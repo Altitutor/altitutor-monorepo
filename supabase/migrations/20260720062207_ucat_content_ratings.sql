@@ -56,32 +56,14 @@ FOR EACH ROW EXECUTE FUNCTION public.update_updated_at();
 
 ALTER TABLE public.student_ucat_content_ratings ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY "Students can read their own UCAT content ratings"
+CREATE POLICY "ADMINSTAFF full access to student UCAT content ratings"
   ON public.student_ucat_content_ratings
-  FOR SELECT
+  FOR ALL
   TO authenticated
-  USING (student_id = (SELECT public.current_student_id()));
+  USING ((SELECT public.is_adminstaff_active()))
+  WITH CHECK ((SELECT public.is_adminstaff_active()));
 
-CREATE POLICY "Students can create their own UCAT content ratings"
-  ON public.student_ucat_content_ratings
-  FOR INSERT
-  TO authenticated
-  WITH CHECK (student_id = (SELECT public.current_student_id()));
-
-CREATE POLICY "Students can update their own UCAT content ratings"
-  ON public.student_ucat_content_ratings
-  FOR UPDATE
-  TO authenticated
-  USING (student_id = (SELECT public.current_student_id()))
-  WITH CHECK (student_id = (SELECT public.current_student_id()));
-
-CREATE POLICY "Students can delete their own UCAT content ratings"
-  ON public.student_ucat_content_ratings
-  FOR DELETE
-  TO authenticated
-  USING (student_id = (SELECT public.current_student_id()));
-
-REVOKE ALL ON TABLE public.student_ucat_content_ratings FROM anon;
+REVOKE ALL ON TABLE public.student_ucat_content_ratings FROM anon, authenticated;
 GRANT SELECT, INSERT, UPDATE, DELETE
   ON TABLE public.student_ucat_content_ratings
   TO authenticated;

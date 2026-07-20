@@ -106,8 +106,8 @@ describe("buildQuestionAttemptInsight", () => {
       averageTimeSampleSize: 3,
     });
 
-    expect(insight.title).toBe("Focus on the method, not the clock");
-    expect(insight.body).toContain("not enough successful timing data");
+    expect(insight.title).toBe("Find the first step that changed the answer");
+    expect(insight.body).toContain("first point where they diverged");
   });
 
   it("acknowledges a useful flag even without a timing signal", () => {

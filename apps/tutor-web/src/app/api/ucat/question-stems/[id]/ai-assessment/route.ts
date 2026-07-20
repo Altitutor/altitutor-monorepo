@@ -13,6 +13,7 @@ import {
   loadUcatAssessmentSnapshot,
 } from '@/features/ucat/questions/server/ai-assessment/content'
 import {
+  requestUcatQuestionAssessment,
   retryUcatQuestionAssessmentRun,
 } from '@/features/ucat/questions/server/ai-assessment/dispatcher'
 import { automaticReviewEnvironment } from '@/features/ucat/questions/server/ai-assessment/environment'
@@ -178,11 +179,31 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
   const access = await requireUcatTutor()
   if (!access.ok) return access.response
   const body = await request.json().catch(() => null) as { action?: string; runId?: string } | null
-  if (body?.action !== 'retry' || !body.runId) {
-    return NextResponse.json({ error: 'Invalid retry request' }, { status: 400 })
-  }
   if (!automaticReviewEnvironment().enabled) {
     return NextResponse.json({ error: 'Automatic review is disabled in this environment' }, { status: 409 })
+  }
+  if (body?.action === 'request') {
+    try {
+      const result = await requestUcatQuestionAssessment({
+        stemId: params.id,
+        triggerKind: 'manual_request',
+        userClient: access.userClient as unknown as SupabaseClient<Database>,
+      })
+      if (result.kind === 'skipped') {
+        return NextResponse.json({ error: 'This question stem is not eligible for AI review' }, { status: 409 })
+      }
+      if (result.kind === 'disabled') {
+        return NextResponse.json({ error: 'Automatic review is disabled in this environment' }, { status: 409 })
+      }
+      return NextResponse.json(result, { status: result.kind === 'queued' ? 202 : 200 })
+    } catch (requestError) {
+      return NextResponse.json({
+        error: requestError instanceof Error ? requestError.message : 'Could not request AI review',
+      }, { status: 409 })
+    }
+  }
+  if (body?.action !== 'retry' || !body.runId) {
+    return NextResponse.json({ error: 'Invalid AI review request' }, { status: 400 })
   }
   const admin = getServiceRoleClient()
   const { data: run, error } = await asAny(admin)

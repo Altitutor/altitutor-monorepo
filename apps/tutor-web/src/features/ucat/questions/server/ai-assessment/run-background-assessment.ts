@@ -23,6 +23,7 @@ import {
   buildBlindSolverUserPrompt,
 } from './prompts'
 import { buildVisualEvidence } from './visual-evidence'
+import { normalizeBlindSolutionSelections } from './normalize-blind-solution'
 
 type SupabaseAny = {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -262,18 +263,25 @@ function enforceUnreviewableVisuals(params: {
       if (existingIndex >= 0) categories[existingIndex] = replacement
       else categories.push(replacement)
     }
-    findings.push({
-      key: `visual_unreviewable:${item.label}`,
-      scopeType,
-      questionId: scopeType === 'question' ? questionId : null,
-      category: 'visual_integrity',
-      rating: 'unreviewable',
-      confidence: 1,
-      title: 'Visual could not be inspected',
-      detail: 'The reviewer could not inspect a supplied visual, so visual accuracy and fairness cannot be confirmed.',
-      evidence: [item.label, item.error ?? 'Image unavailable'],
-      suggestion: null,
-    })
+    const alreadyReported = findings.some((finding) =>
+      finding.category === 'visual_integrity'
+      && finding.rating === 'unreviewable'
+      && finding.scopeType === scopeType
+      && (finding.questionId ?? null) === (scopeType === 'question' ? questionId : null))
+    if (!alreadyReported) {
+      findings.push({
+        key: `visual_unreviewable:${item.label}`,
+        scopeType,
+        questionId: scopeType === 'question' ? questionId : null,
+        category: 'visual_integrity',
+        rating: 'unreviewable',
+        confidence: 1,
+        title: 'Visual could not be inspected',
+        detail: 'The reviewer could not inspect a supplied visual, so visual accuracy and fairness cannot be confirmed.',
+        evidence: [item.label, item.error ?? 'Image unavailable'],
+        suggestion: null,
+      })
+    }
   }
   return { ...params.assessment, categories, findings }
 }
@@ -387,7 +395,9 @@ export async function runBackgroundUcatQuestionAssessment(
       includeExplanations: false,
     })
     const existingBlind = BlindSolutionResponseSchema.safeParse(run.blind_solution)
-    let blindSolution = existingBlind.success ? existingBlind.data : null
+    let blindSolution = existingBlind.success
+      ? normalizeBlindSolutionSelections(existingBlind.data, snapshot)
+      : null
     let blindProviderId: string | null = null
     let blindModel: string | null = null
 
@@ -419,7 +429,10 @@ export async function runBackgroundUcatQuestionAssessment(
           blinded: true,
         },
       })
-      blindSolution = BlindSolutionResponseSchema.parse(blindResult.parsed)
+      blindSolution = normalizeBlindSolutionSelections(
+        BlindSolutionResponseSchema.parse(blindResult.parsed),
+        snapshot,
+      )
       blindProviderId = blindResult.providerId
       blindModel = blindResult.model
       const { error: blindSaveError } = await asAny(admin)

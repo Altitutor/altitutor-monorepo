@@ -3,24 +3,30 @@ import type { Json } from "@altitutor/shared";
 import {
   computeMaxRawScore,
   computeRawScore,
-  scaleTo300_900,
+  estimateUcatSectionScore,
+  resolveSingleUcatScoringSection,
+  UCAT_SCORING_MODEL,
 } from "@altitutor/ucat-marking";
 import type { QuestionMeta } from "@altitutor/ucat-marking";
 import { maybeGrantPracticeDayDiscount } from "@/lib/ucat/practice-day-discount";
+import { persistQuestionAttemptBatch } from "@/lib/ucat/question-attempts/persist-question-attempt-batch";
 
 type AdminClient = SupabaseClient;
-
-type QuestionRow = {
-  id: string;
-  question_stem_id: string;
-  question_type: "multiple_choice" | "syllogism";
-};
 
 type OptionRow = {
   id: string;
   question_id: string;
   index: number;
   is_answer: boolean;
+};
+
+type QuestionAttemptForScoring = {
+  id: string;
+  question_id: string;
+  question_answer_option_id: string | null;
+  answer_snapshot: Json | null;
+  content_snapshot?: Json | null;
+  student_id: string;
 };
 
 export type FinalQuestionAttemptInput = {
@@ -32,156 +38,119 @@ export type FinalQuestionAttemptInput = {
   mode?: "question" | "question_stem" | "set" | "mock" | "learn";
 };
 
-function buildQuestionMeta(
-  questions: QuestionRow[],
-  sectionByNameStemId: Map<string, string>,
-  optionsByQuestionId: Map<string, OptionRow[]>,
-): QuestionMeta[] {
-  return questions.map((q) => {
-    const sectionName =
-      sectionByNameStemId.get(q.question_stem_id) ?? "Unknown";
-    const options = (optionsByQuestionId.get(q.id) ?? [])
-      .sort((a, b) => a.index - b.index)
-      .map((o) => ({ id: o.id, index: o.index }));
-    const correctOption = (optionsByQuestionId.get(q.id) ?? []).find(
-      (o) => o.is_answer,
-    );
-    return {
-      id: q.id,
-      stemId: q.question_stem_id,
-      sectionName,
-      questionType: q.question_type,
+/**
+ * New attempts already carry an immutable server-generated question snapshot.
+ * Reading marking metadata from it avoids three catalogue round trips and also
+ * keeps the result stable if published content changes during an attempt.
+ */
+export function buildQuestionMetaFromAttemptSnapshots(
+  attempts: QuestionAttemptForScoring[],
+  expectedQuestionIds: Set<string>,
+): QuestionMeta[] | null {
+  const attemptByQuestionId = new Map(
+    attempts.map((attempt) => [attempt.question_id, attempt]),
+  );
+  const questions: QuestionMeta[] = [];
+
+  for (const questionId of expectedQuestionIds) {
+    const snapshot = attemptByQuestionId.get(questionId)?.content_snapshot;
+    if (!snapshot || typeof snapshot !== "object" || Array.isArray(snapshot)) {
+      return null;
+    }
+    const value = snapshot as Record<string, unknown>;
+    const stem = value.stem;
+    const question = value.question;
+    const answerOptions = value.answerOptions;
+    if (
+      !stem ||
+      typeof stem !== "object" ||
+      Array.isArray(stem) ||
+      !question ||
+      typeof question !== "object" ||
+      Array.isArray(question) ||
+      !Array.isArray(answerOptions)
+    ) {
+      return null;
+    }
+
+    const stemValue = stem as Record<string, unknown>;
+    const questionValue = question as Record<string, unknown>;
+    if (
+      typeof stemValue.id !== "string" ||
+      typeof stemValue.sectionName !== "string" ||
+      questionValue.id !== questionId ||
+      (questionValue.questionType !== "multiple_choice" &&
+        questionValue.questionType !== "syllogism")
+    ) {
+      return null;
+    }
+
+    const options: OptionRow[] = [];
+    for (const option of answerOptions) {
+      if (!option || typeof option !== "object" || Array.isArray(option)) {
+        return null;
+      }
+      const optionValue = option as Record<string, unknown>;
+      if (
+        typeof optionValue.id !== "string" ||
+        typeof optionValue.index !== "number" ||
+        typeof optionValue.isAnswer !== "boolean"
+      ) {
+        return null;
+      }
+      options.push({
+        id: optionValue.id,
+        question_id: questionId,
+        index: optionValue.index,
+        is_answer: optionValue.isAnswer,
+      });
+    }
+    const correctOption = options.find((option) => option.is_answer);
+    questions.push({
+      id: questionId,
+      stemId: stemValue.id,
+      sectionName: stemValue.sectionName,
+      questionType: questionValue.questionType,
       correctOptionId: correctOption?.id ?? "",
-      options,
-    };
-  });
+      options: options
+        .sort((a, b) => a.index - b.index)
+        .map((option) => ({ id: option.id, index: option.index })),
+    });
+  }
+
+  return questions;
 }
 
 export async function persistFinalQuestionAttempts(
   admin: AdminClient,
   studentId: string,
   setAttemptId: string,
-  answers: FinalQuestionAttemptInput[] | undefined,
+  answers: FinalQuestionAttemptInput[],
 ): Promise<void> {
-  const finalAnswers = (answers ?? []).filter((answer) => answer.questionId);
-  if (finalAnswers.length === 0) return;
-
-  const questionIds = [
-    ...new Set(finalAnswers.map((answer) => answer.questionId)),
-  ];
-  const { data: existing, error: existingError } = await admin
-    .from("student_question_attempts")
-    .select("id, question_id")
-    .eq("student_id", studentId)
-    .eq("student_question_set_attempt_id", setAttemptId)
-    .in("question_id", questionIds);
-
-  if (existingError) {
-    throw new Error(existingError.message);
+  const finalAnswers = answers.filter((answer) => answer.questionId);
+  if (finalAnswers.length === 0) {
+    throw new Error("Set completion requires a final answer ledger");
   }
-
-  const existingByQuestionId = new Map<string, Array<{ id: string }>>();
-  for (const row of existing ?? []) {
-    const list = existingByQuestionId.get(row.question_id) ?? [];
-    list.push({ id: row.id });
-    existingByQuestionId.set(row.question_id, list);
-  }
-
-  const updates: Array<{
-    id: string;
-    question_id: string;
-    student_id: string;
-    question_answer_option_id: string | null;
-    answer_snapshot: Json | null;
-    is_flagged?: boolean;
-    is_submitted: boolean;
-    was_timed?: boolean;
-    mode?: "question" | "question_stem" | "set" | "mock" | "learn";
-  }> = [];
-  const inserts: Array<{
-    student_id: string;
-    student_question_set_attempt_id: string;
-    student_practice_session_id: null;
-    learning_module_block_id: null;
-    question_id: string;
-    question_answer_option_id: string | null;
-    answer_snapshot: Json | null;
-    is_flagged: boolean;
-    is_submitted: boolean;
-    time_spent_seconds: null;
-    was_timed: boolean;
-    mode: "question" | "question_stem" | "set" | "mock" | "learn" | null;
-  }> = [];
-
-  for (const answer of finalAnswers) {
-    const rows = existingByQuestionId.get(answer.questionId) ?? [];
-    const base = {
-      question_answer_option_id: answer.questionAnswerOptionId,
-      answer_snapshot: answer.answerSnapshot ?? null,
-      is_submitted: true,
-      ...(typeof answer.isFlagged === "boolean"
-        ? { is_flagged: answer.isFlagged }
-        : {}),
-      ...(typeof answer.wasTimed === "boolean"
-        ? { was_timed: answer.wasTimed }
-        : {}),
-      ...(answer.mode ? { mode: answer.mode } : {}),
-    };
-
-    if (rows.length > 0) {
-      for (const row of rows) {
-        updates.push({
-          id: row.id,
-          question_id: answer.questionId,
-          student_id: studentId,
-          ...base,
-        });
-      }
-      continue;
-    }
-
-    inserts.push({
-      student_id: studentId,
-      student_question_set_attempt_id: setAttemptId,
-      student_practice_session_id: null,
-      learning_module_block_id: null,
-      question_id: answer.questionId,
-      question_answer_option_id: answer.questionAnswerOptionId,
-      answer_snapshot: answer.answerSnapshot ?? null,
-      is_flagged: answer.isFlagged ?? false,
-      is_submitted: true,
-      time_spent_seconds: null,
-      was_timed: answer.wasTimed ?? false,
-      mode: answer.mode ?? null,
-    });
-  }
-
-  if (updates.length > 0) {
-    const { error: updateError } = await admin
-      .from("student_question_attempts")
-      .upsert(updates, { onConflict: "id" });
-
-    if (updateError) {
-      throw new Error(updateError.message);
-    }
-  }
-
-  if (inserts.length > 0) {
-    const { error: insertError } = await admin
-      .from("student_question_attempts")
-      .insert(inserts);
-
-    if (insertError) {
-      throw new Error(insertError.message);
-    }
-  }
+  await persistQuestionAttemptBatch(
+    admin,
+    studentId,
+    {
+      studentQuestionSetAttemptId: setAttemptId,
+      studentPracticeSessionId: null,
+      learningModuleBlockId: null,
+    },
+    finalAnswers.map((answer) => ({
+      ...answer,
+      submittedByStem: true,
+    })),
+  );
 }
 
 export async function completeStudentSetAttempt(
   admin: AdminClient,
   studentId: string,
   attemptId: string,
-  finalAnswers?: FinalQuestionAttemptInput[],
+  finalAnswers: FinalQuestionAttemptInput[],
   options: { grantDiscount?: boolean } = {},
 ): Promise<{
   earnedDiscount: boolean;
@@ -226,24 +195,12 @@ export async function completeStudentSetAttempt(
     throw new Error("Set attempt has no question set");
   }
 
-  const [, setStemsResult] = await Promise.all([
-    persistFinalQuestionAttempts(admin, studentId, attemptId, finalAnswers),
-    admin
-      .from("question_stems_question_sets")
-      .select("question_stem_id")
-      .eq("question_set_id", questionSetId)
-      .order("index"),
-  ]);
-  const { data: setStems, error: setStemsError } = setStemsResult;
-
-  if (setStemsError) {
-    throw new Error(setStemsError.message);
-  }
+  await persistFinalQuestionAttempts(admin, studentId, attemptId, finalAnswers);
 
   const { data: questionAttempts, error: questionAttemptsError } = await admin
     .from("student_question_attempts")
     .select(
-      "id, question_id, question_answer_option_id, answer_snapshot, student_id",
+      "id, question_id, question_answer_option_id, answer_snapshot, content_snapshot, student_id",
     )
     .eq("student_question_set_attempt_id", attemptId)
     .eq("student_id", studentId);
@@ -252,81 +209,31 @@ export async function completeStudentSetAttempt(
     throw new Error(questionAttemptsError.message);
   }
 
-  const stemIds = [
-    ...new Set((setStems ?? []).map((s) => s.question_stem_id).filter(Boolean)),
-  ];
-
   let totalQuestions = 0;
   let rawScore = 0;
   let scaledScore: number | null = null;
+  let scoringModelVersion: string | null = null;
 
-  if (stemIds.length > 0) {
-    const [questionsResult, stemsResult] = await Promise.all([
-      admin
-        .from("ucat_questions")
-        .select("id, question_stem_id, question_type")
-        .in("question_stem_id", stemIds)
-        .is("deleted_at", null),
-      admin.from("question_stems").select("id, section_id").in("id", stemIds),
-    ]);
-    const { data: questions, error: questionsError } = questionsResult;
+  const expectedQuestionIds = new Set(
+    finalAnswers
+      .map((answer) => answer.questionId)
+      .filter((id): id is string => Boolean(id)),
+  );
+  const questionMeta = buildQuestionMetaFromAttemptSnapshots(
+    (questionAttempts ?? []) as QuestionAttemptForScoring[],
+    expectedQuestionIds,
+  );
+  if (!questionMeta) {
+    throw new Error("Final question content snapshots are incomplete");
+  }
 
-    if (questionsError) {
-      throw new Error(questionsError.message);
-    }
+  totalQuestions = questionMeta.length;
 
-    const allQuestionIds = (questions ?? []).map((q) => q.id);
-    totalQuestions = allQuestionIds.length;
-
-    const { data: stems, error: stemsError } = stemsResult;
-
-    if (stemsError) {
-      throw new Error(stemsError.message);
-    }
-
-    const sectionIds = [...new Set((stems ?? []).map((s) => s.section_id))];
-
-    const [sectionsResult, optionsResult] = await Promise.all([
-      admin.from("ucat_sections").select("id, name").in("id", sectionIds),
-      admin
-        .from("question_answer_options")
-        .select("id, question_id, index, is_answer")
-        .in("question_id", allQuestionIds),
-    ]);
-    const { data: sections, error: sectionsError } = sectionsResult;
-
-    if (sectionsError) {
-      throw new Error(sectionsError.message);
-    }
-
-    const sectionById = new Map((sections ?? []).map((s) => [s.id, s.name]));
-    const sectionByNameStemId = new Map(
-      (stems ?? []).map((s) => [s.id, sectionById.get(s.section_id) ?? ""]),
-    );
-
-    const { data: options, error: optionsError } = optionsResult;
-
-    if (optionsError) {
-      throw new Error(optionsError.message);
-    }
-
-    const optionsByQuestionId = new Map<string, OptionRow[]>();
-    for (const opt of options ?? []) {
-      const list = optionsByQuestionId.get(opt.question_id) ?? [];
-      list.push(opt);
-      optionsByQuestionId.set(opt.question_id, list);
-    }
-
-    const questionMeta = buildQuestionMeta(
-      questions ?? [],
-      sectionByNameStemId,
-      optionsByQuestionId,
-    );
-
+  if (questionMeta.length > 0) {
     const syllogismQuestionIds = new Set(
-      (questions ?? [])
-        .filter((q) => q.question_type === "syllogism")
-        .map((q) => q.id),
+      questionMeta
+        .filter((question) => question.questionType === "syllogism")
+        .map((question) => question.id),
     );
 
     const attempts = (questionAttempts ?? []).flatMap((qa) => {
@@ -383,8 +290,16 @@ export async function completeStudentSetAttempt(
     rawScore = totalRawScore;
 
     const maxRawScore = computeMaxRawScore(questionMeta);
-    if (maxRawScore > 0) {
-      scaledScore = scaleTo300_900(rawScore, maxRawScore);
+    const scoringSection = resolveSingleUcatScoringSection(
+      questionMeta.map((question) => question.sectionName),
+    );
+    if (maxRawScore > 0 && scoringSection) {
+      scaledScore = estimateUcatSectionScore({
+        section: scoringSection,
+        rawScore,
+        maxRawScore,
+      }).scaledScore;
+      scoringModelVersion = UCAT_SCORING_MODEL.version;
     }
 
     const updates = questionAttempts.map((qa) => ({
@@ -412,8 +327,10 @@ export async function completeStudentSetAttempt(
       time_taken_seconds: timeTakenSeconds,
       completed_at: now.toISOString(),
       score_points: totalQuestions === 0 ? null : rawScore,
-      total_points: totalQuestions === 0 ? null : totalQuestions,
+      total_points:
+        totalQuestions === 0 ? null : computeMaxRawScore(questionMeta),
       scaled_score: scaledScore,
+      scoring_model_version: scoringModelVersion,
       engine_snapshot: null,
       current_segment_ends_at: null,
     })

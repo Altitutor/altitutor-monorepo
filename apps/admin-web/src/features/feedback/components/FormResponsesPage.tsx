@@ -23,6 +23,7 @@ import {
   type FormResponseDetail,
   responsePersonLabel,
 } from './FormResponseDialog';
+import { DeleteFormResponseConfirmDialog } from './DeleteFormResponseConfirmDialog';
 
 const INITIAL_STATE: DataTableState = {
   search: '',
@@ -54,6 +55,7 @@ export function FormResponsesPage() {
   const [rows, setRows] = useState<FormResponseDetail[]>([]);
   const [state, setState] = useState<DataTableState>(INITIAL_STATE);
   const [selectedResponse, setSelectedResponse] = useState<FormResponseDetail | null>(null);
+  const [responseToDelete, setResponseToDelete] = useState<FormResponseDetail | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -213,7 +215,10 @@ export function FormResponsesPage() {
                 <TableCell>{format(new Date(row.submitted_at), 'PP p')}</TableCell>
                 <TableCell className="text-right">
                   <SettingsTableActions
-                    actions={[{ id: 'view', label: 'View response', onSelect: () => setSelectedResponse(row) }]}
+                    actions={[
+                      { id: 'view', label: 'View response', onSelect: () => setSelectedResponse(row) },
+                      { id: 'delete', label: 'Delete response', destructive: true, onSelect: () => setResponseToDelete(row) },
+                    ]}
                   />
                 </TableCell>
               </TableRow>
@@ -235,7 +240,20 @@ export function FormResponsesPage() {
         onPageChange={(nextPage) => setState((current) => ({ ...current, page: nextPage }))}
         onPageSizeChange={(pageSize) => setState((current) => ({ ...current, pageSize, page: 1 }))}
       />
-      <FormResponseDialog response={selectedResponse} onClose={() => setSelectedResponse(null)} />
+      <FormResponseDialog
+        response={selectedResponse}
+        onClose={() => setSelectedResponse(null)}
+        onDeleted={(responseId) => setRows((current) => current.filter((row) => row.id !== responseId))}
+      />
+      <DeleteFormResponseConfirmDialog
+        response={responseToDelete}
+        open={Boolean(responseToDelete)}
+        onOpenChange={(open) => { if (!open) setResponseToDelete(null); }}
+        onDeleted={(responseId) => {
+          setRows((current) => current.filter((row) => row.id !== responseId));
+          setResponseToDelete(null);
+        }}
+      />
     </div>
   );
 }

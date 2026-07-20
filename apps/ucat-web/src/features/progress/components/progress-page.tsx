@@ -40,7 +40,10 @@ function QuestionsCompletedCard({
   sections: SectionProgress[];
   className?: string;
 }) {
-  const totalCompleted = sections.reduce((sum, section) => sum + section.maxScore, 0);
+  const totalCompleted = sections.reduce(
+    (sum, section) => sum + section.maxScore,
+    0,
+  );
   const totals = sections.map((section) => section.totalPublicQuestions);
   const totalAvailable = totals.every((total) => total != null)
     ? totals.reduce<number>((sum, total) => sum + (total ?? 0), 0)
@@ -236,14 +239,14 @@ export function ProgressPageContent({
       : projectedGain != null && projectedGain > 0
         ? `The current path adds about ${projectedGain} points over 90 days`
         : currentEstimate == null
-          ? "Complete timed sets to get a score estimate"
+          ? "Build your baseline one section at a time"
           : "Your estimate is the starting point - not the verdict";
   const insightBody =
     currentEstimate == null
-      ? "A total trajectory appears once Verbal Reasoning, Decision Making and Quantitative Reasoning each have enough timed evidence."
+      ? "Complete one representative timed set in each cognitive section. Keep your usual method and pace so the first comparison reflects how you currently work."
       : benchmark.percentileLabel
         ? `Your ${currentEstimate} estimate is around the ${benchmark.percentileLabel.toLowerCase()} against the published UCAT ANZ benchmark. The shaded range shows what the current evidence can support, not a guaranteed result.`
-        : "Keep adding timed evidence. The shaded range will narrow as the model sees more representative work across all three cognitive sections.";
+        : "Keep adding timed evidence. The shaded range will narrow as the model sees more representative work across Sections 1–3.";
 
   return (
     <div className="space-y-6 pb-8">
@@ -262,11 +265,15 @@ export function ProgressPageContent({
         targetBreakdown={targetBreakdown}
         insightTitle={insightTitle}
         insightBody={insightBody}
+        ratingTargetKey="total-score-trajectory"
+        ratingContextKey="progress:total-score"
         insightMeta={
           <div>
             <MetricRow
               label="Current estimate"
-              value={currentEstimate == null ? "Pending" : String(currentEstimate)}
+              value={
+                currentEstimate == null ? "Pending" : String(currentEstimate)
+              }
             />
             <MetricRow
               label="UCAT ANZ benchmark"

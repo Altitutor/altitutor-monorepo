@@ -29,6 +29,7 @@ export interface FormAnswererProps {
   hideSubmitButton?: boolean;
   initialAnswers?: FormAnswerPayload;
   onSubmitted?: () => void;
+  onSubmittingChange?: (submitting: boolean) => void;
 }
 
 function emptyValueForQuestion(question: FormQuestion) {
@@ -73,11 +74,13 @@ export function FormAnswerer({
   hideSubmitButton = false,
   initialAnswers,
   onSubmitted,
+  onSubmittingChange,
 }: FormAnswererProps) {
   const [answers, setAnswers] = React.useState<FormAnswerPayload>(() => getInitialAnswers(blocks, initialAnswers));
   const [submitting, setSubmitting] = React.useState(false);
   const [submitted, setSubmitted] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
+  const submittingRef = React.useRef(false);
 
   React.useEffect(() => {
     setAnswers(getInitialAnswers(blocks, initialAnswers));
@@ -91,7 +94,10 @@ export function FormAnswerer({
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
+    if (submittingRef.current) return;
+    submittingRef.current = true;
     setSubmitting(true);
+    onSubmittingChange?.(true);
     setError(null);
     try {
       await onSubmit(answers);
@@ -100,7 +106,9 @@ export function FormAnswerer({
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not submit this form.');
     } finally {
+      submittingRef.current = false;
       setSubmitting(false);
+      onSubmittingChange?.(false);
     }
   };
 

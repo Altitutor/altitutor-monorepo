@@ -243,7 +243,7 @@ export function SectionProgressContent({
   const insightTitle = weakestCategory
     ? `${weakestCategory.categoryName} is the clearest opportunity`
     : score == null
-      ? "Build a timed baseline for this section"
+      ? `Start ${section.sectionName} with a representative timed set`
       : projectedGain != null && projectedGain > 0
         ? `The current path adds about ${projectedGain} points`
         : "Keep the evidence representative";
@@ -255,7 +255,7 @@ export function SectionProgressContent({
             ? ` Your recent exam speed is ${formatSpeedPercentAsMultiplier(averageExamSpeed)}, so accuracy is the higher-priority constraint.`
             : ` Your recent exam speed is ${formatSpeedPercentAsMultiplier(averageExamSpeed)}, so timing and accuracy should improve together.`
       }`
-    : "Complete timed sets to get an estimated score for this section";
+    : "Choose a short timed set and work at your normal pace. Afterwards, review the first missed reasoning step before trying to get faster.";
   const resolvedTimingSeries =
     timingSeries ?? attemptHistoryPreviewData?.set?.series ?? [];
   const trajectoryToggle = (
@@ -310,6 +310,8 @@ export function SectionProgressContent({
           scoreMaximum={900}
           insightTitle={insightTitle}
           insightBody={insightBody}
+          ratingTargetKey="section-score-trajectory"
+          ratingContextKey={`progress:section:${section.sectionId}`}
           headerControl={trajectoryToggle}
           insightMeta={
             <div className="space-y-2 text-sm">

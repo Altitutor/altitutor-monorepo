@@ -8,7 +8,7 @@ import {
   type QuestionAttemptBatchInput,
 } from "@/lib/ucat/question-attempts/persist-question-attempt-batch";
 import { findUndeliveredPracticeQuestionIds } from "@/lib/ucat/practice-sessions/authorize-delivered-questions";
-import { captureUcatLearningActivityCompleted } from "@/lib/analytics/posthog-server";
+import { captureUcatLearningActivityCompletedInBackground } from "@/lib/analytics/posthog-server";
 
 type BatchRequest = {
   studentQuestionSetAttemptId: string | null;
@@ -95,23 +95,14 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    try {
-      const undeliveredQuestionIds = await findUndeliveredPracticeQuestionIds(
-        supabaseAdmin,
-        session.stems_snapshot,
-        attempts.map((attempt) => attempt.questionId),
-      );
-      if (undeliveredQuestionIds.length > 0) {
-        return NextResponse.json(
-          { error: "Question is not part of this practice session" },
-          { status: 403 },
-        );
-      }
-    } catch (error) {
-      captureApiError(error, "/api/ucat/question-attempts/batch");
+    const undeliveredQuestionIds = findUndeliveredPracticeQuestionIds(
+      session.stems_snapshot,
+      attempts.map((attempt) => attempt.questionId),
+    );
+    if (undeliveredQuestionIds.length > 0) {
       return NextResponse.json(
-        { error: "Failed to validate practice questions" },
-        { status: 500 },
+        { error: "Question is not part of this practice session" },
+        { status: 403 },
       );
     }
   } else if (setAttemptId) {
@@ -169,7 +160,7 @@ export async function POST(request: NextRequest) {
           learningModuleBlockId,
         );
         if (progress.lessonNewlyCompleted && progress.lessonId) {
-          await captureUcatLearningActivityCompleted({
+          captureUcatLearningActivityCompletedInBackground({
             userId: user.id,
             activityType: "lesson",
             activityId: progress.lessonId,

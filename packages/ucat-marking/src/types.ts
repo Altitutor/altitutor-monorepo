@@ -20,13 +20,22 @@ export type RawScoreResult = {
   totalRawScore: number
 }
 
-export type ScaledScoreStrategy = (
-  rawScore: number,
-  maxRawScore: number,
-  options?: ScaledScoreOptions
-) => number
+export type UcatScoringSection =
+  | 'verbal_reasoning'
+  | 'decision_making'
+  | 'quantitative_reasoning'
+  | 'situational_judgement'
 
-export type ScaledScoreOptions = {
-  /** Section name for future section-specific scaling. */
-  section?: string
+export type UcatSectionScoreEstimate = {
+  /** Estimated UCAT ANZ section score, rounded to the nearest 10. */
+  scaledScore: number
+  /** Approximate one-standard-error uncertainty in scaled-score points. */
+  standardError: number
+  /** Approximate 68% range, bounded to the 300-900 reporting scale. */
+  estimatedRange: {
+    min: number
+    max: number
+  }
+  modelVersion: string
+  evidenceCycle: number
 }

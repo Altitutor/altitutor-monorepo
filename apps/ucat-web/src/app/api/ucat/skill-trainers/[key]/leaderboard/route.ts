@@ -1,8 +1,8 @@
 import { captureApiError } from "@/lib/sentry/capture-api-error";
 import { NextRequest, NextResponse } from "next/server";
+import { trainerKeyToSlug, trainerSlugToKey } from "@altitutor/shared";
 import { requireStudentAdminClient } from "@/lib/ucat/skill-trainer/api-auth";
 import { getLeaderboard } from "@/lib/ucat/skill-trainer/attempt-service";
-import { resolveTrainerKeyParam } from "@/lib/ucat/skill-trainer/resolve-trainer-key";
 
 export async function GET(
   request: NextRequest,
@@ -19,8 +19,8 @@ export async function GET(
         ? "my_scores"
         : "week";
 
-  const trainerKey = resolveTrainerKeyParam(params.key);
-  if (!trainerKey) {
+  const trainerKey = trainerSlugToKey(params.key);
+  if (!trainerKey || trainerKeyToSlug(trainerKey) !== params.key) {
     return NextResponse.json({ error: "Trainer not found" }, { status: 404 });
   }
 
@@ -35,7 +35,8 @@ export async function GET(
     return NextResponse.json({ entries, window });
   } catch (error) {
     captureApiError(error, "/api/ucat/skill-trainers/[key]/leaderboard");
-    const message = error instanceof Error ? error.message : "Failed to load leaderboard";
+    const message =
+      error instanceof Error ? error.message : "Failed to load leaderboard";
     return NextResponse.json(
       { error: message },
       { status: message === "TRAINER_NOT_FOUND" ? 404 : 500 },

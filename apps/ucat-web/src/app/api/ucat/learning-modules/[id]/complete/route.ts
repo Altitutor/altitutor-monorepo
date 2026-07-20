@@ -5,7 +5,7 @@ import {
   markAllLessonBlocksComplete,
   resetLessonProgress,
 } from "@/lib/ucat/learning/progress-service";
-import { captureUcatLearningActivityCompleted } from "@/lib/analytics/posthog-server";
+import { captureUcatLearningActivityCompletedInBackground } from "@/lib/analytics/posthog-server";
 
 type RouteContext = { params: Promise<{ id: string }> };
 
@@ -21,7 +21,7 @@ export async function POST(_request: NextRequest, context: RouteContext) {
       id,
     );
     if (progress.newlyCompleted) {
-      await captureUcatLearningActivityCompleted({
+      captureUcatLearningActivityCompletedInBackground({
         userId: auth.userId,
         activityType: "lesson",
         activityId: id,

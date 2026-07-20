@@ -667,8 +667,8 @@ const attemptReviewTour: Tour = {
       title: "Answer explanation",
       content: (
         <p>
-          Read the explanation for the selected question. Use Report a bug here
-          if the question or explanation needs attention.
+          Read the explanation for the selected question. Use the upvote or
+          downvote controls if the explanation needs attention.
         </p>
       ),
       selector: "#tour-attempt-explanation",

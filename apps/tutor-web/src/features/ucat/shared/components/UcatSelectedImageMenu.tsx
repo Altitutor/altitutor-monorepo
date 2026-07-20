@@ -79,15 +79,15 @@ export function UcatSelectedImageMenu({
         return
       }
       const rect = target.getBoundingClientRect()
-      const dialog = target.closest('[role="dialog"]')
-      const dialogRect = dialog?.getBoundingClientRect()
-      if (!dialogRect || rect.width <= 0 || rect.height <= 0 || rect.bottom < 0 || rect.top > window.innerHeight) {
+      const container = target.closest('[data-ucat-editor-shell]') ?? target.closest('[role="dialog"]')
+      const containerRect = container?.getBoundingClientRect()
+      if (!containerRect || rect.width <= 0 || rect.height <= 0 || rect.bottom < 0 || rect.top > window.innerHeight) {
         setAnchor(null)
         return
       }
       setAnchor({
-        top: Math.max(8, rect.top - dialogRect.top + 8),
-        left: Math.max(8, Math.min(dialogRect.width - 44, rect.right - dialogRect.left - 44)),
+        top: Math.max(8, rect.top - containerRect.top + 8),
+        left: Math.max(8, Math.min(containerRect.width - 44, rect.right - containerRect.left - 44)),
       })
     }
     updateAnchor()

@@ -152,6 +152,68 @@ export function getNextMockSegment(
 }
 
 /**
+ * Starts the question segment confirmed by the Ready to Begin dialog.
+ *
+ * Resolving from the state inside the state updater avoids using a stale
+ * render snapshot when lag mode delays the confirmation. The current mock set
+ * is also used as a fallback because review navigation can leave currentIndex
+ * pointing at an earlier section while the next section's instructions are
+ * displayed.
+ */
+export function beginQuestionsFromReadyDialog(
+  exam: QuestionEngineExam,
+  state: QuestionEngineState,
+  now = Date.now(),
+): QuestionEngineState {
+  if (exam.sourceType === "set") {
+    return {
+      ...state,
+      phase: "question",
+      showReadyDialog: false,
+      currentIndex: 0,
+      timerStartedAt:
+        (exam.setModeTiming?.setTimeLimitSeconds ?? 0) > 0 ? now : null,
+    };
+  }
+
+  if (exam.sourceType !== "mock") {
+    return {
+      ...state,
+      phase: "question",
+      showReadyDialog: false,
+      timerStartedAt: null,
+    };
+  }
+
+  const followingSegment = getNextMockSegment(exam, state);
+  const questionsSegment =
+    (followingSegment?.type === "questions" ? followingSegment : null) ??
+    exam.mockTimingSegments?.find(
+      (segment) =>
+        segment.type === "questions" &&
+        state.mockCurrentSetIndex != null &&
+        segment.setIndex === state.mockCurrentSetIndex,
+    ) ??
+    (state.phase === "intro"
+      ? exam.mockTimingSegments?.find((segment) => segment.type === "questions")
+      : null);
+
+  // Never dismiss the dialog into an arbitrary old question if the mock
+  // structure is inconsistent. Keeping it open is recoverable and avoids a
+  // silent restart of an earlier section.
+  if (questionsSegment?.type !== "questions") return state;
+
+  return {
+    ...state,
+    phase: "question",
+    showReadyDialog: false,
+    currentIndex: questionsSegment.questionStartIndex,
+    mockCurrentSetIndex: questionsSegment.setIndex,
+    timerStartedAt: (questionsSegment.timeLimitSeconds ?? 0) > 0 ? now : null,
+  };
+}
+
+/**
  * For mock mode when in review: get the first segment of the next set.
  * Returns null if we're on the last set.
  */

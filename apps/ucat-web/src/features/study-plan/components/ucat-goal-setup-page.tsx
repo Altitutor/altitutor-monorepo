@@ -112,14 +112,14 @@ export function UcatGoalSetupPage() {
       >
         <StudyPlanStepIndicator activeStep={1} stepCount={1} />
         <div className="mb-6">
-          <p className="flex items-center gap-2 text-xs font-bold uppercase tracking-[0.2em] text-marketing-accent">
+          <p className="flex items-center gap-2 text-xs font-bold uppercase tracking-[0.2em] text-primary dark:text-accent">
             <Target className="h-4 w-4" aria-hidden />
             UCAT goal
           </p>
-          <h1 className="mt-2 text-3xl font-bold tracking-tight text-marketing-cream sm:text-4xl">
+          <h1 className="mt-2 text-3xl font-bold tracking-tight text-foreground sm:text-4xl">
             Set your UCAT year and target score
           </h1>
-          <p className="mt-2 max-w-2xl text-marketing-cream/60">
+          <p className="mt-2 max-w-2xl text-muted-foreground">
             Give your dashboard a clear destination. This stays separate from
             deciding how you want to organise your study.
           </p>

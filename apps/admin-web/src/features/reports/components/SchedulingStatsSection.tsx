@@ -45,6 +45,8 @@ export function SchedulingStatsSection({ dateRange, visibleCharts }: SchedulingS
       entityModals.openClass(link.classId);
     } else if (link.kind === 'staff' && link.staffId) {
       entityModals.openStaff(link.staffId);
+    } else if (link.kind === 'session' && link.sessionId) {
+      entityModals.openSession(link.sessionId);
     } else if ((link.kind === 'absence' || link.kind === 'staff') && link.sessionId) {
       entityModals.openSession(link.sessionId);
     } else if (link.studentId) {
@@ -158,6 +160,32 @@ export function SchedulingStatsSection({ dateRange, visibleCharts }: SchedulingS
                       />
                     )}
                   </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Sessions */}
+          {visibleCharts.sessions.trialSessions && (
+            <div className="space-y-6">
+              <h3 className="text-sm font-semibold">Sessions</h3>
+              <div>
+                <h4 className="text-sm font-medium mb-2">Trial sessions</h4>
+                <p className="text-xs text-muted-foreground mb-3">
+                  Number of student trial sessions scheduled on each day in the period.
+                </p>
+                {isLoading ? (
+                  <div className="h-[280px] flex items-center justify-center bg-muted/30 rounded-lg">
+                    <p className="text-sm text-muted-foreground">Loading...</p>
+                  </div>
+                ) : (
+                  <IssuesReportChart
+                    data={studentData?.trialSessionsByDay ?? []}
+                    title="Trial sessions"
+                    entityLabelSingular="trial session"
+                    tableVariant="trialSessions"
+                    onEntityClick={handleEntityClick}
+                  />
                 )}
               </div>
             </div>

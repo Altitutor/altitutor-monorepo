@@ -5,6 +5,8 @@ import { format } from 'date-fns';
 import { Badge, Button, FormAnswerer } from '@altitutor/ui';
 import type { FormAnswerPayload, FormBlock } from '@altitutor/shared';
 import { AdminDialogShell } from '@/shared/components';
+import { SettingsTableActions } from '@/shared/components/settings-table-actions';
+import { DeleteFormResponseConfirmDialog } from './DeleteFormResponseConfirmDialog';
 
 type Person = { id: string; first_name?: string | null; last_name?: string | null } | null | undefined;
 
@@ -95,13 +97,19 @@ export function FormResponseDialog({
   response,
   onClose,
   onUpdated,
+  onDeleted,
 }: {
   response: FormResponseDetail | null;
   onClose: () => void;
   onUpdated?: () => void;
+  onDeleted?: (responseId: string) => void;
 }) {
   const [editing, setEditing] = useState(false);
-  useEffect(() => setEditing(false), [response?.id]);
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
+  useEffect(() => {
+    setEditing(false);
+    setConfirmingDelete(false);
+  }, [response?.id]);
 
   const formId = response ? `edit-form-response-${response.id}` : undefined;
   const canEdit = Boolean(response?.form_versions?.blocks);
@@ -119,77 +127,98 @@ export function FormResponseDialog({
   };
 
   return (
-    <AdminDialogShell
-      open={!!response}
-      onClose={onClose}
-      title={response?.forms?.name ?? 'Form response'}
-      subtitle={response ? `${responsePersonLabel(response, 'respondent')} · ${format(new Date(response.submitted_at), 'PP p')}` : undefined}
-      contentClassName="md:max-w-4xl"
-      footer={response ? (
-        editing ? (
-          <>
-            <Button type="button" variant="outline" onClick={() => setEditing(false)}>Cancel</Button>
-            <Button type="submit" form={formId}>Save changes</Button>
-          </>
-        ) : (
-          <>
-            <Button type="button" variant="outline" onClick={onClose}>Close</Button>
-            {canEdit ? <Button type="button" onClick={() => setEditing(true)}>Edit response</Button> : null}
-          </>
-        )
-      ) : undefined}
-    >
-      {response ? (
-        editing && response.form_versions?.blocks ? (
-          <FormAnswerer
-            title={response.forms?.name ?? 'Form response'}
-            blocks={response.form_versions.blocks}
-            initialAnswers={response.response_json?.answers ?? {}}
-            submitLabel="Save changes"
-            onSubmit={save}
-            formId={formId}
-            hideSubmitButton
-            className="px-0 py-2"
+    <>
+      <AdminDialogShell
+        open={!!response}
+        onClose={onClose}
+        title={response?.forms?.name ?? 'Form response'}
+        subtitle={response ? `${responsePersonLabel(response, 'respondent')} · ${format(new Date(response.submitted_at), 'PP p')}` : undefined}
+        contentClassName="md:max-w-4xl"
+        headerActions={response && !editing ? (
+          <SettingsTableActions
+            actions={[{
+              id: 'delete',
+              label: 'Delete response',
+              destructive: true,
+              onSelect: () => setConfirmingDelete(true),
+            }]}
           />
-        ) : (
-        <div className="space-y-6">
-          <div className="grid gap-3 text-sm sm:grid-cols-4">
-            <div>
-              <div className="text-xs text-muted-foreground">Respondent</div>
-              <div className="font-medium">{responsePersonLabel(response, 'respondent')}</div>
-            </div>
-            <div>
-              <div className="text-xs text-muted-foreground">Subject</div>
-              <div className="font-medium">{responsePersonLabel(response, 'subject')}</div>
-            </div>
-            <div>
-              <div className="text-xs text-muted-foreground">Submitted</div>
-              <div className="font-medium">{format(new Date(response.submitted_at), 'PP p')}</div>
-            </div>
-            {response.recorded_by_staff ? <div><div className="text-xs text-muted-foreground">Recorded by</div><div className="font-medium">{personName(response.recorded_by_staff)}</div></div> : null}
-            {response.session_id ? (
-              <div>
-                <div className="text-xs text-muted-foreground">Check-in session</div>
-                <div className="font-medium">
-                  {response.sessions?.long_name ?? response.sessions?.short_name ?? (response.sessions?.start_at ? format(new Date(response.sessions.start_at), 'PP p') : 'Linked session')}
+        ) : undefined}
+        footer={response ? (
+          editing ? (
+            <>
+              <Button type="button" variant="outline" onClick={() => setEditing(false)}>Cancel</Button>
+              <Button type="submit" form={formId}>Save changes</Button>
+            </>
+          ) : (
+            <>
+              <Button type="button" variant="outline" onClick={onClose}>Close</Button>
+              {canEdit ? <Button type="button" onClick={() => setEditing(true)}>Edit response</Button> : null}
+            </>
+          )
+        ) : undefined}
+      >
+        {response ? (
+          editing && response.form_versions?.blocks ? (
+            <FormAnswerer
+              title={response.forms?.name ?? 'Form response'}
+              blocks={response.form_versions.blocks}
+              initialAnswers={response.response_json?.answers ?? {}}
+              submitLabel="Save changes"
+              onSubmit={save}
+              formId={formId}
+              hideSubmitButton
+              className="px-0 py-2"
+            />
+          ) : (
+            <div className="space-y-6">
+              <div className="grid gap-3 text-sm sm:grid-cols-4">
+                <div>
+                  <div className="text-xs text-muted-foreground">Respondent</div>
+                  <div className="font-medium">{responsePersonLabel(response, 'respondent')}</div>
                 </div>
+                <div>
+                  <div className="text-xs text-muted-foreground">Subject</div>
+                  <div className="font-medium">{responsePersonLabel(response, 'subject')}</div>
+                </div>
+                <div>
+                  <div className="text-xs text-muted-foreground">Submitted</div>
+                  <div className="font-medium">{format(new Date(response.submitted_at), 'PP p')}</div>
+                </div>
+                {response.recorded_by_staff ? <div><div className="text-xs text-muted-foreground">Recorded by</div><div className="font-medium">{personName(response.recorded_by_staff)}</div></div> : null}
+                {response.session_id ? (
+                  <div>
+                    <div className="text-xs text-muted-foreground">Check-in session</div>
+                    <div className="font-medium">
+                      {response.sessions?.long_name ?? response.sessions?.short_name ?? (response.sessions?.start_at ? format(new Date(response.sessions.start_at), 'PP p') : 'Linked session')}
+                    </div>
+                  </div>
+                ) : null}
               </div>
-            ) : null}
-          </div>
 
-          <div className="space-y-4">
-            {(response.form_response_answers ?? []).map((answer) => (
-              <div key={answer.id ?? answer.question_id} className="space-y-1">
-                <div className="text-sm font-medium">{answer.question_label_snapshot}</div>
-                <div className="rounded-md bg-muted/40 p-3 text-sm">
-                  <AnswerDisplay answer={answer} />
-                </div>
+              <div className="space-y-4">
+                {(response.form_response_answers ?? []).map((answer) => (
+                  <div key={answer.id ?? answer.question_id} className="space-y-1">
+                    <div className="text-sm font-medium">{answer.question_label_snapshot}</div>
+                    <div className="rounded-md bg-muted/40 p-3 text-sm">
+                      <AnswerDisplay answer={answer} />
+                    </div>
+                  </div>
+                ))}
               </div>
-            ))}
-          </div>
-        </div>
-        )
-      ) : null}
-    </AdminDialogShell>
+            </div>
+          )
+        ) : null}
+      </AdminDialogShell>
+      <DeleteFormResponseConfirmDialog
+        response={response}
+        open={confirmingDelete}
+        onOpenChange={setConfirmingDelete}
+        onDeleted={(responseId) => {
+          onClose();
+          onDeleted?.(responseId);
+        }}
+      />
+    </>
   );
 }

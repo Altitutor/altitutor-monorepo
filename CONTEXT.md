@@ -74,6 +74,8 @@
 
 ## UCAT content
 
+- **UCAT content rating** — A student's thumbs-up or thumbs-down evaluation of one displayed UCAT insight or answer explanation, optionally accompanied by a reason. The rating stores the displayed content and its context so later wording revisions remain distinguishable. _Avoid_: feedback, survey response, content vote
+
 - **UCAT mock exam** — A complete practice exam made of UCAT section content that students can attempt as an exam-like experience.
 
 - **UCAT exam attempt start** — The moment a student confirms **Ready to Begin** and enters the first timed or untimed exam segment (instructions or questions). This is when a set attempt, mock attempt, or practice session is considered started for quota, progress, and resume — not when they open the launch screen and not when they submit their first answer. Instructions time (when configured) is part of the attempt from this point.

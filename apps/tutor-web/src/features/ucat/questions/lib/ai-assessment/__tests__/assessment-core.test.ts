@@ -7,11 +7,15 @@ import {
 } from '@/features/ucat/questions/server/ai-assessment/content'
 import { runUcatFormatChecks } from '@/features/ucat/questions/server/ai-assessment/format-checks'
 import {
+  ASSESSMENT_SYSTEM_PROMPT,
   buildAssessmentUserPrompt,
   buildBlindSolverUserPrompt,
 } from '@/features/ucat/questions/server/ai-assessment/prompts'
 import { applyUcatAssessmentPatches } from '../apply-patches'
-import { plainTextToProseMirror } from '@/features/ucat/shared/lib/rich-text'
+import { plainTextToProseMirror, proseMirrorToPlainText } from '@/features/ucat/shared/lib/rich-text'
+import { parseEmbeddedImageDataUri } from '@/features/ucat/questions/server/ai-assessment/visual-evidence'
+import { normalizeBlindSolutionSelections } from '@/features/ucat/questions/server/ai-assessment/normalize-blind-solution'
+import type { UcatQuestionStemFormValues } from '@/features/ucat/questions/types/schema'
 
 const STEM_ID = '00000000-0000-0000-0000-000000000001'
 const QUESTION_1 = '00000000-0000-0000-0000-000000000010'
@@ -156,6 +160,50 @@ describe('assessment fingerprints and scope', () => {
 })
 
 describe('assessment prompts and deterministic checks', () => {
+  it('preserves rich-text block boundaries for the reviewer instead of flattening list items', () => {
+    const value = snapshot()
+    value.stemText = {
+      type: 'doc',
+      content: [
+        { type: 'paragraph', content: [{ type: 'text', text: 'Five displays are installed from Monday to Friday.' }] },
+        {
+          type: 'bulletList',
+          content: [
+            { type: 'listItem', content: [{ type: 'paragraph', content: [{ type: 'text', text: 'C is installed immediately after A.' }] }] },
+            { type: 'listItem', content: [{ type: 'paragraph', content: [{ type: 'text', text: 'D is installed before B.' }] }] },
+          ],
+        },
+      ],
+    }
+    value.stemTextPlain = proseMirrorToPlainText(value.stemText)
+
+    const prompt = JSON.parse(buildAssessmentUserPrompt({
+      snapshot: value,
+      targetQuestionIds: [QUESTION_1],
+      includeSharedAssessment: true,
+      blindSolution: { solutions: [] },
+      formatChecks: [],
+    })) as { stemText: { blocks: Array<{ kind: string; text: string }>; formattingNote: string } }
+
+    expect(prompt.stemText.blocks).toEqual([
+      { kind: 'paragraph', text: 'Five displays are installed from Monday to Friday.' },
+      { kind: 'bullet_list_item', text: 'C is installed immediately after A.' },
+      { kind: 'bullet_list_item', text: 'D is installed before B.' },
+    ])
+    expect(prompt.stemText.formattingNote).toContain('do not report missing spaces')
+  })
+
+  it('assesses whether difficulty and timing are appropriate for UCAT, not only metadata accuracy', () => {
+    expect(buildAssessmentUserPrompt({
+      snapshot: snapshot(),
+      targetQuestionIds: [QUESTION_1],
+      includeSharedAssessment: true,
+      blindSolution: { solutions: [] },
+      formatChecks: [],
+    })).toContain('difficulty_timing')
+    expect(ASSESSMENT_SYSTEM_PROMPT).toContain('too trivial, too difficult, too slow')
+  })
+
   it('keeps the blind solve free of keys, explanations, difficulty, and timing', () => {
     const value = snapshot()
     const prompt = buildBlindSolverUserPrompt({ snapshot: value, targetQuestionIds: [QUESTION_1] })
@@ -200,6 +248,52 @@ describe('assessment prompts and deterministic checks', () => {
 })
 
 describe('bounded suggestion patches', () => {
+  it('applies an exact suggestion spanning two rich-text list items without flattening the list', async () => {
+    const value = snapshot()
+    const explanation = {
+      type: 'doc',
+      content: [{
+        type: 'bulletList',
+        content: [
+          { type: 'listItem', content: [{ type: 'paragraph', content: [{ type: 'text', text: 'A is relevant but gives no evidence.' }] }] },
+          { type: 'listItem', content: [{ type: 'paragraph', content: [{ type: 'text', text: 'B is unsupported.' }] }] },
+        ],
+      }],
+    }
+    const form = {
+      sectionId: value.sectionId,
+      categoryId: value.categoryId,
+      stemText: value.stemText,
+      accessScope: 'public',
+      questions: value.questions.map((question) => ({
+        id: question.id,
+        questionText: question.questionText,
+        questionType: question.questionType,
+        answerExplanation: question.id === QUESTION_1 ? explanation : question.answerExplanation,
+        difficulty: question.difficulty,
+        timeBurdenSeconds: '1:15',
+        tagIds: [],
+        options: question.options.map((option) => ({
+          id: option.id,
+          answerText: option.answerText,
+          answerExplanation: option.answerExplanation,
+          isAnswer: option.isAnswer,
+        })),
+      })),
+    } as UcatQuestionStemFormValues
+    const result = await applyUcatAssessmentPatches(form, [{
+      operation: 'replace_text',
+      target: { kind: 'question', id: QUESTION_1, field: 'answer_explanation' },
+      beforeText: 'A is relevant but gives no evidence.B is unsupported.',
+      afterText: 'A is relevant but gives no evidence. B is less direct.',
+    }])
+
+    expect(proseMirrorToPlainText(result.questions[0].answerExplanation)).toBe(
+      'A is relevant but gives no evidence.\nB is less direct.',
+    )
+    expect((result.questions[0].answerExplanation as { content?: Array<{ type?: string }> }).content?.[0]?.type).toBe('bulletList')
+  })
+
   it('re-keys an existing answer option without saving anything', async () => {
     const value = snapshot()
     const form = {
@@ -232,5 +326,30 @@ describe('bounded suggestion patches', () => {
     }])
     expect(result.questions[0].options.map((option) => option.isAnswer)).toEqual([false, false, true, false, false])
     expect(form.questions[0].options[0].isAnswer).toBe(true)
+  })
+})
+
+describe('assessment provider input normalization', () => {
+  it('accepts URL-encoded SVG data URIs with charset parameters', () => {
+    const parsed = parseEmbeddedImageDataUri('data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%3E%3C%2Fsvg%3E')
+    expect(parsed?.mimeType).toBe('image/svg+xml')
+    expect(parsed?.bytes.toString()).toContain('<svg')
+  })
+
+  it('maps a model-returned option label onto the supplied UUID', () => {
+    const value = snapshot()
+    const normalized = normalizeBlindSolutionSelections({
+      solutions: [{
+        questionId: QUESTION_1,
+        selectedOptionId: 'Option C',
+        proposedAnswer: null,
+        syllogismAnswers: [],
+        justification: 'Option C has the correct calculation.',
+        confidence: 0.9,
+        ambiguous: false,
+        unsolvable: false,
+      }],
+    }, value)
+    expect(normalized.solutions[0].selectedOptionId).toBe(value.questions[0].options[2].id)
   })
 })

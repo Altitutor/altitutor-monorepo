@@ -1,0 +1,73 @@
+import React from "react";
+import { render, screen } from "@testing-library/react";
+import { PlanCancellationDialog } from "@/features/subscription/components/plan-picker/plan-cancellation-dialog";
+
+const baseProps = {
+  open: true,
+  onOpenChange: jest.fn(),
+  currentPlanName: "UCAT Pro",
+  paidAccessEndsAt: "2026-08-20T00:00:00.000Z",
+  benefitsLost: ["On-demand help from tutors"],
+  earnedDiscountCents: 0,
+  earnedDiscountCurrency: "aud",
+  reason: null,
+  onReasonChange: jest.fn(),
+  comment: "",
+  onCommentChange: jest.fn(),
+  confirming: false,
+  error: null,
+  onConfirm: jest.fn(),
+};
+
+describe("PlanCancellationDialog", () => {
+  it("shows lost benefits and a positive earned discount when switching to Free", () => {
+    render(
+      <PlanCancellationDialog
+        {...baseProps}
+        targetPlan="free"
+        earnedDiscountCents={600}
+        omitAudPrefix
+      />,
+    );
+
+    expect(
+      screen.getByRole("heading", {
+        name: "Are you sure you want to switch to UCAT Free?",
+      }),
+    ).toBeInTheDocument();
+    expect(screen.getByText("On-demand help from tutors")).toBeInTheDocument();
+    expect(
+      screen.getByText("You've already earned $6.00 off your next bill"),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: /switch to free on/i }),
+    ).toBeDisabled();
+    expect(
+      screen.getByRole("radiogroup", {
+        name: "Main reason for switching to UCAT Free",
+      }),
+    ).toBeInTheDocument();
+  });
+
+  it("confirms Pro to Unlimited before opening billing without cancellation fields", () => {
+    render(<PlanCancellationDialog {...baseProps} targetPlan="unlimited" />);
+
+    expect(
+      screen.getByRole("heading", {
+        name: "Are you sure you want to downgrade to UCAT Unlimited?",
+      }),
+    ).toBeInTheDocument();
+    expect(screen.getByText("On-demand help from tutors")).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Continue to billing" }),
+    ).toBeEnabled();
+    expect(screen.queryByRole("radiogroup")).not.toBeInTheDocument();
+    expect(screen.queryByText(/off your next bill/i)).not.toBeInTheDocument();
+  });
+
+  it("does not mention a next-bill discount when none has been earned", () => {
+    render(<PlanCancellationDialog {...baseProps} targetPlan="free" />);
+
+    expect(screen.queryByText(/off your next bill/i)).not.toBeInTheDocument();
+  });
+});

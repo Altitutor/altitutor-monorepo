@@ -165,6 +165,7 @@ export function MockAttemptDetailPage({
           onFinish={reviewTracking.completeManually}
           onReviewNext={reviewNextIncorrect}
           insight={overallInsight}
+          ratingContextKey={`mock-attempt:${mockAttemptId}`}
         />
       </motion.div>
 
@@ -207,6 +208,7 @@ export function MockAttemptDetailPage({
           initialQuestionIndex={selectedQuestionIndex}
           onQuestionIndexChange={setSelectedQuestionIndex}
           attemptReview
+          ratingContextKey={`mock-attempt:${mockAttemptId}`}
         />
       </motion.div>
     </motion.div>

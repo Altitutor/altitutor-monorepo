@@ -152,6 +152,7 @@ export function PlanPicker({
     upgradePreviewError,
     upgradeConfirming,
     cancellationOpen,
+    downgradeTarget,
     handleCancellationOpenChange,
     cancellationReason,
     setCancellationReason,
@@ -159,7 +160,10 @@ export function PlanPicker({
     setCancellationComment,
     cancellationConfirming,
     cancellationError,
-    confirmCancellation,
+    confirmDowngrade,
+    cancellationBenefitsLost,
+    cancellationEarnedDiscountCents,
+    cancellationEarnedDiscountCurrency,
     cancellationPaidAccessEndsAt,
     cancellationCurrentPlanName,
     confirmUpgradeToPro,
@@ -651,15 +655,20 @@ export function PlanPicker({
           <PlanCancellationDialog
             open={cancellationOpen}
             onOpenChange={handleCancellationOpenChange}
+            targetPlan={downgradeTarget}
             currentPlanName={cancellationCurrentPlanName}
             paidAccessEndsAt={cancellationPaidAccessEndsAt}
+            benefitsLost={cancellationBenefitsLost}
+            earnedDiscountCents={cancellationEarnedDiscountCents}
+            earnedDiscountCurrency={cancellationEarnedDiscountCurrency}
+            omitAudPrefix={omitAudPrefix}
             reason={cancellationReason}
             onReasonChange={setCancellationReason}
             comment={cancellationComment}
             onCommentChange={setCancellationComment}
             confirming={cancellationConfirming}
             error={cancellationError}
-            onConfirm={() => void confirmCancellation()}
+            onConfirm={() => void confirmDowngrade()}
           />
         </>
       ) : null}

@@ -5,7 +5,7 @@ import { getSupabaseServerClient } from "@/lib/supabase/server";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { maybeAutoCompleteQuestionBlock } from "@/lib/ucat/learning/progress-service";
 import { findUndeliveredPracticeQuestionIds } from "@/lib/ucat/practice-sessions/authorize-delivered-questions";
-import { captureUcatLearningActivityCompleted } from "@/lib/analytics/posthog-server";
+import { captureUcatLearningActivityCompletedInBackground } from "@/lib/analytics/posthog-server";
 
 export async function POST(request: NextRequest) {
   const supabase = await getSupabaseServerClient();
@@ -108,23 +108,14 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    try {
-      const undeliveredQuestionIds = await findUndeliveredPracticeQuestionIds(
-        supabaseAdmin,
-        session.stems_snapshot,
-        [body.questionId],
-      );
-      if (undeliveredQuestionIds.length > 0) {
-        return NextResponse.json(
-          { error: "Question is not part of this practice session" },
-          { status: 403 },
-        );
-      }
-    } catch (error) {
-      captureApiError(error, "/api/ucat/question-attempts");
+    const undeliveredQuestionIds = findUndeliveredPracticeQuestionIds(
+      session.stems_snapshot,
+      [body.questionId],
+    );
+    if (undeliveredQuestionIds.length > 0) {
       return NextResponse.json(
-        { error: "Failed to validate practice question" },
-        { status: 500 },
+        { error: "Question is not part of this practice session" },
+        { status: 403 },
       );
     }
   }
@@ -223,7 +214,7 @@ export async function POST(request: NextRequest) {
           body.learningModuleBlockId!,
         );
         if (progress.lessonNewlyCompleted && progress.lessonId) {
-          await captureUcatLearningActivityCompleted({
+          captureUcatLearningActivityCompletedInBackground({
             userId: user.id,
             activityType: "lesson",
             activityId: progress.lessonId,
@@ -311,7 +302,7 @@ export async function POST(request: NextRequest) {
         body.learningModuleBlockId!,
       );
       if (progress.lessonNewlyCompleted && progress.lessonId) {
-        await captureUcatLearningActivityCompleted({
+        captureUcatLearningActivityCompletedInBackground({
           userId: user.id,
           activityType: "lesson",
           activityId: progress.lessonId,

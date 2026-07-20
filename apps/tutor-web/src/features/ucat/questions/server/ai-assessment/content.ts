@@ -15,6 +15,52 @@ type SupabaseAny = SupabaseClient<Database> & {
 
 type JsonRecord = Record<string, unknown>
 
+type AssessmentStemRow = Pick<
+  Database['public']['Tables']['question_stems']['Row'],
+  | 'id'
+  | 'section_id'
+  | 'question_stem_category_id'
+  | 'status'
+  | 'access_scope'
+  | 'stem_text'
+>
+
+type AssessmentSectionRow = Pick<
+  Database['public']['Tables']['ucat_sections']['Row'],
+  'section_number' | 'name' | 'display_columns'
+>
+
+type AssessmentCategoryRow = Pick<
+  Database['public']['Tables']['question_stem_categories']['Row'],
+  'name'
+>
+
+type AssessmentQuestionRow = Pick<
+  Database['public']['Tables']['ucat_questions']['Row'],
+  | 'id'
+  | 'question_text'
+  | 'answer_explanation'
+  | 'index'
+  | 'difficulty'
+  | 'time_burden_seconds'
+  | 'question_type'
+>
+
+type AssessmentOptionRow = Pick<
+  Database['public']['Tables']['question_answer_options']['Row'],
+  'id' | 'question_id' | 'answer_text' | 'answer_explanation' | 'index' | 'is_answer'
+>
+
+type AssessmentTagLinkRow = Pick<
+  Database['public']['Tables']['questions_question_tags']['Row'],
+  'question_id' | 'tag_id'
+>
+
+type AssessmentTagRow = Pick<
+  Database['public']['Tables']['question_tags']['Row'],
+  'id' | 'name'
+>
+
 function isRecord(value: unknown): value is JsonRecord {
   return Boolean(value) && typeof value === 'object' && !Array.isArray(value)
 }
@@ -173,6 +219,105 @@ function compactRichTextForAudit(value: Json | null): Json | null {
   return clone as Json
 }
 
+async function loadAssessmentDetailRow(
+  client: SupabaseClient<Database>,
+  stemId: string,
+): Promise<JsonRecord | null> {
+  // Do not use vtutor_ucat_question_stem_detail here. That view explicitly
+  // filters with is_ucat_tutor(), so a service-role/background client has no
+  // tutor identity and receives an empty result even when the stem exists.
+  const source = client as SupabaseAny
+  const { data: stemData, error: stemError } = await source
+    .from('question_stems')
+    .select('id,section_id,question_stem_category_id,status,access_scope,stem_text')
+    .eq('id', stemId)
+    .is('deleted_at', null)
+    .maybeSingle()
+  if (stemError) throw stemError
+  if (!stemData) return null
+  const stem = stemData as AssessmentStemRow
+
+  const categoryPromise = stem.question_stem_category_id
+    ? source
+        .from('question_stem_categories')
+        .select('name')
+        .eq('id', stem.question_stem_category_id)
+        .maybeSingle()
+    : Promise.resolve({ data: null, error: null })
+  const [sectionResult, categoryResult, questionResult] = await Promise.all([
+    source
+      .from('ucat_sections')
+      .select('section_number,name,display_columns')
+      .eq('id', stem.section_id)
+      .single(),
+    categoryPromise,
+    source
+      .from('ucat_questions')
+      .select('id,question_text,answer_explanation,index,difficulty,time_burden_seconds,question_type')
+      .eq('question_stem_id', stem.id)
+      .is('deleted_at', null),
+  ])
+  if (sectionResult.error) throw sectionResult.error
+  if (categoryResult.error) throw categoryResult.error
+  if (questionResult.error) throw questionResult.error
+
+  const section = sectionResult.data as AssessmentSectionRow
+  const category = categoryResult.data as AssessmentCategoryRow | null
+  const questionRows = (questionResult.data ?? []) as AssessmentQuestionRow[]
+  const questionIds = questionRows.map((question) => question.id)
+  let optionRows: AssessmentOptionRow[] = []
+  let tagLinkRows: AssessmentTagLinkRow[] = []
+
+  if (questionIds.length > 0) {
+    const [optionResult, tagLinkResult] = await Promise.all([
+      source
+        .from('question_answer_options')
+        .select('id,question_id,answer_text,answer_explanation,index,is_answer')
+        .in('question_id', questionIds)
+        .is('deleted_at', null),
+      source
+        .from('questions_question_tags')
+        .select('question_id,tag_id')
+        .in('question_id', questionIds),
+    ])
+    if (optionResult.error) throw optionResult.error
+    if (tagLinkResult.error) throw tagLinkResult.error
+    optionRows = (optionResult.data ?? []) as AssessmentOptionRow[]
+    tagLinkRows = (tagLinkResult.data ?? []) as AssessmentTagLinkRow[]
+  }
+
+  const tagIds = [...new Set(tagLinkRows.map((link) => link.tag_id))]
+  let tagRows: AssessmentTagRow[] = []
+  if (tagIds.length > 0) {
+    const { data, error } = await source
+      .from('question_tags')
+      .select('id,name')
+      .in('id', tagIds)
+    if (error) throw error
+    tagRows = (data ?? []) as AssessmentTagRow[]
+  }
+  const tagsById = new Map(tagRows.map((tag) => [tag.id, tag]))
+
+  return {
+    ...stem,
+    section_number: section.section_number,
+    section_name: section.name,
+    display_columns: section.display_columns,
+    category_name: category?.name ?? null,
+    questions: questionRows.map((question) => ({
+      ...question,
+      tags: tagLinkRows
+        .filter((link) => link.question_id === question.id)
+        .flatMap((link) => {
+          const tag = tagsById.get(link.tag_id)
+          return tag ? [{ id: tag.id, name: tag.name }] : []
+        })
+        .sort((a, b) => a.name.localeCompare(b.name)),
+      answer_options: optionRows.filter((option) => option.question_id === question.id),
+    })),
+  }
+}
+
 /** Compact immutable audit snapshot; deliberately excludes image bytes/URLs. */
 export function compactUcatAssessmentSnapshot(snapshot: UcatAssessmentSnapshot): UcatAssessmentSnapshot {
   const compactImages = (images: UcatAssessmentImage[]) => images.map((image) => ({ ...image, src: null }))
@@ -199,16 +344,8 @@ export async function loadUcatAssessmentSnapshot(
   client: SupabaseClient<Database>,
   stemId: string,
 ): Promise<UcatAssessmentSnapshot | null> {
-  const { data, error } = await (client as SupabaseAny)
-    .from('vtutor_ucat_question_stem_detail')
-    .select('*')
-    .eq('id', stemId)
-    .is('deleted_at', null)
-    .maybeSingle()
-  if (error) throw error
-  if (!data) return null
-
-  const row = data as JsonRecord
+  const row = await loadAssessmentDetailRow(client, stemId)
+  if (!row) return null
   const rawQuestions = Array.isArray(row.questions) ? row.questions.filter(isRecord) : []
   const questions = rawQuestions
     .filter((question) => !question.deleted_at)

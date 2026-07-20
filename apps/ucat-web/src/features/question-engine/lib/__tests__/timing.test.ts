@@ -4,6 +4,7 @@
 
 import {
   advanceMockAfterTimeExpired,
+  beginQuestionsFromReadyDialog,
   getCurrentSegmentTimeLimitSeconds,
   formatTimeRemaining,
   getNextMockSegmentAfterExpiry,
@@ -180,6 +181,63 @@ describe("getNextMockSegmentAfterExpiry", () => {
       timeLimitSeconds: 120,
       segmentIndex: 4,
     });
+  });
+
+  it("starts the second section after its ready dialog", () => {
+    const startedAt = 1_500_000;
+    const next = beginQuestionsFromReadyDialog(
+      mockExam,
+      createBaseState({
+        phase: "instructions",
+        instructionsIndex: 1,
+        showReadyDialog: true,
+        mockCurrentSetIndex: 1,
+        // Reviewing the first question in VR must not make the mock restart.
+        currentIndex: 0,
+      }),
+      startedAt,
+    );
+
+    expect(next).toMatchObject({
+      phase: "question",
+      showReadyDialog: false,
+      currentIndex: 44,
+      mockCurrentSetIndex: 1,
+      timerStartedAt: startedAt,
+    });
+  });
+
+  it("falls back to the current mock set when instructions cannot be matched", () => {
+    const next = beginQuestionsFromReadyDialog(
+      mockExam,
+      createBaseState({
+        phase: "instructions",
+        instructionsIndex: 999,
+        showReadyDialog: true,
+        mockCurrentSetIndex: 1,
+        currentIndex: 0,
+      }),
+      2_000_000,
+    );
+
+    expect(next).toMatchObject({
+      phase: "question",
+      currentIndex: 44,
+      mockCurrentSetIndex: 1,
+    });
+  });
+
+  it("does not restart the mock when no question segment can be resolved", () => {
+    const unresolved = createBaseState({
+      phase: "instructions",
+      instructionsIndex: 999,
+      showReadyDialog: true,
+      currentIndex: 43,
+    });
+
+    expect(beginQuestionsFromReadyDialog(mockExam, unresolved)).toBe(
+      unresolved,
+    );
   });
 
   it("only returns null when the final set expires", () => {

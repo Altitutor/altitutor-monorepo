@@ -26,7 +26,7 @@ type SupabaseAny = {
   rpc: (name: string, args?: Record<string, unknown>) => Promise<{ data: any; error: any }>
 }
 
-type TriggerKind = 'review_submission' | 'content_change'
+type TriggerKind = 'review_submission' | 'content_change' | 'manual_request'
 
 type RequestResult = {
   kind: 'disabled' | 'skipped' | 'existing' | 'format_blocked' | 'unavailable' | 'queued'
@@ -132,8 +132,9 @@ export async function requestUcatQuestionAssessment(params: {
     cycleId = await beginCycle(admin, params.stemId, requestedBy)
   } else {
     cycleId = await getCurrentCycle(admin, params.stemId)
-    if (!cycleId && snapshot.status === 'in_review') {
-      // This is a qualifying edit after the feature was enabled, not a launch backfill.
+    if (!cycleId && (snapshot.status === 'in_review' || params.triggerKind === 'manual_request')) {
+      // Manual requests are deliberately explicit and may start the first cycle;
+      // content-change requests still avoid launch backfill outside in-review.
       cycleId = await beginCycle(admin, params.stemId, requestedBy)
     }
     if (!cycleId) return { kind: 'skipped' }
@@ -144,7 +145,7 @@ export async function requestUcatQuestionAssessment(params: {
     ? null
     : await latestRunFingerprints(admin, cycleId)
   const changed = changedAssessmentScope(previousFingerprints, currentFingerprints)
-  if (!changed) return { kind: 'skipped' }
+  if (!changed) return { kind: params.triggerKind === 'manual_request' ? 'existing' : 'skipped' }
 
   const targetQuestionIds = changed.scopeType === 'full'
     ? snapshot.questions.map((question) => question.id)

@@ -18,6 +18,8 @@ import type { DailyProgressSeriesPoint } from "@/app/api/ucat/progress/series/ro
 import { UCAT_FLOATING_GRAPH_CARD } from "@/lib/ucat-surface-motion";
 import { cn } from "@/lib/utils";
 import { formatSpeedPercentAsMultiplier } from "../lib/format-speed-multiplier";
+import { ContentRatingControls } from "@/features/content-ratings/components/content-rating-controls";
+import { contentSnapshotVersion } from "@/features/content-ratings/lib";
 
 type TimingChartPoint = {
   date: string;
@@ -43,9 +45,9 @@ function dateLabel(date: string): string {
 function timingInsight(pace: number | null, accuracy: number | null) {
   if (pace == null) {
     return {
-      title: "Complete a timed set to reveal your pace",
-      body: "This view compares your working pace with the real exam pace. It also checks accuracy, because getting faster is only useful when your reasoning holds up.",
-      status: "No timed evidence",
+      title: "Practice a clean timing routine first",
+      body: "Choose a short timed set. Make a deliberate solve, flag, or skip decision whenever you get stuck, then review whether each miss came from the method or from rushing.",
+      status: "Start with a timed set",
     };
   }
   if (pace > 110 && (accuracy == null || accuracy < 70)) {
@@ -123,6 +125,7 @@ export function SectionTimingCanvas({
         100
       : null;
   const insight = timingInsight(currentPace, currentAccuracy);
+  const displayedInsight = { title: insight.title, body: insight.body };
   const spacerCount =
     realData.length > 0
       ? Math.min(12, Math.max(2, Math.ceil(realData.length * 0.75)))
@@ -160,6 +163,17 @@ export function SectionTimingCanvas({
       <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
         {insight.body}
       </p>
+      <ContentRatingControls
+        className="mt-3"
+        descriptor={{
+          targetType: "progress_insight",
+          targetKey: "section-timing",
+          targetVersion: contentSnapshotVersion(displayedInsight),
+          contextKey: `progress:section-timing:${sectionName}`,
+          surface: "progress",
+          displayedContent: displayedInsight,
+        }}
+      />
       <div className="mt-5 space-y-2 border-t border-border/60 pt-4 text-sm">
         <div className="flex justify-between gap-4">
           <span className="text-muted-foreground">Recent pace</span>

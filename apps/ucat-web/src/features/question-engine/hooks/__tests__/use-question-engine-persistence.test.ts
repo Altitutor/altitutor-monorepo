@@ -1,4 +1,7 @@
-import { buildFinalExamQuestionAttempts } from "@/features/question-engine/hooks/use-question-engine-persistence";
+import {
+  buildFinalExamQuestionAttempts,
+  shouldPersistAnswerImmediately,
+} from "@/features/question-engine/hooks/use-question-engine-persistence";
 import type {
   QuestionEngineExam,
   QuestionEngineState,
@@ -112,5 +115,39 @@ describe("buildFinalExamQuestionAttempts", () => {
         wasTimed: true,
       }),
     ]);
+  });
+});
+
+describe("shouldPersistAnswerImmediately", () => {
+  it.each([
+    { mode: "set" as const, practiceSessionId: null },
+    { mode: "mock" as const, practiceSessionId: null },
+    { mode: "questions" as const, practiceSessionId: "practice-1" },
+  ])(
+    "uses the managed snapshot/final batch for $mode attempts",
+    ({ mode, practiceSessionId }) => {
+      expect(
+        shouldPersistAnswerImmediately({
+          examAttemptManaged: true,
+          mode,
+          practiceSessionId,
+        }),
+      ).toBe(false);
+    },
+  );
+
+  it("keeps immediate persistence for unmanaged and standalone question modes", () => {
+    expect(
+      shouldPersistAnswerImmediately({
+        examAttemptManaged: false,
+        mode: "set",
+      }),
+    ).toBe(true);
+    expect(
+      shouldPersistAnswerImmediately({
+        examAttemptManaged: true,
+        mode: "questions",
+      }),
+    ).toBe(true);
   });
 });
