@@ -42,6 +42,38 @@ echo "✅ Enabling custom SMTP for hosted Supabase Auth"
 SUPABASE_CONFIG_ENV="${SUPABASE_CONFIG_ENV:-production}"
 echo "🔧 SUPABASE_CONFIG_ENV=$SUPABASE_CONFIG_ENV"
 
+normalize_bool() {
+  case "${1:-false}" in
+    1|true|TRUE|True) echo true ;;
+    0|false|FALSE|False|"") echo false ;;
+    *)
+      echo "❌ Error: expected a boolean provider flag, received '$1'" >&2
+      exit 1
+      ;;
+  esac
+}
+
+GOOGLE_AUTH_ENABLED=$(normalize_bool "${AUTH_GOOGLE_ENABLED:-false}")
+APPLE_AUTH_ENABLED=$(normalize_bool "${AUTH_APPLE_ENABLED:-false}")
+
+if [ "$GOOGLE_AUTH_ENABLED" = "true" ]; then
+  if [ -z "$SUPABASE_AUTH_EXTERNAL_GOOGLE_CLIENT_ID" ] || [ -z "$SUPABASE_AUTH_EXTERNAL_GOOGLE_CLIENT_SECRET" ]; then
+    echo "❌ Error: Google Auth is enabled but its Supabase client ID or client secret is missing"
+    exit 1
+  fi
+fi
+
+if [ "$APPLE_AUTH_ENABLED" = "true" ]; then
+  if [ -z "$SUPABASE_AUTH_EXTERNAL_APPLE_CLIENT_ID" ] || [ -z "$SUPABASE_AUTH_EXTERNAL_APPLE_SECRET" ]; then
+    echo "❌ Error: Apple Auth is enabled but its Supabase Services ID or client secret is missing"
+    exit 1
+  fi
+fi
+
+echo "✅ Google Auth enabled: $GOOGLE_AUTH_ENABLED"
+echo "✅ Apple Auth enabled: $APPLE_AUTH_ENABLED"
+echo "✅ Manual identity linking enabled"
+
 # Custom SMTP unlocks configurable email limits (built-in provider stays at ~2/hour).
 if [ "$SUPABASE_CONFIG_ENV" = "development" ]; then
   AUTH_EMAIL_SENT_LIMIT="${AUTH_EMAIL_SENT_LIMIT:-200}"
@@ -80,7 +112,13 @@ PAYLOAD=$(jq -n \
   --arg site_url "$PROD_SITE_URL" \
   --arg uri_allow_list "$REDIRECT_URLS" \
   --arg resend_api_key "$RESEND_API_KEY" \
+  --arg google_client_id "${SUPABASE_AUTH_EXTERNAL_GOOGLE_CLIENT_ID:-}" \
+  --arg google_client_secret "${SUPABASE_AUTH_EXTERNAL_GOOGLE_CLIENT_SECRET:-}" \
+  --arg apple_client_id "${SUPABASE_AUTH_EXTERNAL_APPLE_CLIENT_ID:-}" \
+  --arg apple_secret "${SUPABASE_AUTH_EXTERNAL_APPLE_SECRET:-}" \
   --argjson rate_limit_email_sent "$AUTH_EMAIL_SENT_LIMIT" \
+  --argjson google_auth_enabled "$GOOGLE_AUTH_ENABLED" \
+  --argjson apple_auth_enabled "$APPLE_AUTH_ENABLED" \
   '{
     site_url: $site_url,
     uri_allow_list: $uri_allow_list,
@@ -98,6 +136,7 @@ PAYLOAD=$(jq -n \
     external_phone_enabled: false,
     refresh_token_rotation_enabled: true,
     security_refresh_token_reuse_interval: 10,
+    security_manual_linking_enabled: true,
     mailer_secure_email_change_enabled: true,
     mailer_autoconfirm: false,
     security_update_password_require_reauthentication: false,
@@ -107,8 +146,18 @@ PAYLOAD=$(jq -n \
     mfa_totp_enroll_enabled: false,
     mfa_totp_verify_enabled: false,
     mfa_phone_enroll_enabled: false,
-    mfa_phone_verify_enabled: false
-  }')
+    mfa_phone_verify_enabled: false,
+    external_google_enabled: $google_auth_enabled,
+    external_apple_enabled: $apple_auth_enabled
+  }
+  + (if $google_auth_enabled then {
+      external_google_client_id: $google_client_id,
+      external_google_secret: $google_client_secret
+    } else {} end)
+  + (if $apple_auth_enabled then {
+      external_apple_client_id: $apple_client_id,
+      external_apple_secret: $apple_secret
+    } else {} end)')
 
 echo "🚀 Patching hosted Auth configuration via Supabase Management API..."
 echo "📋 Payload keys:"

@@ -31868,6 +31868,7 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      imessage_connector_wake_topic: { Args: never; Returns: string }
       imessage_is_destructive: {
         Args: { p_command_type: string }
         Returns: boolean
