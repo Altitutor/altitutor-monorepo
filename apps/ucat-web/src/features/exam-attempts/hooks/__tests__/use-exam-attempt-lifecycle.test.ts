@@ -101,7 +101,6 @@ function createState(): QuestionEngineState {
     showReviewInstructionsDialog: false,
     showEndReviewDialog: false,
     viewingQuestionIndex: null,
-    showExitResultsDialog: false,
   };
 }
 

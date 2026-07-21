@@ -206,6 +206,7 @@ export function ResultsQuestionViewer({
   forceSingleColumn?: boolean;
 }) {
   const theme = getResultsViewerTheme(variant);
+  const contentTextTone = variant === "site" ? "theme" : "engine";
   const isTwoColumn =
     !forceSingleColumn && question.sectionDisplayColumns === 2;
 
@@ -265,6 +266,7 @@ export function ResultsQuestionViewer({
             json={question.stemJson}
             plainText={question.stemText}
             preloadedContent={preloadedContent?.stem}
+            textTone={contentTextTone}
             paragraphSpacing
           />
         </article>
@@ -274,6 +276,7 @@ export function ResultsQuestionViewer({
               json={question.questionJson}
               plainText={question.questionText}
               preloadedContent={preloadedContent?.question}
+              textTone={contentTextTone}
             />
           </div>
           {savedAnswersUnavailable ? (
@@ -351,7 +354,7 @@ export function ResultsQuestionViewer({
                           )}
                         >
                           <span className="whitespace-pre-wrap">
-                            <OptionText option={option} />
+                            <OptionText option={option} textTone={contentTextTone} />
                           </span>
                         </div>
                       </div>
@@ -401,6 +404,7 @@ export function ResultsQuestionViewer({
                           <AnswerExplanation
                             text={option.answerExplanation}
                             json={option.answerExplanationJson}
+                            textTone={contentTextTone}
                           />
                         </div>
                       ) : null}
@@ -418,6 +422,7 @@ export function ResultsQuestionViewer({
               <AnswerExplanation
                 text={question.answerExplanation}
                 json={question.answerExplanationJson}
+                textTone={contentTextTone}
               />
             ) : null}
           </div>
@@ -441,6 +446,7 @@ export function ResultsQuestionViewer({
                 json={question.stemJson}
                 plainText={question.stemText}
                 preloadedContent={preloadedContent?.stem}
+                textTone={contentTextTone}
                 paragraphSpacing
               />
             </div>
@@ -526,7 +532,7 @@ export function ResultsQuestionViewer({
             <span className="flex min-w-0 flex-1">
               <span className="inline-block w-8 shrink-0">{letter}.</span>
               <span className="ml-4 min-w-0 flex-1">
-                <OptionText option={option} />
+                <OptionText option={option} textTone={contentTextTone} />
               </span>
             </span>
           </label>
@@ -555,6 +561,7 @@ export function ResultsQuestionViewer({
             text={option.answerExplanation}
             json={option.answerExplanationJson}
             className="pl-14"
+            textTone={contentTextTone}
           />
         ) : null}
       </div>
@@ -568,6 +575,7 @@ export function ResultsQuestionViewer({
           json={question.questionJson}
           plainText={question.questionText}
           preloadedContent={preloadedContent?.question}
+          textTone={contentTextTone}
         />
       </div>
       <div className="space-y-2">
@@ -581,6 +589,7 @@ export function ResultsQuestionViewer({
           <AnswerExplanation
             text={question.answerExplanation}
             json={question.answerExplanationJson}
+            textTone={contentTextTone}
           />
         ) : null}
       </div>
@@ -603,6 +612,7 @@ export function ResultsQuestionViewer({
               json={question.stemJson}
               plainText={question.stemText}
               preloadedContent={preloadedContent?.stem}
+              textTone={contentTextTone}
               paragraphSpacing
             />
           </div>
@@ -620,6 +630,7 @@ export function ResultsQuestionViewer({
             json={question.stemJson}
             plainText={question.stemText}
             preloadedContent={preloadedContent?.stem}
+            textTone={contentTextTone}
             paragraphSpacing
           />
         </article>

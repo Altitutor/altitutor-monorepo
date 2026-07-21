@@ -51,6 +51,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       (_event, session) => {
         // For SIGNED_OUT events, set user to null immediately
         if (_event === 'SIGNED_OUT') {
+          queryClient.removeQueries({ queryKey: ['student'] });
           setSession(null);
           setUser(null);
           setIsLoading(false);

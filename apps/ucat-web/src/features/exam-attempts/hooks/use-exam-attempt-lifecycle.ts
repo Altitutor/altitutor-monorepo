@@ -522,6 +522,18 @@ export function useExamAttemptLifecycle({
       exam,
       attempt.engineSnapshot,
     );
+    const resumedAttempt = {
+      ...attempt,
+      engineSnapshot: attemptSnapshot,
+    };
+    // Server catch-up may finalize a resumed attempt while the begin request
+    // is running. Never hydrate that completion sentinel into the old
+    // in-engine results phase.
+    if (isAttemptAtResults(resumedAttempt)) {
+      clearLocal();
+      window.location.assign(attempt.resultsHref);
+      return;
+    }
     const serverSegmentKey = getTimedSegmentKey(exam, attemptSnapshot);
     const latestState = latestStateRef.current;
     const shouldApplySnapshot = latestState === stateAtBegin;
@@ -571,6 +583,7 @@ export function useExamAttemptLifecycle({
     practiceSessionId,
     setState,
     setLocal,
+    clearLocal,
     attemptStateRef,
     openQuotaLimit,
     router,

@@ -19,6 +19,7 @@ secrets/
 └── scripts/
     ├── common.sh
     ├── configure-smtp.sh
+    ├── generate-apple-client-secret.mjs
     ├── deploy-all.sh
     ├── deploy-github.sh
     ├── deploy-vercel.sh
@@ -105,6 +106,9 @@ Environment-specific values such as:
 - `SENTRY_ORG` and `SENTRY_AUTH_TOKEN` (shared Sentry build credentials)
 - `{APP}_SENTRY_DSN` and `{APP}_SENTRY_PROJECT` for each independently
   deployed web app, such as `UCAT_WEB_SENTRY_DSN`
+- UCAT social provider credentials (`SUPABASE_AUTH_EXTERNAL_GOOGLE_*` and
+  `SUPABASE_AUTH_EXTERNAL_APPLE_*`) plus `AUTH_GOOGLE_ENABLED` and
+  `AUTH_APPLE_ENABLED`
 
 ## Where Secrets Go
 
@@ -133,6 +137,9 @@ Vercel-only runtime secrets such as `OPENROUTER_API_KEY` are skipped here.
   development falls back to `development`
 - Shared `SENTRY_ORG` and `SENTRY_AUTH_TOKEN` values are sent only to apps
   whose per-app Sentry configuration is non-empty
+- `AUTH_GOOGLE_ENABLED` and `AUTH_APPLE_ENABLED` are sent only to
+  `altitutor-ucat-web`; provider credentials stay in GitHub Actions and are
+  applied to hosted Supabase Auth by CI
 
 Projects currently deployed by the script:
 
@@ -199,6 +206,32 @@ Auth email rate limits (deployed by `deploy-config.sh`):
 - Production: 100/hour
 
 Without custom SMTP, Supabase built-in email stays around 2/hour regardless of those limits.
+
+### Supabase social sign-in
+
+- OAuth client IDs and secrets live in the matching development or production
+  GitHub Environment.
+- `AUTH_GOOGLE_ENABLED` and `AUTH_APPLE_ENABLED` are GitHub Environment
+  variables used by `supabase/scripts/deploy-config.sh`.
+- The same flags are deployed to the matching UCAT Vercel target so buttons
+  become visible only when the hosted provider is enabled.
+- Provider credentials are never deployed to Vercel or Supabase Edge Function
+  secrets.
+- Generate and rotate the Apple client secret without printing it to the
+  terminal:
+
+  ```bash
+  node secrets/scripts/generate-apple-client-secret.mjs \
+    --private-key /secure/path/AuthKey_KEYID.p8 \
+    --key-id KEYID \
+    --team-id TEAMID \
+    --client-id com.altitutor.ucat.web \
+    --env development --env production
+  ```
+
+  The command updates the gitignored environment files and reports only the
+  expiry date. Keep the `.p8` file in secure backup storage; Apple does not
+  allow it to be downloaded again.
 
 ## Secret Filters
 

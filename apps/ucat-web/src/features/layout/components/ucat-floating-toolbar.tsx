@@ -16,6 +16,7 @@ import {
   type FeedbackKind,
 } from "@altitutor/ui";
 import { useUcatLag } from "@/features/question-engine/context/ucat-lag-context";
+import { useExamAttemptExitSync } from "@/features/exam-attempts/context/exam-attempt-exit-sync-context";
 import { UCAT_DIALOG_PRIMARY_ACTION } from "@/lib/ucat-surface-motion";
 import { cn } from "@/lib/utils";
 
@@ -24,15 +25,28 @@ export function UcatFloatingToolbar() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [leaveConfirmOpen, setLeaveConfirmOpen] = useState(false);
+  const [isSavingBeforeLeave, setIsSavingBeforeLeave] = useState(false);
+  const [leaveSaveFailed, setLeaveSaveFailed] = useState(false);
   const [feedbackKind, setFeedbackKind] = useState<FeedbackKind | null>(null);
   const { enabled: lagEnabled, setEnabled: setLagEnabled } = useUcatLag();
+  const { flushBeforeExit } = useExamAttemptExitSync();
 
   const handleGoHomeClick = () => {
     setMenuOpen(false);
+    setLeaveSaveFailed(false);
     setLeaveConfirmOpen(true);
   };
 
-  const handleConfirmLeave = () => {
+  const handleConfirmLeave = async () => {
+    if (isSavingBeforeLeave) return;
+    setIsSavingBeforeLeave(true);
+    setLeaveSaveFailed(false);
+    const saved = await flushBeforeExit().catch(() => false);
+    if (!saved) {
+      setLeaveSaveFailed(true);
+      setIsSavingBeforeLeave(false);
+      return;
+    }
     setLeaveConfirmOpen(false);
     router.push("/");
   };
@@ -150,21 +164,35 @@ export function UcatFloatingToolbar() {
           </div>
         </div>
       </div>
-      <AlertDialog open={leaveConfirmOpen} onOpenChange={setLeaveConfirmOpen}>
+      <AlertDialog
+        open={leaveConfirmOpen}
+        onOpenChange={(open) => {
+          if (!open && isSavingBeforeLeave) return;
+          setLeaveConfirmOpen(open);
+        }}
+      >
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Leave this UCAT exam?</AlertDialogTitle>
             <AlertDialogDescription>
-              Your progress is saved, and you can resume later.
+              {leaveSaveFailed
+                ? "We couldn't save your latest progress. Please try again before leaving."
+                : "Your progress will be saved, and you can resume later."}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Stay</AlertDialogCancel>
+            <AlertDialogCancel disabled={isSavingBeforeLeave}>
+              Stay
+            </AlertDialogCancel>
             <AlertDialogAction
               className={UCAT_DIALOG_PRIMARY_ACTION}
-              onClick={handleConfirmLeave}
+              disabled={isSavingBeforeLeave}
+              onClick={(event) => {
+                event.preventDefault();
+                void handleConfirmLeave();
+              }}
             >
-              Go home
+              {isSavingBeforeLeave ? "Saving…" : "Go home"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

@@ -105,6 +105,7 @@ function TextBlock({
       <RichContentBlock
         json={body ?? null}
         plainText=""
+        textTone="theme"
         className={LEARNING_TEXT_CONTENT_CLASSNAME}
         paragraphSpacing
       />

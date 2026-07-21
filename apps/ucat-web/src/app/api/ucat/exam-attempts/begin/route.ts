@@ -4,7 +4,7 @@ import { getSupabaseServerClient } from "@/lib/supabase/server";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import {
   beginExamAttempt,
-  checkExamAttemptConflict,
+  getActiveExamAttempt,
   type StoredExamSnapshot,
 } from "@/lib/ucat/exam-attempt/service";
 import type { BeginExamAttemptInput } from "@/lib/ucat/exam-attempt/types";
@@ -92,12 +92,16 @@ export async function POST(request: NextRequest) {
       return quotaExceededResponse(payload);
     }
     if (message.includes("EXAM_ATTEMPT_IN_PROGRESS")) {
-      const active = await checkExamAttemptConflict(
-        supabaseAdmin,
-        student.id,
-        body.kind,
-        body.resourceId,
-      );
+      const active = await getActiveExamAttempt(supabaseAdmin, student.id);
+      // Two begin requests for the same resource can both pass the initial
+      // active-attempt read. The database slot correctly lets only one create
+      // the row; treat the loser as an idempotent resume instead of a conflict.
+      if (active?.kind === body.kind && active.resourceId === body.resourceId) {
+        timing.mark("begin_race_resume");
+        return timing.apply(
+          NextResponse.json({ attempt: active, resumed: true }),
+        );
+      }
       return NextResponse.json({ error: message, active }, { status: 409 });
     }
     return NextResponse.json({ error: message }, { status: 500 });

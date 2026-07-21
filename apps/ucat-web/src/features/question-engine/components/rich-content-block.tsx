@@ -13,6 +13,32 @@ const PARAGRAPH_SPACING_CLASS =
   "[&_p]:!my-2 [&_p:first-child]:!mt-0 [&_p:last-child]:!mb-0";
 
 /**
+ * Pin readable body text on white UCAT exam chrome while the app theme is dark.
+ * TipTap defaults to `text-foreground`, which becomes white in dark mode.
+ */
+const UCAT_ENGINE_TEXT_CLASSNAME = cn(
+  "text-black [color-scheme:light] dark:text-black",
+  "[&_.tiptap]:!text-black [&_.tiptap]:dark:!text-black",
+  "[&_.ProseMirror]:!text-black [&_.ProseMirror]:dark:!text-black",
+  "[&_p]:!text-black [&_li]:!text-black [&_li]:marker:!text-neutral-600",
+  "[&_h1]:!text-black [&_h2]:!text-black [&_h3]:!text-black",
+);
+
+/**
+ * Follow app foreground on themed surfaces (attempt review, learning).
+ * Also clears authoring-time inline colors/backgrounds that would fight dark mode.
+ */
+const UCAT_THEME_TEXT_CLASSNAME = cn(
+  "text-foreground",
+  "[&_.tiptap]:text-foreground [&_.ProseMirror]:text-foreground",
+  "[&_p]:text-foreground [&_li]:text-foreground [&_li]:marker:text-foreground",
+  "[&_strong]:text-foreground [&_em]:text-foreground [&_u]:text-foreground",
+  "[&_h1]:text-foreground [&_h2]:text-foreground [&_h3]:text-foreground",
+  "[&_.ProseMirror_span[style*='color']]:!text-foreground",
+  "[&_.ProseMirror_span[style*='background']]:!bg-transparent",
+);
+
+/**
  * Table borders on TipTap root (className merges onto view.dom / `.tiptap.ProseMirror`).
  * Matches tutor-web `UCAT_ENGINE_TABLE_ROOT_CLASSNAME` — `#9ba9bd` stays visible on white exam chrome.
  */
@@ -44,6 +70,11 @@ type RichContentBlockProps = {
   /** Pre-refreshed content (from batch cache). Preferred when available. */
   preloadedContent?: Record<string, unknown> | null;
   className?: string;
+  /**
+   * `engine` pins black text on white UCAT chrome (default).
+   * `theme` follows app foreground (learning lessons, site-themed review).
+   */
+  textTone?: "engine" | "theme";
   paragraphSpacing?: boolean;
   /** Sampler-only coaching emphasis for an exact plain-text phrase. */
   highlightText?: string;
@@ -76,6 +107,7 @@ export function RichContentBlock({
   plainText,
   preloadedContent,
   className,
+  textTone = "engine",
   paragraphSpacing = false,
   highlightText,
 }: RichContentBlockProps) {
@@ -106,11 +138,16 @@ export function RichContentBlock({
     preloadedContent == null &&
     isLoading;
 
+  const toneClass =
+    textTone === "theme"
+      ? UCAT_THEME_TEXT_CLASSNAME
+      : UCAT_ENGINE_TEXT_CLASSNAME;
+
   const renderPlainText = () => {
     const text = plainText || "\u00A0";
     if (!paragraphSpacing) {
       return (
-        <p className={cn("whitespace-pre-line", className)}>
+        <p className={cn("whitespace-pre-line", toneClass, className)}>
           {renderHighlightedText(text, highlightText)}
         </p>
       );
@@ -118,7 +155,7 @@ export function RichContentBlock({
 
     const paragraphs = text.split(/\r?\n/u);
     return (
-      <div className={cn("space-y-2", className)}>
+      <div className={cn("space-y-2", toneClass, className)}>
         {paragraphs.map((paragraph, index) => (
           <p key={`${index}-${paragraph.slice(0, 12)}`}>
             {renderHighlightedText(paragraph || "\u00A0", highlightText)}
@@ -136,7 +173,13 @@ export function RichContentBlock({
       return renderPlainText();
     }
     return (
-      <div className={cn(UCAT_ENGINE_TABLE_WRAPPER_CLASSNAME, className)}>
+      <div
+        className={cn(
+          UCAT_ENGINE_TABLE_WRAPPER_CLASSNAME,
+          toneClass,
+          className,
+        )}
+      >
         <RichTextEditor
           key={editorKey}
           content={displayContent}

@@ -8,8 +8,10 @@ export type SignupProgress = {
 
 export type SignupOnboardingInitial = {
   email: string;
+  pendingEmail: string;
   firstName: string;
   lastName: string;
   phone: string;
+  newsletterOptIn: boolean;
   step: SignupOnboardingStep;
 };

@@ -1,4 +1,9 @@
-import { useMemo, useState, type DragEventHandler } from "react";
+import React, {
+  useEffect,
+  useMemo,
+  useState,
+  type DragEventHandler,
+} from "react";
 import { Check } from "lucide-react";
 import type {
   AnswerOption,
@@ -98,10 +103,12 @@ export function AnswerExplanation({
   text,
   json,
   className,
+  textTone = "engine",
 }: {
   text?: string;
   json?: Record<string, unknown> | null;
   className?: string;
+  textTone?: "engine" | "theme";
 }) {
   const trimmedText = text?.trim();
   const trimmedJson = useMemo(
@@ -123,16 +130,24 @@ export function AnswerExplanation({
       json={trimmedJson}
       plainText={trimmedText ?? ""}
       className={className}
+      textTone={textTone}
       paragraphSpacing
     />
   );
 }
 
-export function OptionText({ option }: { option: AnswerOption }) {
+export function OptionText({
+  option,
+  textTone = "engine",
+}: {
+  option: AnswerOption;
+  textTone?: "engine" | "theme";
+}) {
   return (
     <RichContentBlock
       json={option.textJson}
       plainText={option.text}
+      textTone={textTone}
       className="[&_.ProseMirror]:inline"
     />
   );
@@ -188,6 +203,14 @@ function SyllogismQuestionContent({
     }
     return initial;
   });
+
+  useEffect(() => {
+    const restored: Record<string, "yes" | "no"> = {};
+    for (const [optionId, value] of Object.entries(syllogismSnapshot ?? {})) {
+      restored[optionId] = value ? "yes" : "no";
+    }
+    setAnswers(restored);
+  }, [question.id, syllogismSnapshot]);
 
   const syncSnapshot = (next: Record<string, "yes" | "no">) => {
     if (!onChangeSyllogismSnapshot) return;
@@ -579,9 +602,9 @@ export function QuestionContent({
           <RichContentBlock
             json={question.stemJson}
             plainText={question.stemText}
-          preloadedContent={preloadedContent?.stem}
-          paragraphSpacing
-          highlightText={highlightText}
+            preloadedContent={preloadedContent?.stem}
+            paragraphSpacing
+            highlightText={highlightText}
           />
         </article>
         <section data-tour="question-engine-question" className="space-y-3">

@@ -5,7 +5,6 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import { send } from '@vercel/queue'
 import { requireUcatTutor } from '@/features/ucat/shared/server/guard'
 import {
-  createGenerationRun,
   GenerateBodySchema,
   generationActorFromUser,
   prepareGenerationContext,
@@ -76,12 +75,22 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Tutor profile not found' }, { status: 403 })
     }
 
-    runId = await createGenerationRun({
-      client,
-      body,
-      modelProfileId: body.modelProfileId ?? null,
-    })
-    if (!runId) throw new Error('Could not create generation run')
+    const admin = getServiceRoleClient()
+    const { data: createdRun, error: createError } = await admin
+      .from('ucat_ai_generation_runs')
+      .insert({
+        section_id: body.sectionId,
+        question_stem_category_id: body.categoryId ?? null,
+        model_profile_id: body.modelProfileId ?? null,
+        status: 'running',
+        requested_stem_count: body.stemCount,
+        created_by: staffId,
+        updated_by: staffId,
+      })
+      .select('id')
+      .single()
+    if (createError || !createdRun) throw createError ?? new Error('Could not create generation run')
+    runId = createdRun.id
 
     const message: UcatQuestionGenerationQueueMessage = {
       runId,
@@ -97,7 +106,7 @@ export async function POST(request: NextRequest) {
           retentionSeconds: 86_400,
         })).messageId
 
-    const { error: updateError } = await client
+    const { error: updateError } = await admin
       .from('ucat_ai_generation_runs')
       .update({
         queue_message_id: queueMessageId,
@@ -107,7 +116,6 @@ export async function POST(request: NextRequest) {
       .eq('id', runId)
     if (updateError) throw updateError
 
-    const admin = getServiceRoleClient()
     await upsertUcatGenerationNotification(admin, {
       staffId,
       runId,
@@ -124,7 +132,8 @@ export async function POST(request: NextRequest) {
     captureApiError(error, "/api/ucat/question-stems/generated/generate");
     if (runId) {
       const failMessage = error instanceof Error ? error.message : 'Unable to start generation'
-      await client
+      const admin = getServiceRoleClient()
+      await admin
         .from('ucat_ai_generation_runs')
         .update({
           status: 'failed',

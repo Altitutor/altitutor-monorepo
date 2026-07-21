@@ -16,7 +16,7 @@ const LINKS = [
   {
     href: "/settings/profile",
     label: "My profile",
-    description: "Email, your name, and password.",
+    description: "Email, your name, password, and sign-in methods.",
     icon: User,
   },
   {

@@ -15,6 +15,7 @@ import {
   UCAT_NEXTSTEP_FIXED_VIEWPORT_ID,
 } from "@/features/onboarding";
 import { UcatLagProvider } from "@/features/question-engine/context/ucat-lag-context";
+import { ExamAttemptExitSyncProvider } from "@/features/exam-attempts/context/exam-attempt-exit-sync-context";
 import { AppShellLayoutProvider } from "@/features/layout/context/app-shell-layout-context";
 import {
   SidebarOverrideProvider,
@@ -206,35 +207,39 @@ function AppShellInner({ children }: AppShellProps) {
             <div className="flex min-h-0 flex-1 flex-col">
               {isExamRoute ? (
                 <UcatLagProvider>
-                  <UcatFloatingToolbar />
-                  <div className={cn("flex", "w-screen")}>
-                    <AppSidebar
-                      collapsed={effectiveCollapsed}
-                      mobileOpen={mobileOpen}
-                      isMobile={isMobile}
-                      onCloseMobile={() => setMobileOpen(false)}
-                    />
-                    <main
-                      className={cn(
-                        "flex-1 min-h-0 transition-[margin] duration-200 ease-[cubic-bezier(0.32,0.72,0,1)]",
-                        "h-dvh min-h-0 overflow-hidden p-0",
-                        sidebarExpanded ? "md:ml-[240px]" : "ml-0",
-                      )}
-                    >
-                      <motion.div
-                        key={pathname}
-                        initial={reduceMotion ? false : { opacity: 0.94, y: 6 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{
-                          duration: reduceMotion ? 0 : 0.22,
-                          ease: [0.32, 0.72, 0, 1],
-                        }}
-                        className="h-full min-h-0 w-full overflow-hidden"
+                  <ExamAttemptExitSyncProvider>
+                    <UcatFloatingToolbar />
+                    <div className={cn("flex", "w-screen")}>
+                      <AppSidebar
+                        collapsed={effectiveCollapsed}
+                        mobileOpen={mobileOpen}
+                        isMobile={isMobile}
+                        onCloseMobile={() => setMobileOpen(false)}
+                      />
+                      <main
+                        className={cn(
+                          "flex-1 min-h-0 transition-[margin] duration-200 ease-[cubic-bezier(0.32,0.72,0,1)]",
+                          "h-dvh min-h-0 overflow-hidden p-0",
+                          sidebarExpanded ? "md:ml-[240px]" : "ml-0",
+                        )}
                       >
-                        {children}
-                      </motion.div>
-                    </main>
-                  </div>
+                        <motion.div
+                          key={pathname}
+                          initial={
+                            reduceMotion ? false : { opacity: 0.94, y: 6 }
+                          }
+                          animate={{ opacity: 1, y: 0 }}
+                          transition={{
+                            duration: reduceMotion ? 0 : 0.22,
+                            ease: [0.32, 0.72, 0, 1],
+                          }}
+                          className="h-full min-h-0 w-full overflow-hidden"
+                        >
+                          {children}
+                        </motion.div>
+                      </main>
+                    </div>
+                  </ExamAttemptExitSyncProvider>
                 </UcatLagProvider>
               ) : (
                 <>

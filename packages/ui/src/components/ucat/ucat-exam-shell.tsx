@@ -21,8 +21,11 @@ export function UcatExamShell({
   children: ReactNode
 }) {
   return (
-    <section className="relative h-full min-h-0 overflow-hidden bg-white text-black" data-ucat-shell-root="true">
-      <div className="flex h-full min-h-0 flex-col bg-white">
+    <section
+      className="relative h-full min-h-0 overflow-hidden bg-white text-black [color-scheme:light] dark:bg-white dark:text-black"
+      data-ucat-shell-root="true"
+    >
+      <div className="flex h-full min-h-0 flex-col bg-white dark:bg-white">
         <header
           className={`flex items-center justify-between border-b-2 px-3 pt-3 pb-1.5 font-[${UCAT_FONTS.message}] text-[16pt] font-normal text-white`}
           style={{ borderColor: UCAT_COLORS.primaryBlue, backgroundColor: UCAT_COLORS.primaryBlue }}
@@ -41,8 +44,11 @@ export function UcatExamShell({
           <div className="flex items-center gap-3">{toolRight}</div>
         </div>
 
-        <div className="flex-1 min-h-0 bg-white px-4 py-0 sm:px-5" data-ucat-scroll="content">
-          <div className="h-full min-h-0 overflow-hidden">{children}</div>
+        <div
+          className="flex-1 min-h-0 bg-white px-4 py-0 text-black dark:bg-white dark:text-black sm:px-5"
+          data-ucat-scroll="content"
+        >
+          <div className="h-full min-h-0 overflow-hidden text-black dark:text-black">{children}</div>
         </div>
         <footer
           className="flex shrink-0 items-center justify-between"

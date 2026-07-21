@@ -132,7 +132,6 @@ const initialState: QuestionEngineState = {
   showReviewInstructionsDialog: false,
   showEndReviewDialog: false,
   viewingQuestionIndex: null,
-  showExitResultsDialog: false,
 };
 
 export function useQuestionEngineState(

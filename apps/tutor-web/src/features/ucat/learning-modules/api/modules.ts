@@ -80,11 +80,11 @@ export const ucatLearningModulesApi = {
     if (!data?.id) return null
     const [categoryLinks, tagLinks] = await Promise.all([
       supabase
-        .from('ucat_learning_module_question_stem_categories')
+        .from('vtutor_ucat_learning_module_question_stem_categories')
         .select('question_stem_category_id')
         .eq('learning_module_id', moduleId),
       supabase
-        .from('ucat_learning_module_question_tags')
+        .from('vtutor_ucat_learning_module_question_tags')
         .select('question_tag_id')
         .eq('learning_module_id', moduleId),
     ])

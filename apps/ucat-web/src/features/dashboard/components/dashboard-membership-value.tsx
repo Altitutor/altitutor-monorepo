@@ -20,6 +20,7 @@ import {
 } from "@/features/dashboard/lib/dashboard-home";
 import type { StudyPlanTask } from "@/features/study-plan/model/types";
 import { usePracticeDiscountDashboard } from "@/features/subscription/hooks/use-practice-discount-dashboard";
+import { useUcatReferralSummary } from "@/features/subscription/hooks/use-ucat-referral-summary";
 import { formatMoneyFromMinorUnits } from "@/features/subscription/lib/format-subscription-copy";
 import {
   UCAT_ONLINE_TIER_LABELS,
@@ -62,6 +63,7 @@ export function DashboardMembershipValue({
   const access = useUcatAccess();
   const quotaQuery = useQuotaUsage();
   const discountQuery = usePracticeDiscountDashboard();
+  const referralSummaryQuery = useUcatReferralSummary();
   const { openQuotaLimit } = useQuotaLimitDialog();
   const { openPlanPicker } = useUpsellDialog();
 
@@ -212,9 +214,20 @@ export function DashboardMembershipValue({
           <h3 className="text-sm font-semibold">Your plan</h3>
           <Badge className={UCAT_PLAN_TIER_BADGE_CLASS}>{tierLabel}</Badge>
         </div>
-        <p className="text-sm text-muted-foreground">
-          Your online study areas have no usage quotas.
-        </p>
+        {referralSummaryQuery.data?.stats.nextBillFreeFromReferral ? (
+          <>
+            <p className="text-sm font-medium">Your next bill is free</p>
+            <p className="text-xs text-muted-foreground">
+              {(referralSummaryQuery.data.stats.queuedFreeBills ?? 0) === 1
+                ? "Covered by a referral reward."
+                : `Covered by a referral reward · ${referralSummaryQuery.data.stats.queuedFreeBills} rewards ready.`}
+            </p>
+          </>
+        ) : (
+          <p className="text-sm text-muted-foreground">
+            Your online study areas have no usage quotas.
+          </p>
+        )}
         <Button asChild size="sm" variant="ghost">
           <Link href="/settings/plan">Plan details</Link>
         </Button>
@@ -223,6 +236,10 @@ export function DashboardMembershipValue({
   }
 
   const state = dashboardDiscountState(discount);
+  const nextBillFreeFromReferral =
+    referralSummaryQuery.data?.stats.nextBillFreeFromReferral === true;
+  const queuedReferralRewards =
+    referralSummaryQuery.data?.stats.queuedFreeBills ?? 0;
   if (state === "unavailable") {
     return (
       <div className="space-y-3">
@@ -231,10 +248,23 @@ export function DashboardMembershipValue({
           <h3 className="text-sm font-semibold">Your plan</h3>
           <Badge className={UCAT_PLAN_TIER_BADGE_CLASS}>{tierLabel}</Badge>
         </div>
-        <p className="text-sm font-medium">Unlimited online study is active</p>
-        <p className="text-xs text-muted-foreground">
-          Learn, practice, and take sets or mocks without online quotas.
-        </p>
+        {nextBillFreeFromReferral ? (
+          <>
+            <p className="text-sm font-medium">Your next bill is free</p>
+            <p className="text-xs text-muted-foreground">
+              {queuedReferralRewards === 1
+                ? "Covered by a referral reward."
+                : `Covered by a referral reward · ${queuedReferralRewards} rewards ready.`}
+            </p>
+          </>
+        ) : (
+          <>
+            <p className="text-sm font-medium">Unlimited online study is active</p>
+            <p className="text-xs text-muted-foreground">
+              Learn, practice, and take sets or mocks without online quotas.
+            </p>
+          </>
+        )}
         <Button asChild size="sm" variant="ghost">
           <Link href="/settings/plan">Plan details</Link>
         </Button>
@@ -263,6 +293,17 @@ export function DashboardMembershipValue({
         <Badge className={UCAT_PLAN_TIER_BADGE_CLASS}>{tierLabel}</Badge>
       </div>
 
+      {nextBillFreeFromReferral ? (
+        <div className="rounded-xl border border-primary/25 bg-primary/[0.08] px-3 py-2">
+          <p className="text-sm font-medium">Your next bill is free</p>
+          <p className="mt-0.5 text-xs text-muted-foreground">
+            {queuedReferralRewards === 1
+              ? "Covered by a referral reward."
+              : `Covered by a referral reward · ${queuedReferralRewards} rewards ready.`}
+          </p>
+        </div>
+      ) : null}
+
       {state === "in_progress" ? (
         <>
           <div className="space-y-1.5">
@@ -283,9 +324,11 @@ export function DashboardMembershipValue({
             />
           </div>
           <p className="text-xs text-muted-foreground">
-            {taskContributesQuestions(nextTask)
-              ? "Today’s recommended task counts toward this reward."
-              : `${periodDiscount} earned this billing period so far.`}
+            {nextBillFreeFromReferral
+              ? "Practice-day discounts still earn for later bills after this free one."
+              : taskContributesQuestions(nextTask)
+                ? "Today’s recommended task counts toward this reward."
+                : `${periodDiscount} earned this billing period so far.`}
           </p>
           <div className="flex flex-wrap items-center gap-2">
             {!taskContributesQuestions(nextTask) ? (
@@ -304,7 +347,9 @@ export function DashboardMembershipValue({
             Today’s {dailyDiscount} discount is secured
           </p>
           <p className="text-xs text-muted-foreground">
-            You’ve earned {periodDiscount} off your next bill so far.
+            {nextBillFreeFromReferral
+              ? "Your next bill is already free from a referral reward."
+              : `You’ve earned ${periodDiscount} off your next bill so far.`}
           </p>
           <Button asChild size="sm" variant="ghost">
             <Link href="/settings/plan">View discount details</Link>
@@ -316,7 +361,9 @@ export function DashboardMembershipValue({
             Maximum discount earned this billing period
           </p>
           <p className="text-xs text-muted-foreground">
-            {periodDiscount} is coming off your next bill.
+            {nextBillFreeFromReferral
+              ? "Your next bill is already free from a referral reward."
+              : `${periodDiscount} is coming off your next bill.`}
           </p>
           <Button asChild size="sm" variant="ghost">
             <Link href="/settings/plan">View discount details</Link>

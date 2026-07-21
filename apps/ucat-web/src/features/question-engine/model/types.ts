@@ -199,7 +199,7 @@ export function mapQuestionsToItems(
 export type ReviewFilter = "all" | "incomplete" | "flagged";
 
 export type QuestionEngineState = {
-  /** 'instructions' | 'intro' | 'question' | 'review' | 'marking' | 'mockScore' | 'practiceAnswer' | 'practiceComplete' | 'loadingMore' */
+  /** `marking` and `mockScore` are completion sentinels; the engine redirects instead of rendering them. */
   phase:
     | "instructions"
     | "intro"
@@ -242,10 +242,8 @@ export type QuestionEngineState = {
   showNoFlaggedDialog: boolean;
   showReviewInstructionsDialog: boolean;
   showEndReviewDialog: boolean;
-  /** When phase === 'marking': index of question being viewed in fullscreen, or null for results table. */
+  /** Current question in practice answer/review flows, or null when none is open. */
   viewingQuestionIndex: number | null;
-  /** When true, show Exit Results confirmation dialog. */
-  showExitResultsDialog: boolean;
   /** Practice mode only: unit being reviewed. viewingQuestionIndex is the current question in this range. */
   practiceAnswerUnitStartIndex?: number;
   practiceAnswerUnitEndIndex?: number;

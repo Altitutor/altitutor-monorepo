@@ -19,6 +19,12 @@ import {
   getPendingSignupEmail,
   savePendingSignupEmail,
 } from "@/features/auth/lib/pending-signup-email";
+import {
+  SocialAuthButtons,
+  SocialAuthDivider,
+} from "@/features/auth/components/social-auth-buttons";
+import type { SocialAuthProvider } from "@/features/auth/lib/social-auth";
+import { subscribeToUcatNewsletter } from "@/features/auth/api/newsletter";
 
 const { typography: typo } = MARKETING_TOKENS;
 
@@ -42,39 +48,27 @@ function getSignupOtpUserMessage(error: AuthError): string {
   return raw || "Something went wrong. Please try again.";
 }
 
-async function subscribeToNewsletter(email: string): Promise<void> {
-  try {
-    const response = await fetch("/api/ucat/newsletter/subscribe", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email, source: "ucat_signup" }),
-    });
-    if (!response.ok) {
-      console.warn(
-        "[signup] Failed to save newsletter preference:",
-        response.status,
-      );
-    }
-  } catch (error) {
-    console.warn("[signup] Failed to save newsletter preference:", error);
-  }
-}
-
 export function SignupForm({
   redirectTo = "/subscribe",
   referralCode = null,
   referralOffer = null,
+  enabledSocialProviders = [],
+  authError,
 }: {
   redirectTo?: string;
   referralCode?: string | null;
   referralOffer?: UcatReferralOfferPreview | null;
+  enabledSocialProviders?: SocialAuthProvider[];
+  authError?: string;
 }) {
   const router = useRouter();
   const supabase = useMemo(() => getSupabaseBrowserClient(), []);
   const [email, setEmail] = useState("");
   const [newsletter, setNewsletter] = useState(true);
   const [formState, setFormState] = useState<FormState>("idle");
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [errorMessage, setErrorMessage] = useState<string | null>(
+    authError ?? null,
+  );
   const [isSubmitting, setIsSubmitting] = useState(false);
   const submitInFlightRef = useRef(false);
   const [otpCode, setOtpCode] = useState("");
@@ -184,7 +178,7 @@ export function SignupForm({
 
     try {
       if (newsletter) {
-        void subscribeToNewsletter(normalizedEmail);
+        void subscribeToUcatNewsletter(normalizedEmail);
       }
 
       captureUcatEvent("signup_started", {
@@ -446,6 +440,18 @@ export function SignupForm({
                   typo.secondarySans,
                 )}
               >
+                {enabledSocialProviders.length > 0 ? (
+                  <>
+                    <SocialAuthButtons
+                      enabledProviders={enabledSocialProviders}
+                      intent="signup"
+                      redirectTo={redirectTo}
+                      newsletterOptIn={newsletter}
+                      referralCode={referralCode}
+                    />
+                    <SocialAuthDivider />
+                  </>
+                ) : null}
                 <div className="space-y-1.5">
                   <label
                     htmlFor="signup-email"

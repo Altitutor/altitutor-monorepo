@@ -388,7 +388,7 @@ export async function GET() {
       .select(
         "source, section_id, completed_at, score_points, total_points, was_timed, student_exam_speed",
       ),
-    supabase.from("ucat_score_projection_settings").select("*"),
+    supabase.from("vstudent_ucat_score_projection_settings").select("*"),
   ]);
 
   if (sectionsRes.error) {

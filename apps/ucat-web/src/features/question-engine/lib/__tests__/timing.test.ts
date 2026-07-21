@@ -38,7 +38,6 @@ function createBaseState(
     showReviewInstructionsDialog: false,
     showEndReviewDialog: false,
     viewingQuestionIndex: null,
-    showExitResultsDialog: false,
     ...overrides,
   };
 }

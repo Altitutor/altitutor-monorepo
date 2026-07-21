@@ -46,45 +46,54 @@ export function ExamAttemptConflictDialog({
         if (!nextOpen) onCancel();
       }}
     >
-      <AlertDialogContent className="max-w-lg">
+      <AlertDialogContent className="max-w-lg bg-card text-card-foreground">
         <AlertDialogHeader>
-          <AlertDialogTitle>Exam already in progress</AlertDialogTitle>
+          <AlertDialogTitle className="text-foreground">
+            Exam already in progress
+          </AlertDialogTitle>
           <AlertDialogDescription asChild>
-            <p>
-              You have an unfinished attempt: <strong>{active.label}</strong>.
-              Resume it, or discard it and start <strong>{pendingLabel}</strong>
+            <p className="text-muted-foreground">
+              You have an unfinished attempt:{" "}
+              <strong className="font-semibold text-foreground">
+                {active.label}
+              </strong>
+              . Resume it, or discard it and start{" "}
+              <strong className="font-semibold text-foreground">
+                {pendingLabel}
+              </strong>
               . Discarding keeps its saved answers for audit, but it will not be
               scored or appear in your attempt history.
             </p>
           </AlertDialogDescription>
         </AlertDialogHeader>
-        <AlertDialogFooter className="flex-col gap-2 sm:flex-col sm:space-x-0">
+        <AlertDialogFooter className="flex-row items-center justify-between gap-2 space-x-0 sm:justify-between sm:space-x-0">
           <Button
             type="button"
             variant="ghost"
-            className="w-full"
+            className="text-foreground hover:bg-muted hover:text-foreground"
             onClick={onCancel}
           >
             Cancel
           </Button>
-          <Button
-            type="button"
-            className="w-full"
-            onClick={() => {
-              window.location.assign(resumeHref);
-            }}
-          >
-            Resume current attempt
-          </Button>
-          <Button
-            type="button"
-            variant="outline"
-            className="w-full"
-            onClick={onDiscardAndContinue}
-            disabled={isDiscarding}
-          >
-            {isDiscarding ? "Discarding…" : "Discard & start new"}
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              className="border-border text-foreground hover:bg-muted hover:text-foreground"
+              onClick={onDiscardAndContinue}
+              disabled={isDiscarding}
+            >
+              {isDiscarding ? "Discarding…" : "Discard & start new"}
+            </Button>
+            <Button
+              type="button"
+              onClick={() => {
+                window.location.assign(resumeHref);
+              }}
+            >
+              Resume current
+            </Button>
+          </div>
         </AlertDialogFooter>
       </AlertDialogContent>
     </AlertDialog>

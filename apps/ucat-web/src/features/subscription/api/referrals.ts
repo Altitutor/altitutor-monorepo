@@ -8,6 +8,8 @@ export type UcatReferralSummary = {
     usedFreePeriods: number;
     queuedFreeBills: number;
     redeemedFreeBills: number;
+    /** True when a full free-bill referral reward will cover the next invoice. */
+    nextBillFreeFromReferral: boolean;
   };
 };
 
@@ -21,5 +23,11 @@ export async function fetchUcatReferralSummary(): Promise<UcatReferralSummary> {
       "error" in body && body.error ? body.error : "Failed to load referrals",
     );
   }
-  return body;
+  return {
+    ...body,
+    stats: {
+      ...body.stats,
+      nextBillFreeFromReferral: body.stats.nextBillFreeFromReferral === true,
+    },
+  };
 }

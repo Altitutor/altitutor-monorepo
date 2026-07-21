@@ -1,7 +1,3 @@
-import { getSupabaseClient } from '@/shared/lib/supabase/client';
-import type { Database } from '@altitutor/shared';
-import type { SupabaseClient } from '@supabase/supabase-js';
-
 export interface AvailableSlot {
   start_at: string;
   end_at: string;
@@ -19,17 +15,15 @@ export interface GetAvailableSlotsParams {
 
 export const availabilityApi = {
   async getAvailableSlots(params: GetAvailableSlotsParams): Promise<AvailableSlot[]> {
-    const { data, error } = await (getSupabaseClient() as SupabaseClient<Database>)
-      .rpc('get_available_slots', {
-        p_start_date: params.start_date,
-        p_end_date: params.end_date,
-        p_session_type: params.session_type,
-        p_subject_id: params.subject_id ?? undefined,
-        p_duration_minutes: params.duration_minutes ?? undefined,
-      });
-    
-    if (error) throw error;
-    return (data ?? []) as AvailableSlot[];
+    const query = new URLSearchParams({
+      start_date: params.start_date,
+      end_date: params.end_date,
+      session_type: params.session_type,
+      ...(params.subject_id ? { subject_id: params.subject_id } : {}),
+      ...(params.duration_minutes ? { duration_minutes: String(params.duration_minutes) } : {}),
+    });
+    const response = await fetch(`/api/bookings/availability?${query.toString()}`);
+    if (!response.ok) throw new Error('Failed to fetch availability');
+    return await response.json() as AvailableSlot[];
   },
 };
-

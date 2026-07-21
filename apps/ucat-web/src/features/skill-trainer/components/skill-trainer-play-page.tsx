@@ -46,6 +46,25 @@ import {
 import { ScoreBarFeedback } from "@/features/skill-trainer/components/score-bar-feedback";
 import { useStudyPlanCompanion } from "@/features/study-plan/context/study-plan-companion-context";
 
+function SkillTrainerThemedRichContent({
+  json,
+  plainText,
+  className,
+}: {
+  json?: Record<string, unknown> | null;
+  plainText: string;
+  className?: string;
+}) {
+  return (
+    <RichContentBlock
+      json={json}
+      plainText={plainText}
+      className={className}
+      textTone="theme"
+    />
+  );
+}
+
 function getAttemptRemainingSeconds(state: SkillTrainerAttemptState): number {
   const endsAtMs = Date.parse(state.attempt.ends_at);
   if (Number.isNaN(endsAtMs)) return state.remainingSeconds;
@@ -942,7 +961,7 @@ export function SkillTrainerPlayPage({
                 if (Number.isNaN(n) || numericInput.trim() === "") return;
                 void submit({ type: "numeric_answer", answer: n }, origin);
               }}
-              RichContent={RichContentBlock}
+              RichContent={SkillTrainerThemedRichContent}
             />
           ) : null}
         </div>

@@ -1133,6 +1133,7 @@ async function buildPromptLayers(params: {
   const includeCategoryLayers = !!params.categoryId || params.sectionName !== 'Quantitative Reasoning'
   const layers = await getUcatAiPromptLayers({
     client: params.client,
+    tutorScoped: true,
     sectionId: params.sectionId,
     categoryId: params.categoryId,
     categoryIds: params.categoryId || !includeCategoryLayers ? [] : params.availableCategories.map((category) => category.id),

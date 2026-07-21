@@ -198,6 +198,14 @@ deploy_all_web_server_secret() {
     deploy_vercel_secret "$secret_name" "$secret_value" "$VERCEL_UCAT_PROJECT" "$environment"
 }
 
+deploy_ucat_web_server_config() {
+    local config_name=$1
+    local config_value=$2
+    local environment=$3
+
+    deploy_vercel_secret "$config_name" "$config_value" "$VERCEL_UCAT_PROJECT" "$environment"
+}
+
 deploy_sentry_project() {
     local env_file=$1
     local source_prefix=$2
@@ -258,6 +266,9 @@ while IFS='=' read -r key value; do
         deploy_vercel_secret "$key" "$value" "$VERCEL_STUDENT_PROJECT" "preview"
         deploy_vercel_secret "$key" "$value" "$VERCEL_TUTOR_PROJECT" "preview"
         deploy_vercel_secret "$key" "$value" "$VERCEL_UCAT_PROJECT" "preview"
+    # Deploy UCAT server-rendered social sign-in feature flags.
+    elif [[ "$key" =~ ^AUTH_(GOOGLE|APPLE)_ENABLED$ ]]; then
+        deploy_ucat_web_server_config "$key" "$value" "preview"
     # Deploy server-side secrets needed for API routes
     elif [[ "$key" == "SUPABASE_SERVICE_ROLE_KEY" ]] || [[ "$key" == "SUPABASE_SECRET_KEY" ]]; then
         deploy_vercel_secret "$key" "$value" "$VERCEL_ADMIN_PROJECT" "preview"
@@ -305,6 +316,9 @@ while IFS='=' read -r key value; do
         deploy_vercel_secret "$key" "$value" "$VERCEL_STUDENT_PROJECT" "production"
         deploy_vercel_secret "$key" "$value" "$VERCEL_TUTOR_PROJECT" "production"
         deploy_vercel_secret "$key" "$value" "$VERCEL_UCAT_PROJECT" "production"
+    # Deploy UCAT server-rendered social sign-in feature flags.
+    elif [[ "$key" =~ ^AUTH_(GOOGLE|APPLE)_ENABLED$ ]]; then
+        deploy_ucat_web_server_config "$key" "$value" "production"
     # Deploy server-side secrets needed for API routes
     elif [[ "$key" == "SUPABASE_SERVICE_ROLE_KEY" ]] || [[ "$key" == "SUPABASE_SECRET_KEY" ]]; then
         deploy_vercel_secret "$key" "$value" "$VERCEL_ADMIN_PROJECT" "production"
