@@ -1032,7 +1032,7 @@ function UnlimitedPracticeEngine({
         <button
           type="button"
           onClick={() => router.replace("/practice")}
-          className="rounded-lg bg-sidebar px-4 py-2 text-sm font-medium text-sidebar-foreground"
+          className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground"
         >
           Back to practice
         </button>

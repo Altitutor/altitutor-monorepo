@@ -49,7 +49,7 @@ export function resolveReferralOfferCopy(
       badge: "Gift Unlimited",
       headline: "Give a free week of UCAT Unlimited.",
       description:
-        "Share your link and your friend gets one free week of Unlimited. If they accept, you both earn a free week. If they continue Free, you both get a Free quota reset.",
+        "Share your link and your friend both get one free week of UCAT Unlimited.",
       steps: [
         {
           step: "1",

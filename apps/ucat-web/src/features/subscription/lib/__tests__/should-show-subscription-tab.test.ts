@@ -13,6 +13,18 @@ describe("shouldShowSubscriptionTab", () => {
     ).toBe(false);
   });
 
+  it("hides when online tier is unknown and there is no billing history", () => {
+    expect(
+      shouldShowSubscriptionTab({
+        accessLoading: false,
+        billingLoading: false,
+        onlineTier: null,
+        subscriptionCount: 0,
+        invoiceCount: 0,
+      }),
+    ).toBe(false);
+  });
+
   it("shows for free users with a past subscription", () => {
     expect(
       shouldShowSubscriptionTab({
@@ -33,6 +45,18 @@ describe("shouldShowSubscriptionTab", () => {
         onlineTier: "free",
         subscriptionCount: 0,
         invoiceCount: 1,
+      }),
+    ).toBe(true);
+  });
+
+  it("shows unknown tier users who still have billing history", () => {
+    expect(
+      shouldShowSubscriptionTab({
+        accessLoading: false,
+        billingLoading: false,
+        onlineTier: null,
+        subscriptionCount: 1,
+        invoiceCount: 0,
       }),
     ).toBe(true);
   });

@@ -199,18 +199,15 @@ async function fetchUcatSubscriptionInvoices(
   supabase: SupabaseClient<Database>,
   subscriptionIds: string[],
 ): Promise<UcatSubscriptionInvoice[]> {
-  let query = supabase
+  if (subscriptionIds.length === 0) return [];
+
+  const { data: invoices, error } = await supabase
     .from("vstudent_invoices")
     .select("*")
     .eq("billing_source", "subscription")
+    .in("student_subscription_id", subscriptionIds)
     .order("invoice_date", { ascending: false })
     .order("created_at", { ascending: false });
-
-  if (subscriptionIds.length > 0) {
-    query = query.in("student_subscription_id", subscriptionIds);
-  }
-
-  const { data: invoices, error } = await query;
 
   if (error) throw error;
 

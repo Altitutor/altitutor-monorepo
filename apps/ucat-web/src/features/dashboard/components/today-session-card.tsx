@@ -126,7 +126,7 @@ export function TodaySessionCard() {
         {live ? <LiveBadge reduceMotion={!!reduceMotion} /> : null}
       </div>
       <div className="mt-4 flex items-center gap-3">
-        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-sidebar text-sidebar-foreground">
+        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary text-primary-foreground">
           <CalendarDays className="h-5 w-5" />
         </div>
         <div className="min-w-0 flex-1">

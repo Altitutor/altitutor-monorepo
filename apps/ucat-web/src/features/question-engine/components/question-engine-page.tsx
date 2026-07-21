@@ -3140,7 +3140,7 @@ export function QuestionEnginePage({
                   <Link
                     href={`/progress/practice-sessions/${practiceSessionId}`}
                     data-skip-leave-warning
-                    className="inline-flex h-10 items-center justify-center rounded-lg bg-sidebar px-4 text-sm font-medium text-sidebar-foreground hover:bg-sidebar/90"
+                    className="inline-flex h-10 items-center justify-center rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground hover:bg-primary/90"
                   >
                     View attempt
                   </Link>

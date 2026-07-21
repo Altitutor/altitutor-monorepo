@@ -10,25 +10,31 @@
   :root {
     /* Light grey app canvas — slightly darker than before for clearer contrast vs white cards */
     --background: 220 13% 92%;
-    --foreground: 212 86% 14%;
+    /*
+     * Body text: marketing charcoal (#1A1A1A), not navy.
+     * Navy stays on --primary for CTAs / chrome so copy doesn’t feel accent-saturated.
+     */
+    --foreground: 0 0% 10%;
 
     --card: 0 0% 100%;
-    --card-foreground: 212 86% 14%;
+    --card-foreground: 0 0% 10%;
 
     --popover: 0 0% 100%;
-    --popover-foreground: 212 86% 14%;
+    --popover-foreground: 0 0% 10%;
 
+    /* Navy (#0a2941) — buttons, focus ring, selected accents — not chrome flood */
     --primary: 212 86% 14%;
     --primary-foreground: 0 0% 100%;
 
     --secondary: 0 0% 96%;
-    --secondary-foreground: 224 20% 12%;
+    --secondary-foreground: 0 0% 12%;
 
     --muted: 220 11% 89%;
-    --muted-foreground: 212 86% 25%;
+    /* Neutral grey secondary copy (≈ marketing charcoal @ ~65% on white) */
+    --muted-foreground: 0 0% 40%;
 
     --accent: 198 29% 67%;
-    --accent-foreground: 212 86% 14%;
+    --accent-foreground: 0 0% 10%;
 
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 0 0% 100%;
@@ -42,9 +48,12 @@
     --ucat-radius-shell: 1.25rem;
     --ucat-radius-control: 0.75rem;
 
-    /* Same chrome blue as primary CTAs — rail, avatar chip, `bg-sidebar` accents */
-    --sidebar: var(--primary);
-    --sidebar-foreground: var(--primary-foreground);
+    /*
+     * Neutral rail (mirrors dark mode): white panel on the grey canvas,
+     * charcoal labels — navy stays on primary CTAs / selection accents.
+     */
+    --sidebar: 0 0% 100%;
+    --sidebar-foreground: 0 0% 10%;
 
     /* Matches the selected item treatment used by navigation and menus. */
     --graph-column-highlight: hsl(var(--muted));

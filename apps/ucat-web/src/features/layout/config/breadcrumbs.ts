@@ -14,6 +14,7 @@ export const SEGMENT_LABELS: Record<string, string> = {
   settings: "Settings",
   app: "App settings",
   profile: "My profile",
+  plan: "Plan",
   subscription: "Subscription",
   "skill-trainer": "Skill trainer",
   "set-attempts": "Set attempt",

@@ -4,7 +4,7 @@ import { Badge, Skeleton } from "@altitutor/ui";
 import { Button } from "@/components/ui/button";
 import { ArrowRight, Check, Sparkles } from "lucide-react";
 import { useUcatAccess } from "@/features/ucat-access/hooks/use-ucat-access";
-import { QuotaUsageCard } from "@/features/ucat-access/components/quota-usage-card";
+import { FreePlanQuotaLimitsCard } from "@/features/subscription/components/free-plan-quota-limits-card";
 import { useUcatSubscriptionBilling } from "@/features/subscription/hooks/use-ucat-subscription-billing";
 import { formatSubscriptionStatus } from "@/features/subscription/lib/invoice-display";
 import { UCAT_ONLINE_TIER_LABELS } from "@/features/subscription/lib/plan-tier-display";
@@ -126,9 +126,7 @@ export function CurrentPlanSection() {
           ))}
         </ul>
       </section>
-      {access.onlineTier === "free" && !access.isQuotaExempt ? (
-        <QuotaUsageCard showLoadingSkeleton />
-      ) : null}
+      {isFree ? <FreePlanQuotaLimitsCard /> : null}
     </div>
   );
 }
