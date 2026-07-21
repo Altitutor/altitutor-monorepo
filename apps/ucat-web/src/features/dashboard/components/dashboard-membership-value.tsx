@@ -101,7 +101,7 @@ export function DashboardMembershipValue({
         <div className="space-y-3">
           <div className="flex flex-wrap items-center gap-2">
             <Sparkles className="h-4 w-4 text-muted-foreground" aria-hidden />
-            <h3 className="text-sm font-semibold">Your plan value</h3>
+            <h3 className="text-sm font-semibold">Your plan</h3>
             <Badge className={UCAT_PLAN_TIER_BADGE_CLASS}>UCAT Free</Badge>
           </div>
           <p className="text-sm text-muted-foreground">
@@ -151,7 +151,7 @@ export function DashboardMembershipValue({
       <div className="space-y-3">
         <div className="flex flex-wrap items-center gap-2">
           <Sparkles className="h-4 w-4 text-muted-foreground" aria-hidden />
-          <h3 className="text-sm font-semibold">Your plan value</h3>
+          <h3 className="text-sm font-semibold">Your plan</h3>
           <Badge className={UCAT_PLAN_TIER_BADGE_CLASS}>UCAT Free</Badge>
         </div>
         <div className="space-y-1.5">
@@ -209,7 +209,7 @@ export function DashboardMembershipValue({
       <div className="space-y-3">
         <div className="flex flex-wrap items-center gap-2">
           <Sparkles className="h-4 w-4 text-muted-foreground" aria-hidden />
-          <h3 className="text-sm font-semibold">Your plan value</h3>
+          <h3 className="text-sm font-semibold">Your plan</h3>
           <Badge className={UCAT_PLAN_TIER_BADGE_CLASS}>{tierLabel}</Badge>
         </div>
         <p className="text-sm text-muted-foreground">
@@ -228,12 +228,12 @@ export function DashboardMembershipValue({
       <div className="space-y-3">
         <div className="flex flex-wrap items-center gap-2">
           <Sparkles className="h-4 w-4 text-muted-foreground" aria-hidden />
-          <h3 className="text-sm font-semibold">Your plan value</h3>
+          <h3 className="text-sm font-semibold">Your plan</h3>
           <Badge className={UCAT_PLAN_TIER_BADGE_CLASS}>{tierLabel}</Badge>
         </div>
         <p className="text-sm font-medium">Unlimited online study is active</p>
         <p className="text-xs text-muted-foreground">
-          Learn, practise, and take sets or mocks without online quotas.
+          Learn, practice, and take sets or mocks without online quotas.
         </p>
         <Button asChild size="sm" variant="ghost">
           <Link href="/settings/plan">Plan details</Link>

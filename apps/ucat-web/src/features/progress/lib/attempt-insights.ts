@@ -36,6 +36,8 @@ export type QuestionAttemptInsightInput = {
 const MIN_RECENT_ATTEMPTS = 3;
 const MEANINGFUL_ACCURACY_CHANGE = 5;
 const RELIABLE_QUESTION_TIME_SAMPLE = 5;
+const QUICK_QUESTION_TIME_RATIO = 0.75;
+const SLOW_QUESTION_TIME_RATIO = 1.25;
 
 function roundedPercent(value: number): string {
   return `${Math.round(value)}%`;
@@ -67,8 +69,8 @@ export function buildAttemptOverallInsight(
 
   if (accuracy == null) {
     return {
-      title: "This attempt is ready to review",
-      body: "Start with the questions you missed or left unanswered. Once more scored evidence is available, this insight will compare accuracy and pace.",
+      title: "Start with the questions that cost the most",
+      body: "Review unanswered and incorrect questions in order of time spent. For each one, identify whether the issue was the method, a missed clue, or the decision to keep going.",
       tone: "neutral",
     };
   }
@@ -177,10 +179,10 @@ export function buildAttemptOverallInsight(
 
 export function buildQuestionAttemptInsight(
   input: QuestionAttemptInsightInput,
-): AttemptInsight | null {
+): AttemptInsight {
   const hasReliableTiming =
     input.timeSpentSeconds != null &&
-    input.timeSpentSeconds >= 0 &&
+    input.timeSpentSeconds > 0 &&
     input.averageTimeSeconds != null &&
     input.averageTimeSeconds > 0 &&
     input.averageTimeSampleSize >= RELIABLE_QUESTION_TIME_SAMPLE;
@@ -191,40 +193,44 @@ export function buildQuestionAttemptInsight(
   if (input.result === "correct") {
     if (timeRatio == null) {
       return {
-        title: "Nice work",
-        body: "You got it right.",
+        title: "Correct—now make the method repeatable",
+        body: "Check the explanation for the decisive step, then keep the approach that got you there.",
         tone: "positive",
       };
     }
-    if (timeRatio < 0.75) {
+    if (timeRatio < QUICK_QUESTION_TIME_RATIO) {
       return {
-        title: "Nicely done",
-        body: "Correct, and quicker than the typical time for this question.",
+        title: "Efficient and correct",
+        body: `You answered ${Math.round((1 - timeRatio) * 100)}% faster than the average student who got this question right. Make sure the speed came from a method you can repeat.`,
         tone: "positive",
       };
     }
-    if (timeRatio <= 1.25) {
-      return null;
+    if (timeRatio <= SLOW_QUESTION_TIME_RATIO) {
+      return {
+        title: "A strong, repeatable result",
+        body: "You got the question right in about the same time as other students who answered it correctly. Review the method briefly, then move on.",
+        tone: "positive",
+      };
     }
     return {
-      title: "You got there",
-      body: "The method worked. Check the explanation for a shorter route if there is one, but let speed follow understanding.",
+      title: "Correct, with room to streamline",
+      body: `You took ${Math.round((timeRatio - 1) * 100)}% longer than the average student who got this question right. Keep the sound reasoning, but check the explanation for a shorter route.`,
       tone: "positive",
     };
   }
 
   if (input.result === "partial") {
-    if (timeRatio != null && timeRatio < 0.7) {
+    if (timeRatio != null && timeRatio < QUICK_QUESTION_TIME_RATIO) {
       return {
         title: "Close, but a little quick",
-        body: "Use the explanation below to find the final check that would have completed the answer.",
+        body: `You were ${Math.round((1 - timeRatio) * 100)}% faster than students who got this question right. Use the explanation to find the final check that would have completed the answer.`,
         tone: "coaching",
       };
     }
-    if (timeRatio != null && timeRatio > 1.5) {
+    if (timeRatio != null && timeRatio > SLOW_QUESTION_TIME_RATIO) {
       return {
-        title: "Partly there—look for the shorter route",
-        body: "The explanation below can show where the method became long or uncertain.",
+        title: "Partly there—simplify the route",
+        body: `You took ${Math.round((timeRatio - 1) * 100)}% longer than students who got this question right. The explanation can show where the method became long or uncertain.`,
         tone: "coaching",
       };
     }
@@ -236,25 +242,39 @@ export function buildQuestionAttemptInsight(
   }
 
   if (input.result === "not_attempted") {
+    if (timeRatio != null && timeRatio > SLOW_QUESTION_TIME_RATIO) {
+      return {
+        title: "Set an earlier decision point",
+        body: `You spent ${Math.round((timeRatio - 1) * 100)}% longer than the average successful time without submitting an answer. Decide earlier whether to commit, flag, or move on.`,
+        tone: "coaching",
+      };
+    }
+    if (input.wasFlagged) {
+      return {
+        title: "Your flag identified the uncertainty",
+        body: "Use the explanation to identify the clue that would let you solve or skip this question decisively next time.",
+        tone: "neutral",
+      };
+    }
     return {
-      title: "See what made this one worth skipping",
-      body: "Read the explanation below, then decide what clue would help you solve, flag, or move on earlier next time.",
+      title: "Build a clearer skip-or-solve rule",
+      body: "Use the explanation to identify the clue that would help you solve, flag, or move on earlier next time.",
       tone: "neutral",
     };
   }
 
-  if (timeRatio != null && timeRatio < 0.7) {
+  if (timeRatio != null && timeRatio < QUICK_QUESTION_TIME_RATIO) {
     return {
       title: "This one looks rushed",
-      body: "You moved much faster than the typical time. Use the explanation below to spot the check you skipped.",
+      body: `You were ${Math.round((1 - timeRatio) * 100)}% faster than students who got this question right. Use the explanation to spot the check or reasoning step you skipped.`,
       tone: "coaching",
     };
   }
 
-  if (timeRatio != null && timeRatio > 1.5) {
+  if (timeRatio != null && timeRatio > SLOW_QUESTION_TIME_RATIO) {
     return {
       title: "This one took more time than it returned",
-      body: "Use the explanation below to find the intended route, then set an earlier point for moving on if that route is not clear.",
+      body: `You took ${Math.round((timeRatio - 1) * 100)}% longer than students who got this question right. Find the intended route, then set an earlier point for moving on when that route is not clear.`,
       tone: "coaching",
     };
   }
@@ -267,5 +287,15 @@ export function buildQuestionAttemptInsight(
     };
   }
 
-  return null;
+  return {
+    title:
+      timeRatio == null
+        ? "Find the first step that changed the answer"
+        : "Your timing was workable; the method is the next lever",
+    body:
+      timeRatio == null
+        ? "Compare your approach with the explanation and find the first point where they diverged. Redo the question from that step before moving on."
+        : "You used about the same amount of time as students who got this question right. Use the explanation to find where your reasoning diverged.",
+    tone: "coaching",
+  };
 }

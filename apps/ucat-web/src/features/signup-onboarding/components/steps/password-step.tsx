@@ -72,12 +72,12 @@ export function SignupCompletePasswordStep({
   return (
     <form
       onSubmit={handleSubmit}
-      className="space-y-4 rounded-3xl bg-white/5 p-8 ring-1 ring-white/10 backdrop-blur-sm"
+      className="space-y-4 rounded-3xl bg-card/80 p-8 shadow-sm ring-1 ring-border backdrop-blur-sm"
     >
       <div className="space-y-1.5">
         <label
           htmlFor="complete-password"
-          className={`block text-sm font-medium text-marketing-cream/80 ${typo.secondarySans}`}
+          className={`block text-sm font-medium text-foreground ${typo.secondarySans}`}
         >
           Password
         </label>
@@ -91,14 +91,14 @@ export function SignupCompletePasswordStep({
           onChange={(e) => setPassword(e.target.value)}
           placeholder="At least 8 characters"
           disabled={isSubmitting}
-          className={`w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-marketing-cream placeholder-marketing-cream/30 outline-none transition-[border-color,box-shadow] duration-200 focus:border-marketing-accent/50 focus:ring-2 focus:ring-marketing-accent/20 disabled:opacity-50 ${typo.secondarySans}`}
+          className={`w-full rounded-xl border border-border bg-background/70 px-4 py-3 text-foreground placeholder:text-muted-foreground/60 outline-none transition-[border-color,box-shadow] duration-200 focus:border-primary/50 focus:ring-2 focus:ring-primary/20 disabled:opacity-50 dark:focus:border-accent/50 dark:focus:ring-accent/20 ${typo.secondarySans}`}
         />
       </div>
 
       <div className="space-y-1.5">
         <label
           htmlFor="complete-confirm-password"
-          className={`block text-sm font-medium text-marketing-cream/80 ${typo.secondarySans}`}
+          className={`block text-sm font-medium text-foreground ${typo.secondarySans}`}
         >
           Confirm password
         </label>
@@ -112,7 +112,7 @@ export function SignupCompletePasswordStep({
           onChange={(e) => setConfirmPassword(e.target.value)}
           placeholder="Repeat your password"
           disabled={isSubmitting}
-          className={`w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-marketing-cream placeholder-marketing-cream/30 outline-none transition-[border-color,box-shadow] duration-200 focus:border-marketing-accent/50 focus:ring-2 focus:ring-marketing-accent/20 disabled:opacity-50 ${typo.secondarySans}`}
+          className={`w-full rounded-xl border border-border bg-background/70 px-4 py-3 text-foreground placeholder:text-muted-foreground/60 outline-none transition-[border-color,box-shadow] duration-200 focus:border-primary/50 focus:ring-2 focus:ring-primary/20 disabled:opacity-50 dark:focus:border-accent/50 dark:focus:ring-accent/20 ${typo.secondarySans}`}
         />
       </div>
 
@@ -127,11 +127,7 @@ export function SignupCompletePasswordStep({
       <button
         type="submit"
         disabled={isSubmitting}
-        className={cn(
-          UCAT_ACCENT_FILL_RISE,
-          "w-full rounded-full bg-marketing-accent py-3.5 text-base font-semibold text-marketing-charcoal disabled:cursor-not-allowed disabled:opacity-50",
-          typo.headingSans,
-        )}
+        className={cn(UCAT_ACCENT_FILL_RISE, "w-full", typo.headingSans)}
       >
         {isSubmitting ? "Setting up…" : "Next"}
       </button>
@@ -140,7 +136,7 @@ export function SignupCompletePasswordStep({
         type="button"
         onClick={onBack}
         disabled={isSubmitting}
-        className={`inline-flex w-full items-center justify-center gap-1 text-sm text-marketing-cream/40 transition-colors hover:text-marketing-cream/70 disabled:cursor-not-allowed disabled:opacity-50 ${typo.secondarySans}`}
+        className={`inline-flex w-full items-center justify-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50 ${typo.secondarySans}`}
       >
         <ChevronLeft className="h-4 w-4" aria-hidden />
         Back

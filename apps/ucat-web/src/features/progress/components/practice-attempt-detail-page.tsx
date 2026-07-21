@@ -208,6 +208,7 @@ export function PracticeAttemptDetailPage({
           onFinish={reviewTracking.completeManually}
           onReviewNext={reviewNextIncorrect}
           insight={overallInsight}
+          ratingContextKey={`practice-attempt:${attemptId}`}
         />
       </motion.div>
 
@@ -230,6 +231,7 @@ export function PracticeAttemptDetailPage({
           initialQuestionIndex={selectedQuestionIndex}
           onQuestionIndexChange={setSelectedQuestionIndex}
           attemptReview
+          ratingContextKey={`practice-attempt:${attemptId}`}
         />
       </motion.div>
     </motion.div>

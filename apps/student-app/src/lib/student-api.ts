@@ -16,7 +16,7 @@ export type StudentSubscriptionWithSubject = StudentSubscription & {
   subject: Pick<ResourceSubject, 'name' | 'short_name' | 'long_name'> | null;
 };
 export type StudentSessionDetail = Database['public']['Views']['vstudent_session_detail']['Row'];
-export type ResourceSubject = Database['public']['Views']['vstudent_subjects']['Row'];
+export type ResourceSubject = Database['public']['Views']['vstudent_online_subjects']['Row'];
 export type ResourceTopic = Database['public']['Views']['vstudent_topics']['Row'];
 
 export type PaymentMethod = {
@@ -88,7 +88,7 @@ export const studentApi = {
   },
 
   async listSubjects(): Promise<ResourceSubject[]> {
-    const { data, error } = await supabase.from('vstudent_subjects').select('*').order('name');
+    const { data, error } = await supabase.from('vstudent_online_subjects').select('*').order('name');
     throwIfError(error);
     return data ?? [];
   },
@@ -174,7 +174,7 @@ export const studentApi = {
       return subscriptions.map((subscription) => ({ ...subscription, subject: null }));
     }
     const { data: subjects, error: subjectsError } = await supabase
-      .from('vstudent_subjects')
+      .from('vstudent_subscription_subjects')
       .select('id, name, short_name, long_name')
       .in('id', subjectIds);
     throwIfError(subjectsError);

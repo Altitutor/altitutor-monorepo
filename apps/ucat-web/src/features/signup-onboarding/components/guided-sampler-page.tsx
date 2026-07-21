@@ -1,19 +1,32 @@
 "use client";
 
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Card, CardContent } from "@altitutor/ui";
-import { AnimatePresence, motion } from "motion/react";
+import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { Button } from "@/components/ui/button";
+import { ThemeToggle } from "@/components/theme/theme-toggle";
 import {
   ArrowRight,
+  ArrowLeft,
+  BookOpenText,
   Calculator,
   Check,
   CheckCircle2,
   Flag,
   GraduationCap,
+  HeartPulse,
   Lightbulb,
   ListChecks,
+  Scale,
+  Sigma,
+  Stethoscope,
   RotateCcw,
   Sparkles,
 } from "lucide-react";
@@ -36,7 +49,10 @@ import {
   GUIDED_SAMPLER_FEEDBACK,
   GUIDED_SAMPLER_SECTIONS,
 } from "@/features/signup-onboarding/lib/guided-sampler-questions";
-import { UCAT_CARD_CHROME } from "@/lib/ucat-surface-motion";
+import {
+  UCAT_CARD_CHROME,
+  UCAT_PRIMARY_ACTION_BUTTON,
+} from "@/lib/ucat-surface-motion";
 import { cn } from "@/lib/utils";
 import { captureUcatEvent } from "@/lib/analytics/posthog";
 
@@ -66,6 +82,14 @@ type SamplerFeedbackState = {
   details?: Array<{ label: string; hint: string }>;
   questionId?: string;
 };
+
+function OnboardingThemeToggle() {
+  return (
+    <div className="fixed right-4 top-4 z-[80] sm:right-6 sm:top-6">
+      <ThemeToggle />
+    </div>
+  );
+}
 
 const EMPTY_SNAPSHOT: TutorialSnapshot = {
   questionId: null,
@@ -355,27 +379,27 @@ function SamplerCoach({
       >
         <Card className={cn(UCAT_CARD_CHROME, "border-primary/30 shadow-2xl")}>
           <CardContent className="p-4">
-          <div className="flex items-center justify-between gap-3 text-xs text-muted-foreground">
-            <span className="flex items-center gap-1.5 font-medium text-primary">
-              <GraduationCap className="h-3.5 w-3.5" aria-hidden />
-              Guided practice
-            </span>
-            <span>
-              {stepNumber} of {totalSteps}
-            </span>
-          </div>
-          <h2 className="mt-2 font-semibold">{step.title}</h2>
-          <p className="mt-1.5 text-sm leading-relaxed text-muted-foreground">
-            {step.body}
-          </p>
-          {step.manual ? (
-            <div className="mt-3 flex justify-end">
-              <Button size="sm" onClick={onContinue}>
-                Next
-                <ArrowRight className="ml-1.5 h-3.5 w-3.5" aria-hidden />
-              </Button>
+            <div className="flex items-center justify-between gap-3 text-xs text-muted-foreground">
+              <span className="flex items-center gap-1.5 font-medium text-primary">
+                <GraduationCap className="h-3.5 w-3.5" aria-hidden />
+                Guided practice
+              </span>
+              <span>
+                {stepNumber} of {totalSteps}
+              </span>
             </div>
-          ) : null}
+            <h2 className="mt-2 font-semibold">{step.title}</h2>
+            <p className="mt-1.5 text-sm leading-relaxed text-muted-foreground">
+              {step.body}
+            </p>
+            {step.manual ? (
+              <div className="mt-3 flex justify-end">
+                <Button size="sm" onClick={onContinue}>
+                  Next
+                  <ArrowRight className="ml-1.5 h-3.5 w-3.5" aria-hidden />
+                </Button>
+              </div>
+            ) : null}
           </CardContent>
         </Card>
       </motion.div>
@@ -435,68 +459,68 @@ function SamplerFeedbackCard({
         aria-live="polite"
       >
         <CardContent className="p-4">
-        <div className="flex items-start gap-3">
-          <span
-            className={cn(
-              "flex h-9 w-9 shrink-0 items-center justify-center rounded-full",
-              correct && "bg-emerald-500/12 text-emerald-600",
-              incorrect && "bg-amber-500/12 text-amber-600",
-              !correct && !incorrect && "bg-primary/10 text-primary",
-            )}
-          >
-            <motion.span
-              initial={correct ? { scale: 0.5, rotate: -16 } : false}
-              animate={{ scale: 1, rotate: 0 }}
-              transition={{ type: "spring", stiffness: 460, damping: 21 }}
-            >
-              <Icon className="h-4 w-4" aria-hidden />
-            </motion.span>
-          </span>
-          <div className="min-w-0 flex-1">
-            <h2 className="font-semibold">{feedback.title}</h2>
-            <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
-              {feedback.body}
-            </p>
-            {feedback.hint ? (
-              <div className="mt-3 rounded-xl bg-muted/60 px-3 py-2.5 text-sm">
-                <span className="font-medium">Hint: </span>
-                {feedback.hint}
-              </div>
-            ) : null}
-            {feedback.details?.length ? (
-              <div className="mt-3 space-y-2">
-                {feedback.details.map((detail) => (
-                  <div
-                    key={detail.label}
-                    className="rounded-xl bg-muted/60 px-3 py-2.5 text-sm"
-                  >
-                    <span className="font-medium">{detail.label}: </span>
-                    {detail.hint}
-                  </div>
-                ))}
-              </div>
-            ) : null}
-            <div className="mt-3 flex items-center justify-between gap-3">
-              <p className="text-xs text-muted-foreground">
-                {correct
-                  ? "Continue when you’re ready."
-                  : incorrect
-                    ? "Change your answer, then Submit again."
-                    : "Stay with the current question when you’re ready."}
-              </p>
-              {correct && onNext ? (
-                <Button size="sm" onClick={onNext}>
-                  Next
-                  <ArrowRight className="ml-1.5 h-3.5 w-3.5" aria-hidden />
-                </Button>
-              ) : (
-                <Button size="sm" variant="outline" onClick={onDismiss}>
-                  Back to question
-                </Button>
+          <div className="flex items-start gap-3">
+            <span
+              className={cn(
+                "flex h-9 w-9 shrink-0 items-center justify-center rounded-full",
+                correct && "bg-emerald-500/12 text-emerald-600",
+                incorrect && "bg-amber-500/12 text-amber-600",
+                !correct && !incorrect && "bg-primary/10 text-primary",
               )}
+            >
+              <motion.span
+                initial={correct ? { scale: 0.5, rotate: -16 } : false}
+                animate={{ scale: 1, rotate: 0 }}
+                transition={{ type: "spring", stiffness: 460, damping: 21 }}
+              >
+                <Icon className="h-4 w-4" aria-hidden />
+              </motion.span>
+            </span>
+            <div className="min-w-0 flex-1">
+              <h2 className="font-semibold">{feedback.title}</h2>
+              <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
+                {feedback.body}
+              </p>
+              {feedback.hint ? (
+                <div className="mt-3 rounded-xl bg-muted/60 px-3 py-2.5 text-sm">
+                  <span className="font-medium">Hint: </span>
+                  {feedback.hint}
+                </div>
+              ) : null}
+              {feedback.details?.length ? (
+                <div className="mt-3 space-y-2">
+                  {feedback.details.map((detail) => (
+                    <div
+                      key={detail.label}
+                      className="rounded-xl bg-muted/60 px-3 py-2.5 text-sm"
+                    >
+                      <span className="font-medium">{detail.label}: </span>
+                      {detail.hint}
+                    </div>
+                  ))}
+                </div>
+              ) : null}
+              <div className="mt-3 flex items-center justify-between gap-3">
+                <p className="text-xs text-muted-foreground">
+                  {correct
+                    ? "Continue when you’re ready."
+                    : incorrect
+                      ? "Change your answer, then Submit again."
+                      : "Stay with the current question when you’re ready."}
+                </p>
+                {correct && onNext ? (
+                  <Button size="sm" onClick={onNext}>
+                    Next
+                    <ArrowRight className="ml-1.5 h-3.5 w-3.5" aria-hidden />
+                  </Button>
+                ) : (
+                  <Button size="sm" variant="outline" onClick={onDismiss}>
+                    Back to question
+                  </Button>
+                )}
+              </div>
             </div>
           </div>
-        </div>
         </CardContent>
       </Card>
     </motion.div>
@@ -509,20 +533,21 @@ function FamiliarityEntry({
   onChoose: (value: UcatFamiliarity) => void;
 }) {
   return (
-    <main className="relative grid min-h-dvh place-items-center overflow-hidden bg-marketing-charcoal px-4 py-10">
+    <main className="relative grid min-h-dvh place-items-center overflow-hidden bg-background px-4 py-10 text-foreground transition-colors">
       <NoiseOverlay />
+      <OnboardingThemeToggle />
       <motion.div
         initial={{ opacity: 0, y: 18 }}
         animate={{ opacity: 1, y: 0 }}
-        className="relative z-10 w-full max-w-3xl rounded-3xl border border-white/10 bg-white/[0.05] p-6 shadow-2xl backdrop-blur sm:p-8"
+        className="relative z-10 w-full max-w-3xl rounded-3xl border border-border bg-card/80 p-6 shadow-2xl backdrop-blur sm:p-8"
       >
-        <p className="text-xs font-semibold uppercase tracking-[0.2em] text-marketing-accent">
-          Guided UCAT sampler
+        <p className="text-xs font-semibold uppercase tracking-[0.2em] text-primary dark:text-accent">
+          Guided UCAT sample questions
         </p>
-        <h1 className="mt-3 text-3xl font-semibold tracking-tight text-marketing-cream">
+        <h1 className="mt-3 text-3xl font-semibold tracking-tight text-foreground">
           Let’s get you ready for your first UCAT session
         </h1>
-        <p className="mt-3 max-w-2xl text-marketing-cream/65">
+        <p className="mt-3 max-w-2xl text-muted-foreground">
           Work through two easy, representative questions from each section.
           We’ll match the amount of coaching to your experience. About 6
           minutes.
@@ -547,16 +572,16 @@ function FamiliarityEntry({
               key={value}
               type="button"
               onClick={() => onChoose(value)}
-              className="rounded-2xl border border-white/10 bg-white/[0.03] p-4 text-left text-marketing-cream transition-colors hover:border-marketing-accent/50 hover:bg-marketing-accent/10"
+              className="rounded-2xl border border-border bg-background/50 p-4 text-left text-foreground transition-colors hover:border-primary/40 hover:bg-muted/70 dark:hover:border-accent/40"
             >
               <span className="font-semibold">{title}</span>
-              <span className="mt-1 block text-sm text-marketing-cream/55">
+              <span className="mt-1 block text-sm text-muted-foreground">
                 {description}
               </span>
             </button>
           ))}
         </div>
-        <p className="mt-5 text-sm text-marketing-cream/45">
+        <p className="mt-5 text-sm text-muted-foreground">
           We’ll check each answer and coach you to the right reasoning. It is
           not a diagnostic, creates no Attempt evidence and uses no quota.
         </p>
@@ -565,110 +590,428 @@ function FamiliarityEntry({
   );
 }
 
-const FAMILIARITY_INTRO_COPY: Record<UcatFamiliarity, string> = {
-  new: "We’ll coach you through the method and controls step by step, then gradually give you more space.",
-  familiar:
-    "We’ll give you a quick orientation to Alti UCAT, then keep the guidance brief unless you get stuck.",
-  experienced:
-    "We’ll keep guidance minimal so you can focus on how the Alti UCAT controls feel.",
-};
-
-const SAMPLER_INTRO_FEATURES = [
+const UCAT_INFO_SLIDES = [
   {
-    Icon: ListChecks,
-    title: "See every section",
-    body: "Meet the question formats without starting a real Attempt.",
+    kicker: "First, the big picture",
+    title: "What is the UCAT?",
+    body: "The University Clinical Aptitude Test is a computer-based admissions test.",
+    points: [
+      "Universities use it when selecting students for medicine, dentistry, oral health and related clinical programs.",
+      "It assesses reasoning and problem-solving rather than knowledge recalled from a school subject.",
+    ],
+    visual: "purpose",
   },
   {
-    Icon: Calculator,
-    title: "Try the controls",
-    body: "Use Navigator, Flag and the calculator in context.",
+    kicker: "Four separately timed sections",
+    title: "Each section tests a different skill",
+    body: "You will move through four sections of questions.",
+    points: [
+      "Section 1: Verbal Reasoning - tests your ability to read and comprehend written information.",
+      "Section 2: Decision Making - tests your logic and problem-solving.",
+      "Section 3: Quantitative Reasoning - tests your ability to solve mathematical problems.",
+      "Section 4: Situational Judgement - tests your professionalism and ethics.",
+    ],
+    visual: "sections",
   },
   {
-    Icon: Lightbulb,
-    title: "Learn as you answer",
-    body: "Get explanations and progressively clearer hints when needed.",
+    kicker: "How your result is reported",
+    title: "Scoring",
+    body: "Your main UCAT total comes from Sections 1–3, while Situational Judgement is reported separately.",
+    points: [
+      "Each of Sections 1–3 is scaled from 300–900.",
+      "Those three scores are added to give a total from 900–2700.",
+      "Situational Judgement is reported separately: as a 300–900 score in UCAT ANZ and a band in UCAT UK.",
+      "Universities use Situational Judgement differently, so check each course’s admissions criteria.",
+    ],
+    visual: "scoring",
+  },
+  {
+    kicker: "How the test feels",
+    title: "Fast, focused and fully on screen",
+    body: "The standard UCAT is designed to test quick, focused decision-making.",
+    points: [
+      "The computer-based test takes just under two hours.",
+      "Each section is timed separately, and you cannot pause once the test begins.",
+      "These sample questions are untimed so you can learn the question styles and controls before pace matters.",
+    ],
+    visual: "format",
   },
 ] as const;
 
-function SamplerIntroduction({
-  familiarity,
-  pending,
-  error,
-  onStart,
-  onSkip,
-}: {
-  familiarity: UcatFamiliarity;
-  pending: boolean;
-  error: string | null;
-  onStart: () => void;
-  onSkip: () => void;
-}) {
-  return (
-    <main className="relative grid min-h-dvh place-items-center overflow-hidden bg-marketing-charcoal px-4 py-10">
-      <NoiseOverlay />
-      <motion.div
-        initial={{ opacity: 0, y: 18, scale: 0.985 }}
-        animate={{ opacity: 1, y: 0, scale: 1 }}
-        className="relative z-10 w-full max-w-3xl rounded-3xl border border-white/10 bg-white/[0.05] p-6 shadow-2xl backdrop-blur sm:p-8"
-      >
-        <p className="text-xs font-semibold uppercase tracking-[0.2em] text-marketing-accent">
-          Guided UCAT sampler
-        </p>
-        <h1 className="mt-3 text-3xl font-semibold tracking-tight text-marketing-cream sm:text-4xl">
-          Get familiar with the Alti UCAT system
-        </h1>
-        <p className="mt-3 max-w-2xl leading-relaxed text-marketing-cream/65">
-          Try two approachable questions from each UCAT section using the same
-          controls you’ll see in practice and mocks. We’ll mark each answer as
-          you go—this is a guided tour, not a test.
-        </p>
+const SECTION_VISUALS = [
+  {
+    short: "VR",
+    name: "Verbal Reasoning",
+    skill: "Evaluate written information",
+    Icon: BookOpenText,
+  },
+  {
+    short: "DM",
+    name: "Decision Making",
+    skill: "Use logic and complex information",
+    Icon: Scale,
+  },
+  {
+    short: "QR",
+    name: "Quantitative Reasoning",
+    skill: "Solve problems with numerical data",
+    Icon: Sigma,
+  },
+  {
+    short: "SJT",
+    name: "Situational Judgement",
+    skill: "Identify appropriate professional behaviour",
+    Icon: HeartPulse,
+  },
+] as const;
 
-        <div className="mt-6 grid gap-3 sm:grid-cols-3">
-          {SAMPLER_INTRO_FEATURES.map(({ Icon, title, body }) => (
-            <div
-              key={title}
-              className="rounded-2xl border border-white/10 bg-white/[0.03] p-4"
-            >
-              <Icon className="h-5 w-5 text-marketing-accent" aria-hidden />
-              <h2 className="mt-3 font-semibold text-marketing-cream">
-                {title}
-              </h2>
-              <p className="mt-1 text-sm leading-relaxed text-marketing-cream/50">
-                {body}
-              </p>
+function UcatInfoVisual({
+  visual,
+}: {
+  visual: (typeof UCAT_INFO_SLIDES)[number]["visual"];
+}) {
+  if (visual === "sections") {
+    return (
+      <div className="mx-auto grid w-full max-w-sm gap-2 sm:grid-cols-2">
+        {SECTION_VISUALS.map(({ short, name, skill, Icon }, index) => (
+          <motion.div
+            key={short}
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: index * 0.07 }}
+            className="rounded-2xl border border-border bg-card/70 p-3"
+          >
+            <div className="flex items-center gap-2">
+              <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-primary/10 text-primary dark:bg-accent/15 dark:text-accent">
+                <Icon className="h-4 w-4" aria-hidden />
+              </span>
+              <div>
+                <p className="text-xs font-bold text-primary dark:text-accent">
+                  {short}
+                </p>
+                <p className="text-sm font-semibold text-foreground">{name}</p>
+              </div>
             </div>
+            <p className="mt-2 text-xs leading-relaxed text-muted-foreground">
+              {skill}
+            </p>
+          </motion.div>
+        ))}
+      </div>
+    );
+  }
+
+  if (visual === "format") {
+    return (
+      <div className="relative mx-auto flex h-64 w-full max-w-md items-center justify-center">
+        <motion.div
+          className="absolute h-44 w-44 rounded-full border border-dashed border-primary/30 dark:border-accent/30"
+          animate={{ rotate: 360 }}
+          transition={{ duration: 18, ease: "linear", repeat: Infinity }}
+          aria-hidden
+        />
+        <div className="relative grid h-36 w-36 place-items-center rounded-full border border-border bg-card/80 text-center shadow-[0_0_55px_rgba(146,185,198,0.12)]">
+          <div>
+            <p className="text-3xl font-semibold text-foreground">~2h</p>
+            <p className="mt-1 text-xs text-muted-foreground">
+              separately timed
+            </p>
+          </div>
+        </div>
+        {[Calculator, Flag, ListChecks].map((Icon, index) => (
+          <motion.span
+            key={index}
+            className="absolute flex h-10 w-10 items-center justify-center rounded-2xl border border-border bg-background text-primary shadow-xl dark:text-accent"
+            style={{
+              left: `${10 + index * 40}%`,
+              top: index === 1 ? "9%" : "70%",
+            }}
+            animate={{ y: [0, -5, 0] }}
+            transition={{
+              duration: 2.2,
+              delay: index * 0.2,
+              repeat: Infinity,
+            }}
+          >
+            <Icon className="h-4 w-4" aria-hidden />
+          </motion.span>
+        ))}
+      </div>
+    );
+  }
+
+  if (visual === "scoring") {
+    return (
+      <div className="mx-auto max-w-md space-y-4">
+        <div className="grid grid-cols-[1fr_auto_1fr_auto_1fr] items-center gap-2">
+          {["S1", "S2", "S3"].map((section, index) => (
+            <React.Fragment key={section}>
+              <motion.div
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: index * 0.1 }}
+                className="rounded-2xl border border-border bg-card/70 px-2 py-4 text-center"
+              >
+                <p className="text-xs font-semibold text-primary dark:text-accent">
+                  {section}
+                </p>
+                <p className="mt-1 text-sm font-semibold text-foreground">
+                  300–900
+                </p>
+              </motion.div>
+              {index < 2 ? (
+                <motion.span
+                  initial={{ opacity: 0, scale: 0.5 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  transition={{ delay: 0.3 + index * 0.1 }}
+                  className="text-primary dark:text-accent"
+                  aria-hidden
+                >
+                  +
+                </motion.span>
+              ) : null}
+            </React.Fragment>
           ))}
         </div>
-
-        <div className="mt-5 rounded-2xl border border-marketing-accent/20 bg-marketing-accent/[0.08] px-4 py-3 text-sm leading-relaxed text-marketing-cream/70">
-          {FAMILIARITY_INTRO_COPY[familiarity]}
-        </div>
-
-        {error ? (
-          <p className="mt-4 text-sm text-red-200" role="alert">
-            {error}
+        <motion.div
+          initial={{ opacity: 0, scale: 0.96 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ delay: 0.4 }}
+          className="rounded-2xl bg-primary p-4 text-center text-primary-foreground shadow-[0_0_45px_rgba(146,185,198,0.2)] dark:bg-accent dark:text-primary-foreground"
+        >
+          <p className="text-xs font-semibold uppercase tracking-[0.16em]">
+            Main total
           </p>
-        ) : null}
+          <p className="mt-1 text-3xl font-semibold">900–2700</p>
+        </motion.div>
+        <motion.div
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.55 }}
+          className="flex items-center justify-between gap-3 rounded-2xl border border-border bg-card/70 px-4 py-3"
+        >
+          <div>
+            <p className="text-sm font-semibold text-foreground">
+              Situational Judgement
+            </p>
+            <p className="text-xs text-muted-foreground">Reported separately</p>
+          </div>
+          <span className="rounded-full bg-muted px-3 py-1.5 text-xs font-semibold text-primary dark:text-accent">
+            Score or band
+          </span>
+        </motion.div>
+      </div>
+    );
+  }
 
-        <div className="mt-7 flex flex-col-reverse gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <Button
-            type="button"
-            variant="ghost"
-            onClick={onSkip}
-            disabled={pending}
-            className="text-marketing-cream/60 hover:bg-white/[0.06] hover:text-marketing-cream"
+  return (
+    <div className="relative mx-auto flex h-64 w-full max-w-md items-center justify-center">
+      <motion.div
+        className="absolute h-40 w-40 rounded-full bg-primary/10 blur-2xl dark:bg-accent/10"
+        animate={{ scale: [0.9, 1.15, 0.9] }}
+        transition={{ duration: 3.2, repeat: Infinity }}
+        aria-hidden
+      />
+      <span className="relative flex h-24 w-24 items-center justify-center rounded-3xl bg-primary text-primary-foreground shadow-[0_0_55px_rgba(146,185,198,0.3)] dark:bg-accent dark:text-primary-foreground">
+        <Stethoscope className="h-10 w-10" aria-hidden />
+      </span>
+      {["Aptitude", "Admissions", "No subject recall"].map((label, index) => (
+        <motion.span
+          key={label}
+          initial={{ opacity: 0, scale: 0.9 }}
+          animate={{ opacity: 1, scale: 1, y: [0, -3, 0] }}
+          transition={{
+            delay: index * 0.12,
+            y: { duration: 2.4, repeat: Infinity },
+          }}
+          className={cn(
+            "absolute whitespace-nowrap rounded-full border border-border bg-background px-4 py-2 text-xs text-muted-foreground shadow-xl",
+            index === 0 && "left-0 top-[18%]",
+            index === 1 && "right-0 top-[30%]",
+            index === 2 && "bottom-[14%] left-[12%]",
+          )}
+        >
+          {label}
+        </motion.span>
+      ))}
+    </div>
+  );
+}
+
+function UcatInfoSlideshow({ onComplete }: { onComplete: () => void }) {
+  const reduceMotion = useReducedMotion();
+  const [slideIndex, setSlideIndex] = useState(0);
+  const [direction, setDirection] = useState(1);
+  const slide = UCAT_INFO_SLIDES[slideIndex];
+  const isLast = slideIndex === UCAT_INFO_SLIDES.length - 1;
+
+  function goToSlide(nextIndex: number) {
+    if (nextIndex === slideIndex) return;
+    setDirection(nextIndex > slideIndex ? 1 : -1);
+    setSlideIndex(nextIndex);
+  }
+
+  return (
+    <main className="relative grid min-h-dvh place-items-center overflow-hidden bg-background px-4 py-10 text-foreground transition-colors">
+      <NoiseOverlay />
+      <OnboardingThemeToggle />
+      <motion.div
+        layout={!reduceMotion}
+        layoutDependency={slideIndex}
+        initial={
+          reduceMotion ? { opacity: 1 } : { opacity: 0, y: 18, scale: 0.985 }
+        }
+        animate={{ opacity: 1, y: 0, scale: 1 }}
+        transition={{
+          duration: reduceMotion ? 0 : 0.3,
+          ease: [0.22, 1, 0.36, 1],
+          layout: reduceMotion
+            ? { duration: 0 }
+            : { type: "spring", stiffness: 270, damping: 30, mass: 0.85 },
+        }}
+        className="relative z-10 w-full max-w-4xl overflow-hidden rounded-3xl border border-border bg-card/80 shadow-2xl backdrop-blur"
+      >
+        <div className="grid min-h-[530px] w-full md:block">
+          <motion.div
+            layout={!reduceMotion}
+            layoutDependency={slideIndex}
+            transition={{
+              layout: reduceMotion
+                ? { duration: 0 }
+                : { type: "spring", stiffness: 270, damping: 30, mass: 0.85 },
+            }}
+            className="relative flex flex-col p-6 sm:p-9 md:w-[52.5%]"
           >
-            {pending ? "Skipping…" : "Skip for now"}
-          </Button>
-          <Button
-            type="button"
-            onClick={onStart}
-            className="bg-marketing-accent text-marketing-charcoal hover:bg-marketing-accent/90"
-          >
-            Start sampler
-            <ArrowRight className="ml-2 h-4 w-4" aria-hidden />
-          </Button>
+            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-primary dark:text-accent">
+              UCAT essentials · {slideIndex + 1} of {UCAT_INFO_SLIDES.length}
+            </p>
+            <AnimatePresence
+              mode="popLayout"
+              initial={false}
+              custom={direction}
+            >
+              <motion.div
+                key={slide.title}
+                initial={
+                  reduceMotion ? { opacity: 1, x: 0 } : { opacity: 0, x: 20 }
+                }
+                animate={{ opacity: 1, x: 0 }}
+                exit={
+                  reduceMotion ? { opacity: 0, x: 0 } : { opacity: 0, x: -20 }
+                }
+                transition={{
+                  duration: reduceMotion ? 0 : 0.28,
+                  ease: [0.22, 1, 0.36, 1],
+                }}
+                className="my-auto py-8"
+              >
+                <p className="text-sm font-medium text-primary dark:text-accent">
+                  {slide.kicker}
+                </p>
+                <h1 className="mt-3 text-3xl font-semibold tracking-tight text-foreground sm:text-4xl">
+                  {slide.title}
+                </h1>
+                <p className="mt-4 text-lg leading-relaxed text-muted-foreground">
+                  {slide.body}
+                </p>
+                <ul className="mt-5 space-y-2.5 text-sm leading-relaxed text-muted-foreground">
+                  {slide.points.map((point) => (
+                    <li key={point} className="flex gap-3">
+                      <span
+                        className="mt-[0.55em] h-1.5 w-1.5 shrink-0 rounded-full bg-primary dark:bg-accent"
+                        aria-hidden
+                      />
+                      <span>{point}</span>
+                    </li>
+                  ))}
+                </ul>
+              </motion.div>
+            </AnimatePresence>
+
+            <div className="flex items-center justify-between gap-4">
+              <div
+                className="flex gap-2"
+                aria-label="UCAT introduction progress"
+              >
+                {UCAT_INFO_SLIDES.map((item, index) => (
+                  <button
+                    key={item.title}
+                    type="button"
+                    onClick={() => goToSlide(index)}
+                    aria-label={`Go to slide ${index + 1}`}
+                    aria-current={index === slideIndex ? "step" : undefined}
+                    className={cn(
+                      "h-2 rounded-full transition-all",
+                      index === slideIndex
+                        ? "w-8 bg-primary dark:bg-accent"
+                        : "w-2 bg-muted-foreground/25 hover:bg-muted-foreground/45",
+                    )}
+                  />
+                ))}
+              </div>
+              <div className="flex items-center gap-2">
+                {slideIndex > 0 ? (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => goToSlide(slideIndex - 1)}
+                    className="text-muted-foreground hover:bg-muted hover:text-foreground"
+                  >
+                    <ArrowLeft className="mr-1.5 h-3.5 w-3.5" aria-hidden />
+                    Back
+                  </Button>
+                ) : null}
+                <Button
+                  type="button"
+                  onClick={() =>
+                    isLast ? onComplete() : goToSlide(slideIndex + 1)
+                  }
+                  className={UCAT_PRIMARY_ACTION_BUTTON}
+                >
+                  {isLast ? "Start sample questions" : "Next"}
+                  <ArrowRight className="ml-2 h-4 w-4" aria-hidden />
+                </Button>
+              </div>
+            </div>
+          </motion.div>
+
+          <div className="relative grid min-w-0 w-full place-items-center self-stretch overflow-hidden border-t border-border bg-primary/[0.04] p-6 sm:p-9 md:absolute md:inset-y-0 md:right-0 md:w-[47.5%] md:border-l md:border-t-0 dark:bg-accent/[0.06]">
+            <motion.div
+              aria-hidden
+              className="absolute h-72 w-72 rounded-full bg-marketing-primary/35 blur-3xl"
+              animate={{ x: [-20, 25, -20], y: [10, -20, 10] }}
+              transition={{ duration: 8, repeat: Infinity }}
+            />
+            <AnimatePresence
+              mode="popLayout"
+              initial={false}
+              custom={direction}
+            >
+              <motion.div
+                key={slide.visual}
+                custom={direction}
+                initial={
+                  reduceMotion
+                    ? { opacity: 1 }
+                    : { opacity: 0, scale: 0.96, x: direction * 18 }
+                }
+                animate={{ opacity: 1, scale: 1, x: 0, y: 0 }}
+                exit={
+                  reduceMotion
+                    ? { opacity: 0 }
+                    : { opacity: 0, scale: 0.97, x: direction * -18 }
+                }
+                transition={{
+                  duration: reduceMotion ? 0 : 0.28,
+                  ease: [0.22, 1, 0.36, 1],
+                }}
+                className="relative grid h-full w-full place-items-center"
+              >
+                <UcatInfoVisual visual={slide.visual} />
+              </motion.div>
+            </AnimatePresence>
+          </div>
         </div>
       </motion.div>
     </main>
@@ -678,11 +1021,14 @@ function SamplerIntroduction({
 export function GuidedSamplerPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const [familiarity, setFamiliarity] = useState<UcatFamiliarity | null>(() =>
-    parseFamiliarity(searchParams.get("familiarity")),
+  const initialFamiliarity = parseFamiliarity(searchParams.get("familiarity"));
+  const [familiarity, setFamiliarity] = useState<UcatFamiliarity | null>(
+    () => initialFamiliarity,
   );
   const [sectionIndex, setSectionIndex] = useState(0);
-  const [samplerStarted, setSamplerStarted] = useState(false);
+  const [samplerStarted, setSamplerStarted] = useState(
+    initialFamiliarity !== "new",
+  );
   const [seenControls, setSeenControls] = useState<Set<SeenControl>>(
     () => new Set(),
   );
@@ -773,7 +1119,11 @@ export function GuidedSamplerPage() {
     const questionId = snapshot.questionId;
     if (!questionId || feedback || correctQuestionIds.has(questionId)) return;
     const delay =
-      familiarity === "new" ? 18_000 : familiarity === "familiar" ? 28_000 : 40_000;
+      familiarity === "new"
+        ? 18_000
+        : familiarity === "familiar"
+          ? 28_000
+          : 40_000;
     const timer = window.setTimeout(() => {
       const questionFeedback = GUIDED_SAMPLER_FEEDBACK[questionId];
       setFeedback((current) =>
@@ -805,6 +1155,7 @@ export function GuidedSamplerPage() {
       const questionFeedback = GUIDED_SAMPLER_FEEDBACK[questionId];
 
       if (correctQuestionIds.has(questionId)) {
+        if (familiarity === "experienced") return true;
         if (
           feedback?.kind === "correct" &&
           feedback.questionId === questionId
@@ -827,7 +1178,7 @@ export function GuidedSamplerPage() {
         setFeedback({
           kind: "focus",
           title: "Answer this question first",
-          body: "Choose an answer before moving on. The sampler will keep you here until you have worked it through.",
+          body: "Choose an answer before moving on. These sample questions will keep you here until you have worked it through.",
           questionId,
         });
         return false;
@@ -841,6 +1192,7 @@ export function GuidedSamplerPage() {
             [questionId]: correctSyllogismOptionIds(nextSnapshot),
           }));
         }
+        if (familiarity === "experienced") return true;
         setFeedback({
           kind: "correct",
           title: "That’s correct",
@@ -927,6 +1279,10 @@ export function GuidedSamplerPage() {
       setSeenControls((current) => new Set(current).add(control));
       const currentSection = GUIDED_SAMPLER_SECTIONS[sectionIndex];
 
+      if (familiarity === "experienced") {
+        return control !== "navigator";
+      }
+
       if (control === "calculator") {
         if (currentSection?.key === "vr") {
           setFeedback({
@@ -965,7 +1321,7 @@ export function GuidedSamplerPage() {
         setFeedback({
           kind: "control",
           title: "You found the Navigator",
-          body: "Navigator lets you jump between questions in a full session. The sampler keeps you focused on one question at a time, so answer this one before moving on.",
+          body: "Navigator lets you jump between questions in a full session. These sample questions keep you focused on one question at a time, so answer this one before moving on.",
           questionId: controlSnapshot.questionId ?? undefined,
         });
         return false;
@@ -983,12 +1339,12 @@ export function GuidedSamplerPage() {
 
       return true;
     },
-    [sectionIndex],
+    [familiarity, sectionIndex],
   );
 
   const destination = useMemo(() => {
     if (replay) return "/dashboard";
-    if (afterPlan) return "/study-plan/setup?activation=1";
+    if (afterPlan) return "/dashboard";
     return "/signup/complete?sampler=complete";
   }, [afterPlan, replay]);
 
@@ -1043,40 +1399,40 @@ export function GuidedSamplerPage() {
   }
 
   if (!familiarity) {
-    return <FamiliarityEntry onChoose={setFamiliarity} />;
-  }
-
-  if (!samplerStarted) {
     return (
-      <SamplerIntroduction
-        familiarity={familiarity}
-        pending={pending}
-        error={error}
-        onStart={() => setSamplerStarted(true)}
-        onSkip={() => void persistDecision(false)}
+      <FamiliarityEntry
+        onChoose={(value) => {
+          setFamiliarity(value);
+          setSamplerStarted(value !== "new");
+        }}
       />
     );
   }
 
+  if (!samplerStarted) {
+    return <UcatInfoSlideshow onComplete={() => setSamplerStarted(true)} />;
+  }
+
   if (showReadout) {
     return (
-      <main className="relative grid min-h-dvh place-items-center overflow-hidden bg-marketing-charcoal px-4 py-10">
+      <main className="relative grid min-h-dvh place-items-center overflow-hidden bg-background px-4 py-10 text-foreground transition-colors">
         <NoiseOverlay />
+        <OnboardingThemeToggle />
         <motion.div
           initial={{ opacity: 0, scale: 0.98, y: 18 }}
           animate={{ opacity: 1, scale: 1, y: 0 }}
-          className="relative z-10 w-full max-w-2xl rounded-3xl border border-marketing-accent/20 bg-white/[0.05] p-6 shadow-2xl backdrop-blur sm:p-9"
+          className="relative z-10 w-full max-w-2xl rounded-3xl border border-primary/20 bg-card/80 p-6 shadow-2xl backdrop-blur dark:border-accent/20 sm:p-9"
         >
-          <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-marketing-accent/15 text-marketing-accent">
+          <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-primary/10 text-primary dark:bg-accent/15 dark:text-accent">
             <Sparkles className="h-5 w-5" aria-hidden />
           </span>
-          <p className="mt-6 text-xs font-semibold uppercase tracking-[0.2em] text-marketing-accent">
+          <p className="mt-6 text-xs font-semibold uppercase tracking-[0.2em] text-primary dark:text-accent">
             Ready for real practice
           </p>
-          <h1 className="mt-2 text-3xl font-semibold tracking-tight text-marketing-cream">
+          <h1 className="mt-2 text-3xl font-semibold tracking-tight text-foreground">
             You’ve explored the whole UCAT experience
           </h1>
-          <p className="mt-3 text-marketing-cream/60">
+          <p className="mt-3 text-muted-foreground">
             You worked every question through to the correct answer.
           </p>
           <div className="mt-6 grid gap-3 sm:grid-cols-3">
@@ -1088,7 +1444,7 @@ export function GuidedSamplerPage() {
                     .filter((question) => correctQuestionIds.has(question.id))
                     .length
                 }/6`,
-                "cognitive questions correct",
+                "Sections 1–3 questions correct",
               ],
               [
                 `${GUIDED_SAMPLER_SECTIONS.find((item) => item.key === "sjt")?.questions.filter((question) => correctQuestionIds.has(question.id)).length ?? 0}/2`,
@@ -1098,12 +1454,12 @@ export function GuidedSamplerPage() {
             ].map(([value, label]) => (
               <div
                 key={label}
-                className="rounded-2xl border border-white/10 bg-white/[0.03] p-4"
+                className="rounded-2xl border border-border bg-background/50 p-4"
               >
-                <p className="text-2xl font-semibold text-marketing-cream">
+                <p className="text-2xl font-semibold text-foreground">
                   {value}
                 </p>
-                <p className="mt-1 text-sm text-marketing-cream/50">{label}</p>
+                <p className="mt-1 text-sm text-muted-foreground">{label}</p>
               </div>
             ))}
           </div>
@@ -1114,7 +1470,7 @@ export function GuidedSamplerPage() {
             <Button
               onClick={() => void persistDecision(true)}
               disabled={pending}
-              className="bg-marketing-accent text-marketing-charcoal hover:bg-marketing-accent/90"
+              className={UCAT_PRIMARY_ACTION_BUTTON}
             >
               {pending
                 ? "Saving…"
@@ -1193,6 +1549,7 @@ export function GuidedSamplerPage() {
                 aria-label="Previous tried"
               />
             ) : null}
+            <ThemeToggle />
             <Button
               type="button"
               size="sm"
@@ -1201,7 +1558,7 @@ export function GuidedSamplerPage() {
               onClick={() => void persistDecision(false)}
               disabled={pending}
             >
-              Skip sampler
+              Skip sample questions
             </Button>
           </div>
         </div>
@@ -1262,7 +1619,7 @@ export function GuidedSamplerPage() {
                 : undefined
             }
           />
-        ) : familiarity === "new" && activeCoachStep ? (
+        ) : familiarity !== "experienced" && activeCoachStep ? (
           <SamplerCoach
             key={`coach-${snapshot.questionId}-${guideStepIndex}`}
             step={activeCoachStep}

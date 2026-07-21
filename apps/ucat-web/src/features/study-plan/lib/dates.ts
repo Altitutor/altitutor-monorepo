@@ -31,12 +31,18 @@ export function weekday(value: string): StudyPlanWeekday {
 }
 
 export function midpointDate(startsOn: string, endsOn: string): string {
-  return addDays(startsOn, Math.max(0, Math.floor(daysBetween(startsOn, endsOn) / 2)));
+  return addDays(
+    startsOn,
+    Math.max(0, Math.floor(daysBetween(startsOn, endsOn) / 2)),
+  );
 }
 
-export function todayIso(now = new Date()): string {
+export function todayIso(
+  now = new Date(),
+  timeZone = "Australia/Adelaide",
+): string {
   return new Intl.DateTimeFormat("en-CA", {
-    timeZone: "Australia/Adelaide",
+    timeZone,
     year: "numeric",
     month: "2-digit",
     day: "2-digit",

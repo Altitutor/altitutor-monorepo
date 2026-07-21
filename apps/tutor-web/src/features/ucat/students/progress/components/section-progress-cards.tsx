@@ -14,6 +14,7 @@ type SectionProgressCardsProps = {
   basePath?: string
   mode: ProgressMode
   timeFrameDays: string
+  mockRecentWeightedAverage?: number | null
 }
 
 export function SectionProgressCards({
@@ -22,6 +23,7 @@ export function SectionProgressCards({
   basePath = '',
   mode,
   timeFrameDays: _timeFrameDays,
+  mockRecentWeightedAverage = null,
 }: SectionProgressCardsProps) {
   return (
     <div className="grid grid-cols-2 gap-4">
@@ -117,6 +119,28 @@ export function SectionProgressCards({
           <Fragment key={section.sectionId}>{card}</Fragment>
         )
       })}
+      {linkToSection && basePath ? (
+        <Link
+          href={`${basePath}/mocks`}
+          className="group col-span-2 block"
+          aria-label="View mock progress"
+        >
+          <Card className="rounded-2xl border-0 shadow-sm ring-1 ring-black/[0.06] transition-all duration-300 hover:-translate-y-0.5 hover:shadow-md dark:ring-white/10">
+            <CardHeader className="relative pr-12">
+              <CardTitle className="text-base font-medium">Mocks</CardTitle>
+              <ChevronRight className="absolute right-4 top-6 size-4 text-muted-foreground transition-transform group-hover:translate-x-0.5" />
+            </CardHeader>
+            <CardContent>
+              <p className="text-xs font-medium text-muted-foreground">
+                Recent-weighted average
+              </p>
+              <p className="text-3xl font-bold tabular-nums">
+                {mockRecentWeightedAverage ?? '—'}
+              </p>
+            </CardContent>
+          </Card>
+        </Link>
+      ) : null}
     </div>
   )
 }

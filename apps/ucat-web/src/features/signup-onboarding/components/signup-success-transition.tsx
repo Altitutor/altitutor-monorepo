@@ -1,6 +1,11 @@
 "use client";
 
-import React, { useEffect, useState, type ComponentType } from "react";
+import React, {
+  useCallback,
+  useEffect,
+  useState,
+  type ComponentType,
+} from "react";
 import {
   BarChart3,
   BookOpen,
@@ -13,7 +18,9 @@ import {
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { MARKETING_TOKENS } from "@altitutor/shared";
 import { Button } from "@/components/ui/button";
+import { ThemeToggle } from "@/components/theme/theme-toggle";
 import { NoiseOverlay } from "@/features/landing/components/marketing/noise-overlay";
+import { DashboardDataPreloader } from "@/features/dashboard/components/dashboard-data-preloader";
 
 const { typography: typo } = MARKETING_TOKENS;
 
@@ -28,7 +35,7 @@ type SignupBenefit = {
 
 const PAID_BENEFITS: ReadonlyArray<SignupBenefit> = [
   {
-    title: "Practise without limits",
+    title: "Practice without limits",
     description: "Every UCAT section, mock and skill trainer is ready for you.",
     icon: BrainCircuit,
   },
@@ -95,6 +102,7 @@ type SignupSuccessTransitionProps = {
   onRetry: () => void;
   onComplete: () => void;
   studyPlanStatus?: StudyPlanCompletionStatus;
+  preloadDashboard?: boolean;
 };
 
 export function SignupSuccessTransition({
@@ -106,9 +114,13 @@ export function SignupSuccessTransition({
   onRetry,
   onComplete,
   studyPlanStatus,
+  preloadDashboard = false,
 }: SignupSuccessTransitionProps) {
   const reduceMotion = useReducedMotion();
   const [benefitIndex, setBenefitIndex] = useState(0);
+  const [dashboardDataSettled, setDashboardDataSettled] =
+    useState(!preloadDashboard);
+  const [welcomeMinimumElapsed, setWelcomeMinimumElapsed] = useState(false);
   const isPaidJourney = journey === "paid";
   const isUpgrade = occasion === "upgrade";
   const isStudyPlanCompletion = studyPlanStatus != null;
@@ -129,23 +141,46 @@ export function SignupSuccessTransition({
     return () => window.clearInterval(timer);
   }, [benefits, phase, reduceMotion]);
 
-  useEffect(() => {
-    if (phase !== "welcome") return;
+  const markDashboardDataSettled = useCallback(
+    () => setDashboardDataSettled(true),
+    [],
+  );
 
-    const timer = window.setTimeout(onComplete, reduceMotion ? 700 : 2_700);
+  useEffect(() => {
+    if (phase !== "welcome") {
+      setWelcomeMinimumElapsed(false);
+      return;
+    }
+
+    const timer = window.setTimeout(
+      () => setWelcomeMinimumElapsed(true),
+      reduceMotion ? 700 : 2_700,
+    );
     return () => window.clearTimeout(timer);
-  }, [onComplete, phase, reduceMotion]);
+  }, [phase, reduceMotion]);
+
+  useEffect(() => {
+    if (phase === "welcome" && welcomeMinimumElapsed && dashboardDataSettled) {
+      onComplete();
+    }
+  }, [dashboardDataSettled, onComplete, phase, welcomeMinimumElapsed]);
 
   const benefit = benefits[benefitIndex];
   const BenefitIcon = benefit.icon;
 
   return (
-    <div className="relative flex min-h-dvh overflow-hidden bg-marketing-charcoal text-marketing-cream">
+    <div className="relative flex min-h-dvh overflow-hidden bg-background text-foreground transition-colors">
+      {preloadDashboard ? (
+        <DashboardDataPreloader onSettled={markDashboardDataSettled} />
+      ) : null}
       <NoiseOverlay />
+      <div className="fixed right-4 top-4 z-50 sm:right-6 sm:top-6">
+        <ThemeToggle />
+      </div>
 
       <motion.div
         aria-hidden
-        className="absolute -left-36 top-[-12rem] h-[30rem] w-[30rem] rounded-full bg-marketing-primary/60 blur-3xl"
+        className="absolute -left-36 top-[-12rem] h-[30rem] w-[30rem] rounded-full bg-primary/15 blur-3xl dark:bg-primary/60"
         animate={
           reduceMotion
             ? undefined
@@ -155,7 +190,7 @@ export function SignupSuccessTransition({
       />
       <motion.div
         aria-hidden
-        className="absolute -bottom-48 -right-28 h-[28rem] w-[28rem] rounded-full bg-marketing-accent/15 blur-3xl"
+        className="absolute -bottom-48 -right-28 h-[28rem] w-[28rem] rounded-full bg-primary/10 blur-3xl dark:bg-accent/15"
         animate={
           reduceMotion
             ? undefined
@@ -177,18 +212,18 @@ export function SignupSuccessTransition({
             <div className="relative mb-9 flex h-24 w-24 items-center justify-center">
               <motion.div
                 aria-hidden
-                className="absolute inset-0 rounded-full border border-marketing-accent/25 border-t-marketing-accent"
+                className="absolute inset-0 rounded-full border border-primary/25 border-t-primary dark:border-accent/25 dark:border-t-accent"
                 animate={reduceMotion ? undefined : { rotate: 360 }}
                 transition={{ duration: 2.8, ease: "linear", repeat: Infinity }}
               />
               <motion.div
                 aria-hidden
-                className="absolute inset-2 rounded-full border border-dashed border-marketing-cream/20"
+                className="absolute inset-2 rounded-full border border-dashed border-foreground/20"
                 animate={reduceMotion ? undefined : { rotate: -360 }}
                 transition={{ duration: 7, ease: "linear", repeat: Infinity }}
               />
               <motion.div
-                className="flex h-14 w-14 items-center justify-center rounded-full bg-marketing-accent text-marketing-charcoal shadow-[0_0_50px_rgba(146,185,198,0.35)]"
+                className="flex h-14 w-14 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-[0_0_50px_rgba(146,185,198,0.35)] dark:bg-accent dark:text-primary-foreground"
                 animate={reduceMotion ? undefined : { scale: [1, 1.07, 1] }}
                 transition={{
                   duration: 1.8,
@@ -201,7 +236,7 @@ export function SignupSuccessTransition({
             </div>
 
             <p
-              className={`text-xs font-bold uppercase tracking-[0.24em] text-marketing-accent ${typo.dataMono}`}
+              className={`text-xs font-bold uppercase tracking-[0.24em] text-primary dark:text-accent ${typo.dataMono}`}
             >
               {studyPlanStatus === "created"
                 ? "Study plan saved"
@@ -221,7 +256,7 @@ export function SignupSuccessTransition({
                   : "Personalising your UCAT workspace"}
             </h1>
             <p
-              className={`mt-3 max-w-md text-marketing-cream/60 ${typo.secondarySans}`}
+              className={`mt-3 max-w-md text-muted-foreground ${typo.secondarySans}`}
             >
               {studyPlanStatus === "created"
                 ? "Your Study plan is saved. We’re preparing your dashboard and first recommended tasks around it."
@@ -229,11 +264,11 @@ export function SignupSuccessTransition({
                   ? "We’re preparing your dashboard now. You can build a Study plan later from Settings."
                   : isPaidJourney
                     ? "Your payment is complete. We’re preparing everything included in your plan."
-                    : "Your Free plan is ready. We’re preparing a clear place to learn, practise and improve."}
+                    : "Your Free plan is ready. We’re preparing a clear place to learn, practice and improve."}
             </p>
 
             <div
-              className="mt-9 w-full overflow-hidden rounded-3xl border border-marketing-cream/10 bg-marketing-cream/[0.06] p-5 text-left shadow-2xl backdrop-blur-sm sm:p-6"
+              className="mt-9 w-full overflow-hidden rounded-3xl border border-border bg-card/80 p-5 text-left shadow-2xl backdrop-blur-sm sm:p-6"
               aria-live="polite"
             >
               <AnimatePresence mode="wait" initial={false}>
@@ -245,7 +280,7 @@ export function SignupSuccessTransition({
                   transition={{ duration: 0.28 }}
                   className="flex items-start gap-4"
                 >
-                  <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-marketing-accent/15 text-marketing-accent">
+                  <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-primary/10 text-primary dark:bg-accent/15 dark:text-accent">
                     <BenefitIcon className="h-5 w-5" />
                   </div>
                   <div>
@@ -253,7 +288,7 @@ export function SignupSuccessTransition({
                       {benefit.title}
                     </h2>
                     <p
-                      className={`mt-1 text-sm leading-relaxed text-marketing-cream/55 ${typo.secondarySans}`}
+                      className={`mt-1 text-sm leading-relaxed text-muted-foreground ${typo.secondarySans}`}
                     >
                       {benefit.description}
                     </p>
@@ -265,10 +300,10 @@ export function SignupSuccessTransition({
                 {benefits.map((item, index) => (
                   <div
                     key={item.title}
-                    className="h-1 overflow-hidden rounded-full bg-marketing-cream/10"
+                    className="h-1 overflow-hidden rounded-full bg-muted"
                   >
                     <motion.div
-                      className="h-full origin-left rounded-full bg-marketing-accent"
+                      className="h-full origin-left rounded-full bg-primary dark:bg-accent"
                       animate={{ scaleX: index === benefitIndex ? 1 : 0 }}
                       transition={{ duration: reduceMotion ? 0 : 0.35 }}
                     />
@@ -287,14 +322,14 @@ export function SignupSuccessTransition({
                   type="button"
                   variant="outline"
                   onClick={onRetry}
-                  className="mt-3 border-marketing-cream/20 bg-transparent text-marketing-cream hover:bg-marketing-cream/10 hover:text-marketing-cream"
+                  className="mt-3 bg-transparent"
                 >
                   Try again
                 </Button>
               </div>
             ) : !isStudyPlanCompletion && isPaidJourney && isTakingLonger ? (
               <p
-                className={`mt-5 text-sm text-marketing-cream/50 ${typo.secondarySans}`}
+                className={`mt-5 text-sm text-muted-foreground ${typo.secondarySans}`}
                 role="status"
               >
                 Payment received — your subscription details are taking a little
@@ -302,7 +337,7 @@ export function SignupSuccessTransition({
               </p>
             ) : (
               <p
-                className={`mt-5 text-sm text-marketing-cream/40 ${typo.secondarySans}`}
+                className={`mt-5 text-sm text-muted-foreground ${typo.secondarySans}`}
                 role="status"
               >
                 {studyPlanStatus === "created"
@@ -326,7 +361,7 @@ export function SignupSuccessTransition({
           >
             <motion.div
               aria-hidden
-              className="absolute left-1/2 top-1/2 -z-10 h-32 w-32 -translate-x-1/2 -translate-y-1/2 rounded-full bg-marketing-primary"
+              className="absolute left-1/2 top-1/2 -z-10 h-32 w-32 -translate-x-1/2 -translate-y-1/2 rounded-full bg-primary"
               initial={{ scale: 0, opacity: 0 }}
               animate={
                 reduceMotion
@@ -348,7 +383,7 @@ export function SignupSuccessTransition({
                 type: "spring",
                 bounce: 0.45,
               }}
-              className="flex h-24 w-24 items-center justify-center rounded-full bg-marketing-accent text-marketing-charcoal shadow-[0_0_70px_rgba(146,185,198,0.45)]"
+              className="flex h-24 w-24 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-[0_0_70px_rgba(146,185,198,0.45)] dark:bg-accent dark:text-primary-foreground"
             >
               <Check className="h-11 w-11 stroke-[2.5]" aria-hidden />
             </motion.div>
@@ -360,7 +395,7 @@ export function SignupSuccessTransition({
               className="mt-8"
             >
               <p
-                className={`text-xs font-bold uppercase tracking-[0.24em] text-marketing-accent ${typo.dataMono}`}
+                className={`text-xs font-bold uppercase tracking-[0.24em] text-primary dark:text-accent ${typo.dataMono}`}
               >
                 {isUpgrade ? "Upgrade complete" : "Thank you for joining us"}
               </p>
@@ -371,9 +406,7 @@ export function SignupSuccessTransition({
                   ? "Your new plan is ready"
                   : "Welcome to Alti UCAT prep"}
               </h1>
-              <p
-                className={`mt-4 text-marketing-cream/60 ${typo.secondarySans}`}
-              >
+              <p className={`mt-4 text-muted-foreground ${typo.secondarySans}`}>
                 {isUpgrade
                   ? "Your upgraded UCAT access is ready. Taking you back into the app…"
                   : "Your UCAT workspace is ready. Opening your dashboard…"}

@@ -106,6 +106,16 @@ type SessionStudentRow = {
   rescheduled_at: string | null;
 };
 
+type TrialSessionRow = {
+  id: string;
+  start_at: string;
+  sessions_students: Array<{
+    id: string;
+    student_id: string;
+    student: { first_name: string | null; last_name: string | null } | null;
+  }>;
+};
+
 type InvoiceRow = {
   id: string;
   student_id: string;
@@ -974,17 +984,55 @@ async function fetchStudentSessionsForReport(
   });
 }
 
+async function fetchTrialSessionsForReport(
+  periodStart: Date,
+  periodEnd: Date
+): Promise<TrialSessionRow[]> {
+  const supabase = getSupabaseClient() as SupabaseClient<Database>;
+  const startIso = startOfDay(periodStart).toISOString();
+  const endIso = endOfDay(periodEnd).toISOString();
+
+  const { data, error } = await supabase
+    .from('sessions')
+    .select(
+      `
+      id,
+      start_at,
+      sessions_students!inner(
+        id,
+        student_id,
+        student:students(first_name, last_name)
+      )
+    `
+    )
+    .gte('start_at', startIso)
+    .lte('start_at', endIso)
+    .eq('sessions_students.was_trial', true)
+    .order('start_at', { ascending: true });
+
+  if (error) throw error;
+  return (data ?? []) as TrialSessionRow[];
+}
+
 export async function fetchStudentStatsReportData(
   periodStart: Date,
   periodEnd: Date
 ): Promise<StudentStatsReportData> {
   const days = eachDayOfInterval({ start: periodStart, end: periodEnd });
-  const [students, classes, sessionsWithStudents, classEnrollments, sessionStudents] = await Promise.all([
+  const [
+    students,
+    classes,
+    sessionsWithStudents,
+    classEnrollments,
+    sessionStudents,
+    trialSessions,
+  ] = await Promise.all([
     fetchStudentsForReport(),
     fetchClassesForReport(),
     fetchSessionsWithStudentsForReport(periodStart, periodEnd),
     fetchClassEnrollmentsForReport(periodStart, periodEnd),
     fetchStudentSessionsForReport(periodStart, periodEnd),
+    fetchTrialSessionsForReport(periodStart, periodEnd),
   ]);
 
   // Active students
@@ -1055,10 +1103,44 @@ export async function fetchStudentStatsReportData(
   const enrolmentsByDay = buildEmptySeries(days);
   const unenrolmentsByDay = buildEmptySeries(days);
   const absencesByDay = buildEmptySeries(days);
+  const trialSessionsByDay = buildEmptySeries(days);
 
   const indexByDate = new Map<string, number>();
   enrolmentsByDay.forEach((point, index) => {
     indexByDate.set(point.date, index);
+  });
+
+  trialSessions.forEach((session) => {
+    const dayStr = toDateOnlyString(new Date(session.start_at));
+    const index = indexByDate.get(dayStr);
+    if (index === undefined) return;
+
+    session.sessions_students.forEach((sessionStudent) => {
+      const studentName =
+        sessionStudent.student?.first_name || sessionStudent.student?.last_name
+          ? `${sessionStudent.student?.first_name ?? ''} ${
+              sessionStudent.student?.last_name ?? ''
+            }`.trim()
+          : sessionStudent.student_id;
+      const point = trialSessionsByDay[index];
+      point.count += 1;
+      point.entities = [
+        ...point.entities,
+        {
+          id: sessionStudent.id,
+          name: studentName,
+          link: {
+            kind: 'session',
+            sessionId: session.id,
+            studentId: sessionStudent.student_id,
+          },
+          meta: {
+            student: studentName,
+            sessionDate: formatMetaDate(session.start_at),
+          },
+        },
+      ];
+    });
   });
 
   // Enrolments / unenrolments
@@ -1218,6 +1300,7 @@ export async function fetchStudentStatsReportData(
     enrolmentsByDay,
     unenrolmentsByDay,
     absencesByDay,
+    trialSessionsByDay,
   };
 }
 

@@ -50,6 +50,8 @@ function plan(tasks: StudyPlanTask[]): StudyPlanResponse {
   return {
     profile: {
       id: "profile-1",
+      studyPlanEnabled: true,
+      studySuggestionsEnabled: true,
       targetScore: 2100,
       testYear: 2026,
       testDate: "2026-09-15",
@@ -61,6 +63,7 @@ function plan(tasks: StudyPlanTask[]): StudyPlanResponse {
     },
     generation: null,
     tasks,
+    nextSteps: [],
     today: "2026-07-15",
     todayTasks: tasks.filter((entry) => entry.scheduledDate === "2026-07-15"),
     completion: { completed: 0, scheduledThroughToday: 0, percent: 0 },
@@ -191,7 +194,7 @@ describe("dashboard next action", () => {
     expect(result.kind === "task" && result.fromEarlierStudyDay).toBe(true);
   });
 
-  it("uses the sampler as the next activation milestone before plan setup", () => {
+  it("respects a deliberate sampler skip and moves on to goal setup", () => {
     const result = resolveDashboardNextAction({
       now,
       sessions: [],
@@ -200,7 +203,7 @@ describe("dashboard next action", () => {
       samplerDecided: true,
       samplerCompleted: false,
     });
-    expect(result).toEqual({ kind: "sampler" });
+    expect(result).toEqual({ kind: "plan_setup" });
   });
 
   it("celebrates completed work and identifies the next study day", () => {

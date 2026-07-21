@@ -78,7 +78,7 @@ const SCENARIOS: PreviewScenario[] = [
   {
     id: "baseline",
     label: "Building baseline",
-    description: "A plan exists, but only one cognitive section is ready.",
+    description: "A plan exists, but only one of Sections 1–3 is ready.",
     planTier: "free",
     targetScore: 2350,
     testDate: "exact",
@@ -364,6 +364,8 @@ function makePlan(
   return {
     profile: {
       id: "preview-profile",
+      studyPlanEnabled: true,
+      studySuggestionsEnabled: true,
       targetScore: scenario.targetScore,
       testYear: Number((testDate ?? addDays(today, 365)).slice(0, 4)),
       testDate,
@@ -391,6 +393,7 @@ function makePlan(
       sectionTargets: { vr: 760, dm: 760, qr: 780 },
     },
     tasks,
+    nextSteps: [],
     today,
     todayTasks: scenario.action === "caught_up" ? [] : [tasks[0]!],
     completion: { completed: 1, scheduledThroughToday: 2, percent: 50 },

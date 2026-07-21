@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { UCAT_SCORING_MODEL } from "@altitutor/ucat-marking";
 import {
   completeStudentSetAttempt,
   type FinalQuestionAttemptInput,
@@ -6,6 +7,7 @@ import {
 import type { ExamAttemptKind } from "@/lib/ucat/exam-attempt/types";
 import type { ExamEngineSnapshot } from "@/lib/ucat/exam-attempt/types";
 import { maybeGrantPracticeDayDiscount } from "@/lib/ucat/practice-day-discount";
+import { completeStudentPracticeSession } from "@/lib/ucat/practice-sessions/complete-student-practice-session";
 
 type AdminClient = SupabaseClient;
 
@@ -87,7 +89,7 @@ async function completeStudentMockAttempt(
   admin: AdminClient,
   studentId: string,
   attemptId: string,
-  finalAnswers?: FinalExamQuestionAttemptInput[],
+  finalAnswers: FinalExamQuestionAttemptInput[],
   options: { grantDiscount?: boolean } = {},
 ): Promise<{
   earnedDiscount: boolean;
@@ -136,7 +138,7 @@ async function completeStudentMockAttempt(
   }
 
   const answersByQuestionSetId = new Map<string, FinalQuestionAttemptInput[]>();
-  for (const answer of finalAnswers ?? []) {
+  for (const answer of finalAnswers) {
     if (!answer.questionSetId) continue;
     const list = answersByQuestionSetId.get(answer.questionSetId) ?? [];
     list.push({
@@ -239,6 +241,9 @@ async function completeStudentMockAttempt(
     (sum, a) => sum + (a.scaled_score ?? 0),
     0,
   );
+  const hasCompleteScaledScore =
+    scoredAttempts.length > 0 &&
+    scoredAttempts.every((attempt) => attempt.scaled_score != null);
   const timeTaken = attempts.reduce(
     (sum, a) => sum + (a.time_taken_seconds ?? 0),
     0,
@@ -262,7 +267,12 @@ async function completeStudentMockAttempt(
       completed_at: now.toISOString(),
       score_points: totalPoints > 0 ? scorePoints : null,
       total_points: totalPoints > 0 ? totalPoints : null,
-      scaled_score: totalPoints > 0 ? scaledScore : null,
+      scaled_score:
+        totalPoints > 0 && hasCompleteScaledScore ? scaledScore : null,
+      scoring_model_version:
+        totalPoints > 0 && hasCompleteScaledScore
+          ? UCAT_SCORING_MODEL.version
+          : null,
       time_taken: timeTaken > 0 ? timeTaken : null,
       mock_time_limit_seconds:
         mockTimeLimitSeconds > 0 ? mockTimeLimitSeconds : null,
@@ -308,89 +318,6 @@ async function completeStudentMockAttempt(
   return { ...discount, newlyCompleted: true };
 }
 
-async function completeStudentPracticeSession(
-  admin: AdminClient,
-  studentId: string,
-  sessionId: string,
-): Promise<boolean> {
-  const { data: session, error: sessionError } = await admin
-    .from("student_practice_sessions")
-    .select(
-      "id, completed_at, discarded_at, expired_at, score_points, total_points, question_count, stems_snapshot",
-    )
-    .eq("id", sessionId)
-    .eq("student_id", studentId)
-    .maybeSingle();
-
-  if (sessionError) throw new Error(sessionError.message);
-  if (!session) throw new Error("Practice session not found");
-  if (session.completed_at) return false;
-  if (session.discarded_at || session.expired_at) {
-    throw new Error("Attempt is no longer active");
-  }
-
-  const { data: attempts } = await admin
-    .from("student_question_attempts")
-    .select("id, question_id, student_id, score")
-    .eq("student_practice_session_id", sessionId)
-    .eq("student_id", studentId);
-
-  if (attempts && attempts.length > 0) {
-    const updates = attempts.map((qa) => ({
-      id: qa.id,
-      question_id: qa.question_id,
-      student_id: qa.student_id,
-      score: Number(qa.score ?? 0),
-      is_submitted: true,
-    }));
-
-    const { error: updateQuestionsError } = await admin
-      .from("student_question_attempts")
-      .upsert(updates, { onConflict: "id" });
-
-    if (updateQuestionsError) throw new Error(updateQuestionsError.message);
-  }
-
-  const scorePoints =
-    session.score_points ??
-    (attempts ?? []).reduce((sum, row) => sum + Number(row.score ?? 0), 0);
-  const questionCount = session.question_count ?? (attempts ?? []).length;
-
-  const { data: updatedSession, error: updateSessionError } = await admin
-    .from("student_practice_sessions")
-    .update({
-      completed_at: new Date().toISOString(),
-      score_points: scorePoints,
-      total_points: session.total_points ?? scorePoints,
-      question_count: questionCount,
-      stems_snapshot: session.stems_snapshot,
-      prefetched_stem_snapshot: null,
-      engine_snapshot: null,
-      current_segment_ends_at: null,
-    })
-    .eq("id", sessionId)
-    .eq("student_id", studentId)
-    .is("completed_at", null)
-    .is("discarded_at", null)
-    .is("expired_at", null)
-    .select("id")
-    .maybeSingle();
-
-  if (updateSessionError) throw new Error(updateSessionError.message);
-  if (!updatedSession) {
-    const { data: terminal, error: terminalError } = await admin
-      .from("student_practice_sessions")
-      .select("completed_at")
-      .eq("id", sessionId)
-      .eq("student_id", studentId)
-      .maybeSingle();
-    if (terminalError) throw new Error(terminalError.message);
-    if (terminal?.completed_at) return false;
-    throw new Error("Attempt is no longer active");
-  }
-  return true;
-}
-
 export async function finalizeExamAttemptOnServer(
   admin: AdminClient,
   studentId: string,
@@ -406,6 +333,9 @@ export async function finalizeExamAttemptOnServer(
 }> {
   switch (kind) {
     case "set": {
+      if (!finalAnswers) {
+        throw new Error("Set completion requires a final answer ledger");
+      }
       const result = await completeStudentSetAttempt(
         admin,
         studentId,
@@ -416,6 +346,9 @@ export async function finalizeExamAttemptOnServer(
       return { success: true, ...result };
     }
     case "mock": {
+      if (!finalAnswers) {
+        throw new Error("Mock completion requires a final answer ledger");
+      }
       const result = await completeStudentMockAttempt(
         admin,
         studentId,
@@ -425,15 +358,21 @@ export async function finalizeExamAttemptOnServer(
       );
       return { success: true, ...result };
     }
-    case "practice":
+    case "practice": {
+      if (!finalAnswers) {
+        throw new Error("Practice completion requires a final answer ledger");
+      }
+      const result = await completeStudentPracticeSession(
+        admin,
+        studentId,
+        attemptId,
+        finalAnswers,
+      );
       return {
         success: true,
-        newlyCompleted: await completeStudentPracticeSession(
-          admin,
-          studentId,
-          attemptId,
-        ),
+        newlyCompleted: result.newlyCompleted,
       };
+    }
     default: {
       const _exhaustive: never = kind;
       return _exhaustive;

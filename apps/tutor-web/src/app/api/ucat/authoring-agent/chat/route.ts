@@ -48,6 +48,10 @@ const requestSchema = z.object({
       src: z.string().nullable().optional(),
       fileId: z.string().nullable().optional(),
       location: z.string().nullable().optional(),
+      visualType: z.string().nullable().optional(),
+      visualSpec: jsonSchema.nullable().optional(),
+      visualTitle: z.string().nullable().optional(),
+      visualAltText: z.string().nullable().optional(),
     })
     .nullable()
     .optional(),
@@ -87,6 +91,8 @@ const TOOL_CATALOG: Record<string, string[]> = {
     'replaceImageFromPrompt({target:"stem"|"question"|"explanation"|"answerOption", prompt, alt?})',
     'insertImage({target:"stem"|"question"|"explanation"|"answerOption", prompt, alt?})',
     'replaceVisualSpec({target:"stem"|"question"|"explanation"|"answerOption", visualType, spec, altText?, title?, mode?:"replace"|"append"})',
+    'reviseSelectedImage({instructions})',
+    'previewSelectedImageConversion({visualType:"venn_diagram"|"set_diagram"|"vega_lite_chart", spec, altText?, title?})',
   ],
   learning_module_lesson: [
     'updateLessonMetadata({title?, description?, sectionId?, isPrivate?})',
@@ -133,6 +139,7 @@ Call at most one deletion tool in a step so the tutor can approve it clearly.
 For requests about an existing visual, diagram, image, labels overlapping, lines overlapping, unreadable map, Venn diagram, chart, or "regenerate the image", call a visual/image tool. Do not answer by rewriting the content as prose or a markdown table.
 Prefer replaceVisualSpec for examinable UCAT charts, Venn/set diagrams, maps, labels, numbers, or relationships, because deterministic visuals keep the data auditable. Use target:"stem" unless the tutor clearly refers to a question, explanation, or answer option visual.
 If the tutor explicitly asks for a photographic/raster/generated image rather than an examinable deterministic diagram, use insertImage/replaceImageFromPrompt instead.
+When selectedImage is present, image changes must target that exact image. Use reviseSelectedImage for a generative revision and previewSelectedImageConversion for converting a legacy SVG into an editable deterministic visual. Both tools return a preview and must not change the draft until the tutor accepts it. Do not use replaceImageFromPrompt or replaceVisualSpec for a selected-image revision or conversion.
 Use simple text fields for prose; the client converts text into rich editor documents.
 If prose needs a table, a normal markdown pipe table is acceptable; the client converts it into a rich editor table.
 When adding multiple visuals to the same target, set mode:"append" after the first visual.
@@ -182,11 +189,22 @@ function buildAgentUserPrompt(
   lastUserMessage: z.infer<typeof chatMessageSchema>,
   repairContext?: { reason: string; previousContent?: string | null }
 ) {
+  const selectedImage = body.selectedImage
+    ? {
+        ...body.selectedImage,
+        ...(body.selectedImage.src?.startsWith('data:image/svg+xml')
+          ? {
+              src: 'Inline SVG (decoded markup included separately).',
+              svgMarkup: decodeInlineSvg(body.selectedImage.src),
+            }
+          : {}),
+      }
+    : null
   return JSON.stringify({
     currentRequest: lastUserMessage.content,
     scope: body.scope,
     scopeLabel: body.scopeLabel,
-    selectedImage: body.selectedImage ?? null,
+    selectedImage,
     recentMessages: body.messages.slice(-14).map((message) => ({
       role: message.role,
       content: message.content,
@@ -210,6 +228,21 @@ function buildAgentUserPrompt(
         }
       : {}),
   })
+}
+
+function decodeInlineSvg(src: string): string {
+  const comma = src.indexOf(',')
+  if (comma < 0) return ''
+  const metadata = src.slice(0, comma)
+  const payload = src.slice(comma + 1)
+  try {
+    const decoded = metadata.includes(';base64')
+      ? Buffer.from(payload, 'base64').toString('utf8')
+      : decodeURIComponent(payload)
+    return decoded.slice(0, 20_000)
+  } catch {
+    return payload.slice(0, 20_000)
+  }
 }
 
 function isPlanRepairableError(error: unknown): boolean {

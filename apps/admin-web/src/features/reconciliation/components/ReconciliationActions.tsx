@@ -8,7 +8,6 @@ import { useChatStore } from '@/features/messages/state/chatStore';
 import type { AggregatedConversation } from '@/features/messages/types';
 import { ensureConversationForRelated } from '@/features/messages/api/queries';
 import { formatContactName } from '@/features/messages/utils/formatContactName';
-import { useDeleteMessage } from '@/features/messages/api/mutations';
 import { FileText, MessageCircle, CreditCard, Plus, Trash2, User } from 'lucide-react';
 import { getErrorMessage } from '@/shared/utils';
 import { useToast } from '@altitutor/ui';
@@ -33,7 +32,6 @@ import type {
   UnloggedSession,
   UnassignedClass,
   UnassignedTask,
-  FailedDeliveryMessage,
   StudentWithoutClasses,
   StudentWithoutPaymentMethod,
   TrialStudentNotSignedUp,
@@ -125,7 +123,6 @@ interface ReconciliationActionsProps {
     | UnloggedSession
     | UnassignedClass
     | UnassignedTask
-    | FailedDeliveryMessage
     | StudentWithoutClasses
     | StudentWithoutPaymentMethod
     | TrialStudentNotSignedUp
@@ -140,7 +137,6 @@ export function ReconciliationActions({ type, item }: ReconciliationActionsProps
   const [isLoading, setIsLoading] = useState(false);
   const queryClient = useQueryClient();
   const { toast } = useToast();
-  const deleteMessageMutation = useDeleteMessage();
 
   const handleMessageStudent = async (studentId: string) => {
     setIsLoading(true);
@@ -615,7 +611,7 @@ export function ReconciliationActions({ type, item }: ReconciliationActionsProps
     }
   };
 
-  const issueButton = (type === 'failed_delivery_messages' || type === 'reconciliation_contact_messages') ? null : (
+  const issueButton = type === 'reconciliation_contact_messages' ? null : (
     matchedIssues.length === 0 ? (
       <Button
         variant="outline"
@@ -759,43 +755,6 @@ export function ReconciliationActions({ type, item }: ReconciliationActionsProps
           Assign Staff
         </Button>
         {issueButton}
-      </div>
-    );
-  } else if (type === 'failed_delivery_messages') {
-    const message = item as FailedDeliveryMessage;
-
-    const handleDeleteMessage = async () => {
-      if (!confirm('Are you sure you want to delete this failed message? This action cannot be undone.')) {
-        return;
-      }
-
-      try {
-        await deleteMessageMutation.mutateAsync(message.message_id);
-        toast({
-          title: 'Success',
-          description: 'Message deleted successfully',
-        });
-      } catch (error: unknown) {
-        const errorMessage = getErrorMessage(error);
-        toast({
-          title: 'Error',
-          description: errorMessage || 'Failed to delete message',
-          variant: 'destructive',
-        });
-      }
-    };
-
-    content = (
-      <div className="flex flex-nowrap gap-2 items-center">
-        <Button
-          variant="destructive"
-          size="sm"
-          onClick={handleDeleteMessage}
-          disabled={isLoading || deleteMessageMutation.isPending}
-        >
-          <Trash2 className="h-4 w-4 mr-1" />
-          {deleteMessageMutation.isPending ? 'Deleting...' : 'Delete'}
-        </Button>
       </div>
     );
   } else if (type === 'students_without_payment_method') {

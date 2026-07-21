@@ -13,6 +13,7 @@ import {
   DialogTitle,
 } from '@altitutor/ui'
 import { UcatRichTextToolbar } from '@/features/ucat/shared/components/UcatRichTextToolbar'
+import { UcatSelectedImageMenu } from '@/features/ucat/shared/components/UcatSelectedImageMenu'
 import { X } from 'lucide-react'
 import {
   ExpandButton,
@@ -28,6 +29,7 @@ import {
   tutorDialogFooterStrip,
   tutorDialogHeaderStrip,
 } from '@/shared/lib/tutor-visual'
+import type { SelectedVisualImage } from '@/features/ucat/shared/lib/selected-visual-image'
 
 export function UcatDialogShell({
   open,
@@ -47,6 +49,8 @@ export function UcatDialogShell({
   defaultExpanded = false,
   mobileFullscreen = false,
   richTextToolbarEditor = null,
+  onEditSelectedVisual,
+  onUseSelectedImageWithAi,
 }: {
   open: boolean
   onClose: () => void
@@ -68,6 +72,8 @@ export function UcatDialogShell({
   mobileFullscreen?: boolean
   /** When set, renders the rich-text toolbar inline in the dialog footer beside action buttons. */
   richTextToolbarEditor?: Editor | null
+  onEditSelectedVisual?: (image: SelectedVisualImage, editor: Editor) => void
+  onUseSelectedImageWithAi?: (image: SelectedVisualImage, editor: Editor) => void
 }) {
   const [expanded, setExpanded] = useState(defaultExpanded)
 
@@ -92,6 +98,11 @@ export function UcatDialogShell({
           expandedContentClass,
         )}
       >
+        <UcatSelectedImageMenu
+          editor={richTextToolbarEditor}
+          onEditVisual={onEditSelectedVisual}
+          onUseImageWithAi={onUseSelectedImageWithAi}
+        />
         <DialogHeader className={cn('flex-shrink-0 px-6 py-4', tutorDialogHeaderStrip)}>
           <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
             <div className="flex flex-1 items-center gap-3">
@@ -133,7 +144,9 @@ export function UcatDialogShell({
           <div className="flex min-w-0 flex-1 items-center gap-3">
             {richTextToolbarEditor ? (
               <div className="min-w-0 flex-1 overflow-x-auto" data-rich-text-toolbar>
-                <UcatRichTextToolbar editor={richTextToolbarEditor} />
+                <UcatRichTextToolbar
+                  editor={richTextToolbarEditor}
+                />
               </div>
             ) : null}
             <div className={cn('flex shrink-0 items-center gap-2', !richTextToolbarEditor && 'ml-auto')}>

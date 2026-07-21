@@ -4,8 +4,9 @@ export {
   type SituationalJudgementMarkingOutcome,
 } from './situational-judgement'
 export {
-  linearScaledScore,
-  scaleTo300_900,
+  estimateUcatSectionScore,
+  resolveSingleUcatScoringSection,
+  resolveUcatScoringSection,
 } from './scaled-score'
 export {
   SITUATIONAL_JUDGEMENT_SECTION_NAME,
@@ -15,12 +16,13 @@ export {
   SCALED_RANGE,
   SCALED_ROUND_TO,
   SYLLOGISM_POINTS,
+  UCAT_SCORING_MODEL,
 } from './config'
 export type {
   Attempt,
   QuestionMeta,
   RawScoreResult,
-  ScaledScoreOptions,
-  ScaledScoreStrategy,
+  UcatScoringSection,
+  UcatSectionScoreEstimate,
   UcatQuestionType,
 } from './types'

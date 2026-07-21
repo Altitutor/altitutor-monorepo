@@ -2,6 +2,7 @@ import type {
   SkillTrainerAttemptState,
   SubmitActionPayload,
 } from "@/features/skill-trainer/types/attempt";
+import { isUcatSkillTrainerKey, trainerKeyToSlug } from "@altitutor/shared";
 
 export type SkillTrainerCatalogRow = {
   id: string;
@@ -124,8 +125,11 @@ export const skillTrainerApi = {
     trainerKey: string,
     window: "week" | "all_time" | "my_scores",
   ): Promise<LeaderboardEntry[]> {
+    if (!isUcatSkillTrainerKey(trainerKey)) {
+      throw new Error("Invalid skill trainer");
+    }
     const res = await fetch(
-      `/api/ucat/skill-trainers/${encodeURIComponent(trainerKey)}/leaderboard?window=${window}`,
+      `/api/ucat/skill-trainers/${trainerKeyToSlug(trainerKey)}/leaderboard?window=${window}`,
     );
     if (!res.ok) throw new Error("Failed to load leaderboard");
     const json = (await res.json()) as { entries: LeaderboardEntry[] };

@@ -20,6 +20,8 @@ type LatestForm = {
   form_versions: { id: string; blocks: unknown; thank_you_message: string; version_number: number } | null;
 };
 
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
 function asBlocks(value: unknown): FormBlock[] {
   return Array.isArray(value) ? value as FormBlock[] : [];
 }
@@ -59,10 +61,14 @@ export async function POST(request: Request) {
     respondentType?: RespondentType;
     respondentId?: string;
     sessionId?: string | null;
+    idempotencyKey?: string;
     answers?: unknown;
   };
   if (!body.formId || !body.respondentId || !['student', 'parent', 'staff'].includes(body.respondentType ?? '')) {
     return NextResponse.json({ error: 'Form and respondent are required.' }, { status: 400 });
+  }
+  if (!body.idempotencyKey || !UUID_PATTERN.test(body.idempotencyKey)) {
+    return NextResponse.json({ error: 'A valid idempotency key is required.' }, { status: 400 });
   }
   const respondentType = body.respondentType!;
   const table = respondentType === 'student' ? 'students' : respondentType === 'parent' ? 'parents' : 'staff';
@@ -119,10 +125,32 @@ export async function POST(request: Request) {
     subject_parent_id: respondentType === 'parent' ? body.respondentId : null,
     subject_staff_id: respondentType === 'staff' ? body.respondentId : null,
     recorded_by_staff_id: auth.staffId,
+    idempotency_key: body.idempotencyKey,
     response_json: { answers } as Json,
   };
   const { data: response, error: responseError } = await auth.admin.from('form_responses').insert(insert).select('id').single();
-  if (responseError) return captureApiErrorResponse(responseError, "/api/forms/manual-responses", NextResponse.json({ error: responseError.message }, { status: 500 }));
+  if (responseError) {
+    if (responseError.code === '23505') {
+      const { data: existingResponse, error: existingError } = await auth.admin.from('form_responses')
+        .select('id, form_id, session_id, respondent_type, respondent_student_id, respondent_parent_id, respondent_staff_id, recorded_by_staff_id')
+        .eq('idempotency_key', body.idempotencyKey)
+        .maybeSingle();
+      if (existingError) {
+        return captureApiErrorResponse(existingError, "/api/forms/manual-responses", NextResponse.json({ error: existingError.message }, { status: 500 }));
+      }
+      const sameRequest = existingResponse
+        && existingResponse.form_id === form.id
+        && existingResponse.session_id === (body.sessionId ?? null)
+        && existingResponse.respondent_type === respondentType
+        && existingResponse.respondent_student_id === (respondentType === 'student' ? body.respondentId : null)
+        && existingResponse.respondent_parent_id === (respondentType === 'parent' ? body.respondentId : null)
+        && existingResponse.respondent_staff_id === (respondentType === 'staff' ? body.respondentId : null)
+        && existingResponse.recorded_by_staff_id === auth.staffId;
+      if (sameRequest) return NextResponse.json({ responseId: existingResponse.id });
+      return NextResponse.json({ error: 'That idempotency key has already been used.' }, { status: 409 });
+    }
+    return captureApiErrorResponse(responseError, "/api/forms/manual-responses", NextResponse.json({ error: responseError.message }, { status: 500 }));
+  }
 
   const normalized = normalizeFormAnswers(blocks, answers).map((answer) => ({
     form_response_id: response.id,

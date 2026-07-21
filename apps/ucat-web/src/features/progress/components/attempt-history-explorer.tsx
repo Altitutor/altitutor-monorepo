@@ -4,12 +4,12 @@ import { useMemo, useState } from "react";
 import { addDays, format } from "date-fns";
 import Link from "next/link";
 import {
-  Button,
   Dialog,
   DialogContent,
   DialogDescription,
   DialogHeader,
   DialogTitle,
+  SmartDatePickerField,
   Table,
   TableBody,
   TableCell,
@@ -23,9 +23,15 @@ import type {
   ProgressAttemptSource,
 } from "@/app/api/ucat/progress/attempts/route";
 import type { DailyProgressSeriesPoint } from "@/app/api/ucat/progress/series/route";
+import { Button } from "@/components/ui/button";
 import { ProgressGraph, type GraphDataType } from "./progress-graph";
+import { AttemptMetricColumnHeader } from "./attempt-metric-column-header";
 import { ProgressTablePagination } from "./progress-table-pagination";
 import { UcatTableRowActionLink } from "./ucat-table-row-action-link";
+import {
+  UnreviewedAttemptDot,
+  UnreviewedAttemptTooltip,
+} from "./unreviewed-attempt-indicator";
 import { useProgressAttempts } from "../hooks/use-progress-attempts";
 import { useProgressSeries } from "../hooks/use-progress-series";
 import { buildDailyProgressGraphData } from "../lib/daily-progress-series";
@@ -33,14 +39,22 @@ import type { GraphDateRange } from "../lib/progress-mode";
 import { formatSpeedPercentAsMultiplier } from "../lib/format-speed-multiplier";
 import {
   formatAttemptTableMetricValue,
+  getAttemptTableMetricColumn,
   resolveAttemptTableMetric,
+  type AttemptTableMetric,
 } from "../lib/attempt-table-metric";
 import {
+  UCAT_CONTROL_PRESS,
+  UCAT_FOCUS_RING_INSET,
+  UCAT_FLOATING_GRAPH_CARD,
+  UCAT_NEUTRAL_ACTION_HOVER,
+  UCAT_PRESSABLE_SURFACE_HOVER,
   UCAT_TABLE_BODY_ROW,
   UCAT_TABLE_HEADER_CLASSNAME,
   UCAT_TABLE_HEADER_ROW,
   UCAT_TABLE_SHELL,
 } from "@/lib/ucat-surface-motion";
+import { cn } from "@/lib/utils";
 
 type AttemptHistoryExplorerProps = {
   source: ProgressAttemptSource;
@@ -52,14 +66,14 @@ type AttemptHistoryExplorerProps = {
   isMockContext?: boolean;
   yAxisMax?: number;
   previewData?: AttemptHistoryPreviewData;
+  emptyActionHref?: string;
+  emptyActionLabel?: string;
 };
 
 export type AttemptHistoryPreviewData = {
   series: DailyProgressSeriesPoint[];
   attempts: ProgressAttemptRow[];
 };
-
-const PAGE_SIZE_OPTIONS = [10, 20, 50];
 
 function attemptDate(attempt: ProgressAttemptRow): string | null {
   return attempt.completedAt ?? attempt.attemptedAt ?? null;
@@ -85,15 +99,11 @@ function attemptHref(attempt: ProgressAttemptRow, sectionNumber?: number) {
 
 function attemptMetricValue(
   attempt: ProgressAttemptRow,
-  metric: GraphDataType,
+  metric: AttemptTableMetric,
 ): string {
-  const resolved = resolveAttemptTableMetric(
-    metric,
-    attempt.source === "practice" ? "practice" : undefined,
-  );
   if (attempt.source === "practice") {
     return formatAttemptTableMetricValue(
-      resolved,
+      metric,
       {
         scorePoints: attempt.scorePoints,
         totalPoints: attempt.totalPoints,
@@ -104,13 +114,15 @@ function attemptMetricValue(
     );
   }
   return formatAttemptTableMetricValue(
-    resolved,
+    metric,
     {
       scaledScore: attempt.scaledScore,
       scaledScoreMax:
         attempt.source === "mock" ? attempt.scaledScoreMax : undefined,
       scorePoints: attempt.scorePoints,
       totalPoints: attempt.totalPoints,
+      rawScoreBreakdown:
+        attempt.source === "mock" ? attempt.rawScoreBreakdown : undefined,
       timeTakenSeconds: attempt.timeTakenSeconds,
       setTimeLimitSeconds: attempt.setTimeLimitSeconds,
       studentExamSpeed: attempt.studentExamSpeed,
@@ -118,6 +130,16 @@ function attemptMetricValue(
     attempt.source,
   );
 }
+
+const SET_TABLE_METRICS: { value: AttemptTableMetric; label: string }[] = [
+  { value: "raw_score", label: "Raw score" },
+  { value: "scaled_score", label: "Scaled score" },
+  { value: "time_taken", label: "Time taken" },
+  { value: "exam_speed", label: "Exam speed" },
+];
+
+const ATTEMPTS_DIALOG_PAGE_SIZE = 8;
+const RECENT_ATTEMPTS_LIMIT = 5;
 
 function filterPreviewAttempts(
   attempts: ProgressAttemptRow[],
@@ -155,16 +177,21 @@ export function AttemptHistoryExplorer({
   isMockContext = false,
   yAxisMax,
   previewData,
+  emptyActionHref,
+  emptyActionLabel,
 }: AttemptHistoryExplorerProps) {
   const [metric, setMetric] = useState<GraphDataType>(defaultMetric);
+  const [tableMetric, setTableMetric] = useState<AttemptTableMetric>(() =>
+    source === "practice" ? "raw_score" : "scaled_score",
+  );
   const [dateRange, setDateRange] = useState<GraphDateRange>("all");
   const [selectedRange, setSelectedRange] = useState<{
     start: string;
     end: string;
   } | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [dialogDate, setDialogDate] = useState<string | null>(null);
   const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(10);
   const seriesQuery = useProgressSeries(
     source,
     sectionNumber,
@@ -174,7 +201,7 @@ export function AttemptHistoryExplorer({
     source,
     sectionNumber,
     page: 1,
-    pageSize: 6,
+    pageSize: RECENT_ATTEMPTS_LIMIT,
     dateRange,
     date: selectedRange?.start,
     dateTo: selectedRange?.end,
@@ -184,8 +211,9 @@ export function AttemptHistoryExplorer({
     source,
     sectionNumber,
     page,
-    pageSize,
+    pageSize: ATTEMPTS_DIALOG_PAGE_SIZE,
     dateRange,
+    date: dialogDate ?? undefined,
     enabled: previewData == null && dialogOpen,
   });
   const previewRecentAttempts = useMemo(
@@ -197,8 +225,14 @@ export function AttemptHistoryExplorer({
   );
   const previewAllAttempts = useMemo(
     () =>
-      previewData ? filterPreviewAttempts(previewData.attempts, dateRange) : [],
-    [dateRange, previewData],
+      previewData
+        ? filterPreviewAttempts(
+            previewData.attempts,
+            dateRange,
+            dialogDate ? { start: dialogDate, end: dialogDate } : null,
+          )
+        : [],
+    [dateRange, dialogDate, previewData],
   );
   const graphData = useMemo(
     () =>
@@ -209,12 +243,22 @@ export function AttemptHistoryExplorer({
       ),
     [dateRange, metric, previewData?.series, seriesQuery.data?.points],
   );
+  const rawSeries = previewData?.series ?? seriesQuery.data?.points ?? [];
+  const hasAnyAttempts = rawSeries.some((point) => point.attemptCount > 0);
   const recentAttempts = previewData
-    ? previewRecentAttempts.slice(0, 6)
+    ? previewRecentAttempts.slice(0, RECENT_ATTEMPTS_LIMIT)
     : (recentQuery.data?.attempts ?? []);
   const allAttempts = previewData
-    ? previewAllAttempts.slice((page - 1) * pageSize, page * pageSize)
+    ? previewAllAttempts.slice(
+        (page - 1) * ATTEMPTS_DIALOG_PAGE_SIZE,
+        page * ATTEMPTS_DIALOG_PAGE_SIZE,
+      )
     : (allQuery.data?.attempts ?? []);
+  const recentTableMetric = resolveAttemptTableMetric(
+    metric,
+    source === "practice" ? "practice" : "set",
+  );
+  const tableMetricColumn = getAttemptTableMetricColumn(tableMetric, source);
   const handlePointSelect = (point: { date: string; label?: string }) => {
     const end = point.label
       ? format(addDays(new Date(`${point.date}T12:00:00`), 6), "yyyy-MM-dd")
@@ -257,6 +301,8 @@ export function AttemptHistoryExplorer({
           onPointSelect={handlePointSelect}
           trailingSpace
           className="pt-1"
+          emptyMessage={`${title} will appear here`}
+          emptyDescription="Complete an attempt to start building this graph."
         />
         <div className="sr-only" aria-label={`Selectable ${title} periods`}>
           {graphData
@@ -275,8 +321,13 @@ export function AttemptHistoryExplorer({
             ))}
         </div>
 
-        <aside className="mt-4 rounded-2xl border border-border/70 bg-card/94 p-5 shadow-xl backdrop-blur-xl lg:absolute lg:right-0 lg:top-2 lg:mt-0 lg:w-[430px]">
-          <div className="flex items-start justify-between gap-3">
+        <aside
+          className={cn(
+            UCAT_FLOATING_GRAPH_CARD,
+            "mt-4 flex flex-col p-5 lg:absolute lg:right-0 lg:top-2 lg:mt-0 lg:w-[430px]",
+          )}
+        >
+          <div className="flex shrink-0 items-start justify-between gap-3">
             <div>
               <p className="text-xs font-semibold uppercase tracking-[0.13em] text-muted-foreground">
                 {selectedRange
@@ -312,11 +363,21 @@ export function AttemptHistoryExplorer({
             {recentAttempts.length > 0 ? (
               recentAttempts.map((attempt) => {
                 const date = attemptDate(attempt);
-                return (
+                const attemptLink = (
                   <Link
                     key={`${attempt.source}-${attempt.id}`}
                     href={attemptHref(attempt, sectionNumber)}
-                    className="group flex items-center gap-3 py-3 first:pt-0 last:pb-0"
+                    className={cn(
+                      "group flex items-center gap-3 rounded-xl px-2 py-2.5",
+                      UCAT_CONTROL_PRESS,
+                      UCAT_PRESSABLE_SURFACE_HOVER,
+                      UCAT_FOCUS_RING_INSET,
+                    )}
+                    aria-label={
+                      attempt.reviewCompletedAt == null
+                        ? `${attemptName(attempt)}. This attempt is unreviewed.`
+                        : undefined
+                    }
                   >
                     <span className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-muted text-muted-foreground">
                       <CalendarDays className="size-4" aria-hidden />
@@ -326,7 +387,7 @@ export function AttemptHistoryExplorer({
                         {attemptName(attempt)}
                       </span>
                       <span className="block text-xs text-muted-foreground">
-                        {attemptMetricValue(attempt, metric)}
+                        {attemptMetricValue(attempt, recentTableMetric)}
                         {date ? ` · ${format(new Date(date), "d MMM")}` : ""}
                       </span>
                     </span>
@@ -334,7 +395,19 @@ export function AttemptHistoryExplorer({
                       className="size-4 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5"
                       aria-hidden
                     />
+                    {attempt.reviewCompletedAt == null ? (
+                      <UnreviewedAttemptDot />
+                    ) : null}
                   </Link>
+                );
+                return attempt.reviewCompletedAt == null ? (
+                  <UnreviewedAttemptTooltip
+                    key={`${attempt.source}-${attempt.id}`}
+                  >
+                    {attemptLink}
+                  </UnreviewedAttemptTooltip>
+                ) : (
+                  attemptLink
                 );
               })
             ) : (
@@ -346,32 +419,63 @@ export function AttemptHistoryExplorer({
             )}
           </div>
 
-          <Button
-            type="button"
-            variant="ghost"
-            className="mt-4 w-full"
-            onClick={() => setDialogOpen(true)}
-          >
-            View all attempts
-          </Button>
+          {!hasAnyAttempts && emptyActionHref && emptyActionLabel ? (
+            <Button asChild className="mt-4 w-full shrink-0">
+              <Link href={emptyActionHref}>{emptyActionLabel}</Link>
+            </Button>
+          ) : (
+            <Button
+              type="button"
+              variant="ghost"
+              className={cn(UCAT_NEUTRAL_ACTION_HOVER, "mt-4 w-full shrink-0")}
+              onClick={() => setDialogOpen(true)}
+            >
+              View all attempts
+            </Button>
+          )}
         </aside>
       </div>
 
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="max-h-[90vh] w-[min(96vw,1200px)] max-w-none overflow-y-auto sm:max-w-6xl">
-          <DialogHeader>
+        <DialogContent className="!flex !h-[min(90dvh,760px)] w-[min(96vw,1200px)] max-w-none flex-col overflow-y-auto sm:!h-[min(90dvh,760px)] sm:max-w-6xl">
+          <DialogHeader className="shrink-0">
             <DialogTitle>All {title.toLowerCase()}</DialogTitle>
             <DialogDescription>
               Paginated history for the selected date range.
             </DialogDescription>
           </DialogHeader>
-          <div className={UCAT_TABLE_SHELL}>
+          <div className="w-full max-w-xs shrink-0">
+            <SmartDatePickerField
+              value={dialogDate}
+              onChange={(value) => {
+                setDialogDate(value);
+                setPage(1);
+              }}
+              placeholder="Filter by date"
+              modal
+              stopPropagation
+              maxDate={format(new Date(), "yyyy-MM-dd")}
+            />
+          </div>
+          <div className={cn(UCAT_TABLE_SHELL, "shrink-0")}>
             <Table>
-              <TableHeader className={UCAT_TABLE_HEADER_CLASSNAME}>
+              <TableHeader
+                className={cn(UCAT_TABLE_HEADER_CLASSNAME, "bg-card")}
+              >
                 <TableRow className={UCAT_TABLE_HEADER_ROW}>
                   <TableHead>Date</TableHead>
                   <TableHead>Attempt</TableHead>
-                  <TableHead>Result</TableHead>
+                  {source === "set" ? (
+                    <AttemptMetricColumnHeader
+                      options={SET_TABLE_METRICS}
+                      value={tableMetric}
+                      onValueChange={setTableMetric}
+                      label={tableMetricColumn.label}
+                      tooltip={tableMetricColumn.tooltip}
+                    />
+                  ) : (
+                    <TableHead>Raw score</TableHead>
+                  )}
                   <TableHead>Actions</TableHead>
                 </TableRow>
               </TableHeader>
@@ -390,12 +494,13 @@ export function AttemptHistoryExplorer({
                         {attemptName(attempt)}
                       </TableCell>
                       <TableCell>
-                        {attemptMetricValue(attempt, metric)}
+                        {attemptMetricValue(attempt, tableMetric)}
                       </TableCell>
                       <TableCell>
                         <UcatTableRowActionLink
                           href={attemptHref(attempt, sectionNumber)}
                           label="View attempt"
+                          unreviewed={attempt.reviewCompletedAt == null}
                         />
                       </TableCell>
                     </TableRow>
@@ -414,22 +519,20 @@ export function AttemptHistoryExplorer({
               </TableBody>
             </Table>
           </div>
-          <ProgressTablePagination
-            total={
-              previewData
-                ? previewAllAttempts.length
-                : (allQuery.data?.total ?? 0)
-            }
-            page={page}
-            pageSize={pageSize}
-            pageSizeOptions={PAGE_SIZE_OPTIONS}
-            onPageChange={setPage}
-            onPageSizeChange={(size) => {
-              setPageSize(size);
-              setPage(1);
-            }}
-            isFetching={allQuery.isFetching}
-          />
+          <div className="mt-auto shrink-0">
+            <ProgressTablePagination
+              total={
+                previewData
+                  ? previewAllAttempts.length
+                  : (allQuery.data?.total ?? 0)
+              }
+              page={page}
+              pageSize={ATTEMPTS_DIALOG_PAGE_SIZE}
+              onPageChange={setPage}
+              showPageSizeSelector={false}
+              isFetching={allQuery.isFetching}
+            />
+          </div>
         </DialogContent>
       </Dialog>
     </section>

@@ -9,6 +9,7 @@ import { useScoreProjection } from "@/features/score-projection/hooks/use-score-
 import type { SectionScoreProjection } from "@/features/score-projection/types/score-projection";
 import { useStudyPlan } from "@/features/study-plan/hooks/use-study-plan";
 import { todayIso } from "@/features/study-plan/lib/dates";
+import { allocateSectionTargets } from "@/features/study-plan/lib/section-targets";
 import { useProgressSeries } from "../hooks/use-progress-series";
 import { Card, CardContent } from "@altitutor/ui";
 import { UCAT_CARD_CHROME, UCAT_DIVIDER_TOP } from "@/lib/ucat-surface-motion";
@@ -30,6 +31,8 @@ import {
 import type { DailyProgressSeriesPoint } from "@/app/api/ucat/progress/series/route";
 import { formatSpeedPercentAsMultiplier } from "../lib/format-speed-multiplier";
 import { SegmentedControl } from "./segmented-control";
+import Link from "next/link";
+import { Button } from "@/components/ui/button";
 
 type SectionProgressPageProps = {
   sectionNumber: number;
@@ -129,6 +132,20 @@ export function SectionProgressPage({
     examSpeedTotals.count > 0
       ? examSpeedTotals.sum / examSpeedTotals.count
       : null;
+  const sectionTargets =
+    planQuery.data?.generation?.sectionTargets ??
+    (planQuery.data?.profile
+      ? allocateSectionTargets(
+          planQuery.data.profile.targetScore,
+          (projectionQuery.data?.sections ?? [])
+            .filter((item) => item.sectionNumber <= 3)
+            .sort((left, right) => left.sectionNumber - right.sectionNumber)
+            .map((item) => ({
+              sectionId: item.sectionId,
+              currentEstimate: item.currentEstimate,
+            })),
+        )
+      : {});
   return (
     <SectionProgressContent
       section={section}
@@ -143,9 +160,7 @@ export function SectionProgressPage({
       timedSetsCompleted={data.timedSetsCompleted}
       categoryProgress={categoryProgress}
       scoreProjection={sectionProjection}
-      targetScore={
-        planQuery.data?.generation?.sectionTargets[section.sectionId] ?? null
-      }
+      targetScore={sectionTargets[section.sectionId] ?? null}
       testDate={planQuery.data?.profile?.testDate ?? null}
       today={planQuery.data?.today ?? todayIso()}
       averageExamSpeed={averageExamSpeed}
@@ -228,7 +243,7 @@ export function SectionProgressContent({
   const insightTitle = weakestCategory
     ? `${weakestCategory.categoryName} is the clearest opportunity`
     : score == null
-      ? "Build a timed baseline for this section"
+      ? `Start ${section.sectionName} with a representative timed set`
       : projectedGain != null && projectedGain > 0
         ? `The current path adds about ${projectedGain} points`
         : "Keep the evidence representative";
@@ -240,7 +255,7 @@ export function SectionProgressContent({
             ? ` Your recent exam speed is ${formatSpeedPercentAsMultiplier(averageExamSpeed)}, so accuracy is the higher-priority constraint.`
             : ` Your recent exam speed is ${formatSpeedPercentAsMultiplier(averageExamSpeed)}, so timing and accuracy should improve together.`
       }`
-    : "Timed sets and mock sections will reveal which category and timing pattern is holding the estimate back.";
+    : "Choose a short timed set and work at your normal pace. Afterwards, review the first missed reasoning step before trying to get faster.";
   const resolvedTimingSeries =
     timingSeries ?? attemptHistoryPreviewData?.set?.series ?? [];
   const trajectoryToggle = (
@@ -264,8 +279,8 @@ export function SectionProgressContent({
           title={`${section.sectionName} progress`}
           description={
             targetScore == null
-              ? `Current estimate ${score ?? "—"}`
-              : `Current estimate ${score ?? "—"} · Target ${targetScore}`
+              ? `Current estimate ${score ?? "pending"}`
+              : `Current estimate ${score ?? "pending"} · Target ${targetScore}`
           }
           statusLabel={
             score == null
@@ -295,24 +310,34 @@ export function SectionProgressContent({
           scoreMaximum={900}
           insightTitle={insightTitle}
           insightBody={insightBody}
+          ratingTargetKey="section-score-trajectory"
+          ratingContextKey={`progress:section:${section.sectionId}`}
           headerControl={trajectoryToggle}
           insightMeta={
             <div className="space-y-2 text-sm">
               <div className="flex justify-between gap-4">
                 <span className="text-muted-foreground">Current estimate</span>
-                <span className="font-medium tabular-nums">{score ?? "—"}</span>
+                <span className="font-medium tabular-nums">
+                  {score ?? "Pending"}
+                </span>
               </div>
               <div className="flex justify-between gap-4">
                 <span className="text-muted-foreground">Target</span>
-                <span className="font-medium tabular-nums">
-                  {targetScore ?? "Not set"}
-                </span>
+                {targetScore == null ? (
+                  <Button asChild size="sm">
+                    <Link href="/ucat-goal/setup">Set target</Link>
+                  </Button>
+                ) : (
+                  <span className="font-medium tabular-nums">
+                    {targetScore}
+                  </span>
+                )}
               </div>
               <div className="flex justify-between gap-4">
                 <span className="text-muted-foreground">Gap</span>
                 <span className="font-medium tabular-nums">
                   {score == null || targetScore == null
-                    ? "—"
+                    ? "Pending"
                     : targetScore <= score
                       ? `${score - targetScore} ahead`
                       : `${targetScore - score} points`}
@@ -562,6 +587,8 @@ export function SectionProgressContent({
           defaultMetric="percentage"
           metricOptions={PRACTICE_METRICS}
           previewData={attemptHistoryPreviewData?.practice}
+          emptyActionHref="/practice"
+          emptyActionLabel="Go to practice"
         />
       </motion.div>
       <motion.div id="tour-section-set-attempts" variants={itemVariants}>
@@ -573,6 +600,8 @@ export function SectionProgressContent({
           defaultMetric="scaled_score"
           metricOptions={SET_AND_MOCK_METRICS}
           previewData={attemptHistoryPreviewData?.set}
+          emptyActionHref={`/sets/sections/${section.sectionNumber}`}
+          emptyActionLabel="Go to sets"
         />
       </motion.div>
     </motion.div>

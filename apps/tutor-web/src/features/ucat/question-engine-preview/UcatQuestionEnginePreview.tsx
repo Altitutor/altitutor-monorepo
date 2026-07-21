@@ -45,8 +45,14 @@ type PreviewShellProps = {
   preloadedQuestion?: Record<string, unknown> | null
   /** When true, shows MC/syllogism explanations like post-submit review. */
   showAnswerExplanations?: boolean
+  /** When true, marks the submitted and correct answers without embedding explanations. */
+  showAnswerResults?: boolean
   /** When false, disables interaction (view-only in bulk import). */
   interactive?: boolean
+  /** Student answer shown during read-only attempt review. */
+  selectedOptionId?: string | null
+  /** Student Yes/No answers shown during read-only syllogism review. */
+  syllogismSnapshot?: Record<string, boolean> | null
 }
 
 function wrapInteractive(children: ReactNode, interactive: boolean) {
@@ -115,12 +121,16 @@ function SyllogismPreviewBody({
   question,
   preloadedContent,
   showAnswerExplanations,
+  showAnswerResults,
   interactive = true,
+  syllogismSnapshot,
 }: {
   question: UcatEnginePreviewQuestion
   preloadedContent?: { stem?: Record<string, unknown> | null; question?: Record<string, unknown> | null } | null
   showAnswerExplanations?: boolean
+  showAnswerResults?: boolean
   interactive?: boolean
+  syllogismSnapshot?: Record<string, boolean> | null
 }) {
   const isTwoColumn = question.sectionDisplayColumns === 2
 
@@ -178,9 +188,19 @@ function SyllogismPreviewBody({
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start">
         <div className="flex-1 space-y-3">
           {question.options.map((option) => {
-            const choice = answers[option.id] ?? null
+            const savedAnswer = syllogismSnapshot?.[option.id]
+            const choice =
+              !interactive && savedAnswer != null
+                ? savedAnswer
+                  ? 'yes'
+                  : 'no'
+                : (answers[option.id] ?? null)
             const correctYes = Boolean(option.isAnswer)
-            const showCorrectAnswer = showAnswerExplanations && !interactive
+            const showReviewState = Boolean(
+              showAnswerExplanations || showAnswerResults
+            )
+            const answerIsCorrect =
+              choice != null && (choice === 'yes') === correctYes
             return (
               <div key={option.id} className="space-y-1">
                 <div className="flex flex-row items-stretch gap-4">
@@ -206,13 +226,15 @@ function SyllogismPreviewBody({
                         : undefined
                     }
                   >
-                    {showCorrectAnswer ? (
-                      <div className="flex h-9 w-20 items-center justify-center rounded border border-black bg-white text-[11pt] font-medium">
-                        {correctYes ? 'Yes' : 'No'}
-                      </div>
-                    ) : choice ? (
+                    {choice ? (
                       <div
-                        className="flex h-9 w-20 items-center justify-center rounded border border-black bg-white text-[11pt] font-medium"
+                        className={`flex h-9 w-20 items-center justify-center rounded border text-[11pt] font-medium ${
+                          showReviewState && !interactive
+                            ? answerIsCorrect
+                              ? 'border-emerald-600 bg-emerald-100 text-emerald-900'
+                              : 'border-red-600 bg-red-100 text-red-900'
+                            : 'border-black bg-white'
+                        }`}
                         draggable={interactive}
                         onDragStart={
                           interactive
@@ -231,6 +253,11 @@ function SyllogismPreviewBody({
                     )}
                   </div>
                 </div>
+                {showReviewState && !interactive && !answerIsCorrect ? (
+                  <div className="text-right text-[9pt] text-emerald-700">
+                    Correct answer: {correctYes ? 'Yes' : 'No'}
+                  </div>
+                ) : null}
                 {showAnswerExplanations &&
                 hasExplanationContent(option.answerExplanation, option.answerExplanationJson) ? (
                   <ExplanationRichBlock
@@ -348,12 +375,16 @@ function MultipleChoicePreviewBody({
   question,
   preloadedContent,
   showAnswerExplanations,
+  showAnswerResults,
   interactive = true,
+  selectedOptionId: savedOptionId,
 }: {
   question: UcatEnginePreviewQuestion
   preloadedContent?: { stem?: Record<string, unknown> | null; question?: Record<string, unknown> | null } | null
   showAnswerExplanations?: boolean
+  showAnswerResults?: boolean
   interactive?: boolean
+  selectedOptionId?: string | null
 }) {
   const radioName = useId()
   const [selectedOptionId, setSelectedOptionId] = useState<string | undefined>(undefined)
@@ -370,14 +401,29 @@ function MultipleChoicePreviewBody({
       <div className="space-y-2 pl-6">
         {question.options.map((option, index) => {
           const letter = String.fromCharCode(65 + index)
-          const reviewHighlight = Boolean(showAnswerExplanations && option.isAnswer)
-          const radioChecked = showAnswerExplanations
-            ? Boolean(option.isAnswer)
+          const showReviewState = Boolean(
+            showAnswerExplanations || showAnswerResults
+          )
+          const selectedInReview = showReviewState && savedOptionId === option.id
+          const reviewHighlight = Boolean(
+            showReviewState && option.isAnswer
+          )
+          const incorrectHighlight = Boolean(
+            selectedInReview && !option.isAnswer
+          )
+          const radioChecked = showReviewState
+            ? selectedInReview
             : selectedOptionId === option.id
           return (
             <div key={option.id} className="space-y-0.5">
               <div
-                className={`flex items-start gap-2 text-black ${reviewHighlight ? 'rounded bg-green-100 py-1 pl-1 pr-2' : ''}`}
+                className={`flex items-start gap-2 rounded text-black ${
+                  reviewHighlight
+                    ? 'bg-green-100 py-1 pl-1 pr-2'
+                    : incorrectHighlight
+                      ? 'bg-red-100 py-1 pl-1 pr-2'
+                      : ''
+                }`}
               >
                 <input
                   type="radio"
@@ -472,7 +518,10 @@ export function UcatQuestionEnginePreview({
   preloadedStem,
   preloadedQuestion,
   showAnswerExplanations = false,
+  showAnswerResults = false,
   interactive = true,
+  selectedOptionId,
+  syllogismSnapshot,
 }: PreviewShellProps) {
   const preloaded =
     preloadedStem != null || preloadedQuestion != null
@@ -485,7 +534,9 @@ export function UcatQuestionEnginePreview({
         question={question}
         preloadedContent={preloaded}
         showAnswerExplanations={showAnswerExplanations}
+        showAnswerResults={showAnswerResults}
         interactive={interactive}
+        syllogismSnapshot={syllogismSnapshot}
       />,
       interactive
     )
@@ -496,7 +547,9 @@ export function UcatQuestionEnginePreview({
       question={question}
       preloadedContent={preloaded}
       showAnswerExplanations={showAnswerExplanations}
+      showAnswerResults={showAnswerResults}
       interactive={interactive}
+      selectedOptionId={selectedOptionId}
     />,
     interactive
   )

@@ -215,6 +215,7 @@ export function UcatQuestionStemDetailPage({ stemId }: UcatQuestionStemDetailPag
           statusChangedByFirstName={initial?.status_changed_by_first_name ?? null}
           statusChangedByLastName={initial?.status_changed_by_last_name ?? null}
           statusChangedAt={initial?.status_changed_at ?? null}
+          aiReviewAvailable={status !== 'draft'}
         />
         <UcatRichTextFloatingToolbar editor={activeTextEditor} />
       </div>

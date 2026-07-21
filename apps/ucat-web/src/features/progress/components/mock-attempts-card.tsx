@@ -2,6 +2,7 @@
 
 import { useId, useMemo, useState } from "react";
 import { format } from "date-fns";
+import Link from "next/link";
 import {
   Card,
   CardContent,
@@ -21,7 +22,7 @@ import { ProgressGraph, type GraphDataType } from "./progress-graph";
 import {
   formatAttemptTableMetricValue,
   getAttemptTableMetricColumn,
-  resolveAttemptTableMetric,
+  type AttemptTableMetric,
 } from "../lib/attempt-table-metric";
 import type { GraphDateRange } from "../lib/progress-mode";
 import { ProgressClearFilterButton } from "./progress-clear-filter-button";
@@ -30,7 +31,14 @@ import { buildDailyProgressGraphData } from "../lib/daily-progress-series";
 import { useProgressAttempts } from "../hooks/use-progress-attempts";
 import type { MockProgressResponse } from "../types/mock-progress";
 import { calculateRecentWeightedMockScore } from "../lib/mock-progress-insights";
-import { UCAT_CARD_CHROME } from "@/lib/ucat-surface-motion";
+import { ContentRatingControls } from "@/features/content-ratings/components/content-rating-controls";
+import { contentSnapshotVersion } from "@/features/content-ratings/lib";
+import {
+  UCAT_CARD_CHROME,
+  UCAT_FLOATING_GRAPH_CARD,
+} from "@/lib/ucat-surface-motion";
+import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
 import {
   UCAT_TABLE_BODY_ROW,
   UCAT_TABLE_HEADER_CLASSNAME,
@@ -45,7 +53,14 @@ const GRAPH_DATA_TYPES: { value: GraphDataType; label: string }[] = [
   { value: "exam_speed", label: "Exam speed" },
 ];
 
-const PAGE_SIZE_OPTIONS = [10, 20, 50];
+const TABLE_METRICS: { value: AttemptTableMetric; label: string }[] = [
+  { value: "raw_score", label: "Raw score" },
+  { value: "scaled_score", label: "Scaled score" },
+  { value: "time_taken", label: "Time taken" },
+  { value: "exam_speed", label: "Exam speed" },
+];
+
+const MOCK_ATTEMPTS_PAGE_SIZE = 8;
 
 export function MockAttemptsCard({
   summary,
@@ -54,14 +69,15 @@ export function MockAttemptsCard({
 }) {
   const [graphDataType, setGraphDataType] =
     useState<GraphDataType>("scaled_score");
+  const [tableMetric, setTableMetric] =
+    useState<AttemptTableMetric>("scaled_score");
   const [dateRange, setDateRange] = useState<GraphDateRange>("all");
   const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(10);
   const seriesQuery = useProgressSeries("mock");
   const attemptsQuery = useProgressAttempts({
     source: "mock",
     page,
-    pageSize,
+    pageSize: MOCK_ATTEMPTS_PAGE_SIZE,
     dateRange,
   });
   const filteredAttempts = (attemptsQuery.data?.attempts ??
@@ -92,8 +108,19 @@ export function MockAttemptsCard({
     seriesQuery.data?.points ?? [],
   );
   const benchmark = lookupUcatAnzTotalPercentile(recentWeightedAverage);
+  const insightBody =
+    trend == null
+      ? "Use your next mock to Practice a consistent stuck-question rule. Afterwards, review the first avoidable miss in each section before changing your overall pace."
+      : trend > 0
+        ? `Your recent mock trajectory is up ${trend} points across the selected period. Check the section breakdown to see whether that improvement is balanced.`
+        : trend < 0
+          ? `Your recent mock trajectory is down ${Math.abs(trend)} points. Review timing and section-level misses before the next mock.`
+          : "Your mock scores are stable. Section-level review is the best way to find the next gain.";
+  const displayedInsight = {
+    title: "Mock insight",
+    body: insightBody,
+  };
   const attemptsTableTitleId = useId();
-  const tableMetric = resolveAttemptTableMetric(graphDataType);
   const metricColumn = getAttemptTableMetricColumn(tableMetric, "mock");
 
   return (
@@ -125,9 +152,16 @@ export function MockAttemptsCard({
             metricOptions={GRAPH_DATA_TYPES}
             onDataTypeChange={setGraphDataType}
             trailingSpace
+            emptyMessage="Mock attempts will appear here"
+            emptyDescription="Complete a mock to start building your score history."
           />
 
-          <aside className="mt-4 rounded-2xl border border-border/70 bg-card/94 p-5 shadow-xl backdrop-blur-xl lg:absolute lg:right-0 lg:top-2 lg:mt-0 lg:w-[390px]">
+          <aside
+            className={cn(
+              UCAT_FLOATING_GRAPH_CARD,
+              "mt-4 p-5 lg:absolute lg:right-0 lg:top-2 lg:mt-0 lg:w-[390px]",
+            )}
+          >
             <p className="text-xs font-semibold uppercase tracking-[0.13em] text-muted-foreground">
               Mock insight
             </p>
@@ -137,7 +171,7 @@ export function MockAttemptsCard({
                   Recent-weighted average
                 </p>
                 <p className="text-4xl font-semibold tabular-nums">
-                  {recentWeightedAverage ?? "—"}
+                  {recentWeightedAverage ?? "Pending"}
                 </p>
               </div>
               <div className="text-right">
@@ -148,18 +182,19 @@ export function MockAttemptsCard({
               </div>
             </div>
             <p className="mt-4 text-sm leading-relaxed text-muted-foreground">
-              {trend == null
-                ? "Complete at least two mocks to reveal whether your exam-day performance is improving."
-                : trend > 0
-                  ? `Your recent mock trajectory is up ${trend} points across the selected period. Check the section breakdown to see whether that improvement is balanced.`
-                  : trend < 0
-                    ? `Your recent mock trajectory is down ${Math.abs(trend)} points. Review timing and section-level misses before the next mock.`
-                    : "Your mock scores are stable. Section-level review is the best way to find the next gain."}
+              {insightBody}
             </p>
-            <p className="mt-2 text-xs leading-relaxed text-muted-foreground">
-              Recent mocks carry more weight, with influence halving every 60
-              days. The simple average is shown below.
-            </p>
+            <ContentRatingControls
+              className="mt-3"
+              descriptor={{
+                targetType: "progress_insight",
+                targetKey: "mock-trajectory",
+                targetVersion: contentSnapshotVersion(displayedInsight),
+                contextKey: `progress:mocks:${dateRange}`,
+                surface: "progress",
+                displayedContent: displayedInsight,
+              }}
+            />
             <div className="mt-4 space-y-2 border-t border-border/60 pt-4">
               {summary.sections
                 .filter((section) => section.sectionNumber <= 3)
@@ -172,18 +207,23 @@ export function MockAttemptsCard({
                       {section.sectionName}
                     </span>
                     <span className="font-medium tabular-nums">
-                      {section.averageScaledScore ?? "—"}
+                      {section.averageScaledScore ?? "Pending"}
                     </span>
                   </div>
                 ))}
             </div>
+            {summary.attemptCount === 0 ? (
+              <Button asChild className="mt-5 w-full">
+                <Link href="/mocks">Go to mocks</Link>
+              </Button>
+            ) : null}
           </aside>
         </div>
       </section>
 
       <section
         aria-label="Mock progress summary"
-        className="mx-auto grid w-full max-w-[1400px] gap-4 px-5 sm:grid-cols-3 sm:px-6"
+        className="mx-auto grid w-full max-w-[1400px] gap-4 px-5 sm:grid-cols-2 sm:px-6"
       >
         <Card className={UCAT_CARD_CHROME}>
           <CardContent className="pt-6">
@@ -197,21 +237,10 @@ export function MockAttemptsCard({
           <CardContent className="pt-6">
             <p className="text-sm text-muted-foreground">Average mock score</p>
             <p className="mt-2 text-3xl font-semibold tabular-nums">
-              {summary.averageScaledScore ?? "—"}
+              {summary.averageScaledScore ?? "Pending"}
             </p>
             <p className="mt-1 text-xs text-muted-foreground">
               Simple average across completed mocks
-            </p>
-          </CardContent>
-        </Card>
-        <Card className={UCAT_CARD_CHROME}>
-          <CardContent className="pt-6">
-            <p className="text-sm text-muted-foreground">Unreviewed attempts</p>
-            <p className="mt-2 text-3xl font-semibold tabular-nums">
-              {summary.unreviewedAttemptCount}
-            </p>
-            <p className="mt-1 text-xs text-muted-foreground">
-              Mocks without a completed review
             </p>
           </CardContent>
         </Card>
@@ -234,9 +263,9 @@ export function MockAttemptsCard({
                 <TableHead>Date</TableHead>
                 <TableHead>Mock</TableHead>
                 <AttemptMetricColumnHeader
-                  options={GRAPH_DATA_TYPES}
-                  value={graphDataType}
-                  onValueChange={setGraphDataType}
+                  options={TABLE_METRICS}
+                  value={tableMetric}
+                  onValueChange={setTableMetric}
                   label={metricColumn.label}
                   tooltip={metricColumn.tooltip}
                 />
@@ -276,6 +305,7 @@ export function MockAttemptsCard({
                             scaledScoreMax: attempt.scaledScoreMax,
                             scorePoints: attempt.scorePoints,
                             totalPoints: attempt.totalPoints,
+                            rawScoreBreakdown: attempt.rawScoreBreakdown,
                             timeTakenSeconds: attempt.timeTakenSeconds,
                             setTimeLimitSeconds: attempt.setTimeLimitSeconds,
                             studentExamSpeed: attempt.studentExamSpeed,
@@ -287,6 +317,7 @@ export function MockAttemptsCard({
                         <UcatTableRowActionLink
                           href={`/progress/mocks/mock-attempts/${attempt.id}`}
                           label="View attempt"
+                          unreviewed={attempt.reviewCompletedAt == null}
                         />
                       </TableCell>
                     </TableRow>
@@ -298,14 +329,10 @@ export function MockAttemptsCard({
         </div>
         <ProgressTablePagination
           page={page}
-          pageSize={pageSize}
+          pageSize={MOCK_ATTEMPTS_PAGE_SIZE}
           total={attemptsQuery.data?.total ?? 0}
           onPageChange={setPage}
-          onPageSizeChange={(size) => {
-            setPageSize(size);
-            setPage(1);
-          }}
-          pageSizeOptions={PAGE_SIZE_OPTIONS}
+          showPageSizeSelector={false}
           isFetching={attemptsQuery.isFetching}
         />
       </section>

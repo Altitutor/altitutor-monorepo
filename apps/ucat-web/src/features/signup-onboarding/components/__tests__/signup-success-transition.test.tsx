@@ -66,7 +66,7 @@ describe("SignupSuccessTransition", () => {
     expect(screen.getByText(/Your Free plan is ready/)).toBeInTheDocument();
     expect(screen.queryByText(/payment is complete/i)).not.toBeInTheDocument();
     expect(
-      screen.queryByText("Practise without limits"),
+      screen.queryByText("Practice without limits"),
     ).not.toBeInTheDocument();
   });
 
@@ -77,7 +77,7 @@ describe("SignupSuccessTransition", () => {
       screen.getByRole("heading", { name: "Building your UCAT workspace" }),
     ).toBeInTheDocument();
     expect(screen.getByText(/Your payment is complete/)).toBeInTheDocument();
-    expect(screen.getByText("Practise without limits")).toBeInTheDocument();
+    expect(screen.getByText("Practice without limits")).toBeInTheDocument();
   });
 
   it("uses upgrade-specific welcome copy for an existing student", () => {

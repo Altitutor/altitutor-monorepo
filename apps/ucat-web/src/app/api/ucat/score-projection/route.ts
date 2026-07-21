@@ -1,5 +1,8 @@
 import { NextResponse } from "next/server";
-import { scaleTo300_900 } from "@altitutor/ucat-marking";
+import {
+  estimateUcatSectionScore,
+  resolveUcatScoringSection,
+} from "@altitutor/ucat-marking";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import {
@@ -41,7 +44,6 @@ type ProjectionEvidenceRow = {
   completed_at: string | null;
   score_points: number | null;
   total_points: number | null;
-  scaled_score: number | null;
   was_timed: boolean | null;
   student_exam_speed: number | null;
 };
@@ -384,7 +386,7 @@ export async function GET() {
     )
       .from("vstudent_ucat_score_projection_evidence")
       .select(
-        "source, section_id, completed_at, scaled_score, score_points, total_points, was_timed, student_exam_speed",
+        "source, section_id, completed_at, score_points, total_points, was_timed, student_exam_speed",
       ),
     supabase.from("ucat_score_projection_settings").select("*"),
   ]);
@@ -432,6 +434,12 @@ export async function GET() {
   const evidenceBySection = new Map<string, AttemptEvidence[]>(
     sections.map((section) => [section.id, [] as AttemptEvidence[]]),
   );
+  const scoringSectionById = new Map(
+    sections.flatMap((section) => {
+      const scoringSection = resolveUcatScoringSection(section.sectionNumber);
+      return scoringSection ? [[section.id, scoringSection] as const] : [];
+    }),
+  );
 
   const settingsBySection = new Map(
     ((settingsRes.data ?? []) as SettingsRow[])
@@ -448,15 +456,17 @@ export async function GET() {
       row.total_points < settings.minPracticeScoredPoints
     )
       continue;
-    if (row.source !== "practice" && row.scaled_score == null) continue;
     const completedAt = timestamp(row.completed_at);
     if (completedAt == null) continue;
+    const scoringSection = scoringSectionById.get(row.section_id);
+    if (!scoringSection) continue;
     evidenceBySection.get(row.section_id)?.push({
       source: row.source,
-      score:
-        row.source === "practice"
-          ? scaleTo300_900(row.score_points, row.total_points)
-          : row.scaled_score!,
+      score: estimateUcatSectionScore({
+        section: scoringSection,
+        rawScore: row.score_points,
+        maxRawScore: row.total_points,
+      }).scaledScore,
       scoredPoints: row.score_points,
       totalPoints: row.total_points,
       timestamp: completedAt,

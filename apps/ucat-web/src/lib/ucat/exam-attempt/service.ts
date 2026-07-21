@@ -12,7 +12,6 @@ import {
 } from "@/lib/ucat/exam-attempt/finalize-attempt";
 import { buildFinalAnswersFromEngineSnapshot } from "@/lib/ucat/exam-attempt/build-final-answers";
 import { computeSegmentEndsAt } from "@/lib/ucat/exam-attempt/timing";
-import { mergeQuestionAttemptRowsIntoState } from "@/lib/ucat/exam-attempt/resume-state";
 import type {
   ActiveExamAttempt,
   BeginExamAttemptInput,
@@ -117,63 +116,6 @@ function enrichStoredSnapshotForAttempt(
   return stored;
 }
 
-async function reconcileSetSnapshotFromQuestionAttempts(
-  admin: AdminClient,
-  studentId: string,
-  attemptId: string,
-  questionSetId: string,
-  stored: StoredExamSnapshot,
-): Promise<StoredExamSnapshot> {
-  const [attemptsResult, stemsResult] = await Promise.all([
-    admin
-      .from("student_question_attempts")
-      .select(
-        "question_id, question_answer_option_id, answer_snapshot, is_flagged",
-      )
-      .eq("student_id", studentId)
-      .eq("student_question_set_attempt_id", attemptId),
-    admin
-      .from("question_stems_question_sets")
-      .select("question_stem_id")
-      .eq("question_set_id", questionSetId)
-      .order("index"),
-  ]);
-
-  if (attemptsResult.error || !attemptsResult.data?.length) return stored;
-
-  const orderedStemIds = (stemsResult.data ?? []).map(
-    (row) => row.question_stem_id,
-  );
-  let questionIdsInOrder: string[] = [];
-  if (!stemsResult.error && orderedStemIds.length > 0) {
-    const { data: questions } = await admin
-      .from("ucat_questions")
-      .select("id, question_stem_id, index")
-      .in("question_stem_id", orderedStemIds)
-      .is("deleted_at", null);
-    const stemIndexById = new Map(
-      orderedStemIds.map((stemId, index) => [stemId, index]),
-    );
-    questionIdsInOrder = [...(questions ?? [])]
-      .sort(
-        (a, b) =>
-          (stemIndexById.get(a.question_stem_id) ?? Number.MAX_SAFE_INTEGER) -
-            (stemIndexById.get(b.question_stem_id) ??
-              Number.MAX_SAFE_INTEGER) || a.index - b.index,
-      )
-      .map((question) => question.id);
-  }
-
-  return {
-    ...stored,
-    state: mergeQuestionAttemptRowsIntoState(
-      stored.state,
-      attemptsResult.data,
-      questionIdsInOrder,
-    ),
-  };
-}
-
 async function maybeFinalizeResultsAttempt(
   admin: AdminClient,
   studentId: string,
@@ -184,25 +126,24 @@ async function maybeFinalizeResultsAttempt(
   if (!isExamAttemptAtResults(attempt.kind, attempt.engineSnapshot.phase)) {
     return false;
   }
-  const examForFinalize =
-    attempt.kind === "set" || attempt.kind === "mock"
-      ? await resolveExamForCatchUp(attempt, {
-          exam: options.exam,
-          stored,
-          readerClient: options.readerClient,
-        })
-      : null;
+  const examForFinalize = await resolveExamForCatchUp(attempt, {
+    exam: options.exam,
+    stored,
+    readerClient: options.readerClient ?? admin,
+    requireQuestionContent: true,
+  });
+  if (!examForFinalize) {
+    throw new Error("Unable to recover exam content for finalization");
+  }
   await finalizeExamAttemptOnServer(
     admin,
     studentId,
     attempt.kind,
     attempt.attemptId,
-    examForFinalize
-      ? buildFinalAnswersFromEngineSnapshot(
-          examForFinalize,
-          attempt.engineSnapshot,
-        )
-      : undefined,
+    buildFinalAnswersFromEngineSnapshot(
+      examForFinalize,
+      attempt.engineSnapshot,
+    ),
   );
   return true;
 }
@@ -391,18 +332,11 @@ export async function getActiveExamAttempt(
   if (setRes.data) {
     const parsed = parseStoredSnapshot(setRes.data.engine_snapshot);
     if (parsed) {
-      let stored = enrichStoredSnapshotForAttempt(
+      const stored = enrichStoredSnapshotForAttempt(
         "set",
         setRes.data.id,
         setRes.data.question_set_id,
         parsed,
-      );
-      stored = await reconcileSetSnapshotFromQuestionAttempts(
-        admin,
-        studentId,
-        setRes.data.id,
-        setRes.data.question_set_id,
-        stored,
       );
       const label = await loadSetLabel(admin, setRes.data.question_set_id);
       const resultsHref = await buildResultsHref(
@@ -628,7 +562,7 @@ async function maybeCatchUp(
   const examForCatchUp = await resolveExamForCatchUp(attempt, {
     exam: options.exam,
     stored,
-    readerClient: options.readerClient,
+    readerClient: options.readerClient ?? admin,
   });
   if (!examForCatchUp) return attempt;
 
@@ -670,9 +604,7 @@ async function maybeCatchUp(
       studentId,
       attempt.kind,
       attempt.attemptId,
-      attempt.kind === "set" || attempt.kind === "mock"
-        ? buildFinalAnswersFromEngineSnapshot(examForCatchUp, caught.state)
-        : undefined,
+      buildFinalAnswersFromEngineSnapshot(examForCatchUp, caught.state),
     );
     return updated;
   }

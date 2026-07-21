@@ -24,8 +24,7 @@ export type QuestionAttemptBatchContext = {
 
 /**
  * Persists a group of attempts that share one set, practice session, learning
- * block, or standalone context. Existing duplicate rows are all updated to
- * preserve the behaviour of the legacy one-at-a-time endpoint.
+ * block, or standalone context.
  */
 export async function persistQuestionAttemptBatch(
   admin: AdminClient,
@@ -40,6 +39,48 @@ export async function persistQuestionAttemptBatch(
   const inputs = Array.from(inputByQuestionId.values());
   if (inputs.length === 0) return;
 
+  // Set and practice attempts have database-enforced unique parent/question
+  // keys. Persist them with one atomic UPSERT RPC instead of a SELECT followed
+  // by separate update/insert requests. Besides reducing latency, this closes
+  // the check-then-write race while retaining the maximum observed timing.
+  if (context.studentQuestionSetAttemptId || context.studentPracticeSessionId) {
+    const rpcClient = admin as unknown as {
+      rpc: (
+        functionName: "upsert_ucat_question_attempt_batch",
+        params: Record<string, unknown>,
+      ) => Promise<{ error: { message: string } | null }>;
+    };
+    const { error } = await rpcClient.rpc(
+      "upsert_ucat_question_attempt_batch",
+      {
+        p_student_id: studentId,
+        p_student_question_set_attempt_id: context.studentQuestionSetAttemptId,
+        p_student_practice_session_id: context.studentPracticeSessionId,
+        p_attempts: inputs.map((input) => ({
+          question_id: input.questionId,
+          question_answer_option_id: input.questionAnswerOptionId,
+          answer_snapshot: input.answerSnapshot ?? null,
+          has_answer_snapshot: Object.prototype.hasOwnProperty.call(
+            input,
+            "answerSnapshot",
+          ),
+          is_flagged: input.isFlagged ?? false,
+          has_is_flagged: typeof input.isFlagged === "boolean",
+          is_submitted: input.submittedByStem === true,
+          was_timed: input.wasTimed ?? false,
+          has_was_timed: typeof input.wasTimed === "boolean",
+          mode: input.mode ?? null,
+          score: input.score ?? 0,
+          has_score: typeof input.score === "number",
+          time_spent_milliseconds: input.timeSpentMilliseconds ?? null,
+          has_time_spent_milliseconds: input.timeSpentMilliseconds != null,
+        })),
+      },
+    );
+    if (error) throw new Error(error.message);
+    return;
+  }
+
   const questionIds = inputs.map((input) => input.questionId);
   let existingQuery = admin
     .from("student_question_attempts")
@@ -47,19 +88,10 @@ export async function persistQuestionAttemptBatch(
     .eq("student_id", studentId)
     .in("question_id", questionIds);
 
-  if (context.studentPracticeSessionId) {
-    existingQuery = existingQuery
-      .is("student_question_set_attempt_id", null)
-      .eq("student_practice_session_id", context.studentPracticeSessionId);
-  } else if (context.learningModuleBlockId) {
+  if (context.learningModuleBlockId) {
     existingQuery = existingQuery.eq(
       "learning_module_block_id",
       context.learningModuleBlockId,
-    );
-  } else if (context.studentQuestionSetAttemptId) {
-    existingQuery = existingQuery.eq(
-      "student_question_set_attempt_id",
-      context.studentQuestionSetAttemptId,
     );
   } else {
     existingQuery = existingQuery
@@ -136,11 +168,8 @@ export async function persistQuestionAttemptBatch(
 
     inserts.push({
       student_id: studentId,
-      student_question_set_attempt_id:
-        context.studentPracticeSessionId != null
-          ? null
-          : context.studentQuestionSetAttemptId,
-      student_practice_session_id: context.studentPracticeSessionId,
+      student_question_set_attempt_id: null,
+      student_practice_session_id: null,
       learning_module_block_id: context.learningModuleBlockId,
       question_id: input.questionId,
       question_answer_option_id: input.questionAnswerOptionId,
@@ -155,9 +184,6 @@ export async function persistQuestionAttemptBatch(
         input.timeSpentMilliseconds != null
           ? Math.max(0, input.timeSpentMilliseconds)
           : null,
-      ...(context.studentPracticeSessionId
-        ? { first_seen_at: new Date().toISOString() }
-        : {}),
       was_timed: input.wasTimed ?? false,
       mode: input.mode ?? null,
       ...(typeof input.score === "number" ? { score: input.score } : {}),
@@ -172,11 +198,7 @@ export async function persistQuestionAttemptBatch(
       : Promise.resolve({ error: null }),
     inserts.length > 0
       ? admin.from("student_question_attempts").upsert(inserts, {
-          onConflict: context.studentPracticeSessionId
-            ? "student_practice_session_id,question_id"
-            : context.studentQuestionSetAttemptId
-              ? "student_question_set_attempt_id,question_id"
-              : "id",
+          onConflict: "id",
         })
       : Promise.resolve({ error: null }),
   ]);

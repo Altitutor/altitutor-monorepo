@@ -39,6 +39,7 @@ import type { UcatQuotaArea } from "@/features/ucat-access/types/quota";
 import { UCAT_QUOTA_AREA_LABELS } from "@/features/ucat-access/types/quota";
 import { useToast } from "@altitutor/ui";
 import { useUcatSubscriptionBilling } from "@/features/subscription/hooks/use-ucat-subscription-billing";
+import { usePracticeDiscountDashboard } from "@/features/subscription/hooks/use-practice-discount-dashboard";
 import { parseBillingInterval } from "@/features/subscription/lib/pricing";
 import {
   canDowngradeToTier,
@@ -126,6 +127,8 @@ export function usePlanPicker(options: UsePlanPickerOptions = {}) {
   );
   const [upgradeConfirming, setUpgradeConfirming] = useState(false);
   const [cancellationOpen, setCancellationOpen] = useState(false);
+  const [downgradeTarget, setDowngradeTarget] =
+    useState<Exclude<PlanPickerTier, "pro">>("free");
   const [cancellationReason, setCancellationReason] =
     useState<CancellationReasonSelection | null>(null);
   const [cancellationComment, setCancellationComment] = useState("");
@@ -166,6 +169,9 @@ export function usePlanPicker(options: UsePlanPickerOptions = {}) {
       access.onlineTier === "unlimited_trial" ||
       subscribedPlanTier === "unlimited");
   const isOnPaid = isOnPro || isOnUnlimitedTier;
+  const { data: practiceDiscountProgress } = usePracticeDiscountDashboard(
+    options.audience === "app" && isOnPaid,
+  );
 
   const isOnFree = !isOnPaid && access.onlineTier === "free";
   const freeIsCurrentPlan = isOnFree && !needsOnboarding;
@@ -397,11 +403,22 @@ export function usePlanPicker(options: UsePlanPickerOptions = {}) {
     canDowngradeToTier(access.onlineTier, target, subscribedPlanTier);
 
   const handleCancellationOpenChange = (open: boolean) => {
-    if (!open && cancellationOpen && !cancellationConfirmedRef.current) {
+    if (
+      !open &&
+      cancellationOpen &&
+      downgradeTarget === "free" &&
+      !cancellationConfirmedRef.current
+    ) {
       trackSubscriptionJourneyEvent({
         eventType: "cancellation_abandoned",
         journeyContext: "subscription_settings",
         metadata: { current_plan: subscribedPlanTier },
+      });
+    }
+    if (!open && cancellationOpen && downgradeTarget === "unlimited") {
+      captureUcatEvent("subscription_downgrade_prompt_abandoned", {
+        current_plan: subscribedPlanTier,
+        target_plan: "unlimited",
       });
     }
     setCancellationOpen(open);
@@ -455,12 +472,20 @@ export function usePlanPicker(options: UsePlanPickerOptions = {}) {
   };
 
   const handleDowngrade = async (target: PlanPickerTier) => {
+    if (target === "pro") return;
+
+    cancellationConfirmedRef.current = false;
+    setDowngradeTarget(target);
+    setCancellationReason(null);
+    setCancellationComment("");
+    setCancellationError(null);
+    setCancellationOpen(true);
+    captureUcatEvent("subscription_downgrade_prompt_opened", {
+      current_plan: subscribedPlanTier,
+      target_plan: target,
+    });
+
     if (target === "free") {
-      cancellationConfirmedRef.current = false;
-      setCancellationReason(null);
-      setCancellationComment("");
-      setCancellationError(null);
-      setCancellationOpen(true);
       trackSubscriptionJourneyEvent({
         eventType: "free_plan_selected",
         journeyContext: "subscription_settings",
@@ -471,19 +496,32 @@ export function usePlanPicker(options: UsePlanPickerOptions = {}) {
         journeyContext: "subscription_settings",
         metadata: { current_plan: subscribedPlanTier },
       });
+    }
+  };
+
+  const confirmDowngrade = async () => {
+    if (downgradeTarget === "free") {
+      await confirmCancellation();
       return;
     }
 
     setLoadingPlan("unlimited");
+    setCancellationConfirming(true);
+    setCancellationError(null);
     setError(null);
     try {
       const { url } = await createBillingPortalSession("subscription_update");
+      captureUcatEvent("subscription_downgrade_prompt_confirmed", {
+        current_plan: subscribedPlanTier,
+        target_plan: "unlimited",
+      });
       window.location.assign(url);
     } catch (e) {
-      setError(
+      setCancellationError(
         e instanceof Error ? e.message : "Failed to change your plan",
       );
       setLoadingPlan(null);
+      setCancellationConfirming(false);
     }
   };
 
@@ -507,6 +545,7 @@ export function usePlanPicker(options: UsePlanPickerOptions = {}) {
     upgradePreviewError,
     upgradeConfirming,
     cancellationOpen,
+    downgradeTarget,
     handleCancellationOpenChange,
     cancellationReason,
     setCancellationReason,
@@ -514,11 +553,19 @@ export function usePlanPicker(options: UsePlanPickerOptions = {}) {
     setCancellationComment,
     cancellationConfirming,
     cancellationError,
-    confirmCancellation,
+    confirmDowngrade,
+    cancellationBenefitsLost:
+      downgradeTarget === "unlimited"
+        ? PRO_FEATURES
+        : isOnPro
+          ? [...ONLINE_FEATURES, ...PRO_FEATURES]
+          : ONLINE_FEATURES,
+    cancellationEarnedDiscountCents:
+      practiceDiscountProgress?.totalDiscountCents ?? 0,
+    cancellationEarnedDiscountCurrency:
+      practiceDiscountProgress?.currency ?? cfg.currency,
     cancellationPaidAccessEndsAt: subscription?.current_period_end ?? null,
-    cancellationCurrentPlanName: isOnPro
-      ? "UCAT Pro"
-      : "UCAT Unlimited",
+    cancellationCurrentPlanName: isOnPro ? "UCAT Pro" : "UCAT Unlimited",
     confirmUpgradeToPro,
     omitAudPrefix,
     paidCta,

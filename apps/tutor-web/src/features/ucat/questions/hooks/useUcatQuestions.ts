@@ -38,6 +38,56 @@ export function useUcatQuestionDetail(stemId: string | null) {
   })
 }
 
+export function useUcatAiAssessment(stemId: string | null) {
+  return useQuery({
+    queryKey: stemId ? ucatKeys.aiAssessment(stemId) : [...ucatKeys.questions(), 'ai-assessment', 'empty'],
+    queryFn: () => ucatQuestionsApi.getAiAssessment(stemId as string),
+    enabled: !!stemId,
+    refetchInterval: (query) => {
+      const status = query.state.data?.status
+      return status === 'reviewing' || status === 'deferred' ? 5_000 : false
+    },
+  })
+}
+
+export function useRetryUcatAiAssessment() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({ stemId, runId }: { stemId: string; runId: string }) =>
+      ucatQuestionsApi.retryAiAssessment(stemId, runId),
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ucatKeys.aiAssessment(variables.stemId) })
+    },
+  })
+}
+
+export function useRequestUcatAiAssessment() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({ stemId }: { stemId: string }) =>
+      ucatQuestionsApi.requestAiAssessment(stemId),
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ucatKeys.aiAssessment(variables.stemId) })
+    },
+  })
+}
+
+export function useRecordUcatAiAssessmentDecision() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({ stemId, ...input }: {
+      stemId: string
+      runId: string
+      findingKey: string
+      decision: 'dismissed' | 'suggestion_accepted' | 'suggestion_rejected'
+      reason?: string | null
+    }) => ucatQuestionsApi.recordAiAssessmentDecision(stemId, input),
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ucatKeys.aiAssessment(variables.stemId) })
+    },
+  })
+}
+
 export function useUcatSections() {
   return useQuery({ queryKey: ucatKeys.sections(), queryFn: ucatQuestionsApi.getSections })
 }
@@ -237,8 +287,11 @@ export function useUpdateUcatQuestionStem() {
       queryClient.invalidateQueries({ queryKey: ucatKeys.questions('default') })
       queryClient.invalidateQueries({ queryKey: ucatKeys.questions('generated') })
       queryClient.invalidateQueries({ queryKey: ucatKeys.question(variables.stemId) })
+      queryClient.invalidateQueries({ queryKey: ucatKeys.aiAssessment(variables.stemId) })
       queryClient.invalidateQueries({ queryKey: ucatKeys.stemCatalog() })
       queryClient.invalidateQueries({ queryKey: ucatKeys.questionStemTagIds() })
+      queryClient.invalidateQueries({ queryKey: ['ucat', 'explanation-feedback', variables.stemId] })
+      queryClient.invalidateQueries({ queryKey: ucatKeys.reconciliation() })
     },
   })
 }
@@ -356,6 +409,7 @@ export function useSetUcatQuestionStemStatus() {
       queryClient.invalidateQueries({ queryKey: ucatKeys.questions('generated') })
       queryClient.invalidateQueries({ queryKey: ucatKeys.questions('default') })
       queryClient.invalidateQueries({ queryKey: ucatKeys.question(variables.stemId) })
+      queryClient.invalidateQueries({ queryKey: ucatKeys.aiAssessment(variables.stemId) })
       queryClient.invalidateQueries({ queryKey: ucatKeys.reconciliation() })
     },
   })

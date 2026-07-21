@@ -135,7 +135,7 @@ export const billingApi = {
     let subjectsById = new Map<string, { name: string; short_name: string | null; long_name: string | null }>();
     if (subjectIds.length) {
       const { data: subjects, error: subjectsError } = await supabase
-        .from('vstudent_subjects')
+        .from('vstudent_subscription_subjects')
         .select('id, name, short_name, long_name')
         .in('id', subjectIds);
 

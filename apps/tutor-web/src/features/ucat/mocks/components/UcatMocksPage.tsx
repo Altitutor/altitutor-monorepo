@@ -34,6 +34,8 @@ import { UcatAccessDenied, UcatPageHeader, UcatPageSkeleton } from '@/features/u
 import { useUcatAccess } from '@/features/ucat/shared/hooks/useUcatAccess'
 import { useUcatRowSelection } from '@/features/ucat/shared/hooks/useUcatRowSelection'
 import { UcatRowActions } from '@/features/ucat/shared/row-actions'
+import { UcatPdfExportDialog, type UcatPdfExportSource } from '@/features/ucat/shared/components/UcatPdfExportDialog'
+import { buildUcatPdfExportAction } from '@/features/ucat/shared/pdf/pdf-export-action'
 import { UcatMockEditorDialog } from '@/features/ucat/mocks/components/UcatMockEditorDialog'
 import { UcatSetEditorDialog } from '@/features/ucat/sets/components/UcatSetEditorDialog'
 import { UcatDeleteConfirmDialog } from '@/features/ucat/shared/delete-confirm-dialog'
@@ -102,6 +104,7 @@ export function UcatMocksPage() {
   const [editingMockId, setEditingMockId] = useState<string | null>(null)
   const [editingSetId, setEditingSetId] = useState<string | null>(null)
   const [deletingMockId, setDeletingMockId] = useState<string | null>(null)
+  const [pdfExportSource, setPdfExportSource] = useState<UcatPdfExportSource | null>(null)
   const [name, setName] = useState('')
   const [isPrivate, setIsPrivate] = useState(false)
   const [instructionsText, setInstructionsText] = useState<RichTextJson | null>(null)
@@ -197,6 +200,25 @@ export function UcatMocksPage() {
     })()
   }, [openLifecycleEntity, queryClient, router, setStatus, toast])
 
+  const openMockPdfExport = useCallback(async (row: MockRow) => {
+    try {
+      const detail = await ucatMocksApi.detail(row.id)
+      if (!detail) throw new Error('Mock not found')
+      const sets = (detail.sets as Array<{ id: string }> | null) ?? []
+      setPdfExportSource({
+        kind: 'mock',
+        title: row.name || 'Untitled mock',
+        setIds: sets.map((set) => set.id),
+      })
+    } catch (error) {
+      toast({
+        title: 'Could not prepare export',
+        description: error instanceof Error ? error.message : 'Failed to load this mock.',
+        variant: 'destructive',
+      })
+    }
+  }, [toast])
+
   const actionsColumn: ColumnDef<MockRow> = useMemo(
     () => ({
       id: 'actions',
@@ -206,6 +228,9 @@ export function UcatMocksPage() {
           <UcatRowActions
             actions={[
               { label: 'Edit', icon: <Pencil className="h-4 w-4" />, onClick: () => setEditingMockId(row.original.id) },
+              ...(!showDeleted
+                ? [buildUcatPdfExportAction(() => void openMockPdfExport(row.original))]
+                : []),
               ...(!showDeleted && row.original.status === 'draft'
                 ? [{ label: 'Send for review', icon: <Send className="h-4 w-4" />, onClick: () => changeMockStatus(row.original.id, 'in_review', row.original.status, 'Cannot send for review') }]
                 : []),
@@ -229,7 +254,7 @@ export function UcatMocksPage() {
         </div>
       ),
     }),
-    [changeMockStatus, showDeleted, restoreMock],
+    [changeMockStatus, openMockPdfExport, showDeleted, restoreMock],
   )
 
   const tableColumns = useMemo(() => {
@@ -656,6 +681,13 @@ export function UcatMocksPage() {
             : undefined
         }
       />
+      {pdfExportSource ? (
+        <UcatPdfExportDialog
+          open
+          onClose={() => setPdfExportSource(null)}
+          source={pdfExportSource}
+        />
+      ) : null}
       <UcatSetEditorDialog open={!!editingSetId} setId={editingSetId} onClose={() => setEditingSetId(null)} />
       <UcatDeleteConfirmDialog
         open={!!deletingMockId}

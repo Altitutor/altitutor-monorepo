@@ -21,7 +21,8 @@ import {
   STUDENT_NEXTSTEP_FIXED_VIEWPORT_ID,
   getNavTourAttr,
 } from '@/features/onboarding';
-import { useResourceSubjectNavItems } from '@/features/resources';
+import { UcatResourcesNavigationDialog, useResourceSubjectNavItems } from '@/features/resources';
+import { getUcatSessionsUrl, isUcatSubject } from '@/features/resources/lib/ucat-resources';
 import type { LucideIcon } from 'lucide-react';
 import { STUDENT_CONTENT_MAX, STUDENT_SHELL_PAD_X } from '@/shared/lib/student-layout';
 
@@ -30,7 +31,7 @@ interface SidebarNavProps extends React.HTMLAttributes<HTMLDivElement> {
   onToggle: () => void;
 }
 
-type NavLink = { title: string; href: string; icon: LucideIcon };
+type NavLink = { title: string; href: string; icon: LucideIcon; confirmUcatNavigation?: boolean };
 
 type NavItem =
   | { type?: 'link'; title: string; href: string; icon: LucideIcon }
@@ -91,14 +92,31 @@ function renderDropdownChild(
   linkClassName: (href: string) => string,
 ) {
   const Icon = child.icon;
+  const content = (
+    <>
+      <Icon className="h-4 w-4 shrink-0 opacity-80" aria-hidden />
+      <span className="truncate">{child.title}</span>
+    </>
+  );
+
+  if (child.confirmUcatNavigation) {
+    return (
+      <UcatResourcesNavigationDialog
+        key={child.href}
+        className={cn(linkClassName(child.href), 'flex w-full items-center gap-2 text-left')}
+      >
+        {content}
+      </UcatResourcesNavigationDialog>
+    );
+  }
+
   return (
     <Link
       key={child.href}
       href={child.href}
       className={cn(linkClassName(child.href), 'flex items-center gap-2')}
     >
-      <Icon className="h-4 w-4 shrink-0 opacity-80" aria-hidden />
-      <span className="truncate">{child.title}</span>
+      {content}
     </Link>
   );
 }
@@ -228,11 +246,16 @@ function useStudentPrimaryNavItems(): NavItem[] {
   const { data: subjects } = useResourceSubjectNavItems();
 
   return useMemo(() => {
-    const resourceChildren: NavLink[] = (subjects ?? []).map((subject) => ({
-      title: getResourceSubjectNavLabel(subject),
-      href: getResourceSubjectHref(subject),
-      icon: BookOpen,
-    }));
+    const resourceChildren: NavLink[] = (subjects ?? []).map((subject) => {
+      const isUcat = isUcatSubject(subject);
+
+      return {
+        title: getResourceSubjectNavLabel(subject),
+        href: isUcat ? getUcatSessionsUrl() : getResourceSubjectHref(subject),
+        icon: BookOpen,
+        confirmUcatNavigation: isUcat,
+      };
+    });
 
     return [
       { title: 'Dashboard', href: '/dashboard', icon: Home },

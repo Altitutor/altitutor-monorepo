@@ -88,6 +88,16 @@ export class UcatAiEmptyResponseError extends Error {
   }
 }
 
+export class UcatAiBudgetExceededError extends Error {
+  resetAt: Date
+
+  constructor(message: string, resetAt: Date) {
+    super(message)
+    this.name = 'UcatAiBudgetExceededError'
+    this.resetAt = resetAt
+  }
+}
+
 type ProviderRow = {
   id: string
   name: string
@@ -381,11 +391,14 @@ async function assertBudget(client: SupabaseClient<Database>, settings: Settings
   const tokens = rows.reduce((sum, row) => sum + (row.total_tokens ?? 0), 0)
   const cost = rows.reduce((sum, row) => sum + (row.estimated_cost_cents ?? 0), 0)
 
+  const resetAt = new Date(since)
+  resetAt.setDate(resetAt.getDate() + 1)
+
   if (settings.daily_token_budget && tokens >= settings.daily_token_budget) {
-    throw new Error('UCAT AI daily token budget has been reached')
+    throw new UcatAiBudgetExceededError('UCAT AI daily token budget has been reached', resetAt)
   }
   if (settings.daily_cost_budget_cents && cost >= settings.daily_cost_budget_cents) {
-    throw new Error('UCAT AI daily cost budget has been reached')
+    throw new UcatAiBudgetExceededError('UCAT AI daily cost budget has been reached', resetAt)
   }
 }
 
@@ -425,6 +438,7 @@ export async function callUcatAiJson(params: {
   providerSort?: 'price' | 'throughput' | 'latency'
   reasoningEffort?: 'none' | 'minimal' | 'low' | 'medium' | 'high'
   metadata?: Json | null
+  signal?: AbortSignal
 }): Promise<UcatAiJsonResult> {
   const config = await resolveUcatAiConfig(params.client, params.modelProfileId)
   await assertBudget(params.client, config.settings)
@@ -450,6 +464,7 @@ export async function callUcatAiJson(params: {
       userPrompt: params.userPrompt,
       userContentParts: codexContentParts,
       timeoutMs,
+      signal: params.signal,
     })
     content = result.content
     usage = result.usage
@@ -461,7 +476,14 @@ export async function callUcatAiJson(params: {
     }
 
     const controller = new AbortController()
-    const timeout = setTimeout(() => controller.abort(), timeoutMs)
+    let timedOut = false
+    const abortFromCaller = () => controller.abort(params.signal?.reason)
+    if (params.signal?.aborted) abortFromCaller()
+    else params.signal?.addEventListener('abort', abortFromCaller, { once: true })
+    const timeout = setTimeout(() => {
+      timedOut = true
+      controller.abort()
+    }, timeoutMs)
     let response: Response
     try {
       response = await fetch(`${config.provider.base_url.replace(/\/$/u, '')}/chat/completions`, {
@@ -498,11 +520,13 @@ export async function callUcatAiJson(params: {
       })
     } catch (error) {
       if (error instanceof Error && error.name === 'AbortError') {
+        if (!timedOut && params.signal?.aborted) throw error
         throw new Error(`UCAT AI ${params.operation} timed out after ${Math.round(timeoutMs / 1000)}s`)
       }
       throw error
     } finally {
       clearTimeout(timeout)
+      params.signal?.removeEventListener('abort', abortFromCaller)
     }
 
     if (!response.ok) {

@@ -1,23 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireUcatTutor } from '@/features/ucat/shared/server/guard'
 import { supabaseAdmin } from '@/shared/lib/supabase/server/admin'
-import {
-  type ProgressMode,
-  type TimeFrameDays,
-  isInTimeFrame,
-  TIME_FRAME_OPTIONS,
-} from '@/features/ucat/students/progress/lib/progress-mode'
 
-const EMA_ALPHA = 0.5
-
-function computeEma(scores: number[]): number | null {
-  if (scores.length === 0) return null
-  let ema = scores[0]
-  for (let i = 1; i < scores.length; i++) {
-    ema = EMA_ALPHA * scores[i] + (1 - EMA_ALPHA) * ema
-  }
-  return ema
-}
+export type UcatStudentDeliveryMode = 'in_person' | 'online'
+export type UcatStudentOnlineTier = 'free' | 'unlimited' | 'pro'
 
 export type StudentProgressSummaryRow = {
   student_id: string
@@ -25,309 +11,304 @@ export type StudentProgressSummaryRow = {
   total_questions: number
   total_sets_attempted: number
   total_mocks_attempted: number
-  exam: number | null
   last_attempted_at: string | null
   section_scores: Record<string, number | null>
+  class_ids: string[]
+  delivery_mode: UcatStudentDeliveryMode
+  online_tier: UcatStudentOnlineTier
 }
 
-export async function GET(request: NextRequest) {
+type StudentCandidate = {
+  id: string
+  first_name: string
+  last_name: string
+  ucat_onboarding_completed_at: string | null
+  ucat_signup_completed_at: string | null
+  ucat_online_tier_override: string
+}
+
+function resolveOnlineTier(
+  student: StudentCandidate,
+  subscriptions: Array<{ status: string; plan_tier: string | null }>
+): UcatStudentOnlineTier {
+  if (student.ucat_online_tier_override === 'force_pro') return 'pro'
+  if (student.ucat_online_tier_override === 'force_unlimited') {
+    return 'unlimited'
+  }
+  if (student.ucat_online_tier_override === 'force_free') return 'free'
+  if (
+    subscriptions.some(
+      (subscription) =>
+        ['active', 'past_due'].includes(subscription.status) &&
+        subscription.plan_tier === 'pro'
+    )
+  ) {
+    return 'pro'
+  }
+  if (
+    subscriptions.some((subscription) =>
+      ['trialing', 'active', 'past_due'].includes(subscription.status)
+    )
+  ) {
+    return 'unlimited'
+  }
+  return 'free'
+}
+
+export async function GET(_request: NextRequest) {
   const access = await requireUcatTutor()
   if (!access.ok) return access.response
 
-  const { searchParams } = new URL(request.url)
-  const mode = (searchParams.get('mode') ?? 'all_time') as ProgressMode
-  const timeFrameDays = (searchParams.get('timeFrameDays') ??
-    TIME_FRAME_OPTIONS[2].value) as TimeFrameDays
-  const days = parseInt(timeFrameDays, 10) || 30
-
-  const supabase = access.userClient
-
-  const filterByTime =
-    mode === 'time_frame' || mode === 'weighted'
-      ? (dateStr: string | null) =>
-          dateStr ? isInTimeFrame(dateStr, days) : false
-      : () => true
-
-  const countsUseTimeFilter = mode !== 'weighted'
-
-  type StudentRow = { student_id: string | null; student_name: string | null }
-  const { data: studentsData } = await supabase
-    .from('vtutor_ucat_student_progress_summary')
-    .select('student_id, student_name')
-    .order('student_name')
-
-  const students = (studentsData ?? []) as StudentRow[]
-  if (students.length === 0) {
-    return NextResponse.json({ students: [], sections: [] })
+  if (!supabaseAdmin) {
+    return NextResponse.json(
+      { error: 'UCAT student reporting is not configured on this server' },
+      { status: 500 }
+    )
   }
 
-  const studentIds = students
-    .map((s) => s.student_id)
-    .filter((id): id is string => !!id)
+  const { data: subject, error: subjectError } = await supabaseAdmin
+    .from('subjects')
+    .select('id')
+    .eq('name', 'UCAT')
+    .maybeSingle()
 
-  // Projection snapshots are service-role-only. Scope the admin query to the
-  // student IDs already authorized by the tutor view above before reading them.
-  const latestProjectionByStudent = new Map<string, Record<string, number>>()
-  if (supabaseAdmin && studentIds.length > 0) {
-    const { data: projectionSnapshots, error: projectionError } =
-      await supabaseAdmin
-        .from('ucat_score_projection_snapshots')
-        .select('student_id, snapshot_date, section_estimates')
-        .in('student_id', studentIds)
-        .order('snapshot_date', { ascending: false })
+  if (subjectError || !subject?.id) {
+    return NextResponse.json(
+      { error: subjectError?.message ?? 'UCAT subject not found' },
+      { status: 500 }
+    )
+  }
 
-    if (projectionError) {
-      console.warn(
-        '[tutor-progress-summary] Projection snapshots unavailable',
-        projectionError
+  const [studentsResult, classesResult, sectionsResult] = await Promise.all([
+    supabaseAdmin
+      .from('students')
+      .select(
+        'id, first_name, last_name, ucat_onboarding_completed_at, ucat_signup_completed_at, ucat_online_tier_override'
       )
-    } else {
-      for (const snapshot of projectionSnapshots ?? []) {
-        if (latestProjectionByStudent.has(snapshot.student_id)) continue
-        const estimates = snapshot.section_estimates
-        latestProjectionByStudent.set(
-          snapshot.student_id,
-          estimates &&
-            typeof estimates === 'object' &&
-            !Array.isArray(estimates)
-            ? Object.fromEntries(
-                Object.entries(estimates).filter(
-                  (entry): entry is [string, number] =>
-                    typeof entry[1] === 'number'
-                )
-              )
-            : {}
-        )
-      }
-    }
+      .not('user_id', 'is', null),
+    supabaseAdmin
+      .from('classes')
+      .select('id, short_name, long_name')
+      .eq('subject_id', subject.id),
+    supabaseAdmin
+      .from('ucat_sections')
+      .select('id, name, section_number')
+      .order('section_number'),
+  ])
+
+  const initialError =
+    studentsResult.error ?? classesResult.error ?? sectionsResult.error
+  if (initialError) {
+    return NextResponse.json({ error: initialError.message }, { status: 500 })
   }
 
-  type SectionRow = {
-    id: string | null
-    name: string | null
-    section_number: number | null
-  }
-  const { data: sectionsData } = await supabase
-    .from('vtutor_ucat_sections')
-    .select('id, name, section_number')
-    .order('section_number')
+  const students = (studentsResult.data ?? []) as StudentCandidate[]
+  const classes = classesResult.data ?? []
+  const classIds = classes.map((item) => item.id)
+  const studentIds = students.map((student) => student.id)
 
-  const sectionList = ((sectionsData ?? []) as SectionRow[]).filter(
-    (s): s is SectionRow & { id: string } => s.id != null
-  )
-  const sectionByNumber = new Map(
-    sectionList.map((s) => [s.section_number ?? 0, s.id!])
-  )
+  const [enrolmentsResult, subscriptionsResult] = await Promise.all([
+    classIds.length > 0
+      ? supabaseAdmin
+          .from('classes_students')
+          .select('class_id, student_id')
+          .in('class_id', classIds)
+          .is('unenrolled_at', null)
+      : Promise.resolve({ data: [], error: null }),
+    studentIds.length > 0
+      ? supabaseAdmin
+          .from('student_subscriptions')
+          .select('student_id, status, plan_tier')
+          .eq('subject_id', subject.id)
+          .in('student_id', studentIds)
+      : Promise.resolve({ data: [], error: null }),
+  ])
 
-  const { data: qaRaw } = await supabase
-    .from('vtutor_ucat_student_question_attempts_for_progress')
-    .select('student_id, attempted_at, is_submitted')
-    .in('student_id', studentIds)
-    .eq('is_submitted', true)
-
-  const { data: setAttemptsRaw } = await supabase
-    .from('vtutor_ucat_student_set_attempts')
-    .select('student_id, attempted_at, completed_at, scaled_score, set_id')
-    .in('student_id', studentIds)
-    .not('completed_at', 'is', null)
-
-  const setIds = [
-    ...new Set(
-      (setAttemptsRaw ?? [])
-        .map((r: { set_id?: string | null }) => r.set_id)
-        .filter(Boolean)
-    ),
-  ] as string[]
-
-  const { data: setDetails } =
-    setIds.length > 0
-      ? await supabase
-          .from('vtutor_ucat_question_sets')
-          .select('id, sections')
-          .in('id', setIds)
-      : { data: [] }
-
-  type SetDetailRow = { id: string | null; sections: unknown }
-  const setDetailsList = (setDetails ?? []) as SetDetailRow[]
-  const setSectionBySetId = new Map<string, string>()
-  for (const s of setDetailsList) {
-    if (!s.id) continue
-    const sectionsArr = s.sections as Array<{ section_number?: number }> | null
-    const firstNum =
-      Array.isArray(sectionsArr) && sectionsArr.length > 0
-        ? sectionsArr[0]?.section_number
-        : undefined
-    if (firstNum != null) {
-      const secId = sectionByNumber.get(firstNum)
-      if (secId) setSectionBySetId.set(s.id, secId)
-    }
+  const accessError = enrolmentsResult.error ?? subscriptionsResult.error
+  if (accessError) {
+    return NextResponse.json({ error: accessError.message }, { status: 500 })
   }
 
-  const { data: mockAttemptsRaw } = await supabase
-    .from('vtutor_ucat_student_mock_attempts')
-    .select('student_id, attempted_at, completed_at, scaled_score')
-    .in('student_id', studentIds)
-    .not('completed_at', 'is', null)
-
-  type QARow = { student_id: string | null; attempted_at: string | null }
-  type SetRow = {
-    student_id: string | null
-    attempted_at: string | null
-    completed_at: string | null
-    scaled_score: number | null
-    set_id: string | null
-  }
-  type MockRow = {
-    student_id: string | null
-    attempted_at: string | null
-    completed_at: string | null
-    scaled_score: number | null
+  const classIdsByStudent = new Map<string, string[]>()
+  for (const enrolment of enrolmentsResult.data ?? []) {
+    const current = classIdsByStudent.get(enrolment.student_id) ?? []
+    current.push(enrolment.class_id)
+    classIdsByStudent.set(enrolment.student_id, current)
   }
 
-  const byStudent = new Map<
+  const subscriptionsByStudent = new Map<
     string,
-    {
-      questions: number
-      sets: Set<string>
-      mocks: number
-      examScores: { date: string; score: number }[]
-      lastAttempted: string | null
-      sectionScores: Map<string, { date: string; score: number }[]>
-    }
+    Array<{ status: string; plan_tier: string | null }>
   >()
+  for (const subscription of subscriptionsResult.data ?? []) {
+    const current = subscriptionsByStudent.get(subscription.student_id) ?? []
+    current.push({
+      status: subscription.status,
+      plan_tier: subscription.plan_tier,
+    })
+    subscriptionsByStudent.set(subscription.student_id, current)
+  }
 
-  for (const s of students) {
-    const id = s.student_id
-    if (!id) continue
-    byStudent.set(id, {
-      questions: 0,
-      sets: new Set(),
-      mocks: 0,
-      examScores: [],
-      lastAttempted: null,
-      sectionScores: new Map(sectionList.map((sec) => [sec.id!, []])),
+  const eligibleStudents = students.filter((student) => {
+    const hasCompletedUcatSignup =
+      student.ucat_signup_completed_at != null ||
+      student.ucat_onboarding_completed_at != null
+    const isInPerson = (classIdsByStudent.get(student.id)?.length ?? 0) > 0
+    const hasOnlineSubscription =
+      (subscriptionsByStudent.get(student.id)?.some((subscription) =>
+        ['trialing', 'active', 'past_due'].includes(subscription.status)
+      ) ?? false)
+    return hasCompletedUcatSignup || isInPerson || hasOnlineSubscription
+  })
+  const eligibleStudentIds = eligibleStudents.map((student) => student.id)
+
+  if (eligibleStudentIds.length === 0) {
+    return NextResponse.json({
+      students: [],
+      sections: sectionsResult.data ?? [],
+      classes: classes.map((item) => ({
+        id: item.id,
+        name: item.long_name ?? item.short_name ?? 'Unnamed class',
+      })),
     })
   }
 
-  const qaList = (qaRaw ?? []) as QARow[]
-  for (const qa of qaList) {
-    const sid = qa.student_id
-    if (!sid) continue
-    const entry = byStudent.get(sid)
-    if (!entry) continue
-    const use = countsUseTimeFilter ? filterByTime(qa.attempted_at) : true
-    if (use) entry.questions += 1
-    if (qa.attempted_at) {
-      const current = entry.lastAttempted
-      if (!current || qa.attempted_at > current) {
-        entry.lastAttempted = qa.attempted_at
-      }
+  const [projectionResult, questionResult, setResult, mockResult] =
+    await Promise.all([
+      supabaseAdmin
+        .from('ucat_score_projection_snapshots')
+        .select('student_id, snapshot_date, section_estimates')
+        .in('student_id', eligibleStudentIds)
+        .order('snapshot_date', { ascending: false }),
+      supabaseAdmin
+        .from('student_question_attempts')
+        .select('student_id, attempted_at')
+        .in('student_id', eligibleStudentIds)
+        .eq('is_submitted', true),
+      supabaseAdmin
+        .from('student_question_set_attempts')
+        .select('id, student_id, attempted_at, completed_at')
+        .in('student_id', eligibleStudentIds)
+        .not('completed_at', 'is', null),
+      supabaseAdmin
+        .from('student_ucat_mock_attempts')
+        .select('id, student_id, attempted_at, completed_at')
+        .in('student_id', eligibleStudentIds)
+        .not('completed_at', 'is', null),
+    ])
+
+  const reportingError =
+    projectionResult.error ??
+    questionResult.error ??
+    setResult.error ??
+    mockResult.error
+  if (reportingError) {
+    return NextResponse.json({ error: reportingError.message }, { status: 500 })
+  }
+
+  const projectionByStudent = new Map<string, Record<string, number>>()
+  for (const snapshot of projectionResult.data ?? []) {
+    if (projectionByStudent.has(snapshot.student_id)) continue
+    const estimates = snapshot.section_estimates
+    projectionByStudent.set(
+      snapshot.student_id,
+      estimates && typeof estimates === 'object' && !Array.isArray(estimates)
+        ? Object.fromEntries(
+            Object.entries(estimates).filter(
+              (entry): entry is [string, number] =>
+                typeof entry[1] === 'number'
+            )
+          )
+        : {}
+    )
+  }
+
+  const totalsByStudent = new Map<
+    string,
+    { questions: number; sets: number; mocks: number; lastAttempted: string | null }
+  >(
+    eligibleStudentIds.map((id) => [
+      id,
+      { questions: 0, sets: 0, mocks: 0, lastAttempted: null },
+    ])
+  )
+  const recordActivity = (studentId: string, date: string | null) => {
+    const totals = totalsByStudent.get(studentId)
+    if (!totals || !date) return
+    if (!totals.lastAttempted || date > totals.lastAttempted) {
+      totals.lastAttempted = date
     }
   }
 
-  for (const row of (setAttemptsRaw ?? []) as SetRow[]) {
-    const sid = row.student_id
-    if (!sid) continue
-    const entry = byStudent.get(sid)
-    if (!entry) continue
-    const dateStr = row.completed_at ?? row.attempted_at ?? ''
-    const use = countsUseTimeFilter ? filterByTime(dateStr) : true
-    if (use) {
-      entry.sets.add(row.set_id ?? '')
-      const sectionId = row.set_id ? setSectionBySetId.get(row.set_id) : null
-      if (sectionId && row.scaled_score != null) {
-        const arr = entry.sectionScores.get(sectionId)
-        if (arr) arr.push({ date: dateStr, score: row.scaled_score })
-      }
-    }
-    if (dateStr && (!entry.lastAttempted || dateStr > entry.lastAttempted)) {
-      entry.lastAttempted = dateStr
-    }
+  for (const question of questionResult.data ?? []) {
+    const totals = totalsByStudent.get(question.student_id)
+    if (!totals) continue
+    totals.questions += 1
+    recordActivity(question.student_id, question.attempted_at)
+  }
+  for (const set of setResult.data ?? []) {
+    const totals = totalsByStudent.get(set.student_id)
+    if (!totals) continue
+    totals.sets += 1
+    recordActivity(set.student_id, set.completed_at ?? set.attempted_at)
+  }
+  for (const mock of mockResult.data ?? []) {
+    const totals = totalsByStudent.get(mock.student_id)
+    if (!totals) continue
+    totals.mocks += 1
+    recordActivity(mock.student_id, mock.completed_at ?? mock.attempted_at)
   }
 
-  for (const row of (mockAttemptsRaw ?? []) as MockRow[]) {
-    const sid = row.student_id
-    if (!sid) continue
-    const entry = byStudent.get(sid)
-    if (!entry) continue
-    const dateStr = row.completed_at ?? row.attempted_at ?? ''
-    const use = countsUseTimeFilter ? filterByTime(dateStr) : true
-    if (use) {
-      entry.mocks += 1
-      if (row.scaled_score != null && row.scaled_score > 0) {
-        entry.examScores.push({ date: dateStr, score: row.scaled_score })
-      }
-    }
-    if (dateStr && (!entry.lastAttempted || dateStr > entry.lastAttempted)) {
-      entry.lastAttempted = dateStr
-    }
-  }
-
-  const sectionsMeta = sectionList.map((s) => ({
-    id: s.id,
-    name: s.name ?? 'Unknown',
-    section_number: s.section_number ?? 0,
+  const sections = (sectionsResult.data ?? []).map((section) => ({
+    id: section.id,
+    name: section.name ?? 'Unknown',
+    section_number: section.section_number ?? 0,
   }))
-
-  const result = {
-    students: students
-      .filter((s) => s.student_id)
-      .map((s) => {
-        const id = s.student_id!
-        const entry = byStudent.get(id)
-        if (!entry) {
-          return {
-            student_id: id,
-            student_name: s.student_name ?? '-',
-            total_questions: 0,
-            total_sets_attempted: 0,
-            total_mocks_attempted: 0,
-            exam: null,
-            last_attempted_at: null,
-            section_scores: Object.fromEntries(
-              sectionList.map((sec) => [sec.id!, null])
-            ) as Record<string, number | null>,
-          }
-        }
-
-        const examScoresByDate = [...entry.examScores].sort((a, b) =>
-          a.date.localeCompare(b.date)
-        )
-        const examScoresOrdered = examScoresByDate.map((x) => x.score)
-        const exam =
-          mode === 'weighted' && examScoresOrdered.length > 0
-            ? computeEma(examScoresOrdered)
-            : examScoresOrdered.length > 0
-              ? examScoresOrdered.reduce((a, b) => a + b, 0) /
-                examScoresOrdered.length
-              : null
-
-        const predictedScores = latestProjectionByStudent.get(id) ?? {}
-        const sectionScores: Record<string, number | null> = Object.fromEntries(
-          sectionList.map((section) => [
+  const result = eligibleStudents
+    .map((student): StudentProgressSummaryRow => {
+      const totals = totalsByStudent.get(student.id) ?? {
+        questions: 0,
+        sets: 0,
+        mocks: 0,
+        lastAttempted: null,
+      }
+      const classIdsForStudent = classIdsByStudent.get(student.id) ?? []
+      const projections = projectionByStudent.get(student.id) ?? {}
+      return {
+        student_id: student.id,
+        student_name:
+          `${student.first_name} ${student.last_name}`.trim() || 'Unnamed student',
+        total_questions: totals.questions,
+        total_sets_attempted: totals.sets,
+        total_mocks_attempted: totals.mocks,
+        last_attempted_at: totals.lastAttempted,
+        section_scores: Object.fromEntries(
+          sections.map((section) => [
             section.id,
-            predictedScores[section.id] != null
-              ? Math.round(predictedScores[section.id])
+            projections[section.id] != null
+              ? Math.round(projections[section.id])
               : null,
           ])
-        )
+        ),
+        class_ids: classIdsForStudent,
+        delivery_mode:
+          classIdsForStudent.length > 0 ? 'in_person' : 'online',
+        online_tier: resolveOnlineTier(
+          student,
+          subscriptionsByStudent.get(student.id) ?? []
+        ),
+      }
+    })
+    .sort((a, b) =>
+      (b.last_attempted_at ?? '').localeCompare(a.last_attempted_at ?? '')
+    )
 
-        return {
-          student_id: id,
-          student_name: s.student_name ?? '-',
-          total_questions: entry.questions,
-          total_sets_attempted: entry.sets.size,
-          total_mocks_attempted: entry.mocks,
-          exam: exam != null ? Math.round(exam) : null,
-          last_attempted_at: entry.lastAttempted,
-          section_scores: sectionScores,
-        }
-      })
-      .sort((a, b) =>
-        (b.last_attempted_at ?? '').localeCompare(a.last_attempted_at ?? '')
-      ),
-    sections: sectionsMeta,
-  }
-
-  return NextResponse.json(result)
+  return NextResponse.json({
+    students: result,
+    sections,
+    classes: classes.map((item) => ({
+      id: item.id,
+      name: item.long_name ?? item.short_name ?? 'Unnamed class',
+    })),
+  })
 }

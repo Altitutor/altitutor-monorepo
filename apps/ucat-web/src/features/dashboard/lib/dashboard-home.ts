@@ -11,6 +11,7 @@ import {
   selectNextStudyPlanTask,
 } from "@/features/study-plan/lib/companion";
 import type {
+  StudyGuidanceItem,
   StudyPlanResponse,
   StudyPlanTask,
 } from "@/features/study-plan/model/types";
@@ -33,12 +34,14 @@ export type DashboardNextAction =
       fromEarlierStudyDay: boolean;
     }
   | {
+      kind: "guidance";
+      primary: StudyGuidanceItem;
+      secondary: StudyGuidanceItem | null;
+    }
+  | {
       kind: "caught_up";
       nextStudyDate: string | null;
       hadTasksToday: boolean;
-    }
-  | {
-      kind: "sampler";
     }
   | {
       kind: "plan_setup";
@@ -100,8 +103,6 @@ export function resolveDashboardNextAction({
   sessions,
   plan,
   planLoadFailed,
-  samplerDecided,
-  samplerCompleted,
 }: DashboardActionInput): DashboardNextAction {
   const prioritySession = findPrioritySession(sessions, now);
   if (prioritySession) {
@@ -109,6 +110,13 @@ export function resolveDashboardNextAction({
   }
 
   if (plan?.profile) {
+    if (!plan.profile.studyPlanEnabled && plan.nextSteps[0]) {
+      return {
+        kind: "guidance",
+        primary: plan.nextSteps[0],
+        secondary: plan.nextSteps[1] ?? null,
+      };
+    }
     const currentTasks = selectCurrentStudyPlanTasks(plan.tasks, plan.today);
     const nextTask = selectNextStudyPlanTask(currentTasks);
     if (nextTask)
@@ -129,10 +137,6 @@ export function resolveDashboardNextAction({
   }
 
   if (planLoadFailed) return { kind: "plan_error" };
-
-  if (samplerDecided && !samplerCompleted) {
-    return { kind: "sampler" };
-  }
 
   return { kind: "plan_setup" };
 }

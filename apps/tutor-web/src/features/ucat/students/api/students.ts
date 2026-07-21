@@ -16,28 +16,22 @@ export type StudentProgressSummaryRow = {
   total_questions: number
   total_sets_attempted: number
   total_mocks_attempted: number
-  exam: number | null
   last_attempted_at: string | null
   section_scores: Record<string, number | null>
+  class_ids: string[]
+  delivery_mode: 'in_person' | 'online'
+  online_tier: 'free' | 'unlimited' | 'pro'
 }
 
 export type StudentProgressSummaryResponse = {
   students: StudentProgressSummaryRow[]
   sections: Array<{ id: string; name: string; section_number: number }>
+  classes: Array<{ id: string; name: string }>
 }
 
 export const ucatStudentsApi = {
-  async listProgressSummary(params: {
-    mode: 'all_time' | 'weighted' | 'time_frame'
-    timeFrameDays: string
-  }): Promise<StudentProgressSummaryResponse> {
-    const search = new URLSearchParams({
-      mode: params.mode,
-      timeFrameDays: params.timeFrameDays,
-    })
-    const res = await fetch(
-      `/api/ucat/students/progress-summary?${search.toString()}`
-    )
+  async listProgressSummary(): Promise<StudentProgressSummaryResponse> {
+    const res = await fetch('/api/ucat/students/progress-summary')
     if (!res.ok) throw new Error('Failed to fetch progress summary')
     return res.json()
   },

@@ -9,10 +9,10 @@ export const AI_GENERATION_SYSTEM_PROMPT = `You generate UCAT ANZ tutor-review d
 
 Return JSON only. Do not include markdown or prose outside the JSON object.
 Write in the style of official UCAT practice material: concise stems, ordinary real-world contexts, precise wording, plausible distractors, and no teaching-style scaffolding.
-Every generated question must include a concise, student-facing question-level answerExplanation.
+Every generated question must include exactly one explanation shape: multiple-choice questions use one concise, student-facing question-level answerExplanation and every option answerExplanation is null; syllogism questions use per-option answerExplanation values and the question-level answerExplanation is null.
 Explanations must justify why the correct answer is correct and why the main distractors fail.
 When writing answer explanations, act as a tutor teaching the student how to solve the question, not as a question writer justifying an answer key.
-Explanations must teach an efficient timed-test method, not merely report the result. Name or demonstrate a useful representation such as a table, ordered list, diagram, equation, elimination grid, or annotated evidence when it genuinely helps. If the explanation relies on a table, grid, diagram, or list, include that representation as structured content blocks inside the answerExplanation.
+Explanations must teach an efficient timed-test method, not merely report the result. Name or demonstrate a useful representation such as a table, ordered list, diagram, equation, elimination grid, or annotated evidence when it genuinely helps. If the explanation relies on a table, grid, diagram, or list, include that representation as structured content blocks in the applicable question-level or option-level explanation.
 Make explanations easy to scan using short paragraphs, list blocks, or table blocks where relevant. Include useful shortcuts, traps to watch for, and for genuinely high time-burden questions advise the student to recognise the burden, skip, and return later if time permits.
 Do not copy sample stems, distinctive premises, data relationships, names, or near-exact wording. Use examples only to calibrate style, length, difficulty, and answer format.
 Avoid generic AI prose and punctuation habits. Do not use em dashes, double hyphens, canned headings, false starts, self-correction, or phrases such as "it is important to note".`
@@ -101,8 +101,8 @@ export function buildAiGenerationUserPrompt(input: {
       sectionRules: input.sectionPrompt,
       requirements: [
         'Return exactly stemCount stems.',
-        'Every question must include non-empty answerExplanation.',
-        'Use question-level answerExplanation; option answerExplanation may be null.',
+        'Multiple-choice questions: answerExplanation must be non-empty and every option answerExplanation must be null.',
+        'Syllogism questions: answerExplanation must be null and every option answerExplanation must be non-empty.',
         'Every multiple_choice question must have exactly one option with isAnswer=true.',
         'Do not generate image-dependent content.',
       ],
@@ -115,11 +115,11 @@ export function buildAiGenerationUserPrompt(input: {
               {
                 questionText: 'string',
                 questionType: 'multiple_choice|syllogism',
-                answerExplanation: 'required non-empty string',
+                answerExplanation: 'non-empty for multiple_choice; null for syllogism',
                 options: [
                   {
                     answerText: 'string',
-                    answerExplanation: null,
+                    answerExplanation: 'null for multiple_choice; non-empty for syllogism',
                     isAnswer: true,
                   },
                 ],
@@ -374,7 +374,9 @@ export function buildWriterPrompt(input: AiGenerationBrief & { plan: unknown }):
         'In questionText, wrap decisive logical qualifiers such as MUST, CANNOT, COULD, EXCEPT, NOT, ALWAYS, LEAST, MOST, TRUE, and FALSE in **bold markers** and capitalize them. Do not bold ordinary words.',
         'Do not copy selected source examples, scenario premises, distinctive data relationships, or near-exact wording.',
         'Every multiple_choice question must have exactly one isAnswer=true option and a question-level explanation.',
+        'For every multiple_choice question, set every option answerExplanation to null. Do not duplicate the question-level explanation into options.',
         'Every syllogism option must have answerExplanation explaining why the answer is Yes or No.',
+        'For every syllogism question, set the question-level answerExplanation to null. Do not also return a question-level explanation.',
         'Answer explanations must act as a tutor: show the efficient setup, include a table/list/diagram content block when that representation is part of the method, explain why the correct answer is correct, and explain why every distractor is wrong.',
         'Use short paragraphs, list blocks, or table blocks in explanations so they are easy to read. Include useful shortcuts and common traps where relevant.',
         'For genuinely high time-burden questions, include a brief timed-test note only when it would be useful to the student; do not add a canned skip-and-return line to every high-burden explanation.',

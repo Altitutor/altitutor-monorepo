@@ -4,6 +4,7 @@ import { formatSpeedMultiplier } from "./format-speed-multiplier";
 /** Graph metrics that map to a single per-attempt table column. */
 export type AttemptTableMetric =
   | "scaled_score"
+  | "raw_score"
   | "percentage"
   | "time_taken"
   | "exam_speed"
@@ -54,6 +55,10 @@ const SET_METRIC_COLUMNS: Record<AttemptTableMetric, MetricColumnConfig> = {
     tooltip:
       "Scaled score (300–900) normalised to UCAT exam scale for this section.",
   },
+  raw_score: {
+    label: "Raw score",
+    tooltip: "Points earned out of the total possible points for this set.",
+  },
   percentage: {
     label: "Percentage",
     tooltip:
@@ -80,6 +85,11 @@ const MOCK_METRIC_COLUMNS: Record<AttemptTableMetric, MetricColumnConfig> = {
     tooltip:
       "Total UCAT mock score. Section 4 Situational Judgement excluded.",
   },
+  raw_score: {
+    label: "Raw score",
+    tooltip:
+      "Points earned out of the total possible points across the mock sections.",
+  },
   percentage: {
     label: "Percentage",
     tooltip:
@@ -105,6 +115,11 @@ const PRACTICE_METRIC_COLUMNS: Record<AttemptTableMetric, MetricColumnConfig> =
     scaled_score: {
       label: "Scaled score",
       tooltip: "Not available for practice sessions.",
+    },
+    raw_score: {
+      label: "Raw score",
+      tooltip:
+        "Points earned out of the total possible points in this practice session.",
     },
     percentage: {
       label: "Percentage",
@@ -152,6 +167,11 @@ type AttemptMetricValues = {
   setTimeLimitSeconds?: number | null;
   studentExamSpeed?: number | null;
   questionCount?: number | null;
+  rawScoreBreakdown?: Array<{
+    sectionLabel: string;
+    scorePoints: number;
+    totalPoints: number;
+  }>;
 };
 
 export function formatAttemptTableMetricValue(
@@ -166,6 +186,18 @@ export function formatAttemptTableMetricValue(
         return `${Math.round(attempt.scaledScore)} / ${attempt.scaledScoreMax}`;
       }
       return String(Math.round(attempt.scaledScore));
+    }
+    case "raw_score": {
+      if (scope === "mock" && attempt.rawScoreBreakdown?.length) {
+        return attempt.rawScoreBreakdown
+          .map(
+            (section) =>
+              `${section.sectionLabel} ${section.scorePoints}/${section.totalPoints}`,
+          )
+          .join(" · ");
+      }
+      if (attempt.scorePoints == null || attempt.totalPoints == null) return "—";
+      return `${attempt.scorePoints} / ${attempt.totalPoints}`;
     }
     case "percentage": {
       const total = attempt.totalPoints ?? 0;

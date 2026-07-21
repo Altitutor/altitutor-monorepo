@@ -369,10 +369,18 @@ export async function callCodexOAuthJson(params: {
   userPrompt: string
   userContentParts?: CodexOAuthUserContentPart[]
   timeoutMs: number
+  signal?: AbortSignal
 }): Promise<CodexOAuthJsonResponse> {
   const tokens = await getFreshTokens(params.providerId)
   const controller = new AbortController()
-  const timeout = setTimeout(() => controller.abort(), params.timeoutMs)
+  let timedOut = false
+  const abortFromCaller = () => controller.abort(params.signal?.reason)
+  if (params.signal?.aborted) abortFromCaller()
+  else params.signal?.addEventListener('abort', abortFromCaller, { once: true })
+  const timeout = setTimeout(() => {
+    timedOut = true
+    controller.abort()
+  }, params.timeoutMs)
   try {
     const response = await fetch(`${(params.baseUrl ?? DEFAULT_CODEX_BASE_URL).replace(/\/$/u, '')}/responses`, {
       method: 'POST',
@@ -405,10 +413,12 @@ export async function callCodexOAuthJson(params: {
     return collectResponsesStream(response)
   } catch (error) {
     if (error instanceof Error && error.name === 'AbortError') {
+      if (!timedOut && params.signal?.aborted) throw error
       throw new Error(`Codex OAuth request timed out after ${Math.round(params.timeoutMs / 1000)}s`)
     }
     throw error
   } finally {
     clearTimeout(timeout)
+    params.signal?.removeEventListener('abort', abortFromCaller)
   }
 }

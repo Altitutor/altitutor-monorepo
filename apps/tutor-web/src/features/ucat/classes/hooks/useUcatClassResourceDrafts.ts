@@ -94,11 +94,13 @@ export function useUcatClassResourceDrafts(classId: string | null) {
     []
   )
 
-  const saveAssignments = useCallback(async () => {
+  const saveAssignments = useCallback(async (attachableBySession?: DraftBySession) => {
     if (!classId || !isDirty) return
     setIsSaving(true)
     try {
-      const assignments = Object.entries(draftBySession).map(([session_id, resources]) => ({
+      // Prefer the publish-filtered draft so hidden unpublished attachments are not re-inserted.
+      const source = attachableBySession ?? draftBySession
+      const assignments = Object.entries(source).map(([session_id, resources]) => ({
         session_id,
         resources: resources.map((r, index) => ({
           resource_type: r.type,

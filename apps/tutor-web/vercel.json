@@ -12,10 +12,25 @@
           "retryAfterSeconds": 30
         }
       ]
+    },
+    "src/app/api/queues/ucat-question-assessment/route.ts": {
+      "maxDuration": 600,
+      "experimentalTriggers": [
+        {
+          "type": "queue/v2beta",
+          "topic": "ucat-question-assessment",
+          "retryAfterSeconds": 30
+        }
+      ]
     }
-  }
+  },
+  "crons": [
+    {
+      "path": "/api/cron/ucat-question-assessments",
+      "schedule": "*/5 * * * *"
+    }
+  ]
 }
-
 
 
 

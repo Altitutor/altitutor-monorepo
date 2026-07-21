@@ -6,6 +6,8 @@ export type StudyPlanAvailability = {
 };
 
 export type StudyPlanProfileInput = {
+  studyPlanEnabled: boolean;
+  studySuggestionsEnabled: boolean;
   targetScore: number;
   testYear: number;
   testDate: string | null;
@@ -142,6 +144,33 @@ export type StudyPlanTask = GeneratedStudyPlanTask & {
   matchedActivityId: string | null;
 };
 
+export type StudyGuidanceItem = {
+  id: string;
+  position: 1 | 2;
+  triggerKey: string;
+  generatedOn: string;
+  taskType: StudyPlanTaskType;
+  title: string;
+  description: string;
+  rationale: string;
+  estimatedMinutes: number;
+  sectionId: string | null;
+  questionStemCategoryId: string | null;
+  learningModuleId: string | null;
+  questionSetId: string | null;
+  mockId: string | null;
+  skillTrainerId: string | null;
+  sourceAttemptType: "practice_session" | "set_attempt" | "mock_attempt" | null;
+  sourceAttemptId: string | null;
+  launchPath: string;
+  launchConfig: Record<string, unknown>;
+};
+
+export type StudyGuidanceAlternativeInput = {
+  excludedKeys: string[];
+  currentTaskTypes: StudyPlanTaskType[];
+};
+
 export type StudyPlanResponse = {
   profile:
     | (StudyPlanProfileInput & {
@@ -161,6 +190,7 @@ export type StudyPlanResponse = {
     sectionTargets: Record<string, number>;
   } | null;
   tasks: StudyPlanTask[];
+  nextSteps: StudyGuidanceItem[];
   today: string;
   todayTasks: StudyPlanTask[];
   completion: {

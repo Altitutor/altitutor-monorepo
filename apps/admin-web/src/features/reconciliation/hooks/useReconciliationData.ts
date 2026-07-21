@@ -5,7 +5,6 @@ import {
   useUnloggedSessions,
   useUnassignedClasses,
   useUnassignedTasks,
-  useFailedDeliveryMessages,
   useStudentsWithoutClasses,
   useStudentsWithoutPaymentMethod,
   useTrialStudentsNotSignedUp,
@@ -69,16 +68,6 @@ export function useReconciliationSchedulingData() {
       studentsWithoutClasses.isError,
       trialStudentsNotSignedUp.isError
     ),
-  };
-}
-
-export function useReconciliationCommunicationData() {
-  const failedDeliveryMessages = useFailedDeliveryMessages();
-
-  return {
-    failedDeliveryMessages,
-    isLoading: failedDeliveryMessages.isLoading,
-    hasError: failedDeliveryMessages.isError,
   };
 }
 

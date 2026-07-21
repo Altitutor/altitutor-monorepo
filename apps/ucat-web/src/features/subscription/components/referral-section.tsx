@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
@@ -20,16 +21,22 @@ import {
 } from "@/features/subscription/api/referrals";
 import { fetchReferralGifts } from "@/features/subscription/api/referral-gifts";
 import { ReferralGiftCard } from "@/features/subscription/components/referral-gift-card";
+import { useUcatSubscriptionBilling } from "@/features/subscription/hooks/use-ucat-subscription-billing";
+import { resolveReferralOfferCopy } from "@/features/subscription/lib/referral-offer-copy";
+import { buildAvailableRewardDisplay } from "@/features/subscription/lib/referral-rewards-display";
 import {
   UCAT_PRIMARY_ACTION_BUTTON,
   UCAT_SURFACE_CARD,
   UCAT_SURFACE_MOTION,
 } from "@/lib/ucat-surface-motion";
 import { cn } from "@/lib/utils";
+import { useCompleteOnboardingTour } from "@/features/onboarding/hooks/use-onboarding-progress";
+import { UCAT_REFERRAL_SHARED } from "@/features/onboarding/lib/activation-milestones";
 
 export function ReferralSection() {
   const [copied, setCopied] = useState(false);
   const queryClient = useQueryClient();
+  const completeMilestone = useCompleteOnboardingTour();
   const { data: summary, error } = useQuery<UcatReferralSummary>({
     queryKey: ["ucat-referrals"],
     queryFn: fetchUcatReferralSummary,
@@ -38,6 +45,31 @@ export function ReferralSection() {
     queryKey: ["ucat-referral-gifts"],
     queryFn: fetchReferralGifts,
   });
+  const billingQuery = useUcatSubscriptionBilling();
+  const offerCopy = useMemo(
+    () => resolveReferralOfferCopy(billingQuery.data?.subscription ?? null),
+    [billingQuery.data?.subscription],
+  );
+  const rewardDisplay = useMemo(
+    () =>
+      buildAvailableRewardDisplay({
+        earnedGifts: giftQuery.data?.earnedGifts ?? [],
+        queuedFreeBills: summary?.stats.queuedFreeBills ?? 0,
+        usedCount:
+          (summary?.stats.usedFreePeriods ?? 0) +
+          (summary?.stats.redeemedFreeBills ?? 0),
+        billingInterval: billingQuery.data?.subscription?.billing_interval,
+        planLabel: offerCopy.planLabel,
+      }),
+    [
+      billingQuery.data?.subscription?.billing_interval,
+      giftQuery.data?.earnedGifts,
+      offerCopy.planLabel,
+      summary?.stats.queuedFreeBills,
+      summary?.stats.redeemedFreeBills,
+      summary?.stats.usedFreePeriods,
+    ],
+  );
 
   const referralUrl = useMemo(() => {
     if (!summary || typeof window === "undefined") return "";
@@ -49,6 +81,7 @@ export function ReferralSection() {
   async function copyReferralLink() {
     if (!referralUrl) return;
     await navigator.clipboard.writeText(referralUrl);
+    completeMilestone.mutate(UCAT_REFERRAL_SHARED);
     setCopied(true);
     window.setTimeout(() => setCopied(false), 1800);
   }
@@ -56,6 +89,7 @@ export function ReferralSection() {
   async function shareReferralLink() {
     if (!referralUrl) return;
     if (navigator.share) {
+      completeMilestone.mutate(UCAT_REFERRAL_SHARED);
       await navigator.share({
         title: "Try Altitutor UCAT",
         text: "Join me on Altitutor for UCAT practice.",
@@ -66,7 +100,7 @@ export function ReferralSection() {
     await copyReferralLink();
   }
 
-  if (!summary && !error) {
+  if ((!summary && !error) || billingQuery.isLoading) {
     return (
       <div
         className="space-y-6"
@@ -79,7 +113,6 @@ export function ReferralSection() {
             <Skeleton key={card} className="h-28 rounded-ucatShell" />
           ))}
         </div>
-        <Skeleton className="h-28 w-full rounded-ucatShell" />
       </div>
     );
   }
@@ -127,30 +160,20 @@ export function ReferralSection() {
                   <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">
                     Refer friends
                   </p>
-                  <Badge variant="secondary">Gift Unlimited</Badge>
+                  <Badge variant="secondary">{offerCopy.badge}</Badge>
                 </div>
                 <h2 className="mt-2 text-2xl font-semibold tracking-tight sm:text-3xl">
-                  Give a free week or month of UCAT Unlimited.
+                  {offerCopy.headline}
                 </h2>
                 <p className="mt-3 max-w-2xl leading-relaxed text-muted-foreground">
-                  Your friend gets UCAT Unlimited free for the gifted period.
-                  When they accept, you earn Unlimited access if you’re on Free,
-                  or your next bill free if you’re already subscribed.
+                  {offerCopy.description}
                 </p>
               </div>
             </div>
           </div>
 
           <ol className="relative mt-7 grid gap-3 sm:grid-cols-3">
-            {[
-              ["1", "Share your link", "Send your personal link to a friend."],
-              [
-                "2",
-                "They choose",
-                "They have 7 days to accept the Unlimited gift or continue Free.",
-              ],
-              ["3", "You earn", "Your reward is based on your plan when you referred them."],
-            ].map(([step, title, description]) => (
+            {offerCopy.steps.map(({ step, title, description }) => (
               <li
                 key={step}
                 className="rounded-2xl border border-border/60 bg-background/65 p-4 backdrop-blur-sm"
@@ -246,60 +269,39 @@ export function ReferralSection() {
 
         <div className="rounded-ucatShell relative overflow-hidden border border-primary/20 bg-primary/[0.08] p-6 lg:col-span-2">
           <div className="absolute -right-8 -top-8 h-28 w-28 rounded-full bg-primary/15 blur-2xl" />
-          <div className="relative">
+          <div className="relative flex h-full flex-col">
             <div className="flex items-center gap-2 text-primary">
               <Sparkles className="h-5 w-5" aria-hidden="true" />
               <p className="text-sm font-semibold">Available rewards</p>
             </div>
-            <p className="mt-5 text-4xl font-semibold tabular-nums">
-              {summary.stats.availableFreePeriods +
-                summary.stats.queuedFreeBills}
+            <p className="mt-5 text-3xl font-semibold tracking-tight sm:text-4xl">
+              {rewardDisplay.title}
             </p>
             <p className="mt-1 text-sm text-muted-foreground">
-              {summary.stats.availableFreePeriods +
-                summary.stats.queuedFreeBills ===
-              1
-                ? "reward"
-                : "rewards"}{" "}
-              ready
+              {rewardDisplay.detail}
             </p>
-            <div className="mt-5 flex items-center justify-between border-t border-primary/15 pt-4 text-sm">
+            {rewardDisplay.extra ? (
+              <p className="mt-2 text-sm text-muted-foreground">
+                {rewardDisplay.extra}
+              </p>
+            ) : null}
+            {rewardDisplay.cta ? (
+              <Button
+                asChild
+                type="button"
+                className={cn("mt-5 w-full sm:w-auto", UCAT_PRIMARY_ACTION_BUTTON)}
+              >
+                <Link href={rewardDisplay.cta.href}>
+                  {rewardDisplay.cta.label}
+                  <ArrowRight className="ml-2 h-4 w-4" aria-hidden="true" />
+                </Link>
+              </Button>
+            ) : null}
+            <div className="mt-auto flex items-center justify-between border-t border-primary/15 pt-4 text-sm">
               <span className="text-muted-foreground">Already used</span>
               <span className="font-semibold tabular-nums">
-                {summary.stats.usedFreePeriods + summary.stats.redeemedFreeBills}
+                {rewardDisplay.usedCount}
               </span>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <section className={cn("rounded-ucatShell p-6", UCAT_SURFACE_CARD)}>
-        <h3 className="font-semibold">How your gift is decided</h3>
-        <div className="mt-4 grid gap-3 sm:grid-cols-2">
-          <div className="flex gap-3 rounded-2xl bg-muted/35 p-4">
-            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
-              <ArrowRight className="h-4 w-4" aria-hidden="true" />
-            </div>
-            <div>
-              <p className="font-medium">If you’re on UCAT Free</p>
-              <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
-                You gift one free week of Unlimited. If they accept, you earn a
-                free week of Unlimited to start when you’re ready. If they say
-                no thanks, you both receive a Free quota reset.
-              </p>
-            </div>
-          </div>
-          <div className="flex gap-3 rounded-2xl bg-muted/35 p-4">
-            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
-              <Gift className="h-4 w-4" aria-hidden="true" />
-            </div>
-            <div>
-              <p className="font-medium">If you’re already subscribed</p>
-              <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
-                You gift a free week or month of Unlimited to match your billing
-                cadence. If they accept, your next bill is free. UCAT Pro itself
-                is never gifted.
-              </p>
             </div>
           </div>
         </div>

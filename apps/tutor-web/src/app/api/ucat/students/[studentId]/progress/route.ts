@@ -98,6 +98,12 @@ type PracticeAttemptRaw = {
   unlimited: boolean
 }
 
+type AttemptReviewRow = {
+  attempt_type: 'practice_session' | 'set_attempt' | 'mock_attempt'
+  attempt_id: string
+  completed_at: string | null
+}
+
 export async function GET(
   _request: NextRequest,
   { params }: { params: Promise<{ studentId: string }> }
@@ -860,11 +866,50 @@ export async function GET(
     }
   }
 
+  // Review state is service-role-only for tutor reads. The student access check
+  // above has already authorised this tutor, and the query remains scoped to
+  // the selected student.
+  const reviewResult = supabaseAdmin
+    ? await supabaseAdmin
+        .from('student_ucat_attempt_reviews')
+        .select('attempt_type, attempt_id, completed_at')
+        .eq('student_id', studentId)
+    : { data: [], error: null }
+  if (reviewResult.error) {
+    captureApiError(
+      reviewResult.error,
+      '/api/ucat/students/[studentId]/progress'
+    )
+    return NextResponse.json(
+      { error: reviewResult.error.message },
+      { status: 500 }
+    )
+  }
+  const reviewCompletedAtByAttempt = new Map(
+    ((reviewResult.data ?? []) as AttemptReviewRow[]).map((review) => [
+      `${review.attempt_type}:${review.attempt_id}`,
+      review.completed_at,
+    ])
+  )
+
   const response: ProgressResponse = {
     sectionProgress,
-    setAttempts,
-    mockAttempts,
-    practiceAttempts,
+    setAttempts: setAttempts.map((attempt) => ({
+      ...attempt,
+      reviewCompletedAt:
+        reviewCompletedAtByAttempt.get(`set_attempt:${attempt.id}`) ?? null,
+    })),
+    mockAttempts: mockAttempts.map((attempt) => ({
+      ...attempt,
+      reviewCompletedAt:
+        reviewCompletedAtByAttempt.get(`mock_attempt:${attempt.id}`) ?? null,
+    })),
+    practiceAttempts: practiceAttempts.map((attempt) => ({
+      ...attempt,
+      reviewCompletedAt:
+        reviewCompletedAtByAttempt.get(`practice_session:${attempt.id}`) ??
+        null,
+    })),
     questionAttempts,
     sectionCategoryProgress,
     totalPublicMocks: totalPublicMocks ?? 0,

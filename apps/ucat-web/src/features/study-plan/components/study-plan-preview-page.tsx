@@ -214,6 +214,7 @@ function makePlan(
       profile: null,
       generation: null,
       tasks: [],
+      nextSteps: [],
       today,
       todayTasks: [],
       completion: { completed: 0, scheduledThroughToday: 0, percent: 0 },
@@ -362,6 +363,8 @@ function makePlan(
   return {
     profile: {
       id: "study-plan-preview-profile",
+      studyPlanEnabled: true,
+      studySuggestionsEnabled: true,
       targetScore: scenarioId === "performance_phase" ? 2450 : 2350,
       testYear: Number((testDate ?? addDays(today, 180)).slice(0, 4)),
       testDate,
@@ -391,6 +394,7 @@ function makePlan(
       sectionTargets: { vr: 780, dm: 780, qr: 790 },
     },
     tasks,
+    nextSteps: [],
     today,
     todayTasks,
     completion: {

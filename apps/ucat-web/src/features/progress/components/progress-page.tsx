@@ -1,16 +1,22 @@
 "use client";
 
 import { useMemo } from "react";
-import { Skeleton } from "@altitutor/ui";
+import { Card, CardContent, Skeleton } from "@altitutor/ui";
 import { lookupUcatAnzTotalPercentile } from "@altitutor/ucat-percentiles";
 import { deriveTotalScoreProjection } from "@/features/score-projection/lib/total-projection";
 import { useScoreProjection } from "@/features/score-projection/hooks/use-score-projection";
 import { useStudyPlan } from "@/features/study-plan/hooks/use-study-plan";
 import { todayIso } from "@/features/study-plan/lib/dates";
+import { allocateSectionTargets } from "@/features/study-plan/lib/section-targets";
 import { useProgressSummary } from "../hooks/use-progress";
+import { useProgressSeries } from "../hooks/use-progress-series";
+import { calculateRecentWeightedMockScore } from "../lib/mock-progress-insights";
 import { ProgressTrajectoryCanvas } from "./progress-trajectory-canvas";
 import { SectionProgressCards } from "./section-progress-cards";
 import { ReviewActivityCalendarCard } from "./review-activity-calendar-card";
+import { AnimatedInteger, ProgressCircular } from "./progress-animated-display";
+import { UCAT_CARD_CHROME, UCAT_DIVIDER_TOP } from "@/lib/ucat-surface-motion";
+import { cn } from "@/lib/utils";
 import type { SectionProgress } from "@altitutor/shared";
 import type {
   SectionScoreProjection,
@@ -27,6 +33,73 @@ function MetricRow({ label, value }: { label: string; value: string }) {
   );
 }
 
+function QuestionsCompletedCard({
+  sections,
+  className,
+}: {
+  sections: SectionProgress[];
+  className?: string;
+}) {
+  const totalCompleted = sections.reduce(
+    (sum, section) => sum + section.maxScore,
+    0,
+  );
+  const totals = sections.map((section) => section.totalPublicQuestions);
+  const totalAvailable = totals.every((total) => total != null)
+    ? totals.reduce<number>((sum, total) => sum + (total ?? 0), 0)
+    : null;
+  const percentage =
+    totalAvailable != null && totalAvailable > 0
+      ? Math.round((totalCompleted / totalAvailable) * 100)
+      : totalCompleted > 0
+        ? 100
+        : 0;
+
+  return (
+    <Card className={cn(UCAT_CARD_CHROME, className)}>
+      <CardContent className="flex h-full flex-col gap-4 p-4">
+        <div className="flex items-center justify-between gap-4">
+          <div>
+            <p className="text-base font-medium text-muted-foreground">
+              Total questions completed
+            </p>
+            <p className="mt-1 text-2xl font-bold tabular-nums">
+              <AnimatedInteger value={totalCompleted} />
+              {totalAvailable != null ? ` / ${totalAvailable}` : null}
+            </p>
+          </div>
+          <ProgressCircular
+            percentage={percentage}
+            size={48}
+            className="shrink-0 text-accent"
+          />
+        </div>
+        <div className={cn(UCAT_DIVIDER_TOP, "space-y-1.5 pt-3")}>
+          <p className="mb-2 text-xs font-medium text-muted-foreground">
+            Section breakdown
+          </p>
+          {sections.map((section) => (
+            <div
+              key={section.sectionId}
+              className="flex justify-between gap-3 text-sm tabular-nums"
+            >
+              <span className="truncate text-muted-foreground">
+                {section.sectionName}
+              </span>
+              <span className="shrink-0 font-medium">
+                {section.maxScore}
+                {section.totalPublicQuestions != null
+                  ? ` / ${section.totalPublicQuestions}`
+                  : " questions"}
+              </span>
+            </div>
+          ))}
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
 export type ProgressPageContentProps = {
   sections: SectionProgress[];
   scoreProjections: SectionScoreProjection[];
@@ -37,12 +110,14 @@ export type ProgressPageContentProps = {
   sectionTargets: Record<string, number>;
   activityPreviewData?: UcatActivityResponse;
   linkToSections?: boolean;
+  mockRecentWeightedAverage?: number | null;
 };
 
 export function ProgressPage() {
   const progressQuery = useProgressSummary();
   const scoreProjectionQuery = useScoreProjection();
   const planQuery = useStudyPlan();
+  const mockSeriesQuery = useProgressSeries("mock");
 
   const totalProjection = useMemo(
     () =>
@@ -80,6 +155,20 @@ export function ProgressPage() {
   }
 
   const plan = planQuery.data;
+  const sectionTargets =
+    plan?.generation?.sectionTargets ??
+    (plan?.profile
+      ? allocateSectionTargets(
+          plan.profile.targetScore,
+          (scoreProjectionQuery.data?.sections ?? [])
+            .filter((section) => section.sectionNumber <= 3)
+            .sort((left, right) => left.sectionNumber - right.sectionNumber)
+            .map((section) => ({
+              sectionId: section.sectionId,
+              currentEstimate: section.currentEstimate,
+            })),
+        )
+      : {});
 
   return (
     <ProgressPageContent
@@ -89,7 +178,10 @@ export function ProgressPage() {
       targetScore={plan?.profile?.targetScore ?? null}
       testDate={plan?.profile?.testDate ?? null}
       today={plan?.today ?? todayIso()}
-      sectionTargets={plan?.generation?.sectionTargets ?? {}}
+      sectionTargets={sectionTargets}
+      mockRecentWeightedAverage={calculateRecentWeightedMockScore(
+        mockSeriesQuery.data?.points ?? [],
+      )}
     />
   );
 }
@@ -104,6 +196,7 @@ export function ProgressPageContent({
   sectionTargets,
   activityPreviewData,
   linkToSections = true,
+  mockRecentWeightedAverage = null,
 }: ProgressPageContentProps) {
   const currentEstimate = totalProjection?.currentEstimate ?? null;
   const history = totalProjection?.history ?? [];
@@ -125,8 +218,7 @@ export function ProgressPageContent({
   const targetBreakdown = scoreProjections
     .filter(
       (section) =>
-        section.sectionNumber <= 3 &&
-        sectionTargets[section.sectionId] != null,
+        section.sectionNumber <= 3 && sectionTargets[section.sectionId] != null,
     )
     .map((section) => ({
       sectionName: section.sectionName,
@@ -147,14 +239,14 @@ export function ProgressPageContent({
       : projectedGain != null && projectedGain > 0
         ? `The current path adds about ${projectedGain} points over 90 days`
         : currentEstimate == null
-          ? "Complete timed work in all three cognitive sections"
-          : "Your estimate is the starting point—not the verdict";
+          ? "Build your baseline one section at a time"
+          : "Your estimate is the starting point - not the verdict";
   const insightBody =
     currentEstimate == null
-      ? "A total trajectory appears once Verbal Reasoning, Decision Making and Quantitative Reasoning each have enough timed evidence."
+      ? "Complete one representative timed set in each cognitive section. Keep your usual method and pace so the first comparison reflects how you currently work."
       : benchmark.percentileLabel
         ? `Your ${currentEstimate} estimate is around the ${benchmark.percentileLabel.toLowerCase()} against the published UCAT ANZ benchmark. The shaded range shows what the current evidence can support, not a guaranteed result.`
-        : "Keep adding timed evidence. The shaded range will narrow as the model sees more representative work across all three cognitive sections.";
+        : "Keep adding timed evidence. The shaded range will narrow as the model sees more representative work across Sections 1–3.";
 
   return (
     <div className="space-y-6 pb-8">
@@ -162,8 +254,8 @@ export function ProgressPageContent({
         title="Score progress"
         description={
           targetScore != null
-            ? `Current estimate ${currentEstimate ?? "—"} · Target ${targetScore}`
-            : `Current estimate ${currentEstimate ?? "—"}`
+            ? `Current estimate ${currentEstimate ?? "pending"} · Target ${targetScore}`
+            : `Current estimate ${currentEstimate ?? "pending"}`
         }
         statusLabel={statusLabel}
         projection={totalProjection}
@@ -173,29 +265,31 @@ export function ProgressPageContent({
         targetBreakdown={targetBreakdown}
         insightTitle={insightTitle}
         insightBody={insightBody}
+        ratingTargetKey="total-score-trajectory"
+        ratingContextKey="progress:total-score"
         insightMeta={
           <div>
             <MetricRow
               label="Current estimate"
-              value={currentEstimate == null ? "—" : String(currentEstimate)}
+              value={
+                currentEstimate == null ? "Pending" : String(currentEstimate)
+              }
             />
             <MetricRow
               label="UCAT ANZ benchmark"
               value={benchmark.percentileLabel ?? "Not available yet"}
             />
-            <MetricRow
-              label="90-day change"
-              value={
-                projectedGain == null
-                  ? "—"
-                  : `${projectedGain >= 0 ? "+" : ""}${projectedGain}`
-              }
-            />
+            {projectedGain != null ? (
+              <MetricRow
+                label="90-day change"
+                value={`${projectedGain >= 0 ? "+" : ""}${projectedGain}`}
+              />
+            ) : null}
           </div>
         }
       />
 
-      <div className="mx-auto grid w-full max-w-[1400px] gap-5 px-5 sm:px-6 lg:grid-cols-2 lg:items-start">
+      <div className="mx-auto grid w-full max-w-[1400px] gap-4 px-5 sm:px-6 md:grid-cols-2 xl:grid-cols-3 xl:items-stretch">
         <ReviewActivityCalendarCard
           className="h-full"
           previewData={activityPreviewData}
@@ -209,8 +303,14 @@ export function ProgressPageContent({
             timeFrameDays="30"
             scoreProjections={scoreProjections}
             sectionTargets={sectionTargets}
+            mockRecentWeightedAverage={mockRecentWeightedAverage}
+            mockTargetScore={targetScore}
           />
         </section>
+        <QuestionsCompletedCard
+          sections={sections}
+          className="h-full md:col-span-2 xl:col-span-1"
+        />
       </div>
     </div>
   );

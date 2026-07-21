@@ -7,6 +7,7 @@ import { getSupabaseClient } from '@/shared/lib/supabase/client';
 import type { ResourceSubject } from '../lib/types';
 import { studentCardCn } from '@/shared/lib/student-visual';
 import { cn } from '@/shared/utils';
+import { UcatResourcesNavigationDialog } from './ucat-resources-navigation-dialog';
 
 function SubjectCoverPlaceholder() {
   return (
@@ -27,7 +28,15 @@ function SubjectCoverPlaceholder() {
   );
 }
 
-export function SubjectCard({ subject, href }: { subject: ResourceSubject; href: string }) {
+export function SubjectCard({
+  subject,
+  href,
+  confirmUcatNavigation = false,
+}: {
+  subject: ResourceSubject;
+  href: string;
+  confirmUcatNavigation?: boolean;
+}) {
   const [signedImageUrl, setSignedImageUrl] = useState<string | null>(null);
   const [isSigningUrl, setIsSigningUrl] = useState(false);
   const [imageLoaded, setImageLoaded] = useState(false);
@@ -75,33 +84,45 @@ export function SubjectCard({ subject, href }: { subject: ResourceSubject; href:
   const showSkeleton = isSigningUrl || Boolean(signedImageUrl && !imageLoaded);
   const showPlaceholder = !signedImageUrl && !isSigningUrl;
 
+  const card = (
+    <Card className={cn(studentCardCn('group overflow-hidden p-0'), clickableCardHoverCn)}>
+      <div className="relative h-36 w-full overflow-hidden bg-muted">
+        {showSkeleton ? (
+          <Skeleton className="absolute inset-0 z-10 h-full w-full rounded-none" />
+        ) : null}
+        {signedImageUrl ? (
+          /* eslint-disable-next-line @next/next/no-img-element */
+          <img
+            src={signedImageUrl}
+            alt={title}
+            className="h-full w-full object-cover"
+            onLoad={() => setImageLoaded(true)}
+            onError={() => {
+              setSignedImageUrl(null);
+              setImageLoaded(false);
+            }}
+          />
+        ) : null}
+        {showPlaceholder ? <SubjectCoverPlaceholder /> : null}
+      </div>
+      <CardContent className="flex items-start justify-between gap-3 p-4">
+        <h3 className="text-lg font-semibold">{title}</h3>
+        <ClickableCardRevealChevron size="sm" className="mt-0.5" />
+      </CardContent>
+    </Card>
+  );
+
+  if (confirmUcatNavigation) {
+    return (
+      <UcatResourcesNavigationDialog className="group block w-full text-left">
+        {card}
+      </UcatResourcesNavigationDialog>
+    );
+  }
+
   return (
     <Link href={href} className="group block">
-      <Card className={cn(studentCardCn('group overflow-hidden p-0'), clickableCardHoverCn)}>
-        <div className="relative h-36 w-full overflow-hidden bg-muted">
-          {showSkeleton ? (
-            <Skeleton className="absolute inset-0 z-10 h-full w-full rounded-none" />
-          ) : null}
-          {signedImageUrl ? (
-            /* eslint-disable-next-line @next/next/no-img-element */
-            <img
-              src={signedImageUrl}
-              alt={title}
-              className="h-full w-full object-cover"
-              onLoad={() => setImageLoaded(true)}
-              onError={() => {
-                setSignedImageUrl(null);
-                setImageLoaded(false);
-              }}
-            />
-          ) : null}
-          {showPlaceholder ? <SubjectCoverPlaceholder /> : null}
-        </div>
-        <CardContent className="flex items-start justify-between gap-3 p-4">
-          <h3 className="text-lg font-semibold">{title}</h3>
-          <ClickableCardRevealChevron size="sm" className="mt-0.5" />
-        </CardContent>
-      </Card>
+      {card}
     </Link>
   );
 }

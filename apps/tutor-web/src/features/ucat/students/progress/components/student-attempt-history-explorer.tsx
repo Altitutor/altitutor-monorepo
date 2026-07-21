@@ -29,6 +29,10 @@ import { ProgressGraph, type GraphDataType } from './progress-graph'
 import { ProgressTablePagination } from './progress-table-pagination'
 import { aggregateForGraph } from '../lib/progress-data-utils'
 import { formatTimeSeconds } from '../lib/format-time'
+import {
+  UnreviewedAttemptDot,
+  UnreviewedAttemptTooltip,
+} from './unreviewed-attempt-indicator'
 
 type Attempt = PracticeAttemptRow | SetAttemptRow
 
@@ -192,13 +196,21 @@ export function StudentAttemptHistoryExplorer({
                         aria-hidden
                       />
                     ) : null}
+                    {attempt.reviewCompletedAt == null ? (
+                      <UnreviewedAttemptDot />
+                    ) : null}
                   </>
                 )
-                return href ? (
+                const attemptRow = href ? (
                   <Link
                     key={attempt.id}
                     href={href}
                     className="group flex items-center gap-3 py-3 first:pt-0 last:pb-0"
+                    aria-label={
+                      attempt.reviewCompletedAt == null
+                        ? `${nameOf(attempt)}. This attempt is unreviewed.`
+                        : undefined
+                    }
                   >
                     {content}
                   </Link>
@@ -206,9 +218,22 @@ export function StudentAttemptHistoryExplorer({
                   <div
                     key={attempt.id}
                     className="flex items-center gap-3 py-3 first:pt-0 last:pb-0"
+                    tabIndex={attempt.reviewCompletedAt == null ? 0 : undefined}
+                    aria-label={
+                      attempt.reviewCompletedAt == null
+                        ? `${nameOf(attempt)}. This attempt is unreviewed.`
+                        : undefined
+                    }
                   >
                     {content}
                   </div>
+                )
+                return attempt.reviewCompletedAt == null ? (
+                  <UnreviewedAttemptTooltip key={attempt.id}>
+                    {attemptRow}
+                  </UnreviewedAttemptTooltip>
+                ) : (
+                  attemptRow
                 )
               })
             ) : (
@@ -229,16 +254,18 @@ export function StudentAttemptHistoryExplorer({
       </div>
 
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="max-h-[90vh] w-[min(96vw,1200px)] max-w-none overflow-y-auto sm:max-w-6xl">
-          <DialogHeader>
+        <DialogContent className="flex max-h-[90vh] w-[min(96vw,1200px)] max-w-none flex-col overflow-hidden sm:max-w-6xl">
+          <DialogHeader className="shrink-0">
             <DialogTitle>All {title.toLowerCase()}</DialogTitle>
             <DialogDescription>
               Paginated history for this section.
             </DialogDescription>
           </DialogHeader>
-          <div className={tutorTableShell}>
+          <div
+            className={`${tutorTableShell} min-h-0 flex-1 overflow-auto overscroll-contain`}
+          >
             <Table>
-              <TableHeader>
+              <TableHeader className="sticky top-0 z-10 bg-card">
                 <TableRow className={tutorTableHeaderRow}>
                   <TableHead>Date</TableHead>
                   <TableHead>Attempt</TableHead>
@@ -250,6 +277,24 @@ export function StudentAttemptHistoryExplorer({
                 {paginated.length ? (
                   paginated.map((attempt) => {
                     const href = hrefFor(attempt)
+                    const action = href ? (
+                      <Button asChild size="sm" variant="ghost">
+                        <Link
+                          href={href}
+                          className="inline-flex items-center gap-1.5"
+                          aria-label={
+                            attempt.reviewCompletedAt == null
+                              ? 'View attempt. This attempt is unreviewed.'
+                              : 'View attempt'
+                          }
+                        >
+                          View attempt
+                          {attempt.reviewCompletedAt == null ? (
+                            <UnreviewedAttemptDot />
+                          ) : null}
+                        </Link>
+                      </Button>
+                    ) : null
                     return (
                       <TableRow key={attempt.id} className={tutorTableBodyRow}>
                         <TableCell>
@@ -263,11 +308,28 @@ export function StudentAttemptHistoryExplorer({
                         </TableCell>
                         <TableCell>
                           {href ? (
-                            <Button asChild size="sm" variant="ghost">
-                              <Link href={href}>View attempt</Link>
-                            </Button>
+                            attempt.reviewCompletedAt == null ? (
+                              <UnreviewedAttemptTooltip>
+                                {action!}
+                              </UnreviewedAttemptTooltip>
+                            ) : (
+                              action
+                            )
                           ) : (
-                            '—'
+                            attempt.reviewCompletedAt == null ? (
+                              <UnreviewedAttemptTooltip>
+                                <span
+                                  className="inline-flex items-center gap-2 text-xs text-muted-foreground"
+                                  tabIndex={0}
+                                  aria-label="This attempt is unreviewed."
+                                >
+                                  Unreviewed
+                                  <UnreviewedAttemptDot />
+                                </span>
+                              </UnreviewedAttemptTooltip>
+                            ) : (
+                              <span className="text-muted-foreground">—</span>
+                            )
                           )}
                         </TableCell>
                       </TableRow>
@@ -286,17 +348,19 @@ export function StudentAttemptHistoryExplorer({
               </TableBody>
             </Table>
           </div>
-          <ProgressTablePagination
-            page={page}
-            pageSize={pageSize}
-            total={sortedAttempts.length}
-            onPageChange={setPage}
-            onPageSizeChange={(size) => {
-              setPageSize(size)
-              setPage(1)
-            }}
-            pageSizeOptions={PAGE_SIZE_OPTIONS}
-          />
+          <div className="shrink-0">
+            <ProgressTablePagination
+              page={page}
+              pageSize={pageSize}
+              total={sortedAttempts.length}
+              onPageChange={setPage}
+              onPageSizeChange={(size) => {
+                setPageSize(size)
+                setPage(1)
+              }}
+              pageSizeOptions={PAGE_SIZE_OPTIONS}
+            />
+          </div>
         </DialogContent>
       </Dialog>
     </section>

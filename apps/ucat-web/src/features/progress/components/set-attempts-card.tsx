@@ -21,7 +21,7 @@ import { ProgressGraph, type GraphDataType } from "./progress-graph";
 import {
   formatAttemptTableMetricValue,
   getAttemptTableMetricColumn,
-  resolveAttemptTableMetric,
+  type AttemptTableMetric,
 } from "../lib/attempt-table-metric";
 import type { SetAttemptRow } from "@altitutor/shared";
 import {
@@ -52,11 +52,20 @@ const GRAPH_DATA_TYPES: { value: GraphDataType; label: string }[] = [
   { value: "attempt_count", label: "Number of attempts" },
 ];
 
+const TABLE_METRICS: { value: AttemptTableMetric; label: string }[] = [
+  { value: "raw_score", label: "Raw score" },
+  { value: "scaled_score", label: "Scaled score" },
+  { value: "time_taken", label: "Time taken" },
+  { value: "exam_speed", label: "Exam speed" },
+];
+
 const PAGE_SIZE_OPTIONS = [10, 20, 50];
 
 export function SetAttemptsCard({ sectionNumber }: SetAttemptsCardProps) {
   const [graphDataType, setGraphDataType] =
     useState<GraphDataType>("scaled_score");
+  const [tableMetric, setTableMetric] =
+    useState<AttemptTableMetric>("scaled_score");
   const [dateRange, setDateRange] = useState<GraphDateRange>("all");
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
@@ -91,7 +100,6 @@ export function SetAttemptsCard({ sectionNumber }: SetAttemptsCardProps) {
       : `/progress/set-attempts/${attemptId}`;
 
   const attemptsTableTitleId = useId();
-  const tableMetric = resolveAttemptTableMetric(graphDataType);
   const metricColumn = getAttemptTableMetricColumn(tableMetric, "set");
 
   return (
@@ -126,9 +134,9 @@ export function SetAttemptsCard({ sectionNumber }: SetAttemptsCardProps) {
                 <TableHead>Date</TableHead>
                 <TableHead>Set</TableHead>
                 <AttemptMetricColumnHeader
-                  options={metricOptions}
-                  value={graphDataType}
-                  onValueChange={setGraphDataType}
+                  options={TABLE_METRICS}
+                  value={tableMetric}
+                  onValueChange={setTableMetric}
                   label={metricColumn.label}
                   tooltip={metricColumn.tooltip}
                 />
@@ -181,6 +189,7 @@ export function SetAttemptsCard({ sectionNumber }: SetAttemptsCardProps) {
                         <UcatTableRowActionLink
                           href={setAttemptHref(a.id)}
                           label="View attempt"
+                          unreviewed={a.reviewCompletedAt == null}
                         />
                       </TableCell>
                     </TableRow>

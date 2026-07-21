@@ -1,11 +1,18 @@
 'use client'
 
-import Link from 'next/link'
-import { UcatPageHeader } from '@/features/ucat/shared/components'
-import { useMockAttemptDetail } from '../hooks/useMockAttemptDetail'
-import { MockAttemptAnalysisChart } from './mock-attempt-analysis-chart'
+import { useMemo, useState } from 'react'
+import { ChevronRight } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@altitutor/ui'
-import { cn } from '@/shared/utils'
+import { UcatPageHeader } from '@/features/ucat/shared/components'
+import { tutorCardCn } from '@/shared/lib/tutor-visual'
+import { useMockAttemptDetail } from '../hooks/useMockAttemptDetail'
+import {
+  AttemptQuestionNavigator,
+  AttemptQuestionReview,
+  AttemptScoreCard,
+  AttemptTimingCard,
+  type CategoryBreakdown,
+} from './attempt-review-ui'
 
 type MockAttemptDetailPageProps = {
   studentId: string
@@ -20,180 +27,142 @@ export function MockAttemptDetailPage({
   basePath,
   studentName,
 }: MockAttemptDetailPageProps) {
-  const { data, isLoading, error } = useMockAttemptDetail(
-    studentId,
-    mockAttemptId
-  )
-
+  const { data, isLoading, error } = useMockAttemptDetail(studentId, mockAttemptId)
+  const [selectedQuestionIndex, setSelectedQuestionIndex] = useState(0)
   const mocksPath = `${basePath}/mocks`
-  const breadcrumbs: { label: string; href?: string }[] = [
+
+  const breakdownBySet = useMemo(() => {
+    return (data?.sets ?? []).map((_, setIndex) => {
+      const categories = new Map<string, CategoryBreakdown>()
+      for (const question of data?.questionAttempts ?? []) {
+        if (question.setIndex !== setIndex) continue
+        const name = question.categoryName ?? 'Uncategorized'
+        const current = categories.get(name) ?? { name, score: 0, total: 0 }
+        current.score += question.score ?? 0
+        current.total += question.questionType === 'syllogism' ? 2 : 1
+        categories.set(name, current)
+      }
+      return [...categories.values()].sort((a, b) => a.name.localeCompare(b.name))
+    })
+  }, [data?.questionAttempts, data?.sets])
+
+  const selectSet = (setIndex: number) => {
+    const firstQuestionIndex = data?.questionAttempts.findIndex(
+      (question) => question.setIndex === setIndex
+    )
+    if (firstQuestionIndex == null || firstQuestionIndex < 0) return
+    setSelectedQuestionIndex(firstQuestionIndex)
+    document
+      .getElementById('attempt-review-questions')
+      ?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }
+
+  if (isLoading) {
+    return (
+      <div className="space-y-6 py-8 md:py-10">
+        <UcatPageHeader title="Loading..." backHref={mocksPath} backLabel="Back to mocks" />
+        <div className="animate-pulse space-y-6">
+          <div className="h-32 rounded-xl bg-muted" />
+          <div className="h-64 rounded-xl bg-muted" />
+        </div>
+      </div>
+    )
+  }
+
+  if (error || !data) {
+    return (
+      <div className="space-y-6 py-8 md:py-10">
+        <UcatPageHeader
+          title="Mock attempt"
+          description={error ? 'Could not load mock attempt.' : 'No data available.'}
+          backHref={mocksPath}
+          backLabel="Back to mocks"
+        />
+        {error ? <p className="text-sm text-destructive">{error.message}</p> : null}
+      </div>
+    )
+  }
+
+  const breadcrumbs = [
     { label: 'UCAT', href: '/ucat' },
     { label: 'Students', href: '/ucat/students' },
     { label: studentName ?? 'Student', href: basePath },
     { label: 'Progress', href: basePath },
     { label: 'Mocks', href: mocksPath },
-    { label: data?.mockName ?? 'Mock' },
+    { label: data.mockName ?? 'Mock' },
   ]
-
-  if (isLoading) {
-    return (
-      <div className="space-y-6 py-8 md:py-10">
-        <UcatPageHeader
-          title="Loading..."
-          backHref={mocksPath}
-          backLabel="Back to progress"
-        />
-        <div className="animate-pulse space-y-6">
-          <div className="h-32 rounded-lg bg-muted" />
-          <div className="h-64 rounded-lg bg-muted" />
-        </div>
-      </div>
-    )
-  }
-
-  if (error) {
-    return (
-      <div className="space-y-6 py-8 md:py-10">
-        <UcatPageHeader
-          title="Mock attempt"
-          description="Could not load mock attempt."
-          backHref={mocksPath}
-          backLabel="Back to progress"
-        />
-        <p className="text-sm text-destructive">{error.message}</p>
-      </div>
-    )
-  }
-
-  if (!data) {
-    return (
-      <div className="space-y-6 py-8 md:py-10">
-        <UcatPageHeader
-          title="Mock attempt"
-          description="No data available."
-          backHref={mocksPath}
-          backLabel="Back to mocks"
-        />
-      </div>
-    )
-  }
-
-  const attemptedDate = new Date(data.attemptedAt).toLocaleDateString()
 
   return (
     <div className="min-w-0 max-w-full space-y-6 py-8 md:py-10">
       <UcatPageHeader
         title={data.mockName ?? 'Mock attempt'}
-        description={`Attempted ${attemptedDate}`}
+        description={`Attempted ${new Date(data.attemptedAt).toLocaleDateString()}`}
         backHref={mocksPath}
         backLabel="Back to mocks"
         breadcrumbs={breadcrumbs}
       />
 
-      <Card className="rounded-xl border-border max-w-sm">
-        <CardHeader className="pb-2">
-          <CardTitle className="text-base font-medium">Overall scaled score</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div
-            className={cn(
-              'text-3xl font-bold tabular-nums',
-              data.scaledScore == null && 'text-muted-foreground'
-            )}
+      <div className="grid gap-4 lg:grid-cols-2">
+        <Card className={tutorCardCn('h-full')}>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base font-medium">Overall scaled score</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-xs font-medium text-muted-foreground">Scaled score</div>
+            <div className="text-3xl font-bold tabular-nums">
+              {data.scaledScore != null ? Math.round(data.scaledScore) : '—'}
+            </div>
+          </CardContent>
+        </Card>
+        <AttemptTimingCard
+          scope="mock"
+          timing={{
+            timeTakenSeconds: data.timeTakenSeconds,
+            timeLimitSeconds: data.mockTimeLimitSeconds,
+            examTimeLimitSeconds: data.examTimeLimitSeconds,
+            studentSpeed: data.studentMockSpeed,
+            studentExamSpeed: data.studentExamSpeed,
+          }}
+        />
+      </div>
+
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        {data.sets.map((set, setIndex) => (
+          <button
+            key={set.questionSetId}
+            type="button"
+            className="group block w-full text-left"
+            onClick={() => selectSet(setIndex)}
           >
-            {data.scaledScore != null && data.scaledScoreMax != null
-              ? `${Math.round(data.scaledScore)} / ${data.scaledScoreMax}`
-              : data.scaledScore != null
-                ? String(Math.round(data.scaledScore))
-                : '—'}
-          </div>
-        </CardContent>
-      </Card>
+            <AttemptScoreCard
+              title={set.questionSetName ?? 'Set'}
+              points={set.scorePoints ?? 0}
+              total={set.totalPoints ?? 0}
+              scaledScore={set.scaledScore}
+              categoryBreakdown={breakdownBySet[setIndex]}
+              accessory={
+                <ChevronRight className="absolute right-4 top-5 h-4 w-4 text-muted-foreground transition-transform group-hover:translate-x-0.5" />
+              }
+            />
+          </button>
+        ))}
+      </div>
 
-      <Card className="overflow-hidden rounded-xl border-border">
-        <CardHeader className="pb-2">
-          <CardTitle className="text-base font-medium">
-            Question attempts
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="min-w-0 overflow-hidden">
-          <MockAttemptAnalysisChart
-            data={data.questionAttempts.map((q) => ({
-              questionNumber: q.questionNumber,
-              timeSpentSeconds: q.timeSpentSeconds,
-              result: q.result,
-            }))}
-            setBoundaryIndices={data.setBoundaryIndices}
-            sets={data.sets.map((s) => ({
-              questionSetName: s.questionSetName,
-            }))}
-          />
-        </CardContent>
-      </Card>
+      <AttemptQuestionNavigator
+        attempts={data.questionAttempts}
+        selectedIndex={selectedQuestionIndex}
+        onSelect={setSelectedQuestionIndex}
+        mockSets={data.sets}
+        setBoundaryIndices={data.setBoundaryIndices}
+      />
 
-      <div className="space-y-3">
-        <h4 className="text-sm font-medium">Sets</h4>
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          {data.sets.map((set) => {
-            const total = set.totalPoints ?? 0
-            const points = set.scorePoints ?? 0
-            const href = set.setAttemptId
-              ? `${basePath}/mocks/${mockAttemptId}/sets/${set.setAttemptId}`
-              : null
-
-            const content = (
-              <Card
-                className={cn(
-                  'rounded-xl border-border transition-colors',
-                  href && 'cursor-pointer hover:bg-muted/50'
-                )}
-              >
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-base font-medium">
-                    {set.questionSetName ?? 'Set'}
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="flex flex-col gap-2">
-                  <div>
-                    <div className="text-xs font-medium text-muted-foreground">
-                      Points
-                    </div>
-                    <div className="text-xl font-semibold tabular-nums">
-                      {total > 0 ? `${points} / ${total}` : '—'}
-                    </div>
-                  </div>
-                  <div>
-                    <div className="text-xs font-medium text-muted-foreground">
-                      Scaled score
-                    </div>
-                    <div
-                      className={cn(
-                        'text-lg font-semibold tabular-nums',
-                        set.scaledScore == null && 'text-muted-foreground'
-                      )}
-                    >
-                      {set.scaledScore != null
-                        ? `${Math.round(set.scaledScore)} / 900`
-                        : '—'}
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            )
-
-            if (href) {
-              return (
-                <Link key={set.setAttemptId || set.questionSetId} href={href}>
-                  {content}
-                </Link>
-              )
-            }
-
-            return (
-              <div key={set.setAttemptId || set.questionSetId}>{content}</div>
-            )
-          })}
-        </div>
+      <div id="attempt-review-questions">
+        <AttemptQuestionReview
+          questions={data.questions}
+          attempts={data.questionAttempts}
+          selectedIndex={selectedQuestionIndex}
+          onSelect={setSelectedQuestionIndex}
+        />
       </div>
     </div>
   )

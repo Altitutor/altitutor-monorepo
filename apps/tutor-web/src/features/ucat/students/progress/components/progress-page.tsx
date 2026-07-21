@@ -1,14 +1,12 @@
 'use client'
 
-import Link from 'next/link'
-import { Button } from '@altitutor/ui'
-import { TrendingUp } from 'lucide-react'
 import { UcatPageHeader } from '@/features/ucat/shared/components'
 import { useUcatStudentSummary } from '@/features/ucat/students/hooks/useUcatStudents'
 import { useProgress } from '../hooks/useProgress'
 import { SectionProgressCards } from './section-progress-cards'
 import { StudentScoreProgress } from './student-score-progress'
 import { StudentReviewActivity } from './student-review-activity'
+import { calculateRecentWeightedMockScore } from '../lib/mock-progress-insights'
 
 type ProgressPageProps = {
   studentId: string
@@ -95,14 +93,6 @@ export function ProgressPage({
           description={description}
           backHref="/ucat/students"
           backLabel="Students"
-          actions={
-            <Button asChild variant="outline" className="rounded-xl">
-              <Link href={`${basePath}/mocks`}>
-                <TrendingUp className="mr-2 h-4 w-4" />
-                Mock progress
-              </Link>
-            </Button>
-          }
           breadcrumbs={[
             { label: 'UCAT', href: '/ucat' },
             { label: 'Students', href: '/ucat/students' },
@@ -122,6 +112,9 @@ export function ProgressPage({
             basePath={basePath}
             mode="all_time"
             timeFrameDays="30"
+            mockRecentWeightedAverage={calculateRecentWeightedMockScore(
+              data.mockAttempts
+            )}
           />
         </section>
       </div>

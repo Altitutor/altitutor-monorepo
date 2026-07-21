@@ -586,7 +586,7 @@ export function UcatLandingProtocol() {
         <p
           className={`mx-auto mt-6 max-w-2xl text-base leading-relaxed text-marketing-charcoal/60 sm:text-xl ${typo.secondarySans}`}
         >
-          Learn each section, practise targeted skills, rehearse the exam and
+          Learn each section,  targeted skills, rehearse the exam and
           use your results to decide what to work on next.
         </p>
       </div>

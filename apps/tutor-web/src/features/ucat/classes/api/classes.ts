@@ -58,11 +58,19 @@ export const ucatClassesApi = {
     if (setIds.length > 0) {
       const { data: setsData } = await supabase
         .from('vtutor_ucat_question_sets')
-        .select('id, name, sections, question_count, deleted_at')
+        .select('id, name, sections, question_count, deleted_at, status')
         .in('id', setIds)
       for (const row of setsData ?? []) {
-        const r = row as { id: string; name: unknown; sections: unknown; question_count: number; deleted_at?: string | null }
-        if (r.deleted_at != null) continue
+        const r = row as {
+          id: string
+          name: unknown
+          sections: unknown
+          question_count: number
+          deleted_at?: string | null
+          status?: string | null
+        }
+        // Session attach is publish-only; omit draft/in_review so saves don't re-insert them.
+        if (r.deleted_at != null || r.status !== 'published') continue
         if (r.id) setsMap[r.id] = { name: r.name, sections: r.sections, question_count: r.question_count ?? 0 }
       }
     }
@@ -70,11 +78,17 @@ export const ucatClassesApi = {
     if (mockIds.length > 0) {
       const { data: mocksData } = await supabase
         .from('vtutor_ucat_mock_detail')
-        .select('id, name, sets, deleted_at')
+        .select('id, name, sets, deleted_at, status')
         .in('id', mockIds)
       for (const row of mocksData ?? []) {
-        const r = row as { id: string; name: string | null; sets: unknown; deleted_at?: string | null }
-        if (r.deleted_at != null) continue
+        const r = row as {
+          id: string
+          name: string | null
+          sets: unknown
+          deleted_at?: string | null
+          status?: string | null
+        }
+        if (r.deleted_at != null || r.status !== 'published') continue
         if (r.id) mocksMap[r.id] = { name: r.name, sets: r.sets }
       }
     }
@@ -82,11 +96,16 @@ export const ucatClassesApi = {
     if (stemIds.length > 0) {
       const { data: stemsData } = await supabase
         .from('vtutor_ucat_question_stems')
-        .select('id, stem_text, deleted_at')
+        .select('id, stem_text, deleted_at, status')
         .in('id', stemIds)
       for (const row of stemsData ?? []) {
-        const r = row as { id: string; stem_text: unknown; deleted_at?: string | null }
-        if (r.deleted_at != null) continue
+        const r = row as {
+          id: string
+          stem_text: unknown
+          deleted_at?: string | null
+          status?: string | null
+        }
+        if (r.deleted_at != null || r.status !== 'published') continue
         if (r.id) stemsMap[r.id] = { stem_text: r.stem_text }
       }
     }
@@ -129,27 +148,29 @@ export const ucatClassesApi = {
       const mapped = list.map((r) => {
         if (r.question_set_id) {
           const setInfo = setsMap[r.question_set_id]
-          const { index: section_index, name: section_name } = sectionInfo(setInfo?.sections)
+          if (!setInfo) return null
+          const { index: section_index, name: section_name } = sectionInfo(setInfo.sections)
           return {
             type: 'set' as const,
             id: r.id ?? '',
             set_id: r.question_set_id,
-            name: proseMirrorToPlainText(setInfo?.name as Json | undefined),
+            name: proseMirrorToPlainText(setInfo.name as Json | undefined),
             section_index,
             section_name,
-            question_count: setInfo?.question_count ?? 0,
+            question_count: setInfo.question_count ?? 0,
             index: r.index ?? 0,
           }
         }
         if (r.ucat_mock_id) {
           const mockInfo = mocksMap[r.ucat_mock_id]
-          const setsArr = Array.isArray(mockInfo?.sets) ? mockInfo.sets as Array<{ question_count?: number }> : []
-          const question_counts = setsArr.map((s) => s?.question_count ?? 0)
+          if (!mockInfo) return null
+          const setsArr = Array.isArray(mockInfo.sets) ? mockInfo.sets as Array<{ question_count?: number }> : []
+          const question_counts = setsArr.map((set) => set?.question_count ?? 0)
           return {
             type: 'mock' as const,
             id: r.id ?? '',
             mock_id: r.ucat_mock_id,
-            name: mockInfo?.name ?? 'Untitled',
+            name: mockInfo.name ?? 'Untitled',
             set_count: setsArr.length,
             question_counts,
             index: r.index ?? 0,
@@ -157,8 +178,9 @@ export const ucatClassesApi = {
         }
         if (r.question_stem_id) {
           const stemInfo = stemsMap[r.question_stem_id]
+          if (!stemInfo) return null
           const name =
-            proseMirrorToPlainText(stemInfo?.stem_text as Json | undefined).trim() || 'Question stem'
+            proseMirrorToPlainText(stemInfo.stem_text as Json | undefined).trim() || 'Question stem'
           return {
             type: 'stem' as const,
             id: r.id ?? '',
@@ -169,12 +191,13 @@ export const ucatClassesApi = {
         }
         if (r.ucat_learning_module_id) {
           const lessonInfo = lessonsMap[r.ucat_learning_module_id]
+          if (!lessonInfo) return null
           return {
             type: 'lesson' as const,
             id: r.id ?? '',
             lesson_id: r.ucat_learning_module_id,
-            name: lessonInfo?.title ?? 'Lesson',
-            block_count: lessonInfo?.block_count ?? 0,
+            name: lessonInfo.title ?? 'Lesson',
+            block_count: lessonInfo.block_count ?? 0,
             index: r.index ?? 0,
           }
         }
@@ -203,8 +226,25 @@ export const ucatClassesApi = {
       body: JSON.stringify({ assignments }),
     })
     if (!res.ok) {
-      const body = await res.json().catch(() => ({}))
-      throw new Error(body.error ?? 'Failed to save session resources')
+      const body = (await res.json().catch(() => ({}))) as { error?: string }
+      throw new Error(friendlySessionResourceError(body.error) ?? 'Failed to save session resources')
     }
   },
+}
+
+const SESSION_RESOURCE_ATTACH_ERRORS: Record<string, string> = {
+  only_published_mocks_can_be_attached:
+    'Only published mocks can be attached to sessions. Republish the mock, or remove it from the session.',
+  only_published_sets_can_be_attached:
+    'Only published sets can be attached to sessions. Republish the set, or remove it from the session.',
+  only_published_stems_can_be_attached:
+    'Only published question stems can be attached to sessions. Republish the stem, or remove it from the session.',
+}
+
+function friendlySessionResourceError(raw: string | undefined): string | undefined {
+  if (!raw) return undefined
+  for (const [code, message] of Object.entries(SESSION_RESOURCE_ATTACH_ERRORS)) {
+    if (raw.includes(code)) return message
+  }
+  return raw
 }

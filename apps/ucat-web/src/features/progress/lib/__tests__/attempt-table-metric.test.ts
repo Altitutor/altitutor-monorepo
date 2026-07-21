@@ -57,6 +57,22 @@ describe("attempt-table-metric", () => {
     expect(formatAttemptTableMetricValue("scaled_score", attempt, "mock")).toBe(
       "720 / 2700",
     );
+    expect(formatAttemptTableMetricValue("raw_score", attempt, "mock")).toBe(
+      "30 / 40",
+    );
+    expect(
+      formatAttemptTableMetricValue(
+        "raw_score",
+        {
+          ...attempt,
+          rawScoreBreakdown: [
+            { sectionLabel: "VR", scorePoints: 12, totalPoints: 20 },
+            { sectionLabel: "DM", scorePoints: 18, totalPoints: 29 },
+          ],
+        },
+        "mock",
+      ),
+    ).toBe("VR 12/20 · DM 18/29");
     expect(formatAttemptTableMetricValue("percentage", attempt, "set")).toBe(
       "75%",
     );

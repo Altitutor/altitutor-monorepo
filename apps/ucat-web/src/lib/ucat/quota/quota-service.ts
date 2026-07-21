@@ -200,13 +200,7 @@ async function countSkillTrainerStarts(
     .is("learning_module_block_id", null)
     .gte("started_at", periodStart);
 
-  if (error) {
-    // Skill trainer schema may not be deployed yet; do not fail other quota areas.
-    if (error.code === "42P01" || error.code === "PGRST205") {
-      return 0;
-    }
-    throw new Error(error.message);
-  }
+  if (error) throw new Error(error.message);
 
   const trainerIds = (data ?? []).map((row) => row.skill_trainer_id);
   const entitledIds = await getInPersonSessionResourceEntitlementIds(

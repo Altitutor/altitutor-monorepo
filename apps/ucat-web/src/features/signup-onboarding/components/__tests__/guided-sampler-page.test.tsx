@@ -7,14 +7,16 @@ import type {
 import { GuidedSamplerPage } from "@/features/signup-onboarding/components/guided-sampler-page";
 
 const replace = jest.fn();
+let search = "familiarity=familiar";
 
 jest.mock("next/navigation", () => ({
   useRouter: () => ({ replace }),
-  useSearchParams: () => new URLSearchParams("familiarity=familiar"),
+  useSearchParams: () => new URLSearchParams(search),
 }));
 
 jest.mock("motion/react", () => ({
   AnimatePresence: ({ children }: React.PropsWithChildren) => <>{children}</>,
+  useReducedMotion: () => false,
   motion: {
     div: ({ children }: React.PropsWithChildren) => <div>{children}</div>,
     span: ({ children }: React.PropsWithChildren) => <span>{children}</span>,
@@ -109,22 +111,66 @@ jest.mock("@/features/question-engine/components/question-engine-page", () => ({
 
 function renderStartedSampler() {
   render(<GuidedSamplerPage />);
-  fireEvent.click(screen.getByRole("button", { name: "Start sampler" }));
 }
 
 describe("GuidedSamplerPage marking", () => {
-  it("explains the Alti UCAT sampler before familiar students enter the engine", () => {
+  beforeEach(() => {
+    search = "familiarity=familiar";
+    replace.mockReset();
+  });
+
+  it("takes familiar students straight into the guided sampler", () => {
+    render(<GuidedSamplerPage />);
+
+    expect(screen.getByRole("button", { name: "Submit" })).toBeInTheDocument();
+    expect(screen.getByText("Guided practice")).toBeInTheDocument();
+    expect(
+      screen.queryByText("Get familiar with the Alti UCAT system"),
+    ).not.toBeInTheDocument();
+  });
+
+  it("shows completely new students the UCAT primer before the sampler", () => {
+    search = "familiarity=new";
     render(<GuidedSamplerPage />);
 
     expect(
+      screen.getByRole("heading", { name: "What is the UCAT?" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Back" }),
+    ).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Next" }));
+    expect(
       screen.getByRole("heading", {
-        name: "Get familiar with the Alti UCAT system",
+        name: "Each section tests a different skill",
       }),
     ).toBeInTheDocument();
-    expect(screen.getByText(/quick orientation to Alti UCAT/i)).toBeInTheDocument();
     expect(
-      screen.getByRole("button", { name: "Skip for now" }),
+      screen.getByText(
+        /Section 1: Verbal Reasoning.*tests your ability to read and comprehend/,
+      ),
     ).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Back" }));
+    expect(
+      screen.getByRole("heading", { name: "What is the UCAT?" }),
+    ).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Next" }));
+    fireEvent.click(screen.getByRole("button", { name: "Next" }));
+    expect(
+      screen.getByRole("heading", { name: "Scoring" }),
+    ).toBeInTheDocument();
+    expect(screen.getByText("900–2700")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Next" }));
+    expect(
+      screen.getByRole("heading", {
+        name: "Fast, focused and fully on screen",
+      }),
+    ).toBeInTheDocument();
+    fireEvent.click(
+      screen.getByRole("button", { name: "Start sample questions" }),
+    );
+
+    expect(screen.getByRole("button", { name: "Submit" })).toBeInTheDocument();
   });
 
   it("keeps the student on the question and reveals a hint after a wrong answer", () => {
@@ -153,7 +199,9 @@ describe("GuidedSamplerPage marking", () => {
     expect(screen.getByText("That’s correct")).toBeInTheDocument();
     expect(screen.getByText(/create wildlife habitat/)).toBeInTheDocument();
     expect(screen.getByText(/Continue when/)).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Submit" })).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Submit" }),
+    ).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Next" })).toBeInTheDocument();
   });
 
@@ -174,12 +222,16 @@ describe("GuidedSamplerPage marking", () => {
     fireEvent.click(screen.getByRole("button", { name: "Navigator" }));
 
     expect(screen.getByText("You found the Navigator")).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Submit" })).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Submit" }),
+    ).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "Back to question" }));
 
     expect(screen.getByText("That’s correct")).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Submit" })).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Submit" }),
+    ).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Next" })).toBeInTheDocument();
   });
 });

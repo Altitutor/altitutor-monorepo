@@ -46,11 +46,6 @@ type FinalizeAttemptResponse = {
 
 type CompletePracticeSessionInput = {
   sessionId: string;
-  scorePoints: number;
-  totalPoints: number;
-  questionCount: number;
-  stemsSnapshot: unknown;
-  questionScores: Array<{ questionId: string; score: number }>;
   answers: UpsertQuestionAttemptInput[];
 };
 
@@ -141,6 +136,24 @@ export function buildFinalExamQuestionAttempts(
   });
 }
 
+export function shouldPersistAnswerImmediately(params: {
+  examAttemptManaged: boolean;
+  mode: QuestionEngineMode;
+  practiceSessionId?: string | null;
+}): boolean {
+  // Managed attempts already persist the complete engine snapshot (including
+  // selected answers) on a short debounce. Practice stems are additionally
+  // committed as a batch when submitted, while sets and mocks send a complete
+  // authoritative ledger at finalization. Avoiding a second per-click request
+  // stream prevents final submission from waiting behind stale autosaves.
+  return !(
+    params.examAttemptManaged &&
+    (params.mode === "set" ||
+      params.mode === "mock" ||
+      params.practiceSessionId != null)
+  );
+}
+
 export function useQuestionEnginePersistence({
   mode,
   exam,
@@ -170,7 +183,6 @@ export function useQuestionEnginePersistence({
     mockAttemptId: string | null;
   } | null;
 }) {
-  const isStudentEngine = true;
   const { openQuotaLimit } = useQuotaLimitDialog();
 
   const handleQuotaError = useCallback(
@@ -292,11 +304,6 @@ export function useQuestionEnginePersistence({
           },
           body: JSON.stringify({
             complete: true,
-            scorePoints: input.scorePoints,
-            totalPoints: input.totalPoints,
-            questionCount: input.questionCount,
-            stemsSnapshot: input.stemsSnapshot,
-            questionScores: input.questionScores,
             answers: input.answers.map(
               ({
                 studentQuestionSetAttemptId: _setAttemptId,
@@ -335,9 +342,17 @@ export function useQuestionEnginePersistence({
     questionAnswerOptionId: string,
     isFlagged: boolean,
   ) {
-    if (!isStudentEngine) return;
     if (disableQuestionAttemptLogging) return;
     if (!exam) return;
+    if (
+      !shouldPersistAnswerImmediately({
+        examAttemptManaged,
+        mode,
+        practiceSessionId,
+      })
+    ) {
+      return;
+    }
 
     const question = findQuestion(exam, questionId);
     const isSyllogism = question?.questionType === "syllogism";
@@ -404,7 +419,16 @@ export function useQuestionEnginePersistence({
     snapshot: Record<string, boolean>,
     isFlagged: boolean,
   ) {
-    if (!isStudentEngine || disableQuestionAttemptLogging || !exam) return;
+    if (disableQuestionAttemptLogging || !exam) return;
+    if (
+      !shouldPersistAnswerImmediately({
+        examAttemptManaged,
+        mode,
+        practiceSessionId,
+      })
+    ) {
+      return;
+    }
     const question = findQuestion(exam, questionId);
     if (question?.questionType !== "syllogism") return;
 
@@ -456,7 +480,6 @@ export function useQuestionEnginePersistence({
       discountCents: 0,
       redirectHref: null as string | null,
     };
-    if (!isStudentEngine) return empty;
     if (!exam) return empty;
 
     if (mode === "questionStem" || mode === "questions") {
@@ -495,14 +518,8 @@ export function useQuestionEnginePersistence({
 
     let finalizeResult: FinalizeAttemptResponse | null = null;
     if (mode === "set") {
-      let setAttemptId =
+      const setAttemptId =
         attemptStateRef.current.setAttemptIdsBySetId.get(exam.sourceId) ?? null;
-      if (!setAttemptId && examAttemptManaged) {
-        setAttemptId =
-          Array.from(
-            attemptStateRef.current.setAttemptIdsBySetId.values(),
-          )[0] ?? null;
-      }
       if (setAttemptId) {
         finalizeResult = await finalizeAttempt.mutateAsync({
           kind: "set",
@@ -520,14 +537,8 @@ export function useQuestionEnginePersistence({
 
     let redirectHref: string | null = null;
     if (mode === "set") {
-      let setAttemptId =
+      const setAttemptId =
         attemptStateRef.current.setAttemptIdsBySetId.get(exam.sourceId) ?? null;
-      if (!setAttemptId && examAttemptManaged) {
-        setAttemptId =
-          Array.from(
-            attemptStateRef.current.setAttemptIdsBySetId.values(),
-          )[0] ?? null;
-      }
       if (setAttemptId) {
         const sectionName = exam.questions[0]?.sectionName;
         const sectionNumber = sectionName
@@ -560,7 +571,7 @@ export function useQuestionEnginePersistence({
     endIndex: number,
   ): Promise<void> {
     if (disableQuestionAttemptLogging) return;
-    if (!exam || !isStudentEngine) return;
+    if (!exam) return;
     const questions = exam.questions;
     const inputs: UpsertQuestionAttemptInput[] = [];
     for (let i = startIndex; i <= endIndex; i += 1) {
@@ -569,7 +580,7 @@ export function useQuestionEnginePersistence({
       const isFlagged = state.flaggedIds.includes(q.id);
 
       const base: UpsertQuestionAttemptInput = withLearnContext({
-        studentQuestionSetAttemptId: practiceSessionId ? null : null,
+        studentQuestionSetAttemptId: null,
         studentPracticeSessionId: practiceSessionId ?? undefined,
         questionId: q.id,
         questionAnswerOptionId:

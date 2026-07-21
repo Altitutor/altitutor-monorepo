@@ -30,6 +30,10 @@ import {
 import type { SetAttemptRow } from '@altitutor/shared'
 import type { ProgressMode, TimeFrameDays } from '../lib/progress-mode'
 import { tutorCardCn, tutorTableBodyRow, tutorTableHeaderRow, tutorTableShell } from '@/shared/lib/tutor-visual'
+import {
+  UnreviewedAttemptDot,
+  UnreviewedAttemptTooltip,
+} from './unreviewed-attempt-indicator'
 
 type SetAttemptsCardProps = {
   attempts: SetAttemptRow[]
@@ -176,6 +180,24 @@ export function SetAttemptsCard({
                 ) : (
                   paginatedAttempts.map((a) => {
                     const href = setDetailHref(a.id)
+                    const action = href ? (
+                      <Button variant="outline" size="sm" asChild>
+                        <Link
+                          href={href}
+                          className="inline-flex items-center gap-1.5"
+                          aria-label={
+                            a.reviewCompletedAt == null
+                              ? 'View attempt. This attempt is unreviewed.'
+                              : 'View attempt'
+                          }
+                        >
+                          View attempt
+                          {a.reviewCompletedAt == null ? (
+                            <UnreviewedAttemptDot />
+                          ) : null}
+                        </Link>
+                      </Button>
+                    ) : null
                     return (
                       <TableRow key={a.id} className={tutorTableBodyRow}>
                         <TableCell>
@@ -207,9 +229,13 @@ export function SetAttemptsCard({
                         </TableCell>
                         <TableCell className="text-right">
                           {href ? (
-                            <Button variant="outline" size="sm" asChild>
-                              <Link href={href}>View attempt</Link>
-                            </Button>
+                            a.reviewCompletedAt == null ? (
+                              <UnreviewedAttemptTooltip>
+                                {action!}
+                              </UnreviewedAttemptTooltip>
+                            ) : (
+                              action
+                            )
                           ) : (
                             <span className="text-muted-foreground">—</span>
                           )}

@@ -29,7 +29,7 @@ const OPTIONS: Array<{
   {
     value: "familiar",
     title: "I know the UCAT format",
-    description: "Let me solve realistic questions independently.",
+    description: "Give me the guided walkthrough as I try the real controls.",
     Icon: BookOpenCheck,
   },
   {
@@ -68,16 +68,16 @@ export function SignupCompleteSamplerStep({
   return (
     <div className="space-y-5">
       {gift ? (
-        <div className="flex flex-col gap-4 rounded-2xl border border-marketing-accent/25 bg-marketing-accent/[0.08] p-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex flex-col gap-4 rounded-2xl border border-primary/20 bg-primary/[0.06] p-4 dark:border-accent/25 dark:bg-accent/[0.08] sm:flex-row sm:items-center sm:justify-between">
           <div className="flex gap-3">
-            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-marketing-accent text-marketing-charcoal">
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary text-primary-foreground dark:bg-accent dark:text-primary-foreground">
               <Gift className="h-4 w-4" aria-hidden />
             </span>
             <div>
-              <p className="font-semibold text-marketing-cream">
+              <p className="font-semibold text-foreground">
                 Your gift from {gift.referrerName} is ready
               </p>
-              <p className="mt-1 text-sm text-marketing-cream/60">
+              <p className="mt-1 text-sm text-muted-foreground">
                 Preview the UCAT experience first, or accept your free{" "}
                 {gift.duration} now.
               </p>
@@ -86,7 +86,7 @@ export function SignupCompleteSamplerStep({
           <Button
             type="button"
             variant="outline"
-            className="shrink-0 border-marketing-accent/40 bg-transparent text-marketing-cream hover:bg-marketing-accent/10 hover:text-marketing-cream"
+            className="shrink-0 border-primary/30 bg-transparent text-foreground hover:bg-primary/10 hover:text-foreground dark:border-accent/40 dark:hover:bg-accent/10"
             onClick={acceptGift}
           >
             Accept gift now
@@ -95,7 +95,7 @@ export function SignupCompleteSamplerStep({
       ) : null}
 
       <fieldset className="space-y-3">
-        <legend className="text-sm font-medium text-marketing-cream">
+        <legend className="text-sm font-medium text-foreground">
           How familiar are you with UCAT practice?
         </legend>
         <div className="grid gap-3 md:grid-cols-3">
@@ -110,23 +110,21 @@ export function SignupCompleteSamplerStep({
                 className={cn(
                   "rounded-2xl border p-4 text-left transition-colors",
                   selected
-                    ? "border-white/25 bg-white/[0.1] ring-1 ring-white/[0.22]"
-                    : "border-white/10 bg-white/[0.03] hover:border-white/25 hover:bg-white/[0.05]",
+                    ? "border-foreground/20 bg-muted ring-1 ring-foreground/15"
+                    : "border-border bg-card hover:border-foreground/20 hover:bg-muted/60",
                 )}
               >
                 <Icon
                   className={cn(
                     "h-5 w-5",
-                    selected
-                      ? "text-marketing-cream"
-                      : "text-marketing-cream/50",
+                    selected ? "text-foreground" : "text-muted-foreground",
                   )}
                   aria-hidden
                 />
-                <span className="mt-4 block font-semibold text-marketing-cream">
+                <span className="mt-4 block font-semibold text-foreground">
                   {title}
                 </span>
-                <span className="mt-1 block text-sm leading-relaxed text-marketing-cream/55">
+                <span className="mt-1 block text-sm leading-relaxed text-muted-foreground">
                   {description}
                 </span>
               </button>
@@ -144,9 +142,8 @@ export function SignupCompleteSamplerStep({
               `/signup/complete/sampler?familiarity=${familiarity ?? "new"}`,
             )
           }
-          className="bg-marketing-accent text-marketing-charcoal hover:bg-marketing-accent/90"
         >
-          Start the guided sampler
+          Start sample questions
           <ArrowRight className="ml-2 h-4 w-4" aria-hidden />
         </Button>
       </div>

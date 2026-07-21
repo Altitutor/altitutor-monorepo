@@ -6,15 +6,15 @@ import { supabaseAdmin } from "@/lib/supabase/admin";
 
 type AdminClient = SupabaseClient<Database>;
 
-export async function requireStudentAdminClient(): Promise<
+type AuthFailure = { ok: false; response: NextResponse };
+
+export async function requireUserAdminClient(): Promise<
   | {
       ok: true;
       userId: string;
-      studentId: string;
-      timezone: string;
       admin: AdminClient;
     }
-  | { ok: false; response: NextResponse }
+  | AuthFailure
 > {
   const supabase = await getSupabaseServerClient();
   const {
@@ -47,10 +47,30 @@ export async function requireStudentAdminClient(): Promise<
     };
   }
 
-  const { data: student, error: studentError } = await supabaseAdmin
+  return {
+    ok: true,
+    userId: user.id,
+    admin: supabaseAdmin,
+  };
+}
+
+export async function requireStudentAdminClient(): Promise<
+  | {
+      ok: true;
+      userId: string;
+      studentId: string;
+      timezone: string;
+      admin: AdminClient;
+    }
+  | AuthFailure
+> {
+  const auth = await requireUserAdminClient();
+  if (!auth.ok) return auth;
+
+  const { data: student, error: studentError } = await auth.admin
     .from("students")
     .select("id, timezone")
-    .eq("user_id", user.id)
+    .eq("user_id", auth.userId)
     .maybeSingle();
 
   if (studentError) {
@@ -74,9 +94,9 @@ export async function requireStudentAdminClient(): Promise<
 
   return {
     ok: true,
-    userId: user.id,
+    userId: auth.userId,
     studentId: student.id,
     timezone: student.timezone ?? "Australia/Adelaide",
-    admin: supabaseAdmin,
+    admin: auth.admin,
   };
 }

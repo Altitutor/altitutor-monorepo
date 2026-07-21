@@ -2,9 +2,14 @@ import "server-only";
 
 import { randomUUID } from "node:crypto";
 import type { Database, Json } from "@altitutor/shared";
-import { scaleTo300_900 } from "@altitutor/ucat-marking";
+import { estimateUcatSectionScore } from "@altitutor/ucat-marking";
+import type { UcatScoringSection } from "@altitutor/ucat-marking";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { supabaseAdmin } from "@/lib/supabase/admin";
+import {
+  extractTextFromRichJson,
+  type JsonLike,
+} from "@/features/question-engine/model/rich-text";
 import {
   defaultSettings,
   estimateSectionScore,
@@ -25,6 +30,15 @@ import {
 import { estimateLearningModuleMinutes } from "@/features/study-plan/lib/module-duration";
 import { prepareStudyPlanTasks } from "@/features/study-plan/lib/persistence";
 import {
+  buildAlternativeNextStep,
+  buildNextStepDrafts,
+  formatAttemptReviewLabel,
+  resolveGuidanceTrigger,
+  type BuildNextStepsInput,
+  type IncompleteAttemptReview,
+  type LatestGuidanceActivity,
+} from "@/features/study-plan/lib/next-step-guidance";
+import {
   matchLearningModuleProgress,
   matchPracticeSession,
   shouldReconcileStudyPlanTask,
@@ -34,6 +48,8 @@ import type {
   StudyPlanCategorySignal,
   StudyPlanExtraStudyInput,
   StudyPlanGenerationResult,
+  StudyGuidanceAlternativeInput,
+  StudyGuidanceItem,
   StudyPlanLearningModule,
   StudyPlanProfileInput,
   StudyPlanResponse,
@@ -57,6 +73,8 @@ type GenerationRow =
   Database["public"]["Tables"]["ucat_student_study_plan_generations"]["Row"];
 type TaskRow =
   Database["public"]["Tables"]["ucat_student_study_plan_tasks"]["Row"];
+type NextStepRow =
+  Database["public"]["Tables"]["ucat_student_next_steps"]["Row"];
 
 export class ExtraStudyUnavailableError extends Error {
   constructor(message: string) {
@@ -103,15 +121,24 @@ function parseAvailability(
 }
 
 async function resolveStudentId(userId: string): Promise<string> {
+  return (await resolveStudent(userId)).id;
+}
+
+async function resolveStudent(
+  userId: string,
+): Promise<{ id: string; timezone: string }> {
   const admin = requireAdmin();
   const { data, error } = await admin
     .from("students")
-    .select("id")
+    .select("id, timezone")
     .eq("user_id", userId)
     .maybeSingle();
   if (error) throw error;
   if (!data) throw new Error("No student profile found.");
-  return data.id;
+  return {
+    id: data.id,
+    timezone: data.timezone || "Australia/Adelaide",
+  };
 }
 
 async function planningDateFor(profile: ProfileRow): Promise<{
@@ -175,13 +202,13 @@ function predictedScoreFromEvidence(
   rows: Array<{
     source: string | null;
     completed_at: string | null;
-    scaled_score: number | null;
     score_points: number | null;
     total_points: number | null;
     was_timed: boolean | null;
     student_exam_speed: number | null;
   }>,
   settings: ScoreProjectionSettings,
+  section: UcatScoringSection,
 ): ReturnType<typeof estimateSectionScore> {
   const evidence: AttemptEvidence[] = rows.flatMap((row) => {
     if (
@@ -201,10 +228,11 @@ function predictedScoreFromEvidence(
       row.total_points < settings.minPracticeScoredPoints
     )
       return [];
-    const score =
-      row.source === "practice"
-        ? scaleTo300_900(row.score_points, row.total_points)
-        : row.scaled_score;
+    const score = estimateUcatSectionScore({
+      section,
+      rawScore: row.score_points,
+      maxRawScore: row.total_points,
+    }).scaledScore;
     const timestamp = row.completed_at
       ? new Date(row.completed_at).getTime()
       : Number.NaN;
@@ -263,7 +291,7 @@ async function loadGenerationInputs(
     supabase
       .from("vstudent_ucat_score_projection_evidence")
       .select(
-        "source, section_id, completed_at, scaled_score, score_points, total_points, was_timed, student_exam_speed",
+        "source, section_id, completed_at, score_points, total_points, was_timed, student_exam_speed",
       ),
     admin
       .from("ucat_score_projection_settings")
@@ -397,6 +425,7 @@ async function loadGenerationInputs(
     const estimate = predictedScoreFromEvidence(
       evidence,
       projectionSettings(settingsBySection.get(section.id)),
+      section.key,
     );
     return {
       sectionId: section.id,
@@ -455,6 +484,9 @@ async function loadGenerationInputs(
       },
     ];
   });
+  const categorySignals = new Map(
+    categories.map((category) => [category.id, category]),
+  );
   const blocksByModule = new Map<
     string,
     Array<{
@@ -493,12 +525,8 @@ async function loadGenerationInputs(
       .filter((link) => link.learning_module_id === module.id)
       .map((link) => link.question_stem_category_id);
     const categoryScores = categoryIds.flatMap((categoryId) => {
-      const progress = categoryProgressRes.data?.find(
-        (item) => item.category_id === categoryId,
-      );
-      return progress && progress.max_score && progress.max_score > 0
-        ? [1 - (progress.correct_score ?? 0) / progress.max_score]
-        : [];
+      const signal = categorySignals.get(categoryId);
+      return signal ? [signal.weaknessScore] : [];
     });
     return [
       {
@@ -631,6 +659,8 @@ async function generateForProfile(
     today: todayIso(),
     planningDate,
     profile: {
+      studyPlanEnabled: true,
+      studySuggestionsEnabled: profile.study_suggestions_enabled,
       targetScore: profile.target_score,
       testYear: profile.test_year,
       testDate: profile.test_date,
@@ -1008,6 +1038,394 @@ async function completedMockCount(studentId: string): Promise<number> {
   return count ?? 0;
 }
 
+function mapNextStep(row: NextStepRow): StudyGuidanceItem {
+  return {
+    id: row.id,
+    position: row.position === 2 ? 2 : 1,
+    triggerKey: row.trigger_key,
+    generatedOn: row.generated_on,
+    taskType: row.task_type as StudyGuidanceItem["taskType"],
+    title: row.title,
+    description: row.description,
+    rationale: row.rationale,
+    estimatedMinutes: row.estimated_minutes,
+    sectionId: row.section_id,
+    questionStemCategoryId: row.question_stem_category_id,
+    learningModuleId: row.learning_module_id,
+    questionSetId: row.question_set_id,
+    mockId: row.mock_id,
+    skillTrainerId: row.skill_trainer_id,
+    sourceAttemptType:
+      row.source_attempt_type as StudyGuidanceItem["sourceAttemptType"],
+    sourceAttemptId: row.source_attempt_id,
+    launchPath: row.launch_path,
+    launchConfig:
+      row.launch_config &&
+      typeof row.launch_config === "object" &&
+      !Array.isArray(row.launch_config)
+        ? (row.launch_config as Record<string, unknown>)
+        : {},
+  };
+}
+
+async function latestGuidanceActivity(
+  studentId: string,
+): Promise<LatestGuidanceActivity | null> {
+  const admin = requireAdmin();
+  const [practice, set, mock, trainer, learning, review] = await Promise.all([
+    admin
+      .from("student_practice_sessions")
+      .select("id, completed_at")
+      .eq("student_id", studentId)
+      .not("completed_at", "is", null)
+      .order("completed_at", { ascending: false })
+      .limit(1)
+      .maybeSingle(),
+    admin
+      .from("student_question_set_attempts")
+      .select("id, completed_at")
+      .eq("student_id", studentId)
+      .not("completed_at", "is", null)
+      .order("completed_at", { ascending: false })
+      .limit(1)
+      .maybeSingle(),
+    admin
+      .from("student_ucat_mock_attempts")
+      .select("id, completed_at")
+      .eq("student_id", studentId)
+      .not("completed_at", "is", null)
+      .order("completed_at", { ascending: false })
+      .limit(1)
+      .maybeSingle(),
+    admin
+      .from("student_skill_trainer_attempts")
+      .select("id, completed_at")
+      .eq("student_id", studentId)
+      .not("completed_at", "is", null)
+      .order("completed_at", { ascending: false })
+      .limit(1)
+      .maybeSingle(),
+    admin
+      .from("ucat_student_learning_module_progress")
+      .select("id, completed_at")
+      .eq("student_id", studentId)
+      .not("completed_at", "is", null)
+      .order("completed_at", { ascending: false })
+      .limit(1)
+      .maybeSingle(),
+    admin
+      .from("student_ucat_attempt_reviews")
+      .select("id, completed_at")
+      .eq("student_id", studentId)
+      .not("completed_at", "is", null)
+      .order("completed_at", { ascending: false })
+      .limit(1)
+      .maybeSingle(),
+  ]);
+  const results = [practice, set, mock, trainer, learning, review];
+  for (const result of results) if (result.error) throw result.error;
+  return (
+    [
+      ["practice", practice.data],
+      ["set", set.data],
+      ["mock", mock.data],
+      ["skill_trainer", trainer.data],
+      ["learning", learning.data],
+      ["review", review.data],
+    ]
+      .flatMap(([kind, row]) => {
+        if (!row || typeof row === "string" || !row.completed_at) return [];
+        return [
+          { kind: String(kind), id: row.id, completedAt: row.completed_at },
+        ];
+      })
+      .sort((a, b) => b.completedAt.localeCompare(a.completedAt))[0] ?? null
+  );
+}
+
+function reviewTypeForActivity(
+  kind: LatestGuidanceActivity["kind"],
+): IncompleteAttemptReview["attemptType"] | null {
+  if (kind === "practice") return "practice_session";
+  if (kind === "set") return "set_attempt";
+  if (kind === "mock") return "mock_attempt";
+  return null;
+}
+
+async function describeIncompleteReview(
+  studentId: string,
+  review: Pick<IncompleteAttemptReview, "attemptType" | "attemptId"> | null,
+): Promise<IncompleteAttemptReview | null> {
+  if (!review) return null;
+  const admin = requireAdmin();
+  if (review.attemptType === "practice_session") {
+    const { data, error } = await admin
+      .from("student_practice_sessions")
+      .select("section_key, question_count, was_timed")
+      .eq("id", review.attemptId)
+      .eq("student_id", studentId)
+      .maybeSingle();
+    if (error) throw error;
+    return {
+      ...review,
+      attemptLabel: formatAttemptReviewLabel({
+        attemptType: review.attemptType,
+        sectionKey: data?.section_key,
+        questionCount: data?.question_count,
+        wasTimed: data?.was_timed,
+      }),
+    };
+  }
+  if (review.attemptType === "set_attempt") {
+    const { data: attempt, error: attemptError } = await admin
+      .from("student_question_set_attempts")
+      .select("question_set_id, was_timed")
+      .eq("id", review.attemptId)
+      .eq("student_id", studentId)
+      .maybeSingle();
+    if (attemptError) throw attemptError;
+    const { data: set, error: setError } = attempt
+      ? await admin
+          .from("question_sets")
+          .select("name")
+          .eq("id", attempt.question_set_id)
+          .maybeSingle()
+      : { data: null, error: null };
+    if (setError) throw setError;
+    return {
+      ...review,
+      attemptLabel: formatAttemptReviewLabel({
+        attemptType: review.attemptType,
+        name: set?.name ? extractTextFromRichJson(set.name as JsonLike) : null,
+        wasTimed: attempt?.was_timed,
+      }),
+    };
+  }
+  const { data: attempt, error: attemptError } = await admin
+    .from("student_ucat_mock_attempts")
+    .select("ucat_mock_id")
+    .eq("id", review.attemptId)
+    .eq("student_id", studentId)
+    .maybeSingle();
+  if (attemptError) throw attemptError;
+  const { data: mock, error: mockError } = attempt
+    ? await admin
+        .from("ucat_mocks")
+        .select("name")
+        .eq("id", attempt.ucat_mock_id)
+        .maybeSingle()
+    : { data: null, error: null };
+  if (mockError) throw mockError;
+  return {
+    ...review,
+    attemptLabel: formatAttemptReviewLabel({
+      attemptType: review.attemptType,
+      name: mock?.name,
+    }),
+  };
+}
+
+async function loadNextStepBuildInput(
+  supabase: SupabaseClient<Database>,
+  studentId: string,
+  profile: ProfileRow,
+  options: Pick<
+    BuildNextStepsInput,
+    "today" | "dailyWarmup" | "incompleteReview"
+  >,
+): Promise<BuildNextStepsInput> {
+  const admin = requireAdmin();
+  const [inputs, trainerAttempts, planning] = await Promise.all([
+    loadGenerationInputs(supabase, studentId),
+    admin
+      .from("student_skill_trainer_attempts")
+      .select("skill_trainer_id")
+      .eq("student_id", studentId)
+      .not("completed_at", "is", null),
+    planningDateFor(profile),
+  ]);
+  if (trainerAttempts.error) throw trainerAttempts.error;
+  const trainerAttemptCounts = new Map<string, number>();
+  for (const attempt of trainerAttempts.data ?? []) {
+    trainerAttemptCounts.set(
+      attempt.skill_trainer_id,
+      (trainerAttemptCounts.get(attempt.skill_trainer_id) ?? 0) + 1,
+    );
+  }
+  return {
+    ...options,
+    planningDate: planning.planningDate,
+    ...inputs,
+    trainerAttemptCounts,
+  };
+}
+
+async function getOrRefreshNextSteps(
+  supabase: SupabaseClient<Database>,
+  studentId: string,
+  timezone: string,
+  profile: ProfileRow,
+): Promise<StudyGuidanceItem[]> {
+  const admin = requireAdmin();
+  const today = todayIso(new Date(), timezone);
+  const [currentResult, incompleteReviewResult, latestActivity] =
+    await Promise.all([
+      admin
+        .from("ucat_student_next_steps")
+        .select("*")
+        .eq("student_id", studentId)
+        .order("position"),
+      admin
+        .from("student_ucat_attempt_reviews")
+        .select("attempt_type, attempt_id")
+        .eq("student_id", studentId)
+        .is("completed_at", null)
+        .order("updated_at", { ascending: false })
+        .limit(1)
+        .maybeSingle(),
+      latestGuidanceActivity(studentId),
+    ]);
+  if (currentResult.error) throw currentResult.error;
+  if (incompleteReviewResult.error) throw incompleteReviewResult.error;
+  const current = currentResult.data ?? [];
+  const latestAttemptReviewType = latestActivity
+    ? reviewTypeForActivity(latestActivity.kind)
+    : null;
+  const incompleteReviewSource = incompleteReviewResult.data
+    ? {
+        attemptType: incompleteReviewResult.data.attempt_type as NonNullable<
+          StudyGuidanceItem["sourceAttemptType"]
+        >,
+        attemptId: incompleteReviewResult.data.attempt_id,
+      }
+    : latestActivity && latestAttemptReviewType
+      ? {
+          attemptType: latestAttemptReviewType,
+          attemptId: latestActivity.id,
+        }
+      : null;
+  const currentTrigger = current[0]?.trigger_key ?? null;
+  const currentCreatedAt = current[0]?.created_at ?? null;
+  const triggerKey = resolveGuidanceTrigger({
+    today,
+    currentTrigger,
+    currentCreatedAt,
+    currentGeneratedOn: current[0]?.generated_on ?? null,
+    latestActivity,
+  });
+  if (current.length >= 2 && triggerKey === currentTrigger) {
+    return current.map(mapNextStep);
+  }
+
+  const incompleteReview = await describeIncompleteReview(
+    studentId,
+    incompleteReviewSource,
+  );
+
+  const buildInput = await loadNextStepBuildInput(
+    supabase,
+    studentId,
+    profile,
+    {
+      today,
+      dailyWarmup: triggerKey?.startsWith("daily:") ?? false,
+      incompleteReview,
+    },
+  );
+  const drafts = buildNextStepDrafts(buildInput);
+  const nextTrigger = triggerKey ?? `daily:${today}`;
+  const { data, error } = await admin
+    .from("ucat_student_next_steps")
+    .upsert(
+      drafts.map((draft, index) => ({
+        student_id: studentId,
+        position: index + 1,
+        trigger_key: nextTrigger,
+        generated_on: today,
+        task_type: draft.taskType,
+        title: draft.title,
+        description: draft.description,
+        rationale: draft.rationale,
+        estimated_minutes: draft.estimatedMinutes,
+        section_id: draft.sectionId,
+        question_stem_category_id: draft.questionStemCategoryId,
+        learning_module_id: draft.learningModuleId,
+        question_set_id: draft.questionSetId,
+        mock_id: draft.mockId,
+        skill_trainer_id: draft.skillTrainerId,
+        source_attempt_type: draft.sourceAttemptType,
+        source_attempt_id: draft.sourceAttemptId,
+        launch_path: draft.launchPath,
+        launch_config: draft.launchConfig as Json,
+      })),
+      { onConflict: "student_id,position" },
+    )
+    .select("*")
+    .order("position");
+  if (error) throw error;
+  return (data ?? []).map(mapNextStep);
+}
+
+export async function suggestAlternativeStudyGuidance(
+  supabase: SupabaseClient<Database>,
+  userId: string,
+  input: StudyGuidanceAlternativeInput,
+): Promise<StudyGuidanceItem> {
+  const admin = requireAdmin();
+  const student = await resolveStudent(userId);
+  const today = todayIso(new Date(), student.timezone);
+  const [profileResult, incompleteReviewResult] = await Promise.all([
+    admin
+      .from("ucat_student_study_plan_profiles")
+      .select("*")
+      .eq("student_id", student.id)
+      .maybeSingle(),
+    admin
+      .from("student_ucat_attempt_reviews")
+      .select("attempt_type, attempt_id")
+      .eq("student_id", student.id)
+      .is("completed_at", null)
+      .order("updated_at", { ascending: false })
+      .limit(1)
+      .maybeSingle(),
+  ]);
+  if (profileResult.error) throw profileResult.error;
+  if (incompleteReviewResult.error) throw incompleteReviewResult.error;
+  if (!profileResult.data) throw new Error("Set your UCAT goal first.");
+  const incompleteReview = incompleteReviewResult.data;
+  const describedIncompleteReview = await describeIncompleteReview(
+    student.id,
+    incompleteReview
+      ? {
+          attemptType: incompleteReview.attempt_type as NonNullable<
+            StudyGuidanceItem["sourceAttemptType"]
+          >,
+          attemptId: incompleteReview.attempt_id,
+        }
+      : null,
+  );
+  const buildInput = await loadNextStepBuildInput(
+    supabase,
+    student.id,
+    profileResult.data,
+    {
+      today,
+      dailyWarmup: false,
+      incompleteReview: describedIncompleteReview,
+    },
+  );
+  const draft = buildAlternativeNextStep(buildInput, input);
+  if (!draft)
+    throw new Error("There are no more suitable alternatives right now.");
+  return {
+    id: `alternative:${randomUUID()}`,
+    position: 1,
+    triggerKey: `alternative:${today}`,
+    generatedOn: today,
+    ...draft,
+  };
+}
+
 export async function saveStudyPlanProfile(
   supabase: SupabaseClient<Database>,
   userId: string,
@@ -1020,6 +1438,8 @@ export async function saveStudyPlanProfile(
     .upsert(
       {
         student_id: studentId,
+        study_plan_enabled: input.studyPlanEnabled,
+        study_suggestions_enabled: input.studySuggestionsEnabled,
         target_score: input.targetScore,
         test_year: input.testYear,
         test_date: input.testDate,
@@ -1032,12 +1452,26 @@ export async function saveStudyPlanProfile(
     .select("*")
     .single();
   if (error) throw error;
-  await generateForProfile(
-    supabase,
-    studentId,
-    profile,
-    profile.last_generated_at ? "profile_changed" : "onboarding",
-  );
+  const { error: clearStepsError } = await admin
+    .from("ucat_student_next_steps")
+    .delete()
+    .eq("student_id", studentId);
+  if (clearStepsError) throw clearStepsError;
+  if (input.studyPlanEnabled) {
+    await generateForProfile(
+      supabase,
+      studentId,
+      profile,
+      profile.last_generated_at ? "profile_changed" : "onboarding",
+    );
+  } else {
+    const { error: retirePlanError } = await admin
+      .from("ucat_student_study_plan_generations")
+      .update({ superseded_at: new Date().toISOString() })
+      .eq("student_id", studentId)
+      .is("superseded_at", null);
+    if (retirePlanError) throw retirePlanError;
+  }
   return getStudyPlan(supabase, userId, { allowAutomaticReplan: false });
 }
 
@@ -1184,7 +1618,9 @@ export async function getStudyPlan(
   } = {},
 ): Promise<StudyPlanResponse> {
   const admin = requireAdmin();
-  const studentId = await resolveStudentId(userId);
+  const student = await resolveStudent(userId);
+  const studentId = student.id;
+  const today = todayIso(new Date(), student.timezone);
   const [profileResult, initialGenerationResult] = await Promise.all([
     admin
       .from("ucat_student_study_plan_profiles")
@@ -1206,12 +1642,15 @@ export async function getStudyPlan(
       profile: null,
       generation: null,
       tasks: [],
-      today: todayIso(),
+      nextSteps: [],
+      today,
       todayTasks: [],
       completion: { completed: 0, scheduledThroughToday: 0, percent: 0 },
     };
   }
-  let generation = initialGenerationResult.data;
+  let generation = profile.study_plan_enabled
+    ? initialGenerationResult.data
+    : null;
   const latestCompletedMocks =
     generation && options.allowAutomaticReplan !== false
       ? await completedMockCount(studentId)
@@ -1220,11 +1659,12 @@ export async function getStudyPlan(
     ? latestCompletedMocks > readCompletedMockCount(generation.input_snapshot)
     : false;
   if (
+    profile.study_plan_enabled &&
     options.allowAutomaticReplan !== false &&
     (!generation ||
       mockCompletedSinceGeneration ||
       !profile.next_weekly_replan_on ||
-      profile.next_weekly_replan_on <= todayIso())
+      profile.next_weekly_replan_on <= today)
   ) {
     await generateForProfile(
       supabase,
@@ -1321,7 +1761,14 @@ export async function getStudyPlan(
   }
   const planning = await planningDateFor(profile);
   const tasks = taskRows.map(mapTask);
-  const today = todayIso();
+  const nextSteps = profile.study_plan_enabled
+    ? []
+    : await getOrRefreshNextSteps(
+        supabase,
+        studentId,
+        student.timezone,
+        profile,
+      );
   const scheduledThroughToday = tasks.filter(
     (task) => task.scheduledDate <= today && task.status !== "skipped",
   ).length;
@@ -1331,6 +1778,8 @@ export async function getStudyPlan(
   return {
     profile: {
       id: profile.id,
+      studyPlanEnabled: profile.study_plan_enabled,
+      studySuggestionsEnabled: profile.study_suggestions_enabled,
       targetScore: profile.target_score,
       testYear: profile.test_year,
       testDate: profile.test_date,
@@ -1359,6 +1808,7 @@ export async function getStudyPlan(
         }
       : null,
     tasks,
+    nextSteps,
     today,
     todayTasks: tasks.filter((task) => task.scheduledDate === today),
     completion: {

@@ -49,6 +49,8 @@ import { appendImageNode, appendImageNodeToDoc, replaceFirstImageNode, replaceFi
 import { generatedVisualBlockToImageNode, getGeneratedVisualSpecIssue } from '@/features/ucat/questions/lib/ai-generation/content-blocks'
 import type { GeneratedContentBlock } from '@/features/ucat/questions/lib/ai-generation/schema'
 import type { UcatAuthoringWorkspaceTab } from '@/features/ucat/shared/components/UcatAuthoringWorkspaceTabs'
+import type { SelectedVisualImage } from '@/features/ucat/shared/lib/selected-visual-image'
+import { UcatAiAssessmentControl } from '@/features/ucat/questions/components/stem-editor/UcatAiAssessmentControl'
 
 export type StemEditorMode = 'edit' | 'view'
 export type StemEditorFocusTarget = 'category' | 'explanation' | 'tags' | 'sets'
@@ -77,6 +79,10 @@ type UcatStemEditorPropertiesPanelProps = {
   statusChangedAt?: string | null
   activeTab?: Exclude<UcatAuthoringWorkspaceTab, 'editor'>
   onActiveTabChange?: (value: UcatAuthoringWorkspaceTab) => void
+  selectedImage?: SelectedVisualImage | null
+  onAcceptSelectedImage?: (imageNode: Json) => Promise<{ ok: boolean; message: string }> | { ok: boolean; message: string }
+  onNewImageFileIds?: (fileIds: string[]) => void
+  aiReviewAvailable?: boolean
   className?: string
 }
 
@@ -150,15 +156,19 @@ export function UcatStemEditorPropertiesPanel({
   statusChangedAt,
   activeTab: controlledActiveTab,
   onActiveTabChange,
+  selectedImage = null,
+  onAcceptSelectedImage,
+  onNewImageFileIds,
+  aiReviewAvailable = false,
   className,
 }: UcatStemEditorPropertiesPanelProps) {
   const { toast } = useToast()
   const { fields, append, remove } = useFieldArray({ control: form.control, name: 'questions' })
-  const [uncontrolledActiveTab, setUncontrolledActiveTab] = useState<'properties' | 'ai'>('properties')
+  const [uncontrolledActiveTab, setUncontrolledActiveTab] = useState<'properties' | 'ai' | 'review'>('properties')
   const activeTab = controlledActiveTab ?? uncontrolledActiveTab
 
   function handleActiveTabChange(value: string) {
-    const next = value as 'properties' | 'ai'
+    const next = value as 'properties' | 'ai' | 'review'
     setUncontrolledActiveTab(next)
     onActiveTabChange?.(next)
   }
@@ -275,6 +285,87 @@ export function UcatStemEditorPropertiesPanel({
     const target = typeof input.target === 'string' ? input.target : 'stem'
 
     switch (toolCall.name) {
+      case 'reviseSelectedImage': {
+        const instructions = typeof input.instructions === 'string' ? input.instructions.trim() : ''
+        if (!selectedImage?.fileId || !selectedImage.src) {
+          return { toolCallId: toolCall.id, ok: false, message: 'The selected image does not have an editable source file.' }
+        }
+        if (!instructions) return { toolCallId: toolCall.id, ok: false, message: 'No image revision instructions were provided.' }
+        const response = await fetch('/api/ucat/authoring-agent/images/revise', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            fileId: selectedImage.fileId,
+            instructions,
+            alt: selectedImage.visualAltText,
+            context: current,
+          }),
+        })
+        const image = await response.json() as { fileId?: string; signedUrl?: string; alt?: string | null; error?: string }
+        if (!response.ok || !image.fileId || !image.signedUrl) {
+          return { toolCallId: toolCall.id, ok: false, message: image.error ?? 'Image revision failed.' }
+        }
+        onNewImageFileIds?.([image.fileId])
+        return {
+          toolCallId: toolCall.id,
+          ok: true,
+          message: 'AI revision is ready to review.',
+          output: {
+            kind: 'image_preview',
+            originalSrc: selectedImage.src,
+            instructions,
+            imageNode: {
+              type: 'image',
+              attrs: { src: image.signedUrl, fileId: image.fileId, alt: image.alt ?? '' },
+            },
+          } as Json,
+        }
+      }
+
+      case 'previewSelectedImageConversion': {
+        if (!selectedImage?.src) return { toolCallId: toolCall.id, ok: false, message: 'No legacy image is selected.' }
+        const spec = input.spec && typeof input.spec === 'object' && !Array.isArray(input.spec)
+          ? input.spec as Record<string, unknown>
+          : null
+        const visualType = input.visualType === 'vega_lite_chart' || input.visualType === 'set_diagram' || input.visualType === 'venn_diagram'
+          ? input.visualType
+          : null
+        if (!spec || !visualType) return { toolCallId: toolCall.id, ok: false, message: 'The conversion did not include a valid visual specification.' }
+        const visualBlock = {
+          type: 'visual',
+          visualType,
+          spec,
+          title: typeof input.title === 'string' ? input.title : null,
+          altText: typeof input.altText === 'string' && input.altText.trim() ? input.altText : selectedImage.visualAltText || 'Converted deterministic visual',
+        } as Extract<GeneratedContentBlock, { type: 'visual' }>
+        const issue = getGeneratedVisualSpecIssue(visualBlock)
+        if (issue) return { toolCallId: toolCall.id, ok: false, message: issue }
+        let imageNode: Json
+        if (visualType === 'vega_lite_chart') {
+          const response = await fetch('/api/ucat/authoring-agent/visuals/render', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(visualBlock),
+          })
+          const body = await response.json() as { imageNode?: Json; error?: string }
+          if (!response.ok || !body.imageNode) return { toolCallId: toolCall.id, ok: false, message: body.error ?? 'Chart rendering failed.' }
+          imageNode = body.imageNode
+        } else {
+          imageNode = generatedVisualBlockToImageNode(visualBlock)
+        }
+        return {
+          toolCallId: toolCall.id,
+          ok: true,
+          message: 'Editable deterministic visual is ready to review.',
+          output: {
+            kind: 'image_preview',
+            originalSrc: selectedImage.src,
+            instructions: typeof input.instructions === 'string' ? input.instructions : '',
+            imageNode,
+          } as Json,
+        }
+      }
+
       case 'bulkParaphraseStem': {
         const stemText = typeof input.stemText === 'string' ? input.stemText : ''
         if (!stemText.trim()) return { toolCallId: toolCall.id, ok: false, message: 'No rewritten stem text provided.' }
@@ -371,7 +462,7 @@ export function UcatStemEditorPropertiesPanel({
           })
         }
 
-        form.setValue('stemText', plainTextToProseMirrorWithLineBreaks(stemText), { shouldDirty: true })
+        form.setValue('stemText', aiTextToProseMirror(stemText), { shouldDirty: true })
         for (const patch of patches) {
           form.setValue(`questions.${patch.questionIndex}.questionText`, plainTextToProseMirrorWithLineBreaks(patch.questionText), { shouldDirty: true })
           if (patch.answerExplanation !== undefined) {
@@ -402,7 +493,7 @@ export function UcatStemEditorPropertiesPanel({
 
       case 'updateStemText':
         if (!text.trim()) return { toolCallId: toolCall.id, ok: false, message: 'No stem text provided.' }
-        form.setValue('stemText', plainTextToProseMirrorWithLineBreaks(text), { shouldDirty: true })
+        form.setValue('stemText', aiTextToProseMirror(text), { shouldDirty: true })
         return { toolCallId: toolCall.id, ok: true, message: 'Updated draft stem text.' }
 
       case 'updateStemProperties': {
@@ -676,6 +767,7 @@ export function UcatStemEditorPropertiesPanel({
             options={[
               { value: 'properties', label: 'Properties' },
               { value: 'ai', label: 'AI tools' },
+              ...(aiReviewAvailable ? [{ value: 'review', label: 'AI review' }] : []),
             ]}
           />
         </div>
@@ -1026,10 +1118,38 @@ export function UcatStemEditorPropertiesPanel({
                 name: section.name,
               })),
             } as Json}
-            placeholder="Ask AI to edit this question stem..."
+            selectedImage={selectedImage ? {
+              label: selectedImage.label,
+              src: selectedImage.src,
+              fileId: selectedImage.fileId,
+              location: selectedImage.location,
+              visualType: selectedImage.visualType,
+              visualSpec: selectedImage.visualSpec as Json | null,
+              visualTitle: selectedImage.visualTitle,
+              visualAltText: selectedImage.visualAltText,
+            } : null}
+            placeholder={selectedImage?.src?.startsWith('data:image/svg+xml')
+              ? 'Describe how this SVG should become an editable Venn, set, or Vega visual...'
+              : selectedImage
+                ? 'Describe how you want the selected image changed...'
+                : 'Ask AI to edit this question stem...'}
             onExecuteTool={executeStemAgentTool}
+            onAcceptImagePreview={onAcceptSelectedImage}
           />
         </TabsContent>
+        {aiReviewAvailable && stemId ? (
+          <TabsContent
+            forceMount
+            value="review"
+            className={cn('flex h-full min-h-0 flex-1 flex-col overflow-hidden', activeTab !== 'review' && 'hidden')}
+          >
+            <UcatAiAssessmentControl
+              stemId={stemId}
+              form={form}
+              activeQuestionIndex={safeQuestionIndex}
+            />
+          </TabsContent>
+        ) : null}
       </Tabs>
     </aside>
   )

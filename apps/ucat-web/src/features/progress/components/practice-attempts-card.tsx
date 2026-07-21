@@ -13,15 +13,12 @@ import {
   TableHeader,
   TableRow,
 } from "@altitutor/ui";
-import { AttemptMetricColumnHeader } from "./attempt-metric-column-header";
 import { ProgressTablePagination } from "./progress-table-pagination";
 import { UcatTableRowActionLink } from "./ucat-table-row-action-link";
 import { format } from "date-fns";
 import { ProgressGraph, type GraphDataType } from "./progress-graph";
 import {
   formatAttemptTableMetricValue,
-  getAttemptTableMetricColumn,
-  resolveAttemptTableMetric,
 } from "../lib/attempt-table-metric";
 import type { PracticeAttemptRow } from "@altitutor/shared";
 import {
@@ -85,8 +82,6 @@ export function PracticeAttemptsCard({
   }, [graphDataType, dateRange, seriesQuery.data?.points]);
 
   const attemptsTableTitleId = useId();
-  const tableMetric = resolveAttemptTableMetric(graphDataType, "practice");
-  const metricColumn = getAttemptTableMetricColumn(tableMetric, "practice");
 
   return (
     <div className="space-y-6">
@@ -119,13 +114,7 @@ export function PracticeAttemptsCard({
               <TableRow className={UCAT_TABLE_HEADER_ROW}>
                 <TableHead>Date</TableHead>
                 <TableHead>Section</TableHead>
-                <AttemptMetricColumnHeader
-                  options={metricOptions}
-                  value={graphDataType}
-                  onValueChange={setGraphDataType}
-                  label={metricColumn.label}
-                  tooltip={metricColumn.tooltip}
-                />
+                <TableHead>Raw score</TableHead>
                 <TableHead>Actions</TableHead>
               </TableRow>
             </TableHeader>
@@ -161,7 +150,7 @@ export function PracticeAttemptsCard({
                       </TableCell>
                       <TableCell>
                         {formatAttemptTableMetricValue(
-                          tableMetric,
+                          "raw_score",
                           {
                             scorePoints: a.scorePoints,
                             totalPoints: a.totalPoints,
@@ -175,6 +164,7 @@ export function PracticeAttemptsCard({
                         <UcatTableRowActionLink
                           href={`/progress/practice-sessions/${a.id}`}
                           label="View session"
+                          unreviewed={a.reviewCompletedAt == null}
                         />
                       </TableCell>
                     </TableRow>

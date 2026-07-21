@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { Editor } from '@tiptap/react'
+import type { Json } from '@altitutor/shared'
 import Link from 'next/link'
 import type { UseFormReturn } from 'react-hook-form'
 import { useForm } from 'react-hook-form'
@@ -28,7 +29,10 @@ import type { UcatContentStatus } from '@/features/ucat/shared/types'
 import { DEFAULT_OPTIONS, EMPTY_DOC } from '@/features/ucat/questions/constants/stemFormConstants'
 import { buildEmptyStemFormValues, parseContentStatusFromSnapshot, stemDetailToFormValues } from '@/features/ucat/questions/lib/stem-editor-form'
 import { useManualStemMetadataDetection } from '@/features/ucat/questions/hooks/useManualStemMetadataDetection'
-import { useSetUcatQuestionStemStatus } from '@/features/ucat/questions/hooks/useUcatQuestions'
+import {
+  useDeleteUcatQuestionStem,
+  useSetUcatQuestionStemStatus,
+} from '@/features/ucat/questions/hooks/useUcatQuestions'
 import { isSnapshotDirty, snapshotQuestionStemFormValues } from '@/features/ucat/shared/lib/dirty-state'
 import { UcatDialogShell } from '@/features/ucat/shared/dialog-shell'
 import { parseUcatVisibilityError } from '@/features/ucat/shared/lib/visibility-error'
@@ -42,6 +46,11 @@ import { UcatStemEditorHeaderControls } from '@/features/ucat/questions/componen
 import { taxonomyDisplayLabel } from '@/features/ucat/shared/lib/taxonomy-paths'
 import { filterTagsForImportSection } from '@/features/ucat/shared/lib/taxonomy-reparent'
 import { lifecycleStatusSuccessToast } from '@/features/ucat/shared/lifecycle-errors'
+import { UcatDeleteConfirmDialog } from '@/features/ucat/shared/delete-confirm-dialog'
+import {
+  replaceSelectedImageAttrs,
+  type SelectedVisualImage,
+} from '@/features/ucat/shared/lib/selected-visual-image'
 
 /** Get the first validation error message from react-hook-form errors (supports nested paths). */
 function getFirstValidationMessage(errors: Record<string, unknown>): string {
@@ -64,6 +73,28 @@ function getFirstValidationMessage(errors: Record<string, unknown>): string {
     }
   }
   return 'Please fix the errors in the form.'
+}
+
+function collectImageFileIds(value: unknown, fileIds = new Set<string>()): Set<string> {
+  if (Array.isArray(value)) {
+    value.forEach((item) => collectImageFileIds(item, fileIds))
+    return fileIds
+  }
+  if (!value || typeof value !== 'object') return fileIds
+  const record = value as Record<string, unknown>
+  if (record.type === 'image' && record.attrs && typeof record.attrs === 'object' && !Array.isArray(record.attrs)) {
+    const fileId = (record.attrs as Record<string, unknown>).fileId
+    if (typeof fileId === 'string' && fileId) fileIds.add(fileId)
+  }
+  Object.values(record).forEach((item) => collectImageFileIds(item, fileIds))
+  return fileIds
+}
+
+function imageNodeAttrs(imageNode: Json): Record<string, Json | undefined> | null {
+  if (!imageNode || typeof imageNode !== 'object' || Array.isArray(imageNode)) return null
+  const attrs = (imageNode as Record<string, Json>).attrs
+  if (!attrs || typeof attrs !== 'object' || Array.isArray(attrs)) return null
+  return attrs as Record<string, Json | undefined>
 }
 
 export type CategoryOption = {
@@ -121,11 +152,17 @@ export function UcatQuestionStemDialog({
   const { toast } = useToast()
   const { copyId } = useUcatCopyId()
   const statusMutation = useSetUcatQuestionStemStatus()
+  const deleteStemMutation = useDeleteUcatQuestionStem()
   const [newImageFileIds, setNewImageFileIds] = useState<Set<string>>(new Set())
   const [activeTextEditor, setActiveTextEditor] = useState<Editor | null>(null)
   const [createMore, setCreateMore] = useState(false)
   const [editorMode, setEditorMode] = useState<StemEditorMode>(initialEditorMode)
   const [showAnswer, setShowAnswer] = useState(false)
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false)
+  const [selectedAiImageContext, setSelectedAiImageContext] = useState<{
+    image: SelectedVisualImage
+    editor: Editor
+  } | null>(null)
   const defaultValues = useMemo<UcatQuestionStemFormValues>(() => {
     const fallbackSectionId = sections.find((section) => section.id)?.id ?? ''
     if (!initial) return buildEmptyStemFormValues(fallbackSectionId)
@@ -171,12 +208,15 @@ export function UcatQuestionStemDialog({
       setCreateMore(false)
       createResetOpenRef.current = false
       setShowAnswer(false)
+      setSelectedAiImageContext(null)
     }
   }, [open])
 
   useEffect(() => {
-    if (open) setEditorMode(initialEditorMode)
-  }, [open, initial?.id, initialEditorMode])
+    if (open) {
+      setEditorMode(initialEditorMode)
+    }
+  }, [open, initial?.id, initialEditorMode, initialQuestionIndex])
 
   // When opening for create (no initial), reset form so previous content is cleared
   useEffect(() => {
@@ -280,6 +320,17 @@ export function UcatQuestionStemDialog({
               }))
             }
           }
+          const usedImageFileIds = collectImageFileIds(valuesCopy)
+          const unusedImageFileIds = Array.from(newImageFileIds).filter((fileId) => !usedImageFileIds.has(fileId))
+          if (unusedImageFileIds.length > 0) {
+            void fetch('/api/ucat/images/cleanup', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ fileIds: unusedImageFileIds }),
+            }).catch((error) => {
+              console.error('Failed to schedule unused UCAT image preview cleanup:', error)
+            })
+          }
           setNewImageFileIds(new Set())
           if (!initial && createMore) {
             const nextValues = buildNextCreateValues(valuesCopy)
@@ -332,6 +383,8 @@ export function UcatQuestionStemDialog({
     baseline !== '' && isSnapshotDirty(snapshotQuestionStemFormValues(watchedValues), baseline)
 
   const stemId = initial?.id
+  const deleteAction =
+    onDelete ?? (stemId && !readOnly ? () => setDeleteConfirmOpen(true) : undefined)
 
   const copyIdAction =
     initial != null ? buildCopyIdRowAction(buildStemCopyIdEntries(initial), copyId) : null
@@ -345,12 +398,12 @@ export function UcatQuestionStemDialog({
               icon: <ExternalLink className="h-4 w-4" />,
               href: `/ucat/questions/${stemId}`,
             },
-            ...(onDelete
+            ...(deleteAction
               ? [
                   {
                     label: 'Delete',
                     icon: <Trash2 className="h-4 w-4" />,
-                    onClick: onDelete,
+                    onClick: deleteAction,
                     destructive: true,
                   },
                 ]
@@ -377,7 +430,8 @@ export function UcatQuestionStemDialog({
   }
 
   return (
-    <UcatDialogShell
+    <>
+      <UcatDialogShell
       open={open}
       onClose={handleRequestClose}
       title={title}
@@ -445,6 +499,7 @@ export function UcatQuestionStemDialog({
           statusChangedByFirstName={initial?.status_changed_by_first_name ?? null}
           statusChangedByLastName={initial?.status_changed_by_last_name ?? null}
           statusChangedAt={initial?.status_changed_at ?? null}
+          aiReviewAvailable={Boolean(stemId) && initial?.status !== 'draft'}
           onNewImageFileIds={(fileIds) =>
             setNewImageFileIds((prev) => {
               const next = new Set(prev)
@@ -452,9 +507,52 @@ export function UcatQuestionStemDialog({
               return next
             })
           }
+          selectedImage={selectedAiImageContext?.image ?? null}
+          onAcceptSelectedImage={(imageNode) => {
+            if (!selectedAiImageContext) return { ok: false, message: 'The original image is no longer selected.' }
+            const attrs = imageNodeAttrs(imageNode)
+            if (!attrs) return { ok: false, message: 'The preview did not contain a valid image.' }
+            const replaced = replaceSelectedImageAttrs(
+              selectedAiImageContext.editor,
+              selectedAiImageContext.image,
+              attrs,
+            )
+            if (!replaced) return { ok: false, message: 'The original image could not be found in the draft.' }
+            setSelectedAiImageContext(null)
+            return { ok: true, message: 'The reviewed image has been applied to the question stem.' }
+          }}
+          onUseSelectedImageWithAi={(image, editor) => setSelectedAiImageContext({ image, editor })}
         />
       </div>
-    </UcatDialogShell>
+      </UcatDialogShell>
+
+      <UcatDeleteConfirmDialog
+        open={deleteConfirmOpen}
+        onOpenChange={setDeleteConfirmOpen}
+        title="Delete question stem?"
+        description="The stem and all its questions will be soft-deleted and removed from any sets. You can restore it later from the deleted list."
+        isPending={deleteStemMutation.isPending}
+        onConfirm={async () => {
+          if (!stemId) return
+          try {
+            await deleteStemMutation.mutateAsync(stemId)
+            setDeleteConfirmOpen(false)
+            toast({
+              title: 'Question stem deleted',
+              description: 'The stem was soft-deleted and removed from any sets.',
+            })
+            onClose()
+          } catch (error) {
+            toast({
+              title: 'Cannot delete question stem',
+              description: error instanceof Error ? error.message : 'Please try again.',
+              variant: 'destructive',
+            })
+          }
+        }}
+      />
+
+    </>
   )
 }
 

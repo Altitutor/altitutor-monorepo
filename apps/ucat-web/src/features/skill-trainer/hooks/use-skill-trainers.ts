@@ -7,6 +7,8 @@ export function useSkillTrainers() {
   return useQuery({
     queryKey: ["skill-trainers", "catalog"],
     queryFn: () => skillTrainerApi.listTrainers(),
+    staleTime: 5 * 60_000,
+    gcTime: 30 * 60_000,
   });
 }
 

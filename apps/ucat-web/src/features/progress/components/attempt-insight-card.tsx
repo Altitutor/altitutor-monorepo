@@ -4,10 +4,16 @@ import { Sparkles } from "lucide-react";
 import { UCAT_CARD_CHROME } from "@/lib/ucat-surface-motion";
 import { cn } from "@/lib/utils";
 import type { AttemptInsight } from "../lib/attempt-insights";
+import { ContentRatingControls } from "@/features/content-ratings/components/content-rating-controls";
+import {
+  contentSnapshotVersion,
+  insightTargetKey,
+} from "@/features/content-ratings/lib";
 
 type AttemptInsightCardProps = {
   label: "Overall insight" | "Question insight";
   insight: AttemptInsight;
+  ratingContextKey: string;
   className?: string;
   children?: ReactNode;
 };
@@ -15,9 +21,13 @@ type AttemptInsightCardProps = {
 export function AttemptInsightCard({
   label,
   insight,
+  ratingContextKey,
   className,
   children,
 }: AttemptInsightCardProps) {
+  const displayedContent = { title: insight.title, body: insight.body };
+  const isQuestionInsight = label === "Question insight";
+
   return (
     <Card
       className={cn(
@@ -41,6 +51,22 @@ export function AttemptInsightCard({
         <p className="text-sm leading-relaxed text-muted-foreground">
           {insight.body}
         </p>
+        <ContentRatingControls
+          className="mt-3"
+          descriptor={{
+            targetType: isQuestionInsight
+              ? "question_insight"
+              : "attempt_insight",
+            targetKey: insightTargetKey(
+              isQuestionInsight ? "question" : "attempt",
+              insight.title,
+            ),
+            targetVersion: contentSnapshotVersion(displayedContent),
+            contextKey: ratingContextKey,
+            surface: "attempt",
+            displayedContent,
+          }}
+        />
         {children ? (
           <div className="mt-5 border-t border-border/60 pt-4">{children}</div>
         ) : null}

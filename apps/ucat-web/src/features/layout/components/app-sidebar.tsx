@@ -20,6 +20,7 @@ import {
   hasAccessForPath,
 } from "@/features/ucat-access/lib/route-access";
 import { isComingSoon } from "@/features/layout/config/coming-soon";
+import { useStudyPlan } from "@/features/study-plan/hooks/use-study-plan";
 import { cn } from "@/lib/utils";
 
 const LOGO_SRC = "/images/logo-banner-dark.svg";
@@ -37,6 +38,7 @@ function SidebarNavContent({
 }: SidebarNavContentProps) {
   const pathname = usePathname();
   const access = useUcatAccess();
+  const studyPlan = useStudyPlan();
   const { showComingSoonModal } = useComingSoon();
   const { openInPersonUpsell } = useUpsellDialog();
   const [progressExpanded, setProgressExpanded] = useState(() =>
@@ -91,6 +93,12 @@ function SidebarNavContent({
                 </div>
               ) : null}
               {section.items.map((item) => {
+                if (
+                  item.href === "/study-plan" &&
+                  !studyPlan.data?.profile?.studyPlanEnabled
+                ) {
+                  return null;
+                }
                 const Icon = item.icon;
                 const active = pathname === item.href;
                 const comingSoon = isComingSoon(item.href);
@@ -114,7 +122,10 @@ function SidebarNavContent({
                     >
                       <Icon className="h-4 w-4 shrink-0" />
                       <span className="ml-3 flex-1">{item.label}</span>
-                      <Badge variant="secondary" className="shrink-0 text-[10px]">
+                      <Badge
+                        variant="secondary"
+                        className="shrink-0 text-[10px]"
+                      >
                         Coming soon
                       </Badge>
                     </button>
@@ -476,7 +487,8 @@ export function AppSidebar({
     if (dragStartYRef.current == null) return;
     const nextOffset = Math.max(
       0,
-      (event.touches[0]?.clientY ?? dragStartYRef.current) - dragStartYRef.current,
+      (event.touches[0]?.clientY ?? dragStartYRef.current) -
+        dragStartYRef.current,
     );
     dragOffsetRef.current = nextOffset;
     setDragOffset(nextOffset);

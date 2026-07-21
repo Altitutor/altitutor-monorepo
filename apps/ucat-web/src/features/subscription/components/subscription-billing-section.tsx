@@ -20,7 +20,6 @@ import {
   Info,
   Loader2,
   RefreshCw,
-  Sparkles,
 } from "lucide-react";
 import {
   createBillingPortalSession,

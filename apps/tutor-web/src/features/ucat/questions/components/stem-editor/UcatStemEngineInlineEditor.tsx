@@ -14,6 +14,8 @@ import type { UcatQuestionStemFormValues } from '@/features/ucat/questions/types
 import { EMPTY_DOC } from '@/features/ucat/questions/constants/stemFormConstants'
 import { UcatRichTextEditor } from '@/features/ucat/shared/UcatRichTextEditor'
 import { bindRichTextToolbarFocus } from '@/features/ucat/shared/lib/rich-text-toolbar-focus'
+import { ExplanationFeedbackSummary } from '@/features/ucat/reconciliation/components/ExplanationFeedbackSummary'
+import type { ExplanationFeedbackSummary as ExplanationFeedback } from '@/features/ucat/reconciliation/api/reconciliation'
 
 const RTE = { forceLightChrome: true as const }
 
@@ -29,6 +31,7 @@ type UcatStemEngineInlineEditorProps = {
   enableImages?: boolean
   onNewImageFileIds?: (fileIds: string[]) => void
   onTextEditorActive?: (editor: Editor | null) => void
+  explanationFeedback?: ExplanationFeedback | null
 }
 
 export function UcatStemEngineInlineEditor({
@@ -40,6 +43,7 @@ export function UcatStemEngineInlineEditor({
   enableImages = true,
   onNewImageFileIds,
   onTextEditorActive,
+  explanationFeedback,
 }: UcatStemEngineInlineEditorProps) {
   const stemType = (form.watch('questions.0.questionType') ?? 'multiple_choice') as
     | 'multiple_choice'
@@ -226,6 +230,9 @@ export function UcatStemEngineInlineEditor({
               {...imageHandlers}
             />
           )}
+          <div className="mt-4 px-2">
+            <ExplanationFeedbackSummary feedback={explanationFeedback} />
+          </div>
         </section>
       </div>
     )
@@ -236,7 +243,12 @@ export function UcatStemEngineInlineEditor({
       className={`h-full min-h-0 overflow-y-auto font-[${UCAT_FONTS.body}] text-[11pt] leading-relaxed ${ENGINE_LIGHT_TEXT}`}
       data-ucat-preview-scroll-target="true"
     >
-      <div className="space-y-4 py-4 sm:py-5">{body}</div>
+      <div className="space-y-4 py-4 sm:py-5">
+        {body}
+        <div className="px-4">
+          <ExplanationFeedbackSummary feedback={explanationFeedback} />
+        </div>
+      </div>
     </div>
   )
 }

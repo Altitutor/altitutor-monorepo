@@ -567,7 +567,7 @@ export function GenerateQuestionStemsModal({ open, onClose, onStarted }: Generat
       window.dispatchEvent(new CustomEvent('ucat-generation-started', { detail: { runId: result.runId } }))
       toast({
         title: 'Generation started',
-        description: 'You can keep working while the task companion tracks progress.',
+        description: 'Track progress in the notifications tray.',
       })
       resetState()
     } catch (error) {

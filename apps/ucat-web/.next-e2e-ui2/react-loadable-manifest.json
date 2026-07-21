@@ -1,0 +1,34 @@
+{
+  "../../../node_modules/.pnpm/@supabase+auth-js@2.78.0/node_modules/@supabase/auth-js/dist/module/lib/helpers.js -> @supabase/node-fetch": {
+    "id": "../../../node_modules/.pnpm/@supabase+auth-js@2.78.0/node_modules/@supabase/auth-js/dist/module/lib/helpers.js -> @supabase/node-fetch",
+    "files": []
+  },
+  "../../../node_modules/.pnpm/@supabase+functions-js@2.78.0/node_modules/@supabase/functions-js/dist/module/helper.js -> @supabase/node-fetch": {
+    "id": "../../../node_modules/.pnpm/@supabase+functions-js@2.78.0/node_modules/@supabase/functions-js/dist/module/helper.js -> @supabase/node-fetch",
+    "files": []
+  },
+  "../../../node_modules/.pnpm/@supabase+realtime-js@2.78.0/node_modules/@supabase/realtime-js/dist/module/RealtimeClient.js -> @supabase/node-fetch": {
+    "id": "../../../node_modules/.pnpm/@supabase+realtime-js@2.78.0/node_modules/@supabase/realtime-js/dist/module/RealtimeClient.js -> @supabase/node-fetch",
+    "files": []
+  },
+  "../../../node_modules/.pnpm/@supabase+storage-js@2.78.0/node_modules/@supabase/storage-js/dist/module/lib/helpers.js -> @supabase/node-fetch": {
+    "id": "../../../node_modules/.pnpm/@supabase+storage-js@2.78.0/node_modules/@supabase/storage-js/dist/module/lib/helpers.js -> @supabase/node-fetch",
+    "files": []
+  },
+  "../../../node_modules/.pnpm/@supabase+storage-js@2.78.0/node_modules/@supabase/storage-js/dist/module/lib/vectors/helpers.js -> @supabase/node-fetch": {
+    "id": "../../../node_modules/.pnpm/@supabase+storage-js@2.78.0/node_modules/@supabase/storage-js/dist/module/lib/vectors/helpers.js -> @supabase/node-fetch",
+    "files": []
+  },
+  "../../../node_modules/.pnpm/@tanstack+query-devtools@5.90.1/node_modules/@tanstack/query-devtools/build/dev.js -> ./DevtoolsComponent/6ELMOJL2.js": {
+    "id": "../../../node_modules/.pnpm/@tanstack+query-devtools@5.90.1/node_modules/@tanstack/query-devtools/build/dev.js -> ./DevtoolsComponent/6ELMOJL2.js",
+    "files": [
+      "static/chunks/_app-pages-browser_node_modules_pnpm_tanstack_query-devtools_5_90_1_node_modules_tanstack_que-f630f4.js"
+    ]
+  },
+  "../../../node_modules/.pnpm/@tanstack+query-devtools@5.90.1/node_modules/@tanstack/query-devtools/build/dev.js -> ./DevtoolsPanelComponent/PULY4AJ7.js": {
+    "id": "../../../node_modules/.pnpm/@tanstack+query-devtools@5.90.1/node_modules/@tanstack/query-devtools/build/dev.js -> ./DevtoolsPanelComponent/PULY4AJ7.js",
+    "files": [
+      "static/chunks/_app-pages-browser_node_modules_pnpm_tanstack_query-devtools_5_90_1_node_modules_tanstack_que-7a9849.js"
+    ]
+  }
+}

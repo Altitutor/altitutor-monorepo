@@ -159,6 +159,7 @@ export function SetAttemptDetailPage({
           onFinish={reviewTracking.completeManually}
           onReviewNext={reviewNextIncorrect}
           insight={overallInsight}
+          ratingContextKey={`set-attempt:${attemptId}`}
         />
       </motion.div>
 
@@ -189,6 +190,7 @@ export function SetAttemptDetailPage({
           initialQuestionIndex={selectedQuestionIndex}
           onQuestionIndexChange={setSelectedQuestionIndex}
           attemptReview
+          ratingContextKey={`set-attempt:${attemptId}`}
         />
       </motion.div>
     </motion.div>

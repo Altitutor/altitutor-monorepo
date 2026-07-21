@@ -14,6 +14,7 @@ import {
   runBackgroundUcatGeneration,
   type UcatQuestionGenerationQueueMessage,
 } from '@/features/ucat/questions/server/run-background-generation'
+import { upsertUcatGenerationNotification } from '@/features/ucat/questions/server/ucat-generation-notification'
 import { getServiceRoleClient } from '@/shared/lib/supabase/service-role'
 
 const GENERATION_TOPIC = 'ucat-question-generation'
@@ -35,6 +36,15 @@ function startLocalGeneration(message: UcatQuestionGenerationQueueMessage) {
           updated_by: message.staffId,
         })
         .eq('id', message.runId)
+      await upsertUcatGenerationNotification(admin, {
+        staffId: message.staffId,
+        runId: message.runId,
+        status: 'failed',
+        requestedStemCount: message.body.stemCount,
+        message: errorMessage,
+      }).catch((notificationError) => {
+        console.error('Failed to upsert generation failure notification:', notificationError)
+      })
     })
   }, 0)
 }
@@ -97,22 +107,47 @@ export async function POST(request: NextRequest) {
       .eq('id', runId)
     if (updateError) throw updateError
 
+    const admin = getServiceRoleClient()
+    await upsertUcatGenerationNotification(admin, {
+      staffId,
+      runId,
+      status: 'running',
+      requestedStemCount: body.stemCount,
+      processedStemCount: 0,
+      progressMessage: 'Generation queued',
+    })
+
     if (useLocalRunner) startLocalGeneration(message)
 
     return NextResponse.json({ runId }, { status: 202 })
   } catch (error) {
     captureApiError(error, "/api/ucat/question-stems/generated/generate");
     if (runId) {
+      const failMessage = error instanceof Error ? error.message : 'Unable to start generation'
       await client
         .from('ucat_ai_generation_runs')
         .update({
           status: 'failed',
           progress_step: 'setup',
           progress_message: 'Unable to queue generation',
-          error_message: error instanceof Error ? error.message : 'Unable to start generation',
+          error_message: failMessage,
           completed_at: new Date().toISOString(),
         })
         .eq('id', runId)
+
+      const staffIdResult = await client.rpc('current_tutor_id')
+      const staffId = typeof staffIdResult.data === 'string' ? staffIdResult.data : null
+      if (staffId) {
+        await upsertUcatGenerationNotification(getServiceRoleClient(), {
+          staffId,
+          runId,
+          status: 'failed',
+          requestedStemCount: body.stemCount,
+          message: failMessage,
+        }).catch((notificationError) => {
+          console.error('Failed to upsert generation start failure notification:', notificationError)
+        })
+      }
     }
     return NextResponse.json(
       { error: error instanceof Error ? error.message : 'Unable to start generation' },

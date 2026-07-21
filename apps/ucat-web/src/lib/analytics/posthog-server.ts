@@ -1,5 +1,6 @@
 import "server-only";
 
+import { waitUntil } from "@vercel/functions";
 import { PostHog } from "posthog-node";
 import {
   buildUcatLearningActivityCompletedEvent,
@@ -20,6 +21,10 @@ export async function captureUcatLearningActivityCompleted(
     host: process.env.NEXT_PUBLIC_POSTHOG_HOST ?? "https://us.i.posthog.com",
     flushAt: 1,
     flushInterval: 0,
+    // Completion analytics is best-effort and runs after the durable write.
+    // Keep a telemetry outage from consuming the full function lifetime.
+    requestTimeout: 2_000,
+    fetchRetryCount: 0,
   });
 
   try {
@@ -31,6 +36,16 @@ export async function captureUcatLearningActivityCompleted(
       error instanceof Error ? error.message : "Unknown error",
     );
   }
+}
+
+/**
+ * Keeps analytics reliable on Vercel without making the student wait for it.
+ * The underlying capture is fail-open and has a short network timeout.
+ */
+export function captureUcatLearningActivityCompletedInBackground(
+  input: UcatLearningActivityCompletedInput,
+): void {
+  waitUntil(captureUcatLearningActivityCompleted(input));
 }
 
 export type { UcatLearningActivityCompletedInput } from "./ucat-retention-event";

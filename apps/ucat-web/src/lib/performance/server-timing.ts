@@ -18,6 +18,16 @@ export class ServerTiming {
     this.lastMark = now;
   }
 
+  snapshot(): Record<string, number> {
+    return Object.fromEntries([
+      ...this.entries.map(({ name, durationMs }) => [
+        name,
+        Number(durationMs.toFixed(1)),
+      ]),
+      ["total", Number((performance.now() - this.startedAt).toFixed(1))],
+    ]);
+  }
+
   apply(response: Response): Response {
     const totalMs = performance.now() - this.startedAt;
     const value = [

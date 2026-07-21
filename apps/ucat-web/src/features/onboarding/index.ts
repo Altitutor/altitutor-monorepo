@@ -5,6 +5,7 @@ export { useOnboardingTour } from "@/features/onboarding/hooks/use-onboarding-to
 export {
   useOnboardingProgress,
   useCompleteOnboardingTour,
+  useResetAllOnboardingTours,
   useResetOnboardingTour,
 } from "@/features/onboarding/hooks/use-onboarding-progress";
 export {

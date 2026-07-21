@@ -1,6 +1,6 @@
 import { SkillTrainerPlayPage } from "@/features/skill-trainer/components/skill-trainer-play-page";
 import { trainerKeyToSlug, trainerSlugToKey } from "@altitutor/shared";
-import { notFound, redirect } from "next/navigation";
+import { notFound } from "next/navigation";
 
 export default function SkillTrainerPlayRoute({
   params,
@@ -8,10 +8,6 @@ export default function SkillTrainerPlayRoute({
   params: { key: string };
 }) {
   const trainerKey = trainerSlugToKey(params.key);
-  if (!trainerKey) notFound();
-  if (params.key.includes("_")) {
-    const slug = trainerKeyToSlug(trainerKey);
-    redirect(`/skill-trainer/${slug}/play`);
-  }
+  if (!trainerKey || trainerKeyToSlug(trainerKey) !== params.key) notFound();
   return <SkillTrainerPlayPage trainerKey={trainerKey} />;
 }

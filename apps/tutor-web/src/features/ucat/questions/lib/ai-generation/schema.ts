@@ -190,7 +190,7 @@ export const GeneratedOptionSchema = z.object({
   isAnswer: z.boolean(),
 })
 
-export const GeneratedQuestionSchema = z.object({
+const GeneratedQuestionBaseSchema = z.object({
   questionText: z.union([z.string().trim().min(1), z.array(GeneratedContentBlockSchema).min(1)]),
   questionType: z.enum(['multiple_choice', 'syllogism']).default('multiple_choice'),
   answerExplanation: z.union([z.string().trim().min(1), z.array(GeneratedContentBlockSchema).min(1)]).nullable().optional(),
@@ -206,6 +206,21 @@ export const GeneratedQuestionSchema = z.object({
   ).default([]),
   options: z.array(GeneratedOptionSchema).min(1),
 })
+
+export const GeneratedQuestionSchema = GeneratedQuestionBaseSchema.transform(
+  (question): z.infer<typeof GeneratedQuestionBaseSchema> => question.questionType === 'syllogism'
+  ? {
+      ...question,
+      answerExplanation: null,
+    }
+  : {
+      ...question,
+      options: question.options.map((option) => ({
+        ...option,
+        answerExplanation: null,
+      })),
+    },
+)
 
 export const GeneratedStemSchema = z.object({
   stemText: z.union([z.string().trim().min(1), z.array(GeneratedContentBlockSchema).min(1)]),

@@ -99,6 +99,17 @@ export const UCAT_CARD_CHROME = cn(
 );
 
 /**
+ * Elevated glass surface used for cards that overlap charts.
+ * The stronger edge and directional shadow keep the card distinct from pale
+ * graph backgrounds without losing the layered, translucent treatment.
+ */
+export const UCAT_FLOATING_GRAPH_CARD = cn(
+  "rounded-2xl border border-border/90 bg-card/[0.97] text-card-foreground backdrop-blur-xl",
+  "shadow-[0_18px_48px_rgba(15,23,42,0.14)] ring-1 ring-black/[0.07]",
+  "dark:border-white/[0.12] dark:bg-card/[0.94] dark:shadow-[0_20px_55px_rgba(0,0,0,0.42)] dark:ring-white/[0.08]",
+);
+
+/**
  * Card header row with title + actions.
  * Keeps default CardHeader padding (including bottom) so content is not cramped.
  */
@@ -107,7 +118,6 @@ export const UCAT_CARD_HEADER_ROW =
 
 /** Extra top spacing on CardContent when the header needs more air above charts. */
 export const UCAT_CARD_CONTENT_AFTER_HEADER = "pt-3";
-
 
 /**
  * Table wrapper — matches tutor-web dashboard tables (`tutorTableShell`):

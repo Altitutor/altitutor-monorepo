@@ -457,7 +457,11 @@ export function AttemptPreviewPage() {
           </p>
         </div>
 
-        <AttemptInsightCard label="Overall insight" insight={overallInsight} />
+        <AttemptInsightCard
+          label="Overall insight"
+          insight={overallInsight}
+          ratingContextKey={`preview:${attempt}`}
+        />
 
         {attempt === "mock" ? (
           <>

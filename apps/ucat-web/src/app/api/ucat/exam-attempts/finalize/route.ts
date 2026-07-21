@@ -5,7 +5,7 @@ import { supabaseAdmin } from "@/lib/supabase/admin";
 import { finalizeExamAttemptOnServer } from "@/lib/ucat/exam-attempt/finalize-attempt";
 import type { ExamAttemptKind } from "@/lib/ucat/exam-attempt/types";
 import type { FinalExamQuestionAttemptInput } from "@/lib/ucat/exam-attempt/finalize-attempt";
-import { captureUcatLearningActivityCompleted } from "@/lib/analytics/posthog-server";
+import { captureUcatLearningActivityCompletedInBackground } from "@/lib/analytics/posthog-server";
 import { maybeGrantPracticeDayDiscount } from "@/lib/ucat/practice-day-discount";
 import { ServerTiming } from "@/lib/performance/server-timing";
 
@@ -44,6 +44,12 @@ export async function POST(request: NextRequest) {
       { status: 400 },
     );
   }
+  if (!Array.isArray(body.answers)) {
+    return NextResponse.json(
+      { error: "Final answers are required" },
+      { status: 400 },
+    );
+  }
 
   const { data: student, error: studentError } = await supabaseAdmin
     .from("students")
@@ -78,18 +84,15 @@ export async function POST(request: NextRequest) {
       discountCents: result.discountCents ?? 0,
     };
     if (result.newlyCompleted) {
-      const [, earnedDiscount] = await Promise.all([
-        captureUcatLearningActivityCompleted({
-          userId: user.id,
-          activityType: body.kind,
-          activityId: body.attemptId,
-          properties: { completion_source: "question_engine" },
-        }),
-        maybeGrantPracticeDayDiscount(supabaseAdmin, student.id),
-      ]);
-      discount = earnedDiscount;
+      captureUcatLearningActivityCompletedInBackground({
+        userId: user.id,
+        activityType: body.kind,
+        activityId: body.attemptId,
+        properties: { completion_source: "question_engine" },
+      });
+      discount = await maybeGrantPracticeDayDiscount(supabaseAdmin, student.id);
     }
-    timing.mark("side_effects");
+    timing.mark("discount");
     return timing.apply(NextResponse.json({ ...result, ...discount }));
   } catch (error) {
     captureApiError(error, "/api/ucat/exam-attempts/finalize");

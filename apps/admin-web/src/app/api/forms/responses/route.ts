@@ -124,3 +124,43 @@ export async function PUT(request: Request) {
   });
   return NextResponse.json({ responseId: response.id });
 }
+
+export async function DELETE(request: Request) {
+  const auth = await requireAdminStaff();
+  if (!auth.ok) return auth.response;
+  const body = await request.json().catch(() => ({})) as { responseId?: string };
+  if (!body.responseId) return NextResponse.json({ error: 'Response is required.' }, { status: 400 });
+
+  const { data: response, error } = await auth.admin.from('form_responses')
+    .select('id, form_id, session_id, subject_student_id, subject_staff_id, subject_parent_id, forms(name)')
+    .eq('id', body.responseId)
+    .is('deleted_at', null)
+    .maybeSingle();
+  if (error) return captureApiErrorResponse(error, "/api/forms/responses", NextResponse.json({ error: error.message }, { status: 500 }));
+  if (!response) return NextResponse.json({ error: 'Response not found.' }, { status: 404 });
+
+  const { data: deleted, error: deleteError } = await auth.admin.from('form_responses')
+    .update({ deleted_at: new Date().toISOString(), deleted_by: auth.staffId, delete_reason: 'Deleted by admin staff' })
+    .eq('id', response.id)
+    .is('deleted_at', null)
+    .select('id')
+    .maybeSingle();
+  if (deleteError) return captureApiErrorResponse(deleteError, "/api/forms/responses", NextResponse.json({ error: deleteError.message }, { status: 500 }));
+  if (!deleted) return NextResponse.json({ error: 'Response has already been deleted.' }, { status: 409 });
+
+  const formName = response.forms && typeof response.forms === 'object' && 'name' in response.forms
+    ? response.forms.name
+    : null;
+  await auth.admin.from('activity_events').insert({
+    entity_type: 'form_responses',
+    entity_id: response.id,
+    event_type: 'DELETED',
+    session_id: response.session_id,
+    student_id: response.subject_student_id,
+    staff_id: response.subject_staff_id,
+    parent_id: response.subject_parent_id,
+    performed_by: auth.staffId,
+    metadata: { form_id: response.form_id, form_name: formName, form_response_id: response.id },
+  });
+  return NextResponse.json({ responseId: response.id });
+}

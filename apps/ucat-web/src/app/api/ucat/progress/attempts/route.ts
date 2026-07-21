@@ -51,6 +51,31 @@ type HistoryResult = {
   count: number | null;
 };
 
+type AttemptReviewRow = {
+  attempt_type: "practice_session" | "set_attempt" | "mock_attempt";
+  attempt_id: string;
+  completed_at: string | null;
+};
+
+const SECTION_LABELS: Record<number, string> = {
+  1: "VR",
+  2: "DM",
+  3: "QR",
+  4: "SJT",
+};
+
+function sectionNumberFromJson(value: unknown): number | null {
+  if (!Array.isArray(value)) return null;
+  const section = value[0];
+  if (section == null || typeof section !== "object") return null;
+  const record = section as Record<string, unknown>;
+  const candidate = record.section_number ?? record.sectionNumber;
+  const number = Number(candidate);
+  return Number.isInteger(number) && number >= 1 && number <= 4
+    ? number
+    : null;
+}
+
 type HistoryQuery = PromiseLike<HistoryResult> & {
   eq: (column: string, value: string) => HistoryQuery;
   gte: (column: string, value: string) => HistoryQuery;
@@ -173,6 +198,107 @@ export async function GET(request: Request) {
   if (result.error)
     return NextResponse.json({ error: result.error.message }, { status: 500 });
 
+  const mockAttemptIds = (result.data ?? [])
+    .filter((row) => row.source === "mock")
+    .map((row) => row.id);
+  const mockSetAttemptsResult =
+    mockAttemptIds.length > 0
+      ? await supabase
+          .from("student_question_set_attempts")
+          .select(
+            "student_ucat_mock_attempt_id, question_set_id, score_points, total_points",
+          )
+          .in("student_ucat_mock_attempt_id", mockAttemptIds)
+      : { data: [], error: null };
+  if (mockSetAttemptsResult.error) {
+    return NextResponse.json(
+      { error: mockSetAttemptsResult.error.message },
+      { status: 500 },
+    );
+  }
+  const mockQuestionSetIds = Array.from(
+    new Set(
+      (mockSetAttemptsResult.data ?? []).map((attempt) => attempt.question_set_id),
+    ),
+  );
+  const questionSetsResult =
+    mockQuestionSetIds.length > 0
+      ? await supabase
+          .from("vstudent_ucat_question_sets")
+          .select("id, sections")
+          .in("id", mockQuestionSetIds)
+      : { data: [], error: null };
+  if (questionSetsResult.error) {
+    return NextResponse.json(
+      { error: questionSetsResult.error.message },
+      { status: 500 },
+    );
+  }
+  const sectionNumberByQuestionSetId = new Map(
+    (questionSetsResult.data ?? []).flatMap((questionSet) => {
+      const sectionNumber = sectionNumberFromJson(questionSet.sections);
+      return questionSet.id && sectionNumber
+        ? [[questionSet.id, sectionNumber] as const]
+        : [];
+    }),
+  );
+  const rawScoreBreakdownByMockAttemptId = new Map<
+    string,
+    Array<{
+      sectionNumber: number;
+      sectionLabel: string;
+      scorePoints: number;
+      totalPoints: number;
+    }>
+  >();
+  for (const setAttempt of mockSetAttemptsResult.data ?? []) {
+    const mockAttemptId = setAttempt.student_ucat_mock_attempt_id;
+    const sectionNumber = sectionNumberByQuestionSetId.get(
+      setAttempt.question_set_id,
+    );
+    if (!mockAttemptId || !sectionNumber) continue;
+    const breakdown = rawScoreBreakdownByMockAttemptId.get(mockAttemptId) ?? [];
+    const section = breakdown.find(
+      (item) => item.sectionNumber === sectionNumber,
+    );
+    if (section) {
+      section.scorePoints += setAttempt.score_points ?? 0;
+      section.totalPoints += setAttempt.total_points ?? 0;
+    } else {
+      breakdown.push({
+        sectionNumber,
+        sectionLabel: SECTION_LABELS[sectionNumber] ?? `S${sectionNumber}`,
+        scorePoints: setAttempt.score_points ?? 0,
+        totalPoints: setAttempt.total_points ?? 0,
+      });
+    }
+    rawScoreBreakdownByMockAttemptId.set(mockAttemptId, breakdown);
+  }
+  for (const breakdown of rawScoreBreakdownByMockAttemptId.values()) {
+    breakdown.sort((left, right) => left.sectionNumber - right.sectionNumber);
+  }
+
+  const attemptIds = (result.data ?? []).map((row) => row.id);
+  const reviewResult =
+    attemptIds.length > 0
+      ? await supabase
+          .from("student_ucat_attempt_reviews")
+          .select("attempt_type, attempt_id, completed_at")
+          .in("attempt_id", attemptIds)
+      : { data: [] as AttemptReviewRow[], error: null };
+  if (reviewResult.error) {
+    return NextResponse.json(
+      { error: reviewResult.error.message },
+      { status: 500 },
+    );
+  }
+  const reviewCompletedAtByAttempt = new Map(
+    (reviewResult.data as AttemptReviewRow[]).map((review) => [
+      `${review.attempt_type}:${review.attempt_id}`,
+      review.completed_at,
+    ]),
+  );
+
   const attempts = ((result.data ?? []) as unknown as HistoryRow[]).map(
     (row): ProgressAttemptRow => {
       const name =
@@ -195,6 +321,8 @@ export async function GET(request: Request) {
           studentExamSpeed: row.student_exam_speed,
           wasTimed: row.was_timed,
           sectionId: row.section_id,
+          reviewCompletedAt:
+            reviewCompletedAtByAttempt.get(`set_attempt:${row.id}`) ?? null,
         };
       }
       if (row.source === "practice") {
@@ -210,6 +338,9 @@ export async function GET(request: Request) {
           questionCount: row.question_count,
           timeTakenSeconds: row.time_taken_seconds,
           unlimited: row.unlimited,
+          reviewCompletedAt:
+            reviewCompletedAtByAttempt.get(`practice_session:${row.id}`) ??
+            null,
         };
       }
       return {
@@ -221,6 +352,8 @@ export async function GET(request: Request) {
         mockName: name,
         scorePoints: row.score_points,
         totalPoints: row.total_points,
+        rawScoreBreakdown:
+          rawScoreBreakdownByMockAttemptId.get(row.id) ?? [],
         scaledScore: row.scaled_score,
         scaledScoreMax: row.scaled_score_max,
         timeTakenSeconds: row.time_taken_seconds,
@@ -228,6 +361,8 @@ export async function GET(request: Request) {
         studentSetSpeed: null,
         studentExamSpeed: row.student_exam_speed,
         wasTimed: row.was_timed,
+        reviewCompletedAt:
+          reviewCompletedAtByAttempt.get(`mock_attempt:${row.id}`) ?? null,
       };
     },
   );

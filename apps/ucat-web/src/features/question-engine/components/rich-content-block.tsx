@@ -12,6 +12,20 @@ import { cn } from "@/lib/utils";
 const PARAGRAPH_SPACING_CLASS =
   "[&_p]:!my-2 [&_p:first-child]:!mt-0 [&_p:last-child]:!mb-0";
 
+/**
+ * Table borders on TipTap root (className merges onto view.dom / `.tiptap.ProseMirror`).
+ * Matches tutor-web `UCAT_ENGINE_TABLE_ROOT_CLASSNAME` — `#9ba9bd` stays visible on white exam chrome.
+ */
+const UCAT_ENGINE_TABLE_ROOT_CLASSNAME =
+  "[&_table]:my-2 [&_table]:w-full [&_table]:border-collapse [&_table]:overflow-visible [&_table]:border [&_table]:border-solid [&_table]:!border-[#9ba9bd] [&_th]:border [&_th]:border-solid [&_th]:!border-[#9ba9bd] [&_th]:bg-[#f3f4f6] [&_th]:p-2 [&_th]:text-left [&_td]:border [&_td]:border-solid [&_td]:!border-[#9ba9bd] [&_td]:p-2 [&_td]:align-top";
+
+/**
+ * Table borders when styles live on a wrapper around RichTextEditor.
+ * Matches tutor-web `UCAT_ENGINE_TABLE_WRAPPER_CLASSNAME`.
+ */
+const UCAT_ENGINE_TABLE_WRAPPER_CLASSNAME =
+  "[&_.tiptap_table]:my-2 [&_.tiptap_table]:w-full [&_.tiptap_table]:border-collapse [&_.tiptap_table]:overflow-visible [&_.tiptap_table]:border [&_.tiptap_table]:border-solid [&_.tiptap_table]:!border-[#9ba9bd] [&_.ProseMirror_table]:my-2 [&_.ProseMirror_table]:w-full [&_.ProseMirror_table]:border-collapse [&_.ProseMirror_table]:overflow-visible [&_.ProseMirror_table]:border [&_.ProseMirror_table]:border-solid [&_.ProseMirror_table]:!border-[#9ba9bd] [&_.tiptap_th]:border [&_.tiptap_th]:border-solid [&_.tiptap_th]:!border-[#9ba9bd] [&_.tiptap_th]:bg-[#f3f4f6] [&_.tiptap_th]:p-2 [&_.tiptap_th]:text-left [&_.ProseMirror_th]:border [&_.ProseMirror_th]:border-solid [&_.ProseMirror_th]:!border-[#9ba9bd] [&_.ProseMirror_th]:bg-[#f3f4f6] [&_.ProseMirror_th]:p-2 [&_.ProseMirror_th]:text-left [&_.tiptap_td]:border [&_.tiptap_td]:border-solid [&_.tiptap_td]:!border-[#9ba9bd] [&_.tiptap_td]:p-2 [&_.tiptap_td]:align-top [&_.ProseMirror_td]:border [&_.ProseMirror_td]:border-solid [&_.ProseMirror_td]:!border-[#9ba9bd] [&_.ProseMirror_td]:p-2 [&_.ProseMirror_td]:align-top";
+
 function normalizeDoc(json: Record<string, unknown>): Record<string, unknown> {
   if (json.type === "doc" && Array.isArray(json.content)) {
     return json;
@@ -122,14 +136,17 @@ export function RichContentBlock({
       return renderPlainText();
     }
     return (
-      <div className={className}>
+      <div className={cn(UCAT_ENGINE_TABLE_WRAPPER_CLASSNAME, className)}>
         <RichTextEditor
           key={editorKey}
           content={displayContent}
           editable={false}
+          omitTypography
           minHeight="auto"
           className={cn(
-            "min-h-0 [&_.ProseMirror]:min-h-0 [&_.ProseMirror]:p-0",
+            "min-h-0 text-inherit [&]:min-h-0 [&]:p-0 [&]:pl-0",
+            UCAT_ENGINE_TABLE_ROOT_CLASSNAME,
+            "[&_strong]:font-bold [&_b]:font-bold [&_em]:italic",
             paragraphSpacing && PARAGRAPH_SPACING_CLASS,
           )}
         />

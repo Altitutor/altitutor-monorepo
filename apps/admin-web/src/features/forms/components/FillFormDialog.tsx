@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Button, FormAnswerer, SearchableSelect, SegmentedControl } from '@altitutor/ui';
 import type { FormAnswerPayload, FormBlock } from '@altitutor/shared';
 import { Copy, Link2 } from 'lucide-react';
@@ -56,10 +56,12 @@ export function FillFormDialog({
   const [loading, setLoading] = useState(false);
   const [searching, setSearching] = useState(false);
   const [linking, setLinking] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
   const [copiedUrl, setCopiedUrl] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const initialRespondentType = initialRespondent?.type;
   const initialRespondentId = initialRespondent?.id;
+  const idempotencyKeyRef = useRef<string | null>(null);
 
   useEffect(() => {
     if (!open) return;
@@ -68,6 +70,8 @@ export function FillFormDialog({
     setForm(null);
     setPerson(null);
     setCopiedUrl(null);
+    setSubmitting(false);
+    idempotencyKeyRef.current = null;
     setRespondentType(initialRespondentType ?? 'student');
     const url = sessionId ? `/api/forms/session-responses?sessionId=${sessionId}` : '/api/forms/manual-responses';
     void jsonRequest<{ forms: FillForm[]; participants?: Person[] }>(url)
@@ -118,6 +122,8 @@ export function FillFormDialog({
 
   const submit = async (answers: FormAnswerPayload) => {
     if (!form || !person) throw new Error('Select a form and respondent.');
+    const idempotencyKey = idempotencyKeyRef.current ?? crypto.randomUUID();
+    idempotencyKeyRef.current = idempotencyKey;
     const data = await jsonRequest<{ responseId: string }>('/api/forms/manual-responses', {
       method: 'POST',
       body: JSON.stringify({
@@ -125,9 +131,11 @@ export function FillFormDialog({
         respondentType,
         respondentId: person.id,
         sessionId: sessionId ?? null,
+        idempotencyKey,
         answers,
       }),
     });
+    idempotencyKeyRef.current = null;
     onSaved?.(data.responseId);
     onClose();
   };
@@ -176,9 +184,9 @@ export function FillFormDialog({
           <Button
             type="submit"
             form={answererFormId}
-            disabled={!person || !form || !version}
+            disabled={!person || !form || !version || submitting}
           >
-            Save response
+            {submitting ? 'Saving...' : 'Save response'}
           </Button>
         </>
       ) : undefined}
@@ -238,6 +246,7 @@ export function FillFormDialog({
             thankYouMessage={version.thank_you_message}
             submitLabel="Save response"
             onSubmit={submit}
+            onSubmittingChange={setSubmitting}
             className="px-0 py-2"
             formId={answererFormId}
             hideSubmitButton={Boolean(sessionId)}

@@ -130,6 +130,11 @@ export interface StudentStatsReportData {
    * the absence was credited or rescheduled.
    */
   absencesByDay: ReportDataPoint[];
+  /**
+   * Trial student-session attendances in the selected period, grouped by the
+   * session date. Uses the historical sessions_students.was_trial value.
+   */
+  trialSessionsByDay: ReportDataPoint[];
 }
 
 export interface MarketingStatsReportData {

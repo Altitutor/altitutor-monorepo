@@ -20,6 +20,11 @@ const brief: AiGenerationBrief = {
 }
 
 describe('QR writer prompts', () => {
+  it('defines mutually exclusive explanation shapes', () => {
+    expect(AI_GENERATION_SYSTEM_PROMPT).toContain('multiple-choice questions use one concise, student-facing question-level answerExplanation')
+    expect(AI_GENERATION_SYSTEM_PROMPT).toContain('syllogism questions use per-option answerExplanation values')
+  })
+
   it('does not discourage source visuals or prohibit visual composition calibration', () => {
     const prompt = buildWriterPrompt({ ...brief, plan: { plans: [{ stemIndex: 0 }] } })
     const payload = JSON.parse(prompt) as { requirements: string[] }

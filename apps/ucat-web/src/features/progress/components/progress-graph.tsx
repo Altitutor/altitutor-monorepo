@@ -116,6 +116,9 @@ export type ProgressGraphProps = {
   }) => void;
   /** Adds blank plot columns so the latest real point sits before an overlay card. */
   trailingSpace?: boolean;
+  /** Empty-state copy displayed over the chart frame when there are no values. */
+  emptyMessage?: string;
+  emptyDescription?: string;
 };
 
 const dataTypeLabels: Record<GraphDataType, string> = {
@@ -180,6 +183,30 @@ const PROJECTION_SERIES_LABELS: Record<string, string> = {
   projectionOptimistic: "High",
 };
 
+const GRAPH_TOOLTIP_WRAPPER_STYLE = {
+  zIndex: 30,
+  pointerEvents: "none",
+} as const;
+
+const EMPTY_BAR_HEIGHTS = [32, 55, 43, 72, 61, 84, 68, 94, 76, 88];
+
+function EmptyBarGraphPreview() {
+  return (
+    <div
+      className="absolute inset-x-12 bottom-8 top-5 flex items-end gap-2 overflow-hidden opacity-40 blur-[2px] sm:gap-3"
+      aria-hidden
+    >
+      {EMPTY_BAR_HEIGHTS.map((height, index) => (
+        <span
+          key={`${height}-${index}`}
+          className="min-w-0 flex-1 rounded-t bg-accent"
+          style={{ height: `${height}%` }}
+        />
+      ))}
+    </div>
+  );
+}
+
 function GraphColumnCursor({
   x,
   y,
@@ -232,6 +259,8 @@ export function ProgressGraph({
   selectedDate = null,
   onPointSelect,
   trailingSpace = false,
+  emptyMessage,
+  emptyDescription,
 }: ProgressGraphProps) {
   const hasOverlayCard = useMediaQuery("(min-width: 1024px)");
   type GraphLinePoint = {
@@ -290,6 +319,7 @@ export function ProgressGraph({
     resolvedDateRangeOptions.length > 0;
   const domain =
     yAxisDomain ?? getYAxisDomain(dataType, isMockContext, yAxisMax);
+  const isEmpty = !data.some((point) => point.value != null);
   const showProjection =
     type === "line" &&
     dataType === "scaled_score" &&
@@ -517,7 +547,10 @@ export function ProgressGraph({
                 : undefined
           }
         />
-        <Tooltip content={tooltipContent} />
+        <Tooltip
+          content={tooltipContent}
+          wrapperStyle={GRAPH_TOOLTIP_WRAPPER_STYLE}
+        />
         {showProjection ? (
           <>
             <Area
@@ -665,7 +698,11 @@ export function ProgressGraph({
                 : undefined
           }
         />
-        <Tooltip content={tooltipContent} cursor={<GraphColumnCursor />} />
+        <Tooltip
+          content={tooltipContent}
+          cursor={<GraphColumnCursor />}
+          wrapperStyle={GRAPH_TOOLTIP_WRAPPER_STYLE}
+        />
         {selectedDate ? (
           <ReferenceLine
             x={selectedDate}
@@ -738,10 +775,25 @@ export function ProgressGraph({
           {dateRangeNode}
         </div>
       ) : null}
-      <div className={cn("w-full", compact ? "h-[168px]" : "h-[280px]")}>
-        <ResponsiveContainer width="100%" height="100%">
-          {chartContent}
-        </ResponsiveContainer>
+      <div className={cn("relative w-full", compact ? "h-[168px]" : "h-[280px]")}>
+        <div className={cn("h-full w-full", isEmpty && emptyMessage && "opacity-30")} aria-hidden={isEmpty && emptyMessage ? true : undefined}>
+          <ResponsiveContainer width="100%" height="100%">
+            {chartContent}
+          </ResponsiveContainer>
+        </div>
+        {isEmpty && emptyMessage ? (
+          <>
+            <EmptyBarGraphPreview />
+            <div className="pointer-events-none absolute inset-0 flex items-center justify-center px-8 text-center">
+              <p className="rounded-full border border-border/70 bg-background/85 px-3 py-1.5 text-xs font-medium text-foreground shadow-sm backdrop-blur">
+                {emptyMessage}
+              </p>
+              {emptyDescription ? (
+                <p className="sr-only">{emptyDescription}</p>
+              ) : null}
+            </div>
+          </>
+        ) : null}
       </div>
       {xAxisLabelNode ? (
         <div className="-mt-1 flex justify-center text-sm text-muted-foreground">

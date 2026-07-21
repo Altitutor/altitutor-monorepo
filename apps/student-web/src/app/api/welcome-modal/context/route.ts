@@ -5,7 +5,7 @@ import { createClient as createServerClient } from '@/shared/lib/supabase/server
 import { getServerSupabaseAdmin } from '@/shared/lib/supabase/server';
 import { formatTime } from '@/shared/utils/datetime';
 
-type StudentSubject = Database['public']['Views']['vstudent_subjects']['Row'];
+type InPersonStudySubject = Database['public']['Views']['vstudent_in_person_subjects']['Row'];
 
 type HomeworkHelpClassRow = {
   day_of_week: number | null;
@@ -39,7 +39,7 @@ function formatHomeworkHelpTime(homeworkClass: HomeworkHelpClassRow | null): str
 /**
  * GET /api/welcome-modal/context
  * Returns dynamic content for the student welcome modal:
- * - Student's linked subjects (via vstudent_subjects)
+ * - Student's intended in-person study subjects (via vstudent_in_person_subjects)
  * - Homework help session time
  */
 export async function GET(_request: NextRequest) {
@@ -73,8 +73,10 @@ export async function GET(_request: NextRequest) {
       );
     }
 
+    // The welcome flow describes what the student registered to study in person.
+    // Do not replace this with the online entitlement view.
     const { data: subjectsData, error: subjectsError } = await userClient
-      .from('vstudent_subjects')
+      .from('vstudent_in_person_subjects')
       .select('id, name, long_name, curriculum, year_level, color, discipline')
       .order('curriculum', { ascending: true })
       .order('year_level', { ascending: true })
@@ -89,9 +91,9 @@ export async function GET(_request: NextRequest) {
       );
     }
 
-    const typedSubjects = (subjectsData ?? []) as StudentSubject[];
+    const typedSubjects = (subjectsData ?? []) as InPersonStudySubject[];
     const baseSubjects = typedSubjects
-      .filter((subject): subject is StudentSubject & { id: string; name: string } => !!subject.id && !!subject.name)
+      .filter((subject): subject is InPersonStudySubject & { id: string; name: string } => !!subject.id && !!subject.name)
       .map((subject) => ({
         id: subject.id,
         name: subject.name,

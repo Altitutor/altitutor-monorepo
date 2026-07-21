@@ -46,7 +46,7 @@ export function PracticeDetailStory() {
             </h3>
             <p className="mt-4 text-sm leading-6 text-marketing-charcoal/60">
               Trainers remove the surrounding complexity of a full UCAT
-              question. Students can repeatedly practise skills such as quick
+              question. Students can repeatedly practice skills such as quick
               syllogisms, mental maths or calculator use while seeing their
               score, streak and personal best.
             </p>
