@@ -94,7 +94,12 @@ Deploy in this order so the existing message path is not interrupted:
 4. Configure the dedicated Mac bridge with the matching secrets plus
    `CONNECTOR_URL=https://<project>.supabase.co/functions/v1/imessage-connector` and a stable
    `CONNECTOR_ID`, then rebuild and restart it.
-5. Confirm the bridge `/messages/readyz` response, a fresh connector heartbeat in Messaging
+5. For hybrid Realtime wake (ADR 0015): CI applies
+   `20260721100000_imessage_connector_realtime_wake.sql`, then run
+   `supabase/manual/imessage_connector_wake_realtime_rls.sql` once in the Dashboard SQL Editor
+   (migrations cannot own `realtime.messages`). Redeploy `imessage-connector`, set
+   `SUPABASE_ANON_KEY` and `CONNECTOR_FALLBACK_POLL_INTERVAL_MS=45000` on the Mac, restart.
+6. Confirm the bridge `/messages/readyz` response, a fresh connector heartbeat in Messaging
    settings, one outbound canary message, its delivery/read progression, and one inbound reply.
 
 Do not enable the Mac connector before the migration and functions are live. Do not expose the

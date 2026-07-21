@@ -52,31 +52,10 @@ AFTER INSERT OR UPDATE OF status, available_at ON public.imessage_commands
 FOR EACH ROW
 EXECUTE FUNCTION public.imessage_notify_connector_wake();
 
--- Private Broadcast authorization for the dedicated Mac connector identity only.
--- Does not grant access to imessage_commands or any command payload.
-DO $$
-BEGIN
-  IF EXISTS (
-    SELECT 1
-    FROM pg_tables
-    WHERE schemaname = 'realtime'
-      AND tablename = 'messages'
-  ) THEN
-    ALTER TABLE realtime.messages ENABLE ROW LEVEL SECURITY;
-
-    DROP POLICY IF EXISTS imessage_connector_wake_broadcast_select ON realtime.messages;
-    CREATE POLICY imessage_connector_wake_broadcast_select
-      ON realtime.messages
-      FOR SELECT
-      TO authenticated
-      USING (
-        realtime.messages.extension = 'broadcast'
-        AND (SELECT realtime.topic()) = public.imessage_connector_wake_topic()
-        AND COALESCE((auth.jwt()->'app_metadata'->>'imessage_connector')::boolean, false)
-      );
-  END IF;
-END
-$$;
+-- Private Broadcast RLS on realtime.messages cannot be applied by migrations:
+-- that table is owned by the Realtime role (SQLSTATE 42501: must be owner of table messages).
+-- Apply supabase/manual/imessage_connector_wake_realtime_rls.sql once via the
+-- Supabase SQL Editor (postgres / dashboard) after this migration lands.
 
 COMMENT ON TRIGGER imessage_commands_connector_wake ON public.imessage_commands IS
   'Emits a private Realtime wake broadcast when a command becomes claimable; no sensitive payload.';

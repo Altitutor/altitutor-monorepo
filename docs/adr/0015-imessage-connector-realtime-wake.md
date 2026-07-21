@@ -26,7 +26,10 @@ prompt command delivery or durable queue semantics.
   Auth user with `app_metadata.imessage_connector=true` and returns an access token plus
   the publishable anon key. The Mac does **not** use `service_role` for Realtime.
 - RLS on `realtime.messages` allows that connector identity to receive broadcasts on the
-  wake topic only.
+  wake topic only. That policy is **not** part of CI migrations (`realtime.messages` is
+  owned by the Realtime role); apply
+  `supabase/manual/imessage_connector_wake_realtime_rls.sql` once via the Dashboard SQL
+  Editor after the wake-trigger migration lands.
 - The Mac runs a **single-flight** drain loop. Realtime wakes, startup, reconnect, and
   fallback polling all call the same drain. Concurrent wakes coalesce into one follow-up
   drain.
@@ -38,7 +41,8 @@ prompt command delivery or durable queue semantics.
 
 Idle connector traffic drops from roughly one claim+heartbeat every 2s to about one
 fallback claim and one heartbeat per configured interval, plus rare wake-driven claims.
-Deployment order: migration → Edge Function → Mac bridge (with `SUPABASE_ANON_KEY`).
+Deployment order: migration → Dashboard RLS SQL (once) → Edge Function → Mac bridge
+(with `SUPABASE_ANON_KEY`).
 Old bridges that still poll every 2s remain compatible during rollout.
 Rollback: revert bridge to prior poll loop and/or drop the wake trigger; the durable
 queue continues to work on polling alone.

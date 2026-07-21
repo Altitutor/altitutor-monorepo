@@ -6,7 +6,8 @@ export const IMESSAGE_CONNECTOR_REALTIME_SESSION_TTL_SECONDS = 15 * 60;
 
 function connectorRealtimeEmail(connectorId: string): string {
   const safe = connectorId.toLowerCase().replace(/[^a-z0-9._-]/g, "-");
-  return `imessage-connector+${safe}@internal.altitutor.invalid`;
+  // Deliverable domain avoided; .invalid / reserved TLDs can be rejected by Auth.
+  return `imessage-connector+${safe}@noreply.altitutor.com`;
 }
 
 export async function connectorRealtimePassword(
