@@ -439,6 +439,56 @@ describe("useExamAttemptLifecycle request races", () => {
     unmount();
   });
 
+  it("applies a resumed begin snapshot despite mount-time local changes", async () => {
+    const savedState: QuestionEngineState = {
+      ...createState(),
+      phase: "question",
+      timerStartedAt: null,
+      visitedQuestionIds: ["question-1"],
+      selectedAnswers: { "question-1": "option-1" },
+    };
+    const pendingBegin =
+      deferred<Awaited<ReturnType<typeof beginExamAttempt>>>();
+    mockBeginExamAttempt.mockReturnValue(pendingBegin.promise);
+
+    const { result, unmount } = renderHook(usePracticeLifecycleHarness);
+    await waitFor(() => expect(mockBeginExamAttempt).toHaveBeenCalledTimes(1));
+
+    act(() => {
+      result.current.setState((current) => ({
+        ...current,
+        showCalculator: true,
+      }));
+    });
+
+    await act(async () => {
+      pendingBegin.resolve({
+        attempt: {
+          ...createAttempt(savedState, null),
+          kind: "practice",
+          attemptId: "practice-session-1",
+          resourceId: "practice-session-1",
+          label: "Practice",
+          engineSnapshot: createAttempt(savedState, null).engineSnapshot,
+          setAttemptIdsBySetId: {},
+          practiceSessionId: "practice-session-1",
+          wasTimed: false,
+        },
+        resumed: true,
+      });
+      await pendingBegin.promise;
+    });
+
+    await waitFor(() =>
+      expect(result.current.state.selectedAnswers).toEqual({
+        "question-1": "option-1",
+      }),
+    );
+    expect(result.current.state.showCalculator).toBe(true);
+
+    unmount();
+  });
+
   it("restores saved practice answers when local UI state changes during resume", async () => {
     const savedState: QuestionEngineState = {
       ...createState(),

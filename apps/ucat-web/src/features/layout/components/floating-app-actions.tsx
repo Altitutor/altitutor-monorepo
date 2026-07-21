@@ -44,7 +44,7 @@ export function FloatingAppActions({
           <AnimatedHamburgerIcon isOpen={isMenuOpen} className="h-5 w-5" />
         </Button>
       </div>
-      <div className="pointer-events-auto flex min-w-0 flex-1 justify-center px-2">
+      <div className="pointer-events-auto flex min-w-0 flex-1 justify-center overflow-hidden px-2">
         <HeaderNotificationPills />
       </div>
       <div className="pointer-events-auto flex shrink-0 items-center gap-2">

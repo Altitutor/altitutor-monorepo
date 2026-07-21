@@ -31,6 +31,7 @@ import {
 } from "@/features/question-engine/hooks/use-question-engine-state";
 import { useUcatLag } from "@/features/question-engine/context/ucat-lag-context";
 import { useExamAttemptExitSync } from "@/features/exam-attempts/context/exam-attempt-exit-sync-context";
+import { useStudyPlanCompanion } from "@/features/study-plan/context/study-plan-companion-context";
 import { useUcatCalculator } from "@/features/question-engine/hooks/use-ucat-calculator";
 import {
   ConfirmFinishPracticeDialog,
@@ -490,6 +491,8 @@ export function QuestionEnginePage({
     learningModuleBlockId && mode !== "questions" && mode !== "questionStem";
 
   const queryClient = useQueryClient();
+  const { reportActivityCompletion } = useStudyPlanCompanion();
+  const completionReportedRef = useRef<string | null>(null);
   const practiceTimingQueryKey = useMemo(
     () => ["ucat", "practice-question-timing", practiceSessionId] as const,
     [practiceSessionId],
@@ -544,6 +547,35 @@ export function QuestionEnginePage({
 
   const immediatePracticeReview = practice && reviewTiming === "afterEachStem";
   const isPracticeSession = practice && practiceSessionId != null;
+
+  const reportQuestionEngineCompletion = useCallback(() => {
+    if (embeddedInLesson || tutorialMode) return;
+    const completionKey = `${mode}:${practiceSessionId ?? exam?.sourceId ?? sourceId ?? "activity"}`;
+    if (completionReportedRef.current === completionKey) return;
+    completionReportedRef.current = completionKey;
+    const title =
+      practice && practiceSessionId
+        ? "Practice session complete"
+        : mode === "mock" || exam?.sourceType === "mock"
+          ? "Mock complete"
+          : mode === "set" || exam?.sourceType === "set"
+            ? "Set complete"
+            : "Practice complete";
+    reportActivityCompletion({
+      title,
+      detail: "Your results are ready.",
+    });
+  }, [
+    embeddedInLesson,
+    exam?.sourceId,
+    exam?.sourceType,
+    mode,
+    practice,
+    practiceSessionId,
+    reportActivityCompletion,
+    sourceId,
+    tutorialMode,
+  ]);
 
   const {
     state,
@@ -1098,35 +1130,10 @@ export function QuestionEnginePage({
       event.returnValue = "";
     };
 
-    const handleClick = (event: MouseEvent) => {
-      const target = event.target as HTMLElement | null;
-      const anchor = target?.closest?.("a");
-      if (!anchor || !anchor.href) return;
-
-      // Skip warning for intentional navigation (e.g. View attempt)
-      if (anchor.hasAttribute("data-skip-leave-warning")) {
-        skipBeforeUnloadRef.current = true;
-        return;
-      }
-
-      // Ignore clicks that don't change location
-      const nextUrl = new URL(anchor.href, window.location.href);
-      if (nextUrl.href === window.location.href) return;
-
-      const confirmLeave = window.confirm(
-        "Are you sure you want to leave this UCAT exam? Your progress is saved, and you can resume later.",
-      );
-      if (!confirmLeave) {
-        event.preventDefault();
-      }
-    };
-
     window.addEventListener("beforeunload", handleBeforeUnload);
-    window.addEventListener("click", handleClick, true);
 
     return () => {
       window.removeEventListener("beforeunload", handleBeforeUnload);
-      window.removeEventListener("click", handleClick, true);
     };
   }, [embeddedInLesson, tutorialMode]);
 
@@ -1161,13 +1168,14 @@ export function QuestionEnginePage({
         completion = await handleExamCompleted();
       }
       const { earnedDiscount, discountCents, redirectHref } = completion;
+      reportQuestionEngineCompletion();
       void queryClient.invalidateQueries({ queryKey: ["ucat-study-plan"] });
       if (redirectHref && practice && practiceSessionId) {
         onPracticeSessionCompleted?.(redirectHref);
       }
       if (earnedDiscount && discountCents > 0) {
         toast({
-          title: "Practice day discount earned!",
+          title: "Practice streak discount earned!",
           description: `You earned $${(discountCents / 100).toFixed(0)} off your next bill.`,
         });
       }
@@ -1199,6 +1207,7 @@ export function QuestionEnginePage({
     prefetchAttemptResults,
     toast,
     router,
+    reportQuestionEngineCompletion,
   ]);
 
   const handleEndReview = useCallback(async () => {
@@ -1402,7 +1411,7 @@ export function QuestionEnginePage({
         });
         if (res?.earnedDiscount && (res?.discountCents ?? 0) > 0) {
           toast({
-            title: "Practice day discount earned!",
+            title: "Practice streak discount earned!",
             description: `You earned $${((res.discountCents ?? 0) / 100).toFixed(0)} off your next bill.`,
           });
         }
@@ -1414,6 +1423,7 @@ export function QuestionEnginePage({
       }
 
       if (practiceSessionId) {
+        reportQuestionEngineCompletion();
         const attemptHref = `/progress/practice-sessions/${practiceSessionId}`;
         onPracticeSessionCompleted?.(attemptHref);
         clearActiveExamAttempt();
@@ -1425,6 +1435,7 @@ export function QuestionEnginePage({
         return;
       }
 
+      reportQuestionEngineCompletion();
       setState((current) => ({
         ...current,
         phase: "practiceComplete",
@@ -1458,6 +1469,7 @@ export function QuestionEnginePage({
     queryClient,
     prefetchAttemptResults,
     practiceTimingQueryKey,
+    reportQuestionEngineCompletion,
     router,
     clearActiveExamAttempt,
     flushQuestionTiming,

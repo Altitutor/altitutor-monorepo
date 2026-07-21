@@ -1,5 +1,6 @@
 "use client";
 
+import React from "react";
 import {
   AlertDialog,
   AlertDialogContent,
@@ -46,7 +47,7 @@ export function ExamAttemptConflictDialog({
         if (!nextOpen) onCancel();
       }}
     >
-      <AlertDialogContent className="max-w-lg bg-card text-card-foreground">
+      <AlertDialogContent className="z-[70] max-w-lg bg-card text-card-foreground">
         <AlertDialogHeader>
           <AlertDialogTitle className="text-foreground">
             Exam already in progress
@@ -66,34 +67,33 @@ export function ExamAttemptConflictDialog({
             </p>
           </AlertDialogDescription>
         </AlertDialogHeader>
-        <AlertDialogFooter className="flex-row items-center justify-between gap-2 space-x-0 sm:justify-between sm:space-x-0">
+        <AlertDialogFooter className="gap-2 sm:space-x-0">
           <Button
             type="button"
-            variant="ghost"
-            className="text-foreground hover:bg-muted hover:text-foreground"
+            variant="outline"
+            className="w-full border-border text-foreground hover:bg-muted hover:text-foreground sm:w-auto"
             onClick={onCancel}
           >
             Cancel
           </Button>
-          <div className="flex items-center gap-2">
-            <Button
-              type="button"
-              variant="outline"
-              className="border-border text-foreground hover:bg-muted hover:text-foreground"
-              onClick={onDiscardAndContinue}
-              disabled={isDiscarding}
-            >
-              {isDiscarding ? "Discarding…" : "Discard & start new"}
-            </Button>
-            <Button
-              type="button"
-              onClick={() => {
-                window.location.assign(resumeHref);
-              }}
-            >
-              Resume current
-            </Button>
-          </div>
+          <Button
+            type="button"
+            variant="outline"
+            className="w-full border-border text-foreground hover:bg-muted hover:text-foreground sm:w-auto"
+            onClick={onDiscardAndContinue}
+            disabled={isDiscarding}
+          >
+            {isDiscarding ? "Discarding…" : "Discard & start new"}
+          </Button>
+          <Button
+            type="button"
+            className="w-full sm:w-auto"
+            onClick={() => {
+              window.location.assign(resumeHref);
+            }}
+          >
+            Resume current
+          </Button>
         </AlertDialogFooter>
       </AlertDialogContent>
     </AlertDialog>

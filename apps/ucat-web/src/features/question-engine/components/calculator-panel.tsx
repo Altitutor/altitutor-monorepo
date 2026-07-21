@@ -13,7 +13,7 @@ const ROW_5_LEFT = ["1", "2", "3"];
 const ROW_6_LEFT = ["ON/C", "0", "."];
 
 const BUTTON_BASE =
-  "flex min-h-[36px] w-full items-center justify-center rounded-[4px] border border-[#414042] text-center font-semibold shadow-[0_1px_0_rgba(0,0,0,0.4)]";
+  "flex min-h-[36px] w-full items-center justify-center rounded-[4px] border border-[#414042] text-center font-semibold shadow-[0_1px_0_rgba(0,0,0,0.4)] [@media(max-height:520px)]:min-h-[27px]";
 
 function CalcButton({
   label,
@@ -50,7 +50,7 @@ export function CalculatorPanel({
   tutorialMode?: boolean;
   draggableInTutorial?: boolean;
 }) {
-  const { position, handleMouseDown, setPosition } = useDraggablePanel();
+  const { position, handlePointerDown, setPosition } = useDraggablePanel();
   const panelRef = useRef<HTMLDivElement | null>(null);
 
   // Allow typing directly into the calculator when it is open. Use capture on
@@ -166,28 +166,28 @@ export function CalculatorPanel({
     <div
       ref={panelRef}
       data-tour="question-engine-calculator-panel"
-      className="pointer-events-auto fixed right-4 top-24 z-40"
+      className="pointer-events-auto fixed right-2 top-24 z-40 max-h-[calc(100dvh-1rem)] overflow-y-auto sm:right-4 [@media(max-height:520px)]:top-2"
       style={{ transform: `translate3d(${position.x}px, ${position.y}px, 0)` }}
     >
       <UcatFloatingPanel
         title="Calculator"
         titleIcon={<Calculator className="h-5 w-5" />}
         onClose={onClose}
-        onDragMouseDown={
-          tutorialMode && !draggableInTutorial ? undefined : handleMouseDown
+        onDragPointerDown={
+          tutorialMode && !draggableInTutorial ? undefined : handlePointerDown
         }
         closeButtonProps={
           {
             "data-tour": "question-engine-calculator-close",
           } as React.ButtonHTMLAttributes<HTMLButtonElement>
         }
-        className="w-[280px]"
+        className="w-[min(280px,calc(100vw-1rem))]"
       >
-        <div className="rounded-[12px] border border-black/60 bg-[#507ABD] px-3 pb-4 pt-5 shadow-[0_2px_4px_rgba(0,0,0,0.6)]">
-          <div className="mb-3 rounded-[3px] border border-[#E4E5E6] bg-[#C5CEBD] px-2 pt-1 text-right font-mono text-[20px] leading-none text-black shadow-inner">
+        <div className="rounded-[12px] border border-black/60 bg-[#507ABD] px-3 pb-4 pt-5 shadow-[0_2px_4px_rgba(0,0,0,0.6)] [@media(max-height:520px)]:pb-2 [@media(max-height:520px)]:pt-2">
+          <div className="mb-3 rounded-[3px] border border-[#E4E5E6] bg-[#C5CEBD] px-2 pt-1 text-right font-mono text-[20px] leading-none text-black shadow-inner [@media(max-height:520px)]:mb-1">
             {display}
           </div>
-          <div className="mb-3 flex items-center justify-center gap-1 text-[9px] font-semibold tracking-wide text-white">
+          <div className="mb-3 flex items-center justify-center gap-1 text-[9px] font-semibold tracking-wide text-white [@media(max-height:520px)]:mb-1">
             <Sigma className="h-3 w-3" />
             <span>Texas Instruments TI-108</span>
           </div>

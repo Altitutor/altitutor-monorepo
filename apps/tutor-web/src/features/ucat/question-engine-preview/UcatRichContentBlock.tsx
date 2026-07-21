@@ -12,6 +12,7 @@ import {
 import {
   UCAT_ENGINE_READONLY_EDITOR_CLASSNAME,
   UCAT_ENGINE_TABLE_WRAPPER_CLASSNAME,
+  UCAT_THEME_TABLE_WRAPPER_CLASSNAME,
 } from '@/features/ucat/shared/UcatRichTextEditor'
 import { hasRichTextContent } from '@/features/ucat/shared/lib/rich-text'
 import {
@@ -34,7 +35,7 @@ const THEME_RICH_TEXT = cn(
   '[&_h1]:text-foreground [&_h2]:text-foreground [&_h3]:text-foreground',
   '[&_.ProseMirror_span[style*="color"]]:!text-foreground',
   '[&_.ProseMirror_span[style*="background"]]:!bg-transparent',
-  UCAT_ENGINE_TABLE_WRAPPER_CLASSNAME
+  UCAT_THEME_TABLE_WRAPPER_CLASSNAME
 )
 
 const PARAGRAPH_SPACING_CLASS = UCAT_ENGINE_PARAGRAPH_SPACING_CLASSNAME

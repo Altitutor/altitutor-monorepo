@@ -224,7 +224,7 @@ export function StudyPlanCalendar({
           ariaLabel="Study plan calendar"
           legend={
             <>
-              <UcatActivityIntensityLegend label="Practice load" />
+              <UcatActivityIntensityLegend />
               {plan.profile?.testDate ? (
                 <span className="flex items-center gap-1">
                   <Target className="h-3 w-3" aria-hidden /> Test date

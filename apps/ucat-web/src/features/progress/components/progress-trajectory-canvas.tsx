@@ -66,9 +66,9 @@ export function buildProgressTrajectoryData(
 }
 
 type ProgressTrajectoryCanvasProps = {
-  title: string;
-  description: string;
-  statusLabel: string;
+  title?: string;
+  description?: string;
+  statusLabel?: string;
   projection: ProgressTrajectorySource | null;
   today: string;
   targetScore: number | null;
@@ -111,6 +111,9 @@ export function ProgressTrajectoryCanvas({
     testDay >= 0 &&
     testDay <= DASHBOARD_FORECAST_WINDOW_DAYS;
   const displayedContent = { title: insightTitle, body: insightBody };
+  const hasHeader = Boolean(
+    title || description || statusLabel || headerControl,
+  );
   const ratingControls = (
     <ContentRatingControls
       className="mt-3"
@@ -127,21 +130,47 @@ export function ProgressTrajectoryCanvas({
 
   return (
     <section className="relative isolate overflow-hidden border-b border-border/50 bg-gradient-to-b from-background via-muted/15 to-background">
-      <div className="relative min-h-[580px] sm:min-h-[650px] lg:min-h-[620px]">
-        <div className="absolute inset-x-0 top-0 z-10 flex items-start justify-between gap-4 px-5 py-6 sm:px-8 lg:px-10">
-          <div>
-            <h1 className="text-xl font-semibold tracking-tight sm:text-2xl">
-              {title}
-            </h1>
-            <p className="mt-1 text-sm text-muted-foreground">{description}</p>
+      <div
+        className={cn(
+          "relative",
+          hasHeader
+            ? "min-h-[680px] sm:min-h-[650px] lg:min-h-[620px]"
+            : "min-h-[560px] sm:min-h-[560px] lg:min-h-[560px]",
+        )}
+      >
+        {hasHeader ? (
+          <div className="absolute inset-x-0 top-0 z-10 flex flex-col items-start justify-between gap-4 px-5 py-6 sm:flex-row sm:px-8 lg:px-10">
+            {title || description ? (
+              <div>
+                {title ? (
+                  <h1 className="text-xl font-semibold tracking-tight sm:text-2xl">
+                    {title}
+                  </h1>
+                ) : null}
+                {description ? (
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    {description}
+                  </p>
+                ) : null}
+              </div>
+            ) : (
+              <div />
+            )}
+            <div className="flex shrink-0 flex-col-reverse items-start gap-2 sm:items-end">
+              {headerControl}
+              {statusLabel ? (
+                <Badge variant="secondary">{statusLabel}</Badge>
+              ) : null}
+            </div>
           </div>
-          <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">
-            {headerControl}
-            <Badge variant="secondary">{statusLabel}</Badge>
-          </div>
-        </div>
+        ) : null}
 
-        <div className="absolute inset-x-0 top-20 min-w-0">
+        <div
+          className={cn(
+            "absolute inset-x-0 min-w-0",
+            hasHeader ? "top-44 sm:top-28 lg:top-20" : "top-4 sm:top-6",
+          )}
+        >
           <DashboardTrajectoryChart
             mode={hasEstimate ? "forecast" : "baseline"}
             data={chartData}
@@ -160,7 +189,8 @@ export function ProgressTrajectoryCanvas({
         <aside
           className={cn(
             UCAT_FLOATING_GRAPH_CARD,
-            "absolute right-6 top-24 z-20 hidden w-[min(390px,calc(100%-3rem))] p-6 lg:block",
+            "absolute right-6 z-20 hidden w-[min(390px,calc(100%-3rem))] p-6 lg:block",
+            hasHeader ? "top-24" : "top-6",
           )}
         >
           <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">

@@ -1,10 +1,11 @@
 "use client";
 
-import {
+import React, {
   createContext,
   useCallback,
   useContext,
   useMemo,
+  useRef,
   useState,
   type ReactNode,
 } from "react";
@@ -19,10 +20,21 @@ export type StudyPlanLivePractice = {
   totalQuestionLabel: string;
 };
 
+export type StudyPlanActivityCompletion = {
+  id: number;
+  title: string;
+  detail?: string;
+};
+
 type StudyPlanCompanionContextValue = {
   livePractice: StudyPlanLivePractice | null;
   activityComplete: boolean;
+  activityCompletion: StudyPlanActivityCompletion | null;
   setActivityComplete: (complete: boolean) => void;
+  reportActivityCompletion: (
+    completion: Omit<StudyPlanActivityCompletion, "id">,
+  ) => void;
+  consumeActivityCompletion: (id: number) => void;
   reportLivePractice: (activity: StudyPlanLivePractice) => void;
   clearLivePractice: (sessionId: string) => void;
 };
@@ -38,6 +50,19 @@ export function StudyPlanCompanionProvider({
   const [livePractice, setLivePractice] =
     useState<StudyPlanLivePractice | null>(null);
   const [activityComplete, setActivityComplete] = useState(false);
+  const [activityCompletion, setActivityCompletion] =
+    useState<StudyPlanActivityCompletion | null>(null);
+  const completionIdRef = useRef(0);
+  const reportActivityCompletion = useCallback(
+    (completion: Omit<StudyPlanActivityCompletion, "id">) => {
+      completionIdRef.current += 1;
+      setActivityCompletion({ id: completionIdRef.current, ...completion });
+    },
+    [],
+  );
+  const consumeActivityCompletion = useCallback((id: number) => {
+    setActivityCompletion((current) => (current?.id === id ? null : current));
+  }, []);
   const reportLivePractice = useCallback((activity: StudyPlanLivePractice) => {
     setLivePractice(activity);
   }, []);
@@ -50,11 +75,22 @@ export function StudyPlanCompanionProvider({
     () => ({
       livePractice,
       activityComplete,
+      activityCompletion,
       setActivityComplete,
+      reportActivityCompletion,
+      consumeActivityCompletion,
       reportLivePractice,
       clearLivePractice,
     }),
-    [activityComplete, clearLivePractice, livePractice, reportLivePractice],
+    [
+      activityComplete,
+      activityCompletion,
+      clearLivePractice,
+      consumeActivityCompletion,
+      livePractice,
+      reportActivityCompletion,
+      reportLivePractice,
+    ],
   );
 
   return (

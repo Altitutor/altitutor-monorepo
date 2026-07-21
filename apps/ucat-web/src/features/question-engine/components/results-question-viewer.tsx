@@ -161,7 +161,9 @@ function QuestionPointsFooter({
 }) {
   const maxPoints = getQuestionMaxPoints(question);
   const scored = points;
-  const formattedPoints = Number.isInteger(scored) ? String(scored) : scored.toFixed(1);
+  const formattedPoints = Number.isInteger(scored)
+    ? String(scored)
+    : scored.toFixed(1);
 
   return (
     <div className="font-medium">
@@ -281,8 +283,8 @@ export function ResultsQuestionViewer({
           </div>
           {savedAnswersUnavailable ? (
             <p className="rounded-md border border-amber-500/35 bg-amber-500/10 px-3 py-2 text-sm text-amber-800 dark:text-amber-300">
-              This attempt was scored, but its individual statement answers
-              were not saved. New syllogism attempts retain these answers.
+              This attempt was scored, but its individual statement answers were
+              not saved. New syllogism attempts retain these answers.
             </p>
           ) : null}
           <div className="mt-3 space-y-1.5">
@@ -354,7 +356,10 @@ export function ResultsQuestionViewer({
                           )}
                         >
                           <span className="whitespace-pre-wrap">
-                            <OptionText option={option} textTone={contentTextTone} />
+                            <OptionText
+                              option={option}
+                              textTone={contentTextTone}
+                            />
                           </span>
                         </div>
                       </div>
@@ -478,8 +483,12 @@ export function ResultsQuestionViewer({
     const optionIsCorrect = option.id === correctOptionId;
     const optionIsSelected = option.id === selectedOptionId;
     const optionIsWrongSelection =
-      answeredIncorrectly && optionIsSelected && !optionIsCorrect && sjOutcome !== "partial";
-    const optionIsPartialSelection = optionIsSelected && sjOutcome === "partial";
+      answeredIncorrectly &&
+      optionIsSelected &&
+      !optionIsCorrect &&
+      sjOutcome !== "partial";
+    const optionIsPartialSelection =
+      optionIsSelected && sjOutcome === "partial";
     const letter = optionLabel(index);
     const hasStats =
       option.totalAnswered != null &&
@@ -491,9 +500,9 @@ export function ResultsQuestionViewer({
       ? theme.correctRowBg
       : optionIsPartialSelection
         ? "bg-amber-100 dark:bg-amber-950/40"
-      : optionIsWrongSelection
-        ? theme.wrongRowBg
-        : "";
+        : optionIsWrongSelection
+          ? theme.wrongRowBg
+          : "";
 
     const label = optionIsCorrect
       ? {
@@ -505,18 +514,18 @@ export function ResultsQuestionViewer({
             text: "Partially correct · 0.5 points",
             color: "text-amber-700 dark:text-amber-400",
           }
-      : optionIsWrongSelection
-        ? {
-            text: "Your answer",
-            color: "text-red-700 dark:text-red-400",
-          }
-        : null;
+        : optionIsWrongSelection
+          ? {
+              text: "Your answer",
+              color: "text-red-700 dark:text-red-400",
+            }
+          : null;
 
     return (
       <div key={option.id} className="space-y-0.5">
         <div
           className={cn(
-            "flex flex-wrap items-start gap-x-2 gap-y-1 rounded py-1 pl-6 pr-3",
+            "flex flex-wrap items-start gap-x-2 gap-y-1 rounded py-1 pl-0 pr-1 sm:pl-6 sm:pr-3",
             bgClass,
           )}
         >
@@ -530,8 +539,10 @@ export function ResultsQuestionViewer({
               className="mt-1 h-4 w-4 shrink-0"
             />
             <span className="flex min-w-0 flex-1">
-              <span className="inline-block w-8 shrink-0">{letter}.</span>
-              <span className="ml-4 min-w-0 flex-1">
+              <span className="inline-block w-6 shrink-0 sm:w-8">
+                {letter}.
+              </span>
+              <span className="ml-0 min-w-0 flex-1 sm:ml-4">
                 <OptionText option={option} textTone={contentTextTone} />
               </span>
             </span>

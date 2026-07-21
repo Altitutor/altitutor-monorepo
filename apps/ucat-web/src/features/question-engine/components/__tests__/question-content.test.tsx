@@ -1,5 +1,5 @@
 import React from "react";
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { QuestionContent } from "@/features/question-engine/components/question-content";
 import type { QuestionItem } from "@/features/question-engine/model/types";
 
@@ -52,5 +52,38 @@ describe("QuestionContent syllogism restoration", () => {
     expect(
       screen.getAllByLabelText("Drop Yes or No here")[1],
     ).toHaveTextContent("No");
+  });
+
+  it("assigns a Yes token with touch pointer dragging", () => {
+    const onChangeSyllogismSnapshot = jest.fn();
+    render(
+      <QuestionContent
+        question={question}
+        onSelectOption={() => undefined}
+        onChangeSyllogismSnapshot={onChangeSyllogismSnapshot}
+      />,
+    );
+
+    const target = screen.getAllByLabelText("Drop Yes or No here")[0]!;
+    Object.defineProperty(document, "elementFromPoint", {
+      configurable: true,
+      value: () => target,
+    });
+
+    fireEvent.pointerDown(screen.getByRole("button", { name: "Yes" }), {
+      pointerId: 1,
+      pointerType: "touch",
+      button: 0,
+    });
+    fireEvent.pointerUp(window, {
+      pointerId: 1,
+      pointerType: "touch",
+      clientX: 10,
+      clientY: 10,
+    });
+
+    expect(onChangeSyllogismSnapshot).toHaveBeenLastCalledWith({
+      "statement-1": true,
+    });
   });
 });

@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useMemo, useRef } from "react";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import type {
   QuestionEngineExam,
   QuestionEngineMode,
@@ -184,6 +184,14 @@ export function useQuestionEnginePersistence({
   } | null;
 }) {
   const { openQuotaLimit } = useQuotaLimitDialog();
+  const queryClient = useQueryClient();
+  const activityRefreshRequestedRef = useRef(false);
+
+  const refreshPracticeStreak = useCallback(() => {
+    if (activityRefreshRequestedRef.current) return;
+    activityRefreshRequestedRef.current = true;
+    void queryClient.invalidateQueries({ queryKey: ["ucat", "activity"] });
+  }, [queryClient]);
 
   const handleQuotaError = useCallback(
     (error: unknown) => {
@@ -241,6 +249,7 @@ export function useQuestionEnginePersistence({
     scope: { id: "question-attempt-upserts" },
     mutationFn: async (input) =>
       (await finalizeExamAttempt(input)) as FinalizeAttemptResponse,
+    onSuccess: refreshPracticeStreak,
   });
 
   const upsertQuestionAttemptBatch = useMutation<
@@ -278,6 +287,7 @@ export function useQuestionEnginePersistence({
       }
       return response.json();
     },
+    onSuccess: refreshPracticeStreak,
     onError: handleQuotaError,
   });
 
@@ -320,6 +330,7 @@ export function useQuestionEnginePersistence({
       }
       return response.json() as Promise<PracticeSessionResponse>;
     },
+    onSuccess: refreshPracticeStreak,
   });
 
   const withLearnContext = useCallback(

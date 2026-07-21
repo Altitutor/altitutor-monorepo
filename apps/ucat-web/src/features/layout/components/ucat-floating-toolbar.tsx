@@ -13,6 +13,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
   FeedbackDialog,
+  Switch,
   type FeedbackKind,
 } from "@altitutor/ui";
 import { useUcatLag } from "@/features/question-engine/context/ucat-lag-context";
@@ -106,8 +107,10 @@ export function UcatFloatingToolbar() {
 
             <div
               className={cn(
-                "absolute left-1/2 top-9 z-[61] w-48 -translate-x-1/2 overflow-hidden rounded-lg border-0 bg-card p-1 text-sm text-card-foreground shadow-lg",
-                menuOpen ? "block" : "hidden",
+                "absolute left-1/2 top-9 z-[61] w-[min(12rem,calc(100vw-1rem))] -translate-x-1/2 overflow-hidden rounded-lg border-0 bg-card p-1 text-sm text-card-foreground shadow-lg transition-[opacity,transform,visibility] duration-200 ease-[cubic-bezier(0.32,0.72,0,1)]",
+                menuOpen
+                  ? "visible translate-y-0 scale-100 opacity-100"
+                  : "invisible pointer-events-none -translate-y-1 scale-95 opacity-0",
               )}
             >
               <button
@@ -139,27 +142,28 @@ export function UcatFloatingToolbar() {
 
             <div
               className={cn(
-                "absolute right-0 top-9 z-[61] mt-1 w-64 overflow-hidden rounded-lg border-0 bg-card p-1 text-sm text-card-foreground shadow-lg",
-                settingsOpen ? "block" : "hidden",
+                "absolute left-1/2 top-9 z-[61] mt-1 w-[min(16rem,calc(100vw-1rem))] -translate-x-1/2 overflow-hidden rounded-lg border-0 bg-card p-1 text-sm text-card-foreground shadow-lg transition-[opacity,transform,visibility] duration-200 ease-[cubic-bezier(0.32,0.72,0,1)]",
+                settingsOpen
+                  ? "visible translate-y-0 scale-100 opacity-100"
+                  : "invisible pointer-events-none -translate-y-1 scale-95 opacity-0",
               )}
             >
               <div className="px-2 py-1.5 text-xs font-medium text-muted-foreground">
                 UCAT settings
               </div>
-              <label className="flex min-h-9 cursor-pointer items-center justify-between gap-3 rounded-md px-2 py-1.5 transition-colors duration-150 ease-out hover:bg-muted">
+              <div className="flex min-h-9 items-center justify-between gap-3 rounded-md px-2 py-1.5 transition-colors duration-150 ease-out hover:bg-muted">
                 <span className="min-w-0">
                   <span className="block text-sm font-medium">Lag mode</span>
                   <span className="block truncate text-xs text-muted-foreground">
                     Simulate exam delay
                   </span>
                 </span>
-                <input
-                  type="checkbox"
-                  className="h-4 w-4 shrink-0 accent-current"
+                <Switch
+                  aria-label="Lag mode"
                   checked={lagEnabled}
-                  onChange={(event) => setLagEnabled(event.target.checked)}
+                  onCheckedChange={setLagEnabled}
                 />
-              </label>
+              </div>
             </div>
           </div>
         </div>

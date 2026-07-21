@@ -19,6 +19,8 @@ export interface TablePaginationProps {
   onPageSizeChange?: (pageSize: number) => void;
   pageSizeOptions?: number[];
   showPageSizeSelector?: boolean;
+  /** When false, hides the "Page n of n • n total" summary. Defaults to true. */
+  showPageSummary?: boolean;
   className?: string;
   /** @deprecated Use default nav-style active page. Override only for exceptional theming. */
   activePageButtonClassName?: string;
@@ -36,6 +38,7 @@ export function TablePagination({
   onPageSizeChange,
   pageSizeOptions = DEFAULT_PAGE_SIZE_OPTIONS,
   showPageSizeSelector = true,
+  showPageSummary = true,
   className,
   activePageButtonClassName,
 }: TablePaginationProps) {
@@ -92,13 +95,22 @@ export function TablePagination({
 
   return (
     <div className={cn('w-full overflow-x-auto overscroll-x-contain text-sm text-muted-foreground', className)}>
-      <div className="flex min-w-max items-center justify-between gap-4">
-        <div className="flex shrink-0 items-center gap-2">
-          <span className="whitespace-nowrap">
-            Page {currentPage} of {pageCount} • {total} total
-          </span>
-          {isFetching && <span className="text-xs">(Refreshing...)</span>}
-        </div>
+      <div
+        className={cn(
+          'flex min-w-max items-center gap-4',
+          showPageSummary ? 'justify-between' : 'justify-end',
+        )}
+      >
+        {showPageSummary ? (
+          <div className="flex shrink-0 items-center gap-2">
+            <span className="whitespace-nowrap">
+              Page {currentPage} of {pageCount} • {total} total
+            </span>
+            {isFetching && <span className="text-xs">(Refreshing...)</span>}
+          </div>
+        ) : isFetching ? (
+          <span className="sr-only">Refreshing...</span>
+        ) : null}
 
         <div className="flex shrink-0 items-center gap-4">
           {showPageSizeSelector ? (

@@ -10,6 +10,7 @@ export async function POST(
   request: NextRequest,
   { params }: { params: { id: string } },
 ) {
+  const actionReceivedAt = new Date();
   const timing = new ServerTiming();
   const auth = await requireStudentAdminClient();
   timing.mark("auth");
@@ -40,6 +41,7 @@ export async function POST(
       body.action,
       body.actionId,
       body.expectedVersion as number,
+      actionReceivedAt,
     );
     timing.mark("action");
     return timing.apply(NextResponse.json({ attempt: state }));

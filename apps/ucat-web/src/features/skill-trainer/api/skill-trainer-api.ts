@@ -26,6 +26,26 @@ export type LeaderboardEntry = {
   rank: number;
 };
 
+export type SkillTrainerAttemptReview = {
+  attempt: {
+    id: string;
+    score: number;
+    started_at: string;
+    completed_at: string | null;
+    trainer_key: string;
+  };
+  items: Array<{
+    id: string;
+    item_id: string;
+    content: Record<string, unknown>;
+    score_delta: number;
+    completed_at: string;
+    elapsed_seconds: number | null;
+    correct: boolean;
+    answer: unknown;
+  }>;
+};
+
 export const skillTrainerApi = {
   async listTrainers(): Promise<SkillTrainerCatalogRow[]> {
     const res = await fetch("/api/ucat/skill-trainers");
@@ -92,6 +112,21 @@ export const skillTrainerApi = {
     return json.attempt;
   },
 
+  async getAttemptReview(
+    attemptId: string,
+  ): Promise<SkillTrainerAttemptReview> {
+    const res = await fetch(
+      `/api/ucat/skill-trainer-attempts/${attemptId}?include=review`,
+      { cache: "no-store" },
+    );
+    if (!res.ok) {
+      const json = (await res.json().catch(() => ({}))) as { error?: string };
+      throw new Error(json.error ?? "Failed to load attempt results");
+    }
+    const json = (await res.json()) as { review: SkillTrainerAttemptReview };
+    return json.review;
+  },
+
   async submitAction(
     attemptId: string,
     payload: SubmitActionPayload,
@@ -130,6 +165,7 @@ export const skillTrainerApi = {
     }
     const res = await fetch(
       `/api/ucat/skill-trainers/${trainerKeyToSlug(trainerKey)}/leaderboard?window=${window}`,
+      { cache: "no-store" },
     );
     if (!res.ok) throw new Error("Failed to load leaderboard");
     const json = (await res.json()) as { entries: LeaderboardEntry[] };

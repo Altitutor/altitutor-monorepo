@@ -37,7 +37,7 @@ import {
 } from "@/features/skill-trainer/lib/content-guards";
 import { useLeaveGuard } from "@/features/skill-trainer/hooks/use-leave-guard";
 import { createCalculatorEngine } from "@/features/skill-trainer/lib/calculator-engine";
-import { SkillTrainerCompleteScreen } from "@/features/skill-trainer/components/skill-trainer-complete-screen";
+import { applyNumpadKey } from "@/features/skill-trainer/lib/numpad-input";
 import { SkillTrainerScoreBar } from "@/features/skill-trainer/components/skill-trainer-score-bar";
 import {
   expireLocalSkillTrainerSession,
@@ -395,6 +395,7 @@ export function SkillTrainerPlayPage({
   const [actionInFlight, setActionInFlight] = useState(false);
   const [optimisticAdvanced, setOptimisticAdvanced] = useState(false);
   const actionInFlightRef = useRef(false);
+  const expiryWaitTimeoutRef = useRef<number | null>(null);
   const initialStartPromiseRef =
     useRef<Promise<SkillTrainerAttemptState> | null>(null);
   const stateRef = useRef<SkillTrainerAttemptState | null>(
@@ -404,7 +405,8 @@ export function SkillTrainerPlayPage({
   const numpadInputRef = useRef<string[]>([]);
   const lastInteractionPointRef = useRef<{ x: number; y: number } | null>(null);
   const sidebarOverride = useSidebarOverride();
-  const { setActivityComplete } = useStudyPlanCompanion();
+  const { reportActivityCompletion, setActivityComplete } =
+    useStudyPlanCompanion();
   const { feedback, feedbackOrigin, scoreDelta, showFeedback, trackResult } =
     useActionFeedback();
   const localItemsById = useMemo(
@@ -484,13 +486,6 @@ export function SkillTrainerPlayPage({
     })();
   }, [refresh]);
 
-  const startNewAttempt = useCallback(async () => {
-    const next = await skillTrainerApi.startAttempt(trainerKey);
-    completionNotifiedRef.current = null;
-    setActionError(null);
-    applyState(next);
-  }, [applyState, trainerKey]);
-
   const onExpire = useCallback(() => {
     if (localMode) {
       setState((current) => {
@@ -503,8 +498,27 @@ export function SkillTrainerPlayPage({
       });
       return;
     }
-    void refresh();
+    const refreshWhenActionSettles = () => {
+      if (actionInFlightRef.current) {
+        expiryWaitTimeoutRef.current = window.setTimeout(
+          refreshWhenActionSettles,
+          100,
+        );
+        return;
+      }
+      expiryWaitTimeoutRef.current = null;
+      void refresh();
+    };
+    refreshWhenActionSettles();
   }, [localMode, refresh]);
+
+  useEffect(() => {
+    return () => {
+      if (expiryWaitTimeoutRef.current != null) {
+        window.clearTimeout(expiryWaitTimeoutRef.current);
+      }
+    };
+  }, []);
 
   const remaining = useAttemptTimer(state, onExpire);
 
@@ -711,14 +725,36 @@ export function SkillTrainerPlayPage({
     if (completedAttemptId) {
       if (completionNotifiedRef.current === completedAttemptId) return;
       completionNotifiedRef.current = completedAttemptId;
+      if (!embedded) {
+        reportActivityCompletion({
+          title: "Skill trainer complete",
+          detail: `${state?.attempt.score ?? 0} points scored`,
+        });
+      }
       if (!localMode) {
         void queryClient.invalidateQueries({ queryKey: ["ucat-study-plan"] });
+        void queryClient.invalidateQueries({
+          queryKey: ["skill-trainers", "leaderboard", trainerKey],
+        });
       }
       if (embedded || localMode) {
         onComplete?.();
+      } else {
+        router.replace(`/skill-trainer/${slug}/results/${completedAttemptId}`);
       }
     }
-  }, [completedAttemptId, embedded, localMode, onComplete, queryClient]);
+  }, [
+    completedAttemptId,
+    embedded,
+    localMode,
+    onComplete,
+    queryClient,
+    reportActivityCompletion,
+    router,
+    slug,
+    state?.attempt.score,
+    trainerKey,
+  ]);
 
   useEffect(() => {
     setAnswerFocus(trainerKey === "calculator_maths");
@@ -742,7 +778,7 @@ export function SkillTrainerPlayPage({
 
   const appendNumpadKey = useCallback((key: string) => {
     setNumpadInput((prev) => {
-      const next = [...prev, key];
+      const next = applyNumpadKey(prev, key);
       numpadInputRef.current = next;
       return next;
     });
@@ -811,11 +847,10 @@ export function SkillTrainerPlayPage({
       );
     }
     return (
-      <SkillTrainerCompleteScreen
-        trainerKey={trainerKey}
-        finalScore={state.attempt.score}
-        onPlayAgain={startNewAttempt}
-      />
+      <div className="space-y-4" aria-busy="true" aria-label="Loading results">
+        <Skeleton className="h-32 w-full rounded-xl" />
+        <Skeleton className="h-64 w-full rounded-xl" />
+      </div>
     );
   }
 
@@ -929,6 +964,10 @@ export function SkillTrainerPlayPage({
               onCalcKey={(key) => {
                 if (key === "=") {
                   submitNumpadSequenceFromOrigin();
+                  return;
+                }
+                if (key === "ON/C") {
+                  appendNumpadKey(key);
                   return;
                 }
                 appendNumpadKey(key);

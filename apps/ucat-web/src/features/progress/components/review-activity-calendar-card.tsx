@@ -15,16 +15,19 @@ import {
   UCAT_SURFACE_MOTION,
 } from "@/lib/ucat-surface-motion";
 import { cn } from "@/lib/utils";
+import { PracticeStreakWeek } from "@/features/streaks/components/practice-streak-week";
+import { buildPracticeStreak } from "@/features/streaks/lib/practice-streak";
 import {
   UcatActivityIntensityLegend,
   UcatMonthCalendar,
 } from "@/shared/components/ucat-month-calendar";
 import {
   ACTIVITY_INTENSITY_CLASS,
-  activityIntensityLevel,
+  relativeActivityIntensityLevel,
   buildUcatCalendarMonths,
   formatUcatCalendarDate,
   localDateKey,
+  type ActivityIntensityLevel,
   type UcatCalendarDay,
 } from "@/shared/lib/ucat-month-calendar";
 import { useUcatActivity } from "../hooks/use-ucat-activity";
@@ -52,20 +55,19 @@ function placeholderActivity(dayNumber: number): DayActivity | undefined {
 function ReviewDayCell({
   day,
   activity,
+  intensity,
   isToday,
   isFuture,
 }: {
   day: UcatCalendarDay;
   activity: DayActivity | undefined;
+  intensity: 0 | 1 | 2 | 3 | 4;
   isToday: boolean;
   isFuture: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const questionAttempts = activity?.questionAttempts ?? 0;
   const setAttempts = activity?.setAttempts ?? 0;
-  const total = questionAttempts + setAttempts;
-  const intensity = isFuture ? 0 : activityIntensityLevel(total);
-  const usesLightText = !isFuture && intensity >= 3;
   const label = formatUcatCalendarDate(day.dateKey, {
     weekday: "long",
     day: "numeric",
@@ -82,7 +84,6 @@ function ReviewDayCell({
         "group relative flex h-11 w-full overflow-hidden rounded-lg text-left sm:h-12",
         UCAT_SURFACE_MOTION,
         !isFuture && "hover:shadow-sm hover:ring-1 hover:ring-foreground/20",
-        usesLightText ? "text-primary-foreground" : "text-foreground",
         isToday && "ring-1 ring-primary/50",
         isFuture && "opacity-45",
       )}
@@ -96,17 +97,6 @@ function ReviewDayCell({
         )}
         aria-hidden
       />
-      <span className="relative flex h-full w-full flex-col justify-between p-1.5">
-        <span className="text-xs font-semibold tabular-nums sm:text-sm">
-          {day.dayNumber}
-        </span>
-        <span className="flex items-end justify-between gap-0.5 text-[9px] font-medium sm:text-[10px]">
-          {isToday ? <span>Today</span> : <span />}
-          {!isFuture && total > 0 ? (
-            <span className="tabular-nums">{total}</span>
-          ) : null}
-        </span>
-      </span>
     </span>
   );
 
@@ -155,6 +145,14 @@ export function ReviewActivityCalendarCard({
   const activityQuery = useUcatActivity(previewData == null);
   const data = previewData ?? activityQuery.data;
   const todayKey = localDateKey(new Date());
+  const streak = useMemo(
+    () =>
+      buildPracticeStreak(
+        data?.days ?? [],
+        data?.timezone ?? "Australia/Adelaide",
+      ),
+    [data?.days, data?.timezone],
+  );
 
   const activityByDate = useMemo(() => {
     const map = new Map<string, DayActivity>();
@@ -166,6 +164,27 @@ export function ReviewActivityCalendarCard({
     }
     return map;
   }, [data?.days]);
+
+  const monthMaxByKey = useMemo(() => {
+    const maxima = new Map<string, number>();
+    for (const [dateKey, activity] of activityByDate) {
+      const total = activity.questionAttempts + activity.setAttempts;
+      if (total <= 0) continue;
+      const monthKey = dateKey.slice(0, 7);
+      maxima.set(monthKey, Math.max(maxima.get(monthKey) ?? 0, total));
+    }
+    return maxima;
+  }, [activityByDate]);
+
+  const placeholderMonthMax = useMemo(() => {
+    let max = 0;
+    for (let dayNumber = 1; dayNumber <= 31; dayNumber += 1) {
+      const activity = placeholderActivity(dayNumber);
+      if (!activity) continue;
+      max = Math.max(max, activity.questionAttempts + activity.setAttempts);
+    }
+    return max;
+  }, []);
 
   const startDateKey = useMemo(() => {
     const keys = [
@@ -180,6 +199,21 @@ export function ReviewActivityCalendarCard({
     () => buildUcatCalendarMonths(startDateKey, todayKey),
     [startDateKey, todayKey],
   );
+
+  function intensityForDay(
+    day: UcatCalendarDay,
+    activity: DayActivity | undefined,
+    isFuture: boolean,
+    usePlaceholder: boolean,
+  ): ActivityIntensityLevel {
+    if (isFuture) return 0;
+    const total =
+      (activity?.questionAttempts ?? 0) + (activity?.setAttempts ?? 0);
+    const monthMax = usePlaceholder
+      ? placeholderMonthMax
+      : (monthMaxByKey.get(day.dateKey.slice(0, 7)) ?? 0);
+    return relativeActivityIntensityLevel(total, monthMax);
+  }
 
   if (previewData == null && activityQuery.isLoading) {
     return <Skeleton className={cn("h-[280px] rounded-lg", className)} />;
@@ -196,18 +230,20 @@ export function ReviewActivityCalendarCard({
       <div className={cn("relative", className)}>
         <div
           className={cn(
-            "h-full",
+            "flex h-full flex-col",
             isEmpty && "pointer-events-none opacity-45 blur-[1px]",
           )}
           aria-hidden={isEmpty || undefined}
         >
+          <div className="border-b border-border/60 px-4 pb-4 pt-4">
+            <PracticeStreakWeek streak={streak} compact />
+          </div>
           <UcatMonthCalendar
-            className="h-full"
+            className="min-h-0 flex-1"
             months={months}
             initialMonthKey={todayKey.slice(0, 7)}
             ariaLabel="Review activity calendar"
             title="Review activity"
-            description="Daily question and set attempts."
             headerAction={
               showViewAllProgressLink ? (
                 <Link
@@ -223,19 +259,22 @@ export function ReviewActivityCalendarCard({
                 </Link>
               ) : null
             }
-            legend={<UcatActivityIntensityLegend label="Activity" />}
-            renderDay={(day) => (
-              <ReviewDayCell
-                day={day}
-                activity={
-                  isEmpty
-                    ? placeholderActivity(day.dayNumber)
-                    : activityByDate.get(day.dateKey)
-                }
-                isToday={day.dateKey === todayKey}
-                isFuture={day.dateKey > todayKey}
-              />
-            )}
+            legend={<UcatActivityIntensityLegend />}
+            renderDay={(day) => {
+              const activity = isEmpty
+                ? placeholderActivity(day.dayNumber)
+                : activityByDate.get(day.dateKey);
+              const isFuture = day.dateKey > todayKey;
+              return (
+                <ReviewDayCell
+                  day={day}
+                  activity={activity}
+                  intensity={intensityForDay(day, activity, isFuture, isEmpty)}
+                  isToday={day.dateKey === todayKey}
+                  isFuture={isFuture}
+                />
+              );
+            }}
           />
         </div>
         {isEmpty ? (

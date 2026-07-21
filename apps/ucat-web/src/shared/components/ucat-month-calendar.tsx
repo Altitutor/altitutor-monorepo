@@ -137,23 +137,26 @@ export function UcatMonthCalendar({
   );
 }
 
-export function UcatActivityIntensityLegend({
-  label = "Practice load",
-}: {
-  label?: string;
-}) {
+export function UcatActivityIntensityLegend() {
   return (
-    <>
-      <span>{label}</span>
-      <span className="flex gap-1" aria-label={`Less to more ${label.toLowerCase()}`}>
+    <span className="flex items-center gap-2">
+      <span>Less practice</span>
+      <span
+        className="flex gap-1"
+        aria-label="Less practice to more practice"
+      >
         {([0, 1, 2, 3, 4] as const).map((level) => (
           <span
             key={level}
-            className={cn("h-2.5 w-2.5 rounded-[3px]", ACTIVITY_INTENSITY_CLASS[level])}
+            className={cn(
+              "h-2.5 w-2.5 rounded-[3px]",
+              ACTIVITY_INTENSITY_CLASS[level],
+            )}
             aria-hidden
           />
         ))}
       </span>
-    </>
+      <span>More practice</span>
+    </span>
   );
 }

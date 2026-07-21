@@ -1,9 +1,13 @@
 "use client";
 
 import Link from "next/link";
+import { motion, useReducedMotion } from "motion/react";
 import { Badge, Skeleton } from "@altitutor/ui";
-import { Check, Gift, Sparkles } from "lucide-react";
+import { Check, Gift } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { PracticeStreakWeek } from "@/features/streaks/components/practice-streak-week";
+import { buildPracticeStreak } from "@/features/streaks/lib/practice-streak";
+import { useUcatActivity } from "@/features/progress/hooks/use-ucat-activity";
 import { QuotaProgressBar } from "@/features/ucat-access/components/quota-usage-card";
 import {
   useQuotaLimitDialog,
@@ -27,33 +31,64 @@ import {
   UCAT_PLAN_TIER_BADGE_CLASS,
 } from "@/features/subscription/lib/plan-tier-display";
 
-type DashboardMembershipValueProps = {
-  nextTask: StudyPlanTask | null;
-};
+type DashboardMembershipValueProps = { nextTask: StudyPlanTask | null };
 
 function quotaUnit(area: UcatQuotaArea, count: number): string {
   const plural = count === 1 ? "" : "s";
-  switch (area) {
-    case "practice":
-      return `practice question${plural}`;
-    case "learn":
-      return `learning module${plural}`;
-    case "sets":
-      return `set attempt${plural}`;
-    case "mocks":
-      return `mock attempt${plural}`;
-    case "skill_trainer":
-      return `Skill trainer attempt${plural}`;
-  }
+  if (area === "practice") return `practice question${plural}`;
+  if (area === "learn") return `learning module${plural}`;
+  if (area === "sets") return `set attempt${plural}`;
+  if (area === "mocks") return `mock attempt${plural}`;
+  return `Skill trainer attempt${plural}`;
 }
 
-function taskContributesQuestions(task: StudyPlanTask | null): boolean {
-  return Boolean(
-    task &&
-      (task.taskType === "practice" ||
-        task.taskType === "skill_trainer" ||
-        task.taskType === "section_benchmark" ||
-        task.taskType === "mock"),
+function Celebration({
+  kind,
+  title,
+  detail,
+}: {
+  kind: "discount" | "free_bill";
+  title: string;
+  detail: string;
+}) {
+  const reduceMotion = useReducedMotion();
+  return (
+    <div className="relative overflow-hidden rounded-xl border border-amber-400/35 bg-gradient-to-br from-amber-400/[0.16] via-background to-primary/[0.08] px-3 py-3">
+      {!reduceMotion
+        ? [0, 1, 2, 3, 4].map((particle) => (
+            <motion.span
+              key={particle}
+              className="absolute h-1.5 w-1.5 rounded-full bg-amber-400"
+              style={{ left: `${15 + particle * 18}%` }}
+              initial={{ y: 22, opacity: 0, scale: 0 }}
+              animate={{
+                y: [-4, -18, -8],
+                opacity: [0, 1, 0],
+                scale: [0, 1, 0.6],
+              }}
+              transition={{ duration: 1.8, delay: particle * 0.12, repeat: 1 }}
+              aria-hidden
+            />
+          ))
+        : null}
+      <div className="relative flex items-start gap-3">
+        <motion.span
+          initial={reduceMotion ? false : { rotate: -12, scale: 0.7 }}
+          animate={{ rotate: 0, scale: 1 }}
+          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-amber-400 text-amber-950 shadow-sm"
+        >
+          {kind === "free_bill" ? (
+            <Gift className="h-4 w-4" />
+          ) : (
+            <Check className="h-4 w-4" />
+          )}
+        </motion.span>
+        <div>
+          <p className="text-sm font-semibold">{title}</p>
+          <p className="mt-0.5 text-xs text-muted-foreground">{detail}</p>
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -62,216 +97,197 @@ export function DashboardMembershipValue({
 }: DashboardMembershipValueProps) {
   const access = useUcatAccess();
   const quotaQuery = useQuotaUsage();
+  const activityQuery = useUcatActivity();
   const discountQuery = usePracticeDiscountDashboard();
-  const referralSummaryQuery = useUcatReferralSummary();
+  const referralQuery = useUcatReferralSummary();
   const { openQuotaLimit } = useQuotaLimitDialog();
   const { openPlanPicker } = useUpsellDialog();
-
   const quotaData = quotaQuery.data;
-  const accessIndicatesFree =
-    !access.isLoading && access.onlineTier === "free" && !access.isQuotaExempt;
-  const quotaIndicatesFree =
-    !quotaQuery.isLoading &&
-    !quotaQuery.isError &&
-    quotaData?.onlineTier === "free" &&
-    !quotaData.isQuotaExempt;
-  const isFreeTier = accessIndicatesFree || quotaIndicatesFree;
-  const accessIndicatesPaid =
-    !access.isLoading &&
-    access.onlineTier !== null &&
-    access.onlineTier !== "free" &&
-    access.isQuotaExempt;
-  const quotaIndicatesPaid =
-    !quotaQuery.isLoading &&
-    !quotaQuery.isError &&
-    quotaData?.onlineTier !== undefined &&
-    quotaData.onlineTier !== "free" &&
-    quotaData.isQuotaExempt;
-  const isPaidTier = accessIndicatesPaid || quotaIndicatesPaid;
+  const isFreeTier =
+    (!access.isLoading &&
+      access.onlineTier === "free" &&
+      !access.isQuotaExempt) ||
+    (!quotaQuery.isLoading &&
+      quotaData?.onlineTier === "free" &&
+      !quotaData.isQuotaExempt);
+  const isPaidTier =
+    (!access.isLoading &&
+      access.onlineTier != null &&
+      access.onlineTier !== "free" &&
+      access.isQuotaExempt) ||
+    (!quotaQuery.isLoading &&
+      quotaData?.onlineTier != null &&
+      quotaData.onlineTier !== "free" &&
+      quotaData.isQuotaExempt);
 
-  if (access.isLoading || (isFreeTier && quotaQuery.isLoading)) {
-    return <Skeleton className="h-32 w-full rounded-xl" />;
+  if (
+    access.isLoading ||
+    activityQuery.isLoading ||
+    (isFreeTier && quotaQuery.isLoading)
+  ) {
+    return <Skeleton className="h-64 w-full rounded-xl" />;
   }
+  if (!isFreeTier && !isPaidTier) return null;
 
-  if (isFreeTier) {
-    const area = quotaData
-      ? selectDashboardQuotaArea(quotaData.areas, quotaAreaForTask(nextTask))
-      : null;
-
-    if (!area) {
-      return (
-        <div className="space-y-3">
-          <div className="flex flex-wrap items-center gap-2">
-            <Sparkles className="h-4 w-4 text-muted-foreground" aria-hidden />
-            <h3 className="text-sm font-semibold">Your plan</h3>
-            <Badge className={UCAT_PLAN_TIER_BADGE_CLASS}>UCAT Free</Badge>
-          </div>
-          <p className="text-sm text-muted-foreground">
-            Unlimited removes online study limits across Altitutor.
-          </p>
-          <Button
-            type="button"
-            size="sm"
-            variant="outline"
-            onClick={() =>
-              openPlanPicker({
-                title: "Upgrade to UCAT Unlimited",
-                description:
-                  "Remove online quotas and unlock practice-day discounts.",
-              })
-            }
-          >
-            See Unlimited
-          </Button>
-        </div>
-      );
-    }
-
-    const remaining = Math.max(0, area.limit - area.used);
-    const periodLabel = formatQuotaPeriodLabel(area.period);
-    const usageRatio = area.limit ? area.used / area.limit : 0;
-    const availableResets =
-      quotaData?.quotaResetEntitlement.availableCount ?? 0;
-    const handleUpgrade = () => {
-      if (area.atLimit) {
-        openQuotaLimit({
-          code: "QUOTA_EXCEEDED",
-          area: area.area,
-          used: area.used,
-          limit: area.limit,
-          period: area.period,
-        });
-        return;
-      }
-      openPlanPicker({
-        title: "Upgrade to UCAT Unlimited",
-        description: "Remove online quotas and unlock practice-day discounts.",
-      });
-    };
-
-    return (
-      <div className="space-y-3">
-        <div className="flex flex-wrap items-center gap-2">
-          <Sparkles className="h-4 w-4 text-muted-foreground" aria-hidden />
-          <h3 className="text-sm font-semibold">Your plan</h3>
-          <Badge className={UCAT_PLAN_TIER_BADGE_CLASS}>UCAT Free</Badge>
-        </div>
-        <div className="space-y-1.5">
-          <div className="flex items-baseline justify-between gap-3 text-sm">
-            <p className="font-medium">
-              {area.atLimit
-                ? `${area.label} limit reached ${periodLabel}`
-                : `${remaining} ${quotaUnit(area.area, remaining)} remaining ${periodLabel}`}
-            </p>
-            <span className="shrink-0 text-xs tabular-nums text-muted-foreground">
-              {area.used}/{area.limit}
-            </span>
-          </div>
-          <QuotaProgressBar
-            used={area.used}
-            limit={area.limit}
-            atLimit={area.atLimit}
-          />
-        </div>
-        <p className="text-xs text-muted-foreground">
-          {area.atLimit
-            ? availableResets > 0
-              ? `You have ${availableResets} quota reset${availableResets === 1 ? "" : "s"} available, or upgrade to keep going without limits.`
-              : "Upgrade to continue without waiting for the quota to reset."
-            : usageRatio >= 0.75
-              ? "You’re close to this limit. Unlimited removes every online quota."
-              : "Unlimited removes every online quota and adds practice-day discounts."}
-        </p>
-        <div className="flex flex-wrap items-center gap-2">
-          <Button type="button" size="sm" onClick={handleUpgrade}>
-            {area.atLimit ? "Upgrade to Unlimited" : "See Unlimited"}
-          </Button>
-          <Button asChild size="sm" variant="ghost">
-            <Link href="/settings/plan">Quota details</Link>
-          </Button>
-        </div>
-      </div>
-    );
-  }
-
-  if (!isPaidTier) return null;
-
+  const streak = buildPracticeStreak(
+    activityQuery.data?.days ?? [],
+    activityQuery.data?.timezone ?? "Australia/Adelaide",
+  );
   const displayTier = access.onlineTier ?? quotaData?.onlineTier ?? null;
-  const tierLabel = displayTier
-    ? (UCAT_ONLINE_TIER_LABELS[displayTier] ?? "Paid plan")
-    : "Paid plan";
-  const discount = discountQuery.data;
+  const tierLabel = isFreeTier
+    ? "UCAT Free"
+    : displayTier
+      ? (UCAT_ONLINE_TIER_LABELS[displayTier] ?? "Paid plan")
+      : "Paid plan";
+  const nextBillFree =
+    referralQuery.data?.stats.nextBillFreeFromReferral === true;
+  const queuedRewards = referralQuery.data?.stats.queuedFreeBills ?? 0;
 
-  if (discountQuery.isLoading) {
-    return <Skeleton className="h-32 w-full rounded-xl" />;
-  }
-
-  if (!discount || discountQuery.isError) {
-    return (
-      <div className="space-y-3">
-        <div className="flex flex-wrap items-center gap-2">
-          <Sparkles className="h-4 w-4 text-muted-foreground" aria-hidden />
-          <h3 className="text-sm font-semibold">Your plan</h3>
-          <Badge className={UCAT_PLAN_TIER_BADGE_CLASS}>{tierLabel}</Badge>
+  return (
+    <div className="space-y-5">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <h3 className="text-sm font-semibold">Practice streak</h3>
+          <Badge className={`mt-1.5 ${UCAT_PLAN_TIER_BADGE_CLASS}`}>
+            {tierLabel}
+          </Badge>
         </div>
-        {referralSummaryQuery.data?.stats.nextBillFreeFromReferral ? (
-          <>
-            <p className="text-sm font-medium">Your next bill is free</p>
-            <p className="text-xs text-muted-foreground">
-              {(referralSummaryQuery.data.stats.queuedFreeBills ?? 0) === 1
-                ? "Covered by a referral reward."
-                : `Covered by a referral reward · ${referralSummaryQuery.data.stats.queuedFreeBills} rewards ready.`}
-            </p>
-          </>
-        ) : (
-          <p className="text-sm text-muted-foreground">
-            Your online study areas have no usage quotas.
-          </p>
-        )}
-        <Button asChild size="sm" variant="ghost">
-          <Link href="/settings/plan">Plan details</Link>
+        <Button asChild size="sm" variant="ghost" className="-mr-2 -mt-1">
+          <Link href="/settings/plan">View plan</Link>
+        </Button>
+      </div>
+
+      <PracticeStreakWeek streak={streak} />
+
+      {isFreeTier ? (
+        <FreePlanQuota
+          nextTask={nextTask}
+          quotaData={quotaData}
+          onUpgrade={() =>
+            openPlanPicker({
+              title: "Upgrade to UCAT Unlimited",
+              description:
+                "Remove online quotas and earn discounts as you practise.",
+            })
+          }
+          onLimit={openQuotaLimit}
+        />
+      ) : (
+        <PaidPlanReward
+          discount={discountQuery.data}
+          discountLoading={discountQuery.isLoading}
+          nextBillFree={nextBillFree}
+          queuedRewards={queuedRewards}
+        />
+      )}
+    </div>
+  );
+}
+
+function FreePlanQuota({
+  nextTask,
+  quotaData,
+  onUpgrade,
+  onLimit,
+}: {
+  nextTask: StudyPlanTask | null;
+  quotaData: ReturnType<typeof useQuotaUsage>["data"];
+  onUpgrade: () => void;
+  onLimit: ReturnType<typeof useQuotaLimitDialog>["openQuotaLimit"];
+}) {
+  const area = quotaData
+    ? selectDashboardQuotaArea(quotaData.areas, quotaAreaForTask(nextTask))
+    : null;
+  if (!area) {
+    return (
+      <div className="rounded-xl border border-border/60 bg-muted/25 p-3">
+        <p className="text-sm font-medium">
+          Keep your streak. Lose the limits.
+        </p>
+        <p className="mt-1 text-xs text-muted-foreground">
+          Unlimited gives you unrestricted practice across every study area.
+        </p>
+        <Button size="sm" className="mt-3" onClick={onUpgrade}>
+          Explore Unlimited
         </Button>
       </div>
     );
   }
+  const remaining = Math.max(0, area.limit - area.used);
+  const handleAction = () => {
+    if (area.atLimit) {
+      onLimit({
+        code: "QUOTA_EXCEEDED",
+        area: area.area,
+        used: area.used,
+        limit: area.limit,
+        period: area.period,
+      });
+    } else onUpgrade();
+  };
+  return (
+    <div className="space-y-2 rounded-xl border border-border/60 bg-muted/25 p-3">
+      <div className="flex items-baseline justify-between gap-3 text-sm">
+        <p className="font-medium">
+          {area.atLimit
+            ? `${area.label} limit reached`
+            : `${remaining} ${quotaUnit(area.area, remaining)} remaining`}
+        </p>
+        <span className="text-xs tabular-nums text-muted-foreground">
+          {area.used}/{area.limit}
+        </span>
+      </div>
+      <QuotaProgressBar
+        used={area.used}
+        limit={area.limit}
+        atLimit={area.atLimit}
+      />
+      <div className="flex items-center justify-between gap-3 pt-1">
+        <p className="text-xs text-muted-foreground">
+          {formatQuotaPeriodLabel(area.period)}
+        </p>
+        <Button size="sm" onClick={handleAction}>
+          {area.atLimit ? "Go Unlimited" : "Get unlimited practice"}
+        </Button>
+      </div>
+    </div>
+  );
+}
 
+function PaidPlanReward({
+  discount,
+  discountLoading,
+  nextBillFree,
+  queuedRewards,
+}: {
+  discount: ReturnType<typeof usePracticeDiscountDashboard>["data"];
+  discountLoading: boolean;
+  nextBillFree: boolean;
+  queuedRewards: number;
+}) {
+  if (discountLoading) return <Skeleton className="h-24 rounded-xl" />;
+  const freeBillCelebration = nextBillFree ? (
+    <Celebration
+      kind="free_bill"
+      title="Your next bill is free"
+      detail={
+        queuedRewards > 1
+          ? `${queuedRewards} referral rewards are ready.`
+          : "Covered by your referral reward."
+      }
+    />
+  ) : null;
+  if (!discount?.eligible) {
+    return (
+      <div className="space-y-3">
+        {freeBillCelebration}
+        <p className="text-xs text-muted-foreground">
+          Unlimited practice is active on your plan.
+        </p>
+      </div>
+    );
+  }
   const state = dashboardDiscountState(discount);
-  const nextBillFreeFromReferral =
-    referralSummaryQuery.data?.stats.nextBillFreeFromReferral === true;
-  const queuedReferralRewards =
-    referralSummaryQuery.data?.stats.queuedFreeBills ?? 0;
-  if (state === "unavailable") {
-    return (
-      <div className="space-y-3">
-        <div className="flex flex-wrap items-center gap-2">
-          <Sparkles className="h-4 w-4 text-muted-foreground" aria-hidden />
-          <h3 className="text-sm font-semibold">Your plan</h3>
-          <Badge className={UCAT_PLAN_TIER_BADGE_CLASS}>{tierLabel}</Badge>
-        </div>
-        {nextBillFreeFromReferral ? (
-          <>
-            <p className="text-sm font-medium">Your next bill is free</p>
-            <p className="text-xs text-muted-foreground">
-              {queuedReferralRewards === 1
-                ? "Covered by a referral reward."
-                : `Covered by a referral reward · ${queuedReferralRewards} rewards ready.`}
-            </p>
-          </>
-        ) : (
-          <>
-            <p className="text-sm font-medium">Unlimited online study is active</p>
-            <p className="text-xs text-muted-foreground">
-              Learn, practice, and take sets or mocks without online quotas.
-            </p>
-          </>
-        )}
-        <Button asChild size="sm" variant="ghost">
-          <Link href="/settings/plan">Plan details</Link>
-        </Button>
-      </div>
-    );
-  }
-
   const dailyDiscount = formatMoneyFromMinorUnits(
     discount.discountPerDayCents,
     discount.currency,
@@ -280,96 +296,45 @@ export function DashboardMembershipValue({
     discount.totalDiscountCents,
     discount.currency,
   );
-
+  if (state === "earned_today" || state === "period_complete") {
+    return (
+      <div className="space-y-3">
+        {freeBillCelebration}
+        <Celebration
+          kind="discount"
+          title={
+            state === "period_complete"
+              ? "Maximum discount unlocked"
+              : `${dailyDiscount} discount earned today`
+          }
+          detail={`${periodDiscount} saved this billing period.`}
+        />
+      </div>
+    );
+  }
   return (
     <div className="space-y-3">
-      <div className="flex flex-wrap items-center gap-2">
-        {state === "in_progress" ? (
-          <Gift className="h-4 w-4 text-muted-foreground" aria-hidden />
-        ) : (
-          <Check className="h-4 w-4 text-muted-foreground" aria-hidden />
-        )}
-        <h3 className="text-sm font-semibold">Practice-day reward</h3>
-        <Badge className={UCAT_PLAN_TIER_BADGE_CLASS}>{tierLabel}</Badge>
-      </div>
-
-      {nextBillFreeFromReferral ? (
-        <div className="rounded-xl border border-primary/25 bg-primary/[0.08] px-3 py-2">
-          <p className="text-sm font-medium">Your next bill is free</p>
-          <p className="mt-0.5 text-xs text-muted-foreground">
-            {queuedReferralRewards === 1
-              ? "Covered by a referral reward."
-              : `Covered by a referral reward · ${queuedReferralRewards} rewards ready.`}
+      {freeBillCelebration}
+      <div className="space-y-2 rounded-xl border border-border/60 bg-muted/25 p-3">
+        <div className="flex items-baseline justify-between gap-3 text-sm">
+          <p className="font-medium">
+            {discount.today.remainingQuestions} more question
+            {discount.today.remainingQuestions === 1 ? "" : "s"} for{" "}
+            {dailyDiscount} off
           </p>
+          <span className="text-xs tabular-nums text-muted-foreground">
+            {discount.today.questionsDone}/{discount.today.minQuestions}
+          </span>
         </div>
-      ) : null}
-
-      {state === "in_progress" ? (
-        <>
-          <div className="space-y-1.5">
-            <div className="flex items-baseline justify-between gap-3 text-sm">
-              <p className="font-medium">
-                {discount.today.remainingQuestions} more question
-                {discount.today.remainingQuestions === 1 ? "" : "s"} to earn{" "}
-                {dailyDiscount} off
-              </p>
-              <span className="shrink-0 text-xs tabular-nums text-muted-foreground">
-                {discount.today.questionsDone}/{discount.today.minQuestions}
-              </span>
-            </div>
-            <QuotaProgressBar
-              used={discount.today.questionsDone}
-              limit={discount.today.minQuestions}
-              atLimit={false}
-            />
-          </div>
-          <p className="text-xs text-muted-foreground">
-            {nextBillFreeFromReferral
-              ? "Practice-day discounts still earn for later bills after this free one."
-              : taskContributesQuestions(nextTask)
-                ? "Today’s recommended task counts toward this reward."
-                : `${periodDiscount} earned this billing period so far.`}
-          </p>
-          <div className="flex flex-wrap items-center gap-2">
-            {!taskContributesQuestions(nextTask) ? (
-              <Button asChild size="sm" variant="outline">
-                <Link href="/practice">Practice now</Link>
-              </Button>
-            ) : null}
-            <Button asChild size="sm" variant="ghost">
-              <Link href="/settings/plan">How discounts work</Link>
-            </Button>
-          </div>
-        </>
-      ) : state === "earned_today" ? (
-        <>
-          <p className="text-sm font-medium">
-            Today’s {dailyDiscount} discount is secured
-          </p>
-          <p className="text-xs text-muted-foreground">
-            {nextBillFreeFromReferral
-              ? "Your next bill is already free from a referral reward."
-              : `You’ve earned ${periodDiscount} off your next bill so far.`}
-          </p>
-          <Button asChild size="sm" variant="ghost">
-            <Link href="/settings/plan">View discount details</Link>
-          </Button>
-        </>
-      ) : (
-        <>
-          <p className="text-sm font-medium">
-            Maximum discount earned this billing period
-          </p>
-          <p className="text-xs text-muted-foreground">
-            {nextBillFreeFromReferral
-              ? "Your next bill is already free from a referral reward."
-              : `${periodDiscount} is coming off your next bill.`}
-          </p>
-          <Button asChild size="sm" variant="ghost">
-            <Link href="/settings/plan">View discount details</Link>
-          </Button>
-        </>
-      )}
+        <QuotaProgressBar
+          used={discount.today.questionsDone}
+          limit={discount.today.minQuestions}
+          atLimit={false}
+        />
+        <p className="text-xs text-muted-foreground">
+          {periodDiscount} saved this billing period so far.
+        </p>
+      </div>
     </div>
   );
 }

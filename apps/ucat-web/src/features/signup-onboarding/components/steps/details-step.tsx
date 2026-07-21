@@ -8,7 +8,7 @@ import {
   validateOptionalPhoneE164,
 } from "@altitutor/ui";
 import { cn } from "@/lib/utils";
-import { UCAT_ACCENT_FILL_RISE } from "@/lib/ucat-surface-motion";
+import { UCAT_SIGNUP_PRIMARY_ACTION } from "@/lib/ucat-surface-motion";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@altitutor/shared";
 import { subscribeToUcatNewsletter } from "@/features/auth/api/newsletter";
@@ -264,7 +264,7 @@ export function SignupCompleteDetailsStep({
       <button
         type="submit"
         disabled={isSubmitting}
-        className={cn(UCAT_ACCENT_FILL_RISE, "w-full", typo.headingSans)}
+        className={cn(UCAT_SIGNUP_PRIMARY_ACTION, typo.headingSans)}
       >
         {isSubmitting ? "Saving…" : "Next"}
       </button>

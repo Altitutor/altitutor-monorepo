@@ -278,9 +278,6 @@ export function MockAttemptsCard({
             <p className="mt-2 text-3xl font-semibold tabular-nums">
               {averageScore ?? '—'}
             </p>
-            <p className="mt-1 text-xs text-muted-foreground">
-              Simple average across completed mocks
-            </p>
           </CardContent>
         </Card>
         <Card className={tutorCardCn()}>

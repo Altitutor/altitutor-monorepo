@@ -8,7 +8,7 @@ import {
 } from "@/lib/ucat/skill-trainer/attempt-service";
 
 export async function GET(
-  _request: Request,
+  request: Request,
   { params }: { params: { id: string } },
 ) {
   const auth = await requireStudentAdminClient();
@@ -71,6 +71,92 @@ export async function GET(
       trainer_key: trainerKey,
       version: data.version,
     });
+    if (new URL(request.url).searchParams.get("include") === "review") {
+      if (!state.isCompleted) {
+        return NextResponse.json(
+          { error: "Attempt is not complete" },
+          { status: 409 },
+        );
+      }
+
+      const { data: completedItems, error: completedItemsError } =
+        await auth.admin
+          .from("student_skill_trainer_attempt_items")
+          .select(
+            "id, skill_trainer_item_id, score_delta, result, completed_at",
+          )
+          .eq("skill_trainer_attempt_id", state.attempt.id)
+          .order("completed_at", { ascending: true });
+      if (completedItemsError) throw new Error(completedItemsError.message);
+
+      const itemIds = [
+        ...new Set(
+          (completedItems ?? []).map((item) => item.skill_trainer_item_id),
+        ),
+      ];
+      const { data: trainerItems, error: trainerItemsError } = itemIds.length
+        ? await auth.admin
+            .from("ucat_skill_trainer_items")
+            .select("id, content")
+            .in("id", itemIds)
+        : { data: [], error: null };
+      if (trainerItemsError) throw new Error(trainerItemsError.message);
+      const contentById = new Map(
+        (trainerItems ?? []).map((item) => [
+          item.id,
+          item.content as Record<string, unknown>,
+        ]),
+      );
+
+      let previousCompletedAt = Date.parse(state.attempt.started_at);
+      const reviewItems = (completedItems ?? []).map((item) => {
+        const result =
+          item.result &&
+          typeof item.result === "object" &&
+          !Array.isArray(item.result)
+            ? (item.result as Record<string, unknown>)
+            : {};
+        const completedAt = Date.parse(item.completed_at);
+        const measuredElapsed =
+          Number.isFinite(completedAt) && Number.isFinite(previousCompletedAt)
+            ? Math.max(
+                0,
+                Math.round((completedAt - previousCompletedAt) / 1000),
+              )
+            : null;
+        previousCompletedAt = completedAt;
+        const storedElapsed =
+          typeof result.elapsed_seconds === "number"
+            ? Math.max(0, Math.round(result.elapsed_seconds))
+            : null;
+        return {
+          id: item.id,
+          item_id: item.skill_trainer_item_id,
+          content: contentById.get(item.skill_trainer_item_id) ?? {},
+          score_delta: Number(item.score_delta),
+          completed_at: item.completed_at,
+          elapsed_seconds: storedElapsed ?? measuredElapsed,
+          correct:
+            typeof result.correct === "boolean"
+              ? result.correct
+              : Number(item.score_delta) > 0,
+          answer: result.answer ?? null,
+        };
+      });
+
+      return NextResponse.json({
+        review: {
+          attempt: {
+            id: state.attempt.id,
+            score: state.attempt.score,
+            started_at: state.attempt.started_at,
+            completed_at: state.attempt.completed_at,
+            trainer_key: trainerKey,
+          },
+          items: reviewItems,
+        },
+      });
+    }
     return NextResponse.json({ attempt: state });
   } catch (err) {
     captureApiError(err, "/api/ucat/skill-trainer-attempts/[id]");

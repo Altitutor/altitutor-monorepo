@@ -47,6 +47,13 @@ export const UCAT_ENGINE_TABLE_ROOT_CLASSNAME =
 export const UCAT_ENGINE_TABLE_WRAPPER_CLASSNAME =
   '[&_.tiptap_table]:my-2 [&_.tiptap_table]:w-full [&_.tiptap_table]:border-collapse [&_.tiptap_table]:overflow-visible [&_.tiptap_table]:border [&_.tiptap_table]:border-solid [&_.tiptap_table]:!border-[#9ba9bd] [&_.ProseMirror_table]:my-2 [&_.ProseMirror_table]:w-full [&_.ProseMirror_table]:border-collapse [&_.ProseMirror_table]:overflow-visible [&_.ProseMirror_table]:border [&_.ProseMirror_table]:border-solid [&_.ProseMirror_table]:!border-[#9ba9bd] [&_.tiptap_th]:border [&_.tiptap_th]:border-solid [&_.tiptap_th]:!border-[#9ba9bd] [&_.tiptap_th]:bg-[#f3f4f6] [&_.tiptap_th]:p-2 [&_.tiptap_th]:text-left [&_.ProseMirror_th]:border [&_.ProseMirror_th]:border-solid [&_.ProseMirror_th]:!border-[#9ba9bd] [&_.ProseMirror_th]:bg-[#f3f4f6] [&_.ProseMirror_th]:p-2 [&_.ProseMirror_th]:text-left [&_.tiptap_td]:border [&_.tiptap_td]:border-solid [&_.tiptap_td]:!border-[#9ba9bd] [&_.tiptap_td]:p-2 [&_.tiptap_td]:align-top [&_.ProseMirror_td]:border [&_.ProseMirror_td]:border-solid [&_.ProseMirror_td]:!border-[#9ba9bd] [&_.ProseMirror_td]:p-2 [&_.ProseMirror_td]:align-top'
 
+/**
+ * Theme-aware tables for dark/light app chrome (skill trainer previews, review).
+ * Avoids engine `#f3f4f6` headers which become unreadable with white dark-mode text.
+ */
+export const UCAT_THEME_TABLE_WRAPPER_CLASSNAME =
+  '[&_.tiptap_table]:my-2 [&_.tiptap_table]:w-full [&_.tiptap_table]:border-collapse [&_.tiptap_table]:overflow-visible [&_.tiptap_table]:border [&_.tiptap_table]:border-solid [&_.tiptap_table]:border-border [&_.ProseMirror_table]:my-2 [&_.ProseMirror_table]:w-full [&_.ProseMirror_table]:border-collapse [&_.ProseMirror_table]:overflow-visible [&_.ProseMirror_table]:border [&_.ProseMirror_table]:border-solid [&_.ProseMirror_table]:border-border [&_.tiptap_th]:border [&_.tiptap_th]:border-solid [&_.tiptap_th]:border-border [&_.tiptap_th]:!bg-muted [&_.tiptap_th]:p-2 [&_.tiptap_th]:text-left [&_.tiptap_th]:text-foreground [&_.ProseMirror_th]:border [&_.ProseMirror_th]:border-solid [&_.ProseMirror_th]:border-border [&_.ProseMirror_th]:!bg-muted [&_.ProseMirror_th]:p-2 [&_.ProseMirror_th]:text-left [&_.ProseMirror_th]:text-foreground [&_.tiptap_td]:border [&_.tiptap_td]:border-solid [&_.tiptap_td]:border-border [&_.tiptap_td]:p-2 [&_.tiptap_td]:align-top [&_.tiptap_td]:text-foreground [&_.ProseMirror_td]:border [&_.ProseMirror_td]:border-solid [&_.ProseMirror_td]:border-border [&_.ProseMirror_td]:p-2 [&_.ProseMirror_td]:align-top [&_.ProseMirror_td]:text-foreground'
+
 /** @deprecated Use UCAT_ENGINE_TABLE_WRAPPER_CLASSNAME or UCAT_ENGINE_TABLE_ROOT_CLASSNAME */
 export const UCAT_ENGINE_TABLE_CLASSNAME = UCAT_ENGINE_TABLE_WRAPPER_CLASSNAME
 

@@ -10,7 +10,9 @@ function labels(pathname: string): string[] {
 }
 
 function hrefs(pathname: string): (string | undefined)[] {
-  return getBreadcrumbItems(pathname).map((item) => item.effectiveHref ?? undefined);
+  return getBreadcrumbItems(pathname).map(
+    (item) => item.effectiveHref ?? undefined,
+  );
 }
 
 describe("getBreadcrumbItems", () => {
@@ -19,13 +21,13 @@ describe("getBreadcrumbItems", () => {
   });
 
   it("omits structural segments on progress set-attempt section route", () => {
-    expect(
-      labels(`/progress/sections/3/set-attempts/${ATTEMPT_ID}`),
-    ).toEqual(["Progress", "Quantitative Reasoning", "Set attempt"]);
+    expect(labels(`/progress/sections/3/set-attempts/${ATTEMPT_ID}`)).toEqual([
+      "Progress",
+      "Quantitative Reasoning",
+      "Set attempt",
+    ]);
 
-    expect(
-      hrefs(`/progress/sections/3/set-attempts/${ATTEMPT_ID}`),
-    ).toEqual([
+    expect(hrefs(`/progress/sections/3/set-attempts/${ATTEMPT_ID}`)).toEqual([
       "/progress",
       "/progress/sections/3",
       `/progress/sections/3/set-attempts/${ATTEMPT_ID}`,
@@ -89,7 +91,10 @@ describe("getBreadcrumbItems", () => {
 
   it("keeps settings hub on nested settings routes", () => {
     expect(labels("/settings/profile")).toEqual(["Settings", "My profile"]);
-    expect(hrefs("/settings/profile")).toEqual(["/settings", "/settings/profile"]);
+    expect(hrefs("/settings/profile")).toEqual([
+      "/settings",
+      "/settings/profile",
+    ]);
   });
 
   it("omits practice-sessions structural segment", () => {
@@ -97,5 +102,11 @@ describe("getBreadcrumbItems", () => {
       "Progress",
       "Practice session",
     ]);
+  });
+
+  it("names skill trainer attempts without exposing route slugs", () => {
+    expect(
+      labels(`/skill-trainer/quick-syllogism/results/${ATTEMPT_ID}`),
+    ).toEqual(["Skill trainer", "Quick syllogisms", "Attempt"]);
   });
 });

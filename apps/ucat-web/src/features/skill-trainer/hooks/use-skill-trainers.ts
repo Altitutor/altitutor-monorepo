@@ -20,5 +20,6 @@ export function useSkillTrainerLeaderboard(
     queryKey: ["skill-trainers", "leaderboard", trainerKey, window],
     queryFn: () => skillTrainerApi.getLeaderboard(trainerKey, window),
     enabled: Boolean(trainerKey),
+    refetchOnMount: "always",
   });
 }

@@ -329,6 +329,7 @@ export function PracticeSessionPage() {
     active: activeExamAttempt,
     isLoading: activeAttemptLoading,
     refresh: refreshActiveAttempt,
+    clearLocal: clearActiveAttempt,
   } = useActiveExamAttempt();
   const { isReady: questionEngineTourReady } = useQuestionEngineTutorialGate();
   const { openQuotaLimit } = useQuotaLimitDialog();
@@ -649,6 +650,7 @@ export function PracticeSessionPage() {
       if (conflictActive.kind === "practice") {
         clearPracticeSession();
       }
+      clearActiveAttempt();
       await refreshActiveAttempt();
       const startInput = pendingConflictStart;
       setConflictActive(null);

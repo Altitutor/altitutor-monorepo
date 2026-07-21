@@ -83,6 +83,13 @@ export function DashboardRecentAttemptsCard() {
     completedOnly: true,
   });
 
+  const attempts = attemptsQuery.data?.attempts ?? [];
+  const hasAttempts = attempts.length > 0;
+
+  if (!attemptsQuery.isLoading && !attemptsQuery.isError && !hasAttempts) {
+    return null;
+  }
+
   return (
     <Card className={cn(UCAT_CARD_CHROME, "h-full")}>
       <CardContent className="p-5 sm:p-6">
@@ -111,9 +118,9 @@ export function DashboardRecentAttemptsCard() {
             Recent attempts are temporarily unavailable. Your results remain
             available in Progress.
           </p>
-        ) : attemptsQuery.data?.attempts.length ? (
+        ) : (
           <div className="mt-4 divide-y divide-border/60">
-            {attemptsQuery.data.attempts.map((attempt) => {
+            {attempts.map((attempt) => {
               const attemptLink = (
                 <Link
                   key={`${attempt.source}-${attempt.id}`}
@@ -163,19 +170,6 @@ export function DashboardRecentAttemptsCard() {
                 attemptLink
               );
             })}
-          </div>
-        ) : (
-          <div className="mt-5 rounded-xl border border-dashed p-5 text-center">
-            <p className="text-sm font-medium">No completed attempts yet</p>
-            <p className="mt-1 text-xs text-muted-foreground">
-              Finished practice, sets, and mocks will appear here for review.
-            </p>
-            <Button asChild size="sm" className="mt-4">
-              <Link href="/practice">
-                Go to practice
-                <ArrowRight className="ml-1.5 size-3.5" aria-hidden />
-              </Link>
-            </Button>
           </div>
         )}
       </CardContent>

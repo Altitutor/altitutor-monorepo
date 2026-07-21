@@ -211,10 +211,8 @@ function actionContent(action: DashboardNextAction): {
         primaryLabel:
           action.primary.taskType === "review" ? "Review result" : "Start",
         primaryHref: action.primary.launchPath,
-        secondaryLabel: action.secondary
-          ? `Another option: ${action.secondary.title}`
-          : null,
-        secondaryHref: action.secondary?.launchPath ?? null,
+        secondaryLabel: null,
+        secondaryHref: null,
       };
     case "caught_up":
       return {
@@ -298,7 +296,7 @@ function DashboardNextActionPanel({
       aria-labelledby="dashboard-what-now-title"
     >
       <p className="text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
-        What now
+        Suggested next step
       </p>
       <div className="mt-3 flex items-start gap-3">
         <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-background text-foreground shadow-sm ring-1 ring-border/60">
@@ -319,9 +317,6 @@ function DashboardNextActionPanel({
           ) : null}
         </div>
       </div>
-      <p className="mt-3 text-sm text-muted-foreground">
-        {content.description}
-      </p>
       {taskError ? (
         <p className="mt-3 rounded-xl bg-destructive/10 px-3.5 py-3 text-sm text-destructive">
           {taskError} Your task remains on the Study plan.
@@ -352,40 +347,6 @@ function DashboardNextActionPanel({
     </section>
   );
 }
-
-const TRAJECTORY_STATUS: Record<
-  DashboardTrajectoryState["stage"],
-  { label: string; className: string }
-> = {
-  building_baseline: {
-    label: "Building baseline",
-    className: "bg-muted text-muted-foreground",
-  },
-  early_estimate: {
-    label: "Early estimate",
-    className: "bg-muted text-muted-foreground",
-  },
-  no_test_date: {
-    label: "Set test date",
-    className: "bg-muted text-muted-foreground",
-  },
-  long_range: {
-    label: "Long-range goal",
-    className: "bg-muted text-muted-foreground",
-  },
-  on_track: {
-    label: "On track",
-    className: "bg-emerald-500/10 text-emerald-700 dark:text-emerald-300",
-  },
-  within_reach: {
-    label: "Within reach",
-    className: "bg-primary/10 text-primary",
-  },
-  needs_adjustment: {
-    label: "Needs adjustment",
-    className: "bg-amber-500/10 text-amber-700 dark:text-amber-300",
-  },
-};
 
 function weakestSectionName(
   sections: SectionScoreProjection[],
@@ -581,7 +542,7 @@ export function DashboardTrajectoryHero({
             )}
           >
             <p className="text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
-              Your predictred score trajectory
+              Your predicted score trajectory
             </p>
             <h2 className="mt-3 text-xl font-semibold tracking-tight">
               {planUnavailable
@@ -611,7 +572,7 @@ export function DashboardTrajectoryHero({
           )}
         >
           <p className="text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
-            Your predictred score trajectory
+            Your predicted score trajectory
           </p>
           <h2 className="mt-2 text-lg font-semibold">
             {planUnavailable
@@ -638,17 +599,6 @@ export function DashboardTrajectoryHero({
   }
 
   if (!state) return null;
-  const status = projectionError
-    ? {
-        label: "Unavailable",
-        className: "bg-muted text-muted-foreground",
-      }
-    : projectionLoading
-      ? {
-          label: "Loading",
-          className: "bg-muted text-muted-foreground",
-        }
-      : TRAJECTORY_STATUS[state.stage];
   const weakestSection = weakestSectionName(
     sections,
     plan.generation?.sectionTargets ?? {},
@@ -696,33 +646,13 @@ export function DashboardTrajectoryHero({
           })),
       ),
   );
-  const outlook = projectionError
-    ? "Score outlook temporarily unavailable"
-    : state.stage === "building_baseline"
-      ? `${state.readySectionCount}/3 of Sections 1–3 ready`
-      : state.stage === "early_estimate" && state.projectedAtTest
-        ? `Early test-day range ${state.projectedAtTest.pessimistic}–${state.projectedAtTest.optimistic}`
-        : state.projectedAtTest
-          ? `Projected ${state.projectedAtTest.realistic} at test`
-          : state.forecastPoint
-            ? `${state.forecastHorizonDays}-day outlook ${state.forecastPoint.realistic}`
-            : "Building your score outlook";
-
   return (
     <section className="relative isolate overflow-hidden border-y border-border/60 bg-gradient-to-b from-muted/25 via-background to-background">
       <div className="relative min-h-[620px] sm:min-h-[700px] lg:min-h-[690px]">
-        <div className="absolute inset-x-0 top-0 z-10 flex flex-wrap items-start justify-between gap-3 px-5 py-6 sm:px-8 lg:px-10">
-          <div>
-            <h1 className="text-xl font-semibold tracking-tight sm:text-2xl">
-              {firstName ? `Good to see you, ${firstName}` : "Good to see you"}
-            </h1>
-            <p className="mt-1 text-sm text-muted-foreground">
-              Target {plan.profile.targetScore} · {outlook}
-            </p>
-          </div>
-          <Badge className={cn("border-0", status.className)}>
-            {status.label}
-          </Badge>
+        <div className="absolute inset-x-0 top-0 z-10 px-5 py-6 sm:px-8 lg:px-10">
+          <h1 className="text-xl font-semibold tracking-tight sm:text-2xl">
+            {firstName ? `Good to see you, ${firstName}` : "Good to see you"}
+          </h1>
         </div>
         <div className="absolute inset-x-0 top-20 min-w-0">
           {projectionLoading ? (
@@ -767,8 +697,7 @@ export function DashboardTrajectoryHero({
         >
           <section aria-labelledby="dashboard-why-title">
             <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
-              <Sparkles className="size-3.5" aria-hidden />
-              Your predictred score trajectory
+              Your predicted score trajectory
             </div>
             <h2 id="dashboard-why-title" className="mt-3 text-lg font-semibold">
               {insight.title}
@@ -806,8 +735,7 @@ export function DashboardTrajectoryHero({
       >
         <section aria-labelledby="dashboard-why-title-mobile">
           <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
-            <Sparkles className="size-3.5" aria-hidden />
-            Your predictred score trajectory
+            Your predicted score trajectory
           </div>
           <h2
             id="dashboard-why-title-mobile"

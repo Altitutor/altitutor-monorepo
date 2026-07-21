@@ -25,8 +25,13 @@ function StatPill({
         className,
       )}
     >
-      {Icon ? <Icon className="h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-hidden /> : null}
-      <span className="text-muted-foreground">{label}</span>
+      {Icon ? (
+        <Icon
+          className="h-3.5 w-3.5 shrink-0 text-muted-foreground"
+          aria-hidden
+        />
+      ) : null}
+      <span className="hidden text-muted-foreground sm:inline">{label}</span>
       <span className="font-bold tabular-nums text-foreground">{value}</span>
     </div>
   );
@@ -50,7 +55,7 @@ export function SkillTrainerScoreBar({
   const showStreak = streakEnabled && streak >= 2;
   const streakLevel = streak >= 15 ? 4 : streak >= 10 ? 3 : streak >= 5 ? 2 : 1;
   const streakClass = cn(
-    "inline-flex h-8 w-[112px] items-center justify-center gap-1.5 rounded-full border px-3 text-sm font-bold tabular-nums shadow-sm transition-colors",
+    "inline-flex h-6 min-w-6 items-center justify-center gap-0.5 rounded-full border px-1.5 text-xs font-bold tabular-nums shadow-sm transition-colors",
     streakLevel === 1 &&
       "border-orange-300/50 bg-orange-500/10 text-orange-700 dark:border-orange-500/40 dark:bg-orange-500/15 dark:text-orange-200",
     streakLevel === 2 &&
@@ -69,18 +74,16 @@ export function SkillTrainerScoreBar({
   );
 
   return (
-    <div className="flex flex-wrap items-center justify-between gap-3 overflow-visible rounded-xl border border-primary/20 bg-gradient-to-r from-primary/5 via-background to-primary/5 px-3 py-2 shadow-sm">
-      <div className="flex flex-wrap items-center gap-2 overflow-visible">
+    <div className="flex flex-nowrap items-center justify-between gap-1.5 overflow-visible rounded-xl border border-primary/20 bg-gradient-to-r from-primary/5 via-background to-primary/5 px-2 py-2 shadow-sm sm:gap-3 sm:px-3">
+      <div className="flex min-w-0 flex-nowrap items-center gap-1.5 overflow-visible sm:gap-2">
         <StatPill icon={Clock} label="Time" value={`${remaining}s`} />
         <div className="relative">
           <StatPill icon={Trophy} label="Score" value={score} />
           <div className="pointer-events-none absolute left-1/2 top-full z-10 mt-1 -translate-x-1/2 whitespace-nowrap">
             <ScoreDeltaFeedback delta={scoreDelta} />
           </div>
-        </div>
-        <div className="relative h-8 w-[112px] shrink-0 overflow-visible">
           {showStreak ? (
-            <div className="pointer-events-none absolute left-1/2 top-1/2 h-8 w-[112px] -translate-x-1/2 -translate-y-1/2 overflow-visible">
+            <div className="pointer-events-none absolute -right-2 -top-2 overflow-visible">
               <motion.div
                 key={streak}
                 className={streakClass}
@@ -90,8 +93,8 @@ export function SkillTrainerScoreBar({
                     streakLevel >= 4
                       ? [1.06, 1.2, 1.06]
                       : streakLevel >= 3
-                      ? [1.03, 1.13, 1.03]
-                      : [1, 1.07, 1],
+                        ? [1.03, 1.13, 1.03]
+                        : [1, 1.07, 1],
                 }}
                 transition={{ duration: 0.45, ease: "easeOut" }}
               >
@@ -99,9 +102,7 @@ export function SkillTrainerScoreBar({
                   className="relative inline-flex h-5 w-5 items-center justify-center"
                   animate={{
                     rotate:
-                      streakLevel >= 3
-                        ? [0, -10, 8, -5, 0]
-                        : [0, -6, 5, 0],
+                      streakLevel >= 3 ? [0, -10, 8, -5, 0] : [0, -6, 5, 0],
                     y: streakLevel >= 4 ? [0, -2, 0] : [0, -1, 0],
                     filter:
                       streakLevel >= 3
@@ -128,7 +129,11 @@ export function SkillTrainerScoreBar({
                           scale: [0.85, 1.22, 0.95],
                           y: [1, -2, 0],
                         }}
-                        transition={{ duration: 0.7, repeat: Infinity, repeatDelay: 0.1 }}
+                        transition={{
+                          duration: 0.7,
+                          repeat: Infinity,
+                          repeatDelay: 0.1,
+                        }}
                       >
                         <Flame className={flameClass} />
                       </motion.span>
@@ -139,7 +144,11 @@ export function SkillTrainerScoreBar({
                           scale: [0.75, 1.1, 0.8],
                           x: [-1, 1, 0],
                         }}
-                        transition={{ duration: 0.5, repeat: Infinity, repeatDelay: 0.2 }}
+                        transition={{
+                          duration: 0.5,
+                          repeat: Infinity,
+                          repeatDelay: 0.2,
+                        }}
                       >
                         <Flame className={flameClass} />
                       </motion.span>
@@ -147,7 +156,6 @@ export function SkillTrainerScoreBar({
                   ) : null}
                   <Flame className={cn(flameClass, "relative z-10")} />
                 </motion.span>
-                <span className="text-current/80">Streak</span>
                 <span>{streak}</span>
               </motion.div>
             </div>
@@ -159,11 +167,11 @@ export function SkillTrainerScoreBar({
           type="button"
           variant="ghost"
           size="sm"
-          className="gap-1.5 text-muted-foreground hover:text-foreground"
+          className="shrink-0 gap-1.5 px-2 text-muted-foreground hover:text-foreground sm:px-3"
           onClick={onExit}
         >
           <LogOut className="h-4 w-4" aria-hidden />
-          Exit
+          <span className="hidden sm:inline">Exit</span>
         </Button>
       ) : null}
     </div>

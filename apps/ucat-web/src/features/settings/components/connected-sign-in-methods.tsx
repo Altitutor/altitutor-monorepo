@@ -216,8 +216,7 @@ export function ConnectedSignInMethods({
             ) : null}
             {!isLoading && identities.length < 2 ? (
               <p className="text-xs text-muted-foreground">
-                Supabase only permits removing an identity after another
-                identity is connected.
+                You can't remove your only sign-in method.
               </p>
             ) : null}
             {error ? (

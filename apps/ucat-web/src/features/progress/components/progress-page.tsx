@@ -237,7 +237,7 @@ export function ProgressPageContent({
     improvement != null && improvement >= 20
       ? `Your estimate has improved by ${improvement} points`
       : projectedGain != null && projectedGain > 0
-        ? `The current path adds about ${projectedGain} points over 90 days`
+        ? `Your score is predicted to improve by about ${projectedGain} points over the next 90 days`
         : currentEstimate == null
           ? "Build your baseline one section at a time"
           : "Your estimate is the starting point - not the verdict";

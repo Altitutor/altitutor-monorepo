@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { motion } from "motion/react";
+import { AnimatePresence, motion } from "motion/react";
 import { UcatPageHeader } from "@/features/layout";
 import { AppPageSkeleton } from "@/features/layout/components/app-page-skeleton";
 import { useSectionProgress } from "../hooks/use-progress";
@@ -245,7 +245,7 @@ export function SectionProgressContent({
     : score == null
       ? `Start ${section.sectionName} with a representative timed set`
       : projectedGain != null && projectedGain > 0
-        ? `The current path adds about ${projectedGain} points`
+        ? `Your score is predicted to improve by about ${projectedGain} points`
         : "Keep the evidence representative";
   const insightBody = weakestCategory
     ? `${Math.round(weakestCategory.percentage)}% accuracy makes this your weakest attempted category.${
@@ -274,85 +274,88 @@ export function SectionProgressContent({
       initial="hidden"
       animate="show"
     >
-      {trajectoryView === "score" ? (
-        <ProgressTrajectoryCanvas
-          title={`${section.sectionName} progress`}
-          description={
-            targetScore == null
-              ? `Current estimate ${score ?? "pending"}`
-              : `Current estimate ${score ?? "pending"} · Target ${targetScore}`
-          }
-          statusLabel={
-            score == null
-              ? "Building baseline"
-              : scoreProjection?.confidence === "high"
-                ? "Strong evidence"
-                : scoreProjection?.confidence === "medium"
-                  ? "Estimate forming"
-                  : "Early estimate"
-          }
-          projection={scoreProjection}
-          today={today}
-          targetScore={targetScore}
-          testDate={testDate}
-          targetBreakdown={
-            targetScore == null
-              ? []
-              : [
-                  {
-                    sectionName: section.sectionName,
-                    target: targetScore,
-                    currentEstimate: score,
-                  },
-                ]
-          }
-          scoreMinimum={300}
-          scoreMaximum={900}
-          insightTitle={insightTitle}
-          insightBody={insightBody}
-          ratingTargetKey="section-score-trajectory"
-          ratingContextKey={`progress:section:${section.sectionId}`}
-          headerControl={trajectoryToggle}
-          insightMeta={
-            <div className="space-y-2 text-sm">
-              <div className="flex justify-between gap-4">
-                <span className="text-muted-foreground">Current estimate</span>
-                <span className="font-medium tabular-nums">
-                  {score ?? "Pending"}
-                </span>
-              </div>
-              <div className="flex justify-between gap-4">
-                <span className="text-muted-foreground">Target</span>
-                {targetScore == null ? (
-                  <Button asChild size="sm">
-                    <Link href="/ucat-goal/setup">Set target</Link>
-                  </Button>
-                ) : (
-                  <span className="font-medium tabular-nums">
-                    {targetScore}
-                  </span>
-                )}
-              </div>
-              <div className="flex justify-between gap-4">
-                <span className="text-muted-foreground">Gap</span>
-                <span className="font-medium tabular-nums">
-                  {score == null || targetScore == null
-                    ? "Pending"
-                    : targetScore <= score
-                      ? `${score - targetScore} ahead`
-                      : `${targetScore - score} points`}
-                </span>
-              </div>
-            </div>
-          }
+      <div className="mx-auto w-full max-w-[1400px] px-5 pt-6 sm:px-6">
+        <UcatPageHeader
+          title={section.sectionName}
+          backHref="/progress"
+          backLabel="Back to progress"
+          actions={trajectoryToggle}
         />
-      ) : (
-        <SectionTimingCanvas
-          sectionName={section.sectionName}
-          points={resolvedTimingSeries}
-          headerControl={trajectoryToggle}
-        />
-      )}
+      </div>
+      <AnimatePresence mode="wait" initial={false}>
+        <motion.div
+          key={trajectoryView}
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: -8 }}
+          transition={{ duration: 0.2, ease: "easeOut" }}
+        >
+          {trajectoryView === "score" ? (
+            <ProgressTrajectoryCanvas
+              projection={scoreProjection}
+              today={today}
+              targetScore={targetScore}
+              testDate={testDate}
+              targetBreakdown={
+                targetScore == null
+                  ? []
+                  : [
+                      {
+                        sectionName: section.sectionName,
+                        target: targetScore,
+                        currentEstimate: score,
+                      },
+                    ]
+              }
+              scoreMinimum={300}
+              scoreMaximum={900}
+              insightTitle={insightTitle}
+              insightBody={insightBody}
+              ratingTargetKey="section-score-trajectory"
+              ratingContextKey={`progress:section:${section.sectionId}`}
+              insightMeta={
+                <div className="space-y-2 text-sm">
+                  <div className="flex justify-between gap-4">
+                    <span className="text-muted-foreground">
+                      Current estimate
+                    </span>
+                    <span className="font-medium tabular-nums">
+                      {score ?? "Pending"}
+                    </span>
+                  </div>
+                  <div className="flex justify-between gap-4">
+                    <span className="text-muted-foreground">Target</span>
+                    {targetScore == null ? (
+                      <Button asChild size="sm">
+                        <Link href="/ucat-goal/setup">Set target</Link>
+                      </Button>
+                    ) : (
+                      <span className="font-medium tabular-nums">
+                        {targetScore}
+                      </span>
+                    )}
+                  </div>
+                  <div className="flex justify-between gap-4">
+                    <span className="text-muted-foreground">Gap</span>
+                    <span className="font-medium tabular-nums">
+                      {score == null || targetScore == null
+                        ? "Pending"
+                        : targetScore <= score
+                          ? `${score - targetScore} ahead`
+                          : `${targetScore - score} points`}
+                    </span>
+                  </div>
+                </div>
+              }
+            />
+          ) : (
+            <SectionTimingCanvas
+              sectionName={section.sectionName}
+              points={resolvedTimingSeries}
+            />
+          )}
+        </motion.div>
+      </AnimatePresence>
 
       <motion.div
         className="mx-auto w-full max-w-[1400px] px-5 sm:px-6"
@@ -582,7 +585,6 @@ export function SectionProgressContent({
         <AttemptHistoryExplorer
           source="practice"
           title="Practice sessions"
-          description="Accuracy and activity by day. Select a bar to inspect the attempts behind it."
           sectionNumber={section.sectionNumber}
           defaultMetric="percentage"
           metricOptions={PRACTICE_METRICS}
@@ -595,7 +597,6 @@ export function SectionProgressContent({
         <AttemptHistoryExplorer
           source="set"
           title="Set attempts"
-          description="Scaled-score history with the attempts for any selected day floating beside it."
           sectionNumber={section.sectionNumber}
           defaultMetric="scaled_score"
           metricOptions={SET_AND_MOCK_METRICS}

@@ -17,6 +17,8 @@ import {
   useMocks,
 } from "@/features/mocks";
 import { useActiveExamAttempt } from "@/features/exam-attempts/context/active-exam-attempt-context";
+import { ExamAttemptConflictDialog } from "@/features/exam-attempts/components/exam-attempt-conflict-dialog";
+import { useExamAttemptLaunchPreflight } from "@/features/exam-attempts/hooks/use-exam-attempt-launch-preflight";
 import {
   buildQuestionEngineTutorialHref,
   useQuestionEngineTutorialGate,
@@ -92,6 +94,11 @@ export function MockDetailPage({
   const backLabel =
     backLabelProp ??
     (sessionEntryContext != null ? "Back to session" : "Back to all mocks");
+  const launchPreflight = useExamAttemptLaunchPreflight({
+    kind: "mock",
+    resourceId: mockId,
+    onLaunch: () => router.push(examHref),
+  });
 
   const mock = useMemo(
     () => (mocks ?? []).find((item) => item.id === mockId),
@@ -200,7 +207,7 @@ export function MockDetailPage({
       });
       return;
     }
-    router.push(examHref);
+    launchPreflight.requestLaunch();
   };
 
   const infoRows: Array<[string, string]> = [
@@ -351,6 +358,16 @@ export function MockDetailPage({
           Launch mock
         </Button>
       </motion.div>
+      <ExamAttemptConflictDialog
+        open={launchPreflight.conflictActive != null}
+        active={launchPreflight.conflictActive}
+        pendingLabel="this mock exam"
+        isDiscarding={launchPreflight.isDiscarding}
+        onDiscardAndContinue={() =>
+          void launchPreflight.discardConflictAndLaunch()
+        }
+        onCancel={launchPreflight.cancelConflict}
+      />
     </motion.div>
   );
 }

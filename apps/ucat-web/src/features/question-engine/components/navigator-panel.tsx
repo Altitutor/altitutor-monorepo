@@ -40,7 +40,7 @@ export function NavigatorPanel({
   onSelect: (index: number) => void;
   onClose: () => void;
 }) {
-  const { position, handleMouseDown, setPosition } = useDraggablePanel();
+  const { position, handlePointerDown, setPosition } = useDraggablePanel();
   const panelRef = useRef<HTMLDivElement | null>(null);
   const [size, setSize] = useState({
     width: DEFAULT_WIDTH,
@@ -242,7 +242,7 @@ export function NavigatorPanel({
     <div
       ref={panelRef}
       data-tour="question-engine-navigator-panel"
-      className="pointer-events-auto relative"
+      className="pointer-events-auto relative max-h-[calc(100dvh-7rem)] max-w-[calc(100vw-1rem)]"
       style={{
         transform: `translate3d(${position.x}px, ${position.y}px, 0)`,
         width: size.width,
@@ -252,8 +252,8 @@ export function NavigatorPanel({
       <UcatFloatingPanel
         title="Navigator - select a question to go to it"
         titleIcon={<Navigation className="h-5 w-5" />}
-        onDragMouseDown={handleMouseDown}
-        className="h-full w-full min-w-0 min-h-0 max-h-[85vh] flex flex-col overflow-hidden"
+        onDragPointerDown={handlePointerDown}
+        className="flex h-full min-h-0 w-full min-w-0 flex-col overflow-hidden"
         contentClassName="flex min-h-0 flex-1 flex-col overflow-hidden"
       >
         <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
@@ -342,7 +342,7 @@ export function NavigatorPanel({
               </tbody>
             </table>
           </div>
-          <div className="mt-3 flex shrink-0 flex-col gap-15">
+          <div className="mt-3 flex shrink-0 flex-col gap-4 sm:gap-15">
             <div className="text-left text-[11pt]">
               {unseenOrIncompleteCount} Unseen/Incomplete
             </div>

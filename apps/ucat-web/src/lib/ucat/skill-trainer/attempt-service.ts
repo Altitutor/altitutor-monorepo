@@ -35,6 +35,20 @@ import {
 
 type AdminClient = SupabaseClient<Database>;
 
+export const SKILL_TRAINER_ACTION_DEADLINE_GRACE_MS = 3_000;
+
+export function isSkillTrainerActionWithinDeadline(
+  endsAt: string,
+  actionReceivedAt: Date,
+): boolean {
+  const deadlineMs = Date.parse(endsAt);
+  return (
+    Number.isFinite(deadlineMs) &&
+    actionReceivedAt.getTime() <=
+      deadlineMs + SKILL_TRAINER_ACTION_DEADLINE_GRACE_MS
+  );
+}
+
 type AttemptTrainerRelation = {
   key?: string | null;
   is_enabled?: boolean | null;
@@ -438,6 +452,7 @@ async function completeCurrentItem(
   itemId: string,
   actionId: string,
   expectedVersion: number,
+  actionReceivedAt: Date,
   scoreDelta: number,
   result: Record<string, unknown>,
   loadAllItemIds: () => Promise<string[]>,
@@ -465,6 +480,7 @@ async function completeCurrentItem(
     attempt,
     actionId,
     expectedVersion,
+    actionReceivedAt,
     expectedItemId: itemId,
     score: newScore,
     streakCount: attempt.streak_count,
@@ -492,6 +508,7 @@ type CommitSkillTrainerActionInput = {
   attempt: AttemptRow;
   actionId: string;
   expectedVersion: number;
+  actionReceivedAt: Date;
   expectedItemId: string;
   score: number;
   streakCount: number;
@@ -533,7 +550,10 @@ async function commitSkillTrainerAction(
       p_current_item_started_at: input.currentItemStartedAt,
       p_item_completed: input.itemCompleted,
       p_score_delta: input.scoreDelta,
-      p_result: input.result as Json,
+      p_result: {
+        ...input.result,
+        action_received_at: input.actionReceivedAt.toISOString(),
+      } as Json,
     },
   );
   if (error) throw new Error(error.message);
@@ -554,6 +574,7 @@ export async function submitSkillTrainerAction(
   payload: SubmitActionPayload,
   actionId: string,
   expectedVersion: number,
+  actionReceivedAt = new Date(),
 ): Promise<SkillTrainerAttemptState> {
   const { data: rawAttempt, error } = await supabase
     .from("student_skill_trainer_attempts")
@@ -584,8 +605,14 @@ export async function submitSkillTrainerAction(
     progress: attempt.progress ?? defaultProgress(resolvedTrainerKey),
   };
 
-  attempt = await finalizeAttemptIfExpired(supabase, attempt);
-  if (attempt.completed_at || getRemainingSeconds(attempt.ends_at) <= 0) {
+  const actionWithinDeadline = isSkillTrainerActionWithinDeadline(
+    attempt.ends_at,
+    actionReceivedAt,
+  );
+  if (!actionWithinDeadline) {
+    attempt = await finalizeAttemptIfExpired(supabase, attempt);
+  }
+  if (attempt.completed_at || !actionWithinDeadline) {
     return buildAttemptState(supabase, attempt);
   }
 
@@ -604,6 +631,7 @@ export async function submitSkillTrainerAction(
   let newStreak = attempt.streak_count;
   let progress = attempt.progress ?? defaultProgress(resolvedTrainerKey);
   let itemCompleted = false;
+  let actionCorrect: boolean | null = null;
 
   switch (resolvedTrainerKey) {
     case "find_word": {
@@ -620,6 +648,7 @@ export async function submitSkillTrainerAction(
           payload.character_index < occurrence.end,
       );
       if (!validTarget) {
+        actionCorrect = false;
         newStreak = 0;
         scoreDelta = normalizeScoreDelta(
           resolvedTrainerKey,
@@ -632,6 +661,7 @@ export async function submitSkillTrainerAction(
         };
         break;
       }
+      actionCorrect = true;
       const placed =
         progress.type === "find_word"
           ? [...new Set([...progress.placed_keyword_ids, payload.keyword_id])]
@@ -656,6 +686,7 @@ export async function submitSkillTrainerAction(
           ? progress.found_occurrence_indexes
           : [];
       if (payload.type === "skip_concept") {
+        actionCorrect = false;
         const missingCount = Math.max(0, occurrences.length - found.length);
         newStreak = 0;
         scoreDelta =
@@ -670,6 +701,7 @@ export async function submitSkillTrainerAction(
           payload.occurrence_index >= 0 &&
           payload.occurrence_index < occurrences.length;
         if (!valid || found.includes(payload.occurrence_index)) {
+          actionCorrect = false;
           newStreak = 0;
           scoreDelta = normalizeScoreDelta(
             resolvedTrainerKey,
@@ -678,6 +710,7 @@ export async function submitSkillTrainerAction(
           progress = { type: "find_concept", found_occurrence_indexes: found };
           break;
         }
+        actionCorrect = true;
         const nextFound = [...found, payload.occurrence_index];
         newStreak = attempt.streak_count + 1;
         scoreDelta = normalizeScoreDelta(
@@ -702,6 +735,7 @@ export async function submitSkillTrainerAction(
       if (payload.type !== "syllogism_answer")
         throw new Error("INVALID_ACTION");
       const correct = payload.answer === content.answer;
+      actionCorrect = correct;
       if (correct) {
         newStreak = attempt.streak_count + 1;
         scoreDelta = normalizeScoreDelta(
@@ -723,6 +757,7 @@ export async function submitSkillTrainerAction(
       const content = currentItem.content as unknown as MentalMathsItemContent;
       if (payload.type !== "numeric_answer") throw new Error("INVALID_ACTION");
       const correct = Math.abs(payload.answer - content.answer) < 0.001;
+      actionCorrect = correct;
       if (correct) {
         newStreak = attempt.streak_count + 1;
         scoreDelta = normalizeScoreDelta(
@@ -747,6 +782,7 @@ export async function submitSkillTrainerAction(
       const correct =
         submitted.length === expected.length &&
         submitted.every((btn, i) => btn === expected[i]);
+      actionCorrect = correct;
       if (correct) {
         newStreak = attempt.streak_count + 1;
         scoreDelta = normalizeScoreDelta(
@@ -769,6 +805,7 @@ export async function submitSkillTrainerAction(
         currentItem.content as unknown as CalculatorMathsItemContent;
       if (payload.type !== "numeric_answer") throw new Error("INVALID_ACTION");
       const correct = Math.abs(payload.answer - content.answer) < 0.001;
+      actionCorrect = correct;
       if (correct) {
         newStreak = attempt.streak_count + 1;
         scoreDelta = normalizeScoreDelta(
@@ -803,10 +840,27 @@ export async function submitSkillTrainerAction(
       currentItemId,
       actionId,
       expectedVersion,
+      actionReceivedAt,
       finalScoreDelta,
       {
         action: payload.type,
-        correct: scoreDelta >= 0,
+        correct: actionCorrect ?? scoreDelta > 0,
+        answer:
+          payload.type === "syllogism_answer" ||
+          payload.type === "numeric_answer"
+            ? payload.answer
+            : payload.type === "numpad_sequence"
+              ? payload.sequence
+              : payload.type,
+        elapsed_seconds: attempt.current_item_started_at
+          ? Math.max(
+              0,
+              Math.round(
+                (Date.now() - Date.parse(attempt.current_item_started_at)) /
+                  1000,
+              ),
+            )
+          : null,
         speed_bonus: speedBonus,
       },
       loadAllItemIds,
@@ -827,6 +881,7 @@ export async function submitSkillTrainerAction(
     attempt,
     actionId,
     expectedVersion,
+    actionReceivedAt,
     expectedItemId: currentItemId,
     score: partialScore,
     streakCount: newStreak,
@@ -836,7 +891,10 @@ export async function submitSkillTrainerAction(
     currentItemStartedAt: attempt.current_item_started_at,
     itemCompleted: false,
     scoreDelta,
-    result: { action: payload.type, correct: scoreDelta >= 0 },
+    result: {
+      action: payload.type,
+      correct: actionCorrect ?? scoreDelta > 0,
+    },
   });
   if (version == null) {
     const canonical = await getAttemptForStudent(

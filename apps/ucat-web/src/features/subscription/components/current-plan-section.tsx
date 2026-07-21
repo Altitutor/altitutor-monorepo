@@ -126,7 +126,9 @@ export function CurrentPlanSection() {
           ))}
         </ul>
       </section>
-      {isFree ? <QuotaUsageCard /> : null}
+      {access.onlineTier === "free" && !access.isQuotaExempt ? (
+        <QuotaUsageCard showLoadingSkeleton />
+      ) : null}
     </div>
   );
 }

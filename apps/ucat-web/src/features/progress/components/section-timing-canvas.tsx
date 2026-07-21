@@ -1,6 +1,5 @@
 "use client";
 
-import type { ReactNode } from "react";
 import {
   CartesianGrid,
   Line,
@@ -12,7 +11,6 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import { Badge } from "@altitutor/ui";
 import { Sparkles } from "lucide-react";
 import type { DailyProgressSeriesPoint } from "@/app/api/ucat/progress/series/route";
 import { UCAT_FLOATING_GRAPH_CARD } from "@/lib/ucat-surface-motion";
@@ -31,7 +29,6 @@ type TimingChartPoint = {
 type SectionTimingCanvasProps = {
   sectionName: string;
   points: DailyProgressSeriesPoint[];
-  headerControl: ReactNode;
 };
 
 function dateLabel(date: string): string {
@@ -47,48 +44,41 @@ function timingInsight(pace: number | null, accuracy: number | null) {
     return {
       title: "Practice a clean timing routine first",
       body: "Choose a short timed set. Make a deliberate solve, flag, or skip decision whenever you get stuck, then review whether each miss came from the method or from rushing.",
-      status: "Start with a timed set",
     };
   }
   if (pace > 110 && (accuracy == null || accuracy < 70)) {
     return {
       title: "You may be moving faster than your accuracy can support",
       body: `Your recent pace is ${formatSpeedPercentAsMultiplier(pace)}${accuracy == null ? "" : ` with ${Math.round(accuracy)}% accuracy`}. Slow down slightly on the questions you can convert rather than trying to bank more time.`,
-      status: "Possible rushing",
     };
   }
   if (pace > 110) {
     return {
       title: "Your pace is fast—protect the accuracy behind it",
       body: `You’re working at ${formatSpeedPercentAsMultiplier(pace)} exam speed. That is useful only while accuracy stays representative, so use the category breakdown to check where speed is creating avoidable misses.`,
-      status: "Fast pace",
     };
   }
   if (pace < 90) {
     return {
       title: "Timing pressure is the clearest constraint",
       body: `You’re working at ${formatSpeedPercentAsMultiplier(pace)} exam speed. Practice making an earlier decision on difficult questions so you preserve enough time for the questions you are more likely to answer correctly.`,
-      status: "Below exam pace",
     };
   }
   if (accuracy != null && accuracy < 70) {
     return {
       title: "Your pace is balanced; accuracy is the next lever",
       body: `Your recent pace is ${formatSpeedPercentAsMultiplier(pace)}, inside the guide band, while accuracy is ${Math.round(accuracy)}%. Keep the pace steady and focus review on the reasoning patterns behind your misses.`,
-      status: "Balanced pace",
     };
   }
   return {
     title: "Your pace and accuracy are working together",
     body: `Your recent pace is ${formatSpeedPercentAsMultiplier(pace)}${accuracy == null ? "" : ` with ${Math.round(accuracy)}% accuracy`}. Keep testing this balance in representative timed sets rather than chasing speed by itself.`,
-    status: "Balanced pace",
   };
 }
 
 export function SectionTimingCanvas({
   sectionName,
   points,
-  headerControl,
 }: SectionTimingCanvasProps) {
   const realData: TimingChartPoint[] = points.flatMap((point) =>
     point.examSpeedCount > 0
@@ -197,24 +187,9 @@ export function SectionTimingCanvas({
 
   return (
     <section className="relative isolate overflow-hidden border-b border-border/50 bg-gradient-to-b from-background via-muted/15 to-background">
-      <div className="relative min-h-[580px] sm:min-h-[650px] lg:min-h-[620px]">
-        <div className="absolute inset-x-0 top-0 z-10 flex items-start justify-between gap-4 px-5 py-6 sm:px-8 lg:px-10">
-          <div>
-            <h1 className="text-xl font-semibold tracking-tight sm:text-2xl">
-              {sectionName} timing
-            </h1>
-            <p className="mt-1 text-sm text-muted-foreground">
-              Pace relative to exam conditions, interpreted with accuracy.
-            </p>
-          </div>
-          <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">
-            {headerControl}
-            <Badge variant="secondary">{insight.status}</Badge>
-          </div>
-        </div>
-
+      <div className="relative min-h-[560px] sm:min-h-[560px] lg:min-h-[560px]">
         <div
-          className="absolute inset-x-0 top-24 h-[430px] sm:h-[500px]"
+          className="absolute inset-x-0 top-4 h-[430px] sm:top-6 sm:h-[500px]"
           role="img"
           aria-label={`${sectionName} exam pace history. 1x is exam pace.`}
         >
@@ -338,7 +313,7 @@ export function SectionTimingCanvas({
         <aside
           className={cn(
             UCAT_FLOATING_GRAPH_CARD,
-            "absolute right-6 top-28 z-20 hidden w-[min(390px,calc(100%-3rem))] p-6 lg:block",
+            "absolute right-6 top-6 z-20 hidden w-[min(390px,calc(100%-3rem))] p-6 lg:block",
           )}
         >
           {insightCard}

@@ -46,7 +46,6 @@ export function formatAttemptReviewLabel(input: {
   attemptType: IncompleteAttemptReview["attemptType"];
   name?: string | null;
   sectionKey?: string | null;
-  questionCount?: number | null;
   wasTimed?: boolean | null;
 }): string {
   if (input.name?.trim()) return input.name.trim();
@@ -62,10 +61,7 @@ export function formatAttemptReviewLabel(input: {
   };
   const sectionName =
     (input.sectionKey && sectionNames[input.sectionKey]) || "UCAT";
-  const questionCount = input.questionCount
-    ? ` (${input.questionCount} questions)`
-    : "";
-  return `${sectionName} ${input.wasTimed ? "timed" : "untimed"} practice${questionCount}`;
+  return `${sectionName} ${input.wasTimed ? "timed" : "untimed"} practice`;
 }
 
 export type NextStepDraft = Omit<
@@ -270,7 +266,7 @@ function buildNextStepCandidates(input: BuildNextStepsInput): NextStepDraft[] {
     drafts.push(
       baseDraft({
         taskType: "review",
-        title: `Finish reviewing ${input.incompleteReview.attemptLabel}`,
+        title: `Review ${input.incompleteReview.attemptLabel}`,
         description: `Review the incorrect questions from ${input.incompleteReview.attemptLabel}.`,
         rationale:
           "Review turns the result you just received into useful feedback for what comes next.",

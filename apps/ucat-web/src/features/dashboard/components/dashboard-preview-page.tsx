@@ -405,9 +405,7 @@ function PreviewMembership({ tier }: { tier: PreviewScenario["planTier"] }) {
     <Card className={cn(UCAT_CARD_CHROME, "h-full")}>
       <CardContent className="p-5 sm:p-6">
         <div className="flex items-center justify-between gap-3">
-          <h2 className="font-semibold">
-            {tier === "free" ? "Practice quota" : "Practice-day reward"}
-          </h2>
+          <h2 className="font-semibold">Practice streak</h2>
           <Badge variant="secondary">
             {tier === "free" ? "UCAT Free" : "Paid plan"}
           </Badge>
@@ -422,7 +420,7 @@ function PreviewMembership({ tier }: { tier: PreviewScenario["planTier"] }) {
         </div>
         <p className="mt-3 text-xs text-muted-foreground">
           {tier === "free"
-            ? "Unlimited removes online quotas and adds practice-day rewards."
+            ? "Unlimited removes online quotas and adds practice streak discounts."
             : "Keep practising accurately to earn today’s reward."}
         </p>
       </CardContent>

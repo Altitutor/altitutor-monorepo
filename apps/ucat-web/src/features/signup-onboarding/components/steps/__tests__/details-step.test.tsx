@@ -67,6 +67,18 @@ describe("SignupCompleteDetailsStep", () => {
     global.fetch = fetchMock;
   });
 
+  it("renders the primary action as a filled animated pill", () => {
+    renderStep();
+
+    expect(screen.getByRole("button", { name: "Next" })).toHaveClass(
+      "ucat-btn-accent-fill-rise",
+      "rounded-full",
+      "bg-primary",
+      "py-3.5",
+      "text-primary-foreground",
+    );
+  });
+
   it("keeps the verified provider email without another verification request", async () => {
     const { onComplete } = renderStep();
 

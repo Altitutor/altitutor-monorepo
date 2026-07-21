@@ -123,7 +123,7 @@ export function ReferralSection() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="min-w-0 max-w-full space-y-6 overflow-x-hidden">
       {giftQuery.data?.pendingGift ? (
         <ReferralGiftCard
           gift={giftQuery.data.pendingGift}
@@ -286,7 +286,10 @@ export function ReferralSection() {
               <Button
                 asChild
                 type="button"
-                className={cn("mt-5 w-full sm:w-auto", UCAT_PRIMARY_ACTION_BUTTON)}
+                className={cn(
+                  "mt-5 w-full sm:w-auto",
+                  UCAT_PRIMARY_ACTION_BUTTON,
+                )}
               >
                 <Link href={rewardDisplay.cta.href}>
                   {rewardDisplay.cta.label}

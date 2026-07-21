@@ -1,34 +1,40 @@
-import type { ReactNode } from 'react'
-import { UCAT_COLORS, UCAT_FONTS } from './ucat-theme'
+import type { ReactNode } from "react";
+import { UCAT_COLORS, UCAT_FONTS } from "./ucat-theme";
 
 export function UcatFloatingPanel({
   title,
   titleIcon,
   onClose,
   onDragMouseDown,
+  onDragPointerDown,
   children,
   className,
   contentClassName,
   closeButtonProps,
 }: {
-  title: string
-  titleIcon?: ReactNode
-  onClose?: () => void
-  onDragMouseDown?: (event: React.MouseEvent<HTMLDivElement>) => void
-  children: ReactNode
-  className?: string
+  title: string;
+  titleIcon?: ReactNode;
+  onClose?: () => void;
+  onDragMouseDown?: (event: React.MouseEvent<HTMLDivElement>) => void;
+  onDragPointerDown?: (event: React.PointerEvent<HTMLDivElement>) => void;
+  children: ReactNode;
+  className?: string;
   /** Applied to the content wrapper so it can participate in flex layout (e.g. flex-1 min-h-0). */
-  contentClassName?: string
-  closeButtonProps?: React.ButtonHTMLAttributes<HTMLButtonElement>
+  contentClassName?: string;
+  closeButtonProps?: React.ButtonHTMLAttributes<HTMLButtonElement>;
 }) {
   return (
     <section
-      className={`rounded-md border-2 text-white shadow-2xl ${className ?? ''}`}
-      style={{ borderColor: UCAT_COLORS.primaryBlueDark, backgroundColor: UCAT_COLORS.primaryBlue }}
+      className={`rounded-md border-2 text-white shadow-2xl ${className ?? ""}`}
+      style={{
+        borderColor: UCAT_COLORS.primaryBlueDark,
+        backgroundColor: UCAT_COLORS.primaryBlue,
+      }}
     >
       <header
-        className="flex cursor-move items-center justify-between border-b border-[#b8d0ea] px-3 py-2 text-xl font-medium"
+        className="flex cursor-move touch-none items-center justify-between border-b border-[#b8d0ea] px-3 py-2 text-xl font-medium"
         onMouseDown={onDragMouseDown}
+        onPointerDown={onDragPointerDown}
       >
         <div className={`flex items-center gap-2 font-[${UCAT_FONTS.message}]`}>
           {titleIcon ? <span className="inline-flex">{titleIcon}</span> : null}
@@ -46,7 +52,9 @@ export function UcatFloatingPanel({
           </button>
         ) : null}
       </header>
-      <div className={`bg-[#5a84bf] p-3 ${contentClassName ?? ''}`}>{children}</div>
+      <div className={`bg-[#5a84bf] p-3 ${contentClassName ?? ""}`}>
+        {children}
+      </div>
     </section>
-  )
+  );
 }

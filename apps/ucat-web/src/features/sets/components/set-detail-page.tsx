@@ -12,6 +12,8 @@ import { useQuotaLimitDialog } from "@/features/ucat-access/context/upsell-dialo
 import { useQuotaUsage } from "@/features/ucat-access/hooks/use-quota-usage";
 import { quotaPayloadFromUsage } from "@/features/ucat-access/lib/quota-payload-from-usage";
 import { useActiveExamAttempt } from "@/features/exam-attempts/context/active-exam-attempt-context";
+import { ExamAttemptConflictDialog } from "@/features/exam-attempts/components/exam-attempt-conflict-dialog";
+import { useExamAttemptLaunchPreflight } from "@/features/exam-attempts/hooks/use-exam-attempt-launch-preflight";
 import {
   buildQuestionEngineTutorialHref,
   useQuestionEngineTutorialGate,
@@ -112,6 +114,11 @@ export function SetDetailPage({
       : sectionNumber != null
         ? "Back to section"
         : "Back to all sets");
+  const launchPreflight = useExamAttemptLaunchPreflight({
+    kind: "set",
+    resourceId: setId,
+    onLaunch: () => router.push(examHref),
+  });
   const breadcrumbLeafSegmentIndex =
     sessionEntryContext != null || sectionNumber != null ? 2 : 1;
 
@@ -137,7 +144,7 @@ export function SetDetailPage({
       });
       return;
     }
-    router.push(examHref);
+    launchPreflight.requestLaunch();
   };
 
   if (isLoading) {
@@ -313,6 +320,16 @@ export function SetDetailPage({
           Launch set
         </Button>
       </motion.div>
+      <ExamAttemptConflictDialog
+        open={launchPreflight.conflictActive != null}
+        active={launchPreflight.conflictActive}
+        pendingLabel="this question set"
+        isDiscarding={launchPreflight.isDiscarding}
+        onDiscardAndContinue={() =>
+          void launchPreflight.discardConflictAndLaunch()
+        }
+        onCancel={launchPreflight.cancelConflict}
+      />
     </motion.div>
   );
 }

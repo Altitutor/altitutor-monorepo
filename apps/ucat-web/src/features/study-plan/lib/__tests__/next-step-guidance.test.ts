@@ -127,7 +127,7 @@ describe("rolling next-step guidance", () => {
     expect(steps[0]).toMatchObject({
       taskType: "review",
       sourceAttemptId: "attempt-1",
-      title: "Finish reviewing Decision Making Set 4",
+      title: "Review Decision Making Set 4",
       launchPath: "/progress/set-attempts/attempt-1",
     });
   });
@@ -169,10 +169,9 @@ describe("rolling next-step guidance", () => {
       formatAttemptReviewLabel({
         attemptType: "practice_session",
         sectionKey: "quantitative_reasoning",
-        questionCount: 20,
         wasTimed: true,
       }),
-    ).toBe("Quantitative Reasoning timed practice (20 questions)");
+    ).toBe("Quantitative Reasoning timed practice");
   });
 
   it("treats one observed category point as calibration rather than a confident weakness", () => {

@@ -19,6 +19,7 @@ import {
   useUpdateBlockProgress,
 } from "@/features/learning/hooks/use-learning";
 import { useQuotaLimitDialog } from "@/features/ucat-access/context/upsell-dialog-context";
+import { useStudyPlanCompanion } from "@/features/study-plan/context/study-plan-companion-context";
 import { LearnQuestionBlock } from "@/features/learning/components/learn-question-block";
 import { LearnSkillTrainerBlock } from "@/features/learning/components/learn-skill-trainer-block";
 import { LearningLessonContentsSidebar } from "@/features/learning/components/learning-lesson-contents-sidebar";
@@ -283,9 +284,12 @@ export function LearningLessonPage({ lessonId }: LearningLessonPageProps) {
   const [incompleteDialogOpen, setIncompleteDialogOpen] = useState(false);
   const blockRefs = useRef(new Map<string, HTMLDivElement>());
   const { openQuotaLimit } = useQuotaLimitDialog();
+  const { reportActivityCompletion } = useStudyPlanCompanion();
+  const previousLessonCompleteRef = useRef<boolean | null>(null);
 
   useEffect(() => {
     setActiveIndex(0);
+    previousLessonCompleteRef.current = null;
   }, [lessonId]);
 
   useEffect(() => {
@@ -306,6 +310,17 @@ export function LearningLessonPage({ lessonId }: LearningLessonPageProps) {
   const completionPercent = Number(lesson?.completion_percent ?? 0);
   const isLessonComplete =
     lesson?.completed_at != null || completionPercent >= 100;
+
+  useEffect(() => {
+    if (!lesson) return;
+    const previous = previousLessonCompleteRef.current;
+    previousLessonCompleteRef.current = isLessonComplete;
+    if (previous !== false || !isLessonComplete) return;
+    reportActivityCompletion({
+      title: "Learning module complete",
+      detail: lesson.title ?? "Your module progress has been saved.",
+    });
+  }, [isLessonComplete, lesson, reportActivityCompletion]);
 
   const { prev: prevLesson, next: nextLesson } = useMemo(
     () => getAdjacentLessons(lessonId, allModules ?? []),
@@ -429,11 +444,16 @@ export function LearningLessonPage({ lessonId }: LearningLessonPageProps) {
   const handleConfirmMarkComplete = useCallback(() => {
     markLessonComplete.mutate(undefined, {
       onSuccess: () => {
+        previousLessonCompleteRef.current = true;
+        reportActivityCompletion({
+          title: "Learning module complete",
+          detail: lesson?.title ?? "Your module progress has been saved.",
+        });
         setCompleteDialogOpen(false);
         setActiveIndex(0);
       },
     });
-  }, [markLessonComplete]);
+  }, [lesson?.title, markLessonComplete, reportActivityCompletion]);
 
   const handleConfirmMarkIncomplete = useCallback(() => {
     resetLessonProgress.mutate(undefined, {

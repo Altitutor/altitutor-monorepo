@@ -1161,7 +1161,7 @@ async function describeIncompleteReview(
   if (review.attemptType === "practice_session") {
     const { data, error } = await admin
       .from("student_practice_sessions")
-      .select("section_key, question_count, was_timed")
+      .select("section_key, was_timed")
       .eq("id", review.attemptId)
       .eq("student_id", studentId)
       .maybeSingle();
@@ -1171,7 +1171,6 @@ async function describeIncompleteReview(
       attemptLabel: formatAttemptReviewLabel({
         attemptType: review.attemptType,
         sectionKey: data?.section_key,
-        questionCount: data?.question_count,
         wasTimed: data?.was_timed,
       }),
     };
