@@ -148,6 +148,20 @@ describe("bridge connector contract", () => {
   });
 });
 
+describe("connector realtime session helpers", () => {
+  it("derives a stable password material from the connector secret", async () => {
+    const { connectorRealtimePassword, IMESSAGE_CONNECTOR_WAKE_TOPIC } =
+      await import("../imessage-connector-realtime.ts");
+    const first = await connectorRealtimePassword("secret", "mac-1");
+    const second = await connectorRealtimePassword("secret", "mac-1");
+    const other = await connectorRealtimePassword("secret", "mac-2");
+    expect(first).toBe(second);
+    expect(first).not.toBe(other);
+    expect(first).toMatch(/^[a-f0-9]{64}$/);
+    expect(IMESSAGE_CONNECTOR_WAKE_TOPIC).toBe("imessage:connector:wake");
+  });
+});
+
 describe("iMessage status mapping", () => {
   it("never regresses delivered or read messages", () => {
     expect(monotonicStatus("DELIVERED", "SENT")).toBe("DELIVERED");

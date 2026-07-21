@@ -65,9 +65,15 @@ are unique by `(message_id, storage_url)`.
   completes or safely requeues a command.
 - `{"action":"heartbeat","connectorId":"...","status":{"bluebubblesConnected":true,"privateApiConnected":true,"webhookRegistered":true,"outbox":{...},...}}`
   derives health and stores only sanitized capabilities, booleans, counts, and timestamps.
+- `{"action":"realtime_session","connectorId":"..."}` returns a short-lived Auth access token,
+  publishable anon key, and private wake topic so the Mac can subscribe to
+  `imessage:connector:wake` without using `service_role`. The wake payload is `{ "v": 1 }` only.
 
 Claimed commands are `{id,type,payload,attempts}`. For `send_message`, `payload` includes `text`,
 `to` or `chatId`, `mediaUrls`, reply GUID, and the command ID as correlation/temp GUID.
+
+The Mac uses Realtime only as a wake-up. Fallback polling (~45s) and heartbeats (~30s) remain
+authoritative when the socket is down. See ADR 0015.
 
 ## Administrative controls
 
