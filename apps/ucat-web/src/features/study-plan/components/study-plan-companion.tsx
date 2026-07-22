@@ -58,7 +58,7 @@ import { buildPracticeStreak } from "@/features/streaks/lib/practice-streak";
 
 const ENTER_EASE = [0.32, 0.72, 0, 1] as const;
 const EXPAND_DURATION = 0.22;
-const CELEBRATION_DURATION_MS = 3_500;
+const CELEBRATION_DURATION_MS = 4_500;
 const REDUCED_MOTION_CELEBRATION_DURATION_MS = 2_500;
 
 type GuidanceDisplayItem = {
