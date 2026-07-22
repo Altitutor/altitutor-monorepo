@@ -16,6 +16,11 @@ describe("buildPracticeStreak", () => {
 
     expect(streak.current).toBe(3);
     expect(streak.practicedToday).toBe(true);
+    expect(streak.streakDateKeys).toEqual([
+      "2026-07-19",
+      "2026-07-20",
+      "2026-07-21",
+    ]);
     expect(streak.recentDays).toHaveLength(7);
   });
 

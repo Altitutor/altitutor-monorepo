@@ -24,7 +24,6 @@ import {
 import type {
   ProjectionConfidence,
   ProjectionPoint,
-  ScoreProjectionSnapshot,
   SectionScoreProjection,
   TotalScoreProjection,
 } from "@/features/score-projection/types/score-projection";
@@ -296,6 +295,7 @@ function makeTotal(
   confidence: ProjectionConfidence | null,
 ): TotalScoreProjection | null {
   if (currentEstimate == null || confidence == null) return null;
+  const historyDays = [-56, -42, -28, -14, 0] as const;
   return {
     currentEstimate,
     confidence,
@@ -303,25 +303,17 @@ function makeTotal(
       confidence === "low" ? 180 : confidence === "medium" ? 110 : 70,
     effectiveEvidenceWeight: confidence === "low" ? 2 : 8,
     missingSectionNumbers: [],
-    history: [],
+    history: historyDays.map((day, index) => ({
+      date: addDays(today, day),
+      value: currentEstimate - (historyDays.length - 1 - index) * 35,
+      confidence,
+      uncertainty:
+        confidence === "low" ? 180 : confidence === "medium" ? 110 : 70,
+      effectiveEvidenceWeight: confidence === "low" ? 2 : 8,
+    })),
     projection: makeProjection(today, currentEstimate),
     horizons: [],
   };
-}
-
-function makeSnapshots(
-  today: string,
-  current: number | null,
-): ScoreProjectionSnapshot[] {
-  if (current == null) return [];
-  return [-60, -45, -30, -15, 0].map((day, index) => ({
-    date: addDays(today, day),
-    currentEstimate: current - (4 - index) * 35,
-    confidence: index < 2 ? "low" : "medium",
-    uncertainty: 150 - index * 15,
-    effectiveEvidenceWeight: 2 + index,
-    sectionEstimates: {},
-  }));
 }
 
 function makePlan(
@@ -507,11 +499,9 @@ export function DashboardPreviewPage() {
           sections,
         })
       : null;
-    const snapshots = makeSnapshots(today, scenario.currentEstimate);
     const chartData = total
       ? buildDashboardTrajectoryChartData(
           total,
-          snapshots,
           today,
           state?.projectedAtTest,
         )
@@ -539,6 +529,15 @@ export function DashboardPreviewPage() {
           title: task.title,
           completed: task.status === "completed",
         })) ?? [];
+    const snapshots =
+      total?.history.map((point) => ({
+        date: point.date,
+        currentEstimate: Math.round(point.value),
+        confidence: point.confidence,
+        uncertainty: point.uncertainty,
+        effectiveEvidenceWeight: point.effectiveEvidenceWeight,
+        sectionEstimates: {},
+      })) ?? [];
     return { plan, sections, snapshots, state, chartData, action, mocks };
   }, [scenario, today]);
   const week = model.plan ? summarizeDashboardWeek(model.plan) : null;

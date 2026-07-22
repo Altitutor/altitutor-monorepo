@@ -56,6 +56,7 @@ const learningModule: StudyPlanLearningModule = {
   id: "module-inference",
   title: "Making careful inferences",
   sectionId: section.id,
+  sectionNumber: section.sectionNumber,
   priority: "recommended",
   estimatedMinutes: 12,
   completionPercent: 0,
@@ -243,7 +244,7 @@ describe("rolling next-step guidance", () => {
         ...buildNextStepDrafts(input)[0]!,
         taskType: "learn" as const,
         learningModuleId: learningModule.id,
-        launchPath: `/learn/${learningModule.id}`,
+        launchPath: `/learn/sections/${learningModule.sectionNumber}/${learningModule.id}`,
       },
       {
         ...buildNextStepDrafts(input)[0]!,

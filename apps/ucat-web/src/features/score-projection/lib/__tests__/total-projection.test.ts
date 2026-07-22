@@ -105,4 +105,80 @@ describe("deriveTotalScoreProjection", () => {
     expect(total.projection).toEqual([]);
     expect(total.missingSectionNumbers).toEqual([2]);
   });
+
+  it("carries section history forward so staggered weekly starts still form a total line", () => {
+    const early = {
+      ...section(1, 610),
+      history: [
+        {
+          date: "2026-07-02",
+          value: 590,
+          confidence: "high" as const,
+          uncertainty: 30,
+          effectiveEvidenceWeight: 2,
+        },
+        {
+          date: "2026-07-09",
+          value: 600,
+          confidence: "high" as const,
+          uncertainty: 30,
+          effectiveEvidenceWeight: 2,
+        },
+        {
+          date: "2026-07-16",
+          value: 610,
+          confidence: "high" as const,
+          uncertainty: 30,
+          effectiveEvidenceWeight: 2,
+        },
+      ],
+    };
+    const mid = {
+      ...section(2, 660),
+      history: [
+        {
+          date: "2026-07-02",
+          value: 640,
+          confidence: "medium" as const,
+          uncertainty: 30,
+          effectiveEvidenceWeight: 2,
+        },
+        {
+          date: "2026-07-09",
+          value: 650,
+          confidence: "medium" as const,
+          uncertainty: 30,
+          effectiveEvidenceWeight: 2,
+        },
+        {
+          date: "2026-07-16",
+          value: 660,
+          confidence: "medium" as const,
+          uncertainty: 30,
+          effectiveEvidenceWeight: 2,
+        },
+      ],
+    };
+    const late = {
+      ...section(3, 700),
+      history: [
+        {
+          date: "2026-07-09",
+          value: 690,
+          confidence: "high" as const,
+          uncertainty: 30,
+          effectiveEvidenceWeight: 2,
+        },
+      ],
+    };
+
+    const total = deriveTotalScoreProjection([early, mid, late]);
+
+    // Exact-date intersection would only keep 07-09. Carry-forward also emits
+    // 07-16 using the late section's last known estimate.
+    expect(total.history).toEqual([
+      expect.objectContaining({ date: "2026-07-09", value: 1940 }),
+      expect.objectContaining({ date: "2026-07-16", value: 1960 }),
+    ]);
+  });
 });

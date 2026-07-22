@@ -533,6 +533,9 @@ async function loadGenerationInputs(
         id: module.id,
         title: module.title,
         sectionId: module.ucat_section_id,
+        sectionNumber:
+          sections.find((section) => section.id === module.ucat_section_id)
+            ?.sectionNumber ?? null,
         priority: module.study_plan_priority ?? "recommended",
         estimatedMinutes: estimateLearningModuleMinutes(
           blocksByModule.get(module.id) ?? [],

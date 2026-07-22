@@ -33,6 +33,10 @@ import {
   selectCurrentStudyPlanTasks,
   selectNextStudyPlanTask,
 } from "@/features/study-plan/lib/companion";
+import {
+  isAlreadyOnSuggestedActivity,
+  type StudyPlanCompanionMode,
+} from "@/features/study-plan/lib/companion-mode";
 import { guidanceItemKey } from "@/features/study-plan/lib/next-step-guidance";
 import type {
   StudyGuidanceItem,
@@ -190,9 +194,11 @@ function activityTypeLabel(item: GuidanceDisplayItem): string {
 
 export function StudyPlanCompanion({
   hidden = false,
+  mode = "available",
   placement = "floating",
 }: {
   hidden?: boolean;
+  mode?: StudyPlanCompanionMode;
   placement?: "floating" | "sidebar";
 }) {
   const pathname = usePathname();
@@ -283,14 +289,26 @@ export function StudyPlanCompanion({
   const secondaryPlanActions = useStudyPlanTaskActions(
     secondary?.planTask ?? null,
   );
-  const visible = Boolean(
+  const activityInProgress = mode === "activity" && !activityComplete;
+  const suggestionsEnabled = Boolean(
     data?.profile?.studySuggestionsEnabled && !query.isError && !hidden,
+  );
+  // Stay mounted through completion celebrations on activity routes, then
+  // hide again until the activity finishes (or the student leaves).
+  const visible = Boolean(
+    suggestionsEnabled && (!activityInProgress || celebration != null),
   );
   const floatingBottom = bottomFloatingDockVisible ? "bottom-24" : "bottom-4";
   const expandTransition = {
     duration: reduceMotion ? 0 : EXPAND_DURATION,
     ease: ENTER_EASE,
   };
+  const activityInProgressRef = useRef(activityInProgress);
+  const primaryLaunchPathRef = useRef(primary?.launchPath ?? null);
+  const pathnameRef = useRef(pathname);
+  activityInProgressRef.current = activityInProgress;
+  primaryLaunchPathRef.current = primary?.launchPath ?? null;
+  pathnameRef.current = pathname;
 
   useEffect(() => {
     if (!activityQuery.data) return;
@@ -340,11 +358,21 @@ export function StudyPlanCompanion({
         pendingCelebrationRef.current = null;
         if (nextCelebration) {
           setCelebration(nextCelebration);
-        } else {
-          setCelebration(null);
-          suppressNextGuidancePromptRef.current = false;
-          setPromptVisible(true);
+          return;
         }
+        setCelebration(null);
+        suppressNextGuidancePromptRef.current = false;
+        const launchPath = primaryLaunchPathRef.current;
+        const alreadyOnNext =
+          launchPath != null &&
+          isAlreadyOnSuggestedActivity(pathnameRef.current, launchPath);
+        // Stay silent while still inside an unfinished activity, or when the
+        // suggested next step is the page we just landed on (e.g. attempt review).
+        if (activityInProgressRef.current || alreadyOnNext) {
+          setPromptVisible(false);
+          return;
+        }
+        setPromptVisible(true);
       },
       reduceMotion
         ? REDUCED_MOTION_CELEBRATION_DURATION_MS
@@ -352,6 +380,12 @@ export function StudyPlanCompanion({
     );
     return () => window.clearTimeout(timer);
   }, [celebration, reduceMotion, visible]);
+
+  useEffect(() => {
+    if (!activityInProgress) return;
+    setExpanded(false);
+    setPromptVisible(false);
+  }, [activityInProgress]);
 
   useEffect(() => {
     if (!data || !data.generation) return;
@@ -398,6 +432,7 @@ export function StudyPlanCompanion({
 
   useEffect(() => {
     if (!guidanceKey || planEnabled) return;
+    if (activityInProgress) return;
     if (previousGuidanceKeyRef.current === guidanceKey) return;
     const hadPreviousGuidance = previousGuidanceKeyRef.current != null;
     previousGuidanceKeyRef.current = guidanceKey;
@@ -406,6 +441,7 @@ export function StudyPlanCompanion({
       return;
     }
     if (!primary) return;
+    if (isAlreadyOnSuggestedActivity(pathname, primary.launchPath)) return;
     const notice: GuidanceNotice = {
       id: `guidance:${guidanceKey}`,
       eyebrow: hadPreviousGuidance
@@ -416,7 +452,7 @@ export function StudyPlanCompanion({
     };
     setLatestNotice(notice);
     setPromptVisible(true);
-  }, [guidanceKey, planEnabled, primary]);
+  }, [activityInProgress, guidanceKey, pathname, planEnabled, primary]);
 
   useEffect(() => {
     setExpanded(false);

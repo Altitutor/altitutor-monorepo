@@ -8,7 +8,10 @@ import {
   type DashboardTargetBreakdown,
 } from "@/features/dashboard/components/dashboard-trajectory-chart";
 import type { DashboardTrajectoryChartPoint } from "@/features/dashboard/lib/dashboard-trajectory";
-import { DASHBOARD_FORECAST_WINDOW_DAYS } from "@/features/dashboard/lib/dashboard-trajectory";
+import {
+  buildDashboardTrajectoryChartData,
+  DASHBOARD_FORECAST_WINDOW_DAYS,
+} from "@/features/dashboard/lib/dashboard-trajectory";
 import { UCAT_FLOATING_GRAPH_CARD } from "@/lib/ucat-surface-motion";
 import { cn } from "@/lib/utils";
 import type {
@@ -28,41 +31,23 @@ export type ProgressTrajectorySource = {
 export function buildProgressTrajectoryData(
   source: ProgressTrajectorySource | null,
   today: string,
+  highlightedPoint?: ProjectionPoint | null,
 ): DashboardTrajectoryChartPoint[] {
   if (!source || source.currentEstimate == null) return [];
-  const byDate = new Map<string, DashboardTrajectoryChartPoint>();
-
-  for (const point of source.history) {
-    byDate.set(point.date, {
-      date: point.date,
-      day: daysBetween(today, point.date),
-      actual: Math.round(point.value),
-      pessimistic: null,
-      realistic: null,
-      optimistic: null,
-      range: null,
-    });
-  }
-
-  for (const point of source.projection) {
-    const current = byDate.get(point.date) ?? {
-      date: point.date,
-      day: daysBetween(today, point.date),
-      actual: null,
-      pessimistic: null,
-      realistic: null,
-      optimistic: null,
-      range: null,
-    };
-    current.pessimistic = point.pessimistic;
-    current.realistic = point.realistic;
-    current.optimistic = point.optimistic;
-    current.range = [point.pessimistic, point.optimistic];
-    if (point.day === 0) current.actual = source.currentEstimate;
-    byDate.set(point.date, current);
-  }
-
-  return [...byDate.values()].sort((left, right) => left.day - right.day);
+  return buildDashboardTrajectoryChartData(
+    {
+      currentEstimate: source.currentEstimate,
+      confidence: "medium",
+      uncertainty: 0,
+      effectiveEvidenceWeight: 0,
+      missingSectionNumbers: [],
+      history: source.history,
+      projection: source.projection,
+      horizons: [],
+    },
+    today,
+    highlightedPoint,
+  );
 }
 
 type ProgressTrajectoryCanvasProps = {

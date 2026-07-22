@@ -1,7 +1,6 @@
 import type {
   ProjectionConfidence,
   ProjectionPoint,
-  ScoreProjectionSnapshot,
   SectionScoreProjection,
   TotalScoreProjection,
 } from "@/features/score-projection/types/score-projection";
@@ -201,17 +200,19 @@ export function resolveDashboardTrajectory({
 
 export function buildDashboardTrajectoryChartData(
   total: TotalScoreProjection,
-  snapshots: ScoreProjectionSnapshot[],
   today: string,
   highlightedPoint?: ProjectionPoint | null,
 ): DashboardTrajectoryChartPoint[] {
   const byDate = new Map<string, DashboardTrajectoryChartPoint>();
 
-  for (const snapshot of snapshots) {
-    byDate.set(snapshot.date, {
-      date: snapshot.date,
-      day: daysBetween(today, snapshot.date),
-      actual: snapshot.currentEstimate,
+  // Weekly reconstructed history — same series as the progress page for consistency.
+  for (const point of total.history) {
+    const day = daysBetween(today, point.date);
+    if (day < -DASHBOARD_HISTORY_WINDOW_DAYS) continue;
+    byDate.set(point.date, {
+      date: point.date,
+      day,
+      actual: Math.round(point.value),
       pessimistic: null,
       realistic: null,
       optimistic: null,
@@ -223,6 +224,7 @@ export function buildDashboardTrajectoryChartData(
     ? [...total.projection, highlightedPoint]
     : total.projection;
   for (const point of projectionPoints) {
+    if (point.day > DASHBOARD_FORECAST_WINDOW_DAYS) continue;
     const current = byDate.get(point.date) ?? {
       date: point.date,
       day: daysBetween(today, point.date),
@@ -242,11 +244,5 @@ export function buildDashboardTrajectoryChartData(
     byDate.set(point.date, current);
   }
 
-  return [...byDate.values()]
-    .filter(
-      (point) =>
-        point.day >= -DASHBOARD_HISTORY_WINDOW_DAYS &&
-        point.day <= DASHBOARD_FORECAST_WINDOW_DAYS,
-    )
-    .sort((left, right) => left.day - right.day);
+  return [...byDate.values()].sort((left, right) => left.day - right.day);
 }

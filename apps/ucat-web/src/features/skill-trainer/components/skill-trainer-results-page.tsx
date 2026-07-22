@@ -447,15 +447,7 @@ export function SkillTrainerResultsPage({
         </section>
       ) : null}
 
-      <section className="space-y-4" aria-labelledby="leaderboard-heading">
-        <h2
-          id="leaderboard-heading"
-          className="text-2xl font-semibold tracking-tight"
-        >
-          Leaderboard
-        </h2>
-        <SkillTrainerLeaderboard trainerKey={trainerKey} />
-      </section>
+      <SkillTrainerLeaderboard trainerKey={trainerKey} />
     </div>
   );
 }

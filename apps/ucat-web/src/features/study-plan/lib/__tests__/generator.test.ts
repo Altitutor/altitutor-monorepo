@@ -103,6 +103,7 @@ describe("generateStudyPlan", () => {
           id: "lesson-1",
           title: "How to approach VR passages",
           sectionId: "vr",
+          sectionNumber: 1,
           priority: "essential",
           estimatedMinutes: 20,
           completionPercent: 0,

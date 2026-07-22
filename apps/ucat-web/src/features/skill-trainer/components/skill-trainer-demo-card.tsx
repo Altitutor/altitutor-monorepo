@@ -15,6 +15,10 @@ type DemoStep = {
   typed?: string;
   activeKey?: string;
   durationMs?: number;
+  /** Quick syllogism: tile being dragged with the cursor */
+  draggingChoice?: "yes" | "no";
+  /** Quick syllogism: tile currently in the drop box */
+  droppedChoice?: "yes" | "no";
 };
 
 function calculatorKeySteps(
@@ -83,15 +87,35 @@ const DEMO_STEPS: Record<UcatSkillTrainerKey, DemoStep[]> = {
   ],
   quick_syllogism: [
     { caption: "Read the premises and conclusion.", target: "syllogism" },
-    { caption: "Decide whether the conclusion follows.", target: "no-answer" },
     {
-      caption: "Select Yes or No to submit.",
-      target: "no-answer",
+      caption: "Drag Yes or No into the answer box.",
+      target: "yes-answer",
+      durationMs: 700,
+    },
+    {
+      caption: "Drag Yes or No into the answer box.",
+      target: "yes-answer",
       pressed: true,
+      draggingChoice: "yes",
+      durationMs: 400,
+    },
+    {
+      caption: "Drag Yes or No into the answer box.",
+      target: "drop-box",
+      pressed: true,
+      draggingChoice: "yes",
+      durationMs: 900,
+    },
+    {
+      caption: "Drop to submit your answer.",
+      target: "drop-box",
+      droppedChoice: "yes",
+      durationMs: 650,
     },
     {
       caption: "The next syllogism appears automatically.",
       target: "syllogism",
+      droppedChoice: "yes",
     },
   ],
   mental_maths: [
@@ -209,7 +233,7 @@ function DemoButton({
       data-demo-target={target}
       data-demo-active={active || undefined}
       className={cn(
-        "rounded-md border px-3 py-2 text-center text-sm font-medium transition-colors",
+        "inline-flex shrink-0 items-center justify-center rounded-md border px-3 py-2 text-center text-sm font-medium transition-colors",
         active ? "bg-muted" : "bg-background",
       )}
     >
@@ -218,16 +242,41 @@ function DemoButton({
   );
 }
 
+function SyllogismAnswerTile({
+  choice,
+  target,
+  faded,
+}: {
+  choice: "yes" | "no";
+  target?: string;
+  faded?: boolean;
+}) {
+  return (
+    <span
+      data-demo-target={target}
+      className={cn(
+        "flex h-9 w-20 items-center justify-center rounded border border-border bg-card text-sm font-medium text-card-foreground shadow-sm transition-opacity",
+        faded && "opacity-40",
+      )}
+    >
+      {choice === "yes" ? "Yes" : "No"}
+    </span>
+  );
+}
+
 function ResponsiveCursor({
   containerRef,
   target,
   pressed,
+  draggingChoice,
 }: {
   containerRef: RefObject<HTMLDivElement>;
   target?: string;
   pressed?: boolean;
+  draggingChoice?: "yes" | "no";
 }) {
   const [position, setPosition] = useState({ x: 0, y: 0, visible: false });
+  const isDragging = Boolean(draggingChoice);
 
   useEffect(() => {
     const container = containerRef.current;
@@ -266,14 +315,36 @@ function ResponsiveCursor({
       animate={{
         x: position.x,
         y: position.y,
-        scale: pressed ? 0.72 : 1,
+        // Keep tip size stable while dragging so the tile doesn’t “pop”
+        scale: pressed && !isDragging ? 0.72 : 1,
         opacity: position.visible ? 1 : 0,
       }}
-      transition={{ duration: 0.25, ease: "easeInOut" }}
+      transition={{
+        x: { duration: isDragging ? 0.85 : 0.28, ease: "easeInOut" },
+        y: { duration: isDragging ? 0.85 : 0.28, ease: "easeInOut" },
+        scale: { duration: 0.18, ease: "easeOut" },
+        opacity: { duration: 0.15 },
+      }}
       style={{ translateX: "-2px", translateY: "-2px" }}
       aria-hidden="true"
     >
-      <MousePointer2 className="h-7 w-7 fill-background" />
+      {/* Ghost tile offset from the tip so the pointer position stays stable */}
+      {draggingChoice ? (
+        <motion.span
+          className="absolute left-0 top-0"
+          initial={{ opacity: 0, scale: 0.96 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ duration: 0.15 }}
+          style={{
+            translateX: "-50%",
+            translateY: "calc(-100% - 10px)",
+            pointerEvents: "none",
+          }}
+        >
+          <SyllogismAnswerTile choice={draggingChoice} />
+        </motion.span>
+      ) : null}
+      <MousePointer2 className="relative h-7 w-7 fill-background" />
     </motion.div>
   );
 }
@@ -286,7 +357,7 @@ function NumberPad({
   prefix: string;
 }) {
   return (
-    <div className="grid grid-cols-3 gap-2 rounded-lg border bg-background p-3">
+    <div className="grid grid-cols-3 gap-2">
       {["7", "8", "9", "4", "5", "6", "1", "2", "3", ".", "0", "+"].map(
         (key) => (
           <DemoButton
@@ -313,25 +384,20 @@ function TrainerDemo({
 }) {
   if (trainerKey === "find_word")
     return (
-      <div className="grid min-h-64 gap-4 p-5 sm:grid-cols-[1fr_11rem]">
-        <p className="rounded-lg border bg-background p-4 text-base leading-8">
+      <div className="flex min-h-64 flex-col gap-4 p-5 md:flex-row">
+        <p className="min-w-0 flex-1 text-base leading-8">
           The library remained open throughout the summer so students could
           continue their research. The quiet{" "}
           <span
             data-demo-target="passage-word"
-            className={cn(
-              "rounded px-1",
-              stepIndex >= 3 && "bg-muted",
-            )}
+            className={cn("rounded px-1", stepIndex >= 3 && "bg-muted")}
           >
             library
           </span>{" "}
           overlooked the garden.
         </p>
-        <div className="space-y-3 rounded-lg border bg-background p-4">
-          <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-            Words to find
-          </p>
+        <div className="flex w-full flex-col gap-3 md:w-44 md:shrink-0">
+          <p className="text-sm font-medium text-muted-foreground">Keywords</p>
           <DemoButton target="keyword" active={stepIndex >= 1}>
             library
           </DemoButton>
@@ -341,25 +407,19 @@ function TrainerDemo({
 
   if (trainerKey === "find_concept")
     return (
-      <div className="grid min-h-64 gap-4 p-5 sm:grid-cols-[1fr_12rem]">
-        <p className="rounded-lg border bg-background p-4 text-base leading-8">
+      <div className="flex min-h-64 flex-col gap-4 p-5 md:flex-row">
+        <p className="min-w-0 flex-1 text-base leading-8">
           The council chose to{" "}
           <span
             data-demo-target="concept-one"
-            className={cn(
-              "rounded px-1",
-              stepIndex >= 2 && "bg-muted",
-            )}
+            className={cn("rounded px-1", stepIndex >= 2 && "bg-muted")}
           >
             reduce waste
           </span>{" "}
           at public events. Its new bins should{" "}
           <span
             data-demo-target="concept-two"
-            className={cn(
-              "rounded px-1",
-              stepIndex >= 4 && "bg-muted",
-            )}
+            className={cn("rounded px-1", stepIndex >= 4 && "bg-muted")}
           >
             reduce waste
           </span>{" "}
@@ -367,13 +427,10 @@ function TrainerDemo({
         </p>
         <div
           data-demo-target="concept"
-          className="rounded-lg border bg-background p-4"
+          className="flex w-full flex-col gap-2 md:w-48 md:shrink-0"
         >
-          <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-            Concept
-          </p>
-          <p className="mt-3 font-semibold">reduce waste</p>
-          <p className="mt-4 text-xs text-muted-foreground">
+          <p className="text-sm font-medium">Find: reduce waste</p>
+          <p className="text-xs text-muted-foreground">
             Found {stepIndex >= 4 ? 2 : stepIndex >= 2 ? 1 : 0} of 2
           </p>
         </div>
@@ -382,43 +439,72 @@ function TrainerDemo({
 
   if (trainerKey === "quick_syllogism")
     return (
-      <div className="min-h-64 space-y-4 p-5">
+      <div className="mx-auto flex min-h-64 max-w-3xl flex-col items-center justify-center gap-6 p-5 text-center">
         <div
           data-demo-target="syllogism"
-          className="rounded-lg border bg-background p-4 text-sm"
+          className="space-y-3 text-base leading-7"
         >
-          <p>All painters are artists. Some artists are teachers.</p>
-          <p className="mt-3 font-semibold">
-            Conclusion: Some painters are teachers.
+          <p>All surgeons are doctors.</p>
+          <p>All doctors have medical training.</p>
+          <p className="text-lg font-medium">
+            Conclusion: All surgeons have medical training.
           </p>
         </div>
-        <div className="grid grid-cols-2 gap-3">
-          <DemoButton>Yes</DemoButton>
-          <DemoButton target="no-answer" active={stepIndex >= 2}>
-            No
-          </DemoButton>
+        <div className="flex items-start justify-center gap-3">
+          <div
+            data-demo-target="drop-box"
+            className={cn(
+              "flex h-14 w-28 shrink-0 items-center justify-center rounded border border-dashed border-muted-foreground/50 bg-muted/30",
+              (step.draggingChoice || step.droppedChoice) &&
+                step.target === "drop-box" &&
+                "border-primary bg-primary/10",
+            )}
+          >
+            {step.droppedChoice && !step.draggingChoice ? (
+              <SyllogismAnswerTile choice={step.droppedChoice} />
+            ) : (
+              <span className="text-xs text-muted-foreground">Drop answer</span>
+            )}
+          </div>
+          <div className="w-[92px] rounded border border-border bg-muted/50 px-2 py-2">
+            <div className="flex flex-col items-center gap-2">
+              <SyllogismAnswerTile
+                choice="yes"
+                target="yes-answer"
+                faded={Boolean(
+                  step.draggingChoice === "yes" || step.droppedChoice === "yes",
+                )}
+              />
+              <SyllogismAnswerTile choice="no" />
+            </div>
+          </div>
         </div>
       </div>
     );
 
   if (trainerKey === "mental_maths")
     return (
-      <div className="flex min-h-64 flex-col items-center justify-center gap-5 p-5">
+      <div className="mx-auto flex min-h-64 max-w-md flex-col items-center justify-center gap-4 p-5 text-center">
         <p
           data-demo-target="mental-question"
-          className="text-3xl font-semibold"
+          className="text-2xl font-medium"
         >
           18 × 7 = ?
         </p>
-        <div
-          data-demo-target="mental-answer"
-          className="h-11 w-44 rounded-md border bg-background px-3 py-2 text-center text-lg"
-        >
-          {step.typed ?? (stepIndex > 4 ? "126" : "")}
+        <div className="flex w-full items-stretch gap-2">
+          <div
+            data-demo-target="mental-answer"
+            className="flex h-10 min-w-0 flex-1 items-center rounded-md border px-3 text-left text-lg"
+          >
+            {step.typed ?? (stepIndex > 4 ? "126" : "")}
+          </div>
+          <DemoButton
+            target="mental-submit"
+            active={step.target === "mental-submit" && step.pressed}
+          >
+            Submit
+          </DemoButton>
         </div>
-        <DemoButton target="mental-submit" active={step.pressed}>
-          Submit
-        </DemoButton>
       </div>
     );
 
@@ -434,27 +520,21 @@ function TrainerDemo({
           (elapsed) => elapsed.target === "calculator-answer" && elapsed.typed,
         )?.typed ?? "";
     return (
-      <div className="grid min-h-72 gap-4 p-5 sm:grid-cols-[1fr_15rem]">
+      <div className="flex min-h-72 flex-col gap-4 p-5 md:flex-row">
         <div
           data-demo-target="calculator-question"
-          className="flex flex-col rounded-lg border bg-background p-4"
+          className="flex min-w-0 flex-1 flex-col items-center justify-center gap-4 text-center"
         >
-          <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-            Question
-          </p>
-          <p className="mt-4 text-lg font-semibold">
+          <p className="max-w-lg text-lg font-medium">
             A £24 item increases by £12. What is its new price?
           </p>
-          <label className="mt-auto pt-5 text-xs font-medium text-muted-foreground">
-            Answer
-          </label>
-          <div
-            data-demo-target="calculator-answer"
-            className="mt-1 h-10 rounded-md border px-3 py-2 text-base"
-          >
-            {answerText}
-          </div>
-          <div className="mt-3">
+          <div className="flex w-full max-w-sm items-stretch gap-2">
+            <div
+              data-demo-target="calculator-answer"
+              className="flex h-10 min-w-0 flex-1 items-center rounded-md border px-3 text-left text-base"
+            >
+              {answerText}
+            </div>
             <DemoButton
               target="calculator-submit"
               active={step.target === "calculator-submit" && step.pressed}
@@ -463,10 +543,10 @@ function TrainerDemo({
             </DemoButton>
           </div>
         </div>
-        <div className="space-y-2">
+        <div className="w-full space-y-2 md:w-52 md:shrink-0">
           <div
             data-demo-target="calculator-display"
-            className="h-11 rounded-md border bg-background px-3 py-2 text-right font-mono text-lg"
+            className="h-11 rounded-md border px-3 py-2 text-right font-mono text-lg"
           >
             {calculatorText}
           </div>
@@ -481,33 +561,35 @@ function TrainerDemo({
       .reverse()
       .find((elapsed) => elapsed.activeKey)?.typed ?? "";
   return (
-    <div className="grid min-h-72 gap-4 p-5 sm:grid-cols-[1fr_15rem]">
-      <div className="flex flex-col rounded-lg border bg-background p-4">
-        <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-          Target sequence
-        </p>
-        <p
-          data-demo-target="numpad-target"
-          className="mt-5 text-4xl font-semibold"
-        >
-          23+4
-        </p>
-        <p className="mt-5 text-xs font-medium text-muted-foreground">
-          Your entry
-        </p>
-        <div className="mt-1 h-11 rounded-md border px-3 py-2 font-mono text-lg">
-          {entered}
-        </div>
-        <div className="mt-auto pt-4">
-          <DemoButton
-            target="numpad-submit"
-            active={step.target === "numpad-submit" && step.pressed}
+    <div className="flex min-h-72 flex-col gap-4 p-5 md:flex-row">
+      <div className="flex min-w-0 flex-1 flex-col items-center justify-center gap-4 text-center">
+        <div className="space-y-2">
+          <p className="text-sm font-medium">Target sequence</p>
+          <p
+            data-demo-target="numpad-target"
+            className="text-4xl font-semibold tracking-wide"
           >
-            Submit
-          </DemoButton>
+            23+4
+          </p>
         </div>
+        <div className="space-y-2">
+          <p className="text-sm font-medium">Your entry</p>
+          <div className="flex min-h-10 min-w-[8rem] items-center justify-center font-mono text-lg">
+            {entered || (
+              <span className="text-sm text-muted-foreground">…</span>
+            )}
+          </div>
+        </div>
+        <DemoButton
+          target="numpad-submit"
+          active={step.target === "numpad-submit" && step.pressed}
+        >
+          Submit
+        </DemoButton>
       </div>
-      <NumberPad prefix="numpad-" activeKey={step.activeKey} />
+      <div className="w-full md:w-52 md:shrink-0">
+        <NumberPad prefix="numpad-" activeKey={step.activeKey} />
+      </div>
     </div>
   );
 }
@@ -560,6 +642,7 @@ export function SkillTrainerDemoCard({
         containerRef={containerRef}
         target={step.target}
         pressed={step.pressed}
+        draggingChoice={step.draggingChoice}
       />
     </section>
   );

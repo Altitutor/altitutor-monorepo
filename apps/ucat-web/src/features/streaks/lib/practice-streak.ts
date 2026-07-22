@@ -8,6 +8,8 @@ export type PracticeStreakSummary = {
   current: number;
   practicedToday: boolean;
   recentDays: PracticeStreakDay[];
+  /** Date keys (YYYY-MM-DD) that make up the current streak, oldest → newest. */
+  streakDateKeys: string[];
 };
 
 function dateKeyInTimezone(date: Date, timezone: string): string {
@@ -50,13 +52,19 @@ export function buildPracticeStreak(
   // A streak remains current throughout today, giving the student the full
   // local calendar day to extend it.
   let cursor = practicedToday ? today : shiftDateKey(today, -1);
-  let current = 0;
+  const streakDateKeys: string[] = [];
   while (practicedDates.has(cursor)) {
-    current += 1;
+    streakDateKeys.push(cursor);
     cursor = shiftDateKey(cursor, -1);
   }
+  streakDateKeys.reverse();
 
-  return { current, practicedToday, recentDays };
+  return {
+    current: streakDateKeys.length,
+    practicedToday,
+    recentDays,
+    streakDateKeys,
+  };
 }
 
 export function practiceStreakWeekday(dateKey: string): string {

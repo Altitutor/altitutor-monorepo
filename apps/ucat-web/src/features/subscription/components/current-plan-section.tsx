@@ -28,10 +28,15 @@ function CurrentPlanSectionSkeleton() {
 
 export function CurrentPlanSection() {
   const access = useUcatAccess();
-  const { data, isLoading } = useUcatSubscriptionBilling();
+  const { data, isLoading, isPending, isError } = useUcatSubscriptionBilling();
   const { openPlanPicker } = useUpsellDialog();
 
-  const subscription = data?.subscription ?? null;
+  const subscription =
+    data?.subscription ??
+    data?.subscriptions.find((row) =>
+      ["trialing", "active", "past_due", "unpaid"].includes(row.status),
+    ) ??
+    null;
   const displayKey = resolveCurrentPlanDisplayKey(
     access.onlineTier,
     subscription,
@@ -41,7 +46,9 @@ export function CurrentPlanSection() {
     ? isSubscriptionCancelScheduled(subscription)
     : false;
 
-  if (access.isLoading || isLoading) {
+  const billingAwaiting = isLoading || (isPending && !data && !isError);
+
+  if (access.isLoading || billingAwaiting) {
     return <CurrentPlanSectionSkeleton />;
   }
 
@@ -86,14 +93,16 @@ export function CurrentPlanSection() {
                   <h2 className="text-2xl font-semibold tracking-tight sm:text-3xl">
                     {planName}
                   </h2>
-                  {subscription ? (
+                  {isFree ? (
+                    <Badge variant="secondary">Free</Badge>
+                  ) : subscription ? (
                     <Badge variant={isCancelScheduled ? "outline" : "default"}>
                       {isCancelScheduled
                         ? "Switching to Free"
                         : formatSubscriptionStatus(subscription.status)}
                     </Badge>
                   ) : (
-                    <Badge variant="secondary">Free</Badge>
+                    <Badge variant="secondary">Active</Badge>
                   )}
                 </div>
                 <p className="max-w-xl text-sm leading-relaxed text-muted-foreground sm:text-base">

@@ -67,6 +67,12 @@ export function SkillTrainerDetailPage({
     return <p className="text-sm text-muted-foreground">Trainer not found.</p>;
   }
 
+  const startLabel = starting
+    ? "Starting…"
+    : quotaLoading
+      ? "Loading…"
+      : "Start drill";
+
   return (
     <motion.div
       className="space-y-6"
@@ -78,8 +84,7 @@ export function SkillTrainerDetailPage({
         <UcatPageHeader
           title={trainer?.name ?? "Skill trainer"}
           description={
-            trainer?.description ??
-            "Review how this trainer works before starting."
+            trainer?.description ?? "Timed drill to sharpen this UCAT skill."
           }
           backHref="/skill-trainer"
           backLabel="Back to skill trainer"
@@ -91,29 +96,22 @@ export function SkillTrainerDetailPage({
         <SkillTrainerDemoCard trainerKey={trainerKey} />
       </motion.div>
 
-      <motion.section
-        aria-labelledby="leaderboard-heading"
-        className="space-y-4"
+      <motion.div
         variants={itemVariants}
+        className="mt-4 flex min-h-10 items-center justify-end"
       >
-        <h2
-          id="leaderboard-heading"
-          className="text-2xl font-semibold tracking-tight"
-        >
-          Leaderboard
-        </h2>
-        <SkillTrainerLeaderboard trainerKey={trainerKey} />
-      </motion.section>
-
-      <motion.div className="flex justify-end" variants={itemVariants}>
         <Button
           type="button"
           className={UCAT_PRIMARY_ACTION_BUTTON}
           disabled={starting || quotaLoading}
           onClick={handleStart}
         >
-          {starting ? "Starting…" : quotaLoading ? "Loading…" : "Start"}
+          {startLabel}
         </Button>
+      </motion.div>
+
+      <motion.div variants={itemVariants}>
+        <SkillTrainerLeaderboard trainerKey={trainerKey} />
       </motion.div>
     </motion.div>
   );

@@ -502,6 +502,8 @@ export function UcatLearningModuleEditorShell({
           kind={editor.kind}
           title={editor.title}
           description={editor.description}
+          iconKey={editor.iconKey}
+          estimatedMinutes={editor.estimatedMinutes}
           sectionId={editor.sectionId}
           parentId={editor.parentId}
           isPrivate={editor.isPrivate}
@@ -510,6 +512,8 @@ export function UcatLearningModuleEditorShell({
           studyPlanTagIds={editor.studyPlanTagIds}
           onTitleChange={editor.setTitle}
           onDescriptionChange={editor.setDescription}
+          onIconKeyChange={editor.setIconKey}
+          onEstimatedMinutesChange={editor.setEstimatedMinutes}
           onSectionIdChange={editor.setSectionId}
           onParentIdChange={editor.setParentId}
           onIsPrivateChange={editor.setIsPrivate}

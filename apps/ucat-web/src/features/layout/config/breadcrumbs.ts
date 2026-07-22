@@ -16,6 +16,7 @@ export const SEGMENT_LABELS: Record<string, string> = {
   profile: "My profile",
   plan: "Plan",
   subscription: "Subscription",
+  referrals: "Referrals",
   "skill-trainer": "Skill trainer",
   "set-attempts": "Set attempt",
   "mock-attempts": "Mock attempt",
@@ -100,6 +101,9 @@ function isValidPagePath(path: string): boolean {
         (segments[0] === "sets" &&
           segments[1] === "sections" &&
           /^[1-4]$/.test(segments[2])) ||
+        (segments[0] === "learn" &&
+          segments[1] === "sections" &&
+          /^[1-4]$/.test(segments[2])) ||
         (segments[0] === "settings" &&
           segments[1] === "plan" &&
           segments[2] === "subscription") ||
@@ -122,6 +126,10 @@ function isValidPagePath(path: string): boolean {
           segments[2] === "mocks" &&
           isDynamicSegment(segments[3])) ||
         (segments[0] === "sets" &&
+          segments[1] === "sections" &&
+          /^[1-4]$/.test(segments[2]) &&
+          isDynamicSegment(segments[3])) ||
+        (segments[0] === "learn" &&
           segments[1] === "sections" &&
           /^[1-4]$/.test(segments[2]) &&
           isDynamicSegment(segments[3])) ||
@@ -212,6 +220,16 @@ export function getBreadcrumbItems(pathname: string): BreadcrumbItem[] {
       isDynamicSegment(segment)
     ) {
       label = "Set";
+    }
+
+    if (
+      segments[0] === "learn" &&
+      segments[1] === "sections" &&
+      i >= 3 &&
+      /^[1-4]$/.test(segments[2]) &&
+      isDynamicSegment(segment)
+    ) {
+      label = "Learning module";
     }
 
     const effectiveHref = hasOwnPage ? href : getEffectiveHref(href);

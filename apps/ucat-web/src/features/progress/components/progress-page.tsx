@@ -132,7 +132,7 @@ export function ProgressPage() {
       <div className="space-y-6 pb-8">
         <Skeleton className="h-[620px] w-full" />
         <div className="mx-auto grid w-full max-w-[1400px] gap-5 px-5 sm:px-6 lg:grid-cols-2">
-          <Skeleton className="h-[280px] rounded-2xl" />
+          <Skeleton className="h-[320px] rounded-2xl" />
           <div className="grid grid-cols-2 gap-4">
             {Array.from({ length: 4 }, (_, index) => (
               <Skeleton key={index} className="h-40 rounded-2xl" />

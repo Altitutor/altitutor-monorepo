@@ -15,7 +15,6 @@ import {
   Clock3,
   NotebookText,
   RotateCcw,
-  Sparkles,
   Target,
   TrendingUp,
 } from "lucide-react";
@@ -998,17 +997,11 @@ export function DashboardHome() {
       totalProjection?.currentEstimate != null
         ? buildDashboardTrajectoryChartData(
             totalProjection,
-            scoreProjectionQuery.data?.snapshots ?? [],
             planQuery.data?.today ?? todayIso(),
             trajectoryState?.projectedAtTest,
           )
         : [],
-    [
-      scoreProjectionQuery.data?.snapshots,
-      planQuery.data?.today,
-      totalProjection,
-      trajectoryState?.projectedAtTest,
-    ],
+    [planQuery.data?.today, totalProjection, trajectoryState?.projectedAtTest],
   );
   const mockAnnotations = useMemo(
     () => dashboardMockAnnotations(planQuery.data),

@@ -43,6 +43,8 @@ export function snapshotSettings(input: {
   kind: string
   title: string
   description: string
+  iconKey: string
+  estimatedMinutes: number | null
   sectionId: string | null
   parentId: string | null
   index: number

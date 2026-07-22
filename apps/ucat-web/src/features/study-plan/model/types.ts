@@ -81,6 +81,7 @@ export type StudyPlanLearningModule = {
   id: string;
   title: string;
   sectionId: string | null;
+  sectionNumber: number | null;
   priority: "essential" | "recommended" | "optional";
   estimatedMinutes: number;
   completionPercent: number;

@@ -29,15 +29,20 @@ export function SkillTrainerLeaderboard({
   );
 
   return (
-    <div className="space-y-4">
-      <SegmentedControl<LeaderboardWindow>
-        value={window}
-        onValueChange={setWindow}
-        options={[
-          { value: "week", label: "This week" },
-          { value: "all_time", label: "All time" },
-        ]}
-      />
+    <section className="space-y-4" aria-labelledby={headingId}>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <h2 id={headingId} className="text-2xl font-semibold tracking-tight">
+          Leaderboard
+        </h2>
+        <SegmentedControl<LeaderboardWindow>
+          value={window}
+          onValueChange={setWindow}
+          options={[
+            { value: "week", label: "This week" },
+            { value: "all_time", label: "All time" },
+          ]}
+        />
+      </div>
 
       {isLoading ? <Skeleton className="h-72 w-full" /> : null}
 
@@ -115,13 +120,8 @@ export function SkillTrainerLeaderboard({
 
           <div className={UCAT_TABLE_SHELL}>
             <div className="overflow-x-auto">
-              <table
-                className="w-full min-w-[420px] caption-bottom text-sm"
-                aria-labelledby={headingId}
-              >
-                <caption id={headingId} className="sr-only">
-                  Skill trainer leaderboard
-                </caption>
+              <table className="w-full min-w-[420px] caption-bottom text-sm">
+                <caption className="sr-only">Skill trainer leaderboard</caption>
                 <thead className={UCAT_TABLE_HEADER_CLASSNAME}>
                   <tr className={UCAT_NATIVE_TABLE_HEADER_ROW}>
                     <th className="w-12 px-4 py-3 text-left font-medium">#</th>
@@ -148,6 +148,6 @@ export function SkillTrainerLeaderboard({
           </div>
         </div>
       ) : null}
-    </div>
+    </section>
   );
 }

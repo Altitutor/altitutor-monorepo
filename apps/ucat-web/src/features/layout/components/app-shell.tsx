@@ -35,10 +35,7 @@ import { cn } from "@/lib/utils";
 import { AppPageSkeleton } from "@/features/layout/components/app-page-skeleton";
 import { QuestionEngineTutorialRedirect } from "@/features/onboarding/components/question-engine-tutorial-redirect";
 import { StudyPlanCompanion } from "@/features/study-plan/components/study-plan-companion";
-import {
-  StudyPlanCompanionProvider,
-  useStudyPlanCompanion,
-} from "@/features/study-plan/context/study-plan-companion-context";
+import { StudyPlanCompanionProvider } from "@/features/study-plan/context/study-plan-companion-context";
 import { StudyPlanExtraStudyProvider } from "@/features/study-plan/components/study-plan-extra-study";
 import { getStudyPlanCompanionMode } from "@/features/study-plan/lib/companion-mode";
 
@@ -127,7 +124,6 @@ function AppShellInner({ children }: AppShellProps) {
   const router = useRouter();
   const pathname = usePathname();
   const { user, isLoading } = useAuth();
-  const { activityComplete } = useStudyPlanCompanion();
   const isMobile = useMediaQuery("(max-width: 767px)");
   const reduceMotion = useReducedMotion();
   const prevIsMobileRef = useRef<boolean | null>(null);
@@ -142,9 +138,9 @@ function AppShellInner({ children }: AppShellProps) {
   const isExamRoute = pathname.startsWith("/exam");
   const isImmersiveRoute = isExamRoute || isPracticeEngineRoute(pathname);
   const studyPlanCompanionMode = getStudyPlanCompanionMode(pathname);
-  const hideFloatingStudyPlanCompanion =
-    studyPlanCompanionMode === "hidden" ||
-    (studyPlanCompanionMode === "activity" && !activityComplete);
+  // Fullscreen engines hide the orb entirely. In-progress activities stay
+  // mounted so completion celebrations can surface, then go silent again.
+  const hideFloatingStudyPlanCompanion = studyPlanCompanionMode === "hidden";
 
   useEffect(() => {
     if (isImmersiveRoute) {
@@ -362,7 +358,10 @@ function AppShellInner({ children }: AppShellProps) {
               </div>
             </ExamAttemptNavigationGuard>
           </ExamAttemptExitSyncProvider>
-          <StudyPlanCompanion hidden={hideFloatingStudyPlanCompanion} />
+          <StudyPlanCompanion
+            hidden={hideFloatingStudyPlanCompanion}
+            mode={studyPlanCompanionMode}
+          />
         </AppShellLayoutProvider>
       </OnboardingProvider>
     </ComingSoonProvider>

@@ -73,12 +73,30 @@ describe("shouldShowSubscriptionTab", () => {
     ).toBe(true);
   });
 
-  it("shows while loading to avoid flicker", () => {
+  it("hides while loading unless billing history or a paid tier is already known", () => {
     expect(
       shouldShowSubscriptionTab({
         accessLoading: true,
         billingLoading: false,
+        onlineTier: null,
+        subscriptionCount: 0,
+        invoiceCount: 0,
+      }),
+    ).toBe(false);
+    expect(
+      shouldShowSubscriptionTab({
+        accessLoading: false,
+        billingLoading: true,
         onlineTier: "free",
+        subscriptionCount: 0,
+        invoiceCount: 0,
+      }),
+    ).toBe(false);
+    expect(
+      shouldShowSubscriptionTab({
+        accessLoading: true,
+        billingLoading: false,
+        onlineTier: "unlimited",
         subscriptionCount: 0,
         invoiceCount: 0,
       }),
@@ -87,8 +105,8 @@ describe("shouldShowSubscriptionTab", () => {
       shouldShowSubscriptionTab({
         accessLoading: false,
         billingLoading: true,
-        onlineTier: "free",
-        subscriptionCount: 0,
+        onlineTier: null,
+        subscriptionCount: 1,
         invoiceCount: 0,
       }),
     ).toBe(true);

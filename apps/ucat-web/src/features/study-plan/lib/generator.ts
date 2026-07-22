@@ -637,7 +637,10 @@ export function generateStudyPlan(
         questionSetId: null,
         mockId: null,
         skillTrainerId: null,
-        launchPath: `/learn/${learningModule.id}`,
+        launchPath:
+          learningModule.sectionNumber != null
+            ? `/learn/sections/${learningModule.sectionNumber}/${learningModule.id}`
+            : `/learn/${learningModule.id}`,
         launchConfig: {
           kind: "learning_module",
           learningModuleId: learningModule.id,

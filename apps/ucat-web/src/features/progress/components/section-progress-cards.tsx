@@ -1,19 +1,17 @@
 "use client";
 
-import Link from "next/link";
 import {
   Card,
   CardContent,
   CardHeader,
   CardTitle,
 } from "@altitutor/ui";
-import { ArrowRight } from "lucide-react";
-import { Button } from "@/components/ui/button";
 import { UCAT_CARD_CHROME } from "@/lib/ucat-surface-motion";
 import { cn } from "@/lib/utils";
 import type { SectionProgress } from "@altitutor/shared";
 import type { ProgressMode } from "../lib/progress-mode";
 import type { SectionScoreProjection } from "@/features/score-projection/types/score-projection";
+import { UcatTableRowActionLink } from "./ucat-table-row-action-link";
 
 type SectionProgressCardsProps = {
   sections: SectionProgress[];
@@ -49,6 +47,10 @@ function ScoreScale({
     target == null
       ? null
       : Math.max(0, Math.min(100, ((target - minimum) / range) * 100));
+  const pillsOverlap =
+    scorePosition != null &&
+    targetPosition != null &&
+    Math.abs(scorePosition - targetPosition) < 22;
 
   if (score == null) {
     const examplePosition =
@@ -56,25 +58,27 @@ function ScoreScale({
 
     return (
       <div className="min-w-0" aria-label={`${scoreLabel} pending`}>
-        <div className="relative h-5 overflow-hidden" aria-hidden>
+        <div className="relative h-9 overflow-hidden" aria-hidden>
           <div className="absolute inset-0 blur-[1.5px] opacity-50">
-            <div className="absolute inset-x-0 top-2 h-1 rounded-full bg-muted-foreground/35" />
+            <div className="absolute inset-x-0 top-[1.125rem] h-1 rounded-full bg-muted-foreground/35" />
             <div
-              className="absolute top-0.5 size-4 -translate-x-1/2 rounded-full border-[3px] border-background bg-primary ring-1 ring-primary/40"
+              className="absolute top-3 size-3.5 -translate-x-1/2 rounded-full border-2 border-background bg-primary ring-1 ring-primary/40"
               style={{ left: `${examplePosition}%` }}
             />
             {targetPosition != null ? (
-              <div
-                className="absolute top-0 h-5 w-px bg-foreground/70"
+              <span
+                className="absolute top-0 -translate-x-1/2 rounded-full border border-amber-950/15 bg-amber-400 px-1.5 py-0.5 text-[10px] font-semibold tabular-nums text-slate-950"
                 style={{ left: `${targetPosition}%` }}
-              />
+              >
+                {target}
+              </span>
             ) : null}
           </div>
         </div>
-        <div className="mt-0.5 flex justify-between gap-2 text-[10px] leading-4 text-muted-foreground">
-          <span>{scoreLabel} pending</span>
-          <span>{target == null ? "Target not set" : `Target ${target}`}</span>
-        </div>
+        <p className="mt-0.5 text-[10px] leading-4 text-muted-foreground">
+          {scoreLabel} pending
+          {target == null ? "" : " · target set"}
+        </p>
       </div>
     );
   }
@@ -84,11 +88,11 @@ function ScoreScale({
       className="min-w-0"
       aria-label={`${scoreLabel} ${Math.round(score)}${target == null ? "" : `, target ${target}`}`}
     >
-      <div className="relative h-6">
-        <div className="absolute inset-x-0 top-2.5 h-1 rounded-full bg-muted" />
+      <div className={cn("relative", pillsOverlap ? "h-14" : "h-9")}>
+        <div className="absolute inset-x-0 top-[1.125rem] h-1 rounded-full bg-muted" />
         {scorePosition != null && targetPosition != null ? (
           <div
-            className="absolute top-2.5 h-1 rounded-full bg-primary/35"
+            className="absolute top-[1.125rem] h-1 rounded-full bg-primary/35"
             style={{
               left: `${Math.min(scorePosition, targetPosition)}%`,
               width: `${Math.abs(targetPosition - scorePosition)}%`,
@@ -97,36 +101,37 @@ function ScoreScale({
         ) : null}
         {targetPosition != null ? (
           <div
-            className="absolute top-0 -translate-x-1/2"
+            className="absolute top-2 -translate-x-1/2"
             style={{ left: `${targetPosition}%` }}
           >
-            <span className="block h-6 w-px bg-foreground/55" />
+            <span className="block h-5 w-px bg-foreground/45" />
           </div>
         ) : null}
         <div
-          className="absolute top-0.5 size-4 -translate-x-1/2 rounded-full border-[3px] border-background bg-primary shadow-sm ring-1 ring-primary/35"
+          className="absolute top-3 size-3.5 -translate-x-1/2 rounded-full border-2 border-background bg-primary shadow-sm ring-1 ring-primary/35"
           style={{ left: `${scorePosition}%` }}
         />
-      </div>
-      <div className="mt-0.5 flex justify-between gap-2 text-[10px] leading-4">
-        <span className="text-muted-foreground">
-          {scoreLabel}{" "}
-          <strong className="font-semibold text-foreground tabular-nums">
-            {Math.round(score)}
-          </strong>
-        </span>
-        <span className="text-muted-foreground">
-          {target == null ? (
-            "Target not set"
-          ) : (
-            <>
-              Target{" "}
-              <strong className="font-semibold text-foreground tabular-nums">
-                {target}
-              </strong>
-            </>
+        <span
+          className={cn(
+            "absolute z-[1] -translate-x-1/2 rounded-full border border-primary/20 bg-primary px-1.5 py-0.5 text-[10px] font-semibold tabular-nums text-primary-foreground shadow-sm",
+            pillsOverlap ? "top-7" : "top-0",
           )}
+          style={{
+            left: `${Math.max(8, Math.min(92, scorePosition ?? 0))}%`,
+          }}
+        >
+          {Math.round(score)}
         </span>
+        {target != null && targetPosition != null ? (
+          <span
+            className="absolute top-0 z-[1] -translate-x-1/2 rounded-full border border-amber-950/15 bg-amber-400 px-1.5 py-0.5 text-[10px] font-semibold tabular-nums text-slate-950 shadow-sm"
+            style={{
+              left: `${Math.max(8, Math.min(92, targetPosition))}%`,
+            }}
+          >
+            {target}
+          </span>
+        ) : null}
       </div>
     </div>
   );
@@ -182,15 +187,11 @@ export function SectionProgressCards({
                   </div>
                 </div>
                 {linkToSection ? (
-                  <Button asChild size="sm" className="h-8 shrink-0 px-3">
-                    <Link
-                      href={href}
-                      aria-label={`View ${section.sectionName} progress`}
-                    >
-                      View
-                      <ArrowRight className="ml-1 size-3.5" aria-hidden />
-                    </Link>
-                  </Button>
+                  <UcatTableRowActionLink
+                    href={href}
+                    label="View"
+                    ariaLabel={`View ${section.sectionName} progress`}
+                  />
                 ) : null}
               </div>
             );
@@ -209,12 +210,11 @@ export function SectionProgressCards({
                   />
                 </div>
               </div>
-              <Button asChild size="sm" className="h-8 shrink-0 px-3">
-                <Link href="/progress/mocks" aria-label="View mock progress">
-                  View
-                  <ArrowRight className="ml-1 size-3.5" aria-hidden />
-                </Link>
-              </Button>
+              <UcatTableRowActionLink
+                href="/progress/mocks"
+                label="View"
+                ariaLabel="View mock progress"
+              />
             </div>
           ) : null}
         </div>

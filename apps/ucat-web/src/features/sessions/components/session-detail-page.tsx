@@ -22,8 +22,12 @@ import type { StudentMockRow } from "@/features/mocks/api/mocks-api";
 import { formatSetSections } from "@/features/sets/lib/section-labels";
 import { sessionCardIconChipClassName } from "@/features/sessions/lib/session-card-icon-chip";
 import { UcatHoverChevron } from "@/lib/ucat-hover-chevron";
-import { UCAT_CARD_CHROME, UCAT_CARD_RAISED_HOVER } from "@/lib/ucat-surface-motion";
+import {
+  UCAT_CARD_CHROME,
+  UCAT_CARD_RAISED_HOVER,
+} from "@/lib/ucat-surface-motion";
 import { useLearningModules } from "@/features/learning/hooks/use-learning";
+import { learningModuleHref } from "@/features/learning/lib/learning-module-href";
 import { formatExamDurationSeconds } from "@/lib/format-exam-duration";
 import { cn } from "@/lib/utils";
 import { useUcatStaggerMotion } from "@/shared/hooks/use-ucat-stagger-motion";
@@ -32,7 +36,10 @@ const sessionResourceLinkClassName = cn(
   "group block focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground/25 focus-visible:ring-offset-2 focus-visible:ring-offset-background dark:focus-visible:ring-white/35",
 );
 
-const sessionResourceCardClassName = cn(UCAT_CARD_CHROME, UCAT_CARD_RAISED_HOVER);
+const sessionResourceCardClassName = cn(
+  UCAT_CARD_CHROME,
+  UCAT_CARD_RAISED_HOVER,
+);
 
 type SessionDetailPageProps = {
   sessionId: string;
@@ -64,7 +71,8 @@ export function SessionDetailPage({ sessionId }: SessionDetailPageProps) {
   } = useStudentUcatSessionResources(sessionId);
   const { data: sets, isLoading: setsLoading } = useAccessibleSets();
   const { data: mocks, isLoading: mocksLoading } = useMocks();
-  const { data: learningModules, isLoading: lessonsLoading } = useLearningModules();
+  const { data: learningModules, isLoading: lessonsLoading } =
+    useLearningModules();
 
   const setsById = useMemo(
     () => new Map((sets ?? []).map((s) => [s.id, s])),
@@ -233,7 +241,10 @@ export function SessionDetailPage({ sessionId }: SessionDetailPageProps) {
         {visibleResources.map((resource) => {
           if (resource.type === "lesson") {
             const lesson = lessonsById.get(resource.ucat_learning_module_id);
-            const href = `/learn/${encodeURIComponent(resource.ucat_learning_module_id)}`;
+            const href = learningModuleHref(
+              resource.ucat_learning_module_id,
+              lesson?.section_number,
+            );
             return (
               <motion.li
                 key={resource.id}
@@ -244,7 +255,9 @@ export function SessionDetailPage({ sessionId }: SessionDetailPageProps) {
                   <Card className={sessionResourceCardClassName}>
                     <CardContent className="p-6">
                       <div className="flex items-center gap-4">
-                        <div className={sessionCardIconChipClassName("default")}>
+                        <div
+                          className={sessionCardIconChipClassName("default")}
+                        >
                           <BookOpen className="h-5 w-5" aria-hidden />
                         </div>
                         <div className="min-w-0 flex-1 space-y-1">
@@ -354,9 +367,7 @@ export function SessionDetailPage({ sessionId }: SessionDetailPageProps) {
                 <Card className={sessionResourceCardClassName}>
                   <CardContent className="p-6">
                     <div className="flex items-center gap-4">
-                      <div
-                        className={sessionCardIconChipClassName("default")}
-                      >
+                      <div className={sessionCardIconChipClassName("default")}>
                         <NotebookText className="h-5 w-5" aria-hidden />
                       </div>
                       <div className="min-w-0 flex-1 space-y-1">

@@ -14,6 +14,8 @@ import {
 type UcatTableRowActionLinkProps = {
   href: string;
   label: string;
+  /** Overrides the link aria-label when the visible label is too generic (e.g. "View"). */
+  ariaLabel?: string;
   unreviewed?: boolean;
 };
 
@@ -23,6 +25,7 @@ type UcatTableRowActionLinkProps = {
 export function UcatTableRowActionLink({
   href,
   label,
+  ariaLabel,
   unreviewed = false,
 }: UcatTableRowActionLinkProps) {
   const action = (
@@ -39,7 +42,9 @@ export function UcatTableRowActionLink({
         href={href}
         className="inline-flex items-center gap-1.5"
         aria-label={
-          unreviewed ? `${label}. This attempt is unreviewed.` : label
+          unreviewed
+            ? `${ariaLabel ?? label}. This attempt is unreviewed.`
+            : (ariaLabel ?? label)
         }
       >
         <span>{label}</span>

@@ -14303,7 +14303,9 @@ export type Database = {
           deleted_at: string | null
           deleted_by: string | null
           description: string | null
+          estimated_minutes: number | null
           id: string
+          icon_key: string
           index: number
           is_private: boolean
           kind: Database["public"]["Enums"]["ucat_learning_module_kind"]
@@ -14320,7 +14322,9 @@ export type Database = {
           deleted_at?: string | null
           deleted_by?: string | null
           description?: string | null
+          estimated_minutes?: number | null
           id?: string
+          icon_key?: string
           index: number
           is_private?: boolean
           kind: Database["public"]["Enums"]["ucat_learning_module_kind"]
@@ -14337,7 +14341,9 @@ export type Database = {
           deleted_at?: string | null
           deleted_by?: string | null
           description?: string | null
+          estimated_minutes?: number | null
           id?: string
+          icon_key?: string
           index?: number
           is_private?: boolean
           kind?: Database["public"]["Enums"]["ucat_learning_module_kind"]
@@ -21358,7 +21364,9 @@ export type Database = {
           completed_at: string | null
           completion_percent: number | null
           description: string | null
+          estimated_minutes: number | null
           id: string | null
+          icon_key: string | null
           index: number | null
           is_private: boolean | null
           kind: Database["public"]["Enums"]["ucat_learning_module_kind"] | null
@@ -28159,7 +28167,9 @@ export type Database = {
           deleted_at: string | null
           deleted_by: string | null
           description: string | null
+          estimated_minutes: number | null
           id: string | null
+          icon_key: string | null
           index: number | null
           is_private: boolean | null
           kind: Database["public"]["Enums"]["ucat_learning_module_kind"] | null
@@ -32455,6 +32465,8 @@ export type Database = {
       tutor_ucat_upsert_learning_module: {
         Args: {
           p_description?: string
+          p_estimated_minutes?: number
+          p_icon_key?: string
           p_index?: number
           p_is_private?: boolean
           p_kind: Database["public"]["Enums"]["ucat_learning_module_kind"]
@@ -32850,4 +32862,3 @@ export const Constants = {
     },
   },
 } as const
-

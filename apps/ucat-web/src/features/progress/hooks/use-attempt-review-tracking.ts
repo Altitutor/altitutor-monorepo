@@ -60,7 +60,8 @@ export function useAttemptReviewTracking(input: {
   ready: boolean;
 }) {
   const queryClient = useQueryClient();
-  const { reportActivityCompletion } = useStudyPlanCompanion();
+  const { reportActivityCompletion, setActivityComplete } =
+    useStudyPlanCompanion();
   const [review, setReview] = useState<AttemptReviewState | null>(null);
   const [isPending, setIsPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -78,6 +79,12 @@ export function useAttemptReviewTracking(input: {
       detail: "You’ve reviewed this attempt.",
     });
   }, [input.attemptId, input.attemptType, reportActivityCompletion]);
+
+  useEffect(() => {
+    const complete = Boolean(review?.completedAt);
+    setActivityComplete(complete);
+    return () => setActivityComplete(false);
+  }, [review?.completedAt, setActivityComplete]);
 
   useEffect(() => {
     if (!input.ready) return;

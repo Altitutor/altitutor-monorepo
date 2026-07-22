@@ -145,19 +145,20 @@ describe("dashboard trajectory", () => {
     ).toBe("needs_adjustment");
   });
 
-  it("uses stored snapshots as actual history", () => {
+  it("uses weekly reconstructed history as actuals", () => {
     const data = buildDashboardTrajectoryChartData(
-      total(),
-      [
-        {
-          date: "2026-07-14",
-          currentEstimate: 1980,
-          confidence: "medium",
-          uncertainty: 100,
-          effectiveEvidenceWeight: 4,
-          sectionEstimates: {},
-        },
-      ],
+      {
+        ...total(),
+        history: [
+          {
+            date: "2026-07-14",
+            value: 1980,
+            confidence: "medium",
+            uncertainty: 100,
+            effectiveEvidenceWeight: 4,
+          },
+        ],
+      },
       "2026-07-15",
     );
     expect(data[0]).toMatchObject({ date: "2026-07-14", actual: 1980 });
@@ -171,27 +172,27 @@ describe("dashboard trajectory", () => {
     });
   });
 
-  it("keeps today fixed by limiting the dashboard history to 60 days", () => {
+  it("keeps today fixed by limiting history to 60 days", () => {
     const data = buildDashboardTrajectoryChartData(
-      total(),
-      [
-        {
-          date: "2026-05-15",
-          currentEstimate: 1800,
-          confidence: "low",
-          uncertainty: 160,
-          effectiveEvidenceWeight: 2,
-          sectionEstimates: {},
-        },
-        {
-          date: "2026-05-16",
-          currentEstimate: 1820,
-          confidence: "low",
-          uncertainty: 150,
-          effectiveEvidenceWeight: 2.5,
-          sectionEstimates: {},
-        },
-      ],
+      {
+        ...total(),
+        history: [
+          {
+            date: "2026-05-15",
+            value: 1800,
+            confidence: "low",
+            uncertainty: 160,
+            effectiveEvidenceWeight: 2,
+          },
+          {
+            date: "2026-05-16",
+            value: 1820,
+            confidence: "low",
+            uncertainty: 150,
+            effectiveEvidenceWeight: 2.5,
+          },
+        ],
+      },
       "2026-07-15",
     );
 

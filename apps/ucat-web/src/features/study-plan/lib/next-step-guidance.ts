@@ -154,7 +154,10 @@ function learningDraft(module: StudyPlanLearningModule): NextStepDraft {
     estimatedMinutes: module.estimatedMinutes,
     sectionId: module.sectionId,
     learningModuleId: module.id,
-    launchPath: `/learn/${module.id}`,
+    launchPath:
+      module.sectionNumber != null
+        ? `/learn/sections/${module.sectionNumber}/${module.id}`
+        : `/learn/${module.id}`,
   });
 }
 

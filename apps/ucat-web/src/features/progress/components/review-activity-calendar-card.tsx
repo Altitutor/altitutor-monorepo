@@ -9,13 +9,13 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@altitutor/ui";
+import { Flame } from "lucide-react";
 import { UcatHoverChevron } from "@/lib/ucat-hover-chevron";
 import {
   UCAT_PRESSABLE_LIFT_HOVER,
   UCAT_SURFACE_MOTION,
 } from "@/lib/ucat-surface-motion";
 import { cn } from "@/lib/utils";
-import { PracticeStreakWeek } from "@/features/streaks/components/practice-streak-week";
 import { buildPracticeStreak } from "@/features/streaks/lib/practice-streak";
 import {
   UcatActivityIntensityLegend,
@@ -58,12 +58,14 @@ function ReviewDayCell({
   intensity,
   isToday,
   isFuture,
+  inStreak,
 }: {
   day: UcatCalendarDay;
   activity: DayActivity | undefined;
   intensity: 0 | 1 | 2 | 3 | 4;
   isToday: boolean;
   isFuture: boolean;
+  inStreak: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const questionAttempts = activity?.questionAttempts ?? 0;
@@ -76,15 +78,17 @@ function ReviewDayCell({
   });
   const aria = isFuture
     ? `${label} (upcoming)`
-    : `${label}: ${questionAttempts} question attempts, ${setAttempts} set attempts`;
+    : `${label}: ${questionAttempts} question attempts, ${setAttempts} set attempts${
+        inStreak ? ", part of current streak" : ""
+      }`;
 
   const cell = (
     <span
       className={cn(
-        "group relative flex h-11 w-full overflow-hidden rounded-lg text-left sm:h-12",
+        "group relative flex h-7 w-full items-center justify-center overflow-hidden rounded-md text-left sm:h-8",
         UCAT_SURFACE_MOTION,
         !isFuture && "hover:shadow-sm hover:ring-1 hover:ring-foreground/20",
-        isToday && "ring-1 ring-primary/50",
+        isToday && !inStreak && "ring-1 ring-primary/50",
         isFuture && "opacity-45",
       )}
     >
@@ -97,6 +101,12 @@ function ReviewDayCell({
         )}
         aria-hidden
       />
+      {inStreak ? (
+        <Flame
+          className="relative z-[1] size-3 fill-amber-400 text-amber-500 drop-shadow-sm sm:size-3.5"
+          aria-hidden
+        />
+      ) : null}
     </span>
   );
 
@@ -114,7 +124,7 @@ function ReviewDayCell({
         <button
           type="button"
           className={cn(
-            "w-full rounded-lg",
+            "w-full rounded-md",
             "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground focus-visible:ring-offset-2 focus-visible:ring-offset-background",
           )}
           aria-label={aria}
@@ -132,8 +142,44 @@ function ReviewDayCell({
         <p className="text-muted-foreground text-xs">
           {setAttempts} set attempt{setAttempts === 1 ? "" : "s"}
         </p>
+        {inStreak ? (
+          <p className="text-xs text-amber-700 dark:text-amber-300">
+            Current streak
+          </p>
+        ) : null}
       </TooltipContent>
     </Tooltip>
+  );
+}
+
+function CompactStreakBadge({
+  current,
+  practicedToday,
+}: {
+  current: number;
+  practicedToday: boolean;
+}) {
+  const hint =
+    current === 0
+      ? "Answer 1 question to begin"
+      : practicedToday
+        ? "Extended today"
+        : "Answer 1 question today";
+
+  return (
+    <div
+      className="flex shrink-0 items-center gap-1.5 rounded-full border border-amber-400/40 bg-amber-400/10 px-2.5 py-1"
+      title={hint}
+    >
+      <Flame
+        className="h-3.5 w-3.5 fill-amber-400 text-amber-500"
+        aria-hidden
+      />
+      <span className="text-xs font-semibold tabular-nums tracking-tight">
+        {current} day{current === 1 ? "" : "s"}
+      </span>
+      <span className="sr-only">{hint}</span>
+    </div>
   );
 }
 
@@ -152,6 +198,10 @@ export function ReviewActivityCalendarCard({
         data?.timezone ?? "Australia/Adelaide",
       ),
     [data?.days, data?.timezone],
+  );
+  const streakDateKeySet = useMemo(
+    () => new Set(streak.streakDateKeys),
+    [streak.streakDateKeys],
   );
 
   const activityByDate = useMemo(() => {
@@ -216,7 +266,7 @@ export function ReviewActivityCalendarCard({
   }
 
   if (previewData == null && activityQuery.isLoading) {
-    return <Skeleton className={cn("h-[280px] rounded-lg", className)} />;
+    return <Skeleton className={cn("h-[320px] rounded-lg", className)} />;
   }
 
   if ((previewData == null && activityQuery.error) || !data) {
@@ -230,34 +280,39 @@ export function ReviewActivityCalendarCard({
       <div className={cn("relative", className)}>
         <div
           className={cn(
-            "flex h-full flex-col",
+            "h-full",
             isEmpty && "pointer-events-none opacity-45 blur-[1px]",
           )}
           aria-hidden={isEmpty || undefined}
         >
-          <div className="border-b border-border/60 px-4 pb-4 pt-4">
-            <PracticeStreakWeek streak={streak} compact />
-          </div>
           <UcatMonthCalendar
-            className="min-h-0 flex-1"
+            className="h-full"
             months={months}
             initialMonthKey={todayKey.slice(0, 7)}
+            monthsVisible={2}
+            density="compact"
             ariaLabel="Review activity calendar"
             title="Review activity"
             headerAction={
-              showViewAllProgressLink ? (
-                <Link
-                  href="/progress"
-                  className={cn(
-                    "group -m-1 shrink-0 rounded-md p-1 text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground/25 focus-visible:ring-offset-2 focus-visible:ring-offset-background dark:focus-visible:ring-white/35",
-                    UCAT_SURFACE_MOTION,
-                    UCAT_PRESSABLE_LIFT_HOVER,
-                  )}
-                  aria-label="View all progress"
-                >
-                  <UcatHoverChevron className="h-5 w-5" />
-                </Link>
-              ) : null
+              <div className="flex items-center gap-2">
+                <CompactStreakBadge
+                  current={streak.current}
+                  practicedToday={streak.practicedToday}
+                />
+                {showViewAllProgressLink ? (
+                  <Link
+                    href="/progress"
+                    className={cn(
+                      "group -m-1 shrink-0 rounded-md p-1 text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground/25 focus-visible:ring-offset-2 focus-visible:ring-offset-background dark:focus-visible:ring-white/35",
+                      UCAT_SURFACE_MOTION,
+                      UCAT_PRESSABLE_LIFT_HOVER,
+                    )}
+                    aria-label="View all progress"
+                  >
+                    <UcatHoverChevron className="h-5 w-5" />
+                  </Link>
+                ) : null}
+              </div>
             }
             legend={<UcatActivityIntensityLegend />}
             renderDay={(day) => {
@@ -272,6 +327,7 @@ export function ReviewActivityCalendarCard({
                   intensity={intensityForDay(day, activity, isFuture, isEmpty)}
                   isToday={day.dateKey === todayKey}
                   isFuture={isFuture}
+                  inStreak={!isEmpty && streakDateKeySet.has(day.dateKey)}
                 />
               );
             }}

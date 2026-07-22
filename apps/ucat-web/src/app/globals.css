@@ -281,6 +281,43 @@
 }
 
 /**
+ * A single composited glass layer keeps scrolled content readable beneath the
+ * floating toolbar. The mask graduates both the tint and blur without any
+ * scroll listener or per-frame JavaScript work.
+ */
+.ucat-toolbar-scrim {
+  background: linear-gradient(
+    to bottom,
+    hsl(var(--background) / 0.96) 0%,
+    hsl(var(--background) / 0.82) 58%,
+    hsl(var(--background) / 0) 100%
+  );
+  -webkit-backdrop-filter: blur(14px) saturate(135%);
+  backdrop-filter: blur(14px) saturate(135%);
+  -webkit-mask-image: linear-gradient(
+    to bottom,
+    #000 0%,
+    #000 62%,
+    transparent 100%
+  );
+  mask-image: linear-gradient(to bottom, #000 0%, #000 62%, transparent 100%);
+}
+
+/**
+ * Quieten long-form app copy while preserving headings, controls, links,
+ * explicit semantic colours, and the high-contrast UCAT question engine.
+ */
+#ucat-app-shell
+  :where(p, li, dd, figcaption, blockquote, td):not(.text-destructive):not(
+    .text-primary
+  ):not(.text-success):not(.text-warning):not(
+    [data-tour="question-engine-shell"],
+    [data-tour="question-engine-shell"] *
+  ) {
+  color: hsl(var(--muted-foreground));
+}
+
+/**
  * Bottom-up hover wash (same motion language as marketing `MagneticButton`).
  * Overlay sits above the solid `bg-*` fill and below label content.
  */

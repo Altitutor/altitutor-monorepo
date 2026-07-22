@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useId, useMemo } from "react";
+import { useEffect, useId, useMemo, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
 import { motion } from "motion/react";
@@ -39,6 +40,8 @@ import type { SessionResourceEntryContext } from "@/features/sessions/lib/sessio
 import { useUcatStaggerMotion } from "@/shared/hooks/use-ucat-stagger-motion";
 import { getQuestionEngineExam } from "@/features/question-engine/api/question-engine-api";
 
+const RECENT_ATTEMPTS_LIMIT = 5;
+
 type MockDetailPageProps = {
   mockId: string;
   backHref?: string;
@@ -56,6 +59,23 @@ function buildMockBreadcrumbOverrides(
     o[1] = sessionEntryContext.breadcrumbDateLabel;
   }
   return o;
+}
+
+function formatMockAttemptScore(attempt: MockAttemptWithBreakdown): string {
+  if (attempt.scorePoints != null && attempt.totalPoints != null) {
+    return `${attempt.scorePoints} / ${attempt.totalPoints}`;
+  }
+  return "—";
+}
+
+function formatMockScaledScore(attempt: MockAttemptWithBreakdown): string {
+  if (attempt.scaledScore != null && attempt.scaledScoreMax != null) {
+    return `${Math.round(attempt.scaledScore)} / ${attempt.scaledScoreMax}`;
+  }
+  if (attempt.scaledScore != null) {
+    return String(Math.round(attempt.scaledScore));
+  }
+  return "—";
 }
 
 export function MockDetailPage({
@@ -78,6 +98,7 @@ export function MockDetailPage({
   const { data: questionCount } = useMockQuestionCount(mockId);
   const { containerVariants, itemVariants } = useUcatStaggerMotion();
   const attemptsHeadingId = useId();
+  const [showAllAttempts, setShowAllAttempts] = useState(false);
   const mockQuota = quota?.areas.find((area) => area.area === "mocks") ?? null;
   const examHref = `/exam/mocks?id=${encodeURIComponent(mockId)}${
     sessionEntryContext
@@ -221,6 +242,14 @@ export function MockDetailPage({
     ["Questions", questionCount != null ? String(questionCount) : "—"],
   ];
 
+  const latestAttempt = attempts[0] ?? null;
+  const visibleAttempts = showAllAttempts
+    ? attempts
+    : attempts.slice(0, RECENT_ATTEMPTS_LIMIT);
+  const hasMoreAttempts = attempts.length > RECENT_ATTEMPTS_LIMIT;
+  const mockAttemptHref = (attemptId: string) =>
+    `/progress/mocks/mock-attempts/${attemptId}`;
+
   return (
     <motion.div
       className="space-y-6"
@@ -274,6 +303,18 @@ export function MockDetailPage({
         ))}
       </motion.section>
 
+      <motion.div
+        variants={itemVariants}
+        className="mt-4 flex min-h-10 items-center justify-end"
+      >
+        <Button
+          className={UCAT_PRIMARY_ACTION_BUTTON}
+          onClick={handleLaunchMock}
+        >
+          Launch mock
+        </Button>
+      </motion.div>
+
       {attempts.length > 0 ? (
         <motion.section
           aria-labelledby={attemptsHeadingId}
@@ -311,13 +352,18 @@ export function MockDetailPage({
                   </tr>
                 </thead>
                 <tbody>
-                  {attempts.map((a: MockAttemptWithBreakdown) => (
+                  {visibleAttempts.map((a: MockAttemptWithBreakdown) => (
                     <tr key={a.id} className={UCAT_NATIVE_TABLE_BODY_ROW}>
                       <td className="p-4 align-middle">
-                        {new Date(a.attemptedAt).toLocaleString(undefined, {
-                          dateStyle: "medium",
-                          timeStyle: "short",
-                        })}
+                        <Link
+                          href={mockAttemptHref(a.id)}
+                          className="font-medium underline-offset-4 hover:underline"
+                        >
+                          {new Date(a.attemptedAt).toLocaleString(undefined, {
+                            dateStyle: "medium",
+                            timeStyle: "short",
+                          })}
+                        </Link>
                       </td>
                       {a.sectionScores.map((sec: MockAttemptSectionScore) => (
                         <td
@@ -330,16 +376,10 @@ export function MockDetailPage({
                         </td>
                       ))}
                       <td className="p-4 align-middle text-right">
-                        {a.scorePoints != null && a.totalPoints != null
-                          ? `${a.scorePoints} / ${a.totalPoints}`
-                          : "—"}
+                        {formatMockAttemptScore(a)}
                       </td>
                       <td className="p-4 align-middle text-right">
-                        {a.scaledScore != null && a.scaledScoreMax != null
-                          ? `${Math.round(a.scaledScore)} / ${a.scaledScoreMax}`
-                          : a.scaledScore != null
-                            ? String(Math.round(a.scaledScore))
-                            : "—"}
+                        {formatMockScaledScore(a)}
                       </td>
                     </tr>
                   ))}
@@ -347,17 +387,21 @@ export function MockDetailPage({
               </table>
             </div>
           </div>
+          {hasMoreAttempts ? (
+            <Button
+              type="button"
+              variant="ghost"
+              className="px-0 text-sm font-medium text-muted-foreground hover:text-foreground"
+              onClick={() => setShowAllAttempts((prev) => !prev)}
+            >
+              {showAllAttempts
+                ? "Show fewer attempts"
+                : `Show all ${attempts.length} attempts`}
+            </Button>
+          ) : null}
         </motion.section>
       ) : null}
 
-      <motion.div className="flex justify-end" variants={itemVariants}>
-        <Button
-          className={UCAT_PRIMARY_ACTION_BUTTON}
-          onClick={handleLaunchMock}
-        >
-          Launch mock
-        </Button>
-      </motion.div>
       <ExamAttemptConflictDialog
         open={launchPreflight.conflictActive != null}
         active={launchPreflight.conflictActive}

@@ -5,6 +5,7 @@ import Link from "next/link";
 import { Badge } from "@altitutor/ui";
 import { BookOpen, ChevronRight } from "lucide-react";
 import { useLearnQuotaGate } from "@/features/learning/hooks/use-learn-quota-gate";
+import { learningModuleHref } from "@/features/learning/lib/learning-module-href";
 import type { LearningModuleTreeNode } from "@/features/learning/types";
 import { cn } from "@/lib/utils";
 
@@ -90,7 +91,9 @@ function LearningModuleCatalogTreeNode({
             className="flex h-6 w-6 shrink-0 items-center justify-center opacity-0"
           />
           <Link
-            href={node.id ? `/learn/${node.id}` : "#"}
+            href={
+              node.id ? learningModuleHref(node.id, node.section_number) : "#"
+            }
             onClick={(event) => guardLessonClick(event, node)}
             className="flex min-w-0 flex-1 items-center justify-between gap-3 rounded-lg px-2.5 py-1.5 text-sm font-medium transition-colors duration-300 hover:bg-muted/80"
           >

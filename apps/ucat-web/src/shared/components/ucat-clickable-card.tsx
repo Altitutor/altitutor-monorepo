@@ -18,6 +18,7 @@ type UcatClickableCardContentProps = {
   iconClassName?: string;
   title: ReactNode;
   description?: ReactNode;
+  footer?: ReactNode;
   /** Badges or labels rendered beside the title (inline layout). */
   titleAddon?: ReactNode;
   /** Replaces the default hover chevron in the header row. */
@@ -65,6 +66,7 @@ export function UcatClickableCardContent({
   iconClassName,
   title,
   description,
+  footer,
   titleAddon,
   trailing,
   showChevron = true,
@@ -113,6 +115,7 @@ export function UcatClickableCardContent({
           {description}
         </p>
       ) : null}
+      {footer ? <div className="mt-4">{footer}</div> : null}
     </>
   );
 }
@@ -121,17 +124,20 @@ type UcatClickableCardLinkProps = UcatClickableCardContentProps & {
   href: string;
   className?: string;
   interactive?: boolean;
+  onClick?: ComponentPropsWithoutRef<typeof Link>["onClick"];
 };
 
 export function UcatClickableCardLink({
   href,
   className,
   interactive = true,
+  onClick,
   ...contentProps
 }: UcatClickableCardLinkProps) {
   return (
     <Link
       href={href}
+      onClick={onClick}
       className={ucatClickableCardClassName({ interactive, className })}
     >
       <UcatClickableCardContent {...contentProps} />

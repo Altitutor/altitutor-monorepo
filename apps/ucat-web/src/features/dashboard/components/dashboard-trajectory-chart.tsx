@@ -221,11 +221,15 @@ export function DashboardTrajectoryChart({
     ...point,
     displayDay: displayDay(point.day, testDay),
   }));
-  const firstEstimateDay =
-    mappedData.find((point) => point.actual != null)?.displayDay ?? 0;
+  const firstEstimateDay = mappedData.reduce<number | null>((earliest, point) => {
+    if (point.actual == null) return earliest;
+    if (earliest == null) return point.displayDay;
+    return Math.min(earliest, point.displayDay);
+  }, null);
+  // Start at the first scored estimate — no empty leading gap before history begins.
   const chartStartDay = Math.max(
     -DASHBOARD_HISTORY_WINDOW_DAYS,
-    Math.min(0, firstEstimateDay),
+    Math.min(0, firstEstimateDay ?? 0),
   );
   const visibleData = mappedData.filter(
     (point) => point.displayDay >= chartStartDay,
@@ -308,13 +312,12 @@ export function DashboardTrajectoryChart({
     );
   };
   const targetRange = domain[1] - domain[0] || 1;
+  const scoreTopPercent = (score: number) =>
+    Math.min(82, Math.max(12, 9 + ((domain[1] - score) / targetRange) * 72));
   const targetTop =
-    targetScore == null
-      ? 20
-      : Math.min(
-          82,
-          Math.max(12, 9 + ((domain[1] - targetScore) / targetRange) * 72),
-        );
+    targetScore == null ? 20 : scoreTopPercent(targetScore);
+  const todayTop =
+    currentEstimate == null ? 20 : scoreTopPercent(currentEstimate);
   const nextMock = visibleMocks.find(
     (mock) => mock.day >= 0 && !mock.completed,
   );
@@ -469,17 +472,21 @@ export function DashboardTrajectoryChart({
                 fill="hsl(var(--primary))"
                 stroke="hsl(var(--background))"
                 strokeWidth={3}
-                label={{
-                  value: `Today ${currentEstimate}`,
-                  position: "top",
-                  fill: "hsl(var(--foreground))",
-                  fontSize: 12,
-                  fontWeight: 600,
-                }}
               />
             ) : null}
           </ComposedChart>
         </ResponsiveContainer>
+
+        {currentEstimate != null ? (
+          <div
+            className="pointer-events-none absolute z-20 -mt-2 -translate-y-full"
+            style={{ left: "max(56px, 9%)", top: `${todayTop}%` }}
+          >
+            <span className="inline-flex rounded-full border border-primary/25 bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground shadow-[0_6px_18px_hsl(var(--primary)_/_0.28)] ring-1 ring-background">
+              Today {currentEstimate}
+            </span>
+          </div>
+        ) : null}
 
         {targetScore != null ? (
           <div

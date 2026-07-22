@@ -12,6 +12,7 @@ import {
   useUpsertUcatLearningModule,
 } from '@/features/ucat/learning-modules/hooks/useUcatLearningModules'
 import type { UcatLearningModuleKind, UcatLearningModuleStudyPlanPriority } from '@/features/ucat/learning-modules/types'
+import type { LearningModuleIconKey } from '@/features/ucat/learning-modules/lib/learning-module-icons'
 import {
   toBlockPayload,
   validateBlocksForSave,
@@ -35,6 +36,8 @@ export function useLearningModuleEditor(moduleId: string | null) {
   const [kind, setKind] = useState<UcatLearningModuleKind>('lesson')
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
+  const [iconKey, setIconKey] = useState<LearningModuleIconKey>('book-open')
+  const [estimatedMinutes, setEstimatedMinutes] = useState<number | null>(null)
   const [sectionId, setSectionId] = useState<string | null>(null)
   const [parentId, setParentId] = useState<string | null>(null)
   const [index, setIndex] = useState('0')
@@ -59,6 +62,8 @@ export function useLearningModuleEditor(moduleId: string | null) {
     setKind(m.kind)
     setTitle(m.title)
     setDescription(m.description ?? '')
+    setIconKey(m.icon_key)
+    setEstimatedMinutes(m.estimated_minutes)
     setSectionId(m.ucat_section_id)
     setParentId(m.parent_ucat_learning_module_id)
     setIndex(String(m.index))
@@ -71,6 +76,8 @@ export function useLearningModuleEditor(moduleId: string | null) {
         kind: m.kind,
         title: m.title,
         description: m.description ?? '',
+        iconKey: m.icon_key,
+        estimatedMinutes: m.estimated_minutes,
         sectionId: m.ucat_section_id,
         parentId: m.parent_ucat_learning_module_id,
         index: m.index,
@@ -109,6 +116,8 @@ export function useLearningModuleEditor(moduleId: string | null) {
       kind,
       title: title.trim(),
       description: description.trim(),
+      iconKey,
+      estimatedMinutes,
       sectionId,
       parentId,
       index: Number(index) || 0,
@@ -118,7 +127,7 @@ export function useLearningModuleEditor(moduleId: string | null) {
       studyPlanTagIds,
     })
     return current !== settingsBaseline
-  }, [kind, title, description, sectionId, parentId, index, isPrivate, studyPlanPriority, studyPlanCategoryIds, studyPlanTagIds, settingsBaseline])
+  }, [kind, title, description, iconKey, estimatedMinutes, sectionId, parentId, index, isPrivate, studyPlanPriority, studyPlanCategoryIds, studyPlanTagIds, settingsBaseline])
 
   const blocksDirty = useMemo(
     () => JSON.stringify(toBlockPayload(draftBlocks)) !== blocksBaseline,
@@ -185,6 +194,8 @@ export function useLearningModuleEditor(moduleId: string | null) {
       kind,
       title: title.trim(),
       description: description.trim() || null,
+      iconKey,
+      estimatedMinutes,
       ucatSectionId: sectionId,
       parentId,
       index: Number(index) || 0,
@@ -198,6 +209,8 @@ export function useLearningModuleEditor(moduleId: string | null) {
         kind,
         title: title.trim(),
         description: description.trim(),
+        iconKey,
+        estimatedMinutes,
         sectionId,
         parentId,
         index: Number(index) || 0,
@@ -213,6 +226,8 @@ export function useLearningModuleEditor(moduleId: string | null) {
     title,
     kind,
     description,
+    iconKey,
+    estimatedMinutes,
     sectionId,
     parentId,
     index,
@@ -252,6 +267,8 @@ export function useLearningModuleEditor(moduleId: string | null) {
             kind,
             title: title.trim(),
             description: description.trim(),
+            iconKey,
+            estimatedMinutes,
             sectionId,
             parentId,
             index: current.index,
@@ -270,6 +287,8 @@ export function useLearningModuleEditor(moduleId: string | null) {
       kind,
       title,
       description,
+      iconKey,
+      estimatedMinutes,
       sectionId,
       parentId,
       isPrivate,
@@ -297,6 +316,10 @@ export function useLearningModuleEditor(moduleId: string | null) {
     setTitle,
     description,
     setDescription,
+    iconKey,
+    setIconKey,
+    estimatedMinutes,
+    setEstimatedMinutes,
     sectionId,
     setSectionId,
     parentId,
