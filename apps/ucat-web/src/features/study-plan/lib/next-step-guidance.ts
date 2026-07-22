@@ -253,6 +253,15 @@ export function guidanceItemKey(item: GuidanceIdentity): string {
   return `${item.taskType}:${item.launchPath}`;
 }
 
+export function firstGuidanceTriggerKey(
+  nextSteps:
+    | readonly Pick<StudyGuidanceItem, "triggerKey">[]
+    | null
+    | undefined,
+): string | null {
+  return nextSteps?.[0]?.triggerKey ?? null;
+}
+
 type GuidanceFamily = "focused" | "simulation" | "skill" | "review";
 
 function guidanceFamily(taskType: NextStepDraft["taskType"]): GuidanceFamily {

@@ -1,6 +1,7 @@
 import {
   buildAlternativeNextStep,
   buildNextStepDrafts,
+  firstGuidanceTriggerKey,
   formatAttemptReviewLabel,
   guidanceItemKey,
   resolveGuidanceTrigger,
@@ -105,6 +106,17 @@ function build(
 }
 
 describe("rolling next-step guidance", () => {
+  it("treats a missing next-step collection as no guidance", () => {
+    expect(firstGuidanceTriggerKey(undefined)).toBeNull();
+    expect(firstGuidanceTriggerKey([])).toBeNull();
+  });
+
+  it("uses the first next-step trigger as the guidance key", () => {
+    expect(
+      firstGuidanceTriggerKey([{ triggerKey: "activity:practice:attempt-1" }]),
+    ).toBe("activity:practice:attempt-1");
+  });
+
   it("starts the first guidance visit of the day with the least-played trainer", () => {
     const steps = build({ dailyWarmup: true });
 

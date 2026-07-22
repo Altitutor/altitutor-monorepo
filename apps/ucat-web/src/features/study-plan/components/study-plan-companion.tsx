@@ -37,7 +37,10 @@ import {
   isAlreadyOnSuggestedActivity,
   type StudyPlanCompanionMode,
 } from "@/features/study-plan/lib/companion-mode";
-import { guidanceItemKey } from "@/features/study-plan/lib/next-step-guidance";
+import {
+  firstGuidanceTriggerKey,
+  guidanceItemKey,
+} from "@/features/study-plan/lib/next-step-guidance";
 import type {
   StudyGuidanceItem,
   StudyPlanTask,
@@ -265,7 +268,7 @@ export function StudyPlanCompanion({
   }, [data?.nextSteps, planEnabled, primaryPlanTask, secondaryPlanTask]);
   const guidanceKey = planEnabled
     ? (baseItems[0]?.id ?? `plan-complete:${data?.today ?? ""}`)
-    : (data?.nextSteps[0]?.triggerKey ?? null);
+    : firstGuidanceTriggerKey(data?.nextSteps);
   const activeAlternative =
     alternativeState?.guidanceKey === guidanceKey
       ? alternativeState.item
