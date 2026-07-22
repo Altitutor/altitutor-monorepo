@@ -3,12 +3,13 @@ import { Inter } from "next/font/google";
 import "./globals.css";
 import { AppProviders } from "@/components/providers/app-providers";
 import { UcatPostHogProvider } from "@/lib/analytics/posthog-provider";
+import { UCAT_PRODUCT_DESCRIPTION, UCAT_PRODUCT_NAME } from "@/lib/ucat-brand";
 
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "Altitutor UCAT System",
-  description: "UCAT practice app",
+  title: UCAT_PRODUCT_NAME,
+  description: UCAT_PRODUCT_DESCRIPTION,
   robots: {
     index: false,
     follow: false,

@@ -1,4 +1,4 @@
-export const UCAT_PAID_PLAN_TIERS = ["unlimited", "pro"] as const;
+export const UCAT_PAID_PLAN_TIERS = ["unlimited"] as const;
 export type UcatPaidPlanTier = (typeof UCAT_PAID_PLAN_TIERS)[number];
 
 export const UCAT_BILLING_INTERVALS = ["week", "month", "year"] as const;
@@ -8,7 +8,6 @@ export const UCAT_ONLINE_TIERS = [
   "free",
   "unlimited_trial",
   "unlimited",
-  "pro",
 ] as const;
 export type UcatOnlineTier = (typeof UCAT_ONLINE_TIERS)[number];
 
@@ -16,12 +15,11 @@ export const UCAT_TIER_OVERRIDES = [
   "default",
   "force_free",
   "force_unlimited",
-  "force_pro",
 ] as const;
 export type UcatTierOverride = (typeof UCAT_TIER_OVERRIDES)[number];
 
 export function isUcatPaidPlanTier(value: unknown): value is UcatPaidPlanTier {
-  return value === "unlimited" || value === "pro";
+  return value === "unlimited";
 }
 
 export function isUcatBillingInterval(
@@ -34,8 +32,7 @@ export function isUcatOnlineTier(value: unknown): value is UcatOnlineTier {
   return (
     value === "free" ||
     value === "unlimited_trial" ||
-    value === "unlimited" ||
-    value === "pro"
+    value === "unlimited"
   );
 }
 

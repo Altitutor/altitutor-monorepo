@@ -372,7 +372,7 @@ export function SubscriptionBillingSection() {
   const handleChangePlan = () => {
     openPlanPicker({
       title: "Change your plan",
-      description: "Compare UCAT Free, Unlimited and Pro.",
+      description: "Compare UCAT Free and Unlimited.",
     });
   };
 

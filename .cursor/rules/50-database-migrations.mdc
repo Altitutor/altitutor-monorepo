@@ -1,64 +1,28 @@
 ---
-description: Database migration creation and testing workflow
+description: Supabase migration authoring, local test, and CI-only deploy
 globs:
   - 'supabase/migrations/*.sql'
+alwaysApply: false
 ---
 
 # Database Migrations
 
-## Migration Creation
-
-- **Always use the current timestamp**
-- Use descriptive snake_case names for migrations
-
-## Testing Migrations
-
-- **Always test locally first before committing**:
-  ```bash
-  supabase db reset
-  ```
-- Test with realistic data volumes
-- Verify that migrations can run successfully
-- Check that RLS policies work as expected after migration
-
-## Migration Best Practices
-
-- Include clear comments explaining what the migration does
-- Consider rollback scenarios for complex migrations
-- Document any manual steps required
-- Test migrations thoroughly with realistic data
-- Keep migrations atomic and focused
-
-## CI/CD - CRITICAL
-
-- **Never apply migrations directly to dev/prod**
-- All database changes go through CI/CD pipeline
-- Never push functions directly to Supabase
-- Use feature branches and pull requests
-- Ensure all checks pass before merging
-
-## Migration Structure
+- Filename: timestamp + descriptive `snake_case` (use current timestamp)
+- Test locally before commit: `supabase db reset`; verify RLS still correct
+- After schema-affecting migrations, run `pnpm db:types`
+- Atomic, focused migrations with a short header comment
+- **Never** apply migrations or push edge functions to remote/dev/prod unless the user explicitly asks — default path is **CI/CD only**
 
 ```sql
--- Migration: Add payment_attempts table
--- Description: Track billing payment attempts with status and metadata
--- Author: [Your Name]
--- Date: YYYY-MM-DD
+-- Migration: add_payment_attempts
+-- Why: track billing payment attempts
 
--- Create table
 CREATE TABLE payment_attempts (
-  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  -- ... columns ...
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid()
+  -- ...
 );
 
--- Enable RLS
 ALTER TABLE payment_attempts ENABLE ROW LEVEL SECURITY;
-
--- Create policies
-CREATE POLICY "Admin staff can view all payment attempts"
-  ON payment_attempts FOR SELECT
-  TO authenticated
-  USING ((select auth.uid()) IN (
-    SELECT user_id FROM staff WHERE role = 'ADMINSTAFF'
-  ));
+-- policies: wrap auth helpers in (select ...)
+-- tutors/students: expose via vtutor_*/vstudent_* views; no base-table grants
 ```

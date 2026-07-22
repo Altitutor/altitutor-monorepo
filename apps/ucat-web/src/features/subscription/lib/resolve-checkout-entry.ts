@@ -8,15 +8,12 @@ type SubscriptionSnapshot = {
 
 export function resolveExistingSubscriberDestination(
   subscriptions: SubscriptionSnapshot[],
-  requestedTier: UcatPaidPlanTier,
+  _requestedTier: UcatPaidPlanTier,
 ): "/subscribe" | "/settings/plan/subscription" | null {
   const existingSubscription = subscriptions.find((subscription) =>
     isManageableUcatSubscriptionStatus(subscription.status),
   );
   if (!existingSubscription) return null;
 
-  return existingSubscription.plan_tier === "unlimited" &&
-    requestedTier === "pro"
-    ? "/subscribe"
-    : "/settings/plan/subscription";
+  return "/settings/plan/subscription";
 }

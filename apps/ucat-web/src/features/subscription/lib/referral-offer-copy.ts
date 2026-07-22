@@ -5,7 +5,7 @@ export type ReferralGiftDuration = "week" | "month";
 export type ReferralOfferCopy = {
   isPaidReferrer: boolean;
   giftDuration: ReferralGiftDuration;
-  planLabel: "Unlimited" | "Pro";
+  planLabel: "Unlimited";
   badge: string;
   headline: string;
   description: string;
@@ -18,7 +18,7 @@ type SubscriptionSnapshot = Pick<
 > | null;
 
 /**
- * Mirrors prepare_ucat_referral_gift_on_insert: only active/past_due Unlimited or Pro
+ * Mirrors prepare_ucat_referral_gift_on_insert: only active/past_due Unlimited
  * count as paid referrers; gift length follows their billing cadence.
  */
 export function resolveReferralOfferCopy(
@@ -27,8 +27,7 @@ export function resolveReferralOfferCopy(
   const isPaidReferrer = Boolean(
     subscription &&
       (subscription.status === "active" || subscription.status === "past_due") &&
-      (subscription.plan_tier === "unlimited" ||
-        subscription.plan_tier === "pro"),
+      subscription.plan_tier === "unlimited",
   );
 
   const giftDuration: ReferralGiftDuration =
@@ -38,8 +37,7 @@ export function resolveReferralOfferCopy(
       ? "month"
       : "week";
 
-  const planLabel: "Unlimited" | "Pro" =
-    isPaidReferrer && subscription?.plan_tier === "pro" ? "Pro" : "Unlimited";
+  const planLabel = "Unlimited" as const;
 
   if (!isPaidReferrer) {
     return {

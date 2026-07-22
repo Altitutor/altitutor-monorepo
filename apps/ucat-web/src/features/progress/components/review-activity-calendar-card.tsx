@@ -48,13 +48,6 @@ type DayActivity = {
 
 const EASE_OUT = [0.32, 0.72, 0, 1] as const;
 
-function placeholderActivity(dayNumber: number): DayActivity | undefined {
-  if (dayNumber % 6 === 0) return { questionAttempts: 18, setAttempts: 1 };
-  if (dayNumber % 4 === 0) return { questionAttempts: 9, setAttempts: 0 };
-  if (dayNumber % 3 === 0) return { questionAttempts: 4, setAttempts: 0 };
-  return undefined;
-}
-
 function ReviewDayCell({
   day,
   activity,
@@ -255,16 +248,6 @@ export function ReviewActivityCalendarCard({
     return maxima;
   }, [activityByDate]);
 
-  const placeholderMonthMax = useMemo(() => {
-    let max = 0;
-    for (let dayNumber = 1; dayNumber <= 31; dayNumber += 1) {
-      const activity = placeholderActivity(dayNumber);
-      if (!activity) continue;
-      max = Math.max(max, activity.questionAttempts + activity.setAttempts);
-    }
-    return max;
-  }, []);
-
   const startDateKey = useMemo(() => {
     const keys = [
       ...(data?.days ?? []).map((day) => day.dateKey),
@@ -283,14 +266,11 @@ export function ReviewActivityCalendarCard({
     day: UcatCalendarDay,
     activity: DayActivity | undefined,
     isFuture: boolean,
-    usePlaceholder: boolean,
   ): ActivityIntensityLevel {
     if (isFuture) return 0;
     const total =
       (activity?.questionAttempts ?? 0) + (activity?.setAttempts ?? 0);
-    const monthMax = usePlaceholder
-      ? placeholderMonthMax
-      : (monthMaxByKey.get(day.dateKey.slice(0, 7)) ?? 0);
+    const monthMax = monthMaxByKey.get(day.dateKey.slice(0, 7)) ?? 0;
     return relativeActivityIntensityLevel(total, monthMax);
   }
 
@@ -302,8 +282,6 @@ export function ReviewActivityCalendarCard({
     return null;
   }
 
-  const isEmpty = !data.startedAt && data.days.length === 0;
-
   return (
     <TooltipProvider delayDuration={200}>
       <motion.div
@@ -312,68 +290,51 @@ export function ReviewActivityCalendarCard({
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.3, ease: EASE_OUT }}
       >
-        <div
-          className={cn(
-            "h-full",
-            isEmpty && "pointer-events-none opacity-45 blur-[1px]",
-          )}
-          aria-hidden={isEmpty || undefined}
-        >
-          <UcatMonthCalendar
-            className="h-full"
-            months={months}
-            initialMonthKey={todayKey.slice(0, 7)}
-            monthsVisible={2}
-            density="compact"
-            ariaLabel="Review activity calendar"
-            title="Review activity"
-            headerAction={
-              <div className="flex items-center gap-2">
-                <CompactStreakBadge
-                  current={streak.current}
-                  practicedToday={streak.practicedToday}
-                />
-                {showViewAllProgressLink ? (
-                  <Link
-                    href="/progress"
-                    className={cn(
-                      "group -m-1 shrink-0 rounded-md p-1 text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground/25 focus-visible:ring-offset-2 focus-visible:ring-offset-background dark:focus-visible:ring-white/35",
-                      UCAT_SURFACE_MOTION,
-                      UCAT_PRESSABLE_LIFT_HOVER,
-                    )}
-                    aria-label="View all progress"
-                  >
-                    <UcatHoverChevron className="h-5 w-5" />
-                  </Link>
-                ) : null}
-              </div>
-            }
-            legend={<UcatActivityIntensityLegend />}
-            renderDay={(day) => {
-              const activity = isEmpty
-                ? placeholderActivity(day.dayNumber)
-                : activityByDate.get(day.dateKey);
-              const isFuture = day.dateKey > todayKey;
-              return (
-                <ReviewDayCell
-                  day={day}
-                  activity={activity}
-                  intensity={intensityForDay(day, activity, isFuture, isEmpty)}
-                  isToday={day.dateKey === todayKey}
-                  isFuture={isFuture}
-                  inStreak={!isEmpty && streakDateKeySet.has(day.dateKey)}
-                />
-              );
-            }}
-          />
-        </div>
-        {isEmpty ? (
-          <div className="pointer-events-none absolute inset-x-0 bottom-5 z-10 flex justify-center px-4">
-            <p className="rounded-full border border-border/70 bg-background/85 px-3 py-1.5 text-xs font-medium shadow-sm backdrop-blur">
-              Practice activity will appear here
-            </p>
-          </div>
-        ) : null}
+        <UcatMonthCalendar
+          className="h-full"
+          months={months}
+          initialMonthKey={todayKey.slice(0, 7)}
+          monthsVisible={2}
+          density="compact"
+          ariaLabel="Review activity calendar"
+          title="Review activity"
+          headerAction={
+            <div className="flex items-center gap-2">
+              <CompactStreakBadge
+                current={streak.current}
+                practicedToday={streak.practicedToday}
+              />
+              {showViewAllProgressLink ? (
+                <Link
+                  href="/progress"
+                  className={cn(
+                    "group -m-1 shrink-0 rounded-md p-1 text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground/25 focus-visible:ring-offset-2 focus-visible:ring-offset-background dark:focus-visible:ring-white/35",
+                    UCAT_SURFACE_MOTION,
+                    UCAT_PRESSABLE_LIFT_HOVER,
+                  )}
+                  aria-label="View all progress"
+                >
+                  <UcatHoverChevron className="h-5 w-5" />
+                </Link>
+              ) : null}
+            </div>
+          }
+          legend={<UcatActivityIntensityLegend />}
+          renderDay={(day) => {
+            const activity = activityByDate.get(day.dateKey);
+            const isFuture = day.dateKey > todayKey;
+            return (
+              <ReviewDayCell
+                day={day}
+                activity={activity}
+                intensity={intensityForDay(day, activity, isFuture)}
+                isToday={day.dateKey === todayKey}
+                isFuture={isFuture}
+                inStreak={streakDateKeySet.has(day.dateKey)}
+              />
+            );
+          }}
+        />
       </motion.div>
     </TooltipProvider>
   );

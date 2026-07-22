@@ -15,7 +15,7 @@ import { calculateRecentWeightedMockScore } from "../lib/mock-progress-insights"
 import { ProgressTrajectoryCanvas } from "./progress-trajectory-canvas";
 import { SectionProgressCards } from "./section-progress-cards";
 import { ReviewActivityCalendarCard } from "./review-activity-calendar-card";
-import { AnimatedInteger, ProgressCircular } from "./progress-animated-display";
+import { AnimatedFraction, AnimatedInteger, ProgressCircular } from "./progress-animated-display";
 import { UCAT_CARD_CHROME, UCAT_DIVIDER_TOP } from "@/lib/ucat-surface-motion";
 import { cn } from "@/lib/utils";
 import { useUcatStaggerMotion } from "@/shared/hooks/use-ucat-stagger-motion";
@@ -47,9 +47,14 @@ function QuestionsCompletedCard({
     (sum, section) => sum + section.maxScore,
     0,
   );
-  const totals = sections.map((section) => section.totalPublicQuestions);
-  const totalAvailable = totals.every((total) => total != null)
-    ? totals.reduce<number>((sum, total) => sum + (total ?? 0), 0)
+  const hasPublicTotals = sections.some(
+    (section) => section.totalPublicQuestions != null,
+  );
+  const totalAvailable = hasPublicTotals
+    ? sections.reduce(
+        (sum, section) => sum + (section.totalPublicQuestions ?? 0),
+        0,
+      )
     : null;
   const percentage =
     totalAvailable != null && totalAvailable > 0
@@ -60,43 +65,55 @@ function QuestionsCompletedCard({
 
   return (
     <Card className={cn(UCAT_CARD_CHROME, className)}>
-      <CardContent className="flex h-full flex-col gap-4 p-4">
-        <div className="flex items-center justify-between gap-4">
-          <div>
-            <p className="text-base font-medium text-muted-foreground">
+      <CardContent className="flex h-full flex-col gap-4 pt-6">
+        <div className="flex flex-row items-center justify-between gap-4">
+          <div className="flex min-w-0 flex-col gap-1">
+            <div className="text-base font-medium text-muted-foreground">
               Total questions completed
-            </p>
-            <p className="mt-1 text-2xl font-bold tabular-nums">
-              <AnimatedInteger value={totalCompleted} />
-              {totalAvailable != null ? ` / ${totalAvailable}` : null}
-            </p>
+            </div>
+            <span className="text-2xl font-bold tabular-nums">
+              {totalAvailable != null ? (
+                <AnimatedFraction
+                  numerator={totalCompleted}
+                  denominator={totalAvailable}
+                />
+              ) : (
+                <AnimatedInteger value={totalCompleted} />
+              )}
+            </span>
           </div>
           <ProgressCircular
             percentage={percentage}
             size={48}
-            className="shrink-0 text-accent"
+            className="shrink-0 text-primary"
           />
         </div>
-        <div className={cn(UCAT_DIVIDER_TOP, "space-y-1.5 pt-3")}>
-          <p className="mb-2 text-xs font-medium text-muted-foreground">
+        <div className={cn(UCAT_DIVIDER_TOP, "pt-3")}>
+          <div className="mb-2 text-xs font-medium text-muted-foreground">
             Section breakdown
-          </p>
-          {sections.map((section) => (
-            <div
-              key={section.sectionId}
-              className="flex justify-between gap-3 text-sm tabular-nums"
-            >
-              <span className="truncate text-muted-foreground">
-                {section.sectionName}
-              </span>
-              <span className="shrink-0 font-medium">
-                {section.maxScore}
-                {section.totalPublicQuestions != null
-                  ? ` / ${section.totalPublicQuestions}`
-                  : " questions"}
-              </span>
-            </div>
-          ))}
+          </div>
+          <div className="flex flex-col gap-1.5">
+            {sections.map((section) => (
+              <div
+                key={section.sectionId}
+                className="flex justify-between gap-3 text-sm tabular-nums"
+              >
+                <span className="mr-2 truncate text-muted-foreground">
+                  {section.sectionName}
+                </span>
+                <span className="shrink-0">
+                  {section.totalPublicQuestions != null ? (
+                    <AnimatedFraction
+                      numerator={section.maxScore}
+                      denominator={section.totalPublicQuestions}
+                    />
+                  ) : (
+                    `${section.maxScore} questions`
+                  )}
+                </span>
+              </div>
+            ))}
+          </div>
         </div>
       </CardContent>
     </Card>
@@ -226,13 +243,10 @@ export function ProgressPageContent({
       : null;
   const benchmark = lookupUcatAnzTotalPercentile(currentEstimate);
   const targetBreakdown = scoreProjections
-    .filter(
-      (section) =>
-        section.sectionNumber <= 3 && sectionTargets[section.sectionId] != null,
-    )
+    .filter((section) => section.sectionNumber <= 3)
     .map((section) => ({
       sectionName: section.sectionName,
-      target: sectionTargets[section.sectionId]!,
+      target: sectionTargets[section.sectionId] ?? null,
       currentEstimate: section.currentEstimate,
     }));
   const statusLabel =

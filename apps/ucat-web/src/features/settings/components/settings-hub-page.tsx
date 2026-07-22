@@ -1,12 +1,18 @@
 "use client";
 
 import { motion } from "motion/react";
-import { CalendarClock, CreditCard, Palette, User } from "lucide-react";
+import { CalendarClock, CreditCard, Mail, Palette, User } from "lucide-react";
 import { UcatPageHeader } from "@/features/layout";
 import { UcatClickableCardLink } from "@/shared/components/ucat-clickable-card";
 import { useUcatStaggerMotion } from "@/shared/hooks/use-ucat-stagger-motion";
 
 const LINKS = [
+  {
+    href: "/settings/communications",
+    label: "Email preferences",
+    description: "Progress guidance, tips, news, and offers.",
+    icon: Mail,
+  },
   {
     href: "/settings/app",
     label: "App settings",

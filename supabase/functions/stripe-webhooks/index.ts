@@ -165,7 +165,7 @@ function subscriptionCancelFields(subscription: {
 }
 
 type UcatPlanFields = {
-  plan_tier: "unlimited" | "pro" | null;
+  plan_tier: "unlimited" | null;
   billing_interval: "week" | "month" | "year" | null;
 };
 
@@ -178,7 +178,7 @@ async function resolveUcatPlanFields(
   const metaTier = metadata?.ucat_plan_tier;
   const metaInterval = metadata?.ucat_billing_interval;
   if (
-    (metaTier === "unlimited" || metaTier === "pro") &&
+    metaTier === "unlimited" &&
     (metaInterval === "week" ||
       metaInterval === "month" ||
       metaInterval === "year")
@@ -192,7 +192,7 @@ async function resolveUcatPlanFields(
       .select("plan_tier, billing_interval")
       .eq("stripe_price_id", priceId)
       .maybeSingle();
-    if (data?.plan_tier === "unlimited" || data?.plan_tier === "pro") {
+    if (data?.plan_tier === "unlimited") {
       const interval = data.billing_interval;
       if (interval === "week" || interval === "month" || interval === "year") {
         return { plan_tier: data.plan_tier, billing_interval: interval };
@@ -204,12 +204,9 @@ async function resolveUcatPlanFields(
   if (productId) {
     const { data: config } = await supabase
       .from("ucat_subscription_config")
-      .select("unlimited_stripe_product_id, pro_stripe_product_id")
+      .select("unlimited_stripe_product_id")
       .limit(1)
       .maybeSingle();
-    if (config?.pro_stripe_product_id === productId) {
-      return { plan_tier: "pro", billing_interval: null };
-    }
     if (config?.unlimited_stripe_product_id === productId) {
       return { plan_tier: "unlimited", billing_interval: null };
     }

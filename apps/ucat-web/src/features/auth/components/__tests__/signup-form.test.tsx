@@ -43,12 +43,13 @@ describe("SignupForm", () => {
   it("sends an OTP without preflighting whether the account exists", async () => {
     render(<SignupForm />);
 
+    expect(
+      screen.getByLabelText(/Email me optional personalised progress/i),
+    ).not.toBeChecked();
+
     fireEvent.change(screen.getByLabelText("Email address"), {
       target: { value: "Existing@Example.com" },
     });
-    fireEvent.click(
-      screen.getByLabelText(/Keep me updated with Altitutor news/i),
-    );
     fireEvent.click(screen.getByRole("button", { name: "Register" }));
 
     await waitFor(() =>
@@ -60,6 +61,34 @@ describe("SignupForm", () => {
     expect(global.fetch).not.toHaveBeenCalled();
     expect(await screen.findByText("Check your inbox")).toBeInTheDocument();
     expect(screen.getByText("existing@example.com")).toBeInTheDocument();
+  });
+
+  it("subscribes only when the student explicitly opts in", async () => {
+    (global.fetch as jest.Mock).mockResolvedValue({ ok: true });
+    render(<SignupForm />);
+
+    fireEvent.change(screen.getByLabelText("Email address"), {
+      target: { value: "Student@Example.com" },
+    });
+    fireEvent.click(
+      screen.getByLabelText(/Email me optional personalised progress/i),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Register" }));
+
+    expect(global.fetch).not.toHaveBeenCalled();
+    const otpInput = await screen.findByLabelText("6-digit code");
+    fireEvent.change(otpInput, { target: { value: "123456" } });
+    fireEvent.click(screen.getByRole("button", { name: "Continue with code" }));
+
+    await waitFor(() =>
+      expect(global.fetch).toHaveBeenCalledWith(
+        "/api/ucat/newsletter/subscribe",
+        expect.objectContaining({
+          method: "POST",
+          body: JSON.stringify({ source: "ucat_email_signup" }),
+        }),
+      ),
+    );
   });
 
   it("restores the code-entry screen after a reload and clears it on success", async () => {

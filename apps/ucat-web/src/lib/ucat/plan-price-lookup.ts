@@ -114,13 +114,10 @@ export async function resolveUcatPlanFromStripePriceId(
   if (stripeProductId) {
     const { data: config } = await supabase
       .from("ucat_subscription_config")
-      .select("unlimited_stripe_product_id, pro_stripe_product_id")
+      .select("unlimited_stripe_product_id")
       .limit(1)
       .maybeSingle();
 
-    if (config?.pro_stripe_product_id === stripeProductId) {
-      return { plan_tier: "pro", billing_interval: null };
-    }
     if (config?.unlimited_stripe_product_id === stripeProductId) {
       return { plan_tier: "unlimited", billing_interval: null };
     }

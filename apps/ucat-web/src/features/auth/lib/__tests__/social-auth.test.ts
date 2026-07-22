@@ -28,7 +28,7 @@ describe("social auth", () => {
         origin: "https://ucat.altitutor.com",
         intent: "signup",
         provider: "google",
-        next: "/checkout?tier=pro&interval=month&context=signup_onboarding",
+        next: "/checkout?tier=unlimited&interval=month&context=signup_onboarding",
         newsletterOptIn: true,
         referralCode: " abcd1234 ",
       }),
@@ -39,7 +39,7 @@ describe("social auth", () => {
     expect(Object.fromEntries(callback.searchParams)).toEqual({
       intent: "signup",
       provider: "google",
-      next: "/checkout?tier=pro&interval=month&context=signup_onboarding",
+      next: "/checkout?tier=unlimited&interval=month&context=signup_onboarding",
       newsletter: "1",
       ref: "ABCD1234",
     });
@@ -66,11 +66,11 @@ describe("social auth", () => {
       resolvePostAuthDestination({
         intent: "signup",
         provider: "google",
-        next: "/checkout?tier=pro&interval=month&context=signup_onboarding",
+        next: "/checkout?tier=unlimited&interval=month&context=signup_onboarding",
         signupCompleted: false,
       }),
     ).toBe(
-      "/signup/complete?redirect=%2Fcheckout%3Ftier%3Dpro%26interval%3Dmonth%26context%3Dsignup_onboarding",
+      "/signup/complete?redirect=%2Fcheckout%3Ftier%3Dunlimited%26interval%3Dmonth%26context%3Dsignup_onboarding",
     );
     expect(
       resolvePostAuthDestination({

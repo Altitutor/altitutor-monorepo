@@ -247,13 +247,18 @@ export async function POST(request: NextRequest) {
     supabaseAdmin
       .from("newsletter_subscribers")
       .update({
+        auth_user_id: user.id,
         student_id: studentId,
         updated_at: new Date().toISOString(),
       })
       .ilike("email", email)
       .is("student_id", null),
     supabase.auth.updateUser({
-      data: { first_name: firstName, last_name: lastName },
+      data: {
+        first_name: firstName,
+        last_name: lastName,
+        pending_newsletter_opt_in: null,
+      },
     }),
   ]);
 
@@ -262,6 +267,34 @@ export async function POST(request: NextRequest) {
       "[signup complete] Failed to link newsletter subscriber:",
       newsletterError,
     );
+  }
+
+  const { data: verifiedConsent } = await supabaseAdmin
+    .from("newsletter_subscribers")
+    .select("consent_verified_at, unsubscribed_at")
+    .eq("auth_user_id", user.id)
+    .not("consent_verified_at", "is", null)
+    .is("unsubscribed_at", null)
+    .maybeSingle();
+
+  if (verifiedConsent) {
+    const now = new Date().toISOString();
+    const { error: preferencesError } = await supabaseAdmin
+      .from("ucat_communication_preferences")
+      .upsert({
+        student_id: studentId,
+        weekly_progress_and_guidance: true,
+        lessons_and_tips: true,
+        product_news: true,
+        offers_and_referrals: true,
+        updated_at: now,
+      });
+    if (preferencesError) {
+      console.warn(
+        "[signup complete] Failed to initialise communication preferences:",
+        preferencesError,
+      );
+    }
   }
   await captureUcatReferral(studentId, pendingReferralCodeFromUser(user));
   return NextResponse.json({ success: true });

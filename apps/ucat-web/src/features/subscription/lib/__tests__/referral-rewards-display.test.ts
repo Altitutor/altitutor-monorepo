@@ -65,17 +65,17 @@ describe("buildAvailableRewardDisplay", () => {
     expect(display.usedCount).toBe(2);
   });
 
-  it("describes monthly Pro free-bill rewards", () => {
+  it("describes monthly Unlimited free-bill rewards", () => {
     const display = buildAvailableRewardDisplay({
       earnedGifts: [],
       queuedFreeBills: 2,
       usedCount: 0,
       billingInterval: "month",
-      planLabel: "Pro",
+      planLabel: "Unlimited",
     });
 
     expect(display.title).toBe("2 free months");
-    expect(display.detail).toContain("your Pro plan");
+    expect(display.detail).toContain("your Unlimited plan");
   });
 
   it("uses month wording for annual billing credits", () => {

@@ -2,7 +2,7 @@ import type { UcatOnlineTier } from "@altitutor/shared";
 import { onlineTierRank } from "@/features/subscription/lib/plan-tier-rank";
 import { hasPaidUcatSubscriptionAccess } from "@/lib/ucat/subscription-status";
 
-export type CurrentPlanDisplayKey = UcatOnlineTier | "pro_trial";
+export type CurrentPlanDisplayKey = UcatOnlineTier;
 
 export type SubscriptionPlanSnapshot = {
   status: string;
@@ -14,13 +14,6 @@ export function subscribedPlanTierRank(
   subscription: SubscriptionPlanSnapshot,
 ): number {
   if (!subscription) return 0;
-  if (subscription.plan_tier === "pro") {
-    return hasPaidUcatSubscriptionAccess(subscription.status) ||
-      subscription.status === "unpaid" ||
-      subscription.status === "trialing"
-      ? 2
-      : 0;
-  }
   if (
     subscription.plan_tier === "unlimited" &&
     (hasPaidUcatSubscriptionAccess(subscription.status) ||
@@ -53,17 +46,11 @@ export function resolveCurrentPlanDisplayKey(
   onlineTier: UcatOnlineTier | null,
   subscription: SubscriptionPlanSnapshot,
 ): CurrentPlanDisplayKey {
-  if (onlineTier === "pro") {
-    return subscription?.status === "trialing" ? "pro_trial" : "pro";
-  }
   if (onlineTier === "unlimited_trial") return "unlimited_trial";
   if (onlineTier === "unlimited") return "unlimited";
   if (onlineTier === "free") {
     // Access says Free, but a recoverable/paid subscription row can still be
     // more accurate for the Plan label while Stripe/access catch up.
-    if (subscription?.plan_tier === "pro") {
-      return subscription.status === "trialing" ? "pro_trial" : "pro";
-    }
     if (
       subscription &&
       (hasPaidUcatSubscriptionAccess(subscription.status) ||
@@ -75,9 +62,6 @@ export function resolveCurrentPlanDisplayKey(
   }
 
   // Access tier unknown — infer from subscription snapshot.
-  if (subscription?.plan_tier === "pro") {
-    return subscription.status === "trialing" ? "pro_trial" : "pro";
-  }
   if (
     subscription &&
     (hasPaidUcatSubscriptionAccess(subscription.status) ||
@@ -87,10 +71,4 @@ export function resolveCurrentPlanDisplayKey(
   }
 
   return "free";
-}
-
-export function isSubscribedToPro(
-  subscription: SubscriptionPlanSnapshot,
-): boolean {
-  return subscription?.plan_tier === "pro";
 }

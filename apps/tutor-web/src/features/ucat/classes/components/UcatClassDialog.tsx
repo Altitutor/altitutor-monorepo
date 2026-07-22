@@ -466,7 +466,7 @@ export function UcatClassDialog({
   const { data: setsList = [] } = useUcatSets();
   const { data: mocksList = [] } = useUcatMocks();
   const { data: stemsList = [] } = useQuery({
-    queryKey: ucatKeys.questions(),
+    queryKey: ucatKeys.questions('all'),
     queryFn: () => ucatQuestionsApi.list(),
     enabled: open,
   });
@@ -1361,11 +1361,9 @@ export function UcatClassDialog({
                         ) : null}
                         {studentVisibleColumns.includes("online_tier") ? (
                           <TableCell>
-                            {student.online_tier === "pro"
-                              ? "Pro"
-                              : student.online_tier === "unlimited"
-                                ? "Unlimited"
-                                : "Free"}
+                            {student.online_tier === "unlimited"
+                              ? "Unlimited"
+                              : "Free"}
                           </TableCell>
                         ) : null}
                         <TableCell className="text-right">

@@ -9,13 +9,13 @@ import {
   TooltipTrigger,
 } from "@altitutor/ui";
 import { Info, Target } from "lucide-react";
-import { useUcatActivity } from "@/features/progress/hooks/use-ucat-activity";
 import { StudyPlanTaskList } from "@/features/study-plan/components/study-plan-task-list";
 import { StudyPlanExtraStudy } from "@/features/study-plan/components/study-plan-extra-study";
 import {
   buildStudyPlanCalendarMonths,
   formatStudyPlanDate,
   studyPlanCalendarIntensityLevel,
+  studyPlanPracticeMinutes,
 } from "@/features/study-plan/lib/calendar";
 import {
   isCarryOverStudyPlanTask,
@@ -28,10 +28,12 @@ import type {
 import {
   UcatActivityIntensityLegend,
   UcatMonthCalendar,
+  type UcatMonthCalendarDayContext,
 } from "@/shared/components/ucat-month-calendar";
 import {
   ACTIVITY_INTENSITY_CLASS,
   type UcatCalendarDay,
+  type UcatCalendarMonth,
 } from "@/shared/lib/ucat-month-calendar";
 import { UCAT_SURFACE_MOTION } from "@/lib/ucat-surface-motion";
 import { cn } from "@/lib/utils";
@@ -46,17 +48,34 @@ function taskMinutes(tasks: StudyPlanTask[]) {
   return tasks.reduce((sum, task) => sum + task.estimatedMinutes, 0);
 }
 
+function maxPracticeMinutesInMonths(
+  months: UcatCalendarMonth[],
+  visibleMonthKeys: readonly string[],
+  practiceMinutesByDate: Map<string, number>,
+): number {
+  const visible = new Set(visibleMonthKeys);
+  let max = 0;
+  for (const month of months) {
+    if (!visible.has(month.key)) continue;
+    for (const day of month.days) {
+      if (!day) continue;
+      max = Math.max(max, practiceMinutesByDate.get(day.dateKey) ?? 0);
+    }
+  }
+  return max;
+}
+
 function dayAriaLabel({
   dateKey,
   isTestDate,
   isToday,
-  recordedActivity,
+  practiceMinutes,
   tasks,
 }: {
   dateKey: string;
   isTestDate: boolean;
   isToday: boolean;
-  recordedActivity: number;
+  practiceMinutes: number;
   tasks: StudyPlanTask[];
 }) {
   const details = [
@@ -71,13 +90,10 @@ function dayAriaLabel({
   if (isTestDate) details.push("UCAT test date");
   if (tasks.length) {
     details.push(
-      `${tasks.length} planned task${tasks.length === 1 ? "" : "s"}, ${taskMinutes(tasks)} minutes`,
+      `${tasks.length} planned task${tasks.length === 1 ? "" : "s"}, ${practiceMinutes} minutes of practice`,
     );
   } else {
     details.push("no planned tasks");
-  }
-  if (recordedActivity) {
-    details.push(`${recordedActivity} recorded practice activities`);
   }
   return details.join(", ");
 }
@@ -87,8 +103,6 @@ export function StudyPlanCalendar({
   summaryCards,
   previewMode = false,
 }: StudyPlanCalendarProps) {
-  const activityQuery = useUcatActivity(!previewMode);
-
   const tasksByDate = useMemo(() => {
     const grouped = new Map<string, StudyPlanTask[]>();
     for (const task of plan.tasks) {
@@ -100,16 +114,13 @@ export function StudyPlanCalendar({
     return grouped;
   }, [plan.tasks]);
 
-  const activityByDate = useMemo(
-    () =>
-      new Map(
-        (activityQuery.data?.days ?? []).map((day) => [
-          day.dateKey,
-          day.questionAttempts + day.setAttempts,
-        ]),
-      ),
-    [activityQuery.data?.days],
-  );
+  const practiceMinutesByDate = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const [dateKey, tasks] of tasksByDate) {
+      map.set(dateKey, studyPlanPracticeMinutes(tasks));
+    }
+    return map;
+  }, [tasksByDate]);
 
   const months = useMemo(() => {
     const dateKeys = [
@@ -149,13 +160,20 @@ export function StudyPlanCalendar({
       selectedDate >= plan.profile.nextWeeklyReplanOn,
   );
 
-  function renderDay(day: UcatCalendarDay) {
+  function renderDay(
+    day: UcatCalendarDay,
+    context: UcatMonthCalendarDayContext,
+  ) {
     const tasks = tasksByDate.get(day.dateKey) ?? [];
-    const minutes = taskMinutes(tasks);
-    const recordedActivity = activityByDate.get(day.dateKey) ?? 0;
+    const practiceMinutes = practiceMinutesByDate.get(day.dateKey) ?? 0;
+    const visibleMax = maxPracticeMinutesInMonths(
+      months,
+      context.visibleMonthKeys,
+      practiceMinutesByDate,
+    );
     const intensity = studyPlanCalendarIntensityLevel(
-      minutes,
-      recordedActivity,
+      practiceMinutes,
+      visibleMax,
     );
     const isSelected = selectedDate === day.dateKey;
     const isToday = plan.today === day.dateKey;
@@ -171,12 +189,12 @@ export function StudyPlanCalendar({
           dateKey: day.dateKey,
           isTestDate,
           isToday,
-          recordedActivity,
+          practiceMinutes,
           tasks,
         })}
         onClick={() => setSelectedDate(day.dateKey)}
         className={cn(
-          "group relative h-11 w-full overflow-hidden rounded-lg text-left sm:h-12",
+          "group relative flex size-full items-center justify-center overflow-hidden rounded-[22%] text-left",
           UCAT_SURFACE_MOTION,
           "hover:shadow-sm hover:ring-1 hover:ring-foreground/20",
           "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground focus-visible:ring-offset-2 focus-visible:ring-offset-background",
@@ -193,21 +211,15 @@ export function StudyPlanCalendar({
           )}
           aria-hidden
         />
-        <span className="relative flex h-full flex-col justify-between p-1.5">
+        <span className="relative z-[1] flex size-full flex-col p-1">
           <span className="flex items-start justify-between gap-0.5">
-            <span className="text-xs font-semibold tabular-nums sm:text-sm">
+            <span className="text-[10px] font-semibold tabular-nums leading-none sm:text-[11px]">
               {day.dayNumber}
             </span>
             {isTestDate ? (
               <span className="rounded-full bg-background/80 p-0.5 text-foreground shadow-sm">
                 <Target className="h-2.5 w-2.5" aria-hidden />
               </span>
-            ) : null}
-          </span>
-          <span className="flex items-end justify-between gap-0.5 text-[9px] font-medium sm:text-[10px]">
-            {isToday ? <span>Today</span> : <span />}
-            {tasks.length ? (
-              <span className="tabular-nums">{minutes}m</span>
             ) : null}
           </span>
         </span>
@@ -221,7 +233,10 @@ export function StudyPlanCalendar({
         <UcatMonthCalendar
           months={months}
           initialMonthKey={plan.today.slice(0, 7)}
+          monthsVisible={2}
+          density="compact"
           ariaLabel="Study plan calendar"
+          title="Study plan"
           legend={
             <>
               <UcatActivityIntensityLegend />

@@ -21,6 +21,7 @@ import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/theme/theme-toggle";
 import { NoiseOverlay } from "@/features/landing/components/marketing/noise-overlay";
 import { DashboardDataPreloader } from "@/features/dashboard/components/dashboard-data-preloader";
+import { UCAT_PRODUCT_NAME } from "@/lib/ucat-brand";
 
 const { typography: typo } = MARKETING_TOKENS;
 
@@ -404,7 +405,7 @@ export function SignupSuccessTransition({
               >
                 {isUpgrade
                   ? "Your new plan is ready"
-                  : "Welcome to Alti UCAT prep"}
+                  : `Welcome to ${UCAT_PRODUCT_NAME}`}
               </h1>
               <p className={`mt-4 text-muted-foreground ${typo.secondarySans}`}>
                 {isUpgrade

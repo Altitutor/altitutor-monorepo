@@ -307,17 +307,13 @@ export function SectionProgressContent({
               today={today}
               targetScore={targetScore}
               testDate={testDate}
-              targetBreakdown={
-                targetScore == null
-                  ? []
-                  : [
-                      {
-                        sectionName: section.sectionName,
-                        target: targetScore,
-                        currentEstimate: score,
-                      },
-                    ]
-              }
+              targetBreakdown={[
+                {
+                  sectionName: section.sectionName,
+                  target: targetScore,
+                  currentEstimate: score,
+                },
+              ]}
               scoreMinimum={300}
               scoreMaximum={900}
               insightTitle={insightTitle}
@@ -390,7 +386,7 @@ export function SectionProgressContent({
                 <ProgressCircular
                   percentage={stats.completed > 0 ? percentage : 0}
                   size={48}
-                  className="text-accent shrink-0"
+                  className="shrink-0 text-primary"
                 />
               </div>
               {categoryProgress.length > 0 ? (
@@ -482,7 +478,7 @@ export function SectionProgressContent({
                         : 0
                   }
                   size={48}
-                  className="text-accent shrink-0"
+                  className="shrink-0 text-primary"
                 />
               </div>
               {categoryProgress.length > 0 ? (
@@ -545,7 +541,7 @@ export function SectionProgressContent({
                         : 0
                   }
                   size={48}
-                  className="text-accent shrink-0"
+                  className="shrink-0 text-primary"
                 />
               </div>
               <div className={cn(UCAT_DIVIDER_TOP, "pt-3")}>

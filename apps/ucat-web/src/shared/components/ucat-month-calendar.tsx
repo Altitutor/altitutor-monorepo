@@ -1,6 +1,12 @@
 "use client";
 
-import { useState, type ReactNode } from "react";
+import {
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { Card, CardContent, CardHeader } from "@altitutor/ui";
 import { ChevronLeft, ChevronRight } from "lucide-react";
@@ -16,6 +22,8 @@ import { cn } from "@/lib/utils";
 const WEEKDAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 const EASE_OUT = [0.32, 0.72, 0, 1] as const;
 const MONTH_SLIDE_OFFSET = 36;
+/** Two compact months need roughly this width before collapsing to one. */
+const DUAL_MONTH_MIN_WIDTH_PX = 560;
 
 const monthPresenceVariants = {
   enter: (direction: number) => ({
@@ -32,6 +40,10 @@ const monthPresenceVariants = {
   }),
 };
 
+export type UcatMonthCalendarDayContext = {
+  visibleMonthKeys: readonly string[];
+};
+
 export type UcatMonthCalendarProps = {
   months: UcatCalendarMonth[];
   /** YYYY-MM — defaults to first month */
@@ -46,22 +58,29 @@ export type UcatMonthCalendarProps = {
   legend?: ReactNode;
   /**
    * How many months to show at once. Dual-month view still advances one month
-   * at a time so the overlapping month stays in frame.
+   * at a time so the overlapping month stays in frame. Collapses to one month
+   * when the calendar container is too narrow.
    */
   monthsVisible?: 1 | 2;
   /** Tighter day cells and padding for denser layouts */
   density?: "default" | "compact";
-  renderDay: (day: UcatCalendarDay) => ReactNode;
+  renderDay: (
+    day: UcatCalendarDay,
+    context: UcatMonthCalendarDayContext,
+  ) => ReactNode;
+  onVisibleMonthsChange?: (monthKeys: readonly string[]) => void;
 };
 
 function MonthGrid({
   month,
   density,
+  dayContext,
   renderDay,
 }: {
   month: UcatCalendarMonth;
   density: "default" | "compact";
-  renderDay: (day: UcatCalendarDay) => ReactNode;
+  dayContext: UcatMonthCalendarDayContext;
+  renderDay: UcatMonthCalendarProps["renderDay"];
 }) {
   const isCompact = density === "compact";
 
@@ -100,7 +119,7 @@ function MonthGrid({
           }
           return (
             <div key={day.dateKey} className="aspect-square">
-              {renderDay(day)}
+              {renderDay(day, dayContext)}
             </div>
           );
         })}
@@ -121,30 +140,78 @@ export function UcatMonthCalendar({
   monthsVisible = 1,
   density = "default",
   renderDay,
+  onVisibleMonthsChange,
 }: UcatMonthCalendarProps) {
   const reduceMotion = useReducedMotion();
   const animate = !reduceMotion;
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [dualFits, setDualFits] = useState(false);
+  const effectiveMonthsVisible: 1 | 2 =
+    monthsVisible === 2 && dualFits ? 2 : 1;
+
+  useLayoutEffect(() => {
+    if (monthsVisible !== 2) {
+      setDualFits(false);
+      return;
+    }
+    const node = containerRef.current;
+    if (!node || typeof ResizeObserver === "undefined") {
+      setDualFits(true);
+      return;
+    }
+    const update = (width: number) => {
+      setDualFits(width >= DUAL_MONTH_MIN_WIDTH_PX);
+    };
+    update(node.getBoundingClientRect().width);
+    const observer = new ResizeObserver((entries) => {
+      const entry = entries[0];
+      if (!entry) return;
+      update(entry.contentRect.width);
+    });
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, [monthsVisible]);
+
   const resolvedInitialIndex = initialMonthKey
     ? months.findIndex((month) => month.key === initialMonthKey)
     : 0;
-  const maxStartIndex = Math.max(0, months.length - monthsVisible);
+  const maxStartIndex = Math.max(0, months.length - effectiveMonthsVisible);
   const clampedInitial = Math.min(
     Math.max(resolvedInitialIndex >= 0 ? resolvedInitialIndex : 0, 0),
     maxStartIndex,
   );
   // Prefer showing the previous month alongside the initial month in dual view.
-  const [visibleStartIndex, setVisibleStartIndex] = useState(() => {
-    if (monthsVisible === 2 && clampedInitial > 0) {
-      return Math.min(clampedInitial - 1, maxStartIndex);
-    }
-    return clampedInitial;
-  });
+  const [visibleStartIndex, setVisibleStartIndex] = useState(clampedInitial);
   const [direction, setDirection] = useState(0);
+  const dualPreferAppliedRef = useRef(false);
+
+  useLayoutEffect(() => {
+    setVisibleStartIndex((current) => {
+      const max = Math.max(0, months.length - effectiveMonthsVisible);
+      if (
+        effectiveMonthsVisible === 2 &&
+        !dualPreferAppliedRef.current &&
+        current > 0
+      ) {
+        dualPreferAppliedRef.current = true;
+        return Math.min(current - 1, max);
+      }
+      return Math.min(current, max);
+    });
+  }, [effectiveMonthsVisible, months.length]);
 
   const visibleMonths = months.slice(
     visibleStartIndex,
-    visibleStartIndex + monthsVisible,
+    visibleStartIndex + effectiveMonthsVisible,
   );
+  const visibleMonthKeys = visibleMonths.map((month) => month.key);
+  const dayContext: UcatMonthCalendarDayContext = { visibleMonthKeys };
+
+  useEffect(() => {
+    onVisibleMonthsChange?.(visibleMonthKeys);
+    // Keys only — avoid firing when parent passes a new callback identity each render.
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- visibleMonthKeys joined below
+  }, [visibleMonthKeys.join("|")]);
 
   function showMonth(index: number) {
     if (index < 0 || index > maxStartIndex) return;
@@ -161,13 +228,16 @@ export function UcatMonthCalendar({
     duration: animate ? 0.32 : 0,
     ease: EASE_OUT,
   };
+  const showDualChrome = effectiveMonthsVisible === 2;
 
   return (
     <Card
+      ref={containerRef}
       className={cn(UCAT_CARD_CHROME, "overflow-hidden", className)}
       role="region"
       aria-label={ariaLabel}
       data-visible-month={visibleMonths[0]?.key}
+      data-months-visible={effectiveMonthsVisible}
     >
       <CardHeader
         className={cn("space-y-3", isCompact ? "p-4 pb-2" : "p-5 pb-3")}
@@ -188,7 +258,7 @@ export function UcatMonthCalendar({
           </div>
         ) : null}
 
-        {monthsVisible === 1 ? (
+        {!showDualChrome ? (
           <div className="flex items-center justify-between gap-3">
             <h3
               className={cn(
@@ -262,7 +332,7 @@ export function UcatMonthCalendar({
           </div>
         )}
 
-        {monthsVisible === 1 && legend ? (
+        {!showDualChrome && legend ? (
           <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 text-[11px] text-muted-foreground">
             {legend}
           </div>
@@ -270,7 +340,7 @@ export function UcatMonthCalendar({
       </CardHeader>
 
       <CardContent className={cn(isCompact ? "p-4 pt-0" : "p-5 pt-0")}>
-        {monthsVisible === 1 ? (
+        {!showDualChrome ? (
           <div className="relative overflow-hidden">
             <AnimatePresence mode="wait" initial={false} custom={direction}>
               <motion.div
@@ -312,7 +382,7 @@ export function UcatMonthCalendar({
                     }
                     return (
                       <div key={day.dateKey} className="aspect-square">
-                        {renderDay(day)}
+                        {renderDay(day, dayContext)}
                       </div>
                     );
                   })}
@@ -327,7 +397,7 @@ export function UcatMonthCalendar({
             <motion.div
               className="grid"
               style={{
-                width: `${(months.length / monthsVisible) * 100}%`,
+                width: `${(months.length / effectiveMonthsVisible) * 100}%`,
                 gridTemplateColumns: `repeat(${months.length}, minmax(0, 1fr))`,
               }}
               initial={false}
@@ -344,6 +414,7 @@ export function UcatMonthCalendar({
                   <MonthGrid
                     month={month}
                     density={density}
+                    dayContext={dayContext}
                     renderDay={renderDay}
                   />
                 </div>

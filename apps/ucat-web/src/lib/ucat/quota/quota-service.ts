@@ -358,11 +358,17 @@ async function rejectQuotaAction(
         config,
       );
       const label = UCAT_QUOTA_AREA_LABELS[payload.area];
+      const resetTiming =
+        payload.period === "day"
+          ? "tomorrow"
+          : payload.period === "week"
+            ? "next week"
+            : "next month";
       await createUcatNotification(supabase, {
         studentId,
         type: "ucat.quota.limit_reached",
-        title: `You’ve reached your ${label} limit`,
-        body: `Your UCAT Free ${label.toLowerCase()} allowance will refresh when the current ${payload.period} quota period resets, or you can upgrade for unlimited access.`,
+        title: `You’ve used your Free ${label.toLowerCase()} allowance`,
+        body: `It resets ${resetTiming}, so you can keep preparing on Free. To continue now without limits, choose Unlimited.`,
         actionUrl: "/settings/plan",
         metadata: {
           quota_area: payload.area,

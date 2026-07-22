@@ -294,8 +294,7 @@ export function SignupOnboardingWizard({
     }
     const isPaid =
       access.onlineTier === "unlimited" ||
-      access.onlineTier === "unlimited_trial" ||
-      access.onlineTier === "pro";
+      access.onlineTier === "unlimited_trial";
     if (!isPaid) return;
 
     checkoutConfirmationStarted.current = true;

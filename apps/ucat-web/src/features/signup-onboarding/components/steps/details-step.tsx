@@ -140,7 +140,7 @@ export function SignupCompleteDetailsStep({
       }
 
       if (newsletterOptIn) {
-        await subscribeToUcatNewsletter(normalizedEmail, "ucat_social_signup");
+        await subscribeToUcatNewsletter("ucat_social_signup");
       }
 
       onComplete({

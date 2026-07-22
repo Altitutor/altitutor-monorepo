@@ -50,12 +50,15 @@ Only one primary next action is shown. Priority is:
 
 1. live tutor session;
 2. tutor session starting within 90 minutes;
-3. next incomplete Study plan task for today;
-4. caught-up state when today's tasks are complete;
-5. rest-day state when no task is scheduled today;
-6. guided sampler when onboarding chose it but has not completed it;
-7. Study plan setup;
-8. retry when the Study plan request failed.
+3. next incomplete Study plan task for today when Study plan is enabled;
+4. caught-up state when today's Study plan tasks are complete;
+5. rest-day state when Study plan is enabled but no task is scheduled today;
+6. Study plan setup when the student has not decided whether to use a Study plan;
+7. goal setup when Study plan is decided but no UCAT year/target is saved;
+8. suggested guidance when Study plan is off, a goal exists, and next steps are available;
+9. retry when the Study plan request failed.
+
+Study plan setup is primary over goal setup. Declining Study plan setup (including “I’ll manage my own plan” or “Skip for now”) advances to goal setup. Declining goal setup saves a default working target so normal suggestions can appear.
 
 For a Study plan task, the panel shows task title, description, rationale, estimated time, and a context-sensitive `Start`, `Continue`, or `Review result` action. The Study plan remains a secondary link.
 

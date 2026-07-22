@@ -56,18 +56,14 @@ export function CurrentPlanSection() {
   const isFree = displayKey === "free";
   const planSummary = isFree
     ? "Build your UCAT routine with daily access across the platform."
-    : displayKey === "pro" || displayKey === "pro_trial"
-      ? "Unlimited UCAT preparation, plus personal support when you need it."
-      : "Unlimited access to the entire Alti UCAT prep system.";
+    : "Unlimited access to the entire Altitutor UCAT platform.";
   const planHighlights = isFree
     ? ["Daily practice access", "Progress saved", "Upgrade anytime"]
-    : displayKey === "pro" || displayKey === "pro_trial"
-      ? ["Unlimited online access", "Tutor support", "Monthly review"]
-      : [
-          "Unlimited online access",
-          "All mocks and analytics",
-          "Practice discounts",
-        ];
+    : [
+        "Unlimited online access",
+        "All mocks and analytics",
+        "Practice discounts",
+      ];
 
   return (
     <div className="space-y-4">

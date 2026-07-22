@@ -1,13 +1,11 @@
-export type PlanPickerTier = "free" | "unlimited" | "pro";
+export type PlanPickerTier = "free" | "unlimited";
 
 export function onlineTierRank(tier: string | null | undefined): number {
-  if (tier === "pro") return 2;
   if (tier === "unlimited" || tier === "unlimited_trial") return 1;
   return 0;
 }
 
 export function planPickerTierRank(tier: PlanPickerTier): number {
-  if (tier === "pro") return 2;
   if (tier === "unlimited") return 1;
   return 0;
 }
@@ -19,11 +17,7 @@ export function canDowngradeToTier(
 ): boolean {
   const rank = Math.max(
     onlineTierRank(onlineTier),
-    subscriptionPlanTier === "pro"
-      ? 2
-      : subscriptionPlanTier === "unlimited"
-        ? 1
-        : 0,
+    subscriptionPlanTier === "unlimited" ? 1 : 0,
   );
   return rank > planPickerTierRank(target);
 }

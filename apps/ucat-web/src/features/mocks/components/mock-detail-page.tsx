@@ -259,7 +259,7 @@ export function MockDetailPage({
       <motion.div variants={itemVariants}>
         <UcatPageHeader
           title={mock.name ?? "Mock exam"}
-          description="This mock exam will launch the full UCAT question engine using all sets included in this mock."
+          description="This mock opens the full UCAT-style exam interface using all the sets included in it."
           backHref={backHref}
           backLabel={backLabel}
           breadcrumbOverrides={buildMockBreadcrumbOverrides(

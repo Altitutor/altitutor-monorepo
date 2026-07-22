@@ -999,7 +999,13 @@ export function UcatStemEditorPropertiesPanel({
                   type="number"
                   step="0.01"
                   className="h-9"
-                  {...form.register(`questions.${safeQuestionIndex}.difficulty`)}
+                  {...form.register(`questions.${safeQuestionIndex}.difficulty`, {
+                    setValueAs: (value) => {
+                      if (value === '' || value == null) return null
+                      const parsed = typeof value === 'number' ? value : Number(value)
+                      return Number.isFinite(parsed) ? parsed : null
+                    },
+                  })}
                 />
               </PropertyRow>
               <PropertyRow label="Time burden">

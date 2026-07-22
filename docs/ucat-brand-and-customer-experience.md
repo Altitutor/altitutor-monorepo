@@ -1,7 +1,7 @@
 # Altitutor UCAT brand and customer experience
 
-Status: Approved direction, implementation planning  
-Scope: Public and customer-facing UCAT surfaces across `marketing-web`, `ucat-web`, email, and in-app notifications  
+Status: Approved direction, first implementation pass complete
+Scope: Public and customer-facing UCAT surfaces across `marketing-web`, `ucat-web`, email, and in-app notifications
 Audience: Product, design, engineering, marketing, tutoring, and support
 
 ## 1. Brand foundation
@@ -51,6 +51,18 @@ Supporting proof:
 
 Do not claim “Australia’s only free UCAT platform” without a current, documented competitor review. Distinguish ongoing platform access from one-off free questions and official UCAT preparation materials.
 
+#### Competitive claim guardrail — reviewed July 2026
+
+“Free forever” is a strong lead message, but it is not defensibly unique across the entire market:
+
+- [MedEntry](https://www.medentry.edu.au/start-free-trial) offers a no-time-limit trial with a fixed, limited set of questions and one diagnostic mock.
+- [Medify](https://medify.co/anz/pricing) lists a Free plan, but currently reserves practice questions, mocks, estimated scores, and performance analytics for paid plans.
+- [Fraser's](https://www.frasersmedical.com/ucat/sign-up) advertises a free UCAT Academy with a question bank and diagnostic mock.
+- [UCAT.Ninja](https://ukcat.ninja/) advertises a forever-free tier with limited tutorials and practice questions.
+- The [official UCAT ANZ site](https://www.ucat.edu.au/prepare/) provides free practice materials.
+
+The defensible distinction is therefore the combination of **ongoing resetting practice access, personalised direction, and a not-for-profit mission**. Use “Start free. Keep practising free.” and explain exactly how allowances reset. Do not use “the only free UCAT platform” or imply that no alternative free questions exist.
+
 ### Mission statement
 
 > **Better UCAT preparation should not depend on what your family can afford.**
@@ -63,9 +75,9 @@ Continued product improvement is a valid secondary use of revenue, but equitable
 
 ### Organisational proof
 
-Altitutor has operated as a not-for-profit education initiative for over seven years. Its first cohort of Year 12 students has now graduated from medical school and become doctors.
+Altitutor has been helping students since 2017 and was formally established as a company in 2019. Its first cohort of Year 12 students has now completed university and includes qualified doctors, dentists, and other working professionals.
 
-Before publishing this proof, confirm the exact founding year and obtain permission from any former students named or pictured.
+Obtain permission from any former students named or pictured.
 
 ## 2. Positioning and message hierarchy
 
@@ -105,6 +117,8 @@ The primary pricing structure has two plans:
 2. **Altitutor UCAT Unlimited**
 
 Free should show live, area-specific allowances and reset periods. Unlimited should communicate unrestricted access across practice, sets, mocks, skill trainers, learning, and the complete online experience.
+
+There are no production customers on the former Pro concept. Remove Pro cleanly from customer-facing and internal product logic rather than retaining a legacy public or compatibility tier. Use a forward migration where required to keep migration history and deployed environments coherent, but do not preserve Pro as an available state.
 
 ### Online tutoring
 
@@ -285,7 +299,7 @@ Use an authentic dashboard state showing score range or estimate, target status,
 
 ### Proof strip
 
-> Questions, mocks, skill trainers, score tracking, and adaptive planning in one place.
+> 10,000+ questions. 30+ full mocks. One clear direction for what to do next.
 
 Replace or supplement this with verified product and organisational figures when available.
 
@@ -360,7 +374,7 @@ The first group establishes completeness. The final group explains the distincti
 
 **Body**
 
-> Altitutor has operated as a not-for-profit education initiative for over seven years. Revenue from paid plans helps provide free and subsidised educational support to students facing financial barriers, alongside continued improvement of Altitutor UCAT.
+> Altitutor has been helping students since 2017 and was formally established as a company in 2019. Revenue from paid plans helps provide free and subsidised educational support to students facing financial barriers, alongside continued improvement of Altitutor UCAT.
 
 **Supporting line**
 
@@ -379,7 +393,7 @@ The first group establishes completeness. The final group explains the distincti
 
 **Body**
 
-> More than seven years after Altitutor began, students from our first Year 12 cohort have now completed medical school and become doctors. We are proud of how far they have come—and committed to making that path more accessible to the students following them.
+> Students from Altitutor’s first Year 12 cohort have now completed university and become doctors, dentists, and other working professionals. We are proud of how far they have come—and committed to making those opportunities more accessible to the students following them.
 
 Support this with verified names, images, and outcomes only where permission has been granted.
 
@@ -391,7 +405,13 @@ Support this with verified names, images, and outcomes only where permission has
 
 Working draft:
 
-> I’m Matthew, a doctor and one of the people behind Altitutor. We built Altitutor UCAT because students need more than another large question bank: they need honest feedback, a clear plan, and access to help when cost would otherwise stand in the way.
+> Hi, I’m Matt—a doctor working across hospitals in South Australia and the founder of Altitutor. I started Altitutor with friends while I was in medical school because we believed excellent education should be available to students who could not otherwise afford it.
+>
+> I remember how overwhelming UCAT preparation felt when I did not know where to start. I would have loved a tool that could show me my weak points and what to practise next. Altitutor UCAT is the tool I wish I had: clear, evidence-based direction with a Free plan students can keep using.
+>
+> Since we began helping students in 2017, Altitutor has provided free or subsidised education to hundreds of students. Members of our first Year 12 cohort are now qualified doctors, dentists, and other working professionals. When a student chooses UCAT Unlimited or tutoring, that revenue helps us support more students facing financial barriers.
+>
+> Matt
 
 Replace this draft after a founder interview so it reflects Matthew’s actual experience and natural voice. Consider a 45–90 second video with captions and a written transcript.
 
@@ -501,7 +521,7 @@ Optimise for activated students and successful preparation, not raw link sharing
 - **Altitutor UCAT**: progress and study guidance
 - **Altitutor**: account security, billing, and formal service messages
 
-Replies should reach a monitored inbox whenever the message invites a human response.
+Use `matt@altitutor.com` for personal founder communication. Use `admin@altitutor.com` for formal account, billing, security, and subsidy communication. Create `ucat@altitutor.com` as the monitored product support and tutoring-waitlist address, preferably as an alias routed to the appropriate Altitutor team members. Do not introduce a separate `ucat.altitutor.com` email domain.
 
 ### First-week sequence
 
@@ -707,12 +727,35 @@ Database changes must be prepared as migrations and applied through CI/CD. Do no
 
 The strategic direction is sufficiently resolved. Implementation still needs the following inputs:
 
-- Exact founding year and approved organisational history wording
-- Final founder biography and interview
+- Founder interview to refine the supplied biography into Matt’s natural spoken voice
 - Founder/team photographs and optional founder video
-- Student stories, scores, years, outcomes, quotations, and signed permissions
-- Formal UCAT subsidy policy and application owner
-- Online tutoring waitlist owner and expected response process
-- Final support/reply-to addresses
-- Verified product counts and any outcome statistics used publicly
+- Product-specific student stories, scores, years, outcomes, quotations, and signed permissions
+- Formal written version of the UCAT subsidy policy, including privacy, access duration, review, and appeals
+- Expected response process and service level for Matt’s online tutoring waitlist follow-up
+- Creation and routing of `ucat@altitutor.com`
+- Exact number of students who have received free or subsidised education, if “hundreds” is to become a more specific proof point
 
+### Production-launch prerequisites after this implementation pass
+
+- Replace the Matt initial treatment with an approved founder photograph and, when ready, the short captioned founder video.
+- Replace student initials with approved photographs and add platform-specific quotations as they are collected.
+- Replace the tutoring-waitlist email link with a structured form and separate follow-up consent before promoting it as a campaign destination.
+- Publish a UCAT-specific supported-access application and written policy. The current landing CTA routes to Altitutor's existing general subsidy pathway.
+- Create and monitor `ucat@altitutor.com`; until then, product and progress replies use `admin@altitutor.com` and founder-led onboarding replies use `matt@altitutor.com`.
+- Review and refresh the older imported privacy and legal pages before collecting financial information in a new subsidy form.
+- Deploy schema and application changes together through CI/CD, configure lifecycle secrets, review a dry-run candidate report, and only then set `UCAT_LIFECYCLE_EMAILS_ENABLED=true`.
+- Soft-launch to a small student group before paid acquisition or broad forum outreach.
+
+### Testimonial selection
+
+The currently supplied Garv and Melshuel quotations describe Altitutor’s interview course and tutor quality. They are valid organisational proof, but must not be presented as reviews of the Altitutor UCAT online platform.
+
+Build the first landing-page story set around three distinct forms of proof:
+
+1. **Current product outcome:** a 2024 or 2025 student who used Altitutor UCAT in class or online, with a verified score or percentile and a quotation about the platform, its practice, or its direction.
+2. **Access and support:** a student who is comfortable discussing how free or subsidised support affected their preparation, with explicit consent to disclose that context.
+3. **Long-term trust:** a student from an earlier Altitutor cohort who is now a doctor, dentist, or other professional and can reflect on Altitutor’s longer-term role.
+
+Brian Ju (2610, 2025, dentistry offer) and Josh Lee (2430, 2025, medicine offer) are promising current outcome stories once their exact institution/course wording and product-specific quotations are supplied. Garv and Melshuel George may appear in a clearly labelled Altitutor teaching-history section or on the main Altitutor site. Rosa Hessabi and Ed Nitschke require quotations and complete verified details before use.
+
+Prefer verified percentile alongside raw UCAT score where available, because the test format and score scale can change between years. Use a full name when the student explicitly approves it; otherwise use first name and surname initial consistently.

@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState, type ComponentType } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { motion } from "motion/react";
 import { Badge, Card, CardContent, Skeleton } from "@altitutor/ui";
 import {
@@ -9,7 +10,6 @@ import {
   ArrowRight,
   BookOpen,
   BrainCircuit,
-  CalendarCheck2,
   CalendarDays,
   Check,
   Gauge,
@@ -41,10 +41,14 @@ import {
   type DashboardTrajectoryState,
 } from "@/features/dashboard/lib/dashboard-trajectory";
 import { useUcatProfile } from "@/features/layout/hooks/use-ucat-profile";
-import { useOnboardingProgress } from "@/features/onboarding/hooks/use-onboarding-progress";
+import {
+  useCompleteOnboardingTour,
+  useOnboardingProgress,
+} from "@/features/onboarding/hooks/use-onboarding-progress";
 import {
   UCAT_GUIDED_SAMPLER_COMPLETED,
   UCAT_GUIDED_SAMPLER_DECIDED,
+  UCAT_STUDY_PLAN_DECIDED,
 } from "@/features/onboarding/lib/activation-milestones";
 import { type StudentUcatSession } from "@/features/sessions/api/sessions-api";
 import { useStudentUcatSessions } from "@/features/sessions/hooks/use-sessions";
@@ -54,7 +58,16 @@ import type {
   ScoreProjectionSnapshot,
   SectionScoreProjection,
 } from "@/features/score-projection/types/score-projection";
-import { useDashboardStudyPlan } from "@/features/study-plan/hooks/use-study-plan";
+import {
+  DASHBOARD_STUDY_PLAN_QUERY_KEY,
+  STUDY_PLAN_QUERY_KEY,
+  useDashboardStudyPlan,
+} from "@/features/study-plan/hooks/use-study-plan";
+import { saveStudyPlan } from "@/features/study-plan/api/study-plan";
+import {
+  defaultSkippedGoalProfileInput,
+  hasStudyPlanGoal,
+} from "@/features/study-plan/lib/default-study-profile";
 import { useStudyPlanTaskActions } from "@/features/study-plan/hooks/use-study-plan-task-actions";
 import { useStudyPlanExtraStudyDialog } from "@/features/study-plan/components/study-plan-extra-study";
 import { addDays, todayIso } from "@/features/study-plan/lib/dates";
@@ -137,7 +150,9 @@ function actionIcon(action: DashboardNextAction) {
     case "caught_up":
       return <Check className="h-5 w-5" aria-hidden />;
     case "plan_setup":
-      return <CalendarCheck2 className="h-5 w-5" aria-hidden />;
+      return <CalendarDays className="h-5 w-5" aria-hidden />;
+    case "goal_setup":
+      return <Target className="h-5 w-5" aria-hidden />;
     case "plan_error":
       return <AlertTriangle className="h-5 w-5" aria-hidden />;
   }
@@ -238,16 +253,30 @@ function actionContent(action: DashboardNextAction): {
     case "plan_setup":
       return {
         eyebrow: "Your next step",
+        title: "Organise your study with a Study plan",
+        description:
+          "Altitutor can schedule adaptive work around your availability and adjust it as your performance changes.",
+        rationale:
+          "You can still study on your own if you prefer. A Study plan just gives you a clearer weekly path.",
+        meta: "About 3 min to set up",
+        primaryLabel: "Set up Study plan",
+        primaryHref: "/study-plan/setup?section=plan",
+        secondaryLabel: "I’ll manage my own plan",
+        secondaryHref: null,
+      };
+    case "goal_setup":
+      return {
+        eyebrow: "Your next step",
         title: "Set your UCAT year and target score",
         description:
-          "Give your dashboard a clear destination before you decide how you want to organise your study.",
+          "Give your dashboard a clear destination before you continue with suggested study activities.",
         rationale:
           "Your target is a working direction, not a prediction. You can change it at any time.",
         meta: "UCAT year · working target",
         primaryLabel: "Set my goal",
         primaryHref: "/ucat-goal/setup",
-        secondaryLabel: "Set up Study plan",
-        secondaryHref: "/study-plan/setup?section=plan",
+        secondaryLabel: "Skip for now",
+        secondaryHref: null,
       };
     case "plan_error":
       return {
@@ -270,12 +299,20 @@ function DashboardNextActionPanel({
   taskPending,
   taskError,
   onRetryPlan,
+  onDeclineStudyPlan,
+  onSkipGoal,
+  setupPending,
+  setupError,
 }: {
   action: DashboardNextAction;
   onStartTask: () => Promise<void>;
   taskPending: boolean;
   taskError: string | null;
   onRetryPlan: () => void;
+  onDeclineStudyPlan: () => void | Promise<void>;
+  onSkipGoal: () => void | Promise<void>;
+  setupPending: boolean;
+  setupError: string | null;
 }) {
   const content = actionContent(action);
   const openExtraStudy = useStudyPlanExtraStudyDialog();
@@ -290,6 +327,18 @@ function DashboardNextActionPanel({
     }
     if (action.kind === "plan_error") onRetryPlan();
   };
+  const handleSecondary = () => {
+    if (action.kind === "plan_setup") {
+      void onDeclineStudyPlan();
+      return;
+    }
+    if (action.kind === "goal_setup") {
+      void onSkipGoal();
+    }
+  };
+  const showSecondaryButton =
+    content.secondaryLabel &&
+    (action.kind === "plan_setup" || action.kind === "goal_setup");
 
   return (
     <section
@@ -323,23 +372,42 @@ function DashboardNextActionPanel({
           {taskError} Your task remains on the Study plan.
         </p>
       ) : null}
+      {setupError ? (
+        <p className="mt-3 rounded-xl bg-destructive/10 px-3.5 py-3 text-sm text-destructive">
+          {setupError}
+        </p>
+      ) : null}
       <div className="mt-4 flex flex-wrap gap-2">
         {content.primaryHref ? (
-          <Button asChild>
+          <Button asChild disabled={setupPending}>
             <Link href={content.primaryHref}>
               {content.primaryLabel}
               <ArrowRight className="ml-1.5 h-4 w-4" aria-hidden />
             </Link>
           </Button>
         ) : (
-          <Button type="button" onClick={handlePrimary} disabled={taskPending}>
+          <Button
+            type="button"
+            onClick={handlePrimary}
+            disabled={taskPending || setupPending}
+          >
             {taskPending ? "Starting…" : content.primaryLabel}
             {!taskPending ? (
               <ArrowRight className="ml-1.5 h-4 w-4" aria-hidden />
             ) : null}
           </Button>
         )}
-        {content.secondaryHref && content.secondaryLabel ? (
+        {showSecondaryButton ? (
+          <Button
+            type="button"
+            variant="ghost"
+            className={UCAT_NEUTRAL_ACTION_HOVER}
+            onClick={handleSecondary}
+            disabled={setupPending}
+          >
+            {setupPending ? "Saving…" : content.secondaryLabel}
+          </Button>
+        ) : content.secondaryHref && content.secondaryLabel ? (
           <Button asChild variant="ghost" className={UCAT_NEUTRAL_ACTION_HOVER}>
             <Link href={content.secondaryHref}>{content.secondaryLabel}</Link>
           </Button>
@@ -473,14 +541,11 @@ function dashboardTargetBreakdown(
   sectionTargets: Record<string, number>,
 ): DashboardTargetBreakdown[] {
   return sections
-    .filter(
-      (section) =>
-        section.sectionNumber <= 3 && sectionTargets[section.sectionId] != null,
-    )
+    .filter((section) => section.sectionNumber <= 3)
     .sort((left, right) => left.sectionNumber - right.sectionNumber)
     .map((section) => ({
       sectionName: section.sectionName,
-      target: sectionTargets[section.sectionId]!,
+      target: sectionTargets[section.sectionId] ?? null,
       currentEstimate: section.currentEstimate,
     }));
 }
@@ -500,6 +565,10 @@ export function DashboardTrajectoryHero({
   taskPending,
   taskError,
   onRetryPlan,
+  onDeclineStudyPlan,
+  onSkipGoal,
+  setupPending,
+  setupError,
 }: {
   firstName: string | null;
   plan: StudyPlanResponse | null | undefined;
@@ -515,6 +584,10 @@ export function DashboardTrajectoryHero({
   taskPending: boolean;
   taskError: string | null;
   onRetryPlan: () => void;
+  onDeclineStudyPlan: () => void | Promise<void>;
+  onSkipGoal: () => void | Promise<void>;
+  setupPending: boolean;
+  setupError: string | null;
 }) {
   if (!plan?.profile) {
     const planUnavailable = action.kind === "plan_error";
@@ -553,7 +626,7 @@ export function DashboardTrajectoryHero({
             <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
               {planUnavailable
                 ? "Your existing plan has not been changed. Reload it before starting unrelated work."
-                : "The Altitutor system will begin calculating your current score and trajectory once you put in your target score and test date."}
+                : "Add your target score and test date so Altitutor UCAT can estimate where you stand and show how your trajectory changes."}
             </p>
             <div className="mt-5 border-t border-border/60 pt-5">
               <DashboardNextActionPanel
@@ -562,6 +635,10 @@ export function DashboardTrajectoryHero({
                 taskPending={taskPending}
                 taskError={taskError}
                 onRetryPlan={onRetryPlan}
+                onDeclineStudyPlan={onDeclineStudyPlan}
+                onSkipGoal={onSkipGoal}
+                setupPending={setupPending}
+                setupError={setupError}
               />
             </div>
           </aside>
@@ -592,6 +669,10 @@ export function DashboardTrajectoryHero({
               taskPending={taskPending}
               taskError={taskError}
               onRetryPlan={onRetryPlan}
+              onDeclineStudyPlan={onDeclineStudyPlan}
+              onSkipGoal={onSkipGoal}
+              setupPending={setupPending}
+              setupError={setupError}
             />
           </div>
         </aside>
@@ -724,6 +805,10 @@ export function DashboardTrajectoryHero({
               taskPending={taskPending}
               taskError={taskError}
               onRetryPlan={onRetryPlan}
+              onDeclineStudyPlan={onDeclineStudyPlan}
+              onSkipGoal={onSkipGoal}
+              setupPending={setupPending}
+              setupError={setupError}
             />
           </div>
         </aside>
@@ -763,6 +848,10 @@ export function DashboardTrajectoryHero({
             taskPending={taskPending}
             taskError={taskError}
             onRetryPlan={onRetryPlan}
+            onDeclineStudyPlan={onDeclineStudyPlan}
+            onSkipGoal={onSkipGoal}
+            setupPending={setupPending}
+            setupError={setupError}
           />
         </div>
       </aside>
@@ -920,12 +1009,16 @@ function dashboardMockAnnotations(
 export function DashboardHome() {
   const profileQuery = useUcatProfile();
   const planQuery = useDashboardStudyPlan();
+  const queryClient = useQueryClient();
+  const completeMilestone = useCompleteOnboardingTour();
   const scoreProjectionQuery = useScoreProjection(
     Boolean(planQuery.data?.profile),
   );
   const sessionsQuery = useStudentUcatSessions();
   const onboarding = useOnboardingProgress();
   const [now, setNow] = useState(() => new Date());
+  const [setupPending, setSetupPending] = useState(false);
+  const [setupError, setSetupError] = useState<string | null>(null);
 
   useEffect(() => {
     const timer = window.setInterval(() => setNow(new Date()), 30_000);
@@ -936,6 +1029,8 @@ export function DashboardHome() {
   const samplerCompleted = onboarding.isCompleted(
     UCAT_GUIDED_SAMPLER_COMPLETED,
   );
+  const studyPlanDecided = onboarding.isCompleted(UCAT_STUDY_PLAN_DECIDED);
+  const hasGoal = hasStudyPlanGoal(planQuery.data?.profile);
   const sessions = useMemo(
     () => sessionsQuery.data ?? [],
     [sessionsQuery.data],
@@ -947,18 +1042,55 @@ export function DashboardHome() {
         sessions,
         plan: planQuery.data,
         planLoadFailed: planQuery.isError,
-        samplerDecided,
-        samplerCompleted,
+        studyPlanDecided,
+        hasGoal,
       }),
     [
+      hasGoal,
       now,
       planQuery.data,
       planQuery.isError,
-      samplerCompleted,
-      samplerDecided,
       sessions,
+      studyPlanDecided,
     ],
   );
+
+  async function handleDeclineStudyPlan() {
+    setSetupPending(true);
+    setSetupError(null);
+    try {
+      await completeMilestone.mutateAsync(UCAT_STUDY_PLAN_DECIDED);
+    } catch (caught) {
+      setSetupError(
+        caught instanceof Error
+          ? caught.message
+          : "Could not save your Study plan preference.",
+      );
+    } finally {
+      setSetupPending(false);
+    }
+  }
+
+  async function handleSkipGoal() {
+    setSetupPending(true);
+    setSetupError(null);
+    try {
+      const nextPlan = await saveStudyPlan(defaultSkippedGoalProfileInput());
+      queryClient.setQueryData(DASHBOARD_STUDY_PLAN_QUERY_KEY, nextPlan);
+      queryClient.setQueryData(STUDY_PLAN_QUERY_KEY, nextPlan);
+      await queryClient.invalidateQueries({
+        queryKey: STUDY_PLAN_QUERY_KEY,
+      });
+    } catch (caught) {
+      setSetupError(
+        caught instanceof Error
+          ? caught.message
+          : "Could not continue without a goal.",
+      );
+    } finally {
+      setSetupPending(false);
+    }
+  }
   const nextTask = action.kind === "task" ? action.task : null;
   const taskActions = useStudyPlanTaskActions(
     nextTask,
@@ -1059,6 +1191,10 @@ export function DashboardHome() {
           taskPending={taskActions.pendingAction === "start"}
           taskError={taskActions.error}
           onRetryPlan={() => void planQuery.refetch()}
+          onDeclineStudyPlan={handleDeclineStudyPlan}
+          onSkipGoal={handleSkipGoal}
+          setupPending={setupPending}
+          setupError={setupError}
         />
       </motion.div>
 
@@ -1108,8 +1244,9 @@ export function DashboardHome() {
                     Your available time is tight
                   </h2>
                   <p className="mt-1 text-sm text-muted-foreground">
-                    {planQuery.data.generation.capacityRisk.message} Your plan is
-                    already choosing the highest-value work within that limit.
+                    {planQuery.data.generation.capacityRisk.message} Your plan
+                    is already choosing the highest-value work within that
+                    limit.
                   </p>
                 </div>
               </div>

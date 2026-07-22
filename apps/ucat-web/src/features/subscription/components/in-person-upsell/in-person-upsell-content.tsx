@@ -8,7 +8,7 @@ import { PlanPickerCheckIcon } from "@/features/subscription/components/plan-pic
 const { typography: typo } = MARKETING_TOKENS;
 
 const IN_PERSON_FEATURES = [
-  "Everything in online plans",
+  "UCAT Unlimited included",
   "Weekly in-person sessions",
   "Expert UCAT tutors",
   "Initial 1-on-1 diagnostic assessment",
@@ -29,7 +29,7 @@ export function InPersonUpsellContent({ className }: InPersonUpsellContentProps)
         <span
           className={`text-xs font-bold uppercase tracking-widest text-primary ${typo.dataMono}`}
         >
-          Premium
+          Adelaide classes
         </span>
         <h3
           className={`mt-3 text-2xl font-bold text-foreground ${typo.headingSans}`}

@@ -79,11 +79,10 @@ function getStandardPriceCents(
   },
   billingFrequencyLabel: string,
 ): number {
-  const tier = subscription.plan_tier === "pro" ? "pro" : "unlimited";
   const interval =
     parseBillingInterval(subscription.billing_interval) ??
     intervalFromFrequencyLabel(billingFrequencyLabel);
-  const row = getPublicPlanPrice(config, tier, interval);
+  const row = getPublicPlanPrice(config, "unlimited", interval);
   return row?.basePriceCents ?? 0;
 }
 

@@ -1,15 +1,6 @@
 import { resolveExistingSubscriberDestination } from "../resolve-checkout-entry";
 
 describe("resolveExistingSubscriberDestination", () => {
-  it("routes an Unlimited subscriber selecting Pro to the upgrade flow", () => {
-    expect(
-      resolveExistingSubscriberDestination(
-        [{ status: "active", plan_tier: "unlimited" }],
-        "pro",
-      ),
-    ).toBe("/subscribe");
-  });
-
   it("routes an existing subscriber selecting their current plan to management", () => {
     expect(
       resolveExistingSubscriberDestination(
@@ -19,10 +10,10 @@ describe("resolveExistingSubscriberDestination", () => {
     ).toBe("/settings/plan/subscription");
   });
 
-  it("routes a Pro subscriber away from a second checkout", () => {
+  it("routes a past-due Unlimited subscriber away from a second checkout", () => {
     expect(
       resolveExistingSubscriberDestination(
-        [{ status: "past_due", plan_tier: "pro" }],
+        [{ status: "past_due", plan_tier: "unlimited" }],
         "unlimited",
       ),
     ).toBe("/settings/plan/subscription");

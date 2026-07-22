@@ -17,7 +17,7 @@ export function useSetStemCategory() {
       ucatQuestionsApi.bulkUpdateMetadata([stemId], { categoryId }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ucatKeys.reconciliation() })
-      queryClient.invalidateQueries({ queryKey: ucatKeys.questions() })
+      queryClient.invalidateQueries({ queryKey: ucatKeys.questions('all') })
       queryClient.invalidateQueries({ queryKey: ucatKeys.stemCatalog() })
     },
   })
@@ -30,7 +30,7 @@ export function useAddQuestionTag() {
       ucatQuestionsApi.addQuestionTag(stemId, questionId, tagId),
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ucatKeys.reconciliation() })
-      queryClient.invalidateQueries({ queryKey: ucatKeys.questions() })
+      queryClient.invalidateQueries({ queryKey: ucatKeys.questions('all') })
       queryClient.invalidateQueries({ queryKey: ucatKeys.question(variables.stemId) })
       queryClient.invalidateQueries({ queryKey: ucatKeys.stemCatalog() })
     },
@@ -44,7 +44,7 @@ export function useAddQuestionTags() {
       ucatQuestionsApi.addQuestionTags(stemId, questionId, tagIds),
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ucatKeys.reconciliation() })
-      queryClient.invalidateQueries({ queryKey: ucatKeys.questions() })
+      queryClient.invalidateQueries({ queryKey: ucatKeys.questions('all') })
       queryClient.invalidateQueries({ queryKey: ucatKeys.question(variables.stemId) })
       queryClient.invalidateQueries({ queryKey: ucatKeys.stemCatalog() })
     },

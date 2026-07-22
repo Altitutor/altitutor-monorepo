@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { PracticeStreakWeek } from "@/features/streaks/components/practice-streak-week";
 import { buildPracticeStreak } from "@/features/streaks/lib/practice-streak";
 import { useUcatActivity } from "@/features/progress/hooks/use-ucat-activity";
+import { SidebarExpandablePanel } from "@/features/layout/components/sidebar-expandable-panel";
 import { QuotaProgressBar } from "@/features/ucat-access/components/quota-usage-card";
 import {
   useQuotaLimitDialog,
@@ -313,7 +314,7 @@ function FreePlanQuota({
               aria-hidden
             />
           </button>
-          {expanded ? (
+          <SidebarExpandablePanel expanded={expanded}>
             <ul
               id="practice-streak-all-limits"
               className="mt-2 space-y-2.5"
@@ -322,7 +323,7 @@ function FreePlanQuota({
                 <FreePlanQuotaRow key={entry.area} area={entry} />
               ))}
             </ul>
-          ) : null}
+          </SidebarExpandablePanel>
         </div>
       ) : null}
     </div>

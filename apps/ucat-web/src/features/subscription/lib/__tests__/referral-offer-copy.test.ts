@@ -34,17 +34,19 @@ describe("resolveReferralOfferCopy", () => {
     );
   });
 
-  it("uses monthly paid copy for monthly Pro", () => {
+  it("uses monthly paid copy for monthly Unlimited", () => {
     const copy = resolveReferralOfferCopy({
       status: "active",
-      plan_tier: "pro",
+      plan_tier: "unlimited",
       billing_interval: "month",
     });
     expect(copy.isPaidReferrer).toBe(true);
     expect(copy.giftDuration).toBe("month");
-    expect(copy.planLabel).toBe("Pro");
+    expect(copy.planLabel).toBe("Unlimited");
     expect(copy.headline).toContain("free month");
-    expect(copy.steps[2]?.description).toContain("free month of your Pro plan");
+    expect(copy.steps[2]?.description).toContain(
+      "free month of your Unlimited plan",
+    );
   });
 
   it("maps yearly billing to a month-long gift", () => {

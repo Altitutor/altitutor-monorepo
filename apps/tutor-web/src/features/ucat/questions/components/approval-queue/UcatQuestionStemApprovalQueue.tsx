@@ -273,12 +273,8 @@ function UcatQuestionStemApprovalQueue({
   async function invalidateQueueData(stemId: string) {
     await Promise.all([
       queryClient.invalidateQueries({ queryKey: ucatKeys.question(stemId) }),
-      queryClient.invalidateQueries({ queryKey: ucatKeys.questions('default') }),
-      queryClient.invalidateQueries({ queryKey: ucatKeys.questions('generated') }),
-      queryClient.invalidateQueries({ queryKey: ucatKeys.questionStemTagIds() }),
-      queryClient.invalidateQueries({ queryKey: ucatKeys.questionStemTypes() }),
+      queryClient.invalidateQueries({ queryKey: ucatKeys.questions('all') }),
       queryClient.invalidateQueries({ queryKey: ucatKeys.reconciliation() }),
-      queryClient.invalidateQueries({ queryKey: ucatKeys.stemCatalog() }),
     ])
   }
 

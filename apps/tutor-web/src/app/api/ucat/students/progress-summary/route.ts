@@ -3,7 +3,7 @@ import { requireUcatTutor } from '@/features/ucat/shared/server/guard'
 import { supabaseAdmin } from '@/shared/lib/supabase/server/admin'
 
 export type UcatStudentDeliveryMode = 'in_person' | 'online'
-export type UcatStudentOnlineTier = 'free' | 'unlimited' | 'pro'
+export type UcatStudentOnlineTier = 'free' | 'unlimited'
 
 export type StudentProgressSummaryRow = {
   student_id: string
@@ -31,20 +31,10 @@ function resolveOnlineTier(
   student: StudentCandidate,
   subscriptions: Array<{ status: string; plan_tier: string | null }>
 ): UcatStudentOnlineTier {
-  if (student.ucat_online_tier_override === 'force_pro') return 'pro'
   if (student.ucat_online_tier_override === 'force_unlimited') {
     return 'unlimited'
   }
   if (student.ucat_online_tier_override === 'force_free') return 'free'
-  if (
-    subscriptions.some(
-      (subscription) =>
-        ['active', 'past_due'].includes(subscription.status) &&
-        subscription.plan_tier === 'pro'
-    )
-  ) {
-    return 'pro'
-  }
   if (
     subscriptions.some((subscription) =>
       ['trialing', 'active', 'past_due'].includes(subscription.status)

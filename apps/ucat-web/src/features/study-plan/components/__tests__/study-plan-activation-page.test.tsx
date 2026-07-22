@@ -44,6 +44,20 @@ jest.mock("next/navigation", () => ({
   useSearchParams: () => new URLSearchParams(searchParamsValue),
 }));
 
+jest.mock("@/shared/components/ucat-clickable-card", () => ({
+  UcatClickableCardButton: ({
+    title,
+    onClick,
+  }: {
+    title: string;
+    onClick?: () => void;
+  }) => (
+    <button type="button" onClick={onClick}>
+      {title}
+    </button>
+  ),
+}));
+
 jest.mock("@/features/study-plan/api/study-plan", () => ({
   saveStudyPlan: (...args: unknown[]) => mockSaveStudyPlan(...args),
 }));
@@ -83,8 +97,10 @@ jest.mock("@/features/ucat-access/hooks/use-ucat-access", () => ({
   useUcatAccess: () => ({ onlineTier: "free" }),
 }));
 
+const mockCompleteMilestone = jest.fn();
+
 jest.mock("@/features/onboarding/hooks/use-onboarding-progress", () => ({
-  useCompleteOnboardingTour: () => ({ mutateAsync: jest.fn() }),
+  useCompleteOnboardingTour: () => ({ mutateAsync: mockCompleteMilestone }),
 }));
 
 jest.mock(
@@ -120,6 +136,7 @@ describe("StudyPlanActivationPage", () => {
     replace.mockClear();
     prefetch.mockClear();
     mockSaveStudyPlan.mockReset();
+    mockCompleteMilestone.mockReset();
     searchParamsValue = "activation=1";
     mockPlanData = {
       profile: null,
@@ -184,47 +201,42 @@ describe("StudyPlanActivationPage", () => {
     ).toHaveLength(5);
   });
 
-  it("saves the goal without asking for availability when the student manages their own plan", async () => {
-    mockSaveStudyPlan.mockResolvedValue({
-      profile: {
-        id: "profile-1",
-        studyPlanEnabled: false,
-        targetScore: 2200,
-        testYear: new Date().getFullYear(),
-        testDate: null,
-        availableDays: [],
-        preferredMockWeekday: 6,
-        planningDate: "2026-07-18",
-        planningDateIsProvisional: true,
-        nextWeeklyReplanOn: null,
-      },
-      generation: null,
-      tasks: [],
-      nextSteps: [],
-      today: "2026-07-18",
-      todayTasks: [],
-      completion: { completed: 0, scheduledThroughToday: 0, percent: 0 },
-    });
+  it("marks Study plan decided when skipping setup", async () => {
+    mockCompleteMilestone.mockResolvedValue("ucat-study-plan-decided");
     renderPage();
-    const year = String(new Date().getFullYear());
+
+    fireEvent.click(screen.getByRole("button", { name: "Skip for now" }));
+    fireEvent.click(
+      screen.getAllByRole("button", { name: "Skip for now" }).at(-1)!,
+    );
+
+    await waitFor(() =>
+      expect(mockCompleteMilestone).toHaveBeenCalledWith(
+        "ucat-study-plan-decided",
+      ),
+    );
+  });
+
+  it("returns to the dashboard without collecting a goal when the student manages their own plan", async () => {
+    mockCompleteMilestone.mockResolvedValue("ucat-study-plan-decided");
+    searchParamsValue = "section=plan";
+    renderPage();
 
     fireEvent.click(
       screen.getByRole("button", { name: /I’ll manage my own plan/i }),
     );
     fireEvent.click(screen.getByRole("button", { name: "Next" }));
-    fireEvent.click(screen.getByRole("combobox", { name: "UCAT year" }));
-    fireEvent.click(screen.getByRole("option", { name: year }));
-    fireEvent.click(screen.getByRole("button", { name: "Save and finish" }));
 
     await waitFor(() =>
-      expect(mockSaveStudyPlan).toHaveBeenCalledWith(
-        expect.objectContaining({
-          studyPlanEnabled: false,
-          targetScore: 2200,
-          availableDays: [],
-        }),
+      expect(mockCompleteMilestone).toHaveBeenCalledWith(
+        "ucat-study-plan-decided",
       ),
     );
+    expect(mockSaveStudyPlan).not.toHaveBeenCalled();
+    expect(replace).toHaveBeenCalledWith("/dashboard");
+    expect(
+      screen.queryByLabelText("Target UCAT score"),
+    ).not.toBeInTheDocument();
   });
 
   it("moves a saved Study plan into setup animation before the welcome reveal", async () => {

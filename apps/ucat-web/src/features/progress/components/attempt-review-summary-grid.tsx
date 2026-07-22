@@ -48,19 +48,23 @@ type AttemptReviewSummaryGridProps = {
   timing?: AttemptReviewExamTimingMetrics;
   /** Practice-session timing (session time + avg / question). */
   practiceTiming?: AttemptReviewPracticeTimingMetrics;
+  initialNavigatorView?: "simple" | "timing";
+  navigatorOnly?: boolean;
 };
 
 function QuestionAttemptsCard({
   chartData,
   selectedQuestionIndex,
   onBarClick,
+  initialNavigatorView = "simple",
 }: {
   chartData: QuestionAttemptForChart[];
   selectedQuestionIndex: number;
   onBarClick: (index: number) => void;
+  initialNavigatorView?: "simple" | "timing";
 }) {
   const [navigatorView, setNavigatorView] = useState<"simple" | "timing">(
-    "simple",
+    initialNavigatorView,
   );
   const groupedQuestions = chartData.reduce<
     Array<{
@@ -180,6 +184,8 @@ export function AttemptReviewSummaryGrid({
   onBarClick,
   timing,
   practiceTiming,
+  initialNavigatorView = "simple",
+  navigatorOnly = false,
 }: AttemptReviewSummaryGridProps) {
   const scoreCard = (
     <AttemptReviewScoreCard
@@ -195,6 +201,7 @@ export function AttemptReviewSummaryGrid({
       chartData={chartData}
       selectedQuestionIndex={selectedQuestionIndex}
       onBarClick={onBarClick}
+      initialNavigatorView={initialNavigatorView}
     />
   );
   const percentileCard =
@@ -205,6 +212,10 @@ export function AttemptReviewSummaryGrid({
         scope="set"
       />
     ) : null;
+
+  if (navigatorOnly) {
+    return questionAttemptsCard;
+  }
 
   if (timing != null || practiceTiming != null) {
     return (

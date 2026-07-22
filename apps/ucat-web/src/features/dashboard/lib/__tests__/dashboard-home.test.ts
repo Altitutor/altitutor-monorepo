@@ -9,6 +9,7 @@ import {
 import type { PracticeDiscountDashboardStatus } from "@/lib/ucat/practice-day-discount-dashboard";
 import type { StudentUcatSession } from "@/features/sessions/api/sessions-api";
 import type {
+  StudyGuidanceItem,
   StudyPlanResponse,
   StudyPlanTask,
 } from "@/features/study-plan/model/types";
@@ -66,6 +67,59 @@ function plan(tasks: StudyPlanTask[]): StudyPlanResponse {
     nextSteps: [],
     today: "2026-07-15",
     todayTasks: tasks.filter((entry) => entry.scheduledDate === "2026-07-15"),
+    completion: { completed: 0, scheduledThroughToday: 0, percent: 0 },
+  };
+}
+
+function guidanceItem(
+  overrides: Partial<StudyGuidanceItem> = {},
+): StudyGuidanceItem {
+  return {
+    id: overrides.id ?? "guidance-1",
+    position: overrides.position ?? 1,
+    triggerKey: overrides.triggerKey ?? "daily:2026-07-15",
+    generatedOn: overrides.generatedOn ?? "2026-07-15",
+    taskType: overrides.taskType ?? "practice",
+    title: overrides.title ?? "Practice Verbal Reasoning",
+    description: overrides.description ?? "Complete focused practice.",
+    rationale: overrides.rationale ?? "This is the most useful next step.",
+    estimatedMinutes: overrides.estimatedMinutes ?? 20,
+    sectionId: null,
+    questionStemCategoryId: null,
+    learningModuleId: null,
+    questionSetId: null,
+    mockId: null,
+    skillTrainerId: null,
+    sourceAttemptType: null,
+    sourceAttemptId: null,
+    launchPath: "/practice",
+    launchConfig: {},
+    ...overrides,
+  };
+}
+
+function planWithoutStudyPlan(
+  nextSteps: StudyGuidanceItem[] = [guidanceItem()],
+): StudyPlanResponse {
+  return {
+    profile: {
+      id: "profile-1",
+      studyPlanEnabled: false,
+      studySuggestionsEnabled: true,
+      targetScore: 2100,
+      testYear: 2026,
+      testDate: "2026-09-15",
+      planningDate: "2026-09-15",
+      planningDateIsProvisional: false,
+      nextWeeklyReplanOn: null,
+      preferredMockWeekday: 6,
+      availableDays: [],
+    },
+    generation: null,
+    tasks: [],
+    nextSteps,
+    today: "2026-07-15",
+    todayTasks: [],
     completion: { completed: 0, scheduledThroughToday: 0, percent: 0 },
   };
 }
@@ -136,8 +190,8 @@ describe("dashboard next action", () => {
       ],
       plan: plan([task()]),
       planLoadFailed: false,
-      samplerDecided: true,
-      samplerCompleted: true,
+      studyPlanDecided: true,
+      hasGoal: true,
     });
     expect(result.kind).toBe("session");
     expect(result.kind === "session" && result.live).toBe(true);
@@ -168,8 +222,8 @@ describe("dashboard next action", () => {
       sessions: [],
       plan: plan([review]),
       planLoadFailed: false,
-      samplerDecided: true,
-      samplerCompleted: true,
+      studyPlanDecided: true,
+      hasGoal: true,
     });
     expect(result.kind).toBe("task");
     expect(result.kind === "task" && result.task.taskType).toBe("review");
@@ -185,8 +239,8 @@ describe("dashboard next action", () => {
         task({ id: "earlier", scheduledDate: "2026-07-14" }),
       ]),
       planLoadFailed: false,
-      samplerDecided: true,
-      samplerCompleted: true,
+      studyPlanDecided: true,
+      hasGoal: true,
     });
 
     expect(result.kind).toBe("task");
@@ -194,16 +248,45 @@ describe("dashboard next action", () => {
     expect(result.kind === "task" && result.fromEarlierStudyDay).toBe(true);
   });
 
-  it("respects a deliberate sampler skip and moves on to goal setup", () => {
+  it("prompts for Study plan setup before goal when the student has not decided", () => {
     const result = resolveDashboardNextAction({
       now,
       sessions: [],
       plan: null,
       planLoadFailed: false,
-      samplerDecided: true,
-      samplerCompleted: false,
+      studyPlanDecided: false,
+      hasGoal: false,
     });
     expect(result).toEqual({ kind: "plan_setup" });
+  });
+
+  it("prompts for goal setup after Study plan is declined without a saved goal", () => {
+    const result = resolveDashboardNextAction({
+      now,
+      sessions: [],
+      plan: null,
+      planLoadFailed: false,
+      studyPlanDecided: true,
+      hasGoal: false,
+    });
+    expect(result).toEqual({ kind: "goal_setup" });
+  });
+
+  it("shows guidance when Study plan is off and a goal exists", () => {
+    const primary = guidanceItem({ id: "primary" });
+    const result = resolveDashboardNextAction({
+      now,
+      sessions: [],
+      plan: planWithoutStudyPlan([primary]),
+      planLoadFailed: false,
+      studyPlanDecided: true,
+      hasGoal: true,
+    });
+    expect(result).toEqual({
+      kind: "guidance",
+      primary,
+      secondary: null,
+    });
   });
 
   it("celebrates completed work and identifies the next study day", () => {
@@ -215,8 +298,8 @@ describe("dashboard next action", () => {
         task({ id: "later", scheduledDate: "2026-07-18" }),
       ]),
       planLoadFailed: false,
-      samplerDecided: true,
-      samplerCompleted: true,
+      studyPlanDecided: true,
+      hasGoal: true,
     });
     expect(result).toEqual({
       kind: "caught_up",

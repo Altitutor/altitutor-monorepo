@@ -30,6 +30,8 @@ export async function middleware(request: NextRequest) {
     publicPaths.includes(pathname) || isDevelopmentSentryExample;
   const isNoAuthPublicPath =
     pathname === "/reset-password" ||
+    pathname.startsWith("/marketing-preview/") ||
+    pathname === "/api/ucat/public-interest" ||
     pathname.startsWith("/api/auth") ||
     pathname.startsWith("/auth/") ||
     pathname === "/api/ucat/subscription-config";

@@ -38,15 +38,6 @@ describe("resolveCurrentPlanDisplayKey", () => {
       }),
     ).toBe("unlimited");
   });
-
-  it("labels pro trial from access + subscription status", () => {
-    expect(
-      resolveCurrentPlanDisplayKey("pro", {
-        status: "trialing",
-        plan_tier: "pro",
-      }),
-    ).toBe("pro_trial");
-  });
 });
 
 describe("subscribedPlanTierRank", () => {

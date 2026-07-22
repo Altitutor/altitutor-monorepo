@@ -20,7 +20,7 @@ export type StudentProgressSummaryRow = {
   section_scores: Record<string, number | null>
   class_ids: string[]
   delivery_mode: 'in_person' | 'online'
-  online_tier: 'free' | 'unlimited' | 'pro'
+  online_tier: 'free' | 'unlimited'
 }
 
 export type StudentProgressSummaryResponse = {

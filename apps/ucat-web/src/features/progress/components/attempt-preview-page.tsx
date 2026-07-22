@@ -50,6 +50,7 @@ function requestedAttempt(): AttemptPreviewKind {
 }
 
 function resultForQuestion(index: number, accuracy: number) {
+  if (index === 0) return "incorrect" as const;
   const sample = (index * 37 + 19) % 100;
   if (sample < accuracy) return "correct" as const;
   if (sample > 96) return "not_attempted" as const;
@@ -122,6 +123,64 @@ function buildReviewContent(
   averageSeconds: number,
 ): { exam: QuestionEngineExam; questionAttempts: PreviewQuestionAttempt[] } {
   const questions: QuestionItem[] = chartData.map((question, index) => {
+    if (index === 0) {
+      const options = [
+        {
+          id: "preview-dm-option-a",
+          index: 1,
+          text: "Frosty Frank sells strawberry ice cream",
+          isAnswer: false,
+          selectionCount: 8,
+          totalAnswered: 100,
+          percentage: 8,
+        },
+        {
+          id: "preview-dm-option-b",
+          index: 2,
+          text: "There is only one shop that sells chocolate flavoured ice cream",
+          isAnswer: false,
+          selectionCount: 21,
+          totalAnswered: 100,
+          percentage: 21,
+        },
+        {
+          id: "preview-dm-option-c",
+          index: 3,
+          text: "Icy Ian sells chocolate ice cream",
+          isAnswer: true,
+          selectionCount: 57,
+          totalAnswered: 100,
+          percentage: 57,
+        },
+        {
+          id: "preview-dm-option-d",
+          index: 4,
+          text: "Cold Claire sells vanilla ice cream",
+          isAnswer: false,
+          selectionCount: 14,
+          totalAnswered: 100,
+          percentage: 14,
+        },
+      ];
+
+      return {
+        id: "preview-dm-question",
+        index,
+        questionSetId: `preview-${attempt}-set`,
+        stemId: "preview-dm-stem",
+        sectionName: "Decision Making",
+        sectionDisplayColumns: 1,
+        stemText:
+          "Four ice cream shops sell ice cream in either cups or cones, but not both. Each shop sells one flavour: vanilla or chocolate.\n\n• Icy Ian sells ice cream in the same container as Frosty Frank.\n• Frosty Frank sells a different flavour from the other three shops.\n• Cold Claire is the only shop that sells ice cream in cups.\n• Chill Phil sells chocolate ice cream in cones.",
+        questionText: "Which of the following must be true?",
+        questionType: "multiple_choice",
+        options,
+        correctOptionId: "preview-dm-option-c",
+        answerExplanation:
+          "Cold Claire is the only shop using cups, so Icy Ian, Frosty Frank and Chill Phil all use cones. Chill Phil sells chocolate. Frosty Frank sells a different flavour from the other three, so Frosty Frank must sell vanilla and the other three — including Icy Ian — must sell chocolate.",
+      };
+    }
+
     const sectionIndex =
       attempt === "mock"
         ? Math.min(
@@ -202,7 +261,12 @@ function buildReviewContent(
       difficulty: 2 + ((index * 3) % 8),
       questionTags: [
         {
-          name: index % 2 === 0 ? "Inference" : "Evidence",
+          name:
+            index === 0
+              ? "Logical puzzles"
+              : index % 2 === 0
+                ? "Inference"
+                : "Evidence",
           description:
             "Placeholder skill tag used to preview question metadata.",
         },
@@ -212,7 +276,12 @@ function buildReviewContent(
             "Placeholder study-priority tag used in the attempt lab.",
         },
       ],
-      categoryName: categoryIndex === 0 ? "Category A" : "Category B",
+      categoryName:
+        index === 0
+          ? "Logic puzzles"
+          : categoryIndex === 0
+            ? "Category A"
+            : "Category B",
       categoryDescription:
         categoryIndex === 0
           ? "Placeholder category covering interpretation and inference."
@@ -247,7 +316,10 @@ function buildCategoryBreakdown(
     { name: "Category B", questions: chartData.slice(split) },
   ].map(({ name, questions }) => ({
     name,
-    score: questions.reduce((total, question) => total + (question.score ?? 0), 0),
+    score: questions.reduce(
+      (total, question) => total + (question.score ?? 0),
+      0,
+    ),
     total: questions.length,
   }));
 }
@@ -276,11 +348,25 @@ function buildPercentile(
 }
 
 function updatePreviewUrl(attempt: AttemptPreviewKind) {
-  window.history.replaceState(null, "", `/progress/attempts/preview?attempt=${attempt}`);
+  window.history.replaceState(
+    null,
+    "",
+    `/progress/attempts/preview?attempt=${attempt}`,
+  );
 }
 
-export function AttemptPreviewPage() {
-  const [attempt, setAttempt] = useState<AttemptPreviewKind>(requestedAttempt);
+export function AttemptPreviewPage({
+  embedded = false,
+  initialAttempt = "set",
+  marketingCapture = false,
+}: {
+  embedded?: boolean;
+  initialAttempt?: AttemptPreviewKind;
+  marketingCapture?: boolean;
+} = {}) {
+  const [attempt, setAttempt] = useState<AttemptPreviewKind>(() =>
+    embedded ? initialAttempt : requestedAttempt(),
+  );
   const [questionCount, setQuestionCount] = useState(32);
   const [accuracy, setAccuracy] = useState(68);
   const [averageSeconds, setAverageSeconds] = useState(54);
@@ -305,9 +391,13 @@ export function AttemptPreviewPage() {
     const scaledScore = Math.round(300 + (points / questionCount) * 600);
     const sectionSize = Math.ceil(questionCount / MOCK_SECTION_NAMES.length);
     const setBoundaryIndices = MOCK_SECTION_NAMES.slice(0, -1)
-      .map((_, index) => Math.min(questionCount - 1, (index + 1) * sectionSize - 1))
-      .filter((boundary, index, boundaries) =>
-        boundary < questionCount - 1 && boundaries.indexOf(boundary) === index,
+      .map((_, index) =>
+        Math.min(questionCount - 1, (index + 1) * sectionSize - 1),
+      )
+      .filter(
+        (boundary, index, boundaries) =>
+          boundary < questionCount - 1 &&
+          boundaries.indexOf(boundary) === index,
       );
     const reviewContent = buildReviewContent(
       chartData,
@@ -349,103 +439,109 @@ export function AttemptPreviewPage() {
 
   return (
     <div className="space-y-6 pb-8">
-      <div className="mx-auto w-full max-w-[1400px] px-5 sm:px-6">
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-          <div>
-            <Badge variant="secondary">Development preview</Badge>
-            <h1 className="mt-2 text-2xl font-semibold">Attempt state lab</h1>
-            <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
-              Adjust the evidence below to inspect the real attempt graph at
-              different lengths, accuracy levels, and timing patterns.
-            </p>
-          </div>
-          <label className="text-sm font-medium">
-            Attempt type
-            <select
-              value={attempt}
-              onChange={(event) => {
-                const nextAttempt = event.target.value as AttemptPreviewKind;
-                setAttempt(nextAttempt);
-                setSelectedQuestionIndex(0);
-                updatePreviewUrl(nextAttempt);
-              }}
-              className="mt-1 block min-w-56 rounded-lg border bg-background px-3 py-2 text-sm"
-            >
-              {ATTEMPT_OPTIONS.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
-          </label>
-        </div>
-
-        <Card className="mt-5">
-          <CardContent className="grid gap-5 pt-6 md:grid-cols-2 xl:grid-cols-4">
+      {!embedded ? (
+        <div className="mx-auto w-full max-w-[1400px] px-5 sm:px-6">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+            <div>
+              <Badge variant="secondary">Development preview</Badge>
+              <h1 className="mt-2 text-2xl font-semibold">Attempt state lab</h1>
+              <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
+                Adjust the evidence below to inspect the real attempt graph at
+                different lengths, accuracy levels, and timing patterns.
+              </p>
+            </div>
             <label className="text-sm font-medium">
-              Questions
+              Attempt type
               <select
-                value={questionCount}
+                value={attempt}
                 onChange={(event) => {
-                  setQuestionCount(Number(event.target.value));
+                  const nextAttempt = event.target.value as AttemptPreviewKind;
+                  setAttempt(nextAttempt);
                   setSelectedQuestionIndex(0);
+                  updatePreviewUrl(nextAttempt);
                 }}
-                className="mt-2 block w-full rounded-lg border bg-background px-3 py-2 text-sm"
+                className="mt-1 block min-w-56 rounded-lg border bg-background px-3 py-2 text-sm"
               >
-                {[12, 24, 32, 40, 80].map((count) => (
-                  <option key={count} value={count}>{count}</option>
-                ))}
-              </select>
-            </label>
-            <label className="text-sm font-medium">
-              <span className="flex justify-between gap-3">
-                <span>Accuracy</span><span>{accuracy}%</span>
-              </span>
-              <Slider
-                className="mt-4"
-                min={10}
-                max={100}
-                step={1}
-                value={[accuracy]}
-                onValueChange={([value]) => setAccuracy(value ?? accuracy)}
-                aria-label="Accuracy percentage"
-              />
-            </label>
-            <label className="text-sm font-medium">
-              <span className="flex justify-between gap-3">
-                <span>Average time</span><span>{averageSeconds}s</span>
-              </span>
-              <Slider
-                className="mt-4"
-                min={10}
-                max={150}
-                step={1}
-                value={[averageSeconds]}
-                onValueChange={([value]) =>
-                  setAverageSeconds(value ?? averageSeconds)
-                }
-                aria-label="Average seconds per question"
-              />
-            </label>
-            <label className="text-sm font-medium">
-              Timing pattern
-              <select
-                value={timingPattern}
-                onChange={(event) =>
-                  setTimingPattern(event.target.value as TimingPattern)
-                }
-                className="mt-2 block w-full rounded-lg border bg-background px-3 py-2 text-sm"
-              >
-                {TIMING_OPTIONS.map((option) => (
+                {ATTEMPT_OPTIONS.map((option) => (
                   <option key={option.value} value={option.value}>
                     {option.label}
                   </option>
                 ))}
               </select>
             </label>
-          </CardContent>
-        </Card>
-      </div>
+          </div>
+
+          <Card className="mt-5">
+            <CardContent className="grid gap-5 pt-6 md:grid-cols-2 xl:grid-cols-4">
+              <label className="text-sm font-medium">
+                Questions
+                <select
+                  value={questionCount}
+                  onChange={(event) => {
+                    setQuestionCount(Number(event.target.value));
+                    setSelectedQuestionIndex(0);
+                  }}
+                  className="mt-2 block w-full rounded-lg border bg-background px-3 py-2 text-sm"
+                >
+                  {[12, 24, 32, 40, 80].map((count) => (
+                    <option key={count} value={count}>
+                      {count}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="text-sm font-medium">
+                <span className="flex justify-between gap-3">
+                  <span>Accuracy</span>
+                  <span>{accuracy}%</span>
+                </span>
+                <Slider
+                  className="mt-4"
+                  min={10}
+                  max={100}
+                  step={1}
+                  value={[accuracy]}
+                  onValueChange={([value]) => setAccuracy(value ?? accuracy)}
+                  aria-label="Accuracy percentage"
+                />
+              </label>
+              <label className="text-sm font-medium">
+                <span className="flex justify-between gap-3">
+                  <span>Average time</span>
+                  <span>{averageSeconds}s</span>
+                </span>
+                <Slider
+                  className="mt-4"
+                  min={10}
+                  max={150}
+                  step={1}
+                  value={[averageSeconds]}
+                  onValueChange={([value]) =>
+                    setAverageSeconds(value ?? averageSeconds)
+                  }
+                  aria-label="Average seconds per question"
+                />
+              </label>
+              <label className="text-sm font-medium">
+                Timing pattern
+                <select
+                  value={timingPattern}
+                  onChange={(event) =>
+                    setTimingPattern(event.target.value as TimingPattern)
+                  }
+                  className="mt-2 block w-full rounded-lg border bg-background px-3 py-2 text-sm"
+                >
+                  {TIMING_OPTIONS.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </CardContent>
+          </Card>
+        </div>
+      ) : null}
 
       <div className="mx-auto w-full max-w-[1400px] space-y-4 px-5 sm:px-6">
         <div>
@@ -453,7 +549,8 @@ export function AttemptPreviewPage() {
             {ATTEMPT_OPTIONS.find((option) => option.value === attempt)?.label}
           </h2>
           <p className="text-sm text-muted-foreground">
-            Preview result: {model.points} / {questionCount} · selected question {selectedQuestionIndex + 1}
+            Preview result: {model.points} / {questionCount} · selected question{" "}
+            {selectedQuestionIndex + 1}
           </p>
         </div>
 
@@ -498,6 +595,8 @@ export function AttemptPreviewPage() {
                   }
                 : undefined
             }
+            initialNavigatorView={embedded ? "timing" : "simple"}
+            navigatorOnly={marketingCapture}
           />
         )}
 

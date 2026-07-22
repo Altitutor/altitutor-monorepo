@@ -5,8 +5,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 export type UcatOnlineTierOverride =
   | 'default'
   | 'force_free'
-  | 'force_unlimited'
-  | 'force_pro';
+  | 'force_unlimited';
 
 /** Extends generated student row until db:types includes tier override column */
 export type StudentWithUcatTierOverride = Pick<
@@ -179,5 +178,4 @@ export const UCAT_TIER_OVERRIDE_LABELS: Record<UcatOnlineTierOverride, string> =
   default: 'Default (Stripe-derived)',
   force_free: 'Force UCAT Free',
   force_unlimited: 'Force UCAT Unlimited',
-  force_pro: 'Force UCAT Pro',
 };

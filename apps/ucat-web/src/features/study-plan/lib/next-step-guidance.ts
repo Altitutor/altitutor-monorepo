@@ -1,12 +1,12 @@
-import { daysBetween } from "@/features/study-plan/lib/dates";
+import { buildReadinessSnapshot } from "@/features/study-plan/lib/readiness";
 import type {
   StudyGuidanceItem,
   StudyPlanCategorySignal,
   StudyPlanLearningModule,
-  StudyPlanPhase,
   StudyPlanSection,
   StudyPlanSectionSignal,
   StudyPlanSkillTrainer,
+  StudyPlanTrainingMode,
 } from "@/features/study-plan/model/types";
 
 export type IncompleteAttemptReview = {
@@ -83,13 +83,6 @@ export type BuildNextStepsInput = {
   completedMockCount: number;
 };
 
-function phaseFor(daysRemaining: number): StudyPlanPhase {
-  if (daysRemaining <= 14) return "taper";
-  if (daysRemaining <= 60) return "performance";
-  if (daysRemaining <= 150) return "development";
-  return "foundation";
-}
-
 function baseDraft(
   input: Partial<NextStepDraft> &
     Pick<
@@ -164,9 +157,10 @@ function learningDraft(module: StudyPlanLearningModule): NextStepDraft {
 function targetedPracticeDraft(
   category: StudyPlanCategorySignal,
   section: StudyPlanSection,
-  phase: StudyPlanPhase,
+  mode: StudyPlanTrainingMode,
+  pace: number,
 ): NextStepDraft {
-  const timed = phase === "performance" || phase === "taper";
+  const timed = mode !== "learning";
   const questionCount = timed ? 20 : 10;
   return baseDraft({
     taskType: "practice",
@@ -190,8 +184,10 @@ function targetedPracticeDraft(
       categoryIds: [category.id],
       questionCount,
       timeMode: timed ? "speed" : "off",
-      timeSpeedMultiplier: 1,
-      timePerQuestionSeconds: section.timePerQuestionSeconds,
+      timeSpeedMultiplier: timed ? pace : 1,
+      timePerQuestionSeconds: timed
+        ? Math.round(section.timePerQuestionSeconds / pace)
+        : null,
       reviewTiming: timed ? "atEnd" : "afterEachStem",
     },
   });
@@ -213,15 +209,15 @@ function benchmarkDraft(section: StudyPlanSection): NextStepDraft {
   });
 }
 
-function mockDraft(phase: StudyPlanPhase): NextStepDraft {
+function mockDraft(mode: StudyPlanTrainingMode): NextStepDraft {
   return baseDraft({
     taskType: "mock",
     title: "Complete a UCAT mock",
     description: "Bring the sections together under full exam conditions.",
     rationale:
-      phase === "performance" || phase === "taper"
+      mode === "exam"
         ? "Your test is close enough for full-exam pacing and stamina to be a priority."
-        : "A full mock is a useful contrast when you want a broad baseline rather than another narrow activity.",
+        : "An intermittent mock checks whether timing work is transferring to the whole exam.",
     estimatedMinutes: 120,
     launchPath: "/mocks",
   });
@@ -290,12 +286,19 @@ function buildNextStepCandidates(input: BuildNextStepsInput): NextStepDraft[] {
     );
   }
 
-  const sortedTrainers = [...input.skillTrainers].sort(
-    (a, b) =>
-      (input.trainerAttemptCounts.get(a.id) ?? 0) -
-        (input.trainerAttemptCounts.get(b.id) ?? 0) ||
-      a.name.localeCompare(b.name),
+  const cognitiveSectionIds = new Set(
+    input.sections
+      .filter((section) => section.sectionNumber <= 3)
+      .map((section) => section.id),
   );
+  const sortedTrainers = input.skillTrainers
+    .filter((item) => cognitiveSectionIds.has(item.sectionId))
+    .sort(
+      (a, b) =>
+        (input.trainerAttemptCounts.get(a.id) ?? 0) -
+          (input.trainerAttemptCounts.get(b.id) ?? 0) ||
+        a.name.localeCompare(b.name),
+    );
   const trainer = sortedTrainers[0] ?? null;
   if (input.dailyWarmup && !input.incompleteReview && trainer) {
     drafts.push(
@@ -306,28 +309,35 @@ function buildNextStepCandidates(input: BuildNextStepsInput): NextStepDraft[] {
     );
   }
 
-  const daysRemaining = Math.max(
-    0,
-    daysBetween(input.today, input.planningDate),
+  const readiness = buildReadinessSnapshot(input);
+  const mode = readiness.mode;
+  const readinessBySection = new Map(
+    readiness.sections.map((section) => [section.sectionId, section]),
   );
-  const phase = phaseFor(daysRemaining);
   const signalBySection = new Map(
     input.signals.map((signal) => [signal.sectionId, signal]),
   );
-  const sortedSections = [...input.sections].sort((a, b) => {
-    const aSignal = signalBySection.get(a.id);
-    const bSignal = signalBySection.get(b.id);
-    return (
-      (aSignal?.currentEstimate ?? 500) - (bSignal?.currentEstimate ?? 500) ||
-      (aSignal?.evidenceCount ?? 0) - (bSignal?.evidenceCount ?? 0)
-    );
-  });
+  const sortedSections = input.sections
+    .filter((section) => section.sectionNumber <= 3)
+    .sort((a, b) => {
+      const aSignal = signalBySection.get(a.id);
+      const bSignal = signalBySection.get(b.id);
+      return (
+        (aSignal?.currentEstimate ?? 500) - (bSignal?.currentEstimate ?? 500) ||
+        (aSignal?.evidenceCount ?? 0) - (bSignal?.evidenceCount ?? 0)
+      );
+    });
   const weakestSection = sortedSections[0];
   const reliableCategories = input.categories.filter(
-    (category) => category.maxScore >= 4,
+    (category) =>
+      cognitiveSectionIds.has(category.sectionId) && category.maxScore >= 4,
   );
   const sortedCategories = [
-    ...(reliableCategories.length ? reliableCategories : input.categories),
+    ...(reliableCategories.length
+      ? reliableCategories
+      : input.categories.filter((category) =>
+          cognitiveSectionIds.has(category.sectionId),
+        )),
   ].sort(
     (a, b) => b.weaknessScore - a.weaknessScore || b.maxScore - a.maxScore,
   );
@@ -336,7 +346,11 @@ function buildNextStepCandidates(input: BuildNextStepsInput): NextStepDraft[] {
     ? input.sections.find((section) => section.id === weakestCategory.sectionId)
     : null;
   const sortedLearningModules = [...input.learningModules]
-    .filter((item) => item.completionPercent < 100)
+    .filter(
+      (item) =>
+        item.completionPercent < 100 &&
+        (item.sectionId == null || cognitiveSectionIds.has(item.sectionId)),
+    )
     .sort(
       (a, b) =>
         b.relevanceScore - a.relevanceScore ||
@@ -346,31 +360,34 @@ function buildNextStepCandidates(input: BuildNextStepsInput): NextStepDraft[] {
     );
   const learningModule = sortedLearningModules[0];
 
-  if ((phase === "foundation" || phase === "development") && learningModule) {
+  if (mode === "learning" && learningModule) {
     drafts.push(learningDraft(learningModule));
   }
-  if (
-    (phase === "foundation" || phase === "development") &&
-    weakestCategory &&
-    categorySection
-  ) {
-    drafts.push(targetedPracticeDraft(weakestCategory, categorySection, phase));
+  if (mode === "learning" && weakestCategory && categorySection) {
+    drafts.push(
+      targetedPracticeDraft(
+        weakestCategory,
+        categorySection,
+        mode,
+        readinessBySection.get(categorySection.id)?.paceMultiplier ?? 0.5,
+      ),
+    );
   }
-  if ((phase === "performance" || phase === "taper") && weakestSection) {
+  if (mode !== "learning" && weakestSection) {
     drafts.push(benchmarkDraft(weakestSection));
   }
-  if (
-    phase === "taper" ||
-    (phase === "performance" && input.completedMockCount === 0)
-  ) {
-    drafts.push(mockDraft(phase));
+  if (mode === "exam") {
+    drafts.push(mockDraft(mode));
   }
-  if (
-    (phase === "performance" || phase === "taper") &&
-    weakestCategory &&
-    categorySection
-  ) {
-    drafts.push(targetedPracticeDraft(weakestCategory, categorySection, phase));
+  if (mode !== "learning" && weakestCategory && categorySection) {
+    drafts.push(
+      targetedPracticeDraft(
+        weakestCategory,
+        categorySection,
+        mode,
+        readinessBySection.get(categorySection.id)?.paceMultiplier ?? 0.5,
+      ),
+    );
   }
   if (trainer) {
     drafts.push(
@@ -394,7 +411,16 @@ function buildNextStepCandidates(input: BuildNextStepsInput): NextStepDraft[] {
     const section = input.sections.find(
       (item) => item.id === category.sectionId,
     );
-    if (section) drafts.push(targetedPracticeDraft(category, section, phase));
+    if (section) {
+      drafts.push(
+        targetedPracticeDraft(
+          category,
+          section,
+          mode,
+          readinessBySection.get(section.id)?.paceMultiplier ?? 0.5,
+        ),
+      );
+    }
   }
   for (const item of sortedTrainers) {
     drafts.push(
@@ -405,7 +431,7 @@ function buildNextStepCandidates(input: BuildNextStepsInput): NextStepDraft[] {
     );
   }
   for (const section of sortedSections) drafts.push(benchmarkDraft(section));
-  drafts.push(mockDraft(phase));
+  drafts.push(mockDraft(mode));
 
   const unique = drafts.filter(
     (draft, index, all) =>

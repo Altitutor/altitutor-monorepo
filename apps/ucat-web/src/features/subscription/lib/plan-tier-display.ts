@@ -2,8 +2,6 @@ export const UCAT_ONLINE_TIER_LABELS: Record<string, string> = {
   free: "UCAT Free",
   unlimited_trial: "UCAT Unlimited",
   unlimited: "UCAT Unlimited",
-  pro: "UCAT Pro",
-  pro_trial: "UCAT Pro",
 };
 
 export const UCAT_CURRENT_PLAN_BENEFITS: Record<string, string[]> = {
@@ -17,17 +15,6 @@ export const UCAT_CURRENT_PLAN_BENEFITS: Record<string, string[]> = {
     "Full practice library, mocks, skill trainer, and progress analytics",
   ],
   unlimited: [
-    "Unlimited access to all online UCAT areas",
-    "Practice-day discounts when you hit your daily question target",
-    "Full practice library, mocks, skill trainer, and progress analytics",
-  ],
-  pro: [
-    "Everything in UCAT Unlimited",
-    "1 online training workshop per month",
-    "On-demand help from tutors",
-    "1-1 performance review each month",
-  ],
-  pro_trial: [
     "Unlimited access to all online UCAT areas",
     "Practice-day discounts when you hit your daily question target",
     "Full practice library, mocks, skill trainer, and progress analytics",

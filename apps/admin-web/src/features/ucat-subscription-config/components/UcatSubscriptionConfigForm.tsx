@@ -17,8 +17,7 @@ type SubscriptionSettingKey =
   | 'trial_days'
   | 'currency'
   | 'min_questions_per_day'
-  | 'unlimited_stripe_product_id'
-  | 'pro_stripe_product_id';
+  | 'unlimited_stripe_product_id';
 
 type SubscriptionSettingRow = {
   key: SubscriptionSettingKey;
@@ -68,15 +67,6 @@ function buildRows(initial: UcatSubscriptionConfigRow): SubscriptionSettingRow[]
       value: initial.unlimited_stripe_product_id || 'Not set',
       rawValue: initial.unlimited_stripe_product_id ?? '',
       description: 'Stripe product used for UCAT Unlimited checkout.',
-      inputType: 'text',
-      placeholder: 'prod_...',
-    },
-    {
-      key: 'pro_stripe_product_id',
-      label: 'Pro Stripe product ID',
-      value: initial.pro_stripe_product_id || 'Not set',
-      rawValue: initial.pro_stripe_product_id ?? '',
-      description: 'Stripe product used for UCAT Pro checkout.',
       inputType: 'text',
       placeholder: 'prod_...',
     },
@@ -149,10 +139,8 @@ export function UcatSubscriptionConfigForm({ initial, onSaved }: UcatSubscriptio
         return;
       }
       updates.currency = currency;
-    } else if (editingRow.key === 'unlimited_stripe_product_id') {
-      updates.unlimited_stripe_product_id = value.trim() || null;
     } else {
-      updates.pro_stripe_product_id = value.trim() || null;
+      updates.unlimited_stripe_product_id = value.trim() || null;
     }
 
     setSaving(true);

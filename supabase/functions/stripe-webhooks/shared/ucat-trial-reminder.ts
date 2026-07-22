@@ -1,4 +1,10 @@
 import type { SupabaseClient } from "jsr:@supabase/supabase-js@2";
+import {
+  escapeEmailHtml,
+  renderUcatTransactionalEmail,
+  UCAT_TRANSACTIONAL_FROM,
+  UCAT_TRANSACTIONAL_REPLY_TO,
+} from "./ucat-transactional-email.ts";
 
 function money(cents: number, currency = "aud"): string {
   return new Intl.NumberFormat("en-AU", {
@@ -80,8 +86,30 @@ export async function sendUcatTrialReminder(
       timeZone: "Australia/Adelaide",
     },
   );
-  const planName = stored.plan_tier === "pro" ? "UCAT Pro" : "UCAT Unlimited";
   const manageUrl = `${Deno.env.get("UCAT_WEB_URL")?.replace(/\/$/, "") ?? "https://ucat.altitutor.com"}/settings/plan/subscription`;
+  const firstName = escapeEmailHtml(student.first_name?.trim() || "there");
+  const standardPrice = money(price.base_price_cents, currency);
+  const earnedDiscount = money(earnedCents, currency);
+  const estimatedBill = money(estimatedCents, currency);
+  const dailyQuestionTarget = config?.min_questions_per_day ?? 20;
+  const html = renderUcatTransactionalEmail({
+    previewText: `Your Unlimited trial ends on ${trialEnd}. Review your estimated first payment.`,
+    heading: "Your Unlimited trial ends soon",
+    bodyHtml: `
+      <p style="margin:0 0 16px;color:#394650;font-size:15px;line-height:1.7">Hi ${firstName},</p>
+      <p style="margin:0;color:#394650;font-size:15px;line-height:1.7">Your Altitutor UCAT Unlimited trial ends on <strong style="color:#0a2941">${escapeEmailHtml(trialEnd)}</strong>. Your subscription will begin after the trial unless you cancel.</p>
+      <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="margin:24px 0;background-color:#eaf1f3;border:1px solid #d1e0e5;border-radius:12px"><tr><td style="padding:18px 20px">
+        <p style="margin:0 0 10px;color:#394650;font-size:14px;line-height:1.5"><strong style="color:#0a2941">Standard price</strong><br>${escapeEmailHtml(standardPrice)}</p>
+        <p style="margin:0 0 10px;color:#394650;font-size:14px;line-height:1.5"><strong style="color:#0a2941">Practice discounts earned</strong><br>${escapeEmailHtml(earnedDiscount)}</p>
+        <p style="margin:0;color:#394650;font-size:14px;line-height:1.5"><strong style="color:#0a2941">Current estimated first payment</strong><br>${escapeEmailHtml(estimatedBill)}</p>
+      </td></tr></table>
+      <p style="margin:0 0 16px;color:#394650;font-size:14px;line-height:1.65">You can keep reducing your first payment before the trial ends by completing ${dailyQuestionTarget}+ questions on an eligible practice day.</p>
+      <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="margin:26px 0"><tr><td align="left">
+        <a href="${escapeEmailHtml(manageUrl)}" style="display:inline-block;min-width:180px;padding:14px 22px;background-color:#0a2941;border-radius:9px;color:#ffffff;font-size:15px;font-weight:700;line-height:1.4;text-align:center;text-decoration:none">Review subscription</a>
+      </td></tr></table>
+      <p style="margin:0;color:#68757e;font-size:13px;line-height:1.6">Your final payment may be lower if you earn more practice-day discounts before billing. You can cancel before the trial ends from your subscription settings.</p>
+    `,
+  });
 
   const response = await fetch("https://api.resend.com/emails", {
     method: "POST",
@@ -90,24 +118,12 @@ export async function sendUcatTrialReminder(
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
-      from: "Altitutor <noreply@altitutor.com>",
+      from: UCAT_TRANSACTIONAL_FROM,
+      reply_to: UCAT_TRANSACTIONAL_REPLY_TO,
       to: student.email,
-      subject: `Your ${planName} trial ends on ${trialEnd}`,
-      html: `
-        <div style="font-family:Arial,sans-serif;max-width:600px;margin:auto;color:#1f2937;line-height:1.6">
-          <h1 style="color:#0a2941">Your UCAT trial ends soon</h1>
-          <p>Hi ${student.first_name || "there"},</p>
-          <p>Your trial ends on <strong>${trialEnd}</strong>. Your selected ${planName} subscription will then begin unless you cancel.</p>
-          <div style="background:#f7f4ec;border-radius:12px;padding:20px;margin:24px 0">
-            <p style="margin:0 0 8px"><strong>Standard price:</strong> ${money(price.base_price_cents, currency)}</p>
-            <p style="margin:0 0 8px"><strong>Practice discounts earned:</strong> ${money(earnedCents, currency)}</p>
-            <p style="margin:0"><strong>Current estimated first bill:</strong> ${money(estimatedCents, currency)}</p>
-          </div>
-          <p>You can continue earning practice-day discounts before the trial ends by completing ${config?.min_questions_per_day ?? 20}+ questions in a day.</p>
-          <p><a href="${manageUrl}" style="display:inline-block;background:#0a2941;color:white;padding:12px 18px;border-radius:8px;text-decoration:none">Manage subscription</a></p>
-          <p style="color:#6b7280;font-size:13px">Your final bill may be lower if you earn more practice-day discounts before billing.</p>
-        </div>
-      `,
+      subject: `Your Altitutor UCAT Unlimited trial ends on ${trialEnd}`,
+      html,
+      text: `Hi ${student.first_name?.trim() || "there"},\n\nYour Altitutor UCAT Unlimited trial ends on ${trialEnd}. Your subscription will begin after the trial unless you cancel.\n\nStandard price: ${standardPrice}\nPractice discounts earned: ${earnedDiscount}\nCurrent estimated first payment: ${estimatedBill}\n\nYou can keep reducing your first payment before the trial ends by completing ${dailyQuestionTarget}+ questions on an eligible practice day. Your final payment may be lower if you earn more practice-day discounts before billing.\n\nReview or cancel your subscription: ${manageUrl}\n\nQuestions? Reply or contact ${UCAT_TRANSACTIONAL_REPLY_TO}.\n\nA not-for-profit initiative by Altitutor.`,
     }),
   });
   if (!response.ok) {

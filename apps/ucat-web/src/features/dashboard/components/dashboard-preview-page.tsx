@@ -470,8 +470,15 @@ function PreviewRecentAttempts() {
   );
 }
 
-export function DashboardPreviewPage() {
+export function DashboardPreviewPage({
+  embedded = false,
+  initialScenario = "within_reach",
+}: {
+  embedded?: boolean;
+  initialScenario?: PreviewScenarioId;
+} = {}) {
   const [scenarioId, setScenarioId] = useState<PreviewScenarioId>(() => {
+    if (embedded) return initialScenario;
     if (typeof window === "undefined") return "within_reach";
     const requested = new URLSearchParams(window.location.search).get(
       "scenario",
@@ -552,7 +559,7 @@ export function DashboardPreviewPage() {
 
   return (
     <div className="space-y-6 pb-8">
-      <div className="mx-auto flex w-full max-w-[1400px] flex-col gap-3 px-5 sm:flex-row sm:items-end sm:justify-between sm:px-6">
+      {!embedded ? <div className="mx-auto flex w-full max-w-[1400px] flex-col gap-3 px-5 sm:flex-row sm:items-end sm:justify-between sm:px-6">
         <div>
           <Badge variant="secondary">Development preview</Badge>
           <h1 className="mt-2 text-2xl font-semibold">Dashboard state lab</h1>
@@ -582,7 +589,7 @@ export function DashboardPreviewPage() {
             ))}
           </select>
         </label>
-      </div>
+      </div> : null}
 
       <DashboardTrajectoryHero
         firstName="Preview student"
@@ -599,6 +606,10 @@ export function DashboardPreviewPage() {
         taskPending={false}
         taskError={null}
         onRetryPlan={() => undefined}
+        onDeclineStudyPlan={() => undefined}
+        onSkipGoal={() => undefined}
+        setupPending={false}
+        setupError={null}
       />
 
       <div className="mx-auto grid w-full max-w-[1400px] gap-5 px-5 sm:px-6 lg:grid-cols-3">
@@ -616,14 +627,14 @@ export function DashboardPreviewPage() {
         <PreviewRecentAttempts />
       </div>
 
-      <div className="mx-auto flex w-full max-w-[1400px] flex-wrap gap-2 px-5 sm:px-6">
+      {!embedded ? <div className="mx-auto flex w-full max-w-[1400px] flex-wrap gap-2 px-5 sm:px-6">
         <Button asChild variant="outline">
           <Link href="/dashboard">Return to live dashboard</Link>
         </Button>
         <Button asChild variant="ghost">
           <Link href="/study-plan/preview">Open Study plan preview</Link>
         </Button>
-      </div>
+      </div> : null}
     </div>
   );
 }

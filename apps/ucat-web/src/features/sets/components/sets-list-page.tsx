@@ -19,9 +19,7 @@ import type { JsonLike } from "@/features/question-engine/model/rich-text";
 import { ListChecks } from "lucide-react";
 import { UcatHoverChevron } from "@/lib/ucat-hover-chevron";
 import { formatExamDurationSeconds } from "@/lib/format-exam-duration";
-import {
-  UCAT_LIST_ROW_LINK,
-} from "@/lib/ucat-surface-motion";
+import { UCAT_LIST_ROW_LINK } from "@/lib/ucat-surface-motion";
 import { useUcatStaggerMotion } from "@/shared/hooks/use-ucat-stagger-motion";
 
 const TIMED_OPTIONS: DataTableFilterDefinition["options"] = [
@@ -127,7 +125,7 @@ export function SetsListPage({
   const pageTitle = sectionTitle ? `${sectionTitle} sets` : "Sets";
   const pageDescription = sectionTitle
     ? `Practice question sets for ${sectionTitle}.`
-    : "Choose a set to start practicing.";
+    : "Choose a set to start practising.";
 
   const backProps =
     sectionNumberProp != null
@@ -141,7 +139,9 @@ export function SetsListPage({
   if (error) {
     return (
       <div className="space-y-6">
-        <div id={sectionNumberProp != null ? "tour-section-sets-page" : undefined}>
+        <div
+          id={sectionNumberProp != null ? "tour-section-sets-page" : undefined}
+        >
           <UcatPageHeader
             title={pageTitle}
             description={pageDescription}
@@ -158,7 +158,9 @@ export function SetsListPage({
   if (!sets || sets.length === 0) {
     return (
       <div className="space-y-6">
-        <div id={sectionNumberProp != null ? "tour-section-sets-page" : undefined}>
+        <div
+          id={sectionNumberProp != null ? "tour-section-sets-page" : undefined}
+        >
           <UcatPageHeader
             title={pageTitle}
             description={pageDescription}
@@ -172,7 +174,9 @@ export function SetsListPage({
 
   return (
     <div className="space-y-6">
-      <div id={sectionNumberProp != null ? "tour-section-sets-page" : undefined}>
+      <div
+        id={sectionNumberProp != null ? "tour-section-sets-page" : undefined}
+      >
         <UcatPageHeader
           title={pageTitle}
           description={pageDescription}
@@ -236,10 +240,7 @@ function SetCard({
       : `/sets/${encodeURIComponent(set.id)}`;
 
   return (
-    <Link
-      href={setHref}
-      className={UCAT_LIST_ROW_LINK}
-    >
+    <Link href={setHref} className={UCAT_LIST_ROW_LINK}>
       <div className="rounded-lg bg-muted/60 p-2.5 transition-colors duration-200 group-hover:bg-muted">
         <ListChecks className="h-5 w-5 text-muted-foreground transition-colors duration-200 group-hover:text-foreground" />
       </div>

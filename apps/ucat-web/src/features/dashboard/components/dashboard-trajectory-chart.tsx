@@ -35,7 +35,7 @@ export type DashboardMockAnnotation = {
 
 export type DashboardTargetBreakdown = {
   sectionName: string;
-  target: number;
+  target: number | null;
   currentEstimate: number | null;
 };
 
@@ -497,12 +497,47 @@ export function DashboardTrajectoryChart({
 
         {currentEstimate != null ? (
           <div
-            className="pointer-events-none absolute z-20 -mt-2 -translate-y-full"
+            className="group absolute z-30 -mt-2 -translate-y-full"
             style={{ left: "max(56px, 9%)", top: `${todayTop}%` }}
           >
-            <span className="inline-flex rounded-full border border-primary/25 bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground shadow-[0_6px_18px_hsl(var(--primary)_/_0.28)] ring-1 ring-background">
+            <button
+              type="button"
+              className="rounded-full border border-primary/25 bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground shadow-[0_6px_18px_hsl(var(--primary)_/_0.28)] ring-1 ring-background transition-transform hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              aria-label={`Today ${currentEstimate}. Show score breakdown.`}
+            >
               Today {currentEstimate}
-            </span>
+            </button>
+            <div className="invisible absolute left-0 top-full z-50 mt-2 w-72 rounded-xl border border-border bg-popover p-3.5 text-popover-foreground opacity-0 shadow-xl transition-opacity group-hover:visible group-hover:opacity-100 group-focus-within:visible group-focus-within:opacity-100">
+              <p className="font-medium">Today’s estimate: {currentEstimate}</p>
+              {targetBreakdown.length > 0 ? (
+                <div className="mt-2 space-y-1.5">
+                  {targetBreakdown.map((section) => (
+                    <div
+                      key={section.sectionName}
+                      className="flex items-center justify-between gap-4 text-xs"
+                    >
+                      <span className="truncate text-muted-foreground">
+                        {section.sectionName}
+                      </span>
+                      <span className="shrink-0 tabular-nums">
+                        {section.currentEstimate != null
+                          ? section.currentEstimate
+                          : "—"}
+                        {section.target != null ? (
+                          <span className="text-muted-foreground">
+                            {` · target ${section.target}`}
+                          </span>
+                        ) : null}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Section estimates will appear here as evidence builds.
+                </p>
+              )}
+            </div>
           </div>
         ) : null}
 
@@ -520,7 +555,7 @@ export function DashboardTrajectoryChart({
             </button>
             <div className="invisible absolute left-0 top-full z-50 mt-2 w-72 rounded-xl border border-border bg-popover p-3.5 text-popover-foreground opacity-0 shadow-xl transition-opacity group-hover:visible group-hover:opacity-100 group-focus-within:visible group-focus-within:opacity-100">
               <p className="font-medium">Your target: {targetScore}</p>
-              {targetBreakdown.length > 0 ? (
+              {targetBreakdown.some((section) => section.target != null) ? (
                 <div className="mt-2 space-y-1.5">
                   {targetBreakdown.map((section) => (
                     <div
@@ -531,7 +566,7 @@ export function DashboardTrajectoryChart({
                         {section.sectionName}
                       </span>
                       <span className="shrink-0 tabular-nums">
-                        {section.target}
+                        {section.target != null ? section.target : "—"}
                         {section.currentEstimate != null ? (
                           <span className="text-muted-foreground">
                             {` · now ${section.currentEstimate}`}

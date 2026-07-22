@@ -1,8 +1,10 @@
 "use client";
 
+import React from "react";
 import Link from "next/link";
 import { MARKETING_TOKENS } from "@altitutor/shared";
 import { AuthPageHeader } from "@/features/auth/components/auth-page-header";
+import { UCAT_PRODUCT_NAME } from "@/lib/ucat-brand";
 import { MARKETING_LANDING_URL } from "@/lib/marketing-home-url";
 import { cn } from "@/lib/utils";
 
@@ -12,7 +14,7 @@ export function LoginPageLayout({
   children,
   redirectTo = "/dashboard",
   title = "Log in",
-  subtitle = "Ready to continue practicing? Log in below.",
+  subtitle = "Ready to continue practising? Log in below.",
   footer,
 }: {
   children: React.ReactNode;
@@ -34,7 +36,7 @@ export function LoginPageLayout({
                 typo.dataMono,
               )}
             >
-              Alti UCAT Prep
+              {UCAT_PRODUCT_NAME}
             </span>
             <h1
               className={cn(

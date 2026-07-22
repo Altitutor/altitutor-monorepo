@@ -44,7 +44,6 @@ export async function PATCH(
       'default',
       'force_free',
       'force_unlimited',
-      'force_pro',
     ] as const;
     if (
       body.ucat_online_tier_override !== undefined &&
@@ -53,7 +52,7 @@ export async function PATCH(
       return NextResponse.json(
         {
           error:
-            'Invalid ucat_online_tier_override. Must be default, force_free, force_unlimited, or force_pro.',
+            'Invalid ucat_online_tier_override. Must be default, force_free, or force_unlimited.',
         },
         { status: 400 },
       );
@@ -174,4 +173,3 @@ export async function PATCH(
     );
   }
 }
-

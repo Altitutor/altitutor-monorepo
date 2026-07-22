@@ -52,6 +52,7 @@ import type {
   StudyGuidanceItem,
   StudyPlanLearningModule,
   StudyPlanProfileInput,
+  StudyPlanReadinessSnapshot,
   StudyPlanResponse,
   StudyPlanSection,
   StudyPlanSectionSignal,
@@ -273,6 +274,7 @@ async function loadGenerationInputs(
     categoriesRes,
     categoryCountsRes,
     categoryProgressRes,
+    readinessEvidenceRes,
     modulesRes,
     blocksRes,
     moduleCategoriesRes,
@@ -314,6 +316,11 @@ async function loadGenerationInputs(
     supabase
       .from("vstudent_ucat_my_question_progress")
       .select("category_id, correct_score, max_score"),
+    supabase
+      .from("vstudent_ucat_study_plan_readiness_evidence")
+      .select(
+        "section_id, category_id, readiness_scope, attempted_question_count, completed_practice_sessions, qualifying_practice_sessions, largest_practice_session_question_count, recent_accuracy, observed_pace",
+      ),
     supabase
       .from("vstudent_ucat_learning_modules")
       .select(
@@ -360,6 +367,7 @@ async function loadGenerationInputs(
     categoriesRes,
     categoryCountsRes,
     categoryProgressRes,
+    readinessEvidenceRes,
     modulesRes,
     blocksRes,
     moduleCategoriesRes,
@@ -427,12 +435,25 @@ async function loadGenerationInputs(
       projectionSettings(settingsBySection.get(section.id)),
       section.key,
     );
+    const readinessEvidence = (readinessEvidenceRes.data ?? []).find(
+      (row) =>
+        row.readiness_scope === "section" && row.section_id === section.id,
+    );
     return {
       sectionId: section.id,
       currentEstimate:
         section.sectionNumber <= 3 ? estimate.currentEstimate : null,
       evidenceCount: estimate.evidenceCount,
       completedFullSets: fullSets.get(section.id) ?? 0,
+      attemptedQuestionCount: readinessEvidence?.attempted_question_count ?? 0,
+      completedPracticeSessions:
+        readinessEvidence?.completed_practice_sessions ?? 0,
+      qualifyingPracticeSessions:
+        readinessEvidence?.qualifying_practice_sessions ?? 0,
+      largestPracticeSessionQuestionCount:
+        readinessEvidence?.largest_practice_session_question_count ?? 0,
+      recentAccuracy: readinessEvidence?.recent_accuracy ?? null,
+      observedPace: readinessEvidence?.observed_pace ?? null,
     };
   });
   const categoryCounts = new Map(
@@ -466,6 +487,10 @@ async function loadGenerationInputs(
       correctScore: 0,
       maxScore: 0,
     };
+    const readinessEvidence = (readinessEvidenceRes.data ?? []).find(
+      (row) =>
+        row.readiness_scope === "category" && row.category_id === category.id,
+    );
     const observedWeakness =
       progress.maxScore > 0
         ? 1 - progress.correctScore / progress.maxScore
@@ -481,6 +506,16 @@ async function loadGenerationInputs(
         maxScore: progress.maxScore,
         weaknessScore:
           observedWeakness * reliability + 0.55 * (1 - reliability),
+        attemptedQuestionCount:
+          readinessEvidence?.attempted_question_count ?? 0,
+        completedPracticeSessions:
+          readinessEvidence?.completed_practice_sessions ?? 0,
+        qualifyingPracticeSessions:
+          readinessEvidence?.qualifying_practice_sessions ?? 0,
+        largestPracticeSessionQuestionCount:
+          readinessEvidence?.largest_practice_session_question_count ?? 0,
+        recentAccuracy: readinessEvidence?.recent_accuracy ?? null,
+        observedPace: readinessEvidence?.observed_pace ?? null,
       },
     ];
   });
@@ -596,6 +631,24 @@ async function persistGeneration(
   const admin = requireAdmin();
   const generatedAt = new Date().toISOString();
   const preserveThrough = reason === "onboarding" ? null : todayIso();
+  if (preserveThrough) {
+    const { data: activeGeneration, error: generationError } = await admin
+      .from("ucat_student_study_plan_generations")
+      .select("id")
+      .eq("student_id", studentId)
+      .is("superseded_at", null)
+      .maybeSingle();
+    if (generationError) throw generationError;
+    if (activeGeneration) {
+      const { error: missedWorkError } = await admin
+        .from("ucat_student_study_plan_tasks")
+        .update({ status: "skipped", skipped_at: generatedAt })
+        .eq("generation_id", activeGeneration.id)
+        .lt("scheduled_date", preserveThrough)
+        .in("status", ["planned", "partial"]);
+      if (missedWorkError) throw missedWorkError;
+    }
+  }
   const preparedTasks = prepareStudyPlanTasks(
     result.tasks,
     preserveThrough,
@@ -640,6 +693,7 @@ async function persistGeneration(
     p_projection_snapshot: {
       sectionTargets: result.sectionTargets,
       sectionSignals: signals,
+      readiness: result.readiness,
     },
     p_capacity_risk: result.capacityRisk as unknown as Json,
     p_tasks: taskRows as unknown as Json,
@@ -1022,6 +1076,26 @@ function readSectionTargets(value: Json): Record<string, number> {
       typeof score === "number" ? [[key, score]] : [],
     ),
   );
+}
+
+function readReadinessSnapshot(value: Json): StudyPlanReadinessSnapshot | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  const readiness = (value as Record<string, Json | undefined>).readiness;
+  if (!readiness || typeof readiness !== "object" || Array.isArray(readiness)) {
+    return null;
+  }
+  const record = readiness as Record<string, Json | undefined>;
+  if (
+    (record.mode !== "learning" &&
+      record.mode !== "timing" &&
+      record.mode !== "exam") ||
+    typeof record.examDateOverride !== "boolean" ||
+    typeof record.daysUntilExam !== "number" ||
+    !Array.isArray(record.sections)
+  ) {
+    return null;
+  }
+  return readiness as unknown as StudyPlanReadinessSnapshot;
 }
 
 function readCompletedMockCount(value: Json): number {
@@ -1807,6 +1881,7 @@ export async function getStudyPlan(
           endsOn: generation.ends_on,
           capacityRisk: readCapacityRisk(generation.capacity_risk),
           sectionTargets: readSectionTargets(generation.projection_snapshot),
+          readiness: readReadinessSnapshot(generation.projection_snapshot),
         }
       : null,
     tasks,

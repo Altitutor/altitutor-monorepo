@@ -9,7 +9,7 @@ Turn AI-generated or messy React/TypeScript into **well-structured, maintainable
 
 Prioritize by **impact** (bugs, stale data, untestable god modules), not architectural purity theater. Confirm before changing code.
 
-Patterns reference: `.cursor/skills/99-bulletproof-react-patterns/SKILL.md`  
+Patterns: `.cursor/skills/99-bulletproof-react-patterns/SKILL.md` (+ `references/PATTERNS.md`)  
 Priorities: `references/BULLETPROOF_REACT_PRIORITIES.md`  
 Detection: `references/DETECTION_PATTERNS.md`
 

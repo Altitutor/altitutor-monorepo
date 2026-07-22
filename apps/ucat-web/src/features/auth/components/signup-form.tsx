@@ -25,6 +25,7 @@ import {
 } from "@/features/auth/components/social-auth-buttons";
 import type { SocialAuthProvider } from "@/features/auth/lib/social-auth";
 import { subscribeToUcatNewsletter } from "@/features/auth/api/newsletter";
+import { UCAT_SIGNUP_CONSENT_WORDING } from "@/features/communications/lib/communication-preferences";
 
 const { typography: typo } = MARKETING_TOKENS;
 
@@ -64,7 +65,7 @@ export function SignupForm({
   const router = useRouter();
   const supabase = useMemo(() => getSupabaseBrowserClient(), []);
   const [email, setEmail] = useState("");
-  const [newsletter, setNewsletter] = useState(true);
+  const [newsletter, setNewsletter] = useState(false);
   const [formState, setFormState] = useState<FormState>("idle");
   const [errorMessage, setErrorMessage] = useState<string | null>(
     authError ?? null,
@@ -84,21 +85,13 @@ export function SignupForm({
     [redirectTo],
   );
   const pendingSignupContext = `${redirectTo}\n${referralCode ?? ""}`;
-  const planName = planIntent?.tier === "pro" ? "UCAT Pro" : "UCAT Unlimited";
-  const planFeatures =
-    planIntent?.tier === "pro"
-      ? [
-          "Unlimited practice across every UCAT section",
-          "Full-length mocks and progress analytics",
-          "Monthly workshop and performance review",
-          "On-demand help from Altitutor tutors",
-        ]
-      : [
-          "Unlimited practice across every UCAT section",
-          "Full-length mocks and percentile tracking",
-          "Adaptive skill trainer and progress analytics",
-          "Accountability pricing that rewards daily practice",
-        ];
+  const planName = "UCAT Unlimited";
+  const planFeatures = [
+    "Unlimited practice across every UCAT section",
+    "Full-length mocks and percentile tracking",
+    "Adaptive skill trainer and progress analytics",
+    "Accountability pricing that rewards daily practice",
+  ];
 
   useEffect(() => {
     const pendingEmail = getPendingSignupEmail(pendingSignupContext);
@@ -177,10 +170,6 @@ export function SignupForm({
     const normalizedEmail = email.trim().toLowerCase();
 
     try {
-      if (newsletter) {
-        void subscribeToUcatNewsletter(normalizedEmail);
-      }
-
       captureUcatEvent("signup_started", {
         intended_plan: planIntent?.tier ?? "free",
         billing_interval: planIntent?.interval ?? null,
@@ -231,6 +220,9 @@ export function SignupForm({
         type: "email",
       });
       if (!error) {
+        if (newsletter) {
+          await subscribeToUcatNewsletter("ucat_email_signup");
+        }
         clearPendingSignupEmail(pendingSignupContext);
         captureUcatEvent("signup_completed", {
           intended_plan: planIntent?.tier ?? "free",
@@ -322,6 +314,7 @@ export function SignupForm({
                   onChange={(e) =>
                     setOtpCode(e.target.value.replace(/\D/g, "").slice(0, 6))
                   }
+                  aria-label="6-digit code"
                   placeholder="000000"
                   disabled={otpSubmitting}
                   className={`text-center font-mono text-lg tracking-[0.4em] ${authFormFieldClass}`}
@@ -400,7 +393,7 @@ export function SignupForm({
                     typo.dataMono,
                   )}
                 >
-                  Alti UCAT Prep
+                  Altitutor UCAT
                 </span>
                 <h1
                   className={cn(
@@ -497,8 +490,7 @@ export function SignupForm({
                     </svg>
                   </div>
                   <span className="text-sm leading-relaxed text-muted-foreground">
-                    Keep me updated with Altitutor news, UCAT resources, and
-                    prep tips
+                    {UCAT_SIGNUP_CONSENT_WORDING}
                   </span>
                 </label>
 

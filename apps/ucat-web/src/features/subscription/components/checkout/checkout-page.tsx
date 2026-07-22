@@ -46,12 +46,6 @@ const UNLIMITED_FEATURES = [
   "Adaptive skill trainer and progress analytics",
 ] as const;
 
-const PRO_FEATURES = [
-  ...UNLIMITED_FEATURES,
-  "Monthly online workshop and 1-1 performance review",
-  "On-demand help from Altitutor tutors",
-] as const;
-
 type JourneyContext =
   | "signup_onboarding"
   | "subscribe"
@@ -209,7 +203,7 @@ export function CheckoutPage() {
           discount.maxDiscountsPerPeriod,
         )
       : null;
-  const features = tier === "pro" ? PRO_FEATURES : UNLIMITED_FEATURES;
+  const features = UNLIMITED_FEATURES;
   const hasStandardTrial = (standardTrialDays ?? 0) > 0;
   const freePeriodEndsAt = referralGiftApplied
     ? addBillingInterval(checkoutStartedAtRef.current, interval)
@@ -341,7 +335,7 @@ export function CheckoutPage() {
                   Selected plan
                 </p>
                 <h2 className="mt-1 text-2xl font-bold">
-                  UCAT {tier === "pro" ? "Pro" : "Unlimited"}
+                  UCAT Unlimited
                 </h2>
               </div>
               <Sparkles className="h-7 w-7 text-primary" />
@@ -443,8 +437,8 @@ export function CheckoutPage() {
                     </div>
                     <p className="mt-3 text-xs leading-relaxed text-muted-foreground">
                       {referralGiftApplied || hasStandardTrial
-                        ? "You pay nothing today and unlock the entire UCAT system. Start earning practice discounts towards your first bill straight away."
-                        : `You’re charged ${formatMoneyFromMinorUnits(pricing.standardPeriodCents, config.currency)} today and unlock the entire UCAT system. Start earning practice discounts towards your next bill straight away.`}
+                        ? "You pay nothing today and unlock full Altitutor UCAT access. Start earning practice discounts towards your first bill straight away."
+                        : `You’re charged ${formatMoneyFromMinorUnits(pricing.standardPeriodCents, config.currency)} today and unlock full Altitutor UCAT access. Start earning practice discounts towards your next bill straight away.`}
                     </p>
                   </li>
 
@@ -528,7 +522,7 @@ export function CheckoutPage() {
                   ? `Start my free ${intervalNoun(interval)}`
                   : hasStandardTrial
                     ? `Start my ${standardTrialDays}-day free trial`
-                    : `Subscribe to UCAT ${tier === "pro" ? "Pro" : "Unlimited"}`}
+                    : "Subscribe to UCAT Unlimited"}
               {!checkoutSubmitting ? (
                 <ArrowRight className="ml-2 h-4 w-4" />
               ) : null}

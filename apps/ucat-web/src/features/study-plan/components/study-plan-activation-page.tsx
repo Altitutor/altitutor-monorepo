@@ -43,7 +43,6 @@ import {
 } from "@/features/signup-onboarding/components/signup-success-transition";
 import { saveStudyPlan } from "@/features/study-plan/api/study-plan";
 import {
-  STUDY_SETUP_FIELD_CLASS,
   STUDY_SETUP_GHOST_BUTTON_CLASS,
   STUDY_SETUP_PRIMARY_BUTTON_CLASS,
   StudyPlanGoalFields,
@@ -109,10 +108,7 @@ function PlanReveal({ plan }: { plan: StudyPlanResponse }) {
     (task) => task.status !== "completed" && task.status !== "skipped",
   );
   if (!profile) return null;
-  const weeklyCapacity = profile.availableDays.reduce(
-    (sum, day) => sum + day.maxMinutes,
-    0,
-  );
+  const availableStudyDays = profile.availableDays.length;
 
   return (
     <div className="mx-auto w-full max-w-4xl space-y-5">
@@ -161,13 +157,14 @@ function PlanReveal({ plan }: { plan: StudyPlanResponse }) {
             <div className="rounded-2xl border bg-background/50 p-4">
               <Clock3 className="h-4 w-4 text-primary" aria-hidden />
               <p className="mt-3 text-sm text-muted-foreground">
-                Available capacity
+                Available study days
               </p>
               <p className="mt-1 text-xl font-semibold">
-                {weeklyCapacity} min/week
+                {availableStudyDays} {availableStudyDays === 1 ? "day" : "days"}
+                /week
               </p>
               <p className="mt-1 text-xs text-muted-foreground">
-                A ceiling, not a quota
+                Session length adapts by phase
               </p>
             </div>
           </div>
@@ -250,8 +247,7 @@ export function StudyPlanActivationPage() {
   const plan = savedPlan ?? query.data;
   const isPaidJourney =
     access.onlineTier === "unlimited" ||
-    access.onlineTier === "unlimited_trial" ||
-    access.onlineTier === "pro";
+    access.onlineTier === "unlimited_trial";
   const completionPhase = completion?.phase ?? null;
   const hasSavedGoal = Boolean(
     plan?.profile?.testYear && plan.profile.targetScore,
@@ -390,8 +386,33 @@ export function StudyPlanActivationPage() {
     }
   }
 
+  async function declineStudyPlanWithoutSaving() {
+    setPending(true);
+    setError(null);
+    try {
+      await completeMilestone.mutateAsync(UCAT_STUDY_PLAN_DECIDED);
+      if (activationJourney) {
+        await runWorkspaceSetupTransition("skipped");
+      } else {
+        router.replace("/dashboard");
+      }
+    } catch (caught) {
+      setError(
+        caught instanceof Error
+          ? caught.message
+          : "Could not save your Study plan preference.",
+      );
+    } finally {
+      setPending(false);
+    }
+  }
+
   function continueFromPreference() {
     if (studyPlanEnabled == null) return;
+    if (!studyPlanEnabled && !hasSavedGoal) {
+      void declineStudyPlanWithoutSaving();
+      return;
+    }
     if (!hasSavedGoal) {
       setDirection(1);
       setStage("destination");
@@ -656,45 +677,8 @@ export function StudyPlanActivationPage() {
                             {day.label}
                           </span>
                         </div>
-                        <span
-                          className={cn(
-                            "flex items-center gap-2",
-                            !enabled && "invisible pointer-events-none",
-                          )}
-                          aria-hidden={!enabled}
-                        >
-                          <input
-                            type="number"
-                            min={15}
-                            max={360}
-                            step={15}
-                            tabIndex={enabled ? 0 : -1}
-                            value={
-                              available?.maxMinutes ??
-                              defaultMinutesForDay(day.value)
-                            }
-                            disabled={pending || !enabled}
-                            onChange={(event) =>
-                              setAvailability((current) =>
-                                current.map((item) =>
-                                  item.weekday === day.value
-                                    ? {
-                                        ...item,
-                                        maxMinutes: Number(event.target.value),
-                                      }
-                                    : item,
-                                ),
-                              )
-                            }
-                            className={cn(
-                              STUDY_SETUP_FIELD_CLASS,
-                              "w-20 px-2 py-1.5 text-right text-sm",
-                            )}
-                            aria-label={`${day.label} maximum minutes`}
-                          />
-                          <span className="text-xs text-muted-foreground">
-                            min max
-                          </span>
+                        <span className="text-xs text-muted-foreground">
+                          {enabled ? "Available" : "Rest day"}
                         </span>
                       </div>
                     );
@@ -708,9 +692,9 @@ export function StudyPlanActivationPage() {
                   >
                     <Clock3 className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
                     <p>
-                      This is the maximum time you are available to study.
-                      Altitutor may schedule less time, and you can change these
-                      days later.
+                      Choose the days you can normally study. Altitutor will
+                      adjust the session length and number of practice blocks as
+                      your readiness and exam date change.
                     </p>
                   </div>
                 </div>
@@ -755,7 +739,24 @@ export function StudyPlanActivationPage() {
               className={UCAT_DIALOG_PRIMARY_ACTION}
               onClick={() => {
                 setSkipDialogOpen(false);
-                void runWorkspaceSetupTransition("skipped");
+                void (async () => {
+                  setPending(true);
+                  setError(null);
+                  try {
+                    await completeMilestone.mutateAsync(
+                      UCAT_STUDY_PLAN_DECIDED,
+                    );
+                    await runWorkspaceSetupTransition("skipped");
+                  } catch (caught) {
+                    setError(
+                      caught instanceof Error
+                        ? caught.message
+                        : "Could not save your Study plan preference.",
+                    );
+                  } finally {
+                    setPending(false);
+                  }
+                })();
               }}
             >
               Skip for now

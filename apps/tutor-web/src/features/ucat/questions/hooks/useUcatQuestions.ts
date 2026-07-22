@@ -271,9 +271,7 @@ export function useCreateUcatQuestionStem() {
   return useMutation({
     mutationFn: (payload: UcatQuestionStemBundlePayload) => ucatQuestionsApi.create(payload),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ucatKeys.questions('default') })
-      queryClient.invalidateQueries({ queryKey: ucatKeys.questions('generated') })
-      queryClient.invalidateQueries({ queryKey: ucatKeys.questionStemTagIds() })
+      queryClient.invalidateQueries({ queryKey: ucatKeys.questions('all') })
     },
   })
 }
@@ -284,12 +282,9 @@ export function useUpdateUcatQuestionStem() {
     mutationFn: ({ stemId, payload }: { stemId: string; payload: UcatQuestionStemBundlePayload }) =>
       ucatQuestionsApi.update(stemId, payload),
     onSuccess: (_, variables) => {
-      queryClient.invalidateQueries({ queryKey: ucatKeys.questions('default') })
-      queryClient.invalidateQueries({ queryKey: ucatKeys.questions('generated') })
+      queryClient.invalidateQueries({ queryKey: ucatKeys.questions('all') })
       queryClient.invalidateQueries({ queryKey: ucatKeys.question(variables.stemId) })
       queryClient.invalidateQueries({ queryKey: ucatKeys.aiAssessment(variables.stemId) })
-      queryClient.invalidateQueries({ queryKey: ucatKeys.stemCatalog() })
-      queryClient.invalidateQueries({ queryKey: ucatKeys.questionStemTagIds() })
       queryClient.invalidateQueries({ queryKey: ['ucat', 'explanation-feedback', variables.stemId] })
       queryClient.invalidateQueries({ queryKey: ucatKeys.reconciliation() })
     },
@@ -301,11 +296,8 @@ export function useDeleteUcatQuestionStem() {
   return useMutation({
     mutationFn: (stemId: string) => ucatQuestionsApi.remove(stemId),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ucatKeys.questions('default') })
-      queryClient.invalidateQueries({ queryKey: ucatKeys.questions('generated') })
-      queryClient.invalidateQueries({ queryKey: ucatKeys.questionStemTagIds() })
+      queryClient.invalidateQueries({ queryKey: ucatKeys.questions('all') })
       queryClient.invalidateQueries({ queryKey: ucatKeys.reconciliation() })
-      queryClient.invalidateQueries({ queryKey: ucatKeys.stemCatalog() })
     },
   })
 }
@@ -315,8 +307,7 @@ export function useRestoreUcatQuestionStem() {
   return useMutation({
     mutationFn: (stemId: string) => ucatQuestionsApi.restore(stemId),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ucatKeys.questions('default') })
-      queryClient.invalidateQueries({ queryKey: ucatKeys.questions('generated') })
+      queryClient.invalidateQueries({ queryKey: ucatKeys.questions('all') })
     },
   })
 }
@@ -327,10 +318,7 @@ export function useBulkImportUcatQuestionStems() {
     mutationFn: (args: { sectionId: string; stems: UcatQuestionStemBundlePayload[] }) =>
       ucatQuestionsApi.bulkImport(args.sectionId, args.stems),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ucatKeys.questions('default') })
-      queryClient.invalidateQueries({ queryKey: ucatKeys.questions('generated') })
-      queryClient.invalidateQueries({ queryKey: ucatKeys.stemCatalog() })
-      queryClient.invalidateQueries({ queryKey: ucatKeys.questionStemTagIds() })
+      queryClient.invalidateQueries({ queryKey: ucatKeys.questions('all') })
     },
   })
 }
@@ -392,10 +380,7 @@ export function useImportGeneratedUcatQuestionStems() {
     mutationFn: (args: { sectionId: string; stems: Array<Record<string, unknown>> }) =>
       ucatQuestionsApi.importGenerated(args.sectionId, args.stems),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ucatKeys.questions('generated') })
-      queryClient.invalidateQueries({ queryKey: ucatKeys.questions('default') })
-      queryClient.invalidateQueries({ queryKey: ucatKeys.stemCatalog() })
-      queryClient.invalidateQueries({ queryKey: ucatKeys.questionStemTagIds() })
+      queryClient.invalidateQueries({ queryKey: ucatKeys.questions('all') })
     },
   })
 }
@@ -406,8 +391,7 @@ export function useSetUcatQuestionStemStatus() {
     mutationFn: ({ stemId, status }: { stemId: string; status: UcatContentStatus }) =>
       ucatQuestionsApi.setStatus(stemId, status),
     onSuccess: (_, variables) => {
-      queryClient.invalidateQueries({ queryKey: ucatKeys.questions('generated') })
-      queryClient.invalidateQueries({ queryKey: ucatKeys.questions('default') })
+      queryClient.invalidateQueries({ queryKey: ucatKeys.questions('all') })
       queryClient.invalidateQueries({ queryKey: ucatKeys.question(variables.stemId) })
       queryClient.invalidateQueries({ queryKey: ucatKeys.aiAssessment(variables.stemId) })
       queryClient.invalidateQueries({ queryKey: ucatKeys.reconciliation() })

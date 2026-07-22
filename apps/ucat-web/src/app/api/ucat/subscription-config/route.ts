@@ -23,7 +23,7 @@ export async function GET() {
     supabaseAdmin
       .from("ucat_subscription_config")
       .select(
-        "trial_days, min_questions_per_day, currency, unlimited_stripe_product_id, pro_stripe_product_id, free_practice_limit, free_practice_period, free_sets_limit, free_sets_period, free_mocks_limit, free_mocks_period, free_learn_limit, free_learn_period, free_skill_trainer_limit, free_skill_trainer_period",
+        "trial_days, min_questions_per_day, currency, unlimited_stripe_product_id, free_practice_limit, free_practice_period, free_sets_limit, free_sets_period, free_mocks_limit, free_mocks_period, free_learn_limit, free_learn_period, free_skill_trainer_limit, free_skill_trainer_period",
       )
       .order("created_at", { ascending: true })
       .limit(1)
@@ -116,7 +116,6 @@ export async function GET() {
     unlimitedProductConfigured: Boolean(
       data.unlimited_stripe_product_id?.trim(),
     ),
-    proProductConfigured: Boolean(data.pro_stripe_product_id?.trim()),
   };
 
   return NextResponse.json(body, {

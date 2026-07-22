@@ -3338,7 +3338,7 @@ export function QuestionEnginePage({
           variant="dialog"
           surfaceTheme="app"
           checkoutReturnContext="practice_session"
-          visibleTiers={["unlimited", "pro"]}
+          visibleTiers={["unlimited"]}
           layout="horizontal"
         />
       </PlanPickerDialogShell>

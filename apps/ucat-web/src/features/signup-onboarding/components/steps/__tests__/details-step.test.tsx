@@ -90,10 +90,7 @@ describe("SignupCompleteDetailsStep", () => {
       "/api/ucat/signup/complete",
       expect.objectContaining({ method: "POST" }),
     );
-    expect(subscribeToUcatNewsletter).toHaveBeenCalledWith(
-      "provider@example.com",
-      "ucat_social_signup",
-    );
+    expect(subscribeToUcatNewsletter).toHaveBeenCalledWith("ucat_social_signup");
     expect(onComplete).toHaveBeenCalledWith(
       expect.objectContaining({
         email: "provider@example.com",

@@ -18,7 +18,6 @@ const CONFIG_RESPONSE = {
   planPrices: [],
   practiceDayDiscounts: [],
   unlimitedProductConfigured: false,
-  proProductConfigured: false,
 };
 
 describe("public subscription config query", () => {
