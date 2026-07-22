@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
+import { motion } from "motion/react";
 import { Card, CardContent, Skeleton } from "@altitutor/ui";
 import { lookupUcatAnzTotalPercentile } from "@altitutor/ucat-percentiles";
 import { deriveTotalScoreProjection } from "@/features/score-projection/lib/total-projection";
@@ -17,6 +18,7 @@ import { ReviewActivityCalendarCard } from "./review-activity-calendar-card";
 import { AnimatedInteger, ProgressCircular } from "./progress-animated-display";
 import { UCAT_CARD_CHROME, UCAT_DIVIDER_TOP } from "@/lib/ucat-surface-motion";
 import { cn } from "@/lib/utils";
+import { useUcatStaggerMotion } from "@/shared/hooks/use-ucat-stagger-motion";
 import type { SectionProgress } from "@altitutor/shared";
 import type {
   ScoreProjectionSnapshot,
@@ -202,6 +204,7 @@ export function ProgressPageContent({
   linkToSections = true,
   mockRecentWeightedAverage = null,
 }: ProgressPageContentProps) {
+  const { containerVariants, itemVariants } = useUcatStaggerMotion();
   const currentEstimate = totalProjection?.currentEstimate ?? null;
   const history = snapshots.map((snapshot) => ({
     date: snapshot.date,
@@ -250,60 +253,70 @@ export function ProgressPageContent({
           : "Your estimate is the starting point - not the verdict";
   const insightBody =
     currentEstimate == null
-      ? "Complete one representative timed set in each cognitive section. Keep your usual method and pace so the first comparison reflects how you currently work."
+      ? "Complete one timed set in each cognitive section to build a score estimate."
       : benchmark.percentileLabel
         ? `Your ${currentEstimate} estimate is around the ${benchmark.percentileLabel.toLowerCase()} against the published UCAT ANZ benchmark. The shaded range shows what the current evidence can support, not a guaranteed result.`
         : "Keep adding timed evidence. The shaded range will narrow as the model sees more representative work across Sections 1–3.";
 
   return (
-    <div className="space-y-6 pb-8">
-      <ProgressTrajectoryCanvas
-        title="Score progress"
-        description={
-          targetScore != null
-            ? `Current estimate ${currentEstimate ?? "pending"} · Target ${targetScore}`
-            : `Current estimate ${currentEstimate ?? "pending"}`
-        }
-        statusLabel={statusLabel}
-        projection={totalProjection}
-        snapshots={snapshots}
-        today={today}
-        targetScore={targetScore}
-        testDate={testDate}
-        targetBreakdown={targetBreakdown}
-        insightTitle={insightTitle}
-        insightBody={insightBody}
-        ratingTargetKey="total-score-trajectory"
-        ratingContextKey="progress:total-score"
-        insightMeta={
-          <div>
-            <MetricRow
-              label="Current estimate"
-              value={
-                currentEstimate == null ? "Pending" : String(currentEstimate)
-              }
-            />
-            <MetricRow
-              label="UCAT ANZ benchmark"
-              value={benchmark.percentileLabel ?? "Not available yet"}
-            />
-            {projectedGain != null ? (
+    <motion.div
+      className="space-y-6 pb-8"
+      variants={containerVariants}
+      initial="hidden"
+      animate="show"
+    >
+      <motion.div variants={itemVariants}>
+        <ProgressTrajectoryCanvas
+          title="Score progress"
+          description={
+            targetScore != null
+              ? `Current estimate ${currentEstimate ?? "pending"} · Target ${targetScore}`
+              : `Current estimate ${currentEstimate ?? "pending"}`
+          }
+          statusLabel={statusLabel}
+          projection={totalProjection}
+          snapshots={snapshots}
+          today={today}
+          targetScore={targetScore}
+          testDate={testDate}
+          targetBreakdown={targetBreakdown}
+          insightTitle={insightTitle}
+          insightBody={insightBody}
+          ratingTargetKey="total-score-trajectory"
+          ratingContextKey="progress:total-score"
+          insightMeta={
+            <div>
               <MetricRow
-                label="90-day change"
-                value={`${projectedGain >= 0 ? "+" : ""}${projectedGain}`}
+                label="Current estimate"
+                value={
+                  currentEstimate == null ? "Pending" : String(currentEstimate)
+                }
               />
-            ) : null}
-          </div>
-        }
-      />
+              <MetricRow
+                label="UCAT ANZ benchmark"
+                value={benchmark.percentileLabel ?? "Not available yet"}
+              />
+              {projectedGain != null ? (
+                <MetricRow
+                  label="90-day change"
+                  value={`${projectedGain >= 0 ? "+" : ""}${projectedGain}`}
+                />
+              ) : null}
+            </div>
+          }
+        />
+      </motion.div>
 
-      <div className="mx-auto grid w-full max-w-[1400px] gap-4 px-5 sm:px-6 md:grid-cols-2 xl:grid-cols-3 xl:items-stretch">
+      <motion.div
+        variants={itemVariants}
+        className="mx-auto grid w-full max-w-[1400px] grid-cols-[repeat(auto-fit,minmax(min(100%,18rem),1fr))] gap-5 px-5 sm:px-6"
+      >
         <ReviewActivityCalendarCard
           className="h-full"
           previewData={activityPreviewData}
         />
 
-        <section aria-label="Sections">
+        <section aria-label="Sections" className="min-w-0">
           <SectionProgressCards
             sections={sections}
             linkToSection={linkToSections}
@@ -315,11 +328,8 @@ export function ProgressPageContent({
             mockTargetScore={targetScore}
           />
         </section>
-        <QuestionsCompletedCard
-          sections={sections}
-          className="h-full md:col-span-2 xl:col-span-1"
-        />
-      </div>
-    </div>
+        <QuestionsCompletedCard sections={sections} className="h-full" />
+      </motion.div>
+    </motion.div>
   );
 }

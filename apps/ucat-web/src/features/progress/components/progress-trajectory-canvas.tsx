@@ -189,7 +189,7 @@ export function ProgressTrajectoryCanvas({
         >
           <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
             <Sparkles className="size-3.5" aria-hidden />
-            Insight
+            Score insight
           </div>
           <h2 className="mt-3 text-lg font-semibold tracking-tight">
             {insightTitle}
@@ -214,7 +214,7 @@ export function ProgressTrajectoryCanvas({
       >
         <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
           <Sparkles className="size-3.5" aria-hidden />
-          Insight
+          Score insight
         </div>
         <h2 className="mt-2 text-lg font-semibold">{insightTitle}</h2>
         <p className="mt-2 text-sm text-muted-foreground">{insightBody}</p>

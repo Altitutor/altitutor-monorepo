@@ -23,6 +23,7 @@ import {
   daysBetween,
   parseIsoDate,
 } from "@/features/study-plan/lib/dates";
+import { useOnceChartAnimation } from "@/shared/hooks/use-once-chart-animation";
 import { cn } from "@/lib/utils";
 
 export type DashboardMockAnnotation = {
@@ -208,6 +209,9 @@ export function DashboardTrajectoryChart({
   scoreMaximum = 2700,
   className,
 }: DashboardTrajectoryChartProps) {
+  const chartAnimates = useOnceChartAnimation(
+    mode === "forecast" && data.length > 0,
+  );
   if (mode !== "forecast" || data.length === 0) {
     return (
       <div className={className}>
@@ -419,7 +423,10 @@ export function DashboardTrajectoryChart({
               fill="hsl(var(--primary))"
               fillOpacity={0.1}
               connectNulls
-              isAnimationActive={false}
+              isAnimationActive={chartAnimates}
+              animationDuration={900}
+              animationEasing="ease-out"
+              animationBegin={120}
             />
             <Line
               type="monotone"
@@ -430,7 +437,10 @@ export function DashboardTrajectoryChart({
               strokeDasharray="2 5"
               dot={false}
               connectNulls
-              isAnimationActive={false}
+              isAnimationActive={chartAnimates}
+              animationDuration={1000}
+              animationEasing="ease-out"
+              animationBegin={180}
             />
             <Line
               type="monotone"
@@ -441,7 +451,10 @@ export function DashboardTrajectoryChart({
               strokeDasharray="2 5"
               dot={false}
               connectNulls
-              isAnimationActive={false}
+              isAnimationActive={chartAnimates}
+              animationDuration={1000}
+              animationEasing="ease-out"
+              animationBegin={180}
             />
             <Line
               type="monotone"
@@ -452,7 +465,10 @@ export function DashboardTrajectoryChart({
               strokeDasharray="7 6"
               dot={false}
               connectNulls
-              isAnimationActive={false}
+              isAnimationActive={chartAnimates}
+              animationDuration={1100}
+              animationEasing="ease-out"
+              animationBegin={220}
             />
             <Line
               type="monotone"
@@ -462,7 +478,9 @@ export function DashboardTrajectoryChart({
               dot={{ r: 3, fill: "hsl(var(--primary))" }}
               activeDot={{ r: 5 }}
               connectNulls
-              isAnimationActive={false}
+              isAnimationActive={chartAnimates}
+              animationDuration={900}
+              animationEasing="ease-out"
             />
             {currentEstimate != null ? (
               <ReferenceDot

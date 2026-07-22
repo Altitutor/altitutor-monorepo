@@ -9,6 +9,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@altitutor/ui";
+import { motion, useReducedMotion } from "motion/react";
 import { Flame } from "lucide-react";
 import { UcatHoverChevron } from "@/lib/ucat-hover-chevron";
 import {
@@ -44,6 +45,8 @@ type DayActivity = {
   questionAttempts: number;
   setAttempts: number;
 };
+
+const EASE_OUT = [0.32, 0.72, 0, 1] as const;
 
 function placeholderActivity(dayNumber: number): DayActivity | undefined {
   if (dayNumber % 6 === 0) return { questionAttempts: 18, setAttempts: 1 };
@@ -85,7 +88,7 @@ function ReviewDayCell({
   const cell = (
     <span
       className={cn(
-        "group relative flex h-7 w-full items-center justify-center overflow-hidden rounded-md text-left sm:h-8",
+        "group relative flex size-full items-center justify-center overflow-hidden rounded-[22%] text-left",
         UCAT_SURFACE_MOTION,
         !isFuture && "hover:shadow-sm hover:ring-1 hover:ring-foreground/20",
         isToday && !inStreak && "ring-1 ring-primary/50",
@@ -103,7 +106,7 @@ function ReviewDayCell({
       />
       {inStreak ? (
         <Flame
-          className="relative z-[1] size-3 fill-amber-400 text-amber-500 drop-shadow-sm sm:size-3.5"
+          className="relative z-[1] size-[45%] max-h-3.5 max-w-3.5 fill-amber-400 text-amber-500 drop-shadow-sm"
           aria-hidden
         />
       ) : null}
@@ -112,7 +115,7 @@ function ReviewDayCell({
 
   if (isFuture) {
     return (
-      <div aria-label={aria} className="w-full">
+      <div aria-label={aria} className="size-full">
         {cell}
       </div>
     );
@@ -124,7 +127,7 @@ function ReviewDayCell({
         <button
           type="button"
           className={cn(
-            "w-full rounded-md",
+            "size-full rounded-[22%]",
             "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground focus-visible:ring-offset-2 focus-visible:ring-offset-background",
           )}
           aria-label={aria}
@@ -159,6 +162,7 @@ function CompactStreakBadge({
   current: number;
   practicedToday: boolean;
 }) {
+  const reduceMotion = useReducedMotion();
   const hint =
     current === 0
       ? "Answer 1 question to begin"
@@ -167,19 +171,43 @@ function CompactStreakBadge({
         : "Answer 1 question today";
 
   return (
-    <div
+    <motion.div
       className="flex shrink-0 items-center gap-1.5 rounded-full border border-amber-400/40 bg-amber-400/10 px-2.5 py-1"
       title={hint}
+      initial={reduceMotion ? false : { opacity: 0, scale: 0.86, y: -4 }}
+      animate={{ opacity: 1, scale: 1, y: 0 }}
+      transition={{ type: "spring", stiffness: 340, damping: 24, delay: 0.08 }}
     >
-      <Flame
-        className="h-3.5 w-3.5 fill-amber-400 text-amber-500"
-        aria-hidden
-      />
+      <motion.span
+        className="inline-flex"
+        animate={
+          reduceMotion || current === 0
+            ? undefined
+            : {
+                scale: [1, 1.12, 1],
+              }
+        }
+        transition={
+          reduceMotion || current === 0
+            ? undefined
+            : {
+                duration: 1.8,
+                repeat: Infinity,
+                repeatDelay: 2.4,
+                ease: EASE_OUT,
+              }
+        }
+      >
+        <Flame
+          className="h-3.5 w-3.5 fill-amber-400 text-amber-500"
+          aria-hidden
+        />
+      </motion.span>
       <span className="text-xs font-semibold tabular-nums tracking-tight">
         {current} day{current === 1 ? "" : "s"}
       </span>
       <span className="sr-only">{hint}</span>
-    </div>
+    </motion.div>
   );
 }
 
@@ -188,6 +216,7 @@ export function ReviewActivityCalendarCard({
   showViewAllProgressLink = false,
   previewData,
 }: ReviewActivityCalendarCardProps) {
+  const reduceMotion = useReducedMotion();
   const activityQuery = useUcatActivity(previewData == null);
   const data = previewData ?? activityQuery.data;
   const todayKey = localDateKey(new Date());
@@ -277,7 +306,12 @@ export function ReviewActivityCalendarCard({
 
   return (
     <TooltipProvider delayDuration={200}>
-      <div className={cn("relative", className)}>
+      <motion.div
+        className={cn("relative", className)}
+        initial={reduceMotion ? false : { opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.3, ease: EASE_OUT }}
+      >
         <div
           className={cn(
             "h-full",
@@ -334,13 +368,13 @@ export function ReviewActivityCalendarCard({
           />
         </div>
         {isEmpty ? (
-          <div className="pointer-events-none absolute inset-x-0 bottom-5 flex justify-center px-4">
+          <div className="pointer-events-none absolute inset-x-0 bottom-5 z-10 flex justify-center px-4">
             <p className="rounded-full border border-border/70 bg-background/85 px-3 py-1.5 text-xs font-medium shadow-sm backdrop-blur">
               Practice activity will appear here
             </p>
           </div>
         ) : null}
-      </div>
+      </motion.div>
     </TooltipProvider>
   );
 }

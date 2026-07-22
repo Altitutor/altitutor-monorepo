@@ -1,9 +1,10 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
 import { motion, useReducedMotion } from "motion/react";
 import { Badge, Skeleton } from "@altitutor/ui";
-import { Check, Gift } from "lucide-react";
+import { Check, ChevronDown, Gift } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { PracticeStreakWeek } from "@/features/streaks/components/practice-streak-week";
 import { buildPracticeStreak } from "@/features/streaks/lib/practice-streak";
@@ -15,8 +16,14 @@ import {
 } from "@/features/ucat-access/context/upsell-dialog-context";
 import { useQuotaUsage } from "@/features/ucat-access/hooks/use-quota-usage";
 import { useUcatAccess } from "@/features/ucat-access/hooks/use-ucat-access";
-import { formatQuotaPeriodLabel } from "@/features/ucat-access/lib/format-quota-period";
-import type { UcatQuotaArea } from "@/features/ucat-access/types/quota";
+import {
+  formatQuotaPeriodLabel,
+  formatQuotaUsageCompact,
+} from "@/features/ucat-access/lib/format-quota-period";
+import type {
+  UcatQuotaArea,
+  UcatQuotaAreaUsage,
+} from "@/features/ucat-access/types/quota";
 import {
   dashboardDiscountState,
   quotaAreaForTask,
@@ -30,6 +37,8 @@ import {
   UCAT_ONLINE_TIER_LABELS,
   UCAT_PLAN_TIER_BADGE_CLASS,
 } from "@/features/subscription/lib/plan-tier-display";
+import { UCAT_NEUTRAL_ACTION_HOVER } from "@/lib/ucat-surface-motion";
+import { cn } from "@/lib/utils";
 
 type DashboardMembershipValueProps = { nextTask: StudyPlanTask | null };
 
@@ -152,7 +161,12 @@ export function DashboardMembershipValue({
             {tierLabel}
           </Badge>
         </div>
-        <Button asChild size="sm" variant="ghost" className="-mr-2 -mt-1">
+        <Button
+          asChild
+          size="sm"
+          variant="ghost"
+          className={UCAT_NEUTRAL_ACTION_HOVER}
+        >
           <Link href="/settings/plan">View plan</Link>
         </Button>
       </div>
@@ -184,6 +198,29 @@ export function DashboardMembershipValue({
   );
 }
 
+function FreePlanQuotaRow({ area }: { area: UcatQuotaAreaUsage }) {
+  return (
+    <li className="space-y-1.5">
+      <div className="flex items-center justify-between gap-2 text-sm">
+        <span className="min-w-0 truncate font-medium">{area.label}</span>
+        <span
+          className={cn(
+            "shrink-0 tabular-nums text-xs text-muted-foreground",
+            area.atLimit && "font-medium text-destructive",
+          )}
+        >
+          {formatQuotaUsageCompact(area.used, area.limit, area.period)}
+        </span>
+      </div>
+      <QuotaProgressBar
+        used={area.used}
+        limit={area.limit}
+        atLimit={area.atLimit}
+      />
+    </li>
+  );
+}
+
 function FreePlanQuota({
   nextTask,
   quotaData,
@@ -195,8 +232,12 @@ function FreePlanQuota({
   onUpgrade: () => void;
   onLimit: ReturnType<typeof useQuotaLimitDialog>["openQuotaLimit"];
 }) {
+  const [expanded, setExpanded] = useState(false);
+  const enabledAreas =
+    quotaData?.areas.filter((entry) => !entry.disabled && entry.limit > 0) ??
+    [];
   const area = quotaData
-    ? selectDashboardQuotaArea(quotaData.areas, quotaAreaForTask(nextTask))
+    ? selectDashboardQuotaArea(enabledAreas, quotaAreaForTask(nextTask))
     : null;
   if (!area) {
     return (
@@ -214,6 +255,7 @@ function FreePlanQuota({
     );
   }
   const remaining = Math.max(0, area.limit - area.used);
+  const otherAreas = enabledAreas.filter((entry) => entry.area !== area.area);
   const handleAction = () => {
     if (area.atLimit) {
       onLimit({
@@ -250,6 +292,39 @@ function FreePlanQuota({
           {area.atLimit ? "Go Unlimited" : "Get unlimited practice"}
         </Button>
       </div>
+      {otherAreas.length > 0 ? (
+        <div className="border-t border-border/50 pt-2">
+          <button
+            type="button"
+            aria-expanded={expanded}
+            aria-controls="practice-streak-all-limits"
+            className={cn(
+              "flex w-full items-center justify-between gap-2 rounded-md px-1 py-1 text-xs font-medium text-muted-foreground transition-colors",
+              UCAT_NEUTRAL_ACTION_HOVER,
+            )}
+            onClick={() => setExpanded((prev) => !prev)}
+          >
+            {expanded ? "Hide all limits" : "All limits"}
+            <ChevronDown
+              className={cn(
+                "h-3.5 w-3.5 shrink-0 transition-transform duration-200",
+                expanded && "rotate-180",
+              )}
+              aria-hidden
+            />
+          </button>
+          {expanded ? (
+            <ul
+              id="practice-streak-all-limits"
+              className="mt-2 space-y-2.5"
+            >
+              {otherAreas.map((entry) => (
+                <FreePlanQuotaRow key={entry.area} area={entry} />
+              ))}
+            </ul>
+          ) : null}
+        </div>
+      ) : null}
     </div>
   );
 }

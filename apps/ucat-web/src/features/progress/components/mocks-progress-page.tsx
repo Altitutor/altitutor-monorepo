@@ -1,12 +1,15 @@
 "use client";
 
+import { motion } from "motion/react";
 import { Skeleton } from "@altitutor/ui";
 import { UcatPageHeader } from "@/features/layout";
+import { useUcatStaggerMotion } from "@/shared/hooks/use-ucat-stagger-motion";
 import { useMockProgress } from "../hooks/use-progress";
 import { MockAttemptsCard } from "./mock-attempts-card";
 
 export function MocksProgressPage() {
   const { data, isLoading, error } = useMockProgress();
+  const { containerVariants, itemVariants } = useUcatStaggerMotion();
 
   if (isLoading) {
     return (
@@ -40,15 +43,25 @@ export function MocksProgressPage() {
   }
 
   return (
-    <div className="space-y-6 pb-8">
-      <div className="mx-auto w-full max-w-[1400px] px-5 pt-6 sm:px-6">
+    <motion.div
+      className="space-y-6 pb-8"
+      variants={containerVariants}
+      initial="hidden"
+      animate="show"
+    >
+      <motion.div
+        variants={itemVariants}
+        className="mx-auto w-full max-w-[1400px] px-5 pt-6 sm:px-6"
+      >
         <UcatPageHeader
           title="Mock progress"
           backHref="/progress"
           backLabel="Back to progress"
         />
-      </div>
-      <MockAttemptsCard summary={data} />
-    </div>
+      </motion.div>
+      <motion.div variants={itemVariants}>
+        <MockAttemptsCard summary={data} />
+      </motion.div>
+    </motion.div>
   );
 }

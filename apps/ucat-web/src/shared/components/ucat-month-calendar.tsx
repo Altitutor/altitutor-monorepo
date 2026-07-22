@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, type ReactNode } from "react";
+import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { Card, CardContent, CardHeader } from "@altitutor/ui";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -13,6 +14,23 @@ import { UCAT_CARD_CHROME } from "@/lib/ucat-surface-motion";
 import { cn } from "@/lib/utils";
 
 const WEEKDAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+const EASE_OUT = [0.32, 0.72, 0, 1] as const;
+const MONTH_SLIDE_OFFSET = 36;
+
+const monthPresenceVariants = {
+  enter: (direction: number) => ({
+    x: direction > 0 ? MONTH_SLIDE_OFFSET : -MONTH_SLIDE_OFFSET,
+    opacity: 0,
+  }),
+  center: {
+    x: 0,
+    opacity: 1,
+  },
+  exit: (direction: number) => ({
+    x: direction > 0 ? -MONTH_SLIDE_OFFSET : MONTH_SLIDE_OFFSET,
+    opacity: 0,
+  }),
+};
 
 export type UcatMonthCalendarProps = {
   months: UcatCalendarMonth[];
@@ -72,9 +90,19 @@ function MonthGrid({
 
         {month.days.map((day, index) => {
           if (!day) {
-            return <span key={`${month.key}-blank-${index}`} aria-hidden />;
+            return (
+              <span
+                key={`${month.key}-blank-${index}`}
+                className="aspect-square"
+                aria-hidden
+              />
+            );
           }
-          return <div key={day.dateKey}>{renderDay(day)}</div>;
+          return (
+            <div key={day.dateKey} className="aspect-square">
+              {renderDay(day)}
+            </div>
+          );
         })}
       </div>
     </div>
@@ -94,6 +122,8 @@ export function UcatMonthCalendar({
   density = "default",
   renderDay,
 }: UcatMonthCalendarProps) {
+  const reduceMotion = useReducedMotion();
+  const animate = !reduceMotion;
   const resolvedInitialIndex = initialMonthKey
     ? months.findIndex((month) => month.key === initialMonthKey)
     : 0;
@@ -109,6 +139,7 @@ export function UcatMonthCalendar({
     }
     return clampedInitial;
   });
+  const [direction, setDirection] = useState(0);
 
   const visibleMonths = months.slice(
     visibleStartIndex,
@@ -117,6 +148,7 @@ export function UcatMonthCalendar({
 
   function showMonth(index: number) {
     if (index < 0 || index > maxStartIndex) return;
+    setDirection(index > visibleStartIndex ? 1 : -1);
     setVisibleStartIndex(index);
   }
 
@@ -125,6 +157,10 @@ export function UcatMonthCalendar({
   const isCompact = density === "compact";
   const canGoPrev = visibleStartIndex > 0;
   const canGoNext = visibleStartIndex < maxStartIndex;
+  const monthTransition = {
+    duration: animate ? 0.32 : 0,
+    ease: EASE_OUT,
+  };
 
   return (
     <Card
@@ -139,7 +175,9 @@ export function UcatMonthCalendar({
         {title ? (
           <div className="flex items-start justify-between gap-3">
             <div className="space-y-1">
-              <h2 className="text-base font-medium">{title}</h2>
+              <h2 className="text-base font-medium text-muted-foreground">
+                {title}
+              </h2>
               {description ? (
                 <p className="text-muted-foreground text-sm font-normal">
                   {description}
@@ -233,38 +271,84 @@ export function UcatMonthCalendar({
 
       <CardContent className={cn(isCompact ? "p-4 pt-0" : "p-5 pt-0")}>
         {monthsVisible === 1 ? (
-          <div
-            className={cn("grid grid-cols-7", isCompact ? "gap-1" : "gap-1.5")}
-          >
-            {WEEKDAYS.map((weekday) => (
-              <div
-                key={weekday}
-                className={cn(
-                  "pb-0.5 text-center font-medium uppercase tracking-[0.1em] text-muted-foreground",
-                  isCompact ? "text-[9px]" : "text-[10px]",
-                )}
+          <div className="relative overflow-hidden">
+            <AnimatePresence mode="wait" initial={false} custom={direction}>
+              <motion.div
+                key={visibleMonths[0]?.key}
+                custom={direction}
+                variants={monthPresenceVariants}
+                initial="enter"
+                animate="center"
+                exit="exit"
+                transition={monthTransition}
               >
-                {weekday}
-              </div>
-            ))}
+                <div
+                  className={cn(
+                    "grid grid-cols-7",
+                    isCompact ? "gap-1" : "gap-1.5",
+                  )}
+                >
+                  {WEEKDAYS.map((weekday) => (
+                    <div
+                      key={weekday}
+                      className={cn(
+                        "pb-0.5 text-center font-medium uppercase tracking-[0.1em] text-muted-foreground",
+                        isCompact ? "text-[9px]" : "text-[10px]",
+                      )}
+                    >
+                      {weekday}
+                    </div>
+                  ))}
 
-            {(visibleMonths[0]?.days ?? []).map((day, index) => {
-              if (!day) {
-                return <span key={`blank-${index}`} aria-hidden />;
-              }
-              return <div key={day.dateKey}>{renderDay(day)}</div>;
-            })}
+                  {(visibleMonths[0]?.days ?? []).map((day, index) => {
+                    if (!day) {
+                      return (
+                        <span
+                          key={`blank-${index}`}
+                          className="aspect-square"
+                          aria-hidden
+                        />
+                      );
+                    }
+                    return (
+                      <div key={day.dateKey} className="aspect-square">
+                        {renderDay(day)}
+                      </div>
+                    );
+                  })}
+                </div>
+              </motion.div>
+            </AnimatePresence>
           </div>
         ) : (
-          <div className="grid gap-4 sm:grid-cols-2">
-            {visibleMonths.map((month) => (
-              <MonthGrid
-                key={month.key}
-                month={month}
-                density={density}
-                renderDay={renderDay}
-              />
-            ))}
+          // Continuous strip: advancing by 1 keeps the overlapping month on-screen
+          // and slides it into the other column instead of remounting the pair.
+          <div className="overflow-hidden">
+            <motion.div
+              className="grid"
+              style={{
+                width: `${(months.length / monthsVisible) * 100}%`,
+                gridTemplateColumns: `repeat(${months.length}, minmax(0, 1fr))`,
+              }}
+              initial={false}
+              animate={{
+                x: `${(-visibleStartIndex / months.length) * 100}%`,
+              }}
+              transition={monthTransition}
+            >
+              {months.map((month, index) => (
+                <div
+                  key={month.key}
+                  className={cn(index < months.length - 1 && "pr-4")}
+                >
+                  <MonthGrid
+                    month={month}
+                    density={density}
+                    renderDay={renderDay}
+                  />
+                </div>
+              ))}
+            </motion.div>
           </div>
         )}
       </CardContent>

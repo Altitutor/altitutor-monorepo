@@ -1,12 +1,6 @@
 "use client";
 
-import React, {
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-  type ReactNode,
-} from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
 import { motion, useReducedMotion } from "motion/react";
@@ -68,9 +62,11 @@ import type {
   StudyPlanResponse,
   StudyPlanWeekday,
 } from "@/features/study-plan/model/types";
+import { UcatClickableCardButton } from "@/shared/components/ucat-clickable-card";
 import {
   UCAT_CARD_CHROME,
   UCAT_DIALOG_PRIMARY_ACTION,
+  UCAT_SURFACE_CARD,
 } from "@/lib/ucat-surface-motion";
 import { cn } from "@/lib/utils";
 
@@ -540,18 +536,20 @@ export function StudyPlanActivationPage() {
             {stage === "preference" ? (
               <div>
                 <div className="grid gap-4 sm:grid-cols-2">
-                  <PreferenceCard
+                  <UcatClickableCardButton
                     selected={studyPlanEnabled === true}
-                    icon={<CalendarDays className="h-5 w-5" aria-hidden />}
+                    icon={CalendarDays}
                     title="Build me a Study plan"
                     description="Altitutor schedules adaptive work around your availability and adjusts it as your performance changes."
+                    showChevron={false}
                     onClick={() => setStudyPlanEnabled(true)}
                   />
-                  <PreferenceCard
+                  <UcatClickableCardButton
                     selected={studyPlanEnabled === false}
-                    icon={<Compass className="h-5 w-5" aria-hidden />}
+                    icon={Compass}
                     title="I’ll manage my own plan"
                     description="Organise study yourself while Altitutor continues to suggest useful next activities."
+                    showChevron={false}
                     onClick={() => setStudyPlanEnabled(false)}
                   />
                 </div>
@@ -641,7 +639,10 @@ export function StudyPlanActivationPage() {
                     return (
                       <div
                         key={day.value}
-                        className="flex items-center justify-between gap-4 rounded-2xl bg-card px-4 py-4 shadow-sm ring-1 ring-border transition-colors hover:bg-muted/60 sm:px-5"
+                        className={cn(
+                          "flex items-center justify-between gap-4 rounded-ucatShell px-4 py-4 sm:px-5",
+                          UCAT_SURFACE_CARD,
+                        )}
                       >
                         <div className="flex min-w-0 flex-1 items-center gap-3">
                           <Switch
@@ -698,11 +699,17 @@ export function StudyPlanActivationPage() {
                       </div>
                     );
                   })}
-                  <div className="flex gap-3 rounded-2xl bg-muted/50 px-4 py-3 text-sm text-muted-foreground ring-1 ring-border">
+                  <div
+                    className={cn(
+                      "flex gap-3 rounded-ucatShell px-4 py-3 text-sm text-muted-foreground",
+                      UCAT_SURFACE_CARD,
+                      "bg-muted/40",
+                    )}
+                  >
                     <Clock3 className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
                     <p>
                       This is the maximum time you are available to study.
-                      Altitutor can schedule less time, and you can change these
+                      Altitutor may schedule less time, and you can change these
                       days later.
                     </p>
                   </div>
@@ -757,40 +764,6 @@ export function StudyPlanActivationPage() {
         </AlertDialogContent>
       </AlertDialog>
     </StudyPlanSetupShell>
-  );
-}
-
-function PreferenceCard({
-  selected,
-  icon,
-  title,
-  description,
-  onClick,
-}: {
-  selected: boolean;
-  icon: ReactNode;
-  title: string;
-  description: string;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      type="button"
-      aria-pressed={selected}
-      className={cn(
-        "rounded-3xl p-6 text-left text-foreground ring-1 transition-[background-color,box-shadow,transform] hover:-translate-y-0.5 hover:bg-muted/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-        selected ? "bg-muted ring-foreground/20" : "bg-card ring-border",
-      )}
-      onClick={onClick}
-    >
-      <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-muted text-muted-foreground">
-        {icon}
-      </span>
-      <span className="mt-5 block text-lg font-semibold">{title}</span>
-      <span className="mt-2 block text-sm leading-relaxed text-muted-foreground">
-        {description}
-      </span>
-    </button>
   );
 }
 

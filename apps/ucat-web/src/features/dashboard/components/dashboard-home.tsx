@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState, type ComponentType } from "react";
+import { motion } from "motion/react";
 import { Badge, Card, CardContent, Skeleton } from "@altitutor/ui";
 import {
   AlertTriangle,
@@ -70,6 +71,7 @@ import {
   UCAT_NEUTRAL_ACTION_HOVER,
 } from "@/lib/ucat-surface-motion";
 import { cn } from "@/lib/utils";
+import { useUcatStaggerMotion } from "@/shared/hooks/use-ucat-stagger-motion";
 
 const WEEK_STATUS_LABEL: Record<DashboardWeekSummary["status"], string> = {
   complete: "Complete",
@@ -1013,6 +1015,7 @@ export function DashboardHome() {
     () => dashboardMockAnnotations(planQuery.data),
     [planQuery.data],
   );
+  const { containerVariants, itemVariants } = useUcatStaggerMotion();
 
   if (
     planQuery.isLoading ||
@@ -1034,25 +1037,35 @@ export function DashboardHome() {
   const plan = planQuery.data;
 
   return (
-    <div className="space-y-6 pb-8">
-      <DashboardTrajectoryHero
-        firstName={firstName}
-        plan={plan}
-        action={action}
-        state={trajectoryState}
-        chartData={chartData}
-        sections={scoreProjectionQuery.data?.sections ?? []}
-        snapshots={scoreProjectionQuery.data?.snapshots ?? []}
-        projectionLoading={scoreProjectionQuery.isLoading}
-        projectionError={scoreProjectionQuery.isError}
-        mocks={mockAnnotations}
-        onStartTask={taskActions.startTask}
-        taskPending={taskActions.pendingAction === "start"}
-        taskError={taskActions.error}
-        onRetryPlan={() => void planQuery.refetch()}
-      />
+    <motion.div
+      className="space-y-6 pb-8"
+      variants={containerVariants}
+      initial="hidden"
+      animate="show"
+    >
+      <motion.div variants={itemVariants}>
+        <DashboardTrajectoryHero
+          firstName={firstName}
+          plan={plan}
+          action={action}
+          state={trajectoryState}
+          chartData={chartData}
+          sections={scoreProjectionQuery.data?.sections ?? []}
+          snapshots={scoreProjectionQuery.data?.snapshots ?? []}
+          projectionLoading={scoreProjectionQuery.isLoading}
+          projectionError={scoreProjectionQuery.isError}
+          mocks={mockAnnotations}
+          onStartTask={taskActions.startTask}
+          taskPending={taskActions.pendingAction === "start"}
+          taskError={taskActions.error}
+          onRetryPlan={() => void planQuery.refetch()}
+        />
+      </motion.div>
 
-      <div className="mx-auto grid w-full max-w-[1400px] grid-cols-[repeat(auto-fit,minmax(min(100%,18rem),1fr))] gap-5 px-5 sm:px-6">
+      <motion.div
+        variants={itemVariants}
+        className="mx-auto grid w-full max-w-[1400px] grid-cols-[repeat(auto-fit,minmax(min(100%,18rem),1fr))] gap-5 px-5 sm:px-6"
+      >
         <DashboardActivationChecklist />
         {plan?.profile?.studyPlanEnabled ? (
           <Card className={cn(UCAT_CARD_CHROME, "h-full")}>
@@ -1072,39 +1085,41 @@ export function DashboardHome() {
           </CardContent>
         </Card>
         <DashboardRecentAttemptsCard />
-      </div>
+      </motion.div>
 
       {planQuery.data?.generation?.capacityRisk.level === "warning" ? (
-        <Card
-          className={cn(
-            UCAT_CARD_CHROME,
-            "mx-5 sm:mx-6 lg:mx-auto lg:w-[calc(100%-3rem)] lg:max-w-[1352px]",
-          )}
-        >
-          <CardContent className="flex flex-col gap-4 p-5 sm:flex-row sm:items-center sm:justify-between sm:p-6">
-            <div className="flex gap-3">
-              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-muted text-muted-foreground">
-                <AlertTriangle className="h-4 w-4" aria-hidden />
-              </span>
-              <div>
-                <p className="text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground">
-                  Worth knowing
-                </p>
-                <h2 className="mt-1 font-semibold">
-                  Your available time is tight
-                </h2>
-                <p className="mt-1 text-sm text-muted-foreground">
-                  {planQuery.data.generation.capacityRisk.message} Your plan is
-                  already choosing the highest-value work within that limit.
-                </p>
+        <motion.div variants={itemVariants}>
+          <Card
+            className={cn(
+              UCAT_CARD_CHROME,
+              "mx-5 sm:mx-6 lg:mx-auto lg:w-[calc(100%-3rem)] lg:max-w-[1352px]",
+            )}
+          >
+            <CardContent className="flex flex-col gap-4 p-5 sm:flex-row sm:items-center sm:justify-between sm:p-6">
+              <div className="flex gap-3">
+                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-muted text-muted-foreground">
+                  <AlertTriangle className="h-4 w-4" aria-hidden />
+                </span>
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+                    Worth knowing
+                  </p>
+                  <h2 className="mt-1 font-semibold">
+                    Your available time is tight
+                  </h2>
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    {planQuery.data.generation.capacityRisk.message} Your plan is
+                    already choosing the highest-value work within that limit.
+                  </p>
+                </div>
               </div>
-            </div>
-            <Button asChild variant="outline" className="shrink-0">
-              <Link href="/settings/study-plan">Adjust availability</Link>
-            </Button>
-          </CardContent>
-        </Card>
+              <Button asChild variant="outline" className="shrink-0">
+                <Link href="/settings/study-plan">Adjust availability</Link>
+              </Button>
+            </CardContent>
+          </Card>
+        </motion.div>
       ) : null}
-    </div>
+    </motion.div>
   );
 }
