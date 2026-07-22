@@ -54,6 +54,7 @@ import {
   SettingsPageHeader,
   type SettingsDataTableColumn,
 } from '@/shared/components';
+import { useCopyToClipboard } from '@/shared/hooks';
 import type { AdminFormRow, AdminFormTokenRow, AdminFormVersionRow } from '../types';
 
 const NEW_FORM_ID = '__new__';
@@ -190,6 +191,7 @@ function OptionSelect<T extends { value: string; label: string }>({
 }
 
 export function FormsSettingsPage() {
+  const { copy } = useCopyToClipboard();
   const [forms, setForms] = useState<AdminFormRow[]>([]);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [selected, setSelected] = useState<AdminFormRow | null>(null);
@@ -442,7 +444,7 @@ export function FormsSettingsPage() {
       }));
       link = formUrl(audience, token);
     }
-    await navigator.clipboard.writeText(link);
+    await copy(link, `form-${form.id}-${audience}`);
   };
 
   return (
