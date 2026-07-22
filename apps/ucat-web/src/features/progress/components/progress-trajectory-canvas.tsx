@@ -15,8 +15,8 @@ import {
 import { UCAT_FLOATING_GRAPH_CARD } from "@/lib/ucat-surface-motion";
 import { cn } from "@/lib/utils";
 import type {
-  HistoricalProjectionPoint,
   ProjectionPoint,
+  ScoreProjectionSnapshot,
 } from "@/features/score-projection/types/score-projection";
 import { daysBetween } from "@/features/study-plan/lib/dates";
 import { ContentRatingControls } from "@/features/content-ratings/components/content-rating-controls";
@@ -24,7 +24,6 @@ import { contentSnapshotVersion } from "@/features/content-ratings/lib";
 
 export type ProgressTrajectorySource = {
   currentEstimate: number | null;
-  history: HistoricalProjectionPoint[];
   projection: ProjectionPoint[];
 };
 
@@ -32,6 +31,7 @@ export function buildProgressTrajectoryData(
   source: ProgressTrajectorySource | null,
   today: string,
   highlightedPoint?: ProjectionPoint | null,
+  snapshots: ScoreProjectionSnapshot[] = [],
 ): DashboardTrajectoryChartPoint[] {
   if (!source || source.currentEstimate == null) return [];
   return buildDashboardTrajectoryChartData(
@@ -41,12 +41,13 @@ export function buildProgressTrajectoryData(
       uncertainty: 0,
       effectiveEvidenceWeight: 0,
       missingSectionNumbers: [],
-      history: source.history,
+      history: [],
       projection: source.projection,
       horizons: [],
     },
     today,
     highlightedPoint,
+    snapshots,
   );
 }
 
@@ -55,6 +56,8 @@ type ProgressTrajectoryCanvasProps = {
   description?: string;
   statusLabel?: string;
   projection: ProgressTrajectorySource | null;
+  /** Persisted estimate snapshots (total or section-projected) for the actual line. */
+  snapshots?: ScoreProjectionSnapshot[];
   today: string;
   targetScore: number | null;
   testDate: string | null;
@@ -74,6 +77,7 @@ export function ProgressTrajectoryCanvas({
   description,
   statusLabel,
   projection,
+  snapshots = [],
   today,
   targetScore,
   testDate,
@@ -87,7 +91,12 @@ export function ProgressTrajectoryCanvas({
   insightMeta,
   headerControl,
 }: ProgressTrajectoryCanvasProps) {
-  const chartData = buildProgressTrajectoryData(projection, today);
+  const chartData = buildProgressTrajectoryData(
+    projection,
+    today,
+    null,
+    snapshots,
+  );
   const hasEstimate = projection?.currentEstimate != null;
   const testDay = testDate ? daysBetween(today, testDate) : null;
   const showTestMarker =

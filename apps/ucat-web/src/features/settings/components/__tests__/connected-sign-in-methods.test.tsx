@@ -146,7 +146,7 @@ describe("ConnectedSignInMethods", () => {
       await screen.findByRole("button", { name: "Remove" }),
     ).toBeDisabled();
     expect(
-      screen.getByText(/only permits removing an identity/i),
+      screen.getByText(/cannot remove your only sign-in method/i),
     ).toBeInTheDocument();
   });
 });

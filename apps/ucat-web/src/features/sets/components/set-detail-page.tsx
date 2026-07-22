@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useId, useState } from "react";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
 import { motion } from "motion/react";
@@ -219,7 +218,6 @@ export function SetDetailPage({
       ? `/progress/sections/${sectionNumber}/set-attempts/${attemptId}`
       : `/progress/set-attempts/${attemptId}`;
 
-  const latestAttempt = attempts[0] ?? null;
   const visibleAttempts = showAllAttempts
     ? attempts
     : attempts.slice(0, RECENT_ATTEMPTS_LIMIT);

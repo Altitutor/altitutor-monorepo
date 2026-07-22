@@ -242,7 +242,6 @@ export function MockDetailPage({
     ["Questions", questionCount != null ? String(questionCount) : "—"],
   ];
 
-  const latestAttempt = attempts[0] ?? null;
   const visibleAttempts = showAllAttempts
     ? attempts
     : attempts.slice(0, RECENT_ATTEMPTS_LIMIT);

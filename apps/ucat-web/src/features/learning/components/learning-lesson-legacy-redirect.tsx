@@ -16,9 +16,11 @@ export function LearningLessonLegacyRedirect({
 
   useEffect(() => {
     if (isLoading) return;
-    const module = modules?.find((item) => item.id === lessonId);
+    const matchedModule = modules?.find((item) => item.id === lessonId);
     router.replace(
-      module ? learningModuleHref(lessonId, module.section_number) : "/learn",
+      matchedModule
+        ? learningModuleHref(lessonId, matchedModule.section_number)
+        : "/learn",
     );
   }, [isLoading, lessonId, modules, router]);
 

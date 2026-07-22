@@ -19,6 +19,7 @@ import { UCAT_CARD_CHROME, UCAT_DIVIDER_TOP } from "@/lib/ucat-surface-motion";
 import { cn } from "@/lib/utils";
 import type { SectionProgress } from "@altitutor/shared";
 import type {
+  ScoreProjectionSnapshot,
   SectionScoreProjection,
   TotalScoreProjection,
 } from "@/features/score-projection/types/score-projection";
@@ -104,6 +105,7 @@ export type ProgressPageContentProps = {
   sections: SectionProgress[];
   scoreProjections: SectionScoreProjection[];
   totalProjection: TotalScoreProjection | null;
+  snapshots?: ScoreProjectionSnapshot[];
   targetScore: number | null;
   testDate: string | null;
   today: string;
@@ -175,6 +177,7 @@ export function ProgressPage() {
       sections={progressQuery.data.sectionProgress}
       scoreProjections={scoreProjectionQuery.data?.sections ?? []}
       totalProjection={totalProjection}
+      snapshots={scoreProjectionQuery.data?.snapshots ?? []}
       targetScore={plan?.profile?.targetScore ?? null}
       testDate={plan?.profile?.testDate ?? null}
       today={plan?.today ?? todayIso()}
@@ -190,6 +193,7 @@ export function ProgressPageContent({
   sections,
   scoreProjections,
   totalProjection,
+  snapshots = [],
   targetScore,
   testDate,
   today,
@@ -199,7 +203,10 @@ export function ProgressPageContent({
   mockRecentWeightedAverage = null,
 }: ProgressPageContentProps) {
   const currentEstimate = totalProjection?.currentEstimate ?? null;
-  const history = totalProjection?.history ?? [];
+  const history = snapshots.map((snapshot) => ({
+    date: snapshot.date,
+    value: snapshot.currentEstimate,
+  }));
   const earliestRecent = history.length > 1 ? history[0] : null;
   const improvement =
     currentEstimate != null && earliestRecent
@@ -259,6 +266,7 @@ export function ProgressPageContent({
         }
         statusLabel={statusLabel}
         projection={totalProjection}
+        snapshots={snapshots}
         today={today}
         targetScore={targetScore}
         testDate={testDate}

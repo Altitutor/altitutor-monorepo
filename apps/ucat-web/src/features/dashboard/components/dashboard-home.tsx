@@ -999,9 +999,15 @@ export function DashboardHome() {
             totalProjection,
             planQuery.data?.today ?? todayIso(),
             trajectoryState?.projectedAtTest,
+            scoreProjectionQuery.data?.snapshots ?? [],
           )
         : [],
-    [planQuery.data?.today, totalProjection, trajectoryState?.projectedAtTest],
+    [
+      planQuery.data?.today,
+      scoreProjectionQuery.data?.snapshots,
+      totalProjection,
+      trajectoryState?.projectedAtTest,
+    ],
   );
   const mockAnnotations = useMemo(
     () => dashboardMockAnnotations(planQuery.data),

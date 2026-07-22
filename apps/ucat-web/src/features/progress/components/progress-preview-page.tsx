@@ -475,6 +475,36 @@ export function ProgressPreviewPage() {
       progress,
       categories,
       total: deriveTotalScoreProjection(projections),
+      snapshots:
+        scenario.baseScore == null
+          ? []
+          : [-56, -42, -28, -14, 0].map((day, index) => ({
+              date: addDays(today, day),
+              currentEstimate: projections.reduce(
+                (sum, projection) =>
+                  sum +
+                  clampSectionScore(
+                    (projection.currentEstimate ?? 0) - (4 - index) * 18,
+                  ),
+                0,
+              ),
+              confidence: scenario.confidence,
+              uncertainty:
+                scenario.confidence === "low"
+                  ? 180
+                  : scenario.confidence === "medium"
+                    ? 110
+                    : 70,
+              effectiveEvidenceWeight: Math.max(1, scenario.evidenceCount),
+              sectionEstimates: Object.fromEntries(
+                projections.map((projection) => [
+                  projection.sectionId,
+                  clampSectionScore(
+                    (projection.currentEstimate ?? 0) - (4 - index) * 18,
+                  ),
+                ]),
+              ),
+            })),
       sectionTargets,
       activity: makeActivity(today, scenario),
       attemptHistory: Object.fromEntries(
@@ -571,6 +601,7 @@ export function ProgressPreviewPage() {
           sections={model.progress}
           scoreProjections={model.projections}
           totalProjection={model.total}
+          snapshots={model.snapshots}
           targetScore={
             scenario.targetScore == null ? null : scenario.targetScore * 3
           }
@@ -598,6 +629,7 @@ export function ProgressPreviewPage() {
           timedSetsCompleted={Math.max(0, scenario.completedSets - 2)}
           categoryProgress={model.categories[selectedSection.number] ?? []}
           scoreProjection={selectedProjection}
+          snapshots={model.snapshots}
           targetScore={scenario.targetScore}
           testDate={scenario.id === "no_target" ? null : addDays(today, 90)}
           today={today}

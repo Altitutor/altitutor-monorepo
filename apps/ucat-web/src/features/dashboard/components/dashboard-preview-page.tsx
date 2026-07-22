@@ -504,6 +504,14 @@ export function DashboardPreviewPage() {
           total,
           today,
           state?.projectedAtTest,
+          total.history.map((point) => ({
+            date: point.date,
+            currentEstimate: Math.round(point.value),
+            confidence: point.confidence,
+            uncertainty: point.uncertainty,
+            effectiveEvidenceWeight: point.effectiveEvidenceWeight,
+            sectionEstimates: {},
+          })),
         )
       : [];
     const action: DashboardNextAction =

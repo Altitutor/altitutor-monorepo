@@ -6,10 +6,14 @@ import { UcatPageHeader } from "@/features/layout";
 import { AppPageSkeleton } from "@/features/layout/components/app-page-skeleton";
 import { useSectionProgress } from "../hooks/use-progress";
 import { useScoreProjection } from "@/features/score-projection/hooks/use-score-projection";
-import type { SectionScoreProjection } from "@/features/score-projection/types/score-projection";
+import type {
+  ScoreProjectionSnapshot,
+  SectionScoreProjection,
+} from "@/features/score-projection/types/score-projection";
 import { useStudyPlan } from "@/features/study-plan/hooks/use-study-plan";
 import { todayIso } from "@/features/study-plan/lib/dates";
 import { allocateSectionTargets } from "@/features/study-plan/lib/section-targets";
+import { sectionEstimateSnapshots } from "@/features/dashboard/lib/dashboard-trajectory";
 import { useProgressSeries } from "../hooks/use-progress-series";
 import { Card, CardContent } from "@altitutor/ui";
 import { UCAT_CARD_CHROME, UCAT_DIVIDER_TOP } from "@/lib/ucat-surface-motion";
@@ -160,6 +164,7 @@ export function SectionProgressPage({
       timedSetsCompleted={data.timedSetsCompleted}
       categoryProgress={categoryProgress}
       scoreProjection={sectionProjection}
+      snapshots={projectionQuery.data?.snapshots ?? []}
       targetScore={sectionTargets[section.sectionId] ?? null}
       testDate={planQuery.data?.profile?.testDate ?? null}
       today={planQuery.data?.today ?? todayIso()}
@@ -188,6 +193,7 @@ export type SectionProgressContentProps = {
   timedSetsCompleted: number;
   categoryProgress: SectionCategoryProgress[];
   scoreProjection: SectionScoreProjection | null;
+  snapshots?: ScoreProjectionSnapshot[];
   targetScore: number | null;
   testDate: string | null;
   today: string;
@@ -211,6 +217,7 @@ export function SectionProgressContent({
   timedSetsCompleted,
   categoryProgress,
   scoreProjection,
+  snapshots = [],
   targetScore,
   testDate,
   today,
@@ -293,6 +300,10 @@ export function SectionProgressContent({
           {trajectoryView === "score" ? (
             <ProgressTrajectoryCanvas
               projection={scoreProjection}
+              snapshots={sectionEstimateSnapshots(
+                snapshots,
+                section.sectionId,
+              )}
               today={today}
               targetScore={targetScore}
               testDate={testDate}

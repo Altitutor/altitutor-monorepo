@@ -216,7 +216,7 @@ export function ConnectedSignInMethods({
             ) : null}
             {!isLoading && identities.length < 2 ? (
               <p className="text-xs text-muted-foreground">
-                You can't remove your only sign-in method.
+                You cannot remove your only sign-in method.
               </p>
             ) : null}
             {error ? (

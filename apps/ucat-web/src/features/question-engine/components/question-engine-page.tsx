@@ -2027,6 +2027,7 @@ export function QuestionEnginePage({
     isFinalizingExam,
     isFinishingPractice,
     embeddedInLesson,
+    exam,
   ]);
 
   useEffect(() => {

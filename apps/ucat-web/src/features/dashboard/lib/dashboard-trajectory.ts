@@ -1,10 +1,11 @@
 import type {
   ProjectionConfidence,
   ProjectionPoint,
+  ScoreProjectionSnapshot,
   SectionScoreProjection,
   TotalScoreProjection,
 } from "@/features/score-projection/types/score-projection";
-import { daysBetween } from "@/features/study-plan/lib/dates";
+import { daysBetween, isoDate, parseIsoDate } from "@/features/study-plan/lib/dates";
 
 const COGNITIVE_SECTION_NUMBERS = [1, 2, 3] as const;
 export const DASHBOARD_HISTORY_WINDOW_DAYS = 60;
@@ -198,21 +199,116 @@ export function resolveDashboardTrajectory({
   };
 }
 
+/**
+ * Monday (UTC) key for an ISO date — keeps snapshot weekly buckets timezone-stable.
+ */
+export function snapshotWeekKey(dateKey: string): string {
+  const date = parseIsoDate(dateKey);
+  const day = date.getUTCDay();
+  const diff = day === 0 ? -6 : 1 - day;
+  date.setUTCDate(date.getUTCDate() + diff);
+  return isoDate(date);
+}
+
+/**
+ * Project total snapshots down to a single section's shown estimates.
+ * Days without that section are dropped.
+ */
+export function sectionEstimateSnapshots(
+  snapshots: ScoreProjectionSnapshot[],
+  sectionId: string,
+): ScoreProjectionSnapshot[] {
+  return snapshots.flatMap((snapshot) => {
+    const estimate = snapshot.sectionEstimates[sectionId];
+    if (estimate == null) return [];
+    return [
+      {
+        ...snapshot,
+        currentEstimate: estimate,
+      },
+    ];
+  });
+}
+
+/**
+ * Collapse daily snapshots to one point per week using the mean estimate for
+ * that week. Keeps daily snapshots as the source of truth (what was shown) and
+ * only aggregates for chart density — same idea as progress graph week buckets.
+ */
+export function downsampleSnapshotsToWeekly(
+  snapshots: ScoreProjectionSnapshot[],
+  today: string,
+): ScoreProjectionSnapshot[] {
+  const inWindow = snapshots
+    .filter((snapshot) => {
+      const day = daysBetween(today, snapshot.date);
+      return day >= -DASHBOARD_HISTORY_WINDOW_DAYS && day <= 0;
+    })
+    .sort((left, right) => left.date.localeCompare(right.date));
+
+  const byWeek = new Map<string, ScoreProjectionSnapshot[]>();
+  for (const snapshot of inWindow) {
+    const weekKey = snapshotWeekKey(snapshot.date);
+    const group = byWeek.get(weekKey) ?? [];
+    group.push(snapshot);
+    byWeek.set(weekKey, group);
+  }
+
+  return [...byWeek.entries()]
+    .sort(([left], [right]) => left.localeCompare(right))
+    .map(([, group]) => {
+      const latest = group[group.length - 1]!;
+      const averageEstimate = Math.round(
+        group.reduce((sum, snapshot) => sum + snapshot.currentEstimate, 0) /
+          group.length,
+      );
+      const averageUncertainty = Math.round(
+        group.reduce((sum, snapshot) => sum + snapshot.uncertainty, 0) /
+          group.length,
+      );
+      const averageWeight =
+        Math.round(
+          (group.reduce(
+            (sum, snapshot) => sum + snapshot.effectiveEvidenceWeight,
+            0,
+          ) /
+            group.length) *
+            100,
+        ) / 100;
+
+      return {
+        ...latest,
+        // Anchor the bucket on the latest day in the week so "this week" sits
+        // near today rather than on the Monday key.
+        date: latest.date,
+        currentEstimate: averageEstimate,
+        uncertainty: averageUncertainty,
+        effectiveEvidenceWeight: averageWeight,
+        // Confidence: prefer the latest day's label (not averaged).
+        confidence: latest.confidence,
+      };
+    });
+}
+
+/**
+ * Build chart series for score trajectories.
+ *
+ * Actual history comes only from persisted snapshots (total or section-projected).
+ * Reconstructed replay history is not used for student-facing charts.
+ */
 export function buildDashboardTrajectoryChartData(
   total: TotalScoreProjection,
   today: string,
   highlightedPoint?: ProjectionPoint | null,
+  snapshots: ScoreProjectionSnapshot[] = [],
 ): DashboardTrajectoryChartPoint[] {
   const byDate = new Map<string, DashboardTrajectoryChartPoint>();
 
-  // Weekly reconstructed history — same series as the progress page for consistency.
-  for (const point of total.history) {
-    const day = daysBetween(today, point.date);
-    if (day < -DASHBOARD_HISTORY_WINDOW_DAYS) continue;
-    byDate.set(point.date, {
-      date: point.date,
-      day,
-      actual: Math.round(point.value),
+  for (const snapshot of downsampleSnapshotsToWeekly(snapshots, today)) {
+    byDate.set(snapshot.date, {
+      date: snapshot.date,
+      day: daysBetween(today, snapshot.date),
+      actual: snapshot.currentEstimate,
       pessimistic: null,
       realistic: null,
       optimistic: null,
