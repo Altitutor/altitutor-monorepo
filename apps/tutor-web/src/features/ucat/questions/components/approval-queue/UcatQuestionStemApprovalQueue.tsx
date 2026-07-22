@@ -289,25 +289,33 @@ function UcatQuestionStemApprovalQueue({
       onValid: (values: UcatQuestionStemFormValues) => Promise<void>,
       onInvalid: (errors: Record<string, unknown>) => void,
     ) => () => Promise<void>
-    await submit(
-      async (values) => {
-        baselineRef.current = await persistStemFormValues(currentEntry.stemId, values, {
-          baselineSnapshot: baselineRef.current,
-          updateStem: (payload) =>
-            updateMutation.mutateAsync({ stemId: currentEntry.stemId, payload }),
-          setStatus: (status) =>
-            statusMutation.mutateAsync({ stemId: currentEntry.stemId, status }),
-        })
-        ok = true
-      },
-      (errors: Record<string, unknown>) => {
-        toast({
-          title: 'Validation failed',
-          description: getFirstStemValidationMessage(errors),
-          variant: 'destructive',
-        })
-      },
-    )()
+    try {
+      await submit(
+        async (values) => {
+          baselineRef.current = await persistStemFormValues(currentEntry.stemId, values, {
+            baselineSnapshot: baselineRef.current,
+            updateStem: (payload) =>
+              updateMutation.mutateAsync({ stemId: currentEntry.stemId, payload }),
+            setStatus: (status) =>
+              statusMutation.mutateAsync({ stemId: currentEntry.stemId, status }),
+          })
+          ok = true
+        },
+        (errors: Record<string, unknown>) => {
+          toast({
+            title: 'Validation failed',
+            description: getFirstStemValidationMessage(errors),
+            variant: 'destructive',
+          })
+        },
+      )()
+    } catch (error) {
+      toast({
+        title: 'Could not save question',
+        description: error instanceof Error ? error.message : 'The question could not be saved.',
+        variant: 'destructive',
+      })
+    }
     return ok
   }
 
