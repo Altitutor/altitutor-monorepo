@@ -76,7 +76,9 @@ Before deployment:
 1. Enable the Supabase OAuth 2.1 server for the project.
 2. Enable Dynamic Client Registration so Codex clients can register their
    callback URL.
-3. Configure the normal Supabase consent page and application identity.
+3. Set the OAuth authorization path to `/oauth/consent`. Tutor-web implements
+   that consent screen, verifies `is_ucat_tutor()`, and requires an explicit
+   allow/deny decision before returning to Codex.
 4. Deploy the database migration through CI/CD. Do not apply it manually to a
    remote database.
 5. Confirm this endpoint returns the Supabase Auth issuer:
@@ -131,4 +133,3 @@ Each successful mutation appends one compact `activity_events` row containing:
 
 Prompts, hidden reasoning, duplicated aggregate content, and image bytes are not
 stored in the MCP audit event.
-
