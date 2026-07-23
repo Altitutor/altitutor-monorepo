@@ -32901,6 +32901,85 @@ export type Database = {
         Args: { p_stem_id: string }
         Returns: undefined
       }
+      tutor_ucat_mcp_record_auxiliary_activity: {
+        Args: {
+          p_entity_id: string
+          p_entity_type: string
+          p_operation_kinds: Json
+          p_tool_name: string
+        }
+        Returns: undefined
+      }
+      tutor_ucat_mcp_submit_for_review: {
+        Args: {
+          p_content_id: string
+          p_content_type: string
+          p_expected_updated_at: string
+        }
+        Returns: Json
+      }
+      tutor_ucat_mcp_upsert_learning_module: {
+        Args: {
+          p_access_scope: Database["public"]["Enums"]["ucat_access_scope"]
+          p_blocks: Json
+          p_description: string
+          p_estimated_minutes: number
+          p_expected_updated_at: string
+          p_icon_key: string
+          p_index: number
+          p_kind: Database["public"]["Enums"]["ucat_learning_module_kind"]
+          p_module_id: string
+          p_operation_kinds: Json
+          p_parent_id: string
+          p_study_plan_category_ids: string[]
+          p_study_plan_priority: string
+          p_study_plan_tag_ids: string[]
+          p_title: string
+          p_ucat_section_id: string
+        }
+        Returns: Json
+      }
+      tutor_ucat_mcp_upsert_mock: {
+        Args: {
+          p_access_scope: Database["public"]["Enums"]["ucat_access_scope"]
+          p_expected_updated_at: string
+          p_instructions_text: Json
+          p_mock_id: string
+          p_name: string
+          p_operation_kinds: Json
+          p_set_ids: Json
+        }
+        Returns: Json
+      }
+      tutor_ucat_mcp_upsert_question_set: {
+        Args: {
+          p_access_scope: Database["public"]["Enums"]["ucat_access_scope"]
+          p_description: Json
+          p_expected_updated_at: string
+          p_name: Json
+          p_operation_kinds: Json
+          p_set_id: string
+          p_stem_ids: Json
+          p_time_limit_seconds: number
+        }
+        Returns: Json
+      }
+      tutor_ucat_mcp_upsert_question_stem_bundle: {
+        Args: {
+          p_access_scope: Database["public"]["Enums"]["ucat_access_scope"]
+          p_ai_generation_metadata: Json
+          p_expected_updated_at: string
+          p_operation_kinds: Json
+          p_question_stem_category_id: string
+          p_questions: Json
+          p_section_id: string
+          p_source_channel: Database["public"]["Enums"]["ucat_question_source_channel"]
+          p_stem_id: string
+          p_stem_text: Json
+          p_tutor_source_note: string
+        }
+        Returns: Json
+      }
       tutor_ucat_merge_question_stems: {
         Args: { p_source_stem_id: string; p_target_stem_id: string }
         Returns: undefined
@@ -33060,6 +33139,26 @@ export type Database = {
         Returns: Json
       }
       ucat_content_publication_issues: {
+        Args: { p_content_id: string; p_content_type: string }
+        Returns: Json
+      }
+      ucat_mcp_authoring_revision: {
+        Args: { p_entity_id: string; p_updated_at: string }
+        Returns: string
+      }
+      ucat_mcp_record_activity: {
+        Args: {
+          p_after_updated_at: string
+          p_before_updated_at: string
+          p_entity_id: string
+          p_entity_type: string
+          p_event_type: string
+          p_operation_kinds: Json
+          p_tool_name: string
+        }
+        Returns: undefined
+      }
+      ucat_mcp_review_issues: {
         Args: { p_content_id: string; p_content_type: string }
         Returns: Json
       }
