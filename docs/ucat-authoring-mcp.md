@@ -71,14 +71,14 @@ MCP does not provide a portable client-local binary upload mechanism.
 
 ## Supabase configuration
 
-Before deployment:
+Development deployment:
 
-1. Enable the Supabase OAuth 2.1 server for the project.
-2. Enable Dynamic Client Registration so Codex clients can register their
-   callback URL.
-3. Set the OAuth authorization path to `/oauth/consent`. Tutor-web implements
-   that consent screen, verifies `is_ucat_tutor()`, and requires an explicit
-   allow/deny decision before returning to Codex.
+1. `supabase/scripts/deploy-config.sh` enables the Supabase OAuth 2.1 server and
+   Dynamic Client Registration for the development environment through CI/CD.
+2. The development Auth Site URL is the tutor-web development origin and the
+   OAuth authorization path is `/oauth/consent`.
+3. Tutor-web implements that consent screen, verifies `is_ucat_tutor()`, and
+   requires an explicit allow/deny decision before returning to Codex.
 4. Deploy the database migration through CI/CD. Do not apply it manually to a
    remote database.
 5. Confirm this endpoint returns the Supabase Auth issuer:

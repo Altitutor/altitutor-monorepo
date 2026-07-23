@@ -100,9 +100,26 @@ else
   LOCALHOST_AUTH_REDIRECTS=",http://localhost:3004/auth/callback,http://localhost:3004/**"
 fi
 
-# Default site_url (fallback when redirect_to is missing / invalid) follows admin portal for this env.
-PROD_SITE_URL="$ADMIN_URL"
+# The dev OAuth server builds its consent URL from site_url + authorization path,
+# so dev must use tutor-web as the canonical Auth site. Production keeps the
+# existing admin default until the production MCP is intentionally enabled.
+if [ "$SUPABASE_CONFIG_ENV" = "development" ]; then
+  PROD_SITE_URL="$TUTOR_URL"
+  OAUTH_SERVER_ENABLED=true
+  OAUTH_SERVER_ALLOW_DYNAMIC_REGISTRATION=true
+  OAUTH_SERVER_AUTHORIZATION_PATH="/oauth/consent"
+else
+  PROD_SITE_URL="$ADMIN_URL"
+  OAUTH_SERVER_ENABLED=false
+  OAUTH_SERVER_ALLOW_DYNAMIC_REGISTRATION=false
+  OAUTH_SERVER_AUTHORIZATION_PATH=""
+fi
 echo "✅ Updated site_url to $PROD_SITE_URL"
+echo "✅ OAuth server enabled: $OAUTH_SERVER_ENABLED"
+if [ "$OAUTH_SERVER_ENABLED" = "true" ]; then
+  echo "✅ OAuth dynamic client registration enabled"
+  echo "✅ OAuth authorization path: $OAUTH_SERVER_AUTHORIZATION_PATH"
+fi
 
 # Build the hosted Auth URI allow-list. The Management API expects this as a comma-separated string.
 REDIRECT_URLS="$ADMIN_URL/auth/callback,$STUDENT_URL/auth/callback,$TUTOR_URL/auth/callback,$UCAT_URL/auth/callback,$ADMIN_URL/**,$STUDENT_URL/**,$TUTOR_URL/**,$UCAT_URL/**$LOCALHOST_AUTH_REDIRECTS"
@@ -116,9 +133,12 @@ PAYLOAD=$(jq -n \
   --arg google_client_secret "${SUPABASE_AUTH_EXTERNAL_GOOGLE_CLIENT_SECRET:-}" \
   --arg apple_client_id "${SUPABASE_AUTH_EXTERNAL_APPLE_CLIENT_ID:-}" \
   --arg apple_secret "${SUPABASE_AUTH_EXTERNAL_APPLE_SECRET:-}" \
+  --arg oauth_server_authorization_path "$OAUTH_SERVER_AUTHORIZATION_PATH" \
   --argjson rate_limit_email_sent "$AUTH_EMAIL_SENT_LIMIT" \
   --argjson google_auth_enabled "$GOOGLE_AUTH_ENABLED" \
   --argjson apple_auth_enabled "$APPLE_AUTH_ENABLED" \
+  --argjson oauth_server_enabled "$OAUTH_SERVER_ENABLED" \
+  --argjson oauth_server_allow_dynamic_registration "$OAUTH_SERVER_ALLOW_DYNAMIC_REGISTRATION" \
   '{
     site_url: $site_url,
     uri_allow_list: $uri_allow_list,
@@ -157,6 +177,11 @@ PAYLOAD=$(jq -n \
   + (if $apple_auth_enabled then {
       external_apple_client_id: $apple_client_id,
       external_apple_secret: $apple_secret
+    } else {} end)
+  + (if $oauth_server_enabled then {
+      oauth_server_enabled: true,
+      oauth_server_allow_dynamic_registration: $oauth_server_allow_dynamic_registration,
+      oauth_server_authorization_path: $oauth_server_authorization_path
     } else {} end)')
 
 echo "🚀 Patching hosted Auth configuration via Supabase Management API..."
@@ -178,6 +203,9 @@ if [ "$HTTP_CODE" -ge 200 ] && [ "$HTTP_CODE" -lt 300 ]; then
         if .site_url then "  ✅ site_url: \(.site_url)" else empty end,
         if .uri_allow_list then "  ✅ uri_allow_list updated" else empty end,
         if .rate_limit_email_sent then "  ✅ rate_limit_email_sent: \(.rate_limit_email_sent)" else empty end,
+        if .oauth_server_enabled != null then "  ✅ oauth_server_enabled: \(.oauth_server_enabled)" else empty end,
+        if .oauth_server_allow_dynamic_registration != null then "  ✅ oauth_server_allow_dynamic_registration: \(.oauth_server_allow_dynamic_registration)" else empty end,
+        if .oauth_server_authorization_path then "  ✅ oauth_server_authorization_path: \(.oauth_server_authorization_path)" else empty end,
         if .smtp_host then "  ✅ smtp_host: \(.smtp_host)" else empty end
     ' 2>/dev/null || true
 else
