@@ -53,6 +53,129 @@ normalize_bool() {
   esac
 }
 
+management_api_request() {
+  local method=$1
+  local path=$2
+  local payload=${3:-}
+  local curl_args=(
+    -sS
+    -w "\n%{http_code}"
+    -X "$method"
+    "https://api.supabase.com/v1/projects/$PROJECT_REF$path"
+    -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN"
+    -H "Content-Type: application/json"
+  )
+
+  if [ -n "$payload" ]; then
+    curl_args+=(-d "$payload")
+  fi
+
+  curl "${curl_args[@]}"
+}
+
+response_http_code() {
+  echo "$1" | tail -n1
+}
+
+response_body() {
+  echo "$1" | sed '$d'
+}
+
+require_successful_response() {
+  local response=$1
+  local action=$2
+  local http_code
+  local body
+  http_code=$(response_http_code "$response")
+  body=$(response_body "$response")
+
+  if [ "$http_code" -lt 200 ] || [ "$http_code" -ge 300 ]; then
+    echo "❌ Error $action. HTTP $http_code"
+    echo "Response: $body"
+    exit 1
+  fi
+}
+
+ensure_asymmetric_signing_key() {
+  echo "🔐 Ensuring OAuth-compatible asymmetric JWT signing..."
+
+  local response
+  local body
+  local asymmetric_in_use_id
+  local legacy_in_use_id
+  local standby_id
+
+  response=$(management_api_request GET "/config/auth/signing-keys")
+  require_successful_response "$response" "listing JWT signing keys"
+  body=$(response_body "$response")
+
+  asymmetric_in_use_id=$(echo "$body" | jq -r '
+    [.keys[]? | select(.status == "in_use" and (.algorithm == "ES256" or .algorithm == "RS256"))][0].id // empty
+  ')
+  if [ -n "$asymmetric_in_use_id" ]; then
+    echo "✅ An asymmetric JWT signing key is already in use"
+    return
+  fi
+
+  # Existing projects must first import the legacy JWT secret into the signing
+  # keys system. It remains trusted after rotation, so existing sessions and
+  # legacy anon/service_role keys continue to work without downtime.
+  legacy_in_use_id=$(echo "$body" | jq -r '
+    [.keys[]? | select(.status == "in_use" and .algorithm == "HS256")][0].id // empty
+  ')
+  if [ -z "$legacy_in_use_id" ]; then
+    echo "🔄 Importing the legacy JWT secret into the signing keys system..."
+    response=$(management_api_request POST "/config/auth/signing-keys/legacy")
+    require_successful_response "$response" "importing the legacy JWT signing key"
+    body=$(response_body "$response")
+    legacy_in_use_id=$(echo "$body" | jq -r '.id // empty')
+    if [ -z "$legacy_in_use_id" ]; then
+      echo "❌ Error: Supabase did not return the imported legacy signing key ID"
+      exit 1
+    fi
+    echo "✅ Legacy JWT signing key imported"
+
+    response=$(management_api_request GET "/config/auth/signing-keys")
+    require_successful_response "$response" "refreshing JWT signing keys"
+    body=$(response_body "$response")
+  fi
+
+  standby_id=$(echo "$body" | jq -r '
+    [.keys[]? | select(.status == "standby" and (.algorithm == "ES256" or .algorithm == "RS256"))][0].id // empty
+  ')
+  if [ -z "$standby_id" ]; then
+    echo "🔑 Creating an ES256 standby signing key..."
+    response=$(management_api_request POST "/config/auth/signing-keys" \
+      '{"algorithm":"ES256","status":"standby"}')
+    require_successful_response "$response" "creating an ES256 signing key"
+    body=$(response_body "$response")
+    standby_id=$(echo "$body" | jq -r '.id // empty')
+    if [ -z "$standby_id" ]; then
+      echo "❌ Error: Supabase did not return the ES256 signing key ID"
+      exit 1
+    fi
+    echo "✅ ES256 standby signing key created"
+  fi
+
+  echo "🔄 Rotating the ES256 signing key into use..."
+  response=$(management_api_request PATCH "/config/auth/signing-keys/$standby_id" \
+    '{"status":"in_use"}')
+  require_successful_response "$response" "rotating the ES256 signing key into use"
+
+  response=$(management_api_request GET "/config/auth/signing-keys")
+  require_successful_response "$response" "verifying JWT signing key rotation"
+  body=$(response_body "$response")
+  asymmetric_in_use_id=$(echo "$body" | jq -r '
+    [.keys[]? | select(.status == "in_use" and (.algorithm == "ES256" or .algorithm == "RS256"))][0].id // empty
+  ')
+  if [ -z "$asymmetric_in_use_id" ]; then
+    echo "❌ Error: no asymmetric JWT signing key is in use after rotation"
+    exit 1
+  fi
+
+  echo "✅ ES256 JWT signing key is now in use"
+}
+
 GOOGLE_AUTH_ENABLED=$(normalize_bool "${AUTH_GOOGLE_ENABLED:-false}")
 APPLE_AUTH_ENABLED=$(normalize_bool "${AUTH_APPLE_ENABLED:-false}")
 
@@ -212,6 +335,10 @@ else
     echo "❌ Error deploying Auth configuration. HTTP $HTTP_CODE"
     echo "Response: $BODY"
     exit 1
+fi
+
+if [ "$SUPABASE_CONFIG_ENV" = "development" ] && [ "$OAUTH_SERVER_ENABLED" = "true" ]; then
+  ensure_asymmetric_signing_key
 fi
 
 echo "🎉 Configuration deployment completed successfully!"
