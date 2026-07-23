@@ -1,0 +1,6 @@
+[mcp_servers.altitutor-ucat-dev]
+url = "https://tutor.development.altitutor.com/api/mcp"
+oauth_resource = "https://tutor.development.altitutor.com"
+auth = "oauth"
+tool_timeout_sec = 300
+default_tools_approval_mode = "approve"

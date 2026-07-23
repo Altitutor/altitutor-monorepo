@@ -6,6 +6,12 @@ The tutor-web deployment exposes a remote Streamable HTTP MCP server at:
 https://<tutor-web-origin>/api/mcp
 ```
 
+The development server used by Codex is:
+
+```text
+https://tutor.development.altitutor.com/api/mcp
+```
+
 It lets Codex read UCAT authoring content and create or edit content within the
 draft/review boundary. It does not replace the embedded tutor-web authoring
 agent.
