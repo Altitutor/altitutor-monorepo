@@ -1,8 +1,9 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Alert, AlertDescription, Button } from '@altitutor/ui';
 import { Loader2, ShieldCheck } from 'lucide-react';
+import { useSearchParams } from 'next/navigation';
 import { LoginPageLayout } from '@/features/auth/components';
 import { useSupabaseClient } from '@/shared/lib/supabase/client';
 import { cn } from '@/shared/utils';
@@ -11,33 +12,59 @@ import { tutorBtnPrimary } from '@/shared/lib/tutor-visual';
 type ConsentDecision = 'approve' | 'deny';
 
 type AuthorizationDetails = {
-  authorization_id: string;
-  redirect_uri?: string;
-  client: {
-    client_id: string;
-    client_name: string;
-    client_uri: string;
-    logo_uri: string;
-  };
-  user: {
-    id: string;
-    email: string;
-  };
-  scope: string;
+  clientName: string;
+  clientUri: string | null;
+  scopes: string[];
 };
+
+function getString(record: Record<string, unknown>, key: string): string | null {
+  const value = record[key];
+  return typeof value === 'string' && value.length > 0 ? value : null;
+}
+
+function normalizeAuthorizationDetails(value: unknown): {
+  details: AuthorizationDetails | null;
+  redirectUrl: string | null;
+} {
+  if (!value || typeof value !== 'object') {
+    return { details: null, redirectUrl: null };
+  }
+
+  const record = value as Record<string, unknown>;
+  const redirectUrl = getString(record, 'redirect_url') ?? getString(record, 'redirect_uri');
+  if (redirectUrl) return { details: null, redirectUrl };
+
+  const client =
+    record.client && typeof record.client === 'object'
+      ? (record.client as Record<string, unknown>)
+      : null;
+  if (!client) return { details: null, redirectUrl: null };
+
+  const clientName =
+    getString(client, 'client_name') ?? getString(client, 'name') ?? 'Unknown application';
+  const clientUri = getString(client, 'client_uri') ?? getString(client, 'uri');
+  const scope = getString(record, 'scope') ?? '';
+
+  return {
+    details: {
+      clientName,
+      clientUri,
+      scopes: scope.split(/\s+/).filter(Boolean),
+    },
+    redirectUrl: null,
+  };
+}
 
 function ConsentPageContent() {
   const supabase = useSupabaseClient();
+  const searchParams = useSearchParams();
   const [details, setDetails] = useState<AuthorizationDetails | null>(null);
   const [isUcatTutor, setIsUcatTutor] = useState(false);
   const [loading, setLoading] = useState(true);
   const [decision, setDecision] = useState<ConsentDecision | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const authorizationId = useMemo(() => {
-    if (typeof window === 'undefined') return null;
-    return new URLSearchParams(window.location.search).get('authorization_id');
-  }, []);
+  const authorizationId = searchParams.get('authorization_id');
 
   useEffect(() => {
     let cancelled = false;
@@ -68,12 +95,19 @@ function ConsentPageContent() {
         return;
       }
 
-      if (authorization.data.redirect_uri) {
-        window.location.assign(authorization.data.redirect_uri);
+      const normalized = normalizeAuthorizationDetails(authorization.data);
+      if (normalized.redirectUrl) {
+        window.location.assign(normalized.redirectUrl);
         return;
       }
 
-      setDetails(authorization.data);
+      if (!normalized.details) {
+        setError('Supabase returned an invalid authorization request.');
+        setLoading(false);
+        return;
+      }
+
+      setDetails(normalized.details);
       setIsUcatTutor(access.data === true);
       setLoading(false);
     }
@@ -134,10 +168,12 @@ function ConsentPageContent() {
             </div>
             <div className="min-w-0">
               <p className="text-sm text-muted-foreground">Application requesting access</p>
-              <h2 className="break-words text-xl font-semibold">{details.client.client_name}</h2>
-              <p className="mt-1 break-all text-xs text-muted-foreground">
-                {details.client.client_uri}
-              </p>
+              <h2 className="break-words text-xl font-semibold">{details.clientName}</h2>
+              {details.clientUri && (
+                <p className="mt-1 break-all text-xs text-muted-foreground">
+                  {details.clientUri}
+                </p>
+              )}
             </div>
           </div>
 
@@ -152,6 +188,11 @@ function ConsentPageContent() {
               It cannot publish content or edit published content. All changes retain your tutor
               identity and are recorded in the MCP audit trail.
             </p>
+            {details.scopes.length > 0 && (
+              <p className="mt-3 text-xs text-muted-foreground">
+                Identity scopes: {details.scopes.join(', ')}
+              </p>
+            )}
           </div>
 
           {!isUcatTutor && (
