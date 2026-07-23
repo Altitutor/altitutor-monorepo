@@ -31,7 +31,10 @@ function normalizeAuthorizationDetails(value: unknown): {
   }
 
   const record = value as Record<string, unknown>;
-  const redirectUrl = getString(record, 'redirect_url') ?? getString(record, 'redirect_uri');
+  // Current Supabase OAuth returns redirect_url only when an existing consent
+  // can be reused. redirect_uri identifies the client's registered callback
+  // and must never be treated as evidence that the user already consented.
+  const redirectUrl = getString(record, 'redirect_url');
   if (redirectUrl) return { details: null, redirectUrl };
 
   const client =
