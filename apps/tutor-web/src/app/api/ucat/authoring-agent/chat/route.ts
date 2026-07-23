@@ -95,13 +95,14 @@ const TOOL_CATALOG: Record<string, string[]> = {
     'previewSelectedImageConversion({visualType:"venn_diagram"|"set_diagram"|"vega_lite_chart", spec, altText?, title?})',
   ],
   learning_module_lesson: [
-    'updateLessonMetadata({title?, description?, sectionId?, isPrivate?})',
+    'updateLessonMetadata({title?, description?, sectionId?, isPrivate?, iconKey?, estimatedMinutes?, studyPlanPriority?, studyPlanCategoryIds?, studyPlanTagIds?})',
     'insertTextBlock({index, text})',
     'updateTextBlock({blockId, text})',
+    'searchQuestionStemCandidates({query, limit?})',
+    'searchQuestionCandidates({query, limit?})',
     'insertQuestionStemBlock({index, questionStemId})',
     'insertQuestionBlock({index, questionId})',
-    'insertBestMatchingQuestionStem({query, index?})',
-    'insertBestMatchingQuestion({query, index?})',
+    'generateAndLinkAssessment({instructions, blockType:"question_stem"|"question", index?, sectionId?, categoryId?, tagIds?})',
     'insertSkillTrainerBlock({index, skillTrainerId})',
     'moveBlock({blockId, toIndex})',
     'updateBlockGate({blockId, requireCompletionBeforeNext})',
@@ -144,8 +145,7 @@ Use simple text fields for prose; the client converts text into rich editor docu
 If prose needs a table, a normal markdown pipe table is acceptable; the client converts it into a rich editor table.
 When adding multiple visuals to the same target, set mode:"append" after the first visual.
 For question stem editing, the snapshot may include currentQuestionIndex/currentQuestionNumber plus availableTags, availableCategories, and availableSections. Use those IDs directly when tagging or categorising. If the tutor says "this question" or does not specify a question number, target currentQuestionIndex.
-For learning modules, use insertBestMatchingQuestionStem or insertBestMatchingQuestion when the tutor asks you to find an appropriate existing question from the database and add it to the lesson. Use insertQuestionStemBlock/insertQuestionBlock only when you already know the exact ID.
-Do not invent catalog IDs. If an ID is needed and not present in the snapshot, ask the tutor for it instead of calling a tool.
+For learning modules, use updateLessonMetadata for draft lesson properties: title, description, sectionId, isPrivate, iconKey, estimatedMinutes, and study-plan fields (studyPlanPriority, studyPlanCategoryIds, studyPlanTagIds). Prefer IDs and iconKey values from the snapshot (availableIcons, availableCategories, availableTags, studyPlanPriority options). studyPlanCategoryIds/studyPlanTagIds replace the full list when provided — pass [] to clear. Prefer categories/tags whose section matches the lesson sectionId. When the tutor wants practice content, first call searchQuestionStemCandidates or searchQuestionCandidates and inspect the returned top candidates. Insert with insertQuestionStemBlock/insertQuestionBlock only when you judge a candidate is pedagogically appropriate for the technique or skill being taught — do not settle for a weak keyword match. If none fit, or the tutor explicitly asks to create/generate a new stem or question, call generateAndLinkAssessment. That tool always creates a normal AI-generated question stem (stemCount 1) through the shared generation pipeline, inserts a private-draft pending placeholder block, and may flip the lesson draft to private. For blockType:"question", the placeholder later binds to the first question on the generated stem. Prefer the lesson sectionId; pass sectionId only to override when the request clearly targets another section. Pass categoryId/tagIds when obvious from the request; otherwise omit them. Generation does not require confirmation. Do not invent catalog IDs. If an ID is needed and not present in search results or the snapshot, ask the tutor for it or generate instead of calling an insert tool.
 
 Available tools for this context:
 ${TOOL_CATALOG[contextType].map((tool) => `- ${tool}`).join('\n')}
@@ -262,6 +262,7 @@ async function runAgentStep(body: z.infer<typeof requestSchema>, access: Extract
         client: access.userClient as unknown as SupabaseClient<Database>,
         operation: `authoring_agent_${body.contextType}${attempt > 0 ? '_repair' : ''}`,
         modelProfileId: body.modelProfileId ?? null,
+        tutorScoped: true,
         systemPrompt: buildSystemPrompt(body.contextType),
         userPrompt: buildAgentUserPrompt(body, lastUserMessage, repairContext),
         timeoutMs: 90000,

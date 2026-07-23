@@ -48,10 +48,13 @@ export function UcatCreateLearningModuleDialog({
   const [orderItems, setOrderItems] = useState<Array<{ id: string; index: number }>>([])
 
   const sectionItems = useMemo(
-    () => sections.filter((s): s is typeof s & { id: string } => s.id != null),
+    () => [
+      { id: 'none', name: 'None' },
+      ...sections.filter((s): s is typeof s & { id: string } => s.id != null),
+    ],
     [sections],
   )
-  const selectedSection = sectionItems.find((section) => section.id === sectionId) ?? null
+  const selectedSection = sectionItems.find((section) => section.id === (sectionId ?? 'none')) ?? sectionItems[0]
 
   const taxonomyRows = useMemo(
     () =>
@@ -67,7 +70,6 @@ export function UcatCreateLearningModuleDialog({
       modules.filter(
         (row) =>
           row.kind === 'folder' &&
-          sectionId != null &&
           resolveRootSectionId(taxonomyRows, row.id) === sectionId,
       ),
     [modules, sectionId, taxonomyRows],
@@ -86,16 +88,13 @@ export function UcatCreateLearningModuleDialog({
 
   const noun = kind === 'folder' ? 'folder' : 'learning module'
   const orderPlaceholder = useMemo(
-    () =>
-      sectionId
-        ? {
-            id: NEW_MODULE_PLACEHOLDER_ID,
-            title: title.trim() || (kind === 'folder' ? 'New folder' : 'New learning module'),
-            kind,
-            sectionId,
-            parentId,
-          }
-        : undefined,
+    () => ({
+      id: NEW_MODULE_PLACEHOLDER_ID,
+      title: title.trim() || (kind === 'folder' ? 'New folder' : 'New learning module'),
+      kind,
+      sectionId,
+      parentId,
+    }),
     [kind, parentId, sectionId, title],
   )
 
@@ -104,9 +103,9 @@ export function UcatCreateLearningModuleDialog({
       open={open}
       onClose={onClose}
       title={kind === 'folder' ? 'New folder' : 'New learning module'}
-      subtitle={`Create a ${noun} and place it in a section.`}
+      subtitle={`Create a ${noun} and choose where it sits in the hierarchy.`}
       onSave={() => onSave(orderItems)}
-      saveDisabled={!title.trim() || !sectionId}
+      saveDisabled={!title.trim()}
       isSaving={isSaving}
       saveLabel={kind === 'folder' ? 'Create folder' : 'Create module'}
     >
@@ -127,11 +126,11 @@ export function UcatCreateLearningModuleDialog({
                 items={sectionItems}
                 value={selectedSection}
                 onValueChange={(item) => {
-                  const nextSectionId = item?.id ?? null
+                  const nextSectionId = item?.id === 'none' ? null : item?.id ?? null
                   if (nextSectionId !== sectionId) onParentIdChange(null)
                   onSectionIdChange(nextSectionId)
                 }}
-                getItemLabel={(section) => section.name ?? 'Unknown section'}
+                getItemLabel={(section) => section.name ?? 'None'}
                 getItemId={(section) => section.id}
                 placeholder="Select section"
               />
@@ -147,7 +146,6 @@ export function UcatCreateLearningModuleDialog({
                 getItemLabel={(folder) => folder.name}
                 getItemId={(folder) => folder.id}
                 placeholder="Root"
-                disabled={!sectionId}
               />
             </div>
           </div>
@@ -155,20 +153,14 @@ export function UcatCreateLearningModuleDialog({
         <div className="mt-4 flex min-h-0 flex-1 flex-col gap-2">
           <Label>Placement</Label>
           <div className="min-h-0 flex-1 overflow-y-auto rounded-lg border p-3">
-            {sectionId ? (
-              <UcatLearningModuleOrderEditor
-                moduleId={null}
-                sectionId={sectionId}
-                modules={modules}
-                editorMode="edit"
-                placeholder={orderPlaceholder}
-                onOrderItemsChange={setOrderItems}
-              />
-            ) : (
-              <p className="text-xs text-muted-foreground">
-                Select a section to set placement order.
-              </p>
-            )}
+            <UcatLearningModuleOrderEditor
+              moduleId={null}
+              sectionId={sectionId}
+              modules={modules}
+              editorMode="edit"
+              placeholder={orderPlaceholder}
+              onOrderItemsChange={setOrderItems}
+            />
           </div>
         </div>
       </div>

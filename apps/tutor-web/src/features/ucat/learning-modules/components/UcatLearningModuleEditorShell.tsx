@@ -4,12 +4,16 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { Editor } from '@tiptap/react'
 import { SearchableSelect } from '@altitutor/ui'
 import {
+  useUcatCategories,
   useUcatQuestionCatalog,
   useUcatSections,
   useUcatStemCatalog,
+  useUcatTags,
 } from '@/features/ucat/questions/hooks/useUcatQuestions'
+import { ucatQuestionsApi } from '@/features/ucat/questions/api/questions'
 import { useUcatSkillTrainersCatalog } from '@/features/ucat/skill-trainer/hooks/useUcatSkillTrainerItems'
 import type { useLearningModuleEditor } from '@/features/ucat/learning-modules/hooks/useLearningModuleEditor'
+import { usePendingGeneratedAssessmentPolling } from '@/features/ucat/learning-modules/hooks/usePendingGeneratedAssessmentPolling'
 import { UcatLearningModuleBlockCard } from '@/features/ucat/learning-modules/components/UcatLearningModuleBlockCard'
 import { UcatLearningModuleLessonPreview } from '@/features/ucat/learning-modules/components/UcatLearningModuleLessonPreview'
 import { UcatLearningModuleSettingsPanel } from '@/features/ucat/learning-modules/components/UcatLearningModuleSettingsPanel'
@@ -20,8 +24,21 @@ import {
   BLOCK_TYPE_LABELS,
   newDraftBlock,
 } from '@/features/ucat/learning-modules/lib/learning-module-editor-types'
-import type { UcatLearningModuleBlockType } from '@/features/ucat/learning-modules/types'
+import {
+  searchQuestionCandidates,
+  searchQuestionStemCandidates,
+} from '@/features/ucat/learning-modules/lib/catalog-candidate-search'
+import { buildPendingGeneratedAssessmentContent } from '@/features/ucat/learning-modules/lib/pending-generated-assessment'
+import {
+  isLearningModuleIconKey,
+  LEARNING_MODULE_ICON_OPTIONS,
+} from '@/features/ucat/learning-modules/lib/learning-module-icons'
+import type {
+  UcatLearningModuleBlockType,
+  UcatLearningModuleStudyPlanPriority,
+} from '@/features/ucat/learning-modules/types'
 import { aiTextToProseMirror } from '@/features/ucat/shared/lib/rich-text'
+import { resolveRootSectionId } from '@/features/ucat/shared/lib/taxonomy-reparent'
 import type { Json } from '@altitutor/shared'
 import { appendImageNode, appendImageNodeToDoc, replaceFirstImageNode, replaceFirstImageNodeInDoc } from '@/features/ucat/authoring-agent/rich-text-image'
 import { generatedVisualBlockToImageNode, getGeneratedVisualSpecIssue } from '@/features/ucat/questions/lib/ai-generation/content-blocks'
@@ -31,6 +48,17 @@ import {
   type UcatAuthoringWorkspaceTab,
 } from '@/features/ucat/shared/components/UcatAuthoringWorkspaceTabs'
 import { cn } from '@/shared/utils'
+
+const STUDY_PLAN_PRIORITIES: UcatLearningModuleStudyPlanPriority[] = [
+  'essential',
+  'recommended',
+  'optional',
+  'excluded',
+]
+
+function isStudyPlanPriority(value: unknown): value is UcatLearningModuleStudyPlanPriority {
+  return typeof value === 'string' && STUDY_PLAN_PRIORITIES.includes(value as UcatLearningModuleStudyPlanPriority)
+}
 
 type LearningModuleEditor = ReturnType<typeof useLearningModuleEditor>
 
@@ -47,14 +75,9 @@ const BLOCK_TYPE_OPTIONS = (Object.keys(BLOCK_TYPE_LABELS) as UcatLearningModule
   }),
 )
 
-function scoreCatalogMatch(query: string, haystack: string) {
-  const terms = query
-    .toLowerCase()
-    .split(/[^a-z0-9]+/u)
-    .filter((term) => term.length > 2)
-  const target = haystack.toLowerCase()
-  if (terms.length === 0) return 0
-  return terms.reduce((score, term) => score + (target.includes(term) ? 1 : 0), 0)
+function asStringArray(value: unknown): string[] {
+  if (!Array.isArray(value)) return []
+  return value.filter((item): item is string => typeof item === 'string' && item.length > 0)
 }
 
 export function UcatLearningModuleEditorShell({
@@ -74,6 +97,8 @@ export function UcatLearningModuleEditorShell({
   )
 
   const { data: sections } = useUcatSections()
+  const { data: categories } = useUcatCategories()
+  const { data: tags } = useUcatTags()
   const stemCatalog = useUcatStemCatalog(hasUcatAccess, { publishedOnly: true })
   const questionCatalog = useUcatQuestionCatalog(hasUcatAccess)
   const { data: skillTrainers } = useUcatSkillTrainersCatalog()
@@ -102,6 +127,12 @@ export function UcatLearningModuleEditorShell({
     [sections],
   )
 
+  usePendingGeneratedAssessmentPolling({
+    draftBlocks: editor.draftBlocks,
+    updateBlock: editor.updateBlock,
+    enabled: editor.kind === 'lesson',
+  })
+
   const handleAddBlock = useCallback(
     (type: UcatLearningModuleBlockType) => {
       const block = newDraftBlock(type)
@@ -124,12 +155,93 @@ export function UcatLearningModuleEditorShell({
       const text = typeof input.text === 'string' ? input.text : ''
 
       switch (toolCall.name) {
-        case 'updateLessonMetadata':
+        case 'updateLessonMetadata': {
           if (typeof input.title === 'string') editor.setTitle(input.title)
           if (typeof input.description === 'string') editor.setDescription(input.description)
-          if (typeof input.sectionId === 'string' || input.sectionId === null) editor.setSectionId(input.sectionId ?? null)
+          if (typeof input.sectionId === 'string' || input.sectionId === null) {
+            editor.setSectionId(input.sectionId ?? null)
+          }
           if (typeof input.isPrivate === 'boolean') editor.setIsPrivate(input.isPrivate)
+
+          if ('iconKey' in input) {
+            if (!isLearningModuleIconKey(input.iconKey)) {
+              return {
+                toolCallId: toolCall.id,
+                ok: false,
+                message: `Invalid iconKey. Use one of: ${LEARNING_MODULE_ICON_OPTIONS.map((option) => option.value).join(', ')}.`,
+              }
+            }
+            editor.setIconKey(input.iconKey)
+          }
+
+          if ('estimatedMinutes' in input) {
+            if (input.estimatedMinutes === null) {
+              editor.setEstimatedMinutes(null)
+            } else if (
+              typeof input.estimatedMinutes === 'number' &&
+              Number.isFinite(input.estimatedMinutes) &&
+              input.estimatedMinutes >= 1 &&
+              input.estimatedMinutes <= 600
+            ) {
+              editor.setEstimatedMinutes(Math.round(input.estimatedMinutes))
+            } else {
+              return {
+                toolCallId: toolCall.id,
+                ok: false,
+                message: 'estimatedMinutes must be null or an integer from 1 to 600.',
+              }
+            }
+          }
+
+          if ('studyPlanPriority' in input) {
+            if (!isStudyPlanPriority(input.studyPlanPriority)) {
+              return {
+                toolCallId: toolCall.id,
+                ok: false,
+                message: `Invalid studyPlanPriority. Use one of: ${STUDY_PLAN_PRIORITIES.join(', ')}.`,
+              }
+            }
+            editor.setStudyPlanPriority(input.studyPlanPriority)
+          }
+
+          if ('studyPlanCategoryIds' in input) {
+            const nextIds = asStringArray(input.studyPlanCategoryIds)
+            const knownIds = new Set(
+              (categories ?? [])
+                .map((category) => category.id)
+                .filter((id): id is string => typeof id === 'string' && id.length > 0),
+            )
+            const unknownIds = nextIds.filter((id) => !knownIds.has(id))
+            if (unknownIds.length > 0) {
+              return {
+                toolCallId: toolCall.id,
+                ok: false,
+                message: `Unknown studyPlanCategoryIds: ${unknownIds.join(', ')}. Use IDs from availableCategories.`,
+              }
+            }
+            editor.setStudyPlanCategoryIds(nextIds)
+          }
+
+          if ('studyPlanTagIds' in input) {
+            const nextIds = asStringArray(input.studyPlanTagIds)
+            const knownIds = new Set(
+              (tags ?? [])
+                .map((tag) => tag.id)
+                .filter((id): id is string => typeof id === 'string' && id.length > 0),
+            )
+            const unknownIds = nextIds.filter((id) => !knownIds.has(id))
+            if (unknownIds.length > 0) {
+              return {
+                toolCallId: toolCall.id,
+                ok: false,
+                message: `Unknown studyPlanTagIds: ${unknownIds.join(', ')}. Use IDs from availableTags.`,
+              }
+            }
+            editor.setStudyPlanTagIds(nextIds)
+          }
+
           return { toolCallId: toolCall.id, ok: true, message: 'Updated draft lesson metadata.' }
+        }
 
         case 'insertTextBlock': {
           const block = newDraftBlock('text')
@@ -176,6 +288,36 @@ export function UcatLearningModuleEditorShell({
           }
         }
 
+        case 'searchQuestionStemCandidates': {
+          const query = typeof input.query === 'string' ? input.query : ''
+          if (!query.trim()) return { toolCallId: toolCall.id, ok: false, message: 'No question stem search query provided.' }
+          const limit = typeof input.limit === 'number' ? input.limit : 3
+          const candidates = searchQuestionStemCandidates(query, stemOptions, limit)
+          return {
+            toolCallId: toolCall.id,
+            ok: true,
+            message: candidates.length > 0
+              ? `Found ${candidates.length} stem candidate(s). Insert only if pedagogically appropriate; otherwise generate.`
+              : `No stem candidates found for "${query}". Generate if appropriate.`,
+            output: { query, candidates },
+          }
+        }
+
+        case 'searchQuestionCandidates': {
+          const query = typeof input.query === 'string' ? input.query : ''
+          if (!query.trim()) return { toolCallId: toolCall.id, ok: false, message: 'No question search query provided.' }
+          const limit = typeof input.limit === 'number' ? input.limit : 3
+          const candidates = searchQuestionCandidates(query, questionOptions, limit)
+          return {
+            toolCallId: toolCall.id,
+            ok: true,
+            message: candidates.length > 0
+              ? `Found ${candidates.length} question candidate(s). Insert only if pedagogically appropriate; otherwise generate.`
+              : `No question candidates found for "${query}". Generate if appropriate.`,
+            output: { query, candidates },
+          }
+        }
+
         case 'insertQuestionStemBlock': {
           if (typeof input.questionStemId !== 'string') {
             return { toolCallId: toolCall.id, ok: false, message: 'No question stem ID provided.' }
@@ -214,67 +356,86 @@ export function UcatLearningModuleEditorShell({
           }
         }
 
-        case 'insertBestMatchingQuestionStem': {
-          const query = typeof input.query === 'string' ? input.query : ''
-          if (!query.trim()) return { toolCallId: toolCall.id, ok: false, message: 'No question stem search query provided.' }
-          const match = stemOptions
-            .map((stem) => ({
-              stem,
-              score: scoreCatalogMatch(
-                query,
-                [stem.text, stem.sectionName, stem.categoryName, stem.typeSummary].filter(Boolean).join(' '),
-              ),
-            }))
-            .sort((a, b) => b.score - a.score)[0]
-          if (!match || match.score <= 0) {
-            return { toolCallId: toolCall.id, ok: false, message: `No matching question stem found for "${query}".` }
+        case 'generateAndLinkAssessment': {
+          const instructions = typeof input.instructions === 'string' ? input.instructions.trim() : ''
+          if (!instructions) {
+            return { toolCallId: toolCall.id, ok: false, message: 'Generation instructions are required.' }
           }
-          const block = newDraftBlock('question_stem')
-          editor.insertBlock({ ...block, question_stem_id: match.stem.id }, index)
-          return {
-            toolCallId: toolCall.id,
-            ok: true,
-            message: `Inserted matching question stem: ${match.stem.text.slice(0, 80)}.`,
-            output: {
-              blockId: block.clientId,
-              blockType: 'question_stem',
-              index,
-              questionStemId: match.stem.id,
-              stemText: match.stem.text,
-              sectionName: match.stem.sectionName,
-              categoryName: match.stem.categoryName,
-              typeSummary: match.stem.typeSummary,
-            },
+          const blockType = input.blockType === 'question'
+            ? 'question'
+            : input.blockType === 'question_stem'
+              ? 'question_stem'
+              : null
+          if (!blockType) {
+            return { toolCallId: toolCall.id, ok: false, message: 'blockType must be "question_stem" or "question".' }
           }
-        }
+          const sectionId =
+            typeof input.sectionId === 'string' && input.sectionId
+              ? input.sectionId
+              : editor.sectionId
+          if (!sectionId) {
+            return {
+              toolCallId: toolCall.id,
+              ok: false,
+              message: 'A sectionId is required. Set the lesson section or pass sectionId in the tool input.',
+            }
+          }
+          const categoryId = typeof input.categoryId === 'string' ? input.categoryId : null
+          const tagIds = asStringArray(input.tagIds)
 
-        case 'insertBestMatchingQuestion': {
-          const query = typeof input.query === 'string' ? input.query : ''
-          if (!query.trim()) return { toolCallId: toolCall.id, ok: false, message: 'No question search query provided.' }
-          const match = questionOptions
-            .map((question) => ({
-              question,
-              score: scoreCatalogMatch(query, [question.label, question.sectionName, question.questionType].join(' ')),
-            }))
-            .sort((a, b) => b.score - a.score)[0]
-          if (!match || match.score <= 0) {
-            return { toolCallId: toolCall.id, ok: false, message: `No matching question found for "${query}".` }
-          }
-          const block = newDraftBlock('question')
-          editor.insertBlock({ ...block, question_id: match.question.id }, index)
-          return {
-            toolCallId: toolCall.id,
-            ok: true,
-            message: `Inserted matching question: ${match.question.label}.`,
-            output: {
-              blockId: block.clientId,
-              blockType: 'question',
+          try {
+            const { runId } = await ucatQuestionsApi.startGeneration({
+              sectionId,
+              categoryId,
+              sourceMode: 'random',
+              includeAiSourceStems: false,
+              imageGenerationMode: 'auto',
+              stemCount: 1,
+              difficultyTarget: 'mixed',
+              timeBurdenTarget: 'mixed',
+              targetTagIds: tagIds,
+              runInstructions: instructions,
+            })
+
+            const flippedPrivate = !editor.isPrivate
+            if (flippedPrivate) editor.setIsPrivate(true)
+
+            const block = newDraftBlock(blockType)
+            editor.insertBlock(
+              {
+                ...block,
+                content: buildPendingGeneratedAssessmentContent({
+                  generationRunId: runId,
+                  generationBlockIntent: blockType,
+                  generationStatus: 'running',
+                }),
+              },
               index,
-              questionId: match.question.id,
-              label: match.question.label,
-              sectionName: match.question.sectionName,
-              questionType: match.question.questionType,
-            },
+            )
+
+            return {
+              toolCallId: toolCall.id,
+              ok: true,
+              message: flippedPrivate
+                ? `Started AI generation and inserted a pending ${blockType.replace(/_/g, ' ')} placeholder. Lesson draft set to private until the stem is approved.`
+                : `Started AI generation and inserted a pending ${blockType.replace(/_/g, ' ')} placeholder.`,
+              output: {
+                blockId: block.clientId,
+                blockType,
+                index,
+                generationRunId: runId,
+                sectionId,
+                categoryId,
+                tagIds,
+                flippedPrivate,
+              },
+            }
+          } catch (error) {
+            return {
+              toolCallId: toolCall.id,
+              ok: false,
+              message: error instanceof Error ? error.message : 'Failed to start AI generation.',
+            }
           }
         }
 
@@ -400,7 +561,7 @@ export function UcatLearningModuleEditorShell({
           return { toolCallId: toolCall.id, ok: false, message: `${toolCall.name} is not available in the lesson editor yet.` }
       }
     },
-    [editor, questionOptions, stemOptions],
+    [categories, editor, questionOptions, stemOptions, tags],
   )
 
   useEffect(() => {
@@ -538,8 +699,47 @@ export function UcatLearningModuleEditorShell({
                   description: editor.description,
                   sectionId: editor.sectionId,
                   isPrivate: editor.isPrivate,
+                  iconKey: editor.iconKey,
+                  estimatedMinutes: editor.estimatedMinutes,
+                  studyPlanPriority: editor.studyPlanPriority,
+                  studyPlanCategoryIds: editor.studyPlanCategoryIds,
+                  studyPlanTagIds: editor.studyPlanTagIds,
                   selectedBlockId: editor.selectedBlockId,
                   blocks: editor.draftBlocks,
+                  availableIcons: LEARNING_MODULE_ICON_OPTIONS.map((option) => ({
+                    value: option.value,
+                    label: option.label,
+                  })),
+                  studyPlanPriorities: STUDY_PLAN_PRIORITIES,
+                  availableSections: sectionOptions.map((section) => ({
+                    id: section.id,
+                    name: section.name,
+                  })),
+                  availableCategories: (categories ?? [])
+                    .filter((category): category is typeof category & { id: string; name: string } =>
+                      Boolean(category.id && category.name),
+                    )
+                    .map((category) => ({
+                      id: category.id,
+                      name: category.name,
+                      sectionId: category.ucat_section_id,
+                    })),
+                  availableTags: (() => {
+                    const tagRows = (tags ?? []).filter(
+                      (tag): tag is typeof tag & { id: string; name: string } =>
+                        Boolean(tag.id && tag.name),
+                    )
+                    const taxonomyRows = tagRows.map((tag) => ({
+                      id: tag.id,
+                      parent_id: tag.parent_question_tag_id ?? null,
+                      section_id: tag.ucat_section_id ?? null,
+                    }))
+                    return tagRows.map((tag) => ({
+                      id: tag.id,
+                      name: tag.name,
+                      sectionId: resolveRootSectionId(taxonomyRows, tag.id),
+                    }))
+                  })(),
                   searchableCatalog: {
                     questionStemCount: stemOptions.length,
                     questionCount: questionOptions.length,

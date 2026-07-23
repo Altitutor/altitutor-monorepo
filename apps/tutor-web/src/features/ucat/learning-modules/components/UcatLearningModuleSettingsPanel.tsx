@@ -187,8 +187,21 @@ export function UcatLearningModuleSettingsPanel({
   const categoryOptions = (categoriesQuery.data ?? [])
     .filter((category) => category.id && (!sectionId || category.ucat_section_id === sectionId))
     .map((category) => ({ id: category.id as string, name: category.name ?? 'Untitled category' }))
-  const tagOptions = (tagsQuery.data ?? [])
-    .filter((tag) => tag.id && (!sectionId || tag.ucat_section_id === sectionId))
+  // Child tags store ucat_section_id = null and inherit section from their root ancestor.
+  const tagRows = tagsQuery.data ?? []
+  const tagTaxonomyRows = tagRows
+    .filter((tag): tag is typeof tag & { id: string } => Boolean(tag.id))
+    .map((tag) => ({
+      id: tag.id,
+      parent_id: tag.parent_question_tag_id ?? null,
+      section_id: tag.ucat_section_id ?? null,
+    }))
+  const tagOptions = tagRows
+    .filter((tag) => {
+      if (!tag.id) return false
+      if (!sectionId) return true
+      return resolveRootSectionId(tagTaxonomyRows, tag.id) === sectionId
+    })
     .map((tag) => ({ id: tag.id as string, name: tag.name ?? 'Untitled tag' }))
 
   return (

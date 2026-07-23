@@ -1,20 +1,26 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { motion } from "motion/react";
 import {
   Alert,
   AlertDescription,
   AlertTitle,
+  Badge,
   Card,
   CardContent,
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
   Skeleton,
 } from "@altitutor/ui";
 import {
   AlertTriangle,
   CalendarDays,
+  Check,
   Gauge,
   Target,
   type LucideIcon,
@@ -23,13 +29,19 @@ import { Button } from "@/components/ui/button";
 import { UcatPageHeader } from "@/features/layout";
 import { StudyPlanCalendar } from "@/features/study-plan/components/study-plan-calendar";
 import { useStudyPlan } from "@/features/study-plan/hooks/use-study-plan";
-import type { StudyPlanResponse } from "@/features/study-plan/model/types";
+import type {
+  StudyPlanReadinessSnapshot,
+  StudyPlanResponse,
+  StudyPlanSectionReadiness,
+  StudyPlanTrainingMode,
+} from "@/features/study-plan/model/types";
 import {
   daysBetweenDateKeys,
   formatStudyPlanDate,
 } from "@/features/study-plan/lib/calendar";
 import { UCAT_CARD_CHROME } from "@/lib/ucat-surface-motion";
 import { useUcatStaggerMotion } from "@/shared/hooks/use-ucat-stagger-motion";
+import { cn } from "@/lib/utils";
 
 function countdownLabel(today: string, testDate: string) {
   const days = daysBetweenDateKeys(today, testDate);
@@ -40,37 +52,66 @@ function countdownLabel(today: string, testDate: string) {
   return `${days} days until your test`;
 }
 
+function sectionShortName(sectionKey: StudyPlanSectionReadiness["sectionKey"]) {
+  switch (sectionKey) {
+    case "verbal_reasoning":
+      return "VR";
+    case "decision_making":
+      return "DM";
+    case "quantitative_reasoning":
+      return "QR";
+    case "situational_judgement":
+      return "SJT";
+    default: {
+      const _exhaustive: never = sectionKey;
+      return _exhaustive;
+    }
+  }
+}
+
+function phaseLabel(mode: StudyPlanTrainingMode) {
+  switch (mode) {
+    case "learning":
+      return "Learning";
+    case "timing":
+      return "Timing";
+    case "exam":
+      return "Exam";
+    default: {
+      const _exhaustive: never = mode;
+      return _exhaustive;
+    }
+  }
+}
+
+function readinessStatusLabel(unit: {
+  learningComplete: boolean;
+  coverageComplete: boolean;
+}) {
+  if (unit.learningComplete) return "Ready";
+  if (unit.coverageComplete) return "Almost";
+  return "Building";
+}
+
 function StudyPlanDetailCard({
   icon: Icon,
   label,
-  editLabel,
-  previewMode,
+  action,
   children,
 }: {
   icon: LucideIcon;
   label: string;
-  editLabel: string;
-  previewMode: boolean;
+  action: React.ReactNode;
   children: React.ReactNode;
 }) {
   return (
-    <Card className={UCAT_CARD_CHROME}>
-      <CardContent className="p-5">
+    <Card className={cn(UCAT_CARD_CHROME, "h-full")}>
+      <CardContent className="flex h-full flex-col p-5">
         <div className="flex items-start justify-between gap-3">
           <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-muted/60 text-muted-foreground">
             <Icon className="h-5 w-5" aria-hidden />
           </span>
-          {previewMode ? (
-            <Button variant="outline" size="sm" disabled>
-              Edit
-            </Button>
-          ) : (
-            <Button asChild variant="outline" size="sm">
-              <Link href="/settings/study-plan" aria-label={editLabel}>
-                Edit
-              </Link>
-            </Button>
-          )}
+          {action}
         </div>
         <p className="mt-4 text-xs font-medium uppercase tracking-[0.12em] text-muted-foreground">
           {label}
@@ -78,6 +119,90 @@ function StudyPlanDetailCard({
         <div className="mt-1">{children}</div>
       </CardContent>
     </Card>
+  );
+}
+
+function StudyPlanPhaseDetailsDialog({
+  open,
+  onOpenChange,
+  readiness,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  readiness: StudyPlanReadinessSnapshot;
+}) {
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-h-[min(85dvh,40rem)] overflow-y-auto sm:max-w-lg">
+        <DialogHeader className="text-left">
+          <DialogTitle className="flex flex-wrap items-center gap-2">
+            Study plan phase
+            <Badge variant="secondary">{phaseLabel(readiness.mode)}</Badge>
+          </DialogTitle>
+        </DialogHeader>
+        <div className="space-y-4">
+          {readiness.sections.map((section) => {
+            const short = sectionShortName(section.sectionKey);
+            const showCategories =
+              section.sectionKey === "verbal_reasoning" ||
+              section.sectionKey === "decision_making";
+            return (
+              <section
+                key={section.sectionId}
+                className="rounded-xl border border-border/70 p-4"
+              >
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div>
+                    <h3 className="font-semibold">
+                      {short}
+                      <span className="ml-2 text-sm font-normal text-muted-foreground">
+                        {section.mode === "learning"
+                          ? "Learning"
+                          : `${section.paceMultiplier.toFixed(1)}× pace`}
+                      </span>
+                    </h3>
+                  </div>
+                  <Badge variant="secondary">{phaseLabel(section.mode)}</Badge>
+                </div>
+                <ul className="mt-3 space-y-2">
+                  {(showCategories
+                    ? section.units.filter((unit) => unit.scope === "category")
+                    : section.units.filter((unit) => unit.scope === "section")
+                  ).map((unit) => {
+                    const status = readinessStatusLabel(unit);
+                    return (
+                      <li
+                        key={unit.id}
+                        className="flex items-center justify-between gap-3 text-sm"
+                      >
+                        <span className="min-w-0 truncate text-muted-foreground">
+                          {showCategories ? unit.name : `${short} overall`}
+                        </span>
+                        <span
+                          className={cn(
+                            "inline-flex shrink-0 items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium",
+                            status === "Ready"
+                              ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400"
+                              : status === "Almost"
+                                ? "bg-amber-500/10 text-amber-700 dark:text-amber-400"
+                                : "bg-muted text-muted-foreground",
+                          )}
+                        >
+                          {status === "Ready" ? (
+                            <Check className="h-3 w-3" aria-hidden />
+                          ) : null}
+                          {status}
+                        </span>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </section>
+            );
+          })}
+        </div>
+      </DialogContent>
+    </Dialog>
   );
 }
 
@@ -91,6 +216,7 @@ export function StudyPlanPage({
   const plan = previewPlan ?? query.data;
   const router = useRouter();
   const { containerVariants, itemVariants } = useUcatStaggerMotion();
+  const [phaseDetailsOpen, setPhaseDetailsOpen] = useState(false);
 
   useEffect(() => {
     if (!previewMode && plan?.profile && !plan.profile.studyPlanEnabled) {
@@ -177,14 +303,28 @@ export function StudyPlanPage({
               previewMode={previewMode}
               summaryCards={
                 <div
-                  className="order-first grid gap-4 sm:grid-cols-2 lg:order-last lg:grid-cols-1"
+                  className="order-first grid h-full gap-4 sm:grid-cols-2 lg:order-last lg:grid-cols-1"
                   aria-label="Study plan goal"
                 >
                   <StudyPlanDetailCard
                     icon={Target}
                     label="Target score"
-                    editLabel="Edit target score"
-                    previewMode={previewMode}
+                    action={
+                      previewMode ? (
+                        <Button variant="outline" size="sm" disabled>
+                          Edit
+                        </Button>
+                      ) : (
+                        <Button asChild variant="outline" size="sm">
+                          <Link
+                            href="/settings/study-plan"
+                            aria-label="Edit target score"
+                          >
+                            Edit
+                          </Link>
+                        </Button>
+                      )
+                    }
                   >
                     <p className="text-2xl font-semibold tabular-nums">
                       {plan.profile.targetScore}
@@ -194,8 +334,22 @@ export function StudyPlanPage({
                   <StudyPlanDetailCard
                     icon={CalendarDays}
                     label="UCAT test"
-                    editLabel="Edit UCAT test date"
-                    previewMode={previewMode}
+                    action={
+                      previewMode ? (
+                        <Button variant="outline" size="sm" disabled>
+                          Edit
+                        </Button>
+                      ) : (
+                        <Button asChild variant="outline" size="sm">
+                          <Link
+                            href="/settings/study-plan"
+                            aria-label="Edit UCAT test date"
+                          >
+                            Edit
+                          </Link>
+                        </Button>
+                      )
+                    }
                   >
                     {plan.profile.testDate ? (
                       <>
@@ -220,18 +374,25 @@ export function StudyPlanPage({
                   {plan.generation?.readiness ? (
                     <StudyPlanDetailCard
                       icon={Gauge}
-                      label="Current plan mode"
-                      editLabel="View study readiness"
-                      previewMode={previewMode}
+                      label="Study plan phase"
+                      action={
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setPhaseDetailsOpen(true)}
+                        >
+                          View details
+                        </Button>
+                      }
                     >
-                      <p className="text-xl font-semibold capitalize">
-                        {plan.generation.readiness.mode}
+                      <p className="text-xl font-semibold">
+                        {phaseLabel(plan.generation.readiness.mode)}
                       </p>
                       <p className="mt-1 text-xs text-muted-foreground">
                         {plan.generation.readiness.sections
                           .map(
                             (section) =>
-                              `${section.sectionKey === "verbal_reasoning" ? "VR" : section.sectionKey === "decision_making" ? "DM" : "QR"} ${section.mode === "learning" ? "learn" : `${section.paceMultiplier.toFixed(1)}×`}`,
+                              `${sectionShortName(section.sectionKey)} ${section.mode === "learning" ? "learn" : `${section.paceMultiplier.toFixed(1)}×`}`,
                           )
                           .join(" · ")}
                       </p>
@@ -241,6 +402,14 @@ export function StudyPlanPage({
               }
             />
           </motion.div>
+
+          {plan.generation?.readiness ? (
+            <StudyPlanPhaseDetailsDialog
+              open={phaseDetailsOpen}
+              onOpenChange={setPhaseDetailsOpen}
+              readiness={plan.generation.readiness}
+            />
+          ) : null}
         </>
       ) : null}
     </motion.div>

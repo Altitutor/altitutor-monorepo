@@ -90,6 +90,7 @@ export async function POST(request: NextRequest) {
     try {
       const promptLayers = await getUcatAiPromptLayers({
         client,
+        tutorScoped: true,
         sectionId: stem.sectionId,
         categoryId: stem.categoryId ?? null,
         tagIds: stem.questions.flatMap((question) => question.tagIds ?? []),
@@ -99,6 +100,7 @@ export async function POST(request: NextRequest) {
         client,
         operation: 'answer_explanation_generate',
         modelProfileId,
+        tutorScoped: true,
         systemPrompt: buildExplanationFillSystemPrompt({
           sectionName,
           promptLayers: promptLayers.map((layer) => layer.prompt_text),

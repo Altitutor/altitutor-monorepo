@@ -766,7 +766,7 @@ async function linkCompanionReview(
       : {};
   const launchPath =
     activity.type === "mock_attempt"
-      ? `/progress/mock-attempts/${activity.id}`
+      ? `/progress/mocks/mock-attempts/${activity.id}`
       : `/progress/practice-sessions/${activity.id}`;
   if (
     review.matched_activity_type === activity.type &&
@@ -1975,4 +1975,59 @@ export async function updateStudyPlanTask(
       if (unskipCompanionError) throw unskipCompanionError;
     }
   }
+}
+
+/** Mark the linked Study plan review task complete when attempt review finishes. */
+export async function completeStudyPlanReviewForAttempt(
+  userId: string,
+  attemptType: "practice_session" | "set_attempt" | "mock_attempt",
+  attemptId: string,
+): Promise<void> {
+  const admin = requireAdmin();
+  const studentId = await resolveStudentId(userId);
+  const now = new Date().toISOString();
+  const matchedActivityType =
+    attemptType === "practice_session"
+      ? "practice_session"
+      : attemptType === "mock_attempt"
+        ? "mock_attempt"
+        : null;
+
+  const { data: tasks, error } = await admin
+    .from("ucat_student_study_plan_tasks")
+    .select("id, matched_activity_id, matched_activity_type, launch_path, status")
+    .eq("student_id", studentId)
+    .eq("task_type", "review")
+    .in("status", ["planned", "in_progress", "partial"]);
+  if (error) throw error;
+  if (!tasks?.length) return;
+
+  const match = tasks.find((task) => {
+    if (
+      matchedActivityType &&
+      task.matched_activity_type === matchedActivityType &&
+      task.matched_activity_id === attemptId
+    ) {
+      return true;
+    }
+    if (task.matched_activity_id === attemptId) return true;
+    const path = task.launch_path ?? "";
+    return (
+      path.endsWith(`/${attemptId}`) ||
+      path.includes(`/${attemptId}?`) ||
+      path.includes(`/${attemptId}/`)
+    );
+  });
+  if (!match) return;
+
+  const { error: updateError } = await admin
+    .from("ucat_student_study_plan_tasks")
+    .update({
+      status: "completed",
+      completed_at: now,
+      completed_units: 1,
+    })
+    .eq("id", match.id)
+    .eq("student_id", studentId);
+  if (updateError) throw updateError;
 }

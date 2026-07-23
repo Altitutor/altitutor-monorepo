@@ -124,9 +124,23 @@ export const UcatLearningModuleBlockCard = forwardRef<
           <p className="text-sm font-semibold">
             Block {index + 1} · {BLOCK_TYPE_LABELS[block.block_type]}
           </p>
-          {block.block_type === 'question_stem' && block.content.pendingGeneratedStem ? (
-            <p className="mt-0.5 text-xs text-amber-700 dark:text-amber-300">
-              Pending AI-generated stem. Keep the lesson private until this stem is approved.
+          {(block.block_type === 'question_stem' || block.block_type === 'question') &&
+          block.content.pendingGeneratedStem ? (
+            <p
+              className={cn(
+                'mt-0.5 text-xs',
+                block.content.generationStatus === 'failed'
+                  ? 'text-destructive'
+                  : 'text-amber-700 dark:text-amber-300',
+              )}
+            >
+              {block.content.generationStatus === 'failed'
+                ? `AI generation failed${typeof block.content.generationError === 'string' && block.content.generationError
+                  ? `: ${block.content.generationError}`
+                  : '.'} You can delete this placeholder or retry from AI Tools.`
+                : block.content.generationStatus === 'running' || (!block.question_stem_id && !block.question_id)
+                  ? 'Generating AI assessment… Keep the lesson private. This block will link when generation finishes.'
+                  : 'Pending AI-generated assessment. Keep the lesson private until this stem is approved.'}
             </p>
           ) : null}
         </div>
@@ -263,7 +277,7 @@ export const UcatLearningModuleBlockCard = forwardRef<
             selectedStemId={null}
             selectedQuestionId={block.question_id ?? null}
             onSelectStem={() => {}}
-            onSelectQuestion={(questionId) => onUpdate({ question_id: questionId })}
+            onSelectQuestion={(questionId) => onUpdate({ question_id: questionId, content: {} })}
           />
         ) : null}
 

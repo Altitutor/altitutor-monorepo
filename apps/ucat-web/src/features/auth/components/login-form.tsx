@@ -12,7 +12,11 @@ import {
   SocialAuthButtons,
   SocialAuthDivider,
 } from "@/features/auth/components/social-auth-buttons";
-import type { SocialAuthProvider } from "@/features/auth/lib/social-auth";
+import {
+  resolvePostAuthDestination,
+  type SocialAuthProvider,
+} from "@/features/auth/lib/social-auth";
+import { fetchSignupProgress } from "@/features/signup-onboarding/api/signup-progress";
 
 const { typography: typo } = MARKETING_TOKENS;
 
@@ -54,7 +58,20 @@ export function LoginForm({
       return;
     }
 
-    router.push(redirectTo);
+    let destination = redirectTo;
+    try {
+      const progress = await fetchSignupProgress();
+      destination = resolvePostAuthDestination({
+        intent: "login",
+        provider: null,
+        next: redirectTo,
+        signupCompleted: progress.signupCompleted,
+      });
+    } catch {
+      // Middleware / OnboardingGate still catch incomplete signups if this fails.
+    }
+
+    router.push(destination);
     router.refresh();
   }
 

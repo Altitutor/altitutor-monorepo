@@ -229,8 +229,9 @@ export function StudyPlanCalendar({
 
   return (
     <div className="space-y-5">
-      <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,1fr)_20rem] xl:grid-cols-[minmax(0,1fr)_22rem]">
+      <div className="grid items-stretch gap-4 lg:grid-cols-[minmax(0,1fr)_20rem] xl:grid-cols-[minmax(0,1fr)_22rem]">
         <UcatMonthCalendar
+          className="h-full"
           months={months}
           initialMonthKey={plan.today.slice(0, 7)}
           monthsVisible={2}

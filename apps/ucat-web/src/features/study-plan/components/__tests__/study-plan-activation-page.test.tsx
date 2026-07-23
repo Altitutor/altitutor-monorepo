@@ -291,7 +291,7 @@ describe("StudyPlanActivationPage", () => {
     expect(
       screen.queryByText("Your Study plan is ready"),
     ).not.toBeInTheDocument();
-    expect(prefetch).toHaveBeenCalledWith("/dashboard");
+    expect(prefetch).toHaveBeenCalledWith("/study-plan");
 
     await act(async () => {
       jest.advanceTimersByTime(4_100);

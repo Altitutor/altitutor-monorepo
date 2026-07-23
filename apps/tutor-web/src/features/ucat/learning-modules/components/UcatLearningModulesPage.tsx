@@ -170,7 +170,6 @@ export function UcatLearningModulesPage() {
 
   const handleCreate = async (orderItems: Array<{ id: string; index: number }>) => {
     if (!newTitle.trim()) return
-    if (!newSectionId) return
     try {
       const id = await upsert.mutateAsync({
         kind: newKind,
