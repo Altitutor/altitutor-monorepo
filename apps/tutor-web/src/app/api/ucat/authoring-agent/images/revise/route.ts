@@ -3,7 +3,7 @@ import { z } from 'zod'
 import { requireUcatTutor } from '@/features/ucat/shared/server/guard'
 import { createClient } from '@/shared/lib/supabase/server-ssr'
 import {
-  openAiImageToBuffer,
+  editUcatImageBytes,
   resolveImageApiConfig,
   uploadGeneratedUcatImage,
 } from '@/app/api/ucat/authoring-agent/images/lib'
@@ -92,7 +92,6 @@ export async function POST(request: NextRequest) {
     if (sourceBlob.size > 50 * 1024 * 1024) throw new Error('The selected image is too large to revise.')
 
     const config = resolveImageApiConfig()
-    const model = process.env.UCAT_IMAGE_EDIT_MODEL || config.model
     const prompt = [
       'Revise the supplied UCAT question image according to the tutor instructions.',
       'Preserve all content that the tutor did not ask to change, especially numerical values, labels, axes, legends, spatial relationships, and answer-relevant details.',
@@ -104,17 +103,14 @@ export async function POST(request: NextRequest) {
       questionPackageContext(body.context),
     ].join('\n')
 
-    const formData = new FormData()
-    formData.set('model', model)
-    formData.set('prompt', prompt)
-    formData.set('image[]', sourceBlob, file.filename || `source.${imageExtension(file.mimetype)}`)
-    formData.set('size', 'auto')
-    const response = await fetch(`${config.baseUrl}/images/edits`, {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${config.apiKey}` },
-      body: formData,
+    const bytes = await editUcatImageBytes({
+      config,
+      prompt,
+      image: sourceBlob,
+      filename: file.filename || `source.${imageExtension(file.mimetype)}`,
+      size: config.provider === 'openai' ? 'auto' : '1024x1024',
+      openaiImageField: 'image[]',
     })
-    const bytes = await openAiImageToBuffer(response)
 
     const uploaded = await uploadGeneratedUcatImage({
       bytes,

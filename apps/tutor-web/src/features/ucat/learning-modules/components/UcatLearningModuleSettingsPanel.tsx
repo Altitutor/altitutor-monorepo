@@ -64,6 +64,7 @@ type UcatLearningModuleSettingsPanelProps = {
   onSaveSectionOrder: (items: Array<{ id: string; index: number }>) => Promise<void>
   editorMode: LearningModuleEditorMode
   onEditorModeChange: (mode: LearningModuleEditorMode) => void
+  showModeControls?: boolean
   aiActions?: ReactNode
   activeTab?: Exclude<UcatAuthoringWorkspaceTab, 'editor'>
   onActiveTabChange?: (value: UcatAuthoringWorkspaceTab) => void
@@ -108,6 +109,7 @@ export function UcatLearningModuleSettingsPanel({
   onSaveSectionOrder,
   editorMode,
   onEditorModeChange,
+  showModeControls = true,
   aiActions,
   activeTab: controlledActiveTab,
   onActiveTabChange,
@@ -213,19 +215,21 @@ export function UcatLearningModuleSettingsPanel({
         </TabsList>
         <TabsContent value="properties" className="min-h-0 flex-1 overflow-y-auto">
       <div className="space-y-4">
-        <div className={tutorCardCn('space-y-4 p-3')}>
-          <PropertyRow label="Mode">
-            <SegmentedControl
-              fullWidth
-              value={editorMode}
-              onValueChange={onEditorModeChange}
-              options={[
-                { value: 'edit', label: 'Edit' },
-                { value: 'view', label: 'View' },
-              ]}
-            />
-          </PropertyRow>
-        </div>
+        {showModeControls ? (
+          <div className={tutorCardCn('space-y-4 p-3')}>
+            <PropertyRow label="Mode">
+              <SegmentedControl
+                fullWidth
+                value={editorMode}
+                onValueChange={onEditorModeChange}
+                options={[
+                  { value: 'edit', label: 'Edit' },
+                  { value: 'view', label: 'View' },
+                ]}
+              />
+            </PropertyRow>
+          </div>
+        ) : null}
 
         <Accordion type="multiple" defaultValue={['module']} className="space-y-4">
           <AccordionItem value="module" className="border-0">

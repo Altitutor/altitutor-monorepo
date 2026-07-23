@@ -9,7 +9,9 @@ import { useUcatCopyId } from '@/features/ucat/shared/hooks/useUcatCopyId'
 import { buildCopyIdRowAction, summarizeLearningModuleBlock, withCopyIdDescription } from '@/features/ucat/shared/lib/copy-id-actions'
 import { UcatRowActions } from '@/features/ucat/shared/row-actions'
 import { UcatLearningModuleEditorShell } from '@/features/ucat/learning-modules/components/UcatLearningModuleEditorShell'
+import type { LearningModuleEditorMode } from '@/features/ucat/learning-modules/components/UcatLearningModuleSettingsPanel'
 import { useLearningModuleEditor } from '@/features/ucat/learning-modules/hooks/useLearningModuleEditor'
+import { SegmentedControl } from '@/shared/components/segmented-control'
 
 type UcatLearningModuleDialogProps = {
   open: boolean
@@ -28,9 +30,13 @@ export function UcatLearningModuleDialog({
   const { copyId } = useUcatCopyId()
   const editor = useLearningModuleEditor(open ? moduleId : null)
   const [activeTextEditor, setActiveTextEditor] = useState<Editor | null>(null)
+  const [editorMode, setEditorMode] = useState<LearningModuleEditorMode>('edit')
 
   useEffect(() => {
-    if (!open) setActiveTextEditor(null)
+    if (!open) {
+      setActiveTextEditor(null)
+      setEditorMode('edit')
+    }
   }, [open])
 
   const title = editor.title.trim() || editor.moduleQuery.data?.title || 'Learning module'
@@ -122,6 +128,16 @@ export function UcatLearningModuleDialog({
       saveDisabled={false}
       isSaving={editor.isSaving}
       hideCancel
+      headerControls={
+        <SegmentedControl
+          value={editorMode}
+          onValueChange={setEditorMode}
+          options={[
+            { value: 'edit', label: 'Edit' },
+            { value: 'view', label: 'View' },
+          ]}
+        />
+      }
       headerActions={headerActions}
       defaultExpanded
       mobileFullscreen
@@ -131,6 +147,9 @@ export function UcatLearningModuleDialog({
         <UcatLearningModuleEditorShell
           editor={editor}
           hasUcatAccess
+          editorMode={editorMode}
+          onEditorModeChange={setEditorMode}
+          showModeControls={false}
           onActiveTextEditorChange={setActiveTextEditor}
         />
       </div>
