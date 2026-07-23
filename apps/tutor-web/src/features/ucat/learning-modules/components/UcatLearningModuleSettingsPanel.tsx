@@ -18,6 +18,7 @@ import {
 import { SegmentedControl } from '@/shared/components/segmented-control'
 import { tutorCardCn } from '@/shared/lib/tutor-visual'
 import { cn } from '@/shared/utils'
+import type { UcatAccessScope } from '@/features/ucat/shared/types'
 import type { UcatSectionOption } from '@/features/ucat/questions/components/UcatQuestionStemDialog'
 import type { UcatLearningModuleRow } from '@/features/ucat/learning-modules/types'
 import type { UcatLearningModuleKind, UcatLearningModuleStudyPlanPriority } from '@/features/ucat/learning-modules/types'
@@ -44,7 +45,7 @@ type UcatLearningModuleSettingsPanelProps = {
   estimatedMinutes: number | null
   sectionId: string | null
   parentId: string | null
-  isPrivate: boolean
+  accessScope: UcatAccessScope
   studyPlanPriority: UcatLearningModuleStudyPlanPriority
   studyPlanCategoryIds: string[]
   studyPlanTagIds: string[]
@@ -54,7 +55,7 @@ type UcatLearningModuleSettingsPanelProps = {
   onEstimatedMinutesChange: (minutes: number | null) => void
   onSectionIdChange: (sectionId: string | null) => void
   onParentIdChange: (parentId: string | null) => void
-  onIsPrivateChange: (isPrivate: boolean) => void
+  onAccessScopeChange: (accessScope: UcatAccessScope) => void
   onStudyPlanPriorityChange: (priority: UcatLearningModuleStudyPlanPriority) => void
   onStudyPlanCategoryIdsChange: (ids: string[]) => void
   onStudyPlanTagIdsChange: (ids: string[]) => void
@@ -89,7 +90,7 @@ export function UcatLearningModuleSettingsPanel({
   estimatedMinutes,
   sectionId,
   parentId,
-  isPrivate,
+  accessScope,
   studyPlanPriority,
   studyPlanCategoryIds,
   studyPlanTagIds,
@@ -99,7 +100,7 @@ export function UcatLearningModuleSettingsPanel({
   onEstimatedMinutesChange,
   onSectionIdChange,
   onParentIdChange,
-  onIsPrivateChange,
+  onAccessScopeChange,
   onStudyPlanPriorityChange,
   onStudyPlanCategoryIdsChange,
   onStudyPlanTagIdsChange,
@@ -312,16 +313,18 @@ export function UcatLearningModuleSettingsPanel({
                     disabled={editorMode === 'view'}
                   />
                 </PropertyRow>
-                <PropertyRow label="Visibility">
-                  <SearchableSelect<{ value: 'public' | 'private'; label: string }>
-                    items={visibilityItems}
-                    value={isPrivate ? visibilityItems[1] : visibilityItems[0]}
-                    onValueChange={(item) => onIsPrivateChange(item?.value === 'private')}
-                    getItemLabel={(v) => v.label}
-                    getItemId={(v) => v.value}
-                    disabled={editorMode === 'view'}
-                  />
-                </PropertyRow>
+                {kind === 'lesson' ? (
+                  <PropertyRow label="Access">
+                    <SearchableSelect<{ value: UcatAccessScope; label: string }>
+                      items={visibilityItems}
+                      value={accessScope === 'private' ? visibilityItems[1] : visibilityItems[0]}
+                      onValueChange={(item) => onAccessScopeChange(item?.value === 'private' ? 'private' : 'public')}
+                      getItemLabel={(v) => v.label}
+                      getItemId={(v) => v.value}
+                      disabled={editorMode === 'view'}
+                    />
+                  </PropertyRow>
+                ) : null}
               </AccordionContent>
             </div>
           </AccordionItem>

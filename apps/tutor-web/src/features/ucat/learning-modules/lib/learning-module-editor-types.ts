@@ -48,7 +48,7 @@ export function snapshotSettings(input: {
   sectionId: string | null
   parentId: string | null
   index: number
-  isPrivate: boolean
+  accessScope: string
   studyPlanPriority: string
   studyPlanCategoryIds: string[]
   studyPlanTagIds: string[]

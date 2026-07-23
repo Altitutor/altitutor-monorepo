@@ -7,7 +7,7 @@ import type { UcatLifecycleBlocker } from '@/features/ucat/shared/lifecycle-erro
 import { requestUcatQuestionAssessmentsForReview } from '@/features/ucat/questions/server/ai-assessment/dispatcher'
 
 const BodySchema = z.object({
-  contentType: z.enum(['stem', 'set', 'mock']),
+  contentType: z.enum(['stem', 'set', 'mock', 'lesson']),
   contentIds: z.array(z.string().uuid()).min(1).max(500),
   status: z.enum(['draft', 'in_review', 'published']),
   previousStatus: z.enum(['draft', 'in_review', 'published']).optional(),
@@ -21,6 +21,8 @@ const FRIENDLY_FALLBACKS: Record<string, string> = {
   in_review_set_contains_draft_stem: 'This set contains a draft question that must be sent for review first.',
   in_review_mock_contains_draft_set: 'This mock contains a draft set that must be sent for review first.',
   undo_status_changed: 'The status changed again after this action, so it can no longer be undone.',
+  published_lessons_require_published_assessment_blocks:
+    'Published lessons can only include published assessment blocks.',
 }
 
 function failedContentId(message: string, fallbackId: string) {

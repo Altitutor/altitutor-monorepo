@@ -8,11 +8,13 @@
 
 ## Page layout
 
-- Modules are organised in a **tree**, grouped by UCAT **section** (plus unsectioned).
-- Search with **Search modules…** to find a lesson or folder by title.
-- Click a module to open the editor.
+- Lessons appear in a **status table** with tabs: **Draft**, **In review**, **Published** (same lifecycle as questions/sets/mocks).
+- Access scope (**public** / **private**) shows in the Access column and is edited in lesson properties — there is no row “Make public/private” action.
+- Use **Edit hierarchy** for the folder/lesson tree (nest and reorder). Folders do not use the status tabs.
+- **Show deleted** lists soft-deleted lessons; restore returns them to draft.
+- Select rows for bulk **Visibility**, **Status**, and **Delete**.
 
-`[Screenshot: Learning modules tree with section groups and search]`
+`[Screenshot: Learning modules status table with Draft / In review / Published tabs]`
 
 ---
 
@@ -61,5 +63,6 @@ In the module editor you can:
 
 - Keep one clear topic per module; use folders for units or weeks.
 - Prefer linking existing question stems rather than duplicating content.
-- The lesson AI Tools agent can search the published catalog and, if nothing fits the technique being taught, generate a new stem through the normal AI generation + approval workflow (private draft placeholder until approved).
+- The lesson AI Tools agent can search the published catalog and, if nothing fits the technique being taught, generate a new stem through the normal AI generation + approval workflow (unpublished lesson placeholder until the stem is published).
+- Lessons use the shared draft → in review → published lifecycle and public/private access scope (same as questions/sets/mocks). Folders are hierarchy only — use **Edit hierarchy** to nest and reorder.
 - After structural changes, spot-check the student app so the outline matches what you expect.

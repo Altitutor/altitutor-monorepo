@@ -24,7 +24,8 @@ export const ucatKeys = {
   classSessions: (classId: string) => [...ucatKeys.classes(), classId, 'sessions'] as const,
   sessionResources: (sessionId: string) => [...ucatKeys.classes(), 'session', sessionId, 'resources'] as const,
   reconciliation: () => [...ucatKeys.all, 'reconciliation'] as const,
-  learningModules: (kind?: string) => [...ucatKeys.all, 'learning-modules', kind ?? 'all'] as const,
+  learningModules: (kind?: string, status?: string, includeDeleted?: boolean) =>
+    [...ucatKeys.all, 'learning-modules', kind ?? 'all', status ?? 'any', includeDeleted ? 'deleted' : 'active'] as const,
   learningModule: (id: string) => [...ucatKeys.all, 'learning-module', id] as const,
   learningModuleBlocks: (moduleId: string) => [...ucatKeys.learningModule(moduleId), 'blocks'] as const,
   skillTrainers: () => [...ucatKeys.all, 'skill-trainers'] as const,

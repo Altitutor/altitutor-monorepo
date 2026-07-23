@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useDraggable, useDroppable } from '@dnd-kit/core'
 import { CSS } from '@dnd-kit/utilities'
-import { BookOpen, ChevronRight, Folder, Globe, GripVertical, Lock } from 'lucide-react'
+import { BookOpen, ChevronRight, Folder, GripVertical } from 'lucide-react'
 import {
   Tooltip,
   TooltipContent,
@@ -50,26 +50,6 @@ function KindIcon({ kind }: { kind: UcatLearningModuleTreeNode['kind'] }) {
     <Tooltip>
       <TooltipTrigger asChild>
         <span className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-muted/80 text-muted-foreground">
-          <Icon className="h-3.5 w-3.5" aria-hidden />
-        </span>
-      </TooltipTrigger>
-      <TooltipContent>{label}</TooltipContent>
-    </Tooltip>
-  )
-}
-
-function PrivacyIcon({ isPrivate }: { isPrivate: boolean }) {
-  const Icon = isPrivate ? Lock : Globe
-  const label = isPrivate ? 'Private — visible only to assigned students' : 'Public — visible in the student library'
-  return (
-    <Tooltip>
-      <TooltipTrigger asChild>
-        <span
-          className={cn(
-            'inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md',
-            isPrivate ? 'bg-amber-500/10 text-amber-800 dark:text-amber-300' : 'bg-sky-500/10 text-sky-700 dark:text-sky-300',
-          )}
-        >
           <Icon className="h-3.5 w-3.5" aria-hidden />
         </span>
       </TooltipTrigger>
@@ -200,7 +180,6 @@ function LearningModuleHierarchyTreeNode({
           )}
         >
           <KindIcon kind={node.kind} />
-          <PrivacyIcon isPrivate={node.is_private} />
           <span className="block min-w-0 flex-1 truncate" title={node.title}>
             {node.title}
           </span>

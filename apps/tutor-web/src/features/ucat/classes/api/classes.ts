@@ -113,7 +113,7 @@ export const ucatClassesApi = {
     if (lessonIds.length > 0) {
       const { data: lessonsData } = await supabase
         .from('vtutor_ucat_learning_modules')
-        .select('id, title, block_count, kind, deleted_at')
+        .select('id, title, block_count, kind, deleted_at, status')
         .in('id', lessonIds)
       for (const row of lessonsData ?? []) {
         const r = row as {
@@ -122,8 +122,9 @@ export const ucatClassesApi = {
           block_count: number | null
           kind: string | null
           deleted_at?: string | null
+          status?: string | null
         }
-        if (r.deleted_at != null || r.kind !== 'lesson') continue
+        if (r.deleted_at != null || r.kind !== 'lesson' || r.status !== 'published') continue
         if (r.id) lessonsMap[r.id] = { title: r.title ?? 'Untitled lesson', block_count: r.block_count ?? 0 }
       }
     }

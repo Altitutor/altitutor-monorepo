@@ -6,9 +6,14 @@ import type {
 } from '@/features/ucat/learning-modules/types'
 import { ucatKeys } from '@/features/ucat/shared/lib/query-keys'
 
-export function useUcatLearningModules(options?: { kind?: 'folder' | 'lesson'; enabled?: boolean }) {
+export function useUcatLearningModules(options?: {
+  kind?: 'folder' | 'lesson'
+  status?: import('@/features/ucat/shared/types').UcatContentStatus
+  includeDeleted?: boolean
+  enabled?: boolean
+}) {
   return useQuery({
-    queryKey: ucatKeys.learningModules(options?.kind),
+    queryKey: ucatKeys.learningModules(options?.kind, options?.status, options?.includeDeleted),
     queryFn: () => ucatLearningModulesApi.list(options),
     enabled: options?.enabled !== false,
   })
@@ -71,6 +76,23 @@ export function useDeleteUcatLearningModule() {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: (moduleId: string) => ucatLearningModulesApi.remove(moduleId),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ucatKeys.learningModules() }),
+  })
+}
+
+export function useRestoreUcatLearningModule() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (moduleId: string) => ucatLearningModulesApi.restore(moduleId),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ucatKeys.learningModules() }),
+  })
+}
+
+export function useSetUcatLearningModuleStatus() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({ moduleId, status }: { moduleId: string; status: import('@/features/ucat/shared/types').UcatContentStatus }) =>
+      ucatLearningModulesApi.setStatus(moduleId, status),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ucatKeys.learningModules() }),
   })
 }

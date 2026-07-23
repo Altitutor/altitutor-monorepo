@@ -7,8 +7,8 @@ const SIGNED_URL_EXPIRY_SECONDS = 3600
 
 const OPENAI_IMAGE_BASE_URL = 'https://api.openai.com/v1'
 const OPENROUTER_IMAGE_BASE_URL = 'https://openrouter.ai/api/v1'
-const DEFAULT_OPENAI_IMAGE_MODEL = 'gpt-image-1'
-const DEFAULT_OPENROUTER_IMAGE_MODEL = 'openai/gpt-image-1'
+const DEFAULT_OPENAI_IMAGE_MODEL = 'gpt-image-2'
+const DEFAULT_OPENROUTER_IMAGE_MODEL = 'openai/gpt-image-2'
 
 export type UcatImageProvider = 'openai' | 'openrouter'
 

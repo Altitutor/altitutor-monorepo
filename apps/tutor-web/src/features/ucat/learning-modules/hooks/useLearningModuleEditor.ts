@@ -12,6 +12,7 @@ import {
   useUpsertUcatLearningModule,
 } from '@/features/ucat/learning-modules/hooks/useUcatLearningModules'
 import type { UcatLearningModuleKind, UcatLearningModuleStudyPlanPriority } from '@/features/ucat/learning-modules/types'
+import type { UcatAccessScope, UcatContentStatus } from '@/features/ucat/shared/types'
 import type { LearningModuleIconKey } from '@/features/ucat/learning-modules/lib/learning-module-icons'
 import {
   toBlockPayload,
@@ -41,7 +42,8 @@ export function useLearningModuleEditor(moduleId: string | null) {
   const [sectionId, setSectionId] = useState<string | null>(null)
   const [parentId, setParentId] = useState<string | null>(null)
   const [index, setIndex] = useState('0')
-  const [isPrivate, setIsPrivate] = useState(true)
+  const [accessScope, setAccessScope] = useState<UcatAccessScope>('public')
+  const [status, setStatus] = useState<UcatContentStatus>('draft')
   const [studyPlanPriority, setStudyPlanPriority] = useState<UcatLearningModuleStudyPlanPriority>('recommended')
   const [studyPlanCategoryIds, setStudyPlanCategoryIds] = useState<string[]>([])
   const [studyPlanTagIds, setStudyPlanTagIds] = useState<string[]>([])
@@ -67,7 +69,8 @@ export function useLearningModuleEditor(moduleId: string | null) {
     setSectionId(m.ucat_section_id)
     setParentId(m.parent_ucat_learning_module_id)
     setIndex(String(m.index))
-    setIsPrivate(m.is_private)
+    setAccessScope(m.access_scope)
+    setStatus(m.status)
     setStudyPlanPriority(m.study_plan_priority)
     setStudyPlanCategoryIds(m.study_plan_category_ids)
     setStudyPlanTagIds(m.study_plan_tag_ids)
@@ -81,7 +84,7 @@ export function useLearningModuleEditor(moduleId: string | null) {
         sectionId: m.ucat_section_id,
         parentId: m.parent_ucat_learning_module_id,
         index: m.index,
-        isPrivate: m.is_private,
+        accessScope: m.access_scope,
         studyPlanPriority: m.study_plan_priority,
         studyPlanCategoryIds: m.study_plan_category_ids,
         studyPlanTagIds: m.study_plan_tag_ids,
@@ -121,13 +124,13 @@ export function useLearningModuleEditor(moduleId: string | null) {
       sectionId,
       parentId,
       index: Number(index) || 0,
-      isPrivate,
+      accessScope,
       studyPlanPriority,
       studyPlanCategoryIds,
       studyPlanTagIds,
     })
     return current !== settingsBaseline
-  }, [kind, title, description, iconKey, estimatedMinutes, sectionId, parentId, index, isPrivate, studyPlanPriority, studyPlanCategoryIds, studyPlanTagIds, settingsBaseline])
+  }, [kind, title, description, iconKey, estimatedMinutes, sectionId, parentId, index, accessScope, studyPlanPriority, studyPlanCategoryIds, studyPlanTagIds, settingsBaseline])
 
   const blocksDirty = useMemo(
     () => JSON.stringify(toBlockPayload(draftBlocks)) !== blocksBaseline,
@@ -199,7 +202,7 @@ export function useLearningModuleEditor(moduleId: string | null) {
       ucatSectionId: sectionId,
       parentId,
       index: Number(index) || 0,
-      isPrivate,
+      accessScope,
       studyPlanPriority,
       studyPlanCategoryIds,
       studyPlanTagIds,
@@ -214,7 +217,7 @@ export function useLearningModuleEditor(moduleId: string | null) {
         sectionId,
         parentId,
         index: Number(index) || 0,
-        isPrivate,
+        accessScope,
         studyPlanPriority,
         studyPlanCategoryIds,
         studyPlanTagIds,
@@ -231,7 +234,7 @@ export function useLearningModuleEditor(moduleId: string | null) {
     sectionId,
     parentId,
     index,
-    isPrivate,
+    accessScope,
     studyPlanPriority,
     studyPlanCategoryIds,
     studyPlanTagIds,
@@ -241,7 +244,7 @@ export function useLearningModuleEditor(moduleId: string | null) {
 
   const saveBlocks = useCallback(async () => {
     if (!moduleId) return
-    const validationError = validateBlocksForSave(draftBlocks, { isPrivate })
+    const validationError = validateBlocksForSave(draftBlocks, { isPublished: status === 'published' })
     if (validationError) {
       throw new Error(validationError)
     }
@@ -249,7 +252,7 @@ export function useLearningModuleEditor(moduleId: string | null) {
     await replaceBlocks.mutateAsync({ moduleId, blocks: payload })
     setBlocksBaseline(JSON.stringify(payload))
     toast({ title: 'Blocks saved' })
-  }, [moduleId, draftBlocks, isPrivate, replaceBlocks, toast])
+  }, [moduleId, draftBlocks, status, replaceBlocks, toast])
 
   const saveAll = useCallback(async () => {
     if (settingsDirty) await saveSettings()
@@ -272,7 +275,7 @@ export function useLearningModuleEditor(moduleId: string | null) {
             sectionId,
             parentId,
             index: current.index,
-            isPrivate,
+            accessScope,
             studyPlanPriority,
             studyPlanCategoryIds,
             studyPlanTagIds,
@@ -291,7 +294,7 @@ export function useLearningModuleEditor(moduleId: string | null) {
       estimatedMinutes,
       sectionId,
       parentId,
-      isPrivate,
+      accessScope,
       studyPlanPriority,
       studyPlanCategoryIds,
       studyPlanTagIds,
@@ -326,8 +329,10 @@ export function useLearningModuleEditor(moduleId: string | null) {
     setParentId,
     index,
     setIndex,
-    isPrivate,
-    setIsPrivate,
+    accessScope,
+    setAccessScope,
+    status,
+    setStatus,
     studyPlanPriority,
     setStudyPlanPriority,
     studyPlanCategoryIds,

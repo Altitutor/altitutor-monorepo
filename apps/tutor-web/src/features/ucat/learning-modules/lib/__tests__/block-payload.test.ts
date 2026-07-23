@@ -29,11 +29,16 @@ function questionBlock(content: Record<string, unknown> = {}, questionId: string
 }
 
 describe('learning module block payload validation', () => {
-  it('allows pending generated stem placeholders with IDs in private lesson drafts', () => {
-    expect(validateBlocksForSave([questionStemBlock({ pendingGeneratedStem: true, generationRunId: 'run-1' })], { isPrivate: true })).toBeNull()
+  it('allows pending generated stem placeholders with IDs on unpublished lessons', () => {
+    expect(
+      validateBlocksForSave(
+        [questionStemBlock({ pendingGeneratedStem: true, generationRunId: 'run-1' })],
+        { isPublished: false },
+      ),
+    ).toBeNull()
   })
 
-  it('allows run-backed placeholders without IDs in private lesson drafts', () => {
+  it('allows run-backed placeholders without IDs on unpublished lessons', () => {
     expect(
       validateBlocksForSave(
         [
@@ -52,12 +57,12 @@ describe('learning module block payload validation', () => {
             null,
           ),
         ],
-        { isPrivate: true },
+        { isPublished: false },
       ),
     ).toBeNull()
   })
 
-  it('rejects pending generated assessment placeholders in public lessons', () => {
+  it('rejects pending generated assessment placeholders on published lessons', () => {
     expect(
       validateBlocksForSave(
         [
@@ -68,16 +73,16 @@ describe('learning module block payload validation', () => {
             }),
           ),
         ],
-        { isPrivate: false },
+        { isPublished: true },
       ),
-    ).toContain('pending generated assessment placeholders can only be saved in private lesson drafts')
+    ).toContain('pending generated assessment placeholders can only be saved on unpublished lessons')
   })
 
   it('still requires IDs for ordinary assessment blocks', () => {
-    expect(validateBlocksForSave([questionStemBlock({}, null)], { isPrivate: true })).toContain(
+    expect(validateBlocksForSave([questionStemBlock({}, null)], { isPublished: false })).toContain(
       'select a question stem before saving',
     )
-    expect(validateBlocksForSave([questionBlock({}, null)], { isPrivate: true })).toContain(
+    expect(validateBlocksForSave([questionBlock({}, null)], { isPublished: false })).toContain(
       'select a question before saving',
     )
   })

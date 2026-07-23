@@ -1227,6 +1227,7 @@ export function UcatClassDialog({
                   />
                   <div className="space-y-1.5 max-h-96 overflow-auto">
                     {lessonsList
+                      .filter((row) => row.status === 'published')
                       .filter((row) => {
                         if (!searchLessons.trim()) return true;
                         return applyCoreStringFilter(row.title, searchLessons);
