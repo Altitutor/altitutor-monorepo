@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { requireUcatTutor } from '@/features/ucat/shared/server/guard'
 import {
-  openAiImageToBuffer,
+  generateUcatImageBytes,
   resolveImageApiConfig,
   uploadGeneratedUcatImage,
 } from '@/app/api/ucat/authoring-agent/images/lib'
@@ -19,19 +19,11 @@ export async function POST(request: NextRequest) {
   try {
     const body = requestSchema.parse(await request.json())
     const config = resolveImageApiConfig()
-    const response = await fetch(`${config.baseUrl}/images/generations`, {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${config.apiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: config.model,
-        prompt: body.prompt,
-        size: '1024x1024',
-      }),
+    const bytes = await generateUcatImageBytes({
+      config,
+      prompt: body.prompt,
+      size: '1024x1024',
     })
-    const bytes = await openAiImageToBuffer(response)
     const uploaded = await uploadGeneratedUcatImage({
       bytes,
       mimeType: 'image/png',

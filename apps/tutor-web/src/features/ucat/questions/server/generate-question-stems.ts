@@ -38,8 +38,10 @@ import {
 } from '@/features/ucat/questions/lib/ai-generation/gates'
 import { sampleWithoutReplacement } from '@/features/ucat/questions/lib/ai-generation/sample-without-replacement'
 import {
-  openAiImageToBuffer,
+  generateUcatImageBytes,
+  imageConfigFromProvider,
   resolveImageApiConfig,
+  type UcatImageApiConfig,
   uploadGeneratedUcatImage,
 } from '@/app/api/ucat/authoring-agent/images/lib'
 
@@ -722,27 +724,32 @@ function shouldUseAiImageForStemVisual(params: {
   return AI_IMAGE_AUTO_VISUAL_TYPES.has(params.block.visualType)
 }
 
-function resolveStemImageApiConfig(config: UcatAiResolvedConfig) {
+function resolveStemImageApiConfig(config: UcatAiResolvedConfig): UcatImageApiConfig {
   try {
     return resolveImageApiConfig()
   } catch (error) {
     if (config.provider.provider_kind === 'codex_oauth') {
-      throw new Error('AI image generation needs an OpenAI API key. The selected Codex subscription provider can generate text for this app, but it does not expose an image-generation API endpoint.')
+      throw new Error('AI image generation needs an OpenAI or OpenRouter API key. The selected Codex subscription provider can generate text for this app, but it does not expose an image-generation API endpoint.')
     }
 
     const apiKey = process.env[config.provider.secret_env_var_name]
     if (!apiKey) throw error
     const baseUrl = config.provider.base_url.replace(/\/$/u, '')
-    const providerLooksOpenAiCompatible = config.provider.provider_key === 'openai' || baseUrl.includes('api.openai.com')
-    if (!providerLooksOpenAiCompatible) {
-      throw new Error(`AI image generation is not configured for provider "${config.provider.name}". Configure UCAT_IMAGE_OPENAI_API_KEY/OPENAI_API_KEY, or select an OpenAI-compatible image provider.`)
+    const providerKey = config.provider.provider_key
+    const providerSupportsImages =
+      providerKey === 'openai'
+      || providerKey === 'openrouter'
+      || baseUrl.includes('api.openai.com')
+      || baseUrl.includes('openrouter.ai')
+    if (!providerSupportsImages) {
+      throw new Error(`AI image generation is not configured for provider "${config.provider.name}". Configure UCAT_IMAGE_OPENAI_API_KEY/OPENAI_API_KEY/OPENROUTER_API_KEY, or select an OpenAI/OpenRouter image provider.`)
     }
 
-    return {
+    return imageConfigFromProvider({
       apiKey,
-      model: process.env.UCAT_IMAGE_MODEL || 'gpt-image-1',
       baseUrl,
-    }
+      providerKey,
+    })
   }
 }
 
@@ -775,51 +782,6 @@ function generatedStemImagePrompt(params: {
   ].join('\n')
 }
 
-async function generateImageBytes(params: {
-  apiKey: string
-  baseUrl: string
-  model: string
-  prompt: string
-}): Promise<Buffer> {
-  const size = process.env.UCAT_GENERATED_STEM_IMAGE_SIZE || '1536x1024'
-  const imageApiModel = params.model.startsWith('gpt-image') || params.model.startsWith('dall-e')
-  if (imageApiModel) {
-    const response = await fetch(`${params.baseUrl}/images/generations`, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${params.apiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: params.model,
-        prompt: params.prompt,
-        size,
-      }),
-    })
-    return openAiImageToBuffer(response)
-  }
-
-  const response = await fetch(`${params.baseUrl}/responses`, {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${params.apiKey}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      model: params.model,
-      input: params.prompt,
-      tools: [{ type: 'image_generation', action: 'generate', size }],
-    }),
-  })
-  if (!response.ok) {
-    throw new Error(`Image generation failed: ${await response.text()}`)
-  }
-  const json = (await response.json()) as { output?: Array<{ type?: string; result?: string }> }
-  const image = json.output?.find((item) => item.type === 'image_generation_call' && typeof item.result === 'string')
-  if (!image?.result) throw new Error('Image generation returned no image')
-  return Buffer.from(image.result, 'base64')
-}
-
 async function generateUploadedStemImage(params: {
   stem: GeneratedStem
   visualBlocks: Array<Extract<GeneratedContentBlock, { type: 'visual' }>>
@@ -828,11 +790,10 @@ async function generateUploadedStemImage(params: {
   const prompt = generatedStemImagePrompt(params)
   const imageConfig = resolveStemImageApiConfig(params.config)
   const sourceVisualTypes = params.visualBlocks.map((block) => block.visualType)
-  const bytes = await generateImageBytes({
-    apiKey: imageConfig.apiKey,
-    baseUrl: imageConfig.baseUrl,
-    model: imageConfig.model,
+  const bytes = await generateUcatImageBytes({
+    config: imageConfig,
     prompt,
+    size: process.env.UCAT_GENERATED_STEM_IMAGE_SIZE || '1536x1024',
   })
   const uploaded = await uploadGeneratedUcatImage({
     bytes,

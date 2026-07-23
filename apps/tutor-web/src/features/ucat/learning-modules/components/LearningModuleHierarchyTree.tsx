@@ -17,6 +17,7 @@ import {
 import type { UcatLearningModuleTreeNode } from '@/features/ucat/learning-modules/types/tree'
 import type { UcatLearningModuleKind } from '@/features/ucat/learning-modules/types'
 import { UcatInlineCreateLearningModule } from '@/features/ucat/learning-modules/components/UcatInlineCreateLearningModule'
+import { UcatRowActions, type UcatRowAction } from '@/features/ucat/shared/row-actions'
 import { cn } from '@/shared/utils'
 
 type LearningModuleHierarchyTreeProps = {
@@ -27,6 +28,7 @@ type LearningModuleHierarchyTreeProps = {
   className?: string
   editMode?: boolean
   showRootInlineCreate?: boolean
+  getRowActions?: (node: UcatLearningModuleTreeNode) => UcatRowAction[]
   onInlineCreate?: (params: {
     kind: UcatLearningModuleKind
     title: string
@@ -96,6 +98,7 @@ function LearningModuleHierarchyTreeNode({
   depth = 0,
   editMode = false,
   sectionId,
+  getRowActions,
   onInlineCreate,
 }: {
   node: UcatLearningModuleTreeNode
@@ -104,8 +107,10 @@ function LearningModuleHierarchyTreeNode({
   depth?: number
   editMode?: boolean
   sectionId: string | null
+  getRowActions?: LearningModuleHierarchyTreeProps['getRowActions']
   onInlineCreate?: LearningModuleHierarchyTreeProps['onInlineCreate']
 }) {
+  const rowActions = getRowActions?.(node) ?? []
   const hasChildren = node.children.length > 0
   const query = searchQuery.trim().toLowerCase()
   const matchesSearch = !query || node.title.toLowerCase().includes(query)
@@ -201,6 +206,12 @@ function LearningModuleHierarchyTreeNode({
           </span>
           <ContentCountBadge node={node} />
         </button>
+
+        {rowActions.length > 0 ? (
+          <div className="shrink-0" onClick={(event) => event.stopPropagation()}>
+            <UcatRowActions actions={rowActions} />
+          </div>
+        ) : null}
       </div>
 
       {hasChildren ? (
@@ -219,6 +230,7 @@ function LearningModuleHierarchyTreeNode({
                 searchQuery={searchQuery}
                 editMode={editMode}
                 showRootInlineCreate={false}
+                getRowActions={getRowActions}
                 onInlineCreate={onInlineCreate}
               />
               {editMode && onInlineCreate && node.kind === 'folder' ? (
@@ -245,6 +257,7 @@ export function LearningModuleHierarchyTree({
   className,
   editMode = false,
   showRootInlineCreate = true,
+  getRowActions,
   onInlineCreate,
 }: LearningModuleHierarchyTreeProps) {
   if (!nodes.length) {
@@ -273,6 +286,7 @@ export function LearningModuleHierarchyTree({
             sectionId={sectionId}
             searchQuery={searchQuery}
             editMode={editMode}
+            getRowActions={getRowActions}
             onInlineCreate={onInlineCreate}
           />
         ))}

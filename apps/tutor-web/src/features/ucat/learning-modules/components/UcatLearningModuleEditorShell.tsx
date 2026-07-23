@@ -66,6 +66,9 @@ type UcatLearningModuleEditorShellProps = {
   editor: LearningModuleEditor
   hasUcatAccess: boolean
   onActiveTextEditorChange?: (editor: Editor | null) => void
+  editorMode?: LearningModuleEditorMode
+  onEditorModeChange?: (mode: LearningModuleEditorMode) => void
+  showModeControls?: boolean
 }
 
 const BLOCK_TYPE_OPTIONS = (Object.keys(BLOCK_TYPE_LABELS) as UcatLearningModuleBlockType[]).map(
@@ -84,8 +87,14 @@ export function UcatLearningModuleEditorShell({
   editor,
   hasUcatAccess,
   onActiveTextEditorChange,
+  editorMode: controlledEditorMode,
+  onEditorModeChange,
+  showModeControls = true,
 }: UcatLearningModuleEditorShellProps) {
-  const [editorMode, setEditorMode] = useState<LearningModuleEditorMode>('edit')
+  const [uncontrolledEditorMode, setUncontrolledEditorMode] =
+    useState<LearningModuleEditorMode>('edit')
+  const editorMode = controlledEditorMode ?? uncontrolledEditorMode
+  const setEditorMode = onEditorModeChange ?? setUncontrolledEditorMode
   const [activeWorkspace, setActiveWorkspace] = useState<UcatAuthoringWorkspaceTab>('editor')
   const blockCardRefs = useRef<Map<string, HTMLDivElement>>(new Map())
 
@@ -687,6 +696,7 @@ export function UcatLearningModuleEditorShell({
           onSaveSectionOrder={editor.saveModuleOrder}
           editorMode={editorMode}
           onEditorModeChange={setEditorMode}
+          showModeControls={showModeControls}
           aiActions={
             editor.kind === 'lesson' ? (
               <UcatAuthoringAgentChat

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireUcatTutor } from '@/features/ucat/shared/server/guard'
 import {
-  openAiImageToBuffer,
+  editUcatImageBytes,
   resolveImageApiConfig,
   uploadGeneratedUcatImage,
 } from '@/app/api/ucat/authoring-agent/images/lib'
@@ -24,20 +24,13 @@ export async function POST(request: NextRequest) {
     }
 
     const config = resolveImageApiConfig()
-    const upstream = new FormData()
-    upstream.set('model', config.model)
-    upstream.set('prompt', prompt)
-    upstream.set('image', image)
-
-    const response = await fetch(`${config.baseUrl}/images/edits`, {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${config.apiKey}`,
-      },
-      body: upstream,
+    const bytes = await editUcatImageBytes({
+      config,
+      prompt,
+      image,
+      filename: image.name || 'source.png',
+      openaiImageField: 'image',
     })
-
-    const bytes = await openAiImageToBuffer(response)
     const uploaded = await uploadGeneratedUcatImage({
       bytes,
       mimeType: 'image/png',

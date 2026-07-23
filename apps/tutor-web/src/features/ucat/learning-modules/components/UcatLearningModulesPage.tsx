@@ -11,17 +11,22 @@ import {
   TableActions,
   useToast,
 } from '@altitutor/ui'
-import { BookOpen, ChevronDown, Folder, Pencil, Search } from 'lucide-react'
+import { BookOpen, ChevronDown, ExternalLink, Folder, Globe, Lock, Pencil, Search, Trash2 } from 'lucide-react'
 import { UcatAccessDenied, UcatPageHeader, UcatPageSkeleton } from '@/features/ucat/shared/components'
 import { useUcatAccess } from '@/features/ucat/shared/hooks/useUcatAccess'
+import { useUcatCopyId } from '@/features/ucat/shared/hooks/useUcatCopyId'
+import { buildCopyIdRowAction, withCopyIdDescription } from '@/features/ucat/shared/lib/copy-id-actions'
+import type { UcatRowAction } from '@/features/ucat/shared/row-actions'
 import { UcatCreateLearningModuleDialog } from '@/features/ucat/learning-modules/components/UcatCreateLearningModuleDialog'
 import { UcatLearningModuleDialog } from '@/features/ucat/learning-modules/components/UcatLearningModuleDialog'
 import {
+  useDeleteUcatLearningModule,
   useUcatLearningModules,
   useReorderUcatLearningModules,
   useUpsertUcatLearningModule,
 } from '@/features/ucat/learning-modules/hooks/useUcatLearningModules'
 import type { UcatLearningModuleKind, UcatLearningModuleRow } from '@/features/ucat/learning-modules/types'
+import type { UcatLearningModuleTreeNode } from '@/features/ucat/learning-modules/types/tree'
 import { useUcatSections } from '@/features/ucat/questions/hooks/useUcatQuestions'
 import { TaxonomySectionDropZone } from '@/features/ucat/shared/components/taxonomy-hierarchy-tree'
 import type { TaxonomyReparentTarget } from '@/features/ucat/shared/components/taxonomy-hierarchy-tree'
@@ -39,10 +44,12 @@ import { NEW_MODULE_PLACEHOLDER_ID } from '@/features/ucat/learning-modules/comp
 
 export function UcatLearningModulesPage() {
   const { toast } = useToast()
+  const { copyId } = useUcatCopyId()
   const access = useUcatAccess()
   const modulesQuery = useUcatLearningModules()
   const sectionsQuery = useUcatSections()
   const upsert = useUpsertUcatLearningModule()
+  const deleteModule = useDeleteUcatLearningModule()
   const reorderModules = useReorderUcatLearningModules()
 
   const [searchQuery, setSearchQuery] = useState('')
@@ -79,8 +86,8 @@ export function UcatLearningModulesPage() {
 
   const allHierarchyNodes = useMemo(
     () => [
-      ...sectionTrees.flatMap((section) => mapLearningModuleTreeToTaxonomyNodes(section.nodes)),
       ...mapLearningModuleTreeToTaxonomyNodes(unsectionedTrees),
+      ...sectionTrees.flatMap((section) => mapLearningModuleTreeToTaxonomyNodes(section.nodes)),
     ],
     [sectionTrees, unsectionedTrees],
   )
@@ -96,6 +103,105 @@ export function UcatLearningModulesPage() {
     setNewParentId(null)
     setCreateOpen(true)
   }, [])
+
+  const handleTogglePrivate = useCallback(
+    async (moduleId: string) => {
+      const row = rowById.get(moduleId)
+      if (!row) return
+      const nextPrivate = !row.is_private
+      try {
+        await upsert.mutateAsync({
+          moduleId: row.id,
+          kind: row.kind,
+          title: row.title,
+          description: row.description,
+          iconKey: row.icon_key,
+          estimatedMinutes: row.estimated_minutes,
+          ucatSectionId: row.ucat_section_id,
+          parentId: row.parent_ucat_learning_module_id,
+          index: row.index,
+          isPrivate: nextPrivate,
+          studyPlanPriority: row.study_plan_priority,
+          studyPlanCategoryIds: row.study_plan_category_ids,
+          studyPlanTagIds: row.study_plan_tag_ids,
+        })
+        toast({
+          title: nextPrivate ? 'Made private' : 'Made public',
+          description: nextPrivate
+            ? 'Visible only to assigned students.'
+            : 'Visible in the student library.',
+        })
+      } catch (error) {
+        toast({
+          title: 'Could not update visibility',
+          description: error instanceof Error ? error.message : 'Unknown error',
+          variant: 'destructive',
+        })
+      }
+    },
+    [rowById, toast, upsert],
+  )
+
+  const handleDeleteModule = useCallback(
+    async (moduleId: string) => {
+      const row = rowById.get(moduleId)
+      if (!row) return
+      const label = row.kind === 'folder' ? 'folder' : 'learning module'
+      if (!window.confirm(`Delete this ${label}? This cannot be undone.`)) return
+      try {
+        await deleteModule.mutateAsync(moduleId)
+        if (editModuleId === moduleId) setEditModuleId(null)
+        toast({ title: 'Deleted', description: `${row.title} was deleted.` })
+      } catch (error) {
+        toast({
+          title: 'Delete failed',
+          description: error instanceof Error ? error.message : String(error),
+          variant: 'destructive',
+        })
+      }
+    },
+    [deleteModule, editModuleId, rowById, toast],
+  )
+
+  const getRowActions = useCallback(
+    (node: UcatLearningModuleTreeNode): UcatRowAction[] => {
+      const copyIdAction = buildCopyIdRowAction(
+        [
+          {
+            label: node.kind === 'folder' ? 'Folder' : 'Module',
+            id: node.id,
+            description: withCopyIdDescription(node.title),
+          },
+        ],
+        copyId,
+      )
+
+      return [
+        ...(copyIdAction ? [copyIdAction] : []),
+        {
+          label: 'Open in page',
+          icon: <ExternalLink className="h-4 w-4" />,
+          href: `/ucat/learning-modules/${node.id}`,
+        },
+        {
+          label: node.is_private ? 'Make public' : 'Make private',
+          icon: node.is_private ? <Globe className="h-4 w-4" /> : <Lock className="h-4 w-4" />,
+          onClick: () => {
+            void handleTogglePrivate(node.id)
+          },
+        },
+        {
+          label: 'Delete',
+          icon: <Trash2 className="h-4 w-4" />,
+          onClick: () => {
+            void handleDeleteModule(node.id)
+          },
+          destructive: true,
+        },
+      ]
+    },
+    [copyId, handleDeleteModule, handleTogglePrivate],
+  )
 
   const handleReparent = useCallback(
     async (itemId: string, target: TaxonomyReparentTarget) => {
@@ -243,6 +349,24 @@ export function UcatLearningModulesPage() {
 
   const sectionContent = (
     <>
+      {showUnsectioned ? (
+        <TaxonomySectionDropZone
+          sectionId={null}
+          sectionName="Unsectioned modules"
+          editMode={editMode}
+        >
+          <LearningModuleHierarchyTree
+            nodes={unsectionedTrees}
+            onItemClick={openModule}
+            sectionId={null}
+            searchQuery={searchQuery}
+            editMode={editMode}
+            getRowActions={getRowActions}
+            onInlineCreate={handleInlineCreate}
+          />
+        </TaxonomySectionDropZone>
+      ) : null}
+
       {visibleSectionTrees.map((section) => (
         <TaxonomySectionDropZone
           key={section.sectionId}
@@ -256,27 +380,11 @@ export function UcatLearningModulesPage() {
             sectionId={section.sectionId}
             searchQuery={searchQuery}
             editMode={editMode}
+            getRowActions={getRowActions}
             onInlineCreate={handleInlineCreate}
           />
         </TaxonomySectionDropZone>
       ))}
-
-      {showUnsectioned ? (
-        <TaxonomySectionDropZone
-          sectionId={null}
-          sectionName="Unsectioned modules"
-          editMode={editMode}
-        >
-          <LearningModuleHierarchyTree
-            nodes={unsectionedTrees}
-            onItemClick={openModule}
-            sectionId={null}
-            searchQuery={searchQuery}
-            editMode={editMode}
-            onInlineCreate={handleInlineCreate}
-          />
-        </TaxonomySectionDropZone>
-      ) : null}
     </>
   )
 
