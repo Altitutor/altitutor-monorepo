@@ -36,12 +36,14 @@ export async function GET(request: NextRequest) {
       ),
     );
   } catch (error) {
+    const message = errorMessage(error, "Failed to load Study plan.");
+    // Incomplete signup (auth user, no students row) — not a server fault.
+    if (message.toLowerCase().includes("no student profile")) {
+      return NextResponse.json({ error: message }, { status: 404 });
+    }
     captureApiError(error, "/api/ucat/study-plan");
     console.error("[study-plan] GET failed", error);
-    return NextResponse.json(
-      { error: errorMessage(error, "Failed to load Study plan.") },
-      { status: 500 },
-    );
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }
 

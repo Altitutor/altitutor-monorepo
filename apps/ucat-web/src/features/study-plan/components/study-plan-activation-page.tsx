@@ -305,19 +305,24 @@ export function StudyPlanActivationPage() {
     );
   }
 
+  function destinationAfterSetup(studyPlanStatus: StudyPlanCompletionStatus) {
+    return studyPlanStatus === "created" ? "/study-plan" : "/dashboard";
+  }
+
   async function runWorkspaceSetupTransition(
     studyPlanStatus: StudyPlanCompletionStatus,
     readiness: Promise<unknown> = Promise.resolve(),
   ) {
+    const destination = destinationAfterSetup(studyPlanStatus);
     if (!activationJourney) {
       await readiness;
-      router.replace("/dashboard");
+      router.replace(destination);
       return;
     }
     setCompletionReady(false);
     setCompletionMinimumElapsed(false);
     setCompletion({ phase: "confirming", studyPlanStatus });
-    router.prefetch("/dashboard");
+    router.prefetch(destination);
     await readiness.catch(() => undefined);
     setCompletionReady(true);
   }
@@ -435,9 +440,11 @@ export function StudyPlanActivationPage() {
         isTakingLonger={false}
         error={null}
         onRetry={() => undefined}
-        onComplete={() => router.replace("/dashboard")}
+        onComplete={() =>
+          router.replace(destinationAfterSetup(completion.studyPlanStatus))
+        }
         studyPlanStatus={completion.studyPlanStatus}
-        preloadDashboard
+        preloadDashboard={completion.studyPlanStatus !== "created"}
       />
     );
   }

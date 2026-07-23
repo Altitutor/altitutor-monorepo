@@ -122,7 +122,12 @@ export async function requestUcatQuestionAssessment(params: {
 
   const admin = getServiceRoleClient()
   const snapshot = await loadUcatAssessmentSnapshot(admin, params.stemId)
-  if (!snapshot || snapshot.status === 'draft') return { kind: 'skipped' }
+  if (!snapshot) return { kind: 'skipped' }
+  // Manual requests can review private drafts during authoring. Automatic triggers
+  // still skip drafts so launch/backfill does not queue unfinished stems.
+  if (snapshot.status === 'draft' && params.triggerKind !== 'manual_request') {
+    return { kind: 'skipped' }
+  }
 
   const requestedBy = params.requestedBy
     ?? (params.userClient ? await currentStaffId(params.userClient) : null)

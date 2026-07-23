@@ -190,7 +190,9 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
         userClient: access.userClient as unknown as SupabaseClient<Database>,
       })
       if (result.kind === 'skipped') {
-        return NextResponse.json({ error: 'This question stem is not eligible for AI review' }, { status: 409 })
+        return NextResponse.json({
+          error: 'This question stem is not eligible for AI review yet. Save the stem first, then try again.',
+        }, { status: 409 })
       }
       if (result.kind === 'disabled') {
         return NextResponse.json({ error: 'Automatic review is disabled in this environment' }, { status: 409 })

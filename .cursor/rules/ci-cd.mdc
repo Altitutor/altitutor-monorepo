@@ -1,0 +1,6 @@
+---
+alwaysApply: true
+---
+
+Remote databases should be read only
+NEVER make any changes to remote databases unless explicitly instructed to by the user

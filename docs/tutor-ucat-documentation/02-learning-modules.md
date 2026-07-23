@@ -61,4 +61,5 @@ In the module editor you can:
 
 - Keep one clear topic per module; use folders for units or weeks.
 - Prefer linking existing question stems rather than duplicating content.
+- The lesson AI Tools agent can search the published catalog and, if nothing fits the technique being taught, generate a new stem through the normal AI generation + approval workflow (private draft placeholder until approved).
 - After structural changes, spot-check the student app so the outline matches what you expect.

@@ -26,6 +26,7 @@ import { suggestAlternativeStudyGuidance } from "@/features/study-plan/api/study
 import { useStudyPlanCompanion } from "@/features/study-plan/context/study-plan-companion-context";
 import { useStudyPlan } from "@/features/study-plan/hooks/use-study-plan";
 import { useStudyPlanTaskActions } from "@/features/study-plan/hooks/use-study-plan-task-actions";
+import { useStudyPlanExtraStudyDialog } from "@/features/study-plan/components/study-plan-extra-study";
 import {
   findNewlyCompletedTask,
   getTodayStudyPlanProgress,
@@ -212,6 +213,7 @@ export function StudyPlanCompanion({
   const { activityComplete, activityCompletion, consumeActivityCompletion } =
     useStudyPlanCompanion();
   const { bottomFloatingDockVisible } = useAppShellLayout();
+  const openExtraStudy = useStudyPlanExtraStudyDialog();
   const onboardingProgress = useOnboardingProgress();
   const completeMilestone = useCompleteOnboardingTour();
   const orbIntroSeen = onboardingProgress.isCompleted(
@@ -883,8 +885,21 @@ export function StudyPlanCompanion({
                     <Check className="mx-auto h-6 w-6 text-muted-foreground" />
                     <p className="mt-2 font-medium">You’re caught up</p>
                     <p className="mt-1 text-sm text-muted-foreground">
-                      Open the orb later for your next useful step.
+                      {planEnabled
+                        ? "You’ve finished today’s plan. Come back tomorrow, or add a bit more practice now."
+                        : "Come back later for your next useful step."}
                     </p>
+                    {planEnabled ? (
+                      <Button
+                        className="mt-4 w-full"
+                        variant="outline"
+                        onClick={openExtraStudy}
+                        tabIndex={expanded ? undefined : -1}
+                      >
+                        <Sparkles className="mr-2 h-4 w-4" />
+                        Add extra study
+                      </Button>
+                    ) : null}
                   </div>
                 )}
 

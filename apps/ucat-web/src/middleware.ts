@@ -1,6 +1,9 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createServerClient } from "@supabase/ssr";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@altitutor/shared";
+import { isAllowedBeforeSignupComplete } from "@/features/signup-onboarding/lib/signup-complete-paths";
+import { resolvePostAuthDestination } from "@/features/auth/lib/social-auth";
 
 export async function middleware(request: NextRequest) {
   const { pathname, origin } = new URL(request.url);
@@ -28,6 +31,7 @@ export async function middleware(request: NextRequest) {
     pathname === "/sentry-example-page";
   const isPublicPath =
     publicPaths.includes(pathname) || isDevelopmentSentryExample;
+  const isApiPath = pathname.startsWith("/api/");
   const isNoAuthPublicPath =
     pathname === "/reset-password" ||
     pathname.startsWith("/marketing-preview/") ||
@@ -71,7 +75,7 @@ export async function middleware(request: NextRequest) {
     cookieOptions: {
       name: "student-auth",
     },
-  });
+  }) as unknown as SupabaseClient<Database>;
 
   const {
     data: { user },
@@ -96,12 +100,35 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(new URL("/login", origin));
   }
 
+  let signupCompleted: boolean | null = null;
+  if (user && !isApiPath) {
+    const { data: accessRow, error: accessError } = await supabase
+      .from("vstudent_ucat_my_access")
+      .select("ucat_signup_completed_at")
+      .maybeSingle();
+
+    // Fail open on lookup errors so a transient DB blip cannot lock users out.
+    if (!accessError) {
+      signupCompleted = Boolean(accessRow?.ucat_signup_completed_at);
+    }
+  }
+
   if (user && pathname === "/") {
-    return NextResponse.redirect(new URL("/dashboard", origin));
+    return NextResponse.redirect(
+      new URL(
+        signupCompleted === false ? "/signup/complete" : "/dashboard",
+        origin,
+      ),
+    );
   }
 
   if (user && pathname === "/forgot-password") {
-    return NextResponse.redirect(new URL("/dashboard", origin));
+    return NextResponse.redirect(
+      new URL(
+        signupCompleted === false ? "/signup/complete" : "/dashboard",
+        origin,
+      ),
+    );
   }
 
   if (user && (pathname === "/login" || pathname === "/signup")) {
@@ -109,7 +136,24 @@ export async function middleware(request: NextRequest) {
       request.nextUrl.searchParams.get("redirect")?.startsWith("/") === true
         ? request.nextUrl.searchParams.get("redirect")!
         : "/dashboard";
-    return NextResponse.redirect(new URL(redirectTo, origin));
+    const destination =
+      signupCompleted === null
+        ? redirectTo
+        : resolvePostAuthDestination({
+            intent: "login",
+            provider: null,
+            next: redirectTo,
+            signupCompleted,
+          });
+    return NextResponse.redirect(new URL(destination, origin));
+  }
+
+  if (
+    user &&
+    signupCompleted === false &&
+    !isAllowedBeforeSignupComplete(pathname)
+  ) {
+    return NextResponse.redirect(new URL("/signup/complete", origin));
   }
 
   return response;

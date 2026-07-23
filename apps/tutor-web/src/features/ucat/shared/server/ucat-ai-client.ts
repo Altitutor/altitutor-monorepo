@@ -434,6 +434,8 @@ export async function callUcatAiJson(params: {
   client: SupabaseClient<Database>
   operation: string
   modelProfileId?: string | null
+  /** Use vtutor_* facades when the client is a tutor session (not service role). */
+  tutorScoped?: boolean
   systemPrompt: string
   userPrompt: string
   userContentParts?: UcatAiUserContentPart[]
@@ -445,7 +447,11 @@ export async function callUcatAiJson(params: {
   metadata?: Json | null
   signal?: AbortSignal
 }): Promise<UcatAiJsonResult> {
-  const config = await resolveUcatAiConfig(params.client, params.modelProfileId)
+  const config = await resolveUcatAiConfig(
+    params.client,
+    params.modelProfileId,
+    params.tutorScoped ?? false,
+  )
   await assertBudget(params.client, config.settings)
 
   const timeoutMs = params.timeoutMs ?? 120000

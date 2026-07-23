@@ -233,7 +233,11 @@ export function UcatMonthCalendar({
   return (
     <Card
       ref={containerRef}
-      className={cn(UCAT_CARD_CHROME, "overflow-hidden", className)}
+      className={cn(
+        UCAT_CARD_CHROME,
+        "flex flex-col overflow-hidden",
+        className,
+      )}
       role="region"
       aria-label={ariaLabel}
       data-visible-month={visibleMonths[0]?.key}
@@ -339,7 +343,12 @@ export function UcatMonthCalendar({
         ) : null}
       </CardHeader>
 
-      <CardContent className={cn(isCompact ? "p-4 pt-0" : "p-5 pt-0")}>
+      <CardContent
+        className={cn(
+          "flex flex-1 flex-col justify-center",
+          isCompact ? "p-4 pt-0" : "p-5 pt-0",
+        )}
+      >
         {!showDualChrome ? (
           <div className="relative overflow-hidden">
             <AnimatePresence mode="wait" initial={false} custom={direction}>

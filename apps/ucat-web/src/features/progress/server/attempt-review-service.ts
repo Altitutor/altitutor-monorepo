@@ -5,6 +5,7 @@ import type {
   AttemptReviewState,
   AttemptReviewType,
 } from "@/features/progress/model/attempt-review";
+import { completeStudyPlanReviewForAttempt } from "@/features/study-plan/server/study-plan-service";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 
 function admin() {
@@ -56,6 +57,17 @@ function mapState(
   };
 }
 
+async function syncStudyPlanReviewCompletion(
+  userId: string,
+  attemptType: AttemptReviewType,
+  attemptId: string,
+  state: AttemptReviewState,
+  previouslyComplete: boolean,
+) {
+  if (!state.completedAt || previouslyComplete) return;
+  await completeStudyPlanReviewForAttempt(userId, attemptType, attemptId);
+}
+
 export async function startAttemptReview(
   userId: string,
   attemptType: AttemptReviewType,
@@ -66,6 +78,14 @@ export async function startAttemptReview(
   await assertAttemptOwnership(studentId, attemptType, attemptId);
   const required = [...new Set(requiredQuestionIds)];
   const completedAt = required.length === 0 ? new Date().toISOString() : null;
+  const { data: existing } = await admin()
+    .from("student_ucat_attempt_reviews")
+    .select("completed_at")
+    .eq("student_id", studentId)
+    .eq("attempt_type", attemptType)
+    .eq("attempt_id", attemptId)
+    .maybeSingle();
+  const previouslyComplete = Boolean(existing?.completed_at);
   const { data, error } = await admin()
     .from("student_ucat_attempt_reviews")
     .upsert(
@@ -83,7 +103,15 @@ export async function startAttemptReview(
     .select("*")
     .single();
   if (error) throw error;
-  return mapState(data);
+  const state = mapState(data);
+  await syncStudyPlanReviewCompletion(
+    userId,
+    attemptType,
+    attemptId,
+    state,
+    previouslyComplete,
+  );
+  return state;
 }
 
 export async function updateAttemptReview(
@@ -128,5 +156,13 @@ export async function updateAttemptReview(
     .select("*")
     .single();
   if (error) throw error;
-  return mapState(data);
+  const state = mapState(data);
+  await syncStudyPlanReviewCompletion(
+    userId,
+    attemptType,
+    attemptId,
+    state,
+    false,
+  );
+  return state;
 }
