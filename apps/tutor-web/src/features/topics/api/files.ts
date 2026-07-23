@@ -17,7 +17,7 @@ export const filesApi = {
   getFile: async (id: string) => {
     const supabase = (getSupabaseClient() as SupabaseClient<Database>);
     const { data, error } = await supabase
-      .from('files')
+      .from('vtutor_files')
       .select('*')
       .eq('id', id)
       .is('deleted_at', null)

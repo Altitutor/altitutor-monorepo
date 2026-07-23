@@ -2,6 +2,7 @@ import {
   buildDashboardTrajectoryChartData,
   interpolateProjectionAtDay,
   resolveDashboardTrajectory,
+  sectionEstimateSnapshots,
 } from "@/features/dashboard/lib/dashboard-trajectory";
 import type {
   ProjectionPoint,
@@ -148,6 +149,8 @@ describe("dashboard trajectory", () => {
   it("uses stored snapshots as actual history", () => {
     const data = buildDashboardTrajectoryChartData(
       total(),
+      "2026-07-15",
+      null,
       [
         {
           date: "2026-07-14",
@@ -158,7 +161,6 @@ describe("dashboard trajectory", () => {
           sectionEstimates: {},
         },
       ],
-      "2026-07-15",
     );
     expect(data[0]).toMatchObject({ date: "2026-07-14", actual: 1980 });
     expect(data.find((point) => point.date === "2026-07-15")).toMatchObject({
@@ -171,9 +173,11 @@ describe("dashboard trajectory", () => {
     });
   });
 
-  it("keeps today fixed by limiting the dashboard history to 60 days", () => {
+  it("keeps today fixed by limiting snapshot history to 60 days", () => {
     const data = buildDashboardTrajectoryChartData(
       total(),
+      "2026-07-15",
+      null,
       [
         {
           date: "2026-05-15",
@@ -192,7 +196,6 @@ describe("dashboard trajectory", () => {
           sectionEstimates: {},
         },
       ],
-      "2026-07-15",
     );
 
     expect(data.some((point) => point.date === "2026-05-15")).toBe(false);
@@ -200,5 +203,104 @@ describe("dashboard trajectory", () => {
       day: -60,
       actual: 1820,
     });
+  });
+
+  it("averages daily snapshots into weekly actuals", () => {
+    const data = buildDashboardTrajectoryChartData(
+      {
+        ...total(),
+        projection: [
+          {
+            day: 0,
+            date: "2026-07-22",
+            pessimistic: 2000,
+            realistic: 2000,
+            optimistic: 2000,
+          },
+          {
+            day: 120,
+            date: "2026-11-19",
+            pessimistic: 2200,
+            realistic: 2300,
+            optimistic: 2400,
+          },
+        ],
+      },
+      "2026-07-22",
+      null,
+      [
+        {
+          date: "2026-07-16",
+          currentEstimate: 977,
+          confidence: "low",
+          uncertainty: 160,
+          effectiveEvidenceWeight: 2,
+          sectionEstimates: {},
+        },
+        {
+          date: "2026-07-19",
+          currentEstimate: 1011,
+          confidence: "medium",
+          uncertainty: 100,
+          effectiveEvidenceWeight: 4,
+          sectionEstimates: {},
+        },
+        {
+          date: "2026-07-20",
+          currentEstimate: 978,
+          confidence: "high",
+          uncertainty: 70,
+          effectiveEvidenceWeight: 8,
+          sectionEstimates: {},
+        },
+        {
+          date: "2026-07-22",
+          currentEstimate: 978,
+          confidence: "high",
+          uncertainty: 70,
+          effectiveEvidenceWeight: 8,
+          sectionEstimates: {},
+        },
+      ],
+    );
+
+    const actuals = data.filter((point) => point.actual != null);
+    expect(
+      actuals.map((point) => ({ date: point.date, actual: point.actual })),
+    ).toEqual([
+      // Thu–Sun week: mean(977, 1011) = 994, anchored on latest day
+      { date: "2026-07-19", actual: 994 },
+      // Mon–Wed week: mean(978, 978) = 978
+      { date: "2026-07-22", actual: 978 },
+    ]);
+  });
+
+  it("projects section estimates out of total snapshots", () => {
+    const sectionSnaps = sectionEstimateSnapshots(
+      [
+        {
+          date: "2026-07-16",
+          currentEstimate: 977,
+          confidence: "low",
+          uncertainty: 160,
+          effectiveEvidenceWeight: 2,
+          sectionEstimates: { vr: 341, dm: 300, qr: 336 },
+        },
+        {
+          date: "2026-07-17",
+          currentEstimate: 987,
+          confidence: "medium",
+          uncertainty: 100,
+          effectiveEvidenceWeight: 4,
+          sectionEstimates: { vr: 342, dm: 313 },
+        },
+      ],
+      "dm",
+    );
+
+    expect(sectionSnaps).toEqual([
+      expect.objectContaining({ date: "2026-07-16", currentEstimate: 300 }),
+      expect.objectContaining({ date: "2026-07-17", currentEstimate: 313 }),
+    ]);
   });
 });

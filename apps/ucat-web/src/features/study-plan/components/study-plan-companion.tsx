@@ -12,6 +12,7 @@ import {
   ChevronDown,
   Clock3,
   Gauge,
+  Flame,
   Loader2,
   NotebookText,
   RotateCcw,
@@ -32,7 +33,14 @@ import {
   selectCurrentStudyPlanTasks,
   selectNextStudyPlanTask,
 } from "@/features/study-plan/lib/companion";
-import { guidanceItemKey } from "@/features/study-plan/lib/next-step-guidance";
+import {
+  isAlreadyOnSuggestedActivity,
+  type StudyPlanCompanionMode,
+} from "@/features/study-plan/lib/companion-mode";
+import {
+  firstGuidanceTriggerKey,
+  guidanceItemKey,
+} from "@/features/study-plan/lib/next-step-guidance";
 import type {
   StudyGuidanceItem,
   StudyPlanTask,
@@ -45,9 +53,13 @@ import {
 } from "@/features/onboarding/hooks/use-onboarding-progress";
 import { UCAT_STUDY_ORB_INTRO_SEEN } from "@/features/onboarding/lib/activation-milestones";
 import { cn } from "@/lib/utils";
+import { useUcatActivity } from "@/features/progress/hooks/use-ucat-activity";
+import { buildPracticeStreak } from "@/features/streaks/lib/practice-streak";
 
 const ENTER_EASE = [0.32, 0.72, 0, 1] as const;
 const EXPAND_DURATION = 0.22;
+const CELEBRATION_DURATION_MS = 4_500;
+const REDUCED_MOTION_CELEBRATION_DURATION_MS = 2_500;
 
 type GuidanceDisplayItem = {
   id: string;
@@ -65,6 +77,12 @@ type GuidanceDisplayItem = {
 type GuidanceNotice = {
   id: string;
   eyebrow: string;
+  title: string;
+  detail: string;
+};
+
+type OrbCelebration = {
+  type: "task" | "streak";
   title: string;
   detail: string;
 };
@@ -179,18 +197,20 @@ function activityTypeLabel(item: GuidanceDisplayItem): string {
 
 export function StudyPlanCompanion({
   hidden = false,
+  mode = "available",
   placement = "floating",
-  onVisibilityChange,
 }: {
   hidden?: boolean;
+  mode?: StudyPlanCompanionMode;
   placement?: "floating" | "sidebar";
-  onVisibilityChange?: (visible: boolean) => void;
 }) {
   const pathname = usePathname();
   const router = useRouter();
   const reduceMotion = useReducedMotion();
   const query = useStudyPlan();
-  const { activityComplete } = useStudyPlanCompanion();
+  const activityQuery = useUcatActivity();
+  const { activityComplete, activityCompletion, consumeActivityCompletion } =
+    useStudyPlanCompanion();
   const { bottomFloatingDockVisible } = useAppShellLayout();
   const onboardingProgress = useOnboardingProgress();
   const completeMilestone = useCompleteOnboardingTour();
@@ -203,6 +223,7 @@ export function StudyPlanCompanion({
   const [guidanceError, setGuidanceError] = useState<string | null>(null);
   const [latestNotice, setLatestNotice] = useState<GuidanceNotice | null>(null);
   const [promptVisible, setPromptVisible] = useState(false);
+  const [celebration, setCelebration] = useState<OrbCelebration | null>(null);
   const [alternativePending, setAlternativePending] = useState(false);
   const [alternativeState, setAlternativeState] = useState<{
     guidanceKey: string;
@@ -215,6 +236,11 @@ export function StudyPlanCompanion({
   > | null>(null);
   const previousGuidanceKeyRef = useRef<string | null>(null);
   const orbIntroHandledRef = useRef(false);
+  const practicedTodayRef = useRef<boolean | null>(null);
+  const suppressNextGuidancePromptRef = useRef(false);
+  const pendingCelebrationRef = useRef<OrbCelebration | null>(null);
+  const explicitCompletionAtRef = useRef<number | null>(null);
+  const processedActivityCompletionRef = useRef<number | null>(null);
   const data = query.data;
   const planEnabled = data?.profile?.studyPlanEnabled ?? false;
   const currentPlanTasks = useMemo(
@@ -242,7 +268,7 @@ export function StudyPlanCompanion({
   }, [data?.nextSteps, planEnabled, primaryPlanTask, secondaryPlanTask]);
   const guidanceKey = planEnabled
     ? (baseItems[0]?.id ?? `plan-complete:${data?.today ?? ""}`)
-    : (data?.nextSteps[0]?.triggerKey ?? null);
+    : firstGuidanceTriggerKey(data?.nextSteps);
   const activeAlternative =
     alternativeState?.guidanceKey === guidanceKey
       ? alternativeState.item
@@ -266,14 +292,103 @@ export function StudyPlanCompanion({
   const secondaryPlanActions = useStudyPlanTaskActions(
     secondary?.planTask ?? null,
   );
-  const visible = Boolean(
+  const activityInProgress = mode === "activity" && !activityComplete;
+  const suggestionsEnabled = Boolean(
     data?.profile?.studySuggestionsEnabled && !query.isError && !hidden,
+  );
+  // Stay mounted through completion celebrations on activity routes, then
+  // hide again until the activity finishes (or the student leaves).
+  const visible = Boolean(
+    suggestionsEnabled && (!activityInProgress || celebration != null),
   );
   const floatingBottom = bottomFloatingDockVisible ? "bottom-24" : "bottom-4";
   const expandTransition = {
     duration: reduceMotion ? 0 : EXPAND_DURATION,
     ease: ENTER_EASE,
   };
+  const activityInProgressRef = useRef(activityInProgress);
+  const primaryLaunchPathRef = useRef(primary?.launchPath ?? null);
+  const pathnameRef = useRef(pathname);
+  activityInProgressRef.current = activityInProgress;
+  primaryLaunchPathRef.current = primary?.launchPath ?? null;
+  pathnameRef.current = pathname;
+
+  useEffect(() => {
+    if (!activityQuery.data) return;
+    const streak = buildPracticeStreak(
+      activityQuery.data.days,
+      activityQuery.data.timezone,
+    );
+    const previous = practicedTodayRef.current;
+    practicedTodayRef.current = streak.practicedToday;
+    if (previous !== false || !streak.practicedToday) return;
+    setExpanded(false);
+    setPromptVisible(false);
+    setCelebration({
+      type: "streak",
+      title: `${streak.current} day streak`,
+      detail: "Today’s first question keeps your momentum going.",
+    });
+  }, [activityQuery.data]);
+
+  useEffect(() => {
+    if (!activityCompletion) return;
+    if (processedActivityCompletionRef.current === activityCompletion.id)
+      return;
+    processedActivityCompletionRef.current = activityCompletion.id;
+    explicitCompletionAtRef.current = Date.now();
+    suppressNextGuidancePromptRef.current = true;
+    setExpanded(false);
+    setPromptVisible(false);
+    const directCelebration: OrbCelebration = {
+      type: "task",
+      title: activityCompletion.title,
+      detail: activityCompletion.detail ?? "Nice work—keep it going.",
+    };
+    if (celebration?.type === "streak") {
+      pendingCelebrationRef.current = directCelebration;
+    } else {
+      setCelebration(directCelebration);
+    }
+    consumeActivityCompletion(activityCompletion.id);
+  }, [activityCompletion, celebration?.type, consumeActivityCompletion]);
+
+  useEffect(() => {
+    if (!celebration || !visible) return;
+    const timer = window.setTimeout(
+      () => {
+        const nextCelebration = pendingCelebrationRef.current;
+        pendingCelebrationRef.current = null;
+        if (nextCelebration) {
+          setCelebration(nextCelebration);
+          return;
+        }
+        setCelebration(null);
+        suppressNextGuidancePromptRef.current = false;
+        const launchPath = primaryLaunchPathRef.current;
+        const alreadyOnNext =
+          launchPath != null &&
+          isAlreadyOnSuggestedActivity(pathnameRef.current, launchPath);
+        // Stay silent while still inside an unfinished activity, or when the
+        // suggested next step is the page we just landed on (e.g. attempt review).
+        if (activityInProgressRef.current || alreadyOnNext) {
+          setPromptVisible(false);
+          return;
+        }
+        setPromptVisible(true);
+      },
+      reduceMotion
+        ? REDUCED_MOTION_CELEBRATION_DURATION_MS
+        : CELEBRATION_DURATION_MS,
+    );
+    return () => window.clearTimeout(timer);
+  }, [celebration, reduceMotion, visible]);
+
+  useEffect(() => {
+    if (!activityInProgress) return;
+    setExpanded(false);
+    setPromptVisible(false);
+  }, [activityInProgress]);
 
   useEffect(() => {
     if (!data || !data.generation) return;
@@ -295,16 +410,41 @@ export function StudyPlanCompanion({
         ? `Next: ${primary.title}`
         : "You’re caught up for today.",
     };
+    suppressNextGuidancePromptRef.current = true;
+    setExpanded(false);
     setLatestNotice(notice);
-    setPromptVisible(true);
-  }, [data, primary]);
+    setPromptVisible(false);
+    const taskCelebration: OrbCelebration = {
+      type: "task",
+      title: "Task complete",
+      detail: completed.title,
+    };
+    const followsExplicitCompletion =
+      explicitCompletionAtRef.current != null &&
+      Date.now() - explicitCompletionAtRef.current < 10_000;
+    explicitCompletionAtRef.current = null;
+    if (followsExplicitCompletion) {
+      return;
+    }
+    if (celebration?.type === "streak") {
+      pendingCelebrationRef.current = taskCelebration;
+    } else {
+      setCelebration(taskCelebration);
+    }
+  }, [celebration, data, primary]);
 
   useEffect(() => {
     if (!guidanceKey || planEnabled) return;
+    if (activityInProgress) return;
     if (previousGuidanceKeyRef.current === guidanceKey) return;
     const hadPreviousGuidance = previousGuidanceKeyRef.current != null;
     previousGuidanceKeyRef.current = guidanceKey;
+    if (suppressNextGuidancePromptRef.current) {
+      suppressNextGuidancePromptRef.current = false;
+      return;
+    }
     if (!primary) return;
+    if (isAlreadyOnSuggestedActivity(pathname, primary.launchPath)) return;
     const notice: GuidanceNotice = {
       id: `guidance:${guidanceKey}`,
       eyebrow: hadPreviousGuidance
@@ -315,7 +455,7 @@ export function StudyPlanCompanion({
     };
     setLatestNotice(notice);
     setPromptVisible(true);
-  }, [guidanceKey, planEnabled, primary]);
+  }, [activityInProgress, guidanceKey, pathname, planEnabled, primary]);
 
   useEffect(() => {
     setExpanded(false);
@@ -323,11 +463,6 @@ export function StudyPlanCompanion({
     // Route changes are the refresh boundary after completing or reviewing work.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pathname]);
-
-  useEffect(() => {
-    onVisibilityChange?.(visible);
-    return () => onVisibilityChange?.(false);
-  }, [onVisibilityChange, visible]);
 
   useEffect(() => {
     if (!visible || onboardingProgress.isLoading || orbIntroSeen) return;
@@ -429,6 +564,68 @@ export function StudyPlanCompanion({
       data-activity-complete={activityComplete || undefined}
     >
       <AnimatePresence>
+        {celebration && !expanded && !orbIntroVisible ? (
+          <motion.div
+            initial={reduceMotion ? false : { opacity: 0, y: 12, scale: 0.92 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: -8, scale: 1.03 }}
+            transition={{ duration: reduceMotion ? 0 : 0.28, ease: ENTER_EASE }}
+            className="absolute bottom-16 right-0 w-[min(300px,calc(100vw-1.5rem))] overflow-hidden rounded-2xl border border-amber-400/40 bg-background/95 p-4 shadow-[0_18px_55px_rgba(245,158,11,0.22)] backdrop-blur-xl"
+            role="status"
+          >
+            {!reduceMotion
+              ? [0, 1, 2, 3, 4].map((particle) => (
+                  <motion.span
+                    key={particle}
+                    className="absolute h-2 w-2 rounded-full bg-amber-400"
+                    style={{ left: `${12 + particle * 19}%` }}
+                    initial={{ y: 45, opacity: 0, scale: 0 }}
+                    animate={{
+                      y: [-2, -28],
+                      opacity: [0, 1, 0],
+                      scale: [0, 1, 0.5],
+                    }}
+                    transition={{ duration: 1.15, delay: particle * 0.1 }}
+                    aria-hidden
+                  />
+                ))
+              : null}
+            <div className="relative flex items-center gap-3">
+              <motion.span
+                initial={reduceMotion ? false : { scale: 0.5, rotate: -18 }}
+                animate={
+                  reduceMotion
+                    ? { scale: 1 }
+                    : { scale: [0.5, 1.2, 1], rotate: [-18, 8, 0] }
+                }
+                transition={{
+                  duration: reduceMotion ? 0 : 0.55,
+                  ease: ENTER_EASE,
+                }}
+                className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-amber-400 text-amber-950 shadow-lg shadow-amber-400/25"
+              >
+                {celebration.type === "streak" ? (
+                  <Flame className="h-5 w-5 fill-current" />
+                ) : (
+                  <Check className="h-5 w-5" />
+                )}
+              </motion.span>
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.13em] text-amber-600 dark:text-amber-400">
+                  Nice work
+                </p>
+                <p className="mt-0.5 font-semibold">{celebration.title}</p>
+                <p className="mt-0.5 text-xs text-muted-foreground">
+                  {celebration.detail}
+                </p>
+              </div>
+            </div>
+            <span className="absolute -bottom-2 right-5 h-4 w-4 rotate-45 border-b border-r border-amber-400/40 bg-background/95" />
+          </motion.div>
+        ) : null}
+      </AnimatePresence>
+
+      <AnimatePresence>
         {orbIntroVisible && !expanded ? (
           <motion.div
             initial={reduceMotion ? false : { opacity: 0, y: 12, scale: 0.96 }}
@@ -484,7 +681,11 @@ export function StudyPlanCompanion({
       </AnimatePresence>
 
       <AnimatePresence>
-        {promptVisible && latestNotice && !expanded && !orbIntroVisible ? (
+        {promptVisible &&
+        latestNotice &&
+        !celebration &&
+        !expanded &&
+        !orbIntroVisible ? (
           <motion.div
             initial={reduceMotion ? false : { opacity: 0, y: 8, scale: 0.98 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
@@ -553,12 +754,20 @@ export function StudyPlanCompanion({
               aria-expanded={false}
               tabIndex={expanded ? -1 : undefined}
             >
-              <span className="relative flex h-11 w-11 items-center justify-center rounded-full bg-primary/10 text-primary transition-colors hover:bg-primary/15">
+              <motion.span
+                animate={
+                  celebration && !reduceMotion
+                    ? { scale: [1, 1.22, 0.96, 1], rotate: [0, 8, -6, 0] }
+                    : { scale: 1, rotate: 0 }
+                }
+                transition={{ duration: 0.75, ease: ENTER_EASE }}
+                className="relative flex h-11 w-11 items-center justify-center rounded-full bg-primary/10 text-primary transition-colors hover:bg-primary/15"
+              >
                 <Sparkles className="h-5 w-5" />
                 {promptVisible || orbIntroVisible ? (
                   <span className="absolute right-0 top-0 h-3 w-3 rounded-full border-2 border-background bg-primary" />
                 ) : null}
-              </span>
+              </motion.span>
             </button>
           </div>
         </motion.div>

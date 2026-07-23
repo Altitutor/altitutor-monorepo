@@ -8,7 +8,10 @@ type ShouldShowSubscriptionTabInput = {
 
 /**
  * Hide the Plan → Subscription tab for free users with no billing history.
- * Keep it visible while access/billing are loading to avoid tab flicker.
+ *
+ * While access/billing are still loading, keep the tab hidden. Showing it by
+ * default caused a flash for Free users on every cold load; paid users with
+ * history only gain the tab once data resolves (or immediately from cache).
  */
 export function shouldShowSubscriptionTab({
   accessLoading,
@@ -17,7 +20,11 @@ export function shouldShowSubscriptionTab({
   subscriptionCount,
   invoiceCount,
 }: ShouldShowSubscriptionTabInput): boolean {
-  if (accessLoading || billingLoading) return true;
-  if (onlineTier !== "free") return true;
+  if (accessLoading || billingLoading) {
+    if (onlineTier != null && onlineTier !== "free") return true;
+    if (subscriptionCount > 0 || invoiceCount > 0) return true;
+    return false;
+  }
+  if (onlineTier != null && onlineTier !== "free") return true;
   return subscriptionCount > 0 || invoiceCount > 0;
 }

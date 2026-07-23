@@ -288,9 +288,9 @@ export function parseUcatAiJsonContent(content: string): unknown {
   }
 }
 
-async function getSettings(client: SupabaseClient<Database>): Promise<SettingsRow> {
+async function getSettings(client: SupabaseClient<Database>, tutorScoped = false): Promise<SettingsRow> {
   const { data, error } = await asAny(client)
-    .from('ucat_ai_generation_settings')
+    .from(tutorScoped ? 'vtutor_ucat_ai_generation_settings' : 'ucat_ai_generation_settings')
     .select('*')
     .order('created_at')
     .limit(1)
@@ -299,9 +299,9 @@ async function getSettings(client: SupabaseClient<Database>): Promise<SettingsRo
   return data as unknown as SettingsRow
 }
 
-export async function getEnabledUcatAiModelProfiles(client: SupabaseClient<Database>): Promise<ModelProfileRow[]> {
+export async function getEnabledUcatAiModelProfiles(client: SupabaseClient<Database>, tutorScoped = false): Promise<ModelProfileRow[]> {
   const { data, error } = await asAny(client)
-    .from('ucat_ai_generation_model_profiles')
+    .from(tutorScoped ? 'vtutor_ucat_ai_generation_model_profiles' : 'ucat_ai_generation_model_profiles')
     .select('*')
     .eq('is_enabled', true)
     .order('is_default', { ascending: false })
@@ -312,10 +312,14 @@ export async function getEnabledUcatAiModelProfiles(client: SupabaseClient<Datab
 
 export async function resolveUcatAiConfig(
   client: SupabaseClient<Database>,
-  modelProfileId?: string | null
+  modelProfileId?: string | null,
+  tutorScoped = false,
 ): Promise<UcatAiResolvedConfig> {
-  const settings = await getSettings(client)
-  let profileQuery = asAny(client).from('ucat_ai_generation_model_profiles').select('*').eq('is_enabled', true)
+  const settings = await getSettings(client, tutorScoped)
+  let profileQuery = asAny(client)
+    .from(tutorScoped ? 'vtutor_ucat_ai_generation_model_profiles' : 'ucat_ai_generation_model_profiles')
+    .select('*')
+    .eq('is_enabled', true)
   profileQuery = modelProfileId ? profileQuery.eq('id', modelProfileId) : profileQuery.eq('is_default', true)
   const { data: profileData, error: profileError } = await profileQuery.maybeSingle()
 
@@ -325,7 +329,7 @@ export async function resolveUcatAiConfig(
 
   const modelProfile = profileData as unknown as ModelProfileRow
   const { data: providerData, error: providerError } = await asAny(client)
-    .from('ucat_ai_generation_providers')
+    .from(tutorScoped ? 'vtutor_ucat_ai_generation_providers' : 'ucat_ai_generation_providers')
     .select('*')
     .eq('id', modelProfile.provider_id)
     .eq('is_enabled', true)
@@ -336,7 +340,7 @@ export async function resolveUcatAiConfig(
   }
 
   const { data: systemPromptsData, error: systemPromptsError } = await asAny(client)
-    .from('ucat_ai_generation_system_prompts')
+    .from(tutorScoped ? 'vtutor_ucat_ai_generation_system_prompts' : 'ucat_ai_generation_system_prompts')
     .select('*')
     .limit(1)
     .maybeSingle()
@@ -355,6 +359,7 @@ export async function resolveUcatAiConfig(
 
 export async function getUcatAiPromptLayers(params: {
   client: SupabaseClient<Database>
+  tutorScoped?: boolean
   sectionId?: string | null
   categoryId?: string | null
   categoryIds?: string[]
@@ -366,7 +371,7 @@ export async function getUcatAiPromptLayers(params: {
   if (ids.length === 0) return []
 
   const { data, error } = await asAny(params.client)
-    .from('ucat_ai_generation_prompt_layers')
+    .from(params.tutorScoped ? 'vtutor_ucat_ai_generation_prompt_layers' : 'ucat_ai_generation_prompt_layers')
     .select('*')
     .eq('is_enabled', true)
     .in('scope_id', ids)

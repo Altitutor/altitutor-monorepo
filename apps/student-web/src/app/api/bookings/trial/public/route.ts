@@ -1,7 +1,6 @@
 import { captureApiError } from '@/lib/sentry/capture-api-error';
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
-import type { Database } from '@altitutor/shared';
+import { getServerSupabaseAdmin } from '@/shared/lib/supabase/server';
 
 // Simple in-memory rate limiter (replace with Redis for production)
 const rateLimitMap = new Map<string, { count: number; resetAt: number }>();
@@ -91,11 +90,9 @@ export async function POST(request: NextRequest) {
       );
     }
     
-    // Create Supabase client
-    const supabase = createClient<Database>(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-    );
+    // The anonymous HTTP endpoint performs validation and rate limiting; the
+    // database RPC itself is service-only so it cannot be invoked directly.
+    const supabase = getServerSupabaseAdmin();
     
     // Map year level: 'Reception' -> 0, numeric strings -> numbers
     let yearLevel: number | null = null;
@@ -217,4 +214,3 @@ export async function POST(request: NextRequest) {
     );
   }
 }
-

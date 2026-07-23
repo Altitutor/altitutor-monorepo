@@ -6,7 +6,7 @@ import { MARKETING_TOKENS } from "@altitutor/shared";
 import type { Database } from "@altitutor/shared";
 import { ChevronLeft } from "lucide-react";
 import { PROFILE_SETUP_COMPLETE_KEY } from "@/features/auth/lib/signup-profile";
-import { UCAT_ACCENT_FILL_RISE } from "@/lib/ucat-surface-motion";
+import { UCAT_SIGNUP_PRIMARY_ACTION } from "@/lib/ucat-surface-motion";
 import { cn } from "@/lib/utils";
 
 const { typography: typo } = MARKETING_TOKENS;
@@ -127,7 +127,7 @@ export function SignupCompletePasswordStep({
       <button
         type="submit"
         disabled={isSubmitting}
-        className={cn(UCAT_ACCENT_FILL_RISE, "w-full", typo.headingSans)}
+        className={cn(UCAT_SIGNUP_PRIMARY_ACTION, typo.headingSans)}
       >
         {isSubmitting ? "Setting up…" : "Next"}
       </button>

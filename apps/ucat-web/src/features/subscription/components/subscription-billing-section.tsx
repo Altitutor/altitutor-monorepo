@@ -14,7 +14,6 @@ import {
 import {
   AlertTriangle,
   CalendarDays,
-  CircleDollarSign,
   CreditCard,
   ExternalLink,
   Info,
@@ -26,6 +25,7 @@ import {
   type BillingPortalAction,
 } from "@/features/subscription/api/create-billing-portal-session";
 import { usePublicSubscriptionConfig } from "@/features/subscription/hooks/use-public-subscription-config";
+import { useUcatReferralSummary } from "@/features/subscription/hooks/use-ucat-referral-summary";
 import { useUcatSubscriptionBilling } from "@/features/subscription/hooks/use-ucat-subscription-billing";
 import { SubscriptionInvoicesTable } from "@/features/subscription/components/subscription-invoices-table";
 import {
@@ -224,6 +224,7 @@ export function SubscriptionBillingSection() {
   const handledPaymentMethodReturn = useRef(false);
   const { data: pricingConfig = defaultPublicSubscriptionConfig } =
     usePublicSubscriptionConfig();
+  const referralSummaryQuery = useUcatReferralSummary();
   const [discountProgress, setDiscountProgress] = useState<{
     earned: number;
     cap: number;
@@ -326,6 +327,21 @@ export function SubscriptionBillingSection() {
         : null,
     [discountProgress, pricing],
   );
+  const nextBillFreeFromReferral =
+    referralSummaryQuery.data?.stats.nextBillFreeFromReferral === true;
+  const queuedReferralRewards =
+    referralSummaryQuery.data?.stats.queuedFreeBills ?? 0;
+  const displayedNextBillCents =
+    nextBillFreeFromReferral && billSnapshot
+      ? 0
+      : (billSnapshot?.projectedBillCents ?? null);
+  const nextBillLabel = pricing
+    ? `next ${pricing.billingFrequencyLabel.toLowerCase()} bill`
+    : "next bill";
+  const referralRewardTooltip =
+    queuedReferralRewards === 1
+      ? `Your next ${pricing?.billingIntervalNoun ?? "billing period"} is free because of a referral reward. You have 1 referral reward ready.`
+      : `Your next ${pricing?.billingIntervalNoun ?? "billing period"} is free because of a referral reward. You have ${queuedReferralRewards} referral rewards ready.`;
 
   const handlePortalAction = async (action: BillingPortalAction) => {
     setPortalAction(action);
@@ -356,7 +372,7 @@ export function SubscriptionBillingSection() {
   const handleChangePlan = () => {
     openPlanPicker({
       title: "Change your plan",
-      description: "Compare UCAT Free, Unlimited and Pro.",
+      description: "Compare UCAT Free and Unlimited.",
     });
   };
 
@@ -622,9 +638,10 @@ export function SubscriptionBillingSection() {
                   : "Your plan, renewal and practice rewards at a glance."}
               </p>
             </div>
-            {pricing && billSnapshot ? (
+            {pricing && billSnapshot && displayedNextBillCents != null ? (
               <div className="sm:text-right">
-                {billSnapshot.earnedDiscountCents > 0 ? (
+                {!nextBillFreeFromReferral &&
+                billSnapshot.earnedDiscountCents > 0 ? (
                   <p className="text-sm text-muted-foreground line-through decoration-muted-foreground/70">
                     {formatMoneyFromMinorUnits(
                       pricing.standardPriceCents,
@@ -632,22 +649,36 @@ export function SubscriptionBillingSection() {
                     )}
                   </p>
                 ) : null}
-                <p className="text-3xl font-semibold tracking-tight tabular-nums">
-                  {formatMoneyFromMinorUnits(
-                    billSnapshot.projectedBillCents,
-                    pricingConfig.currency,
-                  )}
-                </p>
-                <p className="text-sm text-muted-foreground">
-                  estimated next bill / {pricing.billingIntervalNoun}
-                </p>
+                <div className="flex items-center gap-1.5 sm:justify-end">
+                  <p className="text-3xl font-semibold tracking-tight tabular-nums">
+                    {formatMoneyFromMinorUnits(
+                      displayedNextBillCents,
+                      pricingConfig.currency,
+                    )}
+                  </p>
+                  {nextBillFreeFromReferral ? (
+                    <MetricInfoTooltip label="Why this bill is free">
+                      {referralRewardTooltip}
+                    </MetricInfoTooltip>
+                  ) : null}
+                </div>
+                <p className="text-sm text-muted-foreground">{nextBillLabel}</p>
+                {!nextBillFreeFromReferral ? (
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    {formatMoneyFromMinorUnits(
+                      billSnapshot.remainingDiscountCents,
+                      pricingConfig.currency,
+                    )}{" "}
+                    discount still available
+                  </p>
+                ) : null}
               </div>
             ) : null}
           </div>
         </div>
 
         {pricing && billSnapshot ? (
-          <div className="grid gap-px border-b border-border/60 bg-border/60 sm:grid-cols-3">
+          <div className="grid gap-px border-b border-border/60 bg-border/60 sm:grid-cols-2">
             <div className="bg-background p-5">
               <div className="flex items-center gap-2 text-muted-foreground">
                 <CalendarDays className="h-4 w-4" aria-hidden="true" />
@@ -681,31 +712,6 @@ export function SubscriptionBillingSection() {
                       : "No card saved"}
                 </p>
               )}
-            </div>
-            <div className="bg-background p-5">
-              <div className="flex items-center gap-2 text-muted-foreground">
-                <CircleDollarSign className="h-4 w-4" aria-hidden="true" />
-                <p className="text-xs font-semibold uppercase tracking-wide">
-                  Discount still available
-                </p>
-                <MetricInfoTooltip label="How much more discount you can earn">
-                  This is the additional amount you can still take off your next
-                  bill before this billing cycle ends. Each qualifying practice
-                  day reduces it by{" "}
-                  {formatMoneyFromMinorUnits(
-                    pricing.discountPerDayCents,
-                    pricingConfig.currency,
-                  )}
-                  .
-                </MetricInfoTooltip>
-              </div>
-              <p className="mt-2 font-semibold tabular-nums">
-                {formatMoneyFromMinorUnits(
-                  billSnapshot.remainingDiscountCents,
-                  pricingConfig.currency,
-                )}{" "}
-                left to earn
-              </p>
             </div>
           </div>
         ) : null}

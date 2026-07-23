@@ -40,7 +40,6 @@ const TIER_OPTIONS: UcatOnlineTierOverride[] = [
   'default',
   'force_free',
   'force_unlimited',
-  'force_pro',
 ];
 
 function isTierOverride(value: string): value is UcatOnlineTierOverride {
@@ -98,7 +97,7 @@ export function SetUcatTierOverrideModal({
           <DialogTitle>Set UCAT tier override</DialogTitle>
           <DialogDescription>
             Override a student&apos;s UCAT online tier independently of Stripe subscriptions. Manual UCAT
-            grants automatically set Force UCAT Pro; revoking the last UCAT grant resets to Default.
+            grants automatically set Force UCAT Unlimited; revoking the last UCAT grant resets to Default.
           </DialogDescription>
         </DialogHeader>
 

@@ -1,7 +1,8 @@
 import type { UcatOnlineTier } from "@altitutor/shared";
 import { onlineTierRank } from "@/features/subscription/lib/plan-tier-rank";
+import { hasPaidUcatSubscriptionAccess } from "@/lib/ucat/subscription-status";
 
-export type CurrentPlanDisplayKey = UcatOnlineTier | "pro_trial";
+export type CurrentPlanDisplayKey = UcatOnlineTier;
 
 export type SubscriptionPlanSnapshot = {
   status: string;
@@ -13,10 +14,17 @@ export function subscribedPlanTierRank(
   subscription: SubscriptionPlanSnapshot,
 ): number {
   if (!subscription) return 0;
-  if (subscription.plan_tier === "pro") return 2;
   if (
     subscription.plan_tier === "unlimited" &&
-    (subscription.status === "active" || subscription.status === "trialing")
+    (hasPaidUcatSubscriptionAccess(subscription.status) ||
+      subscription.status === "trialing")
+  ) {
+    return 1;
+  }
+  // Active/past_due/trialing without a plan_tier still implies Unlimited access.
+  if (
+    hasPaidUcatSubscriptionAccess(subscription.status) ||
+    subscription.status === "trialing"
   ) {
     return 1;
   }
@@ -30,27 +38,37 @@ export function effectivePaidTierRank(
   return Math.max(onlineTierRank(onlineTier), subscribedPlanTierRank(subscription));
 }
 
+/**
+ * Label for the Plan → Current plan card.
+ * Prefer the entitlement tier from access; fall back to the subscription row.
+ */
 export function resolveCurrentPlanDisplayKey(
   onlineTier: UcatOnlineTier | null,
   subscription: SubscriptionPlanSnapshot,
 ): CurrentPlanDisplayKey {
-  if (subscription?.plan_tier === "pro") {
-    return subscription.status === "trialing" ? "pro_trial" : "pro";
+  if (onlineTier === "unlimited_trial") return "unlimited_trial";
+  if (onlineTier === "unlimited") return "unlimited";
+  if (onlineTier === "free") {
+    // Access says Free, but a recoverable/paid subscription row can still be
+    // more accurate for the Plan label while Stripe/access catch up.
+    if (
+      subscription &&
+      (hasPaidUcatSubscriptionAccess(subscription.status) ||
+        subscription.status === "trialing")
+    ) {
+      return subscription.status === "trialing" ? "unlimited_trial" : "unlimited";
+    }
+    return "free";
   }
 
-  if (subscription?.status === "trialing") {
-    return "unlimited_trial";
+  // Access tier unknown — infer from subscription snapshot.
+  if (
+    subscription &&
+    (hasPaidUcatSubscriptionAccess(subscription.status) ||
+      subscription.status === "trialing")
+  ) {
+    return subscription.status === "trialing" ? "unlimited_trial" : "unlimited";
   }
 
-  if (subscription?.status === "active") {
-    return subscription.plan_tier === "unlimited" ? "unlimited" : "unlimited";
-  }
-
-  return onlineTier ?? "free";
-}
-
-export function isSubscribedToPro(
-  subscription: SubscriptionPlanSnapshot,
-): boolean {
-  return subscription?.plan_tier === "pro";
+  return "free";
 }

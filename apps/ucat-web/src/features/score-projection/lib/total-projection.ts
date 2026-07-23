@@ -91,19 +91,41 @@ function sumHorizons(sections: SectionScoreProjection[]): ProjectionHorizon[] {
     });
 }
 
+function latestHistoryOnOrBefore(
+  section: SectionScoreProjection,
+  date: string,
+): HistoricalProjectionPoint | null {
+  let best: HistoricalProjectionPoint | null = null;
+  for (const point of section.history) {
+    if (point.date > date) continue;
+    if (best == null || point.date >= best.date) best = point;
+  }
+  return best;
+}
+
 function sumHistory(
   sections: SectionScoreProjection[],
 ): HistoricalProjectionPoint[] {
+  // Total history only exists once every cognitive section has an estimate.
+  // Section histories can start on different weeks, so require an exact-date
+  // intersection drops almost everything — carry each section's latest known
+  // estimate forward across the shared date union instead.
+  const firstDates = sections.map((section) => section.history[0]?.date ?? null);
+  if (firstDates.some((date) => date == null)) return [];
+  const totalAvailableFrom = firstDates.sort().at(-1)!;
+
   const dates = new Set<string>();
   for (const section of sections) {
-    for (const point of section.history) dates.add(point.date);
+    for (const point of section.history) {
+      if (point.date >= totalAvailableFrom) dates.add(point.date);
+    }
   }
 
   return [...dates]
     .sort((a, b) => a.localeCompare(b))
     .flatMap((date) => {
       const points = sections.map((section) =>
-        section.history.find((point) => point.date === date),
+        latestHistoryOnOrBefore(section, date),
       );
       if (points.some((point) => point == null)) return [];
       const confidence = lowestConfidence(

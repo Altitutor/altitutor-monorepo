@@ -77,7 +77,7 @@ export function HeaderStatusPill({
     <div
       role="status"
       className={cn(
-        "inline-flex w-max max-w-[min(100vw-8rem,24rem)] items-center gap-2 rounded-full border px-3 py-1.5 text-xs shadow-sm",
+        "inline-flex min-w-0 w-max max-w-full shrink-0 items-center gap-2 rounded-full border px-3 py-1.5 text-xs shadow-sm",
         styles.pill,
       )}
     >

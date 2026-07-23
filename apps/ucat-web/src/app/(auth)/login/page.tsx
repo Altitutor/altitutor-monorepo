@@ -1,7 +1,14 @@
 import { LoginForm, LoginPageLayout } from "@/features/auth";
+import { getEnabledSocialAuthProviders } from "@/features/auth/lib/social-auth";
 
 type PageProps = {
-  searchParams: Promise<{ redirect?: string; email?: string; existing?: string; reset?: string }>;
+  searchParams: Promise<{
+    redirect?: string;
+    email?: string;
+    existing?: string;
+    reset?: string;
+    error?: string;
+  }>;
 };
 
 export default async function LoginPage({ searchParams }: PageProps) {
@@ -20,6 +27,8 @@ export default async function LoginPage({ searchParams }: PageProps) {
         initialEmail={initialEmail}
         accountExists={accountExists}
         resetSuccess={resetSuccess}
+        enabledSocialProviders={getEnabledSocialAuthProviders()}
+        authError={params.error}
       />
     </LoginPageLayout>
   );

@@ -45,6 +45,7 @@ export function PracticePage() {
     active: activeExamAttempt,
     isLoading: activeAttemptLoading,
     refresh: refreshActiveAttempt,
+    clearLocal: clearActiveAttempt,
   } = useActiveExamAttempt();
   const {
     isLoading: questionEngineTourLoading,
@@ -221,6 +222,7 @@ export function PracticePage() {
       if (conflictActive.kind === "practice") {
         clearPracticeSession();
       }
+      clearActiveAttempt();
       await refreshActiveAttempt();
       setConflictActive(null);
       startWithQuotaPreflight(pendingStartRef.current);

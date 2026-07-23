@@ -1,13 +1,10 @@
 import type { SupabaseClient } from "jsr:@supabase/supabase-js@2";
-
-function escapeHtml(value: string): string {
-  return value
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;")
-    .replaceAll("'", "&#039;");
-}
+import {
+  escapeEmailHtml,
+  renderUcatTransactionalEmail,
+  UCAT_TRANSACTIONAL_FROM,
+  UCAT_TRANSACTIONAL_REPLY_TO,
+} from "./ucat-transactional-email.ts";
 
 export async function sendUcatBillingAccessEndedEmail(
   supabase: SupabaseClient,
@@ -31,9 +28,24 @@ export async function sendUcatBillingAccessEndedEmail(
 
   if (error || !student?.email) return false;
 
-  const firstName = escapeHtml(student.first_name?.trim() || "there");
-  const planName = input.planTier === "pro" ? "UCAT Pro" : "UCAT Unlimited";
+  const firstName = escapeEmailHtml(student.first_name?.trim() || "there");
   const manageUrl = `${Deno.env.get("UCAT_WEB_URL")?.replace(/\/$/, "") ?? "https://ucat.altitutor.com"}/settings/plan/subscription`;
+  const html = renderUcatTransactionalEmail({
+    previewText:
+      "Your practice history is safe, and you can keep preparing on Free.",
+    heading: "Your Unlimited access has ended",
+    bodyHtml: `
+      <p style="margin:0 0 16px;color:#394650;font-size:15px;line-height:1.7">Hi ${firstName},</p>
+      <p style="margin:0 0 16px;color:#394650;font-size:15px;line-height:1.7">We could not recover your subscription payment after several attempts, so your Altitutor UCAT Unlimited subscription has ended.</p>
+      <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="margin:24px 0;background-color:#eaf1f3;border:1px solid #d1e0e5;border-radius:12px">
+        <tr><td style="padding:18px 20px;color:#0a2941;font-size:14px;line-height:1.65"><strong>Your account, practice history and results are safe.</strong> You can keep preparing on Free or restart Unlimited whenever you are ready.</td></tr>
+      </table>
+      <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="margin:26px 0"><tr><td align="left">
+        <a href="${escapeEmailHtml(manageUrl)}" style="display:inline-block;min-width:160px;padding:14px 22px;background-color:#0a2941;border-radius:9px;color:#ffffff;font-size:15px;font-weight:700;line-height:1.4;text-align:center;text-decoration:none">Review your plan</a>
+      </td></tr></table>
+      <p style="margin:0;color:#68757e;font-size:13px;line-height:1.6">If you think this happened in error, reply and the Altitutor team will help.</p>
+    `,
+  });
 
   const response = await fetch("https://api.resend.com/emails", {
     method: "POST",
@@ -43,19 +55,12 @@ export async function sendUcatBillingAccessEndedEmail(
       "Idempotency-Key": `ucat-billing-ended/${input.stripeSubscriptionId}`,
     },
     body: JSON.stringify({
-      from: "Altitutor <noreply@altitutor.com>",
+      from: UCAT_TRANSACTIONAL_FROM,
+      reply_to: UCAT_TRANSACTIONAL_REPLY_TO,
       to: student.email,
-      subject: `Your ${planName} subscription has ended`,
-      html: `
-        <div style="font-family:Arial,sans-serif;max-width:600px;margin:auto;color:#1f2937;line-height:1.6">
-          <h1 style="color:#0a2941">Your paid UCAT plan has ended</h1>
-          <p>Hi ${firstName},</p>
-          <p>We couldn’t recover your subscription payment after several attempts, so your ${planName} subscription has ended.</p>
-          <p>Your Altitutor account, practice history and results are safe. You can continue on the Free plan or restart your paid plan whenever you’re ready.</p>
-          <p><a href="${manageUrl}" style="display:inline-block;background:#0a2941;color:white;padding:12px 18px;border-radius:8px;text-decoration:none">Review your plan</a></p>
-          <p style="color:#6b7280;font-size:13px">If you believe this happened in error, reply to this email or contact Altitutor support.</p>
-        </div>
-      `,
+      subject: "Your Altitutor UCAT Unlimited subscription has ended",
+      html,
+      text: `Hi ${student.first_name?.trim() || "there"},\n\nWe could not recover your subscription payment after several attempts, so your Altitutor UCAT Unlimited subscription has ended.\n\nYour account, practice history and results are safe. You can keep preparing on Free or restart Unlimited whenever you are ready.\n\nReview your plan: ${manageUrl}\n\nIf you think this happened in error, reply or contact ${UCAT_TRANSACTIONAL_REPLY_TO}.\n\nA not-for-profit initiative by Altitutor.`,
     }),
   });
 

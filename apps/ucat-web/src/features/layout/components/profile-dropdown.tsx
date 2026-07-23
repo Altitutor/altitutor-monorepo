@@ -71,7 +71,7 @@ export function ProfileDropdown() {
               "flex h-9 items-center gap-2 px-3 active:scale-[0.98]",
             )}
           >
-            <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-sidebar text-xs font-medium text-sidebar-foreground">
+            <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary text-xs font-medium text-primary-foreground">
               {getInitials()}
             </div>
             <span className="hidden max-w-[10rem] truncate text-sm sm:inline">

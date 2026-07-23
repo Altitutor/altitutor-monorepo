@@ -23,7 +23,10 @@ import type {
   StudyPlanResponse,
   StudyPlanSection,
 } from "@/features/study-plan/model/types";
-import { UCAT_CLICKABLE_CARD_SELECTED } from "@/lib/ucat-surface-motion";
+import {
+  UCAT_CARD_CHROME,
+  UCAT_CLICKABLE_CARD_SELECTED,
+} from "@/lib/ucat-surface-motion";
 import { cn } from "@/lib/utils";
 
 const TIME_OPTIONS: StudyPlanExtraStudyMinutes[] = [10, 20, 30, 45];
@@ -242,10 +245,22 @@ export function StudyPlanExtraStudy({
     );
   }
 
+  const title = todayIsComplete
+    ? "You’re done for today"
+    : "Nothing is planned for today";
+  const cta = todayIsComplete
+    ? "I have time for more"
+    : "I’d like to study today";
+
   return (
-    <div className="flex flex-col gap-4 rounded-2xl border border-dashed border-primary/30 bg-primary/[0.04] p-4 sm:flex-row sm:items-center sm:justify-between">
+    <div
+      className={cn(
+        UCAT_CARD_CHROME,
+        "flex flex-col gap-4 p-4 sm:flex-row sm:items-center sm:justify-between",
+      )}
+    >
       <div className="flex items-start gap-3">
-        <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
+        <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-primary/15 text-primary">
           {todayIsComplete ? (
             <Check className="h-4 w-4" />
           ) : (
@@ -253,11 +268,7 @@ export function StudyPlanExtraStudy({
           )}
         </span>
         <div>
-          <p className="font-medium">
-            {todayIsComplete
-              ? "You’re done for today"
-              : "Nothing is planned for today"}
-          </p>
+          <p className="font-medium">{title}</p>
           <p className="mt-0.5 text-sm text-muted-foreground">
             Tell us how long you have and your plan will choose one useful extra
             block.
@@ -272,7 +283,7 @@ export function StudyPlanExtraStudy({
         disabled={!interactive}
       >
         <Plus className="mr-2 h-4 w-4" />
-        {todayIsComplete ? "I have time for more" : "I’d like to study today"}
+        {cta}
       </Button>
     </div>
   );

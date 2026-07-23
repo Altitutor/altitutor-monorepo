@@ -15,6 +15,7 @@ import {
 import {
   AlertTriangle,
   CalendarDays,
+  Gauge,
   Target,
   type LucideIcon,
 } from "lucide-react";
@@ -107,7 +108,7 @@ export function StudyPlanPage({
       <motion.div variants={itemVariants}>
         <UcatPageHeader
           title="Study plan"
-          description="Your month-by-month route from today to test day"
+          description="Your adaptive 21-day route toward test day"
         />
       </motion.div>
 
@@ -215,6 +216,27 @@ export function StudyPlanPage({
                       </p>
                     )}
                   </StudyPlanDetailCard>
+
+                  {plan.generation?.readiness ? (
+                    <StudyPlanDetailCard
+                      icon={Gauge}
+                      label="Current plan mode"
+                      editLabel="View study readiness"
+                      previewMode={previewMode}
+                    >
+                      <p className="text-xl font-semibold capitalize">
+                        {plan.generation.readiness.mode}
+                      </p>
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        {plan.generation.readiness.sections
+                          .map(
+                            (section) =>
+                              `${section.sectionKey === "verbal_reasoning" ? "VR" : section.sectionKey === "decision_making" ? "DM" : "QR"} ${section.mode === "learning" ? "learn" : `${section.paceMultiplier.toFixed(1)}×`}`,
+                          )
+                          .join(" · ")}
+                      </p>
+                    </StudyPlanDetailCard>
+                  ) : null}
                 </div>
               }
             />

@@ -13,6 +13,18 @@ describe("shouldShowSubscriptionTab", () => {
     ).toBe(false);
   });
 
+  it("hides when online tier is unknown and there is no billing history", () => {
+    expect(
+      shouldShowSubscriptionTab({
+        accessLoading: false,
+        billingLoading: false,
+        onlineTier: null,
+        subscriptionCount: 0,
+        invoiceCount: 0,
+      }),
+    ).toBe(false);
+  });
+
   it("shows for free users with a past subscription", () => {
     expect(
       shouldShowSubscriptionTab({
@@ -37,6 +49,18 @@ describe("shouldShowSubscriptionTab", () => {
     ).toBe(true);
   });
 
+  it("shows unknown tier users who still have billing history", () => {
+    expect(
+      shouldShowSubscriptionTab({
+        accessLoading: false,
+        billingLoading: false,
+        onlineTier: null,
+        subscriptionCount: 1,
+        invoiceCount: 0,
+      }),
+    ).toBe(true);
+  });
+
   it("shows for paid tiers", () => {
     expect(
       shouldShowSubscriptionTab({
@@ -49,12 +73,30 @@ describe("shouldShowSubscriptionTab", () => {
     ).toBe(true);
   });
 
-  it("shows while loading to avoid flicker", () => {
+  it("hides while loading unless billing history or a paid tier is already known", () => {
     expect(
       shouldShowSubscriptionTab({
         accessLoading: true,
         billingLoading: false,
+        onlineTier: null,
+        subscriptionCount: 0,
+        invoiceCount: 0,
+      }),
+    ).toBe(false);
+    expect(
+      shouldShowSubscriptionTab({
+        accessLoading: false,
+        billingLoading: true,
         onlineTier: "free",
+        subscriptionCount: 0,
+        invoiceCount: 0,
+      }),
+    ).toBe(false);
+    expect(
+      shouldShowSubscriptionTab({
+        accessLoading: true,
+        billingLoading: false,
+        onlineTier: "unlimited",
         subscriptionCount: 0,
         invoiceCount: 0,
       }),
@@ -63,8 +105,8 @@ describe("shouldShowSubscriptionTab", () => {
       shouldShowSubscriptionTab({
         accessLoading: false,
         billingLoading: true,
-        onlineTier: "free",
-        subscriptionCount: 0,
+        onlineTier: null,
+        subscriptionCount: 1,
         invoiceCount: 0,
       }),
     ).toBe(true);

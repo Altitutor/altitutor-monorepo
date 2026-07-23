@@ -1,10 +1,8 @@
 "use client";
 
-import { MARKETING_TOKENS } from "@altitutor/shared";
-import { gsap } from "gsap";
-import { ArrowRight } from "lucide-react";
-import Image from "next/image";
 import { useEffect, useRef } from "react";
+import { MARKETING_TOKENS } from "@altitutor/shared";
+import { ArrowDown, ArrowRight, HeartHandshake } from "lucide-react";
 import { AnalyticsLink } from "../analytics-link";
 import { PRODUCT_LINKS } from "@/lib/site";
 import { MagneticButton } from "./magnetic-button";
@@ -12,95 +10,116 @@ import { MagneticButton } from "./magnetic-button";
 const { typography: typo } = MARKETING_TOKENS;
 
 export function UcatLandingHero() {
-  const containerRef = useRef<HTMLDivElement>(null);
+  const sectionRef = useRef<HTMLElement>(null);
 
   useEffect(() => {
-    const ctx = gsap.context(() => {
-      gsap.from(".hero-text", {
-        y: 40,
-        opacity: 0,
-        duration: 1.2,
-        stagger: 0.08,
-        ease: "power3.out",
-        delay: 0.2,
-      });
-    }, containerRef);
-    return () => ctx.revert();
+    let cancelled = false;
+    let context: { revert: () => void } | undefined;
+
+    void Promise.all([import("gsap"), import("gsap/ScrollTrigger")]).then(
+      ([gsapModule]) => {
+        const gsap = gsapModule.default;
+        if (cancelled) return;
+        if (!sectionRef.current) return;
+        context = gsap.context(() => {
+          const reduceMotion = window.matchMedia(
+            "(prefers-reduced-motion: reduce)",
+          ).matches;
+          if (reduceMotion) return;
+          gsap
+            .timeline({ defaults: { ease: "power3.out" } })
+            .from("[data-hero-eyebrow]", { opacity: 0, y: 16, duration: 0.55 })
+            .from(
+              "[data-hero-line]",
+              { opacity: 0, y: 44, duration: 0.85, stagger: 0.1 },
+              "-=0.3",
+            )
+            .from(
+              "[data-hero-support]",
+              { opacity: 0, y: 24, duration: 0.65, stagger: 0.08 },
+              "-=0.45",
+            );
+        }, sectionRef);
+      },
+    );
+
+    return () => {
+      cancelled = true;
+      context?.revert();
+    };
   }, []);
 
   return (
     <section
-      id="alti-ucat"
-      ref={containerRef}
-      className="relative flex min-h-[100dvh] w-full flex-col overflow-hidden rounded-b-[3rem] bg-marketing-charcoal"
+      ref={sectionRef}
+      id="altitutor-ucat"
+      className="relative flex min-h-[92dvh] items-center overflow-hidden bg-marketing-cream px-4 pb-20 pt-32 sm:px-8 sm:pb-24 sm:pt-40"
     >
-      <div className="absolute inset-0 z-0 opacity-40 mix-blend-luminosity">
-        <Image
-          src="https://images.unsplash.com/photo-1532187863486-abf9dbad1b69?ixlib=rb-4.0.3&auto=format&fit=crop&w=2850&q=80"
-          alt="Biological research"
-          fill
-          className="object-cover"
-          sizes="100vw"
-          priority
-        />
-        <div className="absolute inset-0 bg-gradient-to-t from-marketing-primary via-marketing-primary/80 to-transparent" />
-      </div>
+      <div className="absolute left-1/2 top-0 h-80 w-[46rem] -translate-x-1/2 rounded-full bg-marketing-accent/14 blur-[110px]" />
+      <div className="relative mx-auto w-full max-w-[92rem] text-center">
+        <p
+          data-hero-eyebrow
+          className={`text-xs font-semibold uppercase tracking-[0.2em] text-marketing-primary/60 sm:text-sm ${typo.dataMono}`}
+        >
+          UCAT preparation from Altitutor
+        </p>
+        <h1
+          className={`mx-auto mt-7 text-5xl font-semibold leading-[0.95] tracking-[-0.052em] text-marketing-charcoal sm:text-7xl lg:text-[clamp(4.7rem,7.1vw,7rem)] ${typo.headingSans}`}
+        >
+          <span data-hero-line className="block lg:whitespace-nowrap">
+            Know where you stand.
+          </span>
+          <span
+            data-hero-line
+            className={`mt-2 block font-normal italic text-marketing-primary lg:whitespace-nowrap ${typo.dramaSerif}`}
+          >
+            Know what to do next.
+          </span>
+        </h1>
+        <p
+          data-hero-support
+          className={`mx-auto mt-8 max-w-2xl text-base leading-relaxed text-marketing-charcoal/62 sm:text-lg ${typo.secondarySans}`}
+        >
+          Altitutor UCAT turns your practice into a score estimate, shows the
+          gaps that matter, and gives you a study plan built around your target.
+        </p>
 
-      {/* Reserve space under fixed nav (top-6 + h-16); scroll when content exceeds short viewports */}
-      <div className="relative z-10 flex min-h-[100dvh] w-full flex-col">
         <div
-          className="pointer-events-none shrink-0"
-          style={{
-            height: "calc(6.25rem + env(safe-area-inset-top, 0px))",
-          }}
-          aria-hidden
-        />
-        <div className="min-h-0 flex-1 overflow-x-clip">
-          <div className="mx-auto flex w-full max-w-7xl min-h-[calc(100dvh-6.25rem-env(safe-area-inset-top,0px))] flex-col justify-end px-4 pb-[max(1.5rem,env(safe-area-inset-bottom,0px))] sm:px-8 sm:pb-10 md:pb-16 lg:pb-24">
-            <h1 className="flex flex-col gap-1 text-left sm:gap-2">
-              <span
-                className={`hero-text text-lg font-bold uppercase tracking-[0.2em] text-marketing-accent sm:text-xl md:text-2xl ${typo.headingSans}`}
-              >
-                Alti UCAT Prep
-              </span>
-              <span
-                className={`hero-text text-3xl font-semibold tracking-tight text-marketing-cream sm:text-4xl md:text-6xl ${typo.headingSans}`}
-              >
-                Precision preparation is the
-              </span>
-              <span
-                className={`hero-text mt-2 text-[clamp(2.75rem,12vw,8rem)] italic leading-[0.95] text-marketing-cream sm:mt-4 sm:leading-[0.9] ${typo.dramaSerif}`}
-              >
-                Unfair Advantage.
-              </span>
-            </h1>
-            <p
-              className={`hero-text mt-5 max-w-xl text-base text-marketing-cream/80 sm:mt-8 sm:text-lg md:text-xl ${typo.secondarySans}`}
-            >
-              A science-backed practice system powered by adaptive data. From
-              zero knowledge to confident mastery.
-            </p>
-            <div className="hero-text mt-6 flex flex-col gap-3 sm:mt-10 sm:flex-row sm:flex-wrap sm:gap-4">
-              <AnalyticsLink
-                href={PRODUCT_LINKS.ucatSignup}
-                analytics={{ product: "ucat", placement: "hero", action: "start_free" }}
-                className="w-full sm:w-auto"
-              >
-                <MagneticButton className="w-full bg-marketing-accent px-6 py-3 text-base font-medium tracking-wide text-marketing-charcoal shadow-lg shadow-marketing-accent/20 sm:w-auto sm:px-8 sm:py-4 sm:text-lg">
-                  Start for free <ArrowRight className="h-5 w-5" />
-                </MagneticButton>
-              </AnalyticsLink>
-              <AnalyticsLink
-                href={PRODUCT_LINKS.trialBooking}
-                analytics={{ product: "ucat", placement: "hero", action: "book_in_person" }}
-                className="w-full sm:w-auto"
-              >
-                <MagneticButton className="w-full border border-marketing-cream/30 bg-transparent px-6 py-3 text-base font-medium tracking-wide text-marketing-cream hover:bg-marketing-cream/10 sm:w-auto sm:px-8 sm:py-4 sm:text-lg">
-                  Sign up for in-person <ArrowRight className="h-5 w-5" />
-                </MagneticButton>
-              </AnalyticsLink>
-            </div>
-          </div>
+          data-hero-support
+          className="mt-9 flex flex-col items-center justify-center gap-3 sm:flex-row"
+        >
+          <AnalyticsLink
+            href={PRODUCT_LINKS.ucatSignup}
+            analytics={{ product: "ucat", placement: "hero", action: "start_free" }}
+            className="w-full sm:w-auto"
+          >
+            <MagneticButton className="w-full bg-marketing-primary px-7 py-3.5 text-base font-semibold text-white shadow-lg shadow-marketing-primary/15 sm:w-auto">
+              Start preparing free <ArrowRight className="h-4 w-4" aria-hidden />
+            </MagneticButton>
+          </AnalyticsLink>
+          <a
+            href="#product"
+            className={`inline-flex w-full items-center justify-center gap-2 rounded-full border border-marketing-charcoal/15 bg-white/55 px-7 py-3.5 text-base font-medium text-marketing-charcoal transition-colors hover:bg-white sm:w-auto ${typo.secondarySans}`}
+          >
+            Explore the product <ArrowDown className="h-4 w-4" aria-hidden />
+          </a>
+        </div>
+
+        <div
+          data-hero-support
+          className={`mt-9 flex flex-col items-center justify-center gap-2 text-sm text-marketing-charcoal/56 sm:flex-row sm:gap-5 ${typo.secondarySans}`}
+        >
+          <p>
+            <strong className="font-semibold text-marketing-charcoal">
+              Free forever.
+            </strong>{" "}
+            Allowances reset.
+          </p>
+          <span className="hidden h-1 w-1 rounded-full bg-marketing-charcoal/25 sm:block" />
+          <p className="flex items-center gap-2">
+            <HeartHandshake className="h-4 w-4 text-marketing-primary" aria-hidden />
+            A not-for-profit initiative by Altitutor.
+          </p>
         </div>
       </div>
     </section>

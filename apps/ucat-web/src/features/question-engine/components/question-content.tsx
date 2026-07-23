@@ -1,4 +1,11 @@
-import { useMemo, useState, type DragEventHandler } from "react";
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type DragEventHandler,
+} from "react";
 import { Check } from "lucide-react";
 import type {
   AnswerOption,
@@ -98,10 +105,12 @@ export function AnswerExplanation({
   text,
   json,
   className,
+  textTone = "engine",
 }: {
   text?: string;
   json?: Record<string, unknown> | null;
   className?: string;
+  textTone?: "engine" | "theme";
 }) {
   const trimmedText = text?.trim();
   const trimmedJson = useMemo(
@@ -123,16 +132,24 @@ export function AnswerExplanation({
       json={trimmedJson}
       plainText={trimmedText ?? ""}
       className={className}
+      textTone={textTone}
       paragraphSpacing
     />
   );
 }
 
-export function OptionText({ option }: { option: AnswerOption }) {
+export function OptionText({
+  option,
+  textTone = "engine",
+}: {
+  option: AnswerOption;
+  textTone?: "engine" | "theme";
+}) {
   return (
     <RichContentBlock
       json={option.textJson}
       plainText={option.text}
+      textTone={textTone}
       className="[&_.ProseMirror]:inline"
     />
   );
@@ -188,15 +205,31 @@ function SyllogismQuestionContent({
     }
     return initial;
   });
+  const touchDragRef = useRef<{
+    pointerId: number;
+    choice: "yes" | "no";
+    sourceOptionId: string | null;
+  } | null>(null);
 
-  const syncSnapshot = (next: Record<string, "yes" | "no">) => {
-    if (!onChangeSyllogismSnapshot) return;
-    const snapshot: Record<string, boolean> = {};
-    for (const [optionId, choice] of Object.entries(next)) {
-      snapshot[optionId] = choice === "yes";
+  useEffect(() => {
+    const restored: Record<string, "yes" | "no"> = {};
+    for (const [optionId, value] of Object.entries(syllogismSnapshot ?? {})) {
+      restored[optionId] = value ? "yes" : "no";
     }
-    onChangeSyllogismSnapshot(snapshot);
-  };
+    setAnswers(restored);
+  }, [question.id, syllogismSnapshot]);
+
+  const syncSnapshot = useCallback(
+    (next: Record<string, "yes" | "no">) => {
+      if (!onChangeSyllogismSnapshot) return;
+      const snapshot: Record<string, boolean> = {};
+      for (const [optionId, choice] of Object.entries(next)) {
+        snapshot[optionId] = choice === "yes";
+      }
+      onChangeSyllogismSnapshot(snapshot);
+    },
+    [onChangeSyllogismSnapshot],
+  );
 
   const handleAssign = (optionId: string, choice: "yes" | "no") => {
     if (readOnly || lockedOptionIds.has(optionId)) return;
@@ -205,6 +238,72 @@ function SyllogismQuestionContent({
       syncSnapshot(next);
       return next;
     });
+  };
+
+  useEffect(() => {
+    const finishTouchDrag = (event: PointerEvent) => {
+      const drag = touchDragRef.current;
+      if (!drag || drag.pointerId !== event.pointerId) return;
+      touchDragRef.current = null;
+      if (readOnly || syllogismDragOnly) return;
+
+      const target = document.elementFromPoint(event.clientX, event.clientY);
+      const optionElement = target?.closest<HTMLElement>(
+        "[data-syllogism-option-id]",
+      );
+      const targetOptionId = optionElement?.dataset.syllogismOptionId;
+
+      if (targetOptionId && !lockedOptionIds.has(targetOptionId)) {
+        setAnswers((previous) => {
+          const next = { ...previous };
+          if (
+            drag.sourceOptionId &&
+            drag.sourceOptionId !== targetOptionId &&
+            !lockedOptionIds.has(drag.sourceOptionId)
+          ) {
+            delete next[drag.sourceOptionId];
+          }
+          next[targetOptionId] = drag.choice;
+          syncSnapshot(next);
+          return next;
+        });
+        return;
+      }
+
+      if (
+        drag.sourceOptionId &&
+        target?.closest("[data-syllogism-token-area]") &&
+        !lockedOptionIds.has(drag.sourceOptionId)
+      ) {
+        setAnswers((previous) => {
+          const next = { ...previous };
+          delete next[drag.sourceOptionId!];
+          syncSnapshot(next);
+          return next;
+        });
+      }
+    };
+
+    window.addEventListener("pointerup", finishTouchDrag);
+    window.addEventListener("pointercancel", finishTouchDrag);
+    return () => {
+      window.removeEventListener("pointerup", finishTouchDrag);
+      window.removeEventListener("pointercancel", finishTouchDrag);
+    };
+  }, [lockedOptionIds, readOnly, syllogismDragOnly, syncSnapshot]);
+
+  const startTouchDrag = (
+    event: React.PointerEvent,
+    choice: "yes" | "no",
+    sourceOptionId: string | null,
+  ) => {
+    if (event.pointerType === "mouse" || readOnly) return;
+    event.preventDefault();
+    touchDragRef.current = {
+      pointerId: event.pointerId,
+      choice,
+      sourceOptionId,
+    };
   };
 
   const makeHandleDrop =
@@ -318,12 +417,15 @@ function SyllogismQuestionContent({
                     {choice ? (
                       <div
                         className={cn(
-                          "flex h-9 w-20 items-center justify-center gap-1 rounded border bg-white text-[11pt] font-medium",
+                          "flex h-9 w-20 touch-none items-center justify-center gap-1 rounded border bg-white text-[11pt] font-medium",
                           markedCorrect
                             ? "border-emerald-600 text-emerald-800"
                             : "border-black",
                         )}
                         draggable={!locked}
+                        onPointerDown={(event) =>
+                          startTouchDrag(event, choice, option.id)
+                        }
                         onDragStart={(event) => {
                           event.dataTransfer.setData(
                             "ucat-syllogism-choice",
@@ -359,6 +461,7 @@ function SyllogismQuestionContent({
         </div>
         <div className="mt-1 w-[139px] rounded border border-black bg-[#dfdfdf] px-2 py-2">
           <div
+            data-syllogism-token-area
             className="flex h-full w-full flex-col items-center justify-start gap-2"
             onDrop={handleTokenAreaDrop}
             onDragOver={handleDragOver}
@@ -366,6 +469,7 @@ function SyllogismQuestionContent({
             <button
               type="button"
               draggable={!readOnly}
+              onPointerDown={(event) => startTouchDrag(event, "yes", null)}
               disabled={readOnly}
               onClick={syllogismDragOnly ? onSyllogismClickAttempt : undefined}
               onDragStart={(event) => {
@@ -373,13 +477,14 @@ function SyllogismQuestionContent({
                 event.dataTransfer.setData("ucat-syllogism-source", "");
                 event.dataTransfer.effectAllowed = "copy";
               }}
-              className="flex h-9 w-20 items-center justify-center rounded border border-black bg-white text-[11pt] font-medium"
+              className="flex h-9 w-20 touch-none items-center justify-center rounded border border-black bg-white text-[11pt] font-medium"
             >
               Yes
             </button>
             <button
               type="button"
               draggable={!readOnly}
+              onPointerDown={(event) => startTouchDrag(event, "no", null)}
               disabled={readOnly}
               onClick={syllogismDragOnly ? onSyllogismClickAttempt : undefined}
               onDragStart={(event) => {
@@ -387,7 +492,7 @@ function SyllogismQuestionContent({
                 event.dataTransfer.setData("ucat-syllogism-source", "");
                 event.dataTransfer.effectAllowed = "copy";
               }}
-              className="flex h-9 w-20 items-center justify-center rounded border border-black bg-white text-[11pt] font-medium"
+              className="flex h-9 w-20 touch-none items-center justify-center rounded border border-black bg-white text-[11pt] font-medium"
             >
               No
             </button>
@@ -522,7 +627,7 @@ export function QuestionContent({
                 preloadedContent={preloadedContent?.question}
               />
             </div>
-            <div className="space-y-2 pl-6">
+            <div className="space-y-2 pl-0 sm:pl-6">
               {question.options.map((option, index) => {
                 const letter = String.fromCharCode(65 + index);
                 return (
@@ -539,9 +644,11 @@ export function QuestionContent({
                         onChange={() => onSelectOption(option.id)}
                         className="mt-1 h-4 w-4"
                       />
-                      <span className="flex">
-                        <span className="inline-block w-8">{letter}.</span>
-                        <span className="ml-4">
+                      <span className="flex min-w-0">
+                        <span className="inline-block w-6 shrink-0 sm:w-8">
+                          {letter}.
+                        </span>
+                        <span className="ml-0 min-w-0 sm:ml-4">
                           <OptionText option={option} />
                         </span>
                       </span>
@@ -579,9 +686,9 @@ export function QuestionContent({
           <RichContentBlock
             json={question.stemJson}
             plainText={question.stemText}
-          preloadedContent={preloadedContent?.stem}
-          paragraphSpacing
-          highlightText={highlightText}
+            preloadedContent={preloadedContent?.stem}
+            paragraphSpacing
+            highlightText={highlightText}
           />
         </article>
         <section data-tour="question-engine-question" className="space-y-3">
@@ -592,7 +699,7 @@ export function QuestionContent({
               preloadedContent={preloadedContent?.question}
             />
           </div>
-          <div className="space-y-2 pl-6">
+          <div className="space-y-2 pl-0 sm:pl-6">
             {question.options.map((option, index) => {
               const letter = String.fromCharCode(65 + index);
               return (
@@ -609,9 +716,11 @@ export function QuestionContent({
                       onChange={() => onSelectOption(option.id)}
                       className="mt-1 h-4 w-4"
                     />
-                    <span className="flex">
-                      <span className="inline-block w-8">{letter}.</span>
-                      <span className="ml-4">
+                    <span className="flex min-w-0">
+                      <span className="inline-block w-6 shrink-0 sm:w-8">
+                        {letter}.
+                      </span>
+                      <span className="ml-0 min-w-0 sm:ml-4">
                         <OptionText option={option} />
                       </span>
                     </span>

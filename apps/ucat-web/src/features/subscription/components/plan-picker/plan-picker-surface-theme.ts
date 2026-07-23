@@ -81,7 +81,7 @@ export function planPickerCurrentPlanCtaClass(
   return "cursor-not-allowed border border-border bg-muted text-muted-foreground shadow-none hover:bg-muted";
 }
 
-/** Current plan CTA on the featured (Pro) card. */
+/** Current plan CTA on a featured dark card. */
 export function planPickerFeaturedCurrentPlanCtaClass(): string {
   return "cursor-not-allowed border border-marketing-cream/20 bg-marketing-cream/10 text-marketing-cream/50 shadow-none hover:bg-marketing-cream/10";
 }

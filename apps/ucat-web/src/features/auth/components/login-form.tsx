@@ -8,6 +8,11 @@ import { Input, Label } from "@altitutor/ui";
 import { MARKETING_TOKENS } from "@altitutor/shared";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
+import {
+  SocialAuthButtons,
+  SocialAuthDivider,
+} from "@/features/auth/components/social-auth-buttons";
+import type { SocialAuthProvider } from "@/features/auth/lib/social-auth";
 
 const { typography: typo } = MARKETING_TOKENS;
 
@@ -16,11 +21,15 @@ export function LoginForm({
   initialEmail = "",
   accountExists = false,
   resetSuccess = false,
+  enabledSocialProviders = [],
+  authError,
 }: {
   redirectTo?: string;
   initialEmail?: string;
   accountExists?: boolean;
   resetSuccess?: boolean;
+  enabledSocialProviders?: SocialAuthProvider[];
+  authError?: string;
 }) {
   const router = useRouter();
   const supabase = useMemo(() => getSupabaseBrowserClient(), []);
@@ -57,6 +66,24 @@ export function LoginForm({
         typo.secondarySans,
       )}
     >
+      {enabledSocialProviders.length > 0 ? (
+        <>
+          <SocialAuthButtons
+            enabledProviders={enabledSocialProviders}
+            intent="login"
+            redirectTo={redirectTo}
+          />
+          <SocialAuthDivider />
+        </>
+      ) : null}
+      {authError ? (
+        <p
+          className="auth-feedback-entrance rounded-xl bg-destructive/10 px-4 py-3 text-sm text-destructive"
+          role="alert"
+        >
+          {authError}
+        </p>
+      ) : null}
       {accountExists ? (
         <p
           className="auth-feedback-entrance rounded-xl bg-muted px-4 py-3 text-sm text-muted-foreground"

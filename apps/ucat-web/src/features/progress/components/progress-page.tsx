@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
+import { motion } from "motion/react";
 import { Card, CardContent, Skeleton } from "@altitutor/ui";
 import { lookupUcatAnzTotalPercentile } from "@altitutor/ucat-percentiles";
 import { deriveTotalScoreProjection } from "@/features/score-projection/lib/total-projection";
@@ -14,11 +15,13 @@ import { calculateRecentWeightedMockScore } from "../lib/mock-progress-insights"
 import { ProgressTrajectoryCanvas } from "./progress-trajectory-canvas";
 import { SectionProgressCards } from "./section-progress-cards";
 import { ReviewActivityCalendarCard } from "./review-activity-calendar-card";
-import { AnimatedInteger, ProgressCircular } from "./progress-animated-display";
+import { AnimatedFraction, AnimatedInteger, ProgressCircular } from "./progress-animated-display";
 import { UCAT_CARD_CHROME, UCAT_DIVIDER_TOP } from "@/lib/ucat-surface-motion";
 import { cn } from "@/lib/utils";
+import { useUcatStaggerMotion } from "@/shared/hooks/use-ucat-stagger-motion";
 import type { SectionProgress } from "@altitutor/shared";
 import type {
+  ScoreProjectionSnapshot,
   SectionScoreProjection,
   TotalScoreProjection,
 } from "@/features/score-projection/types/score-projection";
@@ -44,9 +47,14 @@ function QuestionsCompletedCard({
     (sum, section) => sum + section.maxScore,
     0,
   );
-  const totals = sections.map((section) => section.totalPublicQuestions);
-  const totalAvailable = totals.every((total) => total != null)
-    ? totals.reduce<number>((sum, total) => sum + (total ?? 0), 0)
+  const hasPublicTotals = sections.some(
+    (section) => section.totalPublicQuestions != null,
+  );
+  const totalAvailable = hasPublicTotals
+    ? sections.reduce(
+        (sum, section) => sum + (section.totalPublicQuestions ?? 0),
+        0,
+      )
     : null;
   const percentage =
     totalAvailable != null && totalAvailable > 0
@@ -57,43 +65,55 @@ function QuestionsCompletedCard({
 
   return (
     <Card className={cn(UCAT_CARD_CHROME, className)}>
-      <CardContent className="flex h-full flex-col gap-4 p-4">
-        <div className="flex items-center justify-between gap-4">
-          <div>
-            <p className="text-base font-medium text-muted-foreground">
+      <CardContent className="flex h-full flex-col gap-4 pt-6">
+        <div className="flex flex-row items-center justify-between gap-4">
+          <div className="flex min-w-0 flex-col gap-1">
+            <div className="text-base font-medium text-muted-foreground">
               Total questions completed
-            </p>
-            <p className="mt-1 text-2xl font-bold tabular-nums">
-              <AnimatedInteger value={totalCompleted} />
-              {totalAvailable != null ? ` / ${totalAvailable}` : null}
-            </p>
+            </div>
+            <span className="text-2xl font-bold tabular-nums">
+              {totalAvailable != null ? (
+                <AnimatedFraction
+                  numerator={totalCompleted}
+                  denominator={totalAvailable}
+                />
+              ) : (
+                <AnimatedInteger value={totalCompleted} />
+              )}
+            </span>
           </div>
           <ProgressCircular
             percentage={percentage}
             size={48}
-            className="shrink-0 text-accent"
+            className="shrink-0 text-primary"
           />
         </div>
-        <div className={cn(UCAT_DIVIDER_TOP, "space-y-1.5 pt-3")}>
-          <p className="mb-2 text-xs font-medium text-muted-foreground">
+        <div className={cn(UCAT_DIVIDER_TOP, "pt-3")}>
+          <div className="mb-2 text-xs font-medium text-muted-foreground">
             Section breakdown
-          </p>
-          {sections.map((section) => (
-            <div
-              key={section.sectionId}
-              className="flex justify-between gap-3 text-sm tabular-nums"
-            >
-              <span className="truncate text-muted-foreground">
-                {section.sectionName}
-              </span>
-              <span className="shrink-0 font-medium">
-                {section.maxScore}
-                {section.totalPublicQuestions != null
-                  ? ` / ${section.totalPublicQuestions}`
-                  : " questions"}
-              </span>
-            </div>
-          ))}
+          </div>
+          <div className="flex flex-col gap-1.5">
+            {sections.map((section) => (
+              <div
+                key={section.sectionId}
+                className="flex justify-between gap-3 text-sm tabular-nums"
+              >
+                <span className="mr-2 truncate text-muted-foreground">
+                  {section.sectionName}
+                </span>
+                <span className="shrink-0">
+                  {section.totalPublicQuestions != null ? (
+                    <AnimatedFraction
+                      numerator={section.maxScore}
+                      denominator={section.totalPublicQuestions}
+                    />
+                  ) : (
+                    `${section.maxScore} questions`
+                  )}
+                </span>
+              </div>
+            ))}
+          </div>
         </div>
       </CardContent>
     </Card>
@@ -104,6 +124,7 @@ export type ProgressPageContentProps = {
   sections: SectionProgress[];
   scoreProjections: SectionScoreProjection[];
   totalProjection: TotalScoreProjection | null;
+  snapshots?: ScoreProjectionSnapshot[];
   targetScore: number | null;
   testDate: string | null;
   today: string;
@@ -132,7 +153,7 @@ export function ProgressPage() {
       <div className="space-y-6 pb-8">
         <Skeleton className="h-[620px] w-full" />
         <div className="mx-auto grid w-full max-w-[1400px] gap-5 px-5 sm:px-6 lg:grid-cols-2">
-          <Skeleton className="h-[280px] rounded-2xl" />
+          <Skeleton className="h-[320px] rounded-2xl" />
           <div className="grid grid-cols-2 gap-4">
             {Array.from({ length: 4 }, (_, index) => (
               <Skeleton key={index} className="h-40 rounded-2xl" />
@@ -175,6 +196,7 @@ export function ProgressPage() {
       sections={progressQuery.data.sectionProgress}
       scoreProjections={scoreProjectionQuery.data?.sections ?? []}
       totalProjection={totalProjection}
+      snapshots={scoreProjectionQuery.data?.snapshots ?? []}
       targetScore={plan?.profile?.targetScore ?? null}
       testDate={plan?.profile?.testDate ?? null}
       today={plan?.today ?? todayIso()}
@@ -190,6 +212,7 @@ export function ProgressPageContent({
   sections,
   scoreProjections,
   totalProjection,
+  snapshots = [],
   targetScore,
   testDate,
   today,
@@ -198,8 +221,12 @@ export function ProgressPageContent({
   linkToSections = true,
   mockRecentWeightedAverage = null,
 }: ProgressPageContentProps) {
+  const { containerVariants, itemVariants } = useUcatStaggerMotion();
   const currentEstimate = totalProjection?.currentEstimate ?? null;
-  const history = totalProjection?.history ?? [];
+  const history = snapshots.map((snapshot) => ({
+    date: snapshot.date,
+    value: snapshot.currentEstimate,
+  }));
   const earliestRecent = history.length > 1 ? history[0] : null;
   const improvement =
     currentEstimate != null && earliestRecent
@@ -216,13 +243,10 @@ export function ProgressPageContent({
       : null;
   const benchmark = lookupUcatAnzTotalPercentile(currentEstimate);
   const targetBreakdown = scoreProjections
-    .filter(
-      (section) =>
-        section.sectionNumber <= 3 && sectionTargets[section.sectionId] != null,
-    )
+    .filter((section) => section.sectionNumber <= 3)
     .map((section) => ({
       sectionName: section.sectionName,
-      target: sectionTargets[section.sectionId]!,
+      target: sectionTargets[section.sectionId] ?? null,
       currentEstimate: section.currentEstimate,
     }));
   const statusLabel =
@@ -237,65 +261,76 @@ export function ProgressPageContent({
     improvement != null && improvement >= 20
       ? `Your estimate has improved by ${improvement} points`
       : projectedGain != null && projectedGain > 0
-        ? `The current path adds about ${projectedGain} points over 90 days`
+        ? `Your score is predicted to improve by about ${projectedGain} points over the next 90 days`
         : currentEstimate == null
           ? "Build your baseline one section at a time"
           : "Your estimate is the starting point - not the verdict";
   const insightBody =
     currentEstimate == null
-      ? "Complete one representative timed set in each cognitive section. Keep your usual method and pace so the first comparison reflects how you currently work."
+      ? "Complete one timed set in each cognitive section to build a score estimate."
       : benchmark.percentileLabel
         ? `Your ${currentEstimate} estimate is around the ${benchmark.percentileLabel.toLowerCase()} against the published UCAT ANZ benchmark. The shaded range shows what the current evidence can support, not a guaranteed result.`
         : "Keep adding timed evidence. The shaded range will narrow as the model sees more representative work across Sections 1–3.";
 
   return (
-    <div className="space-y-6 pb-8">
-      <ProgressTrajectoryCanvas
-        title="Score progress"
-        description={
-          targetScore != null
-            ? `Current estimate ${currentEstimate ?? "pending"} · Target ${targetScore}`
-            : `Current estimate ${currentEstimate ?? "pending"}`
-        }
-        statusLabel={statusLabel}
-        projection={totalProjection}
-        today={today}
-        targetScore={targetScore}
-        testDate={testDate}
-        targetBreakdown={targetBreakdown}
-        insightTitle={insightTitle}
-        insightBody={insightBody}
-        ratingTargetKey="total-score-trajectory"
-        ratingContextKey="progress:total-score"
-        insightMeta={
-          <div>
-            <MetricRow
-              label="Current estimate"
-              value={
-                currentEstimate == null ? "Pending" : String(currentEstimate)
-              }
-            />
-            <MetricRow
-              label="UCAT ANZ benchmark"
-              value={benchmark.percentileLabel ?? "Not available yet"}
-            />
-            {projectedGain != null ? (
+    <motion.div
+      className="space-y-6 pb-8"
+      variants={containerVariants}
+      initial="hidden"
+      animate="show"
+    >
+      <motion.div variants={itemVariants}>
+        <ProgressTrajectoryCanvas
+          title="Score progress"
+          description={
+            targetScore != null
+              ? `Current estimate ${currentEstimate ?? "pending"} · Target ${targetScore}`
+              : `Current estimate ${currentEstimate ?? "pending"}`
+          }
+          statusLabel={statusLabel}
+          projection={totalProjection}
+          snapshots={snapshots}
+          today={today}
+          targetScore={targetScore}
+          testDate={testDate}
+          targetBreakdown={targetBreakdown}
+          insightTitle={insightTitle}
+          insightBody={insightBody}
+          ratingTargetKey="total-score-trajectory"
+          ratingContextKey="progress:total-score"
+          insightMeta={
+            <div>
               <MetricRow
-                label="90-day change"
-                value={`${projectedGain >= 0 ? "+" : ""}${projectedGain}`}
+                label="Current estimate"
+                value={
+                  currentEstimate == null ? "Pending" : String(currentEstimate)
+                }
               />
-            ) : null}
-          </div>
-        }
-      />
+              <MetricRow
+                label="UCAT ANZ benchmark"
+                value={benchmark.percentileLabel ?? "Not available yet"}
+              />
+              {projectedGain != null ? (
+                <MetricRow
+                  label="90-day change"
+                  value={`${projectedGain >= 0 ? "+" : ""}${projectedGain}`}
+                />
+              ) : null}
+            </div>
+          }
+        />
+      </motion.div>
 
-      <div className="mx-auto grid w-full max-w-[1400px] gap-4 px-5 sm:px-6 md:grid-cols-2 xl:grid-cols-3 xl:items-stretch">
+      <motion.div
+        variants={itemVariants}
+        className="mx-auto grid w-full max-w-[1400px] grid-cols-[repeat(auto-fit,minmax(min(100%,18rem),1fr))] gap-5 px-5 sm:px-6"
+      >
         <ReviewActivityCalendarCard
           className="h-full"
           previewData={activityPreviewData}
         />
 
-        <section aria-label="Sections">
+        <section aria-label="Sections" className="min-w-0">
           <SectionProgressCards
             sections={sections}
             linkToSection={linkToSections}
@@ -307,11 +342,8 @@ export function ProgressPageContent({
             mockTargetScore={targetScore}
           />
         </section>
-        <QuestionsCompletedCard
-          sections={sections}
-          className="h-full md:col-span-2 xl:col-span-1"
-        />
-      </div>
-    </div>
+        <QuestionsCompletedCard sections={sections} className="h-full" />
+      </motion.div>
+    </motion.div>
   );
 }

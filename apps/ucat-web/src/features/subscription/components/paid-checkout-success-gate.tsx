@@ -23,7 +23,7 @@ type PaidCheckoutSuccessGateProps = {
 };
 
 function isPaidOnlineTier(tier: string | null) {
-  return tier === "unlimited" || tier === "unlimited_trial" || tier === "pro";
+  return tier === "unlimited" || tier === "unlimited_trial";
 }
 
 export function PaidCheckoutSuccessGate({

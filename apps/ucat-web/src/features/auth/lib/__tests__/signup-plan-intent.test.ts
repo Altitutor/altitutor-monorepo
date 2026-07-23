@@ -5,13 +5,13 @@ import {
 
 describe("signup plan intent", () => {
   it("round-trips a paid plan selection into a safe checkout path", () => {
-    const path = buildSignupCheckoutPath("pro", "year");
+    const path = buildSignupCheckoutPath("unlimited", "year");
 
     expect(path).toBe(
-      "/checkout?tier=pro&interval=year&context=signup_onboarding",
+      "/checkout?tier=unlimited&interval=year&context=signup_onboarding",
     );
     expect(parseSignupPlanIntent(path)).toEqual({
-      tier: "pro",
+      tier: "unlimited",
       interval: "year",
       checkoutPath: path,
     });
@@ -19,7 +19,7 @@ describe("signup plan intent", () => {
 
   it("rejects redirects that are not signup checkout intents", () => {
     expect(
-      parseSignupPlanIntent("/checkout?tier=pro&interval=month"),
+      parseSignupPlanIntent("/checkout?tier=unlimited&interval=month"),
     ).toBeNull();
     expect(
       parseSignupPlanIntent(

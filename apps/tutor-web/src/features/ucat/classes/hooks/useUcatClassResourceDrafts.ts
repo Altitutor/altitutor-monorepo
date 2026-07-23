@@ -112,7 +112,7 @@ export function useUcatClassResourceDrafts(classId: string | null) {
       queryClient.invalidateQueries({ queryKey: ucatKeys.classes() })
       queryClient.invalidateQueries({ queryKey: ucatKeys.sets() })
       queryClient.invalidateQueries({ queryKey: ucatKeys.mocks() })
-      queryClient.invalidateQueries({ queryKey: ucatKeys.questions() })
+      queryClient.invalidateQueries({ queryKey: ucatKeys.questions('all') })
       queryClient.invalidateQueries({ queryKey: ucatKeys.learningModules() })
     } finally {
       setIsSaving(false)

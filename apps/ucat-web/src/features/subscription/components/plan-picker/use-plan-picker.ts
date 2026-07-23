@@ -8,16 +8,10 @@ import { useAuth } from "@/features/auth";
 import { completeUcatOnboarding } from "@/features/ucat-access/api/complete-onboarding";
 import { useUcatAccess } from "@/features/ucat-access/hooks/use-ucat-access";
 import { useUcatProfile } from "@/features/layout/hooks/use-ucat-profile";
-import { changeUcatSubscriptionTier } from "@/features/subscription/api/change-subscription-tier";
 import { createBillingPortalSession } from "@/features/subscription/api/create-billing-portal-session";
 import { scheduleUcatSubscriptionCancellation } from "@/features/subscription/api/change-subscription-cancellation";
 import { trackSubscriptionJourneyEvent } from "@/features/subscription/api/track-subscription-journey";
-import {
-  fetchUcatUpgradePreview,
-  type UcatUpgradePreview,
-} from "@/features/subscription/api/fetch-upgrade-preview";
 import { UCAT_SUBSCRIPTION_BILLING_QUERY_KEY } from "@/features/subscription/hooks/use-ucat-subscription-billing";
-import { isSubscribedToPro } from "@/features/subscription/lib/resolve-subscribed-plan";
 import { usePublicSubscriptionConfig } from "@/features/subscription/hooks/use-public-subscription-config";
 import {
   defaultPublicSubscriptionConfig,
@@ -60,12 +54,6 @@ const ONLINE_FEATURES = [
   "Adaptive skill trainer with performance analytics",
   "Progress dashboard with session history",
   "Unlimited access across all areas",
-] as const;
-
-const PRO_FEATURES = [
-  "1 online training workshop per month",
-  "On-demand help from tutors",
-  "1-1 performance review each month",
 ] as const;
 
 const FREE_QUOTA_AREAS: UcatQuotaArea[] = [
@@ -118,17 +106,9 @@ export function usePlanPicker(options: UsePlanPickerOptions = {}) {
     useState<UcatBillingInterval>("month");
   const [loadingPlan, setLoadingPlan] = useState<LoadingKey | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [upgradeConfirmOpen, setUpgradeConfirmOpen] = useState(false);
-  const [upgradePreview, setUpgradePreview] =
-    useState<UcatUpgradePreview | null>(null);
-  const [upgradePreviewLoading, setUpgradePreviewLoading] = useState(false);
-  const [upgradePreviewError, setUpgradePreviewError] = useState<string | null>(
-    null,
-  );
-  const [upgradeConfirming, setUpgradeConfirming] = useState(false);
   const [cancellationOpen, setCancellationOpen] = useState(false);
   const [downgradeTarget, setDowngradeTarget] =
-    useState<Exclude<PlanPickerTier, "pro">>("free");
+    useState<PlanPickerTier>("free");
   const [cancellationReason, setCancellationReason] =
     useState<CancellationReasonSelection | null>(null);
   const [cancellationComment, setCancellationComment] = useState("");
@@ -161,14 +141,11 @@ export function usePlanPicker(options: UsePlanPickerOptions = {}) {
   const subscription = billingData?.subscription ?? null;
   const subscribedPlanTier = subscription?.plan_tier ?? null;
 
-  const isOnPro =
-    access.onlineTier === "pro" || isSubscribedToPro(subscription);
   const isOnUnlimitedTier =
-    !isOnPro &&
     (access.onlineTier === "unlimited" ||
       access.onlineTier === "unlimited_trial" ||
       subscribedPlanTier === "unlimited");
-  const isOnPaid = isOnPro || isOnUnlimitedTier;
+  const isOnPaid = isOnUnlimitedTier;
   const { data: practiceDiscountProgress } = usePracticeDiscountDashboard(
     options.audience === "app" && isOnPaid,
   );
@@ -229,25 +206,12 @@ export function usePlanPicker(options: UsePlanPickerOptions = {}) {
     );
   }, [cfg, billingInterval, practiceDiscount]);
 
-  const proPricing = useMemo(() => {
-    const row = getPublicPlanPrice(cfg, "pro", billingInterval);
-    if (!row || !practiceDiscount) return null;
-    return computeMarketingPlanPricing(
-      row.basePriceCents,
-      billingInterval,
-      practiceDiscount.discountPerDayCents,
-      practiceDiscount.maxDiscountsPerPeriod,
-    );
-  }, [cfg, billingInterval, practiceDiscount]);
-
   const unlimitedAvailable = isPlanCheckoutAvailable(
     cfg,
     "unlimited",
     billingInterval,
   );
-  const proAvailable = isPlanCheckoutAvailable(cfg, "pro", billingInterval);
   const unlimitedTierOffered = isTierOffered(cfg, "unlimited");
-  const proTierOffered = isTierOffered(cfg, "pro");
 
   const refetchSubscriptionState = useCallback(async () => {
     await Promise.all([
@@ -261,53 +225,6 @@ export function usePlanPicker(options: UsePlanPickerOptions = {}) {
       }),
     ]);
   }, [queryClient, user?.id]);
-
-  const loadUpgradePreview = useCallback(async () => {
-    setUpgradePreview(null);
-    setUpgradePreviewError(null);
-    setUpgradePreviewLoading(true);
-    try {
-      const preview = await fetchUcatUpgradePreview();
-      setUpgradePreview(preview);
-    } catch (e) {
-      setUpgradePreviewError(
-        e instanceof Error ? e.message : "Failed to load upgrade preview",
-      );
-    } finally {
-      setUpgradePreviewLoading(false);
-    }
-  }, []);
-
-  const openUpgradeConfirm = useCallback(async () => {
-    setUpgradeConfirmOpen(true);
-    await loadUpgradePreview();
-  }, [loadUpgradePreview]);
-
-  const confirmUpgradeToPro = useCallback(async () => {
-    setUpgradeConfirming(true);
-    setError(null);
-    try {
-      await changeUcatSubscriptionTier({ tier: "pro" });
-      captureUcatEvent("subscription_activated", {
-        plan_tier: "pro",
-        activation_type: "upgrade",
-      });
-      await refetchSubscriptionState();
-      toast({
-        title: "Upgraded to UCAT Pro",
-        description:
-          "Your Pro plan is updated. Any prorated charge will appear on your next invoice.",
-      });
-      setUpgradeConfirmOpen(false);
-      options.onCheckoutStart?.();
-      router.refresh();
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to upgrade plan");
-    } finally {
-      setUpgradeConfirming(false);
-      setLoadingPlan(null);
-    }
-  }, [options, refetchSubscriptionState, router, toast]);
 
   const handleOnlineSubscribe = async (tier: UcatPaidPlanTier) => {
     captureUcatEvent("plan_selected", {
@@ -327,17 +244,7 @@ export function usePlanPicker(options: UsePlanPickerOptions = {}) {
     setError(null);
 
     if (isOnPaid) {
-      if (tier === "pro" && isOnUnlimitedTier) {
-        setLoadingPlan(null);
-        await openUpgradeConfirm();
-        return;
-      }
-
-      setError(
-        tier === "unlimited"
-          ? "To change to UCAT Unlimited, use the Subscription tab."
-          : "You already have an active subscription.",
-      );
+      setError("You already have an active UCAT Unlimited subscription.");
       setLoadingPlan(null);
       return;
     }
@@ -472,8 +379,6 @@ export function usePlanPicker(options: UsePlanPickerOptions = {}) {
   };
 
   const handleDowngrade = async (target: PlanPickerTier) => {
-    if (target === "pro") return;
-
     cancellationConfirmedRef.current = false;
     setDowngradeTarget(target);
     setCancellationReason(null);
@@ -537,13 +442,6 @@ export function usePlanPicker(options: UsePlanPickerOptions = {}) {
     freeIsCurrentPlan,
     isOnPaid,
     isOnUnlimited: isOnUnlimitedTier,
-    isOnPro,
-    upgradeConfirmOpen,
-    setUpgradeConfirmOpen,
-    upgradePreview,
-    upgradePreviewLoading,
-    upgradePreviewError,
-    upgradeConfirming,
     cancellationOpen,
     downgradeTarget,
     handleCancellationOpenChange,
@@ -554,32 +452,22 @@ export function usePlanPicker(options: UsePlanPickerOptions = {}) {
     cancellationConfirming,
     cancellationError,
     confirmDowngrade,
-    cancellationBenefitsLost:
-      downgradeTarget === "unlimited"
-        ? PRO_FEATURES
-        : isOnPro
-          ? [...ONLINE_FEATURES, ...PRO_FEATURES]
-          : ONLINE_FEATURES,
+    cancellationBenefitsLost: ONLINE_FEATURES,
     cancellationEarnedDiscountCents:
       practiceDiscountProgress?.totalDiscountCents ?? 0,
     cancellationEarnedDiscountCurrency:
       practiceDiscountProgress?.currency ?? cfg.currency,
     cancellationPaidAccessEndsAt: subscription?.current_period_end ?? null,
-    cancellationCurrentPlanName: isOnPro ? "UCAT Pro" : "UCAT Unlimited",
-    confirmUpgradeToPro,
+    cancellationCurrentPlanName: "UCAT Unlimited",
     omitAudPrefix,
     paidCta,
     unlimitedPricing,
-    proPricing,
     unlimitedAvailable,
-    proAvailable,
     unlimitedTierOffered,
-    proTierOffered,
     practiceDiscount,
     formatMoney,
     billedAt,
     onlineFeatures: ONLINE_FEATURES,
-    proFeatures: PRO_FEATURES,
     freeQuotaAreas: FREE_QUOTA_AREAS,
     formatFreeQuotaLine,
     handleFreePlanAction,

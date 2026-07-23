@@ -114,4 +114,8 @@ export async function discardExamAttempt(input: {
     body: JSON.stringify(input),
   });
   if (!response.ok) throw new Error("Failed to discard exam attempt");
+  const result = (await response.json()) as { discarded?: boolean };
+  if (result.discarded !== true) {
+    throw new Error("Exam attempt was not discarded");
+  }
 }

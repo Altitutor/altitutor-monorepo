@@ -29,6 +29,22 @@ export function activityIntensityLevel(total: number): ActivityIntensityLevel {
   return 4;
 }
 
+/**
+ * Maps a day's total against the busiest day in the same month.
+ * Keeps empty days at 0 and spreads active days across 1–4.
+ */
+export function relativeActivityIntensityLevel(
+  total: number,
+  monthMax: number,
+): ActivityIntensityLevel {
+  if (total <= 0 || monthMax <= 0) return 0;
+  const ratio = total / monthMax;
+  if (ratio <= 0.25) return 1;
+  if (ratio <= 0.5) return 2;
+  if (ratio <= 0.75) return 3;
+  return 4;
+}
+
 function dateParts(dateKey: string): [number, number, number] | null {
   const [year, month, day] = dateKey.split("-").map(Number);
   if (!year || !month || !day) return null;

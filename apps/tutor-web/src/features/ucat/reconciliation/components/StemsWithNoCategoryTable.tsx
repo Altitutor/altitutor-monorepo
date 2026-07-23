@@ -291,7 +291,7 @@ export function StemsWithNoCategoryTable({
 
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ucatKeys.reconciliation() }),
-        queryClient.invalidateQueries({ queryKey: ucatKeys.questions() }),
+        queryClient.invalidateQueries({ queryKey: ucatKeys.questions('all') }),
         queryClient.invalidateQueries({ queryKey: ucatKeys.stemCatalog() }),
       ])
       toast({

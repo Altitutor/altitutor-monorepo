@@ -58,7 +58,10 @@ export async function GET() {
   }
 
   const timezone = student.timezone ?? "Australia/Adelaide";
-  const timezoneOptions = mergeTimeZoneIntoOptions(timezone, getSupportedIanaTimeZones());
+  const timezoneOptions = mergeTimeZoneIntoOptions(
+    timezone,
+    getSupportedIanaTimeZones(),
+  );
 
   return NextResponse.json({
     timezone,
@@ -71,7 +74,7 @@ export async function GET() {
 
 /**
  * PATCH /api/ucat/profile
- * Updates timezone and/or first and last name for the current student.
+ * Updates timezone, name, and/or synchronizes a confirmed Auth email.
  */
 export async function PATCH(request: NextRequest) {
   const supabase = await getSupabaseServerClient();
@@ -100,6 +103,7 @@ export async function PATCH(request: NextRequest) {
     timezone?: string;
     firstName?: string;
     lastName?: string;
+    syncEmailFromAuth?: boolean;
   };
 
   const timezoneRaw = body.timezone?.trim();
@@ -109,10 +113,21 @@ export async function PATCH(request: NextRequest) {
   const hasFirst = Boolean(firstNameRaw);
   const hasLast = Boolean(lastNameRaw);
   const hasAnyName = hasFirst || hasLast;
+  const syncEmailFromAuth = body.syncEmailFromAuth === true;
 
-  if (!hasTimezone && !hasAnyName) {
+  if (!hasTimezone && !hasAnyName && !syncEmailFromAuth) {
     return NextResponse.json(
-      { error: "Provide timezone and/or first and last name to update" },
+      {
+        error:
+          "Provide timezone, first and last name, and/or an authenticated email to update",
+      },
+      { status: 400 },
+    );
+  }
+
+  if (syncEmailFromAuth && !user.email?.trim()) {
+    return NextResponse.json(
+      { error: "Authenticated account has no email to sync" },
       { status: 400 },
     );
   }
@@ -167,6 +182,9 @@ export async function PATCH(request: NextRequest) {
     updates.first_name = firstNameRaw;
     updates.last_name = lastNameRaw;
   }
+  if (syncEmailFromAuth && user.email) {
+    updates.email = user.email.trim().toLowerCase();
+  }
 
   const { error: updateError } = await supabaseAdmin
     .from("students")
@@ -196,5 +214,6 @@ export async function PATCH(request: NextRequest) {
     ...(hasAnyName && firstNameRaw && lastNameRaw
       ? { firstName: firstNameRaw, lastName: lastNameRaw }
       : {}),
+    ...(syncEmailFromAuth && user.email ? { email: user.email } : {}),
   });
 }

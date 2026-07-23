@@ -56,6 +56,12 @@ export type StudyPlanSectionSignal = {
   currentEstimate: number | null;
   evidenceCount: number;
   completedFullSets: number;
+  attemptedQuestionCount?: number;
+  completedPracticeSessions?: number;
+  qualifyingPracticeSessions?: number;
+  largestPracticeSessionQuestionCount?: number;
+  recentAccuracy?: number | null;
+  observedPace?: number | null;
 };
 
 export type StudyPlanCategorySignal = {
@@ -66,6 +72,12 @@ export type StudyPlanCategorySignal = {
   correctScore: number;
   maxScore: number;
   weaknessScore: number;
+  attemptedQuestionCount?: number;
+  completedPracticeSessions?: number;
+  qualifyingPracticeSessions?: number;
+  largestPracticeSessionQuestionCount?: number;
+  recentAccuracy?: number | null;
+  observedPace?: number | null;
 };
 
 export type StudyPlanSkillTrainer = {
@@ -81,6 +93,7 @@ export type StudyPlanLearningModule = {
   id: string;
   title: string;
   sectionId: string | null;
+  sectionNumber: number | null;
   priority: "essential" | "recommended" | "optional";
   estimatedMinutes: number;
   completionPercent: number;
@@ -119,16 +132,50 @@ export type StudyPlanCapacityRisk = {
   message: string | null;
 };
 
-export type StudyPlanPhase =
-  | "foundation"
-  | "development"
-  | "performance"
-  | "taper";
+export type StudyPlanTrainingMode = "learning" | "timing" | "exam";
+
+export type StudyPlanReadinessRoute =
+  | "accuracy"
+  | "exposure"
+  | "full_set"
+  | "exam_override"
+  | null;
+
+export type StudyPlanReadinessUnit = {
+  id: string;
+  name: string;
+  scope: "section" | "category";
+  attemptedQuestionCount: number;
+  completedPracticeSessions: number;
+  qualifyingPracticeSessions: number;
+  largestPracticeSessionQuestionCount: number;
+  accuracy: number | null;
+  coverageComplete: boolean;
+  learningComplete: boolean;
+  readinessRoute: StudyPlanReadinessRoute;
+};
+
+export type StudyPlanSectionReadiness = {
+  sectionId: string;
+  sectionKey: StudyPlanSection["key"];
+  mode: StudyPlanTrainingMode;
+  paceMultiplier: number;
+  observedPace: number | null;
+  units: StudyPlanReadinessUnit[];
+};
+
+export type StudyPlanReadinessSnapshot = {
+  mode: StudyPlanTrainingMode;
+  examDateOverride: boolean;
+  daysUntilExam: number;
+  sections: StudyPlanSectionReadiness[];
+};
 
 export type StudyPlanGenerationResult = {
   tasks: GeneratedStudyPlanTask[];
   capacityRisk: StudyPlanCapacityRisk;
   sectionTargets: Record<string, number>;
+  readiness: StudyPlanReadinessSnapshot;
   endsOn: string;
 };
 
@@ -188,6 +235,7 @@ export type StudyPlanResponse = {
     endsOn: string;
     capacityRisk: StudyPlanCapacityRisk;
     sectionTargets: Record<string, number>;
+    readiness?: StudyPlanReadinessSnapshot | null;
   } | null;
   tasks: StudyPlanTask[];
   nextSteps: StudyGuidanceItem[];

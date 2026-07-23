@@ -18,6 +18,7 @@ import { format } from "date-fns";
 import { SearchableSelect } from "@altitutor/ui";
 import { cn } from "@/lib/utils";
 import { useMediaQuery } from "@/shared/hooks/use-media-query";
+import { useOnceChartAnimation } from "@/shared/hooks/use-once-chart-animation";
 import { formatTimeSeconds } from "../lib/format-time";
 import { formatSpeedPercentAsMultiplier } from "../lib/format-speed-multiplier";
 import type { GraphXAxisMode } from "../lib/progress-data-utils";
@@ -88,7 +89,7 @@ export type ProgressGraphProps = {
   compact?: boolean;
   /** When true, scaled_score uses dynamic max from data. Pass yAxisMax for mock context. */
   isMockContext?: boolean;
-  /** Max value for Y-axis when isMockContext (e.g. max scaled score across attempts). */
+  /** Max value for Y-axis when isMockContext (e.g. max scaled score across attempts). Domain is [900, yAxisMax]. */
   yAxisMax?: number;
   yAxisDomain?: [number, number];
   yAxisLabel?: string;
@@ -136,7 +137,7 @@ function getYAxisDomain(
   yAxisMax?: number,
 ): [number, number] | undefined {
   if (dataType === "scaled_score")
-    return isMockContext && yAxisMax != null ? [0, yAxisMax] : [300, 900];
+    return isMockContext && yAxisMax != null ? [900, yAxisMax] : [300, 900];
   if (dataType === "percentage") return [0, 100];
   return undefined;
 }
@@ -262,6 +263,7 @@ export function ProgressGraph({
   emptyMessage,
   emptyDescription,
 }: ProgressGraphProps) {
+  const chartAnimates = useOnceChartAnimation(data.length > 0);
   const hasOverlayCard = useMediaQuery("(min-width: 1024px)");
   type GraphLinePoint = {
     date: string;
@@ -563,7 +565,10 @@ export function ProgressGraph({
               connectNulls
               tooltipType="none"
               legendType="none"
-              isAnimationActive={false}
+              isAnimationActive={chartAnimates}
+              animationDuration={900}
+              animationEasing="ease-out"
+              animationBegin={120}
             />
             <Line
               type="monotone"
@@ -576,6 +581,10 @@ export function ProgressGraph({
               dot={false}
               activeDot={false}
               connectNulls
+              isAnimationActive={chartAnimates}
+              animationDuration={1000}
+              animationEasing="ease-out"
+              animationBegin={180}
             />
             <Line
               type="monotone"
@@ -588,6 +597,10 @@ export function ProgressGraph({
               dot={false}
               activeDot={false}
               connectNulls
+              isAnimationActive={chartAnimates}
+              animationDuration={1000}
+              animationEasing="ease-out"
+              animationBegin={180}
             />
             <Line
               type="monotone"
@@ -599,6 +612,10 @@ export function ProgressGraph({
               dot={false}
               activeDot={false}
               connectNulls
+              isAnimationActive={chartAnimates}
+              animationDuration={1100}
+              animationEasing="ease-out"
+              animationBegin={220}
             />
           </>
         ) : null}
@@ -611,7 +628,9 @@ export function ProgressGraph({
           dot={{ fill: "hsl(var(--accent))", r: compact ? 3 : 4 }}
           activeDot={{ r: compact ? 5 : 6 }}
           connectNulls={true}
-          isAnimationActive={false}
+          isAnimationActive={chartAnimates}
+          animationDuration={900}
+          animationEasing="ease-out"
         />
       </LineChart>
     ) : (
@@ -715,7 +734,9 @@ export function ProgressGraph({
           dataKey="value"
           fill="hsl(var(--accent))"
           radius={[4, 4, 0, 0]}
-          isAnimationActive={false}
+          isAnimationActive={chartAnimates}
+          animationDuration={800}
+          animationEasing="ease-out"
         >
           {displayData.map((point) => (
             <Cell

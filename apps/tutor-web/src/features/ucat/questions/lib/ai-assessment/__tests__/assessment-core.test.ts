@@ -327,6 +327,95 @@ describe('bounded suggestion patches', () => {
     expect(result.questions[0].options.map((option) => option.isAnswer)).toEqual([false, false, true, false, false])
     expect(form.questions[0].options[0].isAnswer).toBe(true)
   })
+
+  function formFromSnapshot(value: UcatAssessmentSnapshot, overrides?: {
+    difficulty?: number | string | null
+    timeBurdenSeconds?: string | number | null
+  }): UcatQuestionStemFormValues {
+    return {
+      sectionId: value.sectionId,
+      categoryId: value.categoryId,
+      stemText: value.stemText,
+      accessScope: 'public',
+      questions: value.questions.map((question) => ({
+        id: question.id,
+        questionText: question.questionText,
+        questionType: question.questionType,
+        answerExplanation: question.answerExplanation,
+        difficulty: (overrides?.difficulty !== undefined
+          ? overrides.difficulty
+          : question.difficulty) as number | null,
+        timeBurdenSeconds: (overrides?.timeBurdenSeconds !== undefined
+          ? overrides.timeBurdenSeconds
+          : '1:15') as string,
+        tagIds: [],
+        options: question.options.map((option) => ({
+          id: option.id,
+          answerText: option.answerText,
+          answerExplanation: option.answerExplanation,
+          isAnswer: option.isAnswer,
+        })),
+      })),
+    }
+  }
+
+  it('accepts difficulty patches when the form still holds a DOM string value', async () => {
+    const value = snapshot()
+    const result = await applyUcatAssessmentPatches(formFromSnapshot(value, { difficulty: '0.5' }), [{
+      operation: 'set_metadata',
+      targetKind: 'question',
+      targetId: QUESTION_1,
+      field: 'difficulty',
+      before: 0.5,
+      after: 0.7,
+    }])
+    expect(result.questions[0].difficulty).toBe(0.7)
+  })
+
+  it('accepts time-burden patches when before is a numeric or mm:ss string', async () => {
+    const value = snapshot()
+    const fromNumericBefore = await applyUcatAssessmentPatches(formFromSnapshot(value), [{
+      operation: 'set_metadata',
+      targetKind: 'question',
+      targetId: QUESTION_1,
+      field: 'time_burden_seconds',
+      before: '75',
+      after: 90,
+    }])
+    expect(fromNumericBefore.questions[0].timeBurdenSeconds).toBe('1:30')
+
+    const fromClockBefore = await applyUcatAssessmentPatches(formFromSnapshot(value), [{
+      operation: 'set_metadata',
+      targetKind: 'question',
+      targetId: QUESTION_1,
+      field: 'time_burden_seconds',
+      before: '1:15',
+      after: '105',
+    }])
+    expect(fromClockBefore.questions[0].timeBurdenSeconds).toBe('1:45')
+  })
+
+  it('applies independent difficulty and time-burden suggestions in sequence', async () => {
+    const value = snapshot()
+    const afterDifficulty = await applyUcatAssessmentPatches(formFromSnapshot(value, { difficulty: '0.5' }), [{
+      operation: 'set_metadata',
+      targetKind: 'question',
+      targetId: QUESTION_1,
+      field: 'difficulty',
+      before: 0.5,
+      after: 0.6,
+    }])
+    const afterBoth = await applyUcatAssessmentPatches(afterDifficulty, [{
+      operation: 'set_metadata',
+      targetKind: 'question',
+      targetId: QUESTION_1,
+      field: 'time_burden_seconds',
+      before: 75,
+      after: 60,
+    }])
+    expect(afterBoth.questions[0].difficulty).toBe(0.6)
+    expect(afterBoth.questions[0].timeBurdenSeconds).toBe('1:00')
+  })
 })
 
 describe('assessment provider input normalization', () => {

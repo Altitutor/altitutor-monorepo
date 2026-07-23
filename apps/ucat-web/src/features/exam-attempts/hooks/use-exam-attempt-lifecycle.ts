@@ -466,6 +466,7 @@ export function useExamAttemptLifecycle({
     }
 
     let attempt: Awaited<ReturnType<typeof beginExamAttempt>>["attempt"];
+    let resumed = false;
     try {
       const initialQuestionTiming = latestQuestionTimingRef.current;
       const engineSnapshot = toExamEngineSnapshot(state);
@@ -489,6 +490,7 @@ export function useExamAttemptLifecycle({
       });
       if (lifecycleKeyRef.current !== lifecycleKey) return;
       attempt = result.attempt;
+      resumed = result.resumed;
     } catch (error) {
       if (lifecycleKeyRef.current !== lifecycleKey) return;
       if (error instanceof QuotaExceededError) {
@@ -522,9 +524,26 @@ export function useExamAttemptLifecycle({
       exam,
       attempt.engineSnapshot,
     );
+    const resumedAttempt = {
+      ...attempt,
+      engineSnapshot: attemptSnapshot,
+    };
+    // Server catch-up may finalize a resumed attempt while the begin request
+    // is running. Never hydrate that completion sentinel into the old
+    // in-engine results phase.
+    if (isAttemptAtResults(resumedAttempt)) {
+      clearLocal();
+      window.location.assign(attempt.resultsHref);
+      return;
+    }
     const serverSegmentKey = getTimedSegmentKey(exam, attemptSnapshot);
     const latestState = latestStateRef.current;
-    const shouldApplySnapshot = latestState === stateAtBegin;
+    // A resumed attempt is server-authoritative. Mount-time engine effects
+    // (notably marking the first question visited) change the local state
+    // identity while the begin request is in flight; treating that automatic
+    // change as a user edit previously discarded the saved current index and
+    // answers, then autosaved the empty mount state over the good snapshot.
+    const shouldApplySnapshot = resumed || latestState === stateAtBegin;
     const nextLocalState = shouldApplySnapshot
       ? {
           ...latestState,
@@ -557,7 +576,17 @@ export function useExamAttemptLifecycle({
       Object.entries(attempt.setAttemptIdsBySetId),
     );
     if (shouldApplySnapshot) {
-      setState((prev) => (prev === stateAtBegin ? nextLocalState : prev));
+      setState((prev) =>
+        resumed
+          ? {
+              ...prev,
+              ...attemptSnapshot,
+              showTimeExpiredDialog: false,
+            }
+          : prev === stateAtBegin
+            ? nextLocalState
+            : prev,
+      );
     }
     setHydrationStatus("hydrated");
   }, [
@@ -571,6 +600,7 @@ export function useExamAttemptLifecycle({
     practiceSessionId,
     setState,
     setLocal,
+    clearLocal,
     attemptStateRef,
     openQuotaLimit,
     router,

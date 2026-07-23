@@ -15,7 +15,7 @@ export const documentationApi = {
   async listFolders(): Promise<TutorDocumentationFolder[]> {
     const supabase = getSupabaseClient();
     const { data, error } = await supabase
-      .from('notes_folders')
+      .from('vtutor_documentation_folders')
       .select('id, name, parent_id')
       .order('name', { ascending: true });
 
@@ -26,7 +26,7 @@ export const documentationApi = {
   async listDocuments(): Promise<TutorDocumentationDocument[]> {
     const supabase = getSupabaseClient();
     const { data, error } = await supabase
-      .from('notes_documents')
+      .from('vtutor_documentation_documents')
       .select('id, title, content, folder_id, updated_at')
       .eq('is_tutor_documentation', true)
       .order('title', { ascending: true });
@@ -38,7 +38,7 @@ export const documentationApi = {
   async getDocument(documentId: string): Promise<TutorDocumentationDocument | null> {
     const supabase = getSupabaseClient();
     const { data, error } = await supabase
-      .from('notes_documents')
+      .from('vtutor_documentation_documents')
       .select('id, title, content, folder_id, updated_at')
       .eq('id', documentId)
       .eq('is_tutor_documentation', true)

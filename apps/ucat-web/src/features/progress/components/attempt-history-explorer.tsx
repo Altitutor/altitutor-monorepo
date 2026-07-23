@@ -6,7 +6,6 @@ import Link from "next/link";
 import {
   Dialog,
   DialogContent,
-  DialogDescription,
   DialogHeader,
   DialogTitle,
   SmartDatePickerField,
@@ -59,7 +58,7 @@ import { cn } from "@/lib/utils";
 type AttemptHistoryExplorerProps = {
   source: ProgressAttemptSource;
   title: string;
-  description: string;
+  description?: string;
   sectionNumber?: number;
   defaultMetric: GraphDataType;
   metricOptions: { value: GraphDataType; label: string }[];
@@ -280,7 +279,9 @@ export function AttemptHistoryExplorer({
         >
           {title}
         </h2>
-        <p className="mt-1 text-sm text-muted-foreground">{description}</p>
+        {description ? (
+          <p className="mt-1 text-sm text-muted-foreground">{description}</p>
+        ) : null}
       </div>
 
       <div className="relative min-h-[420px]">
@@ -338,13 +339,6 @@ export function AttemptHistoryExplorer({
                       )
                     : `${format(new Date(`${selectedRange.start}T12:00:00`), "d MMM")}–${format(new Date(`${selectedRange.end}T12:00:00`), "d MMM")}`
                   : "Recent attempts"}
-              </p>
-              <p className="mt-1 text-sm text-muted-foreground">
-                {selectedRange
-                  ? selectedRange.start === selectedRange.end
-                    ? "Attempts completed on the selected day."
-                    : "Attempts completed in the selected week."
-                  : "Click a bar to inspect that day or week."}
               </p>
             </div>
             {selectedRange ? (
@@ -437,12 +431,12 @@ export function AttemptHistoryExplorer({
       </div>
 
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="!flex !h-[min(90dvh,760px)] w-[min(96vw,1200px)] max-w-none flex-col overflow-y-auto sm:!h-[min(90dvh,760px)] sm:max-w-6xl">
+        <DialogContent
+          aria-describedby={undefined}
+          className="!flex !h-[min(90dvh,760px)] w-[min(96vw,1200px)] max-w-none flex-col overflow-y-auto sm:!h-[min(90dvh,760px)] sm:max-w-6xl"
+        >
           <DialogHeader className="shrink-0">
             <DialogTitle>All {title.toLowerCase()}</DialogTitle>
-            <DialogDescription>
-              Paginated history for the selected date range.
-            </DialogDescription>
           </DialogHeader>
           <div className="w-full max-w-xs shrink-0">
             <SmartDatePickerField

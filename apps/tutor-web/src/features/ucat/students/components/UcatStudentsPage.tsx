@@ -168,11 +168,7 @@ export function UcatStudentsPage() {
         accessorKey: "online_tier",
         header: "Online plan",
         cell: ({ row }) =>
-          row.original.online_tier === "pro"
-            ? "Pro"
-            : row.original.online_tier === "unlimited"
-              ? "Unlimited"
-              : "Free",
+          row.original.online_tier === "unlimited" ? "Unlimited" : "Free",
       },
     },
     {
@@ -299,7 +295,6 @@ export function UcatStudentsPage() {
       options: [
         { label: "Free", value: "free" },
         { label: "Unlimited", value: "unlimited" },
-        { label: "Pro", value: "pro" },
       ],
     },
   ];

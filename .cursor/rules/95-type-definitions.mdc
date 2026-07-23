@@ -1,75 +1,14 @@
 ---
-description: TypeScript type definition patterns for feature modules
+description: Feature/package type definition conventions aligned with shared DB types
 globs:
-  - 'apps/*/src/features/**/types/*.ts'
-  - 'packages/*/src/types/*.ts'
+  - 'apps/*/src/features/**/types/**/*.ts'
+  - 'packages/*/src/types/**/*.ts'
+alwaysApply: false
 ---
 
 # Type Definitions
 
-## Type Safety Rules
-
-- **No `any` types** - use `unknown` and narrow with type guards
-- Use Zod for runtime validation when needed
-- Export types from feature `index.ts` for public APIs
-- Align types with database schema types from `@altitutor/shared`
-
-## Type Organization
-
-- Define types in `features/*/types/` directory
-- Group related types together
-- Use barrel exports (`index.ts`) for clean imports
-- Keep types colocated with the features that use them
-
-## Type Patterns
-
-**Use discriminated unions for variants:**
-```typescript
-type PaymentStatus = 
-  | { status: 'pending'; attemptCount: number }
-  | { status: 'succeeded'; transactionId: string }
-  | { status: 'failed'; error: string }
-```
-
-**Use branded types for IDs:**
-```typescript
-type StudentId = string & { readonly brand: unique symbol }
-type ClassId = string & { readonly brand: unique symbol }
-```
-
-**Proper API response types:**
-```typescript
-interface ApiResponse<T> {
-  data: T
-  error: null
-}
-
-interface ApiError {
-  data: null
-  error: { message: string; code: string }
-}
-
-type ApiResult<T> = ApiResponse<T> | ApiError
-```
-
-## Database Types
-
-- Import generated types from `@altitutor/shared`
-- Use database types as source of truth
-- Transform database types to domain types using mappers
-- Keep raw DB types separate from UI presentation types
-
-## Zod Integration
-
-```typescript
-import { z } from 'zod'
-
-export const StudentSchema = z.object({
-  id: z.string().uuid(),
-  name: z.string().min(1),
-  email: z.string().email(),
-  status: z.enum(['active', 'inactive', 'suspended']),
-})
-
-export type Student = z.infer<typeof StudentSchema>
-```
+- Colocate in `features/*/types/`; export public types from feature `index.ts`
+- Prefer generated DB types from `@altitutor/shared` as source of truth; map to domain/UI types at boundaries
+- Zod schemas next to forms/validations; `type X = z.infer<typeof XSchema>` when runtime validation is needed
+- Discriminated unions for variant state; no `any`

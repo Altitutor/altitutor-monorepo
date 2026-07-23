@@ -1,12 +1,14 @@
 import {
-  activityIntensityLevel,
   buildUcatCalendarMonths,
   dateKeyToLocalDate,
   formatUcatCalendarDate,
   localDateKey,
+  relativeActivityIntensityLevel,
+  type ActivityIntensityLevel,
   type UcatCalendarDay,
   type UcatCalendarMonth,
 } from "@/shared/lib/ucat-month-calendar";
+import type { StudyPlanTask } from "@/features/study-plan/model/types";
 
 export type StudyPlanCalendarDay = UcatCalendarDay;
 export type StudyPlanCalendarMonth = UcatCalendarMonth;
@@ -39,12 +41,29 @@ export function daysBetweenDateKeys(fromDateKey: string, toDateKey: string) {
   return Math.round((toUtc - fromUtc) / DAY_MS);
 }
 
+/** Practice load for calendar heat — excludes review tasks. */
+export function isStudyPlanPracticeTask(task: StudyPlanTask): boolean {
+  return task.taskType !== "review";
+}
+
+export function studyPlanPracticeMinutes(tasks: StudyPlanTask[]): number {
+  return tasks.reduce(
+    (sum, task) =>
+      isStudyPlanPracticeTask(task) ? sum + task.estimatedMinutes : sum,
+    0,
+  );
+}
+
+/**
+ * Maps a day's scheduled practice minutes against the busiest day in the
+ * currently visible calendar window.
+ */
 export function studyPlanCalendarIntensityLevel(
-  scheduledMinutes: number,
-  recordedActivity: number,
-): 0 | 1 | 2 | 3 | 4 {
-  const scheduledUnits = Math.ceil(Math.max(0, scheduledMinutes) / 15);
-  return activityIntensityLevel(
-    Math.max(scheduledUnits, Math.max(0, recordedActivity)),
+  scheduledPracticeMinutes: number,
+  visibleMaxMinutes: number,
+): ActivityIntensityLevel {
+  return relativeActivityIntensityLevel(
+    Math.max(0, scheduledPracticeMinutes),
+    Math.max(0, visibleMaxMinutes),
   );
 }

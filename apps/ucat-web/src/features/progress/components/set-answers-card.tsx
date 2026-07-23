@@ -33,7 +33,7 @@ import {
   hasAnswerExplanation,
   OptionText,
 } from "@/features/question-engine/components/question-content";
-import { computeMarkingResult } from "@/features/question-engine/components/marking-body";
+import { computeMarkingResult } from "@/features/question-engine/lib/marking";
 import type {
   QuestionEngineExam,
   QuestionItem,
@@ -237,6 +237,7 @@ function ExplanationContent({ question }: { question: QuestionItem }) {
         <AnswerExplanation
           text={question.answerExplanation}
           json={question.answerExplanationJson}
+          textTone="theme"
         />
       ) : null}
       {optionsWithExplanations.length > 0 ? (
@@ -247,11 +248,12 @@ function ExplanationContent({ question }: { question: QuestionItem }) {
               className="rounded-md border border-border p-3"
             >
               <div className="mb-1 text-xs font-medium text-muted-foreground">
-                <OptionText option={option} />
+                <OptionText option={option} textTone="theme" />
               </div>
               <AnswerExplanation
                 text={option.answerExplanation}
                 json={option.answerExplanationJson}
+                textTone="theme"
               />
             </div>
           ))}

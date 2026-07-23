@@ -125,7 +125,7 @@ describe("GuidedSamplerPage marking", () => {
     expect(screen.getByRole("button", { name: "Submit" })).toBeInTheDocument();
     expect(screen.getByText("Guided practice")).toBeInTheDocument();
     expect(
-      screen.queryByText("Get familiar with the Alti UCAT system"),
+      screen.queryByText("Get familiar with Altitutor UCAT"),
     ).not.toBeInTheDocument();
   });
 

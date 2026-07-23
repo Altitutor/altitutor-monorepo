@@ -329,6 +329,7 @@ export function PracticeSessionPage() {
     active: activeExamAttempt,
     isLoading: activeAttemptLoading,
     refresh: refreshActiveAttempt,
+    clearLocal: clearActiveAttempt,
   } = useActiveExamAttempt();
   const { isReady: questionEngineTourReady } = useQuestionEngineTutorialGate();
   const { openQuotaLimit } = useQuotaLimitDialog();
@@ -649,6 +650,7 @@ export function PracticeSessionPage() {
       if (conflictActive.kind === "practice") {
         clearPracticeSession();
       }
+      clearActiveAttempt();
       await refreshActiveAttempt();
       const startInput = pendingConflictStart;
       setConflictActive(null);
@@ -1030,7 +1032,7 @@ function UnlimitedPracticeEngine({
         <button
           type="button"
           onClick={() => router.replace("/practice")}
-          className="rounded-lg bg-sidebar px-4 py-2 text-sm font-medium text-sidebar-foreground"
+          className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground"
         >
           Back to practice
         </button>

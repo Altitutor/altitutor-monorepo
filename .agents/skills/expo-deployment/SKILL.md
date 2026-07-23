@@ -3,6 +3,10 @@ name: expo-deployment
 description: Deploying Expo apps to iOS App Store, Android Play Store, web hosting, and API routes
 version: 1.0.0
 license: MIT
+paths:
+  - "apps/*-app/**"
+  - "**/eas.json"
+  - "**/.eas/**"
 ---
 
 # Deployment

@@ -1,4 +1,5 @@
 import type { Json } from '@altitutor/shared'
+import type { LearningModuleIconKey } from '@/features/ucat/learning-modules/lib/learning-module-icons'
 
 export type UcatLearningModuleKind = 'folder' | 'lesson'
 export type UcatLearningModuleStudyPlanPriority = 'essential' | 'recommended' | 'optional' | 'excluded'
@@ -16,6 +17,8 @@ export type UcatLearningModuleRow = {
   kind: UcatLearningModuleKind
   title: string
   description: string | null
+  icon_key: LearningModuleIconKey
+  estimated_minutes: number | null
   ucat_section_id: string | null
   parent_ucat_learning_module_id: string | null
   index: number
@@ -60,6 +63,8 @@ export type UcatLearningModuleUpsertPayload = {
   kind: UcatLearningModuleKind
   title: string
   description?: string | null
+  iconKey?: LearningModuleIconKey
+  estimatedMinutes?: number | null
   ucatSectionId?: string | null
   parentId?: string | null
   index?: number

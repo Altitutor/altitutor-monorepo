@@ -226,6 +226,20 @@ export const UCAT_PRIMARY_ACTION_BUTTON_SM = cn(
   "!h-9 px-3 text-xs",
 );
 
+/**
+ * Full-width pill CTA used at the bottom of signup onboarding forms.
+ * Keeps the marketing button proportions while using the active app theme.
+ */
+export const UCAT_SIGNUP_PRIMARY_ACTION = cn(
+  UCAT_ACCENT_FILL_RISE,
+  "inline-flex w-full items-center justify-center rounded-full bg-primary px-8 py-3.5 text-base font-semibold text-primary-foreground shadow-sm",
+  "hover:bg-primary hover:shadow-md",
+  "motion-safe:hover:scale-[1.02]",
+  UCAT_PRESS_ACTIVE,
+  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
+  "disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50 disabled:active:scale-100",
+);
+
 /** Card-style surfaces that lift slightly on hover */
 export const UCAT_CARD_RAISED_HOVER = cn(
   UCAT_PRESSABLE_SURFACE_HOVER,

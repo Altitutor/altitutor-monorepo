@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { motion } from "motion/react";
 import { UcatPageHeader } from "@/features/layout";
 import { CurrentPlanSection } from "@/features/subscription/components/current-plan-section";
@@ -14,12 +15,19 @@ import { useUcatStaggerMotion } from "@/shared/hooks/use-ucat-stagger-motion";
 
 type PlanPageTab = "current" | "subscription" | "referrals";
 
+const PLAN_TAB_HREF: Record<PlanPageTab, string> = {
+  current: "/settings/plan",
+  subscription: "/settings/plan/subscription",
+  referrals: "/settings/plan/referrals",
+};
+
 type PlanPageProps = {
   defaultTab?: PlanPageTab;
 };
 
 export function PlanPage({ defaultTab = "current" }: PlanPageProps) {
-  const [tab, setTab] = useState<PlanPageTab>(defaultTab);
+  const router = useRouter();
+  const tab = defaultTab;
   const { containerVariants, itemVariants } = useUcatStaggerMotion();
   const access = useUcatAccess();
   const { data: billing, isLoading: billingLoading } =
@@ -35,9 +43,9 @@ export function PlanPage({ defaultTab = "current" }: PlanPageProps) {
 
   useEffect(() => {
     if (!showSubscriptionTab && tab === "subscription") {
-      setTab("current");
+      router.replace(PLAN_TAB_HREF.current);
     }
-  }, [showSubscriptionTab, tab]);
+  }, [router, showSubscriptionTab, tab]);
 
   const tabOptions = [
     { value: "current" as const, label: "Current plan" },
@@ -46,6 +54,21 @@ export function PlanPage({ defaultTab = "current" }: PlanPageProps) {
       : []),
     { value: "referrals" as const, label: "Refer friends" },
   ];
+
+  const handleTabChange = (next: PlanPageTab) => {
+    if (next === tab) return;
+    switch (next) {
+      case "current":
+      case "subscription":
+      case "referrals":
+        router.push(PLAN_TAB_HREF[next]);
+        return;
+      default: {
+        const _exhaustive: never = next;
+        return _exhaustive;
+      }
+    }
+  };
 
   return (
     <motion.div
@@ -65,7 +88,7 @@ export function PlanPage({ defaultTab = "current" }: PlanPageProps) {
       <motion.div variants={itemVariants}>
         <SegmentedControl<PlanPageTab>
           value={tab}
-          onValueChange={setTab}
+          onValueChange={handleTabChange}
           options={tabOptions}
         />
       </motion.div>

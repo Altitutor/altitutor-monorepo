@@ -20,6 +20,7 @@ import {
   UCAT_PRESSABLE_SURFACE_HOVER,
   UCAT_SURFACE_MOTION,
 } from "@/lib/ucat-surface-motion";
+import { UCAT_PRODUCT_NAME } from "@/lib/ucat-brand";
 import { cn } from "@/lib/utils";
 
 type ChecklistItem = {
@@ -88,7 +89,7 @@ export function DashboardActivationChecklist() {
             </span>
             <div className="min-w-0 flex-1">
               <h2 className="text-sm font-semibold">
-                Finish setting up Altitutor UCAT System
+                Finish setting up {UCAT_PRODUCT_NAME}
               </h2>
               <p className="text-xs text-muted-foreground">
                 {completedCount} of {items.length} complete

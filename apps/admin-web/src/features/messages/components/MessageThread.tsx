@@ -465,29 +465,28 @@ export function MessageThread({
         if (cancelled) return;
         if (!conversations || conversations.length === 0) return;
         
-        const conversationIds = conversations.map((c) => {
-          if (!c || typeof c !== 'object' || !('id' in c)) return '';
-          return String(c.id);
-        }).filter((id): id is string => id !== '');
-        
-        // Subscribe to messages from all conversations for this contact
+        const conversationIds = new Set(
+          conversations.map((c) => {
+            if (!c || typeof c !== 'object' || !('id' in c)) return '';
+            return String(c.id);
+          }).filter((id): id is string => id !== ''),
+        );
+
+        // Avoid conversation_id=in.(...) realtime filters — they are unreliable.
+        // Filter client-side so device-sent outbound inserts still refresh the thread.
         channel = supabase
           .channel(`messages-contact-${contactId}`)
-          .on('postgres_changes', { 
-            event: 'INSERT', 
-            schema: 'public', 
+          .on('postgres_changes', {
+            event: '*',
+            schema: 'public',
             table: 'messages',
-            filter: `conversation_id=in.(${conversationIds.join(',')})`
-          }, () => {
-            // Invalidate to refetch all messages for this contact
-            qc.invalidateQueries({ queryKey: messagesKeys.messagesForContact(contactId, ownedNumberId) });
-          })
-          .on('postgres_changes', { 
-            event: 'UPDATE', 
-            schema: 'public', 
-            table: 'messages',
-            filter: `conversation_id=in.(${conversationIds.join(',')})`
-          }, () => {
+          }, (payload) => {
+            const next = payload.new as { conversation_id?: string } | null;
+            const prev = payload.old as { conversation_id?: string } | null;
+            const conversationIdChanged =
+              (next?.conversation_id && conversationIds.has(next.conversation_id)) ||
+              (prev?.conversation_id && conversationIds.has(prev.conversation_id));
+            if (!conversationIdChanged) return;
             qc.invalidateQueries({ queryKey: messagesKeys.messagesForContact(contactId, ownedNumberId) });
           })
           .on('postgres_changes', { 

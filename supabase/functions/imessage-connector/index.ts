@@ -10,18 +10,26 @@ import {
   normalizeCompletionResult,
   normalizeHeartbeatStatus,
 } from "../_shared/imessage-connector.ts";
+import { issueConnectorRealtimeSession } from "../_shared/imessage-connector-realtime.ts";
 
-type ConnectorAction = "claim" | "complete" | "heartbeat";
+type ConnectorAction = "claim" | "complete" | "heartbeat" | "realtime_session";
 
 function json(body: unknown, status = 200): Response {
   return Response.json(body, { status });
 }
 
 function connectorAction(value: unknown): ConnectorAction {
-  if (value === "claim" || value === "complete" || value === "heartbeat") {
+  if (
+    value === "claim" ||
+    value === "complete" ||
+    value === "heartbeat" ||
+    value === "realtime_session"
+  ) {
     return value;
   }
-  throw new Error("action must be claim, complete, or heartbeat");
+  throw new Error(
+    "action must be claim, complete, heartbeat, or realtime_session",
+  );
 }
 
 Deno.serve(async (request: Request) => {
@@ -112,6 +120,32 @@ Deno.serve(async (request: Request) => {
           connectorId,
           status: heartbeat.status,
           connector: data,
+        });
+      }
+      case "realtime_session": {
+        const supabaseUrl = Deno.env.get("SUPABASE_URL") ?? "";
+        const anonKey = Deno.env.get("SUPABASE_ANON_KEY") ?? "";
+        if (!supabaseUrl || !anonKey) {
+          return json({
+            error: "SUPABASE_URL and SUPABASE_ANON_KEY required for realtime_session",
+          }, 503);
+        }
+        const session = await issueConnectorRealtimeSession({
+          admin: supabase,
+          connectorId,
+          secret,
+          supabaseUrl,
+          anonKey,
+        });
+        return json({
+          connectorId,
+          accessToken: session.accessToken,
+          refreshToken: session.refreshToken,
+          expiresAt: session.expiresAt,
+          expiresIn: session.expiresIn,
+          topic: session.topic,
+          supabaseUrl: session.supabaseUrl,
+          anonKey: session.anonKey,
         });
       }
       default: {

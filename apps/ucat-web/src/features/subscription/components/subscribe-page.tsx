@@ -41,7 +41,7 @@ export function SubscribePage() {
           className={`sticky top-0 z-20 flex flex-wrap items-center justify-center gap-x-4 gap-y-1 border-b border-marketing-primary/15 bg-white/90 px-4 py-3 text-center text-sm shadow-sm backdrop-blur-md ${typo.secondarySans}`}
         >
           <span className="text-marketing-charcoal/70">
-            You&apos;re on UCAT Free. Compare paid plans below or return to the
+            You&apos;re on UCAT Free. Compare Unlimited below or return to the
             app.
           </span>
           <Link
@@ -58,7 +58,7 @@ export function SubscribePage() {
           <span
             className={`text-xs font-bold uppercase tracking-[0.25em] text-marketing-primary ${typo.dataMono}`}
           >
-            Alti UCAT Prep
+            Altitutor UCAT
           </span>
           <h1
             className={`mt-4 text-5xl font-bold leading-tight text-marketing-charcoal sm:text-6xl md:text-7xl ${typo.headingSans}`}
@@ -67,14 +67,14 @@ export function SubscribePage() {
             <span
               className={`italic text-marketing-primary/80 ${typo.dramaSerif}`}
             >
-              ace UCAT
+              prepare with a clear next step
             </span>
           </h1>
           <p
             className={`mx-auto mt-6 max-w-2xl text-lg text-marketing-charcoal/60 sm:text-xl ${typo.secondarySans}`}
           >
-            Start with UCAT Free, or unlock unlimited online access with UCAT
-            Unlimited and UCAT Pro.
+            Start with UCAT Free, or unlock unrestricted online access with
+            UCAT Unlimited.
           </p>
 
           <div
@@ -186,8 +186,8 @@ export function SubscribePage() {
             <p
               className={`mt-4 text-marketing-charcoal/60 ${typo.secondarySans}`}
             >
-              UCAT Free includes limited access. UCAT Unlimited and UCAT Pro
-              unlock everything with accountability pricing.
+              UCAT Free includes ongoing access with resetting allowances.
+              UCAT Unlimited removes the limits with accountability pricing.
             </p>
           </div>
 

@@ -7,6 +7,7 @@ import type {
   UcatLearningModuleRow,
   UcatLearningModuleUpsertPayload,
 } from '@/features/ucat/learning-modules/types'
+import { isLearningModuleIconKey } from '@/features/ucat/learning-modules/lib/learning-module-icons'
 
 function mapModuleRow(row: Record<string, unknown>): UcatLearningModuleRow {
   return {
@@ -14,6 +15,8 @@ function mapModuleRow(row: Record<string, unknown>): UcatLearningModuleRow {
     kind: row.kind as UcatLearningModuleRow['kind'],
     title: (row.title as string) ?? '',
     description: (row.description as string | null) ?? null,
+    icon_key: isLearningModuleIconKey(row.icon_key) ? row.icon_key : 'book-open',
+    estimated_minutes: (row.estimated_minutes as number | null) ?? null,
     ucat_section_id: (row.ucat_section_id as string | null) ?? null,
     parent_ucat_learning_module_id: (row.parent_ucat_learning_module_id as string | null) ?? null,
     index: (row.index as number) ?? 0,
@@ -80,11 +83,11 @@ export const ucatLearningModulesApi = {
     if (!data?.id) return null
     const [categoryLinks, tagLinks] = await Promise.all([
       supabase
-        .from('ucat_learning_module_question_stem_categories')
+        .from('vtutor_ucat_learning_module_question_stem_categories')
         .select('question_stem_category_id')
         .eq('learning_module_id', moduleId),
       supabase
-        .from('ucat_learning_module_question_tags')
+        .from('vtutor_ucat_learning_module_question_tags')
         .select('question_tag_id')
         .eq('learning_module_id', moduleId),
     ])

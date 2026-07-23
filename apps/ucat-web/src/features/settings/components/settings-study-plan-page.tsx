@@ -79,11 +79,7 @@ function availabilityEqual(
   if (a.length !== b.length) return false;
   const sortedA = sortAvailability(a);
   const sortedB = sortAvailability(b);
-  return sortedA.every(
-    (day, index) =>
-      day.weekday === sortedB[index]?.weekday &&
-      day.maxMinutes === sortedB[index]?.maxMinutes,
-  );
+  return sortedA.every((day, index) => day.weekday === sortedB[index]?.weekday);
 }
 
 function snapshotFromProfile(profile: StudyPlanProfileInput) {
@@ -187,14 +183,6 @@ export function SettingsStudyPlanPage() {
       }
       return next;
     });
-  }
-
-  function setDayMinutes(day: StudyPlanWeekday, maxMinutes: number) {
-    setAvailability((current) =>
-      current.map((item) =>
-        item.weekday === day ? { ...item, maxMinutes } : item,
-      ),
-    );
   }
 
   function handleCancel() {
@@ -426,8 +414,8 @@ export function SettingsStudyPlanPage() {
               Available study days
             </h3>
             <p className="text-sm text-muted-foreground">
-              Availability is a ceiling, not a quota. Turn on the days you can
-              usually study, then set a max minutes for each.
+              Turn on the days you can usually study. The plan changes session
+              length and practice volume as your readiness and exam date change.
             </p>
           </div>
 
@@ -443,40 +431,13 @@ export function SettingsStudyPlanPage() {
                   <span className="min-w-0 text-sm font-medium">
                     {day.label}
                   </span>
-                  <div className="flex shrink-0 items-center gap-3">
-                    <div
-                      className={cn(
-                        "flex items-center gap-2",
-                        !isOn && "invisible pointer-events-none",
-                      )}
-                      aria-hidden={!isOn}
-                    >
-                      <Input
-                        type="number"
-                        min={15}
-                        max={360}
-                        step={15}
-                        tabIndex={isOn ? 0 : -1}
-                        value={
-                          enabled?.maxMinutes ?? defaultMinutesForDay(day.value)
-                        }
-                        onChange={(event) =>
-                          setDayMinutes(day.value, Number(event.target.value))
-                        }
-                        disabled={!isOn}
-                        className="h-10 w-24"
-                        aria-label={`${day.label} max minutes`}
-                      />
-                      <span className="text-sm text-muted-foreground">min</span>
-                    </div>
-                    <Switch
-                      checked={isOn}
-                      onCheckedChange={(checked) =>
-                        setDayEnabled(day.value, checked)
-                      }
-                      aria-label={`${day.label} available`}
-                    />
-                  </div>
+                  <Switch
+                    checked={isOn}
+                    onCheckedChange={(checked) =>
+                      setDayEnabled(day.value, checked)
+                    }
+                    aria-label={`${day.label} available`}
+                  />
                 </div>
               );
             })}
@@ -485,7 +446,7 @@ export function SettingsStudyPlanPage() {
           <div className="mt-2 border-t border-border/60 pt-2">
             <SettingsRow
               title="Preferred mock day"
-              description="Pick one of your available days for full mocks when the plan schedules them."
+              description="A soft preference for full mocks. The planner may use another available day when the cadence needs it."
               control={
                 <SearchableSelect<WeekdayOption>
                   items={mockDayOptions.length ? mockDayOptions : WEEKDAYS}

@@ -2,20 +2,20 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState, type ComponentType } from "react";
+import { useQueryClient } from "@tanstack/react-query";
+import { motion } from "motion/react";
 import { Badge, Card, CardContent, Skeleton } from "@altitutor/ui";
 import {
   AlertTriangle,
   ArrowRight,
   BookOpen,
   BrainCircuit,
-  CalendarCheck2,
   CalendarDays,
   Check,
   Gauge,
   Clock3,
   NotebookText,
   RotateCcw,
-  Sparkles,
   Target,
   TrendingUp,
 } from "lucide-react";
@@ -41,10 +41,14 @@ import {
   type DashboardTrajectoryState,
 } from "@/features/dashboard/lib/dashboard-trajectory";
 import { useUcatProfile } from "@/features/layout/hooks/use-ucat-profile";
-import { useOnboardingProgress } from "@/features/onboarding/hooks/use-onboarding-progress";
+import {
+  useCompleteOnboardingTour,
+  useOnboardingProgress,
+} from "@/features/onboarding/hooks/use-onboarding-progress";
 import {
   UCAT_GUIDED_SAMPLER_COMPLETED,
   UCAT_GUIDED_SAMPLER_DECIDED,
+  UCAT_STUDY_PLAN_DECIDED,
 } from "@/features/onboarding/lib/activation-milestones";
 import { type StudentUcatSession } from "@/features/sessions/api/sessions-api";
 import { useStudentUcatSessions } from "@/features/sessions/hooks/use-sessions";
@@ -54,7 +58,16 @@ import type {
   ScoreProjectionSnapshot,
   SectionScoreProjection,
 } from "@/features/score-projection/types/score-projection";
-import { useDashboardStudyPlan } from "@/features/study-plan/hooks/use-study-plan";
+import {
+  DASHBOARD_STUDY_PLAN_QUERY_KEY,
+  STUDY_PLAN_QUERY_KEY,
+  useDashboardStudyPlan,
+} from "@/features/study-plan/hooks/use-study-plan";
+import { saveStudyPlan } from "@/features/study-plan/api/study-plan";
+import {
+  defaultSkippedGoalProfileInput,
+  hasStudyPlanGoal,
+} from "@/features/study-plan/lib/default-study-profile";
 import { useStudyPlanTaskActions } from "@/features/study-plan/hooks/use-study-plan-task-actions";
 import { useStudyPlanExtraStudyDialog } from "@/features/study-plan/components/study-plan-extra-study";
 import { addDays, todayIso } from "@/features/study-plan/lib/dates";
@@ -71,6 +84,7 @@ import {
   UCAT_NEUTRAL_ACTION_HOVER,
 } from "@/lib/ucat-surface-motion";
 import { cn } from "@/lib/utils";
+import { useUcatStaggerMotion } from "@/shared/hooks/use-ucat-stagger-motion";
 
 const WEEK_STATUS_LABEL: Record<DashboardWeekSummary["status"], string> = {
   complete: "Complete",
@@ -136,7 +150,9 @@ function actionIcon(action: DashboardNextAction) {
     case "caught_up":
       return <Check className="h-5 w-5" aria-hidden />;
     case "plan_setup":
-      return <CalendarCheck2 className="h-5 w-5" aria-hidden />;
+      return <CalendarDays className="h-5 w-5" aria-hidden />;
+    case "goal_setup":
+      return <Target className="h-5 w-5" aria-hidden />;
     case "plan_error":
       return <AlertTriangle className="h-5 w-5" aria-hidden />;
   }
@@ -211,10 +227,8 @@ function actionContent(action: DashboardNextAction): {
         primaryLabel:
           action.primary.taskType === "review" ? "Review result" : "Start",
         primaryHref: action.primary.launchPath,
-        secondaryLabel: action.secondary
-          ? `Another option: ${action.secondary.title}`
-          : null,
-        secondaryHref: action.secondary?.launchPath ?? null,
+        secondaryLabel: null,
+        secondaryHref: null,
       };
     case "caught_up":
       return {
@@ -239,16 +253,30 @@ function actionContent(action: DashboardNextAction): {
     case "plan_setup":
       return {
         eyebrow: "Your next step",
+        title: "Organise your study with a Study plan",
+        description:
+          "Altitutor can schedule adaptive work around your availability and adjust it as your performance changes.",
+        rationale:
+          "You can still study on your own if you prefer. A Study plan just gives you a clearer weekly path.",
+        meta: "About 3 min to set up",
+        primaryLabel: "Set up Study plan",
+        primaryHref: "/study-plan/setup?section=plan",
+        secondaryLabel: "I’ll manage my own plan",
+        secondaryHref: null,
+      };
+    case "goal_setup":
+      return {
+        eyebrow: "Your next step",
         title: "Set your UCAT year and target score",
         description:
-          "Give your dashboard a clear destination before you decide how you want to organise your study.",
+          "Give your dashboard a clear destination before you continue with suggested study activities.",
         rationale:
           "Your target is a working direction, not a prediction. You can change it at any time.",
         meta: "UCAT year · working target",
         primaryLabel: "Set my goal",
         primaryHref: "/ucat-goal/setup",
-        secondaryLabel: "Set up Study plan",
-        secondaryHref: "/study-plan/setup?section=plan",
+        secondaryLabel: "Skip for now",
+        secondaryHref: null,
       };
     case "plan_error":
       return {
@@ -271,12 +299,20 @@ function DashboardNextActionPanel({
   taskPending,
   taskError,
   onRetryPlan,
+  onDeclineStudyPlan,
+  onSkipGoal,
+  setupPending,
+  setupError,
 }: {
   action: DashboardNextAction;
   onStartTask: () => Promise<void>;
   taskPending: boolean;
   taskError: string | null;
   onRetryPlan: () => void;
+  onDeclineStudyPlan: () => void | Promise<void>;
+  onSkipGoal: () => void | Promise<void>;
+  setupPending: boolean;
+  setupError: string | null;
 }) {
   const content = actionContent(action);
   const openExtraStudy = useStudyPlanExtraStudyDialog();
@@ -291,6 +327,18 @@ function DashboardNextActionPanel({
     }
     if (action.kind === "plan_error") onRetryPlan();
   };
+  const handleSecondary = () => {
+    if (action.kind === "plan_setup") {
+      void onDeclineStudyPlan();
+      return;
+    }
+    if (action.kind === "goal_setup") {
+      void onSkipGoal();
+    }
+  };
+  const showSecondaryButton =
+    content.secondaryLabel &&
+    (action.kind === "plan_setup" || action.kind === "goal_setup");
 
   return (
     <section
@@ -298,7 +346,7 @@ function DashboardNextActionPanel({
       aria-labelledby="dashboard-what-now-title"
     >
       <p className="text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
-        What now
+        Suggested next step
       </p>
       <div className="mt-3 flex items-start gap-3">
         <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-background text-foreground shadow-sm ring-1 ring-border/60">
@@ -319,31 +367,47 @@ function DashboardNextActionPanel({
           ) : null}
         </div>
       </div>
-      <p className="mt-3 text-sm text-muted-foreground">
-        {content.description}
-      </p>
       {taskError ? (
         <p className="mt-3 rounded-xl bg-destructive/10 px-3.5 py-3 text-sm text-destructive">
           {taskError} Your task remains on the Study plan.
         </p>
       ) : null}
+      {setupError ? (
+        <p className="mt-3 rounded-xl bg-destructive/10 px-3.5 py-3 text-sm text-destructive">
+          {setupError}
+        </p>
+      ) : null}
       <div className="mt-4 flex flex-wrap gap-2">
         {content.primaryHref ? (
-          <Button asChild>
+          <Button asChild disabled={setupPending}>
             <Link href={content.primaryHref}>
               {content.primaryLabel}
               <ArrowRight className="ml-1.5 h-4 w-4" aria-hidden />
             </Link>
           </Button>
         ) : (
-          <Button type="button" onClick={handlePrimary} disabled={taskPending}>
+          <Button
+            type="button"
+            onClick={handlePrimary}
+            disabled={taskPending || setupPending}
+          >
             {taskPending ? "Starting…" : content.primaryLabel}
             {!taskPending ? (
               <ArrowRight className="ml-1.5 h-4 w-4" aria-hidden />
             ) : null}
           </Button>
         )}
-        {content.secondaryHref && content.secondaryLabel ? (
+        {showSecondaryButton ? (
+          <Button
+            type="button"
+            variant="ghost"
+            className={UCAT_NEUTRAL_ACTION_HOVER}
+            onClick={handleSecondary}
+            disabled={setupPending}
+          >
+            {setupPending ? "Saving…" : content.secondaryLabel}
+          </Button>
+        ) : content.secondaryHref && content.secondaryLabel ? (
           <Button asChild variant="ghost" className={UCAT_NEUTRAL_ACTION_HOVER}>
             <Link href={content.secondaryHref}>{content.secondaryLabel}</Link>
           </Button>
@@ -352,40 +416,6 @@ function DashboardNextActionPanel({
     </section>
   );
 }
-
-const TRAJECTORY_STATUS: Record<
-  DashboardTrajectoryState["stage"],
-  { label: string; className: string }
-> = {
-  building_baseline: {
-    label: "Building baseline",
-    className: "bg-muted text-muted-foreground",
-  },
-  early_estimate: {
-    label: "Early estimate",
-    className: "bg-muted text-muted-foreground",
-  },
-  no_test_date: {
-    label: "Set test date",
-    className: "bg-muted text-muted-foreground",
-  },
-  long_range: {
-    label: "Long-range goal",
-    className: "bg-muted text-muted-foreground",
-  },
-  on_track: {
-    label: "On track",
-    className: "bg-emerald-500/10 text-emerald-700 dark:text-emerald-300",
-  },
-  within_reach: {
-    label: "Within reach",
-    className: "bg-primary/10 text-primary",
-  },
-  needs_adjustment: {
-    label: "Needs adjustment",
-    className: "bg-amber-500/10 text-amber-700 dark:text-amber-300",
-  },
-};
 
 function weakestSectionName(
   sections: SectionScoreProjection[],
@@ -511,14 +541,11 @@ function dashboardTargetBreakdown(
   sectionTargets: Record<string, number>,
 ): DashboardTargetBreakdown[] {
   return sections
-    .filter(
-      (section) =>
-        section.sectionNumber <= 3 && sectionTargets[section.sectionId] != null,
-    )
+    .filter((section) => section.sectionNumber <= 3)
     .sort((left, right) => left.sectionNumber - right.sectionNumber)
     .map((section) => ({
       sectionName: section.sectionName,
-      target: sectionTargets[section.sectionId]!,
+      target: sectionTargets[section.sectionId] ?? null,
       currentEstimate: section.currentEstimate,
     }));
 }
@@ -538,6 +565,10 @@ export function DashboardTrajectoryHero({
   taskPending,
   taskError,
   onRetryPlan,
+  onDeclineStudyPlan,
+  onSkipGoal,
+  setupPending,
+  setupError,
 }: {
   firstName: string | null;
   plan: StudyPlanResponse | null | undefined;
@@ -553,6 +584,10 @@ export function DashboardTrajectoryHero({
   taskPending: boolean;
   taskError: string | null;
   onRetryPlan: () => void;
+  onDeclineStudyPlan: () => void | Promise<void>;
+  onSkipGoal: () => void | Promise<void>;
+  setupPending: boolean;
+  setupError: string | null;
 }) {
   if (!plan?.profile) {
     const planUnavailable = action.kind === "plan_error";
@@ -581,7 +616,7 @@ export function DashboardTrajectoryHero({
             )}
           >
             <p className="text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
-              Your predictred score trajectory
+              Your predicted score trajectory
             </p>
             <h2 className="mt-3 text-xl font-semibold tracking-tight">
               {planUnavailable
@@ -591,7 +626,7 @@ export function DashboardTrajectoryHero({
             <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
               {planUnavailable
                 ? "Your existing plan has not been changed. Reload it before starting unrelated work."
-                : "The Altitutor system will begin calculating your current score and trajectory once you put in your target score and test date."}
+                : "Add your target score and test date so Altitutor UCAT can estimate where you stand and show how your trajectory changes."}
             </p>
             <div className="mt-5 border-t border-border/60 pt-5">
               <DashboardNextActionPanel
@@ -600,6 +635,10 @@ export function DashboardTrajectoryHero({
                 taskPending={taskPending}
                 taskError={taskError}
                 onRetryPlan={onRetryPlan}
+                onDeclineStudyPlan={onDeclineStudyPlan}
+                onSkipGoal={onSkipGoal}
+                setupPending={setupPending}
+                setupError={setupError}
               />
             </div>
           </aside>
@@ -611,7 +650,7 @@ export function DashboardTrajectoryHero({
           )}
         >
           <p className="text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
-            Your predictred score trajectory
+            Your predicted score trajectory
           </p>
           <h2 className="mt-2 text-lg font-semibold">
             {planUnavailable
@@ -630,6 +669,10 @@ export function DashboardTrajectoryHero({
               taskPending={taskPending}
               taskError={taskError}
               onRetryPlan={onRetryPlan}
+              onDeclineStudyPlan={onDeclineStudyPlan}
+              onSkipGoal={onSkipGoal}
+              setupPending={setupPending}
+              setupError={setupError}
             />
           </div>
         </aside>
@@ -638,17 +681,6 @@ export function DashboardTrajectoryHero({
   }
 
   if (!state) return null;
-  const status = projectionError
-    ? {
-        label: "Unavailable",
-        className: "bg-muted text-muted-foreground",
-      }
-    : projectionLoading
-      ? {
-          label: "Loading",
-          className: "bg-muted text-muted-foreground",
-        }
-      : TRAJECTORY_STATUS[state.stage];
   const weakestSection = weakestSectionName(
     sections,
     plan.generation?.sectionTargets ?? {},
@@ -696,33 +728,13 @@ export function DashboardTrajectoryHero({
           })),
       ),
   );
-  const outlook = projectionError
-    ? "Score outlook temporarily unavailable"
-    : state.stage === "building_baseline"
-      ? `${state.readySectionCount}/3 of Sections 1–3 ready`
-      : state.stage === "early_estimate" && state.projectedAtTest
-        ? `Early test-day range ${state.projectedAtTest.pessimistic}–${state.projectedAtTest.optimistic}`
-        : state.projectedAtTest
-          ? `Projected ${state.projectedAtTest.realistic} at test`
-          : state.forecastPoint
-            ? `${state.forecastHorizonDays}-day outlook ${state.forecastPoint.realistic}`
-            : "Building your score outlook";
-
   return (
     <section className="relative isolate overflow-hidden border-y border-border/60 bg-gradient-to-b from-muted/25 via-background to-background">
       <div className="relative min-h-[620px] sm:min-h-[700px] lg:min-h-[690px]">
-        <div className="absolute inset-x-0 top-0 z-10 flex flex-wrap items-start justify-between gap-3 px-5 py-6 sm:px-8 lg:px-10">
-          <div>
-            <h1 className="text-xl font-semibold tracking-tight sm:text-2xl">
-              {firstName ? `Good to see you, ${firstName}` : "Good to see you"}
-            </h1>
-            <p className="mt-1 text-sm text-muted-foreground">
-              Target {plan.profile.targetScore} · {outlook}
-            </p>
-          </div>
-          <Badge className={cn("border-0", status.className)}>
-            {status.label}
-          </Badge>
+        <div className="absolute inset-x-0 top-0 z-10 px-5 py-6 sm:px-8 lg:px-10">
+          <h1 className="text-xl font-semibold tracking-tight sm:text-2xl">
+            {firstName ? `Good to see you, ${firstName}` : "Good to see you"}
+          </h1>
         </div>
         <div className="absolute inset-x-0 top-20 min-w-0">
           {projectionLoading ? (
@@ -767,8 +779,7 @@ export function DashboardTrajectoryHero({
         >
           <section aria-labelledby="dashboard-why-title">
             <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
-              <Sparkles className="size-3.5" aria-hidden />
-              Your predictred score trajectory
+              Your predicted score trajectory
             </div>
             <h2 id="dashboard-why-title" className="mt-3 text-lg font-semibold">
               {insight.title}
@@ -794,6 +805,10 @@ export function DashboardTrajectoryHero({
               taskPending={taskPending}
               taskError={taskError}
               onRetryPlan={onRetryPlan}
+              onDeclineStudyPlan={onDeclineStudyPlan}
+              onSkipGoal={onSkipGoal}
+              setupPending={setupPending}
+              setupError={setupError}
             />
           </div>
         </aside>
@@ -806,8 +821,7 @@ export function DashboardTrajectoryHero({
       >
         <section aria-labelledby="dashboard-why-title-mobile">
           <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
-            <Sparkles className="size-3.5" aria-hidden />
-            Your predictred score trajectory
+            Your predicted score trajectory
           </div>
           <h2
             id="dashboard-why-title-mobile"
@@ -834,6 +848,10 @@ export function DashboardTrajectoryHero({
             taskPending={taskPending}
             taskError={taskError}
             onRetryPlan={onRetryPlan}
+            onDeclineStudyPlan={onDeclineStudyPlan}
+            onSkipGoal={onSkipGoal}
+            setupPending={setupPending}
+            setupError={setupError}
           />
         </div>
       </aside>
@@ -991,12 +1009,16 @@ function dashboardMockAnnotations(
 export function DashboardHome() {
   const profileQuery = useUcatProfile();
   const planQuery = useDashboardStudyPlan();
+  const queryClient = useQueryClient();
+  const completeMilestone = useCompleteOnboardingTour();
   const scoreProjectionQuery = useScoreProjection(
     Boolean(planQuery.data?.profile),
   );
   const sessionsQuery = useStudentUcatSessions();
   const onboarding = useOnboardingProgress();
   const [now, setNow] = useState(() => new Date());
+  const [setupPending, setSetupPending] = useState(false);
+  const [setupError, setSetupError] = useState<string | null>(null);
 
   useEffect(() => {
     const timer = window.setInterval(() => setNow(new Date()), 30_000);
@@ -1007,6 +1029,8 @@ export function DashboardHome() {
   const samplerCompleted = onboarding.isCompleted(
     UCAT_GUIDED_SAMPLER_COMPLETED,
   );
+  const studyPlanDecided = onboarding.isCompleted(UCAT_STUDY_PLAN_DECIDED);
+  const hasGoal = hasStudyPlanGoal(planQuery.data?.profile);
   const sessions = useMemo(
     () => sessionsQuery.data ?? [],
     [sessionsQuery.data],
@@ -1018,18 +1042,55 @@ export function DashboardHome() {
         sessions,
         plan: planQuery.data,
         planLoadFailed: planQuery.isError,
-        samplerDecided,
-        samplerCompleted,
+        studyPlanDecided,
+        hasGoal,
       }),
     [
+      hasGoal,
       now,
       planQuery.data,
       planQuery.isError,
-      samplerCompleted,
-      samplerDecided,
       sessions,
+      studyPlanDecided,
     ],
   );
+
+  async function handleDeclineStudyPlan() {
+    setSetupPending(true);
+    setSetupError(null);
+    try {
+      await completeMilestone.mutateAsync(UCAT_STUDY_PLAN_DECIDED);
+    } catch (caught) {
+      setSetupError(
+        caught instanceof Error
+          ? caught.message
+          : "Could not save your Study plan preference.",
+      );
+    } finally {
+      setSetupPending(false);
+    }
+  }
+
+  async function handleSkipGoal() {
+    setSetupPending(true);
+    setSetupError(null);
+    try {
+      const nextPlan = await saveStudyPlan(defaultSkippedGoalProfileInput());
+      queryClient.setQueryData(DASHBOARD_STUDY_PLAN_QUERY_KEY, nextPlan);
+      queryClient.setQueryData(STUDY_PLAN_QUERY_KEY, nextPlan);
+      await queryClient.invalidateQueries({
+        queryKey: STUDY_PLAN_QUERY_KEY,
+      });
+    } catch (caught) {
+      setSetupError(
+        caught instanceof Error
+          ? caught.message
+          : "Could not continue without a goal.",
+      );
+    } finally {
+      setSetupPending(false);
+    }
+  }
   const nextTask = action.kind === "task" ? action.task : null;
   const taskActions = useStudyPlanTaskActions(
     nextTask,
@@ -1070,14 +1131,14 @@ export function DashboardHome() {
       totalProjection?.currentEstimate != null
         ? buildDashboardTrajectoryChartData(
             totalProjection,
-            scoreProjectionQuery.data?.snapshots ?? [],
             planQuery.data?.today ?? todayIso(),
             trajectoryState?.projectedAtTest,
+            scoreProjectionQuery.data?.snapshots ?? [],
           )
         : [],
     [
-      scoreProjectionQuery.data?.snapshots,
       planQuery.data?.today,
+      scoreProjectionQuery.data?.snapshots,
       totalProjection,
       trajectoryState?.projectedAtTest,
     ],
@@ -1086,6 +1147,7 @@ export function DashboardHome() {
     () => dashboardMockAnnotations(planQuery.data),
     [planQuery.data],
   );
+  const { containerVariants, itemVariants } = useUcatStaggerMotion();
 
   if (
     planQuery.isLoading ||
@@ -1107,25 +1169,39 @@ export function DashboardHome() {
   const plan = planQuery.data;
 
   return (
-    <div className="space-y-6 pb-8">
-      <DashboardTrajectoryHero
-        firstName={firstName}
-        plan={plan}
-        action={action}
-        state={trajectoryState}
-        chartData={chartData}
-        sections={scoreProjectionQuery.data?.sections ?? []}
-        snapshots={scoreProjectionQuery.data?.snapshots ?? []}
-        projectionLoading={scoreProjectionQuery.isLoading}
-        projectionError={scoreProjectionQuery.isError}
-        mocks={mockAnnotations}
-        onStartTask={taskActions.startTask}
-        taskPending={taskActions.pendingAction === "start"}
-        taskError={taskActions.error}
-        onRetryPlan={() => void planQuery.refetch()}
-      />
+    <motion.div
+      className="space-y-6 pb-8"
+      variants={containerVariants}
+      initial="hidden"
+      animate="show"
+    >
+      <motion.div variants={itemVariants}>
+        <DashboardTrajectoryHero
+          firstName={firstName}
+          plan={plan}
+          action={action}
+          state={trajectoryState}
+          chartData={chartData}
+          sections={scoreProjectionQuery.data?.sections ?? []}
+          snapshots={scoreProjectionQuery.data?.snapshots ?? []}
+          projectionLoading={scoreProjectionQuery.isLoading}
+          projectionError={scoreProjectionQuery.isError}
+          mocks={mockAnnotations}
+          onStartTask={taskActions.startTask}
+          taskPending={taskActions.pendingAction === "start"}
+          taskError={taskActions.error}
+          onRetryPlan={() => void planQuery.refetch()}
+          onDeclineStudyPlan={handleDeclineStudyPlan}
+          onSkipGoal={handleSkipGoal}
+          setupPending={setupPending}
+          setupError={setupError}
+        />
+      </motion.div>
 
-      <div className="mx-auto grid w-full max-w-[1400px] grid-cols-[repeat(auto-fit,minmax(min(100%,18rem),1fr))] gap-5 px-5 sm:px-6">
+      <motion.div
+        variants={itemVariants}
+        className="mx-auto grid w-full max-w-[1400px] grid-cols-[repeat(auto-fit,minmax(min(100%,18rem),1fr))] gap-5 px-5 sm:px-6"
+      >
         <DashboardActivationChecklist />
         {plan?.profile?.studyPlanEnabled ? (
           <Card className={cn(UCAT_CARD_CHROME, "h-full")}>
@@ -1145,39 +1221,42 @@ export function DashboardHome() {
           </CardContent>
         </Card>
         <DashboardRecentAttemptsCard />
-      </div>
+      </motion.div>
 
       {planQuery.data?.generation?.capacityRisk.level === "warning" ? (
-        <Card
-          className={cn(
-            UCAT_CARD_CHROME,
-            "mx-5 sm:mx-6 lg:mx-auto lg:w-[calc(100%-3rem)] lg:max-w-[1352px]",
-          )}
-        >
-          <CardContent className="flex flex-col gap-4 p-5 sm:flex-row sm:items-center sm:justify-between sm:p-6">
-            <div className="flex gap-3">
-              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-muted text-muted-foreground">
-                <AlertTriangle className="h-4 w-4" aria-hidden />
-              </span>
-              <div>
-                <p className="text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground">
-                  Worth knowing
-                </p>
-                <h2 className="mt-1 font-semibold">
-                  Your available time is tight
-                </h2>
-                <p className="mt-1 text-sm text-muted-foreground">
-                  {planQuery.data.generation.capacityRisk.message} Your plan is
-                  already choosing the highest-value work within that limit.
-                </p>
+        <motion.div variants={itemVariants}>
+          <Card
+            className={cn(
+              UCAT_CARD_CHROME,
+              "mx-5 sm:mx-6 lg:mx-auto lg:w-[calc(100%-3rem)] lg:max-w-[1352px]",
+            )}
+          >
+            <CardContent className="flex flex-col gap-4 p-5 sm:flex-row sm:items-center sm:justify-between sm:p-6">
+              <div className="flex gap-3">
+                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-muted text-muted-foreground">
+                  <AlertTriangle className="h-4 w-4" aria-hidden />
+                </span>
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+                    Worth knowing
+                  </p>
+                  <h2 className="mt-1 font-semibold">
+                    Your available time is tight
+                  </h2>
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    {planQuery.data.generation.capacityRisk.message} Your plan
+                    is already choosing the highest-value work within that
+                    limit.
+                  </p>
+                </div>
               </div>
-            </div>
-            <Button asChild variant="outline" className="shrink-0">
-              <Link href="/settings/study-plan">Adjust availability</Link>
-            </Button>
-          </CardContent>
-        </Card>
+              <Button asChild variant="outline" className="shrink-0">
+                <Link href="/settings/study-plan">Adjust availability</Link>
+              </Button>
+            </CardContent>
+          </Card>
+        </motion.div>
       ) : null}
-    </div>
+    </motion.div>
   );
 }

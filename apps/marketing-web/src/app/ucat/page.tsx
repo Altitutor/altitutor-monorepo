@@ -4,14 +4,14 @@ import { UcatMarketingLandingPage } from "@/features/product-landing/ucat/ucat-m
 const canonical = "https://altitutor.com/ucat/";
 
 export const metadata: Metadata = {
-  title: "Online UCAT preparation and practice | Altitutor",
+  title: "UCAT preparation Australia & New Zealand | Altitutor UCAT",
   description:
-    "Prepare for the UCAT with adaptive practice, full-length mocks, skill training, progress analytics and a study plan that responds to your performance.",
+    "Know where you stand and what to do next with 10,000+ UCAT questions, 30+ full mocks, score estimation, adaptive study planning, and a Free plan that keeps resetting.",
   alternates: { canonical },
   openGraph: {
-    title: "Alti UCAT Prep",
+    title: "Altitutor UCAT — know where you stand and what to do next",
     description:
-      "A science-backed UCAT practice system built around adaptive data, deliberate practice and measurable progress.",
+      "Start preparing free with 10,000+ questions, 30+ full mocks, score tracking, and a plan built around your target.",
     url: canonical,
     siteName: "Altitutor",
     locale: "en_AU",

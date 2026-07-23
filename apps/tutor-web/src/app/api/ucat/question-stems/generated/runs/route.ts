@@ -15,7 +15,7 @@ export async function GET() {
   }
 
   const { data, error } = await client
-    .from('ucat_ai_generation_runs')
+    .from('vtutor_ucat_ai_generation_runs')
     .select('id,status,requested_stem_count,accepted_stem_count,discarded_stem_count,processed_stem_count,progress_step,progress_message,error_message,generated_stem_ids,created_at,completed_at,dismissed_at')
     .is('dismissed_at', null)
     .not('progress_step', 'is', null)

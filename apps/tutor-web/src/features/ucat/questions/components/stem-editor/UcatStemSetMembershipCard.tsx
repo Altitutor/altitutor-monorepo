@@ -141,10 +141,8 @@ export function UcatStemSetMembershipCard({
   const invalidateMembership = async (setId?: string) => {
     await Promise.all([
       queryClient.invalidateQueries({ queryKey: ucatKeys.sets() }),
-      queryClient.invalidateQueries({ queryKey: ucatKeys.questions('default') }),
-      queryClient.invalidateQueries({ queryKey: ucatKeys.questions('generated') }),
+      queryClient.invalidateQueries({ queryKey: ucatKeys.questions('all') }),
       queryClient.invalidateQueries({ queryKey: ucatKeys.reconciliation() }),
-      queryClient.invalidateQueries({ queryKey: ucatKeys.stemCatalog() }),
       setId ? queryClient.invalidateQueries({ queryKey: ucatKeys.set(setId) }) : Promise.resolve(),
     ])
   }

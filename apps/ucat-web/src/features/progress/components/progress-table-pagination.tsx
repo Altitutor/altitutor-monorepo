@@ -10,11 +10,12 @@ type ProgressTablePaginationProps = React.ComponentProps<
 /** TablePagination with padding for progress tables. */
 export function ProgressTablePagination({
   className,
+  showPageSummary = false,
   ...props
 }: ProgressTablePaginationProps) {
   return (
     <div className={cn("pt-4 ucat-pagination", className)}>
-      <TablePagination {...props} />
+      <TablePagination showPageSummary={showPageSummary} {...props} />
     </div>
   );
 }

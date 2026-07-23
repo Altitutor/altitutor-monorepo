@@ -1,12 +1,6 @@
 "use client";
 
-import React, {
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-  type ReactNode,
-} from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
 import { motion, useReducedMotion } from "motion/react";
@@ -49,7 +43,6 @@ import {
 } from "@/features/signup-onboarding/components/signup-success-transition";
 import { saveStudyPlan } from "@/features/study-plan/api/study-plan";
 import {
-  STUDY_SETUP_FIELD_CLASS,
   STUDY_SETUP_GHOST_BUTTON_CLASS,
   STUDY_SETUP_PRIMARY_BUTTON_CLASS,
   StudyPlanGoalFields,
@@ -68,9 +61,11 @@ import type {
   StudyPlanResponse,
   StudyPlanWeekday,
 } from "@/features/study-plan/model/types";
+import { UcatClickableCardButton } from "@/shared/components/ucat-clickable-card";
 import {
   UCAT_CARD_CHROME,
   UCAT_DIALOG_PRIMARY_ACTION,
+  UCAT_SURFACE_CARD,
 } from "@/lib/ucat-surface-motion";
 import { cn } from "@/lib/utils";
 
@@ -113,10 +108,7 @@ function PlanReveal({ plan }: { plan: StudyPlanResponse }) {
     (task) => task.status !== "completed" && task.status !== "skipped",
   );
   if (!profile) return null;
-  const weeklyCapacity = profile.availableDays.reduce(
-    (sum, day) => sum + day.maxMinutes,
-    0,
-  );
+  const availableStudyDays = profile.availableDays.length;
 
   return (
     <div className="mx-auto w-full max-w-4xl space-y-5">
@@ -165,13 +157,14 @@ function PlanReveal({ plan }: { plan: StudyPlanResponse }) {
             <div className="rounded-2xl border bg-background/50 p-4">
               <Clock3 className="h-4 w-4 text-primary" aria-hidden />
               <p className="mt-3 text-sm text-muted-foreground">
-                Available capacity
+                Available study days
               </p>
               <p className="mt-1 text-xl font-semibold">
-                {weeklyCapacity} min/week
+                {availableStudyDays} {availableStudyDays === 1 ? "day" : "days"}
+                /week
               </p>
               <p className="mt-1 text-xs text-muted-foreground">
-                A ceiling, not a quota
+                Session length adapts by phase
               </p>
             </div>
           </div>
@@ -254,8 +247,7 @@ export function StudyPlanActivationPage() {
   const plan = savedPlan ?? query.data;
   const isPaidJourney =
     access.onlineTier === "unlimited" ||
-    access.onlineTier === "unlimited_trial" ||
-    access.onlineTier === "pro";
+    access.onlineTier === "unlimited_trial";
   const completionPhase = completion?.phase ?? null;
   const hasSavedGoal = Boolean(
     plan?.profile?.testYear && plan.profile.targetScore,
@@ -394,8 +386,33 @@ export function StudyPlanActivationPage() {
     }
   }
 
+  async function declineStudyPlanWithoutSaving() {
+    setPending(true);
+    setError(null);
+    try {
+      await completeMilestone.mutateAsync(UCAT_STUDY_PLAN_DECIDED);
+      if (activationJourney) {
+        await runWorkspaceSetupTransition("skipped");
+      } else {
+        router.replace("/dashboard");
+      }
+    } catch (caught) {
+      setError(
+        caught instanceof Error
+          ? caught.message
+          : "Could not save your Study plan preference.",
+      );
+    } finally {
+      setPending(false);
+    }
+  }
+
   function continueFromPreference() {
     if (studyPlanEnabled == null) return;
+    if (!studyPlanEnabled && !hasSavedGoal) {
+      void declineStudyPlanWithoutSaving();
+      return;
+    }
     if (!hasSavedGoal) {
       setDirection(1);
       setStage("destination");
@@ -540,18 +557,20 @@ export function StudyPlanActivationPage() {
             {stage === "preference" ? (
               <div>
                 <div className="grid gap-4 sm:grid-cols-2">
-                  <PreferenceCard
+                  <UcatClickableCardButton
                     selected={studyPlanEnabled === true}
-                    icon={<CalendarDays className="h-5 w-5" aria-hidden />}
+                    icon={CalendarDays}
                     title="Build me a Study plan"
                     description="Altitutor schedules adaptive work around your availability and adjusts it as your performance changes."
+                    showChevron={false}
                     onClick={() => setStudyPlanEnabled(true)}
                   />
-                  <PreferenceCard
+                  <UcatClickableCardButton
                     selected={studyPlanEnabled === false}
-                    icon={<Compass className="h-5 w-5" aria-hidden />}
+                    icon={Compass}
                     title="I’ll manage my own plan"
                     description="Organise study yourself while Altitutor continues to suggest useful next activities."
+                    showChevron={false}
                     onClick={() => setStudyPlanEnabled(false)}
                   />
                 </div>
@@ -641,7 +660,10 @@ export function StudyPlanActivationPage() {
                     return (
                       <div
                         key={day.value}
-                        className="flex items-center justify-between gap-4 rounded-2xl bg-card px-4 py-4 shadow-sm ring-1 ring-border transition-colors hover:bg-muted/60 sm:px-5"
+                        className={cn(
+                          "flex items-center justify-between gap-4 rounded-ucatShell px-4 py-4 sm:px-5",
+                          UCAT_SURFACE_CARD,
+                        )}
                       >
                         <div className="flex min-w-0 flex-1 items-center gap-3">
                           <Switch
@@ -655,55 +677,24 @@ export function StudyPlanActivationPage() {
                             {day.label}
                           </span>
                         </div>
-                        <span
-                          className={cn(
-                            "flex items-center gap-2",
-                            !enabled && "invisible pointer-events-none",
-                          )}
-                          aria-hidden={!enabled}
-                        >
-                          <input
-                            type="number"
-                            min={15}
-                            max={360}
-                            step={15}
-                            tabIndex={enabled ? 0 : -1}
-                            value={
-                              available?.maxMinutes ??
-                              defaultMinutesForDay(day.value)
-                            }
-                            disabled={pending || !enabled}
-                            onChange={(event) =>
-                              setAvailability((current) =>
-                                current.map((item) =>
-                                  item.weekday === day.value
-                                    ? {
-                                        ...item,
-                                        maxMinutes: Number(event.target.value),
-                                      }
-                                    : item,
-                                ),
-                              )
-                            }
-                            className={cn(
-                              STUDY_SETUP_FIELD_CLASS,
-                              "w-20 px-2 py-1.5 text-right text-sm",
-                            )}
-                            aria-label={`${day.label} maximum minutes`}
-                          />
-                          <span className="text-xs text-muted-foreground">
-                            min max
-                          </span>
+                        <span className="text-xs text-muted-foreground">
+                          {enabled ? "Available" : "Rest day"}
                         </span>
                       </div>
                     );
                   })}
-                  <div className="flex gap-3 rounded-2xl bg-muted/50 px-4 py-3 text-sm text-muted-foreground ring-1 ring-border">
+                  <div
+                    className={cn(
+                      "flex gap-3 rounded-ucatShell px-4 py-3 text-sm text-muted-foreground",
+                      UCAT_SURFACE_CARD,
+                      "bg-muted/40",
+                    )}
+                  >
                     <Clock3 className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
                     <p>
-                      This is the maximum time you are available to study.
-                      Altitutor can schedule less time, and you can change these
-                      days later.
+                      Choose the days you can normally study. Altitutor will
+                      adjust the session length and number of practice blocks as
+                      your readiness and exam date change.
                     </p>
                   </div>
                 </div>
@@ -748,7 +739,24 @@ export function StudyPlanActivationPage() {
               className={UCAT_DIALOG_PRIMARY_ACTION}
               onClick={() => {
                 setSkipDialogOpen(false);
-                void runWorkspaceSetupTransition("skipped");
+                void (async () => {
+                  setPending(true);
+                  setError(null);
+                  try {
+                    await completeMilestone.mutateAsync(
+                      UCAT_STUDY_PLAN_DECIDED,
+                    );
+                    await runWorkspaceSetupTransition("skipped");
+                  } catch (caught) {
+                    setError(
+                      caught instanceof Error
+                        ? caught.message
+                        : "Could not save your Study plan preference.",
+                    );
+                  } finally {
+                    setPending(false);
+                  }
+                })();
               }}
             >
               Skip for now
@@ -757,40 +765,6 @@ export function StudyPlanActivationPage() {
         </AlertDialogContent>
       </AlertDialog>
     </StudyPlanSetupShell>
-  );
-}
-
-function PreferenceCard({
-  selected,
-  icon,
-  title,
-  description,
-  onClick,
-}: {
-  selected: boolean;
-  icon: ReactNode;
-  title: string;
-  description: string;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      type="button"
-      aria-pressed={selected}
-      className={cn(
-        "rounded-3xl p-6 text-left text-foreground ring-1 transition-[background-color,box-shadow,transform] hover:-translate-y-0.5 hover:bg-muted/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-        selected ? "bg-muted ring-foreground/20" : "bg-card ring-border",
-      )}
-      onClick={onClick}
-    >
-      <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-muted text-muted-foreground">
-        {icon}
-      </span>
-      <span className="mt-5 block text-lg font-semibold">{title}</span>
-      <span className="mt-2 block text-sm leading-relaxed text-muted-foreground">
-        {description}
-      </span>
-    </button>
   );
 }
 

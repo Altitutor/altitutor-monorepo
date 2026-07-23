@@ -39,7 +39,7 @@ type BuildAvailableRewardDisplayArgs = {
   queuedFreeBills: number;
   usedCount: number;
   billingInterval: string | null | undefined;
-  planLabel: "Unlimited" | "Pro";
+  planLabel: "Unlimited";
 };
 
 /**

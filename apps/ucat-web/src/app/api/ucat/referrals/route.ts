@@ -60,7 +60,7 @@ export async function GET() {
         .eq("referrer_student_id", studentId),
       supabaseAdmin
         .from("ucat_referral_bill_rewards")
-        .select("status")
+        .select("status, reward_type")
         .eq("student_id", studentId),
       supabaseAdmin
         .from("ucat_referral_access_gifts")
@@ -74,6 +74,10 @@ export async function GET() {
       { status: 500 },
     );
   }
+
+  const activeBillRewards = (billRewards ?? []).filter(
+    (row) => row.status === "queued" || row.status === "applied",
+  );
 
   return NextResponse.json({
     code: codeRow.code,
@@ -93,12 +97,13 @@ export async function GET() {
       usedFreePeriods: (accessGifts ?? []).filter(
         (row) => row.status === "used",
       ).length,
-      queuedFreeBills: (billRewards ?? []).filter(
-        (row) => row.status === "queued" || row.status === "applied",
-      ).length,
+      queuedFreeBills: activeBillRewards.length,
       redeemedFreeBills: (billRewards ?? []).filter(
         (row) => row.status === "redeemed",
       ).length,
+      nextBillFreeFromReferral: activeBillRewards.some(
+        (row) => row.reward_type !== "fixed_credit",
+      ),
     },
   });
 }

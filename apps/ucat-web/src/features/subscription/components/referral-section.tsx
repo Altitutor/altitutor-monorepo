@@ -15,12 +15,12 @@ import {
 } from "lucide-react";
 import { Badge, Skeleton } from "@altitutor/ui";
 import { Button } from "@/components/ui/button";
-import {
-  fetchUcatReferralSummary,
-  type UcatReferralSummary,
-} from "@/features/subscription/api/referrals";
 import { fetchReferralGifts } from "@/features/subscription/api/referral-gifts";
 import { ReferralGiftCard } from "@/features/subscription/components/referral-gift-card";
+import {
+  UCAT_REFERRALS_QUERY_KEY,
+  useUcatReferralSummary,
+} from "@/features/subscription/hooks/use-ucat-referral-summary";
 import { useUcatSubscriptionBilling } from "@/features/subscription/hooks/use-ucat-subscription-billing";
 import { resolveReferralOfferCopy } from "@/features/subscription/lib/referral-offer-copy";
 import { buildAvailableRewardDisplay } from "@/features/subscription/lib/referral-rewards-display";
@@ -37,10 +37,7 @@ export function ReferralSection() {
   const [copied, setCopied] = useState(false);
   const queryClient = useQueryClient();
   const completeMilestone = useCompleteOnboardingTour();
-  const { data: summary, error } = useQuery<UcatReferralSummary>({
-    queryKey: ["ucat-referrals"],
-    queryFn: fetchUcatReferralSummary,
-  });
+  const { data: summary, error } = useUcatReferralSummary();
   const giftQuery = useQuery({
     queryKey: ["ucat-referral-gifts"],
     queryFn: fetchReferralGifts,
@@ -126,7 +123,7 @@ export function ReferralSection() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="min-w-0 max-w-full space-y-6 overflow-x-hidden">
       {giftQuery.data?.pendingGift ? (
         <ReferralGiftCard
           gift={giftQuery.data.pendingGift}
@@ -135,7 +132,9 @@ export function ReferralSection() {
               queryClient.invalidateQueries({
                 queryKey: ["ucat-referral-gifts"],
               }),
-              queryClient.invalidateQueries({ queryKey: ["ucat-referrals"] }),
+              queryClient.invalidateQueries({
+                queryKey: UCAT_REFERRALS_QUERY_KEY,
+              }),
             ]);
           }}
         />
@@ -248,23 +247,21 @@ export function ReferralSection() {
             <div>
               <h3 className="font-semibold">Referral activity</h3>
               <p className="text-sm text-muted-foreground">
-                See how your invitations are progressing.
+                Friends who joined with your link.
               </p>
             </div>
           </div>
 
-          <dl className="mt-6 grid gap-px overflow-hidden rounded-2xl border border-border/60 bg-border/60 sm:grid-cols-3">
-            {[
-              ["Friends joined", summary.stats.friendsJoined],
-              ["Gifts accepted", summary.stats.giftsAccepted],
-              ["Awaiting decision", summary.stats.giftsPending],
-            ].map(([label, value]) => (
-              <div key={label} className="bg-background p-4">
-                <dd className="text-2xl font-semibold tabular-nums">{value}</dd>
-                <dt className="mt-1 text-sm text-muted-foreground">{label}</dt>
-              </div>
-            ))}
-          </dl>
+          <div className="mt-6 rounded-2xl border border-border/60 bg-muted/25 p-5">
+            <p className="text-4xl font-semibold tabular-nums tracking-tight">
+              {summary.stats.friendsJoined}
+            </p>
+            <p className="mt-1 text-sm text-muted-foreground">
+              {summary.stats.friendsJoined === 1
+                ? "friend joined"
+                : "friends joined"}
+            </p>
+          </div>
         </div>
 
         <div className="rounded-ucatShell relative overflow-hidden border border-primary/20 bg-primary/[0.08] p-6 lg:col-span-2">
@@ -289,7 +286,10 @@ export function ReferralSection() {
               <Button
                 asChild
                 type="button"
-                className={cn("mt-5 w-full sm:w-auto", UCAT_PRIMARY_ACTION_BUTTON)}
+                className={cn(
+                  "mt-5 w-full sm:w-auto",
+                  UCAT_PRIMARY_ACTION_BUTTON,
+                )}
               >
                 <Link href={rewardDisplay.cta.href}>
                   {rewardDisplay.cta.label}

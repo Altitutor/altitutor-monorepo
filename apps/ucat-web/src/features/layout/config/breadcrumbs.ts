@@ -14,7 +14,9 @@ export const SEGMENT_LABELS: Record<string, string> = {
   settings: "Settings",
   app: "App settings",
   profile: "My profile",
+  plan: "Plan",
   subscription: "Subscription",
+  referrals: "Referrals",
   "skill-trainer": "Skill trainer",
   "set-attempts": "Set attempt",
   "mock-attempts": "Mock attempt",
@@ -30,6 +32,16 @@ const DYNAMIC_SEGMENT_LABELS: Record<string, string> = {
   "set-attempts": "Set attempt",
   "mock-attempts": "Mock attempt",
   "practice-sessions": "Practice session",
+  results: "Attempt",
+};
+
+const SKILL_TRAINER_SLUG_LABELS: Record<string, string> = {
+  "find-word": "Find the word",
+  "find-concept": "Find the concept",
+  "quick-syllogism": "Quick syllogisms",
+  "mental-maths": "Mental maths",
+  "numpad-speed": "Numpad speed",
+  "calculator-maths": "Calculator maths speed",
 };
 
 const UUID_REGEX =
@@ -89,6 +101,9 @@ function isValidPagePath(path: string): boolean {
         (segments[0] === "sets" &&
           segments[1] === "sections" &&
           /^[1-4]$/.test(segments[2])) ||
+        (segments[0] === "learn" &&
+          segments[1] === "sections" &&
+          /^[1-4]$/.test(segments[2])) ||
         (segments[0] === "settings" &&
           segments[1] === "plan" &&
           segments[2] === "subscription") ||
@@ -98,6 +113,10 @@ function isValidPagePath(path: string): boolean {
       );
     case 4:
       return (
+        (segments[0] === "skill-trainer" &&
+          Boolean(SKILL_TRAINER_SLUG_LABELS[segments[1]]) &&
+          segments[2] === "results" &&
+          isDynamicSegment(segments[3])) ||
         (segments[0] === "sessions" &&
           isDynamicSegment(segments[1]) &&
           segments[2] === "sets" &&
@@ -107,6 +126,10 @@ function isValidPagePath(path: string): boolean {
           segments[2] === "mocks" &&
           isDynamicSegment(segments[3])) ||
         (segments[0] === "sets" &&
+          segments[1] === "sections" &&
+          /^[1-4]$/.test(segments[2]) &&
+          isDynamicSegment(segments[3])) ||
+        (segments[0] === "learn" &&
           segments[1] === "sections" &&
           /^[1-4]$/.test(segments[2]) &&
           isDynamicSegment(segments[3])) ||
@@ -179,6 +202,10 @@ export function getBreadcrumbItems(pathname: string): BreadcrumbItem[] {
         ? (DYNAMIC_SEGMENT_LABELS[segments[i - 1]] ?? "Detail")
         : segment);
 
+    if (segments[0] === "skill-trainer" && i === 1) {
+      label = SKILL_TRAINER_SLUG_LABELS[segment] ?? label;
+    }
+
     // For /sets/sections/[1-4] or /progress/sections/[1-4], show section name (e.g. "Verbal Reasoning") instead of "Section"
     if (segments[1] === "sections" && i === 2 && /^[1-4]$/.test(segment)) {
       label = SECTION_NUMBER_TO_NAME[parseInt(segment, 10)] ?? label;
@@ -193,6 +220,16 @@ export function getBreadcrumbItems(pathname: string): BreadcrumbItem[] {
       isDynamicSegment(segment)
     ) {
       label = "Set";
+    }
+
+    if (
+      segments[0] === "learn" &&
+      segments[1] === "sections" &&
+      i >= 3 &&
+      /^[1-4]$/.test(segments[2]) &&
+      isDynamicSegment(segment)
+    ) {
+      label = "Learning module";
     }
 
     const effectiveHref = hasOwnPage ? href : getEffectiveHref(href);

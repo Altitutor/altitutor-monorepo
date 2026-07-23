@@ -10,25 +10,31 @@
   :root {
     /* Light grey app canvas — slightly darker than before for clearer contrast vs white cards */
     --background: 220 13% 92%;
-    --foreground: 212 86% 14%;
+    /*
+     * Body text: marketing charcoal (#1A1A1A), not navy.
+     * Navy stays on --primary for CTAs / chrome so copy doesn’t feel accent-saturated.
+     */
+    --foreground: 0 0% 10%;
 
     --card: 0 0% 100%;
-    --card-foreground: 212 86% 14%;
+    --card-foreground: 0 0% 10%;
 
     --popover: 0 0% 100%;
-    --popover-foreground: 212 86% 14%;
+    --popover-foreground: 0 0% 10%;
 
+    /* Navy (#0a2941) — buttons, focus ring, selected accents — not chrome flood */
     --primary: 212 86% 14%;
     --primary-foreground: 0 0% 100%;
 
     --secondary: 0 0% 96%;
-    --secondary-foreground: 224 20% 12%;
+    --secondary-foreground: 0 0% 12%;
 
     --muted: 220 11% 89%;
-    --muted-foreground: 212 86% 25%;
+    /* Neutral grey secondary copy (≈ marketing charcoal @ ~65% on white) */
+    --muted-foreground: 0 0% 40%;
 
     --accent: 198 29% 67%;
-    --accent-foreground: 212 86% 14%;
+    --accent-foreground: 0 0% 10%;
 
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 0 0% 100%;
@@ -42,9 +48,12 @@
     --ucat-radius-shell: 1.25rem;
     --ucat-radius-control: 0.75rem;
 
-    /* Same chrome blue as primary CTAs — rail, avatar chip, `bg-sidebar` accents */
-    --sidebar: var(--primary);
-    --sidebar-foreground: var(--primary-foreground);
+    /*
+     * Neutral rail (mirrors dark mode): white panel on the grey canvas,
+     * charcoal labels — navy stays on primary CTAs / selection accents.
+     */
+    --sidebar: 0 0% 100%;
+    --sidebar-foreground: 0 0% 10%;
 
     /* Matches the selected item treatment used by navigation and menus. */
     --graph-column-highlight: hsl(var(--muted));
@@ -269,6 +278,43 @@
   overflow-x: clip;
   overflow-y: auto;
   overscroll-behavior-y: contain;
+}
+
+/**
+ * A single composited glass layer keeps scrolled content readable beneath the
+ * floating toolbar. The mask graduates both the tint and blur without any
+ * scroll listener or per-frame JavaScript work.
+ */
+.ucat-toolbar-scrim {
+  background: linear-gradient(
+    to bottom,
+    hsl(var(--background) / 0.96) 0%,
+    hsl(var(--background) / 0.82) 58%,
+    hsl(var(--background) / 0) 100%
+  );
+  -webkit-backdrop-filter: blur(14px) saturate(135%);
+  backdrop-filter: blur(14px) saturate(135%);
+  -webkit-mask-image: linear-gradient(
+    to bottom,
+    #000 0%,
+    #000 62%,
+    transparent 100%
+  );
+  mask-image: linear-gradient(to bottom, #000 0%, #000 62%, transparent 100%);
+}
+
+/**
+ * Quieten long-form app copy while preserving headings, controls, links,
+ * explicit semantic colours, and the high-contrast UCAT question engine.
+ */
+#ucat-app-shell
+  :where(p, li, dd, figcaption, blockquote, td):not(.text-destructive):not(
+    .text-primary
+  ):not(.text-success):not(.text-warning):not(
+    [data-tour="question-engine-shell"],
+    [data-tour="question-engine-shell"] *
+  ) {
+  color: hsl(var(--muted-foreground));
 }
 
 /**

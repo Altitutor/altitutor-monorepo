@@ -6,6 +6,7 @@ import type {
   AttemptReviewState,
   AttemptReviewType,
 } from "@/features/progress/model/attempt-review";
+import { useStudyPlanCompanion } from "@/features/study-plan/context/study-plan-companion-context";
 
 async function requestReview(
   attemptType: AttemptReviewType,
@@ -59,6 +60,8 @@ export function useAttemptReviewTracking(input: {
   ready: boolean;
 }) {
   const queryClient = useQueryClient();
+  const { reportActivityCompletion, setActivityComplete } =
+    useStudyPlanCompanion();
   const [review, setReview] = useState<AttemptReviewState | null>(null);
   const [isPending, setIsPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -66,6 +69,22 @@ export function useAttemptReviewTracking(input: {
   const sentViews = useRef(new Set<string>());
   const viewQueue = useRef(Promise.resolve());
   const requiredKey = input.requiredQuestionIds.join(",");
+  const reportedCompletionKey = useRef<string | null>(null);
+  const reportReviewCompletion = useCallback(() => {
+    const key = `${input.attemptType}:${input.attemptId}`;
+    if (reportedCompletionKey.current === key) return;
+    reportedCompletionKey.current = key;
+    reportActivityCompletion({
+      title: "Progress review complete",
+      detail: "You’ve reviewed this attempt.",
+    });
+  }, [input.attemptId, input.attemptType, reportActivityCompletion]);
+
+  useEffect(() => {
+    const complete = Boolean(review?.completedAt);
+    setActivityComplete(complete);
+    return () => setActivityComplete(false);
+  }, [review?.completedAt, setActivityComplete]);
 
   useEffect(() => {
     if (!input.ready) return;
@@ -129,6 +148,7 @@ export function useAttemptReviewTracking(input: {
         );
         setReview(nextState);
         if (nextState.completedAt) {
+          reportReviewCompletion();
           void queryClient.invalidateQueries({ queryKey: ["ucat-study-plan"] });
         }
       } catch {
@@ -152,6 +172,7 @@ export function useAttemptReviewTracking(input: {
     input.selectedQuestionId,
     review,
     queryClient,
+    reportReviewCompletion,
   ]);
 
   const completeManually = useCallback(async () => {
@@ -167,6 +188,7 @@ export function useAttemptReviewTracking(input: {
       );
       setReview(state);
       setError(null);
+      if (state.completedAt) reportReviewCompletion();
       await queryClient.invalidateQueries({ queryKey: ["ucat-study-plan"] });
     } catch (caught) {
       setError(
@@ -177,7 +199,7 @@ export function useAttemptReviewTracking(input: {
     } finally {
       setIsPending(false);
     }
-  }, [input.attemptId, input.attemptType, queryClient]);
+  }, [input.attemptId, input.attemptType, queryClient, reportReviewCompletion]);
 
   const nextUnviewedQuestionId = review
     ? findNextUnviewedReviewQuestion({

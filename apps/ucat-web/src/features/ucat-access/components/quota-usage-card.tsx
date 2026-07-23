@@ -4,9 +4,9 @@ import {
   Badge,
   Card,
   CardContent,
-  CardDescription,
   CardHeader,
   CardTitle,
+  Skeleton,
 } from "@altitutor/ui";
 import { Button } from "@/components/ui/button";
 import { useQuotaLimitDialog } from "@/features/ucat-access/context/upsell-dialog-context";
@@ -21,13 +21,18 @@ import {
   UCAT_ONLINE_TIER_LABELS,
   UCAT_PLAN_TIER_BADGE_CLASS,
 } from "@/features/subscription/lib/plan-tier-display";
-import { UCAT_PRIMARY_ACTION_BUTTON_SM } from "@/lib/ucat-surface-motion";
+import {
+  UCAT_CARD_CHROME,
+  UCAT_PRIMARY_ACTION_BUTTON_SM,
+} from "@/lib/ucat-surface-motion";
 import { cn } from "@/lib/utils";
 
 type QuotaUsageCardProps = {
   /** When set, renders a compact single-area variant */
   area?: UcatQuotaArea;
   className?: string;
+  /** Show a skeleton while usage loads (for free-only parent mounts). */
+  showLoadingSkeleton?: boolean;
 };
 
 export function QuotaProgressBar({
@@ -54,18 +59,32 @@ export function QuotaProgressBar({
   );
 }
 
-export function QuotaUsageCard({ area, className }: QuotaUsageCardProps) {
-  const { data, isLoading } = useQuotaUsage();
+export function QuotaUsageCard({
+  area,
+  className,
+  showLoadingSkeleton = false,
+}: QuotaUsageCardProps) {
+  const { data, isLoading, isError } = useQuotaUsage();
   const { openQuotaLimit } = useQuotaLimitDialog();
   const { openPlanPicker } = useUpsellDialog();
 
-  if (isLoading || !data || data.isQuotaExempt || data.onlineTier !== "free") {
+  if (isLoading) {
+    if (!showLoadingSkeleton) return null;
+    return (
+      <Skeleton
+        className={cn("h-[220px] w-full rounded-ucatShell", className)}
+        aria-label="Loading free quotas"
+      />
+    );
+  }
+
+  if (isError || !data || data.isQuotaExempt || data.onlineTier !== "free") {
     return null;
   }
 
   const areas = area
     ? data.areas.filter((entry) => entry.area === area)
-    : data.areas;
+    : data.areas.filter((entry) => !entry.disabled);
 
   if (areas.length === 0) return null;
 
@@ -86,7 +105,7 @@ export function QuotaUsageCard({ area, className }: QuotaUsageCardProps) {
     openPlanPicker({
       title: "Upgrade to UCAT Unlimited",
       description:
-        "Compare Free, Unlimited, and Pro plans with accountability pricing.",
+        "Compare UCAT Free and Unlimited with accountability pricing.",
     });
   };
 
@@ -95,7 +114,7 @@ export function QuotaUsageCard({ area, className }: QuotaUsageCardProps) {
     if (entry.disabled) return null;
 
     return (
-      <Card className={cn("border-border/80", className)}>
+      <Card className={cn(UCAT_CARD_CHROME, className)}>
         <CardContent className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="min-w-0 flex-1 space-y-2">
             <div className="flex flex-wrap items-center gap-2">
@@ -130,51 +149,56 @@ export function QuotaUsageCard({ area, className }: QuotaUsageCardProps) {
   }
 
   return (
-    <Card className={cn("border-border/80", className)}>
-      <CardHeader className="pb-3">
+    <Card className={cn(UCAT_CARD_CHROME, className)}>
+      <CardHeader className="space-y-1 pb-2">
         <div className="flex flex-wrap items-start justify-between gap-3">
-          <div>
-            <CardTitle className="text-base">UCAT Free usage</CardTitle>
-            <CardDescription>
-              Your free quotas reset per area on a daily, weekly, or monthly
-              basis.
-            </CardDescription>
+          <div className="space-y-1">
+            <div className="flex flex-wrap items-center gap-2">
+              <CardTitle className="text-base font-medium">
+                Your free quotas
+              </CardTitle>
+              <Badge className={UCAT_PLAN_TIER_BADGE_CLASS}>
+                {UCAT_ONLINE_TIER_LABELS.free}
+              </Badge>
+            </div>
+            <p className="text-sm font-normal text-muted-foreground">
+              Limits reset daily, weekly, or monthly per area.
+            </p>
           </div>
-          <Badge className={UCAT_PLAN_TIER_BADGE_CLASS}>
-            {UCAT_ONLINE_TIER_LABELS.free}
-          </Badge>
         </div>
       </CardHeader>
       <CardContent className="space-y-4">
         <ul className="space-y-3">
-          {areas.map((entry) => {
-            if (entry.disabled) return null;
-            return (
-              <li key={entry.area} className="space-y-1.5">
-                <div className="flex items-center justify-between gap-2 text-sm">
-                  <span className="inline-flex min-w-0 items-center gap-1.5 font-medium">
-                    <span className="truncate">{entry.label}</span>
-                    <QuotaAreaInfoButton
-                      area={entry.area}
-                      label={entry.label}
-                    />
-                  </span>
-                  <span className="text-muted-foreground">
-                    {formatQuotaUsageLabel(
-                      entry.used,
-                      entry.limit,
-                      entry.period,
-                    )}
-                  </span>
-                </div>
-                <QuotaProgressBar
-                  used={entry.used}
-                  limit={entry.limit}
-                  atLimit={entry.atLimit}
-                />
-              </li>
-            );
-          })}
+          {areas.map((entry) => (
+            <li key={entry.area} className="space-y-1.5">
+              <div className="flex items-center justify-between gap-2 text-sm">
+                <span className="inline-flex min-w-0 items-center gap-1.5 font-medium">
+                  <span className="truncate">{entry.label}</span>
+                  <QuotaAreaInfoButton
+                    area={entry.area}
+                    label={entry.label}
+                  />
+                </span>
+                <span
+                  className={cn(
+                    "tabular-nums text-muted-foreground",
+                    entry.atLimit && "font-medium text-destructive",
+                  )}
+                >
+                  {formatQuotaUsageLabel(
+                    entry.used,
+                    entry.limit,
+                    entry.period,
+                  )}
+                </span>
+              </div>
+              <QuotaProgressBar
+                used={entry.used}
+                limit={entry.limit}
+                atLimit={entry.atLimit}
+              />
+            </li>
+          ))}
         </ul>
         <QuotaResetEntitlementPanel
           availableCount={data.quotaResetEntitlement.availableCount}

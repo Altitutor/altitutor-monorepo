@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Check } from "lucide-react";
+import { Check, Gift } from "lucide-react";
 import {
   Badge,
   Card,
@@ -19,6 +19,7 @@ import { QuotaProgressBar } from "@/features/ucat-access/components/quota-usage-
 import { useQuotaUsage } from "@/features/ucat-access/hooks/use-quota-usage";
 import { useUcatAccess } from "@/features/ucat-access/hooks/use-ucat-access";
 import { usePracticeDiscountDashboard } from "@/features/subscription/hooks/use-practice-discount-dashboard";
+import { useUcatReferralSummary } from "@/features/subscription/hooks/use-ucat-referral-summary";
 import { formatMoneyFromMinorUnits } from "@/features/subscription/lib/format-subscription-copy";
 import { UcatHoverChevron } from "@/lib/ucat-hover-chevron";
 import {
@@ -133,6 +134,7 @@ export function DashboardPracticeDiscountCard() {
     isError: quotaError,
   } = useQuotaUsage();
   const { data, isLoading, isError } = usePracticeDiscountDashboard();
+  const referralSummaryQuery = useUcatReferralSummary();
 
   const accessIndicatesPaid =
     !access.isLoading &&
@@ -146,6 +148,10 @@ export function DashboardPracticeDiscountCard() {
     quotaData.onlineTier !== "free";
   const isPaidTier = accessIndicatesPaid || quotaIndicatesPaid;
   const displayTier = access.onlineTier ?? quotaData?.onlineTier ?? null;
+  const nextBillFreeFromReferral =
+    referralSummaryQuery.data?.stats.nextBillFreeFromReferral === true;
+  const queuedReferralRewards =
+    referralSummaryQuery.data?.stats.queuedFreeBills ?? 0;
 
   if (!access.isLoading && !quotaLoading && !isPaidTier) {
     return null;
@@ -195,6 +201,23 @@ export function DashboardPracticeDiscountCard() {
         </div>
       </CardHeader>
       <CardContent className="space-y-6">
+        {nextBillFreeFromReferral ? (
+          <div className="flex items-start gap-3 rounded-ucatControl border border-primary/25 bg-primary/[0.08] px-4 py-3">
+            <Gift
+              className="mt-0.5 h-4 w-4 shrink-0 text-primary"
+              aria-hidden="true"
+            />
+            <div className="min-w-0">
+              <p className="text-sm font-medium">Your next bill is free</p>
+              <p className="mt-0.5 text-xs text-muted-foreground">
+                {queuedReferralRewards === 1
+                  ? "Covered by a referral reward."
+                  : `Covered by a referral reward · ${queuedReferralRewards} rewards ready.`}
+              </p>
+            </div>
+          </div>
+        ) : null}
+
         <div className="space-y-2">
           <div className="flex flex-wrap items-baseline justify-between gap-2">
             <p className="text-sm font-medium">Today</p>
@@ -274,13 +297,24 @@ export function DashboardPracticeDiscountCard() {
           </TooltipProvider>
         </div>
 
-        {showInvoiceDiscount ? (
+        {showInvoiceDiscount || nextBillFreeFromReferral ? (
           <div className="rounded-ucatControl border border-border/60 bg-muted/30 px-4 py-3">
-            <p className="text-sm text-muted-foreground">Next invoice discount</p>
+            <p className="text-sm text-muted-foreground">
+              {nextBillFreeFromReferral
+                ? "Next invoice"
+                : "Next invoice discount"}
+            </p>
             <p className="mt-1 text-2xl font-semibold tabular-nums tracking-tight">
-              {formatMoneyFromMinorUnits(data.totalDiscountCents, data.currency)}
+              {nextBillFreeFromReferral
+                ? formatMoneyFromMinorUnits(0, data.currency)
+                : formatMoneyFromMinorUnits(
+                    data.totalDiscountCents,
+                    data.currency,
+                  )}
               <span className="ml-2 text-sm font-normal text-muted-foreground">
-                ({data.earned} / {data.cap} days this period)
+                {nextBillFreeFromReferral
+                  ? "referral reward covers this bill"
+                  : `(${data.earned} / ${data.cap} days this period)`}
               </span>
             </p>
           </div>

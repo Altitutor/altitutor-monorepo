@@ -1,6 +1,7 @@
 import {
   buildAlternativeNextStep,
   buildNextStepDrafts,
+  firstGuidanceTriggerKey,
   formatAttemptReviewLabel,
   guidanceItemKey,
   resolveGuidanceTrigger,
@@ -56,6 +57,7 @@ const learningModule: StudyPlanLearningModule = {
   id: "module-inference",
   title: "Making careful inferences",
   sectionId: section.id,
+  sectionNumber: section.sectionNumber,
   priority: "recommended",
   estimatedMinutes: 12,
   completionPercent: 0,
@@ -104,6 +106,17 @@ function build(
 }
 
 describe("rolling next-step guidance", () => {
+  it("treats a missing next-step collection as no guidance", () => {
+    expect(firstGuidanceTriggerKey(undefined)).toBeNull();
+    expect(firstGuidanceTriggerKey([])).toBeNull();
+  });
+
+  it("uses the first next-step trigger as the guidance key", () => {
+    expect(
+      firstGuidanceTriggerKey([{ triggerKey: "activity:practice:attempt-1" }]),
+    ).toBe("activity:practice:attempt-1");
+  });
+
   it("starts the first guidance visit of the day with the least-played trainer", () => {
     const steps = build({ dailyWarmup: true });
 
@@ -127,7 +140,7 @@ describe("rolling next-step guidance", () => {
     expect(steps[0]).toMatchObject({
       taskType: "review",
       sourceAttemptId: "attempt-1",
-      title: "Finish reviewing Decision Making Set 4",
+      title: "Review Decision Making Set 4",
       launchPath: "/progress/set-attempts/attempt-1",
     });
   });
@@ -169,10 +182,9 @@ describe("rolling next-step guidance", () => {
       formatAttemptReviewLabel({
         attemptType: "practice_session",
         sectionKey: "quantitative_reasoning",
-        questionCount: 20,
         wasTimed: true,
       }),
-    ).toBe("Quantitative Reasoning timed practice (20 questions)");
+    ).toBe("Quantitative Reasoning timed practice");
   });
 
   it("treats one observed category point as calibration rather than a confident weakness", () => {
@@ -244,7 +256,7 @@ describe("rolling next-step guidance", () => {
         ...buildNextStepDrafts(input)[0]!,
         taskType: "learn" as const,
         learningModuleId: learningModule.id,
-        launchPath: `/learn/${learningModule.id}`,
+        launchPath: `/learn/sections/${learningModule.sectionNumber}/${learningModule.id}`,
       },
       {
         ...buildNextStepDrafts(input)[0]!,

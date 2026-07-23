@@ -9,22 +9,26 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@altitutor/ui";
+import { motion, useReducedMotion } from "motion/react";
+import { Flame } from "lucide-react";
 import { UcatHoverChevron } from "@/lib/ucat-hover-chevron";
 import {
   UCAT_PRESSABLE_LIFT_HOVER,
   UCAT_SURFACE_MOTION,
 } from "@/lib/ucat-surface-motion";
 import { cn } from "@/lib/utils";
+import { buildPracticeStreak } from "@/features/streaks/lib/practice-streak";
 import {
   UcatActivityIntensityLegend,
   UcatMonthCalendar,
 } from "@/shared/components/ucat-month-calendar";
 import {
   ACTIVITY_INTENSITY_CLASS,
-  activityIntensityLevel,
+  relativeActivityIntensityLevel,
   buildUcatCalendarMonths,
   formatUcatCalendarDate,
   localDateKey,
+  type ActivityIntensityLevel,
   type UcatCalendarDay,
 } from "@/shared/lib/ucat-month-calendar";
 import { useUcatActivity } from "../hooks/use-ucat-activity";
@@ -42,30 +46,26 @@ type DayActivity = {
   setAttempts: number;
 };
 
-function placeholderActivity(dayNumber: number): DayActivity | undefined {
-  if (dayNumber % 6 === 0) return { questionAttempts: 18, setAttempts: 1 };
-  if (dayNumber % 4 === 0) return { questionAttempts: 9, setAttempts: 0 };
-  if (dayNumber % 3 === 0) return { questionAttempts: 4, setAttempts: 0 };
-  return undefined;
-}
+const EASE_OUT = [0.32, 0.72, 0, 1] as const;
 
 function ReviewDayCell({
   day,
   activity,
+  intensity,
   isToday,
   isFuture,
+  inStreak,
 }: {
   day: UcatCalendarDay;
   activity: DayActivity | undefined;
+  intensity: 0 | 1 | 2 | 3 | 4;
   isToday: boolean;
   isFuture: boolean;
+  inStreak: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const questionAttempts = activity?.questionAttempts ?? 0;
   const setAttempts = activity?.setAttempts ?? 0;
-  const total = questionAttempts + setAttempts;
-  const intensity = isFuture ? 0 : activityIntensityLevel(total);
-  const usesLightText = !isFuture && intensity >= 3;
   const label = formatUcatCalendarDate(day.dateKey, {
     weekday: "long",
     day: "numeric",
@@ -74,16 +74,17 @@ function ReviewDayCell({
   });
   const aria = isFuture
     ? `${label} (upcoming)`
-    : `${label}: ${questionAttempts} question attempts, ${setAttempts} set attempts`;
+    : `${label}: ${questionAttempts} question attempts, ${setAttempts} set attempts${
+        inStreak ? ", part of current streak" : ""
+      }`;
 
   const cell = (
     <span
       className={cn(
-        "group relative flex h-11 w-full overflow-hidden rounded-lg text-left sm:h-12",
+        "group relative flex size-full items-center justify-center overflow-hidden rounded-[22%] text-left",
         UCAT_SURFACE_MOTION,
         !isFuture && "hover:shadow-sm hover:ring-1 hover:ring-foreground/20",
-        usesLightText ? "text-primary-foreground" : "text-foreground",
-        isToday && "ring-1 ring-primary/50",
+        isToday && !inStreak && "ring-1 ring-primary/50",
         isFuture && "opacity-45",
       )}
     >
@@ -96,23 +97,18 @@ function ReviewDayCell({
         )}
         aria-hidden
       />
-      <span className="relative flex h-full w-full flex-col justify-between p-1.5">
-        <span className="text-xs font-semibold tabular-nums sm:text-sm">
-          {day.dayNumber}
-        </span>
-        <span className="flex items-end justify-between gap-0.5 text-[9px] font-medium sm:text-[10px]">
-          {isToday ? <span>Today</span> : <span />}
-          {!isFuture && total > 0 ? (
-            <span className="tabular-nums">{total}</span>
-          ) : null}
-        </span>
-      </span>
+      {inStreak ? (
+        <Flame
+          className="relative z-[1] size-[45%] max-h-3.5 max-w-3.5 fill-amber-400 text-amber-500 drop-shadow-sm"
+          aria-hidden
+        />
+      ) : null}
     </span>
   );
 
   if (isFuture) {
     return (
-      <div aria-label={aria} className="w-full">
+      <div aria-label={aria} className="size-full">
         {cell}
       </div>
     );
@@ -124,7 +120,7 @@ function ReviewDayCell({
         <button
           type="button"
           className={cn(
-            "w-full rounded-lg",
+            "size-full rounded-[22%]",
             "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground focus-visible:ring-offset-2 focus-visible:ring-offset-background",
           )}
           aria-label={aria}
@@ -142,8 +138,69 @@ function ReviewDayCell({
         <p className="text-muted-foreground text-xs">
           {setAttempts} set attempt{setAttempts === 1 ? "" : "s"}
         </p>
+        {inStreak ? (
+          <p className="text-xs text-amber-700 dark:text-amber-300">
+            Current streak
+          </p>
+        ) : null}
       </TooltipContent>
     </Tooltip>
+  );
+}
+
+function CompactStreakBadge({
+  current,
+  practicedToday,
+}: {
+  current: number;
+  practicedToday: boolean;
+}) {
+  const reduceMotion = useReducedMotion();
+  const hint =
+    current === 0
+      ? "Answer 1 question to begin"
+      : practicedToday
+        ? "Extended today"
+        : "Answer 1 question today";
+
+  return (
+    <motion.div
+      className="flex shrink-0 items-center gap-1.5 rounded-full border border-amber-400/40 bg-amber-400/10 px-2.5 py-1"
+      title={hint}
+      initial={reduceMotion ? false : { opacity: 0, scale: 0.86, y: -4 }}
+      animate={{ opacity: 1, scale: 1, y: 0 }}
+      transition={{ type: "spring", stiffness: 340, damping: 24, delay: 0.08 }}
+    >
+      <motion.span
+        className="inline-flex"
+        animate={
+          reduceMotion || current === 0
+            ? undefined
+            : {
+                scale: [1, 1.12, 1],
+              }
+        }
+        transition={
+          reduceMotion || current === 0
+            ? undefined
+            : {
+                duration: 1.8,
+                repeat: Infinity,
+                repeatDelay: 2.4,
+                ease: EASE_OUT,
+              }
+        }
+      >
+        <Flame
+          className="h-3.5 w-3.5 fill-amber-400 text-amber-500"
+          aria-hidden
+        />
+      </motion.span>
+      <span className="text-xs font-semibold tabular-nums tracking-tight">
+        {current} day{current === 1 ? "" : "s"}
+      </span>
+      <span className="sr-only">{hint}</span>
+    </motion.div>
   );
 }
 
@@ -152,9 +209,22 @@ export function ReviewActivityCalendarCard({
   showViewAllProgressLink = false,
   previewData,
 }: ReviewActivityCalendarCardProps) {
+  const reduceMotion = useReducedMotion();
   const activityQuery = useUcatActivity(previewData == null);
   const data = previewData ?? activityQuery.data;
   const todayKey = localDateKey(new Date());
+  const streak = useMemo(
+    () =>
+      buildPracticeStreak(
+        data?.days ?? [],
+        data?.timezone ?? "Australia/Adelaide",
+      ),
+    [data?.days, data?.timezone],
+  );
+  const streakDateKeySet = useMemo(
+    () => new Set(streak.streakDateKeys),
+    [streak.streakDateKeys],
+  );
 
   const activityByDate = useMemo(() => {
     const map = new Map<string, DayActivity>();
@@ -166,6 +236,17 @@ export function ReviewActivityCalendarCard({
     }
     return map;
   }, [data?.days]);
+
+  const monthMaxByKey = useMemo(() => {
+    const maxima = new Map<string, number>();
+    for (const [dateKey, activity] of activityByDate) {
+      const total = activity.questionAttempts + activity.setAttempts;
+      if (total <= 0) continue;
+      const monthKey = dateKey.slice(0, 7);
+      maxima.set(monthKey, Math.max(maxima.get(monthKey) ?? 0, total));
+    }
+    return maxima;
+  }, [activityByDate]);
 
   const startDateKey = useMemo(() => {
     const keys = [
@@ -181,35 +262,49 @@ export function ReviewActivityCalendarCard({
     [startDateKey, todayKey],
   );
 
+  function intensityForDay(
+    day: UcatCalendarDay,
+    activity: DayActivity | undefined,
+    isFuture: boolean,
+  ): ActivityIntensityLevel {
+    if (isFuture) return 0;
+    const total =
+      (activity?.questionAttempts ?? 0) + (activity?.setAttempts ?? 0);
+    const monthMax = monthMaxByKey.get(day.dateKey.slice(0, 7)) ?? 0;
+    return relativeActivityIntensityLevel(total, monthMax);
+  }
+
   if (previewData == null && activityQuery.isLoading) {
-    return <Skeleton className={cn("h-[280px] rounded-lg", className)} />;
+    return <Skeleton className={cn("h-[320px] rounded-lg", className)} />;
   }
 
   if ((previewData == null && activityQuery.error) || !data) {
     return null;
   }
 
-  const isEmpty = !data.startedAt && data.days.length === 0;
-
   return (
     <TooltipProvider delayDuration={200}>
-      <div className={cn("relative", className)}>
-        <div
-          className={cn(
-            "h-full",
-            isEmpty && "pointer-events-none opacity-45 blur-[1px]",
-          )}
-          aria-hidden={isEmpty || undefined}
-        >
-          <UcatMonthCalendar
-            className="h-full"
-            months={months}
-            initialMonthKey={todayKey.slice(0, 7)}
-            ariaLabel="Review activity calendar"
-            title="Review activity"
-            description="Daily question and set attempts."
-            headerAction={
-              showViewAllProgressLink ? (
+      <motion.div
+        className={cn("relative", className)}
+        initial={reduceMotion ? false : { opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.3, ease: EASE_OUT }}
+      >
+        <UcatMonthCalendar
+          className="h-full"
+          months={months}
+          initialMonthKey={todayKey.slice(0, 7)}
+          monthsVisible={2}
+          density="compact"
+          ariaLabel="Review activity calendar"
+          title="Review activity"
+          headerAction={
+            <div className="flex items-center gap-2">
+              <CompactStreakBadge
+                current={streak.current}
+                practicedToday={streak.practicedToday}
+              />
+              {showViewAllProgressLink ? (
                 <Link
                   href="/progress"
                   className={cn(
@@ -221,31 +316,26 @@ export function ReviewActivityCalendarCard({
                 >
                   <UcatHoverChevron className="h-5 w-5" />
                 </Link>
-              ) : null
-            }
-            legend={<UcatActivityIntensityLegend label="Activity" />}
-            renderDay={(day) => (
+              ) : null}
+            </div>
+          }
+          legend={<UcatActivityIntensityLegend />}
+          renderDay={(day) => {
+            const activity = activityByDate.get(day.dateKey);
+            const isFuture = day.dateKey > todayKey;
+            return (
               <ReviewDayCell
                 day={day}
-                activity={
-                  isEmpty
-                    ? placeholderActivity(day.dayNumber)
-                    : activityByDate.get(day.dateKey)
-                }
+                activity={activity}
+                intensity={intensityForDay(day, activity, isFuture)}
                 isToday={day.dateKey === todayKey}
-                isFuture={day.dateKey > todayKey}
+                isFuture={isFuture}
+                inStreak={streakDateKeySet.has(day.dateKey)}
               />
-            )}
-          />
-        </div>
-        {isEmpty ? (
-          <div className="pointer-events-none absolute inset-x-0 bottom-5 flex justify-center px-4">
-            <p className="rounded-full border border-border/70 bg-background/85 px-3 py-1.5 text-xs font-medium shadow-sm backdrop-blur">
-              Practice activity will appear here
-            </p>
-          </div>
-        ) : null}
-      </div>
+            );
+          }}
+        />
+      </motion.div>
     </TooltipProvider>
   );
 }

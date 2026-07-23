@@ -79,6 +79,12 @@ jobs:
           ./scripts/deploy-config.sh $SUPABASE_PROJECT_ID
         env:
           RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+          AUTH_GOOGLE_ENABLED: ${{ vars.AUTH_GOOGLE_ENABLED || 'false' }}
+          AUTH_APPLE_ENABLED: ${{ vars.AUTH_APPLE_ENABLED || 'false' }}
+          SUPABASE_AUTH_EXTERNAL_GOOGLE_CLIENT_ID: ${{ secrets.SUPABASE_AUTH_EXTERNAL_GOOGLE_CLIENT_ID }}
+          SUPABASE_AUTH_EXTERNAL_GOOGLE_CLIENT_SECRET: ${{ secrets.SUPABASE_AUTH_EXTERNAL_GOOGLE_CLIENT_SECRET }}
+          SUPABASE_AUTH_EXTERNAL_APPLE_CLIENT_ID: ${{ secrets.SUPABASE_AUTH_EXTERNAL_APPLE_CLIENT_ID }}
+          SUPABASE_AUTH_EXTERNAL_APPLE_SECRET: ${{ secrets.SUPABASE_AUTH_EXTERNAL_APPLE_SECRET }}
 
       - name: Deploy email templates
         run: |

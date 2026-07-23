@@ -36,7 +36,7 @@ export function QuotaHeaderPill() {
             openPlanPicker({
               title: "Upgrade your UCAT plan",
               description:
-                "Compare Free, Unlimited, and Pro plans with accountability pricing.",
+                "Compare UCAT Free and Unlimited with accountability pricing.",
             }),
         }}
       >
@@ -60,7 +60,7 @@ export function QuotaHeaderPill() {
     openPlanPicker({
       title: "Upgrade to UCAT Unlimited",
       description:
-        "Compare Free, Unlimited, and Pro plans with accountability pricing.",
+        "Compare UCAT Free and Unlimited with accountability pricing.",
     });
   };
 

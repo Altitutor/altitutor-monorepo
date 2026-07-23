@@ -297,6 +297,8 @@ export function UcatLearningModuleOrderEditor({
         placeholderTitle.trim() ||
         (placeholderKind === 'folder' ? 'New folder' : 'New learning module'),
       description: null,
+      icon_key: 'book-open',
+      estimated_minutes: null,
       ucat_section_id: placeholderSectionId,
       parent_ucat_learning_module_id: placeholderParentId,
       index: placeholderIndex ?? 0,

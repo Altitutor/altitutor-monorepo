@@ -29,6 +29,10 @@ import {
   resolveRootSectionId,
 } from '@/features/ucat/shared/lib/taxonomy-reparent'
 import type { UcatAuthoringWorkspaceTab } from '@/features/ucat/shared/components/UcatAuthoringWorkspaceTabs'
+import {
+  LEARNING_MODULE_ICON_OPTIONS,
+  type LearningModuleIconKey,
+} from '@/features/ucat/learning-modules/lib/learning-module-icons'
 export type LearningModuleEditorMode = 'edit' | 'view'
 
 type UcatLearningModuleSettingsPanelProps = {
@@ -36,6 +40,8 @@ type UcatLearningModuleSettingsPanelProps = {
   kind: UcatLearningModuleKind
   title: string
   description: string
+  iconKey: LearningModuleIconKey
+  estimatedMinutes: number | null
   sectionId: string | null
   parentId: string | null
   isPrivate: boolean
@@ -44,6 +50,8 @@ type UcatLearningModuleSettingsPanelProps = {
   studyPlanTagIds: string[]
   onTitleChange: (title: string) => void
   onDescriptionChange: (description: string) => void
+  onIconKeyChange: (iconKey: LearningModuleIconKey) => void
+  onEstimatedMinutesChange: (minutes: number | null) => void
   onSectionIdChange: (sectionId: string | null) => void
   onParentIdChange: (parentId: string | null) => void
   onIsPrivateChange: (isPrivate: boolean) => void
@@ -76,6 +84,8 @@ export function UcatLearningModuleSettingsPanel({
   kind,
   title,
   description,
+  iconKey,
+  estimatedMinutes,
   sectionId,
   parentId,
   isPrivate,
@@ -84,6 +94,8 @@ export function UcatLearningModuleSettingsPanel({
   studyPlanTagIds,
   onTitleChange,
   onDescriptionChange,
+  onIconKeyChange,
+  onEstimatedMinutesChange,
   onSectionIdChange,
   onParentIdChange,
   onIsPrivateChange,
@@ -227,6 +239,34 @@ export function UcatLearningModuleSettingsPanel({
                     readOnly={editorMode === 'view'}
                   />
                 </div>
+                {kind === 'lesson' ? (
+                  <>
+                    <PropertyRow label="Card icon">
+                      <SearchableSelect<{ value: LearningModuleIconKey; label: string }>
+                        items={[...LEARNING_MODULE_ICON_OPTIONS]}
+                        value={LEARNING_MODULE_ICON_OPTIONS.find((option) => option.value === iconKey) ?? LEARNING_MODULE_ICON_OPTIONS[0]}
+                        onValueChange={(item) => item && onIconKeyChange(item.value)}
+                        getItemLabel={(item) => item.label}
+                        getItemId={(item) => item.value}
+                        disabled={editorMode === 'view'}
+                      />
+                    </PropertyRow>
+                    <PropertyRow label="Est. minutes">
+                      <Input
+                        type="number"
+                        min={1}
+                        max={600}
+                        value={estimatedMinutes ?? ''}
+                        onChange={(event) => {
+                          const value = event.target.valueAsNumber
+                          onEstimatedMinutesChange(Number.isFinite(value) ? value : null)
+                        }}
+                        placeholder="e.g. 15"
+                        readOnly={editorMode === 'view'}
+                      />
+                    </PropertyRow>
+                  </>
+                ) : null}
                 <PropertyRow label="Section">
                   <SearchableSelect<{ id: string; name: string | null }>
                     items={sectionItems}

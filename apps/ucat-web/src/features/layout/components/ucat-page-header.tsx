@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import type { ReactNode } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { getBreadcrumbItems } from "@/features/layout/config/breadcrumbs";
 import { UCAT_HEADER_ICON_BUTTON } from "@/lib/ucat-surface-motion";
@@ -25,6 +26,8 @@ type UcatPageHeaderProps = {
   breadcrumbOverrides?: Record<number, string>;
   /** When set, replaces pathname-derived breadcrumbs. */
   breadcrumbItems?: UcatBreadcrumbItem[];
+  /** Trailing control aligned with the title row (e.g. view toggle). */
+  actions?: ReactNode;
 };
 
 export function UcatPageHeader({
@@ -36,6 +39,7 @@ export function UcatPageHeader({
   backDisabled = false,
   breadcrumbOverrides,
   breadcrumbItems: customBreadcrumbItems,
+  actions,
 }: UcatPageHeaderProps) {
   const pathname = usePathname();
   const pathnameBreadcrumbs = getBreadcrumbItems(pathname).map((item) => ({
@@ -67,7 +71,10 @@ export function UcatPageHeader({
         <nav aria-label="Breadcrumb">
           <ol className="flex flex-wrap items-center gap-1.5 text-sm text-muted-foreground">
             {breadcrumbItems.map((item, i) => (
-              <li key={`${item.label}-${i}`} className="flex items-center gap-1.5">
+              <li
+                key={`${item.label}-${i}`}
+                className="flex items-center gap-1.5"
+              >
                 {i > 0 ? (
                   <ChevronRight
                     className="h-4 w-4 shrink-0 text-muted-foreground/70 transition-opacity duration-150"
@@ -128,6 +135,9 @@ export function UcatPageHeader({
             </p>
           ) : null}
         </div>
+        {actions ? (
+          <div className="shrink-0 self-center">{actions}</div>
+        ) : null}
       </div>
     </div>
   );

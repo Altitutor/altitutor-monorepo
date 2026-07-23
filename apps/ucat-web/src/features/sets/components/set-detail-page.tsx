@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useId } from "react";
+import { useEffect, useId, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
 import { motion } from "motion/react";
@@ -12,6 +12,8 @@ import { useQuotaLimitDialog } from "@/features/ucat-access/context/upsell-dialo
 import { useQuotaUsage } from "@/features/ucat-access/hooks/use-quota-usage";
 import { quotaPayloadFromUsage } from "@/features/ucat-access/lib/quota-payload-from-usage";
 import { useActiveExamAttempt } from "@/features/exam-attempts/context/active-exam-attempt-context";
+import { ExamAttemptConflictDialog } from "@/features/exam-attempts/components/exam-attempt-conflict-dialog";
+import { useExamAttemptLaunchPreflight } from "@/features/exam-attempts/hooks/use-exam-attempt-launch-preflight";
 import {
   buildQuestionEngineTutorialHref,
   useQuestionEngineTutorialGate,
@@ -34,6 +36,8 @@ import { formatExamDurationSeconds } from "@/lib/format-exam-duration";
 import type { SessionResourceEntryContext } from "@/features/sessions/lib/session-resource-entry-context";
 import { useUcatStaggerMotion } from "@/shared/hooks/use-ucat-stagger-motion";
 import { getQuestionEngineExam } from "@/features/question-engine/api/question-engine-api";
+
+const RECENT_ATTEMPTS_LIMIT = 5;
 
 type SetDetailPageProps = {
   setId: string;
@@ -59,6 +63,13 @@ function buildSetDetailBreadcrumbOverrides(
   return o;
 }
 
+function formatSetAttemptScore(attempt: SetAttemptRow): string {
+  if (attempt.scorePoints != null && attempt.totalPoints != null) {
+    return `${attempt.scorePoints} / ${attempt.totalPoints}`;
+  }
+  return "—";
+}
+
 export function SetDetailPage({
   setId,
   sectionNumber,
@@ -80,6 +91,7 @@ export function SetDetailPage({
   const { data: questionCount } = useSetQuestionCount(setId);
   const { containerVariants, itemVariants } = useUcatStaggerMotion();
   const attemptsHeadingId = useId();
+  const [showAllAttempts, setShowAllAttempts] = useState(false);
 
   const setQuota = quota?.areas.find((area) => area.area === "sets") ?? null;
   const examHref = `/exam/sets?id=${encodeURIComponent(setId)}${
@@ -112,6 +124,11 @@ export function SetDetailPage({
       : sectionNumber != null
         ? "Back to section"
         : "Back to all sets");
+  const launchPreflight = useExamAttemptLaunchPreflight({
+    kind: "set",
+    resourceId: setId,
+    onLaunch: () => router.push(examHref),
+  });
   const breadcrumbLeafSegmentIndex =
     sessionEntryContext != null || sectionNumber != null ? 2 : 1;
 
@@ -137,7 +154,7 @@ export function SetDetailPage({
       });
       return;
     }
-    router.push(examHref);
+    launchPreflight.requestLaunch();
   };
 
   if (isLoading) {
@@ -201,6 +218,11 @@ export function SetDetailPage({
       ? `/progress/sections/${sectionNumber}/set-attempts/${attemptId}`
       : `/progress/set-attempts/${attemptId}`;
 
+  const visibleAttempts = showAllAttempts
+    ? attempts
+    : attempts.slice(0, RECENT_ATTEMPTS_LIMIT);
+  const hasMoreAttempts = attempts.length > RECENT_ATTEMPTS_LIMIT;
+
   return (
     <motion.div
       className="space-y-6"
@@ -242,6 +264,18 @@ export function SetDetailPage({
         ))}
       </motion.section>
 
+      <motion.div
+        variants={itemVariants}
+        className="mt-4 flex min-h-10 items-center justify-end"
+      >
+        <Button
+          className={UCAT_PRIMARY_ACTION_BUTTON}
+          onClick={handleLaunchSet}
+        >
+          Launch set
+        </Button>
+      </motion.div>
+
       {attempts.length > 0 ? (
         <motion.section
           aria-labelledby={attemptsHeadingId}
@@ -274,7 +308,7 @@ export function SetDetailPage({
                   </tr>
                 </thead>
                 <tbody>
-                  {attempts.map((a: SetAttemptRow) => (
+                  {visibleAttempts.map((a: SetAttemptRow) => (
                     <tr key={a.id} className={UCAT_NATIVE_TABLE_BODY_ROW}>
                       <td className="p-4 align-middle">
                         {new Date(a.attemptedAt).toLocaleString(undefined, {
@@ -283,9 +317,7 @@ export function SetDetailPage({
                         })}
                       </td>
                       <td className="p-4 align-middle text-right">
-                        {a.scorePoints != null && a.totalPoints != null
-                          ? `${a.scorePoints} / ${a.totalPoints}`
-                          : "—"}
+                        {formatSetAttemptScore(a)}
                       </td>
                       <td className="p-4 align-middle text-right">
                         {a.scaledScore != null ? a.scaledScore : "—"}
@@ -302,17 +334,31 @@ export function SetDetailPage({
               </table>
             </div>
           </div>
+          {hasMoreAttempts ? (
+            <Button
+              type="button"
+              variant="ghost"
+              className="px-0 text-sm font-medium text-muted-foreground hover:text-foreground"
+              onClick={() => setShowAllAttempts((prev) => !prev)}
+            >
+              {showAllAttempts
+                ? "Show fewer attempts"
+                : `Show all ${attempts.length} attempts`}
+            </Button>
+          ) : null}
         </motion.section>
       ) : null}
 
-      <motion.div className="flex justify-end" variants={itemVariants}>
-        <Button
-          className={UCAT_PRIMARY_ACTION_BUTTON}
-          onClick={handleLaunchSet}
-        >
-          Launch set
-        </Button>
-      </motion.div>
+      <ExamAttemptConflictDialog
+        open={launchPreflight.conflictActive != null}
+        active={launchPreflight.conflictActive}
+        pendingLabel="this question set"
+        isDiscarding={launchPreflight.isDiscarding}
+        onDiscardAndContinue={() =>
+          void launchPreflight.discardConflictAndLaunch()
+        }
+        onCancel={launchPreflight.cancelConflict}
+      />
     </motion.div>
   );
 }

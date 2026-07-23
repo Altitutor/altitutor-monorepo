@@ -6,9 +6,10 @@ import {
   captureUcatReferral,
   resolveUcatReferralOfferPreview,
 } from "@/lib/ucat/referrals/capture-referral";
+import { getEnabledSocialAuthProviders } from "@/features/auth/lib/social-auth";
 
 type PageProps = {
-  searchParams: Promise<{ redirect?: string; ref?: string }>;
+  searchParams: Promise<{ redirect?: string; ref?: string; error?: string }>;
 };
 
 export default async function SignupPage({ searchParams }: PageProps) {
@@ -46,6 +47,8 @@ export default async function SignupPage({ searchParams }: PageProps) {
       redirectTo={redirectTo}
       referralCode={referralCode}
       referralOffer={referralOffer}
+      enabledSocialProviders={getEnabledSocialAuthProviders()}
+      authError={params.error}
     />
   );
 }

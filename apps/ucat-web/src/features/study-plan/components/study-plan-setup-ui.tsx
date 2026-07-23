@@ -6,7 +6,10 @@ import { SearchableSelect } from "@altitutor/ui";
 import { Check } from "lucide-react";
 import { ThemeToggle } from "@/components/theme/theme-toggle";
 import { NoiseOverlay } from "@/features/landing/components/marketing/noise-overlay";
-import { UCAT_PRIMARY_ACTION_BUTTON } from "@/lib/ucat-surface-motion";
+import {
+  UCAT_CARD_CHROME,
+  UCAT_PRIMARY_ACTION_BUTTON,
+} from "@/lib/ucat-surface-motion";
 import { cn } from "@/lib/utils";
 
 export type GoalYearOption = { year: number };
@@ -112,7 +115,7 @@ export function StudyPlanGoalFields({
   );
 
   return (
-    <div className="space-y-6 rounded-3xl bg-card/80 p-6 shadow-sm ring-1 ring-border backdrop-blur sm:p-8">
+    <div className={cn(UCAT_CARD_CHROME, "space-y-6 p-6 sm:p-8")}>
       <label
         className="block space-y-2 text-sm text-muted-foreground"
         htmlFor={`${idPrefix}-target`}

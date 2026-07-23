@@ -448,10 +448,22 @@ function requestedScenario(): PreviewScenarioId {
     : "needs_focus";
 }
 
-export function ProgressPreviewPage() {
-  const [surface, setSurface] = useState<PreviewSurface>(requestedSurface);
+export function ProgressPreviewPage({
+  embedded = false,
+  initialSurface = "overview",
+  initialScenario = "needs_focus",
+}: {
+  embedded?: boolean;
+  initialSurface?: PreviewSurface;
+  initialScenario?: PreviewScenarioId;
+} = {}) {
+  const [surface, setSurface] = useState<PreviewSurface>(() =>
+    embedded ? initialSurface : requestedSurface(),
+  );
   const [scenarioId, setScenarioId] =
-    useState<PreviewScenarioId>(requestedScenario);
+    useState<PreviewScenarioId>(() =>
+      embedded ? initialScenario : requestedScenario(),
+    );
   const scenario = SCENARIOS.find((candidate) => candidate.id === scenarioId)!;
   const today = todayIso();
   const model = useMemo(() => {
@@ -475,6 +487,36 @@ export function ProgressPreviewPage() {
       progress,
       categories,
       total: deriveTotalScoreProjection(projections),
+      snapshots:
+        scenario.baseScore == null
+          ? []
+          : [-56, -42, -28, -14, 0].map((day, index) => ({
+              date: addDays(today, day),
+              currentEstimate: projections.reduce(
+                (sum, projection) =>
+                  sum +
+                  clampSectionScore(
+                    (projection.currentEstimate ?? 0) - (4 - index) * 18,
+                  ),
+                0,
+              ),
+              confidence: scenario.confidence,
+              uncertainty:
+                scenario.confidence === "low"
+                  ? 180
+                  : scenario.confidence === "medium"
+                    ? 110
+                    : 70,
+              effectiveEvidenceWeight: Math.max(1, scenario.evidenceCount),
+              sectionEstimates: Object.fromEntries(
+                projections.map((projection) => [
+                  projection.sectionId,
+                  clampSectionScore(
+                    (projection.currentEstimate ?? 0) - (4 - index) * 18,
+                  ),
+                ]),
+              ),
+            })),
       sectionTargets,
       activity: makeActivity(today, scenario),
       attemptHistory: Object.fromEntries(
@@ -518,7 +560,7 @@ export function ProgressPreviewPage() {
 
   return (
     <div className="space-y-6 pb-8">
-      <div className="mx-auto flex w-full max-w-[1400px] flex-col gap-4 px-5 lg:flex-row lg:items-end lg:justify-between sm:px-6">
+      {!embedded ? <div className="mx-auto flex w-full max-w-[1400px] flex-col gap-4 px-5 lg:flex-row lg:items-end lg:justify-between sm:px-6">
         <div>
           <Badge variant="secondary">Development preview</Badge>
           <h1 className="mt-2 text-2xl font-semibold">Progress state lab</h1>
@@ -564,13 +606,14 @@ export function ProgressPreviewPage() {
             </select>
           </label>
         </div>
-      </div>
+      </div> : null}
 
       {surface === "overview" ? (
         <ProgressPageContent
           sections={model.progress}
           scoreProjections={model.projections}
           totalProjection={model.total}
+          snapshots={model.snapshots}
           targetScore={
             scenario.targetScore == null ? null : scenario.targetScore * 3
           }
@@ -598,6 +641,7 @@ export function ProgressPreviewPage() {
           timedSetsCompleted={Math.max(0, scenario.completedSets - 2)}
           categoryProgress={model.categories[selectedSection.number] ?? []}
           scoreProjection={selectedProjection}
+          snapshots={model.snapshots}
           targetScore={scenario.targetScore}
           testDate={scenario.id === "no_target" ? null : addDays(today, 90)}
           today={today}
@@ -606,7 +650,7 @@ export function ProgressPreviewPage() {
         />
       ) : null}
 
-      <div className="mx-auto flex w-full max-w-[1400px] flex-wrap gap-3 px-5 sm:px-6">
+      {!embedded ? <div className="mx-auto flex w-full max-w-[1400px] flex-wrap gap-3 px-5 sm:px-6">
         <Button asChild>
           <Link href="/progress/attempts/preview">Open attempt state lab</Link>
         </Button>
@@ -616,7 +660,7 @@ export function ProgressPreviewPage() {
         <Button asChild variant="ghost">
           <Link href="/dashboard/preview">Open dashboard state lab</Link>
         </Button>
-      </div>
+      </div> : null}
     </div>
   );
 }

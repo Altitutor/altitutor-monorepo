@@ -47,6 +47,9 @@ export type DashboardNextAction =
       kind: "plan_setup";
     }
   | {
+      kind: "goal_setup";
+    }
+  | {
       kind: "plan_error";
     };
 
@@ -55,8 +58,8 @@ type DashboardActionInput = {
   sessions: StudentUcatSession[];
   plan: StudyPlanResponse | null | undefined;
   planLoadFailed: boolean;
-  samplerDecided: boolean;
-  samplerCompleted: boolean;
+  studyPlanDecided: boolean;
+  hasGoal: boolean;
 };
 
 function validTimestamp(value: string | null | undefined): number | null {
@@ -103,28 +106,28 @@ export function resolveDashboardNextAction({
   sessions,
   plan,
   planLoadFailed,
+  studyPlanDecided,
+  hasGoal,
 }: DashboardActionInput): DashboardNextAction {
   const prioritySession = findPrioritySession(sessions, now);
   if (prioritySession) {
     return { kind: "session", ...prioritySession };
   }
 
-  if (plan?.profile) {
-    if (!plan.profile.studyPlanEnabled && plan.nextSteps[0]) {
-      return {
-        kind: "guidance",
-        primary: plan.nextSteps[0],
-        secondary: plan.nextSteps[1] ?? null,
-      };
-    }
+  if (planLoadFailed && !plan?.profile) {
+    return { kind: "plan_error" };
+  }
+
+  if (plan?.profile?.studyPlanEnabled) {
     const currentTasks = selectCurrentStudyPlanTasks(plan.tasks, plan.today);
     const nextTask = selectNextStudyPlanTask(currentTasks);
-    if (nextTask)
+    if (nextTask) {
       return {
         kind: "task",
         task: nextTask,
         fromEarlierStudyDay: nextTask.scheduledDate < plan.today,
       };
+    }
 
     const hadTasksToday = plan.todayTasks.some(
       (task) => task.status !== "skipped",
@@ -136,9 +139,31 @@ export function resolveDashboardNextAction({
     };
   }
 
-  if (planLoadFailed) return { kind: "plan_error" };
+  if (!studyPlanDecided) {
+    return { kind: "plan_setup" };
+  }
 
-  return { kind: "plan_setup" };
+  if (!hasGoal) {
+    return { kind: "goal_setup" };
+  }
+
+  if (plan?.profile && !plan.profile.studyPlanEnabled && plan.nextSteps[0]) {
+    return {
+      kind: "guidance",
+      primary: plan.nextSteps[0],
+      secondary: plan.nextSteps[1] ?? null,
+    };
+  }
+
+  if (plan?.profile) {
+    return {
+      kind: "caught_up",
+      nextStudyDate: null,
+      hadTasksToday: false,
+    };
+  }
+
+  return { kind: "goal_setup" };
 }
 
 export type DashboardWeekSummary = {

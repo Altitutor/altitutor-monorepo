@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { discardExamAttempt } from "@/features/exam-attempts/api/exam-attempts-api";
 import { useActiveExamAttempt } from "@/features/exam-attempts/context/active-exam-attempt-context";
 import type {
@@ -14,18 +14,24 @@ export function useExamAttemptLaunchGate(
   kind: ExamAttemptKind | null,
   resourceId: string | undefined,
 ) {
-  const { active, isLoading, refresh } = useActiveExamAttempt();
+  const { active, isLoading, refresh, clearLocal } = useActiveExamAttempt();
   const [status, setStatus] = useState<LaunchGateStatus>(
     kind && resourceId ? "checking" : "allowed",
   );
   const [conflictActive, setConflictActive] =
     useState<ActiveExamAttempt | null>(null);
   const [isDiscarding, setIsDiscarding] = useState(false);
+  const discardPromiseRef = useRef<Promise<void> | null>(null);
 
   useEffect(() => {
     if (!kind || !resourceId) {
       setStatus("allowed");
       setConflictActive(null);
+      return;
+    }
+
+    if (isDiscarding) {
+      setStatus("checking");
       return;
     }
 
@@ -42,21 +48,33 @@ export function useExamAttemptLaunchGate(
 
     setConflictActive(active);
     setStatus("blocked");
-  }, [kind, resourceId, active, isLoading]);
+  }, [kind, resourceId, active, isLoading, isDiscarding]);
 
   async function discardConflictAndContinue() {
-    if (!conflictActive) return;
+    if (discardPromiseRef.current) return discardPromiseRef.current;
+    const attemptToDiscard = conflictActive;
+    if (!attemptToDiscard) return;
+
     setIsDiscarding(true);
-    try {
+    const request = (async () => {
       await discardExamAttempt({
-        kind: conflictActive.kind,
-        attemptId: conflictActive.attemptId,
+        kind: attemptToDiscard.kind,
+        attemptId: attemptToDiscard.attemptId,
       });
+      clearLocal();
       await refresh();
       setConflictActive(null);
       setStatus("allowed");
+    })();
+    discardPromiseRef.current = request;
+
+    try {
+      await request;
     } finally {
-      setIsDiscarding(false);
+      if (discardPromiseRef.current === request) {
+        discardPromiseRef.current = null;
+        setIsDiscarding(false);
+      }
     }
   }
 

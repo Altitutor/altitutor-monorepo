@@ -12,12 +12,13 @@ export async function GET() {
   if (!access.ok) return access.response
 
   const client = access.userClient as unknown as SupabaseClient<Database>
-  const modelProfiles = await getEnabledUcatAiModelProfiles(client)
+  const modelProfiles = await getEnabledUcatAiModelProfiles(client, true)
   let maxRequestedStems = 20
   try {
     const config = await resolveUcatAiConfig(
       client,
-      modelProfiles.find((profile) => profile.is_default)?.id ?? modelProfiles[0]?.id ?? null
+      modelProfiles.find((profile) => profile.is_default)?.id ?? modelProfiles[0]?.id ?? null,
+      true,
     )
     maxRequestedStems = config.settings.max_requested_stems_per_run
   } catch {

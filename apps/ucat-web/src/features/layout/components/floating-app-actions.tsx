@@ -21,37 +21,40 @@ export function FloatingAppActions({
   className,
 }: FloatingAppActionsProps) {
   return (
-    <div
-      className={cn(
-        "pointer-events-none fixed top-4 left-4 right-4 z-50 flex items-center gap-2",
-        className,
-      )}
-    >
+    <>
+      <div className="ucat-toolbar-scrim pointer-events-none fixed inset-x-0 top-0 z-40 h-20" />
       <div
         className={cn(
-          "pointer-events-auto shrink-0 md:transition-[margin] md:duration-200 md:ease-[cubic-bezier(0.32,0.72,0,1)]",
-          isMenuOpen ? "md:ml-[240px]" : "ml-0",
+          "pointer-events-none fixed top-4 left-4 right-4 z-50 flex items-center gap-2",
+          className,
         )}
       >
-        <Button
-          type="button"
-          variant="outline"
-          size="icon"
-          onClick={onToggleNav}
-          className={UCAT_HEADER_ICON_BUTTON}
-          aria-label={isMenuOpen ? "Close menu" : "Open menu"}
+        <div
+          className={cn(
+            "pointer-events-auto shrink-0 md:transition-[margin] md:duration-200 md:ease-[cubic-bezier(0.32,0.72,0,1)]",
+            isMenuOpen ? "md:ml-[240px]" : "ml-0",
+          )}
         >
-          <AnimatedHamburgerIcon isOpen={isMenuOpen} className="h-5 w-5" />
-        </Button>
+          <Button
+            type="button"
+            variant="outline"
+            size="icon"
+            onClick={onToggleNav}
+            className={UCAT_HEADER_ICON_BUTTON}
+            aria-label={isMenuOpen ? "Close menu" : "Open menu"}
+          >
+            <AnimatedHamburgerIcon isOpen={isMenuOpen} className="h-5 w-5" />
+          </Button>
+        </div>
+        <div className="pointer-events-auto flex min-w-0 flex-1 justify-center overflow-hidden px-2">
+          <HeaderNotificationPills />
+        </div>
+        <div className="pointer-events-auto flex shrink-0 items-center gap-2">
+          <NotificationTray />
+          <ThemeToggle />
+          <ProfileDropdown />
+        </div>
       </div>
-      <div className="pointer-events-auto flex min-w-0 flex-1 justify-center px-2">
-        <HeaderNotificationPills />
-      </div>
-      <div className="pointer-events-auto flex shrink-0 items-center gap-2">
-        <NotificationTray />
-        <ThemeToggle />
-        <ProfileDropdown />
-      </div>
-    </div>
+    </>
   );
 }

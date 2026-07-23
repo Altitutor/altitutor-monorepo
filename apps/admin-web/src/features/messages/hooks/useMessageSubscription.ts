@@ -11,8 +11,9 @@ import { useChatStore } from '../state/chatStore';
 import { formatContactName } from '../utils/formatContactName';
 
 /**
- * Hook to subscribe to new inbound messages
- * Handles marking conversations as unread and showing notifications
+ * Hook to subscribe to new messages.
+ * Refreshes inbox/thread caches for inbound and device-sent outbound traffic,
+ * and shows notifications for live inbound messages.
  */
 export function useMessageSubscription() {
   const queryClient = useQueryClient();
@@ -36,31 +37,15 @@ export function useMessageSubscription() {
       .channel('messages-inbound')
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, async (payload) => {
         const row = payload.new as Database['public']['Tables']['messages']['Row'];
-        if (row?.direction !== 'INBOUND') return;
+        if (!row?.conversation_id) return;
 
-        // Always refresh inbox/thread caches; historical backfill should not toast/unread.
+        // Device-sent outbound (iPhone/Mac → BlueBubbles) must refresh the open
+        // thread/list immediately — do not early-return on OUTBOUND.
         queryClient.invalidateQueries({ queryKey: messagesKeys.conversations() });
         queryClient.invalidateQueries({ queryKey: messagesKeys.conversationsByContactBase() });
-        queryClient.invalidateQueries({ queryKey: messagesKeys.unreadCount() });
         queryClient.invalidateQueries({ queryKey: messagesKeys.messages(row.conversation_id) });
+        queryClient.invalidateQueries({ queryKey: messagesKeys.unreadCount() });
 
-        if (row.is_historical_import) return;
-
-        // Mark conversation as unread for all staff by deleting conversation_reads
-        try {
-          await supabase
-            .from('conversation_reads')
-            .delete()
-            .eq('conversation_id', row.conversation_id);
-          
-          queryClient.invalidateQueries({ queryKey: messagesKeys.conversations() });
-          queryClient.invalidateQueries({ queryKey: messagesKeys.conversationsByContactBase() });
-          queryClient.invalidateQueries({ queryKey: messagesKeys.unreadCount() });
-        } catch (error: unknown) {
-          console.error('[useMessageSubscription] Failed to mark conversation as unread', error);
-        }
-        
-        // Fetch conversation with contact info to get sender name + open target
         let senderName = 'Unknown';
         let contactId: string | null = null;
         let isGroupChat = false;
@@ -93,6 +78,28 @@ export function useMessageSubscription() {
           }
         } catch (error: unknown) {
           console.error('[useMessageSubscription] Failed to fetch conversation for sender name', error);
+        }
+
+        if (contactId) {
+          queryClient.invalidateQueries({
+            queryKey: messagesKeys.messagesForContactBase(contactId),
+          });
+        }
+
+        // Toasts / unread only for live inbound
+        if (row.direction !== 'INBOUND' || row.is_historical_import) return;
+
+        try {
+          await supabase
+            .from('conversation_reads')
+            .delete()
+            .eq('conversation_id', row.conversation_id);
+          
+          queryClient.invalidateQueries({ queryKey: messagesKeys.conversations() });
+          queryClient.invalidateQueries({ queryKey: messagesKeys.conversationsByContactBase() });
+          queryClient.invalidateQueries({ queryKey: messagesKeys.unreadCount() });
+        } catch (error: unknown) {
+          console.error('[useMessageSubscription] Failed to mark conversation as unread', error);
         }
         
         if (hasWindowRef.current(row.conversation_id)) {

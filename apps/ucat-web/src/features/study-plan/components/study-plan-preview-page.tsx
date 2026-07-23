@@ -6,11 +6,14 @@ import { Badge } from "@altitutor/ui";
 import { Button } from "@/components/ui/button";
 import { StudyPlanPage } from "@/features/study-plan/components/study-plan-page";
 import { addDays, todayIso } from "@/features/study-plan/lib/dates";
+import { generateStudyPlan } from "@/features/study-plan/lib/generator";
 import type {
+  GeneratedStudyPlanTask,
+  StudyPlanCategorySignal,
   StudyPlanResponse,
+  StudyPlanSection,
+  StudyPlanSectionSignal,
   StudyPlanTask,
-  StudyPlanTaskStatus,
-  StudyPlanTaskType,
 } from "@/features/study-plan/model/types";
 
 type PreviewScenarioId =
@@ -24,190 +27,270 @@ type PreviewScenarioId =
   | "capacity_gap"
   | "provisional_date";
 
-type PreviewScenario = {
+type EvidenceStage = "new" | "mixed" | "ready";
+
+type SandboxSettings = {
+  daysUntilExam: number;
+  availableDayCount: number;
+  evidenceStage: EvidenceStage;
+  naturalPace: number;
+  targetScore: number;
+};
+
+const SCENARIOS: Array<{
   id: PreviewScenarioId;
   label: string;
   description: string;
-};
-
-const SCENARIOS: PreviewScenario[] = [
+  settings: SandboxSettings;
+}> = [
   {
     id: "typical_week",
-    label: "Typical study week",
-    description: "A balanced day with warm-up, targeted practice, and review.",
+    label: "Mixed section readiness",
+    description:
+      "VR is still learning while DM and QR have started their pace ladders.",
+    settings: {
+      daysUntilExam: 100,
+      availableDayCount: 5,
+      evidenceStage: "mixed",
+      naturalPace: 0.8,
+      targetScore: 2350,
+    },
   },
   {
     id: "foundation",
-    label: "New student · foundation",
-    description: "Learning-led work with short, untimed feedback loops.",
+    label: "New student · learning",
+    description: "Coverage-led, untimed work with heavier review and no mocks.",
+    settings: {
+      daysUntilExam: 240,
+      availableDayCount: 3,
+      evidenceStage: "new",
+      naturalPace: 0.5,
+      targetScore: 2100,
+    },
+  },
+  {
+    id: "performance_phase",
+    label: "Final month · exam mode",
+    description:
+      "Three mocks per week with targeted work between them and 1.0x calibrations.",
+    settings: {
+      daysUntilExam: 24,
+      availableDayCount: 6,
+      evidenceStage: "ready",
+      naturalPace: 1.1,
+      targetScore: 2450,
+    },
+  },
+  {
+    id: "capacity_gap",
+    label: "Only one study day",
+    description: "A constrained calendar that prioritises the core exam dose.",
+    settings: {
+      daysUntilExam: 30,
+      availableDayCount: 1,
+      evidenceStage: "ready",
+      naturalPace: 0.9,
+      targetScore: 2500,
+    },
   },
   {
     id: "still_to_do",
     label: "Earlier work still to do",
-    description:
-      "Unfinished work from a previous day appears before today’s tasks.",
+    description: "The generated plan plus one incomplete earlier activity.",
+    settings: {
+      daysUntilExam: 100,
+      availableDayCount: 5,
+      evidenceStage: "mixed",
+      naturalPace: 0.8,
+      targetScore: 2350,
+    },
   },
   {
     id: "caught_up",
     label: "Today complete",
-    description:
-      "All prescribed work is complete and extra study is available.",
+    description: "Today’s generated work is marked complete.",
+    settings: {
+      daysUntilExam: 100,
+      availableDayCount: 5,
+      evidenceStage: "mixed",
+      naturalPace: 0.8,
+      targetScore: 2350,
+    },
   },
   {
     id: "rest_day",
-    label: "Unscheduled day",
-    description:
-      "No prescribed work today, with the option to ask for a useful block.",
-  },
-  {
-    id: "performance_phase",
-    label: "Experienced · performance",
-    description:
-      "Timed full sets, review, and a mock checkpoint near test day.",
-  },
-  {
-    id: "capacity_gap",
-    label: "Capacity gap",
-    description:
-      "The student’s availability is below the recommended weekly load.",
+    label: "Unscheduled today",
+    description: "Today is removed from the chosen study weekdays.",
+    settings: {
+      daysUntilExam: 100,
+      availableDayCount: 4,
+      evidenceStage: "mixed",
+      naturalPace: 0.8,
+      targetScore: 2350,
+    },
   },
   {
     id: "provisional_date",
     label: "Test date not booked",
-    description: "The plan works toward a provisional UCAT testing window.",
+    description:
+      "Uses a provisional planning date while retaining readiness logic.",
+    settings: {
+      daysUntilExam: 180,
+      availableDayCount: 4,
+      evidenceStage: "new",
+      naturalPace: 0.6,
+      targetScore: 2200,
+    },
   },
   {
     id: "no_plan",
-    label: "No Study plan",
-    description: "The setup state before target and availability are supplied.",
+    label: "No study plan",
+    description:
+      "The setup state before a goal and study weekdays are supplied.",
+    settings: {
+      daysUntilExam: 180,
+      availableDayCount: 0,
+      evidenceStage: "new",
+      naturalPace: 0.5,
+      targetScore: 2100,
+    },
   },
 ];
 
-function task(
-  today: string,
-  id: string,
-  dayOffset: number,
-  sortOrder: number,
-  taskType: StudyPlanTaskType,
-  title: string,
-  overrides: Partial<StudyPlanTask> = {},
-): StudyPlanTask {
-  const status = overrides.status ?? "planned";
+const SECTIONS: StudyPlanSection[] = [
+  ["vr", "verbal_reasoning", "Verbal Reasoning", "VR", 1, 44, 47],
+  ["dm", "decision_making", "Decision Making", "DM", 2, 35, 64],
+  ["qr", "quantitative_reasoning", "Quantitative Reasoning", "QR", 3, 36, 42],
+  ["sjt", "situational_judgement", "Situational Judgement", "SJT", 4, 69, 32],
+].map(([id, key, name, shortName, sectionNumber, questionCount, seconds]) => ({
+  id: String(id),
+  key: key as StudyPlanSection["key"],
+  name: String(name),
+  shortName: String(shortName),
+  sectionNumber: Number(sectionNumber),
+  questionCount: Number(questionCount),
+  timePerQuestionSeconds: Number(seconds),
+}));
+
+const CATEGORY_NAMES: Record<string, string[]> = {
+  vr: ["Reading Comprehension", "True, False, Can’t Tell"],
+  dm: [
+    "Logical Puzzles",
+    "Probabilistic and Statistical Reasoning",
+    "Recognising Assumptions",
+    "Syllogisms",
+    "Venn Diagrams",
+  ],
+  qr: ["Data Tables", "Graphs and Charts", "Mixed Data Sources"],
+  sjt: ["How Appropriate", "How Important"],
+};
+
+function evidenceValues(stage: EvidenceStage, ready: boolean) {
+  if (stage === "new" || !ready) {
+    return {
+      attemptedQuestionCount: stage === "mixed" ? 10 : 0,
+      completedPracticeSessions: stage === "mixed" ? 1 : 0,
+      qualifyingPracticeSessions: stage === "mixed" ? 1 : 0,
+      largestPracticeSessionQuestionCount: stage === "mixed" ? 10 : 0,
+      recentAccuracy: stage === "mixed" ? 0.62 : null,
+    };
+  }
   return {
-    id: `study-plan-preview-${id}`,
-    scheduledDate: addDays(today, dayOffset),
-    sortOrder,
-    taskType,
-    title,
-    description:
-      "Complete this focused activity, then use the feedback before moving on.",
-    rationale:
-      "This is the highest-value next step for the student’s current phase and score gaps.",
-    estimatedMinutes:
-      taskType === "mock" ? 120 : taskType === "learn" ? 12 : 20,
-    targetUnits: taskType === "mock" || taskType === "review" ? 1 : 12,
-    sectionId: taskType === "skill_trainer" ? "dm" : "vr",
-    questionStemCategoryId: null,
-    questionTagId: null,
-    learningModuleId: taskType === "learn" ? `module-${id}` : null,
-    questionSetId: taskType === "section_benchmark" ? `set-${id}` : null,
-    mockId: taskType === "mock" ? `mock-${id}` : null,
-    skillTrainerId: taskType === "skill_trainer" ? `trainer-${id}` : null,
-    launchPath: taskType === "learn" ? `/learn/module-${id}` : "/practice",
-    launchConfig: {},
-    status,
-    completedUnits: status === "completed" ? 1 : 0,
-    startedAt:
-      status === "in_progress" || status === "partial"
-        ? `${addDays(today, dayOffset)}T08:30:00.000Z`
-        : null,
-    completedAt:
-      status === "completed"
-        ? `${addDays(today, dayOffset)}T09:00:00.000Z`
-        : null,
-    skippedAt:
-      status === "skipped"
-        ? `${addDays(today, dayOffset)}T09:00:00.000Z`
-        : null,
-    matchedActivityType: status === "completed" ? taskType : null,
-    matchedActivityId: status === "completed" ? `activity-${id}` : null,
-    ...overrides,
-    sourceTaskId: overrides.sourceTaskId ?? null,
+    attemptedQuestionCount: 28,
+    completedPracticeSessions: 3,
+    qualifyingPracticeSessions: 2,
+    largestPracticeSessionQuestionCount: 14,
+    recentAccuracy: 0.72,
   };
 }
 
-function baseTasks(today: string): StudyPlanTask[] {
-  return [
-    task(
-      today,
-      "past-practice",
-      -3,
-      0,
-      "practice",
-      "VR reading comprehension · untimed",
-      {
-        status: "completed",
-        estimatedMinutes: 18,
-      },
-    ),
-    task(today, "warm-up", 0, 0, "skill_trainer", "Syllogism speed warm-up", {
-      estimatedMinutes: 6,
-      targetUnits: 1,
-    }),
-    task(
-      today,
-      "focused-practice",
-      0,
-      1,
-      "practice",
-      "Reading Comprehension · 0.75× speed",
-      {
-        estimatedMinutes: 22,
-        targetUnits: 16,
-      },
-    ),
-    task(
-      today,
-      "review",
-      0,
-      2,
-      "review",
-      "Review today’s Reading Comprehension attempt",
-      {
-        estimatedMinutes: 7,
-        launchConfig: { awaitingAttempt: true },
-      },
-    ),
-    task(today, "dm-learning", 2, 0, "learn", "Decision Making foundations"),
-    task(today, "qr-practice", 4, 0, "practice", "QR problem solving · timed", {
-      sectionId: "qr",
-      estimatedMinutes: 28,
-    }),
-    task(today, "vr-set", 7, 0, "section_benchmark", "Full VR benchmark set", {
-      estimatedMinutes: 32,
-      targetUnits: 1,
-    }),
-    task(today, "mock-one", 14, 0, "mock", "Full UCAT mock 1"),
-    task(today, "mock-two", 42, 0, "mock", "Full UCAT mock 2"),
-  ];
+function signals(settings: SandboxSettings): StudyPlanSectionSignal[] {
+  return SECTIONS.map((section) => {
+    const ready =
+      settings.evidenceStage === "ready" ||
+      (settings.evidenceStage === "mixed" && section.id !== "vr");
+    const evidence = evidenceValues(settings.evidenceStage, ready);
+    return {
+      sectionId: section.id,
+      currentEstimate: section.sectionNumber <= 3 ? (ready ? 680 : 560) : null,
+      evidenceCount: ready ? 6 : settings.evidenceStage === "mixed" ? 2 : 0,
+      completedFullSets: ready && section.sectionNumber <= 3 ? 1 : 0,
+      observedPace: settings.naturalPace,
+      ...evidence,
+    };
+  });
 }
 
-function withStatus(taskToUpdate: StudyPlanTask, status: StudyPlanTaskStatus) {
+function categories(settings: SandboxSettings): StudyPlanCategorySignal[] {
+  return Object.entries(CATEGORY_NAMES).flatMap(([sectionId, names]) =>
+    names.map((name, index) => {
+      const ready =
+        settings.evidenceStage === "ready" ||
+        (settings.evidenceStage === "mixed" && sectionId === "dm");
+      const evidence = evidenceValues(settings.evidenceStage, ready);
+      return {
+        id: `${sectionId}-${index}`,
+        sectionId,
+        name,
+        availableQuestionCount: 80,
+        correctScore: ready ? 15 : 3,
+        maxScore: ready ? 20 : 10,
+        weaknessScore: ready ? 0.25 + index * 0.02 : 0.65 + index * 0.03,
+        observedPace: settings.naturalPace,
+        ...evidence,
+      };
+    }),
+  );
+}
+
+function asTask(task: GeneratedStudyPlanTask, index: number): StudyPlanTask {
   return {
-    ...taskToUpdate,
-    status,
-    completedUnits:
-      status === "completed" ? (taskToUpdate.targetUnits ?? 1) : 0,
-    completedAt:
-      status === "completed"
-        ? `${taskToUpdate.scheduledDate}T09:00:00.000Z`
-        : null,
+    ...task,
+    id: `study-plan-preview-${index}`,
+    sourceTaskId: null,
+    status: "planned",
+    completedUnits: 0,
+    startedAt: null,
+    completedAt: null,
+    skippedAt: null,
+    matchedActivityType: null,
+    matchedActivityId: null,
+  };
+}
+
+function incompleteEarlierTask(today: string): StudyPlanTask {
+  return {
+    ...asTask(
+      {
+        scheduledDate: addDays(today, -2),
+        sortOrder: 0,
+        taskType: "practice",
+        title: "DM syllogisms · untimed",
+        description: "Finish the remaining questions.",
+        rationale:
+          "This incomplete work remains visible until the next replan.",
+        estimatedMinutes: 20,
+        targetUnits: 10,
+        sectionId: "dm",
+        questionStemCategoryId: "dm-3",
+        questionTagId: null,
+        learningModuleId: null,
+        questionSetId: null,
+        mockId: null,
+        skillTrainerId: null,
+        launchPath: "/practice",
+        launchConfig: {},
+      },
+      -1,
+    ),
+    id: "study-plan-preview-incomplete",
   };
 }
 
 function makePlan(
   today: string,
   scenarioId: PreviewScenarioId,
+  settings: SandboxSettings,
 ): StudyPlanResponse {
   if (scenarioId === "no_plan") {
     return {
@@ -220,178 +303,97 @@ function makePlan(
       completion: { completed: 0, scheduledThroughToday: 0, percent: 0 },
     };
   }
-
-  let tasks = baseTasks(today);
-  let testDate: string | null = addDays(today, 70);
-  let capacityWarning = false;
-
-  if (scenarioId === "foundation") {
-    tasks = [
-      task(
-        today,
-        "foundation-learn",
-        0,
-        0,
-        "learn",
-        "How Verbal Reasoning works",
-      ),
-      task(
-        today,
-        "foundation-trainer",
-        0,
-        1,
-        "skill_trainer",
-        "Reading focus warm-up",
-        {
-          estimatedMinutes: 5,
-        },
-      ),
-      task(
-        today,
-        "foundation-practice",
-        0,
-        2,
-        "practice",
-        "Reading Comprehension mini-set · untimed",
-        {
-          estimatedMinutes: 12,
-          targetUnits: 6,
-        },
-      ),
-      task(today, "foundation-dm", 2, 0, "learn", "Syllogism foundations"),
-      task(today, "foundation-qr", 4, 0, "learn", "Essential QR arithmetic"),
-      task(
-        today,
-        "foundation-benchmark",
-        12,
-        0,
-        "section_benchmark",
-        "First VR full set",
-        {
-          estimatedMinutes: 30,
-        },
-      ),
-    ];
-  }
-
-  if (scenarioId === "still_to_do") {
-    tasks = [
-      task(today, "carry-over", -2, 0, "practice", "DM syllogisms · untimed", {
-        estimatedMinutes: 18,
+  const planningDate = addDays(today, settings.daysUntilExam);
+  const todayWeekday = new Date(`${today}T00:00:00`).getDay();
+  const weekdays = [1, 2, 3, 4, 5, 6, 0]
+    .filter((day) => scenarioId !== "rest_day" || day !== todayWeekday)
+    .slice(0, settings.availableDayCount);
+  const profile = {
+    studyPlanEnabled: true,
+    studySuggestionsEnabled: true,
+    targetScore: settings.targetScore,
+    testYear: Number(planningDate.slice(0, 4)),
+    testDate: scenarioId === "provisional_date" ? null : planningDate,
+    availableDays: weekdays.map((weekday) => ({
+      weekday: weekday as 0 | 1 | 2 | 3 | 4 | 5 | 6,
+      maxMinutes: 60,
+    })),
+    preferredMockWeekday: 6 as const,
+  };
+  const generated = generateStudyPlan({
+    today,
+    planningDate,
+    profile,
+    sections: SECTIONS,
+    signals: signals(settings),
+    categories: categories(settings),
+    learningModules:
+      settings.evidenceStage === "new"
+        ? [
+            {
+              id: "preview-learning-module",
+              title: "How to approach unfamiliar UCAT questions",
+              sectionId: "vr",
+              sectionNumber: 1,
+              priority: "recommended",
+              estimatedMinutes: 15,
+              completionPercent: 0,
+              relevanceScore: 0.8,
+            },
+          ]
+        : [],
+    skillTrainers: [
+      {
+        id: "preview-trainer",
+        key: "decision_making_warmup",
+        name: "Decision Making warm-up",
         sectionId: "dm",
-      }),
-      ...tasks,
-    ];
+        categoryIds: ["dm-3"],
+        estimatedMinutes: 3,
+      },
+    ],
+    completedMockCount: settings.evidenceStage === "ready" ? 2 : 0,
+  });
+  let tasks = generated.tasks.map(asTask);
+  if (scenarioId === "still_to_do") {
+    tasks = [incompleteEarlierTask(today), ...tasks];
   }
-
   if (scenarioId === "caught_up") {
-    tasks = tasks.map((entry) =>
-      entry.scheduledDate === today ? withStatus(entry, "completed") : entry,
+    tasks = tasks.map((task) =>
+      task.scheduledDate === today
+        ? {
+            ...task,
+            status: "completed" as const,
+            completedUnits: task.targetUnits ?? 1,
+            completedAt: `${today}T09:00:00.000Z`,
+          }
+        : task,
     );
   }
-
-  if (scenarioId === "rest_day") {
-    tasks = tasks.filter((entry) => entry.scheduledDate !== today);
-  }
-
-  if (scenarioId === "performance_phase") {
-    testDate = addDays(today, 24);
-    tasks = [
-      task(
-        today,
-        "performance-warmup",
-        0,
-        0,
-        "skill_trainer",
-        "Numpad speed warm-up",
-        {
-          estimatedMinutes: 4,
-          sectionId: "qr",
-        },
-      ),
-      task(
-        today,
-        "performance-set",
-        0,
-        1,
-        "section_benchmark",
-        "Full QR set · exam speed",
-        {
-          estimatedMinutes: 28,
-          sectionId: "qr",
-        },
-      ),
-      task(today, "performance-review", 0, 2, "review", "Review full QR set", {
-        estimatedMinutes: 9,
-        launchConfig: { awaitingAttempt: true },
-      }),
-      task(today, "performance-mock", 3, 0, "mock", "Full UCAT mock 5"),
-      task(
-        today,
-        "performance-vr",
-        6,
-        0,
-        "section_benchmark",
-        "Full VR set · exam speed",
-      ),
-      task(today, "performance-mock-final", 10, 0, "mock", "Full UCAT mock 6"),
-      task(
-        today,
-        "performance-taper",
-        21,
-        0,
-        "practice",
-        "Light confidence practice",
-        {
-          estimatedMinutes: 15,
-        },
-      ),
-    ];
-  }
-
-  if (scenarioId === "capacity_gap") capacityWarning = true;
-  if (scenarioId === "provisional_date") testDate = null;
-
-  const todayTasks = tasks.filter((entry) => entry.scheduledDate === today);
+  const todayTasks = tasks.filter((task) => task.scheduledDate === today);
   const throughToday = tasks.filter(
-    (entry) => entry.scheduledDate <= today && entry.status !== "skipped",
+    (task) => task.scheduledDate <= today && task.status !== "skipped",
   );
   const completed = throughToday.filter(
-    (entry) => entry.status === "completed",
+    (task) => task.status === "completed",
   ).length;
-
   return {
     profile: {
+      ...profile,
       id: "study-plan-preview-profile",
-      studyPlanEnabled: true,
-      studySuggestionsEnabled: true,
-      targetScore: scenarioId === "performance_phase" ? 2450 : 2350,
-      testYear: Number((testDate ?? addDays(today, 180)).slice(0, 4)),
-      testDate,
-      availableDays: [1, 3, 5].map((weekday) => ({
-        weekday: weekday as 1 | 3 | 5,
-        maxMinutes: capacityWarning ? 20 : 60,
-      })),
-      preferredMockWeekday: 6,
-      planningDate: testDate ?? addDays(today, 120),
-      planningDateIsProvisional: testDate == null,
+      planningDate,
+      planningDateIsProvisional: scenarioId === "provisional_date",
       nextWeeklyReplanOn: addDays(today, 7),
     },
     generation: {
       id: "study-plan-preview-generation",
       generatedAt: `${today}T00:00:00.000Z`,
-      reason: "development_preview",
-      startsOn: addDays(today, -7),
-      endsOn: testDate ?? addDays(today, 120),
-      capacityRisk: {
-        level: capacityWarning ? "warning" : "none",
-        availableMinutesPerWeek: capacityWarning ? 60 : 180,
-        recommendedMinutesPerWeek: 150,
-        message: capacityWarning
-          ? "The student has 90 fewer minutes available than the plan recommends each week."
-          : null,
-      },
-      sectionTargets: { vr: 780, dm: 780, qr: 790 },
+      reason: "policy_sandbox",
+      startsOn: today,
+      endsOn: generated.endsOn,
+      capacityRisk: generated.capacityRisk,
+      sectionTargets: generated.sectionTargets,
+      readiness: generated.readiness,
     },
     tasks,
     nextSteps: [],
@@ -407,8 +409,15 @@ function makePlan(
   };
 }
 
-export function StudyPlanPreviewPage() {
+export function StudyPlanPreviewPage({
+  embedded = false,
+  initialScenario = "typical_week",
+}: {
+  embedded?: boolean;
+  initialScenario?: PreviewScenarioId;
+} = {}) {
   const [scenarioId, setScenarioId] = useState<PreviewScenarioId>(() => {
+    if (embedded) return initialScenario;
     if (typeof window === "undefined") return "typical_week";
     const requested = new URLSearchParams(window.location.search).get(
       "scenario",
@@ -417,55 +426,170 @@ export function StudyPlanPreviewPage() {
       ? (requested as PreviewScenarioId)
       : "typical_week";
   });
-  const scenario = SCENARIOS.find((candidate) => candidate.id === scenarioId)!;
+  const selectedScenario =
+    SCENARIOS.find((scenario) => scenario.id === scenarioId) ?? SCENARIOS[0]!;
+  const [settings, setSettings] = useState<SandboxSettings>(
+    selectedScenario.settings,
+  );
   const today = todayIso();
-  const plan = useMemo(() => makePlan(today, scenarioId), [scenarioId, today]);
+  const plan = useMemo(
+    () => makePlan(today, scenarioId, settings),
+    [scenarioId, settings, today],
+  );
+
+  function chooseScenario(next: PreviewScenarioId) {
+    const scenario = SCENARIOS.find((candidate) => candidate.id === next);
+    if (!scenario) return;
+    setScenarioId(next);
+    setSettings(scenario.settings);
+    window.history.replaceState(
+      null,
+      "",
+      `/study-plan/preview?scenario=${next}`,
+    );
+  }
 
   return (
     <div className="space-y-7 pb-8">
-      <div className="flex flex-col gap-3 rounded-2xl border bg-muted/25 p-4 sm:flex-row sm:items-end sm:justify-between">
-        <div>
-          <Badge variant="secondary">Development preview</Badge>
-          <h1 className="mt-2 text-2xl font-semibold">Study plan state lab</h1>
-          <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
-            {scenario.description} Preview controls are intentionally disabled
-            and never write to student data.
-          </p>
+      {!embedded ? (
+        <div className="space-y-4 rounded-2xl border bg-muted/25 p-4">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+            <div>
+              <Badge variant="secondary">Deterministic policy sandbox</Badge>
+              <h1 className="mt-2 text-2xl font-semibold">
+                Study plan state lab
+              </h1>
+              <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
+                {selectedScenario.description} These controls run the real
+                planner locally and never write to student data.
+              </p>
+            </div>
+            <label className="text-sm font-medium">
+              Scenario
+              <select
+                value={scenarioId}
+                onChange={(event) =>
+                  chooseScenario(event.target.value as PreviewScenarioId)
+                }
+                className="mt-1 block min-w-64 rounded-lg border bg-background px-3 py-2 text-sm"
+              >
+                {SCENARIOS.map((scenario) => (
+                  <option key={scenario.id} value={scenario.id}>
+                    {scenario.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </div>
+
+          {scenarioId !== "no_plan" ? (
+            <div className="grid gap-3 border-t pt-4 sm:grid-cols-2 lg:grid-cols-5">
+              <label className="text-xs font-medium text-muted-foreground">
+                Days until exam
+                <input
+                  type="number"
+                  min={1}
+                  max={540}
+                  value={settings.daysUntilExam}
+                  onChange={(event) =>
+                    setSettings((current) => ({
+                      ...current,
+                      daysUntilExam: Math.max(1, Number(event.target.value)),
+                    }))
+                  }
+                  className="mt-1 w-full rounded-lg border bg-background px-3 py-2 text-sm text-foreground"
+                />
+              </label>
+              <label className="text-xs font-medium text-muted-foreground">
+                Available days/week
+                <input
+                  type="number"
+                  min={1}
+                  max={7}
+                  value={settings.availableDayCount}
+                  onChange={(event) =>
+                    setSettings((current) => ({
+                      ...current,
+                      availableDayCount: Math.max(
+                        1,
+                        Math.min(7, Number(event.target.value)),
+                      ),
+                    }))
+                  }
+                  className="mt-1 w-full rounded-lg border bg-background px-3 py-2 text-sm text-foreground"
+                />
+              </label>
+              <label className="text-xs font-medium text-muted-foreground">
+                Evidence stage
+                <select
+                  value={settings.evidenceStage}
+                  onChange={(event) =>
+                    setSettings((current) => ({
+                      ...current,
+                      evidenceStage: event.target.value as EvidenceStage,
+                    }))
+                  }
+                  className="mt-1 w-full rounded-lg border bg-background px-3 py-2 text-sm text-foreground"
+                >
+                  <option value="new">New</option>
+                  <option value="mixed">Mixed readiness</option>
+                  <option value="ready">Timing ready</option>
+                </select>
+              </label>
+              <label className="text-xs font-medium text-muted-foreground">
+                Natural pace
+                <input
+                  type="number"
+                  min={0.5}
+                  max={1.3}
+                  step={0.1}
+                  value={settings.naturalPace}
+                  onChange={(event) =>
+                    setSettings((current) => ({
+                      ...current,
+                      naturalPace: Math.max(
+                        0.5,
+                        Math.min(1.3, Number(event.target.value)),
+                      ),
+                    }))
+                  }
+                  className="mt-1 w-full rounded-lg border bg-background px-3 py-2 text-sm text-foreground"
+                />
+              </label>
+              <label className="text-xs font-medium text-muted-foreground">
+                Target score
+                <input
+                  type="number"
+                  min={900}
+                  max={2700}
+                  step={50}
+                  value={settings.targetScore}
+                  onChange={(event) =>
+                    setSettings((current) => ({
+                      ...current,
+                      targetScore: Number(event.target.value),
+                    }))
+                  }
+                  className="mt-1 w-full rounded-lg border bg-background px-3 py-2 text-sm text-foreground"
+                />
+              </label>
+            </div>
+          ) : null}
         </div>
-        <label className="text-sm font-medium">
-          Scenario
-          <select
-            value={scenarioId}
-            onChange={(event) => {
-              const next = event.target.value as PreviewScenarioId;
-              setScenarioId(next);
-              window.history.replaceState(
-                null,
-                "",
-                `/study-plan/preview?scenario=${next}`,
-              );
-            }}
-            className="mt-1 block min-w-64 rounded-lg border bg-background px-3 py-2 text-sm"
-          >
-            {SCENARIOS.map((option) => (
-              <option key={option.id} value={option.id}>
-                {option.label}
-              </option>
-            ))}
-          </select>
-        </label>
-      </div>
+      ) : null}
 
       <StudyPlanPage previewPlan={plan} />
 
-      <div className="flex flex-wrap gap-2">
-        <Button asChild variant="outline">
-          <Link href="/study-plan">Return to live Study plan</Link>
-        </Button>
-        <Button asChild variant="ghost">
-          <Link href="/dashboard/preview">Open dashboard preview</Link>
-        </Button>
-      </div>
+      {!embedded ? (
+        <div className="flex flex-wrap gap-2">
+          <Button asChild variant="outline">
+            <Link href="/study-plan">Return to live study plan</Link>
+          </Button>
+          <Button asChild variant="ghost">
+            <Link href="/dashboard/preview">Open dashboard preview</Link>
+          </Button>
+        </div>
+      ) : null}
     </div>
   );
 }

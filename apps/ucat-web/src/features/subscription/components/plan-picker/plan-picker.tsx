@@ -11,7 +11,6 @@ import { PaidTierPriceBlock } from "./paid-tier-price-block";
 import { PlanPickerCheckIcon } from "./plan-picker-check-icon";
 import { PlanPickerCta } from "./plan-picker-cta";
 import { PlanPickerPriceSkeleton } from "./plan-picker-price-skeleton";
-import { PlanUpgradeConfirmDialog } from "./plan-upgrade-confirm-dialog";
 import { PlanCancellationDialog } from "./plan-cancellation-dialog";
 import { planPickerCardMotionProps } from "./plan-picker-dialog-shell";
 import {
@@ -23,7 +22,7 @@ import { usePlanPicker } from "./use-plan-picker";
 
 const { typography: typo } = MARKETING_TOKENS;
 
-const ALL_PLAN_PICKER_TIERS: PlanPickerTier[] = ["free", "unlimited", "pro"];
+const ALL_PLAN_PICKER_TIERS: PlanPickerTier[] = ["free", "unlimited"];
 
 type PlanPickerProps = {
   variant?: "page" | "dialog" | "onboarding";
@@ -127,30 +126,19 @@ export function PlanPicker({
     freeIsCurrentPlan,
     isOnPaid,
     isOnUnlimited,
-    isOnPro,
     paidCta,
     unlimitedPricing,
-    proPricing,
     unlimitedAvailable,
-    proAvailable,
     unlimitedTierOffered,
-    proTierOffered,
     practiceDiscount,
     formatMoney,
     onlineFeatures,
-    proFeatures,
     freeQuotaAreas,
     formatFreeQuotaLine,
     handleFreePlanAction,
     handleOnlineSubscribe,
     canDowngradeTo,
     handleDowngrade,
-    upgradeConfirmOpen,
-    setUpgradeConfirmOpen,
-    upgradePreview,
-    upgradePreviewLoading,
-    upgradePreviewError,
-    upgradeConfirming,
     cancellationOpen,
     downgradeTarget,
     handleCancellationOpenChange,
@@ -166,14 +154,12 @@ export function PlanPicker({
     cancellationEarnedDiscountCurrency,
     cancellationPaidAccessEndsAt,
     cancellationCurrentPlanName,
-    confirmUpgradeToPro,
     omitAudPrefix,
   } = picker;
 
   const tiersToShow = visibleTiers ?? ALL_PLAN_PICKER_TIERS;
   const showFree = tiersToShow.includes("free");
   const showUnlimited = tiersToShow.includes("unlimited");
-  const showPro = tiersToShow.includes("pro");
   const isHorizontal = layout === "horizontal";
   const cardLayoutClass = isHorizontal ? "min-w-0 flex-1" : undefined;
 
@@ -191,7 +177,7 @@ export function PlanPicker({
             ? "mx-auto w-full max-w-5xl lg:grid-cols-2"
             : "lg:grid-cols-3",
         )
-      : "grid grid-cols-1 items-stretch gap-6 md:grid-cols-2 xl:grid-cols-3";
+      : "mx-auto grid max-w-5xl grid-cols-1 items-stretch gap-6 md:grid-cols-2";
 
   const cardPadding =
     isHorizontal || variant === "dialog" || variant === "onboarding"
@@ -200,7 +186,7 @@ export function PlanPicker({
 
   const intervalSelectorClass = isHorizontal ? "mb-6" : "mb-10";
 
-  const unlimitedIsCurrentPlan = isOnUnlimited && !isOnPro;
+  const unlimitedIsCurrentPlan = isOnUnlimited;
   const freeIsDowngrade =
     audience === "app" && canDowngradeTo("free") && !freeIsCurrentPlan;
   const unlimitedIsDowngrade =
@@ -532,145 +518,27 @@ export function PlanPicker({
             </PlanPickerCta>
           </PlanPickerCard>
         ) : null}
-
-        {/* UCAT Pro */}
-        {showPro ? (
-          <PlanPickerCard
-            animate={animateCards}
-            layoutClassName={cardLayoutClass}
-            className={cn(
-              "relative flex h-full flex-col justify-between overflow-hidden rounded-[2.5rem] bg-marketing-primary shadow-2xl ring-2 ring-marketing-accent/40 transition-all duration-300 hover:ring-marketing-accent/70",
-              cardPadding,
-              variant === "page" && !isHorizontal ? "md:scale-[1.03]" : "",
-            )}
-          >
-            <div className="absolute left-0 top-0 h-40 w-40 rounded-br-full bg-marketing-accent/10 blur-3xl" />
-
-            <div>
-              <span
-                className={`text-xs font-bold uppercase tracking-widest text-marketing-accent ${typo.dataMono}`}
-              >
-                Online + tutors
-              </span>
-              <h3
-                className={`mt-3 text-2xl font-bold text-marketing-cream ${typo.headingSans}`}
-              >
-                UCAT Pro
-              </h3>
-              <p
-                className={`mt-3 text-sm text-marketing-cream/60 ${typo.secondarySans}`}
-              >
-                Everything in Unlimited, plus workshops, on-demand tutor help,
-                and monthly 1-1 performance reviews.
-              </p>
-              {cfg.trialDays > 0 && !isOnPaid ? (
-                <p
-                  className={`mt-4 inline-flex rounded-full bg-marketing-accent/15 px-3 py-1 text-xs font-semibold text-marketing-accent ${typo.secondarySans}`}
-                >
-                  {cfg.trialDays}-day UCAT Unlimited trial for eligible new
-                  students
-                </p>
-              ) : null}
-
-              {isPricingLoading ? (
-                <PlanPickerPriceSkeleton featured />
-              ) : proPricing ? (
-                <PaidTierPriceBlock
-                  pricing={proPricing}
-                  formatMoney={formatMoney}
-                  billingInterval={billingInterval}
-                  minQuestionsPerDay={cfg.minQuestionsPerDay}
-                  discountPerDayCents={discountRule.discountPerDayCents}
-                  maxDiscountsPerPeriod={discountRule.maxDiscountsPerPeriod}
-                  featured
-                  surfaceTheme={surfaceTheme}
-                />
-              ) : (
-                <p
-                  className={`mt-6 text-sm text-marketing-cream/60 ${typo.secondarySans}`}
-                >
-                  Coming soon
-                </p>
-              )}
-
-              <p
-                className={`mt-6 text-sm font-semibold text-marketing-cream/80 ${typo.secondarySans}`}
-              >
-                Everything in Unlimited, plus
-              </p>
-              <ul className={`mt-3 space-y-2.5 text-sm ${typo.secondarySans}`}>
-                {proFeatures.map((f) => (
-                  <li
-                    key={f}
-                    className="flex items-start gap-2 text-marketing-accent"
-                  >
-                    <PlanPickerCheckIcon />
-                    <span className="text-marketing-cream/70">{f}</span>
-                  </li>
-                ))}
-              </ul>
-            </div>
-
-            <PlanPickerCta
-              variant="monthlyFeatured"
-              surfaceTheme={surfaceTheme}
-              isCurrentPlan={isOnPro}
-              disabled={
-                isPricingLoading ||
-                loadingPlan !== null ||
-                !proTierOffered ||
-                !proAvailable
-              }
-              onClick={() => void handleOnlineSubscribe("pro")}
-            >
-              {isOnPro
-                ? "Your current plan"
-                : isPricingLoading
-                  ? "Loading…"
-                  : isOnUnlimited && audience === "app"
-                    ? "Upgrade to Pro"
-                    : paidCtaLabel(
-                        proTierOffered,
-                        proAvailable,
-                        loadingPlan === "pro",
-                        audience === "marketing" ? "Sign up" : paidCta,
-                      )}
-            </PlanPickerCta>
-          </PlanPickerCard>
-        ) : null}
       </Grid>
 
       {audience === "app" ? (
-        <>
-          <PlanUpgradeConfirmDialog
-            open={upgradeConfirmOpen}
-            onOpenChange={setUpgradeConfirmOpen}
-            preview={upgradePreview}
-            previewLoading={upgradePreviewLoading}
-            previewError={upgradePreviewError}
-            confirming={upgradeConfirming}
-            omitAudPrefix={omitAudPrefix}
-            onConfirm={() => void confirmUpgradeToPro()}
-          />
-          <PlanCancellationDialog
-            open={cancellationOpen}
-            onOpenChange={handleCancellationOpenChange}
-            targetPlan={downgradeTarget}
-            currentPlanName={cancellationCurrentPlanName}
-            paidAccessEndsAt={cancellationPaidAccessEndsAt}
-            benefitsLost={cancellationBenefitsLost}
-            earnedDiscountCents={cancellationEarnedDiscountCents}
-            earnedDiscountCurrency={cancellationEarnedDiscountCurrency}
-            omitAudPrefix={omitAudPrefix}
-            reason={cancellationReason}
-            onReasonChange={setCancellationReason}
-            comment={cancellationComment}
-            onCommentChange={setCancellationComment}
-            confirming={cancellationConfirming}
-            error={cancellationError}
-            onConfirm={() => void confirmDowngrade()}
-          />
-        </>
+        <PlanCancellationDialog
+          open={cancellationOpen}
+          onOpenChange={handleCancellationOpenChange}
+          targetPlan={downgradeTarget}
+          currentPlanName={cancellationCurrentPlanName}
+          paidAccessEndsAt={cancellationPaidAccessEndsAt}
+          benefitsLost={cancellationBenefitsLost}
+          earnedDiscountCents={cancellationEarnedDiscountCents}
+          earnedDiscountCurrency={cancellationEarnedDiscountCurrency}
+          omitAudPrefix={omitAudPrefix}
+          reason={cancellationReason}
+          onReasonChange={setCancellationReason}
+          comment={cancellationComment}
+          onCommentChange={setCancellationComment}
+          confirming={cancellationConfirming}
+          error={cancellationError}
+          onConfirm={() => void confirmDowngrade()}
+        />
       ) : null}
     </div>
   );

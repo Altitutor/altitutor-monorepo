@@ -110,7 +110,6 @@ export async function fetchPublicSubscriptionConfig(): Promise<PublicUcatSubscri
           ? practiceDayDiscounts
           : defaultPublicSubscriptionConfig.practiceDayDiscounts,
       unlimitedProductConfigured: data.unlimitedProductConfigured === true,
-      proProductConfigured: data.proProductConfigured === true,
     };
   } catch {
     return defaultPublicSubscriptionConfig;

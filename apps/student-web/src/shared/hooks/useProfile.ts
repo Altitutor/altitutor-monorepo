@@ -1,11 +1,16 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { profileApi, type StudentProfileUpdate } from '@/shared/api/profile';
 import { useToast } from '@altitutor/ui';
+import { useAuth } from '@/features/auth';
 
 export function useProfile() {
+  const { session, isLoading } = useAuth();
+
   return useQuery({
     queryKey: ['student', 'profile'],
     queryFn: profileApi.getProfile,
+    enabled: !isLoading && Boolean(session),
+    retry: false,
   });
 }
 

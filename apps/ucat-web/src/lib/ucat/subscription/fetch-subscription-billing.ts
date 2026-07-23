@@ -33,35 +33,49 @@ type SelectedSubscriptionRow = Pick<
   | "updated_at"
 >;
 
-async function getUcatSubjectId(
-  supabase: SupabaseClient<Database>,
+const SUBSCRIPTION_SELECT =
+  "id, status, current_period_start, current_period_end, cancel_at_period_end, cancel_at, stripe_subscription_id, stripe_price_id, plan_tier, billing_interval, billing_recovery_invoice_id, billing_recovery_started_at, billing_recovery_next_attempt_at, billing_recovery_requires_action, created_at, updated_at";
+
+/**
+ * Optional UCAT subject filter for student-scoped subscription queries.
+ * Uses the authenticated helper RPC when available; otherwise returns null and
+ * callers should rely on vstudent_subscriptions (already current-student scoped).
+ */
+async function resolveUcatSubjectId(
+  userSupabase: SupabaseClient<Database>,
 ): Promise<string | null> {
-  const { data, error } = await supabase
+  const { data, error } = await userSupabase.rpc("get_ucat_subject_id");
+  if (!error && typeof data === "string" && data.length > 0) {
+    return data;
+  }
+
+  const { data: subject, error: subjectError } = await userSupabase
     .from("vstudent_subscription_subjects")
     .select("id")
     .eq("name", "UCAT")
     .maybeSingle();
 
-  if (error) throw error;
-  return data?.id ?? null;
+  if (subjectError) throw subjectError;
+  return subject?.id ?? null;
 }
 
 async function fetchUcatSubscription(
   supabase: SupabaseClient<Database>,
 ): Promise<UcatSubscriptionRow | null> {
-  const ucatSubjectId = await getUcatSubjectId(supabase);
-  if (!ucatSubjectId) return null;
+  const ucatSubjectId = await resolveUcatSubjectId(supabase);
 
-  const { data, error } = await supabase
+  let query = supabase
     .from("vstudent_subscriptions")
-    .select(
-      "id, status, current_period_start, current_period_end, cancel_at_period_end, cancel_at, stripe_subscription_id, stripe_price_id, plan_tier, billing_interval, billing_recovery_invoice_id, billing_recovery_started_at, billing_recovery_next_attempt_at, billing_recovery_requires_action, created_at, updated_at",
-    )
-    .eq("subject_id", ucatSubjectId)
+    .select(SUBSCRIPTION_SELECT)
     .in("status", [...MANAGEABLE_UCAT_SUBSCRIPTION_STATUSES])
     .order("updated_at", { ascending: false })
-    .limit(1)
-    .maybeSingle();
+    .limit(1);
+
+  if (ucatSubjectId) {
+    query = query.eq("subject_id", ucatSubjectId);
+  }
+
+  const { data, error } = await query.maybeSingle();
 
   if (error) throw error;
   if (!data?.id || !data.status || !data.stripe_subscription_id) return null;
@@ -126,16 +140,21 @@ function toSubscriptionRow(
 async function fetchUcatSubscriptions(
   supabase: SupabaseClient<Database>,
 ): Promise<UcatSubscriptionRow[]> {
-  const ucatSubjectId = await getUcatSubjectId(supabase);
-  if (!ucatSubjectId) return [];
+  const ucatSubjectId = await resolveUcatSubjectId(supabase);
 
-  const { data, error } = await supabase
+  // vstudent_subscriptions is already scoped to the current student. If the
+  // UCAT subject helper/RPC is temporarily unavailable, still return the
+  // student-scoped rows rather than an empty list.
+  let query = supabase
     .from("vstudent_subscriptions")
-    .select(
-      "id, status, current_period_start, current_period_end, cancel_at_period_end, cancel_at, stripe_subscription_id, stripe_price_id, plan_tier, billing_interval, billing_recovery_invoice_id, billing_recovery_started_at, billing_recovery_next_attempt_at, billing_recovery_requires_action, created_at, updated_at",
-    )
-    .eq("subject_id", ucatSubjectId)
+    .select(SUBSCRIPTION_SELECT)
     .order("updated_at", { ascending: false });
+
+  if (ucatSubjectId) {
+    query = query.eq("subject_id", ucatSubjectId);
+  }
+
+  const { data, error } = await query;
 
   if (error) throw error;
 
@@ -199,18 +218,15 @@ async function fetchUcatSubscriptionInvoices(
   supabase: SupabaseClient<Database>,
   subscriptionIds: string[],
 ): Promise<UcatSubscriptionInvoice[]> {
-  let query = supabase
+  if (subscriptionIds.length === 0) return [];
+
+  const { data: invoices, error } = await supabase
     .from("vstudent_invoices")
     .select("*")
     .eq("billing_source", "subscription")
+    .in("student_subscription_id", subscriptionIds)
     .order("invoice_date", { ascending: false })
     .order("created_at", { ascending: false });
-
-  if (subscriptionIds.length > 0) {
-    query = query.in("student_subscription_id", subscriptionIds);
-  }
-
-  const { data: invoices, error } = await query;
 
   if (error) throw error;
 

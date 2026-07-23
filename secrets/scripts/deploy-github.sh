@@ -97,11 +97,48 @@ deploy_github_secret() {
     fi
 }
 
+# Function to deploy a non-secret environment variable to GitHub Actions.
+# Provider enablement flags are configuration, while OAuth credentials remain secrets.
+deploy_github_variable() {
+    local variable_name=$1
+    local variable_value=$2
+    local target=$3
+
+    if [ -z "$variable_value" ]; then
+        echo -e "${YELLOW}  ⊘ Skipping $variable_name (empty value)${NC}"
+        return
+    fi
+
+    TOTAL_COUNT=$((TOTAL_COUNT + 1))
+
+    local gh_cmd=$(command -v gh)
+    if [ -z "$gh_cmd" ]; then
+        echo -e "${RED}  ✗ GitHub ($target variable): $variable_name (gh command not found)${NC}"
+        FAILURE_COUNT=$((FAILURE_COUNT + 1))
+        return
+    fi
+
+    local error_output=""
+    if error_output=$("$gh_cmd" variable set "$variable_name" --repo "$GITHUB_REPO" --env "$target" --body "$variable_value" 2>&1); then
+        echo -e "${GREEN}  ✓ GitHub ($target variable): $variable_name${NC}"
+        SUCCESS_COUNT=$((SUCCESS_COUNT + 1))
+    else
+        echo -e "${RED}  ✗ GitHub ($target variable): $variable_name${NC}"
+        echo -e "${YELLOW}    Error: $(echo "$error_output" | head -1)${NC}"
+        FAILURE_COUNT=$((FAILURE_COUNT + 1))
+    fi
+}
+
 should_deploy_github_environment_secret() {
     local key=$1
 
     # Vercel runtime-only secrets do not need to live in GitHub Actions.
     if [[ "$key" == "OPENROUTER_API_KEY" ]]; then
+        return 1
+    fi
+
+    # Social provider feature flags are GitHub Environment variables, not secrets.
+    if [[ "$key" =~ ^AUTH_(GOOGLE|APPLE)_ENABLED$ ]]; then
         return 1
     fi
 
@@ -132,8 +169,10 @@ echo -e "${YELLOW}GitHub Development Environment:${NC}"
     parse_env_file "$SECRETS_DIR/.env.shared"
     parse_env_file "$SECRETS_DIR/.env.development"
 } | while IFS='=' read -r key value; do
+    if [[ "$key" =~ ^AUTH_(GOOGLE|APPLE)_ENABLED$ ]]; then
+        deploy_github_variable "$key" "$value" "development"
     # Skip Vercel-specific secrets and derived vars that are only for Vercel
-    if should_deploy_github_environment_secret "$key"; then
+    elif should_deploy_github_environment_secret "$key"; then
         # Map SUPABASE_PROJECT_REF to SUPABASE_PROJECT_ID for consistency
         if [[ "$key" == "SUPABASE_PROJECT_REF" ]]; then
             deploy_github_secret "SUPABASE_PROJECT_ID" "$value" "development"
@@ -158,8 +197,10 @@ echo -e "${YELLOW}GitHub Production Environment:${NC}"
     parse_env_file "$SECRETS_DIR/.env.shared"
     parse_env_file "$SECRETS_DIR/.env.production"
 } | while IFS='=' read -r key value; do
+    if [[ "$key" =~ ^AUTH_(GOOGLE|APPLE)_ENABLED$ ]]; then
+        deploy_github_variable "$key" "$value" "production"
     # Skip Vercel-specific secrets and derived vars that are only for Vercel
-    if should_deploy_github_environment_secret "$key"; then
+    elif should_deploy_github_environment_secret "$key"; then
         # Map SUPABASE_PROJECT_REF to SUPABASE_PROJECT_ID for consistency
         if [[ "$key" == "SUPABASE_PROJECT_REF" ]]; then
             deploy_github_secret "SUPABASE_PROJECT_ID" "$value" "production"
@@ -209,6 +250,4 @@ fi
 print_summary
 
 exit $?
-
-
 

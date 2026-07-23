@@ -170,6 +170,8 @@ export function SignupOnboardingWizard({
     checkoutReturnedSuccessfully ? Date.now() : null,
   );
   const [details, setDetails] = useState({
+    email: initial.pendingEmail || initial.email,
+    pendingEmail: initial.pendingEmail,
     firstName: initial.firstName,
     lastName: initial.lastName,
     phone: initial.phone,
@@ -292,8 +294,7 @@ export function SignupOnboardingWizard({
     }
     const isPaid =
       access.onlineTier === "unlimited" ||
-      access.onlineTier === "unlimited_trial" ||
-      access.onlineTier === "pro";
+      access.onlineTier === "unlimited_trial";
     if (!isPaid) return;
 
     checkoutConfirmationStarted.current = true;
@@ -429,10 +430,14 @@ export function SignupOnboardingWizard({
 
               {step === SIGNUP_STEP.DETAILS ? (
                 <SignupCompleteDetailsStep
-                  email={initial.email}
+                  supabase={supabase}
+                  confirmedEmail={initial.email}
+                  initialEmail={details.email}
+                  pendingEmail={details.pendingEmail}
                   initialFirstName={details.firstName}
                   initialLastName={details.lastName}
                   initialPhone={details.phone}
+                  newsletterOptIn={initial.newsletterOptIn}
                   onComplete={(savedDetails) => {
                     setDetails(savedDetails);
                     goToStep(SIGNUP_STEP.PASSWORD, 1);

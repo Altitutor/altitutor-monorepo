@@ -41,13 +41,13 @@ export function FilePreviewModal({ isOpen, fileId, onClose }: FilePreviewModalPr
       try {
         const supabase = (getSupabaseClient() as SupabaseClient<Database>);
         const { data, error } = await supabase
-          .from('files')
+          .from('vtutor_files')
           .select('*')
           .eq('id', fileId)
           .single();
 
         if (error) throw error;
-        setFile(data);
+        setFile(data as Tables<'files'>);
       } catch (error) {
         console.error('Error loading file:', error);
       } finally {
@@ -126,4 +126,3 @@ export function FilePreviewModal({ isOpen, fileId, onClose }: FilePreviewModalPr
     </Dialog>
   );
 }
-

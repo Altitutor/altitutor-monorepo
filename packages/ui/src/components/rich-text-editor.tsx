@@ -842,7 +842,8 @@ export const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>
         class: cn(
           omitTypography
             ? [
-                'max-w-none focus:outline-none text-foreground text-sm dark:text-foreground not-prose',
+                /* Inherit parent color so white UCAT exam chrome stays readable in dark mode */
+                'max-w-none focus:outline-none text-inherit text-sm not-prose',
                 /* [&_.ProseMirror_*] not [&_*]: classes are on view.dom; [&_p] etc. break bulk-import highlight spans */
                 '[&_.ProseMirror_h1]:text-2xl [&_.ProseMirror_h2]:text-xl [&_.ProseMirror_h3]:text-lg',
                 '[&_.ProseMirror_h1]:font-semibold [&_.ProseMirror_h2]:font-semibold [&_.ProseMirror_h3]:font-semibold [&_.ProseMirror_h3]:tracking-tight',
@@ -877,7 +878,9 @@ export const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>
           /* Preflight clears list markers; [&_ol]/[&_ul] target view.dom children (tiptap/ProseMirror root) */
           '[&_ol]:list-decimal [&_ol]:pl-[1.625em] [&_ol]:[list-style-position:outside]',
           '[&_ul]:list-disc [&_ul]:pl-[1.625em] [&_ul]:[list-style-position:outside]',
-          '[&_li]:list-item [&_li]:marker:text-foreground',
+          omitTypography
+            ? '[&_li]:list-item [&_li]:marker:text-inherit'
+            : '[&_li]:list-item [&_li]:marker:text-foreground',
           '[&_p.is-empty.is-editor-empty:first-child::before]:content-[attr(data-placeholder)]',
           '[&_p.is-empty.is-editor-empty:first-child::before]:text-muted-foreground',
           '[&_p.is-empty.is-editor-empty:first-child::before]:float-left',

@@ -682,8 +682,7 @@ export function UcatQuestionsPage() {
     setBulkCategoryPending(true)
     try {
       await ucatQuestionsApi.bulkUpdateMetadata(Array.from(selectedStemIds), { categoryId: bulkCategoryId })
-      await queryClient.invalidateQueries({ queryKey: ucatKeys.questions('default') })
-      await queryClient.invalidateQueries({ queryKey: ucatKeys.questions('generated') })
+      await invalidateQuestionsListQueries()
       setBulkCategoryOpen(false)
       setBulkCategoryId(null)
       clearSelection()
@@ -699,8 +698,7 @@ export function UcatQuestionsPage() {
       await ucatQuestionsApi.bulkUpdateMetadata(Array.from(selectedStemIds), {
         accessScope: bulkVisibilityPrivate ? 'private' : 'public',
       })
-      await queryClient.invalidateQueries({ queryKey: ucatKeys.questions('default') })
-      await queryClient.invalidateQueries({ queryKey: ucatKeys.questions('generated') })
+      await invalidateQuestionsListQueries()
       setBulkVisibilityOpen(false)
       setBulkVisibilityPrivate(null)
       clearSelection()
@@ -755,14 +753,7 @@ export function UcatQuestionsPage() {
   const { toast } = useToast()
 
   async function invalidateQuestionsListQueries() {
-    await Promise.all([
-      queryClient.invalidateQueries({ queryKey: ucatKeys.questions('default') }),
-      queryClient.invalidateQueries({ queryKey: ucatKeys.questions('generated') }),
-      queryClient.invalidateQueries({ queryKey: ucatKeys.questionStemTagIds() }),
-      queryClient.invalidateQueries({ queryKey: ucatKeys.questionStemTypes() }),
-      queryClient.invalidateQueries({ queryKey: [...ucatKeys.questions('all'), 'search-texts'] }),
-      queryClient.invalidateQueries({ queryKey: ucatKeys.stemCatalog() }),
-    ])
+    await queryClient.invalidateQueries({ queryKey: ucatKeys.questions('all') })
   }
 
   function showStemDeleteSuccessToast(stemIds: string[]) {

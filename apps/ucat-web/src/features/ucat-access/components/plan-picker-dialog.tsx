@@ -11,7 +11,7 @@ import { formatQuotaPeriodLabel } from "@/features/ucat-access/lib/format-quota-
 import { UCAT_QUOTA_AREA_LABELS } from "@/features/ucat-access/types/quota";
 import { useUpsellDialog } from "@/features/ucat-access/context/upsell-dialog-context";
 
-const QUOTA_UPSELL_TIERS: PlanPickerTier[] = ["unlimited", "pro"];
+const QUOTA_UPSELL_TIERS: PlanPickerTier[] = ["unlimited"];
 
 export function PlanPickerDialog() {
   const router = useRouter();

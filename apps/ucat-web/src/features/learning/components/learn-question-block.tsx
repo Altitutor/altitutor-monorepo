@@ -107,6 +107,7 @@ export function LearnQuestionBlock({
               sourceId={`learn-block-${block.id}`}
               questionStems={[loadState.stem]}
               practice
+              reviewTiming="afterEachStem"
               confirmPracticeTransitions={false}
               timePerQuestionSeconds={null}
               learningModuleBlockId={block.id ?? undefined}
@@ -121,6 +122,7 @@ export function LearnQuestionBlock({
               sourceId={`learn-block-${block.id}`}
               standaloneQuestions={[loadState.question]}
               practice
+              reviewTiming="afterEachStem"
               confirmPracticeTransitions={false}
               timePerQuestionSeconds={null}
               learningModuleBlockId={block.id ?? undefined}

@@ -12,7 +12,7 @@ const TUTORIAL_QUESTIONS: QuestionEngineQuestion[] = [
   {
     id: "tutorial-question-1",
     stemId: "tutorial-stem-1",
-    sectionName: "Question engine tutorial",
+    sectionName: "Question interface tutorial",
     sectionDisplayColumns: 2,
     stemText:
       "Urban trees reduce summer temperatures by shading buildings and releasing water vapour. They also provide habitats for birds and insects. However, young trees require regular watering and protection while they become established.",
@@ -48,7 +48,7 @@ const TUTORIAL_QUESTIONS: QuestionEngineQuestion[] = [
   {
     id: "tutorial-question-2",
     stemId: "tutorial-stem-2",
-    sectionName: "Question engine tutorial",
+    sectionName: "Question interface tutorial",
     sectionDisplayColumns: 2,
     stemText:
       "Marine biologists use acoustic tags to follow the movement of fish. Receivers placed along the coast record a tagged fish whenever it swims nearby. The resulting data helps researchers identify feeding grounds and migration routes, although it cannot show where a fish travels between receivers.",

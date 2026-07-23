@@ -34,7 +34,6 @@ type VstudentUcatMyAccessRow = {
   ucat_signup_completed_at: string | null;
   unlimited_trial_eligible: boolean | null;
   /** @deprecated pre-migration column name */
-  pro_trial_eligible?: boolean | null;
 };
 
 const EMPTY_FLAGS: Omit<UcatAccessFlags, "isLoading" | "accessLoadFailed"> = {
@@ -65,9 +64,7 @@ function mapAccessRow(
     onboardingCompleted: Boolean(data.ucat_onboarding_completed_at),
     signupCompleted: Boolean(data.ucat_signup_completed_at),
     signupStep: data.ucat_signup_step ?? 1,
-    unlimitedTrialEligible: Boolean(
-      data.unlimited_trial_eligible ?? data.pro_trial_eligible,
-    ),
+    unlimitedTrialEligible: Boolean(data.unlimited_trial_eligible),
   };
 }
 

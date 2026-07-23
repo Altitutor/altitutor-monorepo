@@ -1,5 +1,6 @@
 import {
   activityIntensityLevel,
+  relativeActivityIntensityLevel,
   buildUcatCalendarMonths,
   localDateKey,
 } from "../ucat-month-calendar";
@@ -14,6 +15,15 @@ describe("activity intensity", () => {
     expect(activityIntensityLevel(6)).toBe(3);
     expect(activityIntensityLevel(9)).toBe(3);
     expect(activityIntensityLevel(10)).toBe(4);
+  });
+
+  it("scales against the busiest day in the month", () => {
+    expect(relativeActivityIntensityLevel(0, 20)).toBe(0);
+    expect(relativeActivityIntensityLevel(4, 20)).toBe(1);
+    expect(relativeActivityIntensityLevel(8, 20)).toBe(2);
+    expect(relativeActivityIntensityLevel(12, 20)).toBe(3);
+    expect(relativeActivityIntensityLevel(20, 20)).toBe(4);
+    expect(relativeActivityIntensityLevel(1, 1)).toBe(4);
   });
 });
 

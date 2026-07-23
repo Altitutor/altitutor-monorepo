@@ -110,7 +110,7 @@ export function MockAttemptsCard({
   const benchmark = lookupUcatAnzTotalPercentile(recentWeightedAverage);
   const insightBody =
     trend == null
-      ? "Use your next mock to Practice a consistent stuck-question rule. Afterwards, review the first avoidable miss in each section before changing your overall pace."
+      ? "Use your next mock to practise a consistent stuck-question rule. Afterwards, review the first avoidable miss in each section before changing your overall pace."
       : trend > 0
         ? `Your recent mock trajectory is up ${trend} points across the selected period. Check the section breakdown to see whether that improvement is balanced.`
         : trend < 0
@@ -126,16 +126,7 @@ export function MockAttemptsCard({
   return (
     <div className="space-y-6">
       <section className="relative isolate overflow-hidden border-b border-border/50 bg-gradient-to-b from-background via-muted/15 to-background px-5 py-6 sm:px-8 lg:px-10">
-        <div>
-          <h1 className="text-xl font-semibold tracking-tight sm:text-2xl">
-            Mock progress
-          </h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Full-mock scores over time, with the most useful context beside the
-            chart.
-          </p>
-        </div>
-        <div className="relative mt-3 min-h-[430px]">
+        <div className="relative min-h-[430px]">
           <ProgressGraph
             data={graphData}
             type="bar"
@@ -168,7 +159,7 @@ export function MockAttemptsCard({
             <div className="mt-3 flex items-end justify-between gap-4">
               <div>
                 <p className="text-sm text-muted-foreground">
-                  Recent-weighted average
+                  Weighted average
                 </p>
                 <p className="text-4xl font-semibold tabular-nums">
                   {recentWeightedAverage ?? "Pending"}
@@ -238,9 +229,6 @@ export function MockAttemptsCard({
             <p className="text-sm text-muted-foreground">Average mock score</p>
             <p className="mt-2 text-3xl font-semibold tabular-nums">
               {summary.averageScaledScore ?? "Pending"}
-            </p>
-            <p className="mt-1 text-xs text-muted-foreground">
-              Simple average across completed mocks
             </p>
           </CardContent>
         </Card>

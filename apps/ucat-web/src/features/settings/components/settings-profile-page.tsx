@@ -9,18 +9,27 @@ import { AppShellBottomFloatingDock, UcatPageHeader } from "@/features/layout";
 import { AppPageSkeleton } from "@/features/layout/components/app-page-skeleton";
 import { useAuth } from "@/features/auth";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
-import { UCAT_SURFACE_CARD, UCAT_SURFACE_MOTION } from "@/lib/ucat-surface-motion";
+import {
+  UCAT_SURFACE_CARD,
+  UCAT_SURFACE_MOTION,
+} from "@/lib/ucat-surface-motion";
 import { cn } from "@/lib/utils";
 import { SettingsRow } from "@/features/settings/components/settings-row";
 import { UCAT_PROFILE_QUERY_KEY } from "@/features/layout/hooks/use-ucat-profile";
 import { useUcatStaggerMotion } from "@/shared/hooks/use-ucat-stagger-motion";
 import { useLeaveGuard } from "@/shared/hooks/use-leave-guard";
 import { motion } from "motion/react";
+import type { SocialAuthProvider } from "@/features/auth/lib/social-auth";
+import { ConnectedSignInMethods } from "@/features/settings/components/connected-sign-in-methods";
 
 const SETTINGS_LEAVE_MESSAGE =
   "You have unsaved settings. Leave this page without saving?";
 
-export function SettingsProfilePage() {
+export function SettingsProfilePage({
+  enabledSocialProviders = [],
+}: {
+  enabledSocialProviders?: SocialAuthProvider[];
+}) {
   const router = useRouter();
   const queryClient = useQueryClient();
   const { toast } = useToast();
@@ -156,7 +165,10 @@ export function SettingsProfilePage() {
     }
     const origin = window.location.origin;
     const emailRedirectTo = `${origin}/auth/callback?next=${encodeURIComponent("/settings/profile")}`;
-    const { error } = await supabase.auth.updateUser({ email: next }, { emailRedirectTo });
+    const { error } = await supabase.auth.updateUser(
+      { email: next },
+      { emailRedirectTo },
+    );
     if (error) {
       toast({
         title: "Could not update email",
@@ -251,7 +263,7 @@ export function SettingsProfilePage() {
       <motion.div variants={itemVariants}>
         <UcatPageHeader
           title="My profile"
-          description="Email, name, and password"
+          description="Email, name, password, and sign-in methods"
           backHref="/settings"
           backLabel="All settings"
         />
@@ -259,7 +271,22 @@ export function SettingsProfilePage() {
 
       <motion.div
         variants={itemVariants}
-        className={cn("rounded-ucatShell p-6 sm:p-8", UCAT_SURFACE_CARD, UCAT_SURFACE_MOTION)}
+        className={cn(
+          "rounded-ucatShell p-6 sm:p-8",
+          UCAT_SURFACE_CARD,
+          UCAT_SURFACE_MOTION,
+        )}
+      >
+        <ConnectedSignInMethods enabledProviders={enabledSocialProviders} />
+      </motion.div>
+
+      <motion.div
+        variants={itemVariants}
+        className={cn(
+          "rounded-ucatShell p-6 sm:p-8",
+          UCAT_SURFACE_CARD,
+          UCAT_SURFACE_MOTION,
+        )}
       >
         <SettingsRow
           title="Email"
@@ -267,7 +294,10 @@ export function SettingsProfilePage() {
           control={
             <div className="w-full space-y-3 sm:max-w-md">
               <div className="space-y-1.5">
-                <Label htmlFor="current-email" className="text-muted-foreground">
+                <Label
+                  htmlFor="current-email"
+                  className="text-muted-foreground"
+                >
                   Current
                 </Label>
                 <Input
@@ -280,7 +310,8 @@ export function SettingsProfilePage() {
               </div>
               {pendingEmail ? (
                 <p className="text-sm text-amber-700 dark:text-amber-400">
-                  Pending change to <span className="font-medium">{pendingEmail}</span>. Confirm
+                  Pending change to{" "}
+                  <span className="font-medium">{pendingEmail}</span>. Confirm
                   via the message sent to that address.
                 </p>
               ) : null}
@@ -302,7 +333,11 @@ export function SettingsProfilePage() {
 
       <motion.div
         variants={itemVariants}
-        className={cn("rounded-ucatShell p-6 sm:p-8", UCAT_SURFACE_CARD, UCAT_SURFACE_MOTION)}
+        className={cn(
+          "rounded-ucatShell p-6 sm:p-8",
+          UCAT_SURFACE_CARD,
+          UCAT_SURFACE_MOTION,
+        )}
       >
         <SettingsRow
           title="Name"
@@ -329,8 +364,12 @@ export function SettingsProfilePage() {
                   />
                 </div>
               </div>
-              {nameError ? <p className="text-sm text-destructive">{nameError}</p> : null}
-              {nameMessage ? <p className="text-sm text-muted-foreground">{nameMessage}</p> : null}
+              {nameError ? (
+                <p className="text-sm text-destructive">{nameError}</p>
+              ) : null}
+              {nameMessage ? (
+                <p className="text-sm text-muted-foreground">{nameMessage}</p>
+              ) : null}
             </div>
           }
         />
@@ -338,7 +377,11 @@ export function SettingsProfilePage() {
 
       <motion.div
         variants={itemVariants}
-        className={cn("rounded-ucatShell p-6 sm:p-8", UCAT_SURFACE_CARD, UCAT_SURFACE_MOTION)}
+        className={cn(
+          "rounded-ucatShell p-6 sm:p-8",
+          UCAT_SURFACE_CARD,
+          UCAT_SURFACE_MOTION,
+        )}
       >
         <SettingsRow
           title="Password"
@@ -365,9 +408,13 @@ export function SettingsProfilePage() {
                   onChange={(e) => setConfirmPassword(e.target.value)}
                 />
               </div>
-              {passwordError ? <p className="text-sm text-destructive">{passwordError}</p> : null}
+              {passwordError ? (
+                <p className="text-sm text-destructive">{passwordError}</p>
+              ) : null}
               {passwordMessage ? (
-                <p className="text-sm text-muted-foreground">{passwordMessage}</p>
+                <p className="text-sm text-muted-foreground">
+                  {passwordMessage}
+                </p>
               ) : null}
               <Button
                 type="button"

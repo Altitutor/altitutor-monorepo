@@ -55,6 +55,20 @@ const defaultProps = {
 };
 
 describe("SignupSuccessTransition", () => {
+  it("welcomes a new student to Altitutor UCAT", () => {
+    render(
+      <SignupSuccessTransition
+        {...defaultProps}
+        journey="free"
+        phase="welcome"
+      />,
+    );
+
+    expect(
+      screen.getByRole("heading", { name: "Welcome to Altitutor UCAT" }),
+    ).toBeInTheDocument();
+  });
+
   it("uses Free-appropriate copy for a Free signup", () => {
     render(<SignupSuccessTransition {...defaultProps} journey="free" />);
 

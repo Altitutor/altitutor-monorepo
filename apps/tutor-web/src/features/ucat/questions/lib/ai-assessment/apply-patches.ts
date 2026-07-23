@@ -107,6 +107,36 @@ function optionLocation(values: UcatQuestionStemFormValues, id: string) {
   throw new Error('The suggested answer option no longer exists in the draft.')
 }
 
+/** Coerce form/DOM/model values so metadata accept is not blocked by string/number drift. */
+function normalizeDifficulty(value: unknown): number | null {
+  if (value == null || value === '') return null
+  if (typeof value === 'number') return Number.isFinite(value) ? value : null
+  if (typeof value === 'string') {
+    const trimmed = value.trim()
+    if (trimmed === '') return null
+    const parsed = Number(trimmed)
+    return Number.isFinite(parsed) ? parsed : null
+  }
+  return null
+}
+
+/** Accept seconds number, numeric string, or mm:ss from form / model before/after. */
+function normalizeTimeBurdenSeconds(value: unknown): number | null {
+  if (value == null || value === '') return null
+  if (typeof value === 'number') return Number.isFinite(value) ? value : null
+  if (typeof value === 'string') return parseTimeToSeconds(value)
+  return null
+}
+
+function normalizeMetadataExpectation(
+  field: Extract<UcatAssessmentPatch, { operation: 'set_metadata' }>['field'],
+  value: unknown,
+) {
+  if (field === 'difficulty') return normalizeDifficulty(value)
+  if (field === 'time_burden_seconds') return normalizeTimeBurdenSeconds(value)
+  return value
+}
+
 function metadataValue(
   values: UcatQuestionStemFormValues,
   patch: Extract<UcatAssessmentPatch, { operation: 'set_metadata' }>,
@@ -117,8 +147,8 @@ function metadataValue(
     throw new Error('The suggested stem metadata field is invalid.')
   }
   const question = values.questions[questionIndex(values, patch.targetId)]
-  if (patch.field === 'difficulty') return question.difficulty ?? null
-  if (patch.field === 'time_burden_seconds') return parseTimeToSeconds(question.timeBurdenSeconds ?? '')
+  if (patch.field === 'difficulty') return normalizeDifficulty(question.difficulty)
+  if (patch.field === 'time_burden_seconds') return normalizeTimeBurdenSeconds(question.timeBurdenSeconds)
   if (patch.field === 'tag_ids') return question.tagIds
   if (patch.field === 'question_type') return question.questionType
   throw new Error('The suggested question metadata field is invalid.')
@@ -261,7 +291,8 @@ export async function applyUcatAssessmentPatches(
         break
       }
       case 'set_metadata': {
-        if (!sameJson(metadataValue(values, patch), patch.before)) {
+        const expectedBefore = normalizeMetadataExpectation(patch.field, patch.before)
+        if (!sameJson(metadataValue(values, patch), expectedBefore)) {
           throw new Error('The metadata has changed since this suggestion was created.')
         }
         if (patch.targetKind === 'stem') {
@@ -272,9 +303,18 @@ export async function applyUcatAssessmentPatches(
         }
         const index = questionIndex(values, patch.targetId)
         const question = values.questions[index]
-        if (patch.field === 'difficulty' && (typeof patch.after === 'number' || patch.after === null)) question.difficulty = patch.after
-        else if (patch.field === 'time_burden_seconds' && (typeof patch.after === 'number' || patch.after === null)) {
-          question.timeBurdenSeconds = secondsToTimeString(patch.after)
+        if (patch.field === 'difficulty') {
+          const nextDifficulty = normalizeDifficulty(patch.after)
+          if (patch.after != null && patch.after !== '' && nextDifficulty == null) {
+            throw new Error('The suggested difficulty value is invalid.')
+          }
+          question.difficulty = nextDifficulty
+        } else if (patch.field === 'time_burden_seconds') {
+          const nextSeconds = normalizeTimeBurdenSeconds(patch.after)
+          if (patch.after != null && patch.after !== '' && nextSeconds == null) {
+            throw new Error('The suggested time burden value is invalid.')
+          }
+          question.timeBurdenSeconds = secondsToTimeString(nextSeconds)
         } else if (patch.field === 'tag_ids' && Array.isArray(patch.after) && patch.after.every((id) => typeof id === 'string')) {
           question.tagIds = patch.after
         } else if (patch.field === 'question_type' && (patch.after === 'multiple_choice' || patch.after === 'syllogism')) {

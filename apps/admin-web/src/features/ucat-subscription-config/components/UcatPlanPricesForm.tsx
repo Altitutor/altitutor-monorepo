@@ -14,7 +14,6 @@ import {
 
 const TIER_LABELS: Record<string, string> = {
   unlimited: "UCAT Unlimited",
-  pro: "UCAT Pro",
 };
 
 const INTERVAL_LABELS: Record<string, string> = {

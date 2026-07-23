@@ -9,6 +9,17 @@ import type {
   NumpadSpeedItemContent,
   QuickSyllogismItemContent,
 } from "@altitutor/shared";
+import {
+  DndContext,
+  DragOverlay,
+  KeyboardSensor,
+  PointerSensor,
+  useDraggable,
+  useDroppable,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from "@dnd-kit/core";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { cn } from "../../lib/cn";
 import { Button } from "../button";
@@ -27,7 +38,8 @@ import {
 
 const WORD_HIT_PADDING_PX = 3;
 
-export type SkillTrainerRichContentComponent = React.ComponentType<SkillTrainerRichContentProps>;
+export type SkillTrainerRichContentComponent =
+  React.ComponentType<SkillTrainerRichContentProps>;
 export type SkillTrainerFeedbackOrigin = { x: number; y: number };
 
 type PassageSegment = {
@@ -40,7 +52,9 @@ type PassageSegment = {
 
 const FIND_WORD_TOKEN_PATTERN = /[\p{L}\p{N}]+(?:['’-][\p{L}\p{N}]+)*/gu;
 
-function splitSegmentsIntoParagraphs(segments: PassageSegment[]): PassageSegment[][] {
+function splitSegmentsIntoParagraphs(
+  segments: PassageSegment[],
+): PassageSegment[][] {
   const paragraphs: PassageSegment[][] = [[]];
 
   for (const segment of segments) {
@@ -76,7 +90,9 @@ function splitTextIntoWordSegments(text: string): PassageSegment[] {
   return segments.length ? segments : [{ text: text || "\u00A0" }];
 }
 
-function getElementCenter(element: HTMLElement | null): SkillTrainerFeedbackOrigin | undefined {
+function getElementCenter(
+  element: HTMLElement | null,
+): SkillTrainerFeedbackOrigin | undefined {
   if (!element) return undefined;
   const rect = element.getBoundingClientRect();
   return {
@@ -140,7 +156,9 @@ export function FindWordTrainer({
     ) {
       return keywords;
     }
-    return shuffledKeywordIds.map((id) => byId.get(id)).filter(Boolean) as typeof keywords;
+    return shuffledKeywordIds
+      .map((id) => byId.get(id))
+      .filter(Boolean) as typeof keywords;
   }, [keywords, shuffledKeywordIds]);
   const activeKeywordId = draggingKeywordId ?? selectedKeywordId;
   const [selectionPrompt, setSelectionPrompt] = useState(false);
@@ -172,12 +190,20 @@ export function FindWordTrainer({
       const nextKeyword = displayKeywords[Number(event.key) - 1];
       if (!nextKeyword || placedIds.includes(nextKeyword.id)) return;
       event.preventDefault();
-      onSelectKeyword(selectedKeywordId === nextKeyword.id ? null : nextKeyword.id);
+      onSelectKeyword(
+        selectedKeywordId === nextKeyword.id ? null : nextKeyword.id,
+      );
     };
 
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [disabled, displayKeywords, onSelectKeyword, placedIds, selectedKeywordId]);
+  }, [
+    disabled,
+    displayKeywords,
+    onSelectKeyword,
+    placedIds,
+    selectedKeywordId,
+  ]);
 
   useEffect(() => {
     if (activeKeywordId) setSelectionPrompt(false);
@@ -200,7 +226,9 @@ export function FindWordTrainer({
   };
 
   const renderPassage = () => {
-    const paragraphs = splitSegmentsIntoParagraphs(splitTextIntoWordSegments(plain));
+    const paragraphs = splitSegmentsIntoParagraphs(
+      splitTextIntoWordSegments(plain),
+    );
 
     const handleWordClick = (characterIndex: number) => {
       if (disabled) return;
@@ -214,7 +242,9 @@ export function FindWordTrainer({
 
     return (
       <div
-        className={cn(activeKeywordId && !disabled ? "cursor-pointer" : "cursor-default")}
+        className={cn(
+          activeKeywordId && !disabled ? "cursor-pointer" : "cursor-default",
+        )}
         onClick={() => {
           if (!selectedKeywordId) {
             if (!disabled) showSelectionPrompt();
@@ -234,7 +264,9 @@ export function FindWordTrainer({
           submitWrongPlacement();
         }}
         onDragLeave={(event) => {
-          if (!event.currentTarget.contains(event.relatedTarget as Node | null)) {
+          if (
+            !event.currentTarget.contains(event.relatedTarget as Node | null)
+          ) {
             setDragTargetStart(null);
           }
         }}
@@ -260,7 +292,9 @@ export function FindWordTrainer({
                           event.preventDefault();
                           event.dataTransfer.dropEffect = "move";
                           setDragTargetStart((current) =>
-                            current === segment.start! ? current : segment.start!,
+                            current === segment.start!
+                              ? current
+                              : segment.start!,
                           );
                         }}
                         onDragEnter={(event) => {
@@ -269,7 +303,11 @@ export function FindWordTrainer({
                           setDragTargetStart(segment.start!);
                         }}
                         onDragLeave={(event) => {
-                          if (!event.currentTarget.contains(event.relatedTarget as Node | null)) {
+                          if (
+                            !event.currentTarget.contains(
+                              event.relatedTarget as Node | null,
+                            )
+                          ) {
                             setDragTargetStart((current) =>
                               current === segment.start! ? null : current,
                             );
@@ -337,7 +375,9 @@ export function FindWordTrainer({
                   disabled={disabled || placed}
                   onClick={() => {
                     setSelectionPrompt(false);
-                    onSelectKeyword(selectedKeywordId === keyword.id ? null : keyword.id);
+                    onSelectKeyword(
+                      selectedKeywordId === keyword.id ? null : keyword.id,
+                    );
                   }}
                   onDragStart={(event) => {
                     if (placed) {
@@ -353,8 +393,8 @@ export function FindWordTrainer({
                     placed
                       ? "border-border bg-muted text-muted-foreground opacity-60"
                       : selectedKeywordId === keyword.id
-                      ? "border-accent bg-accent text-accent-foreground shadow-sm"
-                      : "border-border hover:border-primary/50",
+                        ? "border-accent bg-accent text-accent-foreground shadow-sm"
+                        : "border-border hover:border-primary/50",
                   )}
                 >
                   {shortcutIndex < 9 ? (
@@ -381,12 +421,17 @@ export function FindWordTrainer({
               <p
                 key={selectionPromptShakeKey}
                 className="text-sm font-medium text-destructive"
-                style={{ animation: "skill-trainer-select-word-shake 180ms ease-in-out" }}
+                style={{
+                  animation:
+                    "skill-trainer-select-word-shake 180ms ease-in-out",
+                }}
               >
                 Select a word first.
               </p>
             ) : selectedKeywordId ? (
-              <p className="text-xs text-muted-foreground">Click the word where it appears.</p>
+              <p className="text-xs text-muted-foreground">
+                Click the word where it appears.
+              </p>
             ) : null}
           </div>
         </>
@@ -529,6 +574,11 @@ export function QuickSyllogismTrainer({
   onAnswer: (answer: boolean) => void;
 }) {
   const [dropped, setDropped] = useState<"yes" | "no" | null>(null);
+  const [dragging, setDragging] = useState<"yes" | "no" | null>(null);
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
+    useSensor(KeyboardSensor),
+  );
   const premises =
     Array.isArray(content.premises) && content.premises.length > 0
       ? content.premises
@@ -549,6 +599,13 @@ export function QuickSyllogismTrainer({
     onAnswer(choice === "yes");
   };
 
+  const handleDragEnd = (event: DragEndEvent) => {
+    setDragging(null);
+    if (event.over?.id !== "quick-syllogism-drop-target") return;
+    if (event.active.id === "quick-syllogism-yes") handleDrop("yes");
+    if (event.active.id === "quick-syllogism-no") handleDrop("no");
+  };
+
   return (
     <div className="mx-auto max-w-3xl space-y-6 py-4">
       {premises ? (
@@ -560,56 +617,91 @@ export function QuickSyllogismTrainer({
       ) : null}
       <div className="grid gap-4 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-start">
         <p className="text-lg font-medium leading-7">{conclusion}</p>
-        <div className="flex items-start justify-center gap-3">
-          <div
-            className="flex h-14 w-28 shrink-0 items-center justify-center rounded border border-dashed border-muted-foreground/50 bg-muted/30"
-            onDragOver={(e) => e.preventDefault()}
-            onDrop={(e) => {
-              e.preventDefault();
-              const choice = e.dataTransfer.getData("ucat-syllogism-choice") as "yes" | "no" | "";
-              if (choice === "yes" || choice === "no") handleDrop(choice);
-            }}
-          >
-            {dropped ? (
-              <span className="rounded border border-border bg-card px-4 py-2 text-sm font-medium text-card-foreground shadow-sm">
-                {dropped === "yes" ? "Yes" : "No"}
-              </span>
-            ) : (
-              <span className="text-xs text-muted-foreground">Drop answer</span>
-            )}
-          </div>
-          <div className="w-[92px] rounded border border-border bg-muted/50 px-2 py-2">
-            <div className="flex flex-col items-center gap-2">
-              <button
-                type="button"
-                draggable={!disabled}
-                disabled={disabled}
-                onClick={() => handleDrop("yes")}
-                onDragStart={(e) => {
-                  e.dataTransfer.setData("ucat-syllogism-choice", "yes");
-                  e.dataTransfer.effectAllowed = "copy";
-                }}
-                className="flex h-9 w-20 items-center justify-center rounded border border-border bg-card text-sm font-medium text-card-foreground shadow-sm"
-              >
-                Yes
-              </button>
-              <button
-                type="button"
-                draggable={!disabled}
-                disabled={disabled}
-                onClick={() => handleDrop("no")}
-                onDragStart={(e) => {
-                  e.dataTransfer.setData("ucat-syllogism-choice", "no");
-                  e.dataTransfer.effectAllowed = "copy";
-                }}
-                className="flex h-9 w-20 items-center justify-center rounded border border-border bg-card text-sm font-medium text-card-foreground shadow-sm"
-              >
-                No
-              </button>
+        <DndContext
+          sensors={sensors}
+          onDragStart={(event) =>
+            setDragging(
+              event.active.id === "quick-syllogism-yes" ? "yes" : "no",
+            )
+          }
+          onDragCancel={() => setDragging(null)}
+          onDragEnd={handleDragEnd}
+        >
+          <div className="flex items-start justify-center gap-3">
+            <QuickSyllogismDropTarget dropped={dropped} />
+            <div className="w-[92px] rounded border border-border bg-muted/50 px-2 py-2">
+              <div className="flex flex-col items-center gap-2">
+                <QuickSyllogismAnswerTile choice="yes" disabled={disabled} />
+                <QuickSyllogismAnswerTile choice="no" disabled={disabled} />
+              </div>
             </div>
           </div>
-        </div>
+          <DragOverlay>
+            {dragging ? (
+              <QuickSyllogismAnswerTileVisual choice={dragging} />
+            ) : null}
+          </DragOverlay>
+        </DndContext>
       </div>
+    </div>
+  );
+}
+
+function QuickSyllogismAnswerTileVisual({ choice }: { choice: "yes" | "no" }) {
+  return (
+    <span className="flex h-9 w-20 items-center justify-center rounded border border-border bg-card text-sm font-medium text-card-foreground shadow-sm">
+      {choice === "yes" ? "Yes" : "No"}
+    </span>
+  );
+}
+
+function QuickSyllogismAnswerTile({
+  choice,
+  disabled,
+}: {
+  choice: "yes" | "no";
+  disabled: boolean;
+}) {
+  const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
+    id: `quick-syllogism-${choice}`,
+    disabled,
+  });
+  return (
+    <button
+      ref={setNodeRef}
+      type="button"
+      disabled={disabled}
+      aria-label={`Drag ${choice === "yes" ? "Yes" : "No"} to the answer box`}
+      className={cn("touch-none", isDragging && "opacity-40")}
+      {...listeners}
+      {...attributes}
+    >
+      <QuickSyllogismAnswerTileVisual choice={choice} />
+    </button>
+  );
+}
+
+function QuickSyllogismDropTarget({
+  dropped,
+}: {
+  dropped: "yes" | "no" | null;
+}) {
+  const { isOver, setNodeRef } = useDroppable({
+    id: "quick-syllogism-drop-target",
+  });
+  return (
+    <div
+      ref={setNodeRef}
+      className={cn(
+        "flex h-14 w-28 shrink-0 items-center justify-center rounded border border-dashed border-muted-foreground/50 bg-muted/30 transition-colors",
+        isOver && "border-primary bg-primary/10",
+      )}
+    >
+      {dropped ? (
+        <QuickSyllogismAnswerTileVisual choice={dropped} />
+      ) : (
+        <span className="text-xs text-muted-foreground">Drop answer</span>
+      )}
     </div>
   );
 }
@@ -665,11 +757,12 @@ export function NumericTrainer({
           value={value}
           disabled={disabled}
           autoFocus={!disabled}
-        onChange={(e) => onChange(e.target.value)}
-        onKeyDown={(e) => {
-          if (e.key === "Enter") onSubmit(getElementCenter(submitButtonRef.current));
-        }}
-      />
+          onChange={(e) => onChange(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter")
+              onSubmit(getElementCenter(submitButtonRef.current));
+          }}
+        />
         <Button
           ref={submitButtonRef}
           type="button"
@@ -719,7 +812,9 @@ export function NumpadTrainer({
           <p className="text-sm font-medium">Your sequence</p>
           <div className="flex min-h-[40px] flex-wrap justify-center gap-1.5">
             {sequence.length === 0 ? (
-              <span className="text-sm text-muted-foreground">Press keys on the calculator…</span>
+              <span className="text-sm text-muted-foreground">
+                Press keys on the calculator…
+              </span>
             ) : (
               sequence.map((label, i) => (
                 <CalcKeyChip
@@ -751,7 +846,7 @@ export function NumpadTrainer({
             onKey={onCalcKey}
             onEquals={() => onSubmit(getElementCenter(submitButtonRef.current))}
             onBackspace={() => {
-              if (sequence.length > 0) onRemoveKey(sequence.length - 1);
+              onCalcKey("ON/C");
             }}
             showDisplay={false}
             captureKeyboardAlways
@@ -788,7 +883,8 @@ export function CalculatorMathsTrainer({
   onSubmit: (origin?: SkillTrainerFeedbackOrigin) => void;
   RichContent?: SkillTrainerRichContentComponent;
 }) {
-  const plainExpression = content.expression ?? extractPlainTextFromDoc(content.question ?? null);
+  const plainExpression =
+    content.expression ?? extractPlainTextFromDoc(content.question ?? null);
   const answerInputRef = useRef<HTMLInputElement>(null);
   const submitButtonRef = useRef<HTMLButtonElement>(null);
 
@@ -800,7 +896,11 @@ export function CalculatorMathsTrainer({
   useEffect(() => {
     if (disabled) return;
     const onKeyDown = (event: KeyboardEvent) => {
-      if (!event.altKey || (event.code !== "KeyC" && event.key.toLowerCase() !== "c")) return;
+      if (
+        !event.altKey ||
+        (event.code !== "KeyC" && event.key.toLowerCase() !== "c")
+      )
+        return;
       event.preventDefault();
       event.stopPropagation();
       if (answerFocused) {
@@ -844,14 +944,17 @@ export function CalculatorMathsTrainer({
               onFocus={onAnswerFocus}
               onChange={(e) => onChange(e.target.value)}
               onKeyDown={(e) => {
-                if (e.key === "Enter") onSubmit(getElementCenter(submitButtonRef.current));
+                if (e.key === "Enter")
+                  onSubmit(getElementCenter(submitButtonRef.current));
               }}
             />
             <Button
               ref={submitButtonRef}
               type="button"
               disabled={disabled || !value}
-              onClick={() => onSubmit(getElementCenter(submitButtonRef.current))}
+              onClick={() =>
+                onSubmit(getElementCenter(submitButtonRef.current))
+              }
             >
               Submit
               <span className="ml-2 rounded border border-border bg-muted px-1.5 py-0.5 text-[10px] font-semibold text-muted-foreground">
@@ -877,7 +980,9 @@ export function CalculatorMathsTrainer({
             active={!answerFocused && !disabled}
           />
         </div>
-        <p className="text-center text-xs text-muted-foreground">Alt+C switches input focus.</p>
+        <p className="text-center text-xs text-muted-foreground">
+          Alt+C switches input focus.
+        </p>
       </div>
     </div>
   );

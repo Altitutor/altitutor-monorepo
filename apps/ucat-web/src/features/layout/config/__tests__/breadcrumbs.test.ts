@@ -4,13 +4,16 @@ const ATTEMPT_ID = "5085d8f3-33e8-4c50-80ac-a57b42deaa88";
 const MOCK_ID = "e1117590-8d45-46b0-bdf0-438152dc6d1e";
 const SET_ID = "59b990a4-6777-4bd5-ad0f-a31a5c1911ba";
 const SESSION_ID = "a1b2c3d4-e5f6-7890-abcd-ef1234567890";
+const MODULE_ID = "40e0524f-93aa-4557-9b48-32de518f99a4";
 
 function labels(pathname: string): string[] {
   return getBreadcrumbItems(pathname).map((item) => item.label);
 }
 
 function hrefs(pathname: string): (string | undefined)[] {
-  return getBreadcrumbItems(pathname).map((item) => item.effectiveHref ?? undefined);
+  return getBreadcrumbItems(pathname).map(
+    (item) => item.effectiveHref ?? undefined,
+  );
 }
 
 describe("getBreadcrumbItems", () => {
@@ -19,13 +22,13 @@ describe("getBreadcrumbItems", () => {
   });
 
   it("omits structural segments on progress set-attempt section route", () => {
-    expect(
-      labels(`/progress/sections/3/set-attempts/${ATTEMPT_ID}`),
-    ).toEqual(["Progress", "Quantitative Reasoning", "Set attempt"]);
+    expect(labels(`/progress/sections/3/set-attempts/${ATTEMPT_ID}`)).toEqual([
+      "Progress",
+      "Quantitative Reasoning",
+      "Set attempt",
+    ]);
 
-    expect(
-      hrefs(`/progress/sections/3/set-attempts/${ATTEMPT_ID}`),
-    ).toEqual([
+    expect(hrefs(`/progress/sections/3/set-attempts/${ATTEMPT_ID}`)).toEqual([
       "/progress",
       "/progress/sections/3",
       `/progress/sections/3/set-attempts/${ATTEMPT_ID}`,
@@ -71,6 +74,19 @@ describe("getBreadcrumbItems", () => {
     expect(labels("/sets/sections/2")).toEqual(["Sets", "Decision Making"]);
   });
 
+  it("omits structural segments on learning module routes", () => {
+    expect(labels(`/learn/sections/1/${MODULE_ID}`)).toEqual([
+      "Learn",
+      "Verbal Reasoning",
+      "Learning module",
+    ]);
+    expect(hrefs(`/learn/sections/1/${MODULE_ID}`)).toEqual([
+      "/learn",
+      "/learn/sections/1",
+      `/learn/sections/1/${MODULE_ID}`,
+    ]);
+  });
+
   it("omits structural segments on session set detail route", () => {
     expect(labels(`/sessions/${SESSION_ID}/sets/${SET_ID}`)).toEqual([
       "Sessions",
@@ -89,7 +105,10 @@ describe("getBreadcrumbItems", () => {
 
   it("keeps settings hub on nested settings routes", () => {
     expect(labels("/settings/profile")).toEqual(["Settings", "My profile"]);
-    expect(hrefs("/settings/profile")).toEqual(["/settings", "/settings/profile"]);
+    expect(hrefs("/settings/profile")).toEqual([
+      "/settings",
+      "/settings/profile",
+    ]);
   });
 
   it("omits practice-sessions structural segment", () => {
@@ -97,5 +116,11 @@ describe("getBreadcrumbItems", () => {
       "Progress",
       "Practice session",
     ]);
+  });
+
+  it("names skill trainer attempts without exposing route slugs", () => {
+    expect(
+      labels(`/skill-trainer/quick-syllogism/results/${ATTEMPT_ID}`),
+    ).toEqual(["Skill trainer", "Quick syllogisms", "Attempt"]);
   });
 });

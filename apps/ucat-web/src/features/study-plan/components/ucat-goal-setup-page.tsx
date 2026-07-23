@@ -5,8 +5,9 @@ import { useRouter } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
 import { motion, useReducedMotion } from "motion/react";
 import { Alert, AlertDescription, AlertTitle, Skeleton } from "@altitutor/ui";
-import { ArrowLeft, ArrowRight, Target } from "lucide-react";
+import { ArrowRight, Target } from "lucide-react";
 import { saveStudyPlan } from "@/features/study-plan/api/study-plan";
+import { defaultSkippedGoalProfileInput } from "@/features/study-plan/lib/default-study-profile";
 import {
   STUDY_PLAN_QUERY_KEY,
   useStudyPlan,
@@ -73,6 +74,25 @@ export function UcatGoalSetupPage() {
         caught instanceof Error
           ? caught.message
           : "Could not save your UCAT goal.",
+      );
+    } finally {
+      setPending(false);
+    }
+  }
+
+  async function skipGoal() {
+    setPending(true);
+    setError(null);
+    try {
+      const nextPlan = await saveStudyPlan(defaultSkippedGoalProfileInput());
+      queryClient.setQueryData(STUDY_PLAN_QUERY_KEY, nextPlan);
+      await queryClient.invalidateQueries({ queryKey: STUDY_PLAN_QUERY_KEY });
+      router.replace("/dashboard");
+    } catch (caught) {
+      setError(
+        caught instanceof Error
+          ? caught.message
+          : "Could not continue without a goal.",
       );
     } finally {
       setPending(false);
@@ -155,10 +175,10 @@ export function UcatGoalSetupPage() {
           <button
             type="button"
             className={STUDY_SETUP_GHOST_BUTTON_CLASS}
-            onClick={() => router.replace("/dashboard")}
+            onClick={() => void skipGoal()}
+            disabled={pending}
           >
-            <ArrowLeft className="mr-2 inline h-4 w-4" aria-hidden />
-            Back
+            Skip for now
           </button>
           <button
             type="button"

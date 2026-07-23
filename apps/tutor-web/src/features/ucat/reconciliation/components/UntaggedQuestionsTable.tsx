@@ -225,7 +225,7 @@ export function UntaggedQuestionsTable({
       const result = await ucatQuestionsApi.addQuestionTagsBulk(updates)
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ucatKeys.reconciliation() }),
-        queryClient.invalidateQueries({ queryKey: ucatKeys.questions() }),
+        queryClient.invalidateQueries({ queryKey: ucatKeys.questions('all') }),
         queryClient.invalidateQueries({ queryKey: ucatKeys.stemCatalog() }),
       ])
       toast({

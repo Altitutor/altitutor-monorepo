@@ -19,6 +19,7 @@ import {
   useUpdateBlockProgress,
 } from "@/features/learning/hooks/use-learning";
 import { useQuotaLimitDialog } from "@/features/ucat-access/context/upsell-dialog-context";
+import { useStudyPlanCompanion } from "@/features/study-plan/context/study-plan-companion-context";
 import { LearnQuestionBlock } from "@/features/learning/components/learn-question-block";
 import { LearnSkillTrainerBlock } from "@/features/learning/components/learn-skill-trainer-block";
 import { LearningLessonContentsSidebar } from "@/features/learning/components/learning-lesson-contents-sidebar";
@@ -30,6 +31,7 @@ import { LearningLessonPageSkeleton } from "@/features/learning/components/learn
 import { formatBlockLabel } from "@/features/learning/lib/format-block-label";
 import { buildLessonAncestorPath } from "@/features/learning/lib/build-lesson-ancestors";
 import { getAdjacentLessons } from "@/features/learning/lib/flatten-lessons-for-nav";
+import { SECTION_NUMBER_TO_NAME } from "@/features/sets/lib/section-labels";
 import { quotaRouteFallback } from "@/features/ucat-access/lib/quota-route-fallback";
 import type { LearningModuleBlockRow } from "@/features/learning/types";
 import { QuotaExceededError } from "@/lib/ucat/quota/parse-quota-error";
@@ -38,14 +40,17 @@ import { useUcatStaggerMotion } from "@/shared/hooks/use-ucat-stagger-motion";
 
 type LearningLessonPageProps = {
   lessonId: string;
+  sectionNumber: number;
 };
 
+/** Body headings sit under the page title (`text-2xl font-semibold`). */
 const LEARNING_TEXT_CONTENT_CLASSNAME = cn(
   "text-foreground",
   "[&_.ProseMirror]:leading-relaxed",
-  "[&_.ProseMirror_h1]:mb-4 [&_.ProseMirror_h1]:mt-6 [&_.ProseMirror_h1]:text-3xl [&_.ProseMirror_h1]:font-bold [&_.ProseMirror_h1]:leading-tight",
-  "[&_.ProseMirror_h2]:mb-3 [&_.ProseMirror_h2]:mt-5 [&_.ProseMirror_h2]:text-2xl [&_.ProseMirror_h2]:font-semibold [&_.ProseMirror_h2]:leading-tight",
-  "[&_.ProseMirror_h3]:mb-2 [&_.ProseMirror_h3]:mt-4 [&_.ProseMirror_h3]:text-xl [&_.ProseMirror_h3]:font-semibold [&_.ProseMirror_h3]:leading-snug",
+  "[&_.ProseMirror_h1]:mb-3 [&_.ProseMirror_h1]:mt-6 [&_.ProseMirror_h1]:text-xl [&_.ProseMirror_h1]:font-semibold [&_.ProseMirror_h1]:tracking-tight [&_.ProseMirror_h1]:leading-tight",
+  "[&_.ProseMirror_h1:first-child]:mt-0",
+  "[&_.ProseMirror_h2]:mb-2 [&_.ProseMirror_h2]:mt-5 [&_.ProseMirror_h2]:text-lg [&_.ProseMirror_h2]:font-semibold [&_.ProseMirror_h2]:tracking-tight [&_.ProseMirror_h2]:leading-tight",
+  "[&_.ProseMirror_h3]:mb-2 [&_.ProseMirror_h3]:mt-4 [&_.ProseMirror_h3]:text-base [&_.ProseMirror_h3]:font-semibold [&_.ProseMirror_h3]:tracking-tight [&_.ProseMirror_h3]:leading-snug",
   "[&_.ProseMirror_blockquote]:my-4 [&_.ProseMirror_blockquote]:border-l-4 [&_.ProseMirror_blockquote]:border-primary/30 [&_.ProseMirror_blockquote]:pl-4 [&_.ProseMirror_blockquote]:italic [&_.ProseMirror_blockquote]:text-muted-foreground",
   "[&_.ProseMirror_pre]:my-4 [&_.ProseMirror_pre]:overflow-x-auto [&_.ProseMirror_pre]:rounded-md [&_.ProseMirror_pre]:bg-primary/10 [&_.ProseMirror_pre]:p-3 [&_.ProseMirror_pre]:font-mono [&_.ProseMirror_pre]:text-sm",
   "[&_.ProseMirror_code]:rounded [&_.ProseMirror_code]:bg-primary/10 [&_.ProseMirror_code]:px-1 [&_.ProseMirror_code]:py-0.5 [&_.ProseMirror_code]:font-mono [&_.ProseMirror_code]:text-[0.9em]",
@@ -105,6 +110,7 @@ function TextBlock({
       <RichContentBlock
         json={body ?? null}
         plainText=""
+        textTone="theme"
         className={LEARNING_TEXT_CONTENT_CLASSNAME}
         paragraphSpacing
       />
@@ -268,7 +274,10 @@ function LessonBlockContent({
   );
 }
 
-export function LearningLessonPage({ lessonId }: LearningLessonPageProps) {
+export function LearningLessonPage({
+  lessonId,
+  sectionNumber,
+}: LearningLessonPageProps) {
   const queryClient = useQueryClient();
   const { data, isLoading, error } = useLearningLesson(lessonId);
   const { data: allModules } = useLearningModules();
@@ -282,9 +291,13 @@ export function LearningLessonPage({ lessonId }: LearningLessonPageProps) {
   const [incompleteDialogOpen, setIncompleteDialogOpen] = useState(false);
   const blockRefs = useRef(new Map<string, HTMLDivElement>());
   const { openQuotaLimit } = useQuotaLimitDialog();
+  const { reportActivityCompletion, setActivityComplete } =
+    useStudyPlanCompanion();
+  const previousLessonCompleteRef = useRef<boolean | null>(null);
 
   useEffect(() => {
     setActiveIndex(0);
+    previousLessonCompleteRef.current = null;
   }, [lessonId]);
 
   useEffect(() => {
@@ -306,23 +319,58 @@ export function LearningLessonPage({ lessonId }: LearningLessonPageProps) {
   const isLessonComplete =
     lesson?.completed_at != null || completionPercent >= 100;
 
-  const { prev: prevLesson, next: nextLesson } = useMemo(
+  useEffect(() => {
+    setActivityComplete(isLessonComplete);
+    return () => setActivityComplete(false);
+  }, [isLessonComplete, setActivityComplete]);
+
+  useEffect(() => {
+    if (!lesson) return;
+    const previous = previousLessonCompleteRef.current;
+    previousLessonCompleteRef.current = isLessonComplete;
+    if (previous !== false || !isLessonComplete) return;
+    reportActivityCompletion({
+      title: "Learning module complete",
+      detail: lesson.title ?? "Your module progress has been saved.",
+    });
+  }, [isLessonComplete, lesson, reportActivityCompletion]);
+
+  const { next: nextLesson } = useMemo(
     () => getAdjacentLessons(lessonId, allModules ?? []),
     [allModules, lessonId],
   );
 
   const breadcrumbItems = useMemo((): UcatBreadcrumbItem[] => {
-    const items: UcatBreadcrumbItem[] = [{ label: "Learn", href: "/learn" }];
+    const sectionHref = `/learn/sections/${sectionNumber}`;
+    const items: UcatBreadcrumbItem[] = [
+      { label: "Learn", href: "/learn" },
+      {
+        label:
+          lesson?.section_name ??
+          SECTION_NUMBER_TO_NAME[sectionNumber] ??
+          `Section ${sectionNumber}`,
+        href: sectionHref,
+      },
+    ];
     for (const folder of buildLessonAncestorPath(lessonId, allModules ?? [])) {
       if (folder.title) {
-        items.push({ label: folder.title });
+        items.push({
+          label: folder.title,
+          href: `${sectionHref}#folder-${folder.id}`,
+        });
       }
     }
     if (lesson?.title) {
       items.push({ label: lesson.title });
     }
     return items;
-  }, [allModules, lesson?.title, lessonId]);
+  }, [
+    allModules,
+    lesson?.section_name,
+    lesson?.title,
+    lessonId,
+    sectionNumber,
+  ]);
 
   const isBlockComplete = useCallback(
     (block: LearningModuleBlockRow) => block.block_completed_at != null,
@@ -340,7 +388,7 @@ export function LearningLessonPage({ lessonId }: LearningLessonPageProps) {
         const index = blocks.findIndex((item) => item.id === block.id);
         return {
           id: block.id ?? `block-${index}`,
-          label: formatBlockLabel(block, index >= 0 ? index : 0),
+          label: formatBlockLabel(block),
         };
       }),
     [blocks, incompleteBlocks],
@@ -428,11 +476,16 @@ export function LearningLessonPage({ lessonId }: LearningLessonPageProps) {
   const handleConfirmMarkComplete = useCallback(() => {
     markLessonComplete.mutate(undefined, {
       onSuccess: () => {
+        previousLessonCompleteRef.current = true;
+        reportActivityCompletion({
+          title: "Learning module complete",
+          detail: lesson?.title ?? "Your module progress has been saved.",
+        });
         setCompleteDialogOpen(false);
         setActiveIndex(0);
       },
     });
-  }, [markLessonComplete]);
+  }, [lesson?.title, markLessonComplete, reportActivityCompletion]);
 
   const handleConfirmMarkIncomplete = useCallback(() => {
     resetLessonProgress.mutate(undefined, {
@@ -470,7 +523,7 @@ export function LearningLessonPage({ lessonId }: LearningLessonPageProps) {
             <UcatPageHeader
               title={lesson.title ?? "Lesson"}
               description={lesson.description ?? undefined}
-              backHref="/learn"
+              backHref={`/learn/sections/${sectionNumber}`}
               backLabel="All modules"
               breadcrumbItems={breadcrumbItems}
             />
@@ -508,7 +561,6 @@ export function LearningLessonPage({ lessonId }: LearningLessonPageProps) {
             onRequestMarkComplete={() => setCompleteDialogOpen(true)}
             onRequestMarkIncomplete={() => setIncompleteDialogOpen(true)}
             isResettingProgress={resetLessonProgress.isPending}
-            prevLesson={prevLesson}
             nextLesson={nextLesson}
           />
         </motion.div>
