@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createServerClient } from "@supabase/ssr";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@altitutor/shared";
 import { isAllowedBeforeSignupComplete } from "@/features/signup-onboarding/lib/signup-complete-paths";
 import { resolvePostAuthDestination } from "@/features/auth/lib/social-auth";
@@ -74,7 +75,7 @@ export async function middleware(request: NextRequest) {
     cookieOptions: {
       name: "student-auth",
     },
-  });
+  }) as unknown as SupabaseClient<Database>;
 
   const {
     data: { user },
