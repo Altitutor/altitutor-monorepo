@@ -26,11 +26,16 @@ export async function uploadGeneratedUcatImage(params: {
   mimeType: string
   filename: string
   sourcePrompt: string
+  tutorId?: string
 }) {
-  const userClient = createClient()
-  const { data: tutorId, error: tutorIdError } = await userClient.rpc('current_tutor_id')
-  if (tutorIdError || !tutorId) {
-    throw new Error('Failed to resolve tutor')
+  let tutorId = params.tutorId
+  if (!tutorId) {
+    const userClient = createClient()
+    const { data, error } = await userClient.rpc('current_tutor_id')
+    if (error || !data) {
+      throw new Error('Failed to resolve tutor')
+    }
+    tutorId = data
   }
 
   const service = getServiceRoleClient()

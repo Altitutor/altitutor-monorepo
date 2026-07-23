@@ -237,6 +237,12 @@
 - **UCAT content access scope** — The access rule for published question stems, question sets, mock exams, and learning module **lessons**: **public** content may appear in the relevant student pool or Learn catalog, while **private** content is accessible only through an explicit learning-module or session link. Access scope has no student-facing effect until the content is published. A public parent cannot contain a private child. Learning module **folders** do not use access scope for student visibility; a folder appears when it has at least one accessible descendant lesson.
   _Avoid_: Publication status, approval, visibility
 
+- **UCAT authoring MCP** — The remote, Supabase OAuth-authenticated Codex interface for reading UCAT authoring content and creating or editing draft/in-review learning module lessons, question-stem bundles, sets, and mocks. It is an additional authoring client alongside tutor-web, cannot publish or mutate published/top-level-deleted content, and attributes every mutation to the acting UCAT tutor.
+  _Avoid_: Tutor-web replacement, service-role authoring API, autonomous publisher
+
+- **UCAT authoring revision** — An opaque concurrency token returned with every MCP aggregate read and required by MCP updates or review submissions. The database checks it while holding the aggregate lock and rejects stale writes, requiring Codex to re-read and reconcile.
+  _Avoid_: Content version, publication revision, updated-at timestamp
+
 - **Deleted UCAT content** — A soft-deleted question stem, question set, mock exam, or learning module **lesson**. Deleted content is hidden from students and normal tutor lists and appears in the tutor Deleted view. Restoring deleted content always returns it to draft. Learning module folders may also be soft-deleted as catalog structure, but they do not participate in the content status lifecycle.
   _Avoid_: Archived content, unpublished content
 

@@ -1,7 +1,12 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { useDraggable, useDroppable } from '@dnd-kit/core'
+import { useDroppable } from '@dnd-kit/core'
+import {
+  SortableContext,
+  useSortable,
+  verticalListSortingStrategy,
+} from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import { BookOpen, ChevronRight, Folder, GripVertical } from 'lucide-react'
 import {
@@ -99,10 +104,11 @@ function LearningModuleHierarchyTreeNode({
   )
   const [expanded, setExpanded] = useState(depth === 0 || matchesSearch || hasMatchingDescendant)
 
-  const { attributes, listeners, setNodeRef: setDragRef, transform, isDragging } = useDraggable({
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: taxonomyDragId(node.id),
     disabled: !editMode,
   })
+  // Only folders accept nest-into drops. Lessons are sortable siblings only.
   const { setNodeRef: setDropRef, isOver } = useDroppable({
     id: taxonomyDropId(node.id),
     disabled: !editMode || node.kind !== 'folder',
@@ -114,13 +120,16 @@ function LearningModuleHierarchyTreeNode({
     }
   }, [hasMatchingDescendant, matchesSearch])
 
-  const dragStyle = transform ? { transform: CSS.Translate.toString(transform) } : undefined
+  const dragStyle = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+  }
   const toggleExpanded = () => {
     if (node.kind === 'folder') setExpanded((prev) => !prev)
   }
 
   return (
-    <li className="rounded-lg">
+    <li ref={setNodeRef} style={dragStyle} className={cn('rounded-lg', isDragging && 'opacity-40')}>
       <div
         ref={setDropRef}
         className={cn(
@@ -150,12 +159,7 @@ function LearningModuleHierarchyTreeNode({
         {editMode ? (
           <button
             type="button"
-            ref={setDragRef}
-            style={dragStyle}
-            className={cn(
-              'flex h-8 w-6 shrink-0 cursor-grab items-center justify-center rounded-md text-muted-foreground hover:bg-muted/80 active:cursor-grabbing',
-              isDragging && 'opacity-40',
-            )}
+            className="flex h-8 w-6 shrink-0 cursor-grab items-center justify-center rounded-md text-muted-foreground hover:bg-muted/80 active:cursor-grabbing"
             aria-label={`Drag ${node.title}`}
             {...attributes}
             {...listeners}
@@ -254,31 +258,35 @@ export function LearningModuleHierarchyTree({
     )
   }
 
+  const sortableIds = nodes.map((node) => taxonomyDragId(node.id))
+
   return (
     <TooltipProvider delayDuration={300}>
-      <ul className={cn('space-y-0', className)}>
-        {nodes.map((node) => (
-          <LearningModuleHierarchyTreeNode
-            key={node.id}
-            node={node}
-            onItemClick={onItemClick}
-            sectionId={sectionId}
-            searchQuery={searchQuery}
-            editMode={editMode}
-            getRowActions={getRowActions}
-            onInlineCreate={onInlineCreate}
-          />
-        ))}
-        {editMode && showRootInlineCreate && onInlineCreate ? (
-          <li>
-            <UcatInlineCreateLearningModule
+      <SortableContext items={sortableIds} strategy={verticalListSortingStrategy}>
+        <ul className={cn('space-y-0', className)}>
+          {nodes.map((node) => (
+            <LearningModuleHierarchyTreeNode
+              key={node.id}
+              node={node}
+              onItemClick={onItemClick}
               sectionId={sectionId}
-              parentId={null}
-              onCreate={onInlineCreate}
+              searchQuery={searchQuery}
+              editMode={editMode}
+              getRowActions={getRowActions}
+              onInlineCreate={onInlineCreate}
             />
-          </li>
-        ) : null}
-      </ul>
+          ))}
+          {editMode && showRootInlineCreate && onInlineCreate ? (
+            <li>
+              <UcatInlineCreateLearningModule
+                sectionId={sectionId}
+                parentId={null}
+                onCreate={onInlineCreate}
+              />
+            </li>
+          ) : null}
+        </ul>
+      </SortableContext>
     </TooltipProvider>
   )
 }

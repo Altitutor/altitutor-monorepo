@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import type { Editor } from '@tiptap/react'
 import { CheckCircle2, ExternalLink, FilePenLine, ListChecks, Send, Trash2 } from 'lucide-react'
-import { Button, useToast } from '@altitutor/ui'
+import { useToast } from '@altitutor/ui'
 import { UcatDialogShell } from '@/features/ucat/shared/dialog-shell'
 import { useUcatCopyId } from '@/features/ucat/shared/hooks/useUcatCopyId'
 import { buildCopyIdRowAction, summarizeLearningModuleBlock, withCopyIdDescription } from '@/features/ucat/shared/lib/copy-id-actions'
@@ -21,7 +21,6 @@ import { SegmentedControl } from '@/shared/components/segmented-control'
 import { useRouter } from 'next/navigation'
 import { useQueryClient } from '@tanstack/react-query'
 import { ucatKeys } from '@/features/ucat/shared/lib/query-keys'
-import { tutorBtnOutline } from '@/shared/lib/tutor-visual'
 
 type UcatLearningModuleDialogProps = {
   open: boolean
@@ -150,111 +149,59 @@ export function UcatLearningModuleDialog({
       : null
 
   const headerActions = moduleId ? (
-    <div className="flex items-center gap-2">
-      {!isFolder ? (
-        <div className="hidden items-center gap-2 sm:flex">
-          {status !== 'draft' ? (
-            <Button
-              type="button"
-              variant="outline"
-              className={tutorBtnOutline}
-              disabled={statusPending || editor.isSaving}
-              onClick={() => void handleSetStatus('draft')}
-            >
-              <FilePenLine className="mr-2 h-4 w-4" />
-              Move to draft
-            </Button>
-          ) : null}
-          {status === 'published' ? (
-            <Button
-              type="button"
-              variant="outline"
-              className={tutorBtnOutline}
-              disabled={statusPending || editor.isSaving}
-              onClick={() => void handleSetStatus('in_review')}
-            >
-              <ListChecks className="mr-2 h-4 w-4" />
-              Move to review
-            </Button>
-          ) : null}
-          {status === 'draft' ? (
-            <Button
-              type="button"
-              variant="outline"
-              className={tutorBtnOutline}
-              disabled={statusPending || editor.isSaving}
-              onClick={() => void handleSetStatus('in_review')}
-            >
-              <Send className="mr-2 h-4 w-4" />
-              Send for review
-            </Button>
-          ) : null}
-          {status === 'in_review' ? (
-            <Button
-              type="button"
-              disabled={statusPending || editor.isSaving}
-              onClick={() => void handleSetStatus('published')}
-            >
-              <CheckCircle2 className="mr-2 h-4 w-4" />
-              Publish
-            </Button>
-          ) : null}
-        </div>
-      ) : null}
-      <UcatRowActions
-        actions={[
-          ...(copyIdAction ? [copyIdAction] : []),
-          ...(!isFolder && status === 'draft'
-            ? [
-                {
-                  label: 'Send for review',
-                  icon: <Send className="h-4 w-4" />,
-                  onClick: () => void handleSetStatus('in_review'),
-                },
-              ]
-            : []),
-          ...(!isFolder && status === 'in_review'
-            ? [
-                {
-                  label: 'Publish',
-                  icon: <CheckCircle2 className="h-4 w-4" />,
-                  onClick: () => void handleSetStatus('published'),
-                },
-                {
-                  label: 'Move to draft',
-                  icon: <FilePenLine className="h-4 w-4" />,
-                  onClick: () => void handleSetStatus('draft'),
-                },
-              ]
-            : []),
-          ...(!isFolder && status === 'published'
-            ? [
-                {
-                  label: 'Move to review',
-                  icon: <ListChecks className="h-4 w-4" />,
-                  onClick: () => void handleSetStatus('in_review'),
-                },
-                {
-                  label: 'Move to draft',
-                  icon: <FilePenLine className="h-4 w-4" />,
-                  onClick: () => void handleSetStatus('draft'),
-                },
-              ]
-            : []),
-          {
-            label: 'Open in page',
-            icon: <ExternalLink className="h-4 w-4" />,
-            href: `/ucat/learning-modules/${moduleId}`,
-          },
-          {
-            label: 'Delete',
-            icon: <Trash2 className="h-4 w-4" />,
-            onClick: handleDelete,
-            destructive: true,
-          },
-        ]}
-      />
-    </div>
+    <UcatRowActions
+      actions={[
+        ...(copyIdAction ? [copyIdAction] : []),
+        ...(!isFolder && status === 'draft'
+          ? [
+              {
+                label: 'Send for review',
+                icon: <Send className="h-4 w-4" />,
+                onClick: () => void handleSetStatus('in_review'),
+              },
+            ]
+          : []),
+        ...(!isFolder && status === 'in_review'
+          ? [
+              {
+                label: 'Publish',
+                icon: <CheckCircle2 className="h-4 w-4" />,
+                onClick: () => void handleSetStatus('published'),
+              },
+              {
+                label: 'Move to draft',
+                icon: <FilePenLine className="h-4 w-4" />,
+                onClick: () => void handleSetStatus('draft'),
+              },
+            ]
+          : []),
+        ...(!isFolder && status === 'published'
+          ? [
+              {
+                label: 'Move to review',
+                icon: <ListChecks className="h-4 w-4" />,
+                onClick: () => void handleSetStatus('in_review'),
+              },
+              {
+                label: 'Move to draft',
+                icon: <FilePenLine className="h-4 w-4" />,
+                onClick: () => void handleSetStatus('draft'),
+              },
+            ]
+          : []),
+        {
+          label: 'Open in page',
+          icon: <ExternalLink className="h-4 w-4" />,
+          href: `/ucat/learning-modules/${moduleId}`,
+        },
+        {
+          label: 'Delete',
+          icon: <Trash2 className="h-4 w-4" />,
+          onClick: handleDelete,
+          destructive: true,
+        },
+      ]}
+    />
   ) : null
 
   if (!moduleId) return null

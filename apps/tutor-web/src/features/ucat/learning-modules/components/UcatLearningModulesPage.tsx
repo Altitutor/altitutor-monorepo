@@ -20,6 +20,11 @@ import {
   Input,
   SearchableSelect,
   Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
   TableActions,
   useToast,
 } from '@altitutor/ui'
@@ -80,7 +85,7 @@ import {
   type UcatContentStatus,
 } from '@/features/ucat/shared/types'
 import { SegmentedControl } from '@/shared/components/segmented-control'
-import { tutorBtnOutline, tutorCardCn } from '@/shared/lib/tutor-visual'
+import { tutorBtnOutline, tutorCardCn, tutorTableBodyRow, tutorTableHeaderRow, tutorTableShell } from '@/shared/lib/tutor-visual'
 import { NEW_MODULE_PLACEHOLDER_ID } from '@/features/ucat/learning-modules/components/UcatCreateLearningModuleDialog'
 import { useQueryClient } from '@tanstack/react-query'
 import { ucatKeys } from '@/features/ucat/shared/lib/query-keys'
@@ -414,6 +419,51 @@ export function UcatLearningModulesPage() {
     [copyId, handleDeleteModule],
   )
 
+  const handleSiblingReorder = useCallback(
+    async (itemId: string, overId: string) => {
+      const item = rowById.get(itemId)
+      const over = rowById.get(overId)
+      if (!item || !over || itemId === overId) return
+
+      const sameParent =
+        item.parent_ucat_learning_module_id === over.parent_ucat_learning_module_id &&
+        (item.parent_ucat_learning_module_id != null ||
+          item.ucat_section_id === over.ucat_section_id)
+
+      // Sortable reorder is same-parent only. Cross-folder moves use folder drop targets.
+      if (!sameParent) return
+
+      const siblings = activeRows
+        .filter((row) => {
+          if (row.parent_ucat_learning_module_id !== item.parent_ucat_learning_module_id) {
+            return false
+          }
+          if (item.parent_ucat_learning_module_id != null) return true
+          return row.ucat_section_id === item.ucat_section_id
+        })
+        .sort((a, b) => a.index - b.index)
+
+      const oldIndex = siblings.findIndex((row) => row.id === itemId)
+      const newIndex = siblings.findIndex((row) => row.id === overId)
+      if (oldIndex < 0 || newIndex < 0 || oldIndex === newIndex) return
+
+      const nextOrder = [...siblings]
+      const [moved] = nextOrder.splice(oldIndex, 1)
+      nextOrder.splice(newIndex, 0, moved)
+
+      try {
+        await reorderModules.mutateAsync(nextOrder.map((row, index) => ({ id: row.id, index })))
+      } catch (error) {
+        toast({
+          title: 'Could not reorder module',
+          description: error instanceof Error ? error.message : 'Unknown error',
+          variant: 'destructive',
+        })
+      }
+    },
+    [activeRows, reorderModules, rowById, toast],
+  )
+
   const handleReparent = useCallback(
     async (itemId: string, target: TaxonomyReparentTarget) => {
       const row = rowById.get(itemId)
@@ -444,25 +494,10 @@ export function UcatLearningModulesPage() {
           })
           return
         }
-      }
+        if (row.parent_ucat_learning_module_id === target.parentId) return
 
-      try {
-        if (target.type === 'root') {
-          const isSameRoot =
-            row.parent_ucat_learning_module_id == null && row.ucat_section_id === target.sectionId
-          await upsert.mutateAsync({
-            moduleId: itemId,
-            kind: row.kind,
-            title: row.title,
-            description: row.description,
-            ucatSectionId: target.sectionId,
-            parentId: null,
-            index: isSameRoot ? row.index : getNextLearningModuleIndex(activeRows, null),
-            accessScope: row.access_scope,
-          })
-        } else {
+        try {
           const parentSectionId = resolveRootSectionId(taxonomyRows, target.parentId)
-          const isSameParent = row.parent_ucat_learning_module_id === target.parentId
           await upsert.mutateAsync({
             moduleId: itemId,
             kind: row.kind,
@@ -470,10 +505,33 @@ export function UcatLearningModulesPage() {
             description: row.description,
             ucatSectionId: parentSectionId,
             parentId: target.parentId,
-            index: isSameParent ? row.index : getNextLearningModuleIndex(activeRows, target.parentId),
+            index: getNextLearningModuleIndex(activeRows, target.parentId),
             accessScope: row.access_scope,
           })
+        } catch (error) {
+          toast({
+            title: 'Could not move module',
+            description: error instanceof Error ? error.message : 'Unknown error',
+            variant: 'destructive',
+          })
         }
+        return
+      }
+
+      try {
+        const isSameRoot =
+          row.parent_ucat_learning_module_id == null && row.ucat_section_id === target.sectionId
+        if (isSameRoot) return
+        await upsert.mutateAsync({
+          moduleId: itemId,
+          kind: row.kind,
+          title: row.title,
+          description: row.description,
+          ucatSectionId: target.sectionId,
+          parentId: null,
+          index: getNextLearningModuleIndex(activeRows, null),
+          accessScope: row.access_scope,
+        })
       } catch (error) {
         toast({
           title: 'Could not move module',
@@ -707,7 +765,11 @@ export function UcatLearningModulesPage() {
               No modules match your search
             </div>
           ) : (
-            <TaxonomyHierarchyDndProvider allNodes={allHierarchyNodes} onReparent={handleReparent}>
+            <TaxonomyHierarchyDndProvider
+              allNodes={allHierarchyNodes}
+              onReparent={handleReparent}
+              onReorder={handleSiblingReorder}
+            >
               <div className="space-y-6">{sectionContent}</div>
             </TaxonomyHierarchyDndProvider>
           )}
@@ -726,49 +788,38 @@ export function UcatLearningModulesPage() {
           ) : (
             <p className="text-sm text-muted-foreground">Showing deleted lessons. Restore returns them to draft.</p>
           )}
-          <div className={tutorCardCn('overflow-hidden')}>
-            <Table>
-              <thead>
-                <tr>
-                  <th className="w-12">
+          <div className={tutorTableShell}>
+            <Table className="w-full table-fixed">
+              <TableHeader className="[&_tr]:border-b-0">
+                <TableRow className={tutorTableHeaderRow}>
+                  <TableHead className="w-12">
                     <Checkbox
                       checked={allVisibleSelected ? true : someVisibleSelected ? 'indeterminate' : false}
                       onCheckedChange={toggleSelectAllVisible}
                       aria-label="Select all visible lessons"
                     />
-                  </th>
-                  <th>Title</th>
-                  <th>Section</th>
-                  <th>Blocks</th>
-                  <th>Access</th>
-                  {showDeleted ? <th>Status</th> : null}
-                  <th className="w-28">Actions</th>
-                </tr>
-              </thead>
-              <tbody>
+                  </TableHead>
+                  <TableHead>Title</TableHead>
+                  <TableHead className="w-[180px]">Section</TableHead>
+                  <TableHead className="w-24">Blocks</TableHead>
+                  <TableHead className="w-28">Access</TableHead>
+                  {showDeleted ? <TableHead className="w-28">Status</TableHead> : null}
+                  <TableHead className="w-16" />
+                </TableRow>
+              </TableHeader>
+              <TableBody>
                 {lessonRows.length === 0 ? (
-                  <tr>
-                    <td
+                  <TableRow className={tutorTableBodyRow}>
+                    <TableCell
                       colSpan={showDeleted ? 7 : 6}
                       className="py-10 text-center text-sm text-muted-foreground"
                     >
                       {showDeleted ? 'No deleted lessons.' : 'No lessons in this tab.'}
-                    </td>
-                  </tr>
+                    </TableCell>
+                  </TableRow>
                 ) : (
                   lessonRows.map((row) => {
-                    const copyAction = buildCopyIdRowAction(
-                      [
-                        {
-                          label: 'Lesson',
-                          id: row.id,
-                          description: withCopyIdDescription(row.title),
-                        },
-                      ],
-                      copyId,
-                    )
                     const actions: UcatRowAction[] = [
-                      ...(copyAction ? [copyAction] : []),
                       ...(!showDeleted
                         ? [
                             {
@@ -843,21 +894,22 @@ export function UcatLearningModulesPage() {
                           ]),
                     ]
                     return (
-                      <tr
+                      <TableRow
                         key={row.id}
                         className={cn(
+                          tutorTableBodyRow,
                           row.deleted_at && 'bg-destructive/10',
                           selectedLessonIds.has(row.id) && 'bg-muted/50',
                         )}
                       >
-                        <td>
+                        <TableCell className="w-12">
                           <Checkbox
                             checked={selectedLessonIds.has(row.id)}
                             onCheckedChange={() => toggleSelection(row.id)}
                             aria-label={`Select lesson ${row.title}`}
                           />
-                        </td>
-                        <td>
+                        </TableCell>
+                        <TableCell>
                           {showDeleted ? (
                             <span className="font-medium">{row.title || 'Untitled lesson'}</span>
                           ) : (
@@ -869,23 +921,29 @@ export function UcatLearningModulesPage() {
                               {row.title || 'Untitled lesson'}
                             </button>
                           )}
-                        </td>
-                        <td className="text-sm text-muted-foreground">{row.section_name ?? '—'}</td>
-                        <td className="text-sm text-muted-foreground">{row.block_count}</td>
-                        <td>
+                        </TableCell>
+                        <TableCell className="text-sm text-muted-foreground">
+                          {row.section_name ?? '—'}
+                        </TableCell>
+                        <TableCell className="text-sm text-muted-foreground">{row.block_count}</TableCell>
+                        <TableCell>
                           <UcatVisibilityBadge isPrivate={row.access_scope === 'private'} />
-                        </td>
+                        </TableCell>
                         {showDeleted ? (
-                          <td className="capitalize text-sm text-muted-foreground">{row.status}</td>
+                          <TableCell className="capitalize text-sm text-muted-foreground">
+                            {row.status}
+                          </TableCell>
                         ) : null}
-                        <td>
-                          <UcatRowActions actions={actions} />
-                        </td>
-                      </tr>
+                        <TableCell className="w-16">
+                          <div className="flex justify-end">
+                            <UcatRowActions actions={actions} />
+                          </div>
+                        </TableCell>
+                      </TableRow>
                     )
                   })
                 )}
-              </tbody>
+              </TableBody>
             </Table>
           </div>
         </div>
