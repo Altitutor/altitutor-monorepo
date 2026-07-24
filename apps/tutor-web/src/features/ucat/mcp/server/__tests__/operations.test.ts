@@ -203,4 +203,34 @@ describe('UCAT MCP typed operations', () => {
       },
     })
   })
+
+  it('normalizes Markdown lesson blocks to structured TipTap/ProseMirror JSON', () => {
+    const block = blockFromInput({
+      blockType: 'text',
+      requireCompletionBeforeNext: true,
+      content: {
+        body: {
+          format: 'markdown',
+          value: '## Strategy\n\n- Eliminate impossible answers\n- Estimate before calculating',
+        },
+      },
+    })
+
+    expect(block.content.body).toMatchObject({
+      type: 'doc',
+      content: [
+        {
+          type: 'heading',
+          attrs: { level: 2 },
+        },
+        {
+          type: 'bulletList',
+          content: [
+            { type: 'listItem' },
+            { type: 'listItem' },
+          ],
+        },
+      ],
+    })
+  })
 })

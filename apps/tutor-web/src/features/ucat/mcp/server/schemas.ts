@@ -3,8 +3,18 @@ import { z } from 'zod'
 export const UcatContentTypeSchema = z.enum(['lesson', 'stem', 'set', 'mock'])
 export const UcatStatusSchema = z.enum(['draft', 'in_review', 'published'])
 export const UcatAccessScopeSchema = z.enum(['public', 'private'])
-export const RichTextSchema = z.union([z.string(), z.record(z.unknown())]).describe(
-  'Rich text. Prefer a plain string; the server converts it to TipTap/ProseMirror JSON. To preserve headings, lists, tables, marks, or embedded images, supply a TipTap/ProseMirror document object shaped like {"type":"doc","content":[...]}. Markdown is not parsed.',
+const MarkdownRichTextSchema = z.object({
+  format: z.literal('markdown'),
+  value: z.string(),
+}).describe(
+  'Model-friendly formatted text. Common Markdown headings, ordered and unordered lists, pipe tables, blockquotes, fenced code blocks, horizontal rules, links, inline code, bold, italic, and strike-through are converted to TipTap/ProseMirror JSON.',
+)
+export const RichTextSchema = z.union([
+  z.string(),
+  MarkdownRichTextSchema,
+  z.record(z.unknown()),
+]).describe(
+  'Rich text. Use a plain string for an unformatted paragraph, {"format":"markdown","value":"## Heading\\n\\n- Item"} for ordinary formatted authoring, or a native TipTap/ProseMirror document object shaped like {"type":"doc","content":[...]} for exact control and embedded images.',
 )
 export const NullableRichTextSchema = RichTextSchema.nullable()
 
@@ -153,10 +163,10 @@ const LearningModuleBlockCommonShape = {
 
 const TextBlockContentSchema = z.object({
   body: RichTextSchema.describe(
-    'The visible lesson text. Prefer a plain string. Advanced formatting may use a TipTap/ProseMirror document object.',
+    'The visible lesson text. Use a plain string, an explicit Markdown value, or a native TipTap/ProseMirror document.',
   ),
 }).passthrough().describe(
-  'Text-block payload. Example: {"body":"A concise explanation."}',
+  'Text-block payload. Examples: {"body":"A concise explanation."} or {"body":{"format":"markdown","value":"## Strategy\\n\\n- Eliminate impossible answers"}}.',
 )
 
 const VideoBlockContentSchema = z.object({
@@ -223,7 +233,7 @@ const LearningModuleBlockChangesSchema = z.object({
   blockType: z.enum(['text', 'video', 'file', 'question_stem', 'question', 'skill_trainer']).optional(),
   requireCompletionBeforeNext: z.boolean().optional(),
   content: z.record(z.unknown()).optional().describe(
-    'Replacement payload for the resulting block type. For text use {"body":"plain text"} or {"body":{"type":"doc","content":[...]}}; for video use {"url":"https://..."}.',
+    'Replacement payload for the resulting block type. For text use {"body":"plain text"}, {"body":{"format":"markdown","value":"## Heading\\n\\n- Item"}}, or a native TipTap/ProseMirror document in body; for video use {"url":"https://..."}.',
   ),
   questionStemId: z.string().uuid().nullable().optional(),
   questionId: z.string().uuid().nullable().optional(),

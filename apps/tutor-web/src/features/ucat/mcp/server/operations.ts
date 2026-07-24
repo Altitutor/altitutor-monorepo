@@ -7,6 +7,7 @@ import type {
   QuestionSetOperation,
   QuestionStemOperation,
 } from '@/features/ucat/mcp/server/schemas'
+import { aiTextToProseMirror } from '@/features/ucat/shared/lib/rich-text'
 
 type AccessScope = 'public' | 'private'
 
@@ -129,6 +130,13 @@ function asJson(value: unknown, fallback: Json): Json {
 
 export function toRichTextJson(value: string | Record<string, unknown> | null): Json | null {
   if (value === null) return null
+  if (
+    isRecord(value)
+    && value.format === 'markdown'
+    && typeof value.value === 'string'
+  ) {
+    return aiTextToProseMirror(value.value)
+  }
   if (typeof value !== 'string') return value as Json
   return {
     type: 'doc',

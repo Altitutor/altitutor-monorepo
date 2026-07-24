@@ -35,6 +35,13 @@ describe('UCAT MCP authoring schemas', () => {
     }).success).toBe(true)
   })
 
+  it('accepts explicit Markdown for model-friendly formatted rich text', () => {
+    expect(RichTextSchema.safeParse({
+      format: 'markdown',
+      value: '## Strategy\n\n- Eliminate impossible answers',
+    }).success).toBe(true)
+  })
+
   it('preserves the text-block contract through MCP JSON Schema conversion', () => {
     const jsonSchema = toJsonSchemaCompat(z.object({
       blocks: z.array(LearningModuleBlockSchema),
@@ -42,6 +49,7 @@ describe('UCAT MCP authoring schemas', () => {
     const serialized = JSON.stringify(jsonSchema)
 
     expect(serialized).toContain('"body"')
+    expect(serialized).toContain('"markdown"')
     expect(serialized).toContain('TipTap/ProseMirror')
     expect(serialized).toContain('"questionStemId"')
   })

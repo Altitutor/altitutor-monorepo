@@ -166,7 +166,7 @@ export function registerUcatMcpTools(server: McpServer): void {
     {
       title: 'Create a draft learning module',
       description:
-        'Create a lesson draft or a catalog folder. Folders have no draft/review lifecycle and may contain no blocks. Lessons always begin as drafts. For text blocks, use content: { body: "plain text" }; the server converts it to TipTap/ProseMirror JSON. Markdown is not parsed. Advanced formatting may be supplied as a native TipTap/ProseMirror document in body.',
+        'Create a lesson draft or a catalog folder. Folders have no draft/review lifecycle and may contain no blocks. Lessons always begin as drafts. For unformatted text blocks use content: { body: "plain text" }. Prefer content: { body: { format: "markdown", value: "## Heading\\n\\n- Item" } } for formatted authoring, including headings, lists, tables, quotes, code blocks, rules, links, and common inline marks. The server converts both forms to TipTap/ProseMirror JSON; native TipTap/ProseMirror documents remain available for exact control and embedded images.',
       inputSchema: {
         kind: z.enum(['folder', 'lesson']),
         title: z.string().trim().min(1).max(500),
@@ -195,7 +195,7 @@ export function registerUcatMcpTools(server: McpServer): void {
     {
       title: 'Update an editable learning module',
       description:
-        'Apply explicit typed metadata or block operations. Omission never deletes. Draft/in-review lessons and non-live folders are editable; published lessons and folders with published descendants are rejected. Text-block content uses { body: "plain text" } or a native TipTap/ProseMirror document; plain strings are converted by the server.',
+        'Apply explicit typed metadata or block operations. Omission never deletes. Draft/in-review lessons and non-live folders are editable; published lessons and folders with published descendants are rejected. Text-block content accepts { body: "plain text" }, { body: { format: "markdown", value: "## Heading\\n\\n- Item" } }, or a native TipTap/ProseMirror document; the server normalizes plain text and Markdown.',
       inputSchema: {
         id: z.string().uuid(),
         revision: z.string().min(1),
