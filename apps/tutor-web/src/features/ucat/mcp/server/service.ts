@@ -395,7 +395,7 @@ export async function searchUcatMcpContent(
 export async function getUcatMcpReferenceData(
   client: SupabaseClient<Database>,
 ): Promise<Record<string, unknown>> {
-  const [sections, categories, tags, modelProfiles] = await Promise.all([
+  const [sections, categories, tags, modelProfiles, skillTrainers] = await Promise.all([
     client.from('vtutor_ucat_sections').select('*').order('section_number'),
     client.from('vtutor_ucat_question_stem_categories').select('*').order('name'),
     client.from('vtutor_ucat_question_tags').select('*').order('name'),
@@ -404,8 +404,15 @@ export async function getUcatMcpReferenceData(
       .select('id,name,model,is_enabled,is_default,created_at,updated_at')
       .eq('is_enabled', true)
       .order('name'),
+    client
+      .from('vtutor_ucat_skill_trainers')
+      .select(
+        'id,key,name,description,ucat_section_id,section_name,section_number,is_enabled,item_count,approved_active_item_count',
+      )
+      .eq('is_enabled', true)
+      .order('sort_order'),
   ])
-  for (const result of [sections, categories, tags, modelProfiles]) {
+  for (const result of [sections, categories, tags, modelProfiles, skillTrainers]) {
     if (result.error) throw new Error(result.error.message)
   }
   return {
@@ -413,6 +420,7 @@ export async function getUcatMcpReferenceData(
     categories: categories.data ?? [],
     tags: tags.data ?? [],
     generationModelProfiles: modelProfiles.data ?? [],
+    skillTrainers: skillTrainers.data ?? [],
   }
 }
 

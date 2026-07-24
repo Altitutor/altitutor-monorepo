@@ -151,7 +151,7 @@ export function registerUcatMcpTools(server: McpServer): void {
     {
       title: 'Read UCAT authoring reference data',
       description:
-        'Read UCAT sections, stem categories, question tags, and enabled question-generation model profiles. Use these IDs instead of inventing references.',
+        'Read UCAT sections, stem categories, question tags, enabled question-generation model profiles, and enabled skill trainers. Skill trainers include their section, pedagogical description, and approved active item count; attach one only when its practice behavior supports the lesson and it has usable items. Use returned IDs instead of inventing references.',
       inputSchema: {},
       annotations: readOnlyAnnotations,
     },
