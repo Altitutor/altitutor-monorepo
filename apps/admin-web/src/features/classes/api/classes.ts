@@ -1026,14 +1026,19 @@ export const classesApi = {
   },
 
   /**
-   * Get count of active classes (ACTIVE status)
+   * Get count of active classes (ACTIVE status with at least one current enrollment).
+   * Excludes empty ACTIVE classes.
    */
   getActiveClassesCount: async (): Promise<number> => {
     const supabase = (getSupabaseClient() as SupabaseClient<Database>);
+    const nowIso = new Date().toISOString();
     const { count, error } = await supabase
       .from('classes')
-      .select('id', { count: 'exact', head: true })
-      .eq('status', 'ACTIVE');
+      .select('id, classes_students!inner(id)', { count: 'exact', head: true })
+      .eq('status', 'ACTIVE')
+      .or(`unenrolled_at.is.null,unenrolled_at.gt.${nowIso}`, {
+        foreignTable: 'classes_students',
+      });
     
     if (error) throw error;
     return count ?? 0;

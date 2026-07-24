@@ -33,7 +33,8 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
 
     // For protected routes
     if (!user && !loading) {
-      router.push('/login');
+      const requestedPath = `${pathname}${window.location.search}`;
+      router.push(`/login?next=${encodeURIComponent(requestedPath)}`);
     }
   }, [user, loading, pathname, router]);
 

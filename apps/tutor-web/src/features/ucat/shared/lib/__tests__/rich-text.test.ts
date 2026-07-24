@@ -60,4 +60,116 @@ describe("aiTextToProseMirror", () => {
       ],
     });
   });
+
+  it("converts common Markdown blocks and inline marks", () => {
+    expect(aiTextToProseMirror([
+      "> Check the wording carefully.",
+      "",
+      "Use `estimation`, read the [guide](https://example.test/guide), and avoid ~~guessing~~.",
+      "",
+      "```",
+      "const answer = 42",
+      "```",
+      "",
+      "---",
+    ].join("\n"))).toEqual({
+      type: "doc",
+      content: [
+        {
+          type: "blockquote",
+          content: [
+            {
+              type: "paragraph",
+              content: [{ type: "text", text: "Check the wording carefully." }],
+            },
+          ],
+        },
+        {
+          type: "paragraph",
+          content: [
+            { type: "text", text: "Use " },
+            { type: "text", text: "estimation", marks: [{ type: "code" }] },
+            { type: "text", text: ", read the " },
+            {
+              type: "text",
+              text: "guide",
+              marks: [{ type: "link", attrs: { href: "https://example.test/guide" } }],
+            },
+            { type: "text", text: ", and avoid " },
+            { type: "text", text: "guessing", marks: [{ type: "strike" }] },
+            { type: "text", text: "." },
+          ],
+        },
+        {
+          type: "codeBlock",
+          content: [{ type: "text", text: "const answer = 42" }],
+        },
+        { type: "horizontalRule" },
+      ],
+    });
+  });
+
+  it("preserves inline formatting inside lists and tables", () => {
+    expect(aiTextToProseMirror([
+      "- Use **elimination** and read the [guide](https://example.test/guide).",
+      "",
+      "| Method | Reminder |",
+      "|---|---|",
+      "| **Estimate** | Avoid `exact arithmetic` first |",
+    ].join("\n"))).toMatchObject({
+      content: [
+        {
+          type: "bulletList",
+          content: [
+            {
+              type: "listItem",
+              content: [
+                {
+                  content: expect.arrayContaining([
+                    { type: "text", text: "elimination", marks: [{ type: "bold" }] },
+                    {
+                      type: "text",
+                      text: "guide",
+                      marks: [{ type: "link", attrs: { href: "https://example.test/guide" } }],
+                    },
+                  ]),
+                },
+              ],
+            },
+          ],
+        },
+        {
+          type: "table",
+          content: [
+            { type: "tableRow" },
+            {
+              type: "tableRow",
+              content: [
+                {
+                  content: [
+                    {
+                      content: [
+                        { type: "text", text: "Estimate", marks: [{ type: "bold" }] },
+                      ],
+                    },
+                  ],
+                },
+                {
+                  content: [
+                    {
+                      content: [
+                        { type: "text", text: "Avoid " },
+                        { type: "text", text: "exact arithmetic", marks: [{ type: "code" }] },
+                        { type: "text", text: " first" },
+                      ],
+                    },
+                  ],
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    });
+  });
 });

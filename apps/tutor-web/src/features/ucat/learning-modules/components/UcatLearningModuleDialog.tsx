@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import type { Editor } from '@tiptap/react'
-import { ExternalLink, Trash2 } from 'lucide-react'
+import { CheckCircle2, ExternalLink, FilePenLine, ListChecks, Send, Trash2 } from 'lucide-react'
 import { useToast } from '@altitutor/ui'
 import { UcatDialogShell } from '@/features/ucat/shared/dialog-shell'
 import { useUcatCopyId } from '@/features/ucat/shared/hooks/useUcatCopyId'
@@ -11,7 +11,16 @@ import { UcatRowActions } from '@/features/ucat/shared/row-actions'
 import { UcatLearningModuleEditorShell } from '@/features/ucat/learning-modules/components/UcatLearningModuleEditorShell'
 import type { LearningModuleEditorMode } from '@/features/ucat/learning-modules/components/UcatLearningModuleSettingsPanel'
 import { useLearningModuleEditor } from '@/features/ucat/learning-modules/hooks/useLearningModuleEditor'
+import { ucatLearningModulesApi } from '@/features/ucat/learning-modules/api/modules'
+import {
+  lifecycleErrorToast,
+  lifecycleStatusSuccessToast,
+} from '@/features/ucat/shared/lifecycle-errors'
+import type { UcatContentStatus } from '@/features/ucat/shared/types'
 import { SegmentedControl } from '@/shared/components/segmented-control'
+import { useRouter } from 'next/navigation'
+import { useQueryClient } from '@tanstack/react-query'
+import { ucatKeys } from '@/features/ucat/shared/lib/query-keys'
 
 type UcatLearningModuleDialogProps = {
   open: boolean
@@ -28,6 +37,8 @@ export function UcatLearningModuleDialog({
 }: UcatLearningModuleDialogProps) {
   const { toast } = useToast()
   const { copyId } = useUcatCopyId()
+  const router = useRouter()
+  const queryClient = useQueryClient()
   const editor = useLearningModuleEditor(open ? moduleId : null)
   const [activeTextEditor, setActiveTextEditor] = useState<Editor | null>(null)
   const [editorMode, setEditorMode] = useState<LearningModuleEditorMode>('edit')
@@ -40,6 +51,8 @@ export function UcatLearningModuleDialog({
   }, [open])
 
   const title = editor.title.trim() || editor.moduleQuery.data?.title || 'Learning module'
+  const status = editor.status
+  const isFolder = editor.kind === 'folder'
 
   function handleRequestClose() {
     if (
@@ -73,7 +86,41 @@ export function UcatLearningModuleDialog({
       onDeleted?.()
       onClose()
     } catch (e) {
-      toast({ title: 'Delete failed', description: String(e), variant: 'destructive' })
+      toast(lifecycleErrorToast(e, 'Delete failed', router.push))
+    }
+  }
+
+  async function handleSetStatus(nextStatus: UcatContentStatus) {
+    if (!moduleId || isFolder) return
+    const previousStatus = status
+    try {
+      if (editor.hasUnsavedChanges) {
+        await editor.saveAll()
+      }
+      await ucatLearningModulesApi.setStatus(moduleId, nextStatus)
+      editor.setStatus(nextStatus)
+      await queryClient.invalidateQueries({ queryKey: ucatKeys.learningModules() })
+      await queryClient.invalidateQueries({ queryKey: ucatKeys.learningModule(moduleId) })
+      toast(
+        lifecycleStatusSuccessToast({
+          contentLabel: 'Lesson',
+          count: 1,
+          status: nextStatus,
+          onUndo: () => {
+            void ucatLearningModulesApi
+              .bulkRestoreStatus([moduleId], nextStatus, previousStatus)
+              .then(async () => {
+                editor.setStatus(previousStatus)
+                await queryClient.invalidateQueries({ queryKey: ucatKeys.learningModules() })
+                await queryClient.invalidateQueries({ queryKey: ucatKeys.learningModule(moduleId) })
+                toast({ title: 'Lesson status restored' })
+              })
+              .catch((error) => toast(lifecycleErrorToast(error, 'Could not undo status change', router.push)))
+          },
+        }),
+      )
+    } catch (error) {
+      toast(lifecycleErrorToast(error, 'Cannot change lesson status', router.push))
     }
   }
 
@@ -100,6 +147,43 @@ export function UcatLearningModuleDialog({
     <UcatRowActions
       actions={[
         ...(copyIdAction ? [copyIdAction] : []),
+        ...(!isFolder && status === 'draft'
+          ? [
+              {
+                label: 'Send for review',
+                icon: <Send className="h-4 w-4" />,
+                onClick: () => void handleSetStatus('in_review'),
+              },
+            ]
+          : []),
+        ...(!isFolder && status === 'in_review'
+          ? [
+              {
+                label: 'Publish',
+                icon: <CheckCircle2 className="h-4 w-4" />,
+                onClick: () => void handleSetStatus('published'),
+              },
+              {
+                label: 'Move to draft',
+                icon: <FilePenLine className="h-4 w-4" />,
+                onClick: () => void handleSetStatus('draft'),
+              },
+            ]
+          : []),
+        ...(!isFolder && status === 'published'
+          ? [
+              {
+                label: 'Move to review',
+                icon: <ListChecks className="h-4 w-4" />,
+                onClick: () => void handleSetStatus('in_review'),
+              },
+              {
+                label: 'Move to draft',
+                icon: <FilePenLine className="h-4 w-4" />,
+                onClick: () => void handleSetStatus('draft'),
+              },
+            ]
+          : []),
         {
           label: 'Open in page',
           icon: <ExternalLink className="h-4 w-4" />,
@@ -122,7 +206,7 @@ export function UcatLearningModuleDialog({
       open={open}
       onClose={handleRequestClose}
       title={title}
-      subtitle="Edit lesson blocks and module settings"
+      subtitle={isFolder ? 'Edit folder settings' : 'Edit lesson blocks and module settings'}
       onSave={handleSave}
       saveLabel="Save"
       saveDisabled={false}

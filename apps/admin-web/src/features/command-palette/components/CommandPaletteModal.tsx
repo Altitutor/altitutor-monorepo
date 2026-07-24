@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState, type TouchEvent } from 'react';
-import { Dialog, DialogContent, DialogPortal, useMediaQuery } from '@altitutor/ui';
+import { Dialog, DialogContent, DialogPortal, DialogTitle, useMediaQuery } from '@altitutor/ui';
 import { cn } from '@/shared/utils';
 import { CommandPalette } from './CommandPalette';
 import { useEntityModals } from '@/shared/contexts/EntityModalContext';
@@ -107,6 +107,7 @@ export function CommandPaletteModal({ isOpen, onClose }: CommandPaletteModalProp
               )}
               onOpenAutoFocus={(event) => event.preventDefault()}
             >
+              <DialogTitle className="sr-only">Command palette</DialogTitle>
               <CommandPalette isOpen={isOpen} onClose={onClose} onEntitySelected={handleEntitySelected} />
             </DialogContent>
           </DialogPortal>

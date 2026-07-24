@@ -7,8 +7,8 @@ const SIGNED_URL_EXPIRY_SECONDS = 3600
 
 const OPENAI_IMAGE_BASE_URL = 'https://api.openai.com/v1'
 const OPENROUTER_IMAGE_BASE_URL = 'https://openrouter.ai/api/v1'
-const DEFAULT_OPENAI_IMAGE_MODEL = 'gpt-image-1'
-const DEFAULT_OPENROUTER_IMAGE_MODEL = 'openai/gpt-image-1'
+const DEFAULT_OPENAI_IMAGE_MODEL = 'gpt-image-2'
+const DEFAULT_OPENROUTER_IMAGE_MODEL = 'openai/gpt-image-2'
 
 export type UcatImageProvider = 'openai' | 'openrouter'
 
@@ -26,11 +26,16 @@ export async function uploadGeneratedUcatImage(params: {
   mimeType: string
   filename: string
   sourcePrompt: string
+  tutorId?: string
 }) {
-  const userClient = createClient()
-  const { data: tutorId, error: tutorIdError } = await userClient.rpc('current_tutor_id')
-  if (tutorIdError || !tutorId) {
-    throw new Error('Failed to resolve tutor')
+  let tutorId = params.tutorId
+  if (!tutorId) {
+    const userClient = createClient()
+    const { data, error } = await userClient.rpc('current_tutor_id')
+    if (error || !data) {
+      throw new Error('Failed to resolve tutor')
+    }
+    tutorId = data
   }
 
   const service = getServiceRoleClient()

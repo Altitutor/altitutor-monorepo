@@ -13,7 +13,7 @@ WITH folder_seed(id, section_name, title, index) AS (
 )
 INSERT INTO public.ucat_learning_modules (
   id, kind, title, description, ucat_section_id, parent_ucat_learning_module_id,
-  index, is_private, study_plan_priority, deleted_at
+  index, status, access_scope, study_plan_priority, deleted_at
 )
 SELECT
   seed.id,
@@ -23,7 +23,8 @@ SELECT
   section.id,
   NULL,
   seed.index,
-  false,
+  'published'::public.ucat_content_status,
+  'public'::public.ucat_access_scope,
   'recommended'::public.ucat_learning_module_study_plan_priority,
   NULL
 FROM folder_seed seed
@@ -33,7 +34,8 @@ ON CONFLICT (id) DO UPDATE SET
   description = EXCLUDED.description,
   ucat_section_id = EXCLUDED.ucat_section_id,
   index = EXCLUDED.index,
-  is_private = false,
+  status = 'published'::public.ucat_content_status,
+  access_scope = 'public'::public.ucat_access_scope,
   deleted_at = NULL,
   updated_at = NOW();
 
@@ -72,7 +74,7 @@ WITH lesson_seed(id, section_name, category_name, title, lesson_index, priority)
 ), inserted AS (
   INSERT INTO public.ucat_learning_modules (
     id, kind, title, description, ucat_section_id, parent_ucat_learning_module_id,
-    index, is_private, study_plan_priority, deleted_at
+    index, status, access_scope, study_plan_priority, deleted_at
   )
   SELECT
     id,
@@ -82,7 +84,8 @@ WITH lesson_seed(id, section_name, category_name, title, lesson_index, priority)
     section_id,
     folder_id,
     lesson_index,
-    false,
+    'published'::public.ucat_content_status,
+    'public'::public.ucat_access_scope,
     priority::public.ucat_learning_module_study_plan_priority,
     NULL
   FROM resolved
@@ -92,7 +95,8 @@ WITH lesson_seed(id, section_name, category_name, title, lesson_index, priority)
     ucat_section_id = EXCLUDED.ucat_section_id,
     parent_ucat_learning_module_id = EXCLUDED.parent_ucat_learning_module_id,
     index = EXCLUDED.index,
-    is_private = false,
+    status = 'published'::public.ucat_content_status,
+    access_scope = 'public'::public.ucat_access_scope,
     study_plan_priority = EXCLUDED.study_plan_priority,
     deleted_at = NULL,
     updated_at = NOW()

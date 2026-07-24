@@ -19,7 +19,7 @@ export async function POST(request: NextRequest) {
       p_ucat_section_id: body.ucatSectionId ?? null,
       p_parent_id: body.parentId ?? null,
       p_index: isCreate ? (body.index ?? null) : (body.index ?? 0),
-      p_is_private: body.isPrivate ?? true,
+      p_access_scope: body.accessScope ?? 'public',
       p_icon_key: body.iconKey ?? 'book-open',
       p_estimated_minutes: body.estimatedMinutes ?? null,
     })

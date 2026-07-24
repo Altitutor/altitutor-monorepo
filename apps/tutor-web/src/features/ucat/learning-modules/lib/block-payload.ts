@@ -12,6 +12,7 @@ export function toBlockPayload(blocks: DraftBlock[]): UcatLearningModuleBlockPay
 
 function sanitizeBlockPayload(block: DraftBlock, index: number): UcatLearningModuleBlockPayload {
   const base = {
+    ...(block.id ? { id: block.id } : {}),
     block_type: block.block_type,
     index,
     require_completion_before_next: block.require_completion_before_next,
@@ -64,7 +65,7 @@ function sanitizeBlockPayload(block: DraftBlock, index: number): UcatLearningMod
   }
 }
 
-export function validateBlocksForSave(blocks: DraftBlock[], options?: { isPrivate?: boolean }): string | null {
+export function validateBlocksForSave(blocks: DraftBlock[], options?: { isPublished?: boolean }): string | null {
   for (let i = 0; i < blocks.length; i += 1) {
     const block = blocks[i]
     const label = `Block ${i + 1} (${block.block_type.replace(/_/g, ' ')})`
@@ -84,8 +85,8 @@ export function validateBlocksForSave(blocks: DraftBlock[], options?: { isPrivat
       case 'question': {
         const isPending =
           isPendingGeneratedAssessment(block.content) || block.content.pendingGeneratedStem === true
-        if (isPending && options?.isPrivate === false) {
-          return `${label}: pending generated assessment placeholders can only be saved in private lesson drafts`
+        if (isPending && options?.isPublished) {
+          return `${label}: pending generated assessment placeholders can only be saved on unpublished lessons`
         }
         if (isPendingGeneratedAssessment(block.content) && isRunBackedPlaceholderWithoutIds(block)) {
           break

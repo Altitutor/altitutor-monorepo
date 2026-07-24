@@ -174,33 +174,65 @@ function normalizeInlineFormattingTags(text: string): string {
     .replace(/<((?:b|strong|i|em))\s+[^>]*>/giu, '<$1>')
 }
 
-function activeMarks(active: Set<'bold' | 'italic'>, extra?: 'bold' | 'italic') {
-  const marks = new Set(active)
-  if (extra) marks.add(extra)
-  return Array.from(marks).map((type) => ({ type }))
+type InlineMark = {
+  type: 'bold' | 'italic' | 'strike' | 'code' | 'link'
+  attrs?: Record<string, Json | undefined>
 }
 
-function appendInlineTextNode(nodes: Json[], text: string, active: Set<'bold' | 'italic'>, extra?: 'bold' | 'italic') {
+function activeMarks(
+  active: Set<'bold' | 'italic'>,
+  extra?: InlineMark,
+): InlineMark[] {
+  const marks = new Set(active)
+  const result: InlineMark[] = Array.from(marks).map((type) => ({ type }))
+  if (extra) result.push(extra)
+  return result
+}
+
+function appendInlineTextNode(
+  nodes: Json[],
+  text: string,
+  active: Set<'bold' | 'italic'>,
+  extra?: InlineMark,
+) {
   if (!text) return
   const marks = activeMarks(active, extra)
   nodes.push(marks.length ? { type: 'text', text, marks } : { type: 'text', text })
+}
+
+function safeMarkdownLinkMark(href: string): InlineMark | null {
+  if (!/^(?:https?:\/\/|mailto:)/iu.test(href)) return null
+  return { type: 'link', attrs: { href } }
 }
 
 function inlineTextNodes(text: string): Json[] {
   const nodes: Json[] = []
   const active = new Set<'bold' | 'italic'>()
   const normalized = normalizeInlineFormattingTags(text)
-  const pattern = /(\*\*[^*\n]+\*\*|_[^_\n]+_|<\/?(?:b|strong|i|em)>)/giu
+  const pattern = /(\[[^\]\n]+\]\([^\s)\n]+\)|\*\*[^*\n]+\*\*|~~[^~\n]+~~|`[^`\n]+`|_[^_\n]+_|<\/?(?:b|strong|i|em)>)/giu
   let cursor = 0
 
   for (const match of normalized.matchAll(pattern)) {
     const index = match.index ?? 0
     if (index > cursor) appendInlineTextNode(nodes, normalized.slice(cursor, index), active)
     const token = match[0]
-    if (token.startsWith('**') && token.endsWith('**')) {
-      appendInlineTextNode(nodes, token.slice(2, -2), active, 'bold')
+    const markdownLink = token.match(/^\[([^\]\n]+)\]\(([^\s)\n]+)\)$/u)
+    if (markdownLink?.[1] && markdownLink[2]) {
+      const linkMark = safeMarkdownLinkMark(markdownLink[2])
+      appendInlineTextNode(
+        nodes,
+        linkMark ? markdownLink[1] : token,
+        active,
+        linkMark ?? undefined,
+      )
+    } else if (token.startsWith('**') && token.endsWith('**')) {
+      appendInlineTextNode(nodes, token.slice(2, -2), active, { type: 'bold' })
+    } else if (token.startsWith('~~') && token.endsWith('~~')) {
+      appendInlineTextNode(nodes, token.slice(2, -2), active, { type: 'strike' })
+    } else if (token.startsWith('`') && token.endsWith('`')) {
+      appendInlineTextNode(nodes, token.slice(1, -1), active, { type: 'code' })
     } else if (token.startsWith('_') && token.endsWith('_')) {
-      appendInlineTextNode(nodes, token.slice(1, -1), active, 'italic')
+      appendInlineTextNode(nodes, token.slice(1, -1), active, { type: 'italic' })
     } else {
       const tag = token.toLowerCase()
       if (tag === '<b>' || tag === '<strong>') active.add('bold')
@@ -311,6 +343,22 @@ export function aiTextToProseMirror(text: string): Json {
     const line = lines[index] ?? ''
     const next = lines[index + 1] ?? ''
 
+    if (/^\s*```/u.test(line)) {
+      flushParagraph()
+      const codeLines: string[] = []
+      index += 1
+      while (index < lines.length && !/^\s*```\s*$/u.test(lines[index] ?? '')) {
+        codeLines.push(lines[index] ?? '')
+        index += 1
+      }
+      const code = codeLines.join('\n')
+      content.push({
+        type: 'codeBlock',
+        content: code ? [{ type: 'text', text: code }] : [],
+      })
+      continue
+    }
+
     const heading = line.match(/^(#{1,4})\s+(.+)$/u)
     if (heading?.[1] && heading[2]) {
       flushParagraph()
@@ -333,6 +381,33 @@ export function aiTextToProseMirror(text: string): Json {
       index -= 1
       const table = markdownTableToProseMirror(tableLines)
       if (table) content.push(table)
+      continue
+    }
+
+    const blockquote = line.match(/^\s*>\s?(.*)$/u)
+    if (blockquote) {
+      flushParagraph()
+      const quoteLines: string[] = [blockquote[1] ?? '']
+      index += 1
+      while (index < lines.length) {
+        const quoteLine = (lines[index] ?? '').match(/^\s*>\s?(.*)$/u)
+        if (!quoteLine) break
+        quoteLines.push(quoteLine[1] ?? '')
+        index += 1
+      }
+      index -= 1
+      content.push({
+        type: 'blockquote',
+        content: quoteLines
+          .filter((quoteLine) => quoteLine.trim())
+          .map(proseMirrorParagraph),
+      })
+      continue
+    }
+
+    if (/^\s*(?:---+|\*\*\*+|___+)\s*$/u.test(line)) {
+      flushParagraph()
+      content.push({ type: 'horizontalRule' })
       continue
     }
 

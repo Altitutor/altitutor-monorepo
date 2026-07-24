@@ -1,5 +1,6 @@
 import type { Json } from '@altitutor/shared'
 import type { LearningModuleIconKey } from '@/features/ucat/learning-modules/lib/learning-module-icons'
+import type { UcatAccessScope, UcatContentStatus } from '@/features/ucat/shared/types'
 
 export type UcatLearningModuleKind = 'folder' | 'lesson'
 export type UcatLearningModuleStudyPlanPriority = 'essential' | 'recommended' | 'optional' | 'excluded'
@@ -22,12 +23,14 @@ export type UcatLearningModuleRow = {
   ucat_section_id: string | null
   parent_ucat_learning_module_id: string | null
   index: number
-  is_private: boolean
+  status: UcatContentStatus
+  access_scope: UcatAccessScope
   section_name: string | null
   section_number: number | null
   child_count: number
   block_count: number
   updated_at: string
+  deleted_at: string | null
   study_plan_priority: UcatLearningModuleStudyPlanPriority
   study_plan_category_ids: string[]
   study_plan_tag_ids: string[]
@@ -48,6 +51,8 @@ export type UcatLearningModuleBlockRow = {
 
 /** Payload sent to tutor_ucat_replace_learning_module_blocks */
 export type UcatLearningModuleBlockPayload = {
+  /** Existing block ID. Omit for a new block. */
+  id?: string
   block_type: UcatLearningModuleBlockType
   index: number
   require_completion_before_next: boolean
@@ -68,7 +73,7 @@ export type UcatLearningModuleUpsertPayload = {
   ucatSectionId?: string | null
   parentId?: string | null
   index?: number
-  isPrivate?: boolean
+  accessScope?: UcatAccessScope
   studyPlanPriority?: UcatLearningModuleStudyPlanPriority
   studyPlanCategoryIds?: string[]
   studyPlanTagIds?: string[]

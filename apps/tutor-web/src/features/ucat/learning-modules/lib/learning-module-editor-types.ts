@@ -2,6 +2,7 @@ import { plainTextToProseMirror } from '@/features/ucat/shared/lib/rich-text'
 import type { UcatLearningModuleBlockType } from '@/features/ucat/learning-modules/types'
 
 export type DraftBlock = {
+  id: string | null
   clientId: string
   block_type: UcatLearningModuleBlockType
   require_completion_before_next: boolean
@@ -23,6 +24,7 @@ export const BLOCK_TYPE_LABELS: Record<UcatLearningModuleBlockType, string> = {
 
 export function newDraftBlock(type: UcatLearningModuleBlockType = 'text'): DraftBlock {
   return {
+    id: null,
     clientId: `block-${Date.now()}-${Math.random().toString(36).slice(2)}`,
     block_type: type,
     require_completion_before_next: true,
@@ -48,7 +50,7 @@ export function snapshotSettings(input: {
   sectionId: string | null
   parentId: string | null
   index: number
-  isPrivate: boolean
+  accessScope: string
   studyPlanPriority: string
   studyPlanCategoryIds: string[]
   studyPlanTagIds: string[]

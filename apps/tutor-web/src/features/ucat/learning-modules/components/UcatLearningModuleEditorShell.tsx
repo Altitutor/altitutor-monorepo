@@ -11,6 +11,7 @@ import {
   useUcatTags,
 } from '@/features/ucat/questions/hooks/useUcatQuestions'
 import { ucatQuestionsApi } from '@/features/ucat/questions/api/questions'
+import { ucatLearningModulesApi } from '@/features/ucat/learning-modules/api/modules'
 import { useUcatSkillTrainersCatalog } from '@/features/ucat/skill-trainer/hooks/useUcatSkillTrainerItems'
 import type { useLearningModuleEditor } from '@/features/ucat/learning-modules/hooks/useLearningModuleEditor'
 import { usePendingGeneratedAssessmentPolling } from '@/features/ucat/learning-modules/hooks/usePendingGeneratedAssessmentPolling'
@@ -170,7 +171,12 @@ export function UcatLearningModuleEditorShell({
           if (typeof input.sectionId === 'string' || input.sectionId === null) {
             editor.setSectionId(input.sectionId ?? null)
           }
-          if (typeof input.isPrivate === 'boolean') editor.setIsPrivate(input.isPrivate)
+          if (typeof input.accessScope === 'string' && (input.accessScope === 'public' || input.accessScope === 'private')) {
+            editor.setAccessScope(input.accessScope)
+          }
+          if (typeof input.isPrivate === 'boolean') {
+            editor.setAccessScope(input.isPrivate ? 'private' : 'public')
+          }
 
           if ('iconKey' in input) {
             if (!isLearningModuleIconKey(input.iconKey)) {
@@ -406,8 +412,23 @@ export function UcatLearningModuleEditorShell({
               runInstructions: instructions,
             })
 
-            const flippedPrivate = !editor.isPrivate
-            if (flippedPrivate) editor.setIsPrivate(true)
+            let movedOffPublished = false
+            if (editor.status === 'published' && editor.moduleId) {
+              try {
+                await ucatLearningModulesApi.setStatus(editor.moduleId, 'draft')
+                editor.setStatus('draft')
+                movedOffPublished = true
+              } catch (error) {
+                return {
+                  toolCallId: toolCall.id,
+                  ok: false,
+                  message:
+                    error instanceof Error
+                      ? error.message
+                      : 'Move this lesson out of Published before generating assessment content.',
+                }
+              }
+            }
 
             const block = newDraftBlock(blockType)
             editor.insertBlock(
@@ -425,8 +446,8 @@ export function UcatLearningModuleEditorShell({
             return {
               toolCallId: toolCall.id,
               ok: true,
-              message: flippedPrivate
-                ? `Started AI generation and inserted a pending ${blockType.replace(/_/g, ' ')} placeholder. Lesson draft set to private until the stem is approved.`
+              message: movedOffPublished
+                ? `Started AI generation and inserted a pending ${blockType.replace(/_/g, ' ')} placeholder. Lesson moved to draft until the stem is published.`
                 : `Started AI generation and inserted a pending ${blockType.replace(/_/g, ' ')} placeholder.`,
               output: {
                 blockId: block.clientId,
@@ -436,7 +457,7 @@ export function UcatLearningModuleEditorShell({
                 sectionId,
                 categoryId,
                 tagIds,
-                flippedPrivate,
+                movedOffPublished,
               },
             }
           } catch (error) {
@@ -676,7 +697,7 @@ export function UcatLearningModuleEditorShell({
           estimatedMinutes={editor.estimatedMinutes}
           sectionId={editor.sectionId}
           parentId={editor.parentId}
-          isPrivate={editor.isPrivate}
+          accessScope={editor.accessScope}
           studyPlanPriority={editor.studyPlanPriority}
           studyPlanCategoryIds={editor.studyPlanCategoryIds}
           studyPlanTagIds={editor.studyPlanTagIds}
@@ -686,7 +707,7 @@ export function UcatLearningModuleEditorShell({
           onEstimatedMinutesChange={editor.setEstimatedMinutes}
           onSectionIdChange={editor.setSectionId}
           onParentIdChange={editor.setParentId}
-          onIsPrivateChange={editor.setIsPrivate}
+          onAccessScopeChange={editor.setAccessScope}
           onStudyPlanPriorityChange={editor.setStudyPlanPriority}
           onStudyPlanCategoryIdsChange={editor.setStudyPlanCategoryIds}
           onStudyPlanTagIdsChange={editor.setStudyPlanTagIds}
@@ -708,7 +729,8 @@ export function UcatLearningModuleEditorShell({
                   title: editor.title,
                   description: editor.description,
                   sectionId: editor.sectionId,
-                  isPrivate: editor.isPrivate,
+                  accessScope: editor.accessScope,
+                  status: editor.status,
                   iconKey: editor.iconKey,
                   estimatedMinutes: editor.estimatedMinutes,
                   studyPlanPriority: editor.studyPlanPriority,
