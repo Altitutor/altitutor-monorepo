@@ -3,7 +3,9 @@ import { z } from 'zod'
 export const UcatContentTypeSchema = z.enum(['lesson', 'stem', 'set', 'mock'])
 export const UcatStatusSchema = z.enum(['draft', 'in_review', 'published'])
 export const UcatAccessScopeSchema = z.enum(['public', 'private'])
-export const RichTextSchema = z.union([z.string(), z.record(z.unknown())])
+export const RichTextSchema = z.union([z.string(), z.record(z.unknown())]).describe(
+  'Rich text. Prefer a plain string; the server converts it to TipTap/ProseMirror JSON. To preserve headings, lists, tables, marks, or embedded images, supply a TipTap/ProseMirror document object shaped like {"type":"doc","content":[...]}. Markdown is not parsed.',
+)
 export const NullableRichTextSchema = RichTextSchema.nullable()
 
 const PositionSchema = z.number().int().min(0)
@@ -139,10 +141,90 @@ export const MockOperationSchema = z.discriminatedUnion('type', [
   }),
 ])
 
-export const LearningModuleBlockSchema = z.object({
-  blockType: z.enum(['text', 'video', 'file', 'question_stem', 'question', 'skill_trainer']),
-  requireCompletionBeforeNext: z.boolean().default(true),
-  content: z.record(z.unknown()).default({}),
+const LearningModuleBlockCommonShape = {
+  requireCompletionBeforeNext: z.boolean().default(true).describe(
+    'Whether the student must complete this block before advancing.',
+  ),
+  questionStemId: z.string().uuid().nullable().optional(),
+  questionId: z.string().uuid().nullable().optional(),
+  fileId: z.string().uuid().nullable().optional(),
+  skillTrainerId: z.string().uuid().nullable().optional(),
+}
+
+const TextBlockContentSchema = z.object({
+  body: RichTextSchema.describe(
+    'The visible lesson text. Prefer a plain string. Advanced formatting may use a TipTap/ProseMirror document object.',
+  ),
+}).passthrough().describe(
+  'Text-block payload. Example: {"body":"A concise explanation."}',
+)
+
+const VideoBlockContentSchema = z.object({
+  url: z.string().trim().url().describe(
+    'Absolute video URL, such as a YouTube or Vimeo URL.',
+  ),
+}).describe(
+  'Video-block payload. Example: {"url":"https://www.youtube.com/watch?v=..."}',
+)
+
+const FileBlockContentSchema = z.object({
+  label: z.string().describe('Student-facing file label.').default(''),
+  url: z.string().url().optional().describe(
+    'Optional signed or public URL for display; fileId remains the durable reference.',
+  ),
+}).describe(
+  'File-block display metadata. The durable uploaded file reference belongs in fileId.',
+)
+
+const LinkedBlockContentSchema = z.record(z.unknown()).default({}).describe(
+  'Optional display or workflow metadata. Use an empty object for an ordinary linked resource.',
+)
+
+export const LearningModuleBlockSchema = z.discriminatedUnion('blockType', [
+  z.object({
+    ...LearningModuleBlockCommonShape,
+    blockType: z.literal('text'),
+    content: TextBlockContentSchema,
+  }),
+  z.object({
+    ...LearningModuleBlockCommonShape,
+    blockType: z.literal('video'),
+    content: VideoBlockContentSchema,
+  }),
+  z.object({
+    ...LearningModuleBlockCommonShape,
+    blockType: z.literal('file'),
+    fileId: z.string().uuid().describe('ID of an uploaded file returned by an MCP file/image tool.'),
+    content: FileBlockContentSchema,
+  }),
+  z.object({
+    ...LearningModuleBlockCommonShape,
+    blockType: z.literal('question_stem'),
+    questionStemId: z.string().uuid().describe('Question-stem aggregate to embed.'),
+    content: LinkedBlockContentSchema,
+  }),
+  z.object({
+    ...LearningModuleBlockCommonShape,
+    blockType: z.literal('question'),
+    questionId: z.string().uuid().describe('Individual question to embed.'),
+    content: LinkedBlockContentSchema,
+  }),
+  z.object({
+    ...LearningModuleBlockCommonShape,
+    blockType: z.literal('skill_trainer'),
+    skillTrainerId: z.string().uuid().describe('Skill trainer to embed.'),
+    content: LinkedBlockContentSchema,
+  }),
+]).describe(
+  'A typed lesson block. Each blockType has its own documented content and required durable reference.',
+)
+
+const LearningModuleBlockChangesSchema = z.object({
+  blockType: z.enum(['text', 'video', 'file', 'question_stem', 'question', 'skill_trainer']).optional(),
+  requireCompletionBeforeNext: z.boolean().optional(),
+  content: z.record(z.unknown()).optional().describe(
+    'Replacement payload for the resulting block type. For text use {"body":"plain text"} or {"body":{"type":"doc","content":[...]}}; for video use {"url":"https://..."}.',
+  ),
   questionStemId: z.string().uuid().nullable().optional(),
   questionId: z.string().uuid().nullable().optional(),
   fileId: z.string().uuid().nullable().optional(),
@@ -176,7 +258,7 @@ export const LearningModuleOperationSchema = z.discriminatedUnion('type', [
   z.object({
     type: z.literal('update_block'),
     blockId: z.string().uuid(),
-    changes: LearningModuleBlockSchema.partial(),
+    changes: LearningModuleBlockChangesSchema,
   }),
   z.object({
     type: z.literal('move_block'),
@@ -195,4 +277,3 @@ export type MockOperation = z.infer<typeof MockOperationSchema>
 export type LearningModuleOperation = z.infer<typeof LearningModuleOperationSchema>
 export type LearningModuleBlockInput = z.infer<typeof LearningModuleBlockSchema>
 export type QuestionInput = z.infer<typeof QuestionInputSchema>
-

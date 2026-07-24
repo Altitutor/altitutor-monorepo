@@ -166,7 +166,7 @@ export function registerUcatMcpTools(server: McpServer): void {
     {
       title: 'Create a draft learning module',
       description:
-        'Create a lesson draft or a catalog folder. Folders have no draft/review lifecycle and may contain no blocks. Lessons always begin as drafts.',
+        'Create a lesson draft or a catalog folder. Folders have no draft/review lifecycle and may contain no blocks. Lessons always begin as drafts. For text blocks, use content: { body: "plain text" }; the server converts it to TipTap/ProseMirror JSON. Markdown is not parsed. Advanced formatting may be supplied as a native TipTap/ProseMirror document in body.',
       inputSchema: {
         kind: z.enum(['folder', 'lesson']),
         title: z.string().trim().min(1).max(500),
@@ -195,7 +195,7 @@ export function registerUcatMcpTools(server: McpServer): void {
     {
       title: 'Update an editable learning module',
       description:
-        'Apply explicit typed metadata or block operations. Omission never deletes. Draft/in-review lessons and non-live folders are editable; published lessons and folders with published descendants are rejected.',
+        'Apply explicit typed metadata or block operations. Omission never deletes. Draft/in-review lessons and non-live folders are editable; published lessons and folders with published descendants are rejected. Text-block content uses { body: "plain text" } or a native TipTap/ProseMirror document; plain strings are converted by the server.',
       inputSchema: {
         id: z.string().uuid(),
         revision: z.string().min(1),

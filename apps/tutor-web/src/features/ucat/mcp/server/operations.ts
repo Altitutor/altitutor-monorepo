@@ -442,12 +442,25 @@ export function blockFromInput(block: LearningModuleBlockInput): LearningModuleB
     block_type: block.blockType,
     index: 0,
     require_completion_before_next: block.requireCompletionBeforeNext,
-    content: cloneSerializable(block.content),
+    content: normalizeLearningModuleBlockContent(block.blockType, block.content),
     question_stem_id: block.questionStemId ?? null,
     question_id: block.questionId ?? null,
     file_id: block.fileId ?? null,
     skill_trainer_id: block.skillTrainerId ?? null,
   }
+}
+
+function normalizeLearningModuleBlockContent(
+  blockType: LearningModuleBlockDraft['block_type'],
+  content: Record<string, unknown>,
+): Record<string, unknown> {
+  const normalized = cloneSerializable(content)
+  if (blockType !== 'text') return normalized
+  const body = normalized.body
+  if (typeof body === 'string' || isRecord(body)) {
+    normalized.body = toRichTextJson(body)
+  }
+  return normalized
 }
 
 export function reindexBlocks(blocks: LearningModuleBlockDraft[]): void {
@@ -556,7 +569,9 @@ export function applyLearningModuleOperations(
       if (changes.requireCompletionBeforeNext !== undefined) {
         block.require_completion_before_next = changes.requireCompletionBeforeNext
       }
-      if (changes.content !== undefined) block.content = cloneSerializable(changes.content)
+      if (changes.content !== undefined) {
+        block.content = normalizeLearningModuleBlockContent(block.block_type, changes.content)
+      }
       if (changes.questionStemId !== undefined) {
         block.question_stem_id = changes.questionStemId
       }

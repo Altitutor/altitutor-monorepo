@@ -3,6 +3,7 @@ import {
   applyMockOperations,
   applyQuestionSetOperations,
   applyQuestionStemOperations,
+  blockFromInput,
   learningModuleDraftFromDetail,
   mockDraftFromDetail,
   questionSetDraftFromDetail,
@@ -182,5 +183,24 @@ describe('UCAT MCP typed operations', () => {
     expect(updated.blocks[0].id).toBe(secondBlock)
     expect(updated.blocks[0].index).toBe(0)
   })
-})
 
+  it('normalizes plain text lesson blocks to TipTap/ProseMirror JSON', () => {
+    const block = blockFromInput({
+      blockType: 'text',
+      requireCompletionBeforeNext: true,
+      content: { body: 'Use elimination before calculation.' },
+    })
+
+    expect(block.content).toEqual({
+      body: {
+        type: 'doc',
+        content: [
+          {
+            type: 'paragraph',
+            content: [{ type: 'text', text: 'Use elimination before calculation.' }],
+          },
+        ],
+      },
+    })
+  })
+})
