@@ -16,7 +16,7 @@ const mcpHandler = createMcpHandler(
       version: '1.0.0',
     },
     instructions:
-      'Altitutor UCAT authoring only. Read learning modules, question-stem bundles, sets, mocks, and their authoring references freely. Create drafts and edit only draft or in-review content. Never attempt to publish, edit published content, or delete/restore a top-level aggregate. Re-read an aggregate before updating it and pass its latest opaque revision. Use explicit typed operations; omission never removes nested content. Generated images are previews until explicitly inserted with an update operation.',
+      'Altitutor UCAT authoring only. Read learning modules, question-stem bundles, sets, mocks, and their authoring references freely. Create drafts and edit only draft or in-review content. Never attempt to publish or edit published content. Soft-delete or restore only draft or in-review top-level aggregates through the dedicated tools. Re-read an aggregate before updating, deleting, or restoring it and pass its latest opaque revision. Use explicit typed operations; omission never removes nested content. Generated images are previews until explicitly inserted with an update operation.',
     capabilities: {
       tools: {},
     },

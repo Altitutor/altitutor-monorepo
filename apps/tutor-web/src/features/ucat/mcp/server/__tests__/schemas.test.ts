@@ -1,3 +1,5 @@
+import { toJsonSchemaCompat } from '@modelcontextprotocol/sdk/server/zod-json-schema-compat.js'
+import { z } from 'zod'
 import {
   LearningModuleBlockSchema,
   RichTextSchema,
@@ -31,5 +33,16 @@ describe('UCAT MCP authoring schemas', () => {
       type: 'doc',
       content: [{ type: 'heading', attrs: { level: 2 }, content: [{ type: 'text', text: 'Strategy' }] }],
     }).success).toBe(true)
+  })
+
+  it('preserves the text-block contract through MCP JSON Schema conversion', () => {
+    const jsonSchema = toJsonSchemaCompat(z.object({
+      blocks: z.array(LearningModuleBlockSchema),
+    }))
+    const serialized = JSON.stringify(jsonSchema)
+
+    expect(serialized).toContain('"body"')
+    expect(serialized).toContain('TipTap/ProseMirror')
+    expect(serialized).toContain('"questionStemId"')
   })
 })
