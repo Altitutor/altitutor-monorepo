@@ -786,6 +786,7 @@ async function generateUploadedStemImage(params: {
   stem: GeneratedStem
   visualBlocks: Array<Extract<GeneratedContentBlock, { type: 'visual' }>>
   config: UcatAiResolvedConfig
+  tutorId: string
 }): Promise<{ block: GeneratedContentBlock; metadata: GeneratedImageRecord }> {
   const prompt = generatedStemImagePrompt(params)
   const imageConfig = resolveStemImageApiConfig(params.config)
@@ -800,6 +801,7 @@ async function generateUploadedStemImage(params: {
     mimeType: 'image/png',
     filename: 'generated-stem-source-image.png',
     sourcePrompt: prompt,
+    tutorId: params.tutorId,
   })
   return {
     block: {
@@ -822,6 +824,7 @@ async function resolveStemImageBlocks(params: {
   stem: GeneratedStem
   mode: ImageGenerationMode
   config: UcatAiResolvedConfig
+  tutorId: string | null
 }): Promise<{ stem: GeneratedStem; generatedImages: GeneratedImageRecord[]; warnings: string[] }> {
   if (typeof params.stem.stemText === 'string') {
     return { stem: params.stem, generatedImages: [], warnings: [] }
@@ -835,7 +838,13 @@ async function resolveStemImageBlocks(params: {
   }
 
   try {
-    const uploaded = await generateUploadedStemImage({ stem: params.stem, visualBlocks: eligibleVisuals, config: params.config })
+    if (!params.tutorId) throw new Error('Tutor profile not found for generated image upload')
+    const uploaded = await generateUploadedStemImage({
+      stem: params.stem,
+      visualBlocks: eligibleVisuals,
+      config: params.config,
+      tutorId: params.tutorId,
+    })
     let inserted = false
     const stemText: GeneratedContentBlock[] = []
     for (const block of params.stem.stemText) {
@@ -1639,12 +1648,16 @@ export async function executeGeneration(
       runId,
     })
 
+    const imageTutorId = body.imageGenerationMode === 'deterministic'
+      ? null
+      : await currentTutorId(client)
     const resolvedStems = await Promise.all(accepted.slice(0, body.stemCount).map(async (item) => ({
       ...item,
       imageResolution: await resolveStemImageBlocks({
         stem: item.stem,
         mode: body.imageGenerationMode,
         config,
+        tutorId: imageTutorId,
       }),
     })))
 

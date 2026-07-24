@@ -66,17 +66,28 @@ function snapshot(): UcatAssessmentSnapshot {
 describe('automatic review environment gate', () => {
   const originalEnabled = process.env.UCAT_AI_AUTOMATIC_REVIEW_ENABLED
   const originalVercelEnv = process.env.VERCEL_ENV
+  const originalVercelGitCommitRef = process.env.VERCEL_GIT_COMMIT_REF
 
   afterEach(() => {
     if (originalEnabled === undefined) delete process.env.UCAT_AI_AUTOMATIC_REVIEW_ENABLED
     else process.env.UCAT_AI_AUTOMATIC_REVIEW_ENABLED = originalEnabled
     if (originalVercelEnv === undefined) delete process.env.VERCEL_ENV
     else process.env.VERCEL_ENV = originalVercelEnv
+    if (originalVercelGitCommitRef === undefined) delete process.env.VERCEL_GIT_COMMIT_REF
+    else process.env.VERCEL_GIT_COMMIT_REF = originalVercelGitCommitRef
   })
 
-  it('defaults off outside production and allows an explicit local opt-in', () => {
+  it('defaults on for the shared development deployment and allows explicit overrides', () => {
     delete process.env.UCAT_AI_AUTOMATIC_REVIEW_ENABLED
     process.env.VERCEL_ENV = 'preview'
+    process.env.VERCEL_GIT_COMMIT_REF = 'develop'
+    expect(automaticReviewEnvironment()).toEqual({ enabled: true, source: 'development_default' })
+
+    process.env.UCAT_AI_AUTOMATIC_REVIEW_ENABLED = 'false'
+    expect(automaticReviewEnvironment()).toEqual({ enabled: false, source: 'explicit' })
+
+    delete process.env.UCAT_AI_AUTOMATIC_REVIEW_ENABLED
+    process.env.VERCEL_GIT_COMMIT_REF = 'feature/sandbox'
     expect(automaticReviewEnvironment()).toEqual({ enabled: false, source: 'non_production_default' })
 
     process.env.UCAT_AI_AUTOMATIC_REVIEW_ENABLED = 'true'

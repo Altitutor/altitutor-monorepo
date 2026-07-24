@@ -18,11 +18,13 @@ import {
   createUcatMcpMock,
   createUcatMcpQuestionSet,
   createUcatMcpQuestionStem,
+  deleteUcatMcpContent,
   getUcatMcpAggregate,
   getUcatMcpAiAssessment,
   getUcatMcpGenerationRuns,
   getUcatMcpReferenceData,
   recordUcatMcpAuxiliaryActivity,
+  restoreUcatMcpContent,
   searchUcatMcpContent,
   submitUcatMcpForReview,
   updateUcatMcpLearningModule,
@@ -90,6 +92,13 @@ const readOnlyAnnotations = {
 const writeAnnotations = {
   readOnlyHint: false,
   destructiveHint: false,
+  idempotentHint: false,
+  openWorldHint: false,
+}
+
+const destructiveWriteAnnotations = {
+  readOnlyHint: false,
+  destructiveHint: true,
   idempotentHint: false,
   openWorldHint: false,
 }
@@ -336,6 +345,44 @@ export function registerUcatMcpTools(server: McpServer): void {
     async ({ contentType, id, revision }, extra) => executeTool(
       extra.authInfo?.token,
       (client) => submitUcatMcpForReview(client, contentType, id, revision),
+    ),
+  )
+
+  server.registerTool(
+    'delete_ucat_content',
+    {
+      title: 'Soft-delete editable UCAT content',
+      description:
+        'Soft-delete one draft or in-review lesson, question stem, set, or mock using its current revision. Published content and live learning folders are always rejected. Active dependencies must be removed first.',
+      inputSchema: {
+        contentType: AggregateTypeSchema,
+        id: z.string().uuid(),
+        revision: z.string().min(1),
+      },
+      annotations: destructiveWriteAnnotations,
+    },
+    async ({ contentType, id, revision }, extra) => executeTool(
+      extra.authInfo?.token,
+      (client) => deleteUcatMcpContent(client, contentType, id, revision),
+    ),
+  )
+
+  server.registerTool(
+    'restore_ucat_content',
+    {
+      title: 'Restore deleted UCAT content as a draft',
+      description:
+        'Restore one deleted lesson, question stem, set, or mock using the revision returned by deleted-content search. Restored content returns to draft. Published content and live learning folders are always rejected.',
+      inputSchema: {
+        contentType: AggregateTypeSchema,
+        id: z.string().uuid(),
+        revision: z.string().min(1),
+      },
+      annotations: writeAnnotations,
+    },
+    async ({ contentType, id, revision }, extra) => executeTool(
+      extra.authInfo?.token,
+      (client) => restoreUcatMcpContent(client, contentType, id, revision),
     ),
   )
 

@@ -3,7 +3,7 @@ const FALSE_VALUES = new Set(['0', 'false', 'no', 'off'])
 
 export type AutomaticReviewEnvironment = {
   enabled: boolean
-  source: 'explicit' | 'production_default' | 'non_production_default'
+  source: 'explicit' | 'production_default' | 'development_default' | 'non_production_default'
 }
 
 export function automaticReviewEnvironment(): AutomaticReviewEnvironment {
@@ -12,6 +12,12 @@ export function automaticReviewEnvironment(): AutomaticReviewEnvironment {
   if (raw && FALSE_VALUES.has(raw)) return { enabled: false, source: 'explicit' }
   if (process.env.VERCEL_ENV === 'production') {
     return { enabled: true, source: 'production_default' }
+  }
+  if (
+    process.env.VERCEL_ENV === 'preview'
+    && process.env.VERCEL_GIT_COMMIT_REF === 'develop'
+  ) {
+    return { enabled: true, source: 'development_default' }
   }
   return { enabled: false, source: 'non_production_default' }
 }

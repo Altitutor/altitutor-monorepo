@@ -432,6 +432,18 @@ async function callMutation(
     if (error.message.includes('mcp_live_learning_folder_read_only')) {
       throw new Error('This folder participates in the live Learn catalog and is read-only through MCP.')
     }
+    if (error.message.includes('delete_blocked_by_dependency')) {
+      throw new Error('This content is still used by another active UCAT aggregate or session and cannot be deleted.')
+    }
+    if (error.message.includes('status_blocked_by_attachment')) {
+      throw new Error('This learning module is attached to a session and cannot be deleted.')
+    }
+    if (error.message.includes('mcp_content_already_deleted')) {
+      throw new Error('This content is already deleted. Re-read search results before retrying.')
+    }
+    if (error.message.includes('mcp_content_not_deleted')) {
+      throw new Error('This content is not deleted. Re-read search results before retrying.')
+    }
     throw new Error(error.message)
   }
   if (!isRecord(data) || typeof data.id !== 'string') {
@@ -738,6 +750,35 @@ export async function submitUcatMcpForReview(
       console.error('Could not request UCAT AI assessment after MCP review submission', error)
     })
   }
+  return getUcatMcpAggregate(client, contentType, result.id)
+}
+
+export async function deleteUcatMcpContent(
+  client: SupabaseClient<Database>,
+  contentType: UcatMcpAggregateType,
+  id: string,
+  revision: string,
+): Promise<MutationResult & { deletedAt?: string | null }> {
+  return callMutation(client, 'tutor_ucat_mcp_set_deleted', {
+    p_content_type: contentType,
+    p_content_id: id,
+    p_expected_updated_at: decodeAuthoringRevision(revision, id),
+    p_deleted: true,
+  })
+}
+
+export async function restoreUcatMcpContent(
+  client: SupabaseClient<Database>,
+  contentType: UcatMcpAggregateType,
+  id: string,
+  revision: string,
+): Promise<Record<string, unknown>> {
+  const result = await callMutation(client, 'tutor_ucat_mcp_set_deleted', {
+    p_content_type: contentType,
+    p_content_id: id,
+    p_expected_updated_at: decodeAuthoringRevision(revision, id),
+    p_deleted: false,
+  })
   return getUcatMcpAggregate(client, contentType, result.id)
 }
 

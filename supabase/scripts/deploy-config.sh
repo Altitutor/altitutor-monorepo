@@ -223,20 +223,13 @@ else
   LOCALHOST_AUTH_REDIRECTS=",http://localhost:3004/auth/callback,http://localhost:3004/**"
 fi
 
-# The dev OAuth server builds its consent URL from site_url + authorization path,
-# so dev must use tutor-web as the canonical Auth site. Production keeps the
-# existing admin default until the production MCP is intentionally enabled.
-if [ "$SUPABASE_CONFIG_ENV" = "development" ]; then
-  PROD_SITE_URL="$TUTOR_URL"
-  OAUTH_SERVER_ENABLED=true
-  OAUTH_SERVER_ALLOW_DYNAMIC_REGISTRATION=true
-  OAUTH_SERVER_AUTHORIZATION_PATH="/oauth/consent"
-else
-  PROD_SITE_URL="$ADMIN_URL"
-  OAUTH_SERVER_ENABLED=false
-  OAUTH_SERVER_ALLOW_DYNAMIC_REGISTRATION=false
-  OAUTH_SERVER_AUTHORIZATION_PATH=""
-fi
+# The OAuth server builds its consent URL from site_url + authorization path,
+# so tutor-web is the canonical Auth site in both hosted environments. Portal
+# callbacks remain explicitly allow-listed below.
+PROD_SITE_URL="$TUTOR_URL"
+OAUTH_SERVER_ENABLED=true
+OAUTH_SERVER_ALLOW_DYNAMIC_REGISTRATION=true
+OAUTH_SERVER_AUTHORIZATION_PATH="/oauth/consent"
 echo "✅ Updated site_url to $PROD_SITE_URL"
 echo "✅ OAuth server enabled: $OAUTH_SERVER_ENABLED"
 if [ "$OAUTH_SERVER_ENABLED" = "true" ]; then
@@ -337,7 +330,7 @@ else
     exit 1
 fi
 
-if [ "$SUPABASE_CONFIG_ENV" = "development" ] && [ "$OAUTH_SERVER_ENABLED" = "true" ]; then
+if [ "$OAUTH_SERVER_ENABLED" = "true" ]; then
   ensure_asymmetric_signing_key
 fi
 

@@ -32910,6 +32910,15 @@ export type Database = {
         }
         Returns: undefined
       }
+      tutor_ucat_mcp_set_deleted: {
+        Args: {
+          p_content_id: string
+          p_content_type: string
+          p_deleted: boolean
+          p_expected_updated_at: string
+        }
+        Returns: Json
+      }
       tutor_ucat_mcp_submit_for_review: {
         Args: {
           p_content_id: string
