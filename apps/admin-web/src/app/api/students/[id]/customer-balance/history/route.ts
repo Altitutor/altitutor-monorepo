@@ -60,10 +60,12 @@ export async function GET(
     }
 
     if (!billing?.stripe_customer_id) {
-      return NextResponse.json(
-        { error: 'Student is not linked to a Stripe customer' },
-        { status: 404 }
-      );
+      return NextResponse.json({
+        linked: false,
+        transactions: [],
+        has_more: false,
+        last_transaction_id: null,
+      });
     }
 
     // Get Stripe secret key

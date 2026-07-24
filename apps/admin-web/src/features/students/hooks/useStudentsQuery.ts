@@ -213,11 +213,21 @@ export function useStudentsCount() {
   });
 }
 
-// Active students count (ACTIVE or TRIAL status)
+// Active students count (ACTIVE status only — excludes TRIAL)
 export function useActiveStudentsCount() {
   return useQuery({
     queryKey: [...studentsKeys.all, 'activeCount'],
     queryFn: () => studentsApi.getActiveStudentsCount(),
+    staleTime: 1000 * 60 * 3,
+    gcTime: 1000 * 60 * 10,
+  });
+}
+
+// Trial students count (TRIAL status)
+export function useTrialStudentsCount() {
+  return useQuery({
+    queryKey: [...studentsKeys.all, 'trialCount'],
+    queryFn: () => studentsApi.getTrialStudentsCount(),
     staleTime: 1000 * 60 * 3,
     gcTime: 1000 * 60 * 10,
   });

@@ -1144,14 +1144,28 @@ export const studentsApi = {
   },
 
   /**
-   * Get count of active students (ACTIVE or TRIAL status)
+   * Get count of active students (ACTIVE status only — excludes TRIAL)
    */
   getActiveStudentsCount: async (): Promise<number> => {
     const supabase = (getSupabaseClient() as SupabaseClient<Database>);
     const { count, error } = await supabase
       .from('students')
       .select('id', { count: 'exact', head: true })
-      .in('status', ['ACTIVE', 'TRIAL']);
+      .eq('status', 'ACTIVE');
+    
+    if (error) throw error;
+    return count ?? 0;
+  },
+
+  /**
+   * Get count of trial students (TRIAL status)
+   */
+  getTrialStudentsCount: async (): Promise<number> => {
+    const supabase = (getSupabaseClient() as SupabaseClient<Database>);
+    const { count, error } = await supabase
+      .from('students')
+      .select('id', { count: 'exact', head: true })
+      .eq('status', 'TRIAL');
     
     if (error) throw error;
     return count ?? 0;

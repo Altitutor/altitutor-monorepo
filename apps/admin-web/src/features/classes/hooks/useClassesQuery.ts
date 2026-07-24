@@ -141,7 +141,7 @@ export function useClass(classId: string) {
   });
 }
 
-// Active classes count (ACTIVE status)
+// Active classes count (ACTIVE status with at least one current enrollment)
 export function useActiveClassesCount() {
   return useQuery({
     queryKey: [...classesKeys.all, 'activeCount'],

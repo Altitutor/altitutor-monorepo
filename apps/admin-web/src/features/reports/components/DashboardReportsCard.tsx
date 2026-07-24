@@ -3,7 +3,10 @@
 import Link from 'next/link';
 import { Button, Card, CardContent, CardHeader, CardTitle } from '@altitutor/ui';
 import { ExternalLink, Loader2 } from 'lucide-react';
-import { useActiveStudentsCount } from '@/features/students/hooks/useStudentsQuery';
+import {
+  useActiveStudentsCount,
+  useTrialStudentsCount,
+} from '@/features/students/hooks/useStudentsQuery';
 import {
   useActiveClassesCount,
   useCurrentEnrollmentsCount,
@@ -13,7 +16,12 @@ const STAT_ROWS = [
   {
     key: 'students' as const,
     label: 'Active students',
-    href: '/students',
+    href: '/students?status=ACTIVE',
+  },
+  {
+    key: 'trialStudents' as const,
+    label: 'Trial students',
+    href: '/students?status=TRIAL',
   },
   {
     key: 'classes' as const,
@@ -49,27 +57,32 @@ function StatValue({
 
 export function DashboardReportsCard() {
   const students = useActiveStudentsCount();
+  const trialStudents = useTrialStudentsCount();
   const classes = useActiveClassesCount();
   const enrollments = useCurrentEnrollmentsCount();
 
   const values = {
     students: students.data,
+    trialStudents: trialStudents.data,
     classes: classes.data,
     enrollments: enrollments.data,
   };
   const loading = {
     students: students.isLoading,
+    trialStudents: trialStudents.isLoading,
     classes: classes.isLoading,
     enrollments: enrollments.isLoading,
   };
   const errors = {
     students: students.isError,
+    trialStudents: trialStudents.isError,
     classes: classes.isError,
     enrollments: enrollments.isError,
   };
 
   const isInitialLoading =
     (students.isLoading && students.data === undefined) ||
+    (trialStudents.isLoading && trialStudents.data === undefined) ||
     (classes.isLoading && classes.data === undefined) ||
     (enrollments.isLoading && enrollments.data === undefined);
 
