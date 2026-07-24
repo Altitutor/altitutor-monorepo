@@ -27,12 +27,17 @@ agent.
   `auth.uid()` and RLS behavior.
 - MCP may create drafts, edit drafts or in-review content, and explicitly move
   a draft to in review.
-- MCP cannot publish, edit published content, or delete/restore a top-level
-  lesson, stem, set, or mock.
+- MCP cannot publish or edit published content.
+- MCP may soft-delete draft or in-review lessons, stems, sets, and mocks after
+  active dependencies are removed, and may restore them as drafts. Published
+  content and live learning folders remain protected.
 - Nested blocks, questions, answer options, stem memberships, and set
   memberships may be explicitly added, updated, moved, or removed.
-- Deleted top-level content is readable but read-only and appears in search only
-  with `includeDeleted: true`.
+- Deleted top-level content appears in search only with `includeDeleted: true`.
+
+Lifecycle and audience are separate. New MCP-authored content defaults to
+`accessScope: "public"`, but a public draft or in-review item is still not live
+for students. Publication remains a manual tutor action.
 
 Every aggregate read returns an opaque `revision`. Update and submit tools
 require it. The database locks the aggregate and rejects a stale revision before
@@ -57,6 +62,7 @@ Write tools:
 - `create_question_set`, `update_question_set`
 - `create_mock`, `update_mock`
 - `submit_ucat_content_for_review`
+- `delete_ucat_content`, `restore_ucat_content`
 - `start_question_generation`
 - `request_question_ai_assessment`
 - `generate_ucat_image`, `revise_ucat_image`
@@ -64,14 +70,24 @@ Write tools:
 Create tools accept a complete initial aggregate. Update tools accept explicit
 typed operations. Omitting a nested item never deletes it.
 
+Every create, question-generation, image-generation, and image-revision call
+requires an `idempotencyKey`. Generate one stable key for the logical operation
+and reuse it unchanged after timeouts. Reusing a key with different inputs is
+rejected. Tool results are returned as MCP `structuredContent` as well as a
+JSON text fallback for older clients.
+
+Rich-text fields accept plain text, explicit Markdown, or native
+TipTap/ProseMirror JSON. See [UCAT MCP rich text](./ucat-mcp-rich-text.md) for
+the supported Markdown dialect and image-node contract.
+
 The direct question-stem tool records `codex_mcp` AI provenance and creates a
 draft. The durable generator tool uses the existing background generator,
 including its prompts, model profiles, source sampling, gates, budget, visuals,
 run tracking, and automatic assessment flow.
 
 Generated images are stored through the existing `ucat-images` pathway. The
-tool returns a preview URL, file ID, and a ready-to-insert ProseMirror image
-node; it does not attach the image automatically. Importing files produced by
+tool returns a preview URL, file ID, and a ready-to-insert ProseMirror
+`imageNode`; it does not attach the image automatically. Importing files produced by
 Codex's client-local image generator is intentionally deferred in v1 because
 MCP does not provide a portable client-local binary upload mechanism.
 

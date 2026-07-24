@@ -95,6 +95,7 @@ export function useLearningModuleEditor(moduleId: string | null) {
   useEffect(() => {
     const rows = blocksQuery.data ?? []
     const draft = rows.map((row) => ({
+      id: row.id,
       clientId: row.id,
       block_type: row.block_type,
       require_completion_before_next: row.require_completion_before_next,

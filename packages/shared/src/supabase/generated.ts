@@ -14828,6 +14828,51 @@ export type Database = {
           },
         ]
       }
+      ucat_mcp_idempotency_records: {
+        Row: {
+          actor_user_id: string
+          attempts: number
+          created_at: string
+          error_message: string | null
+          expires_at: string
+          idempotency_key: string
+          oauth_client_id: string
+          request_hash: string
+          result: Json | null
+          status: string
+          tool_name: string
+          updated_at: string
+        }
+        Insert: {
+          actor_user_id: string
+          attempts?: number
+          created_at?: string
+          error_message?: string | null
+          expires_at?: string
+          idempotency_key: string
+          oauth_client_id: string
+          request_hash: string
+          result?: Json | null
+          status?: string
+          tool_name: string
+          updated_at?: string
+        }
+        Update: {
+          actor_user_id?: string
+          attempts?: number
+          created_at?: string
+          error_message?: string | null
+          expires_at?: string
+          idempotency_key?: string
+          oauth_client_id?: string
+          request_hash?: string
+          result?: Json | null
+          status?: string
+          tool_name?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       ucat_mocks: {
         Row: {
           access_scope: Database["public"]["Enums"]["ucat_access_scope"]
@@ -32899,6 +32944,32 @@ export type Database = {
       }
       tutor_ucat_delete_question_stem: {
         Args: { p_stem_id: string }
+        Returns: undefined
+      }
+      tutor_ucat_mcp_begin_idempotency: {
+        Args: {
+          p_idempotency_key: string
+          p_request_hash: string
+          p_tool_name: string
+        }
+        Returns: Json
+      }
+      tutor_ucat_mcp_complete_idempotency: {
+        Args: {
+          p_idempotency_key: string
+          p_request_hash: string
+          p_result: Json
+          p_tool_name: string
+        }
+        Returns: undefined
+      }
+      tutor_ucat_mcp_fail_idempotency: {
+        Args: {
+          p_error_message: string
+          p_idempotency_key: string
+          p_request_hash: string
+          p_tool_name: string
+        }
         Returns: undefined
       }
       tutor_ucat_mcp_record_auxiliary_activity: {

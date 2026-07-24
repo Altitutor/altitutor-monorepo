@@ -4,6 +4,7 @@ import { createUcatMcpSupabaseClient } from '@/features/ucat/mcp/server/auth'
 import {
   LearningModuleBlockSchema,
   LearningModuleOperationSchema,
+  IdempotencyKeySchema,
   MockOperationSchema,
   NullableRichTextSchema,
   QuestionInputSchema,
@@ -13,6 +14,7 @@ import {
   UcatAccessScopeSchema,
   UcatStatusSchema,
 } from '@/features/ucat/mcp/server/schemas'
+import { executeUcatMcpIdempotent } from '@/features/ucat/mcp/server/idempotency'
 import {
   createUcatMcpLearningModule,
   createUcatMcpMock,
@@ -46,8 +48,28 @@ import { GeneratedContentBlockSchema } from '@/features/ucat/questions/lib/ai-ge
 import { generatedVisualBlockToImageNodeServer } from '@/features/ucat/questions/lib/ai-generation/server-content-blocks'
 
 const AggregateTypeSchema = z.enum(['learning_module', 'stem', 'set', 'mock'])
+const StructuredObjectOutputSchema = z.object({}).passthrough()
+const ImageNodeOutputSchema = z.object({
+  type: z.literal('image'),
+  attrs: z.object({
+    src: z.string(),
+    alt: z.string(),
+    fileId: z.string().uuid(),
+  }).passthrough(),
+})
+const StoredImageOutputSchema = z.object({
+  fileId: z.string().uuid(),
+  signedUrl: z.string(),
+  alt: z.string(),
+  imageNode: ImageNodeOutputSchema,
+}).passthrough()
 
 function jsonResult(value: unknown) {
+  const structuredContent = value && typeof value === 'object' && !Array.isArray(value)
+    ? value as Record<string, unknown>
+    : Array.isArray(value)
+      ? { items: value }
+      : { value }
   return {
     content: [
       {
@@ -55,6 +77,7 @@ function jsonResult(value: unknown) {
         text: JSON.stringify(value, null, 2),
       },
     ],
+    structuredContent,
   }
 }
 
@@ -96,6 +119,11 @@ const writeAnnotations = {
   openWorldHint: false,
 }
 
+const idempotentWriteAnnotations = {
+  ...writeAnnotations,
+  idempotentHint: true,
+}
+
 const destructiveWriteAnnotations = {
   readOnlyHint: false,
   destructiveHint: true,
@@ -120,6 +148,7 @@ export function registerUcatMcpTools(server: McpServer): void {
         offset: z.number().int().min(0).default(0),
         limit: z.number().int().min(1).max(100).default(25),
       },
+      outputSchema: StructuredObjectOutputSchema,
       annotations: readOnlyAnnotations,
     },
     async (input, extra) => executeTool(
@@ -138,6 +167,7 @@ export function registerUcatMcpTools(server: McpServer): void {
         contentType: AggregateTypeSchema,
         id: z.string().uuid(),
       },
+      outputSchema: StructuredObjectOutputSchema,
       annotations: readOnlyAnnotations,
     },
     async ({ contentType, id }, extra) => executeTool(
@@ -153,6 +183,7 @@ export function registerUcatMcpTools(server: McpServer): void {
       description:
         'Read UCAT sections, stem categories, question tags, enabled question-generation model profiles, and enabled skill trainers. Skill trainers include their section, pedagogical description, and approved active item count; attach one only when its practice behavior supports the lesson and it has usable items. Use returned IDs instead of inventing references.',
       inputSchema: {},
+      outputSchema: StructuredObjectOutputSchema,
       annotations: readOnlyAnnotations,
     },
     async (_input, extra) => executeTool(
@@ -168,6 +199,7 @@ export function registerUcatMcpTools(server: McpServer): void {
       description:
         'Create a lesson draft or a catalog folder. Folders have no draft/review lifecycle and may contain no blocks. Lessons always begin as drafts. For unformatted text blocks use content: { body: "plain text" }. Prefer content: { body: { format: "markdown", value: "## Heading\\n\\n- Item" } } for formatted authoring, including headings, lists, tables, quotes, code blocks, rules, links, and common inline marks. The server converts both forms to TipTap/ProseMirror JSON; native TipTap/ProseMirror documents remain available for exact control and embedded images.',
       inputSchema: {
+        idempotencyKey: IdempotencyKeySchema,
         kind: z.enum(['folder', 'lesson']),
         title: z.string().trim().min(1).max(500),
         description: z.string().max(10_000).nullable().optional(),
@@ -182,12 +214,19 @@ export function registerUcatMcpTools(server: McpServer): void {
         studyPlanTagIds: z.array(z.string().uuid()).optional(),
         blocks: z.array(LearningModuleBlockSchema).default([]),
       },
-      annotations: writeAnnotations,
+      outputSchema: StructuredObjectOutputSchema,
+      annotations: idempotentWriteAnnotations,
     },
-    async (input, extra) => executeTool(
-      extra.authInfo?.token,
-      (client) => createUcatMcpLearningModule(client, input),
-    ),
+    async (input, extra) => executeTool(extra.authInfo?.token, (client) => {
+      const { idempotencyKey, ...request } = input
+      return executeUcatMcpIdempotent(
+        client,
+        'create_learning_module',
+        idempotencyKey,
+        request,
+        () => createUcatMcpLearningModule(client, request),
+      )
+    }),
   )
 
   server.registerTool(
@@ -201,6 +240,7 @@ export function registerUcatMcpTools(server: McpServer): void {
         revision: z.string().min(1),
         operations: z.array(LearningModuleOperationSchema).min(1).max(100),
       },
+      outputSchema: StructuredObjectOutputSchema,
       annotations: writeAnnotations,
     },
     async ({ id, revision, operations }, extra) => executeTool(
@@ -216,6 +256,7 @@ export function registerUcatMcpTools(server: McpServer): void {
       description:
         'Create a question stem plus its questions and answer options as a draft with codex_mcp AI provenance. Drafts may be incomplete but references and supplied structure must be valid.',
       inputSchema: {
+        idempotencyKey: IdempotencyKeySchema,
         sectionId: z.string().uuid(),
         categoryId: z.string().uuid().nullable().optional(),
         stemText: RichTextSchema,
@@ -223,12 +264,19 @@ export function registerUcatMcpTools(server: McpServer): void {
         tutorSourceNote: z.string().max(4000).nullable().optional(),
         questions: z.array(QuestionInputSchema).default([]),
       },
-      annotations: writeAnnotations,
+      outputSchema: StructuredObjectOutputSchema,
+      annotations: idempotentWriteAnnotations,
     },
-    async (input, extra) => executeTool(
-      extra.authInfo?.token,
-      (client) => createUcatMcpQuestionStem(client, input),
-    ),
+    async (input, extra) => executeTool(extra.authInfo?.token, (client) => {
+      const { idempotencyKey, ...request } = input
+      return executeUcatMcpIdempotent(
+        client,
+        'create_question_stem',
+        idempotencyKey,
+        request,
+        () => createUcatMcpQuestionStem(client, request),
+      )
+    }),
   )
 
   server.registerTool(
@@ -242,6 +290,7 @@ export function registerUcatMcpTools(server: McpServer): void {
         revision: z.string().min(1),
         operations: z.array(QuestionStemOperationSchema).min(1).max(100),
       },
+      outputSchema: StructuredObjectOutputSchema,
       annotations: writeAnnotations,
     },
     async ({ id, revision, operations }, extra) => executeTool(
@@ -257,18 +306,26 @@ export function registerUcatMcpTools(server: McpServer): void {
       description:
         'Create a draft set with an ordered initial stem membership. An empty set is allowed while drafting.',
       inputSchema: {
+        idempotencyKey: IdempotencyKeySchema,
         name: NullableRichTextSchema.optional(),
         description: RichTextSchema,
         timeLimitSeconds: z.number().int().positive().nullable().optional(),
         accessScope: UcatAccessScopeSchema.default('public'),
         stemIds: z.array(z.string().uuid()).default([]),
       },
-      annotations: writeAnnotations,
+      outputSchema: StructuredObjectOutputSchema,
+      annotations: idempotentWriteAnnotations,
     },
-    async (input, extra) => executeTool(
-      extra.authInfo?.token,
-      (client) => createUcatMcpQuestionSet(client, input),
-    ),
+    async (input, extra) => executeTool(extra.authInfo?.token, (client) => {
+      const { idempotencyKey, ...request } = input
+      return executeUcatMcpIdempotent(
+        client,
+        'create_question_set',
+        idempotencyKey,
+        request,
+        () => createUcatMcpQuestionSet(client, request),
+      )
+    }),
   )
 
   server.registerTool(
@@ -282,6 +339,7 @@ export function registerUcatMcpTools(server: McpServer): void {
         revision: z.string().min(1),
         operations: z.array(QuestionSetOperationSchema).min(1).max(100),
       },
+      outputSchema: StructuredObjectOutputSchema,
       annotations: writeAnnotations,
     },
     async ({ id, revision, operations }, extra) => executeTool(
@@ -297,17 +355,25 @@ export function registerUcatMcpTools(server: McpServer): void {
       description:
         'Create a draft mock with ordered initial set membership. An empty mock is allowed while drafting.',
       inputSchema: {
+        idempotencyKey: IdempotencyKeySchema,
         name: z.string().trim().min(1).max(300),
         instructionsText: NullableRichTextSchema.optional(),
         accessScope: UcatAccessScopeSchema.default('public'),
         setIds: z.array(z.string().uuid()).default([]),
       },
-      annotations: writeAnnotations,
+      outputSchema: StructuredObjectOutputSchema,
+      annotations: idempotentWriteAnnotations,
     },
-    async (input, extra) => executeTool(
-      extra.authInfo?.token,
-      (client) => createUcatMcpMock(client, input),
-    ),
+    async (input, extra) => executeTool(extra.authInfo?.token, (client) => {
+      const { idempotencyKey, ...request } = input
+      return executeUcatMcpIdempotent(
+        client,
+        'create_mock',
+        idempotencyKey,
+        request,
+        () => createUcatMcpMock(client, request),
+      )
+    }),
   )
 
   server.registerTool(
@@ -321,6 +387,7 @@ export function registerUcatMcpTools(server: McpServer): void {
         revision: z.string().min(1),
         operations: z.array(MockOperationSchema).min(1).max(100),
       },
+      outputSchema: StructuredObjectOutputSchema,
       annotations: writeAnnotations,
     },
     async ({ id, revision, operations }, extra) => executeTool(
@@ -340,6 +407,7 @@ export function registerUcatMcpTools(server: McpServer): void {
         id: z.string().uuid(),
         revision: z.string().min(1),
       },
+      outputSchema: StructuredObjectOutputSchema,
       annotations: writeAnnotations,
     },
     async ({ contentType, id, revision }, extra) => executeTool(
@@ -359,6 +427,7 @@ export function registerUcatMcpTools(server: McpServer): void {
         id: z.string().uuid(),
         revision: z.string().min(1),
       },
+      outputSchema: StructuredObjectOutputSchema,
       annotations: destructiveWriteAnnotations,
     },
     async ({ contentType, id, revision }, extra) => executeTool(
@@ -378,6 +447,7 @@ export function registerUcatMcpTools(server: McpServer): void {
         id: z.string().uuid(),
         revision: z.string().min(1),
       },
+      outputSchema: StructuredObjectOutputSchema,
       annotations: writeAnnotations,
     },
     async ({ contentType, id, revision }, extra) => executeTool(
@@ -391,19 +461,34 @@ export function registerUcatMcpTools(server: McpServer): void {
     {
       title: 'Start the durable UCAT AI question generator',
       description:
-        'Queue the existing durable question generator with its configured prompts, gates, budget, visual generation, run tracking, and automatic review behavior.',
-      inputSchema: GenerateBodySchema.shape,
-      annotations: writeAnnotations,
+        'Queue the existing durable question generator with its configured prompts, gates, budget, visual generation, run tracking, and automatic review behavior. Reuse idempotencyKey unchanged after a timeout.',
+      inputSchema: {
+        idempotencyKey: IdempotencyKeySchema,
+        ...GenerateBodySchema.shape,
+      },
+      outputSchema: z.object({
+        runId: z.string().uuid(),
+      }).passthrough(),
+      annotations: idempotentWriteAnnotations,
     },
     async (input, extra) => executeTool(extra.authInfo?.token, async (client) => {
-      const result = await startUcatQuestionGeneration(client, input)
-      await recordUcatMcpAuxiliaryActivity(client, {
-        entityType: 'ucat_ai_generation_runs',
-        entityId: result.runId,
-        toolName: 'start_question_generation',
-        operationKinds: ['start_generation'],
-      })
-      return result
+      const { idempotencyKey, ...request } = input
+      return executeUcatMcpIdempotent(
+        client,
+        'start_question_generation',
+        idempotencyKey,
+        request,
+        async () => {
+          const result = await startUcatQuestionGeneration(client, request)
+          await recordUcatMcpAuxiliaryActivity(client, {
+            entityType: 'ucat_ai_generation_runs',
+            entityId: result.runId,
+            toolName: 'start_question_generation',
+            operationKinds: ['start_generation'],
+          })
+          return result
+        },
+      )
     }),
   )
 
@@ -416,6 +501,7 @@ export function registerUcatMcpTools(server: McpServer): void {
       inputSchema: {
         runId: z.string().uuid().optional(),
       },
+      outputSchema: StructuredObjectOutputSchema,
       annotations: readOnlyAnnotations,
     },
     async ({ runId }, extra) => executeTool(
@@ -433,6 +519,7 @@ export function registerUcatMcpTools(server: McpServer): void {
       inputSchema: {
         stemId: z.string().uuid(),
       },
+      outputSchema: StructuredObjectOutputSchema,
       annotations: readOnlyAnnotations,
     },
     async ({ stemId }, extra) => executeTool(
@@ -450,6 +537,7 @@ export function registerUcatMcpTools(server: McpServer): void {
       inputSchema: {
         stemId: z.string().uuid(),
       },
+      outputSchema: StructuredObjectOutputSchema,
       annotations: writeAnnotations,
     },
     async ({ stemId }, extra) => executeTool(extra.authInfo?.token, async (client) => {
@@ -473,23 +561,36 @@ export function registerUcatMcpTools(server: McpServer): void {
     {
       title: 'Generate and store a UCAT authoring image',
       description:
-        'Generate an image through Altitutor’s configured server image pathway and return a preview URL, file ID, alt text, and ready-to-insert ProseMirror image node. It is not attached automatically.',
+        'Generate an image through Altitutor’s configured server image pathway and return a preview URL, durable file ID, alt text, and ready-to-insert ProseMirror imageNode. It is not attached automatically. Reuse idempotencyKey unchanged after a timeout.',
       inputSchema: {
+        idempotencyKey: IdempotencyKeySchema,
         prompt: z.string().trim().min(1).max(8000),
         alt: z.string().trim().max(1000).nullable().optional(),
       },
-      annotations: writeAnnotations,
+      outputSchema: StoredImageOutputSchema,
+      annotations: idempotentWriteAnnotations,
     },
     async (input, extra) => executeTool(extra.authInfo?.token, async (client) => {
-      const result = await generateUcatMcpImage(client, input)
-      if (typeof result.fileId !== 'string') throw new Error('Generated image file id is missing')
-      await recordUcatMcpAuxiliaryActivity(client, {
-        entityType: 'files',
-        entityId: result.fileId,
-        toolName: 'generate_ucat_image',
-        operationKinds: ['generate_image'],
-      })
-      return result
+      const { idempotencyKey, ...request } = input
+      return executeUcatMcpIdempotent(
+        client,
+        'generate_ucat_image',
+        idempotencyKey,
+        request,
+        async () => {
+          const result = await generateUcatMcpImage(client, request)
+          if (typeof result.fileId !== 'string') {
+            throw new Error('Generated image file id is missing')
+          }
+          await recordUcatMcpAuxiliaryActivity(client, {
+            entityType: 'files',
+            entityId: result.fileId,
+            toolName: 'generate_ucat_image',
+            operationKinds: ['generate_image'],
+          })
+          return result
+        },
+      )
     }),
   )
 
@@ -498,25 +599,38 @@ export function registerUcatMcpTools(server: McpServer): void {
     {
       title: 'Revise and store a UCAT authoring image',
       description:
-        'Revise an accessible stored image through Altitutor’s configured image pathway. Returns a new preview/file; the source is retained and nothing is attached automatically.',
+        'Revise an accessible stored image through Altitutor’s configured image pathway. Returns a new preview/file and ready-to-insert imageNode; the source is retained and nothing is attached automatically. Reuse idempotencyKey unchanged after a timeout.',
       inputSchema: {
+        idempotencyKey: IdempotencyKeySchema,
         fileId: z.string().uuid(),
         instructions: z.string().trim().min(1).max(4000),
         alt: z.string().trim().max(1000).nullable().optional(),
         context: z.unknown().optional(),
       },
-      annotations: writeAnnotations,
+      outputSchema: StoredImageOutputSchema,
+      annotations: idempotentWriteAnnotations,
     },
     async (input, extra) => executeTool(extra.authInfo?.token, async (client) => {
-      const result = await reviseUcatMcpImage(client, input)
-      if (typeof result.fileId !== 'string') throw new Error('Revised image file id is missing')
-      await recordUcatMcpAuxiliaryActivity(client, {
-        entityType: 'files',
-        entityId: result.fileId,
-        toolName: 'revise_ucat_image',
-        operationKinds: ['revise_image'],
-      })
-      return result
+      const { idempotencyKey, ...request } = input
+      return executeUcatMcpIdempotent(
+        client,
+        'revise_ucat_image',
+        idempotencyKey,
+        request,
+        async () => {
+          const result = await reviseUcatMcpImage(client, request)
+          if (typeof result.fileId !== 'string') {
+            throw new Error('Revised image file id is missing')
+          }
+          await recordUcatMcpAuxiliaryActivity(client, {
+            entityType: 'files',
+            entityId: result.fileId,
+            toolName: 'revise_ucat_image',
+            operationKinds: ['revise_image'],
+          })
+          return result
+        },
+      )
     }),
   )
 
@@ -529,6 +643,9 @@ export function registerUcatMcpTools(server: McpServer): void {
       inputSchema: {
         visual: z.unknown(),
       },
+      outputSchema: z.object({
+        imageNode: ImageNodeOutputSchema,
+      }),
       annotations: readOnlyAnnotations,
     },
     async ({ visual }, extra) => executeTool(extra.authInfo?.token, async () => {
@@ -551,6 +668,7 @@ export function registerUcatMcpTools(server: McpServer): void {
       inputSchema: {
         fileId: z.string().uuid(),
       },
+      outputSchema: StructuredObjectOutputSchema,
       annotations: readOnlyAnnotations,
     },
     async ({ fileId }, extra) => executeTool(

@@ -42,13 +42,11 @@ export function UcatLearningModuleDialog({
   const editor = useLearningModuleEditor(open ? moduleId : null)
   const [activeTextEditor, setActiveTextEditor] = useState<Editor | null>(null)
   const [editorMode, setEditorMode] = useState<LearningModuleEditorMode>('edit')
-  const [statusPending, setStatusPending] = useState(false)
 
   useEffect(() => {
     if (!open) {
       setActiveTextEditor(null)
       setEditorMode('edit')
-      setStatusPending(false)
     }
   }, [open])
 
@@ -95,7 +93,6 @@ export function UcatLearningModuleDialog({
   async function handleSetStatus(nextStatus: UcatContentStatus) {
     if (!moduleId || isFolder) return
     const previousStatus = status
-    setStatusPending(true)
     try {
       if (editor.hasUnsavedChanges) {
         await editor.saveAll()
@@ -124,8 +121,6 @@ export function UcatLearningModuleDialog({
       )
     } catch (error) {
       toast(lifecycleErrorToast(error, 'Cannot change lesson status', router.push))
-    } finally {
-      setStatusPending(false)
     }
   }
 

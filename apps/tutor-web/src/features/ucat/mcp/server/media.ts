@@ -49,7 +49,7 @@ export async function generateUcatMcpImage(
   return {
     ...uploaded,
     alt: input.alt?.trim() || input.prompt.slice(0, 160),
-    attachment: {
+    imageNode: {
       type: 'image',
       attrs: {
         src: uploaded.signedUrl,
@@ -120,7 +120,7 @@ export async function reviseUcatMcpImage(
   return {
     ...uploaded,
     alt,
-    attachment: {
+    imageNode: {
       type: 'image',
       attrs: {
         src: uploaded.signedUrl,
@@ -156,4 +156,3 @@ export async function getUcatMcpFile(
     signedUrl,
   }
 }
-

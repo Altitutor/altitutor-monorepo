@@ -47,7 +47,8 @@ Imported stems:
 
 - Appear on the **Generated questions** tab
 - Start as **Pending**
-- Are **Private** by default
+- Are **Public** by default; lifecycle status still keeps them unavailable to
+  students until publication
 - Source = **AI generation**
 
 `[Screenshot: Generate questions modal — config step]`

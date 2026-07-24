@@ -12,13 +12,13 @@ function authServerUrl(): string {
   return `${supabaseUrl.replace(/\/$/u, '')}/auth/v1`
 }
 
-const metadataHandler = protectedResourceHandler({
-  authServerUrls: [authServerUrl()],
-})
 const corsHandler = metadataCorsOptionsRequestHandler()
 
-export {
-  metadataHandler as GET,
-  corsHandler as OPTIONS,
+/** Built per request so CI builds without Supabase env do not fail at module load. */
+export function GET(req: Request): Response {
+  return protectedResourceHandler({
+    authServerUrls: [authServerUrl()],
+  })(req)
 }
 
+export { corsHandler as OPTIONS }

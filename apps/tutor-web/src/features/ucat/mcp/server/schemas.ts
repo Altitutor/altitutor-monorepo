@@ -3,6 +3,9 @@ import { z } from 'zod'
 export const UcatContentTypeSchema = z.enum(['lesson', 'stem', 'set', 'mock'])
 export const UcatStatusSchema = z.enum(['draft', 'in_review', 'published'])
 export const UcatAccessScopeSchema = z.enum(['public', 'private'])
+export const IdempotencyKeySchema = z.string().trim().min(8).max(200).describe(
+  'Stable caller-generated key for this logical create/generation request. Reuse it unchanged after a timeout; use a new key for a materially different request.',
+)
 const MarkdownRichTextSchema = z.object({
   format: z.literal('markdown'),
   value: z.string(),

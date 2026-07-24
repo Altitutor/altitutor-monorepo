@@ -1,9 +1,10 @@
-import { validateBlocksForSave } from '../block-payload'
+import { toBlockPayload, validateBlocksForSave } from '../block-payload'
 import type { DraftBlock } from '../learning-module-editor-types'
 import { buildPendingGeneratedAssessmentContent } from '../pending-generated-assessment'
 
 function questionStemBlock(content: Record<string, unknown> = {}, questionStemId: string | null = '11111111-1111-4111-8111-111111111111'): DraftBlock {
   return {
+    id: null,
     clientId: 'block-1',
     block_type: 'question_stem',
     require_completion_before_next: true,
@@ -17,6 +18,7 @@ function questionStemBlock(content: Record<string, unknown> = {}, questionStemId
 
 function questionBlock(content: Record<string, unknown> = {}, questionId: string | null = '22222222-2222-4222-8222-222222222222'): DraftBlock {
   return {
+    id: null,
     clientId: 'block-2',
     block_type: 'question',
     require_completion_before_next: true,
@@ -29,6 +31,17 @@ function questionBlock(content: Record<string, unknown> = {}, questionId: string
 }
 
 describe('learning module block payload validation', () => {
+  it('preserves existing block IDs and omits IDs for new blocks', () => {
+    const existing = questionStemBlock()
+    existing.id = '33333333-3333-4333-8333-333333333333'
+    const created = questionBlock()
+
+    const payload = toBlockPayload([existing, created])
+
+    expect(payload[0].id).toBe(existing.id)
+    expect(payload[1]).not.toHaveProperty('id')
+  })
+
   it('allows pending generated stem placeholders with IDs on unpublished lessons', () => {
     expect(
       validateBlocksForSave(

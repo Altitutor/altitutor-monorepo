@@ -650,6 +650,7 @@ export async function updateUcatMcpMock(
 
 function learningModuleRpcBlocks(draft: LearningModuleDraft): Json {
   return draft.blocks.map((block) => ({
+    ...(block.id ? { id: block.id } : {}),
     block_type: block.block_type,
     index: block.index,
     require_completion_before_next: block.require_completion_before_next,

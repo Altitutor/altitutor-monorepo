@@ -108,4 +108,68 @@ describe("aiTextToProseMirror", () => {
       ],
     });
   });
+
+  it("preserves inline formatting inside lists and tables", () => {
+    expect(aiTextToProseMirror([
+      "- Use **elimination** and read the [guide](https://example.test/guide).",
+      "",
+      "| Method | Reminder |",
+      "|---|---|",
+      "| **Estimate** | Avoid `exact arithmetic` first |",
+    ].join("\n"))).toMatchObject({
+      content: [
+        {
+          type: "bulletList",
+          content: [
+            {
+              type: "listItem",
+              content: [
+                {
+                  content: expect.arrayContaining([
+                    { type: "text", text: "elimination", marks: [{ type: "bold" }] },
+                    {
+                      type: "text",
+                      text: "guide",
+                      marks: [{ type: "link", attrs: { href: "https://example.test/guide" } }],
+                    },
+                  ]),
+                },
+              ],
+            },
+          ],
+        },
+        {
+          type: "table",
+          content: [
+            { type: "tableRow" },
+            {
+              type: "tableRow",
+              content: [
+                {
+                  content: [
+                    {
+                      content: [
+                        { type: "text", text: "Estimate", marks: [{ type: "bold" }] },
+                      ],
+                    },
+                  ],
+                },
+                {
+                  content: [
+                    {
+                      content: [
+                        { type: "text", text: "Avoid " },
+                        { type: "text", text: "exact arithmetic", marks: [{ type: "code" }] },
+                        { type: "text", text: " first" },
+                      ],
+                    },
+                  ],
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    });
+  });
 });

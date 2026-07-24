@@ -51,6 +51,8 @@ export type UcatLearningModuleBlockRow = {
 
 /** Payload sent to tutor_ucat_replace_learning_module_blocks */
 export type UcatLearningModuleBlockPayload = {
+  /** Existing block ID. Omit for a new block. */
+  id?: string
   block_type: UcatLearningModuleBlockType
   index: number
   require_completion_before_next: boolean
