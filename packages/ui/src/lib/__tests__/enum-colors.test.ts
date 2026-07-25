@@ -7,6 +7,7 @@ import {
   getSubjectDisciplineColor,
   getEnumColor,
   getBooleanColor,
+  getUcatContentStatusColor,
 } from '../enum-colors';
 
 describe('getStudentStatusColor', () => {
@@ -59,5 +60,18 @@ describe('getBooleanColor', () => {
   it('returns gray for null/undefined', () => {
     expect(getBooleanColor(null)).toBe('bg-gray-100 text-gray-800');
     expect(getBooleanColor(undefined)).toBe('bg-gray-100 text-gray-800');
+  });
+});
+
+describe('getUcatContentStatusColor', () => {
+  it('returns mapped colors for each status', () => {
+    expect(getUcatContentStatusColor('draft')).toContain('border');
+    expect(getUcatContentStatusColor('in_review')).toContain('amber');
+    expect(getUcatContentStatusColor('published')).toContain('emerald');
+  });
+
+  it('falls back to draft for null/undefined', () => {
+    expect(getUcatContentStatusColor(null)).toBe(getUcatContentStatusColor('draft'));
+    expect(getUcatContentStatusColor(undefined)).toBe(getUcatContentStatusColor('draft'));
   });
 });

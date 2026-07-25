@@ -33,7 +33,11 @@ function mapModuleRow(row: Record<string, unknown>): UcatLearningModuleRow {
     section_number: (row.section_number as number | null) ?? null,
     child_count: (row.child_count as number) ?? 0,
     block_count: (row.block_count as number) ?? 0,
+    created_at: (row.created_at as string) ?? '',
     updated_at: (row.updated_at as string) ?? '',
+    created_by: (row.created_by as string | null) ?? null,
+    created_by_first_name: (row.created_by_first_name as string | null) ?? null,
+    created_by_last_name: (row.created_by_last_name as string | null) ?? null,
     deleted_at: (row.deleted_at as string | null) ?? null,
     study_plan_priority: (row.study_plan_priority as UcatLearningModuleRow['study_plan_priority']) ?? 'recommended',
     study_plan_category_ids: Array.isArray(row.study_plan_category_ids)

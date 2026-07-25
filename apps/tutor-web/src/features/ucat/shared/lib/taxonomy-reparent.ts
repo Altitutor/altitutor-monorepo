@@ -21,6 +21,14 @@ export function isDescendantOf(
   return false
 }
 
+/**
+ * Section for hierarchy placement: the highest (closest to tree root) non-null
+ * `section_id` on the ancestor chain, including the node itself.
+ *
+ * This lets a sectioned folder under an unsectioned umbrella (e.g. "01 — VR"
+ * under "Core Curriculum") own its cluster, instead of inheriting the umbrella's
+ * null section.
+ */
 export function resolveRootSectionId(
   rows: TaxonomyRowForReparent[],
   nodeId: string
@@ -28,15 +36,19 @@ export function resolveRootSectionId(
   const byId = new Map(rows.map((row) => [row.id, row]))
   let current = byId.get(nodeId)
   const visited = new Set<string>()
+  let sectionId: string | null = null
   while (current) {
     if (visited.has(current.id)) break
     visited.add(current.id)
-    if (current.parent_id === null) {
-      return current.section_id ?? null
+    if (current.section_id != null) {
+      sectionId = current.section_id
     }
-    current = byId.get(current.parent_id)
+    if (current.parent_id === null) break
+    const parent = byId.get(current.parent_id)
+    if (!parent) break
+    current = parent
   }
-  return null
+  return sectionId
 }
 
 export type CategoryRowForSectionFilter = {
@@ -85,7 +97,7 @@ function filterRowsByRootSections<T extends { id?: string | null }>(
   })
 }
 
-/** Categories whose root section is in `sectionIds`, or whose root has no section. */
+/** Categories whose cluster section is in `sectionIds`, or whose cluster has no section. */
 export function filterCategoriesForSections<T extends CategoryRowForSectionFilter>(
   rows: T[],
   sectionIds: string[]
@@ -93,7 +105,7 @@ export function filterCategoriesForSections<T extends CategoryRowForSectionFilte
   return filterRowsByRootSections(rows, sectionIds, toCategoryTaxonomyRow)
 }
 
-/** Tags whose root section is in `sectionIds`, or whose root has no section. */
+/** Tags whose cluster section is in `sectionIds`, or whose cluster has no section. */
 export function filterTagsForSections<T extends TagRowForSectionFilter>(
   rows: T[],
   sectionIds: string[]
@@ -101,7 +113,7 @@ export function filterTagsForSections<T extends TagRowForSectionFilter>(
   return filterRowsByRootSections(rows, sectionIds, toTaxonomyRowForSectionFilter)
 }
 
-/** Tags whose root section matches `sectionId`, or whose root has no section. */
+/** Tags whose cluster section matches `sectionId`, or whose cluster has no section. */
 export function filterTagsForImportSection<T extends TagRowForSectionFilter>(
   rows: T[],
   sectionId: string | null

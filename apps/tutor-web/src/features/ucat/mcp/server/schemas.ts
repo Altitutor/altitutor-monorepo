@@ -3,6 +3,7 @@ import { z } from 'zod'
 export const UcatContentTypeSchema = z.enum(['lesson', 'stem', 'set', 'mock'])
 export const UcatStatusSchema = z.enum(['draft', 'in_review', 'published'])
 export const UcatAccessScopeSchema = z.enum(['public', 'private'])
+export const UcatMcpAggregateTypeSchema = z.enum(['learning_module', 'stem', 'set', 'mock'])
 export const IdempotencyKeySchema = z.string().trim().min(8).max(200).describe(
   'Stable caller-generated key for this logical create/generation request. Reuse it unchanged after a timeout; use a new key for a materially different request.',
 )
@@ -284,9 +285,58 @@ export const LearningModuleOperationSchema = z.discriminatedUnion('type', [
   }),
 ])
 
+export const AuditTargetSchema = z.object({
+  contentType: UcatMcpAggregateTypeSchema,
+  id: z.string().uuid(),
+})
+
+const AuditFilterSelectorSchema = z.object({
+  kind: z.literal('filter'),
+  contentType: UcatMcpAggregateTypeSchema,
+  status: UcatStatusSchema.optional(),
+  accessScope: UcatAccessScopeSchema.optional(),
+  sectionId: z.string().uuid().optional(),
+  categoryId: z.string().uuid().optional(),
+  folderId: z.string().uuid().optional(),
+}).describe(
+  'Server-side target selection. categoryId applies to stems; folderId applies to a learning-module subtree.',
+)
+
+export const AuditSelectorSchema = z.discriminatedUnion('kind', [
+  z.object({ kind: z.literal('manual') }),
+  z.object({
+    kind: z.literal('explicit'),
+    targets: z.array(AuditTargetSchema).min(1).max(200),
+  }),
+  AuditFilterSelectorSchema,
+])
+
+export const AssessmentFindingRefSchema = z.object({
+  assessmentRunId: z.string().uuid(),
+  findingKey: z.string().trim().min(1).max(300),
+  appliedExactSuggestion: z.boolean().default(false),
+  reason: z.string().trim().max(4000).nullable().optional(),
+})
+
+export const ContentChangeMetadataSchema = {
+  summary: z.string().trim().min(1).max(1000).describe(
+    'Concise human-readable description of the intended published change.',
+  ),
+  rationale: z.string().trim().max(10_000).nullable().optional(),
+  auditRunId: z.string().uuid().nullable().optional().describe(
+    'Active auto-applying audit run authorising an unattended published write. Omit for an interactive edit.',
+  ),
+  findingRefs: z.array(AssessmentFindingRefSchema).max(100).optional().describe(
+    'Automated-review findings addressed by this change. Set appliedExactSuggestion only when applying that exact generated patch.',
+  ),
+}
+
 export type QuestionStemOperation = z.infer<typeof QuestionStemOperationSchema>
 export type QuestionSetOperation = z.infer<typeof QuestionSetOperationSchema>
 export type MockOperation = z.infer<typeof MockOperationSchema>
 export type LearningModuleOperation = z.infer<typeof LearningModuleOperationSchema>
 export type LearningModuleBlockInput = z.infer<typeof LearningModuleBlockSchema>
 export type QuestionInput = z.infer<typeof QuestionInputSchema>
+export type AuditTarget = z.infer<typeof AuditTargetSchema>
+export type AuditSelector = z.infer<typeof AuditSelectorSchema>
+export type AssessmentFindingRef = z.infer<typeof AssessmentFindingRefSchema>

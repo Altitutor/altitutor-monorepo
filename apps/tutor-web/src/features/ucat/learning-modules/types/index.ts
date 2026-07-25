@@ -29,7 +29,11 @@ export type UcatLearningModuleRow = {
   section_number: number | null
   child_count: number
   block_count: number
+  created_at: string
   updated_at: string
+  created_by: string | null
+  created_by_first_name: string | null
+  created_by_last_name: string | null
   deleted_at: string | null
   study_plan_priority: UcatLearningModuleStudyPlanPriority
   study_plan_category_ids: string[]

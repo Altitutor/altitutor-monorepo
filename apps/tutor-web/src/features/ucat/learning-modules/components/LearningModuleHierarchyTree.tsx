@@ -22,6 +22,7 @@ import {
 import type { UcatLearningModuleTreeNode } from '@/features/ucat/learning-modules/types/tree'
 import type { UcatLearningModuleKind } from '@/features/ucat/learning-modules/types'
 import { UcatInlineCreateLearningModule } from '@/features/ucat/learning-modules/components/UcatInlineCreateLearningModule'
+import { UcatContentStatusBadge } from '@/features/ucat/shared/components/UcatContentStatusBadge'
 import { UcatRowActions, type UcatRowAction } from '@/features/ucat/shared/row-actions'
 import { cn } from '@/shared/utils'
 
@@ -187,6 +188,9 @@ function LearningModuleHierarchyTreeNode({
           <span className="block min-w-0 flex-1 truncate" title={node.title}>
             {node.title}
           </span>
+          {node.kind === 'lesson' ? (
+            <UcatContentStatusBadge status={node.status} className="shrink-0" />
+          ) : null}
           <ContentCountBadge node={node} />
         </button>
 

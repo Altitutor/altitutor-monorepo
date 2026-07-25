@@ -126,6 +126,13 @@ export const UCAT_VISIBILITY_COLORS = {
   private: 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-200',
 } as const;
 
+// UCAT content lifecycle status (draft / in review / published)
+export const UCAT_CONTENT_STATUS_COLORS = {
+  draft: 'border border-input bg-transparent text-muted-foreground',
+  in_review: 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-200',
+  published: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-200',
+} as const;
+
 /**
  * Helper functions to get colors for specific enum types
  * These provide type safety and fallback to gray if value is invalid
@@ -199,6 +206,13 @@ export function getParkingRemoteColor(remote: 'PHYSICAL' | 'VIRTUAL' | 'NONE' | 
 export function getUcatVisibilityColor(isPrivate: boolean | null | undefined): BadgeColorClass {
   if (isPrivate == null) return UCAT_VISIBILITY_COLORS.public;
   return isPrivate ? UCAT_VISIBILITY_COLORS.private : UCAT_VISIBILITY_COLORS.public;
+}
+
+export function getUcatContentStatusColor(
+  status: keyof typeof UCAT_CONTENT_STATUS_COLORS | null | undefined,
+): BadgeColorClass {
+  if (!status) return UCAT_CONTENT_STATUS_COLORS.draft;
+  return UCAT_CONTENT_STATUS_COLORS[status] ?? UCAT_CONTENT_STATUS_COLORS.draft;
 }
 
 /**

@@ -435,10 +435,10 @@ async function callMutation(
       throw new Error('The authoring revision is stale. Re-read the aggregate and reconcile your operations.')
     }
     if (error.message.includes('mcp_published_content_read_only')) {
-      throw new Error('Published content is read-only through MCP.')
+      throw new Error('Published content requires a dedicated published-change tool.')
     }
     if (error.message.includes('mcp_live_learning_folder_read_only')) {
-      throw new Error('This folder participates in the live Learn catalog and is read-only through MCP.')
+      throw new Error('This live Learn folder requires a dedicated published-learning-module change tool.')
     }
     if (error.message.includes('delete_blocked_by_dependency')) {
       throw new Error('This content is still used by another active UCAT aggregate or session and cannot be deleted.')
