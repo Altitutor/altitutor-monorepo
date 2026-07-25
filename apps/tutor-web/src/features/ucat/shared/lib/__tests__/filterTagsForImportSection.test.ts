@@ -49,6 +49,17 @@ describe('filterTagsForImportSection', () => {
       'global-child',
     ])
   })
+
+  it('treats sectioned folders under an unsectioned umbrella as that section', () => {
+    const umbrellaRows = [
+      { id: 'core', name: 'Core', parent_question_tag_id: null, ucat_section_id: null },
+      { id: 'qr-under-core', name: 'QR', parent_question_tag_id: 'core', ucat_section_id: QR },
+      { id: 'qr-child', name: 'QR child', parent_question_tag_id: 'qr-under-core', ucat_section_id: null },
+      { id: 'vr-under-core', name: 'VR', parent_question_tag_id: 'core', ucat_section_id: VR },
+    ]
+    const filtered = filterTagsForImportSection(umbrellaRows, QR)
+    expect(filtered.map((row) => row.id)).toEqual(['core', 'qr-under-core', 'qr-child'])
+  })
 })
 
 describe('filterCategoriesForSections', () => {

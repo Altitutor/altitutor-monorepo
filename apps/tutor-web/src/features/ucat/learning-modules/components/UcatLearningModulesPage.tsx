@@ -2,6 +2,8 @@
 
 import { useCallback, useMemo, useState } from 'react'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
+import type { ColumnDef } from '@tanstack/react-table'
+import type { DataTableColumnDefinition, DataTableFilterDefinition, DataTableSortOption } from '@altitutor/shared'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -13,18 +15,15 @@ import {
   AlertDialogTitle,
   Button,
   Checkbox,
+  DataTable,
+  DataTableToolbar,
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
   Input,
   SearchableSelect,
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
+  TablePagination,
   TableActions,
   useToast,
 } from '@altitutor/ui'
@@ -33,6 +32,7 @@ import {
   CheckCircle2,
   ChevronDown,
   ExternalLink,
+  Eye,
   FilePenLine,
   Folder,
   ListChecks,
@@ -44,12 +44,12 @@ import {
 } from 'lucide-react'
 import { UcatAccessDenied, UcatPageHeader, UcatPageSkeleton } from '@/features/ucat/shared/components'
 import { useUcatAccess } from '@/features/ucat/shared/hooks/useUcatAccess'
-import { useUcatCopyId } from '@/features/ucat/shared/hooks/useUcatCopyId'
 import { useUcatRowSelection } from '@/features/ucat/shared/hooks/useUcatRowSelection'
-import { buildCopyIdRowAction, withCopyIdDescription } from '@/features/ucat/shared/lib/copy-id-actions'
 import { UcatRowActions, type UcatRowAction } from '@/features/ucat/shared/row-actions'
 import { UcatCreateLearningModuleDialog } from '@/features/ucat/learning-modules/components/UcatCreateLearningModuleDialog'
 import { UcatLearningModuleDialog } from '@/features/ucat/learning-modules/components/UcatLearningModuleDialog'
+import { UcatLearningModuleFolderDialog } from '@/features/ucat/learning-modules/components/UcatLearningModuleFolderDialog'
+import type { LearningModuleEditorMode } from '@/features/ucat/learning-modules/components/UcatLearningModuleSettingsPanel'
 import {
   useDeleteUcatLearningModule,
   useRestoreUcatLearningModule,
@@ -57,6 +57,11 @@ import {
   useReorderUcatLearningModules,
   useUpsertUcatLearningModule,
 } from '@/features/ucat/learning-modules/hooks/useUcatLearningModules'
+import {
+  UCAT_LEARNING_MODULE_SECTION_NONE,
+  useUcatLearningModulesTable,
+  type LearningModuleLessonRow,
+} from '@/features/ucat/learning-modules/hooks/useUcatLearningModulesTable'
 import { ucatLearningModulesApi } from '@/features/ucat/learning-modules/api/modules'
 import type { UcatLearningModuleKind, UcatLearningModuleRow } from '@/features/ucat/learning-modules/types'
 import type { UcatLearningModuleTreeNode } from '@/features/ucat/learning-modules/types/tree'
@@ -72,7 +77,6 @@ import {
 import { getNextLearningModuleIndex } from '@/features/ucat/learning-modules/lib/get-next-learning-module-index'
 import { mapLearningModuleTreeToTaxonomyNodes } from '@/features/ucat/learning-modules/lib/map-learning-module-tree'
 import { LearningModuleHierarchyTree } from '@/features/ucat/learning-modules/components/LearningModuleHierarchyTree'
-import { UcatVisibilityBadge } from '@/features/ucat/shared/components/UcatVisibilityBadge'
 import { UcatDeleteConfirmDialog } from '@/features/ucat/shared/delete-confirm-dialog'
 import { UcatSelectionToolbar } from '@/features/ucat/shared/selection-toolbar'
 import {
@@ -85,7 +89,7 @@ import {
   type UcatContentStatus,
 } from '@/features/ucat/shared/types'
 import { SegmentedControl } from '@/shared/components/segmented-control'
-import { tutorBtnOutline, tutorCardCn, tutorTableBodyRow, tutorTableHeaderRow, tutorTableShell } from '@/shared/lib/tutor-visual'
+import { tutorBtnOutline, tutorCardCn, tutorDataTableProps, tutorToolbarProps } from '@/shared/lib/tutor-visual'
 import { NEW_MODULE_PLACEHOLDER_ID } from '@/features/ucat/learning-modules/components/UcatCreateLearningModuleDialog'
 import { useQueryClient } from '@tanstack/react-query'
 import { ucatKeys } from '@/features/ucat/shared/lib/query-keys'
@@ -95,33 +99,65 @@ function parseStatusTab(value: string | null): UcatContentStatus {
   return value === 'in_review' || value === 'published' ? value : 'draft'
 }
 
+function parseViewMode(value: string | null): 'table' | 'hierarchy' {
+  return value === 'hierarchy' ? 'hierarchy' : 'table'
+}
+
 const STATUS_TAB_OPTIONS = [
   { value: 'draft' as const, label: 'Draft' },
   { value: 'in_review' as const, label: 'In review' },
   { value: 'published' as const, label: 'Published' },
 ]
 
+const VIEW_MODE_OPTIONS = [
+  { value: 'table' as const, label: 'Table' },
+  { value: 'hierarchy' as const, label: 'Hierarchy' },
+]
+
+const columnDefinitions: DataTableColumnDefinition[] = [
+  { key: 'title', label: 'Title', visibleByDefault: true },
+  { key: 'section', label: 'Section', visibleByDefault: true },
+  { key: 'block_count', label: 'Blocks', visibleByDefault: true },
+  { key: 'visibility', label: 'Visibility', visibleByDefault: true },
+  { key: 'source', label: 'Source', visibleByDefault: false },
+  { key: 'created_at', label: 'Date created', visibleByDefault: false },
+  { key: 'updated_at', label: 'Updated', visibleByDefault: false },
+  { key: 'status', label: 'Status', visibleByDefault: false },
+  { key: 'actions', label: 'Actions', visibleByDefault: true },
+]
+
+const sortOptions: DataTableSortOption[] = [
+  { key: 'title', label: 'Title' },
+  { key: 'section', label: 'Section' },
+  { key: 'block_count', label: 'Blocks' },
+  { key: 'visibility', label: 'Visibility' },
+  { key: 'source', label: 'Source' },
+  { key: 'created_by', label: 'Created by' },
+  { key: 'created_at', label: 'Date created' },
+  { key: 'updated_at', label: 'Updated' },
+  { key: 'status', label: 'Status' },
+]
+
 export function UcatLearningModulesPage() {
   const { toast } = useToast()
-  const { copyId } = useUcatCopyId()
   const access = useUcatAccess()
   const searchParams = useSearchParams()
   const router = useRouter()
   const pathname = usePathname()
   const queryClient = useQueryClient()
   const activeTab = parseStatusTab(searchParams.get('tab'))
-  const [showDeleted, setShowDeleted] = useState(false)
-  const modulesQuery = useUcatLearningModules({ includeDeleted: showDeleted })
+  const viewMode = parseViewMode(searchParams.get('view'))
   const sectionsQuery = useUcatSections()
+  const sections = useMemo(() => sectionsQuery.data ?? [], [sectionsQuery.data])
   const upsert = useUpsertUcatLearningModule()
   const deleteModule = useDeleteUcatLearningModule()
   const restoreModule = useRestoreUcatLearningModule()
   const reorderModules = useReorderUcatLearningModules()
 
-  const [searchQuery, setSearchQuery] = useState('')
-  const [editMode, setEditMode] = useState(false)
   const [createOpen, setCreateOpen] = useState(false)
   const [editModuleId, setEditModuleId] = useState<string | null>(null)
+  const [dialogEditorMode, setDialogEditorMode] = useState<LearningModuleEditorMode>('edit')
+  const [folderDialogId, setFolderDialogId] = useState<string | null>(null)
   const [newKind, setNewKind] = useState<UcatLearningModuleKind>('lesson')
   const [newTitle, setNewTitle] = useState('')
   const [newSectionId, setNewSectionId] = useState<string | null>(null)
@@ -141,6 +177,74 @@ export function UcatLearningModulesPage() {
     [activeTab],
   )
 
+  const modulesQuery = useUcatLearningModules()
+  const deletedModulesQuery = useUcatLearningModules({ includeDeleted: true })
+  const combinedModuleRows = useMemo(
+    () => [...(modulesQuery.data ?? []), ...(deletedModulesQuery.data ?? [])],
+    [deletedModulesQuery.data, modulesQuery.data],
+  )
+
+  const filterDefinitions = useMemo((): DataTableFilterDefinition[] => {
+    const creatorsById = new Map<string, string>()
+    for (const row of combinedModuleRows) {
+      if (row.kind !== 'lesson' || !row.created_by) continue
+      const label =
+        [row.created_by_first_name, row.created_by_last_name].filter(Boolean).join(' ') ||
+        'Unknown staff'
+      creatorsById.set(row.created_by, label)
+    }
+    const createdByOptions = Array.from(creatorsById, ([value, label]) => ({ label, value })).sort(
+      (a, b) => a.label.localeCompare(b.label),
+    )
+
+    return [
+      {
+        key: 'visibility',
+        label: 'Visibility',
+        options: [
+          { label: 'Public', value: 'public' },
+          { label: 'Private', value: 'private' },
+        ],
+      },
+      {
+        key: 'section_id',
+        label: 'Section',
+        options: [
+          { label: 'No section', value: UCAT_LEARNING_MODULE_SECTION_NONE },
+          ...[...sections]
+            .filter((section): section is typeof section & { id: string } => section.id != null)
+            .sort((a, b) => (a.section_number ?? 0) - (b.section_number ?? 0))
+            .map((section) => ({
+              label: section.name ?? `Section ${section.section_number ?? ''}`,
+              value: section.id,
+            })),
+        ],
+      },
+      {
+        key: 'created_by',
+        label: 'Created by',
+        options: createdByOptions,
+      },
+    ]
+  }, [combinedModuleRows, sections])
+
+  const {
+    rows: lessonRows,
+    visibleColumns,
+    tableState,
+    showDeleted,
+    setShowDeleted,
+  } = useUcatLearningModulesTable({
+    data: combinedModuleRows,
+    initialVisibleColumns: columnDefinitions
+      .filter((column) => column.visibleByDefault)
+      .map((column) => column.key),
+    availableColumns: columnDefinitions.map((column) => column.key),
+    status: activeTab,
+  })
+
+  const searchQuery = tableState.state.search
+
   const setActiveTab = useCallback(
     (tab: UcatContentStatus) => {
       const params = new URLSearchParams(searchParams.toString())
@@ -154,19 +258,16 @@ export function UcatLearningModulesPage() {
 
   const rows: UcatLearningModuleRow[] = useMemo(() => modulesQuery.data ?? [], [modulesQuery.data])
   const activeRows = useMemo(() => rows.filter((row) => row.deleted_at == null), [rows])
-  const rowById = useMemo(() => new Map(rows.map((row) => [row.id, row])), [rows])
-  const lessonRows = useMemo(
-    () =>
-      rows.filter((row) => {
-        if (row.kind !== 'lesson') return false
-        if (showDeleted) return row.deleted_at != null
-        if (row.deleted_at != null) return false
-        if (row.status !== activeTab) return false
-        if (!searchQuery.trim()) return true
-        return row.title.toLowerCase().includes(searchQuery.trim().toLowerCase())
-      }),
-    [activeTab, rows, searchQuery, showDeleted],
+  const rowById = useMemo(
+    () => new Map(combinedModuleRows.map((row) => [row.id, row])),
+    [combinedModuleRows],
   )
+
+  const { page, pageSize } = tableState.state
+  const totalRows = lessonRows.length
+  const pageCount = Math.max(1, Math.ceil(totalRows / pageSize))
+  const effectivePage = Math.min(page, pageCount)
+  const paginatedRows = lessonRows.slice((effectivePage - 1) * pageSize, effectivePage * pageSize)
 
   const {
     selectedIds: selectedLessonIds,
@@ -177,7 +278,19 @@ export function UcatLearningModulesPage() {
     toggleSelection,
     toggleSelectAllVisible,
     clearSelection,
-  } = useUcatRowSelection(lessonRows)
+  } = useUcatRowSelection(paginatedRows)
+
+  const setViewMode = useCallback(
+    (mode: 'table' | 'hierarchy') => {
+      const params = new URLSearchParams(searchParams.toString())
+      if (mode === 'table') params.delete('view')
+      else params.set('view', mode)
+      const query = params.toString()
+      router.replace(query ? `${pathname}?${query}` : pathname)
+      clearSelection()
+    },
+    [clearSelection, pathname, router, searchParams],
+  )
 
   const invalidateModules = useCallback(async () => {
     await queryClient.invalidateQueries({ queryKey: ucatKeys.learningModules() })
@@ -235,8 +348,27 @@ export function UcatLearningModulesPage() {
     [sectionTrees, unsectionedTrees],
   )
 
-  const openModule = useCallback((moduleId: string) => {
+  const openModule = useCallback((moduleId: string, mode: LearningModuleEditorMode = 'edit') => {
+    const row = rowById.get(moduleId)
+    if (row?.kind === 'folder') {
+      setFolderDialogId(moduleId)
+      return
+    }
+    setDialogEditorMode(mode)
     setEditModuleId(moduleId)
+  }, [rowById])
+
+  const openFolder = useCallback((folderId: string) => {
+    setFolderDialogId(folderId)
+  }, [])
+
+  const closeModuleDialog = useCallback(() => {
+    setEditModuleId(null)
+    setDialogEditorMode('edit')
+  }, [])
+
+  const closeFolderDialog = useCallback(() => {
+    setFolderDialogId(null)
   }, [])
 
   const openCreateDialog = useCallback((kind: UcatLearningModuleKind) => {
@@ -255,13 +387,23 @@ export function UcatLearningModulesPage() {
       if (!window.confirm(`Delete this ${label}? This cannot be undone.`)) return
       try {
         await deleteModule.mutateAsync(moduleId)
-        if (editModuleId === moduleId) setEditModuleId(null)
+        if (editModuleId === moduleId) closeModuleDialog()
+        if (folderDialogId === moduleId) closeFolderDialog()
         toast({ title: 'Deleted', description: `${row.title} was deleted.` })
       } catch (error) {
         toast(lifecycleErrorToast(error, 'Delete failed', router.push))
       }
     },
-    [deleteModule, editModuleId, rowById, router.push, toast],
+    [
+      closeFolderDialog,
+      closeModuleDialog,
+      deleteModule,
+      editModuleId,
+      folderDialogId,
+      rowById,
+      router.push,
+      toast,
+    ],
   )
 
   const handleRestoreModule = useCallback(
@@ -388,19 +530,15 @@ export function UcatLearningModulesPage() {
 
   const getRowActions = useCallback(
     (node: UcatLearningModuleTreeNode): UcatRowAction[] => {
-      const copyIdAction = buildCopyIdRowAction(
-        [
-          {
-            label: node.kind === 'folder' ? 'Folder' : 'Module',
-            id: node.id,
-            description: withCopyIdDescription(node.title),
-          },
-        ],
-        copyId,
-      )
-
       return [
-        ...(copyIdAction ? [copyIdAction] : []),
+        {
+          label: node.kind === 'folder' ? 'Edit' : 'View',
+          icon: node.kind === 'folder' ? <Pencil className="h-4 w-4" /> : <Eye className="h-4 w-4" />,
+          onClick: () => {
+            if (node.kind === 'folder') openFolder(node.id)
+            else openModule(node.id, 'view')
+          },
+        },
         {
           label: 'Open in page',
           icon: <ExternalLink className="h-4 w-4" />,
@@ -416,8 +554,154 @@ export function UcatLearningModulesPage() {
         },
       ]
     },
-    [copyId, handleDeleteModule],
+    [handleDeleteModule, openFolder, openModule],
   )
+
+  const getLessonRowActions = useCallback(
+    (row: LearningModuleLessonRow): UcatRowAction[] => {
+      return [
+        ...(!showDeleted
+          ? [
+              {
+                label: 'Edit',
+                icon: <Pencil className="h-4 w-4" />,
+                onClick: () => openModule(row.id),
+              },
+              {
+                label: 'Open in page',
+                icon: <ExternalLink className="h-4 w-4" />,
+                href: `/ucat/learning-modules/${row.id}`,
+              },
+            ]
+          : []),
+        ...(!showDeleted && row.status === 'draft'
+          ? [
+              {
+                label: 'Send for review',
+                icon: <Send className="h-4 w-4" />,
+                onClick: () =>
+                  void changeLessonStatus(row.id, 'in_review', row.status, 'Cannot send for review'),
+              },
+            ]
+          : []),
+        ...(!showDeleted && row.status === 'in_review'
+          ? [
+              {
+                label: 'Publish',
+                icon: <CheckCircle2 className="h-4 w-4" />,
+                onClick: () =>
+                  void changeLessonStatus(row.id, 'published', row.status, 'Cannot publish lesson'),
+              },
+              {
+                label: 'Move to draft',
+                icon: <FilePenLine className="h-4 w-4" />,
+                onClick: () =>
+                  void changeLessonStatus(row.id, 'draft', row.status, 'Cannot move lesson'),
+              },
+            ]
+          : []),
+        ...(!showDeleted && row.status === 'published'
+          ? [
+              {
+                label: 'Move to review',
+                icon: <ListChecks className="h-4 w-4" />,
+                onClick: () =>
+                  void changeLessonStatus(row.id, 'in_review', row.status, 'Cannot move lesson'),
+              },
+              {
+                label: 'Move to draft',
+                icon: <FilePenLine className="h-4 w-4" />,
+                onClick: () =>
+                  void changeLessonStatus(row.id, 'draft', row.status, 'Cannot move lesson'),
+              },
+            ]
+          : []),
+        ...(showDeleted
+          ? [
+              {
+                label: 'Restore',
+                icon: <RotateCcw className="h-4 w-4" />,
+                onClick: () => void handleRestoreModule(row.id),
+              },
+            ]
+          : [
+              {
+                label: 'Delete',
+                icon: <Trash2 className="h-4 w-4" />,
+                onClick: () => void handleDeleteModule(row.id),
+                destructive: true,
+              },
+            ]),
+      ]
+    },
+    [changeLessonStatus, handleDeleteModule, handleRestoreModule, openModule, showDeleted],
+  )
+
+  const actionsColumn: ColumnDef<LearningModuleLessonRow> = useMemo(
+    () => ({
+      id: 'actions',
+      header: '',
+      cell: ({ row }) => (
+        <div className="flex justify-end" onClick={(event) => event.stopPropagation()}>
+          <UcatRowActions actions={getLessonRowActions(row.original)} />
+        </div>
+      ),
+    }),
+    [getLessonRowActions],
+  )
+
+  const titleColumn: ColumnDef<LearningModuleLessonRow> = useMemo(
+    () => ({
+      accessorKey: 'title',
+      header: 'Title',
+      cell: ({ row }) =>
+        showDeleted ? (
+          <span className="font-medium">{row.original.title}</span>
+        ) : (
+          <button
+            type="button"
+            className="text-left font-medium hover:underline"
+            onClick={(event) => {
+              event.stopPropagation()
+              openModule(row.original.id)
+            }}
+          >
+            {row.original.title}
+          </button>
+        ),
+    }),
+    [openModule, showDeleted],
+  )
+
+  const tableColumns = useMemo(() => {
+    const withTitle = visibleColumns.map((column) =>
+      'accessorKey' in column && column.accessorKey === 'title' ? titleColumn : column,
+    )
+    if (tableState.state.visibleColumns.includes('actions')) {
+      return [...withTitle, actionsColumn]
+    }
+    return withTitle
+  }, [actionsColumn, tableState.state.visibleColumns, titleColumn, visibleColumns])
+
+  const selectColumn: ColumnDef<LearningModuleLessonRow> = {
+    id: 'select',
+    header: () => (
+      <Checkbox
+        checked={allVisibleSelected ? true : someVisibleSelected ? 'indeterminate' : false}
+        onCheckedChange={toggleSelectAllVisible}
+        aria-label="Select all visible lessons"
+      />
+    ),
+    cell: ({ row }) => (
+      <div onClick={(event) => event.stopPropagation()}>
+        <Checkbox
+          checked={selectedLessonIds.has(row.original.id)}
+          onCheckedChange={() => toggleSelection(row.original.id)}
+          aria-label={`Select lesson ${row.original.title}`}
+        />
+      </div>
+    ),
+  }
 
   const handleSiblingReorder = useCallback(
     async (itemId: string, overId: string) => {
@@ -425,10 +709,17 @@ export function UcatLearningModulesPage() {
       const over = rowById.get(overId)
       if (!item || !over || itemId === overId) return
 
+      const taxonomyRows = activeRows.map((module) => ({
+        id: module.id,
+        parent_id: module.parent_ucat_learning_module_id,
+        section_id: module.ucat_section_id,
+      }))
+      const itemSectionId = resolveRootSectionId(taxonomyRows, itemId)
+      const overSectionId = resolveRootSectionId(taxonomyRows, overId)
+
       const sameParent =
         item.parent_ucat_learning_module_id === over.parent_ucat_learning_module_id &&
-        (item.parent_ucat_learning_module_id != null ||
-          item.ucat_section_id === over.ucat_section_id)
+        (item.parent_ucat_learning_module_id != null || itemSectionId === overSectionId)
 
       // Sortable reorder is same-parent only. Cross-folder moves use folder drop targets.
       if (!sameParent) return
@@ -439,7 +730,7 @@ export function UcatLearningModulesPage() {
             return false
           }
           if (item.parent_ucat_learning_module_id != null) return true
-          return row.ucat_section_id === item.ucat_section_id
+          return resolveRootSectionId(taxonomyRows, row.id) === itemSectionId
         })
         .sort((a, b) => a.index - b.index)
 
@@ -565,7 +856,7 @@ export function UcatLearningModulesPage() {
       setNewTitle('')
       setNewSectionId(null)
       setNewParentId(null)
-      if (newKind === 'lesson') setEditModuleId(id)
+      if (newKind === 'lesson') openModule(id, 'edit')
     } catch (e) {
       toast({ title: 'Failed to create module', description: String(e), variant: 'destructive' })
     }
@@ -592,7 +883,7 @@ export function UcatLearningModulesPage() {
           index: getNextLearningModuleIndex(activeRows, parentId),
           accessScope: 'public',
         })
-        if (kind === 'lesson') setEditModuleId(id)
+        if (kind === 'lesson') openModule(id, 'edit')
       } catch (error) {
         toast({
           title: 'Failed to create module',
@@ -602,7 +893,7 @@ export function UcatLearningModulesPage() {
         throw error
       }
     },
-    [activeRows, toast, upsert],
+    [activeRows, openModule, toast, upsert],
   )
 
   if (access.isLoading || modulesQuery.isLoading || sectionsQuery.isLoading) {
@@ -624,14 +915,14 @@ export function UcatLearningModulesPage() {
         <TaxonomySectionDropZone
           sectionId={null}
           sectionName="Unsectioned modules"
-          editMode={editMode}
+          editMode
         >
           <LearningModuleHierarchyTree
             nodes={unsectionedTrees}
             onItemClick={openModule}
             sectionId={null}
             searchQuery={searchQuery}
-            editMode={editMode}
+            editMode
             getRowActions={getRowActions}
             onInlineCreate={handleInlineCreate}
           />
@@ -643,14 +934,14 @@ export function UcatLearningModulesPage() {
           key={section.sectionId}
           sectionId={section.sectionId}
           sectionName={section.sectionName}
-          editMode={editMode}
+          editMode
         >
           <LearningModuleHierarchyTree
             nodes={section.nodes}
             onItemClick={openModule}
             sectionId={section.sectionId}
             searchQuery={searchQuery}
-            editMode={editMode}
+            editMode
             getRowActions={getRowActions}
             onInlineCreate={handleInlineCreate}
           />
@@ -659,6 +950,8 @@ export function UcatLearningModulesPage() {
     </>
   )
 
+  const isHierarchyView = viewMode === 'hierarchy' && !showDeleted
+
   return (
     <div className="space-y-6 py-8 md:py-10">
       <UcatPageHeader
@@ -666,21 +959,17 @@ export function UcatLearningModulesPage() {
         backHref="/ucat"
         breadcrumbs={[{ label: 'UCAT', href: '/ucat' }, { label: 'Learning modules' }]}
         actions={
-          <>
-            <div className="hidden items-center gap-2 sm:flex">
-              <Button
-                type="button"
-                variant={editMode ? 'default' : 'outline'}
-                className={editMode ? undefined : tutorBtnOutline}
-                disabled={showDeleted}
-                onClick={() => {
-                  setEditMode((prev) => !prev)
-                  clearSelection()
-                }}
-              >
-                <Pencil className="mr-2 h-4 w-4" />
-                {editMode ? 'Done reordering' : 'Edit hierarchy'}
-              </Button>
+          <div className="flex items-center gap-2">
+            <SegmentedControl
+              className="w-fit max-w-full"
+              options={VIEW_MODE_OPTIONS}
+              value={isHierarchyView ? 'hierarchy' : 'table'}
+              onValueChange={(value) => {
+                if (value === 'hierarchy' && showDeleted) setShowDeleted(false)
+                setViewMode(value === 'hierarchy' ? 'hierarchy' : 'table')
+              }}
+            />
+            <div className="hidden sm:block">
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button type="button">
@@ -705,14 +994,6 @@ export function UcatLearningModulesPage() {
               triggerClassName={`${tutorBtnOutline} min-w-0`}
               actions={[
                 {
-                  id: 'toggle-hierarchy',
-                  label: editMode ? 'Done reordering' : 'Edit hierarchy',
-                  onSelect: () => {
-                    setEditMode((prev) => !prev)
-                    clearSelection()
-                  },
-                },
-                {
                   id: 'new-learning-module',
                   label: 'New learning module',
                   onSelect: () => openCreateDialog('lesson'),
@@ -724,41 +1005,24 @@ export function UcatLearningModulesPage() {
                 },
               ]}
             />
-          </>
+          </div>
         }
       />
 
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-        <div className="relative flex-1">
+      {isHierarchyView ? (
+        <div className="relative flex-1 max-w-md">
           <Search className="absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
             type="search"
-            placeholder={editMode ? 'Search modules…' : 'Search lessons…'}
+            placeholder="Search modules…"
             value={searchQuery}
-            onChange={(event) => setSearchQuery(event.target.value)}
+            onChange={(event) => tableState.actions.onSearchChange(event.target.value)}
             className="pl-8"
           />
         </div>
-        {!editMode ? (
-          <Button
-            type="button"
-            variant="outline"
-            className={tutorBtnOutline}
-            onClick={() => {
-              setShowDeleted((prev) => {
-                const next = !prev
-                if (next) setEditMode(false)
-                clearSelection()
-                return next
-              })
-            }}
-          >
-            {showDeleted ? 'Show active only' : 'Show deleted'}
-          </Button>
-        ) : null}
-      </div>
+      ) : null}
 
-      {editMode ? (
+      {isHierarchyView ? (
         <div className="space-y-6">
           {!hasVisibleTrees ? (
             <div className={tutorCardCn('p-6 text-center text-sm text-muted-foreground')}>
@@ -788,168 +1052,74 @@ export function UcatLearningModulesPage() {
           ) : (
             <p className="text-sm text-muted-foreground">Showing deleted lessons. Restore returns them to draft.</p>
           )}
-          <div className={tutorTableShell}>
-            <Table className="w-full table-fixed">
-              <TableHeader className="[&_tr]:border-b-0">
-                <TableRow className={tutorTableHeaderRow}>
-                  <TableHead className="w-12">
-                    <Checkbox
-                      checked={allVisibleSelected ? true : someVisibleSelected ? 'indeterminate' : false}
-                      onCheckedChange={toggleSelectAllVisible}
-                      aria-label="Select all visible lessons"
-                    />
-                  </TableHead>
-                  <TableHead>Title</TableHead>
-                  <TableHead className="w-[180px]">Section</TableHead>
-                  <TableHead className="w-24">Blocks</TableHead>
-                  <TableHead className="w-28">Access</TableHead>
-                  {showDeleted ? <TableHead className="w-28">Status</TableHead> : null}
-                  <TableHead className="w-16" />
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {lessonRows.length === 0 ? (
-                  <TableRow className={tutorTableBodyRow}>
-                    <TableCell
-                      colSpan={showDeleted ? 7 : 6}
-                      className="py-10 text-center text-sm text-muted-foreground"
-                    >
-                      {showDeleted ? 'No deleted lessons.' : 'No lessons in this tab.'}
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  lessonRows.map((row) => {
-                    const actions: UcatRowAction[] = [
-                      ...(!showDeleted
-                        ? [
-                            {
-                              label: 'Edit',
-                              icon: <Pencil className="h-4 w-4" />,
-                              onClick: () => openModule(row.id),
-                            },
-                            {
-                              label: 'Open in page',
-                              icon: <ExternalLink className="h-4 w-4" />,
-                              href: `/ucat/learning-modules/${row.id}`,
-                            },
-                          ]
-                        : []),
-                      ...(!showDeleted && row.status === 'draft'
-                        ? [
-                            {
-                              label: 'Send for review',
-                              icon: <Send className="h-4 w-4" />,
-                              onClick: () =>
-                                void changeLessonStatus(row.id, 'in_review', row.status, 'Cannot send for review'),
-                            },
-                          ]
-                        : []),
-                      ...(!showDeleted && row.status === 'in_review'
-                        ? [
-                            {
-                              label: 'Publish',
-                              icon: <CheckCircle2 className="h-4 w-4" />,
-                              onClick: () =>
-                                void changeLessonStatus(row.id, 'published', row.status, 'Cannot publish lesson'),
-                            },
-                            {
-                              label: 'Move to draft',
-                              icon: <FilePenLine className="h-4 w-4" />,
-                              onClick: () =>
-                                void changeLessonStatus(row.id, 'draft', row.status, 'Cannot move lesson'),
-                            },
-                          ]
-                        : []),
-                      ...(!showDeleted && row.status === 'published'
-                        ? [
-                            {
-                              label: 'Move to review',
-                              icon: <ListChecks className="h-4 w-4" />,
-                              onClick: () =>
-                                void changeLessonStatus(row.id, 'in_review', row.status, 'Cannot move lesson'),
-                            },
-                            {
-                              label: 'Move to draft',
-                              icon: <FilePenLine className="h-4 w-4" />,
-                              onClick: () =>
-                                void changeLessonStatus(row.id, 'draft', row.status, 'Cannot move lesson'),
-                            },
-                          ]
-                        : []),
-                      ...(showDeleted
-                        ? [
-                            {
-                              label: 'Restore',
-                              icon: <RotateCcw className="h-4 w-4" />,
-                              onClick: () => void handleRestoreModule(row.id),
-                            },
-                          ]
-                        : [
-                            {
-                              label: 'Delete',
-                              icon: <Trash2 className="h-4 w-4" />,
-                              onClick: () => void handleDeleteModule(row.id),
-                              destructive: true,
-                            },
-                          ]),
-                    ]
-                    return (
-                      <TableRow
-                        key={row.id}
-                        className={cn(
-                          tutorTableBodyRow,
-                          row.deleted_at && 'bg-destructive/10',
-                          selectedLessonIds.has(row.id) && 'bg-muted/50',
-                        )}
-                      >
-                        <TableCell className="w-12">
-                          <Checkbox
-                            checked={selectedLessonIds.has(row.id)}
-                            onCheckedChange={() => toggleSelection(row.id)}
-                            aria-label={`Select lesson ${row.title}`}
-                          />
-                        </TableCell>
-                        <TableCell>
-                          {showDeleted ? (
-                            <span className="font-medium">{row.title || 'Untitled lesson'}</span>
-                          ) : (
-                            <button
-                              type="button"
-                              className="text-left font-medium hover:underline"
-                              onClick={() => openModule(row.id)}
-                            >
-                              {row.title || 'Untitled lesson'}
-                            </button>
-                          )}
-                        </TableCell>
-                        <TableCell className="text-sm text-muted-foreground">
-                          {row.section_name ?? '—'}
-                        </TableCell>
-                        <TableCell className="text-sm text-muted-foreground">{row.block_count}</TableCell>
-                        <TableCell>
-                          <UcatVisibilityBadge isPrivate={row.access_scope === 'private'} />
-                        </TableCell>
-                        {showDeleted ? (
-                          <TableCell className="capitalize text-sm text-muted-foreground">
-                            {row.status}
-                          </TableCell>
-                        ) : null}
-                        <TableCell className="w-16">
-                          <div className="flex justify-end">
-                            <UcatRowActions actions={actions} />
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    )
-                  })
-                )}
-              </TableBody>
-            </Table>
+
+          <DataTableToolbar
+            state={tableState.state}
+            onSearchChange={tableState.actions.onSearchChange}
+            onFiltersChange={tableState.actions.onFiltersChange}
+            onSortChange={tableState.actions.onSortChange}
+            onGroupByChange={tableState.actions.onGroupByChange}
+            onVisibleColumnsChange={tableState.actions.onVisibleColumnsChange}
+            onQuickFilterApply={tableState.actions.onQuickFilterApply}
+            onReset={tableState.actions.onReset}
+            filterDefinitions={filterDefinitions}
+            columnDefinitions={columnDefinitions}
+            sortOptions={sortOptions}
+            {...tutorToolbarProps}
+            searchPlaceholder="Search lessons"
+            filterFooter={
+              <div className="border-t px-2 py-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className={cn(tutorBtnOutline, 'w-full justify-center')}
+                  onClick={() => {
+                    setShowDeleted((prev) => {
+                      const next = !prev
+                      if (next) {
+                        setViewMode('table')
+                        tableState.actions.onFiltersChange({})
+                        tableState.actions.onSearchChange('')
+                      }
+                      clearSelection()
+                      return next
+                    })
+                  }}
+                >
+                  {showDeleted ? 'Show active only' : 'Show deleted'}
+                </Button>
+              </div>
+            }
+            showDeletedActive={showDeleted}
+            onClearShowDeleted={() => setShowDeleted(false)}
+          />
+
+          <div className="pt-3">
+            <DataTable
+              {...tutorDataTableProps}
+              columns={[selectColumn, ...tableColumns]}
+              data={paginatedRows}
+              pagination="external"
+              pageSizeOptions={[10, 20, 50]}
+              getRowClassName={(row) =>
+                cn(row.deleted_at ? 'bg-destructive/10' : '', selectedLessonIds.has(row.id) && 'bg-muted/50')
+              }
+              onRowClick={selectionMode ? (row) => toggleSelection(row.id) : undefined}
+            />
+            <TablePagination
+              page={effectivePage}
+              pageSize={pageSize}
+              total={totalRows}
+              onPageChange={tableState.actions.onPageChange}
+              onPageSizeChange={tableState.actions.onPageSizeChange}
+              pageSizeOptions={[10, 20, 50]}
+              className="pt-3"
+            />
           </div>
         </div>
       )}
 
-      {!editMode && !showDeleted ? (
+      {!isHierarchyView && !showDeleted ? (
         <UcatSelectionToolbar
           selectedCount={selectedLessonIds.size}
           onCancel={clearSelection}
@@ -1071,8 +1241,18 @@ export function UcatLearningModulesPage() {
       <UcatLearningModuleDialog
         open={editModuleId != null}
         moduleId={editModuleId}
-        onClose={() => setEditModuleId(null)}
-        onDeleted={() => setEditModuleId(null)}
+        initialEditorMode={dialogEditorMode}
+        onClose={closeModuleDialog}
+        onDeleted={closeModuleDialog}
+      />
+
+      <UcatLearningModuleFolderDialog
+        open={folderDialogId != null}
+        folderId={folderDialogId}
+        modules={activeRows}
+        sections={sections}
+        onClose={closeFolderDialog}
+        onDelete={handleDeleteModule}
       />
     </div>
   )

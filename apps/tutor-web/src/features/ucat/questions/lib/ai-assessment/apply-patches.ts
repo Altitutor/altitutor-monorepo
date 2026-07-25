@@ -220,6 +220,12 @@ function findImage(value: Json | null | undefined, imageIndex: number): MutableR
 async function renderVisualPatch(
   value: Json | null | undefined,
   patch: Extract<UcatAssessmentPatch, { operation: 'update_visual_spec' }>,
+  renderVisual?: (input: {
+    visualType: 'venn_diagram' | 'set_diagram' | 'vega_lite_chart'
+    title: string | null
+    altText: string
+    spec: Record<string, unknown>
+  }) => Promise<Json>,
 ) {
   const clone = cloneJson(value ?? { type: 'doc', content: [] }) as Json
   const existing = findImage(clone, patch.imageIndex)
@@ -228,29 +234,39 @@ async function renderVisualPatch(
   if (!sameJson(attrs.visualSpec, patch.beforeSpec)) {
     throw new Error('The visual specification has changed since this suggestion was created.')
   }
-  const response = await fetch('/api/ucat/authoring-agent/visuals/render', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      type: 'visual',
-      visualType: patch.visualType,
-      title: patch.title ?? (typeof attrs.visualTitle === 'string' ? attrs.visualTitle : null),
-      altText: patch.altText ?? (typeof attrs.visualAltText === 'string' ? attrs.visualAltText : ''),
-      spec: patch.afterSpec,
-    }),
-  })
-  const body = await response.json().catch(() => ({})) as { imageNode?: Json; error?: string }
-  if (!response.ok || !body.imageNode || !isRecord(body.imageNode)) {
-    throw new Error(body.error ?? 'The updated visual could not be rendered.')
+  const visualInput = {
+    visualType: patch.visualType,
+    title: patch.title ?? (typeof attrs.visualTitle === 'string' ? attrs.visualTitle : null),
+    altText: patch.altText ?? (typeof attrs.visualAltText === 'string' ? attrs.visualAltText : ''),
+    spec: patch.afterSpec,
   }
+  let imageNode: Json
+  if (renderVisual) {
+    imageNode = await renderVisual(visualInput)
+  } else {
+    const response = await fetch('/api/ucat/authoring-agent/visuals/render', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ type: 'visual', ...visualInput }),
+    })
+    const body = await response.json().catch(() => ({})) as { imageNode?: Json; error?: string }
+    if (!response.ok || !body.imageNode || !isRecord(body.imageNode)) {
+      throw new Error(body.error ?? 'The updated visual could not be rendered.')
+    }
+    imageNode = body.imageNode
+  }
+  if (!isRecord(imageNode)) throw new Error('The updated visual could not be rendered.')
   Object.keys(existing).forEach((key) => delete existing[key])
-  Object.assign(existing, body.imageNode)
+  Object.assign(existing, imageNode)
   return clone
 }
 
 export async function applyUcatAssessmentPatches(
   current: UcatQuestionStemFormValues,
   patches: UcatAssessmentPatch[],
+  options?: {
+    renderVisual?: Parameters<typeof renderVisualPatch>[2]
+  },
 ) {
   const values = cloneJson(current)
   for (const patch of patches) {
@@ -324,7 +340,7 @@ export async function applyUcatAssessmentPatches(
       }
       case 'update_visual_spec': {
         const target = getTextTarget(values, patch)
-        target.set(await renderVisualPatch(target.get(), patch))
+        target.set(await renderVisualPatch(target.get(), patch, options?.renderVisual))
         break
       }
     }

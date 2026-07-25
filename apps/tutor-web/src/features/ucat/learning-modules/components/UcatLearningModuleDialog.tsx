@@ -25,6 +25,8 @@ import { ucatKeys } from '@/features/ucat/shared/lib/query-keys'
 type UcatLearningModuleDialogProps = {
   open: boolean
   moduleId: string | null
+  /** Initial edit/view mode when the dialog opens. Defaults to edit. */
+  initialEditorMode?: LearningModuleEditorMode
   onClose: () => void
   onDeleted?: () => void
 }
@@ -32,6 +34,7 @@ type UcatLearningModuleDialogProps = {
 export function UcatLearningModuleDialog({
   open,
   moduleId,
+  initialEditorMode = 'edit',
   onClose,
   onDeleted,
 }: UcatLearningModuleDialogProps) {
@@ -41,14 +44,16 @@ export function UcatLearningModuleDialog({
   const queryClient = useQueryClient()
   const editor = useLearningModuleEditor(open ? moduleId : null)
   const [activeTextEditor, setActiveTextEditor] = useState<Editor | null>(null)
-  const [editorMode, setEditorMode] = useState<LearningModuleEditorMode>('edit')
+  const [editorMode, setEditorMode] = useState<LearningModuleEditorMode>(initialEditorMode)
 
   useEffect(() => {
-    if (!open) {
-      setActiveTextEditor(null)
-      setEditorMode('edit')
+    if (open) {
+      setEditorMode(initialEditorMode)
+      return
     }
-  }, [open])
+    setActiveTextEditor(null)
+    setEditorMode('edit')
+  }, [open, initialEditorMode])
 
   const title = editor.title.trim() || editor.moduleQuery.data?.title || 'Learning module'
   const status = editor.status

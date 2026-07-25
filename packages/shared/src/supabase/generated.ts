@@ -13273,6 +13273,7 @@ export type Database = {
       }
       ucat_ai_question_assessment_decisions: {
         Row: {
+          content_change_id: string | null
           decided_at: string
           decided_by: string | null
           decision: string
@@ -13285,6 +13286,7 @@ export type Database = {
           stem_id: string
         }
         Insert: {
+          content_change_id?: string | null
           decided_at?: string
           decided_by?: string | null
           decision: string
@@ -13297,6 +13299,7 @@ export type Database = {
           stem_id: string
         }
         Update: {
+          content_change_id?: string | null
           decided_at?: string
           decided_by?: string | null
           decision?: string
@@ -13309,6 +13312,13 @@ export type Database = {
           stem_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "ucat_ai_question_assessment_decisions_content_change_id_fkey"
+            columns: ["content_change_id"]
+            isOneToOne: false
+            referencedRelation: "ucat_mcp_content_changes"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "ucat_ai_question_assessment_decisions_decided_by_fkey"
             columns: ["decided_by"]
@@ -14824,6 +14834,316 @@ export type Database = {
             columns: ["updated_by"]
             isOneToOne: false
             referencedRelation: "vtutor_profile"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ucat_mcp_audit_run_targets: {
+        Row: {
+          claimed_revision: string | null
+          completed_at: string | null
+          content_id: string
+          content_type: string
+          created_at: string
+          error_message: string | null
+          id: string
+          outcome: Json | null
+          run_id: string
+          started_at: string | null
+          status: string
+        }
+        Insert: {
+          claimed_revision?: string | null
+          completed_at?: string | null
+          content_id: string
+          content_type: string
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          outcome?: Json | null
+          run_id: string
+          started_at?: string | null
+          status?: string
+        }
+        Update: {
+          claimed_revision?: string | null
+          completed_at?: string | null
+          content_id?: string
+          content_type?: string
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          outcome?: Json | null
+          run_id?: string
+          started_at?: string | null
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ucat_mcp_audit_run_targets_run_id_fkey"
+            columns: ["run_id"]
+            isOneToOne: false
+            referencedRelation: "ucat_mcp_audit_runs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ucat_mcp_audit_runs: {
+        Row: {
+          brief: string | null
+          cancelled_at: string | null
+          completed_at: string | null
+          created_at: string
+          created_by: string
+          id: string
+          idempotency_key: string
+          oauth_client_id: string
+          published_write_mode: string
+          request_hash: string
+          selector: Json
+          started_at: string | null
+          status: string
+          title: string
+          workflow_id: string | null
+          workflow_version: string | null
+        }
+        Insert: {
+          brief?: string | null
+          cancelled_at?: string | null
+          completed_at?: string | null
+          created_at?: string
+          created_by: string
+          id?: string
+          idempotency_key: string
+          oauth_client_id: string
+          published_write_mode?: string
+          request_hash: string
+          selector?: Json
+          started_at?: string | null
+          status?: string
+          title: string
+          workflow_id?: string | null
+          workflow_version?: string | null
+        }
+        Update: {
+          brief?: string | null
+          cancelled_at?: string | null
+          completed_at?: string | null
+          created_at?: string
+          created_by?: string
+          id?: string
+          idempotency_key?: string
+          oauth_client_id?: string
+          published_write_mode?: string
+          request_hash?: string
+          selector?: Json
+          started_at?: string | null
+          status?: string
+          title?: string
+          workflow_id?: string | null
+          workflow_version?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ucat_mcp_audit_runs_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ucat_mcp_audit_runs_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "vmarketing_staff_profiles"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "ucat_mcp_audit_runs_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "vtutor_pay_tier_profile"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "ucat_mcp_audit_runs_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "vtutor_profile"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ucat_mcp_content_changes: {
+        Row: {
+          applied_at: string | null
+          applied_by: string | null
+          audit_run_id: string | null
+          base_revision: string
+          base_snapshot: Json
+          created_at: string
+          created_by: string
+          finding_refs: Json
+          id: string
+          operations: Json
+          proposed_snapshot: Json
+          rationale: string | null
+          rejected_at: string | null
+          rejected_by: string | null
+          rejection_reason: string | null
+          resulting_revision: string | null
+          reverse_of_change_id: string | null
+          source: string
+          status: string
+          summary: string
+          target_id: string
+          target_type: string
+        }
+        Insert: {
+          applied_at?: string | null
+          applied_by?: string | null
+          audit_run_id?: string | null
+          base_revision: string
+          base_snapshot: Json
+          created_at?: string
+          created_by: string
+          finding_refs?: Json
+          id?: string
+          operations?: Json
+          proposed_snapshot: Json
+          rationale?: string | null
+          rejected_at?: string | null
+          rejected_by?: string | null
+          rejection_reason?: string | null
+          resulting_revision?: string | null
+          reverse_of_change_id?: string | null
+          source: string
+          status?: string
+          summary: string
+          target_id: string
+          target_type: string
+        }
+        Update: {
+          applied_at?: string | null
+          applied_by?: string | null
+          audit_run_id?: string | null
+          base_revision?: string
+          base_snapshot?: Json
+          created_at?: string
+          created_by?: string
+          finding_refs?: Json
+          id?: string
+          operations?: Json
+          proposed_snapshot?: Json
+          rationale?: string | null
+          rejected_at?: string | null
+          rejected_by?: string | null
+          rejection_reason?: string | null
+          resulting_revision?: string | null
+          reverse_of_change_id?: string | null
+          source?: string
+          status?: string
+          summary?: string
+          target_id?: string
+          target_type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ucat_mcp_content_changes_applied_by_fkey"
+            columns: ["applied_by"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ucat_mcp_content_changes_applied_by_fkey"
+            columns: ["applied_by"]
+            isOneToOne: false
+            referencedRelation: "vmarketing_staff_profiles"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "ucat_mcp_content_changes_applied_by_fkey"
+            columns: ["applied_by"]
+            isOneToOne: false
+            referencedRelation: "vtutor_pay_tier_profile"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "ucat_mcp_content_changes_applied_by_fkey"
+            columns: ["applied_by"]
+            isOneToOne: false
+            referencedRelation: "vtutor_profile"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ucat_mcp_content_changes_audit_run_id_fkey"
+            columns: ["audit_run_id"]
+            isOneToOne: false
+            referencedRelation: "ucat_mcp_audit_runs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ucat_mcp_content_changes_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ucat_mcp_content_changes_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "vmarketing_staff_profiles"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "ucat_mcp_content_changes_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "vtutor_pay_tier_profile"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "ucat_mcp_content_changes_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "vtutor_profile"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ucat_mcp_content_changes_rejected_by_fkey"
+            columns: ["rejected_by"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ucat_mcp_content_changes_rejected_by_fkey"
+            columns: ["rejected_by"]
+            isOneToOne: false
+            referencedRelation: "vmarketing_staff_profiles"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "ucat_mcp_content_changes_rejected_by_fkey"
+            columns: ["rejected_by"]
+            isOneToOne: false
+            referencedRelation: "vtutor_pay_tier_profile"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "ucat_mcp_content_changes_rejected_by_fkey"
+            columns: ["rejected_by"]
+            isOneToOne: false
+            referencedRelation: "vtutor_profile"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ucat_mcp_content_changes_reverse_of_change_id_fkey"
+            columns: ["reverse_of_change_id"]
+            isOneToOne: false
+            referencedRelation: "ucat_mcp_content_changes"
             referencedColumns: ["id"]
           },
         ]
@@ -28645,6 +28965,8 @@ export type Database = {
           child_count: number | null
           created_at: string | null
           created_by: string | null
+          created_by_first_name: string | null
+          created_by_last_name: string | null
           deleted_at: string | null
           deleted_by: string | null
           description: string | null
@@ -32946,12 +33268,46 @@ export type Database = {
         Args: { p_stem_id: string }
         Returns: undefined
       }
+      tutor_ucat_mcp_add_audit_targets: {
+        Args: { p_run_id: string; p_targets: Json }
+        Returns: Json
+      }
+      tutor_ucat_mcp_apply_content_change: {
+        Args: {
+          p_audit_run_id: string
+          p_base_snapshot: Json
+          p_existing_change_id: string
+          p_expected_updated_at: string
+          p_finding_refs: Json
+          p_operations: Json
+          p_proposed_snapshot: Json
+          p_rationale: string
+          p_reverse_of_change_id: string
+          p_source: string
+          p_summary: string
+          p_target_id: string
+          p_target_type: string
+        }
+        Returns: Json
+      }
       tutor_ucat_mcp_begin_idempotency: {
         Args: {
           p_idempotency_key: string
           p_request_hash: string
           p_tool_name: string
         }
+        Returns: Json
+      }
+      tutor_ucat_mcp_cancel_audit_run: {
+        Args: { p_run_id: string }
+        Returns: Json
+      }
+      tutor_ucat_mcp_claim_audit_targets: {
+        Args: { p_limit: number; p_run_id: string }
+        Returns: Json
+      }
+      tutor_ucat_mcp_complete_audit_run: {
+        Args: { p_run_id: string }
         Returns: Json
       }
       tutor_ucat_mcp_complete_idempotency: {
@@ -32963,6 +33319,35 @@ export type Database = {
         }
         Returns: undefined
       }
+      tutor_ucat_mcp_create_audit_run: {
+        Args: {
+          p_brief: string
+          p_idempotency_key: string
+          p_published_write_mode: string
+          p_selector: Json
+          p_title: string
+          p_workflow_id: string
+          p_workflow_version: string
+        }
+        Returns: Json
+      }
+      tutor_ucat_mcp_create_content_change: {
+        Args: {
+          p_audit_run_id: string
+          p_base_snapshot: Json
+          p_expected_updated_at: string
+          p_finding_refs: Json
+          p_operations: Json
+          p_proposed_snapshot: Json
+          p_rationale: string
+          p_reverse_of_change_id: string
+          p_source: string
+          p_summary: string
+          p_target_id: string
+          p_target_type: string
+        }
+        Returns: Json
+      }
       tutor_ucat_mcp_fail_idempotency: {
         Args: {
           p_error_message: string
@@ -32971,6 +33356,48 @@ export type Database = {
           p_tool_name: string
         }
         Returns: undefined
+      }
+      tutor_ucat_mcp_finish_audit_target: {
+        Args: {
+          p_claimed_revision: string
+          p_content_id: string
+          p_content_type: string
+          p_error_message: string
+          p_outcome: Json
+          p_run_id: string
+          p_status: string
+        }
+        Returns: Json
+      }
+      tutor_ucat_mcp_get_audit_run: {
+        Args: {
+          p_run_id: string
+          p_target_limit?: number
+          p_target_offset?: number
+        }
+        Returns: Json
+      }
+      tutor_ucat_mcp_get_content_changes: {
+        Args: {
+          p_audit_run_id?: string
+          p_change_id?: string
+          p_limit?: number
+          p_offset?: number
+          p_status?: string
+          p_target_id?: string
+          p_target_type?: string
+        }
+        Returns: Json
+      }
+      tutor_ucat_mcp_record_assessment_decision: {
+        Args: {
+          p_decision: string
+          p_finding_key: string
+          p_reason: string
+          p_run_id: string
+          p_stem_id: string
+        }
+        Returns: Json
       }
       tutor_ucat_mcp_record_auxiliary_activity: {
         Args: {
@@ -32981,6 +33408,10 @@ export type Database = {
         }
         Returns: undefined
       }
+      tutor_ucat_mcp_reject_content_change: {
+        Args: { p_change_id: string; p_reason: string }
+        Returns: Json
+      }
       tutor_ucat_mcp_set_deleted: {
         Args: {
           p_content_id: string
@@ -32988,6 +33419,10 @@ export type Database = {
           p_deleted: boolean
           p_expected_updated_at: string
         }
+        Returns: Json
+      }
+      tutor_ucat_mcp_start_audit_run: {
+        Args: { p_run_id: string }
         Returns: Json
       }
       tutor_ucat_mcp_submit_for_review: {
@@ -33222,9 +33657,25 @@ export type Database = {
         Args: { p_content_id: string; p_content_type: string }
         Returns: Json
       }
+      ucat_mcp_assert_audit_application: {
+        Args: { p_content_id: string; p_content_type: string; p_run_id: string }
+        Returns: undefined
+      }
+      ucat_mcp_assert_target_exists: {
+        Args: { p_content_id: string; p_content_type: string }
+        Returns: undefined
+      }
       ucat_mcp_authoring_revision: {
         Args: { p_entity_id: string; p_updated_at: string }
         Returns: string
+      }
+      ucat_mcp_lock_target: {
+        Args: { p_content_id: string; p_content_type: string }
+        Returns: {
+          kind: Database["public"]["Enums"]["ucat_learning_module_kind"]
+          status: Database["public"]["Enums"]["ucat_content_status"]
+          updated_at: string
+        }[]
       }
       ucat_mcp_record_activity: {
         Args: {

@@ -1,17 +1,24 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import type { Editor } from '@tiptap/react'
 import { useRouter } from 'next/navigation'
 import { Button, useToast } from '@altitutor/ui'
 import { UcatAccessDenied } from '@/features/ucat/shared/components'
 import { useUcatAccess } from '@/features/ucat/shared/hooks/useUcatAccess'
 import { TutorPageContainer } from '@/shared/components/layouts'
-import { useUcatLearningModule } from '@/features/ucat/learning-modules/hooks/useUcatLearningModules'
+import {
+  useDeleteUcatLearningModule,
+  useUcatLearningModule,
+  useUcatLearningModules,
+} from '@/features/ucat/learning-modules/hooks/useUcatLearningModules'
 import { UcatLearningModuleDialog } from '@/features/ucat/learning-modules/components/UcatLearningModuleDialog'
+import { UcatLearningModuleFolderDialog } from '@/features/ucat/learning-modules/components/UcatLearningModuleFolderDialog'
 import { UcatLearningModuleEditorShell } from '@/features/ucat/learning-modules/components/UcatLearningModuleEditorShell'
 import { UcatRichTextFloatingToolbar } from '@/features/ucat/shared/components/UcatRichTextFloatingToolbar'
 import { useLearningModuleEditor } from '@/features/ucat/learning-modules/hooks/useLearningModuleEditor'
+import { useUcatSections } from '@/features/ucat/questions/hooks/useUcatQuestions'
+import { lifecycleErrorToast } from '@/features/ucat/shared/lifecycle-errors'
 
 export function UcatLearningModuleDetailPage({ moduleId }: { moduleId: string }) {
   const router = useRouter()
@@ -19,13 +26,35 @@ export function UcatLearningModuleDetailPage({ moduleId }: { moduleId: string })
   const access = useUcatAccess()
   const hasUcatAccess = Boolean(access.data)
   const moduleQuery = useUcatLearningModule(moduleId)
+  const modulesQuery = useUcatLearningModules()
+  const sectionsQuery = useUcatSections()
+  const deleteModule = useDeleteUcatLearningModule()
   const editor = useLearningModuleEditor(moduleId)
   const [dialogOpen, setDialogOpen] = useState(true)
   const [activeTextEditor, setActiveTextEditor] = useState<Editor | null>(null)
 
+  const activeModules = useMemo(
+    () => (modulesQuery.data ?? []).filter((row) => row.deleted_at == null),
+    [modulesQuery.data],
+  )
+  const isFolder = moduleQuery.data?.kind === 'folder'
+
   useEffect(() => {
     setDialogOpen(true)
   }, [moduleId])
+
+  async function handleDeleteFolder(folderId: string) {
+    const row = moduleQuery.data
+    if (!row || row.kind !== 'folder') return
+    if (!window.confirm('Delete this folder? This cannot be undone.')) return
+    try {
+      await deleteModule.mutateAsync(folderId)
+      toast({ title: 'Deleted', description: `${row.title} was deleted.` })
+      router.push('/ucat/learning-modules')
+    } catch (error) {
+      toast(lifecycleErrorToast(error, 'Delete failed', router.push))
+    }
+  }
 
   if (access.isLoading || moduleQuery.isLoading) return null
   if (!hasUcatAccess) return <UcatAccessDenied />
@@ -34,6 +63,22 @@ export function UcatLearningModuleDetailPage({ moduleId }: { moduleId: string })
       <TutorPageContainer>
         <p className="text-muted-foreground">Module not found.</p>
       </TutorPageContainer>
+    )
+  }
+
+  if (dialogOpen && isFolder) {
+    return (
+      <UcatLearningModuleFolderDialog
+        open={dialogOpen}
+        folderId={moduleId}
+        modules={activeModules}
+        sections={sectionsQuery.data ?? []}
+        onClose={() => {
+          setDialogOpen(false)
+          router.push('/ucat/learning-modules')
+        }}
+        onDelete={handleDeleteFolder}
+      />
     )
   }
 
@@ -48,6 +93,17 @@ export function UcatLearningModuleDetailPage({ moduleId }: { moduleId: string })
         }}
         onDeleted={() => router.push('/ucat/learning-modules')}
       />
+    )
+  }
+
+  if (isFolder) {
+    return (
+      <TutorPageContainer>
+        <p className="text-muted-foreground">Open the folder dialog to edit folder properties.</p>
+        <Button type="button" className="mt-4" onClick={() => setDialogOpen(true)}>
+          Edit folder
+        </Button>
+      </TutorPageContainer>
     )
   }
 
