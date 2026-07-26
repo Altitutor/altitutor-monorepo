@@ -10,6 +10,7 @@ import {
   selectedImageAction,
   type SelectedVisualImage,
 } from '@/features/ucat/shared/lib/selected-visual-image'
+import { getMountedEditorView } from '@/features/ucat/shared/lib/mounted-editor-view'
 
 type AnchorPosition = { top: number; left: number }
 
@@ -30,7 +31,8 @@ export function UcatSelectedImageMenu({
   const menuRef = useRef<HTMLDivElement | null>(null)
 
   useEffect(() => {
-    if (!editor) {
+    const mountedView = getMountedEditorView(editor)
+    if (!editor || !mountedView) {
       setSelectedImage(null)
       return
     }
@@ -55,11 +57,11 @@ export function UcatSelectedImageMenu({
     }
     editor.on('selectionUpdate', update)
     editor.on('transaction', update)
-    editor.view.dom.addEventListener('pointerdown', clearOnEditorPointer, true)
+    mountedView.dom.addEventListener('pointerdown', clearOnEditorPointer, true)
     return () => {
       editor.off('selectionUpdate', update)
       editor.off('transaction', update)
-      editor.view.dom.removeEventListener('pointerdown', clearOnEditorPointer, true)
+      mountedView.dom.removeEventListener('pointerdown', clearOnEditorPointer, true)
       if (clearSelectionTimerRef.current) window.clearTimeout(clearSelectionTimerRef.current)
     }
   }, [editor])
@@ -70,7 +72,12 @@ export function UcatSelectedImageMenu({
       return
     }
     const updateAnchor = () => {
-      const nodeDom = editor.view.nodeDOM(selectedImage.nodePos)
+      const mountedView = getMountedEditorView(editor)
+      if (!mountedView) {
+        setAnchor(null)
+        return
+      }
+      const nodeDom = mountedView.nodeDOM(selectedImage.nodePos)
       const element = nodeDom instanceof HTMLElement ? nodeDom : null
       const image = element instanceof HTMLImageElement ? element : element?.querySelector('img')
       const target = image instanceof HTMLElement ? image : element
@@ -94,7 +101,7 @@ export function UcatSelectedImageMenu({
     window.addEventListener('resize', updateAnchor)
     window.addEventListener('scroll', updateAnchor, true)
     const resizeObserver = new ResizeObserver(updateAnchor)
-    const nodeDom = editor.view.nodeDOM(selectedImage.nodePos)
+    const nodeDom = getMountedEditorView(editor)?.nodeDOM(selectedImage.nodePos)
     if (nodeDom instanceof Element) resizeObserver.observe(nodeDom)
     return () => {
       window.removeEventListener('resize', updateAnchor)
