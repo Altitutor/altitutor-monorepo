@@ -1,6 +1,5 @@
 import type { Json } from '@altitutor/shared'
 import {
-  tokenizedPlainTextToProseMirror,
   tokenizedPlainTextToProseMirrorWithLineBreaks,
 } from '@/features/ucat/shared/lib/rich-text'
 import type { UcatQuestionStemFormValues } from '@/features/ucat/questions/types/schema'
@@ -17,7 +16,7 @@ export { collectLogicalLinesFromDoc } from '@/features/ucat/questions/lib/parser
 export type VerbalReasoningParserConfig = ParserConfig
 
 function toRichText(text: string): Json {
-  return tokenizedPlainTextToProseMirror(text) as Json
+  return tokenizedPlainTextToProseMirrorWithLineBreaks(text) as Json
 }
 
 const APOSTROPHE_LIKE_RE = /[\u0027\u2018\u2019\u201A\u201B\u2032\u2035]/g

@@ -1252,9 +1252,19 @@ export const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>
       return incomingContent;
     })();
 
-    editor.commands.setContent(parsedContent as JSONContent | string, { contentType: isMarkdown ? 'markdown' : undefined });
+    // Prop-driven sync must not emit onUpdate — that re-enters RHF onChange and can
+    // infinite-loop when a parent mirrors form state back into `content`.
+    editor.commands.setContent(parsedContent as JSONContent | string, {
+      contentType: isMarkdown ? 'markdown' : undefined,
+      emitUpdate: false,
+    });
 
     lastContentPropRef.current = incomingContent;
+    if (!isMarkdown) {
+      lastEmittedJsonRef.current = JSON.stringify(editor.getJSON());
+    } else {
+      lastEmittedMarkdownRef.current = editor.getMarkdown();
+    }
   }, [content, editor, isMarkdown]);
 
   // Flush debounced onChange so navigations / saves don't drop the last edits.

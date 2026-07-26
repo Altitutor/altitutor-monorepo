@@ -1,6 +1,7 @@
 'use client'
 
 import Link from 'next/link'
+import { Fragment } from 'react'
 import {
   Button,
   DropdownMenu,
@@ -29,6 +30,8 @@ export type UcatRowAction = {
   href?: string
   destructive?: boolean
   children?: UcatRowSubAction[]
+  /** When set, rendered instead of the default action item/submenu. */
+  render?: () => React.ReactNode
 }
 
 function ActionLabel({ label, description }: { label: string; description?: string }) {
@@ -66,6 +69,10 @@ function renderSubAction(action: UcatRowSubAction, key: string) {
 }
 
 function renderAction(action: UcatRowAction, index: number) {
+  if (action.render) {
+    return <Fragment key={`${action.label}-${index}`}>{action.render()}</Fragment>
+  }
+
   const className = action.destructive
     ? '!text-destructive focus:!text-destructive focus:bg-destructive/10 hover:!text-destructive hover:bg-destructive/10'
     : undefined

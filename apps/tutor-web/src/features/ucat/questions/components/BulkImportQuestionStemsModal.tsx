@@ -30,6 +30,7 @@ import {
   useUcatTags,
 } from '@/features/ucat/questions/hooks/useUcatQuestions'
 import { bulkImportSectionFromUcatName } from '@/features/ucat/questions/components/bulk-import/bulkImportLogicalLines'
+import { inferBulkImportCategoryIdForFormValues } from '@/features/ucat/questions/components/bulk-import/bulkImportMetadataInference'
 import { Step1ChooseSection } from '@/features/ucat/questions/components/bulk-import/Step1ChooseSection'
 import {
   Step2PasteDocument,
@@ -209,6 +210,19 @@ export function BulkImportQuestionStemsModal({
   const resolvedBulkImportSection = useMemo(
     () => bulkImportSectionFromUcatName(selectedSection?.name),
     [selectedSection?.name]
+  )
+
+  const inferMissingCategoryId = useCallback(
+    (values: UcatQuestionStemFormValues) => {
+      if (!resolvedBulkImportSection || !sectionId) return null
+      return inferBulkImportCategoryIdForFormValues({
+        values,
+        section: resolvedBulkImportSection,
+        sectionId,
+        categories: categoryOptions,
+      })
+    },
+    [categoryOptions, resolvedBulkImportSection, sectionId]
   )
 
   const isDecisionMakingSection = resolvedBulkImportSection === 'decision_making'
@@ -862,6 +876,9 @@ export function BulkImportQuestionStemsModal({
               : []
           )}
           onUpdateStem={wizard.updateStemForm}
+          inferMissingCategoryId={
+            resolvedBulkImportSection && sectionId ? inferMissingCategoryId : undefined
+          }
         />
       )
     }

@@ -1,5 +1,5 @@
 import type { UcatQuestionStemFormValues } from '@/features/ucat/questions/types/schema'
-import { plainTextToProseMirror, plainTextToProseMirrorWithLineBreaks } from '@/features/ucat/shared/lib/rich-text'
+import { plainTextToProseMirror, plainTextToProseMirrorWithLineBreaks, proseMirrorToPlainText } from '@/features/ucat/shared/lib/rich-text'
 import {
   AiToolQuestionStemPayloadSchema,
   applyReviewFlagSuggestion,
@@ -125,6 +125,87 @@ describe('AI tools explanation helpers', () => {
     expect(result.questions[0]!.answerExplanation).toEqual(
       plainTextToProseMirror('B is correct because it is directly supported.')
     )
+  })
+
+  it('accepts a How Important option-scale suggested change', () => {
+    const stem = baseStem('multiple_choice')
+
+    const result = applyReviewFlagSuggestion(stem, {
+      questionIndex: 0,
+      message: 'Options use the wrong scale.',
+      suggestedChanges:
+        'Replace the options with the stated How Important scale: Very important; Important; Of minor importance; Not important at all.',
+    })
+
+    expect(
+      result.questions[0]!.options.map((option) => proseMirrorToPlainText(option.answerText as never))
+    ).toEqual([
+      'Very important',
+      'Important',
+      'Of minor importance',
+      'Not important at all',
+    ])
+  })
+
+  it('accepts either/or wording fixes via an explicit choice', () => {
+    const stem = baseStem('multiple_choice')
+    stem.questions[0]!.questionText = plainTextToProseMirror(
+      'Ask Dr Millar if she could spend less more time speaking to patients.'
+    )
+
+    const result = applyReviewFlagSuggestion(
+      stem,
+      {
+        questionIndex: 0,
+        message: 'Contradictory wording.',
+        suggestedChanges:
+          'Replace "less more time" with either "more time" or "less time" and re-key if necessary.',
+      },
+      { textReplacementTo: 'more time' }
+    )
+
+    expect(proseMirrorToPlainText(result.questions[0]!.questionText as never)).toContain(
+      'spend more time speaking'
+    )
+    expect(proseMirrorToPlainText(result.questions[0]!.questionText as never)).not.toContain(
+      'less more time'
+    )
+  })
+
+  it('accepts How Appropriate scale suggestions that mention scale without listing options', () => {
+    const stem = baseStem('multiple_choice')
+
+    const result = applyReviewFlagSuggestion(stem, {
+      questionIndex: 0,
+      message: 'Wrong scale.',
+      suggestedChanges: 'Switch the answer options to the How Appropriate scale.',
+    })
+
+    expect(
+      result.questions[0]!.options.map((option) => proseMirrorToPlainText(option.answerText as never))
+    ).toEqual([
+      'A very appropriate thing to do',
+      'Appropriate, but not ideal',
+      'Inappropriate, but not awful',
+      'A very inappropriate thing to do',
+    ])
+  })
+
+  it('accepts letter-answer suggestions phrased as “correct answer should be”', () => {
+    const stem = baseStem('multiple_choice')
+
+    const result = applyReviewFlagSuggestion(stem, {
+      questionIndex: 0,
+      message: 'Wrong key.',
+      suggestedChanges: 'The correct answer should be C.',
+    })
+
+    expect(result.questions[0]!.options.map((option) => option.isAnswer)).toEqual([
+      false,
+      false,
+      true,
+      false,
+    ])
   })
 
   it('summarizes selected correct options for the model', () => {

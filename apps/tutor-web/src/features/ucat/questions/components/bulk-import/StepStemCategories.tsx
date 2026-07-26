@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { SearchableSelect } from '@altitutor/ui'
 import { ChevronDown, ChevronRight } from 'lucide-react'
 import type { BulkImportStemDraft } from '@/features/ucat/questions/hooks/useBulkImportWizard'
@@ -22,6 +22,8 @@ type StepStemCategoriesProps = {
   sectionId: string | null
   categories: BulkImportCategoryOption[]
   onUpdateStem: (stemId: string, values: UcatQuestionStemFormValues) => void
+  /** Fill missing categoryIds from stem/question wording (e.g. SJ How Important / How Appropriate). */
+  inferMissingCategoryId?: (values: UcatQuestionStemFormValues) => string | null
 }
 
 function previewText(stem: BulkImportStemDraft): string {
@@ -37,12 +39,34 @@ export function StepStemCategories({
   sectionId,
   categories,
   onUpdateStem,
+  inferMissingCategoryId,
 }: StepStemCategoriesProps) {
   const [expandedStemId, setExpandedStemId] = useState<string | null>(null)
+  const inferredStemIdsRef = useRef<Set<string>>(new Set())
   const sectionCategories = useMemo(
     () => categories.filter((category) => (category.ucat_section_id ?? null) === sectionId),
     [categories, sectionId]
   )
+
+  useEffect(() => {
+    if (!inferMissingCategoryId || !sectionId) return
+
+    for (const stem of stems) {
+      if (stem.values.categoryId) {
+        inferredStemIdsRef.current.add(stem.id)
+        continue
+      }
+      if (inferredStemIdsRef.current.has(stem.id)) continue
+      inferredStemIdsRef.current.add(stem.id)
+      const categoryId = inferMissingCategoryId(stem.values)
+      if (categoryId) {
+        onUpdateStem(stem.id, {
+          ...stem.values,
+          categoryId,
+        })
+      }
+    }
+  }, [inferMissingCategoryId, onUpdateStem, sectionId, stems])
 
   if (stems.length === 0) {
     return (
