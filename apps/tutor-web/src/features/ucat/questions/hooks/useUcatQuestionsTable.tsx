@@ -15,6 +15,10 @@ import { proseMirrorToPlainText } from '@/features/ucat/shared/lib/rich-text'
 import { parseJsonUuidArray } from '@/features/ucat/shared/lib/parse-json-uuid-array'
 import { resolveCategoryPathLabel } from '@/features/ucat/shared/lib/taxonomy-paths'
 import { UCAT_FILTER_NO_CATEGORY, UCAT_FILTER_NOT_IN_ANY_SET } from '@/features/ucat/shared/lib/table-filter-sentinel'
+import {
+  CREATED_AT_WINDOW_FILTER_KEY,
+  rowMatchesCreatedAtWindow,
+} from '@/features/ucat/questions/lib/find-similar-question-stems'
 
 export type QuestionSearchScope =
   | 'stem_text'
@@ -189,6 +193,11 @@ export function useUcatQuestionsTable<T extends QuestionListRowInput>({
       const sourceHit = applyMultiSelectFilter(tableState, 'source_channel', row.source_channel)
       const createdByHit = applyMultiSelectFilter(tableState, 'created_by', row.created_by)
 
+      const createdAtWindows = getFilterValues(tableState, CREATED_AT_WINDOW_FILTER_KEY)
+      const createdAtWindowHit =
+        createdAtWindows.length === 0 ||
+        createdAtWindows.some((windowRaw) => rowMatchesCreatedAtWindow(row.created_at, windowRaw))
+
       const typeSelected = (tableState.filters.question_type?.[0] as string | undefined) ?? 'all'
       const typeHit =
         typeSelected === 'all' ||
@@ -212,7 +221,8 @@ export function useUcatQuestionsTable<T extends QuestionListRowInput>({
         typeHit &&
         setHit &&
         sourceHit &&
-        createdByHit
+        createdByHit &&
+        createdAtWindowHit
       )
     })
   }, [rows, tableState, showDeleted, status, searchScopes])

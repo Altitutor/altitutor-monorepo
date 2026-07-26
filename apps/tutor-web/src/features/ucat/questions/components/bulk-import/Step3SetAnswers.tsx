@@ -30,6 +30,7 @@ import {
   applyReviewFlagSuggestion,
   collectExplanationReviewFlags,
   findMissingExplanations,
+  parseReviewFlagAcceptPlan,
   AiToolExplanationResponseSchema,
   type AiToolExplanationUpdate,
   type AiToolReviewFlag,
@@ -349,11 +350,17 @@ export function Step3SetAnswers({
   }, [categories, isGenerating, onUpdateStem, reviewFlagsByStemId, sections, stems, toast])
 
   const handleAcceptReviewSuggestion = useCallback(
-    (stemId: string, flag: AiToolReviewFlag) => {
+    (stemId: string, flag: AiToolReviewFlag, textReplacementTo?: string) => {
       if (!onUpdateStem) return
       const stem = stems.find((item) => item.id === stemId)
       if (!stem) return
-      const nextValues = applyReviewFlagSuggestion(stem.values, flag)
+      const plan = parseReviewFlagAcceptPlan(flag)
+      if (!plan) return
+      if (plan.kind === 'text_replacement_choice' && !textReplacementTo) return
+
+      const nextValues = applyReviewFlagSuggestion(stem.values, flag, {
+        textReplacementTo,
+      })
       onUpdateStem(stemId, nextValues)
       setReviewFlagsByStemId((current) => {
         const remaining = (current[stemId] ?? []).filter(
@@ -367,12 +374,26 @@ export function Step3SetAnswers({
         return { ...current, [stemId]: remaining }
       })
       toast({
-        title: 'Suggested answer applied',
-        description: `Updated question ${flag.questionIndex + 1}. Review the explanation before saving.`,
+        title: 'Suggested change applied',
+        description: `Updated question ${flag.questionIndex + 1}. Review before saving.`,
       })
     },
     [onUpdateStem, stems, toast],
   )
+
+  const handleDismissReviewFlag = useCallback((stemId: string, flag: AiToolReviewFlag) => {
+    setReviewFlagsByStemId((current) => {
+      const remaining = (current[stemId] ?? []).filter(
+        (item) => item.questionIndex !== flag.questionIndex,
+      )
+      if (remaining.length === 0) {
+        const next = { ...current }
+        delete next[stemId]
+        return next
+      }
+      return { ...current, [stemId]: remaining }
+    })
+  }, [])
 
   if (stems.length === 0 || rows.length === 0) {
     return (
@@ -433,6 +454,7 @@ export function Step3SetAnswers({
           <ul className="space-y-2">
             {reviewFlagEntries.map(({ stemId, flag }) => {
               const stemIndex = stems.findIndex((stem) => stem.id === stemId)
+              const acceptPlan = parseReviewFlagAcceptPlan(flag)
               return (
                 <li
                   key={`${stemId}-${flag.questionIndex}`}
@@ -447,17 +469,50 @@ export function Step3SetAnswers({
                       <p className="text-xs text-muted-foreground">{flag.suggestedChanges}</p>
                     ) : null}
                   </div>
-                  {flag.suggestedCorrectOptionIndex != null ? (
+                  <div className="flex flex-wrap items-center gap-2">
+                    {acceptPlan?.kind === 'correct_option' ||
+                    acceptPlan?.kind === 'option_texts' ||
+                    acceptPlan?.kind === 'text_replacement' ? (
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        className={tutorBtnOutline}
+                        onClick={() => handleAcceptReviewSuggestion(stemId, flag)}
+                      >
+                        {acceptPlan.kind === 'correct_option'
+                          ? 'Accept suggested answer'
+                          : 'Accept suggested change'}
+                      </Button>
+                    ) : null}
+                    {acceptPlan?.kind === 'text_replacement_choice'
+                      ? acceptPlan.options.map((option) => (
+                          <Button
+                            key={option}
+                            type="button"
+                            size="sm"
+                            variant="outline"
+                            className={tutorBtnOutline}
+                            onClick={() => handleAcceptReviewSuggestion(stemId, flag, option)}
+                          >
+                            Use “{option}”
+                          </Button>
+                        ))
+                      : null}
+                    {!acceptPlan && flag.suggestedChanges ? (
+                      <span className="text-[11px] text-muted-foreground">
+                        Edit manually — this suggestion can’t be applied automatically.
+                      </span>
+                    ) : null}
                     <Button
                       type="button"
                       size="sm"
-                      variant="outline"
-                      className={tutorBtnOutline}
-                      onClick={() => handleAcceptReviewSuggestion(stemId, flag)}
+                      variant="ghost"
+                      onClick={() => handleDismissReviewFlag(stemId, flag)}
                     >
-                      Accept suggested answer
+                      Dismiss
                     </Button>
-                  ) : null}
+                  </div>
                 </li>
               )
             })}

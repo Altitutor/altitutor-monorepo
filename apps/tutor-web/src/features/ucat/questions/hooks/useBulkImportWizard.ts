@@ -62,9 +62,17 @@ export function useBulkImportWizard(): BulkImportWizardApi {
   }, [stems.length])
 
   const updateStemForm = useCallback((stemId: string, values: UcatQuestionStemFormValues) => {
-    setStemsInternal((prev) =>
-      prev.map((stem) => (stem.id === stemId ? { ...stem, values } : stem))
-    )
+    setStemsInternal((prev) => {
+      const existing = prev.find((stem) => stem.id === stemId)
+      if (!existing) return prev
+      if (existing.values === values) return prev
+      try {
+        if (JSON.stringify(existing.values) === JSON.stringify(values)) return prev
+      } catch {
+        // Fall through to update if values are not serializable for comparison.
+      }
+      return prev.map((stem) => (stem.id === stemId ? { ...stem, values } : stem))
+    })
   }, [])
 
   const reset = useCallback(() => {

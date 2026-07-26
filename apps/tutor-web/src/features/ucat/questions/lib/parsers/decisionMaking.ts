@@ -1,6 +1,5 @@
 import type { Json } from '@altitutor/shared'
 import {
-  tokenizedPlainTextToProseMirror,
   tokenizedPlainTextToProseMirrorWithLineBreaks,
 } from '@/features/ucat/shared/lib/rich-text'
 import type { UcatQuestionStemFormValues } from '@/features/ucat/questions/types/schema'
@@ -340,7 +339,7 @@ export function parseDecisionMakingPlainText(
 }
 
 function toRichText(text: string): Json {
-  return tokenizedPlainTextToProseMirror(text) as Json
+  return tokenizedPlainTextToProseMirrorWithLineBreaks(text) as Json
 }
 
 export type DecisionMakingCategoryName =

@@ -30,6 +30,10 @@ type BulkImportReviewStemEditorProps = {
   aiGenerationMetadata?: Json | null
 }
 
+function stemValuesFingerprint(values: UcatQuestionStemFormValues): string {
+  return JSON.stringify(values)
+}
+
 export function BulkImportReviewStemEditor({
   stemId,
   values,
@@ -52,13 +56,69 @@ export function BulkImportReviewStemEditor({
     resolver: zodResolver(ucatQuestionStemSchema),
     defaultValues: values,
   })
-  const lastLocalValuesRef = useRef<UcatQuestionStemFormValues | null>(values)
+
+  /** Last values object we pushed to the parent (reference equality short-circuits echoes). */
+  const lastEmittedValuesRef = useRef<UcatQuestionStemFormValues>(values)
+  const lastFingerprintRef = useRef(stemValuesFingerprint(values))
+  /** Blocks watch→parent while applying an external parent→form reset. */
+  const syncingFromParentRef = useRef(false)
+  const syncClearTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const onUpdateStemRef = useRef(onUpdateStem)
+  onUpdateStemRef.current = onUpdateStem
 
   useEffect(() => {
-    if (values === lastLocalValuesRef.current) return
+    // Echo of our own watch emission — keep refs fresh, never reset (reset remounts TipTap).
+    if (values === lastEmittedValuesRef.current) {
+      return
+    }
+
+    const fingerprint = stemValuesFingerprint(values)
+    if (fingerprint === lastFingerprintRef.current) {
+      lastEmittedValuesRef.current = values
+      return
+    }
+
+    // Same content as the live form (AI tools already wrote via setValue).
+    if (fingerprint === stemValuesFingerprint(form.getValues())) {
+      lastEmittedValuesRef.current = values
+      lastFingerprintRef.current = fingerprint
+      return
+    }
+
+    let cancelled = false
+    syncingFromParentRef.current = true
+    if (syncClearTimeoutRef.current) {
+      clearTimeout(syncClearTimeoutRef.current)
+      syncClearTimeoutRef.current = null
+    }
+
     form.reset(values)
-    lastLocalValuesRef.current = values
-  }, [form, values])
+    lastEmittedValuesRef.current = values
+    lastFingerprintRef.current = fingerprint
+
+    // TipTap prop-sync runs after paint; keep watch suppressed until editors settle.
+    syncClearTimeoutRef.current = setTimeout(() => {
+      syncClearTimeoutRef.current = null
+      if (cancelled) return
+      const settled = form.getValues()
+      const settledFp = stemValuesFingerprint(settled)
+      lastFingerprintRef.current = settledFp
+      lastEmittedValuesRef.current = settled
+      syncingFromParentRef.current = false
+      if (settledFp !== fingerprint) {
+        onUpdateStemRef.current(stemId, settled)
+      }
+    }, 0)
+
+    return () => {
+      cancelled = true
+      if (syncClearTimeoutRef.current) {
+        clearTimeout(syncClearTimeoutRef.current)
+        syncClearTimeoutRef.current = null
+      }
+      syncingFromParentRef.current = false
+    }
+  }, [form, stemId, values])
 
   useEffect(() => {
     const watchAll = form.watch as (
@@ -66,11 +126,15 @@ export function BulkImportReviewStemEditor({
     ) => { unsubscribe: () => void }
 
     const subscription = watchAll((nextValues) => {
-      lastLocalValuesRef.current = nextValues
-      onUpdateStem(stemId, nextValues)
+      if (syncingFromParentRef.current) return
+      const fingerprint = stemValuesFingerprint(nextValues)
+      if (fingerprint === lastFingerprintRef.current) return
+      lastFingerprintRef.current = fingerprint
+      lastEmittedValuesRef.current = nextValues
+      onUpdateStemRef.current(stemId, nextValues)
     })
     return () => subscription.unsubscribe()
-  }, [form, onUpdateStem, stemId])
+  }, [form, stemId])
 
   const sectionMeta = sections.find((section) => section.id === values.sectionId)
   const questionCount = values.questions?.length ?? 0

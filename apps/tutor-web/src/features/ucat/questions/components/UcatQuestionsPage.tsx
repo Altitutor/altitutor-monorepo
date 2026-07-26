@@ -136,6 +136,11 @@ import {
   type UcatLifecycleEntityType,
 } from '@/features/ucat/shared/lifecycle-errors'
 import { stemSourceTooltip } from '@/features/ucat/questions/lib/source-display'
+import {
+  CREATED_AT_WINDOW_FILTER_KEY,
+  formatCreatedAtWindowLabel,
+} from '@/features/ucat/questions/lib/find-similar-question-stems'
+import { FindSimilarQuestionStemsSubmenu } from '@/features/ucat/questions/components/FindSimilarQuestionStemsSubmenu'
 import { UcatVisibilityBadge } from '@/features/ucat/shared/components/UcatVisibilityBadge'
 import { UcatVisibilityTableHeaderLabel } from '@/features/ucat/shared/components/UcatVisibilityInfoTooltip'
 import { getUcatContentStatusTransitionOptions, type UcatContentStatus } from '@/features/ucat/shared/types'
@@ -369,6 +374,13 @@ export function UcatQuestionsPage() {
     () => mapTagsToOptions(tags.data ?? []) as TagOption[],
     [tags.data]
   )
+  const tagLabelsById = useMemo(() => {
+    const map = new Map<string, string>()
+    for (const tag of tagOptions) {
+      if (tag.id) map.set(tag.id, tag.label ?? tag.name)
+    }
+    return map
+  }, [tagOptions])
   const queryClient = useQueryClient()
   const setsQuery = useUcatSets()
   const createSetMutation = useCreateUcatSet()
@@ -857,6 +869,14 @@ export function UcatQuestionsPage() {
       filterTagsForSections(tags.data ?? [], selectedSectionIds)
     ) as TagOption[]
 
+    const createdAtWindowValues = (tableState.state.filters[CREATED_AT_WINDOW_FILTER_KEY] ?? [])
+      .map((value) => {
+        const label = formatCreatedAtWindowLabel(value)
+        if (!label) return null
+        return { label, value: String(value) }
+      })
+      .filter((option): option is { label: string; value: string } => option != null)
+
     const base: DataTableFilterDefinition[] = [
       {
         ...filterDefinitions[0],
@@ -886,6 +906,15 @@ export function UcatQuestionsPage() {
         ...filterDefinitions[6],
         options: createdByFilterOptions,
       },
+      ...(createdAtWindowValues.length > 0
+        ? [
+            {
+              key: CREATED_AT_WINDOW_FILTER_KEY,
+              label: 'Creation time',
+              options: createdAtWindowValues,
+            } satisfies DataTableFilterDefinition,
+          ]
+        : []),
       {
         key: 'question_set_id',
         label: 'Set',
@@ -1210,6 +1239,22 @@ export function UcatQuestionsPage() {
                               ? [
                                   { label: 'Move to review', icon: <ListChecks className="h-4 w-4" />, onClick: () => changeQuestionStatus(row.id, 'in_review', row.status, 'Cannot move question') },
                                   { label: 'Move to draft', icon: <FilePenLine className="h-4 w-4" />, onClick: () => changeQuestionStatus(row.id, 'draft', row.status, 'Cannot move question') },
+                                ]
+                              : []),
+                            ...(!showDeleted
+                              ? [
+                                  {
+                                    label: 'Find question stems with similar',
+                                    render: () => (
+                                      <FindSimilarQuestionStemsSubmenu
+                                        row={row}
+                                        tagLabelsById={tagLabelsById}
+                                        onApply={(filters) => {
+                                          tableState.actions.onFiltersChange(filters)
+                                        }}
+                                      />
+                                    ),
+                                  },
                                 ]
                               : []),
                             ...(showDeleted

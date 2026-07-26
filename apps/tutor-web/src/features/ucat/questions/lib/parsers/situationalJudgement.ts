@@ -1,6 +1,5 @@
 import type { Json } from '@altitutor/shared'
 import {
-  tokenizedPlainTextToProseMirror,
   tokenizedPlainTextToProseMirrorWithLineBreaks,
 } from '@/features/ucat/shared/lib/rich-text'
 import type { UcatQuestionStemFormValues } from '@/features/ucat/questions/types/schema'
@@ -18,25 +17,71 @@ export type SituationalJudgementParserConfig = ParserConfig
 
 export type SituationalJudgementCategoryName = 'How Important' | 'How Appropriate'
 
+const HOW_IMPORTANT_OPTION_MARKERS = [
+  'very important',
+  'of minor importance',
+  'not important at all',
+] as const
+
+const HOW_APPROPRIATE_OPTION_MARKERS = [
+  'very appropriate',
+  'appropriate but not ideal',
+  'inappropriate but not awful',
+  'very inappropriate',
+] as const
+
+function normalizeSjCategoryProbe(text: string): string {
+  return text
+    .toLowerCase()
+    .normalize('NFKD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/\u00a0/g, ' ')
+    .replace(/[‘’‛‹›]/g, "'")
+    .replace(/[“”„«»]/g, '"')
+    .replace(/[^a-z0-9]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
+function optionTextsLookLikeScale(
+  options: Array<{ text: string }>,
+  markers: readonly string[]
+): boolean {
+  if (options.length < 3) return false
+  const normalized = options.map((option) => normalizeSjCategoryProbe(option.text))
+  const hitCount = markers.filter((marker) =>
+    normalized.some((text) => text.includes(marker))
+  ).length
+  return hitCount >= 2
+}
+
 /**
  * Get Situational Judgement category name from parsed stem content.
- * Rules: "How Important" if question text contains it; "How Appropriate" if question text contains it.
- * Case insensitive. First match wins. Returns null if neither matches.
+ * Prefer explicit "How Important" / "How Appropriate" wording in the stem or questions.
+ * Fall back to recognising the standard SJ option scales when wording is missing.
  */
 export function getSituationalJudgementStemCategoryName(
   stem: ParsedStem
 ): SituationalJudgementCategoryName | null {
   const textParts = [stem.stemText, ...stem.questions.map((q) => q.text)]
   for (const text of textParts) {
-    const lower = text.toLowerCase()
+    const lower = normalizeSjCategoryProbe(text)
     if (lower.includes('how important')) return 'How Important'
     if (lower.includes('how appropriate')) return 'How Appropriate'
+  }
+
+  const allOptions = stem.questions.flatMap((question) => question.options)
+  if (optionTextsLookLikeScale(allOptions, HOW_IMPORTANT_OPTION_MARKERS)) {
+    return 'How Important'
+  }
+  if (optionTextsLookLikeScale(allOptions, HOW_APPROPRIATE_OPTION_MARKERS)) {
+    return 'How Appropriate'
   }
   return null
 }
 
 function toRichText(text: string): Json {
-  return tokenizedPlainTextToProseMirror(text) as Json
+  return tokenizedPlainTextToProseMirrorWithLineBreaks(text) as Json
 }
 
 export type SituationalJudgementToFormOptions = {

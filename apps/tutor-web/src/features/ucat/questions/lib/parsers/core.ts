@@ -161,6 +161,19 @@ function normaliseTextBlock(lines: string[], config: ParserConfig): string {
   return result.join('\n').trim()
 }
 
+const BLOCK_NODE_TYPES = new Set([
+  'paragraph',
+  'table',
+  'tableRow',
+  'tableCell',
+  'tableHeader',
+  'bulletList',
+  'orderedList',
+  'listItem',
+  'blockquote',
+  'heading',
+])
+
 export function nodeToText(node: PMNode | null | undefined): string {
   if (!node) return ''
 
@@ -169,12 +182,29 @@ export function nodeToText(node: PMNode | null | undefined): string {
     return token ?? ''
   }
 
+  if (node.type === 'hardBreak') return '\n'
+
   if (typeof node.text === 'string') return node.text
   if (!Array.isArray(node.content) || node.content.length === 0) return ''
-  return node.content.map((child) => nodeToText(child)).join(' ')
+
+  const parts = node.content.map((child) => nodeToText(child))
+  const hasBlockChild = node.content.some((child) => BLOCK_NODE_TYPES.has(child?.type ?? ''))
+  // Inline siblings (text / hardBreak / image) must not get spaces inserted — that collapses
+  // soft line breaks and can destroy tabs between adjacent TipTap text nodes.
+  // Block children (e.g. flattening a table cell) keep space-separated plain text.
+  if (hasBlockChild) {
+    return parts.map((part) => part.trim()).filter((part) => part.length > 0).join(' ')
+  }
+  return parts.join('')
 }
 
-/** Matches option labels: A. B. a) b) etc. (label only) */
+/** Emit question-cell paragraphs as separate logical lines (preserves line breaks). */
+function appendQuestionTextLogicalLines(qText: string, lines: string[]): void {
+  for (const part of qText.split('\n')) {
+    const trimmed = part.trim()
+    if (trimmed.length > 0) lines.push(trimmed)
+  }
+}
 const OPTION_LABEL_RE = /^\s*([A-Ea-e])([\.\)])\s*$/
 /** Matches label + text in same cell: A. $180 or a) option text */
 const OPTION_LABEL_WITH_TEXT_RE = /^\s*([A-Ea-e])([\.\)])\s*(.+)$/
@@ -208,8 +238,8 @@ export function extractQuestionRowFromNestedTable(
       break
     }
     if (c?.type === 'paragraph') {
-      const t = nodeToText(c).trim()
-      if (t.length > 0) qText += (qText ? ' ' : '') + t
+      const t = nodeToText(c).replace(/\n+/g, '\n').trim()
+      if (t.length > 0) qText += (qText ? '\n' : '') + t
     }
   }
   if (!nestedTable) return null
@@ -298,6 +328,32 @@ type CollectState = {
   preserveBlankLines?: boolean
 }
 
+/** Push one logical line per soft/hard line inside paragraph plain text. */
+function appendLogicalLinesFromParagraphText(
+  text: string,
+  lines: string[],
+  st: CollectState
+): void {
+  const rawLines = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n').split('\n')
+  let pushedAny = false
+  for (const raw of rawLines) {
+    const trimmed = raw.replace(/\s+$/u, '')
+    if (trimmed.trim().length > 0) {
+      lines.push((st.prefixForNextLine ?? '') + trimmed.trim())
+      st.prefixForNextLine = undefined
+      pushedAny = true
+    } else if (st.preserveBlankLines) {
+      lines.push('')
+      st.prefixForNextLine = undefined
+      pushedAny = true
+    }
+  }
+  if (!pushedAny && text.trim().length === 0 && st.preserveBlankLines) {
+    lines.push('')
+    st.prefixForNextLine = undefined
+  }
+}
+
 /** Emit one logical line per paragraph (or nested table) inside a table cell. */
 function appendLinesFromTableCell(cell: PMNode, lines: string[], st: CollectState): void {
   if (!cell) return
@@ -315,12 +371,9 @@ function appendLinesFromTableCell(cell: PMNode, lines: string[], st: CollectStat
       collectLogicalLinesFromNode(c, lines, st)
       pushed = true
     } else if (c.type === 'paragraph') {
-      const t = nodeToText(c).trim()
-      if (t.length > 0) {
-        lines.push((st.prefixForNextLine ?? '') + t)
-        st.prefixForNextLine = undefined
-        pushed = true
-      }
+      const before = lines.length
+      appendLogicalLinesFromParagraphText(nodeToText(c), lines, st)
+      if (lines.length > before) pushed = true
     } else if (Array.isArray(c.content) && c.content.length > 0) {
       appendLinesFromTableCell(c, lines, st)
       pushed = true
@@ -328,11 +381,7 @@ function appendLinesFromTableCell(cell: PMNode, lines: string[], st: CollectStat
   }
 
   if (!pushed) {
-    const text = nodeToText(cell).trim()
-    if (text.length > 0) {
-      lines.push((st.prefixForNextLine ?? '') + text)
-      st.prefixForNextLine = undefined
-    }
+    appendLogicalLinesFromParagraphText(nodeToText(cell), lines, st)
   }
 }
 
@@ -363,7 +412,7 @@ function collectLogicalLinesFromNode(
           const { qNum, qText, optionLines } = extracted
           lines.push((st.prefixForNextLine ?? '') + `${qNum}.`)
           st.prefixForNextLine = undefined
-          if (qText.length > 0) lines.push(qText)
+          if (qText.length > 0) appendQuestionTextLogicalLines(qText, lines)
           for (const opt of optionLines) lines.push(opt)
           continue
         }
@@ -400,14 +449,7 @@ function collectLogicalLinesFromNode(
   }
 
   if (node.type === 'paragraph') {
-    const text = nodeToText(node).trim()
-    if (text.length > 0) {
-      lines.push((st.prefixForNextLine ?? '') + text)
-      st.prefixForNextLine = undefined
-    } else if (st.preserveBlankLines) {
-      lines.push('')
-      st.prefixForNextLine = undefined
-    }
+    appendLogicalLinesFromParagraphText(nodeToText(node), lines, st)
     return
   }
 
@@ -487,7 +529,7 @@ function collectBlocksFromNodeForQR(
         const { qNum, qText, optionLines } = extracted
         lines.push((st.prefixForNextLine ?? '') + `${qNum}.`)
         st.prefixForNextLine = undefined
-        if (qText.length > 0) lines.push(qText)
+        if (qText.length > 0) appendQuestionTextLogicalLines(qText, lines)
         for (const opt of optionLines) lines.push(opt)
       }
       return
@@ -532,11 +574,7 @@ function collectBlocksFromNodeForQR(
   }
 
   if (node.type === 'paragraph') {
-    const text = nodeToText(node).trim()
-    if (text.length > 0) {
-      lines.push((st.prefixForNextLine ?? '') + text)
-      st.prefixForNextLine = undefined
-    }
+    appendLogicalLinesFromParagraphText(nodeToText(node), lines, st)
     return
   }
 

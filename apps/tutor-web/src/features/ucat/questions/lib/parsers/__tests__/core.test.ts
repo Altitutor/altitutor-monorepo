@@ -498,4 +498,115 @@ c) 30`
 
     expect(stems).toHaveLength(2)
   })
+
+  it('splits soft line breaks inside paragraphs into separate logical lines', () => {
+    const lines = collectLogicalLinesFromDoc({
+      type: 'doc',
+      content: [
+        {
+          type: 'paragraph',
+          content: [
+            { type: 'text', text: 'First line of the stem.' },
+            { type: 'hardBreak' },
+            { type: 'text', text: 'Second line of the stem.' },
+          ],
+        },
+      ],
+    })
+
+    expect(lines).toEqual(['First line of the stem.', 'Second line of the stem.'])
+  })
+
+  it('preserves paragraph breaks inside nested question-table cells', () => {
+    const lines = collectLogicalLinesFromDoc(
+      {
+        type: 'doc',
+        content: [
+          {
+            type: 'table',
+            content: [
+              {
+                type: 'tableRow',
+                content: [
+                  {
+                    type: 'tableCell',
+                    content: [{ type: 'paragraph', content: [{ type: 'text', text: '1.' }] }],
+                  },
+                  {
+                    type: 'tableCell',
+                    content: [
+                      {
+                        type: 'paragraph',
+                        content: [
+                          { type: 'text', text: 'How appropriate is the following response?' },
+                        ],
+                      },
+                      {
+                        type: 'paragraph',
+                        content: [{ type: 'text', text: 'Speak to the supervisor privately.' }],
+                      },
+                      {
+                        type: 'table',
+                        content: [
+                          {
+                            type: 'tableRow',
+                            content: [
+                              {
+                                type: 'tableCell',
+                                content: [
+                                  { type: 'paragraph', content: [{ type: 'text', text: 'A.' }] },
+                                ],
+                              },
+                              {
+                                type: 'tableCell',
+                                content: [
+                                  {
+                                    type: 'paragraph',
+                                    content: [{ type: 'text', text: 'Very appropriate' }],
+                                  },
+                                ],
+                              },
+                            ],
+                          },
+                          {
+                            type: 'tableRow',
+                            content: [
+                              {
+                                type: 'tableCell',
+                                content: [
+                                  { type: 'paragraph', content: [{ type: 'text', text: 'B.' }] },
+                                ],
+                              },
+                              {
+                                type: 'tableCell',
+                                content: [
+                                  {
+                                    type: 'paragraph',
+                                    content: [{ type: 'text', text: 'Very inappropriate' }],
+                                  },
+                                ],
+                              },
+                            ],
+                          },
+                        ],
+                      },
+                    ],
+                  },
+                ],
+              },
+            ],
+          },
+        ],
+      },
+      { detectNestedQuestionTables: true }
+    )
+
+    expect(lines).toEqual([
+      '1.',
+      'How appropriate is the following response?',
+      'Speak to the supervisor privately.',
+      'A. Very appropriate',
+      'B. Very inappropriate',
+    ])
+  })
 })

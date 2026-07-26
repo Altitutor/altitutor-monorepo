@@ -29,6 +29,7 @@ export type BulkImportCategoryRow = {
   id?: string | null
   ucat_section_id?: string | null
   name?: string | null
+  label?: string | null
 }
 
 export type BulkImportTagRow = {
@@ -54,7 +55,20 @@ type ResolvedTagRow = BulkImportTagRow & { id: string; name: string }
 
 function getCategoryIdByName(categories: BulkImportCategoryRow[], sectionId: string, name: string | null): string | null {
   if (!name) return null
-  return categories.find((c) => (c.ucat_section_id ?? null) === sectionId && (c.name ?? '').trim() === name)?.id ?? null
+  const target = name.trim().toLowerCase()
+  return (
+    categories.find((c) => {
+      if ((c.ucat_section_id ?? null) !== sectionId) return false
+      const categoryName = (c.name ?? '').trim().toLowerCase()
+      const categoryLabel = (c.label ?? '').trim().toLowerCase()
+      return (
+        categoryName === target ||
+        categoryLabel === target ||
+        categoryLabel.endsWith(` / ${target}`) ||
+        categoryLabel.endsWith(target)
+      )
+    })?.id ?? null
+  )
 }
 
 function toDecisionMakingStem(stem: ParsedStem): ParsedDecisionMakingStem {
@@ -104,6 +118,20 @@ export function inferBulkImportCategoryIdForParsedStem(args: {
 }): string | null {
   const { stem, section, sectionId, categories } = args
   return getCategoryIdByName(categories, sectionId, inferCategoryNameForParsedStem(stem, section))
+}
+
+export function inferBulkImportCategoryIdForFormValues(args: {
+  values: UcatQuestionStemFormValues
+  section: BulkImportParseSection
+  sectionId: string
+  categories: BulkImportCategoryRow[]
+}): string | null {
+  return inferBulkImportCategoryIdForParsedStem({
+    stem: formValuesToParsedStem(args.values),
+    section: args.section,
+    sectionId: args.sectionId,
+    categories: args.categories,
+  })
 }
 
 export function buildBulkImportTagIdByPath(tags: BulkImportTagRow[], sectionId: string): (path: string[]) => string | null {
