@@ -66,6 +66,13 @@ import { ucatLearningModulesApi } from '@/features/ucat/learning-modules/api/mod
 import type { UcatLearningModuleKind, UcatLearningModuleRow } from '@/features/ucat/learning-modules/types'
 import type { UcatLearningModuleTreeNode } from '@/features/ucat/learning-modules/types/tree'
 import { useUcatSections } from '@/features/ucat/questions/hooks/useUcatQuestions'
+import { useUcatQuestionStemCategories } from '@/features/ucat/question-stem-categories/hooks/useUcatQuestionStemCategories'
+import { useUcatQuestionTags } from '@/features/ucat/question-tags/hooks/useUcatQuestionTags'
+import {
+  buildTaxonomyPathLookup,
+  categoriesToTaxonomyNodes,
+  tagsToTaxonomyNodes,
+} from '@/features/ucat/shared/lib/taxonomy-paths'
 import { TaxonomySectionDropZone } from '@/features/ucat/shared/components/taxonomy-hierarchy-tree'
 import type { TaxonomyReparentTarget } from '@/features/ucat/shared/components/taxonomy-hierarchy-tree'
 import { TaxonomyHierarchyDndProvider } from '@/features/ucat/shared/components/taxonomy-hierarchy-dnd'
@@ -117,6 +124,7 @@ const VIEW_MODE_OPTIONS = [
 const columnDefinitions: DataTableColumnDefinition[] = [
   { key: 'title', label: 'Title', visibleByDefault: true },
   { key: 'section', label: 'Section', visibleByDefault: true },
+  { key: 'study_plan', label: 'Study plan', visibleByDefault: true },
   { key: 'block_count', label: 'Blocks', visibleByDefault: true },
   { key: 'visibility', label: 'Visibility', visibleByDefault: true },
   { key: 'source', label: 'Source', visibleByDefault: false },
@@ -129,6 +137,7 @@ const columnDefinitions: DataTableColumnDefinition[] = [
 const sortOptions: DataTableSortOption[] = [
   { key: 'title', label: 'Title' },
   { key: 'section', label: 'Section' },
+  { key: 'study_plan', label: 'Study plan' },
   { key: 'block_count', label: 'Blocks' },
   { key: 'visibility', label: 'Visibility' },
   { key: 'source', label: 'Source' },
@@ -149,6 +158,16 @@ export function UcatLearningModulesPage() {
   const viewMode = parseViewMode(searchParams.get('view'))
   const sectionsQuery = useUcatSections()
   const sections = useMemo(() => sectionsQuery.data ?? [], [sectionsQuery.data])
+  const categoriesQuery = useUcatQuestionStemCategories()
+  const tagsQuery = useUcatQuestionTags()
+  const categoryPathLookup = useMemo(
+    () => buildTaxonomyPathLookup(categoriesToTaxonomyNodes(categoriesQuery.data ?? [])),
+    [categoriesQuery.data],
+  )
+  const tagPathLookup = useMemo(
+    () => buildTaxonomyPathLookup(tagsToTaxonomyNodes(tagsQuery.data ?? [])),
+    [tagsQuery.data],
+  )
   const upsert = useUpsertUcatLearningModule()
   const deleteModule = useDeleteUcatLearningModule()
   const restoreModule = useRestoreUcatLearningModule()
@@ -241,6 +260,8 @@ export function UcatLearningModulesPage() {
       .map((column) => column.key),
     availableColumns: columnDefinitions.map((column) => column.key),
     status: activeTab,
+    categoryPathLookup,
+    tagPathLookup,
   })
 
   const searchQuery = tableState.state.search

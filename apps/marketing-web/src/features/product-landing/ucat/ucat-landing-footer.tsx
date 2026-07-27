@@ -82,11 +82,6 @@ export function UcatLandingFooter() {
                 </a>
               </li>
               <li>
-                <a href="#free-forever" className="hover:text-white">
-                  Free forever
-                </a>
-              </li>
-              <li>
                 <a href="#mission" className="hover:text-white">
                   Our mission
                 </a>

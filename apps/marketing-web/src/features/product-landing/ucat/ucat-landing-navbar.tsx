@@ -21,10 +21,10 @@ export function UcatLandingNavbar() {
   return (
     <nav
       aria-label="Altitutor UCAT"
-      className={`fixed left-1/2 top-4 z-50 grid h-16 w-[calc(100%-2rem)] max-w-6xl -translate-x-1/2 grid-cols-[auto_1fr] items-center rounded-full px-4 transition-all duration-300 sm:top-6 sm:px-6 md:grid-cols-[1fr_auto_1fr] ${
+      className={`fixed left-1/2 top-4 z-50 grid h-16 w-[calc(100%-2rem)] max-w-6xl -translate-x-1/2 grid-cols-[auto_1fr] items-center rounded-full px-4 transition-[background-color,border-color,box-shadow,backdrop-filter,color] duration-500 sm:top-6 sm:px-6 md:grid-cols-[1fr_auto_1fr] ${
         scrolled
           ? "border border-black/5 bg-marketing-cream/90 text-marketing-charcoal shadow-[0_8px_32px_rgba(0,0,0,0.08)] backdrop-blur-xl"
-          : "border border-white/10 bg-marketing-charcoal/35 text-marketing-cream backdrop-blur-md"
+          : "border border-transparent bg-transparent text-marketing-charcoal"
       }`}
     >
       <a
@@ -65,7 +65,7 @@ export function UcatLandingNavbar() {
         <AnalyticsLink
           href={PRODUCT_LINKS.ucatLogin}
           analytics={{ product: "ucat", placement: "navbar", action: "login" }}
-          className={`rounded-full px-3 py-2 text-sm font-medium transition-colors sm:px-4 ${scrolled ? "hover:bg-black/5" : "hover:bg-white/10"}`}
+          className="rounded-full px-3 py-2 text-sm font-medium transition-colors hover:bg-black/5 sm:px-4"
         >
           Sign in
         </AnalyticsLink>

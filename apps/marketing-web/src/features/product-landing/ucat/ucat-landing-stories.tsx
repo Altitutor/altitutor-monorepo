@@ -12,22 +12,25 @@ const { typography: typo } = MARKETING_TOKENS;
 
 const outcomes = [
   {
-    initials: "BJ",
     name: "Brian J.",
-    detail: "99th percentile · UCAT ANZ 2025",
+    photo: "/assets/ucat/brian-j.jpeg",
+    detail: "Scored 2610 · UCAT ANZ 2025",
     outcome: "Accepted into Dentistry at Adelaide University",
+    comment: "I really valued the 2025 Altitutor UCAT course due to its unique combination of friendly, relatable tutors, abundant and open resources, and online mock test system. Each teaching session was also highly flexible, which enabled me to learn at the pattern and pace that I knew would work best for me."
   },
   {
-    initials: "JL",
     name: "Josh L.",
-    detail: "96th percentile · UCAT ANZ 2025",
+    photo: "/assets/ucat/josh-l.png",
+    detail: "Scored 2470 · UCAT ANZ 2025",
     outcome: "Accepted into Medicine at Adelaide University",
+    comment: "I found it invaluable practice which helped me get an offer to study Medicine at Adelaide Uni."
   },
   {
-    initials: "MG",
     name: "Melshuel G.",
+    photo: "/assets/ucat/melshuel-g.jpeg",
     detail: "Altitutor student · 2024",
     outcome: "Accepted into Medicine at Adelaide University",
+    comment: "Tutors were really knowledgeable about their subjects and ensured that I felt comfortable with the course content!! I really loved the interview course as it helped me to perform extremely well and get an offer to study medicine in 2025!"
   },
 ] as const;
 
@@ -56,10 +59,9 @@ export function UcatLandingStories() {
             <p
               className={`mt-6 text-base leading-relaxed text-marketing-charcoal/60 sm:text-lg ${typo.secondarySans}`}
             >
-              Altitutor began helping students in 2017 and was formally
-              established as a company in 2019. Revenue from paid plans helps us
-              provide free and subsidised education to students facing financial
-              barriers, alongside continued improvement of Altitutor UCAT.
+              Altitutor is a non-profit company, whose primary mission make education accessible for all.
+              All revenue from paid plans will go directly towards
+              provide free and subsidised education to students in financial need.
             </p>
             <p
               className={`mt-5 border-l-2 border-marketing-accent pl-5 text-base font-medium leading-relaxed text-marketing-primary ${typo.secondarySans}`}
@@ -67,6 +69,15 @@ export function UcatLandingStories() {
               Better educational support should be available because a student
               needs it—not only because their family can afford it.
             </p>
+            <div className="mt-6">
+              <UcatInterestDialog
+                kind="supported_access"
+                triggerLabel="Apply for supported access"
+                title="Apply for supported access"
+                description="Tell us how cost is affecting your access to UCAT preparation. The Altitutor team will review your application and contact suitable applicants to arrange a short online conversation."
+                triggerClassName={`inline-flex items-center gap-1.5 text-base font-semibold text-marketing-primary underline decoration-marketing-primary/30 underline-offset-4 transition hover:decoration-marketing-primary ${typo.secondarySans}`}
+              />
+            </div>
           </div>
 
           <div className="grid gap-5 sm:grid-cols-2">
@@ -114,46 +125,6 @@ export function UcatLandingStories() {
           </div>
         </div>
 
-        <div className="mt-20 grid gap-8 rounded-[2.25rem] border border-marketing-charcoal/10 bg-marketing-cream/55 p-7 sm:p-10 lg:grid-cols-[1fr_auto] lg:items-center lg:gap-14">
-          <div>
-            <p
-              className={`text-xs font-semibold uppercase tracking-[0.18em] text-marketing-primary/60 ${typo.dataMono}`}
-            >
-              Supported access
-            </p>
-            <h3
-              className={`mt-3 text-2xl font-semibold text-marketing-charcoal sm:text-3xl ${typo.headingSans}`}
-            >
-              If cost is standing in your way, apply for help.
-            </h3>
-            <p
-              className={`mt-4 text-sm leading-relaxed text-marketing-charcoal/60 sm:text-base ${typo.secondarySans}`}
-            >
-              Anyone can apply for free or subsidised Unlimited access. We
-              review your financial position and circumstances, then arrange a
-              short online conversation. Support depends on need and the funding
-              available at the time.
-            </p>
-            <p className={`mt-4 text-xs leading-relaxed text-marketing-charcoal/48 ${typo.secondarySans}`}>
-              Applications are assessed only on financial position and
-              circumstances. We will invite suitable applicants to a short
-              online interview before making a decision.
-            </p>
-          </div>
-          <div className="lg:text-right">
-            <UcatInterestDialog
-              kind="supported_access"
-              triggerLabel="Apply for supported access"
-              title="Apply for supported access"
-              description="Tell us how cost is affecting your access to UCAT preparation. The Altitutor team will review your application and contact suitable applicants to arrange a short online conversation."
-            />
-            <p className={`mt-3 max-w-sm text-xs leading-relaxed text-marketing-charcoal/45 lg:ml-auto ${typo.secondarySans}`}>
-              Applying does not guarantee free or subsidised access. Support
-              depends on your circumstances and the funding available.
-            </p>
-          </div>
-        </div>
-
         <div className="mt-24">
           <div className="mx-auto max-w-3xl text-center">
             <p
@@ -166,13 +137,6 @@ export function UcatLandingStories() {
             >
               Students have trusted us with the path into medicine since 2017.
             </h2>
-            <p
-              className={`mt-4 text-sm leading-relaxed text-marketing-charcoal/55 ${typo.secondarySans}`}
-            >
-              These verified outcomes come from Altitutor&apos;s wider teaching
-              programs. Altitutor UCAT is new, so platform-specific student
-              comments will be added here before launch.
-            </p>
           </div>
           <div className="mt-10 grid gap-5 md:grid-cols-3">
             {outcomes.map((student) => (
@@ -181,11 +145,14 @@ export function UcatLandingStories() {
                 className="rounded-[1.75rem] border border-marketing-charcoal/10 bg-white p-6 shadow-sm"
               >
                 <div className="flex items-center gap-4">
-                  <div
-                    className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-marketing-accent/35 text-sm font-bold text-marketing-primary ${typo.headingSans}`}
-                    aria-label={`${student.name} initials`}
-                  >
-                    {student.initials}
+                  <div className="relative h-12 w-12 shrink-0 overflow-hidden rounded-full bg-marketing-accent/35 ring-1 ring-marketing-charcoal/10">
+                    <Image
+                      src={student.photo}
+                      alt={student.name}
+                      fill
+                      sizes="48px"
+                      className="object-cover object-top"
+                    />
                   </div>
                   <div>
                     <h3
@@ -212,7 +179,7 @@ export function UcatLandingStories() {
                   </p>
                 </div>
                 <p className={`mt-4 text-xs italic leading-relaxed text-marketing-charcoal/42 ${typo.secondarySans}`}>
-                  Platform-specific student comment coming before launch.
+                  {student.comment}
                 </p>
               </article>
             ))}
@@ -234,11 +201,6 @@ export function UcatLandingStories() {
             </p>
           </div>
           <div className="p-8 sm:p-12 lg:p-16">
-            <p
-              className={`text-xs font-semibold uppercase tracking-[0.18em] text-marketing-accent ${typo.dataMono}`}
-            >
-              A note from Matt
-            </p>
             <h2
               className={`mt-4 text-3xl font-semibold tracking-tight sm:text-4xl ${typo.headingSans}`}
             >

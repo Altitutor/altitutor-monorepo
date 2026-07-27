@@ -2,7 +2,6 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { isUcatSkillTrainerKey } from "@altitutor/shared";
 import { SkillTrainerPlayPage } from "@/features/skill-trainer/components/skill-trainer-play-page";
 import { SkillTrainerScoreBar } from "@/features/skill-trainer/components/skill-trainer-score-bar";
 import { skillTrainerApi } from "@/features/skill-trainer/api/skill-trainer-api";
@@ -25,7 +24,6 @@ export function LearnSkillTrainerBlock({ block, onComplete }: LearnSkillTrainerB
   const [loading, setLoading] = useState(false);
   const [startedSession, setStartedSession] = useState<PreparedSession | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const trainerKey = (block.content as { trainerKey?: string } | null)?.trainerKey;
 
   const handleComplete = useCallback(() => {
     onComplete?.();
@@ -36,12 +34,11 @@ export function LearnSkillTrainerBlock({ block, onComplete }: LearnSkillTrainerB
     setPrepared(null);
     setStartedSession(null);
     setError(null);
-    if (!block.id || !trainerKey || !isUcatSkillTrainerKey(trainerKey)) return;
+    if (!block.id || !block.skill_trainer_id) return;
     setLoading(true);
 
     void skillTrainerApi
       .prepareLearningModuleSkillTrainerSession({
-        trainerKey,
         learningModuleBlockId: block.id,
       })
       .then((session) => {
@@ -59,7 +56,7 @@ export function LearnSkillTrainerBlock({ block, onComplete }: LearnSkillTrainerB
     return () => {
       cancelled = true;
     };
-  }, [block.id, trainerKey]);
+  }, [block.id, block.skill_trainer_id]);
 
   function handleStart() {
     if (!prepared) return;
@@ -87,12 +84,8 @@ export function LearnSkillTrainerBlock({ block, onComplete }: LearnSkillTrainerB
     });
   }
 
-  if (!trainerKey || !block.skill_trainer_id) {
+  if (!block.skill_trainer_id) {
     return <p className="text-sm text-muted-foreground">Skill trainer not configured.</p>;
-  }
-
-  if (!isUcatSkillTrainerKey(trainerKey)) {
-    return <p className="text-sm text-destructive">Unsupported skill trainer.</p>;
   }
 
   if (startedSession) {
@@ -100,7 +93,7 @@ export function LearnSkillTrainerBlock({ block, onComplete }: LearnSkillTrainerB
       <div className="min-h-[520px] rounded-lg border p-4">
         <SkillTrainerPlayPage
           key={startedSession.session.attempt.started_at ?? "started"}
-          trainerKey={trainerKey}
+          trainerKey={startedSession.session.attempt.config_snapshot.trainer_key}
           embedded
           initialState={startedSession.session}
           localItems={startedSession.items}

@@ -83,16 +83,14 @@ export const skillTrainerApi = {
   },
 
   async prepareLearningModuleSkillTrainerSession(input: {
-    trainerKey: string;
     learningModuleBlockId: string;
   }): Promise<{
     session: SkillTrainerAttemptState;
     items: Array<{ id: string; content: Record<string, unknown> }>;
     trainerName: string;
   }> {
-    const params = new URLSearchParams({ trainerKey: input.trainerKey });
     const res = await fetch(
-      `/api/ucat/learning-modules/blocks/${input.learningModuleBlockId}/skill-trainer-session?${params.toString()}`,
+      `/api/ucat/learning-modules/blocks/${input.learningModuleBlockId}/skill-trainer-session`,
     );
     if (!res.ok) {
       const json = (await res.json().catch(() => ({}))) as { error?: string };

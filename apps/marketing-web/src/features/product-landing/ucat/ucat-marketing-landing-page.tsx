@@ -1,8 +1,8 @@
+import { UcatLandingComparison } from "./ucat-landing-comparison";
 import { UcatLandingFooter } from "./ucat-landing-footer";
 import { UcatLandingHero } from "./ucat-landing-hero";
 import { UcatProductStage } from "./ucat-product-stage";
 import { UcatLandingNavbar } from "./ucat-landing-navbar";
-import { UcatLandingPhilosophy } from "./ucat-landing-philosophy";
 import { UcatLandingPricing } from "./ucat-landing-pricing";
 import { UcatLandingProtocol } from "./ucat-landing-protocol";
 import { UcatLandingScrollIndicator } from "./ucat-landing-scroll-indicator";
@@ -19,8 +19,8 @@ export function UcatMarketingLandingPage() {
       <UcatProductStage />
       <UcatLandingProtocol />
       <UcatHowItWorks />
-      <UcatLandingPhilosophy />
       <UcatLandingStories />
+      <UcatLandingComparison />
       <UcatLandingPricing />
       <UcatLandingFaq />
       <UcatLandingFooter />
