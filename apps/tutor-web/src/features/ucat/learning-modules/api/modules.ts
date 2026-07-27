@@ -88,11 +88,44 @@ export const ucatLearningModulesApi = {
       query = query.is('deleted_at', null)
     }
 
-    const { data, error } = await query
+    const [{ data, error }, categoryLinks, tagLinks] = await Promise.all([
+      query,
+      supabase
+        .from('vtutor_ucat_learning_module_question_stem_categories')
+        .select('learning_module_id, question_stem_category_id'),
+      supabase
+        .from('vtutor_ucat_learning_module_question_tags')
+        .select('learning_module_id, question_tag_id'),
+    ])
     if (error) throw error
+    if (categoryLinks.error) throw categoryLinks.error
+    if (tagLinks.error) throw tagLinks.error
+
+    const categoryIdsByModuleId = new Map<string, string[]>()
+    for (const link of categoryLinks.data ?? []) {
+      if (!link.learning_module_id || !link.question_stem_category_id) continue
+      const existing = categoryIdsByModuleId.get(link.learning_module_id) ?? []
+      existing.push(link.question_stem_category_id)
+      categoryIdsByModuleId.set(link.learning_module_id, existing)
+    }
+
+    const tagIdsByModuleId = new Map<string, string[]>()
+    for (const link of tagLinks.data ?? []) {
+      if (!link.learning_module_id || !link.question_tag_id) continue
+      const existing = tagIdsByModuleId.get(link.learning_module_id) ?? []
+      existing.push(link.question_tag_id)
+      tagIdsByModuleId.set(link.learning_module_id, existing)
+    }
+
     return (data ?? [])
       .filter((row) => row.id != null)
-      .map((row) => mapModuleRow(row as Record<string, unknown>))
+      .map((row) =>
+        mapModuleRow({
+          ...(row as Record<string, unknown>),
+          study_plan_category_ids: categoryIdsByModuleId.get(row.id as string) ?? [],
+          study_plan_tag_ids: tagIdsByModuleId.get(row.id as string) ?? [],
+        }),
+      )
   },
 
   async get(moduleId: string): Promise<UcatLearningModuleRow | null> {

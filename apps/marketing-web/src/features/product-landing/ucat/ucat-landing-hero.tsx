@@ -101,7 +101,7 @@ export function UcatLandingHero() {
             href="#product"
             className={`inline-flex w-full items-center justify-center gap-2 rounded-full border border-marketing-charcoal/15 bg-white/55 px-7 py-3.5 text-base font-medium text-marketing-charcoal transition-colors hover:bg-white sm:w-auto ${typo.secondarySans}`}
           >
-            Explore the product <ArrowDown className="h-4 w-4" aria-hidden />
+            Explore Altitutor UCAT <ArrowDown className="h-4 w-4" aria-hidden />
           </a>
         </div>
 
@@ -109,13 +109,6 @@ export function UcatLandingHero() {
           data-hero-support
           className={`mt-9 flex flex-col items-center justify-center gap-2 text-sm text-marketing-charcoal/56 sm:flex-row sm:gap-5 ${typo.secondarySans}`}
         >
-          <p>
-            <strong className="font-semibold text-marketing-charcoal">
-              Free forever.
-            </strong>{" "}
-            Allowances reset.
-          </p>
-          <span className="hidden h-1 w-1 rounded-full bg-marketing-charcoal/25 sm:block" />
           <p className="flex items-center gap-2">
             <HeartHandshake className="h-4 w-4 text-marketing-primary" aria-hidden />
             A not-for-profit initiative by Altitutor.

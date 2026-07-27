@@ -155,9 +155,6 @@ function qrChecks(snapshot: UcatAssessmentSnapshot, checks: UcatFormatCheck[]) {
 
 function sjChecks(snapshot: UcatAssessmentSnapshot, checks: UcatFormatCheck[]) {
   const category = norm(snapshot.categoryName)
-  if (snapshot.questions.length !== 4) {
-    add(checks, 'error', 'sj_question_count', 'Situational Judgement stems must contain exactly four questions.')
-  }
   const expected = category === 'how important'
     ? ['Very important', 'Important', 'Of minor importance', 'Not important at all']
     : category === 'how appropriate'

@@ -8,17 +8,22 @@ import type {
   UcatQuestionStem,
   UcatQuestionStemBundlePayload,
 } from "@/features/ucat/shared/types";
-import { proseMirrorToPlainText } from "@/features/ucat/shared/lib/rich-text";
 import { fetchAllSupabaseRows } from "@/features/ucat/shared/lib/fetch-all-supabase-rows";
 import {
   readUcatBulkStatusResponse,
   throwFirstUcatBulkStatusFailure,
 } from "@/features/ucat/shared/lifecycle-errors";
 import { humanizeQuestionStemError } from "@/features/ucat/questions/lib/question-stem-error";
+import {
+  buildQuestionStemListIndex,
+  type UcatQuestionStemListIndex,
+} from "@/features/ucat/questions/lib/build-question-stem-list-index";
 import type {
   UcatAssessmentResponse,
   UcatFormatCheck,
 } from "@/features/ucat/questions/lib/ai-assessment/schema";
+
+export type { UcatQuestionStemListIndex };
 
 export type UcatGenerationDebugCall = {
   stemIndex: number;
@@ -318,9 +323,38 @@ export const ucatQuestionsApi = {
     categoryId?: string | null;
   }) {
     const supabase = getSupabaseClient() as SupabaseClient<Database>;
+    /** List columns only — omit unused metadata; keep stem_text for search/display. */
+    const listSelect = [
+      "id",
+      "section_id",
+      "section_number",
+      "section_name",
+      "question_stem_category_id",
+      "category_name",
+      "access_scope",
+      "status",
+      "stem_text",
+      "question_count",
+      "set_names",
+      "set_ids",
+      "created_at",
+      "updated_at",
+      "created_by",
+      "created_by_first_name",
+      "created_by_last_name",
+      "deleted_at",
+      "source_channel",
+      "tutor_source_note",
+      "ai_generation_metadata",
+      "status_changed_at",
+      "status_changed_by_first_name",
+      "status_changed_by_last_name",
+      "is_available_in_question_pool",
+    ].join(",");
+
     let query = supabase
       .from("vtutor_ucat_question_stems")
-      .select("*")
+      .select(listSelect)
       .order("updated_at", { ascending: false })
       .order("id");
 
@@ -418,7 +452,11 @@ export const ucatQuestionsApi = {
     } as StemDetailRow;
   },
 
-  async getStemTypes() {
+  /**
+   * One detail fetch for the questions table index (types + tags + search text).
+   * Replaces the previous triple fetch of `id,questions`.
+   */
+  async getStemListIndex(): Promise<UcatQuestionStemListIndex> {
     const supabase = getSupabaseClient() as SupabaseClient<Database>;
     const data = await fetchAllSupabaseRows((from, to) =>
       supabase
@@ -428,129 +466,9 @@ export const ucatQuestionsApi = {
         .range(from, to),
     );
 
-    type QuestionWithType = { question_type?: string | null };
-    const rows = (data ?? []) as Array<{
-      id: string | null;
-      questions: unknown;
-    }>;
-    const map: Record<string, Set<"multiple_choice" | "syllogism">> = {};
-
-    for (const row of rows) {
-      if (!row.id) continue;
-      const types = new Set<"multiple_choice" | "syllogism">();
-      const questions = Array.isArray(row.questions)
-        ? (row.questions as QuestionWithType[])
-        : [];
-      for (const question of questions) {
-        if (
-          question.question_type === "multiple_choice" ||
-          question.question_type === "syllogism"
-        ) {
-          types.add(question.question_type);
-        }
-      }
-      map[row.id] = types;
-    }
-
-    return map;
-  },
-
-  async getStemTagIds() {
-    const supabase = getSupabaseClient() as SupabaseClient<Database>;
-    const data = await fetchAllSupabaseRows((from, to) =>
-      supabase
-        .from("vtutor_ucat_question_stem_detail")
-        .select("id,questions")
-        .order("id")
-        .range(from, to),
+    return buildQuestionStemListIndex(
+      (data ?? []) as Array<{ id: string | null; questions: unknown }>,
     );
-
-    type QuestionWithTags = {
-      deleted_at?: string | null;
-      tags?: Array<{ id?: string | null }> | null;
-    };
-    const rows = (data ?? []) as Array<{
-      id: string | null;
-      questions: unknown;
-    }>;
-    const map: Record<string, string[]> = {};
-
-    for (const row of rows) {
-      if (!row.id) continue;
-      const tagIds = new Set<string>();
-      const questions = Array.isArray(row.questions)
-        ? (row.questions as QuestionWithTags[])
-        : [];
-      for (const question of questions) {
-        if (question.deleted_at) continue;
-        const tags = Array.isArray(question.tags) ? question.tags : [];
-        for (const tag of tags) {
-          if (tag.id) tagIds.add(tag.id);
-        }
-      }
-      map[row.id] = Array.from(tagIds);
-    }
-
-    return map;
-  },
-
-  async getQuestionSearchTexts() {
-    const supabase = getSupabaseClient() as SupabaseClient<Database>;
-    const data = await fetchAllSupabaseRows((from, to) =>
-      supabase
-        .from("vtutor_ucat_question_stem_detail")
-        .select("id,questions")
-        .order("id")
-        .range(from, to),
-    );
-
-    type QuestionWithSearchContent = {
-      deleted_at?: string | null;
-      question_text?: Json | null;
-      answer_options?: Array<{
-        deleted_at?: string | null;
-        answer_text?: Json | null;
-      }> | null;
-    };
-    const rows = (data ?? []) as Array<{
-      id: string | null;
-      questions: unknown;
-    }>;
-    const map: Record<
-      string,
-      { questionText: string; answerOptionText: string }
-    > = {};
-
-    for (const row of rows) {
-      if (!row.id) continue;
-      const questions = Array.isArray(row.questions)
-        ? (row.questions as QuestionWithSearchContent[])
-        : [];
-      const questionTexts: string[] = [];
-      const answerOptionTexts: string[] = [];
-
-      for (const question of questions) {
-        if (question.deleted_at) continue;
-        const questionText = proseMirrorToPlainText(question.question_text);
-        if (questionText) questionTexts.push(questionText);
-
-        const answerOptions = Array.isArray(question.answer_options)
-          ? question.answer_options
-          : [];
-        for (const option of answerOptions) {
-          if (option.deleted_at) continue;
-          const answerText = proseMirrorToPlainText(option.answer_text);
-          if (answerText) answerOptionTexts.push(answerText);
-        }
-      }
-
-      map[row.id] = {
-        questionText: questionTexts.join(" "),
-        answerOptionText: answerOptionTexts.join(" "),
-      };
-    }
-
-    return map;
   },
 
   async getStemCatalog(options?: { publishedOnly?: boolean }) {

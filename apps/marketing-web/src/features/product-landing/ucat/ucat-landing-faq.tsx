@@ -1,5 +1,10 @@
 import { MARKETING_TOKENS } from "@altitutor/shared";
-import { ChevronDown } from "lucide-react";
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@altitutor/ui";
 
 const { typography: typo } = MARKETING_TOKENS;
 
@@ -51,30 +56,49 @@ export function UcatLandingFaq() {
     <section id="faq" className="bg-white px-4 py-24 sm:px-8 sm:py-32">
       <div className="mx-auto grid max-w-6xl gap-12 lg:grid-cols-[0.72fr_1.28fr] lg:gap-20">
         <div>
-          <p className={`text-xs font-semibold uppercase tracking-[0.18em] text-marketing-primary/60 ${typo.dataMono}`}>
+          <p
+            className={`text-xs font-semibold uppercase tracking-[0.18em] text-marketing-primary/60 ${typo.dataMono}`}
+          >
             Frequently asked questions
           </p>
-          <h2 className={`mt-4 text-4xl font-semibold tracking-[-0.04em] text-marketing-charcoal sm:text-5xl ${typo.headingSans}`}>
+          <h2
+            className={`mt-4 text-4xl font-semibold tracking-[-0.04em] text-marketing-charcoal sm:text-5xl ${typo.headingSans}`}
+          >
             Clear answers before you start.
           </h2>
-          <p className={`mt-5 max-w-md text-base leading-relaxed text-marketing-charcoal/58 ${typo.secondarySans}`}>
+          <p
+            className={`mt-5 max-w-md text-base leading-relaxed text-marketing-charcoal/58 ${typo.secondarySans}`}
+          >
             If your question is not here, email admin@altitutor.com and a member
             of the Altitutor team will help.
           </p>
         </div>
-        <div className="divide-y divide-marketing-charcoal/10 border-y border-marketing-charcoal/10">
-          {faqs.map((faq) => (
-            <details key={faq.question} className="group py-1">
-              <summary className={`flex cursor-pointer list-none items-center justify-between gap-6 py-5 text-base font-semibold text-marketing-charcoal sm:text-lg [&::-webkit-details-marker]:hidden ${typo.headingSans}`}>
+        <Accordion
+          type="single"
+          collapsible
+          className="divide-y divide-marketing-charcoal/10 border-y border-marketing-charcoal/10"
+        >
+          {faqs.map((faq, index) => (
+            <AccordionItem
+              key={faq.question}
+              value={`faq-${index}`}
+              className="border-none"
+            >
+              <AccordionTrigger
+                className={`gap-6 py-5 text-left text-base font-semibold text-marketing-charcoal hover:no-underline sm:text-lg [&>svg]:size-5 [&>svg]:text-marketing-primary ${typo.headingSans}`}
+              >
                 {faq.question}
-                <ChevronDown className="size-5 shrink-0 text-marketing-primary transition-transform group-open:rotate-180" aria-hidden />
-              </summary>
-              <p className={`max-w-2xl pb-6 pr-10 text-sm leading-relaxed text-marketing-charcoal/62 sm:text-base ${typo.secondarySans}`}>
-                {faq.answer}
-              </p>
-            </details>
+              </AccordionTrigger>
+              <AccordionContent
+                className={`motion-reduce:animate-none ${typo.secondarySans}`}
+              >
+                <p className="max-w-2xl pb-6 pr-10 text-sm leading-relaxed text-marketing-charcoal/62 sm:text-base">
+                  {faq.answer}
+                </p>
+              </AccordionContent>
+            </AccordionItem>
           ))}
-        </div>
+        </Accordion>
       </div>
     </section>
   );

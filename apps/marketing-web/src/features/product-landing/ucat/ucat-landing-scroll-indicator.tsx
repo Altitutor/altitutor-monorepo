@@ -8,6 +8,7 @@ const SECTION_ITEMS = [
   { id: "features", label: "Features" },
   { id: "how-it-works", label: "How it works" },
   { id: "mission", label: "Our mission" },
+  { id: "comparison", label: "Comparison" },
   { id: "pricing", label: "Pricing" },
 ] as const;
 const { typography: typo } = MARKETING_TOKENS;

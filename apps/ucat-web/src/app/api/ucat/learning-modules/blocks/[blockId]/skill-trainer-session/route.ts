@@ -39,15 +39,10 @@ function buildConfigSnapshot(
   };
 }
 
-export async function GET(request: NextRequest, context: RouteContext) {
+export async function GET(_request: NextRequest, context: RouteContext) {
   const { blockId } = await context.params;
-  const trainerKey = request.nextUrl.searchParams.get("trainerKey");
   const auth = await requireStudentAdminClient();
   if (!auth.ok) return auth.response;
-
-  if (!trainerKey || !isUcatSkillTrainerKey(trainerKey)) {
-    return NextResponse.json({ error: "Invalid trainerKey" }, { status: 400 });
-  }
 
   const supabase = await getSupabaseServerClient();
   const { data: block, error: blockError } = await supabase
@@ -79,7 +74,6 @@ export async function GET(request: NextRequest, context: RouteContext) {
       .from("ucat_skill_trainers")
       .select("id, key, name")
       .eq("id", block.skill_trainer_id)
-      .eq("key", trainerKey)
       .eq("is_enabled", true)
       .maybeSingle();
 

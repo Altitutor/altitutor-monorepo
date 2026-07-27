@@ -738,7 +738,7 @@ export function BulkImportQuestionStemsModal({
           </div>
           <div className="text-lg font-semibold">Bulk import completed</div>
           <p className="text-sm text-muted-foreground">
-            All question stems have been created successfully.
+            All question stems have been created and sent to In review.
           </p>
         </div>
       )

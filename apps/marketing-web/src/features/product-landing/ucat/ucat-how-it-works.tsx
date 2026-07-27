@@ -18,17 +18,17 @@ const steps = [
   {
     number: "01",
     title: "Start free",
-    body: "Create your account, set your target and test date, and tell us how much time you can genuinely study each week.",
+    body: "Create your account and set your target score.",
   },
   {
     number: "02",
     title: "Build your baseline",
-    body: "Complete a short benchmark across the cognitive sections so your first direction is based on evidence, not a generic timetable.",
+    body: "Complete a short benchmark and our system will build you an adaptive study plan.",
   },
   {
     number: "03",
     title: "Follow your plan",
-    body: "Work through specific learning, practice, review, sets, and mocks selected around your gaps and the time left before test day.",
+    body: "Work through learning, practice questions, and mocks selected around your gaps and the time left before test day.",
   },
 ] as const;
 

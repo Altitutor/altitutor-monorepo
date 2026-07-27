@@ -12,6 +12,8 @@ export const ucatKeys = {
   aiAssessment: (stemId: string) => [...ucatKeys.question(stemId), 'ai-assessment'] as const,
   questionStemTypes: () => [...ucatKeys.questions('all'), 'stem-types'] as const,
   questionStemTagIds: () => [...ucatKeys.questions('all'), 'stem-tag-ids'] as const,
+  /** Shared index for types + tag ids + question/answer search texts (one detail fetch). */
+  questionStemListIndex: () => [...ucatKeys.questions('all'), 'stem-list-index'] as const,
   stemCatalog: () => [...ucatKeys.questions('all'), 'stem-catalog'] as const,
   questionCatalog: () => [...ucatKeys.questions('all'), 'question-catalog'] as const,
   sets: () => [...ucatKeys.all, 'sets'] as const,

@@ -100,25 +100,29 @@ export function useUcatTags() {
   return useQuery({ queryKey: ucatKeys.tags(), queryFn: ucatQuestionsApi.getTags })
 }
 
+export function useUcatQuestionStemListIndex() {
+  return useQuery({
+    queryKey: ucatKeys.questionStemListIndex(),
+    queryFn: () => ucatQuestionsApi.getStemListIndex(),
+  })
+}
+
+/** @deprecated Prefer useUcatQuestionStemListIndex — shares the same cached fetch. */
 export function useUcatQuestionStemTypes() {
-  return useQuery({
-    queryKey: ucatKeys.questionStemTypes(),
-    queryFn: () => ucatQuestionsApi.getStemTypes(),
-  })
+  const query = useUcatQuestionStemListIndex()
+  return { ...query, data: query.data?.types }
 }
 
+/** @deprecated Prefer useUcatQuestionStemListIndex — shares the same cached fetch. */
 export function useUcatStemTagIds() {
-  return useQuery({
-    queryKey: ucatKeys.questionStemTagIds(),
-    queryFn: () => ucatQuestionsApi.getStemTagIds(),
-  })
+  const query = useUcatQuestionStemListIndex()
+  return { ...query, data: query.data?.tagIds }
 }
 
+/** @deprecated Prefer useUcatQuestionStemListIndex — shares the same cached fetch. */
 export function useUcatQuestionSearchTexts() {
-  return useQuery({
-    queryKey: [...ucatKeys.questions('all'), 'search-texts'],
-    queryFn: () => ucatQuestionsApi.getQuestionSearchTexts(),
-  })
+  const query = useUcatQuestionStemListIndex()
+  return { ...query, data: query.data?.searchTexts }
 }
 
 export type UcatStemCatalogItem = {

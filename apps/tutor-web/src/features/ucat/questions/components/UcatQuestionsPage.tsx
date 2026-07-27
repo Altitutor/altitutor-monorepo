@@ -56,11 +56,9 @@ import {
   useSetUcatQuestionStemStatus,
   useUcatCategories,
   useUcatQuestionDetail,
-  useUcatQuestionSearchTexts,
-  useUcatQuestionStemTypes,
+  useUcatQuestionStemListIndex,
   useUcatQuestions,
   useUcatSections,
-  useUcatStemTagIds,
   useUcatTags,
   useUpdateUcatQuestionStem,
 } from '@/features/ucat/questions/hooks/useUcatQuestions'
@@ -320,10 +318,10 @@ export function UcatQuestionsPage() {
     defaultVisibleAnswerOptionColumns,
   )
 
-  const stemTypesQuery = useUcatQuestionStemTypes()
-  const stemTypes = stemTypesQuery.data ?? {}
-  const stemTagIdsQuery = useUcatStemTagIds()
-  const stemTagIds = stemTagIdsQuery.data ?? {}
+  const stemListIndexQuery = useUcatQuestionStemListIndex()
+  const stemTypes = stemListIndexQuery.data?.types ?? {}
+  const stemTagIds = stemListIndexQuery.data?.tagIds ?? {}
+  const questionSearchTexts = stemListIndexQuery.data?.searchTexts
   const initialVisibleColumns = useMemo(
     () => columnDefinitions.filter((c) => c.visibleByDefault).map((c) => c.key),
     [],
@@ -358,7 +356,6 @@ export function UcatQuestionsPage() {
 
   const access = useUcatAccess()
   const questions = useUcatQuestions()
-  const questionSearchTexts = useUcatQuestionSearchTexts()
   const sections = useUcatSections()
   const categories = useUcatCategories()
   const tags = useUcatTags()
@@ -407,7 +404,7 @@ export function UcatQuestionsPage() {
     status: activeTab,
     stemTypes,
     stemTagIds,
-    questionSearchTexts: questionSearchTexts.data,
+    questionSearchTexts,
     categoryPathLookup,
     tableState: tableState.state,
     showDeleted,
@@ -673,18 +670,22 @@ export function UcatQuestionsPage() {
       toast({
         title: `${questionCount} question${questionCount === 1 ? '' : 's'} imported and added to set ${targetSetName}`,
         description: (
-          <button
-            type="button"
-            onClick={() => setEditingSetId(targetSetId)}
-            className="underline font-medium hover:no-underline text-left"
-          >
-            View set
-          </button>
+          <>
+            <p className="mb-1">They were added to In review.</p>
+            <button
+              type="button"
+              onClick={() => setEditingSetId(targetSetId)}
+              className="underline font-medium hover:no-underline text-left"
+            >
+              View set
+            </button>
+          </>
         ),
       })
     } else {
       toast({
         title: `${questionCount} question${questionCount === 1 ? '' : 's'} imported`,
+        description: 'They were added to In review.',
       })
     }
   }
@@ -933,7 +934,7 @@ export function UcatQuestionsPage() {
     createdByFilterOptions,
   ])
 
-  if (access.isLoading || questions.isLoading || stemTypesQuery.isLoading || stemTagIdsQuery.isLoading) {
+  if (access.isLoading || questions.isLoading || stemListIndexQuery.isLoading) {
     return <UcatPageSkeleton rows={8} />
   }
   if (!access.data) return <UcatAccessDenied />

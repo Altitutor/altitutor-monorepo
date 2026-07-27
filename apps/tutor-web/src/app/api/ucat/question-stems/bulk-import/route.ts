@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
+import type { Database } from '@altitutor/shared'
+import type { SupabaseClient } from '@supabase/supabase-js'
 import { requireUcatTutor, type UcatTutorSupabaseClient } from '@/features/ucat/shared/server/guard'
+import { requestUcatQuestionAssessmentsForReview } from '@/features/ucat/questions/server/ai-assessment/dispatcher'
 
 const SerializedAnswerOptionSchema = z.object({
   id: z.string().uuid().nullable().optional(),
@@ -100,5 +103,24 @@ export async function POST(request: NextRequest) {
 
   // RPC should return an array of created stem IDs
   const ids = Array.isArray(data) ? (data as string[]) : []
+
+  // Prefer the RPC setting in_review (post-migration). Fall back to an explicit
+  // lifecycle move so older databases still land bulk imports in review.
+  if (ids.length > 0) {
+    const { error: statusError } = await client.rpc('tutor_ucat_set_content_status_bulk', {
+      p_content_type: 'stem',
+      p_content_ids: ids,
+      p_status: 'in_review',
+    })
+    if (statusError) {
+      return NextResponse.json({ error: statusError.message }, { status: 400 })
+    }
+
+    await requestUcatQuestionAssessmentsForReview({
+      stemIds: ids,
+      userClient: access.userClient as unknown as SupabaseClient<Database>,
+    })
+  }
+
   return NextResponse.json({ ids })
 }
