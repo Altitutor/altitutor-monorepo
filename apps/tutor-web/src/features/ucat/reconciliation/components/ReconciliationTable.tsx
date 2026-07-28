@@ -9,11 +9,9 @@ import {
   TableHeader,
   TableRow,
   TablePagination,
-  Button,
   Badge,
   Checkbox,
 } from '@altitutor/ui'
-import { ChevronDown } from 'lucide-react'
 import { cn } from '@/shared/utils'
 import { tutorTableBodyRow, tutorTableHeaderRow, tutorTableShell } from '@/shared/lib/tutor-visual'
 
@@ -59,7 +57,6 @@ export function ReconciliationTable<T>({
   const columns = columnDefinitions
     .filter((c) => visibleColumnKeys.includes(c.key))
     .map((c) => c.label)
-  const [isExpanded, setIsExpanded] = useState(items.length > 0)
   const [page, setPage] = useState(1)
   const [pageSize, setPageSize] = useState(20)
 
@@ -85,20 +82,6 @@ export function ReconciliationTable<T>({
     <div className={cn('space-y-4', selectionMode && 'pb-24')}>
       <div className="flex items-center justify-between gap-3">
         <div className="flex items-center gap-2">
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-6 w-6 rounded-lg"
-            onClick={() => setIsExpanded(!isExpanded)}
-            aria-expanded={isExpanded}
-          >
-            <ChevronDown
-              className={cn(
-                'h-4 w-4 transition-transform duration-300 ease-out motion-reduce:transition-none',
-                isExpanded ? 'rotate-0' : '-rotate-90',
-              )}
-            />
-          </Button>
           <h3 className="text-lg font-semibold">{title}</h3>
           <Badge
             variant={items.length === 0 ? 'secondary' : 'destructive'}
@@ -110,76 +93,67 @@ export function ReconciliationTable<T>({
         {headerActions ? <div className="flex shrink-0 items-center gap-2">{headerActions}</div> : null}
       </div>
 
-      <div
-        className={cn(
-          'grid transition-[grid-template-rows] duration-300 ease-out motion-reduce:transition-none',
-          isExpanded ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]',
-        )}
-      >
-        <div className="min-h-0 overflow-hidden">
-          <div className="space-y-4 pt-2">
-            {toolbar ? <div>{toolbar}</div> : null}
+      <div className="space-y-4">
+        {toolbar ? <div>{toolbar}</div> : null}
 
-            <div className={tutorTableShell}>
-              <Table>
-                <TableHeader className="[&_tr]:border-b-0">
-                  <TableRow className={tutorTableHeaderRow}>
-                    {selection && (
-                      <TableHead className="w-12" onClick={(e) => e.stopPropagation()}>
-                        <Checkbox
-                          checked={selection.allVisibleSelected ? true : selection.someVisibleSelected ? 'indeterminate' : false}
-                          onCheckedChange={selection.onToggleSelectAll}
-                          aria-label="Select all visible rows"
-                        />
-                      </TableHead>
-                    )}
-                    {columns.map((col) => (
-                      <TableHead key={col}>{col}</TableHead>
-                    ))}
-                    <TableHead className="w-[200px]">Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {isLoading ? (
-                    <TableRow className={tutorTableBodyRow}>
-                      <TableCell colSpan={columns.length + (selection ? 2 : 1)} className="text-center h-24">
-                        Loading...
-                      </TableCell>
-                    </TableRow>
-                  ) : items.length === 0 ? (
-                    <TableRow className={tutorTableBodyRow}>
-                      <TableCell colSpan={columns.length + (selection ? 2 : 1)} className="text-center h-24 text-muted-foreground">
-                        No items found
-                      </TableCell>
-                    </TableRow>
-                  ) : (
-                    pagedItems.map((item, index) => {
-                      const absoluteIndex = (activePage - 1) * activePageSize + index
-                      return renderRow(item, absoluteIndex, visibleColumnKeys, selection)
-                    })
-                  )}
-                </TableBody>
-              </Table>
-            </div>
-
-            {!isLoading && totalItems > 0 ? (
-              <TablePagination
-                page={activePage}
-                pageSize={activePageSize}
-                total={totalItems}
-                onPageChange={pagination?.onPageChange ?? setPage}
-                onPageSizeChange={(newPageSize) => {
-                  if (pagination) {
-                    pagination.onPageSizeChange(newPageSize)
-                    return
-                  }
-                  setPageSize(newPageSize)
-                  setPage(1)
-                }}
-              />
-            ) : null}
-          </div>
+        <div className={tutorTableShell}>
+          <Table>
+            <TableHeader className="[&_tr]:border-b-0">
+              <TableRow className={tutorTableHeaderRow}>
+                {selection && (
+                  <TableHead className="w-12" onClick={(e) => e.stopPropagation()}>
+                    <Checkbox
+                      checked={selection.allVisibleSelected ? true : selection.someVisibleSelected ? 'indeterminate' : false}
+                      onCheckedChange={selection.onToggleSelectAll}
+                      aria-label="Select all visible rows"
+                    />
+                  </TableHead>
+                )}
+                {columns.map((col) => (
+                  <TableHead key={col}>{col}</TableHead>
+                ))}
+                <TableHead className="w-[200px]">Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {isLoading ? (
+                <TableRow className={tutorTableBodyRow}>
+                  <TableCell colSpan={columns.length + (selection ? 2 : 1)} className="text-center h-24">
+                    Loading...
+                  </TableCell>
+                </TableRow>
+              ) : items.length === 0 ? (
+                <TableRow className={tutorTableBodyRow}>
+                  <TableCell colSpan={columns.length + (selection ? 2 : 1)} className="text-center h-24 text-muted-foreground">
+                    No items found
+                  </TableCell>
+                </TableRow>
+              ) : (
+                pagedItems.map((item, index) => {
+                  const absoluteIndex = (activePage - 1) * activePageSize + index
+                  return renderRow(item, absoluteIndex, visibleColumnKeys, selection)
+                })
+              )}
+            </TableBody>
+          </Table>
         </div>
+
+        {!isLoading && totalItems > 0 ? (
+          <TablePagination
+            page={activePage}
+            pageSize={activePageSize}
+            total={totalItems}
+            onPageChange={pagination?.onPageChange ?? setPage}
+            onPageSizeChange={(newPageSize) => {
+              if (pagination) {
+                pagination.onPageSizeChange(newPageSize)
+                return
+              }
+              setPageSize(newPageSize)
+              setPage(1)
+            }}
+          />
+        ) : null}
       </div>
     </div>
   )

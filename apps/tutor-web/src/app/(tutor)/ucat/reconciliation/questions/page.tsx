@@ -1,5 +1,5 @@
-import { UcatReconciliationQuestionIssuesOverview } from '@/features/ucat/reconciliation/components/UcatReconciliationQuestionIssues'
+import { redirect } from 'next/navigation'
 
 export default function UcatReconciliationQuestionsPage() {
-  return <UcatReconciliationQuestionIssuesOverview />
+  redirect('/ucat/reconciliation/questions/missing-category')
 }

@@ -1,7 +1,5 @@
-'use client'
-
-import { UcatReconciliationSetsTab } from '@/features/ucat/reconciliation'
+import { redirect } from 'next/navigation'
 
 export default function UcatReconciliationSetsPage() {
-  return <UcatReconciliationSetsTab />
+  redirect('/ucat/reconciliation/sets/question-count')
 }
