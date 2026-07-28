@@ -66,6 +66,17 @@ const descriptor: UcatContentRatingDescriptor = {
   },
 };
 
+const questionDescriptor: UcatContentRatingDescriptor = {
+  targetType: "question",
+  targetKey: "question:4a2c0e82-0d99-4933-a3e1-4652ea3cc4ff",
+  targetVersion: "v1-question",
+  contextKey: "set-attempt:test:question:test",
+  surface: "attempt",
+  displayedContent: {
+    question: '{"questionText":"Which answer is correct?"}',
+  },
+};
+
 function jsonResponse(payload: unknown): Response {
   return {
     ok: true,
@@ -73,7 +84,9 @@ function jsonResponse(payload: unknown): Response {
   } as Response;
 }
 
-function renderControls() {
+function renderControls(
+  ratingDescriptor: UcatContentRatingDescriptor = descriptor,
+) {
   const queryClient = new QueryClient({
     defaultOptions: {
       queries: { retry: false },
@@ -83,13 +96,13 @@ function renderControls() {
   queryClient.setQueryData(
     [
       "ucat-content-rating",
-      `${descriptor.targetType}:${descriptor.targetKey}:${descriptor.targetVersion}:${descriptor.contextKey}`,
+      `${ratingDescriptor.targetType}:${ratingDescriptor.targetKey}:${ratingDescriptor.targetVersion}:${ratingDescriptor.contextKey}`,
     ],
     null,
   );
   return render(
     <QueryClientProvider client={queryClient}>
-      <ContentRatingControls descriptor={descriptor} />
+      <ContentRatingControls descriptor={ratingDescriptor} />
     </QueryClientProvider>,
   );
 }
@@ -129,7 +142,9 @@ describe("ContentRatingControls", () => {
     fireEvent.click(screen.getByRole("button", { name: "Submit" }));
     await waitFor(() => expect(global.fetch).toHaveBeenCalledTimes(2));
     await waitFor(() =>
-      expect(screen.queryByText("What could be better?")).not.toBeInTheDocument(),
+      expect(
+        screen.queryByText("What could be better?"),
+      ).not.toBeInTheDocument(),
     );
 
     const request = jest.mocked(global.fetch).mock.calls[1];
@@ -164,6 +179,33 @@ describe("ContentRatingControls", () => {
       vote: -1,
       reasonCode: null,
       reasonText: "The comparison needs more context.",
+    });
+  });
+
+  it("uses question-specific copy and issue reasons", async () => {
+    renderControls(questionDescriptor);
+
+    expect(screen.getByText("Rate this question")).toBeInTheDocument();
+    fireEvent.click(
+      screen.getByRole("button", { name: "This question needs attention" }),
+    );
+    await waitFor(() => expect(global.fetch).toHaveBeenCalledTimes(1));
+
+    expect(screen.getByText("What should we review?")).toBeInTheDocument();
+    fireEvent.click(
+      screen.getByRole("button", { name: "The answer seems incorrect" }),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Submit" }));
+    await waitFor(() => expect(global.fetch).toHaveBeenCalledTimes(2));
+
+    const request = jest.mocked(global.fetch).mock.calls[1];
+    const body = JSON.parse(String(request?.[1]?.body)) as {
+      descriptor: { targetType: string };
+      rating: { reasonCode: string | null };
+    };
+    expect(body).toMatchObject({
+      descriptor: { targetType: "question" },
+      rating: { reasonCode: "answer_incorrect" },
     });
   });
 });

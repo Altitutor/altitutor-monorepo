@@ -413,7 +413,7 @@ function PreviewMembership({ tier }: { tier: PreviewScenario["planTier"] }) {
         <p className="mt-3 text-xs text-muted-foreground">
           {tier === "free"
             ? "Unlimited removes online quotas and adds practice streak discounts."
-            : "Keep practising accurately to earn today’s reward."}
+            : "Keep practicing accurately to earn today’s reward."}
         </p>
       </CardContent>
     </Card>

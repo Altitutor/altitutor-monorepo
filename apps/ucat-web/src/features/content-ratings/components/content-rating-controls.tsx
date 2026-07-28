@@ -41,6 +41,18 @@ const EXPLANATION_REASONS: Array<{
   { code: "other", label: "Something else" },
 ];
 
+const QUESTION_REASONS: Array<{
+  code: UcatContentRatingReason;
+  label: string;
+}> = [
+  { code: "misformatted", label: "It's misformatted" },
+  { code: "answer_incorrect", label: "The answer seems incorrect" },
+  { code: "unclear", label: "The question is unclear" },
+  { code: "too_easy", label: "It's too easy" },
+  { code: "too_hard", label: "It's too hard" },
+  { code: "other", label: "Something else" },
+];
+
 type ContentRatingControlsProps = {
   descriptor: UcatContentRatingDescriptor;
   className?: string;
@@ -96,8 +108,9 @@ export function ContentRatingControls({
     },
     onMutate: async (nextRating) => {
       await queryClient.cancelQueries({ queryKey });
-      const previous =
-        queryClient.getQueryData<UcatContentRatingValue | null>(queryKey);
+      const previous = queryClient.getQueryData<UcatContentRatingValue | null>(
+        queryKey,
+      );
       queryClient.setQueryData(queryKey, nextRating);
       return { previous };
     },
@@ -110,31 +123,38 @@ export function ContentRatingControls({
   });
   const rating = ratingQuery.data ?? null;
   const saving = saveMutation.isPending;
-  const error =
-    saveMutation.isError
-      ? "Could not save"
-      : ratingQuery.isError
-        ? "Rating unavailable"
-        : null;
+  const error = saveMutation.isError
+    ? "Could not save"
+    : ratingQuery.isError
+      ? "Rating unavailable"
+      : null;
   const persist = saveMutation.mutate;
 
   const reasons =
     descriptor.targetType === "answer_explanation"
       ? EXPLANATION_REASONS
-      : INSIGHT_REASONS;
+      : descriptor.targetType === "question"
+        ? QUESTION_REASONS
+        : INSIGHT_REASONS;
+  const isQuestionRating = descriptor.targetType === "question";
 
   return (
     <div className={cn("flex flex-wrap items-center gap-1.5", className)}>
-      <span className="mr-1 text-xs text-muted-foreground">Helpful?</span>
+      <span className="mr-1 text-xs text-muted-foreground">
+        {isQuestionRating ? "Rate this question" : "Helpful?"}
+      </span>
       <Button
         type="button"
         variant="ghost"
         size="icon"
         className={cn(
           "size-8 rounded-full text-muted-foreground",
-          rating?.vote === 1 && "bg-emerald-500/12 text-emerald-700 dark:text-emerald-300",
+          rating?.vote === 1 &&
+            "bg-emerald-500/12 text-emerald-700 dark:text-emerald-300",
         )}
-        aria-label="This was helpful"
+        aria-label={
+          isQuestionRating ? "This was a good question" : "This was helpful"
+        }
         aria-pressed={rating?.vote === 1}
         disabled={saving}
         onClick={() =>
@@ -160,9 +180,14 @@ export function ContentRatingControls({
             size="icon"
             className={cn(
               "size-8 rounded-full text-muted-foreground",
-              rating?.vote === -1 && "bg-rose-500/12 text-rose-700 dark:text-rose-300",
+              rating?.vote === -1 &&
+                "bg-rose-500/12 text-rose-700 dark:text-rose-300",
             )}
-            aria-label="This was not helpful"
+            aria-label={
+              isQuestionRating
+                ? "This question needs attention"
+                : "This was not helpful"
+            }
             aria-pressed={rating?.vote === -1}
             disabled={saving}
             onClick={() => {
@@ -179,8 +204,15 @@ export function ContentRatingControls({
             <ThumbsDown className="size-3.5" />
           </Button>
         </PopoverTrigger>
-        <PopoverContent align="end" className="w-[min(340px,calc(100vw-2rem))] p-4">
-          <p className="text-sm font-medium">What could be better?</p>
+        <PopoverContent
+          align="end"
+          className="w-[min(340px,calc(100vw-2rem))] p-4"
+        >
+          <p className="text-sm font-medium">
+            {isQuestionRating
+              ? "What should we review?"
+              : "What could be better?"}
+          </p>
           <div className="mt-3 grid gap-1">
             {reasons.map((reason) => (
               <button
@@ -204,12 +236,19 @@ export function ContentRatingControls({
             ))}
           </div>
           <label className="mt-3 block text-xs font-medium">
-            Add a note <span className="font-normal text-muted-foreground">(optional)</span>
+            Add a note{" "}
+            <span className="font-normal text-muted-foreground">
+              (optional)
+            </span>
             <Textarea
               className="mt-1.5 min-h-20 resize-none text-sm"
               maxLength={1000}
               value={reasonText}
-              placeholder="Tell us what would make this more useful"
+              placeholder={
+                isQuestionRating
+                  ? "Tell us what seems wrong with this question"
+                  : "Tell us what would make this more useful"
+              }
               onChange={(event) => setReasonText(event.target.value)}
             />
           </label>

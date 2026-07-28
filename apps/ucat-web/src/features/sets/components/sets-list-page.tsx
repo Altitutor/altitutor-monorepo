@@ -125,7 +125,7 @@ export function SetsListPage({
   const pageTitle = sectionTitle ? `${sectionTitle} sets` : "Sets";
   const pageDescription = sectionTitle
     ? `Practice question sets for ${sectionTitle}.`
-    : "Choose a set to start practising.";
+    : "Choose a set to start practicing.";
 
   const backProps =
     sectionNumberProp != null

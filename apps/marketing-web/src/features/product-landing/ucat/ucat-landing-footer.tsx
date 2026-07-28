@@ -28,7 +28,7 @@ export function UcatLandingFooter() {
           <p
             className={`mx-auto mt-5 max-w-xl text-base leading-relaxed text-white/60 ${typo.secondarySans}`}
           >
-            Start preparing now and keep practising for free.
+            Start preparing now and keep practicing for free.
           </p>
           <AnalyticsLink
             href={PRODUCT_LINKS.ucatSignup}

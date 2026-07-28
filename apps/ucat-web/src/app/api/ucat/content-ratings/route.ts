@@ -10,6 +10,7 @@ import type {
 
 const TARGET_TYPES = new Set([
   "answer_explanation",
+  "question",
   "question_insight",
   "attempt_insight",
   "progress_insight",
@@ -24,6 +25,10 @@ const REASONS = new Set<UcatContentRatingReason>([
   "timing_advice_wrong",
   "skips_steps",
   "too_long",
+  "misformatted",
+  "answer_incorrect",
+  "too_easy",
+  "too_hard",
   "other",
 ]);
 
@@ -31,11 +36,19 @@ function validKey(value: unknown, max: number): value is string {
   return typeof value === "string" && value.length > 0 && value.length <= max;
 }
 
-function explanationQuestionId(descriptor: UcatContentRatingDescriptor): string | null {
-  if (descriptor.targetType !== "answer_explanation") return null;
-  const match = /^question:([0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12})$/i.exec(
-    descriptor.targetKey,
-  );
+function contentQuestionId(
+  descriptor: UcatContentRatingDescriptor,
+): string | null {
+  if (
+    descriptor.targetType !== "answer_explanation" &&
+    descriptor.targetType !== "question"
+  ) {
+    return null;
+  }
+  const match =
+    /^question:([0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12})$/i.exec(
+      descriptor.targetKey,
+    );
   return match?.[1] ?? null;
 }
 
@@ -92,7 +105,10 @@ export async function GET(request: NextRequest) {
     displayedContent: {},
   });
   if (!descriptor) {
-    return NextResponse.json({ error: "Invalid rating identity" }, { status: 400 });
+    return NextResponse.json(
+      { error: "Invalid rating identity" },
+      { status: 400 },
+    );
   }
   const context = await authenticatedContext();
   if (context.status === "unauthorized") {
@@ -102,7 +118,10 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "Student not found" }, { status: 404 });
   }
   if (context.status !== "ok" || !supabaseAdmin) {
-    return NextResponse.json({ error: "Server not configured" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Server not configured" },
+      { status: 500 },
+    );
   }
   const { data, error } = await supabaseAdmin
     .from("student_ucat_content_ratings")
@@ -116,7 +135,10 @@ export async function GET(request: NextRequest) {
     .maybeSingle();
   if (error) {
     captureApiError(error, "/api/ucat/content-ratings");
-    return NextResponse.json({ error: "Failed to load rating" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Failed to load rating" },
+      { status: 500 },
+    );
   }
   return NextResponse.json({
     rating: data
@@ -130,22 +152,21 @@ export async function GET(request: NextRequest) {
 }
 
 export async function PUT(request: NextRequest) {
-  const body = (await request.json().catch(() => null)) as
-    | {
-        descriptor?: unknown;
-        rating?: Partial<UcatContentRatingValue>;
-      }
-    | null;
+  const body = (await request.json().catch(() => null)) as {
+    descriptor?: unknown;
+    rating?: Partial<UcatContentRatingValue>;
+  } | null;
   const descriptor = parseDescriptor(body?.descriptor);
   const vote = body?.rating?.vote;
   const reasonCode = body?.rating?.reasonCode ?? null;
   const reasonText = body?.rating?.reasonText;
   const trimmedReasonText =
     typeof reasonText === "string" ? reasonText.trim() || null : null;
-  const questionId = descriptor ? explanationQuestionId(descriptor) : null;
+  const questionId = descriptor ? contentQuestionId(descriptor) : null;
   if (
     !descriptor ||
-    (descriptor.targetType === "answer_explanation" && !questionId) ||
+    (["answer_explanation", "question"].includes(descriptor.targetType) &&
+      !questionId) ||
     (vote !== -1 && vote !== 1) ||
     (reasonCode !== null && !REASONS.has(reasonCode)) ||
     (reasonText != null && typeof reasonText !== "string") ||
@@ -162,7 +183,10 @@ export async function PUT(request: NextRequest) {
     return NextResponse.json({ error: "Student not found" }, { status: 404 });
   }
   if (context.status !== "ok" || !supabaseAdmin) {
-    return NextResponse.json({ error: "Server not configured" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Server not configured" },
+      { status: 500 },
+    );
   }
   const { data, error } = await supabaseAdmin
     .from("student_ucat_content_ratings")
@@ -191,7 +215,10 @@ export async function PUT(request: NextRequest) {
     .single();
   if (error) {
     captureApiError(error, "/api/ucat/content-ratings");
-    return NextResponse.json({ error: "Failed to save rating" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Failed to save rating" },
+      { status: 500 },
+    );
   }
   return NextResponse.json({
     rating: {
