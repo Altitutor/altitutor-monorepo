@@ -37,6 +37,7 @@ export type UcatGenerationSettings = {
   automatic_review_blind_solver_model_profile_id: string | null;
   automatic_review_assessment_model_profile_id: string | null;
   automatic_review_use_solver_for_assessment: boolean;
+  automatic_review_enabled: boolean;
 };
 
 export type UcatGenerationSystemPrompts = {

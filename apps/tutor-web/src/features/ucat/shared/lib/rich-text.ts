@@ -2,6 +2,47 @@ import type { Json } from '@altitutor/shared'
 
 export type JsonLike = string | number | boolean | null | JsonLike[] | { [key: string]: JsonLike }
 
+export type RichTextSyntaxLeak = {
+  kind: 'markdown_emphasis' | 'markdown_link' | 'latex_delimiter'
+  text: string
+}
+
+const RICH_TEXT_SYNTAX_PATTERNS: Array<{
+  kind: RichTextSyntaxLeak['kind']
+  pattern: RegExp
+}> = [
+  { kind: 'markdown_emphasis', pattern: /\*\*[^*\n]+\*\*|~~[^~\n]+~~/u },
+  { kind: 'markdown_link', pattern: /\[[^\]\n]+\]\([^\s)\n]+\)/u },
+  { kind: 'latex_delimiter', pattern: /\\\([^\n]*?\\\)|\\\[[\s\S]*?\\\]/u },
+]
+
+/** Finds formatting source that would be shown literally inside ProseMirror text nodes. */
+export function findRichTextSyntaxLeaks(
+  value: Json | null | undefined,
+): RichTextSyntaxLeak[] {
+  const leaks: RichTextSyntaxLeak[] = []
+
+  const visit = (node: unknown) => {
+    if (!node || typeof node !== 'object') return
+    if (Array.isArray(node)) {
+      node.forEach(visit)
+      return
+    }
+    const record = node as Record<string, unknown>
+    if (record.type === 'text' && typeof record.text === 'string') {
+      for (const candidate of RICH_TEXT_SYNTAX_PATTERNS) {
+        if (candidate.pattern.test(record.text)) {
+          leaks.push({ kind: candidate.kind, text: record.text })
+        }
+      }
+    }
+    if (Array.isArray(record.content)) record.content.forEach(visit)
+  }
+
+  visit(value)
+  return leaks
+}
+
 /** Extract plain text from rich JSON (ProseMirror/TipTap or similar). */
 export function extractTextFromRichJson(value: JsonLike): string {
   if (value == null) return ''
@@ -12,6 +53,15 @@ export function extractTextFromRichJson(value: JsonLike): string {
     return value.map(extractTextFromRichJson).filter(Boolean).join(' ').replace(/\s+/g, ' ').trim()
   }
   const record = value as { [key: string]: JsonLike }
+  if (
+    (record.type === 'inlineMath' || record.type === 'blockMath')
+    && record.attrs
+    && typeof record.attrs === 'object'
+    && !Array.isArray(record.attrs)
+  ) {
+    const latex = (record.attrs as { [key: string]: JsonLike }).latex
+    if (typeof latex === 'string') return latex
+  }
   if (Array.isArray(record.content)) {
     return record.content.map(extractTextFromRichJson).filter(Boolean).join(' ').replace(/\s+/g, ' ').trim()
   }
@@ -209,15 +259,21 @@ function inlineTextNodes(text: string): Json[] {
   const nodes: Json[] = []
   const active = new Set<'bold' | 'italic'>()
   const normalized = normalizeInlineFormattingTags(text)
-  const pattern = /(\[[^\]\n]+\]\([^\s)\n]+\)|\*\*[^*\n]+\*\*|~~[^~\n]+~~|`[^`\n]+`|_[^_\n]+_|<\/?(?:b|strong|i|em)>)/giu
+  const pattern = /(\\\([^\n]*?\\\)|\[[^\]\n]+\]\([^\s)\n]+\)|\*\*[^*\n]+\*\*|~~[^~\n]+~~|`[^`\n]+`|_[^_\n]+_|<\/?(?:b|strong|i|em)>)/giu
   let cursor = 0
 
   for (const match of normalized.matchAll(pattern)) {
     const index = match.index ?? 0
     if (index > cursor) appendInlineTextNode(nodes, normalized.slice(cursor, index), active)
     const token = match[0]
+    const inlineMath = token.match(/^\\\(([\s\S]*?)\\\)$/u)
     const markdownLink = token.match(/^\[([^\]\n]+)\]\(([^\s)\n]+)\)$/u)
-    if (markdownLink?.[1] && markdownLink[2]) {
+    if (inlineMath?.[1]?.trim()) {
+      nodes.push({
+        type: 'inlineMath',
+        attrs: { latex: inlineMath[1].trim() },
+      })
+    } else if (markdownLink?.[1] && markdownLink[2]) {
       const linkMark = safeMarkdownLinkMark(markdownLink[2])
       appendInlineTextNode(
         nodes,
@@ -342,6 +398,35 @@ export function aiTextToProseMirror(text: string): Json {
   for (let index = 0; index < lines.length; index += 1) {
     const line = lines[index] ?? ''
     const next = lines[index + 1] ?? ''
+
+    const displayMathStart = line.match(/^\s*\\\[(.*)$/u)
+    if (displayMathStart) {
+      flushParagraph()
+      const mathLines: string[] = []
+      let remainder = displayMathStart[1] ?? ''
+      let closed = false
+
+      while (true) {
+        const closingIndex = remainder.indexOf('\\]')
+        if (closingIndex >= 0) {
+          mathLines.push(remainder.slice(0, closingIndex))
+          closed = true
+          break
+        }
+        mathLines.push(remainder)
+        index += 1
+        if (index >= lines.length) break
+        remainder = lines[index] ?? ''
+      }
+
+      const latex = mathLines.join('\n').trim()
+      if (closed && latex) {
+        content.push({ type: 'blockMath', attrs: { latex } })
+      } else {
+        paragraphLines.push(`\\[${mathLines.join('\n')}`)
+      }
+      continue
+    }
 
     if (/^\s*```/u.test(line)) {
       flushParagraph()
@@ -510,6 +595,17 @@ export function proseMirrorToPlainText(value: Json | null | undefined): string {
     const rec = node as Record<string, unknown>
     if (typeof rec.text === 'string') return rec.text
     if (rec.type === 'hardBreak') return '\n'
+    const attrs = rec.attrs
+    const latex =
+      attrs && typeof attrs === 'object' && !Array.isArray(attrs)
+        ? (attrs as Record<string, unknown>).latex
+        : null
+    if (rec.type === 'inlineMath' && typeof latex === 'string') {
+      return `\\(${latex}\\)`
+    }
+    if (rec.type === 'blockMath' && typeof latex === 'string') {
+      return `\\[${latex}\\]`
+    }
     if (!Array.isArray(rec.content)) return ''
 
     const type = rec.type

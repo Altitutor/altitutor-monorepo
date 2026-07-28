@@ -7,7 +7,10 @@ import type {
   QuestionSetOperation,
   QuestionStemOperation,
 } from '@/features/ucat/mcp/server/schemas'
-import { aiTextToProseMirror } from '@/features/ucat/shared/lib/rich-text'
+import {
+  aiTextToProseMirror,
+  findRichTextSyntaxLeaks,
+} from '@/features/ucat/shared/lib/rich-text'
 
 type AccessScope = 'public' | 'private'
 
@@ -130,25 +133,27 @@ function asJson(value: unknown, fallback: Json): Json {
 
 export function toRichTextJson(value: string | Record<string, unknown> | null): Json | null {
   if (value === null) return null
+  let normalized: Json
   if (
     isRecord(value)
     && value.format === 'markdown'
     && typeof value.value === 'string'
   ) {
-    return aiTextToProseMirror(value.value)
+    normalized = aiTextToProseMirror(value.value)
+  } else if (typeof value === 'string') {
+    normalized = aiTextToProseMirror(value)
+  } else {
+    normalized = value as Json
   }
-  if (typeof value !== 'string') return value as Json
-  return {
-    type: 'doc',
-    content: value
-      ? [
-          {
-            type: 'paragraph',
-            content: [{ type: 'text', text: value }],
-          },
-        ]
-      : [{ type: 'paragraph' }],
+
+  const leaks = findRichTextSyntaxLeaks(normalized)
+  if (leaks.length > 0) {
+    const kinds = Array.from(new Set(leaks.map((leak) => leak.kind))).join(', ')
+    throw new Error(
+      `Rich text contains unparsed formatting syntax (${kinds}). Use supported Markdown/LaTeX delimiters or native rich-text nodes.`,
+    )
   }
+  return normalized
 }
 
 function insertAt<T>(items: T[], item: T, requestedIndex?: number): void {

@@ -219,7 +219,7 @@ export function registerUcatMcpTools(server: McpServer): void {
     {
       title: 'Create a draft learning module',
       description:
-        'Create a lesson draft or a catalog folder. Folders have no draft/review lifecycle and may contain no blocks. Lessons always begin as drafts. For unformatted text blocks use content: { body: "plain text" }. Prefer content: { body: { format: "markdown", value: "## Heading\\n\\n- Item" } } for formatted authoring, including headings, lists, tables, quotes, code blocks, rules, links, and common inline marks. The server converts both forms to TipTap/ProseMirror JSON; native TipTap/ProseMirror documents remain available for exact control and embedded images.',
+        'Create a lesson draft or a catalog folder. Folders have no draft/review lifecycle and may contain no blocks. Lessons always begin as drafts. Text strings are normalized as Markdown-compatible rich text, including inline LaTeX in \\(...\\) and display LaTeX in \\[...\\]. The explicit content: { body: { format: "markdown", value: "## Heading\\n\\n- Item" } } form remains supported; native TipTap/ProseMirror documents remain available for exact control and embedded images.',
       inputSchema: {
         idempotencyKey: IdempotencyKeySchema,
         kind: z.enum(['folder', 'lesson']),

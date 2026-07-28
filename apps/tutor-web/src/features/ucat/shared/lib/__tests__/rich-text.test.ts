@@ -1,4 +1,8 @@
-import { aiTextToProseMirror } from "@/features/ucat/shared/lib/rich-text";
+import {
+  aiTextToProseMirror,
+  findRichTextSyntaxLeaks,
+  proseMirrorToPlainText,
+} from "@/features/ucat/shared/lib/rich-text";
 
 describe("aiTextToProseMirror", () => {
   it("converts a Markdown pipe table into a rich-text table", () => {
@@ -107,6 +111,81 @@ describe("aiTextToProseMirror", () => {
         { type: "horizontalRule" },
       ],
     });
+  });
+
+  it("converts inline and display LaTeX delimiters into mathematics nodes", () => {
+    const result = aiTextToProseMirror([
+      "Use \\(30 \\div 30 = 1\\) before selecting the answer.",
+      "",
+      "\\[",
+      "\\frac{30 - 30}{30} \\times 100 = 0\\%",
+      "\\]",
+    ].join("\n"));
+
+    expect(result).toEqual({
+      type: "doc",
+      content: [
+        {
+          type: "paragraph",
+          content: [
+            { type: "text", text: "Use " },
+            {
+              type: "inlineMath",
+              attrs: { latex: "30 \\div 30 = 1" },
+            },
+            { type: "text", text: " before selecting the answer." },
+          ],
+        },
+        {
+          type: "blockMath",
+          attrs: {
+            latex: "\\frac{30 - 30}{30} \\times 100 = 0\\%",
+          },
+        },
+      ],
+    });
+  });
+
+  it("preserves mathematics when extracting assessment plain text", () => {
+    expect(proseMirrorToPlainText({
+      type: "doc",
+      content: [
+        {
+          type: "paragraph",
+          content: [
+            { type: "text", text: "Calculate " },
+            { type: "inlineMath", attrs: { latex: "a^2+b^2=c^2" } },
+            { type: "text", text: "." },
+          ],
+        },
+        {
+          type: "blockMath",
+          attrs: { latex: "\\frac{1}{2}" },
+        },
+      ],
+    })).toBe("Calculate \\(a^2+b^2=c^2\\).\n\\[\\frac{1}{2}\\]");
+  });
+
+  it("distinguishes rendered math nodes from literal formatting source", () => {
+    expect(findRichTextSyntaxLeaks({
+      type: "doc",
+      content: [
+        { type: "inlineMath", attrs: { latex: "\\frac{1}{2}" } },
+        {
+          type: "paragraph",
+          content: [{ type: "text", text: "Visible **source** and \\(x^2\\)." }],
+        },
+      ],
+    })).toEqual([
+      {
+        kind: "markdown_emphasis",
+        text: "Visible **source** and \\(x^2\\).",
+      },
+      {
+        kind: "latex_delimiter",
+        text: "Visible **source** and \\(x^2\\).",
+      },
+    ]);
   });
 
   it("preserves inline formatting inside lists and tables", () => {

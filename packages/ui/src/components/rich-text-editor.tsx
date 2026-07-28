@@ -3,6 +3,7 @@
 import { useEditor, EditorContent, type Editor } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import { Markdown } from '@tiptap/markdown';
+import { Mathematics } from '@tiptap/extension-mathematics';
 import { TableKit } from '@tiptap/extension-table';
 import { TextStyleKit } from '@tiptap/extension-text-style';
 import Typography from '@tiptap/extension-typography';
@@ -29,6 +30,7 @@ import { cn } from '../lib/cn';
 import { shouldPreferMarkdownPaste } from '../lib/markdown-paste';
 import { transformPastedHtmlForBulkImport } from '../lib/sanitize-pasted-html';
 import '../styles/prosemirror-tables.css';
+import 'katex/dist/katex.min.css';
 
 const UPLOAD_PLACEHOLDER_PREFIX = '__UPLOAD_';
 const UPLOAD_PLACEHOLDER_SUFFIX = '__';
@@ -506,6 +508,12 @@ export const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>
       Markdown.configure({
         markedOptions: {
           gfm: true,
+        },
+      }),
+      Mathematics.configure({
+        katexOptions: {
+          throwOnError: false,
+          strict: 'warn',
         },
       }),
       TableKit.configure({

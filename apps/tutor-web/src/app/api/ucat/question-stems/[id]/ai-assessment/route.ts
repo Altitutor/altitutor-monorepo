@@ -16,7 +16,7 @@ import {
   requestUcatQuestionAssessment,
   retryUcatQuestionAssessmentRun,
 } from '@/features/ucat/questions/server/ai-assessment/dispatcher'
-import { automaticReviewEnvironment } from '@/features/ucat/questions/server/ai-assessment/environment'
+import { buildUcatAiReviewEnvironment, manualReviewEnvironment } from '@/features/ucat/questions/server/ai-assessment/environment'
 
 type SupabaseAny = {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -157,7 +157,7 @@ export async function GET(_: NextRequest, { params }: { params: { id: string } }
       if (questionRun) effectiveRunIds.add(questionRun.id)
     }
     const effectiveRuns = currentCycleRuns.filter((run) => effectiveRunIds.has(run.id))
-    const environment = automaticReviewEnvironment()
+    const environment = await buildUcatAiReviewEnvironment(admin)
 
     return NextResponse.json({
       environment,
@@ -179,8 +179,8 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
   const access = await requireUcatTutor()
   if (!access.ok) return access.response
   const body = await request.json().catch(() => null) as { action?: string; runId?: string } | null
-  if (!automaticReviewEnvironment().enabled) {
-    return NextResponse.json({ error: 'Automatic review is disabled in this environment' }, { status: 409 })
+  if (!manualReviewEnvironment().enabled) {
+    return NextResponse.json({ error: 'AI review is disabled in this environment' }, { status: 409 })
   }
   if (body?.action === 'request') {
     try {
@@ -195,7 +195,7 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
         }, { status: 409 })
       }
       if (result.kind === 'disabled') {
-        return NextResponse.json({ error: 'Automatic review is disabled in this environment' }, { status: 409 })
+        return NextResponse.json({ error: 'AI review is disabled in this environment' }, { status: 409 })
       }
       return NextResponse.json(result, { status: result.kind === 'queued' ? 202 : 200 })
     } catch (requestError) {

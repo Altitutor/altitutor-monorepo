@@ -493,7 +493,9 @@ export function UcatAiAssessmentControl({
               <div className="flex flex-wrap items-center gap-2 rounded-lg border p-4">
                 <Badge variant="outline" className={cn('gap-1.5', statusCopy.className)}><StatusIcon status={status} />{statusCopy.label}</Badge>
                 {!data.environment.enabled ? (
-                  <span className="text-xs text-muted-foreground">Automatic review is disabled in this environment. Existing results remain visible.</span>
+                  <span className="text-xs text-muted-foreground">AI review is disabled in this environment. Existing results remain visible.</span>
+                ) : !data.environment.automaticEnabled ? (
+                  <span className="text-xs text-muted-foreground">Automatic review is disabled in settings. Stems sent for review are not queued automatically; request a review manually when needed.</span>
                 ) : null}
                 {data.status === 'reviewing' ? <span className="text-xs text-muted-foreground">This panel refreshes automatically.</span> : null}
               </div>

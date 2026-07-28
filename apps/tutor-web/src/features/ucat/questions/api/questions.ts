@@ -239,7 +239,7 @@ export type UcatAiAssessmentDecision = {
 };
 
 export type UcatAiAssessment = {
-  environment: { enabled: boolean; source: string };
+  environment: { enabled: boolean; automaticEnabled: boolean; source: string };
   status:
     | "disabled"
     | "not_requested"

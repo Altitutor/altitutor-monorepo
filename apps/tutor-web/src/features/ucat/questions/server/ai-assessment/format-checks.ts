@@ -2,6 +2,7 @@ import type {
   UcatAssessmentSnapshot,
   UcatFormatCheck,
 } from '@/features/ucat/questions/lib/ai-assessment/schema'
+import { findRichTextSyntaxLeaks } from '@/features/ucat/shared/lib/rich-text'
 
 function norm(value: string | null | undefined): string {
   return String(value ?? '')
@@ -38,7 +39,35 @@ function add(
 }
 
 function commonChecks(snapshot: UcatAssessmentSnapshot, checks: UcatFormatCheck[]) {
+  const sharedLeaks = findRichTextSyntaxLeaks(snapshot.stemText)
+  if (sharedLeaks.length > 0) {
+    add(
+      checks,
+      'error',
+      'literal_rich_text_syntax',
+      'The shared stem contains Markdown or LaTeX source that would be displayed literally.',
+    )
+  }
+
   for (const question of snapshot.questions) {
+    const questionLeaks = [
+      ...findRichTextSyntaxLeaks(question.questionText),
+      ...findRichTextSyntaxLeaks(question.answerExplanation),
+      ...question.options.flatMap((option) => [
+        ...findRichTextSyntaxLeaks(option.answerText),
+        ...findRichTextSyntaxLeaks(option.answerExplanation),
+      ]),
+    ]
+    if (questionLeaks.length > 0) {
+      add(
+        checks,
+        'error',
+        'literal_rich_text_syntax',
+        'The question contains Markdown or LaTeX source that would be displayed literally.',
+        question,
+      )
+    }
+
     if (question.questionType === 'multiple_choice') {
       const correctCount = question.options.filter((option) => option.isAnswer).length
       if (correctCount !== 1) {

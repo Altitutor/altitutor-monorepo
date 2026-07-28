@@ -12832,6 +12832,7 @@ export type Database = {
         Row: {
           automatic_review_assessment_model_profile_id: string | null
           automatic_review_blind_solver_model_profile_id: string | null
+          automatic_review_enabled: boolean
           automatic_review_use_solver_for_assessment: boolean
           created_at: string
           created_by: string | null
@@ -12846,6 +12847,7 @@ export type Database = {
         Insert: {
           automatic_review_assessment_model_profile_id?: string | null
           automatic_review_blind_solver_model_profile_id?: string | null
+          automatic_review_enabled?: boolean
           automatic_review_use_solver_for_assessment?: boolean
           created_at?: string
           created_by?: string | null
@@ -12860,6 +12862,7 @@ export type Database = {
         Update: {
           automatic_review_assessment_model_profile_id?: string | null
           automatic_review_blind_solver_model_profile_id?: string | null
+          automatic_review_enabled?: boolean
           automatic_review_use_solver_for_assessment?: boolean
           created_at?: string
           created_by?: string | null
@@ -27875,6 +27878,7 @@ export type Database = {
         Row: {
           automatic_review_assessment_model_profile_id: string | null
           automatic_review_blind_solver_model_profile_id: string | null
+          automatic_review_enabled: boolean | null
           automatic_review_use_solver_for_assessment: boolean | null
           created_at: string | null
           created_by: string | null
@@ -27889,6 +27893,7 @@ export type Database = {
         Insert: {
           automatic_review_assessment_model_profile_id?: string | null
           automatic_review_blind_solver_model_profile_id?: string | null
+          automatic_review_enabled?: boolean | null
           automatic_review_use_solver_for_assessment?: boolean | null
           created_at?: string | null
           created_by?: string | null
@@ -27903,6 +27908,7 @@ export type Database = {
         Update: {
           automatic_review_assessment_model_profile_id?: string | null
           automatic_review_blind_solver_model_profile_id?: string | null
+          automatic_review_enabled?: boolean | null
           automatic_review_use_solver_for_assessment?: boolean | null
           created_at?: string | null
           created_by?: string | null

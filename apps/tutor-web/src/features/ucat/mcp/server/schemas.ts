@@ -11,14 +11,14 @@ const MarkdownRichTextSchema = z.object({
   format: z.literal('markdown'),
   value: z.string(),
 }).describe(
-  'Model-friendly formatted text. Common Markdown headings, ordered and unordered lists, pipe tables, blockquotes, fenced code blocks, horizontal rules, links, inline code, bold, italic, and strike-through are converted to TipTap/ProseMirror JSON.',
+  'Explicit model-friendly formatted text. Common Markdown headings, ordered and unordered lists, pipe tables, blockquotes, fenced code blocks, horizontal rules, links, inline code, bold, italic, strike-through, inline LaTeX wrapped in \\(...\\), and display LaTeX wrapped in \\[...\\] are converted to TipTap/ProseMirror JSON.',
 )
 export const RichTextSchema = z.union([
   z.string(),
   MarkdownRichTextSchema,
   z.record(z.unknown()),
 ]).describe(
-  'Rich text. Use a plain string for an unformatted paragraph, {"format":"markdown","value":"## Heading\\n\\n- Item"} for ordinary formatted authoring, or a native TipTap/ProseMirror document object shaped like {"type":"doc","content":[...]} for exact control and embedded images.',
+  'Rich text. Model-authored strings are normalized as Markdown-compatible rich text, including inline LaTeX wrapped in \\(...\\) and display LaTeX wrapped in \\[...\\]. The explicit {"format":"markdown","value":"## Heading\\n\\n- Item"} form remains supported, or provide a native TipTap/ProseMirror document object shaped like {"type":"doc","content":[...]} for exact control and embedded images.',
 )
 export const NullableRichTextSchema = RichTextSchema.nullable()
 

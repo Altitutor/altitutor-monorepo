@@ -151,7 +151,7 @@ export function UcatLandingProtocol() {
           <p
             className={`mx-auto mt-6 max-w-2xl text-base leading-relaxed text-marketing-charcoal/58 sm:text-lg ${typo.secondarySans}`}
           >
-            Practise in the UCAT interface, understand every attempt, learn the
+            Practice in the UCAT interface, understand every attempt, learn the
             method, and let your progress shape what you work on next.
           </p>
         </div>
