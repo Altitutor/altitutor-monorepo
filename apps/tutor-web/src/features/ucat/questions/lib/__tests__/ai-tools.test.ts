@@ -88,6 +88,37 @@ describe('AI tools explanation helpers', () => {
     )
   })
 
+  it('keeps optional strategy and option-level explanations when they are useful', () => {
+    const multipleChoice = applyExplanationUpdates(baseStem('multiple_choice'), [{
+      questionIndex: 0,
+      answerExplanation: 'Use the percentage-change formula.',
+      optionExplanations: [null, 'This uses the final value as the denominator.', null, null],
+      confidence: 0.9,
+      unresolved: false,
+      reviewRequired: false,
+    }])
+    expect(multipleChoice.appliedCount).toBe(2)
+    expect(multipleChoice.stem.questions[0]!.answerExplanation).toEqual(
+      plainTextToProseMirror('Use the percentage-change formula.')
+    )
+    expect(multipleChoice.stem.questions[0]!.options[1]!.answerExplanation).toEqual(
+      plainTextToProseMirror('This uses the final value as the denominator.')
+    )
+
+    const syllogism = applyExplanationUpdates(baseStem('syllogism'), [{
+      questionIndex: 0,
+      answerExplanation: 'Sketch the premises as nested sets before checking each conclusion.',
+      optionExplanations: ['A', 'B', 'C', 'D', 'E'],
+      confidence: 0.9,
+      unresolved: false,
+      reviewRequired: false,
+    }])
+    expect(syllogism.appliedCount).toBe(6)
+    expect(syllogism.stem.questions[0]!.answerExplanation).toEqual(
+      plainTextToProseMirror('Sketch the premises as nested sets before checking each conclusion.')
+    )
+  })
+
   it('does not insert explanations for updates flagged for tutor review', () => {
     const stem = baseStem('multiple_choice')
 

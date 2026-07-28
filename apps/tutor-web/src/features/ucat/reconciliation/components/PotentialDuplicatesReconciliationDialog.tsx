@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   Badge,
@@ -23,6 +23,7 @@ import {
 import type { Json } from "@altitutor/shared";
 import { Loader2, Merge, Pencil, X } from "lucide-react";
 import {
+  dismissExactDuplicatePair,
   mergePotentialDuplicateStems,
   type PotentialDuplicatePair,
   type PotentialDuplicateStemSide,
@@ -219,13 +220,6 @@ export function PotentialDuplicatesReconciliationDialog({
   const current = queue[index] ?? null;
   const remaining = queue.length;
 
-  const similarityLabel = useMemo(() => {
-    if (!current) return "";
-    const pct = Math.round(
-      Math.max(current.tokenRatio, current.trigramRatio) * 100,
-    );
-    return `${pct}% similar`;
-  }, [current]);
   const suggestedMergeDirection = current?.suggestedMergeDirection ?? null;
 
   function advanceAfterResolve(deletedStemId?: string) {
@@ -247,31 +241,33 @@ export function PotentialDuplicatesReconciliationDialog({
     setIndex((prevIndex) => Math.min(prevIndex, nextQueue.length - 1));
   }
 
-  async function confirmDelete() {
+  function confirmDelete() {
     if (!current || !pendingDeleteSide) return;
     const stem = pendingDeleteSide === "A" ? current.stemA : current.stemB;
-    try {
-      await deleteMutation.mutateAsync(stem.id);
-      await queryClient.invalidateQueries({
-        queryKey: ucatKeys.reconciliation(),
+    setPendingDeleteSide(null);
+    advanceAfterResolve(stem.id);
+    void deleteMutation.mutateAsync(stem.id).then(() => {
+      void queryClient.invalidateQueries({
+        queryKey: ucatKeys.reconciliationQueue("exact-duplicates"),
       });
       toast({
         title: "Question stem deleted",
         description:
           "The selected duplicate was soft-deleted and removed from any sets.",
       });
-      setPendingDeleteSide(null);
-      advanceAfterResolve(stem.id);
-    } catch (err) {
+    }).catch((err: unknown) => {
+      void queryClient.invalidateQueries({
+        queryKey: ucatKeys.reconciliationQueue("exact-duplicates"),
+      });
       toast({
         title: "Cannot delete",
         description:
           err instanceof Error
-            ? err.message
-            : "Failed to delete question stem.",
+            ? `${err.message} The queue has been refreshed.`
+            : "Failed to delete question stem. The queue has been refreshed.",
         variant: "destructive",
       });
-    }
+    });
   }
 
   function editStem(stemId: string) {
@@ -279,38 +275,63 @@ export function PotentialDuplicatesReconciliationDialog({
     onOpenStemDialog(stemId);
   }
 
-  async function confirmMerge() {
+  function confirmMerge() {
     if (!current || !pendingMergeDirection) return;
+    const direction = pendingMergeDirection;
     const target =
-      pendingMergeDirection === "B-into-A" ? current.stemA : current.stemB;
+      direction === "B-into-A" ? current.stemA : current.stemB;
     const source =
-      pendingMergeDirection === "B-into-A" ? current.stemB : current.stemA;
+      direction === "B-into-A" ? current.stemB : current.stemA;
     setMergePending(true);
-    try {
-      await mergePotentialDuplicateStems(target.id, source.id);
-      await Promise.all([
-        queryClient.invalidateQueries({ queryKey: ucatKeys.reconciliation() }),
-        queryClient.invalidateQueries({ queryKey: ucatKeys.questions('all') }),
-        queryClient.invalidateQueries({ queryKey: ucatKeys.stemCatalog() }),
-      ]);
+    setPendingMergeDirection(null);
+    advanceAfterResolve(source.id);
+    void mergePotentialDuplicateStems(target.id, source.id).then(() => {
+      void queryClient.invalidateQueries({
+        queryKey: ucatKeys.reconciliationQueue("exact-duplicates"),
+      });
+      void queryClient.invalidateQueries({ queryKey: ucatKeys.questions("all") });
       toast({
         title: "Question stems merged",
-        description: `Questions were retained on ${pendingMergeDirection === "B-into-A" ? "stem A" : "stem B"}, with source-only stem content moved into the imported questions.`,
+        description: `Questions were retained on ${direction === "B-into-A" ? "stem A" : "stem B"}.`,
       });
-      setPendingMergeDirection(null);
-      advanceAfterResolve(source.id);
-    } catch (err) {
+    }).catch((err: unknown) => {
+      void queryClient.invalidateQueries({
+        queryKey: ucatKeys.reconciliationQueue("exact-duplicates"),
+      });
       toast({
         title: "Cannot merge",
         description:
           err instanceof Error
-            ? err.message
-            : "Failed to merge question stems.",
+            ? `${err.message} The queue has been refreshed.`
+            : "Failed to merge question stems. The queue has been refreshed.",
         variant: "destructive",
       });
-    } finally {
+    }).finally(() => {
       setMergePending(false);
-    }
+    });
+  }
+
+  function keepBoth() {
+    if (!current) return;
+    const pair = current;
+    advanceAfterResolve();
+    void dismissExactDuplicatePair(pair.stemA.id, pair.stemB.id).then(() => {
+      void queryClient.invalidateQueries({
+        queryKey: ucatKeys.reconciliationQueue("exact-duplicates"),
+      });
+    }).catch((err: unknown) => {
+      void queryClient.invalidateQueries({
+        queryKey: ucatKeys.reconciliationQueue("exact-duplicates"),
+      });
+      toast({
+        title: "Could not keep both",
+        description:
+          err instanceof Error
+            ? `${err.message} The pair may appear again after refresh.`
+            : "The pair may appear again after refresh.",
+        variant: "destructive",
+      });
+    });
   }
 
   return (
@@ -348,13 +369,7 @@ export function PotentialDuplicatesReconciliationDialog({
               </div>
               {current ? (
                 <div className="flex flex-wrap items-center gap-2">
-                  <Badge variant="outline">{similarityLabel}</Badge>
-                  <Badge variant="outline">
-                    Token {Math.round(current.tokenRatio * 100)}%
-                  </Badge>
-                  <Badge variant="outline">
-                    Phrase {Math.round(current.trigramRatio * 100)}%
-                  </Badge>
+                  <Badge variant="outline">Exact normalized stem match</Badge>
                   <Badge
                     variant={
                       current.recommendation === "merge"
@@ -366,15 +381,6 @@ export function PotentialDuplicatesReconciliationDialog({
                       ? `Suggested: merge ${current.suggestedMergeDirection === "A-into-B" ? "A into B" : "B into A"}`
                       : "Exact duplicate"}
                   </Badge>
-                  {current.sharedTokenPreview.slice(0, 6).map((token) => (
-                    <Badge
-                      key={token}
-                      variant="secondary"
-                      className="font-normal"
-                    >
-                      {token}
-                    </Badge>
-                  ))}
                 </div>
               ) : null}
             </div>
@@ -411,7 +417,7 @@ export function PotentialDuplicatesReconciliationDialog({
               type="button"
               variant="outline"
               className={tutorBtnOutline}
-              onClick={() => advanceAfterResolve()}
+              onClick={keepBoth}
               disabled={!current || deleteMutation.isPending}
             >
               Keep both
@@ -555,11 +561,11 @@ export function PotentialDuplicatesReconciliationDialog({
           <AlertDialogHeader>
             <AlertDialogTitle>Merge these question stems?</AlertDialogTitle>
             <AlertDialogDescription>
-              Questions, set memberships, and file links will be retained on{" "}
-              {pendingMergeDirection === "B-into-A" ? "stem A" : "stem B"}.
-              Content found only on the source stem will be moved into its
-              questions so the remaining stem stays reusable. The source stem
-              will then be soft-deleted.
+              {pendingMergeDirection === "B-into-A" ? "Stem A" : "Stem B"} is
+              the retained version. When both stems contain the same normalized
+              question text, its options and explanation from the retained stem
+              win. Questions found only on the other stem, set memberships, and
+              file links are preserved. The source stem is then soft-deleted.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

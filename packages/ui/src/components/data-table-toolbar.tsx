@@ -940,6 +940,17 @@ export function DataTableToolbar({
                   {filterDefinitions
                     .filter((def) => def.type !== 'date')
                     .map((def) => {
+                    const customContent = customFilterContent[def.key];
+                    if (customContent != null) {
+                      return (
+                        <DropdownMenuSub key={def.key}>
+                          <DropdownMenuSubTrigger>{def.label}</DropdownMenuSubTrigger>
+                          <DropdownMenuSubContent className="w-[280px] p-0">
+                            {customContent}
+                          </DropdownMenuSubContent>
+                        </DropdownMenuSub>
+                      );
+                    }
                     if (def.type === 'date-range' && def.fromKey && def.toKey) {
                       const fromVal = String((state.filters[def.fromKey] ?? [])[0] ?? '');
                       const toVal = String((state.filters[def.toKey] ?? [])[0] ?? '');
@@ -965,17 +976,6 @@ export function DataTableToolbar({
                                 onFiltersChange(next);
                               }}
                             />
-                          </DropdownMenuSubContent>
-                        </DropdownMenuSub>
-                      );
-                    }
-                    const customContent = customFilterContent[def.key];
-                    if (customContent != null) {
-                      return (
-                        <DropdownMenuSub key={def.key}>
-                          <DropdownMenuSubTrigger>{def.label}</DropdownMenuSubTrigger>
-                          <DropdownMenuSubContent className="w-[240px] p-0">
-                            {customContent}
                           </DropdownMenuSubContent>
                         </DropdownMenuSub>
                       );

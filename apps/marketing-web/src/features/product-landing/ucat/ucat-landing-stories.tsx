@@ -7,6 +7,7 @@ import {
   Stethoscope,
 } from "lucide-react";
 import { UcatInterestDialog } from "./ucat-interest-dialog";
+import { UCAT_SECTION_EYEBROW_CLASS, UCAT_SECTION_PADDING_CLASS } from "./ucat-landing-section-eyebrow";
 
 const { typography: typo } = MARKETING_TOKENS;
 
@@ -16,7 +17,7 @@ const outcomes = [
     photo: "/assets/ucat/brian-j.jpeg",
     detail: "Scored 2610 · UCAT ANZ 2025",
     outcome: "Accepted into Dentistry at Adelaide University",
-    comment: "I really valued the 2025 Altitutor UCAT course due to its unique combination of friendly, relatable tutors, abundant and open resources, and online mock test system. Each teaching session was also highly flexible, which enabled me to learn at the pattern and pace that I knew would work best for me."
+    comment: "I really valued the 2025 Altitutor UCAT course due to its unique combination of friendly, relatable tutors, abundant and open resources, and online mock test system."
   },
   {
     name: "Josh L.",
@@ -30,7 +31,7 @@ const outcomes = [
     photo: "/assets/ucat/melshuel-g.jpeg",
     detail: "Altitutor student · 2024",
     outcome: "Accepted into Medicine at Adelaide University",
-    comment: "Tutors were really knowledgeable about their subjects and ensured that I felt comfortable with the course content!! I really loved the interview course as it helped me to perform extremely well and get an offer to study medicine in 2025!"
+    comment: "I really loved the interview course as it helped me to perform extremely well and get an offer to study medicine in 2025!"
   },
 ] as const;
 
@@ -38,7 +39,7 @@ export function UcatLandingStories() {
   return (
     <section
       id="mission"
-      className="overflow-hidden bg-white px-4 py-24 sm:px-8 sm:py-32"
+      className={`overflow-hidden bg-white ${UCAT_SECTION_PADDING_CLASS}`}
     >
       <div className="mx-auto max-w-7xl">
         <div className="grid gap-12 lg:grid-cols-[0.85fr_1.15fr] lg:items-center">
@@ -47,9 +48,9 @@ export function UcatLandingStories() {
               <HeartHandshake className="h-6 w-6" aria-hidden />
             </div>
             <p
-              className={`mt-7 text-xs font-semibold uppercase tracking-[0.18em] text-marketing-primary/60 ${typo.dataMono}`}
+              className={`mt-7 ${UCAT_SECTION_EYEBROW_CLASS} ${typo.dataMono}`}
             >
-              A not-for-profit initiative
+              Our mission
             </p>
             <h2
               className={`mt-4 text-4xl font-semibold tracking-[-0.035em] text-marketing-charcoal sm:text-5xl ${typo.headingSans}`}
@@ -57,7 +58,7 @@ export function UcatLandingStories() {
               Your preparation can help another student access theirs.
             </h2>
             <p
-              className={`mt-6 text-base leading-relaxed text-marketing-charcoal/60 sm:text-lg ${typo.secondarySans}`}
+              className={`mt-6 text-lg leading-relaxed text-marketing-charcoal/60 sm:text-xl ${typo.secondarySans}`}
             >
               Altitutor is a non-profit company, whose primary mission make education accessible for all.
               All revenue from paid plans will go directly towards
@@ -128,7 +129,7 @@ export function UcatLandingStories() {
         <div className="mt-24">
           <div className="mx-auto max-w-3xl text-center">
             <p
-              className={`text-xs font-semibold uppercase tracking-[0.18em] text-marketing-primary/60 ${typo.dataMono}`}
+              className={`${UCAT_SECTION_EYEBROW_CLASS} ${typo.dataMono}`}
             >
               Altitutor students
             </p>
@@ -190,14 +191,14 @@ export function UcatLandingStories() {
           <div className="relative min-h-[26rem] overflow-hidden border-b border-white/10 lg:min-h-0 lg:border-b-0 lg:border-r">
             <Image
               src="/assets/ucat/matt-chua-founder.jpeg"
-              alt="Matt Chua, founder of Altitutor and doctor"
+              alt="Matt, founder of Altitutor"
               fill
               sizes="(min-width: 1024px) 36vw, 100vw"
               className="object-cover object-[50%_34%]"
             />
             <div className="absolute inset-0 bg-gradient-to-t from-marketing-charcoal/55 via-transparent to-transparent" />
             <p className={`absolute bottom-6 left-6 rounded-full bg-marketing-charcoal/70 px-4 py-2 text-[10px] uppercase tracking-[0.14em] text-white backdrop-blur ${typo.dataMono}`}>
-              Matt Chua · Founder &amp; doctor
+              Matt · Founder &amp; doctor
             </p>
           </div>
           <div className="p-8 sm:p-12 lg:p-16">
@@ -210,27 +211,24 @@ export function UcatLandingStories() {
               className={`mt-6 space-y-4 text-base leading-relaxed text-white/68 ${typo.secondarySans}`}
             >
               <p>
-                Hi, I&apos;m Matt—a doctor working across hospitals in South
-                Australia. I started Altitutor with friends while I was in
-                medical school because good education should not be limited by
-                what someone can afford.
+                Hi, I&apos;m Matt - I&apos;m a doctor working across a few hospitals in South
+                Australia. I founded Altitutor with some friends while I was in
+                medical school, with the mission of providing accessible education to those who 
+                can&apos;t afford it. Over the years, Altitutor has provided free or subsidised education to 
+                hundreds of students, and I&apos;m proud to say that our first cohort of students are now 
+                fully qualified doctors, dentists and other working professionals! 
               </p>
               <p>
-                I remember how overwhelming UCAT preparation felt when I did not
-                know where to start. Altitutor UCAT is the tool I would have
-                wanted beside me: one that finds the weak points, explains the
-                evidence, and makes the next step clear.
-              </p>
-              <p>
-                When you choose Unlimited or work with an Altitutor tutor, you
-                are also helping us extend free and subsidised education to more
-                students.
+              With the launch of Altitutor UCAT, we want to now extend the not-for-profit mission of Altitutor 
+              to reach more students who have the motivation to get into medicine, but don&apos;t have the money to pay 
+              for tutoring or online preparation tools. By purchasing access to UCAT Unlimited or private tutoring sessions, 
+              you&apos;re supporting the education of these students.
               </p>
             </div>
             <p
               className={`mt-7 text-lg italic text-marketing-accent ${typo.dramaSerif}`}
             >
-              Thank you for your support, Matt
+              Thank you for your support ♥︎
             </p>
           </div>
         </div>

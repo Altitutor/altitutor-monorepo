@@ -202,6 +202,10 @@ export type UcatAssessmentQuestionSnapshot = {
 export type UcatAssessmentSnapshot = {
   stemId: string
   status: 'draft' | 'in_review' | 'published'
+  sourceChannel?: 'individual' | 'bulk_import' | 'ai_generation' | null
+  statusChangedAt?: string | null
+  statusChangedBy?: string | null
+  updatedBy?: string | null
   sectionId: string
   sectionName: string
   sectionNumber: number

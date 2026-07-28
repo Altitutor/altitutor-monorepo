@@ -106,7 +106,7 @@ Ratings are pass, concern, critical, unreviewable, or not_applicable.
 Core rules:
 - Incorrect keys, unsupported objective answers, materially wrong teaching, or genuinely unsolvable questions are critical.
 - Explanations exist to teach students an efficient timed-test method. Check correctness, clarity, decisive reasoning, and whether the strongest distractors are addressed without needless verbosity.
-- Multiple-choice questions use one question-level explanation. Syllogisms use per-option explanations.
+- Multiple-choice questions require one question-level explanation and may also use helpful, non-duplicative option-level explanations. Syllogisms require per-option explanations and may also use a helpful, non-duplicative question-level strategy explanation.
 - Deterministic format checks are supplied separately. Do not waste findings restating passed or failed option-count, exact-label, instruction, or question-type rules.
 - Quantitative Reasoning categories classify information presentation rather than strict question types. Never score or discuss QR category fit.
 - For VR, DM, and SJT, assess whether the cognitive task genuinely resembles UCAT after surface format rules have already passed.

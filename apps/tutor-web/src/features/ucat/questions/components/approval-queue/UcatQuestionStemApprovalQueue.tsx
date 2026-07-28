@@ -185,6 +185,7 @@ function UcatQuestionStemApprovalQueue({
   const [showAnswer, setShowAnswer] = useState(false)
 
   const currentEntry = entries[index] ?? null
+  const nextStemId = entries[index + 1]?.stemId ?? null
   const initialActiveQuestionIndex =
     currentEntry?.mode === 'reconciliation' ? currentEntry.questionIndex ?? 0 : 0
   const detailQuery = useUcatQuestionDetail(currentEntry?.stemId ?? null)
@@ -223,6 +224,15 @@ function UcatQuestionStemApprovalQueue({
     setEditorMode('edit')
     setShowAnswer(false)
   }, [detailQuery.data, defaultValues, form, initialActiveQuestionIndex])
+
+  useEffect(() => {
+    if (!nextStemId) return
+    void queryClient.prefetchQuery({
+      queryKey: ucatKeys.question(nextStemId),
+      queryFn: () => ucatQuestionsApi.getDetail(nextStemId),
+      staleTime: 30_000,
+    })
+  }, [nextStemId, queryClient])
 
   const watchedValues = form.watch()
   const isLoading =
@@ -278,7 +288,7 @@ function UcatQuestionStemApprovalQueue({
     ])
   }
 
-  async function saveCurrent(): Promise<boolean> {
+  async function saveCurrent(options?: { requestAssessment?: boolean }): Promise<boolean> {
     if (!currentEntry) return false
     let ok = false
     const submit = form.handleSubmit as unknown as (
@@ -291,9 +301,18 @@ function UcatQuestionStemApprovalQueue({
           baselineRef.current = await persistStemFormValues(currentEntry.stemId, values, {
             baselineSnapshot: baselineRef.current,
             updateStem: (payload) =>
-              updateMutation.mutateAsync({ stemId: currentEntry.stemId, payload }),
+              updateMutation.mutateAsync({
+                stemId: currentEntry.stemId,
+                payload,
+                requestAssessment: options?.requestAssessment ?? true,
+                invalidate: false,
+              }),
             setStatus: (status) =>
-              statusMutation.mutateAsync({ stemId: currentEntry.stemId, status }),
+              statusMutation.mutateAsync({
+                stemId: currentEntry.stemId,
+                status,
+                invalidate: false,
+              }),
           })
           ok = true
         },
@@ -352,7 +371,7 @@ function UcatQuestionStemApprovalQueue({
   async function handleApprove() {
     if (!currentEntry) return
     form.setValue('status', 'published', { shouldDirty: true })
-    const saved = await saveCurrent()
+    const saved = await saveCurrent({ requestAssessment: false })
     if (!saved) return
     const approvedStemId = currentEntry.stemId
     toast(lifecycleStatusSuccessToast({
@@ -373,8 +392,8 @@ function UcatQuestionStemApprovalQueue({
       },
     }))
     if (currentEntry.mode === 'ai_approval' && entries.length === 1) {
-      await invalidateQueueData(currentEntry.stemId)
       onExit()
+      void invalidateQueueData(currentEntry.stemId)
       return
     }
     goNext()
@@ -396,7 +415,7 @@ function UcatQuestionStemApprovalQueue({
   async function handleReject() {
     if (!currentEntry) return
     form.setValue('status', 'draft', { shouldDirty: true })
-    const saved = await saveCurrent()
+    const saved = await saveCurrent({ requestAssessment: false })
     if (!saved) return
     const rejectedStemId = currentEntry.stemId
     toast(lifecycleStatusSuccessToast({

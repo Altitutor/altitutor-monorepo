@@ -4,7 +4,6 @@ import { useEffect, useMemo, useState, type ReactNode } from "react";
 import {
   MARKETING_TOKENS,
   maxPracticeDayDiscountCents,
-  periodCentsToPerWeekCents,
   type UcatBillingInterval,
 } from "@altitutor/shared";
 import {
@@ -14,7 +13,6 @@ import {
   TooltipTrigger,
 } from "@altitutor/ui";
 import {
-  BrainCircuit,
   CalendarRange,
   Check,
   CircleDollarSign,
@@ -27,6 +25,7 @@ import {
   X,
   type LucideIcon,
 } from "lucide-react";
+import { UCAT_SECTION_EYEBROW_CLASS, UCAT_SECTION_PADDING_CLASS } from "./ucat-landing-section-eyebrow";
 
 const { typography: typo } = MARKETING_TOKENS;
 
@@ -40,6 +39,7 @@ type StatusCell = {
 
 type CostCell = {
   value: string;
+  originalValue?: string;
   subtext?: string;
   detail?: string;
 };
@@ -352,19 +352,12 @@ export function UcatLandingComparison() {
           discount.maxDiscountsPerPeriod,
         ),
     );
-    const idealWeeklyCents = periodCentsToPerWeekCents(
-      discountedPeriodCents,
-      interval,
-    );
-    const standardWeeklyCents = periodCentsToPerWeekCents(
-      priceRow.basePriceCents,
-      interval,
-    );
 
     return {
-      value: formatMoney(idealWeeklyCents, currency),
+      originalValue: `${formatMoney(priceRow.basePriceCents, currency)}/mo`,
+      value: `${formatMoney(discountedPeriodCents, currency)}/mo`,
       subtext: "with practice discounts",
-      detail: `Standard price ${formatMoney(standardWeeklyCents, currency)} / week without practice discounts.`,
+      detail: `Standard price ${formatMoney(priceRow.basePriceCents, currency)}/mo without practice discounts.`,
     } satisfies CostCell;
   }, [config]);
 
@@ -379,12 +372,12 @@ export function UcatLandingComparison() {
         cells: {
           altitutor: altitutorCost,
           medentry: {
-            value: "$345",
+            value: "$360/yr",
             detail:
               "MedEntry Essential list price for full online platform access until the end of the UCAT testing period. Sale prices and higher-tier packages vary.",
           },
           medify: {
-            value: "$450/yr",
+            value: "$65/mo",
             detail:
               "Medify yearly subscription (AUD) for full platform access. Monthly plans are also available.",
           },
@@ -397,25 +390,24 @@ export function UcatLandingComparison() {
   return (
     <section
       id="comparison"
-      className="bg-white px-4 py-24 sm:px-8 sm:py-32"
+      className={`bg-white ${UCAT_SECTION_PADDING_CLASS}`}
     >
       <div className="mx-auto max-w-6xl">
         <div className="mx-auto max-w-3xl text-center">
           <p
-            className={`inline-flex rounded-full border border-marketing-charcoal/10 bg-marketing-cream px-3.5 py-1.5 text-[10px] font-semibold uppercase tracking-[0.18em] text-marketing-primary/70 ${typo.dataMono}`}
+            className={`${UCAT_SECTION_EYEBROW_CLASS} ${typo.dataMono}`}
           >
             Comparison
           </p>
           <h2
-            className={`mt-5 text-4xl font-semibold tracking-[-0.035em] text-marketing-charcoal sm:text-5xl ${typo.headingSans}`}
+            className={`mt-4 text-4xl font-semibold tracking-[-0.035em] text-marketing-charcoal sm:text-5xl ${typo.headingSans}`}
           >
             How Altitutor UCAT compares
           </h2>
           <p
-            className={`mx-auto mt-5 max-w-2xl text-base leading-relaxed text-marketing-charcoal/60 sm:text-lg ${typo.secondarySans}`}
+            className={`mx-auto mt-5 max-w-2xl text-lg leading-relaxed text-marketing-charcoal/60 sm:text-xl ${typo.secondarySans}`}
           >
-            See how Altitutor UCAT stacks up against the platforms students most
-            often consider for UCAT ANZ preparation.
+            See how Altitutor UCAT stacks up against other platforms.
           </p>
         </div>
 
@@ -483,13 +475,28 @@ export function UcatLandingComparison() {
                             >
                               <span className="inline-flex flex-col items-center gap-0.5 text-center">
                                 <span
-                                  className={`text-sm font-semibold tabular-nums sm:text-base ${typo.headingSans} ${
-                                    highlighted
-                                      ? "text-marketing-primary"
-                                      : "text-marketing-charcoal"
-                                  }`}
+                                  className={`inline-flex flex-wrap items-center justify-center gap-x-1.5 text-sm font-semibold tabular-nums sm:text-base ${typo.headingSans}`}
                                 >
-                                  {cell.value}
+                                  {cell.originalValue ? (
+                                    <span
+                                      className={
+                                        highlighted
+                                          ? "text-marketing-charcoal/35 line-through decoration-marketing-charcoal/25"
+                                          : "text-marketing-charcoal/35 line-through"
+                                      }
+                                    >
+                                      {cell.originalValue}
+                                    </span>
+                                  ) : null}
+                                  <span
+                                    className={
+                                      highlighted
+                                        ? "text-marketing-primary"
+                                        : "text-marketing-charcoal"
+                                    }
+                                  >
+                                    {cell.value}
+                                  </span>
                                 </span>
                                 {cell.subtext ? (
                                   <span

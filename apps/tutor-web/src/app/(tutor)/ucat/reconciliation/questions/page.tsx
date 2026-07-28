@@ -1,7 +1,5 @@
-'use client'
-
-import { UcatReconciliationQuestionsTab } from '@/features/ucat/reconciliation'
+import { redirect } from 'next/navigation'
 
 export default function UcatReconciliationQuestionsPage() {
-  return <UcatReconciliationQuestionsTab />
+  redirect('/ucat/reconciliation/questions/missing-category')
 }

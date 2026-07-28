@@ -32,7 +32,7 @@ import {
   decodeAuthoringRevision,
   encodeAuthoringRevision,
 } from '@/features/ucat/mcp/server/revision'
-import { requestUcatQuestionAssessment } from '@/features/ucat/questions/server/ai-assessment/dispatcher'
+import { enqueueUcatQuestionAssessmentPreparation } from '@/features/ucat/questions/server/ai-assessment/dispatcher'
 
 export type UcatMcpAggregateType = 'learning_module' | 'stem' | 'set' | 'mock'
 export type UcatMcpStatus = 'draft' | 'in_review' | 'published'
@@ -598,10 +598,9 @@ export async function updateUcatMcpQuestionStem(
   })
   const updated = await getStem(client, result.id)
   if (updated.status === 'in_review') {
-    await requestUcatQuestionAssessment({
-      stemId: id,
+    await enqueueUcatQuestionAssessmentPreparation({
+      stemIds: [id],
       triggerKind: 'content_change',
-      userClient: client,
     }).catch((error) => {
       console.error('Could not request UCAT AI assessment after MCP stem update', error)
     })
@@ -799,10 +798,9 @@ export async function submitUcatMcpForReview(
     p_expected_updated_at: decodeAuthoringRevision(revision, id),
   })
   if (contentType === 'stem') {
-    await requestUcatQuestionAssessment({
-      stemId: id,
+    await enqueueUcatQuestionAssessmentPreparation({
+      stemIds: [id],
       triggerKind: 'review_submission',
-      userClient: client,
     }).catch((error) => {
       console.error('Could not request UCAT AI assessment after MCP review submission', error)
     })

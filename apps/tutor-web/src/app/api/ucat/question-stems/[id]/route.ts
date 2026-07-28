@@ -1,8 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
-import type { Database } from '@altitutor/shared'
-import type { SupabaseClient } from '@supabase/supabase-js'
 import { requireUcatTutor, type UcatTutorSupabaseClient } from '@/features/ucat/shared/server/guard'
-import { requestUcatQuestionAssessment } from '@/features/ucat/questions/server/ai-assessment/dispatcher'
+import { enqueueUcatQuestionAssessmentPreparation } from '@/features/ucat/questions/server/ai-assessment/dispatcher'
 
 export async function PATCH(request: NextRequest, { params }: { params: { id: string } }) {
   const access = await requireUcatTutor()
@@ -24,13 +22,14 @@ export async function PATCH(request: NextRequest, { params }: { params: { id: st
     })
 
     if (error) return NextResponse.json({ error: error.message }, { status: 400 })
-    await requestUcatQuestionAssessment({
-      stemId: params.id,
-      triggerKind: 'content_change',
-      userClient: access.userClient as unknown as SupabaseClient<Database>,
-    }).catch((assessmentError) => {
-      console.error('Could not request supplementary UCAT AI assessment after stem save', assessmentError)
-    })
+    if (body.requestAssessment !== false) {
+      await enqueueUcatQuestionAssessmentPreparation({
+        stemIds: [params.id],
+        triggerKind: 'content_change',
+      }).catch((assessmentError) => {
+        console.error('Could not queue supplementary UCAT AI assessment preparation after stem save', assessmentError)
+      })
+    }
     return NextResponse.json({ id: data })
   } catch (error) {
     return NextResponse.json({ error: 'Invalid request payload', details: String(error) }, { status: 400 })

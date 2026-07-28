@@ -23,7 +23,7 @@ import { UcatSelectionToolbar } from '@/features/ucat/shared/selection-toolbar'
 import { proseMirrorToPlainText } from '@/features/ucat/shared/lib/rich-text'
 import type { Json } from '@altitutor/shared'
 import type { PrivateStemNotInSet } from '../api/reconciliation'
-import { useReconciliationData } from '../hooks/useReconciliation'
+import { usePrivateStemsNotInSetQueue } from '../hooks/useReconciliation'
 import { ucatQuestionsApi } from '@/features/ucat/questions/api/questions'
 import { ucatSetsApi } from '@/features/ucat/sets/api/sets'
 import { useUcatSets } from '@/features/ucat/sets/hooks/useUcatSets'
@@ -35,9 +35,8 @@ import {
 } from '@/features/ucat/shared/lib/taxonomy-paths'
 import { useQueryClient } from '@tanstack/react-query'
 import { ucatKeys } from '@/features/ucat/shared/lib/query-keys'
-import { applyCoreStringFilter, applySingleSelectFilter, applySort } from '@/features/ucat/shared/hooks/useUcatTableState'
 import { useUcatTableUrlState } from '@/features/ucat/shared/hooks/useUcatTableUrlState'
-import type { DataTableColumnDefinition, DataTableFilterDefinition, DataTableSortOption } from '@altitutor/shared'
+import type { DataTableColumnDefinition, DataTableFilterDefinition } from '@altitutor/shared'
 import { cn } from '@/shared/utils'
 import { tutorBtnOutline, tutorBtnPrimary, tutorTableBodyRow, tutorToolbarProps } from '@/shared/lib/tutor-visual'
 import { getSetAddStemWarning } from '@/features/ucat/shared/lib/set-section-status'
@@ -62,7 +61,6 @@ export function PrivateStemsNotInSetTable({
 }) {
   const { toast } = useToast()
   const queryClient = useQueryClient()
-  const { data, isLoading } = useReconciliationData()
   const setsQuery = useUcatSets()
   const sectionsQuery = useUcatSections()
   const categoriesQuery = useUcatCategories()
@@ -82,7 +80,6 @@ export function PrivateStemsNotInSetTable({
   const [bulkSetOpen, setBulkSetOpen] = useState(false)
   const [bulkSetId, setBulkSetId] = useState<string | null>(null)
   const [bulkSetPending, setBulkSetPending] = useState(false)
-  const [searchScopes, setSearchScopes] = useState(['stem_text', 'questions', 'category_name', 'section_name'])
   const [queueOpen, setQueueOpen] = useState(false)
   const [makingPublicStemId, setMakingPublicStemId] = useState<string | null>(null)
   const [setWarning, setSetWarning] = useState<{
@@ -99,16 +96,20 @@ export function PrivateStemsNotInSetTable({
     { key: 'questions', label: 'Questions', visibleByDefault: true },
   ]
 
-  const sortOptions: DataTableSortOption[] = [
-    { key: 'category_name', label: 'Category' },
-    { key: 'stem_text', label: 'Question stem' },
-    { key: 'questions', label: 'Questions' },
-  ]
-
   const tableState = useUcatTableUrlState(columnDefinitions.filter((c) => c.visibleByDefault !== false).map((c) => c.key), {
     paramPrefix: 'privateNotInSet',
     availableColumns: columnDefinitions.map((c) => c.key),
   })
+  const sectionIds = (tableState.state.filters.section_id ?? [])
+    .map(String)
+    .filter((value) => value && value !== 'all')
+  const queueQuery = usePrivateStemsNotInSetQueue({
+    search: tableState.state.search,
+    sectionIds,
+    page: tableState.state.page,
+    pageSize: tableState.state.pageSize,
+  })
+  const { data, isLoading } = queueQuery
 
   const sectionFilterDef: DataTableFilterDefinition = useMemo(
     () => ({
@@ -119,40 +120,7 @@ export function PrivateStemsNotInSetTable({
     [sectionsQuery.data]
   )
 
-  const stemAccessors = useMemo(
-    () => ({
-      category_name: (s: PrivateStemNotInSet) =>
-        resolveCategoryPathLabel(categoryPathLookup, s.categoryId, s.categoryName),
-      stem_text: (s: PrivateStemNotInSet) =>
-        proseMirrorToPlainText(s.stemText as import('@altitutor/shared').Json) ?? '',
-      questions: (s: PrivateStemNotInSet) =>
-        (s.questions ?? [])
-          .sort((a, b) => a.index - b.index)
-          .map((q, i) => `${i + 1}. ${truncate(proseMirrorToPlainText(q.question_text as import('@altitutor/shared').Json) ?? '', 60)}`)
-          .join(' '),
-    }),
-    [categoryPathLookup]
-  )
-
-  const filteredStems = useMemo(() => {
-    const stems = data?.privateStemsNotInSet ?? []
-    let result = stems
-    const { search } = tableState.state
-    if (search.trim()) {
-      result = result.filter((stem) => {
-        const values: Record<string, string> = {
-          stem_text: stemAccessors.stem_text(stem),
-          questions: stemAccessors.questions(stem),
-          category_name: resolveCategoryPathLabel(categoryPathLookup, stem.categoryId, stem.categoryName),
-          section_name: stem.sectionName ?? '',
-        }
-        return searchScopes.some((scope) => applyCoreStringFilter(values[scope] ?? '', search))
-      })
-    }
-    result = result.filter((stem) => applySingleSelectFilter(tableState.state, 'section_id', stem.sectionId))
-    result = applySort(result, tableState.state.sortBy, tableState.state.sortDirection, stemAccessors)
-    return result
-  }, [data?.privateStemsNotInSet, tableState.state, stemAccessors, categoryPathLookup, searchScopes])
+  const filteredStems = useMemo(() => data?.items ?? [], [data?.items])
 
   const queueEntries = useMemo<UcatApprovalQueueEntry[]>(
     () =>
@@ -168,7 +136,9 @@ export function PrivateStemsNotInSetTable({
     async (item: PrivateStemNotInSet, setId: string) => {
       try {
         await ucatSetsApi.addStemsToSet(setId, [item.id])
-        queryClient.invalidateQueries({ queryKey: ucatKeys.reconciliation() })
+        queryClient.invalidateQueries({
+          queryKey: ucatKeys.reconciliationQueue('private-stems-not-in-set'),
+        })
         queryClient.invalidateQueries({ queryKey: ucatKeys.sets() })
         toast({
           title: 'Added to set',
@@ -216,19 +186,34 @@ export function PrivateStemsNotInSetTable({
   )
 
   const handleMakePublic = useCallback(async (item: PrivateStemNotInSet) => {
+    await queryClient.cancelQueries({
+      queryKey: ucatKeys.reconciliationQueue('private-stems-not-in-set'),
+    })
+    queryClient.setQueriesData<{ items: PrivateStemNotInSet[]; total: number }>(
+      { queryKey: ucatKeys.reconciliationQueue('private-stems-not-in-set') },
+      (previous) => previous
+        ? {
+            ...previous,
+            items: previous.items.filter((stem) => stem.id !== item.id),
+            total: Math.max(0, previous.total - 1),
+          }
+        : previous,
+    )
     setMakingPublicStemId(item.id)
     try {
       await ucatQuestionsApi.bulkUpdateMetadata([item.id], { accessScope: 'public' })
-      await Promise.all([
-        queryClient.invalidateQueries({ queryKey: ucatKeys.reconciliation() }),
-        queryClient.invalidateQueries({ queryKey: ucatKeys.questions('all') }),
-        queryClient.invalidateQueries({ queryKey: ucatKeys.stemCatalog() }),
-      ])
+      void queryClient.invalidateQueries({
+        queryKey: ucatKeys.reconciliationQueue('private-stems-not-in-set'),
+      })
+      void queryClient.invalidateQueries({ queryKey: ucatKeys.questions('all') })
       toast({
         title: 'Question stem made public',
         description: 'It no longer needs to belong to a question set.',
       })
     } catch {
+      void queryClient.invalidateQueries({
+        queryKey: ucatKeys.reconciliationQueue('private-stems-not-in-set'),
+      })
       toast({
         title: 'Failed to make question stem public',
         description: 'Please try again.',
@@ -249,10 +234,7 @@ export function PrivateStemsNotInSetTable({
   }, [])
 
   const toggleSelectAllVisible = useCallback(() => {
-    const pagedStems = filteredStems.slice(
-      (tableState.state.page - 1) * tableState.state.pageSize,
-      tableState.state.page * tableState.state.pageSize
-    )
+    const pagedStems = filteredStems
     if (pagedStems.every((s) => selectedStemIds.has(s.id))) {
       setSelectedStemIds((prev) => {
         const next = new Set(prev)
@@ -262,22 +244,12 @@ export function PrivateStemsNotInSetTable({
     } else {
       setSelectedStemIds((prev) => new Set([...prev, ...pagedStems.map((s) => s.id)]))
     }
-  }, [filteredStems, tableState.state.page, tableState.state.pageSize, selectedStemIds])
+  }, [filteredStems, selectedStemIds])
 
   const allVisibleSelected =
     filteredStems.length > 0 &&
-    filteredStems
-      .slice(
-        (tableState.state.page - 1) * tableState.state.pageSize,
-        tableState.state.page * tableState.state.pageSize
-      )
-      .every((s) => selectedStemIds.has(s.id))
-  const someVisibleSelected = filteredStems
-    .slice(
-      (tableState.state.page - 1) * tableState.state.pageSize,
-      tableState.state.page * tableState.state.pageSize
-    )
-    .some((s) => selectedStemIds.has(s.id))
+    filteredStems.every((s) => selectedStemIds.has(s.id))
+  const someVisibleSelected = filteredStems.some((s) => selectedStemIds.has(s.id))
 
   const addSelectedStemsToSet = useCallback(async (setId: string, stemIds: string[]) => {
     if (stemIds.length === 0) return
@@ -288,7 +260,9 @@ export function PrivateStemsNotInSetTable({
       setSelectedStemIds(new Set())
       setBulkSetOpen(false)
       setBulkSetId(null)
-      queryClient.invalidateQueries({ queryKey: ucatKeys.reconciliation() })
+      queryClient.invalidateQueries({
+        queryKey: ucatKeys.reconciliationQueue('private-stems-not-in-set'),
+      })
       queryClient.invalidateQueries({ queryKey: ucatKeys.sets() })
       toast({
         title: 'Added to set',
@@ -338,17 +312,8 @@ export function PrivateStemsNotInSetTable({
       onReset={tableState.actions.onReset}
       filterDefinitions={[sectionFilterDef]}
       columnDefinitions={columnDefinitions}
-      sortOptions={sortOptions}
       {...tutorToolbarProps}
       searchPlaceholder="Search stems..."
-      searchFromOptions={[
-        { label: 'Stem text', value: 'stem_text' },
-        { label: 'Question text', value: 'questions' },
-        { label: 'Category', value: 'category_name' },
-        { label: 'Section', value: 'section_name' },
-      ]}
-      searchFromValue={searchScopes}
-      onSearchFromChange={setSearchScopes}
     />
   )
 
@@ -358,6 +323,13 @@ export function PrivateStemsNotInSetTable({
         title="Private question stems not in a set"
         items={filteredStems}
         isLoading={isLoading}
+        pagination={{
+          page: tableState.state.page,
+          pageSize: tableState.state.pageSize,
+          total: data?.total ?? 0,
+          onPageChange: tableState.actions.onPageChange,
+          onPageSizeChange: tableState.actions.onPageSizeChange,
+        }}
         columnDefinitions={columnDefinitions}
         visibleColumnKeys={tableState.state.visibleColumns}
         toolbar={toolbar}

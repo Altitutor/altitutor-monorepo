@@ -5,6 +5,7 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from "@altitutor/ui";
+import { UCAT_SECTION_EYEBROW_CLASS, UCAT_SECTION_PADDING_CLASS } from "./ucat-landing-section-eyebrow";
 
 const { typography: typo } = MARKETING_TOKENS;
 
@@ -53,11 +54,11 @@ const faqs = [
 
 export function UcatLandingFaq() {
   return (
-    <section id="faq" className="bg-white px-4 py-24 sm:px-8 sm:py-32">
+    <section id="faq" className={`bg-white ${UCAT_SECTION_PADDING_CLASS}`}>
       <div className="mx-auto grid max-w-6xl gap-12 lg:grid-cols-[0.72fr_1.28fr] lg:gap-20">
         <div>
           <p
-            className={`text-xs font-semibold uppercase tracking-[0.18em] text-marketing-primary/60 ${typo.dataMono}`}
+            className={`${UCAT_SECTION_EYEBROW_CLASS} ${typo.dataMono}`}
           >
             Frequently asked questions
           </p>
@@ -67,7 +68,7 @@ export function UcatLandingFaq() {
             Clear answers before you start.
           </h2>
           <p
-            className={`mt-5 max-w-md text-base leading-relaxed text-marketing-charcoal/58 ${typo.secondarySans}`}
+            className={`mt-5 max-w-md text-lg leading-relaxed text-marketing-charcoal/58 sm:text-xl ${typo.secondarySans}`}
           >
             If your question is not here, email admin@altitutor.com and a member
             of the Altitutor team will help.

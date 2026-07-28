@@ -9,14 +9,6 @@ import {
 } from "@/features/ucat/shared/lib/set-section-status";
 import { proseMirrorToPlainText } from "@/features/ucat/shared/lib/rich-text";
 import type { UcatSectionForStatus } from "@/features/ucat/shared/lib/set-section-status";
-import {
-  buildStemSimilarityIndexEntry,
-  findPotentialDuplicatePairs,
-} from "@/features/ucat/questions/lib/stem-similarity";
-import {
-  hasExactDuplicateContent,
-  suggestMergeDirection,
-} from "@/features/ucat/reconciliation/lib/duplicate-stem-comparison";
 import type { Json } from "@altitutor/shared";
 import {
   getOpenExplanationFeedback,
@@ -99,11 +91,6 @@ type StemDetailRow = {
   category_name?: string | null;
   deleted_at: string | null;
   questions: QuestionRow[];
-};
-
-type StemListMeta = {
-  isPrivate: boolean;
-  setNames: string[];
 };
 
 export async function GET() {
@@ -220,7 +207,6 @@ export async function GET() {
         right.latestAt.localeCompare(left.latestAt),
     );
 
-  const stemMetaById = new Map<string, StemListMeta>();
   const privateStemIdsNotInSet = new Set<string>();
   for (const s of stemsListResult.data ?? []) {
     const row = s as {
@@ -229,10 +215,6 @@ export async function GET() {
       set_names: unknown;
     };
     const setNames = parseSetNames(row.set_names);
-    stemMetaById.set(row.id, {
-      isPrivate: row.access_scope === "private",
-      setNames,
-    });
     if (row.access_scope !== "private") continue;
     if (setNames.length === 0) privateStemIdsNotInSet.add(row.id);
   }
@@ -314,149 +296,10 @@ export async function GET() {
       questions: (r.questions ?? []) as QuestionRow[],
     }));
 
-  const stemsById = new Map(rows.map((row) => [row.id, row]));
-  const potentialDuplicatePairs: Array<{
-    id: string;
-    sectionId: string;
-    sectionName: string;
-    stemA: {
-      id: string;
-      sectionId: string;
-      sectionName: string;
-      categoryId: string | null;
-      categoryName: string | null;
-      stemText: unknown;
-      isPrivate: boolean;
-      setNames: string[];
-      questions: Array<{
-        id: string;
-        question_text: unknown;
-        answer_explanation: unknown;
-        index: number;
-        answer_options: Array<{
-          answer_text?: unknown;
-          answer_explanation: unknown;
-          index?: number;
-          is_answer: boolean | null;
-        }>;
-      }>;
-    };
-    stemB: {
-      id: string;
-      sectionId: string;
-      sectionName: string;
-      categoryId: string | null;
-      categoryName: string | null;
-      stemText: unknown;
-      isPrivate: boolean;
-      setNames: string[];
-      questions: Array<{
-        id: string;
-        question_text: unknown;
-        answer_explanation: unknown;
-        index: number;
-        answer_options: Array<{
-          answer_text?: unknown;
-          answer_explanation: unknown;
-          index?: number;
-          is_answer: boolean | null;
-        }>;
-      }>;
-    };
-    tokenRatio: number;
-    trigramRatio: number;
-    sharedTokenPreview: string[];
-    recommendation: "merge" | "delete";
-    suggestedMergeDirection: "A-into-B" | "B-into-A" | null;
-  }> = [];
-
-  const rowsBySection = new Map<string, StemDetailRow[]>();
-  for (const row of rows) {
-    const sectionId = row.section_id || "unknown";
-    const list = rowsBySection.get(sectionId);
-    if (list) list.push(row);
-    else rowsBySection.set(sectionId, [row]);
-  }
-
-  for (const sectionRows of rowsBySection.values()) {
-    const indexed = sectionRows
-      .map((row) =>
-        buildStemSimilarityIndexEntry(
-          row.id,
-          proseMirrorToPlainText(row.stem_text as Json) ?? "",
-        ),
-      )
-      .filter((entry): entry is NonNullable<typeof entry> => entry != null);
-
-    for (const pair of findPotentialDuplicatePairs(indexed)) {
-      const stemARow = stemsById.get(pair.idA);
-      const stemBRow = stemsById.get(pair.idB);
-      if (!stemARow || !stemBRow) continue;
-      const metaA = stemMetaById.get(pair.idA);
-      const metaB = stemMetaById.get(pair.idB);
-      const activeQuestions = (row: StemDetailRow) =>
-        ((row.questions ?? []) as QuestionRow[])
-          .filter((question) => !question.deleted_at)
-          .map((question) => ({
-            ...question,
-            answer_options: (question.answer_options ?? []).filter(
-              (option) => !option.deleted_at,
-            ),
-          }));
-      const toSide = (row: StemDetailRow, meta: StemListMeta | undefined) => ({
-        id: row.id,
-        sectionId: row.section_id,
-        sectionName: row.section_name ?? "",
-        categoryId: row.question_stem_category_id,
-        categoryName: row.category_name ?? null,
-        stemText: row.stem_text,
-        isPrivate: meta?.isPrivate ?? false,
-        setNames: meta?.setNames ?? [],
-        questions: activeQuestions(row).map((q) => ({
-          id: q.id,
-          question_text: q.question_text,
-          answer_explanation: q.answer_explanation,
-          index: q.index,
-          answer_options: (q.answer_options ?? [])
-            .filter((opt) => !opt.deleted_at)
-            .map((opt) => ({
-              answer_text: opt.answer_text,
-              answer_explanation: opt.answer_explanation,
-              index: opt.index,
-              is_answer: opt.is_answer ?? null,
-            })),
-        })),
-      });
-      const isExactDuplicate = hasExactDuplicateContent(
-        stemARow.stem_text,
-        activeQuestions(stemARow),
-        stemBRow.stem_text,
-        activeQuestions(stemBRow),
-      );
-      potentialDuplicatePairs.push({
-        id: `${pair.idA}:${pair.idB}`,
-        sectionId: stemARow.section_id,
-        sectionName: stemARow.section_name ?? "",
-        stemA: toSide(stemARow, metaA),
-        stemB: toSide(stemBRow, metaB),
-        tokenRatio: pair.result.tokenRatio,
-        trigramRatio: pair.result.trigramRatio,
-        sharedTokenPreview: pair.result.sharedTokens,
-        recommendation: isExactDuplicate ? "delete" : "merge",
-        suggestedMergeDirection: isExactDuplicate
-          ? null
-          : suggestMergeDirection(stemARow.stem_text, stemBRow.stem_text),
-      });
-    }
-  }
-
-  potentialDuplicatePairs.sort((a, b) => {
-    const scoreDiff =
-      Math.max(b.tokenRatio, b.trigramRatio) -
-      Math.max(a.tokenRatio, a.trigramRatio);
-    if (scoreDiff !== 0) return scoreDiff;
-    return a.sectionName.localeCompare(b.sectionName);
-  });
+  // Exact duplicates have their own indexed, paginated queue. Keeping the
+  // former fuzzy scan out of this legacy report prevents unrelated issue pages,
+  // sets, and mocks from paying its O(n²) request-time cost.
+  const potentialDuplicatePairs: never[] = [];
 
   const sections: UcatSectionForStatus[] = (sectionsResult.data ?? []).map(
     (s) => {

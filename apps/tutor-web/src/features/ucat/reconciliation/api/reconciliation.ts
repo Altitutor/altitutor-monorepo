@@ -118,12 +118,75 @@ export type PotentialDuplicatePair = {
   sectionName: string;
   stemA: PotentialDuplicateStemSide;
   stemB: PotentialDuplicateStemSide;
-  tokenRatio: number;
-  trigramRatio: number;
-  sharedTokenPreview: string[];
+  comparisonKind: "complete_duplicate" | "shared_stem";
   recommendation: "merge" | "delete";
   suggestedMergeDirection: "A-into-B" | "B-into-A" | null;
 };
+
+export type ReconciliationPage<T> = {
+  items: T[];
+  total: number;
+  page: number;
+  pageSize: number;
+};
+
+export type ReconciliationQueueQuery = {
+  search?: string;
+  sectionIds?: string[];
+  page: number;
+  pageSize: number;
+};
+
+function queueSearchParams(query: ReconciliationQueueQuery): URLSearchParams {
+  const params = new URLSearchParams({
+    page: String(query.page),
+    pageSize: String(query.pageSize),
+  });
+  if (query.search?.trim()) params.set("search", query.search.trim());
+  for (const sectionId of query.sectionIds ?? []) {
+    params.append("section", sectionId);
+  }
+  return params;
+}
+
+async function fetchQueue<T>(
+  path: string,
+  query: ReconciliationQueueQuery,
+): Promise<ReconciliationPage<T>> {
+  const res = await fetch(`${path}?${queueSearchParams(query)}`);
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error((body.error as string) ?? "Failed to fetch reconciliation queue");
+  }
+  return res.json() as Promise<ReconciliationPage<T>>;
+}
+
+export function fetchPrivateStemsNotInSet(
+  query: ReconciliationQueueQuery,
+): Promise<ReconciliationPage<PrivateStemNotInSet>> {
+  return fetchQueue("/api/ucat/reconciliation/private-stems-not-in-set", query);
+}
+
+export function fetchExactDuplicateStems(
+  query: ReconciliationQueueQuery,
+): Promise<ReconciliationPage<PotentialDuplicatePair>> {
+  return fetchQueue("/api/ucat/reconciliation/exact-duplicates", query);
+}
+
+export async function dismissExactDuplicatePair(
+  stemIdA: string,
+  stemIdB: string,
+): Promise<void> {
+  const res = await fetch("/api/ucat/reconciliation/exact-duplicates", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ stemIdA, stemIdB, reason: "keep_both" }),
+  });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error((body.error as string) ?? "Failed to dismiss duplicate pair");
+  }
+}
 
 export type ReconciliationData = {
   stemsWithNoCategory: StemWithNoCategory[];

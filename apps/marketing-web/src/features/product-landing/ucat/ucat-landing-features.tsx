@@ -1,5 +1,6 @@
 import { MARKETING_TOKENS } from "@altitutor/shared";
 import { BarChart3, CalendarCheck, ClipboardList } from "lucide-react";
+import { UCAT_SECTION_EYEBROW_CLASS, UCAT_SECTION_PADDING_CLASS } from "./ucat-landing-section-eyebrow";
 
 const { typography: typo } = MARKETING_TOKENS;
 
@@ -25,7 +26,7 @@ export function UcatLandingFeatures() {
   return (
     <section
       id="overview"
-      className="bg-marketing-cream px-4 py-20 sm:px-8 sm:py-28"
+      className={`bg-marketing-cream ${UCAT_SECTION_PADDING_CLASS}`}
     >
       <div className="mx-auto max-w-7xl">
         <div className="grid overflow-hidden rounded-[2rem] border border-marketing-charcoal/10 bg-white shadow-sm sm:grid-cols-3">
@@ -54,7 +55,7 @@ export function UcatLandingFeatures() {
 
         <div className="mx-auto mt-24 max-w-3xl text-center">
           <p
-            className={`text-xs font-semibold uppercase tracking-[0.18em] text-marketing-primary/60 ${typo.dataMono}`}
+            className={`${UCAT_SECTION_EYEBROW_CLASS} ${typo.dataMono}`}
           >
             Practice with direction
           </p>
@@ -64,7 +65,7 @@ export function UcatLandingFeatures() {
             More questions are not the same as a better plan.
           </h2>
           <p
-            className={`mx-auto mt-6 max-w-2xl text-base leading-relaxed text-marketing-charcoal/60 sm:text-lg ${typo.secondarySans}`}
+            className={`mx-auto mt-6 max-w-2xl text-lg leading-relaxed text-marketing-charcoal/60 sm:text-xl ${typo.secondarySans}`}
           >
             Completing questions is only useful when you know what the results
             mean. Altitutor UCAT shows where you are improving, where you are

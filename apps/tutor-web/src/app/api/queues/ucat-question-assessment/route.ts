@@ -1,19 +1,31 @@
 import { handleCallback } from '@vercel/queue'
 import { getServiceRoleClient } from '@/shared/lib/supabase/service-role'
 import {
-  runBackgroundUcatQuestionAssessment,
-} from '@/features/ucat/questions/server/ai-assessment/run-background-assessment'
+  dispatchUcatQuestionAssessmentQueueMessage,
+  prepareQueuedUcatQuestionAssessments,
+} from '@/features/ucat/questions/server/ai-assessment/dispatcher'
 import type {
   UcatQuestionAssessmentQueueMessage,
 } from '@/features/ucat/questions/server/ai-assessment/dispatcher'
+import {
+  runBackgroundUcatQuestionAssessment,
+} from '@/features/ucat/questions/server/ai-assessment/run-background-assessment'
 
 export const maxDuration = 600
 
 const consumeAssessment = handleCallback<UcatQuestionAssessmentQueueMessage>(
   async (message, metadata) => {
     try {
-      await runBackgroundUcatQuestionAssessment(message)
+      await dispatchUcatQuestionAssessmentQueueMessage(message, {
+        prepare: prepareQueuedUcatQuestionAssessments,
+        run: runBackgroundUcatQuestionAssessment,
+      })
     } catch (error) {
+      if ('kind' in message && message.kind === 'prepare') {
+        if (metadata.deliveryCount < 3) throw error
+        console.error('Automatic UCAT AI assessment preparation failed after three deliveries', error)
+        return
+      }
       const admin = getServiceRoleClient()
       const errorMessage = error instanceof Error ? error.message : 'Background AI assessment failed'
       const { error: updateError } = await admin

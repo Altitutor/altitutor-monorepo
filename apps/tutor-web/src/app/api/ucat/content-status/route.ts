@@ -1,10 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
-import type { Database } from '@altitutor/shared'
-import type { SupabaseClient } from '@supabase/supabase-js'
 import { requireUcatTutor, type UcatTutorSupabaseClient } from '@/features/ucat/shared/server/guard'
 import type { UcatLifecycleBlocker } from '@/features/ucat/shared/lifecycle-errors'
-import { requestUcatQuestionAssessmentsForReview } from '@/features/ucat/questions/server/ai-assessment/dispatcher'
+import { enqueueUcatQuestionAssessmentPreparation } from '@/features/ucat/questions/server/ai-assessment/dispatcher'
 
 const BodySchema = z.object({
   contentType: z.enum(['stem', 'set', 'mock', 'lesson']),
@@ -77,9 +75,11 @@ export async function PATCH(request: NextRequest) {
 
   if (previousStatus) {
     if (contentType === 'stem' && previousStatus === 'in_review') {
-      await requestUcatQuestionAssessmentsForReview({
+      await enqueueUcatQuestionAssessmentPreparation({
         stemIds: contentIds,
-        userClient: access.userClient as unknown as SupabaseClient<Database>,
+        triggerKind: 'review_submission',
+      }).catch((assessmentError) => {
+        console.error('Could not queue automatic UCAT AI assessment preparation after status restore', assessmentError)
       })
     }
     return NextResponse.json({ ok: true, movedIds: contentIds, failures: [] })
@@ -108,9 +108,11 @@ export async function PATCH(request: NextRequest) {
   }))
 
   if (contentType === 'stem' && status === 'in_review' && movedIds.length > 0) {
-    await requestUcatQuestionAssessmentsForReview({
+    await enqueueUcatQuestionAssessmentPreparation({
       stemIds: movedIds,
-      userClient: access.userClient as unknown as SupabaseClient<Database>,
+      triggerKind: 'review_submission',
+    }).catch((assessmentError) => {
+      console.error('Could not queue automatic UCAT AI assessment preparation after review submission', assessmentError)
     })
   }
 

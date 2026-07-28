@@ -12,6 +12,7 @@ const brief: AiGenerationBrief = {
   difficultyTarget: 'mixed',
   timeBurdenTarget: 'mixed',
   targetTags: [],
+  availableTags: [],
   examples: [{ id: 'pie-chart-source', categoryName: 'Graphs and Charts' }],
   promptLayers: [],
 }

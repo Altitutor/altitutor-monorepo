@@ -1,5 +1,9 @@
 import { UCAT_FILTER_NO_CATEGORY } from '@/features/ucat/shared/lib/table-filter-sentinel'
 import type { QuestionRow } from '@/features/ucat/questions/hooks/useUcatQuestionsTable'
+import {
+  CREATED_AT_FROM_FILTER_KEY,
+  CREATED_AT_TO_FILTER_KEY,
+} from '@/features/ucat/questions/lib/question-catalog-query'
 
 /** Window around a stem's created_at used to catch same bulk-import runs. */
 export const FIND_SIMILAR_CREATED_AT_LEEWAY_MS = 10 * 60 * 1000
@@ -165,8 +169,11 @@ export function buildFindSimilarQuestionStemFilters(
   const filters: Record<string, unknown[]> = {}
 
   if (selected.has('created_at') && row.created_at) {
-    const encoded = encodeCreatedAtWindow(row.created_at, leewayMs)
-    if (encoded) filters[CREATED_AT_WINDOW_FILTER_KEY] = [encoded]
+    const centerMs = Date.parse(row.created_at)
+    if (Number.isFinite(centerMs)) {
+      filters[CREATED_AT_FROM_FILTER_KEY] = [new Date(centerMs - leewayMs).toISOString()]
+      filters[CREATED_AT_TO_FILTER_KEY] = [new Date(centerMs + leewayMs).toISOString()]
+    }
   }
 
   if (selected.has('created_by') && row.created_by) {

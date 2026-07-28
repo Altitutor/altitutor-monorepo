@@ -70,7 +70,7 @@ export function isPlanCheckoutAvailable(
 
 export function isTierOffered(
   config: PublicUcatSubscriptionConfig,
-  tier: UcatPaidPlanTier,
+  _tier: UcatPaidPlanTier,
 ): boolean {
   return config.unlimitedProductConfigured;
 }

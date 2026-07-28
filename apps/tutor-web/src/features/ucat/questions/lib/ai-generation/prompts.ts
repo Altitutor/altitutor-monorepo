@@ -8,9 +8,10 @@ export type AiGenerationSectionKey =
 export const AI_GENERATION_SYSTEM_PROMPT = `You generate UCAT ANZ tutor-review drafts that should need minimal editing before approval.
 
 Return JSON only. Do not include markdown or prose outside the JSON object.
-Write in the style of official UCAT practice material: concise stems, ordinary real-world contexts, precise wording, plausible distractors, and no teaching-style scaffolding.
-Every generated question must include exactly one explanation shape: multiple-choice questions use one concise, student-facing question-level answerExplanation and every option answerExplanation is null; syllogism questions use per-option answerExplanation values and the question-level answerExplanation is null.
-Explanations must justify why the correct answer is correct and why the main distractors fail.
+Write in Australian English and in the style of official UCAT practice material: concise stems, ordinary real-world contexts, precise wording, plausible distractors, and no teaching-style scaffolding.
+For multiple-choice questions, include one non-empty, student-facing question-level answerExplanation. Option-level answerExplanation values are optional and should be included only when they teach a useful option-specific mistake without duplicating the question-level explanation.
+For syllogism questions, include a non-empty answerExplanation for every Yes/No statement. A question-level answerExplanation is optional and should be included only when it teaches a useful strategy, technique, or shortcut without duplicating the option-level explanations.
+Across the useful question-level and option-level explanations, justify why the correct answer is correct and why the main distractors fail.
 When writing answer explanations, act as a tutor teaching the student how to solve the question, not as a question writer justifying an answer key.
 Explanations must teach an efficient timed-test method, not merely report the result. Name or demonstrate a useful representation such as a table, ordered list, diagram, equation, elimination grid, or annotated evidence when it genuinely helps. If the explanation relies on a table, grid, diagram, or list, include that representation as structured content blocks in the applicable question-level or option-level explanation.
 Make explanations easy to scan using short paragraphs, list blocks, or table blocks where relevant. Include useful shortcuts, traps to watch for, and for genuinely high time-burden questions advise the student to recognise the burden, skip, and return later if time permits.
@@ -52,7 +53,7 @@ const SECTION_PROMPTS: Record<AiGenerationSectionKey, string> = {
 - Include exactly 5 options and exactly one correct answer per question.
 - Use realistic numbers, units, ratios, percentages, currencies, dates, times, distances, rates, prices, or summary statistics.
 - Use structured tables and deterministic visual specs where useful; do not rely on freeform image descriptions.
-- Keep the data source compact but information-rich. Official-style QR often asks for one or two calculation steps plus interpretation, not long algebra.
+- Keep the data source compact but information-rich. Use however many purposeful calculation and interpretation steps the question naturally requires; do not impose a fixed number of steps.
 - Make distractors numerically plausible: common rounding choices, inverse ratios, wrong denominator, percentage point vs percent change, unit conversion slips, transposed table entries, or reading the wrong series.
 - Include enough information in the stem for all calculations, including any formula or reference definition needed.
 - Include a question-level answerExplanation for every question with auditable working and units.`,
@@ -141,6 +142,14 @@ export type AiGenerationPromptLayer = {
   version: number
 }
 
+export type AiGenerationTag = {
+  id: string
+  name: string
+  path: string
+  description: string | null
+  parentId: string | null
+}
+
 export type AiGenerationBrief = {
   sectionName: string
   categoryName: string | null
@@ -149,6 +158,7 @@ export type AiGenerationBrief = {
   difficultyTarget: 'easy' | 'medium' | 'hard' | 'mixed'
   timeBurdenTarget: 'low' | 'medium' | 'high' | 'mixed'
   targetTags: Array<{ id: string; name: string }>
+  availableTags: AiGenerationTag[]
   runInstructions?: string | null
   examples: Array<Record<string, unknown>>
   presentationReference?: {
@@ -193,6 +203,7 @@ export function buildPlanningPrompt(input: AiGenerationBrief): string {
         difficultyTarget: input.difficultyTarget,
         timeBurdenTarget: input.timeBurdenTarget,
         targetTags: input.targetTags,
+        availableTags: input.availableTags,
         runInstructions: input.runInstructions,
       },
       sectionRules: getAiGenerationSectionPrompt(sectionNameToAiGenerationKey(input.sectionName)),
@@ -278,6 +289,7 @@ export function buildWriterPrompt(input: AiGenerationBrief & { plan: unknown }):
         difficultyTarget: input.difficultyTarget,
         timeBurdenTarget: input.timeBurdenTarget,
         targetTags: input.targetTags,
+        availableQuestionTags: input.availableTags,
         runInstructions: input.runInstructions,
       },
       plan: input.plan,
@@ -320,6 +332,9 @@ export function buildWriterPrompt(input: AiGenerationBrief & { plan: unknown }):
         'If the plan includes a categoryName for VR, DM, or SJ, use that exact available category.',
         'If difficultyTarget or timeBurdenTarget is mixed, generate natural official-style variation and then set estimatedDifficulty/estimatedTimeBurdenSeconds honestly; do not manufacture an even distribution.',
         'If difficultyTarget or timeBurdenTarget is easy/medium/hard or low/medium/high, treat it as a broad tutor-requested target, not an exact promise.',
+        'Assign one or more tagIds to every generated question using only exact IDs from availableQuestionTags.',
+        'Choose only tags that genuinely describe the reasoning tested by that specific question. Prefer the most specific applicable tags, and do not add tags merely for coverage.',
+        'When targetTags are supplied, write questions that genuinely test those requested skills and attach the corresponding IDs where applicable.',
         ...(sectionNameToAiGenerationKey(input.sectionName) === 'verbal_reasoning'
           ? [
               'Return stemText as 2-6 paragraph content blocks, not one unbroken string.',
@@ -373,14 +388,17 @@ export function buildWriterPrompt(input: AiGenerationBrief & { plan: unknown }):
           : []),
         'In questionText, wrap decisive logical qualifiers such as MUST, CANNOT, COULD, EXCEPT, NOT, ALWAYS, LEAST, MOST, TRUE, and FALSE in **bold markers** and capitalize them. Do not bold ordinary words.',
         'Do not copy selected source examples, scenario premises, distinctive data relationships, or near-exact wording.',
-        'Every multiple_choice question must have exactly one isAnswer=true option and a question-level explanation.',
-        'For every multiple_choice question, set every option answerExplanation to null. Do not duplicate the question-level explanation into options.',
+        'Every multiple_choice question must have exactly one isAnswer=true option and one non-empty question-level answerExplanation.',
+        'For multiple_choice options, include answerExplanation only when it would help a student who selected that option understand a specific mistake or when it adds useful detail beyond the question-level explanation. Otherwise set it to null.',
         'Every syllogism option must have answerExplanation explaining why the answer is Yes or No.',
-        'For every syllogism question, set the question-level answerExplanation to null. Do not also return a question-level explanation.',
-        'Answer explanations must act as a tutor: show the efficient setup, include a table/list/diagram content block when that representation is part of the method, explain why the correct answer is correct, and explain why every distractor is wrong.',
+        'For syllogism questions, include a question-level answerExplanation only when it teaches a useful strategy, technique, or shortcut that is not already covered by the option-level explanations. Otherwise set it to null.',
+        'DM and QR explanations must act as a helpful tutor and step the student through the shortest efficient method. Use short paragraphs, calculations, compact lists, tables, elimination grids, or ordered slots when they materially help.',
+        'QR explanations should explain calculator use where relevant, prefer mental maths when it is faster than calculator entry, and use plus-or-minus estimation when it is accurate enough to identify the correct option.',
+        'VR explanations should identify the specific passage evidence to read, using paragraph numbers whenever applicable, and teach the student how to locate and interpret it.',
+        'Across the question-level and any useful option-level explanations, explain why the correct answer is correct and why the material distractors are wrong without duplicating the same explanation.',
         'Use short paragraphs, list blocks, or table blocks in explanations so they are easy to read. Include useful shortcuts and common traps where relevant.',
-        'For genuinely high time-burden questions, include a brief timed-test note only when it would be useful to the student; do not add a canned skip-and-return line to every high-burden explanation.',
-        'Use clean human editorial prose. Do not use em dashes, double hyphens, canned AI transitions, or self-referential commentary.',
+        'Only for a very difficult or time-consuming question where skipping would be the better real-exam decision, include a brief note advising the student to skip and return later. Do not add this advice routinely.',
+        'Use Australian English spelling and clean human editorial prose. Do not use em dashes, double hyphens, canned AI transitions, or self-referential commentary.',
       ],
       outputShape: {
         stems: [
@@ -399,7 +417,7 @@ export function buildWriterPrompt(input: AiGenerationBrief & { plan: unknown }):
                 timeBurdenTarget: 'low|medium|high|mixed',
                 estimatedDifficulty: 0.5,
                 estimatedTimeBurdenSeconds: 90,
-                tagIds: [],
+                tagIds: ['one or more exact UUIDs from availableQuestionTags'],
                 options: [
                   {
                     answerText: 'string or GeneratedContentBlock[]',

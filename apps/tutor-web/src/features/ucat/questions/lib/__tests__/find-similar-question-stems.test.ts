@@ -83,7 +83,8 @@ describe('find-similar-question-stems', () => {
   it('includes a created_at window and tags when requested', () => {
     const row = baseRow()
     const filters = buildFindSimilarQuestionStemFilters(row, ['created_at', 'tags'], 60_000)
-    expect(filters.created_at_window).toEqual(['2026-07-25T11:59:00.000Z/2026-07-25T12:01:00.000Z'])
+    expect(filters.created_at_from).toEqual(['2026-07-25T11:59:00.000Z'])
+    expect(filters.created_at_to).toEqual(['2026-07-25T12:01:00.000Z'])
     expect(filters.question_tag_id).toEqual(['tag-1', 'tag-2'])
   })
 

@@ -11,7 +11,7 @@ const { typography: typo } = MARKETING_TOKENS;
 
 export function UcatLandingFooter() {
   return (
-    <footer className="relative overflow-hidden rounded-t-[3rem] bg-marketing-charcoal px-4 pb-12 pt-20 text-marketing-cream sm:px-8 sm:pt-28">
+    <footer className="relative overflow-hidden rounded-t-[3rem] bg-marketing-charcoal px-4 pb-14 pt-24 text-marketing-cream sm:px-8 sm:pt-32">
       <div className="absolute bottom-0 left-1/2 h-[420px] w-[760px] -translate-x-1/2 translate-y-2/3 rounded-full bg-marketing-primary/55 blur-[120px]" />
       <div className="relative mx-auto max-w-7xl">
         <div className="border-b border-white/10 pb-20 text-center">

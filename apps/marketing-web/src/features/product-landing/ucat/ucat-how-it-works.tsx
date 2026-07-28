@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import { AnalyticsLink } from "../analytics-link";
 import { PRODUCT_LINKS } from "@/lib/site";
+import { UCAT_SECTION_EYEBROW_CLASS, UCAT_SECTION_PADDING_CLASS } from "./ucat-landing-section-eyebrow";
 
 const { typography: typo } = MARKETING_TOKENS;
 
@@ -96,12 +97,12 @@ export function UcatHowItWorks() {
   }, []);
 
   return (
-    <section ref={sectionRef} id="how-it-works" className="bg-marketing-cream px-4 py-24 sm:px-8 sm:py-32">
+    <section ref={sectionRef} id="how-it-works" className={`bg-marketing-cream ${UCAT_SECTION_PADDING_CLASS}`}>
       <div className="mx-auto max-w-7xl">
         <div className="mx-auto max-w-3xl text-center">
-          <p className={`text-xs font-semibold uppercase tracking-[0.18em] text-marketing-primary/60 ${typo.dataMono}`}>How it works</p>
+          <p className={`${UCAT_SECTION_EYEBROW_CLASS} ${typo.dataMono}`}>How it works</p>
           <h2 className={`mt-4 text-4xl font-semibold tracking-[-0.04em] text-marketing-charcoal sm:text-6xl ${typo.headingSans}`}>From your first benchmark to a clearer path forward.</h2>
-          <p className={`mx-auto mt-6 max-w-2xl text-base leading-relaxed text-marketing-charcoal/58 sm:text-lg ${typo.secondarySans}`}>Start with enough evidence to make the direction useful. Then let each attempt refine what comes next.</p>
+          <p className={`mx-auto mt-6 max-w-2xl text-lg leading-relaxed text-marketing-charcoal/58 sm:text-xl ${typo.secondarySans}`}>Start with enough evidence to make the direction useful. Then let each attempt refine what comes next.</p>
         </div>
 
         <div className="mt-16 grid gap-5 lg:grid-cols-3">

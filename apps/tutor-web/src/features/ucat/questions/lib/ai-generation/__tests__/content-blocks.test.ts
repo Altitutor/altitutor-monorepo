@@ -19,7 +19,7 @@ jest.mock('vega', () => ({
 }))
 
 describe('generated content blocks', () => {
-  it('keeps only the question-level explanation for multiple-choice output', () => {
+  it('keeps useful question-level and option-level explanations for multiple-choice output', () => {
     const parsed = GeneratedCandidateResponseSchema.parse({
       stems: [{
         stemText: 'A valid stem.',
@@ -36,17 +36,20 @@ describe('generated content blocks', () => {
     })
 
     expect(parsed.stems[0]?.questions[0]?.answerExplanation).toBe('The question-level teaching explanation.')
-    expect(parsed.stems[0]?.questions[0]?.options.every((option) => option.answerExplanation === null)).toBe(true)
+    expect(parsed.stems[0]?.questions[0]?.options.map((option) => option.answerExplanation)).toEqual([
+      'Redundant option explanation.',
+      'Another redundant explanation.',
+    ])
   })
 
-  it('keeps only option explanations for syllogism output', () => {
+  it('keeps required option explanations and an optional strategy explanation for syllogism output', () => {
     const parsed = GeneratedCandidateResponseSchema.parse({
       stems: [{
         stemText: 'A valid syllogism stem.',
         questions: [{
           questionText: "Place 'Yes' if the conclusion does follow. Place 'No' if the conclusion does not follow.",
           questionType: 'syllogism',
-          answerExplanation: 'Redundant question-level explanation.',
+          answerExplanation: 'Use a quick Venn sketch to test each conclusion.',
           options: [
             { answerText: 'Conclusion one', isAnswer: true, answerExplanation: 'Yes, because it follows.' },
             { answerText: 'Conclusion two', isAnswer: false, answerExplanation: 'No, because it does not follow.' },
@@ -55,7 +58,9 @@ describe('generated content blocks', () => {
       }],
     })
 
-    expect(parsed.stems[0]?.questions[0]?.answerExplanation).toBeNull()
+    expect(parsed.stems[0]?.questions[0]?.answerExplanation).toBe(
+      'Use a quick Venn sketch to test each conclusion.'
+    )
     expect(parsed.stems[0]?.questions[0]?.options.map((option) => option.answerExplanation)).toEqual([
       'Yes, because it follows.',
       'No, because it does not follow.',

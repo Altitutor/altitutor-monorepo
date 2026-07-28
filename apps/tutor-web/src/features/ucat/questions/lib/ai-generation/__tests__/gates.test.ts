@@ -44,6 +44,33 @@ describe('validateGeneratedStemCandidate', () => {
     expect(issues.filter((issue) => issue.severity === 'blocking')).toEqual([])
   })
 
+  it('blocks missing and out-of-catalogue question tags when a tag catalogue is available', () => {
+    const validTagId = '11111111-1111-4111-8111-111111111111'
+    const invalidTagId = '22222222-2222-4222-8222-222222222222'
+    const questions = [
+      mcQuestion({ tagIds: [] }),
+      mcQuestion({ tagIds: [invalidTagId] }),
+      mcQuestion({ tagIds: [validTagId] }),
+      mcQuestion({ tagIds: [validTagId] }),
+    ]
+    const issues = validateGeneratedStemCandidate(stem({ questions }), 0, {
+      sectionName: 'Verbal Reasoning',
+      categoryName: 'Reading Comprehension',
+      availableTagIds: [validTagId],
+    })
+
+    expect(issues).toContainEqual(expect.objectContaining({
+      code: 'missing_question_tags',
+      questionIndex: 0,
+      severity: 'blocking',
+    }))
+    expect(issues).toContainEqual(expect.objectContaining({
+      code: 'invalid_question_tag',
+      questionIndex: 1,
+      severity: 'blocking',
+    }))
+  })
+
   it.each([
     'Paragraph 1: The first passage paragraph.\n\nParagraph 2: The second passage paragraph.',
     [

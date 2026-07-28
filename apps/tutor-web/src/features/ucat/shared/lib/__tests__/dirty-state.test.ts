@@ -132,6 +132,32 @@ describe('question stem form snapshot', () => {
     expect(isSnapshotDirty(changed, baseline)).toBe(true)
   })
 
+  it('detects changes to the tutor source note', () => {
+    const values = {
+      sectionId: 's1',
+      categoryId: null,
+      stemText: emptyDoc,
+      accessScope: 'public' as const,
+      tutorSourceNote: 'Original source',
+      questions: [
+        {
+          questionText: docWithText,
+          questionType: 'multiple_choice',
+          options: [
+            { answerText: docWithText, answerExplanation: null, isAnswer: true },
+          ],
+        },
+      ],
+    }
+    const baseline = snapshotQuestionStemFormValues(values)
+    const changed = snapshotQuestionStemFormValues({
+      ...values,
+      tutorSourceNote: 'Updated source',
+    })
+
+    expect(isSnapshotDirty(changed, baseline)).toBe(true)
+  })
+
   it('tolerates a question whose nested options are still registering', () => {
     const partialValues = {
       sectionId: 's1',

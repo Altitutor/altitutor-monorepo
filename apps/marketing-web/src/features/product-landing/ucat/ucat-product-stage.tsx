@@ -12,11 +12,11 @@ import { UcatStudyPlanPreview } from "./ucat-study-plan-preview";
 const { typography: typo } = MARKETING_TOKENS;
 
 const galleryItems = [
-  { id: "progress", label: "Progress" },
+  { id: "learning", label: "Guided learning" },
   { id: "study-plan", label: "Study plan" },
   { id: "simulator", label: "UCAT simulator" },
   { id: "review", label: "Attempt review" },
-  { id: "learning", label: "Guided learning" },
+  { id: "progress", label: "Progress" },
 ] as const;
 
 type GalleryItemId = (typeof galleryItems)[number]["id"];
@@ -81,7 +81,7 @@ function NotchShoulder({ side }: { side: "left" | "right" }) {
 }
 
 export function UcatProductStage() {
-  const [activeItem, setActiveItem] = useState<GalleryItemId>("progress");
+  const [activeItem, setActiveItem] = useState<GalleryItemId>("learning");
   const [isPointerOver, setIsPointerOver] = useState(false);
   const [pauseUntil, setPauseUntil] = useState(0);
   const leaveTimerRef = useRef<number | null>(null);
@@ -136,7 +136,7 @@ export function UcatProductStage() {
   return (
     <section
       id="product"
-      className="relative scroll-mt-24 bg-marketing-primary px-3 pb-20 text-white sm:px-6 sm:pb-24"
+      className="relative scroll-mt-24 bg-marketing-primary px-3 pb-24 text-white sm:px-6 sm:pb-28"
     >
       <div
         className="pointer-events-none absolute inset-0 overflow-hidden"

@@ -18,9 +18,21 @@ import { hasUcatFormatErrors, runUcatFormatChecks } from './format-checks'
 
 export const UCAT_QUESTION_ASSESSMENT_TOPIC = 'ucat-question-assessment'
 
-export type UcatQuestionAssessmentQueueMessage = {
-  runId: string
-}
+export type UcatQuestionAssessmentQueueMessage =
+  | {
+      kind: 'prepare'
+      stemIds: string[]
+      triggerKind: TriggerKind
+      requestedBy: string | null
+    }
+  | {
+      kind: 'run'
+      runId: string
+    }
+  // Accept messages dispatched before the queue payload gained a discriminator.
+  | {
+      runId: string
+    }
 
 type SupabaseAny = {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -29,7 +41,7 @@ type SupabaseAny = {
   rpc: (name: string, args?: Record<string, unknown>) => Promise<{ data: any; error: any }>
 }
 
-type TriggerKind = 'review_submission' | 'content_change' | 'manual_request'
+export type TriggerKind = 'review_submission' | 'content_change' | 'manual_request'
 
 type RequestResult = {
   kind: 'disabled' | 'skipped' | 'existing' | 'format_blocked' | 'unavailable' | 'queued'
@@ -55,15 +67,20 @@ async function beginCycle(admin: SupabaseClient<Database>, stemId: string, reque
   return data
 }
 
-async function getCurrentCycle(admin: SupabaseClient<Database>, stemId: string): Promise<string | null> {
+async function getCurrentCycle(
+  admin: SupabaseClient<Database>,
+  stemId: string,
+): Promise<{ id: string; startedAt: string } | null> {
   const { data, error } = await asAny(admin)
     .from('ucat_ai_question_assessment_cycles')
-    .select('id')
+    .select('id,started_at')
     .eq('stem_id', stemId)
     .eq('is_current', true)
     .maybeSingle()
   if (error) throw error
-  return typeof data?.id === 'string' ? data.id : null
+  return typeof data?.id === 'string' && typeof data?.started_at === 'string'
+    ? { id: data.id, startedAt: data.started_at }
+    : null
 }
 
 async function latestRunFingerprints(
@@ -137,6 +154,9 @@ export async function requestUcatQuestionAssessment(params: {
 
   const snapshot = await loadUcatAssessmentSnapshot(admin, params.stemId)
   if (!snapshot) return { kind: 'skipped' }
+  if (params.triggerKind !== 'manual_request' && snapshot.sourceChannel !== 'ai_generation') {
+    return { kind: 'skipped' }
+  }
   // Manual requests can review private drafts during authoring. Automatic triggers
   // still skip drafts so launch/backfill does not queue unfinished stems.
   if (snapshot.status === 'draft' && params.triggerKind !== 'manual_request') {
@@ -145,12 +165,20 @@ export async function requestUcatQuestionAssessment(params: {
 
   const requestedBy = params.requestedBy
     ?? (params.userClient ? await currentStaffId(params.userClient) : null)
+    ?? (params.triggerKind === 'review_submission' ? snapshot.statusChangedBy : snapshot.updatedBy)
+    ?? null
   let cycleId: string | null
   if (params.triggerKind === 'review_submission') {
     if (snapshot.status !== 'in_review') return { kind: 'skipped' }
-    cycleId = await beginCycle(admin, params.stemId, requestedBy)
+    const currentCycle = await getCurrentCycle(admin, params.stemId)
+    const statusChangedAt = snapshot.statusChangedAt ? new Date(snapshot.statusChangedAt).getTime() : Number.NaN
+    const currentCycleStartedAt = currentCycle ? new Date(currentCycle.startedAt).getTime() : Number.NaN
+    cycleId =
+      currentCycle && Number.isFinite(statusChangedAt) && currentCycleStartedAt >= statusChangedAt
+        ? currentCycle.id
+        : await beginCycle(admin, params.stemId, requestedBy)
   } else {
-    cycleId = await getCurrentCycle(admin, params.stemId)
+    cycleId = (await getCurrentCycle(admin, params.stemId))?.id ?? null
     if (!cycleId && (snapshot.status === 'in_review' || params.triggerKind === 'manual_request')) {
       // Manual requests are deliberately explicit and may start the first cycle;
       // content-change requests still avoid launch backfill outside in-review.
@@ -237,37 +265,78 @@ export async function requestUcatQuestionAssessment(params: {
   return { kind: 'queued', runId }
 }
 
-export async function requestUcatQuestionAssessmentsForReview(params: {
+export async function enqueueUcatQuestionAssessmentPreparation(params: {
   stemIds: string[]
+  triggerKind: Exclude<TriggerKind, 'manual_request'>
   requestedBy?: string | null
-  userClient?: SupabaseClient<Database>
-  concurrency?: number
-}): Promise<void> {
+}): Promise<boolean> {
+  if (!manualReviewEnvironment().enabled) return false
   const stemIds = [...new Set(params.stemIds)]
-  const requestedBy = params.requestedBy
-    ?? (params.userClient ? await currentStaffId(params.userClient) : null)
-  const concurrency = Math.max(1, Math.min(params.concurrency ?? 6, 12))
+  if (stemIds.length === 0) return false
+  const message: UcatQuestionAssessmentQueueMessage = {
+    kind: 'prepare',
+    stemIds,
+    triggerKind: params.triggerKind,
+    requestedBy: params.requestedBy ?? null,
+  }
+  if (process.env.NODE_ENV === 'development') {
+    setTimeout(() => {
+      void prepareUcatQuestionAssessments(message).catch((error) => {
+        console.error('Could not prepare automatic UCAT AI assessments', error)
+      })
+    }, 0)
+    return true
+  }
+  await send(UCAT_QUESTION_ASSESSMENT_TOPIC, message, {
+    retentionSeconds: 604_800,
+  })
+  return true
+}
+
+async function prepareUcatQuestionAssessments(
+  params: Extract<UcatQuestionAssessmentQueueMessage, { kind: 'prepare' }>,
+): Promise<void> {
+  const concurrency = Math.min(6, params.stemIds.length)
   let cursor = 0
+  let firstError: unknown = null
   async function worker() {
-    while (cursor < stemIds.length) {
+    while (cursor < params.stemIds.length) {
       const index = cursor
       cursor += 1
       try {
         await requestUcatQuestionAssessment({
-          stemId: stemIds[index],
-          triggerKind: 'review_submission',
-          requestedBy,
+          stemId: params.stemIds[index],
+          triggerKind: params.triggerKind,
+          requestedBy: params.requestedBy,
         })
       } catch (error) {
-        console.error('Could not request automatic UCAT AI assessment', {
-          stemId: stemIds[index],
+        firstError ??= error
+        console.error('Could not prepare automatic UCAT AI assessment', {
+          stemId: params.stemIds[index],
           error: error instanceof Error ? error.message : String(error),
         })
       }
     }
   }
-  await Promise.all(Array.from({ length: Math.min(concurrency, stemIds.length) }, () => worker()))
+  await Promise.all(Array.from({ length: concurrency }, () => worker()))
+  if (firstError) throw firstError
 }
+
+export async function dispatchUcatQuestionAssessmentQueueMessage(
+  message: UcatQuestionAssessmentQueueMessage,
+  handlers: {
+    prepare: (params: Extract<UcatQuestionAssessmentQueueMessage, { kind: 'prepare' }>) => Promise<unknown>
+    run: (params: { runId: string }) => Promise<unknown>
+  },
+): Promise<void> {
+  if ('kind' in message && message.kind === 'prepare') {
+    await handlers.prepare(message)
+    return
+  }
+  await handlers.run({ runId: message.runId })
+}
+
+export const prepareQueuedUcatQuestionAssessments = prepareUcatQuestionAssessments
 
 export async function enqueueUcatQuestionAssessmentRun(runId: string): Promise<boolean> {
   if (!manualReviewEnvironment().enabled) return false
@@ -285,7 +354,7 @@ export async function enqueueUcatQuestionAssessmentRun(runId: string): Promise<b
   try {
     const queueMessageId = useLocalRunner
       ? `local:${runId}:${run.attempt_count ?? 0}`
-      : (await send(UCAT_QUESTION_ASSESSMENT_TOPIC, { runId } satisfies UcatQuestionAssessmentQueueMessage, {
+      : (await send(UCAT_QUESTION_ASSESSMENT_TOPIC, { kind: 'run', runId } satisfies UcatQuestionAssessmentQueueMessage, {
           idempotencyKey: `ucat-assessment:${runId}:${run.attempt_count ?? 0}`,
           retentionSeconds: 604_800,
         })).messageId

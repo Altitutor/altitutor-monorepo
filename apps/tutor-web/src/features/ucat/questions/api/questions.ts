@@ -22,6 +22,10 @@ import type {
   UcatAssessmentResponse,
   UcatFormatCheck,
 } from "@/features/ucat/questions/lib/ai-assessment/schema";
+import {
+  serializeQuestionCatalogQuery,
+  type QuestionCatalogQuery,
+} from "@/features/ucat/questions/lib/question-catalog-query";
 
 export type { UcatQuestionStemListIndex };
 
@@ -154,6 +158,28 @@ export type UcatQuestionSourceChannel =
   | "bulk_import"
   | "ai_generation";
 
+export type UcatQuestionCatalogRow = UcatQuestionStemRow & {
+  tag_ids: string[];
+  question_types: string[];
+  set_ids: Json;
+  set_names: Json;
+  question_count: number;
+  is_available_in_question_pool: boolean;
+};
+
+export type UcatQuestionCatalogPage = {
+  items: UcatQuestionCatalogRow[];
+  total: number;
+  page: number;
+  pageSize: number;
+};
+
+export type UcatQuestionCatalogCreator = {
+  id: string;
+  first_name: string | null;
+  last_name: string | null;
+};
+
 type StemDetailQuestion = {
   id: string;
   question_text: Json;
@@ -260,6 +286,46 @@ export type UcatAiAssessment = {
 };
 
 export const ucatQuestionsApi = {
+  async listCatalog(query: QuestionCatalogQuery): Promise<UcatQuestionCatalogPage> {
+    const response = await fetch(
+      `/api/ucat/question-stems/catalog?${serializeQuestionCatalogQuery(query)}`,
+      { cache: "no-store" },
+    );
+    if (!response.ok) {
+      const body = await response.json().catch(() => ({}));
+      throw new Error(body.error ?? "Failed to load question catalog");
+    }
+    return response.json() as Promise<UcatQuestionCatalogPage>;
+  },
+
+  async listCatalogReviewIds(query: QuestionCatalogQuery): Promise<string[]> {
+    const params = new URLSearchParams(serializeQuestionCatalogQuery(query));
+    params.set("idsOnly", "1");
+    params.set("page", "1");
+    params.set("pageSize", "50000");
+    const response = await fetch(
+      `/api/ucat/question-stems/catalog?${params}`,
+      { cache: "no-store" },
+    );
+    if (!response.ok) {
+      const body = await response.json().catch(() => ({}));
+      throw new Error(body.error ?? "Failed to load review queue");
+    }
+    const page = await response.json() as { items?: Array<{ id?: unknown }> };
+    return (page.items ?? []).flatMap((item) =>
+      typeof item.id === "string" ? [item.id] : [],
+    );
+  },
+
+  async getCatalogCreators(): Promise<UcatQuestionCatalogCreator[]> {
+    const response = await fetch("/api/ucat/question-stems/catalog/creators");
+    if (!response.ok) {
+      const body = await response.json().catch(() => ({}));
+      throw new Error(body.error ?? "Failed to load question creators");
+    }
+    return response.json() as Promise<UcatQuestionCatalogCreator[]>;
+  },
+
   async getAiAssessment(stemId: string) {
     const response = await fetch(`/api/ucat/question-stems/${stemId}/ai-assessment`, { cache: "no-store" });
     if (!response.ok) {
@@ -560,11 +626,18 @@ export const ucatQuestionsApi = {
     return response.json() as Promise<{ id: string }>;
   },
 
-  async update(stemId: string, payload: UcatQuestionStemBundlePayload) {
+  async update(
+    stemId: string,
+    payload: UcatQuestionStemBundlePayload,
+    options?: { requestAssessment?: boolean },
+  ) {
     const response = await fetch(`/api/ucat/question-stems/${stemId}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(serializePayload({ ...payload, stemId })),
+      body: JSON.stringify({
+        ...serializePayload({ ...payload, stemId }),
+        requestAssessment: options?.requestAssessment ?? false,
+      }),
     });
 
     if (!response.ok) {

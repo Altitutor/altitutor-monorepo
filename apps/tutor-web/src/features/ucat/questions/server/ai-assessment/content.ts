@@ -21,6 +21,10 @@ type AssessmentStemRow = Pick<
   | 'section_id'
   | 'question_stem_category_id'
   | 'status'
+  | 'source_channel'
+  | 'status_changed_at'
+  | 'status_changed_by'
+  | 'updated_by'
   | 'access_scope'
   | 'stem_text'
 >
@@ -229,7 +233,7 @@ async function loadAssessmentDetailRow(
   const source = client as SupabaseAny
   const { data: stemData, error: stemError } = await source
     .from('question_stems')
-    .select('id,section_id,question_stem_category_id,status,access_scope,stem_text')
+    .select('id,section_id,question_stem_category_id,status,source_channel,status_changed_at,status_changed_by,updated_by,access_scope,stem_text')
     .eq('id', stemId)
     .is('deleted_at', null)
     .maybeSingle()
@@ -405,6 +409,17 @@ export async function loadUcatAssessmentSnapshot(
   return {
     stemId,
     status: row.status === 'published' ? 'published' : row.status === 'in_review' ? 'in_review' : 'draft',
+    sourceChannel:
+      row.source_channel === 'ai_generation'
+        ? 'ai_generation'
+        : row.source_channel === 'bulk_import'
+          ? 'bulk_import'
+          : row.source_channel === 'individual'
+            ? 'individual'
+            : null,
+    statusChangedAt: typeof row.status_changed_at === 'string' ? row.status_changed_at : null,
+    statusChangedBy: typeof row.status_changed_by === 'string' ? row.status_changed_by : null,
+    updatedBy: typeof row.updated_by === 'string' ? row.updated_by : null,
     sectionId: String(row.section_id ?? ''),
     sectionName: String(row.section_name ?? ''),
     sectionNumber: Number(row.section_number ?? 0),

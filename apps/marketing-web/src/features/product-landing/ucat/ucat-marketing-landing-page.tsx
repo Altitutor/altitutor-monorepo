@@ -12,7 +12,7 @@ import { UcatHowItWorks } from "./ucat-how-it-works";
 
 export function UcatMarketingLandingPage() {
   return (
-    <main className="relative min-h-dvh bg-marketing-cream text-marketing-charcoal antialiased selection:bg-marketing-accent selection:text-marketing-charcoal">
+    <main className="relative min-h-dvh overflow-x-hidden bg-marketing-cream text-marketing-charcoal antialiased selection:bg-marketing-accent selection:text-marketing-charcoal">
       <UcatLandingScrollIndicator />
       <UcatLandingNavbar />
       <UcatLandingHero />

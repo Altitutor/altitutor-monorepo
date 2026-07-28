@@ -6,24 +6,32 @@ import type {
 } from "./ucat-feature-data";
 import {
   MarketingExamCalculator,
-  MarketingLearnConceptBlock,
-  MarketingLearnEmbeddedQuestion,
-  MarketingLearnModuleSidebar,
-  MarketingPracticeFiltersPanel,
-  MarketingPracticePacingPanel,
-  MarketingPracticeTimingCards,
+  MarketingKeyboardShortcutsPreview,
+  MarketingLearnGuidedWalkthroughPreview,
+  MarketingLearnRemediationDirectoryPreview,
+  MarketingLearnSectionDirectoryPreview,
+  MarketingLearnWorkedExamplePreview,
+  MarketingPracticeDiscountPreview,
+  MarketingPracticePacePreview,
+  MarketingPracticeSectionCard,
+  MarketingProgressScoreInsightPreview,
+  MarketingProgressScoreTrackingPreview,
+  MarketingReviewExplanationDmPreview,
+  MarketingReviewTimingInteractivePreview,
+  MarketingSectionStrengthsPreview,
+  MarketingSimulatorDetailPreview,
+  MarketingFindWordTrainerPreview,
+  MarketingStudyOrbPreview,
+  MarketingStudyPlanCardSnapshot,
+  MarketingStudyPlanInsightsPreview,
+  MarketingStudyPlanSetupPreview,
+} from "./ucat-feature-detail-previews";
+import {
   MarketingProgressCardSnapshot,
-  MarketingProgressEstimatePanel,
-  MarketingReviewExplanation,
-  MarketingReviewScoreBreakdown,
-  MarketingReviewScoreSnapshot,
-  MarketingReviewTimingChart,
   MarketingSimulatorBleedPreview,
-  MarketingSkillTrainerPanel,
-  MarketingStudyPlanTasks,
-  MarketingTrajectoryChart,
 } from "./ucat-marketing-faithful-ui";
 import { useFaithfulMotion } from "./ucat-marketing-faithful-ui-motion";
+import { UcatLearningCardPreview } from "./ucat-learning-card-preview";
 
 function FaithfulPreview({
   children,
@@ -36,8 +44,8 @@ function FaithfulPreview({
     <div
       className={
         interactive
-          ? "ucat-product-ui pointer-events-auto text-[#1a1a1a]"
-          : "ucat-product-ui pointer-events-none select-none text-[#1a1a1a]"
+          ? "ucat-product-ui pointer-events-auto w-full min-w-0 max-w-full text-[#1a1a1a]"
+          : "ucat-product-ui pointer-events-none w-full min-w-0 max-w-full select-none text-[#1a1a1a]"
       }
       aria-hidden={!interactive}
     >
@@ -52,10 +60,10 @@ function CardPreview({ id }: { id: FeatureCardPreviewId }) {
   switch (id) {
     case "practice-simulator":
       return <MarketingSimulatorBleedPreview />;
-    case "review-score-snapshot":
-      return <MarketingReviewScoreSnapshot animate={animate} interactive />;
+    case "study-plan-snapshot":
+      return <MarketingStudyPlanCardSnapshot animate={animate} />;
     case "learning-module-snapshot":
-      return <MarketingLearnModuleSidebar animate={animate} />;
+      return <UcatLearningCardPreview animate={animate} />;
     case "progress-plan-snapshot":
       return <MarketingProgressCardSnapshot animate={animate} />;
     default: {
@@ -69,32 +77,48 @@ function DetailPreview({ id }: { id: FeatureDetailPreviewId }) {
   const { animate } = useFaithfulMotion();
 
   switch (id) {
-    case "practice-filters":
-      return <MarketingPracticeFiltersPanel animate={animate} />;
-    case "practice-timing-toggle":
-      return <MarketingPracticeTimingCards animate={animate} />;
-    case "practice-access-arrangements":
-      return <MarketingPracticePacingPanel animate={animate} />;
+    case "practice-simulator":
+      return <MarketingSimulatorDetailPreview />;
     case "practice-calculator":
       return <MarketingExamCalculator animate={animate} />;
-    case "review-score-breakdown":
-      return <MarketingReviewScoreBreakdown animate={animate} />;
-    case "review-explanation":
-      return <MarketingReviewExplanation animate={animate} />;
-    case "review-timing-chart":
-      return <MarketingReviewTimingChart animate={animate} />;
-    case "learn-concept-block":
-      return <MarketingLearnConceptBlock animate={animate} />;
-    case "learn-embedded-question":
-      return <MarketingLearnEmbeddedQuestion animate={animate} />;
-    case "learn-skill-trainer":
-      return <MarketingSkillTrainerPanel animate={animate} />;
-    case "progress-estimate-gauge":
-      return <MarketingProgressEstimatePanel animate={animate} />;
-    case "progress-trajectory":
-      return <MarketingTrajectoryChart animate={animate} heightClass="h-48 sm:h-56" />;
-    case "progress-plan-tasks":
-      return <MarketingStudyPlanTasks animate={animate} />;
+    case "practice-keyboard-shortcuts":
+      return <MarketingKeyboardShortcutsPreview animate={animate} />;
+    case "practice-filters":
+      return <MarketingPracticeSectionCard animate={animate} />;
+    case "practice-pace":
+      return <MarketingPracticePacePreview animate={animate} />;
+    case "practice-skill-trainer":
+      return <MarketingFindWordTrainerPreview animate={animate} />;
+    case "study-plan-calendar":
+      return <MarketingStudyPlanCardSnapshot animate={animate} />;
+    case "study-plan-target-score":
+      return <MarketingProgressScoreTrackingPreview animate={animate} />;
+    case "study-plan-setup":
+      return <MarketingStudyPlanSetupPreview animate={animate} />;
+    case "study-plan-orb":
+      return <MarketingStudyOrbPreview animate={animate} />;
+    case "study-plan-insights":
+      return <MarketingStudyPlanInsightsPreview animate={animate} />;
+    case "learn-section-directory":
+      return <MarketingLearnSectionDirectoryPreview animate={animate} />;
+    case "learn-worked-example":
+      return <MarketingLearnWorkedExamplePreview animate={animate} />;
+    case "learn-guided-walkthrough":
+      return <MarketingLearnGuidedWalkthroughPreview animate={animate} />;
+    case "learn-remediation-directory":
+      return <MarketingLearnRemediationDirectoryPreview animate={animate} />;
+    case "progress-practice-discounts":
+      return <MarketingPracticeDiscountPreview animate={animate} />;
+    case "progress-section-strengths":
+      return <MarketingSectionStrengthsPreview animate={animate} />;
+    case "review-explanation-dm":
+      return <MarketingReviewExplanationDmPreview animate={animate} />;
+    case "review-timing-interactive":
+      return <MarketingReviewTimingInteractivePreview animate={animate} />;
+    case "progress-score-tracking":
+      return <MarketingProgressScoreTrackingPreview animate={animate} />;
+    case "progress-score-insight":
+      return <MarketingProgressScoreInsightPreview animate={animate} />;
     default: {
       const _exhaustive: never = id;
       return _exhaustive;
@@ -103,7 +127,7 @@ function DetailPreview({ id }: { id: FeatureDetailPreviewId }) {
 }
 
 export function UcatFeatureCardPreview({ id }: { id: FeatureCardPreviewId }) {
-  const interactive = id === "review-score-snapshot";
+  const interactive = id === "progress-plan-snapshot";
 
   return (
     <FaithfulPreview interactive={interactive}>
@@ -113,8 +137,11 @@ export function UcatFeatureCardPreview({ id }: { id: FeatureCardPreviewId }) {
 }
 
 export function UcatFeatureDetailPreview({ id }: { id: FeatureDetailPreviewId }) {
+  const interactive =
+    id === "review-timing-interactive" || id === "practice-calculator";
+
   return (
-    <FaithfulPreview>
+    <FaithfulPreview interactive={interactive}>
       <DetailPreview id={id} />
     </FaithfulPreview>
   );

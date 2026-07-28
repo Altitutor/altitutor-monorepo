@@ -36,6 +36,7 @@ import {
   type TagOption,
 } from '@/features/ucat/questions/components/UcatQuestionStemDialog'
 import { mapCategoriesToOptions, mapTagsToOptions, taxonomyDisplayLabel } from '@/features/ucat/shared/lib/taxonomy-paths'
+import { resolveRootSectionId } from '@/features/ucat/shared/lib/taxonomy-reparent'
 import { buildStemCatalogFilterDefinitions } from '@/features/ucat/shared/lib/stem-catalog-filters'
 import { Step3SetAnswers } from '@/features/ucat/questions/components/bulk-import/Step3SetAnswers'
 import { UcatDialogShell } from '@/features/ucat/shared/dialog-shell'
@@ -372,18 +373,24 @@ export function GenerateQuestionStemsModal({ open, onClose, onStarted }: Generat
   )
 
   const tagOptions = useMemo(
-    () =>
-      mapTagsToOptions(tags)
+    () => {
+      const mappedTags = mapTagsToOptions(tags)
+      const taxonomyRows = mappedTags.map((tag) => ({
+        id: tag.id ?? '',
+        parent_id: tag.parent_question_tag_id ?? null,
+        section_id: tag.ucat_section_id ?? null,
+      }))
+      return mappedTags
         .filter((tag) => {
           if (!sectionId) return true
-          const section = (tag as { ucat_section_id?: string | null }).ucat_section_id
-          return !section || section === sectionId
+          return resolveRootSectionId(taxonomyRows, tag.id ?? '') === sectionId
         })
         .map((tag) => ({
           id: tag.id ?? '',
           name: taxonomyDisplayLabel(tag),
         }))
-        .filter((tag) => tag.id),
+        .filter((tag) => tag.id)
+    },
     [tags, sectionId]
   )
 

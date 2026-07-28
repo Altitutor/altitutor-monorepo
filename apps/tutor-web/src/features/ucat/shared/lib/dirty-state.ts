@@ -39,6 +39,7 @@ export function snapshotQuestionStemFormValues(values: {
   categoryId?: string | null
   stemText: Json
   accessScope: 'public' | 'private'
+  tutorSourceNote?: string | null
   status?: 'draft' | 'in_review' | 'published' | null
   questions: Array<{
     questionText: Json
@@ -47,6 +48,8 @@ export function snapshotQuestionStemFormValues(values: {
     difficulty?: number | null
     timeBurdenSeconds?: string | null
     tagIds?: string[]
+    sourceChannel?: string | null
+    aiGenerationMetadata?: Json | null
     options: Array<{
       answerText: Json
       answerExplanation?: Json | null
@@ -62,6 +65,7 @@ export function snapshotQuestionStemFormValues(values: {
     categoryId: values.categoryId ?? null,
     stemText: jsonToPlainText(values.stemText),
     accessScope: values.accessScope,
+    tutorSourceNote: values.tutorSourceNote?.trim() ?? '',
     status: values.status ?? null,
     questions: questions.map((q) => ({
       questionText: jsonToPlainText(q.questionText),
@@ -70,6 +74,8 @@ export function snapshotQuestionStemFormValues(values: {
       difficulty: q.difficulty ?? null,
       timeBurdenSeconds: q.timeBurdenSeconds ?? '',
       tagIds: [...(q.tagIds ?? [])].sort(),
+      sourceChannel: q.sourceChannel ?? null,
+      aiGenerationMetadata: q.aiGenerationMetadata ?? null,
       options: (Array.isArray(q.options) ? q.options : []).map((opt) => ({
         answerText: jsonToPlainText(opt.answerText),
         answerExplanation: jsonToPlainText(opt.answerExplanation ?? null),
