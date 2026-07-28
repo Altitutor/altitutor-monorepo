@@ -109,6 +109,8 @@ function transformText(
   stats: RichTextBackfillStats,
 ): Json[] {
   const text = typeof original.text === "string" ? original.text : "";
+  if (text === "") return [{ ...original }];
+
   const pattern = allowBold
     ? /\*\*([^*\n]+)\*\*|\\\(([\s\S]*?)\\\)/gu
     : /\\\(([\s\S]*?)\\\)/gu;
@@ -355,8 +357,23 @@ function semanticText(value: Json, removeDelimiters: boolean): string {
       return node.attrs.latex;
     }
     if (!Array.isArray(node.content)) return "";
-    const separator = node.type === "paragraph" ? "" : " ";
-    return node.content.map(visit).filter(Boolean).join(separator);
+    if (node.type === "paragraph") {
+      const paragraphContent = node.content
+        .map((child) =>
+          removeDelimiters &&
+          isRecord(child) &&
+          child.type === "text" &&
+          typeof child.text === "string"
+            ? child.text
+            : visit(child),
+        )
+        .filter(Boolean)
+        .join("");
+      return removeDelimiters
+        ? formattingDelimitersRemoved(paragraphContent)
+        : paragraphContent;
+    }
+    return node.content.map(visit).filter(Boolean).join(" ");
   }
   return visit(value).replace(/\s+/gu, " ").trim();
 }

@@ -125,6 +125,123 @@ describe("UCAT leaked rich-text formatting backfill", () => {
     expect(mixed.changed).toBe(false);
   });
 
+  it("validates complete display math split across marked text nodes", () => {
+    const displayExplanation = doc(
+      paragraph(
+        { type: "text", text: "\\[P" },
+        {
+          type: "text",
+          text: "_{\\text{new}}=1.25^3P",
+          marks: [{ type: "italic" }],
+        },
+        { type: "text", text: "_{\\text{old}}.\\]" },
+      ),
+    );
+    const aggregate: Record<string, unknown> = {
+      id: "00000000-0000-0000-0000-000000000001",
+      stem_text: doc(paragraph({ type: "text", text: "Stem" })),
+      questions: [
+        {
+          id: "00000000-0000-0000-0000-000000000002",
+          index: 1,
+          question_text: doc(paragraph({ type: "text", text: "Question" })),
+          answer_explanation: displayExplanation,
+          answer_options: [],
+        },
+      ],
+    };
+
+    const plan = planStemRichTextBackfill(aggregate);
+
+    expect(plan.issues).toEqual([]);
+    expect(plan.operations).toEqual([
+      {
+        type: "update_question",
+        questionId: "00000000-0000-0000-0000-000000000002",
+        changes: {
+          answerExplanation: doc({
+            type: "blockMath",
+            attrs: {
+              latex: "P_{\\text{new}}=1.25^3P_{\\text{old}}.",
+            },
+          }),
+        },
+      },
+    ]);
+  });
+
+  it("applies the reviewed, revision-pinned subscript repair", () => {
+    const aggregate: Record<string, unknown> = {
+      id: "30134c9b-fd68-409c-b3f3-ff818ca6dccb",
+      revision:
+        "eyJpZCI6IjMwMTM0YzliLWZkNjgtNDA5Yy1iM2YzLWZmODE4Y2E2ZGNjYiIsInVwZGF0ZWRBdCI6IjIwMjYtMDctMjdUMTM6MTY6NDAuNTY5NzU4KzAwOjAwIn0",
+      stem_text: doc(paragraph({ type: "text", text: "Stem" })),
+      questions: [
+        {
+          id: "43b03d90-f139-4c82-aafd-a1ac4876d330",
+          index: 1,
+          question_text: doc(paragraph({ type: "text", text: "Question" })),
+          answer_explanation: doc(
+            paragraph({
+              type: "text",
+              text: "A 25% increase makes the new velocity \\(1.25v\\). Substitute this into the formula:",
+            }),
+            paragraph(
+              { type: "text", text: "\\[P" },
+              {
+                type: "text",
+                text: "{\\text{new}}=A(1.25v)^3=1.25^3Av^3=1.953125P",
+                marks: [{ type: "italic" }],
+              },
+              { type: "text", text: "{\\text{old}}.\\]" },
+            ),
+            paragraph(
+              {
+                type: "text",
+                text: "The new power is about 1.95 times the old power, so the ",
+              },
+              {
+                type: "text",
+                text: "increase",
+                marks: [{ type: "bold" }],
+              },
+              {
+                type: "text",
+                text: " is \\((1.953125-1)\\times100\\%\\approx95\\%\\).",
+              },
+            ),
+          ),
+          answer_options: [],
+        },
+      ],
+    };
+
+    const plan = planStemRichTextBackfill(aggregate);
+    const serializedOperations = JSON.stringify(plan.operations);
+
+    expect(plan.issues).toEqual([]);
+    expect(plan.reviewedCorrections).toEqual([
+      "$.questions[0].answer_explanation:restore_latex_subscripts",
+    ]);
+    expect(serializedOperations).toContain(
+      "P_{\\\\text{new}}=A(1.25v)^3=1.25^3Av^3=1.953125P_{\\\\text{old}}.",
+    );
+    expect(serializedOperations).not.toContain(
+      "P{\\\\text{new}}=A(1.25v)^3=1.25^3Av^3=1.953125P{\\\\text{old}}.",
+    );
+
+    const revisionMismatch = planStemRichTextBackfill({
+      ...aggregate,
+      revision: "different-revision",
+    });
+    expect(revisionMismatch.issues).toEqual([
+      expect.objectContaining({
+        code: "invalid_rich_text",
+        message: expect.stringContaining("pinned revision"),
+      }),
+    ]);
+  });
+
   it("recurses through tables while preserving their structure", () => {
     const before = doc({
       type: "table",
@@ -160,6 +277,40 @@ describe("UCAT leaked rich-text formatting backfill", () => {
       ],
     });
     expect(validateTipTapDocument(result.value)).toBeNull();
+  });
+
+  it("preserves unrelated empty marked text nodes without proposing a change", () => {
+    const before = doc({
+      type: "table",
+      content: [
+        {
+          type: "tableRow",
+          content: [
+            {
+              type: "tableCell",
+              attrs: { colspan: 1, rowspan: 1, colwidth: null },
+              content: [
+                paragraph({
+                  type: "text",
+                  text: "",
+                  marks: [{ type: "bold" }],
+                }),
+              ],
+            },
+          ],
+        },
+      ],
+    });
+
+    const result = backfillRichTextFormatting(before);
+
+    expect(result.value).toEqual(before);
+    expect(result.changed).toBe(false);
+    expect(result.stats).toEqual({
+      boldSpans: 0,
+      inlineMathNodes: 0,
+      blockMathNodes: 0,
+    });
   });
 
   it("does not interpret literal list markers or blockquote prefixes", () => {

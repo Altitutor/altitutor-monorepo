@@ -21,12 +21,17 @@ type FieldChange = {
   before: Json;
   after: Json;
   stats: RichTextBackfillStats;
+  reviewedSemanticCorrection?: {
+    before: string;
+    after: string;
+  };
 };
 
 export type StemBackfillPlan = {
   operations: QuestionStemOperation[];
   fieldChanges: FieldChange[];
   issues: RichTextBackfillIssue[];
+  reviewedCorrections: string[];
 };
 
 const richTextSchema = getSchema([
@@ -48,6 +53,21 @@ const richTextSchema = getSchema([
     },
   }),
 ]);
+
+const REVIEWED_SUBSCRIPT_REPAIR = {
+  stemId: "30134c9b-fd68-409c-b3f3-ff818ca6dccb",
+  questionId: "43b03d90-f139-4c82-aafd-a1ac4876d330",
+  revision:
+    "eyJpZCI6IjMwMTM0YzliLWZkNjgtNDA5Yy1iM2YzLWZmODE4Y2E2ZGNjYiIsInVwZGF0ZWRBdCI6IjIwMjYtMDctMjdUMTM6MTY6NDAuNTY5NzU4KzAwOjAwIn0",
+  incorrectLatex:
+    "P{\\text{new}}=A(1.25v)^3=1.25^3Av^3=1.953125P{\\text{old}}.",
+  correctedLatex:
+    "P_{\\text{new}}=A(1.25v)^3=1.25^3Av^3=1.953125P_{\\text{old}}.",
+  beforeSemantic:
+    "A 25% increase makes the new velocity 1.25v. Substitute this into the formula: P{\\text{new}}=A(1.25v)^3=1.25^3Av^3=1.953125P{\\text{old}}. The new power is about 1.95 times the old power, so the increase is (1.953125-1)\\times100\\%\\approx95\\%.",
+  afterSemantic:
+    "A 25% increase makes the new velocity 1.25v. Substitute this into the formula: P_{\\text{new}}=A(1.25v)^3=1.25^3Av^3=1.953125P_{\\text{old}}. The new power is about 1.95 times the old power, so the increase is (1.953125-1)\\times100\\%\\approx95\\%.",
+} as const;
 
 function isRecord(value: unknown): value is JsonRecord {
   return Boolean(value) && typeof value === "object" && !Array.isArray(value);
@@ -83,7 +103,10 @@ function validateFieldChange(change: FieldChange): RichTextBackfillIssue[] {
   const issues: RichTextBackfillIssue[] = [];
   const beforeText = extractedSemanticTextBeforeBackfill(change.before);
   const afterText = extractedSemanticTextAfterBackfill(change.after);
-  if (beforeText !== afterText) {
+  const reviewedCorrectionMatches =
+    change.reviewedSemanticCorrection?.before === beforeText &&
+    change.reviewedSemanticCorrection.after === afterText;
+  if (beforeText !== afterText && !reviewedCorrectionMatches) {
     issues.push({
       code: "invalid_rich_text",
       path: change.path,
@@ -107,6 +130,83 @@ function validateFieldChange(change: FieldChange): RichTextBackfillIssue[] {
     });
   }
   return issues;
+}
+
+function replaceExactBlockMathLatex(
+  value: Json,
+  before: string,
+  after: string,
+): { value: Json; replacements: number } {
+  if (Array.isArray(value)) {
+    let replacements = 0;
+    const next = value.map((child) => {
+      const result = replaceExactBlockMathLatex(child, before, after);
+      replacements += result.replacements;
+      return result.value;
+    });
+    return { value: replacements > 0 ? next : value, replacements };
+  }
+  if (!isRecord(value)) return { value, replacements: 0 };
+  if (
+    value.type === "blockMath" &&
+    isRecord(value.attrs) &&
+    value.attrs.latex === before
+  ) {
+    return {
+      value: {
+        ...value,
+        attrs: { ...value.attrs, latex: after },
+      },
+      replacements: 1,
+    };
+  }
+  if (!Array.isArray(value.content)) return { value, replacements: 0 };
+  const result = replaceExactBlockMathLatex(value.content, before, after);
+  return result.replacements > 0
+    ? {
+        value: { ...value, content: result.value },
+        replacements: result.replacements,
+      }
+    : { value, replacements: 0 };
+}
+
+function applyReviewedAnswerExplanationRepair(
+  aggregate: Record<string, unknown>,
+  questionId: string,
+  path: string,
+  value: Json | null | undefined,
+  fieldChanges: FieldChange[],
+): Json | null | undefined {
+  if (
+    aggregate.id !== REVIEWED_SUBSCRIPT_REPAIR.stemId ||
+    aggregate.revision !== REVIEWED_SUBSCRIPT_REPAIR.revision ||
+    questionId !== REVIEWED_SUBSCRIPT_REPAIR.questionId ||
+    value === null ||
+    value === undefined
+  ) {
+    return value;
+  }
+  const result = replaceExactBlockMathLatex(
+    value,
+    REVIEWED_SUBSCRIPT_REPAIR.incorrectLatex,
+    REVIEWED_SUBSCRIPT_REPAIR.correctedLatex,
+  );
+  const change = fieldChanges.find((candidate) => candidate.path === path);
+  if (result.replacements !== 1 || !change) return value;
+  const beforeText = extractedSemanticTextBeforeBackfill(change.before);
+  const afterText = extractedSemanticTextAfterBackfill(result.value);
+  if (
+    beforeText !== REVIEWED_SUBSCRIPT_REPAIR.beforeSemantic ||
+    afterText !== REVIEWED_SUBSCRIPT_REPAIR.afterSemantic
+  ) {
+    return value;
+  }
+  change.after = result.value;
+  change.reviewedSemanticCorrection = {
+    before: REVIEWED_SUBSCRIPT_REPAIR.beforeSemantic,
+    after: REVIEWED_SUBSCRIPT_REPAIR.afterSemantic,
+  };
+  return result.value;
 }
 
 function transformField(
@@ -306,11 +406,18 @@ export function planStemRichTextBackfill(
     ) {
       questionChanges.questionText = questionText as Record<string, unknown>;
     }
-    const answerExplanation = transformField(
+    let answerExplanation = transformField(
       question.answer_explanation,
       `$.questions[${questionIndex}].answer_explanation`,
       fieldChanges,
       issues,
+    );
+    answerExplanation = applyReviewedAnswerExplanationRepair(
+      aggregate,
+      questionId,
+      `$.questions[${questionIndex}].answer_explanation`,
+      answerExplanation,
+      fieldChanges,
     );
     if (
       answerExplanation !== undefined &&
@@ -386,8 +493,26 @@ export function planStemRichTextBackfill(
     });
   });
 
+  if (
+    aggregate.id === REVIEWED_SUBSCRIPT_REPAIR.stemId &&
+    !fieldChanges.some((change) => change.reviewedSemanticCorrection)
+  ) {
+    issues.push({
+      code: "invalid_rich_text",
+      path: "$",
+      message:
+        "The manually reviewed subscript repair did not match its pinned revision and exact source shape.",
+    });
+  }
   fieldChanges.forEach((change) => issues.push(...validateFieldChange(change)));
   issues.push(...invariantIssues(aggregate, operations));
 
-  return { operations, fieldChanges, issues };
+  return {
+    operations,
+    fieldChanges,
+    issues,
+    reviewedCorrections: fieldChanges
+      .filter((change) => change.reviewedSemanticCorrection)
+      .map((change) => `${change.path}:restore_latex_subscripts`),
+  };
 }
