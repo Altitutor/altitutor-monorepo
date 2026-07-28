@@ -15,6 +15,7 @@ import { extractUcatImagePathFromSignedUrl, REFRESHED_URL_EXPIRY_SECONDS } from 
 import {
   buildWriterPrompt,
   type AiGenerationBrief,
+  type AiGenerationTag,
 } from '@/features/ucat/questions/lib/ai-generation/prompts'
 import {
   buildLocalPlan,
@@ -29,6 +30,9 @@ import {
 import {
   generatedContentToPlainText,
 } from '@/features/ucat/questions/lib/ai-generation/content-blocks'
+import {
+  buildAiGenerationTagCatalogue,
+} from '@/features/ucat/questions/lib/ai-generation/tag-catalogue'
 import { generatedContentToProseMirrorServer } from '@/features/ucat/questions/lib/ai-generation/server-content-blocks'
 import {
   hasBlockingIssues,
@@ -1045,17 +1049,30 @@ function prioritizeTagMatches(stems: SourceStem[], targetTagIds: string[]): Sour
     .map((item) => item.stem)
 }
 
-async function fetchTargetTags(client: SupabaseClient<Database>, tagIds: string[]) {
-  if (tagIds.length === 0) return []
+async function fetchAvailableTags(
+  client: SupabaseClient<Database>,
+  sectionId: string,
+): Promise<AiGenerationTag[]> {
   const { data, error } = await asAny(client)
     .from('vtutor_ucat_question_tags')
-    .select('id,name')
-    .in('id', tagIds)
+    .select('id,name,description,parent_question_tag_id,ucat_section_id')
   if (error) throw new Error(error.message)
-  return ((data ?? []) as unknown as Array<{ id: string; name: string | null }>).map((tag) => ({
-    id: tag.id,
-    name: tag.name ?? 'Untitled tag',
-  }))
+
+  const rows = ((data ?? []) as unknown as Array<{
+    id: string
+    name: string | null
+    description: Json | null
+    parent_question_tag_id: string | null
+    ucat_section_id: string | null
+  }>).filter((tag) => tag.id)
+    .map((tag) => ({
+      id: tag.id,
+      name: tag.name?.trim() || 'Untitled tag',
+      description: extractText(tag.description).slice(0, 500) || null,
+      parentId: tag.parent_question_tag_id,
+      sectionId: tag.ucat_section_id,
+    }))
+  return buildAiGenerationTagCatalogue(rows, sectionId)
 }
 
 async function fetchSectionCategories(
@@ -1132,6 +1149,7 @@ export type PreparedGenerationContext = {
   categoryName: string | null
   sourceSamples: SourceStem[]
   targetTags: Array<{ id: string; name: string }>
+  availableTags: AiGenerationTag[]
   comparisonSources: GenerationComparisonSource[]
 }
 
@@ -1153,11 +1171,20 @@ export async function prepareGenerationContext(
     : null
   if (body.categoryId && !categoryName) throw new Error('Invalid category for selected section')
 
-  const [sourceSamples, targetTags, comparisonSources] = await Promise.all([
+  const [sourceSamples, availableTags, comparisonSources] = await Promise.all([
     fetchSourceStems(client, body),
-    fetchTargetTags(client, body.targetTagIds),
+    fetchAvailableTags(client, body.sectionId),
     fetchBankComparisonSources(client, body.sectionId),
   ])
+  const availableTagsById = new Map(availableTags.map((tag) => [tag.id, tag]))
+  const invalidTargetTagIds = body.targetTagIds.filter((id) => !availableTagsById.has(id))
+  if (invalidTargetTagIds.length > 0) {
+    throw new Error('Invalid question tag for selected section')
+  }
+  const targetTags = body.targetTagIds.map((id) => {
+    const tag = availableTagsById.get(id)!
+    return { id: tag.id, name: tag.name }
+  })
 
   return {
     section: sectionRow,
@@ -1165,6 +1192,7 @@ export async function prepareGenerationContext(
     categoryName,
     sourceSamples,
     targetTags,
+    availableTags,
     comparisonSources,
   }
 }
@@ -1296,6 +1324,7 @@ export async function executeGeneration(
     })
     const sourceSamples = prepared.sourceSamples
     const targetTags = prepared.targetTags
+    const availableTags = prepared.availableTags
     const promptLayers = await buildPromptLayers({
       client,
       sectionId: body.sectionId,
@@ -1335,6 +1364,7 @@ export async function executeGeneration(
       difficultyTarget: body.difficultyTarget,
       timeBurdenTarget: body.timeBurdenTarget,
       targetTags,
+      availableTags,
       runInstructions: body.runInstructions ?? null,
       examples,
       sourceImagesForCalibration: [],
@@ -1552,6 +1582,7 @@ export async function executeGeneration(
           const issues = validateGeneratedStemCandidate(candidate, stemIndex, {
             sectionName: brief.sectionName,
             categoryName,
+            availableTagIds: availableTags.map((tag) => tag.id),
             sourceComparisonSources,
           })
           activeDebug.gateIssues.push(...issues)

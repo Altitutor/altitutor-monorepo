@@ -1,31 +1,39 @@
 import type { LucideIcon } from "lucide-react";
 import {
-  BarChart3,
   BookOpen,
+  CalendarDays,
   Target,
   Zap,
 } from "lucide-react";
 
 export type FeatureCardPreviewId =
   | "practice-simulator"
-  | "review-score-snapshot"
+  | "study-plan-snapshot"
   | "learning-module-snapshot"
   | "progress-plan-snapshot";
 
 export type FeatureDetailPreviewId =
-  | "practice-filters"
-  | "practice-timing-toggle"
-  | "practice-access-arrangements"
+  | "practice-simulator"
   | "practice-calculator"
-  | "review-score-breakdown"
-  | "review-explanation"
-  | "review-timing-chart"
-  | "learn-concept-block"
-  | "learn-embedded-question"
-  | "learn-skill-trainer"
-  | "progress-estimate-gauge"
-  | "progress-trajectory"
-  | "progress-plan-tasks";
+  | "practice-keyboard-shortcuts"
+  | "practice-filters"
+  | "practice-pace"
+  | "practice-skill-trainer"
+  | "study-plan-calendar"
+  | "study-plan-target-score"
+  | "study-plan-setup"
+  | "study-plan-orb"
+  | "study-plan-insights"
+  | "learn-section-directory"
+  | "learn-worked-example"
+  | "learn-guided-walkthrough"
+  | "learn-remediation-directory"
+  | "progress-practice-discounts"
+  | "progress-section-strengths"
+  | "review-explanation-dm"
+  | "review-timing-interactive"
+  | "progress-score-tracking"
+  | "progress-score-insight";
 
 export type UcatFeatureTheme = {
   accent: string;
@@ -33,11 +41,11 @@ export type UcatFeatureTheme = {
   iconBg: string;
 };
 
-/** Shared accent for all feature cards — marketing light blue. */
+/** Shared accent for all feature cards — marketing navy. */
 const FEATURE_THEME: UcatFeatureTheme = {
-  accent: "#92b9c6",
-  accentBg: "bg-marketing-accent/15",
-  iconBg: "bg-marketing-accent/20 text-marketing-accent",
+  accent: "#0a2941",
+  accentBg: "bg-marketing-primary/10",
+  iconBg: "bg-marketing-primary/10 text-marketing-primary",
 };
 
 export type UcatFeatureDetail = {
@@ -68,13 +76,12 @@ export const UCAT_FEATURES: readonly UcatFeature[] = [
     number: "01",
     eyebrow: "Practice and exam simulation",
     title: "Build the skill—and the familiarity to use it under pressure.",
-    cardHeadline:
-      "Practice with focus, then step into a simulator that feels like test day.",
+    cardHeadline: "A simulator that feels like test day.",
     body: "Choose focused question practice, timed section sets, or a complete mock. The simulator reproduces the UCAT’s distinctive controls and layout, so the interface feels familiar before test day.",
     points: [
       "Filtered practice by section, question type, timing, and performance",
-      "Timed section sets and 30+ full mocks",
-      "UCAT-style navigator, calculator, flagging, and keyboard shortcuts",
+      "Timed section sets and full mocks",
+      "UCAT-replica navigator, calculator, flagging, and keyboard shortcuts",
     ],
     icon: Zap,
     theme: FEATURE_THEME,
@@ -82,58 +89,77 @@ export const UCAT_FEATURES: readonly UcatFeature[] = [
     cardPreviewBleed: false,
     details: [
       {
-        title: "Customise practice sessions",
-        body: "Tailor sessions to your strengths and weaknesses, and find the exact question set you need to improve.",
+        title: "UCAT simulator",
+        body: "Practice inside the same navigator, toolbar, and layout you will see on test day.",
+        previewId: "practice-simulator",
+      },
+      {
+        title: "Calculator",
+        body: "Master the on-screen UCAT calculator to build your speed for test day.",
+        previewId: "practice-calculator",
+      },
+      {
+        title: "Keyboard shortcuts",
+        body: "Move through questions, open tools, and submit answers without leaving the keyboard.",
+        previewId: "practice-keyboard-shortcuts",
+      },
+      {
+        title: "Practice filters",
+        body: "Choose a section, then turn question categories on or off to target the work that matters.",
         previewId: "practice-filters",
       },
       {
-        title: "Take control of your practice",
-        body: "Increase your accuracy with untimed practice, then focus on speed with timed practice when you are ready.",
-        previewId: "practice-timing-toggle",
+        title: "Timed and untimed practice",
+        body: "Build accuracy first, then dial in exam pace with a timed slider when you are ready.",
+        previewId: "practice-pace",
       },
       {
-        title: "Simulate access arrangements",
-        body: "Practice with extra time if you have a disability, such as a learning difficulty or sensory impairment.",
-        previewId: "practice-access-arrangements",
-      },
-      {
-        title: "Improve your timing",
-        body: "Master the on-screen UCAT calculator to build your speed to the maximum for test day.",
-        previewId: "practice-calculator",
+        title: "Skill trainers",
+        body: "Isolate smaller abilities — syllogism speed, reading pace, logic steps — before full questions.",
+        previewId: "practice-skill-trainer",
       },
     ],
   },
   {
-    slug: "review-and-analytics",
+    slug: "adaptive-study-plan",
     number: "02",
-    eyebrow: "Review and analytics",
-    title: "Turn every attempt into evidence you can use.",
-    cardHeadline:
-      "See every answer, explanation, and timing pattern from each attempt.",
-    body: "Review the question, your answer, the correct answer, the explanation, and your timing in one place. Attempt-level analytics then reveal patterns that a final score alone would miss.",
+    eyebrow: "Adaptive study plan",
+    title: "Turn your weaknesses into a daily plan that moves your score.",
+    cardHeadline: "A study plan that adapts to your progress.",
+    body: "Altitutor UCAT analyzes your section gaps, pacing patterns, and recent attempts, then schedules learning, practice, review, and mocks day by day so your predicted score keeps climbing.",
     points: [
-      "Question-by-question answers and explanations",
-      "Accuracy, pacing, and question-level timing",
-      "Attempt insights that carry into your progress and plan",
+      "Daily tasks targeted at your weakest sections and question types",
+      "Planned mocks and review built in before test day",
+      "Adapts as you complete work and your estimate changes",
     ],
-    icon: BarChart3,
+    icon: CalendarDays,
     theme: FEATURE_THEME,
-    cardPreviewId: "review-score-snapshot",
+    cardPreviewId: "study-plan-snapshot",
     details: [
       {
-        title: "Estimate your UCAT score",
-        body: "See a mock score breakdown with section estimates and percentile context from timed evidence.",
-        previewId: "review-score-breakdown",
+        title: "Study plan",
+        body: "See today’s tasks update as you work through learning, practice, review, and mocks.",
+        previewId: "study-plan-calendar",
       },
       {
-        title: "Learn from your mistakes",
-        body: "Read the explanation, compare your answer with the correct one, and understand why each option works or fails.",
-        previewId: "review-explanation",
+        title: "Set your target score",
+        body: "Choose the score you are preparing for and track whether your trajectory is on course.",
+        previewId: "study-plan-target-score",
       },
       {
-        title: "Spot pacing problems early",
-        body: "Compare your time on each question with the average so you can see where speed is costing marks.",
-        previewId: "review-timing-chart",
+        title: "Pick your study days",
+        body: "Tell us your test date, target, and the days you can study so the plan fits your schedule.",
+        previewId: "study-plan-setup",
+      },
+      {
+        title: "Study orb",
+        body: "Your companion suggests what to do next and celebrates progress as you complete tasks.",
+        previewId: "study-plan-orb",
+      },
+      {
+        title: "Insights",
+        body: "Rotating insights explain why the plan is recommending each block of work.",
+        previewId: "study-plan-insights",
       },
     ],
   },
@@ -143,65 +169,87 @@ export const UCAT_FEATURES: readonly UcatFeature[] = [
     eyebrow: "Guided learning",
     title: "Learn the method, then check that you can apply it.",
     cardHeadline:
-      "Short modules teach the method, then check that you can apply it.",
+      "Learning modules teach techniques, then guide you through questions.",
     body: "Short learning modules explain the reasoning behind each UCAT skill and place relevant questions inside the lesson. Skill trainers help you isolate the smaller abilities that make the full task easier.",
     points: [
       "Concept teaching, worked examples, and tutor notes",
       "Questions embedded inside the learning sequence",
-      "Focused trainers for timing, reading, logic, and calculation skills",
+      "Focused drills for timing, reading, logic, and calculation skills",
     ],
     icon: BookOpen,
     theme: FEATURE_THEME,
     cardPreviewId: "learning-module-snapshot",
+    cardPreviewBleed: true,
     details: [
       {
-        title: "Learn the method first",
-        body: "Concept blocks and worked examples explain the reasoning behind each UCAT skill before you practice it.",
-        previewId: "learn-concept-block",
+        title: "Comprehensive notes",
+        body: "Browse every module in a section — concepts, examples, and practice blocks in one place.",
+        previewId: "learn-section-directory",
       },
       {
-        title: "Check understanding in context",
-        body: "Relevant questions sit inside the lesson so you apply the method immediately—not weeks later in a random set.",
-        previewId: "learn-embedded-question",
+        title: "Worked examples",
+        body: "Step through tutor-style explanations before you attempt questions on your own.",
+        previewId: "learn-worked-example",
       },
       {
-        title: "Isolate smaller skills",
-        body: "Skill trainers focus on timing, reading pace, logic steps, or calculation speed—the building blocks of the full task.",
-        previewId: "learn-skill-trainer",
+        title: "Guided walkthroughs",
+        body: "Onboarding-style coach marks highlight calculator, flagging, and navigator as you practice.",
+        previewId: "learn-guided-walkthrough",
+      },
+      {
+        title: "Target your weaknesses",
+        body: "Remediation folders surface the modules your gaps and recent attempts point to.",
+        previewId: "learn-remediation-directory",
       },
     ],
   },
   {
     slug: "progress-and-planning",
     number: "04",
-    eyebrow: "Progress and planning",
-    title: "Know where you stand. Open the app and know what to do next.",
+    eyebrow: "Progress and analytics",
+    title: "Know where you stand—and what every attempt is telling you.",
     cardHeadline:
-      "Track your estimate, see the gap to your target, and open a plan built for you.",
-    body: "Follow your historical estimate and future score trajectory, compare the gap to your target, and turn that evidence into a realistic schedule. Your plan selects specific learning, practice, review, sets, and mocks around the time you have available.",
+      "Track your score estimate, review each attempt, and see your trajectory to test day.",
+    body: "Follow your historical estimate and projected score range, then drill into question-by-question review with explanations and timing. Attempt-level analytics reveal patterns that a final score alone would miss.",
     points: [
-      "Current estimate, confidence range, and target gap",
-      "Historical progress and a future score projection",
-      "Specific next tasks in an adaptive plan through to test day",
+      "Question-by-question answers, explanations, and timing",
+      "Weekly score estimates based on your real practice",
+      "Intelligent score trajectory prediction based on your past performance",
     ],
     icon: Target,
     theme: FEATURE_THEME,
     cardPreviewId: "progress-plan-snapshot",
+    cardPreviewBleed: true,
     details: [
       {
-        title: "See your current position",
-        body: "Your estimate, plausible range, and confidence level update as you complete more timed evidence.",
-        previewId: "progress-estimate-gauge",
+        title: "Practice day discounts",
+        body: "Earn discounts on Unlimited for every qualifying practice day in your billing period.",
+        previewId: "progress-practice-discounts",
       },
       {
-        title: "Follow the trajectory",
-        body: "Historical estimates and a future projection show whether you are on track for your target.",
-        previewId: "progress-trajectory",
+        title: "See weaknesses and strengths",
+        body: "Category breakdowns show your best and worst question types within each section.",
+        previewId: "progress-section-strengths",
       },
       {
-        title: "Know what to do next",
-        body: "Your adaptive plan selects specific learning, practice, review, sets, and mocks around the time you have.",
-        previewId: "progress-plan-tasks",
+        title: "Explanations",
+        body: "Review the question, your answer, and a full explanation side by side.",
+        previewId: "review-explanation-dm",
+      },
+      {
+        title: "Timing comparison",
+        body: "Spot questions where you spent far too long, with insight into what to change.",
+        previewId: "review-timing-interactive",
+      },
+      {
+        title: "Score tracking",
+        body: "Follow your estimate over time and see how close you are to your target.",
+        previewId: "progress-score-tracking",
+      },
+      {
+        title: "Score estimation",
+        body: "Understand your current estimate, plausible range, and projected improvement.",
+        previewId: "progress-score-insight",
       },
     ],
   },

@@ -27,6 +27,7 @@ export type GenerationComparisonSource = {
 export type GenerationContext = {
   sectionName: string
   categoryName: string | null
+  availableTagIds?: string[]
   sourceComparisonSources?: GenerationComparisonSource[]
 }
 
@@ -298,6 +299,39 @@ function validateCommon(stem: GeneratedStem, stemIndex: number, issues: Generati
       })
     }
   }
+}
+
+function validateTags(
+  stem: GeneratedStem,
+  stemIndex: number,
+  availableTagIds: string[],
+  issues: GenerationGateIssue[],
+) {
+  if (availableTagIds.length === 0) return
+  const available = new Set(availableTagIds)
+  stem.questions.forEach((question, questionIndex) => {
+    if (question.tagIds.length === 0) {
+      add(
+        issues,
+        'blocking',
+        'missing_question_tags',
+        'Every generated question must include at least one applicable question tag.',
+        stemIndex,
+        questionIndex,
+      )
+      return
+    }
+    if (question.tagIds.some((tagId) => !available.has(tagId))) {
+      add(
+        issues,
+        'blocking',
+        'invalid_question_tag',
+        'Generated questions may use only tag IDs from the selected section tag catalogue.',
+        stemIndex,
+        questionIndex,
+      )
+    }
+  })
 }
 
 function validateVr(stem: GeneratedStem, stemIndex: number, categoryName: string | null, issues: GenerationGateIssue[]) {
@@ -914,6 +948,7 @@ export function validateGeneratedStemCandidate(
   else if (section === 'situational judgement') validateSj(stem, stemIndex, category, issues)
   else add(issues, 'warning', 'unknown_section', 'Section-specific generation gates were not applied.', stemIndex)
 
+  validateTags(stem, stemIndex, context.availableTagIds ?? [], issues)
   validateSimilarity(stem, stemIndex, context.sourceComparisonSources ?? [], issues)
   return issues
 }

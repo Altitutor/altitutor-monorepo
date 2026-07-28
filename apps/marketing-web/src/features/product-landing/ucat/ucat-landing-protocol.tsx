@@ -6,6 +6,9 @@ import { Check } from "lucide-react";
 import { UCAT_FEATURES } from "./ucat-feature-data";
 import { UcatFeatureDetailDialog } from "./ucat-feature-detail-dialog";
 import { UcatFeatureCardPreview } from "./ucat-feature-micro-ui";
+import { UcatMobileAppPhonePreview } from "./ucat-mobile-app-phone-preview";
+import { UcatPracticeDiscountPreview } from "./ucat-practice-discount-preview";
+import { UCAT_SECTION_EYEBROW_CLASS, UCAT_SECTION_PADDING_CLASS } from "./ucat-landing-section-eyebrow";
 
 const { typography: typo } = MARKETING_TOKENS;
 
@@ -125,9 +128,9 @@ export function UcatLandingProtocol() {
     <section
       ref={sectionRef}
       id="features"
-      className="bg-white px-4 py-24 sm:px-8 sm:py-32"
+      className={`bg-white ${UCAT_SECTION_PADDING_CLASS}`}
     >
-      <div className="mx-auto max-w-7xl">
+      <div className="mx-auto min-w-0 max-w-7xl">
         <div className="grid gap-8 sm:grid-cols-3 sm:gap-4">
           {LANDING_STATS.map((stat) => (
             <UcatLandingStat
@@ -139,24 +142,23 @@ export function UcatLandingProtocol() {
 
         <div className="mx-auto max-w-3xl text-center">
           <p
-            className={`mt-24 text-xs font-semibold uppercase tracking-[0.18em] text-marketing-primary/60 ${typo.dataMono}`}
+            className={`mt-24 ${UCAT_SECTION_EYEBROW_CLASS} ${typo.dataMono}`}
           >
             Features
           </p>
           <h2
             className={`mt-4 text-4xl font-semibold tracking-[-0.04em] text-marketing-charcoal sm:text-6xl ${typo.headingSans}`}
           >
-            Everything you need to prepare. Connected by a clearer direction.
+            Everything you need to prepare.
           </h2>
           <p
-            className={`mx-auto mt-6 max-w-2xl text-base leading-relaxed text-marketing-charcoal/58 sm:text-lg ${typo.secondarySans}`}
+            className={`mx-auto mt-6 max-w-2xl text-lg leading-relaxed text-marketing-charcoal/58 sm:text-xl ${typo.secondarySans}`}
           >
-            Practice in the UCAT interface, understand every attempt, learn the
-            method, and let your progress shape what you work on next.
+            From learning modules to full timed mock exams, get what you need at every stage of your preparation.
           </p>
         </div>
 
-        <div className="mt-16 grid gap-5 sm:mt-20 lg:grid-cols-2">
+        <div className="mt-16 grid min-w-0 gap-5 sm:mt-20 lg:grid-cols-2">
           {UCAT_FEATURES.map((feature) => {
             const Icon = feature.icon;
 
@@ -164,7 +166,7 @@ export function UcatLandingProtocol() {
               <article
                 key={feature.slug}
                 data-feature-card
-                className="flex flex-col rounded-[2rem] bg-[#f4f5f7] p-6 sm:p-8"
+                className="flex min-w-0 flex-col overflow-hidden rounded-[2rem] bg-[#f4f5f7] p-6 sm:p-8"
               >
                 <div className="flex items-center gap-2.5">
                   <span
@@ -173,8 +175,7 @@ export function UcatLandingProtocol() {
                     <Icon className="size-4" aria-hidden />
                   </span>
                   <p
-                    className={`text-sm font-semibold ${typo.secondarySans}`}
-                    style={{ color: feature.theme.accent }}
+                    className={`text-base font-semibold text-marketing-primary ${typo.secondarySans}`}
                   >
                     {feature.eyebrow}
                   </p>
@@ -187,17 +188,11 @@ export function UcatLandingProtocol() {
                 </h3>
 
                 <ul
-                  className={`mt-5 space-y-2.5 text-sm text-marketing-charcoal/66 ${typo.secondarySans}`}
+                  className={`mt-5 space-y-2.5 text-base text-marketing-charcoal/66 ${typo.secondarySans}`}
                 >
                   {feature.points.map((point) => (
                     <li key={point} className="flex items-start gap-3">
-                      <span
-                        className="mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full"
-                        style={{
-                          backgroundColor: `${feature.theme.accent}18`,
-                          color: feature.theme.accent,
-                        }}
-                      >
+                      <span className="mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full bg-marketing-primary/10 text-marketing-primary">
                         <Check className="size-3" aria-hidden />
                       </span>
                       {point}
@@ -212,8 +207,8 @@ export function UcatLandingProtocol() {
                 <div
                   className={
                     feature.cardPreviewBleed
-                      ? "mt-6 -mx-6 -mb-6 flex-1 overflow-hidden rounded-b-[2rem] sm:-mx-8 sm:-mb-8"
-                      : "mt-6 flex-1"
+                      ? "mt-6 -mx-6 -mb-6 min-w-0 flex-1 overflow-hidden rounded-b-[2rem] sm:-mx-8 sm:-mb-8"
+                      : "mt-6 min-w-0 flex-1 overflow-hidden"
                   }
                 >
                   <UcatFeatureCardPreview id={feature.cardPreviewId} />
@@ -221,6 +216,58 @@ export function UcatLandingProtocol() {
               </article>
             );
           })}
+        </div>
+
+        <div className="mt-5 grid min-w-0 gap-5 lg:grid-cols-2">
+          <article
+            data-feature-card
+            className="flex min-w-0 flex-row items-center gap-4 rounded-[2rem] bg-[#f4f5f7] p-6 sm:gap-6 sm:p-8"
+          >
+            <div className="min-w-0 flex-1">
+              <h3
+                className={`text-xl font-semibold tracking-[-0.03em] text-marketing-charcoal sm:text-2xl ${typo.headingSans}`}
+              >
+                Practice day discounts
+              </h3>
+              <p
+                className={`mt-3 text-base leading-relaxed text-marketing-charcoal/66 ${typo.secondarySans}`}
+              >
+                Earn a discount for every day you log in and practice.
+              </p>
+            </div>
+            <div className="w-[9rem] shrink-0 sm:w-[11rem]">
+              <UcatPracticeDiscountPreview />
+            </div>
+          </article>
+
+          <article
+            data-feature-card
+            className="relative flex min-w-0 flex-row items-stretch gap-4 overflow-hidden rounded-[2rem] bg-[#f4f5f7] p-6 sm:gap-6 sm:p-8"
+          >
+            <div className="relative z-10 min-w-0 flex-1">
+              <p
+                className={`inline-flex rounded-full bg-marketing-primary/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-marketing-primary ${typo.dataMono}`}
+              >
+                Coming soon
+              </p>
+              <h3
+                className={`mt-2 text-xl font-semibold tracking-[-0.03em] text-marketing-charcoal sm:text-2xl ${typo.headingSans}`}
+              >
+                Practice on the go
+              </h3>
+              <p
+                className={`mt-3 text-base leading-relaxed text-marketing-charcoal/66 ${typo.secondarySans}`}
+              >
+                Continue your plan, practice, and review from the Altitutor UCAT
+                app. Coming soon.
+              </p>
+            </div>
+            <div className="relative w-[9rem] shrink-0 self-stretch sm:w-[12rem]">
+              <div className="pointer-events-none absolute inset-x-0 -bottom-6 top-0 overflow-hidden sm:-bottom-8">
+                <UcatMobileAppPhonePreview compact bleed />
+              </div>
+            </div>
+          </article>
         </div>
       </div>
     </section>

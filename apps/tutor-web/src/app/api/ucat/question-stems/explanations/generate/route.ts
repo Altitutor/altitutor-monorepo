@@ -126,12 +126,6 @@ export async function POST(request: NextRequest) {
       const parsed = AiToolExplanationResponseSchema.parse(result.parsed)
       const updates = parsed.updates
         .filter((update) => questionIndices.includes(update.questionIndex))
-        .map((update) => {
-          const questionType = stem.questions[update.questionIndex]?.questionType
-          return questionType === 'syllogism'
-            ? { ...update, answerExplanation: null }
-            : { ...update, optionExplanations: undefined }
-        })
 
       return {
         stemIndex,

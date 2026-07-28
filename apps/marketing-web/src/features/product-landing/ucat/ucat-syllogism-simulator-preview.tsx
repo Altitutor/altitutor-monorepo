@@ -11,6 +11,7 @@ import {
   Navigation,
 } from "lucide-react";
 import { DemoCursor, DemoStage, DEMO_EASE } from "./demo-stage";
+import { useDemoScale } from "./scale-to-fit-frame";
 
 type SyllogismChoice = "yes" | "no";
 
@@ -51,6 +52,11 @@ const CONCLUSIONS: SyllogismConclusion[] = [
     text: "Placing spaghetti in the mouth leads to the flow of saliva.",
     correct: "no",
   },
+  {
+    id: "c5",
+    text: "Potatoes contain high levels of starch.",
+    correct: "yes",
+  },
 ];
 
 const START_SECONDS = 18 * 60 + 42;
@@ -67,12 +73,17 @@ function formatClock(totalSeconds: number): string {
 function getElementCenter(
   stage: HTMLElement,
   target: HTMLElement,
+  coordinateScale = 1,
 ): { left: number; top: number } {
   const stageRect = stage.getBoundingClientRect();
   const targetRect = target.getBoundingClientRect();
   return {
-    left: targetRect.left - stageRect.left + targetRect.width / 2 - 4,
-    top: targetRect.top - stageRect.top + targetRect.height / 2 - 2,
+    left:
+      (targetRect.left - stageRect.left + targetRect.width / 2 - 4) /
+      coordinateScale,
+    top:
+      (targetRect.top - stageRect.top + targetRect.height / 2 - 2) /
+      coordinateScale,
   };
 }
 
@@ -126,6 +137,7 @@ function DraggingGhost({
 export function UcatSyllogismSimulatorPreview() {
   const stageRef = useRef<HTMLDivElement>(null);
   const cursorRef = useRef<HTMLDivElement>(null);
+  const coordinateScale = useDemoScale();
   const [prefersReducedMotion, setPrefersReducedMotion] = useState(false);
   const [answers, setAnswers] = useState<
     Partial<Record<string, SyllogismChoice>>
@@ -170,83 +182,114 @@ export function UcatSyllogismSimulatorPreview() {
     const cursor = cursorRef.current;
     if (!stage || !cursor) return;
 
-    const context = gsap.context(() => {
+    let context: gsap.Context | undefined;
+
+    const buildTimeline = () => {
+      context?.revert();
       gsap.set(cursor, { opacity: 0, left: 80, top: 100 });
-      const timeline = gsap.timeline({
-        repeat: -1,
-        repeatDelay: 0.8,
-        onRepeat: () => {
-          setAnswers({});
-          setDraggingChoice(null);
-          setTimeRemaining(START_SECONDS);
-        },
-      });
 
-      timeline.call(() => {
-        setAnswers({});
-        setDraggingChoice(null);
-        setTimeRemaining(START_SECONDS);
-      });
-
-      timeline.to({}, { duration: 0.6 });
-
-      for (const conclusion of CONCLUSIONS) {
-        const tokenSelector =
-          conclusion.correct === "yes"
-            ? "[data-syllogism-token='yes']"
-            : "[data-syllogism-token='no']";
-        const dropSelector = `[data-syllogism-drop='${conclusion.id}']`;
-
-        timeline.to(cursor, {
-          left: () => {
-            const token = stage.querySelector<HTMLElement>(tokenSelector);
-            return token ? getElementCenter(stage, token).left : 200;
+      context = gsap.context(() => {
+        const timeline = gsap.timeline({
+          repeat: -1,
+          repeatDelay: 0.8,
+          onRepeat: () => {
+            setAnswers({});
+            setDraggingChoice(null);
+            setTimeRemaining(START_SECONDS);
           },
-          top: () => {
-            const token = stage.querySelector<HTMLElement>(tokenSelector);
-            return token ? getElementCenter(stage, token).top : 160;
-          },
-          opacity: 1,
-          duration: 0.55,
-          ease: DEMO_GSAP_EASE,
-        });
-
-        timeline.call(() => setDraggingChoice(conclusion.correct));
-        timeline.to({}, { duration: 0.2 });
-
-        timeline.to(cursor, {
-          left: () => {
-            const drop = stage.querySelector<HTMLElement>(dropSelector);
-            return drop ? getElementCenter(stage, drop).left : 280;
-          },
-          top: () => {
-            const drop = stage.querySelector<HTMLElement>(dropSelector);
-            return drop ? getElementCenter(stage, drop).top : 200;
-          },
-          duration: 0.75,
-          ease: DEMO_GSAP_EASE,
         });
 
         timeline.call(() => {
+          setAnswers({});
           setDraggingChoice(null);
-          setAnswers((previous) => ({
-            ...previous,
-            [conclusion.id]: conclusion.correct,
-          }));
+          setTimeRemaining(START_SECONDS);
         });
-        timeline.to({}, { duration: 0.45 });
-      }
 
-      timeline.to(cursor, { opacity: 0, duration: 0.3 });
-      timeline.to({}, { duration: 1.4 });
-    }, stage);
+        timeline.to({}, { duration: 0.6 });
 
-    return () => context.revert();
-  }, [prefersReducedMotion]);
+        for (const conclusion of CONCLUSIONS) {
+          const tokenSelector =
+            conclusion.correct === "yes"
+              ? "[data-syllogism-token='yes']"
+              : "[data-syllogism-token='no']";
+          const dropSelector = `[data-syllogism-drop='${conclusion.id}']`;
+
+          timeline.to(cursor, {
+            left: () => {
+              const token = stage.querySelector<HTMLElement>(tokenSelector);
+              return token
+                ? getElementCenter(stage, token, coordinateScale).left
+                : 200;
+            },
+            top: () => {
+              const token = stage.querySelector<HTMLElement>(tokenSelector);
+              return token
+                ? getElementCenter(stage, token, coordinateScale).top
+                : 160;
+            },
+            opacity: 1,
+            duration: 0.55,
+            ease: DEMO_GSAP_EASE,
+          });
+
+          timeline.call(() => setDraggingChoice(conclusion.correct));
+          timeline.to({}, { duration: 0.2 });
+
+          timeline.to(cursor, {
+            left: () => {
+              const drop = stage.querySelector<HTMLElement>(dropSelector);
+              return drop
+                ? getElementCenter(stage, drop, coordinateScale).left
+                : 280;
+            },
+            top: () => {
+              const drop = stage.querySelector<HTMLElement>(dropSelector);
+              return drop
+                ? getElementCenter(stage, drop, coordinateScale).top
+                : 200;
+            },
+            duration: 0.75,
+            ease: DEMO_GSAP_EASE,
+          });
+
+          timeline.call(() => {
+            setDraggingChoice(null);
+            setAnswers((previous) => ({
+              ...previous,
+              [conclusion.id]: conclusion.correct,
+            }));
+          });
+          timeline.to({}, { duration: 0.45 });
+        }
+
+        timeline.to(cursor, { opacity: 0, duration: 0.3 });
+        timeline.to({}, { duration: 1.4 });
+      }, stage);
+    };
+
+    buildTimeline();
+
+    let resizeFrame = 0;
+    const observer = new ResizeObserver(() => {
+      window.cancelAnimationFrame(resizeFrame);
+      resizeFrame = window.requestAnimationFrame(() => {
+        setAnswers({});
+        setDraggingChoice(null);
+        buildTimeline();
+      });
+    });
+    observer.observe(stage);
+
+    return () => {
+      window.cancelAnimationFrame(resizeFrame);
+      observer.disconnect();
+      context?.revert();
+    };
+  }, [prefersReducedMotion, coordinateScale]);
 
   return (
-    <DemoStage className="h-full min-h-0 overflow-hidden rounded-[1rem] bg-white shadow-[0_16px_40px_rgba(10,41,65,0.12)] ring-1 ring-black/[0.08]">
-      <div ref={stageRef} className="relative h-full min-h-0">
+    <DemoStage className="size-full min-h-0 overflow-hidden rounded-[1rem] bg-white shadow-[0_16px_40px_rgba(10,41,65,0.12)] ring-1 ring-black/[0.08]">
+      <div ref={stageRef} className="relative size-full min-h-0">
         <UcatExamShell
           sectionTitle="Decision Making"
           sectionTitleRight={
@@ -304,28 +347,28 @@ export function UcatSyllogismSimulatorPreview() {
             stem stacked above the prompt / conclusions / Yes–No bank.
           */}
           <div className="h-full overflow-hidden font-[Arial] text-[11pt] leading-relaxed [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-            <div className="space-y-3 px-1 py-3 sm:space-y-4 sm:py-4">
+            <div className="space-y-3 px-1 py-3">
               <article>
                 <p>{STEM}</p>
               </article>
 
-              <section className="space-y-3">
+              <section className="space-y-2.5">
                 <p className="font-medium text-[12pt]">{PROMPT}</p>
-                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:gap-4">
-                  <div className="min-w-0 flex-1 space-y-2.5">
+                <div className="flex min-w-0 items-start gap-4">
+                  <div className="min-w-0 flex-1 space-y-2">
                     {CONCLUSIONS.map((conclusion) => {
                       const choice = answers[conclusion.id] ?? null;
                       return (
                         <div
                           key={conclusion.id}
-                          className="flex items-stretch gap-2 sm:gap-3"
+                          className="flex items-stretch gap-3"
                         >
-                          <div className="flex min-h-[44px] min-w-0 flex-1 items-center justify-center rounded border border-black bg-white px-2.5 text-center text-[10pt] leading-snug sm:px-3 sm:text-[11pt]">
+                          <div className="flex min-h-[40px] min-w-0 flex-1 items-center justify-center rounded border border-black bg-white px-3 text-center text-[11pt] leading-snug">
                             {conclusion.text}
                           </div>
                           <div
                             data-syllogism-drop={conclusion.id}
-                            className="flex h-11 w-[4.75rem] shrink-0 items-center justify-center rounded border border-dashed border-[#4b5563] bg-slate-50 sm:h-12 sm:w-24"
+                            className="flex h-11 w-24 shrink-0 items-center justify-center rounded border border-dashed border-[#4b5563] bg-slate-50"
                           >
                             {choice ? <SyllogismToken choice={choice} /> : null}
                           </div>
@@ -334,8 +377,8 @@ export function UcatSyllogismSimulatorPreview() {
                     })}
                   </div>
 
-                  <div className="w-full shrink-0 rounded border border-black bg-[#dfdfdf] px-1.5 py-2 sm:mt-0.5 sm:w-[139px] sm:px-2">
-                    <div className="flex flex-row items-center justify-center gap-2 sm:flex-col">
+                  <div className="mt-0.5 w-[139px] shrink-0 rounded border border-black bg-[#dfdfdf] px-2 py-2">
+                    <div className="flex flex-col items-center justify-center gap-2">
                       <span data-syllogism-token="yes">
                         <SyllogismToken choice="yes" />
                       </span>

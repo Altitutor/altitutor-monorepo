@@ -13,6 +13,7 @@ import { AnalyticsLink } from "../analytics-link";
 import { PRODUCT_LINKS } from "@/lib/site";
 import { MagneticButton } from "./magnetic-button";
 import { UcatInterestDialog } from "./ucat-interest-dialog";
+import { UCAT_SECTION_EYEBROW_CLASS, UCAT_SECTION_PADDING_CLASS } from "./ucat-landing-section-eyebrow";
 
 const { typography: typo } = MARKETING_TOKENS;
 
@@ -189,12 +190,12 @@ export function UcatLandingPricing() {
   return (
     <section
       id="pricing"
-      className="bg-marketing-cream px-4 py-24 sm:px-8 sm:py-32"
+      className={`bg-marketing-cream ${UCAT_SECTION_PADDING_CLASS}`}
     >
       <div className="mx-auto max-w-6xl">
         <div className="text-center">
           <p
-            className={`text-xs font-semibold uppercase tracking-[0.18em] text-marketing-primary/60 ${typo.dataMono}`}
+            className={`${UCAT_SECTION_EYEBROW_CLASS} ${typo.dataMono}`}
           >
             Pricing
           </p>
@@ -204,7 +205,7 @@ export function UcatLandingPricing() {
             Prepare at the pace that works for you.
           </h2>
           <p
-            className={`mx-auto mt-6 max-w-2xl text-base leading-relaxed text-marketing-charcoal/60 sm:text-lg ${typo.secondarySans}`}
+            className={`mx-auto mt-6 max-w-2xl text-lg leading-relaxed text-marketing-charcoal/60 sm:text-xl ${typo.secondarySans}`}
           >
             Keep preparing free, or go Unlimited when you want to move faster.
           </p>
@@ -412,10 +413,9 @@ export function UcatLandingPricing() {
               <p
                 className={`mt-3 max-w-2xl text-sm leading-relaxed text-marketing-charcoal/60 ${typo.secondarySans}`}
               >
-                We are developing one-to-one online UCAT tutoring by video. Your
-                tutor will be able to see your progress and attempts, then help
-                you decide what to work on next. Tutoring will be a separate
-                add-on, not another platform tier.
+                We are developing one-to-one online UCAT tutoring. Your
+                tutor will be able to see your progress and attempts, and give you 
+                advice tailored to your performance.
               </p>
               <p
                 className={`mt-3 text-xs text-marketing-charcoal/45 ${typo.secondarySans}`}

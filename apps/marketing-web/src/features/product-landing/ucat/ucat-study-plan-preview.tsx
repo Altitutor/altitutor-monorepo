@@ -256,7 +256,7 @@ export function UcatStudyPlanPreview() {
           <section className="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-black/[0.055] sm:p-5">
             <div className="mb-4">
               <h2 className="text-base font-semibold">Study plan</h2>
-              <p className="mt-0.5 text-sm text-black/45">July 2026</p>
+              <p className="mt-0.5 text-sm text-black/45">July</p>
             </div>
 
             <div className="grid grid-cols-7 gap-1 sm:gap-1.5">

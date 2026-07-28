@@ -1,5 +1,6 @@
 import { AI_GENERATION_SYSTEM_PROMPT, buildWriterPrompt } from '../prompts'
 import type { AiGenerationBrief } from '../prompts'
+import { EXPLANATION_FILL_SYSTEM_PROMPT } from '../explanation-prompts'
 
 const brief: AiGenerationBrief = {
   sectionName: 'Quantitative Reasoning',
@@ -9,6 +10,13 @@ const brief: AiGenerationBrief = {
   difficultyTarget: 'mixed',
   timeBurdenTarget: 'mixed',
   targetTags: [],
+  availableTags: [{
+    id: '11111111-1111-4111-8111-111111111111',
+    name: 'Percentage change',
+    path: 'Percentages / Percentage change',
+    description: 'Find the percentage increase or decrease between two values.',
+    parentId: '22222222-2222-4222-8222-222222222222',
+  }],
   examples: [{ id: 'source', categoryName: 'Graphs and Charts' }],
   presentationReference: {
     id: 'source',
@@ -20,9 +28,32 @@ const brief: AiGenerationBrief = {
 }
 
 describe('QR writer prompts', () => {
-  it('defines mutually exclusive explanation shapes', () => {
-    expect(AI_GENERATION_SYSTEM_PROMPT).toContain('multiple-choice questions use one concise, student-facing question-level answerExplanation')
-    expect(AI_GENERATION_SYSTEM_PROMPT).toContain('syllogism questions use per-option answerExplanation values')
+  it('defines optional, non-duplicative explanation layers', () => {
+    expect(AI_GENERATION_SYSTEM_PROMPT).toContain('Option-level answerExplanation values are optional')
+    expect(AI_GENERATION_SYSTEM_PROMPT).toContain('A question-level answerExplanation is optional')
+  })
+
+  it('passes valid tag data and requires every question to be tagged', () => {
+    const prompt = buildWriterPrompt({ ...brief, plan: { plans: [{ stemIndex: 0 }] } })
+    const payload = JSON.parse(prompt) as {
+      brief: { availableQuestionTags: typeof brief.availableTags }
+      requirements: string[]
+    }
+
+    expect(payload.brief.availableQuestionTags).toEqual(brief.availableTags)
+    expect(payload.requirements).toContain(
+      'Assign one or more tagIds to every generated question using only exact IDs from availableQuestionTags.'
+    )
+  })
+
+  it('allows any purposeful number of QR steps and requires Australian English', () => {
+    const prompt = buildWriterPrompt({ ...brief, plan: { plans: [{ stemIndex: 0 }] } })
+    const payload = JSON.parse(prompt) as { sectionRules: string; requirements: string[] }
+
+    expect(payload.sectionRules).toContain('do not impose a fixed number of steps')
+    expect(payload.sectionRules).not.toContain('one or two calculation steps')
+    expect(payload.requirements).toContainEqual(expect.stringContaining('Australian English spelling'))
+    expect(payload.requirements).toContainEqual(expect.stringContaining('calculator use'))
   })
 
   it('does not discourage source visuals or prohibit visual composition calibration', () => {
@@ -35,6 +66,19 @@ describe('QR writer prompts', () => {
     expect(prompt).toContain('The designated presentation reference is a real Graphs and Charts stem')
     expect(prompt).toContain('new stem MUST use that same broad presentation family')
     expect(payload.requirements).toContain('Set categoryName exactly to "Graphs and Charts" after writing.')
+  })
+})
+
+describe('explanation fill prompts', () => {
+  it('uses the same flexible explanation shape and tutoring guidance', () => {
+    expect(EXPLANATION_FILL_SYSTEM_PROMPT).toContain(
+      'Option-level explanations may be included'
+    )
+    expect(EXPLANATION_FILL_SYSTEM_PROMPT).toContain(
+      'A question-level answerExplanation may be included'
+    )
+    expect(EXPLANATION_FILL_SYSTEM_PROMPT).toContain('calculator use')
+    expect(EXPLANATION_FILL_SYSTEM_PROMPT).toContain('Australian English spelling')
   })
 })
 

@@ -207,20 +207,7 @@ const GeneratedQuestionBaseSchema = z.object({
   options: z.array(GeneratedOptionSchema).min(1),
 })
 
-export const GeneratedQuestionSchema = GeneratedQuestionBaseSchema.transform(
-  (question): z.infer<typeof GeneratedQuestionBaseSchema> => question.questionType === 'syllogism'
-  ? {
-      ...question,
-      answerExplanation: null,
-    }
-  : {
-      ...question,
-      options: question.options.map((option) => ({
-        ...option,
-        answerExplanation: null,
-      })),
-    },
-)
+export const GeneratedQuestionSchema = GeneratedQuestionBaseSchema
 
 export const GeneratedStemSchema = z.object({
   stemText: z.union([z.string().trim().min(1), z.array(GeneratedContentBlockSchema).min(1)]),

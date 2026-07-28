@@ -9,6 +9,7 @@ import {
   handleModalInteractOutside,
   useModalNativeDateTimeFocusGuards,
 } from "../lib/modal-interact-outside"
+import "../styles/dialog-bottom-sheet.css"
 
 const Dialog = DialogPrimitive.Root
 
@@ -29,6 +30,7 @@ const DialogOverlay = React.forwardRef<
 >(({ className, ...props }, ref) => (
   <DialogPrimitive.Overlay
     ref={ref}
+    data-slot="dialog-overlay"
     className={cn(
       "fixed inset-0 z-50 bg-black/80 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0",
       className
@@ -65,18 +67,32 @@ const DialogContent = React.forwardRef<
     [ref, setDateTimeFocusRef]
   );
 
+  const isBottomSheet = mobilePresentation === "bottom-sheet";
+
   return (
     <DialogPortal>
-      <DialogOverlay />
+      <DialogOverlay
+        data-mobile-bottom-sheet={isBottomSheet ? "true" : undefined}
+        className={cn(isBottomSheet && "max-md:bg-black/60")}
+      />
       <DialogPrimitive.Content
         ref={mergedRef}
         data-slot="dialog-content"
+        data-mobile-bottom-sheet={isBottomSheet ? "true" : undefined}
         className={cn(
-          "fixed inset-0 z-50 grid h-[100dvh] w-screen max-w-none translate-x-0 translate-y-0 gap-4 overflow-y-auto overflow-x-hidden border bg-background p-4 duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:slide-out-to-bottom data-[state=open]:slide-in-from-bottom sm:left-[50%] sm:top-[50%] sm:right-auto sm:bottom-auto sm:h-auto sm:min-h-0 sm:max-h-[calc(100dvh-2rem)] sm:w-full sm:max-w-lg sm:translate-x-[-50%] sm:translate-y-[-50%] sm:data-[state=closed]:zoom-out-95 sm:data-[state=open]:zoom-in-95 sm:data-[state=closed]:slide-out-to-left-1/2 sm:data-[state=closed]:slide-out-to-top-[48%] sm:data-[state=open]:slide-in-from-left-1/2 sm:data-[state=open]:slide-in-from-top-[48%] sm:rounded-[var(--radius)]",
+          "fixed z-50 gap-4 overflow-x-hidden border bg-background p-4",
+          isBottomSheet
+            ? cn(
+                // Mobile: bottom-anchored sheet — slide up from below (ucat-web nav style)
+                "max-md:inset-x-0 max-md:bottom-0 max-md:top-auto max-md:left-0 max-md:right-0 max-md:flex max-md:h-[88dvh] max-md:max-h-[88dvh] max-md:min-h-0 max-md:w-screen max-md:max-w-none max-md:translate-x-0 max-md:flex-col max-md:overflow-hidden max-md:rounded-b-none max-md:rounded-t-3xl max-md:border-0",
+                // Desktop: centered modal with zoom
+                "md:inset-auto md:left-[50%] md:top-[50%] md:flex md:h-auto md:min-h-0 md:max-h-[calc(100dvh-2rem)] md:w-full md:max-w-lg md:translate-x-[-50%] md:translate-y-[-50%] md:flex-col md:overflow-hidden md:rounded-[var(--radius)] md:duration-200 md:data-[state=open]:animate-in md:data-[state=closed]:animate-out md:data-[state=closed]:fade-out-0 md:data-[state=open]:fade-in-0 md:data-[state=closed]:zoom-out-95 md:data-[state=open]:zoom-in-95 md:data-[state=closed]:slide-out-to-left-1/2 md:data-[state=closed]:slide-out-to-top-[48%] md:data-[state=open]:slide-in-from-left-1/2 md:data-[state=open]:slide-in-from-top-[48%]",
+              )
+            : cn(
+                "inset-0 grid h-[100dvh] w-screen max-w-none translate-x-0 translate-y-0 overflow-y-auto duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:slide-out-to-bottom data-[state=open]:slide-in-from-bottom sm:left-[50%] sm:top-[50%] sm:right-auto sm:bottom-auto sm:h-auto sm:min-h-0 sm:max-h-[calc(100dvh-2rem)] sm:w-full sm:max-w-lg sm:translate-x-[-50%] sm:translate-y-[-50%] sm:data-[state=closed]:zoom-out-95 sm:data-[state=open]:zoom-in-95 sm:data-[state=closed]:slide-out-to-left-1/2 sm:data-[state=closed]:slide-out-to-top-[48%] sm:data-[state=open]:slide-in-from-left-1/2 sm:data-[state=open]:slide-in-from-top-[48%] sm:rounded-[var(--radius)]",
+                "max-sm:!fixed max-sm:!inset-0 max-sm:!bottom-0 max-sm:!left-0 max-sm:!right-0 max-sm:!top-0 max-sm:!h-[100dvh] max-sm:!max-h-[100dvh] max-sm:!min-h-[100dvh] max-sm:!w-screen max-sm:!max-w-none max-sm:!translate-x-0 max-sm:!translate-y-0 max-sm:!rounded-none",
+              ),
           className,
-          mobilePresentation === "fullscreen"
-            ? "max-sm:!fixed max-sm:!inset-0 max-sm:!bottom-0 max-sm:!left-0 max-sm:!right-0 max-sm:!top-0 max-sm:!h-[100dvh] max-sm:!max-h-[100dvh] max-sm:!min-h-[100dvh] max-sm:!w-screen max-sm:!max-w-none max-sm:!translate-x-0 max-sm:!translate-y-0 max-sm:!rounded-none"
-            : "max-md:!fixed max-md:!inset-x-0 max-md:!bottom-0 max-md:!left-0 max-md:!right-0 max-md:!top-auto max-md:!h-[88dvh] max-md:!max-h-[88dvh] max-md:!min-h-0 max-md:!w-screen max-md:!max-w-none max-md:!translate-x-0 max-md:!translate-y-0 max-md:!rounded-b-none max-md:!rounded-t-3xl max-md:!border-0"
         )}
         onInteractOutside={handleInteractOutside}
         onPointerDownOutside={handleInteractOutside}

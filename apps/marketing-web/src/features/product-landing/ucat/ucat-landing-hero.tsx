@@ -6,6 +6,7 @@ import { ArrowDown, ArrowRight, HeartHandshake } from "lucide-react";
 import { AnalyticsLink } from "../analytics-link";
 import { PRODUCT_LINKS } from "@/lib/site";
 import { MagneticButton } from "./magnetic-button";
+import { UCAT_SECTION_EYEBROW_CLASS } from "./ucat-landing-section-eyebrow";
 
 const { typography: typo } = MARKETING_TOKENS;
 
@@ -53,13 +54,13 @@ export function UcatLandingHero() {
     <section
       ref={sectionRef}
       id="altitutor-ucat"
-      className="relative flex min-h-[92dvh] items-center overflow-hidden bg-marketing-cream px-4 pb-20 pt-32 sm:px-8 sm:pb-24 sm:pt-40"
+      className="relative overflow-hidden bg-marketing-cream px-4 py-32 pt-36 sm:px-8 sm:py-40 sm:pt-44"
     >
       <div className="absolute left-1/2 top-0 h-80 w-[46rem] -translate-x-1/2 rounded-full bg-marketing-accent/14 blur-[110px]" />
       <div className="relative mx-auto w-full max-w-[92rem] text-center">
         <p
           data-hero-eyebrow
-          className={`text-xs font-semibold uppercase tracking-[0.2em] text-marketing-primary/60 sm:text-sm ${typo.dataMono}`}
+          className={`${UCAT_SECTION_EYEBROW_CLASS} ${typo.dataMono}`}
         >
           UCAT preparation from Altitutor
         </p>
@@ -78,10 +79,9 @@ export function UcatLandingHero() {
         </h1>
         <p
           data-hero-support
-          className={`mx-auto mt-8 max-w-2xl text-base leading-relaxed text-marketing-charcoal/62 sm:text-lg ${typo.secondarySans}`}
+          className={`mx-auto mt-8 max-w-2xl text-lg leading-relaxed text-marketing-charcoal/62 sm:text-xl ${typo.secondarySans}`}
         >
-          Altitutor UCAT turns your practice into a score estimate, shows the
-          gaps that matter, and gives you a study plan built around your target.
+          Altitutor UCAT intelligently structures your UCAT practice around your weaknesses, keeping you on track to hit your target score.
         </p>
 
         <div
@@ -97,11 +97,12 @@ export function UcatLandingHero() {
               Start preparing free <ArrowRight className="h-4 w-4" aria-hidden />
             </MagneticButton>
           </AnalyticsLink>
-          <a
-            href="#product"
-            className={`inline-flex w-full items-center justify-center gap-2 rounded-full border border-marketing-charcoal/15 bg-white/55 px-7 py-3.5 text-base font-medium text-marketing-charcoal transition-colors hover:bg-white sm:w-auto ${typo.secondarySans}`}
-          >
-            Explore Altitutor UCAT <ArrowDown className="h-4 w-4" aria-hidden />
+          <a href="#product" className="w-full sm:w-auto">
+            <MagneticButton
+              className={`w-full border border-marketing-charcoal/15 bg-white/55 px-7 py-3.5 text-base font-medium text-marketing-charcoal hover:bg-white sm:w-auto ${typo.secondarySans}`}
+            >
+              Explore Altitutor UCAT <ArrowDown className="h-4 w-4" aria-hidden />
+            </MagneticButton>
           </a>
         </div>
 

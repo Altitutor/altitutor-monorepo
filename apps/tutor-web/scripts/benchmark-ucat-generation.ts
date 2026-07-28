@@ -20,6 +20,9 @@ import {
 import {
   validateGeneratedStemCandidate,
 } from '../src/features/ucat/questions/lib/ai-generation/gates'
+import {
+  buildAiGenerationTagCatalogue,
+} from '../src/features/ucat/questions/lib/ai-generation/tag-catalogue'
 
 loadEnv({ path: resolve(process.cwd(), '.env.local') })
 
@@ -141,6 +144,21 @@ async function main() {
   if (!category.id) throw new Error(`Category has no id: ${categoryName}`)
   const categoryId = category.id
 
+  const { data: tagData, error: tagError } = await client
+    .from('question_tags')
+    .select('id,name,description,parent_question_tag_id,ucat_section_id')
+  if (tagError) throw tagError
+  const availableTags = buildAiGenerationTagCatalogue(
+    (tagData ?? []).map((tag) => ({
+      id: tag.id,
+      name: tag.name?.trim() || 'Untitled tag',
+      description: extractText(tag.description).slice(0, 500) || null,
+      parentId: tag.parent_question_tag_id,
+      sectionId: tag.ucat_section_id,
+    })),
+    sectionId,
+  )
+
   const { data: profile, error: profileError } = await client
     .from('ucat_ai_generation_model_profiles')
     .select('id,name')
@@ -218,6 +236,7 @@ async function main() {
     difficultyTarget: 'mixed',
     timeBurdenTarget: 'mixed',
     targetTags: [],
+    availableTags,
     runInstructions: 'Benchmark run. Produce a near-publishable tutor-review draft.',
     examples: sources.map(compactStem),
     promptLayers: layers.map((layer) => ({
@@ -253,6 +272,7 @@ async function main() {
       ? validateGeneratedStemCandidate(stem, 0, {
           sectionName,
           categoryName,
+          availableTagIds: availableTags.map((tag) => tag.id),
           sourceComparisonSources: sources.map((source) => ({
             id: source.id,
             text: sourceText(source),

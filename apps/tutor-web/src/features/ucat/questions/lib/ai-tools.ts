@@ -403,8 +403,15 @@ export function applyExplanationUpdates(
       )
       if (!update) return question
       if (question.questionType === 'syllogism') {
+        const questionExplanation = update.answerExplanation?.trim()
+        const shouldApplyQuestionExplanation =
+          !hasRichTextContent(question.answerExplanation ?? null) && !!questionExplanation
+        if (shouldApplyQuestionExplanation) appliedCount += 1
         return {
           ...question,
+          answerExplanation: shouldApplyQuestionExplanation
+            ? plainTextToProseMirror(questionExplanation)
+            : question.answerExplanation,
           options: question.options.map((option, optionIndex) => {
             if (hasRichTextContent(option.answerExplanation ?? null)) return option
             const explanation = update.optionExplanations?.[optionIndex]?.trim()
@@ -414,11 +421,26 @@ export function applyExplanationUpdates(
           }),
         }
       }
-      if (hasRichTextContent(question.answerExplanation ?? null)) return question
-      const explanation = update.answerExplanation?.trim()
-      if (!explanation) return question
-      appliedCount += 1
-      return { ...question, answerExplanation: plainTextToProseMirror(explanation) }
+      const questionExplanation = update.answerExplanation?.trim()
+      const shouldApplyQuestionExplanation =
+        !hasRichTextContent(question.answerExplanation ?? null) && !!questionExplanation
+      if (shouldApplyQuestionExplanation) appliedCount += 1
+      return {
+        ...question,
+        answerExplanation: shouldApplyQuestionExplanation
+          ? plainTextToProseMirror(questionExplanation)
+          : question.answerExplanation,
+        options: question.options.map((option, optionIndex) => {
+          if (hasRichTextContent(option.answerExplanation ?? null)) return option
+          const optionExplanation = update.optionExplanations?.[optionIndex]?.trim()
+          if (!optionExplanation) return option
+          appliedCount += 1
+          return {
+            ...option,
+            answerExplanation: plainTextToProseMirror(optionExplanation),
+          }
+        }),
+      }
     }),
   }
   return { stem: next, appliedCount }

@@ -1,7 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { motion } from "motion/react";
+import { useCallback, useEffect, useId, useMemo, useState } from "react";
+import { AnimatePresence, LayoutGroup, motion } from "motion/react";
 import clsx from "clsx";
 import {
   Card,
@@ -24,18 +24,26 @@ import {
 } from "@altitutor/ucat-percentiles";
 import {
   BookOpen,
+  BrainCircuit,
   Calculator,
   Check,
   Clock3,
   Flame,
   Gavel,
   Move,
+  RotateCcw,
   Sparkles,
+  Target,
   TimerOff,
   Trophy,
 } from "lucide-react";
-import { DEMO_EASE } from "./demo-stage";
+import { DEMO_EASE, demoContainerVariants, demoItemVariants } from "./demo-stage";
 import { UcatSyllogismSimulatorPreview } from "./ucat-syllogism-simulator-preview";
+import {
+  ScaleToFitFrame,
+  SIMULATOR_CARD_DESIGN_HEIGHT,
+  SIMULATOR_CARD_DESIGN_WIDTH,
+} from "./scale-to-fit-frame";
 
 const FLOATING_INSIGHT_CARD =
   "rounded-2xl border border-black/10 bg-white/[0.97] text-[#1a1a1a] shadow-[0_18px_48px_rgba(15,23,42,0.14)] ring-1 ring-black/[0.07] backdrop-blur-xl";
@@ -54,6 +62,29 @@ const SECTION_META = [
   { key: "qr", label: "Quantitative Reasoning", icon: Calculator },
   { key: "sj", label: "Situational Judgement", icon: Gavel },
 ] as const;
+
+const SECTION_CATEGORIES: Record<
+  (typeof SECTION_META)[number]["key"],
+  readonly string[]
+> = {
+  vr: ["Reading Comprehension", "True, False, Can't Tell"],
+  dm: [
+    "Logical Puzzles",
+    "Probabilistic and Statistical Reasoning",
+    "Recognising Assumptions",
+    "Syllogisms",
+    "Venn Diagrams",
+  ],
+  qr: [
+    "Data Tables",
+    "Graphs and Charts",
+    "Timetables and Calendars",
+    "Maps and Diagrams",
+    "Mixed Data Sources",
+    "Text-Only Scenarios",
+  ],
+  sj: ["How Appropriate", "How Important"],
+};
 
 const TIMING_BAR_COLORS = {
   correct: "hsl(142 76% 36%)",
@@ -669,24 +700,67 @@ export function MarketingPracticeSectionCard({
 }) {
   const visibleSections = compact ? SECTION_META.slice(0, 2) : SECTION_META;
   const [selectedSection, setSelectedSection] = useState(0);
+  const [categoryEnabled, setCategoryEnabled] = useState<
+    Record<(typeof SECTION_META)[number]["key"], boolean[]>
+  >(() =>
+    Object.fromEntries(
+      SECTION_META.map((section) => [
+        section.key,
+        SECTION_CATEGORIES[section.key].map(() => true),
+      ]),
+    ) as Record<(typeof SECTION_META)[number]["key"], boolean[]>,
+  );
 
   useEffect(() => {
     if (!animate) return;
     const id = window.setInterval(() => {
       setSelectedSection((value) => (value + 1) % visibleSections.length);
-    }, 2800);
+    }, 3200);
     return () => window.clearInterval(id);
   }, [animate, visibleSections.length]);
 
-  const section = visibleSections[selectedSection];
-  const Icon = section.icon;
-  const categories = ["Reading Comprehension", "True / false / can't tell"];
+  useEffect(() => {
+    if (!animate) return;
+    const id = window.setInterval(() => {
+      setCategoryEnabled((previous) => {
+        const sectionKey = visibleSections[selectedSection]!.key;
+        const enabled = [...previous[sectionKey]];
+        const enabledIndexes = enabled
+          .map((checked, index) => (checked ? index : -1))
+          .filter((index) => index >= 0);
+
+        if (enabledIndexes.length === 0) return previous;
+
+        const flipIndex =
+          enabledIndexes[Math.floor(Math.random() * enabledIndexes.length)]!;
+        if (enabled[flipIndex] && enabledIndexes.length > 1) {
+          enabled[flipIndex] = false;
+        } else {
+          const disabledIndex = enabled.findIndex((checked) => !checked);
+          if (disabledIndex >= 0) enabled[disabledIndex] = true;
+        }
+
+        return { ...previous, [sectionKey]: enabled };
+      });
+    }, 2400);
+    return () => window.clearInterval(id);
+  }, [animate, selectedSection, visibleSections]);
+
+  const section = visibleSections[selectedSection]!;
 
   return (
-    <div className="grid gap-3 sm:grid-cols-2">
+    <div
+      className={clsx(
+        "grid gap-3",
+        compact ? "sm:grid-cols-2" : "sm:grid-cols-2 lg:grid-cols-4",
+      )}
+    >
       {visibleSections.map((item, index) => {
         const ItemIcon = item.icon;
         const selected = index === selectedSection;
+        const categories = SECTION_CATEGORIES[item.key];
+        const enabled = categoryEnabled[item.key];
+
         return (
           <motion.div
             key={item.key}
@@ -697,50 +771,87 @@ export function MarketingPracticeSectionCard({
           >
             <ItemIcon className="size-5 text-black/45" aria-hidden />
             <h3 className="mt-4 font-semibold">{item.label}</h3>
-            {selected ? (
-              <motion.div
-                className="mt-4 w-full"
-                initial={animate ? { opacity: 0, height: 0 } : false}
-                animate={{ opacity: 1, height: "auto" }}
-                transition={{ duration: 0.24, ease: DEMO_EASE }}
-              >
-                <p className="text-xs font-semibold uppercase tracking-wide text-black/40">
-                  Categories
-                </p>
-                <div className="mt-3 space-y-3">
-                  {categories.map((name) => (
-                    <label
-                      key={name}
-                      className="flex items-center justify-between gap-3 text-xs"
-                    >
-                      <span>{name}</span>
-                      <Switch checked disabled className="pointer-events-none" />
-                    </label>
-                  ))}
-                </div>
-              </motion.div>
-            ) : (
-              <p className="mt-1 text-sm text-black/45">Tap to configure categories</p>
-            )}
+            <AnimatePresence initial={false}>
+              {selected ? (
+                <motion.div
+                  key={`${item.key}-categories`}
+                  className="mt-4 w-full overflow-hidden"
+                  initial={animate ? { opacity: 0, height: 0, y: -6 } : false}
+                  animate={{ opacity: 1, height: "auto", y: 0 }}
+                  exit={{ opacity: 0, height: 0, y: -6 }}
+                  transition={{ duration: 0.22, ease: DEMO_EASE }}
+                >
+                  <p className="text-xs font-medium text-black/45">Categories</p>
+                  <div className="mt-3 space-y-3">
+                    {categories.map((name, categoryIndex) => (
+                      <label
+                        key={name}
+                        className="flex items-center justify-between gap-3 text-xs"
+                      >
+                        <span className="min-w-0 flex-1 leading-snug">{name}</span>
+                        <Switch
+                          checked={enabled[categoryIndex] ?? true}
+                          disabled={
+                            (enabled[categoryIndex] ?? true) &&
+                            enabled.filter(Boolean).length === 1
+                          }
+                          className="pointer-events-none shrink-0"
+                        />
+                      </label>
+                    ))}
+                  </div>
+                </motion.div>
+              ) : (
+                <motion.p
+                  key={`${item.key}-hint`}
+                  className="mt-1 text-sm text-black/45"
+                  initial={animate ? { opacity: 0 } : false}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  transition={{ duration: 0.18 }}
+                >
+                  Tap to configure categories
+                </motion.p>
+              )}
+            </AnimatePresence>
           </motion.div>
         );
       })}
       <div className="sr-only">Selected: {section.label}</div>
-      <Icon className="hidden" aria-hidden />
     </div>
   );
 }
 
 export function MarketingPracticeTimingCards({ animate }: { animate: boolean }) {
-  const [isTimed, setIsTimed] = useState(false);
+  const [isTimed, setIsTimed] = useState(true);
+  const [pacing, setPacing] = useState(100);
 
   useEffect(() => {
     if (!animate) {
       setIsTimed(true);
+      setPacing(100);
       return;
     }
-    const id = window.setInterval(() => setIsTimed((value) => !value), 2600);
-    return () => window.clearInterval(id);
+
+    const modeId = window.setInterval(() => {
+      setIsTimed((value) => !value);
+    }, 4200);
+
+    const pacingId = window.setInterval(() => {
+      setPacing((value) => {
+        const currentIndex = PACING_STEPS.indexOf(
+          value as (typeof PACING_STEPS)[number],
+        );
+        const nextIndex =
+          currentIndex >= 0 ? (currentIndex + 1) % PACING_STEPS.length : 3;
+        return PACING_STEPS[nextIndex]!;
+      });
+    }, 2200);
+
+    return () => {
+      window.clearInterval(modeId);
+      window.clearInterval(pacingId);
+    };
   }, [animate]);
 
   return (
@@ -750,23 +861,62 @@ export function MarketingPracticeTimingCards({ animate }: { animate: boolean }) 
         <h3 className="mt-4 font-semibold">Untimed</h3>
         <p className="mt-1 text-sm text-black/50">Take as long as you need.</p>
       </div>
-      <div className={clickableCardClass(isTimed)}>
+      <motion.div className={clickableCardClass(isTimed)}>
         <Clock3 className="size-5 text-black/45" aria-hidden />
         <h3 className="mt-4 font-semibold">Timed</h3>
         <p className="mt-1 text-sm text-black/50">
           Set your pace relative to the UCAT exam.
         </p>
-        {isTimed ? (
-          <motion.p
-            className="mt-4 text-sm font-medium text-[#0a2941]"
-            initial={animate ? { opacity: 0, y: -4 } : false}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.22 }}
-          >
-            Questions paced at 1x exam speed
-          </motion.p>
-        ) : null}
-      </div>
+        <AnimatePresence initial={false}>
+          {isTimed ? (
+            <motion.div
+              key="timed-slider"
+              className="mt-5 w-full overflow-hidden pt-1"
+              initial={animate ? { opacity: 0, height: 0, y: -6 } : false}
+              animate={{ opacity: 1, height: "auto", y: 0 }}
+              exit={{ opacity: 0, height: 0, y: -6 }}
+              transition={{ duration: 0.22, ease: DEMO_EASE }}
+            >
+              <input
+                type="range"
+                min={25}
+                max={200}
+                step={25}
+                value={pacing}
+                readOnly
+                className="pointer-events-none w-full accent-[#0a2941]"
+                aria-hidden
+              />
+              <div className="mt-2 grid grid-cols-8">
+                {PACING_STEPS.map((pace) => (
+                  <div
+                    key={pace}
+                    className={clsx(
+                      "flex flex-col items-center gap-1 text-[10px] text-black/45",
+                      pace === pacing && "font-semibold text-[#0a2941]",
+                    )}
+                  >
+                    <span
+                      className={clsx(
+                        "h-2 w-px bg-black/15",
+                        pace === pacing && "h-3 bg-[#0a2941]",
+                      )}
+                    />
+                    {formatSpeedPercentAsMultiplier(pace)}
+                  </div>
+                ))}
+              </div>
+              <p className="mt-4 text-sm">
+                Questions will be paced at{" "}
+                <span className="font-semibold">
+                  {formatSpeedPercentAsMultiplier(pacing)}
+                </span>{" "}
+                exam speed.
+              </p>
+            </motion.div>
+          ) : null}
+        </AnimatePresence>
+      </motion.div>
     </div>
   );
 }
@@ -1409,20 +1559,704 @@ export function MarketingReviewScoreSnapshot({
   return body;
 }
 
-export function MarketingProgressCardSnapshot({ animate }: { animate: boolean }) {
+const MARKETING_STUDY_PLAN_DEMO_DAYS = [
+  "2026-07-14",
+  "2026-07-16",
+  "2026-07-18",
+] as const;
+
+export function MarketingStudyPlanCardSnapshot({ animate }: { animate: boolean }) {
+  const WEEKDAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"] as const;
+  const TEST_DATE = "2026-07-27";
+  const DAY_HOLD_MS = 5200;
+
+  type SnapshotTask = {
+    id: string;
+    title: string;
+    minutes: number;
+    type: "trainer" | "practice" | "review" | "learn";
+  };
+
+  const tasksByDate: Record<(typeof MARKETING_STUDY_PLAN_DEMO_DAYS)[number], SnapshotTask[]> = {
+    "2026-07-14": [
+      {
+        id: "mon-learn",
+        title: "QR foundations · ratios",
+        minutes: 14,
+        type: "learn",
+      },
+      {
+        id: "mon-practice",
+        title: "QR ratios · untimed set",
+        minutes: 18,
+        type: "practice",
+      },
+      {
+        id: "mon-review",
+        title: "Review Monday’s QR mistakes",
+        minutes: 8,
+        type: "review",
+      },
+    ],
+    "2026-07-16": [
+      {
+        id: "wed-trainer",
+        title: "Syllogism speed warm-up",
+        minutes: 6,
+        type: "trainer",
+      },
+      {
+        id: "wed-practice",
+        title: "Reading Comprehension · 0.75×",
+        minutes: 22,
+        type: "practice",
+      },
+      {
+        id: "wed-review",
+        title: "Review today’s VR attempt",
+        minutes: 7,
+        type: "review",
+      },
+    ],
+    "2026-07-18": [
+      {
+        id: "fri-learn",
+        title: "Decision Making foundations",
+        minutes: 12,
+        type: "learn",
+      },
+      {
+        id: "fri-practice",
+        title: "Arguments mini-set · untimed",
+        minutes: 15,
+        type: "practice",
+      },
+      {
+        id: "fri-trainer",
+        title: "Syllogism accuracy drill",
+        minutes: 9,
+        type: "trainer",
+      },
+    ],
+  };
+
+  const dayLabels: Record<(typeof MARKETING_STUDY_PLAN_DEMO_DAYS)[number], string> = {
+    "2026-07-14": "Monday 14 July",
+    "2026-07-16": "Wednesday 16 July",
+    "2026-07-18": "Friday 18 July",
+  };
+
+  const activityByDay: Partial<Record<number, 1 | 2 | 3 | 4>> = {
+    14: 2,
+    15: 1,
+    16: 4,
+    17: 1,
+    18: 3,
+    20: 2,
+    21: 4,
+    22: 3,
+    23: 2,
+    24: 4,
+    25: 3,
+    26: 2,
+  };
+
+  const intensityFill: Record<0 | 1 | 2 | 3 | 4, string> = {
+    0: "bg-black/[0.04]",
+    1: "bg-[#c5dce5]",
+    2: "bg-[#92b9c6]",
+    3: "bg-[#355d72]",
+    4: "bg-[#0a2941]",
+  };
+
+  const [selectedDate, setSelectedDate] =
+    useState<(typeof MARKETING_STUDY_PLAN_DEMO_DAYS)[number]>("2026-07-16");
+
+  useEffect(() => {
+    if (!animate) {
+      setSelectedDate("2026-07-16");
+      return;
+    }
+
+    let dayIndex = MARKETING_STUDY_PLAN_DEMO_DAYS.indexOf("2026-07-16");
+    const intervalId = window.setInterval(() => {
+      dayIndex = (dayIndex + 1) % MARKETING_STUDY_PLAN_DEMO_DAYS.length;
+      setSelectedDate(MARKETING_STUDY_PLAN_DEMO_DAYS[dayIndex] ?? "2026-07-16");
+    }, DAY_HOLD_MS);
+
+    return () => window.clearInterval(intervalId);
+  }, [animate]);
+
+  const tasks = tasksByDate[selectedDate];
+  const totalMinutes = tasks.reduce((sum, task) => sum + task.minutes, 0);
+  const isToday = selectedDate === "2026-07-16";
+
+  const taskIcon = (type: SnapshotTask["type"]) => {
+    switch (type) {
+      case "trainer":
+        return Sparkles;
+      case "review":
+        return RotateCcw;
+      case "practice":
+        return BrainCircuit;
+      case "learn":
+        return BookOpen;
+      default: {
+        const _exhaustive: never = type;
+        return _exhaustive;
+      }
+    }
+  };
+
   return (
-    <MarketingTrajectoryChart
-      animate={animate}
-      heightClass="h-44 sm:h-52"
-      flush
-    />
+    <div className={clsx(CARD_CHROME, "min-w-0 overflow-hidden p-4")}>
+      <div className="grid min-w-0 gap-4 sm:grid-cols-[minmax(0,0.95fr)_minmax(0,1.05fr)]">
+        <div>
+          <div className="flex items-start justify-between gap-2">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wide text-black/40">
+                Study plan
+              </p>
+              <h3 className="mt-1 text-sm font-semibold">July 2026</h3>
+            </div>
+            <span className="flex shrink-0 items-center gap-1 rounded-full border border-amber-400/40 bg-amber-400/10 px-2 py-0.5 text-[10px] font-semibold tabular-nums">
+              <Flame className="size-3 fill-amber-400 text-amber-500" aria-hidden />
+              5 days
+            </span>
+          </div>
+          <LayoutGroup id="study-plan-card-calendar">
+            <div className="mt-3 grid grid-cols-7 gap-1">
+              {WEEKDAYS.map((weekday) => (
+                <div
+                  key={weekday}
+                  className="pb-0.5 text-center text-[8px] font-medium uppercase tracking-[0.1em] text-black/40"
+                >
+                  {weekday.slice(0, 1)}
+                </div>
+              ))}
+              {Array.from({ length: 2 }, (_, index) => (
+                <span key={`blank-${index}`} className="aspect-square" />
+              ))}
+              {Array.from({ length: 31 }, (_, index) => {
+                const day = index + 1;
+                const dateKey = `2026-07-${String(day).padStart(2, "0")}`;
+                const intensity = activityByDay[day] ?? 0;
+                const selected = dateKey === selectedDate;
+                const isTest = dateKey === TEST_DATE;
+
+                return (
+                  <div
+                    key={day}
+                    className={clsx(
+                      "relative flex aspect-square items-center justify-center rounded-[22%] text-[10px] font-semibold",
+                      intensityFill[intensity],
+                      intensity >= 3 ? "text-white" : "text-black/70",
+                    )}
+                  >
+                    {day}
+                    {selected && animate ? (
+                      <motion.span
+                        layoutId="study-plan-card-selected-day"
+                        className="pointer-events-none absolute inset-0 rounded-[22%] ring-2 ring-[#0a2941] ring-offset-1"
+                        transition={{ duration: 0.55, ease: DEMO_EASE }}
+                      />
+                    ) : selected ? (
+                      <span className="pointer-events-none absolute inset-0 rounded-[22%] ring-2 ring-[#0a2941] ring-offset-1" />
+                    ) : null}
+                    {isTest ? (
+                      <Target
+                        className="absolute bottom-0 size-2 text-[#0a2941]"
+                        aria-hidden
+                      />
+                    ) : null}
+                  </div>
+                );
+              })}
+            </div>
+          </LayoutGroup>
+        </div>
+
+        <div className="min-w-0">
+          <div className="flex items-end justify-between gap-2">
+            <div>
+              <p className="text-[10px] font-medium uppercase tracking-wide text-black/40">
+                {isToday ? "Today" : "Selected day"}
+              </p>
+              <motion.p
+                key={selectedDate}
+                className="text-sm font-semibold"
+                initial={animate ? { opacity: 0, y: 5 } : false}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.4, ease: DEMO_EASE }}
+              >
+                {dayLabels[selectedDate]}
+              </motion.p>
+            </div>
+            <motion.span
+              key={`${selectedDate}-minutes`}
+              className="rounded-full bg-[#e8eaed] px-2 py-0.5 text-[10px] font-semibold tabular-nums text-[#0a2941]"
+              initial={animate ? { opacity: 0, scale: 0.92 } : false}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ duration: 0.35, ease: DEMO_EASE }}
+            >
+              {totalMinutes} min
+            </motion.span>
+          </div>
+          <motion.ul
+            key={selectedDate}
+            className="mt-3 space-y-2"
+            variants={demoContainerVariants}
+            initial={animate ? "hidden" : false}
+            animate="show"
+          >
+            {tasks.map((task) => {
+              const Icon = taskIcon(task.type);
+              return (
+                <motion.li
+                  key={task.id}
+                  variants={demoItemVariants}
+                  className="flex items-start gap-2.5 rounded-xl border border-black/[0.06] bg-[#f6f7f9] px-2.5 py-2"
+                >
+                  <span className="grid size-8 shrink-0 place-items-center rounded-lg bg-white text-[#0a2941] ring-1 ring-black/[0.05]">
+                    <Icon className="size-3.5" aria-hidden />
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-xs font-semibold leading-snug">{task.title}</p>
+                    <p className="mt-0.5 flex items-center gap-1 text-[10px] text-black/45">
+                      <Clock3 className="size-3" aria-hidden />
+                      {task.minutes} min
+                    </p>
+                  </div>
+                </motion.li>
+              );
+            })}
+          </motion.ul>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+const TRAJECTORY_CHART_WIDTH = 800;
+const TRAJECTORY_CHART_HEIGHT = 300;
+const TRAJECTORY_CHART_TOP = 26;
+const TRAJECTORY_CHART_BOTTOM = 252;
+const TRAJECTORY_SCORE_MIN = 1_350;
+const TRAJECTORY_SCORE_MAX = 2_450;
+const TRAJECTORY_CURRENT = 1_755;
+const TRAJECTORY_TARGET = 2_250;
+const TRAJECTORY_CURRENT_X = 380;
+
+const TRAJECTORY_MARKERS = [
+  { x: 80, label: "Mock 5" },
+  { x: 160, label: "Mock 6" },
+  { x: 240, label: "Mock 7" },
+  { x: 320, label: "Mock 8" },
+  { x: 440, label: "Mock 9" },
+  { x: 520, label: "Mock 10" },
+  { x: 680, label: "Test day" },
+] as const;
+
+type TrajectorySamplePoint = {
+  x: number;
+  score: number;
+  label?: string;
+};
+
+/** Single anchor series — steady historical climb with light wobble, then projection above target. */
+const TRAJECTORY_ANCHORS: readonly TrajectorySamplePoint[] = [
+  { x: 0, score: 1_380 },
+  { x: 40, score: 1_419 },
+  { x: 80, score: 1_458, label: "Mock 5" },
+  { x: 120, score: 1_450 },
+  { x: 160, score: 1_537, label: "Mock 6" },
+  { x: 200, score: 1_576 },
+  { x: 240, score: 1_616, label: "Mock 7" },
+  { x: 280, score: 1_655 },
+  { x: 320, score: 1_695, label: "Mock 8" },
+  { x: 360, score: 1_735 },
+  { x: 380, score: TRAJECTORY_CURRENT },
+  { x: 408, score: 1_830 },
+  { x: 440, score: 1_930, label: "Mock 9" },
+  { x: 520, score: 2_090, label: "Mock 10" },
+  { x: 600, score: 2_220 },
+  { x: 680, score: 2_320, label: "Test day" },
+  { x: 760, score: 2_365 },
+  { x: 800, score: 2_380 },
+];
+
+type TrajectoryHoverPoint = TrajectorySamplePoint & {
+  kind: "historical" | "projected";
+  y: number;
+};
+
+function trajectoryScoreToY(score: number): number {
+  const ratio =
+    (score - TRAJECTORY_SCORE_MIN) / (TRAJECTORY_SCORE_MAX - TRAJECTORY_SCORE_MIN);
+  return (
+    TRAJECTORY_CHART_BOTTOM -
+    ratio * (TRAJECTORY_CHART_BOTTOM - TRAJECTORY_CHART_TOP)
+  );
+}
+
+function toChartPoints(points: readonly TrajectorySamplePoint[]) {
+  return points.map((point) => ({
+    x: point.x,
+    y: trajectoryScoreToY(point.score),
+  }));
+}
+
+function catmullRomPath(
+  points: readonly { x: number; y: number }[],
+  tension = 0.92,
+): string {
+  if (points.length === 0) return "";
+  if (points.length === 1) return `M ${points[0]!.x} ${points[0]!.y}`;
+
+  let path = `M ${points[0]!.x} ${points[0]!.y}`;
+  for (let index = 0; index < points.length - 1; index += 1) {
+    const point0 = points[index - 1] ?? points[index]!;
+    const point1 = points[index]!;
+    const point2 = points[index + 1]!;
+    const point3 = points[index + 2] ?? point2;
+
+    const control1X = point1.x + ((point2.x - point0.x) / 6) * tension;
+    const control1Y = point1.y + ((point2.y - point0.y) / 6) * tension;
+    const control2X = point2.x - ((point3.x - point1.x) / 6) * tension;
+    const control2Y = point2.y - ((point3.y - point1.y) / 6) * tension;
+
+    path += ` C ${control1X} ${control1Y} ${control2X} ${control2Y} ${point2.x} ${point2.y}`;
+  }
+  return path;
+}
+
+function uncertaintyScoreAt(x: number): number {
+  if (x <= TRAJECTORY_CURRENT_X) return 0;
+  const progress =
+    (x - TRAJECTORY_CURRENT_X) / (TRAJECTORY_CHART_WIDTH - TRAJECTORY_CURRENT_X);
+  return 18 + progress * 92;
+}
+
+function buildConePath(anchors: readonly TrajectorySamplePoint[]): string {
+  const projectionAnchors = anchors.filter((point) => point.x >= TRAJECTORY_CURRENT_X);
+  const upper = projectionAnchors.map((point) => ({
+    x: point.x,
+    y: trajectoryScoreToY(point.score + uncertaintyScoreAt(point.x)),
+  }));
+  const lower = [...projectionAnchors].reverse().map((point) => ({
+    x: point.x,
+    y: trajectoryScoreToY(point.score - uncertaintyScoreAt(point.x)),
+  }));
+
+  return `${catmullRomPath(upper)} L ${lower.map((point) => `${point.x} ${point.y}`).join(" L ")} Z`;
+}
+
+function nearestMarkerLabel(x: number): string | undefined {
+  const marker = TRAJECTORY_MARKERS.find(
+    (entry) => Math.abs(entry.x - x) <= 14,
+  );
+  return marker?.label;
+}
+
+function interpolateScoreAt(
+  anchors: readonly TrajectorySamplePoint[],
+  x: number,
+): number {
+  if (x <= anchors[0]!.x) return anchors[0]!.score;
+  const last = anchors[anchors.length - 1]!;
+  if (x >= last.x) return last.score;
+
+  for (let index = 0; index < anchors.length - 1; index += 1) {
+    const start = anchors[index]!;
+    const end = anchors[index + 1]!;
+    if (x < start.x || x > end.x) continue;
+    const ratio = (x - start.x) / (end.x - start.x || 1);
+    return start.score + (end.score - start.score) * ratio;
+  }
+
+  return TRAJECTORY_CURRENT;
+}
+
+function sampleTrajectoryAt(
+  x: number,
+  anchors: readonly TrajectorySamplePoint[],
+): TrajectoryHoverPoint {
+  const clampedX = Math.max(0, Math.min(TRAJECTORY_CHART_WIDTH, x));
+  const kind = clampedX <= TRAJECTORY_CURRENT_X ? "historical" : "projected";
+  const score = interpolateScoreAt(anchors, clampedX);
+
+  return {
+    x: clampedX,
+    score,
+    label: nearestMarkerLabel(clampedX),
+    kind,
+    y: trajectoryScoreToY(score),
+  };
+}
+
+function formatTrajectoryScore(score: number): string {
+  return Math.round(score).toLocaleString("en-US");
+}
+
+export function MarketingProgressCardSnapshot({ animate }: { animate: boolean }) {
+  const clipHistoricalId = useId();
+  const clipProjectionId = useId();
+
+  const fullPath = useMemo(
+    () => catmullRomPath(toChartPoints(TRAJECTORY_ANCHORS)),
+    [],
+  );
+  const conePath = useMemo(() => buildConePath(TRAJECTORY_ANCHORS), []);
+  const targetY = trajectoryScoreToY(TRAJECTORY_TARGET);
+  const currentY = trajectoryScoreToY(TRAJECTORY_CURRENT);
+
+  const testDayAnchor =
+    TRAJECTORY_ANCHORS.find((point) => point.label === "Test day") ??
+    TRAJECTORY_ANCHORS[TRAJECTORY_ANCHORS.length - 1]!;
+  const testDayX = testDayAnchor.x;
+  const testDayScore = testDayAnchor.score;
+  const testDayY = trajectoryScoreToY(testDayScore);
+
+  const [hoverPoint, setHoverPoint] = useState<TrajectoryHoverPoint | null>(null);
+
+  const exploreAtClientX = useCallback((clientX: number, bounds: DOMRect) => {
+    const relativeX = Math.min(
+      1,
+      Math.max(0, (clientX - bounds.left) / bounds.width),
+    );
+    const chartX = relativeX * TRAJECTORY_CHART_WIDTH;
+    setHoverPoint(sampleTrajectoryAt(chartX, TRAJECTORY_ANCHORS));
+  }, []);
+
+  const handleMouseMove = (event: React.MouseEvent<SVGSVGElement>) => {
+    exploreAtClientX(
+      event.clientX,
+      event.currentTarget.getBoundingClientRect(),
+    );
+  };
+
+  const handleKeyDown = (event: React.KeyboardEvent<SVGSVGElement>) => {
+    if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") return;
+    event.preventDefault();
+    const currentX = hoverPoint?.x ?? TRAJECTORY_CURRENT_X;
+    const direction = event.key === "ArrowRight" ? 1 : -1;
+    const nextX = Math.max(
+      0,
+      Math.min(TRAJECTORY_CHART_WIDTH, currentX + direction * 18),
+    );
+    setHoverPoint(sampleTrajectoryAt(nextX, TRAJECTORY_ANCHORS));
+  };
+
+  return (
+    <div className="relative flex w-full min-w-0 max-w-full flex-1 overflow-hidden bg-gradient-to-b from-[#f6f7f9] via-[#eef0f3] to-[#f6f7f9]">
+      <div
+        className="relative w-full min-w-0"
+        style={{
+          aspectRatio: `${TRAJECTORY_CHART_WIDTH} / ${TRAJECTORY_CHART_HEIGHT}`,
+        }}
+      >
+        {[36, 58, 80].map((top) => (
+          <span
+            key={top}
+            className="pointer-events-none absolute inset-x-0 border-t border-dashed border-black/10"
+            style={{ top: `${top}%` }}
+            aria-hidden
+          />
+        ))}
+
+        <div
+          className="pointer-events-none absolute inset-x-0 z-0 border-t-[1.5px] border-dashed border-amber-500/80"
+          style={{ top: `${(targetY / TRAJECTORY_CHART_HEIGHT) * 100}%` }}
+          aria-hidden
+        />
+
+        {TRAJECTORY_MARKERS.map((marker) => (
+          <div
+            key={marker.label}
+            className="pointer-events-none absolute top-[4%] z-[1] border-l border-dashed border-black/20"
+            style={{
+              left: `${(marker.x / TRAJECTORY_CHART_WIDTH) * 100}%`,
+              bottom: "1.75rem",
+            }}
+            aria-hidden
+          />
+        ))}
+
+        <div className="pointer-events-none absolute inset-x-4 bottom-2 z-10 h-3 sm:inset-x-5">
+          {TRAJECTORY_MARKERS.map((marker) => (
+            <span
+              key={marker.label}
+              className="absolute top-0 -translate-x-1/2 whitespace-nowrap text-[9px] font-medium text-black/45"
+              style={{ left: `${(marker.x / TRAJECTORY_CHART_WIDTH) * 100}%` }}
+            >
+              {marker.label}
+            </span>
+          ))}
+        </div>
+
+        <svg
+          viewBox={`0 0 ${TRAJECTORY_CHART_WIDTH} ${TRAJECTORY_CHART_HEIGHT}`}
+          role="img"
+          tabIndex={0}
+          aria-label={`Score trajectory from historical estimates toward target ${TRAJECTORY_TARGET}`}
+          onMouseMove={handleMouseMove}
+          onMouseLeave={() => setHoverPoint(null)}
+          onKeyDown={handleKeyDown}
+          onBlur={() => setHoverPoint(null)}
+          className="absolute inset-0 z-10 size-full cursor-crosshair outline-none focus-visible:ring-2 focus-visible:ring-[#0a2941]/25 focus-visible:ring-offset-2"
+          preserveAspectRatio="xMidYMid meet"
+        >
+          <defs>
+            <clipPath id={clipHistoricalId}>
+              <rect
+                x="0"
+                y="0"
+                width={TRAJECTORY_CURRENT_X + 2}
+                height={TRAJECTORY_CHART_HEIGHT}
+              />
+            </clipPath>
+            <clipPath id={clipProjectionId}>
+              <rect
+                x={TRAJECTORY_CURRENT_X - 2}
+                y="0"
+                width={TRAJECTORY_CHART_WIDTH - TRAJECTORY_CURRENT_X + 2}
+                height={TRAJECTORY_CHART_HEIGHT}
+              />
+            </clipPath>
+          </defs>
+
+          <motion.path
+            d={conePath}
+            fill="#92b9c6"
+            initial={animate ? { opacity: 0 } : false}
+            animate={{ opacity: 0.22 }}
+            transition={{ duration: 0.9, delay: 0.12 }}
+          />
+          <motion.path
+            d={fullPath}
+            fill="none"
+            stroke="#0a2941"
+            strokeWidth="4"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            vectorEffect="non-scaling-stroke"
+            clipPath={`url(#${clipHistoricalId})`}
+            initial={animate ? { pathLength: 0 } : false}
+            animate={{ pathLength: 1 }}
+            transition={{ duration: 0.9, ease: DEMO_EASE }}
+          />
+          <motion.path
+            d={fullPath}
+            fill="none"
+            stroke="#92b9c6"
+            strokeWidth="4"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeDasharray="10 8"
+            vectorEffect="non-scaling-stroke"
+            clipPath={`url(#${clipProjectionId})`}
+            initial={animate ? { pathLength: 0 } : false}
+            animate={{ pathLength: 1 }}
+            transition={{ duration: 1.1, delay: 0.22, ease: DEMO_EASE }}
+          />
+          <motion.circle
+            cx={TRAJECTORY_CURRENT_X}
+            cy={currentY}
+            r="6"
+            fill="#0a2941"
+            stroke="white"
+            strokeWidth="2.5"
+            initial={animate ? { scale: 0, opacity: 0 } : false}
+            animate={{ scale: 1, opacity: 1 }}
+            transition={{
+              delay: 0.85,
+              type: "spring",
+              stiffness: 320,
+              damping: 24,
+            }}
+          />
+
+          {!hoverPoint ? (
+            <>
+              <text
+                x={TRAJECTORY_CURRENT_X}
+                y={currentY - 14}
+                textAnchor="middle"
+                className="fill-[#0a2941] text-[13px] font-semibold"
+                style={{ fontFamily: "inherit" }}
+              >
+                {formatTrajectoryScore(TRAJECTORY_CURRENT)}
+              </text>
+              <text
+                x={testDayX}
+                y={testDayY - 14}
+                textAnchor="middle"
+                className="fill-[#4f7f92] text-[13px] font-semibold"
+                style={{ fontFamily: "inherit" }}
+              >
+                {formatTrajectoryScore(testDayScore)}
+              </text>
+            </>
+          ) : null}
+
+          {hoverPoint ? (
+            <>
+              <line
+                x1={hoverPoint.x}
+                x2={hoverPoint.x}
+                y1={hoverPoint.y}
+                y2={TRAJECTORY_CHART_BOTTOM + 10}
+                vectorEffect="non-scaling-stroke"
+                stroke="#0a2941"
+                strokeWidth="1.5"
+                strokeDasharray="4 4"
+                strokeOpacity="0.55"
+              />
+              <circle
+                cx={hoverPoint.x}
+                cy={hoverPoint.y}
+                r="5"
+                fill={hoverPoint.kind === "historical" ? "#0a2941" : "#92b9c6"}
+                stroke="white"
+                strokeWidth="2"
+              />
+              <text
+                x={hoverPoint.x}
+                y={hoverPoint.y - 12}
+                textAnchor="middle"
+                className={`text-[12px] font-semibold ${
+                  hoverPoint.kind === "historical"
+                    ? "fill-[#0a2941]"
+                    : "fill-[#4f7f92]"
+                }`}
+                style={{ fontFamily: "inherit" }}
+              >
+                {formatTrajectoryScore(hoverPoint.score)}
+              </text>
+            </>
+          ) : null}
+        </svg>
+
+        <span
+          className="pointer-events-none absolute left-3 z-20 rounded-full bg-amber-500 px-2 py-0.5 text-[9px] font-semibold text-slate-950 sm:left-4"
+          style={{
+            top: `calc(${(targetY / TRAJECTORY_CHART_HEIGHT) * 100}% - 1.25rem)`,
+          }}
+        >
+          Target {TRAJECTORY_TARGET.toLocaleString()}
+        </span>
+      </div>
+    </div>
   );
 }
 
 export function MarketingSimulatorBleedPreview() {
   return (
-    <div className="h-[min(420px,56vw)] min-h-[300px] overflow-hidden px-3 pb-3 pt-1 sm:px-4 sm:pb-4">
+    <ScaleToFitFrame
+      designWidth={SIMULATOR_CARD_DESIGN_WIDTH}
+      designHeight={SIMULATOR_CARD_DESIGN_HEIGHT}
+    >
       <UcatSyllogismSimulatorPreview />
-    </div>
+    </ScaleToFitFrame>
   );
 }
