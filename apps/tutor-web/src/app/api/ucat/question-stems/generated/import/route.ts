@@ -1,9 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
-import type { Database } from '@altitutor/shared'
-import type { SupabaseClient } from '@supabase/supabase-js'
 import { requireUcatTutor, type UcatTutorSupabaseClient } from '@/features/ucat/shared/server/guard'
-import { requestUcatQuestionAssessmentsForReview } from '@/features/ucat/questions/server/ai-assessment/dispatcher'
+import { enqueueUcatQuestionAssessmentPreparation } from '@/features/ucat/questions/server/ai-assessment/dispatcher'
 
 const GeneratedOptionSchema = z.object({
   index: z.number().int().positive(),
@@ -95,9 +93,11 @@ export async function POST(request: NextRequest) {
   }
 
   const ids = Array.isArray(data) ? (data as string[]) : []
-  await requestUcatQuestionAssessmentsForReview({
+  await enqueueUcatQuestionAssessmentPreparation({
     stemIds: ids,
-    userClient: access.userClient as unknown as SupabaseClient<Database>,
+    triggerKind: 'review_submission',
+  }).catch((assessmentError) => {
+    console.error('Could not queue automatic UCAT AI assessment preparation after generated import', assessmentError)
   })
   return NextResponse.json({ ids })
 }

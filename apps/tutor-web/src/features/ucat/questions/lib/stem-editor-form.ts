@@ -115,6 +115,19 @@ export function parseContentStatusFromSnapshot(snapshot: string): UcatContentSta
   }
 }
 
+function stemContentChanged(nextSnapshot: string, baselineSnapshot: string): boolean {
+  if (!baselineSnapshot) return true
+  try {
+    const next = JSON.parse(nextSnapshot) as Record<string, unknown>
+    const baseline = JSON.parse(baselineSnapshot) as Record<string, unknown>
+    delete next.status
+    delete baseline.status
+    return JSON.stringify(next) !== JSON.stringify(baseline)
+  } catch {
+    return true
+  }
+}
+
 export async function persistStemFormValues(
   stemId: string,
   values: UcatQuestionStemFormValues,
@@ -125,7 +138,10 @@ export async function persistStemFormValues(
   },
 ): Promise<string> {
   const valuesCopy = JSON.parse(JSON.stringify(values)) as UcatQuestionStemFormValues
-  await options.updateStem(formValuesToStemBundlePayload(valuesCopy, stemId))
+  const nextSnapshot = snapshotQuestionStemFormValues(valuesCopy)
+  if (stemContentChanged(nextSnapshot, options.baselineSnapshot)) {
+    await options.updateStem(formValuesToStemBundlePayload(valuesCopy, stemId))
+  }
 
   const previousStatus = parseContentStatusFromSnapshot(options.baselineSnapshot)
   const nextStatus = valuesCopy.status ?? null
@@ -133,7 +149,7 @@ export async function persistStemFormValues(
     await options.setStatus(nextStatus)
   }
 
-  return snapshotQuestionStemFormValues(valuesCopy)
+  return nextSnapshot
 }
 
 export function getFirstStemValidationMessage(errors: Record<string, unknown>): string {

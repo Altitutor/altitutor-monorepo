@@ -39,7 +39,7 @@ import {
 import type { StemDetailRow } from '@/features/ucat/questions/api/questions'
 import { GeneratedContentBlockSchema } from '@/features/ucat/questions/lib/ai-generation/schema'
 import { generatedVisualBlockToImageNodeServer } from '@/features/ucat/questions/lib/ai-generation/server-content-blocks'
-import { requestUcatQuestionAssessment } from '@/features/ucat/questions/server/ai-assessment/dispatcher'
+import { enqueueUcatQuestionAssessmentPreparation } from '@/features/ucat/questions/server/ai-assessment/dispatcher'
 
 type RpcResult = {
   data: unknown
@@ -245,7 +245,7 @@ export async function applyUcatMcpPublishedOperations(
     source,
   }))
   if (contentType === 'stem') {
-    await requestAssessmentAfterStemChange(client, id)
+    await requestAssessmentAfterStemChange(id)
   }
   return {
     ...await getUcatMcpAggregate(client, contentType, id),
@@ -254,13 +254,11 @@ export async function applyUcatMcpPublishedOperations(
 }
 
 async function requestAssessmentAfterStemChange(
-  client: SupabaseClient<Database>,
   stemId: string,
 ): Promise<void> {
-  await requestUcatQuestionAssessment({
-    stemId,
+  await enqueueUcatQuestionAssessmentPreparation({
+    stemIds: [stemId],
     triggerKind: 'content_change',
-    userClient: client,
   }).catch((error) => {
     console.error('Could not request UCAT AI assessment after MCP published stem update', error)
   })
@@ -352,7 +350,7 @@ export async function applyUcatMcpPendingChange(
     reverseOfChangeId: change.reverse_of_change_id,
   }))
   if (change.target_type === 'stem') {
-    await requestAssessmentAfterStemChange(client, change.target_id)
+    await requestAssessmentAfterStemChange(change.target_id)
   }
   return {
     ...await getUcatMcpAggregate(client, change.target_type, change.target_id),
@@ -698,7 +696,7 @@ export async function acceptUcatMcpAssessmentSuggestion(
     },
     source: 'assessment',
   }))
-  await requestAssessmentAfterStemChange(client, input.stemId)
+  await requestAssessmentAfterStemChange(input.stemId)
   return {
     ...await getUcatMcpAggregate(client, 'stem', input.stemId),
     changeId: result.changeId,

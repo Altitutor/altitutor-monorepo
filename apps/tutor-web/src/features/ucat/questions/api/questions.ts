@@ -626,11 +626,18 @@ export const ucatQuestionsApi = {
     return response.json() as Promise<{ id: string }>;
   },
 
-  async update(stemId: string, payload: UcatQuestionStemBundlePayload) {
+  async update(
+    stemId: string,
+    payload: UcatQuestionStemBundlePayload,
+    options?: { requestAssessment?: boolean },
+  ) {
     const response = await fetch(`/api/ucat/question-stems/${stemId}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(serializePayload({ ...payload, stemId })),
+      body: JSON.stringify({
+        ...serializePayload({ ...payload, stemId }),
+        requestAssessment: options?.requestAssessment ?? false,
+      }),
     });
 
     if (!response.ok) {

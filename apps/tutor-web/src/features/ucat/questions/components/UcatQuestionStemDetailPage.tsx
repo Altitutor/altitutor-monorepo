@@ -93,20 +93,35 @@ export function UcatQuestionStemDetailPage({ stemId }: UcatQuestionStemDetailPag
     return false
   }
 
-  async function onSubmit(values: UcatQuestionStemFormValues) {
+  async function persistValues(
+    values: UcatQuestionStemFormValues,
+    options?: { requestAssessment?: boolean },
+  ) {
     if (!stemId) return
     await persistStemFormValues(stemId, values, {
       baselineSnapshot: baseline,
-      updateStem: (payload) => updateStemMutation.mutateAsync({ stemId, payload }),
+      updateStem: (payload) =>
+        updateStemMutation.mutateAsync({
+          stemId,
+          payload,
+          requestAssessment: options?.requestAssessment ?? true,
+        }),
       setStatus: (status) => statusMutation.mutateAsync({ stemId, status }),
     })
+  }
+
+  async function onSubmit(values: UcatQuestionStemFormValues) {
+    await persistValues(values)
   }
 
   async function handleSetStatus(status: UcatContentStatus) {
     const previousStatus = (form.getValues('status') ?? initial?.status ?? 'draft') as UcatContentStatus
     form.setValue('status', status, { shouldDirty: true })
     try {
-      await onSubmit({ ...form.getValues(), status })
+      await persistValues(
+        { ...form.getValues(), status },
+        { requestAssessment: false },
+      )
       toast(lifecycleStatusSuccessToast({
         contentLabel: 'Question',
         count: 1,

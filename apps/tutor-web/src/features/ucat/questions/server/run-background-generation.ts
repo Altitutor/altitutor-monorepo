@@ -8,7 +8,7 @@ import {
   type PreparedGenerationContext,
 } from '@/features/ucat/questions/server/generate-question-stems'
 import { upsertUcatGenerationNotification } from '@/features/ucat/questions/server/ucat-generation-notification'
-import { requestUcatQuestionAssessmentsForReview } from '@/features/ucat/questions/server/ai-assessment/dispatcher'
+import { enqueueUcatQuestionAssessmentPreparation } from '@/features/ucat/questions/server/ai-assessment/dispatcher'
 
 export type UcatQuestionGenerationQueueMessage = {
   runId: string
@@ -106,9 +106,12 @@ export async function runBackgroundUcatGeneration(
     .eq('id', input.runId)
   if (completionError) throw completionError
 
-  await requestUcatQuestionAssessmentsForReview({
+  await enqueueUcatQuestionAssessmentPreparation({
     stemIds,
+    triggerKind: 'review_submission',
     requestedBy: input.staffId,
+  }).catch((assessmentError) => {
+    console.error('Could not queue automatic UCAT AI assessment preparation after generation', assessmentError)
   })
 
   await upsertUcatGenerationNotification(admin, {

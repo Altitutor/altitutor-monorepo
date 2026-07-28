@@ -300,9 +300,18 @@ export function useCreateUcatQuestionStem() {
 export function useUpdateUcatQuestionStem() {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: ({ stemId, payload }: { stemId: string; payload: UcatQuestionStemBundlePayload }) =>
-      ucatQuestionsApi.update(stemId, payload),
+    mutationFn: ({
+      stemId,
+      payload,
+      requestAssessment,
+    }: {
+      stemId: string
+      payload: UcatQuestionStemBundlePayload
+      requestAssessment?: boolean
+      invalidate?: boolean
+    }) => ucatQuestionsApi.update(stemId, payload, { requestAssessment }),
     onSuccess: (_, variables) => {
+      if (variables.invalidate === false) return
       queryClient.invalidateQueries({ queryKey: ucatKeys.questions('all') })
       queryClient.invalidateQueries({ queryKey: ucatKeys.question(variables.stemId) })
       queryClient.invalidateQueries({ queryKey: ucatKeys.aiAssessment(variables.stemId) })
@@ -409,9 +418,16 @@ export function useImportGeneratedUcatQuestionStems() {
 export function useSetUcatQuestionStemStatus() {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: ({ stemId, status }: { stemId: string; status: UcatContentStatus }) =>
-      ucatQuestionsApi.setStatus(stemId, status),
+    mutationFn: ({
+      stemId,
+      status,
+    }: {
+      stemId: string
+      status: UcatContentStatus
+      invalidate?: boolean
+    }) => ucatQuestionsApi.setStatus(stemId, status),
     onSuccess: (_, variables) => {
+      if (variables.invalidate === false) return
       queryClient.invalidateQueries({ queryKey: ucatKeys.questions('all') })
       queryClient.invalidateQueries({ queryKey: ucatKeys.question(variables.stemId) })
       queryClient.invalidateQueries({ queryKey: ucatKeys.aiAssessment(variables.stemId) })
