@@ -39,6 +39,7 @@ import { fetchReferralGifts } from "@/features/subscription/api/referral-gifts";
 import { useOnboardingProgress } from "@/features/onboarding/hooks/use-onboarding-progress";
 import { UCAT_GUIDED_SAMPLER_DECIDED } from "@/features/onboarding/lib/activation-milestones";
 import { captureUcatEvent } from "@/lib/analytics/posthog";
+import { navigateAfterAuth } from "@/features/auth/lib/navigate-after-auth";
 
 const { typography: typo } = MARKETING_TOKENS;
 
@@ -127,6 +128,7 @@ export function SignupOnboardingWizard({
   const { refetch: refetchOnboardingProgress } = useOnboardingProgress();
   const reduceMotion = useReducedMotion();
   const supabase = useMemo(() => getSupabaseBrowserClient(), []);
+
   const planIntent = useMemo(
     () => parseSignupPlanIntent(searchParams.get("redirect")),
     [searchParams],
@@ -166,6 +168,7 @@ export function SignupOnboardingWizard({
       : null,
   );
   const checkoutConfirmationStarted = useRef(false);
+  const postCompleteNavigationStarted = useRef(false);
   const planHandoffStartedAt = useRef<number | null>(
     checkoutReturnedSuccessfully ? Date.now() : null,
   );
@@ -187,6 +190,8 @@ export function SignupOnboardingWizard({
   };
 
   const navigateAfterSignupComplete = useCallback(async () => {
+    if (postCompleteNavigationStarted.current) return;
+    postCompleteNavigationStarted.current = true;
     markSignupJustCompleted();
     await queryClient.invalidateQueries({ queryKey: ["ucat-access"] });
     await queryClient.refetchQueries({ queryKey: ["ucat-access"] });
@@ -209,8 +214,10 @@ export function SignupOnboardingWizard({
     try {
       await patchSignupProgress({ complete: true });
       setSignupSuccessError(null);
+      postCompleteNavigationStarted.current = false;
       await navigateAfterSignupComplete();
     } catch (e) {
+      postCompleteNavigationStarted.current = false;
       setSignupSuccessError(
         e instanceof Error ? e.message : "Please try again.",
       );
@@ -310,9 +317,11 @@ export function SignupOnboardingWizard({
         });
 
         setSignupSuccessError(null);
+        postCompleteNavigationStarted.current = false;
         await navigateAfterSignupComplete();
       } catch (e) {
         checkoutConfirmationStarted.current = false;
+        postCompleteNavigationStarted.current = false;
         setSignupSuccessError(
           e instanceof Error ? e.message : "Please try again.",
         );
@@ -326,6 +335,12 @@ export function SignupOnboardingWizard({
     access.onlineTier,
     navigateAfterSignupComplete,
   ]);
+
+  const goToDashboard = useCallback(() => {
+    // Soft router.replace races middleware when the access view briefly
+    // reports incomplete → /dashboard ↔ /signup/complete soft-nav storm.
+    navigateAfterAuth("/dashboard");
+  }, []);
 
   const finishOnboarding = () => {
     setError(null);
@@ -374,7 +389,7 @@ export function SignupOnboardingWizard({
           setCheckoutConfirmationAttempt((current) => current + 1);
           void queryClient.invalidateQueries({ queryKey: ["ucat-access"] });
         }}
-        onComplete={() => router.replace("/dashboard")}
+        onComplete={goToDashboard}
       />
     );
   }

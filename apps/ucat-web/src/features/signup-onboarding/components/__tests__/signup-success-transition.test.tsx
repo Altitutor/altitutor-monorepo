@@ -1,5 +1,5 @@
 import React from "react";
-import { render, screen } from "@testing-library/react";
+import { act, render, screen } from "@testing-library/react";
 import { SignupSuccessTransition } from "@/features/signup-onboarding/components/signup-success-transition";
 
 jest.mock("motion/react", () => {
@@ -132,5 +132,43 @@ describe("SignupSuccessTransition", () => {
     expect(
       screen.getByText(/dashboard and first recommended tasks/i),
     ).toBeInTheDocument();
+  });
+
+  it("calls onComplete only once even when the callback identity churns", () => {
+    jest.useFakeTimers();
+    const onComplete = jest.fn();
+    const { rerender } = render(
+      <SignupSuccessTransition
+        {...defaultProps}
+        journey="free"
+        phase="welcome"
+        onComplete={onComplete}
+      />,
+    );
+
+    act(() => {
+      jest.advanceTimersByTime(700);
+    });
+    expect(onComplete).toHaveBeenCalledTimes(1);
+
+    rerender(
+      <SignupSuccessTransition
+        {...defaultProps}
+        journey="free"
+        phase="welcome"
+        onComplete={() => onComplete()}
+      />,
+    );
+    rerender(
+      <SignupSuccessTransition
+        {...defaultProps}
+        journey="free"
+        phase="welcome"
+        onComplete={() => onComplete()}
+      />,
+    );
+
+    expect(onComplete).toHaveBeenCalledTimes(1);
+    jest.useRealTimers();
   });
 });

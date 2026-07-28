@@ -3,6 +3,7 @@
 import React, {
   useCallback,
   useEffect,
+  useRef,
   useState,
   type ComponentType,
 } from "react";
@@ -122,6 +123,9 @@ export function SignupSuccessTransition({
   const [dashboardDataSettled, setDashboardDataSettled] =
     useState(!preloadDashboard);
   const [welcomeMinimumElapsed, setWelcomeMinimumElapsed] = useState(false);
+  // Parents often pass an inline onComplete; without this, welcome-phase
+  // re-renders spam router.replace and trip Safari's history rate limit.
+  const completionFiredRef = useRef(false);
   const isPaidJourney = journey === "paid";
   const isUpgrade = occasion === "upgrade";
   const isStudyPlanCompletion = studyPlanStatus != null;
@@ -150,6 +154,7 @@ export function SignupSuccessTransition({
   useEffect(() => {
     if (phase !== "welcome") {
       setWelcomeMinimumElapsed(false);
+      completionFiredRef.current = false;
       return;
     }
 
@@ -161,9 +166,12 @@ export function SignupSuccessTransition({
   }, [phase, reduceMotion]);
 
   useEffect(() => {
-    if (phase === "welcome" && welcomeMinimumElapsed && dashboardDataSettled) {
-      onComplete();
+    if (phase !== "welcome" || !welcomeMinimumElapsed || !dashboardDataSettled) {
+      return;
     }
+    if (completionFiredRef.current) return;
+    completionFiredRef.current = true;
+    onComplete();
   }, [dashboardDataSettled, onComplete, phase, welcomeMinimumElapsed]);
 
   const benefit = benefits[benefitIndex];

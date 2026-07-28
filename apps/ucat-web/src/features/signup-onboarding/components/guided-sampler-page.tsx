@@ -55,6 +55,7 @@ import {
 } from "@/lib/ucat-surface-motion";
 import { cn } from "@/lib/utils";
 import { captureUcatEvent } from "@/lib/analytics/posthog";
+import { navigateAfterAuth } from "@/features/auth/lib/navigate-after-auth";
 
 type SeenControl =
   | "calculator"
@@ -1386,6 +1387,11 @@ export function GuidedSamplerPage() {
       }
       if (!afterPlan && !replay) {
         await patchSignupProgress({ step: SIGNUP_STEP.PLAN });
+      }
+      // Soft-nav to /dashboard races middleware signup-complete gate.
+      if (destination.startsWith("/dashboard")) {
+        navigateAfterAuth(destination);
+        return;
       }
       router.replace(destination);
     } catch (caught) {

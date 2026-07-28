@@ -1,7 +1,7 @@
 "use client";
 
-import { Suspense, useEffect, useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import React, { Suspense, useEffect, useRef, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import { otpTypeFromParam, safeNextPath } from "./auth-callback-utils";
 import {
@@ -9,17 +9,25 @@ import {
   normalizeReferralCode,
   parseSocialAuthIntent,
 } from "@/features/auth/lib/social-auth";
+import { navigateAfterAuth } from "@/features/auth/lib/navigate-after-auth";
 import { captureUcatEvent } from "@/lib/analytics/posthog";
 
 /**
  * Completes email signup/sign-in: token_hash (any browser) or PKCE code exchange (same browser).
  */
 function AuthCallbackInner() {
-  const router = useRouter();
   const searchParams = useSearchParams();
   const [message, setMessage] = useState("Completing sign-in…");
+  // useSearchParams() can change object identity without the query changing.
+  // Re-running exchangeCodeForSession burns the PKCE verifier (Supabase 400 on
+  // /token) and soft-nav spam can trip Safari's history rate limit.
+  const handledQueryRef = useRef<string | null>(null);
 
   useEffect(() => {
+    const queryKey = searchParams.toString();
+    if (handledQueryRef.current === queryKey) return;
+    handledQueryRef.current = queryKey;
+
     const code = searchParams.get("code");
     const tokenHash = searchParams.get("token_hash");
     const typeParam = searchParams.get("type");
@@ -45,7 +53,7 @@ function AuthCallbackInner() {
           : intent === "login"
             ? `/login?error=${encodeURIComponent(errorMessage)}`
             : `/signup?error=${encodeURIComponent(errorMessage)}`;
-      router.replace(errorPath);
+      navigateAfterAuth(errorPath);
     };
 
     const supabase = getSupabaseBrowserClient();
@@ -77,7 +85,7 @@ function AuthCallbackInner() {
       continueUrl.searchParams.set("intent", intent);
       continueUrl.searchParams.set("provider", provider);
       continueUrl.searchParams.set("next", next);
-      router.replace(`${continueUrl.pathname}${continueUrl.search}`);
+      navigateAfterAuth(`${continueUrl.pathname}${continueUrl.search}`);
       return true;
     };
 
@@ -103,7 +111,7 @@ function AuthCallbackInner() {
                 body: JSON.stringify({ syncEmailFromAuth: true }),
               }).catch(() => undefined);
             }
-            router.replace(next);
+            navigateAfterAuth(next);
             return;
           }
           lastVerifyError = error;
@@ -120,7 +128,7 @@ function AuthCallbackInner() {
             if (isSocialAuthCallback && (await continueAfterSocialAuth())) {
               return;
             }
-            router.replace(next);
+            navigateAfterAuth(next);
             return;
           }
           if (process.env.NODE_ENV !== "production") {
@@ -149,13 +157,13 @@ function AuthCallbackInner() {
             body: JSON.stringify({ syncEmailFromAuth: true }),
           }).catch(() => undefined);
         }
-        router.replace(next);
+        navigateAfterAuth(next);
         return;
       }
 
       finish("auth_failed");
     })();
-  }, [router, searchParams]);
+  }, [searchParams]);
 
   return (
     <div className="flex min-h-dvh items-center justify-center bg-marketing-charcoal px-4 text-center text-sm text-muted-foreground">

@@ -2,7 +2,6 @@
 
 import { FormEvent, useMemo, useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input, Label } from "@altitutor/ui";
 import { MARKETING_TOKENS } from "@altitutor/shared";
@@ -16,6 +15,7 @@ import {
   resolvePostAuthDestination,
   type SocialAuthProvider,
 } from "@/features/auth/lib/social-auth";
+import { navigateAfterAuth } from "@/features/auth/lib/navigate-after-auth";
 import { fetchSignupProgress } from "@/features/signup-onboarding/api/signup-progress";
 
 const { typography: typo } = MARKETING_TOKENS;
@@ -35,7 +35,6 @@ export function LoginForm({
   enabledSocialProviders?: SocialAuthProvider[];
   authError?: string;
 }) {
-  const router = useRouter();
   const supabase = useMemo(() => getSupabaseBrowserClient(), []);
   const [email, setEmail] = useState(initialEmail);
   const [password, setPassword] = useState("");
@@ -71,8 +70,7 @@ export function LoginForm({
       // Middleware / OnboardingGate still catch incomplete signups if this fails.
     }
 
-    router.push(destination);
-    router.refresh();
+    navigateAfterAuth(destination);
   }
 
   return (

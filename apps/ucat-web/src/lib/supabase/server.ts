@@ -40,9 +40,16 @@ export async function getSupabaseServerClient(): Promise<
         return cookieStore.getAll();
       },
       setAll(cookiesToSet) {
-        cookiesToSet.forEach(({ name, value, options }) => {
-          cookieStore.set(name, value, options);
-        });
+        // Server Components cannot always mutate cookies; middleware refreshes
+        // the session. Without this guard, getUser() can fail open as !user and
+        // trigger soft redirects that loop with middleware.
+        try {
+          cookiesToSet.forEach(({ name, value, options }) => {
+            cookieStore.set(name, value, options);
+          });
+        } catch {
+          // Ignore — session refresh is handled in middleware.
+        }
       },
     },
     cookieOptions: {
