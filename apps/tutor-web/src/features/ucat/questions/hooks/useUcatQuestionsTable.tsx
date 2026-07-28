@@ -66,6 +66,8 @@ type QuestionListRowInput = {
   updated_at?: string | null
   created_by?: string | null
   stem_text?: unknown
+  tag_ids?: unknown
+  question_types?: unknown
   set_names?: unknown
   set_ids?: unknown
   deleted_at?: string | null
@@ -103,6 +105,7 @@ type UseUcatQuestionsTableParams<T extends QuestionListRowInput> = {
   showDeleted: boolean
   status: UcatContentStatus
   searchScopes: QuestionSearchScope[]
+  serverProcessed?: boolean
 }
 
 export function useUcatQuestionsTable<T extends QuestionListRowInput>({
@@ -115,11 +118,19 @@ export function useUcatQuestionsTable<T extends QuestionListRowInput>({
   showDeleted,
   status,
   searchScopes,
+  serverProcessed = false,
 }: UseUcatQuestionsTableParams<T>) {
   const rows = useMemo(
     () =>
       (data ?? []).map((row) => {
-        const summary = row.id ? Array.from(stemTypes[row.id] ?? []).join(', ') : ''
+        const projectedQuestionTypes = Array.isArray(row.question_types)
+          ? row.question_types.filter((value): value is string => typeof value === 'string')
+          : []
+        const summary = projectedQuestionTypes.length > 0
+          ? projectedQuestionTypes.join(', ')
+          : row.id
+            ? Array.from(stemTypes[row.id] ?? []).join(', ')
+            : ''
         const searchTexts = row.id ? questionSearchTexts?.[row.id] : null
         const setIds = parseJsonUuidArray(row.set_ids)
         const sets = parseStemSets(row.set_names, setIds)
@@ -139,7 +150,11 @@ export function useUcatQuestionsTable<T extends QuestionListRowInput>({
           updated_at: row.updated_at ?? null,
           created_by: row.created_by ?? null,
           created_by_name: creatorName || (row.created_by ? 'Unknown staff' : ''),
-          tag_ids: row.id ? (stemTagIds[row.id] ?? []) : [],
+          tag_ids: Array.isArray(row.tag_ids)
+            ? row.tag_ids.filter((value): value is string => typeof value === 'string')
+            : row.id
+              ? (stemTagIds[row.id] ?? [])
+              : [],
           type_summary: summary || '-',
           stem_text: row.stem_text ? proseMirrorToPlainText(row.stem_text as Json) : '',
           question_text: searchTexts?.questionText ?? '',
@@ -168,6 +183,7 @@ export function useUcatQuestionsTable<T extends QuestionListRowInput>({
   )
 
   const filteredRows = useMemo(() => {
+    if (serverProcessed) return rows
     const byDeleted = showDeleted
       ? rows.filter((row) => row.deleted_at != null)
       : rows.filter((row) => row.deleted_at == null && row.status === status)
@@ -225,11 +241,12 @@ export function useUcatQuestionsTable<T extends QuestionListRowInput>({
         createdAtWindowHit
       )
     })
-  }, [rows, tableState, showDeleted, status, searchScopes])
+  }, [rows, tableState, showDeleted, status, searchScopes, serverProcessed])
 
   const sortedRows = useMemo(
-    () =>
-      applySort(filteredRows, tableState.sortBy, tableState.sortDirection, {
+    () => serverProcessed
+      ? filteredRows
+      : applySort(filteredRows, tableState.sortBy, tableState.sortDirection, {
         section_name: (row) => row.section_name,
         category_name: (row) =>
           resolveCategoryPathLabel(categoryPathLookup, row.question_stem_category_id, row.category_name),
@@ -242,7 +259,7 @@ export function useUcatQuestionsTable<T extends QuestionListRowInput>({
         created_at: (row) => row.created_at,
         status: (row) => row.status,
       }),
-    [filteredRows, tableState.sortBy, tableState.sortDirection, categoryPathLookup],
+    [filteredRows, tableState.sortBy, tableState.sortDirection, categoryPathLookup, serverProcessed],
   )
 
   return { rows: sortedRows }

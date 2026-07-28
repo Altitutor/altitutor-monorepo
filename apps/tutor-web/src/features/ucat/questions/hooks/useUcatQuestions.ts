@@ -4,6 +4,7 @@ import { ucatQuestionsApi } from '@/features/ucat/questions/api/questions'
 import type { UcatAccessScope, UcatContentStatus, UcatQuestionStemBundlePayload } from '@/features/ucat/shared/types'
 import { proseMirrorToPlainText } from '@/features/ucat/shared/lib/rich-text'
 import type { Json } from '@altitutor/shared'
+import type { QuestionCatalogQuery } from '@/features/ucat/questions/lib/question-catalog-query'
 
 function parseStemCatalogSetIds(value: unknown): string[] {
   if (value == null || !Array.isArray(value)) return []
@@ -27,6 +28,22 @@ export function useUcatQuestions(options?: {
   return useQuery({
     queryKey: [...ucatKeys.questions('all'), options ?? {}],
     queryFn: () => ucatQuestionsApi.list(options),
+  })
+}
+
+export function useUcatQuestionCatalogPage(query: QuestionCatalogQuery) {
+  return useQuery({
+    queryKey: ucatKeys.questionCatalogPage(query),
+    queryFn: () => ucatQuestionsApi.listCatalog(query),
+    placeholderData: (previous) => previous,
+  })
+}
+
+export function useUcatQuestionCatalogCreators() {
+  return useQuery({
+    queryKey: ucatKeys.questionCatalogCreators(),
+    queryFn: () => ucatQuestionsApi.getCatalogCreators(),
+    staleTime: 5 * 60 * 1000,
   })
 }
 

@@ -24,7 +24,7 @@ export async function POST(request: NextRequest) {
   }
 
   const client = access.userClient as unknown as UcatTutorSupabaseClient;
-  const { error } = await client.rpc("tutor_ucat_merge_question_stems", {
+  const { error } = await client.rpc("tutor_ucat_merge_exact_duplicate_stems", {
     p_target_stem_id: body.targetStemId,
     p_source_stem_id: body.sourceStemId,
   });

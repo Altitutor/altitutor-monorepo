@@ -16,6 +16,10 @@ export const ucatKeys = {
   questionStemListIndex: () => [...ucatKeys.questions('all'), 'stem-list-index'] as const,
   stemCatalog: () => [...ucatKeys.questions('all'), 'stem-catalog'] as const,
   questionCatalog: () => [...ucatKeys.questions('all'), 'question-catalog'] as const,
+  questionCatalogPage: (query: object) =>
+    [...ucatKeys.questions('all'), 'catalog-page', query] as const,
+  questionCatalogCreators: () =>
+    [...ucatKeys.questions('all'), 'catalog-creators'] as const,
   sets: () => [...ucatKeys.all, 'sets'] as const,
   set: (id: string) => [...ucatKeys.sets(), id] as const,
   mocks: () => [...ucatKeys.all, 'mocks'] as const,
@@ -26,6 +30,8 @@ export const ucatKeys = {
   classSessions: (classId: string) => [...ucatKeys.classes(), classId, 'sessions'] as const,
   sessionResources: (sessionId: string) => [...ucatKeys.classes(), 'session', sessionId, 'resources'] as const,
   reconciliation: () => [...ucatKeys.all, 'reconciliation'] as const,
+  reconciliationQueue: (kind: string, query?: object) =>
+    [...ucatKeys.reconciliation(), 'queue', kind, ...(query ? [query] : [])] as const,
   learningModules: (kind?: string, status?: string, includeDeleted?: boolean) =>
     [...ucatKeys.all, 'learning-modules', kind ?? 'all', status ?? 'any', includeDeleted ? 'deleted' : 'active'] as const,
   learningModule: (id: string) => [...ucatKeys.all, 'learning-module', id] as const,

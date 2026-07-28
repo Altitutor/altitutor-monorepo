@@ -1,6 +1,6 @@
 import { z } from 'zod'
 import type { Json } from '@altitutor/shared'
-import { proseMirrorToPlainText } from '@/features/ucat/shared/lib/rich-text'
+import { hasRichTextContent, proseMirrorToPlainText } from '@/features/ucat/shared/lib/rich-text'
 
 const jsonSchema: z.ZodType<Json> = z.lazy(() =>
   z.union<[z.ZodTypeAny, z.ZodTypeAny, z.ZodTypeAny, z.ZodTypeAny, z.ZodTypeAny, z.ZodTypeAny]>([
@@ -44,10 +44,9 @@ export const ucatQuestionItemSchema = z
   })
   .refine(
     (data) => {
-      const hasContent = (text: Json) => proseMirrorToPlainText(text)?.trim().length > 0
-      return data.options.some((opt) => hasContent(opt.answerText))
+      return data.options.some((opt) => hasRichTextContent(opt.answerText))
     },
-    { message: 'At least one answer option must have text.', path: ['options'] }
+    { message: 'At least one answer option must have content.', path: ['options'] }
   )
 
 export const ucatQuestionStemSchema = z.object({

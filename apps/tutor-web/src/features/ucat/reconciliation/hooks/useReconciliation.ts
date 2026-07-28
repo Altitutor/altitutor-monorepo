@@ -1,12 +1,33 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { ucatKeys } from '@/features/ucat/shared/lib/query-keys'
-import { fetchReconciliationData } from '../api/reconciliation'
+import {
+  fetchExactDuplicateStems,
+  fetchPrivateStemsNotInSet,
+  fetchReconciliationData,
+  type ReconciliationQueueQuery,
+} from '../api/reconciliation'
 import { ucatQuestionsApi } from '@/features/ucat/questions/api/questions'
 
 export function useReconciliationData() {
   return useQuery({
     queryKey: ucatKeys.reconciliation(),
     queryFn: fetchReconciliationData,
+  })
+}
+
+export function usePrivateStemsNotInSetQueue(query: ReconciliationQueueQuery) {
+  return useQuery({
+    queryKey: ucatKeys.reconciliationQueue('private-stems-not-in-set', query),
+    queryFn: () => fetchPrivateStemsNotInSet(query),
+    placeholderData: (previous) => previous,
+  })
+}
+
+export function useExactDuplicateStemsQueue(query: ReconciliationQueueQuery) {
+  return useQuery({
+    queryKey: ucatKeys.reconciliationQueue('exact-duplicates', query),
+    queryFn: () => fetchExactDuplicateStems(query),
+    placeholderData: (previous) => previous,
   })
 }
 

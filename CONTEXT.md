@@ -228,6 +228,9 @@
 - **Question catalog search** — Tutor-facing, case-insensitive literal substring matching across one or more tutor-selected question-content scopes: question stem text, question text, answer-option text, and tutor source note. It is not relevance-ranked, semantic, or whole-word-only search.
   _Avoid_: Relevance search, semantic search, full-text search
 
+- **Question catalog projection** — An internal, synchronously maintained, one-row-per-stem read model containing the searchable text and summary metadata required to query the tutor question catalog efficiently. Its first consumer is the tutor question catalog; other workflows may reuse the read model only when they need the same stem-level query shape, without sharing the catalog endpoint or tutor-specific interface.
+  _Avoid_: Question cache, student question view, shared question endpoint
+
 - **Question progress point** — One unit toward a student's "questions completed / total questions" progress ratio. Each non-syllogism question contributes one point. A syllogism stem contributes two points total, regardless of how many conclusion statements it contains. Soft-deleted questions are excluded from both completed and total counts.
   _Avoid_: Stem point, question attempt count
 
@@ -317,6 +320,15 @@
 
 - **Reconciliation issue** — A content gap or inconsistency surfaced to tutors for correction, such as a missing question stem category, missing answer explanation, missing question tag, or private stem not assigned to a staff-authored set. A reconciliation issue is resolved by changing the underlying content; it is not the same as AI-generated question stem approval.
   _Avoid_: Approval status, generation warning, validation error
+
+- **Reconciliation issue queue** — The tutor worklist for one kind of reconciliation issue, preserving that issue type's search, filters, ordering, and progress independently from other issue types. The reconciliation overview summarises issue counts and links to queues; it is not itself a combined queue.
+  _Avoid_: Reconciliation table, reconciliation tab, combined issue list
+
+- **Potential duplicate candidate** — A pair of question stems in the same UCAT section surfaced for tutor review because their stem text is equal after conservative normalization. The recommendation is derived by progressively comparing their normalized question, answer-option, correctness, and explanation content; it remains a tutor-reviewed reconciliation issue rather than an automatic merge or deletion.
+  _Avoid_: Confirmed duplicate, duplicate question, merge instruction
+
+- **Potential duplicate dismissal** — A tutor's decision that one potential duplicate candidate does not require merging or deletion for the exact normalized stem and question-bundle content reviewed. It removes the pair from the active reconciliation issue queue, remains auditable and reversible, and becomes stale when that compared content on either stem changes.
+  _Avoid_: Permanent duplicate exclusion, candidate deletion, merge rejection
 
 - **AI-generated question stem** — A UCAT question stem produced by an AI generation workflow. It is expected to be close to publishable and enters the in-review lifecycle stage automatically, but remains unavailable to students until published by a tutor.
   _Avoid_: Auto-published question, synthetic question

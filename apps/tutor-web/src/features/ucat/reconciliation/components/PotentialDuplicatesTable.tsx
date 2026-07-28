@@ -5,20 +5,14 @@ import { Button, DataTableToolbar, TableCell, TableRow } from "@altitutor/ui";
 import type {
   DataTableColumnDefinition,
   DataTableFilterDefinition,
-  DataTableSortOption,
 } from "@altitutor/shared";
 import type { Json } from "@altitutor/shared";
 import { ReconciliationTable } from "./ReconciliationTable";
 import { PotentialDuplicatesReconciliationDialog } from "./PotentialDuplicatesReconciliationDialog";
 import type { PotentialDuplicatePair } from "../api/reconciliation";
-import { useReconciliationData } from "../hooks/useReconciliation";
+import { useExactDuplicateStemsQueue } from "../hooks/useReconciliation";
 import { useUcatSections } from "@/features/ucat/questions/hooks/useUcatQuestions";
 import { proseMirrorToPlainText } from "@/features/ucat/shared/lib/rich-text";
-import {
-  applyCoreStringFilter,
-  applySingleSelectFilter,
-  applySort,
-} from "@/features/ucat/shared/hooks/useUcatTableState";
 import { useUcatTableUrlState } from "@/features/ucat/shared/hooks/useUcatTableUrlState";
 import { cn } from "@/shared/utils";
 import {
@@ -41,13 +35,7 @@ function stemPlain(pair: PotentialDuplicatePair, side: "A" | "B"): string {
 }
 
 export function PotentialDuplicatesTable() {
-  const { data, isLoading } = useReconciliationData();
   const sectionsQuery = useUcatSections();
-  const [searchScopes, setSearchScopes] = useState([
-    "stem_a",
-    "stem_b",
-    "section_name",
-  ]);
   const [queueOpen, setQueueOpen] = useState(false);
   const [initialPairId, setInitialPairId] = useState<string | null>(null);
 
@@ -55,19 +43,12 @@ export function PotentialDuplicatesTable() {
     { key: "section", label: "Section", visibleByDefault: true },
     { key: "stem_a", label: "Stem A", visibleByDefault: true },
     { key: "stem_b", label: "Stem B", visibleByDefault: true },
-    { key: "similarity", label: "Similarity", visibleByDefault: true },
+    { key: "match", label: "Match", visibleByDefault: true },
     {
       key: "recommendation",
       label: "Suggested action",
       visibleByDefault: true,
     },
-  ];
-
-  const sortOptions: DataTableSortOption[] = [
-    { key: "section", label: "Section" },
-    { key: "similarity", label: "Similarity" },
-    { key: "stem_a", label: "Stem A" },
-    { key: "stem_b", label: "Stem B" },
   ];
 
   const tableState = useUcatTableUrlState(
@@ -79,6 +60,15 @@ export function PotentialDuplicatesTable() {
       availableColumns: columnDefinitions.map((c) => c.key),
     },
   );
+  const sectionIds = (tableState.state.filters.section_id ?? [])
+    .map(String)
+    .filter((value) => value && value !== "all");
+  const { data, isLoading } = useExactDuplicateStemsQueue({
+    search: tableState.state.search,
+    sectionIds,
+    page: tableState.state.page,
+    pageSize: tableState.state.pageSize,
+  });
 
   const sectionFilterDef: DataTableFilterDefinition = useMemo(
     () => ({
@@ -92,49 +82,7 @@ export function PotentialDuplicatesTable() {
     [sectionsQuery.data],
   );
 
-  const accessors = useMemo(
-    () => ({
-      section: (pair: PotentialDuplicatePair) => pair.sectionName,
-      stem_a: (pair: PotentialDuplicatePair) => stemPlain(pair, "A"),
-      stem_b: (pair: PotentialDuplicatePair) => stemPlain(pair, "B"),
-      similarity: (pair: PotentialDuplicatePair) =>
-        Math.max(pair.tokenRatio, pair.trigramRatio),
-      recommendation: (pair: PotentialDuplicatePair) => pair.recommendation,
-    }),
-    [],
-  );
-
-  const filteredPairs = useMemo(() => {
-    let result = data?.potentialDuplicatePairs ?? [];
-    const { search } = tableState.state;
-    if (search.trim()) {
-      result = result.filter((pair) => {
-        const values: Record<string, string> = {
-          stem_a: accessors.stem_a(pair),
-          stem_b: accessors.stem_b(pair),
-          section_name: pair.sectionName,
-        };
-        return searchScopes.some((scope) =>
-          applyCoreStringFilter(values[scope] ?? "", search),
-        );
-      });
-    }
-    result = result.filter((pair) =>
-      applySingleSelectFilter(tableState.state, "section_id", pair.sectionId),
-    );
-    result = applySort(
-      result,
-      tableState.state.sortBy,
-      tableState.state.sortDirection,
-      accessors,
-    );
-    return result;
-  }, [
-    data?.potentialDuplicatePairs,
-    tableState.state,
-    accessors,
-    searchScopes,
-  ]);
+  const filteredPairs = data?.items ?? [];
 
   function openQueue(pairId?: string) {
     setInitialPairId(pairId ?? null);
@@ -147,6 +95,13 @@ export function PotentialDuplicatesTable() {
         title="Potential duplicates"
         items={filteredPairs}
         isLoading={isLoading}
+        pagination={{
+          page: tableState.state.page,
+          pageSize: tableState.state.pageSize,
+          total: data?.total ?? 0,
+          onPageChange: tableState.actions.onPageChange,
+          onPageSizeChange: tableState.actions.onPageSizeChange,
+        }}
         columnDefinitions={columnDefinitions}
         visibleColumnKeys={tableState.state.visibleColumns}
         toolbar={
@@ -163,14 +118,6 @@ export function PotentialDuplicatesTable() {
             searchPlaceholder="Search duplicate pairs..."
             filterDefinitions={[sectionFilterDef]}
             columnDefinitions={columnDefinitions}
-            sortOptions={sortOptions}
-            searchFromOptions={[
-              { label: "Stem A", value: "stem_a" },
-              { label: "Stem B", value: "stem_b" },
-              { label: "Section", value: "section_name" },
-            ]}
-            searchFromValue={searchScopes}
-            onSearchFromChange={setSearchScopes}
           />
         }
         headerActions={
@@ -216,10 +163,6 @@ function PotentialDuplicateRow({
 }) {
   const stemA = truncate(stemPlain(item, "A"), TRUNCATE_LEN);
   const stemB = truncate(stemPlain(item, "B"), TRUNCATE_LEN);
-  const similarityPct = Math.round(
-    Math.max(item.tokenRatio, item.trigramRatio) * 100,
-  );
-
   const cells: Record<string, React.ReactNode> = {
     section: (
       <TableCell className="whitespace-nowrap">
@@ -236,8 +179,12 @@ function PotentialDuplicateRow({
         {stemB || "-"}
       </TableCell>
     ),
-    similarity: (
-      <TableCell className="whitespace-nowrap">{similarityPct}%</TableCell>
+    match: (
+      <TableCell className="whitespace-nowrap">
+        {item.comparisonKind === "complete_duplicate"
+          ? "All compared content matches"
+          : "Stem text matches"}
+      </TableCell>
     ),
     recommendation: (
       <TableCell className="whitespace-nowrap">

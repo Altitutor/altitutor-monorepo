@@ -32,9 +32,10 @@ export function FindSimilarQuestionStemsSubmenu({
     () => getAvailableFindSimilarCriteria(row, tagLabelsById),
     [row, tagLabelsById],
   )
-  const [selected, setSelected] = useState<FindSimilarCriterion[]>(() =>
-    available.map((option) => option.id),
-  )
+  const [selected, setSelected] = useState<FindSimilarCriterion[]>(() => {
+    const createdAt = available.find((option) => option.id === 'created_at')
+    return createdAt ? ['created_at'] : available[0] ? [available[0].id] : []
+  })
 
   const selectedSet = useMemo(() => new Set(selected), [selected])
   const canApply = selected.length > 0

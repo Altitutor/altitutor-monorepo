@@ -1,7 +1,5 @@
-'use client'
-
-import { UcatReconciliationQuestionsTab } from '@/features/ucat/reconciliation'
+import { UcatReconciliationQuestionIssuesOverview } from '@/features/ucat/reconciliation/components/UcatReconciliationQuestionIssues'
 
 export default function UcatReconciliationQuestionsPage() {
-  return <UcatReconciliationQuestionsTab />
+  return <UcatReconciliationQuestionIssuesOverview />
 }

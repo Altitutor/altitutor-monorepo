@@ -26,6 +26,13 @@ interface ReconciliationTableProps<T> {
   visibleColumnKeys: string[]
   toolbar?: React.ReactNode
   headerActions?: React.ReactNode
+  pagination?: {
+    page: number
+    pageSize: number
+    total: number
+    onPageChange: (page: number) => void
+    onPageSizeChange: (pageSize: number) => void
+  }
   /** Selection support - when provided, shows checkbox column and enables row selection */
   selection?: {
     getItemId: (item: T) => string
@@ -47,6 +54,7 @@ export function ReconciliationTable<T>({
   toolbar,
   headerActions,
   selection,
+  pagination,
 }: ReconciliationTableProps<T>) {
   const columns = columnDefinitions
     .filter((c) => visibleColumnKeys.includes(c.key))
@@ -55,18 +63,21 @@ export function ReconciliationTable<T>({
   const [page, setPage] = useState(1)
   const [pageSize, setPageSize] = useState(20)
 
-  const totalItems = items.length
+  const activePage = pagination?.page ?? page
+  const activePageSize = pagination?.pageSize ?? pageSize
+  const totalItems = pagination?.total ?? items.length
   const totalPages = Math.max(1, Math.ceil(totalItems / pageSize))
   const pagedItems = useMemo(() => {
+    if (pagination) return items
     const start = (page - 1) * pageSize
     return items.slice(start, start + pageSize)
-  }, [items, page, pageSize])
+  }, [items, page, pageSize, pagination])
 
   useEffect(() => {
-    if (page > totalPages) {
+    if (!pagination && page > totalPages) {
       setPage(totalPages)
     }
-  }, [page, totalPages])
+  }, [page, totalPages, pagination])
 
   const selectionMode = selection && selection.selectedIds.size > 0
 
@@ -93,7 +104,7 @@ export function ReconciliationTable<T>({
             variant={items.length === 0 ? 'secondary' : 'destructive'}
             className={items.length === 0 ? 'bg-accent text-accent-foreground' : undefined}
           >
-            {items.length}
+            {totalItems}
           </Badge>
         </div>
         {headerActions ? <div className="flex shrink-0 items-center gap-2">{headerActions}</div> : null}
@@ -143,7 +154,7 @@ export function ReconciliationTable<T>({
                     </TableRow>
                   ) : (
                     pagedItems.map((item, index) => {
-                      const absoluteIndex = (page - 1) * pageSize + index
+                      const absoluteIndex = (activePage - 1) * activePageSize + index
                       return renderRow(item, absoluteIndex, visibleColumnKeys, selection)
                     })
                   )}
@@ -153,11 +164,15 @@ export function ReconciliationTable<T>({
 
             {!isLoading && totalItems > 0 ? (
               <TablePagination
-                page={page}
-                pageSize={pageSize}
+                page={activePage}
+                pageSize={activePageSize}
                 total={totalItems}
-                onPageChange={setPage}
+                onPageChange={pagination?.onPageChange ?? setPage}
                 onPageSizeChange={(newPageSize) => {
+                  if (pagination) {
+                    pagination.onPageSizeChange(newPageSize)
+                    return
+                  }
                   setPageSize(newPageSize)
                   setPage(1)
                 }}

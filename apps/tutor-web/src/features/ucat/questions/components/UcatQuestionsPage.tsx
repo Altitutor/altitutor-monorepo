@@ -55,9 +55,9 @@ import {
   useRestoreUcatQuestionStem,
   useSetUcatQuestionStemStatus,
   useUcatCategories,
+  useUcatQuestionCatalogCreators,
+  useUcatQuestionCatalogPage,
   useUcatQuestionDetail,
-  useUcatQuestionStemListIndex,
-  useUcatQuestions,
   useUcatSections,
   useUcatTags,
   useUpdateUcatQuestionStem,
@@ -135,10 +135,12 @@ import {
 } from '@/features/ucat/shared/lifecycle-errors'
 import { stemSourceTooltip } from '@/features/ucat/questions/lib/source-display'
 import {
-  CREATED_AT_WINDOW_FILTER_KEY,
-  formatCreatedAtWindowLabel,
-} from '@/features/ucat/questions/lib/find-similar-question-stems'
+  buildQuestionCatalogQuery,
+  CREATED_AT_FROM_FILTER_KEY,
+  CREATED_AT_TO_FILTER_KEY,
+} from '@/features/ucat/questions/lib/question-catalog-query'
 import { FindSimilarQuestionStemsSubmenu } from '@/features/ucat/questions/components/FindSimilarQuestionStemsSubmenu'
+import { CreatedAtDateTimeRangeFilter } from '@/features/ucat/questions/components/CreatedAtDateTimeRangeFilter'
 import { UcatVisibilityBadge } from '@/features/ucat/shared/components/UcatVisibilityBadge'
 import { UcatVisibilityTableHeaderLabel } from '@/features/ucat/shared/components/UcatVisibilityInfoTooltip'
 import { getUcatContentStatusTransitionOptions, type UcatContentStatus } from '@/features/ucat/shared/types'
@@ -227,6 +229,13 @@ const filterDefinitions: DataTableFilterDefinition[] = [
     ],
   },
   { key: 'created_by', label: 'Created by' },
+  {
+    key: 'created_at_range',
+    label: 'Created at',
+    type: 'date-range',
+    fromKey: CREATED_AT_FROM_FILTER_KEY,
+    toKey: CREATED_AT_TO_FILTER_KEY,
+  },
 ]
 
 const columnDefinitions: DataTableColumnDefinition[] = [
@@ -294,6 +303,8 @@ export function UcatQuestionsPage() {
   const [bulkImportOpen, setBulkImportOpen] = useState(false)
   const [generateOpen, setGenerateOpen] = useState(false)
   const [approvalQueueOpen, setApprovalQueueOpen] = useState(false)
+  const [reviewQueueEntries, setReviewQueueEntries] = useState<UcatApprovalQueueEntry[]>([])
+  const [reviewQueueLoading, setReviewQueueLoading] = useState(false)
   const [editingStemId, setEditingStemId] = useState<string | null>(null)
   const [deletingStemId, setDeletingStemId] = useState<string | null>(null)
   const [expandedStemIds, setExpandedStemIds] = useState<Set<string>>(new Set())
@@ -318,10 +329,6 @@ export function UcatQuestionsPage() {
     defaultVisibleAnswerOptionColumns,
   )
 
-  const stemListIndexQuery = useUcatQuestionStemListIndex()
-  const stemTypes = stemListIndexQuery.data?.types ?? {}
-  const stemTagIds = stemListIndexQuery.data?.tagIds ?? {}
-  const questionSearchTexts = stemListIndexQuery.data?.searchTexts
   const initialVisibleColumns = useMemo(
     () => columnDefinitions.filter((c) => c.visibleByDefault).map((c) => c.key),
     [],
@@ -333,6 +340,15 @@ export function UcatQuestionsPage() {
   })
   const showDeleted = tableState.showDeleted ?? false
   const setShowDeleted = tableState.setShowDeleted ?? (() => undefined)
+  const catalogQuery = useMemo(
+    () => buildQuestionCatalogQuery({
+      tableState: tableState.state,
+      status: activeTab,
+      showDeleted,
+      searchScopes,
+    }),
+    [activeTab, searchScopes, showDeleted, tableState.state],
+  )
 
   const previousTabRef = useRef(activeTab)
   const tableActionsRef = useRef(tableState.actions)
@@ -355,7 +371,8 @@ export function UcatQuestionsPage() {
   }, [detailQueries, expandedStemArray])
 
   const access = useUcatAccess()
-  const questions = useUcatQuestions()
+  const questions = useUcatQuestionCatalogPage(catalogQuery)
+  const catalogCreators = useUcatQuestionCatalogCreators()
   const sections = useUcatSections()
   const categories = useUcatCategories()
   const tags = useUcatTags()
@@ -385,8 +402,8 @@ export function UcatQuestionsPage() {
   const detail = useUcatQuestionDetail(editingStemId)
   const editingStemStatus = useMemo(() => {
     if (detail.data?.status) return detail.data.status
-    return (questions.data ?? []).find((row) => row.id === editingStemId)?.status ?? null
-  }, [detail.data?.status, editingStemId, questions.data])
+    return (questions.data?.items ?? []).find((row) => row.id === editingStemId)?.status ?? null
+  }, [detail.data?.status, editingStemId, questions.data?.items])
   const editDialogInitialMode = editingStemStatus === 'published' ? 'view' : 'edit'
   const setsList = (setsQuery.data ?? []).filter(
     (s) => !(s as { deleted_at?: string | null }).deleted_at,
@@ -400,39 +417,34 @@ export function UcatQuestionsPage() {
   const bulkImportMutation = useBulkImportUcatQuestionStems()
 
   const { rows } = useUcatQuestionsTable({
-    data: questions.data,
+    data: questions.data?.items,
     status: activeTab,
-    stemTypes,
-    stemTagIds,
-    questionSearchTexts,
+    stemTypes: {},
+    stemTagIds: {},
+    questionSearchTexts: undefined,
     categoryPathLookup,
     tableState: tableState.state,
     showDeleted,
     searchScopes,
+    serverProcessed: true,
   })
 
   const createdByFilterOptions = useMemo(() => {
-    const creatorsById = new Map<string, string>()
-    const questionRows = questions.data ?? []
-    questionRows.forEach((row) => {
-      if (!row.created_by) return
-      const label =
-        [row.created_by_first_name, row.created_by_last_name].filter(Boolean).join(' ') || 'Unknown staff'
-      creatorsById.set(row.created_by, label)
-    })
-    return Array.from(creatorsById, ([value, label]) => ({ label, value })).sort((a, b) =>
-      a.label.localeCompare(b.label)
-    )
-  }, [questions.data])
+    return (catalogCreators.data ?? []).map((creator) => ({
+      value: creator.id,
+      label: [creator.first_name, creator.last_name].filter(Boolean).join(' ') || 'Unknown staff',
+    }))
+  }, [catalogCreators.data])
 
   const { page, pageSize } = tableState.state
-  const totalRows = rows.length
+  const totalRows = questions.data?.total ?? 0
   const pageCount = Math.max(1, Math.ceil(totalRows / pageSize))
   const effectivePage = Math.min(page, pageCount)
-  const paginatedRows = useMemo(() => {
-    const start = (effectivePage - 1) * pageSize
-    return rows.slice(start, start + pageSize)
-  }, [rows, effectivePage, pageSize])
+  const paginatedRows = rows
+
+  useEffect(() => {
+    if (page > pageCount) tableState.actions.onPageChange(pageCount)
+  }, [page, pageCount, tableState.actions])
 
   const {
     selectedIds: selectedStemIds,
@@ -455,27 +467,35 @@ export function UcatQuestionsPage() {
     setExpandedQuestionKeys(new Set())
   }, [activeTab, clearSelection])
 
-  const reviewQueueEntries = useMemo<UcatApprovalQueueEntry[]>(
-    () => {
-      const inReviewRows = activeTab === 'in_review'
-        ? rows
-        : (questions.data ?? []).filter((row) => row.status === 'in_review' && !row.deleted_at)
-      return inReviewRows
-        .filter((row): row is typeof row & { id: string } => Boolean(row.id))
-        .map((row) => ({ stemId: row.id, mode: 'ai_approval' as const }))
-    },
-    [activeTab, questions.data, rows],
-  )
-
-  function handleBeginReviews() {
-    if (reviewQueueEntries.length === 0) {
+  async function handleBeginReviews() {
+    if (activeTab !== 'in_review') {
       toast({
         title: 'No stems ready for review',
-        description: 'No in-review stems match these filters.',
+        description: 'Switch to the In review tab to begin a filtered review queue.',
       })
       return
     }
-    setApprovalQueueOpen(true)
+    setReviewQueueLoading(true)
+    try {
+      const ids = await ucatQuestionsApi.listCatalogReviewIds(catalogQuery)
+      if (ids.length === 0) {
+        toast({
+          title: 'No stems ready for review',
+          description: 'No in-review stems match these filters.',
+        })
+        return
+      }
+      setReviewQueueEntries(ids.map((stemId) => ({ stemId, mode: 'ai_approval' as const })))
+      setApprovalQueueOpen(true)
+    } catch (error) {
+      toast({
+        title: 'Could not start review',
+        description: error instanceof Error ? error.message : 'Please try again.',
+        variant: 'destructive',
+      })
+    } finally {
+      setReviewQueueLoading(false)
+    }
   }
 
   function openLifecycleEntity(entityType: UcatLifecycleEntityType, entityId: string) {
@@ -870,14 +890,6 @@ export function UcatQuestionsPage() {
       filterTagsForSections(tags.data ?? [], selectedSectionIds)
     ) as TagOption[]
 
-    const createdAtWindowValues = (tableState.state.filters[CREATED_AT_WINDOW_FILTER_KEY] ?? [])
-      .map((value) => {
-        const label = formatCreatedAtWindowLabel(value)
-        if (!label) return null
-        return { label, value: String(value) }
-      })
-      .filter((option): option is { label: string; value: string } => option != null)
-
     const base: DataTableFilterDefinition[] = [
       {
         ...filterDefinitions[0],
@@ -907,15 +919,7 @@ export function UcatQuestionsPage() {
         ...filterDefinitions[6],
         options: createdByFilterOptions,
       },
-      ...(createdAtWindowValues.length > 0
-        ? [
-            {
-              key: CREATED_AT_WINDOW_FILTER_KEY,
-              label: 'Creation time',
-              options: createdAtWindowValues,
-            } satisfies DataTableFilterDefinition,
-          ]
-        : []),
+      filterDefinitions[7],
       {
         key: 'question_set_id',
         label: 'Set',
@@ -934,7 +938,7 @@ export function UcatQuestionsPage() {
     createdByFilterOptions,
   ])
 
-  if (access.isLoading || questions.isLoading || stemListIndexQuery.isLoading) {
+  if (access.isLoading || questions.isLoading) {
     return <UcatPageSkeleton rows={8} />
   }
   if (!access.data) return <UcatAccessDenied />
@@ -951,9 +955,15 @@ export function UcatQuestionsPage() {
         ]}
         actions={
           <div className="flex items-center gap-2">
-            <Button type="button" variant="outline" className={tutorBtnOutline} onClick={handleBeginReviews}>
+            <Button
+              type="button"
+              variant="outline"
+              className={tutorBtnOutline}
+              onClick={() => void handleBeginReviews()}
+              disabled={reviewQueueLoading}
+            >
               <ListChecks className="mr-2 h-4 w-4" />
-              Begin review
+              {reviewQueueLoading ? 'Preparing…' : 'Begin review'}
             </Button>
             <SearchableSelect<(typeof addQuestionOptions)[number]>
               items={[...addQuestionOptions]}
@@ -1023,6 +1033,26 @@ export function UcatQuestionsPage() {
         filterSearchValues={{ question_set_id: setFilterSearch }}
         onFilterSearchChange={(filterKey, value) => {
           if (filterKey === 'question_set_id') setSetFilterSearch(value)
+        }}
+        customFilterContent={{
+          created_at_range: (
+            <CreatedAtDateTimeRangeFilter
+              fromValue={String(
+                tableState.state.filters[CREATED_AT_FROM_FILTER_KEY]?.[0] ?? '',
+              )}
+              toValue={String(
+                tableState.state.filters[CREATED_AT_TO_FILTER_KEY]?.[0] ?? '',
+              )}
+              onChange={(from, to) => {
+                const filters = { ...tableState.state.filters }
+                if (from) filters[CREATED_AT_FROM_FILTER_KEY] = [from]
+                else delete filters[CREATED_AT_FROM_FILTER_KEY]
+                if (to) filters[CREATED_AT_TO_FILTER_KEY] = [to]
+                else delete filters[CREATED_AT_TO_FILTER_KEY]
+                tableState.actions.onFiltersChange(filters)
+              }}
+            />
+          ),
         }}
         filterFooter={
           <div className="px-2 py-2 border-t">
