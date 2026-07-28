@@ -39,6 +39,7 @@ import { fetchReferralGifts } from "@/features/subscription/api/referral-gifts";
 import { useOnboardingProgress } from "@/features/onboarding/hooks/use-onboarding-progress";
 import { UCAT_GUIDED_SAMPLER_DECIDED } from "@/features/onboarding/lib/activation-milestones";
 import { captureUcatEvent } from "@/lib/analytics/posthog";
+import { navigateAfterAuth } from "@/features/auth/lib/navigate-after-auth";
 
 const { typography: typo } = MARKETING_TOKENS;
 
@@ -127,6 +128,7 @@ export function SignupOnboardingWizard({
   const { refetch: refetchOnboardingProgress } = useOnboardingProgress();
   const reduceMotion = useReducedMotion();
   const supabase = useMemo(() => getSupabaseBrowserClient(), []);
+
   const planIntent = useMemo(
     () => parseSignupPlanIntent(searchParams.get("redirect")),
     [searchParams],
@@ -335,8 +337,10 @@ export function SignupOnboardingWizard({
   ]);
 
   const goToDashboard = useCallback(() => {
-    router.replace("/dashboard");
-  }, [router]);
+    // Soft router.replace races middleware when the access view briefly
+    // reports incomplete → /dashboard ↔ /signup/complete soft-nav storm.
+    navigateAfterAuth("/dashboard");
+  }, []);
 
   const finishOnboarding = () => {
     setError(null);

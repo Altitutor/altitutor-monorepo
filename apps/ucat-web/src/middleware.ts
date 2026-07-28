@@ -107,28 +107,25 @@ export async function middleware(request: NextRequest) {
       .select("ucat_signup_completed_at")
       .maybeSingle();
 
-    // Fail open on lookup errors so a transient DB blip cannot lock users out.
+    // Fail open on lookup errors / missing row so a transient
+    // current_student_id() blip cannot invent "incomplete" and bounce
+    // /dashboard ↔ /signup/complete.
     if (!accessError) {
-      signupCompleted = Boolean(accessRow?.ucat_signup_completed_at);
+      signupCompleted =
+        accessRow == null
+          ? null
+          : Boolean(accessRow.ucat_signup_completed_at);
     }
   }
 
   if (user && pathname === "/") {
-    return NextResponse.redirect(
-      new URL(
-        signupCompleted === false ? "/signup/complete" : "/dashboard",
-        origin,
-      ),
-    );
+    const dest = signupCompleted === false ? "/signup/complete" : "/dashboard";
+    return NextResponse.redirect(new URL(dest, origin));
   }
 
   if (user && pathname === "/forgot-password") {
-    return NextResponse.redirect(
-      new URL(
-        signupCompleted === false ? "/signup/complete" : "/dashboard",
-        origin,
-      ),
-    );
+    const dest = signupCompleted === false ? "/signup/complete" : "/dashboard";
+    return NextResponse.redirect(new URL(dest, origin));
   }
 
   if (user && (pathname === "/login" || pathname === "/signup")) {
