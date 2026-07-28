@@ -4,6 +4,12 @@ export const UcatContentTypeSchema = z.enum(['lesson', 'stem', 'set', 'mock'])
 export const UcatStatusSchema = z.enum(['draft', 'in_review', 'published'])
 export const UcatAccessScopeSchema = z.enum(['public', 'private'])
 export const UcatMcpAggregateTypeSchema = z.enum(['learning_module', 'stem', 'set', 'mock'])
+export const UcatContentIdOrIdsSchema = z.union([
+  z.string().uuid(),
+  z.array(z.string().uuid()).min(1).max(25),
+]).describe(
+  'One aggregate ID, or an ordered batch of up to 25 IDs of the same contentType. Choose a batch size appropriate to the content size and calling harness.',
+)
 export const IdempotencyKeySchema = z.string().trim().min(8).max(200).describe(
   'Stable caller-generated key for this logical create/generation request. Reuse it unchanged after a timeout; use a new key for a materially different request.',
 )
