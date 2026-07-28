@@ -277,6 +277,54 @@ export async function getUcatMcpAggregate(
   return getMock(client, id)
 }
 
+export type UcatMcpAggregateTarget = {
+  contentType: UcatMcpAggregateType
+  id: string
+}
+
+type UcatMcpAggregateReadResult = UcatMcpAggregateTarget & (
+  | { ok: true; content: Record<string, unknown> }
+  | { ok: false; error: string }
+)
+
+export async function getUcatMcpAggregates(
+  client: SupabaseClient<Database>,
+  targets: UcatMcpAggregateTarget[],
+): Promise<{
+  items: UcatMcpAggregateReadResult[]
+  requestedCount: number
+  successCount: number
+  errorCount: number
+}> {
+  const items: UcatMcpAggregateReadResult[] = new Array(targets.length)
+  const concurrency = 4
+  for (let offset = 0; offset < targets.length; offset += concurrency) {
+    const chunk = targets.slice(offset, offset + concurrency)
+    await Promise.all(chunk.map(async (target, chunkIndex) => {
+      try {
+        items[offset + chunkIndex] = {
+          ...target,
+          ok: true,
+          content: await getUcatMcpAggregate(client, target.contentType, target.id),
+        }
+      } catch (error) {
+        items[offset + chunkIndex] = {
+          ...target,
+          ok: false,
+          error: error instanceof Error ? error.message : 'UCAT content read failed',
+        }
+      }
+    }))
+  }
+  const successCount = items.filter((item) => item.ok).length
+  return {
+    items,
+    requestedCount: items.length,
+    successCount,
+    errorCount: items.length - successCount,
+  }
+}
+
 function matchesQuery(row: Record<string, unknown>, query: string): boolean {
   const needle = query.trim().toLocaleLowerCase()
   if (!needle) return true

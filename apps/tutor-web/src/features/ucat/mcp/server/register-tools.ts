@@ -15,6 +15,7 @@ import {
   QuestionStemOperationSchema,
   RichTextSchema,
   UcatAccessScopeSchema,
+  UcatContentIdOrIdsSchema,
   UcatStatusSchema,
 } from '@/features/ucat/mcp/server/schemas'
 import { executeUcatMcpIdempotent } from '@/features/ucat/mcp/server/idempotency'
@@ -25,6 +26,7 @@ import {
   createUcatMcpQuestionStem,
   deleteUcatMcpContent,
   getUcatMcpAggregate,
+  getUcatMcpAggregates,
   getUcatMcpAiAssessment,
   getUcatMcpGenerationRuns,
   getUcatMcpReferenceData,
@@ -182,19 +184,24 @@ export function registerUcatMcpTools(server: McpServer): void {
   server.registerTool(
     'get_ucat_content',
     {
-      title: 'Read a complete UCAT authoring aggregate',
+      title: 'Read complete UCAT authoring content',
       description:
-        'Read a complete learning module, question-stem bundle, set, or mock, including nested items, referenced file metadata, lifecycle state, and the opaque revision required for updates.',
+        'Read one or an ordered batch of complete learning modules, question-stem bundles, sets, or mocks of the same type, including nested items, referenced file metadata, lifecycle state, and opaque revisions. Pass one UUID for the original single-object response, or an array for per-item batch results. Choose batch size based on aggregate size and calling-harness capacity.',
       inputSchema: {
         contentType: AggregateTypeSchema,
-        id: z.string().uuid(),
+        id: UcatContentIdOrIdsSchema,
       },
       outputSchema: StructuredObjectOutputSchema,
       annotations: readOnlyAnnotations,
     },
     async ({ contentType, id }, extra) => executeTool(
       extra.authInfo?.token,
-      (client) => getUcatMcpAggregate(client, contentType, id),
+      (client) => Array.isArray(id)
+        ? getUcatMcpAggregates(
+          client,
+          id.map((contentId) => ({ contentType, id: contentId })),
+        )
+        : getUcatMcpAggregate(client, contentType, id),
     ),
   )
 
@@ -838,17 +845,18 @@ export function registerUcatMcpTools(server: McpServer): void {
     {
       title: 'Claim the next UCAT audit targets',
       description:
-        'Atomically claim pending targets for this agent. Re-read each claimed aggregate to obtain its latest revision before auditing.',
+        'Atomically claim pending targets for this agent. Set includeContent to claim and read complete aggregates with current revisions in the same MCP call. Choose the limit based on aggregate size and calling-harness capacity; omit content when a lightweight claim is preferable. A content read failure is returned as contentError and leaves that target in progress for explicit retry, failure, or requeue.',
       inputSchema: {
         runId: z.string().uuid(),
         limit: z.number().int().min(1).max(25).default(5),
+        includeContent: z.boolean().default(false),
       },
       outputSchema: StructuredObjectOutputSchema,
       annotations: writeAnnotations,
     },
-    async ({ runId, limit }, extra) => executeTool(
+    async ({ runId, limit, includeContent }, extra) => executeTool(
       extra.authInfo?.token,
-      (client) => claimUcatMcpAuditTargets(client, runId, limit),
+      (client) => claimUcatMcpAuditTargets(client, runId, limit, includeContent),
     ),
   )
 

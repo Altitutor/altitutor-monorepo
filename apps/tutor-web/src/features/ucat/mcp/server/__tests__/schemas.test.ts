@@ -5,6 +5,7 @@ import {
   ContentChangeMetadataSchema,
   LearningModuleBlockSchema,
   RichTextSchema,
+  UcatContentIdOrIdsSchema,
 } from '@/features/ucat/mcp/server/schemas'
 
 describe('UCAT MCP authoring schemas', () => {
@@ -86,5 +87,16 @@ describe('UCAT MCP authoring schemas', () => {
         appliedExactSuggestion: true,
       },
     ])).toHaveLength(2)
+  })
+
+  it('accepts either one content ID or an ordered batch', () => {
+    const first = '60000000-0000-0000-0000-000000000001'
+    const second = '60000000-0000-0000-0000-000000000002'
+
+    expect(UcatContentIdOrIdsSchema.parse(first)).toBe(first)
+    expect(UcatContentIdOrIdsSchema.parse([first, second])).toEqual([first, second])
+    expect(UcatContentIdOrIdsSchema.safeParse([]).success).toBe(false)
+    expect(UcatContentIdOrIdsSchema.safeParse(Array.from({ length: 26 }, () => first)).success)
+      .toBe(false)
   })
 })

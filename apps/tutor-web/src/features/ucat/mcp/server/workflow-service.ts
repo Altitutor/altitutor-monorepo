@@ -26,6 +26,7 @@ import type {
 import { decodeAuthoringRevision } from '@/features/ucat/mcp/server/revision'
 import {
   getUcatMcpAggregate,
+  getUcatMcpAggregates,
   getUcatMcpAiAssessment,
   type UcatMcpAggregateType,
 } from '@/features/ucat/mcp/server/service'
@@ -502,11 +503,51 @@ export async function claimUcatMcpAuditTargets(
   client: SupabaseClient<Database>,
   runId: string,
   limit: number,
+  includeContent = false,
 ): Promise<Record<string, unknown>> {
-  return callRpc(client, 'tutor_ucat_mcp_claim_audit_targets', {
+  const claimed = await callRpc(client, 'tutor_ucat_mcp_claim_audit_targets', {
     p_run_id: runId,
     p_limit: limit,
   })
+  if (!includeContent) return claimed
+
+  const rawTargets = Array.isArray(claimed.targets) ? claimed.targets : []
+  const targets: Array<{ contentType: UcatMcpAggregateType; id: string }> = []
+  for (const target of rawTargets) {
+    if (!isRecord(target)) continue
+    const contentType = target.content_type
+    const id = target.content_id
+    if (
+      (contentType !== 'learning_module'
+        && contentType !== 'stem'
+        && contentType !== 'set'
+        && contentType !== 'mock')
+      || typeof id !== 'string'
+    ) {
+      continue
+    }
+    targets.push({ contentType, id })
+  }
+  const reads = await getUcatMcpAggregates(client, targets)
+  const readsByTarget = new Map(
+    reads.items.map((read) => [`${read.contentType}:${read.id}`, read]),
+  )
+  return {
+    ...claimed,
+    targets: rawTargets.map((target) => {
+      if (!isRecord(target)) return target
+      const read = readsByTarget.get(`${target.content_type}:${target.content_id}`)
+      if (!read) return target
+      return read.ok
+        ? { ...target, content: read.content }
+        : { ...target, contentError: read.error }
+    }),
+    contentReadSummary: {
+      requestedCount: reads.requestedCount,
+      successCount: reads.successCount,
+      errorCount: reads.errorCount,
+    },
+  }
 }
 
 export async function finishUcatMcpAuditTarget(

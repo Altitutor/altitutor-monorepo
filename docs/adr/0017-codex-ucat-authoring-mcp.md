@@ -146,6 +146,16 @@ each target's latest revision when it begins that item. If the revision changes
 before a proposal is applied, the stale write is rejected and the item is
 re-audited against the newer revision rather than overwriting concurrent work.
 
+The existing complete-content read tool accepts either one aggregate ID or an
+ordered batch of IDs for one aggregate type. Single reads preserve the original
+response shape; batch reads return independent ordered successes or errors so
+one unavailable aggregate does not discard the rest. Audit claims may
+optionally include complete current content and revisions in the same MCP call.
+Claiming remains the atomic database step and content is read immediately
+afterward through the shared tutor-authorized aggregate reader. Agents choose
+batch size according to aggregate weight and their calling harness; failed
+content reads remain visibly claimed and can be retried, failed, or requeued.
+
 Restoring an applied published change is itself a recorded published change
 which references the change it reverses. If the aggregate remains at the
 revision produced by the original change, the stored base snapshot may be
