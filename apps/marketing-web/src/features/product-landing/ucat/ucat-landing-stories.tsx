@@ -198,7 +198,7 @@ export function UcatLandingStories() {
             />
             <div className="absolute inset-0 bg-gradient-to-t from-marketing-charcoal/55 via-transparent to-transparent" />
             <p className={`absolute bottom-6 left-6 rounded-full bg-marketing-charcoal/70 px-4 py-2 text-[10px] uppercase tracking-[0.14em] text-white backdrop-blur ${typo.dataMono}`}>
-              Matt · Founder &amp; doctor
+              Matt · Founder
             </p>
           </div>
           <div className="p-8 sm:p-12 lg:p-16">

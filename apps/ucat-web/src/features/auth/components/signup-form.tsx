@@ -3,7 +3,6 @@
 import type { AuthError } from "@supabase/supabase-js";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { MARKETING_TOKENS } from "@altitutor/shared";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import { AuthPageHeader } from "@/features/auth/components/auth-page-header";
@@ -19,6 +18,7 @@ import {
   getPendingSignupEmail,
   savePendingSignupEmail,
 } from "@/features/auth/lib/pending-signup-email";
+import { navigateAfterAuth } from "@/features/auth/lib/navigate-after-auth";
 import {
   SocialAuthButtons,
   SocialAuthDivider,
@@ -62,7 +62,6 @@ export function SignupForm({
   enabledSocialProviders?: SocialAuthProvider[];
   authError?: string;
 }) {
-  const router = useRouter();
   const supabase = useMemo(() => getSupabaseBrowserClient(), []);
   const [email, setEmail] = useState("");
   const [newsletter, setNewsletter] = useState(false);
@@ -232,8 +231,7 @@ export function SignupForm({
         const next = planIntent
           ? `/signup/complete?redirect=${encodeURIComponent(planIntent.checkoutPath)}`
           : "/signup/complete";
-        router.push(next);
-        router.refresh();
+        navigateAfterAuth(next);
         // Leave otpSubmitting true so the button stays locked during navigation.
         return;
       }

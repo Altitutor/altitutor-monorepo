@@ -2,14 +2,13 @@ import React from "react";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { SignupForm } from "@/features/auth/components/signup-form";
 import { savePendingSignupEmail } from "@/features/auth/lib/pending-signup-email";
+import { navigateAfterAuth } from "@/features/auth/lib/navigate-after-auth";
 
-const push = jest.fn();
-const refresh = jest.fn();
 const signInWithOtp = jest.fn();
 const verifyOtp = jest.fn();
 
-jest.mock("next/navigation", () => ({
-  useRouter: () => ({ push, refresh }),
+jest.mock("@/features/auth/lib/navigate-after-auth", () => ({
+  navigateAfterAuth: jest.fn(),
 }));
 
 jest.mock("@/lib/supabase/client", () => ({
@@ -91,7 +90,7 @@ describe("SignupForm", () => {
     );
   });
 
-  it("restores the code-entry screen after a reload and clears it on success", async () => {
+  it("hard-navigates to signup complete after OTP and clears pending email", async () => {
     savePendingSignupEmail("student@example.com", "/subscribe\n");
 
     render(<SignupForm />);
@@ -112,6 +111,6 @@ describe("SignupForm", () => {
       }),
     );
     expect(window.sessionStorage.length).toBe(0);
-    expect(push).toHaveBeenCalledWith("/signup/complete");
+    expect(navigateAfterAuth).toHaveBeenCalledWith("/signup/complete");
   });
 });

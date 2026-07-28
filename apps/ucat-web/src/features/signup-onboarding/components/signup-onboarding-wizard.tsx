@@ -166,6 +166,7 @@ export function SignupOnboardingWizard({
       : null,
   );
   const checkoutConfirmationStarted = useRef(false);
+  const postCompleteNavigationStarted = useRef(false);
   const planHandoffStartedAt = useRef<number | null>(
     checkoutReturnedSuccessfully ? Date.now() : null,
   );
@@ -187,6 +188,8 @@ export function SignupOnboardingWizard({
   };
 
   const navigateAfterSignupComplete = useCallback(async () => {
+    if (postCompleteNavigationStarted.current) return;
+    postCompleteNavigationStarted.current = true;
     markSignupJustCompleted();
     await queryClient.invalidateQueries({ queryKey: ["ucat-access"] });
     await queryClient.refetchQueries({ queryKey: ["ucat-access"] });
@@ -209,8 +212,10 @@ export function SignupOnboardingWizard({
     try {
       await patchSignupProgress({ complete: true });
       setSignupSuccessError(null);
+      postCompleteNavigationStarted.current = false;
       await navigateAfterSignupComplete();
     } catch (e) {
+      postCompleteNavigationStarted.current = false;
       setSignupSuccessError(
         e instanceof Error ? e.message : "Please try again.",
       );
@@ -310,9 +315,11 @@ export function SignupOnboardingWizard({
         });
 
         setSignupSuccessError(null);
+        postCompleteNavigationStarted.current = false;
         await navigateAfterSignupComplete();
       } catch (e) {
         checkoutConfirmationStarted.current = false;
+        postCompleteNavigationStarted.current = false;
         setSignupSuccessError(
           e instanceof Error ? e.message : "Please try again.",
         );
@@ -326,6 +333,10 @@ export function SignupOnboardingWizard({
     access.onlineTier,
     navigateAfterSignupComplete,
   ]);
+
+  const goToDashboard = useCallback(() => {
+    router.replace("/dashboard");
+  }, [router]);
 
   const finishOnboarding = () => {
     setError(null);
@@ -374,7 +385,7 @@ export function SignupOnboardingWizard({
           setCheckoutConfirmationAttempt((current) => current + 1);
           void queryClient.invalidateQueries({ queryKey: ["ucat-access"] });
         }}
-        onComplete={() => router.replace("/dashboard")}
+        onComplete={goToDashboard}
       />
     );
   }
