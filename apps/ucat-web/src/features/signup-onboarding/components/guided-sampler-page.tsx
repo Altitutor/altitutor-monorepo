@@ -563,7 +563,7 @@ function FamiliarityEntry({
               ],
               [
                 "experienced",
-                "Already practising",
+                "Already practicing",
                 "Keep it minimal and skippable.",
               ],
             ] as const

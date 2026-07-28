@@ -1,15 +1,18 @@
 import 'server-only'
 
 import { supabaseAdmin } from '@/shared/lib/supabase/server/admin'
-import type { ExplanationFeedbackSummary } from '@/features/ucat/reconciliation/api/reconciliation'
+import type { ContentFeedbackSummary } from '@/features/ucat/reconciliation/api/reconciliation'
 
-export async function getOpenExplanationFeedback(questionIds?: string[]) {
+async function getOpenContentFeedback(
+  targetType: 'answer_explanation' | 'question',
+  questionIds?: string[],
+): Promise<ContentFeedbackSummary[]> {
   if (!supabaseAdmin || (questionIds && questionIds.length === 0)) return []
 
   let query = supabaseAdmin
     .from('student_ucat_content_ratings')
     .select('question_id,vote,reason_code,reason_text,created_at,updated_at')
-    .eq('target_type', 'answer_explanation')
+    .eq('target_type', targetType)
     .is('resolved_at', null)
     .not('question_id', 'is', null)
 
@@ -18,7 +21,7 @@ export async function getOpenExplanationFeedback(questionIds?: string[]) {
   const { data, error } = await query.order('updated_at', { ascending: false })
   if (error) throw error
 
-  const summaries = new Map<string, ExplanationFeedbackSummary>()
+  const summaries = new Map<string, ContentFeedbackSummary>()
   for (const row of data ?? []) {
     if (!row.question_id) continue
     const summary = summaries.get(row.question_id) ?? {
@@ -32,7 +35,8 @@ export async function getOpenExplanationFeedback(questionIds?: string[]) {
     if (row.vote === 1) summary.upvotes += 1
     if (row.vote === -1) summary.downvotes += 1
     if (row.reason_code) {
-      summary.reasonCounts[row.reason_code] = (summary.reasonCounts[row.reason_code] ?? 0) + 1
+      summary.reasonCounts[row.reason_code] =
+        (summary.reasonCounts[row.reason_code] ?? 0) + 1
     }
     if (row.reason_text) {
       summary.comments.push({
@@ -45,4 +49,12 @@ export async function getOpenExplanationFeedback(questionIds?: string[]) {
   }
 
   return Array.from(summaries.values())
+}
+
+export function getOpenExplanationFeedback(questionIds?: string[]) {
+  return getOpenContentFeedback('answer_explanation', questionIds)
+}
+
+export function getOpenQuestionFeedback(questionIds?: string[]) {
+  return getOpenContentFeedback('question', questionIds)
 }

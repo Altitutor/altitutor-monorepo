@@ -298,7 +298,7 @@ function learningTask(
     description:
       module.completionPercent > 0
         ? "Continue this learning module."
-        : "Use this module to support the method you are practising today.",
+        : "Use this module to support the method you are practicing today.",
     rationale:
       "Learning modules support uncovered or weak methods, but completing a module is not a readiness gate.",
     estimatedMinutes: Math.max(5, module.estimatedMinutes),

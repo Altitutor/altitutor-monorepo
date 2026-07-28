@@ -5,6 +5,7 @@ import { SkeletonTable } from '@altitutor/ui'
 import { StemsWithNoCategoryTable } from '@/features/ucat/reconciliation/components/StemsWithNoCategoryTable'
 import { QuestionsWithNoExplanationTable } from '@/features/ucat/reconciliation/components/QuestionsWithNoExplanationTable'
 import { DownvotedExplanationsTable } from '@/features/ucat/reconciliation/components/DownvotedExplanationsTable'
+import { DownvotedQuestionsTable } from '@/features/ucat/reconciliation/components/DownvotedQuestionsTable'
 import { UntaggedQuestionsTable } from '@/features/ucat/reconciliation/components/UntaggedQuestionsTable'
 import { PrivateStemsNotInSetTable } from '@/features/ucat/reconciliation/components/PrivateStemsNotInSetTable'
 import { PotentialDuplicatesTable } from '@/features/ucat/reconciliation/components/PotentialDuplicatesTable'
@@ -54,10 +55,13 @@ function TabError({ message }: { message: string }) {
   )
 }
 
-function questionsTabCount(data: NonNullable<ReturnType<typeof useReconciliationData>['data']>) {
+function questionsTabCount(
+  data: NonNullable<ReturnType<typeof useReconciliationData>['data']>,
+) {
   return (
     data.stemsWithNoCategory.length +
     data.questionsWithNoExplanation.length +
+    data.downvotedQuestions.length +
     data.downvotedExplanations.length +
     data.untaggedQuestions.length +
     data.privateStemsNotInSet.length +
@@ -65,7 +69,9 @@ function questionsTabCount(data: NonNullable<ReturnType<typeof useReconciliation
   )
 }
 
-function setsTabCount(data: NonNullable<ReturnType<typeof useReconciliationData>['data']>) {
+function setsTabCount(
+  data: NonNullable<ReturnType<typeof useReconciliationData>['data']>,
+) {
   return (
     data.setsWithIncorrectQuestionCount.length +
     data.setsWithIncorrectTiming.length +
@@ -79,7 +85,9 @@ export function UcatReconciliationQuestionsTab() {
 
   if (isLoading) return <QuestionsTabSkeleton />
   if (isError) {
-    return <TabError message="Error loading question reconciliation data. Please try again." />
+    return (
+      <TabError message="Error loading question reconciliation data. Please try again." />
+    )
   }
   if (!data || questionsTabCount(data) === 0) return null
 
@@ -87,9 +95,13 @@ export function UcatReconciliationQuestionsTab() {
     <div className="mt-6 space-y-8">
       <StemsWithNoCategoryTable onOpenStemDialog={onOpenStemDialog} />
       <QuestionsWithNoExplanationTable onOpenStemDialog={onOpenStemDialog} />
+      <DownvotedQuestionsTable onOpenStemDialog={onOpenStemDialog} />
       <DownvotedExplanationsTable onOpenStemDialog={onOpenStemDialog} />
       <UntaggedQuestionsTable onOpenStemDialog={onOpenStemDialog} />
-      <PrivateStemsNotInSetTable onOpenStemDialog={onOpenStemDialog} onEditSet={onEditSet} />
+      <PrivateStemsNotInSetTable
+        onOpenStemDialog={onOpenStemDialog}
+        onEditSet={onEditSet}
+      />
       <PotentialDuplicatesTable />
     </div>
   )
@@ -101,7 +113,9 @@ export function UcatReconciliationSetsTab() {
 
   if (isLoading) return <SetsTabSkeleton />
   if (isError) {
-    return <TabError message="Error loading set reconciliation data. Please try again." />
+    return (
+      <TabError message="Error loading set reconciliation data. Please try again." />
+    )
   }
   if (!data || setsTabCount(data) === 0) return null
 
@@ -133,7 +147,9 @@ export function UcatReconciliationMocksTab() {
 
   if (isLoading) return <MocksTabSkeleton />
   if (isError) {
-    return <TabError message="Error loading mock reconciliation data. Please try again." />
+    return (
+      <TabError message="Error loading mock reconciliation data. Please try again." />
+    )
   }
   if (!data || data.mocksWithIncorrectSets.length === 0) return null
 

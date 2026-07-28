@@ -540,18 +540,50 @@ export function SetAnswersCard({
               </Button>
             </div>
           </CardHeader>
-          <CardContent>
+          <CardContent className="space-y-3">
             {currentQuestion ? (
-              <ResultsQuestionViewer
-                question={currentQuestion}
-                selectedOptionId={selectedAnswers[currentQuestion.id]}
-                correctOptionId={currentQuestion.correctOptionId}
-                syllogismSnapshot={syllogismSnapshots[currentQuestion.id]}
-                preloadedContent={getCachedContent(currentQuestion.id)}
-                variant="site"
-                showExplanations={false}
-                forceSingleColumn
-              />
+              <>
+                <ResultsQuestionViewer
+                  question={currentQuestion}
+                  selectedOptionId={selectedAnswers[currentQuestion.id]}
+                  correctOptionId={currentQuestion.correctOptionId}
+                  syllogismSnapshot={syllogismSnapshots[currentQuestion.id]}
+                  preloadedContent={getCachedContent(currentQuestion.id)}
+                  variant="site"
+                  showExplanations={false}
+                  forceSingleColumn
+                />
+                <ContentRatingControls
+                  className="border-t border-border/60 pt-3"
+                  descriptor={(() => {
+                    const displayedContent = {
+                      question: JSON.stringify({
+                        stemId: currentQuestion.stemId,
+                        stemText: currentQuestion.stemText,
+                        stemJson: currentQuestion.stemJson ?? null,
+                        questionText: currentQuestion.questionText,
+                        questionJson: currentQuestion.questionJson ?? null,
+                        questionType: currentQuestion.questionType,
+                        options: currentQuestion.options.map((option) => ({
+                          id: option.id,
+                          index: option.index,
+                          text: option.text,
+                          textJson: option.textJson ?? null,
+                          isAnswer: option.isAnswer ?? false,
+                        })),
+                      }),
+                    };
+                    return {
+                      targetType: "question" as const,
+                      targetKey: `question:${currentQuestion.id}`,
+                      targetVersion: contentSnapshotVersion(displayedContent),
+                      contextKey: `${ratingContextKey}:question:${currentQuestion.id}`,
+                      surface: "attempt" as const,
+                      displayedContent,
+                    };
+                  })()}
+                />
+              </>
             ) : null}
           </CardContent>
         </Card>
@@ -595,8 +627,7 @@ export function SetAnswersCard({
                       return {
                         targetType: "answer_explanation" as const,
                         targetKey: `question:${currentQuestion.id}`,
-                        targetVersion:
-                          contentSnapshotVersion(displayedContent),
+                        targetVersion: contentSnapshotVersion(displayedContent),
                         contextKey: `${ratingContextKey}:question:${currentQuestion.id}`,
                         surface: "attempt" as const,
                         displayedContent,

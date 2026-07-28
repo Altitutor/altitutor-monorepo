@@ -21,7 +21,7 @@ export type QuestionWithNoExplanation = {
   questionIndex: number;
 };
 
-export type ExplanationFeedbackSummary = {
+export type ContentFeedbackSummary = {
   questionId: string;
   upvotes: number;
   downvotes: number;
@@ -34,7 +34,12 @@ export type ExplanationFeedbackSummary = {
   latestAt: string;
 };
 
-export type DownvotedExplanation = QuestionWithNoExplanation & ExplanationFeedbackSummary;
+export type ExplanationFeedbackSummary = ContentFeedbackSummary;
+export type QuestionFeedbackSummary = ContentFeedbackSummary;
+export type DownvotedExplanation = QuestionWithNoExplanation &
+  ExplanationFeedbackSummary;
+export type DownvotedQuestion = QuestionWithNoExplanation &
+  QuestionFeedbackSummary;
 
 export type UntaggedQuestion = {
   stemId: string;
@@ -123,6 +128,7 @@ export type PotentialDuplicatePair = {
 export type ReconciliationData = {
   stemsWithNoCategory: StemWithNoCategory[];
   questionsWithNoExplanation: QuestionWithNoExplanation[];
+  downvotedQuestions: DownvotedQuestion[];
   downvotedExplanations: DownvotedExplanation[];
   untaggedQuestions: UntaggedQuestion[];
   privateStemsNotInSet: PrivateStemNotInSet[];

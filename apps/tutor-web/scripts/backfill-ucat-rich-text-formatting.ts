@@ -35,6 +35,7 @@ type ReportEntry = {
   boldSpans: number;
   inlineMathNodes: number;
   blockMathNodes: number;
+  reviewedCorrections: string[];
   issueCodes: string[];
   issues: string[];
   changeId: string | null;
@@ -46,6 +47,7 @@ type ReportSummary = Record<ReportStatus, number> & {
   boldSpans: number;
   inlineMathNodes: number;
   blockMathNodes: number;
+  reviewedCorrections: number;
 };
 
 function argumentValue(args: string[], name: string): string | null {
@@ -271,6 +273,7 @@ function emptySummary(): ReportSummary {
     boldSpans: 0,
     inlineMathNodes: 0,
     blockMathNodes: 0,
+    reviewedCorrections: 0,
   };
 }
 
@@ -289,6 +292,7 @@ function csvReport(entries: ReportEntry[]): string {
     "boldSpans",
     "inlineMathNodes",
     "blockMathNodes",
+    "reviewedCorrections",
     "issueCodes",
     "issues",
     "changeId",
@@ -448,6 +452,7 @@ async function run(): Promise<void> {
           changedFields: plan.fieldChanges.map((change) => change.path),
           operationCount: plan.operations.length,
           ...totals,
+          reviewedCorrections: plan.reviewedCorrections,
           issueCodes: plan.issues.map((issue) => issue.code),
           issues: plan.issues.map((issue) => `${issue.path}: ${issue.message}`),
           changeId,
@@ -462,6 +467,7 @@ async function run(): Promise<void> {
           boldSpans: 0,
           inlineMathNodes: 0,
           blockMathNodes: 0,
+          reviewedCorrections: [],
           issueCodes: ["error"],
           issues: [
             stemError instanceof Error ? stemError.message : String(stemError),
@@ -477,6 +483,7 @@ async function run(): Promise<void> {
       summary.boldSpans += entry.boldSpans;
       summary.inlineMathNodes += entry.inlineMathNodes;
       summary.blockMathNodes += entry.blockMathNodes;
+      summary.reviewedCorrections += entry.reviewedCorrections.length;
       cursor = stemId;
       await writeCheckpoint(options.checkpointPath, cursor, summary);
     }

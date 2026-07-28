@@ -14,7 +14,7 @@ export function LoginPageLayout({
   children,
   redirectTo = "/dashboard",
   title = "Log in",
-  subtitle = "Ready to continue practising? Log in below.",
+  subtitle = "Ready to continue practicing? Log in below.",
   footer,
 }: {
   children: React.ReactNode;

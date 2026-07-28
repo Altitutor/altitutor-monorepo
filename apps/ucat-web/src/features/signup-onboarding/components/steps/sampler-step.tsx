@@ -34,7 +34,7 @@ const OPTIONS: Array<{
   },
   {
     value: "experienced",
-    title: "I’m already practising",
+    title: "I’m already practicing",
     description: "Keep guidance minimal and let me skip if I want.",
     Icon: BrainCircuit,
   },

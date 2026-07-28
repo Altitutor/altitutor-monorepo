@@ -209,6 +209,9 @@ export function ResultsQuestionViewer({
 }) {
   const theme = getResultsViewerTheme(variant);
   const contentTextTone = variant === "site" ? "theme" : "engine";
+  const showQuestionFooter =
+    typeof points === "number" ||
+    (showExplanations && hasAnswerExplanation(question));
   const isTwoColumn =
     !forceSingleColumn && question.sectionDisplayColumns === 2;
 
@@ -262,7 +265,12 @@ export function ResultsQuestionViewer({
       : "grid-cols-[minmax(0,3fr)_minmax(0,1.4fr)_minmax(0,1.4fr)]";
 
     const content = (
-      <div className="space-y-4 py-4 sm:py-5">
+      <div
+        className={cn(
+          "space-y-4",
+          theme.site ? "pt-4 sm:pt-5" : "py-4 sm:py-5",
+        )}
+      >
         <article className="space-y-3">
           <RichContentBlock
             json={question.stemJson}
@@ -419,18 +427,20 @@ export function ResultsQuestionViewer({
               )}
             </div>
           </div>
-          <div className={theme.footer}>
-            {typeof points === "number" ? (
-              <QuestionPointsFooter points={points} question={question} />
-            ) : null}
-            {showExplanations && hasAnswerExplanation(question) ? (
-              <AnswerExplanation
-                text={question.answerExplanation}
-                json={question.answerExplanationJson}
-                textTone={contentTextTone}
-              />
-            ) : null}
-          </div>
+          {showQuestionFooter ? (
+            <div className={theme.footer}>
+              {typeof points === "number" ? (
+                <QuestionPointsFooter points={points} question={question} />
+              ) : null}
+              {showExplanations && hasAnswerExplanation(question) ? (
+                <AnswerExplanation
+                  text={question.answerExplanation}
+                  json={question.answerExplanationJson}
+                  textTone={contentTextTone}
+                />
+              ) : null}
+            </div>
+          ) : null}
         </section>
       </div>
     );
@@ -592,18 +602,20 @@ export function ResultsQuestionViewer({
       <div className="space-y-2">
         {question.options.map((opt, i) => renderOption(opt, i))}
       </div>
-      <div className={cn(theme.footer, "mt-3 pt-3")}>
-        {typeof points === "number" ? (
-          <QuestionPointsFooter points={points} question={question} />
-        ) : null}
-        {showExplanations && hasAnswerExplanation(question) ? (
-          <AnswerExplanation
-            text={question.answerExplanation}
-            json={question.answerExplanationJson}
-            textTone={contentTextTone}
-          />
-        ) : null}
-      </div>
+      {showQuestionFooter ? (
+        <div className={cn(theme.footer, "mt-3 pt-3")}>
+          {typeof points === "number" ? (
+            <QuestionPointsFooter points={points} question={question} />
+          ) : null}
+          {showExplanations && hasAnswerExplanation(question) ? (
+            <AnswerExplanation
+              text={question.answerExplanation}
+              json={question.answerExplanationJson}
+              textTone={contentTextTone}
+            />
+          ) : null}
+        </div>
+      ) : null}
     </div>
   );
 
@@ -635,7 +647,12 @@ export function ResultsQuestionViewer({
 
   return (
     <div className={cn(theme.body, theme.scrollRoot)}>
-      <div className="space-y-4 py-4 sm:py-5">
+      <div
+        className={cn(
+          "space-y-4",
+          theme.site ? "pt-4 sm:pt-5" : "py-4 sm:py-5",
+        )}
+      >
         <article className="space-y-3">
           <RichContentBlock
             json={question.stemJson}

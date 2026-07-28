@@ -225,6 +225,9 @@
 
 - **Question stem** — The shared prompt, passage, scenario, table, image, or setup that one or more UCAT questions refer to.
 
+- **Question catalog search** — Tutor-facing, case-insensitive literal substring matching across one or more tutor-selected question-content scopes: question stem text, question text, answer-option text, and tutor source note. It is not relevance-ranked, semantic, or whole-word-only search.
+  _Avoid_: Relevance search, semantic search, full-text search
+
 - **Question progress point** — One unit toward a student's "questions completed / total questions" progress ratio. Each non-syllogism question contributes one point. A syllogism stem contributes two points total, regardless of how many conclusion statements it contains. Soft-deleted questions are excluded from both completed and total counts.
   _Avoid_: Stem point, question attempt count
 

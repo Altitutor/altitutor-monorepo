@@ -1,5 +1,6 @@
 export type UcatContentRatingTargetType =
   | "answer_explanation"
+  | "question"
   | "question_insight"
   | "attempt_insight"
   | "progress_insight"
@@ -15,6 +16,10 @@ export type UcatContentRatingReason =
   | "timing_advice_wrong"
   | "skips_steps"
   | "too_long"
+  | "misformatted"
+  | "answer_incorrect"
+  | "too_easy"
+  | "too_hard"
   | "other";
 
 export type UcatContentRatingDescriptor = {

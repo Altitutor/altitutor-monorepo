@@ -18,7 +18,10 @@ import {
   suggestMergeDirection,
 } from "@/features/ucat/reconciliation/lib/duplicate-stem-comparison";
 import type { Json } from "@altitutor/shared";
-import { getOpenExplanationFeedback } from "@/features/ucat/reconciliation/server/explanation-feedback";
+import {
+  getOpenExplanationFeedback,
+  getOpenQuestionFeedback,
+} from "@/features/ucat/reconciliation/server/explanation-feedback";
 
 function hasExplanation(value: unknown): boolean {
   if (value == null) return false;
@@ -156,28 +159,66 @@ export async function GET() {
   }
 
   const rows = (stemsResult.data ?? []) as StemDetailRow[];
-  const feedbackByQuestion = new Map(
-    (await getOpenExplanationFeedback()).map((feedback) => [feedback.questionId, feedback]),
+  const [explanationFeedback, questionFeedback] = await Promise.all([
+    getOpenExplanationFeedback(),
+    getOpenQuestionFeedback(),
+  ]);
+  const explanationFeedbackByQuestion = new Map(
+    explanationFeedback.map((feedback) => [feedback.questionId, feedback]),
+  );
+  const questionFeedbackByQuestion = new Map(
+    questionFeedback.map((feedback) => [feedback.questionId, feedback]),
   );
 
-  const downvotedExplanations = rows.flatMap((stem) =>
-    (stem.questions ?? []).flatMap((question) => {
-      if (question.deleted_at) return [];
-      const feedback = feedbackByQuestion.get(question.id);
-      if (!feedback || feedback.downvotes === 0) return [];
-      return [{
-        stemId: stem.id,
-        stemText: stem.stem_text,
-        sectionId: stem.section_id,
-        sectionName: stem.section_name ?? "",
-        questionText: question.question_text,
-        questionIndex: question.index,
-        ...feedback,
-      }];
-    }),
-  ).sort((left, right) =>
-    right.downvotes - left.downvotes || right.latestAt.localeCompare(left.latestAt),
-  );
+  const downvotedExplanations = rows
+    .flatMap((stem) =>
+      (stem.questions ?? []).flatMap((question) => {
+        if (question.deleted_at) return [];
+        const feedback = explanationFeedbackByQuestion.get(question.id);
+        if (!feedback || feedback.downvotes === 0) return [];
+        return [
+          {
+            stemId: stem.id,
+            stemText: stem.stem_text,
+            sectionId: stem.section_id,
+            sectionName: stem.section_name ?? "",
+            questionText: question.question_text,
+            questionIndex: question.index,
+            ...feedback,
+          },
+        ];
+      }),
+    )
+    .sort(
+      (left, right) =>
+        right.downvotes - left.downvotes ||
+        right.latestAt.localeCompare(left.latestAt),
+    );
+
+  const downvotedQuestions = rows
+    .flatMap((stem) =>
+      (stem.questions ?? []).flatMap((question) => {
+        if (question.deleted_at) return [];
+        const feedback = questionFeedbackByQuestion.get(question.id);
+        if (!feedback || feedback.downvotes === 0) return [];
+        return [
+          {
+            stemId: stem.id,
+            stemText: stem.stem_text,
+            sectionId: stem.section_id,
+            sectionName: stem.section_name ?? "",
+            questionText: question.question_text,
+            questionIndex: question.index,
+            ...feedback,
+          },
+        ];
+      }),
+    )
+    .sort(
+      (left, right) =>
+        right.downvotes - left.downvotes ||
+        right.latestAt.localeCompare(left.latestAt),
+    );
 
   const stemMetaById = new Map<string, StemListMeta>();
   const privateStemIdsNotInSet = new Set<string>();
@@ -553,6 +594,7 @@ export async function GET() {
   return NextResponse.json({
     stemsWithNoCategory,
     questionsWithNoExplanation,
+    downvotedQuestions,
     downvotedExplanations,
     untaggedQuestions,
     privateStemsNotInSet,

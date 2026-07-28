@@ -54,7 +54,7 @@ const PAID_BENEFITS: ReadonlyArray<SignupBenefit> = [
 
 const FREE_BENEFITS: ReadonlyArray<SignupBenefit> = [
   {
-    title: "Start practising straight away",
+    title: "Start practicing straight away",
     description: "Explore UCAT questions and begin building a steady routine.",
     icon: BrainCircuit,
   },

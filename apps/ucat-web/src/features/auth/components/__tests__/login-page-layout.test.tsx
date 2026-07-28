@@ -16,7 +16,7 @@ describe("LoginPageLayout", () => {
 
     expect(screen.getByText("Altitutor UCAT")).toBeInTheDocument();
     expect(
-      screen.getByText("Ready to continue practising? Log in below."),
+      screen.getByText("Ready to continue practicing? Log in below."),
     ).toBeInTheDocument();
     expect(screen.queryByText("Alti UCAT Prep")).not.toBeInTheDocument();
   });
