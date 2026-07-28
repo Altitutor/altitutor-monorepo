@@ -248,7 +248,7 @@ export function UcatLandingPricing() {
               <p
                 className={`mt-4 text-sm leading-relaxed text-marketing-charcoal/60 ${typo.secondarySans}`}
               >
-                Learn, practise, review, and track your progress with allowances
+                Learn, practice, review, and track your progress with allowances
                 that reset. This is ongoing access—not a trial you eventually
                 use up.
               </p>
@@ -300,7 +300,7 @@ export function UcatLandingPricing() {
                 Altitutor UCAT Unlimited
               </p>
               <h3 className={`mt-4 text-3xl font-semibold ${typo.headingSans}`}>
-                Practise without waiting.
+                Practice without waiting.
               </h3>
               <p
                 className={`mt-4 text-sm leading-relaxed text-white/67 ${typo.secondarySans}`}

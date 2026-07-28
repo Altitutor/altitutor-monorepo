@@ -85,7 +85,7 @@ const welcomeTour: Tour = {
     {
       icon: <Target className={iconClassName} />,
       title: "Skill trainer",
-      content: <p>Use short drills to practise one UCAT skill at a time.</p>,
+      content: <p>Use short drills to practice one UCAT skill at a time.</p>,
       selector: "[data-tour='nav-skill-trainer']",
       ...fixedViewport,
       side: "right",
@@ -120,7 +120,7 @@ const welcomeTour: Tour = {
       content: (
         <p>
           Mocks combine multiple sets into an exam-style attempt. Open one when
-          you want to practise the full sequence.
+          you want to practice the full sequence.
         </p>
       ),
       selector: "[data-tour='nav-mocks']",
@@ -236,7 +236,7 @@ const practiceTour: Tour = {
       content: (
         <p>
           Work through the setup steps to choose the section, topics, number of
-          questions, and timing that fit what you want to practise today.
+          questions, and timing that fit what you want to practice today.
         </p>
       ),
       // Compact header target — highlighting the full filters panel (tall /
@@ -325,7 +325,7 @@ const questionEngineTour: Tour = {
       title: "Question settings",
       content: (
         <p>
-          Settings includes Lag mode, which lets you practise with the short
+          Settings includes Lag mode, which lets you practice with the short
           delays that can occur in the official exam interface.
         </p>
       ),

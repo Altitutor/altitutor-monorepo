@@ -69,7 +69,7 @@ export const UCAT_FEATURES: readonly UcatFeature[] = [
     eyebrow: "Practice and exam simulation",
     title: "Build the skill—and the familiarity to use it under pressure.",
     cardHeadline:
-      "Practise with focus, then step into a simulator that feels like test day.",
+      "Practice with focus, then step into a simulator that feels like test day.",
     body: "Choose focused question practice, timed section sets, or a complete mock. The simulator reproduces the UCAT’s distinctive controls and layout, so the interface feels familiar before test day.",
     points: [
       "Filtered practice by section, question type, timing, and performance",
@@ -93,7 +93,7 @@ export const UCAT_FEATURES: readonly UcatFeature[] = [
       },
       {
         title: "Simulate access arrangements",
-        body: "Practise with extra time if you have a disability, such as a learning difficulty or sensory impairment.",
+        body: "Practice with extra time if you have a disability, such as a learning difficulty or sensory impairment.",
         previewId: "practice-access-arrangements",
       },
       {
@@ -156,7 +156,7 @@ export const UCAT_FEATURES: readonly UcatFeature[] = [
     details: [
       {
         title: "Learn the method first",
-        body: "Concept blocks and worked examples explain the reasoning behind each UCAT skill before you practise it.",
+        body: "Concept blocks and worked examples explain the reasoning behind each UCAT skill before you practice it.",
         previewId: "learn-concept-block",
       },
       {

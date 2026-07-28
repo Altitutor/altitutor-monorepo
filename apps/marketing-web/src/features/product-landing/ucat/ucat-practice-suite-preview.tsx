@@ -23,7 +23,7 @@ export function UcatPracticeSuitePreview() {
       <div className="flex items-center justify-between gap-3">
         <div>
           <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-black/42">
-            Choose how to practise
+            Choose how to practice
           </p>
           <h4 className="mt-1 text-lg font-semibold">Build a useful session</h4>
         </div>

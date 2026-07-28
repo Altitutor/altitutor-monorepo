@@ -54,7 +54,7 @@ type ScopeOption = {
 
 type GeneralSettingRow = {
   key:
-    | keyof Pick<UcatGenerationSettings, 'max_requested_stems_per_run' | 'daily_token_budget' | 'daily_cost_budget_cents'>
+    | keyof Pick<UcatGenerationSettings, 'max_requested_stems_per_run' | 'daily_token_budget' | 'daily_cost_budget_cents' | 'automatic_review_enabled'>
     | 'automatic_review_profiles';
   label: string;
   value: string;
@@ -194,6 +194,7 @@ function GeneralSettingsDialog({
   const [assessmentProfileId, setAssessmentProfileId] = useState(
     settings.automatic_review_assessment_model_profile_id ?? '',
   );
+  const [automaticReviewEnabled, setAutomaticReviewEnabled] = useState(settings.automatic_review_enabled);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -205,6 +206,7 @@ function GeneralSettingsDialog({
     setBlindSolverProfileId(settings.automatic_review_blind_solver_model_profile_id ?? '');
     setUseSolverForAssessment(settings.automatic_review_use_solver_for_assessment);
     setAssessmentProfileId(settings.automatic_review_assessment_model_profile_id ?? '');
+    setAutomaticReviewEnabled(settings.automatic_review_enabled);
     setError(null);
   }, [open, settings]);
 
@@ -225,6 +227,7 @@ function GeneralSettingsDialog({
         automatic_review_assessment_model_profile_id: useSolverForAssessment
           ? null
           : assessmentProfileId || null,
+        automatic_review_enabled: automaticReviewEnabled,
       });
       await onSaved();
       onOpenChange(false);
@@ -282,8 +285,21 @@ function GeneralSettingsDialog({
           <div>
             <h3 className="font-medium">Automatic question review</h3>
             <p className="mt-1 text-sm text-muted-foreground">
-              Select the provider/model profiles used for the blind solve and independent assessment. Automatic review is controlled separately by the server environment gate.
+              Select the provider/model profiles used for the blind solve and independent assessment. The server environment gate can still disable all AI review; this setting only controls automatic queueing.
             </p>
+          </div>
+          <div className="flex items-center justify-between gap-3 rounded-md border p-3">
+            <div>
+              <Label htmlFor="automatic-review-enabled">Queue automatic reviews</Label>
+              <p className="mt-1 text-xs text-muted-foreground">
+                When off, stems moved to in review or edited while in review are not queued automatically. Tutors can still request AI review manually.
+              </p>
+            </div>
+            <Switch
+              id="automatic-review-enabled"
+              checked={automaticReviewEnabled}
+              onCheckedChange={setAutomaticReviewEnabled}
+            />
           </div>
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-2">
@@ -375,6 +391,12 @@ function GeneralSettingsTable({
         label: 'Daily cost budget',
         value: settings.daily_cost_budget_cents == null ? 'No cap' : `$${(settings.daily_cost_budget_cents / 100).toFixed(2)}`,
         description: 'Stops new generation or automatic-review calls when the shared daily estimated cost reaches this amount.',
+      },
+      {
+        key: 'automatic_review_enabled',
+        label: 'Automatic review queueing',
+        value: settings.automatic_review_enabled ? 'Enabled' : 'Disabled',
+        description: 'When disabled, in-review stems are not queued automatically; tutors can still request AI review manually.',
       },
       {
         key: 'automatic_review_profiles',

@@ -182,7 +182,7 @@ export function DashboardMembershipValue({
             openPlanPicker({
               title: "Upgrade to UCAT Unlimited",
               description:
-                "Remove online quotas and earn discounts as you practise.",
+                "Remove online quotas and earn discounts as you practice.",
             })
           }
           onLimit={openQuotaLimit}

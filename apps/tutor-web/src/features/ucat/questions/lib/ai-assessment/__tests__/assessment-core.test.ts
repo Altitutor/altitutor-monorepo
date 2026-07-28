@@ -1,5 +1,5 @@
 import type { UcatAssessmentSnapshot } from '../schema'
-import { automaticReviewEnvironment } from '@/features/ucat/questions/server/ai-assessment/environment'
+import { automaticReviewEnvironment, resolveReviewTriggerGate } from '@/features/ucat/questions/server/ai-assessment/environment'
 import {
   changedAssessmentScope,
   compactUcatAssessmentSnapshot,
@@ -101,6 +101,37 @@ describe('automatic review environment gate', () => {
 
     process.env.UCAT_AI_AUTOMATIC_REVIEW_ENABLED = 'false'
     expect(automaticReviewEnvironment()).toEqual({ enabled: false, source: 'explicit' })
+  })
+})
+
+describe('review trigger gate', () => {
+  it('allows manual review when automatic review is disabled in settings', () => {
+    expect(resolveReviewTriggerGate({
+      envEnabled: true,
+      automaticReviewEnabled: false,
+      triggerKind: 'manual_request',
+    })).toBe('allowed')
+  })
+
+  it('blocks automatic triggers when automatic review is disabled in settings', () => {
+    expect(resolveReviewTriggerGate({
+      envEnabled: true,
+      automaticReviewEnabled: false,
+      triggerKind: 'review_submission',
+    })).toBe('disabled')
+    expect(resolveReviewTriggerGate({
+      envEnabled: true,
+      automaticReviewEnabled: false,
+      triggerKind: 'content_change',
+    })).toBe('disabled')
+  })
+
+  it('blocks all triggers when the environment kill switch is off', () => {
+    expect(resolveReviewTriggerGate({
+      envEnabled: false,
+      automaticReviewEnabled: true,
+      triggerKind: 'manual_request',
+    })).toBe('disabled')
   })
 })
 
@@ -255,6 +286,21 @@ describe('assessment prompts and deterministic checks', () => {
     const value = snapshot()
     const checks = runUcatFormatChecks(value)
     expect(checks.map((check) => check.code)).not.toContain('qr_category')
+  })
+
+  it('blocks assessment when formatting source would be visible to students', () => {
+    const value = snapshot()
+    value.questions[0].answerExplanation = plainTextToProseMirror(
+      'Use **option A** after calculating \\(30 \\div 30\\).',
+    )
+    value.questions[0].answerExplanationPlain =
+      'Use **option A** after calculating \\(30 \\div 30\\).'
+
+    expect(runUcatFormatChecks(value)).toContainEqual(expect.objectContaining({
+      severity: 'error',
+      code: 'literal_rich_text_syntax',
+      questionId: QUESTION_1,
+    }))
   })
 })
 

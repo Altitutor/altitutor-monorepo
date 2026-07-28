@@ -10,7 +10,10 @@ import {
   fingerprintUcatAssessmentSnapshot,
   loadUcatAssessmentSnapshot,
 } from './content'
-import { automaticReviewEnvironment } from './environment'
+import {
+  manualReviewEnvironment,
+  resolveReviewTriggerGate,
+} from './environment'
 import { hasUcatFormatErrors, runUcatFormatChecks } from './format-checks'
 
 export const UCAT_QUESTION_ASSESSMENT_TOPIC = 'ucat-question-assessment'
@@ -83,10 +86,10 @@ async function latestRunFingerprints(
   })
 }
 
-async function configuredProfiles(admin: SupabaseClient<Database>) {
+async function loadGenerationReviewConfig(admin: SupabaseClient<Database>) {
   const { data, error } = await asAny(admin)
     .from('ucat_ai_generation_settings')
-    .select('automatic_review_blind_solver_model_profile_id,automatic_review_assessment_model_profile_id,automatic_review_use_solver_for_assessment')
+    .select('automatic_review_enabled,automatic_review_blind_solver_model_profile_id,automatic_review_assessment_model_profile_id,automatic_review_use_solver_for_assessment')
     .order('created_at')
     .limit(1)
     .maybeSingle()
@@ -99,7 +102,11 @@ async function configuredProfiles(admin: SupabaseClient<Database>) {
     : typeof data?.automatic_review_assessment_model_profile_id === 'string'
       ? data.automatic_review_assessment_model_profile_id
       : null
-  return { solver, assessment }
+  return {
+    automaticReviewEnabled: data?.automatic_review_enabled !== false,
+    solver,
+    assessment,
+  }
 }
 
 function assessmentDedupeKey(params: {
@@ -118,9 +125,16 @@ export async function requestUcatQuestionAssessment(params: {
   requestedBy?: string | null
   userClient?: SupabaseClient<Database>
 }): Promise<RequestResult> {
-  if (!automaticReviewEnvironment().enabled) return { kind: 'disabled' }
-
   const admin = getServiceRoleClient()
+  const reviewConfig = await loadGenerationReviewConfig(admin)
+  if (resolveReviewTriggerGate({
+    envEnabled: manualReviewEnvironment().enabled,
+    automaticReviewEnabled: reviewConfig.automaticReviewEnabled,
+    triggerKind: params.triggerKind,
+  }) === 'disabled') {
+    return { kind: 'disabled' }
+  }
+
   const snapshot = await loadUcatAssessmentSnapshot(admin, params.stemId)
   if (!snapshot) return { kind: 'skipped' }
   // Manual requests can review private drafts during authoring. Automatic triggers
@@ -169,10 +183,10 @@ export async function requestUcatQuestionAssessment(params: {
   if (existingError) throw existingError
   if (existing?.id) return { kind: 'existing', runId: existing.id }
 
-  const [profiles, formatChecks] = await Promise.all([
-    configuredProfiles(admin),
+  const [formatChecks] = await Promise.all([
     Promise.resolve(runUcatFormatChecks(snapshot)),
   ])
+  const profiles = reviewConfig
   const formatBlocked = hasUcatFormatErrors(formatChecks)
   const configurationError = !profiles.solver || !profiles.assessment
     ? 'Automatic review model profiles are not configured.'
@@ -256,7 +270,7 @@ export async function requestUcatQuestionAssessmentsForReview(params: {
 }
 
 export async function enqueueUcatQuestionAssessmentRun(runId: string): Promise<boolean> {
-  if (!automaticReviewEnvironment().enabled) return false
+  if (!manualReviewEnvironment().enabled) return false
   const admin = getServiceRoleClient()
   const { data: run, error } = await asAny(admin)
     .from('ucat_ai_question_assessment_runs')
@@ -327,7 +341,7 @@ export async function retryUcatQuestionAssessmentRun(runId: string): Promise<boo
   let solverProfileId = existing.blind_solver_model_profile_id
   let assessmentProfileId = existing.assessment_model_profile_id
   if (!solverProfileId || !assessmentProfileId) {
-    const configured = await configuredProfiles(admin)
+    const configured = await loadGenerationReviewConfig(admin)
     solverProfileId = solverProfileId ?? configured.solver
     assessmentProfileId = assessmentProfileId ?? configured.assessment
   }
@@ -354,7 +368,7 @@ export async function retryUcatQuestionAssessmentRun(runId: string): Promise<boo
 }
 
 export async function recoverQueuedUcatQuestionAssessments(limit = 50): Promise<number> {
-  if (!automaticReviewEnvironment().enabled) return 0
+  if (!manualReviewEnvironment().enabled) return 0
   const admin = getServiceRoleClient()
   const now = new Date().toISOString()
   const { data, error } = await asAny(admin)

@@ -8,6 +8,7 @@ import {
   mockDraftFromDetail,
   questionSetDraftFromDetail,
   questionStemDraftFromDetail,
+  toRichTextJson,
 } from '@/features/ucat/mcp/server/operations'
 
 const STEM_ID = '10000000-0000-0000-0000-000000000001'
@@ -232,5 +233,33 @@ describe('UCAT MCP typed operations', () => {
         },
       ],
     })
+  })
+
+  it('normalizes model-authored Markdown strings instead of storing visible syntax', () => {
+    expect(toRichTextJson('The result is **0% (D)**.')).toEqual({
+      type: 'doc',
+      content: [
+        {
+          type: 'paragraph',
+          content: [
+            { type: 'text', text: 'The result is ' },
+            { type: 'text', text: '0% (D)', marks: [{ type: 'bold' }] },
+            { type: 'text', text: '.' },
+          ],
+        },
+      ],
+    })
+  })
+
+  it('rejects native rich text that would display formatting source literally', () => {
+    expect(() => toRichTextJson({
+      type: 'doc',
+      content: [
+        {
+          type: 'paragraph',
+          content: [{ type: 'text', text: 'The result is **0% (D)**.' }],
+        },
+      ],
+    })).toThrow('unparsed formatting syntax (markdown_emphasis)')
   })
 })

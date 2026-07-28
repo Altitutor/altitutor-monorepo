@@ -110,7 +110,7 @@ export function MockAttemptsCard({
   const benchmark = lookupUcatAnzTotalPercentile(recentWeightedAverage);
   const insightBody =
     trend == null
-      ? "Use your next mock to practise a consistent stuck-question rule. Afterwards, review the first avoidable miss in each section before changing your overall pace."
+      ? "Use your next mock to practice a consistent stuck-question rule. Afterwards, review the first avoidable miss in each section before changing your overall pace."
       : trend > 0
         ? `Your recent mock trajectory is up ${trend} points across the selected period. Check the section breakdown to see whether that improvement is balanced.`
         : trend < 0
