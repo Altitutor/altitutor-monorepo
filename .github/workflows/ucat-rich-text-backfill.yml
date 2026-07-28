@@ -1,0 +1,147 @@
+name: UCAT Rich-Text Formatting Backfill
+
+on:
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: Scan and report without writing (default and required unless applying)
+        required: true
+        type: boolean
+        default: true
+      apply:
+        description: Apply validated changes through the published-stem revision service
+        required: true
+        type: boolean
+        default: false
+      confirmation:
+        description: For apply only, enter APPLY_PRODUCTION_UCAT_RICH_TEXT_BACKFILL
+        required: false
+        type: string
+      batch_size:
+        description: Number of published stems fetched per page
+        required: true
+        type: number
+        default: 20
+      cursor:
+        description: Resume after this stem UUID (use finalCursor from a prior report)
+        required: false
+        type: string
+
+run-name: >-
+  UCAT rich-text backfill
+  (${{ inputs.apply && 'APPLY' || 'dry-run' }})
+  ${{ inputs.cursor && format('after {0}', inputs.cursor) || 'from start' }}
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ucat-production-rich-text-backfill
+  cancel-in-progress: false
+
+jobs:
+  backfill:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    environment: production
+    env:
+      SUPABASE_PROJECT_ID: ${{ secrets.SUPABASE_PROJECT_ID }}
+      SUPABASE_PUBLISHABLE_KEY: ${{ secrets.SUPABASE_PUBLISHABLE_KEY }}
+      SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
+      UCAT_BACKFILL_TUTOR_EMAIL: ${{ secrets.UCAT_BACKFILL_TUTOR_EMAIL }}
+      UCAT_BACKFILL_TUTOR_PASSWORD: ${{ secrets.UCAT_BACKFILL_TUTOR_PASSWORD }}
+      REPORT_DIR: artifacts/ucat-rich-text-backfill
+      INPUT_APPLY: ${{ inputs.apply }}
+      INPUT_DRY_RUN: ${{ inputs.dry_run }}
+      INPUT_CONFIRMATION: ${{ inputs.confirmation }}
+      INPUT_BATCH_SIZE: ${{ inputs.batch_size }}
+      INPUT_CURSOR: ${{ inputs.cursor }}
+
+    steps:
+      - name: Validate production safety gates
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ "$INPUT_APPLY" == "true" ]]; then
+            [[ "$INPUT_DRY_RUN" == "false" ]] || {
+              echo "::error::Apply requires dry_run=false."
+              exit 1
+            }
+            [[ "$GITHUB_REF" == "refs/heads/main" ]] || {
+              echo "::error::Apply is allowed only from main."
+              exit 1
+            }
+            [[ "$INPUT_CONFIRMATION" == "APPLY_PRODUCTION_UCAT_RICH_TEXT_BACKFILL" ]] || {
+              echo "::error::Apply confirmation does not match."
+              exit 1
+            }
+          else
+            [[ "$INPUT_DRY_RUN" == "true" ]] || {
+              echo "::error::Set dry_run=true unless apply=true."
+              exit 1
+            }
+            [[ -z "$INPUT_CONFIRMATION" ]] || {
+              echo "::error::Do not provide apply confirmation for a dry-run."
+              exit 1
+            }
+          fi
+
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Enable pnpm
+        run: corepack enable
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Run deterministic backfill
+        shell: bash
+        run: |
+          set -euo pipefail
+          args=(
+            "--batch-size=${INPUT_BATCH_SIZE}"
+            "--checkpoint=${GITHUB_WORKSPACE}/${REPORT_DIR}/checkpoint.json"
+            "--report-dir=${GITHUB_WORKSPACE}/${REPORT_DIR}"
+          )
+          if [[ -n "$INPUT_CURSOR" ]]; then
+            args+=("--cursor=${INPUT_CURSOR}")
+          fi
+          if [[ "$INPUT_APPLY" == "true" ]]; then
+            args+=(
+              "--apply"
+              "--confirm=APPLY_PRODUCTION_UCAT_RICH_TEXT_BACKFILL"
+            )
+          else
+            args+=("--dry-run")
+          fi
+          cd apps/tutor-web
+          node --conditions react-server --import tsx \
+            scripts/backfill-ucat-rich-text-formatting.ts "${args[@]}"
+
+      - name: Add report counts to workflow summary
+        if: always() && hashFiles('artifacts/ucat-rich-text-backfill/report.json') != ''
+        shell: bash
+        run: |
+          {
+            echo "## UCAT rich-text backfill"
+            echo
+            echo '```json'
+            jq '.summary' "${REPORT_DIR}/report.json"
+            echo '```'
+            echo
+            echo "Final cursor: \`$(jq -r '.finalCursor // "none"' "${REPORT_DIR}/report.json")\`"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload JSON, CSV, and checkpoint
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ucat-rich-text-backfill-${{ github.run_id }}
+          path: artifacts/ucat-rich-text-backfill
+          if-no-files-found: warn
+          retention-days: 30
