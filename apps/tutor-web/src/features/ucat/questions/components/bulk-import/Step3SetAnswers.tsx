@@ -670,7 +670,7 @@ function formatMissingExplanationSummary(targets: Array<MissingExplanationTarget
   const fieldCount = targets.length
   return `${questionCount} question${questionCount === 1 ? '' : 's'} still ${
     questionCount === 1 ? 'needs' : 'need'
-  } explanation text before you can continue from review (${fieldCount} missing field${
+  } explanation text before final import (${fieldCount} missing field${
     fieldCount === 1 ? '' : 's'
   }).`
 }

@@ -131,4 +131,48 @@ describe('automaticFindingStillSafe', () => {
     draft.questions[0].tagIds = ['40000000-0000-4000-8000-000000000002']
     expect(automaticFindingStillSafe(draft, finding(patch))).toBe(false)
   })
+
+  it('requires an unambiguous high-confidence blind-solver match before auto-rekeying', () => {
+    const draft = values([QUESTION_ONE])
+    const optionId = draft.questions[0].options[0].id as string
+    const patch = {
+      operation: 'set_answer_key' as const,
+      questionId: QUESTION_ONE,
+      currentCorrectOptionId: null,
+      correctOptionId: optionId,
+    }
+    const blindSolution = {
+      solutions: [{
+        questionId: QUESTION_ONE,
+        selectedOptionId: optionId,
+        syllogismAnswers: [],
+        justification: 'The option follows.',
+        confidence: 0.99,
+        ambiguous: false,
+        unsolvable: false,
+      }],
+    }
+
+    expect(automaticFindingStillSafe(draft, finding(patch), blindSolution)).toBe(true)
+    expect(automaticFindingStillSafe(draft, finding(patch), {
+      solutions: [{ ...blindSolution.solutions[0], ambiguous: true }],
+    })).toBe(false)
+  })
+
+  it('keeps meaning-changing text replacements behind approval', () => {
+    const draft = values([QUESTION_ONE])
+    const formattingPatch = {
+      operation: 'replace_text' as const,
+      target: { kind: 'question' as const, id: QUESTION_ONE, field: 'question_text' as const },
+      beforeText: 'Which option is correct ?',
+      afterText: 'Which option is correct?',
+    }
+    const meaningPatch = {
+      ...formattingPatch,
+      afterText: 'Which option is incorrect?',
+    }
+
+    expect(automaticFindingStillSafe(draft, finding(formattingPatch))).toBe(true)
+    expect(automaticFindingStillSafe(draft, finding(meaningPatch))).toBe(false)
+  })
 })

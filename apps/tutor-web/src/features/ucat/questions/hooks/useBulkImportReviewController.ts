@@ -74,6 +74,7 @@ export type BulkImportReviewController = {
   manualReviewFindings: BulkImportReviewFinding[]
   keptFindingKeysByStemId: Record<string, string[]>
   runAiReview: () => Promise<void>
+  runAiReviewForStemIds: (stemIds: string[]) => Promise<void>
   runAiReviewForStem: (stemId: string) => Promise<void>
   retryFailedAiReview: () => Promise<void>
   cancelAiReview: () => void
@@ -84,8 +85,10 @@ export type BulkImportReviewController = {
   hasDuplicateAnalysisRun: boolean
   duplicateError: string | null
   duplicateFindings: BulkImportDuplicateFinding[]
+  duplicateDismissals: Array<{ stemIdA: string; stemIdB: string }>
   runDuplicateAnalysis: () => Promise<void>
   cancelDuplicateAnalysis: () => void
+  keepDuplicateFinding: (findingId: string) => void
 
   excludedStemIds: Set<string>
   excludedQuestionIds: Set<string>
@@ -131,6 +134,11 @@ export function automaticFindingStillSafe(
 ): boolean {
   if (!finding.suggestion) return false
   return finding.suggestion.patches.every((patch) => {
+    if (patch.operation === 'replace_text') {
+      const semanticCharacters = (value: string) =>
+        value.normalize('NFC').toLocaleLowerCase().replace(/[^\p{L}\p{N}]+/gu, '')
+      return semanticCharacters(patch.beforeText) === semanticCharacters(patch.afterText)
+    }
     if (patch.operation === 'set_answer_key') {
       const solution = blindSolution?.solutions.find(
         (item) => item.questionId === patch.questionId
@@ -193,6 +201,7 @@ function cacheFromResult(result: BulkImportAiReviewResult | undefined): BulkImpo
     || !result.fingerprints
     || !result.assessment
     || !result.blindSolution
+    || !result.reviewToken
   ) return null
   return {
     promptVersion: result.promptVersion,
@@ -200,28 +209,7 @@ function cacheFromResult(result: BulkImportAiReviewResult | undefined): BulkImpo
     assessment: result.assessment,
     blindSolution: result.blindSolution,
     provenance: result.provenance,
-  }
-}
-
-function requireApprovalForAutomaticFindings(
-  result: BulkImportAiReviewResult,
-): BulkImportAiReviewResult {
-  if (!result.assessment) return result
-  return {
-    ...result,
-    assessment: {
-      ...result.assessment,
-      findings: result.assessment.findings.map((finding) => {
-        if (finding.suggestion?.application !== 'auto_apply') return finding
-        return {
-          ...finding,
-          suggestion: {
-            ...finding.suggestion,
-            application: 'approval_required' as const,
-          },
-        }
-      }),
-    },
+    reviewToken: result.reviewToken,
   }
 }
 
@@ -270,10 +258,15 @@ export function useBulkImportReviewController({
   const [aiErrorsByStemId, setAiErrorsByStemId] = useState<Record<string, string>>({})
   const [reviewedSignatures, setReviewedSignatures] = useState<Record<string, string>>({})
   const [keptFindingKeysByStemId, setKeptFindingKeysByStemId] = useState<Record<string, string[]>>({})
+  const [forcedApprovalFindingKeysByStemId, setForcedApprovalFindingKeysByStemId] =
+    useState<Record<string, string[]>>({})
   const [duplicateStatus, setDuplicateStatus] = useState<BulkImportDuplicateAnalysisStatus>('idle')
-  const [hasDuplicateAnalysisRun, setHasDuplicateAnalysisRun] = useState(false)
+  const [duplicateAnalyzedSignature, setDuplicateAnalyzedSignature] = useState<string | null>(null)
   const [duplicateError, setDuplicateError] = useState<string | null>(null)
   const [duplicateFindings, setDuplicateFindings] = useState<BulkImportDuplicateFinding[]>([])
+  const [keptDuplicateFindingIds, setKeptDuplicateFindingIds] = useState<Set<string>>(
+    () => new Set()
+  )
   const [excludedStemIds, setExcludedStemIds] = useState<Set<string>>(() => new Set())
   const [excludedQuestionIds, setExcludedQuestionIds] = useState<Set<string>>(() => new Set())
   const [automaticChanges, setAutomaticChanges] = useState<BulkImportReviewChange[]>([])
@@ -406,6 +399,7 @@ export function useBulkImportReviewController({
     () => deriveIncludedBulkImportStems({ stems, excludedStemIds, excludedQuestionIds }),
     [excludedQuestionIds, excludedStemIds, stems],
   )
+  const includedStemsSignature = useMemo(() => signature(includedStems), [includedStems])
 
   const runAiForStemIds = useCallback(async (stemIds: string[]) => {
     if (aiStatus === 'running' || stemIds.length === 0) return
@@ -445,12 +439,20 @@ export function useBulkImportReviewController({
             delete next[stemId]
             return next
           })
+          setForcedApprovalFindingKeysByStemId((existing) => {
+            if (!existing[stemId]) return existing
+            const next = { ...existing }
+            delete next[stemId]
+            return next
+          })
         }
         if (initial.error || !initial.assessment) {
           const message = initial.error ?? 'AI review returned an incomplete result.'
           setAiErrorsByStemId((current) => ({ ...current, [stemId]: message }))
-          setAiResultsByStemId((current) => ({ ...current, [stemId]: initial }))
-          aiResultsRef.current = { ...aiResultsRef.current, [stemId]: initial }
+          if (!cacheFromResult(aiResultsRef.current[stemId])) {
+            setAiResultsByStemId((current) => ({ ...current, [stemId]: initial }))
+            aiResultsRef.current = { ...aiResultsRef.current, [stemId]: initial }
+          }
           return
         }
 
@@ -495,11 +497,17 @@ export function useBulkImportReviewController({
         }
 
         if (!appliedAny) {
-          const safeInitial = failedAutomaticKeys.size > 0
-            ? requireApprovalForAutomaticFindings(initial)
-            : initial
-          setAiResultsByStemId((current) => ({ ...current, [stemId]: safeInitial }))
-          aiResultsRef.current = { ...aiResultsRef.current, [stemId]: safeInitial }
+          if (failedAutomaticKeys.size > 0) {
+            setForcedApprovalFindingKeysByStemId((existing) => ({
+              ...existing,
+              [stemId]: [...new Set([
+                ...(existing[stemId] ?? []),
+                ...failedAutomaticKeys,
+              ])],
+            }))
+          }
+          setAiResultsByStemId((current) => ({ ...current, [stemId]: initial }))
+          aiResultsRef.current = { ...aiResultsRef.current, [stemId]: initial }
           setReviewedSignatures((current) => ({
             ...current,
             [stemId]: signature(reviewDraft.values),
@@ -529,9 +537,20 @@ export function useBulkImportReviewController({
           return
         }
         // A verification pass never chains into another automatic-fix pass.
-        const safeVerified = requireApprovalForAutomaticFindings(verified)
-        setAiResultsByStemId((current) => ({ ...current, [stemId]: safeVerified }))
-        aiResultsRef.current = { ...aiResultsRef.current, [stemId]: safeVerified }
+        const verificationAutomaticKeys = partitionBulkImportAiFindings(
+          verified.assessment.findings
+        ).automatic.map((finding) => finding.key)
+        if (verificationAutomaticKeys.length > 0) {
+          setForcedApprovalFindingKeysByStemId((existing) => ({
+            ...existing,
+            [stemId]: [...new Set([
+              ...(existing[stemId] ?? []),
+              ...verificationAutomaticKeys,
+            ])],
+          }))
+        }
+        setAiResultsByStemId((current) => ({ ...current, [stemId]: verified }))
+        aiResultsRef.current = { ...aiResultsRef.current, [stemId]: verified }
         setReviewedSignatures((current) => ({
           ...current,
           [stemId]: signature(verificationValues),
@@ -582,6 +601,11 @@ export function useBulkImportReviewController({
     await runAiForStemIds([stemId])
   }, [includedStems, runAiForStemIds])
 
+  const runAiReviewForStemIds = useCallback(async (stemIds: string[]) => {
+    const includedIds = new Set(includedStems.map((stem) => stem.id))
+    await runAiForStemIds([...new Set(stemIds)].filter((id) => includedIds.has(id)))
+  }, [includedStems, runAiForStemIds])
+
   const retryFailedAiReview = useCallback(async () => {
     const includedIds = new Set(includedStems.map((stem) => stem.id))
     await runAiForStemIds(Object.keys(aiErrorsByStemId).filter((id) => includedIds.has(id)))
@@ -619,6 +643,9 @@ export function useBulkImportReviewController({
   const cancelDuplicateAnalysis = useCallback(() => {
     duplicateAbortRef.current?.abort()
   }, [])
+  const keepDuplicateFinding = useCallback((findingId: string) => {
+    setKeptDuplicateFindingIds((current) => new Set(current).add(findingId))
+  }, [])
 
   const runDuplicateAnalysis = useCallback(async () => {
     if (duplicateStatus === 'running') return
@@ -629,7 +656,7 @@ export function useBulkImportReviewController({
     try {
       const findings = await requestDuplicateAnalysis(includedStems, abortController.signal)
       setDuplicateFindings(findings)
-      setHasDuplicateAnalysisRun(true)
+      setDuplicateAnalyzedSignature(signature(includedStems))
     } catch (error) {
       if (!abortController.signal.aborted) {
         setDuplicateError(error instanceof Error ? error.message : 'Duplicate analysis failed.')
@@ -698,20 +725,33 @@ export function useBulkImportReviewController({
     const approvalRequired: BulkImportReviewFinding[] = []
     const manualReview: BulkImportReviewFinding[] = []
     for (const item of freshFindings) {
+      if ((forcedApprovalFindingKeysByStemId[item.stemId] ?? []).includes(item.finding.key)) {
+        approvalRequired.push(item)
+        continue
+      }
       const partition = partitionBulkImportAiFindings([item.finding])
       if (partition.approvalRequired.length > 0) approvalRequired.push(item)
       else if (partition.manualReview.length > 0) manualReview.push(item)
     }
     return { approvalRequired, manualReview }
-  }, [freshFindings])
+  }, [forcedApprovalFindingKeysByStemId, freshFindings])
 
   const visibleDuplicateFindings = useMemo(() => {
     const includedIds = new Set(includedStems.map((stem) => stem.id))
     return duplicateFindings.filter((finding) => {
+      if (keptDuplicateFindingIds.has(finding.id)) return false
       if (!includedIds.has(finding.draft.stemId)) return false
       return finding.match.source !== 'draft' || includedIds.has(finding.match.stemId)
     })
-  }, [duplicateFindings, includedStems])
+  }, [duplicateFindings, includedStems, keptDuplicateFindingIds])
+  const duplicateDismissals = useMemo(
+    () => duplicateFindings.flatMap((finding) =>
+      keptDuplicateFindingIds.has(finding.id) && finding.kind === 'exact_duplicate'
+        ? [{ stemIdA: finding.draft.stemId, stemIdB: finding.match.stemId }]
+        : []
+    ),
+    [duplicateFindings, keptDuplicateFindingIds],
+  )
 
   const changesWithUndo = useMemo(() => automaticChanges.map((change) => {
     const current = stems.find((stem) => stem.id === change.stemId)?.values
@@ -761,10 +801,12 @@ export function useBulkImportReviewController({
     setAiErrorsByStemId({})
     setReviewedSignatures({})
     setKeptFindingKeysByStemId({})
+    setForcedApprovalFindingKeysByStemId({})
     setDuplicateStatus('idle')
-    setHasDuplicateAnalysisRun(false)
+    setDuplicateAnalyzedSignature(null)
     setDuplicateError(null)
     setDuplicateFindings([])
+    setKeptDuplicateFindingIds(new Set())
     setExcludedStemIds(new Set())
     setExcludedQuestionIds(new Set())
     setAutomaticChanges([])
@@ -790,17 +832,22 @@ export function useBulkImportReviewController({
     manualReviewFindings: partitionedFindings.manualReview,
     keptFindingKeysByStemId,
     runAiReview,
+    runAiReviewForStemIds,
     runAiReviewForStem,
     retryFailedAiReview,
     cancelAiReview,
     approveFinding,
     keepFinding,
     duplicateStatus,
-    hasDuplicateAnalysisRun,
+    hasDuplicateAnalysisRun: duplicateAnalyzedSignature === includedStemsSignature,
     duplicateError,
-    duplicateFindings: visibleDuplicateFindings,
+    duplicateFindings:
+      duplicateAnalyzedSignature === includedStemsSignature ? visibleDuplicateFindings : [],
+    duplicateDismissals:
+      duplicateAnalyzedSignature === includedStemsSignature ? duplicateDismissals : [],
     runDuplicateAnalysis,
     cancelDuplicateAnalysis,
+    keepDuplicateFinding,
     excludedStemIds,
     excludedQuestionIds,
     excludeStem,

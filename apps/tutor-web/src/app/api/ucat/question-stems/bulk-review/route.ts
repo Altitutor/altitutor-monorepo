@@ -21,6 +21,7 @@ import { loadGenerationReviewConfig } from '@/features/ucat/questions/server/ai-
 import { manualReviewEnvironment } from '@/features/ucat/questions/server/ai-assessment/environment'
 import { runUcatFormatChecks } from '@/features/ucat/questions/server/ai-assessment/format-checks'
 import { assessUcatQuestionSnapshot } from '@/features/ucat/questions/server/ai-assessment/run-background-assessment'
+import { issueBulkImportReviewToken } from '@/features/ucat/questions/server/ai-assessment/bulk-import-review-token'
 
 const FingerprintsSchema = z.object({
   content: z.string().min(1),
@@ -43,6 +44,7 @@ const CachedReviewSchema = z.object({
   assessment: UcatAssessmentResponseSchema,
   blindSolution: BlindSolutionResponseSchema,
   provenance: ReviewProvenanceSchema.nullable().optional(),
+  reviewToken: z.string().min(1),
 })
 
 const BodySchema = z.object({
@@ -183,13 +185,22 @@ export async function POST(request: NextRequest) {
       const previous = stem.previous?.promptVersion === AI_ASSESSMENT_PROMPT_VERSION ? stem.previous : null
       const changed = changedAssessmentScope(previous?.fingerprints ?? null, fingerprints)
       if (!changed && previous) {
+        const provenance = previous.provenance ?? null
         return {
           id: stem.id,
           promptVersion: AI_ASSESSMENT_PROMPT_VERSION,
           fingerprints,
           assessment: previous.assessment,
           blindSolution: previous.blindSolution,
-          provenance: previous.provenance ?? null,
+          provenance,
+          reviewToken: issueBulkImportReviewToken({
+            draftStemId: stem.id,
+            promptVersion: AI_ASSESSMENT_PROMPT_VERSION,
+            fingerprints,
+            assessment: previous.assessment,
+            blindSolution: previous.blindSolution,
+            provenance,
+          }),
           reused: true,
           error: null,
         }
@@ -213,30 +224,41 @@ export async function POST(request: NextRequest) {
         },
         signal: request.signal,
       })
+      const assessment = mergeScopedAssessment({
+        previous: previous?.assessment ?? null,
+        next: result.assessment,
+        changedQuestionIds: targetQuestionIds,
+        sharedChanged: changed?.scopeType !== 'questions',
+      })
+      const blindSolution = mergeScopedBlindSolution({
+        previous: previous?.blindSolution ?? null,
+        next: result.blindSolution,
+        changedQuestionIds: targetQuestionIds,
+        sharedChanged: changed?.scopeType !== 'questions',
+      })
+      const provenance = {
+        blindSolverModelProfileId: config.solver,
+        assessmentModelProfileId: config.assessment,
+        blindProviderId: result.blindProviderId,
+        blindModel: result.blindModel,
+        assessmentProviderId: result.assessmentProviderId,
+        assessmentModel: result.assessmentModel,
+      }
       return {
         id: stem.id,
         promptVersion: AI_ASSESSMENT_PROMPT_VERSION,
         fingerprints,
-        assessment: mergeScopedAssessment({
-          previous: previous?.assessment ?? null,
-          next: result.assessment,
-          changedQuestionIds: targetQuestionIds,
-          sharedChanged: changed?.scopeType !== 'questions',
+        assessment,
+        blindSolution,
+        provenance,
+        reviewToken: issueBulkImportReviewToken({
+          draftStemId: stem.id,
+          promptVersion: AI_ASSESSMENT_PROMPT_VERSION,
+          fingerprints,
+          assessment,
+          blindSolution,
+          provenance,
         }),
-        blindSolution: mergeScopedBlindSolution({
-          previous: previous?.blindSolution ?? null,
-          next: result.blindSolution,
-          changedQuestionIds: targetQuestionIds,
-          sharedChanged: changed?.scopeType !== 'questions',
-        }),
-        provenance: {
-          blindSolverModelProfileId: config.solver,
-          assessmentModelProfileId: config.assessment,
-          blindProviderId: result.blindProviderId,
-          blindModel: result.blindModel,
-          assessmentProviderId: result.assessmentProviderId,
-          assessmentModel: result.assessmentModel,
-        },
         reused: false,
         error: null,
       }
@@ -248,6 +270,7 @@ export async function POST(request: NextRequest) {
         assessment: null,
         blindSolution: null,
         provenance: null,
+        reviewToken: null,
         reused: false,
         error: error instanceof Error ? error.message : 'AI review failed.',
       }

@@ -119,7 +119,11 @@ export function BulkImportReviewActions({
             className={tutorBtnOutline}
             onClick={() => {
               controller.applyDeterministicFixes()
-              if (controller.hasHardFailures) void controller.runAiReview()
+              if (controller.hasHardFailures) {
+                void controller.runAiReviewForStemIds(
+                  controller.hardFailures.map(({ stemId }) => stemId)
+                )
+              }
             }}
           >
             <Sparkles className="mr-2 h-3.5 w-3.5" />
@@ -258,9 +262,15 @@ export function BulkImportReviewActions({
                 type="button"
                 size="sm"
                 variant="outline"
-                onClick={() => controller.excludeStem(stemId)}
+                onClick={() => {
+                  if (finding.questionId) {
+                    controller.excludeQuestion(stemId, finding.questionId)
+                  } else {
+                    controller.excludeStem(stemId)
+                  }
+                }}
               >
-                Exclude stem
+                {finding.questionId ? 'Exclude question' : 'Exclude stem'}
               </Button>
             ) : null}
             <Button
@@ -310,14 +320,26 @@ export function BulkImportReviewActions({
                 {matchText ? ` — ${matchText}` : ''}
               </p>
             </div>
-            <Button
-              type="button"
-              size="sm"
-              variant="outline"
-              onClick={() => controller.excludeStem(finding.draft.stemId)}
-            >
-              Exclude from import
-            </Button>
+            <div className="flex gap-2">
+              {finding.kind === 'exact_duplicate' ? (
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => controller.keepDuplicateFinding(finding.id)}
+                >
+                  Keep both
+                </Button>
+              ) : null}
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                onClick={() => controller.excludeStem(finding.draft.stemId)}
+              >
+                Exclude from import
+              </Button>
+            </div>
           </div>
         )
       })}

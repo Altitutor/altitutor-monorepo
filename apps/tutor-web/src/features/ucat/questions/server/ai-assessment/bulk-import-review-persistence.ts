@@ -17,6 +17,7 @@ import {
 } from './content'
 import { runUcatFormatChecks } from './format-checks'
 import { loadGenerationReviewConfig } from './dispatcher'
+import { verifyBulkImportReviewToken } from './bulk-import-review-token'
 
 const FingerprintsSchema = z.object({
   content: z.string().min(1),
@@ -40,6 +41,7 @@ export const BulkImportAiReviewSubmissionSchema = z.object({
   assessment: UcatAssessmentResponseSchema,
   blindSolution: BlindSolutionResponseSchema,
   provenance: ReviewProvenanceSchema.nullable().optional(),
+  reviewToken: z.string().min(1),
   decisions: z.array(z.object({
     findingKey: z.string().min(1),
     decision: z.literal('dismissed'),
@@ -96,6 +98,16 @@ export function selectFreshBulkImportAiReview(params: {
   if (review.draftStemId !== params.stemId) return { ok: false, reason: 'stem_id_mismatch' }
   if (review.promptVersion !== AI_ASSESSMENT_PROMPT_VERSION) {
     return { ok: false, reason: 'stale_prompt_version' }
+  }
+  if (!verifyBulkImportReviewToken({
+    draftStemId: review.draftStemId,
+    promptVersion: review.promptVersion,
+    fingerprints: review.fingerprints,
+    assessment: review.assessment,
+    blindSolution: review.blindSolution,
+    provenance: review.provenance ?? null,
+  }, review.reviewToken)) {
+    return { ok: false, reason: 'invalid_review_token' }
   }
 
   const currentFingerprints = fingerprintUcatAssessmentSnapshot(params.snapshot)
