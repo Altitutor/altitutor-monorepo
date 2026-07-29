@@ -239,6 +239,51 @@ describe("StudyPlanActivationPage", () => {
     ).not.toBeInTheDocument();
   });
 
+  it("from settings: manage own without a goal collects a goal and returns to settings", async () => {
+    mockCompleteMilestone.mockResolvedValue("ucat-study-plan-decided");
+    mockSaveStudyPlan.mockResolvedValue({
+      profile: {
+        id: "profile-1",
+        studyPlanEnabled: false,
+        targetScore: 2200,
+        testYear: new Date().getFullYear(),
+        testDate: null,
+        availableDays: [],
+        preferredMockWeekday: 6,
+      },
+      tasks: [],
+      today: "2026-07-16",
+    });
+    searchParamsValue = "section=plan&from=settings";
+    renderPage();
+
+    expect(
+      screen.getByRole("button", { name: /Back to settings/i }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Skip for now" }),
+    ).not.toBeInTheDocument();
+
+    fireEvent.click(
+      screen.getByRole("button", { name: /I’ll manage my own plan/i }),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Next" }));
+
+    expect(screen.getByLabelText("Target UCAT score")).toBeInTheDocument();
+    const year = String(new Date().getFullYear());
+    fireEvent.click(screen.getByRole("combobox", { name: "UCAT year" }));
+    fireEvent.click(screen.getByRole("option", { name: year }));
+    fireEvent.click(screen.getByRole("button", { name: /Save and finish/i }));
+
+    await waitFor(() => expect(mockSaveStudyPlan).toHaveBeenCalled());
+    expect(mockSaveStudyPlan).toHaveBeenCalledWith(
+      expect.objectContaining({ studyPlanEnabled: false }),
+    );
+    await waitFor(() =>
+      expect(replace).toHaveBeenCalledWith("/settings/study-plan"),
+    );
+  });
+
   it("moves a saved Study plan into setup animation before the welcome reveal", async () => {
     jest.useFakeTimers();
     mockSaveStudyPlan.mockResolvedValue({

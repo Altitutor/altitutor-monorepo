@@ -109,6 +109,26 @@ describe("getBreadcrumbItems", () => {
       "/settings",
       "/settings/profile",
     ]);
+    expect(labels("/settings/communications")).toEqual([
+      "Settings",
+      "Communications",
+    ]);
+    expect(labels("/settings/app")).toEqual(["Settings", "App settings"]);
+    expect(labels("/settings/study-plan")).toEqual([
+      "Settings",
+      "Study plan",
+    ]);
+    expect(labels("/settings/plan")).toEqual(["Settings", "Plan"]);
+    expect(labels("/settings/plan/subscription")).toEqual([
+      "Settings",
+      "Plan",
+      "Subscription",
+    ]);
+    expect(labels("/settings/plan/referrals")).toEqual([
+      "Settings",
+      "Plan",
+      "Referrals",
+    ]);
   });
 
   it("omits practice-sessions structural segment", () => {

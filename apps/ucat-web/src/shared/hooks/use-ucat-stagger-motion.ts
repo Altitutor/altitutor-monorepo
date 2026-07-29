@@ -7,7 +7,11 @@ const STAGGER_EASE = [0.32, 0.72, 0, 1] as const;
 
 /** Staggered fade-up reveal for sidebar page content (dashboard, lists, hubs, etc.). */
 export function useUcatStaggerMotion() {
-  const reduceMotion = useReducedMotion();
+  // useReducedMotion() is null until the media query resolves. null and false both
+  // mean "allow motion" — normalize so variant object identity stays stable.
+  // Otherwise Motion sees new `variants` and restarts the stagger (a visible flash).
+  const reduceMotionPreference = useReducedMotion();
+  const reduceMotion = reduceMotionPreference === true;
 
   const containerVariants = useMemo(
     () => ({
