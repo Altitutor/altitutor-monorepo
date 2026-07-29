@@ -4,14 +4,24 @@ import { buildLifecycleEmail } from "./email.ts";
 import { chooseLifecycleCampaign, type LifecycleCandidate } from "./logic.ts";
 
 function json(value: unknown, status = 200) {
-  return Response.json(value, { status, headers: { "Cache-Control": "no-store" } });
+  return Response.json(value, {
+    status,
+    headers: { "Cache-Control": "no-store" },
+  });
 }
 
 Deno.serve(async (request) => {
-  if (request.method !== "POST") return json({ error: "Method not allowed" }, 405);
+  if (request.method !== "POST") {
+    return json({ error: "Method not allowed" }, 405);
+  }
   const expectedSecret = Deno.env.get("UCAT_LIFECYCLE_CRON_SECRET_KEY")?.trim();
-  const supplied = request.headers.get("authorization")?.replace(/^Bearer\s+/i, "").trim();
-  if (!expectedSecret || supplied !== expectedSecret) return json({ error: "Unauthorized" }, 401);
+  const supplied = request.headers.get("authorization")?.replace(
+    /^Bearer\s+/i,
+    "",
+  ).trim();
+  if (!expectedSecret || supplied !== expectedSecret) {
+    return json({ error: "Unauthorized" }, 401);
+  }
 
   let body: { mode?: unknown; now?: unknown; limit?: unknown } = {};
   try {
@@ -20,24 +30,37 @@ Deno.serve(async (request) => {
     // Empty cron bodies use safe defaults.
   }
   const requestedSend = body.mode === "send";
-  const enabled = Deno.env.get("UCAT_LIFECYCLE_EMAILS_ENABLED")?.toLowerCase() === "true";
+  const enabled =
+    Deno.env.get("UCAT_LIFECYCLE_EMAILS_ENABLED")?.toLowerCase() === "true";
   const send = requestedSend && enabled;
   const limit = Math.min(Math.max(Number(body.limit) || 100, 1), 250);
-  const now = typeof body.now === "string" && Deno.env.get("ENVIRONMENT") !== "production"
-    ? new Date(body.now)
-    : new Date();
-  if (Number.isNaN(now.getTime())) return json({ error: "Invalid now value" }, 400);
+  const now =
+    typeof body.now === "string" && Deno.env.get("ENVIRONMENT") !== "production"
+      ? new Date(body.now)
+      : new Date();
+  if (Number.isNaN(now.getTime())) {
+    return json({ error: "Invalid now value" }, 400);
+  }
 
   const supabaseUrl = Deno.env.get("SUPABASE_URL");
   const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
-  if (!supabaseUrl || !serviceKey) return json({ error: "Supabase not configured" }, 500);
-  const supabase = createClient(supabaseUrl, serviceKey, { auth: { persistSession: false } });
+  if (!supabaseUrl || !serviceKey) {
+    return json({ error: "Supabase not configured" }, 500);
+  }
+  const supabase = createClient(supabaseUrl, serviceKey, {
+    auth: { persistSession: false },
+  });
 
   const { data, error } = await supabase
     .from("vinternal_ucat_lifecycle_email_candidates")
     .select("*")
     .limit(limit);
-  if (error) return json({ error: "Could not load candidates", detail: error.message }, 500);
+  if (error) {
+    return json(
+      { error: "Could not load candidates", detail: error.message },
+      500,
+    );
+  }
 
   const candidates = (data ?? []) as LifecycleCandidate[];
   const eligible = candidates.flatMap((candidate) => {
@@ -60,8 +83,12 @@ Deno.serve(async (request) => {
   }
 
   const resendApiKey = Deno.env.get("RESEND_API_KEY")?.trim();
-  if (!resendApiKey) return json({ error: "RESEND_API_KEY not configured" }, 500);
-  const results: Array<{ studentId: string; campaign: string; status: string }> = [];
+  if (!resendApiKey) {
+    return json({ error: "RESEND_API_KEY not configured" }, 500);
+  }
+  const results: Array<
+    { studentId: string; campaign: string; status: string }
+  > = [];
 
   for (const { candidate, campaign } of eligible) {
     const evidence = {
@@ -84,7 +111,11 @@ Deno.serve(async (request) => {
     );
     const ledger = Array.isArray(claim) ? claim[0] : claim;
     if (claimError || !ledger?.id) {
-      results.push({ studentId: candidate.student_id, campaign: campaign.key, status: claimError ? "claim_failed" : "deduped" });
+      results.push({
+        studentId: candidate.student_id,
+        campaign: campaign.key,
+        status: claimError ? "claim_failed" : "deduped",
+      });
       continue;
     }
 
@@ -108,26 +139,44 @@ Deno.serve(async (request) => {
             "List-Unsubscribe": `<${email.unsubscribeUrl}>`,
             "List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
           },
+          tags: email.tags,
         }),
       });
-      if (!response.ok) throw new Error(`Resend ${response.status}: ${await response.text()}`);
+      if (!response.ok) {
+        throw new Error(`Resend ${response.status}: ${await response.text()}`);
+      }
       const payload = await response.json() as { id?: string };
       await supabase.from("ucat_email_delivery_ledger").update({
         status: "sent",
+        delivery_status: "accepted",
         sent_at: new Date().toISOString(),
         provider_message_id: payload.id ?? null,
         last_error: null,
       }).eq("id", ledger.id);
-      results.push({ studentId: candidate.student_id, campaign: campaign.key, status: "sent" });
+      results.push({
+        studentId: candidate.student_id,
+        campaign: campaign.key,
+        status: "sent",
+      });
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       await supabase.from("ucat_email_delivery_ledger").update({
         status: "failed",
         last_error: message.slice(0, 2000),
       }).eq("id", ledger.id);
-      results.push({ studentId: candidate.student_id, campaign: campaign.key, status: "failed" });
+      results.push({
+        studentId: candidate.student_id,
+        campaign: campaign.key,
+        status: "failed",
+      });
     }
   }
 
-  return json({ mode: "send", enabled, candidatesScanned: candidates.length, eligible: eligible.length, results });
+  return json({
+    mode: "send",
+    enabled,
+    candidatesScanned: candidates.length,
+    eligible: eligible.length,
+    results,
+  });
 });

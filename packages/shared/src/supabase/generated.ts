@@ -14046,16 +14046,64 @@ export type Database = {
           },
         ]
       }
+      ucat_email_delivery_events: {
+        Row: {
+          campaign_key: string | null
+          event_type: string
+          ledger_id: string | null
+          occurred_at: string
+          payload_metadata: Json
+          provider_event_id: string
+          provider_message_id: string
+          received_at: string
+          recipient_email_hash: string | null
+        }
+        Insert: {
+          campaign_key?: string | null
+          event_type: string
+          ledger_id?: string | null
+          occurred_at: string
+          payload_metadata?: Json
+          provider_event_id: string
+          provider_message_id: string
+          received_at?: string
+          recipient_email_hash?: string | null
+        }
+        Update: {
+          campaign_key?: string | null
+          event_type?: string
+          ledger_id?: string | null
+          occurred_at?: string
+          payload_metadata?: Json
+          provider_event_id?: string
+          provider_message_id?: string
+          received_at?: string
+          recipient_email_hash?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ucat_email_delivery_events_ledger_id_fkey"
+            columns: ["ledger_id"]
+            isOneToOne: false
+            referencedRelation: "ucat_email_delivery_ledger"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       ucat_email_delivery_ledger: {
         Row: {
           attempt_count: number
           campaign_key: string
           created_at: string
           dedupe_key: string
+          delivered_at: string | null
+          delivery_status: string | null
           evidence: Json
           id: string
           last_error: string | null
+          last_provider_event_at: string | null
           provider_message_id: string | null
+          provider_metadata: Json
           recipient_email: string
           sent_at: string | null
           status: string
@@ -14068,10 +14116,14 @@ export type Database = {
           campaign_key: string
           created_at?: string
           dedupe_key: string
+          delivered_at?: string | null
+          delivery_status?: string | null
           evidence?: Json
           id?: string
           last_error?: string | null
+          last_provider_event_at?: string | null
           provider_message_id?: string | null
+          provider_metadata?: Json
           recipient_email: string
           sent_at?: string | null
           status: string
@@ -14084,10 +14136,14 @@ export type Database = {
           campaign_key?: string
           created_at?: string
           dedupe_key?: string
+          delivered_at?: string | null
+          delivery_status?: string | null
           evidence?: Json
           id?: string
           last_error?: string | null
+          last_provider_event_at?: string | null
           provider_message_id?: string | null
+          provider_metadata?: Json
           recipient_email?: string
           sent_at?: string | null
           status?: string
@@ -14132,6 +14188,45 @@ export type Database = {
             referencedColumns: ["student_id"]
           },
         ]
+      }
+      ucat_email_suppressions: {
+        Row: {
+          active: boolean
+          created_at: string
+          email: string
+          first_suppressed_at: string
+          last_provider_event_id: string
+          last_suppressed_at: string
+          metadata: Json
+          reason: string
+          source: string
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean
+          created_at?: string
+          email: string
+          first_suppressed_at: string
+          last_provider_event_id: string
+          last_suppressed_at: string
+          metadata?: Json
+          reason: string
+          source?: string
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          created_at?: string
+          email?: string
+          first_suppressed_at?: string
+          last_provider_event_id?: string
+          last_suppressed_at?: string
+          metadata?: Json
+          reason?: string
+          source?: string
+          updated_at?: string
+        }
+        Relationships: []
       }
       ucat_free_quota_reset_entitlements: {
         Row: {
@@ -18719,6 +18814,102 @@ export type Database = {
           },
           {
             foreignKeyName: "ucat_subscription_journey_events_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_ucat_student_progress_summary"
+            referencedColumns: ["student_id"]
+          },
+        ]
+      }
+      ucat_transactional_email_outbox: {
+        Row: {
+          attempt_count: number
+          claimed_at: string | null
+          created_at: string
+          delivered_at: string | null
+          delivery_status: string | null
+          event_key: string
+          id: string
+          last_error: string | null
+          next_attempt_at: string
+          payload: Json
+          provider_message_id: string | null
+          recipient_email: string
+          sent_at: string | null
+          status: string
+          student_id: string | null
+          template_key: string
+          updated_at: string
+        }
+        Insert: {
+          attempt_count?: number
+          claimed_at?: string | null
+          created_at?: string
+          delivered_at?: string | null
+          delivery_status?: string | null
+          event_key: string
+          id?: string
+          last_error?: string | null
+          next_attempt_at?: string
+          payload?: Json
+          provider_message_id?: string | null
+          recipient_email: string
+          sent_at?: string | null
+          status?: string
+          student_id?: string | null
+          template_key: string
+          updated_at?: string
+        }
+        Update: {
+          attempt_count?: number
+          claimed_at?: string | null
+          created_at?: string
+          delivered_at?: string | null
+          delivery_status?: string | null
+          event_key?: string
+          id?: string
+          last_error?: string | null
+          next_attempt_at?: string
+          payload?: Json
+          provider_message_id?: string | null
+          recipient_email?: string
+          sent_at?: string | null
+          status?: string
+          student_id?: string | null
+          template_key?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ucat_transactional_email_outbox_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ucat_transactional_email_outbox_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "vadmin_reconciliation_students_without_payment_method"
+            referencedColumns: ["student_id"]
+          },
+          {
+            foreignKeyName: "ucat_transactional_email_outbox_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_profile"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ucat_transactional_email_outbox_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_students"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ucat_transactional_email_outbox_student_id_fkey"
             columns: ["student_id"]
             isOneToOne: false
             referencedRelation: "vtutor_ucat_student_progress_summary"
@@ -32765,6 +32956,15 @@ export type Database = {
     Functions: {
       _format_date_ordinal: { Args: { ts: string }; Returns: string }
       apply_scheduled_student_discontinuations: { Args: never; Returns: number }
+      apply_ucat_email_event_to_ledger: {
+        Args: {
+          p_event_type: string
+          p_ledger_id: string
+          p_occurred_at: string
+          p_provider_event_id: string
+        }
+        Returns: undefined
+      }
       assign_staff_to_booking: {
         Args: {
           p_available_staff_ids: string[]
@@ -32863,6 +33063,34 @@ export type Database = {
           attempt_count: number
           id: string
         }[]
+      }
+      claim_ucat_transactional_emails: {
+        Args: { p_limit?: number }
+        Returns: {
+          attempt_count: number
+          claimed_at: string | null
+          created_at: string
+          delivered_at: string | null
+          delivery_status: string | null
+          event_key: string
+          id: string
+          last_error: string | null
+          next_attempt_at: string
+          payload: Json
+          provider_message_id: string | null
+          recipient_email: string
+          sent_at: string | null
+          status: string
+          student_id: string | null
+          template_key: string
+          updated_at: string
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "ucat_transactional_email_outbox"
+          isOneToOne: false
+          isSetofReturn: true
+        }
       }
       cleanup_expired_reservations: { Args: never; Returns: number }
       cleanup_session_files: {
@@ -33369,6 +33597,7 @@ export type Database = {
           attempt_kind: string
         }[]
       }
+      get_ucat_email_dispatch_secret: { Args: never; Returns: string }
       get_ucat_free_quota_reset_boundary: {
         Args: { p_quota_area: string; p_student_id: string }
         Returns: string
@@ -33539,6 +33768,15 @@ export type Database = {
         }
         Returns: string
       }
+      queue_ucat_student_transactional_email: {
+        Args: {
+          p_event_key: string
+          p_payload?: Json
+          p_student_id: string
+          p_template_key: string
+        }
+        Returns: string
+      }
       re_enroll_student: { Args: { p_student_id: string }; Returns: Json }
       recalculate_topic_code_and_descendants: {
         Args: { p_topic_id: string }
@@ -33563,6 +33801,22 @@ export type Database = {
       recalculate_topic_indices_for_siblings: {
         Args: { p_parent_id: string; p_subject_id: string }
         Returns: undefined
+      }
+      record_ucat_resend_email_event: {
+        Args: {
+          p_event_type: string
+          p_occurred_at: string
+          p_payload_metadata?: Json
+          p_provider_event_id: string
+          p_provider_message_id: string
+          p_recipient_email?: string
+        }
+        Returns: {
+          auth_user_id: string
+          campaign_key: string
+          inserted: boolean
+          ledger_id: string
+        }[]
       }
       refresh_ucat_question_catalog_projection: {
         Args: { p_stem_id: string }
@@ -34395,6 +34649,20 @@ export type Database = {
         }
         Returns: string
       }
+      ucat_ai_canonical_rich_node: { Args: { value: Json }; Returns: Json }
+      ucat_ai_current_question_fingerprint: {
+        Args: { p_question_id: string }
+        Returns: string
+      }
+      ucat_ai_current_shared_fingerprint: {
+        Args: { p_stem_id: string }
+        Returns: string
+      }
+      ucat_ai_hash: { Args: { value: Json }; Returns: string }
+      ucat_ai_normalized_text: { Args: { value: string }; Returns: string }
+      ucat_ai_positive_number: { Args: { value: Json }; Returns: number }
+      ucat_ai_stable_json_stringify: { Args: { value: Json }; Returns: string }
+      ucat_ai_stable_json_value: { Args: { value: Json }; Returns: Json }
       ucat_catalog_media_identity: {
         Args: { json_content: Json }
         Returns: string
@@ -34465,6 +34733,10 @@ export type Database = {
         Returns: undefined
       }
       ucat_rich_text_has_content: { Args: { p_value: Json }; Returns: boolean }
+      ucat_unresolved_current_ai_assessment_findings: {
+        Args: { p_stem_id: string }
+        Returns: Json
+      }
       undo_staff_absences: {
         Args: { logged_by_staff_id: string; operations: Json }
         Returns: Json

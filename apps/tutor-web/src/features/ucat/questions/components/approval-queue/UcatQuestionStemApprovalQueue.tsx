@@ -20,6 +20,7 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
+  isDialogPrimaryShortcutEvent,
   useToast,
 } from '@altitutor/ui'
 import { ChevronLeft, ChevronRight, Trash2, X } from 'lucide-react'
@@ -489,6 +490,31 @@ function UcatQuestionStemApprovalQueue({
     void invalidateQueueData(stemId)
   }
 
+  // Page-mode queues are not wrapped in DialogContent; dialog-mode defers to the shared
+  // Cmd/Ctrl+Enter handler on Dialog/AlertDialog content instead.
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (!isDialogPrimaryShortcutEvent(event)) return
+      if (
+        document.querySelector(
+          '[data-slot="dialog-content"], [data-slot="alert-dialog-content"]',
+        )
+      ) {
+        return
+      }
+      if (event.target instanceof HTMLTextAreaElement) return
+      if (isMutating || queueComplete || !currentEntry) return
+
+      event.preventDefault()
+      event.stopPropagation()
+      if (isAiMode) handleAiPrimaryAction()
+      else void handleSaveAndNext()
+    }
+
+    document.addEventListener('keydown', onKeyDown, true)
+    return () => document.removeEventListener('keydown', onKeyDown, true)
+  })
+
   return (
     <>
       <DialogHeader className={cn('flex-shrink-0 px-6 py-4', tutorDialogHeaderStrip)}>
@@ -635,7 +661,7 @@ function UcatQuestionStemApprovalQueue({
           ) : <div className="flex-1" />}
           {entries.length === 0 || queueComplete || !currentEntry ? (
             <div className="flex shrink-0 items-center gap-2">
-              <Button type="button" className={tutorBtnPrimary} onClick={onExit}>
+              <Button type="button" className={tutorBtnPrimary} onClick={onExit} data-dialog-primary-action="">
                 Close
               </Button>
             </div>
@@ -654,12 +680,24 @@ function UcatQuestionStemApprovalQueue({
                       Previous question
                     </Button>
                   ) : null}
-                  <Button type="button" className={tutorBtnPrimary} onClick={handleAiPrimaryAction} disabled={isMutating}>
+                  <Button
+                    type="button"
+                    className={tutorBtnPrimary}
+                    onClick={handleAiPrimaryAction}
+                    disabled={isMutating}
+                    data-dialog-primary-action=""
+                  >
                     {aiPrimaryLabel}
                   </Button>
                 </>
               ) : (
-                <Button type="button" className={tutorBtnPrimary} onClick={() => void handleSaveAndNext()} disabled={isMutating}>
+                <Button
+                  type="button"
+                  className={tutorBtnPrimary}
+                  onClick={() => void handleSaveAndNext()}
+                  disabled={isMutating}
+                  data-dialog-primary-action=""
+                >
                   Save and next
                 </Button>
               )}

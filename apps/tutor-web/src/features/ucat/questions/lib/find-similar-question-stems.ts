@@ -5,8 +5,14 @@ import {
   CREATED_AT_TO_FILTER_KEY,
 } from '@/features/ucat/questions/lib/question-catalog-query'
 
-/** Window around a stem's created_at used to catch same bulk-import runs. */
-export const FIND_SIMILAR_CREATED_AT_LEEWAY_MS = 10 * 60 * 1000
+/** Default ± window around a stem's created_at (same bulk-import runs). */
+export const FIND_SIMILAR_CREATED_AT_LEEWAY_MINUTES = 1
+export const FIND_SIMILAR_CREATED_AT_LEEWAY_MS = FIND_SIMILAR_CREATED_AT_LEEWAY_MINUTES * 60 * 1000
+
+export function createdAtLeewayMsFromMinutes(minutes: number): number {
+  const safeMinutes = Number.isFinite(minutes) ? Math.max(1, Math.min(120, Math.round(minutes))) : FIND_SIMILAR_CREATED_AT_LEEWAY_MINUTES
+  return safeMinutes * 60 * 1000
+}
 
 export const FIND_SIMILAR_CRITERIA = [
   'created_at',
@@ -94,14 +100,16 @@ export function getAvailableFindSimilarCriteria(
     | 'tag_ids'
   >,
   tagLabelsById?: Map<string, string>,
+  leewayMs = FIND_SIMILAR_CREATED_AT_LEEWAY_MS,
 ): FindSimilarCriterionOption[] {
   const options: FindSimilarCriterionOption[] = []
 
   if (row.created_at) {
+    const leewayMinutes = Math.max(1, Math.round(leewayMs / 60_000))
     options.push({
       id: 'created_at',
       label: 'Creation time',
-      description: `±${FIND_SIMILAR_CREATED_AT_LEEWAY_MS / 60000} min window`,
+      description: `±${leewayMinutes} min window`,
     })
   }
 

@@ -85,3 +85,9 @@ export {
   shouldUseTextDateTimeInput,
 } from './lib/native-datetime-input';
 export * from './hooks/use-media-query';
+export * from './hooks/use-dialog-primary-action-shortcut';
+export {
+  DIALOG_CANCEL_ATTR,
+  DIALOG_PRIMARY_ACTION_ATTR,
+  isDialogPrimaryShortcutEvent,
+} from './lib/dialog-primary-shortcut';

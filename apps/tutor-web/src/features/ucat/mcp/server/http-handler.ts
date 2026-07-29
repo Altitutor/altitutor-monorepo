@@ -7,15 +7,17 @@ import {
 
 const profileConfiguration: Record<
   UcatMcpProfile,
-  { name: string; instructions: string }
+  { name: string; endpoint: string; instructions: string }
 > = {
   authoring: {
     name: 'altitutor-ucat-authoring',
+    endpoint: '/api/mcp',
     instructions:
       'Altitutor UCAT safe authoring. Read authoring content and reference data freely. Create drafts; edit only draft or in-review content; and submit ready drafts for review. Never edit published content or attempt to publish. Soft-delete or restore only draft or in-review top-level aggregates through the dedicated tools. Re-read an aggregate before updating, deleting, or restoring it and pass its latest opaque revision. Use explicit typed operations; omission never removes nested content. Generated images are previews until explicitly inserted with an update operation.',
   },
   'production-maintenance': {
     name: 'altitutor-ucat-production-maintenance',
+    endpoint: '/api/mcp-production',
     instructions:
       'Altitutor UCAT production maintenance. You may edit published content through the dedicated exact-revision published-update tools. Use a direct update for a deliberate interactive edit; use a proposal when a staged or separately reviewable change is useful. A proposal does not require human review: an authorised agent may inspect and apply it through apply_ucat_content_changes, including a one-item batch. Never publish, unpublish, soft-delete, restore, or otherwise change content lifecycle state. Re-read the aggregate immediately before mutation and pass its latest opaque revision. For unattended audits, respect the audit run published-write mode and target manifest. Use explicit typed operations; omission never removes nested content. Every applied published edit remains durably recorded and recoverable.',
   },
@@ -38,7 +40,7 @@ export function createUcatMcpHttpHandler(profile: UcatMcpProfile) {
       },
     },
     {
-      basePath: '/api',
+      streamableHttpEndpoint: configuration.endpoint,
       disableSse: true,
       maxDuration: 300,
       verboseLogs: process.env.NODE_ENV === 'development',

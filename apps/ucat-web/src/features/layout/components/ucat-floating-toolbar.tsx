@@ -1,12 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import React, { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Bug, Home, LifeBuoy, Menu, Settings } from "lucide-react";
 import {
   AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
   AlertDialogContent,
   AlertDialogDescription,
   AlertDialogFooter,
@@ -16,29 +14,38 @@ import {
   Switch,
   type FeedbackKind,
 } from "@altitutor/ui";
+import { Button } from "@/components/ui/button";
+import { discardExamAttempt } from "@/features/exam-attempts/api/exam-attempts-api";
+import { useActiveExamAttempt } from "@/features/exam-attempts/context/active-exam-attempt-context";
 import { useUcatLag } from "@/features/question-engine/context/ucat-lag-context";
 import { useExamAttemptExitSync } from "@/features/exam-attempts/context/exam-attempt-exit-sync-context";
 import { UCAT_DIALOG_PRIMARY_ACTION } from "@/lib/ucat-surface-motion";
 import { cn } from "@/lib/utils";
 
+type LeaveDialog = "exit-options" | "discard-confirmation" | null;
+
 export function UcatFloatingToolbar() {
   const router = useRouter();
   const [menuOpen, setMenuOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const [leaveConfirmOpen, setLeaveConfirmOpen] = useState(false);
+  const [leaveDialog, setLeaveDialog] = useState<LeaveDialog>(null);
   const [isSavingBeforeLeave, setIsSavingBeforeLeave] = useState(false);
+  const [isDiscardingAttempt, setIsDiscardingAttempt] = useState(false);
   const [leaveSaveFailed, setLeaveSaveFailed] = useState(false);
+  const [discardFailed, setDiscardFailed] = useState(false);
   const [feedbackKind, setFeedbackKind] = useState<FeedbackKind | null>(null);
   const { enabled: lagEnabled, setEnabled: setLagEnabled } = useUcatLag();
   const { flushBeforeExit } = useExamAttemptExitSync();
+  const { active, clearLocal } = useActiveExamAttempt();
 
   const handleGoHomeClick = () => {
     setMenuOpen(false);
     setLeaveSaveFailed(false);
-    setLeaveConfirmOpen(true);
+    setDiscardFailed(false);
+    setLeaveDialog("exit-options");
   };
 
-  const handleConfirmLeave = async () => {
+  const handleExitAndSave = async () => {
     if (isSavingBeforeLeave) return;
     setIsSavingBeforeLeave(true);
     setLeaveSaveFailed(false);
@@ -48,8 +55,26 @@ export function UcatFloatingToolbar() {
       setIsSavingBeforeLeave(false);
       return;
     }
-    setLeaveConfirmOpen(false);
+    setLeaveDialog(null);
     router.push("/");
+  };
+
+  const handleDiscardAttempt = async () => {
+    if (!active || isDiscardingAttempt) return;
+    setIsDiscardingAttempt(true);
+    setDiscardFailed(false);
+    try {
+      await discardExamAttempt({
+        kind: active.kind,
+        attemptId: active.attemptId,
+      });
+      clearLocal();
+      setLeaveDialog(null);
+      router.push("/");
+    } catch {
+      setDiscardFailed(true);
+      setIsDiscardingAttempt(false);
+    }
   };
 
   const handleMenuClick = () => {
@@ -79,7 +104,7 @@ export function UcatFloatingToolbar() {
       <div
         className={cn(
           "pointer-events-none fixed inset-x-0 top-2 z-[60] flex justify-center",
-          leaveConfirmOpen && "invisible",
+          leaveDialog && "invisible",
         )}
       >
         <div className="pointer-events-auto inline-flex items-center gap-2 rounded-full border bg-background/95 px-3 py-1 text-sm shadow-md transition-shadow duration-200 ease-[cubic-bezier(0.32,0.72,0,1)] hover:shadow-lg">
@@ -169,35 +194,88 @@ export function UcatFloatingToolbar() {
         </div>
       </div>
       <AlertDialog
-        open={leaveConfirmOpen}
+        open={leaveDialog === "exit-options"}
         onOpenChange={(open) => {
           if (!open && isSavingBeforeLeave) return;
-          setLeaveConfirmOpen(open);
+          if (!open) setLeaveDialog(null);
         }}
       >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Leave this UCAT exam?</AlertDialogTitle>
+            <AlertDialogTitle>Exit this attempt?</AlertDialogTitle>
             <AlertDialogDescription>
               {leaveSaveFailed
                 ? "We couldn't save your latest progress. Please try again before leaving."
-                : "Your progress will be saved, and you can resume later."}
+                : "You can save your progress and resume later, or permanently discard this attempt."}
             </AlertDialogDescription>
           </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={isSavingBeforeLeave}>
-              Stay
-            </AlertDialogCancel>
-            <AlertDialogAction
+          <AlertDialogFooter className="gap-2 sm:space-x-0">
+            <Button
+              variant="outline"
+              disabled={isSavingBeforeLeave}
+              onClick={() => setLeaveDialog(null)}
+            >
+              Cancel
+            </Button>
+            {active ? (
+              <Button
+                variant="destructive"
+                disabled={isSavingBeforeLeave}
+                onClick={() => {
+                  setDiscardFailed(false);
+                  setLeaveDialog("discard-confirmation");
+                }}
+              >
+                Exit and discard attempt
+              </Button>
+            ) : null}
+            <Button
               className={UCAT_DIALOG_PRIMARY_ACTION}
               disabled={isSavingBeforeLeave}
-              onClick={(event) => {
-                event.preventDefault();
-                void handleConfirmLeave();
+              onClick={() => void handleExitAndSave()}
+            >
+              {isSavingBeforeLeave ? "Saving…" : "Exit and save progress"}
+            </Button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+      <AlertDialog
+        open={leaveDialog === "discard-confirmation"}
+        onOpenChange={(open) => {
+          if (!open && isDiscardingAttempt) return;
+          if (!open) {
+            setDiscardFailed(false);
+            setLeaveDialog("exit-options");
+          }
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Discard this attempt?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {discardFailed
+                ? "We couldn't discard this attempt. Please try again."
+                : "Your current attempt and saved progress will be discarded. This cannot be undone."}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="gap-2 sm:space-x-0">
+            <Button
+              variant="outline"
+              disabled={isDiscardingAttempt}
+              onClick={() => {
+                setDiscardFailed(false);
+                setLeaveDialog("exit-options");
               }}
             >
-              {isSavingBeforeLeave ? "Saving…" : "Go home"}
-            </AlertDialogAction>
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              disabled={isDiscardingAttempt}
+              onClick={() => void handleDiscardAttempt()}
+            >
+              {isDiscardingAttempt ? "Discarding…" : "Discard attempt"}
+            </Button>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

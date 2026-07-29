@@ -636,6 +636,7 @@ export function UcatAuthoringAgentChat({
               void submitMessage()
             }
           }}
+          data-dialog-primary-shortcut-ignore=""
         />
         <div className="flex items-center justify-between gap-2 border-t pt-2">
           <div className="flex min-w-0 flex-1 items-center gap-2">

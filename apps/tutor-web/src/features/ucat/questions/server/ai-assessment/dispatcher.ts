@@ -103,7 +103,7 @@ async function latestRunFingerprints(
   })
 }
 
-async function loadGenerationReviewConfig(admin: SupabaseClient<Database>) {
+export async function loadGenerationReviewConfig(admin: SupabaseClient<Database>) {
   const { data, error } = await asAny(admin)
     .from('ucat_ai_generation_settings')
     .select('automatic_review_enabled,automatic_review_blind_solver_model_profile_id,automatic_review_assessment_model_profile_id,automatic_review_use_solver_for_assessment')

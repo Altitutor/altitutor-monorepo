@@ -41,6 +41,8 @@ import {
   stemNeedsExplanationGeneration,
 } from '@/features/ucat/questions/lib/explanation-generation'
 import { tutorBtnOutline, tutorBtnPrimary } from '@/shared/lib/tutor-visual'
+import type { BulkImportReviewController } from '@/features/ucat/questions/hooks/useBulkImportReviewController'
+import { BulkImportReviewActions } from '@/features/ucat/questions/components/bulk-import/BulkImportReviewActions'
 
 const OPTION_LABELS = ['A', 'B', 'C', 'D', 'E'] as const
 const QUESTION_TEXT_MAX = 60
@@ -72,6 +74,7 @@ type ReviewStemDraft = BulkImportStemDraft & {
 
 export type AnswerRow = {
   stemId: string
+  questionId: string | null
   stemIndex: number
   questionIndex: number
   globalQuestionNumber: number
@@ -111,6 +114,7 @@ function buildAnswerRows(stems: ReviewStemDraft[]): AnswerRow[] {
         (q as { syllogismAnswerPattern?: string | null }).syllogismAnswerPattern ?? null
       rows.push({
         stemId: stem.id,
+        questionId: q.id ?? null,
         stemIndex,
         questionIndex,
         globalQuestionNumber: globalNumber,
@@ -144,6 +148,7 @@ type Step3SetAnswersProps = {
   sourceChannel?: UcatQuestionSourceChannel | null
   onExpandedStemChange?: (stemId: string | null) => void
   onActiveTextEditorChange?: (editor: Editor | null) => void
+  reviewController?: BulkImportReviewController
 }
 
 export function Step3SetAnswers({
@@ -156,6 +161,7 @@ export function Step3SetAnswers({
   sourceChannel = null,
   onExpandedStemChange,
   onActiveTextEditorChange,
+  reviewController,
 }: Step3SetAnswersProps) {
   const { toast } = useToast()
   const rows = useMemo(() => buildAnswerRows(stems), [stems])
@@ -208,7 +214,7 @@ export function Step3SetAnswers({
     [rows]
   )
   const optionLabelsToShow = OPTION_LABELS.slice(0, maxOptionCount)
-  const totalCols = 3 + maxOptionCount + 2
+  const totalCols = 3 + maxOptionCount + 2 + (reviewController ? 1 : 0)
 
   const toggleExpanded = useCallback((key: string) => {
     setExpandedRowKey((current) => {
@@ -412,9 +418,12 @@ export function Step3SetAnswers({
 
   return (
     <div className="space-y-4">
+      {reviewController ? (
+        <BulkImportReviewActions stems={stems} controller={reviewController} />
+      ) : null}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h2 className="text-base font-semibold">Review</h2>
+          <h2 className="text-base font-semibold">Questions</h2>
           {missingExplanationTargets.length > 0 ? (
             <p className="mt-1 text-xs text-amber-700 dark:text-amber-300">
               {formatMissingExplanationSummary(missingExplanationTargets)}
@@ -425,7 +434,7 @@ export function Step3SetAnswers({
             </p>
           )}
         </div>
-        {onUpdateStem && missingExplanationTargets.length > 0 ? (
+        {!reviewController && onUpdateStem && missingExplanationTargets.length > 0 ? (
           <Button
             type="button"
             size="sm"
@@ -534,6 +543,7 @@ export function Step3SetAnswers({
               ))}
               <TableHead className="w-[3rem] px-2">Ans</TableHead>
               <TableHead className="px-2">Explanation</TableHead>
+              {reviewController ? <TableHead className="w-[5rem] px-2">Import</TableHead> : null}
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -542,6 +552,10 @@ export function Step3SetAnswers({
               const isExpanded = expandedRowKey === rowKey
               const isMissingExplanation = missingExplanationRowKeys.has(rowKey)
               const stem = stems.find((item) => item.id === row.stemId)
+              const exclusionKey = row.questionId ? `${row.stemId}:${row.questionId}` : null
+              const isExcluded = exclusionKey
+                ? reviewController?.excludedQuestionIds.has(exclusionKey) ?? false
+                : false
               const correctDisplay = row.isSyllogism
                 ? (row.syllogismPattern ?? '')
                 : row.correctLetter
@@ -552,6 +566,7 @@ export function Step3SetAnswers({
                     className={cn(
                       'h-9 max-h-9 cursor-pointer',
                       isExpanded && 'bg-muted/30 hover:bg-muted/30',
+                      isExcluded && 'opacity-50',
                       isMissingExplanation && 'bg-amber-50 text-amber-950 hover:bg-amber-100 dark:bg-amber-950/30 dark:text-amber-100 dark:hover:bg-amber-950/40'
                     )}
                     onClick={() => toggleExpanded(rowKey)}
@@ -589,6 +604,28 @@ export function Step3SetAnswers({
                         emptyFallback={<span className="text-muted-foreground">—</span>}
                       />
                     </TableCell>
+                    {reviewController ? (
+                      <TableCell className="px-2">
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="ghost"
+                          className="h-7 px-2 text-[11px]"
+                          disabled={!row.questionId}
+                          onClick={(event) => {
+                            event.stopPropagation()
+                            if (!row.questionId) return
+                            if (isExcluded) {
+                              reviewController.includeQuestion(row.stemId, row.questionId)
+                            } else {
+                              reviewController.excludeQuestion(row.stemId, row.questionId)
+                            }
+                          }}
+                        >
+                          {isExcluded ? 'Restore' : 'Exclude'}
+                        </Button>
+                      </TableCell>
+                    ) : null}
                   </TableRow>
                   {isExpanded && stem && onUpdateStem ? (
                     <TableRow className="bg-muted/20 hover:bg-muted/20">

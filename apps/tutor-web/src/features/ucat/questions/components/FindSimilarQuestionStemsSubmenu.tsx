@@ -8,11 +8,14 @@ import {
   DropdownMenuSub,
   DropdownMenuSubContent,
   DropdownMenuSubTrigger,
+  Input,
 } from '@altitutor/ui'
 import { Search } from 'lucide-react'
 import type { QuestionRow } from '@/features/ucat/questions/hooks/useUcatQuestionsTable'
 import {
   buildFindSimilarQuestionStemFilters,
+  createdAtLeewayMsFromMinutes,
+  FIND_SIMILAR_CREATED_AT_LEEWAY_MINUTES,
   getAvailableFindSimilarCriteria,
   type FindSimilarCriterion,
 } from '@/features/ucat/questions/lib/find-similar-question-stems'
@@ -28,9 +31,11 @@ export function FindSimilarQuestionStemsSubmenu({
   tagLabelsById,
   onApply,
 }: FindSimilarQuestionStemsSubmenuProps) {
+  const [windowMinutes, setWindowMinutes] = useState(FIND_SIMILAR_CREATED_AT_LEEWAY_MINUTES)
+  const leewayMs = createdAtLeewayMsFromMinutes(windowMinutes)
   const available = useMemo(
-    () => getAvailableFindSimilarCriteria(row, tagLabelsById),
-    [row, tagLabelsById],
+    () => getAvailableFindSimilarCriteria(row, tagLabelsById, leewayMs),
+    [row, tagLabelsById, leewayMs],
   )
   const [selected, setSelected] = useState<FindSimilarCriterion[]>(() => {
     const createdAt = available.find((option) => option.id === 'created_at')
@@ -39,6 +44,7 @@ export function FindSimilarQuestionStemsSubmenu({
 
   const selectedSet = useMemo(() => new Set(selected), [selected])
   const canApply = selected.length > 0
+  const showWindowControl = selectedSet.has('created_at')
 
   function toggleCriterion(id: FindSimilarCriterion, checked: boolean) {
     setSelected((prev) => {
@@ -49,7 +55,7 @@ export function FindSimilarQuestionStemsSubmenu({
 
   function handleApply() {
     if (!canApply) return
-    onApply(buildFindSimilarQuestionStemFilters(row, selected))
+    onApply(buildFindSimilarQuestionStemFilters(row, selected, leewayMs))
   }
 
   if (available.length === 0) return null
@@ -79,6 +85,32 @@ export function FindSimilarQuestionStemsSubmenu({
             </div>
           </DropdownMenuCheckboxItem>
         ))}
+        {showWindowControl ? (
+          <div
+            className="flex items-center gap-2 px-2 py-1.5"
+            onPointerDown={(event) => event.preventDefault()}
+            onClick={(event) => event.stopPropagation()}
+          >
+            <label htmlFor="find-similar-created-at-window" className="shrink-0 text-xs text-muted-foreground">
+              ± minutes
+            </label>
+            <Input
+              id="find-similar-created-at-window"
+              type="number"
+              min={1}
+              max={120}
+              step={1}
+              value={windowMinutes}
+              onChange={(event) => {
+                const next = Number(event.target.value)
+                if (!Number.isFinite(next)) return
+                setWindowMinutes(Math.max(1, Math.min(120, Math.round(next))))
+              }}
+              onKeyDown={(event) => event.stopPropagation()}
+              className="h-7 w-16"
+            />
+          </div>
+        ) : null}
         <DropdownMenuSeparator />
         <DropdownMenuItem disabled={!canApply} onClick={handleApply}>
           Apply filters

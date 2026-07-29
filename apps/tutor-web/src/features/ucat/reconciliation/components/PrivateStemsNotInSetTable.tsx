@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useMemo, useCallback, useState } from 'react'
+import React, { useMemo, useCallback, useEffect, useRef, useState } from 'react'
 import {
   TableRow,
   TableCell,
@@ -80,6 +80,9 @@ export function PrivateStemsNotInSetTable({
   const [bulkSetOpen, setBulkSetOpen] = useState(false)
   const [bulkSetId, setBulkSetId] = useState<string | null>(null)
   const [bulkSetPending, setBulkSetPending] = useState(false)
+  const [bulkMakePublicOpen, setBulkMakePublicOpen] = useState(false)
+  const [bulkMakePublicPending, setBulkMakePublicPending] = useState(false)
+  const stemCategoryByIdRef = useRef<Map<string, string | null>>(new Map())
   const [queueOpen, setQueueOpen] = useState(false)
   const [makingPublicStemId, setMakingPublicStemId] = useState<string | null>(null)
   const [setWarning, setSetWarning] = useState<{
@@ -121,6 +124,25 @@ export function PrivateStemsNotInSetTable({
   )
 
   const filteredStems = useMemo(() => data?.items ?? [], [data?.items])
+
+  useEffect(() => {
+    for (const stem of filteredStems) {
+      stemCategoryByIdRef.current.set(stem.id, stem.categoryId)
+    }
+  }, [filteredStems])
+
+  const selectedCategoryCount = useMemo(() => {
+    const keys = new Set<string>()
+    for (const id of selectedStemIds) {
+      const categoryId = stemCategoryByIdRef.current.get(id)
+      if (categoryId !== undefined) {
+        keys.add(categoryId ?? '__none__')
+      }
+    }
+    return keys.size
+  }, [selectedStemIds, filteredStems])
+
+  const canBulkAddToSet = selectedCategoryCount <= 1
 
   const queueEntries = useMemo<UcatApprovalQueueEntry[]>(
     () =>
@@ -279,6 +301,52 @@ export function PrivateStemsNotInSetTable({
     }
   }, [queryClient, toast])
 
+  const handleBulkMakePublicConfirm = useCallback(async () => {
+    const stemIds = Array.from(selectedStemIds)
+    if (stemIds.length === 0) return
+
+    await queryClient.cancelQueries({
+      queryKey: ucatKeys.reconciliationQueue('private-stems-not-in-set'),
+    })
+    queryClient.setQueriesData<{ items: PrivateStemNotInSet[]; total: number }>(
+      { queryKey: ucatKeys.reconciliationQueue('private-stems-not-in-set') },
+      (previous) => previous
+        ? {
+            ...previous,
+            items: previous.items.filter((stem) => !selectedStemIds.has(stem.id)),
+            total: Math.max(0, previous.total - stemIds.length),
+          }
+        : previous,
+    )
+
+    setBulkMakePublicPending(true)
+    try {
+      await ucatQuestionsApi.bulkUpdateMetadata(stemIds, { accessScope: 'public' })
+      setSelectedStemIds(new Set())
+      setBulkMakePublicOpen(false)
+      void queryClient.invalidateQueries({
+        queryKey: ucatKeys.reconciliationQueue('private-stems-not-in-set'),
+      })
+      void queryClient.invalidateQueries({ queryKey: ucatKeys.reconciliation() })
+      void queryClient.invalidateQueries({ queryKey: ucatKeys.questions('all') })
+      toast({
+        title: 'Question stems made public',
+        description: `${stemIds.length} question stem(s) no longer need to belong to a question set.`,
+      })
+    } catch {
+      void queryClient.invalidateQueries({
+        queryKey: ucatKeys.reconciliationQueue('private-stems-not-in-set'),
+      })
+      toast({
+        title: 'Failed to make question stems public',
+        description: 'Please try again.',
+        variant: 'destructive',
+      })
+    } finally {
+      setBulkMakePublicPending(false)
+    }
+  }, [queryClient, selectedStemIds, toast])
+
   const handleBulkAddToSetConfirm = useCallback(async () => {
     if (!bulkSetId || selectedStemIds.size === 0) return
     const stemIds = Array.from(selectedStemIds)
@@ -367,31 +435,62 @@ export function PrivateStemsNotInSetTable({
         onCancel={() => setSelectedStemIds(new Set())}
         hideDelete
       >
-        <SearchableSelect<{ id: string | null; name: unknown }>
-          items={staffSets}
-          value={null}
-          onValueChange={(set) => {
-            if (set?.id) {
-              setBulkSetId(set.id)
-              setBulkSetOpen(true)
+        <Button
+          variant="outline"
+          size="sm"
+          className={tutorBtnOutline}
+          onClick={() => setBulkMakePublicOpen(true)}
+          disabled={bulkMakePublicPending}
+        >
+          Make public
+        </Button>
+        {canBulkAddToSet ? (
+          <SearchableSelect<{ id: string | null; name: unknown }>
+            items={staffSets}
+            value={null}
+            onValueChange={(set) => {
+              if (set?.id) {
+                setBulkSetId(set.id)
+                setBulkSetOpen(true)
+              }
+            }}
+            getItemId={(s) => s.id ?? ''}
+            getItemLabel={(s) => proseMirrorToPlainText(s.name as Json) ?? 'Untitled'}
+            getItemValue={(s) => proseMirrorToPlainText(s.name as Json) ?? ''}
+            placeholder="Add to set"
+            searchPlaceholder="Search sets..."
+            emptyMessage="No sets found"
+            trigger={
+              <Button variant="outline" size="sm" className={tutorBtnOutline}>
+                Add to set
+              </Button>
             }
-          }}
-          getItemId={(s) => s.id ?? ''}
-          getItemLabel={(s) => proseMirrorToPlainText(s.name as Json) ?? 'Untitled'}
-          getItemValue={(s) => proseMirrorToPlainText(s.name as Json) ?? ''}
-          placeholder="Add to set"
-          searchPlaceholder="Search sets..."
-          emptyMessage="No sets found"
-          trigger={
-            <Button variant="outline" size="sm" className={tutorBtnOutline}>
-              Add to set
-            </Button>
-          }
-          contentWidth="240px"
-          align="start"
-          side="top"
-        />
+            contentWidth="240px"
+            align="start"
+            side="top"
+          />
+        ) : null}
       </UcatSelectionToolbar>
+
+      <AlertDialog open={bulkMakePublicOpen} onOpenChange={setBulkMakePublicOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Make {selectedStemIds.size} stem(s) public?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Public question stems do not need to belong to a question set. This action cannot be undone from this page.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={bulkMakePublicPending}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => void handleBulkMakePublicConfirm()}
+              disabled={bulkMakePublicPending}
+            >
+              {bulkMakePublicPending ? 'Making public…' : 'Yes, make public'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <AlertDialog open={bulkSetOpen} onOpenChange={setBulkSetOpen}>
         <AlertDialogContent>

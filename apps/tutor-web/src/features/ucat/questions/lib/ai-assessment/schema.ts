@@ -1,9 +1,14 @@
 import { z } from 'zod'
 import type { Json } from '@altitutor/shared'
 
-export const AI_ASSESSMENT_PROMPT_VERSION = 3
+export const AI_ASSESSMENT_PROMPT_VERSION = 4
 
 export const UcatAssessmentCategorySchema = z.enum([
+  'presentation_integrity',
+  'ucat_suitability',
+  'answer_correctness_fairness',
+  'explanation_quality',
+  // Legacy keys remain valid so historical runs continue to render.
   'answer_validity',
   'explanation_teaching_quality',
   'question_clarity_fairness',
@@ -45,6 +50,23 @@ const PatchValueSchema = z.union([
   z.record(z.unknown()),
 ])
 
+const ReplacementOptionSchema = z.object({
+  id: z.string().uuid().nullable().optional(),
+  answerText: z.string().trim().min(1),
+  answerExplanation: z.string().trim().nullable().optional(),
+  isAnswer: z.boolean(),
+})
+
+const ReplacementQuestionSchema = z.object({
+  questionText: z.string().trim().min(1),
+  questionType: z.enum(['multiple_choice', 'syllogism']),
+  answerExplanation: z.string().trim().nullable().optional(),
+  difficulty: z.number().min(0).max(1).nullable().optional(),
+  timeBurdenSeconds: z.number().int().positive().nullable().optional(),
+  tagIds: z.array(z.string().uuid()).default([]),
+  options: z.array(ReplacementOptionSchema).min(1).max(8),
+})
+
 export const UcatAssessmentPatchSchema = z.discriminatedUnion('operation', [
   z.object({
     operation: z.literal('replace_text'),
@@ -65,6 +87,45 @@ export const UcatAssessmentPatchSchema = z.discriminatedUnion('operation', [
     beforeAnswerText: z.string().trim().min(1),
     answerText: z.string().trim().min(1),
     answerExplanation: z.string().trim().nullable().optional(),
+  }),
+  z.object({
+    operation: z.literal('set_text'),
+    target: TextTargetSchema,
+    beforeText: z.string().nullable(),
+    afterText: z.string().trim().min(1),
+  }),
+  z.object({
+    operation: z.literal('replace_question'),
+    questionId: z.string().uuid(),
+    beforeQuestionText: z.string().trim().min(1),
+    question: ReplacementQuestionSchema,
+  }),
+  z.object({
+    operation: z.literal('insert_question'),
+    afterQuestionId: z.string().uuid().nullable(),
+    question: ReplacementQuestionSchema,
+  }),
+  z.object({
+    operation: z.literal('remove_question'),
+    questionId: z.string().uuid(),
+    beforeQuestionText: z.string().trim().min(1),
+  }),
+  z.object({
+    operation: z.literal('insert_option'),
+    questionId: z.string().uuid(),
+    afterOptionId: z.string().uuid().nullable(),
+    option: ReplacementOptionSchema,
+  }),
+  z.object({
+    operation: z.literal('remove_option'),
+    questionId: z.string().uuid(),
+    optionId: z.string().uuid(),
+    beforeAnswerText: z.string().trim().min(1),
+  }),
+  z.object({
+    operation: z.literal('reorder_options'),
+    questionId: z.string().uuid(),
+    optionIds: z.array(z.string().uuid()).min(1).max(8),
   }),
   z.object({
     operation: z.literal('set_metadata'),
@@ -97,6 +158,7 @@ export const UcatAssessmentSuggestionSchema = z.object({
   id: z.string().trim().min(1),
   summary: z.string().trim().min(1),
   rationale: z.string().trim().min(1),
+  application: z.enum(['auto_apply', 'approval_required']).default('approval_required'),
   patches: z.array(UcatAssessmentPatchSchema).min(1).max(8),
 })
 
@@ -138,6 +200,7 @@ export const UcatAssessmentFindingSchema = z.object({
   title: z.string().trim().min(1),
   detail: z.string().trim().min(1),
   evidence: z.array(z.string().trim().min(1)).max(8).default([]),
+  recommendedAction: z.enum(['fix', 'review', 'exclude']).default('review'),
   suggestion: UcatAssessmentSuggestionSchema.nullable().optional(),
 })
 

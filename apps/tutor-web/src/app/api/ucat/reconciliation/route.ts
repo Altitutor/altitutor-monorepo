@@ -82,6 +82,34 @@ function parseSetNames(setNames: unknown): string[] {
     .filter(Boolean);
 }
 
+type ModuleBlockAttachmentRow = {
+  question_stem_id: string | null;
+  question_id: string | null;
+};
+
+type SessionStemAttachmentRow = {
+  question_stem_id: string | null;
+};
+
+function buildStemIdsAttachedToModulesOrSessions(
+  moduleBlocks: ModuleBlockAttachmentRow[],
+  sessionResources: SessionStemAttachmentRow[],
+  questionStemIdByQuestionId: Map<string, string>,
+): Set<string> {
+  const attached = new Set<string>();
+  for (const resource of sessionResources) {
+    if (resource.question_stem_id) attached.add(resource.question_stem_id);
+  }
+  for (const block of moduleBlocks) {
+    if (block.question_stem_id) attached.add(block.question_stem_id);
+    if (block.question_id) {
+      const stemId = questionStemIdByQuestionId.get(block.question_id);
+      if (stemId) attached.add(stemId);
+    }
+  }
+  return attached;
+}
+
 type StemDetailRow = {
   id: string;
   section_id: string;
@@ -105,6 +133,8 @@ export async function GET() {
     sectionsResult,
     setsResult,
     mockDetailsResult,
+    moduleBlocksResult,
+    sessionResourcesResult,
   ] = await Promise.all([
     access.userClient
       .from("vtutor_ucat_question_stem_detail")
@@ -127,6 +157,14 @@ export async function GET() {
       .from("vtutor_ucat_mock_detail")
       .select("id,name,sets")
       .is("deleted_at", null),
+    access.userClient
+      .from("vtutor_ucat_learning_module_blocks")
+      .select("question_stem_id,question_id")
+      .is("deleted_at", null),
+    access.userClient
+      .from("vtutor_ucat_sessions_resources")
+      .select("question_stem_id")
+      .not("question_stem_id", "is", null),
   ]);
 
   for (const result of [
@@ -135,6 +173,8 @@ export async function GET() {
     sectionsResult,
     setsResult,
     mockDetailsResult,
+    moduleBlocksResult,
+    sessionResourcesResult,
   ]) {
     if (result.error) {
       return captureApiErrorResponse(
@@ -146,6 +186,18 @@ export async function GET() {
   }
 
   const rows = (stemsResult.data ?? []) as StemDetailRow[];
+  const questionStemIdByQuestionId = new Map<string, string>();
+  for (const stem of rows) {
+    for (const question of stem.questions ?? []) {
+      if (question.deleted_at) continue;
+      questionStemIdByQuestionId.set(question.id, stem.id);
+    }
+  }
+  const attachedStemIds = buildStemIdsAttachedToModulesOrSessions(
+    (moduleBlocksResult.data ?? []) as ModuleBlockAttachmentRow[],
+    (sessionResourcesResult.data ?? []) as SessionStemAttachmentRow[],
+    questionStemIdByQuestionId,
+  );
   const [explanationFeedback, questionFeedback] = await Promise.all([
     getOpenExplanationFeedback(),
     getOpenQuestionFeedback(),
@@ -216,7 +268,9 @@ export async function GET() {
     };
     const setNames = parseSetNames(row.set_names);
     if (row.access_scope !== "private") continue;
-    if (setNames.length === 0) privateStemIdsNotInSet.add(row.id);
+    if (setNames.length === 0 && !attachedStemIds.has(row.id)) {
+      privateStemIdsNotInSet.add(row.id);
+    }
   }
 
   const stemsWithNoCategory = rows

@@ -14,6 +14,7 @@ import {
   type UcatAssessmentPatch,
   type UcatAssessmentResponse,
   type UcatAssessmentSnapshot,
+  type UcatFormatCheck,
 } from '@/features/ucat/questions/lib/ai-assessment/schema'
 import { fingerprintUcatAssessmentSnapshot, loadUcatAssessmentSnapshot } from './content'
 import {
@@ -49,19 +50,16 @@ type RunRow = {
 }
 
 const QUESTION_CATEGORIES: UcatAssessmentCategory[] = [
-  'answer_validity',
-  'explanation_teaching_quality',
-  'question_clarity_fairness',
+  'presentation_integrity',
+  'ucat_suitability',
   'difficulty_timing',
-  'ucat_authenticity_task_quality',
-  'content_appropriateness',
-  'visual_integrity',
+  'answer_correctness_fairness',
+  'explanation_quality',
 ]
 
 const SHARED_CATEGORIES: UcatAssessmentCategory[] = [
-  'content_appropriateness',
-  'visual_integrity',
-  'ucat_authenticity_task_quality',
+  'presentation_integrity',
+  'ucat_suitability',
 ]
 
 function asAny(client: SupabaseClient<Database>): SupabaseAny {
@@ -145,6 +143,7 @@ function patchTargetsCurrentScope(params: {
   const patch = params.patch
   switch (patch.operation) {
     case 'replace_text':
+    case 'set_text':
     case 'update_visual_spec':
       return textTargetAllowed(patch.target)
     case 'set_answer_key': {
@@ -169,6 +168,17 @@ function patchTargetsCurrentScope(params: {
         && option?.answerTextPlain.trim() === patch.beforeAnswerText.trim(),
       )
     }
+    case 'replace_question':
+    case 'remove_question':
+    case 'insert_option':
+    case 'reorder_options':
+      return params.targetQuestionIds.has(patch.questionId)
+    case 'remove_option':
+      return params.targetQuestionIds.has(patch.questionId)
+        && optionQuestion.get(patch.optionId) === patch.questionId
+    case 'insert_question':
+      return params.includeShared
+        && (patch.afterQuestionId == null || params.snapshot.questions.some((question) => question.id === patch.afterQuestionId))
     case 'set_metadata':
       return patch.targetKind === 'stem'
         ? params.includeShared && patch.targetId === params.snapshot.stemId
@@ -233,7 +243,7 @@ function enforceUnreviewableVisuals(params: {
         const replacement: UcatAssessmentResponse['categories'][number] = {
           scopeType: 'question',
           questionId: targetQuestionId,
-          category: 'visual_integrity',
+          category: 'presentation_integrity',
           rating: 'unreviewable',
           confidence: 1,
           summary: 'A potentially relevant shared visual could not be inspected.',
@@ -250,7 +260,7 @@ function enforceUnreviewableVisuals(params: {
       const replacement: UcatAssessmentResponse['categories'][number] = {
         scopeType,
         questionId: scopeType === 'question' ? questionId : null,
-        category: 'visual_integrity',
+        category: 'presentation_integrity',
         rating: 'unreviewable',
         confidence: 1,
         summary: 'A visual could not be inspected.',
@@ -264,7 +274,7 @@ function enforceUnreviewableVisuals(params: {
       else categories.push(replacement)
     }
     const alreadyReported = findings.some((finding) =>
-      finding.category === 'visual_integrity'
+      finding.category === 'presentation_integrity'
       && finding.rating === 'unreviewable'
       && finding.scopeType === scopeType
       && (finding.questionId ?? null) === (scopeType === 'question' ? questionId : null))
@@ -273,17 +283,154 @@ function enforceUnreviewableVisuals(params: {
         key: `visual_unreviewable:${item.label}`,
         scopeType,
         questionId: scopeType === 'question' ? questionId : null,
-        category: 'visual_integrity',
+        category: 'presentation_integrity',
         rating: 'unreviewable',
         confidence: 1,
         title: 'Visual could not be inspected',
         detail: 'The reviewer could not inspect a supplied visual, so visual accuracy and fairness cannot be confirmed.',
         evidence: [item.label, item.error ?? 'Image unavailable'],
+        recommendedAction: 'review',
         suggestion: null,
       })
     }
   }
   return { ...params.assessment, categories, findings }
+}
+
+export type UcatSnapshotAssessmentResult = {
+  assessment: UcatAssessmentResponse
+  blindSolution: BlindSolutionResponse
+  blindProviderId: string | null
+  blindModel: string | null
+  assessmentProviderId: string | null
+  assessmentModel: string
+}
+
+/**
+ * Shared assessment seam for durable saved-stem jobs and ephemeral bulk-import
+ * drafts. Persistence and queue ownership deliberately stay with the caller.
+ */
+export async function assessUcatQuestionSnapshot(params: {
+  client: SupabaseClient<Database>
+  snapshot: UcatAssessmentSnapshot
+  targetQuestionIds: string[]
+  includeSharedAssessment: boolean
+  formatChecks: UcatFormatCheck[]
+  blindSolverModelProfileId: string | null
+  assessmentModelProfileId: string | null
+  existingBlindSolution?: unknown
+  metadata?: Record<string, unknown>
+  signal?: AbortSignal
+}): Promise<UcatSnapshotAssessmentResult> {
+  const blindVisualEvidence = await buildVisualEvidence({
+    client: params.client,
+    snapshot: params.snapshot,
+    targetQuestionIds: params.targetQuestionIds,
+    includeExplanations: false,
+  })
+  const existingBlind = BlindSolutionResponseSchema.safeParse(params.existingBlindSolution)
+  let blindSolution = existingBlind.success
+    ? normalizeBlindSolutionSelections(existingBlind.data, params.snapshot)
+    : null
+  let blindProviderId: string | null = null
+  let blindModel: string | null = null
+
+  if (!blindSolution) {
+    const blindPrompt = buildBlindSolverUserPrompt({
+      snapshot: params.snapshot,
+      targetQuestionIds: params.targetQuestionIds,
+      visualAvailability: blindVisualEvidence.availability,
+    })
+    const blindResult = await callUcatAiJson({
+      client: params.client,
+      operation: 'question_assessment_blind_solve',
+      modelProfileId: params.blindSolverModelProfileId,
+      systemPrompt: BLIND_SOLVER_SYSTEM_PROMPT,
+      userPrompt: blindPrompt,
+      userContentParts: [
+        { type: 'text', text: blindPrompt },
+        ...blindVisualEvidence.parts,
+      ],
+      temperature: 0,
+      maxCompletionTokens: 4_000,
+      timeoutMs: 180_000,
+      providerSort: 'throughput',
+      reasoningEffort: 'medium',
+      metadata: params.metadata as Json | undefined,
+      signal: params.signal,
+    })
+    blindSolution = normalizeBlindSolutionSelections(
+      BlindSolutionResponseSchema.parse(blindResult.parsed),
+      params.snapshot,
+    )
+    blindProviderId = blindResult.providerId
+    blindModel = blindResult.model
+  }
+  assertBlindSolutionTargets({
+    solution: blindSolution,
+    snapshot: params.snapshot,
+    targetQuestionIds: params.targetQuestionIds,
+  })
+
+  const assessmentVisualEvidence = await buildVisualEvidence({
+    client: params.client,
+    snapshot: params.snapshot,
+    targetQuestionIds: params.targetQuestionIds,
+    includeExplanations: true,
+  })
+  const assessmentPrompt = buildAssessmentUserPrompt({
+    snapshot: params.snapshot,
+    targetQuestionIds: params.targetQuestionIds,
+    includeSharedAssessment: params.includeSharedAssessment,
+    blindSolution,
+    formatChecks: params.formatChecks,
+    visualAvailability: assessmentVisualEvidence.availability,
+  })
+  const assessmentCall = await callUcatAiJson({
+    client: params.client,
+    operation: 'question_assessment_moderate',
+    modelProfileId: params.assessmentModelProfileId,
+    systemPrompt: ASSESSMENT_SYSTEM_PROMPT,
+    userPrompt: assessmentPrompt,
+    userContentParts: [
+      { type: 'text', text: assessmentPrompt },
+      ...assessmentVisualEvidence.parts,
+    ],
+    temperature: 0,
+    maxCompletionTokens: 8_000,
+    timeoutMs: 240_000,
+    providerSort: 'throughput',
+    reasoningEffort: 'medium',
+    metadata: params.metadata as Json | undefined,
+    signal: params.signal,
+  })
+  let assessment = UcatAssessmentResponseSchema.parse(assessmentCall.parsed)
+  assertAssessmentTargets({
+    assessment,
+    snapshot: params.snapshot,
+    targetQuestionIds: params.targetQuestionIds,
+    includeShared: params.includeSharedAssessment,
+  })
+  assessment = withCompleteCategoryCoverage({
+    assessment,
+    targetQuestionIds: params.targetQuestionIds,
+    includeShared: params.includeSharedAssessment,
+  })
+  assessment = enforceUnreviewableVisuals({
+    assessment,
+    unavailable: assessmentVisualEvidence.availability,
+    snapshot: params.snapshot,
+    targetQuestionIds: params.targetQuestionIds,
+    includeShared: params.includeSharedAssessment,
+  })
+  return {
+    assessment,
+    blindSolution,
+    blindProviderId,
+    blindModel,
+    assessmentProviderId: assessmentCall.providerId,
+    assessmentModel: assessmentCall.model,
+  }
 }
 
 async function currentSnapshotForRun(

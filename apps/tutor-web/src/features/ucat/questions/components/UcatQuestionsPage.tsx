@@ -644,14 +644,15 @@ export function UcatQuestionsPage() {
   }
 
   async function handleBulkImportSubmit(args: BulkImportSubmitArgs) {
-    const stemsPayload = args.stems.map((form) => ({
-      ...formValuesToStemBundlePayload(form),
+    const stemsPayload = args.stems.map((draft) => ({
+      ...formValuesToStemBundlePayload(draft.values, draft.id),
       sourceChannel: 'bulk_import' as const,
       tutorSourceNote: args.tutorSourceNote ?? null,
     }))
     const { ids } = await bulkImportMutation.mutateAsync({
       sectionId: args.sectionId,
       stems: stemsPayload,
+      aiReviews: args.aiReviews,
     })
 
     const questionCount = stemsPayload.reduce((sum, s) => sum + (s.questions?.length ?? 0), 0)

@@ -256,6 +256,7 @@ export function QuestionsWithNoExplanationReconciliationDialog({
                 className={tutorBtnPrimary}
                 onClick={() => saveMutation.mutate(drafts)}
                 disabled={isLoading || drafts.length === 0 || saveMutation.isPending}
+                data-dialog-primary-action=""
               >
                 {saveMutation.isPending ? 'Saving...' : 'Save'}
               </Button>

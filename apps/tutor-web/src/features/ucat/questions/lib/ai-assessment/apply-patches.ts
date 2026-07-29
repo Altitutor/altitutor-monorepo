@@ -154,7 +154,7 @@ function metadataValue(
   throw new Error('The suggested question metadata field is invalid.')
 }
 
-function getTextTarget(values: UcatQuestionStemFormValues, patch: Extract<UcatAssessmentPatch, { operation: 'replace_text' | 'update_visual_spec' }>) {
+function getTextTarget(values: UcatQuestionStemFormValues, patch: Extract<UcatAssessmentPatch, { operation: 'replace_text' | 'set_text' | 'update_visual_spec' }>) {
   const { target } = patch
   if (target.kind === 'stem') {
     if (target.field !== 'stem_text') throw new Error('The suggested stem field is invalid.')
@@ -195,6 +195,36 @@ function getTextTarget(values: UcatQuestionStemFormValues, patch: Extract<UcatAs
     }
   }
   throw new Error('The suggested answer-option field is invalid.')
+}
+
+function newDraftId(): string {
+  if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) return crypto.randomUUID()
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/gu, (character) => {
+    const random = Math.floor(Math.random() * 16)
+    return (character === 'x' ? random : (random & 0x3) | 0x8).toString(16)
+  })
+}
+
+type ReplacementQuestion = Extract<UcatAssessmentPatch, { operation: 'replace_question' }>['question']
+
+function replacementQuestion(question: ReplacementQuestion, existingId?: string) {
+  return {
+    id: existingId ?? newDraftId(),
+    questionText: aiTextToProseMirror(question.questionText),
+    questionType: question.questionType,
+    answerExplanation: question.answerExplanation ? aiTextToProseMirror(question.answerExplanation) : null,
+    difficulty: question.difficulty ?? null,
+    timeBurdenSeconds: secondsToTimeString(question.timeBurdenSeconds ?? null),
+    tagIds: question.tagIds,
+    sourceChannel: 'bulk_import' as const,
+    aiGenerationMetadata: null,
+    options: question.options.map((option) => ({
+      id: option.id ?? newDraftId(),
+      answerText: aiTextToProseMirror(option.answerText),
+      answerExplanation: option.answerExplanation ? aiTextToProseMirror(option.answerExplanation) : null,
+      isAnswer: option.isAnswer,
+    })),
+  }
 }
 
 function findImage(value: Json | null | undefined, imageIndex: number): MutableRecord | null {
@@ -276,6 +306,15 @@ export async function applyUcatAssessmentPatches(
         target.set(replaceExactText(target.get(), patch.beforeText, patch.afterText))
         break
       }
+      case 'set_text': {
+        const target = getTextTarget(values, patch)
+        const currentText = proseMirrorToPlainText(target.get()).trim()
+        if ((patch.beforeText ?? '').trim() !== currentText) {
+          throw new Error('The suggested text field has changed since this suggestion was created.')
+        }
+        target.set(aiTextToProseMirror(patch.afterText))
+        break
+      }
       case 'set_answer_key': {
         const index = questionIndex(values, patch.questionId)
         const currentCorrectOptionId = values.questions[index].options.find((option) => option.isAnswer)?.id ?? null
@@ -304,6 +343,75 @@ export async function applyUcatAssessmentPatches(
         values.questions[index].options.forEach((candidate) => {
           candidate.isAnswer = candidate.id === patch.optionId
         })
+        break
+      }
+      case 'replace_question': {
+        const index = questionIndex(values, patch.questionId)
+        const currentQuestion = values.questions[index]
+        if (proseMirrorToPlainText(currentQuestion.questionText).trim() !== patch.beforeQuestionText.trim()) {
+          throw new Error('The question has changed since this suggestion was created.')
+        }
+        values.questions[index] = replacementQuestion(patch.question, patch.questionId)
+        break
+      }
+      case 'insert_question': {
+        const nextQuestion = replacementQuestion(patch.question)
+        if (patch.afterQuestionId == null) values.questions.unshift(nextQuestion)
+        else values.questions.splice(questionIndex(values, patch.afterQuestionId) + 1, 0, nextQuestion)
+        break
+      }
+      case 'remove_question': {
+        const index = questionIndex(values, patch.questionId)
+        if (proseMirrorToPlainText(values.questions[index].questionText).trim() !== patch.beforeQuestionText.trim()) {
+          throw new Error('The question has changed since this suggestion was created.')
+        }
+        values.questions.splice(index, 1)
+        if (values.questions.length === 0) throw new Error('A stem must retain at least one question.')
+        break
+      }
+      case 'insert_option': {
+        const index = questionIndex(values, patch.questionId)
+        const options = values.questions[index].options
+        const nextOption = {
+          id: patch.option.id ?? newDraftId(),
+          answerText: aiTextToProseMirror(patch.option.answerText),
+          answerExplanation: patch.option.answerExplanation
+            ? aiTextToProseMirror(patch.option.answerExplanation)
+            : null,
+          isAnswer: patch.option.isAnswer,
+        }
+        if (patch.afterOptionId == null) options.unshift(nextOption)
+        else {
+          const afterIndex = options.findIndex((option) => option.id === patch.afterOptionId)
+          if (afterIndex < 0) throw new Error('The preceding answer option no longer exists.')
+          options.splice(afterIndex + 1, 0, nextOption)
+        }
+        break
+      }
+      case 'remove_option': {
+        const index = questionIndex(values, patch.questionId)
+        const options = values.questions[index].options
+        const optionIndex = options.findIndex((option) => option.id === patch.optionId)
+        if (optionIndex < 0) throw new Error('The answer option no longer exists.')
+        if (proseMirrorToPlainText(options[optionIndex].answerText).trim() !== patch.beforeAnswerText.trim()) {
+          throw new Error('The answer option has changed since this suggestion was created.')
+        }
+        options.splice(optionIndex, 1)
+        if (options.length === 0) throw new Error('A question must retain at least one answer option.')
+        break
+      }
+      case 'reorder_options': {
+        const index = questionIndex(values, patch.questionId)
+        const options = values.questions[index].options
+        const byId = new Map(options.map((option) => [option.id, option]))
+        if (
+          patch.optionIds.length !== options.length
+          || new Set(patch.optionIds).size !== options.length
+          || patch.optionIds.some((id) => !byId.has(id))
+        ) {
+          throw new Error('The answer options have changed since this suggestion was created.')
+        }
+        values.questions[index].options = patch.optionIds.map((id) => byId.get(id)!)
         break
       }
       case 'set_metadata': {

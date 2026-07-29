@@ -9,7 +9,6 @@ import {
   AccordionTrigger,
   Badge,
   Button,
-  Textarea,
   useToast,
 } from '@altitutor/ui'
 import {
@@ -48,6 +47,10 @@ import { proseMirrorToPlainText } from '@/features/ucat/shared/lib/rich-text'
 type CategoryResult = z.infer<typeof UcatAssessmentCategoryResultSchema>
 
 const CATEGORY_LABELS: Record<UcatAssessmentCategory, string> = {
+  presentation_integrity: 'Presentation integrity',
+  ucat_suitability: 'UCAT suitability',
+  answer_correctness_fairness: 'Answer correctness & fairness',
+  explanation_quality: 'Explanation quality',
   answer_validity: 'Answer validity',
   explanation_teaching_quality: 'Teaching explanation',
   question_clarity_fairness: 'Clarity & fairness',
@@ -185,6 +188,8 @@ function patchPreviewRows(
   switch (patch.operation) {
     case 'replace_text':
       return [{ label: patch.target.field.replaceAll('_', ' '), before: patch.beforeText, after: patch.afterText }]
+    case 'set_text':
+      return [{ label: patch.target.field.replaceAll('_', ' '), before: patch.beforeText ?? 'Empty', after: patch.afterText }]
     case 'set_answer_key':
       return [{ label: 'Correct answer', before: optionText(patch.currentCorrectOptionId), after: optionText(patch.correctOptionId) }]
     case 'replace_option_and_key':
@@ -199,6 +204,22 @@ function patchPreviewRows(
             }]
           : []),
       ]
+    case 'replace_question':
+      return [{ label: 'Question', before: patch.beforeQuestionText, after: patch.question.questionText }]
+    case 'insert_question':
+      return [{ label: 'Question', before: 'Not present', after: patch.question.questionText }]
+    case 'remove_question':
+      return [{ label: 'Question', before: patch.beforeQuestionText, after: 'Removed' }]
+    case 'insert_option':
+      return [{ label: 'Answer option', before: 'Not present', after: patch.option.answerText }]
+    case 'remove_option':
+      return [{ label: 'Answer option', before: patch.beforeAnswerText, after: 'Removed' }]
+    case 'reorder_options':
+      return [{
+        label: 'Answer option order',
+        before: question?.options.map((option) => optionText(option.id)).join('\n') ?? 'Unknown',
+        after: patch.optionIds.map(optionText).join('\n'),
+      }]
     case 'set_metadata':
       return [{ label: patch.field.replaceAll('_', ' '), before: displayPatchValue(patch.before), after: displayPatchValue(patch.after) }]
     case 'update_visual_spec':
@@ -249,8 +270,6 @@ function FindingCard({
 }) {
   const { toast } = useToast()
   const decisionMutation = useRecordUcatAiAssessmentDecision()
-  const [dismissReason, setDismissReason] = useState('')
-  const [showDismiss, setShowDismiss] = useState(false)
   const [applying, setApplying] = useState(false)
   const decision = data.decisions.find((item) => item.run_id === run.id && item.finding_key === finding.key)
 
@@ -337,28 +356,15 @@ function FindingCard({
                 </Button>
               </>
             ) : null}
-            <Button size="sm" variant="ghost" onClick={() => setShowDismiss((value) => !value)} disabled={decisionMutation.isPending}>
-              Dismiss finding
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={() => void handleDecision('dismissed')}
+              disabled={decisionMutation.isPending}
+            >
+              Keep as-is
             </Button>
           </div>
-          {showDismiss ? (
-            <div className="space-y-2 rounded-md border p-3">
-              <Textarea
-                value={dismissReason}
-                onChange={(event) => setDismissReason(event.target.value)}
-                placeholder="Why is this finding not applicable?"
-                className="min-h-20"
-              />
-              <Button
-                size="sm"
-                variant="outline"
-                disabled={!dismissReason.trim() || decisionMutation.isPending}
-                onClick={() => void handleDecision('dismissed', dismissReason.trim())}
-              >
-                Confirm dismissal
-              </Button>
-            </div>
-          ) : null}
         </div>
       )}
     </div>
@@ -548,7 +554,10 @@ export function UcatAiAssessmentControl({
                     ))}
                   </Accordion>
                   {data.status === 'format_blocked' ? (
-                    <p className="text-xs text-muted-foreground">The model review was not called because deterministic format errors must be fixed first. Publishing is not blocked by this tool.</p>
+                    <p className="text-xs text-muted-foreground">
+                      The model review was not called because deterministic format errors must be fixed first.
+                      Skipping or failing an AI review does not block publishing.
+                    </p>
                   ) : null}
                 </section>
               ) : null}
