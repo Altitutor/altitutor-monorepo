@@ -18,6 +18,10 @@ import {
   getPendingSignupEmail,
   savePendingSignupEmail,
 } from "@/features/auth/lib/pending-signup-email";
+import {
+  verifySignupOtp,
+  type SignupOtpVerificationError,
+} from "@/features/auth/api/verify-signup-otp";
 import { navigateAfterAuth } from "@/features/auth/lib/navigate-after-auth";
 import {
   SocialAuthButtons,
@@ -33,7 +37,9 @@ const RESEND_COOLDOWN_SECONDS = 20;
 
 type FormState = "idle" | "submitted" | "error";
 
-function getSignupOtpUserMessage(error: AuthError): string {
+function getSignupOtpUserMessage(
+  error: AuthError | SignupOtpVerificationError,
+): string {
   const raw = error.message ?? "";
   const msg = raw.toLowerCase();
   if (
@@ -213,10 +219,9 @@ export function SignupForm({
     const normalizedEmail = (submittedEmail || email).trim().toLowerCase();
 
     try {
-      const { error } = await supabase.auth.verifyOtp({
+      const error = await verifySignupOtp({
         email: normalizedEmail,
         token: digits,
-        type: "email",
       });
       if (!error) {
         if (newsletter) {

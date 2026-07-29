@@ -36,7 +36,10 @@ describe("SignupForm", () => {
     jest.clearAllMocks();
     signInWithOtp.mockResolvedValue({ error: null });
     verifyOtp.mockResolvedValue({ error: null });
-    global.fetch = jest.fn();
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ error: null }),
+    });
   });
 
   it("sends an OTP without preflighting whether the account exists", async () => {
@@ -63,7 +66,6 @@ describe("SignupForm", () => {
   });
 
   it("subscribes only when the student explicitly opts in", async () => {
-    (global.fetch as jest.Mock).mockResolvedValue({ ok: true });
     render(<SignupForm />);
 
     fireEvent.change(screen.getByLabelText("Email address"), {
@@ -90,7 +92,7 @@ describe("SignupForm", () => {
     );
   });
 
-  it("hard-navigates to signup complete after OTP and clears pending email", async () => {
+  it("establishes the OTP session on the server before navigating to signup complete", async () => {
     savePendingSignupEmail("student@example.com", "/subscribe\n");
 
     render(<SignupForm />);
@@ -103,14 +105,50 @@ describe("SignupForm", () => {
     });
     fireEvent.click(screen.getByRole("button", { name: "Continue with code" }));
 
-    await waitFor(() =>
-      expect(verifyOtp).toHaveBeenCalledWith({
-        email: "student@example.com",
-        token: "123456",
-        type: "email",
-      }),
-    );
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenCalledWith(
+        "/api/auth/verify-otp",
+        expect.objectContaining({
+          method: "POST",
+          body: JSON.stringify({
+            email: "student@example.com",
+            token: "123456",
+          }),
+        }),
+      );
+    });
+    expect(verifyOtp).not.toHaveBeenCalled();
     expect(window.sessionStorage.length).toBe(0);
     expect(navigateAfterAuth).toHaveBeenCalledWith("/signup/complete");
+  });
+
+  it("stays on code entry when the server cannot establish a session", async () => {
+    savePendingSignupEmail("student@example.com", "/subscribe\n");
+    (global.fetch as jest.Mock).mockResolvedValue({
+      ok: false,
+      status: 401,
+      json: async () => ({
+        error: {
+          message:
+            "The code was accepted, but no signup session was created. Please request a new code.",
+          status: 401,
+          code: "signup_session_missing",
+        },
+      }),
+    });
+
+    render(<SignupForm />);
+    fireEvent.change(await screen.findByPlaceholderText("000000"), {
+      target: { value: "123456" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Continue with code" }));
+
+    expect(
+      await screen.findByText(/no signup session was created/i),
+    ).toBeInTheDocument();
+    expect(navigateAfterAuth).not.toHaveBeenCalled();
+    expect(
+      screen.getByRole("button", { name: "Continue with code" }),
+    ).toBeEnabled();
   });
 });

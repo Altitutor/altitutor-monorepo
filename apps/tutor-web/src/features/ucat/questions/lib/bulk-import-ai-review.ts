@@ -12,6 +12,7 @@ export type BulkImportAiReviewCache = {
   assessment: UcatAssessmentResponse
   blindSolution: BlindSolutionResponse
   provenance?: BulkImportAiReviewProvenance | null
+  reviewToken: string
 }
 
 export type BulkImportAiReviewProvenance = {
@@ -42,6 +43,7 @@ export type BulkImportAiReviewResult = {
   assessment: UcatAssessmentResponse | null
   blindSolution: BlindSolutionResponse | null
   provenance: BulkImportAiReviewProvenance | null
+  reviewToken: string | null
   reused: boolean
   error: string | null
 }

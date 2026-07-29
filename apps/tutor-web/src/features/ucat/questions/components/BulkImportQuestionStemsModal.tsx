@@ -95,6 +95,7 @@ export type BulkImportSubmitArgs = {
   sectionId: string
   stems: BulkImportStemDraft[]
   aiReviews?: BulkImportAiReviewSubmission[]
+  duplicateDismissals?: Array<{ stemIdA: string; stemIdB: string }>
   tutorSourceNote: string | null
   addToSet: AddToSetConfig | null
 }
@@ -306,8 +307,12 @@ export function BulkImportQuestionStemsModal({
       && !reviewController.hasDuplicateAnalysisRun
       && reviewController.duplicateStatus !== 'running'
     ) {
-      void reviewController.runDuplicateAnalysis()
+      const timeout = window.setTimeout(() => {
+        void reviewController.runDuplicateAnalysis()
+      }, 500)
+      return () => window.clearTimeout(timeout)
     }
+    return undefined
   }, [
     reviewController,
     stepKind,
@@ -734,6 +739,7 @@ export function BulkImportQuestionStemsModal({
           || !result.fingerprints
           || !result.assessment
           || !result.blindSolution
+          || !result.reviewToken
         ) return []
         return [{
           draftStemId: stem.id,
@@ -742,6 +748,7 @@ export function BulkImportQuestionStemsModal({
           assessment: result.assessment,
           blindSolution: result.blindSolution,
           provenance: result.provenance,
+          reviewToken: result.reviewToken,
           decisions: (reviewController.keptFindingKeysByStemId[stem.id] ?? []).map(
             (findingKey) => ({ findingKey, decision: 'dismissed' as const })
           ),
@@ -751,6 +758,7 @@ export function BulkImportQuestionStemsModal({
         sectionId,
         stems: reviewController.includedStems,
         aiReviews,
+        duplicateDismissals: reviewController.duplicateDismissals,
         tutorSourceNote: tutorSourceNote.trim() || null,
         addToSet: addToSetEnabled ? addToSetConfig : null,
       })

@@ -113,6 +113,7 @@ import {
   filterTagsForSections,
 } from '@/features/ucat/shared/lib/taxonomy-reparent'
 import { resolveSectionIdsFromIdFilter } from '@/features/ucat/shared/lib/taxonomy-section-filter'
+import { dismissExactDuplicatePair } from '@/features/ucat/reconciliation/api/reconciliation'
 import { UCAT_FILTER_NO_CATEGORY, UCAT_FILTER_NOT_IN_ANY_SET } from '@/features/ucat/shared/lib/table-filter-sentinel'
 import { UcatDeleteConfirmDialog } from '@/features/ucat/shared/delete-confirm-dialog'
 import { UcatRowActions } from '@/features/ucat/shared/row-actions'
@@ -649,11 +650,37 @@ export function UcatQuestionsPage() {
       sourceChannel: 'bulk_import' as const,
       tutorSourceNote: args.tutorSourceNote ?? null,
     }))
-    const { ids } = await bulkImportMutation.mutateAsync({
+    const { ids, aiReviewPersistence } = await bulkImportMutation.mutateAsync({
       sectionId: args.sectionId,
       stems: stemsPayload,
       aiReviews: args.aiReviews,
     })
+    if ((aiReviewPersistence?.skipped.length ?? 0) > 0) {
+      toast({
+        title: 'Questions imported; some AI review results were not saved',
+        description:
+          `${aiReviewPersistence?.skipped.length ?? 0} stem${
+            aiReviewPersistence?.skipped.length === 1 ? '' : 's'
+          } remain in review without the completed bulk-review result. Re-run AI review from the question reviewer before publishing.`,
+        variant: 'destructive',
+      })
+    }
+    if ((args.duplicateDismissals?.length ?? 0) > 0) {
+      const results = await Promise.allSettled(
+        (args.duplicateDismissals ?? []).map(({ stemIdA, stemIdB }) =>
+          dismissExactDuplicatePair(stemIdA, stemIdB)
+        )
+      )
+      const failedDismissals = results.filter((result) => result.status === 'rejected').length
+      if (failedDismissals > 0) {
+        toast({
+          title: 'Questions imported; some duplicate decisions were not saved',
+          description: `${failedDismissals} “Keep both” ${
+            failedDismissals === 1 ? 'decision' : 'decisions'
+          } can be resolved later from reconciliation.`,
+        })
+      }
+    }
 
     const questionCount = stemsPayload.reduce((sum, s) => sum + (s.questions?.length ?? 0), 0)
     let targetSetId: string | null = null

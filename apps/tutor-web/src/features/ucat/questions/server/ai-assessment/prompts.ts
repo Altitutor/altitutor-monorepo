@@ -247,6 +247,7 @@ export function buildAssessmentUserPrompt(params: {
   includeSharedAssessment: boolean
   blindSolution: BlindSolutionResponse
   formatChecks: UcatFormatCheck[]
+  availableQuestionTags?: Array<{ id: string; name: string }>
   visualAvailability?: Array<{ label: string; inspectable: boolean; renderedStudentWidth: number | null; error: string | null }>
 }): string {
   const target = new Set(params.targetQuestionIds)
@@ -295,20 +296,19 @@ export function buildAssessmentUserPrompt(params: {
     visualEvidence: imageMetadata(params.snapshot, true),
     visualAvailability: params.visualAvailability ?? [],
     deterministicFormatWarnings: params.formatChecks.filter((check) => check.severity === 'warning'),
+    availableQuestionTags: params.availableQuestionTags ?? [],
     blindSolution: params.blindSolution,
     questions,
     requiredCategoryCoverage: {
       shared: params.includeSharedAssessment
-        ? ['content_appropriateness', 'visual_integrity', 'ucat_authenticity_task_quality']
+        ? ['presentation_integrity', 'ucat_suitability']
         : [],
       eachQuestion: [
-        'answer_validity',
-        'explanation_teaching_quality',
-        'question_clarity_fairness',
+        'presentation_integrity',
+        'ucat_suitability',
         'difficulty_timing',
-        'ucat_authenticity_task_quality',
-        'content_appropriateness',
-        'visual_integrity',
+        'answer_correctness_fairness',
+        'explanation_quality',
       ],
     },
   }, null, 2)

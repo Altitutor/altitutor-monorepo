@@ -66,6 +66,23 @@ function asAny(client: SupabaseClient<Database>): SupabaseAny {
   return client as unknown as SupabaseAny
 }
 
+async function loadAvailableQuestionTags(
+  client: SupabaseClient<Database>,
+  sectionId: string,
+): Promise<Array<{ id: string; name: string }>> {
+  const { data, error } = await asAny(client)
+    .from('question_tags')
+    .select('id,name')
+    .eq('ucat_section_id', sectionId)
+    .order('name')
+  if (error) throw error
+  return (data ?? []).flatMap((row: { id?: unknown; name?: unknown }) =>
+    typeof row.id === 'string' && typeof row.name === 'string'
+      ? [{ id: row.id, name: row.name }]
+      : []
+  )
+}
+
 function withCompleteCategoryCoverage(params: {
   assessment: UcatAssessmentResponse
   targetQuestionIds: string[]
@@ -378,12 +395,17 @@ export async function assessUcatQuestionSnapshot(params: {
     targetQuestionIds: params.targetQuestionIds,
     includeExplanations: true,
   })
+  const availableQuestionTags = await loadAvailableQuestionTags(
+    params.client,
+    params.snapshot.sectionId,
+  )
   const assessmentPrompt = buildAssessmentUserPrompt({
     snapshot: params.snapshot,
     targetQuestionIds: params.targetQuestionIds,
     includeSharedAssessment: params.includeSharedAssessment,
     blindSolution,
     formatChecks: params.formatChecks,
+    availableQuestionTags,
     visualAvailability: assessmentVisualEvidence.availability,
   })
   const assessmentCall = await callUcatAiJson({
@@ -600,6 +622,7 @@ export async function runBackgroundUcatQuestionAssessment(
       targetQuestionIds,
       includeExplanations: true,
     })
+    const availableQuestionTags = await loadAvailableQuestionTags(admin, snapshot.sectionId)
 
     const assessmentPrompt = buildAssessmentUserPrompt({
       snapshot,
@@ -607,6 +630,7 @@ export async function runBackgroundUcatQuestionAssessment(
       includeSharedAssessment,
       blindSolution,
       formatChecks,
+      availableQuestionTags,
       visualAvailability: assessmentVisualEvidence.availability,
     })
     const assessmentCall = await callUcatAiJson({

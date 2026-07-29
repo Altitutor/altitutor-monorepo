@@ -7,6 +7,11 @@ import { SignupCompleteSessionFallback } from "@/features/signup-onboarding/comp
 import { loadSignupOnboardingInitial } from "@/features/signup-onboarding/lib/load-signup-onboarding-initial";
 import { resolveSignupStateForUser } from "@/features/signup-onboarding/lib/resolve-signup-state";
 
+// getSupabaseServerClient intentionally uses an empty-cookie placeholder during
+// `next build`. Without this explicit contract, Next prerenders the fallback
+// below and serves "no signup session" to every user from the static artifact.
+export const dynamic = "force-dynamic";
+
 async function resolveSignupCompleteUser(): Promise<User | null> {
   const supabase = await getSupabaseServerClient();
   const {

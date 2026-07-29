@@ -305,8 +305,10 @@ function FindingCard({
       form.setValue('categoryId', next.categoryId, { shouldDirty: true })
       form.setValue('stemText', next.stemText, { shouldDirty: true })
       form.setValue('questions', next.questions, { shouldDirty: true })
-      await decide('suggestion_accepted')
-      toast({ title: 'Suggestion applied to the unsaved draft', description: 'Review the edit, then save or publish when ready.' })
+      toast({
+        title: 'Suggestion applied to the unsaved draft',
+        description: 'Save the edit to resolve the current finding. Discarding the form leaves it unresolved.',
+      })
     } catch (error) {
       toast({
         title: 'Could not apply suggestion',

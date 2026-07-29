@@ -388,6 +388,7 @@ AS $$
       CROSS JOIN current_scope
       WHERE newer_cycle.stem_id = p_stem_id
         AND newer_cycle.is_current = TRUE
+        AND newer.status = 'completed'
         AND (newer.requested_at, newer.id) > (candidate.requested_at, candidate.run_id)
         AND (
           (
