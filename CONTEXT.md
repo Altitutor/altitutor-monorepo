@@ -74,6 +74,39 @@
 
 ## UCAT content
 
+- **UCAT AI review** — An optional quality-review pass over UCAT question content that automatically applies safe, bounded corrections and identifies changes that require staff judgment. Skipping this review never prevents a bulk import from continuing.
+  _Avoid_: AI approval, mandatory review, explanation generation
+
+- **AI review freshness** — Whether a UCAT AI review result still represents the exact content and review contract it assessed. Re-running review reuses fresh results and reviews only changed question scopes; changing shared stem content makes every dependent question stale.
+  _Avoid_: Reviewed once, import status, saved state
+
+- **Approval-required change** — A complete AI-proposed correction whose meaning or destructive effect requires staff judgment before it is applied. Staff approve the proposed change in one action rather than manually recreating the edit.
+  _Avoid_: Manual edit, automatic fix, review note
+
+- **Manual-review flag** — An unresolved UCAT content concern that requires staff judgment because the reviewer cannot safely apply an automatic fix. A flag should carry a directly applicable proposed change when one can be produced and remains attached to imported content until resolved.
+  _Avoid_: AI failure, import blocker, warning
+
+- **Deterministic import gate** — A code-defined UCAT structure or completeness rule evaluated automatically against bulk-import content. Safe canonical repairs are applied automatically; an included item with an unresolved hard failure cannot be imported, although staff may continue through the wizard and resolve or exclude it before submission.
+  _Avoid_: AI finding, quality score, mandatory AI review
+
+- **Bulk-import exclusion** — A reversible decision to omit one candidate stem or question from the current bulk import. Exclusion changes only the import batch and never deletes matching content already stored by Altitutor.
+  _Avoid_: Delete question, deselect, dismiss warning
+
+- **Duplicate candidate** — A non-deleted existing or same-batch UCAT stem or question that exactly matches or is highly similar to bulk-import content. Exact matches and possible near-copies remain distinct findings; draft, in-review, and published content are all eligible for comparison.
+  _Avoid_: Proven duplicate, reconciliation pair, deleted-content match
+
+- **Shared-stem match** — A bulk-import stem whose passage or shared context matches existing or same-batch content while its question bundle differs. It is flagged for an explicit keep-or-exclude decision and is never automatically merged into existing content.
+  _Avoid_: Complete duplicate, automatic merge, duplicate question
+
+- **UCAT question tag assignment** — The question-level classification selected from the valid taxonomy for its UCAT section. Bulk import preserves existing staff-selected tags, otherwise uses deterministic inference when available, and asks AI to assign tags only when deterministic inference returns none.
+  _Avoid_: Stem category, review category, AI retagging
+
+- **UCAT stem category** — The stem-level classification within one UCAT section. Bulk import may assign or correct it automatically when section structure determines the category; ambiguous category changes require staff approval.
+  _Avoid_: Question category, question tag, review category
+
+- **UCAT review dimension** — One of five independent aspects of UCAT content quality assessed during AI review: presentation integrity, UCAT suitability, difficulty and timing, answer correctness and fairness, or explanation quality. Stem classification and question tagging are corrective pipeline actions rather than review dimensions.
+  _Avoid_: Review category, stem category, question tag
+
 - **UCAT content rating** — A student's thumbs-up or thumbs-down evaluation of one displayed UCAT insight or answer explanation, optionally accompanied by a reason. The rating stores the displayed content and its context so later wording revisions remain distinguishable. _Avoid_: feedback, survey response, content vote
 
 - **UCAT mock exam** — A complete practice exam made of UCAT section content that students can attempt as an exam-like experience.
