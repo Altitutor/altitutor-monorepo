@@ -1,7 +1,10 @@
 import { UCAT_FILTER_NO_CATEGORY } from '@/features/ucat/shared/lib/table-filter-sentinel'
 import {
   buildFindSimilarQuestionStemFilters,
+  createdAtLeewayMsFromMinutes,
   encodeCreatedAtWindow,
+  FIND_SIMILAR_CREATED_AT_LEEWAY_MS,
+  FIND_SIMILAR_CREATED_AT_LEEWAY_MINUTES,
   formatCreatedAtWindowLabel,
   getAvailableFindSimilarCriteria,
   parseCreatedAtWindow,
@@ -52,6 +55,14 @@ function baseRow(overrides: Partial<QuestionRow> = {}): QuestionRow {
 }
 
 describe('find-similar-question-stems', () => {
+  it('defaults the creation-time window to 1 minute', () => {
+    expect(FIND_SIMILAR_CREATED_AT_LEEWAY_MINUTES).toBe(1)
+    expect(FIND_SIMILAR_CREATED_AT_LEEWAY_MS).toBe(60_000)
+    expect(createdAtLeewayMsFromMinutes(10)).toBe(600_000)
+    expect(createdAtLeewayMsFromMinutes(0)).toBe(60_000)
+    expect(createdAtLeewayMsFromMinutes(999)).toBe(7_200_000)
+  })
+
   it('encodes and parses a created_at window', () => {
     const encoded = encodeCreatedAtWindow('2026-07-25T12:00:00.000Z', 60_000)
     expect(encoded).toBe('2026-07-25T11:59:00.000Z/2026-07-25T12:01:00.000Z')
@@ -98,8 +109,13 @@ describe('find-similar-question-stems', () => {
       'category',
       'tags',
     ])
+    expect(options.find((option) => option.id === 'created_at')?.description).toBe('±1 min window')
     expect(options.find((option) => option.id === 'created_by')?.description).toBe('Ada Lovelace')
     expect(options.find((option) => option.id === 'tags')?.description).toBe('Inference, Tone')
+    expect(
+      getAvailableFindSimilarCriteria(baseRow(), undefined, 600_000).find((option) => option.id === 'created_at')
+        ?.description,
+    ).toBe('±10 min window')
   })
 
   it('formats created_at window labels', () => {

@@ -26,6 +26,7 @@ import {
   serializeQuestionCatalogQuery,
   type QuestionCatalogQuery,
 } from "@/features/ucat/questions/lib/question-catalog-query";
+import type { BulkImportAiReviewSubmission } from "@/features/ucat/questions/lib/bulk-import-ai-review";
 
 export type { UcatQuestionStemListIndex };
 
@@ -788,13 +789,18 @@ export const ucatQuestionsApi = {
     return response.json() as Promise<{ ok: true }>;
   },
 
-  async bulkImport(sectionId: string, stems: UcatQuestionStemBundlePayload[]) {
+  async bulkImport(
+    sectionId: string,
+    stems: UcatQuestionStemBundlePayload[],
+    aiReviews?: BulkImportAiReviewSubmission[],
+  ) {
     const response = await fetch("/api/ucat/question-stems/bulk-import", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         sectionId,
         stems: stems.map((stem) => serializePayload(stem)),
+        ...(aiReviews && aiReviews.length > 0 ? { aiReviews } : {}),
       }),
     });
 
@@ -803,7 +809,13 @@ export const ucatQuestionsApi = {
       throw new Error(body.error ?? "Failed to bulk import question stems");
     }
 
-    return response.json() as Promise<{ ids: string[] }>;
+    return response.json() as Promise<{
+      ids: string[];
+      aiReviewPersistence?: {
+        persistedStemIds: string[];
+        skipped: Array<{ stemId: string; reason: string }>;
+      };
+    }>;
   },
 
   async startGeneration(input: {

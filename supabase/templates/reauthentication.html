@@ -4,29 +4,53 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="color-scheme" content="light dark" />
+    <meta name="supported-color-schemes" content="light dark" />
     <title>Confirm your identity for Altitutor UCAT</title>
+    <style type="text/css">
+      :root { color-scheme: light dark; supported-color-schemes: light dark; }
+      @media (prefers-color-scheme: dark) {
+        .email-bg { background-color: #071923 !important; }
+        .email-card, .email-content { background-color: #102630 !important; }
+        .email-card, .email-panel, .email-footer { border-color: #35505b !important; }
+        .email-panel, .email-footer { background-color: #17333e !important; }
+        .email-title, .email-strong { color: #f2f0e9 !important; }
+        .email-copy { color: #d7e1e4 !important; }
+        .email-muted { color: #aebdc3 !important; }
+        .email-link, .email-footer-title { color: #c9e2ea !important; }
+        .email-button { background-color: #63c9a8 !important; color: #071923 !important; }
+      }
+      [data-ogsc] .email-title, [data-ogsc] .email-strong { color: #f2f0e9 !important; }
+      [data-ogsc] .email-copy { color: #d7e1e4 !important; }
+      [data-ogsc] .email-muted { color: #aebdc3 !important; }
+      [data-ogsc] .email-link, [data-ogsc] .email-footer-title { color: #c9e2ea !important; }
+      [data-ogsb] .email-bg { background-color: #071923 !important; }
+      [data-ogsb] .email-card, [data-ogsb] .email-content { background-color: #102630 !important; }
+      [data-ogsb] .email-panel, [data-ogsb] .email-footer { background-color: #17333e !important; }
+      [data-ogsb] .email-button { background-color: #63c9a8 !important; }
+    </style>
     <!--[if mso]><style type="text/css">body, table, td, a { font-family: Arial, sans-serif !important; }</style><![endif]-->
   </head>
-  <body style="margin: 0; padding: 0; background-color: #f2f0e9; font-family: -apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;, Roboto, Helvetica, Arial, sans-serif; color: #1a1a1a">
-    <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="width: 100%; background-color: #f2f0e9"><tr><td align="center" style="padding: 32px 16px">
-      <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="600" style="width: 100%; max-width: 600px; background-color: #ffffff; border: 1px solid #dce5e8; border-radius: 16px; overflow: hidden">
-        <tr><td style="padding: 30px 36px; background-color: #0a2941">
+  <body class="email-bg" bgcolor="#f2f0e9" style="margin: 0; padding: 0; background-color: #f2f0e9; font-family: -apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;, Roboto, Helvetica, Arial, sans-serif; color: #1a1a1a">
+    <table class="email-bg" role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" bgcolor="#f2f0e9" style="width: 100%; background-color: #f2f0e9"><tr><td align="center" style="padding: 32px 16px">
+      <table class="email-card" role="presentation" cellspacing="0" cellpadding="0" border="0" width="600" bgcolor="#ffffff" style="width: 100%; max-width: 600px; background-color: #ffffff; border: 1px solid #dce5e8; border-radius: 16px; overflow: hidden">
+        <tr><td bgcolor="#0a2941" style="padding: 30px 36px; background-color: #0a2941">
           <p style="margin: 0; color: #f2f0e9; font-size: 24px; font-weight: 700; letter-spacing: -0.4px">Altitutor UCAT</p>
           <p style="margin: 6px 0 0; color: #b9d1d9; font-size: 13px; line-height: 1.5">UCAT preparation from Altitutor</p>
         </td></tr>
-        <tr><td style="padding: 36px">
-          <h1 style="margin: 0 0 14px; color: #0a2941; font-size: 26px; font-weight: 700; line-height: 1.25">Confirm your identity</h1>
-          <p style="margin: 0; color: #394650; font-size: 15px; line-height: 1.7">Use this verification code to complete the security-sensitive action you requested.</p>
-          <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="margin: 28px 0; background-color: #eaf1f3; border: 1px solid #d1e0e5; border-radius: 12px"><tr><td align="center" style="padding: 22px 18px">
-            <p style="margin: 0 0 8px; color: #52606a; font-size: 11px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase">Verification code</p>
-            <p style="margin: 0; color: #0a2941; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; font-size: 32px; font-weight: 800; letter-spacing: 0.28em">{{ .Token }}</p>
+        <tr><td class="email-content" bgcolor="#ffffff" style="padding: 36px; background-color: #ffffff">
+          <h1 class="email-title" style="margin: 0 0 14px; color: #0a2941; font-size: 26px; font-weight: 700; line-height: 1.25">Confirm your identity</h1>
+          <p class="email-copy" style="margin: 0; color: #394650; font-size: 15px; line-height: 1.7">Use this verification code to complete the security-sensitive action you requested.</p>
+          <table class="email-panel" role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" bgcolor="#eaf1f3" style="margin: 28px 0; background-color: #eaf1f3; border: 1px solid #d1e0e5; border-radius: 12px"><tr><td align="center" style="padding: 22px 18px">
+            <p class="email-muted" style="margin: 0 0 8px; color: #52606a; font-size: 11px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase">Verification code</p>
+            <p class="email-title" style="margin: 0; color: #0a2941; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; font-size: 32px; font-weight: 800; letter-spacing: 0.28em">{{ .Token }}</p>
           </td></tr></table>
-          <p style="margin: 0; color: #68757e; font-size: 13px; line-height: 1.6">This code expires in 1 hour. If you did not request it, you can safely ignore this email. Your account remains secure.</p>
+          <p class="email-muted" style="margin: 0; color: #68757e; font-size: 13px; line-height: 1.6">This code expires in 1 hour. If you did not request it, you can safely ignore this email. Your account remains secure.</p>
         </td></tr>
-        <tr><td style="padding: 24px 36px; background-color: #eaf1f3; border-top: 1px solid #dce5e8">
-          <p style="margin: 0 0 8px; color: #0a2941; font-size: 13px; font-weight: 600; line-height: 1.5">A not-for-profit initiative by Altitutor.</p>
-          <p style="margin: 0; color: #52606a; font-size: 12px; line-height: 1.6">Need help? Email <a href="mailto:admin@altitutor.com" style="color: #0a2941">admin@altitutor.com</a>.</p>
-          <p style="margin: 12px 0 0; color: #73808a; font-size: 11px; line-height: 1.5">&copy; __CURRENT_YEAR__ Altitutor.</p>
+        <tr><td class="email-footer" bgcolor="#eaf1f3" style="padding: 24px 36px; background-color: #eaf1f3; border-top: 1px solid #dce5e8">
+          <p class="email-footer-title" style="margin: 0 0 8px; color: #0a2941; font-size: 13px; font-weight: 600; line-height: 1.5">A not-for-profit initiative by Altitutor.</p>
+          <p class="email-muted" style="margin: 0; color: #52606a; font-size: 12px; line-height: 1.6">Need help? Email <a class="email-link" href="mailto:admin@altitutor.com" style="color: #0a2941">admin@altitutor.com</a>.</p>
+          <p class="email-muted" style="margin: 12px 0 0; color: #73808a; font-size: 11px; line-height: 1.5">&copy; __CURRENT_YEAR__ Altitutor.</p>
         </td></tr>
       </table>
     </td></tr></table>

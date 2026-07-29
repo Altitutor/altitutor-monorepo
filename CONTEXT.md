@@ -83,7 +83,7 @@
 - **Approval-required change** — A complete AI-proposed correction whose meaning or destructive effect requires staff judgment before it is applied. Staff approve the proposed change in one action rather than manually recreating the edit.
   _Avoid_: Manual edit, automatic fix, review note
 
-- **Manual-review flag** — An unresolved UCAT content concern that requires staff judgment because the reviewer cannot safely apply an automatic fix. A flag should carry a directly applicable proposed change when one can be produced and remains attached to imported content until resolved.
+- **Manual-review flag** — An unresolved UCAT content concern that requires staff judgment because the reviewer cannot safely apply an automatic fix. A flag should carry a directly applicable proposed change when one can be produced, remains attached to imported content until resolved, and prevents publication while it is current and unresolved.
   _Avoid_: AI failure, import blocker, warning
 
 - **Deterministic import gate** — A code-defined UCAT structure or completeness rule evaluated automatically against bulk-import content. Safe canonical repairs are applied automatically; an included item with an unresolved hard failure cannot be imported, although staff may continue through the wizard and resolve or exclude it before submission.
@@ -92,10 +92,10 @@
 - **Bulk-import exclusion** — A reversible decision to omit one candidate stem or question from the current bulk import. Exclusion changes only the import batch and never deletes matching content already stored by Altitutor.
   _Avoid_: Delete question, deselect, dismiss warning
 
-- **Duplicate candidate** — A non-deleted existing or same-batch UCAT stem or question that exactly matches or is highly similar to bulk-import content. Exact matches and possible near-copies remain distinct findings; draft, in-review, and published content are all eligible for comparison.
+- **Duplicate candidate** — A non-deleted existing or same-batch UCAT stem or question that exactly matches or is highly similar to bulk-import content. Exact matches and possible near-copies remain distinct advisory reconciliation findings; they never block import or publication, and draft, in-review, and published content are all eligible for comparison.
   _Avoid_: Proven duplicate, reconciliation pair, deleted-content match
 
-- **Shared-stem match** — A bulk-import stem whose passage or shared context matches existing or same-batch content while its question bundle differs. It is flagged for an explicit keep-or-exclude decision and is never automatically merged into existing content.
+- **Shared-stem match** — A bulk-import stem whose passage or shared context matches existing or same-batch content while its question bundle differs. It is an advisory reconciliation finding with keep-or-exclude actions, never an import or publication blocker, and is never automatically merged into existing content.
   _Avoid_: Complete duplicate, automatic merge, duplicate question
 
 - **UCAT question tag assignment** — The question-level classification selected from the valid taxonomy for its UCAT section. Bulk import preserves existing staff-selected tags, otherwise uses deterministic inference when available, and asks AI to assign tags only when deterministic inference returns none.

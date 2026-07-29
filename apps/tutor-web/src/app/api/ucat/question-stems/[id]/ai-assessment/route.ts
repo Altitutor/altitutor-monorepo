@@ -241,9 +241,6 @@ export async function PATCH(request: NextRequest, { params }: { params: { id: st
     return NextResponse.json({ error: 'Invalid assessment decision' }, { status: 400 })
   }
   const reason = body.reason?.trim() || null
-  if (body.decision === 'dismissed' && !reason) {
-    return NextResponse.json({ error: 'A reason is required when dismissing a finding' }, { status: 400 })
-  }
 
   const admin = getServiceRoleClient()
   const [{ data: run, error: runError }, snapshot, { data: staffId, error: staffError }] = await Promise.all([

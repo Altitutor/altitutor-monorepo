@@ -1,14 +1,19 @@
 import { readFileSync } from "node:fs";
 import { createServer } from "node:http";
-import { resolve } from "node:path";
+import { dirname, resolve } from "node:path";
 import vm from "node:vm";
 import ts from "typescript";
 
 const workspace = process.cwd();
 const port = Number(process.env.UCAT_EMAIL_PREVIEW_PORT || 4187);
 
+const moduleCache = new Map();
+
 function loadTypescriptModule(path, transform = (source) => source) {
-  const source = transform(readFileSync(resolve(workspace, path), "utf8"));
+  const absolutePath = resolve(workspace, path);
+  if (moduleCache.has(absolutePath)) return moduleCache.get(absolutePath);
+
+  const source = transform(readFileSync(absolutePath, "utf8"));
   const compiled = ts.transpileModule(source, {
     compilerOptions: {
       module: ts.ModuleKind.CommonJS,
@@ -16,11 +21,23 @@ function loadTypescriptModule(path, transform = (source) => source) {
     },
   }).outputText;
   const module = { exports: {} };
+  moduleCache.set(absolutePath, module.exports);
+  const localRequire = (specifier) => {
+    if (!specifier.startsWith(".")) {
+      throw new Error(`Preview loader cannot import ${specifier}`);
+    }
+    return loadTypescriptModule(resolve(dirname(absolutePath), specifier));
+  };
   vm.runInNewContext(compiled, {
     module,
     exports: module.exports,
+    require: localRequire,
     console,
     Date,
+    Intl,
+    URL,
+    URLSearchParams,
+    crypto,
     encodeURIComponent,
     Deno: {
       env: {
@@ -30,6 +47,7 @@ function loadTypescriptModule(path, transform = (source) => source) {
       },
     },
   });
+  moduleCache.set(absolutePath, module.exports);
   return module.exports;
 }
 
@@ -44,6 +62,9 @@ const lifecycle = loadTypescriptModule(
 
 const transactional = loadTypescriptModule(
   "supabase/functions/stripe-webhooks/shared/ucat-transactional-email.ts",
+);
+const transactionalDispatch = loadTypescriptModule(
+  "supabase/functions/ucat-transactional-email-dispatch/email.ts",
 );
 
 const candidate = {
@@ -95,6 +116,59 @@ previews.set("transactional-access-ended", {
   }),
 });
 
+previews.set("transactional-trial-ending", {
+  group: "Billing & account",
+  label: "Trial ending soon",
+  subject: "Your Altitutor UCAT Unlimited trial ends on 16 August 2026",
+  html: transactional.renderUcatTransactionalEmail({
+    previewText:
+      "Your Unlimited trial ends on 16 August. Review your estimated first payment.",
+    heading: "Your Unlimited trial ends soon",
+    bodyHtml:
+      `<p style="margin:0 0 16px;color:#394650;font-size:15px;line-height:1.7">Hi Alex,</p><p style="margin:0;color:#394650;font-size:15px;line-height:1.7">Your Altitutor UCAT Unlimited trial ends on <strong class="email-strong" style="color:#0a2941">16 August 2026</strong>. Your subscription will begin after the trial unless you cancel.</p>${transactional.renderUcatEmailPanel("<strong class=\"email-strong\" style=\"color:#0a2941\">Current estimated first payment: $39.00</strong><br>Your final payment may be lower if you earn more practice-day discounts before billing.")}${transactional.renderUcatEmailButton("https://ucat.altitutor.com/settings/plan/subscription?utm_source=altitutor&utm_medium=email&utm_campaign=ucat_trial_ending", "Review subscription")}`,
+  }),
+});
+
+const transactionalTemplates = [
+  ["public_interest_supported_access_received", "Supported access received"],
+  ["public_interest_online_tutoring_waitlist_received", "Tutoring waitlist received"],
+  ["referral_gift_received", "Friend received a gift"],
+  ["referral_access_gift_earned", "Free access reward earned"],
+  ["referral_billing_credit_earned", "Annual credit earned"],
+  ["referral_free_bill_earned", "Free bill earned"],
+  ["subscription_activated", "Unlimited activated"],
+  ["subscription_cancellation_scheduled", "Cancellation scheduled"],
+  ["subscription_cancellation_reversed", "Cancellation reversed"],
+  ["subscription_canceled", "Moved to Free"],
+];
+
+for (const [templateKey, label] of transactionalTemplates) {
+  const rendered = transactionalDispatch.renderTransactionalEmail({
+    id: `preview-${templateKey}`,
+    student_id: "preview-student",
+    recipient_email: "student@example.com",
+    template_key: templateKey,
+    event_key: `preview:${templateKey}`,
+    attempt_count: 1,
+    payload: {
+      first_name: "Alex",
+      referrer_name: "Brian",
+      duration_interval: "month",
+      expires_at: "2026-08-16T00:00:00+09:30",
+      amount_off_cents: 4900,
+      trial_end: "2026-08-16T00:00:00+09:30",
+      cancel_at: "2026-08-30T00:00:00+09:30",
+      action_path: "/settings/plan/subscription",
+    },
+  });
+  previews.set(`transactional-${templateKey}`, {
+    group: templateKey.startsWith("referral_") ? "Referrals" : "Billing & account",
+    label,
+    subject: rendered.subject,
+    html: rendered.html,
+  });
+}
+
 const authTemplates = [
   ["confirmation", "Confirm signup"],
   ["recovery", "Reset password"],
@@ -107,10 +181,13 @@ const authTemplates = [
 for (const [file, label] of authTemplates) {
   const source = readFileSync(resolve(workspace, `supabase/templates/${file}.html`), "utf8")
     .replaceAll("{{ .ConfirmationURL }}", "https://ucat.altitutor.com/auth/callback?token=preview")
+    .replaceAll("{{ .RedirectTo }}", "https://ucat.altitutor.com/auth/reset-password")
+    .replaceAll("{{ .TokenHash }}", "preview-token-hash")
     .replaceAll("{{ .SiteURL }}", "https://ucat.altitutor.com")
     .replaceAll("{{ .Email }}", "student@example.com")
     .replaceAll("{{ .NewEmail }}", "alex.new@example.com")
-    .replaceAll("{{ .Token }}", "123456");
+    .replaceAll("{{ .Token }}", "123456")
+    .replaceAll("__CURRENT_YEAR__", String(new Date().getUTCFullYear()));
   previews.set(`auth-${file}`, {
     group: "Account access",
     label,
@@ -127,9 +204,26 @@ function escapeHtml(value) {
     .replaceAll('"', "&quot;");
 }
 
+function forceDarkTheme(html) {
+  const css = `<style id="preview-dark-theme">
+    body,.email-page,.email-bg{background-color:#071923!important}
+    .email-card,.email-content{background-color:#102630!important;border-color:#35505b!important}
+    .email-heading,.email-title,.email-strong{color:#f2f0e9!important}
+    .email-copy,.email-copy p,.email-copy li{color:#d7e1e4!important}
+    .email-panel,.email-footer{background-color:#17333e!important;border-color:#35505b!important}
+    .email-module-surface{background-color:#102630!important;border-color:#35505b!important}
+    .email-panel-copy,.email-panel-copy p,.email-panel-copy td,.email-footer p,.email-footer a{color:#d7e1e4!important}
+    .email-muted{color:#aebdc3!important}.email-link,.email-footer-title{color:#c9e2ea!important}
+    .email-button-cell,.email-button{background-color:#63c9a8!important}.email-button{color:#071923!important}
+  </style>`;
+  return html.includes("</head>")
+    ? html.replace("</head>", `${css}</head>`)
+    : `${css}${html}`;
+}
+
 function gallery() {
   const groups = Map.groupBy([...previews.entries()], ([, preview]) => preview.group);
-  return `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>Altitutor UCAT email previews</title><style>body{margin:0;background:#f2f0e9;color:#1a1a1a;font:15px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}main{max-width:980px;margin:auto;padding:56px 24px}h1{margin:0;color:#0a2941;font-size:36px;letter-spacing:-1px}p{color:#52606a}.group{margin-top:42px}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:14px}.card{display:block;border:1px solid #d5dee1;border-radius:14px;background:white;padding:20px;color:inherit;text-decoration:none;box-shadow:0 7px 24px rgba(10,41,65,.05)}.card:hover{border-color:#92b9c6;transform:translateY(-1px)}.tag{font:11px ui-monospace,monospace;text-transform:uppercase;letter-spacing:.12em;color:#527487}.subject{margin-top:9px;font-weight:700;color:#0a2941}</style></head><body><main><p class="tag">Local review tool</p><h1>Altitutor UCAT emails</h1><p>These previews render from the same lifecycle and authentication templates used by the product. No email is sent.</p>${[...groups.entries()].map(([group, items]) => `<section class="group"><h2>${escapeHtml(group)}</h2><div class="grid">${items.map(([key, item]) => `<a class="card" href="/preview/${encodeURIComponent(key)}" target="_blank"><span class="tag">${escapeHtml(item.label)}</span><div class="subject">${escapeHtml(item.subject)}</div></a>`).join("")}</div></section>`).join("")}</main></body></html>`;
+  return `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>Altitutor UCAT email previews</title><style>body{margin:0;background:#f2f0e9;color:#1a1a1a;font:15px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}main{max-width:980px;margin:auto;padding:56px 24px}h1{margin:0;color:#0a2941;font-size:36px;letter-spacing:-1px}p{color:#52606a}.group{margin-top:42px}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:14px}.card{display:block;border:1px solid #d5dee1;border-radius:14px;background:white;padding:20px;color:inherit;text-decoration:none;box-shadow:0 7px 24px rgba(10,41,65,.05)}.card:hover{border-color:#92b9c6;transform:translateY(-1px)}.tag{font:11px ui-monospace,monospace;text-transform:uppercase;letter-spacing:.12em;color:#527487}.subject{margin-top:9px;font-weight:700;color:#0a2941}.links{display:flex;gap:12px;margin-top:12px}.links a{font-size:12px;color:#0a2941}</style></head><body><main><p class="tag">Local review tool</p><h1>Altitutor UCAT emails</h1><p>These previews render from the same lifecycle, transactional and authentication templates used by the product. No email is sent.</p>${[...groups.entries()].map(([group, items]) => `<section class="group"><h2>${escapeHtml(group)}</h2><div class="grid">${items.map(([key, item]) => `<article class="card"><span class="tag">${escapeHtml(item.label)}</span><div class="subject">${escapeHtml(item.subject)}</div><div class="links"><a href="/preview/${encodeURIComponent(key)}" target="_blank">Light</a><a href="/preview/${encodeURIComponent(key)}?theme=dark" target="_blank">Dark emulation</a></div></article>`).join("")}</div></section>`).join("")}</main></body></html>`;
 }
 
 const server = createServer((request, response) => {
@@ -143,7 +237,11 @@ const server = createServer((request, response) => {
     const preview = previews.get(decodeURIComponent(url.pathname.slice("/preview/".length)));
     if (preview) {
       response.writeHead(200, { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-store" });
-      response.end(preview.html);
+      response.end(
+        url.searchParams.get("theme") === "dark"
+          ? forceDarkTheme(preview.html)
+          : preview.html,
+      );
       return;
     }
   }

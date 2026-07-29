@@ -439,6 +439,9 @@ export function PotentialDuplicatesReconciliationDialog({
                     }
                     onClick={() => setPendingMergeDirection("B-into-A")}
                     disabled={mergePending}
+                    {...(suggestedMergeDirection === "B-into-A"
+                      ? { "data-dialog-primary-action": "" }
+                      : {})}
                   >
                     <Merge className="mr-2 h-4 w-4" />
                     Merge B into A
@@ -460,6 +463,9 @@ export function PotentialDuplicatesReconciliationDialog({
                     }
                     onClick={() => setPendingMergeDirection("A-into-B")}
                     disabled={mergePending}
+                    {...(suggestedMergeDirection === "A-into-B"
+                      ? { "data-dialog-primary-action": "" }
+                      : {})}
                   >
                     <Merge className="mr-2 h-4 w-4" />
                     Merge A into B
@@ -521,6 +527,9 @@ export function PotentialDuplicatesReconciliationDialog({
                 className={tutorBtnPrimary}
                 onClick={() => onOpenChange(false)}
                 disabled={deleteMutation.isPending}
+                {...(current?.recommendation === "merge"
+                  ? {}
+                  : { "data-dialog-primary-action": "" })}
               >
                 Done
               </Button>

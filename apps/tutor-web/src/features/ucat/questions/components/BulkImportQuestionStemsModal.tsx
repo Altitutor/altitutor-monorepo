@@ -76,7 +76,6 @@ import {
 } from '@/features/ucat/questions/components/bulk-import/bulkImportBulkAnswers'
 import { filterTagsForImportSection } from '@/features/ucat/shared/lib/taxonomy-reparent'
 import { mapCategoriesToOptions, mapTagsToOptions } from '@/features/ucat/shared/lib/taxonomy-paths'
-import { findMissingExplanations } from '@/features/ucat/questions/lib/ai-tools'
 import {
   StepStemCategories,
   everyStemHasCategory,
@@ -89,10 +88,13 @@ import {
 import { UcatRichTextToolbar } from '@/features/ucat/shared/components/UcatRichTextToolbar'
 import { BulkImportFormattingWarnings } from '@/features/ucat/questions/components/bulk-import/BulkImportFormattingWarnings'
 import { lintBulkImportFormatting } from '@/features/ucat/questions/components/bulk-import/bulkImportFormattingLint'
+import type { BulkImportAiReviewSubmission } from '@/features/ucat/questions/lib/bulk-import-ai-review'
+import { useBulkImportReviewController } from '@/features/ucat/questions/hooks/useBulkImportReviewController'
 
 export type BulkImportSubmitArgs = {
   sectionId: string
-  stems: UcatQuestionStemFormValues[]
+  stems: BulkImportStemDraft[]
+  aiReviews?: BulkImportAiReviewSubmission[]
   tutorSourceNote: string | null
   addToSet: AddToSetConfig | null
 }
@@ -109,15 +111,6 @@ type PendingConfirm =
   | { type: 'back_to_stems' }
   | { type: 'close_modal' }
   | null
-
-function summarizeBulkImportMissingExplanations(stems: BulkImportStemDraft[]) {
-  const targets = stems.flatMap((stem, stemIndex) => findMissingExplanations(stem.values, stemIndex))
-  if (targets.length === 0) return null
-  const questions = new Set(targets.map((target) => `${target.stemIndex ?? 0}-${target.questionIndex}`))
-  return `${questions.size} question${questions.size === 1 ? '' : 's'} still ${
-    questions.size === 1 ? 'needs' : 'need'
-  } explanation text before you can continue. Multiple-choice questions need a question-level explanation; syllogism questions need every answer option explained. Use "Generate missing explanations" or expand the row and type the missing explanation.`
-}
 
 export function BulkImportQuestionStemsModal({
   open,
@@ -234,6 +227,12 @@ export function BulkImportQuestionStemsModal({
 
   const totalStepsResolved = getBulkImportTotalSteps(separateStemDocument, includeSyllogismManualStep)
   const stepKind = getBulkImportStepKind(step, separateStemDocument, includeSyllogismManualStep)
+  const reviewController = useBulkImportReviewController({
+    stems: wizard.state.stems,
+    sections,
+    categories: categoryOptions,
+    onUpdateStem: wizard.updateStemForm,
+  })
 
   const wipeDownstreamFromStems = useCallback(() => {
     setParsedStemTexts([])
@@ -241,8 +240,9 @@ export function BulkImportQuestionStemsModal({
     setPastedAnswersJson(null)
     setSyllogismManualTargets([])
     setSyllogismManualStepIncluded(false)
+    reviewController.resetReview()
     wizard.reset()
-  }, [wizard])
+  }, [reviewController, wizard])
 
   const wipeDownstreamFull = useCallback(() => {
     setPastedContent(null)
@@ -288,6 +288,7 @@ export function BulkImportQuestionStemsModal({
     setSyllogismManualStepIncluded(false)
     setActiveTextEditor(null)
     step2NewImageFileIdsRef.current = new Set()
+    reviewController.resetReview()
     wizard.reset()
     // eslint-disable-next-line react-hooks/exhaustive-deps -- reset only when modal closes
   }, [open])
@@ -297,6 +298,21 @@ export function BulkImportQuestionStemsModal({
       setActiveTextEditor(null)
     }
   }, [stepKind])
+
+  useEffect(() => {
+    if (
+      stepKind === 'review'
+      && wizard.state.stems.length > 0
+      && !reviewController.hasDuplicateAnalysisRun
+      && reviewController.duplicateStatus !== 'running'
+    ) {
+      void reviewController.runDuplicateAnalysis()
+    }
+  }, [
+    reviewController,
+    stepKind,
+    wizard.state.stems.length,
+  ])
 
   const handleStep2ImageFileIds = useCallback((fileIds: string[]) => {
     fileIds.forEach((id) => step2NewImageFileIdsRef.current.add(id))
@@ -501,10 +517,12 @@ export function BulkImportQuestionStemsModal({
         setParseError(
           `No valid stems and questions were detected. Please check the formatting.${ocrMessage}`
         )
+        reviewController.resetReview()
         wizard.setStems([])
         setSyllogismManualTargets([])
         return { ok: false }
       }
+      reviewController.resetReview()
       const drafts = wizard.setStems(forms)
       const manualTargets = collectSyllogismManualEntryTargets(drafts)
       setSyllogismManualTargets(manualTargets)
@@ -523,6 +541,7 @@ export function BulkImportQuestionStemsModal({
       setParseError(
         error instanceof Error ? error.message : 'Failed to parse the pasted document.'
       )
+      reviewController.resetReview()
       wizard.setStems([])
       return { ok: false }
     }
@@ -542,14 +561,17 @@ export function BulkImportQuestionStemsModal({
       )
       if (forms.length === 0) {
         setParseError('No valid stems and questions were detected.')
+        reviewController.resetReview()
         wizard.setStems([])
         return { ok: false }
       }
+      reviewController.resetReview()
       const drafts = wizard.setStems(forms)
       setParseError(null)
       return { ok: true, drafts }
     } catch (error) {
       setParseError(error instanceof Error ? error.message : 'Failed to parse per-stem questions.')
+      reviewController.resetReview()
       wizard.setStems([])
       return { ok: false }
     }
@@ -619,14 +641,7 @@ export function BulkImportQuestionStemsModal({
       setParseError(null)
     }
 
-    if (stepKind === 'review') {
-      const missingExplanationMessage = summarizeBulkImportMissingExplanations(wizard.state.stems)
-      if (missingExplanationMessage) {
-        setParseError(missingExplanationMessage)
-        return
-      }
-      setParseError(null)
-    }
+    if (stepKind === 'review') setParseError(null)
 
     setStep((current) => (current < totalStepsResolved - 1 ? current + 1 : current))
   }
@@ -674,8 +689,14 @@ export function BulkImportQuestionStemsModal({
 
   async function handleImportAll() {
     if (!sectionId) return
-    if (wizard.state.stems.length === 0) {
+    if (reviewController.includedStems.length === 0) {
       setParseError('No parsed stems available to import.')
+      return
+    }
+    if (reviewController.hasHardFailures) {
+      setParseError(
+        'Resolve or exclude the deterministic gate failures before importing. AI review remains optional.'
+      )
       return
     }
     if (addToSetEnabled && !addToSetConfig) {
@@ -701,12 +722,35 @@ export function BulkImportQuestionStemsModal({
     }
 
     try {
+      if (reviewController.aiStatus === 'running') reviewController.cancelAiReview()
       setStatus('submitting')
       setSubmitError(null)
-      const stemsToSubmit = wizard.state.stems.map((stem) => stem.values)
+      const aiReviews = reviewController.includedStems.flatMap((stem) => {
+        if (reviewController.staleAiStemIds.has(stem.id)) return []
+        const result = reviewController.aiResultsByStemId[stem.id]
+        if (
+          !result
+          || result.error
+          || !result.fingerprints
+          || !result.assessment
+          || !result.blindSolution
+        ) return []
+        return [{
+          draftStemId: stem.id,
+          promptVersion: result.promptVersion,
+          fingerprints: result.fingerprints,
+          assessment: result.assessment,
+          blindSolution: result.blindSolution,
+          provenance: result.provenance,
+          decisions: (reviewController.keptFindingKeysByStemId[stem.id] ?? []).map(
+            (findingKey) => ({ findingKey, decision: 'dismissed' as const })
+          ),
+        } satisfies BulkImportAiReviewSubmission]
+      })
       await onSubmit({
         sectionId,
-        stems: stemsToSubmit,
+        stems: reviewController.includedStems,
+        aiReviews,
         tutorSourceNote: tutorSourceNote.trim() || null,
         addToSet: addToSetEnabled ? addToSetConfig : null,
       })
@@ -909,19 +953,29 @@ export function BulkImportQuestionStemsModal({
           onNewImageFileIds={handleStep2ImageFileIds}
           sourceChannel="bulk_import"
           onActiveTextEditorChange={setActiveTextEditor}
+          reviewController={reviewController}
         />
       )
     }
 
     if (stepKind === 'create_set') {
       return (
-        <Step4CreateSet
-          addToSetEnabled={addToSetEnabled}
-          onAddToSetEnabledChange={setAddToSetEnabled}
-          addToSetConfig={addToSetConfig}
-          onAddToSetConfigChange={setAddToSetConfig}
-          onEditSet={onEditSet}
-        />
+        <div className="space-y-4">
+          <Step4CreateSet
+            addToSetEnabled={addToSetEnabled}
+            onAddToSetEnabledChange={setAddToSetEnabled}
+            addToSetConfig={addToSetConfig}
+            onAddToSetConfigChange={setAddToSetConfig}
+            onEditSet={onEditSet}
+          />
+          {reviewController.hasHardFailures ? (
+            <div className="rounded-md border border-destructive/40 bg-destructive/5 px-3 py-2 text-sm text-destructive">
+              {reviewController.hardFailures.length} deterministic gate{' '}
+              {reviewController.hardFailures.length === 1 ? 'failure must' : 'failures must'} be
+              fixed or excluded before import. Go back to Review to use the Fix actions.
+            </div>
+          ) : null}
+        </div>
       )
     }
 
@@ -1098,7 +1152,8 @@ export function BulkImportQuestionStemsModal({
                 onClick={handleImportAll}
                 disabled={
                   status === 'submitting' ||
-                  wizard.state.stems.length === 0 ||
+                  reviewController.includedStems.length === 0 ||
+                  reviewController.hasHardFailures ||
                   (addToSetEnabled && !addToSetConfig) ||
                   (addToSetEnabled &&
                     addToSetConfig?.mode === 'create' &&
@@ -1110,7 +1165,7 @@ export function BulkImportQuestionStemsModal({
                       addToSetConfig.timeLimitSeconds <= 0))
                 }
               >
-                Import all stems
+                {reviewController.aiStatus === 'running' ? 'Import without waiting' : 'Import stems'}
               </Button>
             ) : (
               <Button onClick={handleRequestClose}>Close</Button>

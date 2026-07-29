@@ -1,6 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
+import type { Database } from '@altitutor/shared'
+import type { SupabaseClient } from '@supabase/supabase-js'
 import { requireUcatTutor, type UcatTutorSupabaseClient } from '@/features/ucat/shared/server/guard'
+import {
+  BulkImportAiReviewSubmissionSchema,
+  persistFreshBulkImportAiReviews,
+  type BulkImportAiReviewPersistenceResult,
+} from '@/features/ucat/questions/server/ai-assessment/bulk-import-review-persistence'
 
 const SerializedAnswerOptionSchema = z.object({
   id: z.string().uuid().nullable().optional(),
@@ -41,6 +48,7 @@ const SerializedStemSchema = z.object({
 const BulkImportBodySchema = z.object({
   sectionId: z.string().uuid(),
   stems: z.array(SerializedStemSchema).min(1),
+  aiReviews: z.array(BulkImportAiReviewSubmissionSchema).max(200).optional().default([]),
 })
 
 export async function POST(request: NextRequest) {
@@ -66,7 +74,7 @@ export async function POST(request: NextRequest) {
 
   const client = access.userClient as unknown as UcatTutorSupabaseClient
 
-  const { sectionId, stems } = parsedBody
+  const { sectionId, stems, aiReviews } = parsedBody
 
   // Normalize answer_explanation: never send the string "null" to the DB (use actual null).
   const normalizedStems = stems.map((stem) => ({
@@ -114,5 +122,25 @@ export async function POST(request: NextRequest) {
     }
   }
 
-  return NextResponse.json({ ids })
+  let aiReviewPersistence: BulkImportAiReviewPersistenceResult | undefined
+  if (aiReviews.length > 0) {
+    try {
+      aiReviewPersistence = await persistFreshBulkImportAiReviews({
+        reviews: aiReviews,
+        importedStemIds: ids,
+        userClient: access.userClient as unknown as SupabaseClient<Database>,
+      })
+    } catch (reviewError) {
+      console.error('Could not initialize bulk-import AI review persistence', reviewError)
+      aiReviewPersistence = {
+        persistedStemIds: [],
+        skipped: aiReviews.map((review) => ({
+          stemId: review.draftStemId,
+          reason: 'persistence_failed',
+        })),
+      }
+    }
+  }
+
+  return NextResponse.json({ ids, ...(aiReviewPersistence ? { aiReviewPersistence } : {}) })
 }

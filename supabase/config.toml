@@ -338,6 +338,12 @@ verify_jwt = true
 [functions.ucat-lifecycle-emails]
 verify_jwt = false
 
+[functions.ucat-transactional-email-dispatch]
+verify_jwt = false
+
+[functions.resend-webhooks]
+verify_jwt = false
+
 [analytics]
 enabled = true
 port = 55327

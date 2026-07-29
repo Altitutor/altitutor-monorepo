@@ -9,6 +9,7 @@ import {
   handleModalInteractOutside,
   useModalNativeDateTimeFocusGuards,
 } from "../lib/modal-interact-outside"
+import { useDialogPrimaryActionShortcut } from "../hooks/use-dialog-primary-action-shortcut"
 import "../styles/dialog-bottom-sheet.css"
 
 const Dialog = DialogPrimitive.Root
@@ -44,19 +45,24 @@ interface DialogContentProps
   extends React.ComponentPropsWithoutRef<typeof DialogPrimitive.Content> {
   hideCloseButton?: boolean;
   mobilePresentation?: "fullscreen" | "bottom-sheet";
+  /** When false, Cmd/Ctrl+Enter will not activate the primary footer action. */
+  primaryShortcut?: boolean;
 }
 
 const DialogContent = React.forwardRef<
   React.ElementRef<typeof DialogPrimitive.Content>,
   DialogContentProps
->(({ className, children, hideCloseButton = false, mobilePresentation = "fullscreen", ...props }, ref) => {
+>(({ className, children, hideCloseButton = false, mobilePresentation = "fullscreen", primaryShortcut = true, ...props }, ref) => {
   const setDateTimeFocusRef = useModalNativeDateTimeFocusGuards<HTMLDivElement>();
+  const contentRef = React.useRef<HTMLDivElement | null>(null);
+  useDialogPrimaryActionShortcut(contentRef, primaryShortcut);
   const handleInteractOutside = React.useCallback((e: Event) => {
     handleModalInteractOutside(e);
   }, []);
 
   const mergedRef = React.useCallback(
     (node: HTMLDivElement | null) => {
+      contentRef.current = node;
       setDateTimeFocusRef(node);
       if (typeof ref === 'function') {
         ref(node);
@@ -78,6 +84,7 @@ const DialogContent = React.forwardRef<
       <DialogPrimitive.Content
         ref={mergedRef}
         data-slot="dialog-content"
+        data-primary-shortcut={primaryShortcut ? undefined : "off"}
         data-mobile-bottom-sheet={isBottomSheet ? "true" : undefined}
         className={cn(
           "fixed z-50 gap-4 overflow-x-hidden border bg-background p-4",

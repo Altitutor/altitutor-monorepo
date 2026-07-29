@@ -65,6 +65,40 @@ const ACTIVE_SUBSCRIPTION_STATUSES = new Set([
   "past_due",
 ]);
 
+async function queueUcatTransactionalEmail(
+  supabase: SupabaseClient,
+  input: {
+    studentId: string;
+    template:
+      | "subscription_activated"
+      | "subscription_cancellation_scheduled"
+      | "subscription_cancellation_reversed"
+      | "subscription_canceled";
+    eventKey: string;
+    payload?: Record<string, unknown>;
+  },
+): Promise<void> {
+  const { error } = await supabase.rpc(
+    "queue_ucat_student_transactional_email",
+    {
+      p_student_id: input.studentId,
+      p_template_key: input.template,
+      p_event_key: input.eventKey,
+      p_payload: {
+        action_path: input.template === "subscription_activated"
+          ? "/study-plan"
+          : "/settings/plan/subscription",
+        ...(input.payload ?? {}),
+      },
+    },
+  );
+  if (error) {
+    throw new Error(
+      `Could not queue ${input.template} email: ${error.message}`,
+    );
+  }
+}
+
 async function handleUcatFailedBillingTerminalState(
   supabase: SupabaseClient,
   stripe: Stripe,
@@ -1295,6 +1329,7 @@ Deno.serve(async (req: Request) => {
             const referralGiftId =
               session.metadata?.ucat_referral_gift_id ??
               subscription.metadata?.ucat_referral_gift_id;
+            let activationAllowed = true;
 
             if (referralGiftKind === "recipient" && customerId) {
               const defaultPaymentMethod = subscription.default_payment_method;
@@ -1323,6 +1358,7 @@ Deno.serve(async (req: Request) => {
                 studentId,
               );
               if (referralResult === "rejected") {
+                activationAllowed = false;
                 await stripe.subscriptions.cancel(subscription.id, {
                   prorate: false,
                 });
@@ -1354,6 +1390,19 @@ Deno.serve(async (req: Request) => {
                   `ucat:referral:access-gift:${referralGiftId}`,
                 )
                 .is("resolved_at", null);
+            }
+            if (activationAllowed) {
+              await queueUcatTransactionalEmail(supabase, {
+                studentId,
+                template: "subscription_activated",
+                eventKey: `stripe:${event.id}:subscription-activated`,
+                payload: {
+                  stripe_subscription_id: subscription.id,
+                  trial_end: subscription.trial_end
+                    ? new Date(subscription.trial_end * 1000).toISOString()
+                    : null,
+                },
+              });
             }
             console.log(
               "[webhook] UCAT subscription provisioned for student",
@@ -1440,7 +1489,7 @@ Deno.serve(async (req: Request) => {
         const { data: existing } = await supabase
           .from("student_subscriptions")
           .select(
-            "id, student_id, subject_id, status, plan_tier, billing_recovery_invoice_id",
+            "id, student_id, subject_id, status, plan_tier, billing_recovery_invoice_id, cancel_at_period_end, cancel_at",
           )
           .eq("stripe_subscription_id", subscription.id)
           .maybeSingle();
@@ -1497,6 +1546,37 @@ Deno.serve(async (req: Request) => {
             updated_at: new Date().toISOString(),
           })
           .eq("stripe_subscription_id", subscription.id);
+
+        const ucatSubjectId = await getUcatSubjectId(supabase);
+        if (ucatSubjectId && existing.subject_id === ucatSubjectId) {
+          const cancellation = subscriptionCancelFields(subscription);
+          if (
+            !existing.cancel_at_period_end &&
+            cancellation.cancel_at_period_end &&
+            cancellation.cancel_at
+          ) {
+            await queueUcatTransactionalEmail(supabase, {
+              studentId: existing.student_id,
+              template: "subscription_cancellation_scheduled",
+              eventKey: `stripe:${event.id}:cancellation-scheduled`,
+              payload: {
+                stripe_subscription_id: subscription.id,
+                cancel_at: cancellation.cancel_at,
+              },
+            });
+          } else if (
+            existing.cancel_at_period_end &&
+            !cancellation.cancel_at_period_end &&
+            ACTIVE_SUBSCRIPTION_STATUSES.has(subscription.status)
+          ) {
+            await queueUcatTransactionalEmail(supabase, {
+              studentId: existing.student_id,
+              template: "subscription_cancellation_reversed",
+              eventKey: `stripe:${event.id}:cancellation-reversed`,
+              payload: { stripe_subscription_id: subscription.id },
+            });
+          }
+        }
 
         if (
           subscription.status === "unpaid" &&
@@ -1558,6 +1638,12 @@ Deno.serve(async (req: Request) => {
                 stripe,
                 endedSub.student_id,
               );
+              await queueUcatTransactionalEmail(supabase, {
+                studentId: endedSub.student_id,
+                template: "subscription_canceled",
+                eventKey: `stripe:${event.id}:subscription-canceled`,
+                payload: { stripe_subscription_id: subscription.id },
+              });
             }
           }
         }

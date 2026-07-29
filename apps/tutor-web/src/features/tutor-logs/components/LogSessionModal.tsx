@@ -2,13 +2,14 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import type { Tables } from '@altitutor/shared';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@altitutor/ui';
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogDescription } from '@altitutor/ui';
 import { Button, SearchableSelect } from '@altitutor/ui';
 import { ChevronLeft, ChevronRight, X } from 'lucide-react';
 import {
   ExpandButton,
   EXPANDABLE_DIALOG_TRANSITION,
   EXPANDED_DIALOG_CONTENT_CLASS,
+  WIZARD_DIALOG_HEIGHT_CLASS,
 } from '@/shared/components/expandable-dialog';
 import { cn } from '@/shared/utils';
 import {
@@ -404,10 +405,10 @@ export function LogSessionModal({
     <Dialog open={isOpen} onOpenChange={submissionState === 'success' ? handleClose : onClose}>
       <DialogContent
         className={cn(
-          'flex h-[90vh] w-full flex-col gap-0 p-0 md:max-w-4xl [&>button]:hidden',
+          'flex w-full flex-col gap-0 overflow-hidden p-0 md:max-w-4xl [&>button]:hidden',
           tutorDialogContentClass,
           EXPANDABLE_DIALOG_TRANSITION,
-          expanded && EXPANDED_DIALOG_CONTENT_CLASS,
+          expanded ? EXPANDED_DIALOG_CONTENT_CLASS : WIZARD_DIALOG_HEIGHT_CLASS,
         )}
       >
         {/* Header */}
@@ -463,11 +464,11 @@ export function LogSessionModal({
           </div>
         </div>
 
-        <div className={cn('flex justify-between px-6 py-4', tutorDialogFooterStrip)}>
+        <DialogFooter className={cn('flex-shrink-0 flex-row justify-between px-6 py-4 sm:justify-between', tutorDialogFooterStrip)}>
           {submissionState === 'success' ? (
             <>
               <div></div>
-              <Button className={tutorBtnPrimary} onClick={handleClose}>
+              <Button className={tutorBtnPrimary} onClick={handleClose} data-dialog-primary-action="">
                 Close
               </Button>
             </>
@@ -476,7 +477,7 @@ export function LogSessionModal({
               <Button variant="outline" className={tutorBtnOutline} onClick={() => setSubmissionState('idle')}>
                 Try Again
               </Button>
-              <Button className={tutorBtnPrimary} onClick={onClose}>
+              <Button className={tutorBtnPrimary} onClick={onClose} data-dialog-primary-action="">
                 Close
               </Button>
             </>
@@ -487,13 +488,19 @@ export function LogSessionModal({
                 className={tutorBtnOutline}
                 onClick={handlePrevious}
                 disabled={currentStep === 0}
+                data-dialog-cancel=""
               >
                 <ChevronLeft className="mr-2 h-4 w-4" />
                 Previous
               </Button>
 
               {currentStep < totalSteps - 1 ? (
-                <Button className={tutorBtnPrimary} onClick={handleNext} disabled={!canGoNext()}>
+                <Button
+                  className={tutorBtnPrimary}
+                  onClick={handleNext}
+                  disabled={!canGoNext()}
+                  data-dialog-primary-action=""
+                >
                   Next
                   <ChevronRight className="ml-2 h-4 w-4" />
                 </Button>
@@ -502,13 +509,14 @@ export function LogSessionModal({
                   className={tutorBtnPrimary}
                   onClick={handleSubmit}
                   disabled={submissionState === 'submitting' || !canGoNext()}
+                  data-dialog-primary-action=""
                 >
                   {submissionState === 'submitting' ? 'Submitting...' : 'Submit Log'}
                 </Button>
               )}
             </>
           )}
-        </div>
+        </DialogFooter>
       </DialogContent>
     </Dialog>
   );
