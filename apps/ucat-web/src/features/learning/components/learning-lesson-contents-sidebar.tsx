@@ -23,7 +23,6 @@ type LearningLessonContentsSidebarProps = {
   activeIndex: number;
   completionPercent: number;
   isLessonComplete: boolean;
-  canAccessBlock: (index: number) => boolean;
   isBlockComplete: (block: LearningModuleBlockRow) => boolean;
   onSelectBlock: (index: number) => void;
   onMarkBlockComplete: (blockId: string) => void;
@@ -38,7 +37,6 @@ export function LearningLessonContentsSidebar({
   activeIndex,
   completionPercent,
   isLessonComplete,
-  canAccessBlock,
   isBlockComplete,
   onSelectBlock,
   onMarkBlockComplete,
@@ -100,7 +98,6 @@ export function LearningLessonContentsSidebar({
         </CardHeader>
         <CardContent className="space-y-1">
           {blocks.map((block, index) => {
-            const locked = !canAccessBlock(index);
             const complete = isBlockComplete(block);
             const manualComplete = canManuallyCompleteBlock(block);
             const isActive = index === activeIndex;
@@ -111,20 +108,15 @@ export function LearningLessonContentsSidebar({
                 className={cn(
                   "group flex items-center gap-2 rounded-md px-2 py-1.5",
                   isActive && "bg-muted/70",
-                  locked && "opacity-50",
                 )}
               >
                 <button
                   type="button"
-                  disabled={locked}
-                  onClick={() => {
-                    if (!locked) onSelectBlock(index);
-                  }}
+                  onClick={() => onSelectBlock(index)}
                   className={cn(
                     "min-w-0 flex-1 text-left text-sm text-muted-foreground transition-colors",
                     isActive && "text-foreground",
-                    locked ? "cursor-not-allowed" : "cursor-pointer",
-                    !locked && "hover:text-foreground",
+                    "cursor-pointer hover:text-foreground",
                   )}
                 >
                   <span className="line-clamp-2">
@@ -140,7 +132,7 @@ export function LearningLessonContentsSidebar({
                         ? "Block complete"
                         : `Mark block ${index + 1} complete`
                     }
-                    disabled={complete || locked}
+                    disabled={complete}
                     onClick={() => onMarkBlockComplete(block.id!)}
                     className={cn(
                       "inline-flex size-5 shrink-0 items-center justify-center rounded-full text-muted-foreground/60 transition-[color,opacity]",

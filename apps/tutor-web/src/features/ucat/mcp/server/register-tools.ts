@@ -1,4 +1,10 @@
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
+import type {
+  CallToolResult,
+  ImageContent,
+} from '@modelcontextprotocol/sdk/types.js'
+import type { SupabaseClient } from '@supabase/supabase-js'
+import type { Database } from '@altitutor/shared'
 import { z } from 'zod'
 import { createUcatMcpSupabaseClient } from '@/features/ucat/mcp/server/auth'
 import {
@@ -40,9 +46,11 @@ import {
   updateUcatMcpQuestionStem,
 } from '@/features/ucat/mcp/server/service'
 import {
+  createMcpImageContentFromDataUri,
   generateUcatMcpImage,
   getUcatMcpFile,
   reviseUcatMcpImage,
+  type UcatMcpFileResult,
 } from '@/features/ucat/mcp/server/media'
 import {
   GenerateBodySchema,
@@ -54,7 +62,6 @@ import { generatedVisualBlockToImageNodeServer } from '@/features/ucat/questions
 import {
   acceptUcatMcpAssessmentSuggestion,
   addUcatMcpAuditTargets,
-  applyUcatMcpPendingChange,
   applyUcatMcpPendingChanges,
   applyUcatMcpPublishedOperations,
   cancelUcatMcpAuditRun,
@@ -81,6 +88,13 @@ const ImageNodeOutputSchema = z.object({
     fileId: z.string().uuid(),
   }).passthrough(),
 })
+const RenderedImageNodeOutputSchema = z.object({
+  type: z.literal('image'),
+  attrs: z.object({
+    src: z.string(),
+    alt: z.string(),
+  }).passthrough(),
+})
 const StoredImageOutputSchema = z.object({
   fileId: z.string().uuid(),
   signedUrl: z.string(),
@@ -88,7 +102,10 @@ const StoredImageOutputSchema = z.object({
   imageNode: ImageNodeOutputSchema,
 }).passthrough()
 
-function jsonResult(value: unknown) {
+function jsonResult(
+  value: unknown,
+  additionalContent: ImageContent[] = [],
+): CallToolResult {
   const structuredContent = value && typeof value === 'object' && !Array.isArray(value)
     ? value as Record<string, unknown>
     : Array.isArray(value)
@@ -100,12 +117,13 @@ function jsonResult(value: unknown) {
         type: 'text' as const,
         text: JSON.stringify(value, null, 2),
       },
+      ...additionalContent,
     ],
     structuredContent,
   }
 }
 
-function errorResult(error: unknown) {
+function errorResult(error: unknown): CallToolResult {
   return {
     content: [
       {
@@ -120,12 +138,88 @@ function errorResult(error: unknown) {
 async function executeTool<T>(
   token: string | undefined,
   operation: (client: ReturnType<typeof createUcatMcpSupabaseClient>) => Promise<T>,
-) {
+  result: (value: T) => CallToolResult = jsonResult,
+  createClient: (token: string) => ReturnType<typeof createUcatMcpSupabaseClient> =
+    createUcatMcpSupabaseClient,
+): Promise<CallToolResult> {
   if (!token) return errorResult(new Error('Authenticated Supabase OAuth token required'))
   try {
-    return jsonResult(await operation(createUcatMcpSupabaseClient(token)))
+    return result(await operation(createClient(token)))
   } catch (error) {
     return errorResult(error)
+  }
+}
+
+export type UcatMcpProfile = 'authoring' | 'production-maintenance'
+
+type UcatMcpToolDependencies = {
+  profile?: UcatMcpProfile
+  createClient?: (token: string) => SupabaseClient<Database>
+  generateImage?: typeof generateUcatMcpImage
+  reviseImage?: typeof reviseUcatMcpImage
+  getFile?: (
+    client: SupabaseClient<Database>,
+    fileId: string,
+  ) => Promise<UcatMcpFileResult>
+}
+
+function fileResult(value: UcatMcpFileResult): CallToolResult {
+  return jsonResult(value.metadata, value.image ? [value.image] : [])
+}
+
+function imageNodeSource(imageNode: unknown): string {
+  if (
+    !imageNode
+    || typeof imageNode !== 'object'
+    || Array.isArray(imageNode)
+    || !('attrs' in imageNode)
+    || !imageNode.attrs
+    || typeof imageNode.attrs !== 'object'
+    || Array.isArray(imageNode.attrs)
+    || !('src' in imageNode.attrs)
+    || typeof imageNode.attrs.src !== 'string'
+  ) {
+    throw new Error('The rendered visual image source is missing')
+  }
+  return imageNode.attrs.src
+}
+
+async function attachStoredImage(
+  client: SupabaseClient<Database>,
+  metadata: Record<string, unknown>,
+  getFile: NonNullable<UcatMcpToolDependencies['getFile']>,
+): Promise<UcatMcpFileResult> {
+  if (typeof metadata.fileId !== 'string') {
+    throw new Error('Stored image file id is missing')
+  }
+  const stored = await getFile(client, metadata.fileId)
+  const signedUrl = typeof stored.metadata.signedUrl === 'string'
+    ? stored.metadata.signedUrl
+    : null
+  const imageNode = metadata.imageNode
+  const refreshedImageNode = signedUrl
+    && imageNode
+    && typeof imageNode === 'object'
+    && !Array.isArray(imageNode)
+    && 'attrs' in imageNode
+    && imageNode.attrs
+    && typeof imageNode.attrs === 'object'
+    && !Array.isArray(imageNode.attrs)
+    ? {
+        ...imageNode,
+        attrs: {
+          ...imageNode.attrs,
+          src: signedUrl,
+        },
+      }
+    : imageNode
+  return {
+    metadata: {
+      ...metadata,
+      ...(signedUrl ? { signedUrl } : {}),
+      ...(refreshedImageNode ? { imageNode: refreshedImageNode } : {}),
+    },
+    ...(stored.image ? { image: stored.image } : {}),
   }
 }
 
@@ -155,13 +249,21 @@ const destructiveWriteAnnotations = {
   openWorldHint: false,
 }
 
-export function registerUcatMcpTools(server: McpServer): void {
+export function registerUcatMcpTools(
+  server: McpServer,
+  dependencies: UcatMcpToolDependencies = {},
+): void {
+  const profile = dependencies.profile ?? 'authoring'
+  const createClient = dependencies.createClient ?? createUcatMcpSupabaseClient
+  const generateImage = dependencies.generateImage ?? generateUcatMcpImage
+  const getFile = dependencies.getFile ?? getUcatMcpFile
+  const reviseImage = dependencies.reviseImage ?? reviseUcatMcpImage
   server.registerTool(
     'search_ucat_content',
     {
       title: 'Search UCAT authoring content',
       description:
-        'Search tutor-authoring learning modules (folders and lessons), question stems, sets, or mocks. Deleted results are read-only; published results require the dedicated published-change tools.',
+        'Search tutor-authoring learning modules (folders and lessons), question stems, sets, or mocks. Deleted results are read-only. Published results are read-only on the safe-authoring profile and mutable only through the production-maintenance profile.',
       inputSchema: {
         contentType: AggregateTypeSchema,
         query: z.string().trim().max(500).optional(),
@@ -221,6 +323,7 @@ export function registerUcatMcpTools(server: McpServer): void {
     ),
   )
 
+  if (profile === 'authoring') {
   server.registerTool(
     'create_learning_module',
     {
@@ -424,7 +527,9 @@ export function registerUcatMcpTools(server: McpServer): void {
       (client) => updateUcatMcpMock(client, id, revision, operations),
     ),
   )
+  }
 
+  if (profile === 'production-maintenance') {
   server.registerTool(
     'update_published_question_stem',
     {
@@ -630,22 +735,6 @@ export function registerUcatMcpTools(server: McpServer): void {
   )
 
   server.registerTool(
-    'apply_ucat_content_change',
-    {
-      title: 'Apply one pending UCAT content change',
-      description:
-        'Apply a pending proposal only if its exact base revision is still current. The target lifecycle is preserved and stale proposals are rejected.',
-      inputSchema: { changeId: z.string().uuid() },
-      outputSchema: StructuredObjectOutputSchema,
-      annotations: destructiveWriteAnnotations,
-    },
-    async ({ changeId }, extra) => executeTool(
-      extra.authInfo?.token,
-      (client) => applyUcatMcpPendingChange(client, changeId),
-    ),
-  )
-
-  server.registerTool(
     'apply_ucat_content_changes',
     {
       title: 'Apply a reviewed batch of UCAT content changes',
@@ -700,7 +789,9 @@ export function registerUcatMcpTools(server: McpServer): void {
       (client) => restoreUcatMcpPublishedChange(client, changeId, summary, rationale),
     ),
   )
+  }
 
+  if (profile === 'authoring') {
   server.registerTool(
     'submit_ucat_content_for_review',
     {
@@ -760,7 +851,9 @@ export function registerUcatMcpTools(server: McpServer): void {
       (client) => restoreUcatMcpContent(client, contentType, id, revision),
     ),
   )
+  }
 
+  if (profile === 'production-maintenance') {
   server.registerTool(
     'create_ucat_audit_run',
     {
@@ -915,7 +1008,9 @@ export function registerUcatMcpTools(server: McpServer): void {
       (client) => cancelUcatMcpAuditRun(client, runId),
     ),
   )
+  }
 
+  if (profile === 'authoring') {
   server.registerTool(
     'start_question_generation',
     {
@@ -969,6 +1064,7 @@ export function registerUcatMcpTools(server: McpServer): void {
       (client) => getUcatMcpGenerationRuns(client, runId),
     ),
   )
+  }
 
   server.registerTool(
     'get_question_ai_assessment',
@@ -1021,7 +1117,7 @@ export function registerUcatMcpTools(server: McpServer): void {
     {
       title: 'Acknowledge, dismiss, or reject a question AI-review finding',
       description:
-        'Record a current automated-review decision without changing question content. Dismissal requires a reason. Use the separate accept tool when applying the generated suggestion.',
+        'Record a current automated-review decision without changing question content. Dismissal requires a reason. Applying a generated suggestion requires the production-maintenance accept tool.',
       inputSchema: {
         runId: z.string().uuid(),
         stemId: z.string().uuid(),
@@ -1038,8 +1134,9 @@ export function registerUcatMcpTools(server: McpServer): void {
     ),
   )
 
-  server.registerTool(
-    'accept_question_ai_assessment_suggestion',
+  if (profile === 'production-maintenance') {
+    server.registerTool(
+      'accept_question_ai_assessment_suggestion',
     {
       title: 'Apply a question AI-review suggestion',
       description:
@@ -1059,14 +1156,15 @@ export function registerUcatMcpTools(server: McpServer): void {
       extra.authInfo?.token,
       (client) => acceptUcatMcpAssessmentSuggestion(client, input),
     ),
-  )
+    )
+  }
 
   server.registerTool(
     'generate_ucat_image',
     {
       title: 'Generate and store a UCAT authoring image',
       description:
-        'Generate an image through Altitutor’s configured server image pathway and return a preview URL, durable file ID, alt text, and ready-to-insert ProseMirror imageNode. It is not attached automatically. Reuse idempotencyKey unchanged after a timeout.',
+        'Generate an image through Altitutor’s configured server image pathway and return native MCP image content plus a preview URL, durable file ID, alt text, and ready-to-insert ProseMirror imageNode. It is not attached automatically. Reuse idempotencyKey unchanged after a timeout.',
       inputSchema: {
         idempotencyKey: IdempotencyKeySchema,
         prompt: z.string().trim().min(1).max(8000),
@@ -1077,13 +1175,13 @@ export function registerUcatMcpTools(server: McpServer): void {
     },
     async (input, extra) => executeTool(extra.authInfo?.token, async (client) => {
       const { idempotencyKey, ...request } = input
-      return executeUcatMcpIdempotent(
+      const generated = await executeUcatMcpIdempotent(
         client,
         'generate_ucat_image',
         idempotencyKey,
         request,
         async () => {
-          const result = await generateUcatMcpImage(client, request)
+          const result = await generateImage(client, request)
           if (typeof result.fileId !== 'string') {
             throw new Error('Generated image file id is missing')
           }
@@ -1096,7 +1194,8 @@ export function registerUcatMcpTools(server: McpServer): void {
           return result
         },
       )
-    }),
+      return attachStoredImage(client, generated, getFile)
+    }, fileResult, createClient),
   )
 
   server.registerTool(
@@ -1104,7 +1203,7 @@ export function registerUcatMcpTools(server: McpServer): void {
     {
       title: 'Revise and store a UCAT authoring image',
       description:
-        'Revise an accessible stored image through Altitutor’s configured image pathway. Returns a new preview/file and ready-to-insert imageNode; the source is retained and nothing is attached automatically. Reuse idempotencyKey unchanged after a timeout.',
+        'Revise an accessible stored image through Altitutor’s configured image pathway. Returns native MCP image content, a new preview/file, and a ready-to-insert imageNode; the source is retained and nothing is attached automatically. Reuse idempotencyKey unchanged after a timeout.',
       inputSchema: {
         idempotencyKey: IdempotencyKeySchema,
         fileId: z.string().uuid(),
@@ -1117,13 +1216,13 @@ export function registerUcatMcpTools(server: McpServer): void {
     },
     async (input, extra) => executeTool(extra.authInfo?.token, async (client) => {
       const { idempotencyKey, ...request } = input
-      return executeUcatMcpIdempotent(
+      const revised = await executeUcatMcpIdempotent(
         client,
         'revise_ucat_image',
         idempotencyKey,
         request,
         async () => {
-          const result = await reviseUcatMcpImage(client, request)
+          const result = await reviseImage(client, request)
           if (typeof result.fileId !== 'string') {
             throw new Error('Revised image file id is missing')
           }
@@ -1136,7 +1235,8 @@ export function registerUcatMcpTools(server: McpServer): void {
           return result
         },
       )
-    }),
+      return attachStoredImage(client, revised, getFile)
+    }, fileResult, createClient),
   )
 
   server.registerTool(
@@ -1144,12 +1244,12 @@ export function registerUcatMcpTools(server: McpServer): void {
     {
       title: 'Render a deterministic UCAT visual',
       description:
-        'Validate and render an inline Vega-Lite, Venn, or set-diagram visual into a ProseMirror image node without external data references.',
+        'Validate and render an inline Vega-Lite, Venn, or set-diagram visual into native raster MCP image content and a ProseMirror image node without external data references.',
       inputSchema: {
         visual: z.unknown(),
       },
       outputSchema: z.object({
-        imageNode: ImageNodeOutputSchema,
+        imageNode: RenderedImageNodeOutputSchema,
       }),
       annotations: readOnlyAnnotations,
     },
@@ -1158,10 +1258,12 @@ export function registerUcatMcpTools(server: McpServer): void {
       if (!parsed.success || parsed.data.type !== 'visual') {
         throw new Error('A valid deterministic visual block is required')
       }
+      const imageNode = await generatedVisualBlockToImageNodeServer(parsed.data)
       return {
-        imageNode: await generatedVisualBlockToImageNodeServer(parsed.data),
+        metadata: { imageNode },
+        image: await createMcpImageContentFromDataUri(imageNodeSource(imageNode)),
       }
-    }),
+    }, fileResult, createClient),
   )
 
   server.registerTool(
@@ -1169,7 +1271,7 @@ export function registerUcatMcpTools(server: McpServer): void {
     {
       title: 'Read an accessible UCAT authoring file',
       description:
-        'Read metadata and a fresh one-hour signed URL for a referenced authoring file accessible to the acting tutor.',
+        'Read metadata and a fresh one-hour signed URL for a referenced authoring file accessible to the acting tutor. Stored images also return bounded native MCP image content for immediate model inspection.',
       inputSchema: {
         fileId: z.string().uuid(),
       },
@@ -1178,7 +1280,9 @@ export function registerUcatMcpTools(server: McpServer): void {
     },
     async ({ fileId }, extra) => executeTool(
       extra.authInfo?.token,
-      (client) => getUcatMcpFile(client, fileId),
+      (client) => getFile(client, fileId),
+      fileResult,
+      createClient,
     ),
   )
 }

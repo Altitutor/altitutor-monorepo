@@ -8,7 +8,6 @@ import { Button } from "@/components/ui/button";
 import type { Json } from "@altitutor/shared";
 import type { UcatBreadcrumbItem } from "@/features/layout/components/ucat-page-header";
 import { UcatPageHeader } from "@/features/layout";
-import { RichContentBlock } from "@/features/question-engine/components/rich-content-block";
 import {
   learningKeys,
   useLearningLesson,
@@ -28,6 +27,7 @@ import {
   LearningMarkLessonIncompleteDialog,
 } from "@/features/learning/components/learning-lesson-progress-dialogs";
 import { LearningLessonPageSkeleton } from "@/features/learning/components/learning-lesson-page-skeleton";
+import { LearningTextBlock } from "@/features/learning/components/learning-text-block";
 import { formatBlockLabel } from "@/features/learning/lib/format-block-label";
 import { buildLessonAncestorPath } from "@/features/learning/lib/build-lesson-ancestors";
 import { getAdjacentLessons } from "@/features/learning/lib/flatten-lessons-for-nav";
@@ -35,30 +35,12 @@ import { SECTION_NUMBER_TO_NAME } from "@/features/sets/lib/section-labels";
 import { quotaRouteFallback } from "@/features/ucat-access/lib/quota-route-fallback";
 import type { LearningModuleBlockRow } from "@/features/learning/types";
 import { QuotaExceededError } from "@/lib/ucat/quota/parse-quota-error";
-import { cn } from "@/lib/utils";
 import { useUcatStaggerMotion } from "@/shared/hooks/use-ucat-stagger-motion";
 
 type LearningLessonPageProps = {
   lessonId: string;
-  sectionNumber: number;
+  sectionNumber: number | null;
 };
-
-/** Body headings sit under the page title (`text-2xl font-semibold`). */
-const LEARNING_TEXT_CONTENT_CLASSNAME = cn(
-  "text-foreground",
-  "[&_.ProseMirror]:leading-relaxed",
-  "[&_.ProseMirror_h1]:mb-3 [&_.ProseMirror_h1]:mt-6 [&_.ProseMirror_h1]:text-xl [&_.ProseMirror_h1]:font-semibold [&_.ProseMirror_h1]:tracking-tight [&_.ProseMirror_h1]:leading-tight",
-  "[&_.ProseMirror_h1:first-child]:mt-0",
-  "[&_.ProseMirror_h2]:mb-2 [&_.ProseMirror_h2]:mt-5 [&_.ProseMirror_h2]:text-lg [&_.ProseMirror_h2]:font-semibold [&_.ProseMirror_h2]:tracking-tight [&_.ProseMirror_h2]:leading-tight",
-  "[&_.ProseMirror_h3]:mb-2 [&_.ProseMirror_h3]:mt-4 [&_.ProseMirror_h3]:text-base [&_.ProseMirror_h3]:font-semibold [&_.ProseMirror_h3]:tracking-tight [&_.ProseMirror_h3]:leading-snug",
-  "[&_.ProseMirror_blockquote]:my-4 [&_.ProseMirror_blockquote]:border-l-4 [&_.ProseMirror_blockquote]:border-primary/30 [&_.ProseMirror_blockquote]:pl-4 [&_.ProseMirror_blockquote]:italic [&_.ProseMirror_blockquote]:text-muted-foreground",
-  "[&_.ProseMirror_pre]:my-4 [&_.ProseMirror_pre]:overflow-x-auto [&_.ProseMirror_pre]:rounded-md [&_.ProseMirror_pre]:bg-primary/10 [&_.ProseMirror_pre]:p-3 [&_.ProseMirror_pre]:font-mono [&_.ProseMirror_pre]:text-sm",
-  "[&_.ProseMirror_code]:rounded [&_.ProseMirror_code]:bg-primary/10 [&_.ProseMirror_code]:px-1 [&_.ProseMirror_code]:py-0.5 [&_.ProseMirror_code]:font-mono [&_.ProseMirror_code]:text-[0.9em]",
-  "[&_.ProseMirror_pre_code]:bg-transparent [&_.ProseMirror_pre_code]:p-0",
-  "[&_.ProseMirror_table]:my-4 [&_.ProseMirror_table]:w-full [&_.ProseMirror_table]:border-collapse [&_.ProseMirror_table]:border [&_.ProseMirror_table]:border-border",
-  "[&_.ProseMirror_th]:border [&_.ProseMirror_th]:border-border [&_.ProseMirror_th]:bg-muted [&_.ProseMirror_th]:p-2 [&_.ProseMirror_th]:text-left [&_.ProseMirror_th]:font-semibold",
-  "[&_.ProseMirror_td]:border [&_.ProseMirror_td]:border-border [&_.ProseMirror_td]:p-2 [&_.ProseMirror_td]:align-top",
-);
 
 function getVideoEmbedUrl(url: string): string | null {
   try {
@@ -80,42 +62,6 @@ function getVideoEmbedUrl(url: string): string | null {
   } catch {
     return null;
   }
-}
-
-function TextBlock({
-  block,
-  onScrolledToBottom,
-}: {
-  block: LearningModuleBlockRow;
-  onScrolledToBottom: () => void;
-}) {
-  const reportedRef = useRef(false);
-  const onScrolledToBottomRef = useRef(onScrolledToBottom);
-  onScrolledToBottomRef.current = onScrolledToBottom;
-  const content = (block.content ?? {}) as Record<string, unknown>;
-  const body = content.body as Record<string, unknown> | undefined;
-
-  useEffect(() => {
-    reportedRef.current = false;
-  }, [block.id]);
-
-  useEffect(() => {
-    if (reportedRef.current) return;
-    reportedRef.current = true;
-    onScrolledToBottomRef.current();
-  }, [block.id]);
-
-  return (
-    <div className="pr-2">
-      <RichContentBlock
-        json={body ?? null}
-        plainText=""
-        textTone="theme"
-        className={LEARNING_TEXT_CONTENT_CLASSNAME}
-        paragraphSpacing
-      />
-    </div>
-  );
 }
 
 function VideoBlock({
@@ -229,9 +175,9 @@ function LessonBlockContent({
   return (
     <>
       {block.block_type === "text" && block.id ? (
-        <TextBlock
+        <LearningTextBlock
           block={block}
-          onScrolledToBottom={() => onBlockProgress(block.id!, true)}
+          onViewed={() => onBlockProgress(block.id!, true)}
         />
       ) : null}
       {block.block_type === "video" && block.id ? (
@@ -340,17 +286,20 @@ export function LearningLessonPage({
     [allModules, lessonId],
   );
 
+  const sectionHref =
+    sectionNumber == null
+      ? "/learn/general"
+      : `/learn/sections/${sectionNumber}`;
+  const sectionLabel =
+    lesson?.section_name ??
+    (sectionNumber == null
+      ? "General"
+      : (SECTION_NUMBER_TO_NAME[sectionNumber] ?? `Section ${sectionNumber}`));
+
   const breadcrumbItems = useMemo((): UcatBreadcrumbItem[] => {
-    const sectionHref = `/learn/sections/${sectionNumber}`;
     const items: UcatBreadcrumbItem[] = [
       { label: "Learn", href: "/learn" },
-      {
-        label:
-          lesson?.section_name ??
-          SECTION_NUMBER_TO_NAME[sectionNumber] ??
-          `Section ${sectionNumber}`,
-        href: sectionHref,
-      },
+      { label: sectionLabel, href: sectionHref },
     ];
     for (const folder of buildLessonAncestorPath(lessonId, allModules ?? [])) {
       if (folder.title) {
@@ -364,13 +313,7 @@ export function LearningLessonPage({
       items.push({ label: lesson.title });
     }
     return items;
-  }, [
-    allModules,
-    lesson?.section_name,
-    lesson?.title,
-    lessonId,
-    sectionNumber,
-  ]);
+  }, [allModules, lesson?.title, lessonId, sectionHref, sectionLabel]);
 
   const isBlockComplete = useCallback(
     (block: LearningModuleBlockRow) => block.block_completed_at != null,
@@ -392,21 +335,6 @@ export function LearningLessonPage({
         };
       }),
     [blocks, incompleteBlocks],
-  );
-
-  const canAccessBlock = useCallback(
-    (index: number) => {
-      if (index === 0) return true;
-      for (let i = 0; i < index; i += 1) {
-        const prior = blocks[i];
-        if (!prior) return false;
-        if (prior.require_completion_before_next && !isBlockComplete(prior)) {
-          return false;
-        }
-      }
-      return true;
-    },
-    [blocks, isBlockComplete],
   );
 
   const handleBlockProgress = useCallback(
@@ -523,7 +451,7 @@ export function LearningLessonPage({
             <UcatPageHeader
               title={lesson.title ?? "Lesson"}
               description={lesson.description ?? undefined}
-              backHref={`/learn/sections/${sectionNumber}`}
+              backHref={sectionHref}
               backLabel="All modules"
               breadcrumbItems={breadcrumbItems}
             />
@@ -554,7 +482,6 @@ export function LearningLessonPage({
             activeIndex={activeIndex}
             completionPercent={completionPercent}
             isLessonComplete={isLessonComplete}
-            canAccessBlock={canAccessBlock}
             isBlockComplete={isBlockComplete}
             onSelectBlock={goToBlock}
             onMarkBlockComplete={handleMarkBlockComplete}

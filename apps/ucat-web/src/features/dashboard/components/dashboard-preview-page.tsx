@@ -606,7 +606,6 @@ export function DashboardPreviewPage({
         taskPending={false}
         taskError={null}
         onRetryPlan={() => undefined}
-        onDeclineStudyPlan={() => undefined}
         onSkipGoal={() => undefined}
         setupPending={false}
         setupError={null}

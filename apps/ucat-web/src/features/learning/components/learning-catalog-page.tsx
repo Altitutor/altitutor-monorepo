@@ -17,15 +17,22 @@ export function LearningCatalogPage() {
       <div id="tour-learn-page">
         <UcatPageHeader
           title="Learn"
-          description="Choose a section to find your next learning module."
+          description="Choose an area to find your next learning module."
         />
       </div>
       <motion.div
-        className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4"
+        className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5"
         variants={containerVariants}
         initial="hidden"
         animate="show"
       >
+        <motion.div variants={itemVariants}>
+          <UcatClickableCardLink
+            href="/learn/general"
+            icon={BookOpen}
+            title="General"
+          />
+        </motion.div>
         {SECTIONS.map((sectionNumber) => (
           <motion.div key={sectionNumber} variants={itemVariants}>
             <UcatClickableCardLink

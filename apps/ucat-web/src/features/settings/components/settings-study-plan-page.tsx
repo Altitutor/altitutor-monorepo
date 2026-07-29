@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
+import { useRouter } from "next/navigation";
 import {
   Alert,
   AlertDescription,
@@ -15,9 +16,13 @@ import { motion } from "motion/react";
 import { Button } from "@/components/ui/button";
 import { AppShellBottomFloatingDock, UcatPageHeader } from "@/features/layout";
 import { AppPageSkeleton } from "@/features/layout/components/app-page-skeleton";
+import { SidebarExpandablePanel } from "@/features/layout/components/sidebar-expandable-panel";
+import { useOnboardingProgress } from "@/features/onboarding/hooks/use-onboarding-progress";
+import { UCAT_STUDY_PLAN_DECIDED } from "@/features/onboarding/lib/activation-milestones";
 import { SettingsRow } from "@/features/settings/components/settings-row";
 import { saveStudyPlan } from "@/features/study-plan/api/study-plan";
 import { useStudyPlan } from "@/features/study-plan/hooks/use-study-plan";
+import { defaultSkippedGoalProfileInput } from "@/features/study-plan/lib/default-study-profile";
 import type {
   StudyPlanAvailability,
   StudyPlanProfileInput,
@@ -30,6 +35,9 @@ import {
 import { cn } from "@/lib/utils";
 import { useLeaveGuard } from "@/shared/hooks/use-leave-guard";
 import { useUcatStaggerMotion } from "@/shared/hooks/use-ucat-stagger-motion";
+
+const STUDY_PLAN_SETUP_FROM_SETTINGS =
+  "/study-plan/setup?section=plan&from=settings";
 
 const WEEKDAYS: Array<{ value: StudyPlanWeekday; label: string }> = [
   { value: 1, label: "Monday" },
@@ -89,17 +97,28 @@ function snapshotFromProfile(profile: StudyPlanProfileInput) {
     targetScore: profile.targetScore,
     testYear: profile.testYear,
     testDate: profile.testDate ?? "",
-    availability: sortAvailability(profile.availableDays),
+    availability: sortAvailability(profile.availableDays ?? []),
     mockDay: profile.preferredMockWeekday,
   };
 }
 
 export function SettingsStudyPlanPage() {
+  const router = useRouter();
   const query = useStudyPlan();
   const queryClient = useQueryClient();
   const { toast } = useToast();
+  const onboarding = useOnboardingProgress();
   const { containerVariants, itemVariants } = useUcatStaggerMotion();
   const currentYear = new Date().getFullYear();
+
+  const studyPlanDecided = onboarding.isCompleted(UCAT_STUDY_PLAN_DECIDED);
+
+  useEffect(() => {
+    if (onboarding.isLoading) return;
+    if (!studyPlanDecided) {
+      router.replace(STUDY_PLAN_SETUP_FROM_SETTINGS);
+    }
+  }, [onboarding.isLoading, router, studyPlanDecided]);
 
   const yearOptions = useMemo<YearOption[]>(
     () =>
@@ -124,18 +143,31 @@ export function SettingsStudyPlanPage() {
   const [hydrated, setHydrated] = useState(false);
 
   useEffect(() => {
-    if (!query.data?.profile || hydrated) return;
-    const snap = snapshotFromProfile(query.data.profile);
-    setStudyPlanEnabled(snap.studyPlanEnabled);
-    setStudySuggestionsEnabled(snap.studySuggestionsEnabled);
-    setTargetScore(snap.targetScore);
-    setTestYear(snap.testYear);
-    setTestDate(snap.testDate);
-    setAvailability(snap.availability);
-    setMockDay(snap.mockDay);
-    setSaved(snap);
-    setHydrated(true);
-  }, [query.data, hydrated]);
+    // Old gate (`!hydrated && !isError`) stayed on the skeleton forever when the
+    // API returned success with `profile: null`. Hydrate from profile or defaults.
+    if (!query.isFetched || query.isError || hydrated) return;
+
+    try {
+      const profile = query.data?.profile;
+      const snap = profile
+        ? snapshotFromProfile(profile)
+        : snapshotFromProfile({
+            ...defaultSkippedGoalProfileInput(currentYear),
+            availableDays: DEFAULT_AVAILABILITY,
+          });
+
+      setStudyPlanEnabled(snap.studyPlanEnabled);
+      setStudySuggestionsEnabled(snap.studySuggestionsEnabled);
+      setTargetScore(snap.targetScore);
+      setTestYear(snap.testYear);
+      setTestDate(snap.testDate);
+      setAvailability(snap.availability);
+      setMockDay(snap.mockDay);
+      setSaved(snap);
+    } finally {
+      setHydrated(true);
+    }
+  }, [query.isFetched, query.isError, query.data, hydrated, currentYear]);
 
   const availabilityByDay = useMemo(() => {
     const map = new Map<StudyPlanWeekday, StudyPlanAvailability>();
@@ -240,10 +272,6 @@ export function SettingsStudyPlanPage() {
     }
   }
 
-  if (query.isLoading || (!hydrated && !query.isError)) {
-    return <AppPageSkeleton variant="detail" />;
-  }
-
   if (query.isError) {
     return (
       <div className="space-y-6">
@@ -259,6 +287,10 @@ export function SettingsStudyPlanPage() {
         </Alert>
       </div>
     );
+  }
+
+  if (onboarding.isLoading || !studyPlanDecided || !query.isFetched || !hydrated) {
+    return <AppPageSkeleton variant="detail" />;
   }
 
   return (
@@ -290,23 +322,6 @@ export function SettingsStudyPlanPage() {
         )}
       >
         <SettingsRow
-          title="Study plan"
-          description="Altitutor makes a daily plan for what to study, which adapts as you progress."
-          control={
-            <Switch
-              checked={studyPlanEnabled}
-              onCheckedChange={(checked) => {
-                setStudyPlanEnabled(checked);
-                if (checked && availability.length === 0) {
-                  setAvailability(DEFAULT_AVAILABILITY);
-                  setMockDay(DEFAULT_AVAILABILITY[0]!.weekday);
-                }
-              }}
-              aria-label="Use a Study plan"
-            />
-          }
-        />
-        <SettingsRow
           title="Study suggestions"
           description="Show the floating study assistant with a suggested next task as you move through Altitutor. Turning this off hides the orb, while suggestions remain available on your dashboard."
           control={
@@ -317,6 +332,103 @@ export function SettingsStudyPlanPage() {
             />
           }
         />
+
+        <div className="border-b border-border/60 py-6 last:border-b-0 last:pb-0">
+          <div
+            className={cn(
+              "flex flex-col gap-4",
+              "sm:flex-row sm:items-start sm:justify-between sm:gap-8",
+            )}
+          >
+            <div className="min-w-0 flex-1 space-y-1">
+              <h3 className="text-base font-semibold tracking-tight">
+                Study plan
+              </h3>
+              <p className="text-sm text-muted-foreground">
+                Altitutor makes a daily plan for what to study, which adapts as
+                you progress.
+              </p>
+            </div>
+            <div className="w-full shrink-0 sm:flex sm:max-w-xs sm:justify-end">
+              <Switch
+                checked={studyPlanEnabled}
+                onCheckedChange={(checked) => {
+                  setStudyPlanEnabled(checked);
+                  if (checked && availability.length === 0) {
+                    setAvailability(DEFAULT_AVAILABILITY);
+                    setMockDay(DEFAULT_AVAILABILITY[0]!.weekday);
+                  }
+                }}
+                aria-label="Use a Study plan"
+              />
+            </div>
+          </div>
+
+          <SidebarExpandablePanel expanded={studyPlanEnabled}>
+            <div className="mt-5 border-l-2 border-border/60 pl-4 sm:pl-5">
+              <div className="mb-1 space-y-1">
+                <h4 className="text-sm font-semibold tracking-tight">
+                  Available study days
+                </h4>
+                <p className="text-sm text-muted-foreground">
+                  Turn on the days you can usually study. The plan changes
+                  session length and practice volume as your readiness and exam
+                  date change.
+                </p>
+              </div>
+
+              <div className="divide-y divide-border/60">
+                {WEEKDAYS.map((day) => {
+                  const isOn = Boolean(availabilityByDay.get(day.value));
+                  return (
+                    <div
+                      key={day.value}
+                      className="flex min-h-10 items-center justify-between gap-4 py-3 first:pt-2 last:pb-0"
+                    >
+                      <span className="min-w-0 text-sm font-medium">
+                        {day.label}
+                      </span>
+                      <Switch
+                        checked={isOn}
+                        onCheckedChange={(checked) =>
+                          setDayEnabled(day.value, checked)
+                        }
+                        aria-label={`${day.label} available`}
+                      />
+                    </div>
+                  );
+                })}
+              </div>
+
+              <div className="mt-1 border-t border-border/60 pt-1">
+                <SettingsRow
+                  title="Preferred mock day"
+                  description="A soft preference for full mocks. The planner may use another available day when the cadence needs it."
+                  control={
+                    <SearchableSelect<WeekdayOption>
+                      items={
+                        mockDayOptions.length ? mockDayOptions : WEEKDAYS
+                      }
+                      value={selectedMockDay}
+                      onValueChange={(option) => {
+                        if (option) setMockDay(option.value);
+                      }}
+                      getItemLabel={(item) => item.label}
+                      getItemId={(item) => String(item.value)}
+                      placeholder="Select day"
+                      searchPlaceholder="Search days…"
+                      emptyMessage="No matching day."
+                      disabled={!mockDayOptions.length}
+                      triggerClassName={SELECT_TRIGGER}
+                      contentWidth={SELECT_CONTENT_WIDTH}
+                    />
+                  }
+                />
+              </div>
+            </div>
+          </SidebarExpandablePanel>
+        </div>
+
         {saved?.studyPlanEnabled && !studyPlanEnabled ? (
           <p className="mt-4 rounded-xl bg-muted/60 px-4 py-3 text-sm text-muted-foreground">
             Turning the Study plan off keeps your goal, results and plan
@@ -399,75 +511,6 @@ export function SettingsStudyPlanPage() {
           }
         />
       </motion.div>
-
-      {studyPlanEnabled ? (
-        <motion.div
-          variants={itemVariants}
-          className={cn(
-            "rounded-ucatShell p-6 sm:p-8",
-            UCAT_SURFACE_CARD,
-            UCAT_SURFACE_MOTION,
-          )}
-        >
-          <div className="mb-2 space-y-1">
-            <h3 className="text-base font-semibold tracking-tight">
-              Available study days
-            </h3>
-            <p className="text-sm text-muted-foreground">
-              Turn on the days you can usually study. The plan changes session
-              length and practice volume as your readiness and exam date change.
-            </p>
-          </div>
-
-          <div className="divide-y divide-border/60">
-            {WEEKDAYS.map((day) => {
-              const enabled = availabilityByDay.get(day.value);
-              const isOn = Boolean(enabled);
-              return (
-                <div
-                  key={day.value}
-                  className="flex min-h-10 items-center justify-between gap-4 py-4 first:pt-2 last:pb-0"
-                >
-                  <span className="min-w-0 text-sm font-medium">
-                    {day.label}
-                  </span>
-                  <Switch
-                    checked={isOn}
-                    onCheckedChange={(checked) =>
-                      setDayEnabled(day.value, checked)
-                    }
-                    aria-label={`${day.label} available`}
-                  />
-                </div>
-              );
-            })}
-          </div>
-
-          <div className="mt-2 border-t border-border/60 pt-2">
-            <SettingsRow
-              title="Preferred mock day"
-              description="A soft preference for full mocks. The planner may use another available day when the cadence needs it."
-              control={
-                <SearchableSelect<WeekdayOption>
-                  items={mockDayOptions.length ? mockDayOptions : WEEKDAYS}
-                  value={selectedMockDay}
-                  onValueChange={(option) => {
-                    if (option) setMockDay(option.value);
-                  }}
-                  getItemLabel={(item) => item.label}
-                  getItemId={(item) => String(item.value)}
-                  placeholder="Select day"
-                  searchPlaceholder="Search days…"
-                  emptyMessage="No matching day."
-                  disabled={!mockDayOptions.length}
-                  triggerClassName={SELECT_TRIGGER}
-                  contentWidth={SELECT_CONTENT_WIDTH}
-                />
-              }
-            />
-          </div>
-        </motion.div>
-      ) : null}
 
       <AppShellBottomFloatingDock visible={isDirty}>
         <div className="flex flex-wrap items-center justify-end gap-2">

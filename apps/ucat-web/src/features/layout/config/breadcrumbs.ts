@@ -14,6 +14,7 @@ export const SEGMENT_LABELS: Record<string, string> = {
   settings: "Settings",
   app: "App settings",
   profile: "My profile",
+  communications: "Communications",
   plan: "Plan",
   subscription: "Subscription",
   referrals: "Referrals",
@@ -76,9 +77,14 @@ function isValidPagePath(path: string): boolean {
     case 2:
       return (
         (segments[0] === "settings" &&
-          ["app", "profile", "subscription", "plan", "study-plan"].includes(
-            segments[1],
-          )) ||
+          [
+            "app",
+            "profile",
+            "subscription",
+            "plan",
+            "study-plan",
+            "communications",
+          ].includes(segments[1])) ||
         (segments[0] === "progress" && segments[1] === "mocks") ||
         (segments[0] === "learn" && isDynamicSegment(segments[1])) ||
         (segments[0] === "sessions" && isDynamicSegment(segments[1])) ||
@@ -106,7 +112,7 @@ function isValidPagePath(path: string): boolean {
           /^[1-4]$/.test(segments[2])) ||
         (segments[0] === "settings" &&
           segments[1] === "plan" &&
-          segments[2] === "subscription") ||
+          (segments[2] === "subscription" || segments[2] === "referrals")) ||
         (segments[0] === "practice" &&
           segments[1] === "stem" &&
           isDynamicSegment(segments[2]))

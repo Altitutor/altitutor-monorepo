@@ -212,6 +212,7 @@ export function StudyPlanActivationPage() {
   const currentYear = new Date().getFullYear();
   const activationJourney = searchParams.get("activation") === "1";
   const planSetup = searchParams.get("section") === "plan";
+  const fromSettings = searchParams.get("from") === "settings";
   const yearOptions = useMemo<GoalYearOption[]>(
     () =>
       [currentYear, currentYear + 1, currentYear + 2, currentYear + 3].map(
@@ -306,6 +307,7 @@ export function StudyPlanActivationPage() {
   }
 
   function destinationAfterSetup(studyPlanStatus: StudyPlanCompletionStatus) {
+    if (fromSettings) return "/settings/study-plan";
     return studyPlanStatus === "created" ? "/study-plan" : "/dashboard";
   }
 
@@ -414,7 +416,9 @@ export function StudyPlanActivationPage() {
 
   function continueFromPreference() {
     if (studyPlanEnabled == null) return;
-    if (!studyPlanEnabled && !hasSavedGoal) {
+    // From settings we always collect a goal and write a profile for "manage
+    // my own", so settings has a real row afterwards (not milestone-only).
+    if (!studyPlanEnabled && !hasSavedGoal && !fromSettings) {
       void declineStudyPlanWithoutSaving();
       return;
     }
@@ -583,13 +587,24 @@ export function StudyPlanActivationPage() {
                 </div>
                 <SetupError message={error} />
                 <div className="mt-6 flex items-center justify-between gap-3">
-                  <button
-                    type="button"
-                    className={STUDY_SETUP_GHOST_BUTTON_CLASS}
-                    onClick={() => setSkipDialogOpen(true)}
-                  >
-                    Skip for now
-                  </button>
+                  {fromSettings ? (
+                    <button
+                      type="button"
+                      className={STUDY_SETUP_GHOST_BUTTON_CLASS}
+                      onClick={() => router.replace("/settings")}
+                    >
+                      <ArrowLeft className="mr-2 inline h-4 w-4" aria-hidden />
+                      Back to settings
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      className={STUDY_SETUP_GHOST_BUTTON_CLASS}
+                      onClick={() => setSkipDialogOpen(true)}
+                    >
+                      Skip for now
+                    </button>
+                  )}
                   <button
                     type="button"
                     className={STUDY_SETUP_PRIMARY_BUTTON_CLASS}

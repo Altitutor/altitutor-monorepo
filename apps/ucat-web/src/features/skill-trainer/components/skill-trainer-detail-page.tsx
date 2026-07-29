@@ -9,7 +9,6 @@ import type { UcatSkillTrainerKey } from "@altitutor/shared";
 import { UcatPageHeader } from "@/features/layout";
 import { useQuotaLimitDialog } from "@/features/ucat-access/context/upsell-dialog-context";
 import { useQuotaUsage } from "@/features/ucat-access/hooks/use-quota-usage";
-import { SkillTrainerLeaderboard } from "@/features/skill-trainer/components/skill-trainer-leaderboard";
 import { SkillTrainerDemoCard } from "@/features/skill-trainer/components/skill-trainer-demo-card";
 import { useSkillTrainers } from "@/features/skill-trainer/hooks/use-skill-trainers";
 import { UCAT_PRIMARY_ACTION_BUTTON } from "@/lib/ucat-surface-motion";
@@ -71,7 +70,7 @@ export function SkillTrainerDetailPage({
     ? "Starting…"
     : quotaLoading
       ? "Loading…"
-      : "Start drill";
+      : "Start skill trainer";
 
   return (
     <motion.div
@@ -108,10 +107,6 @@ export function SkillTrainerDetailPage({
         >
           {startLabel}
         </Button>
-      </motion.div>
-
-      <motion.div variants={itemVariants}>
-        <SkillTrainerLeaderboard trainerKey={trainerKey} />
       </motion.div>
     </motion.div>
   );

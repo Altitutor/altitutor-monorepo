@@ -239,6 +239,8 @@ export function SectionProgressContent({
     untimedCompleted: untimedSetsCompleted,
     timedCompleted: timedSetsCompleted,
   };
+  const supportsScoreTarget = section.sectionNumber <= 3;
+  const effectiveTargetScore = supportsScoreTarget ? targetScore : null;
   const { containerVariants, itemVariants } = useUcatStaggerMotion();
   const weakestCategory = categoryProgress
     .filter((category) => category.maxScore > 0)
@@ -305,15 +307,19 @@ export function SectionProgressContent({
                 section.sectionId,
               )}
               today={today}
-              targetScore={targetScore}
+              targetScore={effectiveTargetScore}
               testDate={testDate}
-              targetBreakdown={[
-                {
-                  sectionName: section.sectionName,
-                  target: targetScore,
-                  currentEstimate: score,
-                },
-              ]}
+              targetBreakdown={
+                supportsScoreTarget
+                  ? [
+                      {
+                        sectionName: section.sectionName,
+                        target: effectiveTargetScore,
+                        currentEstimate: score,
+                      },
+                    ]
+                  : []
+              }
               scoreMinimum={300}
               scoreMaximum={900}
               insightTitle={insightTitle}
@@ -321,38 +327,54 @@ export function SectionProgressContent({
               ratingTargetKey="section-score-trajectory"
               ratingContextKey={`progress:section:${section.sectionId}`}
               insightMeta={
-                <div className="space-y-2 text-sm">
-                  <div className="flex justify-between gap-4">
-                    <span className="text-muted-foreground">
-                      Current estimate
-                    </span>
-                    <span className="font-medium tabular-nums">
-                      {score ?? "Pending"}
-                    </span>
-                  </div>
-                  <div className="flex justify-between gap-4">
-                    <span className="text-muted-foreground">Target</span>
-                    {targetScore == null ? (
-                      <Button asChild size="sm">
-                        <Link href="/ucat-goal/setup">Set target</Link>
-                      </Button>
-                    ) : (
-                      <span className="font-medium tabular-nums">
-                        {targetScore}
+                <>
+                  <div className="space-y-2 text-sm">
+                    <div className="flex justify-between gap-4">
+                      <span className="text-muted-foreground">
+                        Current estimate
                       </span>
-                    )}
+                      <span className="font-medium tabular-nums">
+                        {score ?? "Pending"}
+                      </span>
+                    </div>
+                    {supportsScoreTarget ? (
+                      <>
+                        <div className="flex justify-between gap-4">
+                          <span className="text-muted-foreground">Target</span>
+                          {effectiveTargetScore == null ? (
+                            <Link
+                              href="/ucat-goal/setup"
+                              className="text-sm font-medium text-primary underline-offset-4 hover:underline"
+                            >
+                              Set target
+                            </Link>
+                          ) : (
+                            <span className="font-medium tabular-nums">
+                              {effectiveTargetScore}
+                            </span>
+                          )}
+                        </div>
+                        <div className="flex justify-between gap-4">
+                          <span className="text-muted-foreground">Gap</span>
+                          <span className="font-medium tabular-nums">
+                            {score == null || effectiveTargetScore == null
+                              ? "Pending"
+                              : effectiveTargetScore <= score
+                                ? `${score - effectiveTargetScore} ahead`
+                                : `${effectiveTargetScore - score} points`}
+                          </span>
+                        </div>
+                      </>
+                    ) : null}
                   </div>
-                  <div className="flex justify-between gap-4">
-                    <span className="text-muted-foreground">Gap</span>
-                    <span className="font-medium tabular-nums">
-                      {score == null || targetScore == null
-                        ? "Pending"
-                        : targetScore <= score
-                          ? `${score - targetScore} ahead`
-                          : `${targetScore - score} points`}
-                    </span>
-                  </div>
-                </div>
+                  {setsCompleted === 0 ? (
+                    <Button asChild className="mt-5 w-full">
+                      <Link href={`/sets/sections/${section.sectionNumber}`}>
+                        Go to sets
+                      </Link>
+                    </Button>
+                  ) : null}
+                </>
               }
             />
           ) : (

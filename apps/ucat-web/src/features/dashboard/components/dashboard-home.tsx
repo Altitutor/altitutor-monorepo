@@ -41,10 +41,7 @@ import {
   type DashboardTrajectoryState,
 } from "@/features/dashboard/lib/dashboard-trajectory";
 import { useUcatProfile } from "@/features/layout/hooks/use-ucat-profile";
-import {
-  useCompleteOnboardingTour,
-  useOnboardingProgress,
-} from "@/features/onboarding/hooks/use-onboarding-progress";
+import { useOnboardingProgress } from "@/features/onboarding/hooks/use-onboarding-progress";
 import {
   UCAT_GUIDED_SAMPLER_COMPLETED,
   UCAT_GUIDED_SAMPLER_DECIDED,
@@ -257,11 +254,11 @@ function actionContent(action: DashboardNextAction): {
         description:
           "Altitutor can schedule adaptive work around your availability and adjust it as your performance changes.",
         rationale:
-          "You can still study on your own if you prefer. A Study plan just gives you a clearer weekly path.",
+          "A Study plan gives you a clearer weekly path based on your goal and availability.",
         meta: "About 3 min to set up",
         primaryLabel: "Set up Study plan",
         primaryHref: "/study-plan/setup?section=plan",
-        secondaryLabel: "I’ll manage my own plan",
+        secondaryLabel: null,
         secondaryHref: null,
       };
     case "goal_setup":
@@ -299,7 +296,6 @@ function DashboardNextActionPanel({
   taskPending,
   taskError,
   onRetryPlan,
-  onDeclineStudyPlan,
   onSkipGoal,
   setupPending,
   setupError,
@@ -309,7 +305,6 @@ function DashboardNextActionPanel({
   taskPending: boolean;
   taskError: string | null;
   onRetryPlan: () => void;
-  onDeclineStudyPlan: () => void | Promise<void>;
   onSkipGoal: () => void | Promise<void>;
   setupPending: boolean;
   setupError: string | null;
@@ -328,17 +323,12 @@ function DashboardNextActionPanel({
     if (action.kind === "plan_error") onRetryPlan();
   };
   const handleSecondary = () => {
-    if (action.kind === "plan_setup") {
-      void onDeclineStudyPlan();
-      return;
-    }
     if (action.kind === "goal_setup") {
       void onSkipGoal();
     }
   };
   const showSecondaryButton =
-    content.secondaryLabel &&
-    (action.kind === "plan_setup" || action.kind === "goal_setup");
+    content.secondaryLabel && action.kind === "goal_setup";
 
   return (
     <section
@@ -565,7 +555,6 @@ export function DashboardTrajectoryHero({
   taskPending,
   taskError,
   onRetryPlan,
-  onDeclineStudyPlan,
   onSkipGoal,
   setupPending,
   setupError,
@@ -584,7 +573,6 @@ export function DashboardTrajectoryHero({
   taskPending: boolean;
   taskError: string | null;
   onRetryPlan: () => void;
-  onDeclineStudyPlan: () => void | Promise<void>;
   onSkipGoal: () => void | Promise<void>;
   setupPending: boolean;
   setupError: string | null;
@@ -592,7 +580,7 @@ export function DashboardTrajectoryHero({
   if (!plan?.profile) {
     const planUnavailable = action.kind === "plan_error";
     return (
-      <section className="relative isolate overflow-hidden border-y border-border/60 bg-gradient-to-b from-muted/30 via-background to-background">
+      <section className="relative isolate -mt-20 overflow-hidden border-b border-border/60 bg-gradient-to-b from-muted/30 via-background to-background pt-20">
         <div className="relative min-h-[520px] sm:min-h-[600px] lg:min-h-[650px]">
           <div className="absolute inset-x-0 top-0 z-10 px-5 py-6 sm:px-8 lg:px-10">
             <h1 className="text-xl font-semibold tracking-tight sm:text-2xl">
@@ -635,7 +623,6 @@ export function DashboardTrajectoryHero({
                 taskPending={taskPending}
                 taskError={taskError}
                 onRetryPlan={onRetryPlan}
-                onDeclineStudyPlan={onDeclineStudyPlan}
                 onSkipGoal={onSkipGoal}
                 setupPending={setupPending}
                 setupError={setupError}
@@ -669,7 +656,6 @@ export function DashboardTrajectoryHero({
               taskPending={taskPending}
               taskError={taskError}
               onRetryPlan={onRetryPlan}
-              onDeclineStudyPlan={onDeclineStudyPlan}
               onSkipGoal={onSkipGoal}
               setupPending={setupPending}
               setupError={setupError}
@@ -729,7 +715,7 @@ export function DashboardTrajectoryHero({
       ),
   );
   return (
-    <section className="relative isolate overflow-hidden border-y border-border/60 bg-gradient-to-b from-muted/25 via-background to-background">
+    <section className="relative isolate -mt-20 overflow-hidden border-b border-border/60 bg-gradient-to-b from-muted/25 via-background to-background pt-20">
       <div className="relative min-h-[620px] sm:min-h-[700px] lg:min-h-[690px]">
         <div className="absolute inset-x-0 top-0 z-10 px-5 py-6 sm:px-8 lg:px-10">
           <h1 className="text-xl font-semibold tracking-tight sm:text-2xl">
@@ -805,7 +791,6 @@ export function DashboardTrajectoryHero({
               taskPending={taskPending}
               taskError={taskError}
               onRetryPlan={onRetryPlan}
-              onDeclineStudyPlan={onDeclineStudyPlan}
               onSkipGoal={onSkipGoal}
               setupPending={setupPending}
               setupError={setupError}
@@ -848,7 +833,6 @@ export function DashboardTrajectoryHero({
             taskPending={taskPending}
             taskError={taskError}
             onRetryPlan={onRetryPlan}
-            onDeclineStudyPlan={onDeclineStudyPlan}
             onSkipGoal={onSkipGoal}
             setupPending={setupPending}
             setupError={setupError}
@@ -1010,7 +994,6 @@ export function DashboardHome() {
   const profileQuery = useUcatProfile();
   const planQuery = useDashboardStudyPlan();
   const queryClient = useQueryClient();
-  const completeMilestone = useCompleteOnboardingTour();
   const scoreProjectionQuery = useScoreProjection(
     Boolean(planQuery.data?.profile),
   );
@@ -1054,22 +1037,6 @@ export function DashboardHome() {
       studyPlanDecided,
     ],
   );
-
-  async function handleDeclineStudyPlan() {
-    setSetupPending(true);
-    setSetupError(null);
-    try {
-      await completeMilestone.mutateAsync(UCAT_STUDY_PLAN_DECIDED);
-    } catch (caught) {
-      setSetupError(
-        caught instanceof Error
-          ? caught.message
-          : "Could not save your Study plan preference.",
-      );
-    } finally {
-      setSetupPending(false);
-    }
-  }
 
   async function handleSkipGoal() {
     setSetupPending(true);
@@ -1191,7 +1158,6 @@ export function DashboardHome() {
           taskPending={taskActions.pendingAction === "start"}
           taskError={taskActions.error}
           onRetryPlan={() => void planQuery.refetch()}
-          onDeclineStudyPlan={handleDeclineStudyPlan}
           onSkipGoal={handleSkipGoal}
           setupPending={setupPending}
           setupError={setupError}

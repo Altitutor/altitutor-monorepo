@@ -1,5 +1,7 @@
 import type { Database } from '@altitutor/shared'
 import type { SupabaseClient } from '@supabase/supabase-js'
+import type { ImageContent } from '@modelcontextprotocol/sdk/types.js'
+import sharp from 'sharp'
 import {
   editUcatImageBytes,
   generateUcatImageBytes,
@@ -21,6 +23,134 @@ type FileRow = {
   mimetype: string
   bucket: string | null
   storage_path: string | null
+}
+
+export type UcatMcpFileResult = {
+  metadata: Record<string, unknown>
+  image?: ImageContent
+}
+
+type UcatMcpStorageBucket = {
+  createSignedUrl: (
+    path: string,
+    expiresIn: number,
+  ) => Promise<{
+    data: { signedUrl: string } | null
+    error: { message: string } | null
+  }>
+  download: (
+    path: string,
+  ) => Promise<{
+    data: Blob | null
+    error: { message: string } | null
+  }>
+}
+
+export type UcatMcpStorageFactory = (bucket: string) => UcatMcpStorageBucket
+
+const MAX_INLINE_IMAGE_BYTES = 2 * 1024 * 1024
+const MAX_SOURCE_IMAGE_BYTES = 50 * 1024 * 1024
+const MAX_IMAGE_PIXELS = 40_000_000
+const MAX_PREVIEW_DIMENSION = 1600
+const INLINE_RASTER_MIME_TYPES = new Set([
+  'image/png',
+  'image/jpeg',
+  'image/webp',
+  'image/gif',
+])
+
+async function createMcpImageContent(
+  source: Blob | Buffer,
+  mimeType: string,
+): Promise<ImageContent> {
+  const bytes = Buffer.isBuffer(source)
+    ? source
+    : Buffer.from(await source.arrayBuffer())
+  if (bytes.length > MAX_SOURCE_IMAGE_BYTES) {
+    throw new Error('The selected image is too large to prepare for model inspection')
+  }
+
+  const image = sharp(bytes, {
+    animated: false,
+    limitInputPixels: MAX_IMAGE_PIXELS,
+  })
+  const metadata = await image.metadata()
+  if (!metadata.format || !metadata.width || !metadata.height) {
+    throw new Error('The selected file is not a readable image')
+  }
+
+  if (
+    INLINE_RASTER_MIME_TYPES.has(mimeType)
+    && bytes.length <= MAX_INLINE_IMAGE_BYTES
+    && metadata.width <= MAX_PREVIEW_DIMENSION
+    && metadata.height <= MAX_PREVIEW_DIMENSION
+  ) {
+    return {
+      type: 'image',
+      data: bytes.toString('base64'),
+      mimeType,
+    }
+  }
+
+  for (const dimension of [MAX_PREVIEW_DIMENSION, 1280, 1024]) {
+    for (const quality of [85, 70, 55]) {
+      const preview = await image
+        .clone()
+        .rotate()
+        .resize({
+          width: dimension,
+          height: dimension,
+          fit: 'inside',
+          withoutEnlargement: true,
+        })
+        .webp({ quality })
+        .toBuffer()
+      if (preview.length <= MAX_INLINE_IMAGE_BYTES) {
+        return {
+          type: 'image',
+          data: preview.toString('base64'),
+          mimeType: 'image/webp',
+        }
+      }
+    }
+  }
+
+  throw new Error('The selected image could not be reduced to a safe MCP preview size')
+}
+
+export async function createMcpImageContentFromDataUri(
+  dataUri: string,
+): Promise<ImageContent> {
+  const match = /^data:([^;,]+)(?:;charset=[^;,]+)?(;base64)?,([\s\S]*)$/u.exec(dataUri)
+  if (!match?.[1] || match[3] === undefined || !match[1].startsWith('image/')) {
+    throw new Error('The rendered visual did not produce a valid image data URI')
+  }
+  const source = match[2]
+    ? Buffer.from(match[3], 'base64')
+    : Buffer.from(decodeURIComponent(match[3]), 'utf8')
+  if (source.length > MAX_SOURCE_IMAGE_BYTES) {
+    throw new Error('The rendered visual is too large to prepare for model inspection')
+  }
+  const png = await sharp(source, {
+    limitInputPixels: MAX_IMAGE_PIXELS,
+    density: 144,
+  })
+    .resize({
+      width: MAX_PREVIEW_DIMENSION,
+      height: MAX_PREVIEW_DIMENSION,
+      fit: 'inside',
+      withoutEnlargement: true,
+    })
+    .png({ compressionLevel: 9 })
+    .toBuffer()
+  if (png.length <= MAX_INLINE_IMAGE_BYTES) {
+    return {
+      type: 'image',
+      data: png.toString('base64'),
+      mimeType: 'image/png',
+    }
+  }
+  return createMcpImageContent(png, 'image/png')
 }
 
 async function currentTutorId(client: SupabaseClient<Database>): Promise<string> {
@@ -134,7 +264,8 @@ export async function reviseUcatMcpImage(
 export async function getUcatMcpFile(
   client: SupabaseClient<Database>,
   fileId: string,
-): Promise<Record<string, unknown>> {
+  storageForBucket?: UcatMcpStorageFactory,
+): Promise<UcatMcpFileResult> {
   const { data, error } = await client
     .from('vtutor_files')
     .select('id,filename,mimetype,size_bytes,bucket,storage_path,external_url,metadata,created_at')
@@ -144,15 +275,29 @@ export async function getUcatMcpFile(
   if (!data) throw new Error('File not found')
 
   let signedUrl: string | null = null
+  let image: ImageContent | undefined
   if (data.bucket && data.storage_path) {
-    const signed = await getServiceRoleClient().storage
-      .from(data.bucket)
-      .createSignedUrl(data.storage_path, 3600)
-    if (signed.error) throw new Error(signed.error.message)
+    const storage = storageForBucket
+      ? storageForBucket(data.bucket)
+      : getServiceRoleClient().storage.from(data.bucket)
+    const signed = await storage.createSignedUrl(data.storage_path, 3600)
+    if (signed.error || !signed.data) {
+      throw new Error(signed.error?.message ?? 'Failed to create a signed file URL')
+    }
     signedUrl = signed.data.signedUrl
+    if (typeof data.mimetype === 'string' && data.mimetype.startsWith('image/')) {
+      const downloaded = await storage.download(data.storage_path)
+      if (downloaded.error || !downloaded.data) {
+        throw new Error(downloaded.error?.message ?? 'Failed to load the selected image')
+      }
+      image = await createMcpImageContent(downloaded.data, data.mimetype)
+    }
   }
   return {
-    ...data,
-    signedUrl,
+    metadata: {
+      ...data,
+      signedUrl,
+    },
+    ...(image ? { image } : {}),
   }
 }

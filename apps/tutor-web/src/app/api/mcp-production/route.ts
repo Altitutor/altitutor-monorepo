@@ -4,7 +4,7 @@ export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
 export const maxDuration = 300
 
-const authenticatedHandler = createUcatMcpHttpHandler('authoring')
+const authenticatedHandler = createUcatMcpHttpHandler('production-maintenance')
 
 export {
   authenticatedHandler as DELETE,

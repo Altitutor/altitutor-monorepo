@@ -197,19 +197,35 @@ function FolderSections({
 
 export function LearningSectionPage({
   sectionNumber,
+  title,
+  description = "Choose a module to continue learning.",
+  backHref = "/learn",
+  backLabel = "Back to Learn",
+  emptyMessage,
 }: {
-  sectionNumber: number;
+  sectionNumber: number | null;
+  title?: string;
+  description?: string;
+  backHref?: string;
+  backLabel?: string;
+  emptyMessage?: string;
 }) {
   const { data: modules, isLoading, error } = useLearningModules();
   const { containerVariants, itemVariants } = useUcatStaggerMotion();
   const sectionName =
-    SECTION_NUMBER_TO_NAME[sectionNumber] ?? `Section ${sectionNumber}`;
+    title ??
+    (sectionNumber == null
+      ? "General"
+      : SECTION_NUMBER_TO_NAME[sectionNumber] ?? `Section ${sectionNumber}`);
 
   const tree = useMemo(
     () =>
       buildLearningModuleTree(
         (modules ?? []).filter(
-          (module) => module.section_number === sectionNumber,
+          (module) =>
+            sectionNumber == null
+              ? module.section_number == null
+              : module.section_number === sectionNumber,
         ),
       ),
     [modules, sectionNumber],
@@ -226,9 +242,9 @@ export function LearningSectionPage({
     <div className="space-y-6">
       <UcatPageHeader
         title={`${sectionName} learning`}
-        description="Choose a module to continue learning."
-        backHref="/learn"
-        backLabel="Back to Learn"
+        description={description}
+        backHref={backHref}
+        backLabel={backLabel}
       />
 
       {error ? (
@@ -240,7 +256,10 @@ export function LearningSectionPage({
       {!error && lessons.length === 0 ? (
         <Card>
           <CardContent className="py-10 text-center text-muted-foreground">
-            No learning modules are available for this section yet.
+            {emptyMessage ??
+              (sectionNumber == null
+                ? "No general learning modules are available yet."
+                : "No learning modules are available for this section yet.")}
           </CardContent>
         </Card>
       ) : null}

@@ -480,7 +480,10 @@ export function ProgressPreviewPage({
       ]),
     ) as Record<number, SectionCategoryProgress[]>;
     const sectionTargets = Object.fromEntries(
-      SECTIONS.map((section) => [section.id, scenario.targetScore]),
+      SECTIONS.filter((section) => section.number <= 3).map((section) => [
+        section.id,
+        scenario.targetScore,
+      ]),
     ) as Record<string, number | null>;
     return {
       projections,
@@ -642,7 +645,9 @@ export function ProgressPreviewPage({
           categoryProgress={model.categories[selectedSection.number] ?? []}
           scoreProjection={selectedProjection}
           snapshots={model.snapshots}
-          targetScore={scenario.targetScore}
+          targetScore={
+            selectedSection.number <= 3 ? scenario.targetScore : null
+          }
           testDate={scenario.id === "no_target" ? null : addDays(today, 90)}
           today={today}
           averageExamSpeed={scenario.averageExamSpeed}

@@ -344,6 +344,7 @@ export async function applyUcatMcpPendingChange(
     metadata: {
       summary: change.summary,
       rationale: change.rationale,
+      auditRunId: change.audit_run_id,
       findingRefs: change.finding_refs,
     },
     source: change.source,
