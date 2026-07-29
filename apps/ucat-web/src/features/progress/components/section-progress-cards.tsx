@@ -301,7 +301,10 @@ export function SectionProgressCards({
                 scoreBySectionNumber.get(section.sectionNumber)
                   ?.currentEstimate ?? null;
               const href = `${sectionHrefPrefix}/${section.sectionNumber}`;
-              const sectionTarget = sectionTargets[section.sectionId] ?? null;
+              const sectionTarget =
+                section.sectionNumber <= 3
+                  ? (sectionTargets[section.sectionId] ?? null)
+                  : null;
               const rowDelay = animate ? index * 0.05 : 0;
               return (
                 <motion.div

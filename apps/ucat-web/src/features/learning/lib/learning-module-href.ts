@@ -6,5 +6,5 @@ export function learningModuleHref(
   if (sectionNumber != null && sectionNumber >= 1 && sectionNumber <= 4) {
     return `/learn/sections/${sectionNumber}/${encodedId}`;
   }
-  return `/learn/${encodedId}`;
+  return `/learn/general/${encodedId}`;
 }

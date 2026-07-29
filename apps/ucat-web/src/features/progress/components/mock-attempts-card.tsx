@@ -110,7 +110,7 @@ export function MockAttemptsCard({
   const benchmark = lookupUcatAnzTotalPercentile(recentWeightedAverage);
   const insightBody =
     trend == null
-      ? "Use your next mock to practice a consistent stuck-question rule. Afterwards, review the first avoidable miss in each section before changing your overall pace."
+      ? "Complete your first mock to see your progress."
       : trend > 0
         ? `Your recent mock trajectory is up ${trend} points across the selected period. Check the section breakdown to see whether that improvement is balanced.`
         : trend < 0
@@ -166,7 +166,7 @@ export function MockAttemptsCard({
                 </p>
               </div>
               <div className="text-right">
-                <p className="text-xs text-muted-foreground">UCAT ANZ</p>
+                <p className="text-xs text-muted-foreground">Percentile</p>
                 <p className="font-medium">
                   {benchmark.percentileLabel ?? "Not available"}
                 </p>

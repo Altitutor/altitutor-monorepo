@@ -250,7 +250,6 @@ export function LearningLessonPreviewPage() {
             activeIndex={activeIndex}
             completionPercent={67}
             isLessonComplete={false}
-            canAccessBlock={() => true}
             isBlockComplete={(block) => block.block_completed_at != null}
             onSelectBlock={setActiveIndex}
             onMarkBlockComplete={() => undefined}
