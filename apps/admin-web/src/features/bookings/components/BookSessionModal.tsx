@@ -27,12 +27,12 @@ import {
 import { cn } from '@/shared/utils';
 import { TimeSlotPicker } from './TimeSlotPicker';
 import { StaffSelector } from './StaffSelector';
-import { AdminTrialContactForm } from './AdminTrialContactForm';
 import { useBookSessionFlow } from '../hooks/useBookSessionFlow';
 import { useSessionDurationMinutes } from '../hooks/useBookingSettings';
 import { getSessionTypeLabel } from '../utils/bookingHelpers';
 import { formatSlotDateTime, getCurrentAdelaideTime } from '../utils/dateTimeHelpers';
 import { StudentSelectionStep } from './steps/StudentSelectionStep';
+import { TrialStudentSelectionStep } from './steps/TrialStudentSelectionStep';
 import { SubjectSelectionStep } from './steps/SubjectSelectionStep';
 import { ConfirmationStep } from './steps/ConfirmationStep';
 import { BookSessionNotifyStep } from './BookSessionNotifyStep';
@@ -72,6 +72,7 @@ export function BookSessionModal({
     selectedSubjectId,
     selectedSlot,
     selectedStaffId,
+    isCreatingTrialStudent,
     trialContactData,
     showPastDateWarning,
     isSubmitting,
@@ -95,6 +96,9 @@ export function BookSessionModal({
     setSelectedStaffId,
     setTrialContactFormRef,
     setTrialFormValid,
+    handleStartCreatingTrialStudent,
+    handleCancelCreatingTrialStudent,
+    handleSelectExistingTrialStudent,
     handleSlotSelect,
     handleTrialContactSubmit,
     handleNext,
@@ -153,9 +157,18 @@ export function BookSessionModal({
 
       case 'trial-contact':
         return (
-          <AdminTrialContactForm
-            onSubmit={handleTrialContactSubmit}
-            defaultValues={trialContactData || undefined}
+          <TrialStudentSelectionStep
+            studentSearch={studentSearch}
+            onSearchChange={setStudentSearch}
+            students={studentsData}
+            isLoading={studentsLoading}
+            selectedStudentId={selectedStudentId}
+            onSelectStudent={handleSelectExistingTrialStudent}
+            isCreatingStudent={isCreatingTrialStudent}
+            onStartCreatingStudent={handleStartCreatingTrialStudent}
+            onCancelCreatingStudent={handleCancelCreatingTrialStudent}
+            trialContactData={trialContactData}
+            onFormSubmit={handleTrialContactSubmit}
             onFormReady={setTrialContactFormRef}
             onValidityChange={setTrialFormValid}
           />

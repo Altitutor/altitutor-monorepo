@@ -106,9 +106,18 @@ Core rules:
 - ucat_suitability covers whether the item resembles real UCAT ANZ content, uses appropriate knowledge and professional context, and is worth retaining. Use recommendedAction="exclude" only for probably irrecoverable candidates.
 - answer_correctness_fairness requires independent solution, exactly one defensible keyed answer for multiple choice, correct Yes/No conclusions for syllogisms, plausible distractors, and fair discrimination at UCAT calculator/visual precision.
 - explanation_quality follows the supplied question type and section. Incorrect keys, unsupported objective answers, materially wrong teaching, or genuinely unsolvable questions are critical.
-- Explanations exist to teach students an efficient timed-test method. Check correctness, clarity, decisive reasoning, and whether the strongest distractors are addressed without needless verbosity.
+- Explanations are student-facing lessons, not answer-key justifications. They must act like a helpful tutor: reconstruct the relevant information, teach the efficient UCAT method, show the decisive working, and finish with a clear answer.
+- For a non-trivial question, a one-paragraph calculation or assertion is insufficient even when correct. Prefer two to five short, titled or numbered steps. Explain why each step is taken, not only what was calculated.
+- Use Markdown headings, ordered steps, compact tables, equations, elimination grids, or a simple text diagram when they materially improve understanding. The rich-text importer converts Markdown headings, lists, equations, pipe tables, and fenced text diagrams into structured content.
+- Quantitative explanations should identify the required quantity, translate the stem data into a calculation, show efficient calculator or mental-maths working, preserve units, and perform a reasonableness check where useful.
+- Verbal Reasoning explanations should identify the relevant passage evidence and explain the inference or elimination. Decision Making explanations should make the governing constraint or logic explicit. Situational Judgement explanations should connect the decision to the relevant professional principle.
+- Address the strongest distractor or likely misconception where it teaches something useful. Do not pad explanations with repetition, generic encouragement, or an exhaustive discussion of obviously wrong options.
+- "Concise" means scannable and free of filler; it never means omitting the steps a student needs to learn the method.
 - Multiple-choice questions require one question-level explanation and may also use helpful, non-duplicative option-level explanations. Syllogisms require per-option explanations and may also use a helpful, non-duplicative question-level strategy explanation.
-- Deterministic format checks are supplied separately. Do not restate passed checks. For a failed check, create a finding only when you can propose the complete repair that code could not safely apply; otherwise leave the deterministic failure to the gate UI.
+- Failed deterministic format checks are supplied separately. Repair every failure that needs content judgment when a coherent repair is possible. Return a complete one-click suggestion rather than merely describing the problem.
+- When an option-count check fails, add plausible, mutually exclusive distractors or remove the weakest/redundant options until the exact required count is reached. Independently solve the repaired question, preserve or correct the answer key, and ensure exactly one answer is defensible.
+- If a missing explanation is reported, write the complete student-facing lesson to the standard above. If an existing explanation is correct but too brief to teach the method, replace it with a complete improved explanation.
+- Leave a deterministic failure without a suggestion only when the content is genuinely ambiguous, unsolvable, or cannot be safely repaired without rewriting a shared multi-question passage.
 - Quantitative Reasoning categories classify information presentation rather than strict question types. Never score or discuss QR category fit.
 - For VR, DM, and SJT, assess whether the cognitive task genuinely resembles UCAT after surface format rules have already passed.
 - Evaluate difficulty and timing against realistic UCAT conditions, not unlimited working time. This category is not merely a metadata-calibration check.
@@ -131,7 +140,7 @@ Suggestions:
 - Do not rewrite a whole passage or multi-question stem. Recommend exclusion instead.
 - set_answer_key may re-key an existing option.
 - replace_option_and_key may replace one distractor when all supplied options are wrong.
-- set_text may fill an empty explanation or replace an entire bounded text field.
+- set_text may fill an empty explanation or replace an entire bounded text field. For explanations, afterText may use Markdown headings, ordered lists, pipe tables, and display equations; these are converted to structured rich text.
 - Structural patches must contain the complete resulting question/option content needed for one-click application.
 - replace_text must quote an exact existing sentence or phrase as beforeText and its bounded replacement as afterText. The beforeText must exist wholly inside one paragraph or one list item; never span rich-text blocks or infer missing spaces where block boundaries are serialized.
 - set_metadata may update a supported field only when the correction is clear.
@@ -295,7 +304,7 @@ export function buildAssessmentUserPrompt(params: {
     stemText: reviewText(params.snapshot.stemText, params.snapshot.stemTextPlain),
     visualEvidence: imageMetadata(params.snapshot, true),
     visualAvailability: params.visualAvailability ?? [],
-    deterministicFormatWarnings: params.formatChecks.filter((check) => check.severity === 'warning'),
+    failedDeterministicFormatChecks: params.formatChecks,
     availableQuestionTags: params.availableQuestionTags ?? [],
     blindSolution: params.blindSolution,
     questions,

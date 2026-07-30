@@ -1,7 +1,7 @@
 import { z } from 'zod'
 import type { Json } from '@altitutor/shared'
 
-export const AI_ASSESSMENT_PROMPT_VERSION = 4
+export const AI_ASSESSMENT_PROMPT_VERSION = 5
 
 export const UcatAssessmentCategorySchema = z.enum([
   'presentation_integrity',

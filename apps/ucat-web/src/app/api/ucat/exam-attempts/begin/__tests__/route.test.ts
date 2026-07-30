@@ -6,6 +6,7 @@ import {
   beginExamAttempt,
   getActiveExamAttempt,
 } from "@/lib/ucat/exam-attempt/service";
+import { captureApiError } from "@/lib/sentry/capture-api-error";
 import type { ActiveExamAttempt } from "@/lib/ucat/exam-attempt/types";
 import { POST } from "../route";
 
@@ -26,6 +27,7 @@ jest.mock("@/lib/sentry/capture-api-error", () => ({
 const mockServerClient = jest.mocked(getSupabaseServerClient);
 const mockBeginExamAttempt = jest.mocked(beginExamAttempt);
 const mockGetActiveExamAttempt = jest.mocked(getActiveExamAttempt);
+const mockCaptureApiError = jest.mocked(captureApiError);
 
 const activeAttempt = {
   kind: "set",
@@ -114,5 +116,27 @@ describe("POST /api/ucat/exam-attempts/begin", () => {
     } as unknown as NextRequest);
 
     expect(response.status).toBe(409);
+  });
+
+  it("returns an expected quota rejection without reporting an exception", async () => {
+    mockBeginExamAttempt.mockRejectedValue(
+      new Error(
+        'QUOTA_EXCEEDED:{"code":"QUOTA_EXCEEDED","area":"mocks","used":0,"limit":0,"period":"month"}',
+      ),
+    );
+
+    const response = await POST({
+      json: async () => ({
+        kind: "mock",
+        resourceId: "mock-1",
+        wasTimed: true,
+        engineSnapshot: {},
+        segmentTimeLimitSeconds: null,
+        examMeta: { sourceType: "mock", sourceId: "mock-1" },
+      }),
+    } as unknown as NextRequest);
+
+    expect(response.status).toBe(403);
+    expect(mockCaptureApiError).not.toHaveBeenCalled();
   });
 });

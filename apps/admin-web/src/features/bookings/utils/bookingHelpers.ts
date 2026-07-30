@@ -37,12 +37,13 @@ export function getBookingSteps(
 ): Array<{ id: string; title: string }> {
   const baseSteps = [];
 
-  // For TRIAL_SESSION, always start with new student form (skip student selection)
+  // For TRIAL_SESSION, start with a step that allows selecting an existing student
+  // or creating a new one on the spot.
   if (sessionType === 'TRIAL_SESSION') {
-    // Step 0: Trial Contact Form (new student)
+    // Step 0: Select or create student
     baseSteps.push({
       id: 'trial-contact',
-      title: 'Student Details',
+      title: 'Select or Create Student',
     });
   } else {
     // Step 0: Select Student (for DRAFTING and SUBSIDY_INTERVIEW)
@@ -94,13 +95,14 @@ export function canProceedToNextStep(
     selectedSlot?: { startAt: string; endAt: string; availableStaffIds: string[] } | null;
     selectedStaffId?: string;
     trialFormValid?: boolean;
+    isCreatingTrialStudent?: boolean;
   }
 ): boolean {
   switch (stepId) {
     case 'student':
       return !!state.selectedStudentId;
     case 'trial-contact':
-      return state.trialFormValid ?? false;
+      return state.isCreatingTrialStudent ? (state.trialFormValid ?? false) : !!state.selectedStudentId;
     case 'subject':
       // For DRAFTING, subject is required; for others it's optional
       return sessionType === 'DRAFTING' ? !!state.selectedSubjectId : true;

@@ -165,6 +165,7 @@ describe('getBookingSteps', () => {
     
     expect(steps).toHaveLength(4);
     expect(steps[0].id).toBe('trial-contact');
+    expect(steps[0].title).toBe('Select or Create Student');
     expect(steps[1].id).toBe('time');
     expect(steps[2].id).toBe('staff');
     expect(steps[3].id).toBe('confirm');
@@ -254,7 +255,28 @@ describe('canProceedToNextStep', () => {
   });
 
   it('should handle TRIAL_SESSION steps correctly', () => {
-    // Trial session skips student and subject steps
+    const canProceedWithExistingStudent = canProceedToNextStep(
+      'trial-contact',
+      'TRIAL_SESSION',
+      {
+        selectedStudentId: 'student-1',
+        isCreatingTrialStudent: false,
+      }
+    );
+
+    expect(canProceedWithExistingStudent).toBe(true);
+
+    const canProceedWithNewStudent = canProceedToNextStep(
+      'trial-contact',
+      'TRIAL_SESSION',
+      {
+        trialFormValid: true,
+        isCreatingTrialStudent: true,
+      }
+    );
+
+    expect(canProceedWithNewStudent).toBe(true);
+
     const canProceedFromTime = canProceedToNextStep(
       'time',
       'TRIAL_SESSION',

@@ -411,11 +411,11 @@ export function useBulkImportReviewController({
 
     const queue = [...stemIds]
     const reviewStem = async (stemId: string) => {
-      const reviewDraft = includedStems.find((stem) => stem.id === stemId)
+      const includedDraft = includedStems.find((stem) => stem.id === stemId)
       const fullDraft = stemsRef.current.find((stem) => stem.id === stemId)
-      if (!reviewDraft || !fullDraft || abortController.signal.aborted) return
+      if (!includedDraft || !fullDraft || abortController.signal.aborted) return
       const reviewedQuestionIds = new Set(
-        reviewDraft.values.questions.flatMap((question) => question.id ? [question.id] : [])
+        includedDraft.values.questions.flatMap((question) => question.id ? [question.id] : [])
       )
       const includedValuesFrom = (values: UcatQuestionStemFormValues) => ({
         ...values,
@@ -423,6 +423,10 @@ export function useBulkImportReviewController({
           (question) => !question.id || reviewedQuestionIds.has(question.id)
         ),
       })
+      const reviewDraft = {
+        ...includedDraft,
+        values: includedValuesFrom(fullDraft.values),
+      }
       const previous = cacheFromResult(aiResultsRef.current[stemId])
       try {
         const response = await requestBulkImportAiReview({

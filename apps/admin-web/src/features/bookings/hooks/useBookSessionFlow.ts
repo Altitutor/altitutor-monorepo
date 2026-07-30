@@ -10,6 +10,7 @@ import { useCreateBooking } from './useCreateBooking';
 import { useSessionsWithDetails } from '@/features/sessions/hooks/useSessionsQuery';
 import { useStudentSubjects } from './useStudentSubjects';
 import { useStaffById } from '@/features/staff/hooks/useStaffQuery';
+import { useStudent } from '@/features/students/hooks/useStudentsQuery';
 import type { AdminTrialContactFormValues } from '../components/AdminTrialContactForm';
 import { getBookingSteps, canProceedToNextStep, getSessionTypeLabel } from '../utils/bookingHelpers';
 import { showSessionBookedToast } from '@/shared/utils/toastHelpers';
@@ -23,6 +24,7 @@ export interface BookSessionFlowState {
   selectedSubjectId: string;
   selectedSlot: { startAt: string; endAt: string; availableStaffIds: string[] } | null;
   selectedStaffId: string;
+  isCreatingTrialStudent: boolean;
   trialContactData: AdminTrialContactFormValues | null;
   trialContactFormRef: UseFormReturn<AdminTrialContactFormValues> | null;
   trialFormValid: boolean;
@@ -60,6 +62,7 @@ export function useBookSessionFlow({
   const [selectedSubjectId, setSelectedSubjectId] = useState<string>('');
   const [selectedSlot, setSelectedSlot] = useState<{ startAt: string; endAt: string; availableStaffIds: string[] } | null>(null);
   const [selectedStaffId, setSelectedStaffId] = useState<string>('');
+  const [isCreatingTrialStudent, setIsCreatingTrialStudent] = useState(false);
   const [trialContactData, setTrialContactData] = useState<AdminTrialContactFormValues | null>(null);
   const [trialContactFormRef, setTrialContactFormRef] = useState<UseFormReturn<AdminTrialContactFormValues> | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -90,6 +93,7 @@ export function useBookSessionFlow({
       if (sessionType === 'TRIAL_SESSION') {
         // For trial sessions, skip trial-contact form and go straight to time selection
         // Steps: trial-contact (0) -> time (1) -> staff (2) -> confirm (3)
+        setIsCreatingTrialStudent(false);
         startingStep = 1; // Skip to time selection
       } else if (sessionType === 'DRAFTING') {
         // For drafting, skip student (0) and subject (1), go to time (2)
@@ -112,6 +116,9 @@ export function useBookSessionFlow({
       setSelectedStudentId(initialStudentId);
       // Advance past student selection when the student is pre-selected.
       if (sessionType === 'DRAFTING') {
+        setCurrentStep(1);
+      } else if (sessionType === 'TRIAL_SESSION') {
+        setIsCreatingTrialStudent(false);
         setCurrentStep(1);
       } else if (sessionType === 'SUBSIDY_INTERVIEW') {
         setCurrentStep(1);
@@ -173,9 +180,16 @@ export function useBookSessionFlow({
   const { data: selectedStaff } = useStaffById(selectedStaffId || '');
 
   // Get selected student data for new session preview
+  const { data: selectedStudentById } = useStudent(selectedStudentId);
   const selectedStudent = useMemo(() => {
     if (selectedStudentId && studentsData) {
-      return studentsData.find((s: Tables<'students'>) => s.id === selectedStudentId);
+      const matchingStudent = studentsData.find((s: Tables<'students'>) => s.id === selectedStudentId);
+      if (matchingStudent) {
+        return matchingStudent;
+      }
+    }
+    if (selectedStudentId && selectedStudentById) {
+      return selectedStudentById;
     }
     if (trialContactData) {
       // Return a mock student object for preview
@@ -197,7 +211,7 @@ export function useBookSessionFlow({
       } as Tables<'students'>;
     }
     return null;
-  }, [selectedStudentId, studentsData, trialContactData]);
+  }, [selectedStudentId, studentsData, selectedStudentById, trialContactData]);
 
   // Reset state when modal closes
   const handleClose = useCallback(() => {
@@ -208,6 +222,7 @@ export function useBookSessionFlow({
       setSelectedSubjectId('');
       setSelectedSlot(null);
       setSelectedStaffId('');
+      setIsCreatingTrialStudent(false);
       setTrialContactData(null);
       setTrialContactFormRef(null);
       setTrialFormValid(false);
@@ -239,6 +254,20 @@ export function useBookSessionFlow({
     setTrialContactData(data);
   }, []);
 
+  const handleStartCreatingTrialStudent = useCallback(() => {
+    setIsCreatingTrialStudent(true);
+    setSelectedStudentId('');
+  }, []);
+
+  const handleCancelCreatingTrialStudent = useCallback(() => {
+    setIsCreatingTrialStudent(false);
+  }, []);
+
+  const handleSelectExistingTrialStudent = useCallback((studentId: string) => {
+    setIsCreatingTrialStudent(false);
+    setSelectedStudentId(studentId);
+  }, []);
+
   const canGoNext = useCallback(() => {
     return canProceedToNextStep(currentStepId || '', sessionType, {
       selectedStudentId,
@@ -246,12 +275,13 @@ export function useBookSessionFlow({
       selectedSlot,
       selectedStaffId,
       trialFormValid,
+      isCreatingTrialStudent,
     });
-  }, [currentStepId, sessionType, selectedStudentId, selectedSubjectId, selectedSlot, selectedStaffId, trialFormValid]);
+  }, [currentStepId, sessionType, selectedStudentId, selectedSubjectId, selectedSlot, selectedStaffId, trialFormValid, isCreatingTrialStudent]);
 
   const handleNext = useCallback(async () => {
     // For trial-contact step, validate form and show errors if invalid
-    if (currentStepId === 'trial-contact' && trialContactFormRef) {
+    if (currentStepId === 'trial-contact' && isCreatingTrialStudent && trialContactFormRef) {
       // Trigger validation only on required fields
       const isValid = await trialContactFormRef.trigger(['student_first_name', 'student_last_name', 'student_phone']);
       if (!isValid) {
@@ -293,6 +323,14 @@ export function useBookSessionFlow({
           description: 'Please select a student',
           variant: 'destructive',
         });
+      } else if (currentStepId === 'trial-contact') {
+        toast({
+          title: 'Validation Error',
+          description: isCreatingTrialStudent
+            ? 'Please complete the new student details'
+            : 'Please select a student or create a new one',
+          variant: 'destructive',
+        });
       } else if (currentStepId === 'subject' && sessionType === 'DRAFTING') {
         toast({
           title: 'Validation Error',
@@ -325,7 +363,7 @@ export function useBookSessionFlow({
     if (currentStep < steps.length - 1) {
       setCurrentStep(currentStep + 1);
     }
-  }, [currentStepId, trialContactFormRef, canGoNext, currentStep, steps.length, selectedSlot, sessionType, toast]);
+  }, [currentStepId, isCreatingTrialStudent, trialContactFormRef, canGoNext, currentStep, steps.length, selectedSlot, sessionType, toast]);
 
   const handleBack = useCallback(() => {
     if (currentStep > 0) {
@@ -339,7 +377,7 @@ export function useBookSessionFlow({
     }
 
     // For trial sessions with new student, use database function (handles everything atomically)
-    if (sessionType === 'TRIAL_SESSION' && !selectedStudentId && trialContactData) {
+    if (sessionType === 'TRIAL_SESSION' && isCreatingTrialStudent && !selectedStudentId && trialContactData) {
       if (!trialContactData.student_first_name || !trialContactData.student_last_name || !trialContactData.student_phone) {
         toast({
           title: 'Missing Information',
@@ -456,6 +494,7 @@ export function useBookSessionFlow({
     selectedStaffId,
     selectedStudentId,
     sessionType,
+    isCreatingTrialStudent,
     trialContactData,
     selectedSubjectId,
     originalSessionId,
@@ -509,6 +548,7 @@ export function useBookSessionFlow({
     selectedSubjectId,
     selectedSlot,
     selectedStaffId,
+    isCreatingTrialStudent,
     trialContactData,
     trialContactFormRef,
     trialFormValid,
@@ -533,6 +573,9 @@ export function useBookSessionFlow({
     setSelectedStudentId,
     setSelectedSubjectId,
     setSelectedStaffId,
+    handleStartCreatingTrialStudent,
+    handleCancelCreatingTrialStudent,
+    handleSelectExistingTrialStudent,
     setTrialContactFormRef,
     setTrialFormValid,
     handleSlotSelect,
