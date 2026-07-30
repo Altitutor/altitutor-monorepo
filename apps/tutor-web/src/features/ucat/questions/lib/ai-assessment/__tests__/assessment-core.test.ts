@@ -246,6 +246,32 @@ describe('assessment prompts and deterministic checks', () => {
     expect(ASSESSMENT_SYSTEM_PROMPT).toContain('too trivial, too difficult, too slow')
   })
 
+  it('asks the moderator to repair deterministic failures and write teaching explanations', () => {
+    const prompt = JSON.parse(buildAssessmentUserPrompt({
+      snapshot: snapshot(),
+      targetQuestionIds: [QUESTION_1],
+      includeSharedAssessment: true,
+      blindSolution: { solutions: [] },
+      formatChecks: [{
+        severity: 'error',
+        code: 'qr_option_count',
+        message: 'Quantitative Reasoning questions must have five answer options.',
+        scopeType: 'question',
+        questionId: QUESTION_1,
+        questionIndex: 1,
+      }],
+    })) as {
+      failedDeterministicFormatChecks: Array<{ code: string }>
+    }
+
+    expect(prompt.failedDeterministicFormatChecks).toEqual([
+      expect.objectContaining({ code: 'qr_option_count' }),
+    ])
+    expect(ASSESSMENT_SYSTEM_PROMPT).toContain('add plausible, mutually exclusive distractors')
+    expect(ASSESSMENT_SYSTEM_PROMPT).toContain('two to five short, titled or numbered steps')
+    expect(ASSESSMENT_SYSTEM_PROMPT).toContain('Concise')
+  })
+
   it('keeps the blind solve free of keys, explanations, difficulty, and timing', () => {
     const value = snapshot()
     const prompt = buildBlindSolverUserPrompt({ snapshot: value, targetQuestionIds: [QUESTION_1] })

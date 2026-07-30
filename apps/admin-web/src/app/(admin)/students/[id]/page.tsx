@@ -196,6 +196,7 @@ export default function StudentDetailPage({ params }: { params: { id: string } }
     },
     passwordResetLabel: passwordReset.passwordResetLabel,
     onLogAbsence: modals.openLogAbsence,
+    onBookTrialSession: modals.openBookTrialSession,
     onBookDraftingSession: modals.openBookDraftingSession,
     onBookSubsidyInterview: modals.openBookSubsidyInterview,
     onBookCheckIn: student
@@ -370,6 +371,17 @@ export default function StudentDetailPage({ params }: { params: { id: string } }
       )}
 
       {/* Book Drafting Session Modal */}
+      <BookSessionModal
+        isOpen={modals.isBookTrialSessionModalOpen}
+        onClose={modals.closeBookTrialSession}
+        sessionType="TRIAL_SESSION"
+        initialStudentId={id}
+        onBookingCreated={() => {
+          modals.closeBookTrialSession();
+          handleStudentUpdated();
+        }}
+      />
+
       <BookSessionModal
         isOpen={modals.isBookDraftingSessionModalOpen}
         onClose={modals.closeBookDraftingSession}

@@ -79,6 +79,10 @@ describe('explanation fill prompts', () => {
     )
     expect(EXPLANATION_FILL_SYSTEM_PROMPT).toContain('calculator use')
     expect(EXPLANATION_FILL_SYSTEM_PROMPT).toContain('Australian English spelling')
+    expect(EXPLANATION_FILL_SYSTEM_PROMPT).toContain('two to five short, titled or numbered steps')
+    expect(EXPLANATION_FILL_SYSTEM_PROMPT).toContain(
+      'Concise means avoiding repetition, not omitting teaching steps'
+    )
   })
 })
 

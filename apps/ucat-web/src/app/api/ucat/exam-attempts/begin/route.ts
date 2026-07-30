@@ -85,7 +85,6 @@ export async function POST(request: NextRequest) {
       }),
     );
   } catch (error) {
-    captureApiError(error, "/api/ucat/exam-attempts/begin");
     const message = error instanceof Error ? error.message : "Failed to begin";
     if (message.startsWith("QUOTA_EXCEEDED:")) {
       const payload = JSON.parse(message.slice("QUOTA_EXCEEDED:".length));
@@ -104,6 +103,7 @@ export async function POST(request: NextRequest) {
       }
       return NextResponse.json({ error: message, active }, { status: 409 });
     }
+    captureApiError(error, "/api/ucat/exam-attempts/begin");
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }

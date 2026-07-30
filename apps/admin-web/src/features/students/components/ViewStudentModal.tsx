@@ -230,6 +230,7 @@ export function ViewStudentModal({
     },
     passwordResetLabel: passwordReset.passwordResetLabel,
     onLogAbsence: modals.openLogAbsence,
+    onBookTrialSession: modals.openBookTrialSession,
     onBookDraftingSession: modals.openBookDraftingSession,
     onBookSubsidyInterview: modals.openBookSubsidyInterview,
     onBookCheckIn: student
@@ -477,6 +478,20 @@ export function ViewStudentModal({
           staffId={currentStaff.id}
           initialStudentId={studentId}
           allowPastSessions={true}
+        />
+      )}
+
+      {/* Book Trial Session Modal */}
+      {studentId && (
+        <BookSessionModal
+          isOpen={modals.isBookTrialSessionModalOpen}
+          onClose={modals.closeBookTrialSession}
+          sessionType="TRIAL_SESSION"
+          initialStudentId={studentId}
+          onBookingCreated={() => {
+            modals.closeBookTrialSession();
+            onStudentUpdated();
+          }}
         />
       )}
 

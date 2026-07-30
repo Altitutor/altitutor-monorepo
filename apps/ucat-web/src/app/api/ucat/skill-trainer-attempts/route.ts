@@ -33,20 +33,15 @@ export async function POST(request: NextRequest) {
     }
     return timing.apply(NextResponse.json({ attempt: result.state }));
   } catch (error) {
-    captureApiError(error, "/api/ucat/skill-trainer-attempts");
     const message =
       error instanceof Error ? error.message : "Failed to start attempt";
     if (message === "NO_ITEMS_AVAILABLE") {
       return NextResponse.json({ error: message }, { status: 422 });
     }
-    return NextResponse.json(
-      { error: message },
-      {
-        status:
-          message === "TRAINER_NOT_FOUND" || message === "STUDENT_NOT_FOUND"
-            ? 404
-            : 500,
-      },
-    );
+    if (message === "TRAINER_NOT_FOUND" || message === "STUDENT_NOT_FOUND") {
+      return NextResponse.json({ error: message }, { status: 404 });
+    }
+    captureApiError(error, "/api/ucat/skill-trainer-attempts");
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }

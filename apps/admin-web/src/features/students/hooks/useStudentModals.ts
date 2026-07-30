@@ -3,6 +3,7 @@ import { useState, useCallback } from 'react';
 interface UseStudentModalsReturn {
   // Modal states
   isLogAbsenceDialogOpen: boolean;
+  isBookTrialSessionModalOpen: boolean;
   isBookDraftingSessionModalOpen: boolean;
   isBookSubsidyInterviewModalOpen: boolean;
   isDeleteDialogOpen: boolean;
@@ -15,6 +16,8 @@ interface UseStudentModalsReturn {
   // Actions
   openLogAbsence: () => void;
   closeLogAbsence: () => void;
+  openBookTrialSession: () => void;
+  closeBookTrialSession: () => void;
   openBookDraftingSession: () => void;
   closeBookDraftingSession: () => void;
   openBookSubsidyInterview: () => void;
@@ -33,6 +36,7 @@ interface UseStudentModalsReturn {
  */
 export function useStudentModals(): UseStudentModalsReturn {
   const [isLogAbsenceDialogOpen, setIsLogAbsenceDialogOpen] = useState(false);
+  const [isBookTrialSessionModalOpen, setIsBookTrialSessionModalOpen] = useState(false);
   const [isBookDraftingSessionModalOpen, setIsBookDraftingSessionModalOpen] = useState(false);
   const [isBookSubsidyInterviewModalOpen, setIsBookSubsidyInterviewModalOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
@@ -48,6 +52,14 @@ export function useStudentModals(): UseStudentModalsReturn {
 
   const closeLogAbsence = useCallback(() => {
     setIsLogAbsenceDialogOpen(false);
+  }, []);
+
+  const openBookTrialSession = useCallback(() => {
+    setIsBookTrialSessionModalOpen(true);
+  }, []);
+
+  const closeBookTrialSession = useCallback(() => {
+    setIsBookTrialSessionModalOpen(false);
   }, []);
 
   const openBookDraftingSession = useCallback(() => {
@@ -98,6 +110,7 @@ export function useStudentModals(): UseStudentModalsReturn {
 
   const reset = useCallback(() => {
     setIsLogAbsenceDialogOpen(false);
+    setIsBookTrialSessionModalOpen(false);
     setIsBookDraftingSessionModalOpen(false);
     setIsBookSubsidyInterviewModalOpen(false);
     setIsDeleteDialogOpen(false);
@@ -110,6 +123,7 @@ export function useStudentModals(): UseStudentModalsReturn {
 
   return {
     isLogAbsenceDialogOpen,
+    isBookTrialSessionModalOpen,
     isBookDraftingSessionModalOpen,
     isBookSubsidyInterviewModalOpen,
     isDeleteDialogOpen,
@@ -120,6 +134,8 @@ export function useStudentModals(): UseStudentModalsReturn {
     selectedSubjectId,
     openLogAbsence,
     closeLogAbsence,
+    openBookTrialSession,
+    closeBookTrialSession,
     openBookDraftingSession,
     closeBookDraftingSession,
     openBookSubsidyInterview,

@@ -26,6 +26,10 @@ interface UseStudentActionsProps {
    */
   onLogAbsence: () => void;
   /**
+   * Callback for book trial session
+   */
+  onBookTrialSession?: () => void;
+  /**
    * Callback for book drafting session
    */
   onBookDraftingSession: () => void;
@@ -57,6 +61,7 @@ export function useStudentActions({
   onPasswordResetOrRegistration,
   passwordResetLabel,
   onLogAbsence,
+  onBookTrialSession,
   onBookDraftingSession,
   onBookSubsidyInterview,
   onBookCheckIn,
@@ -79,6 +84,7 @@ export function useStudentActions({
     onPasswordResetOrRegistration,
     passwordResetLabel,
     onLogAbsence,
+    onBookTrialSession,
     onBookDraftingSession,
     onBookSubsidyInterview,
     onBookCheckIn,

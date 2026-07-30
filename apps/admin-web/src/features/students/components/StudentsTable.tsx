@@ -48,12 +48,68 @@ import { StudentExitRequestDialog } from '@/features/forms/components/StudentExi
 import { studentsApi } from '../api';
 import { useDataTable } from '@/shared/hooks/useDataTable';
 import { useQuickFilters } from '@/features/quick-filters/hooks/useQuickFilters';
+import { useStudentActions } from '../hooks/useStudentActions';
 // import { useVirtualizer } from '@tanstack/react-virtual';
 
 interface StudentsTableProps {
   onRefresh?: number;
   onStudentSelect?: (studentId: string) => void;
   addModalState?: [boolean, (open: boolean) => void];
+}
+
+interface StudentRowActionsProps {
+  student: Tables<'students'>;
+  onOpenInPage: () => void;
+  onEditDetails: () => void;
+  onPasswordResetOrRegistration: () => void;
+  passwordResetLabel: string;
+  onLogAbsence: () => void;
+  onBookTrialSession: () => void;
+  onBookDraftingSession: () => void;
+  onBookSubsidyInterview: () => void;
+  onBookCheckIn: () => void;
+  onDiscontinue?: () => void;
+  onDelete: () => void;
+}
+
+function StudentRowActions({
+  student,
+  onOpenInPage,
+  onEditDetails,
+  onPasswordResetOrRegistration,
+  passwordResetLabel,
+  onLogAbsence,
+  onBookTrialSession,
+  onBookDraftingSession,
+  onBookSubsidyInterview,
+  onBookCheckIn,
+  onDiscontinue,
+  onDelete,
+}: StudentRowActionsProps) {
+  const studentActions = useStudentActions({
+    studentId: student.id,
+    student,
+    onOpenInPage,
+    onEditDetails,
+    onPasswordResetOrRegistration,
+    passwordResetLabel,
+    onLogAbsence,
+    onBookTrialSession,
+    onBookDraftingSession,
+    onBookSubsidyInterview,
+    onBookCheckIn,
+    onDiscontinue,
+    onDelete,
+  });
+
+  return (
+    <ActionsMenu
+      type="student"
+      entityId={student.id}
+      copyTagDisplayText={`${student.first_name || ''} ${student.last_name || ''}`.trim()}
+      {...studentActions}
+    />
+  );
 }
 
 export function StudentsTable({ onRefresh: _onRefresh, onStudentSelect: _onStudentSelect, addModalState: _addModalState }: StudentsTableProps = {}) {
@@ -118,6 +174,7 @@ export function StudentsTable({ onRefresh: _onRefresh, onStudentSelect: _onStude
   // Actions menu states
   const [actionStudentId, setActionStudentId] = useState<string | null>(null);
   const [isLogAbsenceDialogOpen, setIsLogAbsenceDialogOpen] = useState(false);
+  const [isBookTrialSessionModalOpen, setIsBookTrialSessionModalOpen] = useState(false);
   const [isBookDraftingSessionModalOpen, setIsBookDraftingSessionModalOpen] = useState(false);
   const [isBookSubsidyInterviewModalOpen, setIsBookSubsidyInterviewModalOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
@@ -613,10 +670,8 @@ export function StudentsTable({ onRefresh: _onRefresh, onStudentSelect: _onStude
                       </TableCell>
                     )}
                     <TableCell onClick={(e) => e.stopPropagation()}>
-                      <ActionsMenu
-                        type="student"
-                        entityId={student.id}
-                        copyTagDisplayText={`${student.first_name || ''} ${student.last_name || ''}`.trim()}
+                      <StudentRowActions
+                        student={student}
                         onOpenInPage={() => {
                           router.push(`/students/${student.id}`);
                         }}
@@ -631,6 +686,10 @@ export function StudentsTable({ onRefresh: _onRefresh, onStudentSelect: _onStude
                         onLogAbsence={() => {
                           setActionStudentId(student.id);
                           setIsLogAbsenceDialogOpen(true);
+                        }}
+                        onBookTrialSession={() => {
+                          setActionStudentId(student.id);
+                          setIsBookTrialSessionModalOpen(true);
                         }}
                         onBookDraftingSession={() => {
                           setActionStudentId(student.id);
@@ -730,6 +789,23 @@ export function StudentsTable({ onRefresh: _onRefresh, onStudentSelect: _onStude
           staffId={currentStaff.id}
           initialStudentId={actionStudentId}
           allowPastSessions={true}
+        />
+      )}
+
+      {actionStudentId && (
+        <BookSessionModal
+          isOpen={isBookTrialSessionModalOpen}
+          onClose={() => {
+            setIsBookTrialSessionModalOpen(false);
+            setActionStudentId(null);
+          }}
+          sessionType="TRIAL_SESSION"
+          initialStudentId={actionStudentId}
+          onBookingCreated={() => {
+            setIsBookTrialSessionModalOpen(false);
+            setActionStudentId(null);
+            handleStudentUpdated();
+          }}
         />
       )}
 

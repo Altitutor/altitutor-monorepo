@@ -95,13 +95,13 @@ export async function POST(request: NextRequest) {
       body.stemsSnapshot = prepared.stems;
       timing.mark("prepare");
     } catch (error) {
-      captureApiError(error, "/api/ucat/practice-sessions");
       if (error instanceof QuotaExceededError) {
         return quotaExceededResponse(error.payload);
       }
       if (error instanceof PracticeStemSelectionError) {
         return NextResponse.json({ error: error.message }, { status: 400 });
       }
+      captureApiError(error, "/api/ucat/practice-sessions");
       return NextResponse.json(
         {
           error:

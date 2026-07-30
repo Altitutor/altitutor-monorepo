@@ -12,12 +12,12 @@ import {
   TableHead,
   TableHeader,
   TableRow,
+  Switch,
   useToast,
 } from '@altitutor/ui'
-import { Square } from 'lucide-react'
+import { Bot, Loader2, Square } from 'lucide-react'
 import type { BulkImportStemDraft } from '@/features/ucat/questions/hooks/useBulkImportWizard'
 import type { UcatQuestionStemFormValues } from '@/features/ucat/questions/types/schema'
-import { proseMirrorToPlainText } from '@/features/ucat/shared/lib/rich-text'
 import { BulkImportRichTextPreview } from '@/features/ucat/questions/components/bulk-import/BulkImportRichTextPreview'
 import { BulkImportReviewStemEditor } from '@/features/ucat/questions/components/bulk-import/BulkImportReviewStemEditor'
 import type {
@@ -42,17 +42,10 @@ import {
 } from '@/features/ucat/questions/lib/explanation-generation'
 import { tutorBtnOutline, tutorBtnPrimary } from '@/shared/lib/tutor-visual'
 import type { BulkImportReviewController } from '@/features/ucat/questions/hooks/useBulkImportReviewController'
-import { BulkImportReviewActions } from '@/features/ucat/questions/components/bulk-import/BulkImportReviewActions'
-
-const OPTION_LABELS = ['A', 'B', 'C', 'D', 'E'] as const
-const QUESTION_TEXT_MAX = 60
-const OPTION_TEXT_MAX = 36
-
-function truncateOneLine(text: string, maxLen: number): string {
-  const oneLine = text.replace(/\s+/g, ' ').trim()
-  if (oneLine.length <= maxLen) return oneLine
-  return `${oneLine.slice(0, maxLen)}…`
-}
+import {
+  BulkImportQuestionIssues,
+  BulkImportReviewActions,
+} from '@/features/ucat/questions/components/bulk-import/BulkImportReviewActions'
 
 type ReviewCategoryOption = {
   id?: string | null
@@ -75,63 +68,26 @@ type ReviewStemDraft = BulkImportStemDraft & {
 export type AnswerRow = {
   stemId: string
   questionId: string | null
-  stemIndex: number
   questionIndex: number
   globalQuestionNumber: number
-  questionText: string
+  stemTextJson: Json | null
   questionTextJson: Json | null
-  optionCount: number
-  optionTexts: string[]
-  optionTextJsons: Array<Json | null>
-  correctOptionIndex: number
-  correctLetter: string
-  isSyllogism: boolean
-  syllogismPattern: string | null
-  answerExplanationPlain: string
-  answerExplanationJson: Json | null
 }
 
 function buildAnswerRows(stems: ReviewStemDraft[]): AnswerRow[] {
   const rows: AnswerRow[] = []
   let globalNumber = 0
-  stems.forEach((stem, stemIndex) => {
+  stems.forEach((stem) => {
     const questions = stem.values.questions ?? []
     questions.forEach((q, questionIndex) => {
       globalNumber += 1
-      const options = q.options ?? []
-      const optionTextJsons = options.map((opt) => (opt.answerText ?? null) as Json | null)
-      const optionTexts = options.map((opt) =>
-        truncateOneLine(
-          proseMirrorToPlainText(opt.answerText ?? null)?.trim() ?? '',
-          OPTION_TEXT_MAX
-        )
-      )
-      const correctOptionIndex = options.findIndex((opt) => opt.isAnswer === true)
-      const resolvedCorrect = correctOptionIndex >= 0 ? correctOptionIndex : 0
-      const explanationPlain = proseMirrorToPlainText(q.answerExplanation ?? null)?.trim() ?? ''
-      const isSyllogism = (q as { questionType?: string }).questionType === 'syllogism'
-      const syllogismPattern =
-        (q as { syllogismAnswerPattern?: string | null }).syllogismAnswerPattern ?? null
       rows.push({
         stemId: stem.id,
         questionId: q.id ?? null,
-        stemIndex,
         questionIndex,
         globalQuestionNumber: globalNumber,
-        questionText: truncateOneLine(
-          proseMirrorToPlainText(q.questionText ?? null)?.trim() ?? '',
-          QUESTION_TEXT_MAX
-        ),
+        stemTextJson: (stem.values.stemText ?? null) as Json | null,
         questionTextJson: (q.questionText ?? null) as Json | null,
-        optionCount: options.length,
-        optionTexts,
-        optionTextJsons,
-        correctOptionIndex: resolvedCorrect,
-        correctLetter: OPTION_LABELS[resolvedCorrect] ?? 'A',
-        isSyllogism,
-        syllogismPattern,
-        answerExplanationPlain: explanationPlain,
-        answerExplanationJson: (q.answerExplanation ?? null) as Json | null,
       })
     })
   })
@@ -209,12 +165,7 @@ export function Step3SetAnswers({
     [categories]
   )
 
-  const maxOptionCount = useMemo(
-    () => (rows.length > 0 ? Math.max(...rows.map((r) => r.optionCount), 4) : 4),
-    [rows]
-  )
-  const optionLabelsToShow = OPTION_LABELS.slice(0, maxOptionCount)
-  const totalCols = 3 + maxOptionCount + 2 + (reviewController ? 1 : 0)
+  const totalCols = 3 + (reviewController ? 3 : 0)
 
   const toggleExpanded = useCallback((key: string) => {
     setExpandedRowKey((current) => {
@@ -419,7 +370,7 @@ export function Step3SetAnswers({
   return (
     <div className="space-y-4">
       {reviewController ? (
-        <BulkImportReviewActions stems={stems} controller={reviewController} />
+        <BulkImportReviewActions controller={reviewController} />
       ) : null}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
@@ -533,17 +484,12 @@ export function Step3SetAnswers({
         <Table className="w-full table-fixed text-xs">
           <TableHeader>
             <TableRow>
-              <TableHead className="w-[3rem] px-2">Stem</TableHead>
               <TableHead className="w-[2.5rem] px-2">#</TableHead>
+              <TableHead className="w-[28%] px-2">Stem</TableHead>
               <TableHead className="w-[28%] px-2">Question</TableHead>
-              {optionLabelsToShow.map((label) => (
-                <TableHead key={label} className="px-2">
-                  {label}
-                </TableHead>
-              ))}
-              <TableHead className="w-[3rem] px-2">Ans</TableHead>
-              <TableHead className="px-2">Explanation</TableHead>
-              {reviewController ? <TableHead className="w-[5rem] px-2">Import</TableHead> : null}
+              {reviewController ? <TableHead className="w-[30%] px-2">Issues</TableHead> : null}
+              {reviewController ? <TableHead className="w-[5rem] px-2 text-center">Import</TableHead> : null}
+              {reviewController ? <TableHead className="w-[7rem] px-2 text-right">Actions</TableHead> : null}
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -553,12 +499,13 @@ export function Step3SetAnswers({
               const isMissingExplanation = missingExplanationRowKeys.has(rowKey)
               const stem = stems.find((item) => item.id === row.stemId)
               const exclusionKey = row.questionId ? `${row.stemId}:${row.questionId}` : null
-              const isExcluded = exclusionKey
-                ? reviewController?.excludedQuestionIds.has(exclusionKey) ?? false
-                : false
-              const correctDisplay = row.isSyllogism
-                ? (row.syllogismPattern ?? '')
-                : row.correctLetter
+              const isExcluded = Boolean(
+                reviewController?.excludedStemIds.has(row.stemId)
+                || (
+                  exclusionKey
+                  && reviewController?.excludedQuestionIds.has(exclusionKey)
+                )
+              )
 
               return (
                 <Fragment key={rowKey}>
@@ -572,10 +519,14 @@ export function Step3SetAnswers({
                     onClick={() => toggleExpanded(rowKey)}
                   >
                     <TableCell className="px-2 font-mono text-muted-foreground">
-                      {row.stemIndex + 1}
-                    </TableCell>
-                    <TableCell className="px-2 font-mono text-muted-foreground">
                       {row.globalQuestionNumber}
+                    </TableCell>
+                    <TableCell className="max-w-0 overflow-hidden px-2">
+                      <BulkImportRichTextPreview
+                        json={row.stemTextJson}
+                        singleLine
+                        emptyFallback={<span className="text-muted-foreground">—</span>}
+                      />
                     </TableCell>
                     <TableCell className="max-w-0 overflow-hidden px-2">
                       <BulkImportRichTextPreview
@@ -584,45 +535,61 @@ export function Step3SetAnswers({
                         emptyFallback={<span className="text-muted-foreground">—</span>}
                       />
                     </TableCell>
-                    {optionLabelsToShow.map((label, idx) => (
-                      <TableCell key={label} className="max-w-0 overflow-hidden px-2">
-                        {idx < row.optionCount ? (
-                          <BulkImportRichTextPreview
-                            json={row.optionTextJsons[idx] ?? null}
-                            singleLine
-                          />
-                        ) : (
-                          '—'
-                        )}
-                      </TableCell>
-                    ))}
-                    <TableCell className="px-2 font-medium font-mono">{correctDisplay}</TableCell>
-                    <TableCell className="max-w-0 overflow-hidden px-2">
-                      <BulkImportRichTextPreview
-                        json={row.answerExplanationJson}
-                        singleLine
-                        emptyFallback={<span className="text-muted-foreground">—</span>}
-                      />
-                    </TableCell>
                     {reviewController ? (
-                      <TableCell className="px-2">
-                        <Button
-                          type="button"
-                          size="sm"
-                          variant="ghost"
-                          className="h-7 px-2 text-[11px]"
+                      <TableCell className="px-2 align-top">
+                        <BulkImportQuestionIssues
+                          stemId={row.stemId}
+                          questionId={row.questionId}
+                          questionIndex={row.questionIndex}
+                          controller={reviewController}
+                        />
+                      </TableCell>
+                    ) : null}
+                    {reviewController ? (
+                      <TableCell className="px-2 text-center">
+                        <Switch
+                          aria-label={`Import question ${row.globalQuestionNumber}`}
+                          checked={!isExcluded}
                           disabled={!row.questionId}
-                          onClick={(event) => {
-                            event.stopPropagation()
+                          onClick={(event) => event.stopPropagation()}
+                          onCheckedChange={(checked) => {
                             if (!row.questionId) return
-                            if (isExcluded) {
+                            if (checked) {
+                              reviewController.includeStem(row.stemId)
                               reviewController.includeQuestion(row.stemId, row.questionId)
                             } else {
                               reviewController.excludeQuestion(row.stemId, row.questionId)
                             }
                           }}
+                        />
+                      </TableCell>
+                    ) : null}
+                    {reviewController ? (
+                      <TableCell className="px-2 text-right">
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="outline"
+                          className="h-7 px-2 text-[11px]"
+                          disabled={isExcluded || reviewController.aiStatus === 'running'}
+                          onClick={(event) => {
+                            event.stopPropagation()
+                            void reviewController.runAiReviewForStem(row.stemId)
+                          }}
                         >
-                          {isExcluded ? 'Restore' : 'Exclude'}
+                          {reviewController.aiStatus === 'running' ? (
+                            <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+                          ) : (
+                            <Bot className="mr-1.5 h-3.5 w-3.5" />
+                          )}
+                          {reviewController.hardFailures.some(({ stemId, issue }) => (
+                            stemId === row.stemId
+                            && (
+                              issue.scope.type === 'stem'
+                                ? row.questionIndex === 0
+                                : issue.scope.questionIndex === row.questionIndex
+                            )
+                          )) ? 'AI fix' : 'AI review'}
                         </Button>
                       </TableCell>
                     ) : null}
