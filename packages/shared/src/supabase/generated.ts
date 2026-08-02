@@ -8501,6 +8501,66 @@ export type Database = {
         }
         Relationships: []
       }
+      student_calendar_subscriptions: {
+        Row: {
+          created_at: string
+          id: string
+          student_id: string
+          token: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          student_id: string
+          token?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          student_id?: string
+          token?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "student_calendar_subscriptions_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: true
+            referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "student_calendar_subscriptions_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: true
+            referencedRelation: "vadmin_reconciliation_students_without_payment_method"
+            referencedColumns: ["student_id"]
+          },
+          {
+            foreignKeyName: "student_calendar_subscriptions_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: true
+            referencedRelation: "vstudent_profile"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "student_calendar_subscriptions_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: true
+            referencedRelation: "vtutor_students"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "student_calendar_subscriptions_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: true
+            referencedRelation: "vtutor_ucat_student_progress_summary"
+            referencedColumns: ["student_id"]
+          },
+        ]
+      }
       student_exit_request_enrolments: {
         Row: {
           classes_students_id: string
@@ -8818,6 +8878,72 @@ export type Database = {
           },
           {
             foreignKeyName: "student_flashcard_review_states_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_ucat_student_progress_summary"
+            referencedColumns: ["student_id"]
+          },
+        ]
+      }
+      student_online_product_relationships: {
+        Row: {
+          closed_at: string | null
+          created_at: string
+          id: string
+          product: string
+          started_at: string
+          student_id: string
+          updated_at: string
+        }
+        Insert: {
+          closed_at?: string | null
+          created_at?: string
+          id?: string
+          product: string
+          started_at?: string
+          student_id: string
+          updated_at?: string
+        }
+        Update: {
+          closed_at?: string | null
+          created_at?: string
+          id?: string
+          product?: string
+          started_at?: string
+          student_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "student_online_product_relationships_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "student_online_product_relationships_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "vadmin_reconciliation_students_without_payment_method"
+            referencedColumns: ["student_id"]
+          },
+          {
+            foreignKeyName: "student_online_product_relationships_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_profile"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "student_online_product_relationships_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_students"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "student_online_product_relationships_student_id_fkey"
             columns: ["student_id"]
             isOneToOne: false
             referencedRelation: "vtutor_ucat_student_progress_summary"
@@ -10374,7 +10500,7 @@ export type Database = {
           phone: string | null
           registered_at: string | null
           school: string | null
-          status: string
+          status: string | null
           timezone: string
           ucat_initial_familiarity: string | null
           ucat_onboarding_completed_at: string | null
@@ -10411,7 +10537,7 @@ export type Database = {
           phone?: string | null
           registered_at?: string | null
           school?: string | null
-          status: string
+          status?: string | null
           timezone?: string
           ucat_initial_familiarity?: string | null
           ucat_onboarding_completed_at?: string | null
@@ -10448,7 +10574,7 @@ export type Database = {
           phone?: string | null
           registered_at?: string | null
           school?: string | null
-          status?: string
+          status?: string | null
           timezone?: string
           ucat_initial_familiarity?: string | null
           ucat_onboarding_completed_at?: string | null
@@ -34728,6 +34854,18 @@ export type Database = {
           p_order_by?: string
           p_statuses?: string[]
           p_student_ids?: string[]
+        }
+        Returns: Json
+      }
+      search_online_students_admin: {
+        Args: {
+          p_ascending?: boolean
+          p_entitlements?: string[]
+          p_limit?: number
+          p_offset?: number
+          p_order_by?: string
+          p_products?: string[]
+          p_search?: string
         }
         Returns: Json
       }
