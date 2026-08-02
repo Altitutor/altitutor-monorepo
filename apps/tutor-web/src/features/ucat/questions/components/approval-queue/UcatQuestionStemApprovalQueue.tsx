@@ -363,7 +363,12 @@ function UcatQuestionStemApprovalQueue({
       })
       const stillMissing = latest.privateStemsNotInSet.some((stem) => stem.id === currentEntry.stemId)
       if (!stillMissing) return true
-      toast({ title: 'Set membership still missing', description: 'Add this private stem to a staff-authored set before moving to the next item.', variant: 'destructive' })
+      toast({
+        title: 'Private stem still unused',
+        description:
+          'Attach this private stem to a set, learning module, or session — or make it public — before moving to the next item.',
+        variant: 'destructive',
+      })
       return false
     }
     return true
@@ -780,5 +785,9 @@ function getEntryFocus(entry: UcatApprovalQueueEntry | null): { target: StemEdit
   if (entry.issueType === 'missing_tags') {
     return { target: 'tags', message: `Add at least one tag to question ${(entry.questionIndex ?? 0) + 1}.` }
   }
-  return { target: 'sets', message: 'Add this private stem to a staff-authored set.' }
+  return {
+    target: 'sets',
+    message:
+      'Attach this unused private stem to a set, learning module, or session — or make it public.',
+  }
 }

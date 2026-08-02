@@ -338,6 +338,9 @@ verify_jwt = true
 [functions.ucat-lifecycle-emails]
 verify_jwt = false
 
+[functions.ucat-resend-contact-sync]
+verify_jwt = false
+
 [functions.ucat-transactional-email-dispatch]
 verify_jwt = false
 

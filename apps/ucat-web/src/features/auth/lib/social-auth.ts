@@ -1,4 +1,8 @@
 import { parseSignupPlanIntent } from "@/features/auth/lib/signup-plan-intent";
+import {
+  pathWithReturnIntent,
+  safePostAuthReturnPath,
+} from "@/features/auth/lib/return-intent";
 
 export const SOCIAL_AUTH_PROVIDERS = ["google", "apple"] as const;
 
@@ -52,10 +56,11 @@ export function buildSocialAuthCallbackUrl({
   newsletterOptIn?: boolean;
   referralCode?: string | null;
 }): string {
+  const safeNext = safePostAuthReturnPath(next);
   const callback = new URL("/auth/callback", origin);
   callback.searchParams.set("intent", intent);
   callback.searchParams.set("provider", provider);
-  callback.searchParams.set("next", next);
+  callback.searchParams.set("next", safeNext);
 
   if (intent === "signup") {
     callback.searchParams.set("newsletter", newsletterOptIn ? "1" : "0");
@@ -85,12 +90,13 @@ export function resolvePostAuthDestination({
     return `/settings/profile?${params.toString()}`;
   }
 
+  const safeNext = safePostAuthReturnPath(next);
   if (!signupCompleted) {
-    const planIntent = parseSignupPlanIntent(next);
+    const planIntent = parseSignupPlanIntent(safeNext);
     return planIntent
       ? `/signup/complete?redirect=${encodeURIComponent(planIntent.checkoutPath)}`
-      : "/signup/complete";
+      : pathWithReturnIntent("/signup/complete", safeNext);
   }
 
-  return next;
+  return safeNext;
 }

@@ -1,5 +1,8 @@
 import { plainTextToProseMirror } from '@/features/ucat/shared/lib/rich-text'
-import { ucatQuestionItemSchema } from '@/features/ucat/questions/types/schema'
+import {
+  ucatQuestionItemSchema,
+  ucatQuestionStemSchema,
+} from '@/features/ucat/questions/types/schema'
 
 function emptyDoc() {
   return plainTextToProseMirror('')
@@ -58,5 +61,26 @@ describe('ucatQuestionItemSchema', () => {
         }),
       ])
     )
+  })
+})
+
+describe('ucatQuestionStemSchema', () => {
+  it('accepts an image-only shared stem', () => {
+    const result = ucatQuestionStemSchema.safeParse({
+      sectionId: '10000000-0000-4000-8000-000000000001',
+      categoryId: null,
+      stemText: imageOnlyDoc(),
+      accessScope: 'public',
+      questions: [{
+        questionText: plainTextToProseMirror('Which sector is largest?'),
+        questionType: 'multiple_choice',
+        options: [{
+          answerText: plainTextToProseMirror('Services'),
+          isAnswer: true,
+        }],
+      }],
+    })
+
+    expect(result.success).toBe(true)
   })
 })

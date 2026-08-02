@@ -160,3 +160,27 @@ export async function getStudentUcatSessionResources(
     })
     .filter((item): item is StudentUcatSessionResource => item !== null);
 }
+
+export async function getCompletedSessionResourceIds(): Promise<string[]> {
+  const supabase = getClient();
+  const { data, error } = await supabase
+    .from("vstudent_ucat_session_resource_progress")
+    .select("session_resource_id");
+  if (error) throw error;
+  return (data ?? [])
+    .map((row) => row.session_resource_id)
+    .filter((id): id is string => typeof id === "string");
+}
+
+export async function completeSessionResource(resourceId: string) {
+  const response = await fetch(
+    `/api/ucat/session-resources/${encodeURIComponent(resourceId)}/completion`,
+    { method: "POST" },
+  );
+  if (!response.ok) {
+    const body = (await response.json().catch(() => ({}))) as {
+      error?: string;
+    };
+    throw new Error(body.error ?? "Unable to save completion");
+  }
+}

@@ -2,6 +2,7 @@ import {
   getAiGenerationSectionPrompt,
   sectionNameToAiGenerationKey,
 } from '@/features/ucat/questions/lib/ai-generation/prompts'
+import { EXPLANATION_TEACHING_RUBRIC } from '@/features/ucat/questions/lib/ai-generation/explanation-rubric'
 import { summarizeStemForAi, type AiToolQuestionStemPayload } from '@/features/ucat/questions/lib/ai-tools'
 
 export const EXPLANATION_FILL_SYSTEM_PROMPT = `You write student-facing UCAT answer explanations for questions that already have answer choices and a selected correct answer.
@@ -9,26 +10,15 @@ export const EXPLANATION_FILL_SYSTEM_PROMPT = `You write student-facing UCAT ans
 Return JSON only. Do not include markdown or prose outside the JSON object.
 
 Fill missing explanations only. Teach how to solve the question using the stem, question text, all answer options, and the selected correct answer.
-Act as a tutor teaching an efficient timed-test method, not as a writer justifying an answer key.
 
-Rules:
+Workflow rules:
 - Before writing any explanation, independently solve each listed question from the stem and answer options, then compare your result with the keyed answer (the option or Yes/No value marked isAnswer=true). This validation must happen first.
 - If any keyed answer is incorrect, ambiguous, unsupported, or the question is unsolvable, do not generate an explanation for it. Set reviewRequired=true and unresolved=true so the tutor is alerted, leave answerExplanation null and omit optionExplanations, and explain the discrepancy in reviewMessage. Include suggestedCorrectOptionIndex / suggestedAnswerExplanation when a clear correction exists.
-- Multiple-choice questions: return one non-empty question-level answerExplanation. Option-level explanations may be included when they help a student understand a specific option-level mistake and add useful detail beyond the question-level explanation; otherwise use null or omit them.
-- Syllogism questions: return optionExplanations for every option (Yes/No statement). A question-level answerExplanation may be included when it teaches a useful strategy, technique, or shortcut not already covered by the option-level explanations; otherwise use null.
-- Act like a helpful tutor rather than an answer-key writer. Reconstruct the relevant information, explain why each step is taken, show the decisive working, and finish with a clear answer.
-- For a non-trivial question, prefer two to five short, titled or numbered steps. A one-paragraph assertion or calculation is not a sufficient teaching explanation even when it reaches the correct answer.
-- Use Markdown headings, ordered steps, compact pipe tables, equations, elimination grids, or ordered slots when they materially help. These are converted into structured rich text for the student.
-- For Decision Making and Quantitative Reasoning, teach the shortest efficient method without skipping the reasoning a student needs to reproduce it.
-- For Quantitative Reasoning, explain calculator use where relevant, prefer mental maths when it is faster than calculator entry, and use plus-or-minus estimation when it is accurate enough to identify the correct option.
-- For Verbal Reasoning, identify the specific passage evidence to read and cite paragraph numbers whenever applicable.
-- Only for a very difficult or time-consuming question where skipping would be the better real-exam decision, briefly advise the student to skip and return later. Do not add this advice routinely.
-- Keep explanations scannable, concrete, and free of filler. Concise means avoiding repetition, not omitting teaching steps.
-- Explain why the correct answer is correct and why the strongest distractors fail.
-- Do not invent facts that are not supported by the stem or question.
-- For Verbal Reasoning, cite paragraph numbers whenever quoting, paraphrasing, or relying on textual evidence (e.g. "Paragraph 2").
-- Use Australian English spelling.
-- Avoid em dashes, double hyphens, canned headings, false starts, and phrases such as "it is important to note".
+- For multiple-choice questions, return one non-empty question-level answerExplanation when the key is sound. Option-level explanations may be included when they help; otherwise use null or omit them.
+- For syllogism questions, return optionExplanations for every option (Yes/No statement) when the key is sound. A question-level answerExplanation may be included when useful; otherwise use null.
+- Only return updates for the listed questionIndex values. Do not rewrite existing non-empty explanations. Preserve the selected correct answer unless reviewRequired is true.
+
+${EXPLANATION_TEACHING_RUBRIC}
 
 Response shape:
 {
@@ -85,6 +75,7 @@ export function buildExplanationFillUserPrompt(params: {
         'Flag an incorrect, ambiguous, unsupported, or unsolvable keyed answer for tutor review instead of explaining it.',
         'Do not rewrite existing non-empty explanations.',
         'Preserve the selected correct answer unless reviewRequired is true.',
+        'Write complete teaching explanations that walk the student through how to solve the question.',
       ],
     },
     null,

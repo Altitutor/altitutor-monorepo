@@ -36,6 +36,10 @@ import {
 } from "@altitutor/shared";
 import { captureUcatEvent } from "@/lib/analytics/posthog";
 import { resolveExistingSubscriberDestination } from "@/features/subscription/lib/resolve-checkout-entry";
+import {
+  pathWithReturnIntent,
+  safePostAuthReturnPath,
+} from "@/features/auth/lib/return-intent";
 
 const stripeKey = process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY ?? "";
 const stripePromise = stripeKey ? loadStripe(stripeKey) : Promise.resolve(null);
@@ -110,6 +114,7 @@ export function CheckoutPage() {
   const intervalParam = searchParams.get("interval");
   const contextParam = searchParams.get("context");
   const referralGiftId = searchParams.get("gift") ?? undefined;
+  const returnTo = safePostAuthReturnPath(searchParams.get("redirect"));
   const tier = isUcatPaidPlanTier(tierParam) ? tierParam : null;
   const interval = isUcatBillingInterval(intervalParam) ? intervalParam : null;
   const context = isJourneyContext(contextParam) ? contextParam : "subscribe";
@@ -117,10 +122,8 @@ export function CheckoutPage() {
     data: config = defaultPublicSubscriptionConfig,
     isPending: configLoading,
   } = usePublicSubscriptionConfig();
-  const {
-    data: billingData,
-    isPending: billingLoading,
-  } = useUcatSubscriptionBilling();
+  const { data: billingData, isPending: billingLoading } =
+    useUcatSubscriptionBilling();
   const [checkoutSessionId, setCheckoutSessionId] = useState<string | null>(
     null,
   );
@@ -157,6 +160,10 @@ export function CheckoutPage() {
       interval,
       returnContext: context,
       referralGiftId,
+      returnTo:
+        context === "signup_onboarding" && returnTo !== "/dashboard"
+          ? returnTo
+          : undefined,
     })
       .then((session) => {
         captureUcatEvent("checkout_started", {
@@ -183,6 +190,7 @@ export function CheckoutPage() {
     context,
     interval,
     referralGiftId,
+    returnTo,
     router,
     tier,
   ]);
@@ -211,7 +219,8 @@ export function CheckoutPage() {
       ? addDays(checkoutStartedAtRef.current, standardTrialDays ?? 0)
       : null;
   const firstChargeAt =
-    freePeriodEndsAt ?? addBillingInterval(checkoutStartedAtRef.current, interval);
+    freePeriodEndsAt ??
+    addBillingInterval(checkoutStartedAtRef.current, interval);
   const standardTrialReminderAt = hasStandardTrial
     ? (standardTrialDays ?? 0) <= 3
       ? checkoutStartedAtRef.current
@@ -234,7 +243,11 @@ export function CheckoutPage() {
             if (context === "signup_onboarding") {
               // Bust the App Router client cache for /signup/complete (plan step
               // is client-only until remount) and land on plan via existing handler.
-              router.push("/signup/complete?checkout=canceled");
+              router.push(
+                pathWithReturnIntent("/signup/complete", returnTo, {
+                  checkout: "canceled",
+                }),
+              );
             } else if (window.history.length > 1) {
               router.back();
             } else {
@@ -334,9 +347,7 @@ export function CheckoutPage() {
                 <p className="text-sm font-medium text-muted-foreground">
                   Selected plan
                 </p>
-                <h2 className="mt-1 text-2xl font-bold">
-                  UCAT Unlimited
-                </h2>
+                <h2 className="mt-1 text-2xl font-bold">UCAT Unlimited</h2>
               </div>
               <Sparkles className="h-7 w-7 text-primary" />
             </div>

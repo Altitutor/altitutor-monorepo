@@ -48,6 +48,8 @@ import { useStudentClasses } from '@/features/students/hooks/useStudentClasses';
 import { useToast } from '@altitutor/ui';
 import type { ClassWithExpandedSubject } from '@altitutor/shared';
 import { StudentExitRequestDialog } from '@/features/forms/components/StudentExitRequestDialog';
+import { ReEnrollStudentConfirmDialog } from '@/features/students/components/ReEnrollStudentConfirmDialog';
+import { studentsApi } from '@/features/students/api';
 import { AdminLoadingSkeleton } from '@/shared/components';
 import { useEntityModals } from '@/shared/contexts/EntityModalContext';
 import {
@@ -105,6 +107,8 @@ export default function StudentDetailPage({ params }: { params: { id: string } }
   const [activeTab, setActiveTab] = useState('details');
   const [isEnrollModalOpen, setIsEnrollModalOpen] = useState(false);
   const [isDiscontinueDialogOpen, setIsDiscontinueDialogOpen] = useState(false);
+  const [isReEnrollDialogOpen, setIsReEnrollDialogOpen] = useState(false);
+  const [isReEnrolling, setIsReEnrolling] = useState(false);
 
   // Handle details submit
   const handleDetailsSubmit = async (data: DetailsFormData) => {
@@ -212,6 +216,7 @@ export default function StudentDetailPage({ params }: { params: { id: string } }
           })
       : undefined,
     onDiscontinue: () => setIsDiscontinueDialogOpen(true),
+    onReEnroll: () => setIsReEnrollDialogOpen(true),
     onDelete: modals.openDeleteDialog,
   });
 
@@ -472,6 +477,37 @@ export default function StudentDetailPage({ params }: { params: { id: string } }
           studentPhone={student.phone}
           workflowKey="student_discontinuation"
           onCreated={() => void invalidateStudentDetail(queryClient, student.id)}
+        />
+      )}
+
+      {/* Re-enroll Confirmation Dialog */}
+      {student && (
+        <ReEnrollStudentConfirmDialog
+          isOpen={isReEnrollDialogOpen}
+          onOpenChange={setIsReEnrollDialogOpen}
+          studentName={`${student.first_name} ${student.last_name}`}
+          isReEnrolling={isReEnrolling}
+          onConfirm={async () => {
+            try {
+              setIsReEnrolling(true);
+              await studentsApi.reEnrollStudent(student.id);
+              await invalidateStudentDetail(queryClient, student.id);
+              toast({
+                title: 'Success',
+                description: 'Student re-enrolled successfully.',
+              });
+              return true;
+            } catch (error) {
+              toast({
+                title: 'Re-enroll failed',
+                description: error instanceof Error ? error.message : 'There was an error re-enrolling the student. Please try again.',
+                variant: 'destructive',
+              });
+              return false;
+            } finally {
+              setIsReEnrolling(false);
+            }
+          }}
         />
       )}
     </div>

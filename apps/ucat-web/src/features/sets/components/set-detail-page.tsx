@@ -14,6 +14,7 @@ import { quotaPayloadFromUsage } from "@/features/ucat-access/lib/quota-payload-
 import { useActiveExamAttempt } from "@/features/exam-attempts/context/active-exam-attempt-context";
 import { ExamAttemptConflictDialog } from "@/features/exam-attempts/components/exam-attempt-conflict-dialog";
 import { useExamAttemptLaunchPreflight } from "@/features/exam-attempts/hooks/use-exam-attempt-launch-preflight";
+import { useBeginExamRoute } from "@/features/exam-attempts/hooks/use-begin-exam-route";
 import {
   buildQuestionEngineTutorialHref,
   useQuestionEngineTutorialGate,
@@ -94,11 +95,7 @@ export function SetDetailPage({
   const [showAllAttempts, setShowAllAttempts] = useState(false);
 
   const setQuota = quota?.areas.find((area) => area.area === "sets") ?? null;
-  const examHref = `/exam/sets?id=${encodeURIComponent(setId)}${
-    sessionEntryContext
-      ? `&session=${encodeURIComponent(sessionEntryContext.sessionId)}`
-      : ""
-  }`;
+  const examHref = "/exam";
 
   useEffect(() => {
     if (!set) return;
@@ -124,10 +121,17 @@ export function SetDetailPage({
       : sectionNumber != null
         ? "Back to section"
         : "Back to all sets");
+  const launchSet = useBeginExamRoute({
+    kind: "set",
+    resourceId: setId,
+    title:
+      (set && extractTextFromRichJson(set.name as JsonLike)) || "Question set",
+    exitHref: backHref,
+  });
   const launchPreflight = useExamAttemptLaunchPreflight({
     kind: "set",
     resourceId: setId,
-    onLaunch: () => router.push(examHref),
+    onLaunch: launchSet,
   });
   const breadcrumbLeafSegmentIndex =
     sessionEntryContext != null || sectionNumber != null ? 2 : 1;
@@ -135,7 +139,11 @@ export function SetDetailPage({
   const handleLaunchSet = () => {
     if (questionEngineTourLoading) return;
     if (questionEngineTourBlocked) {
-      router.push(buildQuestionEngineTutorialHref(examHref));
+      router.push(
+        buildQuestionEngineTutorialHref(
+          `${window.location.pathname}${window.location.search}`,
+        ),
+      );
       return;
     }
     const canResumeCurrentAttempt =

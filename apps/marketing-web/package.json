@@ -5,7 +5,9 @@
   "author": "Altitutor",
   "private": true,
   "scripts": {
+    "predev": "node scripts/sync-email-assets.mjs",
     "dev": "next dev -p 3003",
+    "prebuild": "node scripts/sync-email-assets.mjs",
     "build": "next build",
     "start": "next start -p 3003",
     "lint": "next lint",

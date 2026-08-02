@@ -3,7 +3,7 @@
 import { FormEvent, useEffect, useState } from "react";
 import Link from "next/link";
 import { MARKETING_TOKENS } from "@altitutor/shared";
-import { FeedbackDialog } from "@altitutor/ui";
+import { ContactDialog } from "@altitutor/ui";
 import { Button } from "@/components/ui/button";
 import { Input, Label } from "@altitutor/ui";
 import { authApi } from "@/features/auth/api/auth";
@@ -152,10 +152,9 @@ export function ForgotPasswordForm({
             Contact us
           </button>
         </p>
-        <FeedbackDialog
+        <ContactDialog
           open={contactOpen}
           onOpenChange={setContactOpen}
-          kind="contact"
           appName="ucat-web"
           user={{ email: email.trim() }}
           collectContactDetails

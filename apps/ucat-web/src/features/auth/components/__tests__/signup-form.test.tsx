@@ -93,7 +93,7 @@ describe("SignupForm", () => {
   });
 
   it("establishes the OTP session on the server before navigating to signup complete", async () => {
-    savePendingSignupEmail("student@example.com", "/subscribe\n");
+    savePendingSignupEmail("student@example.com", "/dashboard\n");
 
     render(<SignupForm />);
 
@@ -122,8 +122,26 @@ describe("SignupForm", () => {
     expect(navigateAfterAuth).toHaveBeenCalledWith("/signup/complete");
   });
 
+  it("defers a protected return intent until signup onboarding is complete", async () => {
+    const redirectTo =
+      "/study-plan?utm_source=altitutor&utm_medium=email&utm_campaign=ucat_onboarding_plan";
+    savePendingSignupEmail("student@example.com", `${redirectTo}\n`);
+
+    render(<SignupForm redirectTo={redirectTo} />);
+    fireEvent.change(await screen.findByPlaceholderText("000000"), {
+      target: { value: "123456" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Continue with code" }));
+
+    await waitFor(() =>
+      expect(navigateAfterAuth).toHaveBeenCalledWith(
+        "/signup/complete?redirect=%2Fstudy-plan%3Futm_source%3Daltitutor%26utm_medium%3Demail%26utm_campaign%3Ducat_onboarding_plan",
+      ),
+    );
+  });
+
   it("stays on code entry when the server cannot establish a session", async () => {
-    savePendingSignupEmail("student@example.com", "/subscribe\n");
+    savePendingSignupEmail("student@example.com", "/dashboard\n");
     (global.fetch as jest.Mock).mockResolvedValue({
       ok: false,
       status: 401,

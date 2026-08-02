@@ -8,8 +8,8 @@ describe("question engine tutorial gate helpers", () => {
     expect(buildQuestionEngineTutorialHref("/practice")).toBe(
       "/exam/tutorial?returnTo=%2Fpractice",
     );
-    expect(buildQuestionEngineTutorialHref("/exam/sets?id=abc")).toBe(
-      "/exam/tutorial?returnTo=%2Fexam%2Fsets%3Fid%3Dabc",
+    expect(buildQuestionEngineTutorialHref("/sets/abc")).toBe(
+      "/exam/tutorial?returnTo=%2Fsets%2Fabc",
     );
   });
 
@@ -23,9 +23,8 @@ describe("question engine tutorial gate helpers", () => {
   });
 
   it("detects question-engine routes that require the tutorial", () => {
-    expect(isQuestionEnginePath("/practice/session")).toBe(true);
-    expect(isQuestionEnginePath("/exam/sets")).toBe(true);
-    expect(isQuestionEnginePath("/exam/mocks")).toBe(true);
+    expect(isQuestionEnginePath("/exam")).toBe(true);
+    expect(isQuestionEnginePath("/exam/tutorial")).toBe(false);
     expect(isQuestionEnginePath("/practice")).toBe(false);
     expect(isQuestionEnginePath("/dashboard")).toBe(false);
   });

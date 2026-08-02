@@ -7,6 +7,7 @@ import {
   resolveUcatReferralOfferPreview,
 } from "@/lib/ucat/referrals/capture-referral";
 import { getEnabledSocialAuthProviders } from "@/features/auth/lib/social-auth";
+import { safePostAuthReturnPath } from "@/features/auth/lib/return-intent";
 
 type PageProps = {
   searchParams: Promise<{ redirect?: string; ref?: string; error?: string }>;
@@ -14,10 +15,7 @@ type PageProps = {
 
 export default async function SignupPage({ searchParams }: PageProps) {
   const params = await searchParams;
-  const redirectTo =
-    params.redirect && params.redirect.startsWith("/")
-      ? params.redirect
-      : "/subscribe";
+  const redirectTo = safePostAuthReturnPath(params.redirect);
   const requestedReferralCode =
     typeof params.ref === "string" ? params.ref.trim().toUpperCase() : "";
   const referralCode = /^[A-Z0-9]{8,16}$/.test(requestedReferralCode)

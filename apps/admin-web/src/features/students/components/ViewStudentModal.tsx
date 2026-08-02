@@ -56,6 +56,8 @@ import {
 } from '../hooks';
 import { parentsKeys } from '@/features/parents/hooks/useParentsQuery';
 import { StudentExitRequestDialog } from '@/features/forms/components/StudentExitRequestDialog';
+import { ReEnrollStudentConfirmDialog } from './ReEnrollStudentConfirmDialog';
+import { studentsApi } from '../api';
 import { useEntityModals } from '@/shared/contexts/EntityModalContext';
 import {
   invalidateStudentClassSurfaces,
@@ -127,6 +129,8 @@ export function ViewStudentModal({
   const [isEnrollModalOpen, setIsEnrollModalOpen] = useState(false);
   const [isAddParentModalOpen, setIsAddParentModalOpen] = useState(false);
   const [isDiscontinueDialogOpen, setIsDiscontinueDialogOpen] = useState(false);
+  const [isReEnrollDialogOpen, setIsReEnrollDialogOpen] = useState(false);
+  const [isReEnrolling, setIsReEnrolling] = useState(false);
 
   // Get student classes for enroll modal
   const { data: studentClasses = [] } = useStudentClasses(studentId || '');
@@ -246,6 +250,7 @@ export function ViewStudentModal({
           })
       : undefined,
     onDiscontinue: () => setIsDiscontinueDialogOpen(true),
+    onReEnroll: () => setIsReEnrollDialogOpen(true),
     onDelete: modals.openDeleteDialog,
   });
 
@@ -600,6 +605,38 @@ export function ViewStudentModal({
           studentPhone={student.phone}
           workflowKey="student_discontinuation"
           onCreated={() => void invalidateStudentDetail(queryClient, student.id)}
+        />
+      )}
+
+      {/* Re-enroll Confirmation Dialog */}
+      {student && (
+        <ReEnrollStudentConfirmDialog
+          isOpen={isReEnrollDialogOpen}
+          onOpenChange={setIsReEnrollDialogOpen}
+          studentName={`${student.first_name} ${student.last_name}`}
+          isReEnrolling={isReEnrolling}
+          onConfirm={async () => {
+            try {
+              setIsReEnrolling(true);
+              await studentsApi.reEnrollStudent(student.id);
+              await invalidateStudentDetail(queryClient, student.id);
+              onStudentUpdated();
+              toast({
+                title: 'Success',
+                description: 'Student re-enrolled successfully.',
+              });
+              return true;
+            } catch (error) {
+              toast({
+                title: 'Re-enroll failed',
+                description: error instanceof Error ? error.message : 'There was an error re-enrolling the student. Please try again.',
+                variant: 'destructive',
+              });
+              return false;
+            } finally {
+              setIsReEnrolling(false);
+            }
+          }}
         />
       )}
 

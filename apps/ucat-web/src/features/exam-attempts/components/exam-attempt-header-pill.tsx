@@ -23,14 +23,13 @@ import {
 } from "@/features/onboarding/hooks/use-question-engine-tutorial-gate";
 import { getRemainingSecondsFromEndsAt } from "@/lib/ucat/exam-attempt/timing";
 import { formatTimeRemaining } from "@/features/question-engine/lib/timing";
-import { isPracticeEngineRoute } from "@/features/ucat-access/lib/quota-area-for-pathname";
 import { HeaderStatusPill } from "@/shared/components/header-status-pill";
 import { discardExamAttempt } from "@/features/exam-attempts/api/exam-attempts-api";
 
 const DISMISSED_STORAGE_KEY = "ucat-dismissed-exam-attempts";
 
 function isImmersiveHeaderRoute(pathname: string): boolean {
-  return pathname.startsWith("/exam") || isPracticeEngineRoute(pathname);
+  return pathname.startsWith("/exam");
 }
 
 function readDismissedAttemptIds(): Set<string> {

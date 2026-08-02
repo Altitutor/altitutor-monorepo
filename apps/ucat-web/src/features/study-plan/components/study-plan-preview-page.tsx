@@ -310,7 +310,6 @@ function makePlan(
     .slice(0, settings.availableDayCount);
   const profile = {
     studyPlanEnabled: true,
-    studySuggestionsEnabled: true,
     targetScore: settings.targetScore,
     testYear: Number(planningDate.slice(0, 4)),
     testDate: scenarioId === "provisional_date" ? null : planningDate,

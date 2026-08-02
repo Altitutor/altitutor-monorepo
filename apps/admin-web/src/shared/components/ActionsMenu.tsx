@@ -13,7 +13,7 @@ import {
   DropdownMenuTrigger,
   useToast,
 } from '@altitutor/ui';
-import { MoreVertical, ExternalLink, Pencil, Mail, Calendar, Trash2, FileText, Download, CreditCard, UserX, Plus, Copy, Receipt, ClipboardCheck } from 'lucide-react';
+import { MoreVertical, ExternalLink, Pencil, Mail, Calendar, Trash2, FileText, Download, CreditCard, UserX, UserCheck, Plus, Copy, Receipt, ClipboardCheck } from 'lucide-react';
 import type { Editor } from '@tiptap/react';
 import type { JSONContent } from '@tiptap/core';
 import { SESSION_QUICK_ACTIONS } from '@/shared/constants/quickActions';
@@ -33,13 +33,15 @@ interface StudentActionsMenuProps extends BaseActionsMenuProps {
   onEditDetails: () => void;
   onPasswordResetOrRegistration: () => void;
   passwordResetLabel: string;
-  onLogAbsence: () => void;
+  onLogAbsence?: () => void;
   onBookTrialSession?: () => void;
-  onBookDraftingSession: () => void;
+  onBookDraftingSession?: () => void;
   onBookSubsidyInterview?: () => void;
   /** Opens global book check-in with this student pre-selected */
   onBookCheckIn?: () => void;
   onDiscontinue?: () => void;
+  /** Re-enroll a discontinued student (status → ACTIVE) */
+  onReEnroll?: () => void;
   onDelete: () => void;
 }
 
@@ -232,20 +234,24 @@ export function ActionsMenu(props: ActionsMenuProps) {
               <Mail className="h-4 w-4 mr-2" />
               {props.passwordResetLabel}
             </DropdownMenuItem>
-            <DropdownMenuItem onClick={props.onLogAbsence}>
-              <Calendar className="h-4 w-4 mr-2" />
-              Log absence
-            </DropdownMenuItem>
+            {props.onLogAbsence && (
+              <DropdownMenuItem onClick={props.onLogAbsence}>
+                <Calendar className="h-4 w-4 mr-2" />
+                Log absence
+              </DropdownMenuItem>
+            )}
             {props.onBookTrialSession && (
               <DropdownMenuItem onClick={props.onBookTrialSession}>
                 <Calendar className="h-4 w-4 mr-2" />
                 Book trial session
               </DropdownMenuItem>
             )}
-            <DropdownMenuItem onClick={props.onBookDraftingSession}>
-              <FileText className="h-4 w-4 mr-2" />
-              Book drafting session
-            </DropdownMenuItem>
+            {props.onBookDraftingSession && (
+              <DropdownMenuItem onClick={props.onBookDraftingSession}>
+                <FileText className="h-4 w-4 mr-2" />
+                Book drafting session
+              </DropdownMenuItem>
+            )}
             {props.onBookSubsidyInterview && (
               <DropdownMenuItem onClick={props.onBookSubsidyInterview}>
                 <Calendar className="h-4 w-4 mr-2" />
@@ -265,6 +271,12 @@ export function ActionsMenu(props: ActionsMenuProps) {
               </DropdownMenuItem>
             )}
             <DropdownMenuSeparator />
+            {props.onReEnroll && (
+              <DropdownMenuItem onClick={props.onReEnroll}>
+                <UserCheck className="h-4 w-4 mr-2" />
+                Re-enroll
+              </DropdownMenuItem>
+            )}
             {props.onDiscontinue && (
               <DropdownMenuItem onClick={props.onDiscontinue} className="!text-destructive focus:!text-destructive focus:bg-destructive/10 hover:!text-destructive hover:bg-destructive/10 dark:!text-destructive dark:focus:!text-destructive dark:hover:!text-destructive dark:focus:bg-destructive/10 dark:hover:bg-destructive/10">
                 <UserX className="h-4 w-4 mr-2" />

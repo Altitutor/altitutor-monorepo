@@ -6,9 +6,8 @@ import { Skeleton } from "@altitutor/ui";
 import { QuestionEnginePage } from "@/features/question-engine";
 import type { PracticeEngineLiveStats } from "@/features/question-engine/components/question-engine-page";
 import type { QuestionStemWithQuestions } from "@/features/question-engine/model/types";
-import { UcatLagProvider } from "@/features/question-engine/context/ucat-lag-context";
+import { useExamExperience } from "@/features/exam-experience/context/exam-experience-context";
 import { SidebarExpandablePanel } from "@/features/layout/components/sidebar-expandable-panel";
-import { useAppShellLayout } from "@/features/layout/context/app-shell-layout-context";
 import type { PracticeSessionStartInput } from "@/features/practice/api/create-practice-session";
 import { PracticeReducedStartDialog } from "@/features/practice/components/practice-reduced-start-dialog";
 import {
@@ -50,46 +49,6 @@ import {
 import { cn } from "@/lib/utils";
 import { Card, CardContent, CardHeader, CardTitle } from "@altitutor/ui";
 import { Button } from "@/components/ui/button";
-
-/** Side-by-side from tablet when the nav is collapsed; stack when it takes horizontal space. */
-function practiceSessionLayoutClass(
-  mainContentHasSidebarInset: boolean,
-): string {
-  return cn(
-    "grid min-h-0 gap-4",
-    mainContentHasSidebarInset
-      ? "xl:flex-1 xl:grid-cols-[minmax(0,1fr)_280px] xl:grid-rows-[minmax(0,1fr)] xl:items-start"
-      : "md:flex-1 md:grid-cols-[minmax(0,1fr)_280px] md:grid-rows-[minmax(0,1fr)] md:items-start",
-  );
-}
-
-/**
- * App shell main uses `pt-28 p-6` (7rem top + 1.5rem bottom).
- * Lock height only in the side-by-side breakpoint so the engine can fill remaining space.
- */
-function practiceSessionViewportClass(
-  mainContentHasSidebarInset: boolean,
-): string {
-  return cn(
-    "flex min-h-0 flex-col gap-4",
-    mainContentHasSidebarInset
-      ? "xl:h-[calc(100dvh-8.5rem)]"
-      : "md:h-[calc(100dvh-8.5rem)]",
-  );
-}
-
-/**
- * Stacked: fixed QE height (title + shell padding).
- * Side-by-side: fill the grid cell under the session title.
- */
-function practiceSessionEngineSlotClass(
-  mainContentHasSidebarInset: boolean,
-): string {
-  return cn(
-    "h-[calc(100dvh-12rem)] min-h-0 w-full overflow-hidden",
-    mainContentHasSidebarInset ? "xl:h-full" : "md:h-full",
-  );
-}
 
 function getPracticeCategoryList(
   input?: PracticeSelectionInput,
@@ -323,7 +282,7 @@ export function PracticeSessionStatsCards({
 
 export function PracticeSessionPage() {
   const router = useRouter();
-  const { mainContentHasSidebarInset } = useAppShellLayout();
+  const { setTitle, setPractice } = useExamExperience();
   const { data: quota, isLoading: quotaLoading } = useQuotaUsage();
   const {
     active: activeExamAttempt,
@@ -340,7 +299,6 @@ export function PracticeSessionPage() {
   const [liveStats, setLiveStats] = useState<PracticeEngineLiveStats | null>(
     null,
   );
-  const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const openFinishPracticeDialogRef = useRef<(() => void) | null>(null);
   const completionNavigationRef = useRef(false);
   const pendingGateHandledRef = useRef(false);
@@ -355,15 +313,6 @@ export function PracticeSessionPage() {
     remainingCount: number;
   } | null>(null);
   const [isCreatingFromPending, setIsCreatingFromPending] = useState(false);
-  const sessionLayoutClass = practiceSessionLayoutClass(
-    mainContentHasSidebarInset,
-  );
-  const sessionViewportClass = practiceSessionViewportClass(
-    mainContentHasSidebarInset,
-  );
-  const engineSlotClass = practiceSessionEngineSlotClass(
-    mainContentHasSidebarInset,
-  );
 
   const handleRegisterFinishPracticeDialog = useCallback((open: () => void) => {
     openFinishPracticeDialogRef.current = open;
@@ -706,20 +655,6 @@ export function PracticeSessionPage() {
     [router],
   );
 
-  useEffect(() => {
-    if (session === "loading" || !session) return;
-
-    const startedAt = session.startedAtMs ?? Date.now();
-    const updateElapsed = () => {
-      setElapsedSeconds(
-        Math.max(0, Math.floor((Date.now() - startedAt) / 1000)),
-      );
-    };
-    updateElapsed();
-    const id = setInterval(updateElapsed, 1000);
-    return () => clearInterval(id);
-  }, [session]);
-
   const activeSessionId =
     session === "loading" || !session ? null : session.sessionId;
   useEffect(() => {
@@ -745,6 +680,48 @@ export function PracticeSessionPage() {
           : "—"),
     });
   }, [liveStats, reportLivePractice, session]);
+
+  const sessionTitle =
+    session !== "loading" && session
+      ? buildPracticeSessionTitle({
+          stats: liveStats,
+          filters: session.filters,
+          filterMeta: session.filterMeta,
+        })
+      : null;
+
+  useEffect(() => {
+    if (session === "loading" || !session || !sessionTitle) {
+      setTitle(null);
+      setPractice(null);
+      return;
+    }
+    setTitle(sessionTitle);
+    setPractice({
+      stats: liveStats,
+      elapsedSeconds:
+        liveStats?.sessionTimeSeconds ??
+        liveStats?.totalAnsweredTimeSeconds ??
+        0,
+      showAnswerStats:
+        (session.reviewTiming ?? "afterEachStem") === "afterEachStem",
+      onFinishPractice:
+        session.mode === "unlimited"
+          ? handleFinishPracticeFromSidebar
+          : undefined,
+    });
+    return () => {
+      setTitle(null);
+      setPractice(null);
+    };
+  }, [
+    handleFinishPracticeFromSidebar,
+    liveStats,
+    session,
+    sessionTitle,
+    setPractice,
+    setTitle,
+  ]);
 
   if (session === "loading" || conflictActive != null || reducedStart != null) {
     return (
@@ -784,80 +761,39 @@ export function PracticeSessionPage() {
     return null;
   }
 
-  const sessionTitle = buildPracticeSessionTitle({
-    stats: liveStats,
-    filters: session.filters,
-    filterMeta: session.filterMeta,
-  });
-
   if (session.mode === "unlimited") {
     return (
-      <UcatLagProvider>
-        <div className={sessionViewportClass}>
-          <h1 className="shrink-0 text-lg font-semibold tracking-normal text-foreground">
-            {sessionTitle}
-          </h1>
-          <div className={sessionLayoutClass}>
-            <div className={engineSlotClass}>
-              <UnlimitedPracticeEngine
-                sessionId={session.sessionId}
-                filters={session.filters}
-                initialStems={session.stems ?? []}
-                sessionMeta={session}
-                timePerQuestionSeconds={session.timePerQuestionSeconds}
-                reviewTiming={session.reviewTiming ?? "afterEachStem"}
-                onPracticeSessionCompleted={handlePracticeSessionCompleted}
-                onPracticeStatsChange={setLiveStats}
-                onRegisterFinishPracticeDialog={
-                  handleRegisterFinishPracticeDialog
-                }
-              />
-            </div>
-            <PracticeSessionStatsCards
-              stats={liveStats}
-              elapsedSeconds={elapsedSeconds}
-              showAnswerStats={
-                (session.reviewTiming ?? "afterEachStem") === "afterEachStem"
-              }
-              onFinishPractice={handleFinishPracticeFromSidebar}
-            />
-          </div>
-        </div>
-      </UcatLagProvider>
+      <div className="h-full min-h-0 w-full overflow-hidden">
+        <UnlimitedPracticeEngine
+          sessionId={session.sessionId}
+          filters={session.filters}
+          initialStems={session.stems ?? []}
+          sessionMeta={session}
+          timePerQuestionSeconds={session.timePerQuestionSeconds}
+          reviewTiming={session.reviewTiming ?? "afterEachStem"}
+          onPracticeSessionCompleted={handlePracticeSessionCompleted}
+          onPracticeStatsChange={setLiveStats}
+          onRegisterFinishPracticeDialog={handleRegisterFinishPracticeDialog}
+        />
+      </div>
     );
   }
 
   return (
-    <UcatLagProvider>
-      <div className={sessionViewportClass}>
-        <h1 className="shrink-0 text-lg font-semibold tracking-normal text-foreground">
-          {sessionTitle}
-        </h1>
-        <div className={sessionLayoutClass}>
-          <div className={engineSlotClass}>
-            <QuestionEnginePage
-              mode="questionStem"
-              sourceId="practice"
-              questionStems={session.stems}
-              practice
-              fillAvailableHeight
-              practiceSessionId={session.sessionId}
-              reviewTiming={session.reviewTiming ?? "afterEachStem"}
-              onPracticeStatsChange={setLiveStats}
-              timePerQuestionSeconds={session.timePerQuestionSeconds}
-              onPracticeSessionCompleted={handlePracticeSessionCompleted}
-            />
-          </div>
-          <PracticeSessionStatsCards
-            stats={liveStats}
-            elapsedSeconds={elapsedSeconds}
-            showAnswerStats={
-              (session.reviewTiming ?? "afterEachStem") === "afterEachStem"
-            }
-          />
-        </div>
-      </div>
-    </UcatLagProvider>
+    <div className="h-full min-h-0 w-full overflow-hidden">
+      <QuestionEnginePage
+        mode="questionStem"
+        sourceId="practice"
+        questionStems={session.stems}
+        practice
+        fillAvailableHeight
+        practiceSessionId={session.sessionId}
+        reviewTiming={session.reviewTiming ?? "afterEachStem"}
+        onPracticeStatsChange={setLiveStats}
+        timePerQuestionSeconds={session.timePerQuestionSeconds}
+        onPracticeSessionCompleted={handlePracticeSessionCompleted}
+      />
+    </div>
   );
 }
 

@@ -11,7 +11,8 @@
     },
     "./styles/native-datetime-input.css": "./src/styles/native-datetime-input.css",
     "./styles/quiet-scrollbars.css": "./src/styles/quiet-scrollbars.css",
-    "./styles/prosemirror-tables.css": "./src/styles/prosemirror-tables.css"
+    "./styles/prosemirror-tables.css": "./src/styles/prosemirror-tables.css",
+    "./styles/sentry-feedback.css": "./src/styles/sentry-feedback.css"
   },
   "sideEffects": [
     "*.css"

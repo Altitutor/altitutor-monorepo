@@ -40,6 +40,8 @@ type PlanPickerProps = {
     | "signup_onboarding"
     | "subscribe"
     | "practice_session";
+  /** Destination resumed after signup onboarding and any paid checkout. */
+  postCheckoutReturnTo?: string;
   /** Subset of tiers to render (e.g. upgrade upsell on plan page) */
   visibleTiers?: PlanPickerTier[];
   layout?: "default" | "horizontal";
@@ -98,6 +100,7 @@ export function PlanPicker({
   surfaceTheme = "marketing",
   audience = "app",
   checkoutReturnContext = "subscribe",
+  postCheckoutReturnTo,
   visibleTiers,
   layout = "default",
 }: PlanPickerProps) {
@@ -113,6 +116,7 @@ export function PlanPicker({
     onDowngradeNavigate,
     audience,
     checkoutReturnContext,
+    postCheckoutReturnTo,
   });
   const {
     cfg,

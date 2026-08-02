@@ -52,10 +52,18 @@ export async function PATCH(request: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
   if (!supabaseAdmin) {
-    return NextResponse.json({ error: "Server not configured" }, { status: 503 });
+    return NextResponse.json(
+      { error: "Server not configured" },
+      { status: 503 },
+    );
   }
 
-  let body: { step?: unknown; complete?: unknown; planComplete?: unknown };
+  let body: {
+    step?: unknown;
+    complete?: unknown;
+    planComplete?: unknown;
+    familiarity?: unknown;
+  };
   try {
     body = (await request.json()) as typeof body;
   } catch {
@@ -65,16 +73,26 @@ export async function PATCH(request: NextRequest) {
   const hasStep = body.step !== undefined;
   const hasComplete = body.complete === true;
   const hasPlanComplete = body.planComplete === true;
+  const hasFamiliarity = body.familiarity !== undefined;
 
-  if (!hasStep && !hasComplete && !hasPlanComplete) {
+  if (!hasStep && !hasComplete && !hasPlanComplete && !hasFamiliarity) {
     return NextResponse.json(
-      { error: "Provide step, complete, and/or planComplete" },
+      { error: "Provide step, complete, planComplete, and/or familiarity" },
       { status: 400 },
     );
   }
 
   if (hasStep && !isSignupOnboardingStep(body.step)) {
     return NextResponse.json({ error: "Invalid step" }, { status: 400 });
+  }
+
+  if (
+    hasFamiliarity &&
+    body.familiarity !== "new" &&
+    body.familiarity !== "familiar" &&
+    body.familiarity !== "experienced"
+  ) {
+    return NextResponse.json({ error: "Invalid familiarity" }, { status: 400 });
   }
 
   const { data: student, error: studentError } = await supabaseAdmin
@@ -86,7 +104,10 @@ export async function PATCH(request: NextRequest) {
     .maybeSingle();
 
   if (studentError) {
-    return NextResponse.json({ error: "Failed to resolve student" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Failed to resolve student" },
+      { status: 500 },
+    );
   }
   if (!student) {
     return NextResponse.json(
@@ -113,6 +134,10 @@ export async function PATCH(request: NextRequest) {
     updates.ucat_signup_step = SIGNUP_STEP.PLAN;
   }
 
+  if (hasFamiliarity) {
+    updates.ucat_initial_familiarity = body.familiarity as string;
+  }
+
   const { error: updateError } = await supabaseAdmin
     .from("students")
     .update(updates)
@@ -125,7 +150,9 @@ export async function PATCH(request: NextRequest) {
 
   const nextStudent = {
     ...student,
-    ucat_signup_step: (updates.ucat_signup_step as number | undefined) ?? student.ucat_signup_step,
+    ucat_signup_step:
+      (updates.ucat_signup_step as number | undefined) ??
+      student.ucat_signup_step,
     ucat_signup_completed_at:
       (updates.ucat_signup_completed_at as string | undefined) ??
       student.ucat_signup_completed_at,
@@ -137,5 +164,7 @@ export async function PATCH(request: NextRequest) {
   const profileSetupComplete =
     user.user_metadata?.profile_setup_complete === true;
 
-  return NextResponse.json(resolveSignupState(nextStudent, profileSetupComplete));
+  return NextResponse.json(
+    resolveSignupState(nextStudent, profileSetupComplete),
+  );
 }

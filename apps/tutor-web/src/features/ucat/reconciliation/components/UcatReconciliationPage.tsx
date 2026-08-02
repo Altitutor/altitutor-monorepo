@@ -86,7 +86,7 @@ export function UcatReconciliationPage() {
     <div className="space-y-8 py-8 md:py-10">
       <UcatPageHeader
         title="Reconciliation"
-        description="Identify and resolve UCAT content gaps: uncategorized stems, missing explanations, private stems not in sets, sets with incorrect questions/timing/sections, and mocks with incorrect sets."
+        description="Identify and resolve UCAT content gaps: uncategorized stems, missing explanations, unused private stems, sets with incorrect questions/timing/sections, and mocks with incorrect sets."
         breadcrumbs={[{ label: 'UCAT', href: '/ucat' }, { label: 'Reconciliation' }]}
       />
 

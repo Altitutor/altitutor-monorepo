@@ -52,7 +52,6 @@ function plan(tasks: StudyPlanTask[]): StudyPlanResponse {
     profile: {
       id: "profile-1",
       studyPlanEnabled: true,
-      studySuggestionsEnabled: true,
       targetScore: 2100,
       testYear: 2026,
       testDate: "2026-09-15",
@@ -105,7 +104,6 @@ function planWithoutStudyPlan(
     profile: {
       id: "profile-1",
       studyPlanEnabled: false,
-      studySuggestionsEnabled: true,
       targetScore: 2100,
       testYear: 2026,
       testDate: "2026-09-15",

@@ -1,20 +1,14 @@
 import {
   getQuotaAreaForPathname,
-  isMockEngineRoute,
-  isPracticeEngineRoute,
-  isSetEngineRoute,
   isSkillTrainerPlayRoute,
 } from "@/features/ucat-access/lib/quota-area-for-pathname";
 
 describe("getQuotaAreaForPathname", () => {
-  it("maps practice browsing and live session routes", () => {
+  it("maps practice browsing and result routes", () => {
     expect(getQuotaAreaForPathname("/practice")).toBe("practice");
     expect(getQuotaAreaForPathname("/progress/practice-sessions/abc")).toBe(
       "practice",
     );
-    expect(getQuotaAreaForPathname("/practice/session")).toBe("practice");
-    expect(getQuotaAreaForPathname("/practice/stem/abc")).toBe("practice");
-    expect(isPracticeEngineRoute("/practice/session")).toBe(true);
   });
 
   it("maps sets browsing routes and subpages", () => {
@@ -30,28 +24,20 @@ describe("getQuotaAreaForPathname", () => {
     );
   });
 
-  it("excludes active set engine routes", () => {
-    expect(getQuotaAreaForPathname("/exam/sets")).toBeNull();
-    expect(getQuotaAreaForPathname("/exam/sets?id=abc")).toBeNull();
-    expect(isSetEngineRoute("/exam/sets")).toBe(true);
+  it("excludes the unified active exam route", () => {
+    expect(getQuotaAreaForPathname("/exam")).toBeNull();
   });
 
   it("maps mocks browsing routes and subpages", () => {
     expect(getQuotaAreaForPathname("/mocks")).toBe("mocks");
     expect(getQuotaAreaForPathname("/mocks/mock-id")).toBe("mocks");
     expect(getQuotaAreaForPathname("/progress/mocks")).toBe("mocks");
-    expect(
-      getQuotaAreaForPathname("/progress/mocks/mock-attempts/abc"),
-    ).toBe("mocks");
+    expect(getQuotaAreaForPathname("/progress/mocks/mock-attempts/abc")).toBe(
+      "mocks",
+    );
     expect(getQuotaAreaForPathname("/sessions/session-id/mocks/mock-id")).toBe(
       "mocks",
     );
-  });
-
-  it("excludes active mock engine routes", () => {
-    expect(getQuotaAreaForPathname("/exam/mocks")).toBeNull();
-    expect(getQuotaAreaForPathname("/exam/mocks?id=abc")).toBeNull();
-    expect(isMockEngineRoute("/exam/mocks")).toBe(true);
   });
 
   it("maps learn browsing routes", () => {
@@ -64,7 +50,9 @@ describe("getQuotaAreaForPathname", () => {
     expect(getQuotaAreaForPathname("/skill-trainer/arithmetic")).toBe(
       "skill_trainer",
     );
-    expect(getQuotaAreaForPathname("/skill-trainer/arithmetic/play")).toBeNull();
+    expect(
+      getQuotaAreaForPathname("/skill-trainer/arithmetic/play"),
+    ).toBeNull();
     expect(isSkillTrainerPlayRoute("/skill-trainer/arithmetic/play")).toBe(
       true,
     );

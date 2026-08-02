@@ -138,7 +138,7 @@ const PlanPickerDialogShell = dynamic(() =>
 );
 
 /**
- * Standalone practice (e.g. `/practice/stem/[id]`): fill the padded app-shell
+ * Inline practice: use the embedded lesson/session viewport.
  * viewport (`pt-28` + bottom `p-6` = 8.5rem).
  */
 export const PRACTICE_EMBEDDED_VIEWPORT_CLASS =
@@ -324,6 +324,7 @@ export type PracticeEngineLiveStats = {
   incorrectCount: number;
   revealAccuracy: boolean;
   totalAnsweredTimeSeconds: number;
+  sessionTimeSeconds?: number;
   currentQuestionNumber: number;
   totalQuestionLabel: string;
   timingPhase: "question" | "practiceAnswer";
@@ -387,6 +388,7 @@ export function QuestionEnginePage({
   onLearnProgress,
   disableQuestionAttemptLogging = false,
   embeddedInLesson = false,
+  embeddedInteractionActive = true,
   fillAvailableHeight = false,
   onRegisterFinishPracticeDialog,
   tutorialMode = false,
@@ -441,6 +443,8 @@ export function QuestionEnginePage({
   disableQuestionAttemptLogging?: boolean;
   /** Shorter viewport when practice engine is embedded inside a lesson block card. */
   embeddedInLesson?: boolean;
+  /** Only the focused inline engine installs document-level interaction handlers. */
+  embeddedInteractionActive?: boolean;
   /**
    * When true, fill the parent height instead of using a viewport calc.
    * Used by practice session where the parent owns the remaining-height layout.
@@ -845,7 +849,6 @@ export function QuestionEnginePage({
     exam,
     state,
     practiceSessionId,
-    learningModuleBlockId,
     onLearnProgress,
     disableQuestionAttemptLogging,
     examAttemptManaged,
@@ -1387,10 +1390,10 @@ export function QuestionEnginePage({
         );
         // Session completion writes every final answer in one server batch.
         // Non-session practice retains the normal stem submission path.
-        if (!practiceSessionId) {
+        if (!practiceSessionId && !disableQuestionAttemptLogging) {
           await recordAnswersForUnit(startIndex, endIndex);
         }
-        if (learningModuleBlockId && disableQuestionAttemptLogging) {
+        if (disableQuestionAttemptLogging) {
           onLearnProgress?.();
         }
         setSubmittedPracticeQuestionIds((current) => {
@@ -1457,7 +1460,6 @@ export function QuestionEnginePage({
     mode,
     recordAnswersForUnit,
     getFinalPracticeAnswers,
-    learningModuleBlockId,
     disableQuestionAttemptLogging,
     onLearnProgress,
     practiceSessionId,
@@ -1531,8 +1533,11 @@ export function QuestionEnginePage({
       });
       setState(practiceAnswerState);
 
-      if (learningModuleBlockId && disableQuestionAttemptLogging) {
+      if (disableQuestionAttemptLogging) {
         onLearnProgress?.();
+        suppressQuestionTimingSyncRef.current = false;
+        setIsSavingPracticeUnit(false);
+        return;
       }
 
       const savePromise = (async () => {
@@ -1575,7 +1580,6 @@ export function QuestionEnginePage({
       questions,
       state,
       mode,
-      learningModuleBlockId,
       disableQuestionAttemptLogging,
       onLearnProgress,
       setState,
@@ -1589,6 +1593,7 @@ export function QuestionEnginePage({
 
   // Disable copy, cut, paste, and enable UCAT keyboard shortcuts while the UCAT engine is open
   useEffect(() => {
+    if (embeddedInLesson && !embeddedInteractionActive) return;
     const preventDefault = (event: Event) => {
       event.preventDefault();
     };
@@ -2027,6 +2032,7 @@ export function QuestionEnginePage({
     isFinalizingExam,
     isFinishingPractice,
     embeddedInLesson,
+    embeddedInteractionActive,
     exam,
   ]);
 
@@ -2088,6 +2094,22 @@ export function QuestionEnginePage({
       },
       0,
     );
+    const sessionTimeSeconds = questions.reduce((total, question) => {
+      const clientSeconds = Math.floor(
+        getClientPracticeQuestionElapsedMilliseconds(
+          question.id,
+          clientPracticeTimingRef.current,
+        ) / 1000,
+      );
+      return (
+        total +
+        Math.max(
+          0,
+          persistedSecondsByQuestionId[question.id] ?? 0,
+          clientSeconds,
+        )
+      );
+    }, 0);
 
     const timingPhase =
       state.phase === "practiceAnswer" ? "practiceAnswer" : "question";
@@ -2130,6 +2152,7 @@ export function QuestionEnginePage({
       incorrectCount: Math.max(0, answeredCount - correctCount),
       revealAccuracy: reviewTiming === "afterEachStem",
       totalAnsweredTimeSeconds,
+      sessionTimeSeconds,
       currentQuestionNumber,
       totalQuestionLabel: onNeedMoreStems
         ? "Unlimited"

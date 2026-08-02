@@ -4,14 +4,12 @@ import {
 } from "@/features/study-plan/lib/companion-mode";
 
 describe("Study Plan companion route mode", () => {
-  it.each([
-    "/practice/session",
-    "/practice/stem/stem-1",
-    "/exam/sets",
-    "/exam/mocks",
-  ])("hides during fullscreen attempt route %s", (pathname) => {
-    expect(getStudyPlanCompanionMode(pathname)).toBe("hidden");
-  });
+  it.each(["/exam", "/exam/tutorial"])(
+    "hides during fullscreen attempt route %s",
+    (pathname) => {
+      expect(getStudyPlanCompanionMode(pathname)).toBe("hidden");
+    },
+  );
 
   it.each([
     "/skill-trainer/quick-syllogism/play",

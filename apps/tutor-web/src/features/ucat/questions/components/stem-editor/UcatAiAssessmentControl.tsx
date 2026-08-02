@@ -190,6 +190,12 @@ function patchPreviewRows(
       return [{ label: patch.target.field.replaceAll('_', ' '), before: patch.beforeText, after: patch.afterText }]
     case 'set_text':
       return [{ label: patch.target.field.replaceAll('_', ' '), before: patch.beforeText ?? 'Empty', after: patch.afterText }]
+    case 'set_rich_content':
+      return [{
+        label: patch.target.field.replaceAll('_', ' '),
+        before: proseMirrorToPlainText(patch.before),
+        after: proseMirrorToPlainText(patch.after),
+      }]
     case 'set_answer_key':
       return [{ label: 'Correct answer', before: optionText(patch.currentCorrectOptionId), after: optionText(patch.correctOptionId) }]
     case 'replace_option_and_key':

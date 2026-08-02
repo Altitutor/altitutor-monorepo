@@ -388,7 +388,7 @@ export function PrivateStemsNotInSetTable({
   return (
     <>
       <ReconciliationTable<PrivateStemNotInSet>
-        title="Private question stems not in a set"
+        title="Unused private question stems"
         items={filteredStems}
         isLoading={isLoading}
         pagination={{

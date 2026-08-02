@@ -8,9 +8,13 @@ import { fetchReferralGifts } from "@/features/subscription/api/referral-gifts";
 
 type SignupCompletePlanStepProps = {
   onComplete: () => void;
+  returnTo: string;
 };
 
-export function SignupCompletePlanStep({ onComplete }: SignupCompletePlanStepProps) {
+export function SignupCompletePlanStep({
+  onComplete,
+  returnTo,
+}: SignupCompletePlanStepProps) {
   const queryClient = useQueryClient();
   const giftQuery = useQuery({
     queryKey: ["ucat-referral-gifts"],
@@ -26,6 +30,7 @@ export function SignupCompletePlanStep({ onComplete }: SignupCompletePlanStepPro
       <ReferralGiftCard
         gift={giftQuery.data.pendingGift}
         checkoutContext="signup_onboarding"
+        postCheckoutReturnTo={returnTo}
         onRejected={async () => {
           await queryClient.invalidateQueries({
             queryKey: ["ucat-referral-gifts"],
@@ -42,6 +47,7 @@ export function SignupCompletePlanStep({ onComplete }: SignupCompletePlanStepPro
       surfaceTheme="app"
       selectorTheme="app"
       checkoutReturnContext="signup_onboarding"
+      postCheckoutReturnTo={returnTo}
       onContinueFree={onComplete}
     />
   );

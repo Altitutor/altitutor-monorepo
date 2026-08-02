@@ -37,7 +37,6 @@ const sections: StudyPlanSection[] = [
 
 const profile: StudyPlanProfileInput = {
   studyPlanEnabled: true,
-  studySuggestionsEnabled: true,
   targetScore: 2100,
   testYear: 2026,
   testDate: "2026-08-05",

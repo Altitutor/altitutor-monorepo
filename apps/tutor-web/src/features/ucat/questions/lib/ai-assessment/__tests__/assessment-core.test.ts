@@ -1,4 +1,10 @@
-import type { UcatAssessmentSnapshot } from '../schema'
+import {
+  BulkImportRepairResponseSchema,
+  BulkImportReviewDirectiveSchema,
+  parseBulkImportAuditRepairResponse,
+  parseUcatAssessmentResponse,
+  type UcatAssessmentSnapshot,
+} from '../schema'
 import { automaticReviewEnvironment, resolveReviewTriggerGate } from '@/features/ucat/questions/server/ai-assessment/environment'
 import {
   changedAssessmentScope,
@@ -8,13 +14,18 @@ import {
 import { runUcatFormatChecks } from '@/features/ucat/questions/server/ai-assessment/format-checks'
 import {
   ASSESSMENT_SYSTEM_PROMPT,
+  BULK_IMPORT_AUDIT_REPAIR_SYSTEM_PROMPT,
   buildAssessmentUserPrompt,
+  buildBulkImportAuditRepairUserPrompt,
   buildBlindSolverUserPrompt,
+  buildIndependentAuditUserPrompt,
 } from '@/features/ucat/questions/server/ai-assessment/prompts'
+import { EXPLANATION_TEACHING_RUBRIC } from '@/features/ucat/questions/lib/ai-generation/explanation-rubric'
 import { applyUcatAssessmentPatches } from '../apply-patches'
 import { plainTextToProseMirror, proseMirrorToPlainText } from '@/features/ucat/shared/lib/rich-text'
 import { parseEmbeddedImageDataUri } from '@/features/ucat/questions/server/ai-assessment/visual-evidence'
 import { normalizeBlindSolutionSelections } from '@/features/ucat/questions/server/ai-assessment/normalize-blind-solution'
+import { reusableBlindSolutionForScope } from '@/features/ucat/questions/server/ai-assessment/run-background-assessment'
 import type { UcatQuestionStemFormValues } from '@/features/ucat/questions/types/schema'
 
 const STEM_ID = '00000000-0000-0000-0000-000000000001'
@@ -268,8 +279,138 @@ describe('assessment prompts and deterministic checks', () => {
       expect.objectContaining({ code: 'qr_option_count' }),
     ])
     expect(ASSESSMENT_SYSTEM_PROMPT).toContain('add plausible, mutually exclusive distractors')
+    expect(ASSESSMENT_SYSTEM_PROMPT).toContain(EXPLANATION_TEACHING_RUBRIC)
     expect(ASSESSMENT_SYSTEM_PROMPT).toContain('two to five short, titled or numbered steps')
-    expect(ASSESSMENT_SYSTEM_PROMPT).toContain('Concise')
+    expect(ASSESSMENT_SYSTEM_PROMPT).toContain(
+      'Completeness of the teaching path matters more than short word count',
+    )
+    expect(ASSESSMENT_SYSTEM_PROMPT).not.toContain('Do not pad explanations')
+    expect(ASSESSMENT_SYSTEM_PROMPT).not.toContain(
+      '"Concise" means scannable and free of filler',
+    )
+  })
+
+  it('uses atomic typed directives without exposing the blind solve', () => {
+    const value = snapshot()
+    const auditPayload = JSON.parse(buildIndependentAuditUserPrompt({
+      snapshot: value,
+      targetQuestionIds: [QUESTION_1, QUESTION_2],
+      includeSharedAssessment: true,
+      formatChecks: [],
+    })) as Record<string, unknown>
+    expect(auditPayload).not.toHaveProperty('blindSolution')
+    expect(auditPayload.responseShape).toEqual(expect.objectContaining({
+      overallSummary: expect.any(String),
+      categories: [expect.objectContaining({
+        scopeType: expect.any(String),
+        category: expect.any(String),
+      })],
+      findings: [expect.objectContaining({
+        suggestion: null,
+      })],
+    }))
+
+    const repairPayload = JSON.parse(buildBulkImportAuditRepairUserPrompt({
+      snapshot: value,
+      targetQuestionIds: [QUESTION_1, QUESTION_2],
+      includeSharedAssessment: true,
+      formatChecks: [],
+    })) as Record<string, unknown>
+    expect(repairPayload).not.toHaveProperty('blindSolution')
+    expect(repairPayload.responseShape).toEqual(expect.objectContaining({
+      audit: expect.objectContaining({
+        categories: expect.any(Array),
+        findings: expect.any(Array),
+      }),
+      review: expect.objectContaining({
+        directives: [expect.objectContaining({
+          kind: expect.any(String),
+          patch: expect.any(String),
+        })],
+        manualFindings: expect.any(Array),
+      }),
+    }))
+    expect(repairPayload.allowedPatchShapes).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        operation: 'set_text',
+        target: expect.objectContaining({
+          kind: 'stem|question|option',
+          field: 'stem_text|question_text|answer_text|answer_explanation',
+        }),
+        beforeText: 'current exact plain text or null',
+        afterText: 'complete replacement text',
+      }),
+      expect.objectContaining({
+        operation: 'set_rich_content',
+        before: expect.objectContaining({ type: 'doc' }),
+        after: expect.objectContaining({ type: 'doc' }),
+      }),
+      expect.objectContaining({
+        operation: 'set_metadata',
+        targetKind: 'stem|question',
+        targetId: 'exact UUID',
+        before: 'exact current value',
+        after: 'replacement value',
+      }),
+    ]))
+    expect(BULK_IMPORT_AUDIT_REPAIR_SYSTEM_PROMPT).toContain('do not see the independent blind solver')
+    expect(BULK_IMPORT_AUDIT_REPAIR_SYSTEM_PROMPT).toContain('whole-question insertion')
+    expect(BULK_IMPORT_AUDIT_REPAIR_SYSTEM_PROMPT).toContain(EXPLANATION_TEACHING_RUBRIC)
+    expect(BULK_IMPORT_AUDIT_REPAIR_SYSTEM_PROMPT).toContain('calculator use where relevant')
+    expect(BULK_IMPORT_AUDIT_REPAIR_SYSTEM_PROMPT).toContain(
+      'identify the specific passage evidence the student should read',
+    )
+    expect(BULK_IMPORT_AUDIT_REPAIR_SYSTEM_PROMPT).toContain(
+      'why less appropriate alternatives fail where that teaching helps',
+    )
+    expect(BULK_IMPORT_AUDIT_REPAIR_SYSTEM_PROMPT).toContain(
+      'walk the student through how to solve the question',
+    )
+    expect(BULK_IMPORT_AUDIT_REPAIR_SYSTEM_PROMPT).not.toContain('shortest useful solving method')
+  })
+
+  it('supplies exact structured table content to the bulk reviewer', () => {
+    const value = snapshot()
+    value.stemText = {
+      type: 'doc',
+      content: [{
+        type: 'table',
+        content: [{
+          type: 'tableRow',
+          content: [{
+            type: 'tableHeader',
+            content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Area (m2)' }] }],
+          }],
+        }],
+      }],
+    }
+    value.stemTextPlain = 'Area (m2)'
+
+    const payload = JSON.parse(buildBulkImportAuditRepairUserPrompt({
+      snapshot: value,
+      targetQuestionIds: [QUESTION_1],
+      includeSharedAssessment: true,
+      formatChecks: [],
+    })) as { stemText: { structuredDocument?: unknown } }
+
+    expect(payload.stemText.structuredDocument).toEqual(value.stemText)
+  })
+
+  it('accepts a structured-content directive as a content repair', () => {
+    const document = { type: 'doc', content: [{ type: 'paragraph' }] }
+    expect(BulkImportReviewDirectiveSchema.safeParse({
+      kind: 'content',
+      summary: 'Repair the table header',
+      rationale: 'The unit needs a superscript.',
+      confidence: 0.98,
+      resolvedFindingKeys: ['table-unit'],
+      patch: {
+        operation: 'set_rich_content',
+        target: { kind: 'stem', id: null, field: 'stem_text' },
+        before: document,
+        after: document,
+      },
+    }).success).toBe(true)
   })
 
   it('keeps the blind solve free of keys, explanations, difficulty, and timing', () => {
@@ -314,6 +455,22 @@ describe('assessment prompts and deterministic checks', () => {
     expect(checks.map((check) => check.code)).not.toContain('qr_category')
   })
 
+  it('allows QR stems to contain more than four questions', () => {
+    const value = snapshot()
+    value.questions = [
+      ...value.questions,
+      ...Array.from({ length: 3 }, (_, index) => ({
+        ...value.questions[0],
+        id: `00000000-0000-0000-0000-${String(index + 30).padStart(12, '0')}`,
+        index: index + 3,
+      })),
+    ]
+
+    expect(runUcatFormatChecks(value).map((check) => check.code)).not.toContain(
+      'qr_question_count',
+    )
+  })
+
   it('blocks assessment when formatting source would be visible to students', () => {
     const value = snapshot()
     value.questions[0].answerExplanation = plainTextToProseMirror(
@@ -331,6 +488,63 @@ describe('assessment prompts and deterministic checks', () => {
 })
 
 describe('bounded suggestion patches', () => {
+  it('replaces exact structured rich content without flattening a table', async () => {
+    const value = snapshot()
+    const before = {
+      type: 'doc',
+      content: [{
+        type: 'table',
+        content: [{
+          type: 'tableRow',
+          content: [{
+            type: 'tableHeader',
+            content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Drainage area (m2)' }] }],
+          }],
+        }],
+      }],
+    }
+    const after = {
+      type: 'doc',
+      content: [{
+        type: 'table',
+        content: [{
+          type: 'tableRow',
+          content: [{
+            type: 'tableHeader',
+            content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Drainage area (km²)' }] }],
+          }],
+        }],
+      }],
+    }
+    const form = {
+      sectionId: value.sectionId,
+      categoryId: value.categoryId,
+      stemText: before,
+      accessScope: 'public' as const,
+      questions: value.questions.map((question) => ({
+        id: question.id,
+        questionText: question.questionText,
+        questionType: question.questionType,
+        answerExplanation: question.answerExplanation,
+        difficulty: question.difficulty,
+        timeBurdenSeconds: '1:15',
+        tagIds: [],
+        options: question.options,
+      })),
+    }
+
+    const result = await applyUcatAssessmentPatches(form, [{
+      operation: 'set_rich_content',
+      target: { kind: 'stem', id: null, field: 'stem_text' },
+      before,
+      after,
+    }])
+
+    expect(result.stemText).toEqual(after)
+    expect((result.stemText as { content?: Array<{ type?: string }> }).content?.[0]?.type)
+      .toBe('table')
+  })
+
   it('applies an exact suggestion spanning two rich-text list items without flattening the list', async () => {
     const value = snapshot()
     const explanation = {
@@ -502,6 +716,149 @@ describe('bounded suggestion patches', () => {
 })
 
 describe('assessment provider input normalization', () => {
+  it('accepts cautious repair confidence as review data', () => {
+    const parsed = BulkImportRepairResponseSchema.parse({
+      overallSummary: 'One cautious repair was proposed.',
+      repairs: [{
+        summary: 'Set timing',
+        rationale: 'The expected timing is approximate.',
+        confidence: 0.79,
+        resolvedFindingKeys: [],
+        patches: [{
+          operation: 'set_metadata',
+          targetKind: 'question',
+          targetId: QUESTION_1,
+          field: 'time_burden_seconds',
+          before: null,
+          after: 60,
+        }],
+      }],
+      unresolvedFindings: [],
+    })
+
+    expect(parsed.repairs[0]?.confidence).toBe(0.79)
+  })
+
+  it('preserves the audit and valid sibling fixes when one repair is malformed', () => {
+    const parsed = parseBulkImportAuditRepairResponse({
+      audit: {
+        overallSummary: 'The category comments remain useful.',
+        categories: [],
+        findings: [],
+      },
+      repair: {
+        overallSummary: 'One fix was usable.',
+        repairs: [
+          {
+            summary: 'Set timing',
+            rationale: 'Timing can be estimated safely.',
+            confidence: 0.8,
+            resolvedFindingKeys: [],
+            patches: [{
+              operation: 'set_metadata',
+              targetKind: 'question',
+              targetId: QUESTION_1,
+              field: 'time_burden_seconds',
+              before: null,
+              after: 60,
+            }],
+          },
+          {
+            summary: 'Broken repair',
+            rationale: 'The model returned an invalid patch.',
+            confidence: 0.9,
+            resolvedFindingKeys: [],
+            patches: [{ operation: 'not-a-real-operation' }],
+          },
+        ],
+        unresolvedFindings: [],
+      },
+    })
+
+    expect(parsed.audit.overallSummary).toBe('The category comments remain useful.')
+    expect(parsed.repair.repairs).toHaveLength(1)
+    expect(parsed.repair.unresolvedFindings).toEqual([
+      expect.objectContaining({ key: 'model-repair-output-incomplete' }),
+    ])
+  })
+
+  it('normalizes the typed one-patch directive contract for reconciliation', () => {
+    const parsed = parseBulkImportAuditRepairResponse({
+      audit: {
+        overallSummary: 'The explanation is missing.',
+        categories: [],
+        findings: [],
+      },
+      review: {
+        overallSummary: 'Added the missing teaching explanation.',
+        directives: [{
+          kind: 'explanation',
+          summary: 'Add explanation',
+          rationale: 'Students need the solving method.',
+          confidence: 0.84,
+          resolvedFindingKeys: [],
+          patch: {
+            operation: 'set_text',
+            target: {
+              kind: 'question',
+              id: QUESTION_1,
+              field: 'answer_explanation',
+            },
+            beforeText: null,
+            afterText: 'Identify the relevant evidence, then eliminate each unsupported option.',
+          },
+        }],
+        manualFindings: [],
+      },
+    })
+
+    expect(parsed.repair.repairs).toEqual([
+      expect.objectContaining({
+        summary: 'Add explanation',
+        confidence: 0.84,
+        patches: [expect.objectContaining({ operation: 'set_text' })],
+      }),
+    ])
+  })
+
+  it('keeps the bulk repair response independent of another assessment and solve', () => {
+    const parsed = BulkImportRepairResponseSchema.parse({
+      repairs: [],
+      overallSummary: 'One issue still needs tutor input.',
+      unresolvedFindings: [{
+        key: 'manual-check',
+        scopeType: 'question',
+        questionId: QUESTION_1,
+        category: 'answer_correctness_fairness',
+        rating: 'concern',
+        confidence: 0.8,
+        title: 'Check ambiguity',
+        detail: 'The wording may allow two interpretations.',
+        evidence: [],
+        recommendedAction: 'review',
+        suggestion: 'This irrelevant model prose is ignored.',
+      }],
+    })
+
+    expect(parsed).not.toHaveProperty('postRepairSolutions')
+    expect(parsed).not.toHaveProperty('finalAssessment')
+    expect(parsed.unresolvedFindings[0]).not.toHaveProperty('suggestion')
+  })
+
+  it('accepts a conventional audit wrapper without weakening assessment validation', () => {
+    expect(parseUcatAssessmentResponse({
+      audit: {
+        overallSummary: 'The keyed content is sound.',
+        categories: [],
+        findings: [],
+      },
+    })).toEqual({
+      overallSummary: 'The keyed content is sound.',
+      categories: [],
+      findings: [],
+    })
+  })
+
   it('accepts URL-encoded SVG data URIs with charset parameters', () => {
     const parsed = parseEmbeddedImageDataUri('data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%3E%3C%2Fsvg%3E')
     expect(parsed?.mimeType).toBe('image/svg+xml')
@@ -523,5 +880,35 @@ describe('assessment provider input normalization', () => {
       }],
     }, value)
     expect(normalized.solutions[0].selectedOptionId).toBe(value.questions[0].options[2].id)
+  })
+
+  it('reuses a scoped blind solution when repairs retain its selected option', () => {
+    const value = snapshot()
+    const selectedOptionId = value.questions[0].options[0].id
+    const existing = {
+      solutions: [{
+        questionId: QUESTION_1,
+        selectedOptionId,
+        proposedAnswer: null,
+        syllogismAnswers: [],
+        justification: 'The first option is correct.',
+        confidence: 0.99,
+        ambiguous: false,
+        unsolvable: false,
+      }],
+    }
+
+    expect(reusableBlindSolutionForScope({
+      existing,
+      snapshot: value,
+      targetQuestionIds: [QUESTION_1],
+    })).toEqual(existing)
+
+    value.questions[0].options = value.questions[0].options.slice(1)
+    expect(reusableBlindSolutionForScope({
+      existing,
+      snapshot: value,
+      targetQuestionIds: [QUESTION_1],
+    })).toBeNull()
   })
 })

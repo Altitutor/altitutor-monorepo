@@ -19,6 +19,8 @@ export type UcatCheckoutRequest = UcatCheckoutSelection & {
     | "referral_gift";
   /** A pending recipient gift or an earned Free-referrer access gift. */
   referralGiftId?: string;
+  /** Validated application destination resumed after signup checkout. */
+  returnTo?: string;
 };
 
 export function isUcatCheckoutSelection(
@@ -37,6 +39,7 @@ export function parseUcatCheckoutRequest(
   const raw = value as unknown as {
     returnContext?: unknown;
     referralGiftId?: unknown;
+    returnTo?: unknown;
   };
   const ctx = raw.returnContext;
   if (
@@ -59,6 +62,7 @@ export function parseUcatCheckoutRequest(
         : undefined,
     referralGiftId:
       typeof raw.referralGiftId === "string" ? raw.referralGiftId : undefined,
+    returnTo: typeof raw.returnTo === "string" ? raw.returnTo : undefined,
   };
 }
 

@@ -49,6 +49,7 @@ export type ActiveExamAttempt = {
   resourceId: string;
   label: string;
   resumeHref: string;
+  exitHref?: string;
   resultsHref: string;
   currentSegmentEndsAt: string | null;
   engineSnapshot: ExamEngineSnapshot;

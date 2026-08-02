@@ -134,7 +134,7 @@ export function PracticePage() {
   const startMutation = useMutation({
     mutationFn: createAndPersistPracticeSession,
     onSuccess: () => {
-      router.push("/practice/session");
+      router.push("/exam");
     },
     onError: (error) => {
       if (error instanceof QuotaExceededError) {
@@ -195,10 +195,10 @@ export function PracticePage() {
     };
     const startInput = buildStartInput(payload, ucatSectionId);
     // Create the DB session only after the engine tutorial — otherwise Resume
-    // points at /practice/session which immediately redirects back to tutorial.
+    // points at the unified exam route which immediately redirects to tutorial.
     if (questionEngineTourBlocked) {
       setPendingPracticeStart(startInput);
-      router.push(buildQuestionEngineTutorialHref("/practice/session"));
+      router.push(buildQuestionEngineTutorialHref("/practice"));
       return;
     }
 

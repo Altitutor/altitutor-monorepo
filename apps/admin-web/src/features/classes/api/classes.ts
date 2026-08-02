@@ -1045,15 +1045,29 @@ export const classesApi = {
   },
 
   /**
-   * Get count of current class enrollments (unenrolled_at is null or in the future)
+   * Get count of current class enrollments in classes that have not finished.
+   * Excludes past unenrolments, inactive/archived classes, and classes whose
+   * session_end_date is before today.
    */
   getCurrentEnrollmentsCount: async (): Promise<number> => {
     const supabase = (getSupabaseClient() as SupabaseClient<Database>);
+    const now = new Date();
+    const nowIso = now.toISOString();
+    const today = [
+      now.getFullYear(),
+      String(now.getMonth() + 1).padStart(2, '0'),
+      String(now.getDate()).padStart(2, '0'),
+    ].join('-');
+
     const { count, error } = await supabase
       .from('classes_students')
-      .select('id', { count: 'exact', head: true })
-      .or(`unenrolled_at.is.null,unenrolled_at.gt.${new Date().toISOString()}`);
-    
+      .select('id, classes!inner(id)', { count: 'exact', head: true })
+      .or(`unenrolled_at.is.null,unenrolled_at.gt.${nowIso}`)
+      .in('classes.status', ['ACTIVE', 'FULL'])
+      .or(`session_end_date.is.null,session_end_date.gte.${today}`, {
+        foreignTable: 'classes',
+      });
+
     if (error) throw error;
     return count ?? 0;
   },

@@ -15,8 +15,6 @@ import {
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-  FeedbackDialog,
-  type FeedbackKind,
 } from '@altitutor/ui';
 import { useCurrentStaff } from '@/features/staff/hooks/useStaffQuery';
 import { useMobileMenu } from '@/shared/contexts/MobileMenuContext';
@@ -28,6 +26,7 @@ import { TUTOR_SHELL_PAD_X } from '@/shared/lib/tutor-layout';
 import { cn } from '@/shared/utils';
 import { tutorBtnOutline } from '@/shared/lib/tutor-visual';
 import { shouldHideNavbar } from '@/shared/lib/shell-layout';
+import { openUserFeedback } from '@/lib/sentry/open-user-feedback';
 
 export function Navbar() {
   const router = useRouter();
@@ -40,7 +39,6 @@ export function Navbar() {
   // Only fetch staff data when user is authenticated
   const { data: staffRecord } = useCurrentStaff(!!user);
   const [showLogoutModal, setShowLogoutModal] = useState(false);
-  const [feedbackKind, setFeedbackKind] = useState<FeedbackKind | null>(null);
   const [formResponseSubmitted, setFormResponseSubmitted] = useState(false);
 
   useEffect(() => {
@@ -171,7 +169,7 @@ export function Navbar() {
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem
-                  onSelect={() => setFeedbackKind('bug')}
+                  onSelect={() => void openUserFeedback()}
                   className="cursor-pointer"
                 >
                   <Bug className="mr-2 h-4 w-4" />
@@ -196,19 +194,6 @@ export function Navbar() {
         onOpenChange={setShowLogoutModal}
         onConfirm={handleLogout}
       />
-      {feedbackKind ? (
-        <FeedbackDialog
-          open
-          onOpenChange={(open) => !open && setFeedbackKind(null)}
-          kind={feedbackKind}
-          appName="tutor-web"
-          user={{
-            id: user?.id,
-            email: user?.email,
-            name: getFullName(),
-          }}
-        />
-      ) : null}
     </nav>
   );
 }

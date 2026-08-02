@@ -45,6 +45,7 @@ import { LogAbsenceDialog } from '@/features/sessions/components';
 import { BookSessionModal } from '@/features/bookings/components/BookSessionModal';
 import { SendStudentInviteDialog } from './SendStudentInviteDialog';
 import { StudentExitRequestDialog } from '@/features/forms/components/StudentExitRequestDialog';
+import { ReEnrollStudentConfirmDialog } from './ReEnrollStudentConfirmDialog';
 import { studentsApi } from '../api';
 import { useDataTable } from '@/shared/hooks/useDataTable';
 import { useQuickFilters } from '@/features/quick-filters/hooks/useQuickFilters';
@@ -69,6 +70,7 @@ interface StudentRowActionsProps {
   onBookSubsidyInterview: () => void;
   onBookCheckIn: () => void;
   onDiscontinue?: () => void;
+  onReEnroll?: () => void;
   onDelete: () => void;
 }
 
@@ -84,6 +86,7 @@ function StudentRowActions({
   onBookSubsidyInterview,
   onBookCheckIn,
   onDiscontinue,
+  onReEnroll,
   onDelete,
 }: StudentRowActionsProps) {
   const studentActions = useStudentActions({
@@ -99,6 +102,7 @@ function StudentRowActions({
     onBookSubsidyInterview,
     onBookCheckIn,
     onDiscontinue,
+    onReEnroll,
     onDelete,
   });
 
@@ -185,6 +189,8 @@ export function StudentsTable({ onRefresh: _onRefresh, onStudentSelect: _onStude
   const [, setLoadingPasswordReset] = useState(false);
   const [, setHasPasswordResetLinkSent] = useState(false);
   const [studentToDiscontinue, setStudentToDiscontinue] = useState<{ id: string; first_name?: string; last_name?: string; phone?: string | null } | null>(null);
+  const [studentToReEnroll, setStudentToReEnroll] = useState<{ id: string; first_name?: string; last_name?: string } | null>(null);
+  const [isReEnrolling, setIsReEnrolling] = useState(false);
 
   const filterDefinitions: DataTableFilterDefinition[] = useMemo(() => [
     {
@@ -710,11 +716,12 @@ export function StudentsTable({ onRefresh: _onRefresh, onStudentSelect: _onStude
                             ],
                           })
                         }
-                        onDiscontinue={student.status === 'TRIAL' || student.status === 'ACTIVE'
-                          ? () => {
-                              setStudentToDiscontinue(student);
-                            }
-                          : undefined}
+                        onDiscontinue={() => {
+                          setStudentToDiscontinue(student);
+                        }}
+                        onReEnroll={() => {
+                          setStudentToReEnroll(student);
+                        }}
                         onDelete={() => {
                           setActionStudentId(student.id);
                           setIsDeleteDialogOpen(true);
@@ -925,6 +932,38 @@ export function StudentsTable({ onRefresh: _onRefresh, onStudentSelect: _onStude
           studentPhone={studentToDiscontinue.phone}
           workflowKey="student_discontinuation"
           onCreated={refetch}
+        />
+      )}
+
+      {studentToReEnroll && (
+        <ReEnrollStudentConfirmDialog
+          isOpen={!!studentToReEnroll}
+          onOpenChange={(open) => {
+            if (!open) setStudentToReEnroll(null);
+          }}
+          studentName={[studentToReEnroll.first_name, studentToReEnroll.last_name].filter(Boolean).join(' ') || 'this student'}
+          isReEnrolling={isReEnrolling}
+          onConfirm={async () => {
+            try {
+              setIsReEnrolling(true);
+              await studentsApi.reEnrollStudent(studentToReEnroll.id);
+              toast({
+                title: 'Success',
+                description: 'Student re-enrolled successfully.',
+              });
+              handleStudentUpdated();
+              return true;
+            } catch (error) {
+              toast({
+                title: 'Re-enroll failed',
+                description: error instanceof Error ? error.message : 'There was an error re-enrolling the student. Please try again.',
+                variant: 'destructive',
+              });
+              return false;
+            } finally {
+              setIsReEnrolling(false);
+            }
+          }}
         />
       )}
     </div>

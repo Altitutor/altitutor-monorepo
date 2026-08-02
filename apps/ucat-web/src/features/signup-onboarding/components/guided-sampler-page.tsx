@@ -56,6 +56,10 @@ import {
 import { cn } from "@/lib/utils";
 import { captureUcatEvent } from "@/lib/analytics/posthog";
 import { navigateAfterAuth } from "@/features/auth/lib/navigate-after-auth";
+import {
+  pathWithReturnIntent,
+  safePostAuthReturnPath,
+} from "@/features/auth/lib/return-intent";
 
 type SeenControl =
   | "calculator"
@@ -1055,6 +1059,7 @@ export function GuidedSamplerPage() {
   const completeMilestone = useCompleteOnboardingTour();
   const afterPlan = searchParams.get("afterPlan") === "1";
   const replay = searchParams.get("replay") === "1";
+  const returnTo = safePostAuthReturnPath(searchParams.get("redirect"));
   const section = GUIDED_SAMPLER_SECTIONS[sectionIndex];
   const steps = coachSteps(snapshot);
   const activeCoachStep = steps[guideStepIndex] ?? null;
@@ -1345,9 +1350,11 @@ export function GuidedSamplerPage() {
 
   const destination = useMemo(() => {
     if (replay) return "/dashboard";
-    if (afterPlan) return "/dashboard";
-    return "/signup/complete?sampler=complete";
-  }, [afterPlan, replay]);
+    if (afterPlan) return returnTo;
+    return pathWithReturnIntent("/signup/complete", returnTo, {
+      sampler: "complete",
+    });
+  }, [afterPlan, replay, returnTo]);
 
   const dismissFeedback = useCallback(() => {
     setFeedback((current) => {
@@ -1371,9 +1378,11 @@ export function GuidedSamplerPage() {
   }, [correctQuestionIds]);
 
   async function persistDecision(completed: boolean) {
+    if (!familiarity) return;
     setPending(true);
     setError(null);
     try {
+      await patchSignupProgress({ familiarity });
       await completeMilestone.mutateAsync(UCAT_GUIDED_SAMPLER_DECIDED);
       await completeMilestone.mutateAsync(UCAT_QUESTION_ENGINE_TOUR);
       if (completed) {

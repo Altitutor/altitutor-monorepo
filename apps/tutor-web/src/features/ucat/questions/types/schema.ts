@@ -1,6 +1,6 @@
 import { z } from 'zod'
 import type { Json } from '@altitutor/shared'
-import { hasRichTextContent, proseMirrorToPlainText } from '@/features/ucat/shared/lib/rich-text'
+import { hasRichTextContent } from '@/features/ucat/shared/lib/rich-text'
 
 const jsonSchema: z.ZodType<Json> = z.lazy(() =>
   z.union<[z.ZodTypeAny, z.ZodTypeAny, z.ZodTypeAny, z.ZodTypeAny, z.ZodTypeAny, z.ZodTypeAny]>([
@@ -14,8 +14,8 @@ const jsonSchema: z.ZodType<Json> = z.lazy(() =>
 )
 
 const nonEmptyRichTextSchema: z.ZodType<Json> = jsonSchema.refine(
-  (value) => proseMirrorToPlainText(value)?.trim().length > 0,
-  'Text is required'
+  (value) => hasRichTextContent(value),
+  'Text or visual content is required'
 )
 
 /** Option answer/statement text; may be empty (only at least one option needs content). */

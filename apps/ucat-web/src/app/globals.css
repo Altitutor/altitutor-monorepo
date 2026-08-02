@@ -1,5 +1,6 @@
 @import "@altitutor/ui/styles/native-datetime-input.css";
 @import "@altitutor/ui/styles/quiet-scrollbars.css";
+@import "@altitutor/ui/styles/sentry-feedback.css";
 @import url("https://fonts.googleapis.com/css2?family=Outfit:wght@400;700&family=Plus+Jakarta+Sans:wght@400;700&family=Cormorant+Garamond:ital,wght@1,300;1,400;1,700&family=IBM+Plex+Mono:wght@400;600&display=swap");
 
 @tailwind base;

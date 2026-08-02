@@ -1,6 +1,10 @@
 import * as Sentry from "@sentry/nextjs";
 
-export function captureApiError(error: unknown, route: string) {
+export function captureApiError(
+  error: unknown,
+  route: string,
+  extra?: Record<string, unknown>,
+) {
   if (error == null) return;
   if (
     typeof error === "object" &&
@@ -11,6 +15,7 @@ export function captureApiError(error: unknown, route: string) {
   }
 
   Sentry.captureException(error, {
+    extra,
     tags: {
       "api.handled": "true",
       "api.route": route,
@@ -22,7 +27,8 @@ export function captureApiErrorResponse<Response>(
   error: unknown,
   route: string,
   response: Response,
+  extra?: Record<string, unknown>,
 ) {
-  captureApiError(error, route);
+  captureApiError(error, route, extra);
   return response;
 }

@@ -18,7 +18,7 @@
     "checkall": "turbo run lint && turbo run typecheck && turbo run test && turbo run build",
     "db:types": "supabase gen types typescript --local --schema public > packages/shared/src/supabase/generated.ts && pnpm --filter @altitutor/shared run build",
     "db:email-templates": "bash supabase/scripts/render-email-templates.sh",
-    "ucat:email-preview": "node supabase/scripts/preview-ucat-emails.mjs",
+    "ucat:email-preview": "node supabase/scripts/watch-ucat-email-previews.mjs",
     "db:committypes": "supabase db reset && supabase db lint --local --level=error --fail-on error && pnpm db:types && git add packages/shared/src/supabase/generated.ts && (git diff --cached --quiet || git commit -m 'chore: regenerate types')"
   },
   "devDependencies": {

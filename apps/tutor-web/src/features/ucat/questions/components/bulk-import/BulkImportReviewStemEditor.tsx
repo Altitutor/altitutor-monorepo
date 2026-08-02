@@ -15,6 +15,8 @@ import type {
   UcatSectionOption,
 } from '@/features/ucat/questions/components/UcatQuestionStemDialog'
 import type { UcatQuestionSourceChannel } from '@/features/ucat/questions/api/questions'
+import type { BulkImportAiReviewResult } from '@/features/ucat/questions/lib/bulk-import-ai-review'
+import type { BulkImportAiStemPhase } from '@/features/ucat/questions/hooks/useBulkImportReviewController'
 
 type BulkImportReviewStemEditorProps = {
   stemId: string
@@ -28,6 +30,11 @@ type BulkImportReviewStemEditorProps = {
   onActiveTextEditorChange?: (editor: Editor | null) => void
   sourceChannel?: UcatQuestionSourceChannel | null
   aiGenerationMetadata?: Json | null
+  aiReviewResult?: BulkImportAiReviewResult | null
+  aiReviewPhase?: BulkImportAiStemPhase
+  aiReviewStale?: boolean
+  onApproveAiFinding?: (findingKey: string) => void
+  onKeepAiFinding?: (findingKey: string) => void
 }
 
 function stemValuesFingerprint(values: UcatQuestionStemFormValues): string {
@@ -46,6 +53,11 @@ export function BulkImportReviewStemEditor({
   onActiveTextEditorChange,
   sourceChannel,
   aiGenerationMetadata,
+  aiReviewResult = null,
+  aiReviewPhase = 'idle',
+  aiReviewStale = false,
+  onApproveAiFinding,
+  onKeepAiFinding,
 }: BulkImportReviewStemEditorProps) {
   const createForm = useForm as unknown as (props: {
     resolver: unknown
@@ -156,7 +168,14 @@ export function BulkImportReviewStemEditor({
       onActiveTextEditorChange={onActiveTextEditorChange}
       sourceChannel={sourceChannel ?? null}
       aiGenerationMetadata={aiGenerationMetadata ?? null}
-      aiReviewAvailable={false}
+      aiReviewAvailable
+      bulkImportAiReview={{
+        result: aiReviewResult,
+        phase: aiReviewPhase,
+        stale: aiReviewStale,
+        onApproveFinding: onApproveAiFinding,
+        onKeepFinding: onKeepAiFinding,
+      }}
       className="flex h-full min-h-0 overflow-hidden"
     />
   )

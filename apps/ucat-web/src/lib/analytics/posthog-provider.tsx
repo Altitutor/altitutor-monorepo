@@ -9,16 +9,18 @@ import {
   posthog,
   UCAT_ANALYTICS_CONTEXT,
 } from "./posthog";
+import { buildEmailCtaLandingAttribution } from "@/lib/analytics/email-cta-attribution";
 
 let initialized = false;
 
 function PostHogPageView({ enabled }: { enabled: boolean }) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
+  const query = searchParams.toString();
 
   useEffect(() => {
     if (!enabled) return;
-    const query = searchParams.toString();
+    const currentSearchParams = new URLSearchParams(query);
     const currentUrl = `${window.location.origin}${pathname}${query ? `?${query}` : ""}`;
 
     posthog.capture("$pageview", {
@@ -26,7 +28,26 @@ function PostHogPageView({ enabled }: { enabled: boolean }) {
       ...UCAT_ANALYTICS_CONTEXT,
       surface: getUcatAnalyticsSurface(pathname),
     });
-  }, [enabled, pathname, searchParams]);
+
+    const attribution = buildEmailCtaLandingAttribution(
+      pathname,
+      currentSearchParams,
+    );
+    if (!attribution) return;
+
+    try {
+      const storageKey = `ucat-email-cta-landed:${attribution.dedupeKey}`;
+      if (window.sessionStorage.getItem(storageKey)) return;
+      window.sessionStorage.setItem(storageKey, "1");
+    } catch {
+      // Tracking remains fail-open when storage is unavailable.
+    }
+
+    posthog.capture("email_cta_landed", {
+      ...UCAT_ANALYTICS_CONTEXT,
+      ...attribution.properties,
+    });
+  }, [enabled, pathname, query]);
 
   return null;
 }
@@ -56,7 +77,11 @@ export function UcatPostHogIdentity() {
   return null;
 }
 
-export function UcatPostHogProvider({ children }: { children: React.ReactNode }) {
+export function UcatPostHogProvider({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
   const [ready, setReady] = useState(initialized);
 
   useEffect(() => {

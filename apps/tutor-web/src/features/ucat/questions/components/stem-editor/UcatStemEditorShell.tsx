@@ -34,6 +34,7 @@ import { replaceSelectedImageAttrs } from '@/features/ucat/shared/lib/selected-v
 import { UcatSelectedImageMenu } from '@/features/ucat/shared/components/UcatSelectedImageMenu'
 import { UcatVisualEditorDialog } from '@/features/ucat/questions/components/stem-editor/UcatVisualEditorDialog'
 import { useExplanationFeedback } from '@/features/ucat/reconciliation/hooks/useExplanationFeedback'
+import type { BulkImportAiReviewPanelProps } from '@/features/ucat/questions/components/bulk-import/BulkImportAiReviewPanel'
 
 type UcatStemEditorShellProps = {
   form: UseFormReturn<UcatQuestionStemFormValues>
@@ -78,6 +79,7 @@ type UcatStemEditorShellProps = {
   workspaceTab?: UcatAuthoringWorkspaceTab
   onWorkspaceTabChange?: (tab: UcatAuthoringWorkspaceTab) => void
   aiReviewAvailable?: boolean
+  bulkImportAiReview?: Omit<BulkImportAiReviewPanelProps, 'activeQuestionId' | 'activeQuestionIndex'> | null
   onUseSelectedImageWithAi?: (image: SelectedVisualImage, editor: Editor) => void
 }
 
@@ -124,6 +126,7 @@ export function UcatStemEditorShell({
   workspaceTab: controlledWorkspaceTab,
   onWorkspaceTabChange,
   aiReviewAvailable = Boolean(stemId),
+  bulkImportAiReview = null,
   onUseSelectedImageWithAi,
 }: UcatStemEditorShellProps) {
   const { toast } = useToast()
@@ -330,6 +333,7 @@ export function UcatStemEditorShell({
         onAcceptSelectedImage={onAcceptSelectedImage}
         onNewImageFileIds={onNewImageFileIds}
         aiReviewAvailable={aiReviewAvailable}
+        bulkImportAiReview={bulkImportAiReview}
         className={cn(activeWorkspace === 'editor' && 'hidden', 'lg:flex')}
       />
       </div>

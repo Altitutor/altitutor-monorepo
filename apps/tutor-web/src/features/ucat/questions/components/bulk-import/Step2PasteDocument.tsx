@@ -15,6 +15,10 @@ import {
 } from '@altitutor/ui'
 import { Settings2 } from 'lucide-react'
 import { UcatRichTextEditor } from '@/features/ucat/shared/UcatRichTextEditor'
+import {
+  proseMirrorHasOuterTable,
+  stripOuterTablesFromProseMirrorDoc,
+} from '@/features/ucat/shared/lib/rich-text'
 import { cn } from '@/shared/utils'
 import { BulkImportParseLegendButton } from '@/features/ucat/questions/components/bulk-import/BulkImportParseLegendButton'
 import { ParsedDocumentPreviewPanel } from '@/features/ucat/questions/components/bulk-import/ParsedDocumentPreviewPanel'
@@ -202,6 +206,7 @@ export function Step2PasteDocument({
   const showQuantitativeReasoningOptions = liveParseSection === 'quantitative_reasoning'
 
   const classify = useMemo(() => parsingOptionsToClassify(opts), [opts])
+  const canStripOuterTables = useMemo(() => proseMirrorHasOuterTable(value), [value])
 
   const ucatQHighlight = useMemo(() => {
     if (!liveParseSection) return { mode: 'off' as const }
@@ -211,6 +216,11 @@ export function Step2PasteDocument({
       classify,
     }
   }, [classify, liveParseSection])
+
+  const handleStripOuterTables = () => {
+    const next = stripOuterTablesFromProseMirrorDoc(value)
+    if (next) onChange(next)
+  }
 
   if (settingsOnly) {
     const settingsActions = (
@@ -230,7 +240,7 @@ export function Step2PasteDocument({
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent
-            className="w-80 max-h-[min(24rem,70vh)] max-w-[min(20rem,92vw)] overflow-y-auto p-2"
+            className="w-80 max-h-[var(--radix-dropdown-menu-content-available-height)] max-w-[min(20rem,92vw)] overflow-y-auto p-2"
             align="end"
           >
             <DropdownMenuLabel className="px-0 text-xs">Parser</DropdownMenuLabel>
@@ -361,7 +371,7 @@ export function Step2PasteDocument({
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent
-              className="w-80 max-h-[min(24rem,70vh)] max-w-[min(20rem,92vw)] overflow-y-auto p-2"
+              className="w-80 max-h-[var(--radix-dropdown-menu-content-available-height)] max-w-[min(20rem,92vw)] overflow-y-auto p-2"
               align="end"
             >
               <DropdownMenuLabel className="px-0 text-xs">Parser</DropdownMenuLabel>
@@ -456,6 +466,9 @@ export function Step2PasteDocument({
                 <DropdownMenuSeparator />
                 <div className="space-y-1.5">
                   <Label className="text-xs">Table paste handling</Label>
+                  <p className="text-[11px] leading-snug text-muted-foreground">
+                    Applies on paste. The button strips outer tables from the current document.
+                  </p>
                   <SearchableSelect<{ value: PasteTableBehavior; label: string }>
                     items={PASTE_TABLE_BEHAVIOR_OPTIONS}
                     value={
@@ -470,6 +483,16 @@ export function Step2PasteDocument({
                     getItemId={(i) => i.value}
                     triggerClassName="w-full"
                   />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="w-full"
+                    disabled={!canStripOuterTables}
+                    onClick={handleStripOuterTables}
+                  >
+                    Strip outside tables
+                  </Button>
                 </div>
               </div>
             </DropdownMenuContent>

@@ -154,7 +154,7 @@ function metadataValue(
   throw new Error('The suggested question metadata field is invalid.')
 }
 
-function getTextTarget(values: UcatQuestionStemFormValues, patch: Extract<UcatAssessmentPatch, { operation: 'replace_text' | 'set_text' | 'update_visual_spec' }>) {
+function getTextTarget(values: UcatQuestionStemFormValues, patch: Extract<UcatAssessmentPatch, { operation: 'replace_text' | 'set_text' | 'set_rich_content' | 'update_visual_spec' }>) {
   const { target } = patch
   if (target.kind === 'stem') {
     if (target.field !== 'stem_text') throw new Error('The suggested stem field is invalid.')
@@ -313,6 +313,14 @@ export async function applyUcatAssessmentPatches(
           throw new Error('The suggested text field has changed since this suggestion was created.')
         }
         target.set(aiTextToProseMirror(patch.afterText))
+        break
+      }
+      case 'set_rich_content': {
+        const target = getTextTarget(values, patch)
+        if (!sameJson(target.get(), patch.before)) {
+          throw new Error('The structured content has changed since this suggestion was created.')
+        }
+        target.set(cloneJson(patch.after))
         break
       }
       case 'set_answer_key': {

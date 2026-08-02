@@ -10,6 +10,11 @@ export type AlternativeParsingIndicatorHints = {
   answerOptionIndicator: AnswerOptionIndicatorKind | null
 }
 
+export type InferredParsingIndicators = {
+  questionIndicator: QuestionIndicatorKind | null
+  answerOptionIndicator: AnswerOptionIndicatorKind | null
+}
+
 const QUESTION_INDICATOR_LABELS: Record<QuestionIndicatorKind, string> = {
   dot: '1. 2. 3.',
   paren: '1) 2) 3)',
@@ -19,6 +24,9 @@ const ANSWER_OPTION_INDICATOR_LABELS: Record<AnswerOptionIndicatorKind, string> 
   paren: 'a) b) c)',
   dot: 'a. b. c.',
 }
+
+const QUESTION_INDICATOR_KINDS: QuestionIndicatorKind[] = ['dot', 'paren']
+const ANSWER_OPTION_INDICATOR_KINDS: AnswerOptionIndicatorKind[] = ['paren', 'dot']
 
 export function questionIndicatorLabel(kind: QuestionIndicatorKind): string {
   return QUESTION_INDICATOR_LABELS[kind]
@@ -51,6 +59,24 @@ function lineMatchesOptionIndicator(
   return false
 }
 
+/** Count indicator hits generously (inline + own-line forms) for auto-detection. */
+function countIndicatorMatchesForInference(
+  lines: string[],
+  kind: 'question' | 'answerOption',
+  indicator: QuestionIndicatorKind | AnswerOptionIndicatorKind
+): number {
+  let count = 0
+  for (const line of lines) {
+    if (line.trim().length === 0) continue
+    const matches =
+      kind === 'question'
+        ? lineMatchesQuestionIndicator(line, indicator as QuestionIndicatorKind, true)
+        : lineMatchesOptionIndicator(line, indicator as AnswerOptionIndicatorKind, true)
+    if (matches) count += 1
+  }
+  return count
+}
+
 function countIndicatorMatches(
   lines: string[],
   kind: 'question' | 'answerOption',
@@ -75,6 +101,43 @@ function countIndicatorMatches(
     if (matches) count += 1
   }
   return count
+}
+
+function pickWinningIndicator<T extends string>(
+  scores: Array<{ kind: T; count: number }>
+): T | null {
+  let best: { kind: T; count: number } | null = null
+  let tie = false
+  for (const score of scores) {
+    if (!best || score.count > best.count) {
+      best = score
+      tie = false
+      continue
+    }
+    if (score.count === best.count) tie = true
+  }
+  if (!best || best.count === 0 || tie) return null
+  return best.kind
+}
+
+/**
+ * Infer question / answer-option indicator styles from pasted lines.
+ * Returns null for a field when there is no clear majority signal.
+ */
+export function inferParsingIndicators(lines: string[]): InferredParsingIndicators {
+  const questionIndicator = pickWinningIndicator(
+    QUESTION_INDICATOR_KINDS.map((kind) => ({
+      kind,
+      count: countIndicatorMatchesForInference(lines, 'question', kind),
+    }))
+  )
+  const answerOptionIndicator = pickWinningIndicator(
+    ANSWER_OPTION_INDICATOR_KINDS.map((kind) => ({
+      kind,
+      count: countIndicatorMatchesForInference(lines, 'answerOption', kind),
+    }))
+  )
+  return { questionIndicator, answerOptionIndicator }
 }
 
 /**

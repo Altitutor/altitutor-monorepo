@@ -41,11 +41,7 @@ export function getStudyPlanCompanionMode(
     return "activity";
   }
 
-  if (
-    pathname.startsWith("/exam") ||
-    pathname === "/practice/session" ||
-    pathname.startsWith("/practice/stem/")
-  ) {
+  if (pathname.startsWith("/exam")) {
     return "hidden";
   }
 

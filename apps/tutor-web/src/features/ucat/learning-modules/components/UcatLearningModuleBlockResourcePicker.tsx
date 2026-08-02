@@ -26,7 +26,7 @@ import {
   type TagOption,
 } from '@/features/ucat/questions/components/UcatQuestionStemDialog'
 import type { UcatQuestionStemFormValues } from '@/features/ucat/questions/types/schema'
-import { filterOptionsWithContent } from '@/features/ucat/shared/lib/rich-text'
+import { formValuesToStemBundlePayload } from '@/features/ucat/questions/lib/stem-editor-form'
 import { UcatStemCatalogListPanel } from '@/features/ucat/shared/components/ucat-stem-catalog-panel'
 import { UcatCatalogListPanel } from '@/features/ucat/shared/components/ucat-catalog-list-panel'
 import { UcatDialogShell } from '@/features/ucat/shared/dialog-shell'
@@ -40,7 +40,6 @@ import {
 } from '@/features/ucat/shared/hooks/useUcatTableState'
 import { useUcatCatalogListState } from '@/features/ucat/shared/hooks/useUcatCatalogListState'
 import { paginateCatalogItems } from '@/features/ucat/shared/lib/ucat-catalog-pagination'
-import { parseTimeToSeconds } from '@/features/ucat/shared/lib/time-utils'
 import {
   buildTaxonomyPathLookup,
   categoriesToTaxonomyNodes,
@@ -55,7 +54,6 @@ import {
   UCAT_FILTER_NO_CATEGORY,
   UCAT_FILTER_NOT_IN_ANY_SET,
 } from '@/features/ucat/shared/lib/table-filter-sentinel'
-import type { UcatQuestionStemBundlePayload } from '@/features/ucat/shared/types'
 import { useUcatSets } from '@/features/ucat/sets/hooks/useUcatSets'
 import type { UcatSection } from '@/features/ucat/shared/types'
 import { cn } from '@/shared/utils'
@@ -366,28 +364,7 @@ export function LearningModuleQuestionResourcePicker({
 
   async function handleStemUpdate(stemId: string | null, payload: UcatQuestionStemFormValues, onSuccess: () => void) {
     if (!stemId) return
-    const mapped: UcatQuestionStemBundlePayload = {
-      stemId,
-      sectionId: payload.sectionId,
-      categoryId: payload.categoryId || null,
-      stemText: payload.stemText,
-      accessScope: payload.accessScope,
-      questions: payload.questions.map((question, index) => ({
-        index: index + 1,
-        questionText: question.questionText,
-        questionType: question.questionType,
-        difficulty: question.difficulty,
-        timeBurdenSeconds: parseTimeToSeconds(question.timeBurdenSeconds ?? '') ?? null,
-        tagIds: question.tagIds ?? [],
-        options: filterOptionsWithContent(question.options).map((option, optionIndex) => ({
-          id: option.id,
-          index: optionIndex + 1,
-          answerText: option.answerText,
-          answerExplanation: option.answerExplanation,
-          isAnswer: option.isAnswer,
-        })),
-      })),
-    }
+    const mapped = formValuesToStemBundlePayload(payload, stemId)
 
     try {
       await updateStemMutation.mutateAsync({ stemId, payload: mapped })

@@ -336,7 +336,6 @@ export function StudyPlanActivationPage() {
     try {
       const nextPlan = await saveStudyPlan({
         studyPlanEnabled: true,
-        studySuggestionsEnabled: true,
         targetScore,
         testYear,
         testDate: testDate || null,
@@ -368,7 +367,6 @@ export function StudyPlanActivationPage() {
     try {
       const nextPlan = await saveStudyPlan({
         studyPlanEnabled: false,
-        studySuggestionsEnabled: true,
         targetScore,
         testYear,
         testDate: testDate || null,

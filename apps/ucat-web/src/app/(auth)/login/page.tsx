@@ -1,5 +1,6 @@
 import { LoginForm, LoginPageLayout } from "@/features/auth";
 import { getEnabledSocialAuthProviders } from "@/features/auth/lib/social-auth";
+import { safePostAuthReturnPath } from "@/features/auth/lib/return-intent";
 
 type PageProps = {
   searchParams: Promise<{
@@ -13,10 +14,7 @@ type PageProps = {
 
 export default async function LoginPage({ searchParams }: PageProps) {
   const params = await searchParams;
-  const redirectTo =
-    params.redirect && params.redirect.startsWith("/")
-      ? params.redirect
-      : "/dashboard";
+  const redirectTo = safePostAuthReturnPath(params.redirect);
   const initialEmail = params.email?.trim() ?? "";
   const accountExists = params.existing === "1";
   const resetSuccess = params.reset === "success";

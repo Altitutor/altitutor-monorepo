@@ -163,6 +163,10 @@ function LessonBlockContent({
   block,
   onBlockProgress,
   onSkillTrainerComplete,
+  questionBlockStarted,
+  questionBlockActive,
+  questionBlockComplete,
+  onActivateQuestionBlock,
 }: {
   block: LearningModuleBlockRow;
   onBlockProgress: (
@@ -171,6 +175,10 @@ function LessonBlockContent({
     interactionState?: Json,
   ) => void;
   onSkillTrainerComplete: (blockId: string) => void;
+  questionBlockStarted: boolean;
+  questionBlockActive: boolean;
+  questionBlockComplete: boolean;
+  onActivateQuestionBlock: () => void;
 }) {
   return (
     <>
@@ -202,6 +210,10 @@ function LessonBlockContent({
       block.block_type === "question" ? (
         <LearnQuestionBlock
           block={block}
+          started={questionBlockStarted}
+          active={questionBlockActive}
+          completed={questionBlockComplete}
+          onActivate={onActivateQuestionBlock}
           onProgressChange={() => {
             if (!block.id) return;
             onBlockProgress(block.id, true, {
@@ -235,6 +247,12 @@ export function LearningLessonPage({
   const [activeIndex, setActiveIndex] = useState(0);
   const [completeDialogOpen, setCompleteDialogOpen] = useState(false);
   const [incompleteDialogOpen, setIncompleteDialogOpen] = useState(false);
+  const [activeQuestionBlockId, setActiveQuestionBlockId] = useState<
+    string | null
+  >(null);
+  const [startedQuestionBlockIds, setStartedQuestionBlockIds] = useState(
+    () => new Set<string>(),
+  );
   const blockRefs = useRef(new Map<string, HTMLDivElement>());
   const { openQuotaLimit } = useQuotaLimitDialog();
   const { reportActivityCompletion, setActivityComplete } =
@@ -243,6 +261,8 @@ export function LearningLessonPage({
 
   useEffect(() => {
     setActiveIndex(0);
+    setActiveQuestionBlockId(null);
+    setStartedQuestionBlockIds(new Set());
     previousLessonCompleteRef.current = null;
   }, [lessonId]);
 
@@ -469,6 +489,15 @@ export function LearningLessonPage({
                     block={block}
                     onBlockProgress={handleBlockProgress}
                     onSkillTrainerComplete={handleSkillTrainerComplete}
+                    questionBlockStarted={startedQuestionBlockIds.has(block.id)}
+                    questionBlockActive={activeQuestionBlockId === block.id}
+                    questionBlockComplete={isBlockComplete(block)}
+                    onActivateQuestionBlock={() => {
+                      setStartedQuestionBlockIds((current) =>
+                        new Set(current).add(block.id!),
+                      );
+                      setActiveQuestionBlockId(block.id!);
+                    }}
                   />
                 </div>
               ) : null,

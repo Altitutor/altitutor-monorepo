@@ -109,7 +109,10 @@ export async function POST(request: NextRequest) {
       .createSignedUrl(path, REFRESHED_URL_EXPIRY_SECONDS);
 
     if (error) {
-      captureApiError(error, "/api/ucat/images/signed-urls");
+      captureApiError(error, "/api/ucat/images/signed-urls", {
+        storageBucket: "ucat-images",
+        storagePath: path,
+      });
       return NextResponse.json(
         { error: error.message, path },
         { status: error.message === "Object not found" ? 404 : 500 },

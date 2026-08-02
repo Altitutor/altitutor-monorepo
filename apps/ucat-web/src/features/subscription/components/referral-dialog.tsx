@@ -1,12 +1,6 @@
 "use client";
 
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from "@altitutor/ui";
+import { Dialog, DialogContent, DialogTitle } from "@altitutor/ui";
 import { ReferralSection } from "@/features/subscription/components/referral-section";
 
 type ReferralDialogProps = {
@@ -19,14 +13,9 @@ export function ReferralDialog({ open, onOpenChange }: ReferralDialogProps) {
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
         mobilePresentation="bottom-sheet"
-        className="min-w-0 max-w-[100vw] overflow-x-hidden overflow-y-auto pt-12 sm:max-w-4xl sm:pt-6"
+        className="min-w-0 max-w-[100vw] overflow-x-hidden overflow-y-auto pt-12 sm:pt-6 md:!max-w-4xl"
       >
-        <DialogHeader className="min-w-0 text-left">
-          <DialogTitle>Refer a friend</DialogTitle>
-          <DialogDescription>
-            Copy your personal referral link or open your device’s share menu.
-          </DialogDescription>
-        </DialogHeader>
+        <DialogTitle className="sr-only">Refer a friend</DialogTitle>
         <ReferralSection />
       </DialogContent>
     </Dialog>

@@ -49,6 +49,7 @@ describe('formatStudentDisplay', () => {
       ucat_unlimited_trial_consumed_at: null,
       ucat_signup_completed_at: null,
       ucat_signup_step: 0,
+      ucat_initial_familiarity: null,
     };
     
     expect(formatStudentDisplay(student)).toBe('John Doe (john@example.com)');
@@ -90,6 +91,7 @@ describe('formatStudentDisplay', () => {
       ucat_unlimited_trial_consumed_at: null,
       ucat_signup_completed_at: null,
       ucat_signup_step: 0,
+      ucat_initial_familiarity: null,
     };
     
     expect(formatStudentDisplay(student)).toBe('Jane Smith');

@@ -76,9 +76,6 @@ function commonChecks(snapshot: UcatAssessmentSnapshot, checks: UcatFormatCheck[
       if (!question.answerExplanationPlain.trim()) {
         add(checks, 'error', 'missing_question_explanation', 'Multiple-choice questions need one question-level teaching explanation.', question)
       }
-      if (question.options.some((option) => option.answerExplanationPlain.trim())) {
-        add(checks, 'warning', 'unused_multiple_choice_option_explanations', 'Multiple-choice questions use the question-level explanation; option explanations are not needed.', question)
-      }
     } else {
       if (question.options.length !== 5) {
         add(checks, 'error', 'syllogism_option_count', 'Syllogism questions must have exactly five Yes/No statements.', question)
@@ -88,9 +85,6 @@ function commonChecks(snapshot: UcatAssessmentSnapshot, checks: UcatFormatCheck[
           add(checks, 'error', 'missing_syllogism_option_explanation', `Syllogism option ${optionIndex + 1} needs its own teaching explanation.`, question)
         }
       })
-      if (question.answerExplanationPlain.trim()) {
-        add(checks, 'warning', 'unused_syllogism_question_explanation', 'Syllogism questions use option-level explanations; a question-level explanation is not needed.', question)
-      }
     }
   }
 }
@@ -169,9 +163,6 @@ function dmChecks(snapshot: UcatAssessmentSnapshot, checks: UcatFormatCheck[]) {
 }
 
 function qrChecks(snapshot: UcatAssessmentSnapshot, checks: UcatFormatCheck[]) {
-  if (snapshot.questions.length < 1 || snapshot.questions.length > 4) {
-    add(checks, 'error', 'qr_question_count', 'Quantitative Reasoning stems must contain one to four questions.')
-  }
   for (const question of snapshot.questions) {
     if (question.questionType !== 'multiple_choice') {
       add(checks, 'error', 'qr_question_type', 'Quantitative Reasoning questions must be stored as multiple choice.', question)

@@ -55,10 +55,6 @@ export function parseStudyPlanProfileInput(
     throw new Error("Choose whether you want to use a Study plan.");
   }
   const studyPlanEnabled = record.studyPlanEnabled;
-  if (typeof record.studySuggestionsEnabled !== "boolean") {
-    throw new Error("Choose whether you want Study suggestions.");
-  }
-  const studySuggestionsEnabled = record.studySuggestionsEnabled;
   const targetScore = integer(record.targetScore, "Target score");
   if (targetScore < 900 || targetScore > 2700 || targetScore % 10 !== 0) {
     throw new Error(
@@ -127,7 +123,6 @@ export function parseStudyPlanProfileInput(
   }
   return {
     studyPlanEnabled,
-    studySuggestionsEnabled,
     targetScore,
     testYear,
     testDate,

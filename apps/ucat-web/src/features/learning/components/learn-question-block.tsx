@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { RotateCcw } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { CheckCircle2, Play, RotateCcw } from "lucide-react";
 import { Skeleton } from "@altitutor/ui";
 import { Button } from "@/components/ui/button";
 import { QuestionEnginePage } from "@/features/question-engine/components/question-engine-page";
@@ -13,10 +13,15 @@ import { UcatLagProvider } from "@/features/question-engine/context/ucat-lag-con
 import { fetchStemForPracticeSession } from "@/features/practice/lib/fetch-stem-for-practice";
 import { fetchQuestionForLearn } from "@/features/learning/lib/fetch-question-for-learn";
 import type { LearningModuleBlockRow } from "@/features/learning/types";
+import { cn } from "@/lib/utils";
 
 type LearnQuestionBlockProps = {
   block: LearningModuleBlockRow;
   onProgressChange?: () => void;
+  started: boolean;
+  active: boolean;
+  completed: boolean;
+  onActivate: () => void;
 };
 
 type LoadState =
@@ -28,11 +33,17 @@ type LoadState =
 export function LearnQuestionBlock({
   block,
   onProgressChange,
+  started,
+  active,
+  completed,
+  onActivate,
 }: LearnQuestionBlockProps) {
   const [loadState, setLoadState] = useState<LoadState>({ status: "loading" });
   const [resetVersion, setResetVersion] = useState(0);
+  const engineRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
+    if (!started) return;
     let cancelled = false;
 
     async function load() {
@@ -62,7 +73,36 @@ export function LearnQuestionBlock({
     return () => {
       cancelled = true;
     };
-  }, [block.block_type, block.question_stem_id, block.question_id, block.id]);
+  }, [
+    block.block_type,
+    block.question_stem_id,
+    block.question_id,
+    block.id,
+    started,
+  ]);
+
+  useEffect(() => {
+    if (engineRef.current) engineRef.current.inert = !active;
+    if (active) engineRef.current?.focus();
+  }, [active]);
+
+  if (!started) {
+    return (
+      <div className="relative min-h-72 overflow-hidden rounded-lg border">
+        <div className="space-y-3 p-5 blur-[3px] opacity-55" aria-hidden>
+          <Skeleton className="h-8 w-48" />
+          <Skeleton className="h-44 w-full" />
+          <Skeleton className="h-12 w-full" />
+        </div>
+        <div className="absolute inset-0 grid place-items-center bg-background/20 backdrop-blur-[1px]">
+          <Button type="button" onClick={onActivate}>
+            <Play className="mr-2 h-4 w-4" />
+            Start question stem
+          </Button>
+        </div>
+      </div>
+    );
+  }
 
   if (loadState.status === "loading") {
     return (
@@ -86,7 +126,7 @@ export function LearnQuestionBlock({
   }
 
   return (
-    <div className="space-y-3">
+    <div className="relative space-y-3 overflow-hidden rounded-lg">
       <div className="flex justify-end">
         <Button
           type="button"
@@ -98,7 +138,15 @@ export function LearnQuestionBlock({
           Reset
         </Button>
       </div>
-      <div className="rounded-lg border">
+      <div
+        ref={engineRef}
+        tabIndex={-1}
+        aria-hidden={!active}
+        className={cn(
+          "rounded-lg border outline-none transition-[filter,opacity] duration-200 ease-[cubic-bezier(0.32,0.72,0,1)]",
+          !active && "pointer-events-none select-none blur-[3px] opacity-55",
+        )}
+      >
         <UcatLagProvider>
           {loadState.status === "stem" ? (
             <QuestionEnginePage
@@ -114,6 +162,7 @@ export function LearnQuestionBlock({
               onLearnProgress={onProgressChange}
               disableQuestionAttemptLogging
               embeddedInLesson
+              embeddedInteractionActive={active}
             />
           ) : (
             <QuestionEnginePage
@@ -129,10 +178,23 @@ export function LearnQuestionBlock({
               onLearnProgress={onProgressChange}
               disableQuestionAttemptLogging
               embeddedInLesson
+              embeddedInteractionActive={active}
             />
           )}
         </UcatLagProvider>
       </div>
+      {!active ? (
+        <div className="absolute inset-0 grid place-items-center bg-background/20 backdrop-blur-[1px]">
+          <Button type="button" onClick={onActivate}>
+            {completed ? (
+              <CheckCircle2 className="mr-2 h-4 w-4" />
+            ) : (
+              <Play className="mr-2 h-4 w-4" />
+            )}
+            {completed ? "Review question stem" : "Continue question stem"}
+          </Button>
+        </div>
+      ) : null}
     </div>
   );
 }

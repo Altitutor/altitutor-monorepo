@@ -93,7 +93,6 @@ function availabilityEqual(
 function snapshotFromProfile(profile: StudyPlanProfileInput) {
   return {
     studyPlanEnabled: profile.studyPlanEnabled,
-    studySuggestionsEnabled: profile.studySuggestionsEnabled,
     targetScore: profile.targetScore,
     testYear: profile.testYear,
     testDate: profile.testDate ?? "",
@@ -130,7 +129,6 @@ export function SettingsStudyPlanPage() {
 
   const [targetScore, setTargetScore] = useState(2100);
   const [studyPlanEnabled, setStudyPlanEnabled] = useState(true);
-  const [studySuggestionsEnabled, setStudySuggestionsEnabled] = useState(true);
   const [testYear, setTestYear] = useState(currentYear);
   const [testDate, setTestDate] = useState("");
   const [availability, setAvailability] =
@@ -157,7 +155,6 @@ export function SettingsStudyPlanPage() {
           });
 
       setStudyPlanEnabled(snap.studyPlanEnabled);
-      setStudySuggestionsEnabled(snap.studySuggestionsEnabled);
       setTargetScore(snap.targetScore);
       setTestYear(snap.testYear);
       setTestDate(snap.testDate);
@@ -193,7 +190,6 @@ export function SettingsStudyPlanPage() {
     saved !== null &&
     (targetScore !== saved.targetScore ||
       studyPlanEnabled !== saved.studyPlanEnabled ||
-      studySuggestionsEnabled !== saved.studySuggestionsEnabled ||
       testYear !== saved.testYear ||
       testDate !== saved.testDate ||
       mockDay !== saved.mockDay ||
@@ -221,7 +217,6 @@ export function SettingsStudyPlanPage() {
     if (!saved) return;
     setTargetScore(saved.targetScore);
     setStudyPlanEnabled(saved.studyPlanEnabled);
-    setStudySuggestionsEnabled(saved.studySuggestionsEnabled);
     setTestYear(saved.testYear);
     setTestDate(saved.testDate);
     setAvailability(saved.availability);
@@ -246,7 +241,6 @@ export function SettingsStudyPlanPage() {
     try {
       const next: StudyPlanProfileInput = {
         studyPlanEnabled,
-        studySuggestionsEnabled,
         targetScore,
         testYear,
         testDate: testDate || null,
@@ -321,18 +315,6 @@ export function SettingsStudyPlanPage() {
           UCAT_SURFACE_MOTION,
         )}
       >
-        <SettingsRow
-          title="Study suggestions"
-          description="Show the floating study assistant with a suggested next task as you move through Altitutor. Turning this off hides the orb, while suggestions remain available on your dashboard."
-          control={
-            <Switch
-              checked={studySuggestionsEnabled}
-              onCheckedChange={setStudySuggestionsEnabled}
-              aria-label="Show Study suggestions"
-            />
-          }
-        />
-
         <div className="border-b border-border/60 py-6 last:border-b-0 last:pb-0">
           <div
             className={cn(

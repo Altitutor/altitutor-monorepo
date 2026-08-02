@@ -12,6 +12,7 @@ import { UCAT_SIGNUP_PRIMARY_ACTION } from "@/lib/ucat-surface-motion";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@altitutor/shared";
 import { subscribeToUcatNewsletter } from "@/features/auth/api/newsletter";
+import { pathWithReturnIntent } from "@/features/auth/lib/return-intent";
 
 const { typography: typo } = MARKETING_TOKENS;
 
@@ -33,6 +34,7 @@ type SignupCompleteDetailsStepProps = {
   initialLastName: string;
   initialPhone: string;
   newsletterOptIn: boolean;
+  returnTo: string;
   onComplete: (details: {
     email: string;
     pendingEmail: string;
@@ -53,6 +55,7 @@ export function SignupCompleteDetailsStep({
   initialLastName,
   initialPhone,
   newsletterOptIn,
+  returnTo,
   onComplete,
   error,
   setError,
@@ -114,7 +117,9 @@ export function SignupCompleteDetailsStep({
         normalizedEmail !== confirmedEmail.toLowerCase() &&
         normalizedEmail !== pendingEmail.toLowerCase();
       if (shouldRequestEmailChange) {
-        const emailRedirectTo = `${window.location.origin}/auth/callback?next=${encodeURIComponent("/signup/complete")}`;
+        const emailRedirectTo = `${window.location.origin}/auth/callback?next=${encodeURIComponent(
+          pathWithReturnIntent("/signup/complete", returnTo),
+        )}`;
         const { error: emailError } = await supabase.auth.updateUser(
           { email: normalizedEmail },
           { emailRedirectTo },

@@ -20,8 +20,16 @@ import { buildDraftUcatAssessmentSnapshot } from '@/features/ucat/questions/serv
 import { loadGenerationReviewConfig } from '@/features/ucat/questions/server/ai-assessment/dispatcher'
 import { manualReviewEnvironment } from '@/features/ucat/questions/server/ai-assessment/environment'
 import { runUcatFormatChecks } from '@/features/ucat/questions/server/ai-assessment/format-checks'
-import { assessUcatQuestionSnapshot } from '@/features/ucat/questions/server/ai-assessment/run-background-assessment'
+import {
+  blindSolveUcatSnapshot,
+  repairBulkImportUcatSnapshot,
+} from '@/features/ucat/questions/server/ai-assessment/run-background-assessment'
 import { issueBulkImportReviewToken } from '@/features/ucat/questions/server/ai-assessment/bulk-import-review-token'
+import {
+  prepareBulkImportVerificationCandidate,
+  reconcileBulkImportAiReview,
+} from '@/features/ucat/questions/server/ai-assessment/bulk-import-pipeline'
+import { UcatAiJsonParseError } from '@/features/ucat/shared/server/ucat-ai-client'
 
 const FingerprintsSchema = z.object({
   content: z.string().min(1),
@@ -53,7 +61,7 @@ const BodySchema = z.object({
     values: ucatQuestionStemSchema,
     previous: CachedReviewSchema.nullable().optional(),
   })).min(1).max(50),
-  concurrency: z.number().int().min(1).max(6).default(3),
+  concurrency: z.number().int().min(1).max(6).default(6),
 })
 
 type SupabaseAny = {
@@ -120,6 +128,21 @@ async function runWithConcurrency<T>(tasks: Array<() => Promise<T>>, concurrency
   return results
 }
 
+function reviewFailureMessage(error: unknown): string {
+  if (error instanceof UcatAiJsonParseError) {
+    const completionTokens = error.usage?.completion_tokens ?? 0
+    const reachedConfiguredLimit = Boolean(
+      error.maxCompletionTokens
+      && completionTokens >= error.maxCompletionTokens * 0.95
+    )
+    if (error.finishReason === 'length' || reachedConfiguredLimit) {
+      return 'The AI review reached its structured-output limit before finishing. No draft changes were applied; retry this stem.'
+    }
+    return 'The AI review returned malformed structured data. No draft changes were applied; retry this stem.'
+  }
+  return error instanceof Error ? error.message : 'AI review failed.'
+}
+
 export async function POST(request: NextRequest) {
   const access = await requireUcatTutor()
   if (!access.ok) return access.response
@@ -169,6 +192,13 @@ export async function POST(request: NextRequest) {
   )
 
   const tasks = parsed.data.stems.map((stem) => async () => {
+    const taskStartedAt = performance.now()
+    const timings = {
+      auditRepairMs: null as number | null,
+      verificationPreparationMs: null as number | null,
+      blindVerificationMs: null as number | null,
+      reconciliationMs: null as number | null,
+    }
     try {
       const section = sections.get(stem.values.sectionId)
       if (!section) throw new Error('The UCAT section is unavailable.')
@@ -190,8 +220,11 @@ export async function POST(request: NextRequest) {
           id: stem.id,
           promptVersion: AI_ASSESSMENT_PROMPT_VERSION,
           fingerprints,
+          audit: previous.assessment,
           assessment: previous.assessment,
           blindSolution: previous.blindSolution,
+          values: stem.values,
+          appliedRepairs: [],
           provenance,
           reviewToken: issueBulkImportReviewToken({
             draftStemId: stem.id,
@@ -203,13 +236,18 @@ export async function POST(request: NextRequest) {
           }),
           reused: true,
           error: null,
+          timings: {
+            totalMs: performance.now() - taskStartedAt,
+            ...timings,
+          },
         }
       }
 
       const targetQuestionIds = changed?.scopeType === 'questions'
         ? changed.questionIds
         : snapshot.questions.map((question) => question.id)
-      const result = await assessUcatQuestionSnapshot({
+      let phaseStartedAt = performance.now()
+      const result = await repairBulkImportUcatSnapshot({
         client: admin,
         snapshot,
         targetQuestionIds,
@@ -222,57 +260,146 @@ export async function POST(request: NextRequest) {
           targetQuestionIds,
           promptVersion: AI_ASSESSMENT_PROMPT_VERSION,
         },
+        providerSort: 'latency',
+        deferBlindSolve: true,
         signal: request.signal,
       })
+      timings.auditRepairMs = performance.now() - phaseStartedAt
+      let finalBlindProviderId = result.blindProviderId
+      let finalBlindModel = result.blindModel
+      phaseStartedAt = performance.now()
+      const verificationCandidate = await prepareBulkImportVerificationCandidate({
+        values: stem.values,
+        audit: result.audit,
+        repair: result.repair,
+      })
+      timings.verificationPreparationMs = performance.now() - phaseStartedAt
+      let verificationSolution = result.blindSolution
+      phaseStartedAt = performance.now()
+      if (verificationCandidate.questionIds.length > 0) {
+        const candidateSnapshot = buildDraftUcatAssessmentSnapshot({
+          stemId: stem.id,
+          values: verificationCandidate.values,
+          sectionName: String(section.name ?? ''),
+          sectionNumber: Number(section.section_number ?? 0),
+          displayColumns: Number(section.display_columns ?? 1),
+          categoryName: verificationCandidate.values.categoryId
+            ? categories.get(verificationCandidate.values.categoryId) ?? null
+            : null,
+          tagNamesById: tagNames,
+        })
+        const verified = await blindSolveUcatSnapshot({
+          client: admin,
+          snapshot: candidateSnapshot,
+          targetQuestionIds: verificationCandidate.questionIds,
+          blindSolverModelProfileId: config.solver,
+          metadata: {
+            bulkImportDraftId: stem.id,
+            targetQuestionIds: verificationCandidate.questionIds,
+            promptVersion: AI_ASSESSMENT_PROMPT_VERSION,
+            combinedRepairVerification: true,
+          },
+          providerSort: 'latency',
+          signal: request.signal,
+        })
+        verificationSolution = verified.solution
+        finalBlindProviderId = verified.providerId
+        finalBlindModel = verified.model
+      }
+      timings.blindVerificationMs = performance.now() - phaseStartedAt
+      phaseStartedAt = performance.now()
+      const reconciled = await reconcileBulkImportAiReview({
+        values: stem.values,
+        blindSolution: verificationSolution,
+        preverifiedSemanticBlindSolution: verificationSolution,
+        audit: result.audit,
+        repair: result.repair,
+      })
+      timings.reconciliationMs = performance.now() - phaseStartedAt
+      const finalValues = reconciled.values
+      const finalSnapshot = buildDraftUcatAssessmentSnapshot({
+        stemId: stem.id,
+        values: finalValues,
+        sectionName: String(section.name ?? ''),
+        sectionNumber: Number(section.section_number ?? 0),
+        displayColumns: Number(section.display_columns ?? 1),
+        categoryName: finalValues.categoryId
+          ? categories.get(finalValues.categoryId) ?? null
+          : null,
+        tagNamesById: tagNames,
+      })
+      const finalTargetQuestionIds = finalSnapshot.questions
+        .filter((question) => targetQuestionIds.includes(question.id))
+        .map((question) => question.id)
+      const finalTargetQuestionIdSet = new Set(finalTargetQuestionIds)
+      const scopedBlindSolution = {
+        solutions: reconciled.blindSolution.solutions.filter(
+          (solution) => finalTargetQuestionIdSet.has(solution.questionId)
+        ),
+      }
       const assessment = mergeScopedAssessment({
         previous: previous?.assessment ?? null,
-        next: result.assessment,
+        next: reconciled.assessment,
         changedQuestionIds: targetQuestionIds,
         sharedChanged: changed?.scopeType !== 'questions',
       })
       const blindSolution = mergeScopedBlindSolution({
         previous: previous?.blindSolution ?? null,
-        next: result.blindSolution,
+        next: scopedBlindSolution,
         changedQuestionIds: targetQuestionIds,
         sharedChanged: changed?.scopeType !== 'questions',
       })
       const provenance = {
-        blindSolverModelProfileId: config.solver,
+        blindSolverModelProfileId: result.blindModel ? config.solver : null,
         assessmentModelProfileId: config.assessment,
-        blindProviderId: result.blindProviderId,
-        blindModel: result.blindModel,
+        blindProviderId: finalBlindProviderId,
+        blindModel: finalBlindModel,
         assessmentProviderId: result.assessmentProviderId,
         assessmentModel: result.assessmentModel,
       }
       return {
         id: stem.id,
         promptVersion: AI_ASSESSMENT_PROMPT_VERSION,
-        fingerprints,
+        fingerprints: fingerprintUcatAssessmentSnapshot(finalSnapshot),
+        audit: result.audit,
         assessment,
         blindSolution,
+        values: finalValues,
+        appliedRepairs: reconciled.appliedRepairs,
         provenance,
         reviewToken: issueBulkImportReviewToken({
           draftStemId: stem.id,
           promptVersion: AI_ASSESSMENT_PROMPT_VERSION,
-          fingerprints,
+          fingerprints: fingerprintUcatAssessmentSnapshot(finalSnapshot),
           assessment,
           blindSolution,
           provenance,
         }),
         reused: false,
         error: null,
+        timings: {
+          totalMs: performance.now() - taskStartedAt,
+          ...timings,
+        },
       }
     } catch (error) {
       return {
         id: stem.id,
         promptVersion: AI_ASSESSMENT_PROMPT_VERSION,
         fingerprints: null,
+        audit: null,
         assessment: null,
         blindSolution: null,
+        values: null,
+        appliedRepairs: [],
         provenance: null,
         reviewToken: null,
         reused: false,
-        error: error instanceof Error ? error.message : 'AI review failed.',
+        error: reviewFailureMessage(error),
+        timings: {
+          totalMs: performance.now() - taskStartedAt,
+          ...timings,
+        },
       }
     }
   })

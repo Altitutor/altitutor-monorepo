@@ -1,7 +1,10 @@
+import type { Json } from "@altitutor/shared";
 import {
   aiTextToProseMirror,
   findRichTextSyntaxLeaks,
+  proseMirrorHasOuterTable,
   proseMirrorToPlainText,
+  stripOuterTablesFromProseMirrorDoc,
 } from "@/features/ucat/shared/lib/rich-text";
 
 describe("aiTextToProseMirror", () => {
@@ -250,5 +253,81 @@ describe("aiTextToProseMirror", () => {
         },
       ],
     });
+  });
+});
+
+describe("stripOuterTablesFromProseMirrorDoc", () => {
+  const paragraph = (text: string): Json => ({
+    type: "paragraph",
+    content: [{ type: "text", text }],
+  });
+
+  const cell = (children: Json[], header = false): Json => ({
+    type: header ? "tableHeader" : "tableCell",
+    attrs: { colspan: 1, rowspan: 1, colwidth: null },
+    content: children,
+  });
+
+  it("flattens outermost tables into cell contents", () => {
+    const doc: Json = {
+      type: "doc",
+      content: [
+        {
+          type: "table",
+          content: [
+            {
+              type: "tableRow",
+              content: [cell([paragraph("A")]), cell([paragraph("B")])],
+            },
+          ],
+        },
+      ],
+    };
+
+    expect(stripOuterTablesFromProseMirrorDoc(doc)).toEqual({
+      type: "doc",
+      content: [paragraph("A"), paragraph("B")],
+    });
+    expect(proseMirrorHasOuterTable(doc)).toBe(true);
+  });
+
+  it("preserves nested tables inside cells", () => {
+    const nestedTable: Json = {
+      type: "table",
+      content: [
+        {
+          type: "tableRow",
+          content: [cell([paragraph("inner")])],
+        },
+      ],
+    };
+    const doc: Json = {
+      type: "doc",
+      content: [
+        {
+          type: "table",
+          content: [
+            {
+              type: "tableRow",
+              content: [cell([paragraph("intro"), nestedTable])],
+            },
+          ],
+        },
+      ],
+    };
+
+    expect(stripOuterTablesFromProseMirrorDoc(doc)).toEqual({
+      type: "doc",
+      content: [paragraph("intro"), nestedTable],
+    });
+  });
+
+  it("leaves docs without tables unchanged", () => {
+    const doc: Json = {
+      type: "doc",
+      content: [paragraph("plain")],
+    };
+    expect(stripOuterTablesFromProseMirrorDoc(doc)).toEqual(doc);
+    expect(proseMirrorHasOuterTable(doc)).toBe(false);
   });
 });

@@ -1,5 +1,91 @@
 # Altitutor domain glossary
 
+## UCAT customer communication
+
+- **Primary email action** — The single most useful next action an optional Altitutor UCAT email asks a student to take, based on the reason for that message and the student’s current preparation state. An upgrade or referral is primary only when it is the genuinely relevant next step.
+  _Avoid_: Primary CTA, conversion CTA, sales action
+
+- **Contextual commercial prompt** — An invitation to choose Unlimited or refer a friend that follows observed product friction or a positive value moment. It supports retention and conversion without displacing a more useful preparation action.
+  _Avoid_: Upsell blast, generic promotion, sales nudge
+
+- **Named email author** — A real Altitutor person presented as the author of a message they genuinely own or have approved, with replies monitored by that person or their team. Automated personalisation never invents or randomly rotates an author. Matt authors onboarding, UCAT teaching, and founder-led commercial messages.
+  _Avoid_: Sender persona, rotating tutor signature
+
+- **Product-authored email** — An automated message based on a student’s Altitutor UCAT activity, presented transparently as communication from Altitutor UCAT and signed by Matt and the Altitutor UCAT team. Results, score estimates, weekly reviews, and study-plan guidance use this authorship.
+  _Avoid_: Personal tutor email, system notification
+
+- **Formal account email** — A billing, security, access, or other administrative message sent by Altitutor without a tutor-style personal signature.
+  _Avoid_: Coaching email, marketing email
+
+- **Initial UCAT familiarity** — A student’s self-described UCAT experience when they complete onboarding: new, familiar, or experienced. It is persisted as onboarding context and personalises the introductory teaching series; later activity does not silently rewrite it.
+  _Avoid_: Ability level, current proficiency, inferred experience
+
+- **Progress-guidance campaign** — A lifecycle campaign prompted by a student’s observed practice, results, or preparation gaps. It recommends a useful next step from current evidence and remains separate from the familiarity-based onboarding series.
+  _Avoid_: Adaptive onboarding, inferred familiarity campaign, weakness marketing
+
+- **Email-worthy value** — New teaching, newly available progress information, or a useful next action the student has not effectively completed already. Optional email is sent only when it provides this value; completing an activity alone is not sufficient.
+  _Avoid_: Activity notification, redundant result reminder, engagement for engagement’s sake
+
+- **Familiarity-scoped teaching series** — The introductory email curriculum personalised from the student’s Initial UCAT familiarity. It teaches useful UCAT concepts and connects them to relevant Altitutor tools; it is not a sequence of generic product prompts or completion congratulations.
+  _Avoid_: Onboarding drip, feature tour, activation reminders
+
+- **Introductory UCAT curriculum** — Four sequenced teaching themes shared across the familiarity paths: establish a starting point, learn a high-value technique, improve timing and decisions, and turn evidence into a practical study plan. Each path uses materially different teaching, examples, and actions while sharing campaign orchestration.
+  _Avoid_: Twelve independent campaigns, lightly personalised template
+
+- **Introductory teaching cadence** — The Introductory UCAT curriculum is sent on days 0, 2, 5, and 9 after onboarding to students who opted into lessons and tips. The first lesson is also the personal welcome. A higher-priority message delays a lesson so optional emails do not compete.
+  _Avoid_: Daily drip, separate generic welcome
+
+- **Optional email collision** — Two optional messages becoming eligible close together. The message with the more time-sensitive Email-worthy value is sent and the other is delayed; outside the introductory period, lifecycle communication is normally limited to about one optional email per week.
+  _Avoid_: Email blast, simultaneous sends
+
+- **Upgrade invitation** — An offers-consented message to a Free student after demonstrated access friction or consistent practice. A quota-friction variant becomes eligible 24 hours after a quota is reached if the student remains Free; a positive-consistency variant becomes eligible after 10 or more submitted questions on at least two days within seven days. The variants share a 30-day cooldown.
+  _Avoid_: Generic upgrade blast, premature upsell
+
+- **Positive-consistency signal** — Recent practice used only to decide whether the Accountability Pricing message is relevant. The message explains generally that Unlimited becomes cheaper through eligible practice days; it does not expose detailed activity or claim that Free-plan practice has already earned a discount.
+  _Avoid_: Personalised savings projection, earned Free discount
+
+- **Referral invitation** — An offers-consented message to an Unlimited student who has experienced meaningful product value: at least seven days of Unlimited and either a first score estimate or practice on at least three days. It is not sent while another referral invitation or reward is in progress. Repeat eligibility requires renewed activity after a 60-day cooldown.
+  _Avoid_: Immediate post-upgrade referral, referral blast
+
+- **Email-safe product card** — A purpose-built email visual that presents a small amount of student or product information using broadly supported email HTML and CSS. Important meaning remains available as live text and the visual includes useful alternative text.
+  _Avoid_: Embedded app component, screenshot of personal data
+
+- **Product email screenshot** — A static image captured from a controlled product-preview surface for teaching or product-news messages. It illustrates the interface without carrying personalised information and never contains meaning available only in the image.
+  _Avoid_: Live UI embed, decorative dashboard collage
+
+- **Founder email signature** — Matt’s text-based personal sign-off on messages he authors. Founder-authored email does not use Matt’s photograph.
+  _Avoid_: Founder portrait, simulated handwritten signature
+
+- **UCAT campaign control centre** — The `admin-web` operational front door for UCAT campaigns. It exposes global and campaign pause controls, dry-run state, eligibility and delivery summaries, recent failures, previews, and links to specialist analysis; it is not initially a campaign content editor.
+  _Avoid_: Email builder, analytics warehouse, Resend replacement
+
+- **Campaign effectiveness** — The downstream change associated with an email programme or experiment, measured in PostHog through meaningful preparation, retention, Unlimited conversion, or referral outcomes. Delivery and click rates diagnose the journey but are not success by themselves.
+  _Avoid_: Open rate, click performance
+
+- **Email delivery health** — Resend’s operational evidence about whether messages were accepted, delivered, bounced, complained about, or suppressed. It is investigated in Resend rather than reproduced as a complete deliverability platform in Altitutor.
+  _Avoid_: Campaign effectiveness, engagement
+
+- **Lifecycle programme holdout** — A deterministic 10% user-level group that does not receive the new optional behavioural campaigns during the initial eight-week measurement period. One stable assignment measures the programme’s combined incremental effect without introducing per-campaign experimental complexity; transactional email and product-news broadcasts are excluded.
+  _Avoid_: Random suppression on every send, campaign-by-campaign holdout maze
+
+- **Weekly preparation review** — A weekly-progress-consented Sunday-afternoon summary for a student who submitted at least 10 questions or completed a set or mock during the preceding week. It presents newly aggregated activity, includes a score-estimate change only when available, offers one evidence-grounded observation, and points to one fresh preparation action without an automatic commercial pitch.
+  _Avoid_: Inactivity warning, weekly sales email, result-page reminder
+
+- **First score-estimate message** — A one-time weekly-progress-consented message sent within 24 hours of the first evidence-gated score estimate. The estimate appears inside the email, not its subject or preheader, and is explained plainly as a starting point rather than a test-day verdict; confidence and model mechanics are not taught in the email. Its action opens the student’s broader progress trajectory and it carries no commercial prompt.
+  _Avoid_: Score alert, confidence lesson, predicted test-day score
+
+- **Study-planning lesson** — The fourth Introductory UCAT curriculum lesson, teaching why a useful UCAT plan balances sections, timing, and representative evidence before showing how Altitutor replans weekly. Its action is Build your Study plan when none exists and See this week’s plan when one does; recipients are not sent a separate overlapping plan-promotion campaign.
+  _Avoid_: Study plan upsell, duplicate plan reminder
+
+- **Gentle restart message** — A weekly-progress-consented message for a student who remains inactive after seven to nine complete days and is outside the introductory series. It offers one small preparation restart, linking to the next Study plan task when available or a short practice setup otherwise. It contains no guilt or commercial prompt and is limited to once every 30 days without an escalating sequence.
+  _Avoid_: Win-back sequence, streak-loss warning, “we miss you” email
+
+- **Product-news teaching broadcast** — A product-news-consented, founder-authored Resend broadcast about a material improvement to UCAT preparation. It leads with the student problem, explains what changed and how to use it, includes one controlled product screenshot and one action, and is normally sent no more than monthly. Its scheduled window is recorded so behavioural email can be delayed around it.
+  _Avoid_: Release notes, changelog email, feature dump
+
+- **Greenfield campaign launch** — The pre-student UCAT email implementation is replaced by the new campaign model without legacy campaign compatibility, historical backfills, or dual-read behaviour. A global pause remains as an operational safety control, not a migration phase.
+  _Avoid_: Legacy campaign migration, staged cohort cutover
+
 ## Tutor timetable
 
 - **Calendar subscription** — A tutor-owned, read-only calendar feed containing that tutor's active assigned sessions. Calendar providers poll the subscription so session additions, changes, and cancellations flow through without tutors importing events again.
@@ -12,6 +98,9 @@
 
 - **Product app** — A user-facing application that owns an authenticated or transactional product workflow, such as the student portal or UCAT practice app. Product apps may have public entry pages, but their product workflows are separate from the Marketing site.
   _Avoid_: Landing site, marketing app
+
+- **User interface preference** — A user-owned, app-scoped choice that changes how a Product app is presented or operated without changing authorization, billing, learning progress, communication consent, or other domain outcomes. Preferences may follow the same authenticated user across devices while remaining independently typed for each Product app.
+  _Avoid_: User setting, profile field, domain configuration
 
 ## Subject resources
 
@@ -129,6 +218,9 @@
 - **UCAT question active time** — The time attributed to a question while it is current and the UCAT question engine is visible. It pauses when the page is hidden, disconnected, or leaves the question segment, then resumes from the accumulated value when the student returns; a timed exam segment's server countdown continues independently while the student is away.
   _Avoid_: Wall-clock session time, background time, dwell time
 
+- **Practice session active time** — The accumulated UCAT question active time across an incomplete or completed Practice session. It excludes time while the engine is hidden, disconnected, or exited, including gaps between resumed visits.
+  _Avoid_: Time since session creation, wall-clock practice duration
+
 - **In-progress UCAT exam attempt limit** — A student may have at most one incomplete set attempt, mock attempt, or practice session at a time (across all three). Starting a different set, mock, or practice while one is incomplete opens a blocking dialog: **resume** the current attempt, or **discard** it unscored and then start the new one. Same one-at-a-time rule as skill trainer attempts, but scoped to exam-style activities (sets, mocks, practice) as a group.
   _Avoid_: Multiple drafts, parallel mocks
 
@@ -141,7 +233,7 @@
 - **UCAT exam attempt resume snapshot** — Server-persisted JSON of question-engine state for an incomplete attempt: phase, segment position, question index, visited and flagged questions, selected answers, syllogism snapshots, practice-specific position, and current segment `ends_at` when timed. Updated as the student works so reload, new device, or explicit resume restores the same screen. Answer rows in `student_question_attempts` are kept in sync for scoring; the snapshot is the source of truth for UI position.
   _Avoid_: Session storage only, client-only state
 
-- **Practice session** — One student run of practice mode (fixed stem batch or unlimited stems) tied to a `student_practice_sessions` row. Stays **incomplete** until the student taps **Done**, discards it, or it expires after seven days without activity. Submitting individual stems, including when a timed practice stem expires, records answers and shows feedback for that stem but does not complete the session; the student may continue or resume the same session across visits while it remains incomplete.
+- **Practice session** — One student run of practice mode (fixed stem batch or unlimited stems) tied to a `student_practice_sessions` row. Fixed Practice completes only after the student works through every question; unlimited Practice completes when the student chooses **Finish practice**. Either may instead be discarded or expire after seven days without activity. Submitting an individual stem, including when a timed stem expires, records answers and may show feedback for that stem but does not itself complete the session; the student may continue or resume the same session across visits while it remains incomplete.
 
 - **Practice review timing** — The student's choice to see feedback after each question stem or only after the practice session is submitted. Review-at-end practice does not use the question engine's pre-submission review screen; finishing submits the entered stems and opens the completed practice-attempt page.
   _Avoid_: Practice mode, set mode
@@ -153,11 +245,14 @@
 - **Admin UCAT quota reset** — A staff-only corrective action that immediately resets a selected student's current UCAT Free quota usage for one quota area. It is an operational adjustment tool, not a student-held entitlement and not a Pro access grant.
   _Avoid_: Quota reset entitlement, Force Pro, manual online access
 
-- **In-progress exam attempt resume (UX)** — While a student has an incomplete set, mock, or practice session, show a **persistent site-wide banner** whose primary action resumes the attempt and whose secondary action discards it after confirmation. No separate “In progress” section on progress pages — history lists **completed** attempts only. **Auto-resume:** opening the same set or mock they already started (e.g. Launch set / Start mock for that id) goes straight into that attempt instead of starting over. Opening a _different_ set, mock, or practice shows one resume-or-discard dialog that includes the discard warning without opening a second confirmation. Practice has no stable content id like a set; resume is via the banner (or returning to `/practice/session` for the active session), not by starting a new filtered batch.
+- **In-progress exam attempt resume (UX)** — While a student has an incomplete set, mock, or practice session, show a **persistent site-wide banner** whose primary action opens the unified active-attempt experience and whose secondary action discards it after confirmation. No separate “In progress” section on progress pages — history lists **completed** attempts only. **Auto-resume:** opening the same set or mock they already started goes straight into that attempt instead of starting over. Opening a _different_ set, mock, or practice shows one resume-or-discard dialog that includes the discard warning without opening a second confirmation. Practice has no stable content id like a set; it resumes through the same active-attempt experience rather than by starting a new filtered batch.
   _Avoid_: In progress tab, session storage resume
 
 - **UCAT exam attempt lifecycle (scope)** — The hardened attempt model (start at Ready to Begin, server segment clock, resume snapshot, one in-progress slot, site banner, finalization rules) applies to **sets**, **mocks**, and **practice** only. Session-linked sets and mocks follow the same rules. **Learn** lesson question blocks and **skill trainer** are out of scope for this shared in-progress slot; skill trainer keeps its own attempt rules.
   _Avoid_: Lesson practice as full exam, global attempt for drills
+
+- **Session-assigned stem activity** — A question stem attached to a class session and worked inline from that session's resources. It is complete for a student once every question in the stem has been submitted; it is quota-exempt and creates neither a UCAT exam attempt nor Practice history.
+  _Avoid_: Practice session, standalone stem attempt, lesson question block
 
 - **Mock set attempt** — For each set within a UCAT mock, a `student_question_set_attempts` row is created when the mock **enters that set’s first timing segment** (instructions if configured, otherwise questions). Not at mock launch screen, not on first answer. Linked to the parent mock attempt. Holds per-set question attempts for scoring when that set’s segments end or the mock is finalized.
   _Avoid_: Lazy set attempt on first answer, all sets upfront at intro

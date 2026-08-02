@@ -1,6 +1,11 @@
-import { AI_GENERATION_SYSTEM_PROMPT, buildWriterPrompt } from '../prompts'
+import {
+  AI_GENERATION_SYSTEM_PROMPT,
+  buildWriterPrompt,
+  getAiGenerationSectionPrompt,
+} from '../prompts'
 import type { AiGenerationBrief } from '../prompts'
 import { EXPLANATION_FILL_SYSTEM_PROMPT } from '../explanation-prompts'
+import { EXPLANATION_TEACHING_RUBRIC } from '../explanation-rubric'
 
 const brief: AiGenerationBrief = {
   sectionName: 'Quantitative Reasoning',
@@ -28,6 +33,12 @@ const brief: AiGenerationBrief = {
 }
 
 describe('QR writer prompts', () => {
+  it('does not impose the obsolete four-question stem maximum', () => {
+    const prompt = getAiGenerationSectionPrompt('quantitative_reasoning')
+    expect(prompt).not.toContain('between 1 and 4 questions')
+    expect(prompt).toContain('one or more questions per stem')
+  })
+
   it('defines optional, non-duplicative explanation layers', () => {
     expect(AI_GENERATION_SYSTEM_PROMPT).toContain('Option-level answerExplanation values are optional')
     expect(AI_GENERATION_SYSTEM_PROMPT).toContain('A question-level answerExplanation is optional')
@@ -70,7 +81,8 @@ describe('QR writer prompts', () => {
 })
 
 describe('explanation fill prompts', () => {
-  it('uses the same flexible explanation shape and tutoring guidance', () => {
+  it('uses the shared teaching rubric and tutor-focused fill workflow', () => {
+    expect(EXPLANATION_FILL_SYSTEM_PROMPT).toContain(EXPLANATION_TEACHING_RUBRIC)
     expect(EXPLANATION_FILL_SYSTEM_PROMPT).toContain(
       'Option-level explanations may be included'
     )
@@ -81,6 +93,10 @@ describe('explanation fill prompts', () => {
     expect(EXPLANATION_FILL_SYSTEM_PROMPT).toContain('Australian English spelling')
     expect(EXPLANATION_FILL_SYSTEM_PROMPT).toContain('two to five short, titled or numbered steps')
     expect(EXPLANATION_FILL_SYSTEM_PROMPT).toContain(
+      'never omit working, intermediate reasoning, evidence citations, or distractor teaching'
+    )
+    expect(EXPLANATION_FILL_SYSTEM_PROMPT).not.toContain('Do not pad')
+    expect(EXPLANATION_FILL_SYSTEM_PROMPT).not.toContain(
       'Concise means avoiding repetition, not omitting teaching steps'
     )
   })

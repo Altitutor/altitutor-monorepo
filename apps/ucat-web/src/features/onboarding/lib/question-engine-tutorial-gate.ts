@@ -8,10 +8,7 @@ export function buildQuestionEngineTutorialHref(returnTo: string): string {
 
 export function isQuestionEnginePath(pathname: string): boolean {
   return (
-    pathname === "/exam/sets" ||
-    pathname === "/exam/mocks" ||
-    pathname === "/practice/session" ||
-    pathname.startsWith("/practice/stem/") ||
+    pathname === "/exam" ||
     /^\/sessions\/[^/]+\/(sets|mocks)\/[^/]+$/.test(pathname)
   );
 }

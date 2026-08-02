@@ -130,11 +130,10 @@ export function selectFreshBulkImportAiReview(params: {
 
   const blindQuestionIds = review.blindSolution.solutions.map((solution) => solution.questionId)
   if (
-    blindQuestionIds.length !== currentQuestionIds.size
-    || new Set(blindQuestionIds).size !== currentQuestionIds.size
+    new Set(blindQuestionIds).size !== blindQuestionIds.length
     || blindQuestionIds.some((questionId) => !currentQuestionIds.has(questionId))
   ) {
-    return { ok: false, reason: 'incomplete_blind_solution' }
+    return { ok: false, reason: 'invalid_blind_solution_scope' }
   }
 
   return { ok: true, review }
