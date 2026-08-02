@@ -68,10 +68,12 @@ export function TemplateVariablesPicker({
       title: 'Session',
       variables: [
         { name: 'session.type', description: 'Session type' },
+        { name: 'session.type_label', description: 'Readable session type', example: 'trial session' },
         { name: 'session.subject.long_name', description: 'Subject long name (from class)' },
         { name: 'session.subject.short_name', description: 'Subject short name (from class)' },
         { name: 'session.start_at', description: 'Start datetime', example: '2:00 PM' },
         { name: 'session.end_at', description: 'End datetime', example: '4:00 PM' },
+        { name: 'session.booking_confirmation_link', description: 'Public trial or subsidy session details link' },
         { name: 'sessions.type', description: 'Session type (alternative)' },
         { name: 'sessions.subject.long_name', description: 'Subject long name (alternative)' },
         { name: 'sessions.subject.short_name', description: 'Subject short name (alternative)' },
@@ -80,6 +82,16 @@ export function TemplateVariablesPicker({
       ],
     });
   }
+
+  variableGroups.push({
+    title: 'Student',
+    variables: [
+      { name: 'student.first_name', description: 'Student first name' },
+      { name: 'student.last_name', description: 'Student last name' },
+      { name: 'student.registration_link', description: 'Student registration link' },
+      { name: 'student.invite_link', description: 'Student invitation link' },
+    ],
+  });
 
   // Changed field variables (for UPDATE events)
   variableGroups.push({

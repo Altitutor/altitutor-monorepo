@@ -24,6 +24,7 @@ export type ExamEngineSnapshot = Pick<
   | "instructionsIndex"
   | "showReadyDialog"
   | "showTimeExpiredDialog"
+  | "timeExpiredFromInstructions"
   | "nextSegmentTimerStartedAt"
   | "currentIndex"
   | "visitedQuestionIds"

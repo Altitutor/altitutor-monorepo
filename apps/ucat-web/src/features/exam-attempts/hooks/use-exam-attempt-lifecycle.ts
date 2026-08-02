@@ -46,6 +46,7 @@ function toExamEngineSnapshot(
     instructionsIndex: state.instructionsIndex,
     showReadyDialog: state.showReadyDialog,
     showTimeExpiredDialog: state.showTimeExpiredDialog,
+    timeExpiredFromInstructions: state.timeExpiredFromInstructions,
     nextSegmentTimerStartedAt: state.nextSegmentTimerStartedAt,
     currentIndex: state.currentIndex,
     visitedQuestionIds: state.visitedQuestionIds,
@@ -77,9 +78,20 @@ export function sanitizeEngineSnapshotForExam(
       Object.entries(record ?? {}).filter(([id]) => questionIds.has(id)),
     );
   const lastQuestionIndex = Math.max(exam.questions.length - 1, 0);
+  const restoreReadyDialogOverInstructions =
+    snapshot.phase === "intro" &&
+    "instructionsScreens" in exam &&
+    exam.instructionsScreens.length > 0;
 
   return {
     ...snapshot,
+    phase: restoreReadyDialogOverInstructions ? "instructions" : snapshot.phase,
+    instructionsIndex: restoreReadyDialogOverInstructions
+      ? 0
+      : snapshot.instructionsIndex,
+    showReadyDialog: restoreReadyDialogOverInstructions
+      ? false
+      : snapshot.showReadyDialog,
     currentIndex: Math.min(
       Math.max(snapshot.currentIndex ?? 0, 0),
       lastQuestionIndex,

@@ -3,12 +3,13 @@
 import { useState, useCallback } from 'react';
 import { ActivityFeed } from '../ActivityFeed';
 import { ActivityNoteComposer } from '../ActivityNoteComposer';
-import { useParentActivity } from '../../hooks';
+import { useParentActivity, useFormResponseDialog } from '../../hooks';
 import { useCreateNote, notesKeys } from '@/shared/hooks/useNotes';
 import { useCurrentStaff } from '@/shared/hooks';
 import { useQueryClient } from '@tanstack/react-query';
 import { activityKeys } from '../../hooks';
 import type { JSONContent } from '@tiptap/core';
+import { FormResponseDialog } from '@/features/feedback/components/FormResponseDialog';
 
 const EMPTY_DOC: JSONContent = {
   type: 'doc',
@@ -27,6 +28,11 @@ export function ParentActivityTab({ parentId, isOpen = true }: ParentActivityTab
   const createNoteMutation = useCreateNote();
   const queryClient = useQueryClient();
   const [newNoteContent, setNewNoteContent] = useState<JSONContent>(EMPTY_DOC);
+  const { selectedResponse, openFormResponse, closeFormResponse } = useFormResponseDialog();
+
+  const invalidateActivity = useCallback(() => {
+    queryClient.invalidateQueries({ queryKey: activityKeys.parent(parentId) });
+  }, [queryClient, parentId]);
 
   const handleSubmit = useCallback(async () => {
     if (!currentStaff?.id) return;
@@ -40,11 +46,11 @@ export function ParentActivityTab({ parentId, isOpen = true }: ParentActivityTab
       });
       setNewNoteContent(EMPTY_DOC);
       queryClient.invalidateQueries({ queryKey: notesKeys.forTarget('parent', parentId) });
-      queryClient.invalidateQueries({ queryKey: activityKeys.parent(parentId) });
+      invalidateActivity();
     } catch {
       // Error handled silently - user can retry
     }
-  }, [newNoteContent, currentStaff?.id, parentId, createNoteMutation, queryClient]);
+  }, [newNoteContent, currentStaff?.id, parentId, createNoteMutation, queryClient, invalidateActivity]);
 
   return (
     <div className="h-full space-y-6">
@@ -63,6 +69,13 @@ export function ParentActivityTab({ parentId, isOpen = true }: ParentActivityTab
         hasNextPage={hasNextPage}
         isFetchingNextPage={isFetchingNextPage}
         onLoadMore={fetchNextPage}
+        onOpenFormResponse={openFormResponse}
+      />
+      <FormResponseDialog
+        response={selectedResponse}
+        onClose={closeFormResponse}
+        onUpdated={invalidateActivity}
+        onDeleted={invalidateActivity}
       />
     </div>
   );

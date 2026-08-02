@@ -220,6 +220,8 @@ export type QuestionEngineState = {
   timerStartedAt: number | null;
   /** When true, show "Time Expired" dialog. On OK: set mode = end set; mock mode = advance to next segment. */
   showTimeExpiredDialog: boolean;
+  /** The expiry notice belongs to instructions; acknowledging it reveals the already-started question segment. */
+  timeExpiredFromInstructions?: boolean;
   /** Mock only: when we showed time expired, the next segment's timer was started at this time (ms). */
   nextSegmentTimerStartedAt: number | null;
   currentIndex: number;

@@ -27,7 +27,7 @@ import {
 } from '@/shared/components/expandable-dialog';
 import { cn } from '@/shared/utils';
 import type { ActivityEntityType, ActivityEventType, AutomationRuleInsert } from '../types';
-import type { AutomationCondition } from '../types';
+import type { AutomationConditionExpression } from '../types';
 import { Step1BasicInfo } from './wizard/Step1BasicInfo';
 import { Step2Trigger } from './wizard/Step2Trigger';
 import { Step3Actions } from './wizard/Step3Actions';
@@ -38,9 +38,14 @@ const ruleFormSchema = z.object({
   description: z.string(),
   entity_type: z.string().min(1, 'Entity type is required'),
   event_types: z.array(z.string()).min(1, 'At least one event type is required'),
+  trigger_kind: z.enum(['EVENT', 'RELATIVE_TIME']),
+  trigger_config: z.object({
+    anchor: z.literal('session.start_at'),
+    offset_minutes: z.number().int().min(0).max(525600),
+  }),
   enabled: z.boolean(),
   priority: z.number().int().min(0),
-  conditions: z.custom<AutomationCondition | null>().optional().nullable(),
+  conditions: z.custom<AutomationConditionExpression | null>().optional().nullable(),
 });
 
 export type WizardFormData = z.infer<typeof ruleFormSchema>;
@@ -78,9 +83,11 @@ export function CreateAutomationRuleWizard({
       description: '',
       entity_type: 'students',
       event_types: ['CREATED'],
+      trigger_kind: 'EVENT',
+      trigger_config: { anchor: 'session.start_at', offset_minutes: 1440 },
       enabled: true,
       priority: 0,
-      conditions: null as AutomationCondition | null,
+      conditions: null as AutomationConditionExpression | null,
     },
   });
 
@@ -98,6 +105,8 @@ export function CreateAutomationRuleWizard({
         description: '',
         entity_type: 'students',
         event_types: ['CREATED'],
+        trigger_kind: 'EVENT',
+        trigger_config: { anchor: 'session.start_at', offset_minutes: 1440 },
         enabled: true,
         priority: 0,
         conditions: null,
@@ -123,6 +132,8 @@ export function CreateAutomationRuleWizard({
           description: formData.description || null,
           entity_type: formData.entity_type as ActivityEntityType,
           event_types: formData.event_types as ActivityEventType[],
+          trigger_kind: formData.trigger_kind,
+          trigger_config: formData.trigger_config,
           enabled: formData.enabled,
           priority: formData.priority,
           conditions: (formData.conditions ?? null) as AutomationRuleInsert['conditions'],

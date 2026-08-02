@@ -5,7 +5,7 @@ import { Badge } from '@altitutor/ui';
 import { Loader2 } from 'lucide-react';
 import type { WizardFormData } from '../CreateAutomationRuleWizard';
 import type { Tables } from '@altitutor/shared';
-import type { AutomationCondition, AutomationAction, ActionConfig } from '../../types';
+import type { AutomationCondition, AutomationConditionExpression, AutomationAction, ActionConfig } from '../../types';
 import { ENTITY_TYPES_DISPLAY, EVENT_TYPES_DISPLAY } from '../../constants';
 
 interface Step4ReviewProps {
@@ -17,20 +17,28 @@ interface Step4ReviewProps {
 export function Step4Review({ formData, ruleId, templates: _templates }: Step4ReviewProps) {
   const { data: rule, isLoading } = useAutomationRule(ruleId || '', !!ruleId);
 
-  const formatCondition = (condition: AutomationCondition | null | undefined): string => {
+  const formatCondition = (condition: AutomationConditionExpression | null | undefined): string => {
     if (!condition) return '';
-    
-    if (condition.operator === 'field_changed') {
-      return `${condition.field} changed`;
+
+    if ('all' in condition || 'any' in condition) {
+      const expressions = condition.all ?? condition.any ?? [];
+      const joiner = condition.all ? ' and ' : ' or ';
+      return expressions.map((expression) => `(${formatCondition(expression)})`).join(joiner);
     }
-    if (condition.operator === 'changed_from') {
-      return `${condition.field} changed from ${condition.value}`;
+
+    const leaf = condition as AutomationCondition;
+
+    if (leaf.operator === 'field_changed') {
+      return `${leaf.field} changed`;
     }
-    if (condition.operator === 'changed_to') {
-      return `${condition.field} changed to ${condition.value}`;
+    if (leaf.operator === 'changed_from') {
+      return `${leaf.field} changed from ${leaf.value}`;
     }
-    if (condition.operator === 'changed_from_to') {
-      return `${condition.field} changed from ${condition.old_value} to ${condition.new_value}`;
+    if (leaf.operator === 'changed_to') {
+      return `${leaf.field} changed to ${leaf.value}`;
+    }
+    if (leaf.operator === 'changed_from_to') {
+      return `${leaf.field} changed from ${leaf.old_value} to ${leaf.new_value}`;
     }
     
     const operatorLabels: Record<string, string> = {
@@ -42,7 +50,7 @@ export function Step4Review({ formData, ruleId, templates: _templates }: Step4Re
       less_than: 'less than',
     };
     
-    return `${condition.field} ${operatorLabels[condition.operator] || condition.operator} ${condition.value}`;
+    return `${leaf.field} ${operatorLabels[leaf.operator] || leaf.operator} ${leaf.value}`;
   };
 
   const getActionSummary = (action: AutomationAction): string => {
@@ -122,14 +130,15 @@ export function Step4Review({ formData, ruleId, templates: _templates }: Step4Re
             <div className="flex items-center gap-2">
               <span className="text-muted-foreground">When:</span>
               <span>
-                {ENTITY_TYPES_DISPLAY[formData.entity_type] || formData.entity_type} is{' '}
-                {formData.event_types.map(et => EVENT_TYPES_DISPLAY[et] || et).join(', ')}
+                {formData.trigger_kind === 'RELATIVE_TIME'
+                  ? `${formData.trigger_config.offset_minutes / 60} hours before a session starts`
+                  : `${ENTITY_TYPES_DISPLAY[formData.entity_type] || formData.entity_type} is ${formData.event_types.map(et => EVENT_TYPES_DISPLAY[et] || et).join(', ')}`}
               </span>
             </div>
             {formData.conditions && (
               <div className="flex items-start gap-2">
                 <span className="text-muted-foreground">And:</span>
-                <span>{formatCondition(formData.conditions as AutomationCondition)}</span>
+                <span>{formatCondition(formData.conditions)}</span>
               </div>
             )}
           </div>

@@ -83,11 +83,9 @@ function formatPracticeDuration(seconds: number): string {
 }
 
 function buildPracticeSessionTitle({
-  stats,
   filters,
   filterMeta,
 }: {
-  stats: PracticeEngineLiveStats | null;
   filters?: PracticeSelectionInput;
   filterMeta?: PracticeSessionData["filterMeta"];
 }) {
@@ -98,10 +96,6 @@ function buildPracticeSessionTitle({
     (filters?.section ? sectionLabels[filters.section] : "Practice");
   const categoryList = getPracticeCategoryList(filters, filterMeta);
   const categoryPhrase = categoryList ? ` (${categoryList})` : "";
-  const progress = stats
-    ? `question ${stats.currentQuestionNumber} / ${stats.totalQuestionLabel}`
-    : "question — / —";
-
   let timingPhrase = "";
   if (isTimed) {
     const examSeconds = filterMeta?.examTimePerQuestionSeconds;
@@ -116,7 +110,7 @@ function buildPracticeSessionTitle({
     }`;
   }
 
-  return `${isTimed ? "Timed" : "Untimed"} ${sectionLabel}${categoryPhrase} practice${timingPhrase}: ${progress}`;
+  return `${isTimed ? "Timed" : "Untimed"} ${sectionLabel}${categoryPhrase} practice${timingPhrase}`;
 }
 
 function InlineStatRow({
@@ -684,7 +678,6 @@ export function PracticeSessionPage() {
   const sessionTitle =
     session !== "loading" && session
       ? buildPracticeSessionTitle({
-          stats: liveStats,
           filters: session.filters,
           filterMeta: session.filterMeta,
         })

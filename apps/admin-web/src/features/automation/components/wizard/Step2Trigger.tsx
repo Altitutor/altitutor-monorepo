@@ -9,10 +9,11 @@ import {
   FormMessage,
   FormDescription,
   SearchableSelect,
+  Input,
 } from '@altitutor/ui';
 import { AutomationConditionsBuilder } from '../AutomationConditionsBuilder';
 import type { WizardFormData } from '../CreateAutomationRuleWizard';
-import type { ActivityEventType, AutomationCondition } from '../../types';
+import type { ActivityEventType, AutomationConditionExpression } from '../../types';
 import { ENTITY_TYPES, EVENT_TYPES } from '../../constants';
 
 interface Step2TriggerProps {
@@ -25,6 +26,7 @@ type EventTypeOption = (typeof EVENT_TYPES)[number];
 export function Step2Trigger({ form }: Step2TriggerProps) {
   const selectedEventTypes = form.watch('event_types');
   const entityType = form.watch('entity_type');
+  const triggerKind = form.watch('trigger_kind');
 
   return (
     <div className="space-y-6">
@@ -36,6 +38,63 @@ export function Step2Trigger({ form }: Step2TriggerProps) {
       </div>
 
       <div className="space-y-4">
+        <FormField
+          control={form.control}
+          name="trigger_kind"
+          render={({ field }) => {
+            const options = [
+              { value: 'EVENT' as const, label: 'Entity event' },
+              { value: 'RELATIVE_TIME' as const, label: 'Before session start' },
+            ];
+            return (
+              <FormItem className="max-w-sm">
+                <FormLabel>Trigger type</FormLabel>
+                <FormControl>
+                  <SearchableSelect
+                    items={options}
+                    value={options.find((option) => option.value === field.value) ?? options[0]}
+                    onValueChange={(item) => {
+                      const next = item?.value ?? 'EVENT';
+                      field.onChange(next);
+                      if (next === 'RELATIVE_TIME') {
+                        form.setValue('entity_type', 'sessions');
+                        form.setValue('event_types', ['SCHEDULED']);
+                      } else if (form.getValues('event_types')[0] === 'SCHEDULED') {
+                        form.setValue('event_types', ['CREATED']);
+                      }
+                    }}
+                    getItemLabel={(option) => option.label}
+                    getItemId={(option) => option.value}
+                  />
+                </FormControl>
+              </FormItem>
+            );
+          }}
+        />
+
+        {triggerKind === 'RELATIVE_TIME' && (
+          <FormField
+            control={form.control}
+            name="trigger_config.offset_minutes"
+            render={({ field }) => (
+              <FormItem className="max-w-xs">
+                <FormLabel>Hours before session</FormLabel>
+                <FormControl>
+                  <Input
+                    type="number"
+                    min={0}
+                    max={8760}
+                    value={field.value / 60}
+                    onChange={(event) => field.onChange(Math.round(Number(event.target.value) * 60))}
+                  />
+                </FormControl>
+                <FormDescription>Use 24 hours for a one-day reminder.</FormDescription>
+              </FormItem>
+            )}
+          />
+        )}
+
+        {triggerKind === 'EVENT' && (
         <div className="flex flex-wrap items-center gap-2 text-base">
           <span>When a</span>
 
@@ -94,8 +153,9 @@ export function Step2Trigger({ form }: Step2TriggerProps) {
             }}
           />
         </div>
+        )}
 
-        {(selectedEventTypes[0] === 'CREATED' || selectedEventTypes[0] === 'UPDATED') && (
+        {(triggerKind === 'RELATIVE_TIME' || selectedEventTypes[0] === 'CREATED' || selectedEventTypes[0] === 'UPDATED') && (
           <div className="mt-4">
             <FormField
               control={form.control}
@@ -108,7 +168,7 @@ export function Step2Trigger({ form }: Step2TriggerProps) {
                   </FormDescription>
                   <FormControl>
                     <AutomationConditionsBuilder
-                      conditions={field.value as AutomationCondition | null}
+                      conditions={field.value as AutomationConditionExpression | null}
                       eventTypes={selectedEventTypes as ActivityEventType[]}
                       entityType={entityType}
                       onChange={(condition) => {

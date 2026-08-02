@@ -129,6 +129,8 @@ function AppShellInner({ children }: AppShellProps) {
   const { preferences, updatePreferences } = useUcatInterfacePreferences();
   const prevIsMobileRef = useRef<boolean | null>(null);
   const preImmersiveCollapsedRef = useRef<boolean | null>(null);
+  const compactExamToolbarRef = useRef<HTMLDivElement>(null);
+  const detailedExamToolbarRef = useRef<HTMLDivElement>(null);
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [bottomFloatingDockVisible, setBottomFloatingDockVisible] =
@@ -154,6 +156,15 @@ function AppShellInner({ children }: AppShellProps) {
     },
     [updatePreferences],
   );
+
+  useEffect(() => {
+    if (compactExamToolbarRef.current) {
+      compactExamToolbarRef.current.inert = !examToolbarVisible;
+    }
+    if (detailedExamToolbarRef.current) {
+      detailedExamToolbarRef.current.inert = !examToolbarVisible;
+    }
+  }, [examToolbarLayout, examToolbarVisible]);
 
   useEffect(() => {
     setTheme(preferences.theme);
@@ -309,6 +320,7 @@ function AppShellInner({ children }: AppShellProps) {
                         >
                           {examToolbarLayout === "compact_top" ? (
                             <motion.div
+                              ref={compactExamToolbarRef}
                               initial={false}
                               animate={{ height: examToolbarVisible ? 48 : 0 }}
                               transition={{
@@ -317,7 +329,6 @@ function AppShellInner({ children }: AppShellProps) {
                               }}
                               className="shrink-0 overflow-hidden"
                               aria-hidden={!examToolbarVisible}
-                              inert={!examToolbarVisible ? true : undefined}
                             >
                               <UcatExamToolbar layout="compact_top" />
                             </motion.div>
@@ -340,15 +351,15 @@ function AppShellInner({ children }: AppShellProps) {
                           </main>
                           {examToolbarLayout === "detailed_right" ? (
                             <motion.div
+                              ref={detailedExamToolbarRef}
                               initial={false}
-                              animate={{ width: examToolbarVisible ? 288 : 0 }}
+                              animate={{ width: examToolbarVisible ? 256 : 0 }}
                               transition={{
                                 duration: reduceMotion ? 0 : 0.2,
                                 ease: [0.32, 0.72, 0, 1],
                               }}
                               className="shrink-0 overflow-hidden"
                               aria-hidden={!examToolbarVisible}
-                              inert={!examToolbarVisible ? true : undefined}
                             >
                               <UcatExamToolbar layout="detailed_right" />
                             </motion.div>

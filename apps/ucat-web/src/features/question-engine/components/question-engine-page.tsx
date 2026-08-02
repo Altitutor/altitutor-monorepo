@@ -52,6 +52,7 @@ import { ReviewInstructionsDialog } from "@/features/question-engine/components/
 import { TimeExpiredDialog } from "@/features/question-engine/components/time-expired-dialog";
 import { getIncompleteCount } from "@/features/question-engine/lib/review";
 import {
+  advanceAfterInstructionsTimeExpired,
   advanceMockAfterTimeExpired,
   beginQuestionsFromReadyDialog,
   formatTimeRemaining,
@@ -1046,34 +1047,7 @@ export function QuestionEnginePage({
 
     if (state.phase === "instructions") {
       awaitingServerSegmentStartRef.current = examAttemptManaged;
-      setState((prev) => {
-        const next = { ...prev, phase: "question" as const };
-        if (exam!.sourceType === "set") {
-          next.currentIndex = 0;
-          next.timerStartedAt =
-            (exam!.setModeTiming?.setTimeLimitSeconds ?? 0) > 0
-              ? Date.now()
-              : null;
-        } else if (exam!.sourceType === "mock") {
-          const nextSeg = getNextMockSegment(exam!, prev);
-          if (nextSeg?.type === "questions") {
-            next.currentIndex = nextSeg.questionStartIndex;
-            next.mockCurrentSetIndex = nextSeg.setIndex;
-            next.timerStartedAt =
-              (nextSeg.timeLimitSeconds ?? 0) > 0 ? Date.now() : null;
-          } else {
-            next.currentIndex = prev.currentIndex;
-          }
-        } else if (
-          (exam!.sourceType === "questions" ||
-            exam!.sourceType === "questionStem") &&
-          exam!.timePerQuestionSeconds != null &&
-          exam!.timePerQuestionSeconds > 0
-        ) {
-          next.timerStartedAt = Date.now();
-        }
-        return next;
-      });
+      setState((prev) => advanceAfterInstructionsTimeExpired(exam, prev));
       return;
     }
 
@@ -1742,7 +1716,9 @@ export function QuestionEnginePage({
       }
 
       // When Ready to Begin dialog is open (on instructions or intro), Alt+Y / Alt+N = Yes / No
-      const readyOverlay = state.phase === "intro" || state.showReadyDialog;
+      const readyOverlay =
+        !state.showTimeExpiredDialog &&
+        (state.phase === "intro" || state.showReadyDialog);
       if (
         readyOverlay &&
         (shortcutKey === "alt+y" || shortcutKey === "alt+n")
@@ -2356,7 +2332,8 @@ export function QuestionEnginePage({
   })();
   const hasPreviousInstructions = false;
   const showReadyToBeginDialog =
-    state.phase === "intro" || state.showReadyDialog;
+    !state.showTimeExpiredDialog &&
+    (state.phase === "intro" || state.showReadyDialog);
   const overlayActive =
     showReadyToBeginDialog ||
     state.showTimeExpiredDialog ||
@@ -2402,6 +2379,15 @@ export function QuestionEnginePage({
 
   function handleTimeExpiredOk() {
     if (!exam) return;
+
+    if (state.timeExpiredFromInstructions) {
+      setState((current) => ({
+        ...current,
+        showTimeExpiredDialog: false,
+        timeExpiredFromInstructions: false,
+      }));
+      return;
+    }
 
     if (
       practice &&

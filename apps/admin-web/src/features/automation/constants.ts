@@ -5,6 +5,7 @@ export const ENTITY_TYPES: { value: ActivityEntityType; label: string }[] = [
   { value: 'students', label: 'Students' },
   { value: 'classes', label: 'Classes' },
   { value: 'sessions', label: 'Sessions' },
+  { value: 'sessions_students', label: 'Session Students' },
   { value: 'staff', label: 'Staff' },
   { value: 'parents', label: 'Parents' },
   { value: 'invoices', label: 'Invoices' },
@@ -25,6 +26,7 @@ export const ENTITY_TYPES_DISPLAY: Record<string, string> = {
   students: 'Students',
   classes: 'Classes',
   sessions: 'Sessions',
+  sessions_students: 'Session Students',
   staff: 'Staff',
   parents: 'Parents',
   invoices: 'Invoices',
@@ -37,4 +39,5 @@ export const EVENT_TYPES_DISPLAY: Record<string, string> = {
   CREATED: 'Created',
   UPDATED: 'Updated',
   DELETED: 'Deleted',
+  SCHEDULED: 'Scheduled',
 };

@@ -21,15 +21,19 @@ function checkRateLimit(ip: string, email: string): { allowed: boolean; error?: 
     rateLimitMap.set(ipKey, { count: 1, resetAt: now + 3600000 }); // 1 hour
   }
   
-  // Email-based limiting (1 booking/day)
+  // Email-based limiting (5 requests/hour) — counts attempts, not successes,
+  // so leave headroom for validation failures and form retries.
   const emailLimit = rateLimitMap.get(emailKey);
   if (emailLimit && emailLimit.resetAt > now) {
-    if (emailLimit.count >= 1) {
-      return { allowed: false, error: 'You have already booked a session today. Please try again tomorrow.' };
+    if (emailLimit.count >= 5) {
+      return {
+        allowed: false,
+        error: 'Too many booking attempts for this email. Please try again later.',
+      };
     }
     rateLimitMap.set(emailKey, { count: emailLimit.count + 1, resetAt: emailLimit.resetAt });
   } else {
-    rateLimitMap.set(emailKey, { count: 1, resetAt: now + 86400000 }); // 24 hours
+    rateLimitMap.set(emailKey, { count: 1, resetAt: now + 3600000 }); // 1 hour
   }
   
   return { allowed: true };

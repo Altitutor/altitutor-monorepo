@@ -22,6 +22,7 @@ import type {
   SyncExamAttemptInput,
 } from "@/lib/ucat/exam-attempt/types";
 import { checkQuotaForAction } from "@/lib/ucat/quota/quota-service";
+import { getQuestionSetLabel } from "@/lib/ucat/exam-attempt/question-set-label";
 
 type AdminClient = SupabaseClient;
 
@@ -185,9 +186,7 @@ async function loadSetLabel(
     .select("name")
     .eq("id", questionSetId)
     .maybeSingle();
-  if (!data?.name) return "Question set";
-  if (typeof data.name === "string") return data.name;
-  return "Question set";
+  return getQuestionSetLabel(data?.name ?? null);
 }
 
 async function loadMockLabel(
