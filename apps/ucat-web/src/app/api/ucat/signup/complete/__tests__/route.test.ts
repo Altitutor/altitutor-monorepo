@@ -14,10 +14,12 @@ jest.mock("@/lib/supabase/admin", () => ({
 
 const mockedServerClient = jest.mocked(getSupabaseServerClient);
 const mockedAdminFrom = jest.mocked(supabaseAdmin!.from);
+let insertedStudent: Record<string, unknown> | null;
 
 describe("POST /api/ucat/signup/complete", () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    insertedStudent = null;
     mockedServerClient.mockResolvedValue({
       auth: {
         getUser: jest.fn(async () => ({
@@ -32,7 +34,6 @@ describe("POST /api/ucat/signup/complete", () => {
       },
     } as never);
 
-    let studentLookup = 0;
     mockedAdminFrom.mockImplementation((relation: string) => {
       if (relation !== "students") {
         throw new Error(`Unexpected relation: ${relation}`);
@@ -42,21 +43,22 @@ describe("POST /api/ucat/signup/complete", () => {
         select: jest.fn(() => ({
           eq: jest.fn(() => ({
             maybeSingle: jest.fn(async () => {
-              studentLookup += 1;
               return { data: null, error: null };
             }),
           })),
           ilike: jest.fn(() => ({
             maybeSingle: jest.fn(async () => {
-              studentLookup += 1;
               return { data: null, error: null };
             }),
           })),
         })),
-        insert: jest.fn(async () => ({
-          data: null,
-          error: { message: "User has an active staff record" },
-        })),
+        insert: jest.fn(async (payload: Record<string, unknown>) => {
+          insertedStudent = payload;
+          return {
+            data: null,
+            error: { message: "User has an active staff record" },
+          };
+        }),
       } as never;
     });
   });
@@ -70,6 +72,9 @@ describe("POST /api/ucat/signup/complete", () => {
     } as unknown as NextRequest);
 
     expect(response.status).toBe(400);
+    expect(insertedStudent).toEqual(
+      expect.objectContaining({ status: null }),
+    );
     await expect(response.json()).resolves.toEqual({
       error:
         "This email is already linked to an Altitutor staff account. Please use a different email address for your student account.",

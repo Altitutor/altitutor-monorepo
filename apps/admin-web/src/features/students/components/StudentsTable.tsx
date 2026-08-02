@@ -143,7 +143,7 @@ export function StudentsTable({ onRefresh: _onRefresh, onStudentSelect: _onStude
     defaultFilters,
     defaultSort,
     defaultVisibleColumns,
-    filterKeys: ['status', 'curriculum', 'yearLevel', 'subject', 'subscriptionOnline', 'inPersonClass'],
+    filterKeys: ['status', 'curriculum', 'yearLevel', 'subject', 'inPersonClass'],
   });
 
   const { 
@@ -154,7 +154,7 @@ export function StudentsTable({ onRefresh: _onRefresh, onStudentSelect: _onStude
     refetch,
   } = useStudentsMinimal({
     search: state.search,
-    statuses: state.filters.status as Tables<'students'>['status'][],
+    statuses: state.filters.status as NonNullable<Tables<'students'>['status']>[],
     curriculums: state.filters.curriculum as string[],
     yearLevels: state.filters.yearLevel as number[],
     subjectIds: state.filters.subject as string[],
@@ -195,11 +195,10 @@ export function StudentsTable({ onRefresh: _onRefresh, onStudentSelect: _onStude
   const filterDefinitions: DataTableFilterDefinition[] = useMemo(() => [
     {
       key: 'status',
-      label: 'Status',
+      label: 'In-person status',
       options: [
         { label: 'ACTIVE', value: 'ACTIVE' },
         { label: 'TRIAL', value: 'TRIAL' },
-        { label: 'INACTIVE', value: 'INACTIVE' },
         { label: 'DISCONTINUED', value: 'DISCONTINUED' },
       ],
     },
@@ -219,14 +218,6 @@ export function StudentsTable({ onRefresh: _onRefresh, onStudentSelect: _onStude
       options: allSubjects
         .sort((a, b) => (a.long_name ?? '').localeCompare(b.long_name ?? ''))
         .map(s => ({ label: s.long_name ?? '', value: s.id })),
-    },
-    {
-      key: 'subscriptionOnline',
-      label: 'Online (subscription)',
-      options: [
-        { label: 'Has subscription', value: 'has' },
-        { label: 'No subscription', value: 'none' },
-      ],
     },
     {
       key: 'inPersonClass',

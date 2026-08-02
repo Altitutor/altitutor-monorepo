@@ -222,7 +222,7 @@ export function LogAbsenceDialog({ isOpen, onClose, staffId }: LogAbsenceDialogP
               <div className="py-8 text-center text-muted-foreground">Loading students...</div>
             ) : searchQuery.trim() && filteredStudents.length > 0 ? (
               <div className="space-y-2 max-h-96 overflow-y-auto">
-                {filteredStudents.map((student: Tables<'students'>) => (
+                {filteredStudents.map((student) => (
                   <div
                     key={student.id}
                     className="p-3 rounded-lg border-2 border-border hover:border-primary/50 hover:bg-primary/5 cursor-pointer transition-all"

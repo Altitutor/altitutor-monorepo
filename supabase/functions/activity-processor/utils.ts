@@ -570,7 +570,7 @@ export async function getOrGenerateStudentRegistrationToken(
   // Check if student exists and get invite_token (used for registration)
   const { data: student, error } = await supabase
     .from('students')
-    .select('id, user_id, invite_token')
+    .select('id, status, invite_token')
     .eq('id', studentId)
     .maybeSingle();
   
@@ -579,9 +579,12 @@ export async function getOrGenerateStudentRegistrationToken(
     return null;
   }
   
-  // Registration link can be sent even if student has account but hasn't registered (status != ACTIVE)
-  // But if they're fully registered (user_id exists AND status is ACTIVE), skip
-  // For now, we'll allow registration link if they don't have user_id or if they have invite_token
+  // `status` is the in-person lifecycle. Account linkage is deliberately not
+  // used here: an online Student may already have a user_id while still needing
+  // to complete in-person registration.
+  if (student.status === 'ACTIVE') {
+    return null;
+  }
   
   // Reuse existing token if available
   if (student.invite_token) {

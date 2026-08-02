@@ -437,6 +437,34 @@ describe('evaluateConditions', () => {
         ],
       }, updateEvent, context)).toBe(false);
     });
+
+    it('matches only the first completed in-person registration', () => {
+      const registrationCondition = {
+        all: [
+          { field: 'registered_at', operator: 'field_changed' },
+          { field: 'entity.status', operator: 'equals', value: 'ACTIVE' },
+        ],
+      };
+
+      expect(evaluateConditions(registrationCondition, {
+        event_type: 'UPDATED',
+        changed_fields: {
+          registered_at: { old: null, new: '2026-08-02T13:45:00Z' },
+          status: { old: 'TRIAL', new: 'ACTIVE' },
+        },
+      }, {
+        entity: { status: 'ACTIVE' },
+      })).toBe(true);
+
+      expect(evaluateConditions(registrationCondition, {
+        event_type: 'UPDATED',
+        changed_fields: {
+          status: { old: 'DISCONTINUED', new: 'ACTIVE' },
+        },
+      }, {
+        entity: { status: 'ACTIVE' },
+      })).toBe(false);
+    });
   });
 });
 

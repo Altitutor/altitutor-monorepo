@@ -131,7 +131,7 @@ export function useBookSessionFlow({
     queryKey: ['students', 'search', studentSearch, sessionType],
     queryFn: async () => {
       // For drafting sessions, only show active students (status = 'ACTIVE')
-      const statuses = sessionType === 'DRAFTING' ? (['ACTIVE'] as Tables<'students'>['status'][]) : undefined;
+      const statuses = sessionType === 'DRAFTING' ? (['ACTIVE'] as NonNullable<Tables<'students'>['status']>[]) : undefined;
       const result = await studentsApi.searchStudents(studentSearch, statuses);
       return result;
     },

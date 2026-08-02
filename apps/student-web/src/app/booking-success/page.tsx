@@ -352,121 +352,116 @@ export default function BookingSuccessPage() {
           </Card>
         </div>
 
-        {/* Right Column: Calendar */}
-        <Card>
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <CardTitle>Calendar</CardTitle>
-              {!isCancelled && (
-                <Button
-                  onClick={() => downloadCalendarEvent(bookingData)}
-                  variant="outline"
-                  size="sm"
-                  className={studentBtnOutline}
+        {/* Right Column: Calendar & Contact */}
+        <div className="space-y-6">
+          <Card>
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <CardTitle>Calendar</CardTitle>
+                {!isCancelled && (
+                  <Button
+                    onClick={() => downloadCalendarEvent(bookingData)}
+                    variant="outline"
+                    size="sm"
+                    className={studentBtnOutline}
+                  >
+                    <Calendar className="h-4 w-4 mr-2" />
+                    Add to Calendar
+                  </Button>
+                )}
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="flex-1 overflow-auto relative border rounded-lg">
+                <div
+                  className="grid gap-0 min-h-full relative bg-background"
+                  style={{ gridTemplateColumns: `minmax(80px, 100px) minmax(150px, 1fr)` }}
                 >
-                  <Calendar className="h-4 w-4 mr-2" />
-                  Add to Calendar
-                </Button>
-              )}
-            </div>
-          </CardHeader>
-          <CardContent>
-            <div className="flex-1 overflow-auto relative border rounded-lg">
-              <div
-                className="grid gap-0 min-h-full relative bg-background"
-                style={{ gridTemplateColumns: `minmax(80px, 100px) minmax(150px, 1fr)` }}
-              >
-                {/* Headers */}
-                <div className="sticky top-0 z-20 p-2 text-center font-medium bg-background border-b border-r text-xs">
-                  Time
-                </div>
-                <div className="sticky top-0 z-20 p-2 text-center font-medium bg-background border-b border-r text-sm">
-                  {format(sessionDate, 'EEE dd MMM')}
-                </div>
-
-                {/* Rows */}
-                {slots.map((hour, idx) => (
-                  <div key={hour} className="contents">
-                    <div className="sticky left-0 z-10 p-2 text-sm bg-muted/30 border-b border-r text-center font-medium h-[75px] flex items-center justify-center">
-                      {format(new Date(2000, 0, 1, hour, 0), 'h a')}
-                    </div>
-                    <div className="relative border-b border-r h-[75px] bg-background">
-                      {idx === 0 && (
-                        <div className="absolute inset-0" style={{ height: `${slots.length * slotHeight}px` }}>
-                          <div
-                            className={cn(
-                              'absolute p-2 rounded shadow-md border-2',
-                              isCancelled
-                                ? 'bg-muted text-muted-foreground border-border'
-                                : 'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-200 border-green-300 dark:border-green-700'
-                            )}
-                            style={{
-                              top: `${top}px`,
-                              height: `${height}px`,
-                              left: '2.5%',
-                              width: '95%',
-                              zIndex: 20,
-                              minHeight: '45px',
-                            }}
-                          >
-                            <div className="text-xs font-semibold mb-1">
-                              {bookingData.session_type 
-                                ? formatSessionType(bookingData.session_type)
-                                : 'Session'}
-                              {isCancelled ? ' (Cancelled)' : ''}
-                            </div>
-                            <div className="text-xs">
-                              {format(sessionStart, 'h:mm a')} - {format(sessionEnd, 'h:mm a')}
-                            </div>
-                            {bookingData.subjects && bookingData.subjects.length > 0 && (
-                              <div className="text-xs mt-1 opacity-80">
-                                {bookingData.subjects.map(s => formatSubjectDisplay(s)).join(', ')}
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      )}
-                    </div>
+                  {/* Headers */}
+                  <div className="sticky top-0 z-20 p-2 text-center font-medium bg-background border-b border-r text-xs">
+                    Time
                   </div>
-                ))}
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+                  <div className="sticky top-0 z-20 p-2 text-center font-medium bg-background border-b border-r text-sm">
+                    {format(sessionDate, 'EEE dd MMM')}
+                  </div>
 
-      {/* Contact Altitutor Card */}
-      <div className="mt-6">
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Phone className="h-5 w-5" />
-              Contact Altitutor
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="flex items-center gap-3">
-                <Phone className="h-5 w-5 text-muted-foreground" />
-                <div>
-                  <p className="text-sm font-medium">Phone</p>
-                  <a href={`tel:${CONTACT_PHONE}`} className="text-sm text-muted-foreground hover:underline">
-                    {CONTACT_PHONE}
-                  </a>
+                  {/* Rows */}
+                  {slots.map((hour, idx) => (
+                    <div key={hour} className="contents">
+                      <div className="sticky left-0 z-10 p-2 text-sm bg-muted/30 border-b border-r text-center font-medium h-[75px] flex items-center justify-center">
+                        {format(new Date(2000, 0, 1, hour, 0), 'h a')}
+                      </div>
+                      <div className="relative border-b border-r h-[75px] bg-background">
+                        {idx === 0 && (
+                          <div className="absolute inset-0" style={{ height: `${slots.length * slotHeight}px` }}>
+                            <div
+                              className={cn(
+                                'absolute p-2 rounded shadow-md border-2',
+                                isCancelled
+                                  ? 'bg-muted text-muted-foreground border-border'
+                                  : 'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-200 border-green-300 dark:border-green-700'
+                              )}
+                              style={{
+                                top: `${top}px`,
+                                height: `${height}px`,
+                                left: '2.5%',
+                                width: '95%',
+                                zIndex: 20,
+                                minHeight: '45px',
+                              }}
+                            >
+                              <div className="text-xs font-semibold mb-1">
+                                {bookingData.session_type
+                                  ? formatSessionType(bookingData.session_type)
+                                  : 'Session'}
+                                {isCancelled ? ' (Cancelled)' : ''}
+                              </div>
+                              <div className="text-xs">
+                                {format(sessionStart, 'h:mm a')} - {format(sessionEnd, 'h:mm a')}
+                              </div>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  ))}
                 </div>
               </div>
-              <div className="flex items-center gap-3">
-                <Mail className="h-5 w-5 text-muted-foreground" />
-                <div>
-                  <p className="text-sm font-medium">Email</p>
-                  <a href={`mailto:${CONTACT_EMAIL}`} className="text-sm text-muted-foreground hover:underline">
-                    {CONTACT_EMAIL}
-                  </a>
+            </CardContent>
+          </Card>
+
+          {/* Contact Altitutor Card */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Phone className="h-5 w-5" />
+                Contact Altitutor
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="flex items-center gap-3">
+                  <Phone className="h-5 w-5 text-muted-foreground" />
+                  <div>
+                    <p className="text-sm font-medium">Phone</p>
+                    <a href={`tel:${CONTACT_PHONE}`} className="text-sm text-muted-foreground hover:underline">
+                      {CONTACT_PHONE}
+                    </a>
+                  </div>
+                </div>
+                <div className="flex items-center gap-3">
+                  <Mail className="h-5 w-5 text-muted-foreground" />
+                  <div>
+                    <p className="text-sm font-medium">Email</p>
+                    <a href={`mailto:${CONTACT_EMAIL}`} className="text-sm text-muted-foreground hover:underline">
+                      {CONTACT_EMAIL}
+                    </a>
+                  </div>
                 </div>
               </div>
-            </div>
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
+        </div>
       </div>
 
       {isPublicBookingType(bookingData.session_type) && (

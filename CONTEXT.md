@@ -29,13 +29,22 @@
 - **Online product relationship** — A Student's relationship with one online SaaS product, such as UCATWeb or the future StudentWeb SaaS offering. Each product relationship has an independent lifecycle; using StudentWeb as the portal included with in-person tutoring does not create a StudentWeb SaaS relationship.
   _Avoid_: Global online status, Product app access, online Student type
 
+- **Online product relationship record** — The explicit record created when a Student completes a Product app's signup. There is at most one record per Student and Product. It is not inferred from subscription rows, subject access, authentication, or onboarding timestamps; those describe related but independent concerns. UCATWeb creates this record on completed UCAT signup and does not automatically close it after a test sitting.
+  _Avoid_: Subscription-as-membership, inferred online student, signup flag
+
+- **In-person relationship storage** — The Student's single optional in-person relationship is stored directly on `students` through the nullable `status` column and its lifecycle metadata. `NULL` means no in-person relationship. The column is the sole source of truth and is explicitly documented and presented by application interfaces as in-person status; it is not a global Student status.
+  _Avoid_: Global Student status, duplicate relationship table, non-null online-only status
+
+- **Online relationship storage** — Online product relationships are stored in a child table with one record per Student and Product because a Student may use multiple Product apps. Subscription, entitlement, engagement, and preparation-cycle state remain separate from this relationship record.
+  _Avoid_: `ucat_status` on students, one product column per app, subscription-derived relationship
+
 - **Online product entitlement** — The access level currently granted within an Online product relationship, such as UCATWeb free or a paid plan. Entitlement and subscription state may change without activating or ending the Student's relationship with the Product app.
   _Avoid_: Online student status, student lifecycle, active Student
 
 - **UCAT preparation cycle** — The period in which a Student is preparing for a particular UCAT sitting, identified by a test year and optionally a test date. Passing the test date ends that preparation cycle but does not end the UCATWeb relationship, close the account, remove free access, or erase attempts and study history. A Student may later prepare for another sitting.
   _Avoid_: UCAT account lifecycle, discontinued UCAT student, expired online student
 
-- **In-person Students view** — The AdminWeb operational view for Students with an In-person trial, Active in-person relationship, or historical Discontinued in-person relationship. It excludes online-only Students by default, while global search may still locate any Student.
+- **In-person Students view** — The AdminWeb operational view for Students with an In-person trial, Active in-person relationship, or historical Discontinued in-person relationship. Its default list contains `TRIAL` and `ACTIVE` relationships; `DISCONTINUED` relationships remain available through a status filter. It excludes online-only Students by default, while global search may still locate any Student.
   _Avoid_: All Students page, Student type list, students table
 
 - **Online Students view** — The AdminWeb operational view for Students with an Online product relationship. It focuses on Product app, entitlement, subscription, engagement, invoices, and preparation-cycle information rather than classes and attendance. A Student with both relationship modes appears in both operational views.

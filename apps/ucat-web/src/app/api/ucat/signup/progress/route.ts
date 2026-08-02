@@ -148,6 +148,31 @@ export async function PATCH(request: NextRequest) {
     return NextResponse.json({ error: updateError.message }, { status: 500 });
   }
 
+  if (hasComplete) {
+    const { error: relationshipError } = await supabaseAdmin
+      .from("student_online_product_relationships")
+      .upsert(
+        {
+          student_id: student.id,
+          product: "UCAT_WEB",
+          started_at: updates.ucat_signup_completed_at as string,
+          closed_at: null,
+        },
+        {
+          onConflict: "student_id,product",
+          ignoreDuplicates: true,
+        },
+      );
+
+    if (relationshipError) {
+      captureApiError(relationshipError, "/api/ucat/signup/progress");
+      return NextResponse.json(
+        { error: "Failed to establish UCATWeb access" },
+        { status: 500 },
+      );
+    }
+  }
+
   const nextStudent = {
     ...student,
     ucat_signup_step:
