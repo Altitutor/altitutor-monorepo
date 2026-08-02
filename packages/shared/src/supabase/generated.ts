@@ -530,6 +530,243 @@ export type Database = {
           },
         ]
       }
+      automation_executions: {
+        Row: {
+          activity_event_id: string | null
+          attempt_count: number
+          claimed_at: string | null
+          completed_at: string | null
+          created_at: string
+          entity_id: string
+          entity_type: string
+          event_type: string
+          id: string
+          last_error: string | null
+          next_attempt_at: string
+          rule_id: string
+          scheduled_for: string
+          session_id: string | null
+          source_key: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          activity_event_id?: string | null
+          attempt_count?: number
+          claimed_at?: string | null
+          completed_at?: string | null
+          created_at?: string
+          entity_id: string
+          entity_type: string
+          event_type: string
+          id?: string
+          last_error?: string | null
+          next_attempt_at?: string
+          rule_id: string
+          scheduled_for?: string
+          session_id?: string | null
+          source_key: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          activity_event_id?: string | null
+          attempt_count?: number
+          claimed_at?: string | null
+          completed_at?: string | null
+          created_at?: string
+          entity_id?: string
+          entity_type?: string
+          event_type?: string
+          id?: string
+          last_error?: string | null
+          next_attempt_at?: string
+          rule_id?: string
+          scheduled_for?: string
+          session_id?: string | null
+          source_key?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "automation_executions_activity_event_id_fkey"
+            columns: ["activity_event_id"]
+            isOneToOne: false
+            referencedRelation: "activity_events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "automation_executions_rule_id_fkey"
+            columns: ["rule_id"]
+            isOneToOne: false
+            referencedRelation: "automation_rules"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "automation_executions_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "sessions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "automation_executions_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "vadmin_reconciliation_unlogged_sessions"
+            referencedColumns: ["session_id"]
+          },
+          {
+            foreignKeyName: "automation_executions_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_session_base"
+            referencedColumns: ["session_id"]
+          },
+          {
+            foreignKeyName: "automation_executions_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_session_detail"
+            referencedColumns: ["session_id"]
+          },
+          {
+            foreignKeyName: "automation_executions_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_sessions"
+            referencedColumns: ["session_id"]
+          },
+          {
+            foreignKeyName: "automation_executions_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_session_detail"
+            referencedColumns: ["session_id"]
+          },
+          {
+            foreignKeyName: "automation_executions_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_sessions"
+            referencedColumns: ["session_id"]
+          },
+        ]
+      }
+      automation_message_deliveries: {
+        Row: {
+          action_id: string
+          attempt_count: number
+          contact_id: string
+          created_at: string
+          execution_id: string
+          id: string
+          last_error: string | null
+          message_id: string | null
+          status: string
+          student_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          action_id: string
+          attempt_count?: number
+          contact_id: string
+          created_at?: string
+          execution_id: string
+          id?: string
+          last_error?: string | null
+          message_id?: string | null
+          status?: string
+          student_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          action_id?: string
+          attempt_count?: number
+          contact_id?: string
+          created_at?: string
+          execution_id?: string
+          id?: string
+          last_error?: string | null
+          message_id?: string | null
+          status?: string
+          student_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "automation_message_deliveries_action_id_fkey"
+            columns: ["action_id"]
+            isOneToOne: false
+            referencedRelation: "automation_actions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "automation_message_deliveries_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: false
+            referencedRelation: "contacts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "automation_message_deliveries_execution_id_fkey"
+            columns: ["execution_id"]
+            isOneToOne: false
+            referencedRelation: "automation_executions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "automation_message_deliveries_message_id_fkey"
+            columns: ["message_id"]
+            isOneToOne: false
+            referencedRelation: "messages"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "automation_message_deliveries_message_id_fkey"
+            columns: ["message_id"]
+            isOneToOne: false
+            referencedRelation: "vadmin_reconciliation_unreplied_messages"
+            referencedColumns: ["last_message_id_detail"]
+          },
+          {
+            foreignKeyName: "automation_message_deliveries_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "automation_message_deliveries_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "vadmin_reconciliation_students_without_payment_method"
+            referencedColumns: ["student_id"]
+          },
+          {
+            foreignKeyName: "automation_message_deliveries_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_profile"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "automation_message_deliveries_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_students"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "automation_message_deliveries_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_ucat_student_progress_summary"
+            referencedColumns: ["student_id"]
+          },
+        ]
+      }
       automation_rules: {
         Row: {
           conditions: Json | null
@@ -542,6 +779,8 @@ export type Database = {
           id: string
           name: string
           priority: number | null
+          trigger_config: Json
+          trigger_kind: string
           updated_at: string | null
         }
         Insert: {
@@ -555,6 +794,8 @@ export type Database = {
           id?: string
           name: string
           priority?: number | null
+          trigger_config?: Json
+          trigger_kind?: string
           updated_at?: string | null
         }
         Update: {
@@ -568,6 +809,8 @@ export type Database = {
           id?: string
           name?: string
           priority?: number | null
+          trigger_config?: Json
+          trigger_kind?: string
           updated_at?: string | null
         }
         Relationships: [
@@ -33564,6 +33807,34 @@ export type Database = {
         Args: { json_content: Json }
         Returns: string
       }
+      claim_automation_execution: {
+        Args: { p_execution_id: string }
+        Returns: {
+          activity_event_id: string | null
+          attempt_count: number
+          claimed_at: string | null
+          completed_at: string | null
+          created_at: string
+          entity_id: string
+          entity_type: string
+          event_type: string
+          id: string
+          last_error: string | null
+          next_attempt_at: string
+          rule_id: string
+          scheduled_for: string
+          session_id: string | null
+          source_key: string
+          status: string
+          updated_at: string
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "automation_executions"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
       claim_imessage_commands: {
         Args: { p_connector_id: string; p_limit?: number }
         Returns: Json[]
@@ -33813,6 +34084,20 @@ export type Database = {
       discontinue_student: {
         Args: { p_discontinued_by: string; p_student_id: string }
         Returns: Json
+      }
+      dispatch_due_automation_executions: { Args: never; Returns: number }
+      enqueue_automation_execution: {
+        Args: {
+          p_activity_event_id: string
+          p_entity_id: string
+          p_entity_type: string
+          p_event_type: string
+          p_rule_id: string
+          p_scheduled_for?: string
+          p_session_id: string
+          p_source_key: string
+        }
+        Returns: string
       }
       enqueue_imessage_command: {
         Args: {
@@ -34256,6 +34541,10 @@ export type Database = {
       map_tutor_to_id: {
         Args: { first_name: string; last_name: string }
         Returns: string
+      }
+      materialize_due_session_automation_executions: {
+        Args: never
+        Returns: number
       }
       migrate_text_to_tiptap_jsonb: { Args: { val: string }; Returns: Json }
       normalize_ucat_catalog_text: { Args: { value: string }; Returns: string }
