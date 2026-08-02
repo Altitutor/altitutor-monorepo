@@ -72,16 +72,84 @@ export type StudentMinimalListRow = Tables<'students'> & {
   has_in_person_class?: boolean;
 };
 
+export type OnlineProductRelationshipSummary = {
+  product: 'UCAT_WEB' | 'STUDENT_WEB';
+  started_at: string;
+  closed_at: string | null;
+};
+
+export type OnlineStudentListRow = {
+  id: string;
+  first_name: string | null;
+  last_name: string | null;
+  email: string | null;
+  phone: string | null;
+  school: string | null;
+  curriculum: string | null;
+  year_level: number | null;
+  in_person_status: string | null;
+  created_at: string | null;
+  updated_at: string | null;
+  online_since: string;
+  entitlement: 'FREE' | 'PAID';
+  subscription_status: string | null;
+  products: OnlineProductRelationshipSummary[];
+};
+
 /**
  * Students API client for working with student data
  */
 export const studentsApi = {
+  /** Paginated online operational view, deduplicated to one row per Student. */
+  listOnline: async (params: {
+    search?: string;
+    products?: string[];
+    entitlements?: string[];
+    limit?: number;
+    offset?: number;
+    orderBy?: 'first_name' | 'last_name' | 'online_since';
+    ascending?: boolean;
+  }): Promise<{ students: OnlineStudentListRow[]; total: number }> => {
+    const {
+      search = '',
+      products = [],
+      entitlements = [],
+      limit = 50,
+      offset = 0,
+      orderBy = 'last_name',
+      ascending = true,
+    } = params;
+    const supabase = getSupabaseClient() as SupabaseClient<Database>;
+    const { data, error } = await supabase.rpc('search_online_students_admin', {
+      p_search: search.trim() || undefined,
+      p_products: products.length > 0 ? products : undefined,
+      p_entitlements: entitlements.length > 0 ? entitlements : undefined,
+      p_limit: limit,
+      p_offset: offset,
+      p_order_by: orderBy,
+      p_ascending: ascending,
+    });
+
+    if (error) throw error;
+    if (!data || typeof data !== 'object' || Array.isArray(data)) {
+      return { students: [], total: 0 };
+    }
+
+    const payload = data as { students?: unknown; total?: unknown };
+    return {
+      students: Array.isArray(payload.students)
+        ? payload.students as OnlineStudentListRow[]
+        : [],
+      total: typeof payload.total === 'number' ? payload.total : 0,
+    };
+  },
+
   /**
    * Paginated, server-filtered students list
    */
   list: async (params: {
     search?: string;
-    statuses?: Tables<'students'>['status'][];
+    statuses?: NonNullable<Tables<'students'>['status']>[];
     curriculums?: string[];
     yearLevels?: number[];
     subjectIds?: string[];
@@ -187,7 +255,7 @@ export const studentsApi = {
    */
   listMinimal: async (params: {
     search?: string;
-    statuses?: Tables<'students'>['status'][];
+    statuses?: NonNullable<Tables<'students'>['status']>[];
     curriculums?: string[];
     yearLevels?: number[];
     subjectIds?: string[];
@@ -640,13 +708,29 @@ export const studentsApi = {
     if (error && error.code !== 'PGRST116') throw error;
     return (data ?? null) as Tables<'students'> | null;
   },
+
+  /** Global staff search across every Student, including online-only records. */
+  searchAllStudents: async (query: string, limit = 100): Promise<Tables<'students'>[]> => {
+    const trimmed = query.trim();
+    if (!trimmed) return [];
+    const pattern = `%${trimmed}%`;
+    const { data, error } = await (getSupabaseClient() as SupabaseClient<Database>)
+      .from('students')
+      .select('*')
+      .or(`first_name.ilike.${pattern},last_name.ilike.${pattern},email.ilike.${pattern},phone.ilike.${pattern}`)
+      .order('last_name', { ascending: true })
+      .order('first_name', { ascending: true })
+      .limit(limit);
+    if (error) throw error;
+    return data ?? [];
+  },
   
   /**
    * Search students by name, email, or status
    * Uses server-side RPC search to avoid pagination limits
    * @param excludeClassSearch - If true, excludes class name search (name-only search)
    */
-  searchStudents: async (query: string, statuses?: Tables<'students'>['status'][], excludeClassSearch?: boolean): Promise<Tables<'students'>[]> => {
+  searchStudents: async (query: string, statuses?: NonNullable<Tables<'students'>['status']>[], excludeClassSearch?: boolean): Promise<Tables<'students'>[]> => {
     try {
       const trimmed = query.trim();
       const supabase = (getSupabaseClient() as SupabaseClient<Database>);
@@ -878,7 +962,7 @@ export const studentsApi = {
    * Note: This function may not return all students if there are more than the limit.
    * Consider using paginated queries for large datasets.
    */
-  getAllStudentsWithDetails: async (params?: { limit?: number; statuses?: Tables<'students'>['status'][] }): Promise<{ 
+  getAllStudentsWithDetails: async (params?: { limit?: number; statuses?: NonNullable<Tables<'students'>['status']>[] }): Promise<{
     students: Tables<'students'>[]; 
     studentSubjects: Record<string, Tables<'subjects'>[]>;
     studentClasses: Record<string, Tables<'classes'>[]>;
@@ -1089,7 +1173,7 @@ export const studentsApi = {
    */
   getStudentsWithDetailsPage: async (params: {
     search?: string;
-    statuses?: Tables<'students'>['status'][];
+    statuses?: NonNullable<Tables<'students'>['status']>[];
     curriculums?: string[];
     yearLevels?: number[];
     subjectIds?: string[];

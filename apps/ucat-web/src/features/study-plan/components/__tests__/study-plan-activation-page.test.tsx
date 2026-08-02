@@ -354,7 +354,6 @@ describe("StudyPlanActivationPage", () => {
     mockPlanData = {
       profile: {
         studyPlanEnabled: false,
-        studySuggestionsEnabled: true,
         targetScore: 2300,
         testYear: new Date().getFullYear(),
         testDate: null,
@@ -386,7 +385,6 @@ describe("StudyPlanActivationPage", () => {
     mockPlanData = {
       profile: {
         studyPlanEnabled: false,
-        studySuggestionsEnabled: true,
         targetScore: 2300,
         testYear: new Date().getFullYear(),
         testDate: null,

@@ -717,7 +717,6 @@ async function generateForProfile(
     planningDate,
     profile: {
       studyPlanEnabled: true,
-      studySuggestionsEnabled: profile.study_suggestions_enabled,
       targetScore: profile.target_score,
       testYear: profile.test_year,
       testDate: profile.test_date,
@@ -1515,7 +1514,6 @@ export async function saveStudyPlanProfile(
       {
         student_id: studentId,
         study_plan_enabled: input.studyPlanEnabled,
-        study_suggestions_enabled: input.studySuggestionsEnabled,
         target_score: input.targetScore,
         test_year: input.testYear,
         test_date: input.testDate,
@@ -1855,7 +1853,6 @@ export async function getStudyPlan(
     profile: {
       id: profile.id,
       studyPlanEnabled: profile.study_plan_enabled,
-      studySuggestionsEnabled: profile.study_suggestions_enabled,
       targetScore: profile.target_score,
       testYear: profile.test_year,
       testDate: profile.test_date,

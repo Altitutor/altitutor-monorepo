@@ -13,6 +13,9 @@ type StudentUpdate = Database["public"]["Tables"]["students"]["Update"];
 type StudentInsert = Database["public"]["Tables"]["students"]["Insert"];
 
 function dbErrorMessage(message: string): string {
+  if (message.includes("User has an active staff record")) {
+    return "This email is already linked to an Altitutor staff account. Please use a different email address for your student account.";
+  }
   if (message.includes("Invalid phone number format")) {
     return "Please enter a valid Australian mobile number.";
   }
@@ -224,7 +227,8 @@ export async function POST(request: NextRequest) {
         first_name: firstName,
         last_name: lastName,
         phone: hasPhoneField ? (normalizedPhone ?? null) : null,
-        status: "ACTIVE",
+        // UCATWeb profile creation does not establish an in-person relationship.
+        status: null,
         timezone: timezone ?? "Australia/Adelaide",
         ucat_signup_step: 2,
       });

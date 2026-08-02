@@ -35,10 +35,13 @@ magic link.
 | Moved to Free after cancellation | Verified `customer.subscription.deleted` | Stripe webhook → transactional outbox | Required |
 | Billing recovery and access ended | Stripe invoice/subscription failure state | Stripe webhook direct send | Required |
 | Payment receipt / invoice / failed-card notification | Stripe invoice state | Stripe-hosted customer emails | Required |
-| Welcome and first-week education | Lifecycle eligibility and local send window | Lifecycle scheduler | `lessons_and_tips` |
-| Seven-day return | Seven days without product activity | Lifecycle scheduler | `lessons_and_tips` |
+| Four familiarity-scoped onboarding lessons | Persisted initial familiarity and local day 0/2/5/9 windows | Lifecycle scheduler | `lessons_and_tips` |
+| First score estimate | First available estimate, once | Lifecycle scheduler | `weekly_progress_and_guidance` |
+| Gentle restart | Seven to nine full local days without product activity | Lifecycle scheduler | `weekly_progress_and_guidance` |
 | Weekly progress and recommendation | Enough recent evidence for a useful report | Lifecycle scheduler | `weekly_progress_and_guidance` |
-| Product news, unusual Free resets, promotions, referral campaigns | Deliberate broadcast approved by the team | Future broadcast workflow | Matching explicit preference |
+| Free-to-Unlimited quota and consistency messages | Free tier plus qualifying commercial trigger | Lifecycle scheduler | `offers_and_referrals` |
+| Unlimited referral invitation | Active Unlimited plus value moment and no reward in progress | Lifecycle scheduler | `offers_and_referrals` |
+| Material product news | Deliberate Resend Broadcast with an admin suppression window | Resend Broadcasts | `product_news` |
 
 Product state changes are keyed to verified Stripe webhooks, not browser
 redirects or subscription button clicks. Database triggers queue referral and
@@ -70,6 +73,12 @@ Configure secrets through the normal deployment workflow:
 - `POSTHOG_PROJECT_TOKEN`
 - `POSTHOG_HOST` (optional; defaults to the US ingest host)
 - `UCAT_WEB_URL`
+- `UCAT_LIFECYCLE_EMAILS_ENABLED` (keep `false` until the reviewed launch)
+- `UCAT_FOUNDER_SIGNATURE_URL` (optional override for the public signature asset)
+- `RESEND_TOPIC_WEEKLY_PROGRESS_ID`
+- `RESEND_TOPIC_LESSONS_ID`
+- `RESEND_TOPIC_PRODUCT_NEWS_ID`
+- `RESEND_TOPIC_OFFERS_ID`
 
 The database Vault value `ucat_email_dispatch_secret` must exactly match
 `UCAT_EMAIL_DISPATCH_SECRET_KEY`. `project_url` must also be present for the
@@ -87,6 +96,23 @@ In Resend:
 4. Copy the webhook signing secret into `RESEND_WEBHOOK_SECRET`.
 5. Keep `matt@altitutor.com` and `admin@altitutor.com` monitored. They are the
    only reply addresses used by the UCAT templates.
+6. Create the four consent Topics above. The hourly
+   `ucat-resend-contact-sync` function projects Supabase consent into global
+   Resend Contacts and Topics; Supabase remains canonical.
+
+## Campaign operations
+
+Use admin-web **Settings → UCAT email campaigns** for the permanent global
+pause, individual campaign switches, candidate dry checks, template previews,
+recent sends/failures, and product-news suppression windows. Use Resend for
+delivery health and authoring material product-news Broadcasts. Use PostHog for
+7/28-day practice retention, Unlimited conversion and accepted-referral
+outcomes. Do not use clicks or opens as the programme success metric.
+
+The greenfield optional lifecycle programme assigns each new opted-in student
+deterministically to treatment or a 10% holdout for the first eight weeks.
+Required account/billing mail and deliberate product-news Broadcasts are not
+held out.
 
 In Stripe Customer emails:
 

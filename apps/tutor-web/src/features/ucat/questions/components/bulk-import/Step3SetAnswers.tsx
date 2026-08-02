@@ -67,6 +67,7 @@ type ReviewStemDraft = BulkImportStemDraft & {
 
 export type AnswerRow = {
   stemId: string
+  stemNumber: number
   questionId: string | null
   questionIndex: number
   globalQuestionNumber: number
@@ -77,12 +78,13 @@ export type AnswerRow = {
 function buildAnswerRows(stems: ReviewStemDraft[]): AnswerRow[] {
   const rows: AnswerRow[] = []
   let globalNumber = 0
-  stems.forEach((stem) => {
+  stems.forEach((stem, stemIndex) => {
     const questions = stem.values.questions ?? []
     questions.forEach((q, questionIndex) => {
       globalNumber += 1
       rows.push({
         stemId: stem.id,
+        stemNumber: stemIndex + 1,
         questionId: q.id ?? null,
         questionIndex,
         globalQuestionNumber: globalNumber,
@@ -188,6 +190,23 @@ export function Step3SetAnswers({
   const handleStopGeneratingExplanations = useCallback(() => {
     generationAbortControllerRef.current?.abort()
   }, [])
+
+  const approveAiFinding = useCallback(async (stemId: string, findingKey: string) => {
+    if (!reviewController) return
+    try {
+      await reviewController.approveFinding(stemId, findingKey)
+      toast({
+        title: 'AI edit applied',
+        description: 'The proposed change was applied. Run AI review again to verify it.',
+      })
+    } catch (error) {
+      toast({
+        title: 'Could not apply the edit',
+        description: error instanceof Error ? error.message : 'The draft may have changed.',
+        variant: 'destructive',
+      })
+    }
+  }, [reviewController, toast])
 
   const handleBulkGenerateExplanations = useCallback(async () => {
     if (!onUpdateStem || isGenerating) return
@@ -385,7 +404,7 @@ export function Step3SetAnswers({
             </p>
           )}
         </div>
-        {!reviewController && onUpdateStem && missingExplanationTargets.length > 0 ? (
+        {onUpdateStem && missingExplanationTargets.length > 0 ? (
           <Button
             type="button"
             size="sm"
@@ -484,8 +503,9 @@ export function Step3SetAnswers({
         <Table className="w-full table-fixed text-xs">
           <TableHeader>
             <TableRow>
-              <TableHead className="w-[2.5rem] px-2">#</TableHead>
-              <TableHead className="w-[28%] px-2">Stem</TableHead>
+              <TableHead className="w-[2.25rem] px-2">Stem</TableHead>
+              <TableHead className="w-[2.25rem] px-2">Q</TableHead>
+              <TableHead className="w-[28%] px-2">Stem text</TableHead>
               <TableHead className="w-[28%] px-2">Question</TableHead>
               {reviewController ? <TableHead className="w-[30%] px-2">Issues</TableHead> : null}
               {reviewController ? <TableHead className="w-[5rem] px-2 text-center">Import</TableHead> : null}
@@ -506,6 +526,8 @@ export function Step3SetAnswers({
                   && reviewController?.excludedQuestionIds.has(exclusionKey)
                 )
               )
+              const rowAiPhase = reviewController?.aiPhaseByStemId[row.stemId] ?? 'idle'
+              const rowAiIsPending = rowAiPhase === 'queued' || rowAiPhase === 'analyzing'
 
               return (
                 <Fragment key={rowKey}>
@@ -518,6 +540,9 @@ export function Step3SetAnswers({
                     )}
                     onClick={() => toggleExpanded(rowKey)}
                   >
+                    <TableCell className="px-2 font-mono text-muted-foreground">
+                      {row.stemNumber}
+                    </TableCell>
                     <TableCell className="px-2 font-mono text-muted-foreground">
                       {row.globalQuestionNumber}
                     </TableCell>
@@ -571,25 +596,27 @@ export function Step3SetAnswers({
                           size="sm"
                           variant="outline"
                           className="h-7 px-2 text-[11px]"
-                          disabled={isExcluded || reviewController.aiStatus === 'running'}
+                          disabled={isExcluded || rowAiIsPending}
                           onClick={(event) => {
                             event.stopPropagation()
                             void reviewController.runAiReviewForStem(row.stemId)
                           }}
                         >
-                          {reviewController.aiStatus === 'running' ? (
+                          {rowAiPhase === 'analyzing' ? (
                             <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
                           ) : (
                             <Bot className="mr-1.5 h-3.5 w-3.5" />
                           )}
-                          {reviewController.hardFailures.some(({ stemId, issue }) => (
-                            stemId === row.stemId
-                            && (
-                              issue.scope.type === 'stem'
-                                ? row.questionIndex === 0
-                                : issue.scope.questionIndex === row.questionIndex
-                            )
-                          )) ? 'AI fix' : 'AI review'}
+                          {rowAiIsPending
+                            ? rowAiPhase === 'queued' ? 'Queued' : 'Reviewing…'
+                            : reviewController.hardFailures.some(({ stemId, issue }) => (
+                                stemId === row.stemId
+                                && (
+                                  issue.scope.type === 'stem'
+                                    ? row.questionIndex === 0
+                                    : issue.scope.questionIndex === row.questionIndex
+                                )
+                              )) ? 'AI fix' : 'AI review'}
                         </Button>
                       </TableCell>
                     ) : null}
@@ -614,6 +641,15 @@ export function Step3SetAnswers({
                             onActiveTextEditorChange={onActiveTextEditorChange}
                             sourceChannel={sourceChannel}
                             aiGenerationMetadata={stem.aiGenerationMetadata ?? null}
+                            aiReviewResult={reviewController?.aiResultsByStemId[stem.id] ?? null}
+                            aiReviewPhase={reviewController?.aiPhaseByStemId[stem.id] ?? 'idle'}
+                            aiReviewStale={reviewController?.staleAiStemIds.has(stem.id) ?? false}
+                            onApproveAiFinding={reviewController
+                              ? (findingKey) => void approveAiFinding(stem.id, findingKey)
+                              : undefined}
+                            onKeepAiFinding={reviewController
+                              ? (findingKey) => reviewController.keepFinding(stem.id, findingKey)
+                              : undefined}
                           />
                         </div>
                       </TableCell>

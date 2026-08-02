@@ -643,6 +643,57 @@ function proseMirrorHasImage(value: Json | null | undefined): boolean {
   return visit(root)
 }
 
+type RichNode = {
+  type?: string
+  content?: RichNode[]
+  [key: string]: JsonLike | RichNode[] | undefined
+}
+
+function asRichNode(value: unknown): RichNode | null {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return null
+  return value as RichNode
+}
+
+function childNodes(node: RichNode | null | undefined): RichNode[] {
+  return Array.isArray(node?.content) ? node.content : []
+}
+
+/** Lift cell contents out of a table; nested tables in cells stay as table nodes. */
+function flattenOuterTable(table: RichNode): RichNode[] {
+  const flattened: RichNode[] = []
+  for (const row of childNodes(table)) {
+    if (row.type !== 'tableRow') continue
+    for (const cell of childNodes(row)) {
+      if (cell.type !== 'tableCell' && cell.type !== 'tableHeader') continue
+      for (const child of childNodes(cell)) {
+        flattened.push(child)
+      }
+    }
+  }
+  return flattened
+}
+
+/**
+ * Flatten outermost tables only (same idea as paste `strip_outside`).
+ * Nested tables inside cells are preserved as tables.
+ */
+function transformStripOuterTables(node: RichNode): RichNode | RichNode[] {
+  if (node.type === 'table') {
+    return flattenOuterTable(node)
+  }
+
+  const children = childNodes(node)
+  if (children.length === 0) return node
+
+  const nextContent: RichNode[] = []
+  for (const child of children) {
+    const mapped = transformStripOuterTables(child)
+    if (Array.isArray(mapped)) nextContent.push(...mapped)
+    else nextContent.push(mapped)
+  }
+  return { ...node, content: nextContent }
+}
+
 function proseMirrorHasTable(value: Json | null | undefined): boolean {
   if (!value || typeof value !== 'object') return false
   const root = value as Record<string, unknown>
@@ -661,6 +712,56 @@ function proseMirrorHasTable(value: Json | null | undefined): boolean {
   }
 
   return visit(root)
+}
+
+/**
+ * True when the doc has a table that {@link stripOuterTablesFromProseMirrorDoc} would flatten
+ * (any table not nested inside another table — equivalent to any table in a well-formed doc).
+ */
+export function proseMirrorHasOuterTable(value: Json | null | undefined): boolean {
+  const root = asRichNode(value)
+  if (!root) return false
+
+  const visit = (node: RichNode): boolean => {
+    if (node.type === 'table') return true
+    for (const child of childNodes(node)) {
+      if (visit(child)) return true
+    }
+    return false
+  }
+
+  return visit(root)
+}
+
+/**
+ * Strip the outermost tables from a ProseMirror JSON doc, keeping nested tables intact.
+ * Matches paste behavior `strip_outside` for content already in the editor.
+ */
+export function stripOuterTablesFromProseMirrorDoc(
+  value: Json | null | undefined,
+): Json | null {
+  const root = asRichNode(value)
+  if (!root) return value ?? null
+
+  const transformed = transformStripOuterTables(root)
+  if (Array.isArray(transformed)) {
+    return {
+      type: 'doc',
+      content: (transformed.length > 0
+        ? transformed
+        : [{ type: 'paragraph' }]) as Json[],
+    }
+  }
+
+  if (transformed.type === 'doc') {
+    const content = childNodes(transformed)
+    return {
+      type: 'doc',
+      content: (content.length > 0 ? content : [{ type: 'paragraph' }]) as Json[],
+    }
+  }
+
+  return transformed as Json
 }
 
 /** Returns true if the ProseMirror value has non-empty plain text, image, or table content. */

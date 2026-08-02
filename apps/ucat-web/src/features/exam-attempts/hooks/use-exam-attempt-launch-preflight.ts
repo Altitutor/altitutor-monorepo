@@ -15,7 +15,7 @@ export function useExamAttemptLaunchPreflight({
 }: {
   kind: ExamAttemptKind;
   resourceId: string;
-  onLaunch: () => void;
+  onLaunch: () => void | Promise<void>;
 }) {
   const { active, refresh, clearLocal } = useActiveExamAttempt();
   const [conflictActive, setConflictActive] =
@@ -28,7 +28,7 @@ export function useExamAttemptLaunchPreflight({
       setConflictActive(active);
       return;
     }
-    onLaunch();
+    void onLaunch();
   }
 
   async function discardConflictAndLaunch() {
@@ -45,7 +45,7 @@ export function useExamAttemptLaunchPreflight({
       clearLocal();
       await refresh();
       setConflictActive(null);
-      onLaunch();
+      await onLaunch();
     })();
     discardPromiseRef.current = request;
 

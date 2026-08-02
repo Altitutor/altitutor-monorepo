@@ -16,7 +16,7 @@ const activeAttempt = {
   attemptId: "practice-1",
   resourceId: "practice-1",
   label: "Practice · Verbal Reasoning",
-  resumeHref: "/practice/session",
+  resumeHref: "/exam",
 } as ActiveExamAttempt;
 
 describe("ExamAttemptConflictDialog", () => {

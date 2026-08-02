@@ -49,7 +49,7 @@ const SECTION_PROMPTS: Record<AiGenerationSectionKey, string> = {
 - Teach the fastest appropriate method: use a compact table or elimination grid for assignments, a slot diagram for ordering/seating, set notation or a Venn diagram for sets, a probability tree or complement method for probability, and a necessary-versus-sufficient rule check for conditional logic.
 - Explanations should first show the efficient setup, then apply the decisive rule or calculation, then briefly identify why each distractor fails. Do not include hidden deliberation or narrate trial-and-error.`,
   quantitative_reasoning: `Quantitative Reasoning rules:
-- Generate between 1 and 4 questions per stem, using the same data source where multiple questions are present.
+- Generate one or more questions per stem, using the same data source where multiple questions are present. Do not impose an arbitrary maximum question count.
 - Include exactly 5 options and exactly one correct answer per question.
 - Use realistic numbers, units, ratios, percentages, currencies, dates, times, distances, rates, prices, or summary statistics.
 - Use structured tables and deterministic visual specs where useful; do not rely on freeform image descriptions.

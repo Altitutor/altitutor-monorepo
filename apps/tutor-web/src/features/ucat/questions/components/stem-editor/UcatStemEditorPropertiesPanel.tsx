@@ -51,6 +51,10 @@ import type { GeneratedContentBlock } from '@/features/ucat/questions/lib/ai-gen
 import type { UcatAuthoringWorkspaceTab } from '@/features/ucat/shared/components/UcatAuthoringWorkspaceTabs'
 import type { SelectedVisualImage } from '@/features/ucat/shared/lib/selected-visual-image'
 import { UcatAiAssessmentControl } from '@/features/ucat/questions/components/stem-editor/UcatAiAssessmentControl'
+import {
+  BulkImportAiReviewPanel,
+  type BulkImportAiReviewPanelProps,
+} from '@/features/ucat/questions/components/bulk-import/BulkImportAiReviewPanel'
 
 export type StemEditorMode = 'edit' | 'view'
 export type StemEditorFocusTarget = 'category' | 'explanation' | 'tags' | 'sets'
@@ -83,6 +87,7 @@ type UcatStemEditorPropertiesPanelProps = {
   onAcceptSelectedImage?: (imageNode: Json) => Promise<{ ok: boolean; message: string }> | { ok: boolean; message: string }
   onNewImageFileIds?: (fileIds: string[]) => void
   aiReviewAvailable?: boolean
+  bulkImportAiReview?: Omit<BulkImportAiReviewPanelProps, 'activeQuestionId' | 'activeQuestionIndex'> | null
   className?: string
 }
 
@@ -160,6 +165,7 @@ export function UcatStemEditorPropertiesPanel({
   onAcceptSelectedImage,
   onNewImageFileIds,
   aiReviewAvailable = false,
+  bulkImportAiReview = null,
   className,
 }: UcatStemEditorPropertiesPanelProps) {
   const { toast } = useToast()
@@ -1143,17 +1149,25 @@ export function UcatStemEditorPropertiesPanel({
             onAcceptImagePreview={onAcceptSelectedImage}
           />
         </TabsContent>
-        {aiReviewAvailable && stemId ? (
+        {aiReviewAvailable && (stemId || bulkImportAiReview) ? (
           <TabsContent
             forceMount
             value="review"
             className={cn('flex h-full min-h-0 flex-1 flex-col overflow-hidden', activeTab !== 'review' && 'hidden')}
           >
-            <UcatAiAssessmentControl
-              stemId={stemId}
-              form={form}
-              activeQuestionIndex={safeQuestionIndex}
-            />
+            {bulkImportAiReview ? (
+              <BulkImportAiReviewPanel
+                {...bulkImportAiReview}
+                activeQuestionId={activeQuestion?.id ?? null}
+                activeQuestionIndex={safeQuestionIndex}
+              />
+            ) : stemId ? (
+              <UcatAiAssessmentControl
+                stemId={stemId}
+                form={form}
+                activeQuestionIndex={safeQuestionIndex}
+              />
+            ) : null}
           </TabsContent>
         ) : null}
       </Tabs>

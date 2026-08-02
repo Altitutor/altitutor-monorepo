@@ -59,7 +59,6 @@ export function UcatGoalSetupPage() {
       const existing = query.data?.profile;
       const nextPlan = await saveStudyPlan({
         studyPlanEnabled: existing?.studyPlanEnabled ?? false,
-        studySuggestionsEnabled: existing?.studySuggestionsEnabled ?? true,
         targetScore,
         testYear,
         testDate: testDate || null,

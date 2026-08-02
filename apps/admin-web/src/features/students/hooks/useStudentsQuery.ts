@@ -8,14 +8,62 @@ export const studentsKeys = {
   lists: () => [...studentsKeys.all, 'list'] as const,
   list: (filters: string) => [...studentsKeys.lists(), { filters }] as const,
   minimal: (params: unknown) => [...studentsKeys.all, 'minimal', params] as const,
+  online: (params: unknown) => [...studentsKeys.all, 'online', params] as const,
   details: () => [...studentsKeys.all, 'detail'] as const,
   detail: (id: string) => [...studentsKeys.details(), id] as const,
   detailFull: (id: string) => [...studentsKeys.detail(id), 'details'] as const,
   withDetails: () => [...studentsKeys.all, 'withDetails'] as const,
   withSubjects: () => [...studentsKeys.all, 'withSubjects'] as const,
-  byStatus: (status: Tables<'students'>['status']) => [...studentsKeys.all, 'byStatus', status] as const,
+  byStatus: (status: NonNullable<Tables<'students'>['status']>) => [...studentsKeys.all, 'byStatus', status] as const,
   count: () => [...studentsKeys.all, 'count'] as const,
 };
+
+export interface UseOnlineStudentsListParams {
+  search?: string;
+  products?: string[];
+  entitlements?: string[];
+  page?: number;
+  pageSize?: number;
+  orderBy?: 'first_name' | 'last_name' | 'online_since';
+  ascending?: boolean;
+}
+
+export function useOnlineStudentsMinimal(params: UseOnlineStudentsListParams) {
+  const {
+    search = '',
+    products = [],
+    entitlements = [],
+    page = 1,
+    pageSize = 50,
+    orderBy = 'last_name',
+    ascending = true,
+  } = params;
+  const offset = (Math.max(page, 1) - 1) * pageSize;
+
+  return useQuery({
+    queryKey: studentsKeys.online({
+      search,
+      products,
+      entitlements,
+      page,
+      pageSize,
+      orderBy,
+      ascending,
+    }),
+    queryFn: () => studentsApi.listOnline({
+      search,
+      products,
+      entitlements,
+      limit: pageSize,
+      offset,
+      orderBy,
+      ascending,
+    }),
+    placeholderData: keepPreviousData,
+    staleTime: 1000 * 60 * 3,
+    gcTime: 1000 * 60 * 5,
+  });
+}
 
 // For table display - minimal data
 export function useStudentsMinimal(params: UseStudentsListParams) {
@@ -104,7 +152,7 @@ export function useStudents() {
 // Paginated server-filtered students list
 export interface UseStudentsListParams {
   search?: string;
-  statuses?: Tables<'students'>['status'][];
+  statuses?: NonNullable<Tables<'students'>['status']>[];
   curriculums?: string[];
   yearLevels?: number[];
   subjectIds?: string[];
@@ -360,4 +408,4 @@ export function useStudentsSearchForAbsence(params: {
     queryFn: () => studentsApi.searchForAbsence({ search, page, pageSize }),
     staleTime: 1000 * 30, // 30 seconds
   });
-} 
+}

@@ -45,6 +45,7 @@ import { LogAbsenceDialog } from '@/features/sessions/components';
 import { BookSessionModal } from '@/features/bookings/components/BookSessionModal';
 import { SendStudentInviteDialog } from './SendStudentInviteDialog';
 import { StudentExitRequestDialog } from '@/features/forms/components/StudentExitRequestDialog';
+import { ReEnrollStudentConfirmDialog } from './ReEnrollStudentConfirmDialog';
 import { studentsApi } from '../api';
 import { useDataTable } from '@/shared/hooks/useDataTable';
 import { useQuickFilters } from '@/features/quick-filters/hooks/useQuickFilters';
@@ -69,6 +70,7 @@ interface StudentRowActionsProps {
   onBookSubsidyInterview: () => void;
   onBookCheckIn: () => void;
   onDiscontinue?: () => void;
+  onReEnroll?: () => void;
   onDelete: () => void;
 }
 
@@ -84,6 +86,7 @@ function StudentRowActions({
   onBookSubsidyInterview,
   onBookCheckIn,
   onDiscontinue,
+  onReEnroll,
   onDelete,
 }: StudentRowActionsProps) {
   const studentActions = useStudentActions({
@@ -99,6 +102,7 @@ function StudentRowActions({
     onBookSubsidyInterview,
     onBookCheckIn,
     onDiscontinue,
+    onReEnroll,
     onDelete,
   });
 
@@ -139,7 +143,7 @@ export function StudentsTable({ onRefresh: _onRefresh, onStudentSelect: _onStude
     defaultFilters,
     defaultSort,
     defaultVisibleColumns,
-    filterKeys: ['status', 'curriculum', 'yearLevel', 'subject', 'subscriptionOnline', 'inPersonClass'],
+    filterKeys: ['status', 'curriculum', 'yearLevel', 'subject', 'inPersonClass'],
   });
 
   const { 
@@ -150,7 +154,7 @@ export function StudentsTable({ onRefresh: _onRefresh, onStudentSelect: _onStude
     refetch,
   } = useStudentsMinimal({
     search: state.search,
-    statuses: state.filters.status as Tables<'students'>['status'][],
+    statuses: state.filters.status as NonNullable<Tables<'students'>['status']>[],
     curriculums: state.filters.curriculum as string[],
     yearLevels: state.filters.yearLevel as number[],
     subjectIds: state.filters.subject as string[],
@@ -185,15 +189,16 @@ export function StudentsTable({ onRefresh: _onRefresh, onStudentSelect: _onStude
   const [, setLoadingPasswordReset] = useState(false);
   const [, setHasPasswordResetLinkSent] = useState(false);
   const [studentToDiscontinue, setStudentToDiscontinue] = useState<{ id: string; first_name?: string; last_name?: string; phone?: string | null } | null>(null);
+  const [studentToReEnroll, setStudentToReEnroll] = useState<{ id: string; first_name?: string; last_name?: string } | null>(null);
+  const [isReEnrolling, setIsReEnrolling] = useState(false);
 
   const filterDefinitions: DataTableFilterDefinition[] = useMemo(() => [
     {
       key: 'status',
-      label: 'Status',
+      label: 'In-person status',
       options: [
         { label: 'ACTIVE', value: 'ACTIVE' },
         { label: 'TRIAL', value: 'TRIAL' },
-        { label: 'INACTIVE', value: 'INACTIVE' },
         { label: 'DISCONTINUED', value: 'DISCONTINUED' },
       ],
     },
@@ -213,14 +218,6 @@ export function StudentsTable({ onRefresh: _onRefresh, onStudentSelect: _onStude
       options: allSubjects
         .sort((a, b) => (a.long_name ?? '').localeCompare(b.long_name ?? ''))
         .map(s => ({ label: s.long_name ?? '', value: s.id })),
-    },
-    {
-      key: 'subscriptionOnline',
-      label: 'Online (subscription)',
-      options: [
-        { label: 'Has subscription', value: 'has' },
-        { label: 'No subscription', value: 'none' },
-      ],
     },
     {
       key: 'inPersonClass',
@@ -710,11 +707,12 @@ export function StudentsTable({ onRefresh: _onRefresh, onStudentSelect: _onStude
                             ],
                           })
                         }
-                        onDiscontinue={student.status === 'TRIAL' || student.status === 'ACTIVE'
-                          ? () => {
-                              setStudentToDiscontinue(student);
-                            }
-                          : undefined}
+                        onDiscontinue={() => {
+                          setStudentToDiscontinue(student);
+                        }}
+                        onReEnroll={() => {
+                          setStudentToReEnroll(student);
+                        }}
                         onDelete={() => {
                           setActionStudentId(student.id);
                           setIsDeleteDialogOpen(true);
@@ -925,6 +923,38 @@ export function StudentsTable({ onRefresh: _onRefresh, onStudentSelect: _onStude
           studentPhone={studentToDiscontinue.phone}
           workflowKey="student_discontinuation"
           onCreated={refetch}
+        />
+      )}
+
+      {studentToReEnroll && (
+        <ReEnrollStudentConfirmDialog
+          isOpen={!!studentToReEnroll}
+          onOpenChange={(open) => {
+            if (!open) setStudentToReEnroll(null);
+          }}
+          studentName={[studentToReEnroll.first_name, studentToReEnroll.last_name].filter(Boolean).join(' ') || 'this student'}
+          isReEnrolling={isReEnrolling}
+          onConfirm={async () => {
+            try {
+              setIsReEnrolling(true);
+              await studentsApi.reEnrollStudent(studentToReEnroll.id);
+              toast({
+                title: 'Success',
+                description: 'Student re-enrolled successfully.',
+              });
+              handleStudentUpdated();
+              return true;
+            } catch (error) {
+              toast({
+                title: 'Re-enroll failed',
+                description: error instanceof Error ? error.message : 'There was an error re-enrolling the student. Please try again.',
+                variant: 'destructive',
+              });
+              return false;
+            } finally {
+              setIsReEnrolling(false);
+            }
+          }}
         />
       )}
     </div>

@@ -35,7 +35,7 @@ import { useStaffMinimal } from '@/features/staff/hooks/useStaffQuery';
 import type { AutomationRuleWithActions, ActivityEntityType, ActivityEventType } from '../types';
 import { AutomationActionsList } from './AutomationActionsList';
 import { AutomationConditionsBuilder } from './AutomationConditionsBuilder';
-import type { AutomationCondition } from '../types';
+import type { AutomationConditionExpression } from '../types';
 import { ENTITY_TYPES, EVENT_TYPES } from '../constants';
 import {
   ExpandButton,
@@ -49,6 +49,11 @@ const ruleFormSchema = z.object({
   description: z.string().optional().default(''),
   entity_type: z.string().min(1, 'Entity type is required'),
   event_types: z.array(z.string()).min(1, 'At least one event type is required'),
+  trigger_kind: z.enum(['EVENT', 'RELATIVE_TIME']),
+  trigger_config: z.object({
+    anchor: z.literal('session.start_at'),
+    offset_minutes: z.number().int().min(0).max(525600),
+  }),
   enabled: z.boolean(),
   priority: z.number().int().min(0),
   conditions: z.any().optional().nullable(),
@@ -83,9 +88,11 @@ export function EditAutomationRuleDialog({
       description: '',
       entity_type: 'tasks',
       event_types: ['CREATED'],
+      trigger_kind: 'EVENT' as const,
+      trigger_config: { anchor: 'session.start_at' as const, offset_minutes: 1440 },
       enabled: true,
       priority: 0,
-      conditions: null as AutomationCondition | null,
+      conditions: null as AutomationConditionExpression | null,
     },
   });
 
@@ -96,20 +103,31 @@ export function EditAutomationRuleDialog({
   // Initialize form when editing
   useEffect(() => {
     if (isOpen && existingRule) {
+      const storedTriggerConfig = existingRule.trigger_config;
+      const configRecord = storedTriggerConfig && typeof storedTriggerConfig === 'object' &&
+        !Array.isArray(storedTriggerConfig)
+        ? storedTriggerConfig as Record<string, unknown>
+        : null;
+      const offsetMinutes = typeof configRecord?.offset_minutes === 'number'
+        ? configRecord.offset_minutes
+        : 1440;
       form.reset({
         name: existingRule.name,
         description: existingRule.description || '',
         entity_type: existingRule.entity_type as ActivityEntityType,
         event_types: existingRule.event_types as ActivityEventType[],
+        trigger_kind: existingRule.trigger_kind === 'RELATIVE_TIME' ? 'RELATIVE_TIME' : 'EVENT',
+        trigger_config: { anchor: 'session.start_at', offset_minutes: offsetMinutes },
         enabled: existingRule.enabled ?? true,
         priority: existingRule.priority ?? 0,
-        conditions: (existingRule.conditions as AutomationCondition | null) || null,
+        conditions: (existingRule.conditions as AutomationConditionExpression | null) || null,
       });
       setActiveTab('details');
     }
   }, [isOpen, existingRule, form]);
 
   const selectedEventTypes = form.watch('event_types');
+  const triggerKind = form.watch('trigger_kind');
 
   const onSubmit = async (data: z.infer<typeof ruleFormSchema>) => {
     try {
@@ -120,6 +138,8 @@ export function EditAutomationRuleDialog({
           description: data.description || null,
           entity_type: data.entity_type,
           event_types: data.event_types,
+          trigger_kind: data.trigger_kind,
+          trigger_config: data.trigger_config,
           enabled: data.enabled,
           priority: data.priority,
           conditions: data.conditions || null,
@@ -278,7 +298,64 @@ export function EditAutomationRuleDialog({
                         <div className="text-sm text-muted-foreground mb-4">
                           Configure when this automation rule should trigger
                         </div>
+
+                        <FormField
+                          control={form.control}
+                          name="trigger_kind"
+                          render={({ field }) => {
+                            const options = [
+                              { value: 'EVENT' as const, label: 'Entity event' },
+                              { value: 'RELATIVE_TIME' as const, label: 'Before session start' },
+                            ];
+                            return (
+                              <FormItem className="max-w-sm">
+                                <FormLabel>Trigger type</FormLabel>
+                                <FormControl>
+                                  <SearchableSelect
+                                    items={options}
+                                    value={options.find((option) => option.value === field.value) ?? options[0]}
+                                    onValueChange={(item) => {
+                                      const next = item?.value ?? 'EVENT';
+                                      field.onChange(next);
+                                      if (next === 'RELATIVE_TIME') {
+                                        form.setValue('entity_type', 'sessions');
+                                        form.setValue('event_types', ['SCHEDULED']);
+                                      } else if (form.getValues('event_types')[0] === 'SCHEDULED') {
+                                        form.setValue('event_types', ['CREATED']);
+                                      }
+                                    }}
+                                    getItemId={(option) => option.value}
+                                    getItemLabel={(option) => option.label}
+                                  />
+                                </FormControl>
+                              </FormItem>
+                            );
+                          }}
+                        />
+
+                        {triggerKind === 'RELATIVE_TIME' && (
+                          <FormField
+                            control={form.control}
+                            name="trigger_config.offset_minutes"
+                            render={({ field }) => (
+                              <FormItem className="max-w-xs">
+                                <FormLabel>Hours before session</FormLabel>
+                                <FormControl>
+                                  <Input
+                                    type="number"
+                                    min={0}
+                                    max={8760}
+                                    value={field.value / 60}
+                                    onChange={(event) => field.onChange(Math.round(Number(event.target.value) * 60))}
+                                  />
+                                </FormControl>
+                                <FormDescription>Use 24 hours for a one-day reminder.</FormDescription>
+                              </FormItem>
+                            )}
+                          />
+                        )}
                         
+                        {triggerKind === 'EVENT' && (
                         <div className="flex flex-wrap items-center gap-2 text-base">
                           <span>When a</span>
                           
@@ -334,85 +411,20 @@ export function EditAutomationRuleDialog({
                             }}
                           />
 
-                          {(selectedEventTypes[0] === 'CREATED' || selectedEventTypes[0] === 'UPDATED') && (
+                          {(selectedEventTypes[0] === 'CREATED' || selectedEventTypes[0] === 'UPDATED' || selectedEventTypes[0] === 'SCHEDULED') && (
                             <FormField
                               control={form.control}
                               name="conditions"
                               render={({ field }) => (
-                                <FormItem className="contents">
+                                <FormItem className="w-full basis-full pt-3">
+                                  <FormLabel>Conditions</FormLabel>
                                   <FormControl>
-                                    <div className="flex flex-wrap items-center gap-2">
-                                      {field.value ? (
-                                        <>
-                                          <span>with</span>
-                                          <span className="px-2 py-1 border rounded-md bg-muted/50 text-sm font-medium">
-                                            {field.value.field}
-                                          </span>
-                                          {field.value.operator === 'field_changed' ? (
-                                            <span className="text-sm">changed</span>
-                                          ) : field.value.operator === 'changed_from' ? (
-                                            <>
-                                              <span className="text-sm">changed from</span>
-                                              <span className="px-2 py-1 border rounded-md bg-muted/50 text-sm">
-                                                {String(field.value.value)}
-                                              </span>
-                                            </>
-                                          ) : field.value.operator === 'changed_to' ? (
-                                            <>
-                                              <span className="text-sm">changed to</span>
-                                              <span className="px-2 py-1 border rounded-md bg-muted/50 text-sm">
-                                                {String(field.value.value)}
-                                              </span>
-                                            </>
-                                          ) : field.value.operator === 'changed_from_to' ? (
-                                            <>
-                                              <span className="text-sm">changed from</span>
-                                              <span className="px-2 py-1 border rounded-md bg-muted/50 text-sm">
-                                                {String(field.value.old_value)}
-                                              </span>
-                                              <span className="text-sm">to</span>
-                                              <span className="px-2 py-1 border rounded-md bg-muted/50 text-sm">
-                                                {String(field.value.new_value)}
-                                              </span>
-                                            </>
-                                          ) : (
-                                            <>
-                                              <span className="text-sm">
-                                                {field.value.operator === 'equals' ? 'equals' :
-                                                 field.value.operator === 'not_equals' ? 'not equals' :
-                                                 field.value.operator === 'contains' ? 'contains' :
-                                                 field.value.operator === 'not_contains' ? 'not contains' :
-                                                 field.value.operator === 'greater_than' ? 'greater than' :
-                                                 field.value.operator === 'less_than' ? 'less than' :
-                                                 field.value.operator}
-                                              </span>
-                                              <span className="px-2 py-1 border rounded-md bg-muted/50 text-sm">
-                                                {String(field.value.value)}
-                                              </span>
-                                            </>
-                                          )}
-                                          <Button
-                                            type="button"
-                                            variant="ghost"
-                                            size="sm"
-                                            className="h-6 w-6 p-0"
-                                            onClick={() => field.onChange(null)}
-                                          >
-                                            <X className="h-3 w-3" />
-                                          </Button>
-                                        </>
-                                      ) : (
-                                        <AutomationConditionsBuilder
-                                          conditions={field.value}
-                                          eventTypes={selectedEventTypes as ActivityEventType[]}
-                                          entityType={form.watch('entity_type')}
-                                          onChange={(condition) => {
-                                            field.onChange(condition);
-                                          }}
-                                          inline={true}
-                                        />
-                                      )}
-                                    </div>
+                                    <AutomationConditionsBuilder
+                                      conditions={field.value}
+                                      eventTypes={selectedEventTypes as ActivityEventType[]}
+                                      entityType={form.watch('entity_type')}
+                                      onChange={field.onChange}
+                                    />
                                   </FormControl>
                                   <FormMessage />
                                 </FormItem>
@@ -420,6 +432,27 @@ export function EditAutomationRuleDialog({
                             />
                           )}
                         </div>
+                        )}
+
+                        {triggerKind === 'RELATIVE_TIME' && (
+                          <FormField
+                            control={form.control}
+                            name="conditions"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>Conditions</FormLabel>
+                                <FormControl>
+                                  <AutomationConditionsBuilder
+                                    conditions={field.value}
+                                    eventTypes={['SCHEDULED']}
+                                    entityType="sessions"
+                                    onChange={field.onChange}
+                                  />
+                                </FormControl>
+                              </FormItem>
+                            )}
+                          />
+                        )}
                       </div>
                     </SegmentedTabPanelContent>
 

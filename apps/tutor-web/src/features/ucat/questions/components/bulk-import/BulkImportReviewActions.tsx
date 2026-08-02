@@ -7,10 +7,12 @@ import {
 } from '@altitutor/ui'
 import {
   Bot,
+  CheckCircle2,
+  Clock3,
   Copy,
+  AlertTriangle,
   Loader2,
   RotateCcw,
-  Sparkles,
   Square,
 } from 'lucide-react'
 import type { BulkImportReviewController } from '@/features/ucat/questions/hooks/useBulkImportReviewController'
@@ -39,53 +41,41 @@ export function BulkImportReviewActions({
   const failedCount = Object.keys(controller.aiErrorsByStemId).length
   const reviewedCount = Object.values(controller.aiResultsByStemId)
     .filter((result) => !result.error && result.assessment).length
+  const pendingCount = controller.pendingAiStemIds.size
 
   return (
     <div className="flex flex-wrap items-center justify-between gap-3">
       <p className="text-xs text-muted-foreground">
-        AI review is optional. Safe fixes apply automatically; proposed content edits appear in
-        each question&apos;s Issues column for one-click approval.
+        AI review is optional. One click checks every included question, applies confident fixes,
+        and leaves only genuinely uncertain items for manual review.
       </p>
       <div className="flex flex-wrap items-center gap-2">
         <Button
           type="button"
           size="sm"
-          variant="outline"
-          className={tutorBtnOutline}
-          disabled={controller.aiStatus === 'running'}
+          className={tutorBtnPrimary}
+          disabled={pendingCount === 0}
           onClick={() => {
-            const affectedStemIds = controller.hardFailures.map(({ stemId }) => stemId)
             controller.applyDeterministicFixes()
-            if (affectedStemIds.length > 0) {
-              void controller.runAiReviewForStemIds(affectedStemIds)
-            }
+            void controller.runAiReview()
           }}
         >
-          <Sparkles className="mr-2 h-3.5 w-3.5" />
-          Fix all issues
+          <Bot className="mr-2 h-3.5 w-3.5" />
+          {reviewedCount > 0
+            ? `Fix & review ${pendingCount} remaining`
+            : 'Fix & review all'}
         </Button>
-        <Button
-          type="button"
-          size="sm"
-          className={controller.aiStatus === 'running' ? tutorBtnOutline : tutorBtnPrimary}
-          onClick={
-            controller.aiStatus === 'running'
-              ? controller.cancelAiReview
-              : () => void controller.runAiReview()
-          }
-        >
-          {controller.aiStatus === 'running' ? (
-            <>
-              <Square className="mr-2 h-3.5 w-3.5 fill-current" />
-              Stop AI review
-            </>
-          ) : (
-            <>
-              <Bot className="mr-2 h-3.5 w-3.5" />
-              {reviewedCount > 0 ? 'Review changed questions' : 'AI review all'}
-            </>
-          )}
-        </Button>
+        {controller.aiStatus === 'running' ? (
+          <Button
+            type="button"
+            size="sm"
+            className={tutorBtnOutline}
+            onClick={controller.cancelAiReview}
+          >
+            <Square className="mr-2 h-3.5 w-3.5 fill-current" />
+            Stop running reviews
+          </Button>
+        ) : null}
         {failedCount > 0 && controller.aiStatus !== 'running' ? (
           <Button
             type="button"
@@ -148,6 +138,9 @@ export function BulkImportQuestionIssues({
         : issue.scope.questionIndex === questionIndex
     )
   ))
+  const stemHasDeterministicIssues = controller.hardFailures.some(
+    ({ stemId: issueStemId }) => issueStemId === stemId
+  )
   const appliesToQuestion = (finding: { stemId: string; finding: { questionId?: string | null } }) =>
     finding.stemId === stemId
     && (
@@ -159,8 +152,18 @@ export function BulkImportQuestionIssues({
   const duplicates = questionIndex === 0
     ? controller.duplicateFindings.filter((finding) => finding.draft.stemId === stemId)
     : []
-  const error = questionIndex === 0 ? controller.aiErrorsByStemId[stemId] : null
-  const isStale = questionIndex === 0 && controller.staleAiStemIds.has(stemId)
+  const aiPhase = controller.aiPhaseByStemId[stemId] ?? 'idle'
+  const error = questionIndex === 0 && aiPhase === 'failed'
+    ? controller.aiErrorsByStemId[stemId]
+    : null
+  const stemHasContinuingFindings = controller.approvalRequiredFindings.some(
+    (item) => item.stemId === stemId
+  ) || controller.manualReviewFindings.some((item) => item.stemId === stemId)
+  const isStale =
+    questionIndex === 0
+    && aiPhase !== 'failed'
+    && controller.staleAiStemIds.has(stemId)
+    && !stemHasContinuingFindings
   const issueCount =
     deterministicIssues.length
     + approvalFindings.length
@@ -168,6 +171,7 @@ export function BulkImportQuestionIssues({
     + duplicates.length
     + (error ? 1 : 0)
     + (isStale ? 1 : 0)
+    + (aiPhase !== 'idle' ? 1 : 0)
 
   async function approve(findingKey: string) {
     try {
@@ -192,6 +196,36 @@ export function BulkImportQuestionIssues({
 
   return (
     <div className="space-y-2 py-1">
+      {aiPhase === 'queued' ? (
+        <p className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
+          <Clock3 className="h-3.5 w-3.5" />
+          Queued for AI review
+        </p>
+      ) : null}
+      {aiPhase === 'analyzing' ? (
+          <p className="flex items-center gap-1.5 text-[11px] text-blue-700 dark:text-blue-300">
+            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            Auditing and applying safe fixes
+          </p>
+      ) : null}
+      {aiPhase === 'ready' ? (
+        <p className="flex items-center gap-1.5 text-[11px] text-emerald-700 dark:text-emerald-300">
+          <CheckCircle2 className="h-3.5 w-3.5" />
+          {stemHasDeterministicIssues ? 'AI complete · gate remains' : 'AI checked · publish ready'}
+        </p>
+      ) : null}
+      {aiPhase === 'manual_review' ? (
+        <p className="flex items-center gap-1.5 text-[11px] text-amber-700 dark:text-amber-300">
+          <AlertTriangle className="h-3.5 w-3.5" />
+          AI complete · input needed
+        </p>
+      ) : null}
+      {aiPhase === 'failed' ? (
+        <p className="flex items-center gap-1.5 text-[11px] text-destructive">
+          <AlertTriangle className="h-3.5 w-3.5" />
+          AI review failed
+        </p>
+      ) : null}
       {deterministicIssues.map(({ issue }, index) => (
         <div key={`${issue.code}:${index}`} className="space-y-0.5">
           <Badge variant="destructive">Gate</Badge>
@@ -288,7 +322,7 @@ export function BulkImportQuestionIssues({
       ) : null}
       {isStale ? (
         <p className="text-[11px] text-amber-700 dark:text-amber-300">
-          Changed since its last AI review.
+          Applied edits need a final AI verification.
         </p>
       ) : null}
     </div>

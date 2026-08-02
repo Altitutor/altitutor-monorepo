@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 import { safeNextPath } from "@/app/auth/callback/auth-callback-utils";
+import { safePostAuthReturnPath } from "@/features/auth/lib/return-intent";
 import {
   isSocialAuthProvider,
   parseSocialAuthIntent,
@@ -13,7 +14,9 @@ export async function GET(request: NextRequest) {
   const intent = parseSocialAuthIntent(url.searchParams.get("intent"));
   const providerParam = url.searchParams.get("provider");
   const provider = isSocialAuthProvider(providerParam) ? providerParam : null;
-  const next = safeNextPath(url.searchParams.get("next"));
+  const next = safePostAuthReturnPath(
+    safeNextPath(url.searchParams.get("next")),
+  );
   const supabase = await getSupabaseServerClient();
   const {
     data: { user },

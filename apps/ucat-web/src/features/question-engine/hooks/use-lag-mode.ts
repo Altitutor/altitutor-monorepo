@@ -6,9 +6,23 @@ import {
   UCAT_LAG_MODE_MAX_DELAY_MS,
 } from "@/features/question-engine/constants/lag-mode";
 
-export function useLagMode() {
-  const [enabled, setEnabled] = useState<boolean>(
-    UCAT_LAG_MODE_DEFAULT_ENABLED,
+export function useLagMode({
+  enabled: controlledEnabled,
+  onEnabledChange,
+}: {
+  enabled?: boolean;
+  onEnabledChange?: (enabled: boolean) => void;
+} = {}) {
+  const [internalEnabled, setInternalEnabled] = useState<boolean>(
+    controlledEnabled ?? UCAT_LAG_MODE_DEFAULT_ENABLED,
+  );
+  const enabled = controlledEnabled ?? internalEnabled;
+  const setEnabled = useCallback(
+    (next: boolean) => {
+      setInternalEnabled(next);
+      onEnabledChange?.(next);
+    },
+    [onEnabledChange],
   );
   const [isLagging, setIsLagging] = useState<boolean>(false);
   const timeoutRef = useRef<number | null>(null);

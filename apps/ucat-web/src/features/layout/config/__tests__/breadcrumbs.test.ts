@@ -18,7 +18,7 @@ function hrefs(pathname: string): (string | undefined)[] {
 
 describe("getBreadcrumbItems", () => {
   it("returns empty array for exam routes", () => {
-    expect(getBreadcrumbItems("/exam/sets")).toEqual([]);
+    expect(getBreadcrumbItems("/exam")).toEqual([]);
   });
 
   it("omits structural segments on progress set-attempt section route", () => {

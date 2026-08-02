@@ -3,7 +3,7 @@
 import { useState, useCallback, useEffect } from 'react';
 import { ActivityFeed } from '../ActivityFeed';
 import { ActivityNoteComposer } from '../ActivityNoteComposer';
-import { useSessionActivity } from '../../hooks';
+import { useSessionActivity, useFormResponseDialog } from '../../hooks';
 import { useCreateNote, notesKeys } from '@/shared/hooks/useNotes';
 import { useCurrentStaff } from '@/shared/hooks';
 import { useQueryClient } from '@tanstack/react-query';
@@ -12,7 +12,7 @@ import type { JSONContent } from '@tiptap/core';
 import { Button, SearchableSelect } from '@altitutor/ui';
 import { Plus } from 'lucide-react';
 import { SessionFormResponseDialog } from '@/features/forms/components/SessionFormResponseDialog';
-import { FormResponseDialog, type FormResponseDetail } from '@/features/feedback/components/FormResponseDialog';
+import { FormResponseDialog } from '@/features/feedback/components/FormResponseDialog';
 
 const EMPTY_DOC: JSONContent = {
   type: 'doc',
@@ -37,14 +37,11 @@ export function SessionActivityTab({ sessionId, isOpen = true }: SessionActivity
   const [formsLoading, setFormsLoading] = useState(false);
   const [formsError, setFormsError] = useState<string | null>(null);
   const [selectedFormId, setSelectedFormId] = useState<string | null>(null);
-  const [selectedResponse, setSelectedResponse] = useState<FormResponseDetail | null>(null);
+  const { selectedResponse, openFormResponse, closeFormResponse } = useFormResponseDialog();
 
-  const openFormResponse = useCallback(async (responseId: string) => {
-    if (!responseId) return;
-    const response = await fetch(`/api/forms/responses?responseId=${encodeURIComponent(responseId)}`);
-    const json = await response.json();
-    if (response.ok) setSelectedResponse(json.responses?.[0] ?? null);
-  }, []);
+  const invalidateActivity = useCallback(() => {
+    queryClient.invalidateQueries({ queryKey: activityKeys.session(sessionId) });
+  }, [queryClient, sessionId]);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -80,11 +77,11 @@ export function SessionActivityTab({ sessionId, isOpen = true }: SessionActivity
       });
       setNewNoteContent(EMPTY_DOC);
       queryClient.invalidateQueries({ queryKey: notesKeys.forTarget('sessions', sessionId) });
-      queryClient.invalidateQueries({ queryKey: activityKeys.session(sessionId) });
+      invalidateActivity();
     } catch {
       // Error handled silently - user can retry
     }
-  }, [newNoteContent, currentStaff?.id, sessionId, createNoteMutation, queryClient]);
+  }, [newNoteContent, currentStaff?.id, sessionId, createNoteMutation, queryClient, invalidateActivity]);
 
   return (
     <div className="h-full space-y-6">
@@ -125,8 +122,9 @@ export function SessionActivityTab({ sessionId, isOpen = true }: SessionActivity
       />
       <FormResponseDialog
         response={selectedResponse}
-        onClose={() => setSelectedResponse(null)}
-        onUpdated={() => queryClient.invalidateQueries({ queryKey: activityKeys.session(sessionId) })}
+        onClose={closeFormResponse}
+        onUpdated={invalidateActivity}
+        onDeleted={invalidateActivity}
       />
       <SessionFormResponseDialog
         sessionId={sessionId}
@@ -135,7 +133,7 @@ export function SessionActivityTab({ sessionId, isOpen = true }: SessionActivity
         onOpenChange={(open) => {
           if (!open) setSelectedFormId(null);
         }}
-        onSaved={() => queryClient.invalidateQueries({ queryKey: activityKeys.session(sessionId) })}
+        onSaved={invalidateActivity}
       />
     </div>
   );

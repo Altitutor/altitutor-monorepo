@@ -43,7 +43,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [supabase]);
 
   useEffect(() => {
-    Sentry.setUser(user ? { id: user.id } : null);
+    Sentry.setUser(user ? { id: user.id, email: user.email } : null);
   }, [user]);
 
   const value: AuthContextValue = {

@@ -394,6 +394,78 @@ describe('evaluateConditions', () => {
       }, {})).toBe(false);
     });
   });
+
+  describe('compound contextual conditions', () => {
+    const updateEvent = {
+      event_type: 'UPDATED',
+      changed_fields: {
+        start_at: { old: '2026-08-03T01:00:00Z', new: '2026-08-03T02:00:00Z' },
+      },
+    };
+    const context = {
+      session: { type: 'TRIAL_SESSION', status: 'ACTIVE' },
+    };
+
+    it('matches nested fields and array membership', () => {
+      expect(evaluateConditions({
+        all: [
+          { field: 'session.type', operator: 'in', value: ['TRIAL_SESSION', 'SUBSIDY_INTERVIEW'] },
+          { field: 'session.status', operator: 'equals', value: 'ACTIVE' },
+        ],
+      }, updateEvent, context)).toBe(true);
+    });
+
+    it('matches any changed field without sending twice', () => {
+      expect(evaluateConditions({
+        all: [
+          { field: 'session.type', operator: 'equals', value: 'TRIAL_SESSION' },
+          {
+            any: [
+              { field: 'start_at', operator: 'field_changed' },
+              { field: 'end_at', operator: 'field_changed' },
+            ],
+          },
+        ],
+      }, updateEvent, context)).toBe(true);
+    });
+
+    it('fails an all group when one contextual condition fails', () => {
+      expect(evaluateConditions({
+        all: [
+          { field: 'session.type', operator: 'equals', value: 'TRIAL_SESSION' },
+          { field: 'session.status', operator: 'equals', value: 'INACTIVE' },
+        ],
+      }, updateEvent, context)).toBe(false);
+    });
+
+    it('matches only the first completed in-person registration', () => {
+      const registrationCondition = {
+        all: [
+          { field: 'registered_at', operator: 'field_changed' },
+          { field: 'entity.status', operator: 'equals', value: 'ACTIVE' },
+        ],
+      };
+
+      expect(evaluateConditions(registrationCondition, {
+        event_type: 'UPDATED',
+        changed_fields: {
+          registered_at: { old: null, new: '2026-08-02T13:45:00Z' },
+          status: { old: 'TRIAL', new: 'ACTIVE' },
+        },
+      }, {
+        entity: { status: 'ACTIVE' },
+      })).toBe(true);
+
+      expect(evaluateConditions(registrationCondition, {
+        event_type: 'UPDATED',
+        changed_fields: {
+          status: { old: 'DISCONTINUED', new: 'ACTIVE' },
+        },
+      }, {
+        entity: { status: 'ACTIVE' },
+      })).toBe(false);
+    });
+  });
 });
 
 describe('getActivityEventVariables', () => {

@@ -7,7 +7,6 @@
  * Safari throws SecurityError (100 calls / 10s).
  */
 export function navigateAfterAuth(path: string): void {
-  const next =
-    path.startsWith("/") && !path.startsWith("//") ? path : "/signup/complete";
-  window.location.assign(next);
+  window.location.assign(safeInternalPath(path, "/signup/complete"));
 }
+import { safeInternalPath } from "@/features/auth/lib/return-intent";

@@ -1,4 +1,7 @@
-import type { SignupOnboardingStep } from "@/features/signup-onboarding/types";
+import type {
+  SignupOnboardingStep,
+  UcatFamiliarity,
+} from "@/features/signup-onboarding/types";
 import { isSignupOnboardingStep } from "@/features/signup-onboarding/lib/steps";
 
 export type SignupProgressResponse = {
@@ -20,6 +23,7 @@ export async function patchSignupProgress(input: {
   step?: SignupOnboardingStep;
   complete?: boolean;
   planComplete?: boolean;
+  familiarity?: UcatFamiliarity;
 }): Promise<SignupProgressResponse> {
   const res = await fetch("/api/ucat/signup/progress", {
     method: "PATCH",

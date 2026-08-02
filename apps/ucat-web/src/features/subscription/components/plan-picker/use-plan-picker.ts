@@ -86,6 +86,7 @@ type UsePlanPickerOptions = {
     | "signup_onboarding"
     | "subscribe"
     | "practice_session";
+  postCheckoutReturnTo?: string;
 };
 
 export function usePlanPicker(options: UsePlanPickerOptions = {}) {
@@ -142,9 +143,9 @@ export function usePlanPicker(options: UsePlanPickerOptions = {}) {
   const subscribedPlanTier = subscription?.plan_tier ?? null;
 
   const isOnUnlimitedTier =
-    (access.onlineTier === "unlimited" ||
-      access.onlineTier === "unlimited_trial" ||
-      subscribedPlanTier === "unlimited");
+    access.onlineTier === "unlimited" ||
+    access.onlineTier === "unlimited_trial" ||
+    subscribedPlanTier === "unlimited";
   const isOnPaid = isOnUnlimitedTier;
   const { data: practiceDiscountProgress } = usePracticeDiscountDashboard(
     options.audience === "app" && isOnPaid,
@@ -262,6 +263,9 @@ export function usePlanPicker(options: UsePlanPickerOptions = {}) {
       interval: billingInterval,
       context: returnContext,
     });
+    if (options.postCheckoutReturnTo) {
+      params.set("redirect", options.postCheckoutReturnTo);
+    }
     router.push(`/checkout?${params.toString()}`);
   };
 

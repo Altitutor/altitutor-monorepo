@@ -2,6 +2,12 @@ import { useRouter } from 'next/navigation';
 import { useCallback } from 'react';
 import type { Tables } from '@altitutor/shared';
 
+type StudentStatus = Tables<'students'>['status'];
+
+function isBookableStatus(status: StudentStatus | undefined): boolean {
+  return status === 'ACTIVE' || status === 'TRIAL';
+}
+
 interface UseStudentActionsProps {
   studentId: string;
   student?: Tables<'students'> | null;
@@ -32,7 +38,7 @@ interface UseStudentActionsProps {
   /**
    * Callback for book drafting session
    */
-  onBookDraftingSession: () => void;
+  onBookDraftingSession?: () => void;
   /**
    * Callback for book subsidy interview
    */
@@ -44,6 +50,10 @@ interface UseStudentActionsProps {
    */
   onDiscontinue?: () => void;
   /**
+   * Optional callback for re-enroll (DISCONTINUED → ACTIVE)
+   */
+  onReEnroll?: () => void;
+  /**
    * Callback for delete action
    */
   onDelete: () => void;
@@ -52,6 +62,9 @@ interface UseStudentActionsProps {
 /**
  * Hook that centralizes student action handlers for ActionsMenu.
  * Use this in both modals and pages/tables to keep actions in sync.
+ *
+ * Booking / absence / discontinue actions are only exposed for ACTIVE or TRIAL.
+ * Re-enroll is only exposed for DISCONTINUED.
  */
 export function useStudentActions({
   studentId,
@@ -66,9 +79,11 @@ export function useStudentActions({
   onBookSubsidyInterview,
   onBookCheckIn,
   onDiscontinue,
+  onReEnroll,
   onDelete,
 }: UseStudentActionsProps) {
   const router = useRouter();
+  const canBook = isBookableStatus(student?.status);
 
   const handleOpenInPage = useCallback(() => {
     if (onOpenInPage) {
@@ -83,14 +98,13 @@ export function useStudentActions({
     onEditDetails,
     onPasswordResetOrRegistration,
     passwordResetLabel,
-    onLogAbsence,
-    onBookTrialSession,
-    onBookDraftingSession,
-    onBookSubsidyInterview,
-    onBookCheckIn,
-    onDiscontinue: student && (student.status === 'TRIAL' || student.status === 'ACTIVE')
-      ? onDiscontinue
-      : undefined,
+    onLogAbsence: canBook ? onLogAbsence : undefined,
+    onBookTrialSession: canBook ? onBookTrialSession : undefined,
+    onBookDraftingSession: canBook ? onBookDraftingSession : undefined,
+    onBookSubsidyInterview: canBook ? onBookSubsidyInterview : undefined,
+    onBookCheckIn: canBook ? onBookCheckIn : undefined,
+    onDiscontinue: canBook ? onDiscontinue : undefined,
+    onReEnroll: student?.status === 'DISCONTINUED' ? onReEnroll : undefined,
     onDelete,
   };
 }

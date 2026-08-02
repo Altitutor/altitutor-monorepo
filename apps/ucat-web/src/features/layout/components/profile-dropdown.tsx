@@ -18,20 +18,20 @@ import {
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-  FeedbackDialog,
-  type FeedbackKind,
+  ContactDialog,
 } from "@altitutor/ui";
 import { useAuth } from "@/features/auth";
 import { useUcatProfile } from "@/features/layout/hooks/use-ucat-profile";
 import { ReferralDialog } from "@/features/subscription/components/referral-dialog";
 import { UCAT_HEADER_BTN_OUTLINE } from "@/lib/ucat-surface-motion";
 import { cn } from "@/lib/utils";
+import { openUserFeedback } from "@/lib/sentry/open-user-feedback";
 
 export function ProfileDropdown() {
   const router = useRouter();
   const { user, signOut } = useAuth();
   const { data: profile } = useUcatProfile(!!user);
-  const [feedbackKind, setFeedbackKind] = useState<FeedbackKind | null>(null);
+  const [contactOpen, setContactOpen] = useState(false);
   const [referralOpen, setReferralOpen] = useState(false);
 
   if (!user) return null;
@@ -104,14 +104,14 @@ export function ProfileDropdown() {
           </DropdownMenuItem>
           <DropdownMenuSeparator />
           <DropdownMenuItem
-            onSelect={() => setFeedbackKind("contact")}
+            onSelect={() => setContactOpen(true)}
             className="cursor-pointer"
           >
             <LifeBuoy className="mr-2 h-4 w-4" />
             Contact us
           </DropdownMenuItem>
           <DropdownMenuItem
-            onSelect={() => setFeedbackKind("bug")}
+            onSelect={() => void openUserFeedback()}
             className="cursor-pointer"
           >
             <Bug className="mr-2 h-4 w-4" />
@@ -124,19 +124,16 @@ export function ProfileDropdown() {
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
-      {feedbackKind ? (
-        <FeedbackDialog
-          open
-          onOpenChange={(open) => !open && setFeedbackKind(null)}
-          kind={feedbackKind}
-          appName="ucat-web"
-          user={{
-            id: user.id,
-            email: user.email,
-            name: getFullName(),
-          }}
-        />
-      ) : null}
+      <ContactDialog
+        open={contactOpen}
+        onOpenChange={setContactOpen}
+        appName="ucat-web"
+        user={{
+          id: user.id,
+          email: user.email,
+          name: getFullName(),
+        }}
+      />
       <ReferralDialog open={referralOpen} onOpenChange={setReferralOpen} />
     </>
   );

@@ -141,7 +141,7 @@ describe('bulk-import AI review persistence freshness gate', () => {
     })).toEqual({ ok: false, reason: 'stem_id_mismatch' })
   })
 
-  it('rejects an incomplete blind solution', () => {
+  it('accepts a conditional blind solution that covers only discrepant questions', () => {
     const current = snapshot()
     const review = reviewFor(current)
 
@@ -152,7 +152,7 @@ describe('bulk-import AI review persistence freshness gate', () => {
         ...review,
         blindSolution: { solutions: [] },
       }),
-    })).toEqual({ ok: false, reason: 'incomplete_blind_solution' })
+    })).toMatchObject({ ok: true })
   })
 
   it('rejects a Keep as-is decision for a finding that was not in the review', () => {

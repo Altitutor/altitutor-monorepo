@@ -1,5 +1,7 @@
 export type SignupOnboardingStep = 1 | 2 | 3 | 4;
 
+export type UcatFamiliarity = "new" | "familiar" | "experienced";
+
 export type SignupProgress = {
   step: SignupOnboardingStep;
   signupCompleted: boolean;

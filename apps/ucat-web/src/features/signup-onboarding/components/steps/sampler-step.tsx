@@ -11,8 +11,11 @@ import {
 } from "lucide-react";
 import type { PendingReferralGift } from "@/features/subscription/api/referral-gifts";
 import { cn } from "@/lib/utils";
+import { pathWithReturnIntent } from "@/features/auth/lib/return-intent";
 
-export type UcatFamiliarity = "new" | "familiar" | "experienced";
+import type { UcatFamiliarity } from "@/features/signup-onboarding/types";
+
+export type { UcatFamiliarity } from "@/features/signup-onboarding/types";
 
 const OPTIONS: Array<{
   value: UcatFamiliarity;
@@ -44,12 +47,14 @@ type SignupCompleteSamplerStepProps = {
   familiarity: UcatFamiliarity | null;
   onFamiliarityChange: (value: UcatFamiliarity) => void;
   gift: PendingReferralGift | null;
+  returnTo: string;
 };
 
 export function SignupCompleteSamplerStep({
   familiarity,
   onFamiliarityChange,
   gift,
+  returnTo,
 }: SignupCompleteSamplerStepProps) {
   const router = useRouter();
 
@@ -61,6 +66,7 @@ export function SignupCompleteSamplerStep({
       interval,
       context: "signup_onboarding",
       gift: gift.id,
+      redirect: returnTo,
     });
     router.push(`/checkout?${params.toString()}`);
   }
@@ -139,7 +145,9 @@ export function SignupCompleteSamplerStep({
           disabled={!familiarity}
           onClick={() =>
             router.push(
-              `/signup/complete/sampler?familiarity=${familiarity ?? "new"}`,
+              pathWithReturnIntent("/signup/complete/sampler", returnTo, {
+                familiarity: familiarity ?? "new",
+              }),
             )
           }
         >

@@ -1,5 +1,6 @@
 @import '@altitutor/ui/styles/native-datetime-input.css';
 @import '@altitutor/ui/styles/quiet-scrollbars.css';
+@import '@altitutor/ui/styles/sentry-feedback.css';
 
 @tailwind base;
 @tailwind components;

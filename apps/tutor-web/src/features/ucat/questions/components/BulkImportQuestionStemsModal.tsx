@@ -30,7 +30,10 @@ import {
   useUcatTags,
 } from '@/features/ucat/questions/hooks/useUcatQuestions'
 import { bulkImportSectionFromUcatName } from '@/features/ucat/questions/components/bulk-import/bulkImportLogicalLines'
+import { inferParsingIndicators } from '@/features/ucat/questions/components/bulk-import/bulkImportParsingIndicatorHints'
 import { inferBulkImportCategoryIdForFormValues } from '@/features/ucat/questions/components/bulk-import/bulkImportMetadataInference'
+import { collectLogicalLinesFromDoc } from '@/features/ucat/questions/lib/parsers/core'
+import { hasRichTextContent } from '@/features/ucat/shared/lib/rich-text'
 import { Step1ChooseSection } from '@/features/ucat/questions/components/bulk-import/Step1ChooseSection'
 import {
   Step2PasteDocument,
@@ -164,6 +167,8 @@ export function BulkImportQuestionStemsModal({
   const step2NewImageFileIdsRef = useRef<Set<string>>(new Set())
   /** Blocks parent Dialog close while a nested confirm is opening/open (Radix races onOpenChange). */
   const suppressDialogCloseRef = useRef(false)
+  /** Once true, skip further auto-detect (initial paste done or tutor edited settings). */
+  const indicatorsLockedRef = useRef(false)
 
   function queueConfirm(confirm: PendingConfirm) {
     suppressDialogCloseRef.current = true
@@ -248,8 +253,32 @@ export function BulkImportQuestionStemsModal({
   const wipeDownstreamFull = useCallback(() => {
     setPastedContent(null)
     setPastedStemDoc(null)
+    indicatorsLockedRef.current = false
     wipeDownstreamFromStems()
   }, [wipeDownstreamFromStems])
+
+  const handleParsingOptionsChange = useCallback((options: ParsingOptions) => {
+    indicatorsLockedRef.current = true
+    setParsingOptions(options)
+  }, [])
+
+  const maybeAutoDetectParsingIndicators = useCallback((doc: Json | null | undefined) => {
+    if (indicatorsLockedRef.current) return
+    if (!hasRichTextContent(doc)) return
+    const lines = collectLogicalLinesFromDoc(doc, { detectNestedQuestionTables: true })
+    const inferred = inferParsingIndicators(lines)
+    if (!inferred.questionIndicator && !inferred.answerOptionIndicator) return
+    indicatorsLockedRef.current = true
+    setParsingOptions((prev) => ({
+      ...prev,
+      ...(inferred.questionIndicator
+        ? { questionIndicator: inferred.questionIndicator }
+        : {}),
+      ...(inferred.answerOptionIndicator
+        ? { answerOptionIndicator: inferred.answerOptionIndicator }
+        : {}),
+    }))
+  }, [])
 
   useEffect(() => {
     if (open) {
@@ -283,6 +312,7 @@ export function BulkImportQuestionStemsModal({
       decisionMakingQuestionNumberPlacement: 'question',
       quantitativeReasoningQuestionNumberPlacement: 'question',
     })
+    indicatorsLockedRef.current = false
     suppressDialogCloseRef.current = false
     setPendingConfirm(null)
     setSyllogismManualTargets([])
@@ -849,6 +879,7 @@ export function BulkImportQuestionStemsModal({
           stemTexts={parsedStemTexts}
           perStemDocs={perStemQuestionDocs}
           onPerStemDocChange={(index, doc) => {
+            maybeAutoDetectParsingIndicators(doc)
             setPerStemQuestionDocs((prev) => {
               const next = [...prev]
               next[index] = doc
@@ -857,7 +888,7 @@ export function BulkImportQuestionStemsModal({
           }}
           section={resolvedBulkImportSection}
           parsingOptions={parsingOptions}
-          onParsingOptionsChange={setParsingOptions}
+          onParsingOptionsChange={handleParsingOptionsChange}
           pasteTableBehavior={pasteTableBehavior}
           onPasteTableBehaviorChange={setPasteTableBehavior}
           onImageFileIdsChange={handleStep2ImageFileIds}
@@ -872,6 +903,7 @@ export function BulkImportQuestionStemsModal({
           layout="split"
           value={pastedContent}
           onChange={(value) => {
+            maybeAutoDetectParsingIndicators(value)
             setPastedContent(value)
             setParseError(null)
             setSyllogismManualTargets([])
@@ -879,7 +911,7 @@ export function BulkImportQuestionStemsModal({
           }}
           onImageFileIdsChange={handleStep2ImageFileIds}
           parsingOptions={parsingOptions}
-          onParsingOptionsChange={setParsingOptions}
+          onParsingOptionsChange={handleParsingOptionsChange}
           pasteTableBehavior={pasteTableBehavior}
           onPasteTableBehaviorChange={setPasteTableBehavior}
           liveParseSection={resolvedBulkImportSection}

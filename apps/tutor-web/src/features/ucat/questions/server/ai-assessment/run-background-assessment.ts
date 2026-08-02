@@ -7,10 +7,12 @@ import {
 } from '@/features/ucat/shared/server/ucat-ai-client'
 import {
   BlindSolutionResponseSchema,
+  parseBulkImportAuditRepairResponse,
   UcatAssessmentResponseSchema,
   UcatFormatCheckSchema,
   type UcatAssessmentCategory,
   type BlindSolutionResponse,
+  type BulkImportRepairResponse,
   type UcatAssessmentPatch,
   type UcatAssessmentResponse,
   type UcatAssessmentSnapshot,
@@ -19,12 +21,19 @@ import {
 import { fingerprintUcatAssessmentSnapshot, loadUcatAssessmentSnapshot } from './content'
 import {
   ASSESSMENT_SYSTEM_PROMPT,
+  BULK_IMPORT_AUDIT_REPAIR_SYSTEM_PROMPT,
   BLIND_SOLVER_SYSTEM_PROMPT,
   buildAssessmentUserPrompt,
+  buildBulkImportAuditRepairUserPrompt,
   buildBlindSolverUserPrompt,
 } from './prompts'
 import { buildVisualEvidence } from './visual-evidence'
 import { normalizeBlindSolutionSelections } from './normalize-blind-solution'
+import {
+  BULK_IMPORT_AI_CALL_OPTIONS,
+  chunkBulkImportAuditQuestionIds,
+  runConditionalBulkImportReview,
+} from './bulk-import-pipeline'
 
 type SupabaseAny = {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -141,6 +150,35 @@ function assertBlindSolutionTargets(params: {
   }
 }
 
+export function reusableBlindSolutionForScope(params: {
+  existing: unknown
+  snapshot: UcatAssessmentSnapshot
+  targetQuestionIds: string[]
+}): BlindSolutionResponse | null {
+  const parsed = BlindSolutionResponseSchema.safeParse(params.existing)
+  if (!parsed.success) return null
+  const normalized = normalizeBlindSolutionSelections(parsed.data, params.snapshot)
+  const normalizedByQuestionId = new Map(
+    normalized.solutions.map((solution) => [solution.questionId, solution])
+  )
+  if (parsed.data.solutions.some((solution) => (
+    solution.selectedOptionId
+    && normalizedByQuestionId.get(solution.questionId)?.selectedOptionId !== solution.selectedOptionId
+  ))) {
+    return null
+  }
+  try {
+    assertBlindSolutionTargets({
+      solution: normalized,
+      snapshot: params.snapshot,
+      targetQuestionIds: params.targetQuestionIds,
+    })
+    return normalized
+  } catch {
+    return null
+  }
+}
+
 function patchTargetsCurrentScope(params: {
   patch: UcatAssessmentPatch
   snapshot: UcatAssessmentSnapshot
@@ -161,6 +199,7 @@ function patchTargetsCurrentScope(params: {
   switch (patch.operation) {
     case 'replace_text':
     case 'set_text':
+    case 'set_rich_content':
     case 'update_visual_spec':
       return textTargetAllowed(patch.target)
     case 'set_answer_key': {
@@ -323,6 +362,266 @@ export type UcatSnapshotAssessmentResult = {
   assessmentModel: string
 }
 
+export type BulkImportSnapshotRepairResult = {
+  audit: UcatAssessmentResponse
+  repair: BulkImportRepairResponse
+  blindSolution: BlindSolutionResponse
+  blindProviderId: string | null
+  blindModel: string | null
+  auditProviderId: string | null
+  auditModel: string
+  assessmentProviderId: string | null
+  assessmentModel: string
+}
+
+export async function blindSolveUcatSnapshot(params: {
+  client: SupabaseClient<Database>
+  snapshot: UcatAssessmentSnapshot
+  targetQuestionIds: string[]
+  blindSolverModelProfileId: string | null
+  metadata?: Record<string, unknown>
+  signal?: AbortSignal
+  providerSort?: 'price' | 'throughput' | 'latency'
+}): Promise<{
+  solution: BlindSolutionResponse
+  providerId: string | null
+  model: string
+}> {
+  const visualEvidence = await buildVisualEvidence({
+    client: params.client,
+    snapshot: params.snapshot,
+    targetQuestionIds: params.targetQuestionIds,
+    includeExplanations: false,
+  })
+  const prompt = buildBlindSolverUserPrompt({
+    snapshot: params.snapshot,
+    targetQuestionIds: params.targetQuestionIds,
+    visualAvailability: visualEvidence.availability,
+  })
+  const call = await callUcatAiJson({
+    client: params.client,
+    operation: 'question_assessment_blind_solve',
+    modelProfileId: params.blindSolverModelProfileId,
+    systemPrompt: BLIND_SOLVER_SYSTEM_PROMPT,
+    userPrompt: prompt,
+    userContentParts: [
+      { type: 'text', text: prompt },
+      ...visualEvidence.parts,
+    ],
+    temperature: 0,
+    maxCompletionTokens: BULK_IMPORT_AI_CALL_OPTIONS.blind.maxCompletionTokens,
+    timeoutMs: BULK_IMPORT_AI_CALL_OPTIONS.blind.timeoutMs,
+    providerSort: params.providerSort ?? 'throughput',
+    reasoningEffort: BULK_IMPORT_AI_CALL_OPTIONS.blind.reasoningEffort,
+    metadata: params.metadata as Json | undefined,
+    signal: params.signal,
+  })
+  const solution = normalizeBlindSolutionSelections(
+    BlindSolutionResponseSchema.parse(call.parsed),
+    params.snapshot,
+  )
+  assertBlindSolutionTargets({
+    solution,
+    snapshot: params.snapshot,
+    targetQuestionIds: params.targetQuestionIds,
+  })
+  return {
+    solution,
+    providerId: call.providerId,
+    model: call.model,
+  }
+}
+
+export async function repairBulkImportUcatSnapshot(params: {
+  client: SupabaseClient<Database>
+  snapshot: UcatAssessmentSnapshot
+  targetQuestionIds: string[]
+  includeSharedAssessment: boolean
+  formatChecks: UcatFormatCheck[]
+  blindSolverModelProfileId: string | null
+  assessmentModelProfileId: string | null
+  metadata?: Record<string, unknown>
+  signal?: AbortSignal
+  providerSort?: 'price' | 'throughput' | 'latency'
+  deferBlindSolve?: boolean
+}): Promise<BulkImportSnapshotRepairResult> {
+  const providerSort = params.providerSort ?? 'throughput'
+  const assessmentVisualEvidencePromise = buildVisualEvidence({
+    client: params.client,
+    snapshot: params.snapshot,
+    targetQuestionIds: params.targetQuestionIds,
+    includeExplanations: true,
+  })
+  const availableQuestionTagsPromise = loadAvailableQuestionTags(
+    params.client,
+    params.snapshot.sectionId,
+  )
+
+  const conditionalReview = await runConditionalBulkImportReview({
+    auditAndRepair: async () => {
+      const [assessmentVisualEvidence, availableQuestionTags] = await Promise.all([
+        assessmentVisualEvidencePromise,
+        availableQuestionTagsPromise,
+      ])
+      const chunks = chunkBulkImportAuditQuestionIds(params.targetQuestionIds)
+      const calls = await Promise.all(chunks.map(async (targetQuestionIds, chunkIndex) => {
+        const includeSharedAssessment = params.includeSharedAssessment && chunkIndex === 0
+        const targetSet = new Set(targetQuestionIds)
+        const prompt = buildBulkImportAuditRepairUserPrompt({
+          snapshot: params.snapshot,
+          targetQuestionIds,
+          includeSharedAssessment,
+          formatChecks: params.formatChecks.filter((check) => (
+            check.scopeType === 'shared' ? includeSharedAssessment : Boolean(check.questionId && targetSet.has(check.questionId))
+          )),
+          availableQuestionTags,
+          visualAvailability: assessmentVisualEvidence.availability,
+        })
+        const call = await callUcatAiJson({
+          client: params.client,
+          operation: 'question_assessment_bulk_review_directives',
+          modelProfileId: params.assessmentModelProfileId,
+          systemPrompt: BULK_IMPORT_AUDIT_REPAIR_SYSTEM_PROMPT,
+          userPrompt: prompt,
+          userContentParts: [
+            { type: 'text', text: prompt },
+            ...assessmentVisualEvidence.parts,
+          ],
+          temperature: 0,
+          maxCompletionTokens: BULK_IMPORT_AI_CALL_OPTIONS.auditRepair.maxCompletionTokens,
+          timeoutMs: BULK_IMPORT_AI_CALL_OPTIONS.auditRepair.timeoutMs,
+          providerSort,
+          reasoningEffort: BULK_IMPORT_AI_CALL_OPTIONS.auditRepair.reasoningEffort,
+          metadata: {
+            ...(params.metadata ?? {}),
+            auditChunkIndex: chunkIndex,
+            auditChunkCount: chunks.length,
+            targetQuestionIds,
+          } as Json,
+          signal: params.signal,
+        })
+        const response = parseBulkImportAuditRepairResponse(call.parsed)
+        assertAssessmentTargets({
+          assessment: response.audit,
+          snapshot: params.snapshot,
+          targetQuestionIds,
+          includeShared: includeSharedAssessment,
+        })
+        if (response.repair.repairs.some((repair) => repair.patches.some((patch) =>
+          !patchTargetsCurrentScope({
+            patch,
+            snapshot: params.snapshot,
+            targetQuestionIds: targetSet,
+            includeShared: includeSharedAssessment,
+          })
+        ))) {
+          throw new Error('Bulk repair returned a patch outside the requested scope')
+        }
+        const auditFindingKeys = new Set(response.audit.findings.map((finding) => finding.key))
+        if (response.repair.repairs.some((repair) =>
+          repair.resolvedFindingKeys.some((key) => !auditFindingKeys.has(key))
+        )) {
+          throw new Error('Bulk repair referenced an unknown audit finding key')
+        }
+        if (chunks.length === 1) return { call, response }
+        const keyPrefix = `chunk:${targetQuestionIds[0]}:`
+        const prefixKey = (key: string) => `${keyPrefix}${key}`
+        return {
+          call,
+          response: {
+            audit: {
+              ...response.audit,
+              findings: response.audit.findings.map((finding) => ({
+                ...finding,
+                key: prefixKey(finding.key),
+              })),
+            },
+            repair: {
+              ...response.repair,
+              repairs: response.repair.repairs.map((repair) => ({
+                ...repair,
+                resolvedFindingKeys: repair.resolvedFindingKeys.map(prefixKey),
+              })),
+              unresolvedFindings: response.repair.unresolvedFindings.map((finding) => ({
+                ...finding,
+                key: prefixKey(finding.key),
+              })),
+            },
+          },
+        }
+      }))
+      const response = {
+        audit: {
+          overallSummary: calls.map(({ response: item }) => item.audit.overallSummary).join(' '),
+          categories: calls.flatMap(({ response: item }) => item.audit.categories),
+          findings: calls.flatMap(({ response: item }) => item.audit.findings),
+        },
+        repair: {
+          overallSummary: calls.map(({ response: item }) => item.repair.overallSummary).join(' '),
+          repairs: calls.flatMap(({ response: item }) => item.repair.repairs),
+          unresolvedFindings: calls.flatMap(({ response: item }) => item.repair.unresolvedFindings),
+        },
+      }
+      const firstCall = calls[0]?.call
+      if (!firstCall) throw new Error('Bulk review had no question scope to audit')
+      return {
+        response,
+        providerId: firstCall.providerId,
+        model: firstCall.model,
+      }
+    },
+    blindSolve: (blindQuestionIds) => params.deferBlindSolve
+      ? Promise.resolve({
+          solution: { solutions: [] } as BlindSolutionResponse,
+          providerId: null,
+          model: '',
+        })
+      : blindSolveUcatSnapshot({
+        client: params.client,
+        snapshot: params.snapshot,
+        targetQuestionIds: blindQuestionIds,
+        blindSolverModelProfileId: params.blindSolverModelProfileId,
+        metadata: {
+          ...params.metadata,
+          conditionalBlindVerification: true,
+          targetQuestionIds: blindQuestionIds,
+        },
+        signal: params.signal,
+        providerSort,
+      }),
+  })
+  const auditRepair = conditionalReview.auditRepair
+  const blindSolution = conditionalReview.blindSolution ?? {
+    solution: { solutions: [] },
+    providerId: null,
+    model: null,
+  }
+  const assessmentVisualEvidence = await assessmentVisualEvidencePromise
+  let audit = withCompleteCategoryCoverage({
+    assessment: auditRepair.response.audit,
+    targetQuestionIds: params.targetQuestionIds,
+    includeShared: params.includeSharedAssessment,
+  })
+  audit = enforceUnreviewableVisuals({
+    assessment: audit,
+    unavailable: assessmentVisualEvidence.availability,
+    snapshot: params.snapshot,
+    targetQuestionIds: params.targetQuestionIds,
+    includeShared: params.includeSharedAssessment,
+  })
+  return {
+    audit,
+    repair: auditRepair.response.repair,
+    blindSolution: blindSolution.solution,
+    blindProviderId: blindSolution.providerId,
+    blindModel: blindSolution.model,
+    auditProviderId: auditRepair.providerId,
+    auditModel: auditRepair.model,
+    assessmentProviderId: auditRepair.providerId,
+    assessmentModel: auditRepair.model,
+  }
+}
+
 /**
  * Shared assessment seam for durable saved-stem jobs and ephemeral bulk-import
  * drafts. Persistence and queue ownership deliberately stay with the caller.
@@ -338,21 +637,33 @@ export async function assessUcatQuestionSnapshot(params: {
   existingBlindSolution?: unknown
   metadata?: Record<string, unknown>
   signal?: AbortSignal
+  providerSort?: 'price' | 'throughput' | 'latency'
 }): Promise<UcatSnapshotAssessmentResult> {
-  const blindVisualEvidence = await buildVisualEvidence({
+  const assessmentVisualEvidencePromise = buildVisualEvidence({
     client: params.client,
     snapshot: params.snapshot,
     targetQuestionIds: params.targetQuestionIds,
-    includeExplanations: false,
+    includeExplanations: true,
   })
-  const existingBlind = BlindSolutionResponseSchema.safeParse(params.existingBlindSolution)
-  let blindSolution = existingBlind.success
-    ? normalizeBlindSolutionSelections(existingBlind.data, params.snapshot)
-    : null
+  const availableQuestionTagsPromise = loadAvailableQuestionTags(
+    params.client,
+    params.snapshot.sectionId,
+  )
+  let blindSolution = reusableBlindSolutionForScope({
+    existing: params.existingBlindSolution,
+    snapshot: params.snapshot,
+    targetQuestionIds: params.targetQuestionIds,
+  })
   let blindProviderId: string | null = null
   let blindModel: string | null = null
 
   if (!blindSolution) {
+    const blindVisualEvidence = await buildVisualEvidence({
+      client: params.client,
+      snapshot: params.snapshot,
+      targetQuestionIds: params.targetQuestionIds,
+      includeExplanations: false,
+    })
     const blindPrompt = buildBlindSolverUserPrompt({
       snapshot: params.snapshot,
       targetQuestionIds: params.targetQuestionIds,
@@ -371,7 +682,7 @@ export async function assessUcatQuestionSnapshot(params: {
       temperature: 0,
       maxCompletionTokens: 4_000,
       timeoutMs: 180_000,
-      providerSort: 'throughput',
+      providerSort: params.providerSort ?? 'throughput',
       reasoningEffort: 'medium',
       metadata: params.metadata as Json | undefined,
       signal: params.signal,
@@ -389,16 +700,10 @@ export async function assessUcatQuestionSnapshot(params: {
     targetQuestionIds: params.targetQuestionIds,
   })
 
-  const assessmentVisualEvidence = await buildVisualEvidence({
-    client: params.client,
-    snapshot: params.snapshot,
-    targetQuestionIds: params.targetQuestionIds,
-    includeExplanations: true,
-  })
-  const availableQuestionTags = await loadAvailableQuestionTags(
-    params.client,
-    params.snapshot.sectionId,
-  )
+  const [assessmentVisualEvidence, availableQuestionTags] = await Promise.all([
+    assessmentVisualEvidencePromise,
+    availableQuestionTagsPromise,
+  ])
   const assessmentPrompt = buildAssessmentUserPrompt({
     snapshot: params.snapshot,
     targetQuestionIds: params.targetQuestionIds,
@@ -421,7 +726,7 @@ export async function assessUcatQuestionSnapshot(params: {
     temperature: 0,
     maxCompletionTokens: 8_000,
     timeoutMs: 240_000,
-    providerSort: 'throughput',
+    providerSort: params.providerSort ?? 'throughput',
     reasoningEffort: 'medium',
     metadata: params.metadata as Json | undefined,
     signal: params.signal,

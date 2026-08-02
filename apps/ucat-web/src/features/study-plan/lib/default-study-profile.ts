@@ -10,7 +10,6 @@ export function defaultSkippedGoalProfileInput(
 ): StudyPlanProfileInput {
   return {
     studyPlanEnabled: false,
-    studySuggestionsEnabled: true,
     targetScore: DEFAULT_SKIP_GOAL_TARGET_SCORE,
     testYear,
     testDate: null,

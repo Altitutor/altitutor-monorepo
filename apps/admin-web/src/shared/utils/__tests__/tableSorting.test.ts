@@ -48,6 +48,7 @@ describe('sortStudentsByStatus', () => {
       ucat_unlimited_trial_consumed_at: null,
       ucat_signup_completed_at: null,
       ucat_signup_step: 0,
+      ucat_initial_familiarity: null,
     },
     {
       id: 'student-2',
@@ -84,6 +85,7 @@ describe('sortStudentsByStatus', () => {
       ucat_unlimited_trial_consumed_at: null,
       ucat_signup_completed_at: null,
       ucat_signup_step: 0,
+      ucat_initial_familiarity: null,
     },
     {
       id: 'student-3',
@@ -120,6 +122,7 @@ describe('sortStudentsByStatus', () => {
       ucat_unlimited_trial_consumed_at: null,
       ucat_signup_completed_at: null,
       ucat_signup_step: 0,
+      ucat_initial_familiarity: null,
     },
   ];
 

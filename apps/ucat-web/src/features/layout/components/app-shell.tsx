@@ -2,17 +2,22 @@
 
 import {
   useEffect,
+  useCallback,
   useRef,
   useState,
   type MouseEvent as ReactMouseEvent,
 } from "react";
 import { motion, useReducedMotion } from "motion/react";
 import { usePathname, useRouter } from "next/navigation";
+import { useTheme } from "next-themes";
 import { useAuth } from "@/features/auth";
 import { AppSidebar } from "@/features/layout/components/app-sidebar";
 import { ComingSoonProvider } from "@/features/layout/context/coming-soon-context";
 import { FloatingAppActions } from "@/features/layout/components/floating-app-actions";
 import { UcatFloatingToolbar } from "@/features/layout/components/ucat-floating-toolbar";
+import { UcatExamToolbar } from "@/features/exam-experience/components/ucat-exam-toolbar";
+import { ExamExperienceProvider } from "@/features/exam-experience/context/exam-experience-context";
+import { useUcatInterfacePreferences } from "@/features/interface-preferences/hooks/use-ucat-interface-preferences";
 import { isComingSoon } from "@/features/layout/config/coming-soon";
 import {
   OnboardingAutoStart,
@@ -42,12 +47,6 @@ import { getStudyPlanCompanionMode } from "@/features/study-plan/lib/companion-m
 type AppShellProps = {
   children: React.ReactNode;
 };
-
-function isPracticeEngineRoute(pathname: string): boolean {
-  return (
-    pathname === "/practice/session" || pathname.startsWith("/practice/stem/")
-  );
-}
 
 function ExamAttemptNavigationGuard({
   enabled,
@@ -126,8 +125,12 @@ function AppShellInner({ children }: AppShellProps) {
   const { user, isLoading } = useAuth();
   const isMobile = useMediaQuery("(max-width: 767px)");
   const reduceMotion = useReducedMotion();
+  const { setTheme } = useTheme();
+  const { preferences, updatePreferences } = useUcatInterfacePreferences();
   const prevIsMobileRef = useRef<boolean | null>(null);
   const preImmersiveCollapsedRef = useRef<boolean | null>(null);
+  const compactExamToolbarRef = useRef<HTMLDivElement>(null);
+  const detailedExamToolbarRef = useRef<HTMLDivElement>(null);
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [bottomFloatingDockVisible, setBottomFloatingDockVisible] =
@@ -136,11 +139,36 @@ function AppShellInner({ children }: AppShellProps) {
   const effectiveCollapsed = sidebarOverride?.collapsedOverride ?? collapsed;
   const hideTopBar = sidebarOverride?.hideTopBar ?? false;
   const isExamRoute = pathname.startsWith("/exam");
-  const isImmersiveRoute = isExamRoute || isPracticeEngineRoute(pathname);
+  const isImmersiveRoute = isExamRoute;
+  const isTutorialRoute = pathname === "/exam/tutorial";
+  const examToolbarLayout =
+    isMobile || isTutorialRoute ? "compact_top" : preferences.examToolbarLayout;
+  const examToolbarVisible = isTutorialRoute
+    ? true
+    : preferences.examToolbarVisible;
   const studyPlanCompanionMode = getStudyPlanCompanionMode(pathname);
   // Fullscreen engines hide the orb entirely. In-progress activities stay
   // mounted so completion celebrations can surface, then go silent again.
   const hideFloatingStudyPlanCompanion = studyPlanCompanionMode === "hidden";
+  const handleLagModeChange = useCallback(
+    (enabled: boolean) => {
+      void updatePreferences({ lagModeEnabled: enabled });
+    },
+    [updatePreferences],
+  );
+
+  useEffect(() => {
+    if (compactExamToolbarRef.current) {
+      compactExamToolbarRef.current.inert = !examToolbarVisible;
+    }
+    if (detailedExamToolbarRef.current) {
+      detailedExamToolbarRef.current.inert = !examToolbarVisible;
+    }
+  }, [examToolbarLayout, examToolbarVisible]);
+
+  useEffect(() => {
+    setTheme(preferences.theme);
+  }, [preferences.theme, setTheme]);
 
   useEffect(() => {
     if (isImmersiveRoute) {
@@ -276,38 +304,68 @@ function AppShellInner({ children }: AppShellProps) {
               >
                 <div className="flex min-h-0 flex-1 flex-col">
                   {isExamRoute ? (
-                    <UcatLagProvider>
-                      <UcatFloatingToolbar />
-                      <div className={cn("flex", "w-screen")}>
-                        <AppSidebar
-                          collapsed={effectiveCollapsed}
-                          mobileOpen={mobileOpen}
-                          isMobile={isMobile}
-                          onCloseMobile={() => setMobileOpen(false)}
-                        />
-                        <main
+                    <UcatLagProvider
+                      enabled={preferences.lagModeEnabled}
+                      onEnabledChange={handleLagModeChange}
+                    >
+                      <ExamExperienceProvider>
+                        <UcatFloatingToolbar />
+                        <div
                           className={cn(
-                            "flex-1 min-h-0 transition-[margin] duration-200 ease-[cubic-bezier(0.32,0.72,0,1)]",
-                            "h-dvh min-h-0 overflow-hidden p-0",
-                            sidebarExpanded ? "md:ml-[240px]" : "ml-0",
+                            "flex h-dvh min-h-0 w-screen overflow-hidden",
+                            examToolbarLayout === "compact_top"
+                              ? "flex-col"
+                              : "flex-row",
                           )}
                         >
-                          <motion.div
-                            key={pathname}
-                            initial={
-                              reduceMotion ? false : { opacity: 0.94, y: 6 }
-                            }
-                            animate={{ opacity: 1, y: 0 }}
-                            transition={{
-                              duration: reduceMotion ? 0 : 0.22,
-                              ease: [0.32, 0.72, 0, 1],
-                            }}
-                            className="h-full min-h-0 w-full overflow-hidden"
-                          >
-                            {children}
-                          </motion.div>
-                        </main>
-                      </div>
+                          {examToolbarLayout === "compact_top" ? (
+                            <motion.div
+                              ref={compactExamToolbarRef}
+                              initial={false}
+                              animate={{ height: examToolbarVisible ? 48 : 0 }}
+                              transition={{
+                                duration: reduceMotion ? 0 : 0.2,
+                                ease: [0.32, 0.72, 0, 1],
+                              }}
+                              className="shrink-0 overflow-hidden"
+                              aria-hidden={!examToolbarVisible}
+                            >
+                              <UcatExamToolbar layout="compact_top" />
+                            </motion.div>
+                          ) : null}
+                          <main className="min-h-0 min-w-0 flex-1 overflow-hidden p-0">
+                            <motion.div
+                              key={pathname}
+                              initial={
+                                reduceMotion ? false : { opacity: 0.94, y: 6 }
+                              }
+                              animate={{ opacity: 1, y: 0 }}
+                              transition={{
+                                duration: reduceMotion ? 0 : 0.22,
+                                ease: [0.32, 0.72, 0, 1],
+                              }}
+                              className="h-full min-h-0 w-full overflow-hidden"
+                            >
+                              {children}
+                            </motion.div>
+                          </main>
+                          {examToolbarLayout === "detailed_right" ? (
+                            <motion.div
+                              ref={detailedExamToolbarRef}
+                              initial={false}
+                              animate={{ width: examToolbarVisible ? 256 : 0 }}
+                              transition={{
+                                duration: reduceMotion ? 0 : 0.2,
+                                ease: [0.32, 0.72, 0, 1],
+                              }}
+                              className="shrink-0 overflow-hidden"
+                              aria-hidden={!examToolbarVisible}
+                            >
+                              <UcatExamToolbar layout="detailed_right" />
+                            </motion.div>
+                          ) : null}
+                        </div>
+                      </ExamExperienceProvider>
                     </UcatLagProvider>
                   ) : (
                     <>

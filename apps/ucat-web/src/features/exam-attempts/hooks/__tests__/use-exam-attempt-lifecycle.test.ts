@@ -570,6 +570,18 @@ describe("isCurrentSegmentSyncResponse", () => {
 });
 
 describe("sanitizeEngineSnapshotForExam", () => {
+  it("restores a new set with instructions onto its instruction screen", () => {
+    const fresh = createAttempt(createState()).engineSnapshot;
+    fresh.phase = "intro";
+    fresh.showReadyDialog = false;
+
+    expect(sanitizeEngineSnapshotForExam(exam, fresh)).toMatchObject({
+      phase: "instructions",
+      instructionsIndex: 0,
+      showReadyDialog: false,
+    });
+  });
+
   it("drops answers and navigation state for questions outside the loaded exam", () => {
     const stale = createAttempt(createState()).engineSnapshot;
     stale.currentIndex = 99;

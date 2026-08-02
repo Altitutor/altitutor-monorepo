@@ -48,6 +48,7 @@ function renderStep({
       initialLastName="Student"
       initialPhone=""
       newsletterOptIn
+      returnTo="/dashboard"
       onComplete={onComplete}
       error={null}
       setError={setError}
@@ -90,7 +91,9 @@ describe("SignupCompleteDetailsStep", () => {
       "/api/ucat/signup/complete",
       expect.objectContaining({ method: "POST" }),
     );
-    expect(subscribeToUcatNewsletter).toHaveBeenCalledWith("ucat_social_signup");
+    expect(subscribeToUcatNewsletter).toHaveBeenCalledWith(
+      "ucat_social_signup",
+    );
     expect(onComplete).toHaveBeenCalledWith(
       expect.objectContaining({
         email: "provider@example.com",

@@ -30,6 +30,7 @@ import {
 import type { SocialAuthProvider } from "@/features/auth/lib/social-auth";
 import { subscribeToUcatNewsletter } from "@/features/auth/api/newsletter";
 import { UCAT_SIGNUP_CONSENT_WORDING } from "@/features/communications/lib/communication-preferences";
+import { pathWithReturnIntent } from "@/features/auth/lib/return-intent";
 
 const { typography: typo } = MARKETING_TOKENS;
 
@@ -56,7 +57,7 @@ function getSignupOtpUserMessage(
 }
 
 export function SignupForm({
-  redirectTo = "/subscribe",
+  redirectTo = "/dashboard",
   referralCode = null,
   referralOffer = null,
   enabledSocialProviders = [],
@@ -233,9 +234,10 @@ export function SignupForm({
           billing_interval: planIntent?.interval ?? null,
           referral_present: Boolean(referralCode),
         });
-        const next = planIntent
-          ? `/signup/complete?redirect=${encodeURIComponent(planIntent.checkoutPath)}`
-          : "/signup/complete";
+        const next = pathWithReturnIntent(
+          "/signup/complete",
+          planIntent?.checkoutPath ?? redirectTo,
+        );
         navigateAfterAuth(next);
         // Leave otpSubmitting true so the button stays locked during navigation.
         return;

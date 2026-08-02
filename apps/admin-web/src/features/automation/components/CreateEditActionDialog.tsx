@@ -112,7 +112,7 @@ const actionFormSchema = z.object({
   message_content: z.string().optional(),
   target_contact_id: z.string().optional(),
   selected_sender_id: z.string().optional(),
-  message_recipient_type: z.enum(['single', 'class_students', 'class_students_and_parents', 'session_students', 'session_students_and_parents', 'student_and_parents', 'tutor_log_students', 'tutor_log_students_and_parents']).optional(),
+  message_recipient_type: z.enum(['single', 'class_students', 'class_students_and_parents', 'session_students', 'session_students_and_parents', 'student_and_parents', 'tutor_log_students', 'tutor_log_students_and_parents', 'tutor_log_attendees']).optional(),
   // CREATE_TASK config
   title_template: z.string().optional(),
   description_template: z.string().optional(),
@@ -284,7 +284,7 @@ export function CreateEditActionDialog({
         }
       }
       
-      let messageRecipientType: 'single' | 'class_students' | 'class_students_and_parents' | 'session_students' | 'session_students_and_parents' | 'student_and_parents' | 'tutor_log_students' | 'tutor_log_students_and_parents' = 'single';
+      let messageRecipientType: 'single' | 'class_students' | 'class_students_and_parents' | 'session_students' | 'session_students_and_parents' | 'student_and_parents' | 'tutor_log_students' | 'tutor_log_students_and_parents' | 'tutor_log_attendees' = 'single';
       if (action.action_type === 'SEND_MESSAGE' && 'recipients' in config && config.recipients?.type) {
         const recipientType = config.recipients.type;
         const isClassType = recipientType.startsWith('class_');
@@ -298,7 +298,7 @@ export function CreateEditActionDialog({
             (isSessionType && hasSessionId) ||
             (isTutorLogType && isTutorLogEntity) ||
             (isStudentType && hasStudentId)) {
-          if (recipientType === 'single' || recipientType === 'class_students' || recipientType === 'class_students_and_parents' || recipientType === 'session_students' || recipientType === 'session_students_and_parents' || recipientType === 'student_and_parents' || recipientType === 'tutor_log_students' || recipientType === 'tutor_log_students_and_parents') {
+          if (recipientType === 'single' || recipientType === 'class_students' || recipientType === 'class_students_and_parents' || recipientType === 'session_students' || recipientType === 'session_students_and_parents' || recipientType === 'student_and_parents' || recipientType === 'tutor_log_students' || recipientType === 'tutor_log_students_and_parents' || recipientType === 'tutor_log_attendees') {
             messageRecipientType = recipientType;
           }
         }
@@ -873,6 +873,7 @@ export function CreateEditActionDialog({
                         ? [
                             { id: 'tutor_log_students', label: 'All Students in Tutor Log' },
                             { id: 'tutor_log_students_and_parents', label: 'All Students & Parents in Tutor Log' },
+                            { id: 'tutor_log_attendees', label: 'Attended Students & Parents' },
                           ]
                         : []),
                     ];

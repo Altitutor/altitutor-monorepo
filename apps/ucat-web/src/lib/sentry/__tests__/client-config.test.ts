@@ -1,14 +1,18 @@
-import { shouldEnableClientSentry } from "@/lib/sentry/client-config";
+import {
+  shouldEnableClientSentry,
+  shouldSendClientSentryEvent,
+  shouldSendClientSentryTransaction,
+} from "@/lib/sentry/client-config";
 
 describe("shouldEnableClientSentry", () => {
-  it.each(["localhost", "127.0.0.1", "::1"])(
-    "does not send local telemetry from %s",
-    (hostname) => {
-      expect(
-        shouldEnableClientSentry("https://public@sentry.example/1", hostname),
-      ).toBe(false);
-    },
-  );
+  it("initializes the local client when a DSN exists so feedback is available", () => {
+    expect(
+      shouldEnableClientSentry(
+        "https://public@sentry.example/1",
+        "localhost",
+      ),
+    ).toBe(true);
+  });
 
   it("enables telemetry for a deployed host with a DSN", () => {
     expect(
@@ -23,5 +27,23 @@ describe("shouldEnableClientSentry", () => {
     expect(shouldEnableClientSentry(undefined, "ucat.altitutor.com")).toBe(
       false,
     );
+  });
+});
+
+describe("local Sentry telemetry filtering", () => {
+  it.each(["localhost", "127.0.0.1", "::1"])(
+    "sends only explicit feedback events from %s",
+    (hostname) => {
+      expect(shouldSendClientSentryEvent("feedback", hostname)).toBe(true);
+      expect(shouldSendClientSentryEvent(undefined, hostname)).toBe(false);
+      expect(shouldSendClientSentryTransaction(hostname)).toBe(false);
+    },
+  );
+
+  it("sends events and transactions from deployed hosts", () => {
+    expect(
+      shouldSendClientSentryEvent(undefined, "ucat.altitutor.com"),
+    ).toBe(true);
+    expect(shouldSendClientSentryTransaction("ucat.altitutor.com")).toBe(true);
   });
 });

@@ -4,6 +4,11 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@altitutor/shared";
 import { isAllowedBeforeSignupComplete } from "@/features/signup-onboarding/lib/signup-complete-paths";
 import { resolvePostAuthDestination } from "@/features/auth/lib/social-auth";
+import {
+  authEntryPath,
+  pathWithReturnIntent,
+  safePostAuthReturnPath,
+} from "@/features/auth/lib/return-intent";
 
 export async function middleware(request: NextRequest) {
   const { pathname, origin } = new URL(request.url);
@@ -82,22 +87,27 @@ export async function middleware(request: NextRequest) {
   } = await supabase.auth.getUser();
 
   if (!user && pathname.startsWith("/subscribe")) {
-    const signupUrl = new URL("/signup", origin);
-    signupUrl.searchParams.set("redirect", pathname);
+    const signupUrl = new URL(
+      authEntryPath(
+        "/signup",
+        `${pathname}${request.nextUrl.search}`,
+        request.nextUrl.searchParams,
+      ),
+      origin,
+    );
     return NextResponse.redirect(signupUrl);
   }
 
-  if (!user && pathname === "/checkout") {
-    const loginUrl = new URL("/login", origin);
-    loginUrl.searchParams.set(
-      "redirect",
-      `${pathname}${request.nextUrl.search}`,
+  if (!user && !isPublicPath) {
+    const loginUrl = new URL(
+      authEntryPath(
+        "/login",
+        `${pathname}${request.nextUrl.search}`,
+        request.nextUrl.searchParams,
+      ),
+      origin,
     );
     return NextResponse.redirect(loginUrl);
-  }
-
-  if (!user && !isPublicPath) {
-    return NextResponse.redirect(new URL("/login", origin));
   }
 
   let signupCompleted: boolean | null = null;
@@ -112,9 +122,7 @@ export async function middleware(request: NextRequest) {
     // /dashboard ↔ /signup/complete.
     if (!accessError) {
       signupCompleted =
-        accessRow == null
-          ? null
-          : Boolean(accessRow.ucat_signup_completed_at);
+        accessRow == null ? null : Boolean(accessRow.ucat_signup_completed_at);
     }
   }
 
@@ -129,10 +137,9 @@ export async function middleware(request: NextRequest) {
   }
 
   if (user && (pathname === "/login" || pathname === "/signup")) {
-    const redirectTo =
-      request.nextUrl.searchParams.get("redirect")?.startsWith("/") === true
-        ? request.nextUrl.searchParams.get("redirect")!
-        : "/dashboard";
+    const redirectTo = safePostAuthReturnPath(
+      request.nextUrl.searchParams.get("redirect"),
+    );
     const destination =
       signupCompleted === null
         ? redirectTo
@@ -150,7 +157,15 @@ export async function middleware(request: NextRequest) {
     signupCompleted === false &&
     !isAllowedBeforeSignupComplete(pathname)
   ) {
-    return NextResponse.redirect(new URL("/signup/complete", origin));
+    return NextResponse.redirect(
+      new URL(
+        pathWithReturnIntent(
+          "/signup/complete",
+          `${pathname}${request.nextUrl.search}`,
+        ),
+        origin,
+      ),
+    );
   }
 
   return response;

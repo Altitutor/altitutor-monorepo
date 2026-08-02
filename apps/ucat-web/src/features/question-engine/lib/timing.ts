@@ -213,6 +213,40 @@ export function beginQuestionsFromReadyDialog(
   };
 }
 
+/** Advances out of an expired instructions segment before showing its notice. */
+export function advanceAfterInstructionsTimeExpired(
+  exam: QuestionEngineExam,
+  state: QuestionEngineState,
+  now = Date.now(),
+): QuestionEngineState {
+  const next: QuestionEngineState = {
+    ...state,
+    phase: "question",
+    showReadyDialog: false,
+    showTimeExpiredDialog: true,
+    timeExpiredFromInstructions: true,
+  };
+  if (exam.sourceType === "set") {
+    next.currentIndex = 0;
+    next.timerStartedAt =
+      (exam.setModeTiming?.setTimeLimitSeconds ?? 0) > 0 ? now : null;
+  } else if (exam.sourceType === "mock") {
+    const nextSegment = getNextMockSegment(exam, state);
+    if (nextSegment?.type === "instructions") {
+      next.phase = "instructions";
+      next.instructionsIndex = nextSegment.instructionsIndex;
+      next.timerStartedAt =
+        (nextSegment.timeLimitSeconds ?? 0) > 0 ? now : null;
+    } else if (nextSegment?.type === "questions") {
+      next.currentIndex = nextSegment.questionStartIndex;
+      next.mockCurrentSetIndex = nextSegment.setIndex;
+      next.timerStartedAt =
+        (nextSegment.timeLimitSeconds ?? 0) > 0 ? now : null;
+    }
+  }
+  return next;
+}
+
 /**
  * For mock mode when in review: get the first segment of the next set.
  * Returns null if we're on the last set.

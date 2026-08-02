@@ -98,31 +98,46 @@ export function renderUcatEmail(input: {
         .email-button { display: block !important; min-width: 0 !important; }
       }
       @media (prefers-color-scheme: dark) {
-        body, .email-page { background-color: #0c202a !important; }
-        .email-card, .email-content { background-color: #112d39 !important; }
-        .email-card { border-color: #365563 !important; }
-        .email-heading, .email-strong { color: #f6f1e7 !important; }
-        .email-copy, .email-copy p, .email-copy li { color: #d8e2e5 !important; }
-        .email-panel { background-color: #183b49 !important; border-color: #416271 !important; }
-        .email-panel-copy, .email-panel-copy p, .email-panel-copy td { color: #e3ecee !important; }
-        .email-module-surface { background-color: #112d39 !important; border-color: #416271 !important; }
-        .email-footer { background-color: #163642 !important; border-color: #365563 !important; }
-        .email-footer p, .email-footer a { color: #c4d5da !important; }
-        .email-button-cell { background-color: #c9e5ec !important; }
-        .email-button { color: #0a2941 !important; }
-        .email-muted { color: #b7c7cc !important; }
+        body, .email-page { background-color: #171717 !important; }
+        .email-card, .email-content, .email-header { background-color: #1f1f1f !important; }
+        .email-card, .email-header { border-color: #2b2b2b !important; }
+        a, .email-brand, .email-link, .email-accent,
+        .email-panel-copy .email-accent { color: #92b5c3 !important; }
+        .email-brand-subtitle, .email-muted { color: #b3b3b3 !important; }
+        .email-heading, .email-strong { color: #ffffff !important; }
+        .email-copy, .email-copy p, .email-copy li { color: #f5f5f5 !important; }
+        .email-panel { background-color: #262626 !important; border-color: #2b2b2b !important; }
+        .email-panel-copy, .email-panel-copy p, .email-panel-copy td { color: #f5f5f5 !important; }
+        .email-module-surface { background-color: #2b2b2b !important; border-color: #2b2b2b !important; }
+        .email-footer { background-color: #262626 !important; border-color: #2b2b2b !important; }
+        .email-footer p { color: #b3b3b3 !important; }
+        .email-footer a { color: #92b5c3 !important; }
+        .email-button-cell { background-color: #92b5c3 !important; }
+        .email-button { color: #1c1c1c !important; }
+        .email-accent-fill {
+          background-color: #92b5c3 !important;
+          color: #1c1c1c !important;
+        }
       }
-      [data-ogsc] body, [data-ogsc] .email-page { background-color: #0c202a !important; }
-      [data-ogsc] .email-card, [data-ogsc] .email-content { background-color: #112d39 !important; }
-      [data-ogsc] .email-heading, [data-ogsc] .email-strong { color: #f6f1e7 !important; }
-      [data-ogsc] .email-copy, [data-ogsc] .email-copy p, [data-ogsc] .email-copy li { color: #d8e2e5 !important; }
-      [data-ogsc] .email-panel { background-color: #183b49 !important; border-color: #416271 !important; }
-      [data-ogsc] .email-panel-copy, [data-ogsc] .email-panel-copy p, [data-ogsc] .email-panel-copy td { color: #e3ecee !important; }
-      [data-ogsc] .email-module-surface { background-color: #112d39 !important; border-color: #416271 !important; }
-      [data-ogsc] .email-footer { background-color: #163642 !important; border-color: #365563 !important; }
-      [data-ogsc] .email-footer p, [data-ogsc] .email-footer a { color: #c4d5da !important; }
-      [data-ogsc] .email-button-cell { background-color: #c9e5ec !important; }
-      [data-ogsc] .email-button { color: #0a2941 !important; }
+      [data-ogsc] body, [data-ogsc] .email-page { background-color: #171717 !important; }
+      [data-ogsc] .email-card, [data-ogsc] .email-content, [data-ogsc] .email-header { background-color: #1f1f1f !important; }
+      [data-ogsc] .email-card, [data-ogsc] .email-header { border-color: #2b2b2b !important; }
+      [data-ogsc] a, [data-ogsc] .email-brand, [data-ogsc] .email-link,
+      [data-ogsc] .email-accent,
+      [data-ogsc] .email-panel-copy .email-accent { color: #92b5c3 !important; }
+      [data-ogsc] .email-brand-subtitle, [data-ogsc] .email-muted { color: #b3b3b3 !important; }
+      [data-ogsc] .email-heading, [data-ogsc] .email-strong { color: #ffffff !important; }
+      [data-ogsc] .email-copy, [data-ogsc] .email-copy p, [data-ogsc] .email-copy li { color: #f5f5f5 !important; }
+      [data-ogsc] .email-panel { background-color: #262626 !important; border-color: #2b2b2b !important; }
+      [data-ogsc] .email-panel-copy, [data-ogsc] .email-panel-copy p, [data-ogsc] .email-panel-copy td { color: #f5f5f5 !important; }
+      [data-ogsc] .email-module-surface { background-color: #2b2b2b !important; border-color: #2b2b2b !important; }
+      [data-ogsc] .email-footer { background-color: #262626 !important; border-color: #2b2b2b !important; }
+      [data-ogsc] .email-footer p { color: #b3b3b3 !important; }
+      [data-ogsc] .email-footer a { color: #92b5c3 !important; }
+      [data-ogsc] .email-button-cell { background-color: #92b5c3 !important; }
+      [data-ogsc] .email-button { color: #1c1c1c !important; }
+      [data-ogsb] .email-accent-fill { background-color: #92b5c3 !important; }
+      [data-ogsc] .email-accent-fill { color: #1c1c1c !important; }
     </style>
     <!--[if mso]><style type="text/css">body, table, td, a { font-family: Arial, sans-serif !important; }</style><![endif]-->
   </head>
@@ -135,9 +150,9 @@ export function renderUcatEmail(input: {
         <td class="email-page-pad" align="center" style="padding:32px 16px">
           <table class="email-card" role="presentation" cellspacing="0" cellpadding="0" border="0" width="600" bgcolor="#ffffff" style="width:100%;max-width:600px;background-color:#ffffff;border:1px solid #dce5e8;border-radius:16px;overflow:hidden">
             <tr>
-              <td class="email-header" bgcolor="#0a2941" style="padding:30px 36px;background-color:#0a2941">
-                <p style="margin:0;color:#f2f0e9;font-size:24px;font-weight:700;letter-spacing:-0.4px">Altitutor UCAT</p>
-                <p style="margin:6px 0 0;color:#b9d1d9;font-size:13px;line-height:1.5">UCAT preparation from Altitutor</p>
+              <td class="email-header" bgcolor="#0a2941" style="padding:30px 36px;background-color:#0a2941;border-bottom:1px solid #0a2941">
+                <p class="email-brand" style="margin:0;color:#f2f0e9;font-size:24px;font-weight:700;letter-spacing:-0.4px">Altitutor UCAT</p>
+                <p class="email-brand-subtitle" style="margin:6px 0 0;color:#b9d1d9;font-size:13px;line-height:1.5">UCAT preparation from Altitutor</p>
               </td>
             </tr>
             <tr>
@@ -150,10 +165,10 @@ export function renderUcatEmail(input: {
             </tr>
             <tr>
               <td class="email-footer" bgcolor="#eaf1f3" style="padding:24px 36px;background-color:#eaf1f3;border-top:1px solid #dce5e8">
-                <p style="margin:0 0 8px;color:#0a2941;font-size:13px;font-weight:600;line-height:1.5">A not-for-profit initiative by Altitutor.</p>
+                <p class="email-accent" style="margin:0 0 8px;color:#0a2941;font-size:13px;font-weight:600;line-height:1.5">A not-for-profit initiative by Altitutor.</p>
                 ${
     input.footerHtml ??
-      '<p style="margin:0;color:#52606a;font-size:12px;line-height:1.6">Need help? Reply to this email or contact <a href="mailto:admin@altitutor.com" style="color:#0a2941">admin@altitutor.com</a>.</p>'
+      '<p style="margin:0;color:#52606a;font-size:12px;line-height:1.6">Need help? Reply to this email or contact <a class="email-link" href="mailto:admin@altitutor.com" style="color:#0a2941">admin@altitutor.com</a>.</p>'
   }
                 ${input.marketingFooterHtml ?? ""}
                 <p style="margin:12px 0 0;color:#73808a;font-size:11px;line-height:1.5">&copy; ${

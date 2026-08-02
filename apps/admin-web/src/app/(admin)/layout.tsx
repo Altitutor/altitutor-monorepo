@@ -7,7 +7,7 @@ import { Users, Calendar, GraduationCap, Settings, FileText, Home, CreditCard, C
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@altitutor/ui';
 import { cn, navLinkActiveStyles, navLinkInactiveStyles } from '@/shared/utils/index';
 import { ScrollArea } from '@altitutor/ui';
-import { Beaker, Newspaper, ClipboardList, MessageCircle, UserRound, TrendingUp, MessageSquareText } from 'lucide-react';
+import { Beaker, Newspaper, ClipboardList, MessageCircle, Monitor, UserRound, TrendingUp, MessageSquareText } from 'lucide-react';
 import { useQuickActions } from '@/shared/contexts/QuickActionsContext';
 import { useQueryClient } from '@tanstack/react-query';
 import { useToast } from '@altitutor/ui';
@@ -94,9 +94,14 @@ const navItems: NavItem[] = [
     title: 'SCHEDULING',
   },
   {
-    title: 'Students',
+    title: 'In-person Students',
     href: '/students',
     icon: GraduationCap,
+  },
+  {
+    title: 'Online Students',
+    href: '/online-students',
+    icon: Monitor,
   },
   {
     title: 'Parents',

@@ -432,68 +432,80 @@ export async function resolveNotificationRecipients(
 }
 
 // ============================================================================
-// MESSAGE RECIPIENT RESOLVERS (CONTACTS)
+// MESSAGE RECIPIENT RESOLVERS (CONTACTS + STUDENT CONTEXT)
 // ============================================================================
-// Each resolver function takes supabase client and activity event,
-// and returns an array of contact IDs (strings)
 
-/**
- * Resolver function type for message recipients (contacts)
- */
+export interface MessageRecipientTarget {
+  contactId: string;
+  studentId?: string;
+}
+
 type MessageRecipientResolver = (
   supabase: SupabaseClient<unknown>,
   activityEvent: ActivityEvent
-) => Promise<string[]>;
+) => Promise<MessageRecipientTarget[]>;
 
-/**
- * Helper: Get contact IDs for student IDs
- */
-async function getStudentContactIds(
+function dedupeTargets(targets: MessageRecipientTarget[]): MessageRecipientTarget[] {
+  return [...new Map(
+    targets.map((target) => [`${target.contactId}:${target.studentId ?? ''}`, target])
+  ).values()];
+}
+
+async function getTargetsForStudents(
   supabase: SupabaseClient<unknown>,
-  studentIds: string[]
-): Promise<string[]> {
+  studentIds: string[],
+  includeParents: boolean
+): Promise<MessageRecipientTarget[]> {
   if (studentIds.length === 0) return [];
-  
-  const { data: contacts } = await supabase
+
+  const targets: MessageRecipientTarget[] = [];
+  const { data: studentContacts, error: studentContactsError } = await supabase
     .from('contacts')
-    .select('id')
+    .select('id, student_id')
     .in('student_id', studentIds)
     .eq('contact_type', 'STUDENT')
     .eq('is_opted_out', false);
-  
-  if (!contacts) return [];
-  
-  return contacts.map((c: { id: string }) => c.id);
-}
 
-/**
- * Helper: Get contact IDs for parent IDs
- */
-async function getParentContactIds(
-  supabase: SupabaseClient<unknown>,
-  parentIds: string[]
-): Promise<string[]> {
-  if (parentIds.length === 0) return [];
-  
-  const { data: contacts } = await supabase
+  if (studentContactsError) throw studentContactsError;
+  targets.push(...(studentContacts ?? []).flatMap((contact) =>
+    contact.student_id ? [{ contactId: contact.id, studentId: contact.student_id }] : []
+  ));
+
+  if (!includeParents) return dedupeTargets(targets);
+
+  const { data: parentLinks, error: parentLinksError } = await supabase
+    .from('parents_students')
+    .select('parent_id, student_id')
+    .in('student_id', studentIds);
+  if (parentLinksError) throw parentLinksError;
+  if (!parentLinks?.length) return dedupeTargets(targets);
+
+  const parentIds = [...new Set(parentLinks.map((link) => link.parent_id))];
+  const { data: parentContacts, error: parentContactsError } = await supabase
     .from('contacts')
-    .select('id')
+    .select('id, parent_id')
     .in('parent_id', parentIds)
     .eq('contact_type', 'PARENT')
     .eq('is_opted_out', false);
-  
-  if (!contacts) return [];
-  
-  return contacts.map((c: { id: string }) => c.id);
+  if (parentContactsError) throw parentContactsError;
+
+  const contactByParent = new Map(
+    (parentContacts ?? []).flatMap((contact) =>
+      contact.parent_id ? [[contact.parent_id, contact.id] as const] : []
+    )
+  );
+  for (const link of parentLinks) {
+    const contactId = contactByParent.get(link.parent_id);
+    if (contactId) targets.push({ contactId, studentId: link.student_id });
+  }
+
+  return dedupeTargets(targets);
 }
 
-/**
- * Resolve contact IDs for all students enrolled in a class
- */
 async function resolveMessageClassStudents(
   supabase: SupabaseClient<unknown>,
   activityEvent: ActivityEvent
-): Promise<string[]> {
+): Promise<MessageRecipientTarget[]> {
   if (!activityEvent.class_id) {
     throw new Error('class_id required for class_students recipient type');
   }
@@ -507,16 +519,13 @@ async function resolveMessageClassStudents(
   if (!enrollments || enrollments.length === 0) return [];
   
   const studentIds = enrollments.map((e: { student_id: string }) => e.student_id);
-  return getStudentContactIds(supabase, studentIds);
+  return getTargetsForStudents(supabase, studentIds, false);
 }
 
-/**
- * Resolve contact IDs for all students and their parents in a class
- */
 async function resolveMessageClassStudentsAndParents(
   supabase: SupabaseClient<unknown>,
   activityEvent: ActivityEvent
-): Promise<string[]> {
+): Promise<MessageRecipientTarget[]> {
   if (!activityEvent.class_id) {
     throw new Error('class_id required for class_students_and_parents recipient type');
   }
@@ -530,35 +539,13 @@ async function resolveMessageClassStudentsAndParents(
   if (!enrollments || enrollments.length === 0) return [];
   
   const studentIds = enrollments.map((e: { student_id: string }) => e.student_id);
-  const contactIds: string[] = [];
-  
-  // Get student contacts
-  const studentContacts = await getStudentContactIds(supabase, studentIds);
-  contactIds.push(...studentContacts);
-  
-  // Get parent contacts via parents_students
-  const { data: parentLinks } = await supabase
-    .from('parents_students')
-    .select('parent_id')
-    .in('student_id', studentIds);
-  
-  if (parentLinks && parentLinks.length > 0) {
-    const parentIds = parentLinks.map((pl: { parent_id: string }) => pl.parent_id);
-    const parentContacts = await getParentContactIds(supabase, parentIds);
-    contactIds.push(...parentContacts);
-  }
-  
-  // Deduplicate
-  return [...new Set(contactIds)];
+  return getTargetsForStudents(supabase, studentIds, true);
 }
 
-/**
- * Resolve contact IDs for all students enrolled in a session
- */
 async function resolveMessageSessionStudents(
   supabase: SupabaseClient<unknown>,
   activityEvent: ActivityEvent
-): Promise<string[]> {
+): Promise<MessageRecipientTarget[]> {
   if (!activityEvent.session_id) {
     throw new Error('session_id required for session_students recipient type');
   }
@@ -571,16 +558,13 @@ async function resolveMessageSessionStudents(
   if (!sessionStudents || sessionStudents.length === 0) return [];
   
   const studentIds = sessionStudents.map((ss: { student_id: string }) => ss.student_id);
-  return getStudentContactIds(supabase, studentIds);
+  return getTargetsForStudents(supabase, studentIds, false);
 }
 
-/**
- * Resolve contact IDs for all students and their parents in a session
- */
 async function resolveMessageSessionStudentsAndParents(
   supabase: SupabaseClient<unknown>,
   activityEvent: ActivityEvent
-): Promise<string[]> {
+): Promise<MessageRecipientTarget[]> {
   if (!activityEvent.session_id) {
     throw new Error('session_id required for session_students_and_parents recipient type');
   }
@@ -590,73 +574,62 @@ async function resolveMessageSessionStudentsAndParents(
     .select('student_id')
     .eq('session_id', activityEvent.session_id);
   
-  if (!sessionStudents || sessionStudents.length === 0) return [];
-  
-  const studentIds = sessionStudents.map((ss: { student_id: string }) => ss.student_id);
-  const contactIds: string[] = [];
-  
-  // Get student contacts
-  const studentContacts = await getStudentContactIds(supabase, studentIds);
-  contactIds.push(...studentContacts);
-  
-  // Get parent contacts via parents_students
-  const { data: parentLinks } = await supabase
-    .from('parents_students')
+  const studentIds = (sessionStudents ?? []).map((ss: { student_id: string }) => ss.student_id);
+  const targets = await getTargetsForStudents(supabase, studentIds, true);
+
+  // Include parents explicitly attached to the session, even if they are not a
+  // general parent contact for one of its students.
+  const { data: sessionParents, error: sessionParentsError } = await supabase
+    .from('sessions_parents')
     .select('parent_id')
-    .in('student_id', studentIds);
-  
-  if (parentLinks && parentLinks.length > 0) {
-    const parentIds = parentLinks.map((pl: { parent_id: string }) => pl.parent_id);
-    const parentContacts = await getParentContactIds(supabase, parentIds);
-    contactIds.push(...parentContacts);
+    .eq('session_id', activityEvent.session_id);
+  if (sessionParentsError) throw sessionParentsError;
+  if (!sessionParents?.length) return targets;
+
+  const parentIds = [...new Set(sessionParents.map((row) => row.parent_id))];
+  const { data: parentContacts, error: parentContactsError } = await supabase
+    .from('contacts')
+    .select('id, parent_id')
+    .in('parent_id', parentIds)
+    .eq('contact_type', 'PARENT')
+    .eq('is_opted_out', false);
+  if (parentContactsError) throw parentContactsError;
+
+  const { data: links, error: linksError } = studentIds.length > 0
+    ? await supabase
+      .from('parents_students')
+      .select('parent_id, student_id')
+      .in('parent_id', parentIds)
+      .in('student_id', studentIds)
+    : { data: [], error: null };
+  if (linksError) throw linksError;
+
+  for (const contact of parentContacts ?? []) {
+    const studentLinks = (links ?? []).filter((link) => link.parent_id === contact.parent_id);
+    if (studentLinks.length === 0) targets.push({ contactId: contact.id });
+    for (const link of studentLinks) {
+      targets.push({ contactId: contact.id, studentId: link.student_id });
+    }
   }
-  
-  // Deduplicate
-  return [...new Set(contactIds)];
+
+  return dedupeTargets(targets);
 }
 
-/**
- * Resolve contact IDs for a single student and all their parents
- * Uses student_id from activity event
- */
 async function resolveMessageStudentAndParents(
   supabase: SupabaseClient<unknown>,
   activityEvent: ActivityEvent
-): Promise<string[]> {
+): Promise<MessageRecipientTarget[]> {
   if (!activityEvent.student_id) {
     throw new Error('student_id required for student_and_parents recipient type');
   }
   
-  const contactIds: string[] = [];
-  
-  // Get student contact
-  const studentContacts = await getStudentContactIds(supabase, [activityEvent.student_id]);
-  contactIds.push(...studentContacts);
-  
-  // Get parent contacts via parents_students
-  const { data: parentLinks } = await supabase
-    .from('parents_students')
-    .select('parent_id')
-    .eq('student_id', activityEvent.student_id);
-  
-  if (parentLinks && parentLinks.length > 0) {
-    const parentIds = parentLinks.map((pl: { parent_id: string }) => pl.parent_id);
-    const parentContacts = await getParentContactIds(supabase, parentIds);
-    contactIds.push(...parentContacts);
-  }
-  
-  // Deduplicate
-  return [...new Set(contactIds)];
+  return getTargetsForStudents(supabase, [activityEvent.student_id], true);
 }
 
-/**
- * Resolve contact IDs for all students in a tutor log's student attendance
- * Uses entity_id (tutor_log_id) from activity event
- */
 async function resolveMessageTutorLogStudents(
   supabase: SupabaseClient<unknown>,
   activityEvent: ActivityEvent
-): Promise<string[]> {
+): Promise<MessageRecipientTarget[]> {
   if (!activityEvent.entity_id) {
     throw new Error('entity_id (tutor_log_id) required for tutor_log_students recipient type');
   }
@@ -669,17 +642,13 @@ async function resolveMessageTutorLogStudents(
   if (!studentAttendance || studentAttendance.length === 0) return [];
   
   const studentIds = studentAttendance.map((sa: { student_id: string }) => sa.student_id);
-  return getStudentContactIds(supabase, studentIds);
+  return getTargetsForStudents(supabase, studentIds, false);
 }
 
-/**
- * Resolve contact IDs for all students and their parents in a tutor log's student attendance
- * Uses entity_id (tutor_log_id) from activity event
- */
 async function resolveMessageTutorLogStudentsAndParents(
   supabase: SupabaseClient<unknown>,
   activityEvent: ActivityEvent
-): Promise<string[]> {
+): Promise<MessageRecipientTarget[]> {
   if (!activityEvent.entity_id) {
     throw new Error('entity_id (tutor_log_id) required for tutor_log_students_and_parents recipient type');
   }
@@ -692,36 +661,73 @@ async function resolveMessageTutorLogStudentsAndParents(
   if (!studentAttendance || studentAttendance.length === 0) return [];
   
   const studentIds = studentAttendance.map((sa: { student_id: string }) => sa.student_id);
-  const contactIds: string[] = [];
-  
-  // Get student contacts
-  const studentContacts = await getStudentContactIds(supabase, studentIds);
-  contactIds.push(...studentContacts);
-  
-  // Get parent contacts via parents_students
-  const { data: parentLinks } = await supabase
-    .from('parents_students')
-    .select('parent_id')
-    .in('student_id', studentIds);
-  
-  if (parentLinks && parentLinks.length > 0) {
-    const parentIds = parentLinks.map((pl: { parent_id: string }) => pl.parent_id);
-    const parentContacts = await getParentContactIds(supabase, parentIds);
-    contactIds.push(...parentContacts);
-  }
-  
-  // Deduplicate
-  return [...new Set(contactIds)];
+  return getTargetsForStudents(supabase, studentIds, true);
 }
 
-/**
- * Resolve single recipient - handled by caller, returns empty array
- */
+async function resolveMessageTutorLogAttendees(
+  supabase: SupabaseClient<unknown>,
+  activityEvent: ActivityEvent
+): Promise<MessageRecipientTarget[]> {
+  if (!activityEvent.entity_id || !activityEvent.session_id) {
+    throw new Error('tutor_log_attendees requires tutor log entity_id and session_id');
+  }
+
+  const { data: studentAttendance, error: studentAttendanceError } = await supabase
+    .from('tutor_logs_student_attendance')
+    .select('student_id')
+    .eq('tutor_log_id', activityEvent.entity_id)
+    .eq('attended', true);
+  if (studentAttendanceError) throw studentAttendanceError;
+
+  const studentIds = (studentAttendance ?? []).map((row) => row.student_id);
+  const targets = await getTargetsForStudents(supabase, studentIds, false);
+
+  const { data: parentAttendance, error: parentAttendanceError } = await supabase
+    .from('tutor_logs_parent_attendance')
+    .select('parent_id')
+    .eq('tutor_log_id', activityEvent.entity_id)
+    .eq('attended', true);
+  if (parentAttendanceError) throw parentAttendanceError;
+  if (!parentAttendance?.length) return targets;
+
+  const parentIds = [...new Set(parentAttendance.map((row) => row.parent_id))];
+  const { data: parentContacts, error: parentContactsError } = await supabase
+    .from('contacts')
+    .select('id, parent_id')
+    .in('parent_id', parentIds)
+    .eq('contact_type', 'PARENT')
+    .eq('is_opted_out', false);
+  if (parentContactsError) throw parentContactsError;
+
+  const { data: sessionStudents, error: sessionStudentsError } = await supabase
+    .from('sessions_students')
+    .select('student_id')
+    .eq('session_id', activityEvent.session_id);
+  if (sessionStudentsError) throw sessionStudentsError;
+  const sessionStudentIds = (sessionStudents ?? []).map((row) => row.student_id);
+
+  const { data: parentLinks, error: parentLinksError } = sessionStudentIds.length > 0
+    ? await supabase
+      .from('parents_students')
+      .select('parent_id, student_id')
+      .in('parent_id', parentIds)
+      .in('student_id', sessionStudentIds)
+    : { data: [], error: null };
+  if (parentLinksError) throw parentLinksError;
+
+  for (const contact of parentContacts ?? []) {
+    const links = (parentLinks ?? []).filter((link) => link.parent_id === contact.parent_id);
+    if (links.length === 0) targets.push({ contactId: contact.id });
+    for (const link of links) targets.push({ contactId: contact.id, studentId: link.student_id });
+  }
+
+  return dedupeTargets(targets);
+}
+
 async function resolveMessageSingle(
   _supabase: SupabaseClient<unknown>,
   _activityEvent: ActivityEvent
-): Promise<string[]> {
-  // Single recipient is handled by the caller (backward compatibility)
+): Promise<MessageRecipientTarget[]> {
   return [];
 }
 
@@ -742,9 +748,7 @@ const messageRecipientResolvers: Record<string, MessageRecipientResolver> = {
   'student_and_parents': resolveMessageStudentAndParents,
   'tutor_log_students': resolveMessageTutorLogStudents,
   'tutor_log_students_and_parents': resolveMessageTutorLogStudentsAndParents,
-  // Future recipient types can be added here:
-  // 'all_admin_staff': resolveMessageAllAdminStaff,
-  // 'all_staff': resolveMessageAllStaff,
+  'tutor_log_attendees': resolveMessageTutorLogAttendees,
 };
 
 /**
@@ -755,7 +759,7 @@ export async function resolveMessageRecipients(
   supabase: SupabaseClient<unknown>,
   recipientType: string,
   activityEvent: ActivityEvent
-): Promise<string[]> {
+): Promise<MessageRecipientTarget[]> {
   const resolver = messageRecipientResolvers[recipientType];
   
   if (!resolver) {

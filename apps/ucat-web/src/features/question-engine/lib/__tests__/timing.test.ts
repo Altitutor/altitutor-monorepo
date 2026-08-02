@@ -3,6 +3,7 @@
  */
 
 import {
+  advanceAfterInstructionsTimeExpired,
   advanceMockAfterTimeExpired,
   beginQuestionsFromReadyDialog,
   getCurrentSegmentTimeLimitSeconds,
@@ -203,6 +204,112 @@ describe("getNextMockSegmentAfterExpiry", () => {
       currentIndex: 44,
       mockCurrentSetIndex: 1,
       timerStartedAt: startedAt,
+    });
+  });
+
+  it("starts the first mock set after accepting its ready dialog", () => {
+    expect(
+      beginQuestionsFromReadyDialog(
+        mockExam,
+        createBaseState({
+          phase: "instructions",
+          instructionsIndex: 0,
+          showReadyDialog: true,
+        }),
+        1_500_000,
+      ),
+    ).toMatchObject({
+      phase: "question",
+      showReadyDialog: false,
+      currentIndex: 0,
+      mockCurrentSetIndex: 0,
+      timerStartedAt: 1_500_000,
+    });
+  });
+
+  it("starts a set after accepting its ready dialog", () => {
+    const setExam: QuestionEngineExam = {
+      sourceType: "set",
+      sourceId: "set-1",
+      title: "Set 1",
+      questions: [],
+      instructionsScreens: [{ instructionsJson: null }],
+      setModeTiming: {
+        setTimeLimitSeconds: 600,
+        instructionsTimeLimitSeconds: 60,
+      },
+    };
+
+    expect(
+      beginQuestionsFromReadyDialog(
+        setExam,
+        createBaseState({
+          phase: "instructions",
+          showReadyDialog: true,
+        }),
+        1_500_000,
+      ),
+    ).toMatchObject({
+      phase: "question",
+      showReadyDialog: false,
+      currentIndex: 0,
+      timerStartedAt: 1_500_000,
+    });
+  });
+
+  it("lets time expiry override a ready dialog during instructions", () => {
+    const next = advanceAfterInstructionsTimeExpired(
+      mockExam,
+      createBaseState({
+        phase: "instructions",
+        instructionsIndex: 1,
+        showReadyDialog: true,
+        mockCurrentSetIndex: 1,
+        currentIndex: 0,
+      }),
+      1_500_000,
+    );
+
+    expect(next).toMatchObject({
+      phase: "question",
+      showReadyDialog: false,
+      showTimeExpiredDialog: true,
+      timeExpiredFromInstructions: true,
+      currentIndex: 44,
+      mockCurrentSetIndex: 1,
+      timerStartedAt: 1_500_000,
+    });
+  });
+
+  it("advances to the next instruction screen when mock instructions are consecutive", () => {
+    const examWithOpeningInstructions: QuestionEngineExam = {
+      ...mockExam,
+      mockTimingSegments: [
+        { type: "instructions", instructionsIndex: 0, timeLimitSeconds: 90 },
+        { type: "instructions", instructionsIndex: 1, timeLimitSeconds: 60 },
+        {
+          type: "questions",
+          setIndex: 0,
+          questionStartIndex: 0,
+          questionEndIndex: 44,
+          timeLimitSeconds: 1320,
+        },
+      ],
+    };
+
+    expect(
+      advanceAfterInstructionsTimeExpired(
+        examWithOpeningInstructions,
+        createBaseState({ phase: "instructions", instructionsIndex: 0 }),
+        1_500_000,
+      ),
+    ).toMatchObject({
+      phase: "instructions",
+      instructionsIndex: 1,
+      showReadyDialog: false,
+      showTimeExpiredDialog: true,
+      timeExpiredFromInstructions: true,
+      timerStartedAt: 1_500_000,
     });
   });
 

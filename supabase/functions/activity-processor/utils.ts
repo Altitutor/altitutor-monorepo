@@ -22,6 +22,8 @@ interface ConditionInput {
   value?: unknown;
   old_value?: unknown;
   new_value?: unknown;
+  all?: ConditionInput[];
+  any?: ConditionInput[];
 }
 
 interface ActivityEventLike {
@@ -76,6 +78,18 @@ export function getActivityEventVariables(activityEvent: ActivityEventLike): Rec
 export function evaluateConditions(conditions: ConditionInput | null | undefined, activityEvent: ActivityEventLike, entityData: Record<string, unknown> | null | undefined): boolean {
   if (!conditions || Object.keys(conditions).length === 0) {
     return true; // No conditions = always match
+  }
+
+  if (Array.isArray(conditions.all)) {
+    return conditions.all.length > 0 && conditions.all.every((condition) =>
+      evaluateConditions(condition, activityEvent, entityData)
+    );
+  }
+
+  if (Array.isArray(conditions.any)) {
+    return conditions.any.length > 0 && conditions.any.some((condition) =>
+      evaluateConditions(condition, activityEvent, entityData)
+    );
   }
 
   if (!conditions.field || !conditions.operator) {
@@ -134,7 +148,7 @@ export function evaluateConditions(conditions: ConditionInput | null | undefined
   // Standard condition evaluation (for CREATED events or current state checks)
   const fieldValue = fieldName.startsWith('activity.')
     ? getNestedValue(activityEvent, fieldName.slice('activity.'.length))
-    : entityData?.[fieldName];
+    : getNestedValue(entityData, fieldName);
   
   switch (operator) {
     case 'equals':
@@ -178,6 +192,13 @@ export function evaluateConditions(conditions: ConditionInput | null | undefined
         return false;
       }
       return Number(fieldValue) < Number(conditions.value);
+
+    case 'in':
+      if (!Array.isArray(conditions.value)) {
+        console.warn('[activity-processor] in operator requires an array value');
+        return false;
+      }
+      return conditions.value.some((value) => String(value) === String(fieldValue));
     
     default:
       console.warn('[activity-processor] Unknown operator:', operator);
@@ -549,7 +570,7 @@ export async function getOrGenerateStudentRegistrationToken(
   // Check if student exists and get invite_token (used for registration)
   const { data: student, error } = await supabase
     .from('students')
-    .select('id, user_id, invite_token')
+    .select('id, status, invite_token')
     .eq('id', studentId)
     .maybeSingle();
   
@@ -558,9 +579,12 @@ export async function getOrGenerateStudentRegistrationToken(
     return null;
   }
   
-  // Registration link can be sent even if student has account but hasn't registered (status != ACTIVE)
-  // But if they're fully registered (user_id exists AND status is ACTIVE), skip
-  // For now, we'll allow registration link if they don't have user_id or if they have invite_token
+  // `status` is the in-person lifecycle. Account linkage is deliberately not
+  // used here: an online Student may already have a user_id while still needing
+  // to complete in-person registration.
+  if (student.status === 'ACTIVE') {
+    return null;
+  }
   
   // Reuse existing token if available
   if (student.invite_token) {
@@ -667,6 +691,8 @@ export async function extractTemplateVariables(
     if (student) {
       variables['first_name'] = student.first_name || '';
       variables['last_name'] = student.last_name || '';
+      variables['student.first_name'] = student.first_name || '';
+      variables['student.last_name'] = student.last_name || '';
       
       // Load student classes for {classes} variable
       const { data: enrollments } = await supabase
@@ -840,6 +866,9 @@ export async function extractTemplateVariables(
     if (sessionData) {
       // Session fields
       variables['session.type'] = sessionData.type || '';
+      variables['session.type_label'] = sessionData.type
+        ? String(sessionData.type).toLowerCase().replaceAll('_', ' ')
+        : '';
       variables['session.start_at'] = sessionData.start_at ? formatDateTime(sessionData.start_at) : '';
       variables['session.end_at'] = sessionData.end_at ? formatDateTime(sessionData.end_at) : '';
       
@@ -888,8 +917,11 @@ export async function extractTemplateVariables(
         }
       }
       
-      // Generate booking confirmation link for trial sessions
-      if (sessionData.type === 'TRIAL_SESSION' && sessionData.id) {
+      // Public booking details support both trial sessions and subsidy interviews.
+      if (
+        ['TRIAL_SESSION', 'SUBSIDY_INTERVIEW'].includes(sessionData.type) &&
+        sessionData.id
+      ) {
         // Determine base URL (use environment variable or default to production)
         const studentUrl = Deno.env.get('NEXT_PUBLIC_STUDENT_URL') || 'https://student.altitutor.com';
         const bookingConfirmationUrl = `${studentUrl}/booking-success?sessionId=${sessionData.id}`;

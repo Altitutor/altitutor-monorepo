@@ -622,9 +622,6 @@ function validateQr(
   issues: GenerationGateIssue[],
   targetedCategory: boolean
 ) {
-  if (stem.questions.length < 1 || stem.questions.length > 4) {
-    add(issues, 'blocking', 'qr_question_count', 'Quantitative Reasoning stems must have 1 to 4 questions.', stemIndex)
-  }
   stem.questions.forEach((question, questionIndex) => {
     if (question.questionType !== 'multiple_choice') {
       add(issues, 'blocking', 'qr_question_type', 'Quantitative Reasoning questions must be stored as multiple_choice.', stemIndex, questionIndex)

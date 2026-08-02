@@ -52,6 +52,7 @@ import { ReviewInstructionsDialog } from "@/features/question-engine/components/
 import { TimeExpiredDialog } from "@/features/question-engine/components/time-expired-dialog";
 import { getIncompleteCount } from "@/features/question-engine/lib/review";
 import {
+  advanceAfterInstructionsTimeExpired,
   advanceMockAfterTimeExpired,
   beginQuestionsFromReadyDialog,
   formatTimeRemaining,
@@ -138,7 +139,7 @@ const PlanPickerDialogShell = dynamic(() =>
 );
 
 /**
- * Standalone practice (e.g. `/practice/stem/[id]`): fill the padded app-shell
+ * Inline practice: use the embedded lesson/session viewport.
  * viewport (`pt-28` + bottom `p-6` = 8.5rem).
  */
 export const PRACTICE_EMBEDDED_VIEWPORT_CLASS =
@@ -324,6 +325,7 @@ export type PracticeEngineLiveStats = {
   incorrectCount: number;
   revealAccuracy: boolean;
   totalAnsweredTimeSeconds: number;
+  sessionTimeSeconds?: number;
   currentQuestionNumber: number;
   totalQuestionLabel: string;
   timingPhase: "question" | "practiceAnswer";
@@ -387,6 +389,7 @@ export function QuestionEnginePage({
   onLearnProgress,
   disableQuestionAttemptLogging = false,
   embeddedInLesson = false,
+  embeddedInteractionActive = true,
   fillAvailableHeight = false,
   onRegisterFinishPracticeDialog,
   tutorialMode = false,
@@ -441,6 +444,8 @@ export function QuestionEnginePage({
   disableQuestionAttemptLogging?: boolean;
   /** Shorter viewport when practice engine is embedded inside a lesson block card. */
   embeddedInLesson?: boolean;
+  /** Only the focused inline engine installs document-level interaction handlers. */
+  embeddedInteractionActive?: boolean;
   /**
    * When true, fill the parent height instead of using a viewport calc.
    * Used by practice session where the parent owns the remaining-height layout.
@@ -845,7 +850,6 @@ export function QuestionEnginePage({
     exam,
     state,
     practiceSessionId,
-    learningModuleBlockId,
     onLearnProgress,
     disableQuestionAttemptLogging,
     examAttemptManaged,
@@ -1043,34 +1047,7 @@ export function QuestionEnginePage({
 
     if (state.phase === "instructions") {
       awaitingServerSegmentStartRef.current = examAttemptManaged;
-      setState((prev) => {
-        const next = { ...prev, phase: "question" as const };
-        if (exam!.sourceType === "set") {
-          next.currentIndex = 0;
-          next.timerStartedAt =
-            (exam!.setModeTiming?.setTimeLimitSeconds ?? 0) > 0
-              ? Date.now()
-              : null;
-        } else if (exam!.sourceType === "mock") {
-          const nextSeg = getNextMockSegment(exam!, prev);
-          if (nextSeg?.type === "questions") {
-            next.currentIndex = nextSeg.questionStartIndex;
-            next.mockCurrentSetIndex = nextSeg.setIndex;
-            next.timerStartedAt =
-              (nextSeg.timeLimitSeconds ?? 0) > 0 ? Date.now() : null;
-          } else {
-            next.currentIndex = prev.currentIndex;
-          }
-        } else if (
-          (exam!.sourceType === "questions" ||
-            exam!.sourceType === "questionStem") &&
-          exam!.timePerQuestionSeconds != null &&
-          exam!.timePerQuestionSeconds > 0
-        ) {
-          next.timerStartedAt = Date.now();
-        }
-        return next;
-      });
+      setState((prev) => advanceAfterInstructionsTimeExpired(exam, prev));
       return;
     }
 
@@ -1387,10 +1364,10 @@ export function QuestionEnginePage({
         );
         // Session completion writes every final answer in one server batch.
         // Non-session practice retains the normal stem submission path.
-        if (!practiceSessionId) {
+        if (!practiceSessionId && !disableQuestionAttemptLogging) {
           await recordAnswersForUnit(startIndex, endIndex);
         }
-        if (learningModuleBlockId && disableQuestionAttemptLogging) {
+        if (disableQuestionAttemptLogging) {
           onLearnProgress?.();
         }
         setSubmittedPracticeQuestionIds((current) => {
@@ -1457,7 +1434,6 @@ export function QuestionEnginePage({
     mode,
     recordAnswersForUnit,
     getFinalPracticeAnswers,
-    learningModuleBlockId,
     disableQuestionAttemptLogging,
     onLearnProgress,
     practiceSessionId,
@@ -1531,8 +1507,11 @@ export function QuestionEnginePage({
       });
       setState(practiceAnswerState);
 
-      if (learningModuleBlockId && disableQuestionAttemptLogging) {
+      if (disableQuestionAttemptLogging) {
         onLearnProgress?.();
+        suppressQuestionTimingSyncRef.current = false;
+        setIsSavingPracticeUnit(false);
+        return;
       }
 
       const savePromise = (async () => {
@@ -1575,7 +1554,6 @@ export function QuestionEnginePage({
       questions,
       state,
       mode,
-      learningModuleBlockId,
       disableQuestionAttemptLogging,
       onLearnProgress,
       setState,
@@ -1589,6 +1567,7 @@ export function QuestionEnginePage({
 
   // Disable copy, cut, paste, and enable UCAT keyboard shortcuts while the UCAT engine is open
   useEffect(() => {
+    if (embeddedInLesson && !embeddedInteractionActive) return;
     const preventDefault = (event: Event) => {
       event.preventDefault();
     };
@@ -1737,7 +1716,9 @@ export function QuestionEnginePage({
       }
 
       // When Ready to Begin dialog is open (on instructions or intro), Alt+Y / Alt+N = Yes / No
-      const readyOverlay = state.phase === "intro" || state.showReadyDialog;
+      const readyOverlay =
+        !state.showTimeExpiredDialog &&
+        (state.phase === "intro" || state.showReadyDialog);
       if (
         readyOverlay &&
         (shortcutKey === "alt+y" || shortcutKey === "alt+n")
@@ -2027,6 +2008,7 @@ export function QuestionEnginePage({
     isFinalizingExam,
     isFinishingPractice,
     embeddedInLesson,
+    embeddedInteractionActive,
     exam,
   ]);
 
@@ -2088,6 +2070,22 @@ export function QuestionEnginePage({
       },
       0,
     );
+    const sessionTimeSeconds = questions.reduce((total, question) => {
+      const clientSeconds = Math.floor(
+        getClientPracticeQuestionElapsedMilliseconds(
+          question.id,
+          clientPracticeTimingRef.current,
+        ) / 1000,
+      );
+      return (
+        total +
+        Math.max(
+          0,
+          persistedSecondsByQuestionId[question.id] ?? 0,
+          clientSeconds,
+        )
+      );
+    }, 0);
 
     const timingPhase =
       state.phase === "practiceAnswer" ? "practiceAnswer" : "question";
@@ -2130,6 +2128,7 @@ export function QuestionEnginePage({
       incorrectCount: Math.max(0, answeredCount - correctCount),
       revealAccuracy: reviewTiming === "afterEachStem",
       totalAnsweredTimeSeconds,
+      sessionTimeSeconds,
       currentQuestionNumber,
       totalQuestionLabel: onNeedMoreStems
         ? "Unlimited"
@@ -2333,7 +2332,8 @@ export function QuestionEnginePage({
   })();
   const hasPreviousInstructions = false;
   const showReadyToBeginDialog =
-    state.phase === "intro" || state.showReadyDialog;
+    !state.showTimeExpiredDialog &&
+    (state.phase === "intro" || state.showReadyDialog);
   const overlayActive =
     showReadyToBeginDialog ||
     state.showTimeExpiredDialog ||
@@ -2379,6 +2379,15 @@ export function QuestionEnginePage({
 
   function handleTimeExpiredOk() {
     if (!exam) return;
+
+    if (state.timeExpiredFromInstructions) {
+      setState((current) => ({
+        ...current,
+        showTimeExpiredDialog: false,
+        timeExpiredFromInstructions: false,
+      }));
+      return;
+    }
 
     if (
       practice &&

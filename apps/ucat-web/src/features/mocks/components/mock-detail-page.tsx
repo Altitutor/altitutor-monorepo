@@ -20,6 +20,7 @@ import {
 import { useActiveExamAttempt } from "@/features/exam-attempts/context/active-exam-attempt-context";
 import { ExamAttemptConflictDialog } from "@/features/exam-attempts/components/exam-attempt-conflict-dialog";
 import { useExamAttemptLaunchPreflight } from "@/features/exam-attempts/hooks/use-exam-attempt-launch-preflight";
+import { useBeginExamRoute } from "@/features/exam-attempts/hooks/use-begin-exam-route";
 import {
   buildQuestionEngineTutorialHref,
   useQuestionEngineTutorialGate,
@@ -100,11 +101,7 @@ export function MockDetailPage({
   const attemptsHeadingId = useId();
   const [showAllAttempts, setShowAllAttempts] = useState(false);
   const mockQuota = quota?.areas.find((area) => area.area === "mocks") ?? null;
-  const examHref = `/exam/mocks?id=${encodeURIComponent(mockId)}${
-    sessionEntryContext
-      ? `&session=${encodeURIComponent(sessionEntryContext.sessionId)}`
-      : ""
-  }`;
+  const examHref = "/exam";
 
   const breadcrumbLeafSegmentIndex = sessionEntryContext != null ? 2 : 1;
   const backHref =
@@ -115,16 +112,21 @@ export function MockDetailPage({
   const backLabel =
     backLabelProp ??
     (sessionEntryContext != null ? "Back to session" : "Back to all mocks");
-  const launchPreflight = useExamAttemptLaunchPreflight({
-    kind: "mock",
-    resourceId: mockId,
-    onLaunch: () => router.push(examHref),
-  });
-
   const mock = useMemo(
     () => (mocks ?? []).find((item) => item.id === mockId),
     [mocks, mockId],
   );
+  const launchMock = useBeginExamRoute({
+    kind: "mock",
+    resourceId: mockId,
+    title: mock?.name ?? "Mock exam",
+    exitHref: backHref,
+  });
+  const launchPreflight = useExamAttemptLaunchPreflight({
+    kind: "mock",
+    resourceId: mockId,
+    onLaunch: launchMock,
+  });
 
   useEffect(() => {
     if (!mock) return;
@@ -209,7 +211,11 @@ export function MockDetailPage({
   const handleLaunchMock = () => {
     if (questionEngineTourLoading) return;
     if (questionEngineTourBlocked) {
-      router.push(buildQuestionEngineTutorialHref(examHref));
+      router.push(
+        buildQuestionEngineTutorialHref(
+          `${window.location.pathname}${window.location.search}`,
+        ),
+      );
       return;
     }
     const canResumeCurrentAttempt =

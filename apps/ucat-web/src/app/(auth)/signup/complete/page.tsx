@@ -6,6 +6,7 @@ import { SignupCompleteHardRedirect } from "@/features/signup-onboarding/compone
 import { SignupCompleteSessionFallback } from "@/features/signup-onboarding/components/signup-complete-session-fallback";
 import { loadSignupOnboardingInitial } from "@/features/signup-onboarding/lib/load-signup-onboarding-initial";
 import { resolveSignupStateForUser } from "@/features/signup-onboarding/lib/resolve-signup-state";
+import { safePostAuthReturnPath } from "@/features/auth/lib/return-intent";
 
 // getSupabaseServerClient intentionally uses an empty-cookie placeholder during
 // `next build`. Without this explicit contract, Next prerenders the fallback
@@ -29,7 +30,13 @@ async function resolveSignupCompleteUser(): Promise<User | null> {
   return session?.user ?? null;
 }
 
-export default async function SignupCompletePage() {
+export default async function SignupCompletePage({
+  searchParams,
+}: {
+  searchParams: Promise<{ redirect?: string }>;
+}) {
+  const params = await searchParams;
+  const returnTo = safePostAuthReturnPath(params.redirect);
   const user = await resolveSignupCompleteUser();
 
   if (!user) {
@@ -40,7 +47,7 @@ export default async function SignupCompletePage() {
   if (state.signupCompleted) {
     // Soft redirect("/dashboard") races middleware when the access view
     // briefly reports incomplete → soft-nav storm / blank screen.
-    return <SignupCompleteHardRedirect to="/dashboard" />;
+    return <SignupCompleteHardRedirect to={returnTo} />;
   }
 
   const initial = await loadSignupOnboardingInitial(user);

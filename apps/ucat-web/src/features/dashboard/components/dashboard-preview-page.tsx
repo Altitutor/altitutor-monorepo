@@ -357,7 +357,6 @@ function makePlan(
     profile: {
       id: "preview-profile",
       studyPlanEnabled: true,
-      studySuggestionsEnabled: true,
       targetScore: scenario.targetScore,
       testYear: Number((testDate ?? addDays(today, 365)).slice(0, 4)),
       testDate,

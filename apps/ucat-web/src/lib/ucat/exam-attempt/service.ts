@@ -22,6 +22,7 @@ import type {
   SyncExamAttemptInput,
 } from "@/lib/ucat/exam-attempt/types";
 import { checkQuotaForAction } from "@/lib/ucat/quota/quota-service";
+import { getQuestionSetLabel } from "@/lib/ucat/exam-attempt/question-set-label";
 
 type AdminClient = SupabaseClient;
 
@@ -40,6 +41,7 @@ export type StoredExamSnapshot = {
     sourceId: string;
     practice: boolean;
     label?: string;
+    exitHref?: string;
   };
   examTiming?: StoredExamTiming;
   setAttemptIdsBySetId: Record<string, string>;
@@ -149,14 +151,9 @@ async function maybeFinalizeResultsAttempt(
 }
 
 function resumeHref(kind: ExamAttemptKind, resourceId: string): string {
-  switch (kind) {
-    case "set":
-      return `/exam/sets?id=${encodeURIComponent(resourceId)}`;
-    case "mock":
-      return `/exam/mocks?id=${encodeURIComponent(resourceId)}`;
-    case "practice":
-      return "/practice/session";
-  }
+  void kind;
+  void resourceId;
+  return "/exam";
 }
 
 async function buildResultsHref(
@@ -189,9 +186,7 @@ async function loadSetLabel(
     .select("name")
     .eq("id", questionSetId)
     .maybeSingle();
-  if (!data?.name) return "Question set";
-  if (typeof data.name === "string") return data.name;
-  return "Question set";
+  return getQuestionSetLabel(data?.name ?? null);
 }
 
 async function loadMockLabel(
@@ -233,6 +228,7 @@ function rowToActiveAttempt(
     resourceId: row.resourceId,
     label: row.label,
     resumeHref: resumeHref(kind, row.resourceId),
+    exitHref: stored.exam.exitHref,
     resultsHref: row.resultsHref,
     currentSegmentEndsAt: row.current_segment_ends_at,
     engineSnapshot: stored.state,
@@ -1005,13 +1001,16 @@ async function persistSnapshot(
 
   const stored = wrapStoredSnapshot({
     state: nextState,
-    exam: input.exam ?? {
-      sourceType:
-        kind === "set" ? "set" : kind === "mock" ? "mock" : "questionStem",
-      sourceId: attemptId,
-      practice: kind === "practice",
+    exam: {
+      ...(persisted.stored?.exam ?? {
+        sourceType:
+          kind === "set" ? "set" : kind === "mock" ? "mock" : "questionStem",
+        sourceId: attemptId,
+        practice: kind === "practice",
+      }),
+      ...input.exam,
     },
-    examTiming: input.examTiming,
+    examTiming: input.examTiming ?? persisted.stored?.examTiming,
     setAttemptIdsBySetId,
     mockAttemptId,
   });
@@ -1202,6 +1201,7 @@ export async function beginExamAttempt(
         resourceId: input.resourceId,
         label,
         resumeHref: resumeHref("set", input.resourceId),
+        exitHref: examMeta.exitHref,
         resultsHref,
         currentSegmentEndsAt: endsAt,
         engineSnapshot: input.engineSnapshot,
@@ -1261,6 +1261,7 @@ export async function beginExamAttempt(
         resourceId: input.resourceId,
         label,
         resumeHref: resumeHref("mock", input.resourceId),
+        exitHref: examMeta.exitHref,
         resultsHref,
         currentSegmentEndsAt: endsAt,
         engineSnapshot: input.engineSnapshot,
@@ -1315,6 +1316,7 @@ export async function beginExamAttempt(
       resourceId: session.id,
       label,
       resumeHref: resumeHref("practice", session.id),
+      exitHref: examMeta.exitHref,
       resultsHref,
       currentSegmentEndsAt: endsAt,
       engineSnapshot: input.engineSnapshot,

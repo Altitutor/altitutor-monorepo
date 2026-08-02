@@ -36,7 +36,7 @@ export function QuestionEngineTutorialRedirect() {
     // from Start → redirect. Drop local session state; the DB row is harmless
     // to the banner (active attempts require an engine_snapshot).
     if (
-      pathname === "/practice/session" &&
+      pathname === "/exam" &&
       !activeLoading &&
       active == null
     ) {

@@ -17,17 +17,22 @@ import {
 import { Button } from "@/components/ui/button";
 import type { PendingReferralGift } from "@/features/subscription/api/referral-gifts";
 import { rejectReferralGift } from "@/features/subscription/api/referral-gifts";
-import { UCAT_DIALOG_PRIMARY_ACTION, UCAT_PRIMARY_ACTION_BUTTON } from "@/lib/ucat-surface-motion";
+import {
+  UCAT_DIALOG_PRIMARY_ACTION,
+  UCAT_PRIMARY_ACTION_BUTTON,
+} from "@/lib/ucat-surface-motion";
 
 type ReferralGiftCardProps = {
   gift: PendingReferralGift;
   checkoutContext?: "signup_onboarding" | "referral_gift";
+  postCheckoutReturnTo?: string;
   onRejected?: () => void | Promise<void>;
 };
 
 export function ReferralGiftCard({
   gift,
   checkoutContext = "referral_gift",
+  postCheckoutReturnTo,
   onRejected,
 }: ReferralGiftCardProps) {
   const router = useRouter();
@@ -56,6 +61,9 @@ export function ReferralGiftCard({
     context: checkoutContext,
     gift: gift.id,
   });
+  if (postCheckoutReturnTo) {
+    checkoutParams.set("redirect", postCheckoutReturnTo);
+  }
 
   return (
     <>

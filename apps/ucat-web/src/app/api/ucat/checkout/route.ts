@@ -14,6 +14,10 @@ import {
   type UcatCheckoutRequest,
 } from "@/lib/ucat/subscription-plan";
 import { isStandardUcatTrialEligible } from "@/lib/ucat/subscription-trial";
+import {
+  pathWithReturnIntent,
+  safePostAuthReturnPath,
+} from "@/features/auth/lib/return-intent";
 
 const REFERRAL_GIFT_COUPON_ID = "ucat-referral-unlimited-gift";
 const REFERRAL_GIFT_COUPON_NAME = "UCAT gift — first period free";
@@ -376,8 +380,15 @@ export async function POST(request: NextRequest) {
     returnContext === "signup_onboarding"
       ? `${origin}/signup/complete`
       : returnContext === "practice_session"
-        ? `${origin}/practice/session`
+        ? `${origin}/exam`
         : `${origin}/dashboard`;
+  const returnTo = safePostAuthReturnPath(selection.returnTo);
+  const checkoutReturnPath =
+    returnContext === "signup_onboarding"
+      ? pathWithReturnIntent("/signup/complete", returnTo, {
+          checkout: "success",
+        })
+      : `${new URL(checkoutReturnBase).pathname}?checkout=success`;
 
   const subscriptionData: Stripe.Checkout.SessionCreateParams.SubscriptionData =
     { metadata };
@@ -396,7 +407,7 @@ export async function POST(request: NextRequest) {
     payment_method_collection: "always",
     customer_email: student.email ?? undefined,
     metadata,
-    return_url: `${checkoutReturnBase}?checkout=success`,
+    return_url: new URL(checkoutReturnPath, origin).toString(),
   };
 
   if (referralGift) {

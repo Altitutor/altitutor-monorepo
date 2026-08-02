@@ -80,6 +80,16 @@ describe("social auth", () => {
         signupCompleted: false,
       }),
     ).toBe("/signup/complete");
+    expect(
+      resolvePostAuthDestination({
+        intent: "login",
+        provider: "google",
+        next: "/study-plan?utm_source=altitutor&utm_medium=email&utm_campaign=ucat_onboarding_plan",
+        signupCompleted: false,
+      }),
+    ).toBe(
+      "/signup/complete?redirect=%2Fstudy-plan%3Futm_source%3Daltitutor%26utm_medium%3Demail%26utm_campaign%3Ducat_onboarding_plan",
+    );
   });
 
   it("returns completed and linking users to their intended destinations", () => {
@@ -106,5 +116,18 @@ describe("social auth", () => {
     expect(parseSocialAuthIntent("unexpected")).toBe("login");
     expect(normalizeReferralCode("abcd1234")).toBe("ABCD1234");
     expect(normalizeReferralCode("not valid")).toBeNull();
+  });
+
+  it("does not place an unsafe return destination in an OAuth callback", () => {
+    const callback = new URL(
+      buildSocialAuthCallbackUrl({
+        origin: "https://ucat.altitutor.com",
+        intent: "login",
+        provider: "google",
+        next: "//evil.example/path",
+      }),
+    );
+
+    expect(callback.searchParams.get("next")).toBe("/dashboard");
   });
 });

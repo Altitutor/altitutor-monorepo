@@ -7,6 +7,7 @@ import type {
 } from '@/features/ucat/questions/lib/ai-assessment/schema'
 import { applyUcatAssessmentPatches } from '@/features/ucat/questions/lib/ai-assessment/apply-patches'
 import {
+  bulkImportReviewErrorMessage,
   partitionBulkImportAiFindings,
   requestBulkImportAiReview,
   type BulkImportAiReviewCache,
@@ -50,6 +51,13 @@ export type BulkImportDeterministicStemReview = {
 }
 
 export type BulkImportAiReviewStatus = 'idle' | 'running'
+export type BulkImportAiStemPhase =
+  | 'idle'
+  | 'queued'
+  | 'analyzing'
+  | 'ready'
+  | 'manual_review'
+  | 'failed'
 export type BulkImportDuplicateAnalysisStatus = 'idle' | 'running'
 
 export type UseBulkImportReviewControllerArgs = {
@@ -67,9 +75,11 @@ export type BulkImportReviewController = {
   applyDeterministicFixes: () => void
 
   aiStatus: BulkImportAiReviewStatus
+  aiPhaseByStemId: Record<string, BulkImportAiStemPhase>
   aiResultsByStemId: Record<string, BulkImportAiReviewResult>
   aiErrorsByStemId: Record<string, string>
   staleAiStemIds: Set<string>
+  pendingAiStemIds: Set<string>
   approvalRequiredFindings: BulkImportReviewFinding[]
   manualReviewFindings: BulkImportReviewFinding[]
   keptFindingKeysByStemId: Record<string, string[]>
@@ -123,6 +133,107 @@ function sameValues(left: UcatQuestionStemFormValues, right: UcatQuestionStemFor
   return signature(left) === signature(right)
 }
 
+type ReviewMergeResult<T> = {
+  value: T
+  conflict: boolean
+}
+
+function mergeReviewValue<T>(submitted: T, current: T, reviewed: T): ReviewMergeResult<T> {
+  if (signature(reviewed) === signature(submitted)) return { value: current, conflict: false }
+  if (
+    signature(current) === signature(submitted)
+    || signature(current) === signature(reviewed)
+  ) return { value: reviewed, conflict: false }
+
+  if (
+    submitted && current && reviewed
+    && typeof submitted === 'object'
+    && typeof current === 'object'
+    && typeof reviewed === 'object'
+    && !Array.isArray(submitted)
+    && !Array.isArray(current)
+    && !Array.isArray(reviewed)
+  ) {
+    const submittedRecord = submitted as Record<string, unknown>
+    const currentRecord = current as Record<string, unknown>
+    const reviewedRecord = reviewed as Record<string, unknown>
+    const keys = new Set([
+      ...Object.keys(submittedRecord),
+      ...Object.keys(currentRecord),
+      ...Object.keys(reviewedRecord),
+    ])
+    const value: Record<string, unknown> = {}
+    for (const key of keys) {
+      const merged = mergeReviewValue(
+        submittedRecord[key],
+        currentRecord[key],
+        reviewedRecord[key],
+      )
+      if (merged.conflict) return { value: current, conflict: true }
+      value[key] = merged.value
+    }
+    return { value: value as T, conflict: false }
+  }
+
+  return { value: current, conflict: true }
+}
+
+export function mergeBulkImportReviewResult(params: {
+  submitted: UcatQuestionStemFormValues
+  current: UcatQuestionStemFormValues
+  reviewed: UcatQuestionStemFormValues
+}): { values: UcatQuestionStemFormValues; conflict: boolean } {
+  const submittedWithoutQuestions = { ...params.submitted, questions: [] }
+  const currentWithoutQuestions = { ...params.current, questions: [] }
+  const reviewedWithoutQuestions = { ...params.reviewed, questions: [] }
+  const shared = mergeReviewValue(
+    submittedWithoutQuestions,
+    currentWithoutQuestions,
+    reviewedWithoutQuestions,
+  )
+  if (shared.conflict) return { values: params.current, conflict: true }
+
+  const currentById = new Map(
+    params.current.questions.flatMap((question) => question.id ? [[question.id, question] as const] : []),
+  )
+  const reviewedById = new Map(
+    params.reviewed.questions.flatMap((question) => question.id ? [[question.id, question] as const] : []),
+  )
+  const mergedById = new Map<string, UcatQuestionStemFormValues['questions'][number]>()
+  for (const submittedQuestion of params.submitted.questions) {
+    if (!submittedQuestion.id) return { values: params.current, conflict: true }
+    const currentQuestion = currentById.get(submittedQuestion.id)
+    const reviewedQuestion = reviewedById.get(submittedQuestion.id)
+    if (!currentQuestion || !reviewedQuestion) return { values: params.current, conflict: true }
+    const merged = mergeReviewValue(submittedQuestion, currentQuestion, reviewedQuestion)
+    if (merged.conflict) return { values: params.current, conflict: true }
+    mergedById.set(submittedQuestion.id, merged.value)
+  }
+
+  return {
+    values: {
+      ...shared.value,
+      questions: params.current.questions.map((question) =>
+        question.id ? mergedById.get(question.id) ?? question : question
+      ),
+    },
+    conflict: false,
+  }
+}
+
+export function reviewInputStillCurrent(params: {
+  submitted: UcatQuestionStemFormValues
+  current: UcatQuestionStemFormValues
+  reviewedQuestionIds: Set<string>
+}): boolean {
+  return sameValues(params.submitted, {
+    ...params.current,
+    questions: params.current.questions.filter(
+      (question) => !question.id || params.reviewedQuestionIds.has(question.id)
+    ),
+  })
+}
+
 function questionKey(stemId: string, questionId: string): string {
   return `${stemId}:${questionId}`
 }
@@ -138,6 +249,12 @@ export function automaticFindingStillSafe(
       const semanticCharacters = (value: string) =>
         value.normalize('NFC').toLocaleLowerCase().replace(/[^\p{L}\p{N}]+/gu, '')
       return semanticCharacters(patch.beforeText) === semanticCharacters(patch.afterText)
+    }
+    if (patch.operation === 'set_rich_content') {
+      const semanticCharacters = (value: string) =>
+        value.normalize('NFC').toLocaleLowerCase().replace(/[^\p{L}\p{N}]+/gu, '')
+      return semanticCharacters(proseMirrorToPlainText(patch.before))
+        === semanticCharacters(proseMirrorToPlainText(patch.after))
     }
     if (patch.operation === 'set_answer_key') {
       const solution = blindSolution?.solutions.find(
@@ -251,12 +368,17 @@ export function useBulkImportReviewController({
   sections = [],
   categories = [],
   onUpdateStem,
-  aiConcurrency = 3,
+  aiConcurrency = 6,
 }: UseBulkImportReviewControllerArgs): BulkImportReviewController {
-  const [aiStatus, setAiStatus] = useState<BulkImportAiReviewStatus>('idle')
+  const [activeAiStemIds, setActiveAiStemIds] = useState<Set<string>>(() => new Set())
+  const aiStatus: BulkImportAiReviewStatus = activeAiStemIds.size > 0 ? 'running' : 'idle'
+  const [aiPhaseByStemId, setAiPhaseByStemId] =
+    useState<Record<string, BulkImportAiStemPhase>>({})
   const [aiResultsByStemId, setAiResultsByStemId] = useState<Record<string, BulkImportAiReviewResult>>({})
   const [aiErrorsByStemId, setAiErrorsByStemId] = useState<Record<string, string>>({})
   const [reviewedSignatures, setReviewedSignatures] = useState<Record<string, string>>({})
+  const [findingContinuitySignatures, setFindingContinuitySignatures] =
+    useState<Record<string, string>>({})
   const [keptFindingKeysByStemId, setKeptFindingKeysByStemId] = useState<Record<string, string[]>>({})
   const [forcedApprovalFindingKeysByStemId, setForcedApprovalFindingKeysByStemId] =
     useState<Record<string, string[]>>({})
@@ -275,9 +397,8 @@ export function useBulkImportReviewController({
   const aiResultsRef = useRef(aiResultsByStemId)
   const automaticChangesRef = useRef(automaticChanges)
   const skippedDeterministicSignaturesRef = useRef(new Set<string>())
-  const aiAbortRef = useRef<AbortController | null>(null)
+  const aiAbortByStemIdRef = useRef(new Map<string, AbortController>())
   const duplicateAbortRef = useRef<AbortController | null>(null)
-  const aiRunRef = useRef(0)
 
   useEffect(() => {
     stemsRef.current = stems
@@ -402,18 +523,32 @@ export function useBulkImportReviewController({
   const includedStemsSignature = useMemo(() => signature(includedStems), [includedStems])
 
   const runAiForStemIds = useCallback(async (stemIds: string[]) => {
-    if (aiStatus === 'running' || stemIds.length === 0) return
-    const runId = aiRunRef.current + 1
-    aiRunRef.current = runId
-    const abortController = new AbortController()
-    aiAbortRef.current = abortController
-    setAiStatus('running')
+    const pendingStemIds = [...new Set(stemIds)].filter(
+      (stemId) => !aiAbortByStemIdRef.current.has(stemId)
+    )
+    if (pendingStemIds.length === 0) return
+    const abortControllers = new Map(
+      pendingStemIds.map((stemId) => [stemId, new AbortController()] as const)
+    )
+    for (const [stemId, controller] of abortControllers) {
+      aiAbortByStemIdRef.current.set(stemId, controller)
+    }
+    setActiveAiStemIds(new Set(aiAbortByStemIdRef.current.keys()))
+    setAiErrorsByStemId((current) => {
+      const next = { ...current }
+      for (const stemId of pendingStemIds) delete next[stemId]
+      return next
+    })
+    setAiPhaseByStemId((current) => ({
+      ...current,
+      ...Object.fromEntries(pendingStemIds.map((stemId) => [stemId, 'queued' as const])),
+    }))
 
-    const queue = [...stemIds]
-    const reviewStem = async (stemId: string) => {
+    const reviewContexts = pendingStemIds.flatMap((stemId) => {
       const includedDraft = includedStems.find((stem) => stem.id === stemId)
       const fullDraft = stemsRef.current.find((stem) => stem.id === stemId)
-      if (!includedDraft || !fullDraft || abortController.signal.aborted) return
+      const abortController = abortControllers.get(stemId)
+      if (!includedDraft || !fullDraft || !abortController) return []
       const reviewedQuestionIds = new Set(
         includedDraft.values.questions.flatMap((question) => question.id ? [question.id] : [])
       )
@@ -427,15 +562,92 @@ export function useBulkImportReviewController({
         ...includedDraft,
         values: includedValuesFrom(fullDraft.values),
       }
-      const previous = cacheFromResult(aiResultsRef.current[stemId])
-      try {
-        const response = await requestBulkImportAiReview({
-          stems: [{ id: stemId, values: reviewDraft.values, previous }],
-          signal: abortController.signal,
-          concurrency: 1,
-        })
-        const initial = response.results[0]
-        if (!initial) throw new Error('AI review returned no result for this stem.')
+      return [{
+        stemId,
+        fullDraft,
+        reviewedQuestionIds,
+        includedValuesFrom,
+        reviewDraft,
+        previous: cacheFromResult(aiResultsRef.current[stemId]),
+        abortController,
+      }]
+    })
+
+    try {
+      const results: BulkImportAiReviewResult[] = []
+      for (let offset = 0; offset < reviewContexts.length; offset += aiConcurrency) {
+        const batch = reviewContexts.slice(offset, offset + aiConcurrency)
+        setAiPhaseByStemId((current) => ({
+          ...current,
+          ...Object.fromEntries(batch.map(({ stemId }) => [stemId, 'analyzing' as const])),
+        }))
+        const batchResults = await Promise.all(batch.map(async ({
+          stemId,
+          reviewDraft,
+          previous,
+          abortController,
+        }) => {
+          try {
+            const response = await requestBulkImportAiReview({
+              stems: [{ id: stemId, values: reviewDraft.values, previous }],
+              signal: abortController.signal,
+              concurrency: 1,
+            })
+            return response.results[0] ?? {
+              id: stemId,
+              promptVersion: 0,
+              fingerprints: null,
+              audit: null,
+              assessment: null,
+              blindSolution: null,
+              values: null,
+              appliedRepairs: [],
+              provenance: null,
+              reviewToken: null,
+              reused: false,
+              error: 'AI review returned no result for this stem.',
+            }
+          } catch (error) {
+            return {
+              id: stemId,
+              promptVersion: 0,
+              fingerprints: null,
+              audit: null,
+              assessment: null,
+              blindSolution: null,
+              values: null,
+              appliedRepairs: [],
+              provenance: null,
+              reviewToken: null,
+              reused: false,
+              error: error instanceof Error ? error.message : 'AI review failed.',
+            }
+          }
+        }))
+        results.push(...batchResults)
+      }
+      const resultsByStemId = new Map(results.map((result) => [result.id, result]))
+
+      for (const context of reviewContexts) {
+        if (context.abortController.signal.aborted) {
+          setAiPhaseByStemId((current) => ({ ...current, [context.stemId]: 'idle' }))
+          continue
+        }
+        const {
+          stemId,
+          fullDraft,
+          includedValuesFrom,
+          reviewDraft,
+        } = context
+        const initial = resultsByStemId.get(stemId)
+        if (!initial) {
+          setAiErrorsByStemId((current) => ({
+            ...current,
+            [stemId]: 'AI review returned no result for this stem.',
+          }))
+          setAiPhaseByStemId((current) => ({ ...current, [stemId]: 'failed' }))
+          continue
+        }
         if (!initial.reused) {
           setKeptFindingKeysByStemId((existing) => {
             if (!existing[stemId]) return existing
@@ -451,13 +663,14 @@ export function useBulkImportReviewController({
           })
         }
         if (initial.error || !initial.assessment) {
-          const message = initial.error ?? 'AI review returned an incomplete result.'
+          const message = bulkImportReviewErrorMessage(initial.error)
           setAiErrorsByStemId((current) => ({ ...current, [stemId]: message }))
           if (!cacheFromResult(aiResultsRef.current[stemId])) {
             setAiResultsByStemId((current) => ({ ...current, [stemId]: initial }))
             aiResultsRef.current = { ...aiResultsRef.current, [stemId]: initial }
           }
-          return
+          setAiPhaseByStemId((current) => ({ ...current, [stemId]: 'failed' }))
+          continue
         }
 
         setAiErrorsByStemId((current) => {
@@ -465,140 +678,93 @@ export function useBulkImportReviewController({
           delete next[stemId]
           return next
         })
-        setAiResultsByStemId((current) => ({ ...current, [stemId]: initial }))
-        aiResultsRef.current = { ...aiResultsRef.current, [stemId]: initial }
-
-        const automatic = partitionBulkImportAiFindings(initial.assessment.findings).automatic
-        let currentValues =
+        const reviewedValues = initial.values ?? reviewDraft.values
+        const hasUnresolvedFindings = initial.assessment.findings.length > 0
+        const currentFullValues =
           stemsRef.current.find((stem) => stem.id === stemId)?.values ?? fullDraft.values
-        let appliedAny = false
-        const failedAutomaticKeys = new Set<string>()
-        for (const finding of automatic) {
-          if (!finding.suggestion) continue
-          if (!automaticFindingStillSafe(currentValues, finding, initial.blindSolution)) {
-            failedAutomaticKeys.add(finding.key)
-            continue
-          }
-          try {
-            const next = await applyUcatAssessmentPatches(currentValues, finding.suggestion.patches)
-            recordAutomaticChange(
-              'ai',
-              stemId,
-              currentValues,
-              next,
-              finding.suggestion.summary,
-              finding.key,
-            )
-            currentValues = next
-            appliedAny = true
-          } catch (error) {
-            failedAutomaticKeys.add(finding.key)
-            setAiErrorsByStemId((current) => ({
-              ...current,
-              [stemId]: error instanceof Error ? error.message : 'An automatic AI fix could not be applied.',
-            }))
-          }
-        }
-
-        if (!appliedAny) {
-          if (failedAutomaticKeys.size > 0) {
-            setForcedApprovalFindingKeysByStemId((existing) => ({
-              ...existing,
-              [stemId]: [...new Set([
-                ...(existing[stemId] ?? []),
-                ...failedAutomaticKeys,
-              ])],
-            }))
-          }
-          setAiResultsByStemId((current) => ({ ...current, [stemId]: initial }))
-          aiResultsRef.current = { ...aiResultsRef.current, [stemId]: initial }
-          setReviewedSignatures((current) => ({
-            ...current,
-            [stemId]: signature(reviewDraft.values),
-          }))
-          return
-        }
-
-        commitValues(stemId, currentValues)
-        if (abortController.signal.aborted) return
-        const verificationValues = includedValuesFrom(currentValues)
-        const verification = await requestBulkImportAiReview({
-          stems: [{
-            id: stemId,
-            values: verificationValues,
-            previous: cacheFromResult(initial),
-          }],
-          signal: abortController.signal,
-          concurrency: 1,
+        const mergedReview = mergeBulkImportReviewResult({
+          submitted: reviewDraft.values,
+          current: currentFullValues,
+          reviewed: reviewedValues,
         })
-        const verified = verification.results[0]
-        if (!verified) throw new Error('AI verification returned no result for this stem.')
-        if (verified.error || !verified.assessment) {
+        if (mergedReview.conflict) {
           setAiErrorsByStemId((current) => ({
             ...current,
-            [stemId]: verified.error ?? 'AI verification returned an incomplete result.',
+            [stemId]: 'This question changed while AI review was running. Review it again to use the latest version.',
           }))
-          return
+          setAiPhaseByStemId((current) => ({ ...current, [stemId]: 'failed' }))
+          continue
         }
-        // A verification pass never chains into another automatic-fix pass.
-        const verificationAutomaticKeys = partitionBulkImportAiFindings(
-          verified.assessment.findings
-        ).automatic.map((finding) => finding.key)
-        if (verificationAutomaticKeys.length > 0) {
-          setForcedApprovalFindingKeysByStemId((existing) => ({
-            ...existing,
-            [stemId]: [...new Set([
-              ...(existing[stemId] ?? []),
-              ...verificationAutomaticKeys,
-            ])],
-          }))
+        const finalValues = mergedReview.values
+        if (!sameValues(currentFullValues, finalValues)) {
+          recordAutomaticChange(
+            'ai',
+            stemId,
+            currentFullValues,
+            finalValues,
+            initial.appliedRepairs.join(' ') || 'Applied the AI review repair plan.',
+            null,
+          )
+          commitValues(stemId, finalValues)
         }
-        setAiResultsByStemId((current) => ({ ...current, [stemId]: verified }))
-        aiResultsRef.current = { ...aiResultsRef.current, [stemId]: verified }
+        const finalIncludedValues = includedValuesFrom(finalValues)
+        setAiResultsByStemId((current) => ({ ...current, [stemId]: initial }))
+        aiResultsRef.current = { ...aiResultsRef.current, [stemId]: initial }
         setReviewedSignatures((current) => ({
           ...current,
-          [stemId]: signature(verificationValues),
+          [stemId]: signature(finalIncludedValues),
+        }))
+        setFindingContinuitySignatures((current) => ({
+          ...current,
+          [stemId]: signature(finalIncludedValues),
         }))
         setAiErrorsByStemId((current) => {
           const next = { ...current }
           delete next[stemId]
           return next
         })
-      } catch (error) {
-        if (abortController.signal.aborted) return
-        setAiErrorsByStemId((current) => ({
+        setAiPhaseByStemId((current) => ({
           ...current,
-          [stemId]: error instanceof Error ? error.message : 'AI review failed.',
+          [stemId]: hasUnresolvedFindings ? 'manual_review' : 'ready',
         }))
       }
-    }
-
-    const worker = async () => {
-      while (!abortController.signal.aborted) {
-        const stemId = queue.shift()
-        if (!stemId) return
-        await reviewStem(stemId)
-      }
-    }
-
-    try {
-      await Promise.all(
-        Array.from(
-          { length: Math.min(Math.max(1, aiConcurrency), stemIds.length) },
-          () => worker(),
-        ),
+    } catch (error) {
+      const message = bulkImportReviewErrorMessage(
+        error instanceof Error ? error.message : null
       )
+      const failedStemIds = reviewContexts
+        .filter(({ abortController }) => !abortController.signal.aborted)
+        .map(({ stemId }) => stemId)
+      setAiErrorsByStemId((current) => ({
+        ...current,
+        ...Object.fromEntries(failedStemIds.map((stemId) => [stemId, message])),
+      }))
+      setAiPhaseByStemId((current) => ({
+        ...current,
+        ...Object.fromEntries(failedStemIds.map((stemId) => [stemId, 'failed' as const])),
+      }))
     } finally {
-      if (aiRunRef.current === runId) {
-        aiAbortRef.current = null
-        setAiStatus('idle')
+      for (const [stemId, controller] of abortControllers) {
+        if (aiAbortByStemIdRef.current.get(stemId) === controller) {
+          aiAbortByStemIdRef.current.delete(stemId)
+        }
       }
+      setActiveAiStemIds(new Set(aiAbortByStemIdRef.current.keys()))
     }
-  }, [aiConcurrency, aiStatus, commitValues, includedStems, recordAutomaticChange])
+  }, [aiConcurrency, commitValues, includedStems, recordAutomaticChange])
 
   const runAiReview = useCallback(async () => {
-    await runAiForStemIds(includedStems.map((stem) => stem.id))
-  }, [includedStems, runAiForStemIds])
+    await runAiForStemIds(includedStems.flatMap((stem) => {
+      const result = aiResultsRef.current[stem.id]
+      const isFresh = Boolean(
+        result
+        && !result.error
+        && result.assessment
+        && reviewedSignatures[stem.id] === signature(stem.values)
+      )
+      return isFresh ? [] : [stem.id]
+    }))
+  }, [includedStems, reviewedSignatures, runAiForStemIds])
 
   const runAiReviewForStem = useCallback(async (stemId: string) => {
     if (!includedStems.some((stem) => stem.id === stemId)) return
@@ -616,7 +782,7 @@ export function useBulkImportReviewController({
   }, [aiErrorsByStemId, includedStems, runAiForStemIds])
 
   const cancelAiReview = useCallback(() => {
-    aiAbortRef.current?.abort()
+    for (const controller of aiAbortByStemIdRef.current.values()) controller.abort()
   }, [])
 
   const approveFinding = useCallback(async (stemId: string, findingKey: string) => {
@@ -628,11 +794,14 @@ export function useBulkImportReviewController({
     }
     const next = await applyUcatAssessmentPatches(draft.values, finding.suggestion.patches)
     commitValues(stemId, next)
-    setReviewedSignatures((current) => {
-      const updated = { ...current }
-      delete updated[stemId]
-      return updated
-    })
+    setFindingContinuitySignatures((current) => ({
+      ...current,
+      [stemId]: signature(next),
+    }))
+    setKeptFindingKeysByStemId((existing) => ({
+      ...existing,
+      [stemId]: [...new Set([...(existing[stemId] ?? []), findingKey])],
+    }))
   }, [commitValues])
 
   const keepFinding = useCallback((stemId: string, findingKey: string) => {
@@ -674,7 +843,7 @@ export function useBulkImportReviewController({
   }, [duplicateStatus, includedStems])
 
   const excludeStem = useCallback((stemId: string) => {
-    aiAbortRef.current?.abort()
+    aiAbortByStemIdRef.current.get(stemId)?.abort()
     setExcludedStemIds((current) => new Set(current).add(stemId))
   }, [])
   const includeStem = useCallback((stemId: string) => {
@@ -685,7 +854,7 @@ export function useBulkImportReviewController({
     })
   }, [])
   const excludeQuestion = useCallback((stemId: string, questionId: string) => {
-    aiAbortRef.current?.abort()
+    aiAbortByStemIdRef.current.get(stemId)?.abort()
     setExcludedQuestionIds((current) => new Set(current).add(questionKey(stemId, questionId)))
   }, [])
   const includeQuestion = useCallback((stemId: string, questionId: string) => {
@@ -716,14 +885,37 @@ export function useBulkImportReviewController({
     return reviewed !== signature(stem.values) ? [stem.id] : []
   })), [aiResultsByStemId, includedStems, reviewedSignatures])
 
+  const pendingAiStemIds = useMemo(() => new Set(includedStems.flatMap((stem) => {
+    const result = aiResultsByStemId[stem.id]
+    const phase = aiPhaseByStemId[stem.id]
+    if (phase === 'queued' || phase === 'analyzing') return []
+    return !result || result.error || staleAiStemIds.has(stem.id) ? [stem.id] : []
+  })), [aiPhaseByStemId, aiResultsByStemId, includedStems, staleAiStemIds])
+
+  const externallyChangedAiStemIds = useMemo(() => new Set(includedStems.flatMap((stem) => {
+    if (!aiResultsByStemId[stem.id]) return []
+    const continued = findingContinuitySignatures[stem.id] ?? reviewedSignatures[stem.id]
+    return continued !== signature(stem.values) ? [stem.id] : []
+  })), [
+    aiResultsByStemId,
+    findingContinuitySignatures,
+    includedStems,
+    reviewedSignatures,
+  ])
+
   const freshFindings = useMemo(() => includedStems.flatMap((stem) => {
-    if (staleAiStemIds.has(stem.id)) return []
+    if (externallyChangedAiStemIds.has(stem.id)) return []
     const kept = new Set(keptFindingKeysByStemId[stem.id] ?? [])
     const findings = aiResultsByStemId[stem.id]?.assessment?.findings ?? []
     return findings
       .filter((finding) => !kept.has(finding.key))
       .map((finding) => ({ stemId: stem.id, finding }))
-  }), [aiResultsByStemId, includedStems, keptFindingKeysByStemId, staleAiStemIds])
+  }), [
+    aiResultsByStemId,
+    externallyChangedAiStemIds,
+    includedStems,
+    keptFindingKeysByStemId,
+  ])
 
   const partitionedFindings = useMemo(() => {
     const approvalRequired: BulkImportReviewFinding[] = []
@@ -797,13 +989,16 @@ export function useBulkImportReviewController({
   }, [commitValues])
 
   const resetReview = useCallback(() => {
-    aiAbortRef.current?.abort()
+    for (const controller of aiAbortByStemIdRef.current.values()) controller.abort()
+    aiAbortByStemIdRef.current.clear()
     duplicateAbortRef.current?.abort()
-    setAiStatus('idle')
+    setActiveAiStemIds(new Set())
+    setAiPhaseByStemId({})
     setAiResultsByStemId({})
     aiResultsRef.current = {}
     setAiErrorsByStemId({})
     setReviewedSignatures({})
+    setFindingContinuitySignatures({})
     setKeptFindingKeysByStemId({})
     setForcedApprovalFindingKeysByStemId({})
     setDuplicateStatus('idle')
@@ -819,7 +1014,7 @@ export function useBulkImportReviewController({
   }, [])
 
   useEffect(() => () => {
-    aiAbortRef.current?.abort()
+    for (const controller of aiAbortByStemIdRef.current.values()) controller.abort()
     duplicateAbortRef.current?.abort()
   }, [])
 
@@ -829,9 +1024,11 @@ export function useBulkImportReviewController({
     hasHardFailures: hardFailures.length > 0,
     applyDeterministicFixes,
     aiStatus,
+    aiPhaseByStemId,
     aiResultsByStemId,
     aiErrorsByStemId,
     staleAiStemIds,
+    pendingAiStemIds,
     approvalRequiredFindings: partitionedFindings.approvalRequired,
     manualReviewFindings: partitionedFindings.manualReview,
     keptFindingKeysByStemId,

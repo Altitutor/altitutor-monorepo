@@ -7,7 +7,6 @@ export type StudyPlanAvailability = {
 
 export type StudyPlanProfileInput = {
   studyPlanEnabled: boolean;
-  studySuggestionsEnabled: boolean;
   targetScore: number;
   testYear: number;
   testDate: string | null;

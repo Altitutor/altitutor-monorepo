@@ -12,9 +12,10 @@ import {
 
 export async function executeSendMessage(
   supabase: SupabaseClient,
-  action: { action_config?: unknown },
+  action: { id: string; action_config?: unknown },
   activityEvent: Record<string, unknown>,
   rule: Record<string, unknown>,
+  execution: { id: string },
   entityData?: Record<string, unknown> | null
 ): Promise<void> {
   const config = action.action_config as {
@@ -30,6 +31,7 @@ export async function executeSendMessage(
             'student_and_parents' |
             'tutor_log_students' |
             'tutor_log_students_and_parents' |
+            'tutor_log_attendees' |
             'single';
     };
   };
@@ -40,12 +42,11 @@ export async function executeSendMessage(
 
   const messageTemplate = config.message_content;
 
-  // Determine contact IDs
-  let contactIds: string[] = [];
+  let targets: Array<{ contactId: string; studentId?: string }> = [];
 
   if (config.recipients && config.recipients.type !== 'single') {
     // Bulk recipients based on recipient type
-    contactIds = await resolveMessageRecipients(
+    targets = await resolveMessageRecipients(
       supabase,
       config.recipients.type,
       activityEvent
@@ -80,11 +81,15 @@ export async function executeSendMessage(
     }
 
     if (contactId) {
-      contactIds = [contactId];
+      targets = [{
+        contactId,
+        studentId: config.student_id ||
+          (typeof activityEvent.student_id === 'string' ? activityEvent.student_id : undefined),
+      }];
     }
   }
 
-  if (contactIds.length === 0) {
+  if (targets.length === 0) {
     console.warn('[activity-processor] No contacts found for message', {
       ruleId: rule.id,
       actionId: action.id,
@@ -138,12 +143,102 @@ export async function executeSendMessage(
   // Otherwise, use shared message body
   const usePerContactMessages = hasLinkVariables && config.recipients && config.recipients.type !== 'single';
 
+  // Session-wide notices should reach a shared parent phone once, even when that
+  // parent has multiple students in the same session. Registration/invite links
+  // remain per student because each link carries a different student context.
+  const deliveryTargets = hasLinkVariables
+    ? targets
+    : [...new Map(targets.map((target) => [target.contactId, target])).values()];
+
   // Process each contact
   const messageIds: string[] = [];
   const errors: Array<{ contactId: string; error: string }> = [];
 
-  for (const contactId of contactIds) {
+  for (const target of deliveryTargets) {
+    const { contactId, studentId: targetStudentId } = target;
+    let deliveryId: string | null = null;
     try {
+      const { data: insertedDelivery, error: deliveryInsertError } = await supabase
+        .from('automation_message_deliveries')
+        .insert({
+          execution_id: execution.id,
+          action_id: action.id,
+          contact_id: contactId,
+          student_id: targetStudentId || null,
+          status: 'PROCESSING',
+        })
+        .select('id')
+        .single();
+
+      if (deliveryInsertError?.code === '23505') {
+        let existingQuery = supabase
+          .from('automation_message_deliveries')
+          .select('id, status, message_id, attempt_count')
+          .eq('execution_id', execution.id)
+          .eq('action_id', action.id)
+          .eq('contact_id', contactId);
+        existingQuery = targetStudentId
+          ? existingQuery.eq('student_id', targetStudentId)
+          : existingQuery.is('student_id', null);
+
+        const { data: existingDelivery, error: existingDeliveryError } =
+          await existingQuery.single();
+        if (existingDeliveryError) throw existingDeliveryError;
+
+        deliveryId = existingDelivery.id;
+        if (existingDelivery.status === 'QUEUED' || existingDelivery.status === 'SKIPPED') {
+          continue;
+        }
+        if (existingDelivery.attempt_count >= 8) {
+          throw new Error('Message delivery retry limit reached');
+        }
+
+        const { error: retryUpdateError } = await supabase
+          .from('automation_message_deliveries')
+          .update({
+            status: 'PROCESSING',
+            attempt_count: existingDelivery.attempt_count + 1,
+            last_error: null,
+          })
+          .eq('id', deliveryId);
+        if (retryUpdateError) throw retryUpdateError;
+
+        if (existingDelivery.message_id) {
+          const { data: existingMessage, error: existingMessageError } = await supabase
+            .from('messages')
+            .select('status')
+            .eq('id', existingDelivery.message_id)
+            .single();
+          if (existingMessageError) throw existingMessageError;
+
+          // A provider-accepted message must never be sent again merely because
+          // the processor failed before updating its own delivery ledger.
+          if (['SENDING', 'SENT', 'DELIVERED'].includes(existingMessage.status)) {
+            await supabase
+              .from('automation_message_deliveries')
+              .update({ status: 'QUEUED', last_error: null })
+              .eq('id', deliveryId);
+            messageIds.push(existingDelivery.message_id);
+            continue;
+          }
+
+          const { error: invokeError } = await supabase.functions.invoke('send-message', {
+            body: { messageId: existingDelivery.message_id },
+          });
+          if (invokeError) throw invokeError;
+          await supabase
+            .from('automation_message_deliveries')
+            .update({ status: 'QUEUED', last_error: null })
+            .eq('id', deliveryId);
+          messageIds.push(existingDelivery.message_id);
+          continue;
+        }
+      } else if (deliveryInsertError) {
+        throw deliveryInsertError;
+      } else {
+        deliveryId = insertedDelivery.id;
+      }
+
       // Get contact phone number and student_id
       const { data: contact } = await supabase
         .from('contacts')
@@ -152,13 +247,18 @@ export async function executeSendMessage(
         .maybeSingle();
 
       if (!contact?.phone_e164) {
-        errors.push({ contactId, error: 'Contact has no phone number' });
+        if (deliveryId) {
+          await supabase
+            .from('automation_message_deliveries')
+            .update({ status: 'SKIPPED', last_error: 'Contact has no phone number' })
+            .eq('id', deliveryId);
+        }
         continue;
       }
 
       // Generate per-contact message body if needed (for link variables with bulk recipients OR student_and_parents)
       // For student_and_parents, we need per-contact student data (first_name, last_name, etc.)
-      const needsPerContactData = usePerContactMessages || 
+      const needsPerContactData = usePerContactMessages || Boolean(targetStudentId) ||
         (config.recipients && config.recipients.type === 'student_and_parents');
       
       let messageBody: string;
@@ -167,21 +267,7 @@ export async function executeSendMessage(
         const contactVariables = { ...baseVariables };
         
         // Determine student_id for this contact
-        let studentIdForData: string | null = contact.student_id || null;
-        
-        // If contact is a parent, try to get student_id from parents_students
-        if (!studentIdForData && contact.parent_id) {
-          const { data: parentStudent } = await supabase
-            .from('parents_students')
-            .select('student_id')
-            .eq('parent_id', contact.parent_id)
-            .limit(1)
-            .maybeSingle();
-          
-          if (parentStudent?.student_id) {
-            studentIdForData = parentStudent.student_id;
-          }
-        }
+        const studentIdForData: string | null = targetStudentId || contact.student_id || null;
         
         // Load student data if we have a student_id (for first_name, last_name, classes, etc.)
         if (studentIdForData) {
@@ -194,6 +280,8 @@ export async function executeSendMessage(
           if (student) {
             contactVariables['first_name'] = student.first_name || '';
             contactVariables['last_name'] = student.last_name || '';
+            contactVariables['student.first_name'] = student.first_name || '';
+            contactVariables['student.last_name'] = student.last_name || '';
             
             // Load student classes for {classes} variable
             const { data: enrollments } = await supabase
@@ -352,13 +440,34 @@ export async function executeSendMessage(
 
       messageIds.push(message.id);
 
-      // Invoke send-message function (fire-and-forget)
-      supabase.functions
-        .invoke('send-message', { body: { messageId: message.id } })
-        .catch((e: unknown) => console.error('[activity-processor] Failed to invoke send-message:', e));
+      if (deliveryId) {
+        const { error: deliveryMessageError } = await supabase
+          .from('automation_message_deliveries')
+          .update({ message_id: message.id })
+          .eq('id', deliveryId);
+        if (deliveryMessageError) throw deliveryMessageError;
+      }
+
+      const { error: invokeError } = await supabase.functions.invoke('send-message', {
+        body: { messageId: message.id },
+      });
+      if (invokeError) throw invokeError;
+
+      if (deliveryId) {
+        await supabase
+          .from('automation_message_deliveries')
+          .update({ status: 'QUEUED', last_error: null })
+          .eq('id', deliveryId);
+      }
     } catch (contactErr: unknown) {
       const msg = contactErr instanceof Error ? contactErr.message : 'Unknown error';
       errors.push({ contactId, error: msg });
+      if (deliveryId) {
+        await supabase
+          .from('automation_message_deliveries')
+          .update({ status: 'FAILED', last_error: msg })
+          .eq('id', deliveryId);
+      }
       // Continue with next contact
     }
   }
@@ -368,4 +477,8 @@ export async function executeSendMessage(
     messageIds,
     errors: errors.length > 0 ? errors : undefined,
   });
+
+  if (errors.length > 0) {
+    throw new Error(`Failed to send ${errors.length} of ${deliveryTargets.length} automated messages`);
+  }
 }

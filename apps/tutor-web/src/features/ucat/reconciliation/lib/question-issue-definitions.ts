@@ -31,9 +31,10 @@ export const QUESTION_RECONCILIATION_ISSUES = [
   },
   {
     slug: 'private-not-in-set',
-    tabLabel: 'Private / no set',
-    title: 'Private stems not in a set',
-    description: 'Add private stems to a set or make them public.',
+    tabLabel: 'Unused private',
+    title: 'Unused private stems',
+    description:
+      'Private stems not attached to a set, learning module, or session. Attach them somewhere useful or make them public.',
   },
   {
     slug: 'duplicates',

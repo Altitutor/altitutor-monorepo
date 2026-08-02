@@ -40,6 +40,10 @@ import { useOnboardingProgress } from "@/features/onboarding/hooks/use-onboardin
 import { UCAT_GUIDED_SAMPLER_DECIDED } from "@/features/onboarding/lib/activation-milestones";
 import { captureUcatEvent } from "@/lib/analytics/posthog";
 import { navigateAfterAuth } from "@/features/auth/lib/navigate-after-auth";
+import {
+  pathWithReturnIntent,
+  safePostAuthReturnPath,
+} from "@/features/auth/lib/return-intent";
 
 const { typography: typo } = MARKETING_TOKENS;
 
@@ -129,10 +133,8 @@ export function SignupOnboardingWizard({
   const reduceMotion = useReducedMotion();
   const supabase = useMemo(() => getSupabaseBrowserClient(), []);
 
-  const planIntent = useMemo(
-    () => parseSignupPlanIntent(searchParams.get("redirect")),
-    [searchParams],
-  );
+  const returnTo = safePostAuthReturnPath(searchParams.get("redirect"));
+  const planIntent = useMemo(() => parseSignupPlanIntent(returnTo), [returnTo]);
   const checkoutStatus = searchParams.get("checkout");
   const checkoutReturnedSuccessfully = checkoutStatus === "success";
   const samplerReturnedComplete = searchParams.get("sampler") === "complete";
@@ -197,7 +199,12 @@ export function SignupOnboardingWizard({
     await queryClient.refetchQueries({ queryKey: ["ucat-access"] });
     const refreshedProgress = await refetchOnboardingProgress();
     if (!refreshedProgress.data?.[UCAT_GUIDED_SAMPLER_DECIDED]?.completed_at) {
-      router.replace("/signup/complete/sampler?afterPlan=1&activation=1");
+      router.replace(
+        pathWithReturnIntent("/signup/complete/sampler", returnTo, {
+          afterPlan: "1",
+          activation: "1",
+        }),
+      );
       return;
     }
     if (planHandoffStartedAt.current != null) {
@@ -208,7 +215,7 @@ export function SignupOnboardingWizard({
       }
     }
     setSignupSuccessPhase("welcome");
-  }, [queryClient, refetchOnboardingProgress, router]);
+  }, [queryClient, refetchOnboardingProgress, returnTo, router]);
 
   const completeFreeSignup = useCallback(async () => {
     try {
@@ -260,7 +267,7 @@ export function SignupOnboardingWizard({
         "Checkout cancelled. Pick a plan or continue on Free.",
       );
       goToStep(SIGNUP_STEP.PLAN, -1);
-      router.replace("/signup/complete");
+      router.replace(pathWithReturnIntent("/signup/complete", returnTo));
       return;
     }
     if (!checkoutReturnedSuccessfully || signupSuccessPhase !== "confirming") {
@@ -285,6 +292,7 @@ export function SignupOnboardingWizard({
   }, [
     checkoutReturnedSuccessfully,
     checkoutStatus,
+    returnTo,
     signupSuccessPhase,
     queryClient,
     router,
@@ -336,15 +344,15 @@ export function SignupOnboardingWizard({
     navigateAfterSignupComplete,
   ]);
 
-  const goToDashboard = useCallback(() => {
+  const goToReturnIntent = useCallback(() => {
     // Soft router.replace races middleware when the access view briefly
     // reports incomplete → /dashboard ↔ /signup/complete soft-nav storm.
-    navigateAfterAuth("/dashboard");
-  }, []);
+    navigateAfterAuth(returnTo);
+  }, [returnTo]);
 
   const finishOnboarding = () => {
     setError(null);
-    router.prefetch("/dashboard");
+    router.prefetch(returnTo);
     setSignupSuccessJourney("free");
     planHandoffStartedAt.current = Date.now();
     setSignupSuccessTakingLonger(false);
@@ -389,7 +397,7 @@ export function SignupOnboardingWizard({
           setCheckoutConfirmationAttempt((current) => current + 1);
           void queryClient.invalidateQueries({ queryKey: ["ucat-access"] });
         }}
-        onComplete={goToDashboard}
+        onComplete={goToReturnIntent}
       />
     );
   }
@@ -453,6 +461,7 @@ export function SignupOnboardingWizard({
                   initialLastName={details.lastName}
                   initialPhone={details.phone}
                   newsletterOptIn={initial.newsletterOptIn}
+                  returnTo={returnTo}
                   onComplete={(savedDetails) => {
                     setDetails(savedDetails);
                     goToStep(SIGNUP_STEP.PASSWORD, 1);
@@ -477,11 +486,15 @@ export function SignupOnboardingWizard({
                   familiarity={familiarity}
                   onFamiliarityChange={setFamiliarity}
                   gift={pendingGift}
+                  returnTo={planIntent ? "/dashboard" : returnTo}
                 />
               ) : null}
 
               {step === SIGNUP_STEP.PLAN ? (
-                <SignupCompletePlanStep onComplete={handlePlanComplete} />
+                <SignupCompletePlanStep
+                  onComplete={handlePlanComplete}
+                  returnTo={planIntent ? "/dashboard" : returnTo}
+                />
               ) : null}
             </div>
           </AnimatedStepPanel>

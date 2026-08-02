@@ -238,7 +238,7 @@ export function hasVariables(template: string): boolean {
  */
 export function canGenerateStudentVariable(
   variableName: string,
-  student: { first_name: string | null; last_name: string | null; status: string; user_id: string | null },
+  student: { first_name: string | null; last_name: string | null; status: string | null; user_id: string | null },
   hasClasses: boolean
 ): boolean {
   switch (variableName) {

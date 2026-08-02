@@ -20,8 +20,6 @@ import {
   DropdownMenuSubTrigger,
   DropdownMenuTrigger,
   AnimatedHamburgerIcon,
-  FeedbackDialog,
-  type FeedbackKind,
 } from '@altitutor/ui';
 import { useCurrentStaff } from '@/shared/hooks';
 import { useMobileMenu } from '@/shared/contexts/MobileMenuContext';
@@ -33,6 +31,7 @@ import { useNotificationsRealtime } from '@/features/notifications';
 import { DashboardDatePicker } from './DashboardDatePicker';
 import { MessagesDropdown } from '@/features/messages/components/MessagesDropdown';
 import { useAdminShell } from '@/shared/contexts/AdminShellContext';
+import { openUserFeedback } from '@/lib/sentry/open-user-feedback';
 
 export function Navbar() {
   const router = useRouter();
@@ -44,7 +43,6 @@ export function Navbar() {
   const { toggle: toggleCommandPalette, isOpen: isCommandPaletteOpen, close: closeCommandPalette } = useCommandPalette();
   
   const [showLogoutModal, setShowLogoutModal] = useState(false);
-  const [feedbackKind, setFeedbackKind] = useState<FeedbackKind | null>(null);
 
   // Subscribe to notifications real-time updates
   useNotificationsRealtime(staffRecord?.id ?? '');
@@ -212,7 +210,7 @@ export function Navbar() {
                 </DropdownMenuSub>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem
-                  onSelect={() => setFeedbackKind('bug')}
+                  onSelect={() => void openUserFeedback()}
                   className="cursor-pointer"
                 >
                   <Bug className="mr-2 h-4 w-4" />
@@ -237,19 +235,6 @@ export function Navbar() {
         onOpenChange={setShowLogoutModal}
         onConfirm={handleLogout}
       />
-      {feedbackKind ? (
-        <FeedbackDialog
-          open
-          onOpenChange={(open) => !open && setFeedbackKind(null)}
-          kind={feedbackKind}
-          appName="admin-web"
-          user={{
-            id: user?.id,
-            email: user?.email,
-            name: getFullName(),
-          }}
-        />
-      ) : null}
     </nav>
   );
 } 

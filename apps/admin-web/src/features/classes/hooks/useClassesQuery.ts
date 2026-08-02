@@ -151,7 +151,7 @@ export function useActiveClassesCount() {
   });
 }
 
-// Current class enrollments count (unenrolled_at is null or in the future)
+// Current enrollments in non-finished classes (active/full, session_end_date not past)
 export function useCurrentEnrollmentsCount() {
   return useQuery({
     queryKey: [...classesKeys.all, 'currentEnrollmentsCount'],

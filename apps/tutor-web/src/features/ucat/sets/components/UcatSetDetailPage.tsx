@@ -6,12 +6,11 @@ import Link from 'next/link'
 import { Button, useToast } from '@altitutor/ui'
 import { useUcatSetDetail, useUpdateUcatSet } from '@/features/ucat/sets/hooks/useUcatSets'
 import {
-  filterOptionsWithContent,
   plainTextToProseMirror,
   proseMirrorToPlainText,
 } from '@/features/ucat/shared/lib/rich-text'
 import { isSnapshotDirty, snapshotSetDetail } from '@/features/ucat/shared/lib/dirty-state'
-import { minutesSecondsToTotal, parseTimeToSeconds } from '@/features/ucat/shared/lib/time-utils'
+import { minutesSecondsToTotal } from '@/features/ucat/shared/lib/time-utils'
 import {
   useUcatCategories,
   useUcatQuestionDetail,
@@ -22,9 +21,10 @@ import {
   type UcatStemCatalogItem,
 } from '@/features/ucat/questions/hooks/useUcatQuestions'
 import { UcatQuestionStemDialog } from '@/features/ucat/questions/components/UcatQuestionStemDialog'
+import { formValuesToStemBundlePayload } from '@/features/ucat/questions/lib/stem-editor-form'
 import { tutorTableShell } from '@/shared/lib/tutor-visual'
 import { cn } from '@/shared/utils'
-import type { UcatQuestionStemBundlePayload, RichTextJson } from '@/features/ucat/shared/types'
+import type { RichTextJson } from '@/features/ucat/shared/types'
 import type { UcatQuestionStemFormValues } from '@/features/ucat/questions/types/schema'
 import type { CategoryOption, TagOption } from '@/features/ucat/questions/components/UcatQuestionStemDialog'
 import { mapCategoriesToOptions, mapTagsToOptions, buildTaxonomyPathLookup, categoriesToTaxonomyNodes } from '@/features/ucat/shared/lib/taxonomy-paths'
@@ -190,29 +190,7 @@ export function UcatSetDetailPage({ setId }: UcatSetDetailPageProps) {
   async function handleStemUpdate(payload: UcatQuestionStemFormValues) {
     if (!editingStemId) return
 
-    const mapped: UcatQuestionStemBundlePayload = {
-      stemId: editingStemId,
-      sectionId: payload.sectionId,
-      categoryId: payload.categoryId || null,
-      stemText: payload.stemText,
-      accessScope: payload.accessScope,
-      questions: payload.questions.map((question, index) => ({
-        id: question.id,
-        index: index + 1,
-        questionText: question.questionText,
-        questionType: question.questionType,
-        difficulty: question.difficulty,
-        timeBurdenSeconds: parseTimeToSeconds(question.timeBurdenSeconds ?? '') ?? null,
-        tagIds: question.tagIds ?? [],
-        options: filterOptionsWithContent(question.options).map((option, optionIndex) => ({
-          id: option.id,
-          index: optionIndex + 1,
-          answerText: option.answerText,
-          answerExplanation: option.answerExplanation,
-          isAnswer: option.isAnswer,
-        })),
-      })),
-    }
+    const mapped = formValuesToStemBundlePayload(payload, editingStemId)
 
     try {
       await updateStemMutation.mutateAsync({ stemId: editingStemId, payload: mapped })

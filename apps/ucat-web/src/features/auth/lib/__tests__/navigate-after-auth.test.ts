@@ -19,5 +19,8 @@ describe("navigateAfterAuth", () => {
   it("rejects open redirects", () => {
     navigateAfterAuth("https://evil.example");
     expect(assign).toHaveBeenCalledWith("/signup/complete");
+
+    navigateAfterAuth("//evil.example");
+    expect(assign).toHaveBeenLastCalledWith("/signup/complete");
   });
 });

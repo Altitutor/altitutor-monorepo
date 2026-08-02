@@ -56,6 +56,7 @@ import { UCAT_STUDY_ORB_INTRO_SEEN } from "@/features/onboarding/lib/activation-
 import { cn } from "@/lib/utils";
 import { useUcatActivity } from "@/features/progress/hooks/use-ucat-activity";
 import { buildPracticeStreak } from "@/features/streaks/lib/practice-streak";
+import { useUcatInterfacePreferences } from "@/features/interface-preferences/hooks/use-ucat-interface-preferences";
 
 const ENTER_EASE = [0.32, 0.72, 0, 1] as const;
 const EXPAND_DURATION = 0.22;
@@ -205,6 +206,7 @@ export function StudyPlanCompanion({
   mode?: StudyPlanCompanionMode;
   placement?: "floating" | "sidebar";
 }) {
+  const { preferences } = useUcatInterfacePreferences();
   const pathname = usePathname();
   const router = useRouter();
   const reduceMotion = useReducedMotion();
@@ -296,7 +298,7 @@ export function StudyPlanCompanion({
   );
   const activityInProgress = mode === "activity" && !activityComplete;
   const suggestionsEnabled = Boolean(
-    data?.profile?.studySuggestionsEnabled && !query.isError && !hidden,
+    preferences.studySuggestionsVisible && !query.isError && !hidden,
   );
   // Stay mounted through completion celebrations on activity routes, then
   // hide again until the activity finishes (or the student leaves).
@@ -494,7 +496,7 @@ export function StudyPlanCompanion({
       const practice = practiceStartInput(item);
       if (practice) {
         await createAndPersistPracticeSession(practice);
-        router.push("/practice/session");
+        router.push("/exam");
         return;
       }
       router.push(item.launchPath);

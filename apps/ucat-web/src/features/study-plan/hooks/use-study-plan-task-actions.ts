@@ -95,7 +95,7 @@ export function useStudyPlanTaskActions(
         await updateStudyPlanTask(taskToStart.id, "start");
         await queryClient.invalidateQueries({ queryKey: ["ucat-study-plan"] });
         setPendingAction(null);
-        router.push("/practice/session");
+        router.push("/exam");
         return;
       }
       await updateStudyPlanTask(taskToStart.id, "start");

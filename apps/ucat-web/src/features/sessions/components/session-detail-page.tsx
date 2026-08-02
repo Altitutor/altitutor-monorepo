@@ -1,15 +1,18 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { motion } from "motion/react";
-import { BookOpen, BrainCircuit, ListChecks, NotebookText } from "lucide-react";
-import { Card, CardContent } from "@altitutor/ui";
+import { BookOpen, ListChecks, NotebookText } from "lucide-react";
+import { Card, CardContent, useToast } from "@altitutor/ui";
 import { UcatPageHeader } from "@/features/layout";
 import {
   useStudentUcatSessionResources,
   useStudentUcatSessions,
+  useCompletedSessionResourceIds,
+  useCompleteSessionResource,
 } from "@/features/sessions/hooks/use-sessions";
+import { SessionQuestionStemActivity } from "@/features/sessions/components/session-question-stem-activity";
 import { formatSessionBreadcrumbDate } from "@/features/sessions/lib/format-session-breadcrumb-date";
 import {
   extractTextFromRichJson,
@@ -56,6 +59,7 @@ function mockResourceSubtitle(mock: StudentMockRow): string {
 }
 
 export function SessionDetailPage({ sessionId }: SessionDetailPageProps) {
+  const { toast } = useToast();
   const { containerVariants, itemVariants } = useUcatStaggerMotion();
   const { data: sessions } = useStudentUcatSessions();
   const sessionBreadcrumbLabel = useMemo(() => {
@@ -73,6 +77,16 @@ export function SessionDetailPage({ sessionId }: SessionDetailPageProps) {
   const { data: mocks, isLoading: mocksLoading } = useMocks();
   const { data: learningModules, isLoading: lessonsLoading } =
     useLearningModules();
+  const { data: completedResourceIds = [] } = useCompletedSessionResourceIds();
+  const completeResource = useCompleteSessionResource();
+  const [activeStemResourceId, setActiveStemResourceId] = useState<
+    string | null
+  >(null);
+  const [startedStemResourceIds, setStartedStemResourceIds] = useState(
+    () => new Set<string>(),
+  );
+  const [locallyCompletedResourceIds, setLocallyCompletedResourceIds] =
+    useState(() => new Set<string>());
 
   const setsById = useMemo(
     () => new Map((sets ?? []).map((s) => [s.id, s])),
@@ -278,35 +292,48 @@ export function SessionDetailPage({ sessionId }: SessionDetailPageProps) {
           }
 
           if (resource.type === "stem") {
-            const href = `/practice/stem/${encodeURIComponent(resource.question_stem_id)}`;
+            const started = startedStemResourceIds.has(resource.id);
+            const completed =
+              locallyCompletedResourceIds.has(resource.id) ||
+              completedResourceIds.includes(resource.id);
             return (
               <motion.li
                 key={resource.id}
                 className="min-w-0"
                 variants={itemVariants}
               >
-                <Link href={href} className={sessionResourceLinkClassName}>
-                  <Card className={sessionResourceCardClassName}>
-                    <CardContent className="p-6">
-                      <div className="flex items-center gap-4">
-                        <div
-                          className={sessionCardIconChipClassName("default")}
-                        >
-                          <BrainCircuit className="h-5 w-5" aria-hidden />
-                        </div>
-                        <div className="min-w-0 flex-1 space-y-1">
-                          <h3 className="font-semibold leading-tight">
-                            Question stem
-                          </h3>
-                          <p className="text-sm text-muted-foreground">
-                            Practice questions for this stem
-                          </p>
-                        </div>
-                        <UcatHoverChevron />
-                      </div>
-                    </CardContent>
-                  </Card>
-                </Link>
+                <SessionQuestionStemActivity
+                  resourceId={resource.id}
+                  stemId={resource.question_stem_id}
+                  started={started}
+                  active={activeStemResourceId === resource.id}
+                  completed={completed}
+                  onActivate={() => {
+                    setStartedStemResourceIds((current) =>
+                      new Set(current).add(resource.id),
+                    );
+                    setActiveStemResourceId(resource.id);
+                  }}
+                  onComplete={() => {
+                    if (completed) return;
+                    setLocallyCompletedResourceIds((current) =>
+                      new Set(current).add(resource.id),
+                    );
+                    setActiveStemResourceId(null);
+                    void completeResource.mutateAsync(resource.id).catch(() => {
+                      setLocallyCompletedResourceIds((current) => {
+                        const next = new Set(current);
+                        next.delete(resource.id);
+                        return next;
+                      });
+                      toast({
+                        title: "Completion not saved",
+                        description: "Please submit the question stem again.",
+                        variant: "destructive",
+                      });
+                    });
+                  }}
+                />
               </motion.li>
             );
           }

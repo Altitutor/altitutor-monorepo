@@ -11,6 +11,7 @@ import {
 } from "@/features/auth/lib/social-auth";
 import { navigateAfterAuth } from "@/features/auth/lib/navigate-after-auth";
 import { captureUcatEvent } from "@/lib/analytics/posthog";
+import { pathWithReturnIntent } from "@/features/auth/lib/return-intent";
 
 /**
  * Completes email signup/sign-in: token_hash (any browser) or PKCE code exchange (same browser).
@@ -50,9 +51,11 @@ function AuthCallbackInner() {
         ? `/forgot-password?error=${encodeURIComponent(errorMessage)}`
         : intent === "link"
           ? `/settings/profile?identity_error=${encodeURIComponent(errorMessage)}`
-          : intent === "login"
-            ? `/login?error=${encodeURIComponent(errorMessage)}`
-            : `/signup?error=${encodeURIComponent(errorMessage)}`;
+          : pathWithReturnIntent(
+              intent === "login" ? "/login" : "/signup",
+              next,
+              { error: errorMessage },
+            );
       navigateAfterAuth(errorPath);
     };
 
