@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -27,21 +27,30 @@ type AddUcatOnlineAccessModalProps = {
   isOpen: boolean;
   onClose: () => void;
   onGranted: () => void;
+  initialStudent?: Tables<'students'> | null;
 };
 
 export function AddUcatOnlineAccessModal({
   isOpen,
   onClose,
   onGranted,
+  initialStudent = null,
 }: AddUcatOnlineAccessModalProps) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const { data: currentStaff } = useCurrentStaff();
   const [search, setSearch] = useState('');
   const debounced = useDebounce(search, 300);
-  const [selectedStudent, setSelectedStudent] = useState<Tables<'students'> | null>(null);
+  const [selectedStudent, setSelectedStudent] = useState<Tables<'students'> | null>(initialStudent);
   const [subjectId, setSubjectId] = useState<string>('');
   const [notes, setNotes] = useState('');
+
+  useEffect(() => {
+    if (isOpen && initialStudent) {
+      setSelectedStudent(initialStudent);
+      setSearch(`${initialStudent.first_name ?? ''} ${initialStudent.last_name ?? ''}`.trim());
+    }
+  }, [initialStudent, isOpen]);
 
   const { data: subjects = [] } = useQuery({
     queryKey: ['subjects', 'all-for-manual-access'],
@@ -58,7 +67,7 @@ export function AddUcatOnlineAccessModal({
     queryKey: ['manual-online-access', 'student-search', debounced],
     queryFn: () =>
       studentsApi.searchStudents(debounced.trim(), ['ACTIVE', 'TRIAL', 'DISCONTINUED'], true),
-    enabled: isOpen && debounced.trim().length >= 2,
+    enabled: isOpen && !initialStudent && debounced.trim().length >= 2,
     staleTime: 30_000,
   });
 
@@ -81,8 +90,8 @@ export function AddUcatOnlineAccessModal({
       queryClient.invalidateQueries({ queryKey: ['manual-online-access'] });
       onGranted();
       onClose();
-      setSelectedStudent(null);
-      setSearch('');
+      setSelectedStudent(initialStudent);
+      setSearch(initialStudent ? `${initialStudent.first_name ?? ''} ${initialStudent.last_name ?? ''}`.trim() : '');
       setSubjectId('');
       setNotes('');
     },
@@ -107,6 +116,14 @@ export function AddUcatOnlineAccessModal({
         </DialogHeader>
 
         <div className="space-y-4 py-2">
+          {initialStudent ? (
+            <div className="space-y-2">
+              <Label>Student</Label>
+              <div className="rounded-md border bg-muted/40 px-3 py-2 text-sm font-medium">
+                {initialStudent.first_name} {initialStudent.last_name}
+              </div>
+            </div>
+          ) : (
           <div className="space-y-2">
             <Label htmlFor="manual-access-student-search">Student</Label>
             <Input
@@ -159,6 +176,7 @@ export function AddUcatOnlineAccessModal({
               <p className="text-xs text-muted-foreground">Enter a name to search.</p>
             )}
           </div>
+          )}
 
           <div className="space-y-2">
             <Label htmlFor="manual-access-subject">Subject</Label>

@@ -1,10 +1,12 @@
 import { useState, useMemo, useCallback, useEffect } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import type { Tables, ClassWithExpandedSubject } from "@altitutor/shared";
+import type { Tables, TablesUpdate, ClassWithExpandedSubject } from "@altitutor/shared";
 import { Button } from "@altitutor/ui";
 import { ScrollArea } from "@altitutor/ui";
 import { SegmentedControl } from "@altitutor/ui";
 import { Badge } from "@altitutor/ui";
+import { Separator } from "@altitutor/ui";
+import { Checkbox, Input, Label } from "@altitutor/ui";
 import { useToast } from "@altitutor/ui";
 import { Loader2, Plus, Pencil, X, UserCheck } from "lucide-react";
 import { studentsApi } from '@/features/students/api/students';
@@ -47,6 +49,20 @@ export function ClassesTab({
   
   const [viewMode, setViewMode] = useState<ViewMode>('table');
   const [isEditMode, setIsEditMode] = useState(false);
+  const [inPersonDetails, setInPersonDetails] = useState<TablesUpdate<'students'>>({
+    school: student.school,
+    curriculum: student.curriculum,
+    year_level: student.year_level,
+    availability_monday: student.availability_monday,
+    availability_tuesday: student.availability_tuesday,
+    availability_wednesday: student.availability_wednesday,
+    availability_thursday: student.availability_thursday,
+    availability_friday: student.availability_friday,
+    availability_saturday_am: student.availability_saturday_am,
+    availability_saturday_pm: student.availability_saturday_pm,
+    availability_sunday_am: student.availability_sunday_am,
+    availability_sunday_pm: student.availability_sunday_pm,
+  });
   
   // Responsive: detect when container is too small for full cards
   // Use window width instead of container ref for more reliable detection
@@ -346,6 +362,23 @@ export function ClassesTab({
     }
   };
 
+  const handleSave = async () => {
+    try {
+      await studentsApi.updateStudent(student.id, inPersonDetails);
+      await invalidateStudentDetail(queryClient, student.id);
+      onStudentUpdated?.();
+      setIsEditMode(false);
+      toast({ title: 'Success', description: 'In-person details updated successfully.' });
+    } catch (error) {
+      console.error('Failed to update in-person details:', error);
+      toast({
+        title: 'Update failed',
+        description: 'There was an error updating the in-person details. Please try again.',
+        variant: 'destructive',
+      });
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="flex-1 flex justify-center items-center">
@@ -374,6 +407,58 @@ export function ClassesTab({
   return (
     <>
       <div className="flex-1 h-full flex flex-col">
+        <div className="space-y-5 mb-6">
+          <div>
+            <h3 className="text-base font-medium mb-3">Details</h3>
+            <div className="grid grid-cols-2 gap-x-4 gap-y-3 text-sm">
+              <Label htmlFor="in-person-school">School</Label>
+              {isEditMode ? (
+                <Input id="in-person-school" value={inPersonDetails.school ?? ''} onChange={(event) => setInPersonDetails((current) => ({ ...current, school: event.target.value || null }))} />
+              ) : <div>{student.school || '—'}</div>}
+              <Label htmlFor="in-person-curriculum">Curriculum</Label>
+              {isEditMode ? (
+                <select id="in-person-curriculum" className="h-10 rounded-md border border-input bg-background px-3" value={inPersonDetails.curriculum ?? ''} onChange={(event) => setInPersonDetails((current) => ({ ...current, curriculum: (event.target.value || null) as Tables<'students'>['curriculum'] }))}>
+                  <option value="">Not set</option>
+                  {['SACE', 'IB', 'PRESACE', 'PRIMARY', 'MEDICINE'].map((value) => <option key={value} value={value}>{value}</option>)}
+                </select>
+              ) : <div>{student.curriculum || '—'}</div>}
+              <Label htmlFor="in-person-year-level">Year level</Label>
+              {isEditMode ? (
+                <Input id="in-person-year-level" type="number" min={1} max={13} value={inPersonDetails.year_level ?? ''} onChange={(event) => setInPersonDetails((current) => ({ ...current, year_level: event.target.value ? Number(event.target.value) : null }))} />
+              ) : <div>{student.year_level ? `Year ${student.year_level}` : '—'}</div>}
+            </div>
+          </div>
+          <Separator />
+          <div>
+            <h3 className="text-base font-medium mb-3">Availability</h3>
+            <div className="flex flex-wrap gap-2">
+              {[
+                ['availability_monday', 'Monday'],
+                ['availability_tuesday', 'Tuesday'],
+                ['availability_wednesday', 'Wednesday'],
+                ['availability_thursday', 'Thursday'],
+                ['availability_friday', 'Friday'],
+                ['availability_saturday_am', 'Saturday AM'],
+                ['availability_saturday_pm', 'Saturday PM'],
+                ['availability_sunday_am', 'Sunday AM'],
+                ['availability_sunday_pm', 'Sunday PM'],
+              ].map(([key, label]) => isEditMode ? (
+                <Label key={key} className="flex items-center gap-2 rounded-md border px-3 py-2 font-normal">
+                  <Checkbox
+                    checked={Boolean(inPersonDetails[key as keyof TablesUpdate<'students'>])}
+                    onCheckedChange={(checked) => setInPersonDetails((current) => ({ ...current, [key]: checked === true }))}
+                  />
+                  {label}
+                </Label>
+              ) : (
+                <Badge key={key} variant={student[key as keyof Tables<'students'>] ? 'success' : 'outline'}>
+                  {label}
+                </Badge>
+              ))}
+            </div>
+          </div>
+          <Separator />
+        </div>
         {/* Header */}
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-base font-medium">Classes</h3>
@@ -584,7 +669,7 @@ export function ClassesTab({
         {isEditMode && (
           <div className="border-t pt-4 mt-4 flex-shrink-0 bg-background">
             <div className="flex justify-end">
-              <Button variant="default" onClick={() => setIsEditMode(false)}>
+              <Button variant="default" onClick={() => void handleSave()}>
                 Save
               </Button>
             </div>

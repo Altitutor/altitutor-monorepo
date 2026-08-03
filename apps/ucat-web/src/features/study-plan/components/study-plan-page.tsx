@@ -61,7 +61,7 @@ function sectionShortName(sectionKey: StudyPlanSectionReadiness["sectionKey"]) {
     case "quantitative_reasoning":
       return "QR";
     case "situational_judgement":
-      return "SJT";
+      return "SJ";
     default: {
       const _exhaustive: never = sectionKey;
       return _exhaustive;

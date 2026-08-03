@@ -30,7 +30,7 @@ import {
 import { ArrowUpDown, Loader2 } from 'lucide-react';
 import type { Tables, DataTableFilterDefinition, DataTableSortOption, DataTableColumnDefinition } from '@altitutor/shared';
 import { cn } from '@/shared/utils/index';
-import { getStudentStatusColor, getSubjectCurriculumColor } from '@/shared/utils';
+import { getSubjectCurriculumColor } from '@/shared/utils';
 import { sortStudentsByStatus } from '@/shared/utils/tableSorting';
 import { AddStudentModal } from './AddStudentModal';
 import { ViewStudentModal } from './ViewStudentModal';
@@ -50,6 +50,8 @@ import { studentsApi } from '../api';
 import { useDataTable } from '@/shared/hooks/useDataTable';
 import { useQuickFilters } from '@/features/quick-filters/hooks/useQuickFilters';
 import { useStudentActions } from '../hooks/useStudentActions';
+import { InPersonStatusBadge } from './InPersonStatusBadge';
+import type { StudentSearchField } from '../api/students';
 // import { useVirtualizer } from '@tanstack/react-virtual';
 
 interface StudentsTableProps {
@@ -124,10 +126,11 @@ export function StudentsTable({ onRefresh: _onRefresh, onStudentSelect: _onStude
   const { data: quickFilters = [] } = useQuickFilters('students');
   const { toast } = useToast();
   const { openCheckInModal } = useQuickActions();
+  const [searchFields, setSearchFields] = useState<StudentSearchField[]>(['name', 'email', 'phone']);
   
   const defaultFilters = useMemo(() => ({ status: ['ACTIVE', 'TRIAL'] }), []);
   const defaultSort = useMemo(() => ({ field: 'status', direction: 'desc' as const }), []);
-  const defaultVisibleColumns = useMemo(() => ['status', 'education', 'first_name', 'last_name', 'classes'], []);
+  const defaultVisibleColumns = useMemo(() => ['status', 'education', 'student', 'classes'], []);
 
   const {
     state,
@@ -154,11 +157,11 @@ export function StudentsTable({ onRefresh: _onRefresh, onStudentSelect: _onStude
     refetch,
   } = useStudentsMinimal({
     search: state.search,
+    searchFields,
     statuses: state.filters.status as NonNullable<Tables<'students'>['status']>[],
     curriculums: state.filters.curriculum as string[],
     yearLevels: state.filters.yearLevel as number[],
     subjectIds: state.filters.subject as string[],
-    subscriptionOnline: state.filters.subscriptionOnline as string[] | undefined,
     inPersonClass: state.filters.inPersonClass as string[] | undefined,
     page: state.page,
     pageSize: state.pageSize,
@@ -239,8 +242,7 @@ export function StudentsTable({ onRefresh: _onRefresh, onStudentSelect: _onStude
   const columnDefinitions: DataTableColumnDefinition[] = [
     { key: 'status', label: 'Status' },
     { key: 'education', label: 'Education' },
-    { key: 'first_name', label: 'First Name' },
-    { key: 'last_name', label: 'Last Name' },
+    { key: 'student', label: 'Student' },
     { key: 'email', label: 'Email' },
     { key: 'phone', label: 'Phone' },
     { key: 'school', label: 'School' },
@@ -433,7 +435,14 @@ export function StudentsTable({ onRefresh: _onRefresh, onStudentSelect: _onStude
         sortOptions={sortOptions}
         columnDefinitions={columnDefinitions}
         quickFilters={quickFilters}
-        searchPlaceholder="Search students..."
+        searchPlaceholder="Search name, email or phone..."
+        searchFromOptions={[
+          { label: 'Name', value: 'name' },
+          { label: 'Email', value: 'email' },
+          { label: 'Phone', value: 'phone' },
+        ]}
+        searchFromValue={searchFields}
+        onSearchFromChange={(values) => setSearchFields(values as StudentSearchField[])}
         isLoading={isFetching}
       />
 
@@ -455,18 +464,9 @@ export function StudentsTable({ onRefresh: _onRefresh, onStudentSelect: _onStude
                   Education
                 </TableHead>
               )}
-              {state.visibleColumns.includes('first_name') && (
-                <TableHead className="cursor-pointer" onClick={() => setSort('first_name', state.sortBy === 'first_name' && state.sortDirection === 'asc' ? 'desc' : 'asc')}>
-                  First Name
-                  <ArrowUpDown className={cn(
-                    "ml-2 h-4 w-4 inline",
-                    state.sortBy === 'first_name' ? "opacity-100" : "opacity-40"
-                  )} />
-                </TableHead>
-              )}
-              {state.visibleColumns.includes('last_name') && (
+              {state.visibleColumns.includes('student') && (
                 <TableHead className="cursor-pointer" onClick={() => setSort('last_name', state.sortBy === 'last_name' && state.sortDirection === 'asc' ? 'desc' : 'asc')}>
-                  Last Name
+                  Student
                   <ArrowUpDown className={cn(
                     "ml-2 h-4 w-4 inline",
                     state.sortBy === 'last_name' ? "opacity-100" : "opacity-40"
@@ -511,8 +511,6 @@ export function StudentsTable({ onRefresh: _onRefresh, onStudentSelect: _onStude
               filteredStudents.map((student, index) => {
                 const studentWithClasses = student as Tables<'students'> & {
                   classes?: Array<{ id: string; short_name: string | null; long_name: string | null; day_of_week: number | null; start_time: string | null; level: string | null; subject?: Tables<'subjects'> | null }>;
-                  has_online_subscription?: boolean;
-                  has_in_person_class?: boolean;
                   subjects?: Tables<'subjects'>[];
                   parents?: Tables<'parents'>[];
                 };
@@ -529,19 +527,7 @@ export function StudentsTable({ onRefresh: _onRefresh, onStudentSelect: _onStude
                     {state.visibleColumns.includes('status') && (
                       <TableCell>
                         <div className="flex flex-wrap gap-1 items-center">
-                          <Badge className={cn("text-xs", getStudentStatusColor(student.status as 'ACTIVE' | 'INACTIVE' | 'TRIAL' | 'DISCONTINUED'))}>
-                            {student.status}
-                          </Badge>
-                          {studentWithClasses.has_online_subscription ? (
-                            <Badge variant="outline" className="text-xs border-sky-500/40 text-sky-800 dark:text-sky-200">
-                              ONLINE
-                            </Badge>
-                          ) : null}
-                          {studentWithClasses.has_in_person_class ? (
-                            <Badge variant="outline" className="text-xs border-emerald-500/40 text-emerald-900 dark:text-emerald-200">
-                              IN PERSON
-                            </Badge>
-                          ) : null}
+                          <InPersonStatusBadge status={student.status} className="text-xs" />
                         </div>
                       </TableCell>
                     )}
@@ -564,14 +550,16 @@ export function StudentsTable({ onRefresh: _onRefresh, onStudentSelect: _onStude
                         </div>
                       </TableCell>
                     )}
-                    {state.visibleColumns.includes('first_name') && (
-                      <TableCell className="font-medium">
-                        {student.first_name || '-'}
-                      </TableCell>
-                    )}
-                    {state.visibleColumns.includes('last_name') && (
-                      <TableCell className="font-medium">
-                        {student.last_name || '-'}
+                    {state.visibleColumns.includes('student') && (
+                      <TableCell>
+                        <div className="font-medium">
+                          {`${student.first_name ?? ''} ${student.last_name ?? ''}`.trim() || 'Unnamed Student'}
+                        </div>
+                        {(student.email || student.phone) ? (
+                          <div className="text-xs text-muted-foreground">
+                            {[student.email, student.phone].filter(Boolean).join(' · ')}
+                          </div>
+                        ) : null}
                       </TableCell>
                     )}
                     {state.visibleColumns.includes('email') && (

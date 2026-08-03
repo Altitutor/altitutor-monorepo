@@ -38,7 +38,6 @@ import {
   Zap,
   File,
   FolderKanban,
-  Layers,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { QUICK_ACTIONS } from '@/shared/constants/quickActions';
@@ -163,13 +162,6 @@ export const additionalPages: CommandPalettePage[] = [
     href: '/settings/ucat-billing',
     icon: GraduationCap,
     keywords: ['ucat', 'subscription', 'trial', 'stripe', 'practice', 'discount', 'free', 'tier', 'quota', 'limit', 'sets', 'mocks', 'reset', 'student'],
-  },
-  {
-    id: 'settings-manual-online-access',
-    title: 'Manual online access',
-    href: '/settings/manual-online-access',
-    icon: Layers,
-    keywords: ['online', 'access', 'manual', 'student', 'subject', 'grant'],
   },
   // Main settings page
   {

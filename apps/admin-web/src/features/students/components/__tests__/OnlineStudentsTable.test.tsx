@@ -7,7 +7,13 @@ jest.mock('../../hooks/useStudentsQuery', () => ({
 }));
 
 jest.mock('next/navigation', () => ({
-  useRouter: () => ({ push: jest.fn() }),
+  useRouter: () => ({ push: jest.fn(), replace: jest.fn() }),
+  usePathname: () => '/online-students',
+  useSearchParams: () => new URLSearchParams(),
+}));
+
+jest.mock('../ViewStudentModal', () => ({
+  ViewStudentModal: () => null,
 }));
 
 const mockedUseOnlineStudentsMinimal = jest.mocked(useOnlineStudentsMinimal);
@@ -35,11 +41,13 @@ describe('OnlineStudentsTable', () => {
             products: [
               {
                 product: 'UCAT_WEB',
+                tier: undefined,
                 started_at: '2026-01-02T00:00:00Z',
                 closed_at: null,
               },
               {
                 product: 'STUDENT_WEB',
+                tier: 'FREE',
                 started_at: '2026-01-03T00:00:00Z',
                 closed_at: null,
               },
@@ -58,8 +66,7 @@ describe('OnlineStudentsTable', () => {
     expect(screen.getAllByText('Dual Student')).toHaveLength(1);
     const studentRow = screen.getByText('Dual Student').closest('tr');
     expect(studentRow).not.toBeNull();
-    expect(within(studentRow!).getByText('UCATWeb')).toBeInTheDocument();
-    expect(within(studentRow!).getByText('StudentWeb')).toBeInTheDocument();
-    expect(within(studentRow!).getByText('Paid')).toBeInTheDocument();
+    expect(within(studentRow!).getByText('Altitutor UCAT · Unlimited')).toBeInTheDocument();
+    expect(within(studentRow!).getByText('Altitutor Student Online · Free')).toBeInTheDocument();
   });
 });

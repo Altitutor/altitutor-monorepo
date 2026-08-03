@@ -106,6 +106,7 @@ export async function PATCH(
         last_name: body.last_name,
         email: body.email ?? undefined,
         phone_number: body.phone_number,
+        birthday: body.birthday,
         role: body.role,
         status: body.status,
         notes: body.notes,

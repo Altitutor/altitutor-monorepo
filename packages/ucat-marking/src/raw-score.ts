@@ -44,7 +44,7 @@ export function computeRawScore(params: {
     }
   }
 
-  // Process non-syllogism questions (including SJT)
+  // Process non-syllogism questions (including SJ)
   for (const q of questions) {
     if (questionScores.has(q.id)) continue // already handled (syllogism)
 
@@ -84,7 +84,7 @@ export function computeRawScore(params: {
 
 /**
  * Compute the maximum possible raw score for a set of questions.
- * Used for scaling: syllogism stems contribute 2 max, SJT/default contribute 1 each.
+ * Used for scaling: syllogism stems contribute 2 max, SJ/default contribute 1 each.
  */
 export function computeMaxRawScore(questions: QuestionMeta[]): number {
   const syllogismStemIds = new Set<string>()

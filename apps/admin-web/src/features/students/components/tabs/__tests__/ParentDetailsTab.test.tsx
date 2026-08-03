@@ -115,6 +115,7 @@ const mockStudents: Tables<'students'>[] = [
     ucat_unlimited_trial_consumed_at: null,
     ucat_signup_completed_at: null,
     ucat_signup_step: 0,
+    birthday: null,
     ucat_initial_familiarity: null,
   },
   {
@@ -152,6 +153,7 @@ const mockStudents: Tables<'students'>[] = [
     ucat_unlimited_trial_consumed_at: null,
     ucat_signup_completed_at: null,
     ucat_signup_step: 0,
+    birthday: null,
     ucat_initial_familiarity: null,
   },
 ];

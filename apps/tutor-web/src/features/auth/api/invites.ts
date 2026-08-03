@@ -32,7 +32,18 @@ export interface ValidateInviteResponse {
     first_name: string;
     last_name: string;
     email: string;
+    phone: string | null;
     role?: string;
+    subject_ids: string[];
+    subjects: Array<{
+      id: string;
+      name: string;
+      curriculum: string | null;
+      year_level: number | null;
+      level: string | null;
+      short_name: string | null;
+      long_name: string | null;
+    }>;
   };
   error?: string;
 }
@@ -41,6 +52,25 @@ export interface AcceptInviteRequest {
   token: string;
   email: string;
   password: string;
+  first_name: string;
+  last_name: string;
+  phone_number: string | null;
+  subject_ids: string[];
+  availability: {
+    monday: boolean;
+    tuesday: boolean;
+    wednesday: boolean;
+    thursday: boolean;
+    friday: boolean;
+    saturday_am: boolean;
+    saturday_pm: boolean;
+    sunday_am: boolean;
+    sunday_pm: boolean;
+    drafting: boolean;
+  };
+  birthday: string;
+  child_safe_agreement_number: string;
+  child_safe_policy_agreed: true;
 }
 
 export interface AcceptInviteResponse {
@@ -147,4 +177,3 @@ export const invitesApi = {
     return response.json();
   },
 };
-

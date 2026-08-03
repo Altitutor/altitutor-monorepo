@@ -193,7 +193,7 @@ describe('runBulkImportDeterministicReview', () => {
     ])
   })
 
-  it('normalises SJT options and reports mixed or unrecognisable modes as hard failures', () => {
+  it('normalises SJ options and reports mixed or unrecognisable modes as hard failures', () => {
     const important = question({
       options: options([
         'Important',

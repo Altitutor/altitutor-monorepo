@@ -10,7 +10,7 @@ export {
 } from './scaled-score'
 export {
   SITUATIONAL_JUDGEMENT_SECTION_NAME,
-  SJT_OPTION_COUNT,
+  SJ_OPTION_COUNT,
   SCALED_MAX,
   SCALED_MIN,
   SCALED_RANGE,

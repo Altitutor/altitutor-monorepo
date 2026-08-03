@@ -7904,6 +7904,9 @@ export type Database = {
           availability_thursday: boolean | null
           availability_tuesday: boolean | null
           availability_wednesday: boolean | null
+          birthday: string | null
+          child_safe_agreement_number: string | null
+          child_safe_policy_agreed_at: string | null
           created_at: string | null
           current_tier_number: number
           drafting_availability: boolean | null
@@ -7917,6 +7920,7 @@ export type Database = {
           metric_overrides: Json
           notes: string | null
           office_key_number: number | null
+          onboarding_completed_at: string | null
           phone_number: string | null
           profile_bio: string | null
           profile_image_file_id: string | null
@@ -7937,6 +7941,9 @@ export type Database = {
           availability_thursday?: boolean | null
           availability_tuesday?: boolean | null
           availability_wednesday?: boolean | null
+          birthday?: string | null
+          child_safe_agreement_number?: string | null
+          child_safe_policy_agreed_at?: string | null
           created_at?: string | null
           current_tier_number?: number
           drafting_availability?: boolean | null
@@ -7950,6 +7957,7 @@ export type Database = {
           metric_overrides?: Json
           notes?: string | null
           office_key_number?: number | null
+          onboarding_completed_at?: string | null
           phone_number?: string | null
           profile_bio?: string | null
           profile_image_file_id?: string | null
@@ -7970,6 +7978,9 @@ export type Database = {
           availability_thursday?: boolean | null
           availability_tuesday?: boolean | null
           availability_wednesday?: boolean | null
+          birthday?: string | null
+          child_safe_agreement_number?: string | null
+          child_safe_policy_agreed_at?: string | null
           created_at?: string | null
           current_tier_number?: number
           drafting_availability?: boolean | null
@@ -7983,6 +7994,7 @@ export type Database = {
           metric_overrides?: Json
           notes?: string | null
           office_key_number?: number | null
+          onboarding_completed_at?: string | null
           phone_number?: string | null
           profile_bio?: string | null
           profile_image_file_id?: string | null
@@ -10486,6 +10498,7 @@ export type Database = {
           availability_thursday: boolean | null
           availability_tuesday: boolean | null
           availability_wednesday: boolean | null
+          birthday: string | null
           created_at: string | null
           created_by: string | null
           curriculum: string | null
@@ -10523,6 +10536,7 @@ export type Database = {
           availability_thursday?: boolean | null
           availability_tuesday?: boolean | null
           availability_wednesday?: boolean | null
+          birthday?: string | null
           created_at?: string | null
           created_by?: string | null
           curriculum?: string | null
@@ -10560,6 +10574,7 @@ export type Database = {
           availability_thursday?: boolean | null
           availability_tuesday?: boolean | null
           availability_wednesday?: boolean | null
+          birthday?: string | null
           created_at?: string | null
           created_by?: string | null
           curriculum?: string | null
@@ -21605,6 +21620,7 @@ export type Database = {
           availability_thursday: boolean | null
           availability_tuesday: boolean | null
           availability_wednesday: boolean | null
+          birthday: string | null
           created_at: string | null
           curriculum: string | null
           email: string | null
@@ -21629,6 +21645,7 @@ export type Database = {
           availability_thursday?: boolean | null
           availability_tuesday?: boolean | null
           availability_wednesday?: boolean | null
+          birthday?: string | null
           created_at?: string | null
           curriculum?: string | null
           email?: string | null
@@ -21653,6 +21670,7 @@ export type Database = {
           availability_thursday?: boolean | null
           availability_tuesday?: boolean | null
           availability_wednesday?: boolean | null
+          birthday?: string | null
           created_at?: string | null
           curriculum?: string | null
           email?: string | null
@@ -27441,6 +27459,7 @@ export type Database = {
           availability_thursday: boolean | null
           availability_tuesday: boolean | null
           availability_wednesday: boolean | null
+          birthday: string | null
           created_at: string | null
           email: string | null
           first_name: string | null
@@ -27464,6 +27483,7 @@ export type Database = {
           availability_thursday?: boolean | null
           availability_tuesday?: boolean | null
           availability_wednesday?: boolean | null
+          birthday?: string | null
           created_at?: string | null
           email?: string | null
           first_name?: string | null
@@ -27487,6 +27507,7 @@ export type Database = {
           availability_thursday?: boolean | null
           availability_tuesday?: boolean | null
           availability_wednesday?: boolean | null
+          birthday?: string | null
           created_at?: string | null
           email?: string | null
           first_name?: string | null
@@ -34866,6 +34887,7 @@ export type Database = {
           p_order_by?: string
           p_products?: string[]
           p_search?: string
+          p_search_fields?: string[]
         }
         Returns: Json
       }
@@ -34923,6 +34945,7 @@ export type Database = {
           p_offset?: number
           p_order_by?: string
           p_search?: string
+          p_search_fields?: string[]
           p_statuses?: string[]
           p_subject_ids?: string[]
           p_subscription_filter?: string

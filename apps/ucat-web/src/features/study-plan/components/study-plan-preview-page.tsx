@@ -161,7 +161,7 @@ const SECTIONS: StudyPlanSection[] = [
   ["vr", "verbal_reasoning", "Verbal Reasoning", "VR", 1, 44, 47],
   ["dm", "decision_making", "Decision Making", "DM", 2, 35, 64],
   ["qr", "quantitative_reasoning", "Quantitative Reasoning", "QR", 3, 36, 42],
-  ["sjt", "situational_judgement", "Situational Judgement", "SJT", 4, 69, 32],
+  ["sjt", "situational_judgement", "Situational Judgement", "SJ", 4, 69, 32],
 ].map(([id, key, name, shortName, sectionNumber, questionCount, seconds]) => ({
   id: String(id),
   key: key as StudyPlanSection["key"],

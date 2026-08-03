@@ -14,10 +14,8 @@ import {
   FileStack,
   GraduationCap,
   TrendingUp,
-  Layers,
   ClipboardList,
   MessageSquare,
-  Mail,
 } from "lucide-react";
 import { AdminSettingsCard } from "@/shared/components";
 
@@ -188,13 +186,6 @@ export default function SettingsPage() {
           description: "Create forms and publish respondent links",
           href: "/settings/forms",
           icon: ClipboardList,
-          },
-          {
-          title: "Manual online access",
-          description:
-              "Grant or revoke manual online product access for students by subject",
-          href: "/settings/manual-online-access",
-          icon: Layers,
           },
         ],
       },

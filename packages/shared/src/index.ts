@@ -18,5 +18,6 @@ export * from "./external-url/embed";
 export * from "./resources";
 export * from "./flashcards";
 export * from "./forms";
+export * from "./constants/online-products";
 // Client hooks and pay-tiers: import via subpaths `@altitutor/shared/hooks` and
 // `@altitutor/shared/pay-tiers` so server/API routes do not pull React hooks into the bundle.

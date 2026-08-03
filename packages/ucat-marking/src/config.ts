@@ -1,8 +1,8 @@
 /** Section name for Situational Judgement (exact match, case-sensitive). */
 export const SITUATIONAL_JUDGEMENT_SECTION_NAME = 'Situational Judgement'
 
-/** Number of options required for SJT partial marking (A/B and C/D polarity groups). */
-export const SJT_OPTION_COUNT = 4
+/** Number of options required for SJ partial marking (A/B and C/D polarity groups). */
+export const SJ_OPTION_COUNT = 4
 
 /** Syllogism: points by correct count (out of 5). */
 export const SYLLOGISM_POINTS: Record<number, number> = {

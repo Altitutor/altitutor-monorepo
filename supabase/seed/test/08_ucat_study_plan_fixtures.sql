@@ -9,7 +9,7 @@ WITH folder_seed(id, section_name, title, index) AS (
     ('f1000000-0000-4000-8000-000000000001'::UUID, 'Verbal Reasoning', 'VR foundations', 9000),
     ('f1000000-0000-4000-8000-000000000002'::UUID, 'Decision Making', 'DM foundations', 9001),
     ('f1000000-0000-4000-8000-000000000003'::UUID, 'Quantitative Reasoning', 'QR foundations', 9002),
-    ('f1000000-0000-4000-8000-000000000004'::UUID, 'Situational Judgement', 'SJT foundations', 9003)
+    ('f1000000-0000-4000-8000-000000000004'::UUID, 'Situational Judgement', 'SJ foundations', 9003)
 )
 INSERT INTO public.ucat_learning_modules (
   id, kind, title, description, ucat_section_id, parent_ucat_learning_module_id,
@@ -54,8 +54,8 @@ WITH lesson_seed(id, section_name, category_name, title, lesson_index, priority)
     ('f2000000-0000-4000-8000-000000000011'::UUID, 'Quantitative Reasoning', 'Mixed Data Sources', 'Mixed data source foundations', 3, 'recommended'),
     ('f2000000-0000-4000-8000-000000000012'::UUID, 'Quantitative Reasoning', 'Text-Only Scenarios', 'Text-only calculation foundations', 4, 'recommended'),
     ('f2000000-0000-4000-8000-000000000013'::UUID, 'Quantitative Reasoning', 'Timetables and Calendars', 'Timetable foundations', 5, 'recommended'),
-    ('f2000000-0000-4000-8000-000000000014'::UUID, 'Situational Judgement', 'How Important', 'Judging importance in SJT', 0, 'essential'),
-    ('f2000000-0000-4000-8000-000000000015'::UUID, 'Situational Judgement', 'How Appropriate', 'Judging appropriateness in SJT', 1, 'recommended')
+    ('f2000000-0000-4000-8000-000000000014'::UUID, 'Situational Judgement', 'How Important', 'Judging importance in SJ', 0, 'essential'),
+    ('f2000000-0000-4000-8000-000000000015'::UUID, 'Situational Judgement', 'How Appropriate', 'Judging appropriateness in SJ', 1, 'recommended')
 ), resolved AS (
   SELECT
     seed.*,
@@ -142,7 +142,7 @@ ON CONFLICT (id) DO UPDATE SET
   updated_at = NOW();
 
 -- A compact synthetic bank makes the fixture self-contained. Counts are just
--- large enough for one official-length cognitive benchmark plus short SJT
+-- large enough for one official-length cognitive benchmark plus short SJ
 -- add-ons; hosted dev can additionally use its real authored corpus.
 DO $$
 DECLARE

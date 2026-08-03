@@ -6,6 +6,7 @@ type StaffRow = Database['public']['Tables']['staff']['Row'];
 
 export interface TutorProfileUpdate {
   phone_number?: string;
+  birthday?: string | null;
   profile_bio?: string | null;
   profile_image_file_id?: string | null;
   // Availability fields (individual days)

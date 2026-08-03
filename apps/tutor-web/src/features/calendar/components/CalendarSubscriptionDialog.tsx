@@ -134,7 +134,8 @@ export function CalendarSubscriptionDialog({
                 <DialogTitle>Add Altitutor timetable to calendar</DialogTitle>
                 <DialogDescription>
                   Subscribe once. Your calendar provider will periodically pick
-                  up new, changed, and cancelled sessions.
+                  up new, changed, and cancelled sessions (Google often refreshes
+                  only every few hours).
                 </DialogDescription>
               </div>
             </div>

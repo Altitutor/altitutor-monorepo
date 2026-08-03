@@ -110,6 +110,19 @@ export const manualOnlineAccessApi = {
     return (data ?? []) as unknown as ManualOnlineAccessRow[];
   },
 
+  listByStudent: async (studentId: string): Promise<ManualOnlineAccessRow[]> => {
+    const supabase = getSupabaseClient() as SupabaseClient<Database>;
+    const { data, error } = await supabase
+      .from('students_online_access_manual')
+      .select(
+        'id, created_at, created_by, notes, student_id, subject_id, student:students(id, first_name, last_name, status, ucat_online_tier_override), subject:subjects(id, name, short_name, long_name)',
+      )
+      .eq('student_id', studentId)
+      .order('created_at', { ascending: false });
+    if (error) throw error;
+    return (data ?? []) as unknown as ManualOnlineAccessRow[];
+  },
+
   grant: async (params: {
     studentId: string;
     subjectId: string;

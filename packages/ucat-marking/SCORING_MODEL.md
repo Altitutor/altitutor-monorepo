@@ -26,7 +26,7 @@ The curve is derived from Tables 40–42 of the official
 
 This preserves the real 2025 section shapes and centres much more closely than a
 single linear percentage conversion. The official cognitive score is produced
-using item response theory and form equating, while SJT uses classical test
+using item response theory and form equating, while SJ uses classical test
 theory; Altitutor cannot reproduce those steps without UCAT item parameters and
 form assignments. See the report's item-analysis description and the official
 [UCAT ANZ scoring guide](https://www.ucat.edu.au/about-ucat-anz/scoring/).
@@ -45,7 +45,7 @@ their original `scoring_model_version`.
 - Short samples retain a point estimate but expose a wider approximate standard
   error, scaled by the square root of full-attempt marks divided by sample marks.
 - Cognitive mock totals are emitted only when every cognitive set has a scaled
-  estimate. SJT remains a separate score.
+  estimate. SJ remains a separate score.
 
 These values are estimates for learner feedback, not claims of official UCAT
 results. Item-level calibration can later replace the empirical curve behind the

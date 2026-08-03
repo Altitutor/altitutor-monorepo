@@ -200,7 +200,7 @@ function practiceTask(input: {
     scheduledDate: input.scheduledDate,
     sortOrder: input.sortOrder,
     taskType: "practice",
-    title: `${input.supplementary ? "Optional SJT" : targetName} · ${timingLabel}`,
+    title: `${input.supplementary ? "Optional SJ" : targetName} · ${timingLabel}`,
     description: `${input.questionCount} questions with feedback ${input.mode === "learning" ? "available as you learn" : "at the end"}.`,
     rationale:
       input.mode === "learning"

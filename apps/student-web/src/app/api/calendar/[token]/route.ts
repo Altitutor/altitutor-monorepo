@@ -4,6 +4,7 @@ import type { Database } from "@altitutor/shared";
 import {
   buildStudentCalendarFeed,
   type CalendarSession,
+  type CalendarSessionStatus,
 } from "@/features/calendar/lib/calendar-feed";
 import { getServerSupabaseAdmin } from "@/shared/lib/supabase/server";
 
@@ -22,9 +23,17 @@ type CalendarSessionQueryRow = {
     start_at: string | null;
     end_at: string | null;
     updated_at: string | null;
+    status: string;
     subject: { long_name: string | null; name: string | null } | null;
   } | null;
 };
+
+function toCalendarSessionStatus(
+  status: string,
+): CalendarSessionStatus | null {
+  if (status === "ACTIVE" || status === "INACTIVE") return status;
+  return null;
+}
 
 function getStudentBaseUrl(request: NextRequest): string {
   return (
@@ -59,6 +68,8 @@ export async function GET(
     return new NextResponse("Calendar not found", { status: 404 });
   }
 
+  // Include ACTIVE sessions plus recently cancelled ones so clients receive
+  // STATUS:CANCELLED tombstones (silent omission alone leaves ghost events).
   const { data, error } = await admin
     .from("sessions_students")
     .select(
@@ -66,7 +77,7 @@ export async function GET(
     )
     .eq("student_id", subscription.student_id)
     .eq("is_rescheduled", false)
-    .eq("session.status", "ACTIVE")
+    .in("session.status", ["ACTIVE", "INACTIVE"])
     .order("start_at", { referencedTable: "sessions", ascending: true });
 
   if (error) {
@@ -78,6 +89,8 @@ export async function GET(
     .map((row): CalendarSession | null => {
       const session = row.session;
       if (!session?.start_at || !session.end_at) return null;
+      const status = toCalendarSessionStatus(session.status);
+      if (!status) return null;
 
       return {
         id: session.id,
@@ -86,6 +99,7 @@ export async function GET(
         startAt: session.start_at,
         endAt: session.end_at,
         updatedAt: session.updated_at,
+        status,
         subjectLongName: session.subject?.long_name || null,
         subjectName: session.subject?.name || null,
       };

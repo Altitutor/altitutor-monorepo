@@ -7,6 +7,7 @@ import type { Database } from '@altitutor/shared';
 // Whitelist of fields that tutors are allowed to update
 const ALLOWED_UPDATE_FIELDS = [
   'phone_number',
+  'birthday',
   'profile_bio',
   'profile_image_file_id',
   'availability_monday',
@@ -73,9 +74,9 @@ export async function PATCH(request: NextRequest) {
       if (field in body) {
         const value = body[field];
         // Type guard to ensure value is correct type
-        if (field === 'phone_number') {
+        if (field === 'phone_number' || field === 'birthday') {
           if (typeof value === 'string' || value === null) {
-            updates[field] = value;
+            updates[field] = value === '' ? null : value;
           }
         } else if (field === 'profile_bio' || field === 'profile_image_file_id') {
           if (typeof value === 'string' || value === null) {
@@ -144,6 +145,7 @@ export async function PATCH(request: NextRequest) {
         last_name: data.last_name,
         email: data.email,
         phone: data.phone_number,
+        birthday: data.birthday,
         role: data.role,
         status: data.status,
         profile_bio: data.profile_bio,

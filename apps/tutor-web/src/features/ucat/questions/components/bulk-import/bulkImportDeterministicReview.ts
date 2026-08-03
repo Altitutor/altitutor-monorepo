@@ -43,13 +43,13 @@ const SYLLOGISM_INSTRUCTION =
   "Place 'Yes' if the conclusion does follow. Place 'No' if the conclusion does not follow."
 const ASSUMPTION_INSTRUCTION = 'Select the strongest argument from the statements below.'
 const TFCT_OPTIONS = ['True', 'False', "Can't Tell"] as const
-const SJT_IMPORTANT_OPTIONS = [
+const SJ_IMPORTANT_OPTIONS = [
   'Very important',
   'Important',
   'Of minor importance',
   'Not important at all',
 ] as const
-const SJT_APPROPRIATE_OPTIONS = [
+const SJ_APPROPRIATE_OPTIONS = [
   'A very appropriate thing to do',
   'Appropriate, but not ideal',
   'Inappropriate, but not awful',
@@ -394,16 +394,16 @@ function qrChecks(values: UcatQuestionStemFormValues, issues: BulkImportGateIssu
 
 function optionMode(question: Question): 'important' | 'appropriate' | null {
   const normalized = question.options.map((option) => optionNorm(option.answerText)).sort().join('|')
-  if (normalized === SJT_IMPORTANT_OPTIONS.map((label) => norm(label).replace(/[^a-z]/gu, '')).sort().join('|')) {
+  if (normalized === SJ_IMPORTANT_OPTIONS.map((label) => norm(label).replace(/[^a-z]/gu, '')).sort().join('|')) {
     return 'important'
   }
-  if (normalized === SJT_APPROPRIATE_OPTIONS.map((label) => norm(label).replace(/[^a-z]/gu, '')).sort().join('|')) {
+  if (normalized === SJ_APPROPRIATE_OPTIONS.map((label) => norm(label).replace(/[^a-z]/gu, '')).sort().join('|')) {
     return 'appropriate'
   }
   return null
 }
 
-function sjtChecks(
+function sjChecks(
   values: UcatQuestionStemFormValues,
   category: string,
   issues: BulkImportGateIssue[],
@@ -411,9 +411,9 @@ function sjtChecks(
 ) {
   const expected =
     category === 'how important'
-      ? SJT_IMPORTANT_OPTIONS
+      ? SJ_IMPORTANT_OPTIONS
       : category === 'how appropriate'
-        ? SJT_APPROPRIATE_OPTIONS
+        ? SJ_APPROPRIATE_OPTIONS
         : null
   if (!expected) {
     addIssue(
@@ -466,7 +466,7 @@ export function runBulkImportDeterministicReview(
   if (section === 'verbal reasoning') vrChecks(values, category, issues, fixes)
   else if (section === 'decision making') dmChecks(values, category, issues, fixes)
   else if (section === 'quantitative reasoning') qrChecks(values, issues)
-  else if (section === 'situational judgement') sjtChecks(values, category, issues, fixes)
+  else if (section === 'situational judgement') sjChecks(values, category, issues, fixes)
   else addIssue(issues, 'unknown_section', 'No deterministic UCAT gates are available for this section.', stemScope())
 
   commonChecks(values, issues)

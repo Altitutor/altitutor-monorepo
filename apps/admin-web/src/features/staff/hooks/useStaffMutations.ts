@@ -56,6 +56,7 @@ export function useStaffMutations({
         last_name: data.lastName,
         email: data.email || undefined,
         phone_number: data.phoneNumber || null,
+        birthday: data.birthday || null,
         role: data.role,
         status: data.status,
         office_key_number: data.officeKeyNumber,

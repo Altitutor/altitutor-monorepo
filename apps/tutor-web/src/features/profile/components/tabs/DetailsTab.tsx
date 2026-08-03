@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import Image from 'next/image';
 import { Button } from '@altitutor/ui';
+import { Input } from '@altitutor/ui';
 import { Label } from '@altitutor/ui';
 import { PhoneInput } from '@altitutor/ui';
 import { Badge } from '@altitutor/ui';
@@ -23,6 +24,14 @@ interface DetailsTabProps {
 
 const detailsFormSchema = z.object({
   phone_number: z.string().optional().nullable(),
+  birthday: z
+    .union([
+      z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Invalid date'),
+      z.literal(''),
+      z.null(),
+    ])
+    .optional()
+    .nullable(),
   profile_bio: z.string().max(1200, 'Bio must be 1200 characters or fewer').optional().nullable(),
 });
 
@@ -38,6 +47,7 @@ export function DetailsTab({ profile }: DetailsTabProps) {
   
   const [formData, setFormData] = useState<DetailsFormData>({
     phone_number: profile.phone || '',
+    birthday: profile.birthday || '',
     profile_bio: profile.profile_bio || '',
   });
 
@@ -70,6 +80,7 @@ export function DetailsTab({ profile }: DetailsTabProps) {
   const handleCancelEdit = () => {
     setFormData({
       phone_number: profile.phone || '',
+      birthday: profile.birthday || '',
       profile_bio: profile.profile_bio || '',
     });
     setSelectedImage(null);
@@ -113,6 +124,7 @@ export function DetailsTab({ profile }: DetailsTabProps) {
 
       await updateProfile.mutateAsync({
         phone_number: formData.phone_number || undefined,
+        birthday: formData.birthday || null,
         profile_bio: formData.profile_bio?.trim() || null,
         profile_image_file_id: profileImageFileId,
       });
@@ -175,6 +187,17 @@ export function DetailsTab({ profile }: DetailsTabProps) {
             <PhoneInput
               value={formData.phone_number || ''}
               onChange={handlePhoneChange}
+            />
+          </div>
+
+          <div>
+            <Label htmlFor="birthday">Birthday</Label>
+            <Input
+              id="birthday"
+              type="date"
+              value={formData.birthday || ''}
+              max={new Date().toISOString().slice(0, 10)}
+              onChange={(e) => handleInputChange('birthday', e.target.value || null)}
             />
           </div>
 
@@ -253,6 +276,11 @@ export function DetailsTab({ profile }: DetailsTabProps) {
         <div className="text-sm font-medium">Phone Number:</div>
         <div>
           <TruncatedText text={profile.phone || '-'} />
+        </div>
+
+        <div className="text-sm font-medium">Birthday:</div>
+        <div>
+          <TruncatedText text={profile.birthday || '-'} />
         </div>
 
         <div className="text-sm font-medium">Public Bio:</div>

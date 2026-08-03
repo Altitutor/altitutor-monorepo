@@ -353,7 +353,7 @@ function SyllogismQuestionContent({
   };
 
   const content = (
-    <section className="space-y-4">
+    <section data-tour="question-engine-question" className="space-y-4">
       <div className="font-medium text-[12pt]">
         <RichContentBlock
           json={question.questionJson}
@@ -529,12 +529,9 @@ function SyllogismQuestionContent({
             />
           </div>
         </article>
-        <section
-          data-tour="question-engine-question"
-          className="flex-[2] h-full min-w-0 overflow-y-auto pl-2 pr-1 py-4 sm:py-5"
-        >
+        <div className="flex-[2] h-full min-w-0 overflow-y-auto pl-2 pr-1 py-4 sm:py-5">
           {content}
-        </section>
+        </div>
       </div>
     );
   }
@@ -544,12 +541,13 @@ function SyllogismQuestionContent({
       className={`h-full overflow-auto font-[${UCAT_FONTS.body}] text-[11pt] leading-relaxed`}
     >
       <div className="space-y-4 py-4 sm:py-5">
-        <article className="space-y-3">
+        <article data-tour="question-engine-stem" className="space-y-3">
           <RichContentBlock
             json={question.stemJson}
             plainText={question.stemText}
             preloadedContent={preloadedContent?.stem}
             paragraphSpacing
+            highlightText={highlightText}
           />
         </article>
         {content}

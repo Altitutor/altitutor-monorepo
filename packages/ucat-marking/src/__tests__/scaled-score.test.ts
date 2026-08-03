@@ -123,7 +123,7 @@ describe('resolveUcatScoringSection', () => {
     ['Verbal Reasoning', 'verbal_reasoning'],
     ['DM', 'decision_making'],
     ['quantitative_reasoning', 'quantitative_reasoning'],
-    ['SJT', 'situational_judgement'],
+    ['SJ', 'situational_judgement'],
     [3, 'quantitative_reasoning'],
   ] as const)('resolves %s', (input, expected) => {
     expect(resolveUcatScoringSection(input)).toBe(expected)

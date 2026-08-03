@@ -6,7 +6,7 @@ export type QuestionMeta = {
   sectionName: string
   questionType: UcatQuestionType
   correctOptionId: string
-  /** Options ordered by index. For SJT: index 0=A, 1=B, 2=C, 3=D. */
+  /** Options ordered by index. For SJ: index 0=A, 1=B, 2=C, 3=D. */
   options: Array<{ id: string; index: number }>
 }
 

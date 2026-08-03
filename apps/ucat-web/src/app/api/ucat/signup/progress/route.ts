@@ -167,7 +167,7 @@ export async function PATCH(request: NextRequest) {
     if (relationshipError) {
       captureApiError(relationshipError, "/api/ucat/signup/progress");
       return NextResponse.json(
-        { error: "Failed to establish UCATWeb access" },
+        { error: "Failed to establish Altitutor UCAT access" },
         { status: 500 },
       );
     }

@@ -18,6 +18,7 @@ import {
   Beaker,
   Newspaper,
   FolderKanban,
+  Monitor,
 } from 'lucide-react';
 import { Input, SearchFromDropdown } from '@altitutor/ui';
 import { focusCommandPaletteInput } from '@altitutor/shared';
@@ -60,7 +61,8 @@ const navItems: Array<{ title: string; href: string; icon: LucideIcon }> = [
   { title: 'Projects', href: '/projects', icon: FolderKanban },
   { title: 'Reconciliation', href: '/reconciliation', icon: AlertTriangle },
   { title: 'Messages', href: '/messages', icon: MessageCircle },
-  { title: 'Students', href: '/students', icon: GraduationCap },
+  { title: 'In-person Students', href: '/students', icon: GraduationCap },
+  { title: 'Online Students', href: '/online-students', icon: Monitor },
   { title: 'Parents', href: '/parents', icon: UserRound },
   { title: 'Staff', href: '/staff', icon: Users },
   { title: 'Classes', href: '/classes', icon: Calendar },

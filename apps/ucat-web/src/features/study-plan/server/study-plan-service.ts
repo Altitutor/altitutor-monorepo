@@ -98,7 +98,7 @@ function sectionKey(sectionNumber: number): StudyPlanSection["key"] {
 
 function shortSectionName(sectionNumber: number): string {
   return (
-    ["VR", "DM", "QR", "SJT"][sectionNumber - 1] ?? `Section ${sectionNumber}`
+    ["VR", "DM", "QR", "SJ"][sectionNumber - 1] ?? `Section ${sectionNumber}`
   );
 }
 

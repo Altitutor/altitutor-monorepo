@@ -33,6 +33,7 @@ import {
 } from './tabs';
 import { StudentSessionsTab } from './StudentSessionsTab';
 import { StudentBillingTab } from './StudentBillingTab';
+import { StudentOnlineTab } from './StudentOnlineTab';
 import { ViewSubjectModal } from '@/features/subjects/components';
 import { MessagesTabContent } from '@/features/messages/components/MessagesTabContent';
 import { ViewParentModal } from './ViewParentModal';
@@ -43,7 +44,7 @@ import { StudentActivityTab } from '@/features/activity/components/tabs/StudentA
 import { EnrollStudentModal } from '@/features/enrollments/components/EnrollStudentModal';
 import { IssuePill } from '@/features/issues';
 import { classesApi } from '@/shared/api';
-import type { Tables, ClassWithExpandedSubject } from "@altitutor/shared";
+import { ONLINE_PRODUCT_NAMES, type Tables, type ClassWithExpandedSubject } from "@altitutor/shared";
 import { useStudentClasses } from '../hooks/useStudentClasses';
 import {
   useStudentEditFlow,
@@ -57,6 +58,7 @@ import {
 import { parentsKeys } from '@/features/parents/hooks/useParentsQuery';
 import { StudentExitRequestDialog } from '@/features/forms/components/StudentExitRequestDialog';
 import { ReEnrollStudentConfirmDialog } from './ReEnrollStudentConfirmDialog';
+import { InPersonStatusBadge } from './InPersonStatusBadge';
 import { studentsApi } from '../api';
 import { useEntityModals } from '@/shared/contexts/EntityModalContext';
 import {
@@ -69,13 +71,15 @@ interface ViewStudentModalProps {
   onClose: () => void;
   studentId: string | null;
   onStudentUpdated: () => void;
+  defaultTab?: 'details' | 'online' | 'classes' | 'messages' | 'sessions' | 'billing' | 'activity';
 }
 
 export function ViewStudentModal({
   isOpen,
   onClose,
   studentId,
-  onStudentUpdated
+  onStudentUpdated,
+  defaultTab = 'details',
 }: ViewStudentModalProps) {
   const router = useRouter();
   const queryClient = useQueryClient();
@@ -89,6 +93,9 @@ export function ViewStudentModal({
   const student = studentDetails?.student || null;
   const studentSubjects = studentDetails?.subjects || [];
   const parents = studentDetails?.parents || [];
+  const onlineRelationships = studentDetails?.onlineRelationships || [];
+  const isInPerson = student?.status != null;
+  const isOnline = onlineRelationships.length > 0;
 
   // Business logic hooks
   const editFlow = useStudentEditFlow({
@@ -122,7 +129,7 @@ export function ViewStudentModal({
   const allParents = allParentsData || [];
 
   // UI state
-  const [activeTab, setActiveTab] = useState('details');
+  const [activeTab, setActiveTab] = useState<string>(defaultTab);
   const [deleteConfirmText, setDeleteConfirmText] = useState('');
   
   // Modal states for new actions
@@ -137,12 +144,13 @@ export function ViewStudentModal({
   
   // Reset edit states when modal closes
   useEffect(() => {
-    if (!isOpen) {
+    if (isOpen) {
+      setActiveTab(defaultTab);
+    } else {
       editFlow.cancelEdit();
-      setActiveTab('details');
       modals.reset();
     }
-  }, [isOpen]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [isOpen, defaultTab]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Handle details submit
   const handleDetailsSubmit = async (data: DetailsFormData) => {
@@ -297,17 +305,12 @@ export function ViewStudentModal({
                         <SheetDescription asChild className="text-lg font-medium text-foreground">
                           <div className="inline-flex items-center gap-2 flex-wrap">
                             {student.first_name} {student.last_name}
-                            <Badge
-                              variant={
-                                student.status === 'ACTIVE' ? 'success' :
-                                student.status === 'TRIAL' ? 'secondary' :
-                                student.status === 'DISCONTINUED' ? 'destructive' :
-                                'outline'
-                              }
-                              className="text-xs"
-                            >
-                              {student.status}
-                            </Badge>
+                            <InPersonStatusBadge status={student.status} className="text-xs" />
+                            {onlineRelationships.map((relationship) => (
+                              <Badge key={relationship.product} variant="outline" className="text-xs">
+                                {ONLINE_PRODUCT_NAMES[relationship.product as keyof typeof ONLINE_PRODUCT_NAMES]}
+                              </Badge>
+                            ))}
                             <IssuePill
                               entityType="student"
                               entityId={studentId}
@@ -334,10 +337,11 @@ export function ViewStudentModal({
                     onValueChange={setActiveTab}
                     options={[
                       { value: 'details', label: 'Details' },
-                      { value: 'classes', label: 'Classes' },
-                      { value: 'messages', label: 'Messages' },
+                      ...(isInPerson ? [{ value: 'classes', label: 'Classes' }] : []),
                       { value: 'sessions', label: 'Sessions' },
-                      { value: 'billing', label: 'Billing' },
+                      { value: 'messages', label: 'Messages' },
+                      ...(isOnline ? [{ value: 'online', label: 'Online' }] : []),
+                      ...(isInPerson ? [{ value: 'billing', label: 'Billing' }] : []),
                       { value: 'activity', label: 'Activity' },
                     ]}
                   />
@@ -381,6 +385,15 @@ export function ViewStudentModal({
                   </div>
                 </SegmentedTabPanelContent>
 
+                {isOnline ? (
+                  <SegmentedTabPanelContent when="online" activeTab={activeTab} className="absolute inset-0 overflow-y-auto">
+                    <div className="p-6">
+                      <StudentOnlineTab student={student} />
+                    </div>
+                  </SegmentedTabPanelContent>
+                ) : null}
+
+                {isInPerson ? (
                 <SegmentedTabPanelContent when="classes" activeTab={activeTab} className="absolute inset-0 overflow-y-auto">
                   <div className="p-6">
                     <ClassesTab
@@ -389,6 +402,7 @@ export function ViewStudentModal({
                     />
                   </div>
                 </SegmentedTabPanelContent>
+                ) : null}
 
                 <SegmentedTabPanelContent when="messages" activeTab={activeTab} className="absolute inset-0 overflow-hidden flex flex-col">
                   <div className="h-full p-6">
@@ -411,11 +425,13 @@ export function ViewStudentModal({
                   </div>
                 </SegmentedTabPanelContent>
 
+                {isInPerson ? (
                 <SegmentedTabPanelContent when="billing" activeTab={activeTab} className="absolute inset-0 overflow-y-auto">
                   <div className="p-6">
                     <StudentBillingTab student={student} />
                   </div>
                 </SegmentedTabPanelContent>
+                ) : null}
 
                 <SegmentedTabPanelContent when="activity" activeTab={activeTab} className="absolute inset-0 overflow-y-auto">
                   <div className="p-6">
