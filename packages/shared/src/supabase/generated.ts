@@ -7904,6 +7904,7 @@ export type Database = {
           availability_thursday: boolean | null
           availability_tuesday: boolean | null
           availability_wednesday: boolean | null
+          birthday: string | null
           created_at: string | null
           current_tier_number: number
           drafting_availability: boolean | null
@@ -7937,6 +7938,7 @@ export type Database = {
           availability_thursday?: boolean | null
           availability_tuesday?: boolean | null
           availability_wednesday?: boolean | null
+          birthday?: string | null
           created_at?: string | null
           current_tier_number?: number
           drafting_availability?: boolean | null
@@ -7970,6 +7972,7 @@ export type Database = {
           availability_thursday?: boolean | null
           availability_tuesday?: boolean | null
           availability_wednesday?: boolean | null
+          birthday?: string | null
           created_at?: string | null
           current_tier_number?: number
           drafting_availability?: boolean | null
@@ -10486,6 +10489,7 @@ export type Database = {
           availability_thursday: boolean | null
           availability_tuesday: boolean | null
           availability_wednesday: boolean | null
+          birthday: string | null
           created_at: string | null
           created_by: string | null
           curriculum: string | null
@@ -10523,6 +10527,7 @@ export type Database = {
           availability_thursday?: boolean | null
           availability_tuesday?: boolean | null
           availability_wednesday?: boolean | null
+          birthday?: string | null
           created_at?: string | null
           created_by?: string | null
           curriculum?: string | null
@@ -10560,6 +10565,7 @@ export type Database = {
           availability_thursday?: boolean | null
           availability_tuesday?: boolean | null
           availability_wednesday?: boolean | null
+          birthday?: string | null
           created_at?: string | null
           created_by?: string | null
           curriculum?: string | null
@@ -21605,6 +21611,7 @@ export type Database = {
           availability_thursday: boolean | null
           availability_tuesday: boolean | null
           availability_wednesday: boolean | null
+          birthday: string | null
           created_at: string | null
           curriculum: string | null
           email: string | null
@@ -21629,6 +21636,7 @@ export type Database = {
           availability_thursday?: boolean | null
           availability_tuesday?: boolean | null
           availability_wednesday?: boolean | null
+          birthday?: string | null
           created_at?: string | null
           curriculum?: string | null
           email?: string | null
@@ -21653,6 +21661,7 @@ export type Database = {
           availability_thursday?: boolean | null
           availability_tuesday?: boolean | null
           availability_wednesday?: boolean | null
+          birthday?: string | null
           created_at?: string | null
           curriculum?: string | null
           email?: string | null
@@ -27441,6 +27450,7 @@ export type Database = {
           availability_thursday: boolean | null
           availability_tuesday: boolean | null
           availability_wednesday: boolean | null
+          birthday: string | null
           created_at: string | null
           email: string | null
           first_name: string | null
@@ -27464,6 +27474,7 @@ export type Database = {
           availability_thursday?: boolean | null
           availability_tuesday?: boolean | null
           availability_wednesday?: boolean | null
+          birthday?: string | null
           created_at?: string | null
           email?: string | null
           first_name?: string | null
@@ -27487,6 +27498,7 @@ export type Database = {
           availability_thursday?: boolean | null
           availability_tuesday?: boolean | null
           availability_wednesday?: boolean | null
+          birthday?: string | null
           created_at?: string | null
           email?: string | null
           first_name?: string | null
