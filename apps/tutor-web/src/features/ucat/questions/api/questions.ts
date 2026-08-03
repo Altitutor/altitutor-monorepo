@@ -26,7 +26,6 @@ import {
   serializeQuestionCatalogQuery,
   type QuestionCatalogQuery,
 } from "@/features/ucat/questions/lib/question-catalog-query";
-import type { BulkImportAiReviewSubmission } from "@/features/ucat/questions/lib/bulk-import-ai-review";
 
 export type { UcatQuestionStemListIndex };
 
@@ -225,6 +224,7 @@ export type StemDetailRow = {
   created_by_first_name?: string | null;
   created_by_last_name?: string | null;
   created_at?: string | null;
+  updated_at?: string | null;
   stem_text: Json;
   questions: StemDetailQuestion[];
 };
@@ -630,7 +630,7 @@ export const ucatQuestionsApi = {
   async update(
     stemId: string,
     payload: UcatQuestionStemBundlePayload,
-    options?: { requestAssessment?: boolean },
+    options?: { requestAssessment?: boolean; expectedUpdatedAt?: string | null },
   ) {
     const response = await fetch(`/api/ucat/question-stems/${stemId}`, {
       method: "PATCH",
@@ -638,6 +638,7 @@ export const ucatQuestionsApi = {
       body: JSON.stringify({
         ...serializePayload({ ...payload, stemId }),
         requestAssessment: options?.requestAssessment ?? false,
+        expectedUpdatedAt: options?.expectedUpdatedAt ?? null,
       }),
     });
 
@@ -791,8 +792,7 @@ export const ucatQuestionsApi = {
 
   async bulkImport(
     sectionId: string,
-    stems: UcatQuestionStemBundlePayload[],
-    aiReviews?: BulkImportAiReviewSubmission[],
+    stems: Array<UcatQuestionStemBundlePayload & { importStatus: 'draft' | 'in_review' }>,
   ) {
     const response = await fetch("/api/ucat/question-stems/bulk-import", {
       method: "POST",
@@ -800,7 +800,6 @@ export const ucatQuestionsApi = {
       body: JSON.stringify({
         sectionId,
         stems: stems.map((stem) => serializePayload(stem)),
-        ...(aiReviews && aiReviews.length > 0 ? { aiReviews } : {}),
       }),
     });
 
@@ -811,10 +810,7 @@ export const ucatQuestionsApi = {
 
     return response.json() as Promise<{
       ids: string[];
-      aiReviewPersistence?: {
-        persistedStemIds: string[];
-        skipped: Array<{ stemId: string; reason: string }>;
-      };
+      statuses: Record<string, 'draft' | 'in_review'>;
     }>;
   },
 
@@ -1089,7 +1085,9 @@ function stemDetailToBundlePayload(
   };
 }
 
-function serializePayload(payload: UcatQuestionStemBundlePayload) {
+function serializePayload(
+  payload: UcatQuestionStemBundlePayload & { importStatus?: 'draft' | 'in_review' },
+) {
   return {
     stemId: payload.stemId ?? null,
     sectionId: payload.sectionId,
@@ -1098,6 +1096,7 @@ function serializePayload(payload: UcatQuestionStemBundlePayload) {
     accessScope: payload.accessScope,
     sourceChannel: payload.sourceChannel ?? null,
     tutorSourceNote: payload.tutorSourceNote ?? null,
+    ...(payload.importStatus ? { importStatus: payload.importStatus } : {}),
     questions: payload.questions.map((question) => ({
       index: question.index,
       id: question.id ?? null,

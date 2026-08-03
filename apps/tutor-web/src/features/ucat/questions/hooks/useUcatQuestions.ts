@@ -5,7 +5,6 @@ import type { UcatAccessScope, UcatContentStatus, UcatQuestionStemBundlePayload 
 import { proseMirrorToPlainText } from '@/features/ucat/shared/lib/rich-text'
 import type { Json } from '@altitutor/shared'
 import type { QuestionCatalogQuery } from '@/features/ucat/questions/lib/question-catalog-query'
-import type { BulkImportAiReviewSubmission } from '@/features/ucat/questions/lib/bulk-import-ai-review'
 
 function parseStemCatalogSetIds(value: unknown): string[] {
   if (value == null || !Array.isArray(value)) return []
@@ -305,12 +304,14 @@ export function useUpdateUcatQuestionStem() {
       stemId,
       payload,
       requestAssessment,
+      expectedUpdatedAt,
     }: {
       stemId: string
       payload: UcatQuestionStemBundlePayload
       requestAssessment?: boolean
+      expectedUpdatedAt?: string | null
       invalidate?: boolean
-    }) => ucatQuestionsApi.update(stemId, payload, { requestAssessment }),
+    }) => ucatQuestionsApi.update(stemId, payload, { requestAssessment, expectedUpdatedAt }),
     onSuccess: (_, variables) => {
       if (variables.invalidate === false) return
       queryClient.invalidateQueries({ queryKey: ucatKeys.questions('all') })
@@ -348,9 +349,8 @@ export function useBulkImportUcatQuestionStems() {
   return useMutation({
     mutationFn: (args: {
       sectionId: string
-      stems: UcatQuestionStemBundlePayload[]
-      aiReviews?: BulkImportAiReviewSubmission[]
-    }) => ucatQuestionsApi.bulkImport(args.sectionId, args.stems, args.aiReviews),
+      stems: Array<UcatQuestionStemBundlePayload & { importStatus: 'draft' | 'in_review' }>
+    }) => ucatQuestionsApi.bulkImport(args.sectionId, args.stems),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ucatKeys.questions('all') })
     },

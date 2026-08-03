@@ -1,6 +1,7 @@
 'use client'
 
-import { useMemo, useState, type ReactNode } from 'react'
+import { useEffect, useMemo, useState, type ReactNode } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
 import type { UseFormReturn } from 'react-hook-form'
 import {
   Accordion,
@@ -43,6 +44,16 @@ import type { z } from 'zod'
 import { cn } from '@/shared/utils'
 import { tutorCardCn } from '@/shared/lib/tutor-visual'
 import { proseMirrorToPlainText } from '@/features/ucat/shared/lib/rich-text'
+import { ucatQuestionsApi } from '@/features/ucat/questions/api/questions'
+import { stemDetailToFormValues } from '@/features/ucat/questions/lib/stem-editor-form'
+import { ucatKeys } from '@/features/ucat/shared/lib/query-keys'
+
+type SavedAiRepair = {
+  id: string
+  summary: string
+  rationale: string | null
+  createdAt: string | null
+}
 
 type CategoryResult = z.infer<typeof UcatAssessmentCategoryResultSchema>
 
@@ -439,6 +450,7 @@ export function UcatAiAssessmentControl({
   activeQuestionIndex?: number
 }) {
   const { toast } = useToast()
+  const queryClient = useQueryClient()
   const query = useUcatAiAssessment(stemId)
   const requestMutation = useRequestUcatAiAssessment()
   const retryMutation = useRetryUcatAiAssessment()
@@ -459,6 +471,68 @@ export function UcatAiAssessmentControl({
     .filter((run) => effective.has(run.id))
     .flatMap((run) => run.format_checks.map((check) => ({ check, run }))) ?? []
   const unavailableRun = data?.runs.find((run) => effective.has(run.id) && run.status === 'failed')
+  const repairsRefreshKey = data?.runs.map((run) => `${run.id}:${run.status}:${run.completed_at ?? ''}`).join('|') ?? ''
+  const [savedRepairs, setSavedRepairs] = useState<SavedAiRepair[]>([])
+  const [restoringRepairId, setRestoringRepairId] = useState<string | null>(null)
+
+  useEffect(() => {
+    let cancelled = false
+    void fetch(`/api/ucat/question-stems/${stemId}/content-changes`, { cache: 'no-store' })
+      .then(async (response) => {
+        const body = await response.json().catch(() => ({})) as { repairs?: SavedAiRepair[] }
+        if (!cancelled && response.ok) setSavedRepairs(body.repairs ?? [])
+      })
+      .catch(() => undefined)
+    return () => { cancelled = true }
+  }, [stemId, repairsRefreshKey])
+
+  async function restoreSavedRepair(repair: SavedAiRepair) {
+    if (form.formState.isDirty) {
+      toast({
+        title: 'Save or discard your current edits first',
+        description: 'This prevents restoring an earlier saved version over changes still in this form.',
+        variant: 'destructive',
+      })
+      return
+    }
+    setRestoringRepairId(repair.id)
+    try {
+      const response = await fetch(`/api/ucat/question-stems/${stemId}/content-changes`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ changeId: repair.id }),
+      })
+      const body = await response.json().catch(() => ({})) as {
+        restored?: boolean
+        error?: string
+      }
+      if (!response.ok) throw new Error(body.error ?? 'Could not restore the saved AI repair.')
+      if (!body.restored) {
+        toast({
+          title: 'Restore was staged safely',
+          description: 'The question changed again after this repair, so the older version was prepared as a recoverable proposal instead of overwriting newer work.',
+        })
+        return
+      }
+      const detail = await ucatQuestionsApi.getDetail(stemId)
+      if (detail) form.reset(stemDetailToFormValues(detail))
+      setSavedRepairs((current) => current.filter((item) => item.id !== repair.id))
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ucatKeys.question(stemId) }),
+        queryClient.invalidateQueries({ queryKey: ucatKeys.questions('all') }),
+        queryClient.invalidateQueries({ queryKey: ucatKeys.aiAssessment(stemId) }),
+      ])
+      toast({ title: 'AI repair restored', description: 'The saved question and this form now show the version from before the repair.' })
+    } catch (error) {
+      toast({
+        title: 'Could not restore AI repair',
+        description: error instanceof Error ? error.message : 'Please try again.',
+        variant: 'destructive',
+      })
+    } finally {
+      setRestoringRepairId(null)
+    }
+  }
 
   async function retryReview(runId: string) {
     try {
@@ -513,6 +587,39 @@ export function UcatAiAssessmentControl({
                 ) : null}
                 {data.status === 'reviewing' ? <span className="text-xs text-muted-foreground">This panel refreshes automatically.</span> : null}
               </div>
+
+              {savedRepairs.length > 0 ? (
+                <section className="space-y-3 rounded-lg border border-blue-300/60 bg-blue-50/40 p-4 dark:bg-blue-950/10">
+                  <div>
+                    <h3 className="text-sm font-semibold">Saved AI repairs</h3>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      These verified changes were applied to the saved question. You can restore the exact version from before a repair.
+                    </p>
+                  </div>
+                  <div className="space-y-2">
+                    {savedRepairs.map((repair) => (
+                      <div key={repair.id} className="flex items-start justify-between gap-3 rounded-md border bg-background p-3">
+                        <div className="min-w-0">
+                          <p className="text-sm font-medium">{repair.summary}</p>
+                          <p className="mt-1 text-xs text-muted-foreground">Applied {formatDate(repair.createdAt)}</p>
+                        </div>
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="outline"
+                          disabled={restoringRepairId != null}
+                          onClick={() => void restoreSavedRepair(repair)}
+                        >
+                          {restoringRepairId === repair.id
+                            ? <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" />
+                            : <RotateCcw className="mr-2 h-3.5 w-3.5" />}
+                          Restore previous version
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                </section>
+              ) : null}
 
               {data.status === 'not_requested' ? (
                 <div className="space-y-3 rounded-lg border border-dashed p-4">

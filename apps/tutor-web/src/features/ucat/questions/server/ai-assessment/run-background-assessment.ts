@@ -18,7 +18,11 @@ import {
   type UcatAssessmentSnapshot,
   type UcatFormatCheck,
 } from '@/features/ucat/questions/lib/ai-assessment/schema'
-import { fingerprintUcatAssessmentSnapshot, loadUcatAssessmentSnapshot } from './content'
+import {
+  compactUcatAssessmentSnapshot,
+  fingerprintUcatAssessmentSnapshot,
+  loadUcatAssessmentSnapshot,
+} from './content'
 import {
   ASSESSMENT_SYSTEM_PROMPT,
   BULK_IMPORT_AUDIT_REPAIR_SYSTEM_PROMPT,
@@ -34,6 +38,7 @@ import {
   chunkBulkImportAuditQuestionIds,
   runConditionalBulkImportReview,
 } from './bulk-import-pipeline'
+import { runUcatFormatChecks } from './format-checks'
 
 type SupabaseAny = {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -862,125 +867,21 @@ export async function runBackgroundUcatQuestionAssessment(
   const formatChecks = UcatFormatCheckSchema.array().parse(run.format_checks ?? [])
 
   try {
-    const blindVisualEvidence = await buildVisualEvidence({
+    const { runVerifiedBackgroundAssessment } = await import('./verified-background-repair')
+    const result = await runVerifiedBackgroundAssessment({
       client: admin,
-      snapshot,
-      targetQuestionIds,
-      includeExplanations: false,
-    })
-    const existingBlind = BlindSolutionResponseSchema.safeParse(run.blind_solution)
-    let blindSolution = existingBlind.success
-      ? normalizeBlindSolutionSelections(existingBlind.data, snapshot)
-      : null
-    let blindProviderId: string | null = null
-    let blindModel: string | null = null
-
-    if (!blindSolution) {
-      const blindPrompt = buildBlindSolverUserPrompt({
-        snapshot,
-        targetQuestionIds,
-        visualAvailability: blindVisualEvidence.availability,
-      })
-      const blindResult = await callUcatAiJson({
-        client: admin,
-        operation: 'question_assessment_blind_solve',
-        modelProfileId: run.blind_solver_model_profile_id,
-        systemPrompt: BLIND_SOLVER_SYSTEM_PROMPT,
-        userPrompt: blindPrompt,
-        userContentParts: [
-          { type: 'text', text: blindPrompt },
-          ...blindVisualEvidence.parts,
-        ],
-        temperature: 0,
-        maxCompletionTokens: 4_000,
-        timeoutMs: 180_000,
-        providerSort: 'throughput',
-        reasoningEffort: 'medium',
-        metadata: {
-          assessmentRunId: run.id,
-          stemId: run.stem_id,
-          targetQuestionIds,
-          blinded: true,
-        },
-      })
-      blindSolution = normalizeBlindSolutionSelections(
-        BlindSolutionResponseSchema.parse(blindResult.parsed),
-        snapshot,
-      )
-      blindProviderId = blindResult.providerId
-      blindModel = blindResult.model
-      const { error: blindSaveError } = await asAny(admin)
-        .from('ucat_ai_question_assessment_runs')
-        .update({
-          blind_solution: blindSolution as unknown as Json,
-          blind_solver_provider_id: blindProviderId,
-          blind_solver_model: blindModel,
-        })
-        .eq('id', run.id)
-      if (blindSaveError) throw blindSaveError
-    }
-    assertBlindSolutionTargets({ solution: blindSolution, snapshot, targetQuestionIds })
-
-    const assessmentVisualEvidence = await buildVisualEvidence({
-      client: admin,
-      snapshot,
-      targetQuestionIds,
-      includeExplanations: true,
-    })
-    const availableQuestionTags = await loadAvailableQuestionTags(admin, snapshot.sectionId)
-
-    const assessmentPrompt = buildAssessmentUserPrompt({
+      runId: run.id,
       snapshot,
       targetQuestionIds,
       includeSharedAssessment,
-      blindSolution,
       formatChecks,
-      availableQuestionTags,
-      visualAvailability: assessmentVisualEvidence.availability,
+      blindSolverModelProfileId: run.blind_solver_model_profile_id,
+      assessmentModelProfileId: run.assessment_model_profile_id,
     })
-    const assessmentCall = await callUcatAiJson({
-      client: admin,
-      operation: 'question_assessment_moderate',
-      modelProfileId: run.assessment_model_profile_id,
-      systemPrompt: ASSESSMENT_SYSTEM_PROMPT,
-      userPrompt: assessmentPrompt,
-      userContentParts: [
-        { type: 'text', text: assessmentPrompt },
-        ...assessmentVisualEvidence.parts,
-      ],
-      temperature: 0,
-      maxCompletionTokens: 8_000,
-      timeoutMs: 240_000,
-      providerSort: 'throughput',
-      reasoningEffort: 'medium',
-      metadata: {
-        assessmentRunId: run.id,
-        stemId: run.stem_id,
-        targetQuestionIds,
-        blindSolverModelProfileId: run.blind_solver_model_profile_id,
-      },
-    })
-    let assessment = UcatAssessmentResponseSchema.parse(assessmentCall.parsed)
-    assertAssessmentTargets({
-      assessment,
-      snapshot,
-      targetQuestionIds,
-      includeShared: includeSharedAssessment,
-    })
-    assessment = withCompleteCategoryCoverage({
-      assessment,
-      targetQuestionIds,
-      includeShared: includeSharedAssessment,
-    })
-    assessment = enforceUnreviewableVisuals({
-      assessment,
-      unavailable: assessmentVisualEvidence.availability,
-      snapshot,
-      targetQuestionIds,
-      includeShared: includeSharedAssessment,
-    })
-
-    if (!(await currentSnapshotForRun(admin, run))) {
+    const currentSnapshot = await loadUcatAssessmentSnapshot(admin, run.stem_id)
+    const finalFingerprints = fingerprintUcatAssessmentSnapshot(result.snapshot)
+    if (!currentSnapshot
+      || fingerprintUcatAssessmentSnapshot(currentSnapshot).content !== finalFingerprints.content) {
       await asAny(admin)
         .from('ucat_ai_question_assessment_runs')
         .update({ status: 'superseded', completed_at: new Date().toISOString() })
@@ -992,17 +893,32 @@ export async function runBackgroundUcatQuestionAssessment(
       .from('ucat_ai_question_assessment_runs')
       .update({
         status: 'completed',
-        assessment_result: assessment as unknown as Json,
-        assessment_provider_id: assessmentCall.providerId,
-        assessment_model: assessmentCall.model,
+        content_fingerprint: finalFingerprints.content,
+        shared_fingerprint: finalFingerprints.shared,
+        question_fingerprints: finalFingerprints.questions,
+        content_snapshot: compactUcatAssessmentSnapshot(result.snapshot) as unknown as Json,
+        format_checks: runUcatFormatChecks(result.snapshot) as unknown as Json,
+        blind_solution: result.blindSolution as unknown as Json,
+        blind_solver_provider_id: result.blindProviderId,
+        blind_solver_model: result.blindModel,
+        assessment_result: result.assessment as unknown as Json,
+        assessment_provider_id: result.assessmentProviderId,
+        assessment_model: result.assessmentModel,
         completed_at: new Date().toISOString(),
         error_message: null,
       })
       .eq('id', run.id)
     if (completionError) throw completionError
-    await notifyCriticalAfterPublication({ client: admin, run, assessment })
+    await notifyCriticalAfterPublication({ client: admin, run, assessment: result.assessment })
     return { runId: run.id, status: 'completed' }
   } catch (error) {
+    if (error instanceof Error && error.name === 'VerifiedAssessmentRepairStaleError') {
+      await asAny(admin)
+        .from('ucat_ai_question_assessment_runs')
+        .update({ status: 'superseded', completed_at: new Date().toISOString() })
+        .eq('id', run.id)
+      return { runId: run.id, status: 'superseded' }
+    }
     if (error instanceof UcatAiBudgetExceededError) {
       const { error: deferError } = await asAny(admin)
         .from('ucat_ai_question_assessment_runs')

@@ -33,6 +33,7 @@ export const UcatFormatCheckSchema = z.object({
   scopeType: z.enum(['shared', 'question']),
   questionId: z.string().uuid().nullable().optional(),
   questionIndex: z.number().int().nonnegative().nullable().optional(),
+  optionIndex: z.number().int().nonnegative().nullable().optional(),
 })
 
 const TextTargetSchema = z.object({
@@ -465,6 +466,8 @@ export type UcatAssessmentQuestionSnapshot = {
   answerExplanation: Json | null
   answerExplanationPlain: string
   questionType: 'multiple_choice' | 'syllogism'
+  sourceChannel?: 'individual' | 'bulk_import' | 'ai_generation' | null
+  aiGenerationMetadata?: Json | null
   difficulty: number | null
   timeBurdenSeconds: number | null
   tagIds: string[]
@@ -480,6 +483,8 @@ export type UcatAssessmentSnapshot = {
   statusChangedAt?: string | null
   statusChangedBy?: string | null
   updatedBy?: string | null
+  updatedAt?: string | null
+  tutorSourceNote?: string | null
   sectionId: string
   sectionName: string
   sectionNumber: number

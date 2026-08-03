@@ -635,10 +635,8 @@ describe('formatDate', () => {
 });
 
 describe('formatDateTime', () => {
-  it('should format valid timestamp to time', () => {
-    const result = formatDateTime('2024-01-15T14:30:00Z');
-    // Should contain time components
-    expect(result).toMatch(/\d{1,2}:\d{2}\s?(AM|PM)/);
+  it('formats the session date and time in Adelaide', () => {
+    expect(formatDateTime('2026-08-06T00:15:00Z')).toBe('Thu 6 Aug 9:45am');
   });
 
   it('should return empty string for invalid timestamp', () => {

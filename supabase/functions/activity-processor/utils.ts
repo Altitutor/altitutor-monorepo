@@ -252,15 +252,34 @@ export function formatDate(timestamp: string): string {
   }
 }
 
-// Format timestamp to time string
+// Format a session timestamp as a compact Adelaide date and time.
 export function formatDateTime(timestamp: string): string {
   try {
     const date = new Date(timestamp);
-    return date.toLocaleTimeString('en-US', { 
-      hour: 'numeric', 
+    if (isNaN(date.getTime())) return '';
+
+    const formatter = new Intl.DateTimeFormat('en-AU', {
+      timeZone: 'Australia/Adelaide',
+      weekday: 'short',
+      day: 'numeric',
+      month: 'short',
+      hour: 'numeric',
       minute: '2-digit',
-      hour12: true 
+      hour12: true,
     });
+
+    const parts = formatter.formatToParts(date);
+    const getPart = (type: Intl.DateTimeFormatPartTypes) =>
+      parts.find((part) => part.type === type)?.value || '';
+
+    const weekday = getPart('weekday');
+    const day = getPart('day');
+    const month = getPart('month');
+    const hour = getPart('hour');
+    const minute = getPart('minute');
+    const dayPeriod = getPart('dayPeriod').toLowerCase();
+
+    return `${weekday} ${day} ${month} ${hour}:${minute}${dayPeriod}`;
   } catch {
     return '';
   }

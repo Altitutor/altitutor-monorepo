@@ -140,7 +140,7 @@ export function PrivateStemsNotInSetTable({
       }
     }
     return keys.size
-  }, [selectedStemIds, filteredStems])
+  }, [selectedStemIds])
 
   const canBulkAddToSet = selectedCategoryCount <= 1
 

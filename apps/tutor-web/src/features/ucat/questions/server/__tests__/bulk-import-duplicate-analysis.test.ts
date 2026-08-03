@@ -96,8 +96,9 @@ describe('bulk import duplicate analysis', () => {
     expect(exact[0].kind).toBe('exact_duplicate')
     expect(exact[0].match.source).toBe('catalog')
     expect(exact[0].draft.questions).toEqual([
-      { id: 'draft-exact-question', questionIndex: 0 },
+      expect.objectContaining({ id: 'draft-exact-question', questionIndex: 0 }),
     ])
+    expect(exact[0].draft.questions[0].options).toHaveLength(2)
     expect(shared).toHaveLength(1)
     expect(shared[0].kind).toBe('shared_stem')
   })

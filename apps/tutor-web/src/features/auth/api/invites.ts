@@ -71,6 +71,7 @@ export interface AcceptInviteRequest {
   birthday: string;
   child_safe_agreement_number: string;
   child_safe_policy_agreed: true;
+  profile_bio: string;
 }
 
 export interface AcceptInviteResponse {
@@ -159,14 +160,18 @@ export const invitesApi = {
   /**
    * Accept an invite and create an account
    */
-  acceptInvite: async (data: AcceptInviteRequest, baseUrl: string = ''): Promise<AcceptInviteResponse> => {
+  acceptInvite: async (
+    data: AcceptInviteRequest,
+    profileImage: File,
+    baseUrl: string = '',
+  ): Promise<AcceptInviteResponse> => {
     const url = baseUrl ? `${baseUrl}/api/invites/accept` : `/api/invites/accept`;
+    const form = new FormData();
+    form.set('payload', JSON.stringify(data));
+    form.set('profile_image', profileImage);
     const response = await fetch(url, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(data),
+      body: form,
     });
 
     if (!response.ok) {

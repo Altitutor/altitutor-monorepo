@@ -14,7 +14,7 @@ import {
   manualReviewEnvironment,
   resolveReviewTriggerGate,
 } from './environment'
-import { hasUcatFormatErrors, runUcatFormatChecks } from './format-checks'
+import { runUcatFormatChecks } from './format-checks'
 
 export const UCAT_QUESTION_ASSESSMENT_TOPIC = 'ucat-question-assessment'
 
@@ -154,9 +154,6 @@ export async function requestUcatQuestionAssessment(params: {
 
   const snapshot = await loadUcatAssessmentSnapshot(admin, params.stemId)
   if (!snapshot) return { kind: 'skipped' }
-  if (params.triggerKind !== 'manual_request' && snapshot.sourceChannel !== 'ai_generation') {
-    return { kind: 'skipped' }
-  }
   // Manual requests can review private drafts during authoring. Automatic triggers
   // still skip drafts so launch/backfill does not queue unfinished stems.
   if (snapshot.status === 'draft' && params.triggerKind !== 'manual_request') {
@@ -215,11 +212,10 @@ export async function requestUcatQuestionAssessment(params: {
     Promise.resolve(runUcatFormatChecks(snapshot)),
   ])
   const profiles = reviewConfig
-  const formatBlocked = hasUcatFormatErrors(formatChecks)
   const configurationError = !profiles.solver || !profiles.assessment
     ? 'Automatic review model profiles are not configured.'
     : null
-  const status = formatBlocked ? 'format_blocked' : configurationError ? 'failed' : 'queued'
+  const status = configurationError ? 'failed' : 'queued'
   const now = new Date().toISOString()
 
   const { data: inserted, error: insertError } = await asAny(admin)
@@ -259,7 +255,6 @@ export async function requestUcatQuestionAssessment(params: {
     .neq('id', runId)
     .in('status', ['queued', 'deferred'])
 
-  if (formatBlocked) return { kind: 'format_blocked', runId }
   if (configurationError) return { kind: 'unavailable', runId }
   await enqueueUcatQuestionAssessmentRun(runId)
   return { kind: 'queued', runId }
