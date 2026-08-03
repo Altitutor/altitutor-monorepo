@@ -227,7 +227,7 @@ export async function POST(request: NextRequest) {
         first_name: firstName,
         last_name: lastName,
         phone: hasPhoneField ? (normalizedPhone ?? null) : null,
-        // UCATWeb profile creation does not establish an in-person relationship.
+        // Altitutor UCAT profile creation does not establish an in-person relationship.
         status: null,
         timezone: timezone ?? "Australia/Adelaide",
         ucat_signup_step: 2,

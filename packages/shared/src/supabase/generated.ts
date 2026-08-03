@@ -34866,6 +34866,7 @@ export type Database = {
           p_order_by?: string
           p_products?: string[]
           p_search?: string
+          p_search_fields?: string[]
         }
         Returns: Json
       }
@@ -34923,6 +34924,7 @@ export type Database = {
           p_offset?: number
           p_order_by?: string
           p_search?: string
+          p_search_fields?: string[]
           p_statuses?: string[]
           p_subject_ids?: string[]
           p_subscription_filter?: string

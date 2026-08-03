@@ -14,7 +14,7 @@
 - **In-person trial** — The prospective in-person relationship that begins when a Student books a tutor-led trial. It remains distinct from an active in-person relationship even if the trial has already occurred, until Altitutor accepts the Student for ongoing tutoring.
   _Avoid_: In-person prospect, global trial student, subscription trial
 
-- **In-person registration** — The StudentWeb process offered after an attended In-person trial, in which the Student or parent confirms details, intended subjects, availability, billing information, and account access. Completing this registration changes the in-person relationship from `TRIAL` to `ACTIVE`; current class placement is not required.
+- **In-person registration** — The Altitutor Student Online registration process offered after an attended In-person trial, in which the Student or parent confirms details, intended subjects, availability, billing information, and account access. Completing this registration changes the in-person relationship from `TRIAL` to `ACTIVE`; current class placement is not required.
   _Avoid_: Account registration, online signup, class enrolment
 
 - **Active in-person relationship** — An ongoing tutor-led relationship established by completed In-person registration. It remains active while a Student is awaiting subjects, has no current class placement, or has only future class enrolments; it ends only through explicit discontinuation.
@@ -26,10 +26,12 @@
 - **Online product signup** — A Product app's product-specific process for establishing an online relationship with a Student. Completing the signup activates that online relationship; creating an auth user or an incomplete Student profile does not.
   _Avoid_: Account creation, In-person registration, first login
 
-- **Online product relationship** — A Student's relationship with one online SaaS product, such as UCATWeb or the future StudentWeb SaaS offering. Each product relationship has an independent lifecycle; using StudentWeb as the portal included with in-person tutoring does not create a StudentWeb SaaS relationship.
+- **Online product relationship** — A Student's relationship with one online SaaS product, such as Altitutor UCAT or the future Altitutor Student Online SaaS offering. Each product relationship has an independent lifecycle; using Altitutor Student Online as the portal included with in-person tutoring does not create an online SaaS relationship.
   _Avoid_: Global online status, Product app access, online Student type
+- **Altitutor UCAT** — Canonical customer-facing name for the online product identified in code and data as `UCAT_WEB`; do not display “UCATWeb” or “UCAT Web”.
+- **Altitutor Student Online** — Canonical customer-facing name for the online product identified in code and data as `STUDENT_WEB`; do not display “StudentWeb” or “Student Web” when referring to the online product.
 
-- **Online product relationship record** — The explicit record created when a Student completes a Product app's signup. There is at most one record per Student and Product. It is not inferred from subscription rows, subject access, authentication, or onboarding timestamps; those describe related but independent concerns. UCATWeb creates this record on completed UCAT signup and does not automatically close it after a test sitting.
+- **Online product relationship record** — The explicit record created when a Student completes a Product app's signup. There is at most one record per Student and Product. It is not inferred from subscription rows, subject access, authentication, or onboarding timestamps; those describe related but independent concerns. Altitutor UCAT creates this record on completed UCAT signup and does not automatically close it after a test sitting.
   _Avoid_: Subscription-as-membership, inferred online student, signup flag
 
 - **In-person relationship storage** — The Student's single optional in-person relationship is stored directly on `students` through the nullable `status` column and its lifecycle metadata. `NULL` means no in-person relationship. The column is the sole source of truth and is explicitly documented and presented by application interfaces as in-person status; it is not a global Student status.
@@ -38,10 +40,10 @@
 - **Online relationship storage** — Online product relationships are stored in a child table with one record per Student and Product because a Student may use multiple Product apps. Subscription, entitlement, engagement, and preparation-cycle state remain separate from this relationship record.
   _Avoid_: `ucat_status` on students, one product column per app, subscription-derived relationship
 
-- **Online product entitlement** — The access level currently granted within an Online product relationship, such as UCATWeb free or a paid plan. Entitlement and subscription state may change without activating or ending the Student's relationship with the Product app.
+- **Online product entitlement** — The access level currently granted within an Online product relationship, such as Altitutor UCAT free or a paid plan. Entitlement and subscription state may change without activating or ending the Student's relationship with the Product app.
   _Avoid_: Online student status, student lifecycle, active Student
 
-- **UCAT preparation cycle** — The period in which a Student is preparing for a particular UCAT sitting, identified by a test year and optionally a test date. Passing the test date ends that preparation cycle but does not end the UCATWeb relationship, close the account, remove free access, or erase attempts and study history. A Student may later prepare for another sitting.
+- **UCAT preparation cycle** — The period in which a Student is preparing for a particular UCAT sitting, identified by a test year and optionally a test date. Passing the test date ends that preparation cycle but does not end the Altitutor UCAT relationship, close the account, remove free access, or erase attempts and study history. A Student may later prepare for another sitting.
   _Avoid_: UCAT account lifecycle, discontinued UCAT student, expired online student
 
 - **In-person Students view** — The AdminWeb operational view for Students with an In-person trial, Active in-person relationship, or historical Discontinued in-person relationship. Its default list contains `TRIAL` and `ACTIVE` relationships; `DISCONTINUED` relationships remain available through a status filter. It excludes online-only Students by default, while global search may still locate any Student.

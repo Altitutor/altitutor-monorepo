@@ -2,8 +2,6 @@ import { useState } from 'react';
 import { Button } from "@altitutor/ui";
 import { Input } from "@altitutor/ui";
 import { Label } from "@altitutor/ui";
-import { SearchableSelect } from "@altitutor/ui";
-import { Checkbox } from "@altitutor/ui";
 import { Badge } from "@altitutor/ui";
 import { Separator } from "@altitutor/ui";
 import {
@@ -22,22 +20,13 @@ import {
   TooltipTrigger,
   useToast,
 } from "@altitutor/ui";
-import type { Tables, Enums } from "@altitutor/shared";
+import type { Tables } from "@altitutor/shared";
 import { Pencil, Loader2, Trash2, X, Copy, Check, UserPlus } from 'lucide-react';
-import { getSubjectColorStyle, getSubjectCurriculumColor, getStudentStatusColor } from '@/shared/utils';
 import { PhoneInput } from '@altitutor/ui';
 import { ParentCard } from '@/shared/components/ParentCard';
 import { useParentStudents } from '../../hooks/useStudentsQuery';
 import { SendStudentInviteDialog } from '../SendStudentInviteDialog';
 import { AdminPasswordResetSection } from '@/features/auth/components/password-reset/AdminPasswordResetSection';
-
-const CURRICULUM_OPTIONS = [
-  { value: 'SACE' as const, label: 'SACE' },
-  { value: 'IB' as const, label: 'IB' },
-  { value: 'PRESACE' as const, label: 'PRESACE' },
-  { value: 'PRIMARY' as const, label: 'PRIMARY' },
-  { value: 'MEDICINE' as const, label: 'MEDICINE' },
-] as const;
 
 export interface DetailsFormData {
   // Student details
@@ -45,21 +34,6 @@ export interface DetailsFormData {
   lastName: string;
   email: string;
   phone: string;
-  school: string;
-  curriculum?: Enums<'subject_curriculum'>;
-  yearLevel?: number;
-  status: Tables<'students'>['status'];
-  
-  // Availability
-  availability_monday: boolean;
-  availability_tuesday: boolean;
-  availability_wednesday: boolean;
-  availability_thursday: boolean;
-  availability_friday: boolean;
-  availability_saturday_am: boolean;
-  availability_saturday_pm: boolean;
-  availability_sunday_am: boolean;
-  availability_sunday_pm: boolean;
 }
 
 interface DetailsTabProps {
@@ -93,11 +67,11 @@ export function DetailsTab({
   onSubmit,
   onDelete,
   isDeleting = false,
-  studentSubjects = [],
+  studentSubjects: _studentSubjects = [],
   loadingSubjects: _loadingSubjects = false,
-  onRemoveSubject,
+  onRemoveSubject: _onRemoveSubject,
   onViewSubject: _onViewSubject,
-  addSubjectButton,
+  addSubjectButton: _addSubjectButton,
   parents = [],
   onViewParent,
   onRemoveParent,
@@ -119,19 +93,6 @@ export function DetailsTab({
     lastName: student.last_name || '',
     email: student.email || '',
     phone: student.phone || '',
-    school: (student.school || '') as string,
-    curriculum: (student.curriculum as Enums<'subject_curriculum'>) || undefined,
-    yearLevel: student.year_level || undefined,
-    status: student.status,
-    availability_monday: !!student.availability_monday,
-    availability_tuesday: !!student.availability_tuesday,
-    availability_wednesday: !!student.availability_wednesday,
-    availability_thursday: !!student.availability_thursday,
-    availability_friday: !!student.availability_friday,
-    availability_saturday_am: !!student.availability_saturday_am,
-    availability_saturday_pm: !!student.availability_saturday_pm,
-    availability_sunday_am: !!student.availability_sunday_am,
-    availability_sunday_pm: !!student.availability_sunday_pm,
   });
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -139,7 +100,7 @@ export function DetailsTab({
     onSubmit(formData);
   };
 
-  const handleInputChange = (field: keyof DetailsFormData, value: string | number | boolean | Enums<'subject_curriculum'> | Tables<'students'>['status'] | undefined) => {
+  const handleInputChange = (field: keyof DetailsFormData, value: string) => {
     setFormData(prev => ({ ...prev, [field]: value }));
   };
 
@@ -190,81 +151,6 @@ export function DetailsTab({
                 </div>
               </div>
 
-              <div>
-                <Label htmlFor="school">School</Label>
-                <Input
-                  id="school"
-                  value={formData.school || ''}
-                  onChange={(e) => handleInputChange('school', e.target.value)}
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label htmlFor="curriculum">Curriculum</Label>
-                  <SearchableSelect<(typeof CURRICULUM_OPTIONS)[number]>
-                    items={[...CURRICULUM_OPTIONS]}
-                    value={CURRICULUM_OPTIONS.find((c) => c.value === formData.curriculum) ?? null}
-                    onValueChange={(item) =>
-                      handleInputChange('curriculum', (item?.value ?? '') as Enums<'subject_curriculum'>)
-                    }
-                    getItemLabel={(o) => o.label}
-                    getItemId={(o) => o.value}
-                    placeholder="Select curriculum"
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="yearLevel">Year Level</Label>
-                  <Input
-                    id="yearLevel"
-                    type="number"
-                    min="1"
-                    max="13"
-                    value={formData.yearLevel || ''}
-                    onChange={(e) => handleInputChange('yearLevel', e.target.value ? parseInt(e.target.value) : undefined)}
-                  />
-                </div>
-              </div>
-
-
-              {/* Subjects Field */}
-              <div>
-                <Label>Subjects</Label>
-                <div className="space-y-2">
-                  {studentSubjects.length > 0 && (
-                    <div className="flex flex-wrap gap-2">
-                      {studentSubjects.map((subject) => {
-                        const shortName = subject?.short_name ?? subject?.long_name ?? subject?.name ?? '';
-                        const { style, textColorClass } = getSubjectColorStyle(subject);
-                        const defaultClass = !subject.color ? 'bg-gray-100 text-gray-800' : '';
-                        return (
-                          <Badge
-                            key={subject.id}
-                            className={defaultClass || `${textColorClass} flex items-center gap-1 pr-1`}
-                            style={style.backgroundColor ? style : undefined}
-                          >
-                            <span>{shortName}</span>
-                            {onRemoveSubject && (
-                              <button
-                                type="button"
-                                className="ml-1 rounded-full hover:bg-black/20 p-0.5 flex items-center justify-center"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  onRemoveSubject(subject.id);
-                                }}
-                              >
-                                <X className="h-3 w-3" />
-                              </button>
-                            )}
-                          </Badge>
-                        );
-                      })}
-                    </div>
-                  )}
-                  {addSubjectButton}
-                </div>
-              </div>
-
               <Separator className="my-6" />
 
               {/* Parents Section */}
@@ -303,55 +189,6 @@ export function DetailsTab({
                   {addParentButton}
                 </div>
               </div>
-
-              <Separator className="my-6" />
-
-              {/* Availability Section */}
-              <div>
-                <h3 className="text-lg font-semibold mb-4">Availability</h3>
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-3">
-                    <h4 className="font-medium">Weekdays</h4>
-                    {[
-                      { key: 'availability_monday', label: 'Monday' },
-                      { key: 'availability_tuesday', label: 'Tuesday' },
-                      { key: 'availability_wednesday', label: 'Wednesday' },
-                      { key: 'availability_thursday', label: 'Thursday' },
-                      { key: 'availability_friday', label: 'Friday' },
-                    ].map(({ key, label }) => (
-                      <div key={key} className="flex items-center space-x-2">
-                        <Checkbox
-                          id={key}
-                          checked={formData[key as keyof DetailsFormData] as boolean}
-                          onCheckedChange={(checked) => handleInputChange(key as keyof DetailsFormData, checked)}
-                        />
-                        <Label htmlFor={key}>{label}</Label>
-                      </div>
-                    ))}
-                  </div>
-
-                  <div className="space-y-3">
-                    <h4 className="font-medium">Weekends</h4>
-                    {[
-                      { key: 'availability_saturday_am', label: 'Saturday AM' },
-                      { key: 'availability_saturday_pm', label: 'Saturday PM' },
-                      { key: 'availability_sunday_am', label: 'Sunday AM' },
-                      { key: 'availability_sunday_pm', label: 'Sunday PM' },
-                    ].map(({ key, label }) => (
-                      <div key={key} className="flex items-center space-x-2">
-                        <Checkbox
-                          id={key}
-                          checked={formData[key as keyof DetailsFormData] as boolean}
-                          onCheckedChange={(checked) => handleInputChange(key as keyof DetailsFormData, checked)}
-                        />
-                        <Label htmlFor={key}>{label}</Label>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </div>
-
-              <Separator className="my-6" />
 
               {/* Account Section */}
               <div>
@@ -617,108 +454,6 @@ export function DetailsTab({
           )}
         </div>
         
-        <div className="text-sm font-medium">School:</div>
-        <div>
-          <TruncatedText text={student.school || '-'} />
-        </div>
-        
-        <div className="text-sm font-medium">Curriculum:</div>
-        <div>
-          {student.curriculum ? (
-            <Badge className={getSubjectCurriculumColor(student.curriculum as Enums<'subject_curriculum'>)}>
-              {student.curriculum}
-            </Badge>
-          ) : (
-            '-'
-          )}
-        </div>
-        
-        <div className="text-sm font-medium">Year Level:</div>
-        <div>
-          {student.year_level ? (
-            <Badge variant="outline">Year {student.year_level}</Badge>
-          ) : (
-            '-'
-          )}
-        </div>
-        
-        <div className="text-sm font-medium">Status:</div>
-        <div>
-          <Badge className={getStudentStatusColor(student.status as 'ACTIVE' | 'INACTIVE' | 'TRIAL' | 'DISCONTINUED')}>
-            {student.status}
-          </Badge>
-        </div>
-        
-        <div className="text-sm font-medium">Subjects:</div>
-        <div>
-          {studentSubjects.length > 0 ? (
-            <div className="flex flex-wrap gap-2">
-              {studentSubjects.map((subject) => {
-                const shortName = subject?.short_name ?? subject?.long_name ?? subject?.name ?? '';
-                const { style, textColorClass } = getSubjectColorStyle(subject);
-                const defaultClass = !subject.color ? 'bg-gray-100 text-gray-800' : '';
-                return (
-                  <Badge
-                    key={subject.id}
-                    className={defaultClass || textColorClass}
-                    style={style.backgroundColor ? style : undefined}
-                  >
-                    {shortName}
-                  </Badge>
-                );
-              })}
-            </div>
-          ) : (
-            <span className="text-muted-foreground">No subjects assigned</span>
-          )}
-        </div>
-      </div>
-
-      <Separator className="my-6" />
-
-      {/* Availability Section */}
-      <div>
-        <h3 className="text-lg font-semibold mb-4">Availability</h3>
-        <div className="grid grid-cols-2 gap-6">
-          <div>
-            <h4 className="font-medium mb-3">Weekdays</h4>
-            <div className="space-y-2">
-              {[
-                { key: 'availability_monday', label: 'Monday' },
-                { key: 'availability_tuesday', label: 'Tuesday' },
-                { key: 'availability_wednesday', label: 'Wednesday' },
-                { key: 'availability_thursday', label: 'Thursday' },
-                { key: 'availability_friday', label: 'Friday' },
-              ].map(({ key, label }) => (
-                <div key={key} className="flex items-center space-x-2">
-                  <div className={`w-3 h-3 rounded-full ${student[key as keyof Tables<'students'>] ? 'bg-green-500' : 'bg-gray-300'}`} />
-                  <span className={`text-sm ${student[key as keyof Tables<'students'>] ? 'text-foreground' : 'text-muted-foreground'}`}>
-                    {label}
-                  </span>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          <div>
-            <h4 className="font-medium mb-3">Weekends</h4>
-            <div className="space-y-2">
-              {[
-                { key: 'availability_saturday_am', label: 'Saturday AM' },
-                { key: 'availability_saturday_pm', label: 'Saturday PM' },
-                { key: 'availability_sunday_am', label: 'Sunday AM' },
-                { key: 'availability_sunday_pm', label: 'Sunday PM' },
-              ].map(({ key, label }) => (
-                <div key={key} className="flex items-center space-x-2">
-                  <div className={`w-3 h-3 rounded-full ${student[key as keyof Tables<'students'>] ? 'bg-green-500' : 'bg-gray-300'}`} />
-                  <span className={`text-sm ${student[key as keyof Tables<'students'>] ? 'text-foreground' : 'text-muted-foreground'}`}>
-                    {label}
-                  </span>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
       </div>
 
       <Separator className="my-6" />

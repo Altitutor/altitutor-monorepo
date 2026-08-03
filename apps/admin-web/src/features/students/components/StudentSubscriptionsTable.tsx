@@ -90,12 +90,6 @@ export function StudentSubscriptionsTable({ studentId }: StudentSubscriptionsTab
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <p className="text-sm text-muted-foreground max-w-xl">
-          Stripe is the source of truth for billing. Rows sync from webhooks. Use Stripe Dashboard
-          to cancel or change plans; set{' '}
-          <code className="text-xs">NEXT_PUBLIC_STRIPE_DASHBOARD_TEST_MODE=true</code> in admin-web
-          for test-mode dashboard links.
-        </p>
         <Button
           type="button"
           variant="outline"

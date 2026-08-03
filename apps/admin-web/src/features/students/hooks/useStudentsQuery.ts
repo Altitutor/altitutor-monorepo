@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
-import { studentsApi } from '../api/students';
+import { studentsApi, type StudentSearchField } from '../api/students';
 import type { Tables, TablesUpdate } from '@altitutor/shared';
 
 // Query Keys
@@ -20,6 +20,7 @@ export const studentsKeys = {
 
 export interface UseOnlineStudentsListParams {
   search?: string;
+  searchFields?: StudentSearchField[];
   products?: string[];
   entitlements?: string[];
   page?: number;
@@ -31,6 +32,7 @@ export interface UseOnlineStudentsListParams {
 export function useOnlineStudentsMinimal(params: UseOnlineStudentsListParams) {
   const {
     search = '',
+    searchFields = ['name', 'email', 'phone'],
     products = [],
     entitlements = [],
     page = 1,
@@ -43,6 +45,7 @@ export function useOnlineStudentsMinimal(params: UseOnlineStudentsListParams) {
   return useQuery({
     queryKey: studentsKeys.online({
       search,
+      searchFields,
       products,
       entitlements,
       page,
@@ -52,6 +55,7 @@ export function useOnlineStudentsMinimal(params: UseOnlineStudentsListParams) {
     }),
     queryFn: () => studentsApi.listOnline({
       search,
+      searchFields,
       products,
       entitlements,
       limit: pageSize,
@@ -69,11 +73,11 @@ export function useOnlineStudentsMinimal(params: UseOnlineStudentsListParams) {
 export function useStudentsMinimal(params: UseStudentsListParams) {
   const {
     search = '',
+    searchFields = ['name', 'email', 'phone'],
     statuses = [],
     curriculums = [],
     yearLevels = [],
     subjectIds = [],
-    subscriptionOnline,
     inPersonClass,
     page = 1,
     pageSize = 50,
@@ -86,11 +90,11 @@ export function useStudentsMinimal(params: UseStudentsListParams) {
   return useQuery({
     queryKey: studentsKeys.minimal({
       search,
+      searchFields,
       statuses,
       curriculums,
       yearLevels,
       subjectIds,
-      subscriptionOnline,
       inPersonClass,
       page,
       pageSize,
@@ -100,11 +104,11 @@ export function useStudentsMinimal(params: UseStudentsListParams) {
     queryFn: () =>
       studentsApi.listMinimal({
         search,
+        searchFields,
         statuses,
         curriculums,
         yearLevels,
         subjectIds,
-        subscriptionOnline,
         inPersonClass,
         limit: pageSize,
         offset,
@@ -152,12 +156,11 @@ export function useStudents() {
 // Paginated server-filtered students list
 export interface UseStudentsListParams {
   search?: string;
+  searchFields?: StudentSearchField[];
   statuses?: NonNullable<Tables<'students'>['status']>[];
   curriculums?: string[];
   yearLevels?: number[];
   subjectIds?: string[];
-  /** Filter: `has` = at least one student_subscriptions row, `none` = none */
-  subscriptionOnline?: string[];
   /** Filter: `has` = current class enrollment, `none` = not enrolled in any class */
   inPersonClass?: string[];
   page?: number; // 1-based

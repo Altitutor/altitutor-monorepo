@@ -1,5 +1,5 @@
 BEGIN;
-SELECT plan(8);
+SELECT plan(11);
 
 INSERT INTO public.students (
   id,
@@ -90,6 +90,19 @@ SELECT is(
 
 SELECT is(
   (
+    SELECT product ->> 'tier'
+    FROM online_result,
+      jsonb_array_elements(payload -> 'students') student,
+      jsonb_array_elements(student -> 'products') product
+    WHERE student ->> 'id' = 'fc000000-0000-4000-8000-000000000001'
+      AND product ->> 'product' = 'UCAT_WEB'
+  ),
+  'FREE',
+  'online product summaries expose the effective product tier'
+);
+
+SELECT is(
+  (
     SELECT student ->> 'entitlement'
     FROM online_result,
       jsonb_array_elements(payload -> 'students') student
@@ -97,6 +110,24 @@ SELECT is(
   ),
   'FREE',
   'a completed UCAT product relationship is online even without a subscription'
+);
+
+SELECT is(
+  (public.search_online_students_admin(
+    p_search => 'relationship-online@student.test',
+    p_search_fields => ARRAY['email']::text[]
+  ) ->> 'total')::bigint,
+  1::bigint,
+  'online search can be restricted to email'
+);
+
+SELECT is(
+  (public.search_online_students_admin(
+    p_search => 'relationship-online@student.test',
+    p_search_fields => ARRAY['name']::text[]
+  ) ->> 'total')::bigint,
+  0::bigint,
+  'online search does not match email when restricted to name'
 );
 
 CREATE TEMP TABLE in_person_result AS

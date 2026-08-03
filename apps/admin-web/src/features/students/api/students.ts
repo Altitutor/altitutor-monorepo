@@ -68,12 +68,13 @@ export type StudentMinimalListRow = Tables<'students'> & {
   }>;
   subjects?: Tables<'subjects'>[];
   parents?: Tables<'parents'>[];
-  has_online_subscription?: boolean;
-  has_in_person_class?: boolean;
 };
+
+export type StudentSearchField = 'name' | 'email' | 'phone';
 
 export type OnlineProductRelationshipSummary = {
   product: 'UCAT_WEB' | 'STUDENT_WEB';
+  tier?: 'FREE' | 'UNLIMITED';
   started_at: string;
   closed_at: string | null;
 };
@@ -103,6 +104,7 @@ export const studentsApi = {
   /** Paginated online operational view, deduplicated to one row per Student. */
   listOnline: async (params: {
     search?: string;
+    searchFields?: StudentSearchField[];
     products?: string[];
     entitlements?: string[];
     limit?: number;
@@ -112,6 +114,7 @@ export const studentsApi = {
   }): Promise<{ students: OnlineStudentListRow[]; total: number }> => {
     const {
       search = '',
+      searchFields = ['name', 'email', 'phone'],
       products = [],
       entitlements = [],
       limit = 50,
@@ -122,6 +125,7 @@ export const studentsApi = {
     const supabase = getSupabaseClient() as SupabaseClient<Database>;
     const { data, error } = await supabase.rpc('search_online_students_admin', {
       p_search: search.trim() || undefined,
+      p_search_fields: searchFields,
       p_products: products.length > 0 ? products : undefined,
       p_entitlements: entitlements.length > 0 ? entitlements : undefined,
       p_limit: limit,
@@ -255,11 +259,11 @@ export const studentsApi = {
    */
   listMinimal: async (params: {
     search?: string;
+    searchFields?: StudentSearchField[];
     statuses?: NonNullable<Tables<'students'>['status']>[];
     curriculums?: string[];
     yearLevels?: number[];
     subjectIds?: string[];
-    subscriptionOnline?: string[];
     inPersonClass?: string[];
     limit?: number;
     offset?: number;
@@ -269,11 +273,11 @@ export const studentsApi = {
     const supabase = (getSupabaseClient() as SupabaseClient<Database>);
     const {
       search = '',
+      searchFields = ['name', 'email', 'phone'],
       statuses = [],
       curriculums = [],
       yearLevels = [],
       subjectIds = [],
-      subscriptionOnline,
       inPersonClass,
       limit = 20,
       offset = 0,
@@ -282,22 +286,21 @@ export const studentsApi = {
     } = params || {};
 
     const trimmed = search.trim();
-    const subscriptionFilter = exclusiveHasNoneFilter(subscriptionOnline);
     const inPersonFilter = exclusiveHasNoneFilter(inPersonClass);
 
     // Always use RPC function (supports both search and "get all" when search is empty)
     const { data: rpcResult, error: rpcError } = await supabase.rpc('search_students_admin', {
       p_search: trimmed.length > 0 ? trimmed : undefined,
+      p_search_fields: searchFields,
       // Pass an empty array explicitly so RPC defaults are not applied.
       p_statuses: statuses.length > 0 ? statuses : [],
-      p_include_relationships: true,
+      p_include_relationships: false,
       p_exclude_class_search: false,
       p_limit: limit,
       p_offset: offset,
       p_order_by: orderBy as string,
       p_ascending: ascending,
       p_subject_ids: subjectIds.length > 0 ? subjectIds : undefined,
-      ...(subscriptionFilter ? { p_subscription_filter: subscriptionFilter } : {}),
       ...(inPersonFilter ? { p_in_person_filter: inPersonFilter } : {}),
     });
 
@@ -314,8 +317,6 @@ export const studentsApi = {
       school: string | null;
       email?: string | null;
       phone?: string | null;
-      has_online_subscription?: boolean;
-      has_in_person_class?: boolean;
       classes?: Array<{ subject?: { id: string } }>;
       [key: string]: unknown;
     }
@@ -343,8 +344,6 @@ export const studentsApi = {
       phone: s.phone || null,
       created_at: s.created_at || null,
       updated_at: s.updated_at || null,
-      has_online_subscription: Boolean(s.has_online_subscription),
-      has_in_person_class: Boolean(s.has_in_person_class),
       classes: (s.classes || []).map((cls) => {
         if (!cls || typeof cls !== 'object' || !('id' in cls)) {
           return null;
@@ -504,12 +503,13 @@ export const studentsApi = {
       balance: number;
       hasPaymentMethod: boolean;
     } | null;
+    onlineRelationships: Tables<'student_online_product_relationships'>[];
   }> => {
     const supabase = (getSupabaseClient() as SupabaseClient<Database>);
     
     try {
       // Get student with all related data in optimized queries
-      const [studentResult, subjectsResult, classesResult, parentsResult, sessionsResult] = await Promise.all([
+      const [studentResult, subjectsResult, classesResult, parentsResult, sessionsResult, onlineRelationshipsResult] = await Promise.all([
         // Student record
         supabase
           .from('students')
@@ -546,6 +546,13 @@ export const studentsApi = {
           .from('sessions_students')
           .select('sessions!inner(*)')
           .eq('student_id', studentId),
+
+        supabase
+          .from('student_online_product_relationships')
+          .select('*')
+          .eq('student_id', studentId)
+          .is('closed_at', null)
+          .order('started_at', { ascending: true }),
       ]);
 
       if (studentResult.error && studentResult.error.code !== 'PGRST116') {
@@ -555,6 +562,7 @@ export const studentsApi = {
       if (classesResult.error) throw classesResult.error;
       if (parentsResult.error) throw parentsResult.error;
       if (sessionsResult.error) throw sessionsResult.error;
+      if (onlineRelationshipsResult.error) throw onlineRelationshipsResult.error;
 
       const student = studentResult.data as Tables<'students'> | null;
       if (!student) {
@@ -565,6 +573,7 @@ export const studentsApi = {
           parents: [],
           upcomingSessions: [],
           billingStatus: null,
+          onlineRelationships: [],
         };
       }
 
@@ -631,6 +640,7 @@ export const studentsApi = {
         parents,
         upcomingSessions,
         billingStatus,
+        onlineRelationships: onlineRelationshipsResult.data ?? [],
       };
     } catch (error) {
       console.error('Error getting student details:', error);

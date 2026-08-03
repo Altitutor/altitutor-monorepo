@@ -182,6 +182,10 @@ $$;
 COMMENT ON FUNCTION public.is_ucat_online_student() IS
   'True when the current Student has an explicit open UCATWeb product relationship established by completed signup.';
 
+DROP FUNCTION IF EXISTS public.search_students_admin(
+  text, text[], uuid[], boolean, boolean, integer, integer, text, boolean, text, text
+);
+
 CREATE OR REPLACE FUNCTION public.search_students_admin(
   p_search TEXT DEFAULT NULL,
   p_statuses TEXT[] DEFAULT ARRAY['ACTIVE', 'TRIAL']::TEXT[],
@@ -193,7 +197,8 @@ CREATE OR REPLACE FUNCTION public.search_students_admin(
   p_order_by TEXT DEFAULT 'last_name',
   p_ascending BOOLEAN DEFAULT TRUE,
   p_subscription_filter TEXT DEFAULT NULL,
-  p_in_person_filter TEXT DEFAULT NULL
+  p_in_person_filter TEXT DEFAULT NULL,
+  p_search_fields TEXT[] DEFAULT ARRAY['name', 'email', 'phone']::TEXT[]
 )
 RETURNS JSONB
 LANGUAGE plpgsql
@@ -232,9 +237,9 @@ BEGIN
     WHERE student.status IS NOT NULL
       AND (
         v_search_lower IS NULL
-        OR LOWER(CONCAT_WS(' ', student.first_name, student.last_name)) LIKE '%' || v_search_lower || '%'
-        OR LOWER(COALESCE(student.email, '')) LIKE '%' || v_search_lower || '%'
-        OR COALESCE(student.phone, '') LIKE '%' || v_search_lower || '%'
+        OR ('name' = ANY(p_search_fields) AND LOWER(CONCAT_WS(' ', student.first_name, student.last_name)) LIKE '%' || v_search_lower || '%')
+        OR ('email' = ANY(p_search_fields) AND LOWER(COALESCE(student.email, '')) LIKE '%' || v_search_lower || '%')
+        OR ('phone' = ANY(p_search_fields) AND COALESCE(student.phone, '') LIKE '%' || v_search_lower || '%')
         OR (
           NOT p_exclude_class_search
           AND EXISTS (
@@ -362,8 +367,19 @@ END;
 $$;
 
 COMMENT ON FUNCTION public.search_students_admin(
-  text, text[], uuid[], boolean, boolean, integer, integer, text, boolean, text, text
+  text, text[], uuid[], boolean, boolean, integer, integer, text, boolean, text, text, text[]
 ) IS 'Admin in-person Students search. Excludes Students whose in-person status is NULL.';
+
+REVOKE ALL ON FUNCTION public.search_students_admin(
+  text, text[], uuid[], boolean, boolean, integer, integer, text, boolean, text, text, text[]
+) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.search_students_admin(
+  text, text[], uuid[], boolean, boolean, integer, integer, text, boolean, text, text, text[]
+) TO authenticated, service_role;
+
+DROP FUNCTION IF EXISTS public.search_online_students_admin(
+  text, text[], text[], integer, integer, text, boolean
+);
 
 CREATE OR REPLACE FUNCTION public.search_online_students_admin(
   p_search TEXT DEFAULT NULL,
@@ -372,7 +388,8 @@ CREATE OR REPLACE FUNCTION public.search_online_students_admin(
   p_limit INTEGER DEFAULT 20,
   p_offset INTEGER DEFAULT 0,
   p_order_by TEXT DEFAULT 'last_name',
-  p_ascending BOOLEAN DEFAULT TRUE
+  p_ascending BOOLEAN DEFAULT TRUE,
+  p_search_fields TEXT[] DEFAULT ARRAY['name', 'email', 'phone']::TEXT[]
 )
 RETURNS JSONB
 LANGUAGE plpgsql
@@ -429,9 +446,9 @@ BEGIN
       AND relationship.closed_at IS NULL
     WHERE (
         v_search_lower IS NULL
-        OR LOWER(CONCAT_WS(' ', student.first_name, student.last_name)) LIKE '%' || v_search_lower || '%'
-        OR LOWER(COALESCE(student.email, '')) LIKE '%' || v_search_lower || '%'
-        OR COALESCE(student.phone, '') LIKE '%' || v_search_lower || '%'
+        OR ('name' = ANY(p_search_fields) AND LOWER(CONCAT_WS(' ', student.first_name, student.last_name)) LIKE '%' || v_search_lower || '%')
+        OR ('email' = ANY(p_search_fields) AND LOWER(COALESCE(student.email, '')) LIKE '%' || v_search_lower || '%')
+        OR ('phone' = ANY(p_search_fields) AND COALESCE(student.phone, '') LIKE '%' || v_search_lower || '%')
       )
       AND (
         p_products IS NULL
@@ -486,12 +503,12 @@ END;
 $$;
 
 REVOKE ALL ON FUNCTION public.search_online_students_admin(
-  text, text[], text[], integer, integer, text, boolean
+  text, text[], text[], integer, integer, text, boolean, text[]
 ) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.search_online_students_admin(
-  text, text[], text[], integer, integer, text, boolean
+  text, text[], text[], integer, integer, text, boolean, text[]
 ) TO authenticated, service_role;
 
 COMMENT ON FUNCTION public.search_online_students_admin(
-  text, text[], text[], integer, integer, text, boolean
+  text, text[], text[], integer, integer, text, boolean, text[]
 ) IS 'Admin Online Students search. Returns one row per Student with all matching open Product app relationships.';

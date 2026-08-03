@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -34,6 +34,7 @@ type SetUcatTierOverrideModalProps = {
   isOpen: boolean;
   onClose: () => void;
   onSaved: () => void;
+  initialStudent?: Tables<'students'> | null;
 };
 
 const TIER_OPTIONS: UcatOnlineTierOverride[] = [
@@ -50,18 +51,28 @@ export function SetUcatTierOverrideModal({
   isOpen,
   onClose,
   onSaved,
+  initialStudent = null,
 }: SetUcatTierOverrideModalProps) {
   const { toast } = useToast();
   const [search, setSearch] = useState('');
   const debounced = useDebounce(search, 300);
-  const [selectedStudent, setSelectedStudent] = useState<Tables<'students'> | null>(null);
+  const [selectedStudent, setSelectedStudent] = useState<Tables<'students'> | null>(initialStudent);
   const [tierOverride, setTierOverride] = useState<UcatOnlineTierOverride>('default');
+
+  useEffect(() => {
+    if (isOpen && initialStudent) {
+      setSelectedStudent(initialStudent);
+      setSearch(`${initialStudent.first_name ?? ''} ${initialStudent.last_name ?? ''}`.trim());
+      const current = initialStudent.ucat_online_tier_override;
+      if (isTierOverride(current)) setTierOverride(current);
+    }
+  }, [initialStudent, isOpen]);
 
   const { data: searchResults = [], isFetching } = useQuery({
     queryKey: ['manual-online-access', 'tier-override-student-search', debounced],
     queryFn: () =>
       studentsApi.searchStudents(debounced.trim(), ['ACTIVE', 'TRIAL', 'DISCONTINUED'], true),
-    enabled: isOpen && debounced.trim().length >= 2,
+    enabled: isOpen && !initialStudent && debounced.trim().length >= 2,
     staleTime: 30_000,
   });
 
@@ -77,8 +88,8 @@ export function SetUcatTierOverrideModal({
       });
       onSaved();
       onClose();
-      setSelectedStudent(null);
-      setSearch('');
+      setSelectedStudent(initialStudent);
+      setSearch(initialStudent ? `${initialStudent.first_name ?? ''} ${initialStudent.last_name ?? ''}`.trim() : '');
       setTierOverride('default');
     },
     onError: (e: Error) => {
@@ -102,6 +113,14 @@ export function SetUcatTierOverrideModal({
         </DialogHeader>
 
         <div className="space-y-4 py-2">
+          {initialStudent ? (
+            <div className="space-y-2">
+              <Label>Student</Label>
+              <div className="rounded-md border bg-muted/40 px-3 py-2 text-sm font-medium">
+                {initialStudent.first_name} {initialStudent.last_name}
+              </div>
+            </div>
+          ) : (
           <div className="space-y-2">
             <Label htmlFor="tier-override-student-search">Student</Label>
             <Input
@@ -154,6 +173,7 @@ export function SetUcatTierOverrideModal({
               <p className="text-xs text-muted-foreground">Enter a name to search.</p>
             )}
           </div>
+          )}
 
           <div className="space-y-2">
             <Label htmlFor="tier-override-value">Tier override</Label>
