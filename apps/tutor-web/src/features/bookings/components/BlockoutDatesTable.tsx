@@ -375,6 +375,11 @@ export function BlockoutDatesTable({ blockouts, onUpdate }: BlockoutDatesTablePr
         </Table>
       </div>
 
+      <p className="mt-3 text-sm text-muted-foreground">
+        Blockout dates only apply when drafting session bookings — they do not affect normal classes. If you
+        are unavailable for any classes, it is your responsibility to arrange a substitute.
+      </p>
+
       {/* Edit Dialog */}
       <Dialog open={!!editingBlockout} onOpenChange={() => setEditingBlockout(null)}>
         <DialogContent

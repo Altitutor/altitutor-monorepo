@@ -7907,7 +7907,6 @@ export type Database = {
           birthday: string | null
           child_safe_agreement_number: string | null
           child_safe_policy_agreed_at: string | null
-          child_safe_policy_version: string | null
           created_at: string | null
           current_tier_number: number
           drafting_availability: boolean | null
@@ -7945,7 +7944,6 @@ export type Database = {
           birthday?: string | null
           child_safe_agreement_number?: string | null
           child_safe_policy_agreed_at?: string | null
-          child_safe_policy_version?: string | null
           created_at?: string | null
           current_tier_number?: number
           drafting_availability?: boolean | null
@@ -7983,7 +7981,6 @@ export type Database = {
           birthday?: string | null
           child_safe_agreement_number?: string | null
           child_safe_policy_agreed_at?: string | null
-          child_safe_policy_version?: string | null
           created_at?: string | null
           current_tier_number?: number
           drafting_availability?: boolean | null

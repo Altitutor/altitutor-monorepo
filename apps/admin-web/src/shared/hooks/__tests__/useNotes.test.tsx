@@ -95,6 +95,9 @@ describe('useNotes', () => {
           profile_bio: null,
           birthday: null,
           profile_image_file_id: null,
+          child_safe_agreement_number: null,
+          child_safe_policy_agreed_at: null,
+          onboarding_completed_at: null,
         },
       },
     ];

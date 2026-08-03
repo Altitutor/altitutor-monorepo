@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   Alert,
@@ -116,6 +116,7 @@ export function AcceptInviteForm({ token }: { token: string }) {
       subjectLabel(subject).toLowerCase().includes(query),
     );
   }, [inviteData?.subjects, search]);
+  const selectedSubjectIds = useMemo(() => new Set(subjectIds), [subjectIds]);
 
   function validateStep(): boolean {
     setError(null);
@@ -249,7 +250,7 @@ export function AcceptInviteForm({ token }: { token: string }) {
             <div className="space-y-2"><Label htmlFor="last-name">Last name</Label><Input id="last-name" autoComplete="family-name" value={lastName} onChange={(event) => setLastName(event.target.value)} /></div>
           </div>
           <div className="space-y-2"><Label htmlFor="email">Email</Label><Input id="email" type="email" autoComplete="email" value={email} onChange={(event) => setEmail(event.target.value)} /></div>
-          <div className="space-y-2"><Label>Mobile</Label><PhoneInput value={phone} onChange={setPhone} placeholder="4xx xxx xxx" /></div>
+          <Label className="block space-y-2">Mobile<PhoneInput value={phone} onChange={setPhone} placeholder="4xx xxx xxx" /></Label>
         </div>
       ) : null}
 
@@ -268,7 +269,7 @@ export function AcceptInviteForm({ token }: { token: string }) {
             <div className="relative"><Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" /><Input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search all subjects" className="pl-9" /></div>
             <div className="max-h-72 space-y-1 overflow-y-auto rounded-xl bg-muted/35 p-2 ring-1 ring-border">
               {filteredSubjects.map((subject) => {
-                const checked = subjectIds.includes(subject.id);
+                const checked = selectedSubjectIds.has(subject.id);
                 return (
                   <label key={subject.id} className="flex cursor-pointer items-start gap-3 rounded-lg p-2 text-sm hover:bg-background/80">
                     <Checkbox checked={checked} onCheckedChange={(value) => setSubjectIds((current) => value ? [...current, subject.id] : current.filter((id) => id !== subject.id))} />
