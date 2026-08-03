@@ -5,6 +5,11 @@ export type GuidedSamplerSection = {
   shortName: string;
   name: string;
   purpose: string;
+  /**
+   * Official exam seconds per question for this section
+   * (`ucat_sections.time_limit_seconds / number_of_questions`).
+   */
+  timePerQuestionSeconds: number;
   questions: QuestionEngineQuestion[];
 };
 
@@ -20,8 +25,36 @@ function option(id: string, index: number, text: string, isAnswer = false) {
   return { id, index, text, isAnswer };
 }
 
+/**
+ * Official UCAT section timings (seconds per question), matching the DB
+ * generated column `ucat_sections.time_per_question`.
+ * VR 1320/44 · DM 2220/35 · QR 1560/36 · SJ 1560/69
+ */
+export const SECTION_EXAM_SECONDS_PER_QUESTION = {
+  vr: 1320 / 44,
+  dm: 2220 / 35,
+  qr: 1560 / 36,
+  sjt: 1560 / 69,
+} as const;
+
+/**
+ * Inactivity levels at 1×, 1.5×, 2×, 2.5×… section exam timing.
+ * Returns null before 1× has elapsed.
+ */
+export function inactivityHintLevel(
+  elapsedMs: number,
+  timePerQuestionSeconds: number,
+): number | null {
+  if (timePerQuestionSeconds <= 0 || elapsedMs < 0) return null;
+  const units = elapsedMs / (timePerQuestionSeconds * 1000);
+  if (units < 1) return null;
+  return Math.floor((units - 1) / 0.5);
+}
+
+export const INACTIVITY_NUDGE_TITLE = "Need a nudge?";
+
 const VR_PASSAGE =
-  "For much of the twentieth century, city rivers were treated mainly as drains and transport corridors. Many were straightened, channelled through concrete, or hidden underground. More recently, some councils have begun restoring rivers to a more natural form. Removing concrete banks and reintroducing wetlands can slow storm water, create wildlife habitat and give residents access to green space. The work is not straightforward: restored rivers need room to spread during heavy rain, which can conflict with nearby roads or buildings. Projects also require ongoing monitoring because newly planted banks may erode before vegetation becomes established. Supporters argue that these costs should be compared with the expense of maintaining ageing concrete channels and repairing flood damage. However, restoration is not suitable everywhere. In densely built areas, engineers may retain some artificial structures while improving only selected sections of a river.";
+  "For much of the twentieth century, city rivers were treated mainly as drains and transport corridors. Many were straightened, channelled through concrete, or hidden underground. More recently, some councils have begun restoring rivers to a more natural form. This involves removing concrete banks and reintroducing wetlands, which can slow storm water, create wildlife habitat and give residents access to green space. \nThe work is not straightforward: restored rivers need room to spread during heavy rain, which can conflict with nearby roads or buildings. Projects also require ongoing monitoring because newly planted banks may erode before vegetation becomes established. Supporters argue that these costs should be compared with the expense of maintaining ageing concrete channels and repairing flood damage. However, restoration is not suitable everywhere. In densely built areas, engineers may retain some artificial structures while improving only selected sections of a river.";
 
 const QR_TABLE =
   "A community pool recorded the following Saturday admissions:\n\nAdult: 40 admissions at $12 each\nChild: 35 admissions at $8 each\nConcession: 20 admissions at $9 each";
@@ -32,6 +65,7 @@ export const GUIDED_SAMPLER_SECTIONS: GuidedSamplerSection[] = [
     shortName: "VR",
     name: "Verbal Reasoning",
     purpose: "Read the question first, then scan for evidence in the passage.",
+    timePerQuestionSeconds: SECTION_EXAM_SECONDS_PER_QUESTION.vr,
     questions: [
       {
         id: "sampler-vr-1",
@@ -55,12 +89,30 @@ export const GUIDED_SAMPLER_SECTIONS: GuidedSamplerSection[] = [
         sectionDisplayColumns: 2,
         stemText: VR_PASSAGE,
         questionText:
-          "The author suggests that river restoration is unsuitable for all urban locations.",
+          "According to the passage, why do restored river projects need ongoing monitoring?",
         questionType: "multiple_choice",
         options: [
-          option("sampler-vr-2-a", 0, "True", true),
-          option("sampler-vr-2-b", 1, "False"),
-          option("sampler-vr-2-c", 2, "Can’t tell"),
+          option(
+            "sampler-vr-2-a",
+            0,
+            "Nearby roads become blocked by wildlife habitat",
+          ),
+          option(
+            "sampler-vr-2-b",
+            1,
+            "Newly planted banks may erode before vegetation becomes established",
+            true,
+          ),
+          option(
+            "sampler-vr-2-c",
+            2,
+            "Storm water can no longer slow down once wetlands are reintroduced",
+          ),
+          option(
+            "sampler-vr-2-d",
+            3,
+            "Concrete channels become more expensive to maintain after restoration begins",
+          ),
         ],
       },
     ],
@@ -70,6 +122,7 @@ export const GUIDED_SAMPLER_SECTIONS: GuidedSamplerSection[] = [
     shortName: "DM",
     name: "Decision Making",
     purpose: "Use only the stated facts and accept only certain conclusions.",
+    timePerQuestionSeconds: SECTION_EXAM_SECONDS_PER_QUESTION.dm,
     questions: [
       {
         id: "sampler-dm-syllogism",
@@ -113,7 +166,7 @@ export const GUIDED_SAMPLER_SECTIONS: GuidedSamplerSection[] = [
         sectionName: "Decision Making",
         sectionDisplayColumns: 1,
         stemText:
-          "Four talks—History, Medicine, Science and Travel—are scheduled one after another.\nHistory is before Medicine.\nScience is immediately after History.\nTravel is last.",
+          "Four talks - History, Medicine, Science and Travel - are scheduled in a particular order.\nHistory is before Medicine.\nScience is immediately after History.\nTravel is last.",
         questionText: "Which talk must be second?",
         questionType: "multiple_choice",
         options: [
@@ -130,6 +183,7 @@ export const GUIDED_SAMPLER_SECTIONS: GuidedSamplerSection[] = [
     shortName: "QR",
     name: "Quantitative Reasoning",
     purpose: "Identify the required numbers, then do one clean calculation.",
+    timePerQuestionSeconds: SECTION_EXAM_SECONDS_PER_QUESTION.qr,
     questions: [
       {
         id: "sampler-qr-1",
@@ -166,10 +220,11 @@ export const GUIDED_SAMPLER_SECTIONS: GuidedSamplerSection[] = [
   },
   {
     key: "sjt",
-    shortName: "SJT",
+    shortName: "SJ",
     name: "Situational Judgement",
     purpose:
       "Judge the behaviour against professional duties and patient safety.",
+    timePerQuestionSeconds: SECTION_EXAM_SECONDS_PER_QUESTION.sjt,
     questions: [
       {
         id: "sampler-sjt-1",
@@ -219,18 +274,26 @@ export const GUIDED_SAMPLER_FEEDBACK: Record<string, GuidedSamplerFeedback> = {
       "The statement repeats information stated directly in the passage, so it is True.",
     ],
     highlightText:
-      "Removing concrete banks and reintroducing wetlands can slow storm water, create wildlife habitat and give residents access to green space.",
+      "This involves removing concrete banks and reintroducing wetlands, which can slow storm water, create wildlife habitat and give residents access to green space.",
   },
   "sampler-vr-2": {
     explanation:
-      "The final part of the passage directly says restoration is not suitable everywhere, so the statement is True.",
+      "The passage says projects need ongoing monitoring because newly planted banks may erode before vegetation becomes established. That reason is stated directly, so you do not need to infer anything extra.",
     hints: [
-      "Scan the final three sentences rather than rereading the whole passage.",
-      "Look for a sentence about densely built areas and whether every river can be fully restored.",
-      "The passage directly states that restoration is not suitable everywhere.",
+      "Scan for the words ‘ongoing monitoring’ rather than rereading the whole passage.",
+      "Find the sentence that explains why monitoring is needed after planting.",
+      "The passage links monitoring to erosion of newly planted banks before vegetation is established.",
     ],
     highlightText:
-      "However, restoration is not suitable everywhere. In densely built areas, engineers may retain some artificial structures while improving only selected sections of a river.",
+      "Projects also require ongoing monitoring because newly planted banks may erode before vegetation becomes established.",
+    optionFeedback: {
+      "sampler-vr-2-a":
+        "The passage mentions rivers needing room near roads or buildings, not wildlife habitat blocking roads. Look for the sentence about ongoing monitoring.",
+      "sampler-vr-2-c":
+        "The passage says reintroducing wetlands can slow storm water, so this option reverses that detail. Look for the sentence about ongoing monitoring.",
+      "sampler-vr-2-d":
+        "Supporters compare restoration costs with maintaining concrete channels, but that is not given as the reason for monitoring. Look for the sentence about newly planted banks.",
+    },
   },
   "sampler-dm-syllogism": {
     explanation:

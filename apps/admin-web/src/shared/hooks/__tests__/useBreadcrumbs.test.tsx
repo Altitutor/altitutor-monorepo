@@ -224,6 +224,7 @@ describe('useBreadcrumbs', () => {
       employment_started_at: '2024-01-01T00:00:00.000Z',
       metric_overrides: {},
       profile_bio: null,
+      birthday: null,
       profile_image_file_id: null,
     });
 

@@ -14,7 +14,7 @@ const sections: StudyPlanSection[] = [
   ["vr", "verbal_reasoning", "Verbal Reasoning", "VR", 1, 44, 47],
   ["dm", "decision_making", "Decision Making", "DM", 2, 35, 64],
   ["qr", "quantitative_reasoning", "Quantitative Reasoning", "QR", 3, 36, 42],
-  ["sjt", "situational_judgement", "Situational Judgement", "SJT", 4, 69, 32],
+  ["sjt", "situational_judgement", "Situational Judgement", "SJ", 4, 69, 32],
 ].map(
   ([
     id,
@@ -471,7 +471,7 @@ describe("generateExtraStudyTasks", () => {
     ).toBe(5);
   });
 
-  it("honours an explicit SJT preference without making SJT the default", () => {
+  it("honours an explicit SJ preference without making SJ the default", () => {
     const tasks = generateExtraStudyTasks({
       today: "2026-07-15",
       planningDate: "2026-08-05",

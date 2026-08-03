@@ -3,11 +3,13 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
+import { useQueryClient } from "@tanstack/react-query";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import {
   ArrowRight,
   BookOpen,
   BrainCircuit,
+  CalendarDays,
   Check,
   ChevronDown,
   Clock3,
@@ -17,14 +19,22 @@ import {
   NotebookText,
   RotateCcw,
   Sparkles,
+  Target,
   X,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { createAndPersistPracticeSession } from "@/features/practice/api/create-practice-session";
 import type { PracticeSelectionInput } from "@/features/practice/model/types";
-import { suggestAlternativeStudyGuidance } from "@/features/study-plan/api/study-plan";
+import {
+  saveStudyPlan,
+  suggestAlternativeStudyGuidance,
+} from "@/features/study-plan/api/study-plan";
 import { useStudyPlanCompanion } from "@/features/study-plan/context/study-plan-companion-context";
-import { useStudyPlan } from "@/features/study-plan/hooks/use-study-plan";
+import {
+  DASHBOARD_STUDY_PLAN_QUERY_KEY,
+  STUDY_PLAN_QUERY_KEY,
+  useStudyPlan,
+} from "@/features/study-plan/hooks/use-study-plan";
 import { useStudyPlanTaskActions } from "@/features/study-plan/hooks/use-study-plan-task-actions";
 import { useStudyPlanExtraStudyDialog } from "@/features/study-plan/components/study-plan-extra-study";
 import {
@@ -32,12 +42,20 @@ import {
   getTodayStudyPlanProgress,
   mapStudyPlanTaskStatuses,
   selectCurrentStudyPlanTasks,
-  selectNextStudyPlanTask,
 } from "@/features/study-plan/lib/companion";
 import {
   isAlreadyOnSuggestedActivity,
   type StudyPlanCompanionMode,
 } from "@/features/study-plan/lib/companion-mode";
+import {
+  defaultSkippedGoalProfileInput,
+  hasStudyPlanGoal,
+} from "@/features/study-plan/lib/default-study-profile";
+import {
+  describeStudyNextAction,
+  resolveStudyNextAction,
+  type StudyNextAction,
+} from "@/features/study-plan/lib/next-action";
 import {
   firstGuidanceTriggerKey,
   guidanceItemKey,
@@ -52,7 +70,11 @@ import {
   useCompleteOnboardingTour,
   useOnboardingProgress,
 } from "@/features/onboarding/hooks/use-onboarding-progress";
-import { UCAT_STUDY_ORB_INTRO_SEEN } from "@/features/onboarding/lib/activation-milestones";
+import {
+  UCAT_STUDY_ORB_INTRO_SEEN,
+  UCAT_STUDY_PLAN_DECIDED,
+} from "@/features/onboarding/lib/activation-milestones";
+import { useStudentUcatSessions } from "@/features/sessions/hooks/use-sessions";
 import { cn } from "@/lib/utils";
 import { useUcatActivity } from "@/features/progress/hooks/use-ucat-activity";
 import { buildPracticeStreak } from "@/features/streaks/lib/practice-streak";
@@ -173,16 +195,6 @@ function practiceStartInput(item: GuidanceDisplayItem) {
   return { payload, ucatSectionId: config.ucatSectionId };
 }
 
-function actionLabel(item: GuidanceDisplayItem): string {
-  if (item.taskType === "review") return "Review now";
-  if (
-    item.planTask?.status === "partial" ||
-    item.planTask?.status === "in_progress"
-  )
-    return "Continue";
-  return "Start";
-}
-
 function activityTypeLabel(item: GuidanceDisplayItem): string {
   if (item.taskType === "learn") return "Learning module";
   if (item.taskType === "skill_trainer") return "Skill trainer";
@@ -197,6 +209,45 @@ function activityTypeLabel(item: GuidanceDisplayItem): string {
     : "Practice";
 }
 
+function sessionTimeLabel(session: {
+  start_at: string | null;
+  end_at: string | null;
+}): string | null {
+  if (!session.start_at || !session.end_at) return null;
+  return new Intl.DateTimeFormat("en-AU", {
+    timeZone: "Australia/Adelaide",
+    hour: "numeric",
+    minute: "2-digit",
+  }).formatRange(new Date(session.start_at), new Date(session.end_at));
+}
+
+function nextActionTriggerKey(action: StudyNextAction | null): string | null {
+  if (!action) return null;
+  switch (action.kind) {
+    case "session":
+      return `session:${action.session.session_id}:${action.live ? "live" : "soon"}`;
+    case "task":
+      return action.task.id;
+    case "guidance":
+      return firstGuidanceTriggerKey([
+        action.primary,
+        ...(action.secondary ? [action.secondary] : []),
+      ]);
+    case "caught_up":
+      return `caught_up:${action.hadTasksToday ? "done" : "rest"}:${action.nextStudyDate ?? "none"}`;
+    case "plan_setup":
+      return "plan_setup";
+    case "goal_setup":
+      return "goal_setup";
+    case "plan_error":
+      return "plan_error";
+    default: {
+      const _exhaustive: never = action;
+      return _exhaustive;
+    }
+  }
+}
+
 export function StudyPlanCompanion({
   hidden = false,
   mode = "available",
@@ -209,9 +260,11 @@ export function StudyPlanCompanion({
   const { preferences } = useUcatInterfacePreferences();
   const pathname = usePathname();
   const router = useRouter();
+  const queryClient = useQueryClient();
   const reduceMotion = useReducedMotion();
   const query = useStudyPlan();
   const activityQuery = useUcatActivity();
+  const sessionsQuery = useStudentUcatSessions();
   const { activityComplete, activityCompletion, consumeActivityCompletion } =
     useStudyPlanCompanion();
   const { bottomFloatingDockVisible } = useAppShellLayout();
@@ -220,6 +273,9 @@ export function StudyPlanCompanion({
   const completeMilestone = useCompleteOnboardingTour();
   const orbIntroSeen = onboardingProgress.isCompleted(
     UCAT_STUDY_ORB_INTRO_SEEN,
+  );
+  const studyPlanDecided = onboardingProgress.isCompleted(
+    UCAT_STUDY_PLAN_DECIDED,
   );
   const [expanded, setExpanded] = useState(false);
   const [orbIntroVisible, setOrbIntroVisible] = useState(false);
@@ -234,6 +290,8 @@ export function StudyPlanCompanion({
     item: GuidanceDisplayItem;
     excludedKeys: string[];
   } | null>(null);
+  const [now, setNow] = useState(() => new Date());
+  const [setupPending, setSetupPending] = useState(false);
   const previousStatusesRef = useRef<Map<
     string,
     StudyPlanTask["status"]
@@ -247,6 +305,34 @@ export function StudyPlanCompanion({
   const processedActivityCompletionRef = useRef<number | null>(null);
   const data = query.data;
   const planEnabled = data?.profile?.studyPlanEnabled ?? false;
+  const actionReady =
+    !query.isLoading &&
+    !onboardingProgress.isLoading &&
+    (data != null || query.isError || query.isFetched);
+  const sessions = useMemo(
+    () => sessionsQuery.data ?? [],
+    [sessionsQuery.data],
+  );
+  const hasGoal = hasStudyPlanGoal(data?.profile);
+  const nextAction = useMemo(() => {
+    if (!actionReady) return null;
+    return resolveStudyNextAction({
+      now,
+      sessions,
+      plan: data,
+      planLoadFailed: query.isError,
+      studyPlanDecided,
+      hasGoal,
+    });
+  }, [
+    actionReady,
+    data,
+    hasGoal,
+    now,
+    query.isError,
+    sessions,
+    studyPlanDecided,
+  ]);
   const currentPlanTasks = useMemo(
     () => (data ? selectCurrentStudyPlanTasks(data.tasks, data.today) : []),
     [data],
@@ -258,23 +344,30 @@ export function StudyPlanCompanion({
       ),
     [currentPlanTasks],
   );
-  const primaryPlanTask = selectNextStudyPlanTask(currentPlanTasks);
-  const secondaryPlanTask = actionablePlanTasks.find(
-    (task) => task.id !== primaryPlanTask?.id,
-  );
+  const guidanceKey = nextActionTriggerKey(nextAction);
   const baseItems = useMemo<GuidanceDisplayItem[]>(() => {
-    if (planEnabled) {
-      return [primaryPlanTask, secondaryPlanTask]
-        .filter((task): task is StudyPlanTask => Boolean(task))
-        .map(planDisplayItem);
+    if (!nextAction) return [];
+    if (nextAction.kind === "task") {
+      const primary = planDisplayItem(nextAction.task);
+      const secondaryTask = actionablePlanTasks.find(
+        (task) => task.id !== nextAction.task.id,
+      );
+      return secondaryTask
+        ? [primary, planDisplayItem(secondaryTask)]
+        : [primary];
     }
-    return (data?.nextSteps ?? []).map(nextStepDisplayItem);
-  }, [data?.nextSteps, planEnabled, primaryPlanTask, secondaryPlanTask]);
-  const guidanceKey = planEnabled
-    ? (baseItems[0]?.id ?? `plan-complete:${data?.today ?? ""}`)
-    : firstGuidanceTriggerKey(data?.nextSteps);
+    if (nextAction.kind === "guidance") {
+      return [
+        nextStepDisplayItem(nextAction.primary),
+        ...(nextAction.secondary
+          ? [nextStepDisplayItem(nextAction.secondary)]
+          : []),
+      ];
+    }
+    return [];
+  }, [actionablePlanTasks, nextAction]);
   const activeAlternative =
-    alternativeState?.guidanceKey === guidanceKey
+    guidanceKey && alternativeState?.guidanceKey === guidanceKey
       ? alternativeState.item
       : null;
   const items = useMemo(() => {
@@ -296,9 +389,18 @@ export function StudyPlanCompanion({
   const secondaryPlanActions = useStudyPlanTaskActions(
     secondary?.planTask ?? null,
   );
+  const actionContent = useMemo(() => {
+    if (!nextAction) return null;
+    return describeStudyNextAction(nextAction, {
+      sessionTimeLabel:
+        nextAction.kind === "session"
+          ? sessionTimeLabel(nextAction.session)
+          : null,
+    });
+  }, [nextAction]);
   const activityInProgress = mode === "activity" && !activityComplete;
   const suggestionsEnabled = Boolean(
-    preferences.studySuggestionsVisible && !query.isError && !hidden,
+    preferences.studySuggestionsVisible && !hidden,
   );
   // Stay mounted through completion celebrations on activity routes, then
   // hide again until the activity finishes (or the student leaves).
@@ -316,6 +418,11 @@ export function StudyPlanCompanion({
   activityInProgressRef.current = activityInProgress;
   primaryLaunchPathRef.current = primary?.launchPath ?? null;
   pathnameRef.current = pathname;
+
+  useEffect(() => {
+    const timer = window.setInterval(() => setNow(new Date()), 30_000);
+    return () => window.clearInterval(timer);
+  }, []);
 
   useEffect(() => {
     if (!activityQuery.data) return;
@@ -412,7 +519,7 @@ export function StudyPlanCompanion({
       title: `${completed.title} complete`,
       detail: primary
         ? `Next: ${primary.title}`
-        : "You’re caught up for today.",
+        : actionContent?.title ?? "You’re caught up for today.",
     };
     suppressNextGuidancePromptRef.current = true;
     setExpanded(false);
@@ -435,10 +542,10 @@ export function StudyPlanCompanion({
     } else {
       setCelebration(taskCelebration);
     }
-  }, [celebration, data, primary]);
+  }, [actionContent?.title, celebration, data, primary]);
 
   useEffect(() => {
-    if (!guidanceKey || planEnabled) return;
+    if (!guidanceKey || !nextAction || !actionContent) return;
     if (activityInProgress) return;
     if (previousGuidanceKeyRef.current === guidanceKey) return;
     const hadPreviousGuidance = previousGuidanceKeyRef.current != null;
@@ -447,19 +554,40 @@ export function StudyPlanCompanion({
       suppressNextGuidancePromptRef.current = false;
       return;
     }
-    if (!primary) return;
-    if (isAlreadyOnSuggestedActivity(pathname, primary.launchPath)) return;
+    if (
+      nextAction.kind === "caught_up" ||
+      nextAction.kind === "plan_error"
+    ) {
+      return;
+    }
+    if (
+      primary &&
+      isAlreadyOnSuggestedActivity(pathname, primary.launchPath)
+    ) {
+      return;
+    }
     const notice: GuidanceNotice = {
       id: `guidance:${guidanceKey}`,
       eyebrow: hadPreviousGuidance
-        ? "Suggested next task"
-        : "Ready when you are",
-      title: primary.title,
-      detail: primary.rationale,
+        ? actionContent.eyebrow
+        : nextAction.kind === "session" ||
+            nextAction.kind === "task" ||
+            nextAction.kind === "guidance"
+          ? "Ready when you are"
+          : actionContent.eyebrow,
+      title: actionContent.title,
+      detail: actionContent.rationale ?? actionContent.description,
     };
     setLatestNotice(notice);
     setPromptVisible(true);
-  }, [activityInProgress, guidanceKey, pathname, planEnabled, primary]);
+  }, [
+    actionContent,
+    activityInProgress,
+    guidanceKey,
+    nextAction,
+    pathname,
+    primary,
+  ]);
 
   useEffect(() => {
     setExpanded(false);
@@ -545,6 +673,49 @@ export function StudyPlanCompanion({
       );
     } finally {
       setAlternativePending(false);
+    }
+  }
+
+  async function handleSkipGoal() {
+    setSetupPending(true);
+    setGuidanceError(null);
+    try {
+      const nextPlan = await saveStudyPlan(defaultSkippedGoalProfileInput());
+      queryClient.setQueryData(DASHBOARD_STUDY_PLAN_QUERY_KEY, nextPlan);
+      queryClient.setQueryData(STUDY_PLAN_QUERY_KEY, nextPlan);
+      await queryClient.invalidateQueries({ queryKey: STUDY_PLAN_QUERY_KEY });
+    } catch (caught) {
+      setGuidanceError(
+        caught instanceof Error
+          ? caught.message
+          : "Could not continue without a goal.",
+      );
+    } finally {
+      setSetupPending(false);
+    }
+  }
+
+  async function handlePrimaryAction() {
+    if (!nextAction) return;
+    switch (nextAction.kind) {
+      case "task":
+      case "guidance":
+        if (primary) await startGuidanceItem(primary);
+        return;
+      case "caught_up":
+        openExtraStudy();
+        return;
+      case "plan_error":
+        void query.refetch();
+        return;
+      case "session":
+      case "plan_setup":
+      case "goal_setup":
+        return;
+      default: {
+        const _exhaustive: never = nextAction;
+        return _exhaustive;
+      }
     }
   }
 
@@ -800,10 +971,10 @@ export function StudyPlanCompanion({
               >
                 <div className="min-w-0 flex-1">
                   <p className="text-xs font-semibold uppercase tracking-[0.15em] text-primary">
-                    {planEnabled ? "Today" : "What to do next"}
+                    Suggested next step
                   </p>
                   <h2 className="mt-0.5 font-semibold">
-                    {planEnabled ? "Your Study plan" : "Suggested next task"}
+                    {planEnabled ? "Your Study plan" : "What to do next"}
                   </h2>
                   {planEnabled ? (
                     <p className="mt-1 text-xs text-muted-foreground">
@@ -833,7 +1004,14 @@ export function StudyPlanCompanion({
               ) : null}
 
               <div className="max-h-[min(430px,calc(100dvh-13rem))] space-y-3 overflow-y-auto p-3">
-                {primary ? (
+                {!actionReady || !nextAction || !actionContent ? (
+                  <div className="flex items-center justify-center rounded-xl border p-8">
+                    <Loader2
+                      className="h-5 w-5 animate-spin text-muted-foreground"
+                      aria-label="Loading next step"
+                    />
+                  </div>
+                ) : primary ? (
                   <motion.div
                     key={primary.id}
                     initial={
@@ -855,12 +1033,17 @@ export function StudyPlanCompanion({
                       </span>
                       <div className="min-w-0 flex-1">
                         <p className="text-[11px] font-semibold uppercase tracking-[0.13em] text-primary">
-                          {activityTypeLabel(primary)}
+                          {actionContent.eyebrow}
                         </p>
                         <p className="mt-1 font-semibold">{primary.title}</p>
                         <p className="mt-1 text-sm text-muted-foreground">
                           {primary.description}
                         </p>
+                        {actionContent.rationale ? (
+                          <p className="mt-2 text-xs text-muted-foreground">
+                            {actionContent.rationale}
+                          </p>
+                        ) : null}
                         <p className="mt-2 flex items-center gap-1 text-xs text-muted-foreground">
                           <Clock3 className="h-3 w-3" /> About{" "}
                           {primary.estimatedMinutes} min
@@ -879,29 +1062,96 @@ export function StudyPlanCompanion({
                       planActions.pendingAction === "start" ? (
                         <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                       ) : null}
-                      {actionLabel(primary)}
+                      {actionContent.primaryLabel}
                     </Button>
                   </motion.div>
                 ) : (
-                  <div className="rounded-xl border p-6 text-center">
-                    <Check className="mx-auto h-6 w-6 text-muted-foreground" />
-                    <p className="mt-2 font-medium">You’re caught up</p>
-                    <p className="mt-1 text-sm text-muted-foreground">
-                      {planEnabled
-                        ? "You’ve finished today’s plan. Come back tomorrow, or add a bit more practice now."
-                        : "Come back later for your next useful step."}
-                    </p>
-                    {planEnabled ? (
-                      <Button
-                        className="mt-4 w-full"
-                        variant="outline"
-                        onClick={openExtraStudy}
-                        tabIndex={expanded ? undefined : -1}
-                      >
-                        <Sparkles className="mr-2 h-4 w-4" />
-                        Add extra study
-                      </Button>
-                    ) : null}
+                  <div className="rounded-xl border p-4">
+                    <div className="flex items-start gap-3">
+                      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary/12 text-primary">
+                        {nextAction.kind === "session" ? (
+                          <CalendarDays className="h-4 w-4" />
+                        ) : nextAction.kind === "goal_setup" ? (
+                          <Target className="h-4 w-4" />
+                        ) : nextAction.kind === "caught_up" ? (
+                          <Check className="h-4 w-4" />
+                        ) : (
+                          <Sparkles className="h-4 w-4" />
+                        )}
+                      </span>
+                      <div className="min-w-0 flex-1">
+                        <p className="text-[11px] font-semibold uppercase tracking-[0.13em] text-primary">
+                          {actionContent.eyebrow}
+                        </p>
+                        <p className="mt-1 font-semibold">{actionContent.title}</p>
+                        <p className="mt-1 text-sm text-muted-foreground">
+                          {actionContent.description}
+                        </p>
+                        {actionContent.rationale ? (
+                          <p className="mt-2 text-xs text-muted-foreground">
+                            {actionContent.rationale}
+                          </p>
+                        ) : null}
+                        {actionContent.meta ? (
+                          <p className="mt-2 flex items-center gap-1 text-xs text-muted-foreground">
+                            <Clock3 className="h-3 w-3" />
+                            {actionContent.meta}
+                          </p>
+                        ) : null}
+                      </div>
+                    </div>
+                    <div className="mt-4 flex flex-col gap-2">
+                      {actionContent.primaryHref ? (
+                        <Button className="w-full" asChild tabIndex={expanded ? undefined : -1}>
+                          <Link
+                            href={actionContent.primaryHref}
+                            tabIndex={expanded ? undefined : -1}
+                          >
+                            {actionContent.primaryLabel}
+                          </Link>
+                        </Button>
+                      ) : (
+                        <Button
+                          className="w-full"
+                          onClick={() => void handlePrimaryAction()}
+                          disabled={
+                            setupPending ||
+                            (nextAction.kind === "plan_error" && query.isFetching)
+                          }
+                          tabIndex={expanded ? undefined : -1}
+                        >
+                          {setupPending ||
+                          (nextAction.kind === "plan_error" &&
+                            query.isFetching) ? (
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          ) : null}
+                          {actionContent.primaryLabel}
+                        </Button>
+                      )}
+                      {nextAction.kind === "goal_setup" ? (
+                        <Button
+                          className="w-full"
+                          variant="outline"
+                          onClick={() => void handleSkipGoal()}
+                          disabled={setupPending}
+                          tabIndex={expanded ? undefined : -1}
+                        >
+                          Skip for now
+                        </Button>
+                      ) : null}
+                      {nextAction.kind === "caught_up" && planEnabled ? (
+                        <Button
+                          className="w-full"
+                          variant="outline"
+                          asChild
+                          tabIndex={expanded ? undefined : -1}
+                        >
+                          <Link href="/study-plan" tabIndex={expanded ? undefined : -1}>
+                            View Study plan
+                          </Link>
+                        </Button>
+                      ) : null}
+                    </div>
                   </div>
                 )}
 

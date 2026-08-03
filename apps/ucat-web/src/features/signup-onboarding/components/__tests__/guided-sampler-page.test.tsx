@@ -202,7 +202,8 @@ describe("GuidedSamplerPage marking", () => {
     expect(
       screen.queryByRole("button", { name: "Submit" }),
     ).not.toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Next" })).toBeInTheDocument();
+    // Engine navigator + feedback card both offer Next
+    expect(screen.getAllByRole("button", { name: "Next" })).toHaveLength(2);
   });
 
   it("redirects calculator use during Verbal Reasoning", () => {
@@ -232,6 +233,6 @@ describe("GuidedSamplerPage marking", () => {
     expect(
       screen.queryByRole("button", { name: "Submit" }),
     ).not.toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Next" })).toBeInTheDocument();
+    expect(screen.getAllByRole("button", { name: "Next" })).toHaveLength(2);
   });
 });

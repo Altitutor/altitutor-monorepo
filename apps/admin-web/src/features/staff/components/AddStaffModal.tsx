@@ -56,6 +56,14 @@ const formSchema = z.object({
     .transform((val) => val === '' ? null : val)
     .optional()
     .nullable(),
+  birthday: z
+    .union([
+      z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Invalid date'),
+      z.literal(''),
+      z.null(),
+    ])
+    .optional()
+    .nullable(),
   role: z.enum(['TUTOR','ADMINSTAFF']),
   status: z.enum(['ACTIVE','INACTIVE','TRIAL']),
   officeKeyNumber: z.union([
@@ -112,6 +120,7 @@ export function AddStaffModal({ isOpen, onClose, onStaffAdded, initialPhone }: A
       lastName: '',
       email: '',
       phoneNumber: '',
+      birthday: '',
       role: 'TUTOR',
       status: 'ACTIVE',
       officeKeyNumber: null,
@@ -142,6 +151,7 @@ export function AddStaffModal({ isOpen, onClose, onStaffAdded, initialPhone }: A
         last_name: formData.lastName,
         email: formData.email || null,
         phone_number: formData.phoneNumber || null,
+        birthday: formData.birthday || null,
         role: formData.role,
         status: formData.status,
         office_key_number: formData.officeKeyNumber || null,
@@ -337,6 +347,20 @@ export function AddStaffModal({ isOpen, onClose, onStaffAdded, initialPhone }: A
                 />
               )}
             />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="birthday">Birthday</Label>
+            <Input
+              id="birthday"
+              type="date"
+              {...register('birthday')}
+              max={new Date().toISOString().slice(0, 10)}
+              disabled={isSubmitting}
+            />
+            {errors.birthday && (
+              <p className="text-sm text-red-500">{errors.birthday.message}</p>
+            )}
           </div>
           
           <div className="grid grid-cols-2 gap-4">

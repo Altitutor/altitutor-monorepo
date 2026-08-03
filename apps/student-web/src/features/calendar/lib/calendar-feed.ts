@@ -2,6 +2,7 @@ import { Buffer } from "node:buffer";
 import type { Database } from "@altitutor/shared";
 
 type SessionType = Database["public"]["Enums"]["session_type"];
+export type CalendarSessionStatus = "ACTIVE" | "INACTIVE";
 
 export interface CalendarSession {
   id: string;
@@ -10,9 +11,13 @@ export interface CalendarSession {
   startAt: string;
   endAt: string;
   updatedAt: string | null;
+  status: CalendarSessionStatus;
   subjectLongName: string | null;
   subjectName: string | null;
 }
+
+/** Keep cancelled sessions in the feed long enough for slow clients to process them. */
+export const CANCELLED_TOMBSTONE_RETENTION_MS = 1000 * 60 * 60 * 24 * 90;
 
 const SESSION_TYPE_LABELS: Record<SessionType, string> = {
   CLASS: "class",
@@ -39,6 +44,17 @@ function formatUtc(value: string): string {
     .toISOString()
     .replace(/[-:]/g, "")
     .replace(/\.\d{3}Z$/, "Z");
+}
+
+/**
+ * Clients (especially Google Calendar) require SEQUENCE to increase when
+ * scheduling properties change. Derive a monotonic integer from the session's
+ * revision time so reschedules replace the prior VEVENT for the same UID.
+ */
+export function getCalendarEventSequence(modifiedAt: string): number {
+  const ms = new Date(modifiedAt).getTime();
+  if (Number.isNaN(ms)) return 0;
+  return Math.floor(ms / 1000);
 }
 
 function foldLine(line: string): string[] {
@@ -74,6 +90,19 @@ export function getCalendarEventTitle(session: CalendarSession): string {
   return `Altitutor ${SESSION_TYPE_LABELS[session.type]}`;
 }
 
+export function shouldIncludeInCalendarFeed(
+  session: Pick<CalendarSession, "status" | "updatedAt" | "startAt">,
+  nowMs: number = Date.now(),
+): boolean {
+  if (session.status === "ACTIVE") return true;
+  if (session.status !== "INACTIVE") return false;
+
+  const revisedAt = session.updatedAt || session.startAt;
+  const revisedMs = new Date(revisedAt).getTime();
+  if (Number.isNaN(revisedMs)) return false;
+  return nowMs - revisedMs <= CANCELLED_TOMBSTONE_RETENTION_MS;
+}
+
 export function buildStudentCalendarFeed(
   sessions: CalendarSession[],
   studentBaseUrl: string,
@@ -91,22 +120,26 @@ export function buildStudentCalendarFeed(
   ];
 
   for (const session of sessions) {
+    if (!shouldIncludeInCalendarFeed(session)) continue;
+
     const detailsUrl = new URL("/classes", studentBaseUrl);
     detailsUrl.searchParams.set("session", session.id);
     const modifiedAt = session.updatedAt || session.startAt;
+    const cancelled = session.status === "INACTIVE";
 
     lines.push(
       "BEGIN:VEVENT",
       `UID:session-${session.id}@altitutor.com`,
       `DTSTAMP:${formatUtc(modifiedAt)}`,
       `LAST-MODIFIED:${formatUtc(modifiedAt)}`,
+      `SEQUENCE:${getCalendarEventSequence(modifiedAt)}`,
       `DTSTART:${formatUtc(session.startAt)}`,
       `DTEND:${formatUtc(session.endAt)}`,
       `SUMMARY:${escapeText(getCalendarEventTitle(session))}`,
       `DESCRIPTION:${escapeText(`View session details: ${detailsUrl.toString()}`)}`,
       `URL:${escapeText(detailsUrl.toString())}`,
-      "STATUS:CONFIRMED",
-      "TRANSP:OPAQUE",
+      `STATUS:${cancelled ? "CANCELLED" : "CONFIRMED"}`,
+      cancelled ? "TRANSP:TRANSPARENT" : "TRANSP:OPAQUE",
       "END:VEVENT",
     );
   }

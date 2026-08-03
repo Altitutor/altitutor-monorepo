@@ -10,7 +10,7 @@ function sectionLabel(section: Section): string {
   if (section.section_number === 1) return "VR";
   if (section.section_number === 2) return "DM";
   if (section.section_number === 3) return "QR";
-  if (section.section_number === 4) return "SJT";
+  if (section.section_number === 4) return "SJ";
   return section.name;
 }
 

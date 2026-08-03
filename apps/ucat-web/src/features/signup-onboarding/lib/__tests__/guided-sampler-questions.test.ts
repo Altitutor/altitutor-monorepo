@@ -1,6 +1,7 @@
 import {
   GUIDED_SAMPLER_FEEDBACK,
   GUIDED_SAMPLER_SECTIONS,
+  inactivityHintLevel,
 } from "@/features/signup-onboarding/lib/guided-sampler-questions";
 
 describe("guided UCAT sampler", () => {
@@ -16,6 +17,16 @@ describe("guided UCAT sampler", () => {
         (section) => section.questions.length === 2,
       ),
     ).toBe(true);
+  });
+
+  it("maps inactivity ladders at 1x, 1.5x and 2x exam pacing", () => {
+    const unit = 30_000;
+    expect(inactivityHintLevel(unit - 1, 30)).toBeNull();
+    expect(inactivityHintLevel(unit, 30)).toBe(0);
+    expect(inactivityHintLevel(unit * 1.5 - 1, 30)).toBe(0);
+    expect(inactivityHintLevel(unit * 1.5, 30)).toBe(1);
+    expect(inactivityHintLevel(unit * 2, 30)).toBe(2);
+    expect(inactivityHintLevel(unit * 2.5, 30)).toBe(3);
   });
 
   it("contains answer keys and unique IDs for every question", () => {
@@ -65,6 +76,35 @@ describe("guided UCAT sampler", () => {
     );
   });
 
+  it("follows with a scannable VR multiple-choice item drawn from the passage", () => {
+    const secondVr = GUIDED_SAMPLER_SECTIONS.find(
+      (section) => section.key === "vr",
+    )?.questions[1];
+    const answerText = secondVr?.options.find(
+      (option) => option.isAnswer,
+    )?.text;
+    expect(secondVr?.options).toHaveLength(4);
+    expect(
+      secondVr?.options.some((option) => option.text === "True"),
+    ).toBe(false);
+    expect(answerText).toBe(
+      "Newly planted banks may erode before vegetation becomes established",
+    );
+    expect(secondVr?.stemText?.toLocaleLowerCase()).toContain(
+      answerText?.toLocaleLowerCase(),
+    );
+    expect(GUIDED_SAMPLER_FEEDBACK["sampler-vr-2"]?.highlightText).toContain(
+      "ongoing monitoring",
+    );
+    expect(GUIDED_SAMPLER_FEEDBACK["sampler-vr-2"]?.optionFeedback).toMatchObject(
+      {
+        "sampler-vr-2-a": expect.stringContaining("monitoring"),
+        "sampler-vr-2-c": expect.stringContaining("monitoring"),
+        "sampler-vr-2-d": expect.stringContaining("planted banks"),
+      },
+    );
+  });
+
   it("uses single-column layouts for DM and QR sampler questions", () => {
     for (const key of ["dm", "qr"] as const) {
       const section = GUIDED_SAMPLER_SECTIONS.find((item) => item.key === key);
@@ -93,7 +133,7 @@ describe("guided UCAT sampler", () => {
     });
   });
 
-  it("marks six cognitive questions and keeps SJT as two guided judgements", () => {
+  it("marks six cognitive questions and keeps SJ as two guided judgements", () => {
     expect(
       GUIDED_SAMPLER_SECTIONS.filter(
         (section) => section.key !== "sjt",
@@ -113,5 +153,19 @@ describe("guided UCAT sampler", () => {
       expect(GUIDED_SAMPLER_FEEDBACK[question.id]?.explanation).toBeTruthy();
       expect(GUIDED_SAMPLER_FEEDBACK[question.id]?.hints).toHaveLength(3);
     }
+  });
+
+  it("uses official exam seconds-per-question for inactivity ladders", () => {
+    expect(
+      GUIDED_SAMPLER_SECTIONS.map((section) => [
+        section.key,
+        section.timePerQuestionSeconds,
+      ]),
+    ).toEqual([
+      ["vr", 1320 / 44],
+      ["dm", 2220 / 35],
+      ["qr", 1560 / 36],
+      ["sjt", 1560 / 69],
+    ]);
   });
 });

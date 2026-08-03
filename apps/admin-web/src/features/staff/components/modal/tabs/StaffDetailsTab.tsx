@@ -43,6 +43,14 @@ const formSchema = z.object({
     .regex(/^\+?[0-9]{10,14}$/, 'Invalid phone number format')
     .optional()
     .nullish(),
+  birthday: z
+    .union([
+      z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Invalid date'),
+      z.literal(''),
+      z.null(),
+    ])
+    .optional()
+    .nullable(),
   role: z.enum(['TUTOR','ADMINSTAFF']),
   status: z.enum(['ACTIVE','INACTIVE','TRIAL']),
   officeKeyNumber: z.union([
@@ -115,6 +123,7 @@ export function StaffDetailsTab({
       lastName: '',
       email: '',
       phoneNumber: '',
+      birthday: '',
       role: staffMember?.role === 'TUTOR' || staffMember?.role === 'ADMINSTAFF' ? staffMember.role : undefined,
       status: staffMember?.status === 'ACTIVE' || staffMember?.status === 'INACTIVE' || staffMember?.status === 'TRIAL' ? staffMember.status : undefined,
       officeKeyNumber: null,
@@ -152,6 +161,7 @@ export function StaffDetailsTab({
         lastName: staffMember.last_name || '',
         email: staffMember.email || '',
         phoneNumber: staffMember.phone_number || '',
+        birthday: staffMember.birthday || '',
         role,
         status,
         officeKeyNumber: staffMember.office_key_number || null,
@@ -286,6 +296,27 @@ export function StaffDetailsTab({
                     )}
                   />
                 </div>
+              </div>
+
+              <div>
+                <Label htmlFor="birthday">Birthday</Label>
+                <Controller
+                  control={form.control}
+                  name="birthday"
+                  render={({ field }) => (
+                    <Input
+                      id="birthday"
+                      type="date"
+                      value={field.value ?? ''}
+                      max={new Date().toISOString().slice(0, 10)}
+                      onChange={field.onChange}
+                      disabled={isLoading}
+                    />
+                  )}
+                />
+                {form.formState.errors.birthday && (
+                  <p className="text-sm text-red-500">{form.formState.errors.birthday.message}</p>
+                )}
               </div>
 
               <div className="grid grid-cols-2 gap-4">
@@ -760,6 +791,11 @@ export function StaffDetailsTab({
                   )}
                 </Button>
               )}
+            </div>
+
+            <div className="text-sm font-medium">Birthday:</div>
+            <div>
+              <TruncatedText text={staffMember.birthday || '-'} />
             </div>
             
             <div className="text-sm font-medium">Office Key Number:</div>

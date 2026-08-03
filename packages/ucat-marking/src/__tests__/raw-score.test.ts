@@ -104,7 +104,7 @@ describe('computeRawScore', () => {
     expect(totalRawScore).toBe(0)
   })
 
-  it('SJT: correct = 1 point', () => {
+  it('SJ: correct = 1 point', () => {
     const questions: QuestionMeta[] = [
       q('sj1', 'sj-stem', 'Situational Judgement', 'multiple_choice', 'sj1-opt-0', 4),
     ]
@@ -115,7 +115,7 @@ describe('computeRawScore', () => {
     expect(totalRawScore).toBe(1)
   })
 
-  it('SJT: same polarity (A↔B) = 0.5 points', () => {
+  it('SJ: same polarity (A↔B) = 0.5 points', () => {
     const questions: QuestionMeta[] = [
       q('sj1', 'sj-stem', 'Situational Judgement', 'multiple_choice', 'sj1-opt-1', 4),
     ]
@@ -126,7 +126,7 @@ describe('computeRawScore', () => {
     expect(totalRawScore).toBe(0.5)
   })
 
-  it('SJT: same polarity (C↔D) = 0.5 points', () => {
+  it('SJ: same polarity (C↔D) = 0.5 points', () => {
     const questions: QuestionMeta[] = [
       q('sj1', 'sj-stem', 'Situational Judgement', 'multiple_choice', 'sj1-opt-3', 4),
     ]
@@ -137,7 +137,7 @@ describe('computeRawScore', () => {
     expect(totalRawScore).toBe(0.5)
   })
 
-  it('SJT: wrong polarity = 0 points', () => {
+  it('SJ: wrong polarity = 0 points', () => {
     const questions: QuestionMeta[] = [
       q('sj1', 'sj-stem', 'Situational Judgement', 'multiple_choice', 'sj1-opt-0', 4),
     ]

@@ -135,7 +135,7 @@ Core rules:
 - If a missing explanation is reported, write the complete student-facing lesson to the shared teaching standard. If an existing explanation is correct but too brief to teach the method, replace it with a complete improved explanation.
 - Leave a deterministic failure without a suggestion only when the content is genuinely ambiguous, unsolvable, or cannot be safely repaired without rewriting a shared multi-question passage.
 - Quantitative Reasoning categories classify information presentation rather than strict question types. Never score or discuss QR category fit.
-- For VR, DM, and SJT, assess whether the cognitive task genuinely resembles UCAT after surface format rules have already passed.
+- For VR, DM, and SJ, assess whether the cognitive task genuinely resembles UCAT after surface format rules have already passed.
 - Evaluate difficulty and timing against realistic UCAT conditions, not unlimited working time. This category is not merely a metadata-calibration check.
 - Independently judge whether the task belongs within an appropriate UCAT difficulty and time-burden range. Flag questions that are too trivial, too difficult, too slow, excessively calculation-heavy, or otherwise inappropriate for the section even when the claimed difficulty/time metadata accurately describes them.
 - Consider the work a prepared candidate must perform under the section time limit, including reading, interpreting visuals, setup, calculation and answer discrimination. Distinguish a healthy easy or hard UCAT item from one outside the useful exam range.

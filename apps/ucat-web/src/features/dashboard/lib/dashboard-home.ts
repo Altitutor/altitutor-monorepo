@@ -1,169 +1,47 @@
 import type { PracticeDiscountDashboardStatus } from "@/lib/ucat/practice-day-discount-dashboard";
-import type { StudentUcatSession } from "@/features/sessions/api/sessions-api";
 import {
   addDays,
   daysBetween,
   parseIsoDate,
 } from "@/features/study-plan/lib/dates";
+import { findNextStudyDate } from "@/features/study-plan/lib/companion";
 import {
-  findNextStudyDate,
-  selectCurrentStudyPlanTasks,
-  selectNextStudyPlanTask,
-} from "@/features/study-plan/lib/companion";
-import type {
-  StudyGuidanceItem,
-  StudyPlanResponse,
-  StudyPlanTask,
-} from "@/features/study-plan/model/types";
+  describeStudyNextAction,
+  findPrioritySession,
+  formatStudyNextActionDate,
+  resolveStudyNextAction,
+  type StudyNextAction,
+  type StudyNextActionContent,
+  type StudyNextActionInput,
+} from "@/features/study-plan/lib/next-action";
+import type { StudyPlanResponse, StudyPlanTask } from "@/features/study-plan/model/types";
 import type {
   UcatQuotaArea,
   UcatQuotaAreaUsage,
 } from "@/features/ucat-access/types/quota";
 
-const IMMINENT_SESSION_MS = 90 * 60 * 1000;
+/** @deprecated Prefer StudyNextAction from study-plan/lib/next-action */
+export type DashboardNextAction = StudyNextAction;
 
-export type DashboardNextAction =
-  | {
-      kind: "session";
-      session: StudentUcatSession;
-      live: boolean;
-    }
-  | {
-      kind: "task";
-      task: StudyPlanTask;
-      fromEarlierStudyDay: boolean;
-    }
-  | {
-      kind: "guidance";
-      primary: StudyGuidanceItem;
-      secondary: StudyGuidanceItem | null;
-    }
-  | {
-      kind: "caught_up";
-      nextStudyDate: string | null;
-      hadTasksToday: boolean;
-    }
-  | {
-      kind: "plan_setup";
-    }
-  | {
-      kind: "goal_setup";
-    }
-  | {
-      kind: "plan_error";
-    };
+/** @deprecated Prefer StudyNextActionInput from study-plan/lib/next-action */
+export type DashboardActionInput = StudyNextActionInput;
 
-type DashboardActionInput = {
-  now: Date;
-  sessions: StudentUcatSession[];
-  plan: StudyPlanResponse | null | undefined;
-  planLoadFailed: boolean;
-  studyPlanDecided: boolean;
-  hasGoal: boolean;
+export {
+  describeStudyNextAction,
+  findPrioritySession,
+  resolveStudyNextAction,
+  type StudyNextAction,
+  type StudyNextActionContent,
 };
 
-function validTimestamp(value: string | null | undefined): number | null {
-  if (!value) return null;
-  const timestamp = new Date(value).getTime();
-  return Number.isFinite(timestamp) ? timestamp : null;
+export function resolveDashboardNextAction(
+  input: StudyNextActionInput,
+): StudyNextAction {
+  return resolveStudyNextAction(input);
 }
 
-export function findPrioritySession(
-  sessions: StudentUcatSession[],
-  now: Date,
-): { session: StudentUcatSession; live: boolean } | null {
-  const nowMs = now.getTime();
-  const candidates = sessions
-    .map((session) => {
-      const start = validTimestamp(session.start_at);
-      const end = validTimestamp(session.end_at);
-      if (start === null || end === null || nowMs > end) return null;
-      const live = nowMs >= start && nowMs <= end;
-      const imminent = start > nowMs && start - nowMs <= IMMINENT_SESSION_MS;
-      if (!live && !imminent) return null;
-      return { session, live, start };
-    })
-    .filter(
-      (
-        candidate,
-      ): candidate is {
-        session: StudentUcatSession;
-        live: boolean;
-        start: number;
-      } => candidate !== null,
-    )
-    .sort((left, right) => {
-      if (left.live !== right.live) return left.live ? -1 : 1;
-      return left.start - right.start;
-    });
-
-  const first = candidates[0];
-  return first ? { session: first.session, live: first.live } : null;
-}
-
-export function resolveDashboardNextAction({
-  now,
-  sessions,
-  plan,
-  planLoadFailed,
-  studyPlanDecided,
-  hasGoal,
-}: DashboardActionInput): DashboardNextAction {
-  const prioritySession = findPrioritySession(sessions, now);
-  if (prioritySession) {
-    return { kind: "session", ...prioritySession };
-  }
-
-  if (planLoadFailed && !plan?.profile) {
-    return { kind: "plan_error" };
-  }
-
-  if (plan?.profile?.studyPlanEnabled) {
-    const currentTasks = selectCurrentStudyPlanTasks(plan.tasks, plan.today);
-    const nextTask = selectNextStudyPlanTask(currentTasks);
-    if (nextTask) {
-      return {
-        kind: "task",
-        task: nextTask,
-        fromEarlierStudyDay: nextTask.scheduledDate < plan.today,
-      };
-    }
-
-    const hadTasksToday = plan.todayTasks.some(
-      (task) => task.status !== "skipped",
-    );
-    return {
-      kind: "caught_up",
-      nextStudyDate: findNextStudyDate(plan.tasks, plan.today),
-      hadTasksToday,
-    };
-  }
-
-  if (!studyPlanDecided) {
-    return { kind: "plan_setup" };
-  }
-
-  if (!hasGoal) {
-    return { kind: "goal_setup" };
-  }
-
-  if (plan?.profile && !plan.profile.studyPlanEnabled && plan.nextSteps[0]) {
-    return {
-      kind: "guidance",
-      primary: plan.nextSteps[0],
-      secondary: plan.nextSteps[1] ?? null,
-    };
-  }
-
-  if (plan?.profile) {
-    return {
-      kind: "caught_up",
-      nextStudyDate: null,
-      hadTasksToday: false,
-    };
-  }
-
-  return { kind: "goal_setup" };
+export function formatDashboardDate(dateKey: string): string {
+  return formatStudyNextActionDate(dateKey);
 }
 
 export type DashboardWeekSummary = {
@@ -288,11 +166,3 @@ export function dashboardDiscountState(
   return "in_progress";
 }
 
-export function formatDashboardDate(dateKey: string): string {
-  return new Intl.DateTimeFormat("en-AU", {
-    weekday: "long",
-    day: "numeric",
-    month: "short",
-    timeZone: "UTC",
-  }).format(parseIsoDate(dateKey));
-}

@@ -7,6 +7,7 @@ export function mapDetailsFormToStudentUpdate(data: DetailsFormData): TablesUpda
     last_name: data.lastName,
     email: data.email || null,
     phone: data.phone || null,
+    birthday: data.birthday || null,
   } as TablesUpdate<'students'>;
 }
 

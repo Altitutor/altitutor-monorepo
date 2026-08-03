@@ -61,7 +61,7 @@ const SECTION_LABELS: Record<number, string> = {
   1: "VR",
   2: "DM",
   3: "QR",
-  4: "SJT",
+  4: "SJ",
 };
 
 function sectionNumberFromJson(value: unknown): number | null {

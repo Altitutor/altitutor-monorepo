@@ -29,6 +29,7 @@ import {
 import { DashboardRecentAttemptsCard } from "@/features/dashboard/components/dashboard-recent-attempts-card";
 import { DashboardActivationChecklist } from "@/features/dashboard/components/dashboard-activation-checklist";
 import {
+  describeStudyNextAction,
   formatDashboardDate,
   resolveDashboardNextAction,
   summarizeDashboardWeek,
@@ -155,139 +156,11 @@ function actionIcon(action: DashboardNextAction) {
   }
 }
 
-function actionContent(action: DashboardNextAction): {
-  eyebrow: string;
-  title: string;
-  description: string;
-  rationale: string | null;
-  meta: string | null;
-  primaryLabel: string;
-  primaryHref: string | null;
-  secondaryLabel: string | null;
-  secondaryHref: string | null;
-} {
-  switch (action.kind) {
-    case "session": {
-      const time = sessionTimeLabel(action.session);
-      return {
-        eyebrow: action.live ? "Live now" : "Starting soon",
-        title: action.live
-          ? "Join your UCAT session"
-          : "Your UCAT session is next",
-        description: action.session.class_level
-          ? `${action.session.class_level} session with your class.`
-          : "Your tutor-led UCAT session is ready when you are.",
-        rationale: action.live
-          ? "Your session takes priority over independent Study plan work."
-          : "We’ll keep your independent task waiting until after the session.",
-        meta: time,
-        primaryLabel: action.live ? "Join session" : "View session",
-        primaryHref: `/sessions/${encodeURIComponent(action.session.session_id)}`,
-        secondaryLabel: null,
-        secondaryHref: null,
-      };
-    }
-    case "task":
-      return {
-        eyebrow: action.fromEarlierStudyDay
-          ? "Still to do"
-          : action.task.taskType === "review"
-            ? "Most useful now"
-            : "Next up",
-        title: action.task.title,
-        description: action.task.description,
-        rationale: action.fromEarlierStudyDay
-          ? "This was planned for an earlier study day. Finish it now, or open your Study plan to skip it without losing the rest of today’s direction."
-          : action.task.rationale || null,
-        meta: `About ${action.task.estimatedMinutes} min`,
-        primaryLabel:
-          action.task.status === "in_progress" ||
-          action.task.status === "partial"
-            ? "Continue task"
-            : action.task.taskType === "review"
-              ? "Review result"
-              : "Start today’s task",
-        primaryHref: null,
-        secondaryLabel: "Open Study plan",
-        secondaryHref: "/study-plan",
-      };
-    case "guidance":
-      return {
-        eyebrow:
-          action.primary.taskType === "review"
-            ? "Most useful now"
-            : "Best next step",
-        title: action.primary.title,
-        description: action.primary.description,
-        rationale: action.primary.rationale || null,
-        meta: `About ${action.primary.estimatedMinutes} min`,
-        primaryLabel:
-          action.primary.taskType === "review" ? "Review result" : "Start",
-        primaryHref: action.primary.launchPath,
-        secondaryLabel: null,
-        secondaryHref: null,
-      };
-    case "caught_up":
-      return {
-        eyebrow: action.hadTasksToday ? "Today’s work" : "Today",
-        title: action.hadTasksToday
-          ? "Today’s Study plan is complete"
-          : "Today is a rest day",
-        description: action.hadTasksToday
-          ? "You’ve completed everything the plan asked of you today."
-          : "There’s no planned work today. Rest is already part of your preparation.",
-        rationale: action.nextStudyDate
-          ? `Your next planned study block is ${formatDashboardDate(action.nextStudyDate)}.`
-          : "Your plan has no further scheduled work right now.",
-        meta: null,
-        primaryLabel: action.hadTasksToday
-          ? "I have time for more"
-          : "I’d like to study today",
-        primaryHref: null,
-        secondaryLabel: "View Study plan",
-        secondaryHref: "/study-plan",
-      };
-    case "plan_setup":
-      return {
-        eyebrow: "Your next step",
-        title: "Organise your study with a Study plan",
-        description:
-          "Altitutor can schedule adaptive work around your availability and adjust it as your performance changes.",
-        rationale:
-          "A Study plan gives you a clearer weekly path based on your goal and availability.",
-        meta: "About 3 min to set up",
-        primaryLabel: "Set up Study plan",
-        primaryHref: "/study-plan/setup?section=plan",
-        secondaryLabel: null,
-        secondaryHref: null,
-      };
-    case "goal_setup":
-      return {
-        eyebrow: "Your next step",
-        title: "Set your UCAT year and target score",
-        description:
-          "Give your dashboard a clear destination before you continue with suggested study activities.",
-        rationale:
-          "Your target is a working direction, not a prediction. You can change it at any time.",
-        meta: "UCAT year · working target",
-        primaryLabel: "Set my goal",
-        primaryHref: "/ucat-goal/setup",
-        secondaryLabel: "Skip for now",
-        secondaryHref: null,
-      };
-    case "plan_error":
-      return {
-        eyebrow: "Study plan unavailable",
-        title: "We couldn’t load your next step",
-        description: "Your existing Study plan has not been changed.",
-        rationale: "Try loading it again before starting unrelated work.",
-        meta: null,
-        primaryLabel: "Try again",
-        primaryHref: null,
-        secondaryLabel: null,
-        secondaryHref: null,
-      };
-  }
+function actionContent(action: DashboardNextAction) {
+  return describeStudyNextAction(action, {
+    sessionTimeLabel:
+      action.kind === "session" ? sessionTimeLabel(action.session) : null,
+  });
 }
 
 function DashboardNextActionPanel({

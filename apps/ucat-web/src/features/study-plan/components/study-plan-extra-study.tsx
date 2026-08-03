@@ -35,7 +35,7 @@ const SECTION_OPTIONS: Array<{ key: StudyPlanSection["key"]; label: string }> =
     { key: "verbal_reasoning", label: "VR" },
     { key: "decision_making", label: "DM" },
     { key: "quantitative_reasoning", label: "QR" },
-    { key: "situational_judgement", label: "SJT" },
+    { key: "situational_judgement", label: "SJ" },
   ];
 
 const ExtraStudyDialogContext = createContext<(() => void) | null>(null);

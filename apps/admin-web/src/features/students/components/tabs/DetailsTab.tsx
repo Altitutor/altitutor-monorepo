@@ -34,6 +34,7 @@ export interface DetailsFormData {
   lastName: string;
   email: string;
   phone: string;
+  birthday: string;
 }
 
 interface DetailsTabProps {
@@ -93,6 +94,7 @@ export function DetailsTab({
     lastName: student.last_name || '',
     email: student.email || '',
     phone: student.phone || '',
+    birthday: student.birthday || '',
   });
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -149,6 +151,17 @@ export function DetailsTab({
                     onChange={(value) => handleInputChange('phone', value)}
                   />
                 </div>
+              </div>
+
+              <div>
+                <Label htmlFor="birthday">Birthday</Label>
+                <Input
+                  id="birthday"
+                  type="date"
+                  value={formData.birthday || ''}
+                  max={new Date().toISOString().slice(0, 10)}
+                  onChange={(e) => handleInputChange('birthday', e.target.value)}
+                />
               </div>
 
               <Separator className="my-6" />
@@ -452,6 +465,11 @@ export function DetailsTab({
               )}
             </Button>
           )}
+        </div>
+
+        <div className="text-sm font-medium">Birthday:</div>
+        <div>
+          <TruncatedText text={student.birthday || '-'} />
         </div>
         
       </div>

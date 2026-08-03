@@ -151,7 +151,9 @@ export function SignupCompleteSamplerStep({
             )
           }
         >
-          Start sample questions
+          {familiarity === "new"
+            ? "Explore the UCAT format"
+            : "Start sample questions"}
           <ArrowRight className="ml-2 h-4 w-4" aria-hidden />
         </Button>
       </div>

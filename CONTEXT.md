@@ -140,6 +140,12 @@
 
 ## Tutor timetable
 
+- **Tutor onboarding** — The invite-completion journey that establishes a tutor's Tutor credentials, teaching preferences, availability, and Altitutor-specific employment evidence. It does not collect payroll identifiers.
+  _Avoid_: Payroll onboarding, employee self setup, tutor profile
+
+- **Payroll setup** — The payroll-provider-owned employee self-setup journey for a tutor's address, tax file number, bank account, and superannuation details. These details are not duplicated in Altitutor application storage.
+  _Avoid_: Tutor onboarding, employment profile, payroll fields
+
 - **Calendar subscription** — A tutor-owned, read-only calendar feed containing that tutor's active assigned sessions. Calendar providers poll the subscription so session additions, changes, and cancellations flow through without tutors importing events again.
   _Avoid_: Calendar export, calendar sync, shared calendar
 
@@ -733,7 +739,7 @@
   _Avoid_: Target section inputs, Situational Judgement in total, guaranteed target score
 
 - **Study plan Situational Judgement goal** — The automatically managed standard used to prescribe Situational Judgement learning and practice without adding another onboarding input. It uses Situational Judgement performance evidence and a system-configured readiness standard, but neither contributes to nor competes with the Study plan target.
-  _Avoid_: Overall-score contribution, student-entered SJT target, ignored section
+  _Avoid_: Overall-score contribution, student-entered SJ target, ignored section
 
 - **Study plan rebalancing** — The automatic adjustment made after planned work is missed. Missed tasks remain visible in history but do not accumulate as extra study debt or push a later day beyond its Study capacity. High-value work may be rescheduled; lower-priority work may be replaced or dropped. Near-term tasks may be reconciled when the student next opens the plan, while the full future calendar follows the normal weekly or event-driven recalculation schedule.
   _Avoid_: Backlog rollover, catch-up workload, plan failure

@@ -1,6 +1,6 @@
 import {
   SITUATIONAL_JUDGEMENT_SECTION_NAME,
-  SJT_OPTION_COUNT,
+  SJ_OPTION_COUNT,
 } from './config'
 
 export type SituationalJudgementMarkingOutcome = 'correct' | 'partial' | 'incorrect'
@@ -19,7 +19,7 @@ export function getSituationalJudgementMarkingOutcome(params: {
   const { sectionName, optionCount, selectedIndex, correctIndex } = params
   if (
     sectionName !== SITUATIONAL_JUDGEMENT_SECTION_NAME ||
-    optionCount !== SJT_OPTION_COUNT ||
+    optionCount !== SJ_OPTION_COUNT ||
     selectedIndex < 0 ||
     correctIndex < 0
   ) {

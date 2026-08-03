@@ -48,6 +48,8 @@ import { SIGNUP_STEP } from "@/features/signup-onboarding/lib/steps";
 import {
   GUIDED_SAMPLER_FEEDBACK,
   GUIDED_SAMPLER_SECTIONS,
+  INACTIVITY_NUDGE_TITLE,
+  inactivityHintLevel,
 } from "@/features/signup-onboarding/lib/guided-sampler-questions";
 import {
   UCAT_CARD_CHROME,
@@ -217,13 +219,13 @@ function coachSteps(snapshot: TutorialSnapshot): CoachStep[] {
       return [
         {
           title: "Try the same method with less help",
-          body: "Read the statement, then scan the final part of the passage for whether restoration suits every location.",
+          body: "Read the question first, then scan the passage for words linked to monitoring or newly planted banks.",
           target: '[data-tour="question-engine-question"]',
           manual: true,
         },
         answerStep(
           snapshot,
-          "Decide whether the statement is True, False or Can’t tell.",
+          "Choose the option the passage states most directly, then Submit.",
         ),
       ];
     case "sampler-dm-syllogism": {
@@ -345,6 +347,78 @@ function useTargetRect(selector: string | undefined) {
   return rect;
 }
 
+/**
+ * Pad the question body so students can scroll options above the fixed left
+ * coach/feedback card instead of having it cover answers.
+ */
+function useScrollClearanceForBottomOverlay(
+  active: boolean,
+  overlayRef: React.RefObject<HTMLElement | null>,
+  resetKey: string,
+) {
+  useEffect(() => {
+    if (!active) return;
+
+    const anchors = [
+      document.querySelector<HTMLElement>(
+        '[data-tour="question-engine-question"]',
+      ),
+      document.querySelector<HTMLElement>('[data-tour="question-engine-stem"]'),
+    ].filter((node): node is HTMLElement => node != null);
+
+    const scrollers = new Set<HTMLElement>();
+    for (const anchor of anchors) {
+      let node: HTMLElement | null = anchor;
+      while (node && node !== document.body) {
+        const { overflowY, overflow } = window.getComputedStyle(node);
+        if (
+          overflowY === "auto" ||
+          overflowY === "scroll" ||
+          overflow === "auto" ||
+          overflow === "scroll"
+        ) {
+          scrollers.add(node);
+          break;
+        }
+        node = node.parentElement;
+      }
+    }
+
+    if (scrollers.size === 0) return;
+
+    const previous = new Map<HTMLElement, string>();
+    for (const scroller of scrollers) {
+      previous.set(scroller, scroller.style.paddingBottom);
+    }
+
+    const apply = () => {
+      const cardHeight = overlayRef.current?.offsetHeight ?? 0;
+      // Card sits above exam footer; leave a little more room than card alone.
+      const clearance = Math.max(cardHeight + 32, 280);
+      for (const scroller of scrollers) {
+        scroller.style.paddingBottom = `${clearance}px`;
+      }
+    };
+
+    // Wait a frame so the newly mounted overlay has layout.
+    const observer = new ResizeObserver(apply);
+    const frame = window.requestAnimationFrame(() => {
+      apply();
+      if (overlayRef.current) observer.observe(overlayRef.current);
+    });
+    window.addEventListener("resize", apply);
+
+    return () => {
+      window.cancelAnimationFrame(frame);
+      observer.disconnect();
+      window.removeEventListener("resize", apply);
+      for (const [scroller, value] of previous) {
+        scroller.style.paddingBottom = value;
+      }
+    };
+  }, [active, overlayRef, resetKey]);
+}
+
 function SamplerCoach({
   step,
   stepNumber,
@@ -357,6 +431,13 @@ function SamplerCoach({
   onContinue: () => void;
 }) {
   const rect = useTargetRect(step.target);
+  const overlayRef = useRef<HTMLDivElement>(null);
+  useScrollClearanceForBottomOverlay(
+    true,
+    overlayRef,
+    `${stepNumber}-${step.title}`,
+  );
+
   return (
     <>
       {rect && step.spotlight ? (
@@ -375,6 +456,7 @@ function SamplerCoach({
         />
       ) : null}
       <motion.div
+        ref={overlayRef}
         key={`${stepNumber}-${step.title}`}
         initial={{ opacity: 0, y: 14, scale: 0.98 }}
         animate={{ opacity: 1, y: 0, scale: 1 }}
@@ -424,9 +506,16 @@ function SamplerFeedbackCard({
   const correct = feedback.kind === "correct";
   const incorrect = feedback.kind === "incorrect";
   const Icon = correct ? CheckCircle2 : incorrect ? RotateCcw : Lightbulb;
+  const overlayRef = useRef<HTMLDivElement>(null);
+  useScrollClearanceForBottomOverlay(
+    true,
+    overlayRef,
+    `${feedback.kind}-${feedback.title}-${feedback.questionId ?? "control"}`,
+  );
 
   return (
     <motion.div
+      ref={overlayRef}
       key={`${feedback.kind}-${feedback.title}-${feedback.questionId ?? "control"}`}
       initial={{ opacity: 0, y: 16, scale: 0.975 }}
       animate={{ opacity: 1, y: 0, scale: 1 }}
@@ -623,8 +712,8 @@ const UCAT_INFO_SLIDES = [
     title: "Scoring",
     body: "Your main UCAT total comes from Sections 1–3, while Situational Judgement is reported separately.",
     points: [
-      "Each of Sections 1–3 is scaled from 300–900.",
-      "Those three scores are added to give a total from 900–2700.",
+      "Verbal Reasoning, Decision Making and Quantitative Reasoning sections are each scaled from 300–900.",
+      "Those three scores are added to give a total UCAT score from 900–2700.",
       "Situational Judgement is reported separately: as a 300–900 score in UCAT ANZ and a band in UCAT UK.",
       "Universities use Situational Judgement differently, so check each course’s admissions criteria.",
     ],
@@ -663,7 +752,7 @@ const SECTION_VISUALS = [
     Icon: Sigma,
   },
   {
-    short: "SJT",
+    short: "SJ",
     name: "Situational Judgement",
     skill: "Identify appropriate professional behaviour",
     Icon: HeartPulse,
@@ -749,7 +838,7 @@ function UcatInfoVisual({
     return (
       <div className="mx-auto max-w-md space-y-4">
         <div className="grid grid-cols-[1fr_auto_1fr_auto_1fr] items-center gap-2">
-          {["S1", "S2", "S3"].map((section, index) => (
+          {["VR", "DM", "QR"].map((section, index) => (
             <React.Fragment key={section}>
               <motion.div
                 initial={{ opacity: 0, y: 10 }}
@@ -785,7 +874,7 @@ function UcatInfoVisual({
           className="rounded-2xl bg-primary p-4 text-center text-primary-foreground shadow-[0_0_45px_rgba(146,185,198,0.2)] dark:bg-accent dark:text-primary-foreground"
         >
           <p className="text-xs font-semibold uppercase tracking-[0.16em]">
-            Main total
+            UCAT Score
           </p>
           <p className="mt-1 text-3xl font-semibold">900–2700</p>
         </motion.div>
@@ -1056,6 +1145,8 @@ export function GuidedSamplerPage() {
   const lastSubmittedAnswerRef = useRef<Record<string, string>>({});
   const tutorialAdvanceRef = useRef<() => void>(() => undefined);
   const previousQuestionId = useRef<string | null>(null);
+  const inactivityAnchorMsRef = useRef(Date.now());
+  const lastInactivityLevelRef = useRef(-1);
   const completeMilestone = useCompleteOnboardingTour();
   const afterPlan = searchParams.get("afterPlan") === "1";
   const replay = searchParams.get("replay") === "1";
@@ -1070,6 +1161,9 @@ export function GuidedSamplerPage() {
   const currentQuestionIsCorrect = Boolean(
     snapshot.questionId && correctQuestionIds.has(snapshot.questionId),
   );
+  const showCorrectNext =
+    feedback?.kind === "correct" &&
+    feedback.questionId === snapshot.questionId;
 
   const handleTutorialStateChange = useCallback(
     (nextSnapshot: TutorialSnapshot) => {
@@ -1121,34 +1215,67 @@ export function GuidedSamplerPage() {
     setGuideStepIndex((current) => Math.min(current + 1, steps.length - 1));
   }, [activeCoachStep?.complete, steps.length]);
 
+  // Reset the inactivity clock whenever the student engages with an answer.
+  useEffect(() => {
+    inactivityAnchorMsRef.current = Date.now();
+    lastInactivityLevelRef.current = -1;
+  }, [
+    snapshot.questionId,
+    snapshot.selectedOptionId,
+    snapshot.syllogismSnapshot,
+  ]);
+
+  // Escalate inactivity hints at 1×, 1.5×, 2×… section exam seconds-per-question.
   useEffect(() => {
     const questionId = snapshot.questionId;
-    if (!questionId || feedback || correctQuestionIds.has(questionId)) return;
-    const delay =
-      familiarity === "new"
-        ? 18_000
-        : familiarity === "familiar"
-          ? 28_000
-          : 40_000;
-    const timer = window.setTimeout(() => {
-      const questionFeedback = GUIDED_SAMPLER_FEEDBACK[questionId];
-      setFeedback((current) =>
-        current
-          ? current
-          : {
-              kind: "focus",
-              title: "Need a nudge?",
-              body: "You’re doing fine. Use this clue, then keep working through the current question.",
-              hint: questionFeedback?.hints[0],
-              questionId,
-            },
-      );
-    }, delay);
-    return () => window.clearTimeout(timer);
+    if (!questionId || correctQuestionIds.has(questionId)) return;
+    const timePerQuestion = section.timePerQuestionSeconds;
+    if (timePerQuestion <= 0) return;
+    const questionFeedback = GUIDED_SAMPLER_FEEDBACK[questionId];
+    if (!questionFeedback?.hints.length) return;
+
+    const tick = () => {
+      setFeedback((current) => {
+        // Never interrupt submit feedback, control coaching, or other focus prompts.
+        if (
+          current &&
+          !(
+            current.kind === "focus" &&
+            current.title === INACTIVITY_NUDGE_TITLE
+          )
+        ) {
+          return current;
+        }
+
+        const level = inactivityHintLevel(
+          Date.now() - inactivityAnchorMsRef.current,
+          timePerQuestion,
+        );
+        if (level == null || level <= lastInactivityLevelRef.current) {
+          return current;
+        }
+
+        const hintIndex = Math.min(level, questionFeedback.hints.length - 1);
+        lastInactivityLevelRef.current = level;
+        return {
+          kind: "focus",
+          title: INACTIVITY_NUDGE_TITLE,
+          body:
+            hintIndex === 0
+              ? "You’re doing fine. Use this clue, then keep working through the current question."
+              : "Still working it out? Here’s a clearer clue.",
+          hint: questionFeedback.hints[hintIndex],
+          questionId,
+        };
+      });
+    };
+
+    const timer = window.setInterval(tick, 400);
+    tick();
+    return () => window.clearInterval(timer);
   }, [
     correctQuestionIds,
-    familiarity,
-    feedback,
+    section.timePerQuestionSeconds,
     snapshot.questionId,
     snapshot.selectedOptionId,
     snapshot.syllogismSnapshot,
@@ -1450,33 +1577,26 @@ export function GuidedSamplerPage() {
           <p className="mt-3 text-muted-foreground">
             You worked every question through to the correct answer.
           </p>
-          <div className="mt-6 grid gap-3 sm:grid-cols-3">
-            {[
-              [
-                `${
-                  GUIDED_SAMPLER_SECTIONS.slice(0, 3)
-                    .flatMap((item) => item.questions)
-                    .filter((question) => correctQuestionIds.has(question.id))
-                    .length
-                }/6`,
-                "Sections 1–3 questions correct",
-              ],
-              [
-                `${GUIDED_SAMPLER_SECTIONS.find((item) => item.key === "sjt")?.questions.filter((question) => correctQuestionIds.has(question.id)).length ?? 0}/2`,
-                "SJT judgements completed",
-              ],
-              [String(seenControls.size), "controls tried"],
-            ].map(([value, label]) => (
-              <div
-                key={label}
-                className="rounded-2xl border border-border bg-background/50 p-4"
-              >
-                <p className="text-2xl font-semibold text-foreground">
-                  {value}
-                </p>
-                <p className="mt-1 text-sm text-muted-foreground">{label}</p>
-              </div>
-            ))}
+          <div className="mt-6 grid gap-3 sm:grid-cols-2">
+            {GUIDED_SAMPLER_SECTIONS.map((item) => {
+              const correctCount = item.questions.filter((question) =>
+                correctQuestionIds.has(question.id),
+              ).length;
+              const total = item.questions.length;
+              return (
+                <div
+                  key={item.key}
+                  className="rounded-2xl border border-border bg-background/50 p-4"
+                >
+                  <p className="text-2xl font-semibold text-foreground">
+                    {correctCount}/{total}
+                  </p>
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    {item.shortName} · {item.name}
+                  </p>
+                </div>
+              );
+            })}
           </div>
           {error ? (
             <p className="mt-4 text-sm text-destructive-foreground">{error}</p>
@@ -1591,8 +1711,10 @@ export function GuidedSamplerPage() {
           tutorialSequential
           tutorialHidePrevious
           tutorialSyllogismDragOnly
-          tutorialPrimaryActionLabel="Submit"
-          tutorialHidePrimaryAction={currentQuestionIsCorrect}
+          tutorialPrimaryActionLabel={showCorrectNext ? "Next" : "Submit"}
+          tutorialHidePrimaryAction={
+            currentQuestionIsCorrect && !showCorrectNext
+          }
           tutorialLockedQuestionIds={lockedQuestionIds}
           tutorialLockedSyllogismOptionIds={correctSyllogismRows}
           tutorialCorrectSyllogismOptionIds={correctSyllogismRows}

@@ -125,6 +125,7 @@ export async function PATCH(
         last_name: body.last_name,
         email: body.email ?? undefined,
         phone: body.phone,
+        birthday: body.birthday,
         status: body.status,
         curriculum: body.curriculum,
         year_level: body.year_level,

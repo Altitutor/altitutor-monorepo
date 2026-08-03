@@ -1,5 +1,11 @@
 BEGIN;
-SELECT plan(11);
+SELECT plan(12);
+
+SELECT is(
+  to_regprocedure('public.search_students_admin(text,text[],uuid[],boolean,boolean,integer,integer,text,boolean,text,text)')::text,
+  NULL,
+  'legacy in-person search RPC overload is absent'
+);
 
 INSERT INTO public.students (
   id,

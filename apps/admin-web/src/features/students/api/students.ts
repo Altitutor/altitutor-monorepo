@@ -123,15 +123,18 @@ export const studentsApi = {
       ascending = true,
     } = params;
     const supabase = getSupabaseClient() as SupabaseClient<Database>;
-    const { data, error } = await supabase.rpc('search_online_students_admin', {
+    const baseRpcParams = {
       p_search: search.trim() || undefined,
-      p_search_fields: searchFields,
       p_products: products.length > 0 ? products : undefined,
       p_entitlements: entitlements.length > 0 ? entitlements : undefined,
       p_limit: limit,
       p_offset: offset,
       p_order_by: orderBy,
       p_ascending: ascending,
+    };
+    const { data, error } = await supabase.rpc('search_online_students_admin', {
+      ...baseRpcParams,
+      p_search_fields: searchFields,
     });
 
     if (error) throw error;
@@ -289,9 +292,8 @@ export const studentsApi = {
     const inPersonFilter = exclusiveHasNoneFilter(inPersonClass);
 
     // Always use RPC function (supports both search and "get all" when search is empty)
-    const { data: rpcResult, error: rpcError } = await supabase.rpc('search_students_admin', {
+    const baseRpcParams = {
       p_search: trimmed.length > 0 ? trimmed : undefined,
-      p_search_fields: searchFields,
       // Pass an empty array explicitly so RPC defaults are not applied.
       p_statuses: statuses.length > 0 ? statuses : [],
       p_include_relationships: false,
@@ -302,6 +304,10 @@ export const studentsApi = {
       p_ascending: ascending,
       p_subject_ids: subjectIds.length > 0 ? subjectIds : undefined,
       ...(inPersonFilter ? { p_in_person_filter: inPersonFilter } : {}),
+    };
+    const { data: rpcResult, error: rpcError } = await supabase.rpc('search_students_admin', {
+      ...baseRpcParams,
+      p_search_fields: searchFields,
     });
 
     if (rpcError) throw rpcError;
@@ -852,6 +858,7 @@ export const studentsApi = {
           last_name: data.last_name,
           email: data.email ?? undefined,
           phone: data.phone,
+          birthday: data.birthday,
           status: data.status,
           curriculum: data.curriculum,
           year_level: data.year_level,

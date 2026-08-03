@@ -17,6 +17,7 @@ export interface StaffCreateData {
   last_name: string;
   email: string;
   phone_number?: string | null;
+  birthday?: string | null;
   role: string;
   notes?: string;
   office_key_number?: number;
@@ -397,6 +398,7 @@ export const staffApi = {
           last_name: data.last_name,
           email: data.email ?? undefined,
           phone_number: data.phone_number,
+          birthday: data.birthday,
           role: data.role,
           status: data.status,
           notes: data.notes,
