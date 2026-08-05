@@ -1,22 +1,60 @@
+type ExplanationQuestionType = 'multiple_choice' | 'syllogism'
+
+type ExplanationPolicyParams = {
+  sectionName?: string | null
+  questionType?: ExplanationQuestionType | null
+}
+
+const QUESTION_TYPE_RULES: Record<ExplanationQuestionType, string> = {
+  multiple_choice: '- For multiple_choice, provide one non-empty question-level answerExplanation. Include an option-level explanation only when it helps a student who selected that option understand a specific mistake or adds useful teaching beyond the question-level explanation. Otherwise omit it.',
+  syllogism: '- For syllogism, provide an explanation for every Yes/No statement at option level. Include a question-level explanation only when it teaches a useful strategy, technique, or shortcut beyond those option explanations.',
+}
+
+const SECTION_RULES = {
+  decision_making: '- Decision Making explanations should teach the shortest efficient method as a helpful tutor. A direct inference may need only a concise explanation. When the solution has multiple dependent constraints or operations, ordered steps with short titles, a compact table, an elimination grid, or ordered slots may materially help.',
+  quantitative_reasoning: '- Quantitative Reasoning explanations should teach the shortest efficient method as a helpful tutor. For one direct calculation, a concise setup, calculation, and conclusion may be clearest. For multiple dependent operations, ordered steps with short titles may help. Use a compact table when comparison is central. Explain calculator use where relevant, prefer mental maths when quicker than calculator entry, and use plus-or-minus estimation when accurate enough to identify the correct answer.',
+  verbal_reasoning: '- Verbal Reasoning explanations should identify the specific passage evidence the student should read to arrive at the answer, citing the paragraph number where applicable. Explain how that evidence supports the answer and, where useful, why the strongest distractor misreads or overstates the text.',
+  situational_judgement: '- Situational Judgement explanations should explain the principle that makes the keyed response best and why alternatives are less appropriate where useful.',
+} as const
+
+const CORE_RULES = `Explanation teaching standard:
+- Independently solve and verify the keyed answer before explaining it. Do not invent facts unsupported by the stem or question.
+- Write as a helpful tutor teaching the student how to solve this particular question. Keep the explanation concrete and proportionate to the reasoning required.
+- Choose the presentation that communicates the reasoning most clearly. Short paragraphs, calculations, headings, lists, tables, equations, elimination grids, or ordered slots are all available when they materially help.
+- Across the question-level explanation and any useful option-level explanations, explain why the correct answer is correct and why material distractors fail without repeating the same teaching.
+- Only for a very difficult or time-consuming question where skipping would be the better real-exam decision, briefly advise the student to skip and return later.
+- Use Australian English spelling and clean human editorial prose. Avoid em dashes, double hyphens, canned transitions, false starts, self-correction, and phrases such as "it is important to note".`
+
+const OUTPUT_CONTRACT = `Explanation output contract:
+- Use ordinary prose for ordinary text. Do not expose raw formatting or maths commands to the student.
+- Wrap inline LaTeX in \\(...\\) and display LaTeX in \\[...\\]. A currency symbol such as $ is ordinary text, not a maths delimiter.
+- Prefer familiar rendered symbols such as ÷, ×, ±, ≈, ≤, and ≥ in simple prose calculations. Use delimited LaTeX when richer mathematical notation materially improves readability.`
+
+function sectionRule(sectionName: string | null | undefined): string | null {
+  if (sectionName === 'Decision Making') return SECTION_RULES.decision_making
+  if (sectionName === 'Quantitative Reasoning') return SECTION_RULES.quantitative_reasoning
+  if (sectionName === 'Verbal Reasoning') return SECTION_RULES.verbal_reasoning
+  if (sectionName === 'Situational Judgement') return SECTION_RULES.situational_judgement
+  return null
+}
+
 /**
- * Shared student-facing explanation standard for fill generation and assessment/repair.
- * Keep workflow-specific rules (fill-only, patch shapes, audit dimensions) outside this rubric.
+ * Canonical student-facing explanation policy shared by generation, fill, and review.
+ * When a section is known, the returned prompt contains only its relevant section rule.
  */
-export const EXPLANATION_TEACHING_RUBRIC = `Explanation teaching standard:
-- Write student-facing lessons that teach how to solve the question. Do not write answer-key justifications or bare recaps of the correct choice.
-- Act as a helpful tutor: reconstruct the relevant information, explain why each step is taken, show the decisive working, and finish with a clear answer.
-- Prefer an efficient timed-test method the student can reproduce under exam conditions. Completeness of the teaching path matters more than short word count.
-- For a non-trivial question, prefer two to five short, titled or numbered steps. A one-paragraph assertion or calculation is not a sufficient teaching explanation even when it reaches the correct answer.
-- Multiple-choice questions require one non-empty question-level answerExplanation. Include option-level explanations when they help a student who chose a specific wrong option understand that mistake or add useful teaching not already covered at question level.
-- Syllogism questions require an explanation for every Yes/No statement at option level. Include a question-level explanation when it teaches a useful strategy, technique, or shortcut not already covered by the option-level explanations.
-- Decision Making and Quantitative Reasoning: step the student through how to solve the question with an efficient method. Use short paragraphs, calculations, compact lists, tables, elimination grids, ordered slots, or text diagrams when they materially help.
-- Quantitative Reasoning: show calculator use where relevant, prefer mental maths when it is faster than calculator entry, and use plus-or-minus estimation when it is accurate enough to identify the correct option. Identify the required quantity, translate stem data into a calculation, preserve units, and perform a reasonableness check where useful.
-- Verbal Reasoning: identify the specific passage evidence the student should read, cite paragraph numbers whenever quoting, paraphrasing, or relying on textual evidence (e.g. "Paragraph 2"), and teach the inference or elimination.
-- Situational Judgement: connect the decision to the relevant professional principle and explain why less appropriate alternatives fail where that teaching helps.
-- Explain why the correct answer is correct and why the strongest distractors fail when that teaching helps the student learn the method.
-- Use Markdown headings, ordered steps, compact pipe tables, equations, elimination grids, or ordered slots when they improve understanding. These convert into structured rich text for the student.
-- Keep explanations concrete and easy to scan. Avoid generic encouragement and empty filler, but never omit working, intermediate reasoning, evidence citations, or distractor teaching a student needs to learn the method.
-- Only for a very difficult or time-consuming question where skipping would be the better real-exam decision, briefly advise the student to skip and return later. Do not add this advice routinely.
-- Do not invent facts that are not supported by the stem or question.
-- Use Australian English spelling.
-- Avoid em dashes, double hyphens, canned headings, false starts, and phrases such as "it is important to note".`
+export function buildUcatExplanationPolicy(params: ExplanationPolicyParams = {}): string {
+  const questionTypeRules = params.questionType
+    ? [QUESTION_TYPE_RULES[params.questionType]]
+    : Object.values(QUESTION_TYPE_RULES)
+  const selectedSectionRule = sectionRule(params.sectionName)
+  const sectionRules = selectedSectionRule
+    ? [selectedSectionRule]
+    : Object.values(SECTION_RULES)
+
+  return [CORE_RULES, ...questionTypeRules, ...sectionRules, OUTPUT_CONTRACT].join('\n')
+}
+
+export const UCAT_EXPLANATION_POLICY_PROMPT = buildUcatExplanationPolicy()
+
+/** @deprecated Use buildUcatExplanationPolicy for section-aware prompts. */
+export const EXPLANATION_TEACHING_RUBRIC = UCAT_EXPLANATION_POLICY_PROMPT

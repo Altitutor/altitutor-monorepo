@@ -3,7 +3,7 @@ import type {
   UcatAssessmentSnapshot,
   UcatFormatCheck,
 } from '@/features/ucat/questions/lib/ai-assessment/schema'
-import { EXPLANATION_TEACHING_RUBRIC } from '@/features/ucat/questions/lib/ai-generation/explanation-rubric'
+import { UCAT_EXPLANATION_POLICY_PROMPT } from '@/features/ucat/questions/lib/ai-generation/explanation-rubric'
 import {
   proseMirrorHasBlockTable,
   proseMirrorToPlainText,
@@ -20,8 +20,8 @@ export const UCAT_AUDIT_CRITERIA_PROMPT = `Audit criteria:
 2. Content: decide whether the question is representative of the real UCAT ANZ. Leave strong candidates unchanged, flag weak candidates for tutor review, and recommend exclusion only for probably irrecoverable candidates.
 3. Difficulty and timing: set realistic metadata when missing or inaccurate, and judge whether the task itself is appropriately difficult and time-bounded. Time burden is the average time a candidate needs to answer correctly. Difficulty is the estimated proportion of UCAT candidates who would answer correctly under exam conditions.
 4. Answer correctness: independently solve the question, verify the key is correct and uniquely defensible, and ensure distractors are plausible but fair. Do not require precision beyond what the UCAT calculator or supplied visual can support.
-5. Answer explanation quality: apply the shared teaching standard below. Missing explanations, materially wrong teaching, bare answer recaps, and one-paragraph proofs that skip the solving method fail this dimension.
-${EXPLANATION_TEACHING_RUBRIC}
+5. Answer explanation quality: apply the shared teaching standard below. Missing explanations, materially wrong teaching, bare answer recaps, and explanations that omit the section-relevant evidence or method fail this dimension.
+${UCAT_EXPLANATION_POLICY_PROMPT}
 6. Tags: if a question already has tags, do not assess or change them. Otherwise assign the most appropriate supplied tag IDs.`
 
 function richTextReviewBlocks(value: Json | null): ReviewTextBlock[] {
@@ -227,7 +227,9 @@ ${UCAT_AUDIT_CRITERIA_PROMPT}
 
 Put every confident bounded correction in review.directives. Each directive contains exactly one patch and one matching kind: explanation for answer_explanation, metadata for set_metadata, answer_key for set_answer_key, visual for update_visual_spec, content for bounded text edits, or structure for option/question structure. Never bundle unrelated changes. Use exact current UUIDs and exact before values. resolvedFindingKeys must contain the audit finding keys resolved by that directive. Use an empty array only for a deterministic issue without an audit finding.
 
-Generate complete teaching explanations where they are missing or weak, following the shared Explanation teaching standard. A correct answer recap is not enough: walk the student through how to solve the question and why each important step is taken. Formatting-only text repairs, explanations, metadata, tags, answer-key proposals, and option repairs may be proposed. The server independently decides which directives can be applied and requests a blind solve only when answer correctness or meaning requires it. Put genuinely uncertain concerns in review.manualFindings.
+Generate complete teaching explanations where they are missing or weak, following the shared Explanation teaching standard and its section-specific guidance. A correct answer recap is not enough. Formatting-only text repairs, explanations, metadata, tags, answer-key proposals, and option repairs may be proposed. The server independently decides which directives can be applied and requests a blind solve only when answer correctness or meaning requires it. Put genuinely uncertain concerns in review.manualFindings.
+
+Treat difficulty null or 0 and timeBurdenSeconds null or non-positive as unset metadata. For every target question with unset metadata, estimate a realistic UCAT difficulty greater than 0 (easiest) through 1 (hardest) and a positive whole-number time burden in seconds, and emit separate high-confidence set_metadata directives using the exact current before values.
 
 Do not emit whole-question insertion, replacement or removal, broad shared-passage rewrites, or visual-spec edits. You may use set_rich_content only when structuredDocument is supplied and the edit is a bounded repair that preserves unrelated nodes, such as correcting table headers or a short inaccurate title. If source facts cannot be verified from the supplied evidence, leave that uncertainty as a manual finding instead of inventing content. audit findings must use suggestion=null.`
 

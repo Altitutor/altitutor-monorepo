@@ -221,7 +221,7 @@
 
 ## UCAT content
 
-- **UCAT AI review** — An optional quality-review pass over UCAT question content that automatically applies safe, bounded corrections and identifies changes that require staff judgment. Skipping this review never prevents a bulk import from continuing.
+- **UCAT AI review** — A durable quality-review pass over saved UCAT question content that applies verified AI repairs and identifies changes requiring staff judgment. It runs in the background for stems entering review and is never part of the bulk-import critical path.
   _Avoid_: AI approval, mandatory review, explanation generation
 
 - **AI review freshness** — Whether a UCAT AI review result still represents the exact content and review contract it assessed. Re-running review reuses fresh results and reviews only changed question scopes; changing shared stem content makes every dependent question stale.
@@ -233,8 +233,14 @@
 - **Manual-review flag** — An unresolved UCAT content concern that requires staff judgment because the reviewer cannot safely apply an automatic fix. A flag should carry a directly applicable proposed change when one can be produced, remains attached to imported content until resolved, and prevents publication while it is current and unresolved.
   _Avoid_: AI failure, import blocker, warning
 
-- **Deterministic import gate** — A code-defined UCAT structure or completeness rule evaluated automatically against bulk-import content. Safe canonical repairs are applied automatically; an included item with an unresolved hard failure cannot be imported, although staff may continue through the wizard and resolve or exclude it before submission.
+- **UCAT readiness gate** — A code-defined UCAT structure or completeness rule that determines whether a question stem may enter review. A failed gate never prevents structurally storable content from being saved as a draft.
   _Avoid_: AI finding, quality score, mandatory AI review
+
+- **Verified AI repair** — A bounded change to saved UCAT question content whose resulting candidate passes the relevant readiness gates and repair-specific verification. Verified repairs are applied durably with recoverable before-and-after content; changes that cannot be verified remain suggestions for staff judgment.
+  _Avoid_: Deterministic repair, silent rewrite, confidence-only edit
+
+- **Bulk-import decision** — The stem-level choice to import a candidate as in review, import it as a draft, or omit it. In-review is available only when the stem passes UCAT readiness gates; draft accepts any structurally storable candidate. A Duplicate candidate defaults the affected stem to omit, but the tutor may deliberately override that advisory default after previewing the comparison.
+  _Avoid_: Question import toggle, AI approval, publication decision
 
 - **Bulk-import exclusion** — A reversible decision to omit one candidate stem or question from the current bulk import. Exclusion changes only the import batch and never deletes matching content already stored by Altitutor.
   _Avoid_: Delete question, deselect, dismiss warning
@@ -462,16 +468,16 @@
 - **Set available in the sets pool** — A published public question set that is not included in any published, non-deleted mock exam. Draft and in-review mocks do not reserve their sets from the pool.
   _Avoid_: Unused set, not attempted, not in any mock
 
-- **Question stem review queue** — The tutor workflow for reviewing all in-review question stems, applying edits, and either publishing or returning each stem to draft. AI-generated stems enter this queue automatically; tutor-authored stems enter only when a tutor sends them for review.
+- **Question stem review queue** — The tutor workflow for reviewing all in-review question stems, applying or reversing edits, and either publishing or returning each stem to draft. AI-generated, eligible bulk-imported, and tutor-submitted stems enter this queue automatically.
   _Avoid_: AI approval queue, bulk approval, generated questions tab
 
-- **AI question stem assessment** — A supplementary automated assessment of the exact saved content of an AI-generated in-review question stem, composed of shared-stem findings and per-question findings. It runs only after the stem passes deterministic UCAT format checks, but its absence, status, or findings never prevent an authorised tutor from publishing. Tutor-authored and bulk-imported stems may request one manually. A shared-stem change makes every question finding stale, while an isolated question change makes only that question's finding stale; stale findings are not current assessments.
+- **AI question stem assessment** — An automated assessment of exact saved question-stem content, composed of shared-stem findings and per-question findings. It may produce verified AI repairs and a current post-repair assessment in one run; a shared-stem change makes every dependent finding stale, while an isolated question change invalidates only that question's finding.
   _Avoid_: AI approval, permanent quality score, generation warning
 
 - **AI assessment run** — The durable background execution that produces an AI question stem assessment without requiring any staff app to remain open. An initial run may assess all questions together to reuse shared context, while a later run targets only invalidated findings. Equivalent requests are deduplicated, superseded results are discarded, and transient failures receive three automatic attempts before the assessment becomes unavailable and offers a manual retry. Reaching the shared UCAT AI daily budget defers the run until the next reset without consuming a failure attempt. Publishing does not cancel a run already requested for the published content; its eventual result remains supplementary and cannot reverse publication.
   _Avoid_: Browser task, foreground review, indefinite retry loop
 
-- **Question stem review cycle** — A period beginning whenever a question stem enters or re-enters `in_review` and ending when it leaves that status. An AI-generated stem requests one automatic assessment for its submitted content during the cycle; relevant ordinary saves refresh only invalidated findings in the background. Publishing or returning the stem to draft does not request another assessment. The tutor may publish before, during, or after assessment work already requested. Changing the configured assessment model does not start another assessment, while a later review cycle does even when the submitted content is unchanged. Draft edits do not request assessment work; tutor-authored and bulk-imported stems remain manually requestable. Enabling the feature does not backfill stems whose current review cycles began earlier.
+- **Question stem review cycle** — A period beginning whenever a question stem enters or re-enters `in_review` and ending when it leaves that status. Entering review requests one automatic assessment for the submitted content regardless of its authoring source; relevant saves refresh only invalidated findings, while equivalent requests are deduplicated.
   _Avoid_: Model-change re-review, permanent assessment, app session
 
 - **AI assessment audit record** — The immutable, compact history of a completed or dismissed assessment, including the reviewed content fingerprint and compact snapshot, model provenance, structured findings and suggestions, tutor decisions, and dismissal reasons. It does not retain duplicated image binaries, rendered screenshots, complete prompts, hidden reasoning, or raw provider responses; the current assessment is shown by default while earlier records remain available for audit.
@@ -480,7 +486,7 @@
 - **Post-publication AI assessment alert** — A deduplicated notification to the tutor who published a stem when an assessment that was still running at publication later returns a Critical finding. It links to the published stem and its AI Review panel but never changes publication state; passes, ordinary concerns, stale results, and provider failures do not send an alert.
   _Avoid_: Automatic unpublish, general assessment notification, provider-failure alert
 
-- **UCAT format check** — A deterministic validation of structural requirements such as question and option counts, exact answer-mode labels and ordering, stored question type, required instructions, and required visual structure. A failed format check leaves the stem available in the question stem review queue, prevents the AI question stem assessment from running, and identifies the exact structural errors for the tutor. Saving a structurally valid version starts the assessment automatically. Format checks are displayed separately from AI findings, do not consume reviewer-model tokens, and do not add an AI-specific publication gate beyond the platform's ordinary content validation.
+- **UCAT format check** — A UCAT readiness gate concerning structural requirements such as question and option counts, exact answer-mode labels and ordering, stored question type, required instructions, explanations, and required visual structure. Format checks are displayed separately from AI findings and do not consume reviewer-model tokens.
   _Avoid_: Category-fit score, AI format opinion, UCAT authenticity assessment
 
 - **UCAT authenticity and task quality** — The judgement-based portion of an AI question stem assessment that evaluates whether the underlying cognitive task, scenario, reasoning demand, wording, and distractors genuinely resemble a fair UCAT question after deterministic format requirements have passed. It does not assess Quantitative Reasoning category fit because QR categories describe information presentation rather than strict question types; deterministic QR category inference remains metadata rather than a quality score.
@@ -492,14 +498,17 @@
 - **Blind question solution** — An answer and concise auditable justification produced from a question stem, question, options, and relevant images without access to the keyed answer, existing explanations, author rationale, or claimed difficulty. An AI question stem assessment compares this independent solution with the keyed answer and teaching explanation in a separate assessment stage.
   _Avoid_: Hidden chain-of-thought, answer-key restatement, single-prompt self-check
 
-- **AI assessment finding** — An advisory review concern or improvement identified by an AI question stem assessment. Severity and confidence help the tutor prioritise attention, but findings never approve, reject, or block publication; the authorised tutor's judgement is final.
+- **AI assessment finding** — A review concern or improvement identified by an AI question stem assessment. It is resolved by a verified AI repair or an explicit staff decision; a current unresolved finding prevents publication while staff retain final authority over uncertain changes.
   _Avoid_: Publication readiness issue, automatic rejection, generation gate
 
 - **AI finding dismissal** — A tutor's optional reasoned decision not to act on an AI assessment finding for the exact reviewed content in the current review cycle. Dismissal supports workflow organisation and audit rather than publication permission, and rejecting the associated suggestion does not dismiss the finding. A relevant content change or a later review cycle requires a fresh decision, while the earlier dismissal and reason remain in the AI assessment audit record.
   _Avoid_: Suggestion rejection, permanent suppression, silent override
 
-- **AI assessment suggestion** — A tutor-accepted or tutor-rejected atomic set of bounded edits proposed to resolve one AI assessment finding. It previews exact before-and-after values and may update existing content, answer keys, explanations, metadata, or a supported semantic visual specification, but it does not add or delete questions or options, edit raw SVG/XML, or change saved content until the tutor saves the amended stem form.
-  _Avoid_: Automatic correction, whole-stem rewrite, raw SVG patch, direct save
+- **AI assessment suggestion** — An atomic set of bounded edits proposed to resolve one AI assessment finding when the change is not eligible as a verified AI repair. It previews exact before-and-after values and changes saved content only after staff acceptance.
+  _Avoid_: Verified AI repair, review note, raw SVG patch
+
+- **UCAT content change** — A recoverable mutation of a saved UCAT aggregate recorded with its exact base and resulting revisions, before-and-after content, operations, provenance, and reversal relationship. Reversal restores the prior content only when doing so cannot overwrite later work.
+  _Avoid_: Browser undo, branching version, activity event
 
 - **AI visual assessment** — The visual portion of an AI question stem assessment, comparing the original asset, its stored authoring specification and dimensions when available, and its rendered student view. It evaluates content accuracy, legibility, precision fairness, question dependency, and presentation quality; a required visual that cannot be inspected is a high-severity unreviewable finding rather than a pass.
   _Avoid_: Alt-text check, original-image-only review, visual generation gate
@@ -626,7 +635,7 @@
   The right-column **question navigation card** lists all questions in the stem, supports jump navigation (synced with the exam chrome footer), and hosts add/delete question actions (minimum one question). Multiple-choice answer options are added or removed inline on the left in edit mode (minimum one). Syllogism stems keep five statements with no add/remove.
   _Avoid_: Question editor, stem dialog form
 
-- **Bulk import** — A tutor workflow for turning pasted source exam content into UCAT question stems, questions, answer options, and answer metadata for review and import. Correct answers are required before leaving the answers step; explanations may be missing until the review step, where the tutor must type or generate them before moving on. The review step is the explanation completion gate and should clearly explain any missing-explanation blocker: multiple-choice questions need a question-level explanation, and syllogism questions need every answer option explained. It supports a whole-import action for generating all missing explanations, plus targeted per-stem or per-question explanation generation from the expanded editor. The answers step supports either a bulk answers document (auto-parsed) or per-question entry in global question order. Multiple-choice: correct answer via option radio; default explanation scope is question-level (toggleable per question to per-option). Syllogism: per-option Yes/No; default explanation scope is per-option. Rich text in all explanation fields.
+- **Bulk import** — A tutor workflow for quickly turning pasted source exam content into saved UCAT question stems. Its review step supports stem-level Bulk-import decisions, direct editing, and asynchronous Duplicate candidate previews; it does not wait for AI review. AI authoring tools may assist an individual expanded stem, while durable AI review happens after eligible content enters the Question stem review queue.
 
 - **Syllogism image options table** — A Decision Making syllogism source format where the five conclusion statements are supplied as text inside an image of a five-row table rather than as selectable text. The five statements are still answer options for one syllogism question; the image is not a separate question stem or diagram.
   _Avoid_: Syllogism diagram, image question

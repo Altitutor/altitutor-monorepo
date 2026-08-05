@@ -85,6 +85,30 @@ describe('generated content blocks', () => {
     })
   })
 
+  it('normalizes bare maths commands in generated explanation content', () => {
+    expect(generatedContentToProseMirror('$4.2 \\div 1.05 = $4.0')).toEqual({
+      type: 'doc',
+      content: [{
+        type: 'paragraph',
+        content: [{ type: 'text', text: '$4.2 ÷ 1.05 = $4.0' }],
+      }],
+    })
+  })
+
+  it('renders delimited maths in generated explanation content', () => {
+    expect(generatedContentToProseMirror('Calculate \\(4.2 \\div 1.05\\).')).toEqual({
+      type: 'doc',
+      content: [{
+        type: 'paragraph',
+        content: [
+          { type: 'text', text: 'Calculate ' },
+          { type: 'inlineMath', attrs: { latex: '4.2 \\div 1.05' } },
+          { type: 'text', text: '.' },
+        ],
+      }],
+    })
+  })
+
   it('converts dash-prefixed generated text into a ProseMirror bullet list', () => {
     const doc = generatedContentToProseMirror('First point\n- Second point\n- Third point')
 

@@ -244,10 +244,31 @@ function appendInlineTextNode(
   text: string,
   active: Set<'bold' | 'italic'>,
   extra?: InlineMark,
+  normalizeMathCommands = true,
 ) {
   if (!text) return
   const marks = activeMarks(active, extra)
-  nodes.push(marks.length ? { type: 'text', text, marks } : { type: 'text', text })
+  const renderedText = normalizeMathCommands ? normalizeBareMathCommands(text) : text
+  nodes.push(marks.length ? { type: 'text', text: renderedText, marks } : { type: 'text', text: renderedText })
+}
+
+const BARE_MATH_COMMANDS: Record<string, string> = {
+  div: '÷',
+  times: '×',
+  pm: '±',
+  approx: '≈',
+  le: '≤',
+  leq: '≤',
+  ge: '≥',
+  geq: '≥',
+  neq: '≠',
+  cdot: '·',
+}
+
+export function normalizeBareMathCommands(text: string): string {
+  return text
+    .replace(/\\(div|times|pm|approx|leq|geq|neq|cdot|le|ge)(?![A-Za-z])/gu, (_, command: string) => BARE_MATH_COMMANDS[command] ?? command)
+    .replace(/\\%/gu, '%')
 }
 
 function safeMarkdownLinkMark(href: string): InlineMark | null {
@@ -255,7 +276,7 @@ function safeMarkdownLinkMark(href: string): InlineMark | null {
   return { type: 'link', attrs: { href } }
 }
 
-function inlineTextNodes(text: string): Json[] {
+export function aiInlineTextNodes(text: string): Json[] {
   const nodes: Json[] = []
   const active = new Set<'bold' | 'italic'>()
   const normalized = normalizeInlineFormattingTags(text)
@@ -286,7 +307,7 @@ function inlineTextNodes(text: string): Json[] {
     } else if (token.startsWith('~~') && token.endsWith('~~')) {
       appendInlineTextNode(nodes, token.slice(2, -2), active, { type: 'strike' })
     } else if (token.startsWith('`') && token.endsWith('`')) {
-      appendInlineTextNode(nodes, token.slice(1, -1), active, { type: 'code' })
+      appendInlineTextNode(nodes, token.slice(1, -1), active, { type: 'code' }, false)
     } else if (token.startsWith('_') && token.endsWith('_')) {
       appendInlineTextNode(nodes, token.slice(1, -1), active, { type: 'italic' })
     } else {
@@ -310,7 +331,7 @@ function proseMirrorParagraph(text: string): Json {
   const trimmed = text.trim()
   return {
     type: 'paragraph',
-    content: trimmed ? inlineTextNodes(trimmed) : [],
+    content: trimmed ? aiInlineTextNodes(trimmed) : [],
   }
 }
 
@@ -371,6 +392,29 @@ function markdownListToProseMirror(items: string[], ordered: boolean): Json {
       content: [proseMirrorParagraph(item)],
     })),
   }
+}
+
+function continueOrderedListNumbering(nodes: Json[]): Json[] {
+  let nextStart: number | null = null
+  return nodes.map((node) => {
+    if (!node || typeof node !== 'object' || Array.isArray(node)) {
+      nextStart = null
+      return node
+    }
+    const record = node as Record<string, Json | undefined>
+    if (record.type === 'orderedList') {
+      const attrs = record.attrs && typeof record.attrs === 'object' && !Array.isArray(record.attrs)
+        ? record.attrs as Record<string, Json | undefined>
+        : {}
+      const existingStart = typeof attrs.start === 'number' ? attrs.start : 1
+      const start = nextStart ?? existingStart
+      const itemCount = Array.isArray(record.content) ? record.content.length : 0
+      nextStart = start + itemCount
+      return { ...record, attrs: { ...attrs, start } }
+    }
+    if (record.type !== 'blockMath') nextStart = null
+    return node
+  })
 }
 
 /**
@@ -450,7 +494,7 @@ export function aiTextToProseMirror(text: string): Json {
       content.push({
         type: 'heading',
         attrs: { level: Math.min(heading[1].length, 4) },
-        content: inlineTextNodes(heading[2].trim()),
+        content: aiInlineTextNodes(heading[2].trim()),
       })
       continue
     }
@@ -535,7 +579,12 @@ export function aiTextToProseMirror(text: string): Json {
   }
   flushParagraph()
 
-  return { type: 'doc', content: content.length > 0 ? content : [{ type: 'paragraph', content: [] }] }
+  return {
+    type: 'doc',
+    content: content.length > 0
+      ? continueOrderedListNumbering(content)
+      : [{ type: 'paragraph', content: [] }],
+  }
 }
 
 /** Like plainTextToProseMirrorWithLineBreaks, but preserves [[IMG:...]] tokens as image nodes. */

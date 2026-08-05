@@ -1,74 +1,16 @@
 import type { Json } from '@altitutor/shared'
 import type { GeneratedContentBlock } from '@/features/ucat/questions/lib/ai-generation/schema'
-
-function textNode(text: string): Json {
-  return { type: 'text', text }
-}
-
-function inlineTextNodes(text: string): Json[] {
-  const nodes: Json[] = []
-  const pattern = /\*\*([^*\n]+)\*\*/gu
-  let cursor = 0
-  for (const match of text.matchAll(pattern)) {
-    const index = match.index ?? 0
-    if (index > cursor) nodes.push(textNode(text.slice(cursor, index)))
-    if (match[1]) {
-      nodes.push({ type: 'text', text: match[1], marks: [{ type: 'bold' }] })
-    }
-    cursor = index + match[0].length
-  }
-  if (cursor < text.length) nodes.push(textNode(text.slice(cursor)))
-  return nodes.length > 0 ? nodes : [textNode(text)]
-}
+import {
+  aiInlineTextNodes,
+  aiTextToProseMirror,
+} from '@/features/ucat/shared/lib/rich-text'
 
 function paragraph(text: string): Json {
   const trimmed = text.trim()
   return {
     type: 'paragraph',
-    content: trimmed ? inlineTextNodes(trimmed) : [],
+    content: trimmed ? aiInlineTextNodes(trimmed) : [],
   }
-}
-
-function markedTextToProseMirror(text: string): Json {
-  const content: Json[] = []
-  const lines = text.split(/\r?\n/u)
-  let index = 0
-
-  while (index < lines.length) {
-    const line = lines[index] ?? ''
-    const bullet = line.match(/^\s*[-*]\s+(.+)$/u)
-    const ordered = line.match(/^\s*(\d+)[.)]\s+(.+)$/u)
-
-    if (bullet) {
-      const items: Json[] = []
-      while (index < lines.length) {
-        const item = (lines[index] ?? '').match(/^\s*[-*]\s+(.+)$/u)
-        if (!item?.[1]) break
-        items.push({ type: 'listItem', content: [paragraph(item[1])] })
-        index += 1
-      }
-      content.push({ type: 'bulletList', content: items })
-      continue
-    }
-
-    if (ordered) {
-      const start = Number(ordered[1]) || 1
-      const items: Json[] = []
-      while (index < lines.length) {
-        const item = (lines[index] ?? '').match(/^\s*\d+[.)]\s+(.+)$/u)
-        if (!item?.[1]) break
-        items.push({ type: 'listItem', content: [paragraph(item[1])] })
-        index += 1
-      }
-      content.push({ type: 'orderedList', attrs: { start }, content: items })
-      continue
-    }
-
-    content.push(paragraph(line))
-    index += 1
-  }
-
-  return { type: 'doc', content: content.length > 0 ? content : [paragraph('')] }
 }
 
 function tableCell(text: string, header = false): Json {
@@ -1264,7 +1206,7 @@ export function generatedBlocksToProseMirror(blocks: GeneratedContentBlock[]): J
 }
 
 export function generatedContentToProseMirror(value: string | GeneratedContentBlock[]): Json {
-  if (typeof value === 'string') return markedTextToProseMirror(value)
+  if (typeof value === 'string') return aiTextToProseMirror(value)
   return generatedBlocksToProseMirror(value)
 }
 
@@ -1284,7 +1226,7 @@ export async function generatedBlocksToProseMirrorAsync(blocks: GeneratedContent
 }
 
 export async function generatedContentToProseMirrorAsync(value: string | GeneratedContentBlock[]): Promise<Json> {
-  if (typeof value === 'string') return markedTextToProseMirror(value)
+  if (typeof value === 'string') return aiTextToProseMirror(value)
   return generatedBlocksToProseMirrorAsync(value)
 }
 

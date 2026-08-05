@@ -65,6 +65,13 @@ export type BulkImportDuplicateCatalogStem = BulkImportDuplicateCatalogSummary &
 export type BulkImportDuplicateQuestionRef = {
   id: string | null
   questionIndex: number
+  questionText: unknown
+  answerExplanation?: unknown
+  options: Array<{
+    answerText: unknown
+    answerExplanation?: unknown
+    isAnswer: boolean
+  }>
 }
 
 export type BulkImportDuplicateFindingSide =
@@ -213,6 +220,13 @@ function draftSide(stem: BulkImportDuplicateDraft): Extract<
     questions: stem.questions.map((question, questionIndex) => ({
       id: question.id ?? null,
       questionIndex,
+      questionText: question.questionText,
+      answerExplanation: question.answerExplanation,
+      options: question.options.map((option) => ({
+        answerText: option.answerText,
+        answerExplanation: option.answerExplanation,
+        isAnswer: option.isAnswer,
+      })),
     })),
   }
 }
@@ -228,7 +242,19 @@ function catalogSide(
     stemText: stem.stemText,
     questions: [...stem.questions]
       .sort((left, right) => left.index - right.index || left.id.localeCompare(right.id))
-      .map((question) => ({ id: question.id, questionIndex: question.index })),
+      .map((question) => ({
+        id: question.id,
+        questionIndex: question.index,
+        questionText: question.question_text,
+        answerExplanation: question.answer_explanation,
+        options: [...question.answer_options]
+          .sort((left, right) => left.index - right.index || left.id.localeCompare(right.id))
+          .map((option) => ({
+            answerText: option.answer_text,
+            answerExplanation: option.answer_explanation,
+            isAnswer: Boolean(option.is_answer),
+          })),
+      })),
   }
 }
 

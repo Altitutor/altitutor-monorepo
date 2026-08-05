@@ -35003,6 +35003,19 @@ export type Database = {
         }
         Returns: Json
       }
+      service_ucat_apply_verified_assessment_repair: {
+        Args: {
+          p_base_snapshot: Json
+          p_expected_updated_at: string
+          p_finding_refs: Json
+          p_operations: Json
+          p_proposed_snapshot: Json
+          p_rationale: string
+          p_run_id: string
+          p_summary: string
+        }
+        Returns: Json
+      }
       service_ucat_persist_generated_stem: {
         Args: { p_output_index: number; p_run_id: string; p_stem: Json }
         Returns: string
@@ -35557,6 +35570,20 @@ export type Database = {
           p_tag_ids?: string[]
         }
         Returns: undefined
+      }
+      tutor_ucat_update_question_stem_bundle_revisioned: {
+        Args: {
+          p_access_scope: Database["public"]["Enums"]["ucat_access_scope"]
+          p_expected_updated_at: string
+          p_question_stem_category_id: string
+          p_questions: Json
+          p_section_id: string
+          p_source_channel: Database["public"]["Enums"]["ucat_question_source_channel"]
+          p_stem_id: string
+          p_stem_text: Json
+          p_tutor_source_note: string
+        }
+        Returns: string
       }
       tutor_ucat_upsert_learning_module: {
         Args: {

@@ -10,8 +10,14 @@ export async function PATCH(request: NextRequest, { params }: { params: { id: st
     const body = await request.json()
     const client = access.userClient as unknown as UcatTutorSupabaseClient
 
-    const { data, error } = await client.rpc('tutor_ucat_upsert_question_stem_bundle', {
+    const rpcName = typeof body.expectedUpdatedAt === 'string'
+      ? 'tutor_ucat_update_question_stem_bundle_revisioned'
+      : 'tutor_ucat_upsert_question_stem_bundle'
+    const { data, error } = await client.rpc(rpcName, {
       p_stem_id: params.id,
+      ...(typeof body.expectedUpdatedAt === 'string'
+        ? { p_expected_updated_at: body.expectedUpdatedAt }
+        : {}),
       p_section_id: body.sectionId,
       p_question_stem_category_id: body.categoryId ?? null,
       p_stem_text: body.stemText ?? {},
@@ -21,7 +27,15 @@ export async function PATCH(request: NextRequest, { params }: { params: { id: st
       p_tutor_source_note: body.tutorSourceNote ?? null,
     })
 
-    if (error) return NextResponse.json({ error: error.message }, { status: 400 })
+    if (error) {
+      if (error.message.includes('question_stem_stale_revision')) {
+        return NextResponse.json(
+          { error: 'This question changed after you opened it. Reopen the editor to review the saved changes before saving again.' },
+          { status: 409 },
+        )
+      }
+      return NextResponse.json({ error: error.message }, { status: 400 })
+    }
     if (body.requestAssessment !== false) {
       await enqueueUcatQuestionAssessmentPreparation({
         stemIds: [params.id],

@@ -1,11 +1,7 @@
-import {
-  getAiGenerationSectionPrompt,
-  sectionNameToAiGenerationKey,
-} from '@/features/ucat/questions/lib/ai-generation/prompts'
-import { EXPLANATION_TEACHING_RUBRIC } from '@/features/ucat/questions/lib/ai-generation/explanation-rubric'
+import { buildUcatExplanationPolicy } from '@/features/ucat/questions/lib/ai-generation/explanation-rubric'
 import { summarizeStemForAi, type AiToolQuestionStemPayload } from '@/features/ucat/questions/lib/ai-tools'
 
-export const EXPLANATION_FILL_SYSTEM_PROMPT = `You write student-facing UCAT answer explanations for questions that already have answer choices and a selected correct answer.
+const EXPLANATION_FILL_BASE_SYSTEM_PROMPT = `You write student-facing UCAT answer explanations for questions that already have answer choices and a selected correct answer.
 
 Return JSON only. Do not include markdown or prose outside the JSON object.
 
@@ -17,8 +13,6 @@ Workflow rules:
 - For multiple-choice questions, return one non-empty question-level answerExplanation when the key is sound. Option-level explanations may be included when they help; otherwise use null or omit them.
 - For syllogism questions, return optionExplanations for every option (Yes/No statement) when the key is sound. A question-level answerExplanation may be included when useful; otherwise use null.
 - Only return updates for the listed questionIndex values. Do not rewrite existing non-empty explanations. Preserve the selected correct answer unless reviewRequired is true.
-
-${EXPLANATION_TEACHING_RUBRIC}
 
 Response shape:
 {
@@ -39,14 +33,20 @@ Response shape:
   ]
 }`
 
+export const EXPLANATION_FILL_SYSTEM_PROMPT = [
+  EXPLANATION_FILL_BASE_SYSTEM_PROMPT,
+  buildUcatExplanationPolicy(),
+].join('\n\n')
+
 export function buildExplanationFillSystemPrompt(params: {
   sectionName?: string | null
   promptLayers?: string[]
 }): string {
-  const sectionKey = sectionNameToAiGenerationKey(params.sectionName)
-  const sectionPrompt = getAiGenerationSectionPrompt(sectionKey)
   const layers = (params.promptLayers ?? []).map((text) => text.trim()).filter(Boolean)
-  return [EXPLANATION_FILL_SYSTEM_PROMPT, sectionPrompt, ...layers].filter(Boolean).join('\n\n')
+  const explanationPolicy = buildUcatExplanationPolicy({ sectionName: params.sectionName })
+  return [EXPLANATION_FILL_BASE_SYSTEM_PROMPT, explanationPolicy, ...layers]
+    .filter(Boolean)
+    .join('\n\n')
 }
 
 export function buildExplanationFillUserPrompt(params: {
@@ -75,7 +75,7 @@ export function buildExplanationFillUserPrompt(params: {
         'Flag an incorrect, ambiguous, unsupported, or unsolvable keyed answer for tutor review instead of explaining it.',
         'Do not rewrite existing non-empty explanations.',
         'Preserve the selected correct answer unless reviewRequired is true.',
-        'Write complete teaching explanations that walk the student through how to solve the question.',
+        'Write complete teaching explanations using the shared section-specific teaching standard.',
       ],
     },
     null,

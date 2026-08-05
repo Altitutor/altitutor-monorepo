@@ -4,6 +4,10 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import { getServiceRoleClient } from '@/shared/lib/supabase/service-role'
 import { AI_ASSESSMENT_PROMPT_VERSION } from '@/features/ucat/questions/lib/ai-assessment/schema'
 import {
+  isStaleUcatAiReviewRun,
+  UCAT_AI_REVIEW_RUNNING_STALE_MS,
+} from '@/features/ucat/questions/lib/ai-assessment/review-status'
+import {
   assessmentFingerprintsFromRun,
   changedAssessmentScope,
   compactUcatAssessmentSnapshot,
@@ -14,7 +18,7 @@ import {
   manualReviewEnvironment,
   resolveReviewTriggerGate,
 } from './environment'
-import { hasUcatFormatErrors, runUcatFormatChecks } from './format-checks'
+import { runUcatFormatChecks } from './format-checks'
 
 export const UCAT_QUESTION_ASSESSMENT_TOPIC = 'ucat-question-assessment'
 
@@ -89,13 +93,13 @@ async function latestRunFingerprints(
 ) {
   const { data, error } = await asAny(admin)
     .from('ucat_ai_question_assessment_runs')
-    .select('content_fingerprint,shared_fingerprint,question_fingerprints')
+    .select('content_fingerprint,shared_fingerprint,question_fingerprints,prompt_version')
     .eq('cycle_id', cycleId)
     .order('requested_at', { ascending: false })
     .limit(1)
     .maybeSingle()
   if (error) throw error
-  if (!data) return null
+  if (!data || data.prompt_version !== AI_ASSESSMENT_PROMPT_VERSION) return null
   return assessmentFingerprintsFromRun({
     content: data.content_fingerprint,
     shared: data.shared_fingerprint,
@@ -126,14 +130,15 @@ export async function loadGenerationReviewConfig(admin: SupabaseClient<Database>
   }
 }
 
-function assessmentDedupeKey(params: {
+export function assessmentDedupeKey(params: {
   cycleId: string
   fingerprint: string
   scopeType: 'full' | 'questions'
   questionIds: string[]
+  promptVersion?: number
 }) {
   const scope = params.scopeType === 'full' ? 'full' : [...params.questionIds].sort().join(',')
-  return `${params.cycleId}:${params.fingerprint}:${params.scopeType}:${scope}`
+  return `${params.cycleId}:v${params.promptVersion ?? AI_ASSESSMENT_PROMPT_VERSION}:${params.fingerprint}:${params.scopeType}:${scope}`
 }
 
 export async function requestUcatQuestionAssessment(params: {
@@ -154,9 +159,6 @@ export async function requestUcatQuestionAssessment(params: {
 
   const snapshot = await loadUcatAssessmentSnapshot(admin, params.stemId)
   if (!snapshot) return { kind: 'skipped' }
-  if (params.triggerKind !== 'manual_request' && snapshot.sourceChannel !== 'ai_generation') {
-    return { kind: 'skipped' }
-  }
   // Manual requests can review private drafts during authoring. Automatic triggers
   // still skip drafts so launch/backfill does not queue unfinished stems.
   if (snapshot.status === 'draft' && params.triggerKind !== 'manual_request') {
@@ -202,6 +204,7 @@ export async function requestUcatQuestionAssessment(params: {
     fingerprint: currentFingerprints.content,
     scopeType: changed.scopeType,
     questionIds: targetQuestionIds,
+    promptVersion: AI_ASSESSMENT_PROMPT_VERSION,
   })
   const { data: existing, error: existingError } = await asAny(admin)
     .from('ucat_ai_question_assessment_runs')
@@ -215,11 +218,10 @@ export async function requestUcatQuestionAssessment(params: {
     Promise.resolve(runUcatFormatChecks(snapshot)),
   ])
   const profiles = reviewConfig
-  const formatBlocked = hasUcatFormatErrors(formatChecks)
   const configurationError = !profiles.solver || !profiles.assessment
     ? 'Automatic review model profiles are not configured.'
     : null
-  const status = formatBlocked ? 'format_blocked' : configurationError ? 'failed' : 'queued'
+  const status = configurationError ? 'failed' : 'queued'
   const now = new Date().toISOString()
 
   const { data: inserted, error: insertError } = await asAny(admin)
@@ -259,7 +261,6 @@ export async function requestUcatQuestionAssessment(params: {
     .neq('id', runId)
     .in('status', ['queued', 'deferred'])
 
-  if (formatBlocked) return { kind: 'format_blocked', runId }
   if (configurationError) return { kind: 'unavailable', runId }
   await enqueueUcatQuestionAssessmentRun(runId)
   return { kind: 'queued', runId }
@@ -402,11 +403,11 @@ export async function retryUcatQuestionAssessmentRun(runId: string): Promise<boo
   const admin = getServiceRoleClient()
   const { data: existing, error: existingError } = await asAny(admin)
     .from('ucat_ai_question_assessment_runs')
-    .select('blind_solver_model_profile_id,assessment_model_profile_id,status')
+    .select('blind_solver_model_profile_id,assessment_model_profile_id,status,started_at')
     .eq('id', runId)
     .maybeSingle()
   if (existingError) throw existingError
-  if (!existing || existing.status !== 'failed') return false
+  if (!existing || (existing.status !== 'failed' && !isStaleUcatAiReviewRun(existing))) return false
   let solverProfileId = existing.blind_solver_model_profile_id
   let assessmentProfileId = existing.assessment_model_profile_id
   if (!solverProfileId || !assessmentProfileId) {
@@ -429,7 +430,7 @@ export async function retryUcatQuestionAssessmentRun(runId: string): Promise<boo
       assessment_model_profile_id: assessmentProfileId,
     })
     .eq('id', runId)
-    .eq('status', 'failed')
+    .eq('status', existing.status)
     .select('id')
     .maybeSingle()
   if (error) throw error
@@ -440,6 +441,17 @@ export async function recoverQueuedUcatQuestionAssessments(limit = 50): Promise<
   if (!manualReviewEnvironment().enabled) return 0
   const admin = getServiceRoleClient()
   const now = new Date().toISOString()
+  const staleBefore = new Date(Date.now() - UCAT_AI_REVIEW_RUNNING_STALE_MS).toISOString()
+  const { error: staleError } = await asAny(admin)
+    .from('ucat_ai_question_assessment_runs')
+    .update({
+      status: 'queued',
+      queue_message_id: null,
+      error_message: 'The previous review worker stopped before completion. The review was queued again automatically.',
+    })
+    .eq('status', 'running')
+    .or(`started_at.is.null,started_at.lt.${staleBefore}`)
+  if (staleError) throw staleError
   const { data, error } = await asAny(admin)
     .from('ucat_ai_question_assessment_runs')
     .select('id')

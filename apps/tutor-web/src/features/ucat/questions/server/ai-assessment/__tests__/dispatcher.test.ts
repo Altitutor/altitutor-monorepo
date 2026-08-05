@@ -1,9 +1,21 @@
 import {
+  assessmentDedupeKey,
   dispatchUcatQuestionAssessmentQueueMessage,
   type UcatQuestionAssessmentQueueMessage,
 } from '@/features/ucat/questions/server/ai-assessment/dispatcher'
 
 describe('UCAT question assessment queue consumer', () => {
+  it('does not deduplicate reviews across review-contract versions', () => {
+    const base = {
+      cycleId: 'cycle',
+      fingerprint: 'fingerprint',
+      scopeType: 'full' as const,
+      questionIds: ['question'],
+    }
+    expect(assessmentDedupeKey({ ...base, promptVersion: 17 }))
+      .not.toBe(assessmentDedupeKey({ ...base, promptVersion: 18 }))
+  })
+
   it('prepares an automatic assessment only after the preparation message reaches the queue', async () => {
     const message: UcatQuestionAssessmentQueueMessage = {
       kind: 'prepare',

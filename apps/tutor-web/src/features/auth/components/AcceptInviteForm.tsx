@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useEffect, useMemo, useState } from 'react';
+import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import {
   Alert,
@@ -12,6 +13,7 @@ import {
   PhoneInput,
   SkeletonAuthCard,
   Switch,
+  Textarea,
   validateOptionalPhoneE164,
 } from '@altitutor/ui';
 import { CheckCircle2, ChevronLeft, Loader2, Search } from 'lucide-react';
@@ -20,7 +22,9 @@ import { useSupabaseClient } from '@/shared/lib/supabase/client';
 import { cn } from '@/shared/utils';
 import { tutorBtnOutline, tutorBtnPrimary, tutorSurfaceCard } from '@/shared/lib/tutor-visual';
 
-const TOTAL_STEPS = 4;
+const TOTAL_STEPS = 5;
+const profileImageTypes = new Set(['image/jpeg', 'image/png', 'image/webp']);
+const maxProfileImageBytes = 5 * 1024 * 1024;
 const availabilityOptions = [
   ['monday', 'Monday'],
   ['tuesday', 'Tuesday'],
@@ -53,6 +57,7 @@ const stepCopy = [
   { title: 'Set your password', description: 'Choose a secure password for Tutor.' },
   { title: 'Teaching preferences', description: 'Select every subject you teach and when you are available.' },
   { title: 'Employment details', description: 'Finish the Altitutor-specific parts of your employment setup.' },
+  { title: 'Your tutor profile', description: 'Add the photo and bio students will see.' },
 ] as const;
 
 function subjectLabel(subject: NonNullable<ValidateInviteResponse['data']>['subjects'][number]) {
@@ -83,6 +88,9 @@ export function AcceptInviteForm({ token }: { token: string }) {
   const [birthday, setBirthday] = useState('');
   const [childSafeAgreementNumber, setChildSafeAgreementNumber] = useState('');
   const [childSafePolicyAgreed, setChildSafePolicyAgreed] = useState(false);
+  const [profileBio, setProfileBio] = useState('');
+  const [profileImage, setProfileImage] = useState<File | null>(null);
+  const [profileImagePreview, setProfileImagePreview] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -117,6 +125,18 @@ export function AcceptInviteForm({ token }: { token: string }) {
     );
   }, [inviteData?.subjects, search]);
   const selectedSubjectIds = useMemo(() => new Set(subjectIds), [subjectIds]);
+
+  useEffect(() => {
+    if (!profileImage) {
+      setProfileImagePreview(null);
+      return;
+    }
+    const previewUrl = URL.createObjectURL(profileImage);
+    setProfileImagePreview(previewUrl);
+    return () => {
+      URL.revokeObjectURL(previewUrl);
+    };
+  }, [profileImage]);
 
   function validateStep(): boolean {
     setError(null);
@@ -163,6 +183,20 @@ export function AcceptInviteForm({ token }: { token: string }) {
         return false;
       }
     }
+    if (step === 5) {
+      if (!profileImage) {
+        setError('Choose a profile picture.');
+        return false;
+      }
+      if (!profileImageTypes.has(profileImage.type) || profileImage.size > maxProfileImageBytes) {
+        setError('Choose a JPEG, PNG, or WebP profile picture up to 5 MB.');
+        return false;
+      }
+      if (!profileBio.trim()) {
+        setError('Write a short tutor bio.');
+        return false;
+      }
+    }
     return true;
   }
 
@@ -173,6 +207,7 @@ export function AcceptInviteForm({ token }: { token: string }) {
 
   async function completeOnboarding() {
     if (!validateStep()) return;
+    if (!profileImage) return;
     const normalizedPhone = validateOptionalPhoneE164(phone).phone;
     if (!normalizedPhone) return;
 
@@ -191,7 +226,8 @@ export function AcceptInviteForm({ token }: { token: string }) {
         birthday,
         child_safe_agreement_number: childSafeAgreementNumber.trim(),
         child_safe_policy_agreed: true,
-      });
+        profile_bio: profileBio.trim(),
+      }, profileImage);
       const { error: signInError } = await supabase.auth.signInWithPassword({
         email: email.trim().toLowerCase(),
         password,
@@ -310,6 +346,49 @@ export function AcceptInviteForm({ token }: { token: string }) {
           <div className="rounded-xl bg-primary/8 p-4 ring-1 ring-primary/15">
             <p className="font-medium">Payroll setup happens separately in QuickBooks</p>
             <p className="mt-1 text-sm text-muted-foreground">Altitutor will send a secure QuickBooks Employee Self Setup invitation for your address, TFN, super fund and bank account details. Those details are not stored in Tutor.</p>
+          </div>
+        </div>
+      ) : null}
+
+      {step === 5 ? (
+        <div className="grid gap-6 sm:grid-cols-[9rem_1fr]">
+          <div className="space-y-3">
+            <div className="flex h-36 w-36 items-center justify-center overflow-hidden rounded-2xl bg-muted ring-1 ring-border">
+              {profileImagePreview ? (
+                <Image
+                  src={profileImagePreview}
+                  alt="Profile picture preview"
+                  width={144}
+                  height={144}
+                  className="h-full w-full object-cover"
+                  unoptimized
+                />
+              ) : (
+                <span className="px-4 text-center text-sm text-muted-foreground">Photo preview</span>
+              )}
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="profile-image">Profile picture</Label>
+              <Input
+                id="profile-image"
+                type="file"
+                accept="image/jpeg,image/png,image/webp"
+                onChange={(event) => setProfileImage(event.target.files?.[0] ?? null)}
+              />
+              <p className="text-xs text-muted-foreground">JPEG, PNG, or WebP up to 5 MB.</p>
+            </div>
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="profile-bio">Tutor bio</Label>
+            <Textarea
+              id="profile-bio"
+              value={profileBio}
+              onChange={(event) => setProfileBio(event.target.value)}
+              maxLength={1200}
+              rows={9}
+              placeholder="Introduce yourself, the subjects you enjoy teaching, and your approach to helping students learn."
+            />
+            <p className="text-xs text-muted-foreground">This appears on your public tutor profile. {profileBio.length}/1200</p>
           </div>
         </div>
       ) : null}

@@ -1,8 +1,12 @@
 import { captureApiError } from '@/lib/sentry/capture-api-error';
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
-import type { Database } from '@altitutor/shared';
+import type { Database, TablesInsert } from '@altitutor/shared';
 import { z } from 'zod';
+
+const PROFILE_IMAGE_BUCKET = 'staff-profile-images';
+const PROFILE_IMAGE_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp']);
+const MAX_PROFILE_IMAGE_BYTES = 5 * 1024 * 1024;
 
 const availabilitySchema = z.object({
   monday: z.boolean(),
@@ -34,6 +38,7 @@ const acceptInviteSchema = z.object({
   birthday: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   child_safe_agreement_number: z.string().trim().min(1).max(100),
   child_safe_policy_agreed: z.literal(true),
+  profile_bio: z.string().trim().min(1).max(1200),
 });
 
 export async function POST(request: NextRequest) {
@@ -44,7 +49,30 @@ export async function POST(request: NextRequest) {
   );
 
   try {
-    const parsed = acceptInviteSchema.safeParse(await request.json());
+    const form = await request.formData();
+    const payload = form.get('payload');
+    const profileImage = form.get('profile_image');
+    if (typeof payload !== 'string') {
+      return NextResponse.json({ error: 'Missing onboarding details' }, { status: 400 });
+    }
+    if (
+      !(profileImage instanceof File) ||
+      !PROFILE_IMAGE_TYPES.has(profileImage.type) ||
+      profileImage.size > MAX_PROFILE_IMAGE_BYTES
+    ) {
+      return NextResponse.json(
+        { error: 'Choose a JPEG, PNG, or WebP profile picture up to 5 MB' },
+        { status: 400 },
+      );
+    }
+
+    let rawInput: unknown;
+    try {
+      rawInput = JSON.parse(payload);
+    } catch {
+      return NextResponse.json({ error: 'Invalid onboarding details' }, { status: 400 });
+    }
+    const parsed = acceptInviteSchema.safeParse(rawInput);
     if (!parsed.success) {
       return NextResponse.json(
         { error: parsed.error.issues[0]?.message ?? 'Invalid onboarding details' },
@@ -152,11 +180,55 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    const storagePath = `${staffMember.id}/${Date.now()}_${profileImage.name.replace(/[^a-zA-Z0-9.-]/g, '_')}`;
+    const { data: uploaded, error: uploadError } = await supabaseAdmin.storage
+      .from(PROFILE_IMAGE_BUCKET)
+      .upload(storagePath, Buffer.from(await profileImage.arrayBuffer()), {
+        cacheControl: '31536000',
+        contentType: profileImage.type,
+        upsert: false,
+      });
+    if (uploadError || !uploaded) {
+      await supabaseAdmin.auth.admin.deleteUser(authData.user.id);
+      captureApiError(uploadError, '/api/invites/accept');
+      return NextResponse.json({ error: 'Failed to upload profile picture' }, { status: 500 });
+    }
+
+    const fileInsert: TablesInsert<'files'> = {
+      mimetype: profileImage.type,
+      filename: profileImage.name,
+      size_bytes: profileImage.size,
+      metadata: {
+        originalName: profileImage.name,
+        uploadedAt: new Date().toISOString(),
+        purpose: 'staff-profile-image',
+      },
+      storage_provider: 'supabase',
+      bucket: PROFILE_IMAGE_BUCKET,
+      storage_path: uploaded.path,
+      created_by: staffMember.id,
+    };
+    const { data: profileImageFile, error: fileError } = await supabaseAdmin
+      .from('files')
+      .insert(fileInsert)
+      .select('id')
+      .single();
+    if (fileError || !profileImageFile) {
+      await Promise.all([
+        supabaseAdmin.storage.from(PROFILE_IMAGE_BUCKET).remove([uploaded.path]),
+        supabaseAdmin.auth.admin.deleteUser(authData.user.id),
+      ]);
+      captureApiError(fileError, '/api/invites/accept');
+      return NextResponse.json({ error: 'Failed to save profile picture' }, { status: 500 });
+    }
+
     const { data: updatedStaff, error: linkError } = await supabaseAdmin
       .from('staff')
       .update({
         user_id: authData.user.id,
         invite_token: null,
+        profile_bio: input.profile_bio,
+        profile_image_file_id: profileImageFile.id,
         onboarding_completed_at: new Date().toISOString(),
       })
       .eq('id', staffMember.id)
@@ -165,7 +237,11 @@ export async function POST(request: NextRequest) {
       .single();
 
     if (linkError) {
-      await supabaseAdmin.auth.admin.deleteUser(authData.user.id);
+      await Promise.all([
+        supabaseAdmin.from('files').delete().eq('id', profileImageFile.id),
+        supabaseAdmin.storage.from(PROFILE_IMAGE_BUCKET).remove([uploaded.path]),
+        supabaseAdmin.auth.admin.deleteUser(authData.user.id),
+      ]);
       captureApiError(linkError, '/api/invites/accept');
       return NextResponse.json({ error: 'Failed to link account' }, { status: 500 });
     }

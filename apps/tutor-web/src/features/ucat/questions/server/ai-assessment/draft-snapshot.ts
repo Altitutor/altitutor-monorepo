@@ -30,6 +30,8 @@ export function buildDraftUcatAssessmentSnapshot(params: {
       answerExplanation,
       answerExplanationPlain: plain(answerExplanation),
       questionType: question.questionType,
+      sourceChannel: question.sourceChannel ?? null,
+      aiGenerationMetadata: question.aiGenerationMetadata ?? null,
       difficulty: question.difficulty ?? null,
       timeBurdenSeconds: parseTimeToSeconds(question.timeBurdenSeconds ?? ''),
       tagIds: question.tagIds ?? [],

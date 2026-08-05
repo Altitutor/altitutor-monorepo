@@ -8,11 +8,13 @@ import { fetchReferralGifts } from "@/features/subscription/api/referral-gifts";
 
 type SignupCompletePlanStepProps = {
   onComplete: () => void;
+  onContinueCurrentPlan: () => void;
   returnTo: string;
 };
 
 export function SignupCompletePlanStep({
   onComplete,
+  onContinueCurrentPlan,
   returnTo,
 }: SignupCompletePlanStepProps) {
   const queryClient = useQueryClient();
@@ -49,6 +51,7 @@ export function SignupCompletePlanStep({
       checkoutReturnContext="signup_onboarding"
       postCheckoutReturnTo={returnTo}
       onContinueFree={onComplete}
+      onContinueCurrentPlan={onContinueCurrentPlan}
     />
   );
 }

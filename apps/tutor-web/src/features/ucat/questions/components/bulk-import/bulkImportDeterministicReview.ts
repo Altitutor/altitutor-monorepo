@@ -1,5 +1,10 @@
 import type { Json } from '@altitutor/shared'
 import type { UcatQuestionStemFormValues } from '@/features/ucat/questions/types/schema'
+import type {
+  UcatAssessmentImage,
+  UcatAssessmentSnapshot,
+} from '@/features/ucat/questions/lib/ai-assessment/schema'
+import { evaluateUcatReadiness } from '@/features/ucat/questions/lib/ai-assessment/readiness'
 import {
   plainTextToProseMirror,
   proseMirrorToPlainText,
@@ -221,42 +226,89 @@ function paragraphCount(value: Json): number {
   return plain.split(/\n{2,}|\r?\n/gu).map((part) => part.trim()).filter(Boolean).length
 }
 
-function commonChecks(
-  values: UcatQuestionStemFormValues,
-  issues: BulkImportGateIssue[],
-) {
-  values.questions.forEach((question, questionIndex) => {
-    if (question.questionType === 'multiple_choice') {
-      if (question.options.filter((option) => option.isAnswer).length !== 1) {
-        addIssue(
-          issues,
-          'multiple_choice_correct_count',
-          'Multiple-choice questions must have exactly one keyed answer.',
-          questionScope(questionIndex),
-        )
-      }
-      if (!proseMirrorToPlainText(question.answerExplanation).trim()) {
-        addIssue(
-          issues,
-          'missing_question_explanation',
-          'Multiple-choice questions need a question-level teaching explanation.',
-          questionScope(questionIndex),
-        )
-      }
+function visualImages(value: Json | null | undefined, location: string): UcatAssessmentImage[] {
+  const images: UcatAssessmentImage[] = []
+  function visit(node: unknown) {
+    if (Array.isArray(node)) {
+      node.forEach(visit)
       return
     }
+    if (!node || typeof node !== 'object') return
+    const record = node as Record<string, unknown>
+    if (record.type === 'image') {
+      const attrs = record.attrs && typeof record.attrs === 'object' && !Array.isArray(record.attrs)
+        ? record.attrs as Record<string, unknown>
+        : {}
+      images.push({
+        location,
+        index: images.length,
+        src: typeof attrs.src === 'string' ? attrs.src : null,
+        fileId: typeof attrs.fileId === 'string' ? attrs.fileId : null,
+        storagePath: typeof attrs.storagePath === 'string' ? attrs.storagePath : null,
+        alt: typeof attrs.alt === 'string' ? attrs.alt : null,
+        visualType: typeof attrs.visualType === 'string' ? attrs.visualType : null,
+        visualSpec: attrs.visualSpec && typeof attrs.visualSpec === 'object' && !Array.isArray(attrs.visualSpec)
+          ? attrs.visualSpec as Record<string, unknown>
+          : null,
+        visualTitle: typeof attrs.visualTitle === 'string' ? attrs.visualTitle : null,
+        visualAltText: typeof attrs.visualAltText === 'string' ? attrs.visualAltText : null,
+        modelWidth: typeof attrs.width === 'number' ? attrs.width : null,
+        modelHeight: typeof attrs.height === 'number' ? attrs.height : null,
+        authoringMetadata: null,
+      })
+    }
+    if (Array.isArray(record.content)) record.content.forEach(visit)
+  }
+  visit(value)
+  return images
+}
 
-    question.options.forEach((option, optionIndex) => {
-      if (!proseMirrorToPlainText(option.answerExplanation).trim()) {
-        addIssue(
-          issues,
-          'missing_syllogism_option_explanation',
-          `Syllogism option ${optionIndex + 1} needs its own teaching explanation.`,
-          optionScope(questionIndex, optionIndex),
-        )
-      }
-    })
-  })
+function readinessSnapshot(input: ReviewInput, values: UcatQuestionStemFormValues): UcatAssessmentSnapshot {
+  const plain = (value: Json | null | undefined) => proseMirrorToPlainText(value).trim()
+  return {
+    stemId: '00000000-0000-4000-8000-000000000000',
+    status: 'draft',
+    sectionId: values.sectionId,
+    sectionName: input.sectionName ?? '',
+    sectionNumber: 0,
+    displayColumns: 1,
+    categoryId: values.categoryId ?? null,
+    categoryName: input.categoryName ?? null,
+    accessScope: values.accessScope,
+    stemText: values.stemText,
+    stemTextPlain: plain(values.stemText),
+    images: visualImages(values.stemText, 'stem:stem_text'),
+    questions: values.questions.map((question, questionIndex) => ({
+      id: question.id ?? `00000000-0000-4000-8000-${String(questionIndex + 1).padStart(12, '0')}`,
+      index: questionIndex,
+      questionText: question.questionText,
+      questionTextPlain: plain(question.questionText),
+      answerExplanation: question.answerExplanation ?? null,
+      answerExplanationPlain: plain(question.answerExplanation),
+      questionType: question.questionType,
+      difficulty: question.difficulty ?? null,
+      timeBurdenSeconds: null,
+      tagIds: question.tagIds,
+      tagNames: [],
+      images: [
+        ...visualImages(question.questionText, `question:${questionIndex}:question_text`),
+        ...visualImages(question.answerExplanation, `question:${questionIndex}:answer_explanation`),
+      ],
+      options: question.options.map((option, optionIndex) => ({
+        id: option.id ?? `00000000-0000-4000-9000-${String((questionIndex * 10) + optionIndex + 1).padStart(12, '0')}`,
+        index: optionIndex,
+        answerText: option.answerText,
+        answerTextPlain: plain(option.answerText),
+        answerExplanation: option.answerExplanation ?? null,
+        answerExplanationPlain: plain(option.answerExplanation),
+        isAnswer: option.isAnswer,
+        images: [
+          ...visualImages(option.answerText, `option:${questionIndex}:${optionIndex}:answer_text`),
+          ...visualImages(option.answerExplanation, `option:${questionIndex}:${optionIndex}:answer_explanation`),
+        ],
+      })),
+    })),
+  }
 }
 
 function vrChecks(
@@ -469,7 +521,19 @@ export function runBulkImportDeterministicReview(
   else if (section === 'situational judgement') sjChecks(values, category, issues, fixes)
   else addIssue(issues, 'unknown_section', 'No deterministic UCAT gates are available for this section.', stemScope())
 
-  commonChecks(values, issues)
+  // Readiness failures come from the shared policy used by saved-stem review.
+  // The import-specific implementation above only contributes safe canonical fixes.
+  issues.length = 0
+  for (const check of evaluateUcatReadiness(readinessSnapshot(input, values))) {
+    if (check.severity !== 'error') continue
+    const questionIndex = check.questionIndex ?? null
+    const scope: BulkImportGateScope = questionIndex == null
+      ? stemScope()
+      : check.optionIndex == null
+        ? questionScope(questionIndex)
+        : optionScope(questionIndex, check.optionIndex)
+    addIssue(issues, check.code, check.message, scope)
+  }
   return {
     values,
     issues,

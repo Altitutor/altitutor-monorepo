@@ -35,6 +35,7 @@ import {
 } from '@altitutor/ui'
 import {
   CheckCircle2,
+  Bot,
   ChevronDown,
   ChevronRight,
   Eye,
@@ -54,6 +55,8 @@ import {
   useDeleteUcatQuestionStem,
   useRestoreUcatQuestionStem,
   useSetUcatQuestionStemStatus,
+  useRequestUcatAiAssessment,
+  useUcatAiAssessmentStatuses,
   useUcatCategories,
   useUcatQuestionCatalogCreators,
   useUcatQuestionCatalogPage,
@@ -88,6 +91,7 @@ import { formatSecondsToDuration } from '@/features/ucat/shared/lib/time-utils'
 import type { UcatQuestionStemFormValues } from '@/features/ucat/questions/types/schema'
 import { formValuesToStemBundlePayload } from '@/features/ucat/questions/lib/stem-editor-form'
 import type { CategoryOption, TagOption } from '@/features/ucat/questions/components/UcatQuestionStemDialog'
+import { bulkImportSuccessSummary } from '@/features/ucat/questions/lib/bulk-import-success-summary'
 import {
   buildTaxonomyPathLookup,
   categoriesToTaxonomyNodes,
@@ -113,7 +117,6 @@ import {
   filterTagsForSections,
 } from '@/features/ucat/shared/lib/taxonomy-reparent'
 import { resolveSectionIdsFromIdFilter } from '@/features/ucat/shared/lib/taxonomy-section-filter'
-import { dismissExactDuplicatePair } from '@/features/ucat/reconciliation/api/reconciliation'
 import { UCAT_FILTER_NO_CATEGORY, UCAT_FILTER_NOT_IN_ANY_SET } from '@/features/ucat/shared/lib/table-filter-sentinel'
 import { UcatDeleteConfirmDialog } from '@/features/ucat/shared/delete-confirm-dialog'
 import { UcatRowActions } from '@/features/ucat/shared/row-actions'
@@ -145,6 +148,10 @@ import { CreatedAtDateTimeRangeFilter } from '@/features/ucat/questions/componen
 import { UcatVisibilityBadge } from '@/features/ucat/shared/components/UcatVisibilityBadge'
 import { UcatVisibilityTableHeaderLabel } from '@/features/ucat/shared/components/UcatVisibilityInfoTooltip'
 import { getUcatContentStatusTransitionOptions, type UcatContentStatus } from '@/features/ucat/shared/types'
+import {
+  shouldShowRequestAiReviewAction,
+  UCAT_AI_REVIEW_STATUS_COPY,
+} from '@/features/ucat/questions/lib/ai-assessment/review-status'
 
 type QuestionsTab = UcatContentStatus
 
@@ -248,6 +255,7 @@ const columnDefinitions: DataTableColumnDefinition[] = [
   { key: 'source', label: 'Source', visibleByDefault: true },
   { key: 'created_at', label: 'Date created', visibleByDefault: false },
   { key: 'status', label: 'Status', visibleByDefault: false },
+  { key: 'ai_review', label: 'AI review', visibleByDefault: true },
   { key: 'type_summary', label: 'Type', visibleByDefault: false },
   { key: 'actions', label: 'Actions', visibleByDefault: true },
 ]
@@ -416,6 +424,7 @@ export function UcatQuestionsPage() {
   const restoreMutation = useRestoreUcatQuestionStem()
   const setStatusMutation = useSetUcatQuestionStemStatus()
   const bulkImportMutation = useBulkImportUcatQuestionStems()
+  const requestAiReviewMutation = useRequestUcatAiAssessment()
 
   const { rows } = useUcatQuestionsTable({
     data: questions.data?.items,
@@ -442,6 +451,8 @@ export function UcatQuestionsPage() {
   const pageCount = Math.max(1, Math.ceil(totalRows / pageSize))
   const effectivePage = Math.min(page, pageCount)
   const paginatedRows = rows
+  const paginatedStemIds = useMemo(() => paginatedRows.map((row) => row.id), [paginatedRows])
+  const aiReviewStatuses = useUcatAiAssessmentStatuses(paginatedStemIds)
 
   useEffect(() => {
     if (page > pageCount) tableState.actions.onPageChange(pageCount)
@@ -539,6 +550,41 @@ export function UcatQuestionsPage() {
     })()
   }
 
+  async function requestAiReview(stemId: string) {
+    try {
+      const result = await requestAiReviewMutation.mutateAsync({ stemId })
+      const message = result.kind === 'queued'
+        ? {
+            title: 'AI review queued',
+            description: 'The review will continue in the background.',
+          }
+        : result.kind === 'format_blocked'
+          ? {
+              title: 'AI review stopped at format checks',
+              description: 'Open the AI review panel to see the deterministic issues.',
+            }
+          : result.kind === 'unavailable'
+            ? {
+                title: 'AI review unavailable',
+                description: 'The review models are not configured.',
+              }
+            : {
+                title: 'AI review already requested',
+                description: 'The current content already has a matching review request.',
+              }
+      toast({
+        title: message.title,
+        description: message.description,
+      })
+    } catch (error) {
+      toast({
+        title: 'Could not request AI review',
+        description: error instanceof Error ? error.message : 'Please try again.',
+        variant: 'destructive',
+      })
+    }
+  }
+
   const toggleStemExpanded = (stemId: string) => {
     setExpandedStemIds((prev) => {
       const next = new Set(prev)
@@ -612,6 +658,7 @@ export function UcatQuestionsPage() {
     (visible('source') ? 1 : 0) +
     (visible('created_at') ? 1 : 0) +
     (visible('status') ? 1 : 0) +
+    (visible('ai_review') ? 1 : 0) +
     (visible('type_summary') ? 1 : 0) +
     (visible('actions') ? 1 : 0)
 
@@ -640,7 +687,11 @@ export function UcatQuestionsPage() {
     if (!editingStemId) return
 
     const mapped = formValuesToStemBundlePayload(payload, editingStemId)
-    await updateMutation.mutateAsync({ stemId: editingStemId, payload: mapped })
+    await updateMutation.mutateAsync({
+      stemId: editingStemId,
+      payload: mapped,
+      expectedUpdatedAt: detail.data?.updated_at ?? null,
+    })
     setEditingStemId(null)
   }
 
@@ -649,40 +700,15 @@ export function UcatQuestionsPage() {
       ...formValuesToStemBundlePayload(draft.values, draft.id),
       sourceChannel: 'bulk_import' as const,
       tutorSourceNote: args.tutorSourceNote ?? null,
+      importStatus: draft.importStatus,
     }))
-    const { ids, aiReviewPersistence } = await bulkImportMutation.mutateAsync({
+    const { ids, statuses } = await bulkImportMutation.mutateAsync({
       sectionId: args.sectionId,
       stems: stemsPayload,
-      aiReviews: args.aiReviews,
     })
-    if ((aiReviewPersistence?.skipped.length ?? 0) > 0) {
-      toast({
-        title: 'Questions imported; some AI review results were not saved',
-        description:
-          `${aiReviewPersistence?.skipped.length ?? 0} stem${
-            aiReviewPersistence?.skipped.length === 1 ? '' : 's'
-          } remain in review without the completed bulk-review result. Re-run AI review from the question reviewer before publishing.`,
-        variant: 'destructive',
-      })
-    }
-    if ((args.duplicateDismissals?.length ?? 0) > 0) {
-      const results = await Promise.allSettled(
-        (args.duplicateDismissals ?? []).map(({ stemIdA, stemIdB }) =>
-          dismissExactDuplicatePair(stemIdA, stemIdB)
-        )
-      )
-      const failedDismissals = results.filter((result) => result.status === 'rejected').length
-      if (failedDismissals > 0) {
-        toast({
-          title: 'Questions imported; some duplicate decisions were not saved',
-          description: `${failedDismissals} “Keep both” ${
-            failedDismissals === 1 ? 'decision' : 'decisions'
-          } can be resolved later from reconciliation.`,
-        })
-      }
-    }
 
     const questionCount = stemsPayload.reduce((sum, s) => sum + (s.questions?.length ?? 0), 0)
+    const importSummary = bulkImportSuccessSummary({ questionCount, statuses })
     let targetSetId: string | null = null
     let targetSetName: string | null = null
 
@@ -716,10 +742,10 @@ export function UcatQuestionsPage() {
 
     if (targetSetId && targetSetName) {
       toast({
-        title: `${questionCount} question${questionCount === 1 ? '' : 's'} imported and added to set ${targetSetName}`,
+        title: `${importSummary.title} and added to set ${targetSetName}`,
         description: (
           <>
-            <p className="mb-1">They were added to In review.</p>
+            <p className="mb-1">{importSummary.description}</p>
             <button
               type="button"
               onClick={() => setEditingSetId(targetSetId)}
@@ -732,8 +758,8 @@ export function UcatQuestionsPage() {
       })
     } else {
       toast({
-        title: `${questionCount} question${questionCount === 1 ? '' : 's'} imported`,
-        description: 'They were added to In review.',
+        title: importSummary.title,
+        description: importSummary.description,
       })
     }
   }
@@ -1132,6 +1158,7 @@ export function UcatQuestionsPage() {
               {visible('source') && <TableHead>Source</TableHead>}
               {visible('created_at') && <TableHead>Date created</TableHead>}
               {visible('status') && <TableHead>Status</TableHead>}
+              {visible('ai_review') && <TableHead>AI review</TableHead>}
               {visible('type_summary') && <TableHead>Type</TableHead>}
               {visible('actions') && <TableHead className="w-16 shrink-0" />}
             </TableRow>
@@ -1269,6 +1296,28 @@ export function UcatQuestionsPage() {
                       <TableCell>{formatDateTime(row.created_at ?? '') || '—'}</TableCell>
                     )}
                     {visible('status') && <TableCell className="capitalize">{row.status}</TableCell>}
+                    {visible('ai_review') && (
+                      <TableCell>
+                        {aiReviewStatuses.data?.statuses[row.id] ? (
+                          <Badge
+                            variant="outline"
+                            className={cn(
+                              'whitespace-nowrap font-normal',
+                              UCAT_AI_REVIEW_STATUS_COPY[aiReviewStatuses.data.statuses[row.id]].className,
+                            )}
+                          >
+                            {UCAT_AI_REVIEW_STATUS_COPY[aiReviewStatuses.data.statuses[row.id]].shortLabel}
+                          </Badge>
+                        ) : (
+                          <span
+                            className="text-muted-foreground"
+                            title={aiReviewStatuses.isError ? 'AI review status could not be loaded' : undefined}
+                          >
+                            —
+                          </span>
+                        )}
+                      </TableCell>
+                    )}
                     {visible('type_summary') && <TableCell>{row.type_summary}</TableCell>}
                     {visible('actions') && (
                     <TableCell className="w-16 shrink-0" onClick={(e) => e.stopPropagation()}>
@@ -1302,6 +1351,13 @@ export function UcatQuestionsPage() {
                               : []),
                             ...(!showDeleted
                               ? [
+                                  ...(shouldShowRequestAiReviewAction(aiReviewStatuses.data?.statuses[row.id])
+                                    ? [{
+                                        label: 'Request AI review',
+                                        icon: <Bot className="h-4 w-4" />,
+                                        onClick: () => void requestAiReview(row.id),
+                                      }]
+                                    : []),
                                   {
                                     label: 'Find question stems with similar',
                                     render: () => (

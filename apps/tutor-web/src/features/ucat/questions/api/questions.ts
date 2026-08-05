@@ -26,7 +26,7 @@ import {
   serializeQuestionCatalogQuery,
   type QuestionCatalogQuery,
 } from "@/features/ucat/questions/lib/question-catalog-query";
-import type { BulkImportAiReviewSubmission } from "@/features/ucat/questions/lib/bulk-import-ai-review";
+import type { UcatAiReviewStatus } from "@/features/ucat/questions/lib/ai-assessment/review-status";
 
 export type { UcatQuestionStemListIndex };
 
@@ -225,6 +225,7 @@ export type StemDetailRow = {
   created_by_first_name?: string | null;
   created_by_last_name?: string | null;
   created_at?: string | null;
+  updated_at?: string | null;
   stem_text: Json;
   questions: StemDetailQuestion[];
 };
@@ -267,17 +268,7 @@ export type UcatAiAssessmentDecision = {
 
 export type UcatAiAssessment = {
   environment: { enabled: boolean; automaticEnabled: boolean; source: string };
-  status:
-    | "disabled"
-    | "not_requested"
-    | "reviewing"
-    | "deferred"
-    | "format_blocked"
-    | "unavailable"
-    | "unreviewable"
-    | "passed"
-    | "concerns"
-    | "critical";
+  status: UcatAiReviewStatus;
   currentContentFingerprint: string;
   currentCycle: { id: string; stem_id: string; is_current: boolean; started_at: string } | null;
   cycles: Array<{ id: string; stem_id: string; is_current: boolean; started_at: string }>;
@@ -334,6 +325,20 @@ export const ucatQuestionsApi = {
       throw new Error(body.error ?? "Failed to load AI review");
     }
     return response.json() as Promise<UcatAiAssessment>;
+  },
+
+  async getAiAssessmentStatuses(stemIds: string[]) {
+    const params = new URLSearchParams();
+    stemIds.forEach((stemId) => params.append("id", stemId));
+    const response = await fetch(
+      `/api/ucat/question-stems/ai-assessment/statuses?${params}`,
+      { cache: "no-store" },
+    );
+    if (!response.ok) {
+      const body = await response.json().catch(() => ({}));
+      throw new Error(body.error ?? "Failed to load AI review statuses");
+    }
+    return response.json() as Promise<{ statuses: Record<string, UcatAiReviewStatus> }>;
   },
 
   async retryAiAssessment(stemId: string, runId: string) {
@@ -630,7 +635,7 @@ export const ucatQuestionsApi = {
   async update(
     stemId: string,
     payload: UcatQuestionStemBundlePayload,
-    options?: { requestAssessment?: boolean },
+    options?: { requestAssessment?: boolean; expectedUpdatedAt?: string | null },
   ) {
     const response = await fetch(`/api/ucat/question-stems/${stemId}`, {
       method: "PATCH",
@@ -638,6 +643,7 @@ export const ucatQuestionsApi = {
       body: JSON.stringify({
         ...serializePayload({ ...payload, stemId }),
         requestAssessment: options?.requestAssessment ?? false,
+        expectedUpdatedAt: options?.expectedUpdatedAt ?? null,
       }),
     });
 
@@ -791,8 +797,7 @@ export const ucatQuestionsApi = {
 
   async bulkImport(
     sectionId: string,
-    stems: UcatQuestionStemBundlePayload[],
-    aiReviews?: BulkImportAiReviewSubmission[],
+    stems: Array<UcatQuestionStemBundlePayload & { importStatus: 'draft' | 'in_review' }>,
   ) {
     const response = await fetch("/api/ucat/question-stems/bulk-import", {
       method: "POST",
@@ -800,7 +805,6 @@ export const ucatQuestionsApi = {
       body: JSON.stringify({
         sectionId,
         stems: stems.map((stem) => serializePayload(stem)),
-        ...(aiReviews && aiReviews.length > 0 ? { aiReviews } : {}),
       }),
     });
 
@@ -811,10 +815,7 @@ export const ucatQuestionsApi = {
 
     return response.json() as Promise<{
       ids: string[];
-      aiReviewPersistence?: {
-        persistedStemIds: string[];
-        skipped: Array<{ stemId: string; reason: string }>;
-      };
+      statuses: Record<string, 'draft' | 'in_review'>;
     }>;
   },
 
@@ -1089,7 +1090,9 @@ function stemDetailToBundlePayload(
   };
 }
 
-function serializePayload(payload: UcatQuestionStemBundlePayload) {
+function serializePayload(
+  payload: UcatQuestionStemBundlePayload & { importStatus?: 'draft' | 'in_review' },
+) {
   return {
     stemId: payload.stemId ?? null,
     sectionId: payload.sectionId,
@@ -1098,6 +1101,7 @@ function serializePayload(payload: UcatQuestionStemBundlePayload) {
     accessScope: payload.accessScope,
     sourceChannel: payload.sourceChannel ?? null,
     tutorSourceNote: payload.tutorSourceNote ?? null,
+    ...(payload.importStatus ? { importStatus: payload.importStatus } : {}),
     questions: payload.questions.map((question) => ({
       index: question.index,
       id: question.id ?? null,

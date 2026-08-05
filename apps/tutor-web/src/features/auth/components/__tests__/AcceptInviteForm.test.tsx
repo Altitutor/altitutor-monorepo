@@ -19,6 +19,7 @@ jest.mock('@altitutor/ui', () => {
     SkeletonAuthCard: () => element('div', null, 'Loading'),
     Switch: ({ checked, onCheckedChange }: { checked?: boolean; onCheckedChange?: (value: boolean) => void }) =>
       element('input', { type: 'checkbox', checked, onChange: (event: React.ChangeEvent<HTMLInputElement>) => onCheckedChange?.(event.target.checked) }),
+    Textarea: (props: React.TextareaHTMLAttributes<HTMLTextAreaElement>) => element('textarea', props),
     validateOptionalPhoneE164: (value?: string) => value ? { phone: value } : { phone: null },
   };
 }, { virtual: true });
@@ -41,7 +42,7 @@ jest.mock('../../api/invites', () => ({
 const mockedValidateInvite = jest.mocked(invitesApi.validateInvite);
 
 describe('AcceptInviteForm', () => {
-  it('presents the four-step tutor onboarding journey with payroll handoff', async () => {
+  it('presents the five-step tutor onboarding journey with payroll handoff', async () => {
     mockedValidateInvite.mockResolvedValue({
       valid: true,
       type: 'staff',
@@ -87,5 +88,13 @@ describe('AcceptInviteForm', () => {
     });
     expect(screen.getByText('Payroll setup happens separately in QuickBooks')).toBeInTheDocument();
     expect(screen.getByText(/TFN, super fund and bank account details/)).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText('Birthday'), { target: { value: '1995-05-15' } });
+    fireEvent.change(screen.getByLabelText('Child-safe agreement number'), { target: { value: 'CSA-001' } });
+    fireEvent.click(screen.getByText(/I have read and agree/));
+    fireEvent.click(screen.getByRole('button', { name: 'Next' }));
+
+    expect(screen.getByRole('heading', { name: 'Your tutor profile' })).toBeInTheDocument();
+    expect(screen.getByLabelText('Profile picture')).toBeInTheDocument();
+    expect(screen.getByLabelText('Tutor bio')).toBeInTheDocument();
   });
 });

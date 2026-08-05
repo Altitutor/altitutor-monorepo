@@ -150,6 +150,12 @@ export function BulkImportReviewStemEditor({
 
   const sectionMeta = sections.find((section) => section.id === values.sectionId)
   const questionCount = values.questions?.length ?? 0
+  const aiReviewAvailable = Boolean(
+    aiReviewResult ||
+    aiReviewPhase !== 'idle' ||
+    onApproveAiFinding ||
+    onKeepAiFinding
+  )
 
   return (
     <UcatStemEditorShell
@@ -168,14 +174,14 @@ export function BulkImportReviewStemEditor({
       onActiveTextEditorChange={onActiveTextEditorChange}
       sourceChannel={sourceChannel ?? null}
       aiGenerationMetadata={aiGenerationMetadata ?? null}
-      aiReviewAvailable
-      bulkImportAiReview={{
+      aiReviewAvailable={aiReviewAvailable}
+      bulkImportAiReview={aiReviewAvailable ? {
         result: aiReviewResult,
         phase: aiReviewPhase,
         stale: aiReviewStale,
         onApproveFinding: onApproveAiFinding,
         onKeepFinding: onKeepAiFinding,
-      }}
+      } : undefined}
       className="flex h-full min-h-0 overflow-hidden"
     />
   )

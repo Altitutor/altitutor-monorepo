@@ -25,6 +25,8 @@ type AssessmentStemRow = Pick<
   | 'status_changed_at'
   | 'status_changed_by'
   | 'updated_by'
+  | 'updated_at'
+  | 'tutor_source_note'
   | 'access_scope'
   | 'stem_text'
 >
@@ -48,6 +50,8 @@ type AssessmentQuestionRow = Pick<
   | 'difficulty'
   | 'time_burden_seconds'
   | 'question_type'
+  | 'source_channel'
+  | 'ai_generation_metadata'
 >
 
 type AssessmentOptionRow = Pick<
@@ -233,7 +237,7 @@ async function loadAssessmentDetailRow(
   const source = client as SupabaseAny
   const { data: stemData, error: stemError } = await source
     .from('question_stems')
-    .select('id,section_id,question_stem_category_id,status,source_channel,status_changed_at,status_changed_by,updated_by,access_scope,stem_text')
+    .select('id,section_id,question_stem_category_id,status,source_channel,status_changed_at,status_changed_by,updated_by,updated_at,tutor_source_note,access_scope,stem_text')
     .eq('id', stemId)
     .is('deleted_at', null)
     .maybeSingle()
@@ -257,7 +261,7 @@ async function loadAssessmentDetailRow(
     categoryPromise,
     source
       .from('ucat_questions')
-      .select('id,question_text,answer_explanation,index,difficulty,time_burden_seconds,question_type')
+      .select('id,question_text,answer_explanation,index,difficulty,time_burden_seconds,question_type,source_channel,ai_generation_metadata')
       .eq('question_stem_id', stem.id)
       .is('deleted_at', null),
   ])
@@ -344,12 +348,14 @@ export function compactUcatAssessmentSnapshot(snapshot: UcatAssessmentSnapshot):
   }
 }
 
-export async function loadUcatAssessmentSnapshot(
-  client: SupabaseClient<Database>,
-  stemId: string,
-): Promise<UcatAssessmentSnapshot | null> {
-  const row = await loadAssessmentDetailRow(client, stemId)
-  if (!row) return null
+export function ucatAssessmentSnapshotFromDetailRow(
+  value: unknown,
+  stemIdOverride?: string,
+): UcatAssessmentSnapshot | null {
+  if (!isRecord(value)) return null
+  const row = value
+  const stemId = stemIdOverride ?? (typeof row.id === 'string' ? row.id : null)
+  if (!stemId) return null
   const rawQuestions = Array.isArray(row.questions) ? row.questions.filter(isRecord) : []
   const questions = rawQuestions
     .filter((question) => !question.deleted_at)
@@ -391,6 +397,15 @@ export async function loadUcatAssessmentSnapshot(
         answerExplanation,
         answerExplanationPlain: richTextPlain(answerExplanation),
         questionType: question.question_type === 'syllogism' ? 'syllogism' as const : 'multiple_choice' as const,
+        sourceChannel:
+          question.source_channel === 'ai_generation'
+            ? 'ai_generation' as const
+            : question.source_channel === 'bulk_import'
+              ? 'bulk_import' as const
+              : question.source_channel === 'individual'
+                ? 'individual' as const
+                : null,
+        aiGenerationMetadata: (question.ai_generation_metadata ?? null) as Json | null,
         difficulty: Number.isFinite(Number(question.difficulty)) ? Number(question.difficulty) : null,
         timeBurdenSeconds: Number.isFinite(Number(question.time_burden_seconds))
           ? Number(question.time_burden_seconds)
@@ -420,6 +435,8 @@ export async function loadUcatAssessmentSnapshot(
     statusChangedAt: typeof row.status_changed_at === 'string' ? row.status_changed_at : null,
     statusChangedBy: typeof row.status_changed_by === 'string' ? row.status_changed_by : null,
     updatedBy: typeof row.updated_by === 'string' ? row.updated_by : null,
+    updatedAt: typeof row.updated_at === 'string' ? row.updated_at : null,
+    tutorSourceNote: typeof row.tutor_source_note === 'string' ? row.tutor_source_note : null,
     sectionId: String(row.section_id ?? ''),
     sectionName: String(row.section_name ?? ''),
     sectionNumber: Number(row.section_number ?? 0),
@@ -432,6 +449,14 @@ export async function loadUcatAssessmentSnapshot(
     images: collectAssessmentImages(stemText, 'stem:stem_text'),
     questions,
   }
+}
+
+export async function loadUcatAssessmentSnapshot(
+  client: SupabaseClient<Database>,
+  stemId: string,
+): Promise<UcatAssessmentSnapshot | null> {
+  const row = await loadAssessmentDetailRow(client, stemId)
+  return ucatAssessmentSnapshotFromDetailRow(row, stemId)
 }
 
 export function fingerprintUcatAssessmentSnapshot(snapshot: UcatAssessmentSnapshot): UcatAssessmentFingerprints {

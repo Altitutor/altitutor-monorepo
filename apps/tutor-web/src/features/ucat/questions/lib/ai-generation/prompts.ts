@@ -1,3 +1,5 @@
+import { buildUcatExplanationPolicy } from '@/features/ucat/questions/lib/ai-generation/explanation-rubric'
+
 export type AiGenerationSectionKey =
   | 'verbal_reasoning'
   | 'decision_making'
@@ -9,12 +11,7 @@ export const AI_GENERATION_SYSTEM_PROMPT = `You generate UCAT ANZ tutor-review d
 
 Return JSON only. Do not include markdown or prose outside the JSON object.
 Write in Australian English and in the style of official UCAT practice material: concise stems, ordinary real-world contexts, precise wording, plausible distractors, and no teaching-style scaffolding.
-For multiple-choice questions, include one non-empty, student-facing question-level answerExplanation. Option-level answerExplanation values are optional and should be included only when they teach a useful option-specific mistake without duplicating the question-level explanation.
-For syllogism questions, include a non-empty answerExplanation for every Yes/No statement. A question-level answerExplanation is optional and should be included only when it teaches a useful strategy, technique, or shortcut without duplicating the option-level explanations.
-Across the useful question-level and option-level explanations, justify why the correct answer is correct and why the main distractors fail.
-When writing answer explanations, act as a tutor teaching the student how to solve the question, not as a question writer justifying an answer key.
-Explanations must teach an efficient timed-test method, not merely report the result. Name or demonstrate a useful representation such as a table, ordered list, diagram, equation, elimination grid, or annotated evidence when it genuinely helps. If the explanation relies on a table, grid, diagram, or list, include that representation as structured content blocks in the applicable question-level or option-level explanation.
-Make explanations easy to scan using short paragraphs, list blocks, or table blocks where relevant. Include useful shortcuts, traps to watch for, and for genuinely high time-burden questions advise the student to recognise the burden, skip, and return later if time permits.
+Follow the explanationPolicy supplied in the user payload for all student-facing explanations. It is the canonical teaching and presentation standard.
 Do not copy sample stems, distinctive premises, data relationships, names, or near-exact wording. Use examples only to calibrate style, length, difficulty, and answer format.
 Avoid generic AI prose and punctuation habits. Do not use em dashes, double hyphens, canned headings, false starts, self-correction, or phrases such as "it is important to note".`
 
@@ -100,6 +97,7 @@ export function buildAiGenerationUserPrompt(input: {
       category: input.categoryName,
       stemCount: input.stemCount,
       sectionRules: input.sectionPrompt,
+      explanationPolicy: buildUcatExplanationPolicy({ sectionName: input.sectionName }),
       requirements: [
         'Return exactly stemCount stems.',
         'Multiple-choice questions: answerExplanation must be non-empty and every option answerExplanation must be null.',
@@ -294,6 +292,7 @@ export function buildWriterPrompt(input: AiGenerationBrief & { plan: unknown }):
       },
       plan: input.plan,
       sectionRules: getAiGenerationSectionPrompt(sectionNameToAiGenerationKey(input.sectionName)),
+      explanationPolicy: buildUcatExplanationPolicy({ sectionName: input.sectionName }),
       layeredInstructions: layeredInstructions(input),
       sourceExamplesForCalibrationOnly: input.examples,
       presentationReferenceForSourceFormat: input.presentationReference ?? null,
@@ -388,17 +387,8 @@ export function buildWriterPrompt(input: AiGenerationBrief & { plan: unknown }):
           : []),
         'In questionText, wrap decisive logical qualifiers such as MUST, CANNOT, COULD, EXCEPT, NOT, ALWAYS, LEAST, MOST, TRUE, and FALSE in **bold markers** and capitalize them. Do not bold ordinary words.',
         'Do not copy selected source examples, scenario premises, distinctive data relationships, or near-exact wording.',
-        'Every multiple_choice question must have exactly one isAnswer=true option and one non-empty question-level answerExplanation.',
-        'For multiple_choice options, include answerExplanation only when it would help a student who selected that option understand a specific mistake or when it adds useful detail beyond the question-level explanation. Otherwise set it to null.',
-        'Every syllogism option must have answerExplanation explaining why the answer is Yes or No.',
-        'For syllogism questions, include a question-level answerExplanation only when it teaches a useful strategy, technique, or shortcut that is not already covered by the option-level explanations. Otherwise set it to null.',
-        'DM and QR explanations must act as a helpful tutor and step the student through the shortest efficient method. Use short paragraphs, calculations, compact lists, tables, elimination grids, or ordered slots when they materially help.',
-        'QR explanations should explain calculator use where relevant, prefer mental maths when it is faster than calculator entry, and use plus-or-minus estimation when it is accurate enough to identify the correct option.',
-        'VR explanations should identify the specific passage evidence to read, using paragraph numbers whenever applicable, and teach the student how to locate and interpret it.',
-        'Across the question-level and any useful option-level explanations, explain why the correct answer is correct and why the material distractors are wrong without duplicating the same explanation.',
-        'Use short paragraphs, list blocks, or table blocks in explanations so they are easy to read. Include useful shortcuts and common traps where relevant.',
-        'Only for a very difficult or time-consuming question where skipping would be the better real-exam decision, include a brief note advising the student to skip and return later. Do not add this advice routinely.',
-        'Use Australian English spelling and clean human editorial prose. Do not use em dashes, double hyphens, canned AI transitions, or self-referential commentary.',
+        'Follow explanationPolicy for explanation location, teaching content, presentation, and maths formatting.',
+        'Every multiple_choice question must have exactly one isAnswer=true option.',
       ],
       outputShape: {
         stems: [

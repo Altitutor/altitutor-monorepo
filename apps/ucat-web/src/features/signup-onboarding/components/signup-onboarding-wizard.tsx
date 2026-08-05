@@ -169,7 +169,7 @@ export function SignupOnboardingWizard({
       ? "Checkout cancelled. Pick a plan or continue on Free."
       : null,
   );
-  const checkoutConfirmationStarted = useRef(false);
+  const paidSignupCompletionStarted = useRef(false);
   const postCompleteNavigationStarted = useRef(false);
   const planHandoffStartedAt = useRef<number | null>(
     checkoutReturnedSuccessfully ? Date.now() : null,
@@ -230,6 +230,34 @@ export function SignupOnboardingWizard({
       );
     }
   }, [navigateAfterSignupComplete]);
+
+  const completePaidSignup = useCallback(
+    async (activationTier: "unlimited" | "unlimited_trial" | null) => {
+      try {
+        await patchSignupProgress({ planComplete: true });
+        await patchSignupProgress({ complete: true });
+
+        if (activationTier) {
+          captureUcatEvent("subscription_activated", {
+            plan_tier: activationTier,
+            activation_type: "new_subscription",
+            journey_context: "signup_onboarding",
+          });
+        }
+
+        setSignupSuccessError(null);
+        postCompleteNavigationStarted.current = false;
+        await navigateAfterSignupComplete();
+      } catch (e) {
+        paidSignupCompletionStarted.current = false;
+        postCompleteNavigationStarted.current = false;
+        setSignupSuccessError(
+          e instanceof Error ? e.message : "Please try again.",
+        );
+      }
+    },
+    [navigateAfterSignupComplete],
+  );
 
   // App Router client cache can remount this page with a stale RSC `initial.step`
   // (e.g. password) after the user had already advanced client-side to plan.
@@ -303,7 +331,7 @@ export function SignupOnboardingWizard({
       signupSuccessJourney !== "paid" ||
       signupSuccessPhase !== "confirming" ||
       access.isLoading ||
-      checkoutConfirmationStarted.current
+      paidSignupCompletionStarted.current
     ) {
       return;
     }
@@ -312,35 +340,17 @@ export function SignupOnboardingWizard({
       access.onlineTier === "unlimited_trial";
     if (!isPaid) return;
 
-    checkoutConfirmationStarted.current = true;
-    void (async () => {
-      try {
-        await patchSignupProgress({ planComplete: true });
-        await patchSignupProgress({ complete: true });
-
-        captureUcatEvent("subscription_activated", {
-          plan_tier: access.onlineTier,
-          activation_type: "new_subscription",
-          journey_context: "signup_onboarding",
-        });
-
-        setSignupSuccessError(null);
-        postCompleteNavigationStarted.current = false;
-        await navigateAfterSignupComplete();
-      } catch (e) {
-        checkoutConfirmationStarted.current = false;
-        postCompleteNavigationStarted.current = false;
-        setSignupSuccessError(
-          e instanceof Error ? e.message : "Please try again.",
-        );
-      }
-    })();
+    paidSignupCompletionStarted.current = true;
+    void completePaidSignup(
+      access.onlineTier === "unlimited_trial" ? "unlimited_trial" : "unlimited",
+    );
   }, [
     signupSuccessJourney,
     signupSuccessPhase,
     checkoutConfirmationAttempt,
     access.isLoading,
     access.onlineTier,
+    completePaidSignup,
     navigateAfterSignupComplete,
   ]);
 
@@ -361,6 +371,18 @@ export function SignupOnboardingWizard({
     void completeFreeSignup();
   };
 
+  const finishPaidOnboarding = () => {
+    setError(null);
+    router.prefetch(returnTo);
+    setSignupSuccessJourney("paid");
+    planHandoffStartedAt.current = Date.now();
+    setSignupSuccessTakingLonger(false);
+    setSignupSuccessError(null);
+    setSignupSuccessPhase("confirming");
+    paidSignupCompletionStarted.current = true;
+    void completePaidSignup(null);
+  };
+
   const handlePasswordComplete = async () => {
     if (planIntent && giftQuery.isSuccess && !giftQuery.data.pendingGift) {
       await patchSignupProgress({ step: SIGNUP_STEP.PLAN });
@@ -373,6 +395,10 @@ export function SignupOnboardingWizard({
 
   const handlePlanComplete = () => {
     finishOnboarding();
+  };
+
+  const handleCurrentPlanComplete = () => {
+    finishPaidOnboarding();
   };
 
   const pendingGift = giftQuery.data?.pendingGift ?? null;
@@ -392,10 +418,15 @@ export function SignupOnboardingWizard({
             void completeFreeSignup();
             return;
           }
-          checkoutConfirmationStarted.current = false;
-          setSignupSuccessTakingLonger(false);
-          setCheckoutConfirmationAttempt((current) => current + 1);
-          void queryClient.invalidateQueries({ queryKey: ["ucat-access"] });
+          if (checkoutReturnedSuccessfully) {
+            paidSignupCompletionStarted.current = false;
+            setSignupSuccessTakingLonger(false);
+            setCheckoutConfirmationAttempt((current) => current + 1);
+            void queryClient.invalidateQueries({ queryKey: ["ucat-access"] });
+          } else {
+            paidSignupCompletionStarted.current = true;
+            void completePaidSignup(null);
+          }
         }}
         onComplete={goToReturnIntent}
       />
@@ -493,6 +524,7 @@ export function SignupOnboardingWizard({
               {step === SIGNUP_STEP.PLAN ? (
                 <SignupCompletePlanStep
                   onComplete={handlePlanComplete}
+                  onContinueCurrentPlan={handleCurrentPlanComplete}
                   returnTo={planIntent ? "/dashboard" : returnTo}
                 />
               ) : null}

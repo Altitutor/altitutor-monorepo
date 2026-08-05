@@ -78,6 +78,7 @@ type LoadingKey = UcatPaidPlanTier | "free";
 
 type UsePlanPickerOptions = {
   onContinueFree?: () => void;
+  onContinueCurrentPlan?: () => void;
   onCheckoutStart?: () => void;
   onDowngradeNavigate?: () => void;
   /** Marketing surfaces send users to signup instead of checkout */
@@ -307,6 +308,10 @@ export function usePlanPicker(options: UsePlanPickerOptions = {}) {
     await handleContinueFree();
   };
 
+  const handleContinueCurrentPlan = () => {
+    options.onContinueCurrentPlan?.();
+  };
+
   const billedAt = (periodCents: number) =>
     billedAtLabel(periodCents, billingInterval, formatMoney);
 
@@ -444,6 +449,7 @@ export function usePlanPicker(options: UsePlanPickerOptions = {}) {
     showBillingIntervalSelector,
     isPricingLoading,
     freeIsCurrentPlan,
+    needsOnboarding,
     isOnPaid,
     isOnUnlimited: isOnUnlimitedTier,
     cancellationOpen,
@@ -475,6 +481,7 @@ export function usePlanPicker(options: UsePlanPickerOptions = {}) {
     freeQuotaAreas: FREE_QUOTA_AREAS,
     formatFreeQuotaLine,
     handleFreePlanAction,
+    handleContinueCurrentPlan,
     handleOnlineSubscribe,
     canDowngradeTo,
     handleDowngrade,

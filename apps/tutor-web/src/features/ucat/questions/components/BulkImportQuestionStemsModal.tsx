@@ -40,7 +40,7 @@ import {
   type ParsingOptions,
   type PasteTableBehavior,
 } from '@/features/ucat/questions/components/bulk-import/Step2PasteDocument'
-import { Step3SetAnswers } from '@/features/ucat/questions/components/bulk-import/Step3SetAnswers'
+import { BulkImportReadinessReview } from '@/features/ucat/questions/components/bulk-import/BulkImportReadinessReview'
 import {
   Step4CreateSet,
   type AddToSetConfig,
@@ -91,14 +91,13 @@ import {
 import { UcatRichTextToolbar } from '@/features/ucat/shared/components/UcatRichTextToolbar'
 import { BulkImportFormattingWarnings } from '@/features/ucat/questions/components/bulk-import/BulkImportFormattingWarnings'
 import { lintBulkImportFormatting } from '@/features/ucat/questions/components/bulk-import/bulkImportFormattingLint'
-import type { BulkImportAiReviewSubmission } from '@/features/ucat/questions/lib/bulk-import-ai-review'
-import { useBulkImportReviewController } from '@/features/ucat/questions/hooks/useBulkImportReviewController'
+import { runBulkImportDeterministicReview } from '@/features/ucat/questions/components/bulk-import/bulkImportDeterministicReview'
+import { useBulkImportDecisions } from '@/features/ucat/questions/hooks/useBulkImportDecisions'
+import { useBulkImportDuplicateAnalysis } from '@/features/ucat/questions/hooks/useBulkImportDuplicateAnalysis'
 
 export type BulkImportSubmitArgs = {
   sectionId: string
-  stems: BulkImportStemDraft[]
-  aiReviews?: BulkImportAiReviewSubmission[]
-  duplicateDismissals?: Array<{ stemIdA: string; stemIdB: string }>
+  stems: Array<BulkImportStemDraft & { importStatus: 'draft' | 'in_review' }>
   tutorSourceNote: string | null
   addToSet: AddToSetConfig | null
 }
@@ -233,11 +232,30 @@ export function BulkImportQuestionStemsModal({
 
   const totalStepsResolved = getBulkImportTotalSteps(separateStemDocument, includeSyllogismManualStep)
   const stepKind = getBulkImportStepKind(step, separateStemDocument, includeSyllogismManualStep)
-  const reviewController = useBulkImportReviewController({
+  const readinessByStemId = useMemo(() => Object.fromEntries(
+    wizard.state.stems.map((stem) => {
+      const review = runBulkImportDeterministicReview({
+        values: stem.values,
+        sectionName: sections.find((section) => section.id === stem.values.sectionId)?.name,
+        categoryName: categoryOptions.find((category) => category.id === stem.values.categoryId)?.name,
+      })
+      return [stem.id, { ...review, stemId: stem.id }]
+    })
+  ), [categoryOptions, sections, wizard.state.stems])
+  const importEligibilityByStemId = useMemo(() => Object.fromEntries(
+    Object.entries(readinessByStemId).map(([id, review]) => [
+      id,
+      { eligibleForInReview: !review.hasHardFailures },
+    ])
+  ), [readinessByStemId])
+  const duplicateAnalysis = useBulkImportDuplicateAnalysis(
+    wizard.state.stems,
+    stepKind === 'review',
+  )
+  const importDecisions = useBulkImportDecisions({
     stems: wizard.state.stems,
-    sections,
-    categories: categoryOptions,
-    onUpdateStem: wizard.updateStemForm,
+    readinessByStemId: importEligibilityByStemId,
+    defaultExcludedStemIds: duplicateAnalysis.duplicateStemIds,
   })
 
   const wipeDownstreamFromStems = useCallback(() => {
@@ -246,9 +264,10 @@ export function BulkImportQuestionStemsModal({
     setPastedAnswersJson(null)
     setSyllogismManualTargets([])
     setSyllogismManualStepIncluded(false)
-    reviewController.resetReview()
+    importDecisions.reset()
+    duplicateAnalysis.reset()
     wizard.reset()
-  }, [reviewController, wizard])
+  }, [duplicateAnalysis, importDecisions, wizard])
 
   const wipeDownstreamFull = useCallback(() => {
     setPastedContent(null)
@@ -319,7 +338,8 @@ export function BulkImportQuestionStemsModal({
     setSyllogismManualStepIncluded(false)
     setActiveTextEditor(null)
     step2NewImageFileIdsRef.current = new Set()
-    reviewController.resetReview()
+    importDecisions.reset()
+    duplicateAnalysis.reset()
     wizard.reset()
     // eslint-disable-next-line react-hooks/exhaustive-deps -- reset only when modal closes
   }, [open])
@@ -329,25 +349,6 @@ export function BulkImportQuestionStemsModal({
       setActiveTextEditor(null)
     }
   }, [stepKind])
-
-  useEffect(() => {
-    if (
-      stepKind === 'review'
-      && wizard.state.stems.length > 0
-      && !reviewController.hasDuplicateAnalysisRun
-      && reviewController.duplicateStatus !== 'running'
-    ) {
-      const timeout = window.setTimeout(() => {
-        void reviewController.runDuplicateAnalysis()
-      }, 500)
-      return () => window.clearTimeout(timeout)
-    }
-    return undefined
-  }, [
-    reviewController,
-    stepKind,
-    wizard.state.stems.length,
-  ])
 
   const handleStep2ImageFileIds = useCallback((fileIds: string[]) => {
     fileIds.forEach((id) => step2NewImageFileIdsRef.current.add(id))
@@ -552,12 +553,12 @@ export function BulkImportQuestionStemsModal({
         setParseError(
           `No valid stems and questions were detected. Please check the formatting.${ocrMessage}`
         )
-        reviewController.resetReview()
+        importDecisions.reset()
         wizard.setStems([])
         setSyllogismManualTargets([])
         return { ok: false }
       }
-      reviewController.resetReview()
+      importDecisions.reset()
       const drafts = wizard.setStems(forms)
       const manualTargets = collectSyllogismManualEntryTargets(drafts)
       setSyllogismManualTargets(manualTargets)
@@ -576,7 +577,7 @@ export function BulkImportQuestionStemsModal({
       setParseError(
         error instanceof Error ? error.message : 'Failed to parse the pasted document.'
       )
-      reviewController.resetReview()
+      importDecisions.reset()
       wizard.setStems([])
       return { ok: false }
     }
@@ -596,17 +597,17 @@ export function BulkImportQuestionStemsModal({
       )
       if (forms.length === 0) {
         setParseError('No valid stems and questions were detected.')
-        reviewController.resetReview()
+        importDecisions.reset()
         wizard.setStems([])
         return { ok: false }
       }
-      reviewController.resetReview()
+      importDecisions.reset()
       const drafts = wizard.setStems(forms)
       setParseError(null)
       return { ok: true, drafts }
     } catch (error) {
       setParseError(error instanceof Error ? error.message : 'Failed to parse per-stem questions.')
-      reviewController.resetReview()
+      importDecisions.reset()
       wizard.setStems([])
       return { ok: false }
     }
@@ -724,14 +725,8 @@ export function BulkImportQuestionStemsModal({
 
   async function handleImportAll() {
     if (!sectionId) return
-    if (reviewController.includedStems.length === 0) {
+    if (importDecisions.selectedStems.length === 0) {
       setParseError('No parsed stems available to import.')
-      return
-    }
-    if (reviewController.hasHardFailures) {
-      setParseError(
-        'Resolve or exclude the deterministic gate failures before importing. AI review remains optional.'
-      )
       return
     }
     if (addToSetEnabled && !addToSetConfig) {
@@ -757,38 +752,11 @@ export function BulkImportQuestionStemsModal({
     }
 
     try {
-      if (reviewController.aiStatus === 'running') reviewController.cancelAiReview()
       setStatus('submitting')
       setSubmitError(null)
-      const aiReviews = reviewController.includedStems.flatMap((stem) => {
-        if (reviewController.staleAiStemIds.has(stem.id)) return []
-        const result = reviewController.aiResultsByStemId[stem.id]
-        if (
-          !result
-          || result.error
-          || !result.fingerprints
-          || !result.assessment
-          || !result.blindSolution
-          || !result.reviewToken
-        ) return []
-        return [{
-          draftStemId: stem.id,
-          promptVersion: result.promptVersion,
-          fingerprints: result.fingerprints,
-          assessment: result.assessment,
-          blindSolution: result.blindSolution,
-          provenance: result.provenance,
-          reviewToken: result.reviewToken,
-          decisions: (reviewController.keptFindingKeysByStemId[stem.id] ?? []).map(
-            (findingKey) => ({ findingKey, decision: 'dismissed' as const })
-          ),
-        } satisfies BulkImportAiReviewSubmission]
-      })
       await onSubmit({
         sectionId,
-        stems: reviewController.includedStems,
-        aiReviews,
-        duplicateDismissals: reviewController.duplicateDismissals,
+        stems: importDecisions.selectedStems,
         tutorSourceNote: tutorSourceNote.trim() || null,
         addToSet: addToSetEnabled ? addToSetConfig : null,
       })
@@ -820,7 +788,7 @@ export function BulkImportQuestionStemsModal({
           </div>
           <div className="text-lg font-semibold">Bulk import completed</div>
           <p className="text-sm text-muted-foreground">
-            All question stems have been created and sent to In review.
+            Question stems were imported to their selected destinations.
           </p>
         </div>
       )
@@ -980,7 +948,7 @@ export function BulkImportQuestionStemsModal({
 
     if (stepKind === 'review') {
       return (
-        <Step3SetAnswers
+        <BulkImportReadinessReview
           stems={wizard.state.stems}
           categories={categoryOptions}
           sections={sections.map((s) => ({
@@ -991,9 +959,15 @@ export function BulkImportQuestionStemsModal({
           tags={tagOptions}
           onUpdateStem={wizard.updateStemForm}
           onNewImageFileIds={handleStep2ImageFileIds}
-          sourceChannel="bulk_import"
           onActiveTextEditorChange={setActiveTextEditor}
-          reviewController={reviewController}
+          readinessByStemId={readinessByStemId}
+          decisions={importDecisions.decisions}
+          onDecisionChange={importDecisions.setDecision}
+          onSetAll={importDecisions.setAll}
+          duplicateFindings={duplicateAnalysis.findings}
+          duplicateStatus={duplicateAnalysis.status}
+          duplicateError={duplicateAnalysis.error}
+          onRetryDuplicateAnalysis={() => void duplicateAnalysis.run()}
         />
       )
     }
@@ -1008,13 +982,6 @@ export function BulkImportQuestionStemsModal({
             onAddToSetConfigChange={setAddToSetConfig}
             onEditSet={onEditSet}
           />
-          {reviewController.hasHardFailures ? (
-            <div className="rounded-md border border-destructive/40 bg-destructive/5 px-3 py-2 text-sm text-destructive">
-              {reviewController.hardFailures.length} deterministic gate{' '}
-              {reviewController.hardFailures.length === 1 ? 'failure must' : 'failures must'} be
-              fixed or excluded before import. Go back to Review to use the Fix actions.
-            </div>
-          ) : null}
         </div>
       )
     }
@@ -1192,8 +1159,7 @@ export function BulkImportQuestionStemsModal({
                 onClick={handleImportAll}
                 disabled={
                   status === 'submitting' ||
-                  reviewController.includedStems.length === 0 ||
-                  reviewController.hasHardFailures ||
+                  importDecisions.selectedStems.length === 0 ||
                   (addToSetEnabled && !addToSetConfig) ||
                   (addToSetEnabled &&
                     addToSetConfig?.mode === 'create' &&
@@ -1205,7 +1171,7 @@ export function BulkImportQuestionStemsModal({
                       addToSetConfig.timeLimitSeconds <= 0))
                 }
               >
-                {reviewController.aiStatus === 'running' ? 'Import without waiting' : 'Import stems'}
+                Import stems
               </Button>
             ) : (
               <Button onClick={handleRequestClose}>Close</Button>

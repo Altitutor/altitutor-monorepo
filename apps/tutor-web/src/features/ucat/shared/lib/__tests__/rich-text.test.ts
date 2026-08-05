@@ -149,6 +149,38 @@ describe("aiTextToProseMirror", () => {
     });
   });
 
+  it("normalizes bare maths commands while preserving currency and delimited maths", () => {
+    const result = aiTextToProseMirror([
+      "Use the calculator:",
+      "",
+      "$4.2 \\div 1.05 = $4.0",
+      "",
+      "Check with \\(4.2 \\div 1.05 = 4\\).",
+    ].join("\n"));
+
+    expect(result).toEqual({
+      type: "doc",
+      content: [
+        {
+          type: "paragraph",
+          content: [{ type: "text", text: "Use the calculator:" }],
+        },
+        {
+          type: "paragraph",
+          content: [{ type: "text", text: "$4.2 ÷ 1.05 = $4.0" }],
+        },
+        {
+          type: "paragraph",
+          content: [
+            { type: "text", text: "Check with " },
+            { type: "inlineMath", attrs: { latex: "4.2 \\div 1.05 = 4" } },
+            { type: "text", text: "." },
+          ],
+        },
+      ],
+    });
+  });
+
   it("preserves mathematics when extracting assessment plain text", () => {
     expect(proseMirrorToPlainText({
       type: "doc",
@@ -254,6 +286,21 @@ describe("aiTextToProseMirror", () => {
       ],
     });
   });
+
+  it("continues ordered working across blank lines and a displayed calculation", () => {
+    const result = aiTextToProseMirror([
+      "1. Find the relevant values.",
+      "",
+      "1. Calculate the proportion.",
+      "\\[18 \\div 56 \\approx 32\\%\\]",
+      "1. Compare it with one third.",
+    ].join("\n")) as { content?: Array<{ type?: string; attrs?: { start?: number } }> };
+
+    expect(result.content
+      ?.filter((node) => node.type === "orderedList")
+      .map((node) => node.attrs?.start)).toEqual([1, 2, 3]);
+  });
+
 });
 
 describe("stripOuterTablesFromProseMirrorDoc", () => {

@@ -23,6 +23,7 @@ import { CollapsibleHeading } from '../extensions/collapsible-heading';
 import { ExternalVideoExtension } from '../extensions/external-video';
 import { ImageSelectionHighlight } from '../extensions/image-selection-highlight';
 import { SlashCommandExtension } from '../extensions/slash-command';
+import { OMIT_TYPOGRAPHY_HEADING_CLASSNAME } from './rich-text-editor-styles';
 import type { JSONContent } from '@tiptap/core';
 import type { SuggestionOptions } from '@tiptap/suggestion';
 import { useEffect, useRef, useImperativeHandle, forwardRef, useCallback } from 'react';
@@ -852,10 +853,8 @@ export const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>
             ? [
                 /* Inherit parent color so white UCAT exam chrome stays readable in dark mode */
                 'max-w-none focus:outline-none text-inherit text-sm not-prose',
-                /* [&_.ProseMirror_*] not [&_*]: classes are on view.dom; [&_p] etc. break bulk-import highlight spans */
-                '[&_.ProseMirror_h1]:text-2xl [&_.ProseMirror_h2]:text-xl [&_.ProseMirror_h3]:text-lg',
-                '[&_.ProseMirror_h1]:font-semibold [&_.ProseMirror_h2]:font-semibold [&_.ProseMirror_h3]:font-semibold [&_.ProseMirror_h3]:tracking-tight',
-                '[&_.ProseMirror_h1]:mt-7 [&_.ProseMirror_h1]:mb-1.5 [&_.ProseMirror_h2]:mt-6 [&_.ProseMirror_h2]:mb-1 [&_.ProseMirror_h3]:mt-5 [&_.ProseMirror_h3]:mb-1',
+                /* These classes are on view.dom (.ProseMirror), so target its heading children directly. */
+                OMIT_TYPOGRAPHY_HEADING_CLASSNAME,
                 '[&_.ProseMirror_p]:my-2 [&_.ProseMirror_ul]:my-2 [&_.ProseMirror_ol]:my-2',
                 '[&_.ProseMirror_li]:my-1',
                 '[&_.ProseMirror_li_ol]:mt-2 [&_.ProseMirror_li_ul]:mt-2',
@@ -898,9 +897,6 @@ export const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>
           '[&_p.is-empty.is-editor-empty:first-child::before]:!visible',
           '[&_.ProseMirror_ul>li>p:empty]:min-h-[1.5em]',
           '[&_.ProseMirror_ol>li>p:empty]:min-h-[1.5em]',
-          '[&_.ProseMirror_h1:empty]:min-h-[2em]',
-          '[&_.ProseMirror_h2:empty]:min-h-[1.75em]',
-          '[&_.ProseMirror_h3:empty]:min-h-[1.5em]',
           className
         ),
         'data-placeholder': placeholder,
