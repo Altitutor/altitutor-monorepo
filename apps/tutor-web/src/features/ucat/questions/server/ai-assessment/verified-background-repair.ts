@@ -225,6 +225,28 @@ export function backgroundRepairPatchAllowed(params: {
     return true
   }
   const questionId = patchQuestionId(patch, params.snapshot)
+  if (patch.operation === 'set_metadata' && patch.targetKind === 'question') {
+    const question = params.snapshot.questions.find((item) => item.id === patch.targetId)
+    if (!question) return false
+    if (patch.field === 'difficulty') {
+      return (question.difficulty == null || question.difficulty === 0)
+        && typeof patch.after === 'number'
+        && patch.after > 0
+        && patch.after <= 1
+    }
+    if (patch.field === 'time_burden_seconds') {
+      return (question.timeBurdenSeconds == null || question.timeBurdenSeconds <= 0)
+        && typeof patch.after === 'number'
+        && Number.isInteger(patch.after)
+        && patch.after > 0
+    }
+    if (patch.field === 'tag_ids') {
+      return question.tagIds.length === 0
+        && Array.isArray(patch.after)
+        && patch.after.length > 0
+        && patch.after.every((tagId) => typeof tagId === 'string')
+    }
+  }
   const relevantCodes = params.formatChecks
     .filter((check) => check.severity === 'error')
     .filter((check) => questionId

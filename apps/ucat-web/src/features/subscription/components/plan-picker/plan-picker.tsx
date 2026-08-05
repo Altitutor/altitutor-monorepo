@@ -28,6 +28,7 @@ type PlanPickerProps = {
   variant?: "page" | "dialog" | "onboarding";
   className?: string;
   onContinueFree?: () => void;
+  onContinueCurrentPlan?: () => void;
   onCheckoutStart?: () => void;
   onDowngradeNavigate?: () => void;
   /** Light selector for cream marketing backgrounds */
@@ -94,6 +95,7 @@ export function PlanPicker({
   variant = "page",
   className,
   onContinueFree,
+  onContinueCurrentPlan,
   onCheckoutStart,
   onDowngradeNavigate,
   selectorTheme,
@@ -112,6 +114,7 @@ export function PlanPicker({
 
   const picker = usePlanPicker({
     onContinueFree,
+    onContinueCurrentPlan,
     onCheckoutStart,
     onDowngradeNavigate,
     audience,
@@ -128,6 +131,7 @@ export function PlanPicker({
     showBillingIntervalSelector,
     isPricingLoading,
     freeIsCurrentPlan,
+    needsOnboarding,
     isOnPaid,
     isOnUnlimited,
     paidCta,
@@ -140,6 +144,7 @@ export function PlanPicker({
     freeQuotaAreas,
     formatFreeQuotaLine,
     handleFreePlanAction,
+    handleContinueCurrentPlan,
     handleOnlineSubscribe,
     canDowngradeTo,
     handleDowngrade,
@@ -199,6 +204,8 @@ export function PlanPicker({
     !unlimitedIsCurrentPlan;
   const showFreeCta =
     showFree && (freeIsDowngrade || !(isOnPaid && audience === "app"));
+  const currentPaidPlanActionable =
+    Boolean(onContinueCurrentPlan) && needsOnboarding;
 
   const cardGridVariants = useMemo(
     () => ({
@@ -493,22 +500,27 @@ export function PlanPicker({
               variant="proAccent"
               surfaceTheme={surfaceTheme}
               isCurrentPlan={unlimitedIsCurrentPlan}
+              currentPlanActionable={currentPaidPlanActionable}
               isDowngrade={unlimitedIsDowngrade}
               disabled={
                 !unlimitedIsDowngrade &&
                 (isPricingLoading ||
                   loadingPlan !== null ||
-                  !unlimitedTierOffered ||
-                  !unlimitedAvailable)
+                  (!unlimitedIsCurrentPlan &&
+                    (!unlimitedTierOffered || !unlimitedAvailable)))
               }
               onClick={() =>
                 void (unlimitedIsDowngrade
                   ? handleDowngrade("unlimited")
-                  : handleOnlineSubscribe("unlimited"))
+                  : unlimitedIsCurrentPlan
+                    ? handleContinueCurrentPlan()
+                    : handleOnlineSubscribe("unlimited"))
               }
             >
               {unlimitedIsCurrentPlan
-                ? "Your current plan"
+                ? currentPaidPlanActionable
+                  ? "Continue with Unlimited"
+                  : "Your current plan"
                 : unlimitedIsDowngrade
                   ? "Downgrade"
                   : isPricingLoading

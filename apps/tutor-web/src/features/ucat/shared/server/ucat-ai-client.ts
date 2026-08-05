@@ -47,7 +47,13 @@ export class UcatAiJsonParseError extends Error {
     modelProfileId: string | null
     maxCompletionTokens: number | null
   }) {
-    super(`UCAT AI ${params.operation} returned invalid JSON: ${params.content.slice(0, 160)}`)
+    const completionTokens = params.usage?.completion_tokens ?? 'unknown'
+    super(
+      `UCAT AI ${params.operation} returned invalid JSON `
+      + `(finish=${params.finishReason ?? 'unknown'}, outputChars=${params.content.length}, `
+      + `completionTokens=${completionTokens}, maxOutputTokens=${params.maxCompletionTokens ?? 'unknown'}): `
+      + params.content.slice(0, 160)
+    )
     this.name = 'UcatAiJsonParseError'
     this.content = params.content
     this.finishReason = params.finishReason
@@ -456,6 +462,9 @@ export async function callUcatAiJson(params: {
 
   const timeoutMs = params.timeoutMs ?? 120000
   const maxCompletionTokens = params.maxCompletionTokens ?? config.modelProfile.max_completion_tokens
+  const appliedMaxCompletionTokens = config.provider.provider_kind === 'codex_oauth'
+    ? null
+    : maxCompletionTokens
 
   let content: string | null | undefined
   let finishReason: string | null = null
@@ -561,7 +570,7 @@ export async function callUcatAiJson(params: {
       modelProfileId: config.modelProfile.id,
       usage,
       finishReason,
-      maxCompletionTokens,
+      maxCompletionTokens: appliedMaxCompletionTokens,
     })
   }
 
@@ -586,7 +595,7 @@ export async function callUcatAiJson(params: {
       modelProfileId: config.modelProfile.id,
       usage,
       finishReason,
-      maxCompletionTokens,
+      maxCompletionTokens: appliedMaxCompletionTokens,
     })
   }
 
@@ -598,6 +607,6 @@ export async function callUcatAiJson(params: {
     modelProfileId: config.modelProfile.id,
     usage,
     finishReason,
-    maxCompletionTokens,
+    maxCompletionTokens: appliedMaxCompletionTokens,
   }
 }

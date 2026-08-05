@@ -134,6 +134,7 @@ function normalizeMetadataExpectation(
 ) {
   if (field === 'difficulty') return normalizeDifficulty(value)
   if (field === 'time_burden_seconds') return normalizeTimeBurdenSeconds(value)
+  if (field === 'tag_ids' && value == null) return []
   return value
 }
 
@@ -462,4 +463,82 @@ export async function applyUcatAssessmentPatches(
     }
   }
   return values
+}
+
+function patchAlreadyApplied(
+  values: UcatQuestionStemFormValues,
+  patch: UcatAssessmentPatch,
+): boolean {
+  try {
+    switch (patch.operation) {
+      case 'replace_text': {
+        const current = proseMirrorToPlainText(getTextTarget(values, patch).get())
+        return current.includes(patch.afterText) && !current.includes(patch.beforeText)
+      }
+      case 'set_text': {
+        const current = proseMirrorToPlainText(getTextTarget(values, patch).get()).trim()
+        const expected = proseMirrorToPlainText(aiTextToProseMirror(patch.afterText)).trim()
+        return current === expected
+      }
+      case 'set_rich_content':
+        return sameJson(getTextTarget(values, patch).get(), patch.after)
+      case 'set_answer_key': {
+        const question = values.questions[questionIndex(values, patch.questionId)]
+        return question.options.find((option) => option.isAnswer)?.id === patch.correctOptionId
+      }
+      case 'replace_option_and_key': {
+        const question = values.questions[questionIndex(values, patch.questionId)]
+        const option = question.options.find((candidate) => candidate.id === patch.optionId)
+        return Boolean(
+          option
+          && option.isAnswer
+          && proseMirrorToPlainText(option.answerText).trim() === patch.answerText.trim()
+        )
+      }
+      case 'replace_question': {
+        const question = values.questions[questionIndex(values, patch.questionId)]
+        return proseMirrorToPlainText(question.questionText).trim() === patch.question.questionText.trim()
+      }
+      case 'insert_question':
+        return values.questions.some((question) => (
+          proseMirrorToPlainText(question.questionText).trim() === patch.question.questionText.trim()
+        ))
+      case 'remove_question':
+        return !values.questions.some((question) => question.id === patch.questionId)
+      case 'insert_option': {
+        const question = values.questions[questionIndex(values, patch.questionId)]
+        return question.options.some((option) => (
+          proseMirrorToPlainText(option.answerText).trim() === patch.option.answerText.trim()
+        ))
+      }
+      case 'remove_option': {
+        const question = values.questions[questionIndex(values, patch.questionId)]
+        return !question.options.some((option) => option.id === patch.optionId)
+      }
+      case 'reorder_options': {
+        const question = values.questions[questionIndex(values, patch.questionId)]
+        return sameJson(question.options.map((option) => option.id), patch.optionIds)
+      }
+      case 'set_metadata':
+        return sameJson(
+          metadataValue(values, patch),
+          normalizeMetadataExpectation(patch.field, patch.after),
+        )
+      case 'update_visual_spec': {
+        const image = findImage(getTextTarget(values, patch).get(), patch.imageIndex)
+        const attrs = image && isRecord(image.attrs) ? image.attrs : null
+        return Boolean(attrs && sameJson(attrs.visualSpec, patch.afterSpec))
+      }
+    }
+  } catch {
+    return false
+  }
+}
+
+/** True when every proposed after-state is already present in the current editor form. */
+export function ucatAssessmentPatchesAlreadyApplied(
+  values: UcatQuestionStemFormValues,
+  patches: UcatAssessmentPatch[],
+): boolean {
+  return patches.length > 0 && patches.every((patch) => patchAlreadyApplied(values, patch))
 }

@@ -17,14 +17,14 @@ import {
   Textarea,
   useToast,
 } from '@altitutor/ui'
-import { Eye, EyeOff, Plus, Trash2 } from 'lucide-react'
+import { Eye, EyeOff } from 'lucide-react'
 import { SegmentedControl } from '@/shared/components/segmented-control'
 import { cn } from '@/shared/utils'
 import { tutorCardCn } from '@/shared/lib/tutor-visual'
 import type { UcatQuestionStemFormValues } from '@/features/ucat/questions/types/schema'
 import type { UcatQuestionSourceChannel } from '@/features/ucat/questions/api/questions'
 import { formatSourceChannel, formatGeneratedTimestamp, formatStaffDisplayName, metadataString } from '@/features/ucat/questions/lib/source-display'
-import { DEFAULT_OPTIONS, EMPTY_DOC } from '@/features/ucat/questions/constants/stemFormConstants'
+import { DEFAULT_OPTIONS } from '@/features/ucat/questions/constants/stemFormConstants'
 import {
   QuestionTagsSelect,
   type CategoryOption,
@@ -55,6 +55,7 @@ import {
   BulkImportAiReviewPanel,
   type BulkImportAiReviewPanelProps,
 } from '@/features/ucat/questions/components/bulk-import/BulkImportAiReviewPanel'
+import { trimTextParagraphs } from '@/features/ucat/questions/components/stem-editor/stemEditorQuestionContent'
 
 export type StemEditorMode = 'edit' | 'view'
 export type StemEditorFocusTarget = 'category' | 'explanation' | 'tags' | 'sets'
@@ -89,16 +90,6 @@ type UcatStemEditorPropertiesPanelProps = {
   aiReviewAvailable?: boolean
   bulkImportAiReview?: Omit<BulkImportAiReviewPanelProps, 'activeQuestionId' | 'activeQuestionIndex'> | null
   className?: string
-}
-
-function trimTextParagraphs(text: string): string {
-  return text
-    .split(/\n/)
-    .map((line) => line.trimEnd())
-    .join('\n')
-    .replace(/^\s*\n+/, '')
-    .replace(/\n+\s*$/, '')
-    .trim()
 }
 
 function PropertyRow({ label, children }: { label: ReactNode; children: ReactNode }) {
@@ -219,67 +210,6 @@ export function UcatStemEditorPropertiesPanel({
     form.setValue('categoryId', nextCategoryId, {
       shouldDirty: true,
     })
-  }
-
-  const handleDeleteQuestion = (questionIndex: number) => {
-    const questions = form.getValues('questions') ?? []
-    const question = questions[questionIndex]
-
-    const hasQuestionText =
-      question &&
-      trimTextParagraphs(proseMirrorToPlainText((question.questionText as Json) ?? EMPTY_DOC) ?? '') !==
-        ''
-    const hasOptionContent =
-      question &&
-      (question.options ?? []).some((opt) => {
-        const answerText = trimTextParagraphs(
-          proseMirrorToPlainText((opt.answerText as Json) ?? EMPTY_DOC) ?? ''
-        )
-        const answerExplanation = opt.answerExplanation
-          ? trimTextParagraphs(proseMirrorToPlainText((opt.answerExplanation as Json) ?? EMPTY_DOC) ?? '')
-          : ''
-        return answerText !== '' || answerExplanation !== ''
-      })
-
-    if (!hasQuestionText && !hasOptionContent) {
-      remove(questionIndex)
-      if (safeQuestionIndex >= questionIndex && safeQuestionIndex > 0) {
-        onQuestionIndexChange(safeQuestionIndex - 1)
-      }
-      return
-    }
-
-    if (
-      window.confirm(
-        'This will delete a question with content. Changes will be lost. Do you want to continue?'
-      )
-    ) {
-      remove(questionIndex)
-      if (safeQuestionIndex >= questionIndex && safeQuestionIndex > 0) {
-        onQuestionIndexChange(safeQuestionIndex - 1)
-      }
-    }
-  }
-
-  const handleAddQuestion = () => {
-    append({
-      questionText: EMPTY_DOC,
-      questionType: stemType,
-      answerExplanation: null,
-      difficulty: null,
-      timeBurdenSeconds: '',
-      tagIds: [],
-      sourceChannel: 'individual',
-      aiGenerationMetadata: null,
-      options: isSyllogism
-        ? Array.from({ length: 5 }, () => ({
-            answerText: EMPTY_DOC,
-            answerExplanation: null,
-            isAnswer: false,
-          }))
-        : [...DEFAULT_OPTIONS],
-    })
-    onQuestionIndexChange(fields.length)
   }
 
   const executeStemAgentTool = async (toolCall: UcatAuthoringToolCall): Promise<UcatAuthoringToolResult> => {
@@ -826,62 +756,9 @@ export function UcatStemEditorPropertiesPanel({
 
         <Accordion
           type="multiple"
-          defaultValue={['questions', 'ai', 'stem', 'sets', 'question', 'source']}
+          defaultValue={['ai', 'stem', 'sets', 'question', 'source']}
           className="space-y-4"
         >
-          <PropertiesCard value="questions" title="Questions">
-            <ul className="space-y-1">
-              {fields.map((field, index) => {
-                const isActive = index === safeQuestionIndex
-                return (
-                  <li key={field.id}>
-                    <div
-                      className={cn(
-                        'flex w-full items-center justify-between rounded px-2 py-1.5 text-sm hover:bg-muted/60',
-                        isActive && 'bg-muted font-medium'
-                      )}
-                    >
-                      <button
-                        type="button"
-                        className="min-w-0 flex-1 text-left"
-                        onClick={() => onQuestionIndexChange(index)}
-                      >
-                        Question {index + 1}
-                      </button>
-                      {fields.length > 1 ? (
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="icon"
-                          className="h-7 w-7 shrink-0 !text-destructive hover:!text-destructive hover:bg-destructive/10"
-                          onClick={(event) => {
-                            event.stopPropagation()
-                            handleDeleteQuestion(index)
-                          }}
-                          aria-label={`Delete question ${index + 1}`}
-                        >
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </Button>
-                      ) : null}
-                    </div>
-                  </li>
-                )
-              })}
-            </ul>
-            {!isSyllogism ? (
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                className="w-full gap-1"
-                onClick={handleAddQuestion}
-              >
-                <Plus className="h-4 w-4" />
-                Add question
-              </Button>
-            ) : null}
-          </PropertiesCard>
-
           <PropertiesCard value="stem" title="Stem properties">
             <PropertyRow label="Section">
               <SearchableSelect<{ id: string | null; name: string | null }>
@@ -1166,6 +1043,7 @@ export function UcatStemEditorPropertiesPanel({
                 stemId={stemId}
                 form={form}
                 activeQuestionIndex={safeQuestionIndex}
+                onActiveQuestionIndexChange={onQuestionIndexChange}
               />
             ) : null}
           </TabsContent>

@@ -67,6 +67,18 @@ export function useUcatAiAssessment(stemId: string | null) {
   })
 }
 
+export function useUcatAiAssessmentStatuses(stemIds: string[]) {
+  return useQuery({
+    queryKey: ucatKeys.aiAssessmentStatuses(stemIds),
+    queryFn: () => ucatQuestionsApi.getAiAssessmentStatuses(stemIds),
+    enabled: stemIds.length > 0,
+    refetchInterval: (query) => Object.values(query.state.data?.statuses ?? {})
+      .some((status) => status === 'reviewing' || status === 'deferred')
+      ? 5_000
+      : false,
+  })
+}
+
 export function useRetryUcatAiAssessment() {
   const queryClient = useQueryClient()
   return useMutation({
@@ -85,6 +97,9 @@ export function useRequestUcatAiAssessment() {
       ucatQuestionsApi.requestAiAssessment(stemId),
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ucatKeys.aiAssessment(variables.stemId) })
+      queryClient.invalidateQueries({
+        queryKey: [...ucatKeys.questions('all'), 'ai-assessment-statuses'],
+      })
     },
   })
 }

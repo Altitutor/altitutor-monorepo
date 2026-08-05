@@ -348,12 +348,14 @@ export function compactUcatAssessmentSnapshot(snapshot: UcatAssessmentSnapshot):
   }
 }
 
-export async function loadUcatAssessmentSnapshot(
-  client: SupabaseClient<Database>,
-  stemId: string,
-): Promise<UcatAssessmentSnapshot | null> {
-  const row = await loadAssessmentDetailRow(client, stemId)
-  if (!row) return null
+export function ucatAssessmentSnapshotFromDetailRow(
+  value: unknown,
+  stemIdOverride?: string,
+): UcatAssessmentSnapshot | null {
+  if (!isRecord(value)) return null
+  const row = value
+  const stemId = stemIdOverride ?? (typeof row.id === 'string' ? row.id : null)
+  if (!stemId) return null
   const rawQuestions = Array.isArray(row.questions) ? row.questions.filter(isRecord) : []
   const questions = rawQuestions
     .filter((question) => !question.deleted_at)
@@ -447,6 +449,14 @@ export async function loadUcatAssessmentSnapshot(
     images: collectAssessmentImages(stemText, 'stem:stem_text'),
     questions,
   }
+}
+
+export async function loadUcatAssessmentSnapshot(
+  client: SupabaseClient<Database>,
+  stemId: string,
+): Promise<UcatAssessmentSnapshot | null> {
+  const row = await loadAssessmentDetailRow(client, stemId)
+  return ucatAssessmentSnapshotFromDetailRow(row, stemId)
 }
 
 export function fingerprintUcatAssessmentSnapshot(snapshot: UcatAssessmentSnapshot): UcatAssessmentFingerprints {

@@ -7,6 +7,7 @@ import type { UcatQuestionStemFormValues } from '@/features/ucat/questions/types
 import { buildDraftUcatAssessmentSnapshot } from '@/features/ucat/questions/server/ai-assessment/draft-snapshot'
 import { evaluateUcatReadiness } from '@/features/ucat/questions/lib/ai-assessment/readiness'
 import { enqueueUcatQuestionAssessmentPreparation } from '@/features/ucat/questions/server/ai-assessment/dispatcher'
+import { normalizeBulkImportCreatePayload } from '@/features/ucat/questions/server/bulk-import-create-payload'
 
 const SerializedAnswerOptionSchema = z.object({
   id: z.string().uuid().nullable().optional(),
@@ -169,8 +170,9 @@ export async function POST(request: NextRequest) {
     )
   }
 
-  // Normalize answer_explanation: never send the string "null" to the DB (use actual null).
-  const normalizedStems = stems.map((stem) => ({
+  // Bulk import is create-only: normalize nulls and remove browser-only draft IDs
+  // before calling the upsert RPC, where non-null IDs mean "update existing".
+  const normalizedStems = normalizeBulkImportCreatePayload(stems.map((stem) => ({
     ...stem,
     sourceChannel: stem.sourceChannel ?? 'bulk_import',
     tutorSourceNote: stem.tutorSourceNote ?? null,
@@ -188,7 +190,7 @@ export async function POST(request: NextRequest) {
             : opt.answer_explanation,
       })),
     })),
-  }))
+  })))
 
   const { data, error } = await client.rpc('tutor_ucat_bulk_upsert_question_stem_bundles', {
     p_section_id: sectionId,

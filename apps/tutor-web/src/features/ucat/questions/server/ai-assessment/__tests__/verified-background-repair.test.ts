@@ -58,8 +58,12 @@ function check(code: string): UcatFormatCheck {
   }
 }
 
-function allowed(patch: UcatAssessmentPatch, formatChecks: UcatFormatCheck[]): boolean {
-  return backgroundRepairPatchAllowed({ patch, snapshot, formatChecks })
+function allowed(
+  patch: UcatAssessmentPatch,
+  formatChecks: UcatFormatCheck[],
+  assessmentSnapshot: UcatAssessmentSnapshot = snapshot,
+): boolean {
+  return backgroundRepairPatchAllowed({ patch, snapshot: assessmentSnapshot, formatChecks })
 }
 
 describe('verified background repair policy', () => {
@@ -91,14 +95,78 @@ describe('verified background repair policy', () => {
     }, [])).toBe(true)
   })
 
-  it('does not auto-apply unrelated metadata improvements', () => {
-    expect(allowed({
+  it('initializes unset difficulty and time burden without overwriting existing estimates', () => {
+    const difficultyPatch: UcatAssessmentPatch = {
       operation: 'set_metadata',
       targetKind: 'question',
       targetId: questionId,
       field: 'difficulty',
       before: null,
       after: 0.5,
-    }, [check('missing_question_explanation')])).toBe(false)
+    }
+    const timePatch: UcatAssessmentPatch = {
+      operation: 'set_metadata',
+      targetKind: 'question',
+      targetId: questionId,
+      field: 'time_burden_seconds',
+      before: null,
+      after: 90,
+    }
+    expect(allowed(difficultyPatch, [])).toBe(true)
+    expect(allowed(timePatch, [])).toBe(true)
+
+    const populatedSnapshot = {
+      ...snapshot,
+      questions: [{ ...snapshot.questions[0], difficulty: 0.6, timeBurdenSeconds: 75 }],
+    } satisfies UcatAssessmentSnapshot
+    expect(allowed({ ...difficultyPatch, before: 0.6, after: 0.7 }, [], populatedSnapshot)).toBe(false)
+    expect(allowed({ ...timePatch, before: 75, after: 80 }, [], populatedSnapshot)).toBe(false)
+  })
+
+  it('assigns valid supplied tags automatically when a question is untagged', () => {
+    expect(allowed({
+      operation: 'set_metadata',
+      targetKind: 'question',
+      targetId: questionId,
+      field: 'tag_ids',
+      before: null,
+      after: ['50000000-0000-4000-8000-000000000001'],
+    }, [])).toBe(true)
+
+    const taggedSnapshot = {
+      ...snapshot,
+      questions: [{ ...snapshot.questions[0], tagIds: ['existing-tag'] }],
+    } satisfies UcatAssessmentSnapshot
+    expect(allowed({
+      operation: 'set_metadata',
+      targetKind: 'question',
+      targetId: questionId,
+      field: 'tag_ids',
+      before: ['existing-tag'],
+      after: ['replacement-tag'],
+    }, [], taggedSnapshot)).toBe(false)
+  })
+
+  it('treats imported zero metadata as unset but rejects invalid replacements', () => {
+    const zeroSnapshot = {
+      ...snapshot,
+      questions: [{ ...snapshot.questions[0], difficulty: 0, timeBurdenSeconds: 0 }],
+    } satisfies UcatAssessmentSnapshot
+    expect(allowed({
+      operation: 'set_metadata',
+      targetKind: 'question',
+      targetId: questionId,
+      field: 'difficulty',
+      before: 0,
+      after: 0.4,
+    }, [], zeroSnapshot)).toBe(true)
+    expect(allowed({
+      operation: 'set_metadata',
+      targetKind: 'question',
+      targetId: questionId,
+      field: 'time_burden_seconds',
+      before: 0,
+      after: -1,
+    }, [], zeroSnapshot)).toBe(false)
   })
 })

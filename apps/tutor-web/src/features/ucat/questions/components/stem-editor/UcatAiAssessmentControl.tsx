@@ -1,7 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useState, type ReactNode } from 'react'
-import { useQueryClient } from '@tanstack/react-query'
+import { useState, type ReactNode } from 'react'
 import type { UseFormReturn } from 'react-hook-form'
 import {
   Accordion,
@@ -33,27 +32,26 @@ import {
   useRetryUcatAiAssessment,
   useUcatAiAssessment,
 } from '@/features/ucat/questions/hooks/useUcatQuestions'
+import {
+  deriveUcatAiScopeReviewStatus,
+  isStaleUcatAiReviewRun,
+  UCAT_AI_REVIEW_STATUS_COPY,
+} from '@/features/ucat/questions/lib/ai-assessment/review-status'
 import type {
   UcatAssessmentCategory,
   UcatAssessmentCategoryResultSchema,
   UcatAssessmentFinding,
+  UcatFormatCheck,
   UcatAssessmentPatch,
 } from '@/features/ucat/questions/lib/ai-assessment/schema'
-import { applyUcatAssessmentPatches } from '@/features/ucat/questions/lib/ai-assessment/apply-patches'
+import {
+  applyUcatAssessmentPatches,
+  ucatAssessmentPatchesAlreadyApplied,
+} from '@/features/ucat/questions/lib/ai-assessment/apply-patches'
 import type { z } from 'zod'
 import { cn } from '@/shared/utils'
 import { tutorCardCn } from '@/shared/lib/tutor-visual'
 import { proseMirrorToPlainText } from '@/features/ucat/shared/lib/rich-text'
-import { ucatQuestionsApi } from '@/features/ucat/questions/api/questions'
-import { stemDetailToFormValues } from '@/features/ucat/questions/lib/stem-editor-form'
-import { ucatKeys } from '@/features/ucat/shared/lib/query-keys'
-
-type SavedAiRepair = {
-  id: string
-  summary: string
-  rationale: string | null
-  createdAt: string | null
-}
 
 type CategoryResult = z.infer<typeof UcatAssessmentCategoryResultSchema>
 
@@ -69,19 +67,6 @@ const CATEGORY_LABELS: Record<UcatAssessmentCategory, string> = {
   ucat_authenticity_task_quality: 'UCAT authenticity',
   content_appropriateness: 'Appropriateness',
   visual_integrity: 'Visual integrity',
-}
-
-const STATUS_COPY: Record<UcatAiAssessment['status'], { label: string; className: string }> = {
-  disabled: { label: 'AI review disabled', className: 'border-slate-300 text-slate-600' },
-  not_requested: { label: 'AI review not requested', className: 'border-slate-300 text-slate-600' },
-  reviewing: { label: 'AI reviewing', className: 'border-blue-300 bg-blue-50 text-blue-700 dark:bg-blue-950/30' },
-  deferred: { label: 'AI review deferred', className: 'border-amber-300 bg-amber-50 text-amber-700 dark:bg-amber-950/30' },
-  format_blocked: { label: 'Format checks', className: 'border-amber-300 bg-amber-50 text-amber-700 dark:bg-amber-950/30' },
-  unavailable: { label: 'AI unavailable', className: 'border-slate-300 text-slate-600' },
-  unreviewable: { label: 'Needs human review', className: 'border-violet-300 bg-violet-50 text-violet-700 dark:bg-violet-950/30' },
-  passed: { label: 'AI review passed', className: 'border-emerald-300 bg-emerald-50 text-emerald-700 dark:bg-emerald-950/30' },
-  concerns: { label: 'AI concerns', className: 'border-amber-300 bg-amber-50 text-amber-700 dark:bg-amber-950/30' },
-  critical: { label: 'AI critical', className: 'border-red-300 bg-red-50 text-red-700 dark:bg-red-950/30' },
 }
 
 function ratingClass(rating: CategoryResult['rating'] | UcatAssessmentFinding['rating']) {
@@ -112,28 +97,54 @@ function latestByKey<T>(items: T[], key: (item: T) => string) {
   return [...map.values()]
 }
 
-function scopeResults(data: UcatAiAssessment, questionId: string | null) {
+function scopeResults(
+  data: UcatAiAssessment,
+  questionId: string | null,
+  values: UcatQuestionStemFormValues,
+) {
   const effective = new Set(data.effectiveRunIds)
   const runs = data.runs.filter((run) => effective.has(run.id))
+  const accepted = new Set(
+    data.decisions
+      .filter((decision) => decision.decision === 'suggestion_accepted')
+      .map((decision) => `${decision.run_id}:${decision.finding_key}`),
+  )
+  const allFindings = latestByKey(
+    runs.flatMap((run) => (run.assessment_result?.findings ?? []).map((finding) => ({ finding, run })))
+      .filter(({ finding, run }) => questionId == null
+        ? finding.scopeType === 'shared' && run.sharedCurrent
+        : finding.scopeType === 'question' && finding.questionId === questionId && run.currentTargetQuestionIds.includes(questionId)),
+    ({ finding, run }) => `${run.id}:${finding.key}`,
+  )
+  const resolved = ({ finding, run }: typeof allFindings[number]) => (
+    accepted.has(`${run.id}:${finding.key}`)
+    || Boolean(
+      finding.suggestion
+      && ucatAssessmentPatchesAlreadyApplied(values, finding.suggestion.patches)
+    )
+  )
+  const findings = allFindings.filter((item) => !resolved(item))
   const categories = latestByKey(
     runs.flatMap((run) => (run.assessment_result?.categories ?? []).map((result) => ({ result, run })))
       .filter(({ result, run }) => questionId == null
         ? result.scopeType === 'shared' && run.sharedCurrent
         : result.scopeType === 'question' && result.questionId === questionId && run.currentTargetQuestionIds.includes(questionId)),
     ({ result }) => result.category,
-  )
-  const accepted = new Set(
-    data.decisions
-      .filter((decision) => decision.decision === 'suggestion_accepted')
-      .map((decision) => `${decision.run_id}:${decision.finding_key}`),
-  )
-  const findings = latestByKey(
-    runs.flatMap((run) => (run.assessment_result?.findings ?? []).map((finding) => ({ finding, run })))
-      .filter(({ finding, run }) => questionId == null
-        ? finding.scopeType === 'shared' && run.sharedCurrent
-        : finding.scopeType === 'question' && finding.questionId === questionId && run.currentTargetQuestionIds.includes(questionId)),
-    ({ finding, run }) => `${run.id}:${finding.key}`,
-  ).filter(({ finding, run }) => !accepted.has(`${run.id}:${finding.key}`))
+  ).map((item) => {
+    const relatedFindings = allFindings.filter(({ finding }) => finding.category === item.result.category)
+    if (relatedFindings.length === 0 || relatedFindings.some((finding) => !resolved(finding))) {
+      return item
+    }
+    return {
+      ...item,
+      result: {
+        ...item.result,
+        rating: 'pass' as const,
+        summary: 'Resolved in the current question content.',
+        evidence: [],
+      },
+    }
+  })
   return { categories, findings }
 }
 
@@ -145,6 +156,33 @@ function StatusIcon({ status }: { status: UcatAiAssessment['status'] }) {
   if (status === 'deferred') return <Clock3 className="h-3.5 w-3.5" />
   if (status === 'unavailable') return <XCircle className="h-3.5 w-3.5" />
   return <Bot className="h-3.5 w-3.5" />
+}
+
+function ReviewStatusBadge({ status }: { status: UcatAiAssessment['status'] }) {
+  const copy = UCAT_AI_REVIEW_STATUS_COPY[status]
+  return (
+    <Badge variant="outline" className={cn('shrink-0 gap-1.5', copy.className)}>
+      <StatusIcon status={status} />
+      {copy.shortLabel}
+    </Badge>
+  )
+}
+
+function scopeReviewStatus(params: {
+  data: UcatAiAssessment
+  questionId: string | null
+  values: UcatQuestionStemFormValues
+  formatChecks: Array<{ check: UcatFormatCheck; run: UcatAiAssessmentRun }>
+}): UcatAiAssessment['status'] {
+  const { categories, findings } = scopeResults(params.data, params.questionId, params.values)
+  return deriveUcatAiScopeReviewStatus({
+    overallStatus: params.data.status,
+    ratings: [
+      ...categories.map(({ result }) => result.rating),
+      ...findings.map(({ finding }) => finding.rating),
+    ],
+    formatSeverities: params.formatChecks.map(({ check }) => check.severity),
+  })
 }
 
 function ReviewAccordionCard({
@@ -396,16 +434,25 @@ function ScopeSection({
   data,
   stemId,
   form,
+  formatChecks = [],
+  showLabel = true,
 }: {
   label: string
   questionId: string | null
   data: UcatAiAssessment
   stemId: string
   form: UseFormReturn<UcatQuestionStemFormValues>
+  formatChecks?: Array<{ check: UcatFormatCheck; run: UcatAiAssessmentRun }>
+  showLabel?: boolean
 }) {
-  const { categories, findings } = scopeResults(data, questionId)
-  if (categories.length === 0 && findings.length === 0) return null
+  const { categories, findings } = scopeResults(data, questionId, form.getValues())
+  const latestFormatChecks = latestByKey(
+    formatChecks,
+    ({ check }) => `${check.code}:${check.questionId ?? ''}`,
+  )
+  if (categories.length === 0 && findings.length === 0 && latestFormatChecks.length === 0) return null
   const defaultOpen = [
+    ...latestFormatChecks.map(({ check }) => `format:${check.code}:${check.questionId ?? ''}`),
     ...categories
       .filter(({ result }) => result.rating !== 'pass' && result.rating !== 'not_applicable')
       .map(({ result }) => `category:${questionId ?? 'shared'}:${result.category}`),
@@ -413,8 +460,28 @@ function ScopeSection({
   ]
   return (
     <section className="space-y-3">
-      <h3 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">{label}</h3>
+      {showLabel ? (
+        <h3 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">{label}</h3>
+      ) : null}
       <Accordion type="multiple" defaultValue={defaultOpen} className="space-y-2">
+        {latestFormatChecks.map(({ check }) => (
+          <ReviewAccordionCard
+            key={`${check.code}:${check.questionId ?? ''}`}
+            value={`format:${check.code}:${check.questionId ?? ''}`}
+            title={check.severity === 'error' ? 'Format error' : 'Format warning'}
+            badge={(
+              <Badge variant="outline" className={check.severity === 'error'
+                ? 'shrink-0 border-red-300 bg-red-50 text-red-700 dark:bg-red-950/30'
+                : 'shrink-0 border-amber-300 bg-amber-50 text-amber-700 dark:bg-amber-950/30'}
+              >
+                {check.severity === 'error' ? 'Error' : 'Warning'}
+              </Badge>
+            )}
+          >
+            <p className="text-sm text-muted-foreground">{check.message}</p>
+            <p className="text-xs text-muted-foreground">{check.code.replaceAll('_', ' ')}</p>
+          </ReviewAccordionCard>
+        ))}
         {categories.map(({ result }) => (
           <ReviewAccordionCard
             key={`${questionId ?? 'shared'}:${result.category}`}
@@ -444,94 +511,59 @@ export function UcatAiAssessmentControl({
   stemId,
   form,
   activeQuestionIndex = 0,
+  onActiveQuestionIndexChange,
 }: {
   stemId: string
   form: UseFormReturn<UcatQuestionStemFormValues>
   activeQuestionIndex?: number
+  onActiveQuestionIndexChange: (index: number) => void
 }) {
   const { toast } = useToast()
-  const queryClient = useQueryClient()
   const query = useUcatAiAssessment(stemId)
   const requestMutation = useRequestUcatAiAssessment()
   const retryMutation = useRetryUcatAiAssessment()
   const data = query.data
   const status = data?.status ?? (query.isLoading ? 'reviewing' : 'unavailable')
-  const statusCopy = STATUS_COPY[status]
-  const questions = form.watch('questions')
-  const orderedQuestions = useMemo(() => {
-    const indexed = questions.map((question, index) => ({ question, index }))
-    return indexed.sort((a, b) => {
-      if (a.index === activeQuestionIndex) return -1
-      if (b.index === activeQuestionIndex) return 1
-      return a.index - b.index
-    })
-  }, [activeQuestionIndex, questions])
+  const currentValues = form.watch()
+  const questions = currentValues.questions
   const effective = new Set(data?.effectiveRunIds ?? [])
   const formatChecks = data?.runs
     .filter((run) => effective.has(run.id))
     .flatMap((run) => run.format_checks.map((check) => ({ check, run }))) ?? []
-  const unavailableRun = data?.runs.find((run) => effective.has(run.id) && run.status === 'failed')
-  const repairsRefreshKey = data?.runs.map((run) => `${run.id}:${run.status}:${run.completed_at ?? ''}`).join('|') ?? ''
-  const [savedRepairs, setSavedRepairs] = useState<SavedAiRepair[]>([])
-  const [restoringRepairId, setRestoringRepairId] = useState<string | null>(null)
+  const unavailableRun = data?.runs.find((run) => (
+    effective.has(run.id) && (run.status === 'failed' || isStaleUcatAiReviewRun(run))
+  ))
+  const activeQuestionId = questions[activeQuestionIndex]?.id ?? null
+  const scopeStatuses = data ? [
+    scopeReviewStatus({
+      data,
+      questionId: null,
+      values: currentValues,
+      formatChecks: formatChecks.filter(({ check }) => check.scopeType === 'shared'),
+    }),
+    ...questions.flatMap((question) => question.id ? [scopeReviewStatus({
+      data,
+      questionId: question.id,
+      values: currentValues,
+      formatChecks: formatChecks.filter(({ check }) => check.questionId === question.id),
+    })] : []),
+  ] : []
+  const currentOverallStatus = data
+    ? deriveUcatAiScopeReviewStatus({
+        overallStatus: data.status,
+        ratings: scopeStatuses.flatMap((scopeStatus) => {
+          if (scopeStatus === 'critical') return ['critical' as const]
+          if (scopeStatus === 'unreviewable') return ['unreviewable' as const]
+          if (scopeStatus === 'concerns') return ['concern' as const]
+          return ['pass' as const]
+        }),
+        formatSeverities: scopeStatuses.includes('format_blocked') ? ['error'] : [],
+      })
+    : status
 
-  useEffect(() => {
-    let cancelled = false
-    void fetch(`/api/ucat/question-stems/${stemId}/content-changes`, { cache: 'no-store' })
-      .then(async (response) => {
-        const body = await response.json().catch(() => ({})) as { repairs?: SavedAiRepair[] }
-        if (!cancelled && response.ok) setSavedRepairs(body.repairs ?? [])
-      })
-      .catch(() => undefined)
-    return () => { cancelled = true }
-  }, [stemId, repairsRefreshKey])
-
-  async function restoreSavedRepair(repair: SavedAiRepair) {
-    if (form.formState.isDirty) {
-      toast({
-        title: 'Save or discard your current edits first',
-        description: 'This prevents restoring an earlier saved version over changes still in this form.',
-        variant: 'destructive',
-      })
-      return
-    }
-    setRestoringRepairId(repair.id)
-    try {
-      const response = await fetch(`/api/ucat/question-stems/${stemId}/content-changes`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ changeId: repair.id }),
-      })
-      const body = await response.json().catch(() => ({})) as {
-        restored?: boolean
-        error?: string
-      }
-      if (!response.ok) throw new Error(body.error ?? 'Could not restore the saved AI repair.')
-      if (!body.restored) {
-        toast({
-          title: 'Restore was staged safely',
-          description: 'The question changed again after this repair, so the older version was prepared as a recoverable proposal instead of overwriting newer work.',
-        })
-        return
-      }
-      const detail = await ucatQuestionsApi.getDetail(stemId)
-      if (detail) form.reset(stemDetailToFormValues(detail))
-      setSavedRepairs((current) => current.filter((item) => item.id !== repair.id))
-      await Promise.all([
-        queryClient.invalidateQueries({ queryKey: ucatKeys.question(stemId) }),
-        queryClient.invalidateQueries({ queryKey: ucatKeys.questions('all') }),
-        queryClient.invalidateQueries({ queryKey: ucatKeys.aiAssessment(stemId) }),
-      ])
-      toast({ title: 'AI repair restored', description: 'The saved question and this form now show the version from before the repair.' })
-    } catch (error) {
-      toast({
-        title: 'Could not restore AI repair',
-        description: error instanceof Error ? error.message : 'Please try again.',
-        variant: 'destructive',
-      })
-    } finally {
-      setRestoringRepairId(null)
-    }
+  function selectQuestion(questionId: string) {
+    const index = questions.findIndex((question) => question.id === questionId)
+    if (index >= 0) onActiveQuestionIndexChange(index)
   }
 
   async function retryReview(runId: string) {
@@ -578,49 +610,6 @@ export function UcatAiAssessmentControl({
             </div>
           ) : (
             <div className="space-y-5 pb-4">
-              <div className="flex flex-wrap items-center gap-2 rounded-lg border p-4">
-                <Badge variant="outline" className={cn('gap-1.5', statusCopy.className)}><StatusIcon status={status} />{statusCopy.label}</Badge>
-                {!data.environment.enabled ? (
-                  <span className="text-xs text-muted-foreground">AI review is disabled in this environment. Existing results remain visible.</span>
-                ) : !data.environment.automaticEnabled ? (
-                  <span className="text-xs text-muted-foreground">Automatic review is disabled in settings. Stems sent for review are not queued automatically; request a review manually when needed.</span>
-                ) : null}
-                {data.status === 'reviewing' ? <span className="text-xs text-muted-foreground">This panel refreshes automatically.</span> : null}
-              </div>
-
-              {savedRepairs.length > 0 ? (
-                <section className="space-y-3 rounded-lg border border-blue-300/60 bg-blue-50/40 p-4 dark:bg-blue-950/10">
-                  <div>
-                    <h3 className="text-sm font-semibold">Saved AI repairs</h3>
-                    <p className="mt-1 text-xs text-muted-foreground">
-                      These verified changes were applied to the saved question. You can restore the exact version from before a repair.
-                    </p>
-                  </div>
-                  <div className="space-y-2">
-                    {savedRepairs.map((repair) => (
-                      <div key={repair.id} className="flex items-start justify-between gap-3 rounded-md border bg-background p-3">
-                        <div className="min-w-0">
-                          <p className="text-sm font-medium">{repair.summary}</p>
-                          <p className="mt-1 text-xs text-muted-foreground">Applied {formatDate(repair.createdAt)}</p>
-                        </div>
-                        <Button
-                          type="button"
-                          size="sm"
-                          variant="outline"
-                          disabled={restoringRepairId != null}
-                          onClick={() => void restoreSavedRepair(repair)}
-                        >
-                          {restoringRepairId === repair.id
-                            ? <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" />
-                            : <RotateCcw className="mr-2 h-3.5 w-3.5" />}
-                          Restore previous version
-                        </Button>
-                      </div>
-                    ))}
-                  </div>
-                </section>
-              ) : null}
-
               {data.status === 'not_requested' ? (
                 <div className="space-y-3 rounded-lg border border-dashed p-4">
                   <div>
@@ -641,53 +630,58 @@ export function UcatAiAssessmentControl({
                 </div>
               ) : null}
 
-              {formatChecks.length > 0 ? (
-                <section className="space-y-3">
-                  <h3 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">UCAT format checks</h3>
-                  <Accordion
-                    type="multiple"
-                    defaultValue={latestByKey(formatChecks, ({ check }) => `${check.code}:${check.questionId ?? ''}`).map(({ check }) => `format:${check.code}:${check.questionId ?? ''}`)}
-                    className="space-y-2"
+              <div className="flex items-center justify-between gap-2">
+                <h3 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">Shared stem</h3>
+                <ReviewStatusBadge status={currentOverallStatus} />
+              </div>
+              <ScopeSection
+                label="Shared stem"
+                questionId={null}
+                data={data}
+                stemId={stemId}
+                form={form}
+                formatChecks={formatChecks.filter(({ check }) => check.scopeType === 'shared')}
+                showLabel={false}
+              />
+              <Accordion
+                type="single"
+                value={activeQuestionId ?? undefined}
+                onValueChange={selectQuestion}
+                className="space-y-1"
+              >
+                {questions.map((question, index) => question.id ? (
+                  <AccordionItem
+                    key={question.id}
+                    value={question.id}
+                    className="border-0"
                   >
-                    {latestByKey(formatChecks, ({ check }) => `${check.code}:${check.questionId ?? ''}`).map(({ check }) => (
-                      <ReviewAccordionCard
-                        key={`${check.code}:${check.questionId ?? ''}`}
-                        value={`format:${check.code}:${check.questionId ?? ''}`}
-                        title={check.severity === 'error' ? 'Format error' : 'Format warning'}
-                        badge={(
-                          <Badge variant="outline" className={check.severity === 'error'
-                            ? 'shrink-0 border-red-300 bg-red-50 text-red-700 dark:bg-red-950/30'
-                            : 'shrink-0 border-amber-300 bg-amber-50 text-amber-700 dark:bg-amber-950/30'}
-                          >
-                            {check.severity === 'error' ? 'Error' : 'Warning'}
-                          </Badge>
-                        )}
-                      >
-                        <p className="text-sm text-muted-foreground">{check.message}</p>
-                        <p className="text-xs text-muted-foreground">{check.code.replaceAll('_', ' ')}</p>
-                      </ReviewAccordionCard>
-                    ))}
-                  </Accordion>
-                  {data.status === 'format_blocked' ? (
-                    <p className="text-xs text-muted-foreground">
-                      The model review was not called because deterministic format errors must be fixed first.
-                      Skipping or failing an AI review does not block publishing.
-                    </p>
-                  ) : null}
-                </section>
-              ) : null}
-
-              <ScopeSection label="Shared stem" questionId={null} data={data} stemId={stemId} form={form} />
-              {orderedQuestions.map(({ question, index }) => question.id ? (
-                <ScopeSection
-                  key={question.id}
-                  label={`Question ${index + 1}${index === activeQuestionIndex ? ' · active' : ''}`}
-                  questionId={question.id}
-                  data={data}
-                  stemId={stemId}
-                  form={form}
-                />
-              ) : null)}
+                    <AccordionTrigger className="py-2 hover:no-underline [&>svg]:text-muted-foreground">
+                      <span className="flex min-w-0 flex-1 items-center justify-between gap-2 pr-2">
+                        <span className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+                          Question {index + 1}
+                        </span>
+                        <ReviewStatusBadge status={scopeReviewStatus({
+                          data,
+                          questionId: question.id,
+                          values: currentValues,
+                          formatChecks: formatChecks.filter(({ check }) => check.questionId === question.id),
+                        })} />
+                      </span>
+                    </AccordionTrigger>
+                    <AccordionContent className="pb-3 pt-1">
+                      <ScopeSection
+                        label={`Question ${index + 1}`}
+                        questionId={question.id}
+                        data={data}
+                        stemId={stemId}
+                        form={form}
+                        formatChecks={formatChecks.filter(({ check }) => check.questionId === question.id)}
+                        showLabel={false}
+                      />
+                    </AccordionContent>
+                  </AccordionItem>
+                ) : null)}
+              </Accordion>
 
               {unavailableRun ? (
                 <Accordion type="multiple" defaultValue={['unavailable']}>
@@ -709,36 +703,6 @@ export function UcatAiAssessmentControl({
                 </Accordion>
               ) : null}
 
-              {data.cycles.length > 0 ? (
-                <section className="space-y-3 border-t pt-5">
-                  <h3 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">Review history</h3>
-                  <Accordion type="multiple" className="space-y-2">
-                    {data.cycles.map((cycle, index) => {
-                      const cycleRuns = data.runs.filter((run) => run.cycle_id === cycle.id)
-                      return (
-                        <ReviewAccordionCard
-                          key={cycle.id}
-                          value={`cycle:${cycle.id}`}
-                          title={cycle.is_current ? 'Current cycle' : `Previous cycle ${index}`}
-                          badge={<Badge variant="outline" className="shrink-0">{cycleRuns.length} {cycleRuns.length === 1 ? 'run' : 'runs'}</Badge>}
-                        >
-                          <p className="text-xs text-muted-foreground">Started {formatDate(cycle.started_at)}</p>
-                          <div className="space-y-2">
-                            {cycleRuns.map((run) => (
-                              <div key={run.id} className="rounded-md bg-muted/50 p-2 text-xs text-muted-foreground">
-                                <span className="font-medium capitalize text-foreground">{run.status.replace('_', ' ')}</span>
-                                {' · '}{run.scope_type === 'full' ? 'Full stem' : `${run.target_question_ids.length} question scope`}
-                                {' · '}{formatDate(run.requested_at)}
-                                {run.assessment_model ? ` · ${run.assessment_model}` : ''}
-                              </div>
-                            ))}
-                          </div>
-                        </ReviewAccordionCard>
-                      )
-                    })}
-                  </Accordion>
-                </section>
-              ) : null}
             </div>
           )}
     </div>

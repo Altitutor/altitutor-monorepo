@@ -21,7 +21,10 @@ import {
   buildIndependentAuditUserPrompt,
 } from '@/features/ucat/questions/server/ai-assessment/prompts'
 import { EXPLANATION_TEACHING_RUBRIC } from '@/features/ucat/questions/lib/ai-generation/explanation-rubric'
-import { applyUcatAssessmentPatches } from '../apply-patches'
+import {
+  applyUcatAssessmentPatches,
+  ucatAssessmentPatchesAlreadyApplied,
+} from '../apply-patches'
 import { plainTextToProseMirror, proseMirrorToPlainText } from '@/features/ucat/shared/lib/rich-text'
 import { parseEmbeddedImageDataUri } from '@/features/ucat/questions/server/ai-assessment/visual-evidence'
 import { normalizeBlindSolutionSelections } from '@/features/ucat/questions/server/ai-assessment/normalize-blind-solution'
@@ -280,13 +283,11 @@ describe('assessment prompts and deterministic checks', () => {
     ])
     expect(ASSESSMENT_SYSTEM_PROMPT).toContain('add plausible, mutually exclusive distractors')
     expect(ASSESSMENT_SYSTEM_PROMPT).toContain(EXPLANATION_TEACHING_RUBRIC)
-    expect(ASSESSMENT_SYSTEM_PROMPT).toContain('two to five short, titled or numbered steps')
     expect(ASSESSMENT_SYSTEM_PROMPT).toContain(
-      'Completeness of the teaching path matters more than short word count',
+      'Decision Making explanations should teach the shortest efficient method',
     )
-    expect(ASSESSMENT_SYSTEM_PROMPT).not.toContain('Do not pad explanations')
-    expect(ASSESSMENT_SYSTEM_PROMPT).not.toContain(
-      '"Concise" means scannable and free of filler',
+    expect(ASSESSMENT_SYSTEM_PROMPT).toContain(
+      'Verbal Reasoning explanations should identify the specific passage evidence',
     )
   })
 
@@ -356,17 +357,16 @@ describe('assessment prompts and deterministic checks', () => {
     expect(BULK_IMPORT_AUDIT_REPAIR_SYSTEM_PROMPT).toContain('do not see the independent blind solver')
     expect(BULK_IMPORT_AUDIT_REPAIR_SYSTEM_PROMPT).toContain('whole-question insertion')
     expect(BULK_IMPORT_AUDIT_REPAIR_SYSTEM_PROMPT).toContain(EXPLANATION_TEACHING_RUBRIC)
-    expect(BULK_IMPORT_AUDIT_REPAIR_SYSTEM_PROMPT).toContain('calculator use where relevant')
+    expect(BULK_IMPORT_AUDIT_REPAIR_SYSTEM_PROMPT).toContain('Explain calculator use where relevant')
     expect(BULK_IMPORT_AUDIT_REPAIR_SYSTEM_PROMPT).toContain(
-      'identify the specific passage evidence the student should read',
+      'specific passage evidence',
     )
     expect(BULK_IMPORT_AUDIT_REPAIR_SYSTEM_PROMPT).toContain(
-      'why less appropriate alternatives fail where that teaching helps',
+      'why alternatives are less appropriate where useful',
     )
     expect(BULK_IMPORT_AUDIT_REPAIR_SYSTEM_PROMPT).toContain(
-      'walk the student through how to solve the question',
+      'shared Explanation teaching standard and its section-specific guidance',
     )
-    expect(BULK_IMPORT_AUDIT_REPAIR_SYSTEM_PROMPT).not.toContain('shortest useful solving method')
   })
 
   it('supplies exact structured table content to the bulk reviewer', () => {
@@ -712,6 +712,19 @@ describe('bounded suggestion patches', () => {
     }])
     expect(afterBoth.questions[0].difficulty).toBe(0.6)
     expect(afterBoth.questions[0].timeBurdenSeconds).toBe('1:00')
+  })
+
+  it('recognises when an explanation suggestion is already present in the form', () => {
+    const value = snapshot()
+    const form = formFromSnapshot(value)
+    form.questions[0].answerExplanation = plainTextToProseMirror('A newly accepted explanation.')
+
+    expect(ucatAssessmentPatchesAlreadyApplied(form, [{
+      operation: 'set_text',
+      target: { kind: 'question', id: QUESTION_1, field: 'answer_explanation' },
+      beforeText: null,
+      afterText: 'A newly accepted explanation.',
+    }])).toBe(true)
   })
 })
 

@@ -51,6 +51,39 @@ export type CodexOAuthUserContentPart =
   | { type: 'input_text'; text: string }
   | { type: 'input_image'; image_url: string; detail?: 'low' | 'high' | 'auto' }
 
+export function buildCodexOAuthRequestBody(params: {
+  model: string
+  systemPrompt: string
+  userPrompt: string
+  userContentParts?: CodexOAuthUserContentPart[]
+}) {
+  const suppliedContent = params.userContentParts?.length
+    ? params.userContentParts
+    : [{ type: 'input_text' as const, text: params.userPrompt }]
+  const content = suppliedContent.some((part) => (
+    part.type === 'input_text' && /json/iu.test(part.text)
+  ))
+    ? suppliedContent
+    : [{ type: 'input_text' as const, text: 'Return the response as JSON.' }, ...suppliedContent]
+
+  return {
+    model: params.model,
+    instructions: params.systemPrompt,
+    store: false,
+    stream: true,
+    text: {
+      format: { type: 'json_object' as const },
+      verbosity: 'low' as const,
+    },
+    input: [
+      {
+        role: 'user',
+        content,
+      },
+    ],
+  }
+}
+
 const DEFAULT_CLIENT_ID = 'app_EMoamEEZ73f0CkXaXp7hrann'
 const DEFAULT_ISSUER = 'https://auth.openai.com'
 const DEFAULT_CODEX_BASE_URL = 'https://chatgpt.com/backend-api/codex'
@@ -333,7 +366,13 @@ async function collectResponsesStream(response: Response): Promise<CodexOAuthJso
         } else if (event.type === 'response.completed' && event.response) {
           if (!content) content = extractTextFromCompletedResponse(event.response)
           usage = normalizeResponsesUsage((event.response as { usage?: unknown }).usage)
-          finishReason = (event.response as { status?: string }).status ?? 'completed'
+          const completed = event.response as {
+            status?: string
+            incomplete_details?: { reason?: string } | null
+          }
+          finishReason = completed.incomplete_details?.reason
+            ?? completed.status
+            ?? 'completed'
         } else if (event.type === 'response.failed') {
           throw new Error(event.error?.message ?? 'Codex response failed')
         } else if (event.usage) {
@@ -392,18 +431,7 @@ export async function callCodexOAuthJson(params: {
         originator: 'altitutor-ucat-generation',
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({
-        model: params.model,
-        instructions: params.systemPrompt,
-        store: false,
-        stream: true,
-        input: [
-          {
-            role: 'user',
-            content: params.userContentParts ?? [{ type: 'input_text', text: params.userPrompt }],
-          },
-        ],
-      }),
+      body: JSON.stringify(buildCodexOAuthRequestBody(params)),
     })
 
     if (!response.ok) {

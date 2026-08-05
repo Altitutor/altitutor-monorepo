@@ -26,6 +26,7 @@ import {
   serializeQuestionCatalogQuery,
   type QuestionCatalogQuery,
 } from "@/features/ucat/questions/lib/question-catalog-query";
+import type { UcatAiReviewStatus } from "@/features/ucat/questions/lib/ai-assessment/review-status";
 
 export type { UcatQuestionStemListIndex };
 
@@ -267,17 +268,7 @@ export type UcatAiAssessmentDecision = {
 
 export type UcatAiAssessment = {
   environment: { enabled: boolean; automaticEnabled: boolean; source: string };
-  status:
-    | "disabled"
-    | "not_requested"
-    | "reviewing"
-    | "deferred"
-    | "format_blocked"
-    | "unavailable"
-    | "unreviewable"
-    | "passed"
-    | "concerns"
-    | "critical";
+  status: UcatAiReviewStatus;
   currentContentFingerprint: string;
   currentCycle: { id: string; stem_id: string; is_current: boolean; started_at: string } | null;
   cycles: Array<{ id: string; stem_id: string; is_current: boolean; started_at: string }>;
@@ -334,6 +325,20 @@ export const ucatQuestionsApi = {
       throw new Error(body.error ?? "Failed to load AI review");
     }
     return response.json() as Promise<UcatAiAssessment>;
+  },
+
+  async getAiAssessmentStatuses(stemIds: string[]) {
+    const params = new URLSearchParams();
+    stemIds.forEach((stemId) => params.append("id", stemId));
+    const response = await fetch(
+      `/api/ucat/question-stems/ai-assessment/statuses?${params}`,
+      { cache: "no-store" },
+    );
+    if (!response.ok) {
+      const body = await response.json().catch(() => ({}));
+      throw new Error(body.error ?? "Failed to load AI review statuses");
+    }
+    return response.json() as Promise<{ statuses: Record<string, UcatAiReviewStatus> }>;
   },
 
   async retryAiAssessment(stemId: string, runId: string) {

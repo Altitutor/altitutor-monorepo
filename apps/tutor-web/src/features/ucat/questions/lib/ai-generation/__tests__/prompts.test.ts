@@ -4,7 +4,10 @@ import {
   getAiGenerationSectionPrompt,
 } from '../prompts'
 import type { AiGenerationBrief } from '../prompts'
-import { EXPLANATION_FILL_SYSTEM_PROMPT } from '../explanation-prompts'
+import {
+  buildExplanationFillSystemPrompt,
+  EXPLANATION_FILL_SYSTEM_PROMPT,
+} from '../explanation-prompts'
 import { EXPLANATION_TEACHING_RUBRIC } from '../explanation-rubric'
 
 const brief: AiGenerationBrief = {
@@ -40,8 +43,8 @@ describe('QR writer prompts', () => {
   })
 
   it('defines optional, non-duplicative explanation layers', () => {
-    expect(AI_GENERATION_SYSTEM_PROMPT).toContain('Option-level answerExplanation values are optional')
-    expect(AI_GENERATION_SYSTEM_PROMPT).toContain('A question-level answerExplanation is optional')
+    expect(AI_GENERATION_SYSTEM_PROMPT).toContain('Follow the explanationPolicy')
+    expect(AI_GENERATION_SYSTEM_PROMPT).not.toContain('DM and QR explanations')
   })
 
   it('passes valid tag data and requires every question to be tagged', () => {
@@ -59,12 +62,19 @@ describe('QR writer prompts', () => {
 
   it('allows any purposeful number of QR steps and requires Australian English', () => {
     const prompt = buildWriterPrompt({ ...brief, plan: { plans: [{ stemIndex: 0 }] } })
-    const payload = JSON.parse(prompt) as { sectionRules: string; requirements: string[] }
+    const payload = JSON.parse(prompt) as {
+      explanationPolicy: string
+      sectionRules: string
+      requirements: string[]
+    }
 
     expect(payload.sectionRules).toContain('do not impose a fixed number of steps')
     expect(payload.sectionRules).not.toContain('one or two calculation steps')
-    expect(payload.requirements).toContainEqual(expect.stringContaining('Australian English spelling'))
-    expect(payload.requirements).toContainEqual(expect.stringContaining('calculator use'))
+    expect(payload.explanationPolicy).toContain('Australian English spelling')
+    expect(payload.explanationPolicy).toContain('calculator use')
+    expect(payload.explanationPolicy).toContain('one direct calculation')
+    expect(payload.explanationPolicy).toContain('multiple dependent operations')
+    expect(payload.requirements).toContainEqual(expect.stringContaining('Follow explanationPolicy'))
   })
 
   it('does not discourage source visuals or prohibit visual composition calibration', () => {
@@ -87,18 +97,26 @@ describe('explanation fill prompts', () => {
       'Option-level explanations may be included'
     )
     expect(EXPLANATION_FILL_SYSTEM_PROMPT).toContain(
-      'A question-level answerExplanation may be included'
+      'Include a question-level explanation only when'
     )
     expect(EXPLANATION_FILL_SYSTEM_PROMPT).toContain('calculator use')
     expect(EXPLANATION_FILL_SYSTEM_PROMPT).toContain('Australian English spelling')
-    expect(EXPLANATION_FILL_SYSTEM_PROMPT).toContain('two to five short, titled or numbered steps')
     expect(EXPLANATION_FILL_SYSTEM_PROMPT).toContain(
-      'never omit working, intermediate reasoning, evidence citations, or distractor teaching'
+      'Verbal Reasoning explanations should identify the specific passage evidence'
     )
-    expect(EXPLANATION_FILL_SYSTEM_PROMPT).not.toContain('Do not pad')
     expect(EXPLANATION_FILL_SYSTEM_PROMPT).not.toContain(
-      'Concise means avoiding repetition, not omitting teaching steps'
+      'two to five short, titled or numbered steps'
     )
+  })
+
+  it('sends only the relevant section explanation policy when the section is known', () => {
+    const prompt = buildExplanationFillSystemPrompt({
+      sectionName: 'Verbal Reasoning',
+    })
+
+    expect(prompt).toContain('specific passage evidence')
+    expect(prompt).not.toContain('multiple dependent operations')
+    expect(prompt).not.toContain('calculator use')
   })
 })
 

@@ -19,6 +19,7 @@ import {
   type StemEditorMode,
 } from '@/features/ucat/questions/components/stem-editor/UcatStemEditorPropertiesPanel'
 import { UcatStemEngineInlineEditor } from '@/features/ucat/questions/components/stem-editor/UcatStemEngineInlineEditor'
+import { UcatStemQuestionNavigator } from '@/features/ucat/questions/components/stem-editor/UcatStemQuestionNavigator'
 import type {
   CategoryOption,
   TagOption,
@@ -192,6 +193,11 @@ export function UcatStemEditorShell({
   const questionCount = watchedQuestions?.length ?? 0
   const safeQuestionIndex =
     questionCount > 0 ? Math.min(currentQuestionIndex, questionCount - 1) : 0
+  const stemType = (watchedQuestions?.[0]?.questionType ?? 'multiple_choice') as
+    | 'multiple_choice'
+    | 'syllogism'
+  const isSyllogism = stemType === 'syllogism'
+  const showExamQuestionNavigator = showQuestionNavigator || questionCount > 1
   const currentQuestionId = watchedQuestions?.[safeQuestionIndex]?.id
   const currentExplanationFeedback = explanationFeedbackQuery.data?.find(
     (feedback) => feedback.questionId === currentQuestionId,
@@ -276,12 +282,18 @@ export function UcatStemEditorShell({
               : 'flex min-h-0 flex-1 flex-col overflow-hidden rounded-md border border-border shadow-sm'
           }
         >
+          <UcatStemQuestionNavigator
+            form={form}
+            currentQuestionIndex={safeQuestionIndex}
+            onQuestionIndexChange={handleQuestionIndexChange}
+            isSyllogism={isSyllogism}
+          />
           <UcatTutorStemPreviewExamChrome
             sectionTitle={previewSectionTitle}
             questionCount={questionCount}
             currentQuestionIndex={safeQuestionIndex}
             onQuestionIndexChange={handleQuestionIndexChange}
-            showNavigator={showQuestionNavigator}
+            showNavigator={showExamQuestionNavigator}
           >
             {editorMode === 'edit' ? (
               <UcatStemEngineInlineEditor

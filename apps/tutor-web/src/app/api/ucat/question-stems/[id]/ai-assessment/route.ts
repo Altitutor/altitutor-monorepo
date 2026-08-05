@@ -6,7 +6,6 @@ import { getServiceRoleClient } from '@/shared/lib/supabase/service-role'
 import {
   UcatAssessmentResponseSchema,
   UcatFormatCheckSchema,
-  type UcatAssessmentRating,
 } from '@/features/ucat/questions/lib/ai-assessment/schema'
 import {
   fingerprintUcatAssessmentSnapshot,
@@ -17,6 +16,8 @@ import {
   retryUcatQuestionAssessmentRun,
 } from '@/features/ucat/questions/server/ai-assessment/dispatcher'
 import { buildUcatAiReviewEnvironment, manualReviewEnvironment } from '@/features/ucat/questions/server/ai-assessment/environment'
+import { isStaleUcatAiReviewRun } from '@/features/ucat/questions/lib/ai-assessment/review-status'
+import { summarizeCurrentUcatAiReview } from '@/features/ucat/questions/server/ai-assessment/status-summary'
 
 type SupabaseAny = {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -37,6 +38,7 @@ type RunRow = {
   question_fingerprints: Record<string, string>
   format_checks: unknown
   status: string
+  prompt_version: number
   attempt_count: number
   blind_solver_model: string | null
   assessment_model: string | null
@@ -65,39 +67,6 @@ function currentQuestionIds(run: RunRow, fingerprints: ReturnType<typeof fingerp
   )
 }
 
-function ratingPriority(rating: UcatAssessmentRating): number {
-  switch (rating) {
-    case 'critical': return 5
-    case 'concern': return 4
-    case 'unreviewable': return 3
-    case 'pass': return 2
-    case 'not_applicable': return 1
-  }
-}
-
-function effectiveStatus(runs: Array<RunRow & { currentTargetQuestionIds: string[]; sharedCurrent: boolean }>) {
-  if (runs.length === 0) return 'not_requested' as const
-  let worstRating: UcatAssessmentRating | null = null
-  for (const run of runs) {
-    const parsed = UcatAssessmentResponseSchema.safeParse(run.assessment_result)
-    if (!parsed.success) continue
-    for (const result of parsed.data.categories) {
-      if (!worstRating || ratingPriority(result.rating) > ratingPriority(worstRating)) {
-        worstRating = result.rating
-      }
-    }
-  }
-  if (worstRating === 'critical') return 'critical' as const
-  if (runs.some((run) => run.status === 'running' || run.status === 'queued')) return 'reviewing' as const
-  if (worstRating === 'concern') return 'concerns' as const
-  if (runs.some((run) => run.status === 'deferred')) return 'deferred' as const
-  if (runs.some((run) => run.status === 'format_blocked')) return 'format_blocked' as const
-  if (runs.some((run) => run.status === 'failed')) return 'unavailable' as const
-  if (worstRating === 'unreviewable') return 'unreviewable' as const
-  if (worstRating === 'pass' || worstRating === 'not_applicable') return 'passed' as const
-  return 'not_requested' as const
-}
-
 export async function GET(_: NextRequest, { params }: { params: { id: string } }) {
   const access = await requireUcatTutor()
   if (!access.ok) return access.response
@@ -116,7 +85,7 @@ export async function GET(_: NextRequest, { params }: { params: { id: string } }
         .limit(20),
       asAny(admin)
         .from('ucat_ai_question_assessment_runs')
-        .select('id,cycle_id,stem_id,trigger_kind,scope_type,target_question_ids,content_fingerprint,shared_fingerprint,question_fingerprints,format_checks,status,attempt_count,blind_solver_model,assessment_model,assessment_result,error_message,requested_at,started_at,deferred_until,completed_at')
+        .select('id,cycle_id,stem_id,trigger_kind,scope_type,target_question_ids,content_fingerprint,shared_fingerprint,question_fingerprints,format_checks,status,prompt_version,attempt_count,blind_solver_model,assessment_model,assessment_result,error_message,requested_at,started_at,deferred_until,completed_at')
         .eq('stem_id', params.id)
         .order('requested_at', { ascending: false })
         .limit(100),
@@ -142,31 +111,26 @@ export async function GET(_: NextRequest, { params }: { params: { id: string } }
       currentTargetQuestionIds: currentQuestionIds(run, fingerprints),
       contentCurrent: run.content_fingerprint === fingerprints.content,
     }))
-    const currentCycleRuns = currentCycle
-      ? decoratedRuns.filter((run) => run.cycle_id === currentCycle.id)
-      : []
-
     // Each shared/question scope uses its newest still-current run. This avoids
     // re-reviewing an entire stem after an isolated question edit while keeping
     // unaffected earlier findings valid.
-    const effectiveRunIds = new Set<string>()
-    const sharedRun = currentCycleRuns.find((run) => run.scope_type === 'full' && run.sharedCurrent)
-    if (sharedRun) effectiveRunIds.add(sharedRun.id)
-    for (const question of snapshot.questions) {
-      const questionRun = currentCycleRuns.find((run) => run.currentTargetQuestionIds.includes(question.id))
-      if (questionRun) effectiveRunIds.add(questionRun.id)
-    }
-    const effectiveRuns = currentCycleRuns.filter((run) => effectiveRunIds.has(run.id))
     const environment = await buildUcatAiReviewEnvironment(admin)
+    const summary = summarizeCurrentUcatAiReview({
+      environmentEnabled: environment.enabled,
+      currentCycleId: currentCycle?.id ?? null,
+      runs: runRows,
+      fingerprints,
+      questionIds: snapshot.questions.map((question) => question.id),
+    })
 
     return NextResponse.json({
       environment,
-      status: environment.enabled ? effectiveStatus(effectiveRuns) : 'disabled',
+      status: summary.status,
       currentContentFingerprint: fingerprints.content,
       currentCycle,
       cycles: cycleRows,
       runs: decoratedRuns,
-      effectiveRunIds: [...effectiveRunIds],
+      effectiveRunIds: summary.effectiveRunIds,
       decisions: decisions ?? [],
     })
   } catch (error) {
@@ -210,13 +174,13 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
   const admin = getServiceRoleClient()
   const { data: run, error } = await asAny(admin)
     .from('ucat_ai_question_assessment_runs')
-    .select('id,stem_id,status')
+    .select('id,stem_id,status,started_at')
     .eq('id', body.runId)
     .eq('stem_id', params.id)
     .maybeSingle()
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-  if (!run || run.status !== 'failed') {
-    return NextResponse.json({ error: 'Only an unavailable review can be retried' }, { status: 409 })
+  if (!run || (run.status !== 'failed' && !isStaleUcatAiReviewRun(run))) {
+    return NextResponse.json({ error: 'Only an unavailable or interrupted review can be retried' }, { status: 409 })
   }
   try {
     const queued = await retryUcatQuestionAssessmentRun(body.runId)
