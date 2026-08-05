@@ -16,11 +16,11 @@ import { Loader2, X } from 'lucide-react';
 import type { DataTableFilterDefinition } from '@altitutor/shared';
 import type { Database } from '@altitutor/shared';
 import { fetchTutorLogsForExport } from '../api/quickbooks-export';
+import { processTutorLogsForExport } from '../utils/quickbooks-export.processor';
 import {
-  processTutorLogsForExport,
-  type ProcessTutorLogsForExportOptions,
-} from '../utils/quickbooks-export.processor';
-import { applyTutorLogsExportTableFilters } from '../utils/quickbooks-export.client-filters';
+  applyTutorLogsExportTableFilters,
+  getEmptyClassSessionsMode,
+} from '../utils/quickbooks-export.client-filters';
 import { generateCsv, downloadCsv } from '../utils/quickbooks-export.utils';
 import { getDefaultDateRange } from '../config/quickbooks-export.config';
 import { useToast } from '@altitutor/ui';
@@ -52,16 +52,6 @@ function formatClassOptionLabel(c: MinimalClass): string {
   const title = c.long_name || c.short_name || 'Class';
   const subj = c.subject?.long_name || c.subject?.name;
   return subj ? `${title} (${subj})` : title;
-}
-
-function getEmptyClassSessionsMode(
-  showWithStudents: boolean,
-  showEmptyClassSessions: boolean
-): NonNullable<ProcessTutorLogsForExportOptions['emptyClassSessions']> {
-  if (showWithStudents && showEmptyClassSessions) return 'include_all';
-  if (showWithStudents && !showEmptyClassSessions) return 'exclude';
-  if (!showWithStudents && showEmptyClassSessions) return 'only_empty';
-  return 'include_all';
 }
 
 type QuickBooksExportModalProps = {
@@ -220,10 +210,6 @@ export function QuickBooksExportModal({
     const sessionTypes = (state.filters.type as string[] | undefined) ?? [];
     const emptySessionFilters =
       (state.filters.empty_sessions as string[] | undefined) ?? [];
-    const showWithStudents =
-      emptySessionFilters.length === 0 || emptySessionFilters.includes('with_students');
-    const showEmptyClassSessions =
-      emptySessionFilters.length === 0 || emptySessionFilters.includes('empty_class');
 
     const narrowed = applyTutorLogsExportTableFilters(tutorLogsData, {
       staffIds,
@@ -231,7 +217,7 @@ export function QuickBooksExportModal({
       classIds,
       sessionTypes,
     });
-    const emptyMode = getEmptyClassSessionsMode(showWithStudents, showEmptyClassSessions);
+    const emptyMode = getEmptyClassSessionsMode(emptySessionFilters);
     return processTutorLogsForExport(narrowed, { emptyClassSessions: emptyMode });
   }, [tutorLogsData, state.filters]);
 

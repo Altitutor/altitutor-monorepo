@@ -1,5 +1,6 @@
 'use client'
 
+import React from 'react'
 import { cn } from '@/shared/utils'
 import type { ParsedOption, ParsedQuestion } from '@/features/ucat/questions/lib/parsers/core'
 
@@ -82,9 +83,13 @@ export function CollapsibleParsedQuestionCard({
         <ul className="mt-2 space-y-1.5 border-t border-border/60 pt-2">
           {question.options.map((option: ParsedOption) => (
             <li key={`${option.label}-${option.text}`} className="leading-relaxed text-foreground/90">
-              <span className="font-medium text-muted-foreground">
-                {formatOptionLabel(option.label)})
-              </span>{' '}
+              {question.questionType === 'syllogism' ? (
+                <span className="mr-2 font-medium text-muted-foreground">•</span>
+              ) : (
+                <span className="font-medium text-muted-foreground">
+                  {formatOptionLabel(option.label)})
+                </span>
+              )}{' '}
               {option.text.trim() || <span className="italic text-muted-foreground">Empty option</span>}
             </li>
           ))}

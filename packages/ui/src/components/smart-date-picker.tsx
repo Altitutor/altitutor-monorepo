@@ -1,10 +1,10 @@
 'use client';
 
 import * as React from 'react';
-import * as chrono from 'chrono-node';
 import { Calendar } from 'lucide-react';
-import { addDays, format, isValid, startOfDay } from 'date-fns';
+import { addDays, format, startOfDay } from 'date-fns';
 import { cn } from '../lib/cn';
+import { parseNaturalDate } from '../lib/smart-date-parser';
 import {
   Command,
   CommandEmpty,
@@ -100,12 +100,6 @@ function getThisWeekend(from: Date): Date {
 
 function formatDateOption(date: Date): string {
   return format(date, 'EEE, MMM d');
-}
-
-function parseNaturalDate(input: string, referenceDate: Date): Date | null {
-  const parsed = chrono.parseDate(input, referenceDate, { forwardDate: true });
-  if (!parsed || !isValid(parsed)) return null;
-  return parsed;
 }
 
 function isDateAllowed(date: Date, minDate?: string | null, maxDate?: string | null): boolean {
@@ -278,6 +272,7 @@ export function SmartDatePickerPill({
           className
         )}
         onClick={stopPropagation ? (event) => event.stopPropagation() : undefined}
+        onPointerDown={stopPropagation ? (event) => event.stopPropagation() : undefined}
         onKeyDown={
           stopPropagation
             ? (event) => {
@@ -362,6 +357,7 @@ export function SmartDatePickerField({
           className
         )}
         onClick={stopPropagation ? (event) => event.stopPropagation() : undefined}
+        onPointerDown={stopPropagation ? (event) => event.stopPropagation() : undefined}
         onKeyDown={
           stopPropagation
             ? (event) => {

@@ -202,6 +202,7 @@ export function DateRangeFilter({
           <SmartDatePickerField
             value={fromValue}
             onChange={(value) => onFromChange(value ?? '')}
+            stopPropagation
             className="h-8 mt-1"
           />
         </div>
@@ -212,6 +213,7 @@ export function DateRangeFilter({
           <SmartDatePickerField
             value={toValue}
             onChange={(value) => onToChange(value ?? '')}
+            stopPropagation
             minDate={fromValue || undefined}
             className="h-8 mt-1"
           />

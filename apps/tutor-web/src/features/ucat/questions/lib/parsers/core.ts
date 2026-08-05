@@ -14,6 +14,8 @@ export type ParsedQuestion = {
   number: number | null
   text: string
   options: ParsedOption[]
+  /** Decision Making adds this classification for downstream previews. */
+  questionType?: 'multiple_choice' | 'syllogism'
 }
 
 export type ParsedStem = {
