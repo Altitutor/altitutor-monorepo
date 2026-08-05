@@ -88,6 +88,22 @@ This follows from the final sentence.`
     ])
   })
 
+  it('parses numbered answer lists without explanations', () => {
+    const input = `1. C
+2. A
+3. B
+4. C
+5. B`
+
+    expect(parseAnswersTable(input, { inputFormat: 'numbered_list' })).toEqual([
+      { letter: 'C', explanation: '' },
+      { letter: 'A', explanation: '' },
+      { letter: 'B', explanation: '' },
+      { letter: 'C', explanation: '' },
+      { letter: 'B', explanation: '' },
+    ])
+  })
+
   it('returns empty array for empty input', () => {
     expect(parseAnswersTable('')).toEqual([]);
     expect(parseAnswersTable('   ')).toEqual([]);
@@ -124,6 +140,21 @@ describe('parseDecisionMakingAnswers', () => {
     expect(result[0]?.pattern).toMatch(/^[YN]+$/);
   });
 
+  it('parses a compact five-character syllogism pattern', () => {
+    const result = parseDecisionMakingAnswers('YNNYN', ['syllogism']);
+    expect(result).toEqual([{ pattern: 'YNNYN', optionExplanations: ['', '', '', '', ''] }]);
+  });
+
+  it('parses comma-separated Yes/No syllogism answers', () => {
+    const result = parseDecisionMakingAnswers('No, yes, no, no, yes', ['syllogism']);
+    expect(result).toEqual([{ pattern: 'NYNNY', optionExplanations: ['', '', '', '', ''] }]);
+  });
+
+  it('parses a compact pattern after a question number on its own line', () => {
+    const result = parseDecisionMakingAnswers('1\nYNNYN', ['syllogism']);
+    expect(result[0]?.pattern).toBe('YNNYN');
+  });
+
   it('parses multiple choice letter', () => {
     const input = '1\nB';
     const result = parseDecisionMakingAnswers(input, ['multiple_choice']);
@@ -131,6 +162,15 @@ describe('parseDecisionMakingAnswers', () => {
     expect(result[0]).toHaveProperty('letter');
     expect(result[0]?.letter).toBe('B');
   });
+
+  it('parses numbered answer lists for Decision Making', () => {
+    const result = parseDecisionMakingAnswers(
+      '1. C\n2. A\n3. B',
+      ['multiple_choice', 'multiple_choice', 'multiple_choice'],
+      { inputFormat: 'numbered_list' }
+    )
+    expect(result).toEqual([{ letter: 'C' }, { letter: 'A' }, { letter: 'B' }])
+  })
 
   it('keeps explanation text from loose multiple choice line format', () => {
     const input = '1\nB\nOnly this option is supported by the stem.'

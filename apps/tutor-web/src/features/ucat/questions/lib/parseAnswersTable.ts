@@ -1,6 +1,7 @@
 /**
- * Parses a pasted table of answers (correct option letter + explanation) from plain text
- * or HTML. Used in bulk import to fill Correct and Answer explanation for each question.
+ * Parses pasted answers from plain text or HTML. Table mode supports correct option letters
+ * plus explanations; numbered-list mode supports answer letters without explanations.
+ * Used in bulk import to fill Correct and Answer explanation for each question.
  *
  * Supports:
  * - First row optional headers (e.g. "Answer" | "Explanation" or "Answer" \t "Explanation")
@@ -15,9 +16,12 @@ export type ParsedAnswerRow = {
 }
 
 export type AnswerFieldSeparator = 'tab' | 'comma' | 'semicolon' | 'pipe'
+export type AnswerInputFormat = 'table' | 'numbered_list'
 
 export type AnswerParseOptions = {
   fieldSeparator?: AnswerFieldSeparator
+  /** Use ordered-list/numbered answers when no explanation cells are present. */
+  inputFormat?: AnswerInputFormat
 }
 
 export const DEFAULT_ANSWER_FIELD_SEPARATOR: AnswerFieldSeparator = 'tab'
@@ -37,6 +41,10 @@ export function answerFieldSeparatorChar(separator: AnswerFieldSeparator = DEFAU
 
 function resolveFieldSeparator(options?: AnswerParseOptions): AnswerFieldSeparator {
   return options?.fieldSeparator ?? DEFAULT_ANSWER_FIELD_SEPARATOR
+}
+
+function resolveInputFormat(options?: AnswerParseOptions): AnswerInputFormat {
+  return options?.inputFormat ?? 'table'
 }
 
 function textUsesFieldSeparator(text: string, separator: AnswerFieldSeparator): boolean {
@@ -64,6 +72,10 @@ function extractAnswerRowsFromInput(input: string, options?: AnswerParseOptions)
   const raw = input.trim()
   if (!raw.length) return []
 
+  if (resolveInputFormat(options) === 'numbered_list') {
+    return parseNumberedListAnswerRowsFromText(raw)
+  }
+
   if (raw.startsWith('<') && raw.includes('<table')) {
     return extractRowsFromHtml(raw)
   }
@@ -87,6 +99,9 @@ function isHeaderRow(cells: string[]): boolean {
 
 function parseRowToAnswer(cells: string[], joinChar = '\t'): ParsedAnswerRow | null {
   const trimmed = cells.map((c) => c.trim())
+  if (trimmed.length === 1 && OPTION_LETTER.test(trimmed[0] ?? '')) {
+    return { letter: (trimmed[0] ?? '').toUpperCase(), explanation: '' }
+  }
   if (trimmed.length === 2) {
     const [first, second] = trimmed
     const num = first ? Number.parseInt(first, 10) : NaN
@@ -204,6 +219,27 @@ function parseLooseAnswerRowsFromText(text: string): string[][] {
     i += 1
   }
 
+  return rows
+}
+
+function parseNumberedListAnswerRowsFromText(text: string): string[][] {
+  const lines = text
+    .trim()
+    .split(/\r\n|\n|\r/)
+    .map((line) => line.trim())
+    .filter((line) => !isIgnorableLooseAnswerLine(line))
+
+  const rows: string[][] = []
+  for (const line of lines) {
+    const inline = INLINE_ANSWER_LINE.exec(line)
+    if (inline) {
+      rows.push([(inline[2] ?? '').toUpperCase()])
+      continue
+    }
+
+    const letter = isLooseLetterLine(line)
+    if (letter) rows.push([letter])
+  }
   return rows
 }
 
@@ -599,11 +635,78 @@ export function letterToOptionIndex(letter: string): number {
 const YN_LINE = /^\s*(y|ye|yes|n|no)\s*$/i
 const LETTER_LINE = /^\s*[A-Ea-e]\s*$/
 
+function parseYorNSequence(value: string): string[] | null {
+  const trimmed = value.trim()
+  if (/^[yn]{5}$/i.test(trimmed)) {
+    return trimmed.toUpperCase().split('')
+  }
+
+  const parts = /[,;|]/.test(trimmed)
+    ? trimmed.split(/\s*[,;|]\s*/u)
+    : trimmed.split(/\s+/u)
+  if (parts.length !== 5 || !parts.every((part) => YN_LINE.test(part))) return null
+  return parts.map((part) => part.trim().charAt(0).toUpperCase())
+}
+
 function isYorN(s: string): boolean {
   return YN_LINE.test(s)
 }
 function isAthroughE(s: string): boolean {
   return /^\s*[A-Ea-e]\s*$/.test(s)
+}
+
+function parseNumberedListDecisionMakingAnswers(
+  input: string,
+  questionTypes: ('syllogism' | 'multiple_choice')[]
+): { letter?: string; pattern?: string; optionExplanations?: string[] }[] {
+  const values = input
+    .split(/\r\n|\n|\r/)
+    .map((line) => {
+      const trimmed = line.trim()
+      const numbered = /^\s*(?:q(?:uestion)?\s*)?\d+[.)]?\s+(.+?)\s*$/i.exec(trimmed)
+      return (numbered?.[1] ?? trimmed).trim()
+    })
+    .filter((value) => value.length > 0 && !/^\s*(?:q(?:uestion)?\s*)?\d+[.)]?\s*$/i.test(value))
+
+  const result: { letter?: string; pattern?: string; optionExplanations?: string[] }[] = []
+  let valueIndex = 0
+
+  for (const type of questionTypes) {
+    if (type === 'syllogism') {
+      const sequence = parseYorNSequence(values[valueIndex] ?? '')
+      if (sequence) {
+        result.push({ pattern: sequence.join(''), optionExplanations: sequence.map(() => '') })
+        valueIndex += 1
+        continue
+      }
+
+      const tokens: string[] = []
+      while (valueIndex < values.length && tokens.length < 5) {
+        const value = values[valueIndex] ?? ''
+        valueIndex += 1
+        if (isYorN(value)) tokens.push(value.charAt(0).toUpperCase())
+      }
+      result.push(
+        tokens.length === 5
+          ? { pattern: tokens.join(''), optionExplanations: tokens.map(() => '') }
+          : {}
+      )
+      continue
+    }
+
+    while (valueIndex < values.length && !isAthroughE(values[valueIndex] ?? '')) {
+      valueIndex += 1
+    }
+    const value = values[valueIndex]
+    if (value) {
+      result.push({ letter: value.toUpperCase() })
+      valueIndex += 1
+    } else {
+      result.push({})
+    }
+  }
+
+  return result
 }
 
 /**
@@ -625,6 +728,10 @@ export function parseDecisionMakingAnswers(
   const trimmed = input.trim()
   if (!trimmed.length) return []
 
+  if (resolveInputFormat(options) === 'numbered_list') {
+    return parseNumberedListDecisionMakingAnswers(trimmed, questionTypes)
+  }
+
   const separator = resolveFieldSeparator(options)
   const rows = textUsesFieldSeparator(trimmed, separator)
     ? extractRowsFromDelimitedText(trimmed, separator)
@@ -644,6 +751,8 @@ export function parseDecisionMakingAnswers(
 
   const byQuestionTokens = new Map<number, string[]>()
   const byQuestionExplanations = new Map<number, string[]>()
+  const unnumberedTokenGroups: string[][] = []
+  let pendingQuestionNumber: number | null = null
   for (let i = rowIndex; i < nonEmpty.length; i++) {
     const cells = nonEmpty[i] ?? []
     const first = (cells[0] ?? '').trim()
@@ -652,7 +761,12 @@ export function parseDecisionMakingAnswers(
     if (!Number.isNaN(num) && num >= 1 && num <= 999) {
       const token = second.length > 0 ? second : first
       const explanationText = cells.slice(2).join('\t').trim()
-      if (isYorN(token) || isAthroughE(token)) {
+      const sequence = second.length > 0 ? parseYorNSequence(second) : null
+      if (sequence) {
+        byQuestionTokens.set(num, sequence)
+        byQuestionExplanations.set(num, sequence.map(() => explanationText))
+        pendingQuestionNumber = null
+      } else if (isYorN(token) || isAthroughE(token)) {
         const letter = token.charAt(0).toUpperCase()
         const list = byQuestionTokens.get(num) ?? []
         const explList = byQuestionExplanations.get(num) ?? []
@@ -660,6 +774,20 @@ export function parseDecisionMakingAnswers(
         explList.push(explanationText)
         byQuestionTokens.set(num, list)
         byQuestionExplanations.set(num, explList)
+        pendingQuestionNumber = null
+      } else if (second.length === 0) {
+        pendingQuestionNumber = num
+      }
+      continue
+    }
+    const sequence = parseYorNSequence(first)
+    if (sequence) {
+      if (pendingQuestionNumber != null) {
+        byQuestionTokens.set(pendingQuestionNumber, sequence)
+        byQuestionExplanations.set(pendingQuestionNumber, sequence.map(() => ''))
+        pendingQuestionNumber = null
+      } else {
+        unnumberedTokenGroups.push(sequence)
       }
       continue
     }
@@ -680,10 +808,20 @@ export function parseDecisionMakingAnswers(
   }
 
   const sortedQuestions = Array.from(byQuestionTokens.keys()).sort((a, b) => a - b)
-  for (let i = 0; i < questionTypes.length && i < sortedQuestions.length; i++) {
-    const qNum = sortedQuestions[i]
-    const tokens = byQuestionTokens.get(qNum) ?? []
-    const explanations = byQuestionExplanations.get(qNum) ?? []
+  const tokenGroups = sortedQuestions.map((qNum) => ({
+    tokens: byQuestionTokens.get(qNum) ?? [],
+    explanations: byQuestionExplanations.get(qNum) ?? [],
+  }))
+  tokenGroups.push(
+    ...unnumberedTokenGroups.map((tokens) => ({
+      tokens,
+      explanations: tokens.map(() => ''),
+    }))
+  )
+  for (let i = 0; i < questionTypes.length && i < tokenGroups.length; i++) {
+    const group = tokenGroups[i]
+    if (!group) continue
+    const { tokens, explanations } = group
     const type = questionTypes[i]
     if (type === 'syllogism') {
       const pairs = tokens

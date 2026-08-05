@@ -1,4 +1,18 @@
-import type { TutorLogExportData } from './quickbooks-export.processor';
+import type {
+  ProcessTutorLogsForExportOptions,
+  TutorLogExportData,
+} from './quickbooks-export.processor';
+
+export function getEmptyClassSessionsMode(
+  selectedFilters: string[]
+): NonNullable<ProcessTutorLogsForExportOptions['emptyClassSessions']> {
+  const showWithStudents = selectedFilters.includes('with_students');
+  const showEmptyClassSessions = selectedFilters.includes('empty_class');
+
+  if (showWithStudents && showEmptyClassSessions) return 'include_all';
+  if (showEmptyClassSessions) return 'only_empty';
+  return 'exclude';
+}
 
 export type TutorLogsExportTableFilters = {
   staffIds: string[];
