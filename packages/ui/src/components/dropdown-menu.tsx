@@ -6,6 +6,7 @@ import { Check, ChevronRight, Circle } from 'lucide-react'
 
 import { cn } from '../lib/cn'
 import { navHoverStyles } from '../lib/styles'
+import { useRemountPersistentState } from '../hooks/use-remount-persistent-state'
 
 const DropdownMenu = DropdownMenuPrimitive.Root
 
@@ -15,7 +16,53 @@ const DropdownMenuGroup = DropdownMenuPrimitive.Group
 
 const DropdownMenuPortal = DropdownMenuPrimitive.Portal
 
-const DropdownMenuSub = DropdownMenuPrimitive.Sub
+const PreserveSubOnNextCloseContext = React.createContext<() => void>(() => {})
+const preserveSubCloseUntil = new Map<string, number>()
+
+export function usePreserveDropdownSubOnNextClose() {
+  return React.useContext(PreserveSubOnNextCloseContext)
+}
+
+const DropdownMenuSub = ({
+  persistOpenOnRemountKey,
+  open,
+  onOpenChange,
+  ...props
+}: React.ComponentProps<typeof DropdownMenuPrimitive.Sub> & {
+  persistOpenOnRemountKey?: string
+}) => {
+  const fallbackKey = React.useId()
+  const persistenceKey = persistOpenOnRemountKey ?? fallbackKey
+  const [persistentOpen, setPersistentOpen] = useRemountPersistentState(
+    persistenceKey,
+    false
+  )
+
+  if (!persistOpenOnRemountKey) {
+    return <DropdownMenuPrimitive.Sub open={open} onOpenChange={onOpenChange} {...props} />
+  }
+
+  const resolvedOpen = open ?? persistentOpen
+  return (
+    <PreserveSubOnNextCloseContext.Provider
+      value={() => {
+        preserveSubCloseUntil.set(persistenceKey, Date.now() + 750)
+      }}
+    >
+      <DropdownMenuPrimitive.Sub
+        open={resolvedOpen}
+        onOpenChange={(nextOpen) => {
+          if (!nextOpen && (preserveSubCloseUntil.get(persistenceKey) ?? 0) > Date.now()) {
+            return
+          }
+          if (open === undefined) setPersistentOpen(nextOpen)
+          onOpenChange?.(nextOpen)
+        }}
+        {...props}
+      />
+    </PreserveSubOnNextCloseContext.Provider>
+  )
+}
 
 const DropdownMenuRadioGroup = DropdownMenuPrimitive.RadioGroup
 

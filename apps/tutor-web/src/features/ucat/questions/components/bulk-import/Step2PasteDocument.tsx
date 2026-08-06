@@ -28,6 +28,8 @@ import type {
   AnswerOptionIndicatorKind,
   QuestionIndicatorKind,
 } from '@/features/ucat/questions/lib/parsers/core'
+import type { StemSplitOptions } from '@/features/ucat/questions/lib/parsers/splitStemDocument'
+import { StemSplitSettingsFields } from '@/features/ucat/questions/components/bulk-import/StemSplitSettingsFields'
 
 export type PasteTableBehavior = 'strip_all' | 'strip_outside' | 'keep'
 
@@ -54,17 +56,26 @@ const DEFAULT_PARSING_OPTIONS: ParsingOptions = {
   quantitativeReasoningQuestionNumberPlacement: 'question',
 }
 
-const QUESTION_INDICATOR_OPTIONS: { value: QuestionIndicatorKind; label: string }[] = [
+const QUESTION_INDICATOR_OPTIONS: {
+  value: QuestionIndicatorKind
+  label: string
+}[] = [
   { value: 'dot', label: '1. 2. 3.' },
   { value: 'paren', label: '1) 2) 3)' },
 ]
 
-const ANSWER_OPTION_INDICATOR_OPTIONS: { value: AnswerOptionIndicatorKind; label: string }[] = [
+const ANSWER_OPTION_INDICATOR_OPTIONS: {
+  value: AnswerOptionIndicatorKind
+  label: string
+}[] = [
   { value: 'paren', label: 'a) b) c)' },
   { value: 'dot', label: 'a. b. c.' },
 ]
 
-const PASTE_TABLE_BEHAVIOR_OPTIONS: { value: PasteTableBehavior; label: string }[] = [
+const PASTE_TABLE_BEHAVIOR_OPTIONS: {
+  value: PasteTableBehavior
+  label: string
+}[] = [
   { value: 'strip_all', label: 'Strip all tables' },
   { value: 'strip_outside', label: 'Strip outside tables only' },
   { value: 'keep', label: 'Keep formatting' },
@@ -146,7 +157,10 @@ function ParserCheckboxOptions({
           id={`${idPrefix}-require-consecutive-question-numbers`}
           checked={opts.requireConsecutiveQuestionNumbers}
           onCheckedChange={(checked) =>
-            setOpts({ ...opts, requireConsecutiveQuestionNumbers: checked === true })
+            setOpts({
+              ...opts,
+              requireConsecutiveQuestionNumbers: checked === true,
+            })
           }
         />
         <Label
@@ -181,6 +195,12 @@ type Step2PasteDocumentProps = {
   settingsOnly?: boolean
   /** With settingsOnly, render only the legend + settings actions (no title row wrapper). */
   settingsOnlyActionsOnly?: boolean
+  /** Override the settings button to strip one or more documents owned by the caller. */
+  onStripOuterTables?: () => void
+  canStripOuterTables?: boolean
+  /** Optional independent splitter for a combined questions document. */
+  questionSplitOptions?: StemSplitOptions
+  onQuestionSplitOptionsChange?: (options: StemSplitOptions) => void
 }
 
 export function Step2PasteDocument({
@@ -197,6 +217,10 @@ export function Step2PasteDocument({
   liveParseSection = null,
   settingsOnly = false,
   settingsOnlyActionsOnly = false,
+  onStripOuterTables,
+  canStripOuterTables: canStripOuterTablesOverride,
+  questionSplitOptions,
+  onQuestionSplitOptionsChange,
 }: Step2PasteDocumentProps) {
   const opts = parsingOptions
   const setOpts = onParsingOptionsChange ?? (() => {})
@@ -206,7 +230,8 @@ export function Step2PasteDocument({
   const showQuantitativeReasoningOptions = liveParseSection === 'quantitative_reasoning'
 
   const classify = useMemo(() => parsingOptionsToClassify(opts), [opts])
-  const canStripOuterTables = useMemo(() => proseMirrorHasOuterTable(value), [value])
+  const valueHasOuterTable = useMemo(() => proseMirrorHasOuterTable(value), [value])
+  const canStripOuterTables = canStripOuterTablesOverride ?? valueHasOuterTable
 
   const ucatQHighlight = useMemo(() => {
     if (!liveParseSection) return { mode: 'off' as const }
@@ -218,6 +243,10 @@ export function Step2PasteDocument({
   }, [classify, liveParseSection])
 
   const handleStripOuterTables = () => {
+    if (onStripOuterTables) {
+      onStripOuterTables()
+      return
+    }
     const next = stripOuterTablesFromProseMirrorDoc(value)
     if (next) onChange(next)
   }
@@ -243,11 +272,27 @@ export function Step2PasteDocument({
             className="w-80 max-h-[var(--radix-dropdown-menu-content-available-height)] max-w-[min(20rem,92vw)] overflow-y-auto p-2"
             align="end"
           >
+            {questionSplitOptions && onQuestionSplitOptionsChange ? (
+              <>
+                <DropdownMenuLabel className="px-0 text-xs">
+                  Split question groups by
+                </DropdownMenuLabel>
+                <StemSplitSettingsFields
+                  options={questionSplitOptions}
+                  onChange={onQuestionSplitOptionsChange}
+                  subject="question groups"
+                />
+                <DropdownMenuSeparator />
+              </>
+            ) : null}
             <DropdownMenuLabel className="px-0 text-xs">Parser</DropdownMenuLabel>
             <div className="space-y-3">
               <div className="space-y-1.5">
                 <Label className="text-xs">Question indicator</Label>
-                <SearchableSelect<{ value: QuestionIndicatorKind; label: string }>
+                <SearchableSelect<{
+                  value: QuestionIndicatorKind
+                  label: string
+                }>
                   items={QUESTION_INDICATOR_OPTIONS}
                   value={
                     QUESTION_INDICATOR_OPTIONS.find((i) => i.value === opts.questionIndicator) ??
@@ -263,7 +308,10 @@ export function Step2PasteDocument({
               </div>
               <div className="space-y-1.5">
                 <Label className="text-xs">Answer option indicator</Label>
-                <SearchableSelect<{ value: AnswerOptionIndicatorKind; label: string }>
+                <SearchableSelect<{
+                  value: AnswerOptionIndicatorKind
+                  label: string
+                }>
                   items={ANSWER_OPTION_INDICATOR_OPTIONS}
                   value={
                     ANSWER_OPTION_INDICATOR_OPTIONS.find(
@@ -331,6 +379,35 @@ export function Step2PasteDocument({
                   />
                 </div>
               ) : null}
+              <DropdownMenuSeparator />
+              <div className="space-y-1.5">
+                <Label className="text-xs">Table paste handling</Label>
+                <p className="text-[11px] leading-snug text-muted-foreground">
+                  Applies on paste. The button strips outer tables from the active question source.
+                </p>
+                <SearchableSelect<{ value: PasteTableBehavior; label: string }>
+                  items={PASTE_TABLE_BEHAVIOR_OPTIONS}
+                  value={
+                    PASTE_TABLE_BEHAVIOR_OPTIONS.find(
+                      (item) => item.value === pasteTableBehavior
+                    ) ?? PASTE_TABLE_BEHAVIOR_OPTIONS[0]
+                  }
+                  onValueChange={(item) => item && onPasteTableBehaviorChange?.(item.value)}
+                  getItemLabel={(item) => item.label}
+                  getItemId={(item) => item.value}
+                  triggerClassName="w-full"
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="w-full"
+                  disabled={!canStripOuterTables}
+                  onClick={handleStripOuterTables}
+                >
+                  Strip outside tables
+                </Button>
+              </div>
             </div>
           </DropdownMenuContent>
         </DropdownMenu>
@@ -348,12 +425,8 @@ export function Step2PasteDocument({
   }
 
   return (
-    <div
-      className={cn(isSplit ? 'flex h-full min-h-0 flex-col gap-3' : 'space-y-4')}
-    >
-      <div
-        className="flex shrink-0 flex-col gap-1 sm:flex-row sm:items-start sm:justify-between sm:gap-3"
-      >
+    <div className={cn(isSplit ? 'flex h-full min-h-0 flex-col gap-3' : 'space-y-4')}>
+      <div className="flex shrink-0 flex-col gap-1 sm:flex-row sm:items-start sm:justify-between sm:gap-3">
         <h2 className="text-base font-semibold">{title}</h2>
         <div className="flex shrink-0 items-center gap-2 self-start sm:pt-0.5">
           <BulkImportParseLegendButton variant="questions" />
@@ -378,12 +451,14 @@ export function Step2PasteDocument({
               <div className="space-y-3">
                 <div className="space-y-1.5">
                   <Label className="text-xs">Question indicator</Label>
-                  <SearchableSelect<{ value: QuestionIndicatorKind; label: string }>
+                  <SearchableSelect<{
+                    value: QuestionIndicatorKind
+                    label: string
+                  }>
                     items={QUESTION_INDICATOR_OPTIONS}
                     value={
-                      QUESTION_INDICATOR_OPTIONS.find(
-                        (i) => i.value === opts.questionIndicator
-                      ) ?? QUESTION_INDICATOR_OPTIONS[0]
+                      QUESTION_INDICATOR_OPTIONS.find((i) => i.value === opts.questionIndicator) ??
+                      QUESTION_INDICATOR_OPTIONS[0]
                     }
                     onValueChange={(item) =>
                       item && setOpts({ ...opts, questionIndicator: item.value })
@@ -395,7 +470,10 @@ export function Step2PasteDocument({
                 </div>
                 <div className="space-y-1.5">
                   <Label className="text-xs">Answer option indicator</Label>
-                  <SearchableSelect<{ value: AnswerOptionIndicatorKind; label: string }>
+                  <SearchableSelect<{
+                    value: AnswerOptionIndicatorKind
+                    label: string
+                  }>
                     items={ANSWER_OPTION_INDICATOR_OPTIONS}
                     value={
                       ANSWER_OPTION_INDICATOR_OPTIONS.find(
@@ -469,16 +547,16 @@ export function Step2PasteDocument({
                   <p className="text-[11px] leading-snug text-muted-foreground">
                     Applies on paste. The button strips outer tables from the current document.
                   </p>
-                  <SearchableSelect<{ value: PasteTableBehavior; label: string }>
+                  <SearchableSelect<{
+                    value: PasteTableBehavior
+                    label: string
+                  }>
                     items={PASTE_TABLE_BEHAVIOR_OPTIONS}
                     value={
-                      PASTE_TABLE_BEHAVIOR_OPTIONS.find(
-                        (i) => i.value === pasteTableBehavior
-                      ) ?? PASTE_TABLE_BEHAVIOR_OPTIONS[0]
+                      PASTE_TABLE_BEHAVIOR_OPTIONS.find((i) => i.value === pasteTableBehavior) ??
+                      PASTE_TABLE_BEHAVIOR_OPTIONS[0]
                     }
-                    onValueChange={(item) =>
-                      item && onPasteTableBehaviorChange?.(item.value)
-                    }
+                    onValueChange={(item) => item && onPasteTableBehaviorChange?.(item.value)}
                     getItemLabel={(i) => i.label}
                     getItemId={(i) => i.value}
                     triggerClassName="w-full"
@@ -509,12 +587,7 @@ export function Step2PasteDocument({
 
       {showParsedPreview ? (
         <div className="grid min-h-0 flex-1 gap-4 overflow-hidden lg:grid-cols-2">
-          <div
-            className={cn(
-              'rounded-md border bg-muted/40 p-3',
-              'min-h-0 overflow-y-auto'
-            )}
-          >
+          <div className={cn('rounded-md border bg-muted/40 p-3', 'min-h-0 overflow-y-auto')}>
             <UcatRichTextEditor
               value={value}
               onChange={onChange}

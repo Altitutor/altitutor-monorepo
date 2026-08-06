@@ -7,8 +7,8 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuLabel,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
-  Input,
   Label,
   SearchableSelect,
 } from '@altitutor/ui'
@@ -19,23 +19,22 @@ import { BulkImportParseLegendButton } from '@/features/ucat/questions/component
 import { BULK_IMPORT_RTE_PASTE } from '@/features/ucat/questions/components/bulk-import/bulkImportRichTextDefaults'
 import {
   splitStemDocumentFromDoc,
-  type StemSplitMode,
   type StemSplitOptions,
 } from '@/features/ucat/questions/lib/parsers/splitStemDocument'
+import { StemSplitSettingsFields } from '@/features/ucat/questions/components/bulk-import/StemSplitSettingsFields'
 import type { PasteTableBehavior } from '@/features/ucat/questions/components/bulk-import/Step2PasteDocument'
+import {
+  proseMirrorHasOuterTable,
+  stripOuterTablesFromProseMirrorDoc,
+} from '@/features/ucat/shared/lib/rich-text'
 
-const STEM_SPLIT_MODE_OPTIONS: { value: StemSplitMode; label: string }[] = [
-  { value: 'keyword', label: 'Keyword prefix' },
-  { value: 'line_breaks', label: 'Line breaks' },
-  { value: 'stem_numbers', label: 'Stem numbers' },
-]
-
-const STEM_NUMBER_INDICATOR_OPTIONS: {
-  value: StemSplitOptions['stemNumberIndicator']
+const PASTE_TABLE_BEHAVIOR_OPTIONS: {
+  value: PasteTableBehavior
   label: string
 }[] = [
-  { value: 'dot', label: '1. 2. 3.' },
-  { value: 'paren', label: '1) 2) 3)' },
+  { value: 'strip_all', label: 'Strip all tables' },
+  { value: 'strip_outside', label: 'Strip outside tables only' },
+  { value: 'keep', label: 'Keep formatting' },
 ]
 
 type StepPasteStemsProps = {
@@ -54,6 +53,7 @@ export function StepPasteStems({
   stemSplitOptions,
   onStemSplitOptionsChange,
   pasteTableBehavior,
+  onPasteTableBehaviorChange,
   onImageFileIdsChange,
 }: StepPasteStemsProps) {
   const [expandedStemIndices, setExpandedStemIndices] = useState<Set<number>>(() => new Set())
@@ -82,6 +82,13 @@ export function StepPasteStems({
     [splitResult.splitLineIndices, splitResult.discardedLineIndices, splitResult.discardedLineSpans]
   )
 
+  const canStripOuterTables = useMemo(() => proseMirrorHasOuterTable(value), [value])
+
+  const handleStripOuterTables = useCallback(() => {
+    const next = stripOuterTablesFromProseMirrorDoc(value)
+    if (next) onChange(next)
+  }, [onChange, value])
+
   return (
     <div className="flex h-full min-h-0 flex-col gap-3">
       <div className="flex shrink-0 flex-col gap-1 sm:flex-row sm:items-start sm:justify-between">
@@ -91,85 +98,53 @@ export function StepPasteStems({
         <div className="flex shrink-0 items-center gap-2">
           <BulkImportParseLegendButton variant="stem_split" />
           <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button type="button" variant="outline" size="sm" className="shrink-0 gap-1.5">
-              <Settings2 className="h-3.5 w-3.5" />
-              Stem settings
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent className="w-80 p-2" align="end">
-            <DropdownMenuLabel className="px-0 text-xs">Split stems by</DropdownMenuLabel>
-            <div className="space-y-3">
-              <SearchableSelect<{ value: StemSplitMode; label: string }>
-                items={STEM_SPLIT_MODE_OPTIONS}
-                value={
-                  STEM_SPLIT_MODE_OPTIONS.find((o) => o.value === stemSplitOptions.mode) ??
-                  STEM_SPLIT_MODE_OPTIONS[0]
-                }
-                onValueChange={(item) =>
-                  item && onStemSplitOptionsChange({ ...stemSplitOptions, mode: item.value })
-                }
-                getItemLabel={(i) => i.label}
-                getItemId={(i) => i.value}
-                triggerClassName="w-full"
-              />
-              {stemSplitOptions.mode === 'line_breaks' ? (
+            <DropdownMenuTrigger asChild>
+              <Button type="button" variant="outline" size="sm" className="shrink-0 gap-1.5">
+                <Settings2 className="h-3.5 w-3.5" />
+                Stem settings
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent className="w-80 p-2" align="end">
+              <DropdownMenuLabel className="px-0 text-xs">Split stems by</DropdownMenuLabel>
+              <div className="space-y-3">
+                <StemSplitSettingsFields
+                  options={stemSplitOptions}
+                  onChange={onStemSplitOptionsChange}
+                />
+                <DropdownMenuSeparator />
                 <div className="space-y-1.5">
-                  <Label className="text-xs">At least this many consecutive blank lines</Label>
-                  <Input
-                    type="number"
-                    min={1}
-                    max={10}
-                    value={stemSplitOptions.lineBreakThreshold}
-                    onChange={(e) =>
-                      onStemSplitOptionsChange({
-                        ...stemSplitOptions,
-                        lineBreakThreshold: Math.max(1, Number.parseInt(e.target.value, 10) || 2),
-                      })
-                    }
-                  />
-                </div>
-              ) : null}
-              {stemSplitOptions.mode === 'stem_numbers' ? (
-                <div className="space-y-1.5">
-                  <Label className="text-xs">Stem number format</Label>
-                  <SearchableSelect<(typeof STEM_NUMBER_INDICATOR_OPTIONS)[number]>
-                    items={STEM_NUMBER_INDICATOR_OPTIONS}
+                  <Label className="text-xs">Table paste handling</Label>
+                  <p className="text-[11px] leading-snug text-muted-foreground">
+                    Applies on paste. The button strips outer tables from this stem document.
+                  </p>
+                  <SearchableSelect<{
+                    value: PasteTableBehavior
+                    label: string
+                  }>
+                    items={PASTE_TABLE_BEHAVIOR_OPTIONS}
                     value={
-                      STEM_NUMBER_INDICATOR_OPTIONS.find(
-                        (o) => o.value === stemSplitOptions.stemNumberIndicator
-                      ) ?? STEM_NUMBER_INDICATOR_OPTIONS[0]
+                      PASTE_TABLE_BEHAVIOR_OPTIONS.find(
+                        (item) => item.value === pasteTableBehavior
+                      ) ?? PASTE_TABLE_BEHAVIOR_OPTIONS[0]
                     }
-                    onValueChange={(item) =>
-                      item &&
-                      onStemSplitOptionsChange({
-                        ...stemSplitOptions,
-                        stemNumberIndicator: item.value,
-                      })
-                    }
-                    getItemLabel={(i) => i.label}
-                    getItemId={(i) => i.value}
+                    onValueChange={(item) => item && onPasteTableBehaviorChange(item.value)}
+                    getItemLabel={(item) => item.label}
+                    getItemId={(item) => item.value}
                     triggerClassName="w-full"
                   />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="w-full"
+                    disabled={!canStripOuterTables}
+                    onClick={handleStripOuterTables}
+                  >
+                    Strip outside tables
+                  </Button>
                 </div>
-              ) : null}
-              {stemSplitOptions.mode === 'keyword' ? (
-                <div className="space-y-1.5">
-                  <Label className="text-xs">Keyword prefix</Label>
-                  <Input
-                    value={stemSplitOptions.keywordPrefix}
-                    onChange={(e) =>
-                      onStemSplitOptionsChange({
-                        ...stemSplitOptions,
-                        keywordPrefix: e.target.value,
-                      })
-                    }
-                    placeholder="e.g. Prompt"
-                  />
-                </div>
-              ) : null}
-            </div>
-          </DropdownMenuContent>
+              </div>
+            </DropdownMenuContent>
           </DropdownMenu>
         </div>
       </div>
@@ -195,16 +170,14 @@ export function StepPasteStems({
           </div>
         </div>
 
-        <div
-          className="hidden shrink-0 self-stretch md:block md:w-px md:bg-border"
-          aria-hidden
-        />
+        <div className="hidden shrink-0 self-stretch md:block md:w-px md:bg-border" aria-hidden />
 
         <div className="flex min-h-0 min-w-0 flex-1 flex-col md:pl-4">
           <div className="mb-2 flex shrink-0 items-baseline justify-between gap-2">
             <Label className="text-xs font-medium text-muted-foreground">Detected stems</Label>
             <span className="text-xs text-muted-foreground">
-              {splitResult.stems.length} stem{splitResult.stems.length === 1 ? '' : 's'}
+              {splitResult.stems.length} stem
+              {splitResult.stems.length === 1 ? '' : 's'}
             </span>
           </div>
           <div className="min-h-0 flex-1 overflow-y-auto">

@@ -195,7 +195,10 @@ export function nodeToText(node: PMNode | null | undefined): string {
   // soft line breaks and can destroy tabs between adjacent TipTap text nodes.
   // Block children (e.g. flattening a table cell) keep space-separated plain text.
   if (hasBlockChild) {
-    return parts.map((part) => part.trim()).filter((part) => part.length > 0).join(' ')
+    return parts
+      .map((part) => part.trim())
+      .filter((part) => part.length > 0)
+      .join(' ')
   }
   return parts.join('')
 }
@@ -277,9 +280,7 @@ export function isOptionsTable(rows: string[][]): boolean {
   if (rows.length < 2 || rows.length > 6) return false
   for (const row of rows) {
     const hasLabelOrCombined = row.some(
-      (cell) =>
-        OPTION_LABEL_RE.test(cell.trim()) ||
-        OPTION_LABEL_WITH_TEXT_RE.test(cell.trim())
+      (cell) => OPTION_LABEL_RE.test(cell.trim()) || OPTION_LABEL_WITH_TEXT_RE.test(cell.trim())
     )
     if (!hasLabelOrCombined) return false
   }
@@ -330,6 +331,11 @@ type CollectState = {
   preserveBlankLines?: boolean
 }
 
+function orderedListStart(node: PMNode): number {
+  const start = node.attrs?.start
+  return typeof start === 'number' && Number.isFinite(start) ? start : 1
+}
+
 /** Push one logical line per soft/hard line inside paragraph plain text. */
 function appendLogicalLinesFromParagraphText(
   text: string,
@@ -344,15 +350,13 @@ function appendLogicalLinesFromParagraphText(
       lines.push((st.prefixForNextLine ?? '') + trimmed.trim())
       st.prefixForNextLine = undefined
       pushedAny = true
-    } else if (st.preserveBlankLines) {
+    } else if (st.preserveBlankLines && !st.prefixForNextLine) {
       lines.push('')
-      st.prefixForNextLine = undefined
       pushedAny = true
     }
   }
-  if (!pushedAny && text.trim().length === 0 && st.preserveBlankLines) {
+  if (!pushedAny && text.trim().length === 0 && st.preserveBlankLines && !st.prefixForNextLine) {
     lines.push('')
-    st.prefixForNextLine = undefined
   }
 }
 
@@ -372,6 +376,9 @@ function appendLinesFromTableCell(cell: PMNode, lines: string[], st: CollectStat
     if (c.type === 'table') {
       collectLogicalLinesFromNode(c, lines, st)
       pushed = true
+    } else if (c.type === 'orderedList') {
+      collectLogicalLinesFromNode(c, lines, st)
+      pushed = true
     } else if (c.type === 'paragraph') {
       const before = lines.length
       appendLogicalLinesFromParagraphText(nodeToText(c), lines, st)
@@ -387,11 +394,7 @@ function appendLinesFromTableCell(cell: PMNode, lines: string[], st: CollectStat
   }
 }
 
-function collectLogicalLinesFromNode(
-  node: PMNode,
-  lines: string[],
-  state?: CollectState
-): void {
+function collectLogicalLinesFromNode(node: PMNode, lines: string[], state?: CollectState): void {
   if (!node) return
   const st = state ?? {}
 
@@ -441,10 +444,11 @@ function collectLogicalLinesFromNode(
 
   if (node.type === 'orderedList') {
     const items = Array.isArray(node.content) ? node.content : []
+    const start = orderedListStart(node)
     for (let i = 0; i < items.length; i += 1) {
       const item = items[i]
       if (!item) continue
-      st.prefixForNextLine = `${i + 1}. `
+      st.prefixForNextLine = `${start + i}. `
       collectLogicalLinesFromNode(item, lines, st)
     }
     return
@@ -566,10 +570,11 @@ function collectBlocksFromNodeForQR(
 
   if (node.type === 'orderedList') {
     const items = Array.isArray(node.content) ? node.content : []
+    const start = orderedListStart(node)
     for (let i = 0; i < items.length; i += 1) {
       const item = items[i]
       if (!item) continue
-      st.prefixForNextLine = `${i + 1}. `
+      st.prefixForNextLine = `${start + i}. `
       collectBlocksFromNodeForQR(item, lines, tableMap, st)
     }
     return
@@ -627,13 +632,12 @@ function getQuestionMatch(
 ): QuestionMatch | null {
   const inlineQuestionMatch = qRe.inline.exec(line)
   const numberOnlyMatch = qRe.numberOnly.exec(line)
-  const isQuestionLine =
-    !!numberOnlyMatch || (!questionNumberOnOwnLine && !!inlineQuestionMatch)
+  const isQuestionLine = !!numberOnlyMatch || (!questionNumberOnOwnLine && !!inlineQuestionMatch)
 
   if (!isQuestionLine) return null
 
   const numberRaw =
-    inlineQuestionMatch != null ? inlineQuestionMatch[1] ?? '' : numberOnlyMatch?.[1] ?? ''
+    inlineQuestionMatch != null ? (inlineQuestionMatch[1] ?? '') : (numberOnlyMatch?.[1] ?? '')
   const number = Number.parseInt(numberRaw, 10)
   return {
     numberRaw,
@@ -714,7 +718,9 @@ function lineLooksLikeOptionStart(
   oRe: ReturnType<typeof buildOptionRegexes>,
   answerOptionOnOwnLine: boolean
 ): boolean {
-  return !!(answerOptionOnOwnLine ? oRe.labelOnly.exec(line) : oRe.inline.exec(line) || oRe.labelOnly.exec(line))
+  return !!(answerOptionOnOwnLine
+    ? oRe.labelOnly.exec(line)
+    : oRe.inline.exec(line) || oRe.labelOnly.exec(line))
 }
 
 /**
@@ -903,14 +909,18 @@ export function parseFromLines(
           if (!isBlank(questionTextLines[i] ?? '')) nonBlankIndices.push(i)
         }
         if (nonBlankIndices.length === 5) {
-          const last5NonBlank = nonBlankIndices.reverse() as [number, number, number, number, number]
+          const last5NonBlank = nonBlankIndices.reverse() as [
+            number,
+            number,
+            number,
+            number,
+            number,
+          ]
           const firstIdx = last5NonBlank[0]
-          const allNonOption = last5NonBlank.every(
-            (i) => {
-              const l = questionTextLines[i] ?? ''
-              return !oRe.inline.test(l) && !oRe.labelOnly.test(l)
-            }
-          )
+          const allNonOption = last5NonBlank.every((i) => {
+            const l = questionTextLines[i] ?? ''
+            return !oRe.inline.test(l) && !oRe.labelOnly.test(l)
+          })
           // Require firstIdx > 0 so we keep at least the question text line (index 0); otherwise
           // we'd splice away everything when questionTextLines has exactly 5 lines (question + 4 options).
           if (allNonOption && firstIdx > 0) {
@@ -1171,7 +1181,13 @@ export function classifyParseLineRoles(
           if (!isBlank(questionTextLines[i] ?? '')) nonBlankIndices.push(i)
         }
         if (nonBlankIndices.length === 5) {
-          const last5NonBlank = nonBlankIndices.reverse() as [number, number, number, number, number]
+          const last5NonBlank = nonBlankIndices.reverse() as [
+            number,
+            number,
+            number,
+            number,
+            number,
+          ]
           const firstIdx = last5NonBlank[0]
           const allNonOption = last5NonBlank.every((i) => {
             const l = questionTextLines[i] ?? ''
@@ -1228,7 +1244,10 @@ export function buildQuestionPasteSpansForLine(
   role: ParseLineHighlightRole,
   config: Pick<
     ParserConfig,
-    'questionIndicator' | 'answerOptionIndicator' | 'questionNumberOnOwnLine' | 'answerOptionOnOwnLine'
+    | 'questionIndicator'
+    | 'answerOptionIndicator'
+    | 'questionNumberOnOwnLine'
+    | 'answerOptionOnOwnLine'
   >
 ): QuestionPasteSpan[] {
   if (role === 'none' || role === 'stem') return []

@@ -394,7 +394,7 @@ export function getQuantitativeReasoningStemCategoryName(stem: ParsedStem): stri
     /\bfigure above shows\b/,
     /\bgraph below\b/,
   ])
-  const hasSchedule = hasAny(text, [/\btimetables?\b/, /\bcalendars?\b/])
+  const hasSchedule = hasAny(text, [/\btimetables?\b/, /\bcalendars?\b/, /\bschedules?\b/])
   const hasDiagram = hasAny(text, [/\bmaps?\b/, /\bdiagrams?\b/, /\bschematic\b/])
   const structuredSourceCount = [hasTable, hasGraphOrChart, hasSchedule, hasDiagram].filter(Boolean).length
 
