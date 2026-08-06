@@ -56,6 +56,19 @@ describe('Quantitative Reasoning metadata detection', () => {
     ).toBe('Text-Only Scenarios')
   })
 
+  it.each([
+    'Below is John and Sandra’s weekly schedule.',
+    'The schedules below show the available appointments.',
+  ])('detects schedule wording as timetables and calendars: %s', (stemText) => {
+    expect(
+      getQuantitativeReasoningStemCategoryName(
+        stem({
+          stemText,
+        })
+      )
+    ).toBe('Timetables and Calendars')
+  })
+
   it('returns only the most specific matching QR tag paths', () => {
     const parsedStem = stem({
       stemText: 'A shop applies a reverse percentage calculation.',

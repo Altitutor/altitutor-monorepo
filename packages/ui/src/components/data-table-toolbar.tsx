@@ -40,6 +40,7 @@ import { SearchableSelectInline } from './searchable-select-inline';
 import { DateRangeFilter } from './date-range-filter';
 import { ToolbarActiveBadge } from './toolbar-active-badge';
 import { cn } from '../lib/cn';
+import { useRemountPersistentState } from '../hooks/use-remount-persistent-state';
 import {
   canResolveDefaultVisibleColumns,
   countColumnViewLayoutDiff,
@@ -166,6 +167,8 @@ export function DataTableToolbar({
   onSearchChangeRef.current = onSearchChange;
   const [groupByOpen, setGroupByOpen] = React.useState(false);
   const [sortOpen, setSortOpen] = React.useState(false);
+  const filterPersistenceKey = `data-table-toolbar:filters:${typeof window === 'undefined' ? '' : window.location.pathname}`;
+  const [filterOpen, setFilterOpen] = useRemountPersistentState(filterPersistenceKey, false);
 
   // Sync internal search state with prop state (e.g. if cleared from outside)
   // Only sync when state.search changes externally, not during local typing
@@ -735,7 +738,7 @@ export function DataTableToolbar({
 
           {/* Filters */}
           <div className="relative flex items-center">
-            <DropdownMenu>
+            <DropdownMenu open={filterOpen} onOpenChange={setFilterOpen}>
               <DropdownMenuTrigger asChild>
                 <Button
                   variant="outline"
@@ -955,7 +958,10 @@ export function DataTableToolbar({
                       const fromVal = String((state.filters[def.fromKey] ?? [])[0] ?? '');
                       const toVal = String((state.filters[def.toKey] ?? [])[0] ?? '');
                       return (
-                        <DropdownMenuSub key={def.key}>
+                        <DropdownMenuSub
+                          key={def.key}
+                          persistOpenOnRemountKey={`${filterPersistenceKey}:date:${def.key}`}
+                        >
                           <DropdownMenuSubTrigger>{def.label}</DropdownMenuSubTrigger>
                           <DropdownMenuSubContent className="w-[260px] p-0">
                             <DateRangeFilter

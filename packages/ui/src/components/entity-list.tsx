@@ -20,6 +20,7 @@ import { SearchableSelectInline } from './searchable-select-inline';
 import { DateRangeFilter } from './date-range-filter';
 import { ToolbarActiveBadge } from './toolbar-active-badge';
 import { cn } from '../lib/cn';
+import { useRemountPersistentState } from '../hooks/use-remount-persistent-state';
 import { type JSONContent } from './rich-text-editor';
 import {
   LayoutGrid,
@@ -247,6 +248,8 @@ export function EntityList<TItem>(props: EntityListProps<TItem>) {
   const [internalFilters, setInternalFilters] = React.useState<Record<string, unknown[]>>({});
   const [groupByOpen, setGroupByOpen] = React.useState(false);
   const [sortOpen, setSortOpen] = React.useState(false);
+  const filterPersistenceKey = `entity-list:filters:${typeof window === 'undefined' ? '' : window.location.pathname}`;
+  const [filterOpen, setFilterOpen] = useRemountPersistentState(filterPersistenceKey, false);
   const [sortSearchValue, setSortSearchValue] = React.useState('');
   const [localSearchValue, setLocalSearchValue] = React.useState(searchValue ?? '');
   const sortSearchInputRef = React.useRef<HTMLInputElement>(null);
@@ -629,7 +632,7 @@ export function EntityList<TItem>(props: EntityListProps<TItem>) {
           )}
 
           <div className="relative flex items-center">
-            <DropdownMenu>
+            <DropdownMenu open={filterOpen} onOpenChange={setFilterOpen}>
               <DropdownMenuTrigger asChild>
                 <Button variant="outline" size="sm" className="h-10">
                   <Filter className="h-4 w-4 md:mr-2" />
@@ -791,7 +794,10 @@ export function EntityList<TItem>(props: EntityListProps<TItem>) {
                           const fromVal = dr?.start ?? '';
                           const toVal = dr?.end ?? '';
                           filterElements.push(
-                            <DropdownMenuSub key={p.key}>
+                            <DropdownMenuSub
+                              key={p.key}
+                              persistOpenOnRemountKey={`${filterPersistenceKey}:date:${p.key}`}
+                            >
                               <DropdownMenuSubTrigger>{p.label}</DropdownMenuSubTrigger>
                               <DropdownMenuSubContent className="w-[260px] p-0">
                                 <DateRangeFilter

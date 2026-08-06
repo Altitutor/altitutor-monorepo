@@ -59,6 +59,23 @@ export type UcatParseHighlightConfig =
       discardedLineIndices: number[]
       discardedLineSpans: StemSplitDiscardLineSpan[]
     }
+  | {
+      /** Combined-document question parsing plus independently configured group boundaries. */
+      mode: 'question_groups'
+      section: BulkImportParseSection
+      classify: Pick<
+        ParserConfig,
+        | 'questionIndicator'
+        | 'answerOptionIndicator'
+        | 'questionNumberOnOwnLine'
+        | 'answerOptionOnOwnLine'
+        | 'enforceSequentialQuestionNumbers'
+      >
+      questionsOnly: true
+      splitLineIndices: number[]
+      discardedLineIndices: number[]
+      discardedLineSpans: StemSplitDiscardLineSpan[]
+    }
 
 /** Classes live in globals.css (stable vs Tailwind / typography on generated spans). */
 
@@ -110,11 +127,7 @@ function addLineClassDecoration(
 
   const $start = doc.resolve(from)
   const nodeAfter = $start.nodeAfter
-  if (
-    nodeAfter &&
-    nodeAfter.type.name === 'image' &&
-    from + nodeAfter.nodeSize === to
-  ) {
+  if (nodeAfter && nodeAfter.type.name === 'image' && from + nodeAfter.nodeSize === to) {
     out.push(Decoration.node(from, to, attrs))
     return
   }
@@ -146,7 +159,10 @@ function resolveQuestionHighlightRole(
   classifiedRole: ParseLineHighlightRole,
   classify: Pick<
     ParserConfig,
-    'questionIndicator' | 'answerOptionIndicator' | 'questionNumberOnOwnLine' | 'answerOptionOnOwnLine'
+    | 'questionIndicator'
+    | 'answerOptionIndicator'
+    | 'questionNumberOnOwnLine'
+    | 'answerOptionOnOwnLine'
   >
 ): ParseLineHighlightRole | null {
   if (classifiedRole === 'question' || classifiedRole === 'option') return classifiedRole
@@ -340,6 +356,21 @@ function buildDecorationsSet(doc: Node, getConfig: GetCfg): DecorationSet {
   if (c.mode === 'stem_split') {
     return buildStemSplitDecorations(doc, c)
   }
+  if (c.mode === 'question_groups') {
+    const questionDecorations = buildQuestionDecorations(doc, {
+      mode: 'question',
+      section: c.section,
+      classify: c.classify,
+      questionsOnly: true,
+    })
+    const splitDecorations = buildStemSplitDecorations(doc, {
+      mode: 'stem_split',
+      splitLineIndices: c.splitLineIndices,
+      discardedLineIndices: c.discardedLineIndices,
+      discardedLineSpans: c.discardedLineSpans,
+    })
+    return questionDecorations.add(doc, splitDecorations.find())
+  }
   return buildAnswerDecorations(doc, c.includeExplanations, c.fieldSeparator)
 }
 
@@ -361,12 +392,7 @@ export function createUcatParseHighlight(getConfig: GetCfg): AnyExtension {
             init(_, { doc }): DecorationSet {
               return buildDecorationsSet(doc, getCfg)
             },
-            apply(
-              tr,
-              value,
-              _o,
-              newState
-            ): DecorationSet {
+            apply(tr, value, _o, newState): DecorationSet {
               if (!tr.docChanged && tr.getMeta(UCAT_PARSE_DECO_META) == null) {
                 return value
               }

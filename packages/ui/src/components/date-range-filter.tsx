@@ -23,6 +23,7 @@ import {
 } from './command';
 import { cn } from '../lib/cn';
 import { SmartDatePickerField } from './smart-date-picker';
+import { usePreserveDropdownSubOnNextClose } from './dropdown-menu';
 
 export interface DateRangeQuickPick {
   id: string;
@@ -165,6 +166,7 @@ export function DateRangeFilter({
 }: DateRangeFilterProps) {
   const [search, setSearch] = React.useState('');
   const inputRef = React.useRef<HTMLInputElement>(null);
+  const preserveParentSubmenu = usePreserveDropdownSubOnNextClose();
 
   React.useEffect(() => {
     const input = inputRef.current;
@@ -182,6 +184,7 @@ export function DateRangeFilter({
   const handleQuickPickSelect = React.useCallback(
     (pick: DateRangeQuickPick) => {
       const { from, to } = pick.getRange();
+      preserveParentSubmenu();
       if (onRangeChange) {
         onRangeChange(from, to);
       } else {
@@ -189,11 +192,16 @@ export function DateRangeFilter({
         onToChange(to);
       }
     },
-    [onFromChange, onToChange, onRangeChange]
+    [onFromChange, onToChange, onRangeChange, preserveParentSubmenu]
   );
 
   return (
-    <div className={cn('flex flex-col gap-3 p-2', className)}>
+    <div
+      className={cn('flex flex-col gap-3 p-2', className)}
+      onPointerDown={(event) => event.stopPropagation()}
+      onClick={(event) => event.stopPropagation()}
+      onKeyDown={(event) => event.stopPropagation()}
+    >
       <div className="grid grid-cols-2 gap-2">
         <div>
           <label className="text-xs font-medium text-muted-foreground">
@@ -201,7 +209,10 @@ export function DateRangeFilter({
           </label>
           <SmartDatePickerField
             value={fromValue}
-            onChange={(value) => onFromChange(value ?? '')}
+            onChange={(value) => {
+              preserveParentSubmenu();
+              onFromChange(value ?? '');
+            }}
             stopPropagation
             className="h-8 mt-1"
           />
@@ -212,7 +223,10 @@ export function DateRangeFilter({
           </label>
           <SmartDatePickerField
             value={toValue}
-            onChange={(value) => onToChange(value ?? '')}
+            onChange={(value) => {
+              preserveParentSubmenu();
+              onToChange(value ?? '');
+            }}
             stopPropagation
             minDate={fromValue || undefined}
             className="h-8 mt-1"

@@ -1,40 +1,36 @@
 import * as React from 'react';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import {
-  DateRangeFilter,
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuLabel,
-  DropdownMenuSub,
-  DropdownMenuSubContent,
-  DropdownMenuSubTrigger,
-  DropdownMenuTrigger,
-} from '@altitutor/ui';
+import { DataTableToolbar } from '@altitutor/ui';
 
-function NestedSmartDateFilter() {
-  const [from, setFrom] = React.useState('');
-  const [to, setTo] = React.useState('');
-  const [filterOpen, setFilterOpen] = React.useState(true);
+function RemountingDateFilterToolbar() {
+  const [filters, setFilters] = React.useState<Record<string, unknown[]>>({});
 
   return (
-    <DropdownMenu open={filterOpen} onOpenChange={setFilterOpen}>
-      <DropdownMenuTrigger>Filter</DropdownMenuTrigger>
-      <DropdownMenuContent>
-        <DropdownMenuLabel>Filters</DropdownMenuLabel>
-        <DropdownMenuSub open>
-          <DropdownMenuSubTrigger>Date</DropdownMenuSubTrigger>
-          <DropdownMenuSubContent>
-            <DateRangeFilter
-              fromValue={from}
-              toValue={to}
-              onFromChange={setFrom}
-              onToChange={setTo}
-            />
-          </DropdownMenuSubContent>
-        </DropdownMenuSub>
-      </DropdownMenuContent>
-    </DropdownMenu>
+    <DataTableToolbar
+      key={JSON.stringify(filters)}
+      state={{
+        search: '',
+        filters,
+        sortBy: null,
+        sortDirection: 'asc',
+        groupBy: null,
+        page: 1,
+        pageSize: 20,
+        visibleColumns: [],
+      }}
+      onSearchChange={jest.fn()}
+      onFiltersChange={setFilters}
+      onSortChange={jest.fn()}
+      onGroupByChange={jest.fn()}
+      onVisibleColumnsChange={jest.fn()}
+      onQuickFilterApply={jest.fn()}
+      onReset={jest.fn()}
+      filterDefinitions={[
+        { key: 'date', label: 'Date', type: 'date-range', fromKey: 'from', toKey: 'to' },
+      ]}
+      hideSearch
+    />
   );
 }
 
@@ -50,10 +46,12 @@ describe('nested smart date filter', () => {
     HTMLElement.prototype.releasePointerCapture = jest.fn();
   });
 
-  it('keeps the filter dropdown open after selecting the From date', async () => {
+  it('keeps the Filter and Date menus open when applying a From date remounts the toolbar', async () => {
     const user = userEvent.setup();
-    render(<NestedSmartDateFilter />);
+    render(<RemountingDateFilterToolbar />);
 
+    await user.click(screen.getByRole('button', { name: 'Filter' }));
+    await user.keyboard('{End}{ArrowRight}');
     await user.click((await screen.findAllByRole('button', { name: 'Select date' }))[0]);
     const todayOptions = await screen.findAllByText('Today');
     await user.click(todayOptions[todayOptions.length - 1]);
