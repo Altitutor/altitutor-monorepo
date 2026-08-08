@@ -358,7 +358,9 @@ Deno.serve(async (req: Request) => {
       }
 
       if (!paymentMethods || paymentMethods.length === 0) {
-        return json({ verified: false, error: 'No payment method found' }, 400);
+        // Stripe's webhook may still be persisting a successfully attached
+        // payment method. The registration client polls this expected state.
+        return json({ verified: false });
       }
 
       return json({
@@ -379,4 +381,3 @@ Deno.serve(async (req: Request) => {
     }, 500);
   }
 });
-
