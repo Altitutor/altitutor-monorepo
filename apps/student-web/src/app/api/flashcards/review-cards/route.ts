@@ -1,6 +1,7 @@
 import { captureApiErrorResponse } from '@/lib/sentry/capture-api-error';
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/shared/lib/supabase/server-ssr';
+import { getServerSupabaseAdmin } from '@/shared/lib/supabase/server';
 import { buildRatingPreviews, type ReviewStateRow } from '@/features/flashcards/server/fsrs';
 import type { FlashcardReviewCard } from '@altitutor/shared';
 
@@ -33,8 +34,16 @@ export async function GET(request: NextRequest) {
   const { data, error } = await query;
   if (error) return captureApiErrorResponse(error, "/api/flashcards/review-cards", NextResponse.json({ error: error.message }, { status: 500 }));
   const now = new Date();
-  const rows = ((data ?? []) as FlashcardReviewCard[]).map((row) => ({
+  const rawRows = (data ?? []) as unknown as FlashcardReviewCard[];
+  const adminClient = getServerSupabaseAdmin();
+  const imageUrls = new Map<string, string>();
+  await Promise.all([...new Set(rawRows.map((row) => row.image_storage_path).filter((path): path is string => Boolean(path)))].map(async (path) => {
+    const { data: signed } = await adminClient.storage.from('flashcard-images').createSignedUrl(path, 3600);
+    if (signed?.signedUrl) imageUrls.set(path, signed.signedUrl);
+  }));
+  const rows = rawRows.map((row) => ({
     ...row,
+    image_url: row.image_storage_path ? imageUrls.get(row.image_storage_path) ?? null : null,
     rating_previews: buildRatingPreviews(row as ReviewStateRow, now),
   }));
   return NextResponse.json({ data: rows });

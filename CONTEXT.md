@@ -57,6 +57,9 @@
 - **Shared identity email** — A required security or account-access message emitted by Altitutor's shared authentication system, such as email confirmation, invitation, magic-link sign-in, password reset, email change, or reauthentication. It is branded as Altitutor rather than as a Product app because the same authentication system serves multiple Altitutor application surfaces.
   _Avoid_: UCAT Auth email, Product-authored email
 
+- **Email brand profile** — The customer-facing identity applied to a shared Altitutor email presentation, including the displayed brand, supporting descriptor, sender identity, reply destination, and footer. Altitutor and Altitutor UCAT are distinct profiles of one presentation system rather than independent email designs.
+  _Avoid_: Separate email theme, copied Product template
+
 ## UCAT customer communication
 
 - **Primary email action** — The single most useful next action an optional Altitutor UCAT email asks a student to take, based on the reason for that message and the student’s current preparation state. An upgrade or referral is primary only when it is the genuinely relevant next step.

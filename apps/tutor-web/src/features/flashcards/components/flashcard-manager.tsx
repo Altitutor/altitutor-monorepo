@@ -147,6 +147,19 @@ function htmlToText(value: string | number | null | undefined): string {
     .trim();
 }
 
+function getFlashcardPreviewText(card: Flashcard): string {
+  if (card.card_type === 'image_occlusion') return card.image_alt_text?.trim() || 'Image occlusion';
+  const clozeText = card.cloze_text ?? '';
+  return htmlToText(renderClozeQuestionText(clozeText, getClozeIndexes(clozeText)[0] ?? 1));
+}
+
+function getFlashcardClozeCount(card: Flashcard): number {
+  if (card.review_card_count != null) return card.review_card_count;
+  return card.card_type === 'image_occlusion'
+    ? getImageOcclusionIndexes(card.occlusion_data).length
+    : getClozeIndexes(card.cloze_text ?? '').length;
+}
+
 function getNextAvailableClozeIndex(clozeText: string): number {
   const indexes = new Set(getClozeIndexes(clozeText));
   let index = 1;
@@ -638,9 +651,9 @@ function compareCards(a: Flashcard, b: Flashcard, sortBy: string | null, directi
   const valueFor = (card: Flashcard): string | number => {
     switch (sortBy) {
       case 'preview':
-        return htmlToText(renderClozeQuestionText(card.cloze_text, getClozeIndexes(card.cloze_text)[0] ?? 1));
+        return getFlashcardPreviewText(card);
       case 'clozes':
-        return card.review_card_count ?? getClozeIndexes(card.cloze_text).length;
+        return getFlashcardClozeCount(card);
       case 'extra':
         return htmlToText(card.extra);
       case 'index':
@@ -716,7 +729,7 @@ export function FlashcardManager({ topicId }: { topicId: string }) {
     const searched = needle
       ? cards.filter((card) =>
           [
-            searchFrom.includes('text') ? card.cloze_text : null,
+            searchFrom.includes('text') ? `${card.cloze_text ?? ''} ${card.image_alt_text ?? ''} ${Object.values(card.occlusion_data?.groupDescriptions ?? {}).join(' ')}` : null,
             searchFrom.includes('extra') ? card.extra : null,
           ]
             .filter((value) => value != null)
@@ -891,20 +904,18 @@ export function FlashcardManager({ topicId }: { topicId: string }) {
                         </TableCell>
                       </TableRow>
                     ) : (
-                      paginatedCards.map((card) => {
-                        const clozeIndexes = getClozeIndexes(card.cloze_text);
-                        return (
+                      paginatedCards.map((card) => (
                           <SortableFlashcardRow key={card.id} cardId={card.id} className={tutorTableBodyRow}>
                             {visibleColumns.has('index') ? <TableCell className="font-medium">{card.index}</TableCell> : null}
                             {visibleColumns.has('preview') ? (
                               <TableCell className="max-w-[520px]">
                                 <p className="line-clamp-2 whitespace-pre-wrap text-sm text-muted-foreground">
-                                  {htmlToText(renderClozeQuestionText(card.cloze_text, clozeIndexes[0] ?? 1))}
+                                  {getFlashcardPreviewText(card)}
                                 </p>
                               </TableCell>
                             ) : null}
                             {visibleColumns.has('clozes') ? (
-                              <TableCell>{card.review_card_count ?? clozeIndexes.length}</TableCell>
+                            <TableCell>{getFlashcardClozeCount(card)}</TableCell>
                             ) : null}
                             {visibleColumns.has('extra') ? (
                               <TableCell className="max-w-[320px]">
@@ -912,8 +923,7 @@ export function FlashcardManager({ topicId }: { topicId: string }) {
                               </TableCell>
                             ) : null}
                           </SortableFlashcardRow>
-                        );
-                      })
+                      ))
                     )}
                   </TableBody>
                 </SortableContext>
@@ -933,20 +943,18 @@ export function FlashcardManager({ topicId }: { topicId: string }) {
                     </TableCell>
                   </TableRow>
                 ) : (
-                  paginatedCards.map((card) => {
-                    const clozeIndexes = getClozeIndexes(card.cloze_text);
-                    return (
+                  paginatedCards.map((card) => (
                       <TableRow key={card.id} className={tutorTableBodyRow}>
                         {visibleColumns.has('index') ? <TableCell className="font-medium">{card.index}</TableCell> : null}
                         {visibleColumns.has('preview') ? (
                           <TableCell className="max-w-[520px]">
                             <p className="line-clamp-2 whitespace-pre-wrap text-sm text-muted-foreground">
-                              {htmlToText(renderClozeQuestionText(card.cloze_text, clozeIndexes[0] ?? 1))}
+                              {getFlashcardPreviewText(card)}
                             </p>
                           </TableCell>
                         ) : null}
                         {visibleColumns.has('clozes') ? (
-                          <TableCell>{card.review_card_count ?? clozeIndexes.length}</TableCell>
+                          <TableCell>{getFlashcardClozeCount(card)}</TableCell>
                         ) : null}
                         {visibleColumns.has('extra') ? (
                           <TableCell className="max-w-[320px]">
@@ -975,8 +983,7 @@ export function FlashcardManager({ topicId }: { topicId: string }) {
                           </TableCell>
                         ) : null}
                       </TableRow>
-                    );
-                  })
+                  ))
                 )}
               </TableBody>
             )}
@@ -1019,21 +1026,10 @@ export function FlashcardManager({ topicId }: { topicId: string }) {
         }}
         onSave={async (draft) => {
           if (editingCard) {
-            await mutations.updateCard.mutateAsync({
-              cardId: editingCard.id,
-              topicId: draft.topicId,
-              clozeText: draft.clozeText,
-              extra: draft.extra,
-              index: draft.index,
-            });
+            await mutations.updateCard.mutateAsync({ cardId: editingCard.id, ...draft });
             return;
           }
-          await mutations.createCard.mutateAsync({
-            topicId: draft.topicId,
-            clozeText: draft.clozeText,
-            extra: draft.extra,
-            index: draft.index,
-          });
+          await mutations.createCard.mutateAsync(draft);
         }}
       />
       <ImportFlashcardsDialog
