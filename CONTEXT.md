@@ -60,6 +60,12 @@
 - **Email brand profile** — The customer-facing identity applied to a shared Altitutor email presentation, including the displayed brand, supporting descriptor, sender identity, reply destination, and footer. Altitutor and Altitutor UCAT are distinct profiles of one presentation system rather than independent email designs.
   _Avoid_: Separate email theme, copied Product template
 
+- **Invoice notification email** — An Altitutor-authored message that tells the configured Student and parent recipients that a core tutoring invoice is ready and links to the Stripe-hosted invoice and PDF. It is not itself the invoice; Stripe remains authoritative for the invoice document, payment collection, and invoice state.
+  _Avoid_: Invoice, Stripe invoice email, payment receipt
+
+- **Staff-authored email introduction** — Optional staff-written context inserted near the beginning of a canonical Altitutor email. It supplements rather than replaces the message's required action, canonical link, expiry or security guidance, branding, and support information.
+  _Avoid_: Custom email template, full-body override, raw HTML message
+
 ## UCAT customer communication
 
 - **Primary email action** — The single most useful next action an optional Altitutor UCAT email asks a student to take, based on the reason for that message and the student’s current preparation state. An upgrade or referral is primary only when it is the genuinely relevant next step.

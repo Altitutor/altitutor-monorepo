@@ -25,6 +25,21 @@ jest.mock(
         element("label", props, children),
       Textarea: (props: React.TextareaHTMLAttributes<HTMLTextAreaElement>) =>
         element("textarea", props),
+      Slider: ({
+        value,
+        onValueChange,
+        ...props
+      }: React.InputHTMLAttributes<HTMLInputElement> & {
+        value?: number[];
+        onValueChange?: (value: number[]) => void;
+      }) =>
+        element("input", {
+          ...props,
+          type: "range",
+          value: value?.[0],
+          onChange: (event: React.ChangeEvent<HTMLInputElement>) =>
+            onValueChange?.([Number(event.target.value)]),
+        }),
       useToast: () => ({ toast }),
     };
   },
@@ -33,16 +48,24 @@ jest.mock(
 
 jest.mock("next/image", () => ({
   __esModule: true,
-  default: (props: React.ImgHTMLAttributes<HTMLImageElement>) => {
-    const { alt, ...imageProps } = props;
-    return React.createElement("img", { ...imageProps, alt });
+  default: (
+    props: React.ImgHTMLAttributes<HTMLImageElement> & {
+      fill?: boolean;
+      unoptimized?: boolean;
+    },
+  ) => {
+    const imageProps = { ...props };
+    delete imageProps.fill;
+    delete imageProps.unoptimized;
+    return React.createElement("img", imageProps);
   },
 }));
 
 jest.mock("../../../api", () => ({
   profileApi: {
-    getProfileImageUrl: jest.fn(),
+    getProfileImage: jest.fn(),
     uploadProfileImage: jest.fn(),
+    updateProfileImageCrop: jest.fn(),
   },
 }));
 
@@ -63,10 +86,22 @@ const mutateAsync = jest.fn();
 describe("PublicProfileTab", () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    jest.mocked(profileApi.getProfileImageUrl).mockResolvedValue(null);
+    Object.defineProperty(URL, "createObjectURL", {
+      configurable: true,
+      value: jest.fn(() => "blob:profile-image"),
+    });
+    Object.defineProperty(URL, "revokeObjectURL", {
+      configurable: true,
+      value: jest.fn(),
+    });
+    jest.mocked(profileApi.getProfileImage).mockResolvedValue({
+      url: null,
+      crop: { x: 50, y: 50, zoom: 1 },
+    });
     jest
       .mocked(profileApi.uploadProfileImage)
       .mockResolvedValue("90000000-0000-0000-0000-000000000002");
+    jest.mocked(profileApi.updateProfileImageCrop).mockResolvedValue();
     jest
       .mocked(useUpdateProfile)
       .mockReturnValue({ mutateAsync } as unknown as ReturnType<
@@ -88,17 +123,53 @@ describe("PublicProfileTab", () => {
     fireEvent.change(screen.getByLabelText("Profile picture"), {
       target: { files: [image] },
     });
+    fireEvent.change(await screen.findByLabelText("Profile picture zoom"), {
+      target: { value: "1.5" },
+    });
+    fireEvent.change(screen.getByLabelText("Horizontal position"), {
+      target: { value: "35" },
+    });
+    fireEvent.change(screen.getByLabelText("Vertical position"), {
+      target: { value: "65" },
+    });
     fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
 
     await waitFor(() => {
       expect(profileApi.uploadProfileImage).toHaveBeenCalledWith(
         profile.id,
         image,
+        { x: 35, y: 65, zoom: 1.5 },
       );
       expect(mutateAsync).toHaveBeenCalledWith({
         profile_bio: "A new public introduction.",
         profile_image_file_id: "90000000-0000-0000-0000-000000000002",
       });
+    });
+  });
+
+  it("updates the crop metadata without replacing an existing original image", async () => {
+    jest.mocked(profileApi.getProfileImage).mockResolvedValue({
+      url: "https://example.com/profile.jpg",
+      crop: { x: 40, y: 60, zoom: 1.2 },
+    });
+    const profileWithImage = {
+      ...profile,
+      profile_image_file_id: "90000000-0000-0000-0000-000000000003",
+    };
+
+    render(<PublicProfileTab profile={profileWithImage} />);
+    fireEvent.click(screen.getByRole("button", { name: "Edit" }));
+    fireEvent.change(await screen.findByLabelText("Profile picture zoom"), {
+      target: { value: "1.8" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
+
+    await waitFor(() => {
+      expect(profileApi.updateProfileImageCrop).toHaveBeenCalledWith(
+        profileWithImage.profile_image_file_id,
+        { x: 40, y: 60, zoom: 1.8 },
+      );
+      expect(profileApi.uploadProfileImage).not.toHaveBeenCalled();
     });
   });
 });

@@ -49,6 +49,20 @@ type FormState = {
   occlusionData: ImageOcclusionData | null;
 };
 
+function formSnapshot(form: FormState, clozeText = form.clozeText, extra = form.extra): string {
+  return JSON.stringify({
+    cardType: form.cardType,
+    clozeText,
+    extra,
+    topicId: form.topicId,
+    index: form.index,
+    imageFileId: form.imageFileId,
+    imageAltText: form.imageAltText,
+    imageFile: form.imageFile ? [form.imageFile.name, form.imageFile.size, form.imageFile.lastModified] : null,
+    occlusionData: form.occlusionData,
+  });
+}
+
 function clozePreviewHtml(clozeText: string, clozeIndex: number, showAnswer: boolean): string {
   return parseClozeParts(clozeText, clozeIndex)
     .map((part) => {
@@ -63,10 +77,11 @@ function clozePreviewHtml(clozeText: string, clozeIndex: number, showAnswer: boo
 }
 
 function Preview({ form }: { form: FormState }) {
-  if (form.cardType === 'image_occlusion') return <ImagePreview form={form} />;
   const { clozeText, extra } = form;
   const clozeIndexes = useMemo(() => getClozeIndexes(clozeText), [clozeText]);
   const [showAnswer, setShowAnswer] = useState(false);
+
+  if (form.cardType === 'image_occlusion') return <ImagePreview form={form} />;
 
   if (clozeIndexes.length === 0) {
     return (
@@ -173,6 +188,9 @@ export function EditFlashcardDialog({
   const [, setEditorVersion] = useState(0);
   const clozeEditorRef = useRef<RichTextEditorRef>(null);
   const extraEditorRef = useRef<RichTextEditorRef>(null);
+  const initialSnapshotRef = useRef('');
+  const savedRef = useRef(false);
+  const objectUrlRef = useRef<string | null>(null);
   const clozeImageUpload = useFlashcardImageUpload({ topicId, editorRef: clozeEditorRef });
   const extraImageUpload = useFlashcardImageUpload({ topicId, editorRef: extraEditorRef });
 
@@ -183,7 +201,7 @@ export function EditFlashcardDialog({
       return;
     }
     const indexes = flashcard?.card_type === 'text_cloze' ? getClozeIndexes(flashcard.cloze_text ?? '') : [];
-    setForm({
+    const nextForm: FormState = {
       cardType: flashcard?.card_type ?? 'text_cloze',
       clozeText: flashcard?.cloze_text ?? '',
       extra: flashcard?.extra ?? '',
@@ -194,7 +212,10 @@ export function EditFlashcardDialog({
       imageUrl: flashcard?.image_url ?? null,
       imageFile: null,
       occlusionData: flashcard?.occlusion_data ?? null,
-    });
+    };
+    setForm(nextForm);
+    initialSnapshotRef.current = formSnapshot(nextForm);
+    savedRef.current = false;
     setEditorVersion((value) => value + 1);
     setLastClozeIndex(indexes.at(-1) ?? 1);
   }, [defaultIndex, flashcard, open, topicId]);
@@ -269,13 +290,38 @@ export function EditFlashcardDialog({
       const occlusionData = upload
         ? { ...form.occlusionData, naturalWidth: upload.naturalWidth, naturalHeight: upload.naturalHeight }
         : form.occlusionData;
-      await onSave({ topicId: form.topicId, cardId: flashcard?.id, cardType: 'image_occlusion', imageFileId, imageAltText: form.imageAltText, occlusionData, extra: next.extra, index: form.index });
+      try {
+        await onSave({ topicId: form.topicId, cardId: flashcard?.id, cardType: 'image_occlusion', imageFileId, imageAltText: form.imageAltText, occlusionData, extra: next.extra, index: form.index });
+      } catch (error) {
+        if (upload) await flashcardsApi.cleanupImage(upload.fileId).catch(() => undefined);
+        throw error;
+      }
+      if (upload && flashcard?.image_file_id && flashcard.image_file_id !== upload.fileId) {
+        await flashcardsApi.cleanupImage(flashcard.image_file_id).catch(() => undefined);
+      }
     }
+    savedRef.current = true;
+    requestOpenChange(false);
+  };
+
+  const requestOpenChange = (nextOpen: boolean) => {
+    if (nextOpen) {
+      onOpenChange(true);
+      return;
+    }
+    const live = {
+      clozeText: clozeEditorRef.current?.getEditor()?.getHTML() ?? form.clozeText,
+      extra: extraEditorRef.current?.getEditor()?.getHTML() ?? form.extra,
+    };
+    if (!savedRef.current && formSnapshot(form, live.clozeText, live.extra) !== initialSnapshotRef.current
+      && !window.confirm('Discard unsaved flashcard changes?')) return;
+    if (objectUrlRef.current) URL.revokeObjectURL(objectUrlRef.current);
+    objectUrlRef.current = null;
     onOpenChange(false);
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={requestOpenChange}>
       <DialogContent
         className={cn(
           'w-full md:max-w-4xl h-[90vh] flex flex-col gap-0 p-0 overflow-hidden [&>button]:hidden',
@@ -286,7 +332,7 @@ export function EditFlashcardDialog({
         <DialogHeader className="flex-shrink-0 space-y-0 border-b px-6 py-4">
           <div className="flex w-full items-center justify-between gap-4">
             <div className="flex min-w-0 flex-1 items-center gap-3">
-              <Button variant="outline" size="icon" onClick={() => onOpenChange(false)} className="shrink-0">
+              <Button variant="outline" size="icon" onClick={() => requestOpenChange(false)} className="shrink-0">
                 <X className="h-4 w-4" />
               </Button>
               <div className="min-w-0 flex-1">
@@ -343,7 +389,7 @@ export function EditFlashcardDialog({
               <Preview form={form} />
             </div>
           ) : (
-            <div className="flex h-full min-h-0">
+            <div className="flex h-full min-h-0 flex-col md:flex-row">
               <div className="flex-1 overflow-y-auto border-r px-6 py-5">
                 <div className="mx-auto grid max-w-5xl gap-5">
                   {!flashcard ? (
@@ -397,12 +443,13 @@ export function EditFlashcardDialog({
                       onImageSelected={(imageFile, dimensions) => {
                         const preserve = !form.occlusionData?.masks.length
                           || window.confirm('Preserve the existing boxes on the replacement image? Select Cancel to clear them.');
-                        if (form.imageUrl?.startsWith('blob:')) URL.revokeObjectURL(form.imageUrl);
+                        if (objectUrlRef.current) URL.revokeObjectURL(objectUrlRef.current);
+                        objectUrlRef.current = URL.createObjectURL(imageFile);
                         setForm((value) => ({
                           ...value,
                           imageFile,
                           imageFileId: null,
-                          imageUrl: URL.createObjectURL(imageFile),
+                          imageUrl: objectUrlRef.current,
                           occlusionData: {
                             version: 1,
                             naturalWidth: dimensions.naturalWidth,
@@ -433,7 +480,7 @@ export function EditFlashcardDialog({
                 </div>
               </div>
 
-              <div className="hidden w-80 flex-shrink-0 space-y-5 overflow-y-auto px-6 py-5 md:block">
+              <div className="w-full flex-shrink-0 space-y-5 overflow-y-auto border-t px-6 py-5 md:w-80 md:border-l md:border-t-0">
                 <div className="space-y-2">
                   <Label>Topic</Label>
                   <SearchableSelect<Tables<'topics'>>
@@ -471,7 +518,7 @@ export function EditFlashcardDialog({
         </div>
 
         <DialogFooter className="flex-shrink-0 border-t bg-background px-6 py-4">
-          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={isSaving}>
+          <Button variant="outline" onClick={() => requestOpenChange(false)} disabled={isSaving}>
             Cancel
           </Button>
           <Button onClick={handleSave} disabled={isSaving || !canSave} className="gap-1.5">

@@ -205,7 +205,7 @@ function coachSteps(snapshot: TutorialSnapshot): CoachStep[] {
         },
         {
           title: "2. Scan for matching evidence",
-          body: "Now scan for the distinctive words ‘wildlife habitat’. You do not need to read every line. Tip: you can drag the divider between the passage and question.",
+          body: "Now scan for the distinctive words ‘wildlife habitat’. You do not need to read every line.",
           target: '[data-tour="question-engine-stem"]',
           manual: true,
           spotlight: true,

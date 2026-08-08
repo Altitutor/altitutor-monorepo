@@ -52,7 +52,7 @@ export function ImportFlashcardsDialog({
             </Button>
             <div>
               <DialogTitle>Import Flashcards</DialogTitle>
-              <DialogDescription>Paste CSV/TSV rows, including Anki cloze exports.</DialogDescription>
+              <DialogDescription>Paste text-cloze CSV/TSV rows, including Anki text-cloze exports. Image occlusion is authored manually.</DialogDescription>
             </div>
           </div>
         </DialogHeader>

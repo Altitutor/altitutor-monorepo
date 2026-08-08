@@ -113,3 +113,25 @@ export async function POST(request: Request) {
     },
   });
 }
+
+export async function DELETE(request: Request) {
+  const userClient = createClient();
+  const { data: isAdmin } = await userClient.rpc('is_adminstaff_active');
+  if (!isAdmin) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+  const fileId = new URL(request.url).searchParams.get('fileId');
+  if (!fileId) return NextResponse.json({ error: 'fileId is required' }, { status: 400 });
+
+  const adminClient = getServerSupabaseAdmin();
+  const [{ data: file }, { data: reference }] = await Promise.all([
+    adminClient.from('files').select('id,bucket,storage_path').eq('id', fileId).maybeSingle(),
+    adminClient.from('flashcards').select('id').eq('image_file_id', fileId).limit(1).maybeSingle(),
+  ]);
+  if (!file || file.bucket !== BUCKET || !file.storage_path) return NextResponse.json({ data: { deleted: false } });
+  if (reference) return NextResponse.json({ error: 'Image is still referenced by a flashcard' }, { status: 409 });
+
+  const { error: storageError } = await adminClient.storage.from(BUCKET).remove([file.storage_path]);
+  if (storageError) return captureApiErrorResponse(storageError, '/api/flashcards/images/upload', NextResponse.json({ error: storageError.message }, { status: 500 }));
+  const { error: fileError } = await adminClient.from('files').delete().eq('id', fileId);
+  if (fileError) return captureApiErrorResponse(fileError, '/api/flashcards/images/upload', NextResponse.json({ error: fileError.message }, { status: 500 }));
+  return NextResponse.json({ data: { deleted: true } });
+}

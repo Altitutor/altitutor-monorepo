@@ -67,6 +67,12 @@ export const flashcardsApi = {
     return readJson<ImageOcclusionUpload>(res);
   },
 
+  async cleanupImage(fileId: string): Promise<void> {
+    const res = await fetch(`/api/flashcards/images/upload?fileId=${encodeURIComponent(fileId)}`, { method: 'DELETE' });
+    if (res.status === 409) return;
+    await readJson<unknown>(res);
+  },
+
   async reorderCards(topicId: string, cardIds: string[]): Promise<{ updated: number }> {
     const res = await fetch('/api/flashcards/reorder', {
       method: 'POST',

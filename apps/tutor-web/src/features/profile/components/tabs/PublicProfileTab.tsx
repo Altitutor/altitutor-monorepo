@@ -8,6 +8,12 @@ import { Loader2, Pencil } from "lucide-react";
 import { z } from "zod";
 import { profileApi } from "../../api";
 import { useUpdateProfile } from "../../hooks";
+import { ProfileImageCropper } from "../ProfileImageCropper";
+import {
+  DEFAULT_PROFILE_IMAGE_CROP,
+  profileImageCropStyle,
+  type ProfileImageCrop,
+} from "../../types/profile-image";
 
 type TutorProfile = Database["public"]["Views"]["vtutor_profile"]["Row"];
 
@@ -29,15 +35,25 @@ export function PublicProfileTab({ profile }: PublicProfileTabProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [profileBio, setProfileBio] = useState(profile.profile_bio ?? "");
   const [selectedImage, setSelectedImage] = useState<File | null>(null);
+  const [selectedImageUrl, setSelectedImageUrl] = useState<string | null>(null);
   const [profileImageUrl, setProfileImageUrl] = useState<string | null>(null);
+  const [profileImageCrop, setProfileImageCrop] = useState<ProfileImageCrop>(
+    DEFAULT_PROFILE_IMAGE_CROP,
+  );
+  const [savedProfileImageCrop, setSavedProfileImageCrop] =
+    useState<ProfileImageCrop>(DEFAULT_PROFILE_IMAGE_CROP);
 
   useEffect(() => {
     let cancelled = false;
 
     profileApi
-      .getProfileImageUrl(profile.profile_image_file_id)
-      .then((url) => {
-        if (!cancelled) setProfileImageUrl(url);
+      .getProfileImage(profile.profile_image_file_id)
+      .then((image) => {
+        if (!cancelled) {
+          setProfileImageUrl(image.url);
+          setProfileImageCrop(image.crop);
+          setSavedProfileImageCrop(image.crop);
+        }
       })
       .catch(() => {
         if (!cancelled) setProfileImageUrl(null);
@@ -48,9 +64,21 @@ export function PublicProfileTab({ profile }: PublicProfileTabProps) {
     };
   }, [profile.profile_image_file_id]);
 
+  useEffect(() => {
+    if (!selectedImage) {
+      setSelectedImageUrl(null);
+      return;
+    }
+
+    const objectUrl = URL.createObjectURL(selectedImage);
+    setSelectedImageUrl(objectUrl);
+    return () => URL.revokeObjectURL(objectUrl);
+  }, [selectedImage]);
+
   const handleCancel = () => {
     setProfileBio(profile.profile_bio ?? "");
     setSelectedImage(null);
+    setProfileImageCrop(savedProfileImageCrop);
     setIsEditing(false);
   };
 
@@ -69,6 +97,7 @@ export function PublicProfileTab({ profile }: PublicProfileTabProps) {
     }
 
     setSelectedImage(file);
+    if (file) setProfileImageCrop(DEFAULT_PROFILE_IMAGE_CROP);
   };
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
@@ -97,7 +126,10 @@ export function PublicProfileTab({ profile }: PublicProfileTabProps) {
         profileImageFileId = await profileApi.uploadProfileImage(
           profile.id,
           selectedImage,
+          profileImageCrop,
         );
+      } else if (profileImageFileId) {
+        await profileApi.updateProfileImageCrop(profileImageFileId, profileImageCrop);
       }
     } catch (error) {
       toast({
@@ -119,6 +151,7 @@ export function PublicProfileTab({ profile }: PublicProfileTabProps) {
       });
 
       setSelectedImage(null);
+      setSavedProfileImageCrop(profileImageCrop);
       setIsEditing(false);
     } catch {
       // useUpdateProfile surfaces mutation errors consistently across profile tabs.
@@ -129,6 +162,7 @@ export function PublicProfileTab({ profile }: PublicProfileTabProps) {
 
   const displayName =
     `${profile.first_name ?? ""} ${profile.last_name ?? ""}`.trim();
+  const cropImageUrl = selectedImageUrl ?? profileImageUrl;
 
   if (isEditing) {
     return (
@@ -176,6 +210,14 @@ export function PublicProfileTab({ profile }: PublicProfileTabProps) {
           </p>
         </div>
 
+        {cropImageUrl && (
+          <ProfileImageCropper
+            imageUrl={cropImageUrl}
+            crop={profileImageCrop}
+            onCropChange={setProfileImageCrop}
+          />
+        )}
+
         <div className="space-y-2">
           <div className="flex items-center justify-between gap-4">
             <Label htmlFor="public-profile-bio">Bio</Label>
@@ -218,14 +260,17 @@ export function PublicProfileTab({ profile }: PublicProfileTabProps) {
       <div className="grid gap-6 sm:grid-cols-[auto_1fr]">
         <div>
           {profileImageUrl ? (
-            <Image
-              src={profileImageUrl}
-              alt={displayName || "Tutor profile picture"}
-              width={112}
-              height={112}
-              className="h-28 w-28 rounded-full object-cover"
-              unoptimized
-            />
+            <div className="relative h-28 w-28 overflow-hidden rounded-full">
+              <Image
+                src={profileImageUrl}
+                alt={displayName || "Tutor profile picture"}
+                fill
+                sizes="112px"
+                className="object-cover"
+                style={profileImageCropStyle(profileImageCrop)}
+                unoptimized
+              />
+            </div>
           ) : (
             <div className="flex h-28 w-28 items-center justify-center rounded-full bg-muted text-3xl font-semibold text-muted-foreground">
               {displayName.charAt(0).toUpperCase() || "?"}

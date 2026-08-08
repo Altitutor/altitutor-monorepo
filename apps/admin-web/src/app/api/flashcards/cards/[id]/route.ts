@@ -47,6 +47,13 @@ export async function PATCH(request: NextRequest, { params }: { params: { id: st
     occlusionData: body.occlusion_data !== undefined ? body.occlusion_data : existingCard.occlusion_data,
   });
   if (contentError) return NextResponse.json({ error: contentError }, { status: 400 });
+  if (cardType === 'image_occlusion' && body.image_file_id && body.image_file_id !== existingCard.image_file_id) {
+    const targetTopicId = body.topic_id ?? existingCard.topic_id;
+    const { data: imageFile } = await supabaseAdmin.from('files').select('id,bucket,storage_path,deleted_at').eq('id', body.image_file_id).maybeSingle();
+    if (!imageFile || imageFile.deleted_at || imageFile.bucket !== 'flashcard-images' || !imageFile.storage_path?.startsWith(`${targetTopicId}/`)) {
+      return NextResponse.json({ error: 'Source image is not accessible for this topic' }, { status: 400 });
+    }
+  }
   if (body.topic_id !== undefined && !(await assertTopicAccess(body.topic_id))) {
     return NextResponse.json({ error: 'Topic not accessible' }, { status: 403 });
   }

@@ -106,6 +106,20 @@ type Draft = {
   occlusionData: ImageOcclusionData | null;
 };
 
+function draftSnapshot(draft: Draft, clozeText = draft.clozeText, extra = draft.extra): string {
+  return JSON.stringify({
+    cardType: draft.cardType,
+    clozeText,
+    extra,
+    topicId: draft.topicId,
+    index: draft.index,
+    imageFileId: draft.imageFileId,
+    imageAltText: draft.imageAltText,
+    imageFile: draft.imageFile ? [draft.imageFile.name, draft.imageFile.size, draft.imageFile.lastModified] : null,
+    occlusionData: draft.occlusionData,
+  });
+}
+
 type ImportResult = { inserted: number; rejected: Array<{ row: number; reason: string }> };
 
 const defaultTableState: DataTableState = {
@@ -160,6 +174,24 @@ function getFlashcardClozeCount(card: Flashcard): number {
     : getClozeIndexes(card.cloze_text ?? '').length;
 }
 
+function FlashcardPreviewCell({ card }: { card: Flashcard }) {
+  if (card.card_type === 'image_occlusion') {
+    return (
+      <div className="flex items-center gap-3">
+        {card.image_url ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={card.image_url} alt="" className="h-12 w-16 shrink-0 rounded-md border object-cover" />
+        ) : null}
+        <div className="min-w-0">
+          <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Image occlusion</p>
+          <p className="line-clamp-1 text-sm text-muted-foreground">{card.image_alt_text?.trim() || 'No alt text'}</p>
+        </div>
+      </div>
+    );
+  }
+  return <p className="line-clamp-2 whitespace-pre-wrap text-sm text-muted-foreground">{getFlashcardPreviewText(card)}</p>;
+}
+
 function getNextAvailableClozeIndex(clozeText: string): number {
   const indexes = new Set(getClozeIndexes(clozeText));
   let index = 1;
@@ -181,10 +213,11 @@ function clozePreviewHtml(clozeText: string, clozeIndex: number, showAnswer: boo
 }
 
 function Preview({ draft }: { draft: Draft }) {
-  if (draft.cardType === 'image_occlusion') return <ImagePreview draft={draft} />;
   const { clozeText, extra } = draft;
   const clozeIndexes = useMemo(() => getClozeIndexes(clozeText), [clozeText]);
   const [showAnswer, setShowAnswer] = useState(false);
+
+  if (draft.cardType === 'image_occlusion') return <ImagePreview draft={draft} />;
 
   if (clozeIndexes.length === 0) {
     return (
@@ -279,6 +312,9 @@ function FlashcardDialog({
   const [, setEditorVersion] = useState(0);
   const clozeEditorRef = useRef<RichTextEditorRef>(null);
   const extraEditorRef = useRef<RichTextEditorRef>(null);
+  const initialSnapshotRef = useRef('');
+  const savedRef = useRef(false);
+  const objectUrlRef = useRef<string | null>(null);
   const clozeImageUpload = useFlashcardImageUpload({ topicId: draft.topicId, editorRef: clozeEditorRef });
   const extraImageUpload = useFlashcardImageUpload({ topicId: draft.topicId, editorRef: extraEditorRef });
 
@@ -288,7 +324,7 @@ function FlashcardDialog({
       return;
     }
     const indexes = card?.card_type === 'text_cloze' ? getClozeIndexes(card.cloze_text ?? '') : [];
-    setDraft({
+    const nextDraft: Draft = {
       topicId: card?.topic_id ?? topicId,
       index: card?.index ?? cards.length + 1,
       cardType: card?.card_type ?? 'text_cloze',
@@ -299,7 +335,10 @@ function FlashcardDialog({
       imageUrl: card?.image_url ?? null,
       imageFile: null,
       occlusionData: card?.occlusion_data ?? null,
-    });
+    };
+    setDraft(nextDraft);
+    initialSnapshotRef.current = draftSnapshot(nextDraft);
+    savedRef.current = false;
     setLastClozeIndex(indexes.at(-1) ?? 1);
     setEditorVersion((value) => value + 1);
   }, [card, cards.length, open, topicId]);
@@ -377,18 +416,43 @@ function FlashcardDialog({
       const occlusionData = upload
         ? { ...draft.occlusionData, naturalWidth: upload.naturalWidth, naturalHeight: upload.naturalHeight }
         : draft.occlusionData;
-      await onSave({ topicId: draft.topicId, cardType: 'image_occlusion', imageFileId, imageAltText: draft.imageAltText, occlusionData, extra: next.extra, index: draft.index });
+      try {
+        await onSave({ topicId: draft.topicId, cardType: 'image_occlusion', imageFileId, imageAltText: draft.imageAltText, occlusionData, extra: next.extra, index: draft.index });
+      } catch (error) {
+        if (upload) await flashcardsApi.cleanupImage(upload.fileId).catch(() => undefined);
+        throw error;
+      }
+      if (upload && card?.image_file_id && card.image_file_id !== upload.fileId) {
+        await flashcardsApi.cleanupImage(card.image_file_id).catch(() => undefined);
+      }
     }
+    savedRef.current = true;
+    requestOpenChange(false);
+  };
+
+  const requestOpenChange = (nextOpen: boolean) => {
+    if (nextOpen) {
+      onOpenChange(true);
+      return;
+    }
+    const live = {
+      clozeText: clozeEditorRef.current?.getEditor()?.getHTML() ?? draft.clozeText,
+      extra: extraEditorRef.current?.getEditor()?.getHTML() ?? draft.extra,
+    };
+    if (!savedRef.current && draftSnapshot(draft, live.clozeText, live.extra) !== initialSnapshotRef.current
+      && !window.confirm('Discard unsaved flashcard changes?')) return;
+    if (objectUrlRef.current) URL.revokeObjectURL(objectUrlRef.current);
+    objectUrlRef.current = null;
     onOpenChange(false);
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={requestOpenChange}>
       <DialogContent className={cn(tutorDialogContentClass, 'flex h-[90vh] w-full flex-col gap-0 overflow-hidden p-0 md:max-w-5xl [&>button]:hidden')}>
         <DialogHeader className={cn(tutorDialogHeaderStrip, 'flex-shrink-0 px-6 py-4')}>
           <div className="flex w-full items-center justify-between gap-4">
             <div className="flex min-w-0 flex-1 items-center gap-3">
-              <Button type="button" variant="outline" size="icon" className={tutorBtnIconOutline} onClick={() => onOpenChange(false)}>
+              <Button type="button" variant="outline" size="icon" className={tutorBtnIconOutline} onClick={() => requestOpenChange(false)}>
                 <X className="h-4 w-4" />
               </Button>
               <DialogTitle>{card ? 'Edit Flashcard' : 'Add Flashcard'}</DialogTitle>
@@ -432,7 +496,7 @@ function FlashcardDialog({
               <Preview draft={draft} />
             </div>
           ) : (
-            <div className="flex h-full min-h-0">
+            <div className="flex h-full min-h-0 flex-col md:flex-row">
               <div className="min-w-0 flex-1 overflow-y-auto px-6 py-5">
                 <div className="mx-auto grid max-w-5xl gap-5">
                   {!card ? (
@@ -486,12 +550,13 @@ function FlashcardDialog({
                       onImageSelected={(imageFile, dimensions) => {
                         const preserve = !draft.occlusionData?.masks.length
                           || window.confirm('Preserve the existing boxes on the replacement image? Select Cancel to clear them.');
-                        if (draft.imageUrl?.startsWith('blob:')) URL.revokeObjectURL(draft.imageUrl);
+                        if (objectUrlRef.current) URL.revokeObjectURL(objectUrlRef.current);
+                        objectUrlRef.current = URL.createObjectURL(imageFile);
                         setDraft((value) => ({
                           ...value,
                           imageFile,
                           imageFileId: null,
-                          imageUrl: URL.createObjectURL(imageFile),
+                          imageUrl: objectUrlRef.current,
                           occlusionData: {
                             version: 1,
                             naturalWidth: dimensions.naturalWidth,
@@ -522,7 +587,7 @@ function FlashcardDialog({
                 </div>
               </div>
 
-              <div className="hidden w-80 shrink-0 space-y-5 overflow-y-auto bg-muted/25 px-6 py-5 ring-1 ring-black/[0.06] md:block dark:ring-white/10">
+              <div className="w-full shrink-0 space-y-5 overflow-y-auto bg-muted/25 px-6 py-5 ring-1 ring-black/[0.06] md:w-80 dark:ring-white/10">
                 <div className="space-y-2">
                   <Label>Topic</Label>
                   <SearchableSelect<Tables<'topics'>>
@@ -561,7 +626,7 @@ function FlashcardDialog({
         </div>
 
         <DialogFooter className={cn(tutorDialogFooterStrip, 'flex-shrink-0 px-6 py-4')}>
-          <Button variant="outline" className={tutorBtnOutline} onClick={() => onOpenChange(false)} disabled={isSaving}>
+          <Button variant="outline" className={tutorBtnOutline} onClick={() => requestOpenChange(false)} disabled={isSaving}>
             Cancel
           </Button>
           <Button onClick={handleSave} disabled={isSaving || !canSave} className={cn(tutorBtnPrimary, 'gap-1.5')}>
@@ -614,7 +679,7 @@ function ImportFlashcardsDialog({
             </Button>
             <div>
               <DialogTitle>Import Flashcards</DialogTitle>
-              <DialogDescription>Paste CSV/TSV rows, including Anki cloze exports.</DialogDescription>
+              <DialogDescription>Paste text-cloze CSV/TSV rows, including Anki text-cloze exports. Image occlusion is authored manually.</DialogDescription>
             </div>
           </div>
         </DialogHeader>
@@ -909,9 +974,7 @@ export function FlashcardManager({ topicId }: { topicId: string }) {
                             {visibleColumns.has('index') ? <TableCell className="font-medium">{card.index}</TableCell> : null}
                             {visibleColumns.has('preview') ? (
                               <TableCell className="max-w-[520px]">
-                                <p className="line-clamp-2 whitespace-pre-wrap text-sm text-muted-foreground">
-                                  {getFlashcardPreviewText(card)}
-                                </p>
+                                <FlashcardPreviewCell card={card} />
                               </TableCell>
                             ) : null}
                             {visibleColumns.has('clozes') ? (
@@ -948,9 +1011,7 @@ export function FlashcardManager({ topicId }: { topicId: string }) {
                         {visibleColumns.has('index') ? <TableCell className="font-medium">{card.index}</TableCell> : null}
                         {visibleColumns.has('preview') ? (
                           <TableCell className="max-w-[520px]">
-                            <p className="line-clamp-2 whitespace-pre-wrap text-sm text-muted-foreground">
-                              {getFlashcardPreviewText(card)}
-                            </p>
+                            <FlashcardPreviewCell card={card} />
                           </TableCell>
                         ) : null}
                         {visibleColumns.has('clozes') ? (

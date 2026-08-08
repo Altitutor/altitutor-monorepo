@@ -117,3 +117,27 @@ export async function POST(request: Request) {
     },
   });
 }
+
+export async function DELETE(request: Request) {
+  const userClient = createClient();
+  const { data: isTutor } = await userClient.rpc('is_tutor');
+  if (!isTutor) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+  const fileId = new URL(request.url).searchParams.get('fileId');
+  if (!fileId) return NextResponse.json({ error: 'fileId is required' }, { status: 400 });
+
+  const serviceClient = getServiceRoleClient();
+  const { data: tutorId } = await userClient.rpc('current_tutor_id');
+  const [{ data: file }, { data: reference }] = await Promise.all([
+    serviceClient.from('files').select('id,bucket,storage_path,created_by').eq('id', fileId).maybeSingle(),
+    serviceClient.from('flashcards').select('id').eq('image_file_id', fileId).limit(1).maybeSingle(),
+  ]);
+  if (!file || file.bucket !== BUCKET || !file.storage_path) return NextResponse.json({ data: { deleted: false } });
+  if (!tutorId || file.created_by !== tutorId) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+  if (reference) return NextResponse.json({ error: 'Image is still referenced by a flashcard' }, { status: 409 });
+
+  const { error: storageError } = await serviceClient.storage.from(BUCKET).remove([file.storage_path]);
+  if (storageError) return captureApiErrorResponse(storageError, '/api/flashcards/images/upload', NextResponse.json({ error: storageError.message }, { status: 500 }));
+  const { error: fileError } = await serviceClient.from('files').delete().eq('id', fileId);
+  if (fileError) return captureApiErrorResponse(fileError, '/api/flashcards/images/upload', NextResponse.json({ error: fileError.message }, { status: 500 }));
+  return NextResponse.json({ data: { deleted: true } });
+}

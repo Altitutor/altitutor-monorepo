@@ -3,9 +3,25 @@ import type { TablesInsert } from '@altitutor/shared'
 import { createClient } from '@/shared/lib/supabase/server-ssr'
 import { getServiceRoleClient } from '@/shared/lib/supabase/service-role'
 import { captureApiError } from '@/lib/sentry/capture-api-error'
+import { normalizeProfileImageCrop } from '@/features/profile/types/profile-image'
 
 const BUCKET = 'staff-profile-images'
 const IMAGE_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp'])
+
+function metadataRecord(metadata: unknown): Record<string, unknown> {
+  return metadata && typeof metadata === 'object' && !Array.isArray(metadata)
+    ? metadata as Record<string, unknown>
+    : {}
+}
+
+function parseCrop(value: FormDataEntryValue | null) {
+  if (typeof value !== 'string') return normalizeProfileImageCrop(null)
+  try {
+    return normalizeProfileImageCrop(JSON.parse(value))
+  } catch {
+    return normalizeProfileImageCrop(null)
+  }
+}
 
 async function tutorId() {
   const client = createClient()
@@ -34,14 +50,18 @@ export async function GET(request: NextRequest) {
 
     const { data: file, error } = await service
       .from('files')
-      .select('bucket, storage_path')
+      .select('bucket, storage_path, metadata')
       .eq('id', fileId)
       .eq('bucket', BUCKET)
       .maybeSingle()
     if (error) throw error
     if (!file?.storage_path) return NextResponse.json({ url: null })
     const { data } = service.storage.from(BUCKET).getPublicUrl(file.storage_path)
-    return NextResponse.json({ url: data.publicUrl })
+    const metadata = metadataRecord(file.metadata)
+    return NextResponse.json({
+      url: data.publicUrl,
+      crop: normalizeProfileImageCrop(metadata.profileImageCrop),
+    })
   } catch (error) {
     captureApiError(error, '/api/profile/image')
     return NextResponse.json({ error: 'Failed to load profile image' }, { status: 500 })
@@ -54,6 +74,7 @@ export async function POST(request: NextRequest) {
     if (!staffId) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     const form = await request.formData()
     const file = form.get('file')
+    const crop = parseCrop(form.get('crop'))
     if (!(file instanceof File) || !IMAGE_TYPES.has(file.type) || file.size > 5 * 1024 * 1024) {
       return NextResponse.json({ error: 'Choose a JPEG, PNG, or WebP image up to 5 MB' }, { status: 400 })
     }
@@ -73,7 +94,12 @@ export async function POST(request: NextRequest) {
       mimetype: file.type,
       filename: file.name,
       size_bytes: file.size,
-      metadata: { originalName: file.name, uploadedAt: new Date().toISOString(), purpose: 'staff-profile-image' },
+      metadata: {
+        originalName: file.name,
+        uploadedAt: new Date().toISOString(),
+        purpose: 'staff-profile-image',
+        profileImageCrop: { x: crop.x, y: crop.y, zoom: crop.zoom },
+      },
       storage_provider: 'supabase',
       bucket: BUCKET,
       storage_path: uploaded.path,
@@ -88,5 +114,56 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     captureApiError(error, '/api/profile/image')
     return NextResponse.json({ error: 'Failed to upload profile image' }, { status: 500 })
+  }
+}
+
+export async function PATCH(request: NextRequest) {
+  try {
+    const staffId = await tutorId()
+    if (!staffId) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+
+    const body = await request.json() as { fileId?: unknown; crop?: unknown }
+    if (typeof body.fileId !== 'string') {
+      return NextResponse.json({ error: 'Invalid profile image' }, { status: 400 })
+    }
+
+    const service = getServiceRoleClient()
+    const { data: staff } = await service
+      .from('staff')
+      .select('profile_image_file_id')
+      .eq('id', staffId)
+      .eq('profile_image_file_id', body.fileId)
+      .maybeSingle()
+    if (!staff) return NextResponse.json({ error: 'Image not found' }, { status: 404 })
+
+    const { data: file, error: fileError } = await service
+      .from('files')
+      .select('metadata')
+      .eq('id', body.fileId)
+      .eq('bucket', BUCKET)
+      .maybeSingle()
+    if (fileError) throw fileError
+    if (!file) return NextResponse.json({ error: 'Image not found' }, { status: 404 })
+
+    const crop = normalizeProfileImageCrop(body.crop)
+    const { error: updateError } = await service
+      .from('files')
+      .update({
+        metadata: {
+          ...metadataRecord(file.metadata),
+          profileImageCrop: {
+            x: crop.x,
+            y: crop.y,
+            zoom: crop.zoom,
+          },
+        },
+      })
+      .eq('id', body.fileId)
+    if (updateError) throw updateError
+
+    return NextResponse.json({ success: true })
+  } catch (error) {
+    captureApiError(error, '/api/profile/image')
+    return NextResponse.json({ error: 'Failed to update profile image crop' }, { status: 500 })
   }
 }

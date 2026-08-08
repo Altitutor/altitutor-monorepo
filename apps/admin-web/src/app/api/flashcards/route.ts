@@ -50,6 +50,12 @@ export async function POST(request: NextRequest) {
     occlusionData: body.occlusion_data,
   });
   if (contentError) return NextResponse.json({ error: contentError }, { status: 400 });
+  if (cardType === 'image_occlusion') {
+    const { data: imageFile } = await supabaseAdmin.from('files').select('id,bucket,storage_path,deleted_at').eq('id', body.image_file_id).maybeSingle();
+    if (!imageFile || imageFile.deleted_at || imageFile.bucket !== 'flashcard-images' || !imageFile.storage_path?.startsWith(`${body.topic_id}/`)) {
+      return NextResponse.json({ error: 'Source image is not accessible for this topic' }, { status: 400 });
+    }
+  }
 
   const { data: siblings } = await supabaseAdmin
     .from('flashcards')

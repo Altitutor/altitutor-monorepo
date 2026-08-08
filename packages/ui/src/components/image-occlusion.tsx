@@ -12,7 +12,7 @@ import {
   type ImageOcclusionMask,
 } from '@altitutor/shared';
 import { CornerDownLeft, Hand, ImagePlus, Minus, MousePointer2, Plus, Redo2, Trash2, Undo2 } from 'lucide-react';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Button } from './button';
 import { Input } from './input';
 import { Label } from './label';
@@ -50,7 +50,6 @@ export function ImageOcclusionViewer({
   return (
     <div className="relative mx-auto w-full max-w-full overflow-hidden rounded-lg border bg-muted/20">
       {/* Signed URLs and local object URLs cannot be handled reliably by next/image. */}
-      {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
         src={imageUrl}
         alt={alt}
@@ -355,6 +354,10 @@ export function ImageOcclusionEditor({
   return (
     <div className="grid gap-4">
       <div className="flex flex-wrap items-center gap-2">
+        <Button type="button" size="sm" variant="outline" onClick={() => fileInputRef.current?.click()}>
+          <ImagePlus className="mr-1.5 h-4 w-4" />Replace image
+        </Button>
+        <input ref={fileInputRef} type="file" className="sr-only" accept={IMAGE_OCCLUSION_MIME_TYPES.join(',')} onChange={(event) => void chooseImage(event.target.files?.[0])} />
         <Button type="button" size="sm" variant={drawingClozeIndex !== null && !panMode ? 'default' : 'outline'} onClick={() => { setPanMode(false); setDrawingClozeIndex(getNextImageOcclusionIndex(data)); }}>
           <Plus className="mr-1.5 h-4 w-4" />New box
         </Button>
@@ -372,6 +375,7 @@ export function ImageOcclusionEditor({
           <Button type="button" size="icon" variant="outline" aria-label="Zoom in" onClick={() => setZoom((value) => Math.min(3, value + 0.25))}><Plus className="h-4 w-4" /></Button>
         </div>
       </div>
+      {fileError ? <p role="alert" className="text-sm text-destructive">{fileError}</p> : null}
 
       <div ref={viewportRef} className="max-h-[60vh] overflow-auto rounded-xl border bg-muted/30 p-3">
         <div
@@ -382,7 +386,6 @@ export function ImageOcclusionEditor({
           onPointerMove={handlePointerMove}
           onPointerUp={handlePointerUp}
         >
-          {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src={imageUrl} alt={imageAltText} className="block h-auto w-full" draggable={false} />
           <div className="absolute inset-0">
             {data.masks.map((mask) => {

@@ -108,6 +108,24 @@ function getCardClozeCount(card: Flashcard): number {
     : getClozeIndexes(card.cloze_text ?? '').length;
 }
 
+function FlashcardPreviewCell({ card }: { card: Flashcard }) {
+  if (card.card_type === 'image_occlusion') {
+    return (
+      <div className="flex items-center gap-3">
+        {card.image_url ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={card.image_url} alt="" className="h-12 w-16 shrink-0 rounded-md border object-cover" />
+        ) : null}
+        <div className="min-w-0">
+          <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Image occlusion</p>
+          <p className="line-clamp-1 text-sm text-muted-foreground">{card.image_alt_text?.trim() || 'No alt text'}</p>
+        </div>
+      </div>
+    );
+  }
+  return <p className="line-clamp-2 whitespace-pre-wrap text-sm text-muted-foreground">{getCardPreviewText(card)}</p>;
+}
+
 function getSortValue(card: Flashcard, sortBy: string | null): string | number {
   switch (sortBy) {
     case 'preview':
@@ -326,9 +344,7 @@ export function FlashcardManager({
               id: 'preview',
               header: 'Preview',
               cell: ({ row }: FlashcardRow) => (
-                <p className="line-clamp-2 whitespace-pre-wrap text-sm text-muted-foreground">
-                  {getCardPreviewText(row.original)}
-                </p>
+                <FlashcardPreviewCell card={row.original} />
               ),
             }
           : null,
@@ -521,8 +537,7 @@ export function FlashcardManager({
             await mutations.updateCard.mutateAsync({ cardId, ...writeInput });
             return;
           }
-          const { cardId: _cardId, ...writeInput } = input;
-          await mutations.createCard.mutateAsync(writeInput);
+          await mutations.createCard.mutateAsync(input);
         }}
         onDelete={deleteCard}
         onOpenPage={showOpenInPage ? openCardPage : undefined}

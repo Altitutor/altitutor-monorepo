@@ -45,6 +45,12 @@ export async function PATCH(request: NextRequest, { params }: { params: { id: st
   if (body.occlusion_data !== undefined || body.card_type !== undefined) updates.occlusion_data = cardType === 'image_occlusion' ? body.occlusion_data ?? existingCard.occlusion_data : null;
 
   const serviceClient = getServiceRoleClient();
+  if (cardType === 'image_occlusion' && body.image_file_id && body.image_file_id !== existingCard.image_file_id) {
+    const { data: imageFile } = await serviceClient.from('files').select('id,bucket,storage_path,deleted_at').eq('id', body.image_file_id).maybeSingle();
+    if (!imageFile || imageFile.deleted_at || imageFile.bucket !== 'flashcard-images' || !imageFile.storage_path?.startsWith(`${targetTopicId}/`)) {
+      return NextResponse.json({ error: 'Source image is not accessible for this topic' }, { status: 400 });
+    }
+  }
   try {
     if (body.topic_id !== undefined || body.index !== undefined) {
       const oldTopicCards = await listAccessibleFlashcards(existingCard.topic_id);
