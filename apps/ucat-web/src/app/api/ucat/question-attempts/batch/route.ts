@@ -9,6 +9,10 @@ import {
 } from "@/lib/ucat/question-attempts/persist-question-attempt-batch";
 import { findUndeliveredPracticeQuestionIds } from "@/lib/ucat/practice-sessions/authorize-delivered-questions";
 import { captureUcatLearningActivityCompletedInBackground } from "@/lib/analytics/posthog-server";
+import {
+  PRACTICE_SESSION_ENDED_CODE,
+  PRACTICE_SESSION_ENDED_MESSAGE,
+} from "@/lib/ucat/practice-sessions/practice-session-ended";
 
 type BatchRequest = {
   studentQuestionSetAttemptId: string | null;
@@ -90,8 +94,11 @@ export async function POST(request: NextRequest) {
       session.expired_at
     ) {
       return NextResponse.json(
-        { error: "Question is not part of this practice session" },
-        { status: 403 },
+        {
+          code: PRACTICE_SESSION_ENDED_CODE,
+          error: PRACTICE_SESSION_ENDED_MESSAGE,
+        },
+        { status: 410 },
       );
     }
 

@@ -37,6 +37,8 @@ import { isExamAttemptAtResults } from "@/lib/ucat/exam-attempt/finalize-attempt
 import { useQuotaLimitDialog } from "@/features/ucat-access/context/upsell-dialog-context";
 import { quotaRouteFallback } from "@/features/ucat-access/lib/quota-route-fallback";
 import { QuotaExceededError } from "@/lib/ucat/quota/parse-quota-error";
+import { PracticeSessionEndedError } from "@/lib/ucat/practice-sessions/practice-session-ended";
+import { useToast } from "@altitutor/ui";
 
 function toExamEngineSnapshot(
   state: QuestionEngineState,
@@ -186,7 +188,9 @@ export function useExamAttemptLifecycle({
   const { active, refresh, setLocal, updateLocal, clearLocal } =
     useActiveExamAttempt();
   const router = useRouter();
+  const replaceRoute = router.replace;
   const { openQuotaLimit } = useQuotaLimitDialog();
+  const { toast } = useToast();
   const attemptIdRef = useRef<string | null>(null);
   const [serverSegmentEndsAt, setServerSegmentEndsAt] = useState<string | null>(
     null,
@@ -218,6 +222,27 @@ export function useExamAttemptLifecycle({
     null,
   );
   const syncQueueRef = useRef<Promise<void>>(Promise.resolve());
+  const practiceSessionEndedRef = useRef(false);
+
+  const handlePracticeSessionEnded = useCallback(
+    (error: unknown): boolean => {
+      if (!(error instanceof PracticeSessionEndedError)) return false;
+      beginBlockedRef.current = true;
+      syncBlockedRef.current = true;
+      if (syncTimerRef.current) clearTimeout(syncTimerRef.current);
+      if (practiceSessionEndedRef.current) return true;
+      practiceSessionEndedRef.current = true;
+      clearLocal();
+      toast({
+        title: "Practice session ended",
+        description:
+          "This session ended in another tab or device. Start a new session to continue practising.",
+      });
+      replaceRoute("/practice");
+      return true;
+    },
+    [clearLocal, replaceRoute, toast],
+  );
 
   const enqueueSync = useCallback(
     <T>(operation: () => Promise<T>): Promise<T> => {
@@ -254,6 +279,7 @@ export function useExamAttemptLifecycle({
     syncBlockedRef.current = false;
     beginBlockedRef.current = false;
     segmentStartPendingRef.current = false;
+    practiceSessionEndedRef.current = false;
     setHydrationStatus("idle");
     setServerSegmentEndsAt(null);
   }, [lifecycleKey]);
@@ -359,7 +385,8 @@ export function useExamAttemptLifecycle({
               }),
             )
               .then(() => refresh())
-              .catch(() => {
+              .catch((error: unknown) => {
+                if (handlePracticeSessionEnded(error)) return;
                 // Resume state is already usable; a retry will occur on next sync.
               });
           }
@@ -442,6 +469,7 @@ export function useExamAttemptLifecycle({
     setLocal,
     clearLocal,
     enqueueSync,
+    handlePracticeSessionEnded,
   ]);
 
   const beginIfNeeded = useCallback(async () => {
@@ -505,6 +533,7 @@ export function useExamAttemptLifecycle({
       resumed = result.resumed;
     } catch (error) {
       if (lifecycleKeyRef.current !== lifecycleKey) return;
+      if (handlePracticeSessionEnded(error)) return;
       if (error instanceof QuotaExceededError) {
         beginBlockedRef.current = true;
         syncBlockedRef.current = true;
@@ -616,6 +645,7 @@ export function useExamAttemptLifecycle({
     attemptStateRef,
     openQuotaLimit,
     router,
+    handlePracticeSessionEnded,
   ]);
 
   useEffect(() => {
@@ -723,7 +753,8 @@ export function useExamAttemptLifecycle({
           ...(setAttemptIdsBySetId ? { setAttemptIdsBySetId } : {}),
         });
       })
-      .catch(() => {
+      .catch((error: unknown) => {
+        if (handlePracticeSessionEnded(error)) return;
         // A failed background sync must not crash the question engine.
       })
       .finally(() => {
@@ -744,6 +775,7 @@ export function useExamAttemptLifecycle({
     updateLocal,
     attemptStateRef,
     enqueueSync,
+    handlePracticeSessionEnded,
   ]);
 
   useEffect(() => {
@@ -808,7 +840,8 @@ export function useExamAttemptLifecycle({
             ...(setAttemptIdsBySetId ? { setAttemptIdsBySetId } : {}),
           });
         })
-        .catch(() => {
+        .catch((error: unknown) => {
+          if (handlePracticeSessionEnded(error)) return;
           // Keep the local engine usable and retry on the next state change.
         });
     }, delay);
@@ -826,6 +859,7 @@ export function useExamAttemptLifecycle({
     updateLocal,
     suppressQuestionTimingSyncRef,
     enqueueSync,
+    handlePracticeSessionEnded,
   ]);
 
   const activeQuestionTimingKey = latestQuestionTimingRef.current
@@ -891,7 +925,8 @@ export function useExamAttemptLifecycle({
         ...(setAttemptIdsBySetId ? { setAttemptIdsBySetId } : {}),
       });
       return true;
-    } catch {
+    } catch (error) {
+      handlePracticeSessionEnded(error);
       // Question timing retries on the next heartbeat or transition.
       return false;
     }
@@ -905,6 +940,7 @@ export function useExamAttemptLifecycle({
     practice,
     updateLocal,
     enqueueSync,
+    handlePracticeSessionEnded,
   ]);
 
   useEffect(() => {
@@ -991,7 +1027,8 @@ export function useExamAttemptLifecycle({
           ...(setAttemptIdsBySetId ? { setAttemptIdsBySetId } : {}),
         });
         return true;
-      } catch {
+      } catch (error) {
+        handlePracticeSessionEnded(error);
         return false;
       }
     },
@@ -1006,6 +1043,7 @@ export function useExamAttemptLifecycle({
       updateLocal,
       beginIfNeeded,
       enqueueSync,
+      handlePracticeSessionEnded,
     ],
   );
 
