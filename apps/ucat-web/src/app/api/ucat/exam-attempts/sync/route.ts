@@ -7,6 +7,11 @@ import {
   type StoredExamSnapshot,
 } from "@/lib/ucat/exam-attempt/service";
 import type { SyncExamAttemptInput } from "@/lib/ucat/exam-attempt/types";
+import {
+  PRACTICE_SESSION_ENDED_CODE,
+  PRACTICE_SESSION_ENDED_MESSAGE,
+  PracticeSessionEndedError,
+} from "@/lib/ucat/practice-sessions/practice-session-ended";
 
 export async function PATCH(request: NextRequest) {
   const supabase = await getSupabaseServerClient();
@@ -58,14 +63,32 @@ export async function PATCH(request: NextRequest) {
     );
   }
 
-  const result = await syncExamAttempt(
-    supabaseAdmin,
-    student.id,
-    body,
-    body.examMeta,
-    body.mockAttemptId,
-    body.examTiming,
-  );
+  let result: Awaited<ReturnType<typeof syncExamAttempt>>;
+  try {
+    result = await syncExamAttempt(
+      supabaseAdmin,
+      student.id,
+      body,
+      body.examMeta,
+      body.mockAttemptId,
+      body.examTiming,
+    );
+  } catch (error) {
+    if (error instanceof PracticeSessionEndedError) {
+      return NextResponse.json(
+        {
+          code: PRACTICE_SESSION_ENDED_CODE,
+          error: PRACTICE_SESSION_ENDED_MESSAGE,
+        },
+        { status: 410 },
+      );
+    }
+    captureApiError(error, "/api/ucat/exam-attempts/sync");
+    return NextResponse.json(
+      { error: error instanceof Error ? error.message : "Failed to sync" },
+      { status: 500 },
+    );
+  }
 
   return NextResponse.json({ success: true, ...result });
 }

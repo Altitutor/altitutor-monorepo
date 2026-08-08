@@ -22,6 +22,7 @@ import type {
   QuestionEngineState,
 } from "@/features/question-engine/model/types";
 import type { ActiveExamAttempt } from "@/lib/ucat/exam-attempt/types";
+import { PracticeSessionEndedError } from "@/lib/ucat/practice-sessions/practice-session-ended";
 
 const mockReplace = jest.fn();
 const mockRefresh = jest.fn(async () => undefined);
@@ -29,6 +30,7 @@ const mockSetLocal = jest.fn();
 const mockUpdateLocal = jest.fn();
 const mockClearLocal = jest.fn();
 const mockOpenQuotaLimit = jest.fn();
+const mockToast = jest.fn();
 let mockActive: ActiveExamAttempt | null = null;
 
 jest.mock("next/navigation", () => ({
@@ -58,6 +60,10 @@ jest.mock(
 
 jest.mock("@/features/ucat-access/context/upsell-dialog-context", () => ({
   useQuotaLimitDialog: () => ({ openQuotaLimit: mockOpenQuotaLimit }),
+}));
+
+jest.mock("@altitutor/ui", () => ({
+  useToast: () => ({ toast: mockToast }),
 }));
 
 const mockBeginExamAttempt = jest.mocked(beginExamAttempt);
@@ -536,6 +542,26 @@ describe("useExamAttemptLifecycle request races", () => {
       "question-1": "option-1",
     });
     expect(result.current.state.showCalculator).toBe(true);
+
+    unmount();
+  });
+
+  it("stops a stale practice session and routes back to practice", async () => {
+    mockBeginExamAttempt.mockRejectedValue(new PracticeSessionEndedError());
+
+    const { unmount } = renderHook(usePracticeLifecycleHarness);
+
+    await waitFor(() =>
+      expect(mockToast).toHaveBeenCalledWith({
+        title: "Practice session ended",
+        description:
+          "This session ended in another tab or device. Start a new session to continue practising.",
+      }),
+    );
+
+    expect(mockClearLocal).toHaveBeenCalledTimes(1);
+    expect(mockReplace).toHaveBeenCalledWith("/practice");
+    expect(mockSyncExamAttempt).not.toHaveBeenCalled();
 
     unmount();
   });
