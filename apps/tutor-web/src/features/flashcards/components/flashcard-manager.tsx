@@ -31,6 +31,8 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
   Input,
+  ImageOcclusionEditor,
+  ImageOcclusionViewer,
   Label,
   RichTextEditor,
   SearchableSelect,
@@ -66,9 +68,11 @@ import type {
   DataTableSortOption,
   DataTableState,
   Flashcard,
+  FlashcardType,
+  ImageOcclusionData,
   Tables,
 } from '@altitutor/shared';
-import { getClozeIndexes, parseClozeParts, renderClozeQuestionText } from '@altitutor/shared';
+import { getClozeIndexes, getImageOcclusionGroupDescription, getImageOcclusionIndexes, parseClozeParts, renderClozeQuestionText, validateImageOcclusionData } from '@altitutor/shared';
 import { UcatRowActions } from '@/features/ucat/shared/row-actions';
 import { UcatSelectionToolbar } from '@/features/ucat/shared/selection-toolbar';
 import { useTopics } from '@/features/topics/hooks';
@@ -87,12 +91,19 @@ import {
 import { cn } from '@/shared/utils';
 import { useFlashcardMutations, useFlashcards } from '../hooks/useFlashcards';
 import { useFlashcardImageUpload } from '../hooks/useFlashcardImageUpload';
+import { flashcardsApi, type FlashcardMutationInput } from '../api/flashcards';
 
 type Draft = {
   topicId: string;
   index: number;
+  cardType: FlashcardType;
   clozeText: string;
   extra: string;
+  imageFileId: string | null;
+  imageAltText: string;
+  imageUrl: string | null;
+  imageFile: File | null;
+  occlusionData: ImageOcclusionData | null;
 };
 
 type ImportResult = { inserted: number; rejected: Array<{ row: number; reason: string }> };
@@ -156,7 +167,9 @@ function clozePreviewHtml(clozeText: string, clozeIndex: number, showAnswer: boo
     .join('');
 }
 
-function Preview({ clozeText, extra }: { clozeText: string; extra: string }) {
+function Preview({ draft }: { draft: Draft }) {
+  if (draft.cardType === 'image_occlusion') return <ImagePreview draft={draft} />;
+  const { clozeText, extra } = draft;
   const clozeIndexes = useMemo(() => getClozeIndexes(clozeText), [clozeText]);
   const [showAnswer, setShowAnswer] = useState(false);
 
@@ -201,6 +214,31 @@ function Preview({ clozeText, extra }: { clozeText: string; extra: string }) {
   );
 }
 
+function ImagePreview({ draft }: { draft: Draft }) {
+  const indexes = useMemo(() => getImageOcclusionIndexes(draft.occlusionData), [draft.occlusionData]);
+  const [position, setPosition] = useState(0);
+  const [showAnswer, setShowAnswer] = useState(false);
+  const activeIndex = indexes[Math.min(position, Math.max(0, indexes.length - 1))] ?? 1;
+  if (!draft.imageUrl || !draft.occlusionData || indexes.length === 0) {
+    return <div className="rounded-xl bg-muted/45 p-6 text-sm text-muted-foreground">Add an image and at least one box to preview the card.</div>;
+  }
+  return (
+    <div className="mx-auto max-w-3xl space-y-4">
+      <div className="flex items-center justify-between gap-3">
+        <p className="text-sm font-medium text-muted-foreground">Cloze {activeIndex} · {position + 1} of {indexes.length}</p>
+        <div className="flex gap-2">
+          <Button type="button" variant="outline" size="sm" disabled={position === 0} onClick={() => { setPosition((value) => value - 1); setShowAnswer(false); }}>Previous</Button>
+          <Button type="button" variant="outline" size="sm" disabled={position >= indexes.length - 1} onClick={() => { setPosition((value) => value + 1); setShowAnswer(false); }}>Next</Button>
+          <Button type="button" variant="outline" size="sm" onClick={() => setShowAnswer((value) => !value)}>{showAnswer ? 'Hide answer' : 'Show answer'}</Button>
+        </div>
+      </div>
+      <ImageOcclusionViewer imageUrl={draft.imageUrl} alt={draft.imageAltText} data={draft.occlusionData} activeClozeIndex={activeIndex} showAnswer={showAnswer} />
+      {showAnswer && getImageOcclusionGroupDescription(draft.occlusionData, activeIndex) ? <p className="rounded-xl bg-muted/35 p-3 text-sm">{getImageOcclusionGroupDescription(draft.occlusionData, activeIndex)}</p> : null}
+      {showAnswer && draft.extra ? <div className="prose prose-sm max-w-none rounded-xl bg-muted/35 p-3 dark:prose-invert" dangerouslySetInnerHTML={{ __html: draft.extra }} /> : null}
+    </div>
+  );
+}
+
 function FlashcardDialog({
   open,
   topicId,
@@ -219,11 +257,11 @@ function FlashcardDialog({
   topics: Tables<'topics'>[];
   isSaving: boolean;
   onOpenChange: (open: boolean) => void;
-  onSave: (draft: Draft) => Promise<void>;
+  onSave: (draft: FlashcardMutationInput) => Promise<void>;
   onDelete: (card: Flashcard) => void;
 }) {
   const [mode, setMode] = useState<'edit' | 'preview'>('edit');
-  const [draft, setDraft] = useState<Draft>({ topicId, index: 1, clozeText: '', extra: '' });
+  const [draft, setDraft] = useState<Draft>({ topicId, index: 1, cardType: 'text_cloze', clozeText: '', extra: '', imageFileId: null, imageAltText: '', imageUrl: null, imageFile: null, occlusionData: null });
   const [lastClozeIndex, setLastClozeIndex] = useState(1);
   const [, setEditorVersion] = useState(0);
   const clozeEditorRef = useRef<RichTextEditorRef>(null);
@@ -236,12 +274,18 @@ function FlashcardDialog({
       setMode('edit');
       return;
     }
-    const indexes = card ? getClozeIndexes(card.cloze_text) : [];
+    const indexes = card?.card_type === 'text_cloze' ? getClozeIndexes(card.cloze_text ?? '') : [];
     setDraft({
       topicId: card?.topic_id ?? topicId,
       index: card?.index ?? cards.length + 1,
+      cardType: card?.card_type ?? 'text_cloze',
       clozeText: card?.cloze_text ?? '',
       extra: card?.extra ?? '',
+      imageFileId: card?.image_file_id ?? null,
+      imageAltText: card?.image_alt_text ?? '',
+      imageUrl: card?.image_url ?? null,
+      imageFile: null,
+      occlusionData: card?.occlusion_data ?? null,
     });
     setLastClozeIndex(indexes.at(-1) ?? 1);
     setEditorVersion((value) => value + 1);
@@ -302,11 +346,26 @@ function FlashcardDialog({
   }, [insertNewCloze, insertSameCloze, mode, open]);
 
   const hasClozeContent = (clozeEditorRef.current?.getEditor()?.getText() ?? draft.clozeText).trim().length > 0;
+  const imageContentValid = draft.cardType === 'image_occlusion'
+    && Boolean(draft.imageUrl)
+    && validateImageOcclusionData(draft.occlusionData).length === 0;
+  const canSave = draft.cardType === 'text_cloze' ? hasClozeContent : imageContentValid;
   const selectedTopic = topics.find((item) => item.id === draft.topicId) ?? null;
 
   const handleSave = async () => {
     const next = syncEditorHtml();
-    await onSave({ ...draft, ...next });
+    if (draft.cardType === 'text_cloze') {
+      await onSave({ topicId: draft.topicId, cardType: 'text_cloze', clozeText: next.clozeText, extra: next.extra, index: draft.index });
+    } else {
+      if (!draft.occlusionData) return;
+      const upload = draft.imageFile ? await flashcardsApi.uploadImage(draft.topicId, draft.imageFile) : null;
+      const imageFileId = upload?.fileId ?? draft.imageFileId;
+      if (!imageFileId) return;
+      const occlusionData = upload
+        ? { ...draft.occlusionData, naturalWidth: upload.naturalWidth, naturalHeight: upload.naturalHeight }
+        : draft.occlusionData;
+      await onSave({ topicId: draft.topicId, cardType: 'image_occlusion', imageFileId, imageAltText: draft.imageAltText, occlusionData, extra: next.extra, index: draft.index });
+    }
     onOpenChange(false);
   };
 
@@ -357,12 +416,27 @@ function FlashcardDialog({
         <div className="min-h-0 flex-1 overflow-hidden">
           {mode === 'preview' ? (
             <div className="h-full overflow-y-auto px-6 py-5">
-              <Preview clozeText={draft.clozeText} extra={draft.extra} />
+              <Preview draft={draft} />
             </div>
           ) : (
             <div className="flex h-full min-h-0">
               <div className="min-w-0 flex-1 overflow-y-auto px-6 py-5">
                 <div className="mx-auto grid max-w-5xl gap-5">
+                  {!card ? (
+                    <div className="space-y-2">
+                      <Label>Card type</Label>
+                      <SegmentedControl
+                        value={draft.cardType}
+                        onValueChange={(cardType) => setDraft((value) => ({ ...value, cardType }))}
+                        options={[
+                          { value: 'text_cloze', label: 'Text cloze' },
+                          { value: 'image_occlusion', label: 'Image occlusion' },
+                        ]}
+                        aria-label="Flashcard type"
+                      />
+                    </div>
+                  ) : null}
+                  {draft.cardType === 'text_cloze' ? (
                   <div className="space-y-2">
                     <div className="flex flex-wrap items-center justify-between gap-2">
                       <Label>Body</Label>
@@ -389,6 +463,33 @@ function FlashcardDialog({
                       />
                     </div>
                   </div>
+                  ) : (
+                    <ImageOcclusionEditor
+                      imageUrl={draft.imageUrl}
+                      imageAltText={draft.imageAltText}
+                      data={draft.occlusionData}
+                      onChange={(occlusionData) => setDraft((value) => ({ ...value, occlusionData }))}
+                      onImageAltTextChange={(imageAltText) => setDraft((value) => ({ ...value, imageAltText }))}
+                      onImageSelected={(imageFile, dimensions) => {
+                        const preserve = !draft.occlusionData?.masks.length
+                          || window.confirm('Preserve the existing boxes on the replacement image? Select Cancel to clear them.');
+                        if (draft.imageUrl?.startsWith('blob:')) URL.revokeObjectURL(draft.imageUrl);
+                        setDraft((value) => ({
+                          ...value,
+                          imageFile,
+                          imageFileId: null,
+                          imageUrl: URL.createObjectURL(imageFile),
+                          occlusionData: {
+                            version: 1,
+                            naturalWidth: dimensions.naturalWidth,
+                            naturalHeight: dimensions.naturalHeight,
+                            masks: preserve ? value.occlusionData?.masks ?? [] : [],
+                            groupDescriptions: preserve ? value.occlusionData?.groupDescriptions : undefined,
+                          },
+                        }));
+                      }}
+                    />
+                  )}
 
                   <div className="space-y-2">
                     <Label>Extra</Label>
@@ -450,7 +551,7 @@ function FlashcardDialog({
           <Button variant="outline" className={tutorBtnOutline} onClick={() => onOpenChange(false)} disabled={isSaving}>
             Cancel
           </Button>
-          <Button onClick={handleSave} disabled={isSaving || !hasClozeContent} className={cn(tutorBtnPrimary, 'gap-1.5')}>
+          <Button onClick={handleSave} disabled={isSaving || !canSave} className={cn(tutorBtnPrimary, 'gap-1.5')}>
             {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
             Save
           </Button>

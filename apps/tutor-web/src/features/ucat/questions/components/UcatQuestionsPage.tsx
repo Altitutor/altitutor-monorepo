@@ -174,7 +174,7 @@ const questionColumnDefinitions: DataTableColumnDefinition[] = [
   { key: 'question_text', label: 'Question text', visibleByDefault: true },
   { key: 'explanation', label: 'Explanation', visibleByDefault: true },
   { key: 'difficulty', label: 'Difficulty', visibleByDefault: true },
-  { key: 'time_burden', label: 'Time burden', visibleByDefault: true },
+  { key: 'time_burden', label: 'Expected time to correct', visibleByDefault: true },
 ]
 
 const answerOptionColumnDefinitions: DataTableColumnDefinition[] = [
@@ -1415,7 +1415,7 @@ export function UcatQuestionsPage() {
                                   <TableHead className="w-24 shrink-0">Difficulty</TableHead>
                                 )}
                                 {visibleQuestion('time_burden') && (
-                                  <TableHead className="w-24 shrink-0">Time burden</TableHead>
+                                  <TableHead className="w-32 shrink-0">Expected time to correct</TableHead>
                                 )}
                               </TableRow>
                             </TableHeader>

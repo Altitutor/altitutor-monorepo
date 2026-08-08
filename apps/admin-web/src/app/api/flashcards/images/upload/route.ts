@@ -1,6 +1,11 @@
 import { captureApiError, captureApiErrorResponse } from '@/lib/sentry/capture-api-error';
 import { NextResponse } from 'next/server';
-import type { TablesInsert } from '@altitutor/shared';
+import {
+  IMAGE_OCCLUSION_MAX_FILE_BYTES,
+  IMAGE_OCCLUSION_MAX_PIXELS,
+  inspectRasterImage,
+  type TablesInsert,
+} from '@altitutor/shared';
 import { createClient } from '@/shared/lib/supabase/server-ssr';
 import { getServerSupabaseAdmin } from '@/shared/lib/supabase/server';
 
@@ -25,8 +30,17 @@ export async function POST(request: Request) {
   if (typeof topicId !== 'string' || !topicId) {
     return NextResponse.json({ error: 'topicId is required' }, { status: 400 });
   }
-  if (!(file instanceof File) || !file.type.startsWith('image/')) {
+  if (!(file instanceof File)) {
     return NextResponse.json({ error: 'Image file is required' }, { status: 400 });
+  }
+  if (file.size > IMAGE_OCCLUSION_MAX_FILE_BYTES) {
+    return NextResponse.json({ error: 'Image must be 10 MB or smaller' }, { status: 400 });
+  }
+  const fileBytes = new Uint8Array(await file.arrayBuffer());
+  const image = inspectRasterImage(fileBytes);
+  if (!image) return NextResponse.json({ error: 'Only valid PNG, JPEG, and WebP images are supported' }, { status: 400 });
+  if (image.width * image.height > IMAGE_OCCLUSION_MAX_PIXELS) {
+    return NextResponse.json({ error: 'Image must be 25 megapixels or smaller' }, { status: 400 });
   }
 
   const adminClient = getServerSupabaseAdmin();
@@ -43,16 +57,16 @@ export async function POST(request: Request) {
   const storagePath = buildStoragePath(topicId, file);
   const { data: uploadData, error: uploadError } = await adminClient.storage
     .from(BUCKET)
-    .upload(storagePath, file, {
+    .upload(storagePath, fileBytes, {
       cacheControl: '3600',
       upsert: false,
-      contentType: file.type,
+      contentType: image.mimetype,
     });
 
   if (uploadError) return captureApiErrorResponse(uploadError, "/api/flashcards/images/upload", NextResponse.json({ error: uploadError.message }, { status: 500 }));
 
   const fileInsert: TablesInsert<'files'> = {
-    mimetype: file.type,
+    mimetype: image.mimetype,
     filename: file.name,
     size_bytes: file.size,
     metadata: {
@@ -93,6 +107,9 @@ export async function POST(request: Request) {
       fileId: fileRow.id,
       storagePath: uploadData.path,
       signedUrl: signed.signedUrl,
+      naturalWidth: image.width,
+      naturalHeight: image.height,
+      mimetype: image.mimetype,
     },
   });
 }

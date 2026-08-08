@@ -40,8 +40,12 @@ export const QuestionInputSchema = z.object({
   questionText: RichTextSchema,
   questionType: z.enum(['multiple_choice', 'syllogism']).default('multiple_choice'),
   answerExplanation: NullableRichTextSchema.optional(),
-  difficulty: z.number().min(0).max(1).nullable().optional(),
-  timeBurdenSeconds: z.number().int().positive().nullable().optional(),
+  difficulty: z.number().min(0).max(1).nullable().optional().describe(
+    'Expected proportion of the target UCAT candidate cohort who would answer incorrectly on first exposure under realistic section timing and without assistance. 0 is easiest, 1 is hardest, and null means unknown.',
+  ),
+  timeBurdenSeconds: z.number().int().positive().nullable().optional().describe(
+    'Expected active working time in whole seconds to submit a fully correct first-exposure answer under realistic section timing and without assistance, with the question encountered in its authored stem position. Null means unknown.',
+  ),
   tagIds: z.array(z.string().uuid()).default([]),
   options: z.array(AnswerOptionInputSchema).default([]),
 })
@@ -50,8 +54,12 @@ const QuestionChangesSchema = z.object({
   questionText: RichTextSchema.optional(),
   questionType: z.enum(['multiple_choice', 'syllogism']).optional(),
   answerExplanation: NullableRichTextSchema.optional(),
-  difficulty: z.number().min(0).max(1).nullable().optional(),
-  timeBurdenSeconds: z.number().int().positive().nullable().optional(),
+  difficulty: z.number().min(0).max(1).nullable().optional().describe(
+    'Expected proportion incorrect on first exposure under realistic section timing. 0 is easiest, 1 is hardest, and null means unknown.',
+  ),
+  timeBurdenSeconds: z.number().int().positive().nullable().optional().describe(
+    'Expected active working time in whole seconds to submit a fully correct first-exposure answer in authored stem order. Null means unknown.',
+  ),
   tagIds: z.array(z.string().uuid()).optional(),
 })
 

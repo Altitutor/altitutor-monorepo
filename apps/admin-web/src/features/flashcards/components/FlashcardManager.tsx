@@ -32,7 +32,7 @@ import {
 import { Button } from '@altitutor/ui';
 import { Check, ExternalLink, GripVertical, MoreHorizontal, Pencil, Plus, RotateCcw, Rows3, Trash2, Upload, X } from 'lucide-react';
 import type { DataTableColumnDefinition, DataTableSortOption, Flashcard } from '@altitutor/shared';
-import { getClozeIndexes, renderClozeQuestionText } from '@altitutor/shared';
+import { getClozeIndexes, getImageOcclusionIndexes, renderClozeQuestionText } from '@altitutor/shared';
 import { useDataTable } from '@/shared/hooks/useDataTable';
 import { TablePagination } from '@/shared/components/TablePagination';
 import { cn } from '@/shared/utils';
@@ -95,12 +95,25 @@ function compareValues(a: string | number, b: string | number): number {
   return String(a).localeCompare(String(b), undefined, { numeric: true, sensitivity: 'base' });
 }
 
+function getCardPreviewText(card: Flashcard): string {
+  if (card.card_type === 'image_occlusion') return card.image_alt_text?.trim() || 'Image occlusion';
+  const clozeText = card.cloze_text ?? '';
+  return toPlainText(renderClozeQuestionText(clozeText, getClozeIndexes(clozeText)[0] ?? 1));
+}
+
+function getCardClozeCount(card: Flashcard): number {
+  if (card.review_card_count != null) return card.review_card_count;
+  return card.card_type === 'image_occlusion'
+    ? getImageOcclusionIndexes(card.occlusion_data).length
+    : getClozeIndexes(card.cloze_text ?? '').length;
+}
+
 function getSortValue(card: Flashcard, sortBy: string | null): string | number {
   switch (sortBy) {
     case 'preview':
-      return toPlainText(renderClozeQuestionText(card.cloze_text, getClozeIndexes(card.cloze_text)[0] ?? 1));
+      return getCardPreviewText(card);
     case 'clozes':
-      return card.review_card_count ?? getClozeIndexes(card.cloze_text).length;
+      return getCardClozeCount(card);
     case 'extra':
       return toPlainText(card.extra);
     case 'index':
@@ -174,7 +187,7 @@ export function FlashcardManager({
     const searchedCards = needle
       ? cards.filter((card) =>
           [
-            searchFrom.includes('text') ? card.cloze_text : null,
+            searchFrom.includes('text') ? `${card.cloze_text ?? ''} ${card.image_alt_text ?? ''} ${Object.values(card.occlusion_data?.groupDescriptions ?? {}).join(' ')}` : null,
             searchFrom.includes('extra') ? card.extra : null,
           ]
             .filter((value) => value != null)
@@ -314,7 +327,7 @@ export function FlashcardManager({
               header: 'Preview',
               cell: ({ row }: FlashcardRow) => (
                 <p className="line-clamp-2 whitespace-pre-wrap text-sm text-muted-foreground">
-                  {toPlainText(renderClozeQuestionText(row.original.cloze_text, getClozeIndexes(row.original.cloze_text)[0] ?? 1))}
+                  {getCardPreviewText(row.original)}
                 </p>
               ),
             }
@@ -323,7 +336,7 @@ export function FlashcardManager({
           ? {
               id: 'clozes',
               header: 'Clozes',
-              cell: ({ row }: FlashcardRow) => row.original.review_card_count ?? getClozeIndexes(row.original.cloze_text).length,
+              cell: ({ row }: FlashcardRow) => getCardClozeCount(row.original),
             }
           : null,
         state.visibleColumns.includes('extra')
@@ -504,21 +517,12 @@ export function FlashcardManager({
         onOpenChange={setIsEditOpen}
         onSave={async (input) => {
           if (input.cardId) {
-            await mutations.updateCard.mutateAsync({
-              cardId: input.cardId,
-              clozeText: input.clozeText,
-              extra: input.extra,
-              index: input.index,
-              topicId: input.topicId,
-            });
+            const { cardId, ...writeInput } = input;
+            await mutations.updateCard.mutateAsync({ cardId, ...writeInput });
             return;
           }
-          await mutations.createCard.mutateAsync({
-            topicId: input.topicId,
-            clozeText: input.clozeText,
-            extra: input.extra,
-            index: input.index,
-          });
+          const { cardId: _cardId, ...writeInput } = input;
+          await mutations.createCard.mutateAsync(writeInput);
         }}
         onDelete={deleteCard}
         onOpenPage={showOpenInPage ? openCardPage : undefined}

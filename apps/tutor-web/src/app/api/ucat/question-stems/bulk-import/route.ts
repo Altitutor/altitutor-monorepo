@@ -24,8 +24,8 @@ const SerializedQuestionSchema = z.object({
   // Question text and explanation are rich-text JSON blobs in practice.
   question_text: z.unknown(),
   answer_explanation: z.unknown().nullable().optional(),
-  difficulty: z.number().nullable().optional(),
-  time_burden_seconds: z.number().nullable().optional(),
+  difficulty: z.number().min(0).max(1).nullable().optional(),
+  time_burden_seconds: z.number().int().positive().nullable().optional(),
   question_type: z.enum(['multiple_choice', 'syllogism']),
   source_channel: z.enum(['individual', 'bulk_import', 'ai_generation']).nullable().optional(),
   ai_generation_metadata: z.unknown().nullable().optional(),

@@ -2,7 +2,7 @@ import { captureApiError, captureApiErrorResponse } from '@/lib/sentry/capture-a
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/shared/lib/supabase/server-ssr';
 import { getServiceRoleClient } from '@/shared/lib/supabase/service-role';
-import { hasClozeMarker } from '@altitutor/shared';
+import { validateFlashcardContent } from '@altitutor/shared';
 import {
   assertTutorTopicAccess,
   getAccessibleFlashcard,
@@ -18,9 +18,14 @@ export async function PATCH(request: NextRequest, { params }: { params: { id: st
   }
 
   const body = await request.json();
-  if (body.cloze_text !== undefined && !hasClozeMarker(body.cloze_text)) {
-    return NextResponse.json({ error: 'Flashcard text must contain a cloze marker' }, { status: 400 });
-  }
+  const cardType = body.card_type ?? existingCard.card_type;
+  const contentError = validateFlashcardContent({
+    cardType,
+    clozeText: body.cloze_text !== undefined ? body.cloze_text : existingCard.cloze_text,
+    imageFileId: body.image_file_id !== undefined ? body.image_file_id : existingCard.image_file_id,
+    occlusionData: body.occlusion_data !== undefined ? body.occlusion_data : existingCard.occlusion_data,
+  });
+  if (contentError) return NextResponse.json({ error: contentError }, { status: 400 });
   const targetTopicId = body.topic_id ?? existingCard.topic_id;
   if (targetTopicId !== existingCard.topic_id && !(await assertTutorTopicAccess(targetTopicId))) {
     return NextResponse.json({ error: 'Topic not accessible' }, { status: 403 });
@@ -32,8 +37,12 @@ export async function PATCH(request: NextRequest, { params }: { params: { id: st
     updated_at: new Date().toISOString(),
     updated_by: staffId ?? null,
   };
-  if (body.cloze_text !== undefined) updates.cloze_text = body.cloze_text;
+  if (body.card_type !== undefined) updates.card_type = cardType;
+  if (body.cloze_text !== undefined || body.card_type !== undefined) updates.cloze_text = cardType === 'text_cloze' ? body.cloze_text ?? existingCard.cloze_text : null;
   if (body.extra !== undefined) updates.extra = body.extra || null;
+  if (body.image_file_id !== undefined || body.card_type !== undefined) updates.image_file_id = cardType === 'image_occlusion' ? body.image_file_id ?? existingCard.image_file_id : null;
+  if (body.image_alt_text !== undefined || body.card_type !== undefined) updates.image_alt_text = cardType === 'image_occlusion' ? body.image_alt_text || null : null;
+  if (body.occlusion_data !== undefined || body.card_type !== undefined) updates.occlusion_data = cardType === 'image_occlusion' ? body.occlusion_data ?? existingCard.occlusion_data : null;
 
   const serviceClient = getServiceRoleClient();
   try {

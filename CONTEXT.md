@@ -52,6 +52,11 @@
 - **Online Students view** — The AdminWeb operational view for Students with an Online product relationship. It focuses on Product app, entitlement, subscription, engagement, invoices, and preparation-cycle information rather than classes and attendance. A Student with both relationship modes appears in both operational views.
   _Avoid_: Separate online Student records, UCAT subscribers list, mutually exclusive student list
 
+## Customer communication
+
+- **Shared identity email** — A required security or account-access message emitted by Altitutor's shared authentication system, such as email confirmation, invitation, magic-link sign-in, password reset, email change, or reauthentication. It is branded as Altitutor rather than as a Product app because the same authentication system serves multiple Altitutor application surfaces.
+  _Avoid_: UCAT Auth email, Product-authored email
+
 ## UCAT customer communication
 
 - **Primary email action** — The single most useful next action an optional Altitutor UCAT email asks a student to take, based on the reason for that message and the student’s current preparation state. An upgrade or referral is primary only when it is the genuinely relevant next step.
@@ -220,6 +225,21 @@
   _Avoid_: Anki note model, front/back row
 
 ## UCAT content
+
+- **UCAT question difficulty** — The proportion of the target UCAT candidate cohort expected to answer a question incorrectly on first exposure under realistic section timing and without assistance. It ranges from 0 to 1, with higher values meaning harder; `null` means unknown. Before representative response data exists it is an authored estimate, and once sufficient data exists it may be updated from observed first-exposure performance without changing its meaning.
+  _Avoid_: Proportion correct, ability level, time burden, calibrated difficulty when based only on an authored estimate
+
+- **UCAT question facility** — The observed proportion of eligible candidates who answer a question correctly on first exposure under realistic section timing and without assistance. Higher values mean easier; it is the complement of UCAT question difficulty for the same cohort and evidence window.
+  _Avoid_: Question difficulty, general accuracy, repeat-attempt accuracy
+
+- **UCAT question time burden** — The expected active working time, in whole seconds, for a candidate from the target UCAT cohort to submit a fully correct answer on first exposure, under realistic section timing and without assistance. A question is encountered in its authored position within its stem, so its burden includes the initial reading or subsequent re-reading normally attributable to that position. `null` means unknown. Before representative response data exists it is an authored estimate; once sufficient data exists it may be updated to the denormalised average of eligible observed successful-answer times without changing its meaning.
+  _Avoid_: Time limit, exam pace allowance, one student's time spent, repeat-attempt average
+
+- **Observed successful-answer time** — The active working time recorded for one eligible candidate's fully correct first-exposure answer to a question under realistic section timing and without assistance. It is evidence used to calibrate UCAT question time burden, not itself the question's time burden.
+  _Avoid_: Time burden, all-attempt average, time limit
+
+- **UCAT exam pace allowance** — The section time limit divided across its questions. It is a uniform pacing budget, not an estimate of how long a particular question takes to answer correctly.
+  _Avoid_: Question time burden, observed answer time
 
 - **UCAT AI review** — A durable quality-review pass over saved UCAT question content that applies verified AI repairs and identifies changes requiring staff judgment. It runs in the background for stems entering review and is never part of the bulk-import critical path.
   _Avoid_: AI approval, mandatory review, explanation generation
@@ -612,7 +632,7 @@
 - **Question difficulty target** — A coarse generation target for how hard a UCAT question should be: Easy, Medium, Hard, or Mixed. Difficulty targets apply to individual questions, with stem-level and batch-level defaults available for convenience; Mixed batches should distribute generated questions around the estimated difficulty spread of real UCAT questions rather than producing one uniform level.
   _Avoid_: Exact score, rank
 
-- **Question time burden target** — A coarse generation target for the estimated time a student would take to answer a UCAT question correctly: Low, Medium, High, or Mixed. Time burden targets apply to individual questions, with stem-level and batch-level defaults available for convenience; the burden reflects processing load such as long or confusing VR stems, convoluted DM reasoning, or information-dense QR tables.
+- **Question time burden target** — A coarse, section-relative generation target for UCAT question time burden: Low, Medium, High, or Mixed. Time burden targets apply to individual questions, with stem-level and batch-level defaults available for convenience; they influence processing load such as passage reading, DM reasoning, or interpreting QR data without defining universal second ranges.
   _Avoid_: Time limit, section timing
 
 - **Generation diversity plan** — A behind-the-scenes plan for varying generation candidates within a batch, including scenario domains, question archetypes, distractor types, difficulty, time burden, and repeated wording patterns. Tutors influence diversity through broad targets such as Mixed difficulty or run instructions rather than detailed controls.

@@ -38,6 +38,7 @@ import {
 import { mapCategoriesToOptions, mapTagsToOptions, taxonomyDisplayLabel } from '@/features/ucat/shared/lib/taxonomy-paths'
 import { resolveRootSectionId } from '@/features/ucat/shared/lib/taxonomy-reparent'
 import { buildStemCatalogFilterDefinitions } from '@/features/ucat/shared/lib/stem-catalog-filters'
+import { parseTimeToSeconds } from '@/features/ucat/shared/lib/time-utils'
 import { Step3SetAnswers } from '@/features/ucat/questions/components/bulk-import/Step3SetAnswers'
 import { UcatDialogShell } from '@/features/ucat/shared/dialog-shell'
 import {
@@ -107,7 +108,7 @@ function toImportPayload(draft: DraftWithMetadata): Record<string, unknown> {
       difficulty: question.difficulty ?? null,
       timeBurdenSeconds:
         question.timeBurdenSeconds && question.timeBurdenSeconds.trim().length > 0
-          ? Number(question.timeBurdenSeconds)
+          ? parseTimeToSeconds(question.timeBurdenSeconds)
           : null,
       questionType: question.questionType,
       tagIds: question.tagIds ?? [],

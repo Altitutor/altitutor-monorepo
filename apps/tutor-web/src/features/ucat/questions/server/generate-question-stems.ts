@@ -1,5 +1,9 @@
 import { z } from 'zod'
-import type { Database, Json } from '@altitutor/shared'
+import {
+  ucatQuestionDifficultyForTarget,
+  type Database,
+  type Json,
+} from '@altitutor/shared'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import {
   callUcatAiJson,
@@ -675,10 +679,7 @@ function sourcePlainText(stem: SourceStem): string {
 
 function difficultyToNumber(value: number | null | undefined, target: string | undefined): number | null {
   if (typeof value === 'number') return value
-  if (target === 'easy') return 0.25
-  if (target === 'medium') return 0.55
-  if (target === 'hard') return 0.82
-  return null
+  return ucatQuestionDifficultyForTarget(target)
 }
 
 function issueMessages(issues: GenerationGateIssue[]): string[] {

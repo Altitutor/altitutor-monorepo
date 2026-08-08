@@ -258,6 +258,14 @@ describe('assessment prompts and deterministic checks', () => {
       formatChecks: [],
     })).toContain('difficulty_timing')
     expect(ASSESSMENT_SYSTEM_PROMPT).toContain('too trivial, too difficult, too slow')
+    expect(ASSESSMENT_SYSTEM_PROMPT).toContain('who would answer incorrectly')
+    expect(ASSESSMENT_SYSTEM_PROMPT).toContain('0 is easiest and 1 is hardest')
+    expect(ASSESSMENT_SYSTEM_PROMPT).toContain('fully correct answer on first exposure')
+    expect(ASSESSMENT_SYSTEM_PROMPT).toContain('authored position within the stem')
+    expect(ASSESSMENT_SYSTEM_PROMPT).not.toContain('who would answer correctly under exam conditions')
+    expect(BULK_IMPORT_AUDIT_REPAIR_SYSTEM_PROMPT).toContain(
+      'A difficulty of 0 is valid and means the easiest endpoint',
+    )
   })
 
   it('asks the moderator to repair deterministic failures and write teaching explanations', () => {

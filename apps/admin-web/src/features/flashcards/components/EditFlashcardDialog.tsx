@@ -14,6 +14,8 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
   Label,
+  ImageOcclusionEditor,
+  ImageOcclusionViewer,
   SearchableSelect,
   SegmentedControl,
   RichTextEditor,
@@ -22,9 +24,9 @@ import {
 import { Input } from '@altitutor/ui';
 import { Button } from '@altitutor/ui';
 import { Check, ExternalLink, Eye, EyeOff, Loader2, MoreVertical, Plus, Trash2, X } from 'lucide-react';
-import type { Flashcard } from '@altitutor/shared';
+import type { Flashcard, FlashcardType, ImageOcclusionData } from '@altitutor/shared';
 import type { Tables } from '@altitutor/shared';
-import { getClozeIndexes, parseClozeParts } from '@altitutor/shared';
+import { getClozeIndexes, getImageOcclusionGroupDescription, getImageOcclusionIndexes, parseClozeParts, validateImageOcclusionData } from '@altitutor/shared';
 import {
   ExpandButton,
   EXPANDABLE_DIALOG_TRANSITION,
@@ -32,12 +34,19 @@ import {
 } from '@/shared/components/expandable-dialog';
 import { cn } from '@/shared/utils';
 import { useFlashcardImageUpload } from '../hooks/useFlashcardImageUpload';
+import { flashcardsApi, type FlashcardMutationInput } from '../api/flashcards';
 
 type FormState = {
+  cardType: FlashcardType;
   clozeText: string;
   extra: string;
   topicId: string;
   index: number;
+  imageFileId: string | null;
+  imageAltText: string;
+  imageUrl: string | null;
+  imageFile: File | null;
+  occlusionData: ImageOcclusionData | null;
 };
 
 function clozePreviewHtml(clozeText: string, clozeIndex: number, showAnswer: boolean): string {
@@ -53,7 +62,9 @@ function clozePreviewHtml(clozeText: string, clozeIndex: number, showAnswer: boo
     .join('');
 }
 
-function Preview({ clozeText, extra }: { clozeText: string; extra: string }) {
+function Preview({ form }: { form: FormState }) {
+  if (form.cardType === 'image_occlusion') return <ImagePreview form={form} />;
+  const { clozeText, extra } = form;
   const clozeIndexes = useMemo(() => getClozeIndexes(clozeText), [clozeText]);
   const [showAnswer, setShowAnswer] = useState(false);
 
@@ -98,6 +109,33 @@ function Preview({ clozeText, extra }: { clozeText: string; extra: string }) {
   );
 }
 
+function ImagePreview({ form }: { form: FormState }) {
+  const indexes = useMemo(() => getImageOcclusionIndexes(form.occlusionData), [form.occlusionData]);
+  const [position, setPosition] = useState(0);
+  const [showAnswer, setShowAnswer] = useState(false);
+  const activeIndex = indexes[Math.min(position, Math.max(0, indexes.length - 1))] ?? 1;
+  if (!form.imageUrl || !form.occlusionData || indexes.length === 0) {
+    return <div className="rounded-lg border border-dashed p-6 text-sm text-muted-foreground">Add an image and at least one box to preview the card.</div>;
+  }
+  return (
+    <div className="mx-auto max-w-3xl space-y-4">
+      <div className="flex items-center justify-between gap-3">
+        <p className="text-sm font-medium text-muted-foreground">Cloze {activeIndex} · {position + 1} of {indexes.length}</p>
+        <div className="flex gap-2">
+          <Button type="button" variant="outline" size="sm" disabled={position === 0} onClick={() => { setPosition((value) => value - 1); setShowAnswer(false); }}>Previous</Button>
+          <Button type="button" variant="outline" size="sm" disabled={position >= indexes.length - 1} onClick={() => { setPosition((value) => value + 1); setShowAnswer(false); }}>Next</Button>
+          <Button type="button" variant="outline" size="sm" onClick={() => setShowAnswer((value) => !value)}>{showAnswer ? 'Hide answer' : 'Show answer'}</Button>
+        </div>
+      </div>
+      <ImageOcclusionViewer imageUrl={form.imageUrl} alt={form.imageAltText} data={form.occlusionData} activeClozeIndex={activeIndex} showAnswer={showAnswer} />
+      {showAnswer && getImageOcclusionGroupDescription(form.occlusionData, activeIndex) ? (
+        <p className="rounded-lg border bg-muted/30 p-3 text-sm">{getImageOcclusionGroupDescription(form.occlusionData, activeIndex)}</p>
+      ) : null}
+      {showAnswer && form.extra ? <div className="prose prose-sm max-w-none rounded-lg border bg-muted/30 p-3 dark:prose-invert" dangerouslySetInnerHTML={{ __html: form.extra }} /> : null}
+    </div>
+  );
+}
+
 function getNextAvailableClozeIndex(clozeText: string): number {
   const indexes = new Set(getClozeIndexes(clozeText));
   let index = 1;
@@ -123,14 +161,14 @@ export function EditFlashcardDialog({
   flashcard: Flashcard | null;
   isSaving: boolean;
   onOpenChange: (open: boolean) => void;
-  onSave: (input: { topicId: string; cardId?: string; clozeText: string; extra?: string; index?: number }) => Promise<void>;
+  onSave: (input: FlashcardMutationInput & { cardId?: string }) => Promise<void>;
   onDelete?: (card: Flashcard) => void;
   onOpenPage?: (card: Flashcard) => void;
   topics: Tables<'topics'>[];
 }) {
   const [expanded, setExpanded] = useState(false);
   const [mode, setMode] = useState<'edit' | 'preview'>('edit');
-  const [form, setForm] = useState<FormState>({ clozeText: '', extra: '', topicId, index: 1 });
+  const [form, setForm] = useState<FormState>({ cardType: 'text_cloze', clozeText: '', extra: '', topicId, index: 1, imageFileId: null, imageAltText: '', imageUrl: null, imageFile: null, occlusionData: null });
   const [lastClozeIndex, setLastClozeIndex] = useState(1);
   const [, setEditorVersion] = useState(0);
   const clozeEditorRef = useRef<RichTextEditorRef>(null);
@@ -144,12 +182,18 @@ export function EditFlashcardDialog({
       setMode('edit');
       return;
     }
-    const indexes = flashcard ? getClozeIndexes(flashcard.cloze_text) : [];
+    const indexes = flashcard?.card_type === 'text_cloze' ? getClozeIndexes(flashcard.cloze_text ?? '') : [];
     setForm({
+      cardType: flashcard?.card_type ?? 'text_cloze',
       clozeText: flashcard?.cloze_text ?? '',
       extra: flashcard?.extra ?? '',
       topicId: flashcard?.topic_id ?? topicId,
       index: flashcard?.index ?? defaultIndex,
+      imageFileId: flashcard?.image_file_id ?? null,
+      imageAltText: flashcard?.image_alt_text ?? '',
+      imageUrl: flashcard?.image_url ?? null,
+      imageFile: null,
+      occlusionData: flashcard?.occlusion_data ?? null,
     });
     setEditorVersion((value) => value + 1);
     setLastClozeIndex(indexes.at(-1) ?? 1);
@@ -163,6 +207,10 @@ export function EditFlashcardDialog({
   }, [form.clozeText, form.extra]);
 
   const hasClozeContent = (clozeEditorRef.current?.getEditor()?.getText() ?? form.clozeText).trim().length > 0;
+  const imageContentValid = form.cardType === 'image_occlusion'
+    && Boolean(form.imageUrl)
+    && validateImageOcclusionData(form.occlusionData).length === 0;
+  const canSave = form.cardType === 'text_cloze' ? hasClozeContent : imageContentValid;
   const getLiveClozeText = useCallback(() => clozeEditorRef.current?.getEditor()?.getHTML() ?? form.clozeText, [form.clozeText]);
 
   const insertCloze = useCallback((index: number) => {
@@ -211,13 +259,18 @@ export function EditFlashcardDialog({
 
   const handleSave = async () => {
     const next = syncEditorHtml();
-    await onSave({
-      topicId: form.topicId,
-      cardId: flashcard?.id,
-      clozeText: next.clozeText,
-      extra: next.extra,
-      index: form.index,
-    });
+    if (form.cardType === 'text_cloze') {
+      await onSave({ topicId: form.topicId, cardId: flashcard?.id, cardType: 'text_cloze', clozeText: next.clozeText, extra: next.extra, index: form.index });
+    } else {
+      if (!form.occlusionData) return;
+      const upload = form.imageFile ? await flashcardsApi.uploadImage(form.topicId, form.imageFile) : null;
+      const imageFileId = upload?.fileId ?? form.imageFileId;
+      if (!imageFileId) return;
+      const occlusionData = upload
+        ? { ...form.occlusionData, naturalWidth: upload.naturalWidth, naturalHeight: upload.naturalHeight }
+        : form.occlusionData;
+      await onSave({ topicId: form.topicId, cardId: flashcard?.id, cardType: 'image_occlusion', imageFileId, imageAltText: form.imageAltText, occlusionData, extra: next.extra, index: form.index });
+    }
     onOpenChange(false);
   };
 
@@ -287,12 +340,27 @@ export function EditFlashcardDialog({
         <div className="min-h-0 flex-1 overflow-hidden">
           {mode === 'preview' ? (
             <div className="h-full overflow-y-auto px-6 py-5">
-              <Preview clozeText={form.clozeText} extra={form.extra} />
+              <Preview form={form} />
             </div>
           ) : (
             <div className="flex h-full min-h-0">
               <div className="flex-1 overflow-y-auto border-r px-6 py-5">
                 <div className="mx-auto grid max-w-5xl gap-5">
+                  {!flashcard ? (
+                    <div className="space-y-2">
+                      <Label>Card type</Label>
+                      <SegmentedControl
+                        value={form.cardType}
+                        onValueChange={(cardType) => setForm((value) => ({ ...value, cardType }))}
+                        options={[
+                          { value: 'text_cloze', label: 'Text cloze' },
+                          { value: 'image_occlusion', label: 'Image occlusion' },
+                        ]}
+                        aria-label="Flashcard type"
+                      />
+                    </div>
+                  ) : null}
+                  {form.cardType === 'text_cloze' ? (
                   <div className="space-y-2">
                     <div className="flex flex-wrap items-center justify-between gap-2">
                       <Label>Body</Label>
@@ -319,6 +387,33 @@ export function EditFlashcardDialog({
                   />
                 </div>
               </div>
+                  ) : (
+                    <ImageOcclusionEditor
+                      imageUrl={form.imageUrl}
+                      imageAltText={form.imageAltText}
+                      data={form.occlusionData}
+                      onChange={(occlusionData) => setForm((value) => ({ ...value, occlusionData }))}
+                      onImageAltTextChange={(imageAltText) => setForm((value) => ({ ...value, imageAltText }))}
+                      onImageSelected={(imageFile, dimensions) => {
+                        const preserve = !form.occlusionData?.masks.length
+                          || window.confirm('Preserve the existing boxes on the replacement image? Select Cancel to clear them.');
+                        if (form.imageUrl?.startsWith('blob:')) URL.revokeObjectURL(form.imageUrl);
+                        setForm((value) => ({
+                          ...value,
+                          imageFile,
+                          imageFileId: null,
+                          imageUrl: URL.createObjectURL(imageFile),
+                          occlusionData: {
+                            version: 1,
+                            naturalWidth: dimensions.naturalWidth,
+                            naturalHeight: dimensions.naturalHeight,
+                            masks: preserve ? value.occlusionData?.masks ?? [] : [],
+                            groupDescriptions: preserve ? value.occlusionData?.groupDescriptions : undefined,
+                          },
+                        }));
+                      }}
+                    />
+                  )}
 
               <div className="space-y-2">
                 <Label>Extra</Label>
@@ -379,7 +474,7 @@ export function EditFlashcardDialog({
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={isSaving}>
             Cancel
           </Button>
-          <Button onClick={handleSave} disabled={isSaving || !hasClozeContent} className="gap-1.5">
+          <Button onClick={handleSave} disabled={isSaving || !canSave} className="gap-1.5">
             {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
             Save
           </Button>

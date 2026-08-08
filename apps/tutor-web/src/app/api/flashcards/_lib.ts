@@ -1,6 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Database, Flashcard } from '@altitutor/shared';
 import { createClient } from '@/shared/lib/supabase/server-ssr';
+import { getServiceRoleClient } from '@/shared/lib/supabase/service-role';
 
 type ServiceClient = SupabaseClient<Database>;
 
@@ -26,9 +27,13 @@ export async function listAccessibleFlashcards(topicId: string): Promise<Flashca
 
   if (error) throw error;
   const rows = (data ?? []) as unknown as Flashcard[];
-  return rows.filter((row): row is Flashcard =>
-    Boolean(row.id && row.topic_id && row.cloze_text && row.index != null),
-  );
+  const validRows = rows.filter((row): row is Flashcard => Boolean(row.id && row.topic_id && row.card_type && row.index != null));
+  const serviceClient = getServiceRoleClient();
+  return Promise.all(validRows.map(async (row) => {
+    if (!row.image_storage_path) return row;
+    const { data: signed } = await serviceClient.storage.from('flashcard-images').createSignedUrl(row.image_storage_path, 3600);
+    return { ...row, image_url: signed?.signedUrl ?? null };
+  }));
 }
 
 export async function getAccessibleFlashcard(cardId: string): Promise<Flashcard | null> {
@@ -41,7 +46,7 @@ export async function getAccessibleFlashcard(cardId: string): Promise<Flashcard 
 
   if (error) throw error;
   const row = data as unknown as Flashcard | null;
-  if (!row?.id || !row.topic_id || !row.cloze_text || row.index == null) return null;
+  if (!row?.id || !row.topic_id || !row.card_type || row.index == null) return null;
   if (!(await assertTutorTopicAccess(row.topic_id))) return null;
   return row;
 }

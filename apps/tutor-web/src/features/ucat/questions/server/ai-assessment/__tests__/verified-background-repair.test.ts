@@ -147,7 +147,7 @@ describe('verified background repair policy', () => {
     }, [], taggedSnapshot)).toBe(false)
   })
 
-  it('treats imported zero metadata as unset but rejects invalid replacements', () => {
+  it('preserves the valid easiest endpoint and rejects invalid time replacements', () => {
     const zeroSnapshot = {
       ...snapshot,
       questions: [{ ...snapshot.questions[0], difficulty: 0, timeBurdenSeconds: 0 }],
@@ -159,7 +159,7 @@ describe('verified background repair policy', () => {
       field: 'difficulty',
       before: 0,
       after: 0.4,
-    }, [], zeroSnapshot)).toBe(true)
+    }, [], zeroSnapshot)).toBe(false)
     expect(allowed({
       operation: 'set_metadata',
       targetKind: 'question',
