@@ -52,6 +52,12 @@ export function inner(n: Node, pBefore: number): { from: number; to: number } {
   return { from: pBefore + 1, to: pBefore + n.nodeSize - 1 }
 }
 
+/** Convert the walker's first-inside position to the node range for a leaf node. */
+function leaf(n: Node, pBefore: number): { from: number; to: number } {
+  const from = Math.max(0, pBefore - 1)
+  return { from, to: from + n.nodeSize }
+}
+
 /**
  * Ranges for each logical import line, or `null` if the PM walk could not
  * match the same lines (then skip in-editor question highlights).
@@ -359,7 +365,7 @@ function walkVrDmSj(n: Node, pBefore: number, st: RSt): void {
   if (t === 'image') {
     if (!isBlank(nodeToText(j).trim() ?? '')) {
       st.lines.push((st.prefixForNextLine ?? '') + (nodeToText(j).trim() as string))
-      st.ranges.push({ from: pBefore, to: pBefore + n.nodeSize })
+      st.ranges.push(leaf(n, pBefore))
       st.prefixForNextLine = undefined
     }
     return
@@ -574,7 +580,7 @@ function walkQrNode(n: Node, pBefore: number, st: RSt): void {
   if (t === 'image') {
     if (nodeToText(j).trim().length > 0) {
       st.lines.push((st.prefixForNextLine ?? '') + nodeToText(j).trim())
-      st.ranges.push({ from: pBefore, to: pBefore + n.nodeSize })
+      st.ranges.push(leaf(n, pBefore))
       st.prefixForNextLine = undefined
     }
     return
