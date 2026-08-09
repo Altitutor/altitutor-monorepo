@@ -27,6 +27,7 @@ export type SetAttemptQuestion = {
   questionTags: Array<{ name: string; description: string | null }>
   isFlagged: boolean
   questionType: 'multiple_choice' | 'syllogism' | null
+  answerScheme: AttemptReviewQuestion['answerScheme']
   result: 'correct' | 'partial' | 'incorrect' | 'not_attempted'
   categoryName: string | null
   categoryDescription: string | null
@@ -187,7 +188,12 @@ export async function GET(
         questionTags: tags,
         isFlagged: row.is_flagged,
         questionType,
-        result: resultForAttempt(row.score, questionType, true),
+        answerScheme: snapshot.question.answerScheme,
+        result: resultForAttempt(
+          row.score,
+          snapshot.question.answerScheme,
+          true
+        ),
         categoryName: snapshot.stem.categoryName ?? null,
         categoryDescription: snapshot.stem.categoryDescription
           ? extractTextFromRichJson(

@@ -11,6 +11,7 @@ import {
   AttemptTimingCard,
   type CategoryBreakdown,
 } from './attempt-review-ui'
+import { getAnswerSchemeMaximum } from '@altitutor/ucat-response-contract'
 
 type SetAttemptDetailPageProps = {
   studentId: string
@@ -37,7 +38,9 @@ export function SetAttemptDetailPage({
       const name = question.categoryName ?? 'Uncategorized'
       const current = byCategory.get(name) ?? { name, score: 0, total: 0 }
       current.score += question.score ?? 0
-      current.total += question.questionType === 'syllogism' ? 2 : 1
+      current.total += question.answerScheme
+        ? getAnswerSchemeMaximum(question.answerScheme)
+        : 1
       byCategory.set(name, current)
     }
     return [...byCategory.values()].sort((a, b) => a.name.localeCompare(b.name))

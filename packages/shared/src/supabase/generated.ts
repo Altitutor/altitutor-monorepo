@@ -33620,6 +33620,9 @@ export type Database = {
       }
       vtutor_ucat_student_question_attempts_for_progress: {
         Row: {
+          answer_scheme:
+            | Database["public"]["Enums"]["ucat_answer_scheme"]
+            | null
           answer_snapshot: Json | null
           attempted_at: string | null
           category_name: string | null

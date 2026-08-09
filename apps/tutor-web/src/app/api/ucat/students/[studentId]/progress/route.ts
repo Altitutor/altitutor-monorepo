@@ -70,6 +70,7 @@ type QuestionAttemptRaw = {
   attempted_at: string | null
   score: number | null
   question_type: string | null
+  answer_scheme: QuestionAttemptRow['answerScheme']
   time_spent_seconds: number | null
   student_question_speed: number | null
   was_timed: boolean | null
@@ -133,7 +134,7 @@ export async function GET(
   const { data: questionAttemptsAll, error: qaError } = await supabase
     .from('vtutor_ucat_student_question_attempts_for_progress')
     .select(
-      'id, question_id, question_stem_id, student_question_set_attempt_id, attempted_at, ucat_section_id, section_name, section_number, score, question_type, time_spent_seconds, student_question_speed, was_timed, question_stem_category_id, category_name'
+      'id, question_id, question_stem_id, student_question_set_attempt_id, attempted_at, ucat_section_id, section_name, section_number, score, question_type, answer_scheme, time_spent_seconds, student_question_speed, was_timed, question_stem_category_id, category_name'
     )
     .eq('student_id', studentId)
     .eq('is_submitted', true)
@@ -186,6 +187,7 @@ export async function GET(
       questionId: qa.question_id ?? qa.id ?? '',
       questionStemId: qa.question_stem_id,
       questionType: qa.question_type,
+      answerScheme: qa.answer_scheme,
       score: qa.score,
     }
     if (existing) {
@@ -445,6 +447,7 @@ export async function GET(
       questionId: qa.question_id ?? qa.id ?? '',
       questionStemId: qa.question_stem_id,
       questionType: qa.question_type,
+      answerScheme: qa.answer_scheme,
       score: qa.score,
     })
   }
@@ -535,6 +538,7 @@ export async function GET(
       questionId: qa.question_id ?? qa.id ?? '',
       questionStemId: qa.question_stem_id,
       questionType: qa.question_type,
+      answerScheme: qa.answer_scheme,
       score: qa.score,
     }
     accumulateProgressAttempt(
@@ -742,6 +746,7 @@ export async function GET(
     attemptedAt: r.attempted_at ?? '',
     score: r.score,
     questionType: r.question_type,
+    answerScheme: r.answer_scheme,
     timeSpentSeconds: r.time_spent_seconds,
     studentQuestionSpeed: r.student_question_speed,
     wasTimed: r.was_timed ?? false,

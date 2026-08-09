@@ -11,22 +11,17 @@ import type { ScoringQuestion } from "@altitutor/ucat-marking";
 import {
   compileResponseContract,
   createResponseState,
-  type AnswerScheme,
   type CandidateResponse,
-  type ResponseType,
 } from "@altitutor/ucat-response-contract";
 import { maybeGrantPracticeDayDiscount } from "@/lib/ucat/practice-day-discount";
 import { persistQuestionAttemptBatch } from "@/lib/ucat/question-attempts/persist-question-attempt-batch";
+import {
+  parseAttemptContentSnapshot,
+  snapshotToQuestionItem,
+} from "@/features/progress/lib/attempt-content-snapshot";
+import { responseDefinitionForQuestion } from "@/features/question-engine/lib/response-state";
 
 type AdminClient = SupabaseClient;
-
-type OptionRow = {
-  id: string;
-  question_id: string;
-  index: number;
-  is_answer: boolean;
-  answer_key_value: "correct" | "yes" | "no" | "most" | "least" | null;
-};
 
 type QuestionAttemptForScoring = {
   id: string;
@@ -62,127 +57,20 @@ export function buildQuestionMetaFromAttemptSnapshots(
 
   for (const questionId of expectedQuestionIds) {
     const snapshot = attemptByQuestionId.get(questionId)?.content_snapshot;
-    if (!snapshot || typeof snapshot !== "object" || Array.isArray(snapshot)) {
-      return null;
-    }
-    const value = snapshot as Record<string, unknown>;
-    const stem = value.stem;
-    const question = value.question;
-    const answerOptions = value.answerOptions;
     if (
-      !stem ||
-      typeof stem !== "object" ||
-      Array.isArray(stem) ||
-      !question ||
-      typeof question !== "object" ||
-      Array.isArray(question) ||
-      !Array.isArray(answerOptions)
+      !snapshot ||
+      typeof snapshot !== "object" ||
+      Array.isArray(snapshot) ||
+      !Array.isArray((snapshot as Record<string, unknown>).answerOptions)
     ) {
       return null;
     }
-
-    const stemValue = stem as Record<string, unknown>;
-    const questionValue = question as Record<string, unknown>;
-    if (
-      typeof stemValue.id !== "string" ||
-      typeof stemValue.sectionName !== "string" ||
-      questionValue.id !== questionId ||
-      (questionValue.questionType !== "multiple_choice" &&
-        questionValue.questionType !== "syllogism")
-    ) {
-      return null;
-    }
-
-    const options: OptionRow[] = [];
-    for (const option of answerOptions) {
-      if (!option || typeof option !== "object" || Array.isArray(option)) {
-        return null;
-      }
-      const optionValue = option as Record<string, unknown>;
-      if (
-        typeof optionValue.id !== "string" ||
-        typeof optionValue.index !== "number" ||
-        typeof optionValue.isAnswer !== "boolean"
-      ) {
-        return null;
-      }
-      options.push({
-        id: optionValue.id,
-        question_id: questionId,
-        index: optionValue.index,
-        is_answer: optionValue.isAnswer,
-        answer_key_value:
-          optionValue.answerKeyValue === "correct" ||
-          optionValue.answerKeyValue === "yes" ||
-          optionValue.answerKeyValue === "no" ||
-          optionValue.answerKeyValue === "most" ||
-          optionValue.answerKeyValue === "least"
-            ? optionValue.answerKeyValue
-            : null,
-      });
-    }
-    const correctOption = options.find((option) => option.is_answer);
-    const answerSchemeKind =
-      questionValue.answerScheme === "single_choice" ||
-      questionValue.answerScheme === "situational_judgement_rating" ||
-      questionValue.answerScheme === "decision_making_binary_placement" ||
-      questionValue.answerScheme === "situational_judgement_most_least"
-        ? questionValue.answerScheme
-        : questionValue.questionType === "syllogism"
-          ? "decision_making_binary_placement"
-          : "single_choice";
-    let answerScheme: AnswerScheme;
-    if (answerSchemeKind === "decision_making_binary_placement") {
-      answerScheme = {
-        kind: answerSchemeKind,
-        correctByOptionId: Object.fromEntries(
-          options.map((option) => [
-            option.id,
-            option.answer_key_value
-              ? option.answer_key_value === "yes"
-                ? "yes"
-                : "no"
-              : option.is_answer
-                ? "yes"
-                : "no",
-          ]),
-        ),
-      };
-    } else if (answerSchemeKind === "situational_judgement_most_least") {
-      answerScheme = {
-        kind: answerSchemeKind,
-        mostAppropriateOptionId:
-          options.find((option) => option.answer_key_value === "most")?.id ?? "",
-        leastAppropriateOptionId:
-          options.find((option) => option.answer_key_value === "least")?.id ?? "",
-      };
-    } else {
-      answerScheme = {
-        kind: answerSchemeKind,
-        correctOptionId:
-          options.find((option) => option.answer_key_value === "correct")?.id ??
-          correctOption?.id ??
-          "",
-      };
-    }
-    const responseType: ResponseType =
-      questionValue.responseType === "multiple_choice" ||
-      questionValue.responseType === "drag_and_drop"
-        ? questionValue.responseType
-        : answerSchemeKind === "single_choice" ||
-            answerSchemeKind === "situational_judgement_rating"
-          ? "multiple_choice"
-          : "drag_and_drop";
+    const parsed = parseAttemptContentSnapshot(snapshot);
+    if (!parsed || parsed.question.id !== questionId) return null;
+    const question = snapshotToQuestionItem(parsed, questions.length, "attempt");
     questions.push({
-      definition: {
-        questionId,
-        responseType,
-        answerScheme,
-        options: options
-          .sort((a, b) => a.index - b.index)
-          .map((option) => ({ id: option.id, index: option.index })),
-      },
-      sectionName: stemValue.sectionName,
+      definition: responseDefinitionForQuestion(question),
+      sectionName: question.sectionName,
     });
   }
 

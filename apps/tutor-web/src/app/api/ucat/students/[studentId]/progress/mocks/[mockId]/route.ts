@@ -261,7 +261,12 @@ export async function GET(
         questionTags: tags,
         isFlagged: row.is_flagged,
         questionType,
-        result: resultForAttempt(row.score, questionType, true),
+        answerScheme: snapshot.question.answerScheme,
+        result: resultForAttempt(
+          row.score,
+          snapshot.question.answerScheme,
+          true
+        ),
         categoryName: snapshot.stem.categoryName ?? null,
         categoryDescription: snapshot.stem.categoryDescription
           ? extractTextFromRichJson(

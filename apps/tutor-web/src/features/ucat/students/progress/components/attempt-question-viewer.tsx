@@ -2,13 +2,18 @@
 
 import { UcatRichContentBlock } from '@/features/ucat/question-engine-preview/UcatRichContentBlock'
 import { cn } from '@/shared/utils'
-import type { AttemptReviewQuestion } from '../lib/attempt-content-snapshot'
+import {
+  projectAttemptReview,
+  type AttemptReviewQuestion,
+} from '../lib/attempt-content-snapshot'
+import type { ReviewContract } from '@altitutor/ucat-response-contract'
 
 type AttemptQuestionViewerProps = {
   question: AttemptReviewQuestion
   selectedOptionId?: string | null
   syllogismSnapshot?: Record<string, boolean> | null
   result?: 'correct' | 'partial' | 'incorrect' | 'not_attempted'
+  review?: ReviewContract
 }
 
 function OptionContent({
@@ -30,7 +35,7 @@ function OptionContent({
 
 function SyllogismResults({
   question,
-  syllogismSnapshot,
+  review,
 }: AttemptQuestionViewerProps) {
   const options = [...question.options].sort((a, b) => a.index - b.index)
 
@@ -60,14 +65,14 @@ function SyllogismResults({
           </div>
           <div className="space-y-1">
             {options.map((option) => {
-              const hasAnswer =
-                syllogismSnapshot != null && option.id in syllogismSnapshot
-              const studentAnswer = hasAnswer
-                ? syllogismSnapshot?.[option.id] === true
-                : null
-              const correctAnswer = option.isAnswer === true
-              const isCorrect =
-                hasAnswer && studentAnswer === correctAnswer
+              const row =
+                review?.kind === 'placement'
+                  ? review.rows.find((candidate) => candidate.targetId === option.id)
+                  : undefined
+              const hasAnswer = row?.placedToken != null
+              const studentAnswer = row?.placedToken === 'yes'
+              const correctAnswer = row?.correctToken === 'yes'
+              const isCorrect = row?.outcome === 'correct'
 
               return (
                 <div
@@ -127,10 +132,11 @@ function SyllogismResults({
 
 function MultipleChoiceResults({
   question,
-  selectedOptionId,
-  result,
+  review,
 }: AttemptQuestionViewerProps) {
-  const correctOptionId = question.options.find((option) => option.isAnswer)?.id
+  const projected = review?.kind === 'single_select' ? review : null
+  const selectedOptionId = projected?.selectedOptionId
+  const correctOptionId = projected?.correctOptionId
   const answeredIncorrectly =
     selectedOptionId != null && selectedOptionId !== correctOptionId
 
@@ -160,8 +166,9 @@ function MultipleChoiceResults({
               answeredIncorrectly &&
               isSelected &&
               !isCorrect &&
-              result !== 'partial'
-            const isPartialSelection = isSelected && result === 'partial'
+              projected?.outcome !== 'partial'
+            const isPartialSelection =
+              isSelected && projected?.outcome === 'partial'
             const label = isCorrect
               ? answeredIncorrectly
                 ? 'Correct answer'
@@ -224,9 +231,14 @@ function MultipleChoiceResults({
 }
 
 export function AttemptQuestionViewer(props: AttemptQuestionViewerProps) {
-  return props.question.questionType === 'syllogism' ? (
-    <SyllogismResults {...props} />
+  const review = projectAttemptReview({
+    question: props.question,
+    selectedOptionId: props.selectedOptionId,
+    binaryPlacements: props.syllogismSnapshot,
+  })
+  return props.question.answerScheme === 'decision_making_binary_placement' ? (
+    <SyllogismResults {...props} review={review} />
   ) : (
-    <MultipleChoiceResults {...props} />
+    <MultipleChoiceResults {...props} review={review} />
   )
 }

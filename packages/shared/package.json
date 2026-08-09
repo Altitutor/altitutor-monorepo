@@ -49,6 +49,7 @@
     "directory": "packages/shared"
   },
   "dependencies": {
+    "@altitutor/ucat-response-contract": "workspace:*",
     "date-fns": "^4.1.0"
   }
 }

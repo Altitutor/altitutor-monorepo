@@ -7,6 +7,12 @@ type AttemptWithProgressFields = {
   questionId: string;
   questionStemId?: string | null;
   questionType?: string | null;
+  answerScheme?:
+    | 'single_choice'
+    | 'situational_judgement_rating'
+    | 'decision_making_binary_placement'
+    | 'situational_judgement_most_least'
+    | null;
   score?: number | null;
 };
 
