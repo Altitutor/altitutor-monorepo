@@ -16,6 +16,7 @@ import {
   Gauge,
   Flame,
   Loader2,
+  MoveRight,
   NotebookText,
   RotateCcw,
   Sparkles,
@@ -23,6 +24,7 @@ import {
   X,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { useQuotaLimitDialog } from "@/features/ucat-access/context/upsell-dialog-context";
 import { createAndPersistPracticeSession } from "@/features/practice/api/create-practice-session";
 import type { PracticeSelectionInput } from "@/features/practice/model/types";
 import {
@@ -30,6 +32,13 @@ import {
   suggestAlternativeStudyGuidance,
 } from "@/features/study-plan/api/study-plan";
 import { useStudyPlanCompanion } from "@/features/study-plan/context/study-plan-companion-context";
+import {
+  describeAttemptReviewCompanionNotice,
+  describeAttemptReviewCompanionStatus,
+  selectCompanionSecondaryWhileReviewing,
+  shouldDismissAttemptReviewPrompt,
+} from "@/features/study-plan/lib/attempt-review-companion";
+import { describeCompanionPrimaryChrome } from "@/features/study-plan/lib/companion-primary-chrome";
 import {
   DASHBOARD_STUDY_PLAN_QUERY_KEY,
   STUDY_PLAN_QUERY_KEY,
@@ -60,6 +69,7 @@ import {
   firstGuidanceTriggerKey,
   guidanceItemKey,
 } from "@/features/study-plan/lib/next-step-guidance";
+import { studyPlanActivityTypeLabel } from "@/features/study-plan/lib/activity-type-label";
 import type {
   StudyGuidanceItem,
   StudyPlanTask,
@@ -78,6 +88,7 @@ import { useStudentUcatSessions } from "@/features/sessions/hooks/use-sessions";
 import { cn } from "@/lib/utils";
 import { useUcatActivity } from "@/features/progress/hooks/use-ucat-activity";
 import { buildPracticeStreak } from "@/features/streaks/lib/practice-streak";
+import { QuotaExceededError } from "@/lib/ucat/quota/parse-quota-error";
 import { useUcatInterfacePreferences } from "@/features/interface-preferences/hooks/use-ucat-interface-preferences";
 
 const ENTER_EASE = [0.32, 0.72, 0, 1] as const;
@@ -96,6 +107,7 @@ type GuidanceDisplayItem = {
   launchPath: string;
   launchConfig: Record<string, unknown>;
   planTask: StudyPlanTask | null;
+  activityTypeLabel: string;
 };
 
 type GuidanceNotice = {
@@ -126,7 +138,10 @@ function TaskIcon({
   return <BrainCircuit className={className} />;
 }
 
-function planDisplayItem(task: StudyPlanTask): GuidanceDisplayItem {
+function planDisplayItem(
+  task: StudyPlanTask,
+  sourceTask?: StudyPlanTask | null,
+): GuidanceDisplayItem {
   return {
     id: task.id,
     suggestionKey: guidanceItemKey(task),
@@ -138,6 +153,7 @@ function planDisplayItem(task: StudyPlanTask): GuidanceDisplayItem {
     launchPath: task.launchPath,
     launchConfig: task.launchConfig,
     planTask: task,
+    activityTypeLabel: studyPlanActivityTypeLabel(task, sourceTask),
   };
 }
 
@@ -153,6 +169,7 @@ function nextStepDisplayItem(item: StudyGuidanceItem): GuidanceDisplayItem {
     launchPath: item.launchPath,
     launchConfig: item.launchConfig,
     planTask: null,
+    activityTypeLabel: studyPlanActivityTypeLabel(item),
   };
 }
 
@@ -193,20 +210,6 @@ function practiceStartInput(item: GuidanceDisplayItem) {
       config.reviewTiming === "afterEachStem" ? "afterEachStem" : "atEnd",
   };
   return { payload, ucatSectionId: config.ucatSectionId };
-}
-
-function activityTypeLabel(item: GuidanceDisplayItem): string {
-  if (item.taskType === "learn") return "Learning module";
-  if (item.taskType === "skill_trainer") return "Skill trainer";
-  if (item.taskType === "review") return "Review";
-  if (item.taskType === "section_benchmark") return "Timed set";
-  if (item.taskType === "mock") return "Mock";
-  const categories = item.launchConfig.categoryIds;
-  return item.launchConfig.kind === "practice" &&
-    Array.isArray(categories) &&
-    categories.length
-    ? "Filtered practice"
-    : "Practice";
 }
 
 function sessionTimeLabel(session: {
@@ -265,10 +268,11 @@ export function StudyPlanCompanion({
   const query = useStudyPlan();
   const activityQuery = useUcatActivity();
   const sessionsQuery = useStudentUcatSessions();
-  const { activityComplete, activityCompletion, consumeActivityCompletion } =
+  const { activityComplete, activityCompletion, consumeActivityCompletion, attemptReviewGuidance } =
     useStudyPlanCompanion();
   const { bottomFloatingDockVisible } = useAppShellLayout();
   const openExtraStudy = useStudyPlanExtraStudyDialog();
+  const { openQuotaLimit } = useQuotaLimitDialog();
   const onboardingProgress = useOnboardingProgress();
   const completeMilestone = useCompleteOnboardingTour();
   const orbIntroSeen = onboardingProgress.isCompleted(
@@ -303,6 +307,9 @@ export function StudyPlanCompanion({
   const pendingCelebrationRef = useRef<OrbCelebration | null>(null);
   const explicitCompletionAtRef = useRef<number | null>(null);
   const processedActivityCompletionRef = useRef<number | null>(null);
+  const reviewPromptDismissedRef = useRef(false);
+  const pageReviewActiveRef = useRef(false);
+  const pageReviewNoticeRef = useRef<GuidanceNotice | null>(null);
   const data = query.data;
   const planEnabled = data?.profile?.studyPlanEnabled ?? false;
   const actionReady =
@@ -348,12 +355,27 @@ export function StudyPlanCompanion({
   const baseItems = useMemo<GuidanceDisplayItem[]>(() => {
     if (!nextAction) return [];
     if (nextAction.kind === "task") {
-      const primary = planDisplayItem(nextAction.task);
+      const sourceTask = nextAction.task.sourceTaskId
+        ? (data?.tasks.find(
+            (task) => task.id === nextAction.task.sourceTaskId,
+          ) ?? null)
+        : null;
+      const primary = planDisplayItem(nextAction.task, sourceTask);
       const secondaryTask = actionablePlanTasks.find(
         (task) => task.id !== nextAction.task.id,
       );
       return secondaryTask
-        ? [primary, planDisplayItem(secondaryTask)]
+        ? [
+            primary,
+            planDisplayItem(
+              secondaryTask,
+              secondaryTask.sourceTaskId
+                ? (data?.tasks.find(
+                    (task) => task.id === secondaryTask.sourceTaskId,
+                  ) ?? null)
+                : null,
+            ),
+          ]
         : [primary];
     }
     if (nextAction.kind === "guidance") {
@@ -365,7 +387,7 @@ export function StudyPlanCompanion({
       ];
     }
     return [];
-  }, [actionablePlanTasks, nextAction]);
+  }, [actionablePlanTasks, data?.tasks, nextAction]);
   const activeAlternative =
     guidanceKey && alternativeState?.guidanceKey === guidanceKey
       ? alternativeState.item
@@ -380,7 +402,51 @@ export function StudyPlanCompanion({
     );
   }, [activeAlternative, baseItems]);
   const primary = items[0] ?? null;
-  const secondary = items[1] ?? null;
+  const pageReviewActive = Boolean(
+    attemptReviewGuidance &&
+      attemptReviewGuidance.remainingCount > 0 &&
+      attemptReviewGuidance.requiredCount > 0,
+  );
+  const reviewSecondary = useMemo(
+    () =>
+      pageReviewActive
+        ? selectCompanionSecondaryWhileReviewing({
+            pathname,
+            items,
+          })
+        : null,
+    [items, pageReviewActive, pathname],
+  );
+  const secondary = pageReviewActive ? reviewSecondary : (items[1] ?? null);
+  const pageReviewNotice = useMemo(
+    () =>
+      pageReviewActive && attemptReviewGuidance
+        ? describeAttemptReviewCompanionNotice({
+            remainingCount: attemptReviewGuidance.remainingCount,
+          })
+        : null,
+    [attemptReviewGuidance, pageReviewActive],
+  );
+  const pageReviewStatus = useMemo(
+    () =>
+      pageReviewActive && attemptReviewGuidance
+        ? describeAttemptReviewCompanionStatus({
+            viewedCount: attemptReviewGuidance.viewedCount,
+            requiredCount: attemptReviewGuidance.requiredCount,
+          })
+        : null,
+    [attemptReviewGuidance, pageReviewActive],
+  );
+  const primaryChrome = useMemo(() => {
+    if (!primary) return null;
+    return describeCompanionPrimaryChrome({
+      taskType: primary.taskType,
+      planTaskStatus: primary.planTask?.status ?? null,
+      fromEarlierStudyDay:
+        nextAction?.kind === "task" ? nextAction.fromEarlierStudyDay : false,
+      isAlternative: Boolean(activeAlternative),
+    });
+  }, [activeAlternative, nextAction, primary]);
   const progress = useMemo(
     () => getTodayStudyPlanProgress(currentPlanTasks),
     [currentPlanTasks],
@@ -418,6 +484,8 @@ export function StudyPlanCompanion({
   activityInProgressRef.current = activityInProgress;
   primaryLaunchPathRef.current = primary?.launchPath ?? null;
   pathnameRef.current = pathname;
+  pageReviewActiveRef.current = pageReviewActive;
+  pageReviewNoticeRef.current = pageReviewNotice;
 
   useEffect(() => {
     const timer = window.setInterval(() => setNow(new Date()), 30_000);
@@ -476,12 +544,22 @@ export function StudyPlanCompanion({
         }
         setCelebration(null);
         suppressNextGuidancePromptRef.current = false;
+        if (
+          pageReviewActiveRef.current &&
+          pageReviewNoticeRef.current &&
+          !reviewPromptDismissedRef.current
+        ) {
+          setLatestNotice(pageReviewNoticeRef.current);
+          setPromptVisible(true);
+          return;
+        }
         const launchPath = primaryLaunchPathRef.current;
         const alreadyOnNext =
           launchPath != null &&
           isAlreadyOnSuggestedActivity(pathnameRef.current, launchPath);
         // Stay silent while still inside an unfinished activity, or when the
-        // suggested next step is the page we just landed on (e.g. attempt review).
+        // suggested next step is the page we just landed on (e.g. attempt review
+        // with nothing left to guide in-page).
         if (activityInProgressRef.current || alreadyOnNext) {
           setPromptVisible(false);
           return;
@@ -547,6 +625,7 @@ export function StudyPlanCompanion({
   useEffect(() => {
     if (!guidanceKey || !nextAction || !actionContent) return;
     if (activityInProgress) return;
+    if (pageReviewActive) return;
     if (previousGuidanceKeyRef.current === guidanceKey) return;
     const hadPreviousGuidance = previousGuidanceKeyRef.current != null;
     previousGuidanceKeyRef.current = guidanceKey;
@@ -585,12 +664,41 @@ export function StudyPlanCompanion({
     activityInProgress,
     guidanceKey,
     nextAction,
+    pageReviewActive,
     pathname,
     primary,
   ]);
 
   useEffect(() => {
+    if (!pageReviewActive || !pageReviewNotice || !attemptReviewGuidance) {
+      return;
+    }
+
+    if (
+      shouldDismissAttemptReviewPrompt({
+        landingQuestionIndex: attemptReviewGuidance.landingQuestionIndex,
+        selectedQuestionIndex: attemptReviewGuidance.selectedQuestionIndex,
+      })
+    ) {
+      reviewPromptDismissedRef.current = true;
+      setPromptVisible(false);
+      return;
+    }
+
+    if (celebration || reviewPromptDismissedRef.current) return;
+
+    setLatestNotice(pageReviewNotice);
+    setPromptVisible(true);
+  }, [
+    attemptReviewGuidance,
+    celebration,
+    pageReviewActive,
+    pageReviewNotice,
+  ]);
+
+  useEffect(() => {
     setExpanded(false);
+    reviewPromptDismissedRef.current = false;
     if (!hidden) void query.refetch();
     // Route changes are the refresh boundary after completing or reviewing work.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -629,6 +737,14 @@ export function StudyPlanCompanion({
       }
       router.push(item.launchPath);
     } catch (caught) {
+      if (caught instanceof QuotaExceededError) {
+        openQuotaLimit(caught.payload, {
+          dismissAction: item.planTask
+            ? { href: "/study-plan", label: "Back to Study plan" }
+            : { label: "Dismiss", variant: "dismiss" },
+        });
+        return;
+      }
       setGuidanceError(
         caught instanceof Error
           ? caught.message
@@ -717,6 +833,14 @@ export function StudyPlanCompanion({
         return _exhaustive;
       }
     }
+  }
+
+  function handleStartPageReview() {
+    if (!attemptReviewGuidance) return;
+    reviewPromptDismissedRef.current = true;
+    setPromptVisible(false);
+    setExpanded(false);
+    attemptReviewGuidance.startReviewing();
   }
 
   if (!visible) return null;
@@ -871,7 +995,10 @@ export function StudyPlanCompanion({
           >
             <button
               type="button"
-              onClick={() => setPromptVisible(false)}
+              onClick={() => {
+                reviewPromptDismissedRef.current = true;
+                setPromptVisible(false);
+              }}
               className="absolute right-2 top-2 flex h-7 w-7 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
               aria-label="Dismiss study update"
             >
@@ -1004,7 +1131,45 @@ export function StudyPlanCompanion({
               ) : null}
 
               <div className="max-h-[min(430px,calc(100dvh-13rem))] space-y-3 overflow-y-auto p-3">
-                {!actionReady || !nextAction || !actionContent ? (
+                {pageReviewActive && pageReviewStatus ? (
+                  <motion.div
+                    key={`review-status:${pageReviewStatus.detail}`}
+                    initial={
+                      reduceMotion ? false : { opacity: 0, y: 5, scale: 0.99 }
+                    }
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    transition={{
+                      duration: reduceMotion ? 0 : 0.18,
+                      ease: ENTER_EASE,
+                    }}
+                    className="rounded-xl border border-primary/20 bg-primary/[0.06] p-4"
+                  >
+                    <div className="flex items-start gap-3">
+                      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary/12 text-primary">
+                        <TaskIcon taskType="review" className="h-4 w-4" />
+                      </span>
+                      <div className="min-w-0 flex-1">
+                        <p className="text-[11px] font-semibold uppercase tracking-[0.13em] text-primary">
+                          Review
+                        </p>
+                        <p className="mt-1 font-semibold">
+                          {pageReviewStatus.title}
+                        </p>
+                        <p className="mt-1 text-sm text-muted-foreground">
+                          {pageReviewStatus.detail}
+                        </p>
+                      </div>
+                    </div>
+                    <Button
+                      className="mt-4 w-full"
+                      onClick={handleStartPageReview}
+                      tabIndex={expanded ? undefined : -1}
+                    >
+                      {pageReviewStatus.actionLabel}
+                      <MoveRight className="ml-2 h-4 w-4" />
+                    </Button>
+                  </motion.div>
+                ) : !actionReady || !nextAction || !actionContent ? (
                   <div className="flex items-center justify-center rounded-xl border p-8">
                     <Loader2
                       className="h-5 w-5 animate-spin text-muted-foreground"
@@ -1033,15 +1198,16 @@ export function StudyPlanCompanion({
                       </span>
                       <div className="min-w-0 flex-1">
                         <p className="text-[11px] font-semibold uppercase tracking-[0.13em] text-primary">
-                          {actionContent.eyebrow}
+                          {primaryChrome?.eyebrow ?? actionContent.eyebrow} ·{" "}
+                          {primary.activityTypeLabel}
                         </p>
                         <p className="mt-1 font-semibold">{primary.title}</p>
                         <p className="mt-1 text-sm text-muted-foreground">
                           {primary.description}
                         </p>
-                        {actionContent.rationale ? (
+                        {primary.rationale ? (
                           <p className="mt-2 text-xs text-muted-foreground">
-                            {actionContent.rationale}
+                            {primary.rationale}
                           </p>
                         ) : null}
                         <p className="mt-2 flex items-center gap-1 text-xs text-muted-foreground">
@@ -1062,7 +1228,7 @@ export function StudyPlanCompanion({
                       planActions.pendingAction === "start" ? (
                         <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                       ) : null}
-                      {actionContent.primaryLabel}
+                      {primaryChrome?.primaryLabel ?? actionContent.primaryLabel}
                     </Button>
                   </motion.div>
                 ) : (
@@ -1174,7 +1340,7 @@ export function StudyPlanCompanion({
                     </span>
                     <span className="min-w-0 flex-1">
                       <span className="block text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
-                        Another option · {activityTypeLabel(secondary)}
+                        Another option · {secondary.activityTypeLabel}
                       </span>
                       <span className="mt-0.5 block truncate text-sm font-medium">
                         {secondary.title}

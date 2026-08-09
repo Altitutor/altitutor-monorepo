@@ -159,6 +159,20 @@ describe('runBulkImportDeterministicReview', () => {
     expect(result.issues.some((issue) => issue.code === 'missing_question_explanation')).toBe(false)
   })
 
+  it('blocks Decision Making stems that contain more than one question', () => {
+    const result = runBulkImportDeterministicReview({
+      values: stem([question(), question()]),
+      sectionName: 'Decision Making',
+      categoryName: 'Logical Puzzles',
+    })
+
+    expect(result.issues).toContainEqual(expect.objectContaining({
+      code: 'dm_question_count',
+      scope: { type: 'stem' },
+    }))
+    expect(result.hasHardFailures).toBe(true)
+  })
+
   it('repairs the Recognising Assumptions instruction but does not invent missing arguments', () => {
     const result = runBulkImportDeterministicReview({
       values: stem([question({ questionText: doc('Pick one.'), options: options(['A', 'B', 'C']) })]),

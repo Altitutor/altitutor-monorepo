@@ -19,6 +19,7 @@ export * from './components/form';
 export * from './components/forms';
 export * from './components/contact-dialog';
 export * from './components/input';
+export * from './components/image-occlusion';
 export * from './components/list-toolbar';
 export * from './components/label';
 export * from './components/phone-input';

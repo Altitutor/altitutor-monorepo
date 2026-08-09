@@ -15,6 +15,8 @@ import { computeCategoryBreakdown } from "../lib/compute-category-breakdown";
 import { useMarkFirstResultReviewed } from "@/features/onboarding/hooks/use-activation-milestones";
 import { useCompleteStudyPlanReview } from "@/features/study-plan/hooks/use-complete-study-plan-review";
 import { useAttemptReviewTracking } from "../hooks/use-attempt-review-tracking";
+import { useRegisterAttemptReviewGuidance } from "../hooks/use-register-attempt-review-guidance";
+import { scrollToAttemptReviewQuestion } from "@/features/study-plan/lib/attempt-review-companion";
 import { AttemptReviewProgress } from "./attempt-review-progress";
 import { buildAttemptOverallInsight } from "../lib/attempt-insights";
 
@@ -63,17 +65,22 @@ export function SetAttemptDetailPage({
   useCompleteStudyPlanReview(Boolean(reviewTracking.review?.completedAt));
   const reviewNextIncorrect = reviewTracking.nextUnviewedQuestionId
     ? () => {
-        const index = data?.questionAttempts.findIndex(
-          (question) =>
-            question.questionId === reviewTracking.nextUnviewedQuestionId,
-        );
-        if (index == null || index < 0) return;
-        setSelectedQuestionIndex(index);
-        document
-          .getElementById("attempt-review-questions")
-          ?.scrollIntoView({ behavior: "smooth", block: "start" });
+        const questionId = reviewTracking.nextUnviewedQuestionId;
+        if (!data || !questionId) return;
+        scrollToAttemptReviewQuestion({
+          questionId,
+          questionAttempts: data.questionAttempts,
+          setSelectedQuestionIndex,
+        });
       }
     : null;
+  useRegisterAttemptReviewGuidance({
+    review: reviewTracking.review,
+    selectedQuestionIndex,
+    nextUnviewedQuestionId: reviewTracking.nextUnviewedQuestionId,
+    questionAttempts: data?.questionAttempts,
+    setSelectedQuestionIndex,
+  });
 
   const categoryBreakdown = useMemo(
     () => computeCategoryBreakdown(data?.questionAttempts ?? []),

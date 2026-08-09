@@ -52,6 +52,23 @@
 - **Online Students view** — The AdminWeb operational view for Students with an Online product relationship. It focuses on Product app, entitlement, subscription, engagement, invoices, and preparation-cycle information rather than classes and attendance. A Student with both relationship modes appears in both operational views.
   _Avoid_: Separate online Student records, UCAT subscribers list, mutually exclusive student list
 
+## Customer communication
+
+- **Shared identity email** — A required security or account-access message emitted by Altitutor's shared authentication system, such as email confirmation, invitation, magic-link sign-in, password reset, email change, or reauthentication. It is branded as Altitutor rather than as a Product app because the same authentication system serves multiple Altitutor application surfaces.
+  _Avoid_: UCAT Auth email, Product-authored email
+
+- **Email brand profile** — The customer-facing identity applied to a shared Altitutor email presentation, including the displayed brand, supporting descriptor, sender identity, reply destination, and footer. Altitutor and Altitutor UCAT are distinct profiles of one presentation system rather than independent email designs.
+  _Avoid_: Separate email theme, copied Product template
+
+- **Invoice notification email** — An Altitutor-authored message that tells the configured Student and parent recipients that a core tutoring invoice is ready and links to the Stripe-hosted invoice and PDF. It is not itself the invoice; Stripe remains authoritative for the invoice document, payment collection, and invoice state.
+  _Avoid_: Invoice, Stripe invoice email, payment receipt
+
+- **Staff-authored email introduction** — Optional staff-written context inserted near the beginning of a canonical Altitutor email. It supplements rather than replaces the message's required action, canonical link, expiry or security guidance, branding, and support information.
+  _Avoid_: Custom email template, full-body override, raw HTML message
+
+- **Altitutor transactional email** — A required service message owned by Altitutor's shared identity or core tutoring relationship rather than by a Product app, such as an identity, registration, booking, or invoice notification email. It uses the Altitutor brand profile and a monitored Altitutor reply destination.
+  _Avoid_: Product-authored email, noreply email, marketing email
+
 ## UCAT customer communication
 
 - **Primary email action** — The single most useful next action an optional Altitutor UCAT email asks a student to take, based on the reason for that message and the student’s current preparation state. An upgrade or referral is primary only when it is the genuinely relevant next step.
@@ -220,6 +237,21 @@
   _Avoid_: Anki note model, front/back row
 
 ## UCAT content
+
+- **UCAT question difficulty** — The proportion of the target UCAT candidate cohort expected to answer a question incorrectly on first exposure under realistic section timing and without assistance. It ranges from 0 to 1, with higher values meaning harder; `null` means unknown. Before representative response data exists it is an authored estimate, and once sufficient data exists it may be updated from observed first-exposure performance without changing its meaning.
+  _Avoid_: Proportion correct, ability level, time burden, calibrated difficulty when based only on an authored estimate
+
+- **UCAT question facility** — The observed proportion of eligible candidates who answer a question correctly on first exposure under realistic section timing and without assistance. Higher values mean easier; it is the complement of UCAT question difficulty for the same cohort and evidence window.
+  _Avoid_: Question difficulty, general accuracy, repeat-attempt accuracy
+
+- **UCAT question time burden** — The expected active working time, in whole seconds, for a candidate from the target UCAT cohort to submit a fully correct answer on first exposure, under realistic section timing and without assistance. A question is encountered in its authored position within its stem, so its burden includes the initial reading or subsequent re-reading normally attributable to that position. `null` means unknown. Before representative response data exists it is an authored estimate; once sufficient data exists it may be updated to the denormalised average of eligible observed successful-answer times without changing its meaning.
+  _Avoid_: Time limit, exam pace allowance, one student's time spent, repeat-attempt average
+
+- **Observed successful-answer time** — The active working time recorded for one eligible candidate's fully correct first-exposure answer to a question under realistic section timing and without assistance. It is evidence used to calibrate UCAT question time burden, not itself the question's time burden.
+  _Avoid_: Time burden, all-attempt average, time limit
+
+- **UCAT exam pace allowance** — The section time limit divided across its questions. It is a uniform pacing budget, not an estimate of how long a particular question takes to answer correctly.
+  _Avoid_: Question time burden, observed answer time
 
 - **UCAT AI review** — A durable quality-review pass over saved UCAT question content that applies verified AI repairs and identifies changes requiring staff judgment. It runs in the background for stems entering review and is never part of the bulk-import critical path.
   _Avoid_: AI approval, mandatory review, explanation generation
@@ -447,7 +479,7 @@
 - **UCAT publication readiness** — The hard validation required before a question stem, set, mock, or learning module **lesson** can become published. A stem requires a category, valid answer structure, and complete student-facing explanations. Question tags improve discovery and remain a reconciliation concern, but do not block publication. A published parent may contain only published children, and a public parent may contain only public children. A lesson may publish only when every assessment block references published (non-deleted) stem/question content and has no pending generated placeholders; those stems may still be private so the lesson can grant access without putting them in the public pool.
   _Avoid_: Generation gate, review status, quality score
 
-- **UCAT attempt content snapshot** — The immutable copy of the stem, question, answer options, correct-answer metadata, and explanations stored when a question attempt is created. Completed and in-progress attempt review renders from this snapshot so later catalogue edits, withdrawal, or deletion cannot change what the student saw.
+- **UCAT attempt content snapshot** — The semantically immutable copy of the stem, question, answer options, correct-answer metadata, and explanations stored when a question attempt is created. Completed and in-progress attempt review renders from this snapshot so later catalogue edits, withdrawal, or deletion cannot change what the student saw; a verified representation-only migration may change field names or encoding without changing that captured meaning.
   _Avoid_: Content version, live question lookup, resume snapshot
 
 - **Question source channel** — The system-recorded workflow that first created a question stem, such as individual authoring, bulk import, or AI generation. This is provenance for tutor operations, not student-facing content.
@@ -534,7 +566,7 @@
 - **AI question rewrite** — A tutor-requested stem-level rewording of source-derived UCAT content that preserves the same tested skill, answer logic, correct answer, explanation meaning, section, category, tags, difficulty, and time burden while substantially reducing source-text similarity for tutor review. It should change incidental names and named entities while keeping them consistent across the stem, questions, and answer options. It returns an inline part-by-part preview that the tutor must explicitly accept or reject before applying, and uses the shared UCAT AI provider, model profile, budget, and usage logging controls.
   _Avoid_: Regeneration, new question generation, answer-key generation
 
-- **AI answer explanation** — A tutor-requested, fill-missing-by-default student-facing explanation for a UCAT question that already has answer choices and a selected correct answer. It teaches how to solve the question using the stem, question text, all answer options, and the selected correct answer. Multiple-choice questions receive one question-level explanation; syllogism questions receive per-answer-option explanations only. For Verbal Reasoning questions, generated explanations cite the relevant passage paragraph number when they quote, paraphrase, or rely on textual evidence. Generated missing explanations are written directly into empty explanation fields for tutor review and editing unless the AI flags the selected answer or question as likely flawed; flagged questions are left unfilled and surfaced to the tutor with the suspected issue, suggested correction, and an accept-change action when the AI can identify a corrected answer and explanation. The tool uses the shared UCAT AI provider, model profile, budget, and usage logging controls.
+- **AI answer explanation** — A tutor-requested, fill-missing-by-default student-facing explanation for a UCAT question that already has answer choices and a selected correct answer. It teaches how to solve the question using the stem, question text, all answer options, and the selected correct answer. Single-choice and Situational Judgement rating schemes require one question-level explanation. Decision Making binary placement and Situational Judgement most/least placement require an explanation for every option and may also include an optional question-level strategy explanation. For Verbal Reasoning questions, generated explanations cite the relevant passage paragraph number when they quote, paraphrase, or rely on textual evidence. Generated missing explanations are written directly into empty explanation fields for tutor review and editing unless the AI flags the selected answer or question as likely flawed; flagged questions are left unfilled and surfaced to the tutor with the suspected issue, suggested correction, and an accept-change action when the AI can identify a corrected answer and explanation. The tool uses the shared UCAT AI provider, model profile, budget, and usage logging controls.
   _Avoid_: Answer generation, solution key parsing, question rewrite
 
 - **AI question writing** — A tutor-requested extension of an existing multiple-choice UCAT question stem with one additional question, answer options, one selected correct answer, and a student-facing explanation. It uses the existing stem as the source of facts, avoids duplicating existing questions, and applies the shared UCAT AI provider, model profile, budget, usage logging, and database-backed generation prompt layers for the stem's section, category, and question tags.
@@ -606,20 +638,35 @@
 - **Generation similarity gate** — A generation gate that rejects disguised clones of selected source examples or existing UCAT content, such as reused scenario premises, near-identical data relationships, near-identical question wording, or high text overlap. Shared UCAT archetypes, broad topics, calculation skills, passage genres, generic table/chart dimensions, incidental answer-key patterns, and repeated ordinary names or places are acceptable and should not be rejected by themselves.
   _Avoid_: Answer pattern check, topic uniqueness, generic layout check
 
-- **Answer mode** — The answer-option pattern required by a UCAT stem category, such as Verbal Reasoning Reading Comprehension using four options or True, False, Can't Tell using three fixed options. Answer mode is distinct from `multiple_choice`, which is the stored question type for all non-syllogism questions.
-  _Avoid_: Question category, question type
+- **Answer mode** — The answer-option pattern required by a UCAT stem category, such as Verbal Reasoning Reading Comprehension using four options or True, False, Can't Tell using three fixed options. It is distinct from Response type: answer mode describes the available responses, while Response type describes how the student interacts with them.
+  _Avoid_: Question category, Response type
+
+- **Response type** — The candidate-facing interaction used to answer a UCAT item: multiple choice or drag and drop. A Response type may be shared by different Question stem categories and does not by itself define the answer payload, validation rules, or scoring scheme. Exam-like drag-and-drop questions require the same physical pointer-placement gesture documented for the live UCAT rather than a click-to-place or keyboard substitute.
+  _Avoid_: Question type, item type, Question stem category, answer mode
+
+- **Answer scheme** — The fixed UCAT response contract that defines an item's answer shape, completeness rules, canonical persistence, scoring, and review behavior. The supported schemes are single choice, Situational Judgement rating, Decision Making binary placement, and Situational Judgement most/least placement; Question stem category may supply an authoring default but never controls runtime behavior.
+  _Avoid_: Question type, Response type, category-driven scoring, configurable rules engine
 
 - **Question difficulty target** — A coarse generation target for how hard a UCAT question should be: Easy, Medium, Hard, or Mixed. Difficulty targets apply to individual questions, with stem-level and batch-level defaults available for convenience; Mixed batches should distribute generated questions around the estimated difficulty spread of real UCAT questions rather than producing one uniform level.
   _Avoid_: Exact score, rank
 
-- **Question time burden target** — A coarse generation target for the estimated time a student would take to answer a UCAT question correctly: Low, Medium, High, or Mixed. Time burden targets apply to individual questions, with stem-level and batch-level defaults available for convenience; the burden reflects processing load such as long or confusing VR stems, convoluted DM reasoning, or information-dense QR tables.
+- **Question time burden target** — A coarse, section-relative generation target for UCAT question time burden: Low, Medium, High, or Mixed. Time burden targets apply to individual questions, with stem-level and batch-level defaults available for convenience; they influence processing load such as passage reading, DM reasoning, or interpreting QR data without defining universal second ranges.
   _Avoid_: Time limit, section timing
 
 - **Generation diversity plan** — A behind-the-scenes plan for varying generation candidates within a batch, including scenario domains, question archetypes, distractor types, difficulty, time burden, and repeated wording patterns. Tutors influence diversity through broad targets such as Mixed difficulty or run instructions rather than detailed controls.
   _Avoid_: Randomness, prompt temperature
 
-- **Question stem category** — A single label describing the broad stem format within its UCAT section. Quantitative Reasoning categories describe mutually exclusive presentation formats, while Verbal Reasoning categories distinguish answer mode rather than reading skill.
+- **Question stem category** — A single label describing the UCAT item type or broad stem format within its UCAT section. It describes what kind of task is assessed, independently of the Response type used to answer it; for example, Decision Making Syllogisms and Interpreting Information and Drawing Conclusions are distinct categories that both use drag and drop.
   _Avoid_: Topic, tag, data subtype
+
+- **Decision Making item type** — One of the six candidate-facing Decision Making Question stem categories in the UCAT ANZ question tutorial: Syllogisms, Logical Puzzles, Recognising Assumptions, Interpreting Information and Drawing Conclusions, Venn Diagrams, or Probabilistic and Statistical Reasoning. Syllogisms and Interpreting Information and Drawing Conclusions use drag and drop; the other four use multiple choice.
+  _Avoid_: Evaluating Arguments (historical umbrella construct), Pearson technical-report analysis labels as product taxonomy
+
+- **Situational Judgement item type** — One of three Situational Judgement Question stem categories: How Appropriate, How Important, or Most/Least Appropriate. A rating stem contains one to six questions using its fixed four-option scale. A Most/Least Appropriate stem contains one combined drag-and-drop question with exactly three actions and two distinct required placements; it remains a distinct category so tutors and set-building rules can count and compose this item family independently.
+  _Avoid_: Most Appropriate category, Least Appropriate category, Most/Least Important
+
+- **UCAT response inference** — The authoring classification process that independently infers Question stem category, Response type, Answer scheme, and answer key from structural content and answer evidence, then reconciles the results. Certain evidence may prefill a value; strong evidence requires review confirmation, weak or missing evidence requires selection, and conflicting evidence blocks import until resolved.
+  _Avoid_: Category-to-type inference, answer-pattern category inference, silent fallback
 
 - **Answer option** — One selectable response for a UCAT question.
 
@@ -629,10 +676,10 @@
 - **Target question tag** — An optional question tag included in a generation brief to steer AI-generated questions toward specific skills or topics. When target tags are provided, generation gates should check whether the candidate fits them; when omitted, tags may be suggested after generation.
   _Avoid_: Required tag, stem category
 
-- **Stem editor** — The tutor-web workflow for creating or updating a question stem and its nested questions. A single split layout replaces the former separate form and preview modes: UCAT engine chrome on the left (view or inline edit) and a properties column on the right (question navigation card, stem fields, per-question fields, view/edit toggle). All content editing — stem text, question text, answer options, correct answer, and explanations — happens inline on the left in edit mode; the right column holds metadata only. Explanation fields are strict by question type: multiple-choice uses question-level explanation only; syllogism uses per–answer-option explanations only (no scope toggle, unlike bulk import). The exam chrome footer (Previous / Next) drives the active question; the right-column navigation card can jump to any question. The in-chrome Navigator overlay is not shown in the stem editor.
+- **Stem editor** — The tutor-web workflow for creating or updating a question stem and its nested questions. A single split layout replaces the former separate form and preview modes: UCAT engine chrome on the left (view or inline edit) and a properties column on the right (question navigation card, stem fields, per-question fields, view/edit toggle). All content editing — stem text, question text, answer options, correct answer, and explanations — happens inline on the left in edit mode; the right column holds metadata only. Explanation fields follow the Answer scheme: single-choice and Situational Judgement rating use a required question-level explanation, while placement schemes require per-option explanations and may include an optional question-level strategy. The exam chrome footer (Previous / Next) drives the active question; the right-column navigation card can jump to any question. The in-chrome Navigator overlay is not shown in the stem editor.
   Used in the stem dialog and the full-page stem detail route (`/ucat/questions/[id]`) with the same layout. Opens in **edit mode** by default. **View mode** is read-only engine preview with an optional show/hide-answer toggle in the right column; **edit mode** always shows answers. View/edit and show/hide-answer controls live in the right column, not the dialog header.
-  Switching stem type to syllogism still requires confirmation and resets questions to the syllogism template (single question, five statements); section and category are locked for syllogism stems. Switching to multiple choice updates question type on existing questions without a full reset. The right column is ordered top-to-bottom: view/edit toggle, show/hide answer (view only), question navigation card, AI actions, stem properties, question properties (active question).
-  The right-column **question navigation card** lists all questions in the stem, supports jump navigation (synced with the exam chrome footer), and hosts add/delete question actions (minimum one question). Multiple-choice answer options are added or removed inline on the left in edit mode (minimum one). Syllogism stems keep five statements with no add/remove.
+  Selecting a category for new content supplies its valid Response type and Answer scheme defaults. Changing category on existing content never silently resets questions, options, scheme, or answer key; incompatible content remains unpublishable until the tutor explicitly applies the expected response contract and confirms any transformation. The right column is ordered top-to-bottom: view/edit toggle, show/hide answer (view only), question navigation card, AI actions, stem properties, question properties (active question).
+  The right-column **question navigation card** lists all questions in the stem, supports jump navigation (synced with the exam chrome footer), and hosts add/delete question actions within the active Answer scheme's cardinality rules. Answer options and placement actions are edited inline on the left in edit mode.
   _Avoid_: Question editor, stem dialog form
 
 - **Bulk import** — A tutor workflow for quickly turning pasted source exam content into saved UCAT question stems. Its review step supports stem-level Bulk-import decisions, direct editing, and asynchronous Duplicate candidate previews; it does not wait for AI review. AI authoring tools may assist an individual expanded stem, while durable AI review happens after eligible content enters the Question stem review queue.

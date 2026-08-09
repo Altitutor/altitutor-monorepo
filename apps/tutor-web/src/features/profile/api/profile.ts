@@ -1,8 +1,18 @@
 import { getSupabaseClient } from '@/shared/lib/supabase/client';
 import type { Database } from '@altitutor/shared';
+import {
+  DEFAULT_PROFILE_IMAGE_CROP,
+  normalizeProfileImageCrop,
+  type ProfileImageCrop,
+} from '../types/profile-image';
 
 type TutorProfile = Database['public']['Views']['vtutor_profile']['Row'];
 type StaffRow = Database['public']['Tables']['staff']['Row'];
+
+export interface ProfileImageData {
+  url: string | null;
+  crop: ProfileImageCrop;
+}
 
 export interface TutorProfileUpdate {
   phone_number?: string;
@@ -58,20 +68,34 @@ export const profileApi = {
     return result.data as StaffRow;
   },
 
-  getProfileImageUrl: async (fileId: string | null | undefined): Promise<string | null> => {
-    if (!fileId) return null;
+  getProfileImage: async (fileId: string | null | undefined): Promise<ProfileImageData> => {
+    if (!fileId) return { url: null, crop: DEFAULT_PROFILE_IMAGE_CROP };
     const response = await fetch(`/api/profile/image?fileId=${encodeURIComponent(fileId)}`);
     if (!response.ok) throw new Error('Failed to load profile image');
-    const result = await response.json() as { url: string | null };
-    return result.url;
+    const result = await response.json() as { url: string | null; crop?: unknown };
+    return { url: result.url, crop: normalizeProfileImageCrop(result.crop) };
   },
 
-  uploadProfileImage: async (_staffId: string, file: File): Promise<StaffRow['profile_image_file_id']> => {
+  uploadProfileImage: async (
+    _staffId: string,
+    file: File,
+    crop: ProfileImageCrop,
+  ): Promise<StaffRow['profile_image_file_id']> => {
     const form = new FormData();
     form.set('file', file);
+    form.set('crop', JSON.stringify(crop));
     const response = await fetch('/api/profile/image', { method: 'POST', body: form });
     if (!response.ok) throw new Error('Failed to upload profile image');
     const result = await response.json() as { fileId: string };
     return result.fileId;
+  },
+
+  updateProfileImageCrop: async (fileId: string, crop: ProfileImageCrop): Promise<void> => {
+    const response = await fetch('/api/profile/image', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ fileId, crop }),
+    });
+    if (!response.ok) throw new Error('Failed to update profile picture crop');
   }
 };

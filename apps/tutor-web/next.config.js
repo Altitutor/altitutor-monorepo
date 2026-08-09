@@ -11,7 +11,7 @@ const nextConfig = {
   reactStrictMode: true,
   swcMinify: true,
   distDir: process.env.NEXT_DIST_DIR || ".next",
-  transpilePackages: ["@altitutor/shared", "@altitutor/ui"],
+  transpilePackages: ["@altitutor/email", "@altitutor/shared", "@altitutor/ui"],
   webpack: (config) => {
     config.resolve = config.resolve || {};
     config.resolve.alias = {

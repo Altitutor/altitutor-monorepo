@@ -331,6 +331,8 @@ export function buildWriterPrompt(input: AiGenerationBrief & { plan: unknown }):
         'If the plan includes a categoryName for VR, DM, or SJ, use that exact available category.',
         'If difficultyTarget or timeBurdenTarget is mixed, generate natural official-style variation and then set estimatedDifficulty/estimatedTimeBurdenSeconds honestly; do not manufacture an even distribution.',
         'If difficultyTarget or timeBurdenTarget is easy/medium/hard or low/medium/high, treat it as a broad tutor-requested target, not an exact promise.',
+        'estimatedDifficulty is the estimated proportion of the target UCAT candidate cohort who would answer incorrectly on first exposure under realistic section timing and without assistance. Use 0 for easiest and 1 for hardest; higher always means harder.',
+        'estimatedTimeBurdenSeconds is the expected active working time, in positive whole seconds, for a candidate from the target UCAT cohort to submit a fully correct answer on first exposure under realistic section timing and without assistance. Estimate each question in its authored position within the stem, including the initial reading or subsequent re-reading normally attributable to that position.',
         'Assign one or more tagIds to every generated question using only exact IDs from availableQuestionTags.',
         'Choose only tags that genuinely describe the reasoning tested by that specific question. Prefer the most specific applicable tags, and do not add tags merely for coverage.',
         'When targetTags are supplied, write questions that genuinely test those requested skills and attach the corresponding IDs where applicable.',

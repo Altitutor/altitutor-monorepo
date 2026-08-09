@@ -257,8 +257,8 @@ function buildReviewContent(
       timeSpentSeconds,
       averageTimeSeconds: averageSeconds,
       averageTimeSampleSize: 126,
-      timeBurdenSeconds: Math.max(0, timeSpentSeconds - averageSeconds),
-      difficulty: 2 + ((index * 3) % 8),
+      timeBurdenSeconds: averageSeconds,
+      difficulty: (2 + ((index * 3) % 8)) / 10,
       questionTags: [
         {
           name:

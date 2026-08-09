@@ -379,6 +379,7 @@ export function QuestionEnginePage({
   reviewTiming = "afterEachStem",
   onPracticeStatsChange,
   confirmPracticeTransitions = true,
+  confirmNextStemTransitions = confirmPracticeTransitions,
   timePerQuestionSeconds = null,
   backHref,
   onBack,
@@ -422,8 +423,10 @@ export function QuestionEnginePage({
   reviewTiming?: PracticeReviewTiming;
   /** Practice session wrapper callback for rendering live stats outside the engine. */
   onPracticeStatsChange?: (stats: PracticeEngineLiveStats | null) => void;
-  /** When true (default): show confirmation popup before submit→answer and before next question stem in answer mode. */
+  /** When true (default): show the confirmation popup before submit→answer. */
   confirmPracticeTransitions?: boolean;
+  /** Practice review-after-each-stem only: confirm before advancing to the next stem. */
+  confirmNextStemTransitions?: boolean;
   /** Questions/questionStem mode only. Seconds per question for timing. Omit or null = untimed. */
   timePerQuestionSeconds?: number | null;
   /** When provided, show a "Back" link in the toolbar that navigates here (e.g. /practice). */
@@ -1908,7 +1911,7 @@ export function QuestionEnginePage({
                 !onNeedMoreStems
               ) {
                 setShowConfirmFinishPracticeDialog(true);
-              } else if (viewing >= unitEnd && confirmPracticeTransitions) {
+              } else if (viewing >= unitEnd && confirmNextStemTransitions) {
                 setShowConfirmNextStemDialog(true);
               } else {
                 goNext();
@@ -1983,6 +1986,7 @@ export function QuestionEnginePage({
     onNeedMoreStems,
     isLastQuestionOfCurrentUnit,
     confirmPracticeTransitions,
+    confirmNextStemTransitions,
     showConfirmSubmitDialog,
     showConfirmNextStemDialog,
     showConfirmFinishPracticeDialog,
@@ -2918,7 +2922,7 @@ export function QuestionEnginePage({
                         const unitEnd = state.practiceAnswerUnitEndIndex ?? 0;
                         const viewing = state.viewingQuestionIndex ?? 0;
                         const isGoingToNextStem = viewing >= unitEnd;
-                        if (isGoingToNextStem && confirmPracticeTransitions) {
+                        if (isGoingToNextStem && confirmNextStemTransitions) {
                           setShowConfirmNextStemDialog(true);
                         } else {
                           goNext();

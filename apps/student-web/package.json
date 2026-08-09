@@ -28,6 +28,7 @@
     "db:types:remote": "pnpm --filter @altitutor/shared run build"
   },
   "dependencies": {
+    "@altitutor/email": "workspace:*",
     "@altitutor/shared": "workspace:*",
     "@altitutor/ui": "workspace:*",
     "@hookform/resolvers": "^5.2.2",

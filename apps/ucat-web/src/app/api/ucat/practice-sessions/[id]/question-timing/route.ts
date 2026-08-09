@@ -3,6 +3,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import type { PracticeActiveQuestionTiming } from "@/features/question-engine/lib/practice-question-timing";
+import {
+  PRACTICE_SESSION_ENDED_CODE,
+  PRACTICE_SESSION_ENDED_MESSAGE,
+} from "@/lib/ucat/practice-sessions/practice-session-ended";
 
 function getActiveQuestionTiming(
   value: unknown,
@@ -94,8 +98,11 @@ export async function GET(
     session.expired_at
   ) {
     return NextResponse.json(
-      { error: "Practice session not found" },
-      { status: 404 },
+      {
+        code: PRACTICE_SESSION_ENDED_CODE,
+        error: PRACTICE_SESSION_ENDED_MESSAGE,
+      },
+      { status: 410 },
     );
   }
 

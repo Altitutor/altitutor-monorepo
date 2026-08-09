@@ -2,7 +2,7 @@ import { captureApiError, captureApiErrorResponse } from '@/lib/sentry/capture-a
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/shared/lib/supabase/server-ssr';
 import { supabaseAdmin } from '@/shared/lib/supabase/server/admin';
-import { hasClozeMarker } from '@altitutor/shared';
+import { validateFlashcardContent, type Flashcard } from '@altitutor/shared';
 import { clampIndex, insertIdAtIndex, persistTopicFlashcardOrder } from '../../_lib';
 
 async function assertCardAccess(cardId: string) {
@@ -32,28 +32,43 @@ export async function PATCH(request: NextRequest, { params }: { params: { id: st
   }
 
   const body = await request.json();
-  if (body.cloze_text !== undefined && !hasClozeMarker(body.cloze_text)) {
-    return NextResponse.json({ error: 'Flashcard text must contain a cloze marker' }, { status: 400 });
+  const { data: currentRow, error: currentRowError } = await supabaseAdmin
+    .from('flashcards')
+    .select('*')
+    .eq('id', params.id)
+    .single();
+  if (currentRowError || !currentRow) return NextResponse.json({ error: 'Flashcard not found' }, { status: 404 });
+  const existingCard = currentRow as unknown as Flashcard;
+  const cardType = body.card_type ?? existingCard.card_type;
+  const contentError = validateFlashcardContent({
+    cardType,
+    clozeText: body.cloze_text !== undefined ? body.cloze_text : existingCard.cloze_text,
+    imageFileId: body.image_file_id !== undefined ? body.image_file_id : existingCard.image_file_id,
+    occlusionData: body.occlusion_data !== undefined ? body.occlusion_data : existingCard.occlusion_data,
+  });
+  if (contentError) return NextResponse.json({ error: contentError }, { status: 400 });
+  if (cardType === 'image_occlusion' && body.image_file_id && body.image_file_id !== existingCard.image_file_id) {
+    const targetTopicId = body.topic_id ?? existingCard.topic_id;
+    const { data: imageFile } = await supabaseAdmin.from('files').select('id,bucket,storage_path,deleted_at').eq('id', body.image_file_id).maybeSingle();
+    if (!imageFile || imageFile.deleted_at || imageFile.bucket !== 'flashcard-images' || !imageFile.storage_path?.startsWith(`${targetTopicId}/`)) {
+      return NextResponse.json({ error: 'Source image is not accessible for this topic' }, { status: 400 });
+    }
   }
   if (body.topic_id !== undefined && !(await assertTopicAccess(body.topic_id))) {
     return NextResponse.json({ error: 'Topic not accessible' }, { status: 403 });
   }
 
   const updates: Record<string, unknown> = { updated_at: new Date().toISOString() };
-  if (body.cloze_text !== undefined) updates.cloze_text = body.cloze_text;
+  if (body.card_type !== undefined) updates.card_type = cardType;
+  if (body.cloze_text !== undefined || body.card_type !== undefined) updates.cloze_text = cardType === 'text_cloze' ? body.cloze_text ?? existingCard.cloze_text : null;
   if (body.extra !== undefined) updates.extra = body.extra || null;
   if (body.topic_id !== undefined) updates.topic_id = body.topic_id;
+  if (body.image_file_id !== undefined || body.card_type !== undefined) updates.image_file_id = cardType === 'image_occlusion' ? body.image_file_id ?? existingCard.image_file_id : null;
+  if (body.image_alt_text !== undefined || body.card_type !== undefined) updates.image_alt_text = cardType === 'image_occlusion' ? body.image_alt_text || null : null;
+  if (body.occlusion_data !== undefined || body.card_type !== undefined) updates.occlusion_data = cardType === 'image_occlusion' ? body.occlusion_data ?? existingCard.occlusion_data : null;
 
   if (body.index !== undefined || body.topic_id !== undefined) {
-    const { data: current, error: currentError } = await supabaseAdmin
-      .from('flashcards')
-      .select('*')
-      .eq('id', params.id)
-      .single();
-
-    if (currentError || !current) {
-      return NextResponse.json({ error: currentError?.message ?? 'Flashcard not found' }, { status: 404 });
-    }
+    const current = currentRow;
 
     const targetTopicId = String(body.topic_id ?? current.topic_id);
 

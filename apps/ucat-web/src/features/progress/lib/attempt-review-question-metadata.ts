@@ -15,9 +15,9 @@ export type AttemptReviewQuestionTag = {
 export type AttemptReviewQuestionMetadata = {
   difficulty: number | null;
   timeBurdenSeconds: number | null;
-  /** Average time among submitted attempts that earned full marks. */
+  /** Average across all submitted full-mark attempts; not the first-exposure calibration cohort. */
   averageTimeSeconds: number | null;
-  /** Number of full-mark attempts included in averageTimeSeconds. */
+  /** Number of submitted full-mark attempts included in averageTimeSeconds. */
   averageTimeSampleSize: number;
   questionTags: AttemptReviewQuestionTag[];
 };

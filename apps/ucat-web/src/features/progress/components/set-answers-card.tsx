@@ -1,6 +1,10 @@
 "use client";
 
 import {
+  formatUcatQuestionDifficulty,
+  ucatQuestionDifficultyPercent,
+} from "@altitutor/shared";
+import {
   useEffect,
   useMemo,
   useState,
@@ -654,7 +658,7 @@ export function SetAnswersCard({
             />
             {currentAttempt?.averageTimeSeconds != null ? (
               <MeterRow
-                label="Correct-answer average"
+                label="Full-mark attempt average"
                 value={currentAttempt.averageTimeSeconds}
                 max={timingMax}
                 tone="muted"
@@ -662,7 +666,7 @@ export function SetAnswersCard({
             ) : null}
             {currentAttempt?.timeBurdenSeconds != null ? (
               <MeterRow
-                label="Time burden"
+                label="Expected time to correct"
                 value={currentAttempt.timeBurdenSeconds}
                 max={timingMax}
                 tone="amber"
@@ -721,7 +725,7 @@ export function SetAnswersCard({
                 </div>
                 <div className="min-w-0 flex-1 space-y-1.5">
                   <div className="text-right text-xs tabular-nums">
-                    {currentAttempt.difficulty}
+                    {formatUcatQuestionDifficulty(currentAttempt.difficulty)}
                   </div>
                   <div className="h-2 overflow-hidden rounded-full bg-muted">
                     <div
@@ -731,9 +735,7 @@ export function SetAnswersCard({
                           100,
                           Math.max(
                             0,
-                            (currentAttempt.difficulty /
-                              (currentAttempt.difficulty > 5 ? 10 : 5)) *
-                              100,
+                            ucatQuestionDifficultyPercent(currentAttempt.difficulty),
                           ),
                         )}%`,
                       }}

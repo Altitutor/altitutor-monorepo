@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { createServer } from "node:http";
 import { dirname, resolve } from "node:path";
 import vm from "node:vm";
@@ -27,7 +27,10 @@ function loadTypescriptModule(path, transform = (source) => source) {
     if (!specifier.startsWith(".")) {
       throw new Error(`Preview loader cannot import ${specifier}`);
     }
-    return loadTypescriptModule(resolve(dirname(absolutePath), specifier));
+    const resolved = resolve(dirname(absolutePath), specifier);
+    return loadTypescriptModule(
+      existsSync(resolved) ? resolved : `${resolved}.ts`,
+    );
   };
   vm.runInNewContext(compiled, {
     module,
@@ -71,6 +74,7 @@ const transactional = loadTypescriptModule(
 const transactionalDispatch = loadTypescriptModule(
   "supabase/functions/ucat-transactional-email-dispatch/email.ts",
 );
+const sharedEmail = loadTypescriptModule("packages/email/src/index.ts");
 
 const EMAIL_SETTINGS = {
   weekly: "Weekly progress and study guidance",
@@ -95,6 +99,7 @@ const previews = new Map();
 for (const [key, label, sentWhen, setting] of lifecycleCampaigns) {
   const rendered = lifecycle.buildLifecyclePreview(key, "new");
   previews.set(`lifecycle-${key}`, {
+    source: "Supabase: ucat-lifecycle-emails",
     group: "Lifecycle",
     label,
     subject: rendered.subject,
@@ -108,6 +113,7 @@ for (const familiarity of ["familiar", "experienced"]) {
   for (const [key, label, sentWhen, setting] of lifecycleCampaigns.slice(0, 4)) {
     const rendered = lifecycle.buildLifecyclePreview(key, familiarity);
     previews.set(`lifecycle-${key}-${familiarity}`, {
+      source: "Supabase: ucat-lifecycle-emails",
       group: "Lifecycle · onboarding variants",
       label: `${label} · ${familiarity}`,
       subject: rendered.subject,
@@ -119,6 +125,7 @@ for (const familiarity of ["familiar", "experienced"]) {
 }
 
 previews.set("transactional-access-ended", {
+  source: "Supabase: stripe-webhooks",
   group: "Billing & account",
   label: "Unlimited access ended",
   subject: "Your Altitutor UCAT Unlimited subscription has ended",
@@ -133,6 +140,7 @@ previews.set("transactional-access-ended", {
 });
 
 previews.set("transactional-trial-ending", {
+  source: "Supabase: stripe-webhooks",
   group: "Billing & account",
   label: "Trial ending soon",
   subject: "Your Altitutor UCAT Unlimited trial ends on 16 August 2026",
@@ -231,12 +239,108 @@ for (const [templateKey, label, sentWhen, setting] of transactionalTemplates) {
     },
   });
   previews.set(`transactional-${templateKey}`, {
+    source: "Supabase: ucat-transactional-email-dispatch",
     group: templateKey.startsWith("referral_") ? "Referrals" : "Billing & account",
     label,
     subject: rendered.subject,
     html: rendered.html,
     sentWhen,
     setting,
+  });
+}
+
+const corePreviews = [
+  {
+    key: "invitation",
+    source: "admin-web",
+    group: "Core tutoring · access",
+    label: "Account invitation",
+    sentWhen: "When staff invite a Student, tutor, or staff member to create an Altitutor account.",
+    email: sharedEmail.buildInvitationEmail({
+      recipientName: "Alex Morgan",
+      inviteUrl: "https://student.altitutor.com/invite/preview-token",
+      staffIntroduction: "It was lovely meeting you. Use the invitation below when you are ready.",
+    }),
+  },
+  {
+    key: "registration",
+    source: "admin-web",
+    group: "Core tutoring · access",
+    label: "Student registration",
+    sentWhen: "When a Student or parent is asked to complete in-person registration.",
+    email: sharedEmail.buildRegistrationEmail({
+      recipientName: "Jamie Morgan",
+      studentName: "Alex Morgan",
+      registrationUrl: "https://student.altitutor.com/register/preview-token",
+      staffIntroduction: "Thanks for attending the trial session.",
+    }),
+  },
+  {
+    key: "booking-confirmation",
+    source: "admin-web",
+    group: "Core tutoring · bookings",
+    label: "Booking confirmation",
+    sentWhen: "When staff send a booking confirmation to the configured recipients.",
+    email: sharedEmail.buildBookingConfirmationEmail({
+      recipientName: "Alex Morgan",
+      studentName: "Alex Morgan",
+      sessionDate: "Monday, 10 August 2026",
+      sessionTime: "4:00 pm–5:00 pm",
+      bookingUrl: "https://student.altitutor.com/booking/preview-token",
+      staffIntroduction: "Looking forward to seeing you.",
+    }),
+  },
+  {
+    key: "booking-changed",
+    source: "student-web",
+    group: "Core tutoring · bookings",
+    label: "Booking changed",
+    sentWhen: "After a public trial booking is rescheduled.",
+    email: sharedEmail.buildBookingChangedEmail({
+      recipientName: "Alex Morgan",
+      sessionDate: "Monday, 10 August 2026",
+      sessionTime: "4:00 pm–5:00 pm",
+      bookingUrl: "https://student.altitutor.com/booking/preview-token",
+    }),
+  },
+  {
+    key: "booking-cancelled",
+    source: "student-web",
+    group: "Core tutoring · bookings",
+    label: "Booking cancelled",
+    sentWhen: "After a public trial booking is cancelled.",
+    email: sharedEmail.buildBookingCancelledEmail({
+      recipientName: "Alex Morgan",
+      sessionDate: "Monday, 10 August 2026",
+      sessionTime: "4:00 pm–5:00 pm",
+    }),
+  },
+  {
+    key: "invoice-notification",
+    source: "billing-runner / admin-web",
+    group: "Core tutoring · billing",
+    label: "Invoice ready",
+    sentWhen: "When a manual-payment invoice is finalised, or when staff resend its notification.",
+    email: sharedEmail.buildInvoiceNotificationEmail({
+      invoiceNumber: "ALT-1042",
+      invoiceDate: "8 August 2026",
+      dueDate: "15 August 2026",
+      amount: "AUD $245.00",
+      hostedInvoiceUrl: "https://invoice.stripe.com/i/preview",
+      invoicePdfUrl: "https://pay.stripe.com/invoice/preview/pdf",
+    }),
+  },
+];
+
+for (const preview of corePreviews) {
+  previews.set(`core-${preview.key}`, {
+    source: preview.source,
+    group: preview.group,
+    label: preview.label,
+    subject: preview.email.subject,
+    html: preview.email.html,
+    sentWhen: preview.sentWhen,
+    setting: EMAIL_SETTINGS.required,
   });
 }
 
@@ -250,7 +354,7 @@ const authTemplates = [
   [
     "recovery",
     "Reset password",
-    "When someone requests a password reset for their Altitutor UCAT account.",
+    "When someone requests a password reset for their shared Altitutor identity.",
     EMAIL_SETTINGS.required,
   ],
   [
@@ -290,6 +394,7 @@ for (const [file, label, sentWhen, setting] of authTemplates) {
     .replaceAll("{{ .Token }}", "123456")
     .replaceAll("__CURRENT_YEAR__", String(new Date().getUTCFullYear()));
   previews.set(`auth-${file}`, {
+    source: "Supabase Auth (shared)",
     group: "Account access",
     label,
     subject: label,
@@ -442,6 +547,7 @@ function previewTableRow([key, item]) {
       <span class="tag">${escapeHtml(item.label)}</span>
       <div class="subject">${escapeHtml(item.subject)}</div>
     </td>
+    <td><span class="source">${escapeHtml(item.source)}</span></td>
     <td><span class="category">${escapeHtml(item.group)}</span></td>
     <td class="condition">${escapeHtml(item.sentWhen)}</td>
     <td><span class="setting ${
@@ -452,6 +558,7 @@ function previewTableRow([key, item]) {
       <div class="links">
         <a href="/preview/${encodeURIComponent(key)}?theme=light" target="_blank">Light</a>
         <a href="/preview/${encodeURIComponent(key)}?theme=dark" target="_blank">Dark</a>
+        <a href="/preview/${encodeURIComponent(key)}?theme=light&viewport=mobile" target="_blank">Mobile</a>
       </div>
     </td>
   </tr>`;
@@ -463,7 +570,7 @@ function gallery() {
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width">
-    <title>Altitutor UCAT email previews</title>
+    <title>Altitutor email previews</title>
     <style>
       *{box-sizing:border-box}
       body{margin:0;background:#f2f0e9;color:#1a1a1a;font:15px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
@@ -476,18 +583,20 @@ function gallery() {
       .coverage-item strong{display:block;margin-bottom:3px;color:#0a2941}
       .coverage-unused{background:#f8f6f0}
       .table-wrap{overflow-x:auto;border:1px solid #d5dee1;border-radius:16px;background:#fff;box-shadow:0 7px 24px rgba(10,41,65,.05)}
-      table{width:100%;min-width:1360px;border-collapse:collapse}
+      table{width:100%;min-width:1480px;border-collapse:collapse}
       th{padding:13px 16px;background:#eaf1f3;color:#52606a;font-size:11px;letter-spacing:.08em;text-align:left;text-transform:uppercase}
       td{padding:17px 16px;border-top:1px solid #e1e7e9;vertical-align:top}
       tbody tr:hover{background:#fbfcfc}
-      th:nth-child(1){width:21%}
-      th:nth-child(2){width:10%}
-      th:nth-child(3){width:26%}
-      th:nth-child(4){width:18%}
-      th:nth-child(5){width:18%}
-      th:nth-child(6){width:7%}
+      th:nth-child(1){width:19%}
+      th:nth-child(2){width:13%}
+      th:nth-child(3){width:9%}
+      th:nth-child(4){width:23%}
+      th:nth-child(5){width:16%}
+      th:nth-child(6){width:14%}
+      th:nth-child(7){width:6%}
       .tag{font:10px ui-monospace,monospace;text-transform:uppercase;letter-spacing:.12em;color:#527487}
       .subject{margin-top:5px;font-weight:700;color:#0a2941}
+      .source{color:#234c5d;font:12px/1.45 ui-monospace,SFMono-Regular,Consolas,monospace;overflow-wrap:anywhere}
       .category{display:inline-block;border-radius:999px;background:#edf2f3;padding:5px 9px;color:#52606a;font-size:11px;white-space:nowrap}
       .condition{color:#52606a;font-size:13px;line-height:1.55}
       .setting{display:inline-block;border-radius:8px;background:#e8f1f4;padding:6px 9px;color:#234c5d;font-size:12px;line-height:1.4}
@@ -510,8 +619,8 @@ function gallery() {
   <body>
     <main>
       <p class="tag">Local review tool</p>
-      <h1>Altitutor UCAT emails</h1>
-      <p class="intro">These previews render from the same lifecycle, transactional and authentication templates used by the product. No email is sent.</p>
+      <h1>Altitutor emails</h1>
+      <p class="intro">These previews render from the same core tutoring, shared identity, and UCAT templates used in production. No email is sent.</p>
       <div class="coverage">
         <div class="coverage-item">
           <strong>Four consent topics control optional email</strong>
@@ -527,6 +636,7 @@ function gallery() {
           <thead>
             <tr>
               <th>Email</th>
+              <th>Source app</th>
               <th>Category</th>
               <th>Sent when</th>
               <th>Email setting</th>
@@ -541,6 +651,10 @@ function gallery() {
     </main>
   </body>
 </html>`;
+}
+
+function mobilePreview(html) {
+  return `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>Mobile email preview</title><style>body{margin:0;background:#d9dde0;font-family:sans-serif}.device{width:390px;max-width:100%;height:100vh;margin:0 auto;background:#fff;box-shadow:0 0 30px rgba(0,0,0,.15)}iframe{width:100%;height:100%;border:0}</style></head><body><div class="device"><iframe title="390 pixel mobile email preview" srcdoc="${escapeHtml(html)}"></iframe></div></body></html>`;
 }
 
 const server = createServer((request, response) => {
@@ -580,7 +694,11 @@ const server = createServer((request, response) => {
         : theme === "light"
         ? forceLightTheme(preview.html)
         : preview.html;
-      response.end(withLiveReload(html));
+      response.end(withLiveReload(
+        url.searchParams.get("viewport") === "mobile"
+          ? mobilePreview(html)
+          : html,
+      ));
       return;
     }
   }
@@ -589,6 +707,6 @@ const server = createServer((request, response) => {
 });
 
 server.listen(port, "127.0.0.1", () => {
-  console.log(`Altitutor UCAT email previews: http://127.0.0.1:${port}`);
+  console.log(`Altitutor email previews: http://127.0.0.1:${port}`);
   console.log("Press Ctrl+C to stop.");
 });

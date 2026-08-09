@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "jsr:@supabase/supabase-js@2";
+import { deliverEdgeEmail } from "../../_shared/email.generated.ts";
 import {
   buildUcatEmailActionUrl,
   escapeEmailHtml,
@@ -66,34 +67,25 @@ export async function sendUcatBillingAccessEndedEmail(
     `,
   });
 
-  const response = await fetch("https://api.resend.com/emails", {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${resendApiKey}`,
-      "Content-Type": "application/json",
-      "Idempotency-Key": `ucat-billing-ended/${input.stripeSubscriptionId}`,
-    },
-    body: JSON.stringify({
+  await deliverEdgeEmail({
+    apiKey: resendApiKey,
+    to: student.email,
+    idempotencyKey: `ucat-billing-ended/${input.stripeSubscriptionId}`,
+    email: {
       from: UCAT_TRANSACTIONAL_FROM,
-      reply_to: UCAT_TRANSACTIONAL_REPLY_TO,
-      to: student.email,
+      replyTo: UCAT_TRANSACTIONAL_REPLY_TO,
       subject: "Your Altitutor UCAT Unlimited subscription has ended",
+      previewText: "Your UCAT Unlimited subscription has ended.",
       html,
       text: `Hi ${
         student.first_name?.trim() || "there"
       },\n\nWe could not recover your subscription payment after several attempts, so your Altitutor UCAT Unlimited subscription has ended.\n\nYour account, practice history and results are safe. You can keep preparing on Free or restart Unlimited whenever you are ready.\n\nReview your plan: ${manageUrl}\n\nIf you think this happened in error, reply or contact ${UCAT_TRANSACTIONAL_REPLY_TO}.\n\nA not-for-profit initiative by Altitutor.`,
-      tags: [
-        { name: "product", value: "ucat" },
-        { name: "category", value: "transactional" },
-        { name: "template", value: "billing_access_ended" },
-      ],
-    }),
+    },
+    tags: [
+      { name: "product", value: "ucat" },
+      { name: "category", value: "transactional" },
+      { name: "template", value: "billing_access_ended" },
+    ],
   });
-
-  if (!response.ok) {
-    throw new Error(
-      `Resend returned ${response.status}: ${await response.text()}`,
-    );
-  }
   return true;
 }

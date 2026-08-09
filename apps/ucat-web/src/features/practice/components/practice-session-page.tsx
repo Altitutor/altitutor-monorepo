@@ -4,6 +4,7 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Skeleton } from "@altitutor/ui";
 import { QuestionEnginePage } from "@/features/question-engine";
+import { useUcatInterfacePreferences } from "@/features/interface-preferences/hooks/use-ucat-interface-preferences";
 import type { PracticeEngineLiveStats } from "@/features/question-engine/components/question-engine-page";
 import type { QuestionStemWithQuestions } from "@/features/question-engine/model/types";
 import { useExamExperience } from "@/features/exam-experience/context/exam-experience-context";
@@ -277,6 +278,7 @@ export function PracticeSessionStatsCards({
 export function PracticeSessionPage() {
   const router = useRouter();
   const { setTitle, setPractice } = useExamExperience();
+  const { preferences } = useUcatInterfacePreferences();
   const { data: quota, isLoading: quotaLoading } = useQuotaUsage();
   const {
     active: activeExamAttempt,
@@ -690,14 +692,16 @@ export function PracticeSessionPage() {
       return;
     }
     setTitle(sessionTitle);
+    const reviewAfterEachStem =
+      (session.reviewTiming ?? "afterEachStem") === "afterEachStem";
     setPractice({
       stats: liveStats,
       elapsedSeconds:
         liveStats?.sessionTimeSeconds ??
         liveStats?.totalAnsweredTimeSeconds ??
         0,
-      showAnswerStats:
-        (session.reviewTiming ?? "afterEachStem") === "afterEachStem",
+      showAnswerStats: reviewAfterEachStem,
+      reviewAfterEachStem,
       onFinishPractice:
         session.mode === "unlimited"
           ? handleFinishPracticeFromSidebar
@@ -764,6 +768,7 @@ export function PracticeSessionPage() {
           sessionMeta={session}
           timePerQuestionSeconds={session.timePerQuestionSeconds}
           reviewTiming={session.reviewTiming ?? "afterEachStem"}
+          confirmNextStemTransitions={preferences.nextQuestionPopupEnabled}
           onPracticeSessionCompleted={handlePracticeSessionCompleted}
           onPracticeStatsChange={setLiveStats}
           onRegisterFinishPracticeDialog={handleRegisterFinishPracticeDialog}
@@ -782,6 +787,7 @@ export function PracticeSessionPage() {
         fillAvailableHeight
         practiceSessionId={session.sessionId}
         reviewTiming={session.reviewTiming ?? "afterEachStem"}
+        confirmNextStemTransitions={preferences.nextQuestionPopupEnabled}
         onPracticeStatsChange={setLiveStats}
         timePerQuestionSeconds={session.timePerQuestionSeconds}
         onPracticeSessionCompleted={handlePracticeSessionCompleted}
@@ -797,6 +803,7 @@ function UnlimitedPracticeEngine({
   sessionMeta,
   timePerQuestionSeconds,
   reviewTiming,
+  confirmNextStemTransitions,
   onPracticeSessionCompleted,
   onPracticeStatsChange,
   onRegisterFinishPracticeDialog,
@@ -807,6 +814,7 @@ function UnlimitedPracticeEngine({
   sessionMeta: Extract<PracticeSessionData, { mode: "unlimited" }>;
   timePerQuestionSeconds: number | null;
   reviewTiming: PracticeReviewTiming;
+  confirmNextStemTransitions: boolean;
   onPracticeSessionCompleted: (attemptHref: string) => void;
   onPracticeStatsChange: (stats: PracticeEngineLiveStats | null) => void;
   onRegisterFinishPracticeDialog?: (open: () => void) => void;
@@ -978,6 +986,7 @@ function UnlimitedPracticeEngine({
       fillAvailableHeight
       practiceSessionId={sessionId}
       reviewTiming={reviewTiming}
+      confirmNextStemTransitions={confirmNextStemTransitions}
       onPracticeStatsChange={onPracticeStatsChange}
       timePerQuestionSeconds={timePerQuestionSeconds}
       onPracticeSessionCompleted={onPracticeSessionCompleted}

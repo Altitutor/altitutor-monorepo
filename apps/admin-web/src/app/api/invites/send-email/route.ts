@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/shared/lib/supabase/server-ssr';
 import { supabaseAdmin } from '@/shared/lib/supabase/server/admin';
 import { sendEmail } from '@/shared/lib/email';
-import { getInviteEmailTemplate } from '@/shared/lib/email-templates';
+import { buildInvitationEmail } from '@altitutor/email';
 
 export async function POST(request: NextRequest) {
   try {
@@ -149,32 +149,15 @@ export async function POST(request: NextRequest) {
 
     // Send email using Resend
     try {
-      // Use custom message if provided, otherwise use template
-      let html: string;
-      if (customMessage && customMessage.trim()) {
-        // For custom messages, create a simple HTML email with the message
-        html = `
-          <!DOCTYPE html>
-          <html>
-          <body style="font-family: Arial, sans-serif; padding: 20px;">
-            <p>${customMessage.replace(/\n/g, '<br>')}</p>
-            <p><a href="${inviteUrl}">${inviteUrl}</a></p>
-          </body>
-          </html>
-        `;
-      } else {
-        html = getInviteEmailTemplate({
-          firstName: record.first_name,
-          lastName: record.last_name,
-          inviteUrl,
-          linkType: 'invite',
-        });
-      }
+      const email = buildInvitationEmail({
+        recipientName: [record.first_name, record.last_name].filter(Boolean).join(' '),
+        inviteUrl,
+        staffIntroduction: customMessage?.trim() || undefined,
+      });
 
       await sendEmail({
         to: record.email,
-        subject: `You've Been Invited to Altitutor`,
-        html,
+        email,
         attachments: attachments.length > 0 ? attachments : undefined,
       });
 
@@ -200,4 +183,3 @@ export async function POST(request: NextRequest) {
     );
   }
 }
-

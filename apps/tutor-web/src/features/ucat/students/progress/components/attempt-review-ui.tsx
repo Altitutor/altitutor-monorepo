@@ -3,6 +3,10 @@
 import { useMemo, useState, type ReactNode } from 'react'
 import { ArrowLeft, ArrowRight, Flag, Info } from 'lucide-react'
 import {
+  formatUcatQuestionDifficulty,
+  ucatQuestionDifficultyPercent,
+} from '@altitutor/shared'
+import {
   Badge,
   Button,
   Card,
@@ -488,7 +492,7 @@ export function AttemptQuestionReview({
             <TimingMeter label="Your time" value={attempt.timeSpentSeconds} max={timingMax} />
             {attempt.averageTimeSeconds != null ? (
               <TimingMeter
-                label="Average time"
+                label="Full-mark attempt average"
                 value={attempt.averageTimeSeconds}
                 max={timingMax}
                 tone="muted"
@@ -496,7 +500,7 @@ export function AttemptQuestionReview({
             ) : null}
             {attempt.timeBurdenSeconds != null ? (
               <TimingMeter
-                label="Time burden"
+                label="Expected time to correct"
                 value={attempt.timeBurdenSeconds}
                 max={timingMax}
                 tone="amber"
@@ -541,7 +545,7 @@ export function AttemptQuestionReview({
                 </div>
                 <div className="min-w-0 flex-1 space-y-1.5">
                   <div className="text-right text-xs tabular-nums">
-                    {attempt.difficulty}
+                    {formatUcatQuestionDifficulty(attempt.difficulty)}
                   </div>
                   <div className="h-2 overflow-hidden rounded-full bg-muted">
                     <div
@@ -551,9 +555,7 @@ export function AttemptQuestionReview({
                           100,
                           Math.max(
                             0,
-                            (attempt.difficulty /
-                              (attempt.difficulty > 5 ? 10 : 5)) *
-                              100
+                            ucatQuestionDifficultyPercent(attempt.difficulty)
                           )
                         )}%`,
                       }}

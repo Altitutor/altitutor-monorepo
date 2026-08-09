@@ -196,8 +196,12 @@ const GeneratedQuestionBaseSchema = z.object({
   answerExplanation: z.union([z.string().trim().min(1), z.array(GeneratedContentBlockSchema).min(1)]).nullable().optional(),
   difficultyTarget: DifficultyTargetSchema.optional(),
   timeBurdenTarget: TimeBurdenTargetSchema.optional(),
-  estimatedDifficulty: z.number().min(0).max(1).nullable().optional(),
-  estimatedTimeBurdenSeconds: z.number().int().positive().nullable().optional(),
+  estimatedDifficulty: z.number().min(0).max(1).nullable().optional().describe(
+    'Estimated proportion of the target UCAT candidate cohort who would answer incorrectly on first exposure under realistic section timing and without assistance. 0 is easiest and 1 is hardest.',
+  ),
+  estimatedTimeBurdenSeconds: z.number().int().positive().nullable().optional().describe(
+    'Expected active working time in whole seconds to submit a fully correct first-exposure answer under realistic section timing and without assistance, with the question encountered in its authored stem position.',
+  ),
   tagIds: z.preprocess(
     (value) => Array.isArray(value)
       ? value.filter((item) => typeof item === 'string' && z.string().uuid().safeParse(item).success)

@@ -1,11 +1,31 @@
 import { captureApiError } from '@/lib/sentry/capture-api-error';
 import { NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
+import { createClient as createServiceClient } from '@supabase/supabase-js';
+import { createClient as createUserClient } from '@/shared/lib/supabase/server-ssr';
 import type { Database } from '@altitutor/shared';
 import type { TutorLogFormData } from '@/features/tutor-logs/types';
 
 export async function POST(request: Request) {
   try {
+    const userClient = createUserClient();
+    const {
+      data: { user },
+      error: authError,
+    } = await userClient.auth.getUser();
+
+    if (authError || !user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const { data: isAdmin, error: adminError } = await userClient.rpc('is_adminstaff_active');
+
+    if (adminError || !isAdmin) {
+      return NextResponse.json(
+        { error: 'Forbidden: Admin access required' },
+        { status: 403 }
+      );
+    }
+
     const body = await request.json();
     const { data, createdBy } = body as { data: TutorLogFormData; createdBy: string };
 
@@ -35,7 +55,7 @@ export async function POST(request: Request) {
       );
     }
 
-    const supabase = createClient<Database>(supabaseUrl, supabaseServiceKey, {
+    const supabase = createServiceClient<Database>(supabaseUrl, supabaseServiceKey, {
       auth: {
         autoRefreshToken: false,
         persistSession: false,
@@ -123,4 +143,3 @@ export async function POST(request: Request) {
     );
   }
 }
-

@@ -23,6 +23,7 @@ import type {
 } from "@/lib/ucat/exam-attempt/types";
 import { checkQuotaForAction } from "@/lib/ucat/quota/quota-service";
 import { getQuestionSetLabel } from "@/lib/ucat/exam-attempt/question-set-label";
+import { PracticeSessionEndedError } from "@/lib/ucat/practice-sessions/practice-session-ended";
 
 type AdminClient = SupabaseClient;
 
@@ -649,12 +650,13 @@ async function loadPersistedAttemptSnapshot(
       currentSegmentEndsAt: data?.current_segment_ends_at ?? null,
     };
   }
-  const { data } = await admin
+  const { data, error } = await admin
     .from("student_practice_sessions")
     .select(select)
     .eq("id", attemptId)
     .eq("student_id", studentId)
     .maybeSingle();
+  if (error) throw new Error(error.message);
   return {
     inProgress:
       data != null &&
@@ -950,6 +952,7 @@ async function persistSnapshot(
     attemptId,
   );
   if (!persisted.inProgress) {
+    if (kind === "practice") throw new PracticeSessionEndedError();
     return null;
   }
 
@@ -1063,7 +1066,7 @@ async function persistSnapshot(
       },
     );
     if (error) throw new Error(error.message);
-    if (!data) return null;
+    if (!data) throw new PracticeSessionEndedError();
     return setAttemptIdsBySetId;
   }
   const { data, error } = await admin
@@ -1077,7 +1080,7 @@ async function persistSnapshot(
     .select("id")
     .maybeSingle();
   if (error) throw new Error(error.message);
-  if (!data) return null;
+  if (!data) throw new PracticeSessionEndedError();
   return setAttemptIdsBySetId;
 }
 
@@ -1290,9 +1293,8 @@ export async function beginExamAttempt(
     .is("expired_at", null)
     .select("id, section_key, ucat_section_id")
     .maybeSingle();
-  if (error || !session) {
-    throw new Error(error?.message ?? "Practice session not found");
-  }
+  if (error) throw new Error(error.message);
+  if (!session) throw new PracticeSessionEndedError();
   const { data: section } = await admin
     .from("ucat_sections")
     .select("name")

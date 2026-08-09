@@ -10,6 +10,20 @@ import {
   proseMirrorToPlainText,
 } from '@/features/ucat/shared/lib/rich-text'
 
+const AiTimeBurdenInputSchema = z.string().nullable().optional().refine(
+  (value) => {
+    const input = value?.trim() ?? ''
+    if (input === '') return true
+    if (/^\d+$/u.test(input)) return Number(input) > 0
+    if (!/^\d+:[0-5]\d$/u.test(input)) return false
+    const [minutes = '0', seconds = '0'] = input.split(':')
+    return (Number(minutes) * 60) + Number(seconds) > 0
+  },
+  'Expected time to correct must be positive whole seconds or mm:ss.',
+).describe(
+  'Expected active working time to a fully correct first-exposure answer, as positive whole seconds or mm:ss, with the question encountered in its authored stem position. Empty means unknown.',
+)
+
 export const AiToolQuestionStemPayloadSchema = z.object({
   sectionId: z.string().uuid(),
   categoryId: z.string().uuid().nullable().optional(),
@@ -20,8 +34,10 @@ export const AiToolQuestionStemPayloadSchema = z.object({
       questionText: z.unknown(),
       questionType: z.enum(['multiple_choice', 'syllogism']),
       answerExplanation: z.unknown().nullable().optional(),
-      difficulty: z.number().nullable().optional(),
-      timeBurdenSeconds: z.string().nullable().optional(),
+      difficulty: z.number().min(0).max(1).nullable().optional().describe(
+        'Expected proportion incorrect on first exposure under realistic section timing. 0 is easiest, 1 is hardest, and null means unknown.',
+      ),
+      timeBurdenSeconds: AiTimeBurdenInputSchema,
       tagIds: z.array(z.string().uuid()).default([]),
       options: z.array(
         z.object({

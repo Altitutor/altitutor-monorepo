@@ -60,6 +60,30 @@ describe('QR writer prompts', () => {
     )
   })
 
+  it('defines estimated difficulty with the canonical harder-is-higher polarity', () => {
+    const prompt = buildWriterPrompt({ ...brief, plan: { plans: [{ stemIndex: 0 }] } })
+    const payload = JSON.parse(prompt) as { requirements: string[] }
+
+    expect(payload.requirements).toContainEqual(
+      expect.stringContaining('who would answer incorrectly'),
+    )
+    expect(payload.requirements).toContainEqual(
+      expect.stringContaining('0 for easiest and 1 for hardest'),
+    )
+  })
+
+  it('defines time burden as first-exposure time to correct in authored stem order', () => {
+    const prompt = buildWriterPrompt({ ...brief, plan: { plans: [{ stemIndex: 0 }] } })
+    const payload = JSON.parse(prompt) as { requirements: string[] }
+
+    expect(payload.requirements).toContainEqual(
+      expect.stringContaining('fully correct answer on first exposure'),
+    )
+    expect(payload.requirements).toContainEqual(
+      expect.stringContaining('authored position within the stem'),
+    )
+  })
+
   it('allows any purposeful number of QR steps and requires Australian English', () => {
     const prompt = buildWriterPrompt({ ...brief, plan: { plans: [{ stemIndex: 0 }] } })
     const payload = JSON.parse(prompt) as {

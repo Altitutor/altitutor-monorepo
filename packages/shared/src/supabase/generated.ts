@@ -2443,40 +2443,52 @@ export type Database = {
       }
       flashcards: {
         Row: {
-          cloze_text: string
+          card_type: string
+          cloze_text: string | null
           created_at: string
           created_by: string | null
           deleted_at: string | null
           deleted_by: string | null
           extra: string | null
           id: string
+          image_alt_text: string | null
+          image_file_id: string | null
           index: number
+          occlusion_data: Json | null
           topic_id: string
           updated_at: string
           updated_by: string | null
         }
         Insert: {
-          cloze_text: string
+          card_type?: string
+          cloze_text?: string | null
           created_at?: string
           created_by?: string | null
           deleted_at?: string | null
           deleted_by?: string | null
           extra?: string | null
           id?: string
+          image_alt_text?: string | null
+          image_file_id?: string | null
           index: number
+          occlusion_data?: Json | null
           topic_id: string
           updated_at?: string
           updated_by?: string | null
         }
         Update: {
-          cloze_text?: string
+          card_type?: string
+          cloze_text?: string | null
           created_at?: string
           created_by?: string | null
           deleted_at?: string | null
           deleted_by?: string | null
           extra?: string | null
           id?: string
+          image_alt_text?: string | null
+          image_file_id?: string | null
           index?: number
+          occlusion_data?: Json | null
           topic_id?: string
           updated_at?: string
           updated_by?: string | null
@@ -2537,6 +2549,34 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "vtutor_profile"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "flashcards_image_file_id_fkey"
+            columns: ["image_file_id"]
+            isOneToOne: false
+            referencedRelation: "files"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "flashcards_image_file_id_fkey"
+            columns: ["image_file_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_subject_images"
+            referencedColumns: ["file_id"]
+          },
+          {
+            foreignKeyName: "flashcards_image_file_id_fkey"
+            columns: ["image_file_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_files"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "flashcards_image_file_id_fkey"
+            columns: ["image_file_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_subject_images"
+            referencedColumns: ["file_id"]
           },
           {
             foreignKeyName: "flashcards_topic_id_fkey"
@@ -20575,6 +20615,7 @@ export type Database = {
       }
       vstaff_flashcards: {
         Row: {
+          card_type: string | null
           cloze_text: string | null
           created_at: string | null
           created_by: string | null
@@ -20582,39 +20623,16 @@ export type Database = {
           deleted_by: string | null
           extra: string | null
           id: string | null
+          image_alt_text: string | null
+          image_file_id: string | null
+          image_mimetype: string | null
+          image_storage_path: string | null
           index: number | null
+          occlusion_data: Json | null
           review_card_count: number | null
           topic_id: string | null
           updated_at: string | null
           updated_by: string | null
-        }
-        Insert: {
-          cloze_text?: string | null
-          created_at?: string | null
-          created_by?: string | null
-          deleted_at?: string | null
-          deleted_by?: string | null
-          extra?: string | null
-          id?: string | null
-          index?: number | null
-          review_card_count?: never
-          topic_id?: string | null
-          updated_at?: string | null
-          updated_by?: string | null
-        }
-        Update: {
-          cloze_text?: string | null
-          created_at?: string | null
-          created_by?: string | null
-          deleted_at?: string | null
-          deleted_by?: string | null
-          extra?: string | null
-          id?: string | null
-          index?: number | null
-          review_card_count?: never
-          topic_id?: string | null
-          updated_at?: string | null
-          updated_by?: string | null
         }
         Relationships: [
           {
@@ -20672,6 +20690,34 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "vtutor_profile"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "flashcards_image_file_id_fkey"
+            columns: ["image_file_id"]
+            isOneToOne: false
+            referencedRelation: "files"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "flashcards_image_file_id_fkey"
+            columns: ["image_file_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_subject_images"
+            referencedColumns: ["file_id"]
+          },
+          {
+            foreignKeyName: "flashcards_image_file_id_fkey"
+            columns: ["image_file_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_files"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "flashcards_image_file_id_fkey"
+            columns: ["image_file_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_subject_images"
+            referencedColumns: ["file_id"]
           },
           {
             foreignKeyName: "flashcards_topic_id_fkey"
@@ -21085,6 +21131,7 @@ export type Database = {
       }
       vstudent_flashcard_review_cards: {
         Row: {
+          card_type: string | null
           cloze_index: number | null
           cloze_text: string | null
           difficulty: number | null
@@ -21093,10 +21140,15 @@ export type Database = {
           flashcard_id: string | null
           flashcard_index: number | null
           id: string | null
+          image_alt_text: string | null
+          image_file_id: string | null
+          image_mimetype: string | null
+          image_storage_path: string | null
           lapses: number | null
           last_rating: string | null
           last_reviewed_at: string | null
           learning_steps: number | null
+          occlusion_data: Json | null
           reps: number | null
           scheduled_days: number | null
           stability: number | null
@@ -21117,6 +21169,34 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "vstaff_flashcards"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "flashcards_image_file_id_fkey"
+            columns: ["image_file_id"]
+            isOneToOne: false
+            referencedRelation: "files"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "flashcards_image_file_id_fkey"
+            columns: ["image_file_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_subject_images"
+            referencedColumns: ["file_id"]
+          },
+          {
+            foreignKeyName: "flashcards_image_file_id_fkey"
+            columns: ["image_file_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_files"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "flashcards_image_file_id_fkey"
+            columns: ["image_file_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_subject_images"
+            referencedColumns: ["file_id"]
           },
           {
             foreignKeyName: "flashcards_topic_id_fkey"
@@ -34333,6 +34413,10 @@ export type Database = {
         Args: { p_cloze_text: string }
         Returns: number[]
       }
+      extract_flashcard_image_cloze_indexes: {
+        Args: { p_occlusion_data: Json }
+        Returns: number[]
+      }
       extract_image_file_ids_from_doc: {
         Args: { p_doc: Json }
         Returns: string[]
@@ -34655,6 +34739,10 @@ export type Database = {
       is_ucat_online_student: { Args: never; Returns: boolean }
       is_ucat_student: { Args: never; Returns: boolean }
       is_ucat_tutor: { Args: never; Returns: boolean }
+      is_valid_image_occlusion_data: {
+        Args: { p_data: Json }
+        Returns: boolean
+      }
       log_activity_event: {
         Args: {
           p_changed_fields?: Json
@@ -35663,6 +35751,10 @@ export type Database = {
         Returns: string
       }
       ucat_content_core_publication_issues: {
+        Args: { p_content_id: string; p_content_type: string }
+        Returns: Json
+      }
+      ucat_content_publication_base_issues: {
         Args: { p_content_id: string; p_content_type: string }
         Returns: Json
       }

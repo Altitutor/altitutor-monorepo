@@ -64,7 +64,8 @@ export const GUIDED_SAMPLER_SECTIONS: GuidedSamplerSection[] = [
     key: "vr",
     shortName: "VR",
     name: "Verbal Reasoning",
-    purpose: "Read the question first, then scan for evidence in the passage.",
+    purpose:
+      "Read the stem first, then return to it for evidence after reading the question.",
     timePerQuestionSeconds: SECTION_EXAM_SECONDS_PER_QUESTION.vr,
     questions: [
       {
@@ -269,7 +270,7 @@ export const GUIDED_SAMPLER_FEEDBACK: Record<string, GuidedSamplerFeedback> = {
     explanation:
       "The passage directly says that restoring rivers can ‘create wildlife habitat’, so the statement is True.",
     hints: [
-      "Scan for the words ‘wildlife habitat’ rather than rereading every sentence.",
+      "Find the sentence containing ‘wildlife habitat’, then compare that sentence directly with the statement in the question.",
       "The passage says reintroducing wetlands can create wildlife habitat.",
       "The statement repeats information stated directly in the passage, so it is True.",
     ],
@@ -280,7 +281,7 @@ export const GUIDED_SAMPLER_FEEDBACK: Record<string, GuidedSamplerFeedback> = {
     explanation:
       "The passage says projects need ongoing monitoring because newly planted banks may erode before vegetation becomes established. That reason is stated directly, so you do not need to infer anything extra.",
     hints: [
-      "Scan for the words ‘ongoing monitoring’ rather than rereading the whole passage.",
+      "Find ‘ongoing monitoring’ in the passage and read the reason given immediately after it.",
       "Find the sentence that explains why monitoring is needed after planting.",
       "The passage links monitoring to erosion of newly planted banks before vegetation is established.",
     ],
@@ -299,7 +300,7 @@ export const GUIDED_SAMPLER_FEEDBACK: Record<string, GuidedSamplerFeedback> = {
     explanation:
       "Cedar members cannot be swimmers because every Cedar member is a cyclist and no cyclist is a swimmer. ‘Some swimmers are musicians’ also guarantees that some musicians are swimmers. The remaining conclusions reverse or overextend the rules.",
     hints: [
-      "A conclusion follows only when it must be true—not merely when it could be true.",
+      "Check each conclusion against the three facts. Choose Yes only if those facts make the conclusion unavoidable; otherwise choose No.",
       "Chain Cedar member → cyclist → not swimmer, and do not reverse ‘all Cedar members are cyclists’.",
       "The five judgements are Yes, No, Yes, No, No.",
     ],
@@ -330,7 +331,7 @@ export const GUIDED_SAMPLER_FEEDBACK: Record<string, GuidedSamplerFeedback> = {
     explanation:
       "History and Science form the fixed block H–S. Travel is fourth, so H–S must occupy positions one and two. Science must therefore be second.",
     hints: [
-      "Start with the strongest rule: one talk is immediately after another.",
+      "Put History and Science together as H–S because Science is immediately after History. Then place Travel fourth.",
       "Treat History–Science as a two-position block, then place Travel fourth.",
       "The only order is History, Science, Medicine, Travel.",
     ],
@@ -339,7 +340,7 @@ export const GUIDED_SAMPLER_FEEDBACK: Record<string, GuidedSamplerFeedback> = {
     explanation:
       "There were 40 adult admissions at $12 each, so adult revenue was 40 × $12 = $480.",
     hints: [
-      "Use only the Adult row: number of admissions × adult ticket price.",
+      "Use the Adult row only: multiply 40 adult admissions by the $12 adult ticket price.",
       "The calculation is 40 × $12.",
       "Enter 40 × 12 into the calculator to get $480.",
     ],
@@ -357,7 +358,7 @@ export const GUIDED_SAMPLER_FEEDBACK: Record<string, GuidedSamplerFeedback> = {
     explanation:
       "There were 95 admissions in total. Concessions were 20 ÷ 95 × 100 = 21.05%, which rounds to 21%.",
     hints: [
-      "For a percentage, use part ÷ whole × 100.",
+      "Use concession admissions as the part (20) and all admissions as the whole (40 + 35 + 20), then calculate part ÷ whole × 100.",
       "The part is 20 and the whole is 40 + 35 + 20.",
       "Calculate 20 ÷ 95 × 100, then round to the nearest whole percent.",
     ],
@@ -366,7 +367,7 @@ export const GUIDED_SAMPLER_FEEDBACK: Record<string, GuidedSamplerFeedback> = {
     explanation:
       "The confidentiality breach is ongoing and the student has refused to correct it. Promptly escalating to a supervising clinician is proportionate and protects the patient.",
     hints: [
-      "Identify the professional duty at risk before judging Mina’s response.",
+      "A patient’s name is visible, so confidentiality is already breached. Judge whether telling a supervisor is a proportionate response after the student refuses to remove the post.",
       "The first private approach did not resolve the confidentiality breach.",
       "Escalating to someone able to act is a very appropriate response.",
     ],
@@ -375,7 +376,7 @@ export const GUIDED_SAMPLER_FEEDBACK: Record<string, GuidedSamplerFeedback> = {
     explanation:
       "The 24-hour limit may reduce the duration of exposure, but it does not undo the breach or remove the need to act. It is therefore only of minor importance.",
     hints: [
-      "Ask whether the disappearing post changes Mina’s underlying duty.",
+      "The patient’s name is exposed even if the post disappears after 24 hours. Decide how much that time limit should affect Mina’s duty to act.",
       "Temporary exposure is still exposure of patient-identifiable information.",
       "The time limit matters slightly, but confidentiality remains the decisive issue.",
     ],

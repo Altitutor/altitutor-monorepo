@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/shared/lib/supabase/server-ssr';
 import { supabaseAdmin } from '@/shared/lib/supabase/server/admin';
 import { sendEmail } from '@/shared/lib/email';
-import { getBookingConfirmationEmailTemplate } from '@/shared/lib/email-templates';
+import { buildBookingConfirmationEmail } from '@altitutor/email';
 import { getBookingConfirmationMessage } from '@/features/messages/api/systemTemplates';
 import { getBookingConfirmationUrl } from '@/shared/utils/invites';
 import { format } from 'date-fns';
@@ -163,20 +163,20 @@ export async function POST(request: NextRequest) {
         if (!recipient.email) continue;
 
         try {
-          const emailHtml = customMessage
-            ? `<!DOCTYPE html><html><body style="font-family: sans-serif; padding: 20px;"><div style="white-space: pre-wrap;">${customMessage.replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\n/g, '<br>')}</div><p style="margin-top: 24px;"><a href="${bookingUrl}" style="display: inline-block; padding: 12px 24px; background-color: #0a2941; color: #fff; text-decoration: none; border-radius: 6px;">View Booking Confirmation</a></p><p style="margin-top: 16px; font-size: 14px; color: #6b7280;">${bookingUrl}</p></body></html>`
-            : getBookingConfirmationEmailTemplate({
-                firstName: recipient.first_name || 'there',
-                lastName: recipient.last_name || '',
-                bookingUrl,
-                sessionDate,
-                sessionTime,
-              });
+          const email = buildBookingConfirmationEmail({
+            recipientName: [recipient.first_name || 'there', recipient.last_name]
+              .filter(Boolean)
+              .join(' '),
+            studentName,
+            bookingUrl,
+            sessionDate,
+            sessionTime,
+            staffIntroduction: customMessage?.trim() || undefined,
+          });
 
           await sendEmail({
             to: recipient.email,
-            subject: `Booking Confirmation - ${studentName}`,
-            html: emailHtml,
+            email,
           });
           successCount++;
         } catch (error) {

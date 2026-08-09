@@ -7,6 +7,20 @@ import type {
 import type { FinalExamQuestionAttemptInput } from "@/lib/ucat/exam-attempt/finalize-attempt";
 import type { StoredExamSnapshot } from "@/lib/ucat/exam-attempt/service";
 import { assertOkOrQuotaExceeded } from "@/lib/ucat/quota/parse-quota-error";
+import {
+  PRACTICE_SESSION_ENDED_CODE,
+  PracticeSessionEndedError,
+} from "@/lib/ucat/practice-sessions/practice-session-ended";
+
+async function assertPracticeSessionActive(response: Response): Promise<void> {
+  if (response.status !== 410) return;
+  const body = (await response.json().catch(() => null)) as {
+    code?: string;
+  } | null;
+  if (body?.code === PRACTICE_SESSION_ENDED_CODE) {
+    throw new PracticeSessionEndedError();
+  }
+}
 
 export async function fetchActiveExamAttempt(): Promise<ActiveExamAttempt | null> {
   const response = await fetch("/api/ucat/exam-attempts/active", {
@@ -40,6 +54,7 @@ export async function beginExamAttempt(
     err.active = data.active;
     throw err;
   }
+  await assertPracticeSessionActive(response);
   if (!response.ok) {
     await assertOkOrQuotaExceeded(response);
     throw new Error("Failed to begin exam attempt");
@@ -62,6 +77,7 @@ export async function syncExamAttempt(
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(input),
   });
+  await assertPracticeSessionActive(response);
   if (!response.ok) {
     throw new Error("Failed to sync exam attempt");
   }

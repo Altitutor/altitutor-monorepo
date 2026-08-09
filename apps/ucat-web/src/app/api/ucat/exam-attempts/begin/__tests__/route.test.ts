@@ -8,6 +8,7 @@ import {
 } from "@/lib/ucat/exam-attempt/service";
 import { captureApiError } from "@/lib/sentry/capture-api-error";
 import type { ActiveExamAttempt } from "@/lib/ucat/exam-attempt/types";
+import { PracticeSessionEndedError } from "@/lib/ucat/practice-sessions/practice-session-ended";
 import { POST } from "../route";
 
 jest.mock("@/lib/supabase/server", () => ({
@@ -137,6 +138,33 @@ describe("POST /api/ucat/exam-attempts/begin", () => {
     } as unknown as NextRequest);
 
     expect(response.status).toBe(403);
+    expect(mockCaptureApiError).not.toHaveBeenCalled();
+  });
+
+  it("returns an expected terminal response when a practice session ended elsewhere", async () => {
+    mockBeginExamAttempt.mockRejectedValue(new PracticeSessionEndedError());
+
+    const response = await POST({
+      json: async () => ({
+        kind: "practice",
+        resourceId: "practice-session-1",
+        practiceSessionId: "practice-session-1",
+        wasTimed: false,
+        engineSnapshot: {},
+        segmentTimeLimitSeconds: null,
+        examMeta: {
+          sourceType: "questionStem",
+          sourceId: "practice-source",
+          practice: true,
+        },
+      }),
+    } as unknown as NextRequest);
+
+    expect(response.status).toBe(410);
+    await expect(response.json()).resolves.toEqual({
+      code: "PRACTICE_SESSION_ENDED",
+      error: "This practice session has ended",
+    });
     expect(mockCaptureApiError).not.toHaveBeenCalled();
   });
 });

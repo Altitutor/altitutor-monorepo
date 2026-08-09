@@ -172,32 +172,32 @@ host = "smtp.resend.com"
 port = 587
 user = "resend"
 pass = "env(RESEND_API_KEY)"
-admin_email = "noreply@altitutor.com"
-sender_name = "Altitutor UCAT"
+admin_email = "admin@altitutor.com"
+sender_name = "Altitutor"
 
 # Email templates with modern design
 [auth.email.template.confirmation]
-subject = "Your Altitutor UCAT signup code"
+subject = "Your Altitutor signup code"
 content_path = "./supabase/templates-rendered/confirmation.html"
 
 [auth.email.template.invite]
-subject = "You have been invited to Altitutor UCAT"
+subject = "You have been invited to Altitutor"
 content_path = "./supabase/templates-rendered/invite.html"
 
 [auth.email.template.magic_link]
-subject = "Your Altitutor UCAT sign-in code"
+subject = "Your Altitutor sign-in code"
 content_path = "./supabase/templates-rendered/magic_link.html"
 
 [auth.email.template.recovery]
-subject = "Reset your Altitutor UCAT password"
+subject = "Reset your Altitutor password"
 content_path = "./supabase/templates-rendered/recovery.html"
 
 [auth.email.template.email_change]
-subject = "Confirm your Altitutor UCAT email change"
+subject = "Confirm your Altitutor email change"
 content_path = "./supabase/templates-rendered/email_change.html"
 
 [auth.email.template.reauthentication]
-subject = "Your Altitutor UCAT verification code"
+subject = "Your Altitutor verification code"
 content_path = "./supabase/templates-rendered/reauthentication.html"
 
 [auth.sms]

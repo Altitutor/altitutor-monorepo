@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
+import { useQuotaLimitDialog } from "@/features/ucat-access/context/upsell-dialog-context";
 import { createAndPersistPracticeSession } from "@/features/practice/api/create-practice-session";
 import type { PracticeSelectionInput } from "@/features/practice/model/types";
 import { updateStudyPlanTask } from "@/features/study-plan/api/study-plan";
@@ -15,6 +16,7 @@ import type {
   StudyPlanResponse,
   StudyPlanTask,
 } from "@/features/study-plan/model/types";
+import { QuotaExceededError } from "@/lib/ucat/quota/parse-quota-error";
 
 type PendingAction = "start" | "skip" | "unskip" | null;
 
@@ -72,6 +74,7 @@ export function useStudyPlanTaskActions(
 ) {
   const router = useRouter();
   const queryClient = useQueryClient();
+  const { openQuotaLimit } = useQuotaLimitDialog();
   const planQuery = useStudyPlan(enabled && planOverride === undefined);
   const plan = planOverride === undefined ? planQuery.data : planOverride;
   const [pendingAction, setPendingAction] = useState<PendingAction>(null);
@@ -111,6 +114,16 @@ export function useStudyPlanTaskActions(
       setPendingAction(null);
       router.push(launchPath);
     } catch (caught) {
+      if (caught instanceof QuotaExceededError) {
+        openQuotaLimit(caught.payload, {
+          dismissAction: {
+            href: "/study-plan",
+            label: "Back to Study plan",
+          },
+        });
+        setPendingAction(null);
+        return;
+      }
       setError(
         caught instanceof Error ? caught.message : "Could not start this task.",
       );

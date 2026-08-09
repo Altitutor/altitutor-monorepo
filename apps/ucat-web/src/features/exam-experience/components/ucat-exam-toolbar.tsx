@@ -8,6 +8,7 @@ import {
   Gauge,
   LayoutPanelTop,
   LogOut,
+  MessageSquareMore,
   Square,
   XCircle,
 } from "lucide-react";
@@ -158,20 +159,62 @@ function CompactLagControl({
   onCheckedChange: (checked: boolean) => void;
 }) {
   return (
-    <div
-      className="inline-flex h-9 shrink-0 cursor-pointer items-center gap-1.5 rounded-md px-2 text-sm font-medium transition-colors hover:!bg-muted hover:!text-foreground"
-      onClick={() => onCheckedChange(!checked)}
-    >
-      <Gauge className="h-4 w-4" />
-      {showLabel ? <span>Lag mode</span> : null}
-      <Switch
-        aria-label="Lag mode"
-        checked={checked}
-        onCheckedChange={onCheckedChange}
-        onClick={(event) => event.stopPropagation()}
-        className="ml-0.5 scale-90"
-      />
-    </div>
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <div
+          className="inline-flex h-9 shrink-0 cursor-pointer items-center gap-1.5 rounded-md px-2 text-sm font-medium transition-colors hover:!bg-muted hover:!text-foreground"
+          onClick={() => onCheckedChange(!checked)}
+        >
+          <Gauge className="h-4 w-4" />
+          {showLabel ? <span>Lag mode</span> : null}
+          <Switch
+            aria-label="Lag mode"
+            checked={checked}
+            onCheckedChange={onCheckedChange}
+            onClick={(event) => event.stopPropagation()}
+            className="ml-0.5 scale-90"
+          />
+        </div>
+      </TooltipTrigger>
+      <TooltipContent side="bottom" className="max-w-xs">
+        Simulate the lag of the real UCAT test - adds a small delay every time
+        you click a button
+      </TooltipContent>
+    </Tooltip>
+  );
+}
+
+function CompactNextQuestionPopupControl({
+  checked,
+  showLabel,
+  onCheckedChange,
+}: {
+  checked: boolean;
+  showLabel: boolean;
+  onCheckedChange: (checked: boolean) => void;
+}) {
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <div
+          className="inline-flex h-9 shrink-0 cursor-pointer items-center gap-1.5 rounded-md px-2 text-sm font-medium transition-colors hover:!bg-muted hover:!text-foreground"
+          onClick={() => onCheckedChange(!checked)}
+        >
+          <MessageSquareMore className="h-4 w-4" />
+          {showLabel ? <span>Next question popup</span> : null}
+          <Switch
+            aria-label="Next question popup"
+            checked={checked}
+            onCheckedChange={onCheckedChange}
+            onClick={(event) => event.stopPropagation()}
+            className="ml-0.5 scale-90"
+          />
+        </div>
+      </TooltipTrigger>
+      <TooltipContent side="bottom" className="max-w-xs">
+        Ask before moving to the next question after reviewing a stem
+      </TooltipContent>
+    </Tooltip>
   );
 }
 
@@ -193,7 +236,7 @@ export function UcatExamToolbar({ layout }: { layout: ExamToolbarLayout }) {
   const { title, practice, requestExit } = useExamExperience();
   const { active } = useActiveExamAttempt();
   const { enabled: lagEnabled, setEnabled: setLagEnabled } = useUcatLag();
-  const { updatePreferences } = useUcatInterfacePreferences();
+  const { preferences, updatePreferences } = useUcatInterfacePreferences();
   const hasRoomForActionLabels = useMediaQuery("(min-width: 700px)");
   const activityLabel = getActivityLabel(active?.kind);
 
@@ -243,6 +286,17 @@ export function UcatExamToolbar({ layout }: { layout: ExamToolbarLayout }) {
             showLabel={hasRoomForActionLabels}
             onCheckedChange={setLagEnabled}
           />
+          {practice?.reviewAfterEachStem ? (
+            <CompactNextQuestionPopupControl
+              checked={preferences.nextQuestionPopupEnabled}
+              showLabel={hasRoomForActionLabels}
+              onCheckedChange={(enabled) => {
+                void updatePreferences({
+                  nextQuestionPopupEnabled: enabled,
+                });
+              }}
+            />
+          ) : null}
           <CompactAction
             label="Move right"
             tooltip="Move toolbar to the right"
@@ -357,21 +411,57 @@ export function UcatExamToolbar({ layout }: { layout: ExamToolbarLayout }) {
           <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
             Controls
           </p>
-          <div
-            className="flex h-9 cursor-pointer items-center justify-between rounded-md px-2 transition-colors hover:!bg-muted/80"
-            onClick={() => setLagEnabled(!lagEnabled)}
-          >
-            <span className="inline-flex items-center gap-2 text-sm">
-              <Gauge className="h-4 w-4" />
-              Lag mode
-            </span>
-            <Switch
-              aria-label="Lag mode"
-              checked={lagEnabled}
-              onCheckedChange={setLagEnabled}
-              onClick={(event) => event.stopPropagation()}
-            />
-          </div>
+          <TooltipProvider delayDuration={200}>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <div
+                  className="flex h-9 cursor-pointer items-center justify-between rounded-md px-2 transition-colors hover:!bg-muted/80"
+                  onClick={() => setLagEnabled(!lagEnabled)}
+                >
+                  <span className="inline-flex items-center gap-2 text-sm">
+                    <Gauge className="h-4 w-4" />
+                    Lag mode
+                  </span>
+                  <Switch
+                    aria-label="Lag mode"
+                    checked={lagEnabled}
+                    onCheckedChange={setLagEnabled}
+                    onClick={(event) => event.stopPropagation()}
+                  />
+                </div>
+              </TooltipTrigger>
+              <TooltipContent side="left" className="max-w-xs">
+                Simulate the lag of the real UCAT test - adds a small delay
+                every time you click a button
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+          {practice?.reviewAfterEachStem ? (
+            <div
+              className="flex min-h-9 cursor-pointer items-center justify-between gap-3 rounded-md px-2 transition-colors hover:!bg-muted/80"
+              onClick={() => {
+                void updatePreferences({
+                  nextQuestionPopupEnabled:
+                    !preferences.nextQuestionPopupEnabled,
+                });
+              }}
+            >
+              <span className="inline-flex items-center gap-2 text-sm">
+                <MessageSquareMore className="h-4 w-4 shrink-0" />
+                Next question popup
+              </span>
+              <Switch
+                aria-label="Next question popup"
+                checked={preferences.nextQuestionPopupEnabled}
+                onCheckedChange={(enabled) => {
+                  void updatePreferences({
+                    nextQuestionPopupEnabled: enabled,
+                  });
+                }}
+                onClick={(event) => event.stopPropagation()}
+              />
+            </div>
+          ) : null}
           <Button
             variant="ghost"
             className="w-full justify-start gap-2 px-2 hover:!bg-muted/80 hover:!text-foreground"

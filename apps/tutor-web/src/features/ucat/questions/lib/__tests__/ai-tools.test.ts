@@ -52,6 +52,15 @@ describe('AI tools explanation helpers', () => {
     expect(parsed.accessScope).toBe('public')
   })
 
+  it('validates AI-authored expected time to correct', () => {
+    const stem = baseStem('multiple_choice')
+    stem.questions[0]!.timeBurdenSeconds = '1:30'
+    expect(AiToolQuestionStemPayloadSchema.safeParse(stem).success).toBe(true)
+
+    stem.questions[0]!.timeBurdenSeconds = '0'
+    expect(AiToolQuestionStemPayloadSchema.safeParse(stem).success).toBe(false)
+  })
+
   it('requires every syllogism option to have an explanation', () => {
     const stem = baseStem('syllogism')
     stem.questions[0]!.options[0]!.answerExplanation = plainTextToProseMirror('Explained')

@@ -8,6 +8,8 @@ export * from "./types/data-table";
 export * from "./types/ucat-progress";
 export * from "./ucat/progress-points";
 export * from "./ucat/progress-aggregation";
+export * from "./ucat/question-difficulty";
+export * from "./ucat/question-time-burden";
 export * from "./types/ucat-subscription";
 export * from "./types/ucat-skill-trainer";
 export * from "./utils/quick-filters";

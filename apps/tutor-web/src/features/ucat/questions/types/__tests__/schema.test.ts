@@ -62,6 +62,34 @@ describe('ucatQuestionItemSchema', () => {
       ])
     )
   })
+
+  it('accepts only positive whole seconds or mm:ss for expected time to correct', () => {
+    expect(ucatQuestionItemSchema.safeParse({
+      ...baseQuestion,
+      options: [{ answerText: plainTextToProseMirror('A'), isAnswer: true }],
+      timeBurdenSeconds: '1:30',
+    }).success).toBe(true)
+    expect(ucatQuestionItemSchema.safeParse({
+      ...baseQuestion,
+      options: [{ answerText: plainTextToProseMirror('A'), isAnswer: true }],
+      timeBurdenSeconds: '90',
+    }).success).toBe(true)
+    expect(ucatQuestionItemSchema.safeParse({
+      ...baseQuestion,
+      options: [{ answerText: plainTextToProseMirror('A'), isAnswer: true }],
+      timeBurdenSeconds: '',
+    }).success).toBe(true)
+    expect(ucatQuestionItemSchema.safeParse({
+      ...baseQuestion,
+      options: [{ answerText: plainTextToProseMirror('A'), isAnswer: true }],
+      timeBurdenSeconds: '0',
+    }).success).toBe(false)
+    expect(ucatQuestionItemSchema.safeParse({
+      ...baseQuestion,
+      options: [{ answerText: plainTextToProseMirror('A'), isAnswer: true }],
+      timeBurdenSeconds: '1:75',
+    }).success).toBe(false)
+  })
 })
 
 describe('ucatQuestionStemSchema', () => {

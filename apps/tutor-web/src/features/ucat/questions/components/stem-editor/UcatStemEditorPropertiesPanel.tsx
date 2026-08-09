@@ -878,26 +878,47 @@ export function UcatStemEditorPropertiesPanel({
                 <div className="text-xs font-medium text-muted-foreground">Question {safeQuestionIndex + 1}</div>
               ) : null}
               <PropertyRow label="Difficulty">
-                <Input
-                  type="number"
-                  step="0.01"
-                  className="h-9"
-                  {...form.register(`questions.${safeQuestionIndex}.difficulty`, {
-                    setValueAs: (value) => {
-                      if (value === '' || value == null) return null
-                      const parsed = typeof value === 'number' ? value : Number(value)
-                      return Number.isFinite(parsed) ? parsed : null
-                    },
-                  })}
-                />
+                <div className="space-y-1.5">
+                  <Input
+                    type="number"
+                    min="0"
+                    max="1"
+                    step="0.01"
+                    placeholder="0.50"
+                    aria-describedby={`question-${safeQuestionIndex}-difficulty-help`}
+                    className="h-9"
+                    {...form.register(`questions.${safeQuestionIndex}.difficulty`, {
+                      setValueAs: (value) => {
+                        if (value === '' || value == null) return null
+                        const parsed = typeof value === 'number' ? value : Number(value)
+                        return Number.isFinite(parsed) ? parsed : null
+                      },
+                    })}
+                  />
+                  <p
+                    id={`question-${safeQuestionIndex}-difficulty-help`}
+                    className="text-xs leading-snug text-muted-foreground"
+                  >
+                    Expected proportion incorrect: 0 easiest, 1 hardest. Leave blank if unknown.
+                  </p>
+                </div>
               </PropertyRow>
-              <PropertyRow label="Time burden">
-                <Input
-                  type="text"
-                  className="h-9"
-                  placeholder="1:30 or 90"
-                  {...form.register(`questions.${safeQuestionIndex}.timeBurdenSeconds`)}
-                />
+              <PropertyRow label="Expected time to correct">
+                <div className="space-y-1.5">
+                  <Input
+                    type="text"
+                    className="h-9"
+                    placeholder="1:30 or 90"
+                    aria-describedby={`question-${safeQuestionIndex}-time-burden-help`}
+                    {...form.register(`questions.${safeQuestionIndex}.timeBurdenSeconds`)}
+                  />
+                  <p
+                    id={`question-${safeQuestionIndex}-time-burden-help`}
+                    className="text-xs leading-snug text-muted-foreground"
+                  >
+                    First-exposure working time in authored stem order. Leave blank if unknown.
+                  </p>
+                </div>
               </PropertyRow>
             </PropertiesCard>
           ) : null}

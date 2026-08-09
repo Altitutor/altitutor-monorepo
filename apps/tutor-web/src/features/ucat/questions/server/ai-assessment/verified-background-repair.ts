@@ -229,9 +229,9 @@ export function backgroundRepairPatchAllowed(params: {
     const question = params.snapshot.questions.find((item) => item.id === patch.targetId)
     if (!question) return false
     if (patch.field === 'difficulty') {
-      return (question.difficulty == null || question.difficulty === 0)
+      return question.difficulty == null
         && typeof patch.after === 'number'
-        && patch.after > 0
+        && patch.after >= 0
         && patch.after <= 1
     }
     if (patch.field === 'time_burden_seconds') {

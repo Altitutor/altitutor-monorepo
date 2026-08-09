@@ -1,9 +1,9 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
-import { Button, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@altitutor/ui';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { Button, ImageOcclusionViewer, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@altitutor/ui';
 import type { FlashcardRating, FlashcardReviewCard } from '@altitutor/shared';
-import { parseClozeParts } from '@altitutor/shared';
+import { getImageOcclusionGroupDescription, parseClozeParts } from '@altitutor/shared';
 import { Check, Info, RotateCcw, X } from 'lucide-react';
 import { studentCardCn } from '@/shared/lib/student-visual';
 import { cn } from '@/shared/utils';
@@ -35,7 +35,7 @@ function KeyBadge({ children, className }: { children: string; className?: strin
 }
 
 function clozeReviewHtml(card: FlashcardReviewCard, showAnswer: boolean): string {
-  return parseClozeParts(card.cloze_text, card.cloze_index)
+  return parseClozeParts(card.cloze_text ?? '', card.cloze_index)
     .map((part) => {
       if (part.type === 'text') return part.text;
       if (!part.active) return part.answer;
@@ -73,6 +73,8 @@ export function FlashcardReviewSession({
   const card = mode === 'all' ? studyQueue[0] ?? null : dueQueue[0] ?? null;
   const [displayCard, setDisplayCard] = useState<FlashcardReviewCard | null>(card);
   const [feedback, setFeedback] = useState<FeedbackState | null>(null);
+  const [imageStatus, setImageStatus] = useState<'idle' | 'loading' | 'loaded' | 'error'>('idle');
+  const [imageAttempt, setImageAttempt] = useState(0);
   const freeStudyComplete = mode === 'all' && cards.length > 0 && studyQueue.length === 0;
 
   const showFeedback = useCallback((kind: FeedbackState['kind'], className: string) => {
@@ -92,6 +94,8 @@ export function FlashcardReviewSession({
     }
 
     setDisplayCard(card);
+    setImageStatus(card.card_type === 'image_occlusion' ? 'loading' : 'idle');
+    setImageAttempt(0);
     void Promise.all([
       refreshFlashcardImageUrls(card.cloze_text),
       refreshFlashcardImageUrls(card.extra),
@@ -120,7 +124,14 @@ export function FlashcardReviewSession({
 
     void Promise.allSettled(
       upcomingCards.flatMap((upcomingCard) => [
-        preloadFlashcardImages(upcomingCard.cloze_text),
+        upcomingCard.image_url
+          ? new Promise<void>((resolve) => {
+              const image = new Image();
+              image.onload = () => resolve();
+              image.onerror = () => resolve();
+              image.src = upcomingCard.image_url!;
+            })
+          : preloadFlashcardImages(upcomingCard.cloze_text),
         preloadFlashcardImages(upcomingCard.extra),
       ]),
     );
@@ -228,6 +239,7 @@ export function FlashcardReviewSession({
       if (event.code === 'Space') {
         event.preventDefault();
         if (!showAnswer) {
+          if (card.card_type === 'image_occlusion' && imageStatus !== 'loaded') return;
           setShowAnswer(true);
           return;
         }
@@ -261,7 +273,7 @@ export function FlashcardReviewSession({
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [card, markFreeStudyCorrect, markFreeStudyIncorrect, mode, rateDueCard, showAnswer]);
+  }, [card, imageStatus, markFreeStudyCorrect, markFreeStudyIncorrect, mode, rateDueCard, showAnswer]);
 
   if (freeStudyComplete) {
     return (
@@ -288,6 +300,15 @@ export function FlashcardReviewSession({
       </div>
     );
   }
+
+  const isImageCard = displayCard.card_type === 'image_occlusion';
+  const imageReady = !isImageCard || imageStatus === 'loaded';
+  const imageUrl = displayCard.image_url
+    ? `${displayCard.image_url}${displayCard.image_url.includes('?') ? '&' : '?'}retry=${imageAttempt}`
+    : null;
+  const groupDescription = showAnswer
+    ? getImageOcclusionGroupDescription(displayCard.occlusion_data, displayCard.cloze_index)
+    : null;
 
   return (
     <div className="relative space-y-4">
@@ -330,10 +351,37 @@ export function FlashcardReviewSession({
       </div>
 
       <div className={studentCardCn('space-y-6 p-6')}>
-        <div
-          className="prose max-w-none whitespace-pre-wrap text-xl leading-9 dark:prose-invert"
-          dangerouslySetInnerHTML={{ __html: clozeReviewHtml(displayCard, showAnswer) }}
-        />
+        {isImageCard && imageUrl && displayCard.occlusion_data ? (
+          <div className="space-y-3">
+            <ImageOcclusionViewer
+              key={`${displayCard.id}:${imageAttempt}`}
+              imageUrl={imageUrl}
+              alt={displayCard.image_alt_text ?? ''}
+              data={displayCard.occlusion_data}
+              activeClozeIndex={displayCard.cloze_index}
+              showAnswer={showAnswer}
+              onLoad={() => setImageStatus('loaded')}
+              onError={() => setImageStatus('error')}
+            />
+            {imageStatus === 'loading' ? <p className="text-center text-sm text-muted-foreground">Loading image…</p> : null}
+            {imageStatus === 'error' ? (
+              <div className="rounded-lg border border-destructive/40 bg-destructive/5 p-4 text-center">
+                <p className="text-sm text-destructive">The flashcard image could not be loaded.</p>
+                <Button type="button" variant="outline" size="sm" className="mt-3" onClick={() => { setImageStatus('loading'); setImageAttempt((value) => value + 1); }}>
+                  <RotateCcw className="mr-1.5 h-4 w-4" />Retry
+                </Button>
+              </div>
+            ) : null}
+            {groupDescription ? <p className="rounded-lg border bg-muted/30 p-4 text-sm">{groupDescription}</p> : null}
+          </div>
+        ) : isImageCard ? (
+          <div className="rounded-lg border border-destructive/40 bg-destructive/5 p-4 text-center text-sm text-destructive">This flashcard has no accessible source image.</div>
+        ) : (
+          <div
+            className="prose max-w-none whitespace-pre-wrap text-xl leading-9 dark:prose-invert"
+            dangerouslySetInnerHTML={{ __html: clozeReviewHtml(displayCard, showAnswer) }}
+          />
+        )}
         {showAnswer && displayCard.extra ? (
           <div
             className="prose prose-sm max-w-none rounded-lg border bg-muted/30 p-4 leading-6 dark:prose-invert"
@@ -343,7 +391,7 @@ export function FlashcardReviewSession({
       </div>
 
       {!showAnswer ? (
-        <Button onClick={() => setShowAnswer(true)} className="w-full">
+        <Button onClick={() => setShowAnswer(true)} className="w-full" disabled={!imageReady}>
           Show answer
           <KeyBadge>Space</KeyBadge>
         </Button>

@@ -5,7 +5,7 @@ import { supabaseAdmin } from '@/shared/lib/supabase/server/admin';
 import { randomUUID } from 'crypto';
 import type { Tables, TablesUpdate } from '@altitutor/shared';
 import { sendEmail } from '@/shared/lib/email';
-import { getInviteEmailTemplate } from '@/shared/lib/email-templates';
+import { buildRegistrationEmail } from '@altitutor/email';
 import { getStudentRegistrationInviteMessage } from '@/features/messages/api/systemTemplates';
 
 export async function POST(request: NextRequest) {
@@ -216,18 +216,15 @@ export async function POST(request: NextRequest) {
 
         const emailPromises = emailRecipients.map(async (r) => {
           try {
-            const html = getInviteEmailTemplate({
-              firstName: r.first_name,
-              lastName: r.last_name,
-              inviteUrl: registrationUrl,
-              linkType: 'registration',
+            const email = buildRegistrationEmail({
+              recipientName: [r.first_name, r.last_name].filter(Boolean).join(' '),
+              registrationUrl,
               studentName: `${student.first_name} ${student.last_name}`,
             });
 
             await sendEmail({
               to: r.email,
-              subject: `Complete Registration for ${student.first_name} ${student.last_name} - Altitutor`,
-              html,
+              email,
               attachments: attachments.length > 0 ? attachments : undefined,
             });
 
@@ -449,33 +446,16 @@ export async function POST(request: NextRequest) {
     // Send email if requested
     if (shouldSendEmail && contactMethod === 'email' && recipient) {
       try {
-        // Use custom message if provided, otherwise use template
-        let html: string;
-        if (customMessage && customMessage.trim()) {
-          // For custom messages, create a simple HTML email with the message
-          html = `
-            <!DOCTYPE html>
-            <html>
-            <body style="font-family: Arial, sans-serif; padding: 20px;">
-              <p>${customMessage.replace(/\n/g, '<br>')}</p>
-              <p><a href="${registrationUrl}">${registrationUrl}</a></p>
-            </body>
-            </html>
-          `;
-        } else {
-          html = getInviteEmailTemplate({
-            firstName: recipient.first_name,
-            lastName: recipient.last_name,
-            inviteUrl: registrationUrl,
-            linkType: 'registration',
-            studentName: `${student.first_name} ${student.last_name}`,
-          });
-        }
+        const email = buildRegistrationEmail({
+          recipientName: [recipient.first_name, recipient.last_name].filter(Boolean).join(' '),
+          registrationUrl,
+          studentName: `${student.first_name} ${student.last_name}`,
+          staffIntroduction: customMessage?.trim() || undefined,
+        });
 
         await sendEmail({
           to: recipient.email!,
-          subject: `Complete Registration for ${student.first_name} ${student.last_name} - Altitutor`,
-          html,
+          email,
           attachments: attachments.length > 0 ? attachments : undefined,
         });
       } catch (error) {

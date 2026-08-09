@@ -10,6 +10,11 @@ import {
 import type { BeginExamAttemptInput } from "@/lib/ucat/exam-attempt/types";
 import { quotaExceededResponse } from "@/lib/ucat/quota/quota-service";
 import { ServerTiming } from "@/lib/performance/server-timing";
+import {
+  PRACTICE_SESSION_ENDED_CODE,
+  PRACTICE_SESSION_ENDED_MESSAGE,
+  PracticeSessionEndedError,
+} from "@/lib/ucat/practice-sessions/practice-session-ended";
 
 export async function POST(request: NextRequest) {
   const timing = new ServerTiming();
@@ -86,6 +91,15 @@ export async function POST(request: NextRequest) {
     );
   } catch (error) {
     const message = error instanceof Error ? error.message : "Failed to begin";
+    if (error instanceof PracticeSessionEndedError) {
+      return NextResponse.json(
+        {
+          code: PRACTICE_SESSION_ENDED_CODE,
+          error: PRACTICE_SESSION_ENDED_MESSAGE,
+        },
+        { status: 410 },
+      );
+    }
     if (message.startsWith("QUOTA_EXCEEDED:")) {
       const payload = JSON.parse(message.slice("QUOTA_EXCEEDED:".length));
       return quotaExceededResponse(payload);
