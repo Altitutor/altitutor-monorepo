@@ -28,6 +28,7 @@ import {
   Undo2,
 } from "lucide-react";
 import { useStudyPlanTaskActions } from "@/features/study-plan/hooks/use-study-plan-task-actions";
+import { studyPlanActivityTypeLabel } from "@/features/study-plan/lib/activity-type-label";
 import type { StudyPlanTask } from "@/features/study-plan/model/types";
 import {
   UCAT_COMPLETED_ITEM_SURFACE,
@@ -62,12 +63,14 @@ function TaskRow({
   today,
   variants,
   previewMode,
+  sourceTask,
 }: {
   task: StudyPlanTask;
   compact: boolean;
   today?: string;
   variants: Variants;
   previewMode: boolean;
+  sourceTask: StudyPlanTask | null;
 }) {
   const {
     error,
@@ -107,6 +110,9 @@ function TaskRow({
           {isDone ? <Check className="h-4 w-4" /> : <TaskIcon task={task} />}
         </UcatClickableCardIcon>
         <div className="min-w-0 flex-1">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+            {studyPlanActivityTypeLabel(task, sourceTask)}
+          </p>
           <div className="flex flex-wrap items-center gap-2">
             <p
               className={cn(
@@ -256,6 +262,7 @@ export function StudyPlanTaskList({
   previewMode = false,
 }: StudyPlanTaskListProps) {
   const { containerVariants, itemVariants } = useUcatStaggerMotion();
+  const tasksById = new Map(tasks.map((task) => [task.id, task]));
 
   return (
     <motion.ul
@@ -272,6 +279,11 @@ export function StudyPlanTaskList({
           today={today}
           variants={itemVariants}
           previewMode={previewMode}
+          sourceTask={
+            task.sourceTaskId
+              ? (tasksById.get(task.sourceTaskId) ?? null)
+              : null
+          }
         />
       ))}
       {afterTasks ? (

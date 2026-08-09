@@ -20,6 +20,7 @@ export type TransactionalEmailRow = {
 
 type RenderedTransactionalEmail = {
   subject: string;
+  previewText: string;
   html: string;
   text: string;
   from: string;
@@ -77,6 +78,7 @@ function render(input: {
   const sender = UCAT_EMAIL_SENDERS[input.sender];
   return {
     subject: input.subject,
+    previewText: input.previewText,
     html: renderUcatEmail({
       previewText: input.previewText,
       heading: input.heading,

@@ -12,7 +12,7 @@ const nextConfig = {
   reactStrictMode: true,
   swcMinify: true,
   distDir: process.env.NEXT_DIST_DIR || ".next",
-  transpilePackages: ["@altitutor/shared", "@altitutor/ui"],
+  transpilePackages: ["@altitutor/email", "@altitutor/shared", "@altitutor/ui"],
   redirects: async () => {
     return [
       {

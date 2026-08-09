@@ -8,13 +8,13 @@ and billing messages that must be sent from optional lifecycle communication.
 Run:
 
 ```bash
-pnpm ucat:email-preview
+pnpm email:preview
 ```
 
-Open `http://127.0.0.1:4187`. The gallery renders the real lifecycle,
-transactional and Supabase authentication templates with illustrative data.
-Every card has a light preview and a forced dark-mode preview. No email is sent
-and no database is written.
+Open `http://127.0.0.1:4187`. The repository-wide gallery renders the real core
+tutoring, shared identity, UCAT lifecycle, and UCAT transactional templates with
+illustrative data. Every card has a light preview and a forced dark-mode preview.
+No email is sent and no database is written.
 
 For authentication emails sent by the local Supabase stack, open Inbucket at
 `http://127.0.0.1:55324` after triggering a local signup, password reset or

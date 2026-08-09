@@ -479,6 +479,18 @@ describe('assessment prompts and deterministic checks', () => {
     )
   })
 
+  it('blocks Decision Making stems that contain more than one question', () => {
+    const value = snapshot()
+    value.sectionName = 'Decision Making'
+    value.categoryName = 'Logical Puzzles'
+
+    expect(runUcatFormatChecks(value)).toContainEqual(expect.objectContaining({
+      severity: 'error',
+      code: 'dm_question_count',
+      scopeType: 'shared',
+    }))
+  })
+
   it('blocks assessment when formatting source would be visible to students', () => {
     const value = snapshot()
     value.questions[0].answerExplanation = plainTextToProseMirror(

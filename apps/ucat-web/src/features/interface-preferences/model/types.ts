@@ -5,6 +5,7 @@ export type UcatInterfacePreferences = {
   examToolbarLayout: ExamToolbarLayout;
   examToolbarVisible: boolean;
   lagModeEnabled: boolean;
+  nextQuestionPopupEnabled: boolean;
   studySuggestionsVisible: boolean;
   theme: InterfaceTheme;
 };
@@ -13,6 +14,7 @@ export const DEFAULT_UCAT_INTERFACE_PREFERENCES: UcatInterfacePreferences = {
   examToolbarLayout: "compact_top",
   examToolbarVisible: true,
   lagModeEnabled: false,
+  nextQuestionPopupEnabled: true,
   studySuggestionsVisible: true,
   theme: "system",
 };
@@ -40,6 +42,10 @@ export function parseUcatInterfacePreferences(
       typeof candidate.lagModeEnabled === "boolean"
         ? candidate.lagModeEnabled
         : defaults.lagModeEnabled,
+    nextQuestionPopupEnabled:
+      typeof candidate.nextQuestionPopupEnabled === "boolean"
+        ? candidate.nextQuestionPopupEnabled
+        : defaults.nextQuestionPopupEnabled,
     studySuggestionsVisible:
       typeof candidate.studySuggestionsVisible === "boolean"
         ? candidate.studySuggestionsVisible
@@ -64,6 +70,7 @@ export function parseUcatInterfacePreferencesPatch(
     "examToolbarLayout",
     "examToolbarVisible",
     "lagModeEnabled",
+    "nextQuestionPopupEnabled",
     "studySuggestionsVisible",
     "theme",
   ]);
@@ -88,6 +95,7 @@ export function parseUcatInterfacePreferencesPatch(
   for (const key of [
     "examToolbarVisible",
     "lagModeEnabled",
+    "nextQuestionPopupEnabled",
     "studySuggestionsVisible",
   ] as const) {
     if (key in candidate) {

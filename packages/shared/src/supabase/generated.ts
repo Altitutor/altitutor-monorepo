@@ -35754,6 +35754,10 @@ export type Database = {
         Args: { p_content_id: string; p_content_type: string }
         Returns: Json
       }
+      ucat_content_publication_base_issues: {
+        Args: { p_content_id: string; p_content_type: string }
+        Returns: Json
+      }
       ucat_content_publication_issues: {
         Args: { p_content_id: string; p_content_type: string }
         Returns: Json

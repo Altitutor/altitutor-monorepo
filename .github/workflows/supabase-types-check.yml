@@ -41,8 +41,11 @@ jobs:
       - name: Confirm Supabase CLI version
         run: supabase --version
 
+      - name: Check generated Auth email templates
+        run: pnpm email:check
+
       - name: Render email templates
-        run: pnpm db:email-templates
+        run: bash supabase/scripts/render-email-templates.sh
 
       - name: Start Supabase and apply migrations
         run: |

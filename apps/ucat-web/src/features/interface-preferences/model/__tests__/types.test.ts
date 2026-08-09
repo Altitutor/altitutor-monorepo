@@ -16,10 +16,12 @@ describe("UCAT interface preferences", () => {
       parseUcatInterfacePreferencesPatch({
         examToolbarLayout: "detailed_right",
         examToolbarVisible: false,
+        nextQuestionPopupEnabled: false,
       }),
     ).toEqual({
       examToolbarLayout: "detailed_right",
       examToolbarVisible: false,
+      nextQuestionPopupEnabled: false,
     });
     expect(
       parseUcatInterfacePreferencesPatch({ unknownPreference: true }),

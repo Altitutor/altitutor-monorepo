@@ -15,12 +15,17 @@ describe("Study Plan companion route mode", () => {
     "/skill-trainer/quick-syllogism/play",
     "/learn/module-1",
     "/learn/sections/2/module-1",
+  ])("stays silent on in-progress activity route %s", (pathname) => {
+    expect(getStudyPlanCompanionMode(pathname)).toBe("activity");
+  });
+
+  it.each([
     "/progress/set-attempts/attempt-1",
     "/progress/sections/2/set-attempts/attempt-1",
     "/progress/practice-sessions/session-1",
     "/progress/mocks/mock-attempts/mock-1",
-  ])("stays silent on in-progress activity route %s", (pathname) => {
-    expect(getStudyPlanCompanionMode(pathname)).toBe("activity");
+  ])("keeps the orb available on attempt review route %s", (pathname) => {
+    expect(getStudyPlanCompanionMode(pathname)).toBe("available");
   });
 
   it.each([

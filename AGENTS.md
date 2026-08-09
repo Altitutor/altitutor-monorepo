@@ -28,5 +28,19 @@ Altitutor monorepo (pnpm + Turborepo).
 
 ## Tracking
 
-- Issues/specs live in Obsidian (not Linear)
+- Issues/specs live in Obsidian (not Linear). See `docs/agents/issue-tracker.md`.
 - Stress-test plans with `/grill-with-docs`
+
+## Agent skills
+
+### Issue tracker
+
+Issues live as Obsidian markdown notes under `Areas/Altitutor/Issues/` in the Matt Remote vault. See `docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+Uses the default vocabulary: `needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-human`, `wontfix`. See `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+Single-context: root `CONTEXT.md` + `docs/adr/`. See `docs/agents/domain.md`.

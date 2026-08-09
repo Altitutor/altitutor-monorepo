@@ -29,6 +29,7 @@ type PracticeToolbarState = {
   stats: PracticeEngineLiveStats | null;
   elapsedSeconds: number;
   showAnswerStats: boolean;
+  reviewAfterEachStem: boolean;
   onFinishPractice?: () => void;
 };
 

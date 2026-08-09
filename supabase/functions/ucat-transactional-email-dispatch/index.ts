@@ -4,6 +4,7 @@ import {
   renderTransactionalEmail,
   type TransactionalEmailRow,
 } from "./email.ts";
+import { deliverEdgeEmail } from "../_shared/email.generated.ts";
 
 const MAX_ATTEMPTS = 5;
 
@@ -107,31 +108,14 @@ Deno.serve(async (request) => {
       }
 
       const email = renderTransactionalEmail(row);
-      const response = await fetch("https://api.resend.com/emails", {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${resendApiKey}`,
-          "Content-Type": "application/json",
-          "Idempotency-Key": `ucat-transactional/${row.event_key}`.slice(
-            0,
-            256,
-          ),
-        },
-        body: JSON.stringify({
-          from: email.from,
-          reply_to: email.replyTo,
-          to: row.recipient_email,
-          subject: email.subject,
-          html: email.html,
-          text: email.text,
-          tags: email.tags,
-        }),
+      const delivery = await deliverEdgeEmail({
+        apiKey: resendApiKey,
+        to: row.recipient_email,
+        email,
+        idempotencyKey: `ucat-transactional/${row.event_key}`,
+        tags: email.tags,
       });
-      if (!response.ok) {
-        throw new Error(`Resend ${response.status}: ${await response.text()}`);
-      }
-      const responseBody = await response.json() as { id?: string };
-      if (!responseBody.id) {
+      if (!delivery.providerMessageId) {
         throw new Error("Resend did not return a message id");
       }
 
@@ -140,7 +124,7 @@ Deno.serve(async (request) => {
         .update({
           status: "sent",
           delivery_status: "accepted",
-          provider_message_id: responseBody.id,
+          provider_message_id: delivery.providerMessageId,
           sent_at: new Date().toISOString(),
           claimed_at: null,
           last_error: null,

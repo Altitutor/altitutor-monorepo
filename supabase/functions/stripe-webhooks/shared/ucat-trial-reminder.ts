@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "jsr:@supabase/supabase-js@2";
+import { deliverEdgeEmail } from "../../_shared/email.generated.ts";
 import {
   buildUcatEmailActionUrl,
   escapeEmailHtml,
@@ -143,33 +144,25 @@ export async function sendUcatTrialReminder(
     `,
   });
 
-  const response = await fetch("https://api.resend.com/emails", {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${resendApiKey}`,
-      "Content-Type": "application/json",
-      "Idempotency-Key":
-        `ucat-trial-ending/${subscription.id}/${subscription.trial_end}`,
-    },
-    body: JSON.stringify({
+  await deliverEdgeEmail({
+    apiKey: resendApiKey,
+    to: student.email,
+    idempotencyKey:
+      `ucat-trial-ending/${subscription.id}/${subscription.trial_end}`,
+    email: {
       from: UCAT_TRANSACTIONAL_FROM,
-      reply_to: UCAT_TRANSACTIONAL_REPLY_TO,
-      to: student.email,
+      replyTo: UCAT_TRANSACTIONAL_REPLY_TO,
       subject: `Your Altitutor UCAT Unlimited trial ends on ${trialEnd}`,
+      previewText: `Your trial ends on ${trialEnd}.`,
       html,
       text: `Hi ${
         student.first_name?.trim() || "there"
       },\n\nYour Altitutor UCAT Unlimited trial ends on ${trialEnd}. Your subscription will begin after the trial unless you cancel.\n\nStandard price: ${standardPrice}\nPractice discounts earned: ${earnedDiscount}\nCurrent estimated first payment: ${estimatedBill}\n\nYou can keep reducing your first payment before the trial ends by completing ${dailyQuestionTarget}+ questions on an eligible practice day. Your final payment may be lower if you earn more practice-day discounts before billing.\n\nReview or cancel your subscription: ${manageUrl}\n\nQuestions? Reply or contact ${UCAT_TRANSACTIONAL_REPLY_TO}.\n\nA not-for-profit initiative by Altitutor.`,
-      tags: [
-        { name: "product", value: "ucat" },
-        { name: "category", value: "transactional" },
-        { name: "template", value: "trial_ending" },
-      ],
-    }),
+    },
+    tags: [
+      { name: "product", value: "ucat" },
+      { name: "category", value: "transactional" },
+      { name: "template", value: "trial_ending" },
+    ],
   });
-  if (!response.ok) {
-    throw new Error(
-      `Resend returned ${response.status}: ${await response.text()}`,
-    );
-  }
 }

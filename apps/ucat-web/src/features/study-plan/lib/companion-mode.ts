@@ -13,22 +13,16 @@ function isLearningModuleRoute(pathname: string): boolean {
   return !LEARN_CATALOG_SEGMENTS.has(legacyModule[1] ?? "");
 }
 
-function isAttemptReviewRoute(pathname: string): boolean {
-  return (
-    /^\/progress\/set-attempts\/[^/]+$/.test(pathname) ||
-    /^\/progress\/sections\/\d+\/set-attempts\/[^/]+$/.test(pathname) ||
-    /^\/progress\/practice-sessions\/[^/]+$/.test(pathname) ||
-    /^\/progress\/mocks\/mock-attempts\/[^/]+$/.test(pathname)
-  );
-}
-
 /**
  * The companion helps students choose what to do, then yields once they have
  * chosen an activity. Activity routes may reveal it again on completion.
  *
  * - `hidden`: fullscreen engines (exam / practice session) — no orb at all
  * - `activity`: in-progress work — silent until complete (then celebrate / suggest)
- * - `available`: browsing / dashboard — free to suggest the next step
+ * - `available`: browsing / dashboard / attempt review — free to suggest the next step
+ *
+ * Attempt review stays available so the orb can guide in-page review of
+ * incorrect answers without disappearing while the student is on results.
  */
 export function getStudyPlanCompanionMode(
   pathname: string,
@@ -37,7 +31,7 @@ export function getStudyPlanCompanionMode(
     return "activity";
   }
 
-  if (isLearningModuleRoute(pathname) || isAttemptReviewRoute(pathname)) {
+  if (isLearningModuleRoute(pathname)) {
     return "activity";
   }
 
@@ -45,6 +39,7 @@ export function getStudyPlanCompanionMode(
     return "hidden";
   }
 
+  // Attempt review and other browse routes keep the orb available.
   return "available";
 }
 

@@ -76,6 +76,7 @@ type CoachStep = {
   title: string;
   body: string;
   target: string;
+  awaitingAnswer?: boolean;
   manual?: boolean;
   complete?: boolean;
   spotlight?: boolean;
@@ -188,7 +189,18 @@ function answerStep(snapshot: TutorialSnapshot, body: string): CoachStep {
     title: "Choose your answer",
     body,
     target: '[data-tour="question-engine-question"]',
+    awaitingAnswer: true,
     complete: hasAnswer,
+  };
+}
+
+function readStemStep(body: string): CoachStep {
+  return {
+    title: "1. Read the stem first",
+    body,
+    target: '[data-tour="question-engine-stem"]',
+    manual: true,
+    spotlight: true,
   };
 }
 
@@ -196,31 +208,27 @@ function coachSteps(snapshot: TutorialSnapshot): CoachStep[] {
   switch (snapshot.questionId) {
     case "sampler-vr-1":
       return [
+        readStemStep(
+          "Read the passage once to understand what it says about restoring urban rivers.",
+        ),
         {
-          title: "1. Read the question first",
-          body: "Read the statement before the passage. You are deciding whether it is True, False or Can’t tell.",
+          title: "2. Read the question",
+          body: "Now read the statement you need to judge. You are deciding whether it is True, False or Can’t tell.",
           target: '[data-tour="question-engine-question"]',
-          manual: true,
-          spotlight: true,
-        },
-        {
-          title: "2. Scan for matching evidence",
-          body: "Now scan for the distinctive words ‘wildlife habitat’. You do not need to read every line.",
-          target: '[data-tour="question-engine-stem"]',
           manual: true,
           spotlight: true,
         },
         answerStep(
           snapshot,
-          "Use the matching sentence to choose True, False or Can’t tell, then Submit your answer.",
+          "Return to the passage, find the words ‘wildlife habitat’, then choose True, False or Can’t tell and Submit.",
         ),
       ];
     case "sampler-vr-2":
       return [
         {
           title: "Try the same method with less help",
-          body: "Read the question first, then scan the passage for words linked to monitoring or newly planted banks.",
-          target: '[data-tour="question-engine-question"]',
+          body: "Read the stem first, then read the question. Return to the passage and scan for words linked to monitoring or newly planted banks.",
+          target: '[data-tour="question-engine-stem"]',
           manual: true,
         },
         answerStep(
@@ -231,16 +239,14 @@ function coachSteps(snapshot: TutorialSnapshot): CoachStep[] {
     case "sampler-dm-syllogism": {
       const answered = Object.keys(snapshot.syllogismSnapshot).length;
       return [
+        readStemStep(
+          "Read all three facts about the Cedar Club, cyclists, swimmers and musicians before testing any conclusion.",
+        ),
         {
-          title: "Translate the facts, not the story",
-          body: "Translate each statement into a simple rule. Use only what is certain, and never reverse an ‘all’ statement.",
-          target: '[data-tour="question-engine-stem"]',
-          manual: true,
-        },
-        {
-          title: "Test every conclusion for certainty",
-          body: `Assign Yes or No to all five conclusions. You have completed ${answered} of 5.`,
+          title: "2. Drag Yes or No to every conclusion",
+          body: `Drag a Yes or No tile from the tray into the box beside each conclusion. Choose Yes only when the conclusion must follow from the stem. You have completed ${answered} of 5.`,
           target: '[data-tour="question-engine-question"]',
+          awaitingAnswer: true,
           complete: answered === 5,
         },
       ];
@@ -260,16 +266,14 @@ function coachSteps(snapshot: TutorialSnapshot): CoachStep[] {
       ];
     case "sampler-qr-1":
       return [
+        readStemStep(
+          "Read the admissions table and locate the number of adult admissions and the adult ticket price.",
+        ),
         {
-          title: "Identify the required rows",
-          body: "The question asks only for adult revenue. Find the number of adult admissions and the adult ticket price.",
-          target: '[data-tour="question-engine-question"]',
-          manual: true,
-        },
-        {
-          title: "Open the UCAT calculator",
+          title: "2. Open the UCAT calculator",
           body: "Select Calculator in the toolbar (or press Alt+C).",
           target: '[data-tour="question-engine-calculator"]',
+          spotlight: true,
           complete: snapshot.showCalculator,
         },
         {
@@ -283,29 +287,29 @@ function coachSteps(snapshot: TutorialSnapshot): CoachStep[] {
     case "sampler-qr-2":
       return [
         {
-          title: "Set up the percentage",
-          body: "Use part ÷ whole × 100, then round to the nearest whole percent.",
-          target: '[data-tour="question-engine-question"]',
+          title: "Read the stem first",
+          body: "Read the admissions table first, then read the percentage question. Use part ÷ whole × 100 and round to the nearest whole percent.",
+          target: '[data-tour="question-engine-stem"]',
           manual: true,
         },
         answerStep(snapshot, "Select the nearest whole percentage."),
       ];
     case "sampler-sjt-1":
       return [
-        {
-          title: "Name the professional duty",
-          body: "Identify the professional duty at risk, then judge whether Mina’s response is proportionate.",
-          target: '[data-tour="question-engine-stem"]',
-          manual: true,
-        },
-        answerStep(snapshot, "Choose the most appropriate judgement."),
+        readStemStep(
+          "Read the full scenario and identify what happened to the patient’s information and how the other student responded.",
+        ),
+        answerStep(
+          snapshot,
+          "Use the confidentiality risk and the student’s refusal to choose the most appropriate judgement.",
+        ),
       ];
     case "sampler-sjt-2":
       return [
         {
-          title: "Focus on what changes the duty",
-          body: "Ask how much the 24-hour limit changes the underlying duty to protect confidentiality.",
-          target: '[data-tour="question-engine-question"]',
+          title: "Read the stem first",
+          body: "Read the scenario again before deciding how much the 24-hour limit changes the duty to protect confidentiality.",
+          target: '[data-tour="question-engine-stem"]',
           manual: true,
         },
         answerStep(
@@ -759,6 +763,161 @@ const SECTION_VISUALS = [
   },
 ] as const;
 
+const SECTION_BRIEFINGS = {
+  vr: {
+    questions:
+      "You’ll answer two questions from one passage: a True, False or Can’t tell statement, then a multiple-choice question.",
+    approach:
+      "Read the stem first to understand the passage. Then read the question, return to the relevant sentence, and answer only from what the passage states.",
+    watchOut:
+      "Do not use outside knowledge. Choose Can’t tell when the passage does not give enough evidence either way.",
+  },
+  dm: {
+    questions:
+      "You’ll complete a five-part syllogism, then solve one question about the order of four talks.",
+    approach:
+      "Read the stem first, then turn each fact into a simple rule. For the syllogism, choose Yes only when a conclusion must be true. For the ordering question, place the fixed items first.",
+    watchOut:
+      "Do not reverse a rule such as ‘all A are B’, and do not treat something that could be true as something that must be true.",
+  },
+  qr: {
+    questions:
+      "You’ll answer two questions from one admissions table: one revenue calculation and one percentage calculation.",
+    approach:
+      "Read the stem first, then identify exactly which numbers the question needs. Set up one calculation and use the on-screen calculator to check it.",
+    watchOut:
+      "Use the correct row and denominator. Read the rounding instruction before choosing an answer.",
+  },
+  sjt: {
+    questions:
+      "You’ll answer two questions about one healthcare scenario: first how appropriate an action is, then how important one fact is.",
+    approach:
+      "Read the stem first and identify the professional duty at risk. Then judge whether the action protects the patient and is proportionate to the situation.",
+    watchOut:
+      "Answer the exact scale being asked. A fact can have minor importance without changing the action Mina should take.",
+  },
+} as const;
+
+const FAMILIARITY_BRIEFING = {
+  new: "We’ll coach you through the method and keep you on each question until you reach the correct answer.",
+  familiar:
+    "Use these questions to practise the method. We’ll give feedback after you submit and step in with a hint if needed.",
+  experienced:
+    "Treat these as a quick technique check. Coaching stays minimal, but feedback and hints are available if you need them.",
+} as const satisfies Record<UcatFamiliarity, string>;
+
+function SectionBriefing({
+  sectionIndex,
+  familiarity,
+  onContinue,
+}: {
+  sectionIndex: number;
+  familiarity: UcatFamiliarity;
+  onContinue: () => void;
+}) {
+  const reduceMotion = useReducedMotion();
+  const section = GUIDED_SAMPLER_SECTIONS[sectionIndex];
+  const briefing = SECTION_BRIEFINGS[section.key];
+  const visual = SECTION_VISUALS.find(
+    (item) => item.short === section.shortName,
+  );
+  const Icon = visual?.Icon ?? BookOpenText;
+
+  return (
+    <main className="relative grid min-h-dvh place-items-center overflow-hidden bg-background px-4 py-10 text-foreground transition-colors">
+      <NoiseOverlay />
+      <OnboardingThemeToggle />
+      <motion.div
+        initial={
+          reduceMotion ? { opacity: 1 } : { opacity: 0, y: 18, scale: 0.985 }
+        }
+        animate={{ opacity: 1, y: 0, scale: 1 }}
+        transition={{
+          duration: reduceMotion ? 0 : 0.3,
+          ease: [0.22, 1, 0.36, 1],
+        }}
+        className="relative z-10 w-full max-w-4xl overflow-hidden rounded-3xl border border-border bg-card/80 shadow-2xl backdrop-blur"
+      >
+        <div className="grid md:grid-cols-[1fr_0.72fr]">
+          <div className="flex flex-col p-6 sm:p-9">
+            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-primary dark:text-accent">
+              Section {sectionIndex + 1} of {GUIDED_SAMPLER_SECTIONS.length} ·{" "}
+              {section.shortName}
+            </p>
+            <h1 className="mt-3 text-3xl font-semibold tracking-tight text-foreground sm:text-4xl">
+              {section.name}
+            </h1>
+            <p className="mt-3 text-base leading-relaxed text-muted-foreground">
+              {FAMILIARITY_BRIEFING[familiarity]}
+            </p>
+
+            <dl className="mt-7 space-y-4 text-sm leading-relaxed">
+              <div>
+                <dt className="font-semibold text-foreground">
+                  What you’ll do
+                </dt>
+                <dd className="mt-1 text-muted-foreground">
+                  {briefing.questions}
+                </dd>
+              </div>
+              <div>
+                <dt className="font-semibold text-foreground">
+                  How to approach it
+                </dt>
+                <dd className="mt-1 text-muted-foreground">
+                  {briefing.approach}
+                </dd>
+              </div>
+              <div>
+                <dt className="font-semibold text-foreground">Watch out for</dt>
+                <dd className="mt-1 text-muted-foreground">
+                  {briefing.watchOut}
+                </dd>
+              </div>
+            </dl>
+
+            <div className="mt-8 flex justify-end">
+              <Button
+                type="button"
+                onClick={onContinue}
+                className={UCAT_PRIMARY_ACTION_BUTTON}
+              >
+                Start 2 {section.shortName} questions
+                <ArrowRight className="ml-2 h-4 w-4" aria-hidden />
+              </Button>
+            </div>
+          </div>
+
+          <div className="relative grid min-h-64 place-items-center overflow-hidden border-t border-border bg-primary/[0.04] p-8 md:border-l md:border-t-0 dark:bg-accent/[0.06]">
+            <motion.div
+              aria-hidden
+              className="absolute h-64 w-64 rounded-full bg-marketing-primary/35 blur-3xl"
+              animate={reduceMotion ? undefined : { scale: [0.9, 1.08, 0.9] }}
+              transition={{ duration: 4, repeat: Infinity }}
+            />
+            <motion.div
+              initial={reduceMotion ? false : { opacity: 0, scale: 0.86 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ delay: reduceMotion ? 0 : 0.12 }}
+              className="relative text-center"
+            >
+              <span className="mx-auto flex h-24 w-24 items-center justify-center rounded-3xl bg-primary text-primary-foreground shadow-[0_0_55px_rgba(146,185,198,0.3)] dark:bg-accent">
+                <Icon className="h-10 w-10" aria-hidden />
+              </span>
+              <p className="mt-5 text-2xl font-semibold text-foreground">
+                2 sample questions
+              </p>
+              <p className="mt-2 max-w-xs text-sm leading-relaxed text-muted-foreground">
+                Untimed. Submit each answer to get feedback before moving on.
+              </p>
+            </motion.div>
+          </div>
+        </div>
+      </motion.div>
+    </main>
+  );
+}
+
 function UcatInfoVisual({
   visual,
 }: {
@@ -1123,6 +1282,7 @@ export function GuidedSamplerPage() {
   const [samplerStarted, setSamplerStarted] = useState(
     initialFamiliarity !== "new",
   );
+  const [showSectionBriefing, setShowSectionBriefing] = useState(true);
   const [seenControls, setSeenControls] = useState<Set<SeenControl>>(
     () => new Set(),
   );
@@ -1154,6 +1314,8 @@ export function GuidedSamplerPage() {
   const section = GUIDED_SAMPLER_SECTIONS[sectionIndex];
   const steps = coachSteps(snapshot);
   const activeCoachStep = steps[guideStepIndex] ?? null;
+  const inactivityNudgesEnabled =
+    familiarity === "experienced" || Boolean(activeCoachStep?.awaitingAnswer);
   const lockedQuestionIds = useMemo(
     () => [...correctQuestionIds],
     [correctQuestionIds],
@@ -1162,8 +1324,7 @@ export function GuidedSamplerPage() {
     snapshot.questionId && correctQuestionIds.has(snapshot.questionId),
   );
   const showCorrectNext =
-    feedback?.kind === "correct" &&
-    feedback.questionId === snapshot.questionId;
+    feedback?.kind === "correct" && feedback.questionId === snapshot.questionId;
 
   const handleTutorialStateChange = useCallback(
     (nextSnapshot: TutorialSnapshot) => {
@@ -1220,6 +1381,7 @@ export function GuidedSamplerPage() {
     inactivityAnchorMsRef.current = Date.now();
     lastInactivityLevelRef.current = -1;
   }, [
+    inactivityNudgesEnabled,
     snapshot.questionId,
     snapshot.selectedOptionId,
     snapshot.syllogismSnapshot,
@@ -1227,6 +1389,7 @@ export function GuidedSamplerPage() {
 
   // Escalate inactivity hints at 1×, 1.5×, 2×… section exam seconds-per-question.
   useEffect(() => {
+    if (!inactivityNudgesEnabled) return;
     const questionId = snapshot.questionId;
     if (!questionId || correctQuestionIds.has(questionId)) return;
     const timePerQuestion = section.timePerQuestionSeconds;
@@ -1240,8 +1403,7 @@ export function GuidedSamplerPage() {
         if (
           current &&
           !(
-            current.kind === "focus" &&
-            current.title === INACTIVITY_NUDGE_TITLE
+            current.kind === "focus" && current.title === INACTIVITY_NUDGE_TITLE
           )
         ) {
           return current;
@@ -1275,6 +1437,7 @@ export function GuidedSamplerPage() {
     return () => window.clearInterval(timer);
   }, [
     correctQuestionIds,
+    inactivityNudgesEnabled,
     section.timePerQuestionSeconds,
     snapshot.questionId,
     snapshot.selectedOptionId,
@@ -1555,6 +1718,16 @@ export function GuidedSamplerPage() {
     return <UcatInfoSlideshow onComplete={() => setSamplerStarted(true)} />;
   }
 
+  if (showSectionBriefing) {
+    return (
+      <SectionBriefing
+        sectionIndex={sectionIndex}
+        familiarity={familiarity}
+        onContinue={() => setShowSectionBriefing(false)}
+      />
+    );
+  }
+
   if (showReadout) {
     return (
       <main className="relative grid min-h-dvh place-items-center overflow-hidden bg-background px-4 py-10 text-foreground transition-colors">
@@ -1740,6 +1913,7 @@ export function GuidedSamplerPage() {
             setFeedback(null);
             previousQuestionId.current = null;
             setSectionIndex((current) => current + 1);
+            setShowSectionBriefing(true);
           }}
         />
       </div>

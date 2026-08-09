@@ -14,6 +14,7 @@ const watchedDirectories = [
   "supabase/functions/stripe-webhooks/shared",
   "supabase/templates",
   "supabase/scripts",
+  "packages/email/src",
 ].map((path) => resolve(workspace, path));
 
 let child;

@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Button, ImageOcclusionViewer, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@altitutor/ui';
 import type { FlashcardRating, FlashcardReviewCard } from '@altitutor/shared';
 import { getImageOcclusionGroupDescription, parseClozeParts } from '@altitutor/shared';
@@ -354,7 +354,7 @@ export function FlashcardReviewSession({
         {isImageCard && imageUrl && displayCard.occlusion_data ? (
           <div className="space-y-3">
             <ImageOcclusionViewer
-              key={imageAttempt}
+              key={`${displayCard.id}:${imageAttempt}`}
               imageUrl={imageUrl}
               alt={displayCard.image_alt_text ?? ''}
               data={displayCard.occlusion_data}

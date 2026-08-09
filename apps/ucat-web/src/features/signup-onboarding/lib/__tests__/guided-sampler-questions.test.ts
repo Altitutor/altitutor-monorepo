@@ -84,9 +84,9 @@ describe("guided UCAT sampler", () => {
       (option) => option.isAnswer,
     )?.text;
     expect(secondVr?.options).toHaveLength(4);
-    expect(
-      secondVr?.options.some((option) => option.text === "True"),
-    ).toBe(false);
+    expect(secondVr?.options.some((option) => option.text === "True")).toBe(
+      false,
+    );
     expect(answerText).toBe(
       "Newly planted banks may erode before vegetation becomes established",
     );
@@ -96,13 +96,13 @@ describe("guided UCAT sampler", () => {
     expect(GUIDED_SAMPLER_FEEDBACK["sampler-vr-2"]?.highlightText).toContain(
       "ongoing monitoring",
     );
-    expect(GUIDED_SAMPLER_FEEDBACK["sampler-vr-2"]?.optionFeedback).toMatchObject(
-      {
-        "sampler-vr-2-a": expect.stringContaining("monitoring"),
-        "sampler-vr-2-c": expect.stringContaining("monitoring"),
-        "sampler-vr-2-d": expect.stringContaining("planted banks"),
-      },
-    );
+    expect(
+      GUIDED_SAMPLER_FEEDBACK["sampler-vr-2"]?.optionFeedback,
+    ).toMatchObject({
+      "sampler-vr-2-a": expect.stringContaining("monitoring"),
+      "sampler-vr-2-c": expect.stringContaining("monitoring"),
+      "sampler-vr-2-d": expect.stringContaining("planted banks"),
+    });
   });
 
   it("uses single-column layouts for DM and QR sampler questions", () => {
@@ -153,6 +153,30 @@ describe("guided UCAT sampler", () => {
       expect(GUIDED_SAMPLER_FEEDBACK[question.id]?.explanation).toBeTruthy();
       expect(GUIDED_SAMPLER_FEEDBACK[question.id]?.hints).toHaveLength(3);
     }
+  });
+
+  it("starts every hint ladder with a concrete action", () => {
+    expect(
+      Object.fromEntries(
+        Object.entries(GUIDED_SAMPLER_FEEDBACK).map(([id, feedback]) => [
+          id,
+          feedback.hints[0],
+        ]),
+      ),
+    ).toEqual({
+      "sampler-vr-1": expect.stringContaining("Find the sentence"),
+      "sampler-vr-2": expect.stringContaining("Find ‘ongoing monitoring’"),
+      "sampler-dm-syllogism": expect.stringContaining("Check each conclusion"),
+      "sampler-dm-logic": expect.stringContaining(
+        "Put History and Science together",
+      ),
+      "sampler-qr-1": expect.stringContaining("multiply 40"),
+      "sampler-qr-2": expect.stringContaining("part (20)"),
+      "sampler-sjt-1": expect.stringContaining(
+        "confidentiality is already breached",
+      ),
+      "sampler-sjt-2": expect.stringContaining("patient’s name is exposed"),
+    });
   });
 
   it("uses official exam seconds-per-question for inactivity ladders", () => {

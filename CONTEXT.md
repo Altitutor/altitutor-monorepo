@@ -66,6 +66,9 @@
 - **Staff-authored email introduction** — Optional staff-written context inserted near the beginning of a canonical Altitutor email. It supplements rather than replaces the message's required action, canonical link, expiry or security guidance, branding, and support information.
   _Avoid_: Custom email template, full-body override, raw HTML message
 
+- **Altitutor transactional email** — A required service message owned by Altitutor's shared identity or core tutoring relationship rather than by a Product app, such as an identity, registration, booking, or invoice notification email. It uses the Altitutor brand profile and a monitored Altitutor reply destination.
+  _Avoid_: Product-authored email, noreply email, marketing email
+
 ## UCAT customer communication
 
 - **Primary email action** — The single most useful next action an optional Altitutor UCAT email asks a student to take, based on the reason for that message and the student’s current preparation state. An upgrade or referral is primary only when it is the genuinely relevant next step.
@@ -476,7 +479,7 @@
 - **UCAT publication readiness** — The hard validation required before a question stem, set, mock, or learning module **lesson** can become published. A stem requires a category, valid answer structure, and complete student-facing explanations. Question tags improve discovery and remain a reconciliation concern, but do not block publication. A published parent may contain only published children, and a public parent may contain only public children. A lesson may publish only when every assessment block references published (non-deleted) stem/question content and has no pending generated placeholders; those stems may still be private so the lesson can grant access without putting them in the public pool.
   _Avoid_: Generation gate, review status, quality score
 
-- **UCAT attempt content snapshot** — The immutable copy of the stem, question, answer options, correct-answer metadata, and explanations stored when a question attempt is created. Completed and in-progress attempt review renders from this snapshot so later catalogue edits, withdrawal, or deletion cannot change what the student saw.
+- **UCAT attempt content snapshot** — The semantically immutable copy of the stem, question, answer options, correct-answer metadata, and explanations stored when a question attempt is created. Completed and in-progress attempt review renders from this snapshot so later catalogue edits, withdrawal, or deletion cannot change what the student saw; a verified representation-only migration may change field names or encoding without changing that captured meaning.
   _Avoid_: Content version, live question lookup, resume snapshot
 
 - **Question source channel** — The system-recorded workflow that first created a question stem, such as individual authoring, bulk import, or AI generation. This is provenance for tutor operations, not student-facing content.
@@ -635,8 +638,14 @@
 - **Generation similarity gate** — A generation gate that rejects disguised clones of selected source examples or existing UCAT content, such as reused scenario premises, near-identical data relationships, near-identical question wording, or high text overlap. Shared UCAT archetypes, broad topics, calculation skills, passage genres, generic table/chart dimensions, incidental answer-key patterns, and repeated ordinary names or places are acceptable and should not be rejected by themselves.
   _Avoid_: Answer pattern check, topic uniqueness, generic layout check
 
-- **Answer mode** — The answer-option pattern required by a UCAT stem category, such as Verbal Reasoning Reading Comprehension using four options or True, False, Can't Tell using three fixed options. Answer mode is distinct from `multiple_choice`, which is the stored question type for all non-syllogism questions.
-  _Avoid_: Question category, question type
+- **Answer mode** — The answer-option pattern required by a UCAT stem category, such as Verbal Reasoning Reading Comprehension using four options or True, False, Can't Tell using three fixed options. It is distinct from Response type: answer mode describes the available responses, while Response type describes how the student interacts with them.
+  _Avoid_: Question category, Response type
+
+- **Response type** — The candidate-facing interaction used to answer a UCAT item: multiple choice or drag and drop. A Response type may be shared by different Question stem categories and does not by itself define the answer payload, validation rules, or scoring scheme. Exam-like drag-and-drop questions require the same physical pointer-placement gesture documented for the live UCAT rather than a click-to-place or keyboard substitute.
+  _Avoid_: Question type, item type, Question stem category, answer mode
+
+- **Answer scheme** — The fixed UCAT response contract that defines an item's answer shape, completeness rules, canonical persistence, scoring, and review behavior. The supported schemes are single choice, Situational Judgement rating, Decision Making binary placement, and Situational Judgement most/least placement; Question stem category may supply an authoring default but never controls runtime behavior.
+  _Avoid_: Question type, Response type, category-driven scoring, configurable rules engine
 
 - **Question difficulty target** — A coarse generation target for how hard a UCAT question should be: Easy, Medium, Hard, or Mixed. Difficulty targets apply to individual questions, with stem-level and batch-level defaults available for convenience; Mixed batches should distribute generated questions around the estimated difficulty spread of real UCAT questions rather than producing one uniform level.
   _Avoid_: Exact score, rank
@@ -647,8 +656,17 @@
 - **Generation diversity plan** — A behind-the-scenes plan for varying generation candidates within a batch, including scenario domains, question archetypes, distractor types, difficulty, time burden, and repeated wording patterns. Tutors influence diversity through broad targets such as Mixed difficulty or run instructions rather than detailed controls.
   _Avoid_: Randomness, prompt temperature
 
-- **Question stem category** — A single label describing the broad stem format within its UCAT section. Quantitative Reasoning categories describe mutually exclusive presentation formats, while Verbal Reasoning categories distinguish answer mode rather than reading skill.
+- **Question stem category** — A single label describing the UCAT item type or broad stem format within its UCAT section. It describes what kind of task is assessed, independently of the Response type used to answer it; for example, Decision Making Syllogisms and Interpreting Information and Drawing Conclusions are distinct categories that both use drag and drop.
   _Avoid_: Topic, tag, data subtype
+
+- **Decision Making item type** — One of the six candidate-facing Decision Making Question stem categories in the UCAT ANZ question tutorial: Syllogisms, Logical Puzzles, Recognising Assumptions, Interpreting Information and Drawing Conclusions, Venn Diagrams, or Probabilistic and Statistical Reasoning. Syllogisms and Interpreting Information and Drawing Conclusions use drag and drop; the other four use multiple choice.
+  _Avoid_: Evaluating Arguments (historical umbrella construct), Pearson technical-report analysis labels as product taxonomy
+
+- **Situational Judgement item type** — One of three Situational Judgement Question stem categories: How Appropriate, How Important, or Most/Least Appropriate. Most/Least Appropriate is one combined drag-and-drop item in which the student selects both the most and least appropriate actions; it is not two categories or an importance-rating item.
+  _Avoid_: Most Appropriate category, Least Appropriate category, Most/Least Important
+
+- **UCAT response inference** — The authoring classification process that independently infers Question stem category, Response type, Answer scheme, and answer key from structural content and answer evidence, then reconciles the results. Certain evidence may prefill a value; strong evidence requires review confirmation, weak or missing evidence requires selection, and conflicting evidence blocks import until resolved.
+  _Avoid_: Category-to-type inference, answer-pattern category inference, silent fallback
 
 - **Answer option** — One selectable response for a UCAT question.
 

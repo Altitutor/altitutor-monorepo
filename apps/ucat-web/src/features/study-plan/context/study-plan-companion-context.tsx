@@ -26,11 +26,25 @@ export type StudyPlanActivityCompletion = {
   detail?: string;
 };
 
+/** In-page review guidance registered by attempt result screens. */
+export type AttemptReviewPageGuidance = {
+  viewedCount: number;
+  remainingCount: number;
+  requiredCount: number;
+  landingQuestionIndex: number;
+  selectedQuestionIndex: number;
+  startReviewing: () => void;
+};
+
 type StudyPlanCompanionContextValue = {
   livePractice: StudyPlanLivePractice | null;
   activityComplete: boolean;
   activityCompletion: StudyPlanActivityCompletion | null;
+  attemptReviewGuidance: AttemptReviewPageGuidance | null;
   setActivityComplete: (complete: boolean) => void;
+  setAttemptReviewGuidance: (
+    guidance: AttemptReviewPageGuidance | null,
+  ) => void;
   reportActivityCompletion: (
     completion: Omit<StudyPlanActivityCompletion, "id">,
   ) => void;
@@ -52,6 +66,8 @@ export function StudyPlanCompanionProvider({
   const [activityComplete, setActivityComplete] = useState(false);
   const [activityCompletion, setActivityCompletion] =
     useState<StudyPlanActivityCompletion | null>(null);
+  const [attemptReviewGuidance, setAttemptReviewGuidance] =
+    useState<AttemptReviewPageGuidance | null>(null);
   const completionIdRef = useRef(0);
   const reportActivityCompletion = useCallback(
     (completion: Omit<StudyPlanActivityCompletion, "id">) => {
@@ -76,7 +92,9 @@ export function StudyPlanCompanionProvider({
       livePractice,
       activityComplete,
       activityCompletion,
+      attemptReviewGuidance,
       setActivityComplete,
+      setAttemptReviewGuidance,
       reportActivityCompletion,
       consumeActivityCompletion,
       reportLivePractice,
@@ -85,6 +103,7 @@ export function StudyPlanCompanionProvider({
     [
       activityComplete,
       activityCompletion,
+      attemptReviewGuidance,
       clearLivePractice,
       consumeActivityCompletion,
       livePractice,

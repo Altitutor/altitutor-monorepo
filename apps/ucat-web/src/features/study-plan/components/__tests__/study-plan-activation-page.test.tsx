@@ -157,7 +157,9 @@ describe("StudyPlanActivationPage", () => {
     );
     fireEvent.click(screen.getByRole("button", { name: "Next" }));
 
-    expect(screen.getByLabelText("Target UCAT score")).toHaveValue(2200);
+    expect(
+      screen.getByRole("spinbutton", { name: "Target UCAT score" }),
+    ).toHaveValue(2200);
     expect(screen.getByText("Select your UCAT year")).toBeInTheDocument();
     expect(
       screen.queryByLabelText("Exact date (optional)"),
@@ -165,6 +167,33 @@ describe("StudyPlanActivationPage", () => {
     expect(
       screen.getByRole("button", { name: "Not sure what to set?" }),
     ).toBeInTheDocument();
+  });
+
+  it("lets the student type a low target before validating the complete score", () => {
+    renderPage();
+    fireEvent.click(
+      screen.getByRole("button", { name: /Build me a Study plan/i }),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Next" }));
+
+    const targetInput = screen.getByRole("spinbutton", {
+      name: "Target UCAT score",
+    }) as HTMLInputElement;
+
+    for (const partialScore of ["1", "13", "130", "1300"]) {
+      fireEvent.change(targetInput, { target: { value: partialScore } });
+      expect(targetInput.value).toBe(partialScore);
+    }
+
+    expect(screen.getByText("This target may be too low.")).toBeInTheDocument();
+    expect(
+      screen.getByText(/unlikely to be competitive for many interview offers/i),
+    ).toBeInTheDocument();
+
+    fireEvent.change(targetInput, { target: { value: "2000" } });
+    expect(
+      screen.queryByText("This target may be too low."),
+    ).not.toBeInTheDocument();
   });
 
   it("asks for confirmation before skipping", () => {
@@ -235,7 +264,7 @@ describe("StudyPlanActivationPage", () => {
     expect(mockSaveStudyPlan).not.toHaveBeenCalled();
     expect(replace).toHaveBeenCalledWith("/dashboard");
     expect(
-      screen.queryByLabelText("Target UCAT score"),
+      screen.queryByRole("spinbutton", { name: "Target UCAT score" }),
     ).not.toBeInTheDocument();
   });
 
@@ -269,7 +298,9 @@ describe("StudyPlanActivationPage", () => {
     );
     fireEvent.click(screen.getByRole("button", { name: "Next" }));
 
-    expect(screen.getByLabelText("Target UCAT score")).toBeInTheDocument();
+    expect(
+      screen.getByRole("spinbutton", { name: "Target UCAT score" }),
+    ).toBeInTheDocument();
     const year = String(new Date().getFullYear());
     fireEvent.click(screen.getByRole("combobox", { name: "UCAT year" }));
     fireEvent.click(screen.getByRole("option", { name: year }));
@@ -376,7 +407,7 @@ describe("StudyPlanActivationPage", () => {
       }),
     ).toBeInTheDocument();
     expect(
-      screen.queryByLabelText("Target UCAT score"),
+      screen.queryByRole("spinbutton", { name: "Target UCAT score" }),
     ).not.toBeInTheDocument();
   });
 
@@ -411,7 +442,7 @@ describe("StudyPlanActivationPage", () => {
       ),
     );
     expect(
-      screen.queryByLabelText("Target UCAT score"),
+      screen.queryByRole("spinbutton", { name: "Target UCAT score" }),
     ).not.toBeInTheDocument();
   });
 });

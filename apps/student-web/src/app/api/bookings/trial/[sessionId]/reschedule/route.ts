@@ -10,7 +10,7 @@ import {
   loadPublicBookingSession,
 } from '@/features/bookings/lib/public-booking-guards';
 import { sendEmail } from '@/shared/lib/email';
-import { getBookingChangedEmailTemplate } from '@/shared/lib/email-templates';
+import { buildBookingChangedEmail } from '@altitutor/email';
 
 export const dynamic = 'force-dynamic';
 
@@ -106,10 +106,10 @@ export async function POST(
       try {
         await sendEmail({
           to: session.student_email,
-          subject: 'Your Altitutor session has been changed',
-          html: getBookingChangedEmailTemplate({
-            firstName: session.student_first_name,
-            lastName: session.student_last_name,
+          email: buildBookingChangedEmail({
+            recipientName: [session.student_first_name, session.student_last_name]
+              .filter(Boolean)
+              .join(' '),
             sessionDate,
             sessionTime,
             bookingUrl: getBookingConfirmationUrl(session.id),
