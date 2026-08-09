@@ -127,7 +127,7 @@ describe('letterToOptionIndex', () => {
   });
 
   it('returns 0 for invalid letter', () => {
-    expect(letterToOptionIndex('F')).toBe(0);
+    expect(letterToOptionIndex('F')).toBeNull();
   });
 });
 

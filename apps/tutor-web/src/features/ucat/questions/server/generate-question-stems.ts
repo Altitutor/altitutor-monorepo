@@ -46,6 +46,11 @@ import {
 } from '@/features/ucat/questions/lib/ai-generation/gates'
 import { sampleWithoutReplacement } from '@/features/ucat/questions/lib/ai-generation/sample-without-replacement'
 import {
+  inferAnswerEvidenceFromKeyValues,
+  inferResponseContract,
+  type AnswerKeyInferenceValue,
+} from '@/features/ucat/questions/lib/parsers/responseClassification'
+import {
   generateUcatImageBytes,
   imageConfigFromProvider,
   resolveImageApiConfig,
@@ -1208,34 +1213,70 @@ async function toDraft(params: {
   model: string
   metadata: Record<string, unknown>
   categoryIdByName: Map<string, string>
+  sectionName: string
 }) {
   const generatedCategoryId =
     params.stem.categoryId ??
     params.body.categoryId ??
     params.categoryIdByName.get(normalizeLabel(params.stem.categoryName)) ??
     null
-  const questions = await Promise.all(params.stem.questions.map(async (question, questionIndex) => ({
-    index: questionIndex + 1,
-    questionText: await generatedContentToProseMirrorServer(question.questionText),
-    answerExplanation: question.answerExplanation ? await generatedContentToProseMirrorServer(question.answerExplanation) : null,
-    difficulty: difficultyToNumber(question.estimatedDifficulty, question.difficultyTarget),
-    timeBurdenSeconds: question.estimatedTimeBurdenSeconds ?? null,
-    questionType: question.questionType === 'syllogism' ? 'syllogism' : 'multiple_choice',
-    responseType: question.responseType ?? (question.questionType === 'syllogism' ? 'drag_and_drop' : 'multiple_choice'),
-    answerScheme: question.answerScheme ?? (question.questionType === 'syllogism' ? 'decision_making_binary_placement' : 'single_choice'),
-    tagIds: question.tagIds?.length ? question.tagIds : params.body.targetTagIds,
-    options: await Promise.all(question.options.map(async (option, optionIndex) => ({
-      index: optionIndex + 1,
-      answerText: await generatedContentToProseMirrorServer(option.answerText),
-      answerExplanation: option.answerExplanation ? await generatedContentToProseMirrorServer(option.answerExplanation) : null,
-      isAnswer: !!option.isAnswer,
-      answerKeyValue: option.answerKeyValue ?? (
-        question.questionType === 'syllogism'
-          ? option.isAnswer ? 'yes' : 'no'
-          : option.isAnswer ? 'correct' : null
-      ),
-    }))),
-  })))
+  const questions = await Promise.all(params.stem.questions.map(async (question, questionIndex) => {
+    const directive = generatedContentToPlainText(question.questionText)
+    const optionTexts = question.options.map((option) => generatedContentToPlainText(option.answerText))
+    const structuralInference = inferResponseContract({
+      sectionName: params.sectionName,
+      directive,
+      targetCount: question.options.length,
+      optionTexts,
+    })
+    const explicitKeys = question.options.map(
+      (option) => option.answerKeyValue ?? null
+    ) as AnswerKeyInferenceValue[]
+    const hasExplicitKeys = explicitKeys.some((value) => value !== null)
+    const inferredKeys: AnswerKeyInferenceValue[] = hasExplicitKeys
+      ? explicitKeys
+      : structuralInference.answerScheme.value === 'decision_making_binary_placement'
+        ? question.options.map((option) => option.isAnswer ? 'yes' : 'no')
+        : question.options.map((option) => option.isAnswer ? 'correct' : null)
+    const answerEvidence = inferAnswerEvidenceFromKeyValues(inferredKeys)
+    if (answerEvidence.conflicts.length > 0) {
+      throw new Error(`Generated question ${questionIndex + 1} has conflicting answer keys.`)
+    }
+    const inference = inferResponseContract({
+      sectionName: params.sectionName,
+      directive,
+      targetCount: question.options.length,
+      optionTexts,
+      answerEvidenceKind: answerEvidence.kind ?? undefined,
+    })
+    const responseType = inference.responseType.value ?? question.responseType ?? 'multiple_choice'
+    const answerScheme = inference.answerScheme.value ?? question.answerScheme ?? 'single_choice'
+    if (
+      inference.reviewState === 'blocked' ||
+      (question.responseType && question.responseType !== responseType) ||
+      (question.answerScheme && question.answerScheme !== answerScheme)
+    ) {
+      throw new Error(`Generated question ${questionIndex + 1} has conflicting response-contract evidence.`)
+    }
+    return {
+      index: questionIndex + 1,
+      questionText: await generatedContentToProseMirrorServer(question.questionText),
+      answerExplanation: question.answerExplanation ? await generatedContentToProseMirrorServer(question.answerExplanation) : null,
+      difficulty: difficultyToNumber(question.estimatedDifficulty, question.difficultyTarget),
+      timeBurdenSeconds: question.estimatedTimeBurdenSeconds ?? null,
+      questionType: responseType === 'drag_and_drop' ? 'syllogism' : 'multiple_choice',
+      responseType,
+      answerScheme,
+      tagIds: question.tagIds?.length ? question.tagIds : params.body.targetTagIds,
+      options: await Promise.all(question.options.map(async (option, optionIndex) => ({
+        index: optionIndex + 1,
+        answerText: await generatedContentToProseMirrorServer(option.answerText),
+        answerExplanation: option.answerExplanation ? await generatedContentToProseMirrorServer(option.answerExplanation) : null,
+        isAnswer: !!option.isAnswer,
+        answerKeyValue: inferredKeys[optionIndex] ?? null,
+      }))),
+    }
+  }))
 
   return {
     sectionId: params.body.sectionId,
@@ -1741,6 +1782,7 @@ export async function executeGeneration(
           })),
         },
         categoryIdByName,
+        sectionName: sectionRow.name ?? 'UCAT',
       })
     ))
 

@@ -1,4 +1,4 @@
-export type InferenceConfidence = 'certain' | 'strong' | 'weak' | 'none'
+export type InferenceConfidence = 'certain' | 'strong' | 'weak' | 'absent'
 
 export type ResponseTypeInferenceValue =
   | 'multiple_choice'
@@ -20,7 +20,7 @@ export type Inference<T> = {
 export type ResponseContractInference = {
   responseType: Inference<ResponseTypeInferenceValue>
   answerScheme: Inference<AnswerSchemeInferenceValue>
-  reviewState: 'confirmed' | 'review_response_contract' | 'conflicting_evidence'
+  reviewState: 'prefilled' | 'confirmation_required' | 'review_required' | 'blocked'
 }
 
 export type ResponseContractInferenceInput = {
@@ -34,6 +34,67 @@ export type ResponseContractInferenceInput = {
     | 'most_least_pair'
 }
 
+export type AnswerEvidenceKind = NonNullable<
+  ResponseContractInferenceInput['answerEvidenceKind']
+>
+
+export type AnswerKeyInferenceValue = 'correct' | 'yes' | 'no' | 'most' | 'least' | null
+
+export type UntypedAnswerEvidence = {
+  kind: AnswerEvidenceKind | null
+  confidence: InferenceConfidence
+  keyValues: AnswerKeyInferenceValue[]
+  evidence: string[]
+  conflicts: string[]
+}
+
+export type DecisionMakingCategoryInferenceValue =
+  | 'Syllogisms'
+  | 'Interpreting Information and Drawing Conclusions'
+
+export function inferAnswerEvidenceFromKeyValues(
+  keyValues: readonly AnswerKeyInferenceValue[]
+): UntypedAnswerEvidence {
+  const present = keyValues.filter(
+    (value): value is Exclude<AnswerKeyInferenceValue, null> => value !== null
+  )
+  const families = new Set(
+    present.map((value) =>
+      value === 'correct' ? 'single' : value === 'yes' || value === 'no' ? 'binary' : 'most_least'
+    )
+  )
+  if (families.size > 1) {
+    return {
+      kind: null,
+      confidence: 'certain',
+      keyValues: [...keyValues],
+      evidence: ['canonical_answer_keys'],
+      conflicts: ['conflicting_answer_key_shapes'],
+    }
+  }
+  const family = [...families][0]
+  if (family === 'single' && present.filter((value) => value === 'correct').length === 1) {
+    return { kind: 'single_choice', confidence: 'certain', keyValues: [...keyValues], evidence: ['canonical_answer_keys'], conflicts: [] }
+  }
+  if (family === 'binary' && keyValues.length === 5 && present.length === 5) {
+    return { kind: 'binary_sequence', confidence: 'certain', keyValues: [...keyValues], evidence: ['canonical_answer_keys'], conflicts: [] }
+  }
+  if (
+    family === 'most_least' &&
+    present.filter((value) => value === 'most').length === 1 &&
+    present.filter((value) => value === 'least').length === 1
+  ) {
+    return { kind: 'most_least_pair', confidence: 'certain', keyValues: [...keyValues], evidence: ['canonical_answer_keys'], conflicts: [] }
+  }
+  return {
+    kind: null,
+    confidence: present.length > 0 ? 'weak' : 'absent',
+    keyValues: [...keyValues],
+    evidence: present.length > 0 ? ['incomplete_answer_keys'] : [],
+    conflicts: [],
+  }
+}
+
 function normalizeProbe(value: string): string {
   return value
     .toLowerCase()
@@ -44,6 +105,219 @@ function normalizeProbe(value: string): string {
     .replace(/[^a-z0-9]+/g, ' ')
     .replace(/\s+/g, ' ')
     .trim()
+}
+
+function binaryKeyValues(input: string): AnswerKeyInferenceValue[] | null {
+  const normalized = input.trim().toLowerCase()
+  const compact = normalized.replace(/[^yn]/gu, '')
+  if (/^[yn]{5}$/u.test(normalized)) {
+    return [...normalized].map((token) => (token === 'y' ? 'yes' : 'no'))
+  }
+
+  const tokens = normalized
+    .split(/[\s,;|/]+/u)
+    .filter(Boolean)
+  if (
+    tokens.length === 5 &&
+    tokens.every((token) => /^(?:y|ye|yes|n|no)$/u.test(token))
+  ) {
+    return tokens.map((token) => (token.startsWith('y') ? 'yes' : 'no'))
+  }
+
+  // Do not accept arbitrary prose merely because it contains five y/n letters.
+  if (compact.length === 5 && /^[yn]{5}$/u.test(compact) && /^[yn\s,;|/]+$/u.test(normalized)) {
+    return [...compact].map((token) => (token === 'y' ? 'yes' : 'no'))
+  }
+  return null
+}
+
+function labelledMostLeastKeyValues(input: string): AnswerKeyInferenceValue[] | null {
+  const normalized = normalizeProbe(input)
+  const mostThenLeast = /\bmost(?: appropriate)?\s+([a-e])\b.*\bleast(?: appropriate)?\s+([a-e])\b/u.exec(normalized)
+  const leastThenMost = /\bleast(?: appropriate)?\s+([a-e])\b.*\bmost(?: appropriate)?\s+([a-e])\b/u.exec(normalized)
+  const most = mostThenLeast?.[1] ?? leastThenMost?.[2]
+  const least = mostThenLeast?.[2] ?? leastThenMost?.[1]
+  if (!most || !least || most === least) return null
+  const length = Math.max(most.charCodeAt(0), least.charCodeAt(0)) - 96
+  const keys: AnswerKeyInferenceValue[] = Array.from({ length }, () => null)
+  keys[most.charCodeAt(0) - 97] = 'most'
+  keys[least.charCodeAt(0) - 97] = 'least'
+  return keys
+}
+
+/**
+ * Parse answer evidence before a response type or legacy question type is known.
+ * The result deliberately preserves ambiguity and conflicts for reconciliation.
+ */
+function parseOneUntypedAnswerEvidence(trimmed: string): UntypedAnswerEvidence {
+  const lines = trimmed.split(/\r?\n/u).map((line) => line.trim()).filter(Boolean)
+  const firstField = trimmed.split('\t')[0]?.trim() ?? trimmed
+  const binary = binaryKeyValues(trimmed) ?? binaryKeyValues(firstField) ?? lines.map(binaryKeyValues).find((value) => value != null) ?? null
+  const mostLeast = labelledMostLeastKeyValues(trimmed) ?? lines.map(labelledMostLeastKeyValues).find((value) => value != null) ?? null
+  if (binary && mostLeast) {
+    return {
+      kind: null,
+      confidence: 'certain',
+      keyValues: [],
+      evidence: ['five_binary_tokens', 'labelled_most_least_pair'],
+      conflicts: ['conflicting_answer_shapes'],
+    }
+  }
+  if (binary) {
+    return {
+      kind: 'binary_sequence',
+      confidence: 'certain',
+      keyValues: binary,
+      evidence: ['five_binary_tokens'],
+      conflicts: [],
+    }
+  }
+  if (mostLeast) {
+    return {
+      kind: 'most_least_pair',
+      confidence: 'certain',
+      keyValues: mostLeast,
+      evidence: ['labelled_most_least_pair'],
+      conflicts: [],
+    }
+  }
+  const singleLetter = /^([a-e])(?:\t.*)?$/iu.exec(trimmed)?.[1]
+  if (singleLetter) {
+    const index = singleLetter.toUpperCase().charCodeAt(0) - 65
+    const keyValues: AnswerKeyInferenceValue[] = Array.from({ length: index + 1 }, () => null)
+    keyValues[index] = 'correct'
+    return {
+      kind: 'single_choice',
+      confidence: 'certain',
+      keyValues,
+      evidence: ['single_answer_letter'],
+      conflicts: [],
+    }
+  }
+  if (/^[a-e]{2}$/iu.test(trimmed)) {
+    return {
+      kind: null,
+      confidence: 'weak',
+      keyValues: [],
+      evidence: ['ambiguous_compact_pair'],
+      conflicts: [],
+    }
+  }
+  if (/^[a-z]$/iu.test(trimmed)) {
+    return {
+      kind: null,
+      confidence: 'absent',
+      keyValues: [],
+      evidence: [],
+      conflicts: ['invalid_answer_letter'],
+    }
+  }
+  return { kind: null, confidence: 'absent', keyValues: [], evidence: [], conflicts: [] }
+}
+
+function numberedAnswerRows(input: string): string[] | null {
+  const lines = input.split(/\r?\n/u).map((line) => line.trim()).filter(Boolean)
+  const dataLines = lines.filter(
+    (line) => !/^(?:question|q|number|no\.?)\b.*\banswer\b/iu.test(line)
+  )
+  const groups = new Map<number, string[]>()
+  let pendingNumber: number | null = null
+  for (const line of dataLines) {
+    const numbered = /^(?:q(?:uestion)?\s*)?(\d+)[.)]?\s*(?:\t|\s)+(.*\S)\s*$/iu.exec(line)
+    if (numbered) {
+      const number = Number(numbered[1])
+      const values = groups.get(number) ?? []
+      const payload = numbered[2] ?? ''
+      const leadingToken = /^(yes|ye|y|no|n|[a-e])(?:\s+|\t).+$/iu.exec(payload)?.[1]
+      values.push(leadingToken ?? payload)
+      groups.set(number, values)
+      pendingNumber = null
+      continue
+    }
+    const numberOnly = /^(?:q(?:uestion)?\s*)?(\d+)[.)]?$/iu.exec(line)
+    if (numberOnly) {
+      pendingNumber = Number(numberOnly[1])
+      if (!groups.has(pendingNumber)) groups.set(pendingNumber, [])
+      continue
+    }
+    if (pendingNumber != null) {
+      groups.get(pendingNumber)?.push(line)
+      pendingNumber = null
+      continue
+    }
+    return null
+  }
+  if (groups.size === 0) return null
+  return [...groups.entries()]
+    .sort(([left], [right]) => left - right)
+    .map(([, values]) => values.join('\n'))
+}
+
+/**
+ * Parse answer evidence before a response type or legacy question type is known.
+ * Numbered answer tables are split structurally, then each row is classified by shape.
+ */
+export function parseUntypedAnswerEvidence(input: string): UntypedAnswerEvidence[] {
+  const trimmed = input.trim()
+  if (!trimmed) {
+    return [{ kind: null, confidence: 'absent', keyValues: [], evidence: [], conflicts: [] }]
+  }
+  const rows = numberedAnswerRows(trimmed)
+  if (rows) return rows.map(parseOneUntypedAnswerEvidence)
+  const whole = parseOneUntypedAnswerEvidence(trimmed)
+  if (whole.kind || whole.conflicts.length > 0 || whole.evidence.length > 0) return [whole]
+  const lines = trimmed.split(/\r?\n/u).map((line) => line.trim()).filter(Boolean)
+  const lineEvidence = lines.map(parseOneUntypedAnswerEvidence)
+  if (lineEvidence.length > 1 && lineEvidence.every((item) => item.kind !== null)) {
+    return lineEvidence
+  }
+  return [whole]
+}
+
+/** Category inference is intentionally independent of interaction and answer tokens. */
+export function inferDecisionMakingCategory(input: {
+  stemText: string
+  directive: string
+  trustedCategoryName?: DecisionMakingCategoryInferenceValue | null
+}): Inference<DecisionMakingCategoryInferenceValue> {
+  if (input.trustedCategoryName) {
+    return {
+      value: input.trustedCategoryName,
+      confidence: 'certain',
+      evidence: ['trusted_category_heading'],
+      conflicts: [],
+    }
+  }
+
+  const probe = normalizeProbe(input.stemText)
+  const quantifiedMatches = probe.match(/\b(?:all|some|no|none|every)\b/gu) ?? []
+  const formalPremises = quantifiedMatches.length >= 2
+  const factualPresentation = /\b(?:table|chart|graph|passage|data|information|report|survey|study|figures?)\b/u.test(probe)
+  if (formalPremises && factualPresentation) {
+    return {
+      value: null,
+      confidence: 'weak',
+      evidence: ['formal_quantified_premises', 'structured_factual_presentation'],
+      conflicts: ['ambiguous_dm_category'],
+    }
+  }
+  if (formalPremises) {
+    return {
+      value: 'Syllogisms',
+      confidence: 'strong',
+      evidence: ['formal_quantified_premises'],
+      conflicts: [],
+    }
+  }
+  if (factualPresentation) {
+    return {
+      value: 'Interpreting Information and Drawing Conclusions',
+      confidence: 'strong',
+      evidence: ['structured_factual_presentation'],
+      conflicts: [],
+    }
+  }
+  return { value: null, confidence: 'absent', evidence: [], conflicts: [] }
 }
 
 function pairedMostLeastDirective(directive: string): boolean {
@@ -91,8 +365,32 @@ function looksLikeSituationalJudgementRatingScale(
 function inferResponseType(
   input: ResponseContractInferenceInput
 ): Inference<ResponseTypeInferenceValue> {
+  if (input.answerEvidenceKind) {
+    const answerValue: ResponseTypeInferenceValue =
+      input.answerEvidenceKind === 'binary_sequence' ||
+      input.answerEvidenceKind === 'most_least_pair'
+        ? 'drag_and_drop'
+        : 'multiple_choice'
+    const structuralValue: ResponseTypeInferenceValue | null =
+      (input.targetCount === 5 &&
+        binaryConclusionDirective(input.directive)) ||
+      (input.targetCount === 3 &&
+        pairedMostLeastDirective(input.directive))
+        ? 'drag_and_drop'
+        : looksLikeSituationalJudgementRatingScale(input.optionTexts ?? [])
+          ? 'multiple_choice'
+          : null
+    return {
+      value: answerValue,
+      confidence: 'certain',
+      evidence: [`${input.answerEvidenceKind}_answer_shape`],
+      conflicts:
+        structuralValue !== null && structuralValue !== answerValue
+          ? ['contradictory_response_type_evidence']
+          : [],
+    }
+  }
   if (
-    input.sectionName === 'Decision Making' &&
     input.targetCount === 5 &&
     binaryConclusionDirective(input.directive)
   ) {
@@ -105,7 +403,6 @@ function inferResponseType(
   }
 
   if (
-    input.sectionName === 'Situational Judgement' &&
     input.targetCount === 3 &&
     pairedMostLeastDirective(input.directive)
   ) {
@@ -118,7 +415,6 @@ function inferResponseType(
   }
 
   if (
-    input.sectionName === 'Situational Judgement' &&
     looksLikeSituationalJudgementRatingScale(input.optionTexts ?? [])
   ) {
     return {
@@ -129,7 +425,7 @@ function inferResponseType(
     }
   }
 
-  return { value: null, confidence: 'none', evidence: [], conflicts: [] }
+  return { value: null, confidence: 'absent', evidence: [], conflicts: [] }
 }
 
 function inferAnswerScheme(
@@ -154,7 +450,6 @@ function inferAnswerScheme(
   if (input.answerEvidenceKind === 'single_choice') {
     return {
       value:
-        input.sectionName === 'Situational Judgement' &&
         looksLikeSituationalJudgementRatingScale(input.optionTexts ?? [])
           ? 'situational_judgement_rating'
           : 'single_choice',
@@ -164,7 +459,6 @@ function inferAnswerScheme(
     }
   }
   if (
-    input.sectionName === 'Decision Making' &&
     input.targetCount === 5 &&
     binaryConclusionDirective(input.directive)
   ) {
@@ -176,7 +470,6 @@ function inferAnswerScheme(
     }
   }
   if (
-    input.sectionName === 'Situational Judgement' &&
     input.targetCount === 3 &&
     pairedMostLeastDirective(input.directive)
   ) {
@@ -188,7 +481,6 @@ function inferAnswerScheme(
     }
   }
   if (
-    input.sectionName === 'Situational Judgement' &&
     looksLikeSituationalJudgementRatingScale(input.optionTexts ?? [])
   ) {
     return {
@@ -198,7 +490,7 @@ function inferAnswerScheme(
       conflicts: [],
     }
   }
-  return { value: null, confidence: 'none', evidence: [], conflicts: [] }
+  return { value: null, confidence: 'absent', evidence: [], conflicts: [] }
 }
 
 function expectedResponseType(
@@ -215,21 +507,26 @@ export function inferResponseContract(
 ): ResponseContractInference {
   const responseType = inferResponseType(input)
   const answerScheme = inferAnswerScheme(input)
-  const conflicts =
+  const contractConflicts =
     responseType.value !== null &&
     answerScheme.value !== null &&
     expectedResponseType(answerScheme.value) !== responseType.value
       ? ['response_type_answer_scheme_mismatch']
       : []
+  const conflicts = [...new Set([...responseType.conflicts, ...answerScheme.conflicts, ...contractConflicts])]
 
   return {
     responseType: { ...responseType, conflicts },
     answerScheme: { ...answerScheme, conflicts },
     reviewState:
       conflicts.length > 0
-        ? 'conflicting_evidence'
-        : responseType.value !== null && answerScheme.value !== null
-          ? 'confirmed'
-          : 'review_response_contract',
+        ? 'blocked'
+        : responseType.value === null || answerScheme.value === null ||
+            responseType.confidence === 'weak' || answerScheme.confidence === 'weak' ||
+            responseType.confidence === 'absent' || answerScheme.confidence === 'absent'
+          ? 'review_required'
+          : responseType.confidence === 'certain' && answerScheme.confidence === 'certain'
+            ? 'prefilled'
+            : 'confirmation_required',
   }
 }

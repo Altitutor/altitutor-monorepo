@@ -334,6 +334,8 @@ export function mapParsedQuantitativeReasoningToFormValues(
           tableMap
         ) as Json,
         questionType: 'multiple_choice' as const,
+        responseType: 'multiple_choice' as const,
+        answerScheme: 'single_choice' as const,
         answerExplanation: null,
         difficulty: null,
         timeBurdenSeconds: '',
@@ -342,6 +344,7 @@ export function mapParsedQuantitativeReasoningToFormValues(
           answerText: tokenizedPlainTextToProseMirrorWithTables(opt.text, tableMap) as Json,
           answerExplanation: null,
           isAnswer: false,
+          answerKeyValue: null,
         })),
       }))
 

@@ -134,7 +134,11 @@ describe('inferManualStemMetadataRecommendation', () => {
 
     expect(recommendation?.sectionId).toBeNull()
     expect(recommendation?.categoryId).toBe('dm-syllogisms')
-    expect(recommendation?.questionType).toBe('syllogism')
+    expect(recommendation?.responseContractsByQuestionIndex[0]).toMatchObject({
+      responseType: { value: 'drag_and_drop', confidence: 'strong' },
+      answerScheme: { value: 'decision_making_binary_placement', confidence: 'strong' },
+      reviewState: 'confirmation_required',
+    })
   })
 
   it('can still detect a section when none is currently set', () => {

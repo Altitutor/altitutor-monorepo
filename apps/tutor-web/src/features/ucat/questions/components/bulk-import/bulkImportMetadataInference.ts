@@ -24,6 +24,10 @@ import {
   getVerbalReasoningTagPathsForQuestion,
 } from '@/features/ucat/questions/lib/parsers/verbalReasoning'
 import { proseMirrorToPlainText } from '@/features/ucat/shared/lib/rich-text'
+import {
+  inferResponseContract,
+  type ResponseContractInference,
+} from '@/features/ucat/questions/lib/parsers/responseClassification'
 
 export type BulkImportCategoryRow = {
   id?: string | null
@@ -42,7 +46,7 @@ export type BulkImportTagRow = {
 export type ManualStemMetadataRecommendation = {
   sectionId: string | null
   categoryId: string | null
-  questionType: 'multiple_choice' | 'syllogism' | null
+  responseContractsByQuestionIndex: Record<number, ResponseContractInference>
   tagIdsByQuestionIndex: Record<number, string[]>
 }
 
@@ -319,14 +323,19 @@ export function inferManualStemMetadataRecommendation(args: {
           categories: args.categories,
         })
       : null)
-  const questionType = section === 'decision_making' && categoryId
-    ? (() => {
-        const category = args.categories.find((row) => row.id === categoryId)
-        return (category?.name ?? '').trim().toLowerCase().startsWith('syllogism')
-          ? 'syllogism' as const
-          : null
-      })()
-    : null
+  const sectionName = args.sections.find((row) => row.id === sectionId)?.name ?? ''
+  const responseContractsByQuestionIndex: Record<number, ResponseContractInference> = {}
+  stem.questions.forEach((question, index) => {
+    const inference = inferResponseContract({
+      sectionName,
+      directive: question.text,
+      targetCount: question.options.length,
+      optionTexts: question.options.map((option) => option.text),
+    })
+    if (inference.responseType.value || inference.answerScheme.value) {
+      responseContractsByQuestionIndex[index] = inference
+    }
+  })
 
   const tagIdsByQuestionIndex: Record<number, string[]> = {}
   if (section && sectionId) {
@@ -344,12 +353,17 @@ export function inferManualStemMetadataRecommendation(args: {
   }
 
   const hasTags = Object.keys(tagIdsByQuestionIndex).length > 0
-  if (!sectionCandidate && !categoryId && !hasTags) return null
+  if (
+    !sectionCandidate &&
+    !categoryId &&
+    !hasTags &&
+    Object.keys(responseContractsByQuestionIndex).length === 0
+  ) return null
 
   return {
     sectionId: sectionCandidate?.sectionId ?? null,
     categoryId,
-    questionType,
+    responseContractsByQuestionIndex,
     tagIdsByQuestionIndex,
   }
 }

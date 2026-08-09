@@ -17,6 +17,10 @@ import {
 } from '@/features/ucat/questions/lib/parseAnswersFromDoc'
 import { answerDocToPlainTsv } from '@/features/ucat/questions/lib/pmAnswerLineRanges'
 import { hasRichTextContent, proseMirrorToPlainText } from '@/features/ucat/shared/lib/rich-text'
+import {
+  inferResponseContract,
+  parseUntypedAnswerEvidence,
+} from '@/features/ucat/questions/lib/parsers/responseClassification'
 
 export type QuestionOptionPreview = {
   label: string
@@ -206,6 +210,25 @@ export function validateBulkAnswersDocument(
     return { ok: false, message: 'Paste an answers document before continuing.' }
   }
 
+  const untypedEvidence = parseUntypedAnswerEvidence(plain)
+  if (untypedEvidence.length !== totalQuestions) {
+    return {
+      ok: false,
+      message: `Expected ${totalQuestions} answers but found ${untypedEvidence.length}.`,
+    }
+  }
+  const unresolved = untypedEvidence.find(
+    (evidence) => evidence.kind == null || evidence.conflicts.length > 0
+  )
+  if (unresolved) {
+    return {
+      ok: false,
+      message: unresolved.conflicts.length > 0
+        ? `Answer evidence conflicts: ${unresolved.conflicts.join(', ')}.`
+        : 'One or more answer shapes are ambiguous and require review.',
+    }
+  }
+
   if (isDecisionMakingSection) {
     const flat: { questionType: 'syllogism' | 'multiple_choice' }[] = []
     stems.forEach((stem) => {
@@ -253,6 +276,7 @@ export function applyBulkAnswersToStems(
   if (flat.length === 0) return
 
   const updatesByStem = new Map<string, UcatQuestionStemFormValues>()
+  const untypedEvidence = parseUntypedAnswerEvidence(answerDocToPlainTsv(pastedAnswersJson))
 
   if (isDecisionMakingSection) {
     const questionTypes = flat.map(({ stemId, questionIndex }) => {
@@ -291,6 +315,7 @@ export function applyBulkAnswersToStems(
         questions[questionIndex] = { ...q, syllogismAnswerPattern: pattern, options }
       } else if (answer.letter) {
         const optionIndex = letterToOptionIndex(answer.letter)
+        if (optionIndex == null || optionIndex >= q.options.length) return
         const options = q.options.map((opt, j) => ({
           ...opt,
           isAnswer: j === optionIndex,
@@ -317,6 +342,7 @@ export function applyBulkAnswersToStems(
       const q = questions[questionIndex]
       if (!q || !q.options) return
       const optionIndex = letterToOptionIndex(row.letter)
+      if (optionIndex == null || optionIndex >= q.options.length) return
       const options = q.options.map((opt, j) => ({
         ...opt,
         isAnswer: j === optionIndex,
@@ -328,6 +354,55 @@ export function applyBulkAnswersToStems(
       }
       nextValues = { ...nextValues, questions }
       updatesByStem.set(stemId, nextValues)
+    })
+  }
+
+  if (untypedEvidence.length === flat.length) {
+    untypedEvidence.forEach((evidence, index) => {
+      if (!evidence.kind || evidence.conflicts.length > 0) return
+      const target = flat[index]
+      if (!target) return
+      const stem = stems.find((candidate) => candidate.id === target.stemId)
+      if (!stem) return
+      let nextValues = updatesByStem.get(target.stemId)
+      if (!nextValues) {
+        nextValues = { ...stem.values, questions: [...(stem.values.questions ?? [])] }
+      }
+      const questions = [...(nextValues.questions ?? [])]
+      const question = questions[target.questionIndex]
+      if (!question) return
+      const inferred = inferResponseContract({
+        sectionName: isDecisionMakingSection
+          ? 'Decision Making'
+          : question.answerScheme?.startsWith('situational_judgement')
+            ? 'Situational Judgement'
+            : 'Other',
+        directive: proseMirrorToPlainText(question.questionText)?.trim() ?? '',
+        targetCount: question.options.length,
+        optionTexts: question.options.map(
+          (option) => proseMirrorToPlainText(option.answerText)?.trim() ?? ''
+        ),
+        answerEvidenceKind: evidence.kind,
+      })
+      if (inferred.reviewState === 'blocked') return
+      const options = question.options.map((option, optionIndex) => {
+        const answerKeyValue = evidence.keyValues[optionIndex] ?? null
+        return {
+          ...option,
+          answerKeyValue,
+          isAnswer: answerKeyValue === 'correct' || answerKeyValue === 'yes',
+        }
+      })
+      questions[target.questionIndex] = {
+        ...question,
+        questionType: inferred.responseType.value === 'drag_and_drop'
+          ? 'syllogism'
+          : 'multiple_choice',
+        responseType: inferred.responseType.value ?? question.responseType,
+        answerScheme: inferred.answerScheme.value ?? question.answerScheme,
+        options,
+      }
+      updatesByStem.set(target.stemId, { ...nextValues, questions })
     })
   }
 

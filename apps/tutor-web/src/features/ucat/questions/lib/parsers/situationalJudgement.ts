@@ -9,13 +9,14 @@ import {
   type ParsedStem,
   type ParserConfig,
 } from '@/features/ucat/questions/lib/parsers/core'
+import { inferResponseContract } from '@/features/ucat/questions/lib/parsers/responseClassification'
 
 export type { ParsedStem, ParsedOption, ParsedQuestion } from '@/features/ucat/questions/lib/parsers/core'
 export { collectLogicalLinesFromDoc } from '@/features/ucat/questions/lib/parsers/core'
 
 export type SituationalJudgementParserConfig = ParserConfig
 
-export type SituationalJudgementCategoryName = 'How Important' | 'How Appropriate'
+export type SituationalJudgementCategoryName = 'How Important' | 'How Appropriate' | 'Most/Least Appropriate'
 
 const HOW_IMPORTANT_OPTION_MARKERS = [
   'very important',
@@ -63,6 +64,14 @@ function optionTextsLookLikeScale(
 export function getSituationalJudgementStemCategoryName(
   stem: ParsedStem
 ): SituationalJudgementCategoryName | null {
+  if (stem.questions.some((question) => inferResponseContract({
+    sectionName: 'Situational Judgement',
+    directive: question.text,
+    targetCount: question.options.length,
+    optionTexts: question.options.map((option) => option.text),
+  }).answerScheme.value === 'situational_judgement_most_least')) {
+    return 'Most/Least Appropriate'
+  }
   const textParts = [stem.stemText, ...stem.questions.map((q) => q.text)]
   for (const text of textParts) {
     const lower = normalizeSjCategoryProbe(text)
@@ -143,9 +152,20 @@ export function mapParsedSituationalJudgementToFormValues(
 
     const questions = stem.questions
       .filter((q) => q.text.trim().length > 0 && q.options.length > 0)
-      .map((q) => ({
+      .map((q) => {
+        const inference = inferResponseContract({
+          sectionName: 'Situational Judgement',
+          directive: q.text,
+          targetCount: q.options.length,
+          optionTexts: q.options.map((option) => option.text),
+        })
+        const responseType = inference.responseType.value ?? 'multiple_choice'
+        const answerScheme = inference.answerScheme.value ?? 'situational_judgement_rating'
+        return {
         questionText: toRichText(q.text),
-        questionType: 'multiple_choice' as const,
+        questionType: responseType === 'drag_and_drop' ? 'syllogism' as const : 'multiple_choice' as const,
+        responseType,
+        answerScheme,
         answerExplanation: null,
         difficulty: null,
         timeBurdenSeconds: '',
@@ -154,8 +174,9 @@ export function mapParsedSituationalJudgementToFormValues(
           answerText: toRichText(opt.text),
           answerExplanation: null,
           isAnswer: false,
+          answerKeyValue: null,
         })),
-      }))
+      }})
 
     if (questions.length === 0) continue
 

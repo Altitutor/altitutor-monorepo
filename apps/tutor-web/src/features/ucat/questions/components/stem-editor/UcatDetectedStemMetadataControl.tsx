@@ -57,12 +57,18 @@ export function UcatDetectedStemMetadataControl({
         },
       )
     : null
-  const questionTypeLabel =
-    pendingDiff.questionType === 'syllogism'
-      ? 'Syllogism'
-      : pendingDiff.questionType === 'multiple_choice'
-        ? 'Multiple choice'
-        : null
+  const responseContractEntries = Object.entries(
+    pendingDiff.responseContractsByQuestionIndex
+  )
+    .map(([indexText, inference]) => ({
+      index: Number(indexText),
+      value: [
+        inference.responseType.value?.replaceAll('_', ' '),
+        inference.answerScheme.value?.replaceAll('_', ' '),
+        inference.reviewState.replaceAll('_', ' '),
+      ].filter(Boolean).join(' · '),
+    }))
+    .sort((left, right) => left.index - right.index)
   const tagEntries = Object.entries(pendingDiff.tagIdsByQuestionIndex)
     .map(([indexText, tagIds]) => {
       const index = Number(indexText)
@@ -117,7 +123,13 @@ export function UcatDetectedStemMetadataControl({
         <div className="min-h-0 flex-1 space-y-2 overflow-y-auto rounded-md border border-border bg-muted/30 px-3 py-2.5">
           {sectionLabel ? <DiffRow label="Section" value={sectionLabel} /> : null}
           {categoryLabel ? <DiffRow label="Category" value={categoryLabel} /> : null}
-          {questionTypeLabel ? <DiffRow label="Type" value={questionTypeLabel} /> : null}
+          {responseContractEntries.map((entry) => (
+            <DiffRow
+              key={`response-${entry.index}`}
+              label={responseContractEntries.length > 1 ? `Response (Q${entry.index + 1})` : 'Response'}
+              value={entry.value}
+            />
+          ))}
           {tagEntries.map((entry) => (
             <DiffRow
               key={entry.index}
