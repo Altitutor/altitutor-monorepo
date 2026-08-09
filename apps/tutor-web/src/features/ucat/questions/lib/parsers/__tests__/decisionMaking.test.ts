@@ -144,6 +144,22 @@ With Candice in the back row of the other car`;
 });
 
 describe('getDecisionMakingStemCategoryName', () => {
+  it('lets a trusted category heading win over conflicting content signals', () => {
+    const stems = parseDecisionMakingPlainText(`Interpreting Information and Drawing Conclusions
+The table shows that all architects are readers and no readers attended in May.
+
+1. Place Yes if the conclusion follows. Place No if the conclusion does not follow.
+A. First statement
+B. Second statement
+C. Third statement
+D. Fourth statement
+E. Fifth statement`)
+
+    expect(getDecisionMakingStemCategoryName(stems[0]!)).toBe(
+      'Interpreting Information and Drawing Conclusions'
+    )
+  })
+
   it('classifies dice re-roll expected-value questions as probabilistic reasoning', () => {
     const input = `Damien and Martin are playing a game using a fair six-sided dice. Damien states that he will pay Martin $10 multiplied by the number on the dice that Martin rolls. Martin rolls the dice and it lands on a "three". Damien says that he will let Martin roll the dice once more if he wants to.
 

@@ -18,6 +18,7 @@ import {
 import { answerDocToPlainTsv } from '@/features/ucat/questions/lib/pmAnswerLineRanges'
 import { hasRichTextContent, proseMirrorToPlainText } from '@/features/ucat/shared/lib/rich-text'
 import {
+  answerEvidenceFitsOptionCount,
   inferResponseContract,
   parseUntypedAnswerEvidence,
 } from '@/features/ucat/questions/lib/parsers/responseClassification'
@@ -201,6 +202,7 @@ export function validateBulkAnswersDocument(
   answerParseOptions?: AnswerParseOptions
 ): { ok: true } | { ok: false; message: string } {
   const totalQuestions = countFlatQuestions(stems)
+  const flatQuestions = flattenBulkImportQuestions(stems)
   if (totalQuestions === 0) {
     return { ok: false, message: 'No questions to match answers against.' }
   }
@@ -226,6 +228,19 @@ export function validateBulkAnswersDocument(
       message: unresolved.conflicts.length > 0
         ? `Answer evidence conflicts: ${unresolved.conflicts.join(', ')}.`
         : 'One or more answer shapes are ambiguous and require review.',
+    }
+  }
+  if (
+    untypedEvidence.some(
+      (evidence, index) => !answerEvidenceFitsOptionCount(
+        evidence,
+        flatQuestions[index]?.optionCount ?? 0
+      )
+    )
+  ) {
+    return {
+      ok: false,
+      message: 'Answer evidence does not fit the target question options.',
     }
   }
 
@@ -371,12 +386,8 @@ export function applyBulkAnswersToStems(
       const questions = [...(nextValues.questions ?? [])]
       const question = questions[target.questionIndex]
       if (!question) return
+      if (!answerEvidenceFitsOptionCount(evidence, question.options.length)) return
       const inferred = inferResponseContract({
-        sectionName: isDecisionMakingSection
-          ? 'Decision Making'
-          : question.answerScheme?.startsWith('situational_judgement')
-            ? 'Situational Judgement'
-            : 'Other',
         directive: proseMirrorToPlainText(question.questionText)?.trim() ?? '',
         targetCount: question.options.length,
         optionTexts: question.options.map(

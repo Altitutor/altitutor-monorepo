@@ -110,4 +110,20 @@ describe('getPendingStemMetadataDiff', () => {
       tagIdsByQuestionIndex: {},
     })
   })
+
+  it('keeps absent response evidence visible for review even when defaults match', () => {
+    const absentInference = {
+      responseType: { value: null, confidence: 'absent' as const, evidence: [], conflicts: [] },
+      answerScheme: { value: null, confidence: 'absent' as const, evidence: [], conflicts: [] },
+      reviewState: 'review_required' as const,
+    }
+    const diff = getPendingStemMetadataDiff({
+      sectionId: null,
+      categoryId: null,
+      responseContractsByQuestionIndex: { 0: absentInference },
+      tagIdsByQuestionIndex: {},
+    }, stemValues())
+
+    expect(diff?.responseContractsByQuestionIndex[0]).toEqual(absentInference)
+  })
 })

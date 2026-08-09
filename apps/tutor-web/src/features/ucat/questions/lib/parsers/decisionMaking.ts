@@ -404,13 +404,19 @@ function stemHasProbabilisticSignals(stem: ParsedDecisionMakingStem): boolean {
  */
 export function getDecisionMakingStemCategoryName(
   stem: ParsedDecisionMakingStem
-): DecisionMakingCategoryName {
+): DecisionMakingCategoryName | null {
   const stemLower = stem.stemText.toLowerCase()
   const hasDiagramInStem = stemLower.includes('diagram')
 
   const containsImage = (text: string): boolean => text.includes('[[IMG:')
 
   const stemHasImage = containsImage(stem.stemText)
+  const trustedCategoryName = /^\s*interpreting information and drawing conclusions\b/iu.test(stem.stemText)
+    ? 'Interpreting Information and Drawing Conclusions' as const
+    : /^\s*syllogisms?\b/iu.test(stem.stemText)
+      ? 'Syllogisms' as const
+      : null
+  if (trustedCategoryName) return trustedCategoryName
 
   for (const q of stem.questions) {
     const qLower = q.text.toLowerCase()
@@ -430,7 +436,6 @@ export function getDecisionMakingStemCategoryName(
 
   const binaryDirective = stem.questions.find((question) =>
     inferResponseContract({
-      sectionName: 'Decision Making',
       directive: question.text,
       targetCount: question.options.length,
       optionTexts: question.options.map((option) => option.text),
@@ -441,7 +446,7 @@ export function getDecisionMakingStemCategoryName(
       stemText: stem.stemText,
       directive: binaryDirective.text,
     })
-    if (category.value) return category.value
+    return category.value
   }
 
   if (stemHasProbabilisticSignals(stem)) {
@@ -927,7 +932,6 @@ export function mapParsedDecisionMakingToFormValues(
     .map((stem) => {
       const questions = stem.questions.map((q) => {
         const inference = inferResponseContract({
-          sectionName: 'Decision Making',
           directive: q.text,
           targetCount: q.options.length,
           optionTexts: q.options.map((option) => option.text),

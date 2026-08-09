@@ -63,10 +63,22 @@ export function UcatDetectedStemMetadataControl({
     .map(([indexText, inference]) => ({
       index: Number(indexText),
       value: [
-        inference.responseType.value?.replaceAll('_', ' '),
-        inference.answerScheme.value?.replaceAll('_', ' '),
+        [
+          inference.responseType.value?.replaceAll('_', ' '),
+          inference.answerScheme.value?.replaceAll('_', ' '),
+        ].filter(Boolean).join(' / ') || 'not inferred',
+        [...new Set([
+          inference.responseType.confidence,
+          inference.answerScheme.confidence,
+        ])].join(' / '),
         inference.reviewState.replaceAll('_', ' '),
-      ].filter(Boolean).join(' · '),
+      ].join(' · '),
+      evidence: [...new Set([
+        ...inference.responseType.evidence,
+        ...inference.answerScheme.evidence,
+        ...inference.responseType.conflicts,
+        ...inference.answerScheme.conflicts,
+      ])].map((item) => item.replaceAll('_', ' ')).join(', ') || 'No structural evidence',
     }))
     .sort((left, right) => left.index - right.index)
   const tagEntries = Object.entries(pendingDiff.tagIdsByQuestionIndex)
@@ -124,11 +136,13 @@ export function UcatDetectedStemMetadataControl({
           {sectionLabel ? <DiffRow label="Section" value={sectionLabel} /> : null}
           {categoryLabel ? <DiffRow label="Category" value={categoryLabel} /> : null}
           {responseContractEntries.map((entry) => (
-            <DiffRow
-              key={`response-${entry.index}`}
-              label={responseContractEntries.length > 1 ? `Response (Q${entry.index + 1})` : 'Response'}
-              value={entry.value}
-            />
+            <div key={`response-${entry.index}`} className="space-y-1">
+              <DiffRow
+                label={responseContractEntries.length > 1 ? `Response (Q${entry.index + 1})` : 'Response'}
+                value={entry.value}
+              />
+              <DiffRow label="Evidence" value={entry.evidence} />
+            </div>
           ))}
           {tagEntries.map((entry) => (
             <DiffRow

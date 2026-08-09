@@ -46,9 +46,7 @@ import {
 } from '@/features/ucat/questions/lib/ai-generation/gates'
 import { sampleWithoutReplacement } from '@/features/ucat/questions/lib/ai-generation/sample-without-replacement'
 import {
-  inferAnswerEvidenceFromKeyValues,
-  inferResponseContract,
-  type AnswerKeyInferenceValue,
+  reconcileIngestedResponseContract,
 } from '@/features/ucat/questions/lib/parsers/responseClassification'
 import {
   generateUcatImageBytes,
@@ -1213,7 +1211,6 @@ async function toDraft(params: {
   model: string
   metadata: Record<string, unknown>
   categoryIdByName: Map<string, string>
-  sectionName: string
 }) {
   const generatedCategoryId =
     params.stem.categoryId ??
@@ -1223,39 +1220,15 @@ async function toDraft(params: {
   const questions = await Promise.all(params.stem.questions.map(async (question, questionIndex) => {
     const directive = generatedContentToPlainText(question.questionText)
     const optionTexts = question.options.map((option) => generatedContentToPlainText(option.answerText))
-    const structuralInference = inferResponseContract({
-      sectionName: params.sectionName,
+    const reconciled = reconcileIngestedResponseContract({
       directive,
-      targetCount: question.options.length,
       optionTexts,
+      declaredResponseType: question.responseType,
+      declaredAnswerScheme: question.answerScheme,
+      answerKeyValues: question.options.map((option) => option.answerKeyValue ?? null),
+      legacyIsAnswerValues: question.options.map((option) => option.isAnswer),
     })
-    const explicitKeys = question.options.map(
-      (option) => option.answerKeyValue ?? null
-    ) as AnswerKeyInferenceValue[]
-    const hasExplicitKeys = explicitKeys.some((value) => value !== null)
-    const inferredKeys: AnswerKeyInferenceValue[] = hasExplicitKeys
-      ? explicitKeys
-      : structuralInference.answerScheme.value === 'decision_making_binary_placement'
-        ? question.options.map((option) => option.isAnswer ? 'yes' : 'no')
-        : question.options.map((option) => option.isAnswer ? 'correct' : null)
-    const answerEvidence = inferAnswerEvidenceFromKeyValues(inferredKeys)
-    if (answerEvidence.conflicts.length > 0) {
-      throw new Error(`Generated question ${questionIndex + 1} has conflicting answer keys.`)
-    }
-    const inference = inferResponseContract({
-      sectionName: params.sectionName,
-      directive,
-      targetCount: question.options.length,
-      optionTexts,
-      answerEvidenceKind: answerEvidence.kind ?? undefined,
-    })
-    const responseType = inference.responseType.value ?? question.responseType ?? 'multiple_choice'
-    const answerScheme = inference.answerScheme.value ?? question.answerScheme ?? 'single_choice'
-    if (
-      inference.reviewState === 'blocked' ||
-      (question.responseType && question.responseType !== responseType) ||
-      (question.answerScheme && question.answerScheme !== answerScheme)
-    ) {
+    if (reconciled.conflicts.length > 0) {
       throw new Error(`Generated question ${questionIndex + 1} has conflicting response-contract evidence.`)
     }
     return {
@@ -1264,16 +1237,16 @@ async function toDraft(params: {
       answerExplanation: question.answerExplanation ? await generatedContentToProseMirrorServer(question.answerExplanation) : null,
       difficulty: difficultyToNumber(question.estimatedDifficulty, question.difficultyTarget),
       timeBurdenSeconds: question.estimatedTimeBurdenSeconds ?? null,
-      questionType: responseType === 'drag_and_drop' ? 'syllogism' : 'multiple_choice',
-      responseType,
-      answerScheme,
+      questionType: reconciled.responseType === 'drag_and_drop' ? 'syllogism' : 'multiple_choice',
+      responseType: reconciled.responseType,
+      answerScheme: reconciled.answerScheme,
       tagIds: question.tagIds?.length ? question.tagIds : params.body.targetTagIds,
       options: await Promise.all(question.options.map(async (option, optionIndex) => ({
         index: optionIndex + 1,
         answerText: await generatedContentToProseMirrorServer(option.answerText),
         answerExplanation: option.answerExplanation ? await generatedContentToProseMirrorServer(option.answerExplanation) : null,
         isAnswer: !!option.isAnswer,
-        answerKeyValue: inferredKeys[optionIndex] ?? null,
+        answerKeyValue: reconciled.answerKeyValues[optionIndex] ?? null,
       }))),
     }
   }))
@@ -1782,7 +1755,6 @@ export async function executeGeneration(
           })),
         },
         categoryIdByName,
-        sectionName: sectionRow.name ?? 'UCAT',
       })
     ))
 

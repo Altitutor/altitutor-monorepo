@@ -323,18 +323,14 @@ export function inferManualStemMetadataRecommendation(args: {
           categories: args.categories,
         })
       : null)
-  const sectionName = args.sections.find((row) => row.id === sectionId)?.name ?? ''
   const responseContractsByQuestionIndex: Record<number, ResponseContractInference> = {}
   stem.questions.forEach((question, index) => {
     const inference = inferResponseContract({
-      sectionName,
       directive: question.text,
       targetCount: question.options.length,
       optionTexts: question.options.map((option) => option.text),
     })
-    if (inference.responseType.value || inference.answerScheme.value) {
-      responseContractsByQuestionIndex[index] = inference
-    }
+    responseContractsByQuestionIndex[index] = inference
   })
 
   const tagIdsByQuestionIndex: Record<number, string[]> = {}

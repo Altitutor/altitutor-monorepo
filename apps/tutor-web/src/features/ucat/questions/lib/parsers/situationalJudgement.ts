@@ -65,7 +65,6 @@ export function getSituationalJudgementStemCategoryName(
   stem: ParsedStem
 ): SituationalJudgementCategoryName | null {
   if (stem.questions.some((question) => inferResponseContract({
-    sectionName: 'Situational Judgement',
     directive: question.text,
     targetCount: question.options.length,
     optionTexts: question.options.map((option) => option.text),
@@ -154,7 +153,6 @@ export function mapParsedSituationalJudgementToFormValues(
       .filter((q) => q.text.trim().length > 0 && q.options.length > 0)
       .map((q) => {
         const inference = inferResponseContract({
-          sectionName: 'Situational Judgement',
           directive: q.text,
           targetCount: q.options.length,
           optionTexts: q.options.map((option) => option.text),

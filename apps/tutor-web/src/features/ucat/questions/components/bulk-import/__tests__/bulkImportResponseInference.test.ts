@@ -103,4 +103,16 @@ describe('bulk import response inference', () => {
     applyBulkAnswersToStems(doc('F'), [stem], false, update)
     expect(update).not.toHaveBeenCalled()
   })
+
+  it.each([
+    ['E', 'Which option is correct?', 4],
+    ['Most: B\tLeast: E', 'Choose the most appropriate action and the least appropriate action.', 3],
+  ])('blocks keys outside the target option range: %s', (answer, questionText, optionCount) => {
+    const stem = { id: 'stem-1', values: values(questionText, optionCount) }
+
+    expect(validateBulkAnswersDocument(doc(answer), [stem], false)).toEqual({
+      ok: false,
+      message: 'Answer evidence does not fit the target question options.',
+    })
+  })
 })

@@ -3,13 +3,13 @@ import {
   inferAnswerEvidenceFromKeyValues,
   inferResponseContract,
   parseUntypedAnswerEvidence,
+  reconcileIngestedResponseContract,
 } from '../responseClassification'
 
 describe('inferResponseContract', () => {
   it('detects a five-target Decision Making binary placement directive', () => {
     expect(
       inferResponseContract({
-        sectionName: 'Decision Making',
         directive:
           "Place 'Yes' if the conclusion does follow. Place 'No' if the conclusion does not follow.",
         targetCount: 5,
@@ -34,7 +34,6 @@ describe('inferResponseContract', () => {
   it('detects a three-action Situational Judgement Most/Least directive', () => {
     expect(
       inferResponseContract({
-        sectionName: 'Situational Judgement',
         directive:
           'Choose both the one most appropriate action and the one least appropriate action.',
         targetCount: 3,
@@ -59,7 +58,6 @@ describe('inferResponseContract', () => {
   it('does not treat an incidental most-appropriate phrase as placement', () => {
     expect(
       inferResponseContract({
-        sectionName: 'Situational Judgement',
         directive: 'Speak to a senior doctor about the most appropriate action.',
         targetCount: 4,
         optionTexts: [
@@ -89,7 +87,6 @@ describe('inferResponseContract', () => {
   it('preserves conflicting interaction and answer evidence for review', () => {
     expect(
       inferResponseContract({
-        sectionName: 'Decision Making',
         directive:
           "Place 'Yes' if the conclusion follows. Place 'No' if it does not follow.",
         targetCount: 5,
@@ -115,7 +112,6 @@ describe('inferResponseContract', () => {
   it('keeps five ordinary multiple-choice options out of drag classification', () => {
     expect(
       inferResponseContract({
-        sectionName: 'Decision Making',
         directive: 'Which one of the following statements is best supported?',
         targetCount: 5,
         optionTexts: ['Alpha', 'Beta', 'Gamma', 'Delta', 'Epsilon'],
@@ -130,7 +126,6 @@ describe('inferResponseContract', () => {
   it('does not treat a generic image as drag evidence', () => {
     expect(
       inferResponseContract({
-        sectionName: 'Decision Making',
         directive: 'Which option completes the diagram?',
         targetCount: 5,
         optionTexts: ['[[IMG:a]]', '[[IMG:b]]', '[[IMG:c]]', '[[IMG:d]]', '[[IMG:e]]'],
@@ -229,6 +224,36 @@ describe('inferAnswerEvidenceFromKeyValues', () => {
       kind: null,
       conflicts: ['conflicting_answer_key_shapes'],
     })
+  })
+})
+
+describe('reconcileIngestedResponseContract', () => {
+  it('normalizes legacy booleans from structural binary evidence at every ingestion boundary', () => {
+    expect(reconcileIngestedResponseContract({
+      directive: "Place 'Yes' if the conclusion follows and 'No' if it does not.",
+      optionTexts: ['One', 'Two', 'Three', 'Four', 'Five'],
+      answerKeyValues: [null, null, null, null, null],
+      legacyIsAnswerValues: [true, false, true, false, false],
+    })).toMatchObject({
+      responseType: 'drag_and_drop',
+      answerScheme: 'decision_making_binary_placement',
+      answerKeyValues: ['yes', 'no', 'yes', 'no', 'no'],
+      conflicts: [],
+    })
+  })
+
+  it('blocks declared fields that contradict structural and key evidence', () => {
+    expect(reconcileIngestedResponseContract({
+      directive: "Place 'Yes' if the conclusion follows and 'No' if it does not.",
+      optionTexts: ['One', 'Two', 'Three', 'Four', 'Five'],
+      declaredResponseType: 'multiple_choice',
+      declaredAnswerScheme: 'single_choice',
+      answerKeyValues: ['yes', 'no', 'yes', 'no', 'no'],
+      legacyIsAnswerValues: [true, false, true, false, false],
+    }).conflicts).toEqual(expect.arrayContaining([
+      'declared_response_type_mismatch',
+      'declared_answer_scheme_mismatch',
+    ]))
   })
 })
 

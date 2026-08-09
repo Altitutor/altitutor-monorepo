@@ -24,7 +24,6 @@ export type ResponseContractInference = {
 }
 
 export type ResponseContractInferenceInput = {
-  sectionName: string
   directive: string
   targetCount: number
   optionTexts?: readonly string[]
@@ -32,6 +31,23 @@ export type ResponseContractInferenceInput = {
     | 'single_choice'
     | 'binary_sequence'
     | 'most_least_pair'
+}
+
+export function answerEvidenceFitsOptionCount(
+  evidence: UntypedAnswerEvidence,
+  optionCount: number
+): boolean {
+  if (!evidence.kind || evidence.conflicts.length > 0) return false
+  if (evidence.keyValues.slice(optionCount).some((value) => value !== null)) return false
+  if (evidence.kind === 'binary_sequence') {
+    return optionCount === 5 && evidence.keyValues.length === 5
+  }
+  if (evidence.kind === 'most_least_pair') {
+    return optionCount === 3 &&
+      evidence.keyValues.filter((value) => value === 'most').length === 1 &&
+      evidence.keyValues.filter((value) => value === 'least').length === 1
+  }
+  return evidence.keyValues.filter((value) => value === 'correct').length === 1
 }
 
 export type AnswerEvidenceKind = NonNullable<
@@ -228,7 +244,10 @@ function numberedAnswerRows(input: string): string[] | null {
       const number = Number(numbered[1])
       const values = groups.get(number) ?? []
       const payload = numbered[2] ?? ''
-      const leadingToken = /^(yes|ye|y|no|n|[a-e])(?:\s+|\t).+$/iu.exec(payload)?.[1]
+      const isCompleteShape = binaryKeyValues(payload) || labelledMostLeastKeyValues(payload)
+      const leadingToken = isCompleteShape
+        ? null
+        : /^(yes|ye|y|no|n|[a-e])(?:\s+|\t).+$/iu.exec(payload)?.[1]
       values.push(leadingToken ?? payload)
       groups.set(number, values)
       pendingNumber = null
@@ -528,5 +547,77 @@ export function inferResponseContract(
           : responseType.confidence === 'certain' && answerScheme.confidence === 'certain'
             ? 'prefilled'
             : 'confirmation_required',
+  }
+}
+
+export type IngestedResponseContractInput = {
+  directive: string
+  optionTexts: readonly string[]
+  declaredResponseType?: ResponseTypeInferenceValue
+  declaredAnswerScheme?: AnswerSchemeInferenceValue
+  answerKeyValues: readonly AnswerKeyInferenceValue[]
+  legacyIsAnswerValues: readonly boolean[]
+}
+
+export type ReconciledIngestedResponseContract = {
+  responseType: ResponseTypeInferenceValue
+  answerScheme: AnswerSchemeInferenceValue
+  answerKeyValues: AnswerKeyInferenceValue[]
+  inference: ResponseContractInference
+  conflicts: string[]
+}
+
+/** Shared reconciliation boundary for generated, MCP, manual, and import payloads. */
+export function reconcileIngestedResponseContract(
+  input: IngestedResponseContractInput
+): ReconciledIngestedResponseContract {
+  const structuralInference = inferResponseContract({
+    directive: input.directive,
+    targetCount: input.optionTexts.length,
+    optionTexts: input.optionTexts,
+  })
+  const hasExplicitKeys = input.answerKeyValues.some((value) => value !== null)
+  const keyScheme = structuralInference.answerScheme.value ?? input.declaredAnswerScheme
+  const answerKeyValues: AnswerKeyInferenceValue[] = hasExplicitKeys
+    ? [...input.answerKeyValues]
+    : keyScheme === 'decision_making_binary_placement'
+      ? input.legacyIsAnswerValues.map((isAnswer) => isAnswer ? 'yes' : 'no')
+      : input.legacyIsAnswerValues.map((isAnswer) => isAnswer ? 'correct' : null)
+  const answerEvidence = inferAnswerEvidenceFromKeyValues(answerKeyValues)
+  const inference = inferResponseContract({
+    directive: input.directive,
+    targetCount: input.optionTexts.length,
+    optionTexts: input.optionTexts,
+    answerEvidenceKind: answerEvidence.kind ?? undefined,
+  })
+  const responseType = inference.responseType.value ??
+    input.declaredResponseType ??
+    'multiple_choice'
+  const answerScheme = inference.answerScheme.value ??
+    input.declaredAnswerScheme ??
+    'single_choice'
+  const conflicts = new Set<string>(answerEvidence.conflicts)
+  if (inference.reviewState === 'blocked') conflicts.add('conflicting_response_evidence')
+  if (
+    answerEvidence.kind &&
+    !answerEvidenceFitsOptionCount(answerEvidence, input.optionTexts.length)
+  ) {
+    conflicts.add('answer_keys_out_of_range')
+  }
+  if (input.declaredResponseType && input.declaredResponseType !== responseType) {
+    conflicts.add('declared_response_type_mismatch')
+  }
+  if (input.declaredAnswerScheme && input.declaredAnswerScheme !== answerScheme) {
+    conflicts.add('declared_answer_scheme_mismatch')
+  }
+  if (answerScheme === 'situational_judgement_most_least' && !answerEvidence.kind) {
+    conflicts.add('missing_most_least_keys')
+  }
+  return {
+    responseType,
+    answerScheme,
+    answerKeyValues,
+    inference,
+    conflicts: [...conflicts],
   }
 }

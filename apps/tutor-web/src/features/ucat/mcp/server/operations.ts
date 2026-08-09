@@ -13,9 +13,7 @@ import {
   proseMirrorToPlainText,
 } from '@/features/ucat/shared/lib/rich-text'
 import {
-  inferAnswerEvidenceFromKeyValues,
-  inferResponseContract,
-  type AnswerKeyInferenceValue,
+  reconcileIngestedResponseContract,
 } from '@/features/ucat/questions/lib/parsers/responseClassification'
 
 type AccessScope = 'public' | 'private'
@@ -205,39 +203,15 @@ export function questionFromInput(question: QuestionInput): StemQuestionDraft {
   const optionTexts = question.options.map(
     (option) => proseMirrorToPlainText(toRichTextJson(option.answerText))?.trim() ?? ''
   )
-  const structuralInference = inferResponseContract({
-    sectionName: '',
+  const reconciled = reconcileIngestedResponseContract({
     directive: proseMirrorToPlainText(questionText)?.trim() ?? '',
-    targetCount: question.options.length,
     optionTexts,
+    declaredResponseType: question.responseType,
+    declaredAnswerScheme: question.answerScheme,
+    answerKeyValues: question.options.map((option) => option.answerKeyValue ?? null),
+    legacyIsAnswerValues: question.options.map((option) => option.isAnswer),
   })
-  const explicitKeys = question.options.map(
-    (option) => option.answerKeyValue ?? null
-  ) as AnswerKeyInferenceValue[]
-  const hasExplicitKeys = explicitKeys.some((value) => value !== null)
-  const inferredKeys: AnswerKeyInferenceValue[] = hasExplicitKeys
-    ? explicitKeys
-    : structuralInference.answerScheme.value === 'decision_making_binary_placement'
-      ? question.options.map((option) => option.isAnswer ? 'yes' : 'no')
-      : question.options.map((option) => option.isAnswer ? 'correct' : null)
-  const answerEvidence = inferAnswerEvidenceFromKeyValues(inferredKeys)
-  if (answerEvidence.conflicts.length > 0) {
-    throw new Error('Question answer keys contain conflicting response evidence')
-  }
-  const inference = inferResponseContract({
-    sectionName: '',
-    directive: proseMirrorToPlainText(questionText)?.trim() ?? '',
-    targetCount: question.options.length,
-    optionTexts,
-    answerEvidenceKind: answerEvidence.kind ?? undefined,
-  })
-  const responseType = inference.responseType.value ?? question.responseType ?? 'multiple_choice'
-  const answerScheme = inference.answerScheme.value ?? question.answerScheme ?? 'single_choice'
-  if (
-    inference.reviewState === 'blocked' ||
-    (question.responseType && question.responseType !== responseType) ||
-    (question.answerScheme && question.answerScheme !== answerScheme)
-  ) {
+  if (reconciled.conflicts.length > 0) {
     throw new Error('Question response fields conflict with structural or answer evidence')
   }
   return {
@@ -246,9 +220,9 @@ export function questionFromInput(question: QuestionInput): StemQuestionDraft {
     index: 0,
     difficulty: question.difficulty ?? null,
     time_burden_seconds: question.timeBurdenSeconds ?? null,
-    question_type: responseType === 'drag_and_drop' ? 'syllogism' : 'multiple_choice',
-    response_type: responseType,
-    answer_scheme: answerScheme,
+    question_type: reconciled.responseType === 'drag_and_drop' ? 'syllogism' : 'multiple_choice',
+    response_type: reconciled.responseType,
+    answer_scheme: reconciled.answerScheme,
     source_channel: 'ai_generation',
     ai_generation_metadata: {
       source: 'codex_mcp',
@@ -256,7 +230,7 @@ export function questionFromInput(question: QuestionInput): StemQuestionDraft {
     tag_ids: [...question.tagIds],
     answer_options: question.options.map((option, optionIndex) => ({
       ...optionFromInput(option),
-      answer_key_value: inferredKeys[optionIndex] ?? null,
+      answer_key_value: reconciled.answerKeyValues[optionIndex] ?? null,
     })),
   }
 }
