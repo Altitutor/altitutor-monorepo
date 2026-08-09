@@ -1,5 +1,5 @@
 import {
-  getAnswerSchemeMaximum,
+  getAnswerSchemeProgressPoints,
   type AnswerScheme,
 } from "@altitutor/ucat-response-contract";
 
@@ -11,9 +11,8 @@ export type ProgressQuestionRef = {
 };
 
 /**
- * Maximum progress points for a set of questions, aligned with UCAT raw-score
- * weighting: each question contributes the maximum marks declared by its answer scheme
- * once regardless of how many conclusion statements it contains.
+ * Progress points for a set of questions. The Answer scheme owns each question's
+ * weight; grouped Decision Making rows contribute two points once per stem.
  */
 export function computeQuestionProgressPoints(
   questions: ProgressQuestionRef[],
@@ -27,18 +26,19 @@ export function computeQuestionProgressPoints(
 
 /**
  * Progress points contributed by one question when building a running total.
- * Pass the same `countedSyllogismStems` set across calls to avoid double-counting
- * legacy callers may still supply their former de-duplication set; answer schemes
- * now remain the sole authority for progress weighting.
+ * Pass the same `countedGroupedQuestionIds` set across calls to avoid counting a
+ * grouped Answer scheme more than once.
  */
 export function progressPointsForQuestion(
   question: ProgressQuestionRef,
-  countedSyllogismStems: Set<string>,
+  countedGroupedQuestionIds: Set<string>,
 ): number {
-  void countedSyllogismStems;
-  return question.answerScheme
-    ? getAnswerSchemeMaximum(question.answerScheme)
-    : 1;
+  if (!question.answerScheme) return 1;
+  if (question.answerScheme === "decision_making_binary_placement") {
+    if (countedGroupedQuestionIds.has(question.stemId)) return 0;
+    countedGroupedQuestionIds.add(question.stemId);
+  }
+  return getAnswerSchemeProgressPoints(question.answerScheme);
 }
 
 export function toProgressQuestionRef(question: {

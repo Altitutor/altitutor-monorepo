@@ -3,6 +3,7 @@ import {
   createResponseState,
   evaluateResponse,
   getAnswerSchemeMaximum,
+  getAnswerSchemeProgressPoints,
   getAnswerSchemeContract,
 } from '../index'
 
@@ -19,6 +20,9 @@ describe('UCAT response contract', () => {
     expect(getAnswerSchemeMaximum('single_choice')).toBe(1)
     expect(getAnswerSchemeMaximum('decision_making_binary_placement')).toBe(2)
     expect(getAnswerSchemeMaximum('situational_judgement_most_least')).toBe(8)
+    expect(getAnswerSchemeProgressPoints('single_choice')).toBe(1)
+    expect(getAnswerSchemeProgressPoints('decision_making_binary_placement')).toBe(2)
+    expect(getAnswerSchemeProgressPoints('situational_judgement_most_least')).toBe(1)
   })
 
   it('supports a complete single-choice response through one public contract', () => {

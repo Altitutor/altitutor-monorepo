@@ -4,7 +4,7 @@ import {
 } from "../progress-points";
 
 describe("Answer-scheme progress points", () => {
-  it("sums evaluator maximums without category or Response type weighting", () => {
+  it("uses Answer-scheme progress weights without category or Response type weighting", () => {
     expect(
       computeQuestionProgressPoints([
         {
@@ -26,11 +26,11 @@ describe("Answer-scheme progress points", () => {
           answerScheme: "situational_judgement_most_least",
         },
       ]),
-    ).toBe(11);
+    ).toBe(4);
   });
 
-  it("counts each canonical question independently", () => {
-    const countedLegacyStems = new Set<string>();
+  it("counts grouped Decision Making rows once per stem", () => {
+    const countedGroupedQuestionIds = new Set<string>();
     expect(
       progressPointsForQuestion(
         {
@@ -39,8 +39,19 @@ describe("Answer-scheme progress points", () => {
           questionType: "syllogism",
           answerScheme: "decision_making_binary_placement",
         },
-        countedLegacyStems,
+        countedGroupedQuestionIds,
       ),
     ).toBe(2);
+    expect(
+      progressPointsForQuestion(
+        {
+          id: "dm-legacy-row-2",
+          stemId: "stem",
+          questionType: "multiple_choice",
+          answerScheme: "decision_making_binary_placement",
+        },
+        countedGroupedQuestionIds,
+      ),
+    ).toBe(0);
   });
 });

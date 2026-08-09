@@ -69,7 +69,19 @@ export function parseAttemptContentSnapshot(
     ...snapshot,
     schemaVersion: snapshot.schemaVersion ?? 1,
     stem: snapshot.stem,
-    question: snapshot.question,
+    question: {
+      ...snapshot.question,
+      responseType:
+        snapshot.question.responseType ??
+        (snapshot.question.questionType === 'syllogism'
+          ? 'drag_and_drop'
+          : 'multiple_choice'),
+      answerScheme:
+        snapshot.question.answerScheme ??
+        (snapshot.question.questionType === 'syllogism'
+          ? 'decision_making_binary_placement'
+          : 'single_choice'),
+    },
     answerOptions: Array.isArray(snapshot.answerOptions)
       ? snapshot.answerOptions
       : [],

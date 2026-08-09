@@ -119,6 +119,7 @@ type SchemeImplementation = {
   responseType: ResponseType
   optionCount: number | { minimum: number }
   maximumMarks: number
+  progressPoints: number
   validateAnswerKey: (
     answerScheme: AnswerScheme,
     orderedOptionIds: readonly string[],
@@ -808,6 +809,7 @@ const schemeImplementations: Record<
     responseType: 'multiple_choice',
     optionCount: { minimum: 2 },
     maximumMarks: 1,
+    progressPoints: 1,
     validateAnswerKey: validateChoiceAnswerKey,
     presentation: choicePresentation,
     blankState: blankSingleSelect,
@@ -819,6 +821,7 @@ const schemeImplementations: Record<
     responseType: 'multiple_choice',
     optionCount: 4,
     maximumMarks: 1,
+    progressPoints: 1,
     validateAnswerKey: validateChoiceAnswerKey,
     presentation: choicePresentation,
     blankState: blankSingleSelect,
@@ -830,6 +833,7 @@ const schemeImplementations: Record<
     responseType: 'drag_and_drop',
     optionCount: 5,
     maximumMarks: 2,
+    progressPoints: 2,
     validateAnswerKey: validateBinaryAnswerKey,
     presentation: (orderedOptionIds) => ({
       kind: 'placement',
@@ -851,6 +855,7 @@ const schemeImplementations: Record<
     responseType: 'drag_and_drop',
     optionCount: 3,
     maximumMarks: provisionalMostLeastScoring.maximum,
+    progressPoints: 1,
     validateAnswerKey: validateMostLeastAnswerKey,
     presentation: (orderedOptionIds) => ({
       kind: 'placement',
@@ -876,6 +881,12 @@ const schemeImplementations: Record<
 
 export function getAnswerSchemeMaximum(kind: AnswerScheme['kind']): number {
   return schemeImplementations[kind].maximumMarks
+}
+
+export function getAnswerSchemeProgressPoints(
+  kind: AnswerScheme['kind']
+): number {
+  return schemeImplementations[kind].progressPoints
 }
 
 export function getAnswerSchemeContract(

@@ -16,7 +16,7 @@ export type SectionProgress = {
   weightedAverageScaledScore?: number | null
   /** @deprecated ucat-web no longer uses legacy section-level percentage EMA. */
   weightedAveragePercentage?: number | null
-  /** Total accessible question progress points in this section, weighted by answer-scheme maximum marks. */
+  /** Total accessible question progress points in this section, weighted by Answer scheme. */
   totalPublicQuestions?: number
 }
 
@@ -115,7 +115,7 @@ export type SectionCategoryProgress = {
   percentage: number
   /** @deprecated ucat-web now uses raw/filtered category correctness only. */
   weightedAveragePercentage?: number | null
-  /** Total accessible question progress points in this category, weighted by answer-scheme maximum marks. */
+  /** Total accessible question progress points in this category, weighted by Answer scheme. */
   totalPublicQuestions?: number
 }
 

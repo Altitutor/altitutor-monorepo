@@ -4,23 +4,36 @@
 CREATE OR REPLACE VIEW public.vstudent_ucat_public_question_counts
 WITH (security_invoker = false)
 AS
+WITH question_rows AS (
+  SELECT
+    question.answer_scheme,
+    question.question_stem_id,
+    stem.section_id,
+    stem.question_stem_category_id,
+    row_number() OVER (
+      PARTITION BY question.question_stem_id, question.answer_scheme
+      ORDER BY question.index NULLS LAST, question.id
+    ) AS scheme_stem_index
+  FROM public.ucat_questions question
+  JOIN public.question_stems stem ON stem.id = question.question_stem_id
+  JOIN public.vstudent_ucat_accessible_question_stems accessible
+    ON accessible.id = stem.id
+  WHERE question.deleted_at IS NULL
+    AND stem.deleted_at IS NULL
+)
 SELECT
-  stem.section_id,
-  stem.question_stem_category_id,
+  question_rows.section_id,
+  question_rows.question_stem_category_id,
   sum(
-    CASE question.answer_scheme
-      WHEN 'decision_making_binary_placement' THEN 2
-      WHEN 'situational_judgement_most_least' THEN 8
+    CASE
+      WHEN question_rows.answer_scheme = 'decision_making_binary_placement'
+        AND question_rows.scheme_stem_index = 1 THEN 2
+      WHEN question_rows.answer_scheme = 'decision_making_binary_placement' THEN 0
       ELSE 1
     END
   )::INTEGER AS total_questions
-FROM public.ucat_questions question
-JOIN public.question_stems stem ON stem.id = question.question_stem_id
-JOIN public.vstudent_ucat_accessible_question_stems accessible
-  ON accessible.id = stem.id
-WHERE question.deleted_at IS NULL
-  AND stem.deleted_at IS NULL
-GROUP BY stem.section_id, stem.question_stem_category_id;
+FROM question_rows
+GROUP BY question_rows.section_id, question_rows.question_stem_category_id;
 
 CREATE OR REPLACE VIEW public.vtutor_ucat_student_question_attempts_for_progress
 WITH (security_invoker = false)
