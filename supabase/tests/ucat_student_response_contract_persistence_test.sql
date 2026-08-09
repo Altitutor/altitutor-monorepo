@@ -1,5 +1,5 @@
 BEGIN;
-SELECT plan(6);
+SELECT plan(8);
 
 CREATE TEMP TABLE response_fixture AS
 SELECT
@@ -102,6 +102,36 @@ SELECT throws_ok(
   'P0001',
   'Invalid UCAT single-select response',
   'a missing selectedOptionId is rejected rather than treated as blank'
+);
+
+SELECT throws_ok(
+  $$
+    INSERT INTO public.student_question_attempts (
+      student_id, question_id, answer_snapshot
+    )
+    SELECT student_id, question_id, '{}'::jsonb
+    FROM response_fixture
+  $$,
+  'P0001',
+  'Invalid UCAT response snapshot contract',
+  'missing top-level response contract fields are rejected'
+);
+
+SELECT throws_ok(
+  $$
+    INSERT INTO public.student_question_attempts (
+      student_id, question_id, answer_snapshot
+    )
+    SELECT student_id, question_id, jsonb_build_object(
+      'type', 'ucat_response_v1',
+      'questionId', question_id,
+      'answerScheme', answer_scheme
+    )
+    FROM response_fixture
+  $$,
+  'P0001',
+  'Invalid UCAT single-select response',
+  'a missing response object is rejected'
 );
 
 SELECT throws_ok(

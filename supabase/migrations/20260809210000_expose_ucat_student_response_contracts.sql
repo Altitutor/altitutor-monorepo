@@ -133,19 +133,19 @@ BEGIN
     AND question.deleted_at IS NULL;
 
   IF v_scheme IS NULL
-    OR NEW.answer_snapshot->>'type' <> 'ucat_response_v1'
-    OR NEW.answer_snapshot->>'questionId' <> NEW.question_id::TEXT
-    OR NEW.answer_snapshot->>'answerScheme' <> v_scheme::TEXT
+    OR NEW.answer_snapshot->>'type' IS DISTINCT FROM 'ucat_response_v1'
+    OR NEW.answer_snapshot->>'questionId' IS DISTINCT FROM NEW.question_id::TEXT
+    OR NEW.answer_snapshot->>'answerScheme' IS DISTINCT FROM v_scheme::TEXT
   THEN
     RAISE EXCEPTION 'Invalid UCAT response snapshot contract';
   END IF;
 
   v_kind := NEW.answer_snapshot#>>'{response,kind}';
   IF v_scheme IN ('single_choice', 'situational_judgement_rating') THEN
-    IF v_kind <> 'single_select' THEN
+    IF v_kind IS DISTINCT FROM 'single_select' THEN
       RAISE EXCEPTION 'Invalid UCAT single-select response';
     END IF;
-    IF NOT ((NEW.answer_snapshot#>'{response}') ? 'selectedOptionId') THEN
+    IF ((NEW.answer_snapshot#>'{response}') ? 'selectedOptionId') IS NOT TRUE THEN
       RAISE EXCEPTION 'Invalid UCAT single-select response';
     END IF;
     IF jsonb_typeof(NEW.answer_snapshot#>'{response,selectedOptionId}') = 'string' THEN
@@ -163,7 +163,7 @@ BEGIN
       ) THEN
         RAISE EXCEPTION 'UCAT response references an unknown option';
       END IF;
-    ELSIF jsonb_typeof(NEW.answer_snapshot#>'{response,selectedOptionId}') <> 'null' THEN
+    ELSIF jsonb_typeof(NEW.answer_snapshot#>'{response,selectedOptionId}') IS DISTINCT FROM 'null' THEN
       RAISE EXCEPTION 'Invalid UCAT single-select response';
     END IF;
     IF NEW.question_answer_option_id IS DISTINCT FROM v_selected_option_id THEN
@@ -173,7 +173,9 @@ BEGIN
   END IF;
 
   v_placements := NEW.answer_snapshot#>'{response,placements}';
-  IF v_kind <> 'placement' OR jsonb_typeof(v_placements) <> 'object' THEN
+  IF v_kind IS DISTINCT FROM 'placement'
+    OR jsonb_typeof(v_placements) IS DISTINCT FROM 'object'
+  THEN
     RAISE EXCEPTION 'Invalid UCAT placement response';
   END IF;
   IF NEW.question_answer_option_id IS NOT NULL THEN
