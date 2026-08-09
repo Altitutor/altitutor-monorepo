@@ -1,6 +1,6 @@
 'use client'
 
-import { useId, useState, type DragEventHandler, type ReactNode } from 'react'
+import React, { useId, useState, type DragEventHandler, type ReactNode } from 'react'
 import { UCAT_COLORS, UCAT_FONTS } from '@altitutor/ui/components/ucat/ucat-theme'
 import { UcatRichContentBlock } from '@/features/ucat/question-engine-preview/UcatRichContentBlock'
 import { hasRichTextContent } from '@/features/ucat/shared/lib/rich-text'
@@ -136,30 +136,47 @@ function SyllogismPreviewBody({
   syllogismSnapshot?: Record<string, boolean> | null
 }) {
   const isTwoColumn = question.sectionDisplayColumns === 2
+  const isMostLeast = question.answerScheme === 'situational_judgement_most_least'
+  const positiveChoice = isMostLeast ? 'most' : 'yes'
+  const negativeChoice = isMostLeast ? 'least' : 'no'
+  const positiveLabel = isMostLeast ? 'Most Appropriate' : 'Yes'
+  const negativeLabel = isMostLeast ? 'Least Appropriate' : 'No'
+  type PreviewPlacementChoice = 'yes' | 'no' | 'most' | 'least'
 
-  const [answers, setAnswers] = useState<Record<string, 'yes' | 'no'>>({})
+  const [answers, setAnswers] = useState<Record<string, PreviewPlacementChoice>>({})
 
+  const assignChoice = (
+    previous: Record<string, PreviewPlacementChoice>,
+    optionId: string,
+    choice: PreviewPlacementChoice,
+    fromOptionId: string | null,
+  ) => {
+    const next = { ...previous }
+    if (fromOptionId && fromOptionId !== optionId) delete next[fromOptionId]
+    if (isMostLeast) {
+      for (const [assignedOptionId, assignedChoice] of Object.entries(next)) {
+        if (assignedChoice === choice && assignedOptionId !== optionId) delete next[assignedOptionId]
+      }
+    }
+    next[optionId] = choice
+    return next
+  }
 
-  const handleAssign = (optionId: string, choice: 'yes' | 'no') => {
-    setAnswers((prev) => ({ ...prev, [optionId]: choice }))
+  const handleAssign = (optionId: string, choice: PreviewPlacementChoice) => {
+    setAnswers((prev) => assignChoice(prev, optionId, choice, null))
   }
 
   const makeHandleDrop =
     (optionId: string): DragEventHandler<HTMLDivElement> =>
     (event) => {
       event.preventDefault()
-      const choice = event.dataTransfer.getData('ucat-syllogism-choice') as '' | 'no' | 'yes'
-      if (choice !== 'yes' && choice !== 'no') return
+      const choice = event.dataTransfer.getData('ucat-syllogism-choice') as '' | PreviewPlacementChoice
+      if (choice !== positiveChoice && choice !== negativeChoice) return
 
       const fromOptionId = event.dataTransfer.getData('ucat-syllogism-source') || null
 
       setAnswers((prev) => {
-        const next = { ...prev }
-        if (fromOptionId && fromOptionId !== optionId) {
-          delete next[fromOptionId]
-        }
-        next[optionId] = choice
-        return next
+        return assignChoice(prev, optionId, choice, fromOptionId)
       })
     }
 
@@ -195,15 +212,17 @@ function SyllogismPreviewBody({
             const choice =
               !interactive && savedAnswer != null
                 ? savedAnswer
-                  ? 'yes'
-                  : 'no'
+                  ? positiveChoice
+                  : negativeChoice
                 : (answers[option.id] ?? null)
-            const correctYes = Boolean(option.isAnswer)
+            const correctChoice = isMostLeast
+              ? option.answerKeyValue
+              : option.isAnswer ? 'yes' : 'no'
             const showReviewState = Boolean(
               showAnswerExplanations || showAnswerResults
             )
             const answerIsCorrect =
-              choice != null && (choice === 'yes') === correctYes
+              choice != null && choice === correctChoice
             return (
               <div key={option.id} className="space-y-1">
                 <div className="flex flex-row items-stretch gap-4">
@@ -222,10 +241,17 @@ function SyllogismPreviewBody({
                     onDragOver={interactive ? handleDragOver : undefined}
                     role={interactive ? 'button' : undefined}
                     tabIndex={interactive ? 0 : undefined}
-                    aria-label={interactive ? 'Drop Yes or No here' : undefined}
-                    onClick={
+                    aria-label={
                       interactive
-                        ? () => handleAssign(option.id, choice === 'yes' ? 'no' : 'yes')
+                        ? `Drop ${positiveLabel} or ${negativeLabel} here`
+                        : undefined
+                    }
+                    onClick={
+                      interactive && !isMostLeast
+                        ? () => handleAssign(
+                            option.id,
+                            choice === positiveChoice ? negativeChoice : positiveChoice,
+                          )
                         : undefined
                     }
                   >
@@ -249,7 +275,7 @@ function SyllogismPreviewBody({
                             : undefined
                         }
                       >
-                        {choice === 'yes' ? 'Yes' : 'No'}
+                        {choice === positiveChoice ? positiveLabel : negativeLabel}
                       </div>
                     ) : (
                       <span className="text-[9pt] text-transparent">_</span>
@@ -258,7 +284,7 @@ function SyllogismPreviewBody({
                 </div>
                 {showReviewState && !interactive && !answerIsCorrect ? (
                   <div className="text-right text-[9pt] text-emerald-700">
-                    Correct answer: {correctYes ? 'Yes' : 'No'}
+                    Correct answer: {correctChoice === positiveChoice ? positiveLabel : negativeLabel}
                   </div>
                 ) : null}
                 {showAnswerExplanations &&
@@ -281,11 +307,12 @@ function SyllogismPreviewBody({
           >
             <button
               type="button"
-              draggable={interactive}
+              draggable={interactive && !Object.values(answers).includes(positiveChoice)}
+              disabled={interactive && isMostLeast && Object.values(answers).includes(positiveChoice)}
               onDragStart={
                 interactive
                   ? (event) => {
-                      event.dataTransfer.setData('ucat-syllogism-choice', 'yes')
+                      event.dataTransfer.setData('ucat-syllogism-choice', positiveChoice)
                       event.dataTransfer.setData('ucat-syllogism-source', '')
                       event.dataTransfer.effectAllowed = 'copy'
                     }
@@ -293,15 +320,16 @@ function SyllogismPreviewBody({
               }
               className="flex h-9 w-20 items-center justify-center rounded border border-black bg-white text-[11pt] font-medium"
             >
-              Yes
+              {positiveLabel}
             </button>
             <button
               type="button"
-              draggable={interactive}
+              draggable={interactive && !Object.values(answers).includes(negativeChoice)}
+              disabled={interactive && isMostLeast && Object.values(answers).includes(negativeChoice)}
               onDragStart={
                 interactive
                   ? (event) => {
-                      event.dataTransfer.setData('ucat-syllogism-choice', 'no')
+                      event.dataTransfer.setData('ucat-syllogism-choice', negativeChoice)
                       event.dataTransfer.setData('ucat-syllogism-source', '')
                       event.dataTransfer.effectAllowed = 'copy'
                     }
@@ -309,7 +337,7 @@ function SyllogismPreviewBody({
               }
               className="flex h-9 w-20 items-center justify-center rounded border border-black bg-white text-[11pt] font-medium"
             >
-              No
+              {negativeLabel}
             </button>
           </div>
         </div>
@@ -533,6 +561,7 @@ export function UcatQuestionEnginePreview({
 
   if (
     question.answerScheme === 'decision_making_binary_placement'
+    || question.answerScheme === 'situational_judgement_most_least'
     || (!question.answerScheme && question.questionType === 'syllogism')
   ) {
     return wrapInteractive(

@@ -173,6 +173,33 @@ type QuestionContentProps = {
   onSyllogismClickAttempt?: () => void;
 };
 
+type PlacementChoice = "yes" | "no" | "most" | "least";
+
+function placementPresentation(question: QuestionItem): {
+  positive: PlacementChoice;
+  negative: PlacementChoice;
+  positiveLabel: string;
+  negativeLabel: string;
+  onceEach: boolean;
+} {
+  if (question.answerScheme === "situational_judgement_most_least") {
+    return {
+      positive: "most",
+      negative: "least",
+      positiveLabel: "Most Appropriate",
+      negativeLabel: "Least Appropriate",
+      onceEach: true,
+    };
+  }
+  return {
+    positive: "yes",
+    negative: "no",
+    positiveLabel: "Yes",
+    negativeLabel: "No",
+    onceEach: false,
+  };
+}
+
 function SyllogismQuestionContent({
   question,
   readOnly = false,
@@ -187,6 +214,7 @@ function SyllogismQuestionContent({
   onSyllogismClickAttempt,
 }: QuestionContentProps) {
   const isTwoColumn = question.sectionDisplayColumns === 2;
+  const presentation = placementPresentation(question);
   const lockedOptionIds = useMemo(
     () => new Set(syllogismLockedOptionIds),
     [syllogismLockedOptionIds],
@@ -196,45 +224,70 @@ function SyllogismQuestionContent({
     [syllogismCorrectOptionIds],
   );
 
-  const [answers, setAnswers] = useState<Record<string, "yes" | "no">>(() => {
-    const initial: Record<string, "yes" | "no"> = {};
+  const [answers, setAnswers] = useState<Record<string, PlacementChoice>>(() => {
+    const initial: Record<string, PlacementChoice> = {};
     if (syllogismSnapshot) {
       for (const [optionId, value] of Object.entries(syllogismSnapshot)) {
-        initial[optionId] = value ? "yes" : "no";
+        initial[optionId] = value
+          ? presentation.positive
+          : presentation.negative;
       }
     }
     return initial;
   });
   const touchDragRef = useRef<{
     pointerId: number;
-    choice: "yes" | "no";
+    choice: PlacementChoice;
     sourceOptionId: string | null;
   } | null>(null);
 
   useEffect(() => {
-    const restored: Record<string, "yes" | "no"> = {};
+    const restored: Record<string, PlacementChoice> = {};
     for (const [optionId, value] of Object.entries(syllogismSnapshot ?? {})) {
-      restored[optionId] = value ? "yes" : "no";
+      restored[optionId] = value
+        ? presentation.positive
+        : presentation.negative;
     }
     setAnswers(restored);
-  }, [question.id, syllogismSnapshot]);
+  }, [presentation.negative, presentation.positive, question.id, syllogismSnapshot]);
 
   const syncSnapshot = useCallback(
-    (next: Record<string, "yes" | "no">) => {
+    (next: Record<string, PlacementChoice>) => {
       if (!onChangeSyllogismSnapshot) return;
       const snapshot: Record<string, boolean> = {};
       for (const [optionId, choice] of Object.entries(next)) {
-        snapshot[optionId] = choice === "yes";
+        snapshot[optionId] = choice === presentation.positive;
       }
       onChangeSyllogismSnapshot(snapshot);
     },
-    [onChangeSyllogismSnapshot],
+    [onChangeSyllogismSnapshot, presentation.positive],
   );
 
-  const handleAssign = (optionId: string, choice: "yes" | "no") => {
+  const assignChoice = useCallback((
+    previous: Record<string, PlacementChoice>,
+    optionId: string,
+    choice: PlacementChoice,
+    sourceOptionId: string | null,
+  ): Record<string, PlacementChoice> => {
+    const next = { ...previous };
+    if (sourceOptionId && sourceOptionId !== optionId) {
+      delete next[sourceOptionId];
+    }
+    if (presentation.onceEach) {
+      for (const [assignedOptionId, assignedChoice] of Object.entries(next)) {
+        if (assignedChoice === choice && assignedOptionId !== optionId) {
+          delete next[assignedOptionId];
+        }
+      }
+    }
+    next[optionId] = choice;
+    return next;
+  }, [presentation.onceEach]);
+
+  const handleAssign = (optionId: string, choice: PlacementChoice) => {
     if (readOnly || lockedOptionIds.has(optionId)) return;
     setAnswers((prev) => {
-      const next = { ...prev, [optionId]: choice };
+      const next = assignChoice(prev, optionId, choice, null);
       syncSnapshot(next);
       return next;
     });
@@ -255,15 +308,12 @@ function SyllogismQuestionContent({
 
       if (targetOptionId && !lockedOptionIds.has(targetOptionId)) {
         setAnswers((previous) => {
-          const next = { ...previous };
-          if (
-            drag.sourceOptionId &&
-            drag.sourceOptionId !== targetOptionId &&
-            !lockedOptionIds.has(drag.sourceOptionId)
-          ) {
-            delete next[drag.sourceOptionId];
-          }
-          next[targetOptionId] = drag.choice;
+          const next = assignChoice(
+            previous,
+            targetOptionId,
+            drag.choice,
+            drag.sourceOptionId,
+          );
           syncSnapshot(next);
           return next;
         });
@@ -290,11 +340,11 @@ function SyllogismQuestionContent({
       window.removeEventListener("pointerup", finishTouchDrag);
       window.removeEventListener("pointercancel", finishTouchDrag);
     };
-  }, [lockedOptionIds, readOnly, syllogismDragOnly, syncSnapshot]);
+  }, [assignChoice, lockedOptionIds, readOnly, syllogismDragOnly, syncSnapshot]);
 
   const startTouchDrag = (
     event: React.PointerEvent,
-    choice: "yes" | "no",
+    choice: PlacementChoice,
     sourceOptionId: string | null,
   ) => {
     if (event.pointerType === "mouse" || readOnly) return;
@@ -311,21 +361,16 @@ function SyllogismQuestionContent({
     (event) => {
       event.preventDefault();
       if (readOnly || lockedOptionIds.has(optionId)) return;
-      const choice = event.dataTransfer.getData("ucat-syllogism-choice") as
-        | "yes"
-        | "no"
-        | "";
-      if (choice !== "yes" && choice !== "no") return;
+      const choice = event.dataTransfer.getData(
+        "ucat-syllogism-choice",
+      ) as PlacementChoice | "";
+      if (choice !== presentation.positive && choice !== presentation.negative) return;
 
       const fromOptionId =
         event.dataTransfer.getData("ucat-syllogism-source") || null;
 
       setAnswers((prev) => {
-        const next = { ...prev };
-        if (fromOptionId && fromOptionId !== optionId) {
-          delete next[fromOptionId];
-        }
-        next[optionId] = choice;
+        const next = assignChoice(prev, optionId, choice, fromOptionId);
         syncSnapshot(next);
         return next;
       });
@@ -401,16 +446,18 @@ function SyllogismQuestionContent({
                     role="button"
                     tabIndex={0}
                     aria-disabled={locked}
-                    aria-label="Drop Yes or No here"
+                    aria-label={`Drop ${presentation.positiveLabel} or ${presentation.negativeLabel} here`}
                     onClick={
                       locked
                         ? undefined
-                        : syllogismDragOnly
+                        : syllogismDragOnly || presentation.onceEach
                           ? onSyllogismClickAttempt
                           : () =>
                               handleAssign(
                                 option.id,
-                                choice === "yes" ? "no" : "yes",
+                                choice === presentation.positive
+                                  ? presentation.negative
+                                  : presentation.positive,
                               )
                     }
                   >
@@ -438,7 +485,9 @@ function SyllogismQuestionContent({
                           event.dataTransfer.effectAllowed = "move";
                         }}
                       >
-                        {choice === "yes" ? "Yes" : "No"}
+                        {choice === presentation.positive
+                          ? presentation.positiveLabel
+                          : presentation.negativeLabel}
                         {markedCorrect ? (
                           <Check className="h-3.5 w-3.5" aria-hidden />
                         ) : null}
@@ -469,32 +518,50 @@ function SyllogismQuestionContent({
             <button
               type="button"
               draggable={!readOnly}
-              onPointerDown={(event) => startTouchDrag(event, "yes", null)}
-              disabled={readOnly}
+              onPointerDown={(event) =>
+                startTouchDrag(event, presentation.positive, null)
+              }
+              disabled={
+                readOnly ||
+                (presentation.onceEach &&
+                  Object.values(answers).includes(presentation.positive))
+              }
               onClick={syllogismDragOnly ? onSyllogismClickAttempt : undefined}
               onDragStart={(event) => {
-                event.dataTransfer.setData("ucat-syllogism-choice", "yes");
+                event.dataTransfer.setData(
+                  "ucat-syllogism-choice",
+                  presentation.positive,
+                );
                 event.dataTransfer.setData("ucat-syllogism-source", "");
                 event.dataTransfer.effectAllowed = "copy";
               }}
               className="flex h-9 w-20 touch-none items-center justify-center rounded border border-black bg-white text-[11pt] font-medium"
             >
-              Yes
+              {presentation.positiveLabel}
             </button>
             <button
               type="button"
               draggable={!readOnly}
-              onPointerDown={(event) => startTouchDrag(event, "no", null)}
-              disabled={readOnly}
+              onPointerDown={(event) =>
+                startTouchDrag(event, presentation.negative, null)
+              }
+              disabled={
+                readOnly ||
+                (presentation.onceEach &&
+                  Object.values(answers).includes(presentation.negative))
+              }
               onClick={syllogismDragOnly ? onSyllogismClickAttempt : undefined}
               onDragStart={(event) => {
-                event.dataTransfer.setData("ucat-syllogism-choice", "no");
+                event.dataTransfer.setData(
+                  "ucat-syllogism-choice",
+                  presentation.negative,
+                );
                 event.dataTransfer.setData("ucat-syllogism-source", "");
                 event.dataTransfer.effectAllowed = "copy";
               }}
               className="flex h-9 w-20 touch-none items-center justify-center rounded border border-black bg-white text-[11pt] font-medium"
             >
-              No
+              {presentation.negativeLabel}
             </button>
           </div>
         </div>
@@ -573,7 +640,10 @@ export function QuestionContent({
 }: QuestionContentProps) {
   const isTwoColumn = question.sectionDisplayColumns === 2;
 
-  if (question.questionType === "syllogism") {
+  if (
+    question.responseType === "drag_and_drop" ||
+    question.questionType === "syllogism"
+  ) {
     return (
       <SyllogismQuestionContent
         question={question}

@@ -73,14 +73,41 @@ export const ucatQuestionItemSchema = z
     { message: 'At least one answer option must have content.', path: ['options'] }
   )
 
-export const ucatQuestionStemSchema = z.object({
-  sectionId: z.string().uuid('Section is required'),
-  categoryId: z.string().uuid().nullable().optional(),
-  stemText: nonEmptyRichTextSchema,
-  accessScope: z.enum(['public', 'private']).default('public'),
-  tutorSourceNote: z.string().max(1000, 'Source note must be 1000 characters or fewer').nullable().optional(),
-  status: z.enum(['published', 'in_review', 'draft']).optional(),
-  questions: z.array(ucatQuestionItemSchema).min(1, 'At least one question is required'),
-})
+export const ucatQuestionStemSchema = z
+  .object({
+    sectionId: z.string().uuid('Section is required'),
+    categoryId: z.string().uuid().nullable().optional(),
+    stemText: nonEmptyRichTextSchema,
+    accessScope: z.enum(['public', 'private']).default('public'),
+    tutorSourceNote: z.string().max(1000, 'Source note must be 1000 characters or fewer').nullable().optional(),
+    status: z.enum(['published', 'in_review', 'draft']).optional(),
+    questions: z.array(ucatQuestionItemSchema).min(1, 'At least one question is required'),
+  })
+  .superRefine((stem, context) => {
+    if (
+      stem.questions.some(
+        (question) => question.answerScheme === 'situational_judgement_most_least',
+      )
+      && stem.questions.length !== 1
+    ) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['questions'],
+        message: 'A Most/Least Appropriate stem must contain exactly one question.',
+      })
+    }
+    if (
+      stem.questions.every(
+        (question) => question.answerScheme === 'situational_judgement_rating',
+      )
+      && stem.questions.length > 6
+    ) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['questions'],
+        message: 'An SJT rating stem may contain at most six questions.',
+      })
+    }
+  })
 
 export type UcatQuestionStemFormValues = z.infer<typeof ucatQuestionStemSchema>

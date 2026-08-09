@@ -62,6 +62,23 @@ const dmBinary = question({
   })),
 })
 
+const sjMostLeast = question(
+  {
+    questionId: 'sj-most-least',
+    responseType: 'drag_and_drop',
+    answerScheme: {
+      kind: 'situational_judgement_most_least',
+      mostAppropriateOptionId: 'action-a',
+      leastAppropriateOptionId: 'action-c',
+    },
+    options: ['action-a', 'action-b', 'action-c'].map((id, index) => ({
+      id,
+      index,
+    })),
+  },
+  'Situational Judgement'
+)
+
 describe('UCAT raw scoring', () => {
   it('matches the accepted golden outcomes through Answer schemes', () => {
     const responses = new Map<string, CandidateResponse>([
@@ -107,6 +124,27 @@ describe('UCAT raw scoring', () => {
 
   it('derives every denominator from the Answer scheme', () => {
     expect(computeMaxRawScore([singleChoice, sjRating, dmBinary])).toBe(4)
+  })
+
+  it('applies the isolated provisional 4/2/0 policy per Most/Least destination', () => {
+    const scored = computeRawScore({
+      questions: [sjMostLeast],
+      responses: new Map([
+        [
+          'sj-most-least',
+          {
+            kind: 'placement',
+            placements: { 'action-a': 'most', 'action-b': 'least' },
+          },
+        ],
+      ]),
+    })
+
+    expect(scored.questionScores.get('sj-most-least')).toBe(6)
+    expect(scored.maximumRawScore).toBe(8)
+    expect(scored.reviews.get('sj-most-least')).toEqual(
+      expect.objectContaining({ kind: 'placement', outcome: 'partial' })
+    )
   })
 
   it('rejects an invalid response contract instead of guessing from category', () => {

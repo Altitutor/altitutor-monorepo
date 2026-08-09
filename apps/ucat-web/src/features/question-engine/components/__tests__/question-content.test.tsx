@@ -86,4 +86,63 @@ describe("QuestionContent syllogism restoration", () => {
       "statement-1": true,
     });
   });
+
+  it("renders Most/Least as physical once-only placement for a canonical drag question", () => {
+    const mostLeastQuestion: QuestionItem = {
+      ...question,
+      id: "most-least",
+      questionType: "multiple_choice",
+      responseType: "drag_and_drop",
+      answerScheme: "situational_judgement_most_least",
+      options: [
+        { id: "action-a", index: 0, text: "Action A", answerKeyValue: "most" },
+        { id: "action-b", index: 1, text: "Action B", answerKeyValue: null },
+        { id: "action-c", index: 2, text: "Action C", answerKeyValue: "least" },
+      ],
+    };
+    const onChange = jest.fn();
+    render(
+      <QuestionContent
+        question={mostLeastQuestion}
+        onSelectOption={() => undefined}
+        onChangeSyllogismSnapshot={onChange}
+      />,
+    );
+
+    expect(screen.getByRole("button", { name: "Most Appropriate" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Least Appropriate" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Yes" })).not.toBeInTheDocument();
+
+    const [firstTarget, secondTarget] = screen.getAllByLabelText(
+      "Drop Most Appropriate or Least Appropriate here",
+    );
+    fireEvent.dragStart(screen.getByRole("button", { name: "Most Appropriate" }), {
+      dataTransfer: dataTransfer({
+        "ucat-syllogism-choice": "most",
+        "ucat-syllogism-source": "",
+      }),
+    });
+    fireEvent.drop(firstTarget!, {
+      dataTransfer: dataTransfer({
+        "ucat-syllogism-choice": "most",
+        "ucat-syllogism-source": "",
+      }),
+    });
+    fireEvent.drop(secondTarget!, {
+      dataTransfer: dataTransfer({
+        "ucat-syllogism-choice": "most",
+        "ucat-syllogism-source": "action-a",
+      }),
+    });
+
+    expect(onChange).toHaveBeenLastCalledWith({ "action-b": true });
+  });
 });
+
+function dataTransfer(values: Record<string, string>) {
+  return {
+    getData: (key: string) => values[key] ?? "",
+    setData: jest.fn(),
+    effectAllowed: "none",
+  };
+}

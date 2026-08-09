@@ -6,6 +6,7 @@ import {
 } from '@/features/ucat/questions/lib/stem-editor-form'
 import { plainTextToProseMirror } from '@/features/ucat/shared/lib/rich-text'
 import { snapshotQuestionStemFormValues } from '@/features/ucat/shared/lib/dirty-state'
+import { ucatQuestionStemSchema } from '@/features/ucat/questions/types/schema'
 
 function formValues(status: 'in_review' | 'published'): UcatQuestionStemFormValues {
   return {
@@ -42,6 +43,32 @@ function formValues(status: 'in_review' | 'published'): UcatQuestionStemFormValu
 }
 
 describe('persistStemFormValues', () => {
+  it('enforces the authored question cardinality for both SJT schemes', () => {
+    const mostLeast = formValues('in_review')
+    mostLeast.questions = [
+      {
+        ...mostLeast.questions[0]!,
+        responseType: 'drag_and_drop',
+        answerScheme: 'situational_judgement_most_least',
+      },
+      { ...mostLeast.questions[0]! },
+    ]
+    expect(ucatQuestionStemSchema.safeParse(mostLeast)).toEqual(
+      expect.objectContaining({ success: false }),
+    )
+
+    const rating = formValues('in_review')
+    rating.questions = Array.from({ length: 7 }, () => ({
+      ...rating.questions[0]!,
+      answerScheme: 'situational_judgement_rating' as const,
+    }))
+    expect(ucatQuestionStemSchema.safeParse(rating)).toEqual(
+      expect.objectContaining({ success: false }),
+    )
+    rating.questions.pop()
+    expect(ucatQuestionStemSchema.safeParse(rating).success).toBe(true)
+  })
+
   it('publishes unchanged saved content without rewriting the stem bundle', async () => {
     const baseline = formValues('in_review')
     const published = formValues('published')

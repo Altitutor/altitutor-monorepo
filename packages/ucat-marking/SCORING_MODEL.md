@@ -50,3 +50,15 @@ their original `scoring_model_version`.
 These values are estimates for learner feedback, not claims of official UCAT
 results. Item-level calibration can later replace the empirical curve behind the
 same package API without changing its callers.
+
+## Provisional SJT Most/Least policy
+
+Most/Least Appropriate questions currently award marks independently for each
+destination: 4 for the exact keyed action, 2 for choosing the unkeyed middle
+action, and 0 for choosing the action keyed to the opposite destination. A
+complete response therefore has a maximum of 8 marks.
+
+This is isolated product policy, not a claim about official UCAT scoring. It is
+provisional pending stronger official evidence and must be replaced behind the
+response-contract scoring boundary if authoritative scoring guidance becomes
+available.

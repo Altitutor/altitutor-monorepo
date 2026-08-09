@@ -148,12 +148,16 @@ function candidateResponse(
   if (kind === "single_choice" || kind === "situational_judgement_rating") {
     return { kind: "single_select", selectedOptionId: selectedOptionId ?? null };
   }
+  const positivePlacement =
+    kind === "situational_judgement_most_least" ? "most" : "yes";
+  const negativePlacement =
+    kind === "situational_judgement_most_least" ? "least" : "no";
   return {
     kind: "placement",
     placements: Object.fromEntries(
       Object.entries(syllogismSnapshot ?? {}).map(([optionId, answer]) => [
         optionId,
-        answer ? "yes" : "no",
+        answer ? positivePlacement : negativePlacement,
       ]),
     ),
   };
@@ -282,13 +286,25 @@ export function restoreQuestionResponse(
     };
   }
   const placements = Object.entries(result.state.placements);
-  if (placements.some(([, token]) => token !== "yes" && token !== "no")) {
+  const isMostLeast =
+    question.answerScheme === "situational_judgement_most_least";
+  const positivePlacement = isMostLeast ? "most" : "yes";
+  const negativePlacement = isMostLeast ? "least" : "no";
+  if (
+    placements.some(
+      ([, token]) =>
+        token !== positivePlacement && token !== negativePlacement,
+    )
+  ) {
     throw new Error("This placement response is not supported by the current engine.");
   }
   return {
     selectedOptionId: null,
     syllogismSnapshot: Object.fromEntries(
-      placements.map(([optionId, token]) => [optionId, token === "yes"]),
+      placements.map(([optionId, token]) => [
+        optionId,
+        token === positivePlacement,
+      ]),
     ),
   };
 }

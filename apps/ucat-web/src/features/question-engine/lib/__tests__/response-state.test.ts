@@ -31,6 +31,19 @@ const binaryQuestion = {
   ],
 } as QuestionItem;
 
+const mostLeastQuestion = {
+  ...singleChoiceQuestion,
+  id: "most-least",
+  questionType: "multiple_choice",
+  responseType: "drag_and_drop",
+  answerScheme: "situational_judgement_most_least",
+  options: [
+    { id: "action-a", index: 0, answerKeyValue: "most" },
+    { id: "action-b", index: 1, answerKeyValue: null },
+    { id: "action-c", index: 2, answerKeyValue: "least" },
+  ],
+} as QuestionItem;
+
 describe("canonical question response persistence", () => {
   it("writes canonical snapshots for single choice, DM placement, and blanks", () => {
     expect(snapshotQuestionResponse(singleChoiceQuestion, "option-b")).toEqual({
@@ -59,6 +72,33 @@ describe("canonical question response persistence", () => {
         placements: { "statement-1": "yes", "statement-2": "no" },
       },
     });
+  });
+
+  it("round-trips Most/Least placements through the engine persistence projection", () => {
+    const snapshot = snapshotQuestionResponse(mostLeastQuestion, undefined, {
+      "action-a": true,
+      "action-c": false,
+    });
+
+    expect(snapshot).toEqual({
+      type: "ucat_response_v1",
+      questionId: "most-least",
+      answerScheme: "situational_judgement_most_least",
+      response: {
+        kind: "placement",
+        placements: { "action-a": "most", "action-c": "least" },
+      },
+    });
+    expect(restoreQuestionResponse(mostLeastQuestion, snapshot)).toEqual({
+      selectedOptionId: null,
+      syllogismSnapshot: { "action-a": true, "action-c": false },
+    });
+    expect(evaluatePersistedQuestionResponse(mostLeastQuestion, snapshot)).toEqual(
+      expect.objectContaining({
+        complete: true,
+        score: { awarded: 8, maximum: 8 },
+      }),
+    );
   });
 
   it("rejects invalid option IDs instead of persisting them as blank", () => {
@@ -92,23 +132,15 @@ describe("canonical question response persistence", () => {
       }),
     ).toThrow("different question");
 
-    const mostLeastQuestion = {
-      ...singleChoiceQuestion,
-      id: "most-least",
-      responseType: "drag_and_drop",
-      answerScheme: "situational_judgement_most_least",
-      options: [
-        { id: "a", index: 0, answerKeyValue: "most" },
-        { id: "b", index: 1, answerKeyValue: "least" },
-        { id: "c", index: 2, answerKeyValue: null },
-      ],
-    } as QuestionItem;
     expect(() =>
       restoreQuestionResponse(mostLeastQuestion, {
         type: "ucat_response_v1",
         questionId: "most-least",
         answerScheme: "situational_judgement_most_least",
-        response: { kind: "placement", placements: { a: "most", b: "most" } },
+        response: {
+          kind: "placement",
+          placements: { "action-a": "most", "action-b": "most" },
+        },
       }),
     ).toThrow("only once");
   });
