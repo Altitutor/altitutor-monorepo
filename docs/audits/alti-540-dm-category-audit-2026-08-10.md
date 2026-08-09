@@ -9,13 +9,16 @@ categorised as `Syllogisms`. The machine-readable evidence is in
 - 337 stems: 299 active and 38 stem-deleted.
 - 337 questions: 299 active and 38 soft-deleted.
 - 135 strong `Syllogisms` suggestions.
-- 45 strong `Interpreting Information and Drawing Conclusions` suggestions.
-- 157 weak, absent, or conflicting classifications requiring human review.
+- 43 strong `Interpreting Information and Drawing Conclusions` suggestions.
+- 159 weak, absent, or conflicting classifications requiring human review.
 
 The report contains stable stem/question IDs, lifecycle state, publication
-status, rich node and asset metadata, semantic excerpts, formal-premise and
+status, observed rich presentation formats, rich node and asset metadata,
+semantic excerpts, formal-premise and
 factual/data signals, confidence, evidence, and conflicts. Signed asset URLs and
-tokens are deliberately excluded.
+tokens are deliberately excluded. `declaredPresentationFormat` is null because
+the read-only production schema predates that expansion column; observed format
+metadata is derived and reported separately, and is never category evidence.
 
 ## Review gate
 

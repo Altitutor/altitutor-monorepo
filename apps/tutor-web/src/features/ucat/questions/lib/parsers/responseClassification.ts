@@ -68,12 +68,6 @@ export type DecisionMakingCategoryInferenceValue =
   | 'Syllogisms'
   | 'Interpreting Information and Drawing Conclusions'
 
-export type DecisionMakingCategoryEvidence = {
-  isConclusionTask: boolean
-  formalPremiseSignals: string[]
-  factualDataSignals: string[]
-}
-
 const FORMAL_PREMISE_SIGNAL_PATTERNS = [
   ['all', /\ball\b/u],
   ['some', /\bsome\b/u],
@@ -94,6 +88,17 @@ const FACTUAL_DATA_SIGNAL_PATTERNS = [
   ['study', /\bstudy\b/u],
   ['figure', /\bfigures?\b/u],
 ] as const
+
+export type DecisionMakingFormalPremiseSignal =
+  (typeof FORMAL_PREMISE_SIGNAL_PATTERNS)[number][0]
+export type DecisionMakingFactualDataSignal =
+  (typeof FACTUAL_DATA_SIGNAL_PATTERNS)[number][0]
+
+export type DecisionMakingCategoryEvidence = {
+  isConclusionTask: boolean
+  formalPremiseSignals: DecisionMakingFormalPremiseSignal[]
+  factualDataSignals: DecisionMakingFactualDataSignal[]
+}
 
 /** Semantic DM category evidence; deliberately has no response-contract input. */
 export function extractDecisionMakingCategoryEvidence(input: {

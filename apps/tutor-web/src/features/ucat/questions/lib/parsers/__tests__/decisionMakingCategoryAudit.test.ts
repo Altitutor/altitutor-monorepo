@@ -83,10 +83,11 @@ describe('auditDecisionMakingCategoryRecords', () => {
         stemLifecycle: 'active',
         activeQuestionIds: ['20000000-0000-4000-8000-000000000001'],
         softDeletedQuestionIds: ['20000000-0000-4000-8000-000000000002'],
-        presentationFormat: 'table',
+        declaredPresentationFormat: 'table',
+        observedPresentationFormats: ['table'],
         richNodeTypes: ['table', 'tableCell', 'tableRow'],
         formalPremiseSignals: [],
-        factualDataSignals: ['table', 'data', 'survey'],
+        factualDataSignals: ['data', 'survey'],
         suggestedCategory: 'Interpreting Information and Drawing Conclusions',
         confidence: 'strong',
         evidence: ['structured_factual_presentation'],
@@ -139,6 +140,7 @@ describe('auditDecisionMakingCategoryRecords', () => {
     expect(row.assetFileIds).toEqual([
       '30000000-0000-4000-8000-000000000001',
     ])
+    expect(row.observedPresentationFormats).toEqual(['diagram_or_image'])
   })
 
   it('summarises every lifecycle and keeps review rows explicit', () => {

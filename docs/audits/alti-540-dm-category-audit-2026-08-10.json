@@ -7,8 +7,8 @@
     "activeQuestions": 299,
     "softDeletedQuestions": 38,
     "suggestedSyllogisms": 135,
-    "suggestedInterpretingInformation": 45,
-    "requiresHumanReview": 157
+    "suggestedInterpretingInformation": 43,
+    "requiresHumanReview": 159
   },
   "rows": [
     {
@@ -20,7 +20,12 @@
         "865bfa41-c162-4995-84d5-630bc75ba394"
       ],
       "softDeletedQuestionIds": [],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [
+        "graph_or_chart",
+        "diagram_or_image",
+        "mixed"
+      ],
       "richNodeTypes": [
         "image"
       ],
@@ -50,7 +55,8 @@
         "626331aa-f8dc-4a2a-85a3-2b8d9a8f3a62"
       ],
       "softDeletedQuestionIds": [],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [],
       "richNodeTypes": [],
       "assetFileIds": [],
       "stemTextExcerpt": "Some people arrested in the town engaged in burglary. None of the arrested people who engaged in burglary committed arson.",
@@ -77,7 +83,8 @@
         "9aaffd2b-eaca-42c8-b292-2ddabf81e97e"
       ],
       "softDeletedQuestionIds": [],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [],
       "richNodeTypes": [],
       "assetFileIds": [],
       "stemTextExcerpt": "Many vegans believe that their diet is better for the environment than a typical Western diet containing animal products. Animal agriculture produces more greenhouse gas emissions (notably methane) than growing crops, and deforestation is often involved in clearing land to farm animals, which vegans claim could be used to plant vegetables. However, meat-eaters claim that some land cannot be used for crops, so it would be inefficient not to use it for livestock. Furthermore, it is clear that grow",
@@ -101,7 +108,12 @@
       "softDeletedQuestionIds": [
         "0c92852d-8bee-4269-b129-67e0287ed64b"
       ],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [
+        "graph_or_chart",
+        "diagram_or_image",
+        "mixed"
+      ],
       "richNodeTypes": [
         "image"
       ],
@@ -131,7 +143,8 @@
         "c50c935b-8fdc-4eff-8797-1c40b6fc70e6"
       ],
       "softDeletedQuestionIds": [],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [],
       "richNodeTypes": [],
       "assetFileIds": [],
       "stemTextExcerpt": "Every decision is either significant or minor. No minor decision is difficult to make. Some significant decisions can become easier to make with time. At least one significant decision exists, and at least one difficult decision exists.",
@@ -159,7 +172,8 @@
         "4efedd9a-7c62-43e8-8485-d3b51dc81453"
       ],
       "softDeletedQuestionIds": [],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [],
       "richNodeTypes": [],
       "assetFileIds": [],
       "stemTextExcerpt": "An arcade crane game is rigged to maximise profit. With normal play, the crane arm has enough grip to hold a prize firmly only once in every ten attempts. Players can sometimes bypass this restriction by manoeuvring the crane arm so that it hooks onto an exposed part of a prize, such as a tag. If this trick is performed correctly, the arm can secure the prize regardless of how little grip power it has.",
@@ -183,7 +197,8 @@
         "527034e2-ecc0-4235-96a1-0dbfd8974939"
       ],
       "softDeletedQuestionIds": [],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [],
       "richNodeTypes": [
         "bulletList",
         "listItem"
@@ -213,7 +228,12 @@
         "75f18a2e-736d-47f2-8df7-d97512663028"
       ],
       "softDeletedQuestionIds": [],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [
+        "graph_or_chart",
+        "diagram_or_image",
+        "mixed"
+      ],
       "richNodeTypes": [
         "image"
       ],
@@ -243,7 +263,8 @@
         "6fcd60dc-8566-4f45-b124-c37e4126255c"
       ],
       "softDeletedQuestionIds": [],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [],
       "richNodeTypes": [],
       "assetFileIds": [],
       "stemTextExcerpt": "At a pathology laboratory: All cooled specimens are sealed. No sealed specimens are contaminated. Some swab specimens are cooled. All priority specimens are swab specimens. Some contaminated specimens are priority specimens.",
@@ -271,7 +292,8 @@
         "94f39e69-255b-4df6-af2e-4f4852250bc7"
       ],
       "softDeletedQuestionIds": [],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [],
       "richNodeTypes": [],
       "assetFileIds": [],
       "stemTextExcerpt": "Dr. Raisa Lawrence, a research astronomer, has clearly shown that her hypothesis concerning the determinants of supernovas produces consistently precise predictions about how supernovas will be affected by galactic conditions. On the grounds of this evidence, Dr. Lawrence has stated that her hypothesis is inarguably correct. This means that Dr. Lawrence is not a respectable astronomer. Dr. Lawrence’s evidence fails to prove absolutely that her hypothesis is correct. Respectable astronomers consi",
@@ -297,7 +319,8 @@
         "d50e4784-4405-4b99-b574-bf6430f3f2d0"
       ],
       "softDeletedQuestionIds": [],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [],
       "richNodeTypes": [],
       "assetFileIds": [],
       "stemTextExcerpt": "Due to some complaints in the household, a group of housemates has agreed on a cleaning rota. The tasks involve hoovering, mopping and taking the bins out. The house must be hoovered every day, excluding Sundays. Mopping happens every other day, but only if hoovering occurs the same day. The bins must be taken out 3 times a week, but never on Sundays and days when mopping occurs. The bins are always taken out on Wednesday.",
@@ -324,7 +347,8 @@
         "8f6326d2-4790-4a4d-a19e-7bc568162e11"
       ],
       "softDeletedQuestionIds": [],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [],
       "richNodeTypes": [],
       "assetFileIds": [],
       "stemTextExcerpt": "All cars at Matthew's car dealership are either 4WDs or sedans. All sedans are equipped with a lane keep system, but the 4WDs can have a lane keep system or sunroof. Vehicles with a lane keep system are either run on electricity or petrol.",
@@ -348,7 +372,8 @@
       "softDeletedQuestionIds": [
         "0a723f3c-73d1-49a7-a93b-76ba6c19d8bb"
       ],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [],
       "richNodeTypes": [],
       "assetFileIds": [],
       "stemTextExcerpt": "All the bats that inhabited a forest were fruit bats. High pitched sounds could be heard by all the fruit bats although not all of the fruit bats that could hear high pitched sounds could also hear low pitched sounds.",
@@ -372,7 +397,8 @@
         "e7fc117e-eaa9-4ff7-9e6c-54880136a5ee"
       ],
       "softDeletedQuestionIds": [],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [],
       "richNodeTypes": [],
       "assetFileIds": [],
       "stemTextExcerpt": "All archivists are meticulous. No meticulous people are careless. Some curators are archivists. All historians are curators.",
@@ -400,7 +426,8 @@
         "6314ab6c-15fc-40bf-939e-714551605b96"
       ],
       "softDeletedQuestionIds": [],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [],
       "richNodeTypes": [],
       "assetFileIds": [],
       "stemTextExcerpt": "Every archive volunteer has completed training. No trained person handles original maps. Some catalogue assistants are archive volunteers. Every person who handles original maps wears gloves. No catalogue assistant wears gloves.",
@@ -428,7 +455,8 @@
         "31584786-72f7-43b2-aaed-12d5e92bd52d"
       ],
       "softDeletedQuestionIds": [],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [],
       "richNodeTypes": [],
       "assetFileIds": [],
       "stemTextExcerpt": "Doctors either love or hate being on call. All cardiothoracic surgeons sleep less than six hours a night, and most cardiothoracic surgeons hate being on call. Most dermatologists sleep more than eight hours a night, and all dermatologists love being on call. Some dermatologists are also cardiothoracic surgeons.",
@@ -455,7 +483,8 @@
       "softDeletedQuestionIds": [
         "d5b99667-a12d-491f-8ed6-4c72feccec4c"
       ],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [],
       "richNodeTypes": [],
       "assetFileIds": [],
       "stemTextExcerpt": "The fox always sleeps while the monkey sleeps. The monkey always stays up if the tiger is up.",
@@ -477,7 +506,12 @@
         "5397e1be-9ecb-4d90-b5e2-76a13e39c74d"
       ],
       "softDeletedQuestionIds": [],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [
+        "graph_or_chart",
+        "diagram_or_image",
+        "mixed"
+      ],
       "richNodeTypes": [
         "image"
       ],
@@ -507,7 +541,12 @@
         "2f87aff3-b400-4331-b794-a8ae48fe098c"
       ],
       "softDeletedQuestionIds": [],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [
+        "table",
+        "diagram_or_image",
+        "mixed"
+      ],
       "richNodeTypes": [
         "image"
       ],
@@ -537,7 +576,8 @@
         "a409cfb2-715c-4b86-86d0-61dfc761972d"
       ],
       "softDeletedQuestionIds": [],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [],
       "richNodeTypes": [],
       "assetFileIds": [],
       "stemTextExcerpt": "Harriet's flowers are not monocarpic and none of them are night-blooming. All of Peter's flowers are perennial. A flower cannot be both perennial and annual.",
@@ -564,7 +604,8 @@
         "9622b3ad-62f8-445b-8096-ebb341ab3aa2"
       ],
       "softDeletedQuestionIds": [],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [],
       "richNodeTypes": [
         "bulletList",
         "listItem"
@@ -591,7 +632,8 @@
       "softDeletedQuestionIds": [
         "51eeaaad-deb8-4cbd-a041-c874a627452b"
       ],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [],
       "richNodeTypes": [],
       "assetFileIds": [],
       "stemTextExcerpt": "Most phones sold in New Zealand are made in South Korea including all phones from the two biggest phone retailers. South Korean workers’ conditions have improved in recent years, partly due to pressure from New Zealand consumers on phone manufacturers in South Korea. Prior to this, their working conditions were very poor.",
@@ -615,7 +657,8 @@
         "481d59c0-4470-4cae-91d6-abbe3f727119"
       ],
       "softDeletedQuestionIds": [],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [],
       "richNodeTypes": [],
       "assetFileIds": [],
       "stemTextExcerpt": "Some comic books are graphic novels. All graphic novels contain illustrations. Some graphic novels do not contain words. All novels contain words.",
@@ -642,7 +685,8 @@
         "beaf191f-5641-4993-b692-f90b14970571"
       ],
       "softDeletedQuestionIds": [],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [],
       "richNodeTypes": [],
       "assetFileIds": [],
       "stemTextExcerpt": "Every archive box containing maps is stored in Room A. Some boxes stored in Room A contain photographs. No box containing photographs is waterproof. All waterproof boxes are labelled blue. No blue-labelled box is stored in Room C.",
@@ -671,7 +715,8 @@
         "20bd6f66-9227-4c0d-9a34-8184126f4759"
       ],
       "softDeletedQuestionIds": [],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [],
       "richNodeTypes": [],
       "assetFileIds": [],
       "stemTextExcerpt": "An online file storage service allows a user to store either photos or documents, but not both. Up to 80GB of photos or 100GB of documents may be stored on an account, free of charge. If they wish to exceed this amount, the user may purchase an additional 200GB of storage (of either photos or documents) for $10 per month. People are only allowed to use a max of one account.",
@@ -693,7 +738,8 @@
         "7b19a9b6-8e96-4f01-8516-a5bb73b729b8"
       ],
       "softDeletedQuestionIds": [],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [],
       "richNodeTypes": [],
       "assetFileIds": [],
       "stemTextExcerpt": "All uuks are nuks. All buks are suks. Some suks are luks. This is either an uuk or a buk, and no nuks can be suks.",
@@ -721,7 +767,12 @@
         "88daae3b-a004-4d38-b1b6-40d3e27a285f"
       ],
       "softDeletedQuestionIds": [],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [
+        "graph_or_chart",
+        "diagram_or_image",
+        "mixed"
+      ],
       "richNodeTypes": [
         "image"
       ],
@@ -751,7 +802,8 @@
         "f283eb33-d0d6-4304-9090-c7105b24abb9"
       ],
       "softDeletedQuestionIds": [],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [],
       "richNodeTypes": [],
       "assetFileIds": [],
       "stemTextExcerpt": "Every member of the club enjoys outdoor activities, except Rowan and Shelley. More than three people in the club excel at orienteering. Orienteering is an outdoor activity.",
@@ -775,7 +827,8 @@
         "cf25863d-e9fe-47bf-91cc-411bb53643f3"
       ],
       "softDeletedQuestionIds": [],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [],
       "richNodeTypes": [
         "bulletList",
         "listItem"
@@ -805,7 +858,8 @@
         "6e37d860-4284-410c-9607-94eda034cdb7"
       ],
       "softDeletedQuestionIds": [],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [],
       "richNodeTypes": [],
       "assetFileIds": [],
       "stemTextExcerpt": "A player can only have two ‘high’ ratings out of three attributes (speed, agility and stamina). A player can be either high or low speed, have high or low agility, and have high or low stamina. Tom has high speed and high agility. The best player on the team has both high stamina and agility.",
@@ -827,7 +881,8 @@
         "73675544-c89d-49a4-9331-07248b2d75c5"
       ],
       "softDeletedQuestionIds": [],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [],
       "richNodeTypes": [],
       "assetFileIds": [],
       "stemTextExcerpt": "All lanterns are checked before use. No checked items are borrowed. Some maps are borrowed. All borrowed items are returned.",
@@ -855,7 +910,8 @@
         "124a2619-a6cb-4a7f-b875-a1804b5ecaf3"
       ],
       "softDeletedQuestionIds": [],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [],
       "richNodeTypes": [],
       "assetFileIds": [],
       "stemTextExcerpt": "At a museum archive, all documents loaned overnight are returned by 10 am. No document requiring conservation work is loaned overnight. Some maps require conservation work. All maps are catalogued documents.",
@@ -883,7 +939,8 @@
         "ff8ec34b-9777-4a91-9bce-01f83bbdc2cd"
       ],
       "softDeletedQuestionIds": [],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [],
       "richNodeTypes": [
         "bulletList",
         "listItem"
@@ -910,7 +967,8 @@
         "88b2deba-abcc-4319-8229-be46c5fb787a"
       ],
       "softDeletedQuestionIds": [],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [],
       "richNodeTypes": [],
       "assetFileIds": [],
       "stemTextExcerpt": "2. All of the children in Mrs Smith’s class like biscuits, except for Molly. More than one child in Mrs Smith’s class likes carrots.",
@@ -934,7 +992,8 @@
         "32a8291f-efa5-435e-b575-460e191a00b8"
       ],
       "softDeletedQuestionIds": [],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [],
       "richNodeTypes": [],
       "assetFileIds": [],
       "stemTextExcerpt": "There are three different types of palm trees: spiky, soft, and stiff. Stiff palm trees are the tallest. Soft palm trees are not the widest. Spiky palm trees aren’t the shortest, but they drop the most palm fronds and have coconuts. The two types of palm trees that are not the widest have coconuts.",
@@ -956,7 +1015,12 @@
         "49401d67-2844-4053-8a45-6e6c0e974e9f"
       ],
       "softDeletedQuestionIds": [],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [
+        "graph_or_chart",
+        "diagram_or_image",
+        "mixed"
+      ],
       "richNodeTypes": [
         "image"
       ],
@@ -986,7 +1050,12 @@
         "85382aed-6a94-4a1e-8981-c2d61f83f0aa"
       ],
       "softDeletedQuestionIds": [],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [
+        "graph_or_chart",
+        "diagram_or_image",
+        "mixed"
+      ],
       "richNodeTypes": [
         "image"
       ],
@@ -1016,7 +1085,8 @@
         "58f21373-e051-4c86-a00c-78e0d53f66da"
       ],
       "softDeletedQuestionIds": [],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [],
       "richNodeTypes": [],
       "assetFileIds": [],
       "stemTextExcerpt": "All supervisors are trained staff. Some trained staff are part-time. No part-time staff are security-cleared. Every auditor is security-cleared. Some supervisors are auditors.",
@@ -1045,7 +1115,12 @@
         "858e7681-f593-48af-8c5a-ca4569cfbc7b"
       ],
       "softDeletedQuestionIds": [],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [
+        "graph_or_chart",
+        "diagram_or_image",
+        "mixed"
+      ],
       "richNodeTypes": [
         "image"
       ],
@@ -1075,7 +1150,8 @@
         "2a7dfaee-28f8-41ca-b11c-919919ed556a"
       ],
       "softDeletedQuestionIds": [],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [],
       "richNodeTypes": [],
       "assetFileIds": [],
       "stemTextExcerpt": "Dr. Raisa Lawrence, a research astronomer, has clearly shown that her hypothesis concerning the determinants of supernovas produces consistently precise predictions about how supernovas will be affected by galactic conditions. On the grounds of this evidence, Dr. Lawrence has stated that her hypothesis is inarguably correct. This means that Dr. Lawrence is not a respectable astronomer. Dr. Lawrence’s evidence fails to prove absolutely that her hypothesis is correct. Respectable astronomers consi",
@@ -1101,7 +1177,8 @@
       "softDeletedQuestionIds": [
         "3b7b2307-722e-4ec0-8ae9-003061b3e3e8"
       ],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [],
       "richNodeTypes": [],
       "assetFileIds": [],
       "stemTextExcerpt": "In order to become a class 1 naturalist guide in the Galapagos Islands, a person must have a college diploma and must speak at least two languages. In order to be a class 2 naturalist guide, a person must have a graduate degree and must speak at least three languages. In order to be a class 3 guide, a person must have a Ph.D. in a scientific field and must meet all of the qualifications for a class 2 naturalist guide. All naturalist guides must also obtain a qualification certificate. Angela is ",
@@ -1125,7 +1202,8 @@
         "5f22abb6-7241-4537-b99c-92babe97f8c6"
       ],
       "softDeletedQuestionIds": [],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [],
       "richNodeTypes": [],
       "assetFileIds": [],
       "stemTextExcerpt": "Codex MCP smoke test: Every marked card is catalogued. No catalogued card is discarded. Updated once.",
@@ -1150,7 +1228,8 @@
         "ac9089dd-4298-4fe5-b61e-64deab8e1284"
       ],
       "softDeletedQuestionIds": [],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [],
       "richNodeTypes": [],
       "assetFileIds": [],
       "stemTextExcerpt": "At a particular dealership, not all cars with spoilers are luxury, all cars with spoilers are red and some luxury cars are blue.",
@@ -1177,7 +1256,8 @@
         "9db20a0a-0826-4e60-9d01-ed25fd29d433"
       ],
       "softDeletedQuestionIds": [],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [],
       "richNodeTypes": [],
       "assetFileIds": [],
       "stemTextExcerpt": "At a research reserve: All field laboratories are restricted sites. No restricted site is a visitor area. Some mobile laboratories are visitor areas. All mobile laboratories use solar power. Some solar-powered sites are field laboratories.",
@@ -1205,7 +1285,8 @@
         "9e07f891-d3ca-425e-abb1-90d8ddd7bf1c"
       ],
       "softDeletedQuestionIds": [],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [],
       "richNodeTypes": [],
       "assetFileIds": [],
       "stemTextExcerpt": "The tarantella is a traditional Italian dance that originated among the lower working classes but became popular in aristocratic London circles during the 18th century. The German novelist Johann Goethe described a version involving three peasant girls who alternated between dancing and playing castanets and a tambourine when they became tired. This form was unlikely to have been the same as the version recognised by contemporary London couples. The origin of the dance is unknown, although its n",
@@ -1227,7 +1308,8 @@
         "0002bfae-e3c3-4482-9f74-2f4891cfe81e"
       ],
       "softDeletedQuestionIds": [],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [],
       "richNodeTypes": [
         "bulletList",
         "listItem"
@@ -1252,7 +1334,8 @@
         "8859f134-869f-40b1-9f19-0d71a26b2752"
       ],
       "softDeletedQuestionIds": [],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [],
       "richNodeTypes": [],
       "assetFileIds": [],
       "stemTextExcerpt": "Social media has changed the dynamic of our conversations. Given the accessibility of portable electronic devices, such as smartphones, the expectation for people to reply quickly to messages has been greater than ever before. This expectation can lead to an increase in distractions in the workplace and at school, which has the potential to cause decreases in working efficiency. However, social media platforms can also be useful for workplace engagement and collaboration.",
@@ -1274,7 +1357,8 @@
         "a39f8dc4-6af1-422f-bb5c-30d8b2436224"
       ],
       "softDeletedQuestionIds": [],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [],
       "richNodeTypes": [],
       "assetFileIds": [],
       "stemTextExcerpt": "Employers complain that people graduating from high school too often lack the vocational skills required for full-time employment. These skills are best acquired on the job, so we should require high school students to work at part-time jobs so that they acquire the skills needed for today's job market. However, there are already too few part-time jobs for students who want to work, and simply requiring students to work will not create jobs for them.",
@@ -1296,7 +1380,8 @@
         "1497116f-9db4-480f-9041-804640d0a780"
       ],
       "softDeletedQuestionIds": [],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [],
       "richNodeTypes": [],
       "assetFileIds": [],
       "stemTextExcerpt": "All oceans are beautiful. No rivers are oceans. This river is beautiful.",
@@ -1323,7 +1408,8 @@
         "1aa1a4b6-5af1-4260-a500-edc0e6ef33a1"
       ],
       "softDeletedQuestionIds": [],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [],
       "richNodeTypes": [],
       "assetFileIds": [],
       "stemTextExcerpt": "All overnight deliveries require a signed receipt. No delivery requiring a signed receipt is left in a locker. Some pharmacy deliveries are overnight. All refrigerated deliveries are pharmacy deliveries. No refrigerated delivery is left in a locker.",
@@ -1351,7 +1437,8 @@
         "465591c2-4470-47cc-8cef-4c8e2258ac6c"
       ],
       "softDeletedQuestionIds": [],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [],
       "richNodeTypes": [],
       "assetFileIds": [],
       "stemTextExcerpt": "At a parcel depot, all priority parcels are tracked. No tracked parcels are held in the local depot. Some parcels held in the local depot are damaged. All damaged parcels are photographed. No photographed parcels are priority parcels.",
@@ -1379,7 +1466,8 @@
         "fe5050d7-3cf7-47d9-96a8-440eb6dd1e29"
       ],
       "softDeletedQuestionIds": [],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [],
       "richNodeTypes": [],
       "assetFileIds": [],
       "stemTextExcerpt": "All students at Boldon College were surveyed about their opinions on gun control, and asked to label themselves as pro-gun control, anti-gun control, or supporters of a compromise position. Of the respondents, 26 percent considered themselves pro-gun control, 20 percent considered themselves anti-gun control, and 54 percent considered themselves supporters of a compromise position. When asked about particular gun control measures, however, 83 percent of the respondents endorsed what is widely re",
@@ -1403,7 +1491,8 @@
       "softDeletedQuestionIds": [
         "f4d37d79-c3be-4948-aa84-b88966e68524"
       ],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [],
       "richNodeTypes": [],
       "assetFileIds": [],
       "stemTextExcerpt": "All hats have brims. There are black hats and blue hats. Baseball caps are hats.",
@@ -1427,7 +1516,8 @@
         "0360c931-c5e8-4612-9ce8-8f4f9c45388a"
       ],
       "softDeletedQuestionIds": [],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [],
       "richNodeTypes": [],
       "assetFileIds": [],
       "stemTextExcerpt": "In Zoo X, all jaguars are sleeping. Some of the jaguars in Zoo X are big cats.",
@@ -1454,7 +1544,8 @@
         "0eede0f3-9415-4425-b6d8-12183a096235"
       ],
       "softDeletedQuestionIds": [],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [],
       "richNodeTypes": [
         "bulletList",
         "listItem"
@@ -1479,7 +1570,8 @@
       "softDeletedQuestionIds": [
         "5d268e52-ddeb-44e3-881b-5a5850c56b7c"
       ],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [],
       "richNodeTypes": [],
       "assetFileIds": [],
       "stemTextExcerpt": "Marianne travelled to France to see her cousins at a reunion. Only two out of the group of cousins, excluding Marianne, were girls. The two youngest out of the group of cousins, including Marianne, were both boys. Only two of the cousins were older than her.",
@@ -1501,7 +1593,8 @@
         "63b33d9b-5302-40a5-93ba-ab631e9fa681"
       ],
       "softDeletedQuestionIds": [],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [],
       "richNodeTypes": [],
       "assetFileIds": [],
       "stemTextExcerpt": "All pumpkins are big. All lettuces are green. This vegetable is either a lettuce or a pumpkin.",
@@ -1525,7 +1618,8 @@
       "softDeletedQuestionIds": [
         "cd34014c-89d4-4368-851e-f008b9b3330d"
       ],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [],
       "richNodeTypes": [],
       "assetFileIds": [],
       "stemTextExcerpt": "In the 1960s, the drug cardiokind, after the usual period of carefully monitored clinical trials, was declared by its manufacturers to be unusually safe and very effective in lowering cholesterol levels in the blood. The World Health Organisation carried out exactly the same kind of trial on the drug but for a much longer period than the usual five years. The results in 1980 showed that the mortality rate from all causes for those on cardiokind was 25 percent higher than for those who, though si",
@@ -1549,7 +1643,8 @@
         "bf332eb4-c940-4d53-9bf2-9eddaa13f804"
       ],
       "softDeletedQuestionIds": [],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [],
       "richNodeTypes": [],
       "assetFileIds": [],
       "stemTextExcerpt": "Computers are assigned performance grades from A (highest) to E (lowest). A computer is viable for use only if it has grade A, B or C; computers graded D or E are scrapped. If a computer’s performance deteriorates, it may be downgraded by no more than one grade in any rolling 12-month period.",
@@ -1573,7 +1668,8 @@
       "softDeletedQuestionIds": [
         "86d41b0a-fa1c-44d8-8429-5756997205e0"
       ],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [],
       "richNodeTypes": [],
       "assetFileIds": [],
       "stemTextExcerpt": "Some books are encyclopedias. All encyclopedias are copyrighted. Most books that are copyrighted are either self-published or are trademarked.",
@@ -1600,7 +1696,10 @@
         "b6441360-c547-4353-91c4-c5532891ab67"
       ],
       "softDeletedQuestionIds": [],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [
+        "diagram_or_image"
+      ],
       "richNodeTypes": [
         "image"
       ],
@@ -1626,7 +1725,8 @@
         "0060f9a2-22b3-425a-ae09-df549f04f86b"
       ],
       "softDeletedQuestionIds": [],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [],
       "richNodeTypes": [],
       "assetFileIds": [],
       "stemTextExcerpt": "At a hospital supply unit: All sterile instruments are sealed. No sealed items are placed in the return tray. Some labelled packs are sterile instruments. All items in the return tray are inspected. Some inspected items are not labelled packs.",
@@ -1654,7 +1754,12 @@
         "c5118426-28ee-4ed2-941b-0cc3cbc99c57"
       ],
       "softDeletedQuestionIds": [],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [
+        "graph_or_chart",
+        "diagram_or_image",
+        "mixed"
+      ],
       "richNodeTypes": [
         "image"
       ],
@@ -1684,7 +1789,10 @@
         "1802529a-a39f-49c1-ad1b-211d3185ebf1"
       ],
       "softDeletedQuestionIds": [],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [
+        "diagram_or_image"
+      ],
       "richNodeTypes": [
         "image"
       ],
@@ -1711,7 +1819,8 @@
         "e3017049-9a0e-4da5-80fe-98e5f1c0f2d6"
       ],
       "softDeletedQuestionIds": [],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [],
       "richNodeTypes": [],
       "assetFileIds": [],
       "stemTextExcerpt": "Xanthines, Muscarines, and Glucois are types of fish. All Xanthines are Muscarines. Some Glucois are Muscarines. All Muscarines which are not Xanthines have yellow eyes.",
@@ -1738,7 +1847,10 @@
         "b32b9b6c-6e7c-4ce2-b2c2-47a0e43ce84c"
       ],
       "softDeletedQuestionIds": [],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [
+        "table"
+      ],
       "richNodeTypes": [
         "table",
         "tableCell",
@@ -1749,16 +1861,12 @@
       "stemTextExcerpt": "Susan uses a wave tank to simulate eight consecutive waves during a windstorm. A wave is classified as a rogue wave if its height is at least six times the height of the smallest wave in the simulation. Wave number 1 2 3 4 5 6 7 8 Height (cm) 20 110 150 100 140 90 120 60",
       "directiveExcerpt": "Place 'Yes' if the conclusion follows. Place 'No' if the conclusion does not follow.",
       "formalPremiseSignals": [],
-      "factualDataSignals": [
-        "table"
-      ],
-      "suggestedCategory": "Interpreting Information and Drawing Conclusions",
-      "confidence": "strong",
-      "evidence": [
-        "structured_factual_presentation"
-      ],
+      "factualDataSignals": [],
+      "suggestedCategory": null,
+      "confidence": "absent",
+      "evidence": [],
       "conflicts": [],
-      "requiresHumanReview": false
+      "requiresHumanReview": true
     },
     {
       "stemId": "33826350-ca1e-494d-9c05-c5b076786a05",
@@ -1769,7 +1877,8 @@
         "10e39750-3232-4531-9423-fe6f05f4dbd7"
       ],
       "softDeletedQuestionIds": [],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [],
       "richNodeTypes": [
         "bulletList",
         "listItem"
@@ -1799,7 +1908,8 @@
         "03edcd24-9c6a-47f0-84a1-bfbba960bc9f"
       ],
       "softDeletedQuestionIds": [],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [],
       "richNodeTypes": [],
       "assetFileIds": [],
       "stemTextExcerpt": "All restaurants that are open 24 hours serve fast food. McDaly’s does not serve fast food.",
@@ -1823,7 +1933,8 @@
         "7ab640a6-32e8-4dab-ad5b-ec7cd0db6ee6"
       ],
       "softDeletedQuestionIds": [],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [],
       "richNodeTypes": [],
       "assetFileIds": [],
       "stemTextExcerpt": "Alcohol-control advocates argue that television advertising plays a large role in leading teenagers to drink. In Hungary, however, where television advertising of alcoholic beverages has been prohibited since 1980, teenage alcohol use is higher than in some other European countries where such advertising is allowed.",
@@ -1847,7 +1958,8 @@
         "04ca2682-3e8f-447d-83df-2532b1e59e21"
       ],
       "softDeletedQuestionIds": [],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [],
       "richNodeTypes": [
         "bulletList",
         "listItem"
@@ -1877,7 +1989,8 @@
         "014a4fde-a2a7-4430-90c0-db8c7ef95649"
       ],
       "softDeletedQuestionIds": [],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [],
       "richNodeTypes": [],
       "assetFileIds": [],
       "stemTextExcerpt": "None of Jeremy’s toys are plastic. None of Belinda’s toys are musical, but some are wooden.",
@@ -1904,7 +2017,8 @@
         "c16ca555-d421-44dc-b880-b7a940cd7b8d"
       ],
       "softDeletedQuestionIds": [],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [],
       "richNodeTypes": [],
       "assetFileIds": [],
       "stemTextExcerpt": "Some employees at Company X have worked there for more than five years. Company X has never given an employee a raise. Most, but not all, employees at Company X have worked there for no more than ten years. All employees at Company X receive a three-week break every year. In big companies, employees who work at that company for more than ten years receive a raise.",
@@ -1933,7 +2047,8 @@
         "2f393bca-901d-4a0b-bfba-0ddd87176892"
       ],
       "softDeletedQuestionIds": [],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [],
       "richNodeTypes": [],
       "assetFileIds": [],
       "stemTextExcerpt": "Some books are encyclopedias. All encyclopedias are copyrighted. Most copyrighted books are either self-published or trademarked.",
@@ -1960,7 +2075,12 @@
         "d1c5a6f6-e39c-4a35-849b-6224173af315"
       ],
       "softDeletedQuestionIds": [],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [
+        "graph_or_chart",
+        "diagram_or_image",
+        "mixed"
+      ],
       "richNodeTypes": [
         "image"
       ],
@@ -1990,7 +2110,8 @@
         "4717a2e8-1ab7-43c5-adb6-6b9a092becf5"
       ],
       "softDeletedQuestionIds": [],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [],
       "richNodeTypes": [],
       "assetFileIds": [],
       "stemTextExcerpt": "A supermarket has a loyalty card program. If you spend at least $30 in one transaction, you receive 10 points. If you spend at least $50 in one transaction, you receive 20 points. Once you accumulate 50 points, you receive 5% off your next shop.",
@@ -2012,7 +2133,8 @@
         "1f6dfe39-f235-4ff1-8315-b7297898afe9"
       ],
       "softDeletedQuestionIds": [],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [],
       "richNodeTypes": [
         "bulletList",
         "listItem"
@@ -2037,7 +2159,8 @@
         "7d692741-605c-443a-b43a-489252a62c09"
       ],
       "softDeletedQuestionIds": [],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [],
       "richNodeTypes": [],
       "assetFileIds": [],
       "stemTextExcerpt": "All cars made in Germany are expensive. All cars made in Japan are inexpensive. This car was either made in Germany or made in Japan.",
@@ -2061,7 +2184,8 @@
         "ab6a59d1-2534-49cb-a1f8-87a093323fb0"
       ],
       "softDeletedQuestionIds": [],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [],
       "richNodeTypes": [],
       "assetFileIds": [],
       "stemTextExcerpt": "It is in the interest of almost all commuters to travel to work by public transport. However, no commuter should travel to work by public transport if they own a bicycle.",
@@ -2088,7 +2212,8 @@
         "c4182323-423c-4b6a-8bf2-4b2121f84db0"
       ],
       "softDeletedQuestionIds": [],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [],
       "richNodeTypes": [
         "bulletList",
         "listItem"
@@ -2119,7 +2244,8 @@
         "f3b9fb94-cedf-470f-af57-0a912d18920c"
       ],
       "softDeletedQuestionIds": [],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [],
       "richNodeTypes": [],
       "assetFileIds": [],
       "stemTextExcerpt": "This tea is a bitter drink. All drinks that are not bitter are hot.",
@@ -2143,7 +2269,8 @@
         "749641be-825f-485c-8f5e-e458d237f5e1"
       ],
       "softDeletedQuestionIds": [],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [],
       "richNodeTypes": [],
       "assetFileIds": [],
       "stemTextExcerpt": "Dogs that attend Gloria’s Dog Daycare are, overall, more energetic than dogs that do not attend. Some, but not all, dog owners believe that the daycare is a waste of money and leave their dogs at home instead. Most dogs that attend the daycare are well toilet-trained and respond to simple commands such as ‘sit’ and ‘come here’. Spike attends the daycare. Mack does not.",
@@ -2170,7 +2297,8 @@
         "b0c0f201-f683-4e37-a9b0-1903d2c2ea11"
       ],
       "softDeletedQuestionIds": [],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [],
       "richNodeTypes": [],
       "assetFileIds": [],
       "stemTextExcerpt": "At a local archive, all field reports are catalogued. No catalogued document is issued to visitors. Some field reports are illustrated. All illustrated documents are fragile. Some fragile documents are digitised.",
@@ -2198,7 +2326,10 @@
         "bee34a44-d808-434e-88b5-1b66ee9a60ff"
       ],
       "softDeletedQuestionIds": [],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [
+        "diagram_or_image"
+      ],
       "richNodeTypes": [
         "image"
       ],
@@ -2225,7 +2356,8 @@
         "d37083fe-29e5-4e06-84a4-7ad5129e78b4"
       ],
       "softDeletedQuestionIds": [],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [],
       "richNodeTypes": [],
       "assetFileIds": [],
       "stemTextExcerpt": "A multinational company only has offices in Singapore, New York and London. All employees of the Singapore office are paid highly by the company. 60% of the employees of the New York office are paid highly by the company. No employee of the London office is paid highly by the company.",
@@ -2252,7 +2384,8 @@
         "c1cc1034-a675-4bde-ae54-a4fe5ea39717"
       ],
       "softDeletedQuestionIds": [],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [],
       "richNodeTypes": [],
       "assetFileIds": [],
       "stemTextExcerpt": "This phone is a piece of technology. Some technology is not this phone. No technology is made of metal.",
@@ -2279,7 +2412,8 @@
         "885140d5-ad49-484c-87ce-3fb24f174d2b"
       ],
       "softDeletedQuestionIds": [],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [],
       "richNodeTypes": [],
       "assetFileIds": [],
       "stemTextExcerpt": "A university offered its students a reduced-cost bus pass for use on buses operated by the public bus company. The university paid the full fare to the bus company and sold the pass at a discount to students. After several months of use, however, the university's administration determined that the program was unduly expensive to administer and discontinued it. As a result, the public bus company lost a sizable amount of revenue.",
@@ -2301,7 +2435,8 @@
         "73849540-32f5-4a27-a992-7a5c39f60cc3"
       ],
       "softDeletedQuestionIds": [],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [],
       "richNodeTypes": [],
       "assetFileIds": [],
       "stemTextExcerpt": "Consumers becoming more environmentally friendly have driven a move towards \"greener\" chemicals by manufacturers and retailers. Customers that demand a company with an environmental conscience will be listened to if it means larger profits for the businesses concerned. Environmental groups like Greenpeace advise companies about reducing certain harmful chemicals from the product repertoire. Natural chemicals like citric acid are less complex than synthetic chemicals, more easily broken down and ",
@@ -2323,7 +2458,8 @@
         "53498746-e7a1-4e7d-b213-5035653cd9b9"
       ],
       "softDeletedQuestionIds": [],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [],
       "richNodeTypes": [],
       "assetFileIds": [],
       "stemTextExcerpt": "A cleaning company informs customers that they will begin charging a penalty for all unpaid fees going forward.",
@@ -2347,7 +2483,8 @@
         "27da2cc2-1dcf-49e8-8bae-99124d596d42"
       ],
       "softDeletedQuestionIds": [],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [],
       "richNodeTypes": [],
       "assetFileIds": [],
       "stemTextExcerpt": "Some dogs have spots in their fur. No cats have black fur. This animal is either a dog or a cat.",
@@ -2374,7 +2511,8 @@
         "b373d99b-8349-4ac7-a1d1-78ac42933899"
       ],
       "softDeletedQuestionIds": [],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [],
       "richNodeTypes": [],
       "assetFileIds": [],
       "stemTextExcerpt": "All exhibition guides are trained. No trained people are temporary staff. Some temporary staff are cyclists. All cyclists wear badges. Some exhibition guides are bilingual.",
@@ -2402,7 +2540,8 @@
         "64c9ee3e-f98e-4e75-a9e8-f566aad12f13"
       ],
       "softDeletedQuestionIds": [],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [],
       "richNodeTypes": [],
       "assetFileIds": [],
       "stemTextExcerpt": "Every park ranger is trained in first aid. Some people trained in first aid are volunteers. No volunteer is a permanent employee. All permanent employees carry a radio.",
@@ -2431,7 +2570,8 @@
         "a9bf27f5-43a6-48f7-9987-a1e088520971"
       ],
       "softDeletedQuestionIds": [],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [],
       "richNodeTypes": [],
       "assetFileIds": [],
       "stemTextExcerpt": "During the late 1960s and early 1970s, automobile manufacturers introduced a number of new and innovative designs. Dramatically different in both appearance and engineering, these new models proved less safe than the larger, sturdier automobiles that had previously dominated the market. Once on the road in significant numbers, these new models tended to explode when involved in rear-end collisions. As a direct consequence of the subsequent investigations, manufacturers discarded all of the previ",
@@ -2455,7 +2595,10 @@
         "04eafbf6-09e0-447c-a3ef-8b95c1148cdf"
       ],
       "softDeletedQuestionIds": [],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [
+        "diagram_or_image"
+      ],
       "richNodeTypes": [
         "image"
       ],
@@ -2481,7 +2624,8 @@
         "82069433-b380-4dc9-91c1-4261e1cc88c2"
       ],
       "softDeletedQuestionIds": [],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [],
       "richNodeTypes": [],
       "assetFileIds": [],
       "stemTextExcerpt": "Not all office workers in the building are bankers. All bankers in the building are university graduates, and some bankers are not accountants.",
@@ -2508,7 +2652,8 @@
         "efd93fa1-df57-4372-9334-3b5a90ffee9b"
       ],
       "softDeletedQuestionIds": [],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [],
       "richNodeTypes": [],
       "assetFileIds": [],
       "stemTextExcerpt": "This object originates from a plant. All fruits and vegetables originate from plants. Apples are a fruit, some are red, and others are green. Beetroots are purple vegetables and zucchinis are green vegetables.",
@@ -2535,7 +2680,8 @@
         "6837d5d3-9cb7-4bb7-a557-79fa16efd291"
       ],
       "softDeletedQuestionIds": [],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [],
       "richNodeTypes": [],
       "assetFileIds": [],
       "stemTextExcerpt": "All swifts are migratory birds. Some migratory birds nest on cliffs. No cliff-nesting birds are ground-nesting birds. All terns are ground-nesting birds. Some terns are migratory birds.",
@@ -2563,7 +2709,8 @@
       "softDeletedQuestionIds": [
         "0030cb8f-3b71-406c-99ad-544c85900fb6"
       ],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [],
       "richNodeTypes": [],
       "assetFileIds": [],
       "stemTextExcerpt": "In the 1960s, the drug cardiokind, after the usual period of carefully monitored clinical trials, was declared by its manufacturers to be unusually safe and very effective in lowering cholesterol levels in the blood. The World Health Organisation carried out exactly the same kind of trial on the drug but for a much longer period than the usual five years. The results in 1980 showed that the mortality rate from all causes for those on cardiokind was 25 percent higher than for those who, though si",
@@ -2587,7 +2734,12 @@
         "d28c85bc-b312-4b7e-a28f-3ceebe4ea845"
       ],
       "softDeletedQuestionIds": [],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [
+        "graph_or_chart",
+        "diagram_or_image",
+        "mixed"
+      ],
       "richNodeTypes": [
         "image"
       ],
@@ -2617,7 +2769,8 @@
         "38e0cb15-47da-4ed0-828d-1b0cf4da47cb"
       ],
       "softDeletedQuestionIds": [],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [],
       "richNodeTypes": [
         "bulletList",
         "listItem"
@@ -2648,7 +2801,8 @@
         "0d900e8b-f86b-4846-be55-142299d7224b"
       ],
       "softDeletedQuestionIds": [],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [],
       "richNodeTypes": [],
       "assetFileIds": [],
       "stemTextExcerpt": "Many vegans believe that their diet is better for the environment than a typical Western diet containing animal products. Animal agriculture produces more greenhouse gas emissions (notably methane) than growing crops, and deforestation is often involved in clearing land to farm animals, which vegans claim could be used to plant vegetables. However, meat-eaters claim that some land cannot be used for crops, so it would be inefficient not to use it for livestock. Furthermore, it is clear that grow",
@@ -2672,7 +2826,8 @@
         "dc94845a-9e8c-4da9-8a99-0768565c1f49"
       ],
       "softDeletedQuestionIds": [],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [],
       "richNodeTypes": [],
       "assetFileIds": [],
       "stemTextExcerpt": "A multinational company only has offices in Singapore, New York and London. All employees of the Singapore office are paid highly by the company. 60% of the employees of the New York office are paid highly by the company. No employee of the London office is paid highly by the company.",
@@ -2699,7 +2854,8 @@
         "c2718aae-88ef-44b6-a38f-68968ba3d046"
       ],
       "softDeletedQuestionIds": [],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [],
       "richNodeTypes": [],
       "assetFileIds": [],
       "stemTextExcerpt": "This chair is either a recliner or a beach chair. Recliners are all red, and some are mechanical. Some beach chairs aren’t red, but none have mechanical aspects.",
@@ -2727,7 +2883,8 @@
         "fe7b537c-8b93-40ed-8887-6e60992e7b07"
       ],
       "softDeletedQuestionIds": [],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [],
       "richNodeTypes": [],
       "assetFileIds": [],
       "stemTextExcerpt": "All of the children in Mrs Smith’s class like biscuits, except for Molly. More than one child in Mrs Smith’s class likes carrots.",
@@ -2751,7 +2908,8 @@
         "13ed7c3f-e044-4b2b-97c6-8a081c37053f"
       ],
       "softDeletedQuestionIds": [],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [],
       "richNodeTypes": [],
       "assetFileIds": [],
       "stemTextExcerpt": "Many foods, such as bread, potatoes, and spaghetti, contain high levels of starch. An enzyme in saliva, known as amylase, converts starch to sugar.",
@@ -2773,7 +2931,8 @@
         "502a2e76-724b-4ead-9dcf-dbcaa3f96cf1"
       ],
       "softDeletedQuestionIds": [],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [],
       "richNodeTypes": [],
       "assetFileIds": [],
       "stemTextExcerpt": "Every trauma coordinator is a rostered staff member. No rostered staff member is an external auditor. Some external auditors are safety reviewers. Every safety reviewer completes annual training. Some annual trainees are trauma coordinators.",
@@ -2801,7 +2960,8 @@
         "affb2fd7-9c32-4484-b769-6b8ef76bea3b"
       ],
       "softDeletedQuestionIds": [],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [],
       "richNodeTypes": [],
       "assetFileIds": [],
       "stemTextExcerpt": "A farmer owns both sheep and cows. Some of the cows have horns. Apart from the horned cows, all of the animals are brown",
@@ -2828,7 +2988,8 @@
         "2ea0bd95-bf4f-442b-ae5a-4967c9591cff"
       ],
       "softDeletedQuestionIds": [],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [],
       "richNodeTypes": [],
       "assetFileIds": [],
       "stemTextExcerpt": "During a bank robbery, the robbers deactivated the bank's security system. As part of the system, the bank's internal security cameras were disabled and stopped recording. All doors could then be opened easily except for a heavy metal door protecting a vault, which required a physical key. The robbers escaped from the scene with more than $100,000 in cash. They are not currently in prison.",
@@ -2852,7 +3013,8 @@
         "e09e7ae4-1631-40e6-aaae-10eb5c9d6247"
       ],
       "softDeletedQuestionIds": [],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [],
       "richNodeTypes": [],
       "assetFileIds": [],
       "stemTextExcerpt": "In animals, light is registered in the retina when photons hit molecules of the pigment rhodopsin and change the molecules' shape. Even when they have not been struck by photons of light, rhodopsin molecules sometimes change shape because of normal molecular motion, thereby introducing error into the visual system. The amount of this molecular motion is directly proportional to the temperature of the retina. The body temperature of an animal is reflected in the temperature of the retina.",
@@ -2874,7 +3036,8 @@
         "907b2e57-1dd6-4a13-a09c-4387aa91d412"
       ],
       "softDeletedQuestionIds": [],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [],
       "richNodeTypes": [],
       "assetFileIds": [],
       "stemTextExcerpt": "Every sealed container is watertight. No damaged container is watertight. Some crates are damaged containers. All specimen boxes are sealed containers. Some crates are specimen boxes.",
@@ -2903,7 +3066,8 @@
         "ad67cc55-2166-40b9-877d-3d3ca50b1b5b"
       ],
       "softDeletedQuestionIds": [],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [],
       "richNodeTypes": [],
       "assetFileIds": [],
       "stemTextExcerpt": "Alice is a contestant on a television game show. She is shown four boxes: one contains $100, two contain $50 each, and one is empty. She selects one box at random and receives its contents.",
@@ -2925,7 +3089,8 @@
         "e0477ce7-a207-47ef-9680-242f574f9df8"
       ],
       "softDeletedQuestionIds": [],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [],
       "richNodeTypes": [
         "bulletList",
         "listItem"
@@ -2952,7 +3117,8 @@
         "fd9d2175-38fc-4b20-82a1-1bdba6dbdd40"
       ],
       "softDeletedQuestionIds": [],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [],
       "richNodeTypes": [],
       "assetFileIds": [],
       "stemTextExcerpt": "A player normally receives a league medal only if they started at least five games during the season. The most recent occasion on which this criterion was not upheld was when Curtis Wilson received a medal after making substitute appearances in 20 games. His team, Everpool, won the league that season. A player cannot start and appear as a substitute in the same game.",
@@ -2974,7 +3140,8 @@
         "3ba357f0-5cb4-4887-8641-3130f2723790"
       ],
       "softDeletedQuestionIds": [],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [],
       "richNodeTypes": [],
       "assetFileIds": [],
       "stemTextExcerpt": "Some but not all televisions have internet access. All televisions have access to Channel X. Shop “123” only sells televisions with internet access.",
@@ -3001,7 +3168,8 @@
         "b36ad9eb-308c-4afe-b709-60085a1da56b"
       ],
       "softDeletedQuestionIds": [],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [],
       "richNodeTypes": [],
       "assetFileIds": [],
       "stemTextExcerpt": "All children in a school except Samantha study biology. However, less than 20 children in the school study chemistry. Both biology and chemistry are sciences.",
@@ -3029,7 +3197,8 @@
         "2220f585-1dee-4584-afa2-a61623962204"
       ],
       "softDeletedQuestionIds": [],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [],
       "richNodeTypes": [],
       "assetFileIds": [],
       "stemTextExcerpt": "Two red balls, one blue ball and one green ball are put inside a bag. They are removed one at a time and aren’t replaced.",
@@ -3051,7 +3220,10 @@
         "d3e9ac5f-0b58-4d46-a16d-92f8c5f03f59"
       ],
       "softDeletedQuestionIds": [],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [
+        "diagram_or_image"
+      ],
       "richNodeTypes": [
         "image"
       ],
@@ -3081,7 +3253,8 @@
         "df0de387-8f1e-44bf-9b61-faaaadcef4a5"
       ],
       "softDeletedQuestionIds": [],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [],
       "richNodeTypes": [
         "bulletList",
         "listItem"
@@ -3111,7 +3284,8 @@
         "a851a2f1-cd82-4792-b0a7-c7c71b5e43fd"
       ],
       "softDeletedQuestionIds": [],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [],
       "richNodeTypes": [],
       "assetFileIds": [],
       "stemTextExcerpt": "Seahorses are a species of fish all belonging to the genus Hippocampus. The biologically curious feature of the seahorse is that it is the male of the species which becomes \"pregnant\" - carrying the eggs which the female deposits into a nurture pouch on the front of the male seahorse's body. Here they remain for around three weeks, visited daily by the female until the time for birth. One might expect with such a departure from convention that other gender roles would be also reversed – for exam",
@@ -3135,7 +3309,8 @@
         "07929afe-56d7-4386-83b1-f80186db1d47"
       ],
       "softDeletedQuestionIds": [],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [],
       "richNodeTypes": [],
       "assetFileIds": [],
       "stemTextExcerpt": "In Company A, an employee will get a promotion if they have worked at the company for 10 years or if they are working for the company in a rural setting, or both.",
@@ -3157,7 +3332,8 @@
         "ea9ceca7-4c4c-4ae6-97a3-cb7e8ee2a6aa"
       ],
       "softDeletedQuestionIds": [],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [],
       "richNodeTypes": [],
       "assetFileIds": [],
       "stemTextExcerpt": "Some wild birds, such as bald eagles, can catch prey using their sharp talons.",
@@ -3181,7 +3357,8 @@
         "a801eb50-ce65-4888-99d5-42cf8c4d7ffa"
       ],
       "softDeletedQuestionIds": [],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [],
       "richNodeTypes": [],
       "assetFileIds": [],
       "stemTextExcerpt": "All 1.6GHz laptops have LED-backlit displays. All laptops that cost more than $1500 have LED-backlit displays. No laptop costing less than $1500 will have 512GB storage.",
@@ -3208,7 +3385,8 @@
         "01c6f7bf-b379-4d8c-8ece-b0045d5fcbb8"
       ],
       "softDeletedQuestionIds": [],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [],
       "richNodeTypes": [],
       "assetFileIds": [],
       "stemTextExcerpt": "A watershed is a drainage area, a land area that catches rainwater and drains it by means of surface runoff, streams, rivers, lakes, and groundwater. In 1997, the U.S. Environmental Protection Agency issued an analysis of the water quality of the watersheds in the continental United States. The results were as follows: insufficient data 27%, some water problems 36%, good water quality 16% and serious water problems 21%.",
@@ -3236,7 +3414,8 @@
         "5b306d40-9f1d-478d-ae47-45a6ae02b2c6"
       ],
       "softDeletedQuestionIds": [],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [],
       "richNodeTypes": [],
       "assetFileIds": [],
       "stemTextExcerpt": "More than half of the children in a class are from middle class families. Every child in the class lives in Lightrock, except for Samantha. Some children in the class walk to school, but fewer catch the bus.",
@@ -3263,7 +3442,8 @@
       "softDeletedQuestionIds": [
         "2f7b98d3-e188-4cac-bce6-ffe257078a00"
       ],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [],
       "richNodeTypes": [],
       "assetFileIds": [],
       "stemTextExcerpt": "In order for an individual to win a league medal, they must have been a starting player in at least five games during the season. The most recent time this criteria was not upheld was when Curtis Wilson made substitute appearances in 20 games and still won the medal. This was the year his team, Everpool, won the league. Note: a player cannot be both a starting player and make a substitute appearance in a single game.",
@@ -3285,7 +3465,10 @@
         "66fbf5a3-78ff-4c77-93b9-7680e4d9ed84"
       ],
       "softDeletedQuestionIds": [],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [
+        "diagram_or_image"
+      ],
       "richNodeTypes": [
         "image"
       ],
@@ -3315,7 +3498,8 @@
         "045cb33f-3d8f-4fb3-8e1d-b153e436f070"
       ],
       "softDeletedQuestionIds": [],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [],
       "richNodeTypes": [],
       "assetFileIds": [],
       "stemTextExcerpt": "Since Oscar received extensive training in how to repair motorcycles, he is able to repair many of their most common mechanical problems. However, Oscar does not understand how internal combustion engines work. When Oscar was given Lucy's motorcycle to repair, he was able to fix the mechanical problem, despite the fact that he did not understand what was causing it.",
@@ -3337,7 +3521,8 @@
         "46bcdd33-911f-4dd8-953a-31fa610d223b"
       ],
       "softDeletedQuestionIds": [],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [],
       "richNodeTypes": [
         "bulletList",
         "listItem"
@@ -3367,7 +3552,8 @@
       "softDeletedQuestionIds": [
         "c77d895b-f946-49f1-9a77-6d97459d8837"
       ],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [],
       "richNodeTypes": [],
       "assetFileIds": [],
       "stemTextExcerpt": "All the bats that inhabited a forest were fruit bats. High pitched sounds could be heard by all the fruit bats although not all of the fruit bats that could hear high pitched sounds could also hear low pitched sounds.",
@@ -3391,7 +3577,8 @@
         "e06ff870-5f5e-4947-97d3-2be857497a39"
       ],
       "softDeletedQuestionIds": [],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [],
       "richNodeTypes": [
         "bulletList",
         "listItem"
@@ -3422,7 +3609,8 @@
       "softDeletedQuestionIds": [
         "fea86d11-6827-4ec0-a53c-a20306e9588b"
       ],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [],
       "richNodeTypes": [],
       "assetFileIds": [],
       "stemTextExcerpt": "All children in a school except Samantha study biology. However, less than 20 children in the school study chemistry. Both biology and chemistry are sciences.",
@@ -3450,7 +3638,8 @@
       "softDeletedQuestionIds": [
         "01a9b971-01d4-4563-82c7-8ac2d298fdfd"
       ],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [],
       "richNodeTypes": [],
       "assetFileIds": [],
       "stemTextExcerpt": "Physicians are from either Melbourne or Sydney and practise in either General Medicine or Oncology. Some physicians are from Melbourne and the rest practise Oncology.",
@@ -3474,7 +3663,8 @@
         "96e06b39-cc78-4633-ba36-a82cf80b9685"
       ],
       "softDeletedQuestionIds": [],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [],
       "richNodeTypes": [],
       "assetFileIds": [],
       "stemTextExcerpt": "All priority shipments are scanned. No scanned shipments are unsealed. Some chilled shipments are priority shipments. All chilled shipments require a temperature tag. Some tagged shipments are fragile.",
@@ -3502,7 +3692,8 @@
         "49d348ab-5ceb-475d-b355-091ac1675d40"
       ],
       "softDeletedQuestionIds": [],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [],
       "richNodeTypes": [],
       "assetFileIds": [],
       "stemTextExcerpt": "Marianne travelled to France to see her cousins at a reunion. Only two out of the group of cousins, excluding Marianne, were girls. The two youngest out of the group of cousins, including Marianne, were both boys. Only two of the cousins were older than her.",
@@ -3524,7 +3715,8 @@
         "ea3dc5bc-9955-41a8-b8a9-dba409242a48"
       ],
       "softDeletedQuestionIds": [],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [],
       "richNodeTypes": [],
       "assetFileIds": [],
       "stemTextExcerpt": "All pieces of contemporary art are innovative. Some technological products are innovative. No technological products are visually appealing. Beatrix’s room contains exactly one of the following: a piece of contemporary art or a technological product.",
@@ -3552,7 +3744,8 @@
         "646927bd-1361-483f-9025-40b52740cf01"
       ],
       "softDeletedQuestionIds": [],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [],
       "richNodeTypes": [],
       "assetFileIds": [],
       "stemTextExcerpt": "People routinely overestimate the visual area taken up by items in the sky. For example, most people assume that the moon appears so large in the night sky that to block it from view would require something as large as a hand or a fist; in actuality, a person could block out the moon from sight with just the fingernail of the index finger extended at arm's length. People likewise overestimate the visual size of the sun in the daytime, but in fact the sun appears to be about the same size as the ",
@@ -3574,7 +3767,8 @@
         "4cbd3527-4a99-4792-895a-94d5bf31397e"
       ],
       "softDeletedQuestionIds": [],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [],
       "richNodeTypes": [],
       "assetFileIds": [],
       "stemTextExcerpt": "More than half of the children in a class are from middle-class families. Every child in the class lives in Lightrock except Samantha. Some children in the class walk to school, and fewer children catch the bus than walk.",
@@ -3601,7 +3795,8 @@
         "fad7caf5-426e-472e-806c-c1ffad25011c"
       ],
       "softDeletedQuestionIds": [],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [],
       "richNodeTypes": [],
       "assetFileIds": [],
       "stemTextExcerpt": "This year, in order to get selected into a particular ballet dance class, candidates must either have been in the ballet class last year or have passed the year 4 dance exam last year.",
@@ -3623,7 +3818,8 @@
         "e4b7fe57-52a3-4160-8df9-013d8c161669"
       ],
       "softDeletedQuestionIds": [],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [],
       "richNodeTypes": [],
       "assetFileIds": [],
       "stemTextExcerpt": "At a records office, every urgent notice is displayed. No displayed notice is confidential. Some confidential notices are archived. Every archived notice is indexed. Some indexed notices are displayed.",
@@ -3651,7 +3847,8 @@
         "8927481c-f4d2-4fda-bfe7-fff85a9b179d"
       ],
       "softDeletedQuestionIds": [],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [],
       "richNodeTypes": [
         "bulletList",
         "listItem"
@@ -3676,7 +3873,8 @@
       "softDeletedQuestionIds": [
         "6dee3d9a-19ee-4fd9-84a6-9bf9e0ebee0e"
       ],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [],
       "richNodeTypes": [],
       "assetFileIds": [],
       "stemTextExcerpt": "test",
@@ -3698,7 +3896,10 @@
         "4cdf47ae-8b02-4608-80dd-f926275ef1e5"
       ],
       "softDeletedQuestionIds": [],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [
+        "diagram_or_image"
+      ],
       "richNodeTypes": [
         "image"
       ],
@@ -3724,7 +3925,8 @@
         "0ec22fa2-2787-4733-8af2-47c5ce9f1cb9"
       ],
       "softDeletedQuestionIds": [],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [],
       "richNodeTypes": [],
       "assetFileIds": [],
       "stemTextExcerpt": "In the 1960s, the drug cardiokind, after the usual period of carefully monitored clinical trials, was declared by its manufacturers to be unusually safe and very effective in lowering cholesterol levels in the blood. The World Health Organisation carried out exactly the same kind of trial on the drug but for a much longer period than the usual five years. The results in 1980 showed that the mortality rate from all causes for those on cardiokind was 25 percent higher than for those who, though si",
@@ -3748,7 +3950,8 @@
         "27dd702e-8335-4523-b744-e8c56e493551"
       ],
       "softDeletedQuestionIds": [],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [],
       "richNodeTypes": [],
       "assetFileIds": [],
       "stemTextExcerpt": "This crockery is either a bowl or a plate. Plates are either round or square. Bowls are round. Some bowls are large, and the rest are small, but all plates are small.",
@@ -3775,7 +3978,8 @@
         "e5e62c4a-d00b-42e9-9def-90b468418e18"
       ],
       "softDeletedQuestionIds": [],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [],
       "richNodeTypes": [],
       "assetFileIds": [],
       "stemTextExcerpt": "All museum registrars are trained employees. No trained employees are short-term contractors. Some short-term contractors are catalogue assistants. All catalogue assistants have building access.",
@@ -3803,7 +4007,8 @@
       "softDeletedQuestionIds": [
         "a0ffb700-1632-46c5-905b-4d6710e2027f"
       ],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [],
       "richNodeTypes": [],
       "assetFileIds": [],
       "stemTextExcerpt": "testtest",
@@ -3825,7 +4030,8 @@
         "43eb836b-1cb6-4c7d-bdbb-48a7b41a70cc"
       ],
       "softDeletedQuestionIds": [],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [],
       "richNodeTypes": [],
       "assetFileIds": [],
       "stemTextExcerpt": "Not all of the office workers present in the building are bankers, but all the bankers in the building are university graduates, and some are not accountants.",
@@ -3852,7 +4058,8 @@
         "16b2d93e-0e69-4e1f-a78a-39be5bae48ca"
       ],
       "softDeletedQuestionIds": [],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [],
       "richNodeTypes": [
         "bulletList",
         "listItem"
@@ -3882,7 +4089,12 @@
         "684376cd-6dde-4953-ac08-daaef82041bd"
       ],
       "softDeletedQuestionIds": [],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [
+        "graph_or_chart",
+        "diagram_or_image",
+        "mixed"
+      ],
       "richNodeTypes": [
         "image"
       ],
@@ -3912,7 +4124,8 @@
       "softDeletedQuestionIds": [
         "5056deb6-24f4-4389-8160-7c849ac04dd5"
       ],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [],
       "richNodeTypes": [],
       "assetFileIds": [],
       "stemTextExcerpt": "The fox always sleeps while the monkey sleeps. The monkey always stays up if the tiger is up.",
@@ -3934,7 +4147,8 @@
         "bf6b93d1-c9d2-4e08-8d41-c3de21aaab03"
       ],
       "softDeletedQuestionIds": [],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [],
       "richNodeTypes": [],
       "assetFileIds": [],
       "stemTextExcerpt": "All housing plans in a council office are either simple or complex. None of the complex housing plans were created by an engineer or a private citizen. Architects completed the simple housing plans in the council office.",
@@ -3961,7 +4175,8 @@
         "7102aa26-c008-48b1-a00f-29a84fadf50f"
       ],
       "softDeletedQuestionIds": [],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [],
       "richNodeTypes": [],
       "assetFileIds": [],
       "stemTextExcerpt": "A party has male and female attendees. Males enjoy going to the theatre or like cricket, but not both. Some of the males like cricket. The rest of the party enjoy going to the theatre.",
@@ -3985,7 +4200,8 @@
         "e014173e-e6f1-4b15-a24d-954cd437eebb"
       ],
       "softDeletedQuestionIds": [],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [],
       "richNodeTypes": [],
       "assetFileIds": [],
       "stemTextExcerpt": "Modern data analysis depends on both the quantity and the quality of the available data. Some people believe that having more data provides more information and therefore produces better analysis and better results. Some scientists take a different view. They believe that only a small proportion of data contains useful information, so data quality is more important than data quantity and is the key to better results. A small number of people also believe that a data-processing technique is alway",
@@ -4014,7 +4230,12 @@
         "64bbd5cc-326a-43d9-b4bd-2b74bd843b78"
       ],
       "softDeletedQuestionIds": [],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [
+        "graph_or_chart",
+        "diagram_or_image",
+        "mixed"
+      ],
       "richNodeTypes": [
         "image"
       ],
@@ -4044,7 +4265,10 @@
         "f8d65dbb-ced7-44a2-af9f-39291c54965f"
       ],
       "softDeletedQuestionIds": [],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [
+        "diagram_or_image"
+      ],
       "richNodeTypes": [
         "image"
       ],
@@ -4070,7 +4294,8 @@
         "b843f169-dde5-4256-bfc2-03e5e6574f5a"
       ],
       "softDeletedQuestionIds": [],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [],
       "richNodeTypes": [],
       "assetFileIds": [],
       "stemTextExcerpt": "At an animal shelter, all foster coordinators are trained assessors. No trained assessor works at reception. Some adoption advisers are foster coordinators. All dog-walking supervisors are adoption advisers. No reception worker is a dog-walking supervisor.",
@@ -4098,7 +4323,8 @@
         "8b54d193-2227-4fe0-a414-bc15b3dc2fd7"
       ],
       "softDeletedQuestionIds": [],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [],
       "richNodeTypes": [],
       "assetFileIds": [],
       "stemTextExcerpt": "All housing plans in a council office are either simple or complex. None of the complex housing plans was created by an engineer or a private citizen. Architects completed the simple housing plans in the council office.",
@@ -4125,7 +4351,10 @@
         "3cdd7b41-87a6-43d6-aa98-e4502ef6d773"
       ],
       "softDeletedQuestionIds": [],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [
+        "diagram_or_image"
+      ],
       "richNodeTypes": [
         "image"
       ],
@@ -4152,7 +4381,12 @@
         "2af426dd-8894-421d-a253-7bc98ebc766a"
       ],
       "softDeletedQuestionIds": [],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [
+        "graph_or_chart",
+        "diagram_or_image",
+        "mixed"
+      ],
       "richNodeTypes": [
         "image"
       ],
@@ -4182,7 +4416,8 @@
       "softDeletedQuestionIds": [
         "41038aa7-4df7-41b9-9612-236e32bcac26"
       ],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [],
       "richNodeTypes": [],
       "assetFileIds": [],
       "stemTextExcerpt": "The fox always sleeps while the monkey sleeps. The monkey always stays up if the tiger is up.",
@@ -4204,7 +4439,8 @@
         "73fbfaf1-be31-46e6-b549-0b9109f3eb34"
       ],
       "softDeletedQuestionIds": [],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [],
       "richNodeTypes": [],
       "assetFileIds": [],
       "stemTextExcerpt": "At a community clinic, all staff with access to the vaccine store have completed cold-chain training. No volunteer has access to the vaccine store. Some reception staff are volunteers. All staff who can issue replacement cards have access to the vaccine store. Some staff who completed cold-chain training are not reception staff.",
@@ -4232,7 +4468,8 @@
         "f1ad72b1-c839-43d0-a08e-664792566c0a"
       ],
       "softDeletedQuestionIds": [],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [],
       "richNodeTypes": [
         "bulletList",
         "listItem"
@@ -4257,7 +4494,8 @@
         "86faa9bc-0356-4d5c-98bb-44bbc50ef4a8"
       ],
       "softDeletedQuestionIds": [],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [],
       "richNodeTypes": [],
       "assetFileIds": [],
       "stemTextExcerpt": "Explosives are substances or devices capable of producing a volume of rapidly expanding gases that exert a sudden pressure on their surroundings. Chemical explosives are the most commonly used, although there are mechanical and nuclear explosives. All mechanical explosives are devices in which a physical reaction is produced, such as that caused by overloading a container with compressed air. While nuclear explosives are by far the most powerful, all nuclear explosives have been restricted to mi",
@@ -4281,7 +4519,8 @@
         "f131f838-b358-42f6-8793-9a30c8bbd9f8"
       ],
       "softDeletedQuestionIds": [],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [],
       "richNodeTypes": [],
       "assetFileIds": [],
       "stemTextExcerpt": "Of the female members of the Quinn family, some are retired teachers, none of which enjoy gardening",
@@ -4308,7 +4547,8 @@
         "6d18d778-a580-4c72-88d8-f574470218e5"
       ],
       "softDeletedQuestionIds": [],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [],
       "richNodeTypes": [],
       "assetFileIds": [],
       "stemTextExcerpt": "Under employment law a tribunal hearing a claim of unfair dismissal needs first to consider whether a dismissal can be identified. If the employer's words are clear and unambiguous - 'You're sacked' or 'I am sorry but I am giving you notice', etc. - then they should normally be treated as such. However, if they are ambiguous, or if they have been said in the heat of the moment, the tribunal may look behind the actual words to ensure that what has taken place really is a dismissal. Language which",
@@ -4332,7 +4572,8 @@
         "71636355-3975-4335-82da-4d4a86fbd109"
       ],
       "softDeletedQuestionIds": [],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [],
       "richNodeTypes": [],
       "assetFileIds": [],
       "stemTextExcerpt": "At a museum archive, all archived maps are digitised. No digitised maps are lent externally. Some coastal maps are archived. All fragile maps are stored flat. Some archived maps are fragile. No maps lent externally are stored flat.",
@@ -4360,7 +4601,8 @@
         "31884921-e08e-4191-9f01-fac8c85770d9"
       ],
       "softDeletedQuestionIds": [],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [],
       "richNodeTypes": [],
       "assetFileIds": [],
       "stemTextExcerpt": "For a lot of us, contact lenses are an everyday item. There doesn't seem to be much to think about: it's a small, clear disc that you wear for most the day and sometimes even the night. With lenses now being both extremely comfortable and effective at correcting vision, it can be easy to forget that a lot of trial and error had to take place before they became the way we know them now. The first and most basic concept of a contact lens came from the great Italian inventor Leonardo da Vinci in th",
@@ -4382,7 +4624,8 @@
         "6bf7688e-0388-41a4-b82b-e22e630473a6"
       ],
       "softDeletedQuestionIds": [],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [],
       "richNodeTypes": [],
       "assetFileIds": [],
       "stemTextExcerpt": "Every manuscript held in Archive X is digitised. Some digitised manuscripts are written in Latin. No manuscript written in Latin is dated after 1800. All manuscripts dated after 1800 are printed. Some printed manuscripts are damaged.",
@@ -4411,7 +4654,8 @@
         "69e558d8-d470-492b-8822-b181f59941f9"
       ],
       "softDeletedQuestionIds": [],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [],
       "richNodeTypes": [],
       "assetFileIds": [],
       "stemTextExcerpt": "To receive a free coupon from Store B, a customer must be at least 45 years old and must not be affiliated with Store A.",
@@ -4433,7 +4677,8 @@
         "076bc704-0c57-4af7-b787-de7caf31cc7b"
       ],
       "softDeletedQuestionIds": [],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [],
       "richNodeTypes": [],
       "assetFileIds": [],
       "stemTextExcerpt": "Some people arrested in the town engaged in burglary. None of the people who were arrested and engaged in burglary, committed arson.",
@@ -4460,7 +4705,12 @@
         "96725adc-5ef6-43e8-8aa0-ecc1adefa136"
       ],
       "softDeletedQuestionIds": [],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [
+        "graph_or_chart",
+        "diagram_or_image",
+        "mixed"
+      ],
       "richNodeTypes": [
         "image"
       ],
@@ -4490,7 +4740,8 @@
         "e598fb0b-2354-4c1f-bee6-a451ad700306"
       ],
       "softDeletedQuestionIds": [],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [],
       "richNodeTypes": [],
       "assetFileIds": [],
       "stemTextExcerpt": "Nano means on the order of 10−9, so one nanometre is one billionth of a metre. A particle that is one nanometre in radius would be classified as a nanoscale-sized particle. When dealing with nanoscale-sized metal particles, physical properties differ from that of bulk materials with many atoms, due to the fact that unlike electrons in a large continuous piece of metal, those in nanoparticles are geometrically restrained, hence behave differently. The variation in physical properties caused by co",
@@ -4512,7 +4763,8 @@
         "0414fcce-2833-4c3d-bf86-1c4336d62d8d"
       ],
       "softDeletedQuestionIds": [],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [],
       "richNodeTypes": [
         "bulletList",
         "listItem"
@@ -4542,7 +4794,8 @@
         "714c64e0-3271-491e-b705-0a94de0f5d34"
       ],
       "softDeletedQuestionIds": [],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [],
       "richNodeTypes": [],
       "assetFileIds": [],
       "stemTextExcerpt": "Since communications and entertainment firms took over publishing concerns, their new management methods have increased the financial profits of commercial publishing. This has come at the price of narrowing the range of books available to the public and catering to the new and vulgar tastes of the most recent buyers of books. The business has boomed, but in the process the losers are the majority of authors or aspiring writers, and all discriminating readers.",
@@ -4566,7 +4819,8 @@
         "908be5b8-eeaa-42b7-a490-99d719a156d1"
       ],
       "softDeletedQuestionIds": [],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [],
       "richNodeTypes": [],
       "assetFileIds": [],
       "stemTextExcerpt": "All restaurants serve either chips or wedges, but not both. Some restaurants serve both chips and salads. Of all the restaurants serving wedges, none of them do not serve salad. John never orders both chips and a salad at a restaurant.",
@@ -4594,7 +4848,8 @@
         "813076c2-8bf6-47da-9d51-fd2a53402257"
       ],
       "softDeletedQuestionIds": [],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [],
       "richNodeTypes": [],
       "assetFileIds": [],
       "stemTextExcerpt": "This year at High School A, to get into the intermediate orchestra, a student must have either passed their fourth music exam last year or been in the junior orchestra last year (but not both).",
@@ -4616,7 +4871,8 @@
       "softDeletedQuestionIds": [
         "772529ed-1b70-41c2-b75f-10153dccada7"
       ],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [],
       "richNodeTypes": [],
       "assetFileIds": [],
       "stemTextExcerpt": "In order for an individual to win a league medal, they must have been a starting player in at least five games during the season. The most recent time this criteria was not upheld was when Curtis Wilson made substitute appearances in 20 games and still won the medal. This was the year his team, Everpool, won the league. Note: a player cannot be both a starting player and make a substitute appearance in a single game.",
@@ -4638,7 +4894,8 @@
         "a99593b8-a4c5-4d9b-8ba9-deb0dfa8b774"
       ],
       "softDeletedQuestionIds": [],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [],
       "richNodeTypes": [],
       "assetFileIds": [],
       "stemTextExcerpt": "A crane game in an arcade is rigged in order to make maximum profit. The crane arm is set to only have enough grip power to snatch up an item firmly once every ten attempts, using normal methods. However, there are trick methods to bypass this, such as by controlling the crane arm to hook onto an exposed part of the item, like a tag, this way, the arm is able to grab a prize no matter how little power is given to its grip.",
@@ -4665,7 +4922,8 @@
         "66c214e8-a2db-43d9-afa5-8528b4d65067"
       ],
       "softDeletedQuestionIds": [],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [],
       "richNodeTypes": [],
       "assetFileIds": [],
       "stemTextExcerpt": "A customer receives a free coupon from Store B if and only if the customer is at least 45 years old and is not affiliated with Store A.",
@@ -4687,7 +4945,8 @@
       "softDeletedQuestionIds": [
         "1ac68576-ba20-44dc-9560-af31028282f6"
       ],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [],
       "richNodeTypes": [],
       "assetFileIds": [],
       "stemTextExcerpt": "Physicians are from either Melbourne or Sydney and practise in either General Medicine or Oncology. Some physicians are from Melbourne and the rest practise Oncology.",
@@ -4711,7 +4970,8 @@
         "56708a64-9375-4678-9390-b50fc99193e9"
       ],
       "softDeletedQuestionIds": [],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [],
       "richNodeTypes": [],
       "assetFileIds": [],
       "stemTextExcerpt": "All of the current principals of schools in Astley were born in Brigg. Some of the previous principals of schools in Brigg were born in Astley",
@@ -4738,7 +4998,8 @@
         "4ae07454-58da-464c-a6d2-9d3c81bd064e"
       ],
       "softDeletedQuestionIds": [],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [],
       "richNodeTypes": [],
       "assetFileIds": [],
       "stemTextExcerpt": "At a museum, all specimens kept in climate-controlled cabinets are labelled. No labelled specimens are on public display. Some specimens used for teaching are on public display. All specimens used for teaching are catalogued. Some catalogued specimens are kept in climate-controlled cabinets.",
@@ -4766,7 +5027,8 @@
         "ec00727b-a89d-49e5-aee5-a0d835e44b34"
       ],
       "softDeletedQuestionIds": [],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [],
       "richNodeTypes": [],
       "assetFileIds": [],
       "stemTextExcerpt": "One of the warmest winters in the UK on record has put consumers in the mood to spend money. Spending is likely to be the strongest in thirteen years time. During the month of February (which is winter in the UK), sales of existing single-family homes hit an annual record rate for February of 4.75 million.",
@@ -4788,7 +5050,8 @@
         "9b6635c7-56e6-424f-837a-035a2f646870"
       ],
       "softDeletedQuestionIds": [],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [],
       "richNodeTypes": [],
       "assetFileIds": [],
       "stemTextExcerpt": "To be admitted to the police academy, every candidate must pass a psychological test. No candidate who has failed any high-school subject can be admitted. Candidates who have previously worked in security do not need to have graduated from high school, but this exemption applies only to the graduation requirement; they must still satisfy the other admission rules. For the purposes of these statements, a candidate has failed high school if they failed at least one high-school subject.",
@@ -4815,7 +5078,10 @@
         "ab350ca2-1d75-4ef4-83ae-c4787187c736"
       ],
       "softDeletedQuestionIds": [],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [
+        "table"
+      ],
       "richNodeTypes": [
         "table",
         "tableCell",
@@ -4826,16 +5092,12 @@
       "stemTextExcerpt": "A company recorded its monetary inflows and outflows for the five years from 2014 to 2018. Profit is calculated by subtracting expenses from revenue. Revenue and other inflows count as inflows; expenses and other outflows count as outflows. Year Revenue Expenses Other inflows Other outflows 2014 $25,000 $16,000 $10,000 $10,000 2015 $27,000 $19,000 $8,000 $5,000 2016 $23,000 $16,000 $5,000 $6,000 2017 $30,000 $20,000 $3,000 $7,000 2018 $32,000 $21,000 $4,000 $8,000",
       "directiveExcerpt": "For each conclusion, select Yes if it follows from the information or No if it does not follow.",
       "formalPremiseSignals": [],
-      "factualDataSignals": [
-        "table"
-      ],
-      "suggestedCategory": "Interpreting Information and Drawing Conclusions",
-      "confidence": "strong",
-      "evidence": [
-        "structured_factual_presentation"
-      ],
+      "factualDataSignals": [],
+      "suggestedCategory": null,
+      "confidence": "absent",
+      "evidence": [],
       "conflicts": [],
-      "requiresHumanReview": false
+      "requiresHumanReview": true
     },
     {
       "stemId": "86031589-33a5-4184-865f-32f3683a9737",
@@ -4846,7 +5108,8 @@
         "11ddc834-b552-4260-8f12-61e8b6216660"
       ],
       "softDeletedQuestionIds": [],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [],
       "richNodeTypes": [],
       "assetFileIds": [],
       "stemTextExcerpt": "In an experiment, twenty-four-month-old girls and their mothers built wooden birdhouses together using hammers and other hand tools. Each mother-daughter pair used a hammer that was substantially different from those used by the other mother-daughter pairs, and each mother repeated the word \"hammer\" each time her daughter used it. However, when the children were called upon to point to all of the hammers among a group of hand tools that included several hammers, each child identified only the ha",
@@ -4870,7 +5133,8 @@
         "b2b99336-fbc5-43db-8a1f-f0e9b9c0f759"
       ],
       "softDeletedQuestionIds": [],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [],
       "richNodeTypes": [],
       "assetFileIds": [],
       "stemTextExcerpt": "Every blue folder contains invoices. No folder containing invoices is confidential. Some confidential folders are locked. All locked folders are stored in Cabinet 4. No folder stored in Cabinet 4 is damaged.",
@@ -4899,7 +5163,8 @@
         "be229e45-3e33-4f42-8020-6c21a8748de9"
       ],
       "softDeletedQuestionIds": [],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [],
       "richNodeTypes": [],
       "assetFileIds": [],
       "stemTextExcerpt": "The Haber–Bosch process is a reversible chemical reaction in which nitrogen and hydrogen combine to form ammonia. In the reverse reaction, ammonia decomposes to form nitrogen and hydrogen again. The direction of the reaction depends on external conditions such as temperature and pressure. The process is usually carried out at temperatures between 450°C and 500°C and at a pressure approximately 250 times atmospheric pressure. An iron catalyst is used to increase the rate at which ammonia is produ",
@@ -4921,7 +5186,8 @@
         "e666abbb-b055-4f3c-96ea-c43ea96f82b9"
       ],
       "softDeletedQuestionIds": [],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [],
       "richNodeTypes": [],
       "assetFileIds": [],
       "stemTextExcerpt": "All ceramic bowls are heat-resistant. No heat-resistant item is stored on the top shelf. Some items on the top shelf are blue. No blue item is fragile.",
@@ -4949,7 +5215,8 @@
         "fd8d3638-d488-46e3-ba9a-4851976433ce"
       ],
       "softDeletedQuestionIds": [],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [],
       "richNodeTypes": [],
       "assetFileIds": [],
       "stemTextExcerpt": "A neighbourhood restricts the houses that may be built there. Every house has either one or two storeys. A single-storey house must have a floor area of at least 200 m². A double-storey house must have a floor area of at least 150 m² and may have an area below 200 m². A house can have a garden only if it is single-storey.",
@@ -4973,7 +5240,8 @@
         "918b5d5a-19c1-474b-954b-d7d0bf5f4fdc"
       ],
       "softDeletedQuestionIds": [],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [],
       "richNodeTypes": [],
       "assetFileIds": [],
       "stemTextExcerpt": "All houses are residences. All residences are located in suburbs. Some apartments are rented. Some rented things are expensive.",
@@ -5000,7 +5268,8 @@
         "c0800678-4624-4fb3-ac8d-8080e5c4d7c3"
       ],
       "softDeletedQuestionIds": [],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [],
       "richNodeTypes": [],
       "assetFileIds": [],
       "stemTextExcerpt": "An electronics company's two divisions showed consistent performance over the last two years. In each year, the audiovisual department accounted for roughly 30 percent of the company's sales and 70 percent of the company's profits over the period, while the home appliance division accounted for the balance.",
@@ -5022,7 +5291,8 @@
         "85c0cf8b-160e-4310-8d40-2b3387851300"
       ],
       "softDeletedQuestionIds": [],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [],
       "richNodeTypes": [],
       "assetFileIds": [],
       "stemTextExcerpt": "All vampires, except for Viago, hate garlic. More than one vampire likes bats. Some bats eat garlic.",
@@ -5049,7 +5319,8 @@
       "softDeletedQuestionIds": [
         "e5651828-aba0-4a3b-b9f4-b24eb4042a4f"
       ],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [],
       "richNodeTypes": [],
       "assetFileIds": [],
       "stemTextExcerpt": "All onsite technicians are safety-trained. No safety-trained staff are temporary contractors. Some warehouse staff are temporary contractors. Every warehouse staff member works either in dispatch or in storage, and no warehouse staff member works in both. All dispatch staff log vehicle movements. Some storage staff are safety-trained.",
@@ -5078,7 +5349,8 @@
       "softDeletedQuestionIds": [
         "7ec8cb88-4050-4b05-91a7-fffb0a293087"
       ],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [],
       "richNodeTypes": [],
       "assetFileIds": [],
       "stemTextExcerpt": "At a particular dealership, not all cars with spoilers are luxury, all cars with spoilers are red and some luxury cars are blue.",
@@ -5105,7 +5377,8 @@
         "029c0cb7-eed3-4b74-86dc-837707efcb26"
       ],
       "softDeletedQuestionIds": [],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [],
       "richNodeTypes": [],
       "assetFileIds": [],
       "stemTextExcerpt": "David and John attend Kensington college. All students at Kensington college except John are high achievers. Some high achievers are geniuses. No student from Easthill has ever been expelled. Either David or John was recently expelled from Kensington College, and no other student was recently expelled from Kensington College.",
@@ -5133,7 +5406,12 @@
         "9ce582a2-af01-4d25-a7f5-935f4e3c10ef"
       ],
       "softDeletedQuestionIds": [],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [
+        "graph_or_chart",
+        "diagram_or_image",
+        "mixed"
+      ],
       "richNodeTypes": [
         "image"
       ],
@@ -5163,7 +5441,8 @@
         "35775f71-d7e0-4748-b1f6-a128da28155b"
       ],
       "softDeletedQuestionIds": [],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [],
       "richNodeTypes": [],
       "assetFileIds": [],
       "stemTextExcerpt": "All electric vans are quiet vehicles. Some quiet vehicles are bicycles. No bicycles are vans. Some delivery vehicles are electric vans.",
@@ -5191,7 +5470,8 @@
         "10b91a6d-10ee-418b-9444-748801f980ee"
       ],
       "softDeletedQuestionIds": [],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [],
       "richNodeTypes": [],
       "assetFileIds": [],
       "stemTextExcerpt": "This tea is a bitter drink. All drinks that are not bitter are hot.",
@@ -5215,7 +5495,8 @@
       "softDeletedQuestionIds": [
         "b75b9ecd-c53a-4c07-8612-53897e5c16a3"
       ],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [],
       "richNodeTypes": [],
       "assetFileIds": [],
       "stemTextExcerpt": "All the bats that inhabited a forest were fruit bats. High pitched sounds could be heard by all the fruit bats although not all of the fruit bats that could hear high pitched sounds could also hear low pitched sounds.",
@@ -5239,7 +5520,8 @@
         "28b7c505-e4c1-48a7-a639-643145a4e0de"
       ],
       "softDeletedQuestionIds": [],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [],
       "richNodeTypes": [],
       "assetFileIds": [],
       "stemTextExcerpt": "Everyone at a party has exactly one occupation. Some attendees are doctors, some are engineers and some are dentists. Any attendee whose occupation is not doctor, engineer or dentist has a strange name.",
@@ -5263,7 +5545,8 @@
         "55863bb9-bb31-4764-84d1-24a58b47cc6e"
       ],
       "softDeletedQuestionIds": [],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [],
       "richNodeTypes": [],
       "assetFileIds": [],
       "stemTextExcerpt": "Every volunteer assigned to the mobile clinic has completed infection-control training. No volunteer who is scheduled for a night shift is assigned to the mobile clinic. Some trained volunteers are scheduled for night shifts. All pharmacy assistants are trained volunteers.",
@@ -5292,7 +5575,8 @@
         "4b43f9c7-b560-4bb4-97ac-f8ee8c7130f3"
       ],
       "softDeletedQuestionIds": [],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [],
       "richNodeTypes": [],
       "assetFileIds": [],
       "stemTextExcerpt": "A wine shop sells only red and white wines. All sparkling wines are white. Wine can be sold by the bottle or by the case (of 6 bottles), which offers a 30% discount. Sparkling wine can only be sold by the bottle.",
@@ -5316,7 +5600,8 @@
         "a7ea594a-0847-4040-aaec-eedf0b80ead0"
       ],
       "softDeletedQuestionIds": [],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [],
       "richNodeTypes": [],
       "assetFileIds": [],
       "stemTextExcerpt": "All exhibits in museum X are valuable objects. If a valuable object is made of gold, it must be an exhibit in museum X.",
@@ -5340,7 +5625,8 @@
         "acac7682-6dda-4ec3-9caa-c733a2c7cf38"
       ],
       "softDeletedQuestionIds": [],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [],
       "richNodeTypes": [],
       "assetFileIds": [],
       "stemTextExcerpt": "All quarantine samples are refrigerated. No refrigerated samples are released. Some samples awaiting analysis are quarantine samples. All released samples are logged.",
@@ -5368,7 +5654,8 @@
         "702efd29-790d-4cd4-b6f6-deb37afc8e11"
       ],
       "softDeletedQuestionIds": [],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [],
       "richNodeTypes": [],
       "assetFileIds": [],
       "stemTextExcerpt": "Interest in a 3,200-acre parcel of barren land in Welsh County has been virtually nonexistent because it is not zoned for commercial use. A real estate developer, though, has created a business plan to convert the property into a low-grade commercial airport that, when completed, would drive the value of the surrounding properties lower. Many local residents, therefore, are trying to pool their assets and buy the property outright. Last week, the Welsh County town council voted to repeal the res",
@@ -5392,7 +5679,8 @@
         "bc47d866-8735-480a-904d-f20dc3e33b7c"
       ],
       "softDeletedQuestionIds": [],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [],
       "richNodeTypes": [],
       "assetFileIds": [],
       "stemTextExcerpt": "All priority deliveries are logged. No logged deliveries are refrigerated. Some refrigerated deliveries are urgent. All urgent deliveries are sealed.",
@@ -5420,7 +5708,8 @@
         "b2671edd-af52-40e8-a22d-0a7485d034d5"
       ],
       "softDeletedQuestionIds": [],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [],
       "richNodeTypes": [],
       "assetFileIds": [],
       "stemTextExcerpt": "The fox always sleeps while the monkey sleeps. The monkey always stays up if the tiger is up.",
@@ -5442,7 +5731,8 @@
         "36631c18-2093-410d-b90c-ddb4f1fc89f8"
       ],
       "softDeletedQuestionIds": [],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [],
       "richNodeTypes": [
         "bulletList",
         "listItem"
@@ -5473,7 +5763,8 @@
         "b13a2b1d-6ba3-48b2-bd85-829d66f84c1f"
       ],
       "softDeletedQuestionIds": [],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [],
       "richNodeTypes": [],
       "assetFileIds": [],
       "stemTextExcerpt": "At a public library, all archive assistants are trained in cataloguing. No staff trained in cataloguing are temporary contractors. Some digitisation officers are archive assistants. All digitisation officers are staff. Some temporary contractors are researchers.",
@@ -5501,7 +5792,12 @@
         "dd44184e-bc5c-4438-bfda-956586164252"
       ],
       "softDeletedQuestionIds": [],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [
+        "table",
+        "diagram_or_image",
+        "mixed"
+      ],
       "richNodeTypes": [
         "image"
       ],
@@ -5531,7 +5827,8 @@
         "e99cc3b8-f8d0-4116-ab58-dcfaa366904c"
       ],
       "softDeletedQuestionIds": [],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [],
       "richNodeTypes": [
         "listItem",
         "orderedList"
@@ -5556,7 +5853,8 @@
         "c410fb65-d498-417e-ba11-552dab9cf086"
       ],
       "softDeletedQuestionIds": [],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [],
       "richNodeTypes": [],
       "assetFileIds": [],
       "stemTextExcerpt": "All orchestra conductors can read musical scores. Every violinist can read musical scores. Some violinists are students. No student is a conductor. Some conductors are composers.",
@@ -5585,7 +5883,8 @@
         "5bf0c6a6-7718-4c83-8388-104e3cb1eb11"
       ],
       "softDeletedQuestionIds": [],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [],
       "richNodeTypes": [],
       "assetFileIds": [],
       "stemTextExcerpt": "All violins are string instruments. All flutes are woodwind instruments. This instrument is either a string instrument or a woodwind instrument.",
@@ -5609,7 +5908,8 @@
         "0768306d-0616-430d-a6d5-e70c07d9ee7c"
       ],
       "softDeletedQuestionIds": [],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [],
       "richNodeTypes": [],
       "assetFileIds": [],
       "stemTextExcerpt": "A real estate investor owns several investment properties throughout suburbs within the city of Sydney. She rents out 3 houses in the suburb of Blacktown, which is located in the Western area of Sydney.",
@@ -5631,7 +5931,8 @@
         "40f16d18-a3fc-4516-8766-dc68002fcd7f"
       ],
       "softDeletedQuestionIds": [],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [],
       "richNodeTypes": [],
       "assetFileIds": [],
       "stemTextExcerpt": "A university offered its students a reduced-cost bus pass for use on buses operated by the public bus company. The university paid the full fare to the bus company and sold the pass at a discount to students. After several months of use, however, the university's administration determined that the program was unduly expensive to administer and discontinued it. As a result, the public bus company lost a sizable amount of revenue.",
@@ -5653,7 +5954,8 @@
         "b5f2dc73-9f0a-403e-a8c3-18abbcd4e0e9"
       ],
       "softDeletedQuestionIds": [],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [],
       "richNodeTypes": [
         "bulletList",
         "listItem"
@@ -5684,7 +5986,8 @@
         "87ad16b0-3a4d-47d0-a93c-7d487faaded7"
       ],
       "softDeletedQuestionIds": [],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [],
       "richNodeTypes": [],
       "assetFileIds": [],
       "stemTextExcerpt": "At a council permit office: All electric-vehicle permits are digital permits. No temporary permits are digital permits. Some visitor permits are temporary permits. All visitor permits are issued at reception. Some digital permits are renewed permits.",
@@ -5712,7 +6015,8 @@
       "softDeletedQuestionIds": [
         "87edc9a9-aff8-4c3c-8add-c2667f83fe8d"
       ],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [],
       "richNodeTypes": [],
       "assetFileIds": [],
       "stemTextExcerpt": "The country music scene is currently experiencing a small-scale resurgence of interest in the banjo, an instrument similar to a guitar but smaller and with a twangy sound. The peppy cadences of the banjo enliven several popular current songs, and they help to distinguish the sound of country music from the electric sounds associated with the guitars and synthesisers of rock music, which have been increasingly infiltrating country music over the last several years.",
@@ -5734,7 +6038,10 @@
         "9a49cc38-117c-46cc-92af-33a04466827c"
       ],
       "softDeletedQuestionIds": [],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [
+        "table"
+      ],
       "richNodeTypes": [
         "table",
         "tableCell",
@@ -5765,7 +6072,8 @@
         "5f283d7b-966b-4311-84ef-c624a17d40d6"
       ],
       "softDeletedQuestionIds": [],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [],
       "richNodeTypes": [],
       "assetFileIds": [],
       "stemTextExcerpt": "Only corporate executives who behave ethically are likely to be promoted, but no corporate executive who makes wise business decisions is a poor employee. All corporate executives who behave ethically are both well respected and make wise business decisions, qualities lacking in many corporate executives who do not behave ethically.",
@@ -5792,7 +6100,8 @@
       "softDeletedQuestionIds": [
         "eeb8389d-14f8-4d5c-b996-688755574d00"
       ],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [],
       "richNodeTypes": [],
       "assetFileIds": [],
       "stemTextExcerpt": "In order to become a class 1 naturalist guide in the Galapagos Islands, a person must have a college diploma and must speak at least two languages. In order to be a class 2 naturalist guide, a person must have a graduate degree and must speak at least three languages. In order to be a class 3 guide, a person must have a Ph.D. in a scientific field and must meet all of the qualifications for a class 2 naturalist guide. All naturalist guides must also obtain a qualification certificate. Angela is ",
@@ -5816,7 +6125,10 @@
         "910401f5-3387-4a5b-b40b-51eee475c6c3"
       ],
       "softDeletedQuestionIds": [],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [
+        "diagram_or_image"
+      ],
       "richNodeTypes": [],
       "assetFileIds": [],
       "stemTextExcerpt": "Paul is a young male who only thrifts shirts that are blue, green or red from his local thrift store. These shirts that he thrifts are all the shirts that Paul owns. All his shirts with a screen-printed image are blue, and most blue shirts don't have a pattern. All the green shirts that he thrifts have a pattern, whilst some vintage shirts are also green. There are no vintage red shirts, and he only thrifts red if they have a check pattern.",
@@ -5844,7 +6156,8 @@
         "dc04c915-1365-4be8-8eaf-fa5d6e6c62c7"
       ],
       "softDeletedQuestionIds": [],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [],
       "richNodeTypes": [],
       "assetFileIds": [],
       "stemTextExcerpt": "An electronics company's two divisions showed consistent performance over the last two years. In each year, the audiovisual department accounted for roughly 30 percent of the company's sales and 70 percent of the company's profits over the period, while the home appliance division accounted for the balance.",
@@ -5866,7 +6179,8 @@
         "f2df7846-2f19-426b-a320-114bdee7bb31"
       ],
       "softDeletedQuestionIds": [],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [],
       "richNodeTypes": [],
       "assetFileIds": [],
       "stemTextExcerpt": "This phone is a type of technology. Other types of technology exist that are not this phone. No technology is made of metal.",
@@ -5890,7 +6204,8 @@
         "f431539d-59dc-47dc-b68b-642c43488a87"
       ],
       "softDeletedQuestionIds": [],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [],
       "richNodeTypes": [
         "bulletList",
         "listItem"
@@ -5917,7 +6232,10 @@
         "b3766426-5cd2-4672-be63-7fad68a8ef6a"
       ],
       "softDeletedQuestionIds": [],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [
+        "table"
+      ],
       "richNodeTypes": [],
       "assetFileIds": [],
       "stemTextExcerpt": "Tom, Kevin, Amy, Mary, Lily and Trevor are sitting at equal intervals around a circular table. Lily is sitting opposite Trevor, and Kevin is sitting next to Tom. Tom, Kevin and Trevor are boys.",
@@ -5943,7 +6261,8 @@
         "6361853b-3dd1-4afd-8c2a-27be5cc7c7c9"
       ],
       "softDeletedQuestionIds": [],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [],
       "richNodeTypes": [],
       "assetFileIds": [],
       "stemTextExcerpt": "A critic of politics finds himself driven to deprecate the power of words, while using them copiously in warning against their influence. It is indeed in politics that their influence is most dangerous, so that one is almost tempted to wish that they did not exist, and that society might be managed silently, by instinct, habit and ocular perception, without this supervening Babel of reports, arguments and slogans.",
@@ -5965,7 +6284,8 @@
         "64f41be1-977b-4818-bb6a-c8c0a21c9ffa"
       ],
       "softDeletedQuestionIds": [],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [],
       "richNodeTypes": [],
       "assetFileIds": [],
       "stemTextExcerpt": "This flower is exactly one of a rose or a violet. Every rose is red, and every violet is blue. Some roses have thorns, but no violet has thorns.",
@@ -5993,7 +6313,8 @@
         "adbec6a7-af9e-4531-be86-6d471e58827a"
       ],
       "softDeletedQuestionIds": [],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [],
       "richNodeTypes": [],
       "assetFileIds": [],
       "stemTextExcerpt": "Each person at a party has exactly one occupation. Some people are doctors, some are engineers and some are dentists. Anyone with an occupation other than doctor, engineer or dentist has a strange name.",
@@ -6017,7 +6338,8 @@
         "85cd8c9a-269f-4e85-a76f-1a3cbc736812"
       ],
       "softDeletedQuestionIds": [],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [],
       "richNodeTypes": [],
       "assetFileIds": [],
       "stemTextExcerpt": "Electricity is needed to power all electrical appliances. Most appliances were smaller than the average human and heavier than an average human. In a week, the few same appliances are sold at a discounted price every alternate day, starting on Monday. Monday is considered the beginning of the week.",
@@ -6044,7 +6366,8 @@
       "softDeletedQuestionIds": [
         "10fae1c9-c993-4626-b0b9-d51997c34389"
       ],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [],
       "richNodeTypes": [],
       "assetFileIds": [],
       "stemTextExcerpt": "All cars at Matthew's car dealership are either 4WDs or sedans. All sedans are equipped with a lane keep system, but the 4WDs can have a lane keep system or sunroof. Vehicles with a lane keep system are either run on electricity or petrol.",
@@ -6068,7 +6391,8 @@
         "a0111726-1d5f-4d75-b8b3-9c624a9d88af"
       ],
       "softDeletedQuestionIds": [],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [],
       "richNodeTypes": [],
       "assetFileIds": [],
       "stemTextExcerpt": "At a warehouse: All reusable crates are inspected. No inspected crates are sealed. Some sealed crates are labelled fragile. All crates labelled fragile are stored indoors. No crates stored indoors are reusable.",
@@ -6096,7 +6420,8 @@
         "9f6ce2a1-57bb-45a4-9c88-38c11ba86af8"
       ],
       "softDeletedQuestionIds": [],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [],
       "richNodeTypes": [],
       "assetFileIds": [],
       "stemTextExcerpt": "The only employees in an office are cleaners and clerks. Clerks may undergo annual training only during February. They must complete this training in February unless they have a valid excuse. Cleaners may choose to undergo training in any month.",
@@ -6118,7 +6443,8 @@
         "3c8dc21e-d2ac-4982-aa4c-7f7a6ccce928"
       ],
       "softDeletedQuestionIds": [],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [],
       "richNodeTypes": [],
       "assetFileIds": [],
       "stemTextExcerpt": "Some laboratory samples contain copper. All samples containing copper are labelled red. No red-labelled sample is stored in the freezer. Every sample stored in the freezer is sealed. Some sealed samples contain glass.",
@@ -6147,7 +6473,8 @@
         "64bcc88a-b25e-48e7-9632-9b8b1ba141d8"
       ],
       "softDeletedQuestionIds": [],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [],
       "richNodeTypes": [],
       "assetFileIds": [],
       "stemTextExcerpt": "The North American Stock Market (NASM) recently automated its trading operations using large computer systems. After several major trading mistakes, an inquiry found that these mistakes were not caused by computer malfunction. Instead, they resulted from human or environmental incidents—for example, a broker spilling coffee on the central processing unit or faults in the building’s heating system. Such commonplace incidents should not be regarded as unlikely to occur over time.",
@@ -6169,7 +6496,10 @@
         "0519f32c-5376-4d25-aae8-64a859449852"
       ],
       "softDeletedQuestionIds": [],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [
+        "diagram_or_image"
+      ],
       "richNodeTypes": [
         "image"
       ],
@@ -6195,7 +6525,8 @@
         "6c49a630-2e30-4637-8bfd-607971bc6b3d"
       ],
       "softDeletedQuestionIds": [],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [],
       "richNodeTypes": [],
       "assetFileIds": [],
       "stemTextExcerpt": "All morning appointments take place before noon. No appointments before noon are evening appointments. Some consultations are evening appointments. Every urgent consultation is a morning appointment. Some urgent consultations exist.",
@@ -6224,7 +6555,8 @@
         "1f1c4070-db20-4832-9786-4643416e305c"
       ],
       "softDeletedQuestionIds": [],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [],
       "richNodeTypes": [],
       "assetFileIds": [],
       "stemTextExcerpt": "All oceans are beautiful. No rivers are oceans. This river is beautiful.",
@@ -6251,7 +6583,8 @@
         "65829e00-a0f6-496e-b46d-c7c286afc886"
       ],
       "softDeletedQuestionIds": [],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [],
       "richNodeTypes": [],
       "assetFileIds": [],
       "stemTextExcerpt": "Mathematics allows us to expand our consciousness. Mathematics tells us about economic trends, patterns of disease, and the growth of populations. Mathematics is good at exposing the truth, but it can also perpetuate misunderstandings and untruths. Figures have the power to mislead people.",
@@ -6277,7 +6610,8 @@
         "5ad72102-b7a3-4ca8-9a15-a54097d74e16"
       ],
       "softDeletedQuestionIds": [],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [],
       "richNodeTypes": [],
       "assetFileIds": [],
       "stemTextExcerpt": "All copper objects are conductive. No conductive objects are insulators. Some museum objects are copper objects. All ceramic objects are insulators. Some museum objects are ceramic objects.",
@@ -6305,7 +6639,8 @@
         "b0a06cd3-506a-49d2-823e-005f2fe19352"
       ],
       "softDeletedQuestionIds": [],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [],
       "richNodeTypes": [],
       "assetFileIds": [],
       "stemTextExcerpt": "At a museum, all items loaned to the conservation lab are catalogued. No catalogued items are placed in the public display cases. Some fragile items are loaned to the conservation lab. All items requiring a customs declaration are catalogued.",
@@ -6333,7 +6668,12 @@
         "bac2fd75-8772-4360-8800-1f5c7593fb56"
       ],
       "softDeletedQuestionIds": [],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [
+        "graph_or_chart",
+        "diagram_or_image",
+        "mixed"
+      ],
       "richNodeTypes": [
         "image"
       ],
@@ -6363,7 +6703,8 @@
       "softDeletedQuestionIds": [
         "40326b86-d5a7-47e1-a988-144e06a93bd6"
       ],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [],
       "richNodeTypes": [],
       "assetFileIds": [],
       "stemTextExcerpt": "All hats have brims. There are black hats and blue hats. Baseball caps are hats.",
@@ -6387,7 +6728,8 @@
         "2750c256-caf8-4789-8cfe-30f4b21f4635"
       ],
       "softDeletedQuestionIds": [],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [],
       "richNodeTypes": [],
       "assetFileIds": [],
       "stemTextExcerpt": "No celebrity is a painter. All actors are celebrities. Some celebrities have a criminal conviction.",
@@ -6415,7 +6757,12 @@
         "d2beaa65-9114-431b-a84b-bc1cbdd96a0e"
       ],
       "softDeletedQuestionIds": [],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [
+        "graph_or_chart",
+        "diagram_or_image",
+        "mixed"
+      ],
       "richNodeTypes": [
         "image"
       ],
@@ -6445,7 +6792,8 @@
         "8dcea9d7-85c6-4eb9-bce9-e520ee5c4546"
       ],
       "softDeletedQuestionIds": [],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [],
       "richNodeTypes": [],
       "assetFileIds": [],
       "stemTextExcerpt": "All antique clocks require winding. No item requiring winding is digital. Some museum exhibits are antique clocks. All digital museum exhibits contain batteries.",
@@ -6473,7 +6821,12 @@
       "softDeletedQuestionIds": [
         "e0d4a12f-92c9-4684-8fd1-077deffe2fc6"
       ],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [
+        "graph_or_chart",
+        "diagram_or_image",
+        "mixed"
+      ],
       "richNodeTypes": [
         "image"
       ],
@@ -6503,7 +6856,8 @@
         "0de23880-d6f1-405e-a773-2b580b8c9661"
       ],
       "softDeletedQuestionIds": [],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [],
       "richNodeTypes": [],
       "assetFileIds": [],
       "stemTextExcerpt": "A real estate investor owns several investment properties throughout suburbs within the city of Sydney. She rents out 3 houses in the suburb of Blacktown, which is located in the Western area of Sydney.",
@@ -6525,7 +6879,8 @@
         "8c91a3c3-9132-4ee9-bed9-7aabcd735aa4"
       ],
       "softDeletedQuestionIds": [],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [],
       "richNodeTypes": [],
       "assetFileIds": [],
       "stemTextExcerpt": "All orchids are greenhouse plants. No greenhouse plants are wild plants. Some rare plants are orchids. All wildflowers are wild plants. Some plants in the reserve are wildflowers.",
@@ -6553,7 +6908,8 @@
         "ff4b99a2-7123-4cba-8249-6e3979e30f18"
       ],
       "softDeletedQuestionIds": [],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [],
       "richNodeTypes": [],
       "assetFileIds": [],
       "stemTextExcerpt": "In a group of six people, each person has a favourite genre of music that is either rock, jazz or pop. Peter and Laura are two of the three people whose favourite genre of music is jazz. Sarah’s favourite genre is not rock music. Two other people say their favourite genre of music is rock, one of whom is Jesse. The other two group members are Tim and Tam, one of whom describes pop as their favourite.",
@@ -6575,7 +6931,12 @@
         "4d772054-e571-4979-b689-1a0a977c58b5"
       ],
       "softDeletedQuestionIds": [],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [
+        "graph_or_chart",
+        "diagram_or_image",
+        "mixed"
+      ],
       "richNodeTypes": [
         "image"
       ],
@@ -6605,7 +6966,8 @@
         "67587627-a2dc-4b40-88c5-251e2893ab86"
       ],
       "softDeletedQuestionIds": [],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [],
       "richNodeTypes": [],
       "assetFileIds": [],
       "stemTextExcerpt": "No coastal farm grows tea. All farms growing coffee are coastal. Some farms grow both coffee and cocoa. Every farm growing cocoa employs seasonal workers.",
@@ -6634,7 +6996,8 @@
         "961e0d4a-be50-446f-bb8c-b5ef6dc2883c"
       ],
       "softDeletedQuestionIds": [],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [],
       "richNodeTypes": [],
       "assetFileIds": [],
       "stemTextExcerpt": "At a distribution centre, all coastal shipments are sealed. No sealed shipment is carried by drone. Some urgent shipments are coastal. All drone-carried shipments are tracked. No tracked shipment is coastal.",
@@ -6662,7 +7025,8 @@
         "52d29dbe-c41c-465c-be89-bafaefd12458"
       ],
       "softDeletedQuestionIds": [],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [],
       "richNodeTypes": [],
       "assetFileIds": [],
       "stemTextExcerpt": "Most conservative newspapers are commercially funded. Every commercially funded conservative newspaper either relies on advertising revenue or receives subscription revenue.",
@@ -6686,7 +7050,8 @@
         "eb102ec6-f511-4c7e-8cd1-378bfffee32a"
       ],
       "softDeletedQuestionIds": [],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [],
       "richNodeTypes": [
         "bulletList",
         "listItem"
@@ -6713,7 +7078,8 @@
         "47290f1a-8fdb-43f1-889b-86cbe1475558"
       ],
       "softDeletedQuestionIds": [],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [],
       "richNodeTypes": [],
       "assetFileIds": [],
       "stemTextExcerpt": "The basic argument for control of guns, that general access to guns causes higher crime, is contradicted by the facts and by reason. Lower murder rates in many foreign countries do not prove that gun control works. Many of these foreign \"role-models\" do not actually have gun control laws. Thousands of children are said to die annually in gun accidents but this is misleading, as gun accidents involving children have actually been quite low in recent times. Moreover it is more practical in protect",
@@ -6735,7 +7101,8 @@
         "e6dcc2a2-a50f-425a-9b05-f23c4cca7cb7"
       ],
       "softDeletedQuestionIds": [],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [],
       "richNodeTypes": [],
       "assetFileIds": [],
       "stemTextExcerpt": "One of the warmest UK winters on record has put consumers in the mood to spend money. Consumer spending is expected to be at its strongest level for 13 years. In February, sales of existing single-family homes reached an annualised rate of 4.75 million , the highest February rate on record.",
@@ -6757,7 +7124,8 @@
         "baea8e8a-e4e9-4abb-af3b-86e1a267d547"
       ],
       "softDeletedQuestionIds": [],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [],
       "richNodeTypes": [
         "bulletList",
         "listItem"
@@ -6788,7 +7156,8 @@
         "56ae1657-cc23-44bd-ad05-bf3c73433db1"
       ],
       "softDeletedQuestionIds": [],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [],
       "richNodeTypes": [],
       "assetFileIds": [],
       "stemTextExcerpt": "As a type of emergency or hazard, floods are particularly challenging for emergency service agencies due to the familiarity many people have with water, which we mostly associate with leisure and recreation. The all-too-frequent examples of surfers entering storm swells and the use of boats and water equipment in flooded areas highlight this cross-over of recreation into hazardous conditions. Two of the most common causes of fatalities during floods result from play activities in water courses a",
@@ -6812,7 +7181,8 @@
         "7055d98c-d013-430c-8ee5-e826e09fce18"
       ],
       "softDeletedQuestionIds": [],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [],
       "richNodeTypes": [],
       "assetFileIds": [],
       "stemTextExcerpt": "In Company A, an employee will get a promotion if they have worked at the company for 10 years or if they are working for the company in a rural setting, or both.",
@@ -6834,7 +7204,8 @@
       "softDeletedQuestionIds": [
         "f6cb9e93-c60f-480e-b6ba-b8b853aeee26"
       ],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [],
       "richNodeTypes": [],
       "assetFileIds": [],
       "stemTextExcerpt": "test",
@@ -6856,7 +7227,8 @@
         "ed891aab-eb49-4c30-91ca-5d20e353afc3"
       ],
       "softDeletedQuestionIds": [],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [],
       "richNodeTypes": [],
       "assetFileIds": [],
       "stemTextExcerpt": "Of the garments in the winter collection, more than half were outdoor wear and the rest indoor wear. None of the indoor wear was made from fur, but some of it was made from suede. All items in the winter collection were hand-stitched",
@@ -6884,7 +7256,8 @@
         "6f032829-4187-4bee-b704-6ca540f89892"
       ],
       "softDeletedQuestionIds": [],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [],
       "richNodeTypes": [],
       "assetFileIds": [],
       "stemTextExcerpt": "All ceramic samples are labelled. No labelled samples are discarded. Some soil samples are ceramic. All soil samples are stored in Cabinet R. Some samples stored in Cabinet R are discarded.",
@@ -6912,7 +7285,8 @@
       "softDeletedQuestionIds": [
         "565cb1ab-5346-42ba-b0ca-87254ae4788a"
       ],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [],
       "richNodeTypes": [],
       "assetFileIds": [],
       "stemTextExcerpt": "test",
@@ -6934,7 +7308,8 @@
         "a1b227f0-99cf-48c8-9cff-ce3acec67d3f"
       ],
       "softDeletedQuestionIds": [],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [],
       "richNodeTypes": [],
       "assetFileIds": [],
       "stemTextExcerpt": "All exhibits in museum X are valuable objects. If a valuable object is made of gold, it must be an exhibit in museum X.",
@@ -6958,7 +7333,8 @@
         "7b4aa95d-3ae4-4dce-8c26-88ce63dee0e8"
       ],
       "softDeletedQuestionIds": [],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [],
       "richNodeTypes": [
         "bulletList",
         "listItem"
@@ -6989,7 +7365,8 @@
         "ae38cfa4-9cc4-4059-9e80-76341295a859"
       ],
       "softDeletedQuestionIds": [],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [],
       "richNodeTypes": [],
       "assetFileIds": [],
       "stemTextExcerpt": "Jim and Kevin are not the only people in a class who like studying Maths. Trevor and Kevin are the only people in the class who like studying History. Kim does not like studying any subject that Trevor likes studying.",
@@ -7011,7 +7388,8 @@
         "eb36904d-59c0-45c8-82f3-4f4579737c68"
       ],
       "softDeletedQuestionIds": [],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [],
       "richNodeTypes": [],
       "assetFileIds": [],
       "stemTextExcerpt": "Some employees at Company X have worked there for more than 10 years. Company X has never given an employee a raise. Most employees at Company X have not worked there for more than 10 years. All employees at Company X have a three-week break every year. In big companies, employees who work for more than 10 years at that company receive a raise.",
@@ -7039,7 +7417,12 @@
         "e4a1b478-67ce-419e-8787-24b7e293e8a7"
       ],
       "softDeletedQuestionIds": [],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [
+        "graph_or_chart",
+        "diagram_or_image",
+        "mixed"
+      ],
       "richNodeTypes": [
         "image"
       ],
@@ -7069,7 +7452,8 @@
         "45de2514-0176-4692-a4b1-922a17b080f7"
       ],
       "softDeletedQuestionIds": [],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [],
       "richNodeTypes": [],
       "assetFileIds": [],
       "stemTextExcerpt": "Employers complain that people graduating from high school too often lack the vocational skills required for full-time employment. These skills are best acquired on the job, so we should require high school students to work at part-time jobs so that they acquire the skills needed for today's job market. However, there are already too few part-time jobs for students who want to work, and simply requiring students to work will not create jobs for them.",
@@ -7091,7 +7475,8 @@
         "ce1125cb-8475-454f-83ef-053622f5d82b"
       ],
       "softDeletedQuestionIds": [],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [],
       "richNodeTypes": [],
       "assetFileIds": [],
       "stemTextExcerpt": "All 1.6GHz laptops have LED-backlit displays. All laptops that cost more than $1500 have LED-backlit displays. No laptop costing less than $1500 will have 512GB storage.",
@@ -7118,7 +7503,8 @@
         "90543f12-1941-4380-b33c-ff276bec3526"
       ],
       "softDeletedQuestionIds": [],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [],
       "richNodeTypes": [],
       "assetFileIds": [],
       "stemTextExcerpt": "Tafts and Minimokes are types of vehicle. Neither Tafts nor Minimokes have in-built Bluetooth, but they do have automatic steering. A Schisse has automatic steering but is not a type of Minimoke.",
@@ -7140,7 +7526,8 @@
         "d64ef2cc-cc5c-4ead-8df1-90b2a606834f"
       ],
       "softDeletedQuestionIds": [],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [],
       "richNodeTypes": [],
       "assetFileIds": [],
       "stemTextExcerpt": "Each physician is from exactly one city—Melbourne or Sydney—and practises exactly one specialty—General Medicine or Oncology. Some physicians are from Melbourne. Every physician who is not from Melbourne practises Oncology.",
@@ -7167,7 +7554,8 @@
       "softDeletedQuestionIds": [
         "2d12c080-b7ba-4f3e-9700-0209ec76b0b5"
       ],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [],
       "richNodeTypes": [],
       "assetFileIds": [],
       "stemTextExcerpt": "Some wild birds, like the Bald eagle, can catch prey using their sharp talons.",
@@ -7191,7 +7579,8 @@
         "bc509f45-1983-4920-b495-48c499a34841"
       ],
       "softDeletedQuestionIds": [],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [],
       "richNodeTypes": [],
       "assetFileIds": [],
       "stemTextExcerpt": "An airline offers two classes of flights – business and economy. If a customer has flown with their airline for four economy flights within the same calendar year, or two business flights within the same calendar year, they are able to receive one free economy flight with this airline during the following year.",
@@ -7213,7 +7602,8 @@
         "2d1b60dc-a4a8-4e98-b7a1-7acbffdc9064"
       ],
       "softDeletedQuestionIds": [],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [],
       "richNodeTypes": [
         "bulletList",
         "listItem"
@@ -7240,7 +7630,8 @@
         "bbc7f1fb-0b88-46bd-86f9-46a9bd3f0773"
       ],
       "softDeletedQuestionIds": [],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [],
       "richNodeTypes": [],
       "assetFileIds": [],
       "stemTextExcerpt": "Most phones sold in New Zealand are manufactured in South Korea. This includes every phone sold by New Zealand's two largest phone retailers. Working conditions for South Korean workers have improved in recent years, partly because New Zealand consumers placed pressure on South Korean phone manufacturers. Before this improvement, the workers' conditions were very poor.",
@@ -7264,7 +7655,10 @@
       "softDeletedQuestionIds": [
         "36685918-5d2f-4707-bad3-63e7e3dcff98"
       ],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [
+        "diagram_or_image"
+      ],
       "richNodeTypes": [
         "image"
       ],
@@ -7288,7 +7682,8 @@
         "c5a6efdb-ef43-42ec-ba50-e2370abcadfa"
       ],
       "softDeletedQuestionIds": [],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [],
       "richNodeTypes": [
         "bulletList",
         "listItem"
@@ -7313,7 +7708,12 @@
         "b22e4fef-2b90-42fa-aaf8-8897afd2871a"
       ],
       "softDeletedQuestionIds": [],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [
+        "graph_or_chart",
+        "diagram_or_image",
+        "mixed"
+      ],
       "richNodeTypes": [
         "image"
       ],
@@ -7343,7 +7743,8 @@
         "4154fd95-50b0-42b5-b215-4445cc06a620"
       ],
       "softDeletedQuestionIds": [],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [],
       "richNodeTypes": [],
       "assetFileIds": [],
       "stemTextExcerpt": "At a research centre: All volunteers who handle specimens have completed induction. No person who has completed induction is barred from the laboratory. Some volunteers who handle specimens are night-shift workers. All night-shift workers use the staff entrance. No person barred from the laboratory uses the staff entrance.",
@@ -7371,7 +7772,8 @@
       "softDeletedQuestionIds": [
         "23833512-bee4-4d34-87fc-b4b4c39b6873"
       ],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [],
       "richNodeTypes": [],
       "assetFileIds": [],
       "stemTextExcerpt": "All hats have brims. There are black hats and blue hats. Baseball caps are hats.",
@@ -7395,7 +7797,8 @@
         "41abdb67-c4c9-4a65-9ec9-c89266c022b7"
       ],
       "softDeletedQuestionIds": [],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [],
       "richNodeTypes": [],
       "assetFileIds": [],
       "stemTextExcerpt": "The Smith family has five members, all of whom enjoy listening to classical music. The two parents listen only to classical music. Xavier is the youngest of the family’s three children and does not mind listening to other types of music.",
@@ -7419,7 +7822,8 @@
       "softDeletedQuestionIds": [
         "75a6673c-6476-4cfc-b021-1a09f9eac919"
       ],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [],
       "richNodeTypes": [],
       "assetFileIds": [],
       "stemTextExcerpt": "Physicians are from either Melbourne or Sydney and practise in either General Medicine or Oncology. Some physicians are from Melbourne and the rest practise Oncology.",
@@ -7443,7 +7847,8 @@
         "92381053-f82c-4738-92cc-8912780e88a0"
       ],
       "softDeletedQuestionIds": [],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [],
       "richNodeTypes": [],
       "assetFileIds": [],
       "stemTextExcerpt": "Explosives are substances or devices capable of producing a volume of rapidly expanding gases that exert a sudden pressure on their surroundings. Chemical explosives are the most commonly used, although there are mechanical and nuclear explosives. All mechanical explosives are devices in which a physical reaction is produced, such as that caused by overloading a container with compressed air. While nuclear explosives are by far the most powerful, all nuclear explosives have been restricted to mi",
@@ -7467,7 +7872,8 @@
       "softDeletedQuestionIds": [
         "f422371a-c0f2-4c14-9a62-d4c96c702f12"
       ],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [],
       "richNodeTypes": [],
       "assetFileIds": [],
       "stemTextExcerpt": "All cars at Matthew's car dealership are either 4WDs or sedans. All sedans are equipped with a lane keep system, but the 4WDs can have a lane keep system or sunroof. Vehicles with a lane keep system are either run on electricity or petrol.",
@@ -7491,7 +7897,10 @@
         "f70808d1-e85c-4a09-8d62-bbcd89e9b432"
       ],
       "softDeletedQuestionIds": [],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [
+        "diagram_or_image"
+      ],
       "richNodeTypes": [
         "image"
       ],
@@ -7517,7 +7926,8 @@
         "eb12b2ec-e3e1-4f3a-87e2-3c704d6adbc2"
       ],
       "softDeletedQuestionIds": [],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [],
       "richNodeTypes": [],
       "assetFileIds": [],
       "stemTextExcerpt": "One of the most vexing problems in historiography is dating an event when the usual sources offer conflicting chronologies of the event. Historians should attempt to minimize the number of competing sources, perhaps by eliminating the less credible ones. Once this is achieved and several sources are left, as often happens, historians may try, though on occasion unsuccessfully, to determine independently of the usual sources which date is more likely to be right.",
@@ -7539,7 +7949,8 @@
         "b2975acf-79fa-4a64-8268-145592e31837"
       ],
       "softDeletedQuestionIds": [],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [],
       "richNodeTypes": [],
       "assetFileIds": [],
       "stemTextExcerpt": "At a community garden, all seedling trays are labelled. No labelled items are discarded. Some compost bins are labelled. All compost bins are outdoors. No outdoor items are refrigerated. Some tools are refrigerated.",
@@ -7567,7 +7978,8 @@
         "305f7701-76cf-4d0c-98f4-f32e8877a069"
       ],
       "softDeletedQuestionIds": [],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [],
       "richNodeTypes": [],
       "assetFileIds": [],
       "stemTextExcerpt": "At a heritage centre: All archived maps are catalogued. No catalogued items are loaned. Some donated maps are archived. All framed maps are loaned. Some donated maps are framed.",
@@ -7595,7 +8007,8 @@
         "bc82d8db-5f7d-44d1-85a7-1b3df808a43a"
       ],
       "softDeletedQuestionIds": [],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [],
       "richNodeTypes": [],
       "assetFileIds": [],
       "stemTextExcerpt": "No pancakes are cakes. Some ovencakes are cakes. All toastercakes are pancakes. Most cakes are pastries.",
@@ -7623,7 +8036,12 @@
         "a30b4bb6-7f91-4f01-8408-6af4af833bc8"
       ],
       "softDeletedQuestionIds": [],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [
+        "graph_or_chart",
+        "diagram_or_image",
+        "mixed"
+      ],
       "richNodeTypes": [
         "image"
       ],
@@ -7654,7 +8072,8 @@
         "cf1d313d-dac1-4f84-a99b-6ea044c33c6b"
       ],
       "softDeletedQuestionIds": [],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [],
       "richNodeTypes": [],
       "assetFileIds": [],
       "stemTextExcerpt": "A survey by a New York publisher estimated that 50,000 to 60,000 people in the United States wanted an anthology containing the complete works of William Shakespeare. Scholars believe that this renewed interest in Shakespeare is due to his psychological insight into both male and female characters.",
@@ -7680,7 +8099,8 @@
         "03bd341f-03ee-415b-84ca-87914f74e285"
       ],
       "softDeletedQuestionIds": [],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [],
       "richNodeTypes": [],
       "assetFileIds": [],
       "stemTextExcerpt": "This cake is baked. Everything which is baked is burnt.",
@@ -7702,7 +8122,8 @@
         "2388383f-1833-4e79-bd7f-008af19f9177"
       ],
       "softDeletedQuestionIds": [],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [],
       "richNodeTypes": [],
       "assetFileIds": [],
       "stemTextExcerpt": "All urgent samples are logged. No logged samples are anonymous. Some anonymous samples are refrigerated. All refrigerated samples are kept in unit R. No samples kept in unit R are urgent.",
@@ -7730,7 +8151,8 @@
         "5094d141-b702-474c-b8ca-236fcddad82a"
       ],
       "softDeletedQuestionIds": [],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [],
       "richNodeTypes": [],
       "assetFileIds": [],
       "stemTextExcerpt": "Every member of a soccer team other than Arthur commutes by train. Arthur does not commute by train. At least two members of the team ride a bicycle.",
@@ -7754,7 +8176,8 @@
         "d939441c-e8c8-4a8f-befb-8c1f7c496055"
       ],
       "softDeletedQuestionIds": [],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [],
       "richNodeTypes": [],
       "assetFileIds": [],
       "stemTextExcerpt": "All epidemiologists are statisticians. Some statisticians are programmers. No programmers avoid computers. Some epidemiologists are clinicians. No clinicians are programmers.",
@@ -7782,7 +8205,8 @@
         "ede078e9-450a-4635-964b-c4b5ab9524e3"
       ],
       "softDeletedQuestionIds": [],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [],
       "richNodeTypes": [],
       "assetFileIds": [],
       "stemTextExcerpt": "At a particular dealership, not all cars with spoilers are luxury. All cars in this dealership are either red or blue. However, all cars with spoilers are red. Some luxury cars at the dealership are blue.",
@@ -7809,7 +8233,8 @@
         "33b3d5ae-45c5-455b-8f9a-9710dd727d2e"
       ],
       "softDeletedQuestionIds": [],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [],
       "richNodeTypes": [],
       "assetFileIds": [],
       "stemTextExcerpt": "At a pathology laboratory: All temperature-controlled specimens are barcoded. No barcoded specimen is awaiting collection. Some research specimens are temperature-controlled. All specimens awaiting collection are placed in the dispatch tray. No research specimen is placed in the dispatch tray.",
@@ -7837,7 +8262,8 @@
         "14be1360-2a56-4319-9a0c-030c2eb955ba"
       ],
       "softDeletedQuestionIds": [],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [],
       "richNodeTypes": [],
       "assetFileIds": [],
       "stemTextExcerpt": "This meal is nutritious. All nutritious things are good for you. All nutritious things that are good for you should be eaten.",
@@ -7861,7 +8287,8 @@
         "b71f9309-69ed-477a-a238-23283c548bd2"
       ],
       "softDeletedQuestionIds": [],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [],
       "richNodeTypes": [],
       "assetFileIds": [],
       "stemTextExcerpt": "None of country A’s tourist attractions are historical. None of country B’s tourist attractions are scenic, but some are popular.",
@@ -7888,7 +8315,8 @@
         "c2073d63-18e4-4ed5-8ecc-afb7b5bbbcd6"
       ],
       "softDeletedQuestionIds": [],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [],
       "richNodeTypes": [],
       "assetFileIds": [],
       "stemTextExcerpt": "David and John attend Kensington College. John is not a high achiever; every other Kensington student is a high achiever. Some high achievers are geniuses. No student from Easthill has ever been expelled. Exactly one of David and John was recently expelled from Kensington College, and no other Kensington student was recently expelled.",
@@ -7916,7 +8344,8 @@
         "1c59abf1-4548-42bd-a23b-559ff542cf74"
       ],
       "softDeletedQuestionIds": [],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [],
       "richNodeTypes": [],
       "assetFileIds": [],
       "stemTextExcerpt": "Some professors at this institution are scientists. All scientists are researchers. Some researchers are alchemists.",
@@ -7943,7 +8372,8 @@
         "97599415-fa13-483c-a269-d2d4b05f0fa1"
       ],
       "softDeletedQuestionIds": [],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [],
       "richNodeTypes": [
         "bulletList",
         "listItem"
@@ -7968,7 +8398,8 @@
         "6f1dcfd4-db0a-4331-a684-6f74452041d9"
       ],
       "softDeletedQuestionIds": [],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [],
       "richNodeTypes": [],
       "assetFileIds": [],
       "stemTextExcerpt": "Law school exam results are divided into four quartiles, with quartile 1 being the highest. Law students are eligible to apply for elected leadership positions if they have completed at least four years of university and their exam results were in the top two quartiles during the preceding year. Assume that all of the students mentioned are law students.",
@@ -7992,7 +8423,8 @@
         "b806ccab-d00c-4d7f-97b3-27e07e1065a6"
       ],
       "softDeletedQuestionIds": [],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [],
       "richNodeTypes": [],
       "assetFileIds": [],
       "stemTextExcerpt": "sdfasdf",
@@ -8014,7 +8446,8 @@
         "a003268f-970e-4c74-a62f-23bb31e85a5c"
       ],
       "softDeletedQuestionIds": [],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [],
       "richNodeTypes": [],
       "assetFileIds": [],
       "stemTextExcerpt": "Cezanne's art inspired the next generation of artists, twentieth-century creators of abstract art employing concepts of modernism (an art movement). While most experts rank Cezanne as an early modernist, a small few reject this idea. Francoise Cachin, for example, bluntly states that such an ascription is \"overplayed,\" and says that Cezanne's work is \"too often observed from a modern point of view.\"",
@@ -8036,7 +8469,8 @@
         "83936e53-5b44-431f-afb5-97fa469c6ce6"
       ],
       "softDeletedQuestionIds": [],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [],
       "richNodeTypes": [],
       "assetFileIds": [],
       "stemTextExcerpt": "In a newspaper article, following a jury’s decision that a man was guilty of murder, the chief of Police was asked what his thoughts were. He said “People will be held accountable for their own behaviour. If holding people accountable for their own behaviour means that they will be punished, then so be it. However, no person will be held accountable for behaviour over which he or she had no control.”",
@@ -8060,7 +8494,12 @@
         "148fad84-2989-4e4d-9ed4-26d65715386b"
       ],
       "softDeletedQuestionIds": [],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [
+        "graph_or_chart",
+        "diagram_or_image",
+        "mixed"
+      ],
       "richNodeTypes": [
         "image"
       ],
@@ -8094,7 +8533,8 @@
         "17dcce0e-8ef0-4a5c-b858-62084b0c825c"
       ],
       "softDeletedQuestionIds": [],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [],
       "richNodeTypes": [
         "bulletList",
         "listItem"
@@ -8130,7 +8570,12 @@
         "31d692a8-744a-46f7-8fd3-7d570638c5f8"
       ],
       "softDeletedQuestionIds": [],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [
+        "graph_or_chart",
+        "diagram_or_image",
+        "mixed"
+      ],
       "richNodeTypes": [
         "image"
       ],
@@ -8160,7 +8605,8 @@
         "a046aa36-a845-4c0d-be91-03309491ca6d"
       ],
       "softDeletedQuestionIds": [],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [],
       "richNodeTypes": [],
       "assetFileIds": [],
       "stemTextExcerpt": "In a particular zoo, not all mammals are popular attractions. However, all mammals in the zoo were expensive for the zoo to acquire, except for the Pteropus Alecto and Mus musculus species.",
@@ -8184,7 +8630,8 @@
         "3c562e00-4f39-4c6f-86ae-3e6e6ac2ce8f"
       ],
       "softDeletedQuestionIds": [],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [],
       "richNodeTypes": [],
       "assetFileIds": [],
       "stemTextExcerpt": "Every atlas is a reference book. No reference books are novels. Some library loans are novels. All rare books are reference books. Some atlases are rare books.",
@@ -8213,7 +8660,8 @@
         "1572e42f-d410-4446-95d5-0c499cf60c75"
       ],
       "softDeletedQuestionIds": [],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [],
       "richNodeTypes": [],
       "assetFileIds": [],
       "stemTextExcerpt": "All plants have stems, but some plants are not edible. All vegetables are edible and have stems. This species is not edible but does have a stem. For this question, the species must be either a plant or a vegetable.",
@@ -8240,7 +8688,8 @@
         "52eba5de-a8a8-4e79-8cd0-bcb1bdd8e35b"
       ],
       "softDeletedQuestionIds": [],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [],
       "richNodeTypes": [],
       "assetFileIds": [],
       "stemTextExcerpt": "In a regional permit system: All verified permits are recorded. No recorded permits are provisional. Some coastal permits are verified. All permits requiring inspection are recorded. Some coastal permits are provisional.",
@@ -8268,7 +8717,8 @@
         "7c4f8aeb-ed34-499c-bca6-38de3ea5c9f5"
       ],
       "softDeletedQuestionIds": [],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [],
       "richNodeTypes": [],
       "assetFileIds": [],
       "stemTextExcerpt": "Supermarkets are beginning to sell a wider range of organic produce because they are increasingly aware that consumers are becoming more conscious of where their food comes from. Organic products are often sold at higher prices than their non-organic counterparts. Some consumers believe that this enables supermarkets to make larger profits. Other consumers believe that organic products command higher prices because people of higher economic status are more likely to buy them.",
@@ -8292,7 +8742,8 @@
         "aee6a649-1cdf-4c30-9979-5215cdccf832"
       ],
       "softDeletedQuestionIds": [],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [],
       "richNodeTypes": [],
       "assetFileIds": [],
       "stemTextExcerpt": "All the sports Mikey plays are contact except for cricket. He does not play all his sports at first-team level. He plays more than one contact sport at the first-team level. All of the first team sports he plays at the first team level are contact sports except for one.",
@@ -8316,7 +8767,8 @@
         "3eae47b2-b173-4bcc-9268-f18968688a52"
       ],
       "softDeletedQuestionIds": [],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [],
       "richNodeTypes": [],
       "assetFileIds": [],
       "stemTextExcerpt": "Petrotan is a usually highly toxic liquid produced only when oil is pumped rapidly by an offshore oil rig. Petrotan is released into the surrounding water if and only if pumping exceeds the rig's maximum rate; the quantity released is usually unpredictable. A safe method of disposing of petrotan is required. Most petrotan from offshore oil rigs is shipped to the mainland for disposal in underground salt caverns, but not all salt caverns can safely contain it.",
@@ -8340,7 +8792,8 @@
         "2b9e75f0-bf1b-43dc-b887-baae0f510241"
       ],
       "softDeletedQuestionIds": [],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [],
       "richNodeTypes": [],
       "assetFileIds": [],
       "stemTextExcerpt": "All of Anna’s friends attend her college. All of Anna’s friends take Maths unless they take English. No student at Anna’s college who takes Maths also takes Spanish.",
@@ -8367,7 +8820,8 @@
         "49ac683b-91a6-4a42-ac92-2aaaf7ca2504"
       ],
       "softDeletedQuestionIds": [],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [],
       "richNodeTypes": [],
       "assetFileIds": [],
       "stemTextExcerpt": "All tractors are vehicles. Some vehicles are used off-road. All tractors are slow, and nothing used off-road is slow.",
@@ -8394,7 +8848,8 @@
         "aa8613c1-2f4f-4b2b-b58a-4d812ba92be2"
       ],
       "softDeletedQuestionIds": [],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [],
       "richNodeTypes": [],
       "assetFileIds": [],
       "stemTextExcerpt": "All buses operating on Route K stop at Elm Station. Every bus that stops at Elm Station arrives before 09:00. Some buses arriving before 09:00 are electric. No electric bus uses diesel.",
@@ -8423,7 +8878,8 @@
       "softDeletedQuestionIds": [
         "e2cad1ba-8740-480d-b804-f44887582282"
       ],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [],
       "richNodeTypes": [],
       "assetFileIds": [],
       "stemTextExcerpt": "The country music scene is currently experiencing a small-scale resurgence of interest in the banjo, an instrument similar to a guitar but smaller and with a twangy sound. The peppy cadences of the banjo enliven several popular current songs, and they help to distinguish the sound of country music from the electric sounds associated with the guitars and synthesisers of rock music, which have been increasingly infiltrating country music over the last several years.",
@@ -8445,7 +8901,8 @@
         "d25edd6c-3480-45eb-976a-9ede58248d1a"
       ],
       "softDeletedQuestionIds": [],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [],
       "richNodeTypes": [],
       "assetFileIds": [],
       "stemTextExcerpt": "No pancakes are cakes. Some ovencakes are cakes. All toastercakes are pancakes. Most cakes are pastries.",
@@ -8473,7 +8930,8 @@
         "c25a6523-2d1f-4e1f-9459-2a5166b4f43a"
       ],
       "softDeletedQuestionIds": [],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [],
       "richNodeTypes": [
         "bulletList",
         "listItem"
@@ -8504,7 +8962,8 @@
         "07ba82aa-03a9-4982-ae1e-3bcce23b74c2"
       ],
       "softDeletedQuestionIds": [],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [],
       "richNodeTypes": [],
       "assetFileIds": [],
       "stemTextExcerpt": "At a local archive, all oral-history files are archived. No archived files are loaned. Some donated files are oral-history files. All loaned files are labelled. No labelled files are archived.",
@@ -8532,7 +8991,8 @@
         "e47c2fbb-2b47-4967-912c-3f026190417b"
       ],
       "softDeletedQuestionIds": [],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [],
       "richNodeTypes": [],
       "assetFileIds": [],
       "stemTextExcerpt": "The most popular tourist attraction in Paris is visited by over 1,000,000 people annually. All tourist attractions in Paris with more than 500,000 visitors each year have their own metro station. The Louvre, Eiffel Tower and the Round Tower are all attractions in Paris.",
@@ -8556,7 +9016,8 @@
         "a123cde2-8b77-4316-8f39-28d8ee66c772"
       ],
       "softDeletedQuestionIds": [],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [],
       "richNodeTypes": [],
       "assetFileIds": [],
       "stemTextExcerpt": "All the bats that inhabited a forest were fruit bats. High pitched sounds could be heard by all the fruit bats although not all of the fruit bats that could hear high pitched sounds could also hear low pitched sounds.",
@@ -8580,7 +9041,8 @@
         "acb2649d-bc33-40f8-9aab-aebe572e91ae"
       ],
       "softDeletedQuestionIds": [],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [],
       "richNodeTypes": [],
       "assetFileIds": [],
       "stemTextExcerpt": "The country music scene is currently experiencing a small-scale resurgence of interest in the banjo, an instrument similar to a guitar but smaller and with a distinctive twangy sound. The banjo’s lively rhythms feature in several popular current songs and help distinguish country music from the electric sounds associated with the guitars and synthesisers of rock music, which have appeared increasingly in country music over recent years.",
@@ -8602,7 +9064,8 @@
       "softDeletedQuestionIds": [
         "c38a94b6-7399-47c4-8f89-2a905bec60d6"
       ],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [],
       "richNodeTypes": [],
       "assetFileIds": [],
       "stemTextExcerpt": "All cars at Matthew's car dealership are either 4WDs or sedans. All sedans are equipped with a lane keep system, but the 4WDs can have a lane keep system or sunroof. Vehicles with a lane keep system are either run on electricity or petrol.",
@@ -8626,7 +9089,10 @@
         "ca1b62fe-4ad0-47cd-982a-7af8f067546f"
       ],
       "softDeletedQuestionIds": [],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [
+        "table"
+      ],
       "richNodeTypes": [
         "table",
         "tableCell",
@@ -8657,7 +9123,12 @@
         "c6baa837-0ffb-4a87-a1de-0b11c217713a"
       ],
       "softDeletedQuestionIds": [],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [
+        "graph_or_chart",
+        "diagram_or_image",
+        "mixed"
+      ],
       "richNodeTypes": [
         "image"
       ],
@@ -8687,7 +9158,8 @@
         "1b0a0851-14cc-4fdd-97a9-b665e4ebb6fa"
       ],
       "softDeletedQuestionIds": [],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [],
       "richNodeTypes": [],
       "assetFileIds": [],
       "stemTextExcerpt": "All vehicles making overnight deliveries require a signed access pass. No vehicle with a signed access pass uses the pedestrian gate. Some electric vehicles make overnight deliveries. All vehicles using the pedestrian gate are inspected.",
@@ -8715,7 +9187,8 @@
         "8a9dbcbd-5d4c-4079-b719-bb8e81eae128"
       ],
       "softDeletedQuestionIds": [],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [],
       "richNodeTypes": [],
       "assetFileIds": [],
       "stemTextExcerpt": "Chaos Inc., a fast-moving consumer goods company, had experienced annual growth in sales output of nearly 12%. A new partner, John Kim, joined the company and introduced several innovations. These included Kaizen groups intended to solve manufacturing problems and e-business applications involving vendors and distributors. After Kim joined, annual sales-output growth fell to 6%. It appeared that Kim's innovations had caused the reduction in the growth rate.",
@@ -8737,7 +9210,8 @@
       "softDeletedQuestionIds": [
         "936c4eeb-5040-4488-bb12-7003ca444fa5"
       ],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [],
       "richNodeTypes": [],
       "assetFileIds": [],
       "stemTextExcerpt": "Most phones sold in New Zealand are made in South Korea including all phones from the two biggest phone retailers. South Korean workers’ conditions have improved in recent years, partly due to pressure from New Zealand consumers on phone manufacturers in South Korea. Prior to this, their working conditions were very poor.",
@@ -8761,7 +9235,8 @@
         "ea2303e4-add6-4725-89c8-3c015f4573f0"
       ],
       "softDeletedQuestionIds": [],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [],
       "richNodeTypes": [],
       "assetFileIds": [],
       "stemTextExcerpt": "In a box, there are a number of objects that have either 4, 8 or 10 sides. All but one of the objects that are shiny have at least 8 sides. Some of the objects that are rough have more than 4 sides, but none have 8 sides. No objects that are shiny and rough have less than 10 sides. Over three quarters of the objects are shiny.",
@@ -8790,7 +9265,8 @@
         "a9c4d61d-ac7f-4d0f-81d6-84c313590f24"
       ],
       "softDeletedQuestionIds": [],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [],
       "richNodeTypes": [],
       "assetFileIds": [],
       "stemTextExcerpt": "Petrotan is a liquid, usually highly toxic, that is created only when oil is pumped rapidly by offshore oil rigs. If and only if the maximum pumping rate of a rig's machinery is exceeded will petrotan be released into the surrounding water, usually in unpredictable amounts. A technique must be developed to safely dispose of petrotan. Most off-shore oil rig petrotan is shipped to the mainland for disposal in underground salt caverns, but not all salt caverns can safely contain the highly toxic li",
@@ -8814,7 +9290,12 @@
         "14d9b4fc-0009-47a0-915d-5cad8717bf47"
       ],
       "softDeletedQuestionIds": [],
-      "presentationFormat": null,
+      "declaredPresentationFormat": null,
+      "observedPresentationFormats": [
+        "graph_or_chart",
+        "diagram_or_image",
+        "mixed"
+      ],
       "richNodeTypes": [
         "image"
       ],

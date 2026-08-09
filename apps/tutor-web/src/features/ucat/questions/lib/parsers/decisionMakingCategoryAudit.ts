@@ -3,6 +3,8 @@ import {
   extractDecisionMakingCategoryEvidence,
   inferDecisionMakingCategory,
   type DecisionMakingCategoryInferenceValue,
+  type DecisionMakingFactualDataSignal,
+  type DecisionMakingFormalPremiseSignal,
   type InferenceConfidence,
 } from './responseClassification'
 
@@ -30,18 +32,60 @@ export type DecisionMakingCategoryAuditRow = {
   stemLifecycle: 'active' | 'stem_deleted'
   activeQuestionIds: string[]
   softDeletedQuestionIds: string[]
-  presentationFormat: string | null
+  declaredPresentationFormat: string | null
+  observedPresentationFormats: ObservedPresentationFormat[]
   richNodeTypes: string[]
   assetFileIds: string[]
   stemTextExcerpt: string
   directiveExcerpt: string
-  formalPremiseSignals: string[]
-  factualDataSignals: string[]
+  formalPremiseSignals: DecisionMakingFormalPremiseSignal[]
+  factualDataSignals: DecisionMakingFactualDataSignal[]
   suggestedCategory: DecisionMakingCategoryInferenceValue | null
   confidence: InferenceConfidence
-  evidence: string[]
-  conflicts: string[]
+  evidence: DecisionMakingAuditEvidence[]
+  conflicts: DecisionMakingAuditConflict[]
   requiresHumanReview: boolean
+}
+
+const DECISION_MAKING_AUDIT_EVIDENCE = [
+  'formal_quantified_premises',
+  'structured_factual_presentation',
+] as const
+type DecisionMakingAuditEvidence =
+  (typeof DECISION_MAKING_AUDIT_EVIDENCE)[number]
+
+const DECISION_MAKING_AUDIT_CONFLICTS = ['ambiguous_dm_category'] as const
+type DecisionMakingAuditConflict =
+  (typeof DECISION_MAKING_AUDIT_CONFLICTS)[number]
+
+function recognisedValues<const T extends readonly string[]>(
+  values: readonly string[],
+  allowed: T
+): Array<T[number]> {
+  const allowedValues = new Set<string>(allowed)
+  return values.filter((value): value is T[number] => allowedValues.has(value))
+}
+
+export type ObservedPresentationFormat =
+  | 'table'
+  | 'graph_or_chart'
+  | 'diagram_or_image'
+  | 'mixed'
+
+function observedPresentationFormats(
+  nodeTypes: readonly string[],
+  text: string
+): ObservedPresentationFormat[] {
+  const probe = text.toLowerCase()
+  const hasTable = nodeTypes.includes('table') || /\btable\b/u.test(probe)
+  const hasGraph = /\b(?:graph|chart)\b/u.test(probe)
+  const hasImage = nodeTypes.includes('image') || /\b(?:diagram|image)\b/u.test(probe)
+  const formats: ObservedPresentationFormat[] = [
+    ...(hasTable ? ['table' as const] : []),
+    ...(hasGraph ? ['graph_or_chart' as const] : []),
+    ...(hasImage ? ['diagram_or_image' as const] : []),
+  ]
+  return formats.length > 1 ? [...formats, 'mixed'] : formats
 }
 
 export type DecisionMakingCategoryAuditReport = {
@@ -129,17 +173,12 @@ export function auditDecisionMakingCategoryRecords(
       .map((question) => inspectRichContent(question.question_text).text)
       .join(' ')
     const nodeTypes = stemContent.nodeTypes
-    const semanticStemProbe = [
-      stemText,
-      record.presentation_format,
-      ...nodeTypes,
-    ].filter(Boolean).join(' ')
     const semanticEvidence = extractDecisionMakingCategoryEvidence({
-      stemText: semanticStemProbe,
+      stemText,
       directive,
     })
     const inference = inferDecisionMakingCategory({
-      stemText: semanticStemProbe,
+      stemText,
       directive,
     })
 
@@ -154,7 +193,8 @@ export function auditDecisionMakingCategoryRecords(
       softDeletedQuestionIds: record.questions
         .filter((question) => question.deleted_at !== null)
         .map((question) => question.id),
-      presentationFormat: record.presentation_format ?? null,
+      declaredPresentationFormat: record.presentation_format ?? null,
+      observedPresentationFormats: observedPresentationFormats(nodeTypes, stemText),
       richNodeTypes: nodeTypes,
       assetFileIds: stemContent.assetFileIds,
       stemTextExcerpt: excerpt(stemText),
@@ -163,8 +203,8 @@ export function auditDecisionMakingCategoryRecords(
       factualDataSignals: semanticEvidence.factualDataSignals,
       suggestedCategory: inference.value,
       confidence: inference.confidence,
-      evidence: inference.evidence,
-      conflicts: inference.conflicts,
+      evidence: recognisedValues(inference.evidence, DECISION_MAKING_AUDIT_EVIDENCE),
+      conflicts: recognisedValues(inference.conflicts, DECISION_MAKING_AUDIT_CONFLICTS),
       requiresHumanReview:
         inference.value === null ||
         inference.confidence === 'weak' ||
