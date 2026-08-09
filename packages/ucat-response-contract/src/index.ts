@@ -910,6 +910,22 @@ export function getAnswerSchemePresentation(
   return schemeImplementations[kind].presentation(orderedOptionIds)
 }
 
+export function tryGetPlacementPresentation(
+  kind: unknown,
+  orderedOptionIds: readonly string[]
+): Extract<PresentationContract, { kind: 'placement' }> | null {
+  if (
+    typeof kind !== 'string' ||
+    !Object.prototype.hasOwnProperty.call(schemeImplementations, kind)
+  ) {
+    return null
+  }
+  const presentation = schemeImplementations[
+    kind as AnswerScheme['kind']
+  ].presentation(orderedOptionIds)
+  return presentation.kind === 'placement' ? presentation : null
+}
+
 export function applyPlacementTransition(params: {
   presentation: Extract<PresentationContract, { kind: 'placement' }>
   placements: Readonly<Record<string, PlacementValue>>

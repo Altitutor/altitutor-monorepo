@@ -7,6 +7,7 @@ import {
   getAnswerSchemeProgressPoints,
   getAnswerSchemeContract,
   getAnswerSchemePresentation,
+  tryGetPlacementPresentation,
 } from '../index'
 
 describe('UCAT response contract', () => {
@@ -43,6 +44,8 @@ describe('UCAT response contract', () => {
       token: 'most',
       sourceId: null,
     })).toEqual({ b: 'most', c: 'least' })
+    expect(tryGetPlacementPresentation('unknown', ['a'])).toBeNull()
+    expect(tryGetPlacementPresentation('single_choice', ['a'])).toBeNull()
   })
 
   it('supports a complete single-choice response through one public contract', () => {

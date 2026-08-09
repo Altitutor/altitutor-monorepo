@@ -4,6 +4,7 @@ import {
   evaluateResponse,
   getAnswerSchemeMaximum,
   getAnswerSchemePresentation,
+  tryGetPlacementPresentation,
   type AnswerScheme,
   type CandidateResponse,
   type ReviewContract,
@@ -147,19 +148,24 @@ export function parseLegacyPlacementProjection(
     if (!response || typeof response !== 'object') return null
     const placements = (response as Record<string, unknown>).placements
     if (!placements || typeof placements !== 'object') return null
-    const positiveToken = snapshot.answerScheme === 'situational_judgement_most_least'
-      ? 'most'
-      : 'yes'
-    const negativeToken = snapshot.answerScheme === 'situational_judgement_most_least'
-      ? 'least'
-      : 'no'
     const entries = Object.entries(placements as Record<string, unknown>)
-    if (entries.some(([, token]) => token !== positiveToken && token !== negativeToken)) {
+    const presentation = tryGetPlacementPresentation(
+      snapshot.answerScheme,
+      entries.map(([optionId]) => optionId),
+    )
+    if (!presentation) return null
+    const [positive, negative] = presentation.tokens
+    if (!positive || !negative) return null
+    if (
+      entries.some(
+        ([, token]) => token !== positive.value && token !== negative.value,
+      )
+    ) {
       return null
     }
     return Object.fromEntries(entries.map(([optionId, token]) => [
       optionId,
-      token === positiveToken,
+      token === positive.value,
     ]))
   }
   if (snapshot.type !== 'syllogism_v1' || !Array.isArray(snapshot.answers)) return null
