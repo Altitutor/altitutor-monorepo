@@ -7,6 +7,7 @@ import {
   type JsonLike,
 } from "@/features/question-engine/model/rich-text";
 import type {
+  AnswerOption,
   QuestionEngineExam,
   QuestionEngineMode,
   QuestionItem,
@@ -59,12 +60,15 @@ type StemDetailQuestion = {
   answer_explanation?: unknown;
   index: number;
   question_type: "multiple_choice" | "syllogism";
+  response_type?: "multiple_choice" | "drag_and_drop";
+  answer_scheme?: QuestionItem["answerScheme"];
   answer_options: Array<{
     id: string;
     answer_text: unknown;
     answer_explanation?: unknown;
     index: number;
     is_answer?: boolean;
+    answer_key_value?: AnswerOption["answerKeyValue"];
     selection_count?: number;
     total_answered?: number;
     percentage?: number;
@@ -168,6 +172,7 @@ function mapSetToQuestions(
                 ? (option.answer_text as Record<string, unknown>)
                 : null,
             isAnswer: option.is_answer ?? false,
+            answerKeyValue: option.answer_key_value ?? null,
             answerExplanation: optionExplanation.text,
             answerExplanationJson: optionExplanation.json,
             selectionCount: option.selection_count,
@@ -204,6 +209,8 @@ function mapSetToQuestions(
         stemJson,
         questionJson,
         questionType: question.question_type,
+        responseType: question.response_type,
+        answerScheme: question.answer_scheme,
         options,
         correctOptionId: correctOption?.id,
         answerExplanation: questionExplanation.text,

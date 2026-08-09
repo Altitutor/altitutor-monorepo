@@ -130,7 +130,12 @@ const exam: QuestionEngineExam = {
       stemText: "Stem",
       questionText: "Question",
       questionType: "multiple_choice",
-      options: [],
+      responseType: "multiple_choice",
+      answerScheme: "single_choice",
+      options: [
+        { id: "option-1", index: 0, text: "A", answerKeyValue: "correct" },
+        { id: "option-2", index: 1, text: "B", answerKeyValue: null },
+      ],
     },
   ],
 };

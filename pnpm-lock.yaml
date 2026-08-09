@@ -413,6 +413,9 @@ importers:
       '@altitutor/ucat-percentiles':
         specifier: workspace:*
         version: link:../../packages/ucat-percentiles
+      '@altitutor/ucat-response-contract':
+        specifier: workspace:*
+        version: link:../../packages/ucat-response-contract
       '@altitutor/ui':
         specifier: workspace:*
         version: link:../../packages/ui

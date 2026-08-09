@@ -22,6 +22,7 @@
     "@altitutor/shared": "workspace:*",
     "@altitutor/ucat-marking": "workspace:*",
     "@altitutor/ucat-percentiles": "workspace:*",
+    "@altitutor/ucat-response-contract": "workspace:*",
     "@altitutor/ui": "workspace:*",
     "@gsap/react": "^2.1.2",
     "@sentry/nextjs": "^10.65.0",

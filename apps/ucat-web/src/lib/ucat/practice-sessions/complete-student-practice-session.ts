@@ -9,6 +9,7 @@ import {
 } from "@/features/question-engine/model/types";
 import type { FinalQuestionAttemptInput } from "@/lib/ucat/set-attempts/complete-student-set-attempt";
 import { persistQuestionAttemptBatch } from "@/lib/ucat/question-attempts/persist-question-attempt-batch";
+import { restorePersistedQuestionResponse } from "@/features/question-engine/lib/response-state";
 
 type AdminClient = SupabaseClient;
 
@@ -56,37 +57,6 @@ function questionMeta(questions: QuestionItem[]): QuestionMeta[] {
   }));
 }
 
-function syllogismSnapshot(
-  value: Json | null | undefined,
-): Record<string, boolean> | null {
-  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
-  const snapshot = value as {
-    type?: unknown;
-    answers?: unknown;
-  };
-  if (snapshot.type !== "syllogism_v1" || !Array.isArray(snapshot.answers)) {
-    return null;
-  }
-
-  const answers: Record<string, boolean> = {};
-  for (const answer of snapshot.answers) {
-    if (!answer || typeof answer !== "object" || Array.isArray(answer)) {
-      continue;
-    }
-    const row = answer as {
-      question_answer_option_id?: unknown;
-      answer?: unknown;
-    };
-    if (
-      typeof row.question_answer_option_id === "string" &&
-      typeof row.answer === "boolean"
-    ) {
-      answers[row.question_answer_option_id] = row.answer;
-    }
-  }
-  return answers;
-}
-
 export function scorePracticeAnswers(
   questions: QuestionItem[],
   answersByQuestionId: Map<string, FinalQuestionAttemptInput>,
@@ -100,9 +70,13 @@ export function scorePracticeAnswers(
     (question) => question.questionType !== "syllogism",
   );
   const nonSyllogismAttempts = nonSyllogismMeta.flatMap((question) => {
-    const selectedOptionId = answersByQuestionId.get(
-      question.id,
-    )?.questionAnswerOptionId;
+    const item = questions.find((candidate) => candidate.id === question.id)!;
+    const answer = answersByQuestionId.get(question.id);
+    const selectedOptionId = restorePersistedQuestionResponse(
+      item,
+      answer?.answerSnapshot,
+      answer?.questionAnswerOptionId,
+    ).selectedOptionId;
     return selectedOptionId
       ? [{ questionId: question.id, selectedOptionId }]
       : [];
@@ -118,9 +92,12 @@ export function scorePracticeAnswers(
   // does rather than reducing it to one selected option.
   for (const question of questions) {
     if (question.questionType !== "syllogism") continue;
-    const snapshot = syllogismSnapshot(
-      answersByQuestionId.get(question.id)?.answerSnapshot,
-    );
+    const answer = answersByQuestionId.get(question.id);
+    const snapshot = restorePersistedQuestionResponse(
+      question,
+      answer?.answerSnapshot,
+      answer?.questionAnswerOptionId,
+    ).syllogismSnapshot;
     let correctCount = 0;
     for (const option of question.options) {
       if (snapshot?.[option.id] === (option.isAnswer === true)) {

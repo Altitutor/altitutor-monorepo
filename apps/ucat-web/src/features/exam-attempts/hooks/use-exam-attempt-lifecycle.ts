@@ -39,10 +39,16 @@ import { quotaRouteFallback } from "@/features/ucat-access/lib/quota-route-fallb
 import { QuotaExceededError } from "@/lib/ucat/quota/parse-quota-error";
 import { PracticeSessionEndedError } from "@/lib/ucat/practice-sessions/practice-session-ended";
 import { useToast } from "@altitutor/ui";
+import { canonicalizeEngineResponses } from "@/features/question-engine/lib/response-state";
 
 function toExamEngineSnapshot(
   state: QuestionEngineState,
+  exam: QuestionEngineExam,
 ): StoredExamSnapshot["state"] {
+  const responses = canonicalizeEngineResponses(exam.questions, {
+    selectedAnswers: state.selectedAnswers,
+    syllogismSnapshots: state.syllogismSnapshots,
+  });
   return {
     phase: state.phase,
     instructionsIndex: state.instructionsIndex,
@@ -53,8 +59,9 @@ function toExamEngineSnapshot(
     currentIndex: state.currentIndex,
     visitedQuestionIds: state.visitedQuestionIds,
     flaggedIds: state.flaggedIds,
-    selectedAnswers: state.selectedAnswers,
-    syllogismSnapshots: state.syllogismSnapshots,
+    selectedAnswers: responses.selectedAnswers,
+    syllogismSnapshots: responses.syllogismSnapshots,
+    responseSnapshots: responses.responseSnapshots,
     reviewFilter: state.reviewFilter,
     reviewFilterIndex: state.reviewFilterIndex,
     reviewFilterIndicesSnapshot: state.reviewFilterIndicesSnapshot,
@@ -84,6 +91,11 @@ export function sanitizeEngineSnapshotForExam(
     snapshot.phase === "intro" &&
     "instructionsScreens" in exam &&
     exam.instructionsScreens.length > 0;
+  const responses = canonicalizeEngineResponses(exam.questions, {
+    responseSnapshots: filterQuestionRecord(snapshot.responseSnapshots),
+    selectedAnswers: filterQuestionRecord(snapshot.selectedAnswers),
+    syllogismSnapshots: filterQuestionRecord(snapshot.syllogismSnapshots),
+  });
 
   return {
     ...snapshot,
@@ -107,8 +119,9 @@ export function sanitizeEngineSnapshotForExam(
           ),
     visitedQuestionIds: filterQuestionIds(snapshot.visitedQuestionIds),
     flaggedIds: filterQuestionIds(snapshot.flaggedIds),
-    selectedAnswers: filterQuestionRecord(snapshot.selectedAnswers),
-    syllogismSnapshots: filterQuestionRecord(snapshot.syllogismSnapshots),
+    responseSnapshots: responses.responseSnapshots,
+    selectedAnswers: responses.selectedAnswers,
+    syllogismSnapshots: responses.syllogismSnapshots,
   };
 }
 
@@ -306,7 +319,7 @@ export function useExamAttemptLifecycle({
       ? {
           kind,
           attemptId: attemptIdRef.current,
-          engineSnapshot: toExamEngineSnapshot(state),
+          engineSnapshot: toExamEngineSnapshot(state, exam),
           currentSegmentEndsAt: serverSegmentEndsAt,
           setAttemptIdsBySetId: Object.fromEntries(
             attemptStateRef.current.setAttemptIdsBySetId.entries(),
@@ -442,7 +455,7 @@ export function useExamAttemptLifecycle({
           ...attempt,
           currentSegmentEndsAt:
             localSegmentKey === serverSegmentKey ? endsAt : null,
-          engineSnapshot: toExamEngineSnapshot(nextLocalState),
+          engineSnapshot: toExamEngineSnapshot(nextLocalState, exam),
         });
       } finally {
         if (!cancelled) {
@@ -509,7 +522,7 @@ export function useExamAttemptLifecycle({
     let resumed = false;
     try {
       const initialQuestionTiming = latestQuestionTimingRef.current;
-      const engineSnapshot = toExamEngineSnapshot(state);
+      const engineSnapshot = toExamEngineSnapshot(state, exam);
       if (initialQuestionTiming) {
         engineSnapshot.activeQuestionTiming = {
           ...initialQuestionTiming,
@@ -610,7 +623,7 @@ export function useExamAttemptLifecycle({
         localSegmentKey === serverSegmentKey
           ? attempt.currentSegmentEndsAt
           : null,
-      engineSnapshot: toExamEngineSnapshot(nextLocalState),
+      engineSnapshot: toExamEngineSnapshot(nextLocalState, exam),
     });
     attemptStateRef.current.mockAttemptId = attempt.mockAttemptId;
     attemptStateRef.current.setAttemptIdsBySetId = new Map(
@@ -709,7 +722,7 @@ export function useExamAttemptLifecycle({
       syncExamAttempt({
         kind,
         attemptId,
-        engineSnapshot: toExamEngineSnapshot(state),
+        engineSnapshot: toExamEngineSnapshot(state, exam),
         currentSegmentEndsAt: shouldPreserveLocalElapsed
           ? localSegmentEndsAt
           : null,
@@ -749,7 +762,7 @@ export function useExamAttemptLifecycle({
         setServerSegmentEndsAt(currentSegmentEndsAt);
         updateLocal(attemptId, {
           currentSegmentEndsAt,
-          engineSnapshot: toExamEngineSnapshot(state),
+          engineSnapshot: toExamEngineSnapshot(state, exam),
           ...(setAttemptIdsBySetId ? { setAttemptIdsBySetId } : {}),
         });
       })
@@ -794,7 +807,7 @@ export function useExamAttemptLifecycle({
       if (syncBlockedRef.current) return;
       if (suppressQuestionTimingSyncRef?.current) return;
       if (kind && isExamAttemptAtResults(kind, state.phase)) return;
-      const engineSnapshot = toExamEngineSnapshot(state);
+      const engineSnapshot = toExamEngineSnapshot(state, exam);
       const attemptId = attemptIdRef.current!;
       const requestedSegmentKey = getTimedSegmentKey(exam, state);
       void enqueueSync(() =>
@@ -883,7 +896,7 @@ export function useExamAttemptLifecycle({
     const input = {
       kind,
       attemptId: attemptIdRef.current,
-      engineSnapshot: toExamEngineSnapshot(state),
+      engineSnapshot: toExamEngineSnapshot(state, exam),
       currentSegmentEndsAt: serverSegmentEndsAt,
       setAttemptIdsBySetId: Object.fromEntries(
         attemptStateRef.current.setAttemptIdsBySetId.entries(),
@@ -921,7 +934,7 @@ export function useExamAttemptLifecycle({
       setServerSegmentEndsAt(currentSegmentEndsAt);
       updateLocal(attemptIdRef.current!, {
         currentSegmentEndsAt,
-        engineSnapshot: toExamEngineSnapshot(state),
+        engineSnapshot: toExamEngineSnapshot(state, exam),
         ...(setAttemptIdsBySetId ? { setAttemptIdsBySetId } : {}),
       });
       return true;
@@ -986,7 +999,7 @@ export function useExamAttemptLifecycle({
             syncExamAttempt({
               kind,
               attemptId,
-              engineSnapshot: toExamEngineSnapshot(engineState),
+              engineSnapshot: toExamEngineSnapshot(engineState, exam),
               currentSegmentEndsAt: serverSegmentEndsAt,
               setAttemptIdsBySetId: Object.fromEntries(
                 attemptStateRef.current.setAttemptIdsBySetId.entries(),
@@ -1021,7 +1034,7 @@ export function useExamAttemptLifecycle({
         updateLocal(attemptId, {
           currentSegmentEndsAt,
           engineSnapshot: {
-            ...toExamEngineSnapshot(engineState),
+            ...toExamEngineSnapshot(engineState, exam),
             activeQuestionTiming: null,
           },
           ...(setAttemptIdsBySetId ? { setAttemptIdsBySetId } : {}),
