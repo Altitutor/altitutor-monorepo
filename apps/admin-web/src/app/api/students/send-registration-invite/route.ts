@@ -2,11 +2,11 @@ import { captureApiError } from '@/lib/sentry/capture-api-error';
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/shared/lib/supabase/server-ssr';
 import { supabaseAdmin } from '@/shared/lib/supabase/server/admin';
-import { randomUUID } from 'crypto';
-import type { Tables, TablesUpdate } from '@altitutor/shared';
+import type { Tables } from '@altitutor/shared';
 import { sendEmail } from '@/shared/lib/email';
 import { buildRegistrationEmail } from '@altitutor/email';
 import { getStudentRegistrationInviteMessage } from '@/features/messages/api/systemTemplates';
+import { getInviteUrlForStudent } from '@/shared/utils/invites';
 
 export async function POST(request: NextRequest) {
   try {
@@ -40,7 +40,6 @@ export async function POST(request: NextRequest) {
 
     // Handle FormData or JSON
     let studentId: string;
-    let existingToken: string | undefined;
     let shouldSendEmail: boolean | undefined;
     let shouldSendSms: boolean | undefined;
     let recipientType: 'student' | 'parent' | undefined;
@@ -54,7 +53,6 @@ export async function POST(request: NextRequest) {
     if (contentType.includes('multipart/form-data')) {
       const formData = await request.formData();
       studentId = formData.get('studentId') as string;
-      existingToken = formData.get('token') as string | undefined;
       shouldSendEmail = formData.get('sendEmail') === 'true';
       shouldSendSms = formData.get('sendSms') === 'true';
       recipientType = formData.get('recipientType') as 'student' | 'parent' | undefined;
@@ -78,7 +76,6 @@ export async function POST(request: NextRequest) {
     } else {
       const body = await request.json();
       studentId = body.studentId;
-      existingToken = body.token;
       shouldSendEmail = body.sendEmail;
       shouldSendSms = body.sendSms;
       recipientType = body.recipientType;
@@ -98,9 +95,9 @@ export async function POST(request: NextRequest) {
     // Fetch student record
     const { data: student, error: studentError } = await supabase
       .from('students')
-      .select('id, first_name, last_name, email, phone, status, user_id, invite_token')
+      .select('id, first_name, last_name, email, phone, status, user_id, registration_public_token')
       .eq('id', studentId)
-      .single<Pick<Tables<'students'>, 'id' | 'first_name' | 'last_name' | 'email' | 'phone' | 'status' | 'user_id' | 'invite_token'>>();
+      .single<Pick<Tables<'students'>, 'id' | 'first_name' | 'last_name' | 'email' | 'phone' | 'status' | 'user_id' | 'registration_public_token'>>();
 
     if (studentError || !student) {
       return NextResponse.json(
@@ -109,10 +106,11 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Check if student is already fully registered (has account AND status is ACTIVE)
-    if (student.user_id && student.status === 'ACTIVE') {
+    if (student.status !== 'TRIAL') {
       return NextResponse.json(
-        { error: 'This student is already fully registered' },
+        { error: student.status === 'ACTIVE'
+          ? 'This student is already fully registered'
+          : 'Registration is not available for this student' },
         { status: 400 }
       );
     }
@@ -120,33 +118,23 @@ export async function POST(request: NextRequest) {
     // If student has account but hasn't registered (status != ACTIVE), allow registration link
     // This will skip password creation in the registration flow
 
-    // Generate or use existing token
-    let token = existingToken || student.invite_token;
-    
+    let token = student.registration_public_token;
     if (!token) {
-      token = randomUUID();
-      
-      // Update student with invite token (use admin client for proper typing)
-      const updateData: TablesUpdate<'students'> = { invite_token: token };
-      const { error: updateError } = await supabaseAdmin!
-        .from('students')
-        .update(updateData)
-        .eq('id', studentId);
-
-      if (updateError) {
-        console.error('Failed to update invite token:', updateError);
-        captureApiError(updateError, "/api/students/send-registration-invite");
+      const { data: issuedToken, error: issueError } = await supabaseAdmin.rpc(
+        'issue_student_registration_public_token',
+        { p_student_id: studentId }
+      );
+      if (issueError || typeof issuedToken !== 'string') {
+        captureApiError(issueError, "/api/students/send-registration-invite");
         return NextResponse.json(
-          { error: `Failed to generate invite token: ${updateError.message}` },
+          { error: issueError?.message || 'Failed to issue registration link' },
           { status: 500 }
         );
       }
+      token = issuedToken;
     }
 
-    // Build registration URL
-    const isDev = process.env.NODE_ENV === 'development';
-    const baseUrl = isDev ? 'http://localhost:3001' : (process.env.NEXT_PUBLIC_STUDENT_URL || 'https://student.altitutor.com');
-    const registrationUrl = `${baseUrl}/register/${token}`;
+    const registrationUrl = getInviteUrlForStudent(token, 'register');
 
     // Determine recipient based on recipientType and recipientId
     let recipient: { id: string; first_name: string; last_name: string; email: string | null; phone: string | null } | null = null;

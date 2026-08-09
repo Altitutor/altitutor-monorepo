@@ -14,8 +14,11 @@
 - **In-person trial** — The prospective in-person relationship that begins when a Student books a tutor-led trial. It remains distinct from an active in-person relationship even if the trial has already occurred, until Altitutor accepts the Student for ongoing tutoring.
   _Avoid_: In-person prospect, global trial student, subscription trial
 
-- **In-person registration** — The Altitutor Student Online registration process offered after an attended In-person trial, in which the Student or parent confirms details, intended subjects, availability, billing information, and account access. Completing this registration changes the in-person relationship from `TRIAL` to `ACTIVE`; current class placement is not required.
+- **In-person registration** — The Altitutor Student Online registration process offered after an attended In-person trial, in which the Student or parent confirms details, intended subjects, availability, billing information, and account access. It may establish account access without an Account invite; completing it changes the in-person relationship from `TRIAL` to `ACTIVE`, whether or not the Student has a current class placement.
   _Avoid_: Account registration, online signup, class enrolment
+
+- **In-person registration link** — The durable bearer-authorized entry point for one Student's In-person registration. Re-sending reuses the same link; while registration is pending it authorizes the journey, and afterward it resolves to a minimal completed, unavailable, or revoked state independently of Account invites.
+  _Avoid_: Invite link, account invite, expiring registration token
 
 - **Active in-person relationship** — An ongoing tutor-led relationship established by completed In-person registration. It remains active while a Student is awaiting subjects, has no current class placement, or has only future class enrolments; it ends only through explicit discontinuation.
   _Avoid_: Currently enrolled student, student with classes, inactive student, paused student
@@ -53,6 +56,12 @@
   _Avoid_: Separate online Student records, UCAT subscribers list, mutually exclusive student list
 
 ## Customer communication
+
+- **Account invite** — A single-use credential that lets a person without an Altitutor User create and link one. It is independent of an In-person registration link, even when account creation is offered within In-person registration.
+  _Avoid_: Registration link, password reset, online signup
+
+- **Booking management link** — The durable bearer-authorized entry point for one trial session or subsidy interview. Re-sending or rescheduling reuses the same link; while the booking is actionable it authorizes management, and afterward it resolves to a minimal read-only cancelled or completed state independently of its internal identity.
+  _Avoid_: Session ID link, booking confirmation token, registration link
 
 - **Shared identity email** — A required security or account-access message emitted by Altitutor's shared authentication system, such as email confirmation, invitation, magic-link sign-in, password reset, email change, or reauthentication. It is branded as Altitutor rather than as a Product app because the same authentication system serves multiple Altitutor application surfaces.
   _Avoid_: UCAT Auth email, Product-authored email

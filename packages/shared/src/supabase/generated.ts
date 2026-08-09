@@ -5346,6 +5346,146 @@ export type Database = {
           },
         ]
       }
+      public_link_revocations: {
+        Row: {
+          purpose: string
+          revoked_at: string
+          revoked_by: string | null
+          session_id: string | null
+          student_id: string | null
+          token: string
+        }
+        Insert: {
+          purpose: string
+          revoked_at?: string
+          revoked_by?: string | null
+          session_id?: string | null
+          student_id?: string | null
+          token: string
+        }
+        Update: {
+          purpose?: string
+          revoked_at?: string
+          revoked_by?: string | null
+          session_id?: string | null
+          student_id?: string | null
+          token?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "public_link_revocations_revoked_by_fkey"
+            columns: ["revoked_by"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "public_link_revocations_revoked_by_fkey"
+            columns: ["revoked_by"]
+            isOneToOne: false
+            referencedRelation: "vmarketing_staff_profiles"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "public_link_revocations_revoked_by_fkey"
+            columns: ["revoked_by"]
+            isOneToOne: false
+            referencedRelation: "vtutor_pay_tier_profile"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "public_link_revocations_revoked_by_fkey"
+            columns: ["revoked_by"]
+            isOneToOne: false
+            referencedRelation: "vtutor_profile"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "public_link_revocations_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "sessions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "public_link_revocations_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "vadmin_reconciliation_unlogged_sessions"
+            referencedColumns: ["session_id"]
+          },
+          {
+            foreignKeyName: "public_link_revocations_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_session_base"
+            referencedColumns: ["session_id"]
+          },
+          {
+            foreignKeyName: "public_link_revocations_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_session_detail"
+            referencedColumns: ["session_id"]
+          },
+          {
+            foreignKeyName: "public_link_revocations_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_sessions"
+            referencedColumns: ["session_id"]
+          },
+          {
+            foreignKeyName: "public_link_revocations_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_session_detail"
+            referencedColumns: ["session_id"]
+          },
+          {
+            foreignKeyName: "public_link_revocations_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_sessions"
+            referencedColumns: ["session_id"]
+          },
+          {
+            foreignKeyName: "public_link_revocations_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "public_link_revocations_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "vadmin_reconciliation_students_without_payment_method"
+            referencedColumns: ["student_id"]
+          },
+          {
+            foreignKeyName: "public_link_revocations_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_profile"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "public_link_revocations_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_students"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "public_link_revocations_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_ucat_student_progress_summary"
+            referencedColumns: ["student_id"]
+          },
+        ]
+      }
       question_answer_options: {
         Row: {
           answer_explanation: Json | null
@@ -6982,6 +7122,7 @@ export type Database = {
         Row: {
           admin_shift_id: string | null
           billing_type: Database["public"]["Enums"]["billing_type"] | null
+          booking_public_token: string | null
           class_id: string | null
           created_at: string | null
           end_at: string | null
@@ -6997,6 +7138,7 @@ export type Database = {
         Insert: {
           admin_shift_id?: string | null
           billing_type?: Database["public"]["Enums"]["billing_type"] | null
+          booking_public_token?: string | null
           class_id?: string | null
           created_at?: string | null
           end_at?: string | null
@@ -7012,6 +7154,7 @@ export type Database = {
         Update: {
           admin_shift_id?: string | null
           billing_type?: Database["public"]["Enums"]["billing_type"] | null
+          booking_public_token?: string | null
           class_id?: string | null
           created_at?: string | null
           end_at?: string | null
@@ -10549,9 +10692,11 @@ export type Database = {
           id: string
           invite_token: string | null
           last_name: string
+          legacy_registration_token: string | null
           onboarding_progress: Json
           phone: string | null
           registered_at: string | null
+          registration_public_token: string | null
           school: string | null
           status: string | null
           timezone: string
@@ -10587,9 +10732,11 @@ export type Database = {
           id: string
           invite_token?: string | null
           last_name: string
+          legacy_registration_token?: string | null
           onboarding_progress?: Json
           phone?: string | null
           registered_at?: string | null
+          registration_public_token?: string | null
           school?: string | null
           status?: string | null
           timezone?: string
@@ -10625,9 +10772,11 @@ export type Database = {
           id?: string
           invite_token?: string | null
           last_name?: string
+          legacy_registration_token?: string | null
           onboarding_progress?: Json
           phone?: string | null
           registered_at?: string | null
+          registration_public_token?: string | null
           school?: string | null
           status?: string | null
           timezone?: string
@@ -34204,6 +34353,30 @@ export type Database = {
         }
         Returns: Json
       }
+      complete_student_registration_public: {
+        Args: {
+          p_availability_friday?: boolean
+          p_availability_monday?: boolean
+          p_availability_saturday_am?: boolean
+          p_availability_saturday_pm?: boolean
+          p_availability_sunday_am?: boolean
+          p_availability_sunday_pm?: boolean
+          p_availability_thursday?: boolean
+          p_availability_tuesday?: boolean
+          p_availability_wednesday?: boolean
+          p_curriculum?: string
+          p_parents?: Json
+          p_school?: string
+          p_student_email: string
+          p_student_first_name: string
+          p_student_last_name: string
+          p_student_phone: string
+          p_subject_ids?: string[]
+          p_token: string
+          p_year_level?: number
+        }
+        Returns: Json
+      }
       compute_staff_tier_metrics: {
         Args: { p_staff_id: string }
         Returns: Json
@@ -34487,6 +34660,7 @@ export type Database = {
         Args: { p_curriculum: string; p_name: string; p_year_level: number }
         Returns: string
       }
+      generate_public_journey_token: { Args: never; Returns: string }
       get_available_reschedule_sessions: {
         Args: {
           p_date_range_days?: number
@@ -34743,6 +34917,14 @@ export type Database = {
         Args: { p_data: Json }
         Returns: boolean
       }
+      issue_session_booking_public_token: {
+        Args: { p_session_id: string }
+        Returns: string
+      }
+      issue_student_registration_public_token: {
+        Args: { p_student_id: string }
+        Returns: string
+      }
       log_activity_event: {
         Args: {
           p_changed_fields?: Json
@@ -34921,6 +35103,14 @@ export type Database = {
           p_student_id: string
           p_subject_id?: string
         }
+        Returns: string
+      }
+      rotate_session_booking_public_token: {
+        Args: { p_performed_by?: string; p_session_id: string }
+        Returns: string
+      }
+      rotate_student_registration_public_token: {
+        Args: { p_performed_by?: string; p_student_id: string }
         Returns: string
       }
       safe_text_to_jsonb: { Args: { text_content: string }; Returns: Json }

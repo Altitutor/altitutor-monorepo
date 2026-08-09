@@ -172,7 +172,10 @@ export default function BookTrialPage() {
         throw new Error(error.error || error.message || 'Failed to create booking');
       }
 
-      const { session_id } = await response.json();
+      const { session_id, booking_token } = await response.json() as {
+        session_id: string;
+        booking_token: string | null;
+      };
 
       toast({
         title: 'Booking Confirmed',
@@ -182,6 +185,7 @@ export default function BookTrialPage() {
       // Store booking data in sessionStorage for the success page
       const bookingData = {
         session_id,
+        booking_token,
         session_type: selectedSessionType,
         start_at: selectedSlot.startAt,
         end_at: selectedSlot.endAt,
@@ -198,7 +202,7 @@ export default function BookTrialPage() {
       sessionStorage.setItem('trial_booking_data', JSON.stringify(bookingData));
 
       // Redirect to success page
-      router.push(`/booking-success?sessionId=${session_id}`);
+      router.push(booking_token ? `/b/${booking_token}` : `/booking-success?sessionId=${session_id}`);
     } catch (error: unknown) {
       const errorMessage = error instanceof Error ? error.message : 'Failed to create booking. Please try again.';
       toast({

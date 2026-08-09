@@ -204,9 +204,14 @@ export async function POST(request: NextRequest) {
       }
       
       const result = data as { session_id: string; student_id: string };
+      const { data: bookingToken } = await supabase.rpc(
+        'issue_session_booking_public_token',
+        { p_session_id: result.session_id }
+      );
       return NextResponse.json({
         session_id: result.session_id,
         student_id: result.student_id,
+        booking_token: typeof bookingToken === 'string' ? bookingToken : null,
       });
     
   } catch (error: unknown) {

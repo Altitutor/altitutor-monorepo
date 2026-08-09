@@ -39,7 +39,8 @@ export function getInviteUrlForStudent(token: string, path: 'invite' | 'register
   const baseUrl = isDevelopment 
     ? 'http://localhost:3001'
     : (process.env.NEXT_PUBLIC_STUDENT_URL || 'https://student.altitutor.com');
-  return `${baseUrl}/${path}/${token}`;
+  const route = path === 'register' ? 'r' : 'invite';
+  return `${baseUrl}/${route}/${token}`;
 }
 
 /**
@@ -69,10 +70,10 @@ export function getInviteUrlForStaff(token: string, role: string): string {
  * @param sessionId The session ID
  * @returns Full booking confirmation URL
  */
-export function getBookingConfirmationUrl(sessionId: string): string {
+export function getBookingConfirmationUrl(publicToken: string): string {
   const isDevelopment = process.env.NODE_ENV === 'development';
   const baseUrl = isDevelopment 
     ? 'http://localhost:3001'
     : (process.env.NEXT_PUBLIC_STUDENT_URL || 'https://student.altitutor.com');
-  return `${baseUrl}/booking-success?sessionId=${sessionId}`;
+  return `${baseUrl}/b/${publicToken}`;
 }
