@@ -18,8 +18,9 @@ export function computeQuestionProgressPoints(
   questions: ProgressQuestionRef[],
 ): number {
   let points = 0;
+  const countedGroupedQuestionIds = new Set<string>();
   for (const question of questions) {
-    points += progressPointsForQuestion(question, new Set());
+    points += progressPointsForQuestion(question, countedGroupedQuestionIds);
   }
   return points;
 }

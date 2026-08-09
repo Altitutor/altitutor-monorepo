@@ -20,6 +20,12 @@ describe("Answer-scheme progress points", () => {
           answerScheme: "decision_making_binary_placement",
         },
         {
+          id: "dm-legacy-row-2",
+          stemId: "shared-stem",
+          questionType: "multiple_choice",
+          answerScheme: "decision_making_binary_placement",
+        },
+        {
           id: "most-least",
           stemId: "other-stem",
           questionType: "multiple_choice",
