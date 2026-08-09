@@ -5489,6 +5489,9 @@ export type Database = {
       question_answer_options: {
         Row: {
           answer_explanation: Json | null
+          answer_key_value:
+            | Database["public"]["Enums"]["ucat_answer_key_value"]
+            | null
           answer_text: Json
           created_at: string | null
           created_by: string | null
@@ -5503,6 +5506,9 @@ export type Database = {
         }
         Insert: {
           answer_explanation?: Json | null
+          answer_key_value?:
+            | Database["public"]["Enums"]["ucat_answer_key_value"]
+            | null
           answer_text: Json
           created_at?: string | null
           created_by?: string | null
@@ -5517,6 +5523,9 @@ export type Database = {
         }
         Update: {
           answer_explanation?: Json | null
+          answer_key_value?:
+            | Database["public"]["Enums"]["ucat_answer_key_value"]
+            | null
           answer_text?: Json
           created_at?: string | null
           created_by?: string | null
@@ -6171,6 +6180,9 @@ export type Database = {
           deleted_at: string | null
           deleted_by: string | null
           id: string
+          presentation_format:
+            | Database["public"]["Enums"]["ucat_stem_presentation_format"]
+            | null
           published_at: string | null
           published_by: string | null
           question_stem_category_id: string | null
@@ -6194,6 +6206,9 @@ export type Database = {
           deleted_at?: string | null
           deleted_by?: string | null
           id?: string
+          presentation_format?:
+            | Database["public"]["Enums"]["ucat_stem_presentation_format"]
+            | null
           published_at?: string | null
           published_by?: string | null
           question_stem_category_id?: string | null
@@ -6217,6 +6232,9 @@ export type Database = {
           deleted_at?: string | null
           deleted_by?: string | null
           id?: string
+          presentation_format?:
+            | Database["public"]["Enums"]["ucat_stem_presentation_format"]
+            | null
           published_at?: string | null
           published_by?: string | null
           question_stem_category_id?: string | null
@@ -16819,6 +16837,9 @@ export type Database = {
         Row: {
           ai_generation_metadata: Json | null
           answer_explanation: Json | null
+          answer_scheme:
+            | Database["public"]["Enums"]["ucat_answer_scheme"]
+            | null
           created_at: string | null
           created_by: string | null
           deleted_at: string | null
@@ -16829,6 +16850,9 @@ export type Database = {
           question_stem_id: string
           question_text: Json
           question_type: Database["public"]["Enums"]["ucat_question_type"]
+          response_type:
+            | Database["public"]["Enums"]["ucat_response_type"]
+            | null
           source_channel: Database["public"]["Enums"]["ucat_question_source_channel"]
           time_burden_seconds: number | null
           updated_at: string | null
@@ -16837,6 +16861,9 @@ export type Database = {
         Insert: {
           ai_generation_metadata?: Json | null
           answer_explanation?: Json | null
+          answer_scheme?:
+            | Database["public"]["Enums"]["ucat_answer_scheme"]
+            | null
           created_at?: string | null
           created_by?: string | null
           deleted_at?: string | null
@@ -16847,6 +16874,9 @@ export type Database = {
           question_stem_id: string
           question_text: Json
           question_type: Database["public"]["Enums"]["ucat_question_type"]
+          response_type?:
+            | Database["public"]["Enums"]["ucat_response_type"]
+            | null
           source_channel?: Database["public"]["Enums"]["ucat_question_source_channel"]
           time_burden_seconds?: number | null
           updated_at?: string | null
@@ -16855,6 +16885,9 @@ export type Database = {
         Update: {
           ai_generation_metadata?: Json | null
           answer_explanation?: Json | null
+          answer_scheme?:
+            | Database["public"]["Enums"]["ucat_answer_scheme"]
+            | null
           created_at?: string | null
           created_by?: string | null
           deleted_at?: string | null
@@ -16865,6 +16898,9 @@ export type Database = {
           question_stem_id?: string
           question_text?: Json
           question_type?: Database["public"]["Enums"]["ucat_question_type"]
+          response_type?:
+            | Database["public"]["Enums"]["ucat_response_type"]
+            | null
           source_channel?: Database["public"]["Enums"]["ucat_question_source_channel"]
           time_burden_seconds?: number | null
           updated_at?: string | null
@@ -35952,6 +35988,10 @@ export type Database = {
         Args: { p_content_id: string; p_content_type: string }
         Returns: Json
       }
+      ucat_content_response_foundation_issues: {
+        Args: { p_content_id: string; p_content_type: string }
+        Returns: Json
+      }
       ucat_mcp_assert_audit_application: {
         Args: { p_content_id: string; p_content_type: string; p_run_id: string }
         Returns: undefined
@@ -36103,6 +36143,12 @@ export type Database = {
         | "LANGUAGE"
         | "MEDICINE"
       ucat_access_scope: "public" | "private"
+      ucat_answer_key_value: "correct" | "yes" | "no" | "most" | "least"
+      ucat_answer_scheme:
+        | "single_choice"
+        | "situational_judgement_rating"
+        | "decision_making_binary_placement"
+        | "situational_judgement_most_least"
       ucat_content_status: "draft" | "in_review" | "published"
       ucat_learning_module_block_type:
         | "text"
@@ -36122,6 +36168,14 @@ export type Database = {
         | "bulk_import"
         | "ai_generation"
       ucat_question_type: "multiple_choice" | "syllogism"
+      ucat_response_type: "multiple_choice" | "drag_and_drop"
+      ucat_stem_presentation_format:
+        | "passage"
+        | "table"
+        | "graph_or_chart"
+        | "diagram_or_image"
+        | "mixed"
+        | "other"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -36300,6 +36354,13 @@ export const Constants = {
         "MEDICINE",
       ],
       ucat_access_scope: ["public", "private"],
+      ucat_answer_key_value: ["correct", "yes", "no", "most", "least"],
+      ucat_answer_scheme: [
+        "single_choice",
+        "situational_judgement_rating",
+        "decision_making_binary_placement",
+        "situational_judgement_most_least",
+      ],
       ucat_content_status: ["draft", "in_review", "published"],
       ucat_learning_module_block_type: [
         "text",
@@ -36322,6 +36383,15 @@ export const Constants = {
         "ai_generation",
       ],
       ucat_question_type: ["multiple_choice", "syllogism"],
+      ucat_response_type: ["multiple_choice", "drag_and_drop"],
+      ucat_stem_presentation_format: [
+        "passage",
+        "table",
+        "graph_or_chart",
+        "diagram_or_image",
+        "mixed",
+        "other",
+      ],
     },
   },
 } as const

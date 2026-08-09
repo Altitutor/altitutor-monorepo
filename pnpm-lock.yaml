@@ -1542,6 +1542,33 @@ importers:
         specifier: ^5.9.3
         version: 5.9.3
 
+  packages/ucat-response-contract:
+    devDependencies:
+      '@swc/jest':
+        specifier: ^0.2.37
+        version: 0.2.39(@swc/core@1.15.3(@swc/helpers@0.5.23))
+      '@types/jest':
+        specifier: ^29.5.14
+        version: 29.5.14
+      '@typescript-eslint/eslint-plugin':
+        specifier: ^6.21.0
+        version: 6.21.0(@typescript-eslint/parser@6.21.0(eslint@8.57.1)(typescript@5.9.3))(eslint@8.57.1)(typescript@5.9.3)
+      '@typescript-eslint/parser':
+        specifier: ^6.21.0
+        version: 6.21.0(eslint@8.57.1)(typescript@5.9.3)
+      eslint:
+        specifier: ^8.57.1
+        version: 8.57.1
+      eslint-config-next:
+        specifier: 14.1.0
+        version: 14.1.0(eslint@8.57.1)(typescript@5.9.3)
+      jest:
+        specifier: ^29.7.0
+        version: 29.7.0(@types/node@24.13.3)
+      typescript:
+        specifier: ^5.9.3
+        version: 5.9.3
+
   packages/ui:
     dependencies:
       '@altitutor/shared':
