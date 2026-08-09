@@ -183,7 +183,8 @@ const studyPlanTour: ContextualTour = {
       content: (
         <p>
           Your plan schedules focused tasks around your availability and test
-          date. Select any day to see what Altitutor UCAT has planned.
+          date. Today is selected when you arrive, and you can choose any other
+          day to look ahead.
         </p>
       ),
       selector: "#tour-study-plan-calendar",
@@ -191,29 +192,12 @@ const studyPlanTour: ContextualTour = {
       ...standardStep,
     },
     {
-      icon: <CalendarDays className={iconClassName} />,
-      title: "Choose a day with tasks",
-      content: (
-        <p>
-          There is nothing scheduled today, so select this next task-bearing day
-          to see what is coming up.
-        </p>
-      ),
-      selector: "[data-tour='study-plan-task-day']",
-      interactionSelector: "[data-tour='study-plan-task-day']",
-      side: "bottom",
-      ...standardStep,
-      showControls: false,
-      optional: true,
-    },
-    {
       icon: <ListChecks className={iconClassName} />,
-      title: "Your tasks",
+      title: "Today’s plan",
       content: (
         <p>
-          Each task tells you what to work on and takes you directly to the
-          relevant activity. If no task is available, you can still choose extra
-          study without blocking the tutorial.
+          Today’s tasks appear here and take you directly to the relevant
+          activity. On a rest day, you can choose some extra study instead.
         </p>
       ),
       selector: "#tour-study-plan-tasks",

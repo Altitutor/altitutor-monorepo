@@ -9,8 +9,6 @@ import {
   TooltipTrigger,
 } from "@altitutor/ui";
 import { Info, Target } from "lucide-react";
-import { useNextStep } from "nextstepjs";
-import { UCAT_STUDY_PLAN_TOUR } from "@/features/onboarding/config/tour-catalog";
 import { StudyPlanTaskList } from "@/features/study-plan/components/study-plan-task-list";
 import { StudyPlanExtraStudy } from "@/features/study-plan/components/study-plan-extra-study";
 import {
@@ -39,7 +37,6 @@ import {
 } from "@/shared/lib/ucat-month-calendar";
 import { UCAT_SURFACE_MOTION } from "@/lib/ucat-surface-motion";
 import { cn } from "@/lib/utils";
-import { resolveTutorialTaskDay } from "@/features/study-plan/lib/tutorial-task-day";
 
 type StudyPlanCalendarProps = {
   plan: StudyPlanResponse;
@@ -106,7 +103,6 @@ export function StudyPlanCalendar({
   summaryCards,
   previewMode = false,
 }: StudyPlanCalendarProps) {
-  const { currentTour, isNextStepVisible } = useNextStep();
   const tasksByDate = useMemo(() => {
     const grouped = new Map<string, StudyPlanTask[]>();
     for (const task of plan.tasks) {
@@ -155,19 +151,6 @@ export function StudyPlanCalendar({
     selectedDate === plan.today
       ? selectCurrentStudyPlanTasks(plan.tasks, plan.today)
       : (tasksByDate.get(selectedDate) ?? []);
-  const tutorialTaskDay = resolveTutorialTaskDay({
-    today: plan.today,
-    todayHasTasks: selectCurrentStudyPlanTasks(plan.tasks, plan.today).length > 0,
-    taskDates: plan.tasks
-      .filter((task) => task.status !== "completed" && task.status !== "skipped")
-      .map((task) => task.scheduledDate),
-  });
-  const tutorialTaskMonth =
-    isNextStepVisible &&
-    currentTour === UCAT_STUDY_PLAN_TOUR &&
-    tutorialTaskDay.requiresSelection
-      ? tutorialTaskDay.date?.slice(0, 7)
-      : undefined;
   const showExtraStudy =
     selectedDate === plan.today &&
     (plan.todayTasks.length === 0 ||
@@ -201,12 +184,6 @@ export function StudyPlanCalendar({
       <button
         type="button"
         data-study-plan-date={day.dateKey}
-        data-tour={
-          tutorialTaskDay.requiresSelection &&
-          tutorialTaskDay.date === day.dateKey
-            ? "study-plan-task-day"
-            : undefined
-        }
         aria-pressed={isSelected}
         aria-label={dayAriaLabel({
           dateKey: day.dateKey,
@@ -258,7 +235,6 @@ export function StudyPlanCalendar({
             className="h-full"
             months={months}
             initialMonthKey={plan.today.slice(0, 7)}
-            requestedMonthKey={tutorialTaskMonth}
             monthsVisible={2}
             density="compact"
             ariaLabel="Study plan calendar"
