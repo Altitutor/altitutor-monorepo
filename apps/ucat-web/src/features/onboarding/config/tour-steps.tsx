@@ -287,13 +287,14 @@ const learnTour: ContextualTour = {
       icon: <BookOpen className={iconClassName} />,
       title: "Choose an area",
       content: (
-        <p>Select General or any section to browse its learning modules.</p>
+        <p>
+          When you’re ready, select General or any section to browse its
+          learning modules.
+        </p>
       ),
       selector: "[data-tour='learn-options']",
-      interactionSelector: "[data-tour='learn-options'] a",
       side: "top",
       ...standardStep,
-      showControls: false,
     },
   ],
 };
@@ -318,13 +319,14 @@ const skillTrainerTour: ContextualTour = {
       icon: <Target className={iconClassName} />,
       title: "Choose a trainer",
       content: (
-        <p>Select any available trainer to begin a focused timed drill.</p>
+        <p>
+          When you’re ready, select any available trainer to begin a focused
+          timed drill.
+        </p>
       ),
       selector: "[data-tour='skill-trainer-options']",
-      interactionSelector: "[data-tour='skill-trainer-options'] a",
       side: "top",
       ...standardStep,
-      showControls: false,
     },
   ],
 };
@@ -354,15 +356,14 @@ const practiceTour: ContextualTour = {
       title: "Begin setting up practice",
       content: (
         <p>
-          Select Next to choose your remaining filters and begin building this
-          practice session. Your completed work is saved to Progress.
+          When you’re ready, select Next to choose your remaining filters and
+          begin building this practice session. Your completed work is saved to
+          Progress.
         </p>
       ),
       selector: "[data-tour='practice-primary-action']",
-      interactionSelector: "[data-tour='practice-primary-action']",
       side: "top",
       ...standardStep,
-      showControls: false,
     },
   ],
 };
@@ -387,12 +388,14 @@ const setsTour: ContextualTour = {
     {
       icon: <ListChecks className={iconClassName} />,
       title: "Choose a section",
-      content: <p>Select a UCAT section to browse its available sets.</p>,
+      content: (
+        <p>
+          When you’re ready, select a UCAT section to browse its available sets.
+        </p>
+      ),
       selector: "[data-tour='sets-options']",
-      interactionSelector: "[data-tour='sets-options'] a",
       side: "top",
       ...standardStep,
-      showControls: false,
     },
   ],
 };
@@ -418,13 +421,14 @@ const mocksTour: ContextualTour = {
       icon: <NotebookText className={iconClassName} />,
       title: "Choose a mock",
       content: (
-        <p>Select an available mock to review its structure and begin.</p>
+        <p>
+          When you’re ready, select an available mock to review its structure
+          and begin.
+        </p>
       ),
       selector: "[data-tour='mock-options']",
-      interactionSelector: "[data-tour='mock-options'] a",
       side: "top",
       ...standardStep,
-      showControls: false,
       optional: true,
     },
   ],
