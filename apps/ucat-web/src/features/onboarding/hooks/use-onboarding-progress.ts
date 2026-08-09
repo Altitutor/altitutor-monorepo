@@ -5,6 +5,15 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { Database } from "@altitutor/shared";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import { useAuth } from "@/features/auth";
+import {
+  UCAT_ATTEMPT_REVIEW_TOUR,
+  UCAT_LEARN_TOUR,
+  UCAT_MOCKS_TOUR,
+  UCAT_PRACTICE_TOUR,
+  UCAT_PROGRESS_TOUR,
+  UCAT_SECTION_PROGRESS_TOUR,
+  UCAT_SKILL_TRAINER_TOUR,
+} from "@/features/onboarding/config/tour-catalog";
 
 /**
  * Per-tour completion state stored in `students.onboarding_progress` JSONB.
@@ -25,8 +34,13 @@ export type OnboardingProgress = Record<string, OnboardingTourState>;
  * destructive reset.
  */
 const TOUR_VERSIONS: Record<string, number> = {
-  "ucat-welcome": 2,
-  "ucat-progress-intro": 2,
+  [UCAT_PROGRESS_TOUR]: 3,
+  [UCAT_LEARN_TOUR]: 2,
+  [UCAT_SKILL_TRAINER_TOUR]: 2,
+  [UCAT_PRACTICE_TOUR]: 2,
+  [UCAT_MOCKS_TOUR]: 2,
+  [UCAT_SECTION_PROGRESS_TOUR]: 2,
+  [UCAT_ATTEMPT_REVIEW_TOUR]: 2,
 };
 
 function currentVersion(tourId: string): number {

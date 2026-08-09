@@ -91,7 +91,10 @@ export function DashboardRecentAttemptsCard() {
   }
 
   return (
-    <Card className={cn(UCAT_CARD_CHROME, "h-full")}>
+    <Card
+      data-tour="dashboard-recent-attempts-card"
+      className={cn(UCAT_CARD_CHROME, "h-full")}
+    >
       <CardContent className="p-5 sm:p-6">
         <div className="flex items-start justify-between gap-3">
           <div>

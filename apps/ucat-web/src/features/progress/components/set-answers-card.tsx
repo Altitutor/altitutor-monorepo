@@ -593,7 +593,7 @@ export function SetAnswersCard({
         </Card>
       </div>
 
-      <div id="tour-attempt-explanation" className="min-w-0 space-y-4">
+      <div className="min-w-0 space-y-4">
         {questionInsight ? (
           <AttemptInsightCard
             label="Question insight"
@@ -602,7 +602,10 @@ export function SetAnswersCard({
           />
         ) : null}
 
-        <Card className={cn(UCAT_CARD_CHROME, "min-w-0")}>
+        <Card
+          id="tour-attempt-explanation"
+          className={cn(UCAT_CARD_CHROME, "min-w-0")}
+        >
           <CardHeader className="pb-3">
             <CardTitle className="text-base font-medium">
               Answer explanation
@@ -644,7 +647,8 @@ export function SetAnswersCard({
           </CardContent>
         </Card>
 
-        <Card className={cn(UCAT_CARD_CHROME, "min-w-0")}>
+        <div id="tour-attempt-question-properties" className="space-y-4">
+          <Card className={cn(UCAT_CARD_CHROME, "min-w-0")}>
           <CardHeader className="pb-3">
             <CardTitle className="text-base font-medium">
               Question timing
@@ -673,9 +677,9 @@ export function SetAnswersCard({
               />
             ) : null}
           </CardContent>
-        </Card>
+          </Card>
 
-        <Card className={cn(UCAT_CARD_CHROME, "min-w-0")}>
+          <Card className={cn(UCAT_CARD_CHROME, "min-w-0")}>
           <CardHeader className="pb-3">
             <CardTitle className="text-base font-medium">
               Question properties
@@ -745,7 +749,8 @@ export function SetAnswersCard({
               </div>
             ) : null}
           </CardContent>
-        </Card>
+          </Card>
+        </div>
       </div>
     </div>
   );

@@ -4,17 +4,15 @@ import { useEffect, useRef } from "react";
 import { usePathname } from "next/navigation";
 import { useNextStep } from "nextstepjs";
 import { useAuth } from "@/features/auth";
-import {
-  getFirstSelectorForTour,
-  getTourForPathname,
-  UCAT_QUESTION_ENGINE_TOUR,
-} from "@/features/onboarding/config/tour-steps";
+import { getAutoStartTourForPathname } from "@/features/onboarding/config/tour-catalog";
+import { getFirstSelectorForTour } from "@/features/onboarding/config/tour-steps";
 import { consumeOnboardingAutoStartSuppression } from "@/features/onboarding/lib/suppress-next-auto-tour";
 import { useOnboardingProgress } from "@/features/onboarding/hooks/use-onboarding-progress";
 
 /**
- * Starts only the explicit question-engine tutorial route. Page and dashboard
- * tours are replayable from Settings but never launch automatically.
+ * Starts an incomplete contextual app tutorial once its first target exists.
+ * Completion is persisted per tutorial, so each revised tutorial launches at
+ * most once across devices unless the student explicitly replays it.
  */
 export function OnboardingAutoStart() {
   const { startNextStep, isNextStepVisible } = useNextStep();
@@ -24,14 +22,19 @@ export function OnboardingAutoStart() {
   // Tracks the last tour we started in this mount so we don't re-trigger on
   // re-renders. Pathname changes overwrite it, which is what we want.
   const lastStartedRef = useRef<string | null>(null);
+  const lastPathnameRef = useRef(pathname);
 
   useEffect(() => {
+    if (lastPathnameRef.current !== pathname) {
+      lastPathnameRef.current = pathname;
+      lastStartedRef.current = null;
+    }
     if (isAuthLoading || !user) return;
     if (isProgressLoading) return;
     if (isNextStepVisible) return;
 
-    const tourId = getTourForPathname(pathname);
-    if (tourId !== UCAT_QUESTION_ENGINE_TOUR) return;
+    const tourId = getAutoStartTourForPathname(pathname);
+    if (!tourId) return;
     if (consumeOnboardingAutoStartSuppression(tourId)) {
       lastStartedRef.current = tourId;
       return;

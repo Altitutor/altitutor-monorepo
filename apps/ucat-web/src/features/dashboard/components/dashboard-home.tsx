@@ -83,6 +83,7 @@ import {
 } from "@/lib/ucat-surface-motion";
 import { cn } from "@/lib/utils";
 import { useUcatStaggerMotion } from "@/shared/hooks/use-ucat-stagger-motion";
+import { useMediaQuery } from "@/shared/hooks/use-media-query";
 
 const WEEK_STATUS_LABEL: Record<DashboardWeekSummary["status"], string> = {
   complete: "Complete",
@@ -172,6 +173,7 @@ function DashboardNextActionPanel({
   onSkipGoal,
   setupPending,
   setupError,
+  tourTarget = false,
 }: {
   action: DashboardNextAction;
   onStartTask: () => Promise<void>;
@@ -181,6 +183,7 @@ function DashboardNextActionPanel({
   onSkipGoal: () => void | Promise<void>;
   setupPending: boolean;
   setupError: string | null;
+  tourTarget?: boolean;
 }) {
   const content = actionContent(action);
   const openExtraStudy = useStudyPlanExtraStudyDialog();
@@ -207,6 +210,7 @@ function DashboardNextActionPanel({
     <section
       className="flex flex-col"
       aria-labelledby="dashboard-what-now-title"
+      data-tour={tourTarget ? "dashboard-next-step" : undefined}
     >
       <p className="text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
         Suggested next step
@@ -450,6 +454,7 @@ export function DashboardTrajectoryHero({
   setupPending: boolean;
   setupError: string | null;
 }) {
+  const desktopLayout = useMediaQuery("(min-width: 1024px)");
   if (!plan?.profile) {
     const planUnavailable = action.kind === "plan_error";
     return (
@@ -463,13 +468,18 @@ export function DashboardTrajectoryHero({
               Your path to test day
             </p>
           </div>
-          <DashboardTrajectoryChart
-            mode="preview"
-            targetScore={2100}
-            today={todayIso()}
-            testDate={null}
+          <div
+            id="tour-dashboard-predicted-score"
             className="absolute inset-x-0 top-20 h-[410px] sm:h-[500px] lg:h-[570px]"
-          />
+          >
+            <DashboardTrajectoryChart
+              mode="preview"
+              targetScore={2100}
+              today={todayIso()}
+              testDate={null}
+              className="h-full"
+            />
+          </div>
           <aside
             className={cn(
               UCAT_FLOATING_GRAPH_CARD,
@@ -499,6 +509,7 @@ export function DashboardTrajectoryHero({
                 onSkipGoal={onSkipGoal}
                 setupPending={setupPending}
                 setupError={setupError}
+                tourTarget={desktopLayout}
               />
             </div>
           </aside>
@@ -532,6 +543,7 @@ export function DashboardTrajectoryHero({
               onSkipGoal={onSkipGoal}
               setupPending={setupPending}
               setupError={setupError}
+              tourTarget={!desktopLayout}
             />
           </div>
         </aside>
@@ -595,7 +607,10 @@ export function DashboardTrajectoryHero({
             {firstName ? `Good to see you, ${firstName}` : "Good to see you"}
           </h1>
         </div>
-        <div className="absolute inset-x-0 top-20 min-w-0">
+        <div
+          id="tour-dashboard-predicted-score"
+          className="absolute inset-x-0 top-20 min-w-0"
+        >
           {projectionLoading ? (
             <Skeleton className="mx-5 h-[410px] rounded-xl sm:mx-8 sm:h-[500px] lg:h-[570px]" />
           ) : projectionError ? (
@@ -667,6 +682,7 @@ export function DashboardTrajectoryHero({
               onSkipGoal={onSkipGoal}
               setupPending={setupPending}
               setupError={setupError}
+              tourTarget={desktopLayout}
             />
           </div>
         </aside>
@@ -709,6 +725,7 @@ export function DashboardTrajectoryHero({
             onSkipGoal={onSkipGoal}
             setupPending={setupPending}
             setupError={setupError}
+            tourTarget={!desktopLayout}
           />
         </div>
       </aside>
@@ -1043,7 +1060,10 @@ export function DashboardHome() {
       >
         <DashboardActivationChecklist />
         {plan?.profile?.studyPlanEnabled ? (
-          <Card className={cn(UCAT_CARD_CHROME, "h-full")}>
+          <Card
+            data-tour="dashboard-week-card"
+            className={cn(UCAT_CARD_CHROME, "h-full")}
+          >
             <CardContent className="p-5 sm:p-6">
               <DashboardWeekProgress
                 week={week}
@@ -1054,7 +1074,10 @@ export function DashboardHome() {
             </CardContent>
           </Card>
         ) : null}
-        <Card className={cn(UCAT_CARD_CHROME, "h-full")}>
+        <Card
+          data-tour="dashboard-membership-card"
+          className={cn(UCAT_CARD_CHROME, "h-full")}
+        >
           <CardContent className="p-5 sm:p-6">
             <DashboardMembershipValue nextTask={nextTask} />
           </CardContent>

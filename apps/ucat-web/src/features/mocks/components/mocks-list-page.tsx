@@ -135,6 +135,7 @@ export function MocksListPage() {
           </p>
         ) : (
           <motion.ul
+            data-tour="mock-options"
             className="space-y-3"
             variants={containerVariants}
             initial="hidden"

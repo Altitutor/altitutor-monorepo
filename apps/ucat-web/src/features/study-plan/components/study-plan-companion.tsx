@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
+import { useNextStep } from "nextstepjs";
 import {
   ArrowRight,
   BookOpen,
@@ -265,6 +266,7 @@ export function StudyPlanCompanion({
   const router = useRouter();
   const queryClient = useQueryClient();
   const reduceMotion = useReducedMotion();
+  const { isNextStepVisible } = useNextStep();
   const query = useStudyPlan();
   const activityQuery = useUcatActivity();
   const sessionsQuery = useStudentUcatSessions();
@@ -288,6 +290,13 @@ export function StudyPlanCompanion({
   const [latestNotice, setLatestNotice] = useState<GuidanceNotice | null>(null);
   const [promptVisible, setPromptVisible] = useState(false);
   const [celebration, setCelebration] = useState<OrbCelebration | null>(null);
+
+  useEffect(() => {
+    if (!isNextStepVisible) return;
+    setExpanded(false);
+    setOrbIntroVisible(false);
+    setPromptVisible(false);
+  }, [isNextStepVisible]);
   const [alternativePending, setAlternativePending] = useState(false);
   const [alternativeState, setAlternativeState] = useState<{
     guidanceKey: string;
@@ -863,7 +872,7 @@ export function StudyPlanCompanion({
       data-activity-complete={activityComplete || undefined}
     >
       <AnimatePresence>
-        {celebration && !expanded && !orbIntroVisible ? (
+        {celebration && !isNextStepVisible && !expanded && !orbIntroVisible ? (
           <motion.div
             initial={reduceMotion ? false : { opacity: 0, y: 12, scale: 0.92 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
@@ -925,7 +934,7 @@ export function StudyPlanCompanion({
       </AnimatePresence>
 
       <AnimatePresence>
-        {orbIntroVisible && !expanded ? (
+        {orbIntroVisible && !isNextStepVisible && !expanded ? (
           <motion.div
             initial={reduceMotion ? false : { opacity: 0, y: 12, scale: 0.96 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
@@ -981,6 +990,7 @@ export function StudyPlanCompanion({
 
       <AnimatePresence>
         {promptVisible &&
+        !isNextStepVisible &&
         latestNotice &&
         !celebration &&
         !expanded &&
@@ -1047,9 +1057,13 @@ export function StudyPlanCompanion({
           >
             <button
               type="button"
+              data-tour="study-guidance-orb"
               onClick={() => {
                 setPromptVisible(false);
                 setExpanded(true);
+                if (!orbIntroSeen && !completeMilestone.isPending) {
+                  completeMilestone.mutate(UCAT_STUDY_ORB_INTRO_SEEN);
+                }
               }}
               className="ml-auto flex h-14 w-14 items-center justify-center"
               aria-label="Open study guidance"

@@ -5,6 +5,7 @@ import { NextStep, NextStepProvider } from "nextstepjs";
 import { useTheme } from "next-themes";
 import { OnboardingCard } from "@/features/onboarding/components/onboarding-card";
 import { OnboardingScrollRepaint } from "@/features/onboarding/components/onboarding-scroll-repaint";
+import { TutorialInteractionController } from "@/features/onboarding/components/tutorial-interaction-controller";
 import { ucatOnboardingTours } from "@/features/onboarding/config/tour-steps";
 import { useCompleteOnboardingTour } from "@/features/onboarding/hooks/use-onboarding-progress";
 
@@ -29,6 +30,7 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
   return (
     <NextStepProvider>
       <OnboardingScrollRepaint />
+      <TutorialInteractionController />
       <NextStep
         steps={ucatOnboardingTours}
         cardComponent={OnboardingCard}
@@ -38,6 +40,7 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
         onComplete={handleFinish}
         onSkip={(_step, tour) => handleFinish(tour)}
         scrollToTop={false}
+        displayArrow={false}
         disableConsoleLogs
       >
         {children}

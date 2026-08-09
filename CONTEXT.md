@@ -737,6 +737,9 @@
 - **Guided UCAT sampler** — The short, sequential first experience of Verbal Reasoning, Decision Making, Quantitative Reasoning, and Situational Judgement during Signup onboarding. It uses authentic question controls, adapts the amount of guidance to the student's stated familiarity, and teaches controls in the section where they are useful. It is unscored, consumes no quota, creates no Attempt evidence, and must not be described as a diagnostic.
   _Avoid_: Diagnostic test, scored attempt, question-engine tour
 
+- **Contextual app tutorial** — A first-visit, replayable walkthrough that explains one stable area of Altitutor UCAT and may ask the student to use a real highlighted control. It is separate from Signup onboarding, the UCAT activation checklist, and the Study guidance orb.
+  _Avoid_: Signup onboarding, activation task, Study guidance, Guided UCAT sampler
+
 - **UCAT activation checklist** — The temporary dashboard checklist that follows Signup onboarding and leads a new student through exploring every UCAT section, building a Study plan, completing their first Study plan task, and reviewing their first real result. It supports the Study plan's next recommendation rather than acting as a second plan, and disappears after completion.
   _Avoid_: Product tour, permanent task list, second Study plan
 

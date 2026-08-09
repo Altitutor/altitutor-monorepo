@@ -9,6 +9,8 @@ import {
   TooltipTrigger,
 } from "@altitutor/ui";
 import { Info, Target } from "lucide-react";
+import { useNextStep } from "nextstepjs";
+import { UCAT_STUDY_PLAN_TOUR } from "@/features/onboarding/config/tour-catalog";
 import { StudyPlanTaskList } from "@/features/study-plan/components/study-plan-task-list";
 import { StudyPlanExtraStudy } from "@/features/study-plan/components/study-plan-extra-study";
 import {
@@ -37,6 +39,7 @@ import {
 } from "@/shared/lib/ucat-month-calendar";
 import { UCAT_SURFACE_MOTION } from "@/lib/ucat-surface-motion";
 import { cn } from "@/lib/utils";
+import { resolveTutorialTaskDay } from "@/features/study-plan/lib/tutorial-task-day";
 
 type StudyPlanCalendarProps = {
   plan: StudyPlanResponse;
@@ -103,6 +106,7 @@ export function StudyPlanCalendar({
   summaryCards,
   previewMode = false,
 }: StudyPlanCalendarProps) {
+  const { currentTour, isNextStepVisible } = useNextStep();
   const tasksByDate = useMemo(() => {
     const grouped = new Map<string, StudyPlanTask[]>();
     for (const task of plan.tasks) {
@@ -151,6 +155,19 @@ export function StudyPlanCalendar({
     selectedDate === plan.today
       ? selectCurrentStudyPlanTasks(plan.tasks, plan.today)
       : (tasksByDate.get(selectedDate) ?? []);
+  const tutorialTaskDay = resolveTutorialTaskDay({
+    today: plan.today,
+    todayHasTasks: selectCurrentStudyPlanTasks(plan.tasks, plan.today).length > 0,
+    taskDates: plan.tasks
+      .filter((task) => task.status !== "completed" && task.status !== "skipped")
+      .map((task) => task.scheduledDate),
+  });
+  const tutorialTaskMonth =
+    isNextStepVisible &&
+    currentTour === UCAT_STUDY_PLAN_TOUR &&
+    tutorialTaskDay.requiresSelection
+      ? tutorialTaskDay.date?.slice(0, 7)
+      : undefined;
   const showExtraStudy =
     selectedDate === plan.today &&
     (plan.todayTasks.length === 0 ||
@@ -184,6 +201,12 @@ export function StudyPlanCalendar({
       <button
         type="button"
         data-study-plan-date={day.dateKey}
+        data-tour={
+          tutorialTaskDay.requiresSelection &&
+          tutorialTaskDay.date === day.dateKey
+            ? "study-plan-task-day"
+            : undefined
+        }
         aria-pressed={isSelected}
         aria-label={dayAriaLabel({
           dateKey: day.dateKey,
@@ -230,31 +253,39 @@ export function StudyPlanCalendar({
   return (
     <div className="space-y-5">
       <div className="grid items-stretch gap-4 lg:grid-cols-[minmax(0,1fr)_20rem] xl:grid-cols-[minmax(0,1fr)_22rem]">
-        <UcatMonthCalendar
-          className="h-full"
-          months={months}
-          initialMonthKey={plan.today.slice(0, 7)}
-          monthsVisible={2}
-          density="compact"
-          ariaLabel="Study plan calendar"
-          title="Study plan"
-          legend={
-            <>
-              <UcatActivityIntensityLegend />
-              {plan.profile?.testDate ? (
-                <span className="flex items-center gap-1">
-                  <Target className="h-3 w-3" aria-hidden /> Test date
-                </span>
-              ) : null}
-            </>
-          }
-          renderDay={renderDay}
-        />
+        <div id="tour-study-plan-calendar" className="h-full">
+          <UcatMonthCalendar
+            className="h-full"
+            months={months}
+            initialMonthKey={plan.today.slice(0, 7)}
+            requestedMonthKey={tutorialTaskMonth}
+            monthsVisible={2}
+            density="compact"
+            ariaLabel="Study plan calendar"
+            title="Study plan"
+            legend={
+              <>
+                <UcatActivityIntensityLegend />
+                {plan.profile?.testDate ? (
+                  <span className="flex items-center gap-1">
+                    <Target className="h-3 w-3" aria-hidden /> Test date
+                  </span>
+                ) : null}
+              </>
+            }
+            renderDay={renderDay}
+          />
+        </div>
 
         {summaryCards}
       </div>
 
-      <section key={selectedDate} aria-live="polite" className="space-y-4">
+      <section
+        id="tour-study-plan-tasks"
+        key={selectedDate}
+        aria-live="polite"
+        className="space-y-4"
+      >
         <div className="flex flex-wrap items-end justify-between gap-3">
           <div>
             <p className="text-sm text-muted-foreground">Selected day</p>

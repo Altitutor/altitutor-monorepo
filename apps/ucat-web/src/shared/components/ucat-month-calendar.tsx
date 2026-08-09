@@ -48,6 +48,8 @@ export type UcatMonthCalendarProps = {
   months: UcatCalendarMonth[];
   /** YYYY-MM — defaults to first month */
   initialMonthKey?: string;
+  /** Navigate here when this value changes, then leave navigation uncontrolled. */
+  requestedMonthKey?: string;
   ariaLabel: string;
   className?: string;
   /** Optional section title above the month navigator */
@@ -131,6 +133,7 @@ function MonthGrid({
 export function UcatMonthCalendar({
   months,
   initialMonthKey,
+  requestedMonthKey,
   ariaLabel,
   className,
   title,
@@ -199,6 +202,15 @@ export function UcatMonthCalendar({
       return Math.min(current, max);
     });
   }, [effectiveMonthsVisible, months.length]);
+
+  useEffect(() => {
+    if (!requestedMonthKey) return;
+    const requestedIndex = months.findIndex(
+      (month) => month.key === requestedMonthKey,
+    );
+    if (requestedIndex < 0) return;
+    setVisibleStartIndex(Math.min(requestedIndex, maxStartIndex));
+  }, [maxStartIndex, months, requestedMonthKey]);
 
   const visibleMonths = months.slice(
     visibleStartIndex,

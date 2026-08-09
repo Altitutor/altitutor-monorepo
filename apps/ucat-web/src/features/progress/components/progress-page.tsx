@@ -15,7 +15,11 @@ import { calculateRecentWeightedMockScore } from "../lib/mock-progress-insights"
 import { ProgressTrajectoryCanvas } from "./progress-trajectory-canvas";
 import { SectionProgressCards } from "./section-progress-cards";
 import { ReviewActivityCalendarCard } from "./review-activity-calendar-card";
-import { AnimatedFraction, AnimatedInteger, ProgressCircular } from "./progress-animated-display";
+import {
+  AnimatedFraction,
+  AnimatedInteger,
+  ProgressCircular,
+} from "./progress-animated-display";
 import { UCAT_CARD_CHROME, UCAT_DIVIDER_TOP } from "@/lib/ucat-surface-motion";
 import { cn } from "@/lib/utils";
 import { useUcatStaggerMotion } from "@/shared/hooks/use-ucat-stagger-motion";
@@ -279,7 +283,7 @@ export function ProgressPageContent({
       initial="hidden"
       animate="show"
     >
-      <motion.div variants={itemVariants}>
+      <motion.div id="tour-progress-predicted-score" variants={itemVariants}>
         <ProgressTrajectoryCanvas
           title="Score progress"
           description={
@@ -325,12 +329,18 @@ export function ProgressPageContent({
         variants={itemVariants}
         className="mx-auto grid w-full max-w-[1400px] grid-cols-[repeat(auto-fit,minmax(min(100%,18rem),1fr))] gap-5 px-5 sm:px-6"
       >
-        <ReviewActivityCalendarCard
-          className="h-full"
-          previewData={activityPreviewData}
-        />
+        <div id="tour-progress-activity">
+          <ReviewActivityCalendarCard
+            className="h-full"
+            previewData={activityPreviewData}
+          />
+        </div>
 
-        <section aria-label="Sections" className="min-w-0">
+        <section
+          id="tour-progress-sections"
+          aria-label="Sections"
+          className="min-w-0"
+        >
           <SectionProgressCards
             sections={sections}
             linkToSection={linkToSections}
@@ -342,7 +352,9 @@ export function ProgressPageContent({
             mockTargetScore={targetScore}
           />
         </section>
-        <QuestionsCompletedCard sections={sections} className="h-full" />
+        <div id="tour-progress-questions-completed">
+          <QuestionsCompletedCard sections={sections} className="h-full" />
+        </div>
       </motion.div>
     </motion.div>
   );

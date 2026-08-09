@@ -293,6 +293,7 @@ export function SectionProgressContent({
       </div>
       <AnimatePresence mode="wait" initial={false}>
         <motion.div
+          id="tour-section-predicted-score"
           key={trajectoryView}
           initial={{ opacity: 0, y: 8 }}
           animate={{ opacity: 1, y: 0 }}
@@ -302,10 +303,7 @@ export function SectionProgressContent({
           {trajectoryView === "score" ? (
             <ProgressTrajectoryCanvas
               projection={scoreProjection}
-              snapshots={sectionEstimateSnapshots(
-                snapshots,
-                section.sectionId,
-              )}
+              snapshots={sectionEstimateSnapshots(snapshots, section.sectionId)}
               today={today}
               targetScore={effectiveTargetScore}
               testDate={testDate}
@@ -390,7 +388,10 @@ export function SectionProgressContent({
         className="mx-auto w-full max-w-[1400px] px-5 sm:px-6"
         variants={itemVariants}
       >
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div
+          id="tour-section-stats"
+          className="grid grid-cols-1 gap-4 md:grid-cols-3"
+        >
           <Card className={UCAT_CARD_CHROME}>
             <CardContent className="flex flex-col gap-4 pt-6">
               <div className="flex flex-row justify-between items-center gap-4">
