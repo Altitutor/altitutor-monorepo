@@ -10,7 +10,10 @@ import {
 import type { QuestionMeta } from "@altitutor/ucat-marking";
 import { maybeGrantPracticeDayDiscount } from "@/lib/ucat/practice-day-discount";
 import { persistQuestionAttemptBatch } from "@/lib/ucat/question-attempts/persist-question-attempt-batch";
-import { parseBinaryPlacementResponseSnapshot } from "@/features/question-engine/lib/response-state";
+import {
+  isBinaryPlacementResponse,
+  parseBinaryPlacementResponseSnapshot,
+} from "@/features/question-engine/lib/response-state";
 
 type AdminClient = SupabaseClient;
 
@@ -153,7 +156,7 @@ export function buildQuestionAttemptsForScoring(
 ): Array<{ questionId: string; selectedOptionId: string }> {
   const binaryQuestionIds = new Set(
     questionMeta
-      .filter((question) => question.questionType === "syllogism")
+      .filter((question) => isBinaryPlacementResponse(question))
       .map((question) => question.id),
   );
   return questionAttempts.flatMap((attempt) => {

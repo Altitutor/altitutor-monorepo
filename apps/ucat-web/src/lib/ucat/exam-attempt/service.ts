@@ -1,7 +1,6 @@
 import type { Json } from "@altitutor/shared";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { QuestionEngineExam } from "@/features/question-engine/model/types";
-import { catchUpExpiredSegments } from "@/lib/ucat/exam-attempt/segment-catch-up";
 import {
   resolveExamForCatchUp,
   toStoredExamTiming,
@@ -11,6 +10,7 @@ import {
   isExamAttemptAtResults,
 } from "@/lib/ucat/exam-attempt/finalize-attempt";
 import { buildFinalAnswersFromEngineSnapshot } from "@/lib/ucat/exam-attempt/build-final-answers";
+import { buildCatchUpPersistence } from "@/lib/ucat/exam-attempt/catch-up-persistence";
 import { computeSegmentEndsAt } from "@/lib/ucat/exam-attempt/timing";
 import type {
   ActiveExamAttempt,
@@ -563,11 +563,11 @@ async function maybeCatchUp(
   });
   if (!examForCatchUp) return attempt;
 
-  const caught = catchUpExpiredSegments(
+  const { caught, finalAnswers } = buildCatchUpPersistence(
     examForCatchUp,
     attempt.engineSnapshot,
     attempt.currentSegmentEndsAt,
-    { practice: attempt.kind === "practice" },
+    attempt.kind,
   );
   if (
     caught.state.phase === attempt.engineSnapshot.phase &&
@@ -595,13 +595,13 @@ async function maybeCatchUp(
     engineSnapshot: caught.state,
     currentSegmentEndsAt: caught.currentSegmentEndsAt,
   };
-  if (isExamAttemptAtResults(attempt.kind, caught.state.phase)) {
+  if (finalAnswers) {
     await finalizeExamAttemptOnServer(
       admin,
       studentId,
       attempt.kind,
       attempt.attemptId,
-      buildFinalAnswersFromEngineSnapshot(examForCatchUp, caught.state),
+      finalAnswers,
     );
     return updated;
   }

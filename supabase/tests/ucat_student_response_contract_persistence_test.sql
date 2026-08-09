@@ -1,5 +1,5 @@
 BEGIN;
-SELECT plan(5);
+SELECT plan(6);
 
 CREATE TEMP TABLE response_fixture AS
 SELECT
@@ -84,6 +84,24 @@ SELECT throws_ok(
   'P0001',
   'UCAT response snapshot conflicts with the selected option column',
   'conflicting canonical and compatibility answers are rejected'
+);
+
+SELECT throws_ok(
+  $$
+    INSERT INTO public.student_question_attempts (
+      student_id, question_id, answer_snapshot
+    )
+    SELECT student_id, question_id, jsonb_build_object(
+      'type', 'ucat_response_v1',
+      'questionId', question_id,
+      'answerScheme', answer_scheme,
+      'response', jsonb_build_object('kind', 'single_select')
+    )
+    FROM response_fixture
+  $$,
+  'P0001',
+  'Invalid UCAT single-select response',
+  'a missing selectedOptionId is rejected rather than treated as blank'
 );
 
 SELECT throws_ok(

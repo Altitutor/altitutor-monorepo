@@ -16,9 +16,15 @@ function legacyAnswerScheme(question: QuestionItem): AnswerScheme["kind"] {
   return "single_choice";
 }
 
-export function isBinaryPlacementResponse(question: QuestionItem): boolean {
+export function isBinaryPlacementResponse(question: {
+  answerScheme?: AnswerScheme["kind"];
+  questionType: string;
+}): boolean {
   return (
-    (question.answerScheme ?? legacyAnswerScheme(question)) ===
+    (question.answerScheme ??
+      (question.questionType === "syllogism"
+        ? "decision_making_binary_placement"
+        : "single_choice")) ===
     "decision_making_binary_placement"
   );
 }

@@ -145,6 +145,9 @@ BEGIN
     IF v_kind <> 'single_select' THEN
       RAISE EXCEPTION 'Invalid UCAT single-select response';
     END IF;
+    IF NOT ((NEW.answer_snapshot#>'{response}') ? 'selectedOptionId') THEN
+      RAISE EXCEPTION 'Invalid UCAT single-select response';
+    END IF;
     IF jsonb_typeof(NEW.answer_snapshot#>'{response,selectedOptionId}') = 'string' THEN
       BEGIN
         v_selected_option_id := (NEW.answer_snapshot#>>'{response,selectedOptionId}')::UUID;

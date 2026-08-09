@@ -9,7 +9,10 @@ import {
 } from "@/features/question-engine/model/types";
 import type { FinalQuestionAttemptInput } from "@/lib/ucat/set-attempts/complete-student-set-attempt";
 import { persistQuestionAttemptBatch } from "@/lib/ucat/question-attempts/persist-question-attempt-batch";
-import { restorePersistedQuestionResponse } from "@/features/question-engine/lib/response-state";
+import {
+  isBinaryPlacementResponse,
+  restorePersistedQuestionResponse,
+} from "@/features/question-engine/lib/response-state";
 
 type AdminClient = SupabaseClient;
 
@@ -67,7 +70,7 @@ export function scorePracticeAnswers(
 } {
   const meta = questionMeta(questions);
   const nonSyllogismMeta = meta.filter(
-    (question) => question.questionType !== "syllogism",
+    (_, index) => !isBinaryPlacementResponse(questions[index]),
   );
   const nonSyllogismAttempts = nonSyllogismMeta.flatMap((question) => {
     const item = questions.find((candidate) => candidate.id === question.id)!;
@@ -91,7 +94,7 @@ export function scorePracticeAnswers(
   // true/false judgements, so score it against every option exactly as the UI
   // does rather than reducing it to one selected option.
   for (const question of questions) {
-    if (question.questionType !== "syllogism") continue;
+    if (!isBinaryPlacementResponse(question)) continue;
     const answer = answersByQuestionId.get(question.id);
     const snapshot = restorePersistedQuestionResponse(
       question,
