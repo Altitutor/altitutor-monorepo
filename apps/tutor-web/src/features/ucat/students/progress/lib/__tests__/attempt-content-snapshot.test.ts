@@ -1,5 +1,6 @@
 import {
   parseAttemptContentSnapshot,
+  parseLegacyPlacementProjection,
   projectAttemptReview,
   resultForAttempt,
   snapshotToReviewQuestion,
@@ -72,9 +73,20 @@ describe('legacy tutor attempt snapshots', () => {
       ],
     }
 
+    const persistedProjection = parseLegacyPlacementProjection({
+      type: 'ucat_response_v1',
+      questionId: 'most-least',
+      answerScheme: 'situational_judgement_most_least',
+      response: {
+        kind: 'placement',
+        placements: { a: 'most', c: 'least' },
+      },
+    })
+    expect(persistedProjection).toEqual({ a: true, c: false })
+
     expect(projectAttemptReview({
       question,
-      legacyPlacementSnapshot: { a: true, c: false },
+      legacyPlacementSnapshot: persistedProjection,
     })).toMatchObject({
       kind: 'placement',
       outcome: 'correct',

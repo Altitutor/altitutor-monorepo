@@ -8,7 +8,7 @@ import {
 } from '@/features/ucat/shared/lib/rich-text'
 import {
   parseAttemptContentSnapshot,
-  parseSyllogismAnswerSnapshot,
+  parseLegacyPlacementProjection,
   resultForAttempt,
   snapshotToReviewQuestion,
   type AttemptReviewQuestion,
@@ -202,7 +202,7 @@ export async function GET(
           : null,
         questionStemCategoryId: snapshot.stem.categoryId ?? null,
         questionAnswerOptionId: row.question_answer_option_id,
-        answerSnapshot: parseSyllogismAnswerSnapshot(row.answer_snapshot),
+        answerSnapshot: parseLegacyPlacementProjection(row.answer_snapshot),
       }
     }
   )

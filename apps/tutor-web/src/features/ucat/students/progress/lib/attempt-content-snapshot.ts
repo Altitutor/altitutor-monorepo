@@ -137,7 +137,7 @@ export function snapshotToReviewQuestion(
   }
 }
 
-export function parseSyllogismAnswerSnapshot(
+export function parseLegacyPlacementProjection(
   value: unknown
 ): Record<string, boolean> | null {
   if (!value || typeof value !== 'object') return null
@@ -147,14 +147,20 @@ export function parseSyllogismAnswerSnapshot(
     if (!response || typeof response !== 'object') return null
     const placements = (response as Record<string, unknown>).placements
     if (!placements || typeof placements !== 'object') return null
-    return Object.fromEntries(
-      Object.entries(placements as Record<string, unknown>).flatMap(
-        ([optionId, token]) =>
-          token === 'yes' || token === 'no'
-            ? [[optionId, token === 'yes']]
-            : []
-      )
-    )
+    const positiveToken = snapshot.answerScheme === 'situational_judgement_most_least'
+      ? 'most'
+      : 'yes'
+    const negativeToken = snapshot.answerScheme === 'situational_judgement_most_least'
+      ? 'least'
+      : 'no'
+    const entries = Object.entries(placements as Record<string, unknown>)
+    if (entries.some(([, token]) => token !== positiveToken && token !== negativeToken)) {
+      return null
+    }
+    return Object.fromEntries(entries.map(([optionId, token]) => [
+      optionId,
+      token === positiveToken,
+    ]))
   }
   if (snapshot.type !== 'syllogism_v1' || !Array.isArray(snapshot.answers)) return null
   const answers: Record<string, boolean> = {}
