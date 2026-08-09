@@ -47,7 +47,7 @@ import { InstructionsContent } from "@/features/question-engine/components/instr
 import { NavigatorPanel } from "@/features/question-engine/components/navigator-panel";
 import { QuestionContent } from "@/features/question-engine/components/question-content";
 import { computeMarkingResult } from "@/features/question-engine/lib/marking";
-import { snapshotQuestionResponse } from "@/features/question-engine/lib/response-state";
+import { buildPersistedQuestionResponse } from "@/features/question-engine/lib/response-state";
 import { NoFlaggedDialog } from "@/features/question-engine/components/no-flagged-dialog";
 import { ReviewInstructionsDialog } from "@/features/question-engine/components/review-instructions-dialog";
 import { TimeExpiredDialog } from "@/features/question-engine/components/time-expired-dialog";
@@ -872,11 +872,7 @@ export function QuestionEnginePage({
         studentQuestionSetAttemptId: null,
         studentPracticeSessionId: practiceSessionId,
         questionId: question.id,
-        questionAnswerOptionId:
-          question.questionType === "syllogism"
-            ? null
-            : (state.selectedAnswers[question.id] ?? null),
-        answerSnapshot: snapshotQuestionResponse(
+        ...buildPersistedQuestionResponse(
           question,
           state.selectedAnswers[question.id],
           syllogismSnapshot,

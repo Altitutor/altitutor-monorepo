@@ -1,4 +1,7 @@
-import { buildQuestionMetaFromAttemptSnapshots } from "@/lib/ucat/set-attempts/complete-student-set-attempt";
+import {
+  buildQuestionAttemptsForScoring,
+  buildQuestionMetaFromAttemptSnapshots,
+} from "@/lib/ucat/set-attempts/complete-student-set-attempt";
 
 const snapshot = {
   schemaVersion: 1,
@@ -66,5 +69,43 @@ describe("buildQuestionMetaFromAttemptSnapshots", () => {
         new Set(["question-1"]),
       ),
     ).toBeNull();
+  });
+});
+
+describe("buildQuestionAttemptsForScoring", () => {
+  it("carries canonical DM placements into set and mock scoring", () => {
+    expect(
+      buildQuestionAttemptsForScoring(
+        [
+          {
+            id: "dm-question",
+            stemId: "stem-1",
+            sectionName: "Decision Making",
+            questionType: "syllogism",
+            correctOptionId: "statement-1",
+            options: [{ id: "statement-1", index: 0 }],
+          },
+        ],
+        [
+          {
+            id: "attempt-1",
+            student_id: "student-1",
+            question_id: "dm-question",
+            question_answer_option_id: null,
+            answer_snapshot: {
+              type: "ucat_response_v1",
+              questionId: "dm-question",
+              answerScheme: "decision_making_binary_placement",
+              response: {
+                kind: "placement",
+                placements: { "statement-1": "yes" },
+              },
+            },
+          },
+        ],
+      ),
+    ).toEqual([
+      { questionId: "dm-question", selectedOptionId: "statement-1" },
+    ]);
   });
 });

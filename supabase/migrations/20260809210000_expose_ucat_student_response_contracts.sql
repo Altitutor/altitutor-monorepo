@@ -163,12 +163,18 @@ BEGIN
     ELSIF jsonb_typeof(NEW.answer_snapshot#>'{response,selectedOptionId}') <> 'null' THEN
       RAISE EXCEPTION 'Invalid UCAT single-select response';
     END IF;
+    IF NEW.question_answer_option_id IS DISTINCT FROM v_selected_option_id THEN
+      RAISE EXCEPTION 'UCAT response snapshot conflicts with the selected option column';
+    END IF;
     RETURN NEW;
   END IF;
 
   v_placements := NEW.answer_snapshot#>'{response,placements}';
   IF v_kind <> 'placement' OR jsonb_typeof(v_placements) <> 'object' THEN
     RAISE EXCEPTION 'Invalid UCAT placement response';
+  END IF;
+  IF NEW.question_answer_option_id IS NOT NULL THEN
+    RAISE EXCEPTION 'UCAT placement response cannot use the selected option column';
   END IF;
   IF EXISTS (
     SELECT 1

@@ -10,6 +10,7 @@ import {
 } from "@/features/progress/lib/attempt-review-question-metadata";
 import type { AttemptRecentPerformance } from "@/features/progress/lib/attempt-insights";
 import { fetchRecentAttemptPerformance } from "@/features/progress/server/attempt-insight-trend-service";
+import { parseBinaryPlacementResponseSnapshot } from "@/features/question-engine/lib/response-state";
 
 export type PracticeAttemptDetailResponse = {
   id: string;
@@ -43,23 +44,6 @@ export type PracticeAttemptDetailResponse = {
     answerSnapshot: Record<string, boolean> | null;
   }[];
 };
-
-function parseAnswerSnapshot(
-  snapshot: unknown,
-): Record<string, boolean> | null {
-  if (!snapshot || typeof snapshot !== "object") return null;
-  const obj = snapshot as Record<string, unknown>;
-  if (obj.type !== "syllogism_v1" || !Array.isArray(obj.answers)) return null;
-  const answers = obj.answers as Array<{
-    question_answer_option_id: string;
-    answer: boolean;
-  }>;
-  const result: Record<string, boolean> = {};
-  for (const a of answers) {
-    result[a.question_answer_option_id] = a.answer;
-  }
-  return result;
-}
 
 type StemWithQuestions = {
   id: string;
@@ -175,7 +159,13 @@ export async function GET(
         categoryName: qa.category_name,
         questionStemCategoryId: qa.question_stem_category_id,
         questionAnswerOptionId: qa.question_answer_option_id ?? null,
-        answerSnapshot: parseAnswerSnapshot(qa.answer_snapshot),
+        answerSnapshot:
+          qa.question_type === "syllogism" && qa.question_id
+            ? parseBinaryPlacementResponseSnapshot(
+                qa.answer_snapshot,
+                qa.question_id,
+              )
+            : null,
         isFlagged: qa.is_flagged ?? false,
       },
     ]),

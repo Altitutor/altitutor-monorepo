@@ -441,6 +441,11 @@ describe("useExamAttemptLifecycle request races", () => {
             attemptId: "practice-session-1",
             engineSnapshot: expect.objectContaining({
               selectedAnswers: { "question-1": "option-1" },
+              responseSnapshots: {
+                "question-1": expect.objectContaining({
+                  type: "ucat_response_v1",
+                }),
+              },
             }),
           }),
         ),
@@ -494,6 +499,9 @@ describe("useExamAttemptLifecycle request races", () => {
       expect(result.current.state.selectedAnswers).toEqual({
         "question-1": "option-1",
       }),
+    );
+    expect(result.current.state.responseSnapshots?.["question-1"]).toEqual(
+      expect.objectContaining({ type: "ucat_response_v1" }),
     );
     expect(result.current.state.showCalculator).toBe(true);
 
@@ -634,6 +642,26 @@ describe("sanitizeEngineSnapshotForExam", () => {
       flaggedIds: [],
       selectedAnswers: { "question-1": "option-1" },
       syllogismSnapshots: {},
+    });
+  });
+
+  it("restores canonical answers as engine projections for catch-up and resume", () => {
+    const stored = createAttempt(createState()).engineSnapshot;
+    stored.selectedAnswers = {};
+    stored.responseSnapshots = {
+      "question-1": {
+        type: "ucat_response_v1",
+        questionId: "question-1",
+        answerScheme: "single_choice",
+        response: { kind: "single_select", selectedOptionId: "option-1" },
+      },
+    };
+
+    expect(sanitizeEngineSnapshotForExam(exam, stored)).toMatchObject({
+      selectedAnswers: { "question-1": "option-1" },
+      responseSnapshots: {
+        "question-1": expect.objectContaining({ type: "ucat_response_v1" }),
+      },
     });
   });
 });

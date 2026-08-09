@@ -60,7 +60,7 @@ type StemDetailQuestion = {
   answer_explanation?: unknown;
   index: number;
   question_type: "multiple_choice" | "syllogism";
-  response_type?: "multiple_choice" | "drag_and_drop";
+  response_type?: QuestionItem["responseType"];
   answer_scheme?: QuestionItem["answerScheme"];
   answer_options: Array<{
     id: string;

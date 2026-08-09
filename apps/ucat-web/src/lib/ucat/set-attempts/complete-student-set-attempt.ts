@@ -10,6 +10,7 @@ import {
 import type { QuestionMeta } from "@altitutor/ucat-marking";
 import { maybeGrantPracticeDayDiscount } from "@/lib/ucat/practice-day-discount";
 import { persistQuestionAttemptBatch } from "@/lib/ucat/question-attempts/persist-question-attempt-batch";
+import { parseBinaryPlacementResponseSnapshot } from "@/features/question-engine/lib/response-state";
 
 type AdminClient = SupabaseClient;
 
@@ -146,6 +147,39 @@ export async function persistFinalQuestionAttempts(
   );
 }
 
+export function buildQuestionAttemptsForScoring(
+  questionMeta: QuestionMeta[],
+  questionAttempts: QuestionAttemptForScoring[],
+): Array<{ questionId: string; selectedOptionId: string }> {
+  const binaryQuestionIds = new Set(
+    questionMeta
+      .filter((question) => question.questionType === "syllogism")
+      .map((question) => question.id),
+  );
+  return questionAttempts.flatMap((attempt) => {
+    if (!binaryQuestionIds.has(attempt.question_id)) {
+      return attempt.question_answer_option_id
+        ? [
+            {
+              questionId: attempt.question_id,
+              selectedOptionId: attempt.question_answer_option_id,
+            },
+          ]
+        : [];
+    }
+    const answers = parseBinaryPlacementResponseSnapshot(
+      attempt.answer_snapshot,
+      attempt.question_id,
+    );
+    const selectedOptionId = answers
+      ? Object.entries(answers).find(([, answer]) => answer)?.[0]
+      : attempt.question_answer_option_id;
+    return selectedOptionId
+      ? [{ questionId: attempt.question_id, selectedOptionId }]
+      : [];
+  });
+}
+
 export async function completeStudentSetAttempt(
   admin: AdminClient,
   studentId: string,
@@ -230,57 +264,10 @@ export async function completeStudentSetAttempt(
   totalQuestions = questionMeta.length;
 
   if (questionMeta.length > 0) {
-    const syllogismQuestionIds = new Set(
-      questionMeta
-        .filter((question) => question.questionType === "syllogism")
-        .map((question) => question.id),
+    const attempts = buildQuestionAttemptsForScoring(
+      questionMeta,
+      (questionAttempts ?? []) as QuestionAttemptForScoring[],
     );
-
-    const attempts = (questionAttempts ?? []).flatMap((qa) => {
-      if (!syllogismQuestionIds.has(qa.question_id)) {
-        if (!qa.question_answer_option_id) return [];
-        return [
-          {
-            questionId: qa.question_id,
-            selectedOptionId: qa.question_answer_option_id as string,
-          },
-        ];
-      }
-
-      const snapshot = qa.answer_snapshot as
-        | {
-            type?: string;
-            answers?: { question_answer_option_id: string; answer: boolean }[];
-          }
-        | null
-        | undefined;
-
-      if (
-        !snapshot ||
-        snapshot.type !== "syllogism_v1" ||
-        !Array.isArray(snapshot.answers)
-      ) {
-        if (!qa.question_answer_option_id) return [];
-        return [
-          {
-            questionId: qa.question_id,
-            selectedOptionId: qa.question_answer_option_id as string,
-          },
-        ];
-      }
-
-      const chosen = snapshot.answers.find((a) => a.answer === true);
-      if (!chosen) {
-        return [];
-      }
-
-      return [
-        {
-          questionId: qa.question_id,
-          selectedOptionId: chosen.question_answer_option_id,
-        },
-      ];
-    });
 
     const { questionScores, totalRawScore } = computeRawScore({
       attempts,

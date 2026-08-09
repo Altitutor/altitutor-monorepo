@@ -1,7 +1,7 @@
 import type { QuestionEngineExam } from "@/features/question-engine/model/types";
 import type { FinalExamQuestionAttemptInput } from "@/lib/ucat/exam-attempt/finalize-attempt";
 import type { ExamEngineSnapshot } from "@/lib/ucat/exam-attempt/types";
-import { snapshotQuestionResponse } from "@/features/question-engine/lib/response-state";
+import { buildPersistedQuestionResponse } from "@/features/question-engine/lib/response-state";
 
 function isQuestionTimed(
   exam: QuestionEngineExam,
@@ -30,18 +30,15 @@ export function buildFinalAnswersFromEngineSnapshot(
   return exam.questions.map((question, questionIndex) => {
     const selectedOptionId = state.selectedAnswers[question.id];
     const syllogismSnapshot = state.syllogismSnapshots?.[question.id];
-    const isPlacement =
-      question.answerScheme === "decision_making_binary_placement" ||
-      question.questionType === "syllogism";
+    const response = buildPersistedQuestionResponse(
+      question,
+      selectedOptionId,
+      syllogismSnapshot,
+    );
     const answer: FinalExamQuestionAttemptInput = {
       questionSetId: question.questionSetId,
       questionId: question.id,
-      questionAnswerOptionId: isPlacement ? null : (selectedOptionId ?? null),
-      answerSnapshot: snapshotQuestionResponse(
-        question,
-        selectedOptionId,
-        syllogismSnapshot,
-      ),
+      ...response,
       isFlagged: state.flaggedIds.includes(question.id),
       wasTimed: isQuestionTimed(exam, questionIndex),
       mode:

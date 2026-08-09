@@ -1,4 +1,8 @@
-import type { ResponseSnapshotV1 } from "@altitutor/ucat-response-contract";
+import type {
+  AnswerScheme,
+  ResponseSnapshotV1,
+  ResponseType,
+} from "@altitutor/ucat-response-contract";
 
 export type QuestionEngineMode = "set" | "mock" | "questionStem" | "questions";
 
@@ -39,13 +43,9 @@ export type QuestionItem = {
   questionJson?: Record<string, unknown> | null;
   questionType: "multiple_choice" | "syllogism";
   /** Candidate interaction, independent of the authored category. */
-  responseType?: "multiple_choice" | "drag_and_drop";
+  responseType?: ResponseType;
   /** Validation, scoring, persistence, and review behavior. */
-  answerScheme?:
-    | "single_choice"
-    | "situational_judgement_rating"
-    | "decision_making_binary_placement"
-    | "situational_judgement_most_least";
+  answerScheme?: AnswerScheme["kind"];
   options: AnswerOption[];
   /** ID of the correct answer option. Used for marking. */
   correctOptionId?: string;
@@ -120,7 +120,7 @@ export type QuestionStemWithQuestions = {
     /** Rich JSON for question text (Tiptap). */
     questionJson?: Record<string, unknown> | null;
     questionType: "multiple_choice" | "syllogism";
-    responseType?: "multiple_choice" | "drag_and_drop";
+    responseType?: ResponseType;
     answerScheme?: QuestionItem["answerScheme"];
     options: AnswerOption[];
     /** Question-level explanation (shown in review when present). */
@@ -179,7 +179,7 @@ export type QuestionEngineQuestion = {
   stemText: string;
   questionText: string;
   questionType: "multiple_choice" | "syllogism";
-  responseType?: "multiple_choice" | "drag_and_drop";
+  responseType?: ResponseType;
   answerScheme?: QuestionItem["answerScheme"];
   options: AnswerOption[];
   /** Question-level explanation (shown in review when present). */

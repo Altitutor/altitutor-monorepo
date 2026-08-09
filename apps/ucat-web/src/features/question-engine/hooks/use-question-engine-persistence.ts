@@ -16,7 +16,10 @@ import {
   assertOkOrQuotaExceeded,
 } from "@/lib/ucat/quota/parse-quota-error";
 import type { FinalExamQuestionAttemptInput } from "@/lib/ucat/exam-attempt/finalize-attempt";
-import { snapshotQuestionResponse } from "@/features/question-engine/lib/response-state";
+import {
+  buildPersistedQuestionResponse,
+  isBinaryPlacementResponse,
+} from "@/features/question-engine/lib/response-state";
 
 type QuestionAttemptMode =
   | "question"
@@ -115,18 +118,15 @@ export function buildFinalExamQuestionAttempts(
   return exam.questions.map((question) => {
     const selectedOptionId = state.selectedAnswers[question.id];
     const syllogismSnapshot = state.syllogismSnapshots?.[question.id];
-    const isPlacement =
-      question.answerScheme === "decision_making_binary_placement" ||
-      question.questionType === "syllogism";
+    const response = buildPersistedQuestionResponse(
+      question,
+      selectedOptionId,
+      syllogismSnapshot,
+    );
     const answer: FinalExamQuestionAttemptInput = {
       questionSetId: question.questionSetId,
       questionId: question.id,
-      questionAnswerOptionId: isPlacement ? null : (selectedOptionId ?? null),
-      answerSnapshot: snapshotQuestionResponse(
-        question,
-        selectedOptionId,
-        syllogismSnapshot,
-      ),
+      ...response,
       isFlagged: state.flaggedIds.includes(question.id),
       wasTimed: getWasTimedForSet(mode, exam, question),
       mode: toDbMode(mode),
@@ -366,22 +366,17 @@ export function useQuestionEnginePersistence({
 
     const question = findQuestion(exam, questionId);
     if (!question) return;
-    const isSyllogism = question.questionType === "syllogism";
+    const persistedResponse = buildPersistedQuestionResponse(
+      question,
+      questionAnswerOptionId || undefined,
+      state.syllogismSnapshots?.[questionId],
+    );
 
     const inputBase: UpsertQuestionAttemptInput = withLearnContext({
       studentQuestionSetAttemptId: practiceSessionId ? null : null,
       studentPracticeSessionId: practiceSessionId ?? undefined,
       questionId,
-      questionAnswerOptionId: isSyllogism
-        ? null
-        : questionAnswerOptionId
-          ? questionAnswerOptionId
-          : null,
-      answerSnapshot: snapshotQuestionResponse(
-        question,
-        questionAnswerOptionId || undefined,
-        state.syllogismSnapshots?.[questionId],
-      ),
+      ...persistedResponse,
       isFlagged,
     });
 
@@ -425,14 +420,13 @@ export function useQuestionEnginePersistence({
       return;
     }
     const question = findQuestion(exam, questionId);
-    if (question?.questionType !== "syllogism") return;
+    if (!question || !isBinaryPlacementResponse(question)) return;
 
     const input: UpsertQuestionAttemptInput = withLearnContext({
       studentQuestionSetAttemptId: practiceSessionId ? null : null,
       studentPracticeSessionId: practiceSessionId ?? undefined,
       questionId,
-      questionAnswerOptionId: null,
-      answerSnapshot: snapshotQuestionResponse(question, undefined, snapshot),
+      ...buildPersistedQuestionResponse(question, undefined, snapshot),
       isFlagged,
     });
 
@@ -572,11 +566,7 @@ export function useQuestionEnginePersistence({
         studentQuestionSetAttemptId: null,
         studentPracticeSessionId: practiceSessionId ?? undefined,
         questionId: q.id,
-        questionAnswerOptionId:
-          q.questionType === "syllogism"
-            ? null
-            : (state.selectedAnswers[q.id] ?? null),
-        answerSnapshot: snapshotQuestionResponse(
+        ...buildPersistedQuestionResponse(
           q,
           state.selectedAnswers[q.id],
           state.syllogismSnapshots?.[q.id],

@@ -16,6 +16,13 @@ function legacyAnswerScheme(question: QuestionItem): AnswerScheme["kind"] {
   return "single_choice";
 }
 
+export function isBinaryPlacementResponse(question: QuestionItem): boolean {
+  return (
+    (question.answerScheme ?? legacyAnswerScheme(question)) ===
+    "decision_making_binary_placement"
+  );
+}
+
 function definitionForQuestion(question: QuestionItem): ResponseDefinition {
   const kind = question.answerScheme ?? legacyAnswerScheme(question);
   const correctOptionId =
@@ -118,6 +125,96 @@ export function snapshotQuestionResponse(
     throw new Error(result.issues.map((issue) => issue.message).join(" "));
   }
   return result.snapshot;
+}
+
+export function buildPersistedQuestionResponse(
+  question: QuestionItem,
+  selectedOptionId?: string,
+  syllogismSnapshot?: Record<string, boolean>,
+): {
+  questionAnswerOptionId: string | null;
+  answerSnapshot: ResponseSnapshotV1;
+} {
+  const answerSnapshot = snapshotQuestionResponse(
+    question,
+    selectedOptionId,
+    syllogismSnapshot,
+  );
+  return {
+    questionAnswerOptionId:
+      answerSnapshot.response.kind === "single_select"
+        ? answerSnapshot.response.selectedOptionId
+        : null,
+    answerSnapshot,
+  };
+}
+
+export function parseBinaryPlacementResponseSnapshot(
+  storedAnswer: unknown,
+  expectedQuestionId: string,
+): Record<string, boolean> | null {
+  if (storedAnswer === null || storedAnswer === undefined) return null;
+  if (typeof storedAnswer !== "object" || Array.isArray(storedAnswer)) {
+    throw new Error("The stored answer is not a supported response snapshot.");
+  }
+  const snapshot = storedAnswer as Record<string, unknown>;
+  if (snapshot.type === "syllogism_v1") {
+    if (!Array.isArray(snapshot.answers)) {
+      throw new Error("The legacy DM snapshot is malformed.");
+    }
+    const answers: Record<string, boolean> = {};
+    for (const value of snapshot.answers) {
+      if (
+        typeof value !== "object" ||
+        value === null ||
+        Array.isArray(value)
+      ) {
+        throw new Error("The legacy DM snapshot is malformed.");
+      }
+      const row = value as Record<string, unknown>;
+      if (
+        typeof row.question_answer_option_id !== "string" ||
+        typeof row.answer !== "boolean" ||
+        row.question_answer_option_id in answers
+      ) {
+        throw new Error("The legacy DM snapshot is malformed.");
+      }
+      answers[row.question_answer_option_id] = row.answer;
+    }
+    return answers;
+  }
+  if (
+    snapshot.type !== "ucat_response_v1" ||
+    snapshot.questionId !== expectedQuestionId ||
+    snapshot.answerScheme !== "decision_making_binary_placement"
+  ) {
+    throw new Error("The stored DM answer does not match this question.");
+  }
+  const response = snapshot.response;
+  if (
+    typeof response !== "object" ||
+    response === null ||
+    Array.isArray(response) ||
+    (response as Record<string, unknown>).kind !== "placement"
+  ) {
+    throw new Error("The stored DM response is malformed.");
+  }
+  const placements = (response as Record<string, unknown>).placements;
+  if (
+    typeof placements !== "object" ||
+    placements === null ||
+    Array.isArray(placements)
+  ) {
+    throw new Error("The stored DM response is malformed.");
+  }
+  return Object.fromEntries(
+    Object.entries(placements).map(([optionId, token]) => {
+      if (token !== "yes" && token !== "no") {
+        throw new Error("The stored DM response contains an unknown token.");
+      }
+      return [optionId, token === "yes"];
+    }),
+  );
 }
 
 export function restoreQuestionResponse(

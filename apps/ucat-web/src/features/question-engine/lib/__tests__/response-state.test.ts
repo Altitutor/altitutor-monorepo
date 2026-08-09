@@ -1,5 +1,7 @@
 import {
   canonicalizeEngineResponses,
+  buildPersistedQuestionResponse,
+  parseBinaryPlacementResponseSnapshot,
   restoreQuestionResponse,
   snapshotQuestionResponse,
 } from "@/features/question-engine/lib/response-state";
@@ -132,5 +134,26 @@ describe("canonical question response persistence", () => {
     expect(upgraded.responseSnapshots.binary).toEqual(
       expect.objectContaining({ type: "ucat_response_v1" }),
     );
+  });
+
+  it("owns compatibility-column persistence and canonical DM review reads", () => {
+    expect(
+      buildPersistedQuestionResponse(singleChoiceQuestion, "option-b"),
+    ).toEqual({
+      questionAnswerOptionId: "option-b",
+      answerSnapshot: expect.objectContaining({ type: "ucat_response_v1" }),
+    });
+    const persistedDm = buildPersistedQuestionResponse(
+      binaryQuestion,
+      undefined,
+      { "statement-1": true, "statement-2": false },
+    );
+    expect(persistedDm.questionAnswerOptionId).toBeNull();
+    expect(
+      parseBinaryPlacementResponseSnapshot(
+        persistedDm.answerSnapshot,
+        "binary",
+      ),
+    ).toEqual({ "statement-1": true, "statement-2": false });
   });
 });
