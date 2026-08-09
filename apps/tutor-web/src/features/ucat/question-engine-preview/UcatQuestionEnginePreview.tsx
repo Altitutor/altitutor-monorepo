@@ -25,12 +25,15 @@ export type UcatEnginePreviewQuestion = {
   questionText: string
   questionJson?: Record<string, unknown> | null
   questionType: 'multiple_choice' | 'syllogism'
+  responseType?: 'multiple_choice' | 'drag_and_drop'
+  answerScheme?: 'single_choice' | 'situational_judgement_rating' | 'decision_making_binary_placement' | 'situational_judgement_most_least'
   options: Array<{
     id: string
     index: number
     text: string
     answerJson?: Record<string, unknown> | null
     isAnswer?: boolean
+    answerKeyValue?: 'correct' | 'yes' | 'no' | 'most' | 'least' | null
     answerExplanation?: string
     answerExplanationJson?: Record<string, unknown> | null
   }>
@@ -528,7 +531,10 @@ export function UcatQuestionEnginePreview({
       ? { stem: preloadedStem ?? null, question: preloadedQuestion ?? null }
       : null
 
-  if (question.questionType === 'syllogism') {
+  if (
+    question.answerScheme === 'decision_making_binary_placement'
+    || (!question.answerScheme && question.questionType === 'syllogism')
+  ) {
     return wrapInteractive(
       <SyllogismPreviewBody
         question={question}

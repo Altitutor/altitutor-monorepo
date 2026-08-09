@@ -15,7 +15,6 @@ import {
   Tabs,
   TabsContent,
   Textarea,
-  useToast,
 } from '@altitutor/ui'
 import { Eye, EyeOff } from 'lucide-react'
 import { SegmentedControl } from '@/shared/components/segmented-control'
@@ -39,9 +38,11 @@ import {
 } from '@/features/ucat/shared/lib/rich-text'
 import { taxonomyDisplayLabel } from '@/features/ucat/shared/lib/taxonomy-paths'
 import {
-  applyStemTypeSwitch,
-  isSyllogismCategory,
-} from '@/features/ucat/questions/components/stem-editor/stemEditorStemType'
+  responseContractIssues,
+  suggestedResponseContract,
+  transformResponseContract,
+  type AnswerSchemeKind,
+} from '@/features/ucat/questions/lib/response-contract-authoring'
 import { UcatStemSetMembershipCard } from '@/features/ucat/questions/components/stem-editor/UcatStemSetMembershipCard'
 import { UcatAuthoringAgentChat } from '@/features/ucat/authoring-agent/UcatAuthoringAgentChat'
 import type { UcatAuthoringToolCall, UcatAuthoringToolResult } from '@/features/ucat/authoring-agent/types'
@@ -159,7 +160,6 @@ export function UcatStemEditorPropertiesPanel({
   bulkImportAiReview = null,
   className,
 }: UcatStemEditorPropertiesPanelProps) {
-  const { toast } = useToast()
   const { fields, append, remove } = useFieldArray({ control: form.control, name: 'questions' })
   const [uncontrolledActiveTab, setUncontrolledActiveTab] = useState<'properties' | 'ai' | 'review'>('properties')
   const activeTab = controlledActiveTab ?? uncontrolledActiveTab
@@ -172,10 +172,6 @@ export function UcatStemEditorPropertiesPanel({
 
   const sectionId = form.watch('sectionId')
   const watchedStem = form.watch()
-  const stemType = (form.watch('questions.0.questionType') ?? 'multiple_choice') as
-    | 'multiple_choice'
-    | 'syllogism'
-  const isSyllogism = stemType === 'syllogism'
   const aiModel = metadataString(aiGenerationMetadata, 'model')
   const generatedAtLabel = formatGeneratedTimestamp(metadataString(aiGenerationMetadata, 'generatedAt'))
   const generatedByName =
@@ -193,20 +189,12 @@ export function UcatStemEditorPropertiesPanel({
   const safeQuestionIndex =
     fields.length > 0 ? Math.min(Math.max(0, currentQuestionIndex), fields.length - 1) : 0
   const activeQuestion = watchedStem.questions?.[safeQuestionIndex]
+  const selectedCategory = categories.find((category) => category.id === watchedStem.categoryId)
+  const selectedSection = sections.find((section) => section.id === sectionId)
+  const suggestedContract = suggestedResponseContract(selectedCategory?.name, selectedSection?.name)
+  const contractIssues = activeQuestion ? responseContractIssues(activeQuestion) : []
 
   function handleCategoryChange(nextCategoryId: string | null): void {
-    const nextCategory = categories.find((category) => category.id === nextCategoryId)
-    const nextIsSyllogismCategory = isSyllogismCategory(nextCategory)
-    if (nextIsSyllogismCategory) {
-      const ok = applyStemTypeSwitch(form, 'syllogism', sections, categories)
-      if (!ok) return
-      onQuestionIndexChange(0)
-      return
-    }
-    if (isSyllogism) {
-      const ok = applyStemTypeSwitch(form, 'multiple_choice', sections, categories)
-      if (!ok) return
-    }
     form.setValue('categoryId', nextCategoryId, {
       shouldDirty: true,
     })
@@ -765,10 +753,6 @@ export function UcatStemEditorPropertiesPanel({
                 items={sections}
                 value={sections.find((s) => (s.id ?? '') === sectionId) ?? null}
                 onValueChange={(section) => {
-                  if (isSyllogism) {
-                    toast({ description: 'Section is locked for syllogism stems.', variant: 'destructive' })
-                    return
-                  }
                   form.setValue('sectionId', section?.id ?? '', { shouldDirty: true })
                   form.setValue('categoryId', null, { shouldDirty: true })
                 }}
@@ -829,29 +813,79 @@ export function UcatStemEditorPropertiesPanel({
                 getItemId={(i) => i.value}
               />
             </PropertyRow>
-            <PropertyRow label="Type">
-              <SearchableSelect<{ value: 'multiple_choice' | 'syllogism'; label: string }>
+            <PropertyRow label="Response type">
+              <SearchableSelect<{ value: 'multiple_choice' | 'drag_and_drop'; label: string }>
                 items={[
                   { value: 'multiple_choice', label: 'Multiple Choice' },
-                  { value: 'syllogism', label: 'Syllogism' },
+                  { value: 'drag_and_drop', label: 'Drag and Drop' },
                 ]}
                 value={
-                  isSyllogism
-                    ? { value: 'syllogism', label: 'Syllogism' }
+                  activeQuestion?.responseType === 'drag_and_drop'
+                    ? { value: 'drag_and_drop' as const, label: 'Drag and Drop' }
                     : { value: 'multiple_choice', label: 'Multiple Choice' }
                 }
                 onValueChange={(item) => {
                   if (!item) return
-                  const ok = applyStemTypeSwitch(form, item.value, sections, categories)
-                  if (!ok) return
-                  if (item.value === 'syllogism') {
-                    onQuestionIndexChange(0)
-                  }
+                  form.setValue(`questions.${safeQuestionIndex}.responseType`, item.value, { shouldDirty: true })
                 }}
                 getItemLabel={(i) => i.label}
                 getItemId={(i) => i.value}
               />
             </PropertyRow>
+            <PropertyRow label="Answer scheme">
+              <SearchableSelect<{ value: AnswerSchemeKind; label: string }>
+                items={[
+                  { value: 'single_choice', label: 'Single choice' },
+                  { value: 'situational_judgement_rating', label: 'SJT rating' },
+                  { value: 'decision_making_binary_placement', label: 'DM Yes/No placement' },
+                  { value: 'situational_judgement_most_least', label: 'SJT Most/Least' },
+                ]}
+                value={(() => {
+                  const value = activeQuestion?.answerScheme ?? 'single_choice'
+                  const labels: Record<AnswerSchemeKind, string> = {
+                    single_choice: 'Single choice',
+                    situational_judgement_rating: 'SJT rating',
+                    decision_making_binary_placement: 'DM Yes/No placement',
+                    situational_judgement_most_least: 'SJT Most/Least',
+                  }
+                  return { value, label: labels[value] }
+                })()}
+                onValueChange={(item) => {
+                  if (!item) return
+                  form.setValue(`questions.${safeQuestionIndex}.answerScheme`, item.value, { shouldDirty: true })
+                }}
+                getItemLabel={(item) => item.label}
+                getItemId={(item) => item.value}
+              />
+            </PropertyRow>
+            <div className="space-y-2 rounded-md border border-black/10 p-2 dark:border-white/10">
+              <p className="text-xs text-muted-foreground">
+                Suggested for this category: {suggestedContract.responseType === 'drag_and_drop' ? 'Drag and Drop' : 'Multiple Choice'} / {suggestedContract.answerScheme.replaceAll('_', ' ')}.
+              </p>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                className="w-full"
+                onClick={() => {
+                  const questions = form.getValues('questions').map((question) => (
+                    transformResponseContract(question, suggestedContract)
+                  ))
+                  form.setValue('questions', questions, { shouldDirty: true })
+                  onQuestionIndexChange(Math.min(safeQuestionIndex, questions.length - 1))
+                }}
+              >
+                Transform to suggested contract
+              </Button>
+              {contractIssues.length > 0 ? (
+                <div className="text-xs text-amber-700 dark:text-amber-300">
+                  {contractIssues[0]?.message}
+                  {contractIssues.length > 1 ? ` (+${contractIssues.length - 1} more)` : ''}
+                </div>
+              ) : (
+                <div className="text-xs text-emerald-700 dark:text-emerald-300">Response contract is compatible.</div>
+              )}
+            </div>
           </PropertiesCard>
 
           <PropertiesCard value="sets" title="Set membership">
@@ -869,6 +903,67 @@ export function UcatStemEditorPropertiesPanel({
                   <QuestionTagsSelect questionIndex={safeQuestionIndex} form={form} tags={tags} compact />
                 </div>
               </PropertyRow>
+              <div className="space-y-2 py-1.5">
+                <div className="text-sm text-muted-foreground">Answer key</div>
+                {(activeQuestion?.options ?? []).map((option, optionIndex) => {
+                  const scheme = activeQuestion?.answerScheme ?? 'single_choice'
+                  const items = scheme === 'decision_making_binary_placement'
+                    ? [
+                        { value: 'yes', label: 'Yes' },
+                        { value: 'no', label: 'No' },
+                      ]
+                    : scheme === 'situational_judgement_most_least'
+                      ? [
+                          { value: 'none', label: 'Not keyed' },
+                          { value: 'most', label: 'Most appropriate' },
+                          { value: 'least', label: 'Least appropriate' },
+                        ]
+                      : [
+                          { value: 'none', label: 'Not correct' },
+                          { value: 'correct', label: 'Correct' },
+                        ]
+                  const currentValue = option.answerKeyValue ?? (
+                    scheme === 'decision_making_binary_placement'
+                      ? option.isAnswer ? 'yes' : 'no'
+                      : option.isAnswer ? 'correct' : 'none'
+                  )
+                  return (
+                    <div key={option.id ?? optionIndex} className="flex items-center gap-2">
+                      <span className="w-6 text-xs font-medium text-muted-foreground">
+                        {String.fromCharCode(65 + optionIndex)}
+                      </span>
+                      <SearchableSelect<{ value: string; label: string }>
+                        items={items}
+                        value={items.find((item) => item.value === currentValue) ?? items[0]!}
+                        onValueChange={(item) => {
+                          if (!item) return
+                          const key = item.value === 'none'
+                            ? null
+                            : item.value as 'correct' | 'yes' | 'no' | 'most' | 'least'
+                          const currentOptions = form.getValues(`questions.${safeQuestionIndex}.options`)
+                          const exclusive = key === 'correct' || key === 'most' || key === 'least'
+                          const nextOptions = currentOptions.map((currentOption, currentIndex) => {
+                            const clearDuplicate = exclusive
+                              && currentIndex !== optionIndex
+                              && currentOption.answerKeyValue === key
+                            const answerKeyValue = currentIndex === optionIndex
+                              ? key
+                              : clearDuplicate ? null : currentOption.answerKeyValue
+                            return {
+                              ...currentOption,
+                              answerKeyValue,
+                              isAnswer: answerKeyValue === 'correct' || answerKeyValue === 'yes',
+                            }
+                          })
+                          form.setValue(`questions.${safeQuestionIndex}.options`, nextOptions, { shouldDirty: true })
+                        }}
+                        getItemLabel={(item) => item.label}
+                        getItemId={(item) => item.value}
+                      />
+                    </div>
+                  )
+                })}
+              </div>
               {focusTarget === 'explanation' ? (
                 <div className="rounded-md border border-amber-300 bg-amber-50 p-2 text-xs text-amber-950 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-100">
                   Add the missing explanation in the question editor on the left.

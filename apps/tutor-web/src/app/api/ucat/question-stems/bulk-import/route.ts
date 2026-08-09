@@ -16,6 +16,7 @@ const SerializedAnswerOptionSchema = z.object({
   answer_text: z.unknown(),
   answer_explanation: z.unknown().nullable().optional(),
   is_answer: z.boolean(),
+  answer_key_value: z.enum(['correct', 'yes', 'no', 'most', 'least']).nullable(),
 })
 
 const SerializedQuestionSchema = z.object({
@@ -27,6 +28,13 @@ const SerializedQuestionSchema = z.object({
   difficulty: z.number().min(0).max(1).nullable().optional(),
   time_burden_seconds: z.number().int().positive().nullable().optional(),
   question_type: z.enum(['multiple_choice', 'syllogism']),
+  response_type: z.enum(['multiple_choice', 'drag_and_drop']),
+  answer_scheme: z.enum([
+    'single_choice',
+    'situational_judgement_rating',
+    'decision_making_binary_placement',
+    'situational_judgement_most_least',
+  ]),
   source_channel: z.enum(['individual', 'bulk_import', 'ai_generation']).nullable().optional(),
   ai_generation_metadata: z.unknown().nullable().optional(),
   tag_ids: z.array(z.string().uuid()),
@@ -68,6 +76,8 @@ function readinessValues(stem: SerializedStem): UcatQuestionStemFormValues {
       id: question.id ?? crypto.randomUUID(),
       questionText: json(question.question_text),
       questionType: question.question_type,
+      responseType: question.response_type,
+      answerScheme: question.answer_scheme,
       answerExplanation: question.answer_explanation == null
         ? null
         : json(question.answer_explanation),
@@ -87,6 +97,7 @@ function readinessValues(stem: SerializedStem): UcatQuestionStemFormValues {
           ? null
           : json(option.answer_explanation),
         isAnswer: option.is_answer,
+        answerKeyValue: option.answer_key_value,
       })),
     })),
   }

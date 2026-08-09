@@ -38,6 +38,7 @@ export const ucatQuestionOptionSchema = z.object({
   answerText: jsonSchema,
   answerExplanation: jsonSchema.nullable().optional(),
   isAnswer: z.boolean(),
+  answerKeyValue: z.enum(['correct', 'yes', 'no', 'most', 'least']).nullable().optional(),
 })
 
 export const ucatQuestionItemSchema = z
@@ -45,6 +46,13 @@ export const ucatQuestionItemSchema = z
     id: z.string().uuid().optional(),
     questionText: nonEmptyRichTextSchema,
     questionType: z.enum(['multiple_choice', 'syllogism']),
+    responseType: z.enum(['multiple_choice', 'drag_and_drop']).optional(),
+    answerScheme: z.enum([
+      'single_choice',
+      'situational_judgement_rating',
+      'decision_making_binary_placement',
+      'situational_judgement_most_least',
+    ]).optional(),
     /** For syllogism: 'Y'/'N' per option, e.g. 'YYNNY'. Only used in bulk import UI; not persisted to API. */
     syllogismAnswerPattern: z.string().nullable().optional(),
     answerExplanation: jsonSchema.nullable().optional(),

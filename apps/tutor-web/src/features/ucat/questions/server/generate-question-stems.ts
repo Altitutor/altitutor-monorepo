@@ -1221,12 +1221,19 @@ async function toDraft(params: {
     difficulty: difficultyToNumber(question.estimatedDifficulty, question.difficultyTarget),
     timeBurdenSeconds: question.estimatedTimeBurdenSeconds ?? null,
     questionType: question.questionType === 'syllogism' ? 'syllogism' : 'multiple_choice',
+    responseType: question.responseType ?? (question.questionType === 'syllogism' ? 'drag_and_drop' : 'multiple_choice'),
+    answerScheme: question.answerScheme ?? (question.questionType === 'syllogism' ? 'decision_making_binary_placement' : 'single_choice'),
     tagIds: question.tagIds?.length ? question.tagIds : params.body.targetTagIds,
     options: await Promise.all(question.options.map(async (option, optionIndex) => ({
       index: optionIndex + 1,
       answerText: await generatedContentToProseMirrorServer(option.answerText),
       answerExplanation: option.answerExplanation ? await generatedContentToProseMirrorServer(option.answerExplanation) : null,
       isAnswer: !!option.isAnswer,
+      answerKeyValue: option.answerKeyValue ?? (
+        question.questionType === 'syllogism'
+          ? option.isAnswer ? 'yes' : 'no'
+          : option.isAnswer ? 'correct' : null
+      ),
     }))),
   })))
 

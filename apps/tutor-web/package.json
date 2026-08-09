@@ -35,6 +35,7 @@
     "@ai-sdk/react": "^4.0.10",
     "@altitutor/email": "workspace:*",
     "@altitutor/shared": "workspace:*",
+    "@altitutor/ucat-response-contract": "workspace:*",
     "@altitutor/ucat-percentiles": "workspace:*",
     "@altitutor/ui": "workspace:*",
     "@dnd-kit/core": "^6.3.1",

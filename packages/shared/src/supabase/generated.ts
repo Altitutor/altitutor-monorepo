@@ -31301,6 +31301,7 @@ export type Database = {
           access_scope: Database["public"]["Enums"]["ucat_access_scope"] | null
           ai_generation_metadata: Json | null
           answer_option_search_text: string | null
+          answer_schemes: string[] | null
           category_name: string | null
           created_at: string | null
           created_by: string | null
@@ -31316,6 +31317,7 @@ export type Database = {
           question_stem_category_id: string | null
           question_text_fingerprint: string | null
           question_types: string[] | null
+          response_types: string[] | null
           section_display_columns: number | null
           section_id: string | null
           section_name: string | null
@@ -35936,6 +35938,19 @@ export type Database = {
         Returns: string
       }
       tutor_ucat_upsert_question_stem_bundle: {
+        Args: {
+          p_access_scope: Database["public"]["Enums"]["ucat_access_scope"]
+          p_question_stem_category_id: string
+          p_questions: Json
+          p_section_id: string
+          p_source_channel?: Database["public"]["Enums"]["ucat_question_source_channel"]
+          p_stem_id: string
+          p_stem_text: Json
+          p_tutor_source_note?: string
+        }
+        Returns: string
+      }
+      tutor_ucat_upsert_question_stem_bundle_legacy: {
         Args: {
           p_access_scope: Database["public"]["Enums"]["ucat_access_scope"]
           p_question_stem_category_id: string

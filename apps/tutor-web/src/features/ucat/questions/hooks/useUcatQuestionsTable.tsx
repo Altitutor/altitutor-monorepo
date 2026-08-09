@@ -68,6 +68,8 @@ type QuestionListRowInput = {
   stem_text?: unknown
   tag_ids?: unknown
   question_types?: unknown
+  response_types?: unknown
+  answer_schemes?: unknown
   set_names?: unknown
   set_ids?: unknown
   deleted_at?: string | null

@@ -20,6 +20,7 @@ export type StemAnswerOptionDraft = {
   answer_explanation: Json | null
   index: number
   is_answer: boolean
+  answer_key_value: 'correct' | 'yes' | 'no' | 'most' | 'least' | null
 }
 
 export type StemQuestionDraft = {
@@ -30,6 +31,8 @@ export type StemQuestionDraft = {
   difficulty: number | null
   time_burden_seconds: number | null
   question_type: 'multiple_choice' | 'syllogism'
+  response_type: 'multiple_choice' | 'drag_and_drop'
+  answer_scheme: 'single_choice' | 'situational_judgement_rating' | 'decision_making_binary_placement' | 'situational_judgement_most_least'
   source_channel: 'individual' | 'bulk_import' | 'ai_generation'
   ai_generation_metadata: Json | null
   tag_ids: string[]
@@ -187,10 +190,13 @@ function optionFromInput(option: QuestionInput['options'][number]): StemAnswerOp
     answer_explanation: toRichTextJson(option.answerExplanation ?? null),
     index: 0,
     is_answer: option.isAnswer,
+    answer_key_value: option.answerKeyValue ?? (option.isAnswer ? 'correct' : null),
   }
 }
 
 export function questionFromInput(question: QuestionInput): StemQuestionDraft {
+  const responseType = question.responseType ?? (question.questionType === 'syllogism' ? 'drag_and_drop' : 'multiple_choice')
+  const answerScheme = question.answerScheme ?? (question.questionType === 'syllogism' ? 'decision_making_binary_placement' : 'single_choice')
   return {
     question_text: toRichTextJson(question.questionText) ?? {},
     answer_explanation: toRichTextJson(question.answerExplanation ?? null),
@@ -198,12 +204,21 @@ export function questionFromInput(question: QuestionInput): StemQuestionDraft {
     difficulty: question.difficulty ?? null,
     time_burden_seconds: question.timeBurdenSeconds ?? null,
     question_type: question.questionType,
+    response_type: responseType,
+    answer_scheme: answerScheme,
     source_channel: 'ai_generation',
     ai_generation_metadata: {
       source: 'codex_mcp',
     },
     tag_ids: [...question.tagIds],
-    answer_options: question.options.map(optionFromInput),
+    answer_options: question.options.map((option) => ({
+      ...optionFromInput(option),
+      answer_key_value: option.answerKeyValue ?? (
+        answerScheme === 'decision_making_binary_placement'
+          ? option.isAnswer ? 'yes' : 'no'
+          : option.isAnswer ? 'correct' : null
+      ),
+    })),
   }
 }
 
@@ -232,6 +247,12 @@ export function questionStemDraftFromDetail(detail: Record<string, unknown>): Qu
       difficulty: asNullableNumber(rawQuestion.difficulty),
       time_burden_seconds: asNullableNumber(rawQuestion.time_burden_seconds),
       question_type: rawQuestion.question_type === 'syllogism' ? 'syllogism' : 'multiple_choice',
+      response_type: rawQuestion.response_type === 'drag_and_drop' ? 'drag_and_drop' : 'multiple_choice',
+      answer_scheme: rawQuestion.answer_scheme === 'situational_judgement_rating'
+        || rawQuestion.answer_scheme === 'decision_making_binary_placement'
+        || rawQuestion.answer_scheme === 'situational_judgement_most_least'
+        ? rawQuestion.answer_scheme
+        : 'single_choice',
       source_channel: rawQuestion.source_channel === 'bulk_import'
         ? 'bulk_import'
         : rawQuestion.source_channel === 'ai_generation'
@@ -250,6 +271,13 @@ export function questionStemDraftFromDetail(detail: Record<string, unknown>): Qu
           answer_explanation: asJson(rawOption.answer_explanation, null),
           index: asNumber(rawOption.index, 1),
           is_answer: rawOption.is_answer === true,
+          answer_key_value: rawOption.answer_key_value === 'correct'
+            || rawOption.answer_key_value === 'yes'
+            || rawOption.answer_key_value === 'no'
+            || rawOption.answer_key_value === 'most'
+            || rawOption.answer_key_value === 'least'
+            ? rawOption.answer_key_value
+            : null,
         }
       }),
     }
@@ -311,6 +339,8 @@ export function applyQuestionStemOperations(
         question.question_text = toRichTextJson(changes.questionText) ?? {}
       }
       if (changes.questionType !== undefined) question.question_type = changes.questionType
+      if (changes.responseType !== undefined) question.response_type = changes.responseType
+      if (changes.answerScheme !== undefined) question.answer_scheme = changes.answerScheme
       if (changes.answerExplanation !== undefined) {
         question.answer_explanation = toRichTextJson(changes.answerExplanation)
       }
@@ -353,6 +383,11 @@ export function applyQuestionStemOperations(
     }
     if (operation.changes.isAnswer !== undefined) {
       option.is_answer = operation.changes.isAnswer
+    }
+    if (operation.changes.answerKeyValue !== undefined) {
+      option.answer_key_value = operation.changes.answerKeyValue
+      option.is_answer = operation.changes.answerKeyValue === 'correct'
+        || operation.changes.answerKeyValue === 'yes'
     }
   }
 

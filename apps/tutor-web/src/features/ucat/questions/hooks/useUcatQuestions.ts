@@ -170,6 +170,8 @@ export type UcatStemCatalogItem = {
   status: UcatContentStatus
   sourceChannel: 'individual' | 'bulk_import' | 'ai_generation' | null
   questionTypes: ('multiple_choice' | 'syllogism')[]
+  responseTypes?: ('multiple_choice' | 'drag_and_drop')[]
+  answerSchemes?: string[]
   tagIds: string[]
   createdAt: string | null
   questionSearchText: string
@@ -204,6 +206,8 @@ export function useUcatQuestionCatalog(enabled: boolean) {
               id?: string
               deleted_at?: string | null
               question_type?: string | null
+              response_type?: string | null
+              answer_scheme?: string | null
               index?: number | null
             }>)
           : []
@@ -238,6 +242,8 @@ export function useUcatStemCatalog(enabled: boolean, options?: { publishedOnly?:
           ? (row.questions as Array<{
               deleted_at?: string | null
               question_type?: string | null
+              response_type?: string | null
+              answer_scheme?: string | null
               question_text?: Json | null
               tags?: Array<{ id?: string | null }> | null
             }>).filter((q) => !q.deleted_at)
@@ -272,6 +278,14 @@ export function useUcatStemCatalog(enabled: boolean, options?: { publishedOnly?:
             )
           )
         ) as ('multiple_choice' | 'syllogism')[]
+        const responseTypes = Array.from(new Set(activeQuestions.flatMap((question) => (
+          question.response_type === 'multiple_choice' || question.response_type === 'drag_and_drop'
+            ? [question.response_type]
+            : []
+        )))) as ('multiple_choice' | 'drag_and_drop')[]
+        const answerSchemes = Array.from(new Set(activeQuestions.flatMap((question) => (
+          typeof question.answer_scheme === 'string' ? [question.answer_scheme] : []
+        ))))
         const setIds = parseStemCatalogSetIds((row as { set_ids?: unknown }).set_ids)
         const setNames = parseStemCatalogSetNames((row as { set_names?: unknown }).set_names)
 
@@ -288,6 +302,8 @@ export function useUcatStemCatalog(enabled: boolean, options?: { publishedOnly?:
           status: row.status,
           sourceChannel: row.source_channel,
           questionTypes,
+          responseTypes,
+          answerSchemes,
           tagIds: Array.from(tagIds),
           createdAt: row.created_at ?? null,
           questionSearchText: questionTexts.join(' '),

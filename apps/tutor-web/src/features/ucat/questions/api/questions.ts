@@ -123,12 +123,15 @@ export type UcatGeneratedDraftStem = {
     difficulty: number | null;
     timeBurdenSeconds: number | null;
     questionType: "multiple_choice" | "syllogism";
+    responseType: "multiple_choice" | "drag_and_drop";
+    answerScheme: "single_choice" | "situational_judgement_rating" | "decision_making_binary_placement" | "situational_judgement_most_least";
     tagIds: string[];
     options: Array<{
       index: number;
       answerText: Json;
       answerExplanation: Json | null;
       isAnswer: boolean;
+      answerKeyValue: "correct" | "yes" | "no" | "most" | "least" | null;
     }>;
   }>;
   aiGenerationMetadata: Json | null;
@@ -162,6 +165,8 @@ export type UcatQuestionSourceChannel =
 export type UcatQuestionCatalogRow = UcatQuestionStemRow & {
   tag_ids: string[];
   question_types: string[];
+  response_types: string[];
+  answer_schemes: string[];
   set_ids: Json;
   set_names: Json;
   question_count: number;
@@ -189,6 +194,8 @@ type StemDetailQuestion = {
   difficulty: number | null;
   time_burden_seconds: number | null;
   question_type: "multiple_choice" | "syllogism";
+  response_type: "multiple_choice" | "drag_and_drop";
+  answer_scheme: "single_choice" | "situational_judgement_rating" | "decision_making_binary_placement" | "situational_judgement_most_least";
   source_channel?: UcatQuestionSourceChannel | null;
   ai_generation_metadata?: Json | null;
   tags?: Array<{ id: string; name: string }>;
@@ -198,6 +205,7 @@ type StemDetailQuestion = {
     answer_explanation: Json | null;
     index: number;
     is_answer: boolean;
+    answer_key_value: "correct" | "yes" | "no" | "most" | "least" | null;
     option_text_file_ids?: string[];
     option_explanation_file_ids?: string[];
   }>;
@@ -1073,6 +1081,8 @@ function stemDetailToBundlePayload(
       id: q.id,
       questionText: q.question_text ?? {},
       questionType: q.question_type ?? "multiple_choice",
+      responseType: q.response_type,
+      answerScheme: q.answer_scheme,
       answerExplanation: toJsonOrNull(q.answer_explanation),
       difficulty: q.difficulty ?? null,
       timeBurdenSeconds: q.time_burden_seconds ?? null,
@@ -1085,6 +1095,7 @@ function stemDetailToBundlePayload(
         answerText: opt.answer_text ?? {},
         answerExplanation: toJsonOrNull(opt.answer_explanation),
         isAnswer: opt.is_answer,
+        answerKeyValue: opt.answer_key_value,
       })),
     })),
   };
@@ -1110,6 +1121,8 @@ function serializePayload(
       difficulty: question.difficulty ?? null,
       time_burden_seconds: question.timeBurdenSeconds ?? null,
       question_type: question.questionType,
+      response_type: question.responseType,
+      answer_scheme: question.answerScheme,
       source_channel: question.sourceChannel ?? payload.sourceChannel ?? null,
       ai_generation_metadata: question.aiGenerationMetadata ?? null,
       tag_ids: question.tagIds,
@@ -1119,6 +1132,7 @@ function serializePayload(
         answer_text: option.answerText,
         answer_explanation: toJsonOrNull(option.answerExplanation),
         is_answer: option.isAnswer,
+        answer_key_value: option.answerKeyValue,
       })),
     })),
   };

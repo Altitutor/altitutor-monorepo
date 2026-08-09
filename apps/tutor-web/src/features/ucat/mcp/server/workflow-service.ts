@@ -658,6 +658,8 @@ export async function acceptUcatMcpAssessmentSuggestion(
       difficulty: question.difficulty ?? null,
       time_burden_seconds: question.timeBurdenSeconds ?? null,
       question_type: question.questionType,
+      response_type: question.responseType,
+      answer_scheme: question.answerScheme,
       source_channel: question.sourceChannel ?? 'individual',
       ai_generation_metadata: question.aiGenerationMetadata ?? null,
       tag_ids: question.tagIds,
@@ -667,6 +669,7 @@ export async function acceptUcatMcpAssessmentSuggestion(
         answer_explanation: option.answerExplanation ?? null,
         index: option.index,
         is_answer: option.isAnswer,
+        answer_key_value: option.answerKeyValue,
       })),
     })),
   }

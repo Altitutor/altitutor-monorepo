@@ -45,10 +45,8 @@ export function UcatStemEngineInlineEditor({
   onTextEditorActive,
   explanationFeedback,
 }: UcatStemEngineInlineEditorProps) {
-  const stemType = (form.watch('questions.0.questionType') ?? 'multiple_choice') as
-    | 'multiple_choice'
-    | 'syllogism'
-  const isSyllogism = stemType === 'syllogism'
+  const answerScheme = form.watch(`questions.${questionIndex}.answerScheme`) ?? 'single_choice'
+  const isBinaryPlacement = answerScheme === 'decision_making_binary_placement'
   const isTwoColumn = sectionDisplayColumns === 2
 
   const stemText = form.watch('stemText') as Json
@@ -56,12 +54,12 @@ export function UcatStemEngineInlineEditor({
   const options = useMemo(() => question?.options ?? [], [question?.options])
 
   const correctOptionIndex = useMemo(() => {
-    const idx = options.findIndex((opt) => opt.isAnswer)
+    const idx = options.findIndex((opt) => opt.answerKeyValue === 'correct' || opt.isAnswer)
     return idx >= 0 ? idx : 0
   }, [options])
 
   const syllogismPattern = useMemo(
-    () => options.map((opt) => (opt.isAnswer ? 'Y' : 'N')).join(''),
+    () => options.map((opt) => (opt.answerKeyValue === 'yes' || opt.isAnswer ? 'Y' : 'N')).join(''),
     [options]
   )
 
@@ -91,7 +89,11 @@ export function UcatStemEngineInlineEditor({
     const current = form.getValues(`questions.${questionIndex}.options`) ?? []
     form.setValue(
       `questions.${questionIndex}.options`,
-      current.map((opt, i) => ({ ...opt, isAnswer: i === index })),
+      current.map((opt, i) => ({
+        ...opt,
+        isAnswer: i === index,
+        answerKeyValue: i === index ? 'correct' : null,
+      })),
       { shouldDirty: true }
     )
   }
@@ -103,6 +105,7 @@ export function UcatStemEngineInlineEditor({
       current.map((opt, i) => ({
         ...opt,
         isAnswer: pattern.charAt(i).toUpperCase() === 'Y',
+        answerKeyValue: pattern.charAt(i).toUpperCase() === 'Y' ? 'yes' : 'no',
       })),
       { shouldDirty: true }
     )
@@ -159,7 +162,7 @@ export function UcatStemEngineInlineEditor({
     />
   )
 
-  const body = isSyllogism ? syllogismBlock : mcBlock
+  const body = isBinaryPlacement ? syllogismBlock : mcBlock
 
   if (isTwoColumn) {
     return (
@@ -189,7 +192,7 @@ export function UcatStemEngineInlineEditor({
           className="flex-[2] h-full min-w-0 overscroll-contain overflow-y-auto py-4 pl-2 pr-1 sm:py-5"
           data-ucat-preview-scroll-target="true"
         >
-          {isSyllogism ? (
+          {isBinaryPlacement ? (
             <ResultsSyllogismQuestionBlock
               includeStem={false}
               stemText={stemText}
