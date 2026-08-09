@@ -18,7 +18,10 @@ import {
 import { RichContentBlock } from "./rich-content-block";
 import type { CachedContent } from "@/features/question-engine/hooks/use-refreshed-content-cache";
 import { cn } from "@/lib/utils";
-import type { PlacementValue } from "@altitutor/ucat-response-contract";
+import {
+  applyPlacementTransition,
+  type PlacementValue,
+} from "@altitutor/ucat-response-contract";
 import { placementPresentationForQuestion } from "@/features/question-engine/lib/response-state";
 
 export function hasAnswerExplanation(item: {
@@ -175,7 +178,7 @@ type QuestionContentProps = {
   onSyllogismClickAttempt?: () => void;
 };
 
-function SyllogismQuestionContent({
+function PlacementQuestionContent({
   question,
   readOnly = false,
   placementSnapshot,
@@ -228,21 +231,15 @@ function SyllogismQuestionContent({
     optionId: string,
     choice: PlacementValue,
     sourceOptionId: string | null,
-  ): Record<string, PlacementChoice> => {
-    const next = { ...previous };
-    if (sourceOptionId && sourceOptionId !== optionId) {
-      delete next[sourceOptionId];
-    }
-    if (presentation.reuse === "once_each") {
-      for (const [assignedOptionId, assignedChoice] of Object.entries(next)) {
-        if (assignedChoice === choice && assignedOptionId !== optionId) {
-          delete next[assignedOptionId];
-        }
-      }
-    }
-    next[optionId] = choice;
-    return next;
-  }, [presentation.reuse]);
+  ): Record<string, PlacementValue> => ({
+    ...applyPlacementTransition({
+      presentation,
+      placements: previous,
+      targetId: optionId,
+      token: choice,
+      sourceId: sourceOptionId,
+    }),
+  }), [presentation]);
 
   const handleAssign = (optionId: string, choice: PlacementValue) => {
     if (readOnly || lockedOptionIds.has(optionId)) return;
@@ -605,7 +602,7 @@ export function QuestionContent({
     question.questionType === "syllogism"
   ) {
     return (
-      <SyllogismQuestionContent
+      <PlacementQuestionContent
         question={question}
         readOnly={readOnly}
         selectedOptionId={selectedOptionId}

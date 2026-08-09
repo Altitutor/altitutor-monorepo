@@ -3,6 +3,7 @@ import {
   compileResponseContract,
   evaluateResponse,
   getAnswerSchemeMaximum,
+  getAnswerSchemePresentation,
   type AnswerScheme,
   type CandidateResponse,
   type ReviewContract,
@@ -184,7 +185,7 @@ export function resultForAttempt(
 export function projectAttemptReview(params: {
   question: AttemptReviewQuestion
   selectedOptionId?: string | null
-  binaryPlacements?: Record<string, boolean> | null
+  legacyPlacementSnapshot?: Record<string, boolean> | null
 }): ReviewContract {
   const { question } = params
   const kind = question.answerScheme ?? 'single_choice'
@@ -241,11 +242,27 @@ export function projectAttemptReview(params: {
         }
       : {
           kind: 'placement',
-          placements: Object.fromEntries(
-            Object.entries(params.binaryPlacements ?? {}).map(
-              ([optionId, value]) => [optionId, value ? 'yes' : 'no']
+          placements: (() => {
+            const presentation = getAnswerSchemePresentation(
+              kind,
+              compiled.contract.orderedOptionIds,
             )
-          ),
+            if (presentation.kind !== 'placement') {
+              throw new Error('The attempt does not use a placement response.')
+            }
+            const [positive, negative] = presentation.tokens
+            if (!positive || !negative) {
+              throw new Error('Placement responses require two presentation tokens.')
+            }
+            return Object.fromEntries(
+              Object.entries(params.legacyPlacementSnapshot ?? {}).map(
+                ([optionId, value]) => [
+                  optionId,
+                  value ? positive.value : negative.value,
+                ]
+              )
+            )
+          })(),
         }
   const evaluation = evaluateResponse(compiled.contract, response)
   if (!evaluation.ok) {

@@ -13,6 +13,7 @@ import { UcatRichContentBlock } from '@/features/ucat/question-engine-preview/Uc
 import { hasRichTextContent } from '@/features/ucat/shared/lib/rich-text'
 import type { Json } from '@altitutor/shared'
 import {
+  applyPlacementTransition,
   getAnswerSchemePresentation,
   type PlacementValue,
 } from '@altitutor/ucat-response-contract'
@@ -65,8 +66,8 @@ type PreviewShellProps = {
   interactive?: boolean
   /** Student answer shown during read-only attempt review. */
   selectedOptionId?: string | null
-  /** Student Yes/No answers shown during read-only syllogism review. */
-  syllogismSnapshot?: Record<string, boolean> | null
+  /** Canonical student placements shown during read-only review. */
+  placementSnapshot?: Record<string, PlacementValue> | null
 }
 
 function wrapInteractive(children: ReactNode, interactive: boolean) {
@@ -131,20 +132,20 @@ function QuestionPromptBlock({
   )
 }
 
-function SyllogismPreviewBody({
+function PlacementPreviewBody({
   question,
   preloadedContent,
   showAnswerExplanations,
   showAnswerResults,
   interactive = true,
-  syllogismSnapshot,
+  placementSnapshot,
 }: {
   question: UcatEnginePreviewQuestion
   preloadedContent?: { stem?: Record<string, unknown> | null; question?: Record<string, unknown> | null } | null
   showAnswerExplanations?: boolean
   showAnswerResults?: boolean
   interactive?: boolean
-  syllogismSnapshot?: Record<string, boolean> | null
+  placementSnapshot?: Record<string, PlacementValue> | null
 }) {
   const isTwoColumn = question.sectionDisplayColumns === 2
   const answerScheme = question.answerScheme ?? 'decision_making_binary_placement'
@@ -175,15 +176,15 @@ function SyllogismPreviewBody({
     choice: PlacementValue,
     fromOptionId: string | null,
   ) => {
-    const next = { ...previous }
-    if (fromOptionId && fromOptionId !== optionId) delete next[fromOptionId]
-    if (presentation.reuse === 'once_each') {
-      for (const [assignedOptionId, assignedChoice] of Object.entries(next)) {
-        if (assignedChoice === choice && assignedOptionId !== optionId) delete next[assignedOptionId]
-      }
+    return {
+      ...applyPlacementTransition({
+        presentation,
+        placements: previous,
+        targetId: optionId,
+        token: choice,
+        sourceId: fromOptionId,
+      }),
     }
-    next[optionId] = choice
-    return next
   }
 
   const handleAssign = (optionId: string, choice: PlacementValue) => {
@@ -275,12 +276,10 @@ function SyllogismPreviewBody({
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start">
         <div className="flex-1 space-y-3">
           {question.options.map((option) => {
-            const savedAnswer = syllogismSnapshot?.[option.id]
+            const savedAnswer = placementSnapshot?.[option.id]
             const choice =
               !interactive && savedAnswer != null
                 ? savedAnswer
-                  ? positiveToken.value
-                  : negativeToken.value
                 : (answers[option.id] ?? null)
             const correctChoice = option.answerKeyValue === positiveToken.value
               || option.answerKeyValue === negativeToken.value
@@ -636,7 +635,7 @@ export function UcatQuestionEnginePreview({
   showAnswerResults = false,
   interactive = true,
   selectedOptionId,
-  syllogismSnapshot,
+  placementSnapshot,
 }: PreviewShellProps) {
   const preloaded =
     preloadedStem != null || preloadedQuestion != null
@@ -649,13 +648,13 @@ export function UcatQuestionEnginePreview({
     || (!question.answerScheme && question.questionType === 'syllogism')
   ) {
     return wrapInteractive(
-      <SyllogismPreviewBody
+      <PlacementPreviewBody
         question={question}
         preloadedContent={preloaded}
         showAnswerExplanations={showAnswerExplanations}
         showAnswerResults={showAnswerResults}
         interactive={interactive}
-        syllogismSnapshot={syllogismSnapshot}
+        placementSnapshot={placementSnapshot}
       />,
       interactive
     )

@@ -1,10 +1,12 @@
 import {
+  applyPlacementTransition,
   compileResponseContract,
   createResponseState,
   evaluateResponse,
   getAnswerSchemeMaximum,
   getAnswerSchemeProgressPoints,
   getAnswerSchemeContract,
+  getAnswerSchemePresentation,
 } from '../index'
 
 describe('UCAT response contract', () => {
@@ -23,6 +25,24 @@ describe('UCAT response contract', () => {
     expect(getAnswerSchemeProgressPoints('single_choice')).toBe(1)
     expect(getAnswerSchemeProgressPoints('decision_making_binary_placement')).toBe(2)
     expect(getAnswerSchemeProgressPoints('situational_judgement_most_least')).toBe(1)
+  })
+
+  it('owns once-only placement transitions for every UI surface', () => {
+    const presentation = getAnswerSchemePresentation(
+      'situational_judgement_most_least',
+      ['a', 'b', 'c']
+    )
+    if (presentation.kind !== 'placement') {
+      throw new Error('Expected a placement presentation')
+    }
+
+    expect(applyPlacementTransition({
+      presentation,
+      placements: { a: 'most', c: 'least' },
+      targetId: 'b',
+      token: 'most',
+      sourceId: null,
+    })).toEqual({ b: 'most', c: 'least' })
   })
 
   it('supports a complete single-choice response through one public contract', () => {

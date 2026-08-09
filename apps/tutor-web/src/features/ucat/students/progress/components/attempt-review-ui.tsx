@@ -439,7 +439,7 @@ export function AttemptQuestionReview({
           <AttemptQuestionViewer
             question={question}
             selectedOptionId={attempt.questionAnswerOptionId}
-            syllogismSnapshot={attempt.answerSnapshot}
+            legacyPlacementSnapshot={attempt.answerSnapshot}
             result={attempt.result}
           />
         </CardContent>

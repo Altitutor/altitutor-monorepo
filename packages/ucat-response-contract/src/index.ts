@@ -909,3 +909,31 @@ export function getAnswerSchemePresentation(
 ): PresentationContract {
   return schemeImplementations[kind].presentation(orderedOptionIds)
 }
+
+export function applyPlacementTransition(params: {
+  presentation: Extract<PresentationContract, { kind: 'placement' }>
+  placements: Readonly<Record<string, PlacementValue>>
+  targetId: string
+  token: PlacementValue
+  sourceId?: string | null
+}): Readonly<Record<string, PlacementValue>> {
+  if (!params.presentation.targetIds.includes(params.targetId)) {
+    throw new Error('The placement target is not part of this response.')
+  }
+  if (!params.presentation.tokens.some((token) => token.value === params.token)) {
+    throw new Error('The placement token is not part of this response.')
+  }
+  const next = { ...params.placements }
+  if (params.sourceId && params.sourceId !== params.targetId) {
+    delete next[params.sourceId]
+  }
+  if (params.presentation.reuse === 'once_each') {
+    for (const [targetId, token] of Object.entries(next)) {
+      if (token === params.token && targetId !== params.targetId) {
+        delete next[targetId]
+      }
+    }
+  }
+  next[params.targetId] = params.token
+  return next
+}

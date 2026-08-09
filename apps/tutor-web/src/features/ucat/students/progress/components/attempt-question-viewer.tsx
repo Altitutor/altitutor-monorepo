@@ -6,12 +6,15 @@ import {
   projectAttemptReview,
   type AttemptReviewQuestion,
 } from '../lib/attempt-content-snapshot'
-import type { ReviewContract } from '@altitutor/ucat-response-contract'
+import {
+  getAnswerSchemePresentation,
+  type ReviewContract,
+} from '@altitutor/ucat-response-contract'
 
 type AttemptQuestionViewerProps = {
   question: AttemptReviewQuestion
   selectedOptionId?: string | null
-  syllogismSnapshot?: Record<string, boolean> | null
+  legacyPlacementSnapshot?: Record<string, boolean> | null
   result?: 'correct' | 'partial' | 'incorrect' | 'not_attempted'
   review?: ReviewContract
 }
@@ -33,11 +36,21 @@ function OptionContent({
   )
 }
 
-function SyllogismResults({
+function PlacementResults({
   question,
   review,
 }: AttemptQuestionViewerProps) {
   const options = [...question.options].sort((a, b) => a.index - b.index)
+  const presentation = getAnswerSchemePresentation(
+    question.answerScheme ?? 'decision_making_binary_placement',
+    options.map((option) => option.id),
+  )
+  if (presentation.kind !== 'placement') {
+    throw new Error('The attempt does not use a placement response.')
+  }
+  const tokenLabel = new Map(
+    presentation.tokens.map((token) => [token.value, token.label]),
+  )
 
   return (
     <div className="space-y-4 py-4 sm:py-5">
@@ -69,17 +82,16 @@ function SyllogismResults({
                 review?.kind === 'placement'
                   ? review.rows.find((candidate) => candidate.targetId === option.id)
                   : undefined
-              const hasAnswer = row?.placedToken != null
-              const studentAnswer = row?.placedToken === 'yes'
-              const correctAnswer = row?.correctToken === 'yes'
-              const isCorrect = row?.outcome === 'correct'
+              const studentAnswer = row?.placedToken ?? null
+              const correctAnswer = row?.correctToken ?? null
+              const isCorrect = studentAnswer === correctAnswer
 
               return (
                 <div
                   key={option.id}
                   className={cn(
                     'grid grid-cols-[minmax(0,3fr)_minmax(0,1.4fr)_minmax(0,1.4fr)] items-stretch gap-x-1 rounded px-3 py-0.5',
-                    hasAnswer &&
+                    review?.kind === 'placement' &&
                       (isCorrect ? 'bg-green-500/10' : 'bg-red-500/10')
                   )}
                 >
@@ -87,7 +99,7 @@ function SyllogismResults({
                     <div
                       className={cn(
                         'flex min-h-[50px] w-full items-center justify-center rounded-md border px-4 text-center text-sm',
-                        hasAnswer
+                        review?.kind === 'placement'
                           ? isCorrect
                             ? 'border-green-600/50 bg-green-500/10 dark:border-green-700/50'
                             : 'border-red-600/50 bg-red-500/10 dark:border-red-700/50'
@@ -101,7 +113,7 @@ function SyllogismResults({
                     <div
                       className={cn(
                         'flex h-9 w-20 items-center justify-center rounded-md border text-sm font-medium',
-                        !hasAnswer
+                        studentAnswer == null
                           ? 'border-dashed border-muted-foreground/50 text-muted-foreground'
                           : isCorrect
                             ? 'border-green-700 bg-green-50 text-green-800 dark:bg-green-950/40 dark:text-green-300'
@@ -110,14 +122,14 @@ function SyllogismResults({
                     >
                       {studentAnswer == null
                         ? '—'
-                        : studentAnswer
-                          ? 'Yes'
-                          : 'No'}
+                        : (tokenLabel.get(studentAnswer) ?? studentAnswer)}
                     </div>
                   </div>
                   <div className="flex items-center justify-center">
                     <div className="flex h-9 w-20 items-center justify-center rounded-md border border-border bg-card text-sm font-medium">
-                      {correctAnswer ? 'Yes' : 'No'}
+                      {correctAnswer == null
+                        ? 'Not placed'
+                        : (tokenLabel.get(correctAnswer) ?? correctAnswer)}
                     </div>
                   </div>
                 </div>
@@ -234,10 +246,11 @@ export function AttemptQuestionViewer(props: AttemptQuestionViewerProps) {
   const review = projectAttemptReview({
     question: props.question,
     selectedOptionId: props.selectedOptionId,
-    binaryPlacements: props.syllogismSnapshot,
+    legacyPlacementSnapshot: props.legacyPlacementSnapshot,
   })
-  return props.question.answerScheme === 'decision_making_binary_placement' ? (
-    <SyllogismResults {...props} review={review} />
+  return props.question.answerScheme === 'decision_making_binary_placement'
+    || props.question.answerScheme === 'situational_judgement_most_least' ? (
+    <PlacementResults {...props} review={review} />
   ) : (
     <MultipleChoiceResults {...props} review={review} />
   )

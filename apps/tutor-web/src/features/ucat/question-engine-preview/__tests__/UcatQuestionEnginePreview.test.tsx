@@ -54,7 +54,7 @@ describe('UcatQuestionEnginePreview', () => {
       <UcatQuestionEnginePreview
         interactive={false}
         showAnswerResults
-        syllogismSnapshot={{ b: true }}
+        placementSnapshot={{ b: 'most' }}
         question={{
           id: 'most-least-review',
           sectionDisplayColumns: 1,

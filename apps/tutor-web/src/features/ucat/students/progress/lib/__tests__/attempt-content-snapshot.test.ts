@@ -3,6 +3,7 @@ import {
   projectAttemptReview,
   resultForAttempt,
   snapshotToReviewQuestion,
+  type AttemptReviewQuestion,
 } from '../attempt-content-snapshot'
 
 describe('legacy tutor attempt snapshots', () => {
@@ -36,7 +37,7 @@ describe('legacy tutor attempt snapshots', () => {
 
     const review = projectAttemptReview({
       question: snapshotToReviewQuestion(snapshot, 1, 'set-1'),
-      binaryPlacements: {
+      legacyPlacementSnapshot: {
         'option-1': true,
         'option-2': true,
         'option-3': true,
@@ -51,5 +52,37 @@ describe('legacy tutor attempt snapshots', () => {
     })
     if (review.kind !== 'placement') throw new Error('Expected placement review')
     expect(review.rows).toHaveLength(5)
+  })
+
+  it('projects Most/Least placements with their canonical tokens', () => {
+    const question: AttemptReviewQuestion = {
+      id: 'most-least',
+      stemId: 'stem-most-least',
+      questionSetId: 'set-most-least',
+      sectionDisplayColumns: 1,
+      stemText: 'Scenario',
+      questionText: 'Choose Most and Least.',
+      questionType: 'multiple_choice',
+      responseType: 'drag_and_drop',
+      answerScheme: 'situational_judgement_most_least',
+      options: [
+        { id: 'a', index: 0, text: 'Action A', answerKeyValue: 'most' },
+        { id: 'b', index: 1, text: 'Action B', answerKeyValue: null },
+        { id: 'c', index: 2, text: 'Action C', answerKeyValue: 'least' },
+      ],
+    }
+
+    expect(projectAttemptReview({
+      question,
+      legacyPlacementSnapshot: { a: true, c: false },
+    })).toMatchObject({
+      kind: 'placement',
+      outcome: 'correct',
+      rows: [
+        { targetId: 'a', placedToken: 'most', correctToken: 'most' },
+        { targetId: 'b', placedToken: null, correctToken: null },
+        { targetId: 'c', placedToken: 'least', correctToken: 'least' },
+      ],
+    })
   })
 })
