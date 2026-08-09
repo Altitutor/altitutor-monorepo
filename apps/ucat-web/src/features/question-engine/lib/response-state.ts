@@ -4,6 +4,7 @@ import {
   evaluateResponse,
   type AnswerScheme,
   type CandidateResponse,
+  type EvaluationResult,
   type ResponseDefinition,
   type ResponseSnapshotV1,
 } from "@altitutor/ucat-response-contract";
@@ -29,7 +30,9 @@ export function isBinaryPlacementResponse(question: {
   );
 }
 
-function definitionForQuestion(question: QuestionItem): ResponseDefinition {
+export function responseDefinitionForQuestion(
+  question: QuestionItem,
+): ResponseDefinition {
   const kind = question.answerScheme ?? legacyAnswerScheme(question);
   const correctOptionId =
     question.options.find((option) => option.answerKeyValue === "correct")?.id ??
@@ -91,11 +94,49 @@ function definitionForQuestion(question: QuestionItem): ResponseDefinition {
 }
 
 function contractForQuestion(question: QuestionItem) {
-  const result = compileResponseContract(definitionForQuestion(question));
+  const result = compileResponseContract(responseDefinitionForQuestion(question));
   if (!result.ok) {
     throw new Error(result.issues.map((issue) => issue.message).join(" "));
   }
   return result.contract;
+}
+
+export function evaluatePersistedQuestionResponse(
+  question: QuestionItem,
+  storedAnswer: unknown,
+  legacySelectedOptionId?: string | null,
+): Extract<EvaluationResult, { ok: true }> {
+  const contract = contractForQuestion(question);
+  const restored = createResponseState(
+    contract,
+    storedAnswer ??
+      snapshotQuestionResponse(
+        question,
+        legacySelectedOptionId ?? undefined,
+        undefined,
+      ),
+  );
+  if (!restored.ok) {
+    throw new Error(restored.issues.map((issue) => issue.message).join(" "));
+  }
+  const evaluation = evaluateResponse(contract, restored.state);
+  if (!evaluation.ok) {
+    throw new Error(evaluation.issues.map((issue) => issue.message).join(" "));
+  }
+  return evaluation;
+}
+
+export function getQuestionMaximumMarks(question: QuestionItem): number {
+  const contract = contractForQuestion(question);
+  const blank =
+    contract.presentation.kind === "single_select"
+      ? ({ kind: "single_select", selectedOptionId: null } as const)
+      : ({ kind: "placement", placements: {} } as const);
+  const evaluation = evaluateResponse(contract, blank);
+  if (!evaluation.ok) {
+    throw new Error(evaluation.issues.map((issue) => issue.message).join(" "));
+  }
+  return evaluation.score.maximum;
 }
 
 function candidateResponse(

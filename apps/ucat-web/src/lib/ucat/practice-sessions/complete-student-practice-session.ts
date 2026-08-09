@@ -1,6 +1,5 @@
 import type { Json } from "@altitutor/shared";
-import { computeMaxRawScore, computeRawScore } from "@altitutor/ucat-marking";
-import type { QuestionMeta } from "@altitutor/ucat-marking";
+import { computeRawScore, type ScoringQuestion } from "@altitutor/ucat-marking";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import {
   mapQuestionStemsToItems,
@@ -11,7 +10,9 @@ import type { FinalQuestionAttemptInput } from "@/lib/ucat/set-attempts/complete
 import { persistQuestionAttemptBatch } from "@/lib/ucat/question-attempts/persist-question-attempt-batch";
 import {
   isBinaryPlacementResponse,
+  responseDefinitionForQuestion,
   restorePersistedQuestionResponse,
+  snapshotQuestionResponse,
 } from "@/features/question-engine/lib/response-state";
 
 type AdminClient = SupabaseClient;
@@ -46,17 +47,10 @@ function parsePracticeQuestions(stemsSnapshot: Json | null): QuestionItem[] {
   }
 }
 
-function questionMeta(questions: QuestionItem[]): QuestionMeta[] {
+function scoringQuestions(questions: QuestionItem[]): ScoringQuestion[] {
   return questions.map((question) => ({
-    id: question.id,
-    stemId: question.stemId,
+    definition: responseDefinitionForQuestion(question),
     sectionName: question.sectionName,
-    questionType: question.questionType,
-    correctOptionId: question.correctOptionId ?? "",
-    options: question.options.map((option) => ({
-      id: option.id,
-      index: option.index,
-    })),
   }));
 }
 
@@ -68,58 +62,32 @@ export function scorePracticeAnswers(
   totalRawScore: number;
   maxRawScore: number;
 } {
-  const meta = questionMeta(questions);
-  const nonSyllogismMeta = meta.filter(
-    (_, index) => !isBinaryPlacementResponse(questions[index]),
-  );
-  const nonSyllogismAttempts = nonSyllogismMeta.flatMap((question) => {
-    const item = questions.find((candidate) => candidate.id === question.id)!;
-    const answer = answersByQuestionId.get(question.id);
-    const selectedOptionId = restorePersistedQuestionResponse(
+  const scoring = scoringQuestions(questions);
+  const responses = new Map(questions.map((item) => {
+    const answer = answersByQuestionId.get(item.id);
+    const restored = restorePersistedQuestionResponse(
       item,
       answer?.answerSnapshot,
       answer?.questionAnswerOptionId,
-    ).selectedOptionId;
-    return selectedOptionId
-      ? [{ questionId: question.id, selectedOptionId }]
-      : [];
-  });
-  const scored = computeRawScore({
-    attempts: nonSyllogismAttempts,
-    questions: nonSyllogismMeta,
-  });
-  const questionScores = new Map(scored.questionScores);
-
-  // A practice syllogism is represented by one question with several
-  // true/false judgements, so score it against every option exactly as the UI
-  // does rather than reducing it to one selected option.
-  for (const question of questions) {
-    if (!isBinaryPlacementResponse(question)) continue;
-    const answer = answersByQuestionId.get(question.id);
-    const snapshot = restorePersistedQuestionResponse(
-      question,
-      answer?.answerSnapshot,
-      answer?.questionAnswerOptionId,
-    ).syllogismSnapshot;
-    let correctCount = 0;
-    for (const option of question.options) {
-      if (snapshot?.[option.id] === (option.isAnswer === true)) {
-        correctCount += 1;
-      }
-    }
-    questionScores.set(
-      question.id,
-      correctCount >= 5 ? 2 : correctCount >= 3 ? 1 : 0,
     );
-  }
+    return [
+      item.id,
+      snapshotQuestionResponse(
+        item,
+        restored.selectedOptionId ?? undefined,
+        restored.syllogismSnapshot ?? undefined,
+      ).response,
+    ] as const;
+  }));
+  const scored = computeRawScore({
+    responses,
+    questions: scoring,
+  });
 
   return {
-    questionScores,
-    totalRawScore: [...questionScores.values()].reduce(
-      (total, score) => total + score,
-      0,
-    ),
-    maxRawScore: computeMaxRawScore(meta),
+    questionScores: scored.questionScores,
+    totalRawScore: scored.totalRawScore,
+    maxRawScore: scored.maximumRawScore,
   };
 }
 
@@ -181,7 +149,7 @@ export async function completeStudentPracticeSession(
     return {
       questionId: question.id,
       questionAnswerOptionId:
-        question.questionType === "syllogism"
+        isBinaryPlacementResponse(question)
           ? null
           : (supplied?.questionAnswerOptionId ?? null),
       answerSnapshot: supplied?.answerSnapshot ?? null,

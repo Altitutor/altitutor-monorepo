@@ -3182,6 +3182,13 @@ export function QuestionEnginePage({
                     state.syllogismSnapshots,
                   ).rows[state.viewingQuestionIndex!]?.points
                 }
+                review={
+                  computeMarkingResult(
+                    questions,
+                    state.selectedAnswers,
+                    state.syllogismSnapshots,
+                  ).rows[state.viewingQuestionIndex!]?.review
+                }
                 syllogismSnapshot={
                   state.syllogismSnapshots?.[
                     questions[state.viewingQuestionIndex]!.id

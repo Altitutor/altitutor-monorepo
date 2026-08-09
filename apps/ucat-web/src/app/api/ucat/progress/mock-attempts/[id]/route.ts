@@ -13,13 +13,13 @@ import {
   buildAttemptReviewExam,
   parseAttemptContentSnapshot,
   snapshotQuestionMetadata,
-  snapshotSyllogismOptions,
+  snapshotToQuestionItem,
 } from "@/features/progress/lib/attempt-content-snapshot";
 import { getAttemptPercentile } from "@/features/progress/server/attempt-percentile-service";
 import type { CohortPercentileResult } from "@altitutor/ucat-percentiles";
 import type { AttemptRecentPerformance } from "@/features/progress/lib/attempt-insights";
 import { fetchRecentAttemptPerformance } from "@/features/progress/server/attempt-insight-trend-service";
-import { parseBinaryPlacementResponseSnapshot } from "@/features/question-engine/lib/response-state";
+import { getQuestionMaximumMarks, parseBinaryPlacementResponseSnapshot } from "@/features/question-engine/lib/response-state";
 
 export type MockSetInfo = {
   setAttemptId: string;
@@ -231,9 +231,6 @@ export async function GET(
     });
   const allQuestionIds = orderedSnapshotAttempts.map(({ snapshot }) => snapshot.question.id);
   const questionMetadata = await fetchAttemptReviewQuestionMetadata(supabase, allQuestionIds);
-  const syllogismOptionsByQuestionId = new Map(
-    orderedSnapshotAttempts.map(({ snapshot }) => [snapshot.question.id, snapshotSyllogismOptions(snapshot)]),
-  );
 
   for (let setIndex = 0; setIndex < mockSetIds.length; setIndex++) {
     const questionSetId = mockSetIds[setIndex];
@@ -274,9 +271,10 @@ export async function GET(
         const snapshotMetadata = snapshotQuestionMetadata(snapshot);
 
         const { score, result } = resolveQuestionAttemptScoreAndResult({
-          questionId,
           attemptData,
-          syllogismOptionsByQuestionId,
+          maximumPoints: getQuestionMaximumMarks(
+            snapshotToQuestionItem(snapshot, globalQuestionNumber - 1, questionSetId),
+          ),
         });
         const timeSpentSeconds = attemptData?.timeSpentSeconds ?? null;
         const metadata = questionMetadata.get(questionId);

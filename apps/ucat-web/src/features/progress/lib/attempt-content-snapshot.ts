@@ -9,7 +9,6 @@ import type {
   QuestionItem,
 } from "@/features/question-engine/model/types";
 import type { AttemptReviewQuestionTag } from "./attempt-review-question-metadata";
-import type { SyllogismOption } from "./syllogism-attempt-scoring";
 
 type SnapshotOption = {
   id: string;
@@ -90,17 +89,6 @@ export function snapshotQuestionMetadata(snapshot: UcatAttemptContentSnapshot) {
       : null,
     questionStemCategoryId: snapshot.stem.categoryId ?? null,
   };
-}
-
-export function snapshotSyllogismOptions(
-  snapshot: UcatAttemptContentSnapshot,
-): SyllogismOption[] {
-  if (snapshot.question.questionType !== "syllogism") return [];
-  return snapshot.answerOptions.map((option) => ({
-    id: option.id,
-    index: option.index,
-    isAnswer: option.isAnswer,
-  }));
 }
 
 export function snapshotToQuestionItem(

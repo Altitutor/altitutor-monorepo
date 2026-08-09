@@ -12,10 +12,12 @@ const snapshot = {
   question: {
     id: "question-1",
     questionType: "multiple_choice",
+    responseType: "multiple_choice",
+    answerScheme: "single_choice",
   },
   answerOptions: [
-    { id: "option-1", index: 0, isAnswer: false },
-    { id: "option-2", index: 1, isAnswer: true },
+    { id: "option-1", index: 0, isAnswer: false, answerKeyValue: null },
+    { id: "option-2", index: 1, isAnswer: true, answerKeyValue: "correct" },
   ],
 };
 
@@ -37,15 +39,16 @@ describe("buildQuestionMetaFromAttemptSnapshots", () => {
       ),
     ).toEqual([
       {
-        id: "question-1",
-        stemId: "stem-1",
         sectionName: "Decision Making",
-        questionType: "multiple_choice",
-        correctOptionId: "option-2",
-        options: [
-          { id: "option-1", index: 0 },
-          { id: "option-2", index: 1 },
-        ],
+        definition: {
+          questionId: "question-1",
+          responseType: "multiple_choice",
+          answerScheme: { kind: "single_choice", correctOptionId: "option-2" },
+          options: [
+            { id: "option-1", index: 0 },
+            { id: "option-2", index: 1 },
+          ],
+        },
       },
     ]);
   });
@@ -78,12 +81,25 @@ describe("buildQuestionAttemptsForScoring", () => {
       buildQuestionAttemptsForScoring(
         [
           {
-            id: "dm-question",
-            stemId: "stem-1",
             sectionName: "Decision Making",
-            questionType: "syllogism",
-            correctOptionId: "statement-1",
-            options: [{ id: "statement-1", index: 0 }],
+            definition: {
+              questionId: "dm-question",
+              responseType: "drag_and_drop",
+              answerScheme: {
+                kind: "decision_making_binary_placement",
+                correctByOptionId: {
+                  "statement-1": "yes",
+                  "statement-2": "no",
+                  "statement-3": "yes",
+                  "statement-4": "no",
+                  "statement-5": "yes",
+                },
+              },
+              options: [1, 2, 3, 4, 5].map((index) => ({
+                id: `statement-${index}`,
+                index: index - 1,
+              })),
+            },
           },
         ],
         [
@@ -104,8 +120,13 @@ describe("buildQuestionAttemptsForScoring", () => {
           },
         ],
       ),
-    ).toEqual([
-      { questionId: "dm-question", selectedOptionId: "statement-1" },
-    ]);
+    ).toEqual(
+      new Map([
+        [
+          "dm-question",
+          { kind: "placement", placements: { "statement-1": "yes" } },
+        ],
+      ]),
+    );
   });
 });

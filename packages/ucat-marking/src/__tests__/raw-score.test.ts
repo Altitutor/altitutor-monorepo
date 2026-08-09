@@ -1,164 +1,127 @@
+import type {
+  CandidateResponse,
+  ResponseDefinition,
+} from '@altitutor/ucat-response-contract'
 import {
   computeMaxRawScore,
   computeRawScore,
-} from '../raw-score'
-import type { Attempt, QuestionMeta } from '../types'
+  type ScoringQuestion,
+} from '../index'
 
-function q(
-  id: string,
-  stemId: string,
-  sectionName: string,
-  questionType: 'multiple_choice' | 'syllogism',
-  correctOptionId: string,
-  optionCount: number
-): QuestionMeta {
-  const options = Array.from({ length: optionCount }, (_, i) => ({
-    id: `${id}-opt-${i}`,
-    index: i,
-  }))
-  return {
-    id,
-    stemId,
-    sectionName,
-    questionType,
-    correctOptionId,
-    options,
-  }
+function question(
+  definition: ResponseDefinition,
+  sectionName = 'Decision Making'
+): ScoringQuestion {
+  return { definition, sectionName }
 }
 
-describe('computeRawScore', () => {
-  it('default: 1 for correct, 0 for wrong', () => {
-    const questions: QuestionMeta[] = [
-      q('q1', 's1', 'Verbal Reasoning', 'multiple_choice', 'q1-opt-0', 4),
-    ]
-    const { totalRawScore, questionScores } = computeRawScore({
-      attempts: [{ questionId: 'q1', selectedOptionId: 'q1-opt-0' }],
-      questions,
-    })
-    expect(totalRawScore).toBe(1)
-    expect(questionScores.get('q1')).toBe(1)
-  })
-
-  it('default: 0 for wrong answer', () => {
-    const questions: QuestionMeta[] = [
-      q('q1', 's1', 'Verbal Reasoning', 'multiple_choice', 'q1-opt-0', 4),
-    ]
-    const { totalRawScore } = computeRawScore({
-      attempts: [{ questionId: 'q1', selectedOptionId: 'q1-opt-1' }],
-      questions,
-    })
-    expect(totalRawScore).toBe(0)
-  })
-
-  it('syllogism: 5 correct = 2 points', () => {
-    const stemId = 'syllo-stem'
-    const questions: QuestionMeta[] = [
-      q('s1', stemId, 'Decision Making', 'syllogism', 's1-opt-0', 2),
-      q('s2', stemId, 'Decision Making', 'syllogism', 's2-opt-0', 2),
-      q('s3', stemId, 'Decision Making', 'syllogism', 's3-opt-0', 2),
-      q('s4', stemId, 'Decision Making', 'syllogism', 's4-opt-0', 2),
-      q('s5', stemId, 'Decision Making', 'syllogism', 's5-opt-0', 2),
-    ]
-    const attempts: Attempt[] = questions.map((q) => ({
-      questionId: q.id,
-      selectedOptionId: q.correctOptionId,
-    }))
-    const { totalRawScore } = computeRawScore({ attempts, questions })
-    expect(totalRawScore).toBe(2)
-  })
-
-  it('syllogism: 3-4 correct = 1 point', () => {
-    const stemId = 'syllo-stem'
-    const questions: QuestionMeta[] = [
-      q('s1', stemId, 'Decision Making', 'syllogism', 's1-opt-0', 2),
-      q('s2', stemId, 'Decision Making', 'syllogism', 's2-opt-0', 2),
-      q('s3', stemId, 'Decision Making', 'syllogism', 's3-opt-0', 2),
-      q('s4', stemId, 'Decision Making', 'syllogism', 's4-opt-0', 2),
-      q('s5', stemId, 'Decision Making', 'syllogism', 's5-opt-0', 2),
-    ]
-    const attempts: Attempt[] = [
-      { questionId: 's1', selectedOptionId: 's1-opt-0' },
-      { questionId: 's2', selectedOptionId: 's2-opt-0' },
-      { questionId: 's3', selectedOptionId: 's3-opt-0' },
-      { questionId: 's4', selectedOptionId: 's4-opt-0' },
-      { questionId: 's5', selectedOptionId: 's5-opt-1' },
-    ]
-    const { totalRawScore } = computeRawScore({ attempts, questions })
-    expect(totalRawScore).toBe(1)
-  })
-
-  it('syllogism: 0-2 correct = 0 points', () => {
-    const stemId = 'syllo-stem'
-    const questions: QuestionMeta[] = [
-      q('s1', stemId, 'Decision Making', 'syllogism', 's1-opt-0', 2),
-      q('s2', stemId, 'Decision Making', 'syllogism', 's2-opt-0', 2),
-      q('s3', stemId, 'Decision Making', 'syllogism', 's3-opt-0', 2),
-      q('s4', stemId, 'Decision Making', 'syllogism', 's4-opt-0', 2),
-      q('s5', stemId, 'Decision Making', 'syllogism', 's5-opt-0', 2),
-    ]
-    const attempts: Attempt[] = questions.map((q, i) => ({
-      questionId: q.id,
-      selectedOptionId: i < 3 ? `${q.id}-opt-1` : q.correctOptionId,
-    }))
-    const { totalRawScore } = computeRawScore({ attempts, questions })
-    expect(totalRawScore).toBe(0)
-  })
-
-  it('SJ: correct = 1 point', () => {
-    const questions: QuestionMeta[] = [
-      q('sj1', 'sj-stem', 'Situational Judgement', 'multiple_choice', 'sj1-opt-0', 4),
-    ]
-    const { totalRawScore } = computeRawScore({
-      attempts: [{ questionId: 'sj1', selectedOptionId: 'sj1-opt-0' }],
-      questions,
-    })
-    expect(totalRawScore).toBe(1)
-  })
-
-  it('SJ: same polarity (A↔B) = 0.5 points', () => {
-    const questions: QuestionMeta[] = [
-      q('sj1', 'sj-stem', 'Situational Judgement', 'multiple_choice', 'sj1-opt-1', 4),
-    ]
-    const { totalRawScore } = computeRawScore({
-      attempts: [{ questionId: 'sj1', selectedOptionId: 'sj1-opt-0' }],
-      questions,
-    })
-    expect(totalRawScore).toBe(0.5)
-  })
-
-  it('SJ: same polarity (C↔D) = 0.5 points', () => {
-    const questions: QuestionMeta[] = [
-      q('sj1', 'sj-stem', 'Situational Judgement', 'multiple_choice', 'sj1-opt-3', 4),
-    ]
-    const { totalRawScore } = computeRawScore({
-      attempts: [{ questionId: 'sj1', selectedOptionId: 'sj1-opt-2' }],
-      questions,
-    })
-    expect(totalRawScore).toBe(0.5)
-  })
-
-  it('SJ: wrong polarity = 0 points', () => {
-    const questions: QuestionMeta[] = [
-      q('sj1', 'sj-stem', 'Situational Judgement', 'multiple_choice', 'sj1-opt-0', 4),
-    ]
-    const { totalRawScore } = computeRawScore({
-      attempts: [{ questionId: 'sj1', selectedOptionId: 'sj1-opt-2' }],
-      questions,
-    })
-    expect(totalRawScore).toBe(0)
-  })
+const singleChoice = question({
+  questionId: 'single-choice',
+  responseType: 'multiple_choice',
+  answerScheme: { kind: 'single_choice', correctOptionId: 'b' },
+  options: [
+    { id: 'a', index: 0 },
+    { id: 'b', index: 1 },
+  ],
 })
 
-describe('computeMaxRawScore', () => {
-  it('syllogism stem = 2 max, default = 1 each', () => {
-    const questions: QuestionMeta[] = [
-      q('s1', 'stem1', 'DM', 'syllogism', 'x', 2),
-      q('s2', 'stem1', 'DM', 'syllogism', 'x', 2),
-      q('s3', 'stem1', 'DM', 'syllogism', 'x', 2),
-      q('s4', 'stem1', 'DM', 'syllogism', 'x', 2),
-      q('s5', 'stem1', 'DM', 'syllogism', 'x', 2),
-      q('q1', 'stem2', 'VR', 'multiple_choice', 'x', 4),
-    ]
-    expect(computeMaxRawScore(questions)).toBe(3)
+const sjRating = question(
+  {
+    questionId: 'sj-rating',
+    responseType: 'multiple_choice',
+    answerScheme: {
+      kind: 'situational_judgement_rating',
+      correctOptionId: 'appropriate',
+    },
+    options: [
+      { id: 'very-appropriate', index: 0 },
+      { id: 'appropriate', index: 1 },
+      { id: 'inappropriate', index: 2 },
+      { id: 'very-inappropriate', index: 3 },
+    ],
+  },
+  'Situational Judgement'
+)
+
+const dmBinary = question({
+  questionId: 'dm-binary',
+  responseType: 'drag_and_drop',
+  answerScheme: {
+    kind: 'decision_making_binary_placement',
+    correctByOptionId: {
+      one: 'yes',
+      two: 'no',
+      three: 'yes',
+      four: 'no',
+      five: 'yes',
+    },
+  },
+  options: ['one', 'two', 'three', 'four', 'five'].map((id, index) => ({
+    id,
+    index,
+  })),
+})
+
+describe('UCAT raw scoring', () => {
+  it('matches the accepted golden outcomes through Answer schemes', () => {
+    const responses = new Map<string, CandidateResponse>([
+      [
+        'single-choice',
+        { kind: 'single_select', selectedOptionId: 'b' },
+      ],
+      [
+        'sj-rating',
+        { kind: 'single_select', selectedOptionId: 'very-appropriate' },
+      ],
+      [
+        'dm-binary',
+        {
+          kind: 'placement',
+          placements: {
+            one: 'yes',
+            two: 'no',
+            three: 'yes',
+            four: 'yes',
+            five: 'no',
+          },
+        },
+      ],
+    ])
+
+    expect(
+      computeRawScore({
+        questions: [singleChoice, sjRating, dmBinary],
+        responses,
+      })
+    ).toEqual({
+      questionScores: new Map([
+        ['single-choice', 1],
+        ['sj-rating', 0.5],
+        ['dm-binary', 1],
+      ]),
+      totalRawScore: 2.5,
+      maximumRawScore: 4,
+      reviews: expect.any(Map),
+    })
+  })
+
+  it('derives every denominator from the Answer scheme', () => {
+    expect(computeMaxRawScore([singleChoice, sjRating, dmBinary])).toBe(4)
+  })
+
+  it('rejects an invalid response contract instead of guessing from category', () => {
+    expect(() =>
+      computeMaxRawScore([
+        question({
+          questionId: 'invalid',
+          responseType: 'multiple_choice',
+          answerScheme: {
+            kind: 'decision_making_binary_placement',
+            correctByOptionId: {},
+          },
+          options: [],
+        }),
+      ])
+    ).toThrow('The Response type is incompatible with the Answer scheme.')
   })
 })

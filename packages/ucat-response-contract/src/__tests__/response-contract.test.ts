@@ -2,6 +2,7 @@ import {
   compileResponseContract,
   createResponseState,
   evaluateResponse,
+  getAnswerSchemeMaximum,
   getAnswerSchemeContract,
 } from '../index'
 
@@ -15,6 +16,9 @@ describe('UCAT response contract', () => {
       responseType: 'drag_and_drop',
       optionCount: 5,
     })
+    expect(getAnswerSchemeMaximum('single_choice')).toBe(1)
+    expect(getAnswerSchemeMaximum('decision_making_binary_placement')).toBe(2)
+    expect(getAnswerSchemeMaximum('situational_judgement_most_least')).toBe(8)
   })
 
   it('supports a complete single-choice response through one public contract', () => {

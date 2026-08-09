@@ -13,13 +13,13 @@ import {
   buildAttemptReviewExam,
   parseAttemptContentSnapshot,
   snapshotQuestionMetadata,
-  snapshotSyllogismOptions,
+  snapshotToQuestionItem,
 } from "@/features/progress/lib/attempt-content-snapshot";
 import { getAttemptPercentile } from "@/features/progress/server/attempt-percentile-service";
 import type { CohortPercentileResult } from "@altitutor/ucat-percentiles";
 import type { AttemptRecentPerformance } from "@/features/progress/lib/attempt-insights";
 import { fetchRecentAttemptPerformance } from "@/features/progress/server/attempt-insight-trend-service";
-import { parseBinaryPlacementResponseSnapshot } from "@/features/question-engine/lib/response-state";
+import { getQuestionMaximumMarks, parseBinaryPlacementResponseSnapshot } from "@/features/question-engine/lib/response-state";
 
 export type SetAttemptDetailResponse = {
   id: string;
@@ -153,10 +153,6 @@ export async function GET(
     );
   const questionIds = orderedAttempts.map(({ snapshot }) => snapshot.question.id);
   const questionMetadata = await fetchAttemptReviewQuestionMetadata(supabase, questionIds);
-  const syllogismOptionsByQuestionId = new Map(
-    orderedAttempts.map(({ snapshot }) => [snapshot.question.id, snapshotSyllogismOptions(snapshot)]),
-  );
-
   const attemptsByQuestionId = new Map(
     (questionAttemptsRaw ?? []).map((qa) => {
       const snapshot = parseAttemptContentSnapshot(qa.content_snapshot);
@@ -201,9 +197,10 @@ export async function GET(
       const snapshotMetadata = snapshotQuestionMetadata(snapshot);
       const questionNumber = index + 1;
       const { score, result } = resolveQuestionAttemptScoreAndResult({
-        questionId,
         attemptData,
-        syllogismOptionsByQuestionId,
+        maximumPoints: getQuestionMaximumMarks(
+          snapshotToQuestionItem(snapshot, index, attempt.question_set_id ?? "review"),
+        ),
       });
       const timeSpentSeconds = attemptData?.timeSpentSeconds ?? null;
       const metadata = questionMetadata.get(questionId);

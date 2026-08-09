@@ -118,6 +118,7 @@ type AddContractIssue = (
 type SchemeImplementation = {
   responseType: ResponseType
   optionCount: number | { minimum: number }
+  maximumMarks: number
   validateAnswerKey: (
     answerScheme: AnswerScheme,
     orderedOptionIds: readonly string[],
@@ -540,7 +541,7 @@ function evaluateSingleSelect(
     response,
     complete,
     awarded,
-    maximum: 1,
+    maximum: getAnswerSchemeMaximum(answerScheme.kind),
     review: {
       kind: 'single_select',
       selectedOptionId: response.selectedOptionId,
@@ -595,7 +596,7 @@ function evaluateDecisionMakingBinary(
     response,
     complete,
     awarded,
-    maximum: 2,
+    maximum: getAnswerSchemeMaximum(answerScheme.kind),
     review: { kind: 'placement', rows, outcome },
   })
 }
@@ -682,7 +683,7 @@ function evaluateSituationalJudgementMostLeast(
     response,
     complete,
     awarded,
-    maximum: provisionalMostLeastScoring.maximum,
+    maximum: getAnswerSchemeMaximum(answerScheme.kind),
     review: { kind: 'placement', rows, outcome },
   })
 }
@@ -806,6 +807,7 @@ const schemeImplementations: Record<
   single_choice: {
     responseType: 'multiple_choice',
     optionCount: { minimum: 2 },
+    maximumMarks: 1,
     validateAnswerKey: validateChoiceAnswerKey,
     presentation: choicePresentation,
     blankState: blankSingleSelect,
@@ -816,6 +818,7 @@ const schemeImplementations: Record<
   situational_judgement_rating: {
     responseType: 'multiple_choice',
     optionCount: 4,
+    maximumMarks: 1,
     validateAnswerKey: validateChoiceAnswerKey,
     presentation: choicePresentation,
     blankState: blankSingleSelect,
@@ -826,6 +829,7 @@ const schemeImplementations: Record<
   decision_making_binary_placement: {
     responseType: 'drag_and_drop',
     optionCount: 5,
+    maximumMarks: 2,
     validateAnswerKey: validateBinaryAnswerKey,
     presentation: (orderedOptionIds) => ({
       kind: 'placement',
@@ -846,6 +850,7 @@ const schemeImplementations: Record<
   situational_judgement_most_least: {
     responseType: 'drag_and_drop',
     optionCount: 3,
+    maximumMarks: provisionalMostLeastScoring.maximum,
     validateAnswerKey: validateMostLeastAnswerKey,
     presentation: (orderedOptionIds) => ({
       kind: 'placement',
@@ -867,6 +872,10 @@ const schemeImplementations: Record<
       ),
     evaluate: evaluateSituationalJudgementMostLeast,
   },
+}
+
+export function getAnswerSchemeMaximum(kind: AnswerScheme['kind']): number {
+  return schemeImplementations[kind].maximumMarks
 }
 
 export function getAnswerSchemeContract(

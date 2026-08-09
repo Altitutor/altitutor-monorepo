@@ -38,6 +38,10 @@ import {
   OptionText,
 } from "@/features/question-engine/components/question-content";
 import { computeMarkingResult } from "@/features/question-engine/lib/marking";
+import {
+  getQuestionMaximumMarks,
+  isBinaryPlacementResponse,
+} from "@/features/question-engine/lib/response-state";
 import type {
   QuestionEngineExam,
   QuestionItem,
@@ -81,10 +85,6 @@ type SetAnswersCardProps = {
   ratingContextKey?: string;
 };
 
-function getQuestionMaxPoints(question: QuestionItem): number {
-  return question.questionType === "syllogism" ? 2 : 1;
-}
-
 function formatPoints(points: number): string {
   return Number.isInteger(points) ? String(points) : points.toFixed(1);
 }
@@ -95,7 +95,7 @@ function isQuestionNotAnswered(
 ): boolean {
   if (!attempt) return true;
   if (attempt.result === "not_attempted") return true;
-  if (question.questionType === "syllogism") {
+  if (isBinaryPlacementResponse(question)) {
     if (attempt.result === "correct" || attempt.result === "partial") {
       return false;
     }
@@ -507,7 +507,7 @@ export function SetAnswersCard({
               <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
                 <span className="tabular-nums">
                   Points: {formatPoints(points ?? currentAttempt?.score ?? 0)} /{" "}
-                  {currentQuestion ? getQuestionMaxPoints(currentQuestion) : 1}
+                  {currentQuestion ? getQuestionMaximumMarks(currentQuestion) : 1}
                 </span>
                 {resultBadge ? (
                   <Badge

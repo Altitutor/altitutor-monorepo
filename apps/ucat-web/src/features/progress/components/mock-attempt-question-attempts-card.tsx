@@ -13,7 +13,6 @@ import { cn } from "@/lib/utils";
 import type { MockSetInfo } from "@/app/api/ucat/progress/mock-attempts/[id]/route";
 import { ATTEMPT_CHART_RESULT_COLORS } from "../lib/attempt-chart-result-colors";
 import { computeSetRanges } from "../lib/attempt-analysis-chart-layout";
-import { computeQuestionAttemptResult } from "../lib/compute-question-attempt-result";
 import type { MockQuestionAttemptForChart } from "./mock-attempt-analysis-chart";
 
 const MockAttemptAnalysisChart = dynamic(
@@ -156,15 +155,7 @@ export function MockAttemptQuestionAttemptsCard({
                     >
                       <div className="flex flex-wrap justify-center gap-1">
                         {group.questions.map((question) => {
-                          const result =
-                            question.score != null
-                              ? computeQuestionAttemptResult({
-                                  score: question.score,
-                                  questionType: question.questionType ?? null,
-                                  hasAttempt:
-                                    question.result !== "not_attempted",
-                                })
-                              : question.result;
+                          const result = question.result;
                           const selected =
                             question.index === selectedQuestionIndex;
                           const isNotAttempted = result === "not_attempted";

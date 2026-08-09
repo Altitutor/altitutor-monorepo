@@ -1,6 +1,7 @@
 import {
   canonicalizeEngineResponses,
   buildPersistedQuestionResponse,
+  evaluatePersistedQuestionResponse,
   parseBinaryPlacementResponseSnapshot,
   restoreQuestionResponse,
   snapshotQuestionResponse,
@@ -155,5 +156,37 @@ describe("canonical question response persistence", () => {
         "binary",
       ),
     ).toEqual({ "statement-1": true, "statement-2": false });
+  });
+
+  it("projects score, maximum, and review for canonical and historical snapshots", () => {
+    expect(
+      evaluatePersistedQuestionResponse(
+        singleChoiceQuestion,
+        snapshotQuestionResponse(singleChoiceQuestion, "option-b"),
+      ),
+    ).toEqual(
+      expect.objectContaining({
+        score: { awarded: 1, maximum: 1 },
+        review: expect.objectContaining({ outcome: "correct" }),
+      }),
+    );
+
+    expect(
+      evaluatePersistedQuestionResponse(binaryQuestion, {
+        type: "syllogism_v1",
+        answers: [
+          { question_answer_option_id: "statement-1", answer: true },
+          { question_answer_option_id: "statement-2", answer: false },
+          { question_answer_option_id: "statement-3", answer: true },
+          { question_answer_option_id: "statement-4", answer: false },
+          { question_answer_option_id: "statement-5", answer: false },
+        ],
+      }),
+    ).toEqual(
+      expect.objectContaining({
+        score: { awarded: 1, maximum: 2 },
+        review: expect.objectContaining({ outcome: "partial" }),
+      }),
+    );
   });
 });

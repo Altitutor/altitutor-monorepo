@@ -1,11 +1,15 @@
 import {
-  computeMaxRawScore,
   computeRawScore,
   estimateUcatSectionScore,
   resolveSingleUcatScoringSection,
-  type QuestionMeta,
+  type ScoringQuestion,
 } from "@altitutor/ucat-marking";
 import type { QuestionItem } from "@/features/question-engine/model/types";
+import type { ReviewContract } from "@altitutor/ucat-response-contract";
+import {
+  responseDefinitionForQuestion,
+  snapshotQuestionResponse,
+} from "@/features/question-engine/lib/response-state";
 
 export type MarkingRow = {
   question: QuestionItem;
@@ -13,6 +17,7 @@ export type MarkingRow = {
   correctAnswerText: string;
   studentAnswerText: string;
   points: number;
+  review: ReviewContract;
 };
 
 export type MarkingResult = {
@@ -23,17 +28,10 @@ export type MarkingResult = {
   scaledScoreStandardError: number | null;
 };
 
-function buildQuestionMeta(questions: QuestionItem[]): QuestionMeta[] {
+function buildScoringQuestions(questions: QuestionItem[]): ScoringQuestion[] {
   return questions.map((question) => ({
-    id: question.id,
-    stemId: question.stemId,
+    definition: responseDefinitionForQuestion(question),
     sectionName: question.sectionName,
-    questionType: question.questionType,
-    correctOptionId: question.correctOptionId ?? "",
-    options: question.options.map((option) => ({
-      id: option.id,
-      index: option.index,
-    })),
   }));
 }
 
@@ -42,59 +40,22 @@ export function computeMarkingResult(
   selectedAnswers: Record<string, string>,
   syllogismSnapshots?: Record<string, Record<string, boolean>>,
 ): MarkingResult {
-  const questionMeta = buildQuestionMeta(questions);
-  const nonSyllogismMeta = questionMeta.filter(
-    (question) => question.questionType !== "syllogism",
-  );
-  const nonSyllogismIds = new Set(
-    nonSyllogismMeta.map((question) => question.id),
-  );
-  const attempts = Object.entries(selectedAnswers)
-    .filter(
-      ([questionId]) =>
-        nonSyllogismIds.has(questionId) && selectedAnswers[questionId],
-    )
-    .map(([questionId, selectedOptionId]) => ({
-      questionId,
-      selectedOptionId,
-    }));
-
-  const base = computeRawScore({ attempts, questions: nonSyllogismMeta });
-  const questionScores = new Map(base.questionScores);
-
-  for (const question of questions) {
-    if (question.questionType !== "syllogism") continue;
-    const snapshot = syllogismSnapshots?.[question.id];
-    if (!snapshot) {
-      questionScores.set(question.id, 0);
-      continue;
-    }
-
-    let correctCount = 0;
-    for (const option of [...question.options].sort(
-      (left, right) => left.index - right.index,
-    )) {
-      const studentAnswer = snapshot[option.id];
-      if (
-        studentAnswer !== undefined &&
-        studentAnswer === (option.isAnswer === true)
-      ) {
-        correctCount += 1;
-      }
-    }
-    questionScores.set(
+  const scoringQuestions = buildScoringQuestions(questions);
+  const responses = new Map(
+    questions.map((question) => [
       question.id,
-      correctCount >= 5 ? 2 : correctCount >= 3 ? 1 : 0,
-    );
-  }
-
-  const totalRawScore = Array.from(questionScores.values()).reduce(
-    (sum, score) => sum + score,
-    0,
+      snapshotQuestionResponse(
+        question,
+        selectedAnswers[question.id],
+        syllogismSnapshots?.[question.id],
+      ).response,
+    ]),
   );
-  const maxRawScore = computeMaxRawScore(questionMeta);
+  const scored = computeRawScore({ responses, questions: scoringQuestions });
+  const { questionScores, totalRawScore } = scored;
+  const maxRawScore = scored.maximumRawScore;
   const scoringSection = resolveSingleUcatScoringSection(
-    questionMeta.map((question) => question.sectionName),
+    scoringQuestions.map((question) => question.sectionName),
   );
   const scoreEstimate =
     maxRawScore > 0 && scoringSection
@@ -120,6 +81,7 @@ export function computeMarkingResult(
         ? (optionTextById.get(selectedId) ?? "—")
         : "—",
       points: questionScores.get(question.id) ?? 0,
+      review: scored.reviews.get(question.id)!,
     };
   });
 

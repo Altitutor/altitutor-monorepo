@@ -23,7 +23,13 @@ import {
   hasAnswerExplanation,
   OptionText,
 } from "./question-content";
-import { getSituationalJudgementMarkingOutcome } from "@altitutor/ucat-marking";
+import type { ReviewContract } from "@altitutor/ucat-response-contract";
+import {
+  evaluatePersistedQuestionResponse,
+  getQuestionMaximumMarks,
+  isBinaryPlacementResponse,
+  snapshotQuestionResponse,
+} from "@/features/question-engine/lib/response-state";
 
 type ResultsViewerVariant = "ucat" | "site";
 
@@ -142,10 +148,6 @@ function StudentStatsBar({
   );
 }
 
-function getQuestionMaxPoints(question: QuestionItem): number {
-  return question.questionType === "syllogism" ? 2 : 1;
-}
-
 function getPointsColorClass(scored: number, maxPoints: number): string {
   if (scored <= 0) return "text-red-700 dark:text-red-400";
   if (scored >= maxPoints) return "text-green-700 dark:text-green-400";
@@ -159,7 +161,7 @@ function QuestionPointsFooter({
   points: number;
   question: QuestionItem;
 }) {
-  const maxPoints = getQuestionMaxPoints(question);
+  const maxPoints = getQuestionMaximumMarks(question);
   const scored = points;
   const formattedPoints = Number.isInteger(scored)
     ? String(scored)
@@ -190,6 +192,7 @@ export function ResultsQuestionViewer({
   correctOptionId,
   points,
   syllogismSnapshot,
+  review,
   preloadedContent,
   variant = "ucat",
   showExplanations = true,
@@ -200,6 +203,8 @@ export function ResultsQuestionViewer({
   correctOptionId?: string;
   points?: number;
   syllogismSnapshot?: Record<string, boolean>;
+  /** Canonical evaluator projection; computed here only when a caller has not supplied it. */
+  review?: ReviewContract;
   /** Pre-refreshed stem/question content for instant image display. */
   preloadedContent?: CachedContent | null;
   /** `site` uses app theme (progress attempt review); `ucat` matches exam engine styling. */
@@ -217,6 +222,12 @@ export function ResultsQuestionViewer({
 
   const optionLabel = (index: number) => String.fromCharCode(65 + index);
   const [animateBars, setAnimateBars] = useState(false);
+  const projectedReview =
+    review ??
+    evaluatePersistedQuestionResponse(
+      question,
+      snapshotQuestionResponse(question, selectedOptionId, syllogismSnapshot),
+    ).review;
 
   useEffect(() => {
     // Trigger bar animation when question changes
@@ -225,14 +236,18 @@ export function ResultsQuestionViewer({
     return () => window.clearTimeout(id);
   }, [question.id]);
 
-  if (question.questionType === "syllogism") {
+  if (isBinaryPlacementResponse(question)) {
     const options = [...question.options].sort((a, b) => a.index - b.index);
 
     const rows = options.map((opt) => {
-      const studentYes = syllogismSnapshot?.[opt.id] === true;
-      const studentHasAnswer = syllogismSnapshot && opt.id in syllogismSnapshot;
-      const correctYes = !!opt.isAnswer;
-      const isCorrect = studentHasAnswer && studentYes === correctYes;
+      const projectedRow =
+        projectedReview.kind === "placement"
+          ? projectedReview.rows.find((row) => row.targetId === opt.id)
+          : undefined;
+      const studentHasAnswer = projectedRow?.placedToken != null;
+      const studentYes = projectedRow?.placedToken === "yes";
+      const correctYes = projectedRow?.correctToken === "yes";
+      const isCorrect = projectedRow?.outcome === "correct";
 
       const hasStats =
         opt.totalAnswered != null &&
@@ -474,31 +489,26 @@ export function ResultsQuestionViewer({
     return <div className={cn(theme.body, theme.scrollRoot)}>{content}</div>;
   }
 
-  const selectedIndex = question.options.findIndex(
-    (option) => option.id === selectedOptionId,
-  );
-  const correctIndex = question.options.findIndex(
-    (option) => option.id === correctOptionId,
-  );
-  const sjOutcome = getSituationalJudgementMarkingOutcome({
-    sectionName: question.sectionName,
-    optionCount: question.options.length,
-    selectedIndex,
-    correctIndex,
-  });
+  const singleSelectReview =
+    projectedReview.kind === "single_select" ? projectedReview : null;
+  const projectedSelectedOptionId =
+    singleSelectReview?.selectedOptionId ?? selectedOptionId;
+  const projectedCorrectOptionId =
+    singleSelectReview?.correctOptionId ?? correctOptionId;
   const answeredIncorrectly =
-    correctOptionId != null && selectedOptionId !== correctOptionId;
+    projectedCorrectOptionId != null &&
+    projectedSelectedOptionId !== projectedCorrectOptionId;
 
   const renderOption = (option: AnswerOption, index: number) => {
-    const optionIsCorrect = option.id === correctOptionId;
-    const optionIsSelected = option.id === selectedOptionId;
+    const optionIsCorrect = option.id === projectedCorrectOptionId;
+    const optionIsSelected = option.id === projectedSelectedOptionId;
     const optionIsWrongSelection =
       answeredIncorrectly &&
       optionIsSelected &&
       !optionIsCorrect &&
-      sjOutcome !== "partial";
+      singleSelectReview?.outcome !== "partial";
     const optionIsPartialSelection =
-      optionIsSelected && sjOutcome === "partial";
+      optionIsSelected && singleSelectReview?.outcome === "partial";
     const letter = optionLabel(index);
     const hasStats =
       option.totalAnswered != null &&

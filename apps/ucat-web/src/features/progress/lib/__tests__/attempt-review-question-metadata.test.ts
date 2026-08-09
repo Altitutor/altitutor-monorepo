@@ -3,7 +3,7 @@ import { calculateSuccessfulQuestionTiming } from "../attempt-review-question-me
 describe("calculateSuccessfulQuestionTiming", () => {
   it("averages only full-mark attempts with valid timing", () => {
     const timing = calculateSuccessfulQuestionTiming(
-      [{ id: "mc", question_type: "multiple_choice" }],
+      [{ id: "mc", answer_scheme: "single_choice" }],
       [
         { question_id: "mc", time_spent_seconds: 40, score: 1 },
         { question_id: "mc", time_spent_seconds: 50, score: 1 },
@@ -21,9 +21,14 @@ describe("calculateSuccessfulQuestionTiming", () => {
     });
   });
 
-  it("does not count partial-credit syllogism attempts as successful", () => {
+  it("does not count partial-credit DM binary attempts as successful", () => {
     const timing = calculateSuccessfulQuestionTiming(
-      [{ id: "syllogism", question_type: "syllogism" }],
+      [
+        {
+          id: "syllogism",
+          answer_scheme: "decision_making_binary_placement",
+        },
+      ],
       [
         { question_id: "syllogism", time_spent_seconds: 30, score: 1 },
         { question_id: "syllogism", time_spent_seconds: 40, score: 2 },
@@ -42,7 +47,7 @@ describe("calculateSuccessfulQuestionTiming", () => {
 
   it("withholds the average until five successful attempts exist", () => {
     const timing = calculateSuccessfulQuestionTiming(
-      [{ id: "mc", question_type: "multiple_choice" }],
+      [{ id: "mc", answer_scheme: "single_choice" }],
       [
         { question_id: "mc", time_spent_seconds: 40, score: 1 },
         { question_id: "mc", time_spent_seconds: 50, score: 1 },

@@ -4,6 +4,10 @@ import {
   extractTextFromRichJson,
   type JsonLike,
 } from "@/features/question-engine/model/rich-text";
+import {
+  getAnswerSchemeMaximum,
+  type AnswerScheme,
+} from "@altitutor/ucat-response-contract";
 
 type SupabaseServerClient = Awaited<ReturnType<typeof getSupabaseServerClient>>;
 
@@ -39,7 +43,7 @@ const MIN_AVERAGE_TIME_SAMPLE_SIZE = 5;
 
 type QuestionTimingDefinition = {
   id: string;
-  question_type: "multiple_choice" | "syllogism";
+  answer_scheme: AnswerScheme["kind"] | null;
 };
 
 type SubmittedQuestionTiming = {
@@ -56,10 +60,11 @@ export function calculateSuccessfulQuestionTiming(
   { averageTimeSeconds: number | null; sampleSize: number }
 > {
   const maxScoreByQuestion = new Map(
-    questions.map((question) => [
-      question.id,
-      question.question_type === "syllogism" ? 2 : 1,
-    ]),
+    questions.flatMap((question) =>
+      question.answer_scheme
+        ? [[question.id, getAnswerSchemeMaximum(question.answer_scheme)] as const]
+        : [],
+    ),
   );
   const totalsByQuestion = new Map<
     string,
@@ -121,7 +126,7 @@ export async function fetchAttemptReviewQuestionMetadata(
 
   const questionRowsPromise = supabase
     .from("ucat_questions")
-    .select("id, difficulty, time_burden_seconds, question_type")
+    .select("id, difficulty, time_burden_seconds, answer_scheme")
     .in("id", ids);
 
   const tagRowsPromise = (

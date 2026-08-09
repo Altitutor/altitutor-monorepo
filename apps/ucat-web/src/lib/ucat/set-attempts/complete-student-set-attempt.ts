@@ -7,13 +7,16 @@ import {
   resolveSingleUcatScoringSection,
   UCAT_SCORING_MODEL,
 } from "@altitutor/ucat-marking";
-import type { QuestionMeta } from "@altitutor/ucat-marking";
+import type { ScoringQuestion } from "@altitutor/ucat-marking";
+import {
+  compileResponseContract,
+  createResponseState,
+  type AnswerScheme,
+  type CandidateResponse,
+  type ResponseType,
+} from "@altitutor/ucat-response-contract";
 import { maybeGrantPracticeDayDiscount } from "@/lib/ucat/practice-day-discount";
 import { persistQuestionAttemptBatch } from "@/lib/ucat/question-attempts/persist-question-attempt-batch";
-import {
-  isBinaryPlacementResponse,
-  parseBinaryPlacementResponseSnapshot,
-} from "@/features/question-engine/lib/response-state";
 
 type AdminClient = SupabaseClient;
 
@@ -22,6 +25,7 @@ type OptionRow = {
   question_id: string;
   index: number;
   is_answer: boolean;
+  answer_key_value: "correct" | "yes" | "no" | "most" | "least" | null;
 };
 
 type QuestionAttemptForScoring = {
@@ -50,11 +54,11 @@ export type FinalQuestionAttemptInput = {
 export function buildQuestionMetaFromAttemptSnapshots(
   attempts: QuestionAttemptForScoring[],
   expectedQuestionIds: Set<string>,
-): QuestionMeta[] | null {
+): ScoringQuestion[] | null {
   const attemptByQuestionId = new Map(
     attempts.map((attempt) => [attempt.question_id, attempt]),
   );
-  const questions: QuestionMeta[] = [];
+  const questions: ScoringQuestion[] = [];
 
   for (const questionId of expectedQuestionIds) {
     const snapshot = attemptByQuestionId.get(questionId)?.content_snapshot;
@@ -107,18 +111,78 @@ export function buildQuestionMetaFromAttemptSnapshots(
         question_id: questionId,
         index: optionValue.index,
         is_answer: optionValue.isAnswer,
+        answer_key_value:
+          optionValue.answerKeyValue === "correct" ||
+          optionValue.answerKeyValue === "yes" ||
+          optionValue.answerKeyValue === "no" ||
+          optionValue.answerKeyValue === "most" ||
+          optionValue.answerKeyValue === "least"
+            ? optionValue.answerKeyValue
+            : null,
       });
     }
     const correctOption = options.find((option) => option.is_answer);
+    const answerSchemeKind =
+      questionValue.answerScheme === "single_choice" ||
+      questionValue.answerScheme === "situational_judgement_rating" ||
+      questionValue.answerScheme === "decision_making_binary_placement" ||
+      questionValue.answerScheme === "situational_judgement_most_least"
+        ? questionValue.answerScheme
+        : questionValue.questionType === "syllogism"
+          ? "decision_making_binary_placement"
+          : "single_choice";
+    let answerScheme: AnswerScheme;
+    if (answerSchemeKind === "decision_making_binary_placement") {
+      answerScheme = {
+        kind: answerSchemeKind,
+        correctByOptionId: Object.fromEntries(
+          options.map((option) => [
+            option.id,
+            option.answer_key_value
+              ? option.answer_key_value === "yes"
+                ? "yes"
+                : "no"
+              : option.is_answer
+                ? "yes"
+                : "no",
+          ]),
+        ),
+      };
+    } else if (answerSchemeKind === "situational_judgement_most_least") {
+      answerScheme = {
+        kind: answerSchemeKind,
+        mostAppropriateOptionId:
+          options.find((option) => option.answer_key_value === "most")?.id ?? "",
+        leastAppropriateOptionId:
+          options.find((option) => option.answer_key_value === "least")?.id ?? "",
+      };
+    } else {
+      answerScheme = {
+        kind: answerSchemeKind,
+        correctOptionId:
+          options.find((option) => option.answer_key_value === "correct")?.id ??
+          correctOption?.id ??
+          "",
+      };
+    }
+    const responseType: ResponseType =
+      questionValue.responseType === "multiple_choice" ||
+      questionValue.responseType === "drag_and_drop"
+        ? questionValue.responseType
+        : answerSchemeKind === "single_choice" ||
+            answerSchemeKind === "situational_judgement_rating"
+          ? "multiple_choice"
+          : "drag_and_drop";
     questions.push({
-      id: questionId,
-      stemId: stemValue.id,
+      definition: {
+        questionId,
+        responseType,
+        answerScheme,
+        options: options
+          .sort((a, b) => a.index - b.index)
+          .map((option) => ({ id: option.id, index: option.index })),
+      },
       sectionName: stemValue.sectionName,
-      questionType: questionValue.questionType,
-      correctOptionId: correctOption?.id ?? "",
-      options: options
-        .sort((a, b) => a.index - b.index)
-        .map((option) => ({ id: option.id, index: option.index })),
     });
   }
 
@@ -151,36 +215,40 @@ export async function persistFinalQuestionAttempts(
 }
 
 export function buildQuestionAttemptsForScoring(
-  questionMeta: QuestionMeta[],
+  questionMeta: ScoringQuestion[],
   questionAttempts: QuestionAttemptForScoring[],
-): Array<{ questionId: string; selectedOptionId: string }> {
-  const binaryQuestionIds = new Set(
-    questionMeta
-      .filter((question) => isBinaryPlacementResponse(question))
-      .map((question) => question.id),
+): Map<string, CandidateResponse> {
+  const questionById = new Map(
+    questionMeta.map((question) => [question.definition.questionId, question]),
   );
-  return questionAttempts.flatMap((attempt) => {
-    if (!binaryQuestionIds.has(attempt.question_id)) {
-      return attempt.question_answer_option_id
-        ? [
-            {
-              questionId: attempt.question_id,
+  const responses = new Map<string, CandidateResponse>();
+  for (const attempt of questionAttempts) {
+    const question = questionById.get(attempt.question_id);
+    if (!question) continue;
+    const compiled = compileResponseContract(question.definition);
+    if (!compiled.ok) {
+      throw new Error(compiled.issues.map((issue) => issue.message).join(" "));
+    }
+    const storedAnswer =
+      attempt.answer_snapshot ??
+      (compiled.contract.presentation.kind === "single_select"
+        ? {
+            type: "ucat_response_v1",
+            questionId: attempt.question_id,
+            answerScheme: compiled.contract.answerSchemeKind,
+            response: {
+              kind: "single_select",
               selectedOptionId: attempt.question_answer_option_id,
             },
-          ]
-        : [];
+          }
+        : undefined);
+    const restored = createResponseState(compiled.contract, storedAnswer);
+    if (!restored.ok) {
+      throw new Error(restored.issues.map((issue) => issue.message).join(" "));
     }
-    const answers = parseBinaryPlacementResponseSnapshot(
-      attempt.answer_snapshot,
-      attempt.question_id,
-    );
-    const selectedOptionId = answers
-      ? Object.entries(answers).find(([, answer]) => answer)?.[0]
-      : attempt.question_answer_option_id;
-    return selectedOptionId
-      ? [{ questionId: attempt.question_id, selectedOptionId }]
-      : [];
-  });
+    responses.set(attempt.question_id, restored.state);
+  }
+  return responses;
 }
 
 export async function completeStudentSetAttempt(
@@ -267,13 +335,13 @@ export async function completeStudentSetAttempt(
   totalQuestions = questionMeta.length;
 
   if (questionMeta.length > 0) {
-    const attempts = buildQuestionAttemptsForScoring(
+    const responses = buildQuestionAttemptsForScoring(
       questionMeta,
       (questionAttempts ?? []) as QuestionAttemptForScoring[],
     );
 
     const { questionScores, totalRawScore } = computeRawScore({
-      attempts,
+      responses,
       questions: questionMeta,
     });
 
