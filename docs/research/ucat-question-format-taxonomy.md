@@ -189,6 +189,17 @@ The official sources use several different counting units. They must not be coll
 
 The current UCAT ANZ candidate-facing totals are **35 Decision Making questions** and **69 SJT questions**. The live ANZ page additionally says each SJT scenario may have up to six associated questions, but it does not publish a current scenario count or a split of the 69 questions by rating versus Most/Least format. ([current UCAT ANZ test format](https://www.ucat.edu.au/about-ucat-anz/test-format/), [current UCAT ANZ scoring](https://www.ucat.edu.au/about-ucat-anz/scoring/))
 
+The live 2026 standard-test table publishes the complete subtest totals and timings as follows:
+
+| Subtest | Questions | Timed instruction section | Answering time |
+| --- | ---: | ---: | ---: |
+| Verbal Reasoning | 44 | 1 minute 30 seconds | 22 minutes |
+| Decision Making | 35 | 1 minute 30 seconds | 37 minutes |
+| Quantitative Reasoning | 36 | 2 minutes | 26 minutes |
+| Situational Judgement | 69 | 1 minute 30 seconds | 26 minutes |
+
+The minutes in the `Test Time`/standard-timing column are answering time and do **not** include the separately timed instruction section that precedes each subtest. The four answering periods total 111 minutes; the instruction periods total 6 minutes 30 seconds, producing the official standard-test duration of 117 minutes 30 seconds. An authoring or exam-runtime model should therefore store instruction time separately rather than folding it into the subtest answering timer. ([current UCAT ANZ test format](https://www.ucat.edu.au/about-ucat-anz/test-format/), [current UCAT ANZ extended-tests page](https://www.ucat.edu.au/about-ucat-anz/test-format/extended-tests/))
+
 The latest Pearson report supplies more detailed **UCAT 2025** exam-design data, which should not be silently relabelled as a 2026 UCAT ANZ specification. It records five balanced UCAT forms. Each DM form contained 31 scored items and four unscored items, for the same candidate-visible total of 35. For SJT it records 20 scored testlets containing one to four items and two unscored testlets containing one to five items, with 69 items overall. This establishes a 22-testlet design for that UCAT 2025 administration, but the report does not say that every testlet had the same item count and the live UCAT ANZ page now allows up to six questions per scenario. ([2025 UCAT technical report, exam design and test-form analysis, pp. 10–11 and 46–47](https://www.ucat.ac.uk/media/1726/ucat-2025-technical-report-final.pdf))
 
 Pearson's item-analysis tables count items **across the operational and pretest pools analysed**, rather than publishing a promised category quota for a future candidate's form:

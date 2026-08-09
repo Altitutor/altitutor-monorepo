@@ -677,6 +677,12 @@
 - **UCAT response inference** — The authoring classification process that independently infers Question stem category, Response type, Answer scheme, and answer key from structural content and answer evidence, then reconciles the results. Certain evidence may prefill a value; strong evidence requires review confirmation, weak or missing evidence requires selection, and conflicting evidence blocks import until resolved.
   _Avoid_: Category-to-type inference, answer-pattern category inference, silent fallback
 
+- **UCAT exam blueprint** — A versioned, test-year-specific composition policy for a full UCAT mock, defining section question totals, timings, stem or question-unit targets, and optional category or presentation-format ranges. Blueprint constraints apply to full mocks rather than focused practice sets and distinguish official test-level requirements from Altitutor-authored composition policy.
+  _Avoid_: Category quota, universal set rule, timeless UCAT format
+
+- **Stem presentation format** — Optional stem-level metadata describing how the information needed to answer the item is presented: Passage, Table, Graph or chart, Diagram or image, Mixed, or Other. It is independent of Question stem category and exists so parsers, tutors, and UCAT exam blueprints can classify presentation without inspecting rich text during set generation.
+  _Avoid_: Question stem category, response format, inferred-at-runtime layout
+
 - **Answer option** — One selectable response for a UCAT question.
 
 - **Question tag** — A question-level content label describing the skill or topic tested by a UCAT question. Verbal Reasoning reading skills belong here rather than in question stem categories; Decision Making tags describe reusable subskills and wording traps because its categories already cover broad formats; Situational Judgement uses practical scenario tags alongside cross-cutting ethical principle tags.
