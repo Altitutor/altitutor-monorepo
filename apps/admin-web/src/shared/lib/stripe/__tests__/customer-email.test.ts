@@ -1,4 +1,3 @@
-import { describe, expect, it } from 'vitest';
 import {
   ensureStripeCustomerEmail,
   type StripeCustomerEmailClient,
@@ -19,7 +18,7 @@ describe('ensureStripeCustomerEmail', () => {
         create: async () => {
           if (!customerEmail) {
             throw new Error(
-              'Missing email. In order to create invoices that are sent to the customer, the customer must have a valid email.'
+              'Missing email. In order to create invoices that are sent to the customer, the customer must have a valid email.',
             );
           }
         },
@@ -29,7 +28,7 @@ describe('ensureStripeCustomerEmail', () => {
     await ensureStripeCustomerEmail(
       stripe as StripeCustomerEmailClient,
       'cus_without_email',
-      'student@example.com'
+      'student@example.com',
     );
 
     await expect(stripe.invoices.create()).resolves.toBeUndefined();
@@ -51,7 +50,7 @@ describe('ensureStripeCustomerEmail', () => {
     await ensureStripeCustomerEmail(
       stripe,
       'cus_with_email',
-      'student@example.com'
+      'student@example.com',
     );
 
     expect(updateCalls).toBe(0);
@@ -66,9 +65,9 @@ describe('ensureStripeCustomerEmail', () => {
     };
 
     await expect(
-      ensureStripeCustomerEmail(stripe, 'cus_without_email', undefined)
+      ensureStripeCustomerEmail(stripe, 'cus_without_email', undefined),
     ).rejects.toThrow(
-      'Stripe customer cus_without_email has no email, and no student or parent email is available'
+      'Stripe customer cus_without_email has no email, and no student or parent email is available',
     );
   });
 });

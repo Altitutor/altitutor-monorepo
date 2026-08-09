@@ -177,6 +177,46 @@ This supports hard publication gates of exactly three source actions, exactly tw
 
 The reviewed public sources do **not** establish that a scenario containing a Most/Least item must contain no other associated SJT items. The hard gate should apply to the Most/Least response unit, not assume that the surrounding scenario is structurally exclusive unless the live content bank or an additional official specification proves that rule.
 
+### Published full-test counts versus item-analysis counts
+
+The official sources use several different counting units. They must not be collapsed into one product field:
+
+- a **scenario** or **testlet** is shared stimulus material;
+- a **question/item** is one numbered response task associated with that material;
+- a **Most/Least item** is one question even though its response contains two required placements;
+- an **operational/scored item** contributes to the candidate's score; and
+- a **pretest/unscored item** is embedded in the delivered test to evaluate it for possible future use.
+
+The current UCAT ANZ candidate-facing totals are **35 Decision Making questions** and **69 SJT questions**. The live ANZ page additionally says each SJT scenario may have up to six associated questions, but it does not publish a current scenario count or a split of the 69 questions by rating versus Most/Least format. ([current UCAT ANZ test format](https://www.ucat.edu.au/about-ucat-anz/test-format/), [current UCAT ANZ scoring](https://www.ucat.edu.au/about-ucat-anz/scoring/))
+
+The latest Pearson report supplies more detailed **UCAT 2025** exam-design data, which should not be silently relabelled as a 2026 UCAT ANZ specification. It records five balanced UCAT forms. Each DM form contained 31 scored items and four unscored items, for the same candidate-visible total of 35. For SJT it records 20 scored testlets containing one to four items and two unscored testlets containing one to five items, with 69 items overall. This establishes a 22-testlet design for that UCAT 2025 administration, but the report does not say that every testlet had the same item count and the live UCAT ANZ page now allows up to six questions per scenario. ([2025 UCAT technical report, exam design and test-form analysis, pp. 10–11 and 46–47](https://www.ucat.ac.uk/media/1726/ucat-2025-technical-report-final.pdf))
+
+Pearson's item-analysis tables count items **across the operational and pretest pools analysed**, rather than publishing a promised category quota for a future candidate's form:
+
+| 2025 analysis population | Published analysed-item counts |
+| --- | --- |
+| DM operational/scored | 155 total: 25 Information Interpretation, 30 Syllogisms, 25 Logical Puzzles, 20 Statistical Reasoning, 20 Assumptions Recognition, 35 Venn Diagrams |
+| DM pretest/unscored | 238 total: 49 Information Interpretation, 48 Syllogisms, 32 Logical Puzzles, 40 Statistical Reasoning, 19 Assumptions Recognition, 50 Venn Diagrams |
+| SJT operational/scored | 198 rating items and 9 Most/Least items |
+| SJT pretest/unscored | 353 rating items and 18 Most/Least items |
+
+([2025 UCAT technical report, Tables 45, 48 and 55, pp. 52–54 and 58–59](https://www.ucat.ac.uk/media/1726/ucat-2025-technical-report-final.pdf))
+
+For DM, the 155 operational count equals five forms multiplied by 31 scored items, and every category total happens to be divisible by five. It is therefore *consistent with* each balanced form containing 5 Information Interpretation, 6 Syllogisms, 5 Logical Puzzles, 4 Statistical Reasoning, 4 Assumptions Recognition and 7 Venn Diagram items. However, the reviewed report does not explicitly publish that per-form allocation or promise it for UCAT ANZ 2026. The division is an inference, not a safe hard publication rule.
+
+For SJT, the `9` operational Most/Least items in Table 55 emphatically does **not** mean nine Most/Least questions appeared on every candidate's test. The same report has five candidate forms, and its item-analysis section describes the statistics as analysis of operational and pretest items administered during the testing window. It does not provide a Most/Least count for each form or a minimum/maximum across forms. Item reuse and allocation across forms are not exposed in that table. Accordingly, no fixed current number or official range of SJT Most/Least items per full UCAT ANZ test can be justified from the public primary sources reviewed.
+
+Historical technical reports reinforce the distinction rather than filling the gap: Pearson reported aggregate operational Most/Least analysis counts of 5 in 2021, 6 in 2023, and 9 in 2024 and 2025. Those are year-specific analysed operational pools, not published per-candidate form specifications. ([2021 UCAT technical report, SJT item analysis](https://www.ucat.ac.uk/media/1508/ucat-2021-technical-report.pdf), [2023 UCAT technical report, SJT item analysis](https://www.ucat.ac.uk/media/1581/ucat-2023-technical-report.pdf), [2024 UCAT technical report, SJT item analysis](https://www.ucat.ac.uk/media/1672/ucat-2024-technical-report-final.pdf), [2025 UCAT technical report, SJT item analysis](https://www.ucat.ac.uk/media/1726/ucat-2025-technical-report-final.pdf))
+
+The official UCAT ANZ practice tests and question banks are described as representative of the live test, while the tutorials say their examples do not cover every aspect. Neither statement publishes a fixed category composition. Counting examples in a tutorial, question bank or one practice form would at most describe that sample; it would not establish an operational quota or range. ([current UCAT ANZ practice tests and question banks](https://www.ucat.edu.au/prepare/practice-tests/), [current UCAT ANZ question tutorials](https://www.ucat.edu.au/prepare/question-tutorials/))
+
+For authoring and assembly, the source-backed gates are therefore:
+
+- a full 2026 UCAT ANZ simulation contains 35 DM questions and 69 SJT questions;
+- an SJT scenario contains no more than six associated questions;
+- a Most/Least question remains one response item with two placements, not two questions; and
+- do not hard-code DM category quotas, an exact SJT scenario count, or a fixed/ranged number of SJT Most/Least questions as an official 2026 rule. If Altitutor chooses such assembly targets for pedagogical balance, label them as product policy and keep them configurable.
+
 ## Current versus historical evidence
 
 - The present UCAT ANZ test-tools page explicitly says some DM and SJT questions require drag and drop. ([UCAT ANZ test tools](https://www.ucat.edu.au/prepare/test-tools/))
