@@ -39,6 +39,7 @@ import {
 import { taxonomyDisplayLabel } from '@/features/ucat/shared/lib/taxonomy-paths'
 import {
   responseContractIssues,
+  shouldApplyCategoryDefaults,
   suggestedResponseContract,
   transformResponseContract,
   type AnswerSchemeKind,
@@ -195,9 +196,23 @@ export function UcatStemEditorPropertiesPanel({
   const contractIssues = activeQuestion ? responseContractIssues(activeQuestion) : []
 
   function handleCategoryChange(nextCategoryId: string | null): void {
+    const shouldApplyDefaults = shouldApplyCategoryDefaults({
+      stemId,
+      previousCategoryId: watchedStem.categoryId,
+      questionsDirty: form.getFieldState('questions').isDirty,
+    })
     form.setValue('categoryId', nextCategoryId, {
       shouldDirty: true,
     })
+    if (!shouldApplyDefaults || nextCategoryId == null) return
+
+    const nextCategory = categories.find((category) => category.id === nextCategoryId)
+    const defaultContract = suggestedResponseContract(nextCategory?.name, selectedSection?.name)
+    form.setValue(
+      'questions',
+      form.getValues('questions').map((question) => transformResponseContract(question, defaultContract)),
+      { shouldDirty: true },
+    )
   }
 
   const executeStemAgentTool = async (toolCall: UcatAuthoringToolCall): Promise<UcatAuthoringToolResult> => {

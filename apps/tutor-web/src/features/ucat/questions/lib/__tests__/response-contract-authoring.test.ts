@@ -1,5 +1,6 @@
 import {
   responseContractIssues,
+  shouldApplyCategoryDefaults,
   suggestedResponseContract,
   transformResponseContract,
 } from '@/features/ucat/questions/lib/response-contract-authoring'
@@ -7,6 +8,29 @@ import { buildEmptyStemFormValues } from '@/features/ucat/questions/lib/stem-edi
 import { plainTextToProseMirror } from '@/features/ucat/shared/lib/rich-text'
 
 describe('UCAT response-contract authoring', () => {
+  it('applies category defaults only to a new stem before its questions are edited', () => {
+    expect(shouldApplyCategoryDefaults({
+      stemId: null,
+      previousCategoryId: null,
+      questionsDirty: false,
+    })).toBe(true)
+    expect(shouldApplyCategoryDefaults({
+      stemId: 'existing-stem',
+      previousCategoryId: null,
+      questionsDirty: false,
+    })).toBe(false)
+    expect(shouldApplyCategoryDefaults({
+      stemId: null,
+      previousCategoryId: 'existing-category',
+      questionsDirty: false,
+    })).toBe(false)
+    expect(shouldApplyCategoryDefaults({
+      stemId: null,
+      previousCategoryId: null,
+      questionsDirty: true,
+    })).toBe(false)
+  })
+
   it('suggests defaults from category without mutating authored content', () => {
     const question = buildEmptyStemFormValues().questions[0]!
     question.questionText = plainTextToProseMirror('Keep this question')

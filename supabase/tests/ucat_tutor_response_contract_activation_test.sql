@@ -1,5 +1,5 @@
 BEGIN;
-SELECT plan(4);
+SELECT plan(8);
 
 INSERT INTO public.staff_subjects (staff_id, subject_id)
 SELECT '00000000-0000-0000-0000-000000000010', subject.id
@@ -88,6 +88,45 @@ SELECT is(
   ),
   'yes',
   'the tutor detail projection carries answer-key values'
+);
+
+SELECT isnt(
+  public.ucat_content_publication_issues('stem', (SELECT id FROM activated_stem)) @>
+    '[{"code":"invalid_response_answer_key"}]'::jsonb,
+  true,
+  'publication accepts a complete Decision Making binary answer key'
+);
+
+SELECT ok(
+  public.ucat_content_publication_issues('stem', (SELECT id FROM activated_stem)) @>
+    '[{"code":"missing_explanations"}]'::jsonb,
+  'Decision Making publication requires option explanations'
+);
+
+UPDATE public.question_answer_options option
+SET answer_explanation = '{"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"Explanation"}]}]}'::jsonb
+FROM public.ucat_questions question
+WHERE option.question_id = question.id
+  AND question.question_stem_id = (SELECT id FROM activated_stem);
+
+SELECT isnt(
+  public.ucat_content_publication_issues('stem', (SELECT id FROM activated_stem)) @>
+    '[{"code":"missing_explanations"}]'::jsonb,
+  true,
+  'Decision Making publication does not require a question-level explanation'
+);
+
+UPDATE public.question_answer_options option
+SET answer_key_value = NULL
+FROM public.ucat_questions question
+WHERE option.question_id = question.id
+  AND question.question_stem_id = (SELECT id FROM activated_stem)
+  AND option.index = 5;
+
+SELECT ok(
+  public.ucat_content_publication_issues('stem', (SELECT id FROM activated_stem)) @>
+    '[{"code":"invalid_response_answer_key"}]'::jsonb,
+  'publication rejects an incomplete Decision Making binary answer key'
 );
 
 SELECT * FROM finish();

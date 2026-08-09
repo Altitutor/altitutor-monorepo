@@ -74,6 +74,11 @@ export type ContractIssue = {
   message: string
 }
 
+export type AnswerSchemeContract = {
+  responseType: ResponseType
+  optionCount: number | { minimum: number }
+}
+
 export type PresentationContract =
   | {
       kind: 'single_select'
@@ -862,4 +867,17 @@ const schemeImplementations: Record<
       ),
     evaluate: evaluateSituationalJudgementMostLeast,
   },
+}
+
+export function getAnswerSchemeContract(
+  kind: AnswerScheme['kind']
+): AnswerSchemeContract {
+  const implementation = schemeImplementations[kind]
+  return {
+    responseType: implementation.responseType,
+    optionCount:
+      typeof implementation.optionCount === 'number'
+        ? implementation.optionCount
+        : { minimum: implementation.optionCount.minimum },
+  }
 }

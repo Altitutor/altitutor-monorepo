@@ -73,6 +73,37 @@ function stemDetail() {
 }
 
 describe('UCAT MCP typed operations', () => {
+  it('carries the canonical response contract through an add-question operation', () => {
+    const draft = questionStemDraftFromDetail(stemDetail())
+    const updated = applyQuestionStemOperations(draft, [{
+      type: 'add_question',
+      question: {
+        questionText: 'Place each conclusion as Yes or No.',
+        questionType: 'syllogism',
+        responseType: 'drag_and_drop',
+        answerScheme: 'decision_making_binary_placement',
+        tagIds: [],
+        options: Array.from({ length: 5 }, (_, index) => ({
+          answerText: `Conclusion ${index + 1}`,
+          isAnswer: index < 2,
+          answerKeyValue: index < 2 ? 'yes' as const : 'no' as const,
+        })),
+      },
+    }])
+
+    expect(updated.questions.at(-1)).toMatchObject({
+      response_type: 'drag_and_drop',
+      answer_scheme: 'decision_making_binary_placement',
+      answer_options: [
+        { answer_key_value: 'yes' },
+        { answer_key_value: 'yes' },
+        { answer_key_value: 'no' },
+        { answer_key_value: 'no' },
+        { answer_key_value: 'no' },
+      ],
+    })
+  })
+
   it('does not remove omitted question-stem children', () => {
     const draft = questionStemDraftFromDetail(stemDetail())
     const updated = applyQuestionStemOperations(draft, [

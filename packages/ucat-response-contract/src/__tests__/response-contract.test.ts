@@ -2,9 +2,21 @@ import {
   compileResponseContract,
   createResponseState,
   evaluateResponse,
+  getAnswerSchemeContract,
 } from '../index'
 
 describe('UCAT response contract', () => {
+  it('exposes authoring constraints from the same scheme registry', () => {
+    expect(getAnswerSchemeContract('single_choice')).toEqual({
+      responseType: 'multiple_choice',
+      optionCount: { minimum: 2 },
+    })
+    expect(getAnswerSchemeContract('decision_making_binary_placement')).toEqual({
+      responseType: 'drag_and_drop',
+      optionCount: 5,
+    })
+  })
+
   it('supports a complete single-choice response through one public contract', () => {
     const compiled = compileResponseContract({
       questionId: 'question-1',

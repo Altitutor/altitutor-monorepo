@@ -1,5 +1,6 @@
 import {
   compileResponseContract,
+  getAnswerSchemeContract,
   type AnswerScheme,
   type ContractIssue,
   type ResponseType,
@@ -14,6 +15,16 @@ export type AuthoredQuestion = UcatQuestionStemFormValues['questions'][number]
 export type SuggestedResponseContract = {
   responseType: ResponseType
   answerScheme: AnswerSchemeKind
+}
+
+export function shouldApplyCategoryDefaults(input: {
+  stemId: string | null | undefined
+  previousCategoryId: string | null | undefined
+  questionsDirty: boolean
+}): boolean {
+  return input.stemId == null
+    && input.previousCategoryId == null
+    && !input.questionsDirty
 }
 
 export function normalizeAuthoredQuestionContract(question: AuthoredQuestion): AuthoredQuestion {
@@ -136,13 +147,10 @@ export function transformResponseContract(
   const existingCorrectIndex = Math.max(0, question.options.findIndex((option) => (
     option.answerKeyValue === 'correct' || option.isAnswer
   )))
-  const optionCount = target.answerScheme === 'situational_judgement_rating'
-    ? 4
-    : target.answerScheme === 'decision_making_binary_placement'
-      ? 5
-      : target.answerScheme === 'situational_judgement_most_least'
-        ? 3
-        : Math.max(2, question.options.length)
+  const optionCountContract = getAnswerSchemeContract(target.answerScheme).optionCount
+  const optionCount = typeof optionCountContract === 'number'
+    ? optionCountContract
+    : Math.max(optionCountContract.minimum, question.options.length)
 
   const options = Array.from({ length: optionCount }, (_, index) => {
     let key: AnswerKeyValue = null
