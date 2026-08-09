@@ -434,19 +434,13 @@ export function getDecisionMakingStemCategoryName(
     }
   }
 
-  const binaryDirective = stem.questions.find((question) =>
-    inferResponseContract({
-      directive: question.text,
-      targetCount: question.options.length,
-      optionTexts: question.options.map((option) => option.text),
-    }).answerScheme.value === 'decision_making_binary_placement'
-  )
-  if (binaryDirective) {
+  for (const question of stem.questions) {
     const category = inferDecisionMakingCategory({
       stemText: stem.stemText,
-      directive: binaryDirective.text,
+      directive: question.text,
     })
-    return category.value
+    if (category.conflicts.length > 0) return null
+    if (category.value) return category.value
   }
 
   if (stemHasProbabilisticSignals(stem)) {

@@ -309,6 +309,12 @@ export function inferDecisionMakingCategory(input: {
   }
 
   const probe = normalizeProbe(input.stemText)
+  const directiveProbe = normalizeProbe(input.directive)
+  const isConclusionTask = /\bconclusions?\b/u.test(directiveProbe) &&
+    /\bfollows?\b/u.test(directiveProbe)
+  if (!isConclusionTask) {
+    return { value: null, confidence: 'absent', evidence: [], conflicts: [] }
+  }
   const quantifiedMatches = probe.match(/\b(?:all|some|no|none|every)\b/gu) ?? []
   const formalPremises = quantifiedMatches.length >= 2
   const factualPresentation = /\b(?:table|chart|graph|passage|data|information|report|survey|study|figures?)\b/u.test(probe)

@@ -288,4 +288,11 @@ describe('inferDecisionMakingCategory', () => {
       })
     ).toMatchObject({ value: null, conflicts: ['ambiguous_dm_category'] })
   })
+
+  it('does not classify an ordinary factual table without a conclusion task', () => {
+    expect(inferDecisionMakingCategory({
+      stemText: 'The table shows five appointments and their costs.',
+      directive: 'Which appointment costs the most?',
+    })).toMatchObject({ value: null, confidence: 'absent', conflicts: [] })
+  })
 })
