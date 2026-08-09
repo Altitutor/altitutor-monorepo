@@ -1,4 +1,5 @@
 import {
+  extractDecisionMakingCategoryEvidence,
   inferDecisionMakingCategory,
   inferAnswerEvidenceFromKeyValues,
   inferResponseContract,
@@ -258,6 +259,20 @@ describe('reconcileIngestedResponseContract', () => {
 })
 
 describe('inferDecisionMakingCategory', () => {
+  it('extracts auditable semantic signals independently of interaction shape', () => {
+    expect(
+      extractDecisionMakingCategoryEvidence({
+        stemText:
+          'A survey table reports that all pharmacists are readers and no readers are pilots.',
+        directive: 'Determine which conclusions follow.',
+      })
+    ).toEqual({
+      isConclusionTask: true,
+      formalPremiseSignals: ['all', 'no'],
+      factualDataSignals: ['table', 'survey'],
+    })
+  })
+
   it('classifies formal quantified premises as Syllogisms', () => {
     expect(
       inferDecisionMakingCategory({

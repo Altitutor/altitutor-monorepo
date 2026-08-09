@@ -68,6 +68,53 @@ export type DecisionMakingCategoryInferenceValue =
   | 'Syllogisms'
   | 'Interpreting Information and Drawing Conclusions'
 
+export type DecisionMakingCategoryEvidence = {
+  isConclusionTask: boolean
+  formalPremiseSignals: string[]
+  factualDataSignals: string[]
+}
+
+const FORMAL_PREMISE_SIGNAL_PATTERNS = [
+  ['all', /\ball\b/u],
+  ['some', /\bsome\b/u],
+  ['no', /\bno\b/u],
+  ['none', /\bnone\b/u],
+  ['every', /\bevery\b/u],
+] as const
+
+const FACTUAL_DATA_SIGNAL_PATTERNS = [
+  ['table', /\btable\b/u],
+  ['chart', /\bchart\b/u],
+  ['graph', /\bgraph\b/u],
+  ['passage', /\bpassage\b/u],
+  ['data', /\bdata\b/u],
+  ['information', /\binformation\b/u],
+  ['report', /\breport\b/u],
+  ['survey', /\bsurvey\b/u],
+  ['study', /\bstudy\b/u],
+  ['figure', /\bfigures?\b/u],
+] as const
+
+/** Semantic DM category evidence; deliberately has no response-contract input. */
+export function extractDecisionMakingCategoryEvidence(input: {
+  stemText: string
+  directive: string
+}): DecisionMakingCategoryEvidence {
+  const probe = normalizeProbe(input.stemText)
+  const directiveProbe = normalizeProbe(input.directive)
+  return {
+    isConclusionTask:
+      /\bconclusions?\b/u.test(directiveProbe) &&
+      /\bfollows?\b/u.test(directiveProbe),
+    formalPremiseSignals: FORMAL_PREMISE_SIGNAL_PATTERNS
+      .filter(([, pattern]) => pattern.test(probe))
+      .map(([signal]) => signal),
+    factualDataSignals: FACTUAL_DATA_SIGNAL_PATTERNS
+      .filter(([, pattern]) => pattern.test(probe))
+      .map(([signal]) => signal),
+  }
+}
+
 export function inferAnswerEvidenceFromKeyValues(
   keyValues: readonly AnswerKeyInferenceValue[]
 ): UntypedAnswerEvidence {
@@ -308,16 +355,12 @@ export function inferDecisionMakingCategory(input: {
     }
   }
 
-  const probe = normalizeProbe(input.stemText)
-  const directiveProbe = normalizeProbe(input.directive)
-  const isConclusionTask = /\bconclusions?\b/u.test(directiveProbe) &&
-    /\bfollows?\b/u.test(directiveProbe)
-  if (!isConclusionTask) {
+  const categoryEvidence = extractDecisionMakingCategoryEvidence(input)
+  if (!categoryEvidence.isConclusionTask) {
     return { value: null, confidence: 'absent', evidence: [], conflicts: [] }
   }
-  const quantifiedMatches = probe.match(/\b(?:all|some|no|none|every)\b/gu) ?? []
-  const formalPremises = quantifiedMatches.length >= 2
-  const factualPresentation = /\b(?:table|chart|graph|passage|data|information|report|survey|study|figures?)\b/u.test(probe)
+  const formalPremises = categoryEvidence.formalPremiseSignals.length >= 2
+  const factualPresentation = categoryEvidence.factualDataSignals.length > 0
   if (formalPremises && factualPresentation) {
     return {
       value: null,

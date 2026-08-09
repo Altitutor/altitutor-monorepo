@@ -20,6 +20,7 @@
     "test:e2e": "playwright test",
     "benchmark:ucat-generation": "tsx scripts/benchmark-ucat-generation.ts",
     "benchmark:ucat-render-assets": "tsx scripts/render-ucat-benchmark-assets.ts",
+    "audit:ucat-dm-categories": "tsx scripts/audit-ucat-dm-categories.ts",
     "seed:ucat-find-word-wikipedia": "tsx scripts/generate-ucat-find-word-wikipedia-seed.ts",
     "seed:ucat-skill-trainers": "tsx scripts/generate-ucat-skill-trainer-seed.ts",
     "test:ui": "vitest --ui",
