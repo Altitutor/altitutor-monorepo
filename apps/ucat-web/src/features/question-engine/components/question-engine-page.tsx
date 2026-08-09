@@ -47,7 +47,11 @@ import { InstructionsContent } from "@/features/question-engine/components/instr
 import { NavigatorPanel } from "@/features/question-engine/components/navigator-panel";
 import { QuestionContent } from "@/features/question-engine/components/question-content";
 import { computeMarkingResult } from "@/features/question-engine/lib/marking";
-import { buildPersistedQuestionResponse } from "@/features/question-engine/lib/response-state";
+import {
+  buildPersistedQuestionResponse,
+  canonicalPlacementSnapshotToLegacy,
+  legacyPlacementSnapshotToCanonical,
+} from "@/features/question-engine/lib/response-state";
 import { NoFlaggedDialog } from "@/features/question-engine/components/no-flagged-dialog";
 import { ReviewInstructionsDialog } from "@/features/question-engine/components/review-instructions-dialog";
 import { TimeExpiredDialog } from "@/features/question-engine/components/time-expired-dialog";
@@ -3225,13 +3229,20 @@ export function QuestionEnginePage({
                 allowTutorialControl("syllogismChoice");
               }}
               selectedOptionId={state.selectedAnswers[currentQuestion.id]}
-              syllogismSnapshot={state.syllogismSnapshots?.[currentQuestion.id]}
-              onChangeSyllogismSnapshot={(snapshot) => {
+              placementSnapshot={legacyPlacementSnapshotToCanonical(
+                currentQuestion,
+                state.syllogismSnapshots?.[currentQuestion.id],
+              )}
+              onChangePlacementSnapshot={(snapshot) => {
                 if (tutorialQuestionLocked) return;
-                setSyllogismSnapshot(currentQuestion.id, snapshot);
+                const legacySnapshot = canonicalPlacementSnapshotToLegacy(
+                  currentQuestion,
+                  snapshot,
+                );
+                setSyllogismSnapshot(currentQuestion.id, legacySnapshot);
                 recordSyllogismSnapshot(
                   currentQuestion.id,
-                  snapshot,
+                  legacySnapshot,
                   flaggedCurrent,
                 );
               }}

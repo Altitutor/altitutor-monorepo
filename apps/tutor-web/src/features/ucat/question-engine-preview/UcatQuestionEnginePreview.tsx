@@ -1,10 +1,21 @@
 'use client'
 
-import React, { useId, useState, type DragEventHandler, type ReactNode } from 'react'
+import React, {
+  useEffect,
+  useId,
+  useRef,
+  useState,
+  type DragEventHandler,
+  type ReactNode,
+} from 'react'
 import { UCAT_COLORS, UCAT_FONTS } from '@altitutor/ui/components/ucat/ucat-theme'
 import { UcatRichContentBlock } from '@/features/ucat/question-engine-preview/UcatRichContentBlock'
 import { hasRichTextContent } from '@/features/ucat/shared/lib/rich-text'
 import type { Json } from '@altitutor/shared'
+import {
+  getAnswerSchemePresentation,
+  type PlacementValue,
+} from '@altitutor/ucat-response-contract'
 
 const EXPLANATION_MUTED_STYLE = { color: '#5a6c7d' } as const
 
@@ -136,24 +147,37 @@ function SyllogismPreviewBody({
   syllogismSnapshot?: Record<string, boolean> | null
 }) {
   const isTwoColumn = question.sectionDisplayColumns === 2
-  const isMostLeast = question.answerScheme === 'situational_judgement_most_least'
-  const positiveChoice = isMostLeast ? 'most' : 'yes'
-  const negativeChoice = isMostLeast ? 'least' : 'no'
-  const positiveLabel = isMostLeast ? 'Most Appropriate' : 'Yes'
-  const negativeLabel = isMostLeast ? 'Least Appropriate' : 'No'
-  type PreviewPlacementChoice = 'yes' | 'no' | 'most' | 'least'
+  const answerScheme = question.answerScheme ?? 'decision_making_binary_placement'
+  const presentation = getAnswerSchemePresentation(
+    answerScheme,
+    [...question.options]
+      .sort((left, right) => left.index - right.index)
+      .map((option) => option.id),
+  )
+  if (presentation.kind !== 'placement') {
+    throw new Error('The preview question does not use a placement response.')
+  }
+  const [positiveToken, negativeToken] = presentation.tokens
+  if (!positiveToken || !negativeToken) {
+    throw new Error('Placement responses require two presentation tokens.')
+  }
 
-  const [answers, setAnswers] = useState<Record<string, PreviewPlacementChoice>>({})
+  const [answers, setAnswers] = useState<Record<string, PlacementValue>>({})
+  const touchDragRef = useRef<{
+    pointerId: number
+    choice: PlacementValue
+    sourceOptionId: string | null
+  } | null>(null)
 
   const assignChoice = (
-    previous: Record<string, PreviewPlacementChoice>,
+    previous: Record<string, PlacementValue>,
     optionId: string,
-    choice: PreviewPlacementChoice,
+    choice: PlacementValue,
     fromOptionId: string | null,
   ) => {
     const next = { ...previous }
     if (fromOptionId && fromOptionId !== optionId) delete next[fromOptionId]
-    if (isMostLeast) {
+    if (presentation.reuse === 'once_each') {
       for (const [assignedOptionId, assignedChoice] of Object.entries(next)) {
         if (assignedChoice === choice && assignedOptionId !== optionId) delete next[assignedOptionId]
       }
@@ -162,16 +186,59 @@ function SyllogismPreviewBody({
     return next
   }
 
-  const handleAssign = (optionId: string, choice: PreviewPlacementChoice) => {
+  const handleAssign = (optionId: string, choice: PlacementValue) => {
     setAnswers((prev) => assignChoice(prev, optionId, choice, null))
+  }
+
+  useEffect(() => {
+    const finishTouchDrag = (event: PointerEvent) => {
+      const drag = touchDragRef.current
+      if (!drag || drag.pointerId !== event.pointerId || !interactive) return
+      touchDragRef.current = null
+      const target = document.elementFromPoint(event.clientX, event.clientY)
+      const optionElement = target?.closest<HTMLElement>('[data-preview-placement-option-id]')
+      const targetOptionId = optionElement?.dataset.previewPlacementOptionId
+      if (targetOptionId) {
+        setAnswers((previous) => assignChoice(
+          previous,
+          targetOptionId,
+          drag.choice,
+          drag.sourceOptionId,
+        ))
+        return
+      }
+      if (drag.sourceOptionId && target?.closest('[data-preview-placement-token-area]')) {
+        setAnswers((previous) => {
+          const next = { ...previous }
+          delete next[drag.sourceOptionId!]
+          return next
+        })
+      }
+    }
+    window.addEventListener('pointerup', finishTouchDrag)
+    window.addEventListener('pointercancel', finishTouchDrag)
+    return () => {
+      window.removeEventListener('pointerup', finishTouchDrag)
+      window.removeEventListener('pointercancel', finishTouchDrag)
+    }
+  })
+
+  const startTouchDrag = (
+    event: React.PointerEvent,
+    choice: PlacementValue,
+    sourceOptionId: string | null,
+  ) => {
+    if (event.pointerType === 'mouse' || !interactive) return
+    event.preventDefault()
+    touchDragRef.current = { pointerId: event.pointerId, choice, sourceOptionId }
   }
 
   const makeHandleDrop =
     (optionId: string): DragEventHandler<HTMLDivElement> =>
     (event) => {
       event.preventDefault()
-      const choice = event.dataTransfer.getData('ucat-syllogism-choice') as '' | PreviewPlacementChoice
-      if (choice !== positiveChoice && choice !== negativeChoice) return
+      const choice = event.dataTransfer.getData('ucat-syllogism-choice') as '' | PlacementValue
+      if (choice !== positiveToken.value && choice !== negativeToken.value) return
 
       const fromOptionId = event.dataTransfer.getData('ucat-syllogism-source') || null
 
@@ -212,19 +279,26 @@ function SyllogismPreviewBody({
             const choice =
               !interactive && savedAnswer != null
                 ? savedAnswer
-                  ? positiveChoice
-                  : negativeChoice
+                  ? positiveToken.value
+                  : negativeToken.value
                 : (answers[option.id] ?? null)
-            const correctChoice = isMostLeast
+            const correctChoice = option.answerKeyValue === positiveToken.value
+              || option.answerKeyValue === negativeToken.value
               ? option.answerKeyValue
-              : option.isAnswer ? 'yes' : 'no'
+              : answerScheme === 'decision_making_binary_placement'
+                ? option.isAnswer ? positiveToken.value : negativeToken.value
+                : null
             const showReviewState = Boolean(
               showAnswerExplanations || showAnswerResults
             )
             const answerIsCorrect =
               choice != null && choice === correctChoice
             return (
-              <div key={option.id} className="space-y-1">
+              <div
+                key={option.id}
+                data-preview-placement-option-id={option.id}
+                className="space-y-1"
+              >
                 <div className="flex flex-row items-stretch gap-4">
                   <div className="flex-1">
                     <div className="flex min-h-[50px] items-center rounded border border-[#000000] bg-white px-4 py-2">
@@ -243,20 +317,23 @@ function SyllogismPreviewBody({
                     tabIndex={interactive ? 0 : undefined}
                     aria-label={
                       interactive
-                        ? `Drop ${positiveLabel} or ${negativeLabel} here`
+                        ? `Drop ${positiveToken.label} or ${negativeToken.label} here`
                         : undefined
                     }
                     onClick={
-                      interactive && !isMostLeast
+                      interactive && presentation.reuse !== 'once_each'
                         ? () => handleAssign(
                             option.id,
-                            choice === positiveChoice ? negativeChoice : positiveChoice,
+                            choice === positiveToken.value
+                              ? negativeToken.value
+                              : positiveToken.value,
                           )
                         : undefined
                     }
                   >
                     {choice ? (
                       <div
+                        onPointerDown={(event) => startTouchDrag(event, choice, option.id)}
                         className={`flex h-9 w-20 items-center justify-center rounded border text-[11pt] font-medium ${
                           showReviewState && !interactive
                             ? answerIsCorrect
@@ -275,7 +352,7 @@ function SyllogismPreviewBody({
                             : undefined
                         }
                       >
-                        {choice === positiveChoice ? positiveLabel : negativeLabel}
+                        {choice === positiveToken.value ? positiveToken.label : negativeToken.label}
                       </div>
                     ) : (
                       <span className="text-[9pt] text-transparent">_</span>
@@ -284,7 +361,11 @@ function SyllogismPreviewBody({
                 </div>
                 {showReviewState && !interactive && !answerIsCorrect ? (
                   <div className="text-right text-[9pt] text-emerald-700">
-                    Correct answer: {correctChoice === positiveChoice ? positiveLabel : negativeLabel}
+                    Correct answer: {correctChoice == null
+                      ? 'Not placed'
+                      : correctChoice === positiveToken.value
+                        ? positiveToken.label
+                        : negativeToken.label}
                   </div>
                 ) : null}
                 {showAnswerExplanations &&
@@ -301,18 +382,20 @@ function SyllogismPreviewBody({
         </div>
         <div className="mt-1 w-[139px] rounded border border-black bg-[#dfdfdf] px-2 py-2">
           <div
+            data-preview-placement-token-area
             className="flex h-full w-full flex-col items-center justify-start gap-2"
             onDrop={interactive ? handleTokenAreaDrop : undefined}
             onDragOver={interactive ? handleDragOver : undefined}
           >
             <button
               type="button"
-              draggable={interactive && !Object.values(answers).includes(positiveChoice)}
-              disabled={interactive && isMostLeast && Object.values(answers).includes(positiveChoice)}
+              draggable={interactive && !Object.values(answers).includes(positiveToken.value)}
+              disabled={interactive && presentation.reuse === 'once_each' && Object.values(answers).includes(positiveToken.value)}
+              onPointerDown={(event) => startTouchDrag(event, positiveToken.value, null)}
               onDragStart={
                 interactive
                   ? (event) => {
-                      event.dataTransfer.setData('ucat-syllogism-choice', positiveChoice)
+                      event.dataTransfer.setData('ucat-syllogism-choice', positiveToken.value)
                       event.dataTransfer.setData('ucat-syllogism-source', '')
                       event.dataTransfer.effectAllowed = 'copy'
                     }
@@ -320,16 +403,17 @@ function SyllogismPreviewBody({
               }
               className="flex h-9 w-20 items-center justify-center rounded border border-black bg-white text-[11pt] font-medium"
             >
-              {positiveLabel}
+              {positiveToken.label}
             </button>
             <button
               type="button"
-              draggable={interactive && !Object.values(answers).includes(negativeChoice)}
-              disabled={interactive && isMostLeast && Object.values(answers).includes(negativeChoice)}
+              draggable={interactive && !Object.values(answers).includes(negativeToken.value)}
+              disabled={interactive && presentation.reuse === 'once_each' && Object.values(answers).includes(negativeToken.value)}
+              onPointerDown={(event) => startTouchDrag(event, negativeToken.value, null)}
               onDragStart={
                 interactive
                   ? (event) => {
-                      event.dataTransfer.setData('ucat-syllogism-choice', negativeChoice)
+                      event.dataTransfer.setData('ucat-syllogism-choice', negativeToken.value)
                       event.dataTransfer.setData('ucat-syllogism-source', '')
                       event.dataTransfer.effectAllowed = 'copy'
                     }
@@ -337,7 +421,7 @@ function SyllogismPreviewBody({
               }
               className="flex h-9 w-20 items-center justify-center rounded border border-black bg-white text-[11pt] font-medium"
             >
-              {negativeLabel}
+              {negativeToken.label}
             </button>
           </div>
         </div>

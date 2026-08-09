@@ -18,7 +18,7 @@ import {
 import type { FinalExamQuestionAttemptInput } from "@/lib/ucat/exam-attempt/finalize-attempt";
 import {
   buildPersistedQuestionResponse,
-  isBinaryPlacementResponse,
+  isPlacementResponse,
 } from "@/features/question-engine/lib/response-state";
 
 type QuestionAttemptMode =
@@ -420,7 +420,7 @@ export function useQuestionEnginePersistence({
       return;
     }
     const question = findQuestion(exam, questionId);
-    if (!question || !isBinaryPlacementResponse(question)) return;
+    if (!question || !isPlacementResponse(question)) return;
 
     const input: UpsertQuestionAttemptInput = withLearnContext({
       studentQuestionSetAttemptId: practiceSessionId ? null : null,

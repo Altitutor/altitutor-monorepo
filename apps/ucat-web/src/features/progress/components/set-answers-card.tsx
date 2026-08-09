@@ -40,7 +40,7 @@ import {
 import { computeMarkingResult } from "@/features/question-engine/lib/marking";
 import {
   getQuestionMaximumMarks,
-  isBinaryPlacementResponse,
+  isPlacementResponse,
 } from "@/features/question-engine/lib/response-state";
 import type {
   QuestionEngineExam,
@@ -95,7 +95,7 @@ function isQuestionNotAnswered(
 ): boolean {
   if (!attempt) return true;
   if (attempt.result === "not_attempted") return true;
-  if (isBinaryPlacementResponse(question)) {
+  if (isPlacementResponse(question)) {
     if (attempt.result === "correct" || attempt.result === "partial") {
       return false;
     }

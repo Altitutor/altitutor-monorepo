@@ -9,7 +9,7 @@ import {
 import type { FinalQuestionAttemptInput } from "@/lib/ucat/set-attempts/complete-student-set-attempt";
 import { persistQuestionAttemptBatch } from "@/lib/ucat/question-attempts/persist-question-attempt-batch";
 import {
-  isBinaryPlacementResponse,
+  isPlacementResponse,
   responseDefinitionForQuestion,
   restorePersistedQuestionResponse,
   snapshotQuestionResponse,
@@ -149,7 +149,7 @@ export async function completeStudentPracticeSession(
     return {
       questionId: question.id,
       questionAnswerOptionId:
-        isBinaryPlacementResponse(question)
+        isPlacementResponse(question)
           ? null
           : (supplied?.questionAnswerOptionId ?? null),
       answerSnapshot: supplied?.answerSnapshot ?? null,

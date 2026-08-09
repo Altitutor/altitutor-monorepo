@@ -901,3 +901,11 @@ export function getAnswerSchemeContract(
         : { minimum: implementation.optionCount.minimum },
   }
 }
+
+/** Presentation semantics owned by the scheme registry, independent of answer keys. */
+export function getAnswerSchemePresentation(
+  kind: AnswerScheme['kind'],
+  orderedOptionIds: readonly string[]
+): PresentationContract {
+  return schemeImplementations[kind].presentation(orderedOptionIds)
+}

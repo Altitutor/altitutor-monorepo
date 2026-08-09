@@ -2,9 +2,12 @@ import {
   compileResponseContract,
   createResponseState,
   evaluateResponse,
+  getAnswerSchemePresentation,
   type AnswerScheme,
   type CandidateResponse,
   type EvaluationResult,
+  type PlacementValue,
+  type PresentationContract,
   type ResponseDefinition,
   type ResponseSnapshotV1,
 } from "@altitutor/ucat-response-contract";
@@ -17,16 +20,71 @@ function legacyAnswerScheme(question: QuestionItem): AnswerScheme["kind"] {
   return "single_choice";
 }
 
-export function isBinaryPlacementResponse(question: {
+export function isPlacementResponse(question: {
   answerScheme?: AnswerScheme["kind"];
   questionType: string;
+  responseType?: string;
 }): boolean {
+  const scheme =
+    question.answerScheme ??
+    (question.questionType === "syllogism"
+      ? "decision_making_binary_placement"
+      : "single_choice");
   return (
-    (question.answerScheme ??
-      (question.questionType === "syllogism"
-        ? "decision_making_binary_placement"
-        : "single_choice")) ===
-    "decision_making_binary_placement"
+    question.responseType === "drag_and_drop" ||
+    scheme === "decision_making_binary_placement" ||
+    scheme === "situational_judgement_most_least"
+  );
+}
+
+export function placementPresentationForQuestion(
+  question: Pick<QuestionItem, "answerScheme" | "questionType" | "options">,
+): Extract<PresentationContract, { kind: "placement" }> {
+  const kind = question.answerScheme ?? legacyAnswerScheme(question as QuestionItem);
+  const presentation = getAnswerSchemePresentation(
+    kind,
+    [...question.options]
+      .sort((left, right) => left.index - right.index)
+      .map((option) => option.id),
+  );
+  if (presentation.kind !== "placement") {
+    throw new Error("This question does not use a placement response.");
+  }
+  return presentation;
+}
+
+export function legacyPlacementSnapshotToCanonical(
+  question: QuestionItem,
+  snapshot?: Record<string, boolean>,
+): Record<string, PlacementValue> | undefined {
+  if (!snapshot) return undefined;
+  const [positive, negative] = placementPresentationForQuestion(question).tokens;
+  if (!positive || !negative) {
+    throw new Error("Placement responses require two presentation tokens.");
+  }
+  return Object.fromEntries(
+    Object.entries(snapshot).map(([optionId, value]) => [
+      optionId,
+      value ? positive.value : negative.value,
+    ]),
+  );
+}
+
+export function canonicalPlacementSnapshotToLegacy(
+  question: QuestionItem,
+  snapshot: Readonly<Record<string, PlacementValue>>,
+): Record<string, boolean> {
+  const [positive, negative] = placementPresentationForQuestion(question).tokens;
+  if (!positive || !negative) {
+    throw new Error("Placement responses require two presentation tokens.");
+  }
+  return Object.fromEntries(
+    Object.entries(snapshot).map(([optionId, value]) => {
+      if (value !== positive.value && value !== negative.value) {
+        throw new Error("The placement snapshot contains an unsupported token.");
+      }
+      return [optionId, value === positive.value];
+    }),
   );
 }
 
@@ -148,18 +206,10 @@ function candidateResponse(
   if (kind === "single_choice" || kind === "situational_judgement_rating") {
     return { kind: "single_select", selectedOptionId: selectedOptionId ?? null };
   }
-  const positivePlacement =
-    kind === "situational_judgement_most_least" ? "most" : "yes";
-  const negativePlacement =
-    kind === "situational_judgement_most_least" ? "least" : "no";
   return {
     kind: "placement",
-    placements: Object.fromEntries(
-      Object.entries(syllogismSnapshot ?? {}).map(([optionId, answer]) => [
-        optionId,
-        answer ? positivePlacement : negativePlacement,
-      ]),
-    ),
+    placements:
+      legacyPlacementSnapshotToCanonical(question, syllogismSnapshot) ?? {},
   };
 }
 
@@ -285,26 +335,11 @@ export function restoreQuestionResponse(
       syllogismSnapshot: null,
     };
   }
-  const placements = Object.entries(result.state.placements);
-  const isMostLeast =
-    question.answerScheme === "situational_judgement_most_least";
-  const positivePlacement = isMostLeast ? "most" : "yes";
-  const negativePlacement = isMostLeast ? "least" : "no";
-  if (
-    placements.some(
-      ([, token]) =>
-        token !== positivePlacement && token !== negativePlacement,
-    )
-  ) {
-    throw new Error("This placement response is not supported by the current engine.");
-  }
   return {
     selectedOptionId: null,
-    syllogismSnapshot: Object.fromEntries(
-      placements.map(([optionId, token]) => [
-        optionId,
-        token === positivePlacement,
-      ]),
+    syllogismSnapshot: canonicalPlacementSnapshotToLegacy(
+      question,
+      result.state.placements,
     ),
   };
 }

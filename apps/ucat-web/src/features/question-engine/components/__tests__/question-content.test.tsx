@@ -30,7 +30,7 @@ describe("QuestionContent syllogism restoration", () => {
       <QuestionContent
         question={question}
         onSelectOption={() => undefined}
-        syllogismSnapshot={undefined}
+        placementSnapshot={undefined}
       />,
     );
 
@@ -42,7 +42,7 @@ describe("QuestionContent syllogism restoration", () => {
       <QuestionContent
         question={question}
         onSelectOption={() => undefined}
-        syllogismSnapshot={{ "statement-1": true, "statement-2": false }}
+        placementSnapshot={{ "statement-1": "yes", "statement-2": "no" }}
       />,
     );
 
@@ -60,7 +60,7 @@ describe("QuestionContent syllogism restoration", () => {
       <QuestionContent
         question={question}
         onSelectOption={() => undefined}
-        onChangeSyllogismSnapshot={onChangeSyllogismSnapshot}
+        onChangePlacementSnapshot={onChangeSyllogismSnapshot}
       />,
     );
 
@@ -83,7 +83,7 @@ describe("QuestionContent syllogism restoration", () => {
     });
 
     expect(onChangeSyllogismSnapshot).toHaveBeenLastCalledWith({
-      "statement-1": true,
+      "statement-1": "yes",
     });
   });
 
@@ -105,7 +105,7 @@ describe("QuestionContent syllogism restoration", () => {
       <QuestionContent
         question={mostLeastQuestion}
         onSelectOption={() => undefined}
-        onChangeSyllogismSnapshot={onChange}
+        onChangePlacementSnapshot={onChange}
       />,
     );
 
@@ -135,7 +135,7 @@ describe("QuestionContent syllogism restoration", () => {
       }),
     });
 
-    expect(onChange).toHaveBeenLastCalledWith({ "action-b": true });
+    expect(onChange).toHaveBeenLastCalledWith({ "action-b": "most" });
   });
 });
 

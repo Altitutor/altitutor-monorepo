@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
   UCAT_COLORS,
   UCAT_FONTS,
@@ -27,7 +27,8 @@ import type { ReviewContract } from "@altitutor/ucat-response-contract";
 import {
   evaluatePersistedQuestionResponse,
   getQuestionMaximumMarks,
-  isBinaryPlacementResponse,
+  isPlacementResponse,
+  placementPresentationForQuestion,
   snapshotQuestionResponse,
 } from "@/features/question-engine/lib/response-state";
 
@@ -236,18 +237,21 @@ export function ResultsQuestionViewer({
     return () => window.clearTimeout(id);
   }, [question.id]);
 
-  if (isBinaryPlacementResponse(question)) {
+  if (isPlacementResponse(question)) {
     const options = [...question.options].sort((a, b) => a.index - b.index);
+    const presentation = placementPresentationForQuestion(question);
+    const tokenLabel = new Map(
+      presentation.tokens.map((token) => [token.value, token.label]),
+    );
 
     const rows = options.map((opt) => {
       const projectedRow =
         projectedReview.kind === "placement"
           ? projectedReview.rows.find((row) => row.targetId === opt.id)
           : undefined;
-      const studentHasAnswer = projectedRow?.placedToken != null;
-      const studentYes = projectedRow?.placedToken === "yes";
-      const correctYes = projectedRow?.correctToken === "yes";
-      const isCorrect = projectedRow?.outcome === "correct";
+      const studentToken = projectedRow?.placedToken ?? null;
+      const correctToken = projectedRow?.correctToken ?? null;
+      const isCorrect = studentToken === correctToken;
 
       const hasStats =
         opt.totalAnswered != null &&
@@ -257,9 +261,8 @@ export function ResultsQuestionViewer({
 
       return {
         option: opt,
-        studentYes,
-        studentHasAnswer,
-        correctYes,
+        studentToken,
+        correctToken,
         isCorrect,
         hasStats,
         pct,
@@ -306,8 +309,8 @@ export function ResultsQuestionViewer({
           </div>
           {savedAnswersUnavailable ? (
             <p className="rounded-md border border-amber-500/35 bg-amber-500/10 px-3 py-2 text-sm text-amber-800 dark:text-amber-300">
-              This attempt was scored, but its individual statement answers were
-              not saved. New syllogism attempts retain these answers.
+              This attempt was scored, but its individual placement answers were
+              not saved. New placement attempts retain these answers.
             </p>
           ) : null}
           <div className="mt-3 space-y-1.5">
@@ -329,18 +332,15 @@ export function ResultsQuestionViewer({
               {rows.map(
                 ({
                   option,
-                  studentYes,
-                  studentHasAnswer,
-                  correctYes,
+                  studentToken,
+                  correctToken,
                   isCorrect,
                   hasStats,
                   pct,
                   barWidth,
                 }) => {
-                  const isStatementCorrect =
-                    studentHasAnswer && studentYes === correctYes;
                   const rowHighlight = isReviewingSyllogism
-                    ? isStatementCorrect
+                    ? isCorrect
                       ? "correct"
                       : "wrong"
                     : null;
@@ -395,7 +395,7 @@ export function ResultsQuestionViewer({
                               ? syllogismAnswerCorrectClass(theme.site)
                               : rowHighlight === "wrong"
                                 ? syllogismAnswerWrongClass(theme.site)
-                                : !studentHasAnswer
+                                : studentToken == null
                                   ? theme.site
                                     ? "border-dashed border-muted-foreground/50 text-muted-foreground"
                                     : "border-dashed border-[#9ca3af] text-[#9ca3af]"
@@ -404,12 +404,16 @@ export function ResultsQuestionViewer({
                                     : syllogismAnswerWrongClass(theme.site),
                           )}
                         >
-                          {studentHasAnswer ? (studentYes ? "Yes" : "No") : "—"}
+                          {studentToken == null
+                            ? "—"
+                            : (tokenLabel.get(studentToken) ?? studentToken)}
                         </div>
                       </div>
                       <div className="flex items-center justify-center">
                         <div className={theme.correctAnswerBox}>
-                          {correctYes ? "Yes" : "No"}
+                          {correctToken == null
+                            ? "Not placed"
+                            : (tokenLabel.get(correctToken) ?? correctToken)}
                         </div>
                       </div>
                       {showStudentsColumn ? (
