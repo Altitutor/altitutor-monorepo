@@ -186,7 +186,7 @@ VALUES (
 );
 
 SELECT ok(
-  EXISTS (
+  NOT EXISTS (
     SELECT 1
     FROM jsonb_array_elements(
       public.ucat_content_publication_issues(
@@ -196,7 +196,7 @@ SELECT ok(
     ) issue
     WHERE issue ->> 'code' = 'sj_most_least_not_activated'
   ),
-  'Most/Least publication remains blocked during foundation expansion'
+  'Most/Least publication is active after the response-contract rollout'
 );
 
 INSERT INTO public.question_answer_options (

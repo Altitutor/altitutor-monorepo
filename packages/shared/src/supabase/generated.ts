@@ -17022,9 +17022,7 @@ export type Database = {
         Row: {
           ai_generation_metadata: Json | null
           answer_explanation: Json | null
-          answer_scheme:
-            | Database["public"]["Enums"]["ucat_answer_scheme"]
-            | null
+          answer_scheme: Database["public"]["Enums"]["ucat_answer_scheme"]
           created_at: string | null
           created_by: string | null
           deleted_at: string | null
@@ -17035,9 +17033,7 @@ export type Database = {
           question_stem_id: string
           question_text: Json
           question_type: Database["public"]["Enums"]["ucat_question_type"]
-          response_type:
-            | Database["public"]["Enums"]["ucat_response_type"]
-            | null
+          response_type: Database["public"]["Enums"]["ucat_response_type"]
           source_channel: Database["public"]["Enums"]["ucat_question_source_channel"]
           time_burden_seconds: number | null
           updated_at: string | null
@@ -17046,9 +17042,7 @@ export type Database = {
         Insert: {
           ai_generation_metadata?: Json | null
           answer_explanation?: Json | null
-          answer_scheme?:
-            | Database["public"]["Enums"]["ucat_answer_scheme"]
-            | null
+          answer_scheme: Database["public"]["Enums"]["ucat_answer_scheme"]
           created_at?: string | null
           created_by?: string | null
           deleted_at?: string | null
@@ -17059,9 +17053,7 @@ export type Database = {
           question_stem_id: string
           question_text: Json
           question_type: Database["public"]["Enums"]["ucat_question_type"]
-          response_type?:
-            | Database["public"]["Enums"]["ucat_response_type"]
-            | null
+          response_type: Database["public"]["Enums"]["ucat_response_type"]
           source_channel?: Database["public"]["Enums"]["ucat_question_source_channel"]
           time_burden_seconds?: number | null
           updated_at?: string | null
@@ -17070,9 +17062,7 @@ export type Database = {
         Update: {
           ai_generation_metadata?: Json | null
           answer_explanation?: Json | null
-          answer_scheme?:
-            | Database["public"]["Enums"]["ucat_answer_scheme"]
-            | null
+          answer_scheme?: Database["public"]["Enums"]["ucat_answer_scheme"]
           created_at?: string | null
           created_by?: string | null
           deleted_at?: string | null
@@ -17083,9 +17073,7 @@ export type Database = {
           question_stem_id?: string
           question_text?: Json
           question_type?: Database["public"]["Enums"]["ucat_question_type"]
-          response_type?:
-            | Database["public"]["Enums"]["ucat_response_type"]
-            | null
+          response_type?: Database["public"]["Enums"]["ucat_response_type"]
           source_channel?: Database["public"]["Enums"]["ucat_question_source_channel"]
           time_burden_seconds?: number | null
           updated_at?: string | null
@@ -17638,6 +17626,33 @@ export type Database = {
             referencedColumns: ["student_id"]
           },
         ]
+      }
+      ucat_response_contract_legacy_write_observations: {
+        Row: {
+          actor_id: string | null
+          id: number
+          occurred_at: string
+          operation: string
+          record_id: string
+          relation_name: string
+        }
+        Insert: {
+          actor_id?: string | null
+          id?: never
+          occurred_at?: string
+          operation: string
+          record_id: string
+          relation_name: string
+        }
+        Update: {
+          actor_id?: string | null
+          id?: never
+          occurred_at?: string
+          operation?: string
+          record_id?: string
+          relation_name?: string
+        }
+        Relationships: []
       }
       ucat_score_projection_settings: {
         Row: {
@@ -36367,6 +36382,19 @@ export type Database = {
       ucat_ai_positive_number: { Args: { value: Json }; Returns: number }
       ucat_ai_stable_json_stringify: { Args: { value: Json }; Returns: string }
       ucat_ai_stable_json_value: { Args: { value: Json }; Returns: Json }
+      ucat_canonical_content_snapshot: {
+        Args: { p_snapshot: Json }
+        Returns: Json
+      }
+      ucat_canonical_response_snapshot: {
+        Args: {
+          p_answer_scheme: Database["public"]["Enums"]["ucat_answer_scheme"]
+          p_answer_snapshot: Json
+          p_question_id: string
+          p_selected_option_id: string
+        }
+        Returns: Json
+      }
       ucat_catalog_media_identity: {
         Args: { json_content: Json }
         Returns: string
@@ -36459,6 +36487,14 @@ export type Database = {
       ucat_recompute_question_set_timing: {
         Args: { p_question_set_id: string }
         Returns: undefined
+      }
+      ucat_response_contract_activation_report: {
+        Args: { p_observation_started_at?: string }
+        Returns: {
+          check_name: string
+          issue_count: number
+          sample_ids: string[]
+        }[]
       }
       ucat_rich_text_has_content: { Args: { p_value: Json }; Returns: boolean }
       ucat_unresolved_current_ai_assessment_findings: {

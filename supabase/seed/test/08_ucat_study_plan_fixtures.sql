@@ -218,15 +218,25 @@ BEGIN
 
       INSERT INTO public.ucat_questions (
         id, question_stem_id, question_text, index, difficulty,
-        time_burden_seconds, question_type, answer_explanation,
+        time_burden_seconds, question_type, response_type, answer_scheme,
+        answer_explanation,
         source_channel, deleted_at
       ) VALUES (
         question_id, stem_id, v_rich_document, 0, 0.5,
-        category_record.time_per_question, 'multiple_choice', v_rich_document,
+        category_record.time_per_question,
+        'multiple_choice',
+        'multiple_choice',
+        CASE category_record.section_number
+          WHEN 4 THEN 'situational_judgement_rating'::public.ucat_answer_scheme
+          ELSE 'single_choice'::public.ucat_answer_scheme
+        END,
+        v_rich_document,
         'individual', NULL
       )
       ON CONFLICT (id) DO UPDATE SET
         question_text = EXCLUDED.question_text,
+        response_type = EXCLUDED.response_type,
+        answer_scheme = EXCLUDED.answer_scheme,
         answer_explanation = EXCLUDED.answer_explanation,
         deleted_at = NULL,
         updated_at = NOW();
@@ -245,7 +255,8 @@ BEGIN
           )
         );
         INSERT INTO public.question_answer_options (
-          id, question_id, answer_text, answer_explanation, index, is_answer, deleted_at
+          id, question_id, answer_text, answer_explanation, index, is_answer,
+          answer_key_value, deleted_at
         ) VALUES (
           option_id,
           question_id,
@@ -253,12 +264,17 @@ BEGIN
           v_rich_document,
           option_index,
           option_index = 0,
+          CASE
+            WHEN option_index = 0 THEN 'correct'::public.ucat_answer_key_value
+            ELSE NULL
+          END,
           NULL
         )
         ON CONFLICT (id) DO UPDATE SET
           answer_text = EXCLUDED.answer_text,
           answer_explanation = EXCLUDED.answer_explanation,
           is_answer = EXCLUDED.is_answer,
+          answer_key_value = EXCLUDED.answer_key_value,
           deleted_at = NULL,
           updated_at = NOW();
       END LOOP;
