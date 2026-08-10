@@ -30,10 +30,15 @@ The complete, stable-ID decision record is in
 approved semantic rules without reading Response type, Answer scheme, answer
 keys, or interaction shape.
 
+`alti-540-dm-category-post-migration-verification-2026-08-10.json` is derived
+from both source snapshots plus that reviewed mapping. Its automated check
+recalculates category totals, unresolved active published IDs, quarantined IDs,
+and any response-contract fields present in the decision evidence.
+
 - Development after migration: 199 Syllogisms, 134 Interpreting Information and
   Drawing Conclusions, 3 Probabilistic and Statistical Reasoning, and one
   approved garbage-stem quarantine.
-- Production after migration: 135 Syllogisms, 112 Interpreting Information and
+- Production after migration: 134 Syllogisms, 113 Interpreting Information and
   Drawing Conclusions, and 4 Probabilistic and Statistical Reasoning.
 - Three shared-ID reviewer disagreements were resolved to production semantics;
   all three are applied schedule or business-condition problems and therefore

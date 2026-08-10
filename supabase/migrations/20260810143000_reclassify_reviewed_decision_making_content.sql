@@ -274,7 +274,7 @@ VALUES
   ('9ff39515-305d-4c55-9bf9-b9bbabe2b3dc'::uuid, '24df84c6-47d7-45d3-a255-e32d23c20eef'::uuid),
   ('a028e71a-314e-4d24-98b6-c5a1dac58819'::uuid, '24df84c6-47d7-45d3-a255-e32d23c20eef'::uuid),
   ('a036b156-b2cb-487b-b4d5-3b72e5f74f8a'::uuid, 'b35d193a-d054-4ac2-8ae3-669ac1ff79bc'::uuid),
-  ('a03f06d1-0dbe-463c-92b9-2724bbeae66a'::uuid, 'b35d193a-d054-4ac2-8ae3-669ac1ff79bc'::uuid),
+  ('a03f06d1-0dbe-463c-92b9-2724bbeae66a'::uuid, '24df84c6-47d7-45d3-a255-e32d23c20eef'::uuid),
   ('a09b1a41-a99e-4da7-bcec-3c8f6aa8ffe2'::uuid, 'b35d193a-d054-4ac2-8ae3-669ac1ff79bc'::uuid),
   ('a0a167de-fbdd-4264-b33c-7e640f8cd1c8'::uuid, '24df84c6-47d7-45d3-a255-e32d23c20eef'::uuid),
   ('a1411b74-ff81-47b9-93dd-98d4d4e180e5'::uuid, 'b35d193a-d054-4ac2-8ae3-669ac1ff79bc'::uuid),

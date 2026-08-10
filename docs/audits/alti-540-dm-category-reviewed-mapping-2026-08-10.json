@@ -43,8 +43,8 @@
     "production": {
       "sourceRows": 251,
       "approvedCategories": {
-        "Syllogisms": 135,
-        "Interpreting Information and Drawing Conclusions": 112,
+        "Syllogisms": 134,
+        "Interpreting Information and Drawing Conclusions": 113,
         "Probabilistic and Statistical Reasoning": 4
       },
       "quarantined": 0,
@@ -2559,9 +2559,9 @@
       "environments": [
         "production"
       ],
-      "action": "retain",
-      "approvedCategory": "Syllogisms",
-      "rationale": "Strong formal-premise evidence; retained as Syllogisms."
+      "action": "reclassify",
+      "approvedCategory": "Interpreting Information and Drawing Conclusions",
+      "rationale": "Store-occupancy diagram; visual information must be interpreted to draw conclusions."
     },
     {
       "stemId": "a09b1a41-a99e-4da7-bcec-3c8f6aa8ffe2",

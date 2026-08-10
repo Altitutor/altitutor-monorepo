@@ -1,0 +1,39 @@
+{
+  "schemaVersion": 1,
+  "verificationMode": "derived_post_migration_projection",
+  "migration": "20260810143000_reclassify_reviewed_decision_making_content.sql",
+  "reviewedMapping": "alti-540-dm-category-reviewed-mapping-2026-08-10.json",
+  "checks": {
+    "mappedStableIds": 413,
+    "quarantinedStableIds": 1,
+    "localMigrationApplied": true
+  },
+  "environments": {
+    "development": {
+      "projectRef": "ysfslbdcacpbemodkwtl",
+      "sourceRows": 337,
+      "postMigrationCategoryCounts": {
+        "Syllogisms": 199,
+        "Interpreting Information and Drawing Conclusions": 134,
+        "Probabilistic and Statistical Reasoning": 3
+      },
+      "quarantinedStemIds": [
+        "e421a4e9-308b-44c3-a709-0a9008085524"
+      ],
+      "unresolvedActivePublishedStemIds": [],
+      "responseContractDecisionFields": []
+    },
+    "production": {
+      "projectRef": "mzgunxjfgvcyivcyqimn",
+      "sourceRows": 251,
+      "postMigrationCategoryCounts": {
+        "Syllogisms": 134,
+        "Interpreting Information and Drawing Conclusions": 113,
+        "Probabilistic and Statistical Reasoning": 4
+      },
+      "quarantinedStemIds": [],
+      "unresolvedActivePublishedStemIds": [],
+      "responseContractDecisionFields": []
+    }
+  }
+}
