@@ -35,6 +35,25 @@ export type StoredBlueprintCompliance = {
     compliant: boolean
     checks: StoredBlueprintCheck[]
   }>
+  reasons?: Array<{ code: string; message: string }>
+}
+
+export type LinkedMockBlueprintCompliance = {
+  mockId: string
+  mockName: string
+  blueprintId: string
+  setIds: string[]
+  compliance: StoredBlueprintCompliance
+}
+
+export type BlueprintRow = {
+  id?: string | null
+  code: string | null
+  test_year: number | null
+  version: number | null
+  official_facts_label: string | null
+  altitutor_policy_label: string | null
+  sections: unknown
 }
 
 const sectionByNumber: Record<number, BlueprintSectionCode> = {
@@ -77,17 +96,28 @@ export function evaluateDraftMockBlueprint(
         .map(catalogStemToBlueprintStem),
     }]
   })
+  const representedSections = new Set(sections.map(section => section.section))
+  for (const official of blueprint.official.sections) {
+    if (!representedSections.has(official.section)) {
+      sections.push({
+        section: official.section,
+        answeringTimeSeconds: 0,
+        instructionTimeSeconds: official.instructionTimeSeconds,
+        stems: [],
+      })
+    }
+  }
   return evaluateBlueprint(blueprint, { purpose: 'full_mock', sections })
 }
 
-export function blueprintRowToModel(row: {
-  code: string
-  test_year: number
-  version: number
-  official_facts_label: string
-  altitutor_policy_label: string
-  sections: unknown
-}): UcatBlueprint | null {
+export function blueprintRowToModel(row: BlueprintRow): UcatBlueprint | null {
+  if (
+    typeof row.code !== 'string'
+    || typeof row.test_year !== 'number'
+    || typeof row.version !== 'number'
+    || typeof row.official_facts_label !== 'string'
+    || typeof row.altitutor_policy_label !== 'string'
+  ) return null
   if (!Array.isArray(row.sections)) return null
   type ParsedSection = {
     section: string
@@ -163,6 +193,7 @@ export function evaluationToStoredCompliance(evaluation: BlueprintEvaluation): S
             : `Allowed ${check.minimum ?? '—'}–${check.maximum ?? '—'}; actual ${check.actual}.`,
         })),
     })),
+    reasons: evaluation.reasons.map(reason => ({ code: reason.code, message: reason.message })),
   }
 }
 
@@ -175,19 +206,100 @@ export function parseStoredBlueprintCompliance(value: unknown): StoredBlueprintC
   return candidate as StoredBlueprintCompliance
 }
 
-export function parseLinkedMockBlueprintCompliance(value: unknown): Array<{
-  mockId: string
-  mockName: string
-  compliance: StoredBlueprintCompliance
-}> {
+export function parseLinkedMockBlueprintCompliance(value: unknown): LinkedMockBlueprintCompliance[] {
   if (!Array.isArray(value)) return []
   return value.flatMap(item => {
     if (!item || typeof item !== 'object') return []
-    const candidate = item as { mockId?: unknown; mockName?: unknown; compliance?: unknown }
+    const candidate = item as {
+      mockId?: unknown
+      mockName?: unknown
+      blueprintId?: unknown
+      setIds?: unknown
+      compliance?: unknown
+    }
     const compliance = parseStoredBlueprintCompliance(candidate.compliance)
-    return typeof candidate.mockId === 'string' && typeof candidate.mockName === 'string' && compliance
-      ? [{ mockId: candidate.mockId, mockName: candidate.mockName, compliance }]
+    const setIds = Array.isArray(candidate.setIds)
+      ? candidate.setIds.filter((id): id is string => typeof id === 'string')
       : []
+    return typeof candidate.mockId === 'string'
+      && typeof candidate.mockName === 'string'
+      && typeof candidate.blueprintId === 'string'
+      && compliance
+      ? [{
+          mockId: candidate.mockId,
+          mockName: candidate.mockName,
+          blueprintId: candidate.blueprintId,
+          setIds,
+          compliance,
+        }]
+      : []
+  })
+}
+
+export function recalculateLinkedMockBlueprintCompliance({
+  linkedReports,
+  blueprints,
+  setCatalog,
+  stemCatalog,
+  editedSet,
+}: {
+  linkedReports: LinkedMockBlueprintCompliance[]
+  blueprints: BlueprintRow[]
+  setCatalog: SetOption[]
+  stemCatalog: UcatStemCatalogItem[]
+  editedSet: {
+    id: string
+    stemIds: string[]
+    timeLimitSeconds: number | null
+    sectionNumbers: number[]
+  }
+}): LinkedMockBlueprintCompliance[] {
+  const draftStemIds = new Set(editedSet.stemIds)
+  const draftStems = stemCatalog.map(stem => ({
+    ...stem,
+    setIds: [
+      ...stem.setIds.filter(setId => setId !== editedSet.id),
+      ...(draftStemIds.has(stem.id) ? [editedSet.id] : []),
+    ],
+  }))
+  const current = setCatalog.find(set => set.id === editedSet.id)
+  const draftSectionNumber = editedSet.sectionNumbers.length === 1 ? editedSet.sectionNumbers[0] ?? null : null
+  const draftSets = [
+    ...setCatalog.filter(set => set.id !== editedSet.id),
+    {
+      id: editedSet.id,
+      name: current?.name ?? 'Current set',
+      sectionDisplay: current?.sectionDisplay ?? '',
+      sectionCount: editedSet.sectionNumbers.length,
+      firstSectionNumber: draftSectionNumber,
+      question_count: editedSet.stemIds.reduce(
+        (total, stemId) => total + (stemCatalog.find(stem => stem.id === stemId)?.questionsCount ?? 0),
+        0,
+      ),
+      time_limit_seconds: editedSet.timeLimitSeconds,
+      access_scope: current?.access_scope ?? null,
+      stem_count: editedSet.stemIds.length,
+    },
+  ]
+
+  return linkedReports.map(report => {
+    const row = blueprints.find(blueprint => blueprint.id === report.blueprintId)
+    const blueprint = row ? blueprintRowToModel(row) : null
+    if (!blueprint) return report
+    const compliance = evaluationToStoredCompliance(
+      evaluateDraftMockBlueprint(blueprint, report.setIds, draftSets, draftStems),
+    )
+    if (editedSet.sectionNumbers.length !== 1) {
+      compliance.compliant = false
+      compliance.reasons = [{
+        code: 'SET_SECTION_COUNT_INVALID',
+        message: `A blueprint section set must contain stems from exactly one section; found ${editedSet.sectionNumbers.length}.`,
+      }, ...(compliance.reasons ?? [])]
+    }
+    return {
+      ...report,
+      compliance,
+    }
   })
 }
 

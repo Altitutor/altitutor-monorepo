@@ -21,6 +21,9 @@ export function UcatBlueprintCompliancePanel({ compliance }: { compliance: Store
           {compliance.compliant ? 'Compliant' : 'Needs attention'}
         </Badge>
       </div>
+      {compliance.reasons?.map((reason, index) => (
+        <p key={`${reason.code}-${index}`} className="text-xs text-destructive">{reason.message}</p>
+      ))}
       {compliance.sections.map(section => (
         <div key={section.section} className="space-y-1.5">
           <p className="text-xs font-semibold">{labels[section.section] ?? section.section}</p>

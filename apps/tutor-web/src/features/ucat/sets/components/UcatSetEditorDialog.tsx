@@ -40,7 +40,12 @@ import { UcatStemEditorHeaderControls } from '@/features/ucat/questions/componen
 import type { StemEditorMode } from '@/features/ucat/questions/components/stem-editor/UcatStemEditorPropertiesPanel'
 import { UcatPdfExportDialog } from '@/features/ucat/shared/components/UcatPdfExportDialog'
 import { buildUcatPdfExportAction } from '@/features/ucat/shared/pdf/pdf-export-action'
-import { parseLinkedMockBlueprintCompliance } from '@/features/ucat/mocks/lib/blueprint-compliance'
+import { useUcatMockBlueprints } from '@/features/ucat/mocks/hooks/useUcatMocks'
+import {
+  parseLinkedMockBlueprintCompliance,
+  recalculateLinkedMockBlueprintCompliance,
+} from '@/features/ucat/mocks/lib/blueprint-compliance'
+import { parseSetSections } from '@/features/ucat/shared/lib/set-section-status'
 
 /** Shape of each stem in vtutor_ucat_question_set_detail.stems (from DB view) */
 type SetDetailStem = { stem_id: string; stem_text?: unknown; questions_meta?: Array<{ id: string; index: number }> }
@@ -69,6 +74,7 @@ export function UcatSetEditorDialog({
   const categoriesQuery = useUcatCategories()
   const tagsQuery = useUcatTags()
   const setsQuery = useUcatSets()
+  const blueprintsQuery = useUcatMockBlueprints()
   const [editingStemId, setEditingStemId] = useState<string | null>(null)
   const [search, setSearch] = useState('')
   const [setFilterSearch, setSetFilterSearch] = useState('')
@@ -86,7 +92,7 @@ export function UcatSetEditorDialog({
   const [editorMode, setEditorMode] = useState<StemEditorMode>('edit')
   const [showAnswer, setShowAnswer] = useState(false)
   const [exportDialogOpen, setExportDialogOpen] = useState(false)
-  const linkedBlueprintReports = useMemo(() => {
+  const storedLinkedBlueprintReports = useMemo(() => {
     const row = (setsQuery.data ?? []).find(candidate => candidate.id === setId)
     return parseLinkedMockBlueprintCompliance(row?.linked_mock_blueprint_compliance)
   }, [setId, setsQuery.data])
@@ -179,6 +185,45 @@ export function UcatSetEditorDialog({
     }
     return minutesSecondsToTotal(draftTimeLimitMinutes, draftTimeLimitSeconds)
   })()
+
+  const linkedBlueprintReports = useMemo(() => recalculateLinkedMockBlueprintCompliance({
+    linkedReports: storedLinkedBlueprintReports,
+    blueprints: blueprintsQuery.data ?? [],
+    setCatalog: (setsQuery.data ?? []).map(set => {
+      const parsed = parseSetSections(set.sections ?? null)
+      return {
+        id: set.id ?? '',
+        name: proseMirrorToPlainText(set.name ?? null) || 'Untitled',
+        sectionDisplay: '',
+        sectionCount: parsed.sectionCount,
+        firstSectionNumber: parsed.firstSectionNumber,
+        question_count: set.question_count ?? null,
+        time_limit_seconds: set.time_limit_seconds ?? null,
+        access_scope: set.access_scope ?? null,
+        stem_count: set.stem_count ?? null,
+      }
+    }),
+    stemCatalog,
+    editedSet: {
+      id: setId ?? '',
+      stemIds: draftStemIds,
+      timeLimitSeconds,
+      sectionNumbers: setSectionsFromStems.flatMap(draftSection => {
+        const sectionNumber = (sectionsQuery.data ?? []).find(section => section.id === draftSection.sectionId)?.section_number
+        return sectionNumber == null ? [] : [sectionNumber]
+      }),
+    },
+  }), [
+    blueprintsQuery.data,
+    draftStemIds,
+    sectionsQuery.data,
+    setSectionsFromStems,
+    setId,
+    setsQuery.data,
+    stemCatalog,
+    storedLinkedBlueprintReports,
+    timeLimitSeconds,
+  ])
 
   const isTimeLimitValid =
     !draftIsTimed ||

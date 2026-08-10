@@ -1,8 +1,20 @@
 BEGIN;
-SELECT plan(8);
+SELECT plan(14);
 
 SELECT has_column('public', 'ucat_mocks', 'blueprint_id', 'full mocks may reference an immutable blueprint');
 SELECT has_function('public', 'ucat_mock_blueprint_compliance', ARRAY['uuid'], 'mock compliance is a durable database projection');
+SELECT ok(
+  NOT has_function_privilege('authenticated', 'public.ucat_mock_blueprint_compliance(uuid)', 'EXECUTE'),
+  'authenticated callers cannot bypass guarded tutor views to inspect base-table compliance'
+);
+SELECT ok(
+  NOT has_function_privilege('authenticated', 'public.ucat_content_publication_issues(text,uuid)', 'EXECUTE'),
+  'students cannot query arbitrary base-table publication diagnostics'
+);
+SELECT ok(
+  NOT has_function_privilege('authenticated', 'public.ucat_content_before_mock_blueprint_issues(text,uuid)', 'EXECUTE'),
+  'the renamed legacy diagnostic does not retain authenticated execution'
+);
 
 INSERT INTO public.ucat_mock_blueprints (
   id, code, test_year, version, official_facts_label, altitutor_policy_label
@@ -40,6 +52,21 @@ SELECT
   1, 'multiple_choice', 'multiple_choice', 'single_choice'
 FROM public.question_stems stem
 WHERE stem.id::text LIKE '54210000-0000-4000-8000-%';
+
+UPDATE public.ucat_questions
+SET answer_explanation = '{"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"Explanation"}]}]}'::jsonb
+WHERE question_stem_id::text LIKE '54210000-0000-4000-8000-%';
+
+INSERT INTO public.question_answer_options (question_id, answer_text, index, is_answer, answer_key_value)
+SELECT question.id,
+  jsonb_build_object('type', 'doc', 'content', jsonb_build_array(jsonb_build_object(
+    'type', 'paragraph', 'content', jsonb_build_array(jsonb_build_object('type', 'text', 'text', option.index::text))
+  ))),
+  option.index, option.index = 1,
+  CASE WHEN option.index = 1 THEN 'correct'::public.ucat_answer_key_value ELSE NULL END
+FROM public.ucat_questions question
+CROSS JOIN generate_series(1, 4) AS option(index)
+WHERE question.question_stem_id::text LIKE '54210000-0000-4000-8000-%';
 
 INSERT INTO public.question_sets (id, name, time_limit_seconds, status, access_scope)
 VALUES (
@@ -82,6 +109,71 @@ SELECT is(
   '1',
   'the durable report exposes the current actual value for a failed range'
 );
+
+INSERT INTO public.question_stems_question_sets (question_stem_id, question_set_id, index)
+VALUES ('54210000-0000-4000-8000-000000000004', '54230000-0000-4000-8000-000000000001', 4);
+UPDATE public.ucat_mocks SET status = 'published'
+WHERE id = '54240000-0000-4000-8000-000000000001';
+INSERT INTO public.staff_subjects (staff_id, subject_id)
+SELECT '00000000-0000-0000-0000-000000000010', subject.id
+FROM public.subjects subject
+WHERE subject.name = 'UCAT'
+ON CONFLICT DO NOTHING;
+SELECT set_config(
+  'request.jwt.claims',
+  '{"sub":"00000000-0000-0000-0000-000000000010","role":"authenticated"}',
+  true
+);
+SELECT throws_ok(
+  $$SELECT public.tutor_ucat_upsert_question_stem_bundle(
+    '54210000-0000-4000-8000-000000000004',
+    (SELECT section_id FROM public.question_stems WHERE id = '54210000-0000-4000-8000-000000000004'),
+    (SELECT id FROM public.question_stem_categories WHERE name = 'Syllogisms' AND ucat_section_id =
+      (SELECT section_id FROM public.question_stems WHERE id = '54210000-0000-4000-8000-000000000004')),
+    '{"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"Test"}]}]}'::jsonb,
+    'public',
+    (SELECT jsonb_agg(jsonb_build_object(
+      'id', question.id, 'index', question.index, 'question_text', question.question_text,
+      'answer_explanation', question.answer_explanation,
+      'question_type', question.question_type, 'response_type', question.response_type,
+      'answer_scheme', question.answer_scheme,
+      'answer_options', (SELECT jsonb_agg(jsonb_build_object(
+        'id', option.id, 'index', option.index, 'answer_text', option.answer_text,
+        'is_answer', option.is_answer, 'answer_key_value', option.answer_key_value
+      ) ORDER BY option.index) FROM public.question_answer_options option
+        WHERE option.question_id = question.id AND option.deleted_at IS NULL)
+    )) FROM public.ucat_questions question
+      WHERE question.question_stem_id = '54210000-0000-4000-8000-000000000004' AND question.deleted_at IS NULL)
+  )$$,
+  'P0001',
+  'published_mock_blueprint_noncompliant:54240000-0000-4000-8000-000000000001',
+  'stem metadata edits cannot leave a linked published blueprint mock noncompliant'
+);
+SELECT throws_ok(
+  $$SELECT public.tutor_ucat_bulk_update_question_stem_metadata(
+    ARRAY['54210000-0000-4000-8000-000000000004'::uuid],
+    'b35d193a-d054-4ac2-8ae3-669ac1ff79bc',
+    NULL
+  )$$,
+  'P0001',
+  'published_mock_blueprint_noncompliant:54240000-0000-4000-8000-000000000001',
+  'bulk category edits cannot leave a linked published blueprint mock noncompliant'
+);
+SELECT throws_ok(
+  $$SELECT public.tutor_ucat_upsert_question_set(
+    '54230000-0000-4000-8000-000000000001',
+    '{"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"DM"}]}]}'::jsonb,
+    NULL, 240, 'public',
+    '["54210000-0000-4000-8000-000000000001","54210000-0000-4000-8000-000000000002","54210000-0000-4000-8000-000000000003"]'::jsonb
+  )$$,
+  'P0001',
+  'published_mock_blueprint_noncompliant:54240000-0000-4000-8000-000000000001',
+  'shared-set edits cannot leave a linked published blueprint mock noncompliant'
+);
+
+DELETE FROM public.question_stems_question_sets
+WHERE question_set_id = '54230000-0000-4000-8000-000000000001'
+  AND question_stem_id = '54210000-0000-4000-8000-000000000004';
 
 SELECT ok(
   public.ucat_content_publication_issues('mock', '54240000-0000-4000-8000-000000000001') @>

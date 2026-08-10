@@ -1,6 +1,11 @@
 import type { UcatStemCatalogItem } from '@/features/ucat/questions/hooks/useUcatQuestions'
-import { buildBlueprintSection, UCAT_ANZ_2026_V1 } from '@altitutor/ucat-blueprint'
-import { blueprintSectionCode, catalogStemToBlueprintStem } from '@/features/ucat/mocks/lib/blueprint-compliance'
+import { buildBlueprintSection, evaluateBlueprint, UCAT_ANZ_2026_V1 } from '@altitutor/ucat-blueprint'
+import {
+  blueprintSectionCode,
+  catalogStemToBlueprintStem,
+  evaluationToStoredCompliance,
+  type StoredBlueprintCompliance,
+} from '@/features/ucat/mocks/lib/blueprint-compliance'
 
 export type AutoSetMode = 'total' | 'category' | 'blueprint'
 export type AutoStemVisibility = 'either' | 'public' | 'private'
@@ -17,6 +22,7 @@ export type AutoSetPreview = {
     stemCount: number
     eligibleStemCount: number
   }>
+  blueprintCompliance?: StoredBlueprintCompliance
   warnings: string[]
 }
 
@@ -154,12 +160,33 @@ export function buildAutoSetPreview({
     )
     const selectedIds = new Set(build.selectedStems.map(stem => stem.id))
     const selectedStems = eligibleStems.filter(stem => selectedIds.has(stem.id))
-    const targetQuestions = UCAT_ANZ_2026_V1.official.sections.find(rule => rule.section === section)?.questionCount ?? 0
+    const official = UCAT_ANZ_2026_V1.official.sections.find(rule => rule.section === section)
+    const targetQuestions = official?.questionCount ?? 0
+    const selectedEvaluation = evaluateBlueprint(UCAT_ANZ_2026_V1, {
+      purpose: 'full_mock',
+      sections: official ? [{
+        section,
+        answeringTimeSeconds: official.answeringTimeSeconds,
+        instructionTimeSeconds: official.instructionTimeSeconds,
+        stems: selectedStems.map(catalogStemToBlueprintStem),
+      }] : [],
+    })
+    const blueprintCompliance = evaluationToStoredCompliance(selectedEvaluation)
+    blueprintCompliance.sections = blueprintCompliance.sections
+      .filter(result => result.section === section)
+      .map(result => ({
+        ...result,
+        checks: result.checks.filter(check => check.code !== 'SECTION_ORDER_INVALID'),
+      }))
+    blueprintCompliance.compliant = blueprintCompliance.sections.length === 1
+      && blueprintCompliance.sections.every(result => result.checks.every(check => check.compliant))
+    blueprintCompliance.reasons = []
     return {
       selectedStems,
       totalQuestions: selectedStems.reduce((sum, stem) => sum + stem.questionsCount, 0),
       targetQuestions,
       byCategory: [],
+      blueprintCompliance,
       warnings: build.shortfalls.map(shortfall =>
         `${shortfall.label}: short by ${shortfall.shortfall} (${shortfall.available} available).`,
       ),

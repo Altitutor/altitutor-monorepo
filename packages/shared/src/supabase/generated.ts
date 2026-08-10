@@ -35625,6 +35625,14 @@ export type Database = {
         }
         Returns: undefined
       }
+      tutor_ucat_bulk_update_stem_metadata_before_blueprint_guard: {
+        Args: {
+          p_access_scope: Database["public"]["Enums"]["ucat_access_scope"]
+          p_question_stem_category_id: string
+          p_stem_ids: string[]
+        }
+        Returns: undefined
+      }
       tutor_ucat_bulk_upsert_generated_question_stem_bundles: {
         Args: { p_section_id: string; p_stems: Json }
         Returns: string[]
@@ -36097,6 +36105,17 @@ export type Database = {
         }
         Returns: string
       }
+      tutor_ucat_upsert_question_set_before_mock_blueprint_guard: {
+        Args: {
+          p_access_scope: Database["public"]["Enums"]["ucat_access_scope"]
+          p_description: Json
+          p_name: Json
+          p_set_id: string
+          p_stem_ids: Json
+          p_time_limit_seconds: number
+        }
+        Returns: string
+      }
       tutor_ucat_upsert_question_stem_bundle: {
         Args: {
           p_access_scope: Database["public"]["Enums"]["ucat_access_scope"]
@@ -36130,6 +36149,19 @@ export type Database = {
           p_item_id: string
           p_skill_trainer_id: string
           p_source_question_stem_id?: string
+        }
+        Returns: string
+      }
+      tutor_ucat_upsert_stem_before_blueprint_guard: {
+        Args: {
+          p_access_scope: Database["public"]["Enums"]["ucat_access_scope"]
+          p_question_stem_category_id: string
+          p_questions: Json
+          p_section_id: string
+          p_source_channel?: Database["public"]["Enums"]["ucat_question_source_channel"]
+          p_stem_id: string
+          p_stem_text: Json
+          p_tutor_source_note?: string
         }
         Returns: string
       }

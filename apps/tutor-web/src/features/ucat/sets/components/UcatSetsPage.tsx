@@ -56,6 +56,7 @@ import {
   type AutoSetMode,
   type AutoStemVisibility,
 } from '@/features/ucat/sets/lib/auto-set-builder'
+import { UcatBlueprintCompliancePanel } from '@/features/ucat/mocks/components/UcatBlueprintCompliancePanel'
 import { setDetailToUpdatePayload } from '@/features/ucat/sets/lib/set-payload-mappers'
 import { useUcatRowSelection } from '@/features/ucat/shared/hooks/useUcatRowSelection'
 import { ucatKeys } from '@/features/ucat/shared/lib/query-keys'
@@ -1135,6 +1136,9 @@ export function UcatSetsPage() {
                             </div>
                           ))}
                         </div>
+                      ) : null}
+                      {autoMode === 'blueprint' && autoPreview.blueprintCompliance ? (
+                        <UcatBlueprintCompliancePanel compliance={autoPreview.blueprintCompliance} />
                       ) : null}
                       {autoPreview.selectedStems.length > 0 ? (
                         <div className="max-h-36 space-y-1 overflow-y-auto border-t pt-2 text-xs">

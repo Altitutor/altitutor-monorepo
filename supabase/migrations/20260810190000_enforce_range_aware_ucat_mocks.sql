@@ -26,6 +26,7 @@ DECLARE
   v_actual INTEGER;
   v_set_count INTEGER;
   v_time_limit INTEGER;
+  v_member_index INTEGER;
   v_compliant BOOLEAN := true;
   v_check_compliant BOOLEAN;
   v_label TEXT;
@@ -62,8 +63,9 @@ BEGIN
 
     SELECT
       count(DISTINCT member.question_set_id)::integer,
-      min(question_set.time_limit_seconds)
-    INTO v_set_count, v_time_limit
+      min(question_set.time_limit_seconds),
+      min(member.index)
+    INTO v_set_count, v_time_limit, v_member_index
     FROM public.question_sets_ucat_mocks member
     JOIN public.question_sets question_set
       ON question_set.id = member.question_set_id AND question_set.deleted_at IS NULL
@@ -104,6 +106,15 @@ BEGIN
       'actual', v_actual, 'compliant', v_check_compliant,
       'reason', CASE WHEN v_check_compliant THEN 'Exact total met.'
         ELSE format('Requires exactly %s questions in one section set; found %s questions across %s sets.', v_section.exact_question_count, v_actual, v_set_count) END
+    ));
+    IF NOT v_check_compliant THEN v_compliant := false; END IF;
+
+    v_check_compliant := v_set_count = 1 AND v_member_index = v_section.section_index + 1;
+    v_checks := v_checks || jsonb_build_array(jsonb_build_object(
+      'code', 'SECTION_ORDER_INVALID', 'label', 'Section order', 'unit', 'position',
+      'target', v_section.section_index + 1, 'actual', v_member_index,
+      'compliant', v_check_compliant,
+      'reason', format('Target position %s; found %s.', v_section.section_index + 1, coalesce(v_member_index::text, 'no section set'))
     ));
     IF NOT v_check_compliant THEN v_compliant := false; END IF;
 
@@ -348,8 +359,9 @@ BEGIN
 END;
 $$;
 
-REVOKE ALL ON FUNCTION public.ucat_mock_blueprint_compliance(UUID) FROM PUBLIC, anon;
-GRANT EXECUTE ON FUNCTION public.ucat_mock_blueprint_compliance(UUID) TO authenticated;
+-- Private helper: tutor views and lifecycle writers invoke it as their owner.
+-- Authenticated users must read the guarded vtutor_* projections instead.
+REVOKE ALL ON FUNCTION public.ucat_mock_blueprint_compliance(UUID) FROM PUBLIC, anon, authenticated;
 
 ALTER FUNCTION public.ucat_content_publication_issues(TEXT, UUID)
   RENAME TO ucat_content_before_mock_blueprint_issues;
@@ -380,9 +392,10 @@ BEGIN
 END;
 $$;
 
-REVOKE ALL ON FUNCTION public.ucat_content_before_mock_blueprint_issues(TEXT, UUID) FROM PUBLIC;
-REVOKE ALL ON FUNCTION public.ucat_content_publication_issues(TEXT, UUID) FROM PUBLIC;
-GRANT EXECUTE ON FUNCTION public.ucat_content_publication_issues(TEXT, UUID) TO authenticated;
+REVOKE ALL ON FUNCTION public.ucat_content_before_mock_blueprint_issues(TEXT, UUID) FROM PUBLIC, anon, authenticated;
+-- Lifecycle writers and guarded views invoke this as their owner. Do not expose
+-- its base-table-derived diagnostics as an arbitrary-ID RPC to students.
+REVOKE ALL ON FUNCTION public.ucat_content_publication_issues(TEXT, UUID) FROM PUBLIC, anon, authenticated;
 
 CREATE FUNCTION public.tutor_ucat_upsert_mock(
   p_mock_id UUID,
@@ -420,6 +433,166 @@ $$;
 
 REVOKE ALL ON FUNCTION public.tutor_ucat_upsert_mock(UUID, TEXT, public.ucat_access_scope, JSONB, JSONB, UUID) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION public.tutor_ucat_upsert_mock(UUID, TEXT, public.ucat_access_scope, JSONB, JSONB, UUID) TO authenticated;
+
+-- A shared set is part of every linked mock's composition. Re-evaluate published
+-- blueprint mocks in the same transaction so an edit cannot invalidate one.
+ALTER FUNCTION public.tutor_ucat_upsert_question_set(UUID, JSONB, JSONB, INTEGER, public.ucat_access_scope, JSONB)
+  RENAME TO tutor_ucat_upsert_question_set_before_mock_blueprint_guard;
+
+CREATE FUNCTION public.tutor_ucat_upsert_question_set(
+  p_set_id UUID,
+  p_name JSONB,
+  p_description JSONB,
+  p_time_limit_seconds INTEGER,
+  p_access_scope public.ucat_access_scope,
+  p_stem_ids JSONB
+)
+RETURNS UUID
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_set_id UUID;
+  v_invalid_mock UUID;
+BEGIN
+  v_set_id := public.tutor_ucat_upsert_question_set_before_mock_blueprint_guard(
+    p_set_id, p_name, p_description, p_time_limit_seconds, p_access_scope, p_stem_ids
+  );
+
+  SELECT parent.id INTO v_invalid_mock
+  FROM public.question_sets_ucat_mocks member
+  JOIN public.ucat_mocks parent ON parent.id = member.ucat_mock_id
+  WHERE member.question_set_id = v_set_id
+    AND parent.deleted_at IS NULL
+    AND parent.status = 'published'
+    AND parent.blueprint_id IS NOT NULL
+    AND NOT (public.ucat_mock_blueprint_compliance(parent.id)->>'compliant')::boolean
+  ORDER BY parent.id
+  LIMIT 1;
+
+  IF v_invalid_mock IS NOT NULL THEN
+    RAISE EXCEPTION 'published_mock_blueprint_noncompliant:%', v_invalid_mock;
+  END IF;
+  RETURN v_set_id;
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.tutor_ucat_upsert_question_set_before_mock_blueprint_guard(UUID, JSONB, JSONB, INTEGER, public.ucat_access_scope, JSONB) FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION public.tutor_ucat_upsert_question_set(UUID, JSONB, JSONB, INTEGER, public.ucat_access_scope, JSONB) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.tutor_ucat_upsert_question_set(UUID, JSONB, JSONB, INTEGER, public.ucat_access_scope, JSONB) TO authenticated;
+
+-- Category, presentation and response-contract edits can also invalidate every
+-- full mock containing this stem, including edits routed through bulk writers.
+ALTER FUNCTION public.tutor_ucat_upsert_question_stem_bundle(
+  UUID, UUID, UUID, JSONB, public.ucat_access_scope, JSONB,
+  public.ucat_question_source_channel, TEXT
+) RENAME TO tutor_ucat_upsert_stem_before_blueprint_guard;
+
+CREATE FUNCTION public.tutor_ucat_upsert_question_stem_bundle(
+  p_stem_id UUID,
+  p_section_id UUID,
+  p_question_stem_category_id UUID,
+  p_stem_text JSONB,
+  p_access_scope public.ucat_access_scope,
+  p_questions JSONB,
+  p_source_channel public.ucat_question_source_channel DEFAULT NULL,
+  p_tutor_source_note TEXT DEFAULT NULL
+)
+RETURNS UUID
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_stem_id UUID;
+  v_invalid_mock UUID;
+BEGIN
+  v_stem_id := public.tutor_ucat_upsert_stem_before_blueprint_guard(
+    p_stem_id, p_section_id, p_question_stem_category_id, p_stem_text,
+    p_access_scope, p_questions, p_source_channel, p_tutor_source_note
+  );
+
+  SELECT parent.id INTO v_invalid_mock
+  FROM public.question_stems_question_sets stem_member
+  JOIN public.question_sets_ucat_mocks set_member ON set_member.question_set_id = stem_member.question_set_id
+  JOIN public.ucat_mocks parent ON parent.id = set_member.ucat_mock_id
+  WHERE stem_member.question_stem_id = v_stem_id
+    AND parent.deleted_at IS NULL
+    AND parent.status = 'published'
+    AND parent.blueprint_id IS NOT NULL
+    AND NOT (public.ucat_mock_blueprint_compliance(parent.id)->>'compliant')::boolean
+  ORDER BY parent.id
+  LIMIT 1;
+
+  IF v_invalid_mock IS NOT NULL THEN
+    RAISE EXCEPTION 'published_mock_blueprint_noncompliant:%', v_invalid_mock;
+  END IF;
+  RETURN v_stem_id;
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.tutor_ucat_upsert_stem_before_blueprint_guard(
+  UUID, UUID, UUID, JSONB, public.ucat_access_scope, JSONB,
+  public.ucat_question_source_channel, TEXT
+) FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION public.tutor_ucat_upsert_question_stem_bundle(
+  UUID, UUID, UUID, JSONB, public.ucat_access_scope, JSONB,
+  public.ucat_question_source_channel, TEXT
+) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.tutor_ucat_upsert_question_stem_bundle(
+  UUID, UUID, UUID, JSONB, public.ucat_access_scope, JSONB,
+  public.ucat_question_source_channel, TEXT
+) TO authenticated;
+
+ALTER FUNCTION public.tutor_ucat_bulk_update_question_stem_metadata(
+  UUID[], UUID, public.ucat_access_scope
+) RENAME TO tutor_ucat_bulk_update_stem_metadata_before_blueprint_guard;
+
+CREATE FUNCTION public.tutor_ucat_bulk_update_question_stem_metadata(
+  p_stem_ids UUID[],
+  p_question_stem_category_id UUID,
+  p_access_scope public.ucat_access_scope
+)
+RETURNS VOID
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_invalid_mock UUID;
+BEGIN
+  PERFORM public.tutor_ucat_bulk_update_stem_metadata_before_blueprint_guard(
+    p_stem_ids, p_question_stem_category_id, p_access_scope
+  );
+
+  SELECT parent.id INTO v_invalid_mock
+  FROM public.question_stems_question_sets stem_member
+  JOIN public.question_sets_ucat_mocks set_member ON set_member.question_set_id = stem_member.question_set_id
+  JOIN public.ucat_mocks parent ON parent.id = set_member.ucat_mock_id
+  WHERE stem_member.question_stem_id = ANY(COALESCE(p_stem_ids, ARRAY[]::UUID[]))
+    AND parent.deleted_at IS NULL
+    AND parent.status = 'published'
+    AND parent.blueprint_id IS NOT NULL
+    AND NOT (public.ucat_mock_blueprint_compliance(parent.id)->>'compliant')::boolean
+  ORDER BY parent.id
+  LIMIT 1;
+
+  IF v_invalid_mock IS NOT NULL THEN
+    RAISE EXCEPTION 'published_mock_blueprint_noncompliant:%', v_invalid_mock;
+  END IF;
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.tutor_ucat_bulk_update_stem_metadata_before_blueprint_guard(
+  UUID[], UUID, public.ucat_access_scope
+) FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION public.tutor_ucat_bulk_update_question_stem_metadata(
+  UUID[], UUID, public.ucat_access_scope
+) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.tutor_ucat_bulk_update_question_stem_metadata(
+  UUID[], UUID, public.ucat_access_scope
+) TO authenticated;
 
 CREATE OR REPLACE VIEW public.vtutor_ucat_mocks AS
 SELECT
@@ -476,7 +649,12 @@ SELECT
   (SELECT coalesce(jsonb_agg(member.ucat_mock_id ORDER BY member.index NULLS LAST, member.ucat_mock_id), '[]'::jsonb) FROM public.question_sets_ucat_mocks member JOIN public.ucat_mocks parent ON parent.id = member.ucat_mock_id AND parent.deleted_at IS NULL WHERE member.question_set_id = question_set.id) AS ucat_mock_ids,
   public.ucat_content_publication_issues('set', question_set.id) AS publication_issues,
   (SELECT coalesce(jsonb_agg(jsonb_build_object(
-    'mockId', parent.id, 'mockName', parent.name, 'compliance', public.ucat_mock_blueprint_compliance(parent.id)
+    'mockId', parent.id,
+    'mockName', parent.name,
+    'blueprintId', parent.blueprint_id,
+    'setIds', (SELECT coalesce(jsonb_agg(mock_member.question_set_id ORDER BY mock_member.index), '[]'::jsonb)
+      FROM public.question_sets_ucat_mocks mock_member WHERE mock_member.ucat_mock_id = parent.id),
+    'compliance', public.ucat_mock_blueprint_compliance(parent.id)
   ) ORDER BY parent.name, parent.id), '[]'::jsonb)
   FROM public.question_sets_ucat_mocks member
   JOIN public.ucat_mocks parent ON parent.id = member.ucat_mock_id AND parent.deleted_at IS NULL
