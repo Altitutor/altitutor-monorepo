@@ -1,16 +1,19 @@
 # ALTI-540 Decision Making category audit
 
-This is a read-only snapshot of every production Decision Making stem currently
-categorised as `Syllogisms`. The machine-readable evidence is in
-`alti-540-dm-category-audit-2026-08-10.json`.
+This audit covers every Decision Making stem categorised as `Syllogisms` in the
+configured development project and the production project. The original
+machine-readable development evidence is in
+`alti-540-dm-category-audit-2026-08-10.json`; production evidence is in
+`alti-540-dm-category-audit-prod-2026-08-10.json`.
 
-## Snapshot
+## Source snapshots
 
-- 337 stems: 299 active and 38 stem-deleted.
-- 337 questions: 299 active and 38 soft-deleted.
-- 135 strong `Syllogisms` suggestions.
-- 43 strong `Interpreting Information and Drawing Conclusions` suggestions.
-- 159 weak, absent, or conflicting classifications requiring human review.
+- Development (`ysfslbdcacpbemodkwtl`): 337 stems, comprising 299 active and
+  38 stem-deleted rows.
+- Production (`mzgunxjfgvcyivcyqimn`): 251 stems, comprising 233 active and
+  18 stem-deleted rows.
+- The projects share 174 stable IDs; development has 163 additional IDs and
+  production has 77 additional IDs.
 
 The report contains stable stem/question IDs, lifecycle state, publication
 status, observed rich presentation formats, rich node and asset metadata,
@@ -20,22 +23,31 @@ tokens are deliberately excluded. `declaredPresentationFormat` is null because
 the read-only production schema predates that expansion column; observed format
 metadata is derived and reported separately, and is never category evidence.
 
-## Review gate
+## Reviewed result
 
-Do not generate the category migration from interaction shape, Response type,
-Answer scheme, or answer keys. A human reviewer must:
+The complete, stable-ID decision record is in
+`alti-540-dm-category-reviewed-mapping-2026-08-10.json`. The review applied the
+approved semantic rules without reading Response type, Answer scheme, answer
+keys, or interaction shape.
 
-1. approve or correct every proposed move;
-2. decide every row where `requiresHumanReview` is `true`, inspecting the source
-   image where semantic text is insufficient; and
-3. produce a complete stable-ID mapping for the immutable migration.
+- Development after migration: 199 Syllogisms, 134 Interpreting Information and
+  Drawing Conclusions, 3 Probabilistic and Statistical Reasoning, and one
+  approved garbage-stem quarantine.
+- Production after migration: 135 Syllogisms, 112 Interpreting Information and
+  Drawing Conclusions, and 4 Probabilistic and Statistical Reasoning.
+- Three shared-ID reviewer disagreements were resolved to production semantics;
+  all three are applied schedule or business-condition problems and therefore
+  Interpreting Information and Drawing Conclusions.
+- No active published row remains unresolved. The reviewed report contains no
+  response/category coupling evidence because response-contract fields were
+  excluded from both audit inputs and the migration decision process.
 
-Until that mapping is approved, no production mutation is authorised and
-ALTI-540 cannot satisfy its migration or post-migration acceptance criteria.
+The immutable migration updates only matching stable IDs when deployed through
+CI/CD. No remote database was changed during this audit.
 
 ## Regeneration
 
-With the read-only production environment configured for `tutor-web`:
+With the intended read-only environment configured for `tutor-web`:
 
 ```sh
 pnpm --filter tutor-web audit:ucat-dm-categories \
