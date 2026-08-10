@@ -9,7 +9,6 @@ import type {
 } from '@/features/ucat/questions/lib/ai-assessment/schema'
 import type { UcatQuestionStemFormValues } from '@/features/ucat/questions/types/schema'
 import { parseTimeToSeconds } from '@/features/ucat/shared/lib/time-utils'
-import { suggestedResponseContract } from '@/features/ucat/questions/lib/response-contract-authoring'
 import { buildDraftUcatAssessmentSnapshot } from './draft-snapshot'
 import {
   prepareBulkImportVerificationCandidate,
@@ -22,6 +21,19 @@ import {
 } from './run-background-assessment'
 import { loadUcatAssessmentSnapshot } from './content'
 import { runUcatFormatChecks } from './format-checks'
+
+type VerifiedRepairSnapshot = Omit<UcatAssessmentSnapshot, 'questions'> & {
+  questions: Array<Omit<UcatAssessmentSnapshot['questions'][number], 'responseType' | 'answerScheme' | 'options'> & {
+    responseType: NonNullable<UcatAssessmentSnapshot['questions'][number]['responseType']>
+    answerScheme: NonNullable<UcatAssessmentSnapshot['questions'][number]['answerScheme']>
+    options: Array<Omit<UcatAssessmentSnapshot['questions'][number]['options'][number], 'answerKeyValue'> & {
+      answerKeyValue: Exclude<
+        UcatAssessmentSnapshot['questions'][number]['options'][number]['answerKeyValue'],
+        undefined
+      >
+    }>
+  }>
+}
 
 type RpcClient = {
   rpc: (
@@ -37,7 +49,9 @@ export class VerifiedAssessmentRepairStaleError extends Error {
   }
 }
 
-function snapshotToFormValues(snapshot: UcatAssessmentSnapshot): UcatQuestionStemFormValues {
+export function verifiedRepairFormValuesFromSnapshot(
+  snapshot: UcatAssessmentSnapshot,
+): UcatQuestionStemFormValues {
   return {
     sectionId: snapshot.sectionId,
     categoryId: snapshot.categoryId,
@@ -45,15 +59,12 @@ function snapshotToFormValues(snapshot: UcatAssessmentSnapshot): UcatQuestionSte
     accessScope: snapshot.accessScope,
     status: snapshot.status,
     tutorSourceNote: snapshot.tutorSourceNote ?? null,
-    questions: snapshot.questions.map((question) => {
-      const fallback = suggestedResponseContract(snapshot.categoryName, snapshot.sectionName)
-      const answerScheme = question.answerScheme ?? fallback.answerScheme
-      return {
+    questions: canonicalVerifiedRepairSnapshot(snapshot).questions.map((question) => ({
       id: question.id,
       questionText: question.questionText,
       questionType: question.questionType,
-      responseType: question.responseType ?? fallback.responseType,
-      answerScheme,
+      responseType: question.responseType,
+      answerScheme: question.answerScheme,
       answerExplanation: question.answerExplanation,
       difficulty: question.difficulty,
       timeBurdenSeconds: question.timeBurdenSeconds == null
@@ -67,15 +78,26 @@ function snapshotToFormValues(snapshot: UcatAssessmentSnapshot): UcatQuestionSte
         answerText: option.answerText,
         answerExplanation: option.answerExplanation,
         isAnswer: option.isAnswer,
-        answerKeyValue: option.answerKeyValue ?? (
-          answerScheme === 'decision_making_binary_placement'
-            ? option.isAnswer ? 'yes' : 'no'
-            : option.isAnswer ? 'correct' : null
-        ),
+        answerKeyValue: option.answerKeyValue,
       })),
-    }
-    }),
+    })),
   }
+}
+
+function canonicalVerifiedRepairSnapshot(
+  snapshot: UcatAssessmentSnapshot,
+): VerifiedRepairSnapshot {
+  for (const question of snapshot.questions) {
+    if (!question.responseType || !question.answerScheme) {
+      throw new Error(`Question ${question.id} is missing its canonical response contract.`)
+    }
+    for (const option of question.options) {
+      if (option.answerKeyValue === undefined) {
+        throw new Error(`Option ${option.id} is missing its canonical answer key.`)
+      }
+    }
+  }
+  return snapshot as VerifiedRepairSnapshot
 }
 
 function snapshotWithValues(
@@ -301,7 +323,7 @@ export async function runVerifiedBackgroundAssessment(params: {
   blindSolverModelProfileId: string | null
   assessmentModelProfileId: string | null
 }): Promise<VerifiedBackgroundAssessmentResult> {
-  const values = snapshotToFormValues(params.snapshot)
+  const values = verifiedRepairFormValuesFromSnapshot(params.snapshot)
   const repairResult = await repairBulkImportUcatSnapshot({
     client: params.client,
     snapshot: params.snapshot,

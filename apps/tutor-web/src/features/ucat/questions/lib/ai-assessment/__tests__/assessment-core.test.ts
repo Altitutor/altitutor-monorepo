@@ -44,6 +44,8 @@ function snapshot(): UcatAssessmentSnapshot {
     answerExplanation: plainTextToProseMirror('Teaching explanation'),
     answerExplanationPlain: 'Teaching explanation',
     questionType: 'multiple_choice' as const,
+    responseType: 'multiple_choice' as const,
+    answerScheme: 'single_choice' as const,
     difficulty: 0.5,
     timeBurdenSeconds: 75,
     tagIds: [],
@@ -57,6 +59,7 @@ function snapshot(): UcatAssessmentSnapshot {
       answerExplanation: null,
       answerExplanationPlain: '',
       isAnswer: optionIndex === 0,
+      answerKeyValue: optionIndex === 0 ? 'correct' as const : null,
       images: [],
     })),
   })

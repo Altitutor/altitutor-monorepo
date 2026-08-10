@@ -500,6 +500,8 @@ export function fingerprintUcatAssessmentSnapshot(snapshot: UcatAssessmentSnapsh
       questionText: canonicalRichNode(question.questionText),
       answerExplanation: canonicalRichNode(question.answerExplanation),
       questionType: question.questionType,
+      responseType: question.responseType,
+      answerScheme: question.answerScheme,
       difficulty: question.difficulty,
       timeBurdenSeconds: question.timeBurdenSeconds,
       tagIds: [...question.tagIds].sort(),
@@ -508,6 +510,7 @@ export function fingerprintUcatAssessmentSnapshot(snapshot: UcatAssessmentSnapsh
         answerText: canonicalRichNode(option.answerText),
         answerExplanation: canonicalRichNode(option.answerExplanation),
         isAnswer: option.isAnswer,
+        answerKeyValue: option.answerKeyValue,
       })),
     }),
   ]))

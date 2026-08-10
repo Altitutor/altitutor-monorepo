@@ -66,11 +66,24 @@ BEGIN
     FROM jsonb_array_elements(p_questions) question
     WHERE NOT (question ? 'response_type')
       OR NOT (question ? 'answer_scheme')
+      OR question->>'response_type' IS NULL
+      OR question->>'response_type' NOT IN ('multiple_choice', 'drag_and_drop')
+      OR question->>'answer_scheme' IS NULL
+      OR question->>'answer_scheme' NOT IN (
+        'single_choice',
+        'situational_judgement_rating',
+        'decision_making_binary_placement',
+        'situational_judgement_most_least'
+      )
       OR jsonb_typeof(question->'answer_options') IS DISTINCT FROM 'array'
       OR EXISTS (
         SELECT 1
         FROM jsonb_array_elements(question->'answer_options') option
         WHERE NOT (option ? 'answer_key_value')
+          OR (
+            jsonb_typeof(option->'answer_key_value') <> 'null'
+            AND option->>'answer_key_value' NOT IN ('correct', 'yes', 'no', 'most', 'least')
+          )
       )
   ) THEN
     RAISE EXCEPTION 'canonical_response_contract_required';

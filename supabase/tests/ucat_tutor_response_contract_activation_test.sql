@@ -1,5 +1,5 @@
 BEGIN;
-SELECT plan(10);
+SELECT plan(11);
 
 INSERT INTO public.staff_subjects (staff_id, subject_id)
 SELECT '00000000-0000-0000-0000-000000000010', subject.id
@@ -82,6 +82,24 @@ SELECT throws_ok(
   'P0001',
   'canonical_response_contract_required',
   'the activated tutor writer rejects legacy-only payloads'
+);
+
+SELECT throws_ok(
+  $$
+    SELECT public.tutor_ucat_upsert_question_stem_bundle(
+      NULL,
+      'd777da9c-e74c-4ff2-9d45-93f93e60f73a',
+      '24df84c6-47d7-45d3-a255-e32d23c20eef',
+      '{}'::jsonb,
+      'public',
+      '[{"index":1,"question_type":"multiple_choice","response_type":null,"answer_scheme":null,"answer_options":[{"index":1,"is_answer":true,"answer_key_value":null}]}]'::jsonb,
+      'individual',
+      NULL
+    )
+  $$,
+  'P0001',
+  'canonical_response_contract_required',
+  'the activated tutor writer rejects explicitly null canonical question fields'
 );
 
 SELECT is(
