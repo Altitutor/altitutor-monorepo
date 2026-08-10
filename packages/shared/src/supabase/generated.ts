@@ -16412,6 +16412,99 @@ export type Database = {
         }
         Relationships: []
       }
+      ucat_mock_blueprint_eligibility_audits: {
+        Row: {
+          attached_at: string | null
+          attached_by: string | null
+          blueprint_id: string
+          checked_at: string
+          checked_by: string
+          decision: Database["public"]["Enums"]["ucat_mock_blueprint_audit_decision"]
+          gate_results: Json
+          id: string
+          mock_id: string
+        }
+        Insert: {
+          attached_at?: string | null
+          attached_by?: string | null
+          blueprint_id: string
+          checked_at?: string
+          checked_by?: string
+          decision: Database["public"]["Enums"]["ucat_mock_blueprint_audit_decision"]
+          gate_results: Json
+          id?: string
+          mock_id: string
+        }
+        Update: {
+          attached_at?: string | null
+          attached_by?: string | null
+          blueprint_id?: string
+          checked_at?: string
+          checked_by?: string
+          decision?: Database["public"]["Enums"]["ucat_mock_blueprint_audit_decision"]
+          gate_results?: Json
+          id?: string
+          mock_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ucat_mock_blueprint_eligibility_audits_blueprint_id_fkey"
+            columns: ["blueprint_id"]
+            isOneToOne: false
+            referencedRelation: "ucat_mock_blueprints"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ucat_mock_blueprint_eligibility_audits_blueprint_id_fkey"
+            columns: ["blueprint_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_ucat_mock_blueprints"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ucat_mock_blueprint_eligibility_audits_mock_id_fkey"
+            columns: ["mock_id"]
+            isOneToOne: false
+            referencedRelation: "ucat_mocks"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ucat_mock_blueprint_eligibility_audits_mock_id_fkey"
+            columns: ["mock_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_ucat_accessible_mocks"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ucat_mock_blueprint_eligibility_audits_mock_id_fkey"
+            columns: ["mock_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_ucat_mock_detail"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ucat_mock_blueprint_eligibility_audits_mock_id_fkey"
+            columns: ["mock_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_ucat_mocks"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ucat_mock_blueprint_eligibility_audits_mock_id_fkey"
+            columns: ["mock_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_ucat_mock_detail"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ucat_mock_blueprint_eligibility_audits_mock_id_fkey"
+            columns: ["mock_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_ucat_mocks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       ucat_mock_blueprint_sections: {
         Row: {
           altitutor_composition_policy: Json
@@ -31087,6 +31180,82 @@ export type Database = {
           },
         ]
       }
+      vtutor_ucat_mock_blueprint_audits: {
+        Row: {
+          attached_at: string | null
+          attached_by: string | null
+          blueprint_code: string | null
+          blueprint_id: string | null
+          checked_at: string | null
+          checked_by: string | null
+          decision:
+            | Database["public"]["Enums"]["ucat_mock_blueprint_audit_decision"]
+            | null
+          gate_results: Json | null
+          id: string | null
+          mock_id: string | null
+          test_year: number | null
+          version: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ucat_mock_blueprint_eligibility_audits_blueprint_id_fkey"
+            columns: ["blueprint_id"]
+            isOneToOne: false
+            referencedRelation: "ucat_mock_blueprints"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ucat_mock_blueprint_eligibility_audits_blueprint_id_fkey"
+            columns: ["blueprint_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_ucat_mock_blueprints"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ucat_mock_blueprint_eligibility_audits_mock_id_fkey"
+            columns: ["mock_id"]
+            isOneToOne: false
+            referencedRelation: "ucat_mocks"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ucat_mock_blueprint_eligibility_audits_mock_id_fkey"
+            columns: ["mock_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_ucat_accessible_mocks"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ucat_mock_blueprint_eligibility_audits_mock_id_fkey"
+            columns: ["mock_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_ucat_mock_detail"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ucat_mock_blueprint_eligibility_audits_mock_id_fkey"
+            columns: ["mock_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_ucat_mocks"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ucat_mock_blueprint_eligibility_audits_mock_id_fkey"
+            columns: ["mock_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_ucat_mock_detail"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ucat_mock_blueprint_eligibility_audits_mock_id_fkey"
+            columns: ["mock_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_ucat_mocks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       vtutor_ucat_mock_blueprints: {
         Row: {
           altitutor_policy_label: string | null
@@ -35601,6 +35770,10 @@ export type Database = {
         Args: { p_session_ids: Json; p_stem_id: string }
         Returns: undefined
       }
+      tutor_ucat_audit_mock_blueprint: {
+        Args: { p_blueprint_id: string; p_mock_id: string }
+        Returns: string
+      }
       tutor_ucat_bulk_delete_learning_modules: {
         Args: { p_module_ids: string[] }
         Returns: undefined
@@ -35640,6 +35813,10 @@ export type Database = {
       tutor_ucat_bulk_upsert_question_stem_bundles: {
         Args: { p_section_id: string; p_stems: Json }
         Returns: string[]
+      }
+      tutor_ucat_confirm_mock_blueprint_audit: {
+        Args: { p_audit_id: string }
+        Returns: string
       }
       tutor_ucat_content_status_blockers: {
         Args: {
@@ -36094,6 +36271,17 @@ export type Database = {
             }
             Returns: string
           }
+      tutor_ucat_upsert_mock_before_eligibility_audit: {
+        Args: {
+          p_access_scope: Database["public"]["Enums"]["ucat_access_scope"]
+          p_blueprint_id: string
+          p_instructions_text: Json
+          p_mock_id: string
+          p_name: string
+          p_set_ids: Json
+        }
+        Returns: string
+      }
       tutor_ucat_upsert_question_set: {
         Args: {
           p_access_scope: Database["public"]["Enums"]["ucat_access_scope"]
@@ -36243,6 +36431,10 @@ export type Database = {
         Args: { p_content_id: string; p_content_type: string }
         Returns: Json
       }
+      ucat_mock_blueprint_candidate_compliance: {
+        Args: { p_blueprint_id: string; p_mock_id: string }
+        Returns: Json
+      }
       ucat_mock_blueprint_compliance: {
         Args: { p_mock_id: string }
         Returns: Json
@@ -36382,6 +36574,11 @@ export type Database = {
         | "recommended"
         | "optional"
         | "excluded"
+      ucat_mock_blueprint_audit_decision:
+        | "eligible"
+        | "provisional"
+        | "failed"
+        | "attached"
       ucat_question_source_channel:
         | "individual"
         | "bulk_import"
@@ -36595,6 +36792,12 @@ export const Constants = {
         "recommended",
         "optional",
         "excluded",
+      ],
+      ucat_mock_blueprint_audit_decision: [
+        "eligible",
+        "provisional",
+        "failed",
+        "attached",
       ],
       ucat_question_source_channel: [
         "individual",

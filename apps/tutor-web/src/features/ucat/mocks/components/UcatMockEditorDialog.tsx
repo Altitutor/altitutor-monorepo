@@ -22,11 +22,17 @@ import type { StemEditorMode } from '@/features/ucat/questions/components/stem-e
 import { UcatMockPreviewContent } from '@/features/ucat/mocks/components/UcatMockPreviewContent'
 import { UcatPdfExportDialog } from '@/features/ucat/shared/components/UcatPdfExportDialog'
 import { buildUcatPdfExportAction } from '@/features/ucat/shared/pdf/pdf-export-action'
-import { useUcatMockBlueprints } from '@/features/ucat/mocks/hooks/useUcatMocks'
+import {
+  useAuditUcatMockBlueprint,
+  useConfirmUcatMockBlueprintAudit,
+  useUcatMockBlueprintAudits,
+  useUcatMockBlueprints,
+} from '@/features/ucat/mocks/hooks/useUcatMocks'
 import {
   evaluateDraftMockBlueprint,
   evaluationToStoredCompliance,
   parseStoredBlueprintCompliance,
+  parseStoredMockBlueprintAudit,
   blueprintRowToModel,
 } from '@/features/ucat/mocks/lib/blueprint-compliance'
 
@@ -79,6 +85,10 @@ export function UcatMockEditorDialog({
   const [exportDialogOpen, setExportDialogOpen] = useState(false)
   const stemCatalogQuery = useUcatStemCatalog(open)
   const blueprintsQuery = useUcatMockBlueprints()
+  const auditsQuery = useUcatMockBlueprintAudits(open ? mockId : null)
+  const auditBlueprint = useAuditUcatMockBlueprint()
+  const confirmBlueprintAudit = useConfirmUcatMockBlueprintAudit()
+  const [candidateBlueprintId, setCandidateBlueprintId] = useState<string | null>(null)
 
   const setFilterDefinitions = useMemo(
     () => buildSetCatalogFilterDefinitions(sections),
@@ -98,11 +108,14 @@ export function UcatMockEditorDialog({
     setName,
     setIsPrivate,
     setDraftSetIds,
-    setBlueprintId,
     isDirty,
     save,
     isSaving,
   } = useUcatMockDraft({ open, mockId })
+
+  useEffect(() => {
+    setCandidateBlueprintId(blueprintId)
+  }, [blueprintId, mockId])
 
   const setCatalog = useMemo<SetOption[]>(() => {
     return (sets.data ?? [])
@@ -128,8 +141,8 @@ export function UcatMockEditorDialog({
       : []
   ), [blueprintsQuery.data])
   const blueprintCompliance = useMemo(() => {
-    if (!blueprintId) return parseStoredBlueprintCompliance(detail.data?.blueprint_compliance)
-    const row = (blueprintsQuery.data ?? []).find(candidate => candidate.id === blueprintId)
+    if (!candidateBlueprintId) return parseStoredBlueprintCompliance(detail.data?.blueprint_compliance)
+    const row = (blueprintsQuery.data ?? []).find(candidate => candidate.id === candidateBlueprintId)
     const blueprint = row?.code && row.test_year != null && row.version != null
       && row.official_facts_label && row.altitutor_policy_label
       ? blueprintRowToModel({
@@ -148,7 +161,11 @@ export function UcatMockEditorDialog({
       setCatalog,
       stemCatalogQuery.data ?? [],
     ))
-  }, [blueprintId, blueprintsQuery.data, detail.data?.blueprint_compliance, draftSetIds, setCatalog, stemCatalogQuery.data])
+  }, [candidateBlueprintId, blueprintsQuery.data, detail.data?.blueprint_compliance, draftSetIds, setCatalog, stemCatalogQuery.data])
+  const latestCandidateAudit = useMemo(() => (auditsQuery.data ?? [])
+    .map(parseStoredMockBlueprintAudit)
+    .find((audit) => audit?.blueprintId === candidateBlueprintId) ?? null,
+  [auditsQuery.data, candidateBlueprintId])
 
   useEffect(() => {
     if (!open) {
@@ -271,9 +288,30 @@ export function UcatMockEditorDialog({
             sections={sections}
             onEditSet={onEditSet}
             blueprints={blueprints}
-            blueprintId={blueprintId}
-            setBlueprintId={setBlueprintId}
+            attachedBlueprintId={blueprintId}
+            candidateBlueprintId={candidateBlueprintId}
+            setCandidateBlueprintId={setCandidateBlueprintId}
             blueprintCompliance={blueprintCompliance}
+            latestCandidateAudit={latestCandidateAudit}
+            auditPending={auditBlueprint.isPending}
+            confirmPending={confirmBlueprintAudit.isPending}
+            onAuditCandidate={async () => {
+              if (!mockId || !candidateBlueprintId) return
+              try {
+                await auditBlueprint.mutateAsync({ mockId, blueprintId: candidateBlueprintId })
+              } catch (error) {
+                toast({ title: 'Blueprint audit failed', description: error instanceof Error ? error.message : 'Unknown error', variant: 'destructive' })
+              }
+            }}
+            onConfirmCandidate={async () => {
+              if (!mockId || !latestCandidateAudit) return
+              try {
+                await confirmBlueprintAudit.mutateAsync({ mockId, auditId: latestCandidateAudit.id })
+                toast({ title: 'Blueprint attached', description: 'Every live gate passed the confirmation re-check.' })
+              } catch (error) {
+                toast({ title: 'Blueprint confirmation failed', description: error instanceof Error ? error.message : 'Unknown error', variant: 'destructive' })
+              }
+            }}
           />
         ) : (
           <UcatMockPreviewContent

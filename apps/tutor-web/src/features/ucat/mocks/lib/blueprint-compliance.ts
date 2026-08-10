@@ -46,6 +46,60 @@ export type LinkedMockBlueprintCompliance = {
   compliance: StoredBlueprintCompliance
 }
 
+export type StoredMockBlueprintAudit = {
+  id: string
+  mockId: string
+  blueprintId: string
+  blueprintCode: string
+  testYear: number
+  version: number
+  checkedAt: string
+  decision: 'eligible' | 'provisional' | 'failed' | 'attached'
+  gateResults: {
+    compliance: StoredBlueprintCompliance
+    publicationState: { compliant: boolean; reason: string }
+    sectionPurity: { compliant: boolean; reason: string }
+    provisionalMetadata: { reviewed: boolean; reason: string }
+  }
+}
+
+export function parseStoredMockBlueprintAudit(value: unknown): StoredMockBlueprintAudit | null {
+  if (!value || typeof value !== 'object') return null
+  const row = value as Record<string, unknown>
+  const gates = row.gate_results
+  if (!gates || typeof gates !== 'object') return null
+  const gateResults = gates as Record<string, unknown>
+  const compliance = parseStoredBlueprintCompliance(gateResults.compliance)
+  const publicationState = gateResults.publicationState as { compliant?: unknown; reason?: unknown } | undefined
+  const sectionPurity = gateResults.sectionPurity as { compliant?: unknown; reason?: unknown } | undefined
+  const provisionalMetadata = gateResults.provisionalMetadata as { reviewed?: unknown; reason?: unknown } | undefined
+  const decision = row.decision
+  if (
+    typeof row.id !== 'string' || typeof row.mock_id !== 'string' || typeof row.blueprint_id !== 'string'
+    || typeof row.blueprint_code !== 'string' || typeof row.test_year !== 'number' || typeof row.version !== 'number'
+    || typeof row.checked_at !== 'string' || !['eligible', 'provisional', 'failed', 'attached'].includes(String(decision))
+    || !compliance || typeof publicationState?.compliant !== 'boolean' || typeof publicationState.reason !== 'string'
+    || typeof sectionPurity?.compliant !== 'boolean' || typeof sectionPurity.reason !== 'string'
+    || typeof provisionalMetadata?.reviewed !== 'boolean' || typeof provisionalMetadata.reason !== 'string'
+  ) return null
+  return {
+    id: row.id,
+    mockId: row.mock_id,
+    blueprintId: row.blueprint_id,
+    blueprintCode: row.blueprint_code,
+    testYear: row.test_year,
+    version: row.version,
+    checkedAt: row.checked_at,
+    decision: decision as StoredMockBlueprintAudit['decision'],
+    gateResults: {
+      compliance,
+      publicationState: publicationState as { compliant: boolean; reason: string },
+      sectionPurity: sectionPurity as { compliant: boolean; reason: string },
+      provisionalMetadata: provisionalMetadata as { reviewed: boolean; reason: string },
+    },
+  }
+}
+
 export type BlueprintRow = {
   id?: string | null
   code: string | null

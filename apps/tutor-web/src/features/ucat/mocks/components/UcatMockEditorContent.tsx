@@ -23,6 +23,7 @@ import {
 import { cn } from '@/shared/utils'
 import { UcatBlueprintCompliancePanel } from '@/features/ucat/mocks/components/UcatBlueprintCompliancePanel'
 import type { StoredBlueprintCompliance } from '@/features/ucat/mocks/lib/blueprint-compliance'
+import type { StoredMockBlueprintAudit } from '@/features/ucat/mocks/lib/blueprint-compliance'
 
 type UcatMockEditorContentProps = {
   name: string
@@ -51,9 +52,15 @@ type UcatMockEditorContentProps = {
   }>
   onEditSet?: (setId: string) => void
   blueprints?: Array<{ id: string; code: string; test_year: number; version: number }>
-  blueprintId: string | null
-  setBlueprintId: (value: string | null) => void
+  attachedBlueprintId: string | null
+  candidateBlueprintId: string | null
+  setCandidateBlueprintId: (value: string | null) => void
   blueprintCompliance: StoredBlueprintCompliance | null
+  latestCandidateAudit: StoredMockBlueprintAudit | null
+  auditPending: boolean
+  confirmPending: boolean
+  onAuditCandidate: () => void
+  onConfirmCandidate: () => void
 }
 
 export function UcatMockEditorContent({
@@ -77,9 +84,15 @@ export function UcatMockEditorContent({
   sections = [],
   onEditSet,
   blueprints = [],
-  blueprintId,
-  setBlueprintId,
+  attachedBlueprintId,
+  candidateBlueprintId,
+  setCandidateBlueprintId,
   blueprintCompliance,
+  latestCandidateAudit,
+  auditPending,
+  confirmPending,
+  onAuditCandidate,
+  onConfirmCandidate,
 }: UcatMockEditorContentProps) {
   const [sideTab, setSideTab] = useState<'properties' | 'add-sets'>('properties')
   const [activeWorkspace, setActiveWorkspace] = useState<UcatAuthoringWorkspaceTab>('editor')
@@ -241,20 +254,55 @@ export function UcatMockEditorContent({
                     label: `${blueprint.test_year} v${blueprint.version} · ${blueprint.code}`,
                   })),
                 ]}
-                value={blueprintId == null
+                value={candidateBlueprintId == null
                   ? { value: 'none', label: 'None — focused or ordinary practice' }
                   : (() => {
-                      const blueprint = blueprints.find(candidate => candidate.id === blueprintId)
+                      const blueprint = blueprints.find(candidate => candidate.id === candidateBlueprintId)
                       return blueprint
                         ? { value: blueprint.id, label: `${blueprint.test_year} v${blueprint.version} · ${blueprint.code}` }
                         : null
                     })()}
-                onValueChange={(item) => setBlueprintId(item?.value === 'none' ? null : item?.value ?? null)}
+                onValueChange={(item) => setCandidateBlueprintId(item?.value === 'none' ? null : item?.value ?? null)}
                 getItemLabel={(item) => item.label}
                 getItemId={(item) => item.value}
               />
             </label>
             <UcatBlueprintCompliancePanel compliance={blueprintCompliance} />
+            {candidateBlueprintId ? (
+              <div className="space-y-2 rounded-lg border p-3 text-xs">
+                <div className="flex items-center justify-between gap-2">
+                  <p className="font-semibold">Eligibility audit</p>
+                  <span className="text-muted-foreground">
+                    {candidateBlueprintId === attachedBlueprintId ? 'Attached candidate' : 'Not attached'}
+                  </span>
+                </div>
+                {latestCandidateAudit ? (
+                  <div className="space-y-1">
+                    <p className="font-medium capitalize">{latestCandidateAudit.decision}</p>
+                    <p className="text-muted-foreground">Checked {new Date(latestCandidateAudit.checkedAt).toLocaleString()}</p>
+                    <p>{latestCandidateAudit.gateResults.publicationState.reason}</p>
+                    <p>{latestCandidateAudit.gateResults.sectionPurity.reason}</p>
+                    <p>{latestCandidateAudit.gateResults.provisionalMetadata.reason}</p>
+                  </div>
+                ) : <p className="text-muted-foreground">Run the durable audit before attaching this blueprint.</p>}
+                <div className="flex flex-wrap gap-2">
+                  <Button type="button" variant="outline" size="sm" onClick={onAuditCandidate} disabled={auditPending}>
+                    {auditPending ? 'Auditing…' : 'Run audit'}
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    onClick={onConfirmCandidate}
+                    disabled={confirmPending || latestCandidateAudit?.decision !== 'eligible' || candidateBlueprintId === attachedBlueprintId}
+                  >
+                    {confirmPending ? 'Confirming…' : 'Confirm and attach'}
+                  </Button>
+                </div>
+                {latestCandidateAudit?.decision === 'provisional' ? (
+                  <p className="font-medium text-amber-700">Review the unresolved category or presentation metadata, then run the audit again.</p>
+                ) : null}
+              </div>
+            ) : null}
             <label className="block text-sm">
               <span className="mb-1 block font-medium">
                 <UcatVisibilityFieldLabel />

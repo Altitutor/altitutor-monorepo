@@ -1,13 +1,18 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { Button, useToast } from '@altitutor/ui'
 import { useUcatSets } from '@/features/ucat/sets/hooks/useUcatSets'
 import { useUcatSections } from '@/features/ucat/sections/hooks/useUcatSections'
 import { proseMirrorToPlainText } from '@/features/ucat/shared/lib/rich-text'
 import { useUcatMockDraft } from '@/features/ucat/mocks/hooks/useUcatMockDraft'
-import { useUcatMockBlueprints } from '@/features/ucat/mocks/hooks/useUcatMocks'
+import {
+  useAuditUcatMockBlueprint,
+  useConfirmUcatMockBlueprintAudit,
+  useUcatMockBlueprintAudits,
+  useUcatMockBlueprints,
+} from '@/features/ucat/mocks/hooks/useUcatMocks'
 import { UcatPageHeader, UcatPageSkeleton, UcatAccessDenied } from '@/features/ucat/shared/components'
 import { useUcatAccess } from '@/features/ucat/shared/hooks/useUcatAccess'
 import { parseUcatVisibilityError } from '@/features/ucat/shared/lib/visibility-error'
@@ -20,6 +25,7 @@ import {
   evaluateDraftMockBlueprint,
   evaluationToStoredCompliance,
   parseStoredBlueprintCompliance,
+  parseStoredMockBlueprintAudit,
   blueprintRowToModel,
 } from '@/features/ucat/mocks/lib/blueprint-compliance'
 
@@ -46,9 +52,13 @@ export function UcatMockDetailPage({ mockId }: UcatMockDetailPageProps) {
   const sectionsQuery = useUcatSections()
   const sections = useMemo(() => sectionsQuery.data ?? [], [sectionsQuery.data])
   const blueprintsQuery = useUcatMockBlueprints()
+  const auditsQuery = useUcatMockBlueprintAudits(mockId)
+  const auditBlueprint = useAuditUcatMockBlueprint()
+  const confirmBlueprintAudit = useConfirmUcatMockBlueprintAudit()
   const stemCatalogQuery = useUcatStemCatalog(true)
   const [search, setSearch] = useState('')
   const [filters, setFilters] = useState<Record<string, unknown[]>>({})
+  const [candidateBlueprintId, setCandidateBlueprintId] = useState<string | null>(null)
 
   const setFilterDefinitions = useMemo(
     () => buildSetCatalogFilterDefinitions(sections),
@@ -66,11 +76,14 @@ export function UcatMockDetailPage({ mockId }: UcatMockDetailPageProps) {
     setName,
     setIsPrivate,
     setDraftSetIds,
-    setBlueprintId,
     isDirty,
     save,
     isSaving,
   } = useUcatMockDraft({ open: true, mockId })
+
+  useEffect(() => {
+    setCandidateBlueprintId(blueprintId)
+  }, [blueprintId, mockId])
 
   const setCatalog = useMemo<SetOption[]>(() => {
     return (sets.data ?? [])
@@ -96,8 +109,8 @@ export function UcatMockDetailPage({ mockId }: UcatMockDetailPageProps) {
       : []
   ), [blueprintsQuery.data])
   const blueprintCompliance = useMemo(() => {
-    if (!blueprintId) return parseStoredBlueprintCompliance(detail.data?.blueprint_compliance)
-    const row = (blueprintsQuery.data ?? []).find(candidate => candidate.id === blueprintId)
+    if (!candidateBlueprintId) return parseStoredBlueprintCompliance(detail.data?.blueprint_compliance)
+    const row = (blueprintsQuery.data ?? []).find(candidate => candidate.id === candidateBlueprintId)
     const blueprint = row?.code && row.test_year != null && row.version != null
       && row.official_facts_label && row.altitutor_policy_label
       ? blueprintRowToModel({
@@ -116,7 +129,11 @@ export function UcatMockDetailPage({ mockId }: UcatMockDetailPageProps) {
       setCatalog,
       stemCatalogQuery.data ?? [],
     ))
-  }, [blueprintId, blueprintsQuery.data, detail.data?.blueprint_compliance, draftSetIds, setCatalog, stemCatalogQuery.data])
+  }, [candidateBlueprintId, blueprintsQuery.data, detail.data?.blueprint_compliance, draftSetIds, setCatalog, stemCatalogQuery.data])
+  const latestCandidateAudit = useMemo(() => (auditsQuery.data ?? [])
+    .map(parseStoredMockBlueprintAudit)
+    .find((audit) => audit?.blueprintId === candidateBlueprintId) ?? null,
+  [auditsQuery.data, candidateBlueprintId])
 
   const isLoading = access.isLoading || sets.isLoading || detail.isLoading
 
@@ -184,9 +201,30 @@ export function UcatMockDetailPage({ mockId }: UcatMockDetailPageProps) {
           setCatalogLoading={sets.isLoading}
           sections={sections}
           blueprints={blueprints}
-          blueprintId={blueprintId}
-          setBlueprintId={setBlueprintId}
+          attachedBlueprintId={blueprintId}
+          candidateBlueprintId={candidateBlueprintId}
+          setCandidateBlueprintId={setCandidateBlueprintId}
           blueprintCompliance={blueprintCompliance}
+          latestCandidateAudit={latestCandidateAudit}
+          auditPending={auditBlueprint.isPending}
+          confirmPending={confirmBlueprintAudit.isPending}
+          onAuditCandidate={async () => {
+            if (!candidateBlueprintId) return
+            try {
+              await auditBlueprint.mutateAsync({ mockId, blueprintId: candidateBlueprintId })
+            } catch (error) {
+              toast({ title: 'Blueprint audit failed', description: error instanceof Error ? error.message : 'Unknown error', variant: 'destructive' })
+            }
+          }}
+          onConfirmCandidate={async () => {
+            if (!latestCandidateAudit) return
+            try {
+              await confirmBlueprintAudit.mutateAsync({ mockId, auditId: latestCandidateAudit.id })
+              toast({ title: 'Blueprint attached', description: 'Every live gate passed the confirmation re-check.' })
+            } catch (error) {
+              toast({ title: 'Blueprint confirmation failed', description: error instanceof Error ? error.message : 'Unknown error', variant: 'destructive' })
+            }
+          }}
         />
       </div>
     </div>

@@ -19,6 +19,36 @@ export function useUcatMockDetail(mockId: string | null) {
   })
 }
 
+export function useUcatMockBlueprintAudits(mockId: string | null) {
+  return useQuery({
+    queryKey: mockId ? [...ucatKeys.mock(mockId), 'blueprint-audits'] : [...ucatKeys.mocks(), 'empty-blueprint-audits'],
+    queryFn: () => ucatMocksApi.blueprintAudits(mockId as string),
+    enabled: !!mockId,
+  })
+}
+
+export function useAuditUcatMockBlueprint() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({ mockId, blueprintId }: { mockId: string; blueprintId: string }) =>
+      ucatMocksApi.auditBlueprint(mockId, blueprintId),
+    onSuccess: (_, variables) => queryClient.invalidateQueries({ queryKey: [...ucatKeys.mock(variables.mockId), 'blueprint-audits'] }),
+  })
+}
+
+export function useConfirmUcatMockBlueprintAudit() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({ mockId, auditId }: { mockId: string; auditId: string }) =>
+      ucatMocksApi.confirmBlueprintAudit(mockId, auditId),
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ucatKeys.mock(variables.mockId) })
+      queryClient.invalidateQueries({ queryKey: ucatKeys.mocks() })
+      queryClient.invalidateQueries({ queryKey: [...ucatKeys.mock(variables.mockId), 'blueprint-audits'] })
+    },
+  })
+}
+
 export function useCreateUcatMock() {
   const queryClient = useQueryClient()
   return useMutation({
