@@ -459,6 +459,7 @@ export type UcatAssessmentOptionSnapshot = {
   answerExplanation: Json | null
   answerExplanationPlain: string
   isAnswer: boolean
+  answerKeyValue?: 'correct' | 'yes' | 'no' | 'most' | 'least' | null
   images: UcatAssessmentImage[]
 }
 
@@ -470,6 +471,8 @@ export type UcatAssessmentQuestionSnapshot = {
   answerExplanation: Json | null
   answerExplanationPlain: string
   questionType: 'multiple_choice' | 'syllogism'
+  responseType?: 'multiple_choice' | 'drag_and_drop'
+  answerScheme?: 'single_choice' | 'situational_judgement_rating' | 'decision_making_binary_placement' | 'situational_judgement_most_least'
   sourceChannel?: 'individual' | 'bulk_import' | 'ai_generation' | null
   aiGenerationMetadata?: Json | null
   difficulty: number | null

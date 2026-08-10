@@ -50,13 +50,15 @@ type AssessmentQuestionRow = Pick<
   | 'difficulty'
   | 'time_burden_seconds'
   | 'question_type'
+  | 'response_type'
+  | 'answer_scheme'
   | 'source_channel'
   | 'ai_generation_metadata'
 >
 
 type AssessmentOptionRow = Pick<
   Database['public']['Tables']['question_answer_options']['Row'],
-  'id' | 'question_id' | 'answer_text' | 'answer_explanation' | 'index' | 'is_answer'
+  'id' | 'question_id' | 'answer_text' | 'answer_explanation' | 'index' | 'is_answer' | 'answer_key_value'
 >
 
 type AssessmentTagLinkRow = Pick<
@@ -261,7 +263,7 @@ async function loadAssessmentDetailRow(
     categoryPromise,
     source
       .from('ucat_questions')
-      .select('id,question_text,answer_explanation,index,difficulty,time_burden_seconds,question_type,source_channel,ai_generation_metadata')
+      .select('id,question_text,answer_explanation,index,difficulty,time_burden_seconds,question_type,response_type,answer_scheme,source_channel,ai_generation_metadata')
       .eq('question_stem_id', stem.id)
       .is('deleted_at', null),
   ])
@@ -280,7 +282,7 @@ async function loadAssessmentDetailRow(
     const [optionResult, tagLinkResult] = await Promise.all([
       source
         .from('question_answer_options')
-        .select('id,question_id,answer_text,answer_explanation,index,is_answer')
+        .select('id,question_id,answer_text,answer_explanation,index,is_answer,answer_key_value')
         .in('question_id', questionIds)
         .is('deleted_at', null),
       source
@@ -382,6 +384,18 @@ export function ucatAssessmentSnapshotFromDetailRow(
             answerExplanation: optionExplanation,
             answerExplanationPlain: richTextPlain(optionExplanation),
             isAnswer: option.is_answer === true,
+            answerKeyValue:
+              option.answer_key_value === 'correct'
+                ? 'correct' as const
+                : option.answer_key_value === 'yes'
+                  ? 'yes' as const
+                  : option.answer_key_value === 'no'
+                    ? 'no' as const
+                    : option.answer_key_value === 'most'
+                      ? 'most' as const
+                      : option.answer_key_value === 'least'
+                        ? 'least' as const
+                        : null,
             images: [
               ...collectAssessmentImages(answerText, `option:${optionId}:answer_text`),
               ...collectAssessmentImages(optionExplanation, `option:${optionId}:answer_explanation`),
@@ -397,6 +411,15 @@ export function ucatAssessmentSnapshotFromDetailRow(
         answerExplanation,
         answerExplanationPlain: richTextPlain(answerExplanation),
         questionType: question.question_type === 'syllogism' ? 'syllogism' as const : 'multiple_choice' as const,
+        responseType: question.response_type === 'drag_and_drop' ? 'drag_and_drop' as const : 'multiple_choice' as const,
+        answerScheme:
+          question.answer_scheme === 'situational_judgement_rating'
+            ? 'situational_judgement_rating' as const
+            : question.answer_scheme === 'decision_making_binary_placement'
+              ? 'decision_making_binary_placement' as const
+              : question.answer_scheme === 'situational_judgement_most_least'
+                ? 'situational_judgement_most_least' as const
+                : 'single_choice' as const,
         sourceChannel:
           question.source_channel === 'ai_generation'
             ? 'ai_generation' as const

@@ -30,6 +30,8 @@ export function buildDraftUcatAssessmentSnapshot(params: {
       answerExplanation,
       answerExplanationPlain: plain(answerExplanation),
       questionType: question.questionType,
+      responseType: question.responseType,
+      answerScheme: question.answerScheme,
       sourceChannel: question.sourceChannel ?? null,
       aiGenerationMetadata: question.aiGenerationMetadata ?? null,
       difficulty: question.difficulty ?? null,
@@ -54,6 +56,7 @@ export function buildDraftUcatAssessmentSnapshot(params: {
           answerExplanation: optionExplanation,
           answerExplanationPlain: plain(optionExplanation),
           isAnswer: option.isAnswer,
+          answerKeyValue: option.answerKeyValue ?? null,
           images: [
             ...collectAssessmentImages(answerText, `option:${option.id}:answer_text`),
             ...collectAssessmentImages(optionExplanation, `option:${option.id}:answer_explanation`),

@@ -1,5 +1,5 @@
 BEGIN;
-SELECT plan(15);
+SELECT plan(16);
 
 SELECT col_not_null(
   'public',
@@ -253,6 +253,47 @@ SELECT is(
   ),
   1::bigint,
   'the activation report counts detectable legacy answer-key writes'
+);
+
+INSERT INTO public.ucat_questions (
+  id,
+  question_stem_id,
+  question_text,
+  index,
+  response_type,
+  answer_scheme
+)
+VALUES (
+  'a4410000-0000-4000-8000-000000000008',
+  'a4400000-0000-4000-8000-000000000001',
+  '{"type":"doc","content":[]}'::jsonb,
+  2,
+  'drag_and_drop',
+  'situational_judgement_most_least'
+);
+
+INSERT INTO public.question_answer_options (
+  id,
+  question_id,
+  answer_text,
+  index,
+  answer_key_value
+)
+VALUES (
+  'a4420000-0000-4000-8000-000000000008',
+  'a4410000-0000-4000-8000-000000000008',
+  '{"type":"doc","content":[]}'::jsonb,
+  0,
+  'most'
+);
+
+SELECT ok(
+  (
+    SELECT sample_ids @> ARRAY['a4410000-0000-4000-8000-000000000008'::uuid]
+    FROM public.ucat_response_contract_activation_report('-infinity'::timestamptz)
+    WHERE check_name = 'invalid_answer_keys'
+  ),
+  'the activation report rejects incomplete Most/Least key cardinality'
 );
 
 SELECT throws_ok(

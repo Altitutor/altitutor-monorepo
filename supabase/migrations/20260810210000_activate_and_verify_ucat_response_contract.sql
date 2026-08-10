@@ -26,6 +26,98 @@ REVOKE ALL ON SEQUENCE public.ucat_response_contract_legacy_write_observations_i
 COMMENT ON TABLE public.ucat_response_contract_legacy_write_observations IS
   'Temporary compatibility-window evidence for legacy-only UCAT question and detectable answer-key writes. Remove with the legacy columns after a clean production observation window.';
 
+-- The expansion wrapper accepted legacy payloads and canonicalised after its
+-- private writer returned. Activation makes the public boundary strict while
+-- retaining that implementation as the rollback-compatible storage adapter.
+ALTER FUNCTION public.tutor_ucat_upsert_question_stem_bundle(
+  UUID, UUID, UUID, JSONB, public.ucat_access_scope, JSONB,
+  public.ucat_question_source_channel, TEXT
+) RENAME TO tutor_ucat_upsert_stem_response_adapter;
+
+REVOKE ALL ON FUNCTION public.tutor_ucat_upsert_stem_response_adapter(
+  UUID, UUID, UUID, JSONB, public.ucat_access_scope, JSONB,
+  public.ucat_question_source_channel, TEXT
+) FROM PUBLIC, anon, authenticated;
+
+CREATE FUNCTION public.tutor_ucat_upsert_question_stem_bundle(
+  p_stem_id UUID,
+  p_section_id UUID,
+  p_question_stem_category_id UUID,
+  p_stem_text JSONB,
+  p_access_scope public.ucat_access_scope,
+  p_questions JSONB,
+  p_source_channel public.ucat_question_source_channel DEFAULT NULL,
+  p_tutor_source_note TEXT DEFAULT NULL
+)
+RETURNS UUID
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_stem_id UUID;
+  v_previous_writer_context TEXT;
+BEGIN
+  IF p_questions IS NULL OR jsonb_typeof(p_questions) <> 'array' THEN
+    RAISE EXCEPTION 'invalid_questions_payload';
+  END IF;
+  IF EXISTS (
+    SELECT 1
+    FROM jsonb_array_elements(p_questions) question
+    WHERE NOT (question ? 'response_type')
+      OR NOT (question ? 'answer_scheme')
+      OR jsonb_typeof(question->'answer_options') IS DISTINCT FROM 'array'
+      OR EXISTS (
+        SELECT 1
+        FROM jsonb_array_elements(question->'answer_options') option
+        WHERE NOT (option ? 'answer_key_value')
+      )
+  ) THEN
+    RAISE EXCEPTION 'canonical_response_contract_required';
+  END IF;
+
+  v_previous_writer_context := current_setting(
+    'altitutor.canonical_ucat_writer',
+    true
+  );
+  PERFORM set_config('altitutor.canonical_ucat_writer', 'on', true);
+  BEGIN
+    v_stem_id := public.tutor_ucat_upsert_stem_response_adapter(
+      p_stem_id,
+      p_section_id,
+      p_question_stem_category_id,
+      p_stem_text,
+      p_access_scope,
+      p_questions,
+      p_source_channel,
+      p_tutor_source_note
+    );
+  EXCEPTION WHEN OTHERS THEN
+    PERFORM set_config(
+      'altitutor.canonical_ucat_writer',
+      coalesce(v_previous_writer_context, 'off'),
+      true
+    );
+    RAISE;
+  END;
+  PERFORM set_config(
+    'altitutor.canonical_ucat_writer',
+    coalesce(v_previous_writer_context, 'off'),
+    true
+  );
+  RETURN v_stem_id;
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.tutor_ucat_upsert_question_stem_bundle(
+  UUID, UUID, UUID, JSONB, public.ucat_access_scope, JSONB,
+  public.ucat_question_source_channel, TEXT
+) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.tutor_ucat_upsert_question_stem_bundle(
+  UUID, UUID, UUID, JSONB, public.ucat_access_scope, JSONB,
+  public.ucat_question_source_channel, TEXT
+) TO authenticated;
+
 CREATE FUNCTION public.ucat_canonical_response_snapshot(
   p_question_id UUID,
   p_answer_scheme public.ucat_answer_scheme,
@@ -363,7 +455,9 @@ BEGIN
     AND NOT v_canonical_changed
   );
 
-  IF v_legacy_changed THEN
+  IF v_legacy_changed
+    AND current_setting('altitutor.canonical_ucat_writer', true) IS DISTINCT FROM 'on'
+  THEN
     INSERT INTO public.ucat_response_contract_legacy_write_observations (
       relation_name, operation, record_id, actor_id
     ) VALUES ('ucat_questions', TG_OP, NEW.id, (SELECT auth.uid()));
@@ -436,7 +530,9 @@ BEGIN
     AND NOT v_canonical_changed
   );
 
-  IF v_legacy_changed THEN
+  IF v_legacy_changed
+    AND current_setting('altitutor.canonical_ucat_writer', true) IS DISTINCT FROM 'on'
+  THEN
     INSERT INTO public.ucat_response_contract_legacy_write_observations (
       relation_name, operation, record_id, actor_id
     ) VALUES ('question_answer_options', TG_OP, NEW.id, (SELECT auth.uid()));
@@ -497,30 +593,45 @@ AS $$
 
   UNION ALL
   SELECT 'invalid_answer_keys', count(*),
-    (array_agg(option.id ORDER BY option.id))[1:20]
-  FROM public.question_answer_options option
-  JOIN public.ucat_questions question ON question.id = option.question_id
-  WHERE CASE question.answer_scheme
-    WHEN 'decision_making_binary_placement' THEN
-      option.answer_key_value IS DISTINCT FROM CASE
-        WHEN option.is_answer THEN 'yes'::public.ucat_answer_key_value
-        ELSE 'no'::public.ucat_answer_key_value
+    (array_agg(question.id ORDER BY question.id))[1:20]
+  FROM public.ucat_questions question
+  WHERE EXISTS (
+    SELECT 1
+    FROM public.question_answer_options option
+    WHERE option.question_id = question.id
+      AND CASE question.answer_scheme
+        WHEN 'decision_making_binary_placement' THEN
+          option.answer_key_value IS DISTINCT FROM CASE
+            WHEN option.is_answer THEN 'yes'::public.ucat_answer_key_value
+            ELSE 'no'::public.ucat_answer_key_value
+          END
+        WHEN 'single_choice' THEN
+          option.answer_key_value IS DISTINCT FROM CASE
+            WHEN option.is_answer THEN 'correct'::public.ucat_answer_key_value
+            ELSE NULL
+          END
+        WHEN 'situational_judgement_rating' THEN
+          option.answer_key_value IS DISTINCT FROM CASE
+            WHEN option.is_answer THEN 'correct'::public.ucat_answer_key_value
+            ELSE NULL
+          END
+        WHEN 'situational_judgement_most_least' THEN
+          option.answer_key_value IS NOT NULL
+          AND option.answer_key_value NOT IN ('most', 'least')
+        ELSE TRUE
       END
-    WHEN 'single_choice' THEN
-      option.answer_key_value IS DISTINCT FROM CASE
-        WHEN option.is_answer THEN 'correct'::public.ucat_answer_key_value
-        ELSE NULL
-      END
-    WHEN 'situational_judgement_rating' THEN
-      option.answer_key_value IS DISTINCT FROM CASE
-        WHEN option.is_answer THEN 'correct'::public.ucat_answer_key_value
-        ELSE NULL
-      END
-    WHEN 'situational_judgement_most_least' THEN
-      option.answer_key_value IS NOT NULL
-      AND option.answer_key_value NOT IN ('most', 'least')
-    ELSE TRUE
-  END
+  ) OR (
+    question.answer_scheme = 'situational_judgement_most_least'
+    AND (
+      SELECT count(*) <> 3
+        OR count(*) FILTER (WHERE option.answer_key_value IS NOT NULL) <> 2
+        OR count(*) FILTER (WHERE option.answer_key_value = 'most') <> 1
+        OR count(*) FILTER (WHERE option.answer_key_value = 'least') <> 1
+      FROM public.question_answer_options option
+      WHERE option.question_id = question.id
+        AND option.deleted_at IS NULL
+    )
+  )
 
   UNION ALL
   SELECT 'legacy_answer_snapshots', count(*),

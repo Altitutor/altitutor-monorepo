@@ -36368,6 +36368,19 @@ export type Database = {
         }
         Returns: string
       }
+      tutor_ucat_upsert_stem_response_adapter: {
+        Args: {
+          p_access_scope: Database["public"]["Enums"]["ucat_access_scope"]
+          p_question_stem_category_id: string
+          p_questions: Json
+          p_section_id: string
+          p_source_channel?: Database["public"]["Enums"]["ucat_question_source_channel"]
+          p_stem_id: string
+          p_stem_text: Json
+          p_tutor_source_note?: string
+        }
+        Returns: string
+      }
       ucat_ai_canonical_rich_node: { Args: { value: Json }; Returns: Json }
       ucat_ai_current_question_fingerprint: {
         Args: { p_question_id: string }

@@ -1,5 +1,5 @@
 BEGIN;
-SELECT plan(8);
+SELECT plan(10);
 
 INSERT INTO public.staff_subjects (staff_id, subject_id)
 SELECT '00000000-0000-0000-0000-000000000010', subject.id
@@ -46,6 +46,43 @@ SELECT public.tutor_ucat_upsert_question_stem_bundle(
   'individual',
   NULL
 ) AS id;
+
+SELECT is(
+  (
+    SELECT count(*)
+    FROM public.ucat_response_contract_legacy_write_observations observation
+    WHERE observation.record_id IN (
+      SELECT question.id
+      FROM public.ucat_questions question
+      WHERE question.question_stem_id = (SELECT id FROM activated_stem)
+      UNION ALL
+      SELECT option.id
+      FROM public.question_answer_options option
+      JOIN public.ucat_questions question ON question.id = option.question_id
+      WHERE question.question_stem_id = (SELECT id FROM activated_stem)
+    )
+  ),
+  0::bigint,
+  'the canonical tutor writer does not enter the compatibility observation log'
+);
+
+SELECT throws_ok(
+  $$
+    SELECT public.tutor_ucat_upsert_question_stem_bundle(
+      NULL,
+      'd777da9c-e74c-4ff2-9d45-93f93e60f73a',
+      '24df84c6-47d7-45d3-a255-e32d23c20eef',
+      '{}'::jsonb,
+      'public',
+      '[{"index":1,"question_type":"multiple_choice","answer_options":[]}]'::jsonb,
+      'individual',
+      NULL
+    )
+  $$,
+  'P0001',
+  'canonical_response_contract_required',
+  'the activated tutor writer rejects legacy-only payloads'
+);
 
 SELECT is(
   (

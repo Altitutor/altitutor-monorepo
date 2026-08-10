@@ -9,6 +9,7 @@ import type {
 } from '@/features/ucat/questions/lib/ai-assessment/schema'
 import type { UcatQuestionStemFormValues } from '@/features/ucat/questions/types/schema'
 import { parseTimeToSeconds } from '@/features/ucat/shared/lib/time-utils'
+import { suggestedResponseContract } from '@/features/ucat/questions/lib/response-contract-authoring'
 import { buildDraftUcatAssessmentSnapshot } from './draft-snapshot'
 import {
   prepareBulkImportVerificationCandidate,
@@ -44,10 +45,15 @@ function snapshotToFormValues(snapshot: UcatAssessmentSnapshot): UcatQuestionSte
     accessScope: snapshot.accessScope,
     status: snapshot.status,
     tutorSourceNote: snapshot.tutorSourceNote ?? null,
-    questions: snapshot.questions.map((question) => ({
+    questions: snapshot.questions.map((question) => {
+      const fallback = suggestedResponseContract(snapshot.categoryName, snapshot.sectionName)
+      const answerScheme = question.answerScheme ?? fallback.answerScheme
+      return {
       id: question.id,
       questionText: question.questionText,
       questionType: question.questionType,
+      responseType: question.responseType ?? fallback.responseType,
+      answerScheme,
       answerExplanation: question.answerExplanation,
       difficulty: question.difficulty,
       timeBurdenSeconds: question.timeBurdenSeconds == null
@@ -61,8 +67,14 @@ function snapshotToFormValues(snapshot: UcatAssessmentSnapshot): UcatQuestionSte
         answerText: option.answerText,
         answerExplanation: option.answerExplanation,
         isAnswer: option.isAnswer,
+        answerKeyValue: option.answerKeyValue ?? (
+          answerScheme === 'decision_making_binary_placement'
+            ? option.isAnswer ? 'yes' : 'no'
+            : option.isAnswer ? 'correct' : null
+        ),
       })),
-    })),
+    }
+    }),
   }
 }
 
@@ -117,6 +129,8 @@ function contentSnapshot(
       difficulty: question.difficulty ?? null,
       time_burden_seconds: parseTimeToSeconds(question.timeBurdenSeconds ?? '') ?? null,
       question_type: question.questionType,
+      response_type: question.responseType,
+      answer_scheme: question.answerScheme,
       source_channel: question.sourceChannel ?? null,
       ai_generation_metadata: question.aiGenerationMetadata ?? null,
       tag_ids: question.tagIds,
@@ -128,6 +142,7 @@ function contentSnapshot(
         answer_text: option.answerText,
         answer_explanation: option.answerExplanation ?? null,
         is_answer: option.isAnswer,
+        answer_key_value: option.answerKeyValue ?? null,
       })),
     })) as unknown as Json,
   }
