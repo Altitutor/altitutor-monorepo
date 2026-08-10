@@ -95,6 +95,7 @@ export function snapshotMockDraft(value: {
   accessScope: 'public' | 'private'
   setIds: string[]
   instructionsText: Json | null
+  blueprintId?: string | null
 }): string {
   const namePlain =
     typeof value.name === 'string' ? value.name : jsonToPlainText(value.name)
@@ -103,5 +104,6 @@ export function snapshotMockDraft(value: {
     accessScope: value.accessScope,
     setIds: value.setIds,
     instructionsText: jsonToPlainText(value.instructionsText),
+    blueprintId: value.blueprintId ?? null,
   })
 }

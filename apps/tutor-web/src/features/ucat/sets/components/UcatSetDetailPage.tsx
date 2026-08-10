@@ -35,6 +35,7 @@ import { useUcatAccess } from '@/features/ucat/shared/hooks/useUcatAccess'
 import { parseUcatVisibilityError } from '@/features/ucat/shared/lib/visibility-error'
 import { UcatSetEditorContent } from '@/features/ucat/sets/components/UcatSetEditorContent'
 import { UcatRichTextFloatingToolbar } from '@/features/ucat/shared/components/UcatRichTextFloatingToolbar'
+import { parseLinkedMockBlueprintCompliance } from '@/features/ucat/mocks/lib/blueprint-compliance'
 
 /** Shape of each stem in vtutor_ucat_question_set_detail.stems (from DB view) */
 type SetDetailStem = { stem_id: string; stem_text?: unknown; questions_meta?: Array<{ id: string; index: number }> }
@@ -69,6 +70,10 @@ export function UcatSetDetailPage({ setId }: UcatSetDetailPageProps) {
   const [draftStemIds, setDraftStemIds] = useState<string[]>([])
   const [baseline, setBaseline] = useState<string>('')
   const [activeTextEditor, setActiveTextEditor] = useState<Editor | null>(null)
+  const linkedBlueprintReports = useMemo(() => {
+    const row = (setsQuery.data ?? []).find(candidate => candidate.id === setId)
+    return parseLinkedMockBlueprintCompliance(row?.linked_mock_blueprint_compliance)
+  }, [setId, setsQuery.data])
 
   useEffect(() => {
     const current = detail.data
@@ -320,6 +325,7 @@ export function UcatSetDetailPage({ setId }: UcatSetDetailPageProps) {
           onChangeTimeLimitSpeed={setDraftTimeLimitSpeed}
           onChangePrivate={(value) => setDraftPrivate(value)}
           onActiveTextEditorChange={setActiveTextEditor}
+          linkedBlueprintReports={linkedBlueprintReports}
           sections={(sectionsQuery.data ?? []).map((s) => ({
             id: s.id ?? '',
             name: s.name ?? null,

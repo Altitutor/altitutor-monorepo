@@ -32,6 +32,8 @@ import {
   type UcatAuthoringWorkspaceTab,
 } from '@/features/ucat/shared/components/UcatAuthoringWorkspaceTabs'
 import { cn } from '@/shared/utils'
+import { UcatBlueprintCompliancePanel } from '@/features/ucat/mocks/components/UcatBlueprintCompliancePanel'
+import type { StoredBlueprintCompliance } from '@/features/ucat/mocks/lib/blueprint-compliance'
 
 export type UcatSectionForTimeLimit = {
   id: string
@@ -82,6 +84,7 @@ type UcatSetEditorContentProps = {
   onChangePrivate: (value: boolean) => void
   sections?: UcatSectionForTimeLimit[]
   onActiveTextEditorChange?: (editor: Editor | null) => void
+  linkedBlueprintReports?: Array<{ mockId: string; mockName: string; compliance: StoredBlueprintCompliance }>
 }
 
 export function UcatSetEditorContent({
@@ -116,6 +119,7 @@ export function UcatSetEditorContent({
   onChangePrivate,
   sections = [],
   onActiveTextEditorChange,
+  linkedBlueprintReports = [],
 }: UcatSetEditorContentProps) {
   const [sideTab, setSideTab] = useState<'properties' | 'add-stems'>('properties')
   const [activeWorkspace, setActiveWorkspace] = useState<UcatAuthoringWorkspaceTab>('editor')
@@ -287,6 +291,12 @@ export function UcatSetEditorContent({
           </div>
           <TabsContent value="properties" className="m-0 mt-3 min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain pt-1">
             <h2 className="font-semibold">Set properties</h2>
+            {linkedBlueprintReports.map(report => (
+              <div key={report.mockId} className="space-y-1">
+                <p className="text-xs font-medium">Linked mock: {report.mockName}</p>
+                <UcatBlueprintCompliancePanel compliance={report.compliance} />
+              </div>
+            ))}
             <SetPropertyRow label="Name">
               <Input value={draftName} onChange={(e) => onChangeName(e.target.value)} placeholder="Set name" />
             </SetPropertyRow>

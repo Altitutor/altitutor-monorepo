@@ -276,6 +276,22 @@ export interface BlueprintEvaluation {
   reasons: BlueprintReason[]
 }
 
+export interface BlueprintBuildShortfall {
+  label: string
+  available: number
+  minimum?: number
+  maximum?: number
+  expected?: number
+  shortfall: number
+}
+
+export interface BlueprintSectionBuildResult {
+  compliant: boolean
+  selectedStems: BlueprintStem[]
+  evaluation: BlueprintEvaluation
+  shortfalls: BlueprintBuildShortfall[]
+}
+
 const formatNumber = (value: number): string => value.toLocaleString('en-AU')
 
 const totalQuestions = (stems: BlueprintStem[]): number =>
@@ -716,5 +732,160 @@ export function evaluateBlueprint(
     sections,
     checks,
     reasons,
+  }
+}
+
+function sectionEvaluation(
+  blueprint: UcatBlueprint,
+  section: BlueprintSectionCode,
+  stems: BlueprintStem[],
+): BlueprintEvaluation {
+  const official = blueprint.official.sections.find(candidate => candidate.section === section)
+  if (!official) throw new Error(`Blueprint ${blueprint.id} does not define ${section}.`)
+
+  const evaluation = evaluateBlueprint(blueprint, {
+    purpose: 'full_mock',
+    sections: [{
+      section,
+      answeringTimeSeconds: official.answeringTimeSeconds,
+      instructionTimeSeconds: official.instructionTimeSeconds,
+      stems,
+    }],
+  })
+  const stemIds = new Set(stems.map(stem => stem.id))
+  const questionIds = new Set(stems.flatMap(stem => stem.questions.map(question => question.id)))
+  const reasons = evaluation.reasons.filter(reason =>
+    reason.section === section
+    || (reason.stemId !== undefined && stemIds.has(reason.stemId))
+    || (reason.questionId !== undefined && questionIds.has(reason.questionId)),
+  )
+  const checks = evaluation.checks.filter(check => check.section === section)
+
+  return {
+    ...evaluation,
+    compliant: reasons.length === 0 && checks.every(check => check.compliant),
+    checks,
+    reasons,
+  }
+}
+
+function selectionSignature(evaluation: BlueprintEvaluation): string {
+  return evaluation.checks
+    .filter(check => check.stemId === undefined && check.questionId === undefined)
+    .map(check => `${check.code}:${check.label}:${check.actual}`)
+    .join('|')
+}
+
+function preferredDistance(blueprint: UcatBlueprint, section: BlueprintSectionCode, evaluation: BlueprintEvaluation): number {
+  const policy = blueprint.altitutorPolicy.sectionRules.find(rule => rule.section === section)
+  if (!policy) return 0
+  const preferredByLabel = new Map<string, number>()
+  for (const rule of policy.categoryRules ?? []) {
+    if (rule.preferred !== undefined) {
+      preferredByLabel.set(rule.label ?? rule.category ?? 'Answer-scheme questions', rule.preferred)
+    }
+  }
+  for (const rule of policy.presentationRules ?? []) {
+    if (rule.preferred !== undefined) {
+      preferredByLabel.set(`${rule.category}: ${rule.formats.join(' or ')}`, rule.preferred)
+    }
+  }
+  for (const rule of policy.structureRules ?? []) {
+    if (rule.preferred !== undefined) preferredByLabel.set(rule.label, rule.preferred)
+  }
+  return evaluation.checks.reduce(
+    (distance, check) => distance + Math.abs(check.actual - (preferredByLabel.get(check.label) ?? check.actual)),
+    0,
+  )
+}
+
+/**
+ * Selects an exact, compliant section from indivisible stems. The dynamic
+ * programme retains one deterministic selection per observable rule-count
+ * state, so catalog order cannot turn an impossible set into a nearest match.
+ */
+export function buildBlueprintSection(
+  blueprint: UcatBlueprint,
+  section: BlueprintSectionCode,
+  candidates: BlueprintStem[],
+): BlueprintSectionBuildResult {
+  const official = blueprint.official.sections.find(candidate => candidate.section === section)
+  if (!official) throw new Error(`Blueprint ${blueprint.id} does not define ${section}.`)
+  const orderedCandidates = [...candidates].sort((left, right) => left.id.localeCompare(right.id))
+  let states = new Map<string, BlueprintStem[]>([['', []]])
+
+  for (const candidate of orderedCandidates) {
+    const next = new Map(states)
+    for (const selected of states.values()) {
+      const proposed = [...selected, candidate]
+      if (totalQuestions(proposed) > official.questionCount) continue
+      const evaluation = sectionEvaluation(blueprint, section, proposed)
+      const irreversiblyInvalid = evaluation.checks.some(check =>
+        !check.compliant && (
+          check.stemId !== undefined
+          || check.questionId !== undefined
+          || (check.maximum !== undefined && check.actual > check.maximum)
+          || (check.expected !== undefined && check.actual > check.expected)
+        ),
+      )
+      if (irreversiblyInvalid) continue
+      const signature = `${totalQuestions(proposed)}|${selectionSignature(evaluation)}`
+      const existing = next.get(signature)
+      if (!existing || proposed.map(stem => stem.id).join('|') < existing.map(stem => stem.id).join('|')) {
+        next.set(signature, proposed)
+      }
+    }
+    states = next
+  }
+
+  const compliant = Array.from(states.values())
+    .filter(selected => totalQuestions(selected) === official.questionCount)
+    .map(selected => ({ selected, evaluation: sectionEvaluation(blueprint, section, selected) }))
+    .filter(result => result.evaluation.compliant)
+    .sort((left, right) => {
+      const distance = preferredDistance(blueprint, section, left.evaluation)
+        - preferredDistance(blueprint, section, right.evaluation)
+      return distance || left.selected.map(stem => stem.id).join('|').localeCompare(right.selected.map(stem => stem.id).join('|'))
+    })[0]
+
+  if (compliant) {
+    return { compliant: true, selectedStems: compliant.selected, evaluation: compliant.evaluation, shortfalls: [] }
+  }
+
+  const availability = sectionEvaluation(blueprint, section, orderedCandidates)
+  const shortfalls: BlueprintBuildShortfall[] = availability.checks.flatMap(check => {
+    if (check.minimum !== undefined && check.actual < check.minimum) {
+      return [{
+        label: check.label,
+        available: check.actual,
+        minimum: check.minimum,
+        maximum: check.maximum,
+        shortfall: check.minimum - check.actual,
+      }]
+    }
+    return []
+  })
+  if (totalQuestions(orderedCandidates) < official.questionCount) {
+    shortfalls.unshift({
+      label: 'Candidate-visible question total',
+      available: totalQuestions(orderedCandidates),
+      expected: official.questionCount,
+      shortfall: official.questionCount - totalQuestions(orderedCandidates),
+    })
+  }
+  if (shortfalls.length === 0) {
+    shortfalls.push({
+      label: 'Compatible whole-stem combination',
+      available: 0,
+      expected: 1,
+      shortfall: 1,
+    })
+  }
+
+  return {
+    compliant: false,
+    selectedStems: [],
+    evaluation: availability,
+    shortfalls,
   }
 }

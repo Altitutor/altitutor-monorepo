@@ -22,6 +22,13 @@ import type { StemEditorMode } from '@/features/ucat/questions/components/stem-e
 import { UcatMockPreviewContent } from '@/features/ucat/mocks/components/UcatMockPreviewContent'
 import { UcatPdfExportDialog } from '@/features/ucat/shared/components/UcatPdfExportDialog'
 import { buildUcatPdfExportAction } from '@/features/ucat/shared/pdf/pdf-export-action'
+import { useUcatMockBlueprints } from '@/features/ucat/mocks/hooks/useUcatMocks'
+import {
+  evaluateDraftMockBlueprint,
+  evaluationToStoredCompliance,
+  parseStoredBlueprintCompliance,
+  blueprintRowToModel,
+} from '@/features/ucat/mocks/lib/blueprint-compliance'
 
 export type SetOption = {
   id: string
@@ -71,6 +78,7 @@ export function UcatMockEditorDialog({
   const [showAnswer, setShowAnswer] = useState(false)
   const [exportDialogOpen, setExportDialogOpen] = useState(false)
   const stemCatalogQuery = useUcatStemCatalog(open)
+  const blueprintsQuery = useUcatMockBlueprints()
 
   const setFilterDefinitions = useMemo(
     () => buildSetCatalogFilterDefinitions(sections),
@@ -80,14 +88,17 @@ export function UcatMockEditorDialog({
   const { toast } = useToast()
   const { copyId } = useUcatCopyId()
   const {
+    detail,
     name,
     isPrivate,
     instructionsText,
     setInstructionsText,
     draftSetIds,
+    blueprintId,
     setName,
     setIsPrivate,
     setDraftSetIds,
+    setBlueprintId,
     isDirty,
     save,
     isSaving,
@@ -111,6 +122,33 @@ export function UcatMockEditorDialog({
         }
       })
   }, [sets.data])
+  const blueprints = useMemo(() => (blueprintsQuery.data ?? []).flatMap(blueprint =>
+    blueprint.id && blueprint.code && blueprint.test_year != null && blueprint.version != null
+      ? [{ id: blueprint.id, code: blueprint.code, test_year: blueprint.test_year, version: blueprint.version }]
+      : []
+  ), [blueprintsQuery.data])
+  const blueprintCompliance = useMemo(() => {
+    if (!blueprintId) return parseStoredBlueprintCompliance(detail.data?.blueprint_compliance)
+    const row = (blueprintsQuery.data ?? []).find(candidate => candidate.id === blueprintId)
+    const blueprint = row?.code && row.test_year != null && row.version != null
+      && row.official_facts_label && row.altitutor_policy_label
+      ? blueprintRowToModel({
+          code: row.code,
+          test_year: row.test_year,
+          version: row.version,
+          official_facts_label: row.official_facts_label,
+          altitutor_policy_label: row.altitutor_policy_label,
+          sections: row.sections,
+        })
+      : null
+    if (!blueprint) return parseStoredBlueprintCompliance(detail.data?.blueprint_compliance)
+    return evaluationToStoredCompliance(evaluateDraftMockBlueprint(
+      blueprint,
+      draftSetIds,
+      setCatalog,
+      stemCatalogQuery.data ?? [],
+    ))
+  }, [blueprintId, blueprintsQuery.data, detail.data?.blueprint_compliance, draftSetIds, setCatalog, stemCatalogQuery.data])
 
   useEffect(() => {
     if (!open) {
@@ -232,6 +270,10 @@ export function UcatMockEditorDialog({
             setCatalogLoading={sets.isLoading}
             sections={sections}
             onEditSet={onEditSet}
+            blueprints={blueprints}
+            blueprintId={blueprintId}
+            setBlueprintId={setBlueprintId}
+            blueprintCompliance={blueprintCompliance}
           />
         ) : (
           <UcatMockPreviewContent

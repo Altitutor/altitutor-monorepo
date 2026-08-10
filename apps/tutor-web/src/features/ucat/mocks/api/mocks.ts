@@ -8,6 +8,17 @@ import {
 } from '@/features/ucat/shared/lifecycle-errors'
 
 export const ucatMocksApi = {
+  async blueprints() {
+    const supabase = getSupabaseClient() as SupabaseClient<Database>
+    const { data, error } = await supabase
+      .from('vtutor_ucat_mock_blueprints')
+      .select('*')
+      .order('test_year', { ascending: false })
+      .order('version', { ascending: false })
+    if (error) throw error
+    return data ?? []
+  },
+
   async list() {
     const supabase = getSupabaseClient() as SupabaseClient<Database>
     const { data, error } = await supabase.from('vtutor_ucat_mocks').select('*').order('updated_at', { ascending: false })

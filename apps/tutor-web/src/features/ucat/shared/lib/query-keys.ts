@@ -25,6 +25,7 @@ export const ucatKeys = {
   sets: () => [...ucatKeys.all, 'sets'] as const,
   set: (id: string) => [...ucatKeys.sets(), id] as const,
   mocks: () => [...ucatKeys.all, 'mocks'] as const,
+  mockBlueprints: () => [...ucatKeys.mocks(), 'blueprints'] as const,
   mock: (id: string) => [...ucatKeys.mocks(), id] as const,
   students: () => [...ucatKeys.all, 'students'] as const,
   student: (id: string) => [...ucatKeys.students(), id] as const,

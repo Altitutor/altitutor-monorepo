@@ -15,6 +15,7 @@ export async function PATCH(request: NextRequest, { params }: { params: { id: st
       p_access_scope: body.accessScope ?? 'public',
       p_set_ids: body.setIds ?? [],
       p_instructions_text: body.instructionsText ?? null,
+      p_blueprint_id: body.blueprintId ?? null,
     })
 
     if (error) return NextResponse.json({ error: error.message }, { status: 400 })

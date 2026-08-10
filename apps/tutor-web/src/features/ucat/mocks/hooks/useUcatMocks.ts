@@ -7,6 +7,10 @@ export function useUcatMocks() {
   return useQuery({ queryKey: ucatKeys.mocks(), queryFn: ucatMocksApi.list })
 }
 
+export function useUcatMockBlueprints() {
+  return useQuery({ queryKey: ucatKeys.mockBlueprints(), queryFn: ucatMocksApi.blueprints })
+}
+
 export function useUcatMockDetail(mockId: string | null) {
   return useQuery({
     queryKey: mockId ? ucatKeys.mock(mockId) : [...ucatKeys.mocks(), 'empty'],

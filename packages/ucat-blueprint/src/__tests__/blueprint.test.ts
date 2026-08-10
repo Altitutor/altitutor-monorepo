@@ -1,9 +1,11 @@
 import {
+  buildBlueprintSection,
   UCAT_ANZ_2026_V1,
   evaluateBlueprint,
   type BlueprintComposition,
   type BlueprintSectionCode,
   type BlueprintStem,
+  type UcatBlueprint,
 } from '..'
 
 const sectionOrder: BlueprintSectionCode[] = [
@@ -312,6 +314,72 @@ describe('UCAT ANZ 2026 v1 blueprint', () => {
           message: 'Focused practice sets are outside full-mock blueprint compliance.',
         },
       ],
+    })
+  })
+
+  describe('range-aware whole-stem builder', () => {
+    const compactBlueprint: UcatBlueprint = {
+      id: 'test-blueprint',
+      testYear: 2026,
+      version: 1,
+      official: {
+        label: 'Test exact facts',
+        sections: [{
+          section: 'decision_making',
+          questionCount: 4,
+          answeringTimeSeconds: 240,
+          instructionTimeSeconds: 90,
+        }],
+      },
+      altitutorPolicy: {
+        label: 'Test ranges',
+        sectionRules: [{
+          section: 'decision_making',
+          categoryRules: [
+            { category: 'A', unit: 'questions', min: 1, preferred: 2, max: 3 },
+            { category: 'B', unit: 'questions', min: 1, preferred: 2, max: 3 },
+          ],
+        }],
+      },
+    }
+
+    const candidate = (id: string, category: string): BlueprintStem => ({
+      id,
+      category,
+      presentationFormat: null,
+      questions: [{
+        id: `${id}-question`,
+        answerScheme: 'single_choice',
+        optionCount: 4,
+        requiredPlacementCount: 0,
+      }],
+    })
+
+    it('selects whole stems at the exact total and optimises toward preferred values', () => {
+      const result = buildBlueprintSection(compactBlueprint, 'decision_making', [
+        candidate('a-1', 'A'), candidate('a-2', 'A'), candidate('a-3', 'A'),
+        candidate('b-1', 'B'), candidate('b-2', 'B'), candidate('b-3', 'B'),
+      ])
+
+      expect(result.compliant).toBe(true)
+      expect(result.selectedStems.map(stem => stem.id)).toEqual(['a-1', 'a-2', 'b-1', 'b-2'])
+      expect(result.evaluation.checks).toEqual(expect.arrayContaining([
+        expect.objectContaining({ label: 'A', actual: 2, compliant: true }),
+        expect.objectContaining({ label: 'B', actual: 2, compliant: true }),
+      ]))
+      expect(result.shortfalls).toEqual([])
+    })
+
+    it('reports explicit rule shortfalls instead of returning a nearest invalid set', () => {
+      const result = buildBlueprintSection(compactBlueprint, 'decision_making', [
+        candidate('a-1', 'A'), candidate('a-2', 'A'), candidate('a-3', 'A'), candidate('a-4', 'A'),
+      ])
+
+      expect(result.compliant).toBe(false)
+      expect(result.selectedStems).toEqual([])
+      expect(result.shortfalls).toEqual(expect.arrayContaining([
+        expect.objectContaining({ label: 'B', available: 0, minimum: 1, shortfall: 1 }),
+      ]))
     })
   })
 })

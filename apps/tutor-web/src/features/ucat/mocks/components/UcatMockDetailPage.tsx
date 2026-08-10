@@ -7,6 +7,7 @@ import { useUcatSets } from '@/features/ucat/sets/hooks/useUcatSets'
 import { useUcatSections } from '@/features/ucat/sections/hooks/useUcatSections'
 import { proseMirrorToPlainText } from '@/features/ucat/shared/lib/rich-text'
 import { useUcatMockDraft } from '@/features/ucat/mocks/hooks/useUcatMockDraft'
+import { useUcatMockBlueprints } from '@/features/ucat/mocks/hooks/useUcatMocks'
 import { UcatPageHeader, UcatPageSkeleton, UcatAccessDenied } from '@/features/ucat/shared/components'
 import { useUcatAccess } from '@/features/ucat/shared/hooks/useUcatAccess'
 import { parseUcatVisibilityError } from '@/features/ucat/shared/lib/visibility-error'
@@ -14,6 +15,13 @@ import { UcatMockEditorContent } from '@/features/ucat/mocks/components/UcatMock
 import { parseSetSections } from '@/features/ucat/shared/lib/set-section-status'
 import { buildSetCatalogFilterDefinitions } from '@/features/ucat/shared/lib/set-catalog-filters'
 import type { SetOption } from '@/features/ucat/mocks/components/UcatMockEditorDialog'
+import { useUcatStemCatalog } from '@/features/ucat/questions/hooks/useUcatQuestions'
+import {
+  evaluateDraftMockBlueprint,
+  evaluationToStoredCompliance,
+  parseStoredBlueprintCompliance,
+  blueprintRowToModel,
+} from '@/features/ucat/mocks/lib/blueprint-compliance'
 
 function formatSectionsDisplay(sections: unknown): string {
   if (!Array.isArray(sections)) return ''
@@ -37,6 +45,8 @@ export function UcatMockDetailPage({ mockId }: UcatMockDetailPageProps) {
   const sets = useUcatSets()
   const sectionsQuery = useUcatSections()
   const sections = useMemo(() => sectionsQuery.data ?? [], [sectionsQuery.data])
+  const blueprintsQuery = useUcatMockBlueprints()
+  const stemCatalogQuery = useUcatStemCatalog(true)
   const [search, setSearch] = useState('')
   const [filters, setFilters] = useState<Record<string, unknown[]>>({})
 
@@ -52,9 +62,11 @@ export function UcatMockDetailPage({ mockId }: UcatMockDetailPageProps) {
     instructionsText,
     setInstructionsText,
     draftSetIds,
+    blueprintId,
     setName,
     setIsPrivate,
     setDraftSetIds,
+    setBlueprintId,
     isDirty,
     save,
     isSaving,
@@ -78,6 +90,33 @@ export function UcatMockDetailPage({ mockId }: UcatMockDetailPageProps) {
         }
       })
   }, [sets.data])
+  const blueprints = useMemo(() => (blueprintsQuery.data ?? []).flatMap(blueprint =>
+    blueprint.id && blueprint.code && blueprint.test_year != null && blueprint.version != null
+      ? [{ id: blueprint.id, code: blueprint.code, test_year: blueprint.test_year, version: blueprint.version }]
+      : []
+  ), [blueprintsQuery.data])
+  const blueprintCompliance = useMemo(() => {
+    if (!blueprintId) return parseStoredBlueprintCompliance(detail.data?.blueprint_compliance)
+    const row = (blueprintsQuery.data ?? []).find(candidate => candidate.id === blueprintId)
+    const blueprint = row?.code && row.test_year != null && row.version != null
+      && row.official_facts_label && row.altitutor_policy_label
+      ? blueprintRowToModel({
+          code: row.code,
+          test_year: row.test_year,
+          version: row.version,
+          official_facts_label: row.official_facts_label,
+          altitutor_policy_label: row.altitutor_policy_label,
+          sections: row.sections,
+        })
+      : null
+    if (!blueprint) return parseStoredBlueprintCompliance(detail.data?.blueprint_compliance)
+    return evaluationToStoredCompliance(evaluateDraftMockBlueprint(
+      blueprint,
+      draftSetIds,
+      setCatalog,
+      stemCatalogQuery.data ?? [],
+    ))
+  }, [blueprintId, blueprintsQuery.data, detail.data?.blueprint_compliance, draftSetIds, setCatalog, stemCatalogQuery.data])
 
   const isLoading = access.isLoading || sets.isLoading || detail.isLoading
 
@@ -144,6 +183,10 @@ export function UcatMockDetailPage({ mockId }: UcatMockDetailPageProps) {
           setCatalog={setCatalog}
           setCatalogLoading={sets.isLoading}
           sections={sections}
+          blueprints={blueprints}
+          blueprintId={blueprintId}
+          setBlueprintId={setBlueprintId}
+          blueprintCompliance={blueprintCompliance}
         />
       </div>
     </div>

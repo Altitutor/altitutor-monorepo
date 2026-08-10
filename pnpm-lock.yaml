@@ -920,6 +920,9 @@ importers:
       '@altitutor/shared':
         specifier: workspace:*
         version: link:../../packages/shared
+      '@altitutor/ucat-blueprint':
+        specifier: workspace:*
+        version: link:../../packages/ucat-blueprint
       '@altitutor/ucat-percentiles':
         specifier: workspace:*
         version: link:../../packages/ucat-percentiles

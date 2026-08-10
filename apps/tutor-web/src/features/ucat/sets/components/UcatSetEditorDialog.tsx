@@ -40,6 +40,7 @@ import { UcatStemEditorHeaderControls } from '@/features/ucat/questions/componen
 import type { StemEditorMode } from '@/features/ucat/questions/components/stem-editor/UcatStemEditorPropertiesPanel'
 import { UcatPdfExportDialog } from '@/features/ucat/shared/components/UcatPdfExportDialog'
 import { buildUcatPdfExportAction } from '@/features/ucat/shared/pdf/pdf-export-action'
+import { parseLinkedMockBlueprintCompliance } from '@/features/ucat/mocks/lib/blueprint-compliance'
 
 /** Shape of each stem in vtutor_ucat_question_set_detail.stems (from DB view) */
 type SetDetailStem = { stem_id: string; stem_text?: unknown; questions_meta?: Array<{ id: string; index: number }> }
@@ -85,6 +86,10 @@ export function UcatSetEditorDialog({
   const [editorMode, setEditorMode] = useState<StemEditorMode>('edit')
   const [showAnswer, setShowAnswer] = useState(false)
   const [exportDialogOpen, setExportDialogOpen] = useState(false)
+  const linkedBlueprintReports = useMemo(() => {
+    const row = (setsQuery.data ?? []).find(candidate => candidate.id === setId)
+    return parseLinkedMockBlueprintCompliance(row?.linked_mock_blueprint_compliance)
+  }, [setId, setsQuery.data])
 
   useEffect(() => {
     const current = detail.data
@@ -389,7 +394,8 @@ export function UcatSetEditorDialog({
               onChangeTimeLimitSource={setDraftTimeLimitSource}
               onChangeTimeLimitSpeed={setDraftTimeLimitSpeed}
               onChangePrivate={(value) => setDraftPrivate(value)}
-              onActiveTextEditorChange={setActiveTextEditor}
+            onActiveTextEditorChange={setActiveTextEditor}
+            linkedBlueprintReports={linkedBlueprintReports}
               sections={(sectionsQuery.data ?? []).map((s) => ({
                 id: s.id ?? '',
                 name: s.name ?? null,

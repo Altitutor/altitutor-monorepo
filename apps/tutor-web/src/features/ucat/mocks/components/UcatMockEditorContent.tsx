@@ -21,6 +21,8 @@ import {
   type UcatAuthoringWorkspaceTab,
 } from '@/features/ucat/shared/components/UcatAuthoringWorkspaceTabs'
 import { cn } from '@/shared/utils'
+import { UcatBlueprintCompliancePanel } from '@/features/ucat/mocks/components/UcatBlueprintCompliancePanel'
+import type { StoredBlueprintCompliance } from '@/features/ucat/mocks/lib/blueprint-compliance'
 
 type UcatMockEditorContentProps = {
   name: string
@@ -48,6 +50,10 @@ type UcatMockEditorContentProps = {
     time_limit_seconds: number | null
   }>
   onEditSet?: (setId: string) => void
+  blueprints?: Array<{ id: string; code: string; test_year: number; version: number }>
+  blueprintId: string | null
+  setBlueprintId: (value: string | null) => void
+  blueprintCompliance: StoredBlueprintCompliance | null
 }
 
 export function UcatMockEditorContent({
@@ -70,6 +76,10 @@ export function UcatMockEditorContent({
   setCatalogLoading = false,
   sections = [],
   onEditSet,
+  blueprints = [],
+  blueprintId,
+  setBlueprintId,
+  blueprintCompliance,
 }: UcatMockEditorContentProps) {
   const [sideTab, setSideTab] = useState<'properties' | 'add-sets'>('properties')
   const [activeWorkspace, setActiveWorkspace] = useState<UcatAuthoringWorkspaceTab>('editor')
@@ -221,6 +231,30 @@ export function UcatMockEditorContent({
               <span className="mb-1 block font-medium">Name</span>
               <Input value={name} onChange={(e) => setName(e.target.value)} />
             </label>
+            <label className="block text-sm">
+              <span className="mb-1 block font-medium">Full-mock blueprint</span>
+              <SearchableSelect<{ value: string; label: string }>
+                items={[
+                  { value: 'none', label: 'None — focused or ordinary practice' },
+                  ...blueprints.map(blueprint => ({
+                    value: blueprint.id,
+                    label: `${blueprint.test_year} v${blueprint.version} · ${blueprint.code}`,
+                  })),
+                ]}
+                value={blueprintId == null
+                  ? { value: 'none', label: 'None — focused or ordinary practice' }
+                  : (() => {
+                      const blueprint = blueprints.find(candidate => candidate.id === blueprintId)
+                      return blueprint
+                        ? { value: blueprint.id, label: `${blueprint.test_year} v${blueprint.version} · ${blueprint.code}` }
+                        : null
+                    })()}
+                onValueChange={(item) => setBlueprintId(item?.value === 'none' ? null : item?.value ?? null)}
+                getItemLabel={(item) => item.label}
+                getItemId={(item) => item.value}
+              />
+            </label>
+            <UcatBlueprintCompliancePanel compliance={blueprintCompliance} />
             <label className="block text-sm">
               <span className="mb-1 block font-medium">
                 <UcatVisibilityFieldLabel />

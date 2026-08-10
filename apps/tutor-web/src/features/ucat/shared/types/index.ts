@@ -82,4 +82,5 @@ export type UcatMockPayload = {
   accessScope: UcatAccessScope
   setIds: string[]
   instructionsText?: RichTextJson | null
+  blueprintId?: string | null
 }

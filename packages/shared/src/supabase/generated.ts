@@ -16490,6 +16490,7 @@ export type Database = {
       ucat_mocks: {
         Row: {
           access_scope: Database["public"]["Enums"]["ucat_access_scope"]
+          blueprint_id: string | null
           created_at: string | null
           created_by: string | null
           deleted_at: string | null
@@ -16507,6 +16508,7 @@ export type Database = {
         }
         Insert: {
           access_scope?: Database["public"]["Enums"]["ucat_access_scope"]
+          blueprint_id?: string | null
           created_at?: string | null
           created_by?: string | null
           deleted_at?: string | null
@@ -16524,6 +16526,7 @@ export type Database = {
         }
         Update: {
           access_scope?: Database["public"]["Enums"]["ucat_access_scope"]
+          blueprint_id?: string | null
           created_at?: string | null
           created_by?: string | null
           deleted_at?: string | null
@@ -16540,6 +16543,20 @@ export type Database = {
           updated_by?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "ucat_mocks_blueprint_id_fkey"
+            columns: ["blueprint_id"]
+            isOneToOne: false
+            referencedRelation: "ucat_mock_blueprints"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ucat_mocks_blueprint_id_fkey"
+            columns: ["blueprint_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_ucat_mock_blueprints"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "ucat_mocks_created_by_fkey"
             columns: ["created_by"]
@@ -31086,6 +31103,8 @@ export type Database = {
       vtutor_ucat_mock_detail: {
         Row: {
           access_scope: Database["public"]["Enums"]["ucat_access_scope"] | null
+          blueprint_compliance: Json | null
+          blueprint_id: string | null
           created_at: string | null
           created_by: string | null
           deleted_at: string | null
@@ -31103,6 +31122,8 @@ export type Database = {
         }
         Insert: {
           access_scope?: Database["public"]["Enums"]["ucat_access_scope"] | null
+          blueprint_compliance?: never
+          blueprint_id?: string | null
           created_at?: string | null
           created_by?: string | null
           deleted_at?: string | null
@@ -31120,6 +31141,8 @@ export type Database = {
         }
         Update: {
           access_scope?: Database["public"]["Enums"]["ucat_access_scope"] | null
+          blueprint_compliance?: never
+          blueprint_id?: string | null
           created_at?: string | null
           created_by?: string | null
           deleted_at?: string | null
@@ -31136,6 +31159,20 @@ export type Database = {
           updated_by?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "ucat_mocks_blueprint_id_fkey"
+            columns: ["blueprint_id"]
+            isOneToOne: false
+            referencedRelation: "ucat_mock_blueprints"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ucat_mocks_blueprint_id_fkey"
+            columns: ["blueprint_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_ucat_mock_blueprints"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "ucat_mocks_created_by_fkey"
             columns: ["created_by"]
@@ -31253,6 +31290,8 @@ export type Database = {
       vtutor_ucat_mocks: {
         Row: {
           access_scope: Database["public"]["Enums"]["ucat_access_scope"] | null
+          blueprint_compliance: Json | null
+          blueprint_id: string | null
           created_at: string | null
           created_by: string | null
           created_by_first_name: string | null
@@ -31270,6 +31309,20 @@ export type Database = {
           updated_by: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "ucat_mocks_blueprint_id_fkey"
+            columns: ["blueprint_id"]
+            isOneToOne: false
+            referencedRelation: "ucat_mock_blueprints"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ucat_mocks_blueprint_id_fkey"
+            columns: ["blueprint_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_ucat_mock_blueprints"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "ucat_mocks_created_by_fkey"
             columns: ["created_by"]
@@ -31793,6 +31846,7 @@ export type Database = {
           description: Json | null
           id: string | null
           is_available_in_sets_pool: boolean | null
+          linked_mock_blueprint_compliance: Json | null
           name: Json | null
           publication_issues: Json | null
           question_count: number | null
@@ -32093,6 +32147,9 @@ export type Database = {
           deleted_by: string | null
           display_columns: number | null
           id: string | null
+          presentation_format:
+            | Database["public"]["Enums"]["ucat_stem_presentation_format"]
+            | null
           publication_issues: Json | null
           question_stem_category_id: string | null
           questions: Json | null
@@ -36007,16 +36064,28 @@ export type Database = {
         }
         Returns: string
       }
-      tutor_ucat_upsert_mock: {
-        Args: {
-          p_access_scope: Database["public"]["Enums"]["ucat_access_scope"]
-          p_instructions_text?: Json
-          p_mock_id: string
-          p_name: string
-          p_set_ids: Json
-        }
-        Returns: string
-      }
+      tutor_ucat_upsert_mock:
+        | {
+            Args: {
+              p_access_scope: Database["public"]["Enums"]["ucat_access_scope"]
+              p_instructions_text?: Json
+              p_mock_id: string
+              p_name: string
+              p_set_ids: Json
+            }
+            Returns: string
+          }
+        | {
+            Args: {
+              p_access_scope: Database["public"]["Enums"]["ucat_access_scope"]
+              p_blueprint_id: string
+              p_instructions_text: Json
+              p_mock_id: string
+              p_name: string
+              p_set_ids: Json
+            }
+            Returns: string
+          }
       tutor_ucat_upsert_question_set: {
         Args: {
           p_access_scope: Database["public"]["Enums"]["ucat_access_scope"]
@@ -36082,6 +36151,10 @@ export type Database = {
         Args: { json_content: Json }
         Returns: string
       }
+      ucat_content_before_mock_blueprint_issues: {
+        Args: { p_content_id: string; p_content_type: string }
+        Returns: Json
+      }
       ucat_content_core_publication_issues: {
         Args: { p_content_id: string; p_content_type: string }
         Returns: Json
@@ -36136,6 +36209,10 @@ export type Database = {
       }
       ucat_mcp_review_issues: {
         Args: { p_content_id: string; p_content_type: string }
+        Returns: Json
+      }
+      ucat_mock_blueprint_compliance: {
+        Args: { p_mock_id: string }
         Returns: Json
       }
       ucat_mock_content_snapshot: { Args: { p_mock_id: string }; Returns: Json }

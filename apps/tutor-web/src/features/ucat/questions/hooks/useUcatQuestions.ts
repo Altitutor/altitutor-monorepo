@@ -5,6 +5,8 @@ import type { UcatAccessScope, UcatContentStatus, UcatQuestionStemBundlePayload 
 import { proseMirrorToPlainText } from '@/features/ucat/shared/lib/rich-text'
 import type { Json } from '@altitutor/shared'
 import type { QuestionCatalogQuery } from '@/features/ucat/questions/lib/question-catalog-query'
+import { getAnswerSchemePresentation } from '@altitutor/ucat-response-contract'
+import type { BlueprintStem } from '@altitutor/ucat-blueprint'
 
 function parseStemCatalogSetIds(value: unknown): string[] {
   if (value == null || !Array.isArray(value)) return []
@@ -166,12 +168,14 @@ export type UcatStemCatalogItem = {
   sectionId: string | null
   categoryId: string | null
   categoryName: string | null
+  presentationFormat?: BlueprintStem['presentationFormat']
   accessScope: UcatAccessScope
   status: UcatContentStatus
   sourceChannel: 'individual' | 'bulk_import' | 'ai_generation' | null
   questionTypes: ('multiple_choice' | 'syllogism')[]
   responseTypes?: ('multiple_choice' | 'drag_and_drop')[]
   answerSchemes?: string[]
+  blueprintQuestions?: BlueprintStem['questions']
   tagIds: string[]
   createdAt: string | null
   questionSearchText: string
@@ -244,8 +248,10 @@ export function useUcatStemCatalog(enabled: boolean, options?: { publishedOnly?:
               question_type?: string | null
               response_type?: string | null
               answer_scheme?: string | null
+              id?: string | null
               question_text?: Json | null
               tags?: Array<{ id?: string | null }> | null
+              answer_options?: Array<{ id?: string | null; deleted_at?: string | null }> | null
             }>).filter((q) => !q.deleted_at)
           : []
         const tagIds = new Set<string>()
@@ -286,6 +292,24 @@ export function useUcatStemCatalog(enabled: boolean, options?: { publishedOnly?:
         const answerSchemes = Array.from(new Set(activeQuestions.flatMap((question) => (
           typeof question.answer_scheme === 'string' ? [question.answer_scheme] : []
         ))))
+        const blueprintQuestions: BlueprintStem['questions'] = activeQuestions.flatMap((question, questionIndex) => {
+          if (
+            question.answer_scheme !== 'single_choice'
+            && question.answer_scheme !== 'situational_judgement_rating'
+            && question.answer_scheme !== 'decision_making_binary_placement'
+            && question.answer_scheme !== 'situational_judgement_most_least'
+          ) return []
+          const optionIds = (question.answer_options ?? [])
+            .filter(option => !option.deleted_at)
+            .map((option, optionIndex) => option.id ?? `${row.id}-q${questionIndex}-o${optionIndex}`)
+          const presentation = getAnswerSchemePresentation(question.answer_scheme, optionIds)
+          return [{
+            id: question.id ?? `${row.id}-question-${questionIndex}`,
+            answerScheme: question.answer_scheme,
+            optionCount: optionIds.length,
+            requiredPlacementCount: presentation.kind === 'placement' ? presentation.requiredPlacements : 0,
+          }]
+        })
         const setIds = parseStemCatalogSetIds((row as { set_ids?: unknown }).set_ids)
         const setNames = parseStemCatalogSetNames((row as { set_names?: unknown }).set_names)
 
@@ -298,12 +322,14 @@ export function useUcatStemCatalog(enabled: boolean, options?: { publishedOnly?:
           sectionId: row.section_id ?? null,
           categoryId: row.question_stem_category_id ?? null,
           categoryName: row.category_name ?? null,
+          presentationFormat: row.presentation_format ?? null,
           accessScope: row.access_scope,
           status: row.status,
           sourceChannel: row.source_channel,
           questionTypes,
           responseTypes,
           answerSchemes,
+          blueprintQuestions,
           tagIds: Array.from(tagIds),
           createdAt: row.created_at ?? null,
           questionSearchText: questionTexts.join(' '),

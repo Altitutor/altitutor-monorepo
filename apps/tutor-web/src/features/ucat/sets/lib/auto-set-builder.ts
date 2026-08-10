@@ -1,6 +1,8 @@
 import type { UcatStemCatalogItem } from '@/features/ucat/questions/hooks/useUcatQuestions'
+import { buildBlueprintSection, UCAT_ANZ_2026_V1 } from '@altitutor/ucat-blueprint'
+import { blueprintSectionCode, catalogStemToBlueprintStem } from '@/features/ucat/mocks/lib/blueprint-compliance'
 
-export type AutoSetMode = 'total' | 'category'
+export type AutoSetMode = 'total' | 'category' | 'blueprint'
 export type AutoStemVisibility = 'either' | 'public' | 'private'
 
 export type AutoSetPreview = {
@@ -99,6 +101,7 @@ export function buildAutoSetPreview({
   targetTotal,
   categoryTargets,
   sectionId,
+  sectionNumber,
   stemVisibility,
   onlyNotInAnotherSet,
   categories,
@@ -109,6 +112,7 @@ export function buildAutoSetPreview({
   targetTotal: number
   categoryTargets: Record<string, string>
   sectionId: string | null
+  sectionNumber?: number | null
   stemVisibility: AutoStemVisibility
   onlyNotInAnotherSet: boolean
   categories: AutoCategoryRow[]
@@ -134,6 +138,33 @@ export function buildAutoSetPreview({
   })
 
   const warnings: string[] = []
+
+  if (mode === 'blueprint') {
+    const section = blueprintSectionCode(sectionNumber)
+    if (!section) {
+      return {
+        selectedStems: [], totalQuestions: 0, targetQuestions: 0, byCategory: [],
+        warnings: ['Select a recognised UCAT section for the 2026 blueprint.'],
+      }
+    }
+    const build = buildBlueprintSection(
+      UCAT_ANZ_2026_V1,
+      section,
+      shuffleWithSeed(eligibleStems, `blueprint:${section}:${seed}`).map(catalogStemToBlueprintStem),
+    )
+    const selectedIds = new Set(build.selectedStems.map(stem => stem.id))
+    const selectedStems = eligibleStems.filter(stem => selectedIds.has(stem.id))
+    const targetQuestions = UCAT_ANZ_2026_V1.official.sections.find(rule => rule.section === section)?.questionCount ?? 0
+    return {
+      selectedStems,
+      totalQuestions: selectedStems.reduce((sum, stem) => sum + stem.questionsCount, 0),
+      targetQuestions,
+      byCategory: [],
+      warnings: build.shortfalls.map(shortfall =>
+        `${shortfall.label}: short by ${shortfall.shortfall} (${shortfall.available} available).`,
+      ),
+    }
+  }
 
   if (mode === 'total') {
     const shuffled = shuffleWithSeed(

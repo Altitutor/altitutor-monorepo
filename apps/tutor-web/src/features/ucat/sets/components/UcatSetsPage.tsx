@@ -68,6 +68,8 @@ import {
   lifecycleStatusSuccessToast,
   type UcatLifecycleEntityType,
 } from '@/features/ucat/shared/lifecycle-errors'
+import { UCAT_ANZ_2026_V1 } from '@altitutor/ucat-blueprint'
+import { blueprintSectionCode } from '@/features/ucat/mocks/lib/blueprint-compliance'
 
 function parseStatusTab(value: string | null): UcatContentStatus {
   return value === 'in_review' || value === 'published' ? value : 'draft'
@@ -315,9 +317,13 @@ export function UcatSetsPage() {
         .sort((a, b) => (a.name ?? '').localeCompare(b.name ?? '')),
     [autoSectionId, categoriesQuery.data],
   )
+  const autoSection = sections.find(section => section.id === autoSectionId)
+  const autoBlueprintSection = blueprintSectionCode(autoSection?.section_number)
   const autoTargetQuestions = autoMode === 'total'
     ? positiveIntFromInput(autoTargetTotal)
-    : Object.values(autoCategoryTargets).reduce((sum, value) => sum + positiveIntFromInput(value), 0)
+    : autoMode === 'category'
+      ? Object.values(autoCategoryTargets).reduce((sum, value) => sum + positiveIntFromInput(value), 0)
+      : UCAT_ANZ_2026_V1.official.sections.find(section => section.section === autoBlueprintSection)?.questionCount ?? 0
   const autoCriteriaReady = !autoCriteriaEnabled || (!!autoSectionId && autoTargetQuestions > 0)
   const autoPreview = useMemo(
     () =>
@@ -327,6 +333,7 @@ export function UcatSetsPage() {
             targetTotal: positiveIntFromInput(autoTargetTotal),
             categoryTargets: autoCategoryTargets,
             sectionId: autoSectionId,
+            sectionNumber: autoSection?.section_number,
             stemVisibility: autoStemVisibility,
             onlyNotInAnotherSet: autoOnlyNotInAnotherSet,
             categories: (categoriesQuery.data ?? []) as AutoCategoryRow[],
@@ -340,6 +347,7 @@ export function UcatSetsPage() {
       autoMode,
       autoOnlyNotInAnotherSet,
       autoSectionId,
+      autoSection?.section_number,
       autoSeed,
       autoStemVisibility,
       autoTargetTotal,
@@ -959,9 +967,12 @@ export function UcatSetsPage() {
                         items={[
                           { value: 'total', label: 'Total only' },
                           { value: 'category', label: 'By category' },
+                          { value: 'blueprint', label: '2026 full-mock blueprint' },
                         ]}
                         value={
-                          autoMode === 'category'
+                          autoMode === 'blueprint'
+                            ? { value: 'blueprint', label: '2026 full-mock blueprint' }
+                            : autoMode === 'category'
                             ? { value: 'category', label: 'By category' }
                             : { value: 'total', label: 'Total only' }
                         }
@@ -989,7 +1000,7 @@ export function UcatSetsPage() {
                           placeholder="e.g. 20"
                         />
                       </label>
-                    ) : (
+                    ) : autoMode === 'category' ? (
                       <div className="space-y-2">
                         <div className="text-sm font-medium">Questions by category</div>
                         {autoSectionCategories.length === 0 ? (
@@ -1036,6 +1047,10 @@ export function UcatSetsPage() {
                             )
                           })
                         )}
+                      </div>
+                    ) : (
+                      <div className="rounded-md border bg-muted/20 p-3 text-xs text-muted-foreground">
+                        Selects whole stems only when the exact section total and every 2026 allowed range can be met. Preferred values break ties; impossible catalogues return explicit shortfalls.
                       </div>
                     )}
 
