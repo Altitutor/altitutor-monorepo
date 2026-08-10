@@ -1,7 +1,7 @@
-import { notFound } from "next/navigation";
 import { ProgressPreviewPage } from "@/features/progress/components/progress-preview-page";
+import { requireDevelopmentPreview } from "@/features/development-preview/lib/development-preview";
 
 export default function ProgressPreviewRoute() {
-  if (process.env.NODE_ENV !== "development") notFound();
+  requireDevelopmentPreview();
   return <ProgressPreviewPage />;
 }

@@ -66,7 +66,7 @@ type ProgressTrajectoryCanvasProps = {
   scoreMaximum?: number;
   insightTitle: string;
   insightBody: string;
-  ratingTargetKey: string;
+  insightRuleId: string;
   ratingContextKey: string;
   insightMeta?: ReactNode;
   headerControl?: ReactNode;
@@ -86,7 +86,7 @@ export function ProgressTrajectoryCanvas({
   scoreMaximum = 2700,
   insightTitle,
   insightBody,
-  ratingTargetKey,
+  insightRuleId,
   ratingContextKey,
   insightMeta,
   headerControl,
@@ -113,7 +113,7 @@ export function ProgressTrajectoryCanvas({
       className="mt-3"
       descriptor={{
         targetType: "progress_insight",
-        targetKey: ratingTargetKey,
+        targetKey: insightRuleId,
         targetVersion: contentSnapshotVersion(displayedContent),
         contextKey: ratingContextKey,
         surface: "progress",

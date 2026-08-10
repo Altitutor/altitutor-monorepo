@@ -24,7 +24,12 @@ import type { AttemptHistoryPreviewData } from "./attempt-history-explorer";
 import { ProgressPageContent } from "./progress-page";
 import { SectionProgressContent } from "./section-progress-page";
 
-type PreviewSurface = "overview" | "section_1" | "section_2" | "section_3" | "section_4";
+type PreviewSurface =
+  | "overview"
+  | "section_1"
+  | "section_2"
+  | "section_3"
+  | "section_4";
 type PreviewScenarioId =
   | "baseline"
   | "early_estimate"
@@ -68,7 +73,8 @@ const SCENARIOS: PreviewScenario[] = [
   {
     id: "baseline",
     label: "Building baseline",
-    description: "No reliable score yet, no attempts, and empty supporting evidence.",
+    description:
+      "No reliable score yet, no attempts, and empty supporting evidence.",
     confidence: "low",
     baseScore: null,
     targetScore: 720,
@@ -81,7 +87,8 @@ const SCENARIOS: PreviewScenario[] = [
   {
     id: "early_estimate",
     label: "Early estimate",
-    description: "Sparse evidence, a wide forecast, and only a few recent attempts.",
+    description:
+      "Sparse evidence, a wide forecast, and only a few recent attempts.",
     confidence: "low",
     baseScore: 525,
     targetScore: 720,
@@ -94,7 +101,8 @@ const SCENARIOS: PreviewScenario[] = [
   {
     id: "on_track",
     label: "On track",
-    description: "Strong evidence, balanced accuracy, and an estimate at the target.",
+    description:
+      "Strong evidence, balanced accuracy, and an estimate at the target.",
     confidence: "high",
     baseScore: 735,
     targetScore: 720,
@@ -120,7 +128,8 @@ const SCENARIOS: PreviewScenario[] = [
   {
     id: "no_target",
     label: "No target or test date",
-    description: "A stable estimate without a configured score target or exact test date.",
+    description:
+      "A stable estimate without a configured score target or exact test date.",
     confidence: "medium",
     baseScore: 650,
     targetScore: null,
@@ -149,7 +158,12 @@ const SECTIONS: SectionDefinition[] = [
     scoreOffset: 10,
     totalQuestions: 142,
     totalSets: 6,
-    categoryNames: ["Syllogisms", "Logic Puzzles", "Probability", "Venn Diagrams"],
+    categoryNames: [
+      "Syllogisms",
+      "Logic Puzzles",
+      "Probability",
+      "Venn Diagrams",
+    ],
   },
   {
     id: "preview-qr",
@@ -198,7 +212,10 @@ function makeSectionProjection(
           value: clampSectionScore(currentEstimate - (3 - index) * 18),
           confidence: index === 0 ? ("low" as const) : scenario.confidence,
           uncertainty: uncertainty + (3 - index) * 12,
-          effectiveEvidenceWeight: Math.max(1, scenario.evidenceCount - 3 + index),
+          effectiveEvidenceWeight: Math.max(
+            1,
+            scenario.evidenceCount - 3 + index,
+          ),
         }));
   const projection =
     currentEstimate == null
@@ -206,9 +223,13 @@ function makeSectionProjection(
       : [0, 30, 60, 90, 120].map((day) => ({
           day,
           date: addDays(today, day),
-          pessimistic: clampSectionScore(currentEstimate + day * 0.25 - uncertainty),
+          pessimistic: clampSectionScore(
+            currentEstimate + day * 0.25 - uncertainty,
+          ),
           realistic: clampSectionScore(currentEstimate + day * 0.55),
-          optimistic: clampSectionScore(currentEstimate + day * 0.8 + uncertainty),
+          optimistic: clampSectionScore(
+            currentEstimate + day * 0.8 + uncertainty,
+          ),
         }));
 
   return {
@@ -243,12 +264,15 @@ function makeCategoryProgress(
   const completedBase = Math.floor(
     scenario.completedQuestions / section.categoryNames.length,
   );
-  const accuracyOffsets = scenario.id === "needs_focus" ? [-22, 8, 4, 10] : [-6, 5, 2, 7];
+  const accuracyOffsets =
+    scenario.id === "needs_focus" ? [-22, 8, 4, 10] : [-6, 5, 2, 7];
 
   return section.categoryNames.map((categoryName, index) => {
     const maxScore =
       completedBase +
-      (index < scenario.completedQuestions % section.categoryNames.length ? 1 : 0);
+      (index < scenario.completedQuestions % section.categoryNames.length
+        ? 1
+        : 0);
     const percentage = Math.max(
       0,
       Math.min(100, scenario.accuracy + (accuracyOffsets[index] ?? 0)),
@@ -293,8 +317,11 @@ function makeSeriesPoint(
 ): DailyProgressSeriesPoint {
   const scaledScore = clampSectionScore(score - 35 + index * 14);
   const totalPoints = source === "practice" ? 18 : 30;
-  const scorePoints = Math.round((totalPoints * Math.min(95, accuracy + index * 2)) / 100);
-  const timeTakenSeconds = source === "practice" ? 720 + index * 25 : 1050 - index * 20;
+  const scorePoints = Math.round(
+    (totalPoints * Math.min(95, accuracy + index * 2)) / 100,
+  );
+  const timeTakenSeconds =
+    source === "practice" ? 720 + index * 25 : 1050 - index * 20;
   const timeLimitSeconds = source === "practice" ? 900 : 1100;
   return {
     date,
@@ -380,7 +407,8 @@ function makeAttemptHistory(
   score: number | null,
   today: string,
 ): Record<ProgressSeriesSource, AttemptHistoryPreviewData> {
-  const offsets = scenario.evidenceCount === 0 ? [] : [-54, -37, -24, -14, -7, -2];
+  const offsets =
+    scenario.evidenceCount === 0 ? [] : [-54, -37, -24, -14, -7, -2];
   const sources: ProgressSeriesSource[] = ["practice", "set", "mock"];
   return Object.fromEntries(
     sources.map((source) => {
@@ -422,13 +450,11 @@ function makeActivity(
   return {
     startedAt: `${addDays(today, -120)}T00:00:00.000Z`,
     timezone: "Australia/Adelaide",
-    days: [-58, -44, -31, -22, -15, -9, -5, -2, 0].map(
-      (offset, index) => ({
-        dateKey: addDays(today, offset),
-        questionAttempts: 4 + ((index * 7) % 26),
-        setAttempts: index % 3 === 0 ? 1 : 0,
-      }),
-    ),
+    days: [-58, -44, -31, -22, -15, -9, -5, -2, 0].map((offset, index) => ({
+      dateKey: addDays(today, offset),
+      questionAttempts: 4 + ((index * 7) % 26),
+      setAttempts: index % 3 === 0 ? 1 : 0,
+    })),
   };
 }
 
@@ -460,10 +486,9 @@ export function ProgressPreviewPage({
   const [surface, setSurface] = useState<PreviewSurface>(() =>
     embedded ? initialSurface : requestedSurface(),
   );
-  const [scenarioId, setScenarioId] =
-    useState<PreviewScenarioId>(() =>
-      embedded ? initialScenario : requestedScenario(),
-    );
+  const [scenarioId, setScenarioId] = useState<PreviewScenarioId>(() =>
+    embedded ? initialScenario : requestedScenario(),
+  );
   const scenario = SCENARIOS.find((candidate) => candidate.id === scenarioId)!;
   const today = todayIso();
   const model = useMemo(() => {
@@ -534,7 +559,10 @@ export function ProgressPreviewPage({
             today,
           ),
         ]),
-      ) as Record<number, Record<ProgressSeriesSource, AttemptHistoryPreviewData>>,
+      ) as Record<
+        number,
+        Record<ProgressSeriesSource, AttemptHistoryPreviewData>
+      >,
     };
   }, [scenario, today]);
   const selectedSectionNumber =
@@ -553,7 +581,10 @@ export function ProgressPreviewPage({
         (section) => section.sectionNumber === selectedSection.number,
       )!
     : null;
-  const updateUrl = (nextSurface: PreviewSurface, nextScenario: PreviewScenarioId) => {
+  const updateUrl = (
+    nextSurface: PreviewSurface,
+    nextScenario: PreviewScenarioId,
+  ) => {
     window.history.replaceState(
       null,
       "",
@@ -563,53 +594,55 @@ export function ProgressPreviewPage({
 
   return (
     <div className="space-y-6 pb-8">
-      {!embedded ? <div className="mx-auto flex w-full max-w-[1400px] flex-col gap-4 px-5 lg:flex-row lg:items-end lg:justify-between sm:px-6">
-        <div>
-          <Badge variant="secondary">Development preview</Badge>
-          <h1 className="mt-2 text-2xl font-semibold">Progress state lab</h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            {scenario.description}
-          </p>
+      {!embedded ? (
+        <div className="mx-auto flex w-full max-w-[1400px] flex-col gap-4 px-5 lg:flex-row lg:items-end lg:justify-between sm:px-6">
+          <div>
+            <Badge variant="secondary">Development preview</Badge>
+            <h1 className="mt-2 text-2xl font-semibold">Progress state lab</h1>
+            <p className="mt-1 text-sm text-muted-foreground">
+              {scenario.description}
+            </p>
+          </div>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <label className="text-sm font-medium">
+              Page
+              <select
+                value={surface}
+                onChange={(event) => {
+                  const next = event.target.value as PreviewSurface;
+                  setSurface(next);
+                  updateUrl(next, scenarioId);
+                }}
+                className="mt-1 block min-w-56 rounded-lg border bg-background px-3 py-2 text-sm"
+              >
+                {SURFACES.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="text-sm font-medium">
+              Scenario
+              <select
+                value={scenarioId}
+                onChange={(event) => {
+                  const next = event.target.value as PreviewScenarioId;
+                  setScenarioId(next);
+                  updateUrl(surface, next);
+                }}
+                className="mt-1 block min-w-56 rounded-lg border bg-background px-3 py-2 text-sm"
+              >
+                {SCENARIOS.map((option) => (
+                  <option key={option.id} value={option.id}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </div>
         </div>
-        <div className="grid gap-3 sm:grid-cols-2">
-          <label className="text-sm font-medium">
-            Page
-            <select
-              value={surface}
-              onChange={(event) => {
-                const next = event.target.value as PreviewSurface;
-                setSurface(next);
-                updateUrl(next, scenarioId);
-              }}
-              className="mt-1 block min-w-56 rounded-lg border bg-background px-3 py-2 text-sm"
-            >
-              {SURFACES.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="text-sm font-medium">
-            Scenario
-            <select
-              value={scenarioId}
-              onChange={(event) => {
-                const next = event.target.value as PreviewScenarioId;
-                setScenarioId(next);
-                updateUrl(surface, next);
-              }}
-              className="mt-1 block min-w-56 rounded-lg border bg-background px-3 py-2 text-sm"
-            >
-              {SCENARIOS.map((option) => (
-                <option key={option.id} value={option.id}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
-          </label>
-        </div>
-      </div> : null}
+      ) : null}
 
       {surface === "overview" ? (
         <ProgressPageContent
@@ -651,21 +684,30 @@ export function ProgressPreviewPage({
           testDate={scenario.id === "no_target" ? null : addDays(today, 90)}
           today={today}
           averageExamSpeed={scenario.averageExamSpeed}
-          attemptHistoryPreviewData={model.attemptHistory[selectedSection.number]}
+          attemptHistoryPreviewData={
+            model.attemptHistory[selectedSection.number]
+          }
         />
       ) : null}
 
-      {!embedded ? <div className="mx-auto flex w-full max-w-[1400px] flex-wrap gap-3 px-5 sm:px-6">
-        <Button asChild>
-          <Link href="/progress/attempts/preview">Open attempt state lab</Link>
-        </Button>
-        <Button asChild variant="outline">
-          <Link href="/progress">Return to live progress</Link>
-        </Button>
-        <Button asChild variant="ghost">
-          <Link href="/dashboard/preview">Open dashboard state lab</Link>
-        </Button>
-      </div> : null}
+      {!embedded ? (
+        <div className="mx-auto flex w-full max-w-[1400px] flex-wrap gap-3 px-5 sm:px-6">
+          <Button asChild>
+            <Link href="/progress/attempts/preview">
+              Open attempt state lab
+            </Link>
+          </Button>
+          <Button asChild variant="outline">
+            <Link href="/progress">Return to live progress</Link>
+          </Button>
+          <Button asChild variant="ghost">
+            <Link href="/dashboard/preview">Open dashboard state lab</Link>
+          </Button>
+          <Button asChild variant="ghost">
+            <Link href="/insights/preview">Open insight gallery</Link>
+          </Button>
+        </div>
+      ) : null}
     </div>
   );
 }

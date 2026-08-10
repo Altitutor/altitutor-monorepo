@@ -558,37 +558,39 @@ export function DashboardPreviewPage({
 
   return (
     <div className="space-y-6 pb-8">
-      {!embedded ? <div className="mx-auto flex w-full max-w-[1400px] flex-col gap-3 px-5 sm:flex-row sm:items-end sm:justify-between sm:px-6">
-        <div>
-          <Badge variant="secondary">Development preview</Badge>
-          <h1 className="mt-2 text-2xl font-semibold">Dashboard state lab</h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            {scenario.description}
-          </p>
+      {!embedded ? (
+        <div className="mx-auto flex w-full max-w-[1400px] flex-col gap-3 px-5 sm:flex-row sm:items-end sm:justify-between sm:px-6">
+          <div>
+            <Badge variant="secondary">Development preview</Badge>
+            <h1 className="mt-2 text-2xl font-semibold">Dashboard state lab</h1>
+            <p className="mt-1 text-sm text-muted-foreground">
+              {scenario.description}
+            </p>
+          </div>
+          <label className="text-sm font-medium">
+            Scenario
+            <select
+              value={scenarioId}
+              onChange={(event) => {
+                const next = event.target.value as PreviewScenarioId;
+                setScenarioId(next);
+                window.history.replaceState(
+                  null,
+                  "",
+                  `/dashboard/preview?scenario=${next}`,
+                );
+              }}
+              className="mt-1 block min-w-64 rounded-lg border bg-background px-3 py-2 text-sm"
+            >
+              {SCENARIOS.map((option) => (
+                <option key={option.id} value={option.id}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </label>
         </div>
-        <label className="text-sm font-medium">
-          Scenario
-          <select
-            value={scenarioId}
-            onChange={(event) => {
-              const next = event.target.value as PreviewScenarioId;
-              setScenarioId(next);
-              window.history.replaceState(
-                null,
-                "",
-                `/dashboard/preview?scenario=${next}`,
-              );
-            }}
-            className="mt-1 block min-w-64 rounded-lg border bg-background px-3 py-2 text-sm"
-          >
-            {SCENARIOS.map((option) => (
-              <option key={option.id} value={option.id}>
-                {option.label}
-              </option>
-            ))}
-          </select>
-        </label>
-      </div> : null}
+      ) : null}
 
       <DashboardTrajectoryHero
         firstName="Preview student"
@@ -625,14 +627,19 @@ export function DashboardPreviewPage({
         <PreviewRecentAttempts />
       </div>
 
-      {!embedded ? <div className="mx-auto flex w-full max-w-[1400px] flex-wrap gap-2 px-5 sm:px-6">
-        <Button asChild variant="outline">
-          <Link href="/dashboard">Return to live dashboard</Link>
-        </Button>
-        <Button asChild variant="ghost">
-          <Link href="/study-plan/preview">Open Study plan preview</Link>
-        </Button>
-      </div> : null}
+      {!embedded ? (
+        <div className="mx-auto flex w-full max-w-[1400px] flex-wrap gap-2 px-5 sm:px-6">
+          <Button asChild variant="outline">
+            <Link href="/dashboard">Return to live dashboard</Link>
+          </Button>
+          <Button asChild variant="ghost">
+            <Link href="/study-plan/preview">Open Study plan preview</Link>
+          </Button>
+          <Button asChild variant="ghost">
+            <Link href="/insights/preview">Open insight gallery</Link>
+          </Button>
+        </div>
+      ) : null}
     </div>
   );
 }

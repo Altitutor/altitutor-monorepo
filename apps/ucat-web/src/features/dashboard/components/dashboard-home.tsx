@@ -41,6 +41,8 @@ import {
   resolveDashboardTrajectory,
   type DashboardTrajectoryState,
 } from "@/features/dashboard/lib/dashboard-trajectory";
+import { buildDashboardTrajectoryInsight } from "@/features/dashboard/lib/dashboard-trajectory-insight";
+import { buildDashboardPlanInsight } from "@/features/dashboard/lib/dashboard-plan-insight";
 import { useUcatProfile } from "@/features/layout/hooks/use-ucat-profile";
 import { useOnboardingProgress } from "@/features/onboarding/hooks/use-onboarding-progress";
 import {
@@ -340,83 +342,6 @@ function recentScoreImprovement(
   return change >= 20 ? change : null;
 }
 
-function trajectoryInsight(
-  state: DashboardTrajectoryState,
-  weakestSection: { name: string; gap: number } | null,
-  recentImprovement: number | null,
-  studyPlanEnabled: boolean,
-): { title: string; body: string; actionLabel?: string; actionHref?: string } {
-  switch (state.stage) {
-    case "building_baseline": {
-      const missing = new Intl.ListFormat("en-AU", {
-        style: "long",
-        type: "conjunction",
-      }).format(state.missingSectionNames);
-      return {
-        title: "First, establish where you’re starting",
-        body: missing
-          ? `${state.readySectionCount} of Sections 1–3 are ready. Timed evidence in ${missing} will unlock your total trajectory.`
-          : "Complete more timed sets or mocks to unlock a trustworthy total trajectory.",
-      };
-    }
-    case "early_estimate":
-      return {
-        title: "Your direction is forming—not fixed",
-        body: "Your first estimate has a wide range. More timed evidence will narrow it before we judge whether your target is on track.",
-      };
-    case "no_test_date":
-      return {
-        title: `This is a ${state.forecastHorizonDays}-day outlook`,
-        body: "We'll be able to better predict your score trajectory once we have an exact test date.",
-      };
-    case "long_range":
-      return {
-        title: "Your test is beyond the reliable forecast window",
-        body: `We’re showing the next ${state.forecastHorizonDays} days instead of inventing an exam-day score. The forecast will become more useful as your test approaches.`,
-      };
-    case "on_track":
-      return {
-        title: recentImprovement
-          ? `Your estimate is up ${recentImprovement} points`
-          : "Your current path supports the target",
-        body: weakestSection
-          ? `${weakestSection.name} still has the largest section gap at ${weakestSection.gap} points below its Study plan target, so today’s work keeps focus there.`
-          : studyPlanEnabled
-            ? "Keep following today’s Study plan so new evidence can confirm the direction."
-            : "Keep using your next steps to add evidence and confirm the direction.",
-      };
-    case "within_reach":
-      return {
-        title: recentImprovement
-          ? `You’re trending upward by ${recentImprovement} points`
-          : "Your target sits inside the plausible range",
-        body: weakestSection
-          ? `${weakestSection.name} is ${weakestSection.gap} points below its section target. Today’s work is designed to improve the evidence behind that range.`
-          : "Today’s work is designed to move the likely path upward and narrow the uncertainty.",
-      };
-    case "needs_adjustment":
-      if (
-        state.projectedAtTest &&
-        state.targetScore - state.projectedAtTest.optimistic >= 150
-      ) {
-        return {
-          title: "This target is very unlikely on the current timeline",
-          body: `Even the optimistic range reaches ${state.projectedAtTest.optimistic}, which remains ${state.targetScore - state.projectedAtTest.optimistic} points below your target. Consider moving your test date or setting a more achievable target.`,
-          actionLabel: "Adjust target or test date",
-          actionHref: "/settings/study-plan",
-        };
-      }
-      return {
-        title: "Your current evidence suggests a gap",
-        body: weakestSection
-          ? `${weakestSection.name} is furthest from its section target at ${weakestSection.gap} points below it. Start with today’s next step and keep building evidence.`
-          : studyPlanEnabled
-            ? "Start with today’s next step. Your Study plan will keep adapting as new evidence arrives."
-            : "Start with today’s next step. Altitutor will adapt the following choice as new evidence arrives.",
-      };
-  }
-}
-
 function dashboardTargetBreakdown(
   sections: SectionScoreProjection[],
   sectionTargets: Record<string, number>,
@@ -473,14 +398,17 @@ export function DashboardTrajectoryHero({
   const desktopLayout = useMediaQuery("(min-width: 1024px)");
   if (!plan?.profile) {
     const planUnavailable = action.kind === "plan_error";
+    const planInsight = buildDashboardPlanInsight({ planUnavailable });
     return (
       <section className="relative isolate -mt-20 overflow-hidden border-b border-border/60 bg-gradient-to-b from-muted/30 via-background to-background pt-20">
         <div className="relative min-h-[520px] sm:min-h-[600px] lg:min-h-[650px]">
           <div
             className="absolute inset-x-0 top-0 z-10 px-5 py-6 sm:px-8 lg:px-10"
-            data-tour="dashboard-welcome"
           >
-            <h1 className="text-xl font-semibold tracking-tight sm:text-2xl">
+            <h1
+              data-tour="dashboard-welcome-heading"
+              className="text-xl font-semibold tracking-tight sm:text-2xl"
+            >
               {firstName ? `Good to see you, ${firstName}` : "Good to see you"}
             </h1>
             <p className="text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
@@ -509,14 +437,10 @@ export function DashboardTrajectoryHero({
               Your predicted score trajectory
             </p>
             <h2 className="mt-3 text-xl font-semibold tracking-tight">
-              {planUnavailable
-                ? "We couldn’t load your Study plan"
-                : "A goal needs a path"}
+              {planInsight.title}
             </h2>
             <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-              {planUnavailable
-                ? "Your existing plan has not been changed. Reload it before starting unrelated work."
-                : "Add your target score and test date so Altitutor UCAT can estimate where you stand and show how your trajectory changes."}
+              {planInsight.body}
             </p>
             <div className="mt-5 border-t border-border/60 pt-5">
               <DashboardNextActionPanel
@@ -543,15 +467,9 @@ export function DashboardTrajectoryHero({
           <p className="text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
             Your predicted score trajectory
           </p>
-          <h2 className="mt-2 text-lg font-semibold">
-            {planUnavailable
-              ? "We couldn’t load your Study plan"
-              : "A goal needs a path"}
-          </h2>
+          <h2 className="mt-2 text-lg font-semibold">{planInsight.title}</h2>
           <p className="mt-2 text-sm text-muted-foreground">
-            {planUnavailable
-              ? "Your existing plan has not been changed. Reload it before starting unrelated work."
-              : "Build a Study plan to replace this preview with your target and real evidence."}
+            {planInsight.compactBody}
           </p>
           <div className="mt-4 border-t border-border/60 pt-4">
             <DashboardNextActionPanel
@@ -581,24 +499,20 @@ export function DashboardTrajectoryHero({
     snapshots,
     state.currentEstimate,
   );
-  const insight = projectionError
-    ? {
-        title: "Your projection is temporarily unavailable",
-        body: "Your next step is still available while we reload the score evidence.",
-      }
-    : trajectoryInsight(
-        state,
-        weakestSection,
-        recentImprovement,
-        plan.profile.studyPlanEnabled,
-      );
+  const insight = buildDashboardTrajectoryInsight({
+    projectionUnavailable: projectionError,
+    state,
+    weakestSection,
+    recentImprovement,
+    studyPlanEnabled: plan.profile.studyPlanEnabled,
+  });
   const displayedInsight = { title: insight.title, body: insight.body };
   const insightRating = (
     <ContentRatingControls
       className="mt-3"
       descriptor={{
         targetType: "dashboard_insight",
-        targetKey: `score-trajectory:${projectionError ? "unavailable" : state.stage}`,
+        targetKey: insight.ruleId,
         targetVersion: contentSnapshotVersion(displayedInsight),
         contextKey: "dashboard:score-trajectory",
         surface: "dashboard",
@@ -625,9 +539,11 @@ export function DashboardTrajectoryHero({
       <div className="relative min-h-[620px] sm:min-h-[700px] lg:min-h-[690px]">
         <div
           className="absolute inset-x-0 top-0 z-10 px-5 py-6 sm:px-8 lg:px-10"
-          data-tour="dashboard-welcome"
         >
-          <h1 className="text-xl font-semibold tracking-tight sm:text-2xl">
+          <h1
+            data-tour="dashboard-welcome-heading"
+            className="text-xl font-semibold tracking-tight sm:text-2xl"
+          >
             {firstName ? `Good to see you, ${firstName}` : "Good to see you"}
           </h1>
         </div>

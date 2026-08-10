@@ -5,10 +5,7 @@ import { UCAT_CARD_CHROME } from "@/lib/ucat-surface-motion";
 import { cn } from "@/lib/utils";
 import type { AttemptInsight } from "../lib/attempt-insights";
 import { ContentRatingControls } from "@/features/content-ratings/components/content-rating-controls";
-import {
-  contentSnapshotVersion,
-  insightTargetKey,
-} from "@/features/content-ratings/lib";
+import { contentSnapshotVersion } from "@/features/content-ratings/lib";
 
 type AttemptInsightCardProps = {
   label: "Overall insight" | "Question insight";
@@ -57,10 +54,7 @@ export function AttemptInsightCard({
             targetType: isQuestionInsight
               ? "question_insight"
               : "attempt_insight",
-            targetKey: insightTargetKey(
-              isQuestionInsight ? "question" : "attempt",
-              insight.title,
-            ),
+            targetKey: insight.ruleId,
             targetVersion: contentSnapshotVersion(displayedContent),
             contextKey: ratingContextKey,
             surface: "attempt",

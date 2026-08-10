@@ -1,8 +1,14 @@
 import {
   buildAttemptOverallInsight,
   buildQuestionAttemptInsight,
+  ATTEMPT_INSIGHT_RULE_IDS,
+  QUESTION_INSIGHT_RULE_IDS,
   type AttemptRecentPerformance,
 } from "../attempt-insights";
+import {
+  ATTEMPT_INSIGHT_PREVIEW_CASES,
+  QUESTION_INSIGHT_PREVIEW_CASES,
+} from "../attempt-insights.preview";
 
 const recent: AttemptRecentPerformance = {
   sampleSize: 4,
@@ -22,6 +28,7 @@ describe("buildAttemptOverallInsight", () => {
     });
 
     expect(insight.title).toBe("Your accuracy moved in the right direction");
+    expect(insight.ruleId).toBe("attempt.accuracy_improved");
     expect(insight.body).toContain("up 8 percentage points");
     expect(insight.tone).toBe("positive");
   });
@@ -163,5 +170,24 @@ describe("buildQuestionAttemptInsight", () => {
     });
 
     expect(insight.title).toBe("Set an earlier decision point");
+  });
+});
+
+describe("insight preview coverage", () => {
+  it("has a preview case for every attempt and question rule", () => {
+    expect(
+      new Set(
+        ATTEMPT_INSIGHT_PREVIEW_CASES.map(
+          ({ input }) => buildAttemptOverallInsight(input).ruleId,
+        ),
+      ),
+    ).toEqual(new Set(ATTEMPT_INSIGHT_RULE_IDS));
+    expect(
+      new Set(
+        QUESTION_INSIGHT_PREVIEW_CASES.map(
+          ({ input }) => buildQuestionAttemptInsight(input).ruleId,
+        ),
+      ),
+    ).toEqual(new Set(QUESTION_INSIGHT_RULE_IDS));
   });
 });

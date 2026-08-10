@@ -19,6 +19,7 @@ import type { DailyProgressSeriesPoint } from "@/app/api/ucat/progress/series/ro
 import { UCAT_FLOATING_GRAPH_CARD } from "@/lib/ucat-surface-motion";
 import { cn } from "@/lib/utils";
 import { formatSpeedPercentAsMultiplier } from "../lib/format-speed-multiplier";
+import { buildSectionTimingInsight } from "../lib/section-timing-insight";
 import { ContentRatingControls } from "@/features/content-ratings/components/content-rating-controls";
 import { contentSnapshotVersion } from "@/features/content-ratings/lib";
 
@@ -43,43 +44,6 @@ function dateLabel(date: string): string {
     month: "short",
     timeZone: "UTC",
   }).format(new Date(`${date}T12:00:00.000Z`));
-}
-
-function timingInsight(pace: number | null, accuracy: number | null) {
-  if (pace == null) {
-    return {
-      title: "Practice a clean timing routine first",
-      body: "Choose a short timed set. Make a deliberate solve, flag, or skip decision whenever you get stuck, then review whether each miss came from the method or from rushing.",
-    };
-  }
-  if (pace > 110 && (accuracy == null || accuracy < 70)) {
-    return {
-      title: "You may be moving faster than your accuracy can support",
-      body: `Your recent pace is ${formatSpeedPercentAsMultiplier(pace)}${accuracy == null ? "" : ` with ${Math.round(accuracy)}% accuracy`}. Points in the top-left of this chart (fast + inaccurate) usually mean slowing down on convertible questions will help more than banking time.`,
-    };
-  }
-  if (pace > 110) {
-    return {
-      title: "Your pace is fast—protect the accuracy behind it",
-      body: `You’re working at ${formatSpeedPercentAsMultiplier(pace)} exam speed. That is useful only while accuracy stays representative, so use the category breakdown to check where speed is creating avoidable misses.`,
-    };
-  }
-  if (pace < 90) {
-    return {
-      title: "Timing pressure is the clearest constraint",
-      body: `You’re working at ${formatSpeedPercentAsMultiplier(pace)} exam speed. Practice making an earlier decision on difficult questions so you preserve enough time for the questions you are more likely to answer correctly.`,
-    };
-  }
-  if (accuracy != null && accuracy < 70) {
-    return {
-      title: "Your pace is balanced; accuracy is the next lever",
-      body: `Your recent pace is ${formatSpeedPercentAsMultiplier(pace)}, inside the guide band, while accuracy is ${Math.round(accuracy)}%. Keep the pace steady and focus review on the reasoning patterns behind your misses.`,
-    };
-  }
-  return {
-    title: "Your pace and accuracy are working together",
-    body: `Your recent pace is ${formatSpeedPercentAsMultiplier(pace)}${accuracy == null ? "" : ` with ${Math.round(accuracy)}% accuracy`}. Keep testing this balance in representative timed sets rather than chasing speed by itself.`,
-  };
 }
 
 function buildScatterPoints(
@@ -112,7 +76,10 @@ export function SectionTimingCanvas({
     recent.length > 0
       ? recent.reduce((sum, point) => sum + point.accuracy, 0) / recent.length
       : null;
-  const insight = timingInsight(recentPace, recentAccuracy);
+  const insight = buildSectionTimingInsight({
+    pace: recentPace,
+    accuracy: recentAccuracy,
+  });
   const displayedInsight = { title: insight.title, body: insight.body };
 
   const observedPaces = scatterPoints.map((point) => point.pace);
@@ -151,7 +118,7 @@ export function SectionTimingCanvas({
         className="mt-3"
         descriptor={{
           targetType: "progress_insight",
-          targetKey: "section-timing",
+          targetKey: insight.ruleId,
           targetVersion: contentSnapshotVersion(displayedInsight),
           contextKey: `progress:section-timing:${sectionName}`,
           surface: "progress",
@@ -190,7 +157,9 @@ export function SectionTimingCanvas({
           >
             {scatterPoints.length > 0 ? (
               <ResponsiveContainer width="100%" height="100%">
-                <ScatterChart margin={{ top: 28, right: 16, bottom: 36, left: 6 }}>
+                <ScatterChart
+                  margin={{ top: 28, right: 16, bottom: 36, left: 6 }}
+                >
                   <CartesianGrid
                     stroke="hsl(var(--border))"
                     strokeOpacity={0.42}
@@ -206,7 +175,10 @@ export function SectionTimingCanvas({
                     }
                     axisLine={false}
                     tickLine={false}
-                    tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }}
+                    tick={{
+                      fontSize: 11,
+                      fill: "hsl(var(--muted-foreground))",
+                    }}
                     label={{
                       value: "Exam pace →",
                       position: "insideBottomRight",
@@ -224,7 +196,10 @@ export function SectionTimingCanvas({
                     tickFormatter={(value) => `${Math.round(Number(value))}%`}
                     axisLine={false}
                     tickLine={false}
-                    tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }}
+                    tick={{
+                      fontSize: 11,
+                      fill: "hsl(var(--muted-foreground))",
+                    }}
                     label={{
                       value: "Accuracy",
                       angle: -90,
@@ -317,9 +292,7 @@ export function SectionTimingCanvas({
           </div>
         </div>
 
-        <aside
-          className={cn(UCAT_FLOATING_GRAPH_CARD, "hidden p-6 lg:block")}
-        >
+        <aside className={cn(UCAT_FLOATING_GRAPH_CARD, "hidden p-6 lg:block")}>
           {insightCard}
         </aside>
       </div>

@@ -31,6 +31,7 @@ import { buildDailyProgressGraphData } from "../lib/daily-progress-series";
 import { useProgressAttempts } from "../hooks/use-progress-attempts";
 import type { MockProgressResponse } from "../types/mock-progress";
 import { calculateRecentWeightedMockScore } from "../lib/mock-progress-insights";
+import { buildMockTrajectoryInsight } from "../lib/mock-trajectory-insight";
 import { ContentRatingControls } from "@/features/content-ratings/components/content-rating-controls";
 import { contentSnapshotVersion } from "@/features/content-ratings/lib";
 import {
@@ -108,18 +109,8 @@ export function MockAttemptsCard({
     seriesQuery.data?.points ?? [],
   );
   const benchmark = lookupUcatAnzTotalPercentile(recentWeightedAverage);
-  const insightBody =
-    trend == null
-      ? "Complete your first mock to see your progress."
-      : trend > 0
-        ? `Your recent mock trajectory is up ${trend} points across the selected period. Check the section breakdown to see whether that improvement is balanced.`
-        : trend < 0
-          ? `Your recent mock trajectory is down ${Math.abs(trend)} points. Review timing and section-level misses before the next mock.`
-          : "Your mock scores are stable. Section-level review is the best way to find the next gain.";
-  const displayedInsight = {
-    title: "Mock insight",
-    body: insightBody,
-  };
+  const insight = buildMockTrajectoryInsight({ trend });
+  const displayedInsight = { title: insight.title, body: insight.body };
   const attemptsTableTitleId = useId();
   const metricColumn = getAttemptTableMetricColumn(tableMetric, "mock");
 
@@ -173,13 +164,13 @@ export function MockAttemptsCard({
               </div>
             </div>
             <p className="mt-4 text-sm leading-relaxed text-muted-foreground">
-              {insightBody}
+              {insight.body}
             </p>
             <ContentRatingControls
               className="mt-3"
               descriptor={{
                 targetType: "progress_insight",
-                targetKey: "mock-trajectory",
+                targetKey: insight.ruleId,
                 targetVersion: contentSnapshotVersion(displayedInsight),
                 contextKey: `progress:mocks:${dateRange}`,
                 surface: "progress",

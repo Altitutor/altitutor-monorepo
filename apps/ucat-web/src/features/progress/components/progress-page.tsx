@@ -12,6 +12,7 @@ import { allocateSectionTargets } from "@/features/study-plan/lib/section-target
 import { useProgressSummary } from "../hooks/use-progress";
 import { useProgressSeries } from "../hooks/use-progress-series";
 import { calculateRecentWeightedMockScore } from "../lib/mock-progress-insights";
+import { buildTotalScoreInsight } from "../lib/score-insights";
 import { ProgressTrajectoryCanvas } from "./progress-trajectory-canvas";
 import { SectionProgressCards } from "./section-progress-cards";
 import { ReviewActivityCalendarCard } from "./review-activity-calendar-card";
@@ -261,20 +262,12 @@ export function ProgressPageContent({
         : totalProjection?.confidence === "medium"
           ? "Estimate forming"
           : "Early estimate";
-  const insightTitle =
-    improvement != null && improvement >= 20
-      ? `Your estimate has improved by ${improvement} points`
-      : projectedGain != null && projectedGain > 0
-        ? `Your score is predicted to improve by about ${projectedGain} points over the next 90 days`
-        : currentEstimate == null
-          ? "Build your baseline one section at a time"
-          : "Your estimate is the starting point - not the verdict";
-  const insightBody =
-    currentEstimate == null
-      ? "Complete one timed set in each cognitive section to build a score estimate."
-      : benchmark.percentileLabel
-        ? `Your ${currentEstimate} estimate is around the ${benchmark.percentileLabel.toLowerCase()} against the published UCAT ANZ benchmark. The shaded range shows what the current evidence can support, not a guaranteed result.`
-        : "Keep adding timed evidence. The shaded range will narrow as the model sees more representative work across Sections 1–3.";
+  const insight = buildTotalScoreInsight({
+    currentEstimate,
+    improvement,
+    projectedGain,
+    benchmarkPercentileLabel: benchmark.percentileLabel,
+  });
 
   return (
     <motion.div
@@ -298,9 +291,9 @@ export function ProgressPageContent({
           targetScore={targetScore}
           testDate={testDate}
           targetBreakdown={targetBreakdown}
-          insightTitle={insightTitle}
-          insightBody={insightBody}
-          ratingTargetKey="total-score-trajectory"
+          insightTitle={insight.title}
+          insightBody={insight.body}
+          insightRuleId={insight.ruleId}
           ratingContextKey="progress:total-score"
           insightMeta={
             <div>

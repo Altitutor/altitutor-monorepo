@@ -13,13 +13,3 @@ export function contentSnapshotVersion(
   }
   return `v1-${(hash >>> 0).toString(36)}`;
 }
-
-export function insightTargetKey(prefix: string, title: string): string {
-  const stableTitle = title
-    .toLowerCase()
-    .replace(/\d+(?:\.\d+)?/g, "number")
-    .replace(/[^a-z]+/g, "-")
-    .replace(/^-|-$/g, "")
-    .slice(0, 120);
-  return `${prefix}:${stableTitle || "insight"}`;
-}

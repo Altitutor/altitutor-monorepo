@@ -3,7 +3,43 @@ import { formatSpeedPercentAsMultiplier } from "./format-speed-multiplier";
 
 export type AttemptInsightTone = "positive" | "coaching" | "neutral";
 
+export const ATTEMPT_INSIGHT_RULE_IDS = [
+  "attempt.no_accuracy",
+  "attempt.fast_low_accuracy",
+  "attempt.accuracy_improved",
+  "attempt.accuracy_declined_faster",
+  "attempt.accuracy_declined",
+  "attempt.strong_accuracy_no_pace",
+  "attempt.strong_accuracy_balanced",
+  "attempt.strong_accuracy_building_pace",
+  "attempt.accuracy_priority",
+  "attempt.decisions_quicker",
+  "attempt.focused_next_step",
+] as const;
+
+export const QUESTION_INSIGHT_RULE_IDS = [
+  "question.correct_no_timing",
+  "question.correct_efficient",
+  "question.correct_balanced",
+  "question.correct_slow",
+  "question.partial_rushed",
+  "question.partial_slow",
+  "question.partial_default",
+  "question.not_attempted_slow",
+  "question.not_attempted_flagged",
+  "question.not_attempted_default",
+  "question.incorrect_rushed",
+  "question.incorrect_slow",
+  "question.incorrect_flagged",
+  "question.incorrect_no_timing",
+  "question.incorrect_balanced",
+] as const;
+
+export type AttemptInsightRuleId = (typeof ATTEMPT_INSIGHT_RULE_IDS)[number];
+export type QuestionInsightRuleId = (typeof QUESTION_INSIGHT_RULE_IDS)[number];
+
 export type AttemptInsight = {
+  ruleId: AttemptInsightRuleId | QuestionInsightRuleId;
   title: string;
   body: string;
   tone: AttemptInsightTone;
@@ -56,7 +92,7 @@ function paceSentence(pacePercent: number | null | undefined): string {
 
 export function buildAttemptOverallInsight(
   input: AttemptOverallInsightInput,
-): AttemptInsight {
+): AttemptInsight & { ruleId: AttemptInsightRuleId } {
   const accuracy = input.accuracyPercent;
   const examPace = input.examPacePercent;
   const recent = input.recentPerformance;
@@ -69,6 +105,7 @@ export function buildAttemptOverallInsight(
 
   if (accuracy == null) {
     return {
+      ruleId: "attempt.no_accuracy",
       title: "Start with the questions that cost the most",
       body: "Review unanswered and incorrect questions in order of time spent. For each one, identify whether the issue was the method, a missed clue, or the decision to keep going.",
       tone: "neutral",
@@ -82,6 +119,7 @@ export function buildAttemptOverallInsight(
     (accuracyChange == null || accuracyChange <= 0)
   ) {
     return {
+      ruleId: "attempt.fast_low_accuracy",
       title: "A little less speed may convert more questions",
       body: `You scored ${roundedPercent(accuracy)} while working at ${formatSpeedPercentAsMultiplier(examPace)} exam speed. Slow down on questions you can reasonably solve rather than trying to bank more time across the whole attempt.`,
       tone: "coaching",
@@ -90,6 +128,7 @@ export function buildAttemptOverallInsight(
 
   if (accuracyChange != null && accuracyChange >= MEANINGFUL_ACCURACY_CHANGE) {
     return {
+      ruleId: "attempt.accuracy_improved",
       title: "Your accuracy moved in the right direction",
       body: `You reached ${roundedPercent(accuracy)}, up ${Math.round(accuracyChange)} percentage points from your previous ${recent!.sampleSize} comparable attempts.${paceSentence(examPace)}`,
       tone: "positive",
@@ -104,11 +143,13 @@ export function buildAttemptOverallInsight(
       examPace >= recent.examPacePercent + 8;
     return fasterThanRecent
       ? {
+          ruleId: "attempt.accuracy_declined_faster",
           title: "The extra pace may have cost accuracy",
           body: `Accuracy was ${roundedPercent(accuracy)}, ${Math.round(Math.abs(accuracyChange))} points below your previous ${recent!.sampleSize} comparable attempts, while pace was higher. Review the early misses before trying to hold this speed.`,
           tone: "coaching",
         }
       : {
+          ruleId: "attempt.accuracy_declined",
           title: "Use this attempt to find the repeatable misses",
           body: `Accuracy was ${roundedPercent(accuracy)}, ${Math.round(Math.abs(accuracyChange))} points below your previous ${recent!.sampleSize} comparable attempts. Look for one repeated category or reasoning step rather than treating every miss as a separate problem.`,
           tone: "coaching",
@@ -117,6 +158,7 @@ export function buildAttemptOverallInsight(
 
   if (accuracy >= 80 && examPace == null) {
     return {
+      ruleId: "attempt.strong_accuracy_no_pace",
       title: "Strong accuracy to build on",
       body: `You converted ${roundedPercent(accuracy)} of the available marks. Keep reviewing the few misses so the result becomes repeatable.`,
       tone: "positive",
@@ -125,6 +167,7 @@ export function buildAttemptOverallInsight(
 
   if (accuracy >= 80 && examPace != null && examPace >= 90) {
     return {
+      ruleId: "attempt.strong_accuracy_balanced",
       title: "Accuracy and pace worked well together",
       body: `You converted ${roundedPercent(accuracy)} of the available marks. At ${formatSpeedPercentAsMultiplier(examPace)} exam speed, this is a strong balance to make repeatable.`,
       tone: "positive",
@@ -133,6 +176,7 @@ export function buildAttemptOverallInsight(
 
   if (accuracy >= 80 && examPace != null && examPace < 90) {
     return {
+      ruleId: "attempt.strong_accuracy_building_pace",
       title: "Accuracy is leading your pace",
       body: `You converted ${roundedPercent(accuracy)} of the available marks at ${formatSpeedPercentAsMultiplier(examPace)} exam speed. Keep the method that is working; repeated exposure should make the decisions faster without sacrificing accuracy.`,
       tone: "positive",
@@ -141,6 +185,7 @@ export function buildAttemptOverallInsight(
 
   if (accuracy < 65) {
     return {
+      ruleId: "attempt.accuracy_priority",
       title: "Accuracy is the best next lever",
       body: `You converted ${roundedPercent(accuracy)} of the available marks. Review the reasoning behind the misses first; speed becomes more useful once the method is dependable.${
         examPace != null && examPace < 90
@@ -163,6 +208,7 @@ export function buildAttemptOverallInsight(
       recent.averageTimePerQuestionSeconds;
     if (timeChange <= -0.1) {
       return {
+        ruleId: "attempt.decisions_quicker",
         title: "Your decisions were quicker this time",
         body: `Accuracy held at ${roundedPercent(accuracy)} while average question time improved by ${Math.round(Math.abs(timeChange) * 100)}% against your previous ${recent.sampleSize} comparable attempts. Review the misses to make sure the quicker pace stays controlled.`,
         tone: "positive",
@@ -171,6 +217,7 @@ export function buildAttemptOverallInsight(
   }
 
   return {
+    ruleId: "attempt.focused_next_step",
     title: "Turn the misses into a focused next step",
     body: `You converted ${roundedPercent(accuracy)} of the available marks.${paceSentence(examPace)} Start with the most repeated error pattern, then test it again in a short set.`,
     tone: "neutral",
@@ -179,7 +226,7 @@ export function buildAttemptOverallInsight(
 
 export function buildQuestionAttemptInsight(
   input: QuestionAttemptInsightInput,
-): AttemptInsight {
+): AttemptInsight & { ruleId: QuestionInsightRuleId } {
   const hasReliableTiming =
     input.timeSpentSeconds != null &&
     input.timeSpentSeconds > 0 &&
@@ -193,6 +240,7 @@ export function buildQuestionAttemptInsight(
   if (input.result === "correct") {
     if (timeRatio == null) {
       return {
+        ruleId: "question.correct_no_timing",
         title: "Correct—now make the method repeatable",
         body: "Check the explanation for the decisive step, then keep the approach that got you there.",
         tone: "positive",
@@ -200,6 +248,7 @@ export function buildQuestionAttemptInsight(
     }
     if (timeRatio < QUICK_QUESTION_TIME_RATIO) {
       return {
+        ruleId: "question.correct_efficient",
         title: "Efficient and correct",
         body: `You answered ${Math.round((1 - timeRatio) * 100)}% faster than the average student who got this question right. Make sure the speed came from a method you can repeat.`,
         tone: "positive",
@@ -207,12 +256,14 @@ export function buildQuestionAttemptInsight(
     }
     if (timeRatio <= SLOW_QUESTION_TIME_RATIO) {
       return {
+        ruleId: "question.correct_balanced",
         title: "A strong, repeatable result",
         body: "You got the question right in about the same time as other students who answered it correctly. Review the method briefly, then move on.",
         tone: "positive",
       };
     }
     return {
+      ruleId: "question.correct_slow",
       title: "Correct, with room to streamline",
       body: `You took ${Math.round((timeRatio - 1) * 100)}% longer than the average student who got this question right. Keep the sound reasoning, but check the explanation for a shorter route.`,
       tone: "positive",
@@ -222,6 +273,7 @@ export function buildQuestionAttemptInsight(
   if (input.result === "partial") {
     if (timeRatio != null && timeRatio < QUICK_QUESTION_TIME_RATIO) {
       return {
+        ruleId: "question.partial_rushed",
         title: "Close, but a little quick",
         body: `You were ${Math.round((1 - timeRatio) * 100)}% faster than students who got this question right. Use the explanation to find the final check that would have completed the answer.`,
         tone: "coaching",
@@ -229,12 +281,14 @@ export function buildQuestionAttemptInsight(
     }
     if (timeRatio != null && timeRatio > SLOW_QUESTION_TIME_RATIO) {
       return {
+        ruleId: "question.partial_slow",
         title: "Partly there—simplify the route",
         body: `You took ${Math.round((timeRatio - 1) * 100)}% longer than students who got this question right. The explanation can show where the method became long or uncertain.`,
         tone: "coaching",
       };
     }
     return {
+      ruleId: "question.partial_default",
       title: "Close—check the missing step",
       body: "Use the explanation below to see what kept this from full marks.",
       tone: "coaching",
@@ -244,6 +298,7 @@ export function buildQuestionAttemptInsight(
   if (input.result === "not_attempted") {
     if (timeRatio != null && timeRatio > SLOW_QUESTION_TIME_RATIO) {
       return {
+        ruleId: "question.not_attempted_slow",
         title: "Set an earlier decision point",
         body: `You spent ${Math.round((timeRatio - 1) * 100)}% longer than the average successful time without submitting an answer. Decide earlier whether to commit, flag, or move on.`,
         tone: "coaching",
@@ -251,12 +306,14 @@ export function buildQuestionAttemptInsight(
     }
     if (input.wasFlagged) {
       return {
+        ruleId: "question.not_attempted_flagged",
         title: "Your flag identified the uncertainty",
         body: "Use the explanation to identify the clue that would let you solve or skip this question decisively next time.",
         tone: "neutral",
       };
     }
     return {
+      ruleId: "question.not_attempted_default",
       title: "Build a clearer skip-or-solve rule",
       body: "Use the explanation to identify the clue that would help you solve, flag, or move on earlier next time.",
       tone: "neutral",
@@ -265,6 +322,7 @@ export function buildQuestionAttemptInsight(
 
   if (timeRatio != null && timeRatio < QUICK_QUESTION_TIME_RATIO) {
     return {
+      ruleId: "question.incorrect_rushed",
       title: "This one looks rushed",
       body: `You were ${Math.round((1 - timeRatio) * 100)}% faster than students who got this question right. Use the explanation to spot the check or reasoning step you skipped.`,
       tone: "coaching",
@@ -273,6 +331,7 @@ export function buildQuestionAttemptInsight(
 
   if (timeRatio != null && timeRatio > SLOW_QUESTION_TIME_RATIO) {
     return {
+      ruleId: "question.incorrect_slow",
       title: "This one took more time than it returned",
       body: `You took ${Math.round((timeRatio - 1) * 100)}% longer than students who got this question right. Find the intended route, then set an earlier point for moving on when that route is not clear.`,
       tone: "coaching",
@@ -281,6 +340,7 @@ export function buildQuestionAttemptInsight(
 
   if (input.wasFlagged) {
     return {
+      ruleId: "question.incorrect_flagged",
       title: "Good call to flag this one",
       body: "Now use the explanation below to close the gap you noticed during the attempt.",
       tone: "neutral",
@@ -288,6 +348,10 @@ export function buildQuestionAttemptInsight(
   }
 
   return {
+    ruleId:
+      timeRatio == null
+        ? "question.incorrect_no_timing"
+        : "question.incorrect_balanced",
     title:
       timeRatio == null
         ? "Find the first step that changed the answer"

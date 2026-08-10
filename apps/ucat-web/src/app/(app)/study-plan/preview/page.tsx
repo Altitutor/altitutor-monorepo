@@ -1,7 +1,7 @@
-import { notFound } from "next/navigation";
 import { StudyPlanPreviewPage } from "@/features/study-plan/components/study-plan-preview-page";
+import { requireDevelopmentPreview } from "@/features/development-preview/lib/development-preview";
 
 export default function StudyPlanPreviewRoute() {
-  if (process.env.NODE_ENV !== "development") notFound();
+  requireDevelopmentPreview();
   return <StudyPlanPreviewPage />;
 }
