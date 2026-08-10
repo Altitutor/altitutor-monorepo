@@ -283,6 +283,10 @@ export function UcatMockEditorContent({
                     <p>{latestCandidateAudit.gateResults.publicationState.reason}</p>
                     <p>{latestCandidateAudit.gateResults.sectionPurity.reason}</p>
                     <p>{latestCandidateAudit.gateResults.provisionalMetadata.reason}</p>
+                    <div className="pt-1">
+                      <p className="mb-2 font-semibold">Stored audit snapshot</p>
+                      <UcatBlueprintCompliancePanel compliance={latestCandidateAudit.gateResults.compliance} />
+                    </div>
                   </div>
                 ) : <p className="text-muted-foreground">Run the durable audit before attaching this blueprint.</p>}
                 <div className="flex flex-wrap gap-2">
