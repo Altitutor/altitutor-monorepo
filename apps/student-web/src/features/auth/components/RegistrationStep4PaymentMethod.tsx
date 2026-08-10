@@ -3,13 +3,14 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { UseFormReturn } from 'react-hook-form';
 import { Button, Label, Checkbox, Dialog, DialogContent, DialogHeader, DialogTitle, PolicyViewer, FormControl, FormField, FormItem, FormMessage, SkeletonPolicyContent, SkeletonStripeCardForm } from '@altitutor/ui';
-import { loadStripe, StripeElementsOptions } from '@stripe/stripe-js';
-import { Elements, CardNumberElement, CardExpiryElement, CardCvcElement, useStripe, useElements } from '@stripe/react-stripe-js';
+import type { StripeElementsOptions } from '@stripe/stripe-js';
+import { CardNumberElement, CardExpiryElement, CardCvcElement, useStripe, useElements } from '@stripe/react-stripe-js';
 import { Loader2, CheckCircle2 } from 'lucide-react';
 import { useToast } from '@altitutor/ui';
 import type { RegistrationFormValues } from '../validations';
 import { studentBtnPrimary } from '@/shared/lib/student-visual';
 import { cn } from '@/shared/utils';
+import { StripeElementsProvider } from '@/shared/components/payments/StripeElementsProvider';
 
 interface RegistrationStep4PaymentMethodProps {
   form: UseFormReturn<RegistrationFormValues>;
@@ -17,9 +18,6 @@ interface RegistrationStep4PaymentMethodProps {
   studentId: string;
   preloadedClientSecret?: string | null;
 }
-
-// Use pre-loaded Stripe instance
-import type { Stripe } from '@stripe/stripe-js';
 
 function BillingPolicyCheckbox({ form }: { form: UseFormReturn<RegistrationFormValues> }) {
   const [policyOpen, setPolicyOpen] = useState(false);
@@ -99,14 +97,6 @@ function BillingPolicyCheckbox({ form }: { form: UseFormReturn<RegistrationFormV
       </Dialog>
     </>
   );
-}
-
-let stripePromise: Promise<Stripe | null> | null = null;
-function getStripePromise() {
-  if (!stripePromise) {
-    stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY || '');
-  }
-  return stripePromise;
 }
 
 function PaymentForm({ 
@@ -426,14 +416,14 @@ export function RegistrationStep4PaymentMethod({
 
       {!isLoading && clientSecret && (
         <div className="space-y-6">
-          <Elements stripe={getStripePromise()} options={elementsOptions}>
+          <StripeElementsProvider options={elementsOptions}>
             <PaymentForm 
               onSuccess={handleSuccess} 
               clientSecret={clientSecret}
               studentId={studentId}
               token={token}
             />
-          </Elements>
+          </StripeElementsProvider>
 
           <BillingPolicyCheckbox form={form} />
         </div>
@@ -441,4 +431,3 @@ export function RegistrationStep4PaymentMethod({
     </div>
   );
 }
-

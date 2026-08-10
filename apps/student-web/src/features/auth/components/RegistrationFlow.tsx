@@ -81,14 +81,6 @@ export function RegistrationFlow({
   const [isPreloadingPayment, setIsPreloadingPayment] = useState(false);
   const isRedirectingRef = useRef(false);
 
-  // Preload Stripe.js early
-  useEffect(() => {
-    // Import and initialize Stripe.js early to improve performance
-    import('@stripe/stripe-js').then(({ loadStripe }) => {
-      loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY || '');
-    });
-  }, []);
-
   // Preload setup intent when user reaches step 2 (parents) or step 3 (availability)
   // This ensures it's ready by the time they reach step 4 (payment method)
   useEffect(() => {
