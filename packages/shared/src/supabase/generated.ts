@@ -16412,6 +16412,81 @@ export type Database = {
         }
         Relationships: []
       }
+      ucat_mock_blueprint_sections: {
+        Row: {
+          altitutor_composition_policy: Json
+          answering_time_seconds: number
+          blueprint_id: string
+          exact_question_count: number
+          instruction_time_seconds: number
+          section_code: string
+          section_index: number
+        }
+        Insert: {
+          altitutor_composition_policy: Json
+          answering_time_seconds: number
+          blueprint_id: string
+          exact_question_count: number
+          instruction_time_seconds: number
+          section_code: string
+          section_index: number
+        }
+        Update: {
+          altitutor_composition_policy?: Json
+          answering_time_seconds?: number
+          blueprint_id?: string
+          exact_question_count?: number
+          instruction_time_seconds?: number
+          section_code?: string
+          section_index?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ucat_mock_blueprint_sections_blueprint_id_fkey"
+            columns: ["blueprint_id"]
+            isOneToOne: false
+            referencedRelation: "ucat_mock_blueprints"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ucat_mock_blueprint_sections_blueprint_id_fkey"
+            columns: ["blueprint_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_ucat_mock_blueprints"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ucat_mock_blueprints: {
+        Row: {
+          altitutor_policy_label: string
+          code: string
+          created_at: string
+          id: string
+          official_facts_label: string
+          test_year: number
+          version: number
+        }
+        Insert: {
+          altitutor_policy_label: string
+          code: string
+          created_at?: string
+          id?: string
+          official_facts_label: string
+          test_year: number
+          version: number
+        }
+        Update: {
+          altitutor_policy_label?: string
+          code?: string
+          created_at?: string
+          id?: string
+          official_facts_label?: string
+          test_year?: number
+          version?: number
+        }
+        Relationships: []
+      }
       ucat_mocks: {
         Row: {
           access_scope: Database["public"]["Enums"]["ucat_access_scope"]
@@ -30994,6 +31069,19 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      vtutor_ucat_mock_blueprints: {
+        Row: {
+          altitutor_policy_label: string | null
+          code: string | null
+          created_at: string | null
+          id: string | null
+          official_facts_label: string | null
+          sections: Json | null
+          test_year: number | null
+          version: number | null
+        }
+        Relationships: []
       }
       vtutor_ucat_mock_detail: {
         Row: {
