@@ -2,7 +2,7 @@ import { captureApiError } from '@/lib/sentry/capture-api-error';
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/shared/lib/supabase/server-ssr';
 import Stripe from 'stripe';
-import { getErrorMessage } from '@/shared/utils';
+import { getErrorMessage, getStripeErrorDetails } from '@/shared/utils';
 
 export async function POST(
   request: NextRequest,
@@ -74,7 +74,18 @@ export async function POST(
         status: paidInvoice.status,
       },
     });
-  } catch (error) {
+  } catch (error: unknown) {
+    const stripeDetails = getStripeErrorDetails(error);
+    if (stripeDetails.type === 'StripeCardError' && stripeDetails.statusCode === 402) {
+      return NextResponse.json(
+        {
+          error: getErrorMessage(error),
+          code: stripeDetails.code,
+        },
+        { status: 402 },
+      );
+    }
+
     captureApiError(error, "/api/invoices/[id]/charge-card");
     console.error('[api/invoices/charge-card] Error:', error);
     return NextResponse.json(
