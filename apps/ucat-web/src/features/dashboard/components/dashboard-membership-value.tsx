@@ -154,7 +154,10 @@ export function DashboardMembershipValue({
   const queuedRewards = referralQuery.data?.stats.queuedFreeBills ?? 0;
 
   return (
-    <div className="space-y-5">
+    <div
+      className="space-y-5"
+      data-tour-membership-tier={isFreeTier ? "free" : "paid"}
+    >
       <div className="flex items-start justify-between gap-3">
         <div>
           <h3 className="text-sm font-semibold">Practice streak</h3>

@@ -1,3 +1,4 @@
+import React from "react";
 import type { Step, Tour } from "nextstepjs";
 import {
   ArrowLeft,
@@ -24,7 +25,6 @@ import {
   UCAT_PRACTICE_TOUR,
   UCAT_PROGRESS_TOUR,
   UCAT_QUESTION_ENGINE_TOUR,
-  UCAT_SECTION_PROGRESS_TOUR,
   UCAT_SETS_TOUR,
   UCAT_SKILL_TRAINER_TOUR,
   UCAT_STUDY_PLAN_TOUR,
@@ -62,6 +62,12 @@ export interface ContextualTourStep extends Step {
   optional?: boolean;
   /** A real control the student must activate before the tutorial advances. */
   interactionSelector?: string;
+  /** A real control that returns to the previous tutorial step. */
+  backInteractionSelector?: string;
+  /** A containing element to keep visible while spotlighting a narrower target. */
+  scrollSelector?: string;
+  /** Complete immediately after the required interaction, even with fallbacks after it. */
+  completeOnInteraction?: boolean;
 }
 
 interface ContextualTour extends Omit<Tour, "steps"> {
@@ -71,6 +77,32 @@ interface ContextualTour extends Omit<Tour, "steps"> {
 const dashboardTour: ContextualTour = {
   tour: UCAT_DASHBOARD_TOUR,
   steps: [
+    {
+      icon: <BrainCircuit className={iconClassName} />,
+      title: "Welcome to Altitutor UCAT",
+      content: (
+        <p>
+          This quick tour shows you where to study, practise, and track your
+          progress. You can replay any tutorial later from Settings.
+        </p>
+      ),
+      selector: "[data-tour='dashboard-welcome']",
+      side: "bottom",
+      ...standardStep,
+    },
+    {
+      icon: <Navigation className={iconClassName} />,
+      title: "Navigate the app",
+      content: (
+        <p>
+          Use the navigation to move between learning, practice, full sets,
+          mocks, your Study plan, and progress.
+        </p>
+      ),
+      selector: "[data-tour='app-navigation']",
+      side: "right",
+      ...standardStep,
+    },
     {
       icon: <TrendingUp className={iconClassName} />,
       title: "Your predicted score",
@@ -82,19 +114,6 @@ const dashboardTour: ContextualTour = {
       ),
       selector: "#tour-dashboard-predicted-score",
       side: "bottom",
-      ...standardStep,
-    },
-    {
-      icon: <Navigation className={iconClassName} />,
-      title: "Your next step",
-      content: (
-        <p>
-          This recommendation points you towards the most useful thing to do
-          next, based on your Study plan or current progress.
-        </p>
-      ),
-      selector: "[data-tour='dashboard-next-step']",
-      side: "left",
       ...standardStep,
     },
     {
@@ -130,11 +149,27 @@ const dashboardTour: ContextualTour = {
       title: "Your membership",
       content: (
         <p>
-          See what your current access includes and how your practice is
-          contributing to Altitutor UCAT.
+          This card shows your practice streak and the question, set, and mock
+          quotas included with your free membership.
         </p>
       ),
-      selector: "[data-tour='dashboard-membership-card']",
+      selector:
+        "[data-tour='dashboard-membership-card']:has([data-tour-membership-tier='free'])",
+      side: "top",
+      ...standardStep,
+      optional: true,
+    },
+    {
+      icon: <BrainCircuit className={iconClassName} />,
+      title: "Your membership",
+      content: (
+        <p>
+          This card shows your practice streak and the discount your membership
+          earns towards Altitutor tutoring.
+        </p>
+      ),
+      selector:
+        "[data-tour='dashboard-membership-card']:has([data-tour-membership-tier='paid'])",
       side: "top",
       ...standardStep,
       optional: true,
@@ -170,6 +205,42 @@ const dashboardTour: ContextualTour = {
       showControls: false,
       optional: true,
     },
+    {
+      icon: <BrainCircuit className={iconClassName} />,
+      title: "Start with your Study guidance",
+      content: (
+        <p>
+          Your best next action appears here. Select it now to set up your
+          Study plan or begin the first recommended task, or dismiss this
+          tutorial to return later.
+        </p>
+      ),
+      selector: "[data-dashboard-guidance-panel]",
+      interactionSelector: "[data-dashboard-guidance-action]",
+      backInteractionSelector: "[data-dashboard-guidance-collapse]",
+      ...fixedViewport,
+      side: "left",
+      ...standardStep,
+      showControls: false,
+      optional: true,
+      completeOnInteraction: true,
+    },
+    {
+      icon: <Navigation className={iconClassName} />,
+      title: "Start with your next step",
+      content: (
+        <p>
+          Study guidance is hidden, so your best next action appears here
+          instead. Select it now, or dismiss this tutorial to return later.
+        </p>
+      ),
+      selector: "[data-dashboard-guidance-entry]",
+      interactionSelector: "[data-dashboard-guidance-action]",
+      side: "left",
+      ...standardStep,
+      showControls: false,
+      optional: true,
+    },
   ],
 };
 
@@ -186,19 +257,21 @@ const studyPlanTour: ContextualTour = {
         </p>
       ),
       selector: "#tour-study-plan-calendar",
+      interactionSelector: "[data-tour-task-day]",
       side: "bottom",
       ...standardStep,
     },
     {
       icon: <ListChecks className={iconClassName} />,
-      title: "Today’s plan",
+      title: "Study tasks",
       content: (
         <p>
-          Today’s tasks appear here. Click on a task to start the activity. 
-          On a rest day, you can choose extra study instead.
+          Tasks for the selected day appear here. Select a task to start the
+          activity. On a rest day, you can choose extra study instead.
         </p>
       ),
       selector: "#tour-study-plan-tasks",
+      scrollSelector: "[data-tour-study-plan-selected-day]",
       side: "top",
       ...standardStep,
     },
@@ -234,19 +307,6 @@ const progressTour: ContextualTour = {
       ...standardStep,
     },
     {
-      icon: <Target className={iconClassName} />,
-      title: "Score by section",
-      content: (
-        <p>
-          Your predicted and target section scores appear here once you have
-          completed enough questions.
-        </p>
-      ),
-      selector: "#tour-progress-sections",
-      side: "top",
-      ...standardStep,
-    },
-    {
       icon: <ListChecks className={iconClassName} />,
       title: "Questions completed",
       content: (
@@ -256,6 +316,74 @@ const progressTour: ContextualTour = {
         </p>
       ),
       selector: "#tour-progress-questions-completed",
+      side: "top",
+      ...standardStep,
+    },
+    {
+      icon: <Target className={iconClassName} />,
+      title: "Score by section",
+      content: (
+        <p>
+          Your predicted and target section scores appear here once the
+          relevant scores and Study plan targets are available. Select any
+          section to continue into its detailed progress.
+        </p>
+      ),
+      selector: "#tour-progress-sections",
+      interactionSelector: "[data-tour='progress-section-link'] a",
+      side: "top",
+      ...standardStep,
+      showControls: false,
+    },
+    {
+      icon: <Target className={iconClassName} />,
+      title: "Predicted section score",
+      content: (
+        <p>
+          Your estimated score for this section appears here, with its
+          trajectory once enough representative evidence is available.
+        </p>
+      ),
+      selector: "#tour-section-predicted-score",
+      side: "bottom",
+      ...standardStep,
+    },
+    {
+      icon: <TrendingUp className={iconClassName} />,
+      title: "Section statistics",
+      content: (
+        <p>
+          These three cards summarise accuracy, completed questions, and timing
+          for this section.
+        </p>
+      ),
+      selector: "#tour-section-stats",
+      side: "top",
+      ...standardStep,
+    },
+    {
+      icon: <BrainCircuit className={iconClassName} />,
+      title: "Practice sessions",
+      content: (
+        <p>
+          Review your practice history. Change the graph metric to compare the
+          same measure in the selected table column.
+        </p>
+      ),
+      selector: "#tour-section-practice-attempts",
+      side: "top",
+      ...standardStep,
+    },
+    {
+      icon: <ListChecks className={iconClassName} />,
+      title: "Set attempts",
+      content: (
+        <p>
+          Review completed sets and change the graph or table metric to compare
+          different results.
+        </p>
+      ),
+      selector: "#tour-section-set-attempts",
       side: "top",
       ...standardStep,
     },
@@ -381,10 +509,53 @@ const setsTour: ContextualTour = {
       title: "Choose a section",
       content: (
         <p>
-          Select a UCAT section to browse its available sets.
+          Select a UCAT section to browse its available sets and continue the
+          tutorial.
         </p>
       ),
       selector: "[data-tour='sets-options']",
+      interactionSelector: "[data-tour='sets-section-link'] a",
+      side: "top",
+      ...standardStep,
+      showControls: false,
+    },
+    {
+      icon: <ListChecks className={iconClassName} />,
+      title: "Choose a set",
+      content: (
+        <p>
+          Select any set to review its timing, question count, and structure.
+        </p>
+      ),
+      selector: "[data-tour='set-options']",
+      interactionSelector: "[data-tour='set-option'] a",
+      side: "top",
+      ...standardStep,
+      showControls: false,
+    },
+    {
+      icon: <NotebookText className={iconClassName} />,
+      title: "Review the set structure",
+      content: (
+        <p>
+          Check the section, number of questions, timing mode, and time limit
+          before beginning.
+        </p>
+      ),
+      selector: "[data-tour='set-structure']",
+      side: "bottom",
+      ...standardStep,
+    },
+    {
+      icon: <ListChecks className={iconClassName} />,
+      title: "Start when you are ready",
+      content: (
+        <p>
+          Select Launch set when you are ready, or finish this tutorial and
+          come back another time.
+        </p>
+      ),
+      selector: "[data-tour='set-start']",
       side: "top",
       ...standardStep,
     },
@@ -417,9 +588,36 @@ const mocksTour: ContextualTour = {
         </p>
       ),
       selector: "[data-tour='mock-options']",
+      interactionSelector: "[data-tour='mock-option'] a",
       side: "top",
       ...standardStep,
-      optional: true,
+      showControls: false,
+    },
+    {
+      icon: <NotebookText className={iconClassName} />,
+      title: "Review the mock structure",
+      content: (
+        <p>
+          Check the four sections, question count, and total exam timing before
+          beginning.
+        </p>
+      ),
+      selector: "[data-tour='mock-structure']",
+      side: "bottom",
+      ...standardStep,
+    },
+    {
+      icon: <NotebookText className={iconClassName} />,
+      title: "Start when you are ready",
+      content: (
+        <p>
+          Select Launch mock when you are ready, or finish this tutorial and
+          come back another time.
+        </p>
+      ),
+      selector: "[data-tour='mock-start']",
+      side: "top",
+      ...standardStep,
     },
   ],
 };
@@ -683,64 +881,6 @@ const questionEngineTour: Tour = {
   ],
 };
 
-const sectionProgressTour: ContextualTour = {
-  tour: UCAT_SECTION_PROGRESS_TOUR,
-  steps: [
-    {
-      icon: <Target className={iconClassName} />,
-      title: "Predicted section score",
-      content: (
-        <p>
-          Your current estimated UCAT score for this section, with a simplified
-          trajectory based on weighted attempt evidence.
-        </p>
-      ),
-      selector: "#tour-section-predicted-score",
-      side: "bottom",
-      ...standardStep,
-    },
-    {
-      icon: <TrendingUp className={iconClassName} />,
-      title: "Section statistics",
-      content: (
-        <p>
-          These three cards summarise accuracy, completed questions, and timing
-          for this section.
-        </p>
-      ),
-      selector: "#tour-section-stats",
-      side: "top",
-      ...standardStep,
-    },
-    {
-      icon: <BrainCircuit className={iconClassName} />,
-      title: "Practice sessions",
-      content: (
-        <p>
-          Review your practice history. Use the graph control to change its
-          y-axis metric, which also changes the selected table column.
-        </p>
-      ),
-      selector: "#tour-section-practice-attempts",
-      side: "top",
-      ...standardStep,
-    },
-    {
-      icon: <ListChecks className={iconClassName} />,
-      title: "Set attempts",
-      content: (
-        <p>
-          Review completed sets and change the graph y-axis or corresponding
-          table metric to compare different results.
-        </p>
-      ),
-      selector: "#tour-section-set-attempts",
-      side: "top",
-      ...standardStep,
-    },
-  ],
-};
-
 const attemptReviewTour: ContextualTour = {
   tour: UCAT_ATTEMPT_REVIEW_TOUR,
   steps: [
@@ -837,7 +977,6 @@ export const ucatOnboardingTours: Tour[] = [
   setsTour,
   mocksTour,
   questionEngineTour,
-  sectionProgressTour,
   attemptReviewTour,
 ];
 
@@ -851,7 +990,6 @@ export const ALL_UCAT_TOUR_IDS = [
   UCAT_SETS_TOUR,
   UCAT_MOCKS_TOUR,
   UCAT_QUESTION_ENGINE_TOUR,
-  UCAT_SECTION_PROGRESS_TOUR,
   UCAT_ATTEMPT_REVIEW_TOUR,
 ] as const;
 

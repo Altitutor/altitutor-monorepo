@@ -30,7 +30,11 @@ export function SetsLandingPage() {
         {SECTIONS.map((num) => {
           const label = SECTION_NUMBER_TO_NAME[num] ?? `Section ${num}`;
           return (
-            <motion.div key={num} variants={itemVariants}>
+            <motion.div
+              key={num}
+              data-tour="sets-section-link"
+              variants={itemVariants}
+            >
               <UcatClickableCardLink
                 href={`/sets/sections/${num}`}
                 icon={ListChecks}

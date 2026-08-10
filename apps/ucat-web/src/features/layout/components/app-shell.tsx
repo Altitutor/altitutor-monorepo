@@ -43,6 +43,8 @@ import { StudyPlanCompanion } from "@/features/study-plan/components/study-plan-
 import { StudyPlanCompanionProvider } from "@/features/study-plan/context/study-plan-companion-context";
 import { StudyPlanExtraStudyProvider } from "@/features/study-plan/components/study-plan-extra-study";
 import { getStudyPlanCompanionMode } from "@/features/study-plan/lib/companion-mode";
+import { ProgressAccessGuard } from "@/features/progress/components/progress-access-guard";
+import { requiresCompletedQuestion } from "@/features/progress/lib/progress-access";
 
 type AppShellProps = {
   children: React.ReactNode;
@@ -248,6 +250,7 @@ function AppShellInner({ children }: AppShellProps) {
 
   const sidebarExpanded = isMobile ? mobileOpen : !effectiveCollapsed;
   const comingSoonPath = isComingSoon(pathname);
+  const guardProgressAccess = requiresCompletedQuestion(pathname);
 
   const handleComingSoonConfirm = () => {
     router.replace("/dashboard");
@@ -373,6 +376,7 @@ function AppShellInner({ children }: AppShellProps) {
                         <FloatingAppActions
                           onToggleNav={handleToggleNav}
                           isMenuOpen={sidebarExpanded}
+                          isMobile={isMobile}
                         />
                       ) : null}
                       <AppSidebar
@@ -406,7 +410,11 @@ function AppShellInner({ children }: AppShellProps) {
                             }}
                             className="min-h-0 w-full min-w-0"
                           >
-                            {children}
+                            {guardProgressAccess ? (
+                              <ProgressAccessGuard>{children}</ProgressAccessGuard>
+                            ) : (
+                              children
+                            )}
                           </motion.div>
                         </div>
                       </main>

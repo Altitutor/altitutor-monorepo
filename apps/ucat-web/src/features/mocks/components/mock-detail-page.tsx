@@ -277,6 +277,7 @@ export function MockDetailPage({
       </motion.div>
 
       <motion.section
+        data-tour="mock-structure"
         variants={itemVariants}
         className={ucatClickableCardClassName({
           interactive: false,
@@ -313,6 +314,7 @@ export function MockDetailPage({
         className="mt-4 flex min-h-10 items-center justify-end"
       >
         <Button
+          data-tour="mock-start"
           className={UCAT_PRIMARY_ACTION_BUTTON}
           onClick={handleLaunchMock}
         >

@@ -347,11 +347,13 @@ export function SectionProgressCards({
                     </div>
                   </div>
                   {linkToSection ? (
-                    <UcatTableRowActionLink
-                      href={href}
-                      label="View"
-                      ariaLabel={`View ${section.sectionName} progress`}
-                    />
+                    <span data-tour="progress-section-link">
+                      <UcatTableRowActionLink
+                        href={href}
+                        label="View"
+                        ariaLabel={`View ${section.sectionName} progress`}
+                      />
+                    </span>
                   ) : null}
                 </motion.div>
               );

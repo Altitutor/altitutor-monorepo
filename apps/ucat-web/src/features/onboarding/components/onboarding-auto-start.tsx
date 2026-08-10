@@ -4,10 +4,14 @@ import { useEffect, useRef } from "react";
 import { usePathname } from "next/navigation";
 import { useNextStep } from "nextstepjs";
 import { useAuth } from "@/features/auth";
-import { getAutoStartTourForPathname } from "@/features/onboarding/config/tour-catalog";
-import { getFirstSelectorForTour } from "@/features/onboarding/config/tour-steps";
+import { getAutoStartTourEntryForPathname } from "@/features/onboarding/config/tour-catalog";
+import { getTourStep } from "@/features/onboarding/config/tour-steps";
 import { consumeOnboardingAutoStartSuppression } from "@/features/onboarding/lib/suppress-next-auto-tour";
 import { useOnboardingProgress } from "@/features/onboarding/hooks/use-onboarding-progress";
+import {
+  consumeTutorialResume,
+  readTutorialResume,
+} from "@/features/onboarding/lib/tutorial-resume";
 
 /**
  * Starts an incomplete contextual app tutorial once its first target exists.
@@ -15,7 +19,7 @@ import { useOnboardingProgress } from "@/features/onboarding/hooks/use-onboardin
  * most once across devices unless the student explicitly replays it.
  */
 export function OnboardingAutoStart() {
-  const { startNextStep, isNextStepVisible } = useNextStep();
+  const { startNextStep, setCurrentStep, isNextStepVisible } = useNextStep();
   const { user, isLoading: isAuthLoading } = useAuth();
   const { isLoading: isProgressLoading, isCompleted } = useOnboardingProgress();
   const pathname = usePathname();
@@ -33,8 +37,9 @@ export function OnboardingAutoStart() {
     if (isProgressLoading) return;
     if (isNextStepVisible) return;
 
-    const tourId = getAutoStartTourForPathname(pathname);
-    if (!tourId) return;
+    const routeEntry = getAutoStartTourEntryForPathname(pathname);
+    if (!routeEntry) return;
+    const { tourId, startStep } = routeEntry;
     if (consumeOnboardingAutoStartSuppression(tourId)) {
       lastStartedRef.current = tourId;
       return;
@@ -42,13 +47,25 @@ export function OnboardingAutoStart() {
     if (lastStartedRef.current === tourId) return;
     if (isCompleted(tourId)) return;
     lastStartedRef.current = tourId;
-    const firstSelector = getFirstSelectorForTour(tourId);
+    const matchingPause = readTutorialResume(tourId, pathname);
+    const resume =
+      matchingPause && getTourStep(tourId, matchingPause.stepIndex)
+        ? matchingPause
+        : null;
+    const initialStep = resume?.stepIndex ?? startStep;
+    const targetSelector = getTourStep(tourId, initialStep)?.selector;
     let attempts = 0;
     let timer: number;
 
     const startWhenReady = () => {
-      if (!firstSelector || document.querySelector(firstSelector)) {
+      if (!targetSelector || document.querySelector(targetSelector)) {
         startNextStep(tourId);
+        if (initialStep > 0) {
+          setCurrentStep(initialStep);
+        }
+        if (resume) {
+          consumeTutorialResume(tourId, pathname);
+        }
         return;
       }
       attempts += 1;
@@ -57,7 +74,7 @@ export function OnboardingAutoStart() {
       }
     };
 
-    timer = window.setTimeout(startWhenReady, 600);
+    timer = window.setTimeout(startWhenReady, 0);
 
     return () => window.clearTimeout(timer);
   }, [
@@ -67,6 +84,7 @@ export function OnboardingAutoStart() {
     pathname,
     isNextStepVisible,
     startNextStep,
+    setCurrentStep,
     isCompleted,
   ]);
 

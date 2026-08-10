@@ -7,12 +7,14 @@ import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import { useAuth } from "@/features/auth";
 import {
   UCAT_ATTEMPT_REVIEW_TOUR,
+  UCAT_DASHBOARD_TOUR,
   UCAT_LEARN_TOUR,
   UCAT_MOCKS_TOUR,
   UCAT_PRACTICE_TOUR,
   UCAT_PROGRESS_TOUR,
-  UCAT_SECTION_PROGRESS_TOUR,
+  UCAT_SETS_TOUR,
   UCAT_SKILL_TRAINER_TOUR,
+  UCAT_STUDY_PLAN_TOUR,
 } from "@/features/onboarding/config/tour-catalog";
 
 /**
@@ -34,12 +36,14 @@ export type OnboardingProgress = Record<string, OnboardingTourState>;
  * destructive reset.
  */
 const TOUR_VERSIONS: Record<string, number> = {
-  [UCAT_PROGRESS_TOUR]: 3,
+  [UCAT_DASHBOARD_TOUR]: 2,
+  [UCAT_STUDY_PLAN_TOUR]: 2,
+  [UCAT_PROGRESS_TOUR]: 4,
   [UCAT_LEARN_TOUR]: 2,
   [UCAT_SKILL_TRAINER_TOUR]: 2,
   [UCAT_PRACTICE_TOUR]: 2,
-  [UCAT_MOCKS_TOUR]: 2,
-  [UCAT_SECTION_PROGRESS_TOUR]: 2,
+  [UCAT_SETS_TOUR]: 2,
+  [UCAT_MOCKS_TOUR]: 3,
   [UCAT_ATTEMPT_REVIEW_TOUR]: 2,
 };
 

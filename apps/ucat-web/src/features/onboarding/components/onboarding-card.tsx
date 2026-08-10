@@ -13,7 +13,10 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { UCAT_QUESTION_ENGINE_TOUR } from "@/features/onboarding/config/tour-catalog";
-import type { ContextualTourStep } from "@/features/onboarding/config/tour-steps";
+import {
+  ucatOnboardingTours,
+  type ContextualTourStep,
+} from "@/features/onboarding/config/tour-steps";
 import { UCAT_SURFACE_CARD } from "@/lib/ucat-surface-motion";
 import { cn } from "@/lib/utils";
 
@@ -34,7 +37,26 @@ export function OnboardingCard({
   const isFirst = currentStep === 0;
   const isLast = currentStep === totalSteps - 1;
   const isQuestionEngineTour = currentTour === UCAT_QUESTION_ENGINE_TOUR;
-  const progressPct = Math.round(((currentStep + 1) / totalSteps) * 100);
+  const configuredSteps = ucatOnboardingTours.find(
+    (tour) => tour.tour === currentTour,
+  )?.steps as ContextualTourStep[] | undefined;
+  const activeSteps = configuredSteps?.filter(
+    (candidate) =>
+      !candidate.optional ||
+      !candidate.selector ||
+      document.querySelector(candidate.selector),
+  );
+  const activeStepIndex =
+    activeSteps?.findIndex(
+      (candidate) =>
+        candidate === safeStep ||
+        (candidate.title === safeStep.title &&
+          candidate.selector === safeStep.selector),
+    ) ?? -1;
+  const displayedStep =
+    activeStepIndex >= 0 ? activeStepIndex + 1 : currentStep + 1;
+  const displayedTotal = activeSteps?.length || totalSteps;
+  const progressPct = Math.round((displayedStep / displayedTotal) * 100);
   const requiresInteraction = Boolean(safeStep.interactionSelector);
   const teachesStudyOrb =
     safeStep.interactionSelector === "[data-tour='study-guidance-orb']";
@@ -52,6 +74,13 @@ export function OnboardingCard({
       returnTo?.startsWith("/settings")
         ? "Exit the tutorial and return to Settings?"
         : "Exit the tutorial and begin your attempt?",
+    );
+    if (confirmed) skipTour?.();
+  };
+
+  const confirmPermanentSkip = () => {
+    const confirmed = window.confirm(
+      "Are you sure you want to skip this tutorial? You can replay it from Settings.",
     );
     if (confirmed) skipTour?.();
   };
@@ -101,7 +130,7 @@ export function OnboardingCard({
             </span>
             <div className="min-w-0 flex-1">
               <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-primary">
-                Step {currentStep + 1} of {totalSteps}
+                Step {displayedStep} of {displayedTotal}
               </p>
               <h2
                 id="ucat-tutorial-title"
@@ -132,8 +161,8 @@ export function OnboardingCard({
             role="progressbar"
             aria-label="Tutorial progress"
             aria-valuemin={0}
-            aria-valuemax={totalSteps}
-            aria-valuenow={currentStep + 1}
+            aria-valuemax={displayedTotal}
+            aria-valuenow={displayedStep}
           />
 
           {requiresInteraction ? (
@@ -152,7 +181,7 @@ export function OnboardingCard({
                 type="button"
                 variant="ghost"
                 size="sm"
-                onClick={skipTour}
+                onClick={confirmPermanentSkip}
               >
                 Skip tutorial
               </Button>

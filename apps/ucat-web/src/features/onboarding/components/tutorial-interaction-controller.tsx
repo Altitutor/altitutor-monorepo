@@ -5,6 +5,10 @@ import { useNextStep } from "nextstepjs";
 import { getTourStep } from "@/features/onboarding/config/tour-steps";
 import { UCAT_QUESTION_ENGINE_TOUR } from "@/features/onboarding/config/tour-catalog";
 import { useCompleteOnboardingTour } from "@/features/onboarding/hooks/use-onboarding-progress";
+import {
+  clearTutorialResume,
+  handoffTutorialToPath,
+} from "@/features/onboarding/lib/tutorial-resume";
 
 const OPTIONAL_TARGET_WAIT_MS = 120;
 
@@ -12,6 +16,15 @@ function closestActionable(target: Element): HTMLElement | null {
   return target.closest<HTMLElement>(
     "a,button,input,select,textarea,[role='button']",
   );
+}
+
+function outboundPathname(actionable: HTMLElement | null): string | null {
+  if (!(actionable instanceof HTMLAnchorElement)) return null;
+  const destination = new URL(actionable.href, window.location.href);
+  if (destination.origin !== window.location.origin) return null;
+  return destination.pathname !== window.location.pathname
+    ? destination.pathname
+    : null;
 }
 
 /**
@@ -45,9 +58,22 @@ export function TutorialInteractionController() {
       const interactionTarget = eventTarget.closest(interactionSelector);
       if (!interactionTarget || transitionLockedRef.current) return;
 
-      const nextStep = getTourStep(currentTour, currentStep + 1);
+      const nextStep = step.completeOnInteraction
+        ? null
+        : getTourStep(currentTour, currentStep + 1);
       if (nextStep) {
         transitionLockedRef.current = true;
+        const actionable = closestActionable(interactionTarget);
+        const destinationPathname = outboundPathname(actionable);
+        if (destinationPathname) {
+          handoffTutorialToPath({
+            tourId: currentTour,
+            stepIndex: currentStep + 1,
+            pathname: destinationPathname,
+          });
+          closeNextStep();
+          return;
+        }
         setCurrentStep(currentStep + 1);
         return;
       }
@@ -63,6 +89,7 @@ export function TutorialInteractionController() {
         .mutateAsync(currentTour)
         .catch(() => undefined)
         .then(() => {
+          clearTutorialResume(currentTour);
           closeNextStep();
           replayingClickRef.current = true;
           actionable.click();
@@ -82,6 +109,48 @@ export function TutorialInteractionController() {
     isNextStepVisible,
     setCurrentStep,
   ]);
+
+  useEffect(() => {
+    if (!isNextStepVisible || !currentTour) return;
+    const step = getTourStep(currentTour, currentStep);
+    if (!step?.backInteractionSelector) return;
+    const backInteractionSelector = step.backInteractionSelector;
+
+    const handleBackInteraction = (event: MouseEvent) => {
+      const eventTarget = event.target;
+      if (
+        eventTarget instanceof Element &&
+        eventTarget.closest(backInteractionSelector)
+      ) {
+        setCurrentStep(Math.max(0, currentStep - 1));
+      }
+    };
+
+    document.addEventListener("click", handleBackInteraction, true);
+    return () =>
+      document.removeEventListener("click", handleBackInteraction, true);
+  }, [currentStep, currentTour, isNextStepVisible, setCurrentStep]);
+
+  useEffect(() => {
+    if (!isNextStepVisible || !currentTour) return;
+    const scrollSelector = getTourStep(currentTour, currentStep)?.scrollSelector;
+    if (!scrollSelector) return;
+
+    let secondFrame = 0;
+    const firstFrame = window.requestAnimationFrame(() => {
+      secondFrame = window.requestAnimationFrame(() => {
+        document.querySelector(scrollSelector)?.scrollIntoView({
+          behavior: "smooth",
+          block: "start",
+        });
+      });
+    });
+
+    return () => {
+      window.cancelAnimationFrame(firstFrame);
+      window.cancelAnimationFrame(secondFrame);
+    };
+  }, [currentStep, currentTour, isNextStepVisible]);
 
   useEffect(() => {
     if (!isNextStepVisible || !currentTour) return;

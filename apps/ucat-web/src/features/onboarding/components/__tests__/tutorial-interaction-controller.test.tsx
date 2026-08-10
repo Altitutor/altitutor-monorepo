@@ -4,6 +4,7 @@ import { useNextStep } from "nextstepjs";
 import { TutorialInteractionController } from "@/features/onboarding/components/tutorial-interaction-controller";
 import { getTourStep } from "@/features/onboarding/config/tour-steps";
 import { useCompleteOnboardingTour } from "@/features/onboarding/hooks/use-onboarding-progress";
+import { handoffTutorialToPath } from "@/features/onboarding/lib/tutorial-resume";
 
 jest.mock("nextstepjs", () => ({ useNextStep: jest.fn() }), { virtual: true });
 jest.mock("@/features/onboarding/config/tour-steps", () => ({
@@ -12,10 +13,15 @@ jest.mock("@/features/onboarding/config/tour-steps", () => ({
 jest.mock("@/features/onboarding/hooks/use-onboarding-progress", () => ({
   useCompleteOnboardingTour: jest.fn(),
 }));
+jest.mock("@/features/onboarding/lib/tutorial-resume", () => ({
+  clearTutorialResume: jest.fn(),
+  handoffTutorialToPath: jest.fn(),
+}));
 
 const mockedUseNextStep = jest.mocked(useNextStep);
 const mockedGetTourStep = jest.mocked(getTourStep);
 const mockedUseCompleteOnboardingTour = jest.mocked(useCompleteOnboardingTour);
+const mockedHandoffTutorialToPath = jest.mocked(handoffTutorialToPath);
 
 describe("TutorialInteractionController", () => {
   const setCurrentStep = jest.fn();
@@ -26,6 +32,7 @@ describe("TutorialInteractionController", () => {
     setCurrentStep.mockReset();
     closeNextStep.mockReset();
     mutateAsync.mockClear();
+    mockedHandoffTutorialToPath.mockReset();
     document.body.innerHTML = `
       <button id="allowed">Open module</button>
       <button id="unrelated">Unrelated</button>
@@ -89,6 +96,86 @@ describe("TutorialInteractionController", () => {
     );
     await waitFor(() => expect(closeNextStep).toHaveBeenCalled());
     expect(realAction).toHaveBeenCalledTimes(1);
+  });
+
+  it("hands an outbound interaction to the exact next step", () => {
+    document.body.innerHTML =
+      '<a id="allowed" href="/sets/sections/1">Open</a>';
+    document
+      .querySelector("#allowed")
+      ?.addEventListener("click", (event) => event.preventDefault());
+    mockedGetTourStep.mockImplementation((_tour, step) =>
+      step <= 1
+        ? {
+            icon: null,
+            title: step === 0 ? "Choose" : "Sets",
+            content: null,
+            interactionSelector: step === 0 ? "#allowed" : undefined,
+          }
+        : null,
+    );
+
+    render(<TutorialInteractionController />);
+    fireEvent.click(document.querySelector("#allowed")!);
+
+    expect(mockedHandoffTutorialToPath).toHaveBeenCalledWith({
+      tourId: "ucat-learn-intro",
+      stepIndex: 1,
+      pathname: "/sets/sections/1",
+    });
+    expect(closeNextStep).toHaveBeenCalledTimes(1);
+    expect(setCurrentStep).not.toHaveBeenCalled();
+  });
+
+  it("completes a variant-specific final interaction before later fallbacks", async () => {
+    mockedGetTourStep.mockImplementation((_tour, step) =>
+      step === 0
+        ? {
+            icon: null,
+            title: "Start guidance",
+            content: null,
+            interactionSelector: "#allowed",
+            completeOnInteraction: true,
+          }
+        : {
+            icon: null,
+            title: "Fallback",
+            content: null,
+          },
+    );
+
+    render(<TutorialInteractionController />);
+    fireEvent.click(document.querySelector("#allowed")!);
+
+    await waitFor(() =>
+      expect(mutateAsync).toHaveBeenCalledWith("ucat-learn-intro"),
+    );
+    expect(setCurrentStep).not.toHaveBeenCalled();
+    expect(closeNextStep).toHaveBeenCalledTimes(1);
+  });
+
+  it("returns to the previous step when a highlighted surface collapses", () => {
+    document.body.innerHTML =
+      '<button id="collapse">Collapse guidance</button>';
+    mockedUseNextStep.mockReturnValue({
+      currentStep: 2,
+      currentTour: "ucat-dashboard-intro",
+      setCurrentStep,
+      closeNextStep,
+      startNextStep: jest.fn(),
+      isNextStepVisible: true,
+    });
+    mockedGetTourStep.mockReturnValue({
+      icon: null,
+      title: "Study guidance",
+      content: null,
+      backInteractionSelector: "#collapse",
+    });
+
+    render(<TutorialInteractionController />);
+    fireEvent.click(document.querySelector("#collapse")!);
+
+    expect(setCurrentStep).toHaveBeenCalledWith(1);
   });
 
   it("omits an optional step whose target is not rendered", () => {

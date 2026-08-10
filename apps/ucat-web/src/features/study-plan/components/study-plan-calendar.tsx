@@ -184,6 +184,7 @@ export function StudyPlanCalendar({
       <button
         type="button"
         data-study-plan-date={day.dateKey}
+        data-tour-task-day={tasks.length ? "" : undefined}
         aria-pressed={isSelected}
         aria-label={dayAriaLabel({
           dateKey: day.dateKey,
@@ -257,10 +258,10 @@ export function StudyPlanCalendar({
       </div>
 
       <section
-        id="tour-study-plan-tasks"
+        data-tour-study-plan-selected-day
         key={selectedDate}
         aria-live="polite"
-        className="space-y-4"
+        className="scroll-mt-24 space-y-4"
       >
         <div className="flex flex-wrap items-end justify-between gap-3">
           <div>
@@ -314,46 +315,51 @@ export function StudyPlanCalendar({
           </div>
         </div>
 
-        {selectedTasks.length ? (
-          <div className="space-y-3">
-            {selectedDate === plan.today && carryOverTasks.length ? (
-              <div className="rounded-xl border border-amber-500/20 bg-amber-500/[0.06] px-4 py-3">
-                <p className="text-sm font-medium">Still to do</p>
-                <p className="mt-0.5 text-xs text-muted-foreground">
-                  {carryOverTasks.length === 1
-                    ? "One task from an earlier study day is waiting. Finish it or skip it, then your plan will move on."
-                    : `${carryOverTasks.length} tasks from earlier study days are waiting. Finish or skip them, then your plan will move on.`}
-                </p>
-              </div>
-            ) : null}
+        <div id="tour-study-plan-tasks" className="scroll-mt-24">
+          {selectedTasks.length ? (
+            <div className="space-y-3">
+              {selectedDate === plan.today && carryOverTasks.length ? (
+                <div className="rounded-xl border border-amber-500/20 bg-amber-500/[0.06] px-4 py-3">
+                  <p className="text-sm font-medium">Still to do</p>
+                  <p className="mt-0.5 text-xs text-muted-foreground">
+                    {carryOverTasks.length === 1
+                      ? "One task from an earlier study day is waiting. Finish it or skip it, then your plan will move on."
+                      : `${carryOverTasks.length} tasks from earlier study days are waiting. Finish or skip them, then your plan will move on.`}
+                  </p>
+                </div>
+              ) : null}
+              <StudyPlanTaskList
+                tasks={selectedTasks}
+                today={plan.today}
+                afterTasks={
+                  showExtraStudy ? (
+                    <StudyPlanExtraStudy
+                      plan={plan}
+                      interactive={!previewMode}
+                    />
+                  ) : null
+                }
+                previewMode={previewMode}
+              />
+            </div>
+          ) : showExtraStudy ? (
             <StudyPlanTaskList
-              tasks={selectedTasks}
+              tasks={[]}
               today={plan.today}
               afterTasks={
-                showExtraStudy ? (
-                  <StudyPlanExtraStudy plan={plan} interactive={!previewMode} />
-                ) : null
+                <StudyPlanExtraStudy plan={plan} interactive={!previewMode} />
               }
               previewMode={previewMode}
             />
-          </div>
-        ) : showExtraStudy ? (
-          <StudyPlanTaskList
-            tasks={[]}
-            today={plan.today}
-            afterTasks={
-              <StudyPlanExtraStudy plan={plan} interactive={!previewMode} />
-            }
-            previewMode={previewMode}
-          />
-        ) : (
-          <div className="rounded-2xl border border-dashed border-border/70 bg-muted/20 px-6 py-10 text-center">
-            <p className="font-medium">No Study plan tasks</p>
-            <p className="mt-1 text-sm text-muted-foreground">
-              This day is clear. Choose another date to see its planned work.
-            </p>
-          </div>
-        )}
+          ) : (
+            <div className="rounded-2xl border border-dashed border-border/70 bg-muted/20 px-6 py-10 text-center">
+              <p className="font-medium">No Study plan tasks</p>
+              <p className="mt-1 text-sm text-muted-foreground">
+                This day is clear. Choose another date to see its planned work.
+              </p>
+            </div>
+          )}
+        </div>
       </section>
     </div>
   );

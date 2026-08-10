@@ -1,4 +1,5 @@
 import {
+  getAutoStartTourEntryForPathname,
   getAutoStartTourForPathname,
   UCAT_ATTEMPT_REVIEW_TOUR,
   UCAT_DASHBOARD_TOUR,
@@ -7,7 +8,6 @@ import {
   UCAT_PRACTICE_TOUR,
   UCAT_PROGRESS_TOUR,
   UCAT_QUESTION_ENGINE_TOUR,
-  UCAT_SECTION_PROGRESS_TOUR,
   UCAT_SETS_TOUR,
   UCAT_SKILL_TRAINER_TOUR,
   UCAT_STUDY_PLAN_TOUR,
@@ -30,12 +30,31 @@ describe("contextual app tutorial routing", () => {
 
   it("shares one tutorial across every section progress page", () => {
     expect(getAutoStartTourForPathname("/progress/sections/1")).toBe(
-      UCAT_SECTION_PROGRESS_TOUR,
+      UCAT_PROGRESS_TOUR,
     );
     expect(getAutoStartTourForPathname("/progress/sections/4")).toBe(
-      UCAT_SECTION_PROGRESS_TOUR,
+      UCAT_PROGRESS_TOUR,
     );
+    expect(getAutoStartTourEntryForPathname("/progress/sections/2")).toEqual({
+      tourId: UCAT_PROGRESS_TOUR,
+      startStep: 4,
+    });
   });
+
+  it.each([
+    ["/sets/sections/1", UCAT_SETS_TOUR, 2],
+    ["/sets/sections/4/set-1", UCAT_SETS_TOUR, 3],
+    ["/sets/set-1", UCAT_SETS_TOUR, 3],
+    ["/mocks/mock-1", UCAT_MOCKS_TOUR, 2],
+  ])(
+    "enters the multi-page tutorial at the correct step for %s",
+    (pathname, tourId, startStep) => {
+      expect(getAutoStartTourEntryForPathname(pathname)).toEqual({
+        tourId,
+        startStep,
+      });
+    },
+  );
 
   it.each([
     "/progress/practice-sessions/practice-1",
@@ -55,7 +74,6 @@ describe("contextual app tutorial routing", () => {
     "/sessions",
     "/learn/general/module-1",
     "/learn/sections/1/module-2",
-    "/sets/sections/1",
     "/settings/app",
   ])("does not auto-start an unrequested tutorial on %s", (pathname) => {
     expect(getAutoStartTourForPathname(pathname)).toBeNull();

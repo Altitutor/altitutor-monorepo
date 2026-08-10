@@ -1037,6 +1037,9 @@ export function StudyPlanCompanion({
       </AnimatePresence>
 
       <div
+        data-dashboard-guidance-panel={
+          pathname === "/dashboard" && expanded ? "" : undefined
+        }
         className={cn(
           "overflow-hidden border border-border/70 bg-background/95 shadow-[0_18px_55px_rgba(0,0,0,0.18)] ring-1 ring-black/[0.03] backdrop-blur-xl transition-[border-radius] duration-200",
           expanded ? "rounded-2xl" : "rounded-full",
@@ -1058,6 +1061,9 @@ export function StudyPlanCompanion({
             <button
               type="button"
               data-tour="study-guidance-orb"
+              data-dashboard-guidance-entry={
+                pathname === "/dashboard" ? "" : undefined
+              }
               onClick={() => {
                 setPromptVisible(false);
                 setExpanded(true);
@@ -1104,6 +1110,9 @@ export function StudyPlanCompanion({
             <div className="max-h-[min(620px,calc(100dvh-2rem))]">
               <button
                 type="button"
+                data-dashboard-guidance-collapse={
+                  pathname === "/dashboard" ? "" : undefined
+                }
                 onClick={() => setExpanded(false)}
                 className="flex w-full items-start justify-between gap-4 border-b border-border/60 px-4 py-4 text-left transition-colors hover:bg-muted/40"
                 aria-expanded
@@ -1232,6 +1241,9 @@ export function StudyPlanCompanion({
                     </div>
                     <Button
                       className="mt-4 w-full"
+                      data-dashboard-guidance-action={
+                        pathname === "/dashboard" ? "" : undefined
+                      }
                       onClick={() => void startGuidanceItem(primary)}
                       disabled={
                         guidancePending || planActions.pendingAction != null
@@ -1285,6 +1297,9 @@ export function StudyPlanCompanion({
                         <Button className="w-full" asChild tabIndex={expanded ? undefined : -1}>
                           <Link
                             href={actionContent.primaryHref}
+                            data-dashboard-guidance-action={
+                              pathname === "/dashboard" ? "" : undefined
+                            }
                             tabIndex={expanded ? undefined : -1}
                           >
                             {actionContent.primaryLabel}
@@ -1293,6 +1308,9 @@ export function StudyPlanCompanion({
                       ) : (
                         <Button
                           className="w-full"
+                          data-dashboard-guidance-action={
+                            pathname === "/dashboard" ? "" : undefined
+                          }
                           onClick={() => void handlePrimaryAction()}
                           disabled={
                             setupPending ||

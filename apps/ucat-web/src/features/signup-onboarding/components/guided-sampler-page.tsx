@@ -1674,8 +1674,11 @@ export function GuidedSamplerPage() {
     try {
       await patchSignupProgress({ familiarity });
       await completeMilestone.mutateAsync(UCAT_GUIDED_SAMPLER_DECIDED);
-      await completeMilestone.mutateAsync(UCAT_QUESTION_ENGINE_TOUR);
       if (completed) {
+        // Completing the guided sampler teaches the same question-interface
+        // foundation. Students who skip it still receive the just-in-time
+        // engine tutorial before their first real attempt.
+        await completeMilestone.mutateAsync(UCAT_QUESTION_ENGINE_TOUR);
         await completeMilestone.mutateAsync(UCAT_GUIDED_SAMPLER_COMPLETED);
         captureUcatEvent("first_value_reached", {
           value_type: "guided_sampler_completed",

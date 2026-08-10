@@ -84,6 +84,7 @@ import {
 import { cn } from "@/lib/utils";
 import { useUcatStaggerMotion } from "@/shared/hooks/use-ucat-stagger-motion";
 import { useMediaQuery } from "@/shared/hooks/use-media-query";
+import { useUcatInterfacePreferences } from "@/features/interface-preferences/hooks/use-ucat-interface-preferences";
 
 const WEEK_STATUS_LABEL: Record<DashboardWeekSummary["status"], string> = {
   complete: "Complete",
@@ -174,6 +175,7 @@ function DashboardNextActionPanel({
   setupPending,
   setupError,
   tourTarget = false,
+  guidanceSuggestionsVisible,
 }: {
   action: DashboardNextAction;
   onStartTask: () => Promise<void>;
@@ -184,6 +186,7 @@ function DashboardNextActionPanel({
   setupPending: boolean;
   setupError: string | null;
   tourTarget?: boolean;
+  guidanceSuggestionsVisible: boolean;
 }) {
   const content = actionContent(action);
   const openExtraStudy = useStudyPlanExtraStudyDialog();
@@ -211,6 +214,9 @@ function DashboardNextActionPanel({
       className="flex flex-col"
       aria-labelledby="dashboard-what-now-title"
       data-tour={tourTarget ? "dashboard-next-step" : undefined}
+      data-dashboard-guidance-entry={
+        tourTarget && !guidanceSuggestionsVisible ? "" : undefined
+      }
     >
       <p className="text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
         Suggested next step
@@ -247,7 +253,12 @@ function DashboardNextActionPanel({
       <div className="mt-4 flex flex-wrap gap-2">
         {content.primaryHref ? (
           <Button asChild disabled={setupPending}>
-            <Link href={content.primaryHref}>
+            <Link
+              href={content.primaryHref}
+              data-dashboard-guidance-action={
+                tourTarget && !guidanceSuggestionsVisible ? "" : undefined
+              }
+            >
               {content.primaryLabel}
               <ArrowRight className="ml-1.5 h-4 w-4" aria-hidden />
             </Link>
@@ -255,6 +266,9 @@ function DashboardNextActionPanel({
         ) : (
           <Button
             type="button"
+            data-dashboard-guidance-action={
+              tourTarget && !guidanceSuggestionsVisible ? "" : undefined
+            }
             onClick={handlePrimary}
             disabled={taskPending || setupPending}
           >
@@ -435,6 +449,7 @@ export function DashboardTrajectoryHero({
   onSkipGoal,
   setupPending,
   setupError,
+  guidanceSuggestionsVisible = true,
 }: {
   firstName: string | null;
   plan: StudyPlanResponse | null | undefined;
@@ -453,6 +468,7 @@ export function DashboardTrajectoryHero({
   onSkipGoal: () => void | Promise<void>;
   setupPending: boolean;
   setupError: string | null;
+  guidanceSuggestionsVisible?: boolean;
 }) {
   const desktopLayout = useMediaQuery("(min-width: 1024px)");
   if (!plan?.profile) {
@@ -460,7 +476,10 @@ export function DashboardTrajectoryHero({
     return (
       <section className="relative isolate -mt-20 overflow-hidden border-b border-border/60 bg-gradient-to-b from-muted/30 via-background to-background pt-20">
         <div className="relative min-h-[520px] sm:min-h-[600px] lg:min-h-[650px]">
-          <div className="absolute inset-x-0 top-0 z-10 px-5 py-6 sm:px-8 lg:px-10">
+          <div
+            className="absolute inset-x-0 top-0 z-10 px-5 py-6 sm:px-8 lg:px-10"
+            data-tour="dashboard-welcome"
+          >
             <h1 className="text-xl font-semibold tracking-tight sm:text-2xl">
               {firstName ? `Good to see you, ${firstName}` : "Good to see you"}
             </h1>
@@ -510,6 +529,7 @@ export function DashboardTrajectoryHero({
                 setupPending={setupPending}
                 setupError={setupError}
                 tourTarget={desktopLayout}
+                guidanceSuggestionsVisible={guidanceSuggestionsVisible}
               />
             </div>
           </aside>
@@ -544,6 +564,7 @@ export function DashboardTrajectoryHero({
               setupPending={setupPending}
               setupError={setupError}
               tourTarget={!desktopLayout}
+              guidanceSuggestionsVisible={guidanceSuggestionsVisible}
             />
           </div>
         </aside>
@@ -602,7 +623,10 @@ export function DashboardTrajectoryHero({
   return (
     <section className="relative isolate -mt-20 overflow-hidden border-b border-border/60 bg-gradient-to-b from-muted/25 via-background to-background pt-20">
       <div className="relative min-h-[620px] sm:min-h-[700px] lg:min-h-[690px]">
-        <div className="absolute inset-x-0 top-0 z-10 px-5 py-6 sm:px-8 lg:px-10">
+        <div
+          className="absolute inset-x-0 top-0 z-10 px-5 py-6 sm:px-8 lg:px-10"
+          data-tour="dashboard-welcome"
+        >
           <h1 className="text-xl font-semibold tracking-tight sm:text-2xl">
             {firstName ? `Good to see you, ${firstName}` : "Good to see you"}
           </h1>
@@ -683,6 +707,7 @@ export function DashboardTrajectoryHero({
               setupPending={setupPending}
               setupError={setupError}
               tourTarget={desktopLayout}
+              guidanceSuggestionsVisible={guidanceSuggestionsVisible}
             />
           </div>
         </aside>
@@ -726,6 +751,7 @@ export function DashboardTrajectoryHero({
             setupPending={setupPending}
             setupError={setupError}
             tourTarget={!desktopLayout}
+            guidanceSuggestionsVisible={guidanceSuggestionsVisible}
           />
         </div>
       </aside>
@@ -882,6 +908,7 @@ function dashboardMockAnnotations(
 
 export function DashboardHome() {
   const profileQuery = useUcatProfile();
+  const { preferences } = useUcatInterfacePreferences();
   const planQuery = useDashboardStudyPlan();
   const queryClient = useQueryClient();
   const scoreProjectionQuery = useScoreProjection(
@@ -1051,6 +1078,7 @@ export function DashboardHome() {
           onSkipGoal={handleSkipGoal}
           setupPending={setupPending}
           setupError={setupError}
+          guidanceSuggestionsVisible={preferences.studySuggestionsVisible}
         />
       </motion.div>
 

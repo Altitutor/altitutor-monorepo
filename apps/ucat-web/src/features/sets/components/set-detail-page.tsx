@@ -255,6 +255,7 @@ export function SetDetailPage({
       </motion.div>
 
       <motion.section
+        data-tour="set-structure"
         variants={itemVariants}
         className={ucatClickableCardClassName({
           interactive: false,
@@ -277,6 +278,7 @@ export function SetDetailPage({
         className="mt-4 flex min-h-10 items-center justify-end"
       >
         <Button
+          data-tour="set-start"
           className={UCAT_PRIMARY_ACTION_BUTTON}
           onClick={handleLaunchSet}
         >

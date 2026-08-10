@@ -15,6 +15,7 @@ describe("contextual tutorial coach", () => {
   beforeEach(() => {
     closeNextStep.mockReset();
     skipTour.mockReset();
+    jest.spyOn(window, "confirm").mockReturnValue(true);
     mockedUseNextStep.mockReturnValue({
       currentStep: 0,
       currentTour: "ucat-dashboard-intro",
@@ -23,6 +24,10 @@ describe("contextual tutorial coach", () => {
       startNextStep: jest.fn(),
       isNextStepVisible: true,
     });
+  });
+
+  afterEach(() => {
+    jest.restoreAllMocks();
   });
 
   it("presents accessible progress and separates postponing from skipping", () => {
@@ -57,7 +62,35 @@ describe("contextual tutorial coach", () => {
     expect(skipTour).not.toHaveBeenCalled();
 
     fireEvent.click(screen.getByRole("button", { name: "Skip tutorial" }));
+    expect(window.confirm).toHaveBeenCalledWith(
+      "Are you sure you want to skip this tutorial? You can replay it from Settings.",
+    );
     expect(skipTour).toHaveBeenCalledTimes(1);
+  });
+
+  it("keeps the tutorial open when permanent skip is cancelled", () => {
+    jest.mocked(window.confirm).mockReturnValue(false);
+    render(
+      <OnboardingCard
+        step={{
+          icon: null,
+          title: "Welcome",
+          content: <p>Tour content</p>,
+          showControls: true,
+          showSkip: true,
+        }}
+        currentStep={0}
+        totalSteps={2}
+        nextStep={jest.fn()}
+        prevStep={jest.fn()}
+        skipTour={skipTour}
+        arrow={<span />}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Skip tutorial" }));
+
+    expect(skipTour).not.toHaveBeenCalled();
   });
 
   it("keeps the orb clickable on mobile and still offers permanent skip", () => {
