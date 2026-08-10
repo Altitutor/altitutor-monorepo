@@ -1,3 +1,4 @@
+import React from 'react'
 import { Badge } from '@altitutor/ui'
 import type { StoredBlueprintCompliance } from '@/features/ucat/mocks/lib/blueprint-compliance'
 

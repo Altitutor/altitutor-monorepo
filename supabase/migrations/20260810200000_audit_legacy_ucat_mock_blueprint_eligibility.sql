@@ -32,29 +32,370 @@ COMMENT ON TABLE public.ucat_mock_blueprint_eligibility_audits IS
 
 ALTER TABLE public.ucat_mock_blueprint_eligibility_audits ENABLE ROW LEVEL SECURITY;
 
--- Reuse the canonical ALTI-542 evaluator for an explicitly supplied candidate.
--- The source function is cloned at migration time so every structural,
--- category, presentation, response-contract, timing and SJT gate stays in one
--- canonical implementation.
-DO $$
+-- The candidate evaluator is canonical for every structural, category,
+-- presentation, response-contract, timing and SJT gate. The original
+-- attachment-aware signature below is only a compatibility wrapper.
+CREATE OR REPLACE FUNCTION public.ucat_mock_blueprint_candidate_compliance(p_mock_id uuid, p_blueprint_id uuid)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ STABLE SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
 DECLARE
-  v_definition TEXT;
+  v_blueprint public.ucat_mock_blueprints%ROWTYPE;
+  v_section public.ucat_mock_blueprint_sections%ROWTYPE;
+  v_policy JSONB;
+  v_rule JSONB;
+  v_checks JSONB;
+  v_sections JSONB := '[]'::jsonb;
+  v_reasons JSONB := '[]'::jsonb;
+  v_actual INTEGER;
+  v_set_count INTEGER;
+  v_time_limit INTEGER;
+  v_member_index INTEGER;
+  v_compliant BOOLEAN := true;
+  v_check_compliant BOOLEAN;
+  v_label TEXT;
+  v_minimum INTEGER;
+  v_maximum INTEGER;
+  v_expected INTEGER;
 BEGIN
-  SELECT pg_get_functiondef('public.ucat_mock_blueprint_compliance(uuid)'::regprocedure)
-  INTO v_definition;
+  SELECT blueprint.* INTO v_blueprint
+  FROM public.ucat_mocks mock
+  JOIN public.ucat_mock_blueprints blueprint ON blueprint.id = p_blueprint_id
+  WHERE mock.id = p_mock_id AND mock.deleted_at IS NULL;
 
-  v_definition := replace(
-    v_definition,
-    'public.ucat_mock_blueprint_compliance(p_mock_id uuid)',
-    'public.ucat_mock_blueprint_candidate_compliance(p_mock_id uuid, p_blueprint_id uuid)'
+  IF NOT FOUND THEN
+    RETURN jsonb_build_object(
+      'applicable', false,
+      'compliant', true,
+      'blueprintId', null,
+      'blueprintCode', null,
+      'sections', '[]'::jsonb,
+      'reasons', jsonb_build_array(jsonb_build_object(
+        'code', 'BLUEPRINT_NOT_SELECTED',
+        'message', 'No full-mock blueprint is selected.'
+      ))
+    );
+  END IF;
+
+  FOR v_section IN
+    SELECT * FROM public.ucat_mock_blueprint_sections
+    WHERE blueprint_id = v_blueprint.id
+    ORDER BY section_index
+  LOOP
+    v_checks := '[]'::jsonb;
+    v_policy := v_section.altitutor_composition_policy;
+
+    SELECT
+      count(DISTINCT member.question_set_id)::integer,
+      min(question_set.time_limit_seconds),
+      min(member.index)
+    INTO v_set_count, v_time_limit, v_member_index
+    FROM public.question_sets_ucat_mocks member
+    JOIN public.question_sets question_set
+      ON question_set.id = member.question_set_id AND question_set.deleted_at IS NULL
+    WHERE member.ucat_mock_id = p_mock_id
+      AND EXISTS (
+        SELECT 1
+        FROM public.question_stems_question_sets set_member
+        JOIN public.question_stems stem ON stem.id = set_member.question_stem_id
+        JOIN public.ucat_sections section ON section.id = stem.section_id
+        WHERE set_member.question_set_id = member.question_set_id
+          AND stem.deleted_at IS NULL
+          AND CASE section.section_number
+            WHEN 1 THEN 'verbal_reasoning'
+            WHEN 2 THEN 'decision_making'
+            WHEN 3 THEN 'quantitative_reasoning'
+            WHEN 4 THEN 'situational_judgement'
+          END = v_section.section_code
+      );
+
+    SELECT count(question.id)::integer INTO v_actual
+    FROM public.question_sets_ucat_mocks mock_member
+    JOIN public.question_stems_question_sets set_member ON set_member.question_set_id = mock_member.question_set_id
+    JOIN public.question_stems stem ON stem.id = set_member.question_stem_id AND stem.deleted_at IS NULL
+    JOIN public.ucat_sections section ON section.id = stem.section_id
+    JOIN public.ucat_questions question ON question.question_stem_id = stem.id AND question.deleted_at IS NULL
+    WHERE mock_member.ucat_mock_id = p_mock_id
+      AND CASE section.section_number
+        WHEN 1 THEN 'verbal_reasoning'
+        WHEN 2 THEN 'decision_making'
+        WHEN 3 THEN 'quantitative_reasoning'
+        WHEN 4 THEN 'situational_judgement'
+      END = v_section.section_code;
+
+    v_check_compliant := v_set_count = 1 AND v_actual = v_section.exact_question_count;
+    v_checks := v_checks || jsonb_build_array(jsonb_build_object(
+      'code', 'QUESTION_TOTAL_MISMATCH', 'label', 'Candidate-visible question total',
+      'unit', 'questions', 'target', v_section.exact_question_count,
+      'actual', v_actual, 'compliant', v_check_compliant,
+      'reason', CASE WHEN v_check_compliant THEN 'Exact total met.'
+        ELSE format('Requires exactly %s questions in one section set; found %s questions across %s sets.', v_section.exact_question_count, v_actual, v_set_count) END
+    ));
+    IF NOT v_check_compliant THEN v_compliant := false; END IF;
+
+    v_check_compliant := v_set_count = 1 AND v_member_index = v_section.section_index + 1;
+    v_checks := v_checks || jsonb_build_array(jsonb_build_object(
+      'code', 'SECTION_ORDER_INVALID', 'label', 'Section order', 'unit', 'position',
+      'target', v_section.section_index + 1, 'actual', v_member_index,
+      'compliant', v_check_compliant,
+      'reason', format('Target position %s; found %s.', v_section.section_index + 1, coalesce(v_member_index::text, 'no section set'))
+    ));
+    IF NOT v_check_compliant THEN v_compliant := false; END IF;
+
+    v_checks := v_checks || jsonb_build_array(jsonb_build_object(
+      'code', 'INSTRUCTION_TIME_MISMATCH', 'label', 'Instruction time', 'unit', 'seconds',
+      'target', v_section.instruction_time_seconds, 'actual', v_section.instruction_time_seconds,
+      'compliant', true, 'reason', 'Instruction time is supplied by the selected immutable blueprint version.'
+    ));
+
+    v_check_compliant := v_set_count = 1 AND v_time_limit = v_section.answering_time_seconds;
+    v_checks := v_checks || jsonb_build_array(jsonb_build_object(
+      'code', 'ANSWERING_TIME_MISMATCH', 'label', 'Answering time', 'unit', 'seconds',
+      'target', v_section.answering_time_seconds, 'actual', v_time_limit,
+      'compliant', v_check_compliant,
+      'reason', CASE WHEN v_check_compliant THEN 'Exact answering time met.'
+        ELSE format('Requires exactly %s seconds; found %s.', v_section.answering_time_seconds, coalesce(v_time_limit::text, 'no section set')) END
+    ));
+    IF NOT v_check_compliant THEN v_compliant := false; END IF;
+
+    IF v_policy ? 'exactStemCount' THEN
+      v_expected := (v_policy->>'exactStemCount')::integer;
+      SELECT count(DISTINCT stem.id)::integer INTO v_actual
+      FROM public.question_sets_ucat_mocks mock_member
+      JOIN public.question_stems_question_sets set_member ON set_member.question_set_id = mock_member.question_set_id
+      JOIN public.question_stems stem ON stem.id = set_member.question_stem_id AND stem.deleted_at IS NULL
+      JOIN public.ucat_sections section ON section.id = stem.section_id
+      WHERE mock_member.ucat_mock_id = p_mock_id
+        AND CASE section.section_number WHEN 1 THEN 'verbal_reasoning' WHEN 2 THEN 'decision_making' WHEN 3 THEN 'quantitative_reasoning' WHEN 4 THEN 'situational_judgement' END = v_section.section_code;
+      v_check_compliant := v_actual = v_expected;
+      v_checks := v_checks || jsonb_build_array(jsonb_build_object(
+        'code', 'STEM_TOTAL_MISMATCH', 'label', 'Stem total', 'unit', 'stems',
+        'target', v_expected, 'actual', v_actual, 'compliant', v_check_compliant,
+        'reason', format('Target %s stems; found %s.', v_expected, v_actual)
+      ));
+      IF NOT v_check_compliant THEN v_compliant := false; END IF;
+    END IF;
+
+    FOR v_rule IN SELECT * FROM jsonb_array_elements(coalesce(v_policy->'categoryRules', '[]'::jsonb))
+    LOOP
+      v_label := coalesce(v_rule->>'label', v_rule->>'category', 'Answer-scheme questions');
+      v_minimum := (v_rule->>'min')::integer;
+      v_maximum := (v_rule->>'max')::integer;
+      IF v_rule ? 'category' THEN
+        IF v_rule->>'unit' = 'stems' THEN
+          SELECT count(DISTINCT stem.id)::integer INTO v_actual
+          FROM public.question_sets_ucat_mocks mock_member
+          JOIN public.question_stems_question_sets set_member ON set_member.question_set_id = mock_member.question_set_id
+          JOIN public.question_stems stem ON stem.id = set_member.question_stem_id AND stem.deleted_at IS NULL
+          JOIN public.question_stem_categories category ON category.id = stem.question_stem_category_id
+          JOIN public.ucat_sections section ON section.id = stem.section_id
+          WHERE mock_member.ucat_mock_id = p_mock_id AND category.name = v_rule->>'category'
+            AND CASE section.section_number WHEN 1 THEN 'verbal_reasoning' WHEN 2 THEN 'decision_making' WHEN 3 THEN 'quantitative_reasoning' WHEN 4 THEN 'situational_judgement' END = v_section.section_code;
+        ELSE
+          SELECT count(question.id)::integer INTO v_actual
+          FROM public.question_sets_ucat_mocks mock_member
+          JOIN public.question_stems_question_sets set_member ON set_member.question_set_id = mock_member.question_set_id
+          JOIN public.question_stems stem ON stem.id = set_member.question_stem_id AND stem.deleted_at IS NULL
+          JOIN public.question_stem_categories category ON category.id = stem.question_stem_category_id
+          JOIN public.ucat_sections section ON section.id = stem.section_id
+          JOIN public.ucat_questions question ON question.question_stem_id = stem.id AND question.deleted_at IS NULL
+          WHERE mock_member.ucat_mock_id = p_mock_id AND category.name = v_rule->>'category'
+            AND CASE section.section_number WHEN 1 THEN 'verbal_reasoning' WHEN 2 THEN 'decision_making' WHEN 3 THEN 'quantitative_reasoning' WHEN 4 THEN 'situational_judgement' END = v_section.section_code;
+        END IF;
+      ELSE
+        SELECT count(question.id)::integer INTO v_actual
+        FROM public.question_sets_ucat_mocks mock_member
+        JOIN public.question_stems_question_sets set_member ON set_member.question_set_id = mock_member.question_set_id
+        JOIN public.question_stems stem ON stem.id = set_member.question_stem_id AND stem.deleted_at IS NULL
+        JOIN public.ucat_sections section ON section.id = stem.section_id
+        JOIN public.ucat_questions question ON question.question_stem_id = stem.id AND question.deleted_at IS NULL
+        WHERE mock_member.ucat_mock_id = p_mock_id AND question.answer_scheme::text = v_rule->>'answerScheme'
+          AND CASE section.section_number WHEN 1 THEN 'verbal_reasoning' WHEN 2 THEN 'decision_making' WHEN 3 THEN 'quantitative_reasoning' WHEN 4 THEN 'situational_judgement' END = v_section.section_code;
+      END IF;
+      v_check_compliant := v_actual BETWEEN v_minimum AND v_maximum;
+      v_checks := v_checks || jsonb_build_array(jsonb_build_object(
+        'code', 'CATEGORY_COUNT_OUT_OF_RANGE', 'label', v_label, 'unit', v_rule->>'unit',
+        'minimum', v_minimum, 'preferred', (v_rule->>'preferred')::integer, 'maximum', v_maximum,
+        'actual', v_actual, 'compliant', v_check_compliant,
+        'reason', format('Allowed %s–%s; preferred %s; found %s.', v_minimum, v_maximum, coalesce(v_rule->>'preferred', 'any in range'), v_actual)
+      ));
+      IF NOT v_check_compliant THEN v_compliant := false; END IF;
+
+      IF v_rule ? 'requiredAnswerScheme' THEN
+        SELECT count(question.id)::integer INTO v_actual
+        FROM public.question_sets_ucat_mocks mock_member
+        JOIN public.question_stems_question_sets set_member ON set_member.question_set_id = mock_member.question_set_id
+        JOIN public.question_stems stem ON stem.id = set_member.question_stem_id AND stem.deleted_at IS NULL
+        JOIN public.question_stem_categories category ON category.id = stem.question_stem_category_id
+        JOIN public.ucat_sections section ON section.id = stem.section_id
+        JOIN public.ucat_questions question ON question.question_stem_id = stem.id AND question.deleted_at IS NULL
+        WHERE mock_member.ucat_mock_id = p_mock_id
+          AND category.name = v_rule->>'category'
+          AND question.answer_scheme::text <> v_rule->>'requiredAnswerScheme'
+          AND CASE section.section_number WHEN 1 THEN 'verbal_reasoning' WHEN 2 THEN 'decision_making' WHEN 3 THEN 'quantitative_reasoning' WHEN 4 THEN 'situational_judgement' END = v_section.section_code;
+        v_check_compliant := v_actual = 0;
+        v_checks := v_checks || jsonb_build_array(jsonb_build_object(
+          'code', 'CATEGORY_ANSWER_SCHEME_MISMATCH', 'label', format('%s Answer scheme mismatches', v_label),
+          'unit', 'questions', 'target', 0, 'actual', v_actual, 'compliant', v_check_compliant,
+          'reason', format('Requires %s; found %s mismatches.', v_rule->>'requiredAnswerScheme', v_actual)
+        ));
+        IF NOT v_check_compliant THEN v_compliant := false; END IF;
+      END IF;
+    END LOOP;
+
+    FOR v_rule IN SELECT * FROM jsonb_array_elements(coalesce(v_policy->'presentationRules', '[]'::jsonb))
+    LOOP
+      v_minimum := (v_rule->>'min')::integer;
+      v_maximum := (v_rule->>'max')::integer;
+      v_label := format('%s: %s', v_rule->>'category', array_to_string(ARRAY(SELECT jsonb_array_elements_text(v_rule->'formats')), ' or '));
+      SELECT count(question.id)::integer INTO v_actual
+      FROM public.question_sets_ucat_mocks mock_member
+      JOIN public.question_stems_question_sets set_member ON set_member.question_set_id = mock_member.question_set_id
+      JOIN public.question_stems stem ON stem.id = set_member.question_stem_id AND stem.deleted_at IS NULL
+      JOIN public.question_stem_categories category ON category.id = stem.question_stem_category_id
+      JOIN public.ucat_sections section ON section.id = stem.section_id
+      JOIN public.ucat_questions question ON question.question_stem_id = stem.id AND question.deleted_at IS NULL
+      WHERE mock_member.ucat_mock_id = p_mock_id AND category.name = v_rule->>'category'
+        AND stem.presentation_format::text IN (SELECT jsonb_array_elements_text(v_rule->'formats'))
+        AND CASE section.section_number WHEN 1 THEN 'verbal_reasoning' WHEN 2 THEN 'decision_making' WHEN 3 THEN 'quantitative_reasoning' WHEN 4 THEN 'situational_judgement' END = v_section.section_code;
+      v_check_compliant := v_actual BETWEEN v_minimum AND v_maximum;
+      v_checks := v_checks || jsonb_build_array(jsonb_build_object(
+        'code', 'PRESENTATION_COUNT_OUT_OF_RANGE', 'label', v_label, 'unit', 'questions',
+        'minimum', v_minimum, 'maximum', v_maximum, 'actual', v_actual, 'compliant', v_check_compliant,
+        'reason', format('Allowed %s–%s; found %s.', v_minimum, v_maximum, v_actual)
+      ));
+      IF NOT v_check_compliant THEN v_compliant := false; END IF;
+    END LOOP;
+
+    FOR v_rule IN SELECT * FROM jsonb_array_elements(coalesce(v_policy->'responseContractRules', '[]'::jsonb))
+    LOOP
+      v_expected := (v_rule->>'questionsPerStem')::integer;
+      SELECT count(*)::integer INTO v_actual FROM (
+        SELECT stem.id
+        FROM public.question_sets_ucat_mocks mock_member
+        JOIN public.question_stems_question_sets set_member ON set_member.question_set_id = mock_member.question_set_id
+        JOIN public.question_stems stem ON stem.id = set_member.question_stem_id AND stem.deleted_at IS NULL
+        JOIN public.ucat_sections section ON section.id = stem.section_id
+        JOIN public.ucat_questions question ON question.question_stem_id = stem.id AND question.deleted_at IS NULL
+        WHERE mock_member.ucat_mock_id = p_mock_id
+          AND CASE section.section_number WHEN 1 THEN 'verbal_reasoning' WHEN 2 THEN 'decision_making' WHEN 3 THEN 'quantitative_reasoning' WHEN 4 THEN 'situational_judgement' END = v_section.section_code
+        GROUP BY stem.id
+        HAVING bool_or(question.answer_scheme::text = v_rule->>'answerScheme')
+          AND count(question.id) <> v_expected
+      ) invalid_contract_stems;
+      v_check_compliant := v_actual = 0;
+      v_checks := v_checks || jsonb_build_array(jsonb_build_object(
+        'code', 'RESPONSE_CONTRACT_STEM_COUNT_INVALID',
+        'label', format('%s questions per stem', v_rule->>'answerScheme'),
+        'unit', 'invalid stems', 'target', 0, 'actual', v_actual, 'compliant', v_check_compliant,
+        'reason', format('Each matching stem requires exactly %s question(s); found %s invalid stems.', v_expected, v_actual)
+      ));
+      IF NOT v_check_compliant THEN v_compliant := false; END IF;
+    END LOOP;
+
+    SELECT count(*)::integer INTO v_actual FROM (
+      SELECT stem.id
+      FROM public.question_sets_ucat_mocks mock_member
+      JOIN public.question_stems_question_sets set_member ON set_member.question_set_id = mock_member.question_set_id
+      JOIN public.question_stems stem ON stem.id = set_member.question_stem_id AND stem.deleted_at IS NULL
+      JOIN public.ucat_sections section ON section.id = stem.section_id
+      WHERE mock_member.ucat_mock_id = p_mock_id
+        AND CASE section.section_number WHEN 1 THEN 'verbal_reasoning' WHEN 2 THEN 'decision_making' WHEN 3 THEN 'quantitative_reasoning' WHEN 4 THEN 'situational_judgement' END = v_section.section_code
+      GROUP BY stem.id HAVING count(*) > 1
+    ) duplicate_stems;
+    v_check_compliant := v_actual = 0;
+    v_checks := v_checks || jsonb_build_array(jsonb_build_object(
+      'code', 'DUPLICATE_STEM_ID', 'label', 'Duplicate stems', 'unit', 'stems',
+      'target', 0, 'actual', v_actual, 'compliant', v_check_compliant,
+      'reason', format('A stem may appear only once; found %s duplicated stems.', v_actual)
+    ));
+    IF NOT v_check_compliant THEN v_compliant := false; END IF;
+
+    FOR v_rule IN SELECT * FROM jsonb_array_elements(coalesce(v_policy->'structureRules', '[]'::jsonb))
+    LOOP
+      v_minimum := (v_rule->>'min')::integer;
+      v_maximum := (v_rule->>'max')::integer;
+      v_label := v_rule->>'label';
+      IF v_rule->>'kind' = 'stem_count' THEN
+        SELECT count(*)::integer INTO v_actual FROM (
+          SELECT stem.id
+          FROM public.question_sets_ucat_mocks mock_member
+          JOIN public.question_stems_question_sets set_member ON set_member.question_set_id = mock_member.question_set_id
+          JOIN public.question_stems stem ON stem.id = set_member.question_stem_id AND stem.deleted_at IS NULL
+          JOIN public.ucat_sections section ON section.id = stem.section_id
+          JOIN public.ucat_questions question ON question.question_stem_id = stem.id AND question.deleted_at IS NULL
+          WHERE mock_member.ucat_mock_id = p_mock_id
+            AND CASE section.section_number WHEN 1 THEN 'verbal_reasoning' WHEN 2 THEN 'decision_making' WHEN 3 THEN 'quantitative_reasoning' WHEN 4 THEN 'situational_judgement' END = v_section.section_code
+          GROUP BY stem.id
+          HAVING CASE WHEN v_rule->>'questionCardinality' = 'single' THEN count(question.id) = 1 ELSE count(question.id) > 1 END
+        ) matching_stems;
+        v_check_compliant := v_actual BETWEEN v_minimum AND v_maximum;
+      ELSE
+        SELECT count(*)::integer INTO v_actual FROM (
+          SELECT stem.id
+          FROM public.question_sets_ucat_mocks mock_member
+          JOIN public.question_stems_question_sets set_member ON set_member.question_set_id = mock_member.question_set_id
+          JOIN public.question_stems stem ON stem.id = set_member.question_stem_id AND stem.deleted_at IS NULL
+          JOIN public.ucat_sections section ON section.id = stem.section_id
+          JOIN public.ucat_questions question ON question.question_stem_id = stem.id AND question.deleted_at IS NULL
+          WHERE mock_member.ucat_mock_id = p_mock_id
+            AND CASE section.section_number WHEN 1 THEN 'verbal_reasoning' WHEN 2 THEN 'decision_making' WHEN 3 THEN 'quantitative_reasoning' WHEN 4 THEN 'situational_judgement' END = v_section.section_code
+          GROUP BY stem.id HAVING count(question.id) NOT BETWEEN v_minimum AND v_maximum
+        ) invalid_stems;
+        v_check_compliant := v_actual = 0;
+      END IF;
+      v_checks := v_checks || jsonb_build_array(jsonb_build_object(
+        'code', 'STRUCTURE_RULE_FAILED', 'label', v_label,
+        'unit', CASE WHEN v_rule->>'kind' = 'stem_count' THEN 'stems' ELSE 'invalid stems' END,
+        'minimum', v_minimum, 'maximum', v_maximum, 'actual', v_actual, 'compliant', v_check_compliant,
+        'reason', CASE WHEN v_rule->>'kind' = 'stem_count' THEN format('Allowed %s–%s; found %s.', v_minimum, v_maximum, v_actual)
+          ELSE format('%s stems fall outside %s–%s questions per stem.', v_actual, v_minimum, v_maximum) END
+      ));
+      IF NOT v_check_compliant THEN v_compliant := false; END IF;
+    END LOOP;
+
+    v_sections := v_sections || jsonb_build_array(jsonb_build_object(
+      'section', v_section.section_code,
+      'targetQuestions', v_section.exact_question_count,
+      'actualQuestions', (v_checks->0->>'actual')::integer,
+      'compliant', NOT EXISTS (SELECT 1 FROM jsonb_array_elements(v_checks) item WHERE NOT (item->>'compliant')::boolean),
+      'checks', v_checks
+    ));
+  END LOOP;
+
+  IF NOT v_compliant THEN
+    v_reasons := jsonb_build_array(jsonb_build_object(
+      'code', 'BLUEPRINT_NONCOMPLIANT',
+      'message', 'One or more section sets violate the selected full-mock blueprint.'
+    ));
+  END IF;
+
+  RETURN jsonb_build_object(
+    'applicable', true,
+    'compliant', v_compliant,
+    'blueprintId', v_blueprint.id,
+    'blueprintCode', v_blueprint.code,
+    'testYear', v_blueprint.test_year,
+    'version', v_blueprint.version,
+    'sections', v_sections,
+    'reasons', v_reasons
   );
-  v_definition := replace(
-    v_definition,
-    'JOIN public.ucat_mock_blueprints blueprint ON blueprint.id = mock.blueprint_id',
-    'JOIN public.ucat_mock_blueprints blueprint ON blueprint.id = p_blueprint_id'
-  );
-  EXECUTE v_definition;
 END;
+$function$;
+CREATE OR REPLACE FUNCTION public.ucat_mock_blueprint_compliance(p_mock_id UUID)
+RETURNS JSONB
+LANGUAGE SQL
+STABLE
+SECURITY DEFINER
+SET search_path = public
+AS $$
+  SELECT public.ucat_mock_blueprint_candidate_compliance(
+    p_mock_id,
+    (SELECT mock.blueprint_id FROM public.ucat_mocks mock
+      WHERE mock.id = p_mock_id AND mock.deleted_at IS NULL)
+  );
 $$;
 
 REVOKE ALL ON FUNCTION public.ucat_mock_blueprint_candidate_compliance(UUID, UUID)
