@@ -794,7 +794,7 @@ const SECTION_BRIEFINGS = {
     approach:
       "Read the stem first and identify the professional duty at risk. Then judge whether the action protects the patient and is proportionate to the situation.",
     watchOut:
-      "Answer the exact scale being asked. A fact can have minor importance without changing the action Mina should take.",
+      "Answer the exact scale being asked.",
   },
 } as const;
 

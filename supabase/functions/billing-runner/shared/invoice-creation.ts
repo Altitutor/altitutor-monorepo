@@ -5,6 +5,7 @@ import {
   generateInvoiceItemIdempotencyKey,
 } from './utils.ts';
 import { formatStripeErrorMessage, getStripeErrorDetails } from './stripe-errors.ts';
+import { createSendInvoiceWithEmailRecovery } from './customer-email.ts';
 
 const LOG_PREFIX = '[billing-runner]';
 
@@ -127,7 +128,8 @@ export async function createDraftSendInvoiceInvoice(
   isStripeLiveKey: boolean,
   timestamp: number,
   sessionsStudentsIds?: string[],
-  stripeInvoiceCreateNonce?: string
+  stripeInvoiceCreateNonce?: string,
+  fallbackEmail?: string
 ): Promise<Stripe.Invoice> {
   const idempotencyKey = generateInvoiceIdempotencyKey(studentId, invoiceDate, {
     sessionsStudentsIds,
@@ -135,23 +137,30 @@ export async function createDraftSendInvoiceInvoice(
     stripeInvoiceCreateNonce,
   });
 
-  return await stripe.invoices.create(
-    {
-      customer: customerId,
-      collection_method: 'send_invoice',
-      days_until_due: 30, // Set 30 days payment window for manual invoices
-      auto_advance: false,
-      pending_invoice_items_behavior: 'exclude',
-      description: `Invoice for sessions on ${invoiceDate}`,
-      metadata: {
-        type: 'session_invoice',
-        student_id: studentId,
-        invoice_date: invoiceDate,
-        stripe_key_type: isStripeTestKey ? 'test' : isStripeLiveKey ? 'live' : 'unknown',
-      },
-    },
-    { idempotencyKey }
-  );
+  return await createSendInvoiceWithEmailRecovery({
+    stripe,
+    customerId,
+    fallbackEmail,
+    idempotencyKey,
+    createInvoice: async (key) =>
+      await stripe.invoices.create(
+        {
+          customer: customerId,
+          collection_method: 'send_invoice',
+          days_until_due: 30, // Set 30 days payment window for manual invoices
+          auto_advance: false,
+          pending_invoice_items_behavior: 'exclude',
+          description: `Invoice for sessions on ${invoiceDate}`,
+          metadata: {
+            type: 'session_invoice',
+            student_id: studentId,
+            invoice_date: invoiceDate,
+            stripe_key_type: isStripeTestKey ? 'test' : isStripeLiveKey ? 'live' : 'unknown',
+          },
+        },
+        { idempotencyKey: key }
+      ),
+  });
 }
 
 /**

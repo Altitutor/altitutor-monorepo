@@ -26,6 +26,7 @@ describe("renderEmail", () => {
     expect(email.html).toContain("Your new session time is ready.");
     expect(email.html).toContain("New time: 4:00 pm.");
     expect(email.html).not.toContain("Altitutor UCAT");
+    expect(email.html).not.toContain("A not-for-profit initiative by Altitutor.");
   });
 
   it("preserves the Altitutor UCAT visual identity and safe primitives", () => {
@@ -46,6 +47,7 @@ describe("renderEmail", () => {
     expect(email.from).toBe("Altitutor UCAT <admin@altitutor.com>");
     expect(email.html).toContain(">Altitutor UCAT</p>");
     expect(email.html).toContain("UCAT preparation from Altitutor");
+    expect(email.html).toContain("A not-for-profit initiative by Altitutor.");
     expect(email.html).toContain("class=\"email-panel\"");
     expect(email.html).toContain("https://ucat.altitutor.com/results?from=a&amp;next=b");
     expect(email.html).toContain("Review &lt;results&gt;");

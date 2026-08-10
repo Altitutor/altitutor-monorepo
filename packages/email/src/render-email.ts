@@ -92,6 +92,11 @@ export function renderEmail(input: {
   const footerHtml =
     input.footerHtml ??
     `<p style="margin:0;color:#52606a;font-size:12px;line-height:1.6">Need help? Reply to this email or contact <a class="email-link" href="mailto:${sender.replyTo}" style="color:#0a2941">${sender.replyTo}</a>.</p>`;
+  const brandFooterHtml =
+    input.brand === "ucat"
+      ? `<p class="email-accent" style="margin:0 0 3px;color:#0a2941;font-size:13px;font-weight:700;line-height:1.5">Altitutor UCAT</p>
+            <p style="margin:0 0 10px;color:#52606a;font-size:12px;line-height:1.5">A not-for-profit initiative by Altitutor.</p>`
+      : `<p class="email-accent" style="margin:0 0 8px;color:#0a2941;font-size:13px;font-weight:700;line-height:1.5">Altitutor</p>`;
 
   return {
     subject: input.subject,
@@ -171,7 +176,7 @@ export function renderEmail(input: {
             ${input.bodyHtml}
           </td></tr>
           <tr><td class="email-footer" bgcolor="#eaf1f3" style="padding:24px 36px;background-color:#eaf1f3;border-top:1px solid #dce5e8">
-            <p class="email-accent" style="margin:0 0 8px;color:#0a2941;font-size:13px;font-weight:600;line-height:1.5">A not-for-profit initiative by Altitutor.</p>
+            ${brandFooterHtml}
             ${footerHtml}${input.marketingFooterHtml ? `
             ${input.marketingFooterHtml}` : ""}
             <p style="margin:12px 0 0;color:#73808a;font-size:11px;line-height:1.5">&copy; ${year} Altitutor.</p>
