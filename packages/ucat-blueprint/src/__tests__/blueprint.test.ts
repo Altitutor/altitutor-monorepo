@@ -226,7 +226,7 @@ describe('UCAT ANZ 2026 v1 blueprint', () => {
                   ...rule,
                   responseContractRules: rule.responseContractRules?.map(contractRule => ({
                     ...contractRule,
-                    optionCount: 4,
+                    questionsPerStem: 2,
                   })),
                 }
               : rule,
@@ -238,7 +238,7 @@ describe('UCAT ANZ 2026 v1 blueprint', () => {
 
     expect(result.reasons).toEqual(expect.arrayContaining([
       expect.objectContaining({ code: 'QR_MULTI_STEM_COUNT_OUT_OF_RANGE', minimum: 8, maximum: 8 }),
-      expect.objectContaining({ code: 'MOST_LEAST_ACTION_COUNT_INVALID', expected: 4 }),
+      expect.objectContaining({ code: 'MOST_LEAST_STEM_QUESTION_COUNT_INVALID', expected: 2 }),
     ]))
   })
 
@@ -273,6 +273,22 @@ describe('UCAT ANZ 2026 v1 blueprint', () => {
 
     expect(result.reasons).toEqual(expect.arrayContaining([
       expect.objectContaining({ code: 'CATEGORY_QUESTION_COUNT_OUT_OF_RANGE', actual: 64 }),
+    ]))
+  })
+
+  it('rejects a Most/Least category question with the wrong Answer scheme', () => {
+    const composition = passingComposition()
+    const sjt = composition.sections[3]
+    if (!sjt) throw new Error('fixture is missing Situational Judgement')
+    const question = sjt.stems.find(stem => stem.category === 'Most/Least Appropriate')?.questions[0]
+    if (!question) throw new Error('fixture is missing a Most/Least question')
+    question.answerScheme = 'single_choice'
+
+    const result = evaluateBlueprint(UCAT_ANZ_2026_V1, composition)
+
+    expect(result.compliant).toBe(false)
+    expect(result.reasons).toEqual(expect.arrayContaining([
+      expect.objectContaining({ code: 'CATEGORY_ANSWER_SCHEME_MISMATCH', questionId: question.id }),
     ]))
   })
 

@@ -1492,6 +1492,10 @@ importers:
         version: 5.9.3
 
   packages/ucat-blueprint:
+    dependencies:
+      '@altitutor/ucat-response-contract':
+        specifier: workspace:*
+        version: link:../ucat-response-contract
     devDependencies:
       '@swc/jest':
         specifier: ^0.2.37

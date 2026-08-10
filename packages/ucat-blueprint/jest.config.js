@@ -5,4 +5,8 @@ module.exports = {
   transform: {
     '^.+\\.ts$': ['@swc/jest'],
   },
+  moduleNameMapper: {
+    '^@altitutor/ucat-response-contract$':
+      '<rootDir>/../ucat-response-contract/src/index.ts',
+  },
 }

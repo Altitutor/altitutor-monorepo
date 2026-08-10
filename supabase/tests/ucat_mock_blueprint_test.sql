@@ -51,12 +51,12 @@ SELECT is(
 );
 
 SELECT is(
-  (SELECT altitutor_composition_policy #>> '{responseContractRules,0,requiredPlacementCount}'
+  (SELECT altitutor_composition_policy #>> '{categoryRules,0,requiredAnswerScheme}'
    FROM public.ucat_mock_blueprint_sections
    WHERE blueprint_id = '54100000-0000-4000-8000-000000000001'
      AND section_code = 'situational_judgement'),
-  '2',
-  'Most/Least cardinality stores two required placements'
+  'situational_judgement_most_least',
+  'Most/Least category policy requires the canonical Answer scheme'
 );
 
 SELECT throws_ok(

@@ -101,7 +101,7 @@ INSERT INTO public.ucat_mock_blueprint_sections (
     69,
     1560,
     90,
-    '{"categoryRules":[{"category":"Most/Least Appropriate","unit":"questions","min":2,"preferred":3,"max":4},{"answerScheme":"situational_judgement_rating","label":"Rating questions","unit":"questions","min":65,"preferred":66,"max":67}],"structureRules":[{"kind":"questions_per_stem","label":"Questions in scenario stem","min":1,"max":6}],"responseContractRules":[{"answerScheme":"situational_judgement_most_least","section":"situational_judgement","questionsPerStem":1,"optionCount":3,"requiredPlacementCount":2}]}'::jsonb
+    '{"categoryRules":[{"category":"Most/Least Appropriate","requiredAnswerScheme":"situational_judgement_most_least","unit":"questions","min":2,"preferred":3,"max":4},{"answerScheme":"situational_judgement_rating","label":"Rating questions","unit":"questions","min":65,"preferred":66,"max":67}],"structureRules":[{"kind":"questions_per_stem","label":"Questions in scenario stem","min":1,"max":6}],"responseContractRules":[{"answerScheme":"situational_judgement_most_least","questionsPerStem":1}]}'::jsonb
   );
 
 CREATE FUNCTION public.prevent_ucat_mock_blueprint_mutation()

@@ -1,3 +1,8 @@
+import {
+  getAnswerSchemeContract,
+  getAnswerSchemePresentation,
+} from '@altitutor/ucat-response-contract'
+
 export type BlueprintSectionCode =
   | 'verbal_reasoning'
   | 'decision_making'
@@ -51,7 +56,7 @@ interface Range {
 }
 
 type CategoryRule = Range & { unit: 'questions' | 'stems' } & (
-  | { category: string; answerScheme?: never; label?: string }
+  | { category: string; answerScheme?: never; label?: string; requiredAnswerScheme?: BlueprintAnswerScheme }
   | { category?: never; answerScheme: BlueprintAnswerScheme; label: string }
 )
 
@@ -75,10 +80,7 @@ type StructureRule = Range & (
 
 interface ResponseContractRule {
   answerScheme: BlueprintAnswerScheme
-  section: BlueprintSectionCode
   questionsPerStem: number
-  optionCount: number
-  requiredPlacementCount: number
 }
 
 export interface UcatBlueprint {
@@ -184,7 +186,7 @@ export const UCAT_ANZ_2026_V1 = deepFreeze<UcatBlueprint>({
       {
         section: 'situational_judgement',
         categoryRules: [
-          { category: 'Most/Least Appropriate', unit: 'questions', min: 2, max: 4, preferred: 3 },
+          { category: 'Most/Least Appropriate', requiredAnswerScheme: 'situational_judgement_most_least', unit: 'questions', min: 2, max: 4, preferred: 3 },
           { answerScheme: 'situational_judgement_rating', label: 'Rating questions', unit: 'questions', min: 65, max: 67, preferred: 66 },
         ],
         structureRules: [
@@ -193,10 +195,7 @@ export const UCAT_ANZ_2026_V1 = deepFreeze<UcatBlueprint>({
         responseContractRules: [
           {
             answerScheme: 'situational_judgement_most_least',
-            section: 'situational_judgement',
             questionsPerStem: 1,
-            optionCount: 3,
-            requiredPlacementCount: 2,
           },
         ],
       },
@@ -222,6 +221,7 @@ export type BlueprintReasonCode =
   | 'MOST_LEAST_STEM_QUESTION_COUNT_INVALID'
   | 'MOST_LEAST_ACTION_COUNT_INVALID'
   | 'MOST_LEAST_REQUIRED_PLACEMENTS_INVALID'
+  | 'CATEGORY_ANSWER_SCHEME_MISMATCH'
   | 'DUPLICATE_STEM_ID'
   | 'DUPLICATE_QUESTION_ID'
 
@@ -469,11 +469,11 @@ export function evaluateBlueprint(
     }
     for (const rule of policy.categoryRules ?? []) {
       const label = rule.label ?? rule.category ?? 'Answer-scheme questions'
+      const matchingCategoryStems = rule.category === undefined
+        ? []
+        : section.stems.filter(stem => stem.category === rule.category)
       const actual = rule.answerScheme === undefined
-        ? (() => {
-            const matchingStems = section.stems.filter(stem => stem.category === rule.category)
-            return rule.unit === 'stems' ? matchingStems.length : totalQuestions(matchingStems)
-          })()
+        ? rule.unit === 'stems' ? matchingCategoryStems.length : totalQuestions(matchingCategoryStems)
         : section.stems.reduce(
             (count, stem) => count + (rule.unit === 'stems'
               ? Number(stem.questions.some(question => question.answerScheme === rule.answerScheme))
@@ -499,6 +499,36 @@ export function evaluateBlueprint(
           actual,
           rule,
         ))
+      }
+      if ('requiredAnswerScheme' in rule && rule.requiredAnswerScheme !== undefined) {
+        const mismatches = matchingCategoryStems.flatMap(stem =>
+          stem.questions
+            .filter(question => question.answerScheme !== rule.requiredAnswerScheme)
+            .map(question => ({ stemId: stem.id, questionId: question.id })),
+        )
+        checks.push({
+          code: 'CATEGORY_ANSWER_SCHEME_MISMATCH',
+          source: 'altitutor',
+          section: official.section,
+          label: `${label} Answer scheme mismatches`,
+          unit: 'questions',
+          actual: mismatches.length,
+          expected: 0,
+          compliant: mismatches.length === 0,
+        })
+        const firstMismatch = mismatches[0]
+        if (firstMismatch) {
+          reasons.push({
+            code: 'CATEGORY_ANSWER_SCHEME_MISMATCH',
+            severity: 'error',
+            section: official.section,
+            stemId: firstMismatch.stemId,
+            questionId: firstMismatch.questionId,
+            actual: mismatches.length,
+            expected: 0,
+            message: `${label} questions must use the ${rule.requiredAnswerScheme} Answer scheme; found ${mismatches.length} mismatch${mismatches.length === 1 ? '' : 'es'}.`,
+          })
+        }
       }
     }
     for (const rule of policy.presentationRules ?? []) {
@@ -572,7 +602,8 @@ export function evaluateBlueprint(
       }
     }
 
-    for (const rule of (policy.responseContractRules ?? []).filter(rule => rule.section === official.section)) {
+    for (const rule of policy.responseContractRules ?? []) {
+      const contract = getAnswerSchemeContract(rule.answerScheme)
       for (const stem of section.stems) {
         const matchingQuestions = stem.questions.filter(question => question.answerScheme === rule.answerScheme)
         if (matchingQuestions.length === 0) continue
@@ -594,6 +625,12 @@ export function evaluateBlueprint(
           })
         }
         for (const question of matchingQuestions) {
+          const optionCountCompliant = typeof contract.optionCount === 'number'
+            ? question.optionCount === contract.optionCount
+            : question.optionCount >= contract.optionCount.minimum
+          const optionIds = Array.from({ length: question.optionCount }, (_, index) => `${question.id}-option-${index}`)
+          const presentation = getAnswerSchemePresentation(rule.answerScheme, optionIds)
+          const expectedPlacements = presentation.kind === 'placement' ? presentation.requiredPlacements : 0
           checks.push(
             {
               code: 'MOST_LEAST_ACTION_COUNT_INVALID',
@@ -604,8 +641,9 @@ export function evaluateBlueprint(
               stemId: stem.id,
               questionId: question.id,
               actual: question.optionCount,
-              expected: rule.optionCount,
-              compliant: question.optionCount === rule.optionCount,
+              expected: typeof contract.optionCount === 'number' ? contract.optionCount : undefined,
+              minimum: typeof contract.optionCount === 'number' ? undefined : contract.optionCount.minimum,
+              compliant: optionCountCompliant,
             },
             {
               code: 'MOST_LEAST_REQUIRED_PLACEMENTS_INVALID',
@@ -616,11 +654,14 @@ export function evaluateBlueprint(
               stemId: stem.id,
               questionId: question.id,
               actual: question.requiredPlacementCount,
-              expected: rule.requiredPlacementCount,
-              compliant: question.requiredPlacementCount === rule.requiredPlacementCount,
+              expected: expectedPlacements,
+              compliant: question.requiredPlacementCount === expectedPlacements,
             },
           )
-          if (question.optionCount !== rule.optionCount) {
+          if (!optionCountCompliant) {
+            const expectedOptionCount = typeof contract.optionCount === 'number'
+              ? `exactly ${contract.optionCount}`
+              : `at least ${contract.optionCount.minimum}`
             reasons.push({
               code: 'MOST_LEAST_ACTION_COUNT_INVALID',
               severity: 'error',
@@ -628,11 +669,12 @@ export function evaluateBlueprint(
               stemId: stem.id,
               questionId: question.id,
               actual: question.optionCount,
-              expected: rule.optionCount,
-              message: `Most/Least Appropriate question ${question.id} must contain exactly ${rule.optionCount} actions; found ${question.optionCount}.`,
+              expected: typeof contract.optionCount === 'number' ? contract.optionCount : undefined,
+              minimum: typeof contract.optionCount === 'number' ? undefined : contract.optionCount.minimum,
+              message: `Most/Least Appropriate question ${question.id} must contain ${expectedOptionCount} actions; found ${question.optionCount}.`,
             })
           }
-          if (question.requiredPlacementCount !== rule.requiredPlacementCount) {
+          if (question.requiredPlacementCount !== expectedPlacements) {
             reasons.push({
               code: 'MOST_LEAST_REQUIRED_PLACEMENTS_INVALID',
               severity: 'error',
@@ -640,8 +682,8 @@ export function evaluateBlueprint(
               stemId: stem.id,
               questionId: question.id,
               actual: question.requiredPlacementCount,
-              expected: rule.requiredPlacementCount,
-              message: `Most/Least Appropriate question ${question.id} must require ${rule.requiredPlacementCount} distinct placements; found ${question.requiredPlacementCount}.`,
+              expected: expectedPlacements,
+              message: `Most/Least Appropriate question ${question.id} must require ${expectedPlacements} distinct placements; found ${question.requiredPlacementCount}.`,
             })
           }
         }
