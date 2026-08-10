@@ -50,10 +50,10 @@ interface Range {
   preferred?: number
 }
 
-interface CategoryRule extends Range {
-  category: string
-  unit: 'questions' | 'stems'
-}
+type CategoryRule = Range & { unit: 'questions' | 'stems' } & (
+  | { category: string; answerScheme?: never; label?: string }
+  | { category?: never; answerScheme: BlueprintAnswerScheme; label: string }
+)
 
 interface PresentationRule extends Range {
   category: string
@@ -61,12 +61,24 @@ interface PresentationRule extends Range {
   unit: 'questions'
 }
 
-interface StructureRule {
-  kind: 'stem_question_count'
-  label: string
-  min: number
-  max: number
-  category?: string
+type StructureRule = Range & (
+  | {
+    kind: 'stem_count'
+    label: string
+    questionCardinality: 'single' | 'multiple'
+  }
+  | {
+    kind: 'questions_per_stem'
+    label: string
+  }
+)
+
+interface ResponseContractRule {
+  answerScheme: BlueprintAnswerScheme
+  section: BlueprintSectionCode
+  questionsPerStem: number
+  optionCount: number
+  requiredPlacementCount: number
 }
 
 export interface UcatBlueprint {
@@ -90,6 +102,7 @@ export interface UcatBlueprint {
       readonly categoryRules?: readonly CategoryRule[]
       readonly presentationRules?: readonly PresentationRule[]
       readonly structureRules?: readonly StructureRule[]
+      readonly responseContractRules?: readonly ResponseContractRule[]
     }[]
   }
 }
@@ -164,18 +177,27 @@ export const UCAT_ANZ_2026_V1 = deepFreeze<UcatBlueprint>({
       {
         section: 'quantitative_reasoning',
         structureRules: [
-          { kind: 'stem_question_count', label: 'multi-question stems', min: 7, max: 8 },
-          { kind: 'stem_question_count', label: 'single-question stems', min: 4, max: 8 },
+          { kind: 'stem_count', label: 'Multi-question stems', questionCardinality: 'multiple', min: 7, max: 8 },
+          { kind: 'stem_count', label: 'Single-question stems', questionCardinality: 'single', min: 4, max: 8 },
         ],
       },
       {
         section: 'situational_judgement',
         categoryRules: [
           { category: 'Most/Least Appropriate', unit: 'questions', min: 2, max: 4, preferred: 3 },
-          { category: 'Rating questions', unit: 'questions', min: 65, max: 67, preferred: 66 },
+          { answerScheme: 'situational_judgement_rating', label: 'Rating questions', unit: 'questions', min: 65, max: 67, preferred: 66 },
         ],
         structureRules: [
-          { kind: 'stem_question_count', label: 'scenario questions', min: 1, max: 6 },
+          { kind: 'questions_per_stem', label: 'Questions in scenario stem', min: 1, max: 6 },
+        ],
+        responseContractRules: [
+          {
+            answerScheme: 'situational_judgement_most_least',
+            section: 'situational_judgement',
+            questionsPerStem: 1,
+            optionCount: 3,
+            requiredPlacementCount: 2,
+          },
         ],
       },
     ],
@@ -446,17 +468,23 @@ export function evaluateBlueprint(
       })
     }
     for (const rule of policy.categoryRules ?? []) {
-      const matchingStems = section.stems.filter(stem =>
-        rule.category === 'Rating questions'
-          ? stem.category !== 'Most/Least Appropriate'
-          : stem.category === rule.category,
-      )
-      const actual = rule.unit === 'stems' ? matchingStems.length : totalQuestions(matchingStems)
+      const label = rule.label ?? rule.category ?? 'Answer-scheme questions'
+      const actual = rule.answerScheme === undefined
+        ? (() => {
+            const matchingStems = section.stems.filter(stem => stem.category === rule.category)
+            return rule.unit === 'stems' ? matchingStems.length : totalQuestions(matchingStems)
+          })()
+        : section.stems.reduce(
+            (count, stem) => count + (rule.unit === 'stems'
+              ? Number(stem.questions.some(question => question.answerScheme === rule.answerScheme))
+              : stem.questions.filter(question => question.answerScheme === rule.answerScheme).length),
+            0,
+          )
       checks.push({
         code: rule.unit === 'stems' ? 'CATEGORY_STEM_COUNT_OUT_OF_RANGE' : 'CATEGORY_QUESTION_COUNT_OUT_OF_RANGE',
         source: 'altitutor',
         section: official.section,
-        label: rule.category,
+        label,
         unit: rule.unit,
         actual,
         minimum: rule.min,
@@ -467,7 +495,7 @@ export function evaluateBlueprint(
         reasons.push(rangeReason(
           rule.unit === 'stems' ? 'CATEGORY_STEM_COUNT_OUT_OF_RANGE' : 'CATEGORY_QUESTION_COUNT_OUT_OF_RANGE',
           official.section,
-          `${rule.category} ${rule.unit}`,
+          `${label} ${rule.unit}`,
           actual,
           rule,
         ))
@@ -500,70 +528,72 @@ export function evaluateBlueprint(
       }
     }
 
-    if (official.section === 'quantitative_reasoning') {
-      const multi = section.stems.filter(stem => stem.questions.length > 1).length
-      const single = section.stems.filter(stem => stem.questions.length === 1).length
-      checks.push(
-        { code: 'QR_MULTI_STEM_COUNT_OUT_OF_RANGE', source: 'altitutor', section: official.section, label: 'Multi-question stems', unit: 'stems', actual: multi, minimum: 7, maximum: 8, compliant: multi >= 7 && multi <= 8 },
-        { code: 'QR_SINGLE_STEM_COUNT_OUT_OF_RANGE', source: 'altitutor', section: official.section, label: 'Single-question stems', unit: 'stems', actual: single, minimum: 4, maximum: 8, compliant: single >= 4 && single <= 8 },
-      )
-      if (multi < 7 || multi > 8) {
-        reasons.push(rangeReason('QR_MULTI_STEM_COUNT_OUT_OF_RANGE', official.section, 'multi-question stems', multi, { min: 7, max: 8 }))
+    for (const rule of policy.structureRules ?? []) {
+      if (rule.kind === 'stem_count') {
+        const actual = section.stems.filter(stem =>
+          rule.questionCardinality === 'single'
+            ? stem.questions.length === 1
+            : stem.questions.length > 1,
+        ).length
+        const code = rule.questionCardinality === 'single'
+          ? 'QR_SINGLE_STEM_COUNT_OUT_OF_RANGE'
+          : 'QR_MULTI_STEM_COUNT_OUT_OF_RANGE'
+        checks.push({
+          code,
+          source: 'altitutor',
+          section: official.section,
+          label: rule.label,
+          unit: 'stems',
+          actual,
+          minimum: rule.min,
+          maximum: rule.max,
+          compliant: actual >= rule.min && actual <= rule.max,
+        })
+        if (actual < rule.min || actual > rule.max) {
+          reasons.push(rangeReason(code, official.section, rule.label.toLocaleLowerCase('en-AU'), actual, rule))
+        }
+        continue
       }
-      if (single < 4 || single > 8) {
-        reasons.push(rangeReason('QR_SINGLE_STEM_COUNT_OUT_OF_RANGE', official.section, 'single-question stems', single, { min: 4, max: 8 }))
+
+      for (const stem of section.stems) {
+        const compliant = stem.questions.length >= rule.min && stem.questions.length <= rule.max
+        checks.push({
+          code: 'SJT_SCENARIO_QUESTION_LIMIT_EXCEEDED', source: 'altitutor', section: official.section,
+          label: rule.label, unit: 'questions', stemId: stem.id, actual: stem.questions.length,
+          minimum: rule.min, maximum: rule.max, compliant,
+        })
+        if (!compliant) {
+          reasons.push({
+            code: 'SJT_SCENARIO_QUESTION_LIMIT_EXCEEDED', severity: 'error', section: official.section,
+            stemId: stem.id, actual: stem.questions.length, minimum: rule.min, maximum: rule.max,
+            message: `${sectionLabels[official.section]} stem ${stem.id} must contain between ${rule.min} and ${rule.max} questions; found ${stem.questions.length}.`,
+          })
+        }
       }
     }
 
-    if (official.section === 'situational_judgement') {
+    for (const rule of (policy.responseContractRules ?? []).filter(rule => rule.section === official.section)) {
       for (const stem of section.stems) {
+        const matchingQuestions = stem.questions.filter(question => question.answerScheme === rule.answerScheme)
+        if (matchingQuestions.length === 0) continue
+        const stemCompliant = stem.questions.length === rule.questionsPerStem
         checks.push({
-          code: 'SJT_SCENARIO_QUESTION_LIMIT_EXCEEDED',
-          source: 'altitutor',
-          section: official.section,
-          label: 'Questions in scenario stem',
-          unit: 'questions',
-          stemId: stem.id,
-          actual: stem.questions.length,
-          minimum: 1,
-          maximum: 6,
-          compliant: stem.questions.length >= 1 && stem.questions.length <= 6,
+          code: 'MOST_LEAST_STEM_QUESTION_COUNT_INVALID', source: 'altitutor', section: official.section,
+          label: 'Most/Least questions per stem', unit: 'questions', stemId: stem.id,
+          actual: stem.questions.length, expected: rule.questionsPerStem, compliant: stemCompliant,
         })
-        if (stem.questions.length > 6) {
-          reasons.push({
-            code: 'SJT_SCENARIO_QUESTION_LIMIT_EXCEEDED',
-            severity: 'error',
-            section: official.section,
-            stemId: stem.id,
-            actual: stem.questions.length,
-            maximum: 6,
-            message: `Situational Judgement stem ${stem.id} may contain at most 6 questions; found ${stem.questions.length}.`,
-          })
-        }
-        if (stem.category !== 'Most/Least Appropriate') continue
-        checks.push({
-          code: 'MOST_LEAST_STEM_QUESTION_COUNT_INVALID',
-          source: 'altitutor',
-          section: official.section,
-          label: 'Most/Least questions per stem',
-          unit: 'questions',
-          stemId: stem.id,
-          actual: stem.questions.length,
-          expected: 1,
-          compliant: stem.questions.length === 1,
-        })
-        if (stem.questions.length !== 1) {
+        if (!stemCompliant) {
           reasons.push({
             code: 'MOST_LEAST_STEM_QUESTION_COUNT_INVALID',
             severity: 'error',
             section: official.section,
             stemId: stem.id,
             actual: stem.questions.length,
-            expected: 1,
-            message: `Most/Least Appropriate stem ${stem.id} must contain exactly one candidate-visible question; found ${stem.questions.length}.`,
+            expected: rule.questionsPerStem,
+            message: `Most/Least Appropriate stem ${stem.id} must contain exactly ${rule.questionsPerStem} candidate-visible question; found ${stem.questions.length}.`,
           })
         }
-        for (const question of stem.questions) {
+        for (const question of matchingQuestions) {
           checks.push(
             {
               code: 'MOST_LEAST_ACTION_COUNT_INVALID',
@@ -574,8 +604,8 @@ export function evaluateBlueprint(
               stemId: stem.id,
               questionId: question.id,
               actual: question.optionCount,
-              expected: 3,
-              compliant: question.optionCount === 3,
+              expected: rule.optionCount,
+              compliant: question.optionCount === rule.optionCount,
             },
             {
               code: 'MOST_LEAST_REQUIRED_PLACEMENTS_INVALID',
@@ -586,11 +616,11 @@ export function evaluateBlueprint(
               stemId: stem.id,
               questionId: question.id,
               actual: question.requiredPlacementCount,
-              expected: 2,
-              compliant: question.answerScheme === 'situational_judgement_most_least' && question.requiredPlacementCount === 2,
+              expected: rule.requiredPlacementCount,
+              compliant: question.requiredPlacementCount === rule.requiredPlacementCount,
             },
           )
-          if (question.optionCount !== 3) {
+          if (question.optionCount !== rule.optionCount) {
             reasons.push({
               code: 'MOST_LEAST_ACTION_COUNT_INVALID',
               severity: 'error',
@@ -598,11 +628,11 @@ export function evaluateBlueprint(
               stemId: stem.id,
               questionId: question.id,
               actual: question.optionCount,
-              expected: 3,
-              message: `Most/Least Appropriate question ${question.id} must contain exactly three actions; found ${question.optionCount}.`,
+              expected: rule.optionCount,
+              message: `Most/Least Appropriate question ${question.id} must contain exactly ${rule.optionCount} actions; found ${question.optionCount}.`,
             })
           }
-          if (question.answerScheme !== 'situational_judgement_most_least' || question.requiredPlacementCount !== 2) {
+          if (question.requiredPlacementCount !== rule.requiredPlacementCount) {
             reasons.push({
               code: 'MOST_LEAST_REQUIRED_PLACEMENTS_INVALID',
               severity: 'error',
@@ -610,8 +640,8 @@ export function evaluateBlueprint(
               stemId: stem.id,
               questionId: question.id,
               actual: question.requiredPlacementCount,
-              expected: 2,
-              message: `Most/Least Appropriate question ${question.id} must require two distinct placements; found ${question.requiredPlacementCount}.`,
+              expected: rule.requiredPlacementCount,
+              message: `Most/Least Appropriate question ${question.id} must require ${rule.requiredPlacementCount} distinct placements; found ${question.requiredPlacementCount}.`,
             })
           }
         }
@@ -638,7 +668,7 @@ export function evaluateBlueprint(
 
   return {
     applicable: true,
-    compliant: reasons.length === 0,
+    compliant: reasons.length === 0 && checks.every(check => check.compliant),
     blueprintId: blueprint.id,
     totals,
     sections,

@@ -18,6 +18,7 @@ const stems = (
   category: string,
   questionCounts: number[],
   presentationFormat: BlueprintStem['presentationFormat'] = null,
+  answerScheme: BlueprintStem['questions'][number]['answerScheme'] = 'single_choice',
 ): BlueprintStem[] =>
   questionCounts.map((questionCount, stemIndex) => ({
     id: `${section}-${category}-${questionCounts.length}-${questionCounts.join('-')}-${stemIndex}`,
@@ -25,7 +26,7 @@ const stems = (
     presentationFormat,
     questions: Array.from({ length: questionCount }, (_, questionIndex) => ({
       id: `${section}-${category}-${questionCounts.length}-${questionCounts.join('-')}-${stemIndex}-${questionIndex}`,
-      answerScheme: 'single_choice' as const,
+      answerScheme,
       optionCount: 4,
       requiredPlacementCount: 0,
     })),
@@ -67,6 +68,8 @@ const passingComposition = (): BlueprintComposition => {
     'situational_judgement',
     'How Appropriate',
     [6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6],
+    'passage',
+    'situational_judgement_rating',
   )
   const sjtMostLeast: BlueprintStem[] = Array.from({ length: 3 }, (_, index) => ({
     id: `situational_judgement-most-least-${index}`,
@@ -198,6 +201,78 @@ describe('UCAT ANZ 2026 v1 blueprint', () => {
       expect.objectContaining({ code: 'MOST_LEAST_STEM_QUESTION_COUNT_INVALID' }),
       expect.objectContaining({ code: 'MOST_LEAST_ACTION_COUNT_INVALID' }),
       expect.objectContaining({ code: 'MOST_LEAST_REQUIRED_PLACEMENTS_INVALID' }),
+    ]))
+  })
+
+  it('interprets structural and response cardinality values from the supplied blueprint version', () => {
+    const composition = passingComposition()
+    const changedBlueprint = {
+      ...UCAT_ANZ_2026_V1,
+      id: 'test-blueprint-v2',
+      version: 2,
+      altitutorPolicy: {
+        ...UCAT_ANZ_2026_V1.altitutorPolicy,
+        sectionRules: UCAT_ANZ_2026_V1.altitutorPolicy.sectionRules.map(rule =>
+          rule.section === 'quantitative_reasoning'
+            ? {
+                ...rule,
+                structureRules: [
+                  { kind: 'stem_count' as const, label: 'Multi-question stems', questionCardinality: 'multiple' as const, min: 8, max: 8 },
+                  { kind: 'stem_count' as const, label: 'Single-question stems', questionCardinality: 'single' as const, min: 8, max: 8 },
+                ],
+              }
+            : rule.section === 'situational_judgement'
+              ? {
+                  ...rule,
+                  responseContractRules: rule.responseContractRules?.map(contractRule => ({
+                    ...contractRule,
+                    optionCount: 4,
+                  })),
+                }
+              : rule,
+        ),
+      },
+    }
+
+    const result = evaluateBlueprint(changedBlueprint, composition)
+
+    expect(result.reasons).toEqual(expect.arrayContaining([
+      expect.objectContaining({ code: 'QR_MULTI_STEM_COUNT_OUT_OF_RANGE', minimum: 8, maximum: 8 }),
+      expect.objectContaining({ code: 'MOST_LEAST_ACTION_COUNT_INVALID', expected: 4 }),
+    ]))
+  })
+
+  it('makes a failed scenario check fail the whole evaluation', () => {
+    const composition = passingComposition()
+    const sjt = composition.sections[3]
+    if (!sjt) throw new Error('fixture is missing Situational Judgement')
+    sjt.stems.push({ id: 'empty-scenario', category: 'How Important', presentationFormat: 'passage', questions: [] })
+
+    const result = evaluateBlueprint(UCAT_ANZ_2026_V1, composition)
+
+    expect(result.compliant).toBe(false)
+    expect(result.reasons).toEqual(expect.arrayContaining([
+      expect.objectContaining({ code: 'SJT_SCENARIO_QUESTION_LIMIT_EXCEEDED', stemId: 'empty-scenario', minimum: 1 }),
+    ]))
+  })
+
+  it('counts SJT rating questions by Answer scheme rather than category', () => {
+    const composition = passingComposition()
+    const sjt = composition.sections[3]
+    if (!sjt) throw new Error('fixture is missing Situational Judgement')
+    const ratingQuestions = sjt.stems.flatMap(stem => stem.questions).filter(
+      question => question.answerScheme === 'situational_judgement_rating',
+    )
+    const first = ratingQuestions[0]
+    const second = ratingQuestions[1]
+    if (!first || !second) throw new Error('fixture is missing rating questions')
+    first.answerScheme = 'single_choice'
+    second.answerScheme = 'single_choice'
+
+    const result = evaluateBlueprint(UCAT_ANZ_2026_V1, composition)
+
+    expect(result.reasons).toEqual(expect.arrayContaining([
+      expect.objectContaining({ code: 'CATEGORY_QUESTION_COUNT_OUT_OF_RANGE', actual: 64 }),
     ]))
   })
 

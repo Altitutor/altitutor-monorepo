@@ -33,7 +33,7 @@ SELECT results_eq(
 );
 
 SELECT is(
-  (SELECT altitutor_composition_policy #>> '{categoryRanges,0,min}'
+  (SELECT altitutor_composition_policy #>> '{categoryRules,0,min}'
    FROM public.ucat_mock_blueprint_sections
    WHERE blueprint_id = '54100000-0000-4000-8000-000000000001'
      AND section_code = 'decision_making'),
@@ -42,7 +42,7 @@ SELECT is(
 );
 
 SELECT is(
-  (SELECT altitutor_composition_policy #>> '{presentationRanges,1,max}'
+  (SELECT altitutor_composition_policy #>> '{presentationRules,1,max}'
    FROM public.ucat_mock_blueprint_sections
    WHERE blueprint_id = '54100000-0000-4000-8000-000000000001'
      AND section_code = 'decision_making'),
@@ -51,7 +51,7 @@ SELECT is(
 );
 
 SELECT is(
-  (SELECT altitutor_composition_policy #>> '{mostLeast,requiredPlacements}'
+  (SELECT altitutor_composition_policy #>> '{responseContractRules,0,requiredPlacementCount}'
    FROM public.ucat_mock_blueprint_sections
    WHERE blueprint_id = '54100000-0000-4000-8000-000000000001'
      AND section_code = 'situational_judgement'),

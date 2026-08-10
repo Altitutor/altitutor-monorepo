@@ -74,7 +74,7 @@ INSERT INTO public.ucat_mock_blueprint_sections (
     44,
     1320,
     90,
-    '{"exactStemCount":11,"categoryRanges":[{"category":"Reading Comprehension","unit":"stems","min":7,"max":9},{"category":"True, False, Can''t Tell","unit":"stems","min":2,"max":4}]}'::jsonb
+    '{"exactStemCount":11,"categoryRules":[{"category":"Reading Comprehension","unit":"stems","min":7,"max":9},{"category":"True, False, Can''t Tell","unit":"stems","min":2,"max":4}]}'::jsonb
   ),
   (
     '54100000-0000-4000-8000-000000000001',
@@ -83,7 +83,7 @@ INSERT INTO public.ucat_mock_blueprint_sections (
     35,
     2220,
     90,
-    '{"categoryRanges":[{"category":"Syllogisms","unit":"questions","min":5,"max":7},{"category":"Logical Puzzles","unit":"questions","min":5,"max":6},{"category":"Recognising Assumptions","unit":"questions","min":3,"preferred":4,"max":5},{"category":"Interpreting Information and Drawing Conclusions","unit":"questions","min":5,"max":6},{"category":"Venn Diagrams","unit":"questions","min":7,"preferred":8,"max":9},{"category":"Probabilistic and Statistical Reasoning","unit":"questions","min":4,"preferred":5,"max":6}],"presentationRanges":[{"category":"Interpreting Information and Drawing Conclusions","formats":["passage"],"unit":"questions","min":3,"max":4},{"category":"Interpreting Information and Drawing Conclusions","formats":["table","graph_or_chart"],"unit":"questions","min":1,"max":2}]}'::jsonb
+    '{"categoryRules":[{"category":"Syllogisms","unit":"questions","min":5,"max":7},{"category":"Logical Puzzles","unit":"questions","min":5,"max":6},{"category":"Recognising Assumptions","unit":"questions","min":3,"preferred":4,"max":5},{"category":"Interpreting Information and Drawing Conclusions","unit":"questions","min":5,"max":6},{"category":"Venn Diagrams","unit":"questions","min":7,"preferred":8,"max":9},{"category":"Probabilistic and Statistical Reasoning","unit":"questions","min":4,"preferred":5,"max":6}],"presentationRules":[{"category":"Interpreting Information and Drawing Conclusions","formats":["passage"],"unit":"questions","min":3,"max":4},{"category":"Interpreting Information and Drawing Conclusions","formats":["table","graph_or_chart"],"unit":"questions","min":1,"max":2}]}'::jsonb
   ),
   (
     '54100000-0000-4000-8000-000000000001',
@@ -92,7 +92,7 @@ INSERT INTO public.ucat_mock_blueprint_sections (
     36,
     1560,
     120,
-    '{"multiQuestionStemRange":{"unit":"stems","min":7,"max":8},"singleQuestionStemRange":{"unit":"stems","min":4,"max":8}}'::jsonb
+    '{"structureRules":[{"kind":"stem_count","label":"Multi-question stems","questionCardinality":"multiple","min":7,"max":8},{"kind":"stem_count","label":"Single-question stems","questionCardinality":"single","min":4,"max":8}]}'::jsonb
   ),
   (
     '54100000-0000-4000-8000-000000000001',
@@ -101,7 +101,7 @@ INSERT INTO public.ucat_mock_blueprint_sections (
     69,
     1560,
     90,
-    '{"categoryRanges":[{"category":"Most/Least Appropriate","unit":"questions","min":2,"preferred":3,"max":4},{"category":"Rating questions","unit":"questions","min":65,"preferred":66,"max":67}],"maximumQuestionsPerScenarioStem":6,"mostLeast":{"questionsPerStem":1,"actionsPerQuestion":3,"requiredPlacements":2}}'::jsonb
+    '{"categoryRules":[{"category":"Most/Least Appropriate","unit":"questions","min":2,"preferred":3,"max":4},{"answerScheme":"situational_judgement_rating","label":"Rating questions","unit":"questions","min":65,"preferred":66,"max":67}],"structureRules":[{"kind":"questions_per_stem","label":"Questions in scenario stem","min":1,"max":6}],"responseContractRules":[{"answerScheme":"situational_judgement_most_least","section":"situational_judgement","questionsPerStem":1,"optionCount":3,"requiredPlacementCount":2}]}'::jsonb
   );
 
 CREATE FUNCTION public.prevent_ucat_mock_blueprint_mutation()
