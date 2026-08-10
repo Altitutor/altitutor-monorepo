@@ -439,6 +439,7 @@ COMMENT ON COLUMN public.ucat_questions.answer_scheme IS
 CREATE OR REPLACE FUNCTION public.sync_ucat_question_response_contract()
 RETURNS TRIGGER
 LANGUAGE plpgsql
+SECURITY DEFINER
 SET search_path = public
 AS $$
 DECLARE
@@ -512,9 +513,13 @@ BEGIN
 END;
 $$;
 
+REVOKE ALL ON FUNCTION public.sync_ucat_question_response_contract()
+  FROM PUBLIC, anon, authenticated;
+
 CREATE OR REPLACE FUNCTION public.sync_ucat_answer_option_key()
 RETURNS TRIGGER
 LANGUAGE plpgsql
+SECURITY DEFINER
 SET search_path = public
 AS $$
 DECLARE
@@ -576,6 +581,9 @@ BEGIN
   RETURN NEW;
 END;
 $$;
+
+REVOKE ALL ON FUNCTION public.sync_ucat_answer_option_key()
+  FROM PUBLIC, anon, authenticated;
 
 CREATE FUNCTION public.ucat_response_contract_activation_report(
   p_observation_started_at TIMESTAMPTZ DEFAULT '-infinity'::TIMESTAMPTZ

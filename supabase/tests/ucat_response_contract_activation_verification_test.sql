@@ -1,5 +1,5 @@
 BEGIN;
-SELECT plan(16);
+SELECT plan(18);
 
 SELECT col_not_null(
   'public',
@@ -253,6 +253,45 @@ SELECT is(
   ),
   1::bigint,
   'the activation report counts detectable legacy answer-key writes'
+);
+
+SET LOCAL ROLE authenticated;
+SELECT set_config(
+  'request.jwt.claims',
+  '{"sub":"00000000-0000-0000-0000-000000000001","role":"authenticated"}',
+  true
+);
+
+SELECT lives_ok(
+  $$
+    INSERT INTO public.ucat_questions (
+      id,
+      question_stem_id,
+      question_text,
+      index,
+      question_type
+    ) VALUES (
+      'a4410000-0000-4000-8000-000000000009',
+      'a4400000-0000-4000-8000-000000000001',
+      '{"type":"doc","content":[]}'::jsonb,
+      3,
+      'multiple_choice'
+    )
+  $$,
+  'an authenticated ADMINSTAFF legacy write is not blocked by observation-table RLS'
+);
+
+RESET ROLE;
+
+SELECT is(
+  (
+    SELECT count(*)
+    FROM public.ucat_response_contract_legacy_write_observations
+    WHERE record_id = 'a4410000-0000-4000-8000-000000000009'
+      AND relation_name = 'ucat_questions'
+  ),
+  1::bigint,
+  'an authenticated ADMINSTAFF legacy write is recorded for observation'
 );
 
 INSERT INTO public.ucat_questions (
