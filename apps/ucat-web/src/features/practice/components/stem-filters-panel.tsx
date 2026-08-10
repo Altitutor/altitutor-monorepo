@@ -268,7 +268,7 @@ export function StemFiltersPanel({
   };
 
   return (
-    <div className="min-h-[430px]">
+    <div data-tour="practice-setup" className="min-h-[430px]">
       {hideStepHeader ? null : (
         <div className="flex items-start gap-3">
           {step > 0 ? (
@@ -765,10 +765,7 @@ export function StemFiltersPanel({
       </div>
       </div>
 
-      <div
-        data-tour="practice-primary-action"
-        className="mt-10 flex min-h-10 items-center justify-end"
-      >
+      <div className="mt-10 flex min-h-10 items-center justify-end">
         {step < summaryStep ? (
           <Button
             type="button"

@@ -77,8 +77,7 @@ const dashboardTour: ContextualTour = {
       content: (
         <p>
           Your predicted score trajectory will appear here once you have
-          completed enough representative questions. It becomes more useful as
-          you add timed evidence across the cognitive sections.
+          completed enough questions.
         </p>
       ),
       selector: "#tour-dashboard-predicted-score",
@@ -182,9 +181,8 @@ const studyPlanTour: ContextualTour = {
       title: "Your Study plan calendar",
       content: (
         <p>
-          Your plan schedules focused tasks around your availability and test
-          date. Today is selected when you arrive, and you can choose any other
-          day to look ahead.
+          Your plan schedules tasks based on your predicted score and weaknesses to 
+          get you ready for your UCAT test by your test date.
         </p>
       ),
       selector: "#tour-study-plan-calendar",
@@ -196,8 +194,8 @@ const studyPlanTour: ContextualTour = {
       title: "Today’s plan",
       content: (
         <p>
-          Today’s tasks appear here and take you directly to the relevant
-          activity. On a rest day, you can choose some extra study instead.
+          Today’s tasks appear here. Click on a task to start the activity. 
+          On a rest day, you can choose extra study instead.
         </p>
       ),
       selector: "#tour-study-plan-tasks",
@@ -215,9 +213,8 @@ const progressTour: ContextualTour = {
       title: "Your predicted score",
       content: (
         <p>
-          This graph shows your overall predicted score once enough
-          representative evidence is available, and how that estimate changes as
-          you practise.
+          This graph shows your overall predicted score and percentile once you&apos;ve done enough questions.
+          Your score should improve over time as you practice more.
         </p>
       ),
       selector: "#tour-progress-predicted-score",
@@ -229,8 +226,7 @@ const progressTour: ContextualTour = {
       title: "Your activity",
       content: (
         <p>
-          See when you have studied and how consistently you are building
-          evidence.
+          See which days you have studied on and your practice consistency.
         </p>
       ),
       selector: "#tour-progress-activity",
@@ -243,7 +239,7 @@ const progressTour: ContextualTour = {
       content: (
         <p>
           Your predicted and target section scores appear here once you have
-          enough evidence and have set up the relevant preparation goal.
+          completed enough questions.
         </p>
       ),
       selector: "#tour-progress-sections",
@@ -255,7 +251,7 @@ const progressTour: ContextualTour = {
       title: "Questions completed",
       content: (
         <p>
-          Track the total volume of questions you have completed in each
+          Track the total number of questions you have completed in each
           section.
         </p>
       ),
@@ -275,8 +271,7 @@ const learnTour: ContextualTour = {
       content: (
         <p>
           Learning modules teach UCAT concepts, techniques, and worked examples
-          before you apply them in practice. Choose General or a UCAT section to
-          get started.
+          before you apply them in practice.
         </p>
       ),
       selector: "#tour-learn-page",
@@ -288,7 +283,7 @@ const learnTour: ContextualTour = {
       title: "Choose an area",
       content: (
         <p>
-          When you’re ready, select General or any section to browse its
+          Select general for introductory modules, or any section to browse its
           learning modules.
         </p>
       ),
@@ -307,8 +302,8 @@ const skillTrainerTour: ContextualTour = {
       title: "Practice one skill at a time",
       content: (
         <p>
-          Trainers are grouped by UCAT section. Choose the specific skill you
-          want to improve, then start its short timed drill.
+          Trainers are short, timed drills that target a specific UCAT skill - 
+          for example, speed reading or mental maths.
         </p>
       ),
       selector: "#tour-skill-trainer-page",
@@ -320,8 +315,7 @@ const skillTrainerTour: ContextualTour = {
       title: "Choose a trainer",
       content: (
         <p>
-          When you’re ready, select any available trainer to begin a focused
-          timed drill.
+          Select a trainer to see instructions on how to play, and begin.
         </p>
       ),
       selector: "[data-tour='skill-trainer-options']",
@@ -336,12 +330,11 @@ const practiceTour: ContextualTour = {
   steps: [
     {
       icon: <BrainCircuit className={iconClassName} />,
-      title: "Build a practice session",
+      title: "Practice questions",
       content: (
         <p>
-          Work through the setup steps to choose the section, topics, number of
-          questions, and timed or untimed mode. Filtered practice lets you focus
-          on exactly the evidence or skill you want to build.
+          Practice questions allow you to do a targeted, filtered set of questions.
+          You can choose a specific question type to practice, or do a full section.
         </p>
       ),
       // Compact header target — highlighting the full filters panel (tall /
@@ -356,12 +349,11 @@ const practiceTour: ContextualTour = {
       title: "Begin setting up practice",
       content: (
         <p>
-          When you’re ready, select Next to choose your remaining filters and
-          begin building this practice session. Your completed work is saved to
-          Progress.
+          Select a section and optionally specific categories, 
+          then press next to select filters and begin practicing.
         </p>
       ),
-      selector: "[data-tour='practice-primary-action']",
+      selector: "[data-tour='practice-setup']",
       side: "top",
       ...standardStep,
     },
@@ -376,9 +368,8 @@ const setsTour: ContextualTour = {
       title: "Question sets",
       content: (
         <p>
-          Sets group questions into longer section-based practice. They are
-          useful for building endurance and producing more representative
-          evidence than a short filtered session.
+          A set is a single, full-length UCAT section. 
+          They can be done timed or untimed.
         </p>
       ),
       selector: "#tour-sets-page",
@@ -390,7 +381,7 @@ const setsTour: ContextualTour = {
       title: "Choose a section",
       content: (
         <p>
-          When you’re ready, select a UCAT section to browse its available sets.
+          Select a UCAT section to browse its available sets.
         </p>
       ),
       selector: "[data-tour='sets-options']",
@@ -408,9 +399,8 @@ const mocksTour: ContextualTour = {
       title: "Choose a mock exam",
       content: (
         <p>
-          Mocks reproduce a full exam-style sequence across UCAT sections. Use
-          them to practise pacing and sustained decision-making under realistic
-          timing.
+          Mocks reproduce a full UCAT exam. In each mock, you will complete each of 
+          the 4 sections back to back under timed conditions.
         </p>
       ),
       selector: "#tour-mocks-page",
@@ -422,8 +412,8 @@ const mocksTour: ContextualTour = {
       title: "Choose a mock",
       content: (
         <p>
-          When you’re ready, select an available mock to review its structure
-          and begin.
+          Select a mock to review its structure
+          before you begin.
         </p>
       ),
       selector: "[data-tour='mock-options']",
