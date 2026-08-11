@@ -84,6 +84,44 @@ describe('inferManualStemMetadataRecommendation', () => {
     expect(recommendation?.categoryId).toBe('qr-graphs')
   })
 
+  it('detects figure wording and embedded chart images for QR manual metadata', () => {
+    const recommendation = inferManualStemMetadataRecommendation({
+      values: stemValues({
+        sectionId: 'qr-section',
+        stemText: {
+          type: 'doc',
+          content: [
+            {
+              type: 'paragraph',
+              content: [
+                {
+                  type: 'text',
+                  text: 'The figure below shows the changing market shares of three major UK supermarkets.',
+                },
+              ],
+            },
+            {
+              type: 'paragraph',
+              content: [{ type: 'image', attrs: { fileId: 'chart-1', src: 'https://example.com/chart.png' } }],
+            },
+          ],
+        },
+        questions: [
+          {
+            ...stemValues().questions[0]!,
+            questionText: text('Which supermarket had the highest market share in 2007?'),
+          },
+        ],
+      }),
+      sections,
+      categories,
+      tags: [],
+    })
+
+    expect(recommendation?.sectionId).toBeNull()
+    expect(recommendation?.categoryId).toBe('qr-graphs')
+  })
+
   it('does not switch away from Verbal Reasoning when the stem contains percentages', () => {
     const recommendation = inferManualStemMetadataRecommendation({
       values: stemValues({

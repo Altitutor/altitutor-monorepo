@@ -368,6 +368,7 @@ export function mapParsedQuantitativeReasoningToFormValues(
 function normalizedText(value: string): string {
   return value
     .replace(/\[\[(?:TABLE|IMG):[^\]]+\]\]/g, ' ')
+    .replace(/\[\[(?:\/?[BI]|LI):\]\]/g, ' ')
     .replace(/[−–—]/g, '-')
     .replace(/\s+/g, ' ')
     .trim()
@@ -384,19 +385,28 @@ export function getQuantitativeReasoningStemCategoryName(stem: ParsedStem): stri
   const raw = stem.stemText
   const text = normalizedText(raw)
   const hasTable = raw.includes('[[TABLE:') || hasAny(text, [/\btables?\b/])
-  const hasGraphOrChart = hasAny(text, [
-    /\bgraphs?\b/,
-    /\bcharts?\b/,
-    /\bbar chart\b/,
-    /\bbar graph\b/,
-    /\bline graph\b/,
-    /\bline chart\b/,
-    /\bpie chart\b/,
-    /\bscatter plot\b/,
-    /\bhistogram\b/,
-    /\bfigure above shows\b/,
-    /\bgraph below\b/,
-  ])
+  const hasImage = raw.includes('[[IMG:')
+  const hasGraphOrChart =
+    hasImage ||
+    hasAny(text, [
+      /\bgraphs?\b/,
+      /\bcharts?\b/,
+      /\bbar chart\b/,
+      /\bbar graph\b/,
+      /\bline graph\b/,
+      /\bline chart\b/,
+      /\bpie chart\b/,
+      /\bscatter plot\b/,
+      /\bhistogram\b/,
+      /\bfigures?\b/,
+      /\bthe figure\b/,
+      /\bfollowing figure\b/,
+      /\bfigure below\b/,
+      /\bfigure above\b/,
+      /\bfigure shows\b/,
+      /\bfigure above shows\b/,
+      /\bgraph below\b/,
+    ])
   const hasSchedule = hasAny(text, [/\btimetables?\b/, /\bcalendars?\b/, /\bschedules?\b/])
   const hasDiagram = hasAny(text, [/\bmaps?\b/, /\bdiagrams?\b/, /\bschematic\b/])
   const structuredSourceCount = [hasTable, hasGraphOrChart, hasSchedule, hasDiagram].filter(Boolean).length
@@ -411,7 +421,7 @@ export function getQuantitativeReasoningStemCategoryName(stem: ParsedStem): stri
   if (hasGraphOrChart) return 'Graphs and Charts'
   if (hasDiagram) return 'Maps and Diagrams'
   if (hasTable) return 'Data Tables'
-  if (text.length > 0 && !raw.includes('[[IMG:')) return 'Text-Only Scenarios'
+  if (text.length > 0 && !hasImage) return 'Text-Only Scenarios'
   return null
 }
 

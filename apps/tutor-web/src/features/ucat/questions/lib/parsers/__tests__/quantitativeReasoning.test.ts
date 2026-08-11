@@ -36,14 +36,36 @@ describe('Quantitative Reasoning metadata detection', () => {
     ).toBe('Mixed Data Sources')
   })
 
-  it('does not guess visual categories from image-only stems', () => {
+  it('detects chart stems from figure wording', () => {
+    expect(
+      getQuantitativeReasoningStemCategoryName(
+        stem({
+          stemText:
+            'The figure below shows the changing market shares of three major UK supermarkets in the order: Blue Skies, Fresh Orange and Big Green.',
+        })
+      )
+    ).toBe('Graphs and Charts')
+  })
+
+  it('detects chart stems from image tokens even without figure wording', () => {
+    expect(
+      getQuantitativeReasoningStemCategoryName(
+        stem({
+          stemText:
+            'Supermarket market shares by year.\n[[IMG:f=abc;s=https%3A%2F%2Fexample.com%2Fchart.png]]',
+        })
+      )
+    ).toBe('Graphs and Charts')
+  })
+
+  it('detects chart stems from image-only stems', () => {
     expect(
       getQuantitativeReasoningStemCategoryName(
         stem({
           stemText: '[[IMG:f=abc]]',
         })
       )
-    ).toBeNull()
+    ).toBe('Graphs and Charts')
   })
 
   it('detects text-only stems when no structured presentation is present', () => {

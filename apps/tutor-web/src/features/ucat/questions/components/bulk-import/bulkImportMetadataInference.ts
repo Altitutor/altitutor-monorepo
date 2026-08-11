@@ -23,7 +23,11 @@ import {
   getVerbalReasoningStemCategoryName,
   getVerbalReasoningTagPathsForQuestion,
 } from '@/features/ucat/questions/lib/parsers/verbalReasoning'
-import { proseMirrorToPlainText } from '@/features/ucat/shared/lib/rich-text'
+import {
+  proseMirrorHasBlockTable,
+  proseMirrorHasImage,
+  proseMirrorToPlainText,
+} from '@/features/ucat/shared/lib/rich-text'
 import {
   inferResponseContract,
   type ResponseContractInference,
@@ -246,9 +250,18 @@ function richTextToPlainText(value: Json | null | undefined): string {
   return proseMirrorToPlainText(value ?? null)?.trim() ?? ''
 }
 
+function enrichStemTextWithStructuralTokens(plainText: string, richText: Json): string {
+  const markers: string[] = []
+  if (proseMirrorHasImage(richText)) markers.push('[[IMG:detected]]')
+  if (proseMirrorHasBlockTable(richText)) markers.push('[[TABLE:detected]]')
+  if (markers.length === 0) return plainText
+  return plainText.length > 0 ? `${plainText}\n${markers.join('\n')}` : markers.join('\n')
+}
+
 function formValuesToParsedStem(values: UcatQuestionStemFormValues): ParsedStem {
+  const stemRichText = values.stemText as Json
   return {
-    stemText: richTextToPlainText(values.stemText as Json),
+    stemText: enrichStemTextWithStructuralTokens(richTextToPlainText(stemRichText), stemRichText),
     questions: (values.questions ?? []).map((question, index) => ({
       number: index + 1,
       text: richTextToPlainText(question.questionText as Json),
