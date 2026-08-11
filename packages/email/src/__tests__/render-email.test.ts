@@ -54,5 +54,9 @@ describe("renderEmail", () => {
     expect(email.html).toContain(".email-panel td");
     expect(email.html).toContain(".email-content a");
     expect(email.html).toContain("color: #b7d4df !important");
+    expect(email.html).toContain(".email-content a.email-button");
+    expect(email.html).toMatch(
+      /\.email-content a\.email-button[\s\S]*color: #1c1c1c !important/,
+    );
   });
 });

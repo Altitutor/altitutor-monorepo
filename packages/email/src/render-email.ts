@@ -139,7 +139,8 @@ export function renderEmail(input: {
         .email-footer p { color: #b3b3b3 !important; }
         .email-footer a { color: #b7d4df !important; }
         .email-button-cell { background-color: #92b5c3 !important; }
-        .email-button { color: #1c1c1c !important; }
+        a.email-button, .email-button, .email-content a.email-button,
+        .email-copy a.email-button, .email-button-cell a { color: #1c1c1c !important; }
         .email-accent-fill { background-color: #92b5c3 !important; color:#1c1c1c !important; }
       }
       [data-ogsc] body, [data-ogsc] .email-page { background-color: #171717 !important; }
@@ -163,7 +164,8 @@ export function renderEmail(input: {
       [data-ogsc] .email-footer p { color: #b3b3b3 !important; }
       [data-ogsc] .email-footer a { color: #b7d4df !important; }
       [data-ogsc] .email-button-cell { background-color: #92b5c3 !important; }
-      [data-ogsc] .email-button { color: #1c1c1c !important; }
+      [data-ogsc] a.email-button, [data-ogsc] .email-button, [data-ogsc] .email-content a.email-button,
+      [data-ogsc] .email-copy a.email-button, [data-ogsc] .email-button-cell a { color: #1c1c1c !important; }
       [data-ogsb] .email-accent-fill { background-color: #92b5c3 !important; }
       [data-ogsc] .email-accent-fill { color: #1c1c1c !important; }
     </style>

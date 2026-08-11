@@ -463,7 +463,8 @@ function forceDarkTheme(html) {
     .email-panel td,.email-panel-copy,.email-panel-copy p,.email-panel-copy td{color:#f5f5f5!important}
     .email-footer p,.email-muted,.email-brand-subtitle,.email-panel .email-muted{color:#b3b3b3!important}
     a,a.email-link,.email-brand,.email-link,.email-footer-title,.email-accent,.email-content a,.email-copy a,.email-muted a,.email-panel a,.email-panel-copy .email-accent,.email-panel .email-accent,.email-footer a{color:#b7d4df!important}
-    .email-button-cell,.email-button{background-color:#92b5c3!important}.email-button{color:#1c1c1c!important}
+    .email-button-cell{background-color:#92b5c3!important}
+    a.email-button,.email-button,.email-content a.email-button,.email-copy a.email-button,.email-button-cell a{color:#1c1c1c!important}
     .email-accent-fill{background-color:#92b5c3!important;color:#1c1c1c!important}
   </style>`;
   return insertBeforeHeadClose(
