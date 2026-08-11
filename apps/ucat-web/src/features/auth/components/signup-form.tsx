@@ -32,6 +32,7 @@ import { subscribeToUcatNewsletter } from "@/features/auth/api/newsletter";
 import { UCAT_SIGNUP_CONSENT_WORDING } from "@/features/communications/lib/communication-preferences";
 import { pathWithReturnIntent } from "@/features/auth/lib/return-intent";
 
+
 const { typography: typo } = MARKETING_TOKENS;
 
 const RESEND_COOLDOWN_SECONDS = 20;
@@ -71,7 +72,6 @@ export function SignupForm({
 }) {
   const supabase = useMemo(() => getSupabaseBrowserClient(), []);
   const [email, setEmail] = useState("");
-  const [newsletter, setNewsletter] = useState(false);
   const [formState, setFormState] = useState<FormState>("idle");
   const [errorMessage, setErrorMessage] = useState<string | null>(
     authError ?? null,
@@ -180,7 +180,7 @@ export function SignupForm({
         intended_plan: planIntent?.tier ?? "free",
         billing_interval: planIntent?.interval ?? null,
         referral_present: Boolean(referralCode),
-        newsletter_opt_in: newsletter,
+        newsletter_opt_in: true,
       });
 
       const error = await sendConfirmationEmail(normalizedEmail);
@@ -225,9 +225,7 @@ export function SignupForm({
         token: digits,
       });
       if (!error) {
-        if (newsletter) {
-          await subscribeToUcatNewsletter("ucat_email_signup");
-        }
+        await subscribeToUcatNewsletter("ucat_email_signup");
         clearPendingSignupEmail(pendingSignupContext);
         captureUcatEvent("signup_completed", {
           intended_plan: planIntent?.tier ?? "free",
@@ -444,7 +442,6 @@ export function SignupForm({
                       enabledProviders={enabledSocialProviders}
                       intent="signup"
                       redirectTo={redirectTo}
-                      newsletterOptIn={newsletter}
                       referralCode={referralCode}
                     />
                     <SocialAuthDivider />
@@ -470,34 +467,9 @@ export function SignupForm({
                   />
                 </div>
 
-                <label className="flex cursor-pointer items-start gap-3">
-                  <div className="relative mt-0.5 shrink-0">
-                    <input
-                      type="checkbox"
-                      checked={newsletter}
-                      onChange={(e) => setNewsletter(e.target.checked)}
-                      disabled={isSubmitting}
-                      className="peer sr-only"
-                    />
-                    <div className="h-5 w-5 rounded-md border border-border bg-muted/40 transition-all peer-checked:border-primary peer-checked:bg-primary" />
-                    <svg
-                      viewBox="0 0 12 10"
-                      fill="none"
-                      className="absolute left-0.5 top-[3px] h-4 w-4 opacity-0 transition-opacity peer-checked:opacity-100"
-                    >
-                      <path
-                        d="M1 5l3.5 3.5L11 1"
-                        stroke="hsl(var(--primary-foreground))"
-                        strokeWidth={1.8}
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                      />
-                    </svg>
-                  </div>
-                  <span className="text-sm leading-relaxed text-muted-foreground">
-                    {UCAT_SIGNUP_CONSENT_WORDING}
-                  </span>
-                </label>
+                <p className="text-sm leading-relaxed text-muted-foreground">
+                  {UCAT_SIGNUP_CONSENT_WORDING}
+                </p>
 
                 {errorMessage ? (
                   <p

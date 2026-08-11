@@ -1,8 +1,9 @@
 export const UCAT_SIGNUP_CONSENT_VERSION =
-  "ucat-signup-marketing-v2-2026-07-22";
+  "ucat-signup-inferred-v1-2026-08-11";
 
+/** Shown on signup and stored on consent records for inferred account-holder email. */
 export const UCAT_SIGNUP_CONSENT_WORDING =
-  "Email me optional personalised progress and study guidance, UCAT tips, product updates and offers. I can unsubscribe at any time.";
+  "We'll send you personalised progress updates and occasional preparation tips by email. Opt out anytime.";
 
 export const UCAT_PREFERENCE_CONSENT_VERSION =
   "ucat-communication-preferences-v1-2026-07-22";

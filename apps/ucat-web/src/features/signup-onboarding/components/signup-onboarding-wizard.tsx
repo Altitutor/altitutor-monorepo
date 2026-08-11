@@ -491,7 +491,6 @@ export function SignupOnboardingWizard({
                   initialFirstName={details.firstName}
                   initialLastName={details.lastName}
                   initialPhone={details.phone}
-                  newsletterOptIn={initial.newsletterOptIn}
                   returnTo={returnTo}
                   onComplete={(savedDetails) => {
                     setDetails(savedDetails);

@@ -42,12 +42,15 @@ describe("SignupForm", () => {
     });
   });
 
-  it("sends an OTP without preflighting whether the account exists", async () => {
+  it("shows the email notice and does not render a marketing checkbox", async () => {
     render(<SignupForm />);
 
     expect(
-      screen.getByLabelText(/Email me optional personalised progress/i),
-    ).not.toBeChecked();
+      screen.getByText(
+        /We'll send you personalised progress updates and occasional preparation tips by email/i,
+      ),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole("checkbox")).not.toBeInTheDocument();
 
     fireEvent.change(screen.getByLabelText("Email address"), {
       target: { value: "Existing@Example.com" },
@@ -65,15 +68,12 @@ describe("SignupForm", () => {
     expect(screen.getByText("existing@example.com")).toBeInTheDocument();
   });
 
-  it("subscribes only when the student explicitly opts in", async () => {
+  it("opts the student into lifecycle email after OTP verification", async () => {
     render(<SignupForm />);
 
     fireEvent.change(screen.getByLabelText("Email address"), {
       target: { value: "Student@Example.com" },
     });
-    fireEvent.click(
-      screen.getByLabelText(/Email me optional personalised progress/i),
-    );
     fireEvent.click(screen.getByRole("button", { name: "Register" }));
 
     expect(global.fetch).not.toHaveBeenCalled();

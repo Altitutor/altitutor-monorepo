@@ -66,10 +66,9 @@ function AuthCallbackInner() {
 
       if (intent === "signup") {
         const referralCode = normalizeReferralCode(searchParams.get("ref"));
-        const newsletterOptIn = searchParams.get("newsletter") === "1";
         const { error: metadataError } = await supabase.auth.updateUser({
           data: {
-            pending_newsletter_opt_in: newsletterOptIn,
+            pending_newsletter_opt_in: true,
             pending_referral_code: referralCode,
           },
         });

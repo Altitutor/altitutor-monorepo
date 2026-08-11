@@ -47,7 +47,6 @@ function renderStep({
       initialFirstName="Taylor"
       initialLastName="Student"
       initialPhone=""
-      newsletterOptIn
       returnTo="/dashboard"
       onComplete={onComplete}
       error={null}

@@ -14,6 +14,5 @@ export type SignupOnboardingInitial = {
   firstName: string;
   lastName: string;
   phone: string;
-  newsletterOptIn: boolean;
   step: SignupOnboardingStep;
 };

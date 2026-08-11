@@ -27,7 +27,6 @@ describe("SocialAuthButtons", () => {
         enabledProviders={["google"]}
         intent="signup"
         redirectTo="/subscribe"
-        newsletterOptIn
         referralCode="ABCD1234"
       />,
     );
@@ -41,7 +40,7 @@ describe("SocialAuthButtons", () => {
     expect(credentials.provider).toBe("google");
     const callback = new URL(credentials.options.redirectTo);
     expect(callback.searchParams.get("intent")).toBe("signup");
-    expect(callback.searchParams.get("newsletter")).toBe("1");
+    expect(callback.searchParams.has("newsletter")).toBe(false);
     expect(callback.searchParams.get("ref")).toBe("ABCD1234");
     expect(captureUcatEvent).toHaveBeenCalledWith("signup_started", {
       auth_provider: "google",

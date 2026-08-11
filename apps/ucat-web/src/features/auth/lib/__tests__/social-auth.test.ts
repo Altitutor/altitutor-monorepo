@@ -22,14 +22,13 @@ describe("social auth", () => {
     ).toEqual(["google", "apple"]);
   });
 
-  it("builds a signup callback that preserves consent and a validated referral", () => {
+  it("builds a signup callback that preserves a validated referral", () => {
     const callback = new URL(
       buildSocialAuthCallbackUrl({
         origin: "https://ucat.altitutor.com",
         intent: "signup",
         provider: "google",
         next: "/checkout?tier=unlimited&interval=month&context=signup_onboarding",
-        newsletterOptIn: true,
         referralCode: " abcd1234 ",
       }),
     );
@@ -40,7 +39,6 @@ describe("social auth", () => {
       intent: "signup",
       provider: "google",
       next: "/checkout?tier=unlimited&interval=month&context=signup_onboarding",
-      newsletter: "1",
       ref: "ABCD1234",
     });
   });
@@ -52,7 +50,6 @@ describe("social auth", () => {
         intent: "link",
         provider: "apple",
         next: "/settings/profile",
-        newsletterOptIn: true,
         referralCode: "ABCD1234",
       }),
     );
