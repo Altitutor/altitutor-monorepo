@@ -51,5 +51,8 @@ describe("renderEmail", () => {
     expect(email.html).toContain("class=\"email-panel\"");
     expect(email.html).toContain("https://ucat.altitutor.com/results?from=a&amp;next=b");
     expect(email.html).toContain("Review &lt;results&gt;");
+    expect(email.html).toContain(".email-panel td");
+    expect(email.html).toContain(".email-content a");
+    expect(email.html).toContain("color: #b7d4df !important");
   });
 });

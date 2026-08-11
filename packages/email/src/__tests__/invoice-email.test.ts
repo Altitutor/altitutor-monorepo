@@ -15,6 +15,10 @@ describe("buildInvoiceNotificationEmail", () => {
     expect(email.html).toContain("AUD $245.00");
     expect(email.html).toContain("View and pay invoice");
     expect(email.html).toContain("Download invoice PDF");
+    expect(email.html).toContain('class="email-strong"');
+    expect(email.html).toContain('class="email-accent"');
+    expect(email.html).toContain(".email-panel td");
+    expect(email.html).toContain("color: #b7d4df !important");
     expect(email.html).toContain("admin@altitutor.com");
     expect(email.html).not.toContain("support@altitutor.com");
     expect(email.text).toContain("Hosted invoice: https://invoice.stripe.com/i/abc");

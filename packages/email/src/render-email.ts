@@ -126,17 +126,18 @@ export function renderEmail(input: {
         body, .email-page { background-color: #171717 !important; }
         .email-card, .email-content, .email-header { background-color: #1f1f1f !important; }
         .email-card, .email-header { border-color: #2b2b2b !important; }
-        a, .email-brand, .email-link, .email-accent,
-        .email-panel-copy .email-accent { color: #92b5c3 !important; }
-        .email-brand-subtitle, .email-muted { color: #b3b3b3 !important; }
-        .email-heading, .email-strong { color: #ffffff !important; }
-        .email-copy, .email-copy p, .email-copy li { color: #f5f5f5 !important; }
+        a, a.email-link, .email-brand, .email-link, .email-accent,
+        .email-content a, .email-copy a, .email-muted a, .email-panel a,
+        .email-panel-copy .email-accent, .email-panel .email-accent { color: #b7d4df !important; }
+        .email-brand-subtitle, .email-muted, .email-panel .email-muted { color: #b3b3b3 !important; }
+        .email-heading, .email-strong, .email-panel .email-strong { color: #ffffff !important; }
+        .email-copy, .email-copy p, .email-copy li, .email-copy td { color: #f5f5f5 !important; }
         .email-panel { background-color: #262626 !important; border-color: #2b2b2b !important; }
-        .email-panel-copy, .email-panel-copy p, .email-panel-copy td { color: #f5f5f5 !important; }
+        .email-panel td, .email-panel-copy, .email-panel-copy p, .email-panel-copy td { color: #f5f5f5 !important; }
         .email-module-surface { background-color: #2b2b2b !important; border-color: #2b2b2b !important; }
         .email-footer { background-color: #262626 !important; border-color: #2b2b2b !important; }
         .email-footer p { color: #b3b3b3 !important; }
-        .email-footer a { color: #92b5c3 !important; }
+        .email-footer a { color: #b7d4df !important; }
         .email-button-cell { background-color: #92b5c3 !important; }
         .email-button { color: #1c1c1c !important; }
         .email-accent-fill { background-color: #92b5c3 !important; color:#1c1c1c !important; }
@@ -144,17 +145,23 @@ export function renderEmail(input: {
       [data-ogsc] body, [data-ogsc] .email-page { background-color: #171717 !important; }
       [data-ogsc] .email-card, [data-ogsc] .email-content, [data-ogsc] .email-header { background-color: #1f1f1f !important; }
       [data-ogsc] .email-card, [data-ogsc] .email-header { border-color: #2b2b2b !important; }
-      [data-ogsc] a, [data-ogsc] .email-brand, [data-ogsc] .email-link,
-      [data-ogsc] .email-accent, [data-ogsc] .email-panel-copy .email-accent { color: #92b5c3 !important; }
-      [data-ogsc] .email-brand-subtitle, [data-ogsc] .email-muted { color: #b3b3b3 !important; }
-      [data-ogsc] .email-heading, [data-ogsc] .email-strong { color: #ffffff !important; }
-      [data-ogsc] .email-copy, [data-ogsc] .email-copy p, [data-ogsc] .email-copy li { color: #f5f5f5 !important; }
+      [data-ogsc] a, [data-ogsc] a.email-link, [data-ogsc] .email-brand, [data-ogsc] .email-link,
+      [data-ogsc] .email-accent, [data-ogsc] .email-content a, [data-ogsc] .email-copy a,
+      [data-ogsc] .email-muted a, [data-ogsc] .email-panel a, [data-ogsc] .email-panel-copy .email-accent,
+      [data-ogsc] .email-panel .email-accent { color: #b7d4df !important; }
+      [data-ogsc] .email-brand-subtitle, [data-ogsc] .email-muted,
+      [data-ogsc] .email-panel .email-muted { color: #b3b3b3 !important; }
+      [data-ogsc] .email-heading, [data-ogsc] .email-strong,
+      [data-ogsc] .email-panel .email-strong { color: #ffffff !important; }
+      [data-ogsc] .email-copy, [data-ogsc] .email-copy p, [data-ogsc] .email-copy li,
+      [data-ogsc] .email-copy td { color: #f5f5f5 !important; }
       [data-ogsc] .email-panel { background-color: #262626 !important; border-color: #2b2b2b !important; }
-      [data-ogsc] .email-panel-copy, [data-ogsc] .email-panel-copy p, [data-ogsc] .email-panel-copy td { color: #f5f5f5 !important; }
+      [data-ogsc] .email-panel td, [data-ogsc] .email-panel-copy, [data-ogsc] .email-panel-copy p,
+      [data-ogsc] .email-panel-copy td { color: #f5f5f5 !important; }
       [data-ogsc] .email-module-surface { background-color: #2b2b2b !important; border-color: #2b2b2b !important; }
       [data-ogsc] .email-footer { background-color: #262626 !important; border-color: #2b2b2b !important; }
       [data-ogsc] .email-footer p { color: #b3b3b3 !important; }
-      [data-ogsc] .email-footer a { color: #92b5c3 !important; }
+      [data-ogsc] .email-footer a { color: #b7d4df !important; }
       [data-ogsc] .email-button-cell { background-color: #92b5c3 !important; }
       [data-ogsc] .email-button { color: #1c1c1c !important; }
       [data-ogsb] .email-accent-fill { background-color: #92b5c3 !important; }

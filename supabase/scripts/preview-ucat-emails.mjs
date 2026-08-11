@@ -455,14 +455,14 @@ function forceDarkTheme(html) {
     :root{color-scheme:dark!important;supported-color-schemes:dark!important}
     body,.email-page,.email-bg{background-color:#171717!important}
     .email-card,.email-content,.email-header{background-color:#1f1f1f!important;border-color:#2b2b2b!important}
-    .email-heading,.email-title,.email-strong{color:#fff!important}
-    .email-copy,.email-copy p,.email-copy li{color:#f5f5f5!important}
+    .email-heading,.email-title,.email-strong,.email-panel .email-strong{color:#fff!important}
+    .email-copy,.email-copy p,.email-copy li,.email-copy td{color:#f5f5f5!important}
     .email-panel{background-color:#262626!important;border-color:#2b2b2b!important}
     .email-footer{background-color:#262626!important;border-color:#2b2b2b!important}
     .email-module-surface{background-color:#2b2b2b!important;border-color:#2b2b2b!important}
-    .email-panel-copy,.email-panel-copy p,.email-panel-copy td{color:#f5f5f5!important}
-    .email-footer p,.email-muted,.email-brand-subtitle{color:#b3b3b3!important}
-    a,.email-brand,.email-link,.email-footer-title,.email-accent,.email-panel-copy .email-accent,.email-footer a{color:#92b5c3!important}
+    .email-panel td,.email-panel-copy,.email-panel-copy p,.email-panel-copy td{color:#f5f5f5!important}
+    .email-footer p,.email-muted,.email-brand-subtitle,.email-panel .email-muted{color:#b3b3b3!important}
+    a,a.email-link,.email-brand,.email-link,.email-footer-title,.email-accent,.email-content a,.email-copy a,.email-muted a,.email-panel a,.email-panel-copy .email-accent,.email-panel .email-accent,.email-footer a{color:#b7d4df!important}
     .email-button-cell,.email-button{background-color:#92b5c3!important}.email-button{color:#1c1c1c!important}
     .email-accent-fill{background-color:#92b5c3!important;color:#1c1c1c!important}
   </style>`;

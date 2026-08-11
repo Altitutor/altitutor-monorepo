@@ -200,9 +200,9 @@ export function buildInvoiceNotificationEmail(input: {
     bodyHtml: `
       <p class="email-copy" style="${paragraphStyle}">Your Altitutor invoice is ready. Stripe securely hosts the invoice and payment page.</p>
       <table class="email-panel" role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" bgcolor="#eaf1f3" style="margin:22px 0;background-color:#eaf1f3;border:1px solid #d1e0e5;border-radius:12px">
-        <tr><td style="padding:12px 20px;border-bottom:1px solid #d1e0e5;color:#52606a;font-size:14px">Invoice date</td><td align="right" style="padding:12px 20px;border-bottom:1px solid #d1e0e5;color:#223b4b;font-size:14px;font-weight:600">${escapeEmailHtml(input.invoiceDate)}</td></tr>
-        <tr><td style="padding:12px 20px;border-bottom:1px solid #d1e0e5;color:#52606a;font-size:14px">Due date</td><td align="right" style="padding:12px 20px;border-bottom:1px solid #d1e0e5;color:#223b4b;font-size:14px;font-weight:600">${escapeEmailHtml(input.dueDate)}</td></tr>
-        <tr><td style="padding:14px 20px;color:#52606a;font-size:14px">Amount</td><td align="right" style="padding:14px 20px;color:#0a2941;font-size:18px;font-weight:700">${escapeEmailHtml(input.amount)}</td></tr>
+        <tr><td class="email-muted" style="padding:12px 20px;border-bottom:1px solid #d1e0e5;color:#52606a;font-size:14px">Invoice date</td><td class="email-strong" align="right" style="padding:12px 20px;border-bottom:1px solid #d1e0e5;color:#223b4b;font-size:14px;font-weight:600">${escapeEmailHtml(input.invoiceDate)}</td></tr>
+        <tr><td class="email-muted" style="padding:12px 20px;border-bottom:1px solid #d1e0e5;color:#52606a;font-size:14px">Due date</td><td class="email-strong" align="right" style="padding:12px 20px;border-bottom:1px solid #d1e0e5;color:#223b4b;font-size:14px;font-weight:600">${escapeEmailHtml(input.dueDate)}</td></tr>
+        <tr><td class="email-muted" style="padding:14px 20px;color:#52606a;font-size:14px">Amount</td><td class="email-accent" align="right" style="padding:14px 20px;color:#0a2941;font-size:18px;font-weight:700">${escapeEmailHtml(input.amount)}</td></tr>
       </table>
       ${hostedAction}
       ${pdfAction}
