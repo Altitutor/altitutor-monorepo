@@ -8,6 +8,7 @@ import {
 } from "@/features/preparation";
 import {
   getStudyPlan,
+  saveStudyPlanProfile,
   updateStudyPlanTask,
 } from "@/features/study-plan/server/study-plan-service";
 import { supabaseAdmin } from "@/lib/supabase/admin";
@@ -27,19 +28,25 @@ type RecordedUpdate = {
   payload: Record<string, unknown>;
   filters: Map<string, unknown>;
 };
+type RecordedUpsert = {
+  table: string;
+  payload: unknown;
+};
 type QueryChain = {
   select: jest.Mock<QueryChain, []>;
   update: jest.Mock<QueryChain, [Record<string, unknown>]>;
   insert: jest.Mock<QueryChain, []>;
-  upsert: jest.Mock<QueryChain, []>;
+  upsert: jest.Mock<QueryChain, [unknown]>;
   eq: jest.Mock<QueryChain, [string, unknown]>;
   is: jest.Mock<QueryChain, [string, unknown]>;
   lt: jest.Mock<QueryChain, [string, unknown]>;
   gte: jest.Mock<QueryChain, []>;
+  lte: jest.Mock<QueryChain, []>;
   in: jest.Mock<QueryChain, [string, unknown]>;
   not: jest.Mock<QueryChain, []>;
   neq: jest.Mock<QueryChain, []>;
   order: jest.Mock<QueryChain, []>;
+  limit: jest.Mock<QueryChain, []>;
   maybeSingle: jest.Mock<Promise<QueryResult>, []>;
   single: jest.Mock<Promise<QueryResult>, []>;
   then: (
@@ -94,10 +101,18 @@ const replacementGeneration = {
 };
 
 function createDatabaseHarness(
-  options: { currentPolicy?: boolean; missedWorkCount?: number } = {},
+  options: {
+    currentPolicy?: boolean;
+    missedWorkCount?: number;
+    studyPlanEnabled?: boolean;
+    wasEnabled?: boolean;
+    recentTimingEvidence?: boolean;
+  } = {},
 ) {
   const updates: RecordedUpdate[] = [];
+  const upserts: RecordedUpsert[] = [];
   let replacementPersisted = false;
+  let profileUpserted = false;
   const activeGeneration = options.currentPolicy
     ? {
         ...oldGeneration,
@@ -117,7 +132,16 @@ function createDatabaseHarness(
       };
     }
     if (table === "ucat_student_study_plan_profiles" && single) {
-      return { data: profile, error: null };
+      return {
+        data: {
+          ...profile,
+          study_plan_enabled:
+            profileUpserted && options.studyPlanEnabled != null
+              ? options.studyPlanEnabled
+              : (options.wasEnabled ?? true),
+        },
+        error: null,
+      };
     }
     if (table === "ucat_student_study_plan_generations" && single) {
       return {
@@ -157,6 +181,48 @@ function createDatabaseHarness(
     if (table === "student_ucat_mock_attempts") {
       return { data: null, error: null, count: 0 };
     }
+    if (options.recentTimingEvidence && table === "ucat_sections") {
+      return {
+        data: [
+          {
+            id: "section-1",
+            name: "Verbal Reasoning",
+            section_number: 1,
+            number_of_questions: 44,
+            time_per_question: 40,
+          },
+        ],
+        error: null,
+      };
+    }
+    if (
+      options.recentTimingEvidence &&
+      table === "vstudent_ucat_preparation_timing_evidence"
+    ) {
+      return {
+        data: [
+          {
+            evidence_session_id: "session-1",
+            source: "practice",
+            section_id: "section-1",
+            completed_at: "2026-08-10T01:00:00.000Z",
+            prescribed_pace: 1,
+            observed_pace: 1,
+            accuracy: 0.8,
+            section_equivalents: 3,
+            category_ids: [],
+            breadth: "broad",
+          },
+        ],
+        error: null,
+      };
+    }
+    if (
+      options.recentTimingEvidence &&
+      table === "ucat_student_study_plan_generations"
+    ) {
+      return { data: [activeGeneration], error: null };
+    }
     return { data: [], error: null };
   }
 
@@ -170,7 +236,13 @@ function createDatabaseHarness(
         return chain;
       }),
       insert: jest.fn(() => chain),
-      upsert: jest.fn(() => chain),
+      upsert: jest.fn((payload: unknown) => {
+        upserts.push({ table, payload });
+        if (table === "ucat_student_study_plan_profiles") {
+          profileUpserted = true;
+        }
+        return chain;
+      }),
       eq: jest.fn((column: string, value: unknown) => {
         filters.set(column, value);
         return chain;
@@ -184,6 +256,7 @@ function createDatabaseHarness(
         return chain;
       }),
       gte: jest.fn(() => chain),
+      lte: jest.fn(() => chain),
       in: jest.fn((column: string, value: unknown) => {
         filters.set(`${column}:in`, value);
         return chain;
@@ -191,6 +264,7 @@ function createDatabaseHarness(
       not: jest.fn(() => chain),
       neq: jest.fn(() => chain),
       order: jest.fn(() => chain),
+      limit: jest.fn(() => chain),
       maybeSingle: jest.fn(async () => resultFor(table, filters, true)),
       single: jest.fn(async () => resultFor(table, filters, true)),
       then: (
@@ -227,7 +301,7 @@ function createDatabaseHarness(
     from: jest.fn((table: string) => query(table)),
   } as unknown as SupabaseClient<Database>;
 
-  return { admin, studentClient, updates };
+  return { admin, studentClient, updates, upserts };
 }
 
 function mockReplacementPlan() {
@@ -240,6 +314,7 @@ function mockReplacementPlan() {
     assessment: { sections: [] },
     currentScore: { sections: [] },
     trajectory: {},
+    immediateGuidance: [],
     explanationTrace: [],
     plan: {
       tasks: [
@@ -358,5 +433,101 @@ describe("Study plan persistence orchestration", () => {
       "replace_ucat_study_plan_generation",
       expect.objectContaining({ p_reason: "significant_activity" }),
     );
+  });
+
+  it("retires the calendar and persists recent-workload Preparation output when the plan is disabled", async () => {
+    const { admin, studentClient, updates, upserts } = createDatabaseHarness({
+      studyPlanEnabled: false,
+      recentTimingEvidence: true,
+    });
+
+    await saveStudyPlanProfile(studentClient, "user-1", {
+      studyPlanEnabled: false,
+      targetScore: 2400,
+      testYear: 2026,
+      testDate: "2026-09-01",
+      availableDays: [{ weekday: 2, maxMinutes: 60 }],
+      preferredMockWeekday: 2,
+      sjtPreference: "a_little",
+    });
+
+    expect(prepareStudent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        goal: expect.objectContaining({
+          profile: expect.objectContaining({ studyPlanEnabled: false }),
+        }),
+        evidence: expect.objectContaining({
+          forecast: expect.objectContaining({
+            recentCoreSectionEquivalentsPerWeek: 1,
+          }),
+        }),
+      }),
+    );
+    expect(updates).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          table: "ucat_student_study_plan_generations",
+          payload: expect.objectContaining({
+            superseded_at: expect.any(String),
+          }),
+        }),
+      ]),
+    );
+    expect(upserts).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          table: "ucat_preparation_snapshots",
+          payload: expect.objectContaining({
+            student_id: "student-1",
+            snapshot_date: "2026-08-11",
+            trajectory_model_version:
+              CURRENT_PREPARATION_VERSIONS.trajectoryModel,
+          }),
+        }),
+      ]),
+    );
+    expect(admin.rpc).not.toHaveBeenCalledWith(
+      "replace_ucat_study_plan_generation",
+      expect.objectContaining({
+        p_reason: "profile_changed",
+      }),
+    );
+  });
+
+  it("refreshes the Preparation snapshot for a Student who already has the plan disabled", async () => {
+    const { admin, studentClient, upserts } = createDatabaseHarness({
+      wasEnabled: false,
+      studyPlanEnabled: false,
+      recentTimingEvidence: true,
+    });
+
+    await saveStudyPlanProfile(studentClient, "user-1", {
+      studyPlanEnabled: false,
+      targetScore: 2400,
+      testYear: 2026,
+      testDate: "2026-09-01",
+      availableDays: [{ weekday: 2, maxMinutes: 60 }],
+      preferredMockWeekday: 2,
+      sjtPreference: "a_little",
+    });
+
+    expect(prepareStudent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        goal: expect.objectContaining({
+          profile: expect.objectContaining({ studyPlanEnabled: false }),
+        }),
+        evidence: expect.objectContaining({
+          forecast: expect.objectContaining({
+            recentCoreSectionEquivalentsPerWeek: 1,
+          }),
+        }),
+      }),
+    );
+    expect(
+      upserts.some(
+        (upsert) => upsert.table === "ucat_preparation_snapshots",
+      ),
+    ).toBe(true);
+    expect(admin.rpc).not.toHaveBeenCalled();
   });
 });

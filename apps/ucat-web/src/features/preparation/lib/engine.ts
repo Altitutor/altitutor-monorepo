@@ -14,6 +14,8 @@ import { buildReadinessSnapshot } from "@/features/study-plan/lib/readiness";
 import { estimateRepresentativeScore } from "@/features/preparation/lib/score-model";
 import { rankActivityCandidates } from "@/features/preparation/lib/activity-ranking";
 import { latestCompletedMockDate } from "@/features/preparation/lib/sjt-allocation-policy";
+import { buildPreparationTrajectory } from "@/features/preparation/lib/trajectory";
+import { allocateSectionTargets } from "@/features/study-plan/lib/section-targets";
 
 const COGNITIVE_SECTION_COUNT = 3;
 
@@ -26,6 +28,7 @@ function validateInput(input: PreparationEngineInput): void {
   requireNonEmpty(input.versions.engine, "Preparation engine version");
   requireNonEmpty(input.versions.policy, "Preparation policy version");
   requireNonEmpty(input.versions.scoreModel, "Score model version");
+  requireNonEmpty(input.versions.trajectoryModel, "Trajectory model version");
   requireNonEmpty(input.timingProfile.id, "Timing profile id");
   requireNonEmpty(input.timingProfile.version, "Timing profile version");
   if (!Number.isFinite(new Date(input.clock.now).getTime())) {
@@ -183,6 +186,7 @@ export function prepareStudent(
   input: PreparationEngineInput,
 ): PreparationEngineResult {
   validateInput(input);
+  const currentScore = currentScoreFromRepresentativeEvidence(input);
   const baseAssessment = buildReadinessSnapshot({
     today: input.clock.today,
     planningDate: input.goal.planningDate,
@@ -237,6 +241,25 @@ export function prepareStudent(
   const lastCompletedMockDate = latestCompletedMockDate(
     input.evidence.timingSessions,
   );
+  const currentScoreBySection = new Map(
+    currentScore.sections.map((section) => [section.sectionId, section]),
+  );
+  const sectionTargets = allocateSectionTargets({
+    totalTarget: input.goal.profile.targetScore,
+    sections: input.content.sections
+      .filter((section) => section.sectionNumber <= COGNITIVE_SECTION_COUNT)
+      .map((section) => {
+        const score = currentScoreBySection.get(section.id);
+        return {
+          sectionId: section.id,
+          currentEstimate: score?.currentEstimate ?? null,
+          confidence: score?.confidence ?? null,
+        };
+      }),
+    previousTargets: input.evidence.forecast?.previousSectionTargets,
+    previousTargetsSetAt: input.evidence.forecast?.previousSectionTargetsSetAt,
+    now: input.clock.now,
+  });
   const plan = generateStudyPlan({
     today: input.clock.today,
     planningDate: input.goal.planningDate,
@@ -249,6 +272,7 @@ export function prepareStudent(
     tagSignals: input.content.tagSignals,
     completedMockCount: input.evidence.completedMockCount,
     lastCompletedMockDate,
+    sectionTargets,
   });
   const activityCandidates = rankActivityCandidates({
     today: input.clock.today,
@@ -270,7 +294,7 @@ export function prepareStudent(
     lastCompletedMockDate,
   });
   const immediateGuidance = input.guidance
-      ? buildNextStepDrafts({
+    ? buildNextStepDrafts({
         today: input.clock.today,
         planningDate: input.goal.planningDate,
         targetScore: input.goal.profile.targetScore,
@@ -347,6 +371,13 @@ export function prepareStudent(
       },
     ];
   });
+  const trajectory = buildPreparationTrajectory({
+    preparation: input,
+    currentScore,
+    scheduledCoreSectionEquivalentsPerWeek:
+      plan.coreSectionEquivalentsPerWeek,
+    readiness: plan.readiness,
+  });
   return {
     generatedAt: input.clock.now,
     seed: input.seed,
@@ -361,13 +392,9 @@ export function prepareStudent(
       })),
     },
     assessment: plan.readiness,
-    currentScore: currentScoreFromRepresentativeEvidence(input),
+    currentScore,
     plan,
-    trajectory: {
-      status: "unavailable",
-      reason: "legacy_adapter",
-      points: [],
-    },
+    trajectory,
     immediateGuidance,
     activityCandidates,
     capacityRisks,

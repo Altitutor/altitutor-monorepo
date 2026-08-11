@@ -5,8 +5,9 @@ import type {
 
 export const CURRENT_PREPARATION_VERSIONS: PreparationVersions = Object.freeze({
   engine: "preparation-engine-v1",
-  policy: "evidence-driven-preparation-policy-v4",
+  policy: "evidence-driven-preparation-policy-v5",
   scoreModel: "representative-evidence-score-v1",
+  trajectoryModel: "conditional-preparation-trajectory-v1",
 });
 
 export const STANDARD_PREPARATION_TIMING_PROFILE: PreparationTimingProfile = {

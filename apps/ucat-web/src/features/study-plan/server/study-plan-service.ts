@@ -16,6 +16,12 @@ import {
   type ActivityTagSignal,
   type RepresentativeScoreEvidence,
 } from "@/features/preparation";
+import { derivePreparationForecastEvidence } from "@/features/preparation/lib/forecast-evidence";
+import {
+  hasPreparationSnapshot,
+  loadPreparationSnapshotHistory,
+  persistPreparationSnapshot,
+} from "@/features/preparation/server/preparation-snapshot";
 import {
   latestCompletedMockDate,
   normalizeSjtPreference,
@@ -67,6 +73,7 @@ import type {
   StudyPlanSectionSignal,
   StudyPlanSkillTrainer,
   StudyPlanTask,
+  StudyPlanTaskStatus,
   StudyPlanTimingEvidenceSession,
 } from "@/features/study-plan/model/types";
 
@@ -110,6 +117,19 @@ function shortSectionName(sectionNumber: number): string {
   return (
     ["VR", "DM", "QR", "SJ"][sectionNumber - 1] ?? `Section ${sectionNumber}`
   );
+}
+
+function taskStatus(value: string): StudyPlanTaskStatus {
+  if (
+    value === "planned" ||
+    value === "in_progress" ||
+    value === "partial" ||
+    value === "completed" ||
+    value === "skipped"
+  ) {
+    return value;
+  }
+  return "planned";
 }
 
 function parseAvailability(
@@ -884,6 +904,76 @@ async function persistGeneration(
   if (error) throw error;
 }
 
+async function loadForecastEvidence(
+  supabase: SupabaseClient<Database>,
+  studentId: string,
+  today: string,
+  timingSessions: StudyPlanTimingEvidenceSession[],
+  sections: StudyPlanSection[],
+) {
+  const admin = requireAdmin();
+  const [generationResult, preparationHistory] = await Promise.all([
+    admin
+      .from("ucat_student_study_plan_generations")
+      .select("id, generated_at, superseded_at, projection_snapshot")
+      .eq("student_id", studentId)
+      .order("generated_at", { ascending: false }),
+    loadPreparationSnapshotHistory(supabase),
+  ]);
+  const { data: generations, error: generationError } = generationResult;
+  if (generationError) throw generationError;
+
+  const activeGeneration = (generations ?? []).find(
+    (generation) => generation.superseded_at == null,
+  );
+  let tasks: Array<{
+    scheduled_date: string;
+    status: string;
+    launch_config: Json;
+  }> = [];
+  if (activeGeneration) {
+    const { data: taskRows, error: tasksError } = await admin
+      .from("ucat_student_study_plan_tasks")
+      .select("status, scheduled_date, launch_config")
+      .eq("generation_id", activeGeneration.id);
+    if (tasksError) throw tasksError;
+    tasks = taskRows ?? [];
+  }
+
+  return derivePreparationForecastEvidence({
+    today,
+    versions: CURRENT_PREPARATION_VERSIONS,
+    activePlanSnapshot: activeGeneration
+      ? {
+          generatedAt: activeGeneration.generated_at,
+          projectionSnapshot: activeGeneration.projection_snapshot,
+        }
+      : null,
+    historySnapshots: [
+      ...(generations ?? []).map((generation) => ({
+        generatedAt: generation.generated_at,
+        projectionSnapshot: generation.projection_snapshot,
+      })),
+      ...preparationHistory,
+    ],
+    activeGenerationTasks: tasks.map((task) => ({
+      scheduledDate: task.scheduled_date,
+      status: taskStatus(task.status),
+      optional:
+        task.launch_config != null &&
+        typeof task.launch_config === "object" &&
+        !Array.isArray(task.launch_config) &&
+        task.launch_config.optional === true,
+    })),
+    timingSessions,
+    cognitiveSectionIds: new Set(
+      sections
+        .filter((section) => section.sectionNumber <= 3)
+        .map((section) => section.id),
+    ),
+  });
+}
+
 async function generateForProfile(
   supabase: SupabaseClient<Database>,
   studentId: string,
@@ -898,6 +988,13 @@ async function generateForProfile(
   );
   const now = new Date();
   const today = todayIso(now);
+  const forecast = await loadForecastEvidence(
+    supabase,
+    studentId,
+    today,
+    inputs.timingSessions,
+    inputs.sections,
+  );
   const preparation = prepareStudent({
     clock: {
       now: now.toISOString(),
@@ -922,6 +1019,7 @@ async function generateForProfile(
       timingSessions: inputs.timingSessions,
       scoreEvidence: inputs.scoreEvidence,
       completedMockCount: inputs.completedMockCount,
+      forecast,
     },
   });
   await persistPreparationProgression(
@@ -1515,7 +1613,12 @@ async function loadNextStepBuildInput(
     BuildNextStepsInput,
     "today" | "dailyWarmup" | "incompleteReview"
   >,
-): Promise<BuildNextStepsInput> {
+): Promise<
+  BuildNextStepsInput & {
+    timingSessions: StudyPlanTimingEvidenceSession[];
+    scoreEvidence: RepresentativeScoreEvidence[];
+  }
+> {
   const admin = requireAdmin();
   const [inputs, trainerAttempts, planning] = await Promise.all([
     loadGenerationInputs(supabase, studentId, profile.test_year),
@@ -1597,7 +1700,16 @@ async function getOrRefreshNextSteps(
     currentGeneratedOn: current[0]?.generated_on ?? null,
     latestActivity,
   });
-  if (current.length >= 2 && triggerKey === currentTrigger) {
+  const currentSnapshotExists = await hasPreparationSnapshot(
+    supabase,
+    today,
+    CURRENT_PREPARATION_VERSIONS,
+  );
+  if (
+    current.length >= 2 &&
+    triggerKey === currentTrigger &&
+    currentSnapshotExists
+  ) {
     return current.map(mapNextStep);
   }
 
@@ -1618,6 +1730,13 @@ async function getOrRefreshNextSteps(
   );
   const nextTrigger = triggerKey ?? `daily:${today}`;
   const now = new Date();
+  const forecast = await loadForecastEvidence(
+    supabase,
+    studentId,
+    today,
+    buildInput.timingSessions,
+    buildInput.sections,
+  );
   const preparation = prepareStudent({
     clock: { now: now.toISOString(), today },
     seed: `guidance:${studentId}:${nextTrigger}`,
@@ -1637,7 +1756,9 @@ async function getOrRefreshNextSteps(
     evidence: {
       sectionSignals: buildInput.signals,
       timingSessions: buildInput.timingSessions,
+      scoreEvidence: buildInput.scoreEvidence,
       completedMockCount: buildInput.completedMockCount,
+      forecast,
     },
     guidance: {
       dailyWarmup: buildInput.dailyWarmup,
@@ -1650,6 +1771,7 @@ async function getOrRefreshNextSteps(
     profile.test_year,
     preparation,
   );
+  await persistPreparationSnapshot(studentId, today, preparation);
   const drafts = preparation.immediateGuidance;
   const { data, error } = await admin
     .from("ucat_student_next_steps")

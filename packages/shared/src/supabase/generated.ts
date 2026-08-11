@@ -16876,6 +16876,84 @@ export type Database = {
         }
         Relationships: []
       }
+      ucat_preparation_snapshots: {
+        Row: {
+          created_at: string
+          engine_version: string
+          generated_at: string
+          id: string
+          policy_version: string
+          score_model_version: string
+          snapshot: Json
+          snapshot_date: string
+          student_id: string
+          trajectory_model_version: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          engine_version: string
+          generated_at: string
+          id?: string
+          policy_version: string
+          score_model_version: string
+          snapshot: Json
+          snapshot_date: string
+          student_id: string
+          trajectory_model_version: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          engine_version?: string
+          generated_at?: string
+          id?: string
+          policy_version?: string
+          score_model_version?: string
+          snapshot?: Json
+          snapshot_date?: string
+          student_id?: string
+          trajectory_model_version?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ucat_preparation_snapshots_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ucat_preparation_snapshots_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "vadmin_reconciliation_students_without_payment_method"
+            referencedColumns: ["student_id"]
+          },
+          {
+            foreignKeyName: "ucat_preparation_snapshots_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_profile"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ucat_preparation_snapshots_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_students"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ucat_preparation_snapshots_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_ucat_student_progress_summary"
+            referencedColumns: ["student_id"]
+          },
+        ]
+      }
       ucat_public_interest_submissions: {
         Row: {
           contact_consent: boolean
@@ -25532,6 +25610,36 @@ export type Database = {
             referencedColumns: ["student_id"]
           },
         ]
+      }
+      vstudent_ucat_preparation_snapshots: {
+        Row: {
+          engine_version: string | null
+          generated_at: string | null
+          policy_version: string | null
+          score_model_version: string | null
+          snapshot: Json | null
+          snapshot_date: string | null
+          trajectory_model_version: string | null
+        }
+        Insert: {
+          engine_version?: string | null
+          generated_at?: string | null
+          policy_version?: string | null
+          score_model_version?: string | null
+          snapshot?: Json | null
+          snapshot_date?: string | null
+          trajectory_model_version?: string | null
+        }
+        Update: {
+          engine_version?: string | null
+          generated_at?: string | null
+          policy_version?: string | null
+          score_model_version?: string | null
+          snapshot?: Json | null
+          snapshot_date?: string | null
+          trajectory_model_version?: string | null
+        }
+        Relationships: []
       }
       vstudent_ucat_preparation_timing_evidence: {
         Row: {

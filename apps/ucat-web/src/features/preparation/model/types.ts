@@ -21,6 +21,7 @@ export type PreparationVersions = {
   readonly engine: string;
   readonly policy: string;
   readonly scoreModel: string;
+  readonly trajectoryModel: string;
 };
 
 export type PreparationGuidanceItem = Omit<
@@ -74,6 +75,16 @@ export type PreparationEngineInput = {
     timingSessions?: StudyPlanTimingEvidenceSession[];
     scoreEvidence?: RepresentativeScoreEvidence[];
     completedMockCount: number;
+    forecast?: {
+      previousSectionTargets?: Record<string, number>;
+      previousSectionTargetsSetAt?: string | null;
+      recentCoreSectionEquivalentsPerWeek?: number | null;
+      expectedAdherence?: number | null;
+      adherenceUncertainty?: number | null;
+      learningResponse?: number | null;
+      learningResponseUncertainty?: number | null;
+      history?: PreparationTrajectoryHistoryPoint[];
+    };
   };
   guidance?: PreparationGuidanceContext;
 };
@@ -105,11 +116,38 @@ export type PreparationCurrentScoreEstimate = {
   } | null;
 };
 
-export type PreparationTrajectory = {
-  status: "unavailable";
-  reason: "legacy_adapter";
-  points: [];
+export type PreparationTrajectoryHistoryPoint = {
+  date: string;
+  currentEstimate: number;
+  modelVersion: string;
 };
+
+export type PreparationTrajectoryPoint = {
+  date: string;
+  day: number;
+  lower: number;
+  middle: number;
+  upper: number;
+};
+
+export type PreparationTrajectory =
+  | {
+      status: "unavailable";
+      reason: "insufficient_score_evidence" | "no_future_dose";
+      modelVersion: string;
+      history: PreparationTrajectoryHistoryPoint[];
+      points: [];
+    }
+  | {
+      status: "available";
+      modelVersion: string;
+      doseSource: "scheduled_core" | "recent_sustained_workload";
+      coreSectionEquivalentsPerWeek: number;
+      expectedAdherence: number;
+      percentiles: { lower: 20; middle: 50; upper: 80 };
+      history: PreparationTrajectoryHistoryPoint[];
+      points: PreparationTrajectoryPoint[];
+    };
 
 export type PreparationExplanationTraceItem = {
   code: string;

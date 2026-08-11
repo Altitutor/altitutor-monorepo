@@ -17,6 +17,7 @@ import type {
   StudyPlanCategorySignal,
   StudyPlanSection,
 } from "@/features/study-plan/model/types";
+import { ACCURATE_SLOW_PREPARATION_PERSONA } from "@/features/preparation/testing/personas";
 
 const sections: StudyPlanSection[] = [
   ["vr", "verbal_reasoning", "Verbal Reasoning", "VR", 1, 44, 47],
@@ -103,6 +104,26 @@ function input(): PreparationEngineInput {
   };
 }
 
+function addRepresentativeScoreEvidence(fixture: PreparationEngineInput): void {
+  fixture.evidence.scoreEvidence = sections.slice(0, 3).map((section) => ({
+    evidenceSessionId: `representative-${section.id}`,
+    source: "mock" as const,
+    sectionId: section.id,
+    sectionNumber: section.sectionNumber,
+    completedAt: fixture.clock.now,
+    marksAwarded: section.questionCount * 0.6,
+    marksAvailable: section.questionCount,
+    questionCount: section.questionCount,
+    sectionQuestionCount: section.questionCount,
+    wasTimed: true,
+    prescribedPace: 1,
+    breadth: "broad" as const,
+    feedbackWithheld: true,
+    isStudentGenerated: false,
+    isStandardised: true,
+  }));
+}
+
 describe("prepareStudent", () => {
   it("is deterministic and returns the complete canonical result shape", () => {
     const first = prepareStudent(input());
@@ -114,7 +135,11 @@ describe("prepareStudent", () => {
       seed: "persona:new-student:v1",
       versions: CURRENT_PREPARATION_VERSIONS,
       timingProfile: STANDARD_PREPARATION_TIMING_PROFILE,
-      trajectory: { status: "unavailable", reason: "legacy_adapter" },
+      trajectory: {
+        status: "unavailable",
+        reason: "insufficient_score_evidence",
+        modelVersion: CURRENT_PREPARATION_VERSIONS.trajectoryModel,
+      },
       currentScore: {
         status: "unavailable",
         currentEstimate: null,
@@ -132,6 +157,200 @@ describe("prepareStudent", () => {
         "preparation.guidance.legacy_adapter",
       ]),
     );
+  });
+
+  it("keeps the visible total stable and begins internal working targets equally", () => {
+    const fixture = input();
+    fixture.evidence.sectionSignals = fixture.evidence.sectionSignals.map(
+      (signal, index) => ({
+        ...signal,
+        currentEstimate: index < 3 ? 450 + index * 180 : null,
+        scoreConfidence: index < 3 ? "high" : null,
+      }),
+    );
+
+    const result = prepareStudent(fixture);
+    const targets = Object.values(result.plan.sectionTargets);
+
+    expect(fixture.goal.profile.targetScore).toBe(2200);
+    expect(targets.reduce((sum, target) => sum + target, 0)).toBe(2200);
+    expect(Math.max(...targets) - Math.min(...targets)).toBeLessThanOrEqual(10);
+  });
+
+  it("holds section targets inside a week, then moves them by at most 20 points", () => {
+    const fixture = input();
+    fixture.clock = {
+      now: "2026-01-13T00:00:00.000Z",
+      today: "2026-01-13",
+    };
+    fixture.evidence.sectionSignals = fixture.evidence.sectionSignals.map(
+      (signal, index) => ({
+        ...signal,
+        currentEstimate: index === 0 ? 400 : index === 1 ? 650 : 850,
+        scoreConfidence: index < 3 ? "high" : null,
+      }),
+    );
+    fixture.evidence.forecast = {
+      previousSectionTargets: { vr: 730, dm: 730, qr: 740 },
+      previousSectionTargetsSetAt: "2026-01-05T00:00:00.000Z",
+    };
+
+    const moved = prepareStudent(fixture).plan.sectionTargets;
+    expect(Object.values(moved).reduce((sum, value) => sum + value, 0)).toBe(
+      2200,
+    );
+    expect(Math.abs(moved.vr! - 730)).toBeLessThanOrEqual(20);
+    expect(Math.abs(moved.dm! - 730)).toBeLessThanOrEqual(20);
+    expect(Math.abs(moved.qr! - 740)).toBeLessThanOrEqual(20);
+
+    fixture.evidence.forecast.previousSectionTargetsSetAt =
+      "2026-01-10T00:00:00.000Z";
+    expect(prepareStudent(fixture).plan.sectionTargets).toEqual({
+      vr: 730,
+      dm: 730,
+      qr: 740,
+    });
+  });
+
+  it("builds one uncertainty-driven saturating trajectory from scheduled core work", () => {
+    const fixture = input();
+    addRepresentativeScoreEvidence(fixture);
+    fixture.evidence.forecast = {
+      expectedAdherence: 0.8,
+      learningResponse: 1,
+      learningResponseUncertainty: 0.2,
+      history: [
+        {
+          date: "2025-12-01",
+          currentEstimate: 1700,
+          modelVersion: CURRENT_PREPARATION_VERSIONS.trajectoryModel,
+        },
+        {
+          date: "2025-11-01",
+          currentEstimate: 1600,
+          modelVersion: "incompatible-trajectory-v0",
+        },
+      ],
+    };
+
+    const trajectory = prepareStudent(fixture).trajectory;
+    expect(trajectory).toMatchObject({
+      status: "available",
+      doseSource: "scheduled_core",
+      expectedAdherence: 0.8,
+      percentiles: { lower: 20, middle: 50, upper: 80 },
+      history: [{ date: "2025-12-01", currentEstimate: 1700 }],
+    });
+    if (trajectory.status !== "available")
+      throw new Error("Expected trajectory");
+    expect(trajectory.coreSectionEquivalentsPerWeek).toBeGreaterThan(0);
+    expect(trajectory.points.length).toBeGreaterThan(2);
+    for (const point of trajectory.points) {
+      expect(point.lower).toBeLessThanOrEqual(point.middle);
+      expect(point.middle).toBeLessThanOrEqual(point.upper);
+      expect(point.upper).toBeLessThanOrEqual(2700);
+    }
+    const earlyGain =
+      trajectory.points[1]!.middle - trajectory.points[0]!.middle;
+    const lateGain =
+      trajectory.points.at(-1)!.middle - trajectory.points.at(-2)!.middle;
+    expect(lateGain).toBeLessThanOrEqual(earlyGain);
+  });
+
+  it("uses sustained recent workload without a plan and never invents a future dose", () => {
+    const fixture = input();
+    addRepresentativeScoreEvidence(fixture);
+    fixture.goal.profile.studyPlanEnabled = false;
+    fixture.evidence.forecast = {};
+
+    expect(prepareStudent(fixture).trajectory).toMatchObject({
+      status: "unavailable",
+      reason: "no_future_dose",
+    });
+
+    fixture.evidence.forecast.recentCoreSectionEquivalentsPerWeek = 2.5;
+    expect(prepareStudent(fixture).trajectory).toMatchObject({
+      status: "available",
+      doseSource: "recent_sustained_workload",
+      coreSectionEquivalentsPerWeek: 2.5,
+    });
+  });
+
+  it("responds to low and high doses but saturates under excessive work", () => {
+    const trajectoryAtDose = (dose: number) => {
+      const fixture = input();
+      addRepresentativeScoreEvidence(fixture);
+      fixture.goal.profile.studyPlanEnabled = false;
+      fixture.evidence.forecast = {
+        recentCoreSectionEquivalentsPerWeek: dose,
+        expectedAdherence: 0.8,
+      };
+      const trajectory = prepareStudent(fixture).trajectory;
+      if (trajectory.status !== "available")
+        throw new Error("Expected trajectory");
+      return trajectory;
+    };
+
+    const low = trajectoryAtDose(0.5);
+    const high = trajectoryAtDose(20);
+    const excessive = trajectoryAtDose(200);
+    const lowFinal = low.points.at(-1)!.middle;
+    const highFinal = high.points.at(-1)!.middle;
+    const excessiveFinal = excessive.points.at(-1)!.middle;
+
+    expect(highFinal).toBeGreaterThan(lowFinal);
+    expect(excessiveFinal).toBeGreaterThanOrEqual(highFinal);
+    expect(excessiveFinal - highFinal).toBeLessThan(highFinal - lowFinal);
+    expect(excessiveFinal).toBeLessThan(2700);
+  });
+
+  it("propagates adherence uncertainty without changing the current estimate", () => {
+    const lowAdherence = input();
+    addRepresentativeScoreEvidence(lowAdherence);
+    lowAdherence.evidence.forecast = {
+      expectedAdherence: 0.4,
+      adherenceUncertainty: 0.5,
+      learningResponseUncertainty: 0.05,
+    };
+    const highAdherence = input();
+    addRepresentativeScoreEvidence(highAdherence);
+    highAdherence.evidence.forecast = {
+      expectedAdherence: 0.95,
+      adherenceUncertainty: 0.02,
+      learningResponseUncertainty: 0.05,
+    };
+
+    const low = prepareStudent(lowAdherence).trajectory;
+    const high = prepareStudent(highAdherence).trajectory;
+    if (low.status !== "available" || high.status !== "available") {
+      throw new Error("Expected trajectories");
+    }
+    expect(low.points[0]).toEqual(high.points[0]);
+    expect(high.points.at(-1)!.middle).toBeGreaterThan(
+      low.points.at(-1)!.middle,
+    );
+    expect(low.points[4]!.upper - low.points[4]!.lower).toBeGreaterThan(
+      high.points[4]!.upper - high.points[4]!.lower,
+    );
+  });
+
+  it("prioritises an accurate-slow section even when its visible estimate is lower", () => {
+    const fixture = ACCURATE_SLOW_PREPARATION_PERSONA.apply(input());
+
+    const result = prepareStudent(fixture);
+    const vrScore = result.currentScore.sections.find(
+      (section) => section.sectionId === "vr",
+    );
+    const vrPriority = result.activityCandidates.find(
+      (candidate) => candidate.sectionId === "vr",
+    );
+
+    expect(vrScore?.currentEstimate).toBeLessThan(600);
+    expect(
+      result.assessment.sections.find((section) => section.sectionId === "vr"),
+    ).toMatchObject({ mode: "timing" });
+    expect(vrPriority).toMatchObject({ requirement: "required" });
+    expect(vrPriority!.ranking.total).toBeGreaterThan(0);
   });
 
   it("preserves the existing plan and guidance behavior through adapters", () => {
@@ -251,11 +470,12 @@ describe("prepareStudent", () => {
     });
 
     expect(alternative?.launchConfig).toMatchObject({ optional: true });
-    expect(extra.find((task) => task.taskType === "practice")?.launchConfig)
-      .toMatchObject({
-        optional: true,
-        activityObjective: firstRequired?.objective,
-      });
+    expect(
+      extra.find((task) => task.taskType === "practice")?.launchConfig,
+    ).toMatchObject({
+      optional: true,
+      activityObjective: firstRequired?.objective,
+    });
   });
 
   it("returns a structured capacity risk without mutating timing input", () => {

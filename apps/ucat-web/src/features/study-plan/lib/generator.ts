@@ -48,6 +48,7 @@ type GenerateStudyPlanInput = {
   completedMockCount: number;
   lastCompletedMockDate?: string | null;
   tagSignals?: ActivityTagSignal[];
+  sectionTargets?: Record<string, number>;
 };
 
 type GenerateExtraStudyTaskInput = StudyPlanExtraStudyInput & {
@@ -83,6 +84,37 @@ function isSjtAllocationActivity(
   activity: PreparationActivityCandidate,
 ): boolean {
   return activity.objective === "maintain_sjt_judgement";
+}
+
+function coreSectionEquivalentsPerWeek(
+  tasks: GeneratedStudyPlanTask[],
+  sections: StudyPlanSection[],
+  startsOn: string,
+  endsOn: string,
+): number {
+  const questionCountBySection = new Map(
+    sections
+      .filter((section) => section.sectionNumber <= COGNITIVE_SECTION_COUNT)
+      .map((section) => [section.id, section.questionCount]),
+  );
+  const total = tasks.reduce((sum, task) => {
+    if (task.launchConfig.optional === true) return sum;
+    if (task.taskType === "mock") return sum + COGNITIVE_SECTION_COUNT;
+    if (
+      (task.taskType === "practice" || task.taskType === "section_benchmark") &&
+      task.sectionId &&
+      task.targetUnits
+    ) {
+      const questionCount = questionCountBySection.get(task.sectionId);
+      return questionCount ? sum + task.targetUnits / questionCount : sum;
+    }
+    return sum;
+  }, 0);
+  const scheduledWeeks = Math.max(
+    1 / 7,
+    (daysBetween(startsOn, endsOn) + 1) / 7,
+  );
+  return Math.round((total / scheduledWeeks) * 100) / 100;
 }
 
 function selectedDates(
@@ -594,17 +626,19 @@ export function generateStudyPlan(
   const endsOn = examEnd < horizonEnd ? examEnd : horizonEnd;
   const dates = selectedDates(input.today, endsOn, input.profile);
   const readiness = buildReadinessSnapshot(input);
-  const sectionTargets = allocateSectionTargets(
-    input.profile.targetScore,
-    input.sections
-      .filter((section) => section.sectionNumber <= COGNITIVE_SECTION_COUNT)
-      .map((section) => ({
-        sectionId: section.id,
-        currentEstimate:
-          input.signals.find((signal) => signal.sectionId === section.id)
-            ?.currentEstimate ?? null,
-      })),
-  );
+  const sectionTargets =
+    input.sectionTargets ??
+    allocateSectionTargets(
+      input.profile.targetScore,
+      input.sections
+        .filter((section) => section.sectionNumber <= COGNITIVE_SECTION_COUNT)
+        .map((section) => ({
+          sectionId: section.id,
+          currentEstimate:
+            input.signals.find((signal) => signal.sectionId === section.id)
+              ?.currentEstimate ?? null,
+        })),
+    );
   const rankedActivities = rankActivityCandidates({
     today: input.today,
     planningDate: input.planningDate,
@@ -959,6 +993,12 @@ export function generateStudyPlan(
       demandFitsSlots && allDemandPacked,
     ),
     sectionTargets,
+    coreSectionEquivalentsPerWeek: coreSectionEquivalentsPerWeek(
+      canonicalTasks,
+      input.sections,
+      input.today,
+      endsOn,
+    ),
     readiness,
     endsOn,
   };

@@ -233,6 +233,7 @@ export type StudyPlanGenerationResult = {
   tasks: GeneratedStudyPlanTask[];
   capacityRisk: StudyPlanCapacityRisk;
   sectionTargets: Record<string, number>;
+  coreSectionEquivalentsPerWeek: number;
   readiness: StudyPlanReadinessSnapshot;
   endsOn: string;
 };

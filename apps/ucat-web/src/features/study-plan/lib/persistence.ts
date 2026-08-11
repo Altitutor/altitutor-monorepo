@@ -16,7 +16,8 @@ export function needsPreparationVersionReplacement(
   return (
     record.engine !== current.engine ||
     record.policy !== current.policy ||
-    record.scoreModel !== current.scoreModel
+    record.scoreModel !== current.scoreModel ||
+    record.trajectoryModel !== current.trajectoryModel
   );
 }
 
