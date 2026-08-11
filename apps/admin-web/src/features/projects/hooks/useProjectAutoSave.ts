@@ -45,12 +45,13 @@ export function useProjectAutoSave({
   const startDate = form.watch('startDate');
   const targetDate = form.watch('targetDate');
 
-  const debouncedNameTrigger = useDebounce(name, 1000);
-  const debouncedDescriptionTrigger = useDebounce(description, 1000);
+  const debouncedName = useDebounce(name, 1000);
+  const debouncedDescription = useDebounce(description, 1000);
 
   // Sync lastSavedValuesRef when the dialog opens or entity changes (baseline from server).
   // Must run first so property effects see the baseline and don't save on open.
   // Use useEffect (not useLayoutEffect) so this runs after the parent's useEffect that calls form.reset().
+  // Depend on project.id (not project) so query refetches don't reset the baseline mid-edit.
   useEffect(() => {
     if (project && isInitialized) {
       const values = form.getValues();
@@ -67,25 +68,28 @@ export function useProjectAutoSave({
     } else {
       baselineSyncedRef.current = false;
     }
-  }, [project, isInitialized, form]);
+  }, [project?.id, isInitialized, form]);
 
+  // Auto-save for name — runs when debounced name changes (not every keystroke).
   useEffect(() => {
     if (!isInitialized || isUpdatingFromServer || !baselineSyncedRef.current) return;
-    if (project && name !== undefined && name !== '' && name !== lastSavedValuesRef.current.name) {
-      lastSavedValuesRef.current.name = name;
-      onSave({ name });
+    const snapshot = debouncedName;
+    if (project && snapshot !== undefined && snapshot !== '' && snapshot !== lastSavedValuesRef.current.name) {
+      lastSavedValuesRef.current.name = snapshot;
+      onSave({ name: snapshot });
     }
-  }, [debouncedNameTrigger, name, project, isInitialized, isUpdatingFromServer, onSave]);
+  }, [debouncedName, project, isInitialized, isUpdatingFromServer, onSave]);
 
+  // Auto-save for description — stringify/save only after idle period (debounced snapshot).
   useEffect(() => {
     if (!isInitialized || isUpdatingFromServer || !baselineSyncedRef.current) return;
-    const descriptionJson = JSON.stringify(description);
-    if (project && description !== undefined && descriptionJson !== lastSavedValuesRef.current.descriptionJson) {
+    const snapshot = debouncedDescription;
+    const descriptionJson = JSON.stringify(snapshot);
+    if (project && snapshot !== undefined && descriptionJson !== lastSavedValuesRef.current.descriptionJson) {
       lastSavedValuesRef.current.descriptionJson = descriptionJson;
-      onSave({ description });
+      onSave({ description: snapshot });
     }
-  }, [debouncedDescriptionTrigger, description, project, isInitialized, isUpdatingFromServer, onSave]);
-
+  }, [debouncedDescription, project, isInitialized, isUpdatingFromServer, onSave]);
   useEffect(() => {
     if (!isInitialized || isUpdatingFromServer || !baselineSyncedRef.current) return;
     if (!isValidProjectStatus(status)) return;

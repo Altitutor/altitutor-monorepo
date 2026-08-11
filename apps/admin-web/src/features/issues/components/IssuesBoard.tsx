@@ -235,6 +235,23 @@ export function IssuesBoard() {
     [handleUpdate]
   );
 
+  const handleOpenIssue = useCallback((issueId: string) => {
+    setSelectedIssueId(issueId);
+    setIsEditDialogOpen(true);
+  }, []);
+
+  const renderCard = useCallback(
+    (i: IssueWithTags, visiblePillKeys: string[]) => (
+      <IssueCard
+        issue={i}
+        visiblePillKeys={visiblePillKeys}
+        rightPills={rightPills}
+        onOpen={handleOpenIssue}
+      />
+    ),
+    [rightPills, handleOpenIssue]
+  );
+
   return (
     <>
       <KanbanBoard<IssueWithTags>
@@ -243,17 +260,7 @@ export function IssuesBoard() {
         columnDefs={columnDefs}
         activeColumnKey={activeColumnKey ?? 'status'}
         onActiveColumnKeyChange={setActiveColumnKey}
-        renderCard={(i, visiblePillKeys) => (
-          <IssueCard
-            issue={i}
-            visiblePillKeys={visiblePillKeys}
-            rightPills={rightPills}
-            onClick={() => {
-              setSelectedIssueId(i.id);
-              setIsEditDialogOpen(true);
-            }}
-          />
-        )}
+        renderCard={renderCard}
         statusColumn={statusColumn}
         rightPills={rightPills}
         groupByOptions={groupByOptions}

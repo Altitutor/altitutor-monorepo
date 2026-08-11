@@ -49,6 +49,7 @@ export function IssueDescriptionField({ form, value: _value, onTagClick: _onTagC
                 ref={effectiveRef}
                 content={field.value || ''}
                 onChange={field.onChange}
+                onChangeDebounceMs={200}
                 placeholder="Add issue description..."
                 className="min-h-0"
                 mentionSuggestions={mentionSuggestions}

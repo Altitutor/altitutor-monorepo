@@ -416,6 +416,23 @@ export function TasksBoard({ filters: initialFilters, projectId }: TasksBoardPro
     setIsCreateDialogOpen(true);
   }, [activeColumnKey, projectId]);
 
+  const handleOpenTask = useCallback((taskId: string) => {
+    setSelectedTaskId(taskId);
+    setIsEditDialogOpen(true);
+  }, []);
+
+  const renderCard = useCallback(
+    (t: TaskWithAssignee, visiblePillKeys: string[]) => (
+      <TaskCard
+        task={t}
+        visiblePillKeys={visiblePillKeys}
+        rightPills={rightPills}
+        onOpen={handleOpenTask}
+      />
+    ),
+    [rightPills, handleOpenTask]
+  );
+
   const getGroupLabel = useCallback((columnKey: string, valueKey: string) => {
     if (columnKey === 'assignee') {
       if (valueKey === '__null__') return 'Unassigned';
@@ -460,17 +477,7 @@ export function TasksBoard({ filters: initialFilters, projectId }: TasksBoardPro
         columnDefs={columnDefs}
         activeColumnKey={activeColumnKey ?? 'status'}
         onActiveColumnKeyChange={setActiveColumnKey}
-        renderCard={(t, visiblePillKeys) => (
-          <TaskCard
-            task={t}
-            visiblePillKeys={visiblePillKeys}
-            rightPills={rightPills}
-            onClick={() => {
-              setSelectedTaskId(t.id);
-              setIsEditDialogOpen(true);
-            }}
-          />
-        )}
+        renderCard={renderCard}
         statusColumn={statusColumn as EntityListStatusColumn<TaskWithAssignee, unknown>}
         rightPills={rightPills}
         groupByOptions={groupByOptions}

@@ -1,5 +1,6 @@
 import { useMemo } from 'react';
 import { UseFormReturn } from 'react-hook-form';
+import { useDebounce } from '@/shared/hooks';
 import { extractMentions } from '@/shared/utils/extractMentions';
 import type { IssueFormData, IssueTagInsert, IssueTag } from '../types';
 
@@ -10,12 +11,14 @@ interface UseLiveIssueTagsOptions {
 
 /**
  * Hook to extract and merge tags from form description (mentions) and initial tags.
+ * Debounces description so mention extraction does not run on every keystroke.
  */
 export function useLiveIssueTags({ form, initialTags = [] }: UseLiveIssueTagsOptions) {
   const descriptionValue = form.watch('description');
+  const debouncedDescription = useDebounce(descriptionValue, 300);
 
   return useMemo(() => {
-    const descriptionMentions = extractMentions(descriptionValue).map(mention => ({
+    const descriptionMentions = extractMentions(debouncedDescription).map(mention => ({
       [`${mention.type}_id`]: mention.id,
     }));
 
@@ -40,5 +43,5 @@ export function useLiveIssueTags({ form, initialTags = [] }: UseLiveIssueTagsOpt
     });
 
     return Array.from(uniqueTagsMap.values()) as IssueTag[];
-  }, [descriptionValue, initialTags]);
+  }, [debouncedDescription, initialTags]);
 }

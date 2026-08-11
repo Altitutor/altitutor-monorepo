@@ -20,7 +20,10 @@ interface UseTaskAutoSaveOptions {
 
 /**
  * Hook to handle auto-save for task fields.
- * Debounces changes and only saves when values actually change.
+ * Debounces title/description and only saves when values actually change.
+ *
+ * Important: save effects must depend only on debounced snapshots — not live `title`/`description` —
+ * otherwise JSON.stringify and network saves run on every keystroke.
  */
 export function useTaskAutoSave({
   form,
@@ -42,7 +45,7 @@ export function useTaskAutoSave({
     dueDate?: string | null;
   }>({});
 
-  // Watch form values
+  // Watch form values (drives debounce timers only; expensive work runs off debounced snapshots below.)
   const title = form.watch('title');
   const description = form.watch('description');
   const status = form.watch('status');
@@ -53,13 +56,13 @@ export function useTaskAutoSave({
   const estimate = form.watch('estimate');
   const dueDate = form.watch('dueDate');
 
-  // Debounce used only as a trigger; we save the current value when the effect runs (same as description).
-  const debouncedTitleTrigger = useDebounce(title, 1000);
-  const debouncedDescriptionTrigger = useDebounce(description, 1000);
+  const debouncedTitle = useDebounce(title, 1000);
+  const debouncedDescription = useDebounce(description, 1000);
 
   // Sync lastSavedValuesRef when the dialog opens or entity changes (baseline from server).
   // Must run first so property effects see the baseline and don't save on open.
   // Use useEffect (not useLayoutEffect) so this runs after the parent's useEffect that calls form.reset().
+  // Depend on task.id (not task) so query refetches don't reset the baseline mid-edit.
   useEffect(() => {
     if (task && isInitialized) {
       const values = form.getValues();
@@ -75,28 +78,29 @@ export function useTaskAutoSave({
         dueDate: values.dueDate,
       };
     }
-  }, [task, isInitialized, form]);
+  }, [task?.id, isInitialized, form]);
 
-  // Auto-save for title (same pattern as description: effect runs on every change, saves current value)
+  // Auto-save for title — runs when debounced title changes (not every keystroke).
   useEffect(() => {
     if (!isInitialized || isUpdatingFromServer) return;
-    if (task && title !== undefined && title !== '' && title !== lastSavedValuesRef.current.title) {
-      lastSavedValuesRef.current.title = title;
-      onSave({ title });
+    const snapshot = debouncedTitle;
+    if (task && snapshot !== undefined && snapshot !== '' && snapshot !== lastSavedValuesRef.current.title) {
+      lastSavedValuesRef.current.title = snapshot;
+      onSave({ title: snapshot });
     }
-  }, [debouncedTitleTrigger, title, task, isInitialized, isUpdatingFromServer, onSave]);
+  }, [debouncedTitle, task, isInitialized, isUpdatingFromServer, onSave]);
 
-  // Auto-save for description (trigger + current value so it saves on every change)
+  // Auto-save for description — stringify/save only after idle period (debounced snapshot).
   useEffect(() => {
     if (!isInitialized || isUpdatingFromServer) return;
-    
-    const descriptionJson = JSON.stringify(description);
-    if (task && description !== undefined && descriptionJson !== lastSavedValuesRef.current.descriptionJson) {
+
+    const snapshot = debouncedDescription;
+    const descriptionJson = JSON.stringify(snapshot);
+    if (task && snapshot !== undefined && descriptionJson !== lastSavedValuesRef.current.descriptionJson) {
       lastSavedValuesRef.current.descriptionJson = descriptionJson;
-      onSave({ description });
+      onSave({ description: snapshot });
     }
-  }, [debouncedDescriptionTrigger, description, task, isInitialized, isUpdatingFromServer, onSave]);
-
+  }, [debouncedDescription, task, isInitialized, isUpdatingFromServer, onSave]);
   // Auto-save for other fields (immediate, no debounce for select/pills)
   useEffect(() => {
     if (!isInitialized || isUpdatingFromServer) return;

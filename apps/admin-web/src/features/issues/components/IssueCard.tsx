@@ -1,5 +1,6 @@
 'use client';
 
+import { memo } from 'react';
 import type { EntityListPillColumn } from '@altitutor/ui';
 import type { IssueWithTags } from '../types';
 import { clickableCardInteractiveCn, cn } from '@/shared/utils';
@@ -8,15 +9,20 @@ interface IssueCardProps {
   issue: IssueWithTags;
   visiblePillKeys?: string[];
   rightPills?: EntityListPillColumn<IssueWithTags, unknown>[];
-  onClick?: () => void;
+  onOpen?: (issueId: string) => void;
 }
 
-export function IssueCard({ issue, onClick, visiblePillKeys = [], rightPills = [] }: IssueCardProps) {
+export const IssueCard = memo(function IssueCard({
+  issue,
+  onOpen,
+  visiblePillKeys = [],
+  rightPills = [],
+}: IssueCardProps) {
   const visiblePills = rightPills.filter((pill) => visiblePillKeys.includes(pill.key));
 
   return (
     <div
-      onClick={onClick}
+      onClick={() => onOpen?.(issue.id)}
       className={cn(
         'group flex cursor-pointer flex-col gap-2 rounded-lg border bg-card p-3 transition-all',
         clickableCardInteractiveCn,
@@ -44,4 +50,4 @@ export function IssueCard({ issue, onClick, visiblePillKeys = [], rightPills = [
       )}
     </div>
   );
-}
+});

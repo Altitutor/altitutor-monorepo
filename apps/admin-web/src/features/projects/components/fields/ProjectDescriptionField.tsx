@@ -49,6 +49,7 @@ export function ProjectDescriptionField({ form, descriptionRef }: ProjectDescrip
                 ref={effectiveRef}
                 content={field.value || ''}
                 onChange={field.onChange}
+                onChangeDebounceMs={200}
                 placeholder="Add project description..."
                 className="min-h-0"
                 mentionSuggestions={mentionSuggestions}

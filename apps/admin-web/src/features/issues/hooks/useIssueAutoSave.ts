@@ -20,7 +20,10 @@ interface UseIssueAutoSaveOptions {
 
 /**
  * Hook to handle auto-save for issue fields (name, description, status).
- * Debounces changes and only saves when values actually change.
+ * Debounces name/description and only saves when values actually change.
+ *
+ * Important: save effects must depend only on debounced snapshots — not live `name`/`description` —
+ * otherwise JSON.stringify and network saves run on every keystroke.
  */
 export function useIssueAutoSave({
   form,
@@ -32,19 +35,19 @@ export function useIssueAutoSave({
 }: UseIssueAutoSaveOptions): void {
   const lastSavedValuesRef = useRef<{ name?: string; descriptionJson?: string; status?: IssueStatus; dueDate?: string | null }>({});
 
-  // Watch form values
+  // Watch form values (drives debounce timers only; expensive work runs off debounced snapshots below.)
   const name = form.watch('name');
   const description = form.watch('description');
   const status = form.watch('status');
   const dueDate = form.watch('dueDate');
 
-  // Debounce used only as a trigger; we save the current value when the effect runs (same as description).
-  const debouncedNameTrigger = useDebounce(name, 1000);
-  const debouncedDescriptionTrigger = useDebounce(description, 1000);
+  const debouncedName = useDebounce(name, 1000);
+  const debouncedDescription = useDebounce(description, 1000);
 
   // Sync lastSavedValuesRef when the dialog opens or entity changes (baseline from server).
   // Must run first so property effects see the baseline and don't save on open.
   // Use useEffect (not useLayoutEffect) so this runs after the parent's useEffect that calls form.reset().
+  // Depend on issue.id (not issue) so query refetches don't reset the baseline mid-edit.
   useEffect(() => {
     if (issue && isInitialized) {
       const values = form.getValues();
@@ -55,28 +58,29 @@ export function useIssueAutoSave({
         dueDate: values.dueDate,
       };
     }
-  }, [issue, isInitialized, form]);
+  }, [issue?.id, isInitialized, form]);
 
-  // Auto-save for name (same pattern as description: effect runs on every change, saves current value)
+  // Auto-save for name — runs when debounced name changes (not every keystroke).
   useEffect(() => {
     if (!isInitialized || isUpdatingFromServer) return;
-    if (issue && name !== undefined && name !== '' && name !== lastSavedValuesRef.current.name) {
-      lastSavedValuesRef.current.name = name;
-      onSave({ name });
+    const snapshot = debouncedName;
+    if (issue && snapshot !== undefined && snapshot !== '' && snapshot !== lastSavedValuesRef.current.name) {
+      lastSavedValuesRef.current.name = snapshot;
+      onSave({ name: snapshot });
     }
-  }, [debouncedNameTrigger, name, issue, isInitialized, isUpdatingFromServer, onSave]);
+  }, [debouncedName, issue, isInitialized, isUpdatingFromServer, onSave]);
 
-  // Auto-save for description (trigger + current value so it saves on every change)
+  // Auto-save for description — stringify/save only after idle period (debounced snapshot).
   useEffect(() => {
     if (!isInitialized || isUpdatingFromServer) return;
-    
-    const descriptionJson = JSON.stringify(description);
-    if (issue && description !== undefined && descriptionJson !== lastSavedValuesRef.current.descriptionJson) {
+
+    const snapshot = debouncedDescription;
+    const descriptionJson = JSON.stringify(snapshot);
+    if (issue && snapshot !== undefined && descriptionJson !== lastSavedValuesRef.current.descriptionJson) {
       lastSavedValuesRef.current.descriptionJson = descriptionJson;
-      onSave({ description });
+      onSave({ description: snapshot });
     }
-  }, [debouncedDescriptionTrigger, description, issue, isInitialized, isUpdatingFromServer, onSave]);
-
+  }, [debouncedDescription, issue, isInitialized, isUpdatingFromServer, onSave]);
   // Auto-save for status (immediate, no debounce). Only save valid enum values to avoid DB constraint errors.
   useEffect(() => {
     if (!isInitialized || isUpdatingFromServer) return;
