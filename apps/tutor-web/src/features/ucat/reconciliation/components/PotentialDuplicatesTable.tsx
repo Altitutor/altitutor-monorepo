@@ -8,6 +8,11 @@ import type {
 } from "@altitutor/shared";
 import type { Json } from "@altitutor/shared";
 import { ReconciliationTable } from "./ReconciliationTable";
+import { getQuestionIssueDefinition } from "../lib/question-issue-definitions";
+import {
+  duplicateComparisonMatchLabel,
+  duplicateRecommendationLabel,
+} from "../lib/duplicate-queue-match";
 import { PotentialDuplicatesReconciliationDialog } from "./PotentialDuplicatesReconciliationDialog";
 import type { PotentialDuplicatePair } from "../api/reconciliation";
 import { useExactDuplicateStemsQueue } from "../hooks/useReconciliation";
@@ -22,6 +27,7 @@ import {
   tutorToolbarProps,
 } from "@/shared/lib/tutor-visual";
 
+const ISSUE = getQuestionIssueDefinition("duplicates");
 const TRUNCATE_LEN = 72;
 
 function truncate(text: string, max: number): string {
@@ -34,7 +40,11 @@ function stemPlain(pair: PotentialDuplicatePair, side: "A" | "B"): string {
   return proseMirrorToPlainText(stem.stemText as Json) ?? "";
 }
 
-export function PotentialDuplicatesTable() {
+export function PotentialDuplicatesTable({
+  showCountBadge = true,
+}: {
+  showCountBadge?: boolean
+}) {
   const sectionsQuery = useUcatSections();
   const [queueOpen, setQueueOpen] = useState(false);
   const [initialPairId, setInitialPairId] = useState<string | null>(null);
@@ -92,7 +102,9 @@ export function PotentialDuplicatesTable() {
   return (
     <>
       <ReconciliationTable<PotentialDuplicatePair>
-        title="Potential duplicates"
+        title={ISSUE.title}
+        description={ISSUE.description}
+        showCountBadge={showCountBadge}
         items={filteredPairs}
         isLoading={isLoading}
         pagination={{
@@ -181,16 +193,15 @@ function PotentialDuplicateRow({
     ),
     match: (
       <TableCell className="whitespace-nowrap">
-        {item.comparisonKind === "complete_duplicate"
-          ? "All compared content matches"
-          : "Stem text matches"}
+        {duplicateComparisonMatchLabel(item.comparisonKind)}
       </TableCell>
     ),
     recommendation: (
       <TableCell className="whitespace-nowrap">
-        {item.recommendation === "merge"
-          ? `Merge ${item.suggestedMergeDirection === "A-into-B" ? "A into B" : "B into A"}`
-          : "Delete duplicate"}
+        {duplicateRecommendationLabel(
+          item.recommendation,
+          item.suggestedMergeDirection,
+        )}
       </TableCell>
     ),
   };

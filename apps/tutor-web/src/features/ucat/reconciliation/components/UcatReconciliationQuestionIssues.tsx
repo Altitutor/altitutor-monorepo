@@ -1,5 +1,6 @@
 'use client'
 
+import type React from 'react'
 import dynamic from 'next/dynamic'
 import { useUcatReconciliationHandlers } from './UcatReconciliationContext'
 import { ReconciliationSubtypeTabs } from './ReconciliationSubtypeTabs'
@@ -7,6 +8,7 @@ import {
   QUESTION_RECONCILIATION_ISSUES,
   type QuestionIssueSlug,
 } from '@/features/ucat/reconciliation/lib/question-issue-definitions'
+import { useQuestionIssueCounts } from '@/features/ucat/reconciliation/hooks/useReconciliationIssueCounts'
 
 const StemsWithNoCategoryTable = dynamic(() =>
   import('./StemsWithNoCategoryTable').then((module) => module.StemsWithNoCategoryTable),
@@ -26,6 +28,9 @@ const UntaggedQuestionsTable = dynamic(() =>
 const PrivateStemsNotInSetTable = dynamic(() =>
   import('./PrivateStemsNotInSetTable').then((module) => module.PrivateStemsNotInSetTable),
 )
+const StemsInMultipleSetsTable = dynamic(() =>
+  import('./StemsInMultipleSetsTable').then((module) => module.StemsInMultipleSetsTable),
+)
 const PotentialDuplicatesTable = dynamic(() =>
   import('./PotentialDuplicatesTable').then((module) => module.PotentialDuplicatesTable),
 )
@@ -36,6 +41,76 @@ export function UcatReconciliationQuestionIssue({
   issue: QuestionIssueSlug
 }) {
   const { onOpenStemDialog, onEditSet } = useUcatReconciliationHandlers()
+  const counts = useQuestionIssueCounts()
+
+  let content: React.ReactNode
+  switch (issue) {
+    case 'missing-category':
+      content = (
+        <StemsWithNoCategoryTable
+          onOpenStemDialog={onOpenStemDialog}
+          showCountBadge={false}
+        />
+      )
+      break
+    case 'missing-explanation':
+      content = (
+        <QuestionsWithNoExplanationTable
+          onOpenStemDialog={onOpenStemDialog}
+          showCountBadge={false}
+        />
+      )
+      break
+    case 'downvoted-questions':
+      content = (
+        <DownvotedQuestionsTable
+          onOpenStemDialog={onOpenStemDialog}
+          showCountBadge={false}
+        />
+      )
+      break
+    case 'downvoted-explanations':
+      content = (
+        <DownvotedExplanationsTable
+          onOpenStemDialog={onOpenStemDialog}
+          showCountBadge={false}
+        />
+      )
+      break
+    case 'untagged':
+      content = (
+        <UntaggedQuestionsTable
+          onOpenStemDialog={onOpenStemDialog}
+          showCountBadge={false}
+        />
+      )
+      break
+    case 'private-not-in-set':
+      content = (
+        <PrivateStemsNotInSetTable
+          onOpenStemDialog={onOpenStemDialog}
+          onEditSet={onEditSet}
+          showCountBadge={false}
+        />
+      )
+      break
+    case 'in-multiple-sets':
+      content = (
+        <StemsInMultipleSetsTable
+          onOpenStemDialog={onOpenStemDialog}
+          onEditSet={onEditSet}
+          showCountBadge={false}
+        />
+      )
+      break
+    case 'duplicates':
+      content = <PotentialDuplicatesTable showCountBadge={false} />
+      break
+    default: {
+      const _exhaustive: never = issue
+      return _exhaustive
+    }
+  }
 
   return (
     <div className="space-y-6">
@@ -44,26 +119,9 @@ export function UcatReconciliationQuestionIssue({
         activeSlug={issue}
         baseHref="/ucat/reconciliation/questions"
         label="Question reconciliation issue types"
+        counts={counts}
       />
-
-      {issue === 'missing-category' ? (
-        <StemsWithNoCategoryTable onOpenStemDialog={onOpenStemDialog} />
-      ) : issue === 'missing-explanation' ? (
-        <QuestionsWithNoExplanationTable onOpenStemDialog={onOpenStemDialog} />
-      ) : issue === 'downvoted-questions' ? (
-        <DownvotedQuestionsTable onOpenStemDialog={onOpenStemDialog} />
-      ) : issue === 'downvoted-explanations' ? (
-        <DownvotedExplanationsTable onOpenStemDialog={onOpenStemDialog} />
-      ) : issue === 'untagged' ? (
-        <UntaggedQuestionsTable onOpenStemDialog={onOpenStemDialog} />
-      ) : issue === 'private-not-in-set' ? (
-        <PrivateStemsNotInSetTable
-          onOpenStemDialog={onOpenStemDialog}
-          onEditSet={onEditSet}
-        />
-      ) : (
-        <PotentialDuplicatesTable />
-      )}
+      {content}
     </div>
   )
 }

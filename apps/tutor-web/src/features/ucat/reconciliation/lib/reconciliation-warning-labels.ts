@@ -14,6 +14,7 @@ export function getStemReconciliationWarnings(
   const missingTagCount = data.untaggedQuestions.filter((question) => question.stemId === stemId).length
   if (missingTagCount > 0) warnings.push(`${missingTagCount} untagged question${missingTagCount === 1 ? '' : 's'}`)
   if (data.privateStemsNotInSet.some((stem) => stem.id === stemId)) warnings.push('Unused private stem')
+  if (data.stemsInMultipleSets.some((stem) => stem.id === stemId)) warnings.push('In multiple sets')
   if (
     data.potentialDuplicatePairs.some(
       (pair) => pair.stemA.id === stemId || pair.stemB.id === stemId,

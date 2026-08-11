@@ -4,6 +4,7 @@ import React, { useMemo, useCallback, useState } from 'react'
 import { TableRow, TableCell, Button, DataTableToolbar, useToast } from '@altitutor/ui'
 import { useQueryClient } from '@tanstack/react-query'
 import { ReconciliationTable } from './ReconciliationTable'
+import { getQuestionIssueDefinition } from '../lib/question-issue-definitions'
 import { proseMirrorToPlainText } from '@/features/ucat/shared/lib/rich-text'
 import type { UntaggedQuestion } from '../api/reconciliation'
 import { useReconciliationData, useAddQuestionTags } from '../hooks/useReconciliation'
@@ -22,6 +23,7 @@ import type { ParsedStem } from '@/features/ucat/questions/lib/parsers/core'
 import { ucatQuestionsApi } from '@/features/ucat/questions/api/questions'
 import { ucatKeys } from '@/features/ucat/shared/lib/query-keys'
 
+const ISSUE = getQuestionIssueDefinition('untagged')
 const TRUNCATE_LEN = 80
 
 function truncate(text: string, max: number): string {
@@ -52,8 +54,10 @@ function toParsedStem(item: UntaggedQuestion): ParsedStem {
 
 export function UntaggedQuestionsTable({
   onOpenStemDialog,
+  showCountBadge = true,
 }: {
   onOpenStemDialog?: (stemId: string) => void
+  showCountBadge?: boolean
 }) {
   const { toast } = useToast()
   const queryClient = useQueryClient()
@@ -266,7 +270,9 @@ export function UntaggedQuestionsTable({
   return (
     <>
       <ReconciliationTable<UntaggedQuestion>
-        title="Untagged questions"
+        title={ISSUE.title}
+        description={ISSUE.description}
+        showCountBadge={showCountBadge}
         items={filteredQuestions}
         isLoading={isLoading}
         columnDefinitions={columnDefinitions}

@@ -17,6 +17,9 @@ import { tutorTableBodyRow, tutorTableHeaderRow, tutorTableShell } from '@/share
 
 interface ReconciliationTableProps<T> {
   title: string
+  description?: string
+  /** When false, the count badge next to the title is hidden (e.g. counts live on subtype tabs). */
+  showCountBadge?: boolean
   items: T[]
   isLoading?: boolean
   renderRow: (item: T, index: number, visibleColumnKeys: string[], selection?: ReconciliationTableProps<T>['selection']) => React.ReactNode
@@ -44,6 +47,8 @@ interface ReconciliationTableProps<T> {
 
 export function ReconciliationTable<T>({
   title,
+  description,
+  showCountBadge = true,
   items,
   isLoading = false,
   renderRow,
@@ -80,15 +85,22 @@ export function ReconciliationTable<T>({
 
   return (
     <div className={cn('space-y-4', selectionMode && 'pb-24')}>
-      <div className="flex items-center justify-between gap-3">
-        <div className="flex items-center gap-2">
-          <h3 className="text-lg font-semibold">{title}</h3>
-          <Badge
-            variant={items.length === 0 ? 'secondary' : 'destructive'}
-            className={items.length === 0 ? 'bg-accent text-accent-foreground' : undefined}
-          >
-            {totalItems}
-          </Badge>
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0 space-y-1">
+          <div className="flex items-center gap-2">
+            <h3 className="text-lg font-semibold">{title}</h3>
+            {showCountBadge ? (
+              <Badge
+                variant={totalItems === 0 ? 'secondary' : 'destructive'}
+                className={totalItems === 0 ? 'bg-accent text-accent-foreground' : undefined}
+              >
+                {totalItems}
+              </Badge>
+            ) : null}
+          </div>
+          {description ? (
+            <p className="max-w-3xl text-sm text-muted-foreground">{description}</p>
+          ) : null}
         </div>
         {headerActions ? <div className="flex shrink-0 items-center gap-2">{headerActions}</div> : null}
       </div>

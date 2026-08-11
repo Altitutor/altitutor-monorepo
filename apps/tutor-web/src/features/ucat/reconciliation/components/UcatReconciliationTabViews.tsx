@@ -8,7 +8,11 @@ import { DownvotedExplanationsTable } from '@/features/ucat/reconciliation/compo
 import { DownvotedQuestionsTable } from '@/features/ucat/reconciliation/components/DownvotedQuestionsTable'
 import { UntaggedQuestionsTable } from '@/features/ucat/reconciliation/components/UntaggedQuestionsTable'
 import { PrivateStemsNotInSetTable } from '@/features/ucat/reconciliation/components/PrivateStemsNotInSetTable'
+import { StemsInMultipleSetsTable } from '@/features/ucat/reconciliation/components/StemsInMultipleSetsTable'
 import { PotentialDuplicatesTable } from '@/features/ucat/reconciliation/components/PotentialDuplicatesTable'
+import {
+  SET_RECONCILIATION_ISSUES,
+} from '@/features/ucat/reconciliation/lib/set-issue-definitions'
 import { SetsReconciliationTable } from '@/features/ucat/reconciliation/components/SetsReconciliationTable'
 import { MocksWithIncorrectSetsTable } from '@/features/ucat/reconciliation/components/MocksWithIncorrectSetsTable'
 import { useUcatReconciliationHandlers } from '@/features/ucat/reconciliation/components/UcatReconciliationContext'
@@ -65,6 +69,7 @@ function questionsTabCount(
     data.downvotedExplanations.length +
     data.untaggedQuestions.length +
     data.privateStemsNotInSet.length +
+    data.stemsInMultipleSets.length +
     data.potentialDuplicatePairs.length
   )
 }
@@ -102,6 +107,10 @@ export function UcatReconciliationQuestionsTab() {
         onOpenStemDialog={onOpenStemDialog}
         onEditSet={onEditSet}
       />
+      <StemsInMultipleSetsTable
+        onOpenStemDialog={onOpenStemDialog}
+        onEditSet={onEditSet}
+      />
       <PotentialDuplicatesTable />
     </div>
   )
@@ -121,22 +130,16 @@ export function UcatReconciliationSetsTab() {
 
   return (
     <div className="mt-6 space-y-8">
-      <SetsReconciliationTable
-        title="Sets with incorrect number of questions"
-        dataKey="setsWithIncorrectQuestionCount"
-        onEditSet={onEditSet}
-      />
-      <SetsReconciliationTable
-        title="Sets with incorrect timing"
-        dataKey="setsWithIncorrectTiming"
-        onEditSet={onEditSet}
-        showTimeColumn
-      />
-      <SetsReconciliationTable
-        title="Sets with more than 1 section"
-        dataKey="setsWithMultipleSections"
-        onEditSet={onEditSet}
-      />
+      {SET_RECONCILIATION_ISSUES.map((definition) => (
+        <SetsReconciliationTable
+          key={definition.slug}
+          title={definition.title}
+          description={definition.description}
+          dataKey={definition.dataKey}
+          onEditSet={onEditSet}
+          showTimeColumn={definition.showTimeColumn}
+        />
+      ))}
     </div>
   )
 }

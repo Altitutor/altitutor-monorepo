@@ -12,8 +12,10 @@ import { StemsWithNoCategoryTable } from './StemsWithNoCategoryTable'
 import { QuestionsWithNoExplanationTable } from './QuestionsWithNoExplanationTable'
 import { UntaggedQuestionsTable } from './UntaggedQuestionsTable'
 import { PrivateStemsNotInSetTable } from './PrivateStemsNotInSetTable'
+import { StemsInMultipleSetsTable } from './StemsInMultipleSetsTable'
 import { SetsReconciliationTable } from './SetsReconciliationTable'
 import { MocksWithIncorrectSetsTable } from './MocksWithIncorrectSetsTable'
+import { SET_RECONCILIATION_ISSUES } from '@/features/ucat/reconciliation/lib/set-issue-definitions'
 import { UcatSetEditorDialog } from '@/features/ucat/sets/components/UcatSetEditorDialog'
 import { UcatMockEditorDialog } from '@/features/ucat/mocks/components/UcatMockEditorDialog'
 import { UcatQuestionStemDialog } from '@/features/ucat/questions/components/UcatQuestionStemDialog'
@@ -98,28 +100,23 @@ export function UcatReconciliationPage() {
             <QuestionsWithNoExplanationTable onOpenStemDialog={handleOpenStemDialog} />
             <UntaggedQuestionsTable onOpenStemDialog={handleOpenStemDialog} />
             <PrivateStemsNotInSetTable onOpenStemDialog={handleOpenStemDialog} onEditSet={setEditingSetId} />
+            <StemsInMultipleSetsTable onOpenStemDialog={handleOpenStemDialog} onEditSet={setEditingSetId} />
           </div>
         </section>
 
         <section className="space-y-6">
           <h2 className="text-xl font-semibold tracking-tight">Sets</h2>
           <div className="space-y-8">
-            <SetsReconciliationTable
-              title="Sets with incorrect number of questions"
-              dataKey="setsWithIncorrectQuestionCount"
-              onEditSet={setEditingSetId}
-            />
-            <SetsReconciliationTable
-              title="Sets with incorrect timing"
-              dataKey="setsWithIncorrectTiming"
-              onEditSet={setEditingSetId}
-              showTimeColumn
-            />
-            <SetsReconciliationTable
-              title="Sets with more than 1 section"
-              dataKey="setsWithMultipleSections"
-              onEditSet={setEditingSetId}
-            />
+            {SET_RECONCILIATION_ISSUES.map((definition) => (
+              <SetsReconciliationTable
+                key={definition.slug}
+                title={definition.title}
+                description={definition.description}
+                dataKey={definition.dataKey}
+                onEditSet={setEditingSetId}
+                showTimeColumn={definition.showTimeColumn}
+              />
+            ))}
           </div>
         </section>
 

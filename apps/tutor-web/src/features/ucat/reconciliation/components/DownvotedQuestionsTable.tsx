@@ -6,7 +6,9 @@ import { useReconciliationData } from '@/features/ucat/reconciliation/hooks/useR
 import { proseMirrorToPlainText } from '@/features/ucat/shared/lib/rich-text'
 import { tutorBtnOutline, tutorTableBodyRow } from '@/shared/lib/tutor-visual'
 import { ReconciliationTable } from './ReconciliationTable'
+import { getQuestionIssueDefinition } from '../lib/question-issue-definitions'
 
+const ISSUE = getQuestionIssueDefinition('downvoted-questions')
 const columns = [
   { key: 'section', label: 'Section', visibleByDefault: true },
   { key: 'question', label: 'Question', visibleByDefault: true },
@@ -31,15 +33,19 @@ function preview(value: unknown, max = 100) {
 
 export function DownvotedQuestionsTable({
   onOpenStemDialog,
+  showCountBadge = true,
 }: {
   onOpenStemDialog?: (stemId: string) => void
+  showCountBadge?: boolean
 }) {
   const { data, isLoading } = useReconciliationData()
   const items = data?.downvotedQuestions ?? []
 
   return (
     <ReconciliationTable<DownvotedQuestion>
-      title="Downvoted questions"
+      title={ISSUE.title}
+      description={ISSUE.description}
+      showCountBadge={showCountBadge}
       items={items}
       isLoading={isLoading}
       columnDefinitions={columns}

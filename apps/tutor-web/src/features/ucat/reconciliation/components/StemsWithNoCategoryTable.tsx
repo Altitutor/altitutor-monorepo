@@ -19,6 +19,7 @@ import {
   Checkbox,
 } from '@altitutor/ui'
 import { ReconciliationTable } from './ReconciliationTable'
+import { getQuestionIssueDefinition } from '../lib/question-issue-definitions'
 import { UcatSelectionToolbar } from '@/features/ucat/shared/selection-toolbar'
 import { proseMirrorToPlainText } from '@/features/ucat/shared/lib/rich-text'
 import type { StemWithNoCategory } from '../api/reconciliation'
@@ -42,6 +43,7 @@ import { bulkImportSectionFromUcatName } from '@/features/ucat/questions/compone
 import { inferBulkImportCategoryIdForParsedStem } from '@/features/ucat/questions/components/bulk-import/bulkImportMetadataInference'
 import type { ParsedStem } from '@/features/ucat/questions/lib/parsers/core'
 
+const ISSUE = getQuestionIssueDefinition('missing-category')
 const TRUNCATE_LEN = 80
 
 function truncate(text: string, max: number): string {
@@ -72,8 +74,10 @@ function toParsedStem(item: StemWithNoCategory): ParsedStem {
 
 export function StemsWithNoCategoryTable({
   onOpenStemDialog,
+  showCountBadge = true,
 }: {
   onOpenStemDialog?: (stemId: string) => void
+  showCountBadge?: boolean
 }) {
   const { toast } = useToast()
   const queryClient = useQueryClient()
@@ -397,7 +401,9 @@ export function StemsWithNoCategoryTable({
   return (
     <>
       <ReconciliationTable<StemWithNoCategory>
-        title="Question stems with no category"
+        title={ISSUE.title}
+        description={ISSUE.description}
+        showCountBadge={showCountBadge}
         items={filteredStems}
         isLoading={isLoading}
         columnDefinitions={columnDefinitions}

@@ -3,6 +3,7 @@
 import React, { useMemo, useState } from 'react'
 import { TableRow, TableCell, Button, DataTableToolbar } from '@altitutor/ui'
 import { ReconciliationTable } from './ReconciliationTable'
+import { getQuestionIssueDefinition } from '../lib/question-issue-definitions'
 import { proseMirrorToPlainText } from '@/features/ucat/shared/lib/rich-text'
 import type { QuestionWithNoExplanation } from '../api/reconciliation'
 import { useReconciliationData } from '../hooks/useReconciliation'
@@ -13,6 +14,7 @@ import type { DataTableColumnDefinition, DataTableFilterDefinition, DataTableSor
 import { tutorBtnOutline, tutorBtnPrimary, tutorTableBodyRow, tutorToolbarProps } from '@/shared/lib/tutor-visual'
 import { QuestionsWithNoExplanationReconciliationDialog } from '@/features/ucat/reconciliation/components/QuestionsWithNoExplanationReconciliationDialog'
 
+const ISSUE = getQuestionIssueDefinition('missing-explanation')
 const TRUNCATE_LEN = 80
 
 function truncate(text: string, max: number): string {
@@ -22,8 +24,10 @@ function truncate(text: string, max: number): string {
 
 export function QuestionsWithNoExplanationTable({
   onOpenStemDialog,
+  showCountBadge = true,
 }: {
   onOpenStemDialog?: (stemId: string) => void
+  showCountBadge?: boolean
 }) {
   const { data, isLoading } = useReconciliationData()
   const sectionsQuery = useUcatSections()
@@ -111,7 +115,9 @@ export function QuestionsWithNoExplanationTable({
   return (
     <>
       <ReconciliationTable<QuestionWithNoExplanation>
-        title="Questions with no explanation"
+        title={ISSUE.title}
+        description={ISSUE.description}
+        showCountBadge={showCountBadge}
         items={filteredQuestions}
         isLoading={isLoading}
         columnDefinitions={columnDefinitions}

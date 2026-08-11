@@ -9,6 +9,7 @@ import { useReconciliationData } from '../hooks/useReconciliation'
 import { applyCoreStringFilter, applySort } from '@/features/ucat/shared/hooks/useUcatTableState'
 import { useUcatTableUrlState } from '@/features/ucat/shared/hooks/useUcatTableUrlState'
 import type { DataTableColumnDefinition, DataTableSortOption } from '@altitutor/shared'
+import { MOCK_RECONCILIATION_DESCRIPTION } from '../lib/set-issue-definitions'
 import { tutorBtnOutline, tutorTableBodyRow, tutorToolbarProps } from '@/shared/lib/tutor-visual'
 
 export function MocksWithIncorrectSetsTable({
@@ -84,6 +85,7 @@ export function MocksWithIncorrectSetsTable({
   return (
     <ReconciliationTable<MockWithIncorrectSets>
       title="Mocks with incorrect number or order of sets"
+      description={MOCK_RECONCILIATION_DESCRIPTION}
       items={filteredItems}
       isLoading={isLoading}
       columnDefinitions={columnDefinitions}
