@@ -722,4 +722,140 @@ test.describe("personalised Study plan", () => {
       page.getByRole("complementary", { name: "Study guidance" }),
     ).toHaveCount(0);
   });
+
+  test("covers setup, no-plan guidance, alternatives, missed work, mock replacement, and estimate consistency", async ({
+    page,
+  }) => {
+    const admin = localAdmin();
+    const studentId = "10000000-0000-0000-0000-000000000001";
+    const { data: originalProfile, error: profileError } = await admin
+      .from("ucat_student_study_plan_profiles")
+      .select(
+        "target_score,test_year,test_date,available_days,preferred_mock_weekday,sjt_preference",
+      )
+      .eq("student_id", studentId)
+      .single();
+    if (profileError) throw profileError;
+    await signIn(page, "alice.williams@student.test");
+
+    const profileInput = {
+      targetScore: originalProfile.target_score,
+      testYear: originalProfile.test_year,
+      testDate: originalProfile.test_date,
+      availableDays: originalProfile.available_days,
+      preferredMockWeekday: originalProfile.preferred_mock_weekday,
+      sjtPreference: originalProfile.sjt_preference,
+    };
+    const disabledResponse = await page.request.put("/api/ucat/study-plan", {
+      data: { ...profileInput, studyPlanEnabled: false },
+    });
+    expect(disabledResponse.ok()).toBe(true);
+    const disabledPlan = await disabledResponse.json();
+    expect(disabledPlan.profile.studyPlanEnabled).toBe(false);
+    expect(disabledPlan.generation).toBeNull();
+    expect(disabledPlan.nextSteps.length).toBeGreaterThan(0);
+
+    const alternativeResponse = await page.request.post(
+      "/api/ucat/study-plan/alternative",
+      {
+        data: {
+          excludedKeys: [],
+          currentTaskTypes: disabledPlan.nextSteps
+            .slice(0, 6)
+            .map((step: { taskType: string }) => step.taskType),
+        },
+      },
+    );
+    expect(alternativeResponse.ok()).toBe(true);
+    expect(await alternativeResponse.json()).toMatchObject({
+      launchConfig: { activityCandidateId: expect.any(String) },
+    });
+
+    const enabledResponse = await page.request.put("/api/ucat/study-plan", {
+      data: { ...profileInput, studyPlanEnabled: true },
+    });
+    expect(enabledResponse.ok()).toBe(true);
+    const enabledPlan = await enabledResponse.json();
+    expect(enabledPlan.generation).not.toBeNull();
+    expect(enabledPlan.tasks.length).toBeGreaterThan(0);
+
+    const yesterday = new Date(`${enabledPlan.today}T00:00:00.000Z`);
+    yesterday.setUTCDate(yesterday.getUTCDate() - 1);
+    const missedTaskId = randomUUID();
+    const { error: missedTaskError } = await admin
+      .from("ucat_student_study_plan_tasks")
+      .insert({
+        id: missedTaskId,
+        generation_id: enabledPlan.generation.id,
+        student_id: studentId,
+        scheduled_date: yesterday.toISOString().slice(0, 10),
+        sort_order: 999,
+        task_type: "practice",
+        status: "planned",
+        title: "E2E missed canonical work",
+        estimated_minutes: 10,
+        target_units: 5,
+      });
+    if (missedTaskError) throw missedTaskError;
+    const missedResponse = await page.request.get("/api/ucat/study-plan");
+    expect(missedResponse.ok()).toBe(true);
+    const replanned = await missedResponse.json();
+    expect(replanned.generation.id).not.toBe(enabledPlan.generation.id);
+    expect(replanned.generation.reason).toBe("significant_activity");
+
+    const { data: generationRow, error: generationError } = await admin
+      .from("ucat_student_study_plan_generations")
+      .select("id,input_snapshot")
+      .eq("id", replanned.generation.id)
+      .single();
+    if (generationError) throw generationError;
+    const inputSnapshot = generationRow.input_snapshot as Record<
+      string,
+      unknown
+    >;
+    const { error: mockFixtureError } = await admin
+      .from("ucat_student_study_plan_generations")
+      .update({ input_snapshot: { ...inputSnapshot, completedMockCount: -1 } })
+      .eq("id", generationRow.id);
+    if (mockFixtureError) throw mockFixtureError;
+    const mockResponse = await page.request.get("/api/ucat/study-plan");
+    expect(mockResponse.ok()).toBe(true);
+    const mockReplanned = await mockResponse.json();
+    expect(mockReplanned.generation.id).not.toBe(replanned.generation.id);
+    expect(mockReplanned.generation.reason).toBe("mock_completed");
+
+    const scoreResponse = await page.request.get("/api/ucat/score-projection");
+    const scoreProjection = await scoreResponse.json();
+    expect(scoreResponse.ok(), JSON.stringify(scoreProjection)).toBe(true);
+    const cognitiveEstimates: Array<number | null> = scoreProjection.sections
+      .filter((section: { sectionNumber: number }) => section.sectionNumber <= 3)
+      .map((section: { currentEstimate: number | null }) =>
+        section.currentEstimate,
+      );
+    const cognitiveTotal = cognitiveEstimates.reduce(
+        (
+          total: number,
+          estimate: number | null,
+        ) => total + (estimate ?? 0),
+        0,
+      );
+    const { data: snapshot, error: snapshotError } = await admin
+      .from("ucat_preparation_snapshots")
+      .select("snapshot")
+      .eq("student_id", studentId)
+      .order("generated_at", { ascending: false })
+      .limit(1)
+      .single();
+    if (snapshotError) throw snapshotError;
+    const snapshotEstimate = (
+      snapshot.snapshot as {
+        currentScore: { currentEstimate: number | null };
+      }
+    ).currentScore.currentEstimate;
+    if (snapshotEstimate == null) {
+      expect(cognitiveEstimates.every((estimate) => estimate == null)).toBe(true);
+    } else {
+      expect(cognitiveTotal).toBe(snapshotEstimate);
+    }
+  });
 });

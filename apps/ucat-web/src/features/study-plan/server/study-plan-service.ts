@@ -11,6 +11,7 @@ import {
   REPRESENTATIVE_SCORE_EVIDENCE_SELECT,
   STANDARD_PREPARATION_TIMING_PROFILE,
   type PreparationEngineResult,
+  type PreparationEngineInput,
   type ActivityTagSignal,
   type RepresentativeScoreEvidence,
 } from "@/features/preparation";
@@ -923,6 +924,60 @@ async function loadForecastEvidence(
   });
 }
 
+type CanonicalPreparationInputs = {
+  sections: StudyPlanSection[];
+  signals: StudyPlanSectionSignal[];
+  categories: StudyPlanCategorySignal[];
+  learningModules: StudyPlanLearningModule[];
+  skillTrainers: StudyPlanSkillTrainer[];
+  tagSignals?: ActivityTagSignal[];
+  timingSessions: StudyPlanTimingEvidenceSession[];
+  scoreEvidence: RepresentativeScoreEvidence[];
+  completedMockCount: number;
+};
+
+async function runCanonicalPreparation(input: {
+  supabase: SupabaseClient<Database>;
+  studentId: string;
+  profile: StudyPlanProfileInput;
+  planningDate: string;
+  inputs: CanonicalPreparationInputs;
+  today: string;
+  now: string;
+  seed: string;
+  guidance?: PreparationEngineInput["guidance"];
+}): Promise<PreparationEngineResult> {
+  const forecast = await loadForecastEvidence(
+    input.supabase,
+    input.studentId,
+    input.today,
+    input.inputs.timingSessions,
+    input.inputs.sections,
+  );
+  return prepareStudent({
+    clock: { now: input.now, today: input.today },
+    seed: input.seed,
+    versions: CURRENT_PREPARATION_VERSIONS,
+    timingProfile: STANDARD_PREPARATION_TIMING_PROFILE,
+    goal: { planningDate: input.planningDate, profile: input.profile },
+    content: {
+      sections: input.inputs.sections,
+      categories: input.inputs.categories,
+      learningModules: input.inputs.learningModules,
+      skillTrainers: input.inputs.skillTrainers,
+      tagSignals: input.inputs.tagSignals,
+    },
+    evidence: {
+      sectionSignals: input.inputs.signals,
+      timingSessions: input.inputs.timingSessions,
+      scoreEvidence: input.inputs.scoreEvidence,
+      completedMockCount: input.inputs.completedMockCount,
+      forecast,
+    },
+    guidance: input.guidance,
+  });
+}
+
 async function generateForProfile(
   supabase: SupabaseClient<Database>,
   studentId: string,
@@ -937,39 +992,15 @@ async function generateForProfile(
   );
   const now = new Date();
   const today = todayIso(now);
-  const forecast = await loadForecastEvidence(
+  const generatedPreparation = await runCanonicalPreparation({
     supabase,
     studentId,
+    profile: { ...profileInput(profile), studyPlanEnabled: true },
+    planningDate,
+    inputs,
     today,
-    inputs.timingSessions,
-    inputs.sections,
-  );
-  const generatedPreparation = prepareStudent({
-    clock: {
-      now: now.toISOString(),
-      today,
-    },
+    now: now.toISOString(),
     seed: `study-plan:${studentId}:${reason}:${today}`,
-    versions: CURRENT_PREPARATION_VERSIONS,
-    timingProfile: STANDARD_PREPARATION_TIMING_PROFILE,
-    goal: {
-      planningDate,
-      profile: { ...profileInput(profile), studyPlanEnabled: true },
-    },
-    content: {
-      sections: inputs.sections,
-      categories: inputs.categories,
-      learningModules: inputs.learningModules,
-      skillTrainers: inputs.skillTrainers,
-      tagSignals: inputs.tagSignals,
-    },
-    evidence: {
-      sectionSignals: inputs.signals,
-      timingSessions: inputs.timingSessions,
-      scoreEvidence: inputs.scoreEvidence,
-      completedMockCount: inputs.completedMockCount,
-      forecast,
-    },
   });
   const preparation: PreparationEngineResult = {
     ...generatedPreparation,
@@ -1001,50 +1032,36 @@ async function generateForProfile(
 
 export async function getCurrentPreparation(
   supabase: SupabaseClient<Database>,
-  userId: string,
+  _userId: string,
 ): Promise<PreparationEngineResult> {
-  const student = await resolveStudent(userId);
-  const { data: profile, error } = await requireAdmin()
-    .from("ucat_student_study_plan_profiles")
+  const { data: profileView, error } = await supabase
+    .from("vstudent_ucat_study_plan_profiles")
     .select("*")
-    .eq("student_id", student.id)
     .maybeSingle();
   if (error) throw error;
-  if (!profile) throw new Error("Set your UCAT goal first.");
+  if (!profileView) throw new Error("Set your UCAT goal first.");
+  const profile = profileView as ProfileRow;
+  const { data: student, error: studentError } = await supabase
+    .from("vstudent_ucat_my_activity_start")
+    .select("timezone")
+    .maybeSingle();
+  if (studentError) throw studentError;
 
   const [{ planningDate }, inputs] = await Promise.all([
     planningDateFor(profile),
-    loadGenerationInputs(supabase, student.id, profile.test_year),
+    loadGenerationInputs(supabase, profile.student_id, profile.test_year),
   ]);
   const now = new Date();
-  const today = todayIso(now, student.timezone);
-  const forecast = await loadForecastEvidence(
+  const today = todayIso(now, student?.timezone || "Australia/Adelaide");
+  const generatedPreparation = await runCanonicalPreparation({
     supabase,
-    student.id,
+    studentId: profile.student_id,
+    profile: profileInput(profile),
+    planningDate,
+    inputs,
     today,
-    inputs.timingSessions,
-    inputs.sections,
-  );
-  const generatedPreparation = prepareStudent({
-    clock: { now: now.toISOString(), today },
-    seed: `current-preparation:${student.id}:${today}`,
-    versions: CURRENT_PREPARATION_VERSIONS,
-    timingProfile: STANDARD_PREPARATION_TIMING_PROFILE,
-    goal: { planningDate, profile: profileInput(profile) },
-    content: {
-      sections: inputs.sections,
-      categories: inputs.categories,
-      learningModules: inputs.learningModules,
-      skillTrainers: inputs.skillTrainers,
-      tagSignals: inputs.tagSignals,
-    },
-    evidence: {
-      sectionSignals: inputs.signals,
-      timingSessions: inputs.timingSessions,
-      scoreEvidence: inputs.scoreEvidence,
-      completedMockCount: inputs.completedMockCount,
-      forecast,
-    },
+    now: now.toISOString(),
+    seed: `current-preparation:${profile.student_id}:${today}`,
   });
   const preparation: PreparationEngineResult = {
     ...generatedPreparation,
@@ -1059,11 +1076,11 @@ export async function getCurrentPreparation(
     },
   };
   await persistPreparationProgression(
-    student.id,
+    profile.student_id,
     profile.test_year,
     preparation,
   );
-  await persistPreparationSnapshot(student.id, today, preparation);
+  await persistPreparationSnapshot(profile.student_id, today, preparation);
   return preparation;
 }
 
@@ -1883,36 +1900,15 @@ export async function suggestAlternativeStudyGuidance(
     },
   );
   const now = new Date();
-  const forecast = await loadForecastEvidence(
+  const preparation = await runCanonicalPreparation({
     supabase,
-    student.id,
+    studentId: student.id,
+    profile: profileInput(profileResult.data),
+    planningDate: buildInput.planningDate,
+    inputs: buildInput,
     today,
-    buildInput.timingSessions,
-    buildInput.sections,
-  );
-  const preparation = prepareStudent({
-    clock: { now: now.toISOString(), today },
+    now: now.toISOString(),
     seed: `alternative:${student.id}:${today}:${input.excludedKeys.join("|")}`,
-    versions: CURRENT_PREPARATION_VERSIONS,
-    timingProfile: STANDARD_PREPARATION_TIMING_PROFILE,
-    goal: {
-      planningDate: buildInput.planningDate,
-      profile: profileInput(profileResult.data),
-    },
-    content: {
-      sections: buildInput.sections,
-      categories: buildInput.categories,
-      learningModules: buildInput.learningModules,
-      skillTrainers: buildInput.skillTrainers,
-      tagSignals: buildInput.tagSignals,
-    },
-    evidence: {
-      sectionSignals: buildInput.signals,
-      timingSessions: buildInput.timingSessions,
-      scoreEvidence: buildInput.scoreEvidence,
-      completedMockCount: buildInput.completedMockCount,
-      forecast,
-    },
     guidance: {
       dailyWarmup: false,
       incompleteReview: describedIncompleteReview,
@@ -2040,36 +2036,15 @@ export async function createExtraStudyTask(
     currentPlan.profile.testYear,
   );
   const now = new Date();
-  const forecast = await loadForecastEvidence(
+  const preparation = await runCanonicalPreparation({
     supabase,
     studentId,
-    currentPlan.today,
-    generationInputs.timingSessions,
-    generationInputs.sections,
-  );
-  const preparation = prepareStudent({
-    clock: { now: now.toISOString(), today: currentPlan.today },
+    profile: currentPlan.profile,
+    planningDate: currentPlan.profile.planningDate,
+    inputs: generationInputs,
+    today: currentPlan.today,
+    now: now.toISOString(),
     seed: `extra-study:${studentId}:${currentPlan.today}:${input.minutes}:${input.sectionKey ?? "any"}`,
-    versions: CURRENT_PREPARATION_VERSIONS,
-    timingProfile: STANDARD_PREPARATION_TIMING_PROFILE,
-    goal: {
-      planningDate: currentPlan.profile.planningDate,
-      profile: currentPlan.profile,
-    },
-    content: {
-      sections: generationInputs.sections,
-      categories: generationInputs.categories,
-      learningModules: generationInputs.learningModules,
-      skillTrainers: generationInputs.skillTrainers,
-      tagSignals: generationInputs.tagSignals,
-    },
-    evidence: {
-      sectionSignals: generationInputs.signals,
-      timingSessions: generationInputs.timingSessions,
-      scoreEvidence: generationInputs.scoreEvidence,
-      completedMockCount: generationInputs.completedMockCount,
-      forecast,
-    },
   });
   const nextSortOrder =
     Math.max(-1, ...currentPlan.todayTasks.map((task) => task.sortOrder)) + 1;

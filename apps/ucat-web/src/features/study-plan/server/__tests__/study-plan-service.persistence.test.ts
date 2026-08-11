@@ -8,6 +8,7 @@ import {
 } from "@/features/preparation";
 import {
   createExtraStudyTask,
+  getCurrentPreparation,
   getStudyPlan,
   saveStudyPlanProfile,
   suggestAlternativeStudyGuidance,
@@ -148,6 +149,18 @@ function createDatabaseHarness(
         data: { id: "student-1", timezone: "Australia/Adelaide" },
         error: null,
       };
+    }
+    if (table === "vstudent_ucat_my_activity_start" && single) {
+      return {
+        data: {
+          student_id: "student-1",
+          timezone: "Australia/Adelaide",
+        },
+        error: null,
+      };
+    }
+    if (table === "vstudent_ucat_study_plan_profiles" && single) {
+      return { data: profile, error: null };
     }
     if (table === "ucat_student_study_plan_profiles" && single) {
       return {
@@ -462,6 +475,27 @@ describe("Study plan persistence orchestration", () => {
         ],
       }),
     );
+  });
+
+  it("loads current Preparation identity and plan profile through Student facades", async () => {
+    const { admin, studentClient } = createDatabaseHarness();
+
+    await getCurrentPreparation(studentClient, "user-1");
+
+    expect(studentClient.from).toHaveBeenCalledWith(
+      "vstudent_ucat_my_activity_start",
+    );
+    expect(studentClient.from).toHaveBeenCalledWith(
+      "vstudent_ucat_study_plan_profiles",
+    );
+    expect(
+      jest
+        .mocked(admin.from)
+        .mock.calls.some(
+          ([table]) =>
+            (table as string) === "ucat_student_study_plan_profiles",
+        ),
+    ).toBe(false);
   });
 
   it("persists review completion without advancing future work from scheduling", async () => {
