@@ -59,6 +59,7 @@ import { inferPreferredMockWeekday } from "@/features/study-plan/lib/activation"
 import type {
   StudyPlanAvailability,
   StudyPlanResponse,
+  StudyPlanSjtPreference,
   StudyPlanWeekday,
 } from "@/features/study-plan/model/types";
 import { UcatClickableCardButton } from "@/shared/components/ucat-clickable-card";
@@ -88,6 +89,27 @@ const DEFAULT_AVAILABILITY: StudyPlanAvailability[] = [
 ];
 
 const WORKSPACE_SETUP_ANIMATION_MS = 4_100;
+const SJT_OPTIONS: Array<{
+  value: StudyPlanSjtPreference;
+  label: string;
+  description: string;
+}> = [
+  {
+    value: "normally",
+    label: "Normally",
+    description: "Include regular standalone SJT practice.",
+  },
+  {
+    value: "a_little",
+    label: "A little",
+    description: "Keep SJT light outside full mocks.",
+  },
+  {
+    value: "not_at_all",
+    label: "Not at all",
+    description: "Use full mocks for SJT and skip standalone SJT work.",
+  },
+];
 
 function defaultMinutesForDay(day: StudyPlanWeekday): number {
   return day === 0 || day === 6 ? 120 : 60;
@@ -231,6 +253,8 @@ export function StudyPlanActivationPage() {
   const [targetUnsure, setTargetUnsure] = useState(false);
   const [testYear, setTestYear] = useState<number | null>(null);
   const [testDate, setTestDate] = useState("");
+  const [sjtPreference, setSjtPreference] =
+    useState<StudyPlanSjtPreference>("a_little");
   const [availability, setAvailability] =
     useState<StudyPlanAvailability[]>(DEFAULT_AVAILABILITY);
   const [savedPlan, setSavedPlan] = useState<StudyPlanResponse | null>(null);
@@ -271,6 +295,7 @@ export function StudyPlanActivationPage() {
     setTargetScore(plan.profile.targetScore);
     setTestYear(plan.profile.testYear);
     setTestDate(plan.profile.testDate ?? "");
+    setSjtPreference(plan.profile.sjtPreference ?? "a_little");
     if (plan.profile.availableDays.length) {
       setAvailability(plan.profile.availableDays);
     }
@@ -341,6 +366,7 @@ export function StudyPlanActivationPage() {
         testDate: testDate || null,
         availableDays: availability,
         preferredMockWeekday: inferPreferredMockWeekday(availability),
+        sjtPreference,
       });
       setSavedPlan(nextPlan);
       queryClient.setQueryData(STUDY_PLAN_QUERY_KEY, nextPlan);
@@ -372,6 +398,7 @@ export function StudyPlanActivationPage() {
         testDate: testDate || null,
         availableDays: [],
         preferredMockWeekday: 6,
+        sjtPreference,
       });
       setSavedPlan(nextPlan);
       queryClient.setQueryData(STUDY_PLAN_QUERY_KEY, nextPlan);
@@ -637,6 +664,43 @@ export function StudyPlanActivationPage() {
                   onTestYearChange={setTestYear}
                   onTestDateChange={setTestDate}
                 />
+                <fieldset className={cn(UCAT_CARD_CHROME, "mt-4 p-5")}>
+                  <legend className="px-1 text-sm font-semibold text-foreground">
+                    How much standalone SJT practice do you want?
+                  </legend>
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    Full mocks still include SJT whichever option you choose.
+                  </p>
+                  <div className="mt-4 grid gap-3 sm:grid-cols-3">
+                    {SJT_OPTIONS.map((option) => (
+                      <label
+                        key={option.value}
+                        className={cn(
+                          "cursor-pointer rounded-xl border p-4 transition-colors",
+                          sjtPreference === option.value
+                            ? "border-primary bg-primary/10"
+                            : "border-border bg-background/50 hover:bg-muted/60",
+                        )}
+                      >
+                        <input
+                          type="radio"
+                          name="sjt-preference"
+                          value={option.value}
+                          checked={sjtPreference === option.value}
+                          disabled={pending}
+                          onChange={() => setSjtPreference(option.value)}
+                          className="sr-only"
+                        />
+                        <span className="block text-sm font-semibold text-foreground">
+                          {option.label}
+                        </span>
+                        <span className="mt-1 block text-xs leading-relaxed text-muted-foreground">
+                          {option.description}
+                        </span>
+                      </label>
+                    ))}
+                  </div>
+                </fieldset>
                 <SetupError message={error} />
                 <div className="mt-6 flex items-center justify-between gap-3">
                   <BackButton
@@ -714,7 +778,10 @@ export function StudyPlanActivationPage() {
                     <p>
                       Choose the days you can normally study. Altitutor will
                       adjust the session length and number of practice blocks as
-                      your readiness and exam date change.
+                      your readiness and exam date change. Your longest day is a
+                      soft mock preference, not a restriction. Workload and mock
+                      frequency increase as the exam approaches, with recovery
+                      protected near test day.
                     </p>
                   </div>
                 </div>

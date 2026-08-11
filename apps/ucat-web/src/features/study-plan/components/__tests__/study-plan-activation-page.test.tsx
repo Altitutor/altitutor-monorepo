@@ -304,11 +304,18 @@ describe("StudyPlanActivationPage", () => {
     const year = String(new Date().getFullYear());
     fireEvent.click(screen.getByRole("combobox", { name: "UCAT year" }));
     fireEvent.click(screen.getByRole("option", { name: year }));
+    expect(
+      screen.getByRole("radio", { name: /A little/i }),
+    ).toBeChecked();
+    fireEvent.click(screen.getByRole("radio", { name: /Normally/i }));
     fireEvent.click(screen.getByRole("button", { name: /Save and finish/i }));
 
     await waitFor(() => expect(mockSaveStudyPlan).toHaveBeenCalled());
     expect(mockSaveStudyPlan).toHaveBeenCalledWith(
-      expect.objectContaining({ studyPlanEnabled: false }),
+      expect.objectContaining({
+        studyPlanEnabled: false,
+        sjtPreference: "normally",
+      }),
     );
     await waitFor(() =>
       expect(replace).toHaveBeenCalledWith("/settings/study-plan"),

@@ -96,7 +96,7 @@ SET new_generation_id = public.replace_ucat_study_plan_generation(
   CURRENT_DATE,
   CURRENT_DATE,
   CURRENT_DATE + 21,
-  '{"versions":{"policy":"evidence-driven-preparation-policy-v3"}}'::JSONB,
+  '{"versions":{"policy":"evidence-driven-preparation-policy-v4"}}'::JSONB,
   '{}'::JSONB,
   NULL,
   jsonb_build_array(
@@ -212,7 +212,7 @@ SELECT results_eq(
         SELECT student_id FROM study_plan_replacement_fixture
       )
   $$,
-  $$VALUES ('evidence-driven-preparation-policy-v3'::TEXT)$$,
+  $$VALUES ('evidence-driven-preparation-policy-v4'::TEXT)$$,
   'the replacement persists the current preparation policy version'
 );
 

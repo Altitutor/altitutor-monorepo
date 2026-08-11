@@ -17,6 +17,10 @@ import {
   type RepresentativeScoreEvidence,
 } from "@/features/preparation";
 import {
+  latestCompletedMockDate,
+  normalizeSjtPreference,
+} from "@/features/preparation/lib/sjt-allocation-policy";
+import {
   extractTextFromRichJson,
   type JsonLike,
 } from "@/features/question-engine/model/rich-text";
@@ -142,6 +146,7 @@ function profileInput(profile: ProfileRow): StudyPlanProfileInput {
       | 4
       | 5
       | 6,
+    sjtPreference: normalizeSjtPreference(profile.sjt_preference),
   };
 }
 
@@ -858,6 +863,7 @@ async function persistGeneration(
       testDate: profile.test_date,
       availableDays: profile.available_days,
       preferredMockWeekday: profile.preferred_mock_weekday,
+      sjtPreference: normalizeSjtPreference(profile.sjt_preference),
       completedMockCount,
     },
     p_projection_snapshot: {
@@ -1532,6 +1538,7 @@ async function loadNextStepBuildInput(
     ...options,
     planningDate: planning.planningDate,
     targetScore: profile.target_score,
+    sjtPreference: normalizeSjtPreference(profile.sjt_preference),
     ...inputs,
     trainerAttemptCounts,
   };
@@ -1760,6 +1767,7 @@ export async function saveStudyPlanProfile(
         test_date: input.testDate,
         available_days: input.availableDays as unknown as Json,
         preferred_mock_weekday: input.preferredMockWeekday,
+        sjt_preference: normalizeSjtPreference(input.sjtPreference),
         setup_completed_at: new Date().toISOString(),
       },
       { onConflict: "student_id" },
@@ -1853,6 +1861,12 @@ export async function createExtraStudyTask(
         trainerAttemptCounts: new Map(),
         incompleteReview: null,
         completedMockCount: generationInputs.completedMockCount,
+        sjtPreference: normalizeSjtPreference(
+          currentPlan.profile.sjtPreference,
+        ),
+        lastCompletedMockDate: latestCompletedMockDate(
+          generationInputs.timingSessions,
+        ),
       })
     : undefined;
   const extraTasks = (() => {
@@ -2155,6 +2169,7 @@ export async function getStudyPlan(
         | 4
         | 5
         | 6,
+      sjtPreference: normalizeSjtPreference(profile.sjt_preference),
       planningDate: planning.planningDate,
       planningDateIsProvisional: planning.provisional,
       nextWeeklyReplanOn: profile.next_weekly_replan_on,

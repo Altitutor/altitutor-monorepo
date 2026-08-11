@@ -4,8 +4,14 @@ import type {
   StudyPlanReadinessSnapshot,
   StudyPlanSection,
   StudyPlanSectionSignal,
+  StudyPlanSjtPreference,
   StudyPlanSkillTrainer,
 } from "@/features/study-plan/model/types";
+import {
+  hasCurrentSjtMockCredit,
+  normalizeSjtPreference,
+  sjtAllocationWeight,
+} from "@/features/preparation/lib/sjt-allocation-policy";
 
 export type PreparationActivityKind =
   | "instruction"
@@ -26,6 +32,7 @@ export type PreparationActivityObjective =
   | "build_representative_breadth"
   | "refresh_calibration"
   | "rehearse_full_exam"
+  | "maintain_sjt_judgement"
   | "consolidate_review"
   | "warm_up";
 
@@ -82,6 +89,8 @@ export type ActivityRankingInput = {
     attemptLabel: string;
   } | null;
   completedMockCount: number;
+  sjtPreference?: StudyPlanSjtPreference;
+  lastCompletedMockDate?: string | null;
 };
 
 type Factors = Omit<PreparationActivityCandidate["ranking"], "total">;
@@ -434,6 +443,48 @@ export function rankActivityCandidates(
     }
   }
 
+  const sjtSection = input.sections.find((section) => section.sectionNumber === 4);
+  const sjtPreference = normalizeSjtPreference(input.sjtPreference);
+  const sjtWeight = sjtAllocationWeight(sjtPreference);
+  if (
+    sjtSection &&
+    sjtWeight > 0 &&
+    !hasCurrentSjtMockCredit({
+      today: input.today,
+      lastCompletedMockDate: input.lastCompletedMockDate,
+    })
+  ) {
+    const questionCount = Math.round(sjtSection.questionCount * sjtWeight);
+    result.push(
+      candidate({
+        id: `sjt:${sjtPreference}`,
+        kind: "broad_practice",
+        requirement: "required",
+        sectionId: sjtSection.id,
+        scope: "section",
+        dose: { questionCount, sectionEquivalents: sjtWeight },
+        duration: duration(
+          sjtSection,
+          questionCount,
+          input.readiness.mode !== "learning",
+        ),
+        objective: "maintain_sjt_judgement",
+        reasonCode: "activity.sjt_preference",
+        studentReason:
+          sjtPreference === "normally"
+            ? "Regular SJT practice matches the emphasis you chose."
+            : "A small amount of SJT practice matches the emphasis you chose.",
+        ranking: factors({
+          milestone: 40 * sjtWeight,
+          weakness: 0,
+          uncertainty: 0,
+          targetGap: 0,
+          tagSampling: 0,
+        }),
+      }),
+    );
+  }
+
   if (input.readiness.sections.every((section) => section.mode !== "learning")) {
     result.push(
       candidate({
@@ -449,7 +500,7 @@ export function rankActivityCandidates(
         studentReason:
           input.readiness.mode === "exam"
             ? "Full-exam pacing and stamina are now a priority."
-            : "An intermittent mock checks whether section timing transfers to the whole exam.",
+            : "Rehearse the complete exam under realistic conditions.",
         ranking: factors({
           milestone: input.readiness.mode === "exam" ? 350 : 35,
           weakness: 0,

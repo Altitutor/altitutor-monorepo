@@ -5,12 +5,14 @@ import {
   type PreparationActivityCandidate,
   type ActivityTagSignal,
 } from "@/features/preparation/lib/activity-ranking";
+import { latestCompletedMockDate } from "@/features/preparation/lib/sjt-allocation-policy";
 import type {
   StudyGuidanceItem,
   StudyPlanCategorySignal,
   StudyPlanLearningModule,
   StudyPlanSection,
   StudyPlanSectionSignal,
+  StudyPlanSjtPreference,
   StudyPlanSkillTrainer,
   StudyPlanTimingEvidenceSession,
   StudyPlanTrainingMode,
@@ -90,6 +92,7 @@ export type BuildNextStepsInput = {
   timingSessions?: StudyPlanTimingEvidenceSession[];
   trainerAttemptCounts: Map<string, number>;
   completedMockCount: number;
+  sjtPreference?: StudyPlanSjtPreference;
   activityCandidates?: PreparationActivityCandidate[];
   tagSignals?: ActivityTagSignal[];
 };
@@ -228,7 +231,7 @@ function mockDraft(mode: StudyPlanTrainingMode): NextStepDraft {
     rationale:
       mode === "exam"
         ? "Your test is close enough for full-exam pacing and stamina to be a priority."
-        : "An intermittent mock checks whether timing work is transferring to the whole exam.",
+        : "Rehearse the complete exam under realistic conditions.",
     estimatedMinutes: 120,
     launchPath: "/mocks",
   });
@@ -286,6 +289,8 @@ function rankedCandidates(input: BuildNextStepsInput) {
     trainerAttemptCounts: input.trainerAttemptCounts,
     incompleteReview: input.incompleteReview,
     completedMockCount: input.completedMockCount,
+    sjtPreference: input.sjtPreference,
+    lastCompletedMockDate: latestCompletedMockDate(input.timingSessions),
   });
 }
 

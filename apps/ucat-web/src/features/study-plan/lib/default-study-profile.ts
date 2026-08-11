@@ -15,6 +15,7 @@ export function defaultSkippedGoalProfileInput(
     testDate: null,
     availableDays: [],
     preferredMockWeekday: 6,
+    sjtPreference: "a_little",
   };
 }
 

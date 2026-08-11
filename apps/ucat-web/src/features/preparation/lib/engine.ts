@@ -13,6 +13,7 @@ import { buildNextStepDrafts } from "@/features/study-plan/lib/next-step-guidanc
 import { buildReadinessSnapshot } from "@/features/study-plan/lib/readiness";
 import { estimateRepresentativeScore } from "@/features/preparation/lib/score-model";
 import { rankActivityCandidates } from "@/features/preparation/lib/activity-ranking";
+import { latestCompletedMockDate } from "@/features/preparation/lib/sjt-allocation-policy";
 
 const COGNITIVE_SECTION_COUNT = 3;
 
@@ -233,6 +234,9 @@ export function prepareStudent(
       overspeedPace: assessment.overspeedPace,
     };
   });
+  const lastCompletedMockDate = latestCompletedMockDate(
+    input.evidence.timingSessions,
+  );
   const plan = generateStudyPlan({
     today: input.clock.today,
     planningDate: input.goal.planningDate,
@@ -244,6 +248,7 @@ export function prepareStudent(
     skillTrainers: input.content.skillTrainers,
     tagSignals: input.content.tagSignals,
     completedMockCount: input.evidence.completedMockCount,
+    lastCompletedMockDate,
   });
   const activityCandidates = rankActivityCandidates({
     today: input.clock.today,
@@ -261,6 +266,8 @@ export function prepareStudent(
     ),
     incompleteReview: input.guidance?.incompleteReview ?? null,
     completedMockCount: input.evidence.completedMockCount,
+    sjtPreference: input.goal.profile.sjtPreference,
+    lastCompletedMockDate,
   });
   const immediateGuidance = input.guidance
       ? buildNextStepDrafts({
@@ -279,6 +286,7 @@ export function prepareStudent(
           Object.entries(input.guidance.trainerAttemptCounts),
         ),
         completedMockCount: input.evidence.completedMockCount,
+        sjtPreference: input.goal.profile.sjtPreference,
         activityCandidates,
       })
     : [];

@@ -8,6 +8,10 @@ import type {
 import { parseIsoDate, todayIso } from "@/features/study-plan/lib/dates";
 import { roundTargetScore } from "@/features/study-plan/lib/target-score";
 import { isTestDateInBounds } from "@/features/study-plan/lib/test-date-bounds";
+import {
+  DEFAULT_SJT_PREFERENCE,
+  isSjtPreference,
+} from "@/features/preparation/lib/sjt-allocation-policy";
 
 function integer(value: unknown, label: string): number {
   if (typeof value !== "number" || !Number.isInteger(value)) {
@@ -118,13 +122,9 @@ export function parseStudyPlanProfileInput(
   if (preferredMockWeekday < 0 || preferredMockWeekday > 6) {
     throw new Error("Choose a valid preferred mock day.");
   }
-  if (
-    studyPlanEnabled &&
-    !availableDays.some((day) => day.weekday === preferredMockWeekday)
-  ) {
-    throw new Error(
-      "Your preferred mock day must be one of your available days.",
-    );
+  const sjtPreference = record.sjtPreference ?? DEFAULT_SJT_PREFERENCE;
+  if (!isSjtPreference(sjtPreference)) {
+    throw new Error("Choose how much standalone SJT practice you want.");
   }
   return {
     studyPlanEnabled,
@@ -133,5 +133,6 @@ export function parseStudyPlanProfileInput(
     testDate,
     availableDays,
     preferredMockWeekday: preferredMockWeekday as StudyPlanWeekday,
+    sjtPreference,
   };
 }

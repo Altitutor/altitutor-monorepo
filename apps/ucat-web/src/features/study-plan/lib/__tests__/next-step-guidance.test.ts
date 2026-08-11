@@ -24,6 +24,16 @@ const section: StudyPlanSection = {
   timePerQuestionSeconds: 42,
 };
 
+const sjtSection: StudyPlanSection = {
+  id: "section-sjt",
+  key: "situational_judgement",
+  name: "Situational Judgement",
+  shortName: "SJT",
+  sectionNumber: 4,
+  questionCount: 69,
+  timePerQuestionSeconds: 22,
+};
+
 const signals: StudyPlanSectionSignal[] = [
   {
     sectionId: section.id,
@@ -106,6 +116,85 @@ function build(
 }
 
 describe("rolling next-step guidance", () => {
+  it.each([
+    ["normally", 69],
+    ["a_little", 35],
+    ["not_at_all", null],
+  ] as const)(
+    "respects the %s standalone SJT preference without a plan",
+    (sjtPreference, expectedQuestions) => {
+      const guidance = build({
+        sections: [sjtSection],
+        signals: [
+          {
+            sectionId: sjtSection.id,
+            currentEstimate: null,
+            evidenceCount: 0,
+            completedFullSets: 0,
+          },
+        ],
+        categories: [],
+        learningModules: [],
+        skillTrainers: [],
+        sjtPreference,
+      });
+      const sjtGuidance = guidance.find(
+        (item) => item.sectionId === sjtSection.id,
+      );
+
+      if (expectedQuestions == null) {
+        expect(sjtGuidance).toBeUndefined();
+      } else {
+        expect(sjtGuidance?.launchConfig.questionCount).toBe(expectedQuestions);
+      }
+    },
+  );
+
+  it("uses recent, but not historical, completed mock SJT as rolling guidance credit", () => {
+    const mockSession = (completedAt: string) => ({
+      id: `mock-${completedAt}`,
+      sectionId: sjtSection.id,
+      source: "mock" as const,
+      completedAt,
+      prescribedPace: 1,
+      observedPace: 1,
+      accuracy: 0.7,
+      sectionEquivalents: 1,
+      breadth: "broad" as const,
+      categoryIds: [],
+    });
+    const input = {
+      sections: [sjtSection],
+      signals: [
+        {
+          sectionId: sjtSection.id,
+          currentEstimate: null,
+          evidenceCount: 0,
+          completedFullSets: 0,
+        },
+      ],
+      categories: [],
+      learningModules: [],
+      skillTrainers: [],
+      sjtPreference: "normally" as const,
+    };
+
+    expect(
+      build({
+        ...input,
+        completedMockCount: 1,
+        timingSessions: [mockSession("2026-01-09T00:00:00.000Z")],
+      }).some((item) => item.sectionId === sjtSection.id),
+    ).toBe(false);
+    expect(
+      build({
+        ...input,
+        completedMockCount: 1,
+        timingSessions: [mockSession("2025-11-01T00:00:00.000Z")],
+      }).some((item) => item.sectionId === sjtSection.id),
+    ).toBe(true);
+  });
+
   it("treats a missing next-step collection as no guidance", () => {
     expect(firstGuidanceTriggerKey(undefined)).toBeNull();
     expect(firstGuidanceTriggerKey([])).toBeNull();

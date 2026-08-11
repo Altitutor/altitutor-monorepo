@@ -369,9 +369,226 @@ describe("generateStudyPlan", () => {
     ).toBe(true);
     expect(mocks.every((mock) => mock.scheduledDate < "2026-07-25")).toBe(true);
     expect(
+      mocks.every(
+        (mock) =>
+          result.tasks.filter(
+            (task) => task.scheduledDate === mock.scheduledDate,
+          ).length === 1,
+      ),
+    ).toBe(true);
+    expect(
       result.tasks.filter((task) => task.taskType === "review").length,
     ).toBeGreaterThan(0);
   });
+
+  it.each([
+    ["far-out Timing", "2026-01-01", "2026-06-01", 1],
+    ["61–120 days", "2026-05-01", "2026-08-01", 2],
+    ["29–60 days", "2026-06-20", "2026-08-01", 3],
+    ["final 28 days", "2026-07-11", "2026-08-01", 9],
+  ])(
+    "uses the versioned mock cadence for %s",
+    (_persona, today, planningDate, expectedMocks) => {
+      const result = generateStudyPlan({
+        today,
+        planningDate,
+        profile: {
+          ...profile,
+          testDate: planningDate,
+          availableDays: [0, 1, 2, 3, 4, 5, 6].map((weekday) => ({
+            weekday: weekday as 0 | 1 | 2 | 3 | 4 | 5 | 6,
+            maxMinutes: 150,
+          })),
+        },
+        sections,
+        signals: sections.map((section) => ({
+          sectionId: section.id,
+          currentEstimate: section.sectionNumber <= 3 ? 650 : null,
+          evidenceCount: 3,
+          completedFullSets: section.sectionNumber <= 3 ? 1 : 0,
+          learningGraduatedAt:
+            section.sectionNumber <= 3
+              ? "2025-12-01T00:00:00.000Z"
+              : null,
+          learningGraduationRoute:
+            section.sectionNumber <= 3 ? "accuracy" : null,
+        })),
+        learningModules: [],
+        ...contentInputs,
+        completedMockCount: 0,
+      });
+
+      expect(
+        result.tasks.filter((task) => task.taskType === "mock"),
+      ).toHaveLength(expectedMocks);
+    },
+  );
+
+  it("counts recent completed mock SJT toward the rolling standalone allocation", () => {
+    const result = generateStudyPlan({
+      today: "2026-01-05",
+      planningDate: "2026-08-05",
+      profile: {
+        ...profile,
+        sjtPreference: "normally",
+        availableDays: [0, 1, 2, 3, 4, 5, 6].map((weekday) => ({
+          weekday: weekday as 0 | 1 | 2 | 3 | 4 | 5 | 6,
+          maxMinutes: 90,
+        })),
+      },
+      sections,
+      signals: sections.map((section) => ({
+        sectionId: section.id,
+        currentEstimate: section.sectionNumber <= 3 ? 450 : null,
+        evidenceCount: 0,
+        completedFullSets: 0,
+      })),
+      learningModules: [],
+      ...contentInputs,
+      completedMockCount: 1,
+      lastCompletedMockDate: "2026-01-04",
+    });
+
+    expect(
+      result.tasks.some(
+        (task) => task.taskType === "practice" && task.sectionId === "sjt",
+      ),
+    ).toBe(false);
+  });
+
+  it("does not let an historical mock permanently suppress standalone SJT", () => {
+    const result = generateStudyPlan({
+      today: "2026-01-05",
+      planningDate: "2026-08-05",
+      profile: {
+        ...profile,
+        sjtPreference: "normally",
+        availableDays: [0, 1, 2, 3, 4, 5, 6].map((weekday) => ({
+          weekday: weekday as 0 | 1 | 2 | 3 | 4 | 5 | 6,
+          maxMinutes: 90,
+        })),
+      },
+      sections,
+      signals: sections.map((section) => ({
+        sectionId: section.id,
+        currentEstimate: section.sectionNumber <= 3 ? 450 : null,
+        evidenceCount: 0,
+        completedFullSets: 0,
+      })),
+      learningModules: [],
+      ...contentInputs,
+      completedMockCount: 1,
+      lastCompletedMockDate: "2025-11-01",
+    });
+
+    expect(
+      result.tasks
+        .filter(
+          (task) => task.taskType === "practice" && task.sectionId === "sjt",
+        )
+        .reduce((sum, task) => sum + (task.targetUnits ?? 0), 0),
+    ).toBe(69);
+  });
+
+  it("keeps the final 48 hours free of mocks", () => {
+    const planningDate = "2026-08-01";
+    const result = generateStudyPlan({
+      today: "2026-07-11",
+      planningDate,
+      profile: {
+        ...profile,
+        testDate: planningDate,
+        availableDays: [0, 1, 2, 3, 4, 5, 6].map((weekday) => ({
+          weekday: weekday as 0 | 1 | 2 | 3 | 4 | 5 | 6,
+          maxMinutes: 150,
+        })),
+      },
+      sections,
+      signals: sections.map((section) => ({
+        sectionId: section.id,
+        currentEstimate: section.sectionNumber <= 3 ? 650 : null,
+        evidenceCount: 3,
+        completedFullSets: section.sectionNumber <= 3 ? 1 : 0,
+      })),
+      learningModules: [],
+      ...contentInputs,
+      completedMockCount: 0,
+    });
+
+    expect(
+      result.tasks
+        .filter((task) => task.taskType === "mock")
+        .every((task) => task.scheduledDate <= "2026-07-29"),
+    ).toBe(true);
+  });
+
+  it("uses two final-month mocks only as a scarce-availability fallback", () => {
+    const planningDate = "2026-08-01";
+    const result = generateStudyPlan({
+      today: "2026-07-20",
+      planningDate,
+      profile: {
+        ...profile,
+        testDate: planningDate,
+        availableDays: [{ weekday: 1, maxMinutes: 150 }],
+        preferredMockWeekday: 1,
+      },
+      sections,
+      signals: sections.map((section) => ({
+        sectionId: section.id,
+        currentEstimate: section.sectionNumber <= 3 ? 650 : null,
+        evidenceCount: 3,
+        completedFullSets: section.sectionNumber <= 3 ? 1 : 0,
+      })),
+      learningModules: [],
+      ...contentInputs,
+      completedMockCount: 0,
+    });
+
+    expect(
+      result.tasks.filter((task) => task.taskType === "mock"),
+    ).toHaveLength(2);
+    expect(result.capacityRisk.level).toBe("warning");
+  });
+
+  it.each([
+    ["normally", 69],
+    ["a_little", 35],
+    ["not_at_all", 0],
+  ] as const)(
+    "allocates standalone SJT work for the %s preference without cognitive target-gap weighting",
+    (sjtPreference, expectedQuestions) => {
+      const result = generateStudyPlan({
+        today: "2026-01-05",
+        planningDate: "2026-08-05",
+        profile: {
+          ...profile,
+          sjtPreference,
+          availableDays: [0, 1, 2, 3, 4, 5, 6].map((weekday) => ({
+            weekday: weekday as 0 | 1 | 2 | 3 | 4 | 5 | 6,
+            maxMinutes: 90,
+          })),
+        },
+        sections,
+        signals: sections.map((section) => ({
+          sectionId: section.id,
+          currentEstimate: section.sectionNumber <= 3 ? 450 : null,
+          evidenceCount: 0,
+          completedFullSets: 0,
+        })),
+        learningModules: [],
+        ...contentInputs,
+        completedMockCount: 0,
+      });
+      const sjtQuestions = result.tasks
+        .filter(
+          (task) => task.taskType === "practice" && task.sectionId === "sjt",
+        )
+        .reduce((sum, task) => sum + (task.targetUnits ?? 0), 0);
+
+      expect(sjtQuestions).toBe(expectedQuestions);
+    },
+  );
 
   it("schedules multiple core blocks and allows near-section overspeed work", () => {
     const result = generateStudyPlan({

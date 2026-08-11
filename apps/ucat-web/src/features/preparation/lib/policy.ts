@@ -5,7 +5,7 @@ import type {
 
 export const CURRENT_PREPARATION_VERSIONS: PreparationVersions = Object.freeze({
   engine: "preparation-engine-v1",
-  policy: "evidence-driven-preparation-policy-v3",
+  policy: "evidence-driven-preparation-policy-v4",
   scoreModel: "representative-evidence-score-v1",
 });
 

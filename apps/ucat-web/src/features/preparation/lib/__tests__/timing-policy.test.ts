@@ -234,4 +234,26 @@ describe("Timing policy", () => {
     expect(staleOnly.calibrationDue).toBe(false);
     expect(staleWithDose.calibrationDue).toBe(true);
   });
+
+  it("treats a completed mock section as a full broad calibration without immediately repeating it", () => {
+    const result = assess({
+      today: "2026-02-01",
+      sessions: [
+        session("1", {
+          source: "mock",
+          completedAt: "2026-01-31T00:00:00.000Z",
+          prescribedPace: 1,
+          observedPace: 1,
+          sectionEquivalents: 1,
+          breadth: "broad",
+        }),
+      ],
+    });
+
+    expect(result).toMatchObject({
+      broadSectionEquivalents: 1,
+      effectiveSectionEquivalents: 1,
+      calibrationDue: false,
+    });
+  });
 });

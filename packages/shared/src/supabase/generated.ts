@@ -19562,6 +19562,7 @@ export type Database = {
           next_weekly_replan_on: string | null
           preferred_mock_weekday: number
           setup_completed_at: string | null
+          sjt_preference: string
           student_id: string
           study_plan_enabled: boolean
           target_score: number
@@ -19577,6 +19578,7 @@ export type Database = {
           next_weekly_replan_on?: string | null
           preferred_mock_weekday: number
           setup_completed_at?: string | null
+          sjt_preference?: string
           student_id: string
           study_plan_enabled?: boolean
           target_score: number
@@ -19592,6 +19594,7 @@ export type Database = {
           next_weekly_replan_on?: string | null
           preferred_mock_weekday?: number
           setup_completed_at?: string | null
+          sjt_preference?: string
           student_id?: string
           study_plan_enabled?: boolean
           target_score?: number
@@ -27087,6 +27090,7 @@ export type Database = {
           next_weekly_replan_on: string | null
           preferred_mock_weekday: number | null
           setup_completed_at: string | null
+          sjt_preference: string | null
           student_id: string | null
           study_plan_enabled: boolean | null
           target_score: number | null
@@ -27102,6 +27106,7 @@ export type Database = {
           next_weekly_replan_on?: string | null
           preferred_mock_weekday?: number | null
           setup_completed_at?: string | null
+          sjt_preference?: string | null
           student_id?: string | null
           study_plan_enabled?: boolean | null
           target_score?: number | null
@@ -27117,6 +27122,7 @@ export type Database = {
           next_weekly_replan_on?: string | null
           preferred_mock_weekday?: number | null
           setup_completed_at?: string | null
+          sjt_preference?: string | null
           student_id?: string | null
           study_plan_enabled?: boolean | null
           target_score?: number | null

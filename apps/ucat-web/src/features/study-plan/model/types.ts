@@ -1,4 +1,5 @@
 export type StudyPlanWeekday = 0 | 1 | 2 | 3 | 4 | 5 | 6;
+export type StudyPlanSjtPreference = "normally" | "a_little" | "not_at_all";
 
 export type StudyPlanAvailability = {
   weekday: StudyPlanWeekday;
@@ -12,6 +13,7 @@ export type StudyPlanProfileInput = {
   testDate: string | null;
   availableDays: StudyPlanAvailability[];
   preferredMockWeekday: StudyPlanWeekday;
+  sjtPreference?: StudyPlanSjtPreference;
 };
 
 export type StudyPlanTaskType =

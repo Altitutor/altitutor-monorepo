@@ -30,6 +30,11 @@ import type {
   StudyPlanSkillTrainer,
   StudyPlanTrainingMode,
 } from "@/features/study-plan/model/types";
+import {
+  mockIntervalDays,
+  targetMocksInHorizon,
+  UCAT_MOCK_CADENCE_POLICY,
+} from "@/features/preparation/lib/mock-cadence-policy";
 
 type GenerateStudyPlanInput = {
   today: string;
@@ -41,6 +46,7 @@ type GenerateStudyPlanInput = {
   learningModules: StudyPlanLearningModule[];
   skillTrainers: StudyPlanSkillTrainer[];
   completedMockCount: number;
+  lastCompletedMockDate?: string | null;
   tagSignals?: ActivityTagSignal[];
 };
 
@@ -71,6 +77,12 @@ const PRACTICE_ACTIVITY_KINDS: ReadonlySet<
 
 function isPracticeActivity(activity: PreparationActivityCandidate): boolean {
   return PRACTICE_ACTIVITY_KINDS.has(activity.kind);
+}
+
+function isSjtAllocationActivity(
+  activity: PreparationActivityCandidate,
+): boolean {
+  return activity.objective === "maintain_sjt_judgement";
 }
 
 function selectedDates(
@@ -160,6 +172,9 @@ function demandKey(activity: PreparationActivityCandidate): string {
 }
 
 function activityDemand(activity: PreparationActivityCandidate): number {
+  if (isSjtAllocationActivity(activity)) {
+    return activity.dose.sectionEquivalents;
+  }
   const practice = isPracticeActivity(activity);
   const calculated =
     Math.max(0.25, activity.dose.sectionEquivalents) +
@@ -493,8 +508,8 @@ function mockTask(
       "Complete a full mock at 1.0x under uninterrupted exam conditions.",
     rationale:
       mode === "exam"
-        ? "Mocks are the core exam-phase dose for pacing, stamina and whole-exam calibration."
-        : "This intermittent benchmark checks how timing work is transferring to the whole exam.",
+        ? "Practise full-exam pacing, stamina and decision-making under realistic conditions."
+        : "Rehearse the complete exam under realistic conditions.",
     estimatedMinutes: FULL_MOCK_MINUTES,
     targetUnits: null,
     sectionId: null,
@@ -518,26 +533,40 @@ function mockDates(
   readiness: StudyPlanReadinessSnapshot,
   preferredWeekday: number,
   planningDate: string,
+  lastCompletedMockDate: string | null,
 ): Set<string> {
   if (!dates.length || readiness.mode === "learning") return new Set();
-  const eligible = dates.filter((date) => daysBetween(date, planningDate) >= 1);
+  const cadenceInterval = mockIntervalDays(readiness.daysUntilExam);
+  const eligible = dates.filter(
+    (date) =>
+      daysBetween(date, planningDate) >
+        UCAT_MOCK_CADENCE_POLICY.finalRecoveryDays &&
+      (!lastCompletedMockDate ||
+        daysBetween(lastCompletedMockDate, date) >= cadenceInterval),
+  );
   if (!eligible.length) return new Set();
   const calendarSpan = Math.max(
     1,
     daysBetween(eligible[0] ?? dates[0]!, eligible[eligible.length - 1]!) + 1,
   );
-  const desired =
-    readiness.mode === "exam"
-      ? readiness.daysUntilExam <= 28
-        ? Math.max(1, Math.ceil((calendarSpan / 7) * 3))
-        : Math.max(1, Math.ceil(calendarSpan / 7))
-      : Math.max(1, Math.round(calendarSpan / 14));
+  const desired = targetMocksInHorizon({
+    daysUntilExam: readiness.daysUntilExam,
+    horizonDays: calendarSpan,
+  });
   const count = Math.min(desired, eligible.length);
   const picked = new Set<string>();
   for (let index = 0; index < count; index += 1) {
     const ideal = ((index + 0.5) * eligible.length) / count - 0.5;
     const candidate = eligible
-      .filter((date) => !picked.has(date))
+      .filter(
+        (date) =>
+          !picked.has(date) &&
+          [...picked].every(
+            (pickedDate) =>
+              Math.abs(daysBetween(pickedDate, date)) >=
+              UCAT_MOCK_CADENCE_POLICY.mockRecoveryDays,
+          ),
+      )
       .sort((a, b) => {
         const aIndex = eligible.indexOf(a);
         const bIndex = eligible.indexOf(b);
@@ -590,6 +619,8 @@ export function generateStudyPlan(
     trainerAttemptCounts: new Map(),
     incompleteReview: null,
     completedMockCount: input.completedMockCount,
+    sjtPreference: input.profile.sjtPreference,
+    lastCompletedMockDate: input.lastCompletedMockDate,
   });
   const plannedActivities = selectActivityCandidates(rankedActivities, {
     experience: "plan",
@@ -605,9 +636,17 @@ export function generateStudyPlan(
     readiness,
     input.profile.preferredMockWeekday,
     input.planningDate,
+    input.lastCompletedMockDate ?? null,
   );
   const nonMockDayCount = dates.filter((date) => !mocks.has(date)).length;
   const remainingDemand = demandByMilestone(plannedActivities);
+  if (mocks.size > 0) {
+    for (const activity of plannedActivities) {
+      if (isSjtAllocationActivity(activity)) {
+        remainingDemand.set(demandKey(activity), 0);
+      }
+    }
+  }
   const outstandingSectionEquivalents = [...remainingDemand.values()].reduce(
     (sum, demand) => sum + demand,
     0,
@@ -888,7 +927,7 @@ export function generateStudyPlan(
       const selectedTask = taskForCandidate(activity, date, sortOrder++);
       if (!selectedTask) continue;
       canonicalTasks.push(selectedTask);
-      if (activity.duration.reviewMinutes > 0) {
+      if (activity.duration.reviewMinutes > 0 && activity.kind !== "mock") {
         const review = reviewTask(selectedTask, date, sortOrder++);
         canonicalTasks.push({
           ...review,
