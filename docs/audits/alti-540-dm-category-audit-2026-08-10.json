@@ -3642,7 +3642,7 @@
       "observedPresentationFormats": [],
       "richNodeTypes": [],
       "assetFileIds": [],
-      "stemTextExcerpt": "Physicians are from either Melbourne or Sydney and practise in either General Medicine or Oncology. Some physicians are from Melbourne and the rest practise Oncology.",
+      "stemTextExcerpt": "Physicians are from either Melbourne or Sydney and practice in either General Medicine or Oncology. Some physicians are from Melbourne and the rest practice Oncology.",
       "directiveExcerpt": "Place 'Yes' if the conclusion does follow. Place 'No' if the conclusion does not follow.",
       "formalPremiseSignals": [
         "some"
@@ -4949,7 +4949,7 @@
       "observedPresentationFormats": [],
       "richNodeTypes": [],
       "assetFileIds": [],
-      "stemTextExcerpt": "Physicians are from either Melbourne or Sydney and practise in either General Medicine or Oncology. Some physicians are from Melbourne and the rest practise Oncology.",
+      "stemTextExcerpt": "Physicians are from either Melbourne or Sydney and practice in either General Medicine or Oncology. Some physicians are from Melbourne and the rest practice Oncology.",
       "directiveExcerpt": "Place 'Yes' if the conclusion does follow. Place 'No' if the conclusion does not follow.",
       "formalPremiseSignals": [
         "some"
@@ -7530,7 +7530,7 @@
       "observedPresentationFormats": [],
       "richNodeTypes": [],
       "assetFileIds": [],
-      "stemTextExcerpt": "Each physician is from exactly one city—Melbourne or Sydney—and practises exactly one specialty—General Medicine or Oncology. Some physicians are from Melbourne. Every physician who is not from Melbourne practises Oncology.",
+      "stemTextExcerpt": "Each physician is from exactly one city—Melbourne or Sydney—and practices exactly one specialty—General Medicine or Oncology. Some physicians are from Melbourne. Every physician who is not from Melbourne practices Oncology.",
       "directiveExcerpt": "For each conclusion, select Yes if it necessarily follows and No if it does not necessarily follow.",
       "formalPremiseSignals": [
         "some",
@@ -7826,7 +7826,7 @@
       "observedPresentationFormats": [],
       "richNodeTypes": [],
       "assetFileIds": [],
-      "stemTextExcerpt": "Physicians are from either Melbourne or Sydney and practise in either General Medicine or Oncology. Some physicians are from Melbourne and the rest practise Oncology.",
+      "stemTextExcerpt": "Physicians are from either Melbourne or Sydney and practice in either General Medicine or Oncology. Some physicians are from Melbourne and the rest practice Oncology.",
       "directiveExcerpt": "Place 'Yes' if the conclusion does follow. Place 'No' if the conclusion does not follow.",
       "formalPremiseSignals": [
         "some"

@@ -48,6 +48,7 @@ import type {
 } from "@/features/question-engine/model/types";
 import { formatTimeSeconds } from "../lib/format-time";
 import { buildQuestionAttemptInsight } from "../lib/attempt-insights";
+import { getWrongAnswerExplanations } from "../lib/question-insight-evidence";
 import { AttemptInsightCard } from "./attempt-insight-card";
 import { ContentRatingControls } from "@/features/content-ratings/components/content-rating-controls";
 import { contentSnapshotVersion } from "@/features/content-ratings/lib";
@@ -324,13 +325,6 @@ export function SetAnswersCard({
     ? isQuestionNotAnswered(currentQuestion, currentAttempt)
     : false;
   const resultBadge = getAttemptResultBadge(currentAttempt, notAnswered);
-  const questionInsight = buildQuestionAttemptInsight({
-    result: currentAttempt?.result ?? "not_attempted",
-    timeSpentSeconds: currentAttempt?.timeSpentSeconds ?? null,
-    averageTimeSeconds: currentAttempt?.averageTimeSeconds ?? null,
-    averageTimeSampleSize: currentAttempt?.averageTimeSampleSize ?? 0,
-    wasFlagged: currentAttempt?.isFlagged ?? false,
-  });
   const markingResult = useMemo(
     () =>
       questions.length > 0
@@ -338,11 +332,21 @@ export function SetAnswersCard({
         : null,
     [questions, selectedAnswers, syllogismSnapshots],
   );
+  const currentMarkingRow = markingResult?.rows[viewingIndex];
+  const wrongAnswerExplanations = currentQuestion
+    ? getWrongAnswerExplanations(currentQuestion, currentMarkingRow?.review)
+    : [];
+  const questionInsight = buildQuestionAttemptInsight({
+    result: currentAttempt?.result ?? "not_attempted",
+    timeSpentSeconds: currentAttempt?.timeSpentSeconds ?? null,
+    averageTimeSeconds: currentAttempt?.averageTimeSeconds ?? null,
+    averageTimeSampleSize: currentAttempt?.averageTimeSampleSize ?? 0,
+    wasFlagged: currentAttempt?.isFlagged ?? false,
+    wrongAnswerExplanations,
+  });
 
   const points =
-    markingResult && currentQuestion
-      ? markingResult.rows[viewingIndex]?.points
-      : undefined;
+    markingResult && currentQuestion ? currentMarkingRow?.points : undefined;
 
   const getCachedContent = useRefreshedContentCache(questions, viewingIndex);
   const timingMax = Math.max(
@@ -507,7 +511,9 @@ export function SetAnswersCard({
               <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
                 <span className="tabular-nums">
                   Points: {formatPoints(points ?? currentAttempt?.score ?? 0)} /{" "}
-                  {currentQuestion ? getQuestionMaximumMarks(currentQuestion) : 1}
+                  {currentQuestion
+                    ? getQuestionMaximumMarks(currentQuestion)
+                    : 1}
                 </span>
                 {resultBadge ? (
                   <Badge
@@ -649,106 +655,108 @@ export function SetAnswersCard({
 
         <div id="tour-attempt-question-properties" className="space-y-4">
           <Card className={cn(UCAT_CARD_CHROME, "min-w-0")}>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base font-medium">
-              Question timing
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <MeterRow
-              label="Your time"
-              value={currentAttempt?.timeSpentSeconds}
-              max={timingMax}
-            />
-            {currentAttempt?.averageTimeSeconds != null ? (
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base font-medium">
+                Question timing
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
               <MeterRow
-                label="Full-mark attempt average"
-                value={currentAttempt.averageTimeSeconds}
+                label="Your time"
+                value={currentAttempt?.timeSpentSeconds}
                 max={timingMax}
-                tone="muted"
               />
-            ) : null}
-            {currentAttempt?.timeBurdenSeconds != null ? (
-              <MeterRow
-                label="Expected time to correct"
-                value={currentAttempt.timeBurdenSeconds}
-                max={timingMax}
-                tone="amber"
-              />
-            ) : null}
-          </CardContent>
+              {currentAttempt?.averageTimeSeconds != null ? (
+                <MeterRow
+                  label="Full-mark attempt average"
+                  value={currentAttempt.averageTimeSeconds}
+                  max={timingMax}
+                  tone="muted"
+                />
+              ) : null}
+              {currentAttempt?.timeBurdenSeconds != null ? (
+                <MeterRow
+                  label="Expected time to correct"
+                  value={currentAttempt.timeBurdenSeconds}
+                  max={timingMax}
+                  tone="amber"
+                />
+              ) : null}
+            </CardContent>
           </Card>
 
           <Card className={cn(UCAT_CARD_CHROME, "min-w-0")}>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base font-medium">
-              Question properties
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="flex items-start justify-between gap-4">
-              <div className="shrink-0 text-xs font-medium text-muted-foreground">
-                Stem category
-              </div>
-              {currentAttempt?.categoryName ? (
-                <div className="flex min-w-0 justify-end">
-                  <DescriptionPill
-                    variant="secondary"
-                    description={currentAttempt.categoryDescription}
-                  >
-                    {currentAttempt.categoryName}
-                  </DescriptionPill>
-                </div>
-              ) : (
-                <span className="text-sm text-muted-foreground">—</span>
-              )}
-            </div>
-            <div className="flex items-start justify-between gap-4">
-              <div className="shrink-0 text-xs font-medium text-muted-foreground">
-                Question tags
-              </div>
-              {currentAttempt?.questionTags?.length ? (
-                <div className="flex min-w-0 flex-wrap justify-end gap-1.5">
-                  {currentAttempt.questionTags.map((tag) => (
-                    <DescriptionPill
-                      key={getTagName(tag)}
-                      description={getTagDescription(tag)}
-                    >
-                      {getTagName(tag)}
-                    </DescriptionPill>
-                  ))}
-                </div>
-              ) : (
-                <span className="text-sm text-muted-foreground">—</span>
-              )}
-            </div>
-            {currentAttempt?.difficulty != null ? (
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base font-medium">
+                Question properties
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
               <div className="flex items-start justify-between gap-4">
                 <div className="shrink-0 text-xs font-medium text-muted-foreground">
-                  Difficulty
+                  Stem category
                 </div>
-                <div className="min-w-0 flex-1 space-y-1.5">
-                  <div className="text-right text-xs tabular-nums">
-                    {formatUcatQuestionDifficulty(currentAttempt.difficulty)}
+                {currentAttempt?.categoryName ? (
+                  <div className="flex min-w-0 justify-end">
+                    <DescriptionPill
+                      variant="secondary"
+                      description={currentAttempt.categoryDescription}
+                    >
+                      {currentAttempt.categoryName}
+                    </DescriptionPill>
                   </div>
-                  <div className="h-2 overflow-hidden rounded-full bg-muted">
-                    <div
-                      className="h-full rounded-full bg-primary"
-                      style={{
-                        width: `${Math.min(
-                          100,
-                          Math.max(
-                            0,
-                            ucatQuestionDifficultyPercent(currentAttempt.difficulty),
-                          ),
-                        )}%`,
-                      }}
-                    />
-                  </div>
-                </div>
+                ) : (
+                  <span className="text-sm text-muted-foreground">—</span>
+                )}
               </div>
-            ) : null}
-          </CardContent>
+              <div className="flex items-start justify-between gap-4">
+                <div className="shrink-0 text-xs font-medium text-muted-foreground">
+                  Question tags
+                </div>
+                {currentAttempt?.questionTags?.length ? (
+                  <div className="flex min-w-0 flex-wrap justify-end gap-1.5">
+                    {currentAttempt.questionTags.map((tag) => (
+                      <DescriptionPill
+                        key={getTagName(tag)}
+                        description={getTagDescription(tag)}
+                      >
+                        {getTagName(tag)}
+                      </DescriptionPill>
+                    ))}
+                  </div>
+                ) : (
+                  <span className="text-sm text-muted-foreground">—</span>
+                )}
+              </div>
+              {currentAttempt?.difficulty != null ? (
+                <div className="flex items-start justify-between gap-4">
+                  <div className="shrink-0 text-xs font-medium text-muted-foreground">
+                    Difficulty
+                  </div>
+                  <div className="min-w-0 flex-1 space-y-1.5">
+                    <div className="text-right text-xs tabular-nums">
+                      {formatUcatQuestionDifficulty(currentAttempt.difficulty)}
+                    </div>
+                    <div className="h-2 overflow-hidden rounded-full bg-muted">
+                      <div
+                        className="h-full rounded-full bg-primary"
+                        style={{
+                          width: `${Math.min(
+                            100,
+                            Math.max(
+                              0,
+                              ucatQuestionDifficultyPercent(
+                                currentAttempt.difficulty,
+                              ),
+                            ),
+                          )}%`,
+                        }}
+                      />
+                    </div>
+                  </div>
+                </div>
+              ) : null}
+            </CardContent>
           </Card>
         </div>
       </div>

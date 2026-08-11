@@ -1,9 +1,19 @@
 "use client";
 
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import type { CardComponentProps } from "nextstepjs";
 import { useNextStep } from "nextstepjs";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@altitutor/ui";
 import {
   ChevronLeft,
   ChevronRight,
@@ -12,13 +22,29 @@ import {
   X,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { UCAT_QUESTION_ENGINE_TOUR } from "@/features/onboarding/config/tour-catalog";
+import {
+  UCAT_QUESTION_ENGINE_CONTROLS_TOUR,
+  UCAT_QUESTION_ENGINE_TOUR,
+} from "@/features/onboarding/config/tour-catalog";
+import {
+  TUTORIAL_FEEDBACK_EVENT,
+  TUTORIAL_SKIP_REQUEST_EVENT,
+  type TutorialFeedback,
+} from "@/features/onboarding/lib/tutorial-events";
 import {
   ucatOnboardingTours,
   type ContextualTourStep,
 } from "@/features/onboarding/config/tour-steps";
 import { UCAT_SURFACE_CARD } from "@/lib/ucat-surface-motion";
 import { cn } from "@/lib/utils";
+
+function selectorExists(selector: string) {
+  try {
+    return document.querySelector(selector) !== null;
+  } catch {
+    return false;
+  }
+}
 
 export function OnboardingCard({
   step,
@@ -28,7 +54,26 @@ export function OnboardingCard({
   prevStep,
   skipTour,
 }: CardComponentProps) {
-  const { currentTour, closeNextStep } = useNextStep();
+  const { currentTour, closeNextStep, setCurrentStep } = useNextStep();
+  const [skipConfirmationOpen, setSkipConfirmationOpen] = useState(false);
+  const [tutorialFeedback, setTutorialFeedback] = useState<
+    (TutorialFeedback & { step: number; tour: string | null }) | null
+  >(null);
+  useEffect(() => {
+    const requestSkip = () => setSkipConfirmationOpen(true);
+    const showFeedback = (event: Event) => {
+      const feedback = (event as CustomEvent<TutorialFeedback>).detail;
+      setTutorialFeedback(
+        feedback ? { ...feedback, step: currentStep, tour: currentTour } : null,
+      );
+    };
+    window.addEventListener(TUTORIAL_SKIP_REQUEST_EVENT, requestSkip);
+    window.addEventListener(TUTORIAL_FEEDBACK_EVENT, showFeedback);
+    return () => {
+      window.removeEventListener(TUTORIAL_SKIP_REQUEST_EVENT, requestSkip);
+      window.removeEventListener(TUTORIAL_FEEDBACK_EVENT, showFeedback);
+    };
+  }, [currentStep, currentTour]);
   // nextstepjs types `step` as always defined, but it can briefly be missing
   // while a route or optional step changes.
   const safeStep = step as ContextualTourStep | undefined;
@@ -36,7 +81,10 @@ export function OnboardingCard({
 
   const isFirst = currentStep === 0;
   const isLast = currentStep === totalSteps - 1;
-  const isQuestionEngineTour = currentTour === UCAT_QUESTION_ENGINE_TOUR;
+  const isQuestionEngineTour =
+    currentTour === UCAT_QUESTION_ENGINE_TOUR ||
+    currentTour === UCAT_QUESTION_ENGINE_CONTROLS_TOUR;
+
   const configuredSteps = ucatOnboardingTours.find(
     (tour) => tour.tour === currentTour,
   )?.steps as ContextualTourStep[] | undefined;
@@ -44,7 +92,7 @@ export function OnboardingCard({
     (candidate) =>
       !candidate.optional ||
       !candidate.selector ||
-      document.querySelector(candidate.selector),
+      selectorExists(candidate.selector),
   );
   const activeStepIndex =
     activeSteps?.findIndex(
@@ -56,33 +104,56 @@ export function OnboardingCard({
   const displayedStep =
     activeStepIndex >= 0 ? activeStepIndex + 1 : currentStep + 1;
   const displayedTotal = activeSteps?.length || totalSteps;
+  const isDisplayedLast = displayedStep === displayedTotal;
   const progressPct = Math.round((displayedStep / displayedTotal) * 100);
   const requiresInteraction = Boolean(safeStep.interactionSelector);
   const teachesStudyOrb =
     safeStep.interactionSelector === "[data-tour='study-guidance-orb']";
+  const previousRenderedStep =
+    activeStepIndex > 0 ? activeSteps?.[activeStepIndex - 1] : undefined;
+  const previousRenderedStepIndex = previousRenderedStep
+    ? configuredSteps?.indexOf(previousRenderedStep)
+    : undefined;
+  const nextRenderedStep =
+    activeStepIndex >= 0 ? activeSteps?.[activeStepIndex + 1] : undefined;
+  const nextRenderedStepIndex = nextRenderedStep
+    ? configuredSteps?.indexOf(nextRenderedStep)
+    : undefined;
+
+  const goBack = () => {
+    if (
+      previousRenderedStepIndex !== undefined &&
+      previousRenderedStepIndex >= 0 &&
+      previousRenderedStepIndex !== currentStep - 1
+    ) {
+      setCurrentStep(previousRenderedStepIndex);
+      return;
+    }
+    prevStep();
+  };
+
+  const goNext = () => {
+    if (
+      nextRenderedStepIndex !== undefined &&
+      nextRenderedStepIndex >= 0 &&
+      nextRenderedStepIndex !== currentStep + 1
+    ) {
+      setCurrentStep(nextRenderedStepIndex);
+      return;
+    }
+    nextStep();
+  };
 
   const postpone = () => {
+    if (isDisplayedLast) {
+      nextStep();
+      return;
+    }
     if (!isQuestionEngineTour) {
       closeNextStep();
       return;
     }
-
-    const returnTo = new URLSearchParams(window.location.search).get(
-      "returnTo",
-    );
-    const confirmed = window.confirm(
-      returnTo?.startsWith("/settings")
-        ? "Exit the tutorial and return to Settings?"
-        : "Exit the tutorial and begin your attempt?",
-    );
-    if (confirmed) skipTour?.();
-  };
-
-  const confirmPermanentSkip = () => {
-    const confirmed = window.confirm(
-      "Are you sure you want to skip this tutorial? You can replay it from Settings.",
-    );
-    if (confirmed) skipTour?.();
+    setSkipConfirmationOpen(true);
   };
 
   return createPortal(
@@ -101,6 +172,7 @@ export function OnboardingCard({
           "motion-safe:animate-in motion-safe:fade-in motion-safe:slide-in-from-bottom-4 motion-safe:duration-300",
           "sm:w-[min(25rem,calc(100vw-3rem))] sm:rounded-[1.5rem] sm:p-5",
           teachesStudyOrb && "rounded-[1.5rem] pb-5",
+          skipConfirmationOpen && "pointer-events-none",
           UCAT_SURFACE_CARD,
         )}
         role="dialog"
@@ -142,7 +214,13 @@ export function OnboardingCard({
             <button
               type="button"
               onClick={postpone}
-              aria-label={isQuestionEngineTour ? "Exit tutorial" : "Not now"}
+              aria-label={
+                isDisplayedLast
+                  ? "Finish tutorial"
+                  : isQuestionEngineTour
+                    ? "Exit tutorial"
+                    : "Not now"
+              }
               className="-mr-1 -mt-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
             >
               <X className="h-4 w-4" />
@@ -155,6 +233,23 @@ export function OnboardingCard({
           >
             {safeStep.content}
           </div>
+
+          {tutorialFeedback?.step === currentStep &&
+          tutorialFeedback.tour === currentTour ? (
+            <div
+              key={`${tutorialFeedback.title}-${tutorialFeedback.description}`}
+              className="mt-4 rounded-xl border border-primary/25 bg-primary/[0.08] px-3.5 py-3 motion-safe:animate-in motion-safe:fade-in motion-safe:slide-in-from-bottom-1"
+              role="status"
+              aria-live="polite"
+            >
+              <p className="font-semibold text-primary">
+                {tutorialFeedback.title}
+              </p>
+              <p className="mt-1 text-sm leading-relaxed text-card-foreground/85">
+                {tutorialFeedback.description}
+              </p>
+            </div>
+          ) : null}
 
           <div
             className="sr-only"
@@ -176,12 +271,12 @@ export function OnboardingCard({
           ) : null}
 
           <div className="mt-5 flex items-center gap-2">
-            {safeStep.showSkip && skipTour && !isQuestionEngineTour ? (
+            {safeStep.showSkip && skipTour ? (
               <Button
                 type="button"
                 variant="ghost"
                 size="sm"
-                onClick={confirmPermanentSkip}
+                onClick={() => setSkipConfirmationOpen(true)}
               >
                 Skip tutorial
               </Button>
@@ -191,12 +286,12 @@ export function OnboardingCard({
 
             {safeStep.showControls ? (
               <div className="ml-auto flex items-center gap-2">
-                {!isFirst ? (
+                {!isFirst && !safeStep.hideBack ? (
                   <Button
                     type="button"
                     variant="ghost"
                     size="sm"
-                    onClick={prevStep}
+                    onClick={goBack}
                     className="gap-1"
                   >
                     <ChevronLeft className="h-4 w-4" />
@@ -206,7 +301,7 @@ export function OnboardingCard({
                 <Button
                   type="button"
                   size="sm"
-                  onClick={nextStep}
+                  onClick={goNext}
                   className="gap-1"
                 >
                   {isLast ? "Finish" : "Next"}
@@ -217,6 +312,34 @@ export function OnboardingCard({
           </div>
         </div>
       </section>
+      {skipConfirmationOpen ? (
+        <div
+          data-tutorial-confirmation-overlay
+          className="pointer-events-auto fixed inset-0 z-[1390] bg-black/70"
+          aria-hidden
+        />
+      ) : null}
+      <AlertDialog
+        open={skipConfirmationOpen}
+        onOpenChange={setSkipConfirmationOpen}
+      >
+        <AlertDialogContent className="z-[1400]">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Skip this tutorial?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {isQuestionEngineTour
+                ? "You can replay it later from Settings. Your intended attempt will begin after you skip."
+                : "You can replay it later from Settings."}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Go back</AlertDialogCancel>
+            <AlertDialogAction onClick={() => skipTour?.()}>
+              {isQuestionEngineTour ? "Skip and continue" : "Skip tutorial"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>,
     document.body,
   );

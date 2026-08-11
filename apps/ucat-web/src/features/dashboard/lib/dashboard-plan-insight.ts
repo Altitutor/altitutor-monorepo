@@ -26,9 +26,9 @@ export function buildDashboardPlanInsight({
       }
     : {
         ruleId: "dashboard_plan.required",
-        title: "A goal needs a path",
-        body: "Add your target score and test date so Altitutor UCAT can estimate where you stand and show how your trajectory changes.",
+        title: "Your study plan is not set up yet",
+        body: "Add your target score and test date so Altitutor UCAT can build an adaptive study plan for you.",
         compactBody:
-          "Build a Study plan to replace this preview with your target and real evidence.",
+          "Add your target score and test date so Altitutor UCAT can build an adaptive study plan for you.",
       };
 }

@@ -43,6 +43,7 @@ type StudyPlanTaskListProps = {
   today?: string;
   afterTasks?: ReactNode;
   previewMode?: boolean;
+  tourFirstTask?: boolean;
 };
 
 function TaskIcon({ task }: { task: StudyPlanTask }) {
@@ -74,6 +75,7 @@ function TaskRow({
   variants,
   previewMode,
   sourceTask,
+  tourTarget,
 }: {
   task: StudyPlanTask;
   compact: boolean;
@@ -81,6 +83,7 @@ function TaskRow({
   variants: Variants;
   previewMode: boolean;
   sourceTask: StudyPlanTask | null;
+  tourTarget: boolean;
 }) {
   const {
     error,
@@ -109,6 +112,7 @@ function TaskRow({
 
   return (
     <motion.li
+      data-tour={tourTarget ? "study-plan-task" : undefined}
       variants={variants}
       className={cn(
         UCAT_CARD_CHROME,
@@ -218,6 +222,7 @@ function TaskRow({
           </div>
         ) : isSkipped ? (
           <Button
+            data-tour-study-plan-task-action
             size="sm"
             variant="outline"
             onClick={() => void unskipTask()}
@@ -233,6 +238,7 @@ function TaskRow({
         ) : !isDone ? (
           <div className="flex shrink-0 flex-col gap-2 sm:flex-row">
             <Button
+              data-tour-study-plan-task-action
               size="sm"
               onClick={() => void startTask()}
               disabled={pendingAction != null || awaitingReviewAttempt}
@@ -250,6 +256,7 @@ function TaskRow({
             </Button>
             {canSkip ? (
               <Button
+                data-tour-study-plan-task-action
                 size="sm"
                 variant="outline"
                 onClick={() => void skipTask()}
@@ -313,6 +320,7 @@ export function StudyPlanTaskList({
   today,
   afterTasks,
   previewMode = false,
+  tourFirstTask = false,
 }: StudyPlanTaskListProps) {
   const { containerVariants, itemVariants } = useUcatStaggerMotion();
   const tasksById = new Map(tasks.map((task) => [task.id, task]));
@@ -324,7 +332,7 @@ export function StudyPlanTaskList({
       initial="hidden"
       animate="show"
     >
-      {tasks.map((task) => (
+      {tasks.map((task, index) => (
         <TaskRow
           key={task.id}
           task={task}
@@ -337,6 +345,7 @@ export function StudyPlanTaskList({
               ? (tasksById.get(task.sourceTaskId) ?? null)
               : null
           }
+          tourTarget={tourFirstTask && index === 0}
         />
       ))}
       {afterTasks ? (

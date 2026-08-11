@@ -158,12 +158,15 @@ function StudyPlanPhaseDetailsDialog({
                       <span className="ml-2 text-sm font-normal text-muted-foreground">
                         {section.mode === "learning"
                           ? "Learning"
-                          : `${section.paceMultiplier.toFixed(1)}× pace`}
+                          : `${section.paceMultiplier.toFixed(1)}× prescribed pace`}
                       </span>
                     </h3>
                   </div>
                   <Badge variant="secondary">{phaseLabel(section.mode)}</Badge>
                 </div>
+                <p className="mt-2 text-sm text-muted-foreground">
+                  {section.nextMilestone}
+                </p>
                 <ul className="mt-3 space-y-2">
                   {(showCategories
                     ? section.units.filter((unit) => unit.scope === "category")

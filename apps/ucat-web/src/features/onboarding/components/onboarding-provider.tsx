@@ -11,10 +11,8 @@ import { ucatOnboardingTours } from "@/features/onboarding/config/tour-steps";
 import { useCompleteOnboardingTour } from "@/features/onboarding/hooks/use-onboarding-progress";
 import { clearTutorialResume } from "@/features/onboarding/lib/tutorial-resume";
 
-// Light: marketing primary #0a2941 (navy) at moderate opacity reads like a
-// soft brand wash. Dark: pure black at higher opacity for a neutral dim that
-// doesn't tint the page blue.
-const LIGHT_SHADOW = { rgb: "10,41,65", opacity: "0.55" } as const;
+// Keep both themes neutral: the overlay should dim the page, not tint it.
+const LIGHT_SHADOW = { rgb: "0,0,0", opacity: "0.58" } as const;
 const DARK_SHADOW = { rgb: "0,0,0", opacity: "0.7" } as const;
 
 export function OnboardingProvider({ children }: { children: ReactNode }) {

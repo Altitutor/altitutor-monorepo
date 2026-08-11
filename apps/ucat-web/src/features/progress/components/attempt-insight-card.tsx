@@ -45,7 +45,7 @@ export function AttemptInsightCard({
         </CardTitle>
       </CardHeader>
       <CardContent>
-        <p className="text-sm leading-relaxed text-muted-foreground">
+        <p className="whitespace-pre-line text-sm leading-relaxed text-muted-foreground">
           {insight.body}
         </p>
         <ContentRatingControls

@@ -53,8 +53,10 @@ function persistDismissedAttemptId(attemptId: string) {
 export function ExamAttemptHeaderPill() {
   const pathname = usePathname();
   const { active, refresh, clearLocal } = useActiveExamAttempt();
-  const { isBlocked: questionEngineTourBlocked } =
-    useQuestionEngineTutorialGate();
+  const {
+    isBlocked: questionEngineTourBlocked,
+    tutorialKind: questionEngineTutorialKind,
+  } = useQuestionEngineTutorialGate();
   const [tick, setTick] = useState(0);
   const [dismissedIds, setDismissedIds] = useState<Set<string>>(new Set());
   const [confirmDiscardOpen, setConfirmDiscardOpen] = useState(false);
@@ -120,7 +122,10 @@ export function ExamAttemptHeaderPill() {
       : null;
   const resumeHref =
     !atResults && questionEngineTourBlocked
-      ? buildQuestionEngineTutorialHref(active.resumeHref)
+      ? buildQuestionEngineTutorialHref(
+          active.resumeHref,
+          questionEngineTutorialKind,
+        )
       : active.resumeHref;
   const actionHref = atResults ? active.resultsHref : resumeHref;
   const actionLabel = atResults ? "View attempt" : "Resume";

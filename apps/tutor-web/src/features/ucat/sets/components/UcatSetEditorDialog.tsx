@@ -27,7 +27,7 @@ import type { RichTextJson } from '@/features/ucat/shared/types'
 import type { UcatQuestionStemFormValues } from '@/features/ucat/questions/types/schema'
 import type { CategoryOption, TagOption } from '@/features/ucat/questions/components/UcatQuestionStemDialog'
 import { mapCategoriesToOptions, mapTagsToOptions, buildTaxonomyPathLookup, categoriesToTaxonomyNodes } from '@/features/ucat/shared/lib/taxonomy-paths'
-import { buildStemCatalogFilterDefinitions, buildStemCatalogSetFilterOptions } from '@/features/ucat/shared/lib/stem-catalog-filters'
+import { buildStemCatalogFilterDefinitions, buildStemCatalogSetFilterOptions, getDefaultStemCatalogFiltersForSetStatus } from '@/features/ucat/shared/lib/stem-catalog-filters'
 import { useUcatSets } from '@/features/ucat/sets/hooks/useUcatSets'
 import { Trash2 } from 'lucide-react'
 import { useUcatCopyId } from '@/features/ucat/shared/hooks/useUcatCopyId'
@@ -36,6 +36,7 @@ import { UcatRowActions } from '@/features/ucat/shared/row-actions'
 import { parseUcatVisibilityError } from '@/features/ucat/shared/lib/visibility-error'
 import { UcatSetEditorContent } from '@/features/ucat/sets/components/UcatSetEditorContent'
 import { UcatSetPreviewContent } from '@/features/ucat/sets/components/UcatSetPreviewContent'
+import { UcatMockEditorDialog } from '@/features/ucat/mocks/components/UcatMockEditorDialog'
 import { UcatStemEditorHeaderControls } from '@/features/ucat/questions/components/stem-editor/UcatStemEditorHeaderControls'
 import type { StemEditorMode } from '@/features/ucat/questions/components/stem-editor/UcatStemEditorPropertiesPanel'
 import { UcatPdfExportDialog } from '@/features/ucat/shared/components/UcatPdfExportDialog'
@@ -76,6 +77,7 @@ export function UcatSetEditorDialog({
   const setsQuery = useUcatSets()
   const blueprintsQuery = useUcatMockBlueprints()
   const [editingStemId, setEditingStemId] = useState<string | null>(null)
+  const [viewingMockId, setViewingMockId] = useState<string | null>(null)
   const [search, setSearch] = useState('')
   const [setFilterSearch, setSetFilterSearch] = useState('')
   const [draftName, setDraftName] = useState('')
@@ -125,16 +127,22 @@ export function UcatSetEditorDialog({
     )
   }, [detail.data])
 
+  const [filters, setFilters] = useState<Record<string, unknown[]>>({})
+
   useEffect(() => {
     if (!open) {
       setActiveTextEditor(null)
       setEditorMode('edit')
       setShowAnswer(false)
       setExportDialogOpen(false)
+      setFilters({})
+      setSearch('')
+      setSetFilterSearch('')
+      return
     }
-  }, [open])
-
-  const [filters, setFilters] = useState<Record<string, unknown[]>>({})
+    if (!detail.data || detail.data.id !== setId) return
+    setFilters(getDefaultStemCatalogFiltersForSetStatus(detail.data.status))
+  }, [open, setId, detail.data?.id, detail.data?.status])
 
   const stemDetail = useUcatQuestionDetail(editingStemId)
   const updateStemMutation = useUpdateUcatQuestionStem()
@@ -251,11 +259,20 @@ export function UcatSetEditorDialog({
         categoriesQuery.data ?? [],
         tagsQuery.data ?? [],
         filters,
-        buildStemCatalogSetFilterOptions(setsList, setFilterSearch),
+        buildStemCatalogSetFilterOptions(setsList, setFilterSearch, { includeNotInPublishedSet: true }),
       )
     },
     [sectionsQuery.data, categoriesQuery.data, tagsQuery.data, filters, setsQuery.data, setFilterSearch],
   )
+
+  const publishedSetIds = useMemo(() => {
+    const ids = new Set<string>()
+    for (const set of setsQuery.data ?? []) {
+      if ((set as { deleted_at?: string | null }).deleted_at) continue
+      if (set.status === 'published' && set.id) ids.add(set.id)
+    }
+    return ids
+  }, [setsQuery.data])
 
   const categoryPathLookup = useMemo(
     () => buildTaxonomyPathLookup(categoriesToTaxonomyNodes(categoriesQuery.data ?? [])),
@@ -422,6 +439,8 @@ export function UcatSetEditorDialog({
               onFilterSearchChange={(filterKey, value) => {
                 if (filterKey === 'question_set_id') setSetFilterSearch(value)
               }}
+              publishedSetIds={publishedSetIds}
+              currentSetId={setId}
               stemCatalogLoading={stemCatalogQuery.isLoading}
               onEditStem={(id) => setEditingStemId(id)}
               onChangeName={setDraftName}
@@ -441,6 +460,7 @@ export function UcatSetEditorDialog({
               onChangePrivate={(value) => setDraftPrivate(value)}
             onActiveTextEditorChange={setActiveTextEditor}
             linkedBlueprintReports={linkedBlueprintReports}
+            onViewMock={setViewingMockId}
               sections={(sectionsQuery.data ?? []).map((s) => ({
                 id: s.id ?? '',
                 name: s.name ?? null,
@@ -460,6 +480,12 @@ export function UcatSetEditorDialog({
           )}
         </div>
       </UcatDialogShell>
+
+      <UcatMockEditorDialog
+        open={!!viewingMockId}
+        mockId={viewingMockId}
+        onClose={() => setViewingMockId(null)}
+      />
 
       <UcatQuestionStemDialog
         open={!!editingStemId}

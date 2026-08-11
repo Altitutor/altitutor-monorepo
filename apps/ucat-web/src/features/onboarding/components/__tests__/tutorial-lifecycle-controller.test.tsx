@@ -72,6 +72,16 @@ describe("TutorialLifecycleController", () => {
     card.dispatchEvent(cardWheel);
     expect(cardWheel.defaultPrevented).toBe(false);
 
+    const confirmation = document.createElement("div");
+    confirmation.dataset.slot = "alert-dialog-content";
+    document.body.appendChild(confirmation);
+    const confirmationWheel = new WheelEvent("wheel", {
+      bubbles: true,
+      cancelable: true,
+    });
+    confirmation.dispatchEvent(confirmationWheel);
+    expect(confirmationWheel.defaultPrevented).toBe(false);
+
     view.unmount();
     expect(document.body.style.overflow).toBe("auto");
     expect(document.documentElement.style.overflow).toBe("");

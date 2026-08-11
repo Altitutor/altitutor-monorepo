@@ -44,6 +44,20 @@ describe("buildDashboardTrajectoryInsight", () => {
     });
   });
 
+  it("keeps the long-range coaching title separate from the countdown", () => {
+    expect(
+      buildDashboardTrajectoryInsight({
+        state: state({ stage: "long_range", testDay: 180 }),
+        weakestSection: null,
+        recentImprovement: null,
+        studyPlanEnabled: true,
+      }),
+    ).toMatchObject({
+      ruleId: "dashboard_trajectory.long_range",
+      title: "Your test is beyond the reliable forecast window",
+    });
+  });
+
   it("has a preview case for every dashboard trajectory rule", () => {
     expect(
       new Set(

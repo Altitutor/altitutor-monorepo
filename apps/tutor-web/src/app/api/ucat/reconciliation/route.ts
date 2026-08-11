@@ -390,9 +390,10 @@ export async function GET() {
     }))
     .sort((left, right) => right.sets.length - left.sets.length);
 
-  // Exact duplicates have their own indexed, paginated queue. Keeping the
-  // former fuzzy scan out of this legacy report prevents unrelated issue pages,
-  // sets, and mocks from paying its O(n²) request-time cost.
+  // Exact + high-confidence near-copy duplicates have their own indexed,
+  // paginated queue. Keeping the former fuzzy scan out of this legacy report
+  // prevents unrelated issue pages, sets, and mocks from paying its O(n²)
+  // request-time cost.
   const potentialDuplicatePairs: never[] = [];
 
   const sections: UcatSectionForStatus[] = (sectionsResult.data ?? []).map(

@@ -45,7 +45,7 @@ export const TOTAL_SCORE_INSIGHT_PREVIEW_CASES = [
     expectedRuleId: "total_score.projected_improvement",
   },
   {
-    label: "Building the total baseline",
+    label: "Building the total estimate",
     condition: "A total score estimate is not yet available.",
     input: {
       currentEstimate: null,
@@ -110,7 +110,7 @@ export const SECTION_SCORE_INSIGHT_PREVIEW_CASES = [
     expectedRuleId: "section_score.weakest_category_balanced",
   },
   {
-    label: "Building a section baseline",
+    label: "Building a section estimate",
     condition: "No attempted category or section score estimate exists.",
     input: {
       ...SECTION_BASE,
@@ -133,7 +133,7 @@ export const SECTION_SCORE_INSIGHT_PREVIEW_CASES = [
     expectedRuleId: "section_score.projected_improvement",
   },
   {
-    label: "Representative section evidence",
+    label: "Realistic section practice",
     condition:
       "A score exists without a weakest attempted category or projected gain.",
     input: {

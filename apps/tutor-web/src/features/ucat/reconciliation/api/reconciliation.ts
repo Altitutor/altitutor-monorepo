@@ -1,3 +1,5 @@
+import type { DuplicateComparisonKind } from "../lib/duplicate-queue-match";
+
 export type StemWithNoCategory = {
   id: string;
   sectionId: string;
@@ -67,6 +69,22 @@ export type PrivateStemNotInSet = {
   }>;
 };
 
+export type StemInMultipleSets = {
+  id: string;
+  sectionId: string;
+  sectionName: string;
+  categoryId: string | null;
+  categoryName: string | null;
+  stemText: unknown;
+  sets: Array<{ id: string; name: string }>;
+  questions: Array<{
+    id: string;
+    question_text: unknown;
+    index: number;
+    answer_options?: Array<{ answer_text?: unknown }>;
+  }>;
+};
+
 export type SetReconciliationRow = {
   id: string;
   name: string;
@@ -97,7 +115,7 @@ export type PotentialDuplicateStemSide = {
   categoryName: string | null;
   stemText: unknown;
   isPrivate: boolean;
-  setNames: string[];
+  sets: Array<{ id: string | null; name: string }>;
   questions: Array<{
     id: string;
     question_text: unknown;
@@ -118,7 +136,7 @@ export type PotentialDuplicatePair = {
   sectionName: string;
   stemA: PotentialDuplicateStemSide;
   stemB: PotentialDuplicateStemSide;
-  comparisonKind: "complete_duplicate" | "shared_stem";
+  comparisonKind: DuplicateComparisonKind;
   recommendation: "merge" | "delete";
   suggestedMergeDirection: "A-into-B" | "B-into-A" | null;
 };
@@ -195,6 +213,7 @@ export type ReconciliationData = {
   downvotedExplanations: DownvotedExplanation[];
   untaggedQuestions: UntaggedQuestion[];
   privateStemsNotInSet: PrivateStemNotInSet[];
+  stemsInMultipleSets: StemInMultipleSets[];
   potentialDuplicatePairs: PotentialDuplicatePair[];
   setsWithIncorrectQuestionCount: SetReconciliationRow[];
   setsWithIncorrectTiming: SetReconciliationRow[];

@@ -33,7 +33,7 @@ export const ATTEMPT_INSIGHT_PREVIEW_CASES = [
   {
     label: "Accuracy improved",
     condition:
-      "At least three comparable attempts exist and accuracy improved by at least 5 points.",
+      "At least three similar attempts exist and accuracy improved by at least 5 points.",
     input: {
       accuracyPercent: 78,
       examPacePercent: 100,
@@ -119,7 +119,7 @@ const QUESTION_BASE = {
 
 export const QUESTION_INSIGHT_PREVIEW_CASES = [
   {
-    label: "Correct without timing evidence",
+    label: "Correct without timing",
     condition:
       "The answer is correct but successful cohort timing is not reliable.",
     input: {
@@ -137,7 +137,7 @@ export const QUESTION_INSIGHT_PREVIEW_CASES = [
     expectedRuleId: "question.correct_efficient",
   },
   {
-    label: "Correct at a comparable pace",
+    label: "Correct at a similar pace",
     condition:
       "The answer is correct within 75%–125% of the reliable successful-answer time.",
     input: { ...QUESTION_BASE, result: "correct" },
@@ -165,9 +165,16 @@ export const QUESTION_INSIGHT_PREVIEW_CASES = [
     expectedRuleId: "question.partial_slow",
   },
   {
-    label: "Partial at a comparable pace",
+    label: "Partial at a similar pace",
     condition: "A partial answer has no extreme reliable timing signal.",
-    input: { ...QUESTION_BASE, result: "partial" },
+    input: {
+      ...QUESTION_BASE,
+      result: "partial",
+      wrongAnswerExplanations: [
+        "This statement goes further than the information provided allows.",
+        "This statement reverses the relationship described in the passage.",
+      ],
+    },
     expectedRuleId: "question.partial_default",
   },
   {
@@ -215,7 +222,7 @@ export const QUESTION_INSIGHT_PREVIEW_CASES = [
     expectedRuleId: "question.incorrect_flagged",
   },
   {
-    label: "Incorrect without timing evidence",
+    label: "Incorrect without timing",
     condition: "An incorrect answer has no reliable successful cohort timing.",
     input: {
       ...QUESTION_BASE,
@@ -225,10 +232,16 @@ export const QUESTION_INSIGHT_PREVIEW_CASES = [
     expectedRuleId: "question.incorrect_no_timing",
   },
   {
-    label: "Incorrect at a comparable pace",
+    label: "Incorrect at a similar pace",
     condition:
       "An incorrect answer has workable reliable timing and was not flagged.",
-    input: { ...QUESTION_BASE, result: "incorrect" },
+    input: {
+      ...QUESTION_BASE,
+      result: "incorrect",
+      wrongAnswerExplanations: [
+        "This option introduces an assumption that is not supported by the information in the question.",
+      ],
+    },
     expectedRuleId: "question.incorrect_balanced",
   },
 ] satisfies Array<

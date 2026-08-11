@@ -9,7 +9,7 @@ describe("buildMockTrajectoryInsight", () => {
     expect(buildMockTrajectoryInsight({ trend: -90 })).toEqual({
       ruleId: "mock_trajectory.declining",
       title: "Mock insight",
-      body: "Your recent mock trajectory is down 90 points. Review timing and section-level misses before the next mock.",
+      body: "Your recent mock scores are down 90 points. Review timing and section-level misses before the next mock.",
     });
   });
 

@@ -42,6 +42,7 @@ import {
   type DashboardTrajectoryState,
 } from "@/features/dashboard/lib/dashboard-trajectory";
 import { buildDashboardTrajectoryInsight } from "@/features/dashboard/lib/dashboard-trajectory-insight";
+import { formatDashboardTestCountdown } from "@/features/dashboard/lib/dashboard-test-countdown";
 import { buildDashboardPlanInsight } from "@/features/dashboard/lib/dashboard-plan-insight";
 import { useUcatProfile } from "@/features/layout/hooks/use-ucat-profile";
 import { useOnboardingProgress } from "@/features/onboarding/hooks/use-onboarding-progress";
@@ -70,6 +71,7 @@ import {
 } from "@/features/study-plan/lib/default-study-profile";
 import { useStudyPlanTaskActions } from "@/features/study-plan/hooks/use-study-plan-task-actions";
 import { useStudyPlanExtraStudyDialog } from "@/features/study-plan/components/study-plan-extra-study";
+import { studyPlanActivityTypeLabel } from "@/features/study-plan/lib/activity-type-label";
 import { addDays, todayIso } from "@/features/study-plan/lib/dates";
 import { allocateSectionTargets } from "@/features/study-plan/lib/section-targets";
 import { ContentRatingControls } from "@/features/content-ratings/components/content-rating-controls";
@@ -167,6 +169,19 @@ function actionContent(action: DashboardNextAction) {
   });
 }
 
+function nextActionEyebrow(
+  action: DashboardNextAction,
+  content: ReturnType<typeof actionContent>,
+): string {
+  if (action.kind === "task") {
+    return `Suggested activity · ${studyPlanActivityTypeLabel(action.task)}`;
+  }
+  if (action.kind === "guidance") {
+    return `Suggested activity · ${studyPlanActivityTypeLabel(action.primary)}`;
+  }
+  return content.eyebrow;
+}
+
 function DashboardNextActionPanel({
   action,
   onStartTask,
@@ -191,6 +206,7 @@ function DashboardNextActionPanel({
   guidanceSuggestionsVisible: boolean;
 }) {
   const content = actionContent(action);
+  const eyebrow = nextActionEyebrow(action, content);
   const openExtraStudy = useStudyPlanExtraStudyDialog();
   const handlePrimary = () => {
     if (action.kind === "task") {
@@ -216,12 +232,12 @@ function DashboardNextActionPanel({
       className="flex flex-col"
       aria-labelledby="dashboard-what-now-title"
       data-tour={tourTarget ? "dashboard-next-step" : undefined}
-      data-dashboard-guidance-entry={
+      data-dashboard-guidance-fallback={
         tourTarget && !guidanceSuggestionsVisible ? "" : undefined
       }
     >
       <p className="text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
-        Suggested next step
+        {eyebrow}
       </p>
       <div className="mt-3 flex items-start gap-3">
         <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-background text-foreground shadow-sm ring-1 ring-border/60">
@@ -356,6 +372,23 @@ function dashboardTargetBreakdown(
     }));
 }
 
+function DashboardTrajectoryEyebrow({
+  testDay,
+}: {
+  testDay: number | null;
+}) {
+  const countdown = formatDashboardTestCountdown(testDay);
+  return (
+    <div
+      className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground"
+      data-dashboard-test-countdown={countdown ? "" : undefined}
+    >
+      {countdown ? <CalendarDays className="size-3.5" aria-hidden /> : null}
+      {countdown ?? "Score trajectory"}
+    </div>
+  );
+}
+
 export function DashboardTrajectoryHero({
   firstName,
   plan,
@@ -433,9 +466,7 @@ export function DashboardTrajectoryHero({
               "absolute right-6 top-24 z-20 hidden w-[min(390px,calc(100%-3rem))] p-6 lg:block",
             )}
           >
-            <p className="text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
-              Your predicted score trajectory
-            </p>
+            <DashboardTrajectoryEyebrow testDay={null} />
             <h2 className="mt-3 text-xl font-semibold tracking-tight">
               {planInsight.title}
             </h2>
@@ -464,9 +495,7 @@ export function DashboardTrajectoryHero({
             "relative z-20 mx-4 -mt-16 mb-5 p-5 lg:hidden",
           )}
         >
-          <p className="text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
-            Your predicted score trajectory
-          </p>
+          <DashboardTrajectoryEyebrow testDay={null} />
           <h2 className="mt-2 text-lg font-semibold">{planInsight.title}</h2>
           <p className="mt-2 text-sm text-muted-foreground">
             {planInsight.compactBody}
@@ -593,9 +622,7 @@ export function DashboardTrajectoryHero({
           )}
         >
           <section aria-labelledby="dashboard-why-title">
-            <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
-              Your predicted score trajectory
-            </div>
+            <DashboardTrajectoryEyebrow testDay={state.testDay} />
             <h2 id="dashboard-why-title" className="mt-3 text-lg font-semibold">
               {insight.title}
             </h2>
@@ -636,9 +663,7 @@ export function DashboardTrajectoryHero({
         )}
       >
         <section aria-labelledby="dashboard-why-title-mobile">
-          <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
-            Your predicted score trajectory
-          </div>
+          <DashboardTrajectoryEyebrow testDay={state.testDay} />
           <h2
             id="dashboard-why-title-mobile"
             className="mt-2 text-lg font-semibold"

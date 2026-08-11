@@ -3,6 +3,10 @@
 import { useCallback, useMemo, useState, type ReactNode } from 'react'
 import type { Editor } from '@tiptap/react'
 import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
   Button,
   Input,
   SearchableSelect,
@@ -32,8 +36,9 @@ import {
   type UcatAuthoringWorkspaceTab,
 } from '@/features/ucat/shared/components/UcatAuthoringWorkspaceTabs'
 import { cn } from '@/shared/utils'
-import { UcatBlueprintCompliancePanel } from '@/features/ucat/mocks/components/UcatBlueprintCompliancePanel'
-import type { StoredBlueprintCompliance } from '@/features/ucat/mocks/lib/blueprint-compliance'
+import { tutorCardCn } from '@/shared/lib/tutor-visual'
+import type { LinkedMockBlueprintCompliance } from '@/features/ucat/mocks/lib/blueprint-compliance'
+import { UcatSetMockMembershipCard } from '@/features/ucat/sets/components/UcatSetMockMembershipCard'
 
 export type UcatSectionForTimeLimit = {
   id: string
@@ -49,6 +54,29 @@ function SetPropertyRow({ label, children }: { label: ReactNode; children: React
       <span className="w-[34%] shrink-0 pt-2 text-sm text-muted-foreground">{label}</span>
       <div className="min-w-0 flex-1">{children}</div>
     </div>
+  )
+}
+
+function PropertiesCard({
+  value,
+  title,
+  children,
+}: {
+  value: string
+  title: string
+  children: ReactNode
+}) {
+  return (
+    <AccordionItem value={value} className="border-0">
+      <div className={tutorCardCn('overflow-hidden')}>
+        <AccordionTrigger className="px-3 py-2.5 hover:no-underline [&>svg]:text-muted-foreground">
+          <span className="text-sm font-semibold">{title}</span>
+        </AccordionTrigger>
+        <AccordionContent className="space-y-1 border-t border-black/[0.06] px-3 pb-4 pt-2 dark:border-white/10">
+          {children}
+        </AccordionContent>
+      </div>
+    </AccordionItem>
   )
 }
 
@@ -72,6 +100,8 @@ type UcatSetEditorContentProps = {
   categoryPathLookup?: Map<string, string>
   filterSearchValues?: Record<string, string>
   onFilterSearchChange?: (filterKey: string, value: string) => void
+  publishedSetIds?: ReadonlySet<string>
+  currentSetId?: string | null
   stemCatalogLoading?: boolean
   onEditStem: (id: string) => void
   onChangeName: (value: string) => void
@@ -84,7 +114,8 @@ type UcatSetEditorContentProps = {
   onChangePrivate: (value: boolean) => void
   sections?: UcatSectionForTimeLimit[]
   onActiveTextEditorChange?: (editor: Editor | null) => void
-  linkedBlueprintReports?: Array<{ mockId: string; mockName: string; compliance: StoredBlueprintCompliance }>
+  linkedBlueprintReports?: LinkedMockBlueprintCompliance[]
+  onViewMock?: (mockId: string) => void
 }
 
 export function UcatSetEditorContent({
@@ -107,6 +138,8 @@ export function UcatSetEditorContent({
   categoryPathLookup,
   filterSearchValues,
   onFilterSearchChange,
+  publishedSetIds,
+  currentSetId = null,
   stemCatalogLoading = false,
   onEditStem,
   onChangeName,
@@ -120,6 +153,7 @@ export function UcatSetEditorContent({
   sections = [],
   onActiveTextEditorChange,
   linkedBlueprintReports = [],
+  onViewMock,
 }: UcatSetEditorContentProps) {
   const [sideTab, setSideTab] = useState<'properties' | 'add-stems'>('properties')
   const [activeWorkspace, setActiveWorkspace] = useState<UcatAuthoringWorkspaceTab>('editor')
@@ -263,6 +297,8 @@ export function UcatSetEditorContent({
             filterDefinitions={filterDefinitions}
             filterSearchValues={filterSearchValues}
             onFilterSearchChange={onFilterSearchChange}
+            publishedSetIds={publishedSetIds}
+            currentSetId={currentSetId}
             onEditStem={onEditStem}
             className="min-h-0 flex-1"
           />
@@ -290,151 +326,156 @@ export function UcatSetEditorContent({
             />
           </div>
           <TabsContent value="properties" className="m-0 mt-3 min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain pt-1">
-            <h2 className="font-semibold">Set properties</h2>
-            {linkedBlueprintReports.map(report => (
-              <div key={report.mockId} className="space-y-1">
-                <p className="text-xs font-medium">Linked mock: {report.mockName}</p>
-                <UcatBlueprintCompliancePanel compliance={report.compliance} />
-              </div>
-            ))}
-            <SetPropertyRow label="Name">
-              <Input value={draftName} onChange={(e) => onChangeName(e.target.value)} placeholder="Set name" />
-            </SetPropertyRow>
-            <SetPropertyRow label="Description">
-              <div className="overflow-hidden rounded-md border border-input bg-background px-2 ring-offset-background focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-2">
-                <UcatRichTextEditor
-                  value={draftDescription}
-                  onChange={(value) => onChangeDescription(value)}
-                  placeholder="Optional set description..."
-                  minHeight="120px"
-                  onEditorReady={(editor) => bindRichTextToolbarFocus(editor, handleTextEditorActive)}
-                />
-              </div>
-            </SetPropertyRow>
-            <SetPropertyRow label="Time limit">
-              <div className="text-sm">
-              {!isEditingTimeLimit ? (
-                <div className="flex items-center gap-2">
-                  <span className="text-muted-foreground">
-                    {effectiveTimeSeconds != null && effectiveTimeSeconds > 0
-                      ? formatSecondsToDuration(effectiveTimeSeconds)
-                      : 'Untimed'}
-                  </span>
-                  <Button type="button" variant="outline" size="sm" onClick={() => setIsEditingTimeLimit(true)}>
-                    Edit
-                  </Button>
-                </div>
-              ) : (
-                <div className="space-y-3">
-                  <div className="flex items-center gap-2">
-                    <SearchableSelect<(typeof timeLimitOptions)[number]>
-                      items={timeLimitOptions}
-                      value={timeLimitOptions.find((i) => i.value === draftTimeLimitSource) ?? null}
-                      onValueChange={(item) => {
-                        if (!item) return
-                        onChangeTimeLimitSource(item.value)
-                        onChangeIsTimed(item.value !== 'untimed')
-                      }}
-                      getItemLabel={(i) => i.label}
-                      getItemId={(i) => i.value}
-                      getItemDisabled={(i) => i.disabled}
-                      triggerClassName="flex-1"
+            <Accordion type="multiple" defaultValue={['set', 'mocks']} className="space-y-4">
+              <PropertiesCard value="set" title="Set properties">
+                <SetPropertyRow label="Name">
+                  <Input value={draftName} onChange={(e) => onChangeName(e.target.value)} placeholder="Set name" />
+                </SetPropertyRow>
+                <SetPropertyRow label="Description">
+                  <div className="overflow-hidden rounded-md border border-input bg-background px-2 ring-offset-background focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-2">
+                    <UcatRichTextEditor
+                      value={draftDescription}
+                      onChange={(value) => onChangeDescription(value)}
+                      placeholder="Optional set description..."
+                      minHeight="120px"
+                      onEditorReady={(editor) => bindRichTextToolbarFocus(editor, handleTextEditorActive)}
                     />
-                    <TooltipProvider delayDuration={200}>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <Info className="h-4 w-4 shrink-0 cursor-help text-muted-foreground" />
-                        </TooltipTrigger>
-                        <TooltipContent side="left" className="max-w-xs">
-                          {timeLimitTooltips[draftTimeLimitSource]}
-                        </TooltipContent>
-                      </Tooltip>
-                    </TooltipProvider>
                   </div>
-                  {setSectionCount > 1 && draftTimeLimitSource === 'section_auto' ? (
-                    <p className="text-xs text-destructive">
-                      Auto timing is not available for sets with multiple sections.
-                    </p>
-                  ) : null}
-                  {draftTimeLimitSource === 'section_full' &&
-                  firstUcatSection != null &&
-                  firstSetSection != null &&
-                  firstUcatSection.number_of_questions != null &&
-                  firstSetSection.questionCount !== firstUcatSection.number_of_questions ? (
-                    <p className="text-xs text-amber-600 dark:text-amber-500">
-                      Warning: Section has {firstUcatSection.number_of_questions} questions; this set has{' '}
-                      {firstSetSection.questionCount}.
-                    </p>
-                  ) : null}
-                  {draftTimeLimitSource === 'section_auto' && setSectionCount === 1 ? (
-                    <div className="space-y-2">
-                      <div className="flex items-center justify-between text-xs">
-                        <span>Speed</span>
-                        <span className="text-muted-foreground">
-                          {draftTimeLimitSpeed === 1 ? '1× exam pace' : `${draftTimeLimitSpeed.toFixed(1)}×`}
-                        </span>
+                </SetPropertyRow>
+                <SetPropertyRow label="Time limit">
+                  <div className="text-sm">
+                  {!isEditingTimeLimit ? (
+                    <div className="flex items-center gap-2">
+                      <span className="text-muted-foreground">
+                        {effectiveTimeSeconds != null && effectiveTimeSeconds > 0
+                          ? formatSecondsToDuration(effectiveTimeSeconds)
+                          : 'Untimed'}
+                      </span>
+                      <Button type="button" variant="outline" size="sm" onClick={() => setIsEditingTimeLimit(true)}>
+                        Edit
+                      </Button>
+                    </div>
+                  ) : (
+                    <div className="space-y-3">
+                      <div className="flex items-center gap-2">
+                        <SearchableSelect<(typeof timeLimitOptions)[number]>
+                          items={timeLimitOptions}
+                          value={timeLimitOptions.find((i) => i.value === draftTimeLimitSource) ?? null}
+                          onValueChange={(item) => {
+                            if (!item) return
+                            onChangeTimeLimitSource(item.value)
+                            onChangeIsTimed(item.value !== 'untimed')
+                          }}
+                          getItemLabel={(i) => i.label}
+                          getItemId={(i) => i.value}
+                          getItemDisabled={(i) => i.disabled}
+                          triggerClassName="flex-1"
+                        />
+                        <TooltipProvider delayDuration={200}>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Info className="h-4 w-4 shrink-0 cursor-help text-muted-foreground" />
+                            </TooltipTrigger>
+                            <TooltipContent side="left" className="max-w-xs">
+                              {timeLimitTooltips[draftTimeLimitSource]}
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
                       </div>
-                      <Slider
-                        min={0.1}
-                        max={2}
-                        step={0.1}
-                        value={[Math.max(0.1, Math.min(2, draftTimeLimitSpeed))]}
-                        onValueChange={([v]) => onChangeTimeLimitSpeed(v)}
-                      />
+                      {setSectionCount > 1 && draftTimeLimitSource === 'section_auto' ? (
+                        <p className="text-xs text-destructive">
+                          Auto timing is not available for sets with multiple sections.
+                        </p>
+                      ) : null}
+                      {draftTimeLimitSource === 'section_full' &&
+                      firstUcatSection != null &&
+                      firstSetSection != null &&
+                      firstUcatSection.number_of_questions != null &&
+                      firstSetSection.questionCount !== firstUcatSection.number_of_questions ? (
+                        <p className="text-xs text-amber-600 dark:text-amber-500">
+                          Warning: Section has {firstUcatSection.number_of_questions} questions; this set has{' '}
+                          {firstSetSection.questionCount}.
+                        </p>
+                      ) : null}
+                      {draftTimeLimitSource === 'section_auto' && setSectionCount === 1 ? (
+                        <div className="space-y-2">
+                          <div className="flex items-center justify-between text-xs">
+                            <span>Speed</span>
+                            <span className="text-muted-foreground">
+                              {draftTimeLimitSpeed === 1 ? '1× exam pace' : `${draftTimeLimitSpeed.toFixed(1)}×`}
+                            </span>
+                          </div>
+                          <Slider
+                            min={0.1}
+                            max={2}
+                            step={0.1}
+                            value={[Math.max(0.1, Math.min(2, draftTimeLimitSpeed))]}
+                            onValueChange={([v]) => onChangeTimeLimitSpeed(v)}
+                          />
+                        </div>
+                      ) : null}
+                      {draftTimeLimitSource === 'custom' ? (
+                        <div className="flex flex-wrap items-center gap-2">
+                          <Input
+                            type="number"
+                            min={0}
+                            placeholder="0"
+                            className="w-20"
+                            value={draftTimeLimitMinutes}
+                            onChange={(e) => onChangeTimeLimitMinutes(e.target.value)}
+                          />
+                          <span className="font-medium text-muted-foreground">:</span>
+                          <Input
+                            type="number"
+                            min={0}
+                            max={59}
+                            placeholder="0"
+                            className="w-20"
+                            value={draftTimeLimitSeconds}
+                            onChange={(e) => onChangeTimeLimitSeconds(e.target.value)}
+                          />
+                          <span className="text-xs text-muted-foreground">min : sec</span>
+                        </div>
+                      ) : null}
+                      <p className="text-xs text-muted-foreground">
+                        Time limit:{' '}
+                        {effectiveTimeSeconds != null && effectiveTimeSeconds > 0
+                          ? formatSecondsToDuration(effectiveTimeSeconds)
+                          : 'Untimed'}
+                      </p>
+                      <Button type="button" size="sm" onClick={() => setIsEditingTimeLimit(false)}>
+                        Done
+                      </Button>
                     </div>
-                  ) : null}
-                  {draftTimeLimitSource === 'custom' ? (
-                    <div className="flex flex-wrap items-center gap-2">
-                      <Input
-                        type="number"
-                        min={0}
-                        placeholder="0"
-                        className="w-20"
-                        value={draftTimeLimitMinutes}
-                        onChange={(e) => onChangeTimeLimitMinutes(e.target.value)}
-                      />
-                      <span className="font-medium text-muted-foreground">:</span>
-                      <Input
-                        type="number"
-                        min={0}
-                        max={59}
-                        placeholder="0"
-                        className="w-20"
-                        value={draftTimeLimitSeconds}
-                        onChange={(e) => onChangeTimeLimitSeconds(e.target.value)}
-                      />
-                      <span className="text-xs text-muted-foreground">min : sec</span>
-                    </div>
-                  ) : null}
-                  <p className="text-xs text-muted-foreground">
-                    Time limit:{' '}
-                    {effectiveTimeSeconds != null && effectiveTimeSeconds > 0
-                      ? formatSecondsToDuration(effectiveTimeSeconds)
-                      : 'Untimed'}
-                  </p>
-                  <Button type="button" size="sm" onClick={() => setIsEditingTimeLimit(false)}>
-                    Done
-                  </Button>
-                </div>
-              )}
-              </div>
-            </SetPropertyRow>
-            <SetPropertyRow label={<UcatVisibilityFieldLabel />}>
-              <SearchableSelect<{ value: string; label: string }>
-                items={[
-                  { value: 'public', label: 'Public' },
-                  { value: 'private', label: 'Private' },
-                ]}
-                value={
-                  draftPrivate
-                    ? { value: 'private', label: 'Private' }
-                    : { value: 'public', label: 'Public' }
-                }
-                onValueChange={(item) => item && onChangePrivate(item.value === 'private')}
-                getItemLabel={(i) => i.label}
-                getItemId={(i) => i.value}
-              />
-            </SetPropertyRow>
+                  )}
+                  </div>
+                </SetPropertyRow>
+                <SetPropertyRow label={<UcatVisibilityFieldLabel />}>
+                  <SearchableSelect<{ value: string; label: string }>
+                    items={[
+                      { value: 'public', label: 'Public' },
+                      { value: 'private', label: 'Private' },
+                    ]}
+                    value={
+                      draftPrivate
+                        ? { value: 'private', label: 'Private' }
+                        : { value: 'public', label: 'Public' }
+                    }
+                    onValueChange={(item) => item && onChangePrivate(item.value === 'private')}
+                    getItemLabel={(i) => i.label}
+                    getItemId={(i) => i.value}
+                  />
+                </SetPropertyRow>
+              </PropertiesCard>
+
+              <PropertiesCard value="mocks" title="Mock membership">
+                <UcatSetMockMembershipCard
+                  setId={currentSetId}
+                  linkedBlueprintReports={linkedBlueprintReports}
+                  onViewMock={onViewMock}
+                />
+              </PropertiesCard>
+            </Accordion>
           </TabsContent>
           <TabsContent value="add-stems" className="m-0 mt-3 min-h-0 flex-1 flex-col data-[state=active]:flex">
             <UcatStemCatalogListPanel
@@ -448,6 +489,8 @@ export function UcatSetEditorContent({
               categoryPathLookup={categoryPathLookup}
               filterSearchValues={filterSearchValues}
               onFilterSearchChange={onFilterSearchChange}
+              publishedSetIds={publishedSetIds}
+              currentSetId={currentSetId}
               isLoading={stemCatalogLoading}
               onAddStem={(stemId) => setDraftStemIds([...draftStemIds, stemId])}
               onEditStem={onEditStem}

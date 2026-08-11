@@ -90,7 +90,11 @@ function safeReturnPath(value: string | null): string {
   return value;
 }
 
-export function QuestionEngineTutorialPage() {
+export function QuestionEngineTutorialPage({
+  tourId = UCAT_QUESTION_ENGINE_TOUR,
+}: {
+  tourId?: string;
+}) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { isLoading, isCompleted } = useOnboardingProgress();
@@ -100,7 +104,7 @@ export function QuestionEngineTutorialPage() {
 
   useEffect(() => {
     if (isLoading) return;
-    const completed = isCompleted(UCAT_QUESTION_ENGINE_TOUR);
+    const completed = isCompleted(tourId);
     if (!completed) {
       sawIncompleteReplayRef.current = true;
       return;
@@ -108,7 +112,7 @@ export function QuestionEngineTutorialPage() {
     if (!isReplay || sawIncompleteReplayRef.current) {
       router.replace(returnTo);
     }
-  }, [isReplay, isLoading, isCompleted, router, returnTo]);
+  }, [isReplay, isLoading, isCompleted, router, returnTo, tourId]);
 
   return (
     <>

@@ -30,14 +30,14 @@ export function buildMockTrajectoryInsight({
     return {
       ruleId: "mock_trajectory.improving",
       title: "Mock insight",
-      body: `Your recent mock trajectory is up ${trend} points across the selected period. Check the section breakdown to see whether that improvement is balanced.`,
+      body: `Your recent mock scores are up ${trend} points across the selected period. Check the section breakdown to see whether that improvement is balanced.`,
     };
   }
   if (trend < 0) {
     return {
       ruleId: "mock_trajectory.declining",
       title: "Mock insight",
-      body: `Your recent mock trajectory is down ${Math.abs(trend)} points. Review timing and section-level misses before the next mock.`,
+      body: `Your recent mock scores are down ${Math.abs(trend)} points. Review timing and section-level misses before the next mock.`,
     };
   }
   return {

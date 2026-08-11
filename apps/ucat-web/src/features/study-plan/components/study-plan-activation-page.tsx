@@ -148,7 +148,7 @@ function PlanReveal({ plan }: { plan: StudyPlanResponse }) {
             Your Study plan is ready
           </h1>
           <p className="mt-3 max-w-2xl leading-relaxed text-muted-foreground">
-            It starts with learning and short representative practice. As you
+            It starts with learning and short realistic practice. As you
             complete real work, Altitutor will use that attempt evidence to
             sharpen what comes next.
           </p>

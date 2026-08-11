@@ -334,7 +334,7 @@ export function SectionProgressCards({
                             score == null
                               ? "Estimate pending"
                               : `Estimate ${Math.round(score)}`,
-                          body: "Your current section estimate from recent timed evidence.",
+                          body: "Your current section estimate from recent timed practice.",
                         }}
                         targetTooltip={{
                           title:

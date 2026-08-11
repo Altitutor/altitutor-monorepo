@@ -73,15 +73,15 @@ E`;
   });
 
   it('parses an unnumbered syllogism instruction followed by five statements', () => {
-    const input = `Physicians are from either Melbourne or Sydney and practise in either General Medicine or Oncology. Some physicians are from Melbourne and the rest practise Oncology.
+    const input = `Physicians are from either Melbourne or Sydney and practice in either General Medicine or Oncology. Some physicians are from Melbourne and the rest practice Oncology.
 
 Place 'Yes' if the conclusion does follow. Place 'No' if the conclusion does not follow.
 
-All physicians from Sydney practise General Medicine.
-Some physicians from Melbourne practise Oncology.
-No physicians from Sydney practise Oncology.
+All physicians from Sydney practice General Medicine.
+Some physicians from Melbourne practice Oncology.
+No physicians from Sydney practice Oncology.
 Some Oncology physicians are from Melbourne.
-All physicians who practise General Medicine are from Sydney.`;
+All physicians who practice General Medicine are from Sydney.`;
 
     const stems = parseDecisionMakingPlainText(input);
     expect(stems).toHaveLength(1);
@@ -91,7 +91,7 @@ All physicians who practise General Medicine are from Sydney.`;
     expect(stems[0]?.questions[0]?.text).toContain("Place 'Yes'");
     expect(stems[0]?.questions[0]?.options).toHaveLength(5);
     expect(stems[0]?.questions[0]?.options[0]?.text).toBe(
-      'All physicians from Sydney practise General Medicine.'
+      'All physicians from Sydney practice General Medicine.'
     );
   });
 

@@ -7,6 +7,7 @@ import {
   UCAT_MOCKS_TOUR,
   UCAT_PRACTICE_TOUR,
   UCAT_PROGRESS_TOUR,
+  UCAT_QUESTION_ENGINE_CONTROLS_TOUR,
   UCAT_QUESTION_ENGINE_TOUR,
   UCAT_SETS_TOUR,
   UCAT_SKILL_TRAINER_TOUR,
@@ -24,6 +25,7 @@ describe("contextual app tutorial routing", () => {
     ["/sets", UCAT_SETS_TOUR],
     ["/mocks", UCAT_MOCKS_TOUR],
     ["/exam/tutorial", UCAT_QUESTION_ENGINE_TOUR],
+    ["/exam/controls-tutorial", UCAT_QUESTION_ENGINE_CONTROLS_TOUR],
   ])("maps %s to its first-visit tutorial", (pathname, expectedTour) => {
     expect(getAutoStartTourForPathname(pathname)).toBe(expectedTour);
   });
@@ -46,6 +48,9 @@ describe("contextual app tutorial routing", () => {
     ["/sets/sections/4/set-1", UCAT_SETS_TOUR, 3],
     ["/sets/set-1", UCAT_SETS_TOUR, 3],
     ["/mocks/mock-1", UCAT_MOCKS_TOUR, 2],
+    ["/learn/general", UCAT_LEARN_TOUR, 2],
+    ["/learn/sections/3", UCAT_LEARN_TOUR, 2],
+    ["/skill-trainer/find-word", UCAT_SKILL_TRAINER_TOUR, 2],
   ])(
     "enters the multi-page tutorial at the correct step for %s",
     (pathname, tourId, startStep) => {
@@ -74,6 +79,7 @@ describe("contextual app tutorial routing", () => {
     "/sessions",
     "/learn/general/module-1",
     "/learn/sections/1/module-2",
+    "/skill-trainer/find-word/play",
     "/settings/app",
   ])("does not auto-start an unrequested tutorial on %s", (pathname) => {
     expect(getAutoStartTourForPathname(pathname)).toBeNull();

@@ -30,6 +30,11 @@ export interface SmartDatePickerPopoverProps {
   maxDate?: string | null;
   /** When false, hides Today / Tomorrow / This weekend / Next week presets. Default true. */
   showPresets?: boolean;
+  /** Force typed month/day into this calendar year. */
+  anchorYear?: number;
+  disabled?: boolean;
+  /** Placeholder for the popover type-to-search input. */
+  inputPlaceholder?: string;
 }
 
 export interface SmartDatePickerPillProps {
@@ -61,6 +66,11 @@ export interface SmartDatePickerFieldProps {
   maxDate?: string | null;
   /** When false, hides Today / Tomorrow / This weekend / Next week presets. Default true. */
   showPresets?: boolean;
+  /** Force typed month/day into this calendar year. */
+  anchorYear?: number;
+  disabled?: boolean;
+  /** Placeholder for the popover type-to-search input. */
+  inputPlaceholder?: string;
 }
 
 const PILL_MONTHS = [
@@ -121,6 +131,9 @@ export function SmartDatePickerPopover({
   minDate,
   maxDate,
   showPresets = true,
+  anchorYear,
+  disabled = false,
+  inputPlaceholder = 'Type a date...',
 }: SmartDatePickerPopoverProps) {
   const [open, setOpen] = React.useState(false);
   const [query, setQuery] = React.useState('');
@@ -140,8 +153,10 @@ export function SmartDatePickerPopover({
   const parsedQueryDate = React.useMemo(() => {
     const trimmed = query.trim();
     if (!trimmed) return null;
-    return parseNaturalDate(trimmed, today);
-  }, [query, today]);
+    return parseNaturalDate(trimmed, today, {
+      anchorYear,
+    });
+  }, [anchorYear, query, today]);
 
   const selectDate = (date: Date | null) => {
     if (date && !isDateAllowed(date, minDate, maxDate)) return;
@@ -151,6 +166,7 @@ export function SmartDatePickerPopover({
   };
 
   const handleOpenChange = (nextOpen: boolean) => {
+    if (disabled && nextOpen) return;
     setOpen(nextOpen);
     if (!nextOpen) {
       setQuery('');
@@ -172,7 +188,7 @@ export function SmartDatePickerPopover({
           <CommandInput
             value={query}
             onValueChange={setQuery}
-            placeholder="Type a date..."
+            placeholder={inputPlaceholder}
             onKeyDown={(event) => {
               if (event.key === 'Enter' && parsedQueryDate) {
                 event.preventDefault();
@@ -325,6 +341,9 @@ export function SmartDatePickerField({
   minDate,
   maxDate,
   showPresets = true,
+  anchorYear,
+  disabled = false,
+  inputPlaceholder,
 }: SmartDatePickerFieldProps) {
   const formattedDate = value ? formatPillDisplayDate(value) : null;
 
@@ -348,9 +367,13 @@ export function SmartDatePickerField({
       minDate={minDate}
       maxDate={maxDate}
       showPresets={showPresets}
+      anchorYear={anchorYear}
+      disabled={disabled}
+      inputPlaceholder={inputPlaceholder}
     >
       <button
         type="button"
+        disabled={disabled}
         className={cn(
           'flex h-10 w-full items-center justify-between gap-2 rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background transition-colors hover:bg-brand-lightBlue/10 dark:hover:bg-brand-dark-card/70 dark:hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 group',
           !formattedDate && 'text-muted-foreground',

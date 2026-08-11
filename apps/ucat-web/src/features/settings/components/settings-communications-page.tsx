@@ -29,7 +29,7 @@ const OPTIONS: Array<{
     key: "weekly_progress_and_guidance",
     title: "Weekly progress and study guidance",
     description:
-      "A useful summary of your work and one clear next step, once there is enough evidence.",
+      "A useful summary of your work and one clear next step, once there is enough practice.",
   },
   {
     key: "lessons_and_tips",

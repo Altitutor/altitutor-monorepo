@@ -13,6 +13,7 @@ import { UcatPageHeader, UcatPageSkeleton, UcatAccessDenied } from '@/features/u
 import { useUcatAccess } from '@/features/ucat/shared/hooks/useUcatAccess'
 import { parseUcatVisibilityError } from '@/features/ucat/shared/lib/visibility-error'
 import { UcatMockEditorContent } from '@/features/ucat/mocks/components/UcatMockEditorContent'
+import { UcatSetEditorDialog } from '@/features/ucat/sets/components/UcatSetEditorDialog'
 import { parseSetSections } from '@/features/ucat/shared/lib/set-section-status'
 import { buildSetCatalogFilterDefinitions } from '@/features/ucat/shared/lib/set-catalog-filters'
 import type { SetOption } from '@/features/ucat/mocks/components/UcatMockEditorDialog'
@@ -44,6 +45,7 @@ export function UcatMockDetailPage({ mockId }: UcatMockDetailPageProps) {
   const stemCatalogQuery = useUcatStemCatalog(true)
   const [search, setSearch] = useState('')
   const [filters, setFilters] = useState<Record<string, unknown[]>>({})
+  const [editingSetId, setEditingSetId] = useState<string | null>(null)
 
   const setFilterDefinitions = useMemo(
     () => buildSetCatalogFilterDefinitions(sections),
@@ -164,10 +166,17 @@ export function UcatMockDetailPage({ mockId }: UcatMockDetailPageProps) {
           setCatalog={setCatalog}
           setCatalogLoading={sets.isLoading}
           sections={sections}
+          onEditSet={setEditingSetId}
           blueprints={blueprints}
           blueprintCandidate={blueprintCandidate}
         />
       </div>
+
+      <UcatSetEditorDialog
+        open={!!editingSetId}
+        setId={editingSetId}
+        onClose={() => setEditingSetId(null)}
+      />
     </div>
   )
 }

@@ -41,7 +41,6 @@ export function renderUcatEmail(input: {
   previewText: string;
   heading: string;
   bodyHtml: string;
-  footerHtml?: string;
   marketingFooterHtml?: string;
 }): string {
   return renderEmail({
@@ -52,7 +51,6 @@ export function renderUcatEmail(input: {
     heading: input.heading,
     bodyHtml: input.bodyHtml,
     bodyText: "",
-    footerHtml: input.footerHtml,
     marketingFooterHtml: input.marketingFooterHtml,
   }).html;
 }

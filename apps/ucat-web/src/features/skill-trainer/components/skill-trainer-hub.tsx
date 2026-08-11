@@ -101,17 +101,21 @@ export function SkillTrainerHub() {
               {section.trainers
                 .sort((a, b) => a.sort_order - b.sort_order)
                 .map((trainer) => (
-                  <UcatClickableCardLink
-                    key={trainer.id}
-                    href={`/skill-trainer/${trainerKeyToSlug(trainer.key as UcatSkillTrainerKey)}`}
-                    iconNode={
-                      <UcatClickableCardIcon>
-                        <TrainerIcon name={trainer.icon} className="h-5 w-5" />
-                      </UcatClickableCardIcon>
-                    }
-                    title={trainer.name}
-                    description={trainer.description ?? "Timed skill drill"}
-                  />
+                  <div key={trainer.id} data-tour="skill-trainer-option">
+                    <UcatClickableCardLink
+                      href={`/skill-trainer/${trainerKeyToSlug(trainer.key as UcatSkillTrainerKey)}`}
+                      iconNode={
+                        <UcatClickableCardIcon>
+                          <TrainerIcon
+                            name={trainer.icon}
+                            className="h-5 w-5"
+                          />
+                        </UcatClickableCardIcon>
+                      }
+                      title={trainer.name}
+                      description={trainer.description ?? "Timed skill drill"}
+                    />
+                  </div>
                 ))}
             </div>
           </motion.section>

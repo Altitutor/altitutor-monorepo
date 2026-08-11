@@ -43,7 +43,7 @@ export const DASHBOARD_TRAJECTORY_INSIGHT_PREVIEW_CASES = [
   {
     label: "Projection unavailable",
     condition:
-      "The Study plan is available but score projection evidence failed to load.",
+      "The Study plan is available but the score projection failed to load.",
     input: {
       ...BASE_INPUT,
       state: state("early_estimate"),
@@ -52,8 +52,8 @@ export const DASHBOARD_TRAJECTORY_INSIGHT_PREVIEW_CASES = [
     expectedRuleId: "dashboard_trajectory.projection_unavailable",
   },
   {
-    label: "Building baseline",
-    condition: "Fewer than all three cognitive sections have usable estimates.",
+    label: "Building estimate",
+    condition: "Fewer than all three of Sections 1–3 have usable estimates.",
     input: { ...BASE_INPUT, state: state("building_baseline") },
     expectedRuleId: "dashboard_trajectory.building_baseline",
   },
@@ -77,7 +77,7 @@ export const DASHBOARD_TRAJECTORY_INSIGHT_PREVIEW_CASES = [
   },
   {
     label: "On track",
-    condition: "The target is at or below the pessimistic test-day projection.",
+    condition: "The target is at or below the low end of the test-day projection.",
     input: { ...BASE_INPUT, state: state("on_track") },
     expectedRuleId: "dashboard_trajectory.on_track",
   },
@@ -95,7 +95,7 @@ export const DASHBOARD_TRAJECTORY_INSIGHT_PREVIEW_CASES = [
   {
     label: "Target within reach",
     condition:
-      "The target lies inside the plausible test-day projection range.",
+      "The target lies inside the projected test-day score range.",
     input: { ...BASE_INPUT, state: state("within_reach") },
     expectedRuleId: "dashboard_trajectory.within_reach",
   },
@@ -113,7 +113,7 @@ export const DASHBOARD_TRAJECTORY_INSIGHT_PREVIEW_CASES = [
   {
     label: "Target very unlikely",
     condition:
-      "Even the optimistic test-day projection is at least 150 points below target.",
+      "Even the best-case test-day projection is at least 150 points below target.",
     input: {
       ...BASE_INPUT,
       state: state("needs_adjustment", {
@@ -132,7 +132,7 @@ export const DASHBOARD_TRAJECTORY_INSIGHT_PREVIEW_CASES = [
   {
     label: "Needs adjustment",
     condition:
-      "The target is above the optimistic projection, but the gap is below 150 points.",
+      "The target is above the best-case projection, but the gap is below 150 points.",
     input: {
       ...BASE_INPUT,
       state: state("needs_adjustment", {

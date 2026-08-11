@@ -72,9 +72,9 @@ const SURFACES: Array<{ value: PreviewSurface; label: string }> = [
 const SCENARIOS: PreviewScenario[] = [
   {
     id: "baseline",
-    label: "Building baseline",
+    label: "Building estimate",
     description:
-      "No reliable score yet, no attempts, and empty supporting evidence.",
+      "No reliable score yet, no attempts, and little recent practice.",
     confidence: "low",
     baseScore: null,
     targetScore: 720,
@@ -88,7 +88,7 @@ const SCENARIOS: PreviewScenario[] = [
     id: "early_estimate",
     label: "Early estimate",
     description:
-      "Sparse evidence, a wide forecast, and only a few recent attempts.",
+      "Limited practice, a wide score projection, and only a few recent attempts.",
     confidence: "low",
     baseScore: 525,
     targetScore: 720,
@@ -102,7 +102,7 @@ const SCENARIOS: PreviewScenario[] = [
     id: "on_track",
     label: "On track",
     description:
-      "Strong evidence, balanced accuracy, and an estimate at the target.",
+      "Reliable estimate, balanced accuracy, and an estimate at the target.",
     confidence: "high",
     baseScore: 735,
     targetScore: 720,

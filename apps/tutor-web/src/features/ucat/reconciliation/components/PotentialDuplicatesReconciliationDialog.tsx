@@ -28,6 +28,10 @@ import {
   type PotentialDuplicatePair,
   type PotentialDuplicateStemSide,
 } from "../api/reconciliation";
+import {
+  canMergeDuplicatePair,
+  duplicateComparisonBadgeLabel,
+} from "../lib/duplicate-queue-match";
 import { UcatRichContentBlock } from "@/features/ucat/question-engine-preview/UcatRichContentBlock";
 import { UcatDeleteConfirmDialog } from "@/features/ucat/shared/delete-confirm-dialog";
 import { UcatVisibilityBadge } from "@/features/ucat/shared/components/UcatVisibilityBadge";
@@ -81,15 +85,18 @@ function StemComparePanel({
   sideLabel,
   stem,
   onEdit,
+  onEditSet,
 }: {
   sideLabel: string;
   stem: PotentialDuplicateStemSide;
   onEdit: () => void;
+  onEditSet: (setId: string) => void;
 }) {
   const stemPlain = proseMirrorToPlainText(stem.stemText as Json) ?? "";
   const questions = [...(stem.questions ?? [])].sort(
     (a, b) => a.index - b.index,
   );
+  const sets = stem.sets ?? [];
 
   return (
     <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-lg border">
@@ -108,10 +115,30 @@ function StemComparePanel({
           {stem.sectionName || "Unknown section"}
           {stem.categoryName ? ` · ${stem.categoryName}` : ""}
         </p>
-        {stem.setNames.length > 0 ? (
-          <p className="text-xs text-muted-foreground">
-            Sets: {stem.setNames.join(", ")}
-          </p>
+        {sets.length > 0 ? (
+          <div className="flex flex-wrap items-baseline gap-x-1 gap-y-0.5 text-xs text-muted-foreground">
+            <span>Sets:</span>
+            {sets.map((set, index) => {
+              const setId = set.id;
+              return (
+                <span key={setId ?? `${set.name}-${index}`}>
+                  {setId ? (
+                    <button
+                      type="button"
+                      className="text-left underline-offset-2 hover:underline"
+                      title={set.name}
+                      onClick={() => onEditSet(setId)}
+                    >
+                      {set.name}
+                    </button>
+                  ) : (
+                    <span title={set.name}>{set.name}</span>
+                  )}
+                  {index < sets.length - 1 ? ", " : null}
+                </span>
+              );
+            })}
+          </div>
         ) : (
           <p className="text-xs text-muted-foreground">Not in any set</p>
         )}
@@ -191,7 +218,7 @@ export function PotentialDuplicatesReconciliationDialog({
 }: PotentialDuplicatesReconciliationDialogProps) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const { onOpenStemDialog } = useUcatReconciliationHandlers();
+  const { onOpenStemDialog, onEditSet } = useUcatReconciliationHandlers();
   const deleteMutation = useDeleteUcatQuestionStem();
   const [queue, setQueue] = useState<PotentialDuplicatePair[]>([]);
   const [index, setIndex] = useState(0);
@@ -277,6 +304,16 @@ export function PotentialDuplicatesReconciliationDialog({
 
   function confirmMerge() {
     if (!current || !pendingMergeDirection) return;
+    if (!canMergeDuplicatePair(current.comparisonKind)) {
+      setPendingMergeDirection(null);
+      toast({
+        title: "Cannot merge",
+        description:
+          "Near-copy pairs cannot be merged automatically. Delete one stem or keep both.",
+        variant: "destructive",
+      });
+      return;
+    }
     const direction = pendingMergeDirection;
     const target =
       direction === "B-into-A" ? current.stemA : current.stemB;
@@ -369,17 +406,23 @@ export function PotentialDuplicatesReconciliationDialog({
               </div>
               {current ? (
                 <div className="flex flex-wrap items-center gap-2">
-                  <Badge variant="outline">Exact normalized stem match</Badge>
+                  <Badge variant="outline">
+                    {duplicateComparisonBadgeLabel(current.comparisonKind)}
+                  </Badge>
                   <Badge
                     variant={
-                      current.recommendation === "merge"
+                      current.recommendation === "merge" &&
+                      canMergeDuplicatePair(current.comparisonKind)
                         ? "default"
                         : "secondary"
                     }
                   >
-                    {current.recommendation === "merge"
+                    {current.recommendation === "merge" &&
+                    canMergeDuplicatePair(current.comparisonKind)
                       ? `Suggested: merge ${current.suggestedMergeDirection === "A-into-B" ? "A into B" : "B into A"}`
-                      : "Exact duplicate"}
+                      : current.comparisonKind === "high_confidence_near_copy"
+                        ? "Near copy — delete or keep both"
+                        : "Exact duplicate"}
                   </Badge>
                 </div>
               ) : null}
@@ -397,11 +440,13 @@ export function PotentialDuplicatesReconciliationDialog({
                   sideLabel="Stem A"
                   stem={current.stemA}
                   onEdit={() => editStem(current.stemA.id)}
+                  onEditSet={onEditSet}
                 />
                 <StemComparePanel
                   sideLabel="Stem B"
                   stem={current.stemB}
                   onEdit={() => editStem(current.stemB.id)}
+                  onEditSet={onEditSet}
                 />
               </div>
             )}
@@ -423,7 +468,8 @@ export function PotentialDuplicatesReconciliationDialog({
               Keep both
             </Button>
             <div className="flex flex-wrap items-center gap-2">
-              {current?.recommendation === "merge" ? (
+              {current?.recommendation === "merge" &&
+              canMergeDuplicatePair(current.comparisonKind) ? (
                 <>
                   <Button
                     type="button"
@@ -527,7 +573,8 @@ export function PotentialDuplicatesReconciliationDialog({
                 className={tutorBtnPrimary}
                 onClick={() => onOpenChange(false)}
                 disabled={deleteMutation.isPending}
-                {...(current?.recommendation === "merge"
+                {...(current?.recommendation === "merge" &&
+                canMergeDuplicatePair(current.comparisonKind)
                   ? {}
                   : { "data-dialog-primary-action": "" })}
               >
@@ -549,7 +596,7 @@ export function PotentialDuplicatesReconciliationDialog({
             ? (() => {
                 const stem =
                   pendingDeleteSide === "A" ? current.stemA : current.stemB;
-                const setCount = stem.setNames.length;
+                const setCount = stem.sets?.length ?? 0;
                 return setCount > 0
                   ? `This stem is in ${setCount} set(s). It will be removed from those sets, then soft-deleted with its questions. You can restore it later from the deleted list.`
                   : "This stem and its questions will be soft-deleted. You can restore them later from the deleted list.";

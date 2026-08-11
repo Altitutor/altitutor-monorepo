@@ -24,6 +24,7 @@ import {
   UCAT_MOCKS_TOUR,
   UCAT_PRACTICE_TOUR,
   UCAT_PROGRESS_TOUR,
+  UCAT_QUESTION_ENGINE_CONTROLS_TOUR,
   UCAT_QUESTION_ENGINE_TOUR,
   UCAT_SETS_TOUR,
   UCAT_SKILL_TRAINER_TOUR,
@@ -38,6 +39,7 @@ export {
   UCAT_MOCKS_TOUR,
   UCAT_PRACTICE_TOUR,
   UCAT_PROGRESS_TOUR,
+  UCAT_QUESTION_ENGINE_CONTROLS_TOUR,
   UCAT_QUESTION_ENGINE_TOUR,
   UCAT_SECTION_PROGRESS_TOUR,
   UCAT_SETS_TOUR,
@@ -46,6 +48,8 @@ export {
 } from "@/features/onboarding/config/tour-catalog";
 
 export const UCAT_NEXTSTEP_FIXED_VIEWPORT_ID = "ucat-nextstep-fixed-viewport";
+export const UCAT_NEXTSTEP_DIM_ONLY_TARGET = "tutorial-dim-only";
+export const UCAT_NEXTSTEP_DIM_ONLY_SELECTOR = `[data-tour='${UCAT_NEXTSTEP_DIM_ONLY_TARGET}']`;
 
 const iconClassName = "h-5 w-5";
 const fixedViewport = { viewportID: UCAT_NEXTSTEP_FIXED_VIEWPORT_ID } as const;
@@ -62,10 +66,20 @@ export interface ContextualTourStep extends Step {
   optional?: boolean;
   /** A real control the student must activate before the tutorial advances. */
   interactionSelector?: string;
+  /** Advance from a real control without running its product action. */
+  preventInteractionDefault?: boolean;
+  /** Wait for an opened surface to finish animating before measuring its step. */
+  interactionAdvanceDelayMs?: number;
   /** A real control that returns to the previous tutorial step. */
   backInteractionSelector?: string;
+  /** Wait for a closing surface to finish animating before measuring its step. */
+  backInteractionAdvanceDelayMs?: number;
   /** A containing element to keep visible while spotlighting a narrower target. */
   scrollSelector?: string;
+  /** Reset the app page scrollport before measuring this step. */
+  scrollMode?: "page-start";
+  /** Hide Back when the previous tour step belongs to another page. */
+  hideBack?: boolean;
   /** Complete immediately after the required interaction, even with fallbacks after it. */
   completeOnInteraction?: boolean;
 }
@@ -82,11 +96,12 @@ const dashboardTour: ContextualTour = {
       title: "Welcome to Altitutor UCAT",
       content: (
         <p>
-          This quick tour shows you where to study, practise, and track your
+          This quick tour shows you where to study, practice, and track your
           progress. You can replay any tutorial later from Settings.
         </p>
       ),
-      selector: "[data-tour='dashboard-welcome']",
+      selector: "[data-tour='dashboard-welcome-heading']",
+      scrollMode: "page-start",
       side: "bottom",
       ...standardStep,
     },
@@ -199,6 +214,7 @@ const dashboardTour: ContextualTour = {
       ),
       selector: "[data-tour='study-guidance-orb']",
       interactionSelector: "[data-tour='study-guidance-orb']",
+      interactionAdvanceDelayMs: 300,
       ...fixedViewport,
       side: "top",
       ...standardStep,
@@ -210,14 +226,15 @@ const dashboardTour: ContextualTour = {
       title: "Start with your Study guidance",
       content: (
         <p>
-          Your best next action appears here. Select it now to set up your
-          Study plan or begin the first recommended task, or dismiss this
-          tutorial to return later.
+          Your best next action appears here. Select it now to set up your Study
+          plan or begin the first recommended task, or dismiss this tutorial to
+          return later.
         </p>
       ),
       selector: "[data-dashboard-guidance-panel]",
       interactionSelector: "[data-dashboard-guidance-action]",
       backInteractionSelector: "[data-dashboard-guidance-collapse]",
+      backInteractionAdvanceDelayMs: 300,
       ...fixedViewport,
       side: "left",
       ...standardStep,
@@ -234,7 +251,7 @@ const dashboardTour: ContextualTour = {
           instead. Select it now, or dismiss this tutorial to return later.
         </p>
       ),
-      selector: "[data-dashboard-guidance-entry]",
+      selector: "[data-dashboard-guidance-fallback]",
       interactionSelector: "[data-dashboard-guidance-action]",
       side: "left",
       ...standardStep,
@@ -252,8 +269,8 @@ const studyPlanTour: ContextualTour = {
       title: "Your Study plan calendar",
       content: (
         <p>
-          Your plan schedules tasks based on your predicted score and weaknesses to 
-          get you ready for your UCAT test by your test date.
+          Your plan schedules tasks based on your predicted score and weaknesses
+          to get you ready for your UCAT test by your test date.
         </p>
       ),
       selector: "#tour-study-plan-calendar",
@@ -270,7 +287,9 @@ const studyPlanTour: ContextualTour = {
           activity. On a rest day, you can choose extra study instead.
         </p>
       ),
-      selector: "#tour-study-plan-tasks",
+      selector: "[data-tour='study-plan-task']",
+      interactionSelector: "[data-tour-study-plan-task-action]",
+      completeOnInteraction: true,
       scrollSelector: "[data-tour-study-plan-selected-day]",
       side: "top",
       ...standardStep,
@@ -286,8 +305,9 @@ const progressTour: ContextualTour = {
       title: "Your predicted score",
       content: (
         <p>
-          This graph shows your overall predicted score and percentile once you&apos;ve done enough questions.
-          Your score should improve over time as you practice more.
+          This graph shows your overall predicted score and percentile once
+          you&apos;ve done enough questions. Your score should improve over time
+          as you practice more.
         </p>
       ),
       selector: "#tour-progress-predicted-score",
@@ -298,9 +318,7 @@ const progressTour: ContextualTour = {
       icon: <CalendarDays className={iconClassName} />,
       title: "Your activity",
       content: (
-        <p>
-          See which days you have studied on and your practice consistency.
-        </p>
+        <p>See which days you have studied on and your practice consistency.</p>
       ),
       selector: "#tour-progress-activity",
       side: "top",
@@ -324,9 +342,9 @@ const progressTour: ContextualTour = {
       title: "Score by section",
       content: (
         <p>
-          Your predicted and target section scores appear here once the
-          relevant scores and Study plan targets are available. Select any
-          section to continue into its detailed progress.
+          Your predicted and target section scores appear here once they are
+          available. Select View on a section to continue into its detailed
+          progress.
         </p>
       ),
       selector: "#tour-progress-sections",
@@ -340,11 +358,12 @@ const progressTour: ContextualTour = {
       title: "Predicted section score",
       content: (
         <p>
-          Your estimated score for this section appears here, with its
-          trajectory once enough representative evidence is available.
+          Your estimated score for this section appears here, with its score
+          projection once you have enough realistic timed practice.
         </p>
       ),
       selector: "#tour-section-predicted-score",
+      hideBack: true,
       side: "bottom",
       ...standardStep,
     },
@@ -416,6 +435,22 @@ const learnTour: ContextualTour = {
         </p>
       ),
       selector: "[data-tour='learn-options']",
+      interactionSelector: "[data-tour='learn-area-link'] a",
+      side: "top",
+      ...standardStep,
+      showControls: false,
+    },
+    {
+      icon: <BookOpen className={iconClassName} />,
+      title: "Choose a learning module",
+      content: (
+        <p>
+          The learning modules for your chosen area appear here. Select one to
+          start learning, or finish this tutorial and come back later.
+        </p>
+      ),
+      selector: "[data-tour='learning-modules']",
+      hideBack: true,
       side: "top",
       ...standardStep,
     },
@@ -430,23 +465,50 @@ const skillTrainerTour: ContextualTour = {
       title: "Practice one skill at a time",
       content: (
         <p>
-          Trainers are short, timed drills that target a specific UCAT skill - 
+          Trainers are short, timed drills that target a specific UCAT skill -
           for example, speed reading or mental maths.
         </p>
       ),
       selector: "#tour-skill-trainer-page",
+      scrollMode: "page-start",
       side: "bottom",
       ...standardStep,
     },
     {
       icon: <Target className={iconClassName} />,
       title: "Choose a trainer",
+      content: <p>Select a trainer to see how it works before you begin.</p>,
+      selector: "[data-tour='skill-trainer-options']",
+      interactionSelector: "[data-tour='skill-trainer-option'] a",
+      side: "top",
+      ...standardStep,
+      showControls: false,
+    },
+    {
+      icon: <NotebookText className={iconClassName} />,
+      title: "See how it works",
       content: (
         <p>
-          Select a trainer to see instructions on how to play, and begin.
+          Each trainer includes a quick interactive tutorial so you can learn
+          the rules and controls before starting.
         </p>
       ),
-      selector: "[data-tour='skill-trainer-options']",
+      selector: "[data-tour='skill-trainer-tutorial']",
+      scrollMode: "page-start",
+      hideBack: true,
+      side: "bottom",
+      ...standardStep,
+    },
+    {
+      icon: <Target className={iconClassName} />,
+      title: "Start when you are ready",
+      content: (
+        <p>
+          Select Start skill trainer when you are ready, or finish this tutorial
+          and come back another time.
+        </p>
+      ),
+      selector: "[data-tour='skill-trainer-start']",
       side: "top",
       ...standardStep,
     },
@@ -461,8 +523,9 @@ const practiceTour: ContextualTour = {
       title: "Practice questions",
       content: (
         <p>
-          Practice questions allow you to do a targeted, filtered set of questions.
-          You can choose a specific question type to practice, or do a full section.
+          Practice questions allow you to do a targeted, filtered set of
+          questions. You can choose a specific question type to practice, or do
+          a full section.
         </p>
       ),
       // Compact header target — highlighting the full filters panel (tall /
@@ -477,8 +540,8 @@ const practiceTour: ContextualTour = {
       title: "Begin setting up practice",
       content: (
         <p>
-          Select a section and optionally specific categories, 
-          then press next to select filters and begin practicing.
+          Select a section and optionally specific categories, then press next
+          to select filters and begin practicing.
         </p>
       ),
       selector: "[data-tour='practice-setup']",
@@ -496,8 +559,8 @@ const setsTour: ContextualTour = {
       title: "Question sets",
       content: (
         <p>
-          A set is a single, full-length UCAT section. 
-          They can be done timed or untimed.
+          A set is a single, full-length UCAT section. They can be done timed or
+          untimed.
         </p>
       ),
       selector: "#tour-sets-page",
@@ -507,12 +570,7 @@ const setsTour: ContextualTour = {
     {
       icon: <ListChecks className={iconClassName} />,
       title: "Choose a section",
-      content: (
-        <p>
-          Select a UCAT section to browse its available sets and continue the
-          tutorial.
-        </p>
-      ),
+      content: <p>Select a UCAT section to browse its available sets.</p>,
       selector: "[data-tour='sets-options']",
       interactionSelector: "[data-tour='sets-section-link'] a",
       side: "top",
@@ -529,6 +587,7 @@ const setsTour: ContextualTour = {
       ),
       selector: "[data-tour='set-options']",
       interactionSelector: "[data-tour='set-option'] a",
+      hideBack: true,
       side: "top",
       ...standardStep,
       showControls: false,
@@ -543,6 +602,8 @@ const setsTour: ContextualTour = {
         </p>
       ),
       selector: "[data-tour='set-structure']",
+      scrollMode: "page-start",
+      hideBack: true,
       side: "bottom",
       ...standardStep,
     },
@@ -551,8 +612,8 @@ const setsTour: ContextualTour = {
       title: "Start when you are ready",
       content: (
         <p>
-          Select Launch set when you are ready, or finish this tutorial and
-          come back another time.
+          Select Launch set when you are ready, or finish this tutorial and come
+          back another time.
         </p>
       ),
       selector: "[data-tour='set-start']",
@@ -570,8 +631,8 @@ const mocksTour: ContextualTour = {
       title: "Choose a mock exam",
       content: (
         <p>
-          Mocks reproduce a full UCAT exam. In each mock, you will complete each of 
-          the 4 sections back to back under timed conditions.
+          Mocks reproduce a full UCAT exam. In each mock, you will complete each
+          of the 4 sections back to back under timed conditions.
         </p>
       ),
       selector: "#tour-mocks-page",
@@ -581,12 +642,7 @@ const mocksTour: ContextualTour = {
     {
       icon: <NotebookText className={iconClassName} />,
       title: "Choose a mock",
-      content: (
-        <p>
-          Select a mock to review its structure
-          before you begin.
-        </p>
-      ),
+      content: <p>Select a mock to review its structure before you begin.</p>,
       selector: "[data-tour='mock-options']",
       interactionSelector: "[data-tour='mock-option'] a",
       side: "top",
@@ -603,6 +659,8 @@ const mocksTour: ContextualTour = {
         </p>
       ),
       selector: "[data-tour='mock-structure']",
+      scrollMode: "page-start",
+      hideBack: true,
       side: "bottom",
       ...standardStep,
     },
@@ -622,37 +680,75 @@ const mocksTour: ContextualTour = {
   ],
 };
 
+const questionEngineAltitutorControlSteps: ContextualTourStep[] = [
+  {
+    icon: <ListChecks className={iconClassName} />,
+    title: "Open the Altitutor menu",
+    content: (
+      <div className="space-y-2">
+        <p>
+          The Menu contains Altitutor-specific attempt tools. The official
+          UCAT-style controls remain in the question area.
+        </p>
+        <p className="font-medium">Select Menu to open it.</p>
+      </div>
+    ),
+    selector: "[data-tour='question-engine-menu']",
+    interactionSelector: "[data-tour='question-engine-menu']",
+    interactionAdvanceDelayMs: 300,
+    ...fixedViewport,
+    side: "bottom",
+    ...standardStep,
+    showControls: false,
+  },
+  {
+    icon: <Settings className={iconClassName} />,
+    title: "Explore the Altitutor controls",
+    content: (
+      <div className="space-y-2">
+        <p>
+          Try Lag mode, move the toolbar, or select Report bug and Exit to learn
+          what each control does. Nothing can end this tutorial from here.
+        </p>
+        <p className="font-medium">
+          Select Next when you are ready to continue.
+        </p>
+      </div>
+    ),
+    selector: "[data-tour='question-engine-settings']",
+    ...fixedViewport,
+    side: "left",
+    ...standardStep,
+  },
+];
+
+const questionEngineControlsTour: Tour = {
+  tour: UCAT_QUESTION_ENGINE_CONTROLS_TOUR,
+  steps: [
+    ...questionEngineAltitutorControlSteps,
+    {
+      icon: <ListChecks className={iconClassName} />,
+      title: "You are ready",
+      content: (
+        <p>
+          Those are Altitutor&apos;s additional controls. The remaining question
+          interface follows the official UCAT format.
+        </p>
+      ),
+      selector: UCAT_NEXTSTEP_DIM_ONLY_SELECTOR,
+      ...fixedViewport,
+      ...standardStep,
+      pointerPadding: 0,
+      pointerRadius: 0,
+      disableInteraction: true,
+    },
+  ],
+};
+
 const questionEngineTour: Tour = {
   tour: UCAT_QUESTION_ENGINE_TOUR,
   steps: [
-    {
-      icon: <ListChecks className={iconClassName} />,
-      title: "The exam menu",
-      content: (
-        <p>
-          Open this menu to leave your attempt, contact Altitutor, or report a
-          problem. Your progress is saved if you leave a live attempt.
-        </p>
-      ),
-      selector: "[data-tour='question-engine-menu']",
-      ...fixedViewport,
-      side: "bottom",
-      ...standardStep,
-    },
-    {
-      icon: <Settings className={iconClassName} />,
-      title: "Question settings",
-      content: (
-        <p>
-          Settings includes Lag mode, which lets you practice with the short
-          delays that can occur in the official exam interface.
-        </p>
-      ),
-      selector: "[data-tour='question-engine-settings']",
-      ...fixedViewport,
-      side: "bottom",
-      ...standardStep,
-    },
+    ...questionEngineAltitutorControlSteps,
     {
       icon: <Calculator className={iconClassName} />,
       title: "Open the calculator",
@@ -838,7 +934,12 @@ const questionEngineTour: Tour = {
       icon: <Keyboard className={iconClassName} />,
       title: "Keyboard shortcuts",
       content: <QuestionEngineShortcutTourContent />,
+      selector: UCAT_NEXTSTEP_DIM_ONLY_SELECTOR,
+      ...fixedViewport,
       ...standardStep,
+      pointerPadding: 0,
+      pointerRadius: 0,
+      disableInteraction: true,
       showSkip: false,
     },
     {
@@ -976,6 +1077,7 @@ export const ucatOnboardingTours: Tour[] = [
   practiceTour,
   setsTour,
   mocksTour,
+  questionEngineControlsTour,
   questionEngineTour,
   attemptReviewTour,
 ];
@@ -989,6 +1091,7 @@ export const ALL_UCAT_TOUR_IDS = [
   UCAT_PRACTICE_TOUR,
   UCAT_SETS_TOUR,
   UCAT_MOCKS_TOUR,
+  UCAT_QUESTION_ENGINE_CONTROLS_TOUR,
   UCAT_QUESTION_ENGINE_TOUR,
   UCAT_ATTEMPT_REVIEW_TOUR,
 ] as const;
@@ -1019,8 +1122,13 @@ export const UCAT_TOUR_REPLAY_OPTIONS = [
   },
   { tourId: UCAT_MOCKS_TOUR, label: "Mocks", href: "/mocks" },
   {
+    tourId: UCAT_QUESTION_ENGINE_CONTROLS_TOUR,
+    label: "Altitutor question controls",
+    href: "/exam/controls-tutorial?replay=1&returnTo=%2Fsettings%2Fapp",
+  },
+  {
     tourId: UCAT_QUESTION_ENGINE_TOUR,
-    label: "Question interface",
+    label: "Full question interface",
     href: "/exam/tutorial?replay=1&returnTo=%2Fsettings%2Fapp",
   },
 ] as const;

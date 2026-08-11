@@ -45,6 +45,7 @@ import {
   type AnswerSchemeKind,
 } from '@/features/ucat/questions/lib/response-contract-authoring'
 import { UcatStemSetMembershipCard } from '@/features/ucat/questions/components/stem-editor/UcatStemSetMembershipCard'
+import { UcatStemLearningModuleMembershipCard } from '@/features/ucat/questions/components/stem-editor/UcatStemLearningModuleMembershipCard'
 import { UcatAuthoringAgentChat } from '@/features/ucat/authoring-agent/UcatAuthoringAgentChat'
 import type { UcatAuthoringToolCall, UcatAuthoringToolResult } from '@/features/ucat/authoring-agent/types'
 import { appendImageNode, appendImageNodeToDoc, replaceFirstImageNode, replaceFirstImageNodeInDoc } from '@/features/ucat/authoring-agent/rich-text-image'
@@ -759,7 +760,7 @@ export function UcatStemEditorPropertiesPanel({
 
         <Accordion
           type="multiple"
-          defaultValue={['ai', 'stem', 'sets', 'question', 'source']}
+          defaultValue={['ai', 'stem', 'sets', 'learning-modules', 'question', 'source']}
           className="space-y-4"
         >
           <PropertiesCard value="stem" title="Stem properties">
@@ -906,7 +907,13 @@ export function UcatStemEditorPropertiesPanel({
           <PropertiesCard value="sets" title="Set membership">
             <UcatStemSetMembershipCard
               stemId={stemId}
-              stemSectionId={sectionId}
+              highlighted={focusTarget === 'sets'}
+            />
+          </PropertiesCard>
+
+          <PropertiesCard value="learning-modules" title="Learning module membership">
+            <UcatStemLearningModuleMembershipCard
+              stemId={stemId}
               highlighted={focusTarget === 'sets'}
             />
           </PropertiesCard>

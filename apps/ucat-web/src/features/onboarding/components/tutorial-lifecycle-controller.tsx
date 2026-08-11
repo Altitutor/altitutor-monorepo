@@ -21,10 +21,12 @@ const SCROLL_KEYS = new Set([
   " ",
 ]);
 
-function isInsideTutorialCard(target: EventTarget | null): boolean {
+function isInsideTutorialSurface(target: EventTarget | null): boolean {
   return (
     target instanceof Element &&
-    target.closest("[data-name='nextstep-card']") != null
+    target.closest(
+      "[data-name='nextstep-card'], [data-slot='alert-dialog-content']",
+    ) != null
   );
 }
 
@@ -96,12 +98,12 @@ export function TutorialLifecycleController() {
     body.style.overscrollBehavior = "none";
 
     const preventPointerScroll = (event: Event) => {
-      if (!isInsideTutorialCard(event.target)) event.preventDefault();
+      if (!isInsideTutorialSurface(event.target)) event.preventDefault();
     };
     const preventKeyboardScroll = (event: KeyboardEvent) => {
       if (!SCROLL_KEYS.has(event.key)) return;
       if (
-        isInsideTutorialCard(event.target) ||
+        isInsideTutorialSurface(event.target) ||
         acceptsTextInput(event.target)
       ) {
         return;

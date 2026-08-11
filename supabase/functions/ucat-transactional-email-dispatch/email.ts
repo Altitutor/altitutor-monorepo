@@ -212,7 +212,7 @@ export function renderTransactionalEmail(
             `Your friend accepted your UCAT Unlimited gift, so your own free ${giftDuration} of Unlimited is ready.`,
           ) +
           renderUcatEmailPanel(
-            "Your reward will not begin until you choose to start it. Once active, you can practise without waiting or area limits for the full reward period.",
+            "Your reward will not begin until you choose to start it. Once active, you can practice without waiting or area limits for the full reward period.",
           ) +
           renderUcatEmailButton(actionUrl, `Start my free ${giftDuration}`),
         text:

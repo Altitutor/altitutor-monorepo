@@ -1,14 +1,14 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 import {
   Alert,
   AlertDescription,
   AlertTitle,
-  Input,
   SearchableSelect,
+  SmartDatePickerField,
   Switch,
   useToast,
 } from "@altitutor/ui";
@@ -20,9 +20,21 @@ import { SidebarExpandablePanel } from "@/features/layout/components/sidebar-exp
 import { useOnboardingProgress } from "@/features/onboarding/hooks/use-onboarding-progress";
 import { UCAT_STUDY_PLAN_DECIDED } from "@/features/onboarding/lib/activation-milestones";
 import { SettingsRow } from "@/features/settings/components/settings-row";
+import {
+  STUDY_PLAN_TEST_DATE_INPUT_PLACEHOLDER,
+  STUDY_PLAN_TEST_DATE_PLACEHOLDER,
+} from "@/features/study-plan/components/study-plan-setup-ui";
+import {
+  StudyPlanTargetScoreField,
+  type StudyPlanTargetScoreFieldHandle,
+} from "@/features/study-plan/components/study-plan-target-score-field";
 import { saveStudyPlan } from "@/features/study-plan/api/study-plan";
 import { useStudyPlan } from "@/features/study-plan/hooks/use-study-plan";
 import { defaultSkippedGoalProfileInput } from "@/features/study-plan/lib/default-study-profile";
+import {
+  isTestDateInBounds,
+  testDateBounds,
+} from "@/features/study-plan/lib/test-date-bounds";
 import type {
   StudyPlanAvailability,
   StudyPlanProfileInput,
@@ -139,6 +151,8 @@ export function SettingsStudyPlanPage() {
   > | null>(null);
   const [saving, setSaving] = useState(false);
   const [hydrated, setHydrated] = useState(false);
+  const [targetScoreError, setTargetScoreError] = useState<string | null>(null);
+  const targetScoreFieldRef = useRef<StudyPlanTargetScoreFieldHandle>(null);
 
   useEffect(() => {
     // Old gate (`!hydrated && !isError`) stayed on the skeleton forever when the
@@ -185,6 +199,10 @@ export function SettingsStudyPlanPage() {
     mockDayOptions.find((day) => day.value === mockDay) ??
     mockDayOptions[0] ??
     null;
+  const testDateBoundsForYear = useMemo(
+    () => testDateBounds(testYear),
+    [testYear],
+  );
 
   const isDirty =
     saved !== null &&
@@ -216,6 +234,7 @@ export function SettingsStudyPlanPage() {
   function handleCancel() {
     if (!saved) return;
     setTargetScore(saved.targetScore);
+    setTargetScoreError(null);
     setStudyPlanEnabled(saved.studyPlanEnabled);
     setTestYear(saved.testYear);
     setTestDate(saved.testDate);
@@ -224,6 +243,17 @@ export function SettingsStudyPlanPage() {
   }
 
   async function handleSave() {
+    const targetScoreValidationError =
+      targetScoreFieldRef.current?.validate() ?? targetScoreError;
+    if (targetScoreValidationError) {
+      toast({
+        title: "Fix target score",
+        description: targetScoreValidationError,
+        variant: "destructive",
+      });
+      return;
+    }
+
     if (studyPlanEnabled && !availability.length) {
       toast({
         title: "Choose study days",
@@ -431,16 +461,13 @@ export function SettingsStudyPlanPage() {
         <SettingsRow
           title="Target score"
           description="The overall UCAT score you're aiming for. This goal stays active with or without a Study plan."
+          controlClassName="sm:max-w-sm"
           control={
-            <Input
-              id="study-target"
-              type="number"
-              min={900}
-              max={2700}
-              step={10}
+            <StudyPlanTargetScoreField
+              ref={targetScoreFieldRef}
               value={targetScore}
-              onChange={(event) => setTargetScore(Number(event.target.value))}
-              className="h-10 w-full sm:w-40"
+              onChange={setTargetScore}
+              onValidationChange={setTargetScoreError}
             />
           }
         />
@@ -462,7 +489,13 @@ export function SettingsStudyPlanPage() {
               items={yearOptions}
               value={selectedYear}
               onValueChange={(option) => {
-                if (option) setTestYear(option.year);
+                if (!option) return;
+                setTestYear(option.year);
+                setTestDate((current) =>
+                  current && isTestDateInBounds(current, option.year)
+                    ? current
+                    : "",
+                );
               }}
               getItemLabel={(item) => String(item.year)}
               getItemId={(item) => String(item.year)}
@@ -478,16 +511,16 @@ export function SettingsStudyPlanPage() {
           title="Exact date"
           description="Optional. If you know your test day, add it so we can pace the plan to the end."
           control={
-            <Input
-              id="study-date"
-              type="date"
-              value={testDate}
-              onChange={(event) => {
-                setTestDate(event.target.value);
-                if (event.target.value) {
-                  setTestYear(Number(event.target.value.slice(0, 4)));
-                }
-              }}
+            <SmartDatePickerField
+              value={testDate || null}
+              onChange={(value) => setTestDate(value ?? "")}
+              valueFormat="date"
+              showPresets={false}
+              anchorYear={testYear}
+              minDate={testDateBoundsForYear.minDate}
+              maxDate={testDateBoundsForYear.maxDate}
+              placeholder={STUDY_PLAN_TEST_DATE_PLACEHOLDER}
+              inputPlaceholder={STUDY_PLAN_TEST_DATE_INPUT_PLACEHOLDER}
               className="h-10 w-full sm:w-auto sm:min-w-[14rem]"
             />
           }
@@ -507,7 +540,7 @@ export function SettingsStudyPlanPage() {
           <Button
             type="button"
             onClick={() => void handleSave()}
-            disabled={saving}
+            disabled={saving || Boolean(targetScoreError)}
           >
             {saving
               ? "Saving…"

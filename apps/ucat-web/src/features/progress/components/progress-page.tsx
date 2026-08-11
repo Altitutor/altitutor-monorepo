@@ -257,9 +257,9 @@ export function ProgressPageContent({
     }));
   const statusLabel =
     currentEstimate == null
-      ? "Building baseline"
+      ? "Building estimate"
       : totalProjection?.confidence === "high"
-        ? "Strong evidence"
+        ? "Reliable estimate"
         : totalProjection?.confidence === "medium"
           ? "Estimate forming"
           : "Early estimate";

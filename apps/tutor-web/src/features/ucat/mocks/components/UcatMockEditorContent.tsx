@@ -1,7 +1,11 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useMemo, useState, type ReactNode } from 'react'
 import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
   Button,
   Input,
   SearchableSelect,
@@ -21,8 +25,42 @@ import {
   type UcatAuthoringWorkspaceTab,
 } from '@/features/ucat/shared/components/UcatAuthoringWorkspaceTabs'
 import { cn } from '@/shared/utils'
+import { tutorCardCn } from '@/shared/lib/tutor-visual'
 import { UcatMockBlueprintAuditPanel } from '@/features/ucat/mocks/components/UcatMockBlueprintAuditPanel'
+import { UcatMockSetMembershipCard } from '@/features/ucat/mocks/components/UcatMockSetMembershipCard'
 import type { UcatMockBlueprintCandidateController } from '@/features/ucat/mocks/hooks/useUcatMockBlueprintCandidate'
+
+function MockPropertyRow({ label, children }: { label: ReactNode; children: ReactNode }) {
+  return (
+    <div className="flex items-start justify-between gap-3 py-1.5">
+      <span className="w-[34%] shrink-0 pt-2 text-sm text-muted-foreground">{label}</span>
+      <div className="min-w-0 flex-1">{children}</div>
+    </div>
+  )
+}
+
+function PropertiesCard({
+  value,
+  title,
+  children,
+}: {
+  value: string
+  title: string
+  children: ReactNode
+}) {
+  return (
+    <AccordionItem value={value} className="border-0">
+      <div className={tutorCardCn('overflow-hidden')}>
+        <AccordionTrigger className="px-3 py-2.5 hover:no-underline [&>svg]:text-muted-foreground">
+          <span className="text-sm font-semibold">{title}</span>
+        </AccordionTrigger>
+        <AccordionContent className="space-y-1 border-t border-black/[0.06] px-3 pb-4 pt-2 dark:border-white/10">
+          {children}
+        </AccordionContent>
+      </div>
+    </AccordionItem>
+  )
+}
 
 type UcatMockEditorContentProps = {
   name: string
@@ -222,45 +260,55 @@ export function UcatMockEditorContent({
             />
           </div>
           <TabsContent value="properties" className="m-0 mt-3 min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain pt-1">
-            <h2 className="font-semibold">Mock properties</h2>
-            <label className="block text-sm">
-              <span className="mb-1 block font-medium">Name</span>
-              <Input value={name} onChange={(e) => setName(e.target.value)} />
-            </label>
-            <UcatMockBlueprintAuditPanel blueprints={blueprints} controller={blueprintCandidate} />
-            <label className="block text-sm">
-              <span className="mb-1 block font-medium">
-                <UcatVisibilityFieldLabel />
-              </span>
-              <SearchableSelect<{ value: string; label: string }>
-                items={[
-                  { value: 'public', label: 'Public' },
-                  { value: 'private', label: 'Private' },
-                ]}
-                value={
-                  isPrivate
-                    ? { value: 'private', label: 'Private' }
-                    : { value: 'public', label: 'Public' }
-                }
-                onValueChange={(item) => item && setIsPrivate(item.value === 'private')}
-                getItemLabel={(i) => i.label}
-                getItemId={(i) => i.value}
-              />
-            </label>
-            <label className="block text-sm">
-              <span className="mb-1 block font-medium">Instructions</span>
-              <p className="mb-1 text-xs text-muted-foreground">
-                Shown to students at the start of the mock before set instructions.
-              </p>
-              <div className="overflow-hidden rounded-md border border-input bg-background px-2 ring-offset-background focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-2">
-                <UcatRichTextEditor
-                  value={instructionsText}
-                  onChange={(value) => setInstructionsText(value)}
-                  placeholder="Optional mock instructions..."
-                  minHeight="120px"
+            <Accordion type="multiple" defaultValue={['mock', 'blueprint', 'sets']} className="space-y-4">
+              <PropertiesCard value="mock" title="Mock properties">
+                <MockPropertyRow label="Name">
+                  <Input value={name} onChange={(e) => setName(e.target.value)} />
+                </MockPropertyRow>
+                <MockPropertyRow label={<UcatVisibilityFieldLabel />}>
+                  <SearchableSelect<{ value: string; label: string }>
+                    items={[
+                      { value: 'public', label: 'Public' },
+                      { value: 'private', label: 'Private' },
+                    ]}
+                    value={
+                      isPrivate
+                        ? { value: 'private', label: 'Private' }
+                        : { value: 'public', label: 'Public' }
+                    }
+                    onValueChange={(item) => item && setIsPrivate(item.value === 'private')}
+                    getItemLabel={(i) => i.label}
+                    getItemId={(i) => i.value}
+                  />
+                </MockPropertyRow>
+                <div className="space-y-1.5 py-1.5">
+                  <span className="text-sm text-muted-foreground">Instructions</span>
+                  <p className="text-xs text-muted-foreground">
+                    Shown to students at the start of the mock before set instructions.
+                  </p>
+                  <div className="overflow-hidden rounded-md border border-input bg-background px-2 ring-offset-background focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-2">
+                    <UcatRichTextEditor
+                      value={instructionsText}
+                      onChange={(value) => setInstructionsText(value)}
+                      placeholder="Optional mock instructions..."
+                      minHeight="120px"
+                    />
+                  </div>
+                </div>
+              </PropertiesCard>
+
+              <PropertiesCard value="blueprint" title="Blueprint">
+                <UcatMockBlueprintAuditPanel blueprints={blueprints} controller={blueprintCandidate} />
+              </PropertiesCard>
+
+              <PropertiesCard value="sets" title="Set membership">
+                <UcatMockSetMembershipCard
+                  setIds={draftSetIds}
+                  setCatalog={setCatalog}
+                  onViewSet={onEditSet}
                 />
-              </div>
-            </label>
+              </PropertiesCard>
+            </Accordion>
           </TabsContent>
           <TabsContent value="add-sets" className="m-0 mt-3 min-h-0 flex-1 flex-col data-[state=active]:flex">
             <UcatSetCatalogListPanel

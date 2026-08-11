@@ -247,74 +247,79 @@ export function LearningSectionPage({
         backLabel={backLabel}
       />
 
-      {error ? (
-        <p className="text-sm text-destructive">
-          Failed to load learning modules.
-        </p>
-      ) : null}
+      <div data-tour="learning-modules" className="space-y-6">
+        {error ? (
+          <p className="text-sm text-destructive">
+            Failed to load learning modules.
+          </p>
+        ) : null}
 
-      {!error && lessons.length === 0 ? (
-        <Card>
-          <CardContent className="py-10 text-center text-muted-foreground">
-            {emptyMessage ??
-              (sectionNumber == null
-                ? "No general learning modules are available yet."
-                : "No learning modules are available for this section yet.")}
-          </CardContent>
-        </Card>
-      ) : null}
+        {!error && lessons.length === 0 ? (
+          <Card>
+            <CardContent className="py-10 text-center text-muted-foreground">
+              {emptyMessage ??
+                (sectionNumber == null
+                  ? "No general learning modules are available yet."
+                  : "No learning modules are available for this section yet.")}
+            </CardContent>
+          </Card>
+        ) : null}
 
-      {lessons.length ? (
-        <div className="flex flex-col gap-8 lg:flex-row">
-          <motion.div
-            className="min-w-0 flex-1 space-y-10"
-            variants={containerVariants}
-            initial="hidden"
-            animate="show"
-          >
-            {rootLessons.length ? (
-              <motion.section variants={itemVariants} className="space-y-4">
-                <h2 className="text-xl font-semibold tracking-tight">
-                  Modules
-                </h2>
-                <LessonGrid lessons={rootLessons} nextLessonId={nextLessonId} />
-              </motion.section>
-            ) : null}
-            <motion.div variants={itemVariants} className="space-y-10">
-              <FolderSections nodes={tree} nextLessonId={nextLessonId} />
+        {lessons.length ? (
+          <div className="flex flex-col gap-8 lg:flex-row">
+            <motion.div
+              className="min-w-0 flex-1 space-y-10"
+              variants={containerVariants}
+              initial="hidden"
+              animate="show"
+            >
+              {rootLessons.length ? (
+                <motion.section variants={itemVariants} className="space-y-4">
+                  <h2 className="text-xl font-semibold tracking-tight">
+                    Modules
+                  </h2>
+                  <LessonGrid
+                    lessons={rootLessons}
+                    nextLessonId={nextLessonId}
+                  />
+                </motion.section>
+              ) : null}
+              <motion.div variants={itemVariants} className="space-y-10">
+                <FolderSections nodes={tree} nextLessonId={nextLessonId} />
+              </motion.div>
             </motion.div>
-          </motion.div>
 
-          {folders.length ? (
-            <aside className="order-first w-full shrink-0 lg:order-last lg:sticky lg:top-20 lg:w-64 lg:self-start">
-              <Card>
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-base">On this page</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <nav aria-label="Learning folders">
-                    <ul className="space-y-1">
-                      {folders.map((folder) => (
-                        <li
-                          key={folder.id}
-                          style={{ paddingLeft: `${folder.depth * 12}px` }}
-                        >
-                          <a
-                            href={`#folder-${folder.id}`}
-                            className="block rounded-md px-2 py-1.5 text-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+            {folders.length ? (
+              <aside className="order-first w-full shrink-0 lg:order-last lg:sticky lg:top-20 lg:w-64 lg:self-start">
+                <Card>
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-base">On this page</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <nav aria-label="Learning folders">
+                      <ul className="space-y-1">
+                        {folders.map((folder) => (
+                          <li
+                            key={folder.id}
+                            style={{ paddingLeft: `${folder.depth * 12}px` }}
                           >
-                            {folder.title}
-                          </a>
-                        </li>
-                      ))}
-                    </ul>
-                  </nav>
-                </CardContent>
-              </Card>
-            </aside>
-          ) : null}
-        </div>
-      ) : null}
+                            <a
+                              href={`#folder-${folder.id}`}
+                              className="block rounded-md px-2 py-1.5 text-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                            >
+                              {folder.title}
+                            </a>
+                          </li>
+                        ))}
+                      </ul>
+                    </nav>
+                  </CardContent>
+                </Card>
+              </aside>
+            ) : null}
+          </div>
+        ) : null}
+      </div>
     </div>
   );
 }

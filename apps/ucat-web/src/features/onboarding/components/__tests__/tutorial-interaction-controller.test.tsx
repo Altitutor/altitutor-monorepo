@@ -74,6 +74,32 @@ describe("TutorialInteractionController", () => {
     expect(setCurrentStep).toHaveBeenCalledWith(1);
   });
 
+  it("can explain a control without triggering its real action", () => {
+    const realAction = jest.fn();
+    document.querySelector("#allowed")?.addEventListener("click", realAction);
+    mockedGetTourStep.mockImplementation((_tour, step) =>
+      step === 0
+        ? {
+            icon: null,
+            title: "Report a problem",
+            content: null,
+            interactionSelector: "#allowed",
+            preventInteractionDefault: true,
+          }
+        : {
+            icon: null,
+            title: "Next",
+            content: null,
+          },
+    );
+
+    render(<TutorialInteractionController />);
+    fireEvent.click(document.querySelector("#allowed")!);
+
+    expect(realAction).not.toHaveBeenCalled();
+    expect(setCurrentStep).toHaveBeenCalledWith(1);
+  });
+
   it("persists completion before replaying a final navigation click", async () => {
     mockedGetTourStep.mockImplementation((_tour, step) =>
       step === 0
@@ -154,7 +180,8 @@ describe("TutorialInteractionController", () => {
     expect(closeNextStep).toHaveBeenCalledTimes(1);
   });
 
-  it("returns to the previous step when a highlighted surface collapses", () => {
+  it("returns after a highlighted surface finishes collapsing", () => {
+    jest.useFakeTimers();
     document.body.innerHTML =
       '<button id="collapse">Collapse guidance</button>';
     mockedUseNextStep.mockReturnValue({
@@ -170,12 +197,85 @@ describe("TutorialInteractionController", () => {
       title: "Study guidance",
       content: null,
       backInteractionSelector: "#collapse",
+      backInteractionAdvanceDelayMs: 300,
     });
 
     render(<TutorialInteractionController />);
     fireEvent.click(document.querySelector("#collapse")!);
 
+    expect(setCurrentStep).not.toHaveBeenCalled();
+    act(() => jest.advanceTimersByTime(299));
+    expect(setCurrentStep).not.toHaveBeenCalled();
+    act(() => jest.advanceTimersByTime(1));
     expect(setCurrentStep).toHaveBeenCalledWith(1);
+    jest.useRealTimers();
+  });
+
+  it("waits for an opening surface animation before advancing", () => {
+    jest.useFakeTimers();
+    mockedGetTourStep.mockImplementation((_tour, step) =>
+      step === 0
+        ? {
+            icon: null,
+            title: "Open guidance",
+            content: null,
+            interactionSelector: "#allowed",
+            interactionAdvanceDelayMs: 300,
+          }
+        : {
+            icon: null,
+            title: "Expanded guidance",
+            content: null,
+          },
+    );
+
+    const view = render(<TutorialInteractionController />);
+    fireEvent.click(document.querySelector("#allowed")!);
+
+    expect(setCurrentStep).not.toHaveBeenCalled();
+    mockedUseCompleteOnboardingTour.mockReturnValue({
+      mutateAsync,
+    } as unknown as ReturnType<typeof useCompleteOnboardingTour>);
+    view.rerender(<TutorialInteractionController />);
+    act(() => jest.advanceTimersByTime(299));
+    expect(setCurrentStep).not.toHaveBeenCalled();
+    act(() => jest.advanceTimersByTime(1));
+    expect(setCurrentStep).toHaveBeenCalledWith(1);
+    jest.useRealTimers();
+  });
+
+  it("resets the app scrollport for a page-start step", () => {
+    const sidebarScrollTo = jest.fn();
+    const sidebarScrollport = document.createElement("nav");
+    sidebarScrollport.className = "ucat-app-scroll";
+    Object.defineProperty(sidebarScrollport, "scrollTo", {
+      value: sidebarScrollTo,
+    });
+    document.body.appendChild(sidebarScrollport);
+
+    const mainScrollTo = jest.fn();
+    const mainScrollport = document.createElement("main");
+    mainScrollport.className = "ucat-app-scroll";
+    mainScrollport.dataset.ucatAppScroll = "main";
+    Object.defineProperty(mainScrollport, "scrollTo", { value: mainScrollTo });
+    document.body.appendChild(mainScrollport);
+    jest
+      .spyOn(window, "requestAnimationFrame")
+      .mockImplementation((callback) => {
+        callback(0);
+        return 1;
+      });
+    mockedGetTourStep.mockReturnValue({
+      icon: null,
+      title: "Review the set structure",
+      content: null,
+      scrollMode: "page-start",
+    });
+
+    render(<TutorialInteractionController />);
+
+    expect(mainScrollTo).toHaveBeenCalledWith({ top: 0, behavior: "auto" });
+    expect(sidebarScrollTo).not.toHaveBeenCalled();
   });
 
   it("omits an optional step whose target is not rendered", () => {

@@ -15,16 +15,64 @@ var EMAIL_SENDERS = {
     replyTo: "matt@altitutor.com"
   }
 };
+var COMPANY_CONTACT = {
+  email: "admin@altitutor.com",
+  phone: "+61 483 849 842",
+  phoneHref: "+61483849842",
+  address: "Level 1, 17A Solomon St, Adelaide SA 5000",
+  websiteLabel: "altitutor.com",
+  websiteUrl: "https://altitutor.com"
+};
 var EMAIL_BRANDS = {
   altitutor: {
     name: "Altitutor",
-    subtitle: null
+    subtitle: null,
+    footerTagline: null,
+    contact: COMPANY_CONTACT
   },
   ucat: {
     name: "Altitutor UCAT",
-    subtitle: "UCAT preparation from Altitutor"
+    subtitle: "UCAT preparation from Altitutor",
+    footerTagline: "A not-for-profit initiative by Altitutor.",
+    contact: {
+      email: COMPANY_CONTACT.email,
+      websiteLabel: "altitutor.com/ucat",
+      websiteUrl: "https://altitutor.com/ucat"
+    }
   }
 };
+function renderBrandFooterHtml(brand) {
+  const title = `<p class="email-accent" style="margin:0 0 ${brand.footerTagline ? "3px" : "8px"};color:#0a2941;font-size:13px;font-weight:700;line-height:1.5">${escapeEmailHtml(brand.name)}</p>`;
+  if (!brand.footerTagline) return title;
+  return `${title}
+            <p style="margin:0 0 10px;color:#52606a;font-size:12px;line-height:1.5">${escapeEmailHtml(brand.footerTagline)}</p>`;
+}
+function renderContactFooterHtml(contact) {
+  const mutedLine = "margin:0;color:#52606a;font-size:12px;line-height:1.6";
+  const lines = [];
+  if (contact.address) {
+    lines.push(
+      `<p style="${mutedLine}">${escapeEmailHtml(contact.address)}</p>`
+    );
+  }
+  const detailLines = [];
+  if (contact.phone && contact.phoneHref) {
+    detailLines.push(
+      `Phone: <a class="email-link" href="tel:${escapeEmailHtml(contact.phoneHref)}" style="color:#0a2941">${escapeEmailHtml(contact.phone)}</a>`
+    );
+  }
+  detailLines.push(
+    `Email: <a class="email-link" href="mailto:${escapeEmailHtml(contact.email)}" style="color:#0a2941">${escapeEmailHtml(contact.email)}</a>`
+  );
+  detailLines.push(
+    `Web: <a class="email-link" href="${escapeEmailHtml(contact.websiteUrl)}" style="color:#0a2941">${escapeEmailHtml(contact.websiteLabel)}</a>`
+  );
+  for (const [index, detail] of detailLines.entries()) {
+    const style = index === 0 && contact.address ? "margin:12px 0 0;color:#52606a;font-size:12px;line-height:1.6" : mutedLine;
+    lines.push(`<p style="${style}">${detail}</p>`);
+  }
+  return lines.join("\n            ");
+}
 function escapeEmailHtml(value) {
   return String(value).replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;").replaceAll("'", "&#039;");
 }
@@ -51,9 +99,8 @@ function renderEmail(input) {
   const sender = EMAIL_SENDERS[input.sender ?? (input.brand === "ucat" ? "ucat-product" : "altitutor")];
   const year = input.year ?? (/* @__PURE__ */ new Date()).getUTCFullYear();
   const subtitle = brand.subtitle ? `<p class="email-brand-subtitle" style="margin:6px 0 0;color:#b9d1d9;font-size:13px;line-height:1.5">${escapeEmailHtml(brand.subtitle)}</p>` : "";
-  const footerHtml = input.footerHtml ?? `<p style="margin:0;color:#52606a;font-size:12px;line-height:1.6">Need help? Reply to this email or contact <a class="email-link" href="mailto:${sender.replyTo}" style="color:#0a2941">${sender.replyTo}</a>.</p>`;
-  const brandFooterHtml = input.brand === "ucat" ? `<p class="email-accent" style="margin:0 0 3px;color:#0a2941;font-size:13px;font-weight:700;line-height:1.5">Altitutor UCAT</p>
-            <p style="margin:0 0 10px;color:#52606a;font-size:12px;line-height:1.5">A not-for-profit initiative by Altitutor.</p>` : `<p class="email-accent" style="margin:0 0 8px;color:#0a2941;font-size:13px;font-weight:700;line-height:1.5">Altitutor</p>`;
+  const brandFooterHtml = renderBrandFooterHtml(brand);
+  const contactFooterHtml = renderContactFooterHtml(brand.contact);
   return {
     subject: input.subject,
     previewText: input.previewText,
@@ -84,37 +131,46 @@ ${input.bodyText}`,
         body, .email-page { background-color: #171717 !important; }
         .email-card, .email-content, .email-header { background-color: #1f1f1f !important; }
         .email-card, .email-header { border-color: #2b2b2b !important; }
-        a, .email-brand, .email-link, .email-accent,
-        .email-panel-copy .email-accent { color: #92b5c3 !important; }
-        .email-brand-subtitle, .email-muted { color: #b3b3b3 !important; }
-        .email-heading, .email-strong { color: #ffffff !important; }
-        .email-copy, .email-copy p, .email-copy li { color: #f5f5f5 !important; }
+        a, a.email-link, .email-brand, .email-link, .email-accent,
+        .email-content a, .email-copy a, .email-muted a, .email-panel a,
+        .email-panel-copy .email-accent, .email-panel .email-accent { color: #b7d4df !important; }
+        .email-brand-subtitle, .email-muted, .email-panel .email-muted { color: #b3b3b3 !important; }
+        .email-heading, .email-strong, .email-panel .email-strong { color: #ffffff !important; }
+        .email-copy, .email-copy p, .email-copy li, .email-copy td { color: #f5f5f5 !important; }
         .email-panel { background-color: #262626 !important; border-color: #2b2b2b !important; }
-        .email-panel-copy, .email-panel-copy p, .email-panel-copy td { color: #f5f5f5 !important; }
+        .email-panel td, .email-panel-copy, .email-panel-copy p, .email-panel-copy td { color: #f5f5f5 !important; }
         .email-module-surface { background-color: #2b2b2b !important; border-color: #2b2b2b !important; }
         .email-footer { background-color: #262626 !important; border-color: #2b2b2b !important; }
         .email-footer p { color: #b3b3b3 !important; }
-        .email-footer a { color: #92b5c3 !important; }
+        .email-footer a { color: #b7d4df !important; }
         .email-button-cell { background-color: #92b5c3 !important; }
-        .email-button { color: #1c1c1c !important; }
+        a.email-button, .email-button, .email-content a.email-button,
+        .email-copy a.email-button, .email-button-cell a { color: #1c1c1c !important; }
         .email-accent-fill { background-color: #92b5c3 !important; color:#1c1c1c !important; }
       }
       [data-ogsc] body, [data-ogsc] .email-page { background-color: #171717 !important; }
       [data-ogsc] .email-card, [data-ogsc] .email-content, [data-ogsc] .email-header { background-color: #1f1f1f !important; }
       [data-ogsc] .email-card, [data-ogsc] .email-header { border-color: #2b2b2b !important; }
-      [data-ogsc] a, [data-ogsc] .email-brand, [data-ogsc] .email-link,
-      [data-ogsc] .email-accent, [data-ogsc] .email-panel-copy .email-accent { color: #92b5c3 !important; }
-      [data-ogsc] .email-brand-subtitle, [data-ogsc] .email-muted { color: #b3b3b3 !important; }
-      [data-ogsc] .email-heading, [data-ogsc] .email-strong { color: #ffffff !important; }
-      [data-ogsc] .email-copy, [data-ogsc] .email-copy p, [data-ogsc] .email-copy li { color: #f5f5f5 !important; }
+      [data-ogsc] a, [data-ogsc] a.email-link, [data-ogsc] .email-brand, [data-ogsc] .email-link,
+      [data-ogsc] .email-accent, [data-ogsc] .email-content a, [data-ogsc] .email-copy a,
+      [data-ogsc] .email-muted a, [data-ogsc] .email-panel a, [data-ogsc] .email-panel-copy .email-accent,
+      [data-ogsc] .email-panel .email-accent { color: #b7d4df !important; }
+      [data-ogsc] .email-brand-subtitle, [data-ogsc] .email-muted,
+      [data-ogsc] .email-panel .email-muted { color: #b3b3b3 !important; }
+      [data-ogsc] .email-heading, [data-ogsc] .email-strong,
+      [data-ogsc] .email-panel .email-strong { color: #ffffff !important; }
+      [data-ogsc] .email-copy, [data-ogsc] .email-copy p, [data-ogsc] .email-copy li,
+      [data-ogsc] .email-copy td { color: #f5f5f5 !important; }
       [data-ogsc] .email-panel { background-color: #262626 !important; border-color: #2b2b2b !important; }
-      [data-ogsc] .email-panel-copy, [data-ogsc] .email-panel-copy p, [data-ogsc] .email-panel-copy td { color: #f5f5f5 !important; }
+      [data-ogsc] .email-panel td, [data-ogsc] .email-panel-copy, [data-ogsc] .email-panel-copy p,
+      [data-ogsc] .email-panel-copy td { color: #f5f5f5 !important; }
       [data-ogsc] .email-module-surface { background-color: #2b2b2b !important; border-color: #2b2b2b !important; }
       [data-ogsc] .email-footer { background-color: #262626 !important; border-color: #2b2b2b !important; }
       [data-ogsc] .email-footer p { color: #b3b3b3 !important; }
-      [data-ogsc] .email-footer a { color: #92b5c3 !important; }
+      [data-ogsc] .email-footer a { color: #b7d4df !important; }
       [data-ogsc] .email-button-cell { background-color: #92b5c3 !important; }
-      [data-ogsc] .email-button { color: #1c1c1c !important; }
+      [data-ogsc] a.email-button, [data-ogsc] .email-button, [data-ogsc] .email-content a.email-button,
+      [data-ogsc] .email-copy a.email-button, [data-ogsc] .email-button-cell a { color: #1c1c1c !important; }
       [data-ogsb] .email-accent-fill { background-color: #92b5c3 !important; }
       [data-ogsc] .email-accent-fill { color: #1c1c1c !important; }
     </style>
@@ -135,7 +191,7 @@ ${input.bodyText}`,
           </td></tr>
           <tr><td class="email-footer" bgcolor="#eaf1f3" style="padding:24px 36px;background-color:#eaf1f3;border-top:1px solid #dce5e8">
             ${brandFooterHtml}
-            ${footerHtml}${input.marketingFooterHtml ? `
+            ${contactFooterHtml}${input.marketingFooterHtml ? `
             ${input.marketingFooterHtml}` : ""}
             <p style="margin:12px 0 0;color:#73808a;font-size:11px;line-height:1.5">&copy; ${year} Altitutor.</p>
           </td></tr>
@@ -149,13 +205,8 @@ ${input.bodyText}`,
 
 // src/canonical-emails.ts
 var paragraphStyle = "margin:0 0 18px;color:#394650;font-size:15px;line-height:1.7";
-var mutedStyle = "margin:0;color:#68757e;font-size:13px;line-height:1.6";
 function textWithBreaks(value) {
   return escapeEmailHtml(value).replaceAll("\n", "<br />");
-}
-function actionFallback(url) {
-  const safeUrl = escapeEmailHtml(url);
-  return `<p class="email-muted" style="${mutedStyle}">If the button does not work, copy this link into your browser:<br /><a class="email-link" href="${safeUrl}" style="color:#0a2941;word-break:break-all">${safeUrl}</a></p>`;
 }
 function buildInvitationEmail(input) {
   const heading = "Create your Altitutor account";
@@ -182,7 +233,6 @@ This invitation link expires in ${expiry}. If you did not expect this invitation
       ${introductionHtml}
       <p class="email-copy" style="${paragraphStyle}">You\u2019ve been invited to create your Altitutor account. Use the secure invitation below to get started.</p>
       ${renderEmailButton(input.inviteUrl, "Create account")}
-      ${actionFallback(input.inviteUrl)}
       <p class="email-muted" style="margin:18px 0 0;color:#68757e;font-size:13px;line-height:1.6">This invitation link expires in ${escapeEmailHtml(expiry)}. If you did not expect this invitation, you can safely ignore this email.</p>
     `
   });
@@ -211,7 +261,6 @@ If you did not expect this email, you can safely ignore it.`;
       ${introductionHtml}
       <p class="email-copy" style="${paragraphStyle}">Please complete ${escapeEmailHtml(input.studentName)}\u2019s student registration using the secure link below.</p>
       ${renderEmailButton(input.registrationUrl, "Complete registration")}
-      ${actionFallback(input.registrationUrl)}
       <p class="email-muted" style="margin:18px 0 0;color:#68757e;font-size:13px;line-height:1.6">If you did not expect this email, you can safely ignore it.</p>
     `
   });
@@ -239,7 +288,6 @@ View booking confirmation: ${input.bookingUrl}`;
       ${introductionHtml}
       <p class="email-copy" style="${paragraphStyle}">Your booking confirmation${escapeEmailHtml(when)} is ready.</p>
       ${renderEmailButton(input.bookingUrl, "View booking confirmation")}
-      ${actionFallback(input.bookingUrl)}
     `
   });
 }
@@ -260,7 +308,6 @@ View updated booking: ${input.bookingUrl}`;
       <p class="email-copy" style="${paragraphStyle}">Hello ${escapeEmailHtml(input.recipientName)},</p>
       <p class="email-copy" style="${paragraphStyle}">Your booking has been updated to <strong class="email-strong" style="color:#0a2941">${escapeEmailHtml(input.sessionDate)}</strong> at <strong class="email-strong" style="color:#0a2941">${escapeEmailHtml(input.sessionTime)}</strong>.</p>
       ${renderEmailButton(input.bookingUrl, "View updated booking")}
-      ${actionFallback(input.bookingUrl)}
     `
   });
 }
@@ -285,30 +332,44 @@ If this was a mistake or you would like to book again, reply to this email.`;
   });
 }
 function buildInvoiceNotificationEmail(input) {
-  const heading = `Invoice ${input.invoiceNumber} is ready`;
-  const hostedAction = input.hostedInvoiceUrl ? renderEmailButton(input.hostedInvoiceUrl, "View and pay invoice") + actionFallback(input.hostedInvoiceUrl) : "";
+  const paid = input.paid;
+  const heading = paid ? `Invoice ${input.invoiceNumber} has been paid` : `Invoice ${input.invoiceNumber} is ready`;
+  const intro = paid ? "Your Altitutor invoice has been paid." : "Your Altitutor invoice is ready.";
+  const ctaLabel = paid ? "View invoice" : "Pay invoice";
+  const amountLabel = paid ? "Amount paid" : "Amount due";
+  const hostedAction = input.hostedInvoiceUrl ? renderEmailButton(input.hostedInvoiceUrl, ctaLabel) : "";
   const pdfAction = input.invoicePdfUrl ? `<p style="margin:18px 0 0;color:#394650;font-size:14px;line-height:1.6"><a class="email-link" href="${escapeEmailHtml(input.invoicePdfUrl)}" style="color:#0a2941;font-weight:600">Download invoice PDF</a></p>` : "";
+  const lineItems = input.lineItems ?? [];
+  const lineItemRowsHtml = lineItems.map(
+    (item) => `<tr><td class="email-muted" style="padding:12px 20px;border-bottom:1px solid #d1e0e5;color:#52606a;font-size:14px">${escapeEmailHtml(item.description)}</td><td class="email-strong" align="right" style="padding:12px 20px;border-bottom:1px solid #d1e0e5;color:#223b4b;font-size:14px;font-weight:600;white-space:nowrap">${escapeEmailHtml(item.amount)}</td></tr>`
+  ).join("");
+  const lineItemsText = lineItems.map((item) => `${item.description}: ${item.amount}`).join("\n");
   const textActions = [
     input.hostedInvoiceUrl ? `Hosted invoice: ${input.hostedInvoiceUrl}` : null,
     input.invoicePdfUrl ? `Invoice PDF: ${input.invoicePdfUrl}` : null
   ].filter((value) => value !== null).join("\n");
-  const bodyText = `Invoice date: ${input.invoiceDate}
-Due date: ${input.dueDate}
-Amount: ${input.amount}${textActions ? `
-
-${textActions}` : ""}`;
+  const bodyText = [
+    intro,
+    "",
+    `Invoice date: ${input.invoiceDate}`,
+    `Due date: ${input.dueDate}`,
+    ...lineItemsText ? [lineItemsText] : [],
+    `${amountLabel}: ${input.amount}`,
+    ...textActions ? ["", textActions] : []
+  ].join("\n");
   return renderEmail({
     brand: "altitutor",
-    subject: `Invoice ${input.invoiceNumber} is ready \u2014 Altitutor`,
-    previewText: `Invoice ${input.invoiceNumber} for ${input.amount} is ready.`,
+    subject: paid ? `Invoice ${input.invoiceNumber} has been paid \u2014 Altitutor` : `Invoice ${input.invoiceNumber} is ready \u2014 Altitutor`,
+    previewText: paid ? `Invoice ${input.invoiceNumber} for ${input.amount} has been paid.` : `Invoice ${input.invoiceNumber} for ${input.amount} is ready.`,
     heading,
     bodyText,
     bodyHtml: `
-      <p class="email-copy" style="${paragraphStyle}">Your Altitutor invoice is ready. Stripe securely hosts the invoice and payment page.</p>
+      <p class="email-copy" style="${paragraphStyle}">${intro}</p>
       <table class="email-panel" role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" bgcolor="#eaf1f3" style="margin:22px 0;background-color:#eaf1f3;border:1px solid #d1e0e5;border-radius:12px">
-        <tr><td style="padding:12px 20px;border-bottom:1px solid #d1e0e5;color:#52606a;font-size:14px">Invoice date</td><td align="right" style="padding:12px 20px;border-bottom:1px solid #d1e0e5;color:#223b4b;font-size:14px;font-weight:600">${escapeEmailHtml(input.invoiceDate)}</td></tr>
-        <tr><td style="padding:12px 20px;border-bottom:1px solid #d1e0e5;color:#52606a;font-size:14px">Due date</td><td align="right" style="padding:12px 20px;border-bottom:1px solid #d1e0e5;color:#223b4b;font-size:14px;font-weight:600">${escapeEmailHtml(input.dueDate)}</td></tr>
-        <tr><td style="padding:14px 20px;color:#52606a;font-size:14px">Amount</td><td align="right" style="padding:14px 20px;color:#0a2941;font-size:18px;font-weight:700">${escapeEmailHtml(input.amount)}</td></tr>
+        <tr><td class="email-muted" style="padding:12px 20px;border-bottom:1px solid #d1e0e5;color:#52606a;font-size:14px">Invoice date</td><td class="email-strong" align="right" style="padding:12px 20px;border-bottom:1px solid #d1e0e5;color:#223b4b;font-size:14px;font-weight:600">${escapeEmailHtml(input.invoiceDate)}</td></tr>
+        <tr><td class="email-muted" style="padding:12px 20px;border-bottom:1px solid #d1e0e5;color:#52606a;font-size:14px">Due date</td><td class="email-strong" align="right" style="padding:12px 20px;border-bottom:1px solid #d1e0e5;color:#223b4b;font-size:14px;font-weight:600">${escapeEmailHtml(input.dueDate)}</td></tr>
+        ${lineItemRowsHtml}
+        <tr><td class="email-muted" style="padding:14px 20px;color:#52606a;font-size:14px">${amountLabel}</td><td class="email-accent" align="right" style="padding:14px 20px;color:#0a2941;font-size:18px;font-weight:700">${escapeEmailHtml(input.amount)}</td></tr>
       </table>
       ${hostedAction}
       ${pdfAction}
@@ -347,16 +408,12 @@ ${diagnostics}`;
 
 // src/auth-emails.ts
 var copyStyle = "margin:0 0 18px;color:#394650;font-size:15px;line-height:1.7";
-var mutedStyle2 = "margin:0;color:#68757e;font-size:13px;line-height:1.6";
+var mutedStyle = "margin:0;color:#68757e;font-size:13px;line-height:1.6";
 function codePanel(label, token) {
   return `<table class="email-panel" role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" bgcolor="#eaf1f3" style="margin:28px 0;background-color:#eaf1f3;border:1px solid #d1e0e5;border-radius:12px"><tr><td align="center" style="padding:22px 18px">
     <p class="email-muted" style="margin:0 0 8px;color:#52606a;font-size:11px;font-weight:700;letter-spacing:0.14em;text-transform:uppercase">${escapeEmailHtml(label)}</p>
     <p class="email-heading" style="margin:0;color:#0a2941;font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace;font-size:32px;font-weight:800;letter-spacing:0.28em">${token}</p>
   </td></tr></table>`;
-}
-function fallbackLink(url) {
-  const safeUrl = escapeEmailHtml(url);
-  return `<p class="email-muted" style="${mutedStyle2}">If the button does not work, copy this link into your browser:<br /><a class="email-link" href="${safeUrl}" style="color:#0a2941;word-break:break-all">${safeUrl}</a></p>`;
 }
 function identityEmail(input) {
   return renderEmail({
@@ -380,7 +437,7 @@ function buildAuthEmails(input = {}) {
 ${token}
 
 This code expires in 1 hour.`,
-      bodyHtml: `<p class="email-copy" style="${copyStyle}">Enter this code on the signup page to confirm your email and finish creating your Altitutor account.</p>${codePanel("Your signup code", token)}<p class="email-muted" style="${mutedStyle2}">This code expires in 1 hour. If you did not request it, you can safely ignore this email.</p>`
+      bodyHtml: `<p class="email-copy" style="${copyStyle}">Enter this code on the signup page to confirm your email and finish creating your Altitutor account.</p>${codePanel("Your signup code", token)}<p class="email-muted" style="${mutedStyle}">This code expires in 1 hour. If you did not request it, you can safely ignore this email.</p>`
     }),
     invite: identityEmail({
       year,
@@ -390,7 +447,7 @@ This code expires in 1 hour.`,
       bodyText: `You have been invited to create an Altitutor account.
 
 Accept invitation: ${confirmationUrl}`,
-      bodyHtml: `<p class="email-copy" style="${copyStyle}">You have been invited to create an Altitutor account. Accept the invitation to get started.</p>${renderEmailButton(confirmationUrl, "Accept invitation")}<p class="email-muted" style="margin:0 0 12px;color:#68757e;font-size:13px;line-height:1.6">If you did not expect this invitation, you can safely ignore this email.</p>${fallbackLink(confirmationUrl)}`
+      bodyHtml: `<p class="email-copy" style="${copyStyle}">You have been invited to create an Altitutor account. Accept the invitation to get started.</p>${renderEmailButton(confirmationUrl, "Accept invitation")}<p class="email-muted" style="margin:0;color:#68757e;font-size:13px;line-height:1.6">If you did not expect this invitation, you can safely ignore this email.</p>`
     }),
     magic_link: identityEmail({
       year,
@@ -402,7 +459,7 @@ Accept invitation: ${confirmationUrl}`,
 ${token}
 
 This code expires in 1 hour.`,
-      bodyHtml: `<p class="email-copy" style="${copyStyle}">Enter this code on the sign-in page to continue.</p>${codePanel("Your sign-in code", token)}<p class="email-muted" style="${mutedStyle2}">This code expires in 1 hour. If you did not request it, you can safely ignore this email.</p>`
+      bodyHtml: `<p class="email-copy" style="${copyStyle}">Enter this code on the sign-in page to continue.</p>${codePanel("Your sign-in code", token)}<p class="email-muted" style="${mutedStyle}">This code expires in 1 hour. If you did not request it, you can safely ignore this email.</p>`
     }),
     recovery: identityEmail({
       year,
@@ -414,7 +471,7 @@ This code expires in 1 hour.`,
 Reset password: ${recoveryUrl}
 
 This link expires in 1 hour.`,
-      bodyHtml: `<p class="email-copy" style="${copyStyle}">We received a request to reset the password for your Altitutor account. Choose a new password using the button below.</p>${renderEmailButton(recoveryUrl, "Reset password")}<p class="email-muted" style="margin:0 0 12px;color:#68757e;font-size:13px;line-height:1.6">This link expires in 1 hour. If you did not request a password reset, you can safely ignore this email and your password will remain unchanged.</p>${fallbackLink(recoveryUrl)}`
+      bodyHtml: `<p class="email-copy" style="${copyStyle}">We received a request to reset the password for your Altitutor account. Choose a new password using the button below.</p>${renderEmailButton(recoveryUrl, "Reset password")}<p class="email-muted" style="margin:0;color:#68757e;font-size:13px;line-height:1.6">This link expires in 1 hour. If you did not request a password reset, you can safely ignore this email and your password will remain unchanged.</p>`
     }),
     email_change: identityEmail({
       year,
@@ -424,7 +481,7 @@ This link expires in 1 hour.`,
       bodyText: `You asked to change your Altitutor email address to {{ .NewEmail }}.
 
 Confirm new email: ${confirmationUrl}`,
-      bodyHtml: `<p class="email-copy" style="${copyStyle}">You asked to change the email address on your Altitutor account to <strong class="email-strong" style="color:#0a2941">{{ .NewEmail }}</strong>.</p>${renderEmailButton(confirmationUrl, "Confirm new email")}<p class="email-muted" style="margin:0 0 12px;color:#68757e;font-size:13px;line-height:1.6">If you did not request this change, you can safely ignore this email and your current email address will remain unchanged.</p>${fallbackLink(confirmationUrl)}`
+      bodyHtml: `<p class="email-copy" style="${copyStyle}">You asked to change the email address on your Altitutor account to <strong class="email-strong" style="color:#0a2941">{{ .NewEmail }}</strong>.</p>${renderEmailButton(confirmationUrl, "Confirm new email")}<p class="email-muted" style="margin:0;color:#68757e;font-size:13px;line-height:1.6">If you did not request this change, you can safely ignore this email and your current email address will remain unchanged.</p>`
     }),
     reauthentication: identityEmail({
       year,
@@ -436,7 +493,7 @@ Confirm new email: ${confirmationUrl}`,
 ${token}
 
 This code expires in 1 hour.`,
-      bodyHtml: `<p class="email-copy" style="${copyStyle}">Use this verification code to complete the security-sensitive action you requested.</p>${codePanel("Verification code", token)}<p class="email-muted" style="${mutedStyle2}">This code expires in 1 hour. If you did not request it, you can safely ignore this email. Your account remains secure.</p>`
+      bodyHtml: `<p class="email-copy" style="${copyStyle}">Use this verification code to complete the security-sensitive action you requested.</p>${codePanel("Verification code", token)}<p class="email-muted" style="${mutedStyle}">This code expires in 1 hour. If you did not request it, you can safely ignore this email. Your account remains secure.</p>`
     })
   };
 }
@@ -473,6 +530,7 @@ async function deliverEdgeEmail(input) {
   };
 }
 export {
+  COMPANY_CONTACT,
   EMAIL_SENDERS,
   buildAuthEmails,
   buildBookingCancelledEmail,

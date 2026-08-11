@@ -23,7 +23,6 @@
     "audit:ucat-dm-categories": "tsx scripts/audit-ucat-dm-categories.ts",
     "seed:ucat-find-word-wikipedia": "tsx scripts/generate-ucat-find-word-wikipedia-seed.ts",
     "seed:ucat-skill-trainers": "tsx scripts/generate-ucat-skill-trainer-seed.ts",
-    "test:ui": "vitest --ui",
     "format": "prettier --write .",
     "typecheck": "tsc --noEmit",
     "type-check": "npm run typecheck",
@@ -151,8 +150,7 @@
     "tailwindcss": "^3.4.1",
     "typescript": "^5.9.3",
     "tsx": "^4.20.6",
-    "vite": "^6.3.2",
-    "vitest": "^3.1.2"
+    "vite": "^6.3.2"
   },
   "repository": {
     "type": "git",

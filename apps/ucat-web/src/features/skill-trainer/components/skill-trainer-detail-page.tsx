@@ -91,7 +91,10 @@ export function SkillTrainerDetailPage({
         />
       </motion.div>
 
-      <motion.div variants={itemVariants}>
+      <motion.div
+        data-tour="skill-trainer-tutorial"
+        variants={itemVariants}
+      >
         <SkillTrainerDemoCard trainerKey={trainerKey} />
       </motion.div>
 
@@ -100,6 +103,7 @@ export function SkillTrainerDetailPage({
         className="mt-4 flex min-h-10 items-center justify-end"
       >
         <Button
+          data-tour="skill-trainer-start"
           type="button"
           className={UCAT_PRIMARY_ACTION_BUTTON}
           disabled={starting || quotaLoading}

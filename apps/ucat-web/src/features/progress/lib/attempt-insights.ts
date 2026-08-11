@@ -67,6 +67,7 @@ export type QuestionAttemptInsightInput = {
   averageTimeSeconds: number | null;
   averageTimeSampleSize: number;
   wasFlagged?: boolean;
+  wrongAnswerExplanations?: readonly string[];
 };
 
 const MIN_RECENT_ATTEMPTS = 3;
@@ -87,7 +88,23 @@ function paceSentence(pacePercent: number | null | undefined): string {
   if (pacePercent < 90) {
     return ` You worked at ${formatSpeedPercentAsMultiplier(pacePercent)} exam speed; keep the sound reasoning and let familiarity build the speed.`;
   }
-  return ` Your ${formatSpeedPercentAsMultiplier(pacePercent)} exam speed was inside the guide band.`;
+  return ` Your ${formatSpeedPercentAsMultiplier(pacePercent)} exam speed was around exam pace.`;
+}
+
+function selectedAnswerFeedback(
+  input: QuestionAttemptInsightInput,
+  fallback: string,
+): string {
+  const explanations = (input.wrongAnswerExplanations ?? [])
+    .map((explanation) => explanation.trim())
+    .filter(Boolean);
+  if (explanations.length === 0) return fallback;
+  if (explanations.length === 1) {
+    return `For the answer you chose: ${explanations[0]}`;
+  }
+  return `For the answers that missed:\n${explanations
+    .map((explanation) => `• ${explanation}`)
+    .join("\n")}`;
 }
 
 export function buildAttemptOverallInsight(
@@ -120,8 +137,8 @@ export function buildAttemptOverallInsight(
   ) {
     return {
       ruleId: "attempt.fast_low_accuracy",
-      title: "A little less speed may convert more questions",
-      body: `You scored ${roundedPercent(accuracy)} while working at ${formatSpeedPercentAsMultiplier(examPace)} exam speed. Slow down on questions you can reasonably solve rather than trying to bank more time across the whole attempt.`,
+      title: "A little less speed may help you get more questions right",
+      body: `You scored ${roundedPercent(accuracy)} while working at ${formatSpeedPercentAsMultiplier(examPace)} exam speed. Slow down on questions you can reasonably solve rather than trying to save more time across the whole attempt.`,
       tone: "coaching",
     };
   }
@@ -130,7 +147,7 @@ export function buildAttemptOverallInsight(
     return {
       ruleId: "attempt.accuracy_improved",
       title: "Your accuracy moved in the right direction",
-      body: `You reached ${roundedPercent(accuracy)}, up ${Math.round(accuracyChange)} percentage points from your previous ${recent!.sampleSize} comparable attempts.${paceSentence(examPace)}`,
+      body: `You reached ${roundedPercent(accuracy)}, up ${Math.round(accuracyChange)} percentage points from your previous ${recent!.sampleSize} similar attempts.${paceSentence(examPace)}`,
       tone: "positive",
     };
   }
@@ -145,13 +162,13 @@ export function buildAttemptOverallInsight(
       ? {
           ruleId: "attempt.accuracy_declined_faster",
           title: "The extra pace may have cost accuracy",
-          body: `Accuracy was ${roundedPercent(accuracy)}, ${Math.round(Math.abs(accuracyChange))} points below your previous ${recent!.sampleSize} comparable attempts, while pace was higher. Review the early misses before trying to hold this speed.`,
+          body: `Accuracy was ${roundedPercent(accuracy)}, ${Math.round(Math.abs(accuracyChange))} points below your previous ${recent!.sampleSize} similar attempts, while pace was higher. Review the early misses before trying to hold this speed.`,
           tone: "coaching",
         }
       : {
           ruleId: "attempt.accuracy_declined",
           title: "Use this attempt to find the repeatable misses",
-          body: `Accuracy was ${roundedPercent(accuracy)}, ${Math.round(Math.abs(accuracyChange))} points below your previous ${recent!.sampleSize} comparable attempts. Look for one repeated category or reasoning step rather than treating every miss as a separate problem.`,
+          body: `Accuracy was ${roundedPercent(accuracy)}, ${Math.round(Math.abs(accuracyChange))} points below your previous ${recent!.sampleSize} similar attempts. Look for one repeated category or reasoning step rather than treating every miss as a separate problem.`,
           tone: "coaching",
         };
   }
@@ -160,7 +177,7 @@ export function buildAttemptOverallInsight(
     return {
       ruleId: "attempt.strong_accuracy_no_pace",
       title: "Strong accuracy to build on",
-      body: `You converted ${roundedPercent(accuracy)} of the available marks. Keep reviewing the few misses so the result becomes repeatable.`,
+      body: `You scored ${roundedPercent(accuracy)}. Keep reviewing the few misses so the result becomes repeatable.`,
       tone: "positive",
     };
   }
@@ -169,7 +186,7 @@ export function buildAttemptOverallInsight(
     return {
       ruleId: "attempt.strong_accuracy_balanced",
       title: "Accuracy and pace worked well together",
-      body: `You converted ${roundedPercent(accuracy)} of the available marks. At ${formatSpeedPercentAsMultiplier(examPace)} exam speed, this is a strong balance to make repeatable.`,
+      body: `You scored ${roundedPercent(accuracy)}. At ${formatSpeedPercentAsMultiplier(examPace)} exam speed, this is a strong balance to make repeatable.`,
       tone: "positive",
     };
   }
@@ -178,7 +195,7 @@ export function buildAttemptOverallInsight(
     return {
       ruleId: "attempt.strong_accuracy_building_pace",
       title: "Accuracy is leading your pace",
-      body: `You converted ${roundedPercent(accuracy)} of the available marks at ${formatSpeedPercentAsMultiplier(examPace)} exam speed. Keep the method that is working; repeated exposure should make the decisions faster without sacrificing accuracy.`,
+      body: `You scored ${roundedPercent(accuracy)} at ${formatSpeedPercentAsMultiplier(examPace)} exam speed. Keep the method that is working; repeated exposure should make the decisions faster without sacrificing accuracy.`,
       tone: "positive",
     };
   }
@@ -186,8 +203,8 @@ export function buildAttemptOverallInsight(
   if (accuracy < 65) {
     return {
       ruleId: "attempt.accuracy_priority",
-      title: "Accuracy is the best next lever",
-      body: `You converted ${roundedPercent(accuracy)} of the available marks. Review the reasoning behind the misses first; speed becomes more useful once the method is dependable.${
+      title: "Accuracy is the best next focus",
+      body: `You scored ${roundedPercent(accuracy)}. Review the reasoning behind the misses first; speed becomes more useful once the method is dependable.${
         examPace != null && examPace < 90
           ? " It is normal for pace to build later."
           : ""
@@ -210,7 +227,7 @@ export function buildAttemptOverallInsight(
       return {
         ruleId: "attempt.decisions_quicker",
         title: "Your decisions were quicker this time",
-        body: `Accuracy held at ${roundedPercent(accuracy)} while average question time improved by ${Math.round(Math.abs(timeChange) * 100)}% against your previous ${recent.sampleSize} comparable attempts. Review the misses to make sure the quicker pace stays controlled.`,
+        body: `Accuracy held at ${roundedPercent(accuracy)} while average question time improved by ${Math.round(Math.abs(timeChange) * 100)}% against your previous ${recent.sampleSize} similar attempts. Review the misses to make sure the quicker pace stays controlled.`,
         tone: "positive",
       };
     }
@@ -219,7 +236,7 @@ export function buildAttemptOverallInsight(
   return {
     ruleId: "attempt.focused_next_step",
     title: "Turn the misses into a focused next step",
-    body: `You converted ${roundedPercent(accuracy)} of the available marks.${paceSentence(examPace)} Start with the most repeated error pattern, then test it again in a short set.`,
+    body: `You scored ${roundedPercent(accuracy)}.${paceSentence(examPace)} Start with the most repeated error pattern, then test it again in a short set.`,
     tone: "neutral",
   };
 }
@@ -241,8 +258,8 @@ export function buildQuestionAttemptInsight(
     if (timeRatio == null) {
       return {
         ruleId: "question.correct_no_timing",
-        title: "Correct—now make the method repeatable",
-        body: "Check the explanation for the decisive step, then keep the approach that got you there.",
+        title: "Correct — check what made it work",
+        body: "Check the explanation for what made the difference, then keep the approach that got you there.",
         tone: "positive",
       };
     }
@@ -257,14 +274,14 @@ export function buildQuestionAttemptInsight(
     if (timeRatio <= SLOW_QUESTION_TIME_RATIO) {
       return {
         ruleId: "question.correct_balanced",
-        title: "A strong, repeatable result",
+        title: "Correct at a solid pace",
         body: "You got the question right in about the same time as other students who answered it correctly. Review the method briefly, then move on.",
         tone: "positive",
       };
     }
     return {
       ruleId: "question.correct_slow",
-      title: "Correct, with room to streamline",
+      title: "Correct, but slower than it needed to be",
       body: `You took ${Math.round((timeRatio - 1) * 100)}% longer than the average student who got this question right. Keep the sound reasoning, but check the explanation for a shorter route.`,
       tone: "positive",
     };
@@ -274,23 +291,26 @@ export function buildQuestionAttemptInsight(
     if (timeRatio != null && timeRatio < QUICK_QUESTION_TIME_RATIO) {
       return {
         ruleId: "question.partial_rushed",
-        title: "Close, but a little quick",
-        body: `You were ${Math.round((1 - timeRatio) * 100)}% faster than students who got this question right. Use the explanation to find the final check that would have completed the answer.`,
+        title: "Almost — you may have moved on too soon",
+        body: `You were ${Math.round((1 - timeRatio) * 100)}% faster than students who got this question right. ${selectedAnswerFeedback(input, "Use the explanation to find what would have completed the answer.")}`,
         tone: "coaching",
       };
     }
     if (timeRatio != null && timeRatio > SLOW_QUESTION_TIME_RATIO) {
       return {
         ruleId: "question.partial_slow",
-        title: "Partly there—simplify the route",
-        body: `You took ${Math.round((timeRatio - 1) * 100)}% longer than students who got this question right. The explanation can show where the method became long or uncertain.`,
+        title: "Partly right, and it took longer than it should",
+        body: `You took ${Math.round((timeRatio - 1) * 100)}% longer than students who got this question right. ${selectedAnswerFeedback(input, "The explanation can show where your approach became long or uncertain.")}`,
         tone: "coaching",
       };
     }
     return {
       ruleId: "question.partial_default",
-      title: "Close—check the missing step",
-      body: "Use the explanation below to see what kept this from full marks.",
+      title: "Close — see what kept this from full marks",
+      body: selectedAnswerFeedback(
+        input,
+        "Use the explanation below to see what kept this from full marks.",
+      ),
       tone: "coaching",
     };
   }
@@ -299,7 +319,7 @@ export function buildQuestionAttemptInsight(
     if (timeRatio != null && timeRatio > SLOW_QUESTION_TIME_RATIO) {
       return {
         ruleId: "question.not_attempted_slow",
-        title: "Set an earlier decision point",
+        title: "You spent too long without answering",
         body: `You spent ${Math.round((timeRatio - 1) * 100)}% longer than the average successful time without submitting an answer. Decide earlier whether to commit, flag, or move on.`,
         tone: "coaching",
       };
@@ -307,14 +327,14 @@ export function buildQuestionAttemptInsight(
     if (input.wasFlagged) {
       return {
         ruleId: "question.not_attempted_flagged",
-        title: "Your flag identified the uncertainty",
+        title: "You flagged this — check what made it hard",
         body: "Use the explanation to identify the clue that would let you solve or skip this question decisively next time.",
         tone: "neutral",
       };
     }
     return {
       ruleId: "question.not_attempted_default",
-      title: "Build a clearer skip-or-solve rule",
+      title: "Decide earlier: solve, flag, or move on",
       body: "Use the explanation to identify the clue that would help you solve, flag, or move on earlier next time.",
       tone: "neutral",
     };
@@ -323,8 +343,8 @@ export function buildQuestionAttemptInsight(
   if (timeRatio != null && timeRatio < QUICK_QUESTION_TIME_RATIO) {
     return {
       ruleId: "question.incorrect_rushed",
-      title: "This one looks rushed",
-      body: `You were ${Math.round((1 - timeRatio) * 100)}% faster than students who got this question right. Use the explanation to spot the check or reasoning step you skipped.`,
+      title: "You answered too quickly and got it wrong",
+      body: `You were ${Math.round((1 - timeRatio) * 100)}% faster than students who got this question right. ${selectedAnswerFeedback(input, "Use the explanation to spot the check or reasoning you skipped.")}`,
       tone: "coaching",
     };
   }
@@ -332,8 +352,8 @@ export function buildQuestionAttemptInsight(
   if (timeRatio != null && timeRatio > SLOW_QUESTION_TIME_RATIO) {
     return {
       ruleId: "question.incorrect_slow",
-      title: "This one took more time than it returned",
-      body: `You took ${Math.round((timeRatio - 1) * 100)}% longer than students who got this question right. Find the intended route, then set an earlier point for moving on when that route is not clear.`,
+      title: "You spent too long and still got it wrong",
+      body: `You took ${Math.round((timeRatio - 1) * 100)}% longer than students who got this question right. ${selectedAnswerFeedback(input, "Learn the intended method from the explanation.")} Next time, decide earlier to move on when that method is not clear.`,
       tone: "coaching",
     };
   }
@@ -342,24 +362,26 @@ export function buildQuestionAttemptInsight(
     return {
       ruleId: "question.incorrect_flagged",
       title: "Good call to flag this one",
-      body: "Now use the explanation below to close the gap you noticed during the attempt.",
+      body: selectedAnswerFeedback(
+        input,
+        "Now use the explanation below to see what you were unsure about.",
+      ),
       tone: "neutral",
     };
   }
 
+  const noTiming = timeRatio == null;
+
   return {
-    ruleId:
-      timeRatio == null
-        ? "question.incorrect_no_timing"
-        : "question.incorrect_balanced",
-    title:
-      timeRatio == null
-        ? "Find the first step that changed the answer"
-        : "Your timing was workable; the method is the next lever",
-    body:
-      timeRatio == null
-        ? "Compare your approach with the explanation and find the first point where they diverged. Redo the question from that step before moving on."
-        : "You used about the same amount of time as students who got this question right. Use the explanation to find where your reasoning diverged.",
+    ruleId: noTiming
+      ? "question.incorrect_no_timing"
+      : "question.incorrect_balanced",
+    title: noTiming
+      ? "Find where your approach went wrong"
+      : "Your timing was fine — the reasoning needs work",
+    body: noTiming
+      ? `${selectedAnswerFeedback(input, "Compare your approach with the explanation and find the first point where they diverged.")} Redo the question from there before moving on.`
+      : `You used about the same amount of time as students who got this question right. ${selectedAnswerFeedback(input, "Use the explanation to find where your reasoning diverged.")}`,
     tone: "coaching",
   };
 }

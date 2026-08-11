@@ -31,13 +31,18 @@ export function ExamAttemptConflictDialog({
   onDiscardAndContinue: () => void;
   onCancel: () => void;
 }) {
-  const { isBlocked: questionEngineTourBlocked } =
-    useQuestionEngineTutorialGate();
+  const {
+    isBlocked: questionEngineTourBlocked,
+    tutorialKind: questionEngineTutorialKind,
+  } = useQuestionEngineTutorialGate();
 
   if (!active) return null;
 
   const resumeHref = questionEngineTourBlocked
-    ? buildQuestionEngineTutorialHref(active.resumeHref)
+    ? buildQuestionEngineTutorialHref(
+        active.resumeHref,
+        questionEngineTutorialKind,
+      )
     : active.resumeHref;
 
   return (

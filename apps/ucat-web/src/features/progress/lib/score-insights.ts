@@ -40,10 +40,10 @@ export function buildTotalScoreInsight({
 }): ScoreInsight & { ruleId: TotalScoreInsightRuleId } {
   const body =
     currentEstimate == null
-      ? "Complete one timed set in each cognitive section to build a score estimate."
+      ? "Complete one timed set in each of Sections 1–3 to build a score estimate."
       : benchmarkPercentileLabel
-        ? `Your ${currentEstimate} estimate is around the ${benchmarkPercentileLabel.toLowerCase()} against the published UCAT ANZ benchmark. The shaded range shows what the current evidence can support, not a guaranteed result.`
-        : "Keep adding timed evidence. The shaded range will narrow as the model sees more representative work across Sections 1–3.";
+        ? `Your ${currentEstimate} estimate is around the ${benchmarkPercentileLabel.toLowerCase()} against the published UCAT ANZ benchmark.`
+        : "Keep completing timed practice. The shaded range will narrow as you complete more realistic timed work across Sections 1–3.";
 
   if (improvement != null && improvement >= 20) {
     return {
@@ -62,13 +62,13 @@ export function buildTotalScoreInsight({
   if (currentEstimate == null) {
     return {
       ruleId: "total_score.building_baseline",
-      title: "Build your baseline one section at a time",
+      title: "Build your score estimate one section at a time",
       body,
     };
   }
   return {
     ruleId: "total_score.current_estimate",
-    title: "Your estimate is the starting point - not the verdict",
+    title: "Your estimate is a starting point—not a final score",
     body,
   };
 }
@@ -97,7 +97,7 @@ export function buildSectionScoreInsight({
         : averageExamSpeed > 105
           ? {
               ruleId: "section_score.weakest_category_fast",
-              sentence: ` Your recent exam speed is ${formatSpeedPercentAsMultiplier(averageExamSpeed)}, so accuracy is the higher-priority constraint.`,
+              sentence: ` Your recent exam speed is ${formatSpeedPercentAsMultiplier(averageExamSpeed)}, so accuracy is the main thing holding you back.`,
             }
           : {
               ruleId: "section_score.weakest_category_balanced",
@@ -115,7 +115,7 @@ export function buildSectionScoreInsight({
   if (score == null) {
     return {
       ruleId: "section_score.building_baseline",
-      title: `Start ${sectionName} with a representative timed set`,
+      title: `Start ${sectionName} with a realistic timed set`,
       body,
     };
   }
@@ -128,7 +128,7 @@ export function buildSectionScoreInsight({
   }
   return {
     ruleId: "section_score.representative_evidence",
-    title: "Keep the evidence representative",
+    title: "Keep practising with realistic timed sets",
     body,
   };
 }

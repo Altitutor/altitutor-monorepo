@@ -315,7 +315,10 @@ export function StudyPlanCalendar({
           </div>
         </div>
 
-        <div id="tour-study-plan-tasks" className="scroll-mt-24">
+        <div
+          data-tour={!selectedTasks.length ? "study-plan-task" : undefined}
+          className="scroll-mt-24"
+        >
           {selectedTasks.length ? (
             <div className="space-y-3">
               {selectedDate === plan.today && carryOverTasks.length ? (
@@ -340,6 +343,7 @@ export function StudyPlanCalendar({
                   ) : null
                 }
                 previewMode={previewMode}
+                tourFirstTask
               />
             </div>
           ) : showExtraStudy ? (

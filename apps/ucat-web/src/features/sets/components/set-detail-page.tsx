@@ -86,6 +86,7 @@ export function SetDetailPage({
   const {
     isLoading: questionEngineTourLoading,
     isBlocked: questionEngineTourBlocked,
+    tutorialKind: questionEngineTutorialKind,
   } = useQuestionEngineTutorialGate();
   const { data: set, isLoading, error } = useSet(setId);
   const { data: attempts = [] } = useSetAttempts(setId);
@@ -142,6 +143,7 @@ export function SetDetailPage({
       router.push(
         buildQuestionEngineTutorialHref(
           `${window.location.pathname}${window.location.search}`,
+          questionEngineTutorialKind,
         ),
       );
       return;

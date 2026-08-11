@@ -5,7 +5,7 @@ type TimingInput = { pace: number | null; accuracy: number | null };
 
 export const SECTION_TIMING_INSIGHT_PREVIEW_CASES = [
   {
-    label: "No timed evidence",
+    label: "No timed practice",
     condition: "Recent pace is unavailable.",
     input: { pace: null, accuracy: null },
     expectedRuleId: "section_timing.no_pace",

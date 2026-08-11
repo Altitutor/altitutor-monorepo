@@ -93,6 +93,7 @@ export function MockDetailPage({
   const {
     isLoading: questionEngineTourLoading,
     isBlocked: questionEngineTourBlocked,
+    tutorialKind: questionEngineTutorialKind,
   } = useQuestionEngineTutorialGate();
   const { data: mocks, isLoading, error } = useMocks();
   const { data: attempts = [] } = useMockAttemptsWithBreakdown(mockId);
@@ -214,6 +215,7 @@ export function MockDetailPage({
       router.push(
         buildQuestionEngineTutorialHref(
           `${window.location.pathname}${window.location.search}`,
+          questionEngineTutorialKind,
         ),
       );
       return;

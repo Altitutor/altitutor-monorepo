@@ -1,14 +1,18 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import { useNextStep } from "nextstepjs";
 import { getTourStep } from "@/features/onboarding/config/tour-steps";
-import { UCAT_QUESTION_ENGINE_TOUR } from "@/features/onboarding/config/tour-catalog";
+import {
+  UCAT_QUESTION_ENGINE_CONTROLS_TOUR,
+  UCAT_QUESTION_ENGINE_TOUR,
+} from "@/features/onboarding/config/tour-catalog";
 import { useCompleteOnboardingTour } from "@/features/onboarding/hooks/use-onboarding-progress";
 import {
   clearTutorialResume,
   handoffTutorialToPath,
 } from "@/features/onboarding/lib/tutorial-resume";
+import { requestTutorialSkipConfirmation } from "@/features/onboarding/lib/tutorial-events";
 
 const OPTIONAL_TARGET_WAIT_MS = 120;
 
@@ -27,6 +31,14 @@ function outboundPathname(actionable: HTMLElement | null): string | null {
     : null;
 }
 
+function repaintTutorialSpotlight() {
+  window.requestAnimationFrame(() => {
+    window.requestAnimationFrame(() => {
+      window.dispatchEvent(new Event("resize"));
+    });
+  });
+}
+
 /**
  * Lets a contextual tutorial require a real highlighted control. Final clicks
  * are replayed only after completion is persisted, so route navigation cannot
@@ -43,6 +55,41 @@ export function TutorialInteractionController() {
   const completeTour = useCompleteOnboardingTour();
   const replayingClickRef = useRef(false);
   const transitionLockedRef = useRef(false);
+  const transitionTimerRef = useRef<number | null>(null);
+
+  const scheduleStepChange = useCallback(
+    (stepIndex: number, delayMs?: number) => {
+      if (transitionTimerRef.current !== null) {
+        window.clearTimeout(transitionTimerRef.current);
+      }
+      if (!delayMs) {
+        setCurrentStep(stepIndex);
+        repaintTutorialSpotlight();
+        return;
+      }
+      transitionTimerRef.current = window.setTimeout(() => {
+        transitionTimerRef.current = null;
+        setCurrentStep(stepIndex);
+        repaintTutorialSpotlight();
+      }, delayMs);
+    },
+    [setCurrentStep],
+  );
+
+  useEffect(
+    () => () => {
+      if (transitionTimerRef.current !== null) {
+        window.clearTimeout(transitionTimerRef.current);
+      }
+    },
+    [],
+  );
+
+  useEffect(() => {
+    if (isNextStepVisible || transitionTimerRef.current === null) return;
+    window.clearTimeout(transitionTimerRef.current);
+    transitionTimerRef.current = null;
+  }, [isNextStepVisible]);
 
   useEffect(() => {
     transitionLockedRef.current = false;
@@ -62,6 +109,11 @@ export function TutorialInteractionController() {
         ? null
         : getTourStep(currentTour, currentStep + 1);
       if (nextStep) {
+        if (step.preventInteractionDefault) {
+          event.preventDefault();
+          event.stopPropagation();
+          event.stopImmediatePropagation();
+        }
         transitionLockedRef.current = true;
         const actionable = closestActionable(interactionTarget);
         const destinationPathname = outboundPathname(actionable);
@@ -74,7 +126,11 @@ export function TutorialInteractionController() {
           closeNextStep();
           return;
         }
-        setCurrentStep(currentStep + 1);
+        if (step.interactionAdvanceDelayMs) {
+          scheduleStepChange(currentStep + 1, step.interactionAdvanceDelayMs);
+          return;
+        }
+        scheduleStepChange(currentStep + 1);
         return;
       }
 
@@ -107,6 +163,7 @@ export function TutorialInteractionController() {
     currentStep,
     currentTour,
     isNextStepVisible,
+    scheduleStepChange,
     setCurrentStep,
   ]);
 
@@ -122,18 +179,39 @@ export function TutorialInteractionController() {
         eventTarget instanceof Element &&
         eventTarget.closest(backInteractionSelector)
       ) {
-        setCurrentStep(Math.max(0, currentStep - 1));
+        scheduleStepChange(
+          Math.max(0, currentStep - 1),
+          step.backInteractionAdvanceDelayMs,
+        );
       }
     };
 
     document.addEventListener("click", handleBackInteraction, true);
     return () =>
       document.removeEventListener("click", handleBackInteraction, true);
-  }, [currentStep, currentTour, isNextStepVisible, setCurrentStep]);
+  }, [currentStep, currentTour, isNextStepVisible, scheduleStepChange]);
 
   useEffect(() => {
     if (!isNextStepVisible || !currentTour) return;
-    const scrollSelector = getTourStep(currentTour, currentStep)?.scrollSelector;
+    const step = getTourStep(currentTour, currentStep);
+    const scrollSelector = step?.scrollSelector;
+    const scrollMode = step?.scrollMode;
+    if (scrollMode === "page-start") {
+      let secondFrame = 0;
+      const firstFrame = window.requestAnimationFrame(() => {
+        secondFrame = window.requestAnimationFrame(() => {
+          document
+            .querySelector<HTMLElement>("[data-ucat-app-scroll='main']")
+            ?.scrollTo({ top: 0, behavior: "auto" });
+          window.scrollTo({ top: 0, behavior: "auto" });
+        });
+      });
+
+      return () => {
+        window.cancelAnimationFrame(firstFrame);
+        window.cancelAnimationFrame(secondFrame);
+      };
+    }
     if (!scrollSelector) return;
 
     let secondFrame = 0;
@@ -199,28 +277,18 @@ export function TutorialInteractionController() {
       if (event.key !== "Escape") return;
       event.preventDefault();
       event.stopImmediatePropagation();
-      if (currentTour !== UCAT_QUESTION_ENGINE_TOUR) {
+      if (
+        currentTour !== UCAT_QUESTION_ENGINE_TOUR &&
+        currentTour !== UCAT_QUESTION_ENGINE_CONTROLS_TOUR
+      ) {
         closeNextStep();
         return;
       }
-
-      const returnTo = new URLSearchParams(window.location.search).get(
-        "returnTo",
-      );
-      const confirmed = window.confirm(
-        returnTo?.startsWith("/settings")
-          ? "Exit the tutorial and return to Settings?"
-          : "Exit the tutorial and begin your attempt?",
-      );
-      if (!confirmed) return;
-      void completeTour
-        .mutateAsync(currentTour)
-        .catch(() => undefined)
-        .then(closeNextStep);
+      requestTutorialSkipConfirmation();
     };
     window.addEventListener("keydown", postpone, true);
     return () => window.removeEventListener("keydown", postpone, true);
-  }, [closeNextStep, completeTour, currentTour, isNextStepVisible]);
+  }, [closeNextStep, currentTour, isNextStepVisible]);
 
   return null;
 }

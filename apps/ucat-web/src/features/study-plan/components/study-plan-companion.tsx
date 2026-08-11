@@ -1061,9 +1061,6 @@ export function StudyPlanCompanion({
             <button
               type="button"
               data-tour="study-guidance-orb"
-              data-dashboard-guidance-entry={
-                pathname === "/dashboard" ? "" : undefined
-              }
               onClick={() => {
                 setPromptVisible(false);
                 setExpanded(true);

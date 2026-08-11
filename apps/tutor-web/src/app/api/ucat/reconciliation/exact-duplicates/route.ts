@@ -4,6 +4,7 @@ import {
   requireUcatTutor,
   type UcatTutorSupabaseClient,
 } from '@/features/ucat/shared/server/guard'
+import { parseDuplicateStemSets } from '@/features/ucat/reconciliation/lib/parse-duplicate-stem-sets'
 
 const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/iu
@@ -13,13 +14,44 @@ function positiveInteger(value: string | null, fallback: number, maximum: number
   return Number.isInteger(parsed) && parsed > 0 ? Math.min(parsed, maximum) : fallback
 }
 
+type RawDuplicateStemSide = {
+  id: string
+  setNames?: unknown
+  [key: string]: unknown
+}
+
+type RawDuplicatePair = {
+  id: string
+  stemA: RawDuplicateStemSide
+  stemB: RawDuplicateStemSide
+  [key: string]: unknown
+}
+
+type ExactDuplicatesPayload = {
+  items?: RawDuplicatePair[]
+  total?: number
+  page?: number
+  pageSize?: number
+}
+
+function normalizeStemSide(
+  stem: RawDuplicateStemSide,
+  setIdsByStemId: Map<string, unknown>,
+) {
+  const { setNames, ...rest } = stem
+  return {
+    ...rest,
+    sets: parseDuplicateStemSets(setNames, setIdsByStemId.get(stem.id) ?? []),
+  }
+}
+
 export async function GET(request: NextRequest) {
   const access = await requireUcatTutor()
   if (!access.ok) return access.response
 
   const params = request.nextUrl.searchParams
-  const client = access.userClient as unknown as UcatTutorSupabaseClient
-  const { data, error } = await client.rpc('tutor_ucat_list_exact_duplicate_stems', {
+  const rpcClient = access.userClient as unknown as UcatTutorSupabaseClient
+  const { data, error } = await rpcClient.rpc('tutor_ucat_list_exact_duplicate_stems', {
     p_search: params.get('search')?.trim().slice(0, 500) || null,
     p_section_ids: params.getAll('section').filter((id) => UUID_PATTERN.test(id)),
     p_page: positiveInteger(params.get('page'), 1, 100_000),
@@ -34,9 +66,52 @@ export async function GET(request: NextRequest) {
     )
   }
 
-  return NextResponse.json(data, {
-    headers: { 'Cache-Control': 'private, no-store' },
-  })
+  const payload = (data ?? {}) as ExactDuplicatesPayload
+  const items = Array.isArray(payload.items) ? payload.items : []
+  const stemIds = [
+    ...new Set(
+      items.flatMap((pair) => [pair.stemA?.id, pair.stemB?.id]).filter(
+        (id): id is string => typeof id === 'string' && id.length > 0,
+      ),
+    ),
+  ]
+
+  const setIdsByStemId = new Map<string, unknown>()
+  if (stemIds.length > 0) {
+    const { data: catalogRows, error: catalogError } = await access.userClient
+      .from('vtutor_ucat_question_catalog')
+      .select('id,set_ids')
+      .in('id', stemIds)
+
+    if (catalogError) {
+      return captureApiErrorResponse(
+        catalogError,
+        '/api/ucat/reconciliation/exact-duplicates',
+        NextResponse.json({ error: catalogError.message }, { status: 500 }),
+      )
+    }
+
+    for (const row of catalogRows ?? []) {
+      const catalogRow = row as { id: string; set_ids: unknown }
+      setIdsByStemId.set(catalogRow.id, catalogRow.set_ids)
+    }
+  }
+
+  const normalizedItems = items.map((pair) => ({
+    ...pair,
+    stemA: normalizeStemSide(pair.stemA, setIdsByStemId),
+    stemB: normalizeStemSide(pair.stemB, setIdsByStemId),
+  }))
+
+  return NextResponse.json(
+    {
+      ...payload,
+      items: normalizedItems,
+    },
+    {
+      headers: { 'Cache-Control': 'private, no-store' },
+    },
+  )
 }
 
 export async function POST(request: NextRequest) {

@@ -7,6 +7,8 @@ export const UCAT_PRACTICE_TOUR = "ucat-practice-intro";
 export const UCAT_SETS_TOUR = "ucat-sets-intro";
 export const UCAT_MOCKS_TOUR = "ucat-mocks-intro";
 export const UCAT_QUESTION_ENGINE_TOUR = "ucat-question-engine-intro";
+export const UCAT_QUESTION_ENGINE_CONTROLS_TOUR =
+  "ucat-question-engine-controls-intro";
 export const UCAT_SECTION_PROGRESS_TOUR = "ucat-section-progress-intro";
 export const UCAT_ATTEMPT_REVIEW_TOUR = "ucat-attempt-review-intro";
 
@@ -25,9 +27,18 @@ const STATIC_AUTO_START_TOURS: Readonly<Record<string, AutoStartTourEntry>> = {
   "/sets": { tourId: UCAT_SETS_TOUR, startStep: 0 },
   "/mocks": { tourId: UCAT_MOCKS_TOUR, startStep: 0 },
   "/exam/tutorial": { tourId: UCAT_QUESTION_ENGINE_TOUR, startStep: 0 },
+  "/exam/controls-tutorial": {
+    tourId: UCAT_QUESTION_ENGINE_CONTROLS_TOUR,
+    startStep: 0,
+  },
 };
 
 const SECTION_PROGRESS_PATH_PATTERN = /^\/progress\/sections\/[1-4]\/?$/;
+const LEARN_AREA_PATH_PATTERNS = [
+  /^\/learn\/general\/?$/,
+  /^\/learn\/sections\/[1-4]\/?$/,
+];
+const SKILL_TRAINER_DETAIL_PATH_PATTERN = /^\/skill-trainer\/[^/]+\/?$/;
 const SET_SECTION_PATH_PATTERN = /^\/sets\/sections\/[1-4]\/?$/;
 const SET_DETAIL_PATH_PATTERNS = [
   /^\/sets\/sections\/[1-4]\/[^/]+\/?$/,
@@ -49,6 +60,12 @@ export function getAutoStartTourEntryForPathname(
 ): AutoStartTourEntry | null {
   if (SECTION_PROGRESS_PATH_PATTERN.test(pathname)) {
     return { tourId: UCAT_PROGRESS_TOUR, startStep: 4 };
+  }
+  if (LEARN_AREA_PATH_PATTERNS.some((pattern) => pattern.test(pathname))) {
+    return { tourId: UCAT_LEARN_TOUR, startStep: 2 };
+  }
+  if (SKILL_TRAINER_DETAIL_PATH_PATTERN.test(pathname)) {
+    return { tourId: UCAT_SKILL_TRAINER_TOUR, startStep: 2 };
   }
   if (ATTEMPT_REVIEW_PATH_PATTERNS.some((pattern) => pattern.test(pathname))) {
     return { tourId: UCAT_ATTEMPT_REVIEW_TOUR, startStep: 0 };

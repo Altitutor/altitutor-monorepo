@@ -373,8 +373,7 @@ export function SettingsAppPage() {
           title="App tours"
           description={
             <>
-              Replay a guided walkthrough for a specific area. We reset only
-              that tour, then take you to the right page to play it.
+              Replay a guided walkthrough for a specific area.
             </>
           }
           control={
