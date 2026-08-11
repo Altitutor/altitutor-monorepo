@@ -320,6 +320,63 @@ describe("rolling next-step guidance", () => {
     });
   });
 
+  it("uses canonical readiness when materialising a practice candidate", () => {
+    const [draft] = buildNextStepDrafts({
+      today: "2026-01-10",
+      planningDate: "2026-07-20",
+      dailyWarmup: false,
+      incompleteReview: null,
+      sections: [section],
+      signals,
+      categories: [category],
+      learningModules: [],
+      skillTrainers: [],
+      trainerAttemptCounts: new Map(),
+      completedMockCount: 0,
+      readiness: {
+        sections: [
+          {
+            sectionId: section.id,
+            mode: "timing",
+            paceMultiplier: 0.9,
+          },
+        ],
+      } as never,
+      activityCandidates: [
+        {
+          id: "canonical-vr-practice",
+          kind: "targeted_practice",
+          requirement: "required",
+          sectionId: section.id,
+          categoryIds: [category.id],
+          questionTagIds: [],
+          learningModuleId: null,
+          skillTrainerId: null,
+          sourceAttemptId: null,
+          scope: "category",
+          dose: { questionCount: 12, sectionEquivalents: 0.25 },
+          duration: { practiceMinutes: 15, reviewMinutes: 5 },
+          objective: "remediate_reliable_weakness",
+          reasonCode: "activity.reliable_weakness",
+          studentReason: "This is the most useful area to revisit.",
+          ranking: {
+            milestone: 1,
+            weakness: 2,
+            uncertainty: 0,
+            targetGap: 0,
+            tagSampling: 0,
+            total: 3,
+          },
+        },
+      ],
+    });
+
+    expect(draft?.launchConfig).toMatchObject({
+      timeMode: "speed",
+      timeSpeedMultiplier: 0.9,
+    });
+  });
+
   it("does not silently replace excluded required work with another objective", () => {
     const input = {
       today: "2026-07-10",

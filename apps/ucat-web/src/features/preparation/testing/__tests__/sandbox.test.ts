@@ -36,6 +36,11 @@ describe("Preparation policy sandbox", () => {
       expect(run.dailyWork.every((day) => day.practiceMinutes >= 0)).toBe(true);
       expect(run.dailyWork.every((day) => day.reviewMinutes >= 0)).toBe(true);
       expect(run.result.explanationTrace.length).toBeGreaterThan(4);
+      expect(
+        run.result.explanationTrace.filter(
+          (trace) => typeof trace.details.candidateId === "string",
+        ),
+      ).toHaveLength(run.result.activityCandidates.length);
     }
   });
 
@@ -118,6 +123,24 @@ describe("Preparation policy sandbox", () => {
         (day) => day.practiceMinutes === 120 && day.reviewMinutes === 30,
       ),
     ).toBe(true);
+  });
+
+  it("counts derived non-mock review work exactly once", () => {
+    const run = runPreparationSandboxCase(
+      PREPARATION_SANDBOX_PERSONAS["new-student"],
+    );
+    const date = run.result.plan.tasks.find(
+      (task) => task.taskType === "review",
+    )?.scheduledDate;
+    expect(date).toBeDefined();
+    const reviewTasks = run.result.plan.tasks.filter(
+      (task) => task.scheduledDate === date && task.taskType === "review",
+    );
+    const displayed = run.dailyWork.find((day) => day.date === date);
+
+    expect(displayed?.reviewMinutes).toBe(
+      reviewTasks.reduce((sum, task) => sum + task.estimatedMinutes, 0),
+    );
   });
 
   it("accepts editable dates, availability, target, SJT, evidence, pace, adherence and versions", () => {

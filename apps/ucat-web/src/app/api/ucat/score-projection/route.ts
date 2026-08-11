@@ -69,7 +69,14 @@ export async function GET() {
 
   try {
     const preparation = await getCurrentPreparation(supabase, user.id);
-    const cognitive = preparation.currentScore.sections.flatMap((section) =>
+    const cognitiveSections = preparation.currentScore.sections;
+    const responseSections = [
+      ...cognitiveSections,
+      ...(preparation.currentScore.situationalJudgement
+        ? [preparation.currentScore.situationalJudgement]
+        : []),
+    ];
+    const cognitive = cognitiveSections.flatMap((section) =>
       section.currentEstimate == null
         ? []
         : [{ sectionId: section.sectionId, currentEstimate: section.currentEstimate }],
@@ -117,26 +124,31 @@ export async function GET() {
       generatedAt: preparation.generatedAt,
       horizons: [...HORIZONS],
       snapshots,
-      sections: preparation.currentScore.sections.map((section) => {
-        const projection: ProjectionPoint[] = allocatedPoints.map((allocated) => ({
-          day: allocated.point.day,
-          date: allocated.point.date,
-          pessimistic: allocated.lower[section.sectionId]!,
-          realistic: allocated.middle[section.sectionId]!,
-          optimistic: allocated.upper[section.sectionId]!,
-        }));
-        const history: HistoricalProjectionPoint[] = allocatedHistory.map(
-          ({ point, sections }) => {
-            const historicalSection = point.sections?.[section.sectionId];
-            return {
-              date: point.date,
-              value: sections[section.sectionId]!,
-              confidence: historicalSection?.confidence ?? "low",
-              uncertainty: historicalSection?.uncertainty ?? 90,
-              effectiveEvidenceWeight: historicalSection?.evidenceCount ?? 0,
-            };
-          },
-        );
+      sections: responseSections.map((section) => {
+        const projection: ProjectionPoint[] =
+          section.sectionNumber <= 3
+            ? allocatedPoints.map((allocated) => ({
+                day: allocated.point.day,
+                date: allocated.point.date,
+                pessimistic: allocated.lower[section.sectionId]!,
+                realistic: allocated.middle[section.sectionId]!,
+                optimistic: allocated.upper[section.sectionId]!,
+              }))
+            : [];
+        const history: HistoricalProjectionPoint[] =
+          section.sectionNumber <= 3
+            ? allocatedHistory.map(({ point, sections }) => {
+                const historicalSection = point.sections?.[section.sectionId];
+                return {
+                  date: point.date,
+                  value: sections[section.sectionId]!,
+                  confidence: historicalSection?.confidence ?? "low",
+                  uncertainty: historicalSection?.uncertainty ?? 90,
+                  effectiveEvidenceWeight:
+                    historicalSection?.evidenceCount ?? 0,
+                };
+              })
+            : [];
         return {
           sectionId: section.sectionId,
           sectionName:

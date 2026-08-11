@@ -12,6 +12,7 @@ import { addDays } from "@/features/study-plan/lib/dates";
 
 export type PreparationForecastHistorySnapshot = {
   generatedAt: string;
+  snapshotDate?: string;
   projectionSnapshot: unknown;
 };
 
@@ -108,7 +109,7 @@ function historyPoint(
       ? currentScore.confidence
       : null;
   return {
-    date: snapshotEvidence.generatedAt.slice(0, 10),
+    date: snapshotEvidence.snapshotDate ?? snapshotEvidence.generatedAt.slice(0, 10),
     currentEstimate: currentScore.currentEstimate,
     modelVersion: versions.trajectoryModel,
     confidence,

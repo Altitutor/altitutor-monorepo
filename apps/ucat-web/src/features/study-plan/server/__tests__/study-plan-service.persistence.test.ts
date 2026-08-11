@@ -664,7 +664,10 @@ describe("Study plan persistence orchestration", () => {
     const candidates = jest.mocked(prepareStudent).mock.results.at(-1)?.value
       .activityCandidates;
     expect(buildAlternativeNextStep).toHaveBeenCalledWith(
-      expect.objectContaining({ activityCandidates: candidates }),
+      expect.objectContaining({
+        activityCandidates: candidates,
+        readiness: expect.objectContaining({ sections: [] }),
+      }),
       { excludedKeys: [], currentTaskTypes: [] },
     );
     expect(alternative).toMatchObject({
@@ -707,7 +710,10 @@ describe("Study plan persistence orchestration", () => {
     const candidates = jest.mocked(prepareStudent).mock.results.at(-1)?.value
       .activityCandidates;
     expect(generateExtraStudyTasks).toHaveBeenCalledWith(
-      expect.objectContaining({ activityCandidates: candidates }),
+      expect.objectContaining({
+        activityCandidates: candidates,
+        readiness: expect.objectContaining({ sections: [] }),
+      }),
     );
     expect(inserts).toEqual(
       expect.arrayContaining([

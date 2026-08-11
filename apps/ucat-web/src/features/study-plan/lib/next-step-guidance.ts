@@ -10,6 +10,7 @@ import type {
   StudyGuidanceItem,
   StudyPlanCategorySignal,
   StudyPlanLearningModule,
+  StudyPlanReadinessSnapshot,
   StudyPlanSection,
   StudyPlanSectionSignal,
   StudyPlanSjtPreference,
@@ -94,6 +95,7 @@ export type BuildNextStepsInput = {
   completedMockCount: number;
   sjtPreference?: StudyPlanSjtPreference;
   activityCandidates?: PreparationActivityCandidate[];
+  readiness?: StudyPlanReadinessSnapshot;
   tagSignals?: ActivityTagSignal[];
 };
 
@@ -357,7 +359,7 @@ function draftForCandidate(
     ? input.categories.find((candidate) => candidate.id === item.categoryIds[0])
     : null;
   if (category) {
-    const readiness = buildReadinessSnapshot(input).sections.find(
+    const readiness = (input.readiness ?? buildReadinessSnapshot(input)).sections.find(
       (candidate) => candidate.sectionId === section.id,
     );
     return {

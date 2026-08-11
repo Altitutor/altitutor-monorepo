@@ -145,9 +145,11 @@ function TaskRow({
             ) : null}
             {isSkipped ? <Badge variant="outline">Skipped</Badge> : null}
           </div>
-          <p className="mt-1 text-sm text-muted-foreground">
-            {task.description}
-          </p>
+          {!compact && task.description ? (
+            <p className="mt-1 text-sm text-muted-foreground">
+              {task.description}
+            </p>
+          ) : null}
           {sectionName || preparationPhase || prescribedPace != null ? (
             <div className="mt-2 flex flex-wrap gap-1.5">
               {sectionName ? <Badge variant="outline">{sectionName}</Badge> : null}
@@ -161,12 +163,12 @@ function TaskRow({
               ) : null}
             </div>
           ) : null}
-          {!compact && task.rationale ? (
+          {task.rationale ? (
             <p className="mt-2 text-xs text-muted-foreground/80">
               Why this: {task.rationale}
             </p>
           ) : null}
-          {!compact && nextMilestone ? (
+          {nextMilestone ? (
             <p className="mt-1 text-xs text-muted-foreground/80">
               Next milestone: {nextMilestone}
             </p>

@@ -82,11 +82,13 @@ describe("preparation forecast evidence", () => {
       },
       historySnapshots: [
         {
-          generatedAt: "2026-01-20T00:00:00.000Z",
+          generatedAt: "2026-01-19T23:30:00.000Z",
+          snapshotDate: "2026-01-20",
           projectionSnapshot: currentSnapshot,
         },
         {
           generatedAt: "2026-01-20T12:00:00.000Z",
+          snapshotDate: "2026-01-20",
           projectionSnapshot: {
             ...currentSnapshot,
             currentScore: {

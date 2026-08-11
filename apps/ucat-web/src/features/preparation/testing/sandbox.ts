@@ -356,12 +356,12 @@ function dailyWork(result: PreparationEngineResult, today: string) {
       }, 0),
       reviewMinutes: tasks.reduce((total, task) => {
         const split = task.launchConfig.reviewMinutes;
+        if (task.taskType === "review") {
+          return total +
+            (typeof split === "number" ? split : task.estimatedMinutes);
+        }
         return total +
-          (typeof split === "number"
-            ? split
-            : task.taskType === "review"
-              ? task.estimatedMinutes
-              : 0);
+          (task.taskType === "mock" && typeof split === "number" ? split : 0);
       }, 0),
     };
   });

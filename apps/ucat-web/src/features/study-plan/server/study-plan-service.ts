@@ -1920,7 +1920,11 @@ export async function suggestAlternativeStudyGuidance(
     },
   });
   const draft = buildAlternativeNextStep(
-    { ...buildInput, activityCandidates: preparation.activityCandidates },
+    {
+      ...buildInput,
+      activityCandidates: preparation.activityCandidates,
+      readiness: preparation.assessment,
+    },
     input,
   );
   if (!draft)
@@ -2087,6 +2091,7 @@ export async function createExtraStudyTask(
         ),
         sortOrder: nextSortOrder,
         activityCandidates: extraActivityCandidates,
+        readiness: preparation.assessment,
       });
     } catch (error) {
       if (error instanceof Error && error.message.startsWith("There are no")) {

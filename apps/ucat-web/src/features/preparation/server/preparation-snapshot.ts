@@ -34,7 +34,7 @@ export async function loadPreparationSnapshotHistory(
 ): Promise<PreparationForecastHistorySnapshot[]> {
   const { data, error } = await supabase
     .from("vstudent_ucat_preparation_snapshots")
-    .select("generated_at, snapshot")
+    .select("generated_at, snapshot_date, snapshot")
     .order("generated_at", { ascending: false });
   if (error) throw error;
   return (data ?? []).flatMap((row) =>
@@ -42,6 +42,7 @@ export async function loadPreparationSnapshotHistory(
       ? [
           {
             generatedAt: row.generated_at,
+            snapshotDate: row.snapshot_date ?? undefined,
             projectionSnapshot: row.snapshot,
           },
         ]

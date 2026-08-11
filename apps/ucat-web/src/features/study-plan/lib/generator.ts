@@ -65,6 +65,7 @@ type GenerateExtraStudyTaskInput = StudyPlanExtraStudyInput & {
   scheduledCategoryIds?: Array<string | null>;
   sortOrder: number;
   activityCandidates?: PreparationActivityCandidate[];
+  readiness?: StudyPlanReadinessSnapshot;
 };
 
 const COGNITIVE_SECTION_COUNT = 3;
@@ -1088,12 +1089,17 @@ export function generateExtraStudyTasks(
     );
   }
   const signal = signalBySection.get(section.id);
+  const canonicalReadiness = input.readiness?.sections.find(
+    (candidate) => candidate.sectionId === section.id,
+  );
   const daysRemaining = Math.max(
     0,
     daysBetween(input.today, input.planningDate),
   );
-  const timed = daysRemaining <= 60 || (signal?.completedFullSets ?? 0) > 0;
-  const pace = paceLadderStep(signal?.observedPace);
+  const timed = canonicalReadiness
+    ? canonicalReadiness.mode !== "learning"
+    : daysRemaining <= 60 || (signal?.completedFullSets ?? 0) > 0;
+  const pace = canonicalReadiness?.paceMultiplier ?? paceLadderStep(signal?.observedPace);
   const trainer = pickSkillTrainer(
     section.id,
     category.id,

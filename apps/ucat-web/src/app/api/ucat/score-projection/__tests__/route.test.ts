@@ -52,6 +52,15 @@ describe("GET /api/ucat/score-projection", () => {
         ),
       },
     ];
+    preparation.currentScore.situationalJudgement = {
+      sectionId: "sjt",
+      sectionNumber: 4,
+      currentEstimate: 710,
+      evidenceCount: 3,
+      confidence: "medium",
+      uncertainty: 40,
+      evidenceStatus: "available",
+    };
     mockGetSupabaseServerClient.mockResolvedValue({
       auth: {
         getUser: jest.fn().mockResolvedValue({
@@ -65,8 +74,12 @@ describe("GET /api/ucat/score-projection", () => {
     const response = await GET();
     const payload = await response.json();
     const sectionTotal = payload.sections.reduce(
-      (sum: number, section: { currentEstimate: number | null }) =>
-        sum + (section.currentEstimate ?? 0),
+      (
+        sum: number,
+        section: { sectionNumber: number; currentEstimate: number | null },
+      ) =>
+        sum +
+        (section.sectionNumber <= 3 ? (section.currentEstimate ?? 0) : 0),
       0,
     );
 
@@ -89,6 +102,16 @@ describe("GET /api/ucat/score-projection", () => {
       uncertainty: 31,
       effectiveEvidenceWeight: 2,
     });
+    expect(payload.sections).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          sectionId: "sjt",
+          sectionNumber: 4,
+          currentEstimate: 710,
+          projection: [],
+        }),
+      ]),
+    );
 
     for (const point of preparation.trajectory.points) {
       const projectedTotal = payload.sections.reduce(

@@ -960,6 +960,39 @@ describe("generateExtraStudyTasks", () => {
     });
   });
 
+  it("uses canonical readiness for extra-study phase and pace", () => {
+    const tasks = generateExtraStudyTasks({
+      today: "2026-01-15",
+      planningDate: "2026-08-05",
+      targetScore: 2100,
+      minutes: 20,
+      sectionKey: "verbal_reasoning",
+      sections,
+      signals: signals.map((signal) => ({
+        ...signal,
+        observedPace: null,
+        completedFullSets: 0,
+      })),
+      categories,
+      skillTrainers: [],
+      sortOrder: 0,
+      readiness: {
+        sections: [
+          {
+            sectionId: "vr",
+            mode: "timing",
+            paceMultiplier: 0.9,
+          },
+        ],
+      } as never,
+    });
+
+    expect(tasks[0]?.launchConfig).toMatchObject({
+      timeMode: "speed",
+      timeSpeedMultiplier: 0.9,
+    });
+  });
+
   it("uses a linked skill trainer for a short section-specific session", () => {
     const tasks = generateExtraStudyTasks({
       today: "2026-07-15",

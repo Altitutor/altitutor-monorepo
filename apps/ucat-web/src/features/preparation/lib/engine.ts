@@ -159,7 +159,7 @@ function explanationTrace(
           },
         ]
       : []),
-    ...activityCandidates.slice(0, 8).map((candidate) => ({
+    ...activityCandidates.map((candidate) => ({
       code: candidate.reasonCode,
       source: "guidance" as const,
       details: {
@@ -333,6 +333,7 @@ export function prepareStudent(
         completedMockCount: input.evidence.completedMockCount,
         sjtPreference: input.goal.profile.sjtPreference,
         activityCandidates,
+        readiness: assessment,
       })
     : [];
   const capacityRisks =
