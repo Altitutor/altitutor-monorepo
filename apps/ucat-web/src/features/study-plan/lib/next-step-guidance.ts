@@ -1,4 +1,10 @@
 import { buildReadinessSnapshot } from "@/features/study-plan/lib/readiness";
+import {
+  rankActivityCandidates,
+  selectActivityCandidates,
+  type PreparationActivityCandidate,
+  type ActivityTagSignal,
+} from "@/features/preparation/lib/activity-ranking";
 import type {
   StudyGuidanceItem,
   StudyPlanCategorySignal,
@@ -73,6 +79,7 @@ export type NextStepDraft = Omit<
 export type BuildNextStepsInput = {
   today: string;
   planningDate: string;
+  targetScore?: number;
   dailyWarmup: boolean;
   incompleteReview: IncompleteAttemptReview | null;
   sections: StudyPlanSection[];
@@ -83,6 +90,8 @@ export type BuildNextStepsInput = {
   timingSessions?: StudyPlanTimingEvidenceSession[];
   trainerAttemptCounts: Map<string, number>;
   completedMockCount: number;
+  activityCandidates?: PreparationActivityCandidate[];
+  tagSignals?: ActivityTagSignal[];
 };
 
 function baseDraft(
@@ -260,192 +269,143 @@ export function firstGuidanceTriggerKey(
   return nextSteps?.[0]?.triggerKey ?? null;
 }
 
-type GuidanceFamily = "focused" | "simulation" | "skill" | "review";
+function rankedCandidates(input: BuildNextStepsInput) {
+  if (input.activityCandidates) return input.activityCandidates;
+  const readiness = buildReadinessSnapshot(input);
+  return rankActivityCandidates({
+    today: input.today,
+    planningDate: input.planningDate,
+    targetScore: input.targetScore ?? 2100,
+    readiness,
+    sections: input.sections,
+    signals: input.signals,
+    categories: input.categories,
+    learningModules: input.learningModules,
+    skillTrainers: input.skillTrainers,
+    tagSignals: input.tagSignals,
+    trainerAttemptCounts: input.trainerAttemptCounts,
+    incompleteReview: input.incompleteReview,
+    completedMockCount: input.completedMockCount,
+  });
+}
 
-function guidanceFamily(taskType: NextStepDraft["taskType"]): GuidanceFamily {
-  if (taskType === "learn" || taskType === "practice") return "focused";
-  if (taskType === "section_benchmark" || taskType === "mock")
-    return "simulation";
-  if (taskType === "skill_trainer") return "skill";
-  return "review";
+function draftForCandidate(
+  item: PreparationActivityCandidate,
+  input: BuildNextStepsInput,
+): NextStepDraft | null {
+  if (item.kind === "review" && input.incompleteReview) {
+    return baseDraft({
+      taskType: "review",
+      title: `Review ${input.incompleteReview.attemptLabel}`,
+      description: `Review the incorrect questions from ${input.incompleteReview.attemptLabel}.`,
+      rationale: item.studentReason,
+      estimatedMinutes: item.duration.reviewMinutes,
+      sourceAttemptType: input.incompleteReview.attemptType,
+      sourceAttemptId: input.incompleteReview.attemptId,
+      launchPath: reviewPath(input.incompleteReview),
+      launchConfig: { activityCandidateId: item.id, objective: item.objective },
+    });
+  }
+  const learningModule = item.learningModuleId
+    ? input.learningModules.find((candidate) => candidate.id === item.learningModuleId)
+    : null;
+  if (learningModule) {
+    return {
+      ...learningDraft(learningModule),
+      rationale: item.studentReason,
+      launchConfig: { activityCandidateId: item.id, objective: item.objective },
+    };
+  }
+  const trainer = item.skillTrainerId
+    ? input.skillTrainers.find((candidate) => candidate.id === item.skillTrainerId)
+    : null;
+  if (trainer) {
+    return {
+      ...trainerDraft(trainer, item.studentReason),
+      launchConfig: {
+        skillTrainerKey: trainer.key,
+        activityCandidateId: item.id,
+        objective: item.objective,
+        optional: true,
+      },
+    };
+  }
+  if (item.kind === "mock") {
+    return {
+      ...mockDraft("exam"),
+      rationale: item.studentReason,
+      launchConfig: { activityCandidateId: item.id, objective: item.objective },
+    };
+  }
+  const section = item.sectionId
+    ? input.sections.find((candidate) => candidate.id === item.sectionId)
+    : null;
+  if (!section) return null;
+  if (item.kind === "calibration") {
+    return {
+      ...benchmarkDraft(section),
+      rationale: item.studentReason,
+      launchConfig: { activityCandidateId: item.id, objective: item.objective },
+    };
+  }
+  const category = item.categoryIds[0]
+    ? input.categories.find((candidate) => candidate.id === item.categoryIds[0])
+    : null;
+  if (category) {
+    const readiness = buildReadinessSnapshot(input).sections.find(
+      (candidate) => candidate.sectionId === section.id,
+    );
+    return {
+      ...targetedPracticeDraft(
+        category,
+        section,
+        readiness?.mode ?? "learning",
+        readiness?.paceMultiplier ?? 0.5,
+      ),
+      rationale: item.studentReason,
+      launchConfig: {
+        kind: "practice",
+        section: section.key,
+        ucatSectionId: section.id,
+        categoryIds: item.categoryIds,
+        questionTagIds: item.questionTagIds,
+        questionCount: item.dose.questionCount,
+        timeMode: readiness?.mode === "learning" ? "off" : "speed",
+        timeSpeedMultiplier: readiness?.paceMultiplier ?? 0.5,
+        reviewTiming: readiness?.mode === "learning" ? "afterEachStem" : "atEnd",
+        activityCandidateId: item.id,
+        objective: item.objective,
+      },
+    };
+  }
+  return baseDraft({
+    taskType: "practice",
+    title: `Practice ${section.name}`,
+    description: `${item.dose.questionCount ?? 10} questions across ${section.shortName}.`,
+    rationale: item.studentReason,
+    estimatedMinutes: item.duration.practiceMinutes + item.duration.reviewMinutes,
+    sectionId: section.id,
+    launchPath: "/practice",
+    launchConfig: {
+      kind: "practice",
+      section: section.key,
+      ucatSectionId: section.id,
+      categoryIds: [],
+      questionCount: item.dose.questionCount,
+      activityCandidateId: item.id,
+      objective: item.objective,
+    },
+  });
 }
 
 function buildNextStepCandidates(input: BuildNextStepsInput): NextStepDraft[] {
-  const drafts: NextStepDraft[] = [];
-  if (input.incompleteReview) {
-    drafts.push(
-      baseDraft({
-        taskType: "review",
-        title: `Review ${input.incompleteReview.attemptLabel}`,
-        description: `Review the incorrect questions from ${input.incompleteReview.attemptLabel}.`,
-        rationale:
-          "Review turns the result you just received into useful feedback for what comes next.",
-        estimatedMinutes: 10,
-        sourceAttemptType: input.incompleteReview.attemptType,
-        sourceAttemptId: input.incompleteReview.attemptId,
-        launchPath: reviewPath(input.incompleteReview),
-      }),
-    );
-  }
-
-  const cognitiveSectionIds = new Set(
-    input.sections
-      .filter((section) => section.sectionNumber <= 3)
-      .map((section) => section.id),
-  );
-  const sortedTrainers = input.skillTrainers
-    .filter((item) => cognitiveSectionIds.has(item.sectionId))
-    .sort(
-      (a, b) =>
-        (input.trainerAttemptCounts.get(a.id) ?? 0) -
-          (input.trainerAttemptCounts.get(b.id) ?? 0) ||
-        a.name.localeCompare(b.name),
-    );
-  const trainer = sortedTrainers[0] ?? null;
-  if (input.dailyWarmup && !input.incompleteReview && trainer) {
-    drafts.push(
-      trainerDraft(
-        trainer,
-        "This is the Skill trainer you have played least, so it keeps your warm-up varied.",
-      ),
-    );
-  }
-
-  const readiness = buildReadinessSnapshot(input);
-  const mode = readiness.mode;
-  const readinessBySection = new Map(
-    readiness.sections.map((section) => [section.sectionId, section]),
-  );
-  const signalBySection = new Map(
-    input.signals.map((signal) => [signal.sectionId, signal]),
-  );
-  const sortedSections = input.sections
-    .filter((section) => section.sectionNumber <= 3)
-    .sort((a, b) => {
-      const aSignal = signalBySection.get(a.id);
-      const bSignal = signalBySection.get(b.id);
-      return (
-        (aSignal?.currentEstimate ?? 500) - (bSignal?.currentEstimate ?? 500) ||
-        (aSignal?.evidenceCount ?? 0) - (bSignal?.evidenceCount ?? 0)
-      );
-    });
-  const weakestSection = sortedSections[0];
-  const reliableCategories = input.categories.filter(
-    (category) =>
-      cognitiveSectionIds.has(category.sectionId) && category.maxScore >= 4,
-  );
-  const sortedCategories = [
-    ...(reliableCategories.length
-      ? reliableCategories
-      : input.categories.filter((category) =>
-          cognitiveSectionIds.has(category.sectionId),
-        )),
-  ].sort(
-    (a, b) => b.weaknessScore - a.weaknessScore || b.maxScore - a.maxScore,
-  );
-  const weakestCategory = sortedCategories[0];
-  const categorySection = weakestCategory
-    ? input.sections.find((section) => section.id === weakestCategory.sectionId)
-    : null;
-  const sortedLearningModules = [...input.learningModules]
-    .filter(
-      (item) =>
-        item.completionPercent < 100 &&
-        (item.sectionId == null || cognitiveSectionIds.has(item.sectionId)),
-    )
-    .sort(
-      (a, b) =>
-        b.relevanceScore - a.relevanceScore ||
-        (a.priority === "essential" ? -1 : 0) -
-          (b.priority === "essential" ? -1 : 0) ||
-        a.completionPercent - b.completionPercent,
-    );
-  const learningModule = sortedLearningModules[0];
-
-  if (mode === "learning" && learningModule) {
-    drafts.push(learningDraft(learningModule));
-  }
-  if (mode === "learning" && weakestCategory && categorySection) {
-    drafts.push(
-      targetedPracticeDraft(
-        weakestCategory,
-        categorySection,
-        mode,
-        readinessBySection.get(categorySection.id)?.paceMultiplier ?? 0.5,
-      ),
-    );
-  }
-  if (mode !== "learning" && weakestSection) {
-    drafts.push(benchmarkDraft(weakestSection));
-  }
-  if (mode === "exam") {
-    drafts.push(mockDraft(mode));
-  }
-  if (mode !== "learning" && weakestCategory && categorySection) {
-    drafts.push(
-      targetedPracticeDraft(
-        weakestCategory,
-        categorySection,
-        mode,
-        readinessBySection.get(categorySection.id)?.paceMultiplier ?? 0.5,
-      ),
-    );
-  }
-  if (trainer) {
-    drafts.push(
-      trainerDraft(
-        trainer,
-        "A short skill round keeps your practice varied and gives Altitutor another useful signal.",
-      ),
-    );
-  }
-  if (
-    learningModule &&
-    !drafts.some((draft) => draft.learningModuleId === learningModule.id)
-  ) {
-    drafts.push(learningDraft(learningModule));
-  }
-  if (weakestSection) drafts.push(benchmarkDraft(weakestSection));
-
-  for (const learningModuleItem of sortedLearningModules)
-    drafts.push(learningDraft(learningModuleItem));
-  for (const category of sortedCategories) {
-    const section = input.sections.find(
-      (item) => item.id === category.sectionId,
-    );
-    if (section) {
-      drafts.push(
-        targetedPracticeDraft(
-          category,
-          section,
-          mode,
-          readinessBySection.get(section.id)?.paceMultiplier ?? 0.5,
-        ),
-      );
-    }
-  }
-  for (const item of sortedTrainers) {
-    drafts.push(
-      trainerDraft(
-        item,
-        "A short skill round keeps your practice varied and gives Altitutor another useful signal.",
-      ),
-    );
-  }
-  for (const section of sortedSections) drafts.push(benchmarkDraft(section));
-  drafts.push(mockDraft(mode));
-
+  const drafts = rankedCandidates(input)
+    .map((item) => draftForCandidate(item, input))
+    .filter((item): item is NextStepDraft => item != null);
   const unique = drafts.filter(
     (draft, index, all) =>
-      all.findIndex(
-        (candidate) =>
-          candidate.taskType === draft.taskType &&
-          candidate.launchPath === draft.launchPath &&
-          candidate.learningModuleId === draft.learningModuleId &&
-          candidate.questionStemCategoryId === draft.questionStemCategoryId &&
-          candidate.skillTrainerId === draft.skillTrainerId &&
-          candidate.sourceAttemptId === draft.sourceAttemptId,
-      ) === index,
+      all.findIndex((candidate) => guidanceItemKey(candidate) === guidanceItemKey(draft)) ===
+      index,
   );
   const fallbacks = [
     baseDraft({
@@ -479,7 +439,23 @@ function buildNextStepCandidates(input: BuildNextStepsInput): NextStepDraft[] {
 export function buildNextStepDrafts(
   input: BuildNextStepsInput,
 ): NextStepDraft[] {
-  return buildNextStepCandidates(input).slice(0, 2);
+  const selectedIds = new Set(
+    selectActivityCandidates(rankedCandidates(input), {
+      experience: "guidance",
+    }).map((candidate) => candidate.id),
+  );
+  const selected = buildNextStepCandidates(input).filter((draft) => {
+    const id = draft.launchConfig.activityCandidateId;
+    return typeof id === "string" && selectedIds.has(id);
+  });
+  if (selected.length >= 2) return selected.slice(0, 2);
+  const selectedKeys = new Set(selected.map(guidanceItemKey));
+  return [
+    ...selected,
+    ...buildNextStepCandidates(input).filter(
+      (draft) => !selectedKeys.has(guidanceItemKey(draft)),
+    ),
+  ].slice(0, 2);
 }
 
 export function buildAlternativeNextStep(
@@ -489,45 +465,22 @@ export function buildAlternativeNextStep(
     currentTaskTypes: NextStepDraft["taskType"][];
   },
 ): NextStepDraft | null {
-  const excluded = new Set(options.excludedKeys);
-  const currentFamilies = new Set(options.currentTaskTypes.map(guidanceFamily));
-  const currentTypes = new Set(options.currentTaskTypes);
-  const candidates = buildNextStepCandidates(input)
-    .map((candidate, index) => ({ candidate, index }))
-    .filter(({ candidate }) => !excluded.has(guidanceItemKey(candidate)));
-  if (!candidates.length) return null;
-
-  const preferredFamily: GuidanceFamily | null = currentFamilies.has("focused")
-    ? !currentFamilies.has("simulation")
-      ? "simulation"
-      : !currentFamilies.has("skill")
-        ? "skill"
-        : null
-    : currentFamilies.has("simulation")
-      ? "focused"
-      : "focused";
-
-  candidates.sort((left, right) => {
-    const leftFamily = guidanceFamily(left.candidate.taskType);
-    const rightFamily = guidanceFamily(right.candidate.taskType);
-    const leftFamilyRank =
-      leftFamily === preferredFamily
-        ? 0
-        : currentFamilies.has(leftFamily)
-          ? 2
-          : 1;
-    const rightFamilyRank =
-      rightFamily === preferredFamily
-        ? 0
-        : currentFamilies.has(rightFamily)
-          ? 2
-          : 1;
-    return (
-      leftFamilyRank - rightFamilyRank ||
-      Number(currentTypes.has(left.candidate.taskType)) -
-        Number(currentTypes.has(right.candidate.taskType)) ||
-      left.index - right.index
-    );
+  const candidates = rankedCandidates(input);
+  const currentIds = candidates.flatMap((item) => {
+    const draft = draftForCandidate(item, input);
+    return draft && options.excludedKeys.includes(guidanceItemKey(draft))
+      ? [item.id]
+      : [];
   });
-  return candidates[0]?.candidate ?? null;
+  const selected = selectActivityCandidates(candidates, {
+    experience: "alternative",
+    currentCandidateIds: currentIds,
+  })[0];
+  const selectedDraft = selected ? draftForCandidate(selected, input) : null;
+  if (selectedDraft) return selectedDraft;
+  const optionalFallback = candidates.find(
+    (candidate) =>
+      candidate.requirement === "optional" && !currentIds.includes(candidate.id),
+  );
+  return optionalFallback ? draftForCandidate(optionalFallback, input) : null;
 }

@@ -117,13 +117,11 @@ describe("rolling next-step guidance", () => {
     ).toBe("activity:practice:attempt-1");
   });
 
-  it("starts the first guidance visit of the day with the least-played trainer", () => {
+  it("keeps the daily warm-up optional behind the core preparation judgement", () => {
     const steps = build({ dailyWarmup: true });
 
-    expect(steps[0]).toMatchObject({
-      taskType: "skill_trainer",
-      skillTrainerId: "trainer-b",
-    });
+    expect(steps[0]?.taskType).not.toBe("skill_trainer");
+    expect(steps.every((step) => step.skillTrainerId == null)).toBe(true);
     expect(steps).toHaveLength(2);
   });
 
@@ -191,7 +189,7 @@ describe("rolling next-step guidance", () => {
     const steps = build({ learningModules: [] });
     const practice = steps.find((step) => step.taskType === "practice");
 
-    expect(practice?.rationale).toContain("broader evidence");
+    expect(practice?.rationale.toLowerCase()).toContain("broader");
   });
 
   it("moves exam-like work ahead of short targeted practice near test day", () => {
@@ -200,13 +198,10 @@ describe("rolling next-step guidance", () => {
       planningDate: "2026-07-20",
     });
 
-    expect(steps.map((step) => step.taskType)).toEqual([
-      "section_benchmark",
-      "mock",
-    ]);
+    expect(steps.map((step) => step.taskType)).toEqual(["mock", "practice"]);
   });
 
-  it("offers exam-style work instead of swapping two focused suggestions", () => {
+  it("marks a different-objective alternative as optional", () => {
     const input = {
       today: "2026-01-10",
       planningDate: "2026-07-20",
@@ -230,10 +225,13 @@ describe("rolling next-step guidance", () => {
     });
 
     expect(current.map((item) => item.taskType)).toEqual(["learn", "practice"]);
-    expect(alternative?.taskType).toBe("section_benchmark");
+    expect(alternative).toMatchObject({
+      taskType: "skill_trainer",
+      launchConfig: { optional: true },
+    });
   });
 
-  it("can move on to another reliable weakness after prior choices are excluded", () => {
+  it("does not silently replace excluded required work with another objective", () => {
     const input = {
       today: "2026-07-10",
       planningDate: "2026-07-20",
@@ -271,8 +269,8 @@ describe("rolling next-step guidance", () => {
     });
 
     expect(alternative).toMatchObject({
-      taskType: "practice",
-      questionStemCategoryId: category.id,
+      taskType: "skill_trainer",
+      launchConfig: { optional: true },
     });
   });
 });

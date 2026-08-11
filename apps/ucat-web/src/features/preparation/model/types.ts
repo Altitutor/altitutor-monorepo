@@ -12,6 +12,10 @@ import type {
   StudyPlanTimingEvidenceSession,
 } from "@/features/study-plan/model/types";
 import type { RepresentativeScoreEvidence } from "@/features/preparation/lib/score-model";
+import type {
+  ActivityTagSignal,
+  PreparationActivityCandidate,
+} from "@/features/preparation/lib/activity-ranking";
 
 export type PreparationVersions = {
   readonly engine: string;
@@ -63,6 +67,7 @@ export type PreparationEngineInput = {
     categories: StudyPlanCategorySignal[];
     learningModules: StudyPlanLearningModule[];
     skillTrainers: StudyPlanSkillTrainer[];
+    tagSignals?: ActivityTagSignal[];
   };
   evidence: {
     sectionSignals: StudyPlanSectionSignal[];
@@ -122,6 +127,7 @@ export type PreparationEngineResult = {
   plan: StudyPlanGenerationResult;
   trajectory: PreparationTrajectory;
   immediateGuidance: PreparationGuidanceItem[];
+  activityCandidates: PreparationActivityCandidate[];
   capacityRisks: StudyPlanCapacityRisk[];
   progressionEvents: Array<
     | {

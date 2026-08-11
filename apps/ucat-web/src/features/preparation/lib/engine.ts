@@ -12,6 +12,7 @@ import { generateStudyPlan } from "@/features/study-plan/lib/generator";
 import { buildNextStepDrafts } from "@/features/study-plan/lib/next-step-guidance";
 import { buildReadinessSnapshot } from "@/features/study-plan/lib/readiness";
 import { estimateRepresentativeScore } from "@/features/preparation/lib/score-model";
+import { rankActivityCandidates } from "@/features/preparation/lib/activity-ranking";
 
 const COGNITIVE_SECTION_COUNT = 3;
 
@@ -98,6 +99,7 @@ function explanationTrace(
   input: PreparationEngineInput,
   capacityWarning: boolean,
   timingAssessments: Map<string, TimingPolicyAssessment>,
+  activityCandidates: ReturnType<typeof rankActivityCandidates>,
 ): PreparationExplanationTraceItem[] {
   return [
     {
@@ -153,6 +155,22 @@ function explanationTrace(
           },
         ]
       : []),
+    ...activityCandidates.slice(0, 8).map((candidate) => ({
+      code: candidate.reasonCode,
+      source: "guidance" as const,
+      details: {
+        candidateId: candidate.id,
+        sectionId: candidate.sectionId,
+        objective: candidate.objective,
+        requirement: candidate.requirement,
+        milestone: candidate.ranking.milestone,
+        weakness: candidate.ranking.weakness,
+        uncertainty: candidate.ranking.uncertainty,
+        targetGap: candidate.ranking.targetGap,
+        tagSampling: candidate.ranking.tagSampling,
+        total: candidate.ranking.total,
+      },
+    })),
   ];
 }
 
@@ -224,12 +242,31 @@ export function prepareStudent(
     categories: input.content.categories,
     learningModules: input.content.learningModules,
     skillTrainers: input.content.skillTrainers,
+    tagSignals: input.content.tagSignals,
+    completedMockCount: input.evidence.completedMockCount,
+  });
+  const activityCandidates = rankActivityCandidates({
+    today: input.clock.today,
+    planningDate: input.goal.planningDate,
+    targetScore: input.goal.profile.targetScore,
+    readiness: plan.readiness,
+    sections: input.content.sections,
+    signals: enrichedSignals,
+    categories: input.content.categories,
+    learningModules: input.content.learningModules,
+    skillTrainers: input.content.skillTrainers,
+    tagSignals: input.content.tagSignals,
+    trainerAttemptCounts: new Map(
+      Object.entries(input.guidance?.trainerAttemptCounts ?? {}),
+    ),
+    incompleteReview: input.guidance?.incompleteReview ?? null,
     completedMockCount: input.evidence.completedMockCount,
   });
   const immediateGuidance = input.guidance
-    ? buildNextStepDrafts({
+      ? buildNextStepDrafts({
         today: input.clock.today,
         planningDate: input.goal.planningDate,
+        targetScore: input.goal.profile.targetScore,
         dailyWarmup: input.guidance.dailyWarmup,
         incompleteReview: input.guidance.incompleteReview,
         sections: input.content.sections,
@@ -237,10 +274,12 @@ export function prepareStudent(
         categories: input.content.categories,
         learningModules: input.content.learningModules,
         skillTrainers: input.content.skillTrainers,
+        tagSignals: input.content.tagSignals,
         trainerAttemptCounts: new Map(
           Object.entries(input.guidance.trainerAttemptCounts),
         ),
         completedMockCount: input.evidence.completedMockCount,
+        activityCandidates,
       })
     : [];
   const capacityRisks =
@@ -322,12 +361,14 @@ export function prepareStudent(
       points: [],
     },
     immediateGuidance,
+    activityCandidates,
     capacityRisks,
     progressionEvents: [...progressionEvents, ...timingProgressionEvents],
     explanationTrace: explanationTrace(
       input,
       capacityRisks.length > 0,
       timingAssessments,
+      activityCandidates,
     ),
   };
 }

@@ -1,5 +1,26 @@
 import type { GeneratedStudyPlanTask } from "@/features/study-plan/model/types";
 
+export function planProfileTransition(input: {
+  wasEnabled: boolean;
+  willBeEnabled: boolean;
+}): {
+  clearGuidance: boolean;
+  generateFreshPlan: boolean;
+  retireFuturePlan: boolean;
+} {
+  return input.willBeEnabled
+    ? {
+        clearGuidance: true,
+        generateFreshPlan: true,
+        retireFuturePlan: false,
+      }
+    : {
+        clearGuidance: false,
+        generateFreshPlan: false,
+        retireFuturePlan: input.wasEnabled,
+      };
+}
+
 export type PreparedStudyPlanTask = GeneratedStudyPlanTask & {
   id: string;
   sourceTaskId: string | null;

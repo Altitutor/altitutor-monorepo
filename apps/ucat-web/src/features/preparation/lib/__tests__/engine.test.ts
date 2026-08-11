@@ -4,8 +4,15 @@ import {
   STANDARD_PREPARATION_TIMING_PROFILE,
   type PreparationEngineInput,
 } from "@/features/preparation";
-import { generateStudyPlan } from "@/features/study-plan/lib/generator";
-import { buildNextStepDrafts } from "@/features/study-plan/lib/next-step-guidance";
+import {
+  generateExtraStudyTasks,
+  generateStudyPlan,
+} from "@/features/study-plan/lib/generator";
+import {
+  buildAlternativeNextStep,
+  buildNextStepDrafts,
+  guidanceItemKey,
+} from "@/features/study-plan/lib/next-step-guidance";
 import type {
   StudyPlanCategorySignal,
   StudyPlanSection,
@@ -129,6 +136,16 @@ describe("prepareStudent", () => {
 
   it("preserves the existing plan and guidance behavior through adapters", () => {
     const fixture = input();
+    fixture.content.skillTrainers = [
+      {
+        id: "trainer-vr",
+        key: "vr_warmup",
+        name: "VR warm-up",
+        sectionId: "vr",
+        categoryIds: ["vr-category"],
+        estimatedMinutes: 3,
+      },
+    ];
     const result = prepareStudent(fixture);
     const directPlan = generateStudyPlan({
       today: fixture.clock.today,
@@ -157,6 +174,88 @@ describe("prepareStudent", () => {
 
     expect(result.plan).toEqual(directPlan);
     expect(result.immediateGuidance).toEqual(directGuidance);
+  });
+
+  it("uses the same ranked preparation objective for the plan and rolling guidance", () => {
+    const fixture = input();
+    fixture.content.skillTrainers = [
+      {
+        id: "trainer-vr",
+        key: "vr_warmup",
+        name: "VR warm-up",
+        sectionId: "vr",
+        categoryIds: ["vr-category"],
+        estimatedMinutes: 3,
+      },
+    ];
+    const result = prepareStudent(fixture);
+    const firstRequired = result.activityCandidates.find(
+      (candidate) => candidate.requirement === "required",
+    );
+    const firstPlanned = result.plan.tasks.find(
+      (task) => typeof task.launchConfig.activityCandidateId === "string",
+    );
+    const firstGuidance = result.immediateGuidance[0];
+
+    expect(firstRequired).toBeDefined();
+    expect(firstPlanned?.launchConfig).toMatchObject({
+      activityCandidateId: firstRequired?.id,
+      activityObjective: firstRequired?.objective,
+    });
+    expect(firstGuidance?.launchConfig).toMatchObject({
+      activityCandidateId: firstRequired?.id,
+      objective: firstRequired?.objective,
+    });
+    const plannedPractice = result.plan.tasks.find(
+      (task) => task.taskType === "practice",
+    );
+    const plannedPracticeCandidate = result.activityCandidates.find(
+      (candidate) =>
+        candidate.id === plannedPractice?.launchConfig.activityCandidateId,
+    );
+    expect(plannedPractice).toMatchObject({
+      targetUnits: plannedPracticeCandidate?.dose.questionCount,
+      rationale: plannedPracticeCandidate?.studentReason,
+    });
+    const guidanceInput = {
+      today: fixture.clock.today,
+      planningDate: fixture.goal.planningDate,
+      targetScore: fixture.goal.profile.targetScore,
+      dailyWarmup: false,
+      incompleteReview: null,
+      sections: fixture.content.sections,
+      signals: fixture.evidence.sectionSignals,
+      categories: fixture.content.categories,
+      learningModules: fixture.content.learningModules,
+      skillTrainers: fixture.content.skillTrainers,
+      trainerAttemptCounts: new Map<string, number>(),
+      completedMockCount: fixture.evidence.completedMockCount,
+      activityCandidates: result.activityCandidates,
+    };
+    const alternative = buildAlternativeNextStep(guidanceInput, {
+      excludedKeys: result.immediateGuidance.map(guidanceItemKey),
+      currentTaskTypes: result.immediateGuidance.map((item) => item.taskType),
+    });
+    const extra = generateExtraStudyTasks({
+      today: fixture.clock.today,
+      planningDate: fixture.goal.planningDate,
+      targetScore: fixture.goal.profile.targetScore,
+      minutes: 20,
+      sectionKey: null,
+      sections: fixture.content.sections,
+      signals: fixture.evidence.sectionSignals,
+      categories: fixture.content.categories,
+      skillTrainers: fixture.content.skillTrainers,
+      sortOrder: 0,
+      activityCandidates: result.activityCandidates,
+    });
+
+    expect(alternative?.launchConfig).toMatchObject({ optional: true });
+    expect(extra.find((task) => task.taskType === "practice")?.launchConfig)
+      .toMatchObject({
+        optional: true,
+        activityObjective: firstRequired?.objective,
+      });
   });
 
   it("returns a structured capacity risk without mutating timing input", () => {

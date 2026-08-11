@@ -564,7 +564,7 @@ describe("generateExtraStudyTasks", () => {
       taskType: "practice",
       sectionId: "dm",
       questionStemCategoryId: "dm-weak",
-      estimatedMinutes: 29,
+      estimatedMinutes: 30,
     });
     expect(task?.launchConfig).toMatchObject({
       extraStudy: true,
@@ -595,6 +595,7 @@ describe("generateExtraStudyTasks", () => {
     });
     expect(tasks[0].launchConfig).toMatchObject({
       extraStudy: true,
+      optional: true,
       requestedMinutes: 10,
       requestedSectionKey: "verbal_reasoning",
     });
@@ -602,9 +603,10 @@ describe("generateExtraStudyTasks", () => {
       "skill_trainer",
       "practice",
     ]);
+    expect(tasks[1]?.estimatedMinutes).toBe(10);
     expect(
       tasks.reduce((total, task) => total + task.estimatedMinutes, 0),
-    ).toBe(10);
+    ).toBeGreaterThan(10);
   });
 
   it("scales short review estimates with the number of questions", () => {

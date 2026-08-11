@@ -6850,6 +6850,13 @@ export type Database = {
             foreignKeyName: "question_tags_parent_question_tag_id_fkey"
             columns: ["parent_question_tag_id"]
             isOneToOne: false
+            referencedRelation: "vstudent_ucat_activity_tag_signals"
+            referencedColumns: ["tag_id"]
+          },
+          {
+            foreignKeyName: "question_tags_parent_question_tag_id_fkey"
+            columns: ["parent_question_tag_id"]
+            isOneToOne: false
             referencedRelation: "vtutor_ucat_question_tags"
             referencedColumns: ["id"]
           },
@@ -7043,6 +7050,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "question_tags"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "questions_question_tags_tag_id_fkey"
+            columns: ["tag_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_ucat_activity_tag_signals"
+            referencedColumns: ["tag_id"]
           },
           {
             foreignKeyName: "questions_question_tags_tag_id_fkey"
@@ -15769,6 +15783,13 @@ export type Database = {
             foreignKeyName: "ucat_learning_module_question_tags_question_tag_id_fkey"
             columns: ["question_tag_id"]
             isOneToOne: false
+            referencedRelation: "vstudent_ucat_activity_tag_signals"
+            referencedColumns: ["tag_id"]
+          },
+          {
+            foreignKeyName: "ucat_learning_module_question_tags_question_tag_id_fkey"
+            columns: ["question_tag_id"]
+            isOneToOne: false
             referencedRelation: "vtutor_ucat_question_tags"
             referencedColumns: ["id"]
           },
@@ -19872,6 +19893,13 @@ export type Database = {
             foreignKeyName: "ucat_student_study_plan_tasks_question_tag_id_fkey"
             columns: ["question_tag_id"]
             isOneToOne: false
+            referencedRelation: "vstudent_ucat_activity_tag_signals"
+            referencedColumns: ["tag_id"]
+          },
+          {
+            foreignKeyName: "ucat_student_study_plan_tasks_question_tag_id_fkey"
+            columns: ["question_tag_id"]
+            isOneToOne: false
             referencedRelation: "vtutor_ucat_question_tags"
             referencedColumns: ["id"]
           },
@@ -23776,6 +23804,81 @@ export type Database = {
           },
         ]
       }
+      vstudent_ucat_activity_tag_signals: {
+        Row: {
+          available_question_count: number | null
+          category_id: string | null
+          independent_session_count: number | null
+          section_id: string | null
+          tag_id: string | null
+          weakness_score: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "question_stems_question_stem_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "question_stem_categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "question_stems_question_stem_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_ucat_question_stem_categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "question_stems_question_stem_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_ucat_question_stem_categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "question_tags_ucat_section_id_fkey"
+            columns: ["section_id"]
+            isOneToOne: false
+            referencedRelation: "ucat_sections"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "question_tags_ucat_section_id_fkey"
+            columns: ["section_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_ucat_mock_section_progress"
+            referencedColumns: ["section_id"]
+          },
+          {
+            foreignKeyName: "question_tags_ucat_section_id_fkey"
+            columns: ["section_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_ucat_section_set_progress"
+            referencedColumns: ["section_id"]
+          },
+          {
+            foreignKeyName: "question_tags_ucat_section_id_fkey"
+            columns: ["section_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_ucat_sections"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "question_tags_ucat_section_id_fkey"
+            columns: ["section_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_ucat_sections"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "question_tags_ucat_section_id_fkey"
+            columns: ["section_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_ucat_student_question_attempts_for_progress"
+            referencedColumns: ["ucat_section_id"]
+          },
+        ]
+      }
       vstudent_ucat_attempt_reviews: {
         Row: {
           attempt_id: string | null
@@ -27324,6 +27427,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "question_tags"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ucat_student_study_plan_tasks_question_tag_id_fkey"
+            columns: ["question_tag_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_ucat_activity_tag_signals"
+            referencedColumns: ["tag_id"]
           },
           {
             foreignKeyName: "ucat_student_study_plan_tasks_question_tag_id_fkey"
@@ -31232,6 +31342,13 @@ export type Database = {
             foreignKeyName: "ucat_learning_module_question_tags_question_tag_id_fkey"
             columns: ["question_tag_id"]
             isOneToOne: false
+            referencedRelation: "vstudent_ucat_activity_tag_signals"
+            referencedColumns: ["tag_id"]
+          },
+          {
+            foreignKeyName: "ucat_learning_module_question_tags_question_tag_id_fkey"
+            columns: ["question_tag_id"]
+            isOneToOne: false
             referencedRelation: "vtutor_ucat_question_tags"
             referencedColumns: ["id"]
           },
@@ -33104,6 +33221,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "question_tags"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "question_tags_parent_question_tag_id_fkey"
+            columns: ["parent_question_tag_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_ucat_activity_tag_signals"
+            referencedColumns: ["tag_id"]
           },
           {
             foreignKeyName: "question_tags_parent_question_tag_id_fkey"

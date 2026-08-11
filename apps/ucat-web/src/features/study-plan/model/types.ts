@@ -54,6 +54,7 @@ export type StudyPlanSectionSignal = {
   sectionId: string;
   currentEstimate: number | null;
   evidenceCount: number;
+  scoreConfidence?: "low" | "medium" | "high" | null;
   completedFullSets: number;
   attemptedQuestionCount?: number;
   completedPracticeSessions?: number;

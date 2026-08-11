@@ -9,9 +9,11 @@ import {
   estimateRepresentativeScore,
   parseRepresentativeScoreEvidence,
   prepareStudent,
+  rankActivityCandidates,
   REPRESENTATIVE_SCORE_EVIDENCE_SELECT,
   STANDARD_PREPARATION_TIMING_PROFILE,
   type PreparationEngineResult,
+  type ActivityTagSignal,
   type RepresentativeScoreEvidence,
 } from "@/features/preparation";
 import {
@@ -29,7 +31,10 @@ import {
   reviewTask,
 } from "@/features/study-plan/lib/generator";
 import { estimateLearningModuleMinutes } from "@/features/study-plan/lib/module-duration";
-import { prepareStudyPlanTasks } from "@/features/study-plan/lib/persistence";
+import {
+  planProfileTransition,
+  prepareStudyPlanTasks,
+} from "@/features/study-plan/lib/persistence";
 import {
   buildAlternativeNextStep,
   formatAttemptReviewLabel,
@@ -194,6 +199,7 @@ async function loadGenerationInputs(
   timingSessions: StudyPlanTimingEvidenceSession[];
   scoreEvidence: RepresentativeScoreEvidence[];
   completedMockCount: number;
+  tagSignals: ActivityTagSignal[];
 }> {
   const admin = requireAdmin();
   const [
@@ -215,6 +221,7 @@ async function loadGenerationInputs(
     mockRes,
     graduationStatesRes,
     timingEvidenceRes,
+    tagSignalsRes,
   ] = await Promise.all([
     admin
       .from("ucat_sections")
@@ -293,6 +300,11 @@ async function loadGenerationInputs(
       .select(
         "evidence_session_id, source, section_id, completed_at, prescribed_pace, observed_pace, accuracy, section_equivalents, category_ids, breadth",
       ),
+    supabase
+      .from("vstudent_ucat_activity_tag_signals")
+      .select(
+        "tag_id, section_id, category_id, available_question_count, independent_session_count, weakness_score",
+      ),
   ]);
   for (const result of [
     sectionsRes,
@@ -313,6 +325,7 @@ async function loadGenerationInputs(
     mockRes,
     graduationStatesRes,
     timingEvidenceRes,
+    tagSignalsRes,
   ]) {
     if (result.error) throw result.error;
   }
@@ -445,6 +458,7 @@ async function loadGenerationInputs(
       currentEstimate:
         section.sectionNumber <= 3 ? estimate?.currentEstimate ?? null : null,
       evidenceCount: estimate?.qualifyingEvidenceCount ?? 0,
+      scoreConfidence: estimate?.confidence ?? null,
       completedFullSets: fullSets.get(section.id) ?? 0,
       attemptedQuestionCount: readinessEvidence?.attempted_question_count ?? 0,
       completedPracticeSessions:
@@ -678,6 +692,25 @@ async function loadGenerationInputs(
       },
     ];
   });
+  const tagSignals: ActivityTagSignal[] = (tagSignalsRes.data ?? []).flatMap(
+    (row) =>
+      row.tag_id &&
+      row.section_id &&
+      row.category_id &&
+      row.available_question_count != null &&
+      row.independent_session_count != null
+        ? [
+            {
+              id: row.tag_id,
+              sectionId: row.section_id,
+              categoryId: row.category_id,
+              availableQuestionCount: row.available_question_count,
+              independentSessionCount: row.independent_session_count,
+              weaknessScore: Number(row.weakness_score ?? 0.5),
+            },
+          ]
+        : [],
+  );
   return {
     sections,
     signals,
@@ -686,6 +719,7 @@ async function loadGenerationInputs(
     skillTrainers,
     timingSessions,
     scoreEvidence,
+    tagSignals,
     completedMockCount: mockRes.count ?? 0,
   };
 }
@@ -874,6 +908,7 @@ async function generateForProfile(
       categories: inputs.categories,
       learningModules: inputs.learningModules,
       skillTrainers: inputs.skillTrainers,
+      tagSignals: inputs.tagSignals,
     },
     evidence: {
       sectionSignals: inputs.signals,
@@ -1485,6 +1520,7 @@ async function loadNextStepBuildInput(
   return {
     ...options,
     planningDate: planning.planningDate,
+    targetScore: profile.target_score,
     ...inputs,
     trainerAttemptCounts,
   };
@@ -1578,6 +1614,7 @@ async function getOrRefreshNextSteps(
       categories: buildInput.categories,
       learningModules: buildInput.learningModules,
       skillTrainers: buildInput.skillTrainers,
+      tagSignals: buildInput.tagSignals,
     },
     evidence: {
       sectionSignals: buildInput.signals,
@@ -1695,6 +1732,12 @@ export async function saveStudyPlanProfile(
 ): Promise<StudyPlanResponse> {
   const admin = requireAdmin();
   const studentId = await resolveStudentId(userId);
+  const { data: existingProfile, error: existingProfileError } = await admin
+    .from("ucat_student_study_plan_profiles")
+    .select("study_plan_enabled")
+    .eq("student_id", studentId)
+    .maybeSingle();
+  if (existingProfileError) throw existingProfileError;
   const { data: profile, error } = await admin
     .from("ucat_student_study_plan_profiles")
     .upsert(
@@ -1713,19 +1756,25 @@ export async function saveStudyPlanProfile(
     .select("*")
     .single();
   if (error) throw error;
-  const { error: clearStepsError } = await admin
-    .from("ucat_student_next_steps")
-    .delete()
-    .eq("student_id", studentId);
-  if (clearStepsError) throw clearStepsError;
-  if (input.studyPlanEnabled) {
+  const transition = planProfileTransition({
+    wasEnabled: existingProfile?.study_plan_enabled ?? false,
+    willBeEnabled: input.studyPlanEnabled,
+  });
+  if (transition.clearGuidance) {
+    const { error: clearStepsError } = await admin
+      .from("ucat_student_next_steps")
+      .delete()
+      .eq("student_id", studentId);
+    if (clearStepsError) throw clearStepsError;
+  }
+  if (transition.generateFreshPlan) {
     await generateForProfile(
       supabase,
       studentId,
       profile,
       profile.last_generated_at ? "profile_changed" : "onboarding",
     );
-  } else {
+  } else if (transition.retireFuturePlan) {
     const { error: retirePlanError } = await admin
       .from("ucat_student_study_plan_generations")
       .update({ superseded_at: new Date().toISOString() })
@@ -1778,6 +1827,23 @@ export async function createExtraStudyTask(
   );
   const nextSortOrder =
     Math.max(-1, ...currentPlan.todayTasks.map((task) => task.sortOrder)) + 1;
+  const extraActivityCandidates = currentPlan.generation.readiness
+    ? rankActivityCandidates({
+        today: currentPlan.today,
+        planningDate: currentPlan.profile.planningDate,
+        targetScore: currentPlan.profile.targetScore,
+        readiness: currentPlan.generation.readiness,
+        sections: generationInputs.sections,
+        signals: generationInputs.signals,
+        categories: generationInputs.categories,
+        learningModules: generationInputs.learningModules,
+        skillTrainers: generationInputs.skillTrainers,
+        tagSignals: generationInputs.tagSignals,
+        trainerAttemptCounts: new Map(),
+        incompleteReview: null,
+        completedMockCount: generationInputs.completedMockCount,
+      })
+    : undefined;
   const extraTasks = (() => {
     try {
       return generateExtraStudyTasks({
@@ -1794,6 +1860,7 @@ export async function createExtraStudyTask(
           (scheduledTask) => scheduledTask.questionStemCategoryId,
         ),
         sortOrder: nextSortOrder,
+        activityCandidates: extraActivityCandidates,
       });
     } catch (error) {
       if (error instanceof Error && error.message.startsWith("There are no")) {

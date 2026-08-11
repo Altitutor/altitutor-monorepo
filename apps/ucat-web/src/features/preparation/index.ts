@@ -1,5 +1,17 @@
 export { prepareStudent } from "@/features/preparation/lib/engine";
 export {
+  rankActivityCandidates,
+  selectActivityCandidates,
+} from "@/features/preparation/lib/activity-ranking";
+export type {
+  ActivityCandidateSelection,
+  ActivityRankingInput,
+  ActivityTagSignal,
+  PreparationActivityCandidate,
+  PreparationActivityKind,
+  PreparationActivityObjective,
+} from "@/features/preparation/lib/activity-ranking";
+export {
   parseRepresentativeScoreEvidence,
   REPRESENTATIVE_SCORE_EVIDENCE_SELECT,
 } from "@/features/preparation/lib/score-evidence-adapter";
