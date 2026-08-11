@@ -61,7 +61,52 @@ export type StudyPlanSectionSignal = {
   largestPracticeSessionQuestionCount?: number;
   recentAccuracy?: number | null;
   observedPace?: number | null;
+  representativeSessionCount?: number;
+  representativeSectionEquivalents?: number;
+  representativeAccuracy?: number | null;
+  targetedPracticeSessionCount?: number;
+  targetedSectionEquivalents?: number;
+  benchmarkCompleted?: boolean;
+  benchmarkAccuracy?: number | null;
+  benchmarkPace?: number | null;
+  learningGraduatedAt?: string | null;
+  learningGraduationRoute?: "accuracy" | "experience" | null;
+  learningGraduationPolicyVersion?: string | null;
+  prescribedPace?: number | null;
+  prescribedPaceSetAt?: string | null;
+  pacePolicyVersion?: string | null;
+  timingDecisionCode?: StudyPlanTimingDecisionCode;
+  timingAdvanceFrom?: number | null;
+  timingAdvanceTo?: number | null;
+  timingCapacityConstrained?: boolean;
+  calibrationDue?: boolean;
+  overspeedEligible?: boolean;
+  overspeedPace?: number | null;
 };
+
+export type StudyPlanTimingBreadth = "broad" | "mixed" | "narrow";
+
+export type StudyPlanTimingEvidenceSession = {
+  id: string;
+  sectionId: string;
+  source: "practice" | "set" | "mock";
+  completedAt: string;
+  prescribedPace: number | null;
+  observedPace: number | null;
+  accuracy: number | null;
+  sectionEquivalents: number;
+  breadth: StudyPlanTimingBreadth;
+  categoryIds: string[];
+};
+
+export type StudyPlanTimingDecisionCode =
+  | "timing.initial_placement"
+  | "timing.hold_insufficient_evidence"
+  | "timing.hold_accuracy"
+  | "timing.advance_normal"
+  | "timing.advance_accelerated_1x"
+  | "timing.advance_deadline"
+  | "timing.at_exam_pace";
 
 export type StudyPlanCategorySignal = {
   id: string;
@@ -135,8 +180,7 @@ export type StudyPlanTrainingMode = "learning" | "timing" | "exam";
 
 export type StudyPlanReadinessRoute =
   | "accuracy"
-  | "exposure"
-  | "full_set"
+  | "experience"
   | "exam_override"
   | null;
 
@@ -160,6 +204,16 @@ export type StudyPlanSectionReadiness = {
   mode: StudyPlanTrainingMode;
   paceMultiplier: number;
   observedPace: number | null;
+  learningGraduatedAt: string | null;
+  learningRoute: Exclude<
+    StudyPlanReadinessRoute,
+    "exam_override" | null
+  > | null;
+  nextMilestone: string;
+  timingDecisionCode: StudyPlanTimingDecisionCode;
+  calibrationDue: boolean;
+  overspeedEligible: boolean;
+  overspeedPace: number | null;
   units: StudyPlanReadinessUnit[];
 };
 

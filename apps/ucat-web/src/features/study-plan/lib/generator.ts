@@ -6,9 +6,6 @@ import {
 } from "@/features/study-plan/lib/dates";
 import {
   buildReadinessSnapshot,
-  LEARNING_COVERAGE_QUESTIONS,
-  LEARNING_EXPOSURE_EXIT_QUESTIONS,
-  LEARNING_MIN_SESSIONS,
   LEARNING_QUALIFYING_SESSION_QUESTIONS,
   paceLadderStep,
   STUDY_PLAN_DETAILED_HORIZON_DAYS,
@@ -115,15 +112,21 @@ function capacityRisk(
   const available = profile.availableDays.length * typicalSessionMinutes;
   const minimumDays =
     readiness.mode === "exam" ? 3 : readiness.mode === "timing" ? 2 : 1;
-  const risky = profile.availableDays.length < minimumDays;
+  const timingCapacityConstrained = signals.some(
+    (signal) => signal.timingCapacityConstrained,
+  );
+  const risky =
+    profile.availableDays.length < minimumDays || timingCapacityConstrained;
   return {
     level: risky ? "warning" : "none",
     availableMinutesPerWeek: available,
     recommendedMinutesPerWeek: recommended,
     message: risky
-      ? readiness.mode === "exam"
-        ? "There are fewer available study days than the exam-phase mock cadence needs. The plan will prioritise mocks and the highest-value weaknesses on the days you selected."
-        : "There are very few available study days. The plan will still prioritise the highest-value work and replan unfinished work instead of building a backlog."
+      ? timingCapacityConstrained
+        ? "There may not be enough broad practice opportunities to reach reliable exam pace before the exam phase. The plan will move gradually and prioritise representative work."
+        : readiness.mode === "exam"
+          ? "There are fewer available study days than the exam-phase mock cadence needs. The plan will prioritise mocks and the highest-value weaknesses on the days you selected."
+          : "There are very few available study days. The plan will still prioritise the highest-value work and replan unfinished work instead of building a backlog."
       : null,
   };
 }
@@ -179,6 +182,7 @@ function practiceQuestionCount(
 function practiceTask(input: {
   section: StudyPlanSection;
   category: StudyPlanCategorySignal | null;
+  additionalCategories?: StudyPlanCategorySignal[];
   mode: StudyPlanTrainingMode;
   pace: number;
   questionCount: number;
@@ -195,7 +199,14 @@ function practiceTask(input: {
     ? Math.ceil((input.questionCount * (secondsPerQuestion ?? 60)) / 60)
     : Math.ceil(input.questionCount * 1.5);
   const timingLabel = timed ? `${input.pace.toFixed(1)}x exam pace` : "untimed";
-  const targetName = input.category?.name ?? input.section.name;
+  const selectedCategories = [
+    ...(input.category ? [input.category] : []),
+    ...(input.additionalCategories ?? []),
+  ];
+  const targetName =
+    selectedCategories.length > 1
+      ? `Mixed ${input.section.shortName}`
+      : (input.category?.name ?? input.section.name);
   return {
     scheduledDate: input.scheduledDate,
     sortOrder: input.sortOrder,
@@ -211,7 +222,8 @@ function practiceTask(input: {
     estimatedMinutes: answeringMinutes + (timed ? 5 : 8),
     targetUnits: input.questionCount,
     sectionId: input.section.id,
-    questionStemCategoryId: input.category?.id ?? null,
+    questionStemCategoryId:
+      selectedCategories.length === 1 ? (input.category?.id ?? null) : null,
     questionTagId: null,
     learningModuleId: null,
     questionSetId: null,
@@ -224,7 +236,7 @@ function practiceTask(input: {
       section: input.section.key,
       ucatSectionId: input.section.id,
       questionCount: input.questionCount,
-      categoryIds: input.category ? [input.category.id] : [],
+      categoryIds: selectedCategories.map((category) => category.id),
       timeMode: timed ? "speed" : "off",
       timeSpeedMultiplier: timed ? input.pace : 1,
       timePerQuestionSeconds: secondsPerQuestion,
@@ -239,25 +251,23 @@ function benchmarkTask(
   section: StudyPlanSection,
   scheduledDate: string,
   sortOrder: number,
-  timed: boolean,
+  prescribedPace: number,
 ): GeneratedStudyPlanTask {
-  const pace = timed ? 1 : null;
+  const pace = Math.max(0.5, Math.min(1, prescribedPace));
+  const atExamPace = pace === 1;
   return {
     scheduledDate,
     sortOrder,
     taskType: "section_benchmark",
-    title: `Full ${section.shortName} ${timed ? "calibration set" : "learning benchmark"}`,
-    description: timed
-      ? `${section.questionCount} questions at exam pace with feedback at the end.`
-      : `${section.questionCount} untimed questions with feedback held until the end. Active answering time is recorded for pace placement.`,
-    rationale: timed
+    title: `Full ${section.shortName} ${atExamPace ? "calibration set" : "learning benchmark"}`,
+    description: `${section.questionCount} questions at ${pace.toFixed(1)}× exam pace with feedback held until the end.`,
+    rationale: atExamPace
       ? "A regular 1.0x full set keeps the pace ladder calibrated against real section conditions."
-      : "This checks whether the section method is holding together and gives the timing phase a reliable natural-pace baseline.",
-    estimatedMinutes: timed
-      ? Math.ceil(
-          (section.questionCount * section.timePerQuestionSeconds) / 60,
-        ) + 8
-      : Math.ceil(section.questionCount * 1.5) + 10,
+      : "This checks whether the section method is holding together and gives the timing phase a reliable baseline.",
+    estimatedMinutes:
+      Math.ceil(
+        (section.questionCount * section.timePerQuestionSeconds) / (60 * pace),
+      ) + 8,
     targetUnits: section.questionCount,
     sectionId: section.id,
     questionStemCategoryId: null,
@@ -271,15 +281,15 @@ function benchmarkTask(
       kind: "practice",
       corePractice: true,
       benchmark: true,
-      calibrationPurpose: timed ? "exam_pace" : "natural_pace",
+      calibrationPurpose: atExamPace ? "exam_pace" : "learning_diagnostic",
       trackActiveAnsweringTime: true,
       section: section.key,
       ucatSectionId: section.id,
       questionCount: section.questionCount,
       categoryIds: [],
-      timeMode: timed ? "speed" : "off",
-      timeSpeedMultiplier: pace ?? 1,
-      timePerQuestionSeconds: timed ? section.timePerQuestionSeconds : null,
+      timeMode: "speed",
+      timeSpeedMultiplier: pace,
+      timePerQuestionSeconds: Math.round(section.timePerQuestionSeconds / pace),
       reviewTiming: "atEnd",
     },
   };
@@ -451,6 +461,27 @@ function pickCategory(
   return selected ?? null;
 }
 
+function pickMixedCategories(
+  sectionId: string,
+  categories: StudyPlanCategorySignal[],
+  scheduledCounts: Map<string, number>,
+  count: number,
+): StudyPlanCategorySignal[] {
+  const selected: StudyPlanCategorySignal[] = [];
+  for (let index = 0; index < count; index += 1) {
+    const candidate = pickCategory(
+      sectionId,
+      categories.filter(
+        (category) => !selected.some((item) => item.id === category.id),
+      ),
+      scheduledCounts,
+    );
+    if (!candidate) break;
+    selected.push(candidate);
+  }
+  return selected;
+}
+
 function mockTask(
   number: number,
   scheduledDate: string,
@@ -540,25 +571,6 @@ function plannedEvidenceFor(
   );
 }
 
-function needsLearningWork(
-  unit: StudyPlanReadinessUnit,
-  planned: Map<string, PlannedUnitEvidence>,
-): boolean {
-  if (unit.learningComplete) return false;
-  const extra = plannedEvidenceFor(unit, planned);
-  const questions = unit.attemptedQuestionCount + extra.questions;
-  const sessions = unit.completedPracticeSessions + extra.sessions;
-  const qualifying = unit.qualifyingPracticeSessions + extra.qualifyingSessions;
-  if (!unit.coverageComplete) {
-    return (
-      questions < LEARNING_COVERAGE_QUESTIONS ||
-      sessions < LEARNING_MIN_SESSIONS ||
-      qualifying < 1
-    );
-  }
-  return questions < LEARNING_EXPOSURE_EXIT_QUESTIONS || qualifying < 2;
-}
-
 function addPlannedEvidence(
   unit: StudyPlanReadinessUnit,
   planned: Map<string, PlannedUnitEvidence>,
@@ -574,50 +586,112 @@ function addPlannedEvidence(
   });
 }
 
-function nextPlannedPace(
-  sectionId: string,
-  basePace: number,
-  plannedPaceBlocks: Map<string, number>,
-): number {
-  const completedPaceBlocks = plannedPaceBlocks.get(sectionId) ?? 0;
-  const pace = Math.min(
-    1.3,
-    Math.round((basePace + Math.floor(completedPaceBlocks / 2) * 0.1) * 10) /
-      10,
+function selectLearningUnit(
+  section: StudyPlanSectionReadiness,
+  planned: Map<string, PlannedUnitEvidence>,
+  categories: StudyPlanCategorySignal[],
+): StudyPlanReadinessUnit {
+  if (section.units.length === 1) return section.units[0]!;
+  const categoryById = new Map(
+    categories.map((category) => [category.id, category]),
   );
-  plannedPaceBlocks.set(sectionId, completedPaceBlocks + 1);
-  return pace;
+  const availableTotal = section.units.reduce(
+    (sum, unit) =>
+      sum + Math.max(1, categoryById.get(unit.id)?.availableQuestionCount ?? 1),
+    0,
+  );
+  const totalExposure = section.units.reduce(
+    (sum, unit) =>
+      sum +
+      unit.attemptedQuestionCount +
+      plannedEvidenceFor(unit, planned).questions,
+    0,
+  );
+  return [...section.units].sort((left, right) => {
+    const leftCategory = categoryById.get(left.id);
+    const rightCategory = categoryById.get(right.id);
+    const leftObserved =
+      left.attemptedQuestionCount + plannedEvidenceFor(left, planned).questions;
+    const rightObserved =
+      right.attemptedQuestionCount +
+      plannedEvidenceFor(right, planned).questions;
+    const nextTotal = totalExposure + LEARNING_QUALIFYING_SESSION_QUESTIONS;
+    const leftShare =
+      Math.max(1, leftCategory?.availableQuestionCount ?? 1) / availableTotal;
+    const rightShare =
+      Math.max(1, rightCategory?.availableQuestionCount ?? 1) / availableTotal;
+    const leftDeficit = nextTotal * leftShare - leftObserved;
+    const rightDeficit = nextTotal * rightShare - rightObserved;
+    return (
+      rightDeficit - leftDeficit ||
+      (rightCategory?.weaknessScore ?? 0.5) -
+        (leftCategory?.weaknessScore ?? 0.5) ||
+      left.name.localeCompare(right.name)
+    );
+  })[0]!;
 }
 
 function learningCandidates(
   readiness: StudyPlanReadinessSnapshot,
   planned: Map<string, PlannedUnitEvidence>,
   categories: StudyPlanCategorySignal[],
+  sectionById: Map<string, StudyPlanSection>,
 ): Array<{
   sectionReadiness: StudyPlanSectionReadiness;
   unit: StudyPlanReadinessUnit;
-  weakness: number;
+  exposure: number;
 }> {
   return readiness.sections
-    .flatMap((sectionReadiness) =>
-      sectionReadiness.units.map((unit) => ({
+    .filter((sectionReadiness) => sectionReadiness.mode === "learning")
+    .map((sectionReadiness) => {
+      const unit = selectLearningUnit(sectionReadiness, planned, categories);
+      const section = sectionById.get(sectionReadiness.sectionId);
+      const plannedQuestions = sectionReadiness.units.reduce(
+        (sum, candidate) =>
+          sum + plannedEvidenceFor(candidate, planned).questions,
+        0,
+      );
+      const attemptedQuestions = sectionReadiness.units.reduce(
+        (sum, candidate) => sum + candidate.attemptedQuestionCount,
+        0,
+      );
+      return {
         sectionReadiness,
         unit,
-        weakness:
-          categories.find((category) => category.id === unit.id)
-            ?.weaknessScore ?? 0.5,
-      })),
+        exposure:
+          (attemptedQuestions + plannedQuestions) /
+          Math.max(1, section?.questionCount ?? 1),
+      };
+    })
+    .sort(
+      (left, right) =>
+        left.exposure - right.exposure ||
+        (sectionById.get(left.sectionReadiness.sectionId)?.sectionNumber ?? 0) -
+          (sectionById.get(right.sectionReadiness.sectionId)?.sectionNumber ??
+            0),
+    );
+}
+
+function takeLearningModule(
+  sectionId: string,
+  modules: StudyPlanLearningModule[],
+  scheduledModuleIds: Set<string>,
+): StudyPlanLearningModule | null {
+  const priority = { essential: 0, recommended: 1, optional: 2 } as const;
+  const learningModule = modules
+    .filter(
+      (candidate) =>
+        candidate.sectionId === sectionId &&
+        !scheduledModuleIds.has(candidate.id),
     )
-    .filter(({ unit }) => needsLearningWork(unit, planned))
-    .sort((a, b) => {
-      const aPlanned = plannedEvidenceFor(a.unit, planned).questions;
-      const bPlanned = plannedEvidenceFor(b.unit, planned).questions;
-      return (
-        aPlanned - bPlanned ||
-        b.weakness - a.weakness ||
-        a.unit.name.localeCompare(b.unit.name)
-      );
-    });
+    .sort(
+      (left, right) =>
+        priority[left.priority] - priority[right.priority] ||
+        right.relevanceScore - left.relevanceScore ||
+        left.title.localeCompare(right.title),
+    )[0];
+  if (learningModule) scheduledModuleIds.add(learningModule.id);
+  return learningModule ?? null;
 }
 
 export function generateStudyPlan(
@@ -665,14 +739,10 @@ export function generateStudyPlan(
         module.completionPercent < 100 &&
         (module.sectionId == null || cognitiveSectionIds.has(module.sectionId)),
     )
-    .sort(
-      (a, b) =>
-        b.relevanceScore - a.relevanceScore ||
-        (a.priority === "essential" ? -1 : 0) -
-          (b.priority === "essential" ? -1 : 0),
-    );
+    .filter((module) => module.priority !== "optional");
   const plannedEvidence = new Map<string, PlannedUnitEvidence>();
   const scheduledBenchmarks = new Set<string>();
+  const scheduledModuleIds = new Set<string>();
   const categoryScheduleCounts = new Map<string, number>();
   const mocks = mockDates(
     dates,
@@ -681,13 +751,15 @@ export function generateStudyPlan(
     input.planningDate,
   );
   const tasks: GeneratedStudyPlanTask[] = [];
-  let moduleCursor = 0;
   let sectionCursor = 0;
   let trainerCursor = 0;
   let mockNumber = input.completedMockCount;
-  const plannedPaceBlocks = new Map<string, number>();
+  let ordinaryTimingBlocks = 0;
+  let calibrationCount = 0;
+  const scheduledCalibrations = new Set<string>();
+  let narrowTargetedBlocks = 0;
 
-  dates.forEach((date, dayIndex) => {
+  dates.forEach((date) => {
     let sortOrder = 0;
     if (mocks.has(date)) {
       const mock = mockTask(++mockNumber, date, sortOrder++, readiness.mode);
@@ -696,17 +768,53 @@ export function generateStudyPlan(
       return;
     }
 
+    const learningSections = readiness.sections.filter(
+      (section) => section.mode === "learning",
+    );
+    const signalBySection = new Map(
+      input.signals.map((signal) => [signal.sectionId, signal]),
+    );
+    const hasBasicExposure = (section: StudyPlanSectionReadiness) =>
+      section.units.some(
+        (unit) =>
+          unit.attemptedQuestionCount +
+            plannedEvidenceFor(unit, plannedEvidence).questions >
+          0,
+      );
+    const allLearningSectionsExposed = learningSections.every(hasBasicExposure);
+    const diagnosticSection = allLearningSectionsExposed
+      ? learningSections.find(
+          (section) =>
+            !signalBySection.get(section.sectionId)?.benchmarkCompleted &&
+            !scheduledBenchmarks.has(section.sectionId),
+        )
+      : undefined;
+    if (diagnosticSection) {
+      const section = sectionById.get(diagnosticSection.sectionId);
+      if (section) {
+        const diagnostic = benchmarkTask(
+          section,
+          date,
+          sortOrder++,
+          diagnosticSection.paceMultiplier,
+        );
+        diagnostic.title = `${section.shortName} diagnostic`;
+        diagnostic.rationale =
+          "This early diagnostic establishes a whole-section baseline without blocking the rest of the plan.";
+        tasks.push(diagnostic);
+        tasks.push(reviewTask(diagnostic, date, sortOrder, "learning"));
+        scheduledBenchmarks.add(section.id);
+        return;
+      }
+    }
+
     const candidates = learningCandidates(
       readiness,
       plannedEvidence,
       input.categories,
+      sectionById,
     );
     if (candidates.length > 0) {
-      if (moduleCursor < moduleQueue.length && dayIndex % 3 === 0) {
-        tasks.push(
-          learningTask(moduleQueue[moduleCursor++]!, date, sortOrder++),
-        );
-      }
       const usedSections = new Set<string>();
       const learningBlockLimit =
         input.profile.targetScore >= 2400 ||
@@ -718,6 +826,14 @@ export function generateStudyPlan(
         if (scheduledCoreBlocks >= learningBlockLimit) break;
         const section = sectionById.get(candidate.sectionReadiness.sectionId);
         if (!section || usedSections.has(section.id)) continue;
+        const learningModule = takeLearningModule(
+          section.id,
+          moduleQueue,
+          scheduledModuleIds,
+        );
+        if (learningModule) {
+          tasks.push(learningTask(learningModule, date, sortOrder++));
+        }
         const category = categoryForUnit(candidate.unit, input.categories);
         const practice = practiceTask({
           section,
@@ -745,24 +861,33 @@ export function generateStudyPlan(
         timingSections[sectionCursor++ % timingSections.length];
       if (timingSection) {
         const timingReadiness = readinessBySection.get(timingSection.id);
-        const pace = nextPlannedPace(
-          timingSection.id,
-          paceLadderStep(timingReadiness?.paceMultiplier),
-          plannedPaceBlocks,
-        );
-        const category = pickCategory(
-          timingSection.id,
-          input.categories,
-          categoryScheduleCounts,
-        );
+        const pace = timingReadiness?.paceMultiplier ?? 0.5;
+        const category: StudyPlanCategorySignal | null = null;
         const trainer = pickSkillTrainer(
           timingSection.id,
-          category?.id ?? null,
+          null,
           input.skillTrainers,
           trainerCursor++,
         );
         if (trainer) {
           tasks.push(skillTrainerTask(trainer, category, date, sortOrder++));
+        }
+        const scheduleCalibration =
+          Boolean(timingReadiness?.calibrationDue) &&
+          !scheduledCalibrations.has(timingSection.id) &&
+          ordinaryTimingBlocks >= (calibrationCount + 1) * 2;
+        if (scheduleCalibration) {
+          const benchmark = benchmarkTask(
+            timingSection,
+            date,
+            sortOrder++,
+            1,
+          );
+          tasks.push(benchmark);
+          tasks.push(reviewTask(benchmark, date, sortOrder, "standard"));
+          scheduledCalibrations.add(timingSection.id);
+          calibrationCount += 1;
+          return;
         }
         const timingPractice = practiceTask({
           section: timingSection,
@@ -774,25 +899,10 @@ export function generateStudyPlan(
           sortOrder: sortOrder++,
         });
         tasks.push(timingPractice);
+        ordinaryTimingBlocks += 1;
         tasks.push(reviewTask(timingPractice, date, sortOrder, "standard"));
       }
       return;
-    }
-
-    const learningBenchmarkSection = readiness.sections.find(
-      (section) =>
-        section.mode === "learning" &&
-        !scheduledBenchmarks.has(section.sectionId),
-    );
-    if (learningBenchmarkSection) {
-      const section = sectionById.get(learningBenchmarkSection.sectionId);
-      if (section) {
-        const benchmark = benchmarkTask(section, date, sortOrder++, false);
-        tasks.push(benchmark);
-        tasks.push(reviewTask(benchmark, date, sortOrder, "learning"));
-        scheduledBenchmarks.add(section.id);
-        return;
-      }
     }
 
     const timingSections = cognitiveSections.filter(
@@ -801,12 +911,14 @@ export function generateStudyPlan(
     const section = timingSections[sectionCursor++ % timingSections.length];
     if (!section) return;
     const sectionReadiness = readinessBySection.get(section.id);
-    const pace = paceLadderStep(sectionReadiness?.paceMultiplier ?? 0.5);
-    const category = pickCategory(
-      section.id,
-      input.categories,
-      categoryScheduleCounts,
-    );
+    const pace = sectionReadiness?.paceMultiplier ?? 0.5;
+    const category = [...input.categories]
+      .filter((candidate) => candidate.sectionId === section.id)
+      .sort(
+        (left, right) =>
+          right.weaknessScore - left.weaknessScore ||
+          left.name.localeCompare(right.name),
+      )[0];
     const trainer = pickSkillTrainer(
       section.id,
       category?.id ?? null,
@@ -816,13 +928,18 @@ export function generateStudyPlan(
     if (trainer)
       tasks.push(skillTrainerTask(trainer, category, date, sortOrder++));
 
-    const scheduleCalibration = dayIndex % 3 === 0;
+    const scheduleCalibration =
+      Boolean(sectionReadiness?.calibrationDue) &&
+      !scheduledCalibrations.has(section.id) &&
+      ordinaryTimingBlocks >= (calibrationCount + 1) * 2;
     if (scheduleCalibration) {
-      const benchmark = benchmarkTask(section, date, sortOrder++, true);
+      const benchmark = benchmarkTask(section, date, sortOrder++, 1);
       tasks.push(benchmark);
       if (readiness.mode !== "exam") {
         tasks.push(reviewTask(benchmark, date, sortOrder, "standard"));
       }
+      scheduledCalibrations.add(section.id);
+      calibrationCount += 1;
       return;
     }
 
@@ -835,20 +952,35 @@ export function generateStudyPlan(
               (sectionCursor + block - 1) % timingSections.length
             ] ?? section);
       const blockReadiness = readinessBySection.get(blockSection.id);
-      const basePace = paceLadderStep(blockReadiness?.paceMultiplier ?? pace);
-      const blockPace = nextPlannedPace(
-        blockSection.id,
-        basePace,
-        plannedPaceBlocks,
-      );
-      const blockCategory = pickCategory(
-        blockSection.id,
-        input.categories,
-        categoryScheduleCounts,
-      );
+      const prescribedPace = blockReadiness?.paceMultiplier ?? pace;
+      const breadthSlot = ordinaryTimingBlocks % 4;
+      const broad = breadthSlot === 0 || breadthSlot === 3;
+      const mixed = breadthSlot === 2;
+      const selectedCategories = broad
+        ? []
+        : pickMixedCategories(
+            blockSection.id,
+            input.categories,
+            categoryScheduleCounts,
+            mixed ? 3 : 1,
+          );
+      const blockCategory = selectedCategories[0] ?? null;
+      const nextNarrowTargetedBlock = narrowTargetedBlocks + 1;
+      const useOverspeed =
+        !broad &&
+        !mixed &&
+        Boolean(blockReadiness?.overspeedEligible) &&
+        nextNarrowTargetedBlock % 4 === 0;
+      if (!broad && !mixed) {
+        narrowTargetedBlocks = nextNarrowTargetedBlock;
+      }
+      const blockPace = useOverspeed
+        ? (blockReadiness?.overspeedPace ?? 1.1)
+        : prescribedPace;
       const practice = practiceTask({
         section: blockSection,
         category: blockCategory,
+        additionalCategories: selectedCategories.slice(1),
         mode: readiness.mode === "exam" ? "exam" : "timing",
         pace: blockPace,
         questionCount: practiceQuestionCount(
@@ -860,6 +992,7 @@ export function generateStudyPlan(
         sortOrder: sortOrder++,
       });
       tasks.push(practice);
+      ordinaryTimingBlocks += 1;
       if (readiness.mode === "timing" && block === 0) {
         tasks.push(reviewTask(practice, date, sortOrder++, "standard"));
       }

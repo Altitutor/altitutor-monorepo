@@ -5644,6 +5644,7 @@ export type Database = {
           name: Json | null
           published_at: string | null
           published_by: string | null
+          score_evidence_standardised: boolean
           sections: Json | null
           speed: number | null
           status: Database["public"]["Enums"]["ucat_content_status"]
@@ -5665,6 +5666,7 @@ export type Database = {
           name?: Json | null
           published_at?: string | null
           published_by?: string | null
+          score_evidence_standardised?: boolean
           sections?: Json | null
           speed?: number | null
           status?: Database["public"]["Enums"]["ucat_content_status"]
@@ -5686,6 +5688,7 @@ export type Database = {
           name?: Json | null
           published_at?: string | null
           published_by?: string | null
+          score_evidence_standardised?: boolean
           sections?: Json | null
           speed?: number | null
           status?: Database["public"]["Enums"]["ucat_content_status"]
@@ -17804,6 +17807,7 @@ export type Database = {
           effective_evidence_weight: number
           generated_at: string
           id: string
+          model_version: string
           section_estimates: Json
           snapshot_date: string
           student_id: string
@@ -17817,6 +17821,7 @@ export type Database = {
           effective_evidence_weight: number
           generated_at: string
           id?: string
+          model_version?: string
           section_estimates?: Json
           snapshot_date: string
           student_id: string
@@ -17830,6 +17835,7 @@ export type Database = {
           effective_evidence_weight?: number
           generated_at?: string
           id?: string
+          model_version?: string
           section_estimates?: Json
           snapshot_date?: string
           student_id?: string
@@ -19210,6 +19216,135 @@ export type Database = {
           },
           {
             foreignKeyName: "ucat_student_next_steps_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_ucat_student_progress_summary"
+            referencedColumns: ["student_id"]
+          },
+        ]
+      }
+      ucat_student_preparation_section_states: {
+        Row: {
+          created_at: string
+          evidence_snapshot: Json
+          id: string
+          learning_graduated_at: string
+          learning_graduation_route: string
+          pace_policy_version: string | null
+          policy_version: string
+          prescribed_pace: number | null
+          prescribed_pace_set_at: string | null
+          section_id: string
+          student_id: string
+          test_year: number
+          timing_evidence_snapshot: Json
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          evidence_snapshot?: Json
+          id?: string
+          learning_graduated_at: string
+          learning_graduation_route: string
+          pace_policy_version?: string | null
+          policy_version: string
+          prescribed_pace?: number | null
+          prescribed_pace_set_at?: string | null
+          section_id: string
+          student_id: string
+          test_year: number
+          timing_evidence_snapshot?: Json
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          evidence_snapshot?: Json
+          id?: string
+          learning_graduated_at?: string
+          learning_graduation_route?: string
+          pace_policy_version?: string | null
+          policy_version?: string
+          prescribed_pace?: number | null
+          prescribed_pace_set_at?: string | null
+          section_id?: string
+          student_id?: string
+          test_year?: number
+          timing_evidence_snapshot?: Json
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ucat_student_preparation_section_states_section_id_fkey"
+            columns: ["section_id"]
+            isOneToOne: false
+            referencedRelation: "ucat_sections"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ucat_student_preparation_section_states_section_id_fkey"
+            columns: ["section_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_ucat_mock_section_progress"
+            referencedColumns: ["section_id"]
+          },
+          {
+            foreignKeyName: "ucat_student_preparation_section_states_section_id_fkey"
+            columns: ["section_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_ucat_section_set_progress"
+            referencedColumns: ["section_id"]
+          },
+          {
+            foreignKeyName: "ucat_student_preparation_section_states_section_id_fkey"
+            columns: ["section_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_ucat_sections"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ucat_student_preparation_section_states_section_id_fkey"
+            columns: ["section_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_ucat_sections"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ucat_student_preparation_section_states_section_id_fkey"
+            columns: ["section_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_ucat_student_question_attempts_for_progress"
+            referencedColumns: ["ucat_section_id"]
+          },
+          {
+            foreignKeyName: "ucat_student_preparation_section_states_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ucat_student_preparation_section_states_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "vadmin_reconciliation_students_without_payment_method"
+            referencedColumns: ["student_id"]
+          },
+          {
+            foreignKeyName: "ucat_student_preparation_section_states_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_profile"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ucat_student_preparation_section_states_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_students"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ucat_student_preparation_section_states_student_id_fkey"
             columns: ["student_id"]
             isOneToOne: false
             referencedRelation: "vtutor_ucat_student_progress_summary"
@@ -25163,6 +25298,150 @@ export type Database = {
           },
         ]
       }
+      vstudent_ucat_preparation_section_states: {
+        Row: {
+          created_at: string | null
+          evidence_snapshot: Json | null
+          id: string | null
+          learning_graduated_at: string | null
+          learning_graduation_route: string | null
+          pace_policy_version: string | null
+          policy_version: string | null
+          prescribed_pace: number | null
+          prescribed_pace_set_at: string | null
+          section_id: string | null
+          student_id: string | null
+          test_year: number | null
+          timing_evidence_snapshot: Json | null
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          evidence_snapshot?: Json | null
+          id?: string | null
+          learning_graduated_at?: string | null
+          learning_graduation_route?: string | null
+          pace_policy_version?: string | null
+          policy_version?: string | null
+          prescribed_pace?: number | null
+          prescribed_pace_set_at?: string | null
+          section_id?: string | null
+          student_id?: string | null
+          test_year?: number | null
+          timing_evidence_snapshot?: Json | null
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          evidence_snapshot?: Json | null
+          id?: string | null
+          learning_graduated_at?: string | null
+          learning_graduation_route?: string | null
+          pace_policy_version?: string | null
+          policy_version?: string | null
+          prescribed_pace?: number | null
+          prescribed_pace_set_at?: string | null
+          section_id?: string | null
+          student_id?: string | null
+          test_year?: number | null
+          timing_evidence_snapshot?: Json | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ucat_student_preparation_section_states_section_id_fkey"
+            columns: ["section_id"]
+            isOneToOne: false
+            referencedRelation: "ucat_sections"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ucat_student_preparation_section_states_section_id_fkey"
+            columns: ["section_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_ucat_mock_section_progress"
+            referencedColumns: ["section_id"]
+          },
+          {
+            foreignKeyName: "ucat_student_preparation_section_states_section_id_fkey"
+            columns: ["section_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_ucat_section_set_progress"
+            referencedColumns: ["section_id"]
+          },
+          {
+            foreignKeyName: "ucat_student_preparation_section_states_section_id_fkey"
+            columns: ["section_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_ucat_sections"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ucat_student_preparation_section_states_section_id_fkey"
+            columns: ["section_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_ucat_sections"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ucat_student_preparation_section_states_section_id_fkey"
+            columns: ["section_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_ucat_student_question_attempts_for_progress"
+            referencedColumns: ["ucat_section_id"]
+          },
+          {
+            foreignKeyName: "ucat_student_preparation_section_states_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ucat_student_preparation_section_states_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "vadmin_reconciliation_students_without_payment_method"
+            referencedColumns: ["student_id"]
+          },
+          {
+            foreignKeyName: "ucat_student_preparation_section_states_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_profile"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ucat_student_preparation_section_states_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_students"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ucat_student_preparation_section_states_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_ucat_student_progress_summary"
+            referencedColumns: ["student_id"]
+          },
+        ]
+      }
+      vstudent_ucat_preparation_timing_evidence: {
+        Row: {
+          accuracy: number | null
+          breadth: string | null
+          category_ids: string[] | null
+          completed_at: string | null
+          evidence_session_id: string | null
+          observed_pace: number | null
+          prescribed_pace: number | null
+          section_equivalents: number | null
+          section_id: string | null
+          source: string | null
+        }
+        Relationships: []
+      }
       vstudent_ucat_progress_attempt_history: {
         Row: {
           attempted_at: string | null
@@ -26011,12 +26290,21 @@ export type Database = {
       }
       vstudent_ucat_score_projection_evidence: {
         Row: {
+          breadth: string | null
           completed_at: string | null
+          evidence_session_id: string | null
+          feedback_withheld: boolean | null
+          is_standardised: boolean | null
+          is_student_generated: boolean | null
+          observed_pace: number | null
+          prescribed_pace: number | null
+          question_count: number | null
           scaled_score: number | null
           score_points: number | null
           section_id: string | null
+          section_number: number | null
+          section_question_count: number | null
           source: string | null
-          student_exam_speed: number | null
           total_points: number | null
           was_timed: boolean | null
         }

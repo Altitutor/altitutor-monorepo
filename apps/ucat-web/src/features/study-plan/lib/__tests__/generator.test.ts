@@ -151,6 +151,86 @@ describe("generateStudyPlan", () => {
     expect(Math.max(...practiceByDate.values())).toBe(1);
   });
 
+  it("continues from essential into recommended instruction while Learning", () => {
+    const result = generateStudyPlan({
+      today: "2026-01-05",
+      planningDate: "2026-08-05",
+      profile: {
+        ...profile,
+        availableDays: [0, 1, 2, 3, 4, 5, 6].map((weekday) => ({
+          weekday: weekday as 0 | 1 | 2 | 3 | 4 | 5 | 6,
+          maxMinutes: 60,
+        })),
+      },
+      sections,
+      signals: sections.map((section) => ({
+        sectionId: section.id,
+        currentEstimate: null,
+        evidenceCount: 0,
+        completedFullSets: 0,
+      })),
+      learningModules: [
+        {
+          id: "vr-recommended",
+          title: "VR next method",
+          sectionId: "vr",
+          sectionNumber: 1,
+          priority: "recommended",
+          estimatedMinutes: 15,
+          completionPercent: 0,
+          relevanceScore: 1,
+        },
+        {
+          id: "vr-essential",
+          title: "VR foundations",
+          sectionId: "vr",
+          sectionNumber: 1,
+          priority: "essential",
+          estimatedMinutes: 15,
+          completionPercent: 0,
+          relevanceScore: 0.5,
+        },
+      ],
+      ...contentInputs,
+      completedMockCount: 0,
+    });
+
+    expect(
+      result.tasks
+        .filter((task) => task.taskType === "learn")
+        .map((task) => task.learningModuleId),
+    ).toEqual(["vr-essential", "vr-recommended"]);
+  });
+
+  it("does not repeat diagnostics when equivalent section evidence exists", () => {
+    const result = generateStudyPlan({
+      today: "2026-01-05",
+      planningDate: "2026-08-05",
+      profile: {
+        ...profile,
+        availableDays: [0, 1, 2, 3, 4, 5, 6].map((weekday) => ({
+          weekday: weekday as 0 | 1 | 2 | 3 | 4 | 5 | 6,
+          maxMinutes: 60,
+        })),
+      },
+      sections,
+      signals: sections.map((section) => ({
+        sectionId: section.id,
+        currentEstimate: null,
+        evidenceCount: 1,
+        completedFullSets: section.sectionNumber <= 3 ? 1 : 0,
+        benchmarkCompleted: section.sectionNumber <= 3,
+      })),
+      learningModules: [],
+      ...contentInputs,
+      completedMockCount: 0,
+    });
+
+    expect(
+      result.tasks.some((task) => task.taskType === "section_benchmark"),
+    ).toBe(false);
+  });
+
   it("does not shrink exam preparation to a legacy daily minute cap", () => {
     const result = generateStudyPlan({
       today: "2026-07-01",
@@ -180,7 +260,7 @@ describe("generateStudyPlan", () => {
     expect(result.readiness.mode).toBe("exam");
   });
 
-  it("uses untimed full-section benchmarks after planned learning coverage", () => {
+  it("uses prescribed-pace section diagnostics after basic learning exposure", () => {
     const result = generateStudyPlan({
       today: "2026-01-05",
       planningDate: "2026-08-05",
@@ -211,8 +291,9 @@ describe("generateStudyPlan", () => {
     expect(
       benchmarks.every(
         (task) =>
-          task.launchConfig.timeMode === "off" &&
-          task.launchConfig.calibrationPurpose === "natural_pace",
+          task.launchConfig.timeMode === "speed" &&
+          task.launchConfig.timeSpeedMultiplier === 0.5 &&
+          task.launchConfig.calibrationPurpose === "learning_diagnostic",
       ),
     ).toBe(true);
     expect(result.tasks.some((task) => task.taskType === "mock")).toBe(false);
@@ -234,6 +315,11 @@ describe("generateStudyPlan", () => {
         completedPracticeSessions: 2,
         qualifyingPracticeSessions: 2,
         largestPracticeSessionQuestionCount: 20,
+        representativeSessionCount: 2,
+        representativeSectionEquivalents: 1,
+        representativeAccuracy: 0.75,
+        benchmarkCompleted: true,
+        benchmarkPace: 0.8,
       })),
       learningModules: [],
       categories: timingCategories,
@@ -303,6 +389,14 @@ describe("generateStudyPlan", () => {
         completedPracticeSessions: 2,
         qualifyingPracticeSessions: 2,
         largestPracticeSessionQuestionCount: 20,
+        representativeSessionCount: 2,
+        representativeSectionEquivalents: 1,
+        representativeAccuracy: 0.75,
+        benchmarkCompleted: true,
+        benchmarkPace: 0.8,
+        prescribedPace: 1,
+        overspeedEligible: true,
+        overspeedPace: 1.3,
       })),
       learningModules: [],
       categories: timingCategories,
@@ -325,13 +419,74 @@ describe("generateStudyPlan", () => {
         (task) =>
           task.taskType === "practice" &&
           task.launchConfig.timeSpeedMultiplier === 1.3 &&
-          (task.targetUnits ?? 0) > 30,
+          (task.targetUnits ?? 0) >= 28,
       ),
     ).toBe(true);
+    const timingPractice = result.tasks.filter(
+      (task) => task.taskType === "practice",
+    );
+    const broadOrMixed = timingPractice.filter((task) => {
+      const categoryIds = task.launchConfig.categoryIds;
+      return Array.isArray(categoryIds) && categoryIds.length !== 1;
+    });
+    const targeted = timingPractice.filter((task) => {
+      const categoryIds = task.launchConfig.categoryIds;
+      return Array.isArray(categoryIds) && categoryIds.length > 0;
+    });
+    const overspeed = targeted.filter(
+      (task) => Number(task.launchConfig.timeSpeedMultiplier) > 1,
+    );
+    expect(broadOrMixed.length).toBeGreaterThanOrEqual(
+      Math.floor(timingPractice.length / 2),
+    );
+    expect(overspeed.length).toBeLessThanOrEqual(
+      Math.ceil(targeted.length / 4),
+    );
     expect(result.tasks.some((task) => task.sectionId === "sjt")).toBe(false);
   });
 
-  it("moves planned targeted work up the pace ladder from a 0.5x start", () => {
+  it("limits due calibrations to one third of ordinary Timing sessions", () => {
+    const result = generateStudyPlan({
+      today: "2026-03-02",
+      planningDate: "2026-08-05",
+      profile: {
+        ...profile,
+        availableDays: [0, 1, 2, 3, 4, 5, 6].map((weekday) => ({
+          weekday: weekday as 0 | 1 | 2 | 3 | 4 | 5 | 6,
+          maxMinutes: 60,
+        })),
+      },
+      sections,
+      signals: sections.map((section) => ({
+        sectionId: section.id,
+        currentEstimate: section.sectionNumber <= 3 ? 650 : null,
+        evidenceCount: 5,
+        completedFullSets: section.sectionNumber <= 3 ? 1 : 0,
+        representativeSessionCount: 2,
+        representativeSectionEquivalents: 1,
+        representativeAccuracy: 0.75,
+        benchmarkCompleted: true,
+        benchmarkPace: 0.8,
+        prescribedPace: 0.8,
+        calibrationDue: section.sectionNumber <= 3,
+      })),
+      learningModules: [],
+      categories: timingCategories,
+      skillTrainers,
+      completedMockCount: 1,
+    });
+
+    const ordinary = result.tasks.filter(
+      (task) => task.taskType === "practice",
+    ).length;
+    const calibrations = result.tasks.filter(
+      (task) => task.taskType === "section_benchmark",
+    ).length;
+    expect(calibrations).toBeGreaterThan(0);
+    expect(calibrations / (ordinary + calibrations)).toBeLessThanOrEqual(1 / 3);
+  });
+
+  it("does not advance prescribed pace from scheduled work", () => {
     const result = generateStudyPlan({
       today: "2026-03-02",
       planningDate: "2026-08-05",
@@ -356,6 +511,11 @@ describe("generateStudyPlan", () => {
         completedPracticeSessions: 2,
         qualifyingPracticeSessions: 2,
         largestPracticeSessionQuestionCount: 20,
+        representativeSessionCount: 2,
+        representativeSectionEquivalents: 1,
+        representativeAccuracy: 0.75,
+        benchmarkCompleted: true,
+        benchmarkPace: 0.8,
       })),
       learningModules: [],
       categories: timingCategories,
@@ -370,7 +530,7 @@ describe("generateStudyPlan", () => {
         : [],
     );
     expect(plannedPaces).toContain(0.5);
-    expect(plannedPaces.some((pace) => pace > 0.5)).toBe(true);
+    expect(plannedPaces.every((pace) => pace === 0.5)).toBe(true);
   });
 });
 

@@ -64,6 +64,11 @@ describe("study-plan readiness", () => {
           evidenceCount: 4,
           completedFullSets: 0,
           observedPace: 0.73,
+          representativeSessionCount: 2,
+          representativeSectionEquivalents: 1,
+          representativeAccuracy: 0.75,
+          benchmarkCompleted: true,
+          benchmarkPace: 0.7,
         },
         {
           sectionId: "qr",
@@ -75,6 +80,11 @@ describe("study-plan readiness", () => {
           qualifyingPracticeSessions: 1,
           largestPracticeSessionQuestionCount: 12,
           recentAccuracy: 0.7,
+          representativeSessionCount: 2,
+          representativeSectionEquivalents: 1,
+          representativeAccuracy: 0.75,
+          benchmarkCompleted: true,
+          benchmarkPace: 0.7,
         },
       ],
     });
@@ -89,7 +99,7 @@ describe("study-plan readiness", () => {
     ]);
   });
 
-  it("allows exposure to end learning without an accuracy hard lock", () => {
+  it("allows the experience route to end learning without an accuracy hard lock", () => {
     const result = buildReadinessSnapshot({
       today: "2026-01-01",
       planningDate: "2026-08-01",
@@ -116,12 +126,87 @@ describe("study-plan readiness", () => {
           currentEstimate: 500,
           evidenceCount: 6,
           completedFullSets: 0,
+          targetedPracticeSessionCount: 3,
+          targetedSectionEquivalents: 1.5,
+          benchmarkCompleted: true,
+          benchmarkPace: 0.7,
         },
       ],
     });
 
     expect(result.sections[0]?.mode).toBe("timing");
-    expect(result.sections[0]?.units[0]?.readinessRoute).toBe("exposure");
+    expect(result.sections[0]?.learningRoute).toBe("experience");
+  });
+
+  it("does not require modules on the accuracy route", () => {
+    const result = buildReadinessSnapshot({
+      today: "2026-01-01",
+      planningDate: "2026-08-01",
+      sections: sections.slice(0, 1),
+      categories: [category("reading"), category("tfct")],
+      learningModules: [
+        {
+          id: "essential-vr",
+          title: "VR foundations",
+          sectionId: "vr",
+          sectionNumber: 1,
+          priority: "essential",
+          estimatedMinutes: 20,
+          completionPercent: 0,
+          relevanceScore: 1,
+        },
+      ],
+      signals: [
+        {
+          sectionId: "vr",
+          currentEstimate: null,
+          evidenceCount: 2,
+          completedFullSets: 1,
+          representativeSessionCount: 2,
+          representativeSectionEquivalents: 1,
+          representativeAccuracy: 0.76,
+          benchmarkCompleted: true,
+          benchmarkPace: 0.8,
+        },
+      ],
+    });
+
+    expect(result.sections[0]).toMatchObject({
+      mode: "timing",
+      learningRoute: "accuracy",
+    });
+  });
+
+  it("keeps a graduated section in Timing after later poor evidence", () => {
+    const result = buildReadinessSnapshot({
+      today: "2026-02-01",
+      planningDate: "2026-08-01",
+      sections: sections.slice(0, 1),
+      categories: [
+        category("reading", { attemptedQuestionCount: 0 }),
+        category("tfct", { attemptedQuestionCount: 0 }),
+      ],
+      signals: [
+        {
+          sectionId: "vr",
+          currentEstimate: 500,
+          evidenceCount: 10,
+          completedFullSets: 1,
+          representativeSessionCount: 1,
+          representativeSectionEquivalents: 0.2,
+          representativeAccuracy: 0.3,
+          learningGraduatedAt: "2026-01-15T10:00:00.000Z",
+          learningGraduationRoute: "accuracy",
+          learningGraduationPolicyVersion: "preparation-policy-v2",
+        },
+      ],
+    });
+
+    expect(result.sections[0]).toMatchObject({
+      mode: "timing",
+      learningRoute: "accuracy",
+      learningGraduatedAt: "2026-01-15T10:00:00.000Z",
+    });
   });
 
   it("uses exam proximity as an override and starts pace at 0.5x", () => {
@@ -146,9 +231,9 @@ describe("study-plan readiness", () => {
     expect(result.sections[0]?.paceMultiplier).toBe(0.5);
   });
 
-  it("clamps and floors natural pace to the 0.5x–1.3x ladder", () => {
+  it("clamps and floors natural pace to the 0.5x–1.0x prescribed ladder", () => {
     expect(paceLadderStep(0.49)).toBe(0.5);
     expect(paceLadderStep(0.99)).toBe(0.9);
-    expect(paceLadderStep(1.38)).toBe(1.3);
+    expect(paceLadderStep(1.38)).toBe(1);
   });
 });

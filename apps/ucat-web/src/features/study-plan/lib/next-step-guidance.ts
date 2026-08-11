@@ -6,6 +6,7 @@ import type {
   StudyPlanSection,
   StudyPlanSectionSignal,
   StudyPlanSkillTrainer,
+  StudyPlanTimingEvidenceSession,
   StudyPlanTrainingMode,
 } from "@/features/study-plan/model/types";
 
@@ -79,6 +80,7 @@ export type BuildNextStepsInput = {
   categories: StudyPlanCategorySignal[];
   learningModules: StudyPlanLearningModule[];
   skillTrainers: StudyPlanSkillTrainer[];
+  timingSessions?: StudyPlanTimingEvidenceSession[];
   trainerAttemptCounts: Map<string, number>;
   completedMockCount: number;
 };

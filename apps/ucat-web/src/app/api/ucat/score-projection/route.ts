@@ -21,6 +21,15 @@ import type {
   ScoreProjectionSnapshot,
 } from "@/features/score-projection/types/score-projection";
 import { deriveTotalScoreProjection } from "@/features/score-projection/lib/total-projection";
+import { onlySnapshotsForModel } from "@/features/score-projection/lib/snapshot-history";
+import {
+  classifyScoreEvidence,
+  CURRENT_PREPARATION_VERSIONS,
+  estimateRepresentativeScore,
+  parseRepresentativeScoreEvidence,
+  REPRESENTATIVE_SCORE_EVIDENCE_SELECT,
+  type RepresentativeScoreEvidence,
+} from "@/features/preparation";
 
 const HISTORY_LOOKBACK_DAYS = 84;
 const HISTORY_STEP_DAYS = 7;
@@ -36,16 +45,6 @@ type ResolvedSection = {
   id: string;
   name: string;
   sectionNumber: number;
-};
-
-type ProjectionEvidenceRow = {
-  source: "set" | "mock" | "practice";
-  section_id: string | null;
-  completed_at: string | null;
-  score_points: number | null;
-  total_points: number | null;
-  was_timed: boolean | null;
-  student_exam_speed: number | null;
 };
 
 type SettingsRow = {
@@ -87,31 +86,31 @@ type SnapshotRow = {
   effective_evidence_weight: number;
   section_estimates: unknown;
   generated_at: string;
+  model_version: string;
 };
 
 type SnapshotWrite = SnapshotRow;
 
+type SnapshotFilter = {
+  eq: (
+    column: "student_id" | "model_version",
+    value: string,
+  ) => SnapshotFilter;
+  gte: (column: "snapshot_date", value: string) => SnapshotFilter;
+  order: (
+    column: "snapshot_date",
+    options: { ascending: boolean },
+  ) => Promise<{ data: SnapshotRow[] | null; error: Error | null }>;
+};
+
 type SnapshotStore = {
   from: (relation: "ucat_score_projection_snapshots") => {
-    select: (columns: string) => {
-      eq: (
-        column: "student_id",
-        value: string,
-      ) => {
-        gte: (
-          column: "snapshot_date",
-          value: string,
-        ) => {
-          order: (
-            column: "snapshot_date",
-            options: { ascending: boolean },
-          ) => Promise<{ data: SnapshotRow[] | null; error: Error | null }>;
-        };
-      };
-    };
+    select: (columns: string) => SnapshotFilter;
     upsert: (
       row: SnapshotWrite,
-      options: { onConflict: "student_id,snapshot_date" },
+      options: {
+        onConflict: "student_id,snapshot_date,model_version";
+      },
     ) => Promise<{ error: Error | null }>;
   };
 };
@@ -150,6 +149,7 @@ function readSectionEstimates(value: unknown): Record<string, number> {
 
 function toSnapshot(row: SnapshotRow): ScoreProjectionSnapshot {
   return {
+    modelVersion: row.model_version,
     date: row.snapshot_date,
     currentEstimate: row.current_estimate,
     confidence: row.confidence,
@@ -166,6 +166,7 @@ function snapshotsDiffer(left: SnapshotRow | undefined, right: SnapshotWrite) {
     left.confidence !== right.confidence ||
     left.uncertainty !== right.uncertainty ||
     left.effective_evidence_weight !== right.effective_evidence_weight ||
+    left.model_version !== right.model_version ||
     JSON.stringify(readSectionEstimates(left.section_estimates)) !==
       JSON.stringify(right.section_estimates)
   );
@@ -197,9 +198,10 @@ async function captureDailySnapshot(
   const { data, error } = await snapshotStore
     .from("ucat_score_projection_snapshots")
     .select(
-      "student_id, snapshot_date, current_estimate, confidence, uncertainty, effective_evidence_weight, section_estimates, generated_at",
+      "student_id, snapshot_date, current_estimate, confidence, uncertainty, effective_evidence_weight, section_estimates, generated_at, model_version",
     )
     .eq("student_id", student.id)
+    .eq("model_version", payload.modelVersion)
     .gte("snapshot_date", isoDate(lookback))
     .order("snapshot_date", { ascending: true });
   if (error) {
@@ -209,7 +211,7 @@ async function captureDailySnapshot(
     return [];
   }
 
-  const rows = data ?? [];
+  const rows = onlySnapshotsForModel(data ?? [], payload.modelVersion);
   const total = deriveTotalScoreProjection(payload.sections);
   if (
     total.currentEstimate == null ||
@@ -240,13 +242,14 @@ async function captureDailySnapshot(
       Math.round(total.effectiveEvidenceWeight * 100) / 100,
     section_estimates: sectionEstimates,
     generated_at: payload.generatedAt,
+    model_version: payload.modelVersion,
   };
   const currentRow = rows.find((row) => row.snapshot_date === snapshotDate);
 
   if (snapshotsDiffer(currentRow, nextRow)) {
     const { error: writeError } = await snapshotStore
       .from("ucat_score_projection_snapshots")
-      .upsert(nextRow, { onConflict: "student_id,snapshot_date" });
+      .upsert(nextRow, { onConflict: "student_id,snapshot_date,model_version" });
     if (writeError) {
       console.warn("[score-projection] Snapshot write failed", writeError);
       return rows.map(toSnapshot);
@@ -274,26 +277,34 @@ function historicalCheckpoints(generatedAt: Date): Date[] {
 }
 
 function buildHistoricalProjection(
-  evidence: AttemptEvidence[],
-  settings: ScoreProjectionSettings,
+  sectionId: string,
+  evidence: RepresentativeScoreEvidence[],
   generatedAt: Date,
 ): HistoricalProjectionPoint[] {
   return historicalCheckpoints(generatedAt).flatMap((checkpoint) => {
     const checkpointMs = checkpoint.getTime();
-    const estimate = estimateSectionScore(
-      evidence.filter((item) => item.timestamp <= checkpointMs),
-      settings,
-      checkpointMs,
-    );
+    const estimate = estimateRepresentativeScore({
+      now: checkpoint.toISOString(),
+      modelVersion: CURRENT_PREPARATION_VERSIONS.scoreModel,
+      evidence: evidence.filter(
+        (item) => new Date(item.completedAt).getTime() <= checkpointMs,
+      ),
+    }).sections.find((section) => section.sectionId === sectionId);
 
-    if (estimate.currentEstimate == null) return [];
+    if (
+      !estimate ||
+      estimate.currentEstimate == null ||
+      estimate.confidence == null ||
+      estimate.uncertainty == null
+    )
+      return [];
     return [
       {
         date: isoDate(checkpoint),
         value: estimate.currentEstimate,
         confidence: estimate.confidence,
         uncertainty: estimate.uncertainty,
-        effectiveEvidenceWeight: estimate.effectiveEvidenceWeight,
+        effectiveEvidenceWeight: estimate.representativeSectionEquivalents,
       },
     ];
   });
@@ -374,20 +385,9 @@ export async function GET() {
       .from("vstudent_ucat_sections")
       .select("id, name, section_number")
       .order("section_number"),
-    (
-      supabase as unknown as {
-        from: (relation: string) => {
-          select: (columns: string) => Promise<{
-            data: ProjectionEvidenceRow[] | null;
-            error: Error | null;
-          }>;
-        };
-      }
-    )
+    supabase
       .from("vstudent_ucat_score_projection_evidence")
-      .select(
-        "source, section_id, completed_at, score_points, total_points, was_timed, student_exam_speed",
-      ),
+      .select(REPRESENTATIVE_SCORE_EVIDENCE_SELECT),
     supabase.from("vstudent_ucat_score_projection_settings").select("*"),
   ]);
 
@@ -447,50 +447,63 @@ export async function GET() {
       .map((row) => [row.section_id!, row]),
   );
 
+  const scoreEvidence: RepresentativeScoreEvidence[] = [];
+
   for (const row of evidenceRes.data ?? []) {
-    if (!row.section_id || row.score_points == null || row.total_points == null)
-      continue;
-    const settings = withDefaults(settingsBySection.get(row.section_id));
-    if (
-      row.source === "practice" &&
-      row.total_points < settings.minPracticeScoredPoints
-    )
-      continue;
-    const completedAt = timestamp(row.completed_at);
+    const item = parseRepresentativeScoreEvidence(row);
+    if (!item) continue;
+    scoreEvidence.push(item);
+    if (classifyScoreEvidence(item) === "learning_only") continue;
+    const completedAt = timestamp(item.completedAt);
     if (completedAt == null) continue;
-    const scoringSection = scoringSectionById.get(row.section_id);
+    const scoringSection = scoringSectionById.get(item.sectionId);
     if (!scoringSection) continue;
-    evidenceBySection.get(row.section_id)?.push({
-      source: row.source,
+    evidenceBySection.get(item.sectionId)?.push({
+      source: item.source,
       score: estimateUcatSectionScore({
         section: scoringSection,
-        rawScore: row.score_points,
-        maxRawScore: row.total_points,
+        rawScore: item.marksAwarded,
+        maxRawScore: item.marksAvailable,
       }).scaledScore,
-      scoredPoints: row.score_points,
-      totalPoints: row.total_points,
+      scoredPoints: item.marksAwarded,
+      totalPoints: item.marksAvailable,
       timestamp: completedAt,
-      wasTimed: row.was_timed ?? false,
-      examSpeedRatio: row.student_exam_speed,
+      wasTimed: item.wasTimed,
+      examSpeedRatio: row.observed_pace,
     });
   }
 
   const generatedAt = new Date();
+  const representativeEstimate = estimateRepresentativeScore({
+    now: generatedAt.toISOString(),
+    modelVersion: CURRENT_PREPARATION_VERSIONS.scoreModel,
+    evidence: scoreEvidence,
+  });
+  const representativeBySection = new Map(
+    [
+      ...representativeEstimate.sections,
+      ...(representativeEstimate.situationalJudgement
+        ? [representativeEstimate.situationalJudgement]
+        : []),
+    ].map((section) => [section.sectionId, section]),
+  );
   const payload: ScoreProjectionResponse = {
+    modelVersion: CURRENT_PREPARATION_VERSIONS.scoreModel,
     generatedAt: generatedAt.toISOString(),
     horizons: [...DEFAULT_HORIZONS],
     snapshots: [],
     sections: sections.map((section) => {
       const settings = withDefaults(settingsBySection.get(section.id));
       const evidence = evidenceBySection.get(section.id) ?? [];
-      const estimate = estimateSectionScore(
+      const legacyEstimate = estimateSectionScore(
         evidence,
         settings,
         generatedAt.getTime(),
       );
-      const effectivePractice = estimate.weightedEvidence.length
+      const estimate = representativeBySection.get(section.id);
+      const effectivePractice = legacyEstimate.weightedEvidence.length
         ? resolveEffectivePracticePerWeek(
-            estimate.weightedEvidence,
+            legacyEstimate.weightedEvidence,
             settings,
             generatedAt.getTime(),
           )
@@ -499,7 +512,7 @@ export async function GET() {
             source: "default" as const,
           };
       const trajectory =
-        estimate.currentEstimate == null
+        estimate?.currentEstimate == null
           ? { projection: [], horizons: [] }
           : generateTrajectory({
               currentEstimate: estimate.currentEstimate,
@@ -513,14 +526,19 @@ export async function GET() {
         sectionId: section.id,
         sectionName: section.name,
         sectionNumber: section.sectionNumber,
-        currentEstimate: estimate.currentEstimate,
-        confidence: estimate.confidence,
-        uncertainty: estimate.uncertainty,
-        effectiveEvidenceWeight: estimate.effectiveEvidenceWeight,
-        evidenceCount: estimate.evidenceCount,
+        currentEstimate: estimate?.currentEstimate ?? null,
+        confidence: estimate?.confidence ?? "low",
+        uncertainty: estimate?.uncertainty ?? 90,
+        effectiveEvidenceWeight:
+          estimate?.representativeSectionEquivalents ?? 0,
+        evidenceCount: estimate?.qualifyingEvidenceCount ?? 0,
         paceSource: effectivePractice.source,
         effectivePracticePerWeek: Math.round(effectivePractice.pace),
-        history: buildHistoricalProjection(evidence, settings, generatedAt),
+        history: buildHistoricalProjection(
+          section.id,
+          scoreEvidence.filter((item) => item.sectionId === section.id),
+          generatedAt,
+        ),
         projection: trajectory.projection,
         horizons: trajectory.horizons,
       };

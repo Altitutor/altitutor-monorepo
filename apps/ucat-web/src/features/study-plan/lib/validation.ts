@@ -5,7 +5,9 @@ import type {
   StudyPlanSection,
   StudyPlanWeekday,
 } from "@/features/study-plan/model/types";
-import { parseIsoDate } from "@/features/study-plan/lib/dates";
+import { parseIsoDate, todayIso } from "@/features/study-plan/lib/dates";
+import { roundTargetScore } from "@/features/study-plan/lib/target-score";
+import { isTestDateInBounds } from "@/features/study-plan/lib/test-date-bounds";
 
 function integer(value: unknown, label: string): number {
   if (typeof value !== "number" || !Number.isInteger(value)) {
@@ -55,11 +57,11 @@ export function parseStudyPlanProfileInput(
     throw new Error("Choose whether you want to use a Study plan.");
   }
   const studyPlanEnabled = record.studyPlanEnabled;
-  const targetScore = integer(record.targetScore, "Target score");
-  if (targetScore < 900 || targetScore > 2700 || targetScore % 10 !== 0) {
-    throw new Error(
-      "Target score must be between 900 and 2700, in 10-point increments.",
-    );
+  const targetScore = roundTargetScore(
+    integer(record.targetScore, "Target score"),
+  );
+  if (targetScore < 900 || targetScore > 2700) {
+    throw new Error("Target score must be between 900 and 2700.");
   }
   const testYear = integer(record.testYear, "Test year");
   if (
@@ -76,6 +78,9 @@ export function parseStudyPlanProfileInput(
     parseIsoDate(testDate);
     if (Number(testDate.slice(0, 4)) !== testYear) {
       throw new Error("Test date must be in the selected test year.");
+    }
+    if (!isTestDateInBounds(testDate, testYear, todayIso())) {
+      throw new Error("Test date must be today or in the future.");
     }
   }
   if (!Array.isArray(record.availableDays)) {

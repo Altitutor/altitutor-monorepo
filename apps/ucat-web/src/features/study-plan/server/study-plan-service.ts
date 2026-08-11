@@ -2,20 +2,22 @@ import "server-only";
 
 import { randomUUID } from "node:crypto";
 import type { Database, Json } from "@altitutor/shared";
-import { estimateUcatSectionScore } from "@altitutor/ucat-marking";
-import type { UcatScoringSection } from "@altitutor/ucat-marking";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { supabaseAdmin } from "@/lib/supabase/admin";
+import {
+  CURRENT_PREPARATION_VERSIONS,
+  estimateRepresentativeScore,
+  parseRepresentativeScoreEvidence,
+  prepareStudent,
+  REPRESENTATIVE_SCORE_EVIDENCE_SELECT,
+  STANDARD_PREPARATION_TIMING_PROFILE,
+  type PreparationEngineResult,
+  type RepresentativeScoreEvidence,
+} from "@/features/preparation";
 import {
   extractTextFromRichJson,
   type JsonLike,
 } from "@/features/question-engine/model/rich-text";
-import {
-  defaultSettings,
-  estimateSectionScore,
-  type AttemptEvidence,
-  type ScoreProjectionSettings,
-} from "@/features/score-projection/lib/model";
 import {
   addDays,
   midpointDate,
@@ -24,14 +26,12 @@ import {
 import {
   estimateReviewMinutes,
   generateExtraStudyTasks,
-  generateStudyPlan,
   reviewTask,
 } from "@/features/study-plan/lib/generator";
 import { estimateLearningModuleMinutes } from "@/features/study-plan/lib/module-duration";
 import { prepareStudyPlanTasks } from "@/features/study-plan/lib/persistence";
 import {
   buildAlternativeNextStep,
-  buildNextStepDrafts,
   formatAttemptReviewLabel,
   resolveGuidanceTrigger,
   type BuildNextStepsInput,
@@ -47,7 +47,6 @@ import type {
   StudyPlanCapacityRisk,
   StudyPlanCategorySignal,
   StudyPlanExtraStudyInput,
-  StudyPlanGenerationResult,
   StudyGuidanceAlternativeInput,
   StudyGuidanceItem,
   StudyPlanLearningModule,
@@ -58,6 +57,7 @@ import type {
   StudyPlanSectionSignal,
   StudyPlanSkillTrainer,
   StudyPlanTask,
+  StudyPlanTimingEvidenceSession,
 } from "@/features/study-plan/model/types";
 
 type StudyPlanReason =
@@ -121,6 +121,24 @@ function parseAvailability(
   });
 }
 
+function profileInput(profile: ProfileRow): StudyPlanProfileInput {
+  return {
+    studyPlanEnabled: profile.study_plan_enabled,
+    targetScore: profile.target_score,
+    testYear: profile.test_year,
+    testDate: profile.test_date,
+    availableDays: parseAvailability(profile.available_days),
+    preferredMockWeekday: profile.preferred_mock_weekday as
+      | 0
+      | 1
+      | 2
+      | 3
+      | 4
+      | 5
+      | 6,
+  };
+}
+
 async function resolveStudentId(userId: string): Promise<string> {
   return (await resolveStudent(userId)).id;
 }
@@ -163,112 +181,24 @@ async function planningDateFor(profile: ProfileRow): Promise<{
   return { planningDate: `${profile.test_year}-07-15`, provisional: true };
 }
 
-function projectionSettings(
-  row:
-    | {
-        mock_source_weight: number | null;
-        set_source_weight: number | null;
-        practice_source_weight: number | null;
-        timed_weight: number | null;
-        slow_timed_weight: number | null;
-        untimed_weight: number | null;
-        recency_half_life_days: number | null;
-        min_practice_scored_points: number | null;
-        min_prediction_evidence_weight: number | null;
-      }
-    | undefined,
-): ScoreProjectionSettings {
-  const defaults = defaultSettings();
-  if (!row) return defaults;
-  return {
-    ...defaults,
-    mockSourceWeight: row.mock_source_weight ?? defaults.mockSourceWeight,
-    setSourceWeight: row.set_source_weight ?? defaults.setSourceWeight,
-    practiceSourceWeight:
-      row.practice_source_weight ?? defaults.practiceSourceWeight,
-    timedWeight: row.timed_weight ?? defaults.timedWeight,
-    slowTimedWeight: row.slow_timed_weight ?? defaults.slowTimedWeight,
-    untimedWeight: row.untimed_weight ?? defaults.untimedWeight,
-    recencyHalfLifeDays:
-      row.recency_half_life_days ?? defaults.recencyHalfLifeDays,
-    minPracticeScoredPoints:
-      row.min_practice_scored_points ?? defaults.minPracticeScoredPoints,
-    minPredictionEvidenceWeight:
-      row.min_prediction_evidence_weight ??
-      defaults.minPredictionEvidenceWeight,
-  };
-}
-
-function predictedScoreFromEvidence(
-  rows: Array<{
-    source: string | null;
-    completed_at: string | null;
-    score_points: number | null;
-    total_points: number | null;
-    was_timed: boolean | null;
-    student_exam_speed: number | null;
-  }>,
-  settings: ScoreProjectionSettings,
-  section: UcatScoringSection,
-): ReturnType<typeof estimateSectionScore> {
-  const evidence: AttemptEvidence[] = rows.flatMap((row) => {
-    if (
-      row.source !== "practice" &&
-      row.source !== "set" &&
-      row.source !== "mock"
-    )
-      return [];
-    if (
-      row.score_points == null ||
-      row.total_points == null ||
-      row.total_points <= 0
-    )
-      return [];
-    if (
-      row.source === "practice" &&
-      row.total_points < settings.minPracticeScoredPoints
-    )
-      return [];
-    const score = estimateUcatSectionScore({
-      section,
-      rawScore: row.score_points,
-      maxRawScore: row.total_points,
-    }).scaledScore;
-    const timestamp = row.completed_at
-      ? new Date(row.completed_at).getTime()
-      : Number.NaN;
-    if (score == null || !Number.isFinite(timestamp)) return [];
-    return [
-      {
-        source: row.source,
-        score,
-        scoredPoints: row.score_points,
-        totalPoints: row.total_points,
-        timestamp,
-        wasTimed: row.was_timed ?? false,
-        examSpeedRatio: row.student_exam_speed,
-      },
-    ];
-  });
-  return estimateSectionScore(evidence, settings, Date.now());
-}
-
 async function loadGenerationInputs(
   supabase: SupabaseClient<Database>,
   studentId: string,
+  testYear: number,
 ): Promise<{
   sections: StudyPlanSection[];
   signals: StudyPlanSectionSignal[];
   categories: StudyPlanCategorySignal[];
   learningModules: StudyPlanLearningModule[];
   skillTrainers: StudyPlanSkillTrainer[];
+  timingSessions: StudyPlanTimingEvidenceSession[];
+  scoreEvidence: RepresentativeScoreEvidence[];
   completedMockCount: number;
 }> {
   const admin = requireAdmin();
   const [
     sectionsRes,
     evidenceRes,
-    projectionSettingsRes,
     fullSetRes,
     completedBenchmarksRes,
     categoriesRes,
@@ -283,6 +213,8 @@ async function loadGenerationInputs(
     trainerItemsRes,
     trainerConfigsRes,
     mockRes,
+    graduationStatesRes,
+    timingEvidenceRes,
   ] = await Promise.all([
     admin
       .from("ucat_sections")
@@ -292,14 +224,7 @@ async function loadGenerationInputs(
       .order("section_number"),
     supabase
       .from("vstudent_ucat_score_projection_evidence")
-      .select(
-        "source, section_id, completed_at, score_points, total_points, was_timed, student_exam_speed",
-      ),
-    admin
-      .from("ucat_score_projection_settings")
-      .select(
-        "section_id, mock_source_weight, set_source_weight, practice_source_weight, timed_weight, slow_timed_weight, untimed_weight, recency_half_life_days, min_practice_scored_points, min_prediction_evidence_weight",
-      ),
+      .select(REPRESENTATIVE_SCORE_EVIDENCE_SELECT),
     supabase
       .from("vstudent_ucat_section_set_progress")
       .select("section_id, total_completed"),
@@ -357,11 +282,21 @@ async function loadGenerationInputs(
       .select("id", { count: "exact", head: true })
       .eq("student_id", studentId)
       .not("completed_at", "is", null),
+    supabase
+      .from("vstudent_ucat_preparation_section_states")
+      .select(
+        "section_id, learning_graduated_at, learning_graduation_route, policy_version, prescribed_pace, prescribed_pace_set_at, pace_policy_version",
+      )
+      .eq("test_year", testYear),
+    supabase
+      .from("vstudent_ucat_preparation_timing_evidence")
+      .select(
+        "evidence_session_id, source, section_id, completed_at, prescribed_pace, observed_pace, accuracy, section_equivalents, category_ids, breadth",
+      ),
   ]);
   for (const result of [
     sectionsRes,
     evidenceRes,
-    projectionSettingsRes,
     fullSetRes,
     completedBenchmarksRes,
     categoriesRes,
@@ -376,6 +311,8 @@ async function loadGenerationInputs(
     trainerItemsRes,
     trainerConfigsRes,
     mockRes,
+    graduationStatesRes,
+    timingEvidenceRes,
   ]) {
     if (result.error) throw result.error;
   }
@@ -423,27 +360,91 @@ async function loadGenerationInputs(
       Math.max(1, fullSets.get(benchmark.section_id) ?? 0),
     );
   }
-  const settingsBySection = new Map(
-    (projectionSettingsRes.data ?? []).flatMap((row) =>
-      row.section_id ? [[row.section_id, row] as const] : [],
-    ),
+  const scoreEvidence: RepresentativeScoreEvidence[] = (
+    evidenceRes.data ?? []
+  ).flatMap((row) => {
+    const evidence = parseRepresentativeScoreEvidence(row);
+    return evidence ? [evidence] : [];
+  });
+  const representativeScore = estimateRepresentativeScore({
+    now: new Date().toISOString(),
+    modelVersion: CURRENT_PREPARATION_VERSIONS.scoreModel,
+    evidence: scoreEvidence,
+  });
+  const scoreBySection = new Map(
+    representativeScore.sections.map((section) => [section.sectionId, section]),
+  );
+  const graduationBySection = new Map(
+    (graduationStatesRes.data ?? []).map((state) => [state.section_id, state]),
   );
   const signals = sections.map((section) => {
     const evidence = evidenceBySection.get(section.id) ?? [];
-    const estimate = predictedScoreFromEvidence(
-      evidence,
-      projectionSettings(settingsBySection.get(section.id)),
-      section.key,
-    );
+    const estimate = scoreBySection.get(section.id);
     const readinessEvidence = (readinessEvidenceRes.data ?? []).find(
       (row) =>
         row.readiness_scope === "section" && row.section_id === section.id,
     );
+    const legacyRepresentative = evidence.filter((row) => {
+      const totalPoints = row.total_points ?? 0;
+      const pace = row.prescribed_pace ?? row.observed_pace ?? 0;
+      const broadEnough =
+        row.source === "set" ||
+        row.source === "mock" ||
+        totalPoints >= section.questionCount * 0.5;
+      return row.was_timed === true && pace >= 0.5 && broadEnough;
+    });
+    const completedTiming = (timingEvidenceRes.data ?? []).filter(
+      (row) => row.section_id === section.id,
+    );
+    const representativeTiming = completedTiming.filter(
+      (row) =>
+        row.breadth !== "narrow" &&
+        (row.prescribed_pace ?? row.observed_pace ?? 0) >= 0.5,
+    );
+    const representativeEquivalents = representativeTiming.reduce(
+      (sum, row) => sum + Math.max(0, row.section_equivalents ?? 0),
+      0,
+    );
+    const representativeAccuracyWeight = representativeTiming.reduce(
+      (sum, row) =>
+        sum +
+        (row.accuracy == null ? 0 : Math.max(0, row.section_equivalents ?? 0)),
+      0,
+    );
+    const representativeAccuracyScore = representativeTiming.reduce(
+      (sum, row) =>
+        sum + (row.accuracy ?? 0) * Math.max(0, row.section_equivalents ?? 0),
+      0,
+    );
+    const targetedTiming = completedTiming.filter(
+      (row) =>
+        row.source === "practice" && (row.section_equivalents ?? 0) < 0.9,
+    );
+    const targetedEquivalents = targetedTiming.reduce(
+      (sum, row) => sum + Math.max(0, row.section_equivalents ?? 0),
+      0,
+    );
+    const legacyBenchmark = [...legacyRepresentative]
+      .filter((row) => (row.total_points ?? 0) >= section.questionCount * 0.9)
+      .sort((left, right) =>
+        (right.completed_at ?? "").localeCompare(left.completed_at ?? ""),
+      )[0];
+    const timingBenchmark = [...representativeTiming]
+      .filter((row) => (row.section_equivalents ?? 0) >= 0.9)
+      .sort((left, right) =>
+        (right.completed_at ?? "").localeCompare(left.completed_at ?? ""),
+      )[0];
+    const graduation = graduationBySection.get(section.id);
+    const learningGraduationRoute: "accuracy" | "experience" | null =
+      graduation?.learning_graduation_route === "accuracy" ||
+      graduation?.learning_graduation_route === "experience"
+        ? graduation.learning_graduation_route
+        : null;
     return {
       sectionId: section.id,
       currentEstimate:
-        section.sectionNumber <= 3 ? estimate.currentEstimate : null,
-      evidenceCount: estimate.evidenceCount,
+        section.sectionNumber <= 3 ? estimate?.currentEstimate ?? null : null,
+      evidenceCount: estimate?.qualifyingEvidenceCount ?? 0,
       completedFullSets: fullSets.get(section.id) ?? 0,
       attemptedQuestionCount: readinessEvidence?.attempted_question_count ?? 0,
       completedPracticeSessions:
@@ -454,6 +455,43 @@ async function loadGenerationInputs(
         readinessEvidence?.largest_practice_session_question_count ?? 0,
       recentAccuracy: readinessEvidence?.recent_accuracy ?? null,
       observedPace: readinessEvidence?.observed_pace ?? null,
+      representativeSessionCount:
+        representativeTiming.length || legacyRepresentative.length,
+      representativeSectionEquivalents:
+        representativeTiming.length > 0
+          ? representativeEquivalents
+          : legacyRepresentative.reduce(
+              (sum, row) => sum + (row.total_points ?? 0),
+              0,
+            ) / section.questionCount,
+      representativeAccuracy:
+        representativeAccuracyWeight > 0
+          ? representativeAccuracyScore / representativeAccuracyWeight
+          : null,
+      targetedPracticeSessionCount: targetedTiming.length,
+      targetedSectionEquivalents: targetedEquivalents,
+      benchmarkCompleted:
+        timingBenchmark != null ||
+        legacyBenchmark != null ||
+        (fullSets.get(section.id) ?? 0) > 0,
+      benchmarkAccuracy:
+        timingBenchmark?.accuracy ??
+        (legacyBenchmark && (legacyBenchmark.total_points ?? 0) > 0
+          ? (legacyBenchmark.score_points ?? 0) /
+            (legacyBenchmark.total_points ?? 1)
+          : null),
+      benchmarkPace:
+        timingBenchmark?.prescribed_pace ??
+        timingBenchmark?.observed_pace ??
+        legacyBenchmark?.prescribed_pace ??
+        legacyBenchmark?.observed_pace ??
+        null,
+      learningGraduatedAt: graduation?.learning_graduated_at ?? null,
+      learningGraduationRoute,
+      learningGraduationPolicyVersion: graduation?.policy_version ?? null,
+      prescribedPace: graduation?.prescribed_pace ?? null,
+      prescribedPaceSetAt: graduation?.prescribed_pace_set_at ?? null,
+      pacePolicyVersion: graduation?.pace_policy_version ?? null,
     };
   });
   const categoryCounts = new Map(
@@ -609,27 +647,121 @@ async function loadGenerationInputs(
       },
     ];
   });
+  const timingSessions: StudyPlanTimingEvidenceSession[] = (
+    timingEvidenceRes.data ?? []
+  ).flatMap((row) => {
+    if (
+      !row.evidence_session_id ||
+      !row.section_id ||
+      !row.completed_at ||
+      (row.source !== "practice" &&
+        row.source !== "set" &&
+        row.source !== "mock") ||
+      (row.breadth !== "broad" &&
+        row.breadth !== "mixed" &&
+        row.breadth !== "narrow")
+    ) {
+      return [];
+    }
+    return [
+      {
+        id: row.evidence_session_id,
+        sectionId: row.section_id,
+        source: row.source,
+        completedAt: row.completed_at,
+        prescribedPace: row.prescribed_pace,
+        observedPace: row.observed_pace,
+        accuracy: row.accuracy,
+        sectionEquivalents: Math.max(0, row.section_equivalents ?? 0),
+        breadth: row.breadth,
+        categoryIds: row.category_ids ?? [],
+      },
+    ];
+  });
   return {
     sections,
     signals,
     categories,
     learningModules,
     skillTrainers,
+    timingSessions,
+    scoreEvidence,
     completedMockCount: mockRes.count ?? 0,
   };
+}
+
+async function persistPreparationProgression(
+  studentId: string,
+  testYear: number,
+  preparation: PreparationEngineResult,
+): Promise<void> {
+  const graduationEvents = preparation.progressionEvents.filter(
+    (event) => event.type === "learning_graduated",
+  );
+  const rows = graduationEvents.map((event) => ({
+    student_id: studentId,
+    test_year: testYear,
+    section_id: event.sectionId,
+    learning_graduated_at: event.occurredAt,
+    learning_graduation_route: event.route,
+    policy_version: event.policyVersion,
+    evidence_snapshot: {
+      assessment: preparation.assessment.sections.find(
+        (section) => section.sectionId === event.sectionId,
+      ),
+      score: preparation.currentScore.sections.find(
+        (section) => section.sectionId === event.sectionId,
+      ),
+    },
+  }));
+  const admin = requireAdmin();
+  if (rows.length) {
+    const { error } = await admin
+      .from("ucat_student_preparation_section_states")
+      .upsert(rows, {
+        onConflict: "student_id,test_year,section_id",
+        ignoreDuplicates: true,
+      });
+    if (error) throw error;
+  }
+  const timingEvents = preparation.progressionEvents.filter(
+    (event) => event.type === "timing_pace_changed",
+  );
+  await Promise.all(
+    timingEvents.map(async (event) => {
+      const { error } = await admin
+        .from("ucat_student_preparation_section_states")
+        .update({
+          prescribed_pace: event.toPace,
+          prescribed_pace_set_at: event.occurredAt,
+          pace_policy_version: event.policyVersion,
+          timing_evidence_snapshot: {
+            reason: event.reason,
+            assessment: preparation.assessment.sections.find(
+              (section) => section.sectionId === event.sectionId,
+            ),
+          },
+        })
+        .eq("student_id", studentId)
+        .eq("test_year", testYear)
+        .eq("section_id", event.sectionId);
+      if (error) throw error;
+    }),
+  );
 }
 
 async function persistGeneration(
   studentId: string,
   profile: ProfileRow,
   planningDate: string,
-  result: StudyPlanGenerationResult,
+  preparation: PreparationEngineResult,
   reason: StudyPlanReason,
   completedMockCount: number,
   signals: StudyPlanSectionSignal[],
 ): Promise<void> {
   const admin = requireAdmin();
-  const generatedAt = new Date().toISOString();
+  const result = preparation.plan;
+  const generatedAt = preparation.generatedAt;
   const preserveThrough = reason === "onboarding" ? null : todayIso();
   if (preserveThrough) {
     const { data: activeGeneration, error: generationError } = await admin
@@ -683,6 +815,9 @@ async function persistGeneration(
     p_starts_on: todayIso(),
     p_ends_on: result.endsOn,
     p_input_snapshot: {
+      seed: preparation.seed,
+      versions: preparation.versions,
+      timingProfile: preparation.timingProfile,
       targetScore: profile.target_score,
       testYear: profile.test_year,
       testDate: profile.test_date,
@@ -691,9 +826,13 @@ async function persistGeneration(
       completedMockCount,
     },
     p_projection_snapshot: {
+      versions: preparation.versions,
       sectionTargets: result.sectionTargets,
       sectionSignals: signals,
       readiness: result.readiness,
+      currentScore: preparation.currentScore,
+      trajectory: preparation.trajectory,
+      explanationTrace: preparation.explanationTrace,
     },
     p_capacity_risk: result.capacityRisk as unknown as Json,
     p_tasks: taskRows as unknown as Json,
@@ -711,32 +850,48 @@ async function generateForProfile(
   reason: StudyPlanReason,
 ): Promise<void> {
   const { planningDate } = await planningDateFor(profile);
-  const inputs = await loadGenerationInputs(supabase, studentId);
-  const result = generateStudyPlan({
-    today: todayIso(),
-    planningDate,
-    profile: {
-      studyPlanEnabled: true,
-      targetScore: profile.target_score,
-      testYear: profile.test_year,
-      testDate: profile.test_date,
-      availableDays: parseAvailability(profile.available_days),
-      preferredMockWeekday: profile.preferred_mock_weekday as
-        | 0
-        | 1
-        | 2
-        | 3
-        | 4
-        | 5
-        | 6,
+  const inputs = await loadGenerationInputs(
+    supabase,
+    studentId,
+    profile.test_year,
+  );
+  const now = new Date();
+  const today = todayIso(now);
+  const preparation = prepareStudent({
+    clock: {
+      now: now.toISOString(),
+      today,
     },
-    ...inputs,
+    seed: `study-plan:${studentId}:${reason}:${today}`,
+    versions: CURRENT_PREPARATION_VERSIONS,
+    timingProfile: STANDARD_PREPARATION_TIMING_PROFILE,
+    goal: {
+      planningDate,
+      profile: { ...profileInput(profile), studyPlanEnabled: true },
+    },
+    content: {
+      sections: inputs.sections,
+      categories: inputs.categories,
+      learningModules: inputs.learningModules,
+      skillTrainers: inputs.skillTrainers,
+    },
+    evidence: {
+      sectionSignals: inputs.signals,
+      timingSessions: inputs.timingSessions,
+      scoreEvidence: inputs.scoreEvidence,
+      completedMockCount: inputs.completedMockCount,
+    },
   });
+  await persistPreparationProgression(
+    studentId,
+    profile.test_year,
+    preparation,
+  );
   await persistGeneration(
     studentId,
     profile,
     planningDate,
-    result,
+    preparation,
     reason,
     inputs.completedMockCount,
     inputs.signals,
@@ -1311,7 +1466,7 @@ async function loadNextStepBuildInput(
 ): Promise<BuildNextStepsInput> {
   const admin = requireAdmin();
   const [inputs, trainerAttempts, planning] = await Promise.all([
-    loadGenerationInputs(supabase, studentId),
+    loadGenerationInputs(supabase, studentId, profile.test_year),
     admin
       .from("student_skill_trainer_attempts")
       .select("skill_trainer_id")
@@ -1407,8 +1562,40 @@ async function getOrRefreshNextSteps(
       incompleteReview,
     },
   );
-  const drafts = buildNextStepDrafts(buildInput);
   const nextTrigger = triggerKey ?? `daily:${today}`;
+  const now = new Date();
+  const preparation = prepareStudent({
+    clock: { now: now.toISOString(), today },
+    seed: `guidance:${studentId}:${nextTrigger}`,
+    versions: CURRENT_PREPARATION_VERSIONS,
+    timingProfile: STANDARD_PREPARATION_TIMING_PROFILE,
+    goal: {
+      planningDate: buildInput.planningDate,
+      profile: profileInput(profile),
+    },
+    content: {
+      sections: buildInput.sections,
+      categories: buildInput.categories,
+      learningModules: buildInput.learningModules,
+      skillTrainers: buildInput.skillTrainers,
+    },
+    evidence: {
+      sectionSignals: buildInput.signals,
+      timingSessions: buildInput.timingSessions,
+      completedMockCount: buildInput.completedMockCount,
+    },
+    guidance: {
+      dailyWarmup: buildInput.dailyWarmup,
+      incompleteReview: buildInput.incompleteReview,
+      trainerAttemptCounts: Object.fromEntries(buildInput.trainerAttemptCounts),
+    },
+  });
+  await persistPreparationProgression(
+    studentId,
+    profile.test_year,
+    preparation,
+  );
+  const drafts = preparation.immediateGuidance;
   const { data, error } = await admin
     .from("ucat_student_next_steps")
     .upsert(
@@ -1584,7 +1771,11 @@ export async function createExtraStudyTask(
   }
 
   const studentId = await resolveStudentId(userId);
-  const generationInputs = await loadGenerationInputs(supabase, studentId);
+  const generationInputs = await loadGenerationInputs(
+    supabase,
+    studentId,
+    currentPlan.profile.testYear,
+  );
   const nextSortOrder =
     Math.max(-1, ...currentPlan.todayTasks.map((task) => task.sortOrder)) + 1;
   const extraTasks = (() => {
@@ -1992,7 +2183,9 @@ export async function completeStudyPlanReviewForAttempt(
 
   const { data: tasks, error } = await admin
     .from("ucat_student_study_plan_tasks")
-    .select("id, matched_activity_id, matched_activity_type, launch_path, status")
+    .select(
+      "id, matched_activity_id, matched_activity_type, launch_path, status",
+    )
     .eq("student_id", studentId)
     .eq("task_type", "review")
     .in("status", ["planned", "in_progress", "partial"]);
