@@ -1,5 +1,7 @@
 export { CreateTaskDialog } from './CreateTaskDialog';
 export { EditTaskDialog } from './EditTaskDialog';
+export { TaskDetailPage } from './TaskDetailPage';
+export { TaskDetailView } from './TaskDetailView';
 export { TaskCard } from './TaskCard';
 export { SimpleTaskCard } from './SimpleTaskCard';
 export { TasksBoard } from './TasksBoard';
