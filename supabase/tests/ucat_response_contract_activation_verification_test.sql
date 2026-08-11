@@ -1,5 +1,5 @@
 BEGIN;
-SELECT plan(18);
+SELECT plan(20);
 
 SELECT col_not_null(
   'public',
@@ -347,6 +347,85 @@ SELECT throws_ok(
   'P0001',
   'Malformed legacy UCAT response snapshot',
   'malformed legacy snapshots fail closed instead of being guessed'
+);
+
+INSERT INTO public.ucat_questions (
+  id,
+  question_stem_id,
+  question_text,
+  index,
+  response_type,
+  answer_scheme
+)
+VALUES (
+  'a4410000-0000-4000-8000-000000000010',
+  'a4400000-0000-4000-8000-000000000001',
+  '{"type":"doc","content":[]}'::jsonb,
+  4,
+  'multiple_choice',
+  'single_choice'
+);
+
+INSERT INTO public.question_answer_options (
+  id,
+  question_id,
+  answer_text,
+  index,
+  answer_key_value
+)
+VALUES (
+  'a4420000-0000-4000-8000-000000000010',
+  'a4410000-0000-4000-8000-000000000010',
+  '{"type":"doc","content":[]}'::jsonb,
+  0,
+  'correct'
+);
+
+INSERT INTO public.student_question_attempts (
+  id,
+  student_id,
+  question_id,
+  question_answer_option_id
+)
+SELECT
+  'a4430000-0000-4000-8000-000000000010',
+  student.id,
+  'a4410000-0000-4000-8000-000000000010',
+  'a4420000-0000-4000-8000-000000000010'
+FROM public.students student
+ORDER BY student.id
+LIMIT 1;
+
+UPDATE public.question_answer_options
+SET deleted_at = clock_timestamp()
+WHERE id = 'a4420000-0000-4000-8000-000000000010';
+
+UPDATE public.ucat_questions
+SET deleted_at = clock_timestamp()
+WHERE id = 'a4410000-0000-4000-8000-000000000010';
+
+SELECT lives_ok(
+  $$
+    UPDATE public.student_question_attempts
+    SET answer_snapshot = public.ucat_canonical_response_snapshot(
+      question_id,
+      'single_choice',
+      answer_snapshot,
+      question_answer_option_id
+    )
+    WHERE id = 'a4430000-0000-4000-8000-000000000010'
+  $$,
+  'historical attempts convert after their question and option are soft-deleted'
+);
+
+SELECT is(
+  (
+    SELECT answer_snapshot->>'type'
+    FROM public.student_question_attempts
+    WHERE id = 'a4430000-0000-4000-8000-000000000010'
+  ),
+  'ucat_response_v1',
+  'the soft-deleted historical attempt stores a canonical response snapshot'
 );
 
 SELECT * FROM finish();
