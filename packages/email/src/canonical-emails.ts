@@ -8,16 +8,9 @@ import {
 
 const paragraphStyle =
   "margin:0 0 18px;color:#394650;font-size:15px;line-height:1.7";
-const mutedStyle =
-  "margin:0;color:#68757e;font-size:13px;line-height:1.6";
 
 function textWithBreaks(value: string): string {
   return escapeEmailHtml(value).replaceAll("\n", "<br />");
-}
-
-function actionFallback(url: string): string {
-  const safeUrl = escapeEmailHtml(url);
-  return `<p class="email-muted" style="${mutedStyle}">If the button does not work, copy this link into your browser:<br /><a class="email-link" href="${safeUrl}" style="color:#0a2941;word-break:break-all">${safeUrl}</a></p>`;
 }
 
 export function buildInvitationEmail(input: {
@@ -47,7 +40,6 @@ export function buildInvitationEmail(input: {
       ${introductionHtml}
       <p class="email-copy" style="${paragraphStyle}">You’ve been invited to create your Altitutor account. Use the secure invitation below to get started.</p>
       ${renderEmailButton(input.inviteUrl, "Create account")}
-      ${actionFallback(input.inviteUrl)}
       <p class="email-muted" style="margin:18px 0 0;color:#68757e;font-size:13px;line-height:1.6">This invitation link expires in ${escapeEmailHtml(expiry)}. If you did not expect this invitation, you can safely ignore this email.</p>
     `,
   });
@@ -79,7 +71,6 @@ export function buildRegistrationEmail(input: {
       ${introductionHtml}
       <p class="email-copy" style="${paragraphStyle}">Please complete ${escapeEmailHtml(input.studentName)}’s student registration using the secure link below.</p>
       ${renderEmailButton(input.registrationUrl, "Complete registration")}
-      ${actionFallback(input.registrationUrl)}
       <p class="email-muted" style="margin:18px 0 0;color:#68757e;font-size:13px;line-height:1.6">If you did not expect this email, you can safely ignore it.</p>
     `,
   });
@@ -117,7 +108,6 @@ export function buildBookingConfirmationEmail(input: {
       ${introductionHtml}
       <p class="email-copy" style="${paragraphStyle}">Your booking confirmation${escapeEmailHtml(when)} is ready.</p>
       ${renderEmailButton(input.bookingUrl, "View booking confirmation")}
-      ${actionFallback(input.bookingUrl)}
     `,
   });
 }
@@ -143,7 +133,6 @@ export function buildBookingChangedEmail(
       <p class="email-copy" style="${paragraphStyle}">Hello ${escapeEmailHtml(input.recipientName)},</p>
       <p class="email-copy" style="${paragraphStyle}">Your booking has been updated to <strong class="email-strong" style="color:#0a2941">${escapeEmailHtml(input.sessionDate)}</strong> at <strong class="email-strong" style="color:#0a2941">${escapeEmailHtml(input.sessionTime)}</strong>.</p>
       ${renderEmailButton(input.bookingUrl, "View updated booking")}
-      ${actionFallback(input.bookingUrl)}
     `,
   });
 }
@@ -192,8 +181,7 @@ export function buildInvoiceNotificationEmail(input: {
   const ctaLabel = paid ? "View invoice" : "Pay invoice";
   const amountLabel = paid ? "Amount paid" : "Amount due";
   const hostedAction = input.hostedInvoiceUrl
-    ? renderEmailButton(input.hostedInvoiceUrl, ctaLabel) +
-      actionFallback(input.hostedInvoiceUrl)
+    ? renderEmailButton(input.hostedInvoiceUrl, ctaLabel)
     : "";
   const pdfAction = input.invoicePdfUrl
     ? `<p style="margin:18px 0 0;color:#394650;font-size:14px;line-height:1.6"><a class="email-link" href="${escapeEmailHtml(input.invoicePdfUrl)}" style="color:#0a2941;font-weight:600">Download invoice PDF</a></p>`
