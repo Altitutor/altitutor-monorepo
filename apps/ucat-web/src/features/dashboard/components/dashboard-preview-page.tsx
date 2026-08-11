@@ -76,7 +76,7 @@ const SCENARIOS: PreviewScenario[] = [
   },
   {
     id: "baseline",
-    label: "Building baseline",
+    label: "Building estimate",
     description: "A plan exists, but only one of Sections 1–3 is ready.",
     planTier: "free",
     targetScore: 2350,
@@ -137,7 +137,7 @@ const SCENARIOS: PreviewScenario[] = [
   {
     id: "within_reach",
     label: "Within reach",
-    description: "The target sits inside the plausible test-day range.",
+    description: "The target sits inside the projected test-day score range.",
     planTier: "free",
     targetScore: 2350,
     testDate: "exact",
@@ -173,7 +173,7 @@ const SCENARIOS: PreviewScenario[] = [
   {
     id: "projection_error",
     label: "Projection unavailable",
-    description: "The Study plan remains usable while score evidence reloads.",
+    description: "The Study plan remains usable while the score estimate reloads.",
     planTier: "free",
     targetScore: 2350,
     testDate: "exact",
@@ -379,6 +379,8 @@ function makePlan(
         level: "none",
         availableMinutesPerWeek: 135,
         recommendedMinutesPerWeek: 120,
+        outstandingSectionEquivalents: 3,
+        schedulableSectionEquivalents: 12,
         message: null,
       },
       sectionTargets: { vr: 760, dm: 760, qr: 780 },

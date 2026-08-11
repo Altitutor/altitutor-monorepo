@@ -1,8 +1,10 @@
 import {
+  needsPreparationVersionReplacement,
   planProfileTransition,
   prepareStudyPlanTasks,
 } from "@/features/study-plan/lib/persistence";
 import type { GeneratedStudyPlanTask } from "@/features/study-plan/model/types";
+import { CURRENT_PREPARATION_VERSIONS } from "@/features/preparation";
 
 function task(
   overrides: Partial<GeneratedStudyPlanTask>,
@@ -30,6 +32,21 @@ function task(
 }
 
 describe("Study plan persistence", () => {
+  it("replaces generations when any canonical preparation policy version changes", () => {
+    const current = CURRENT_PREPARATION_VERSIONS;
+    expect(current.policy).toBe("evidence-driven-preparation-policy-v3");
+    expect(
+      needsPreparationVersionReplacement({ versions: current }, current),
+    ).toBe(false);
+    expect(
+      needsPreparationVersionReplacement(
+        { versions: { ...current, policy: "policy-v2" } },
+        current,
+      ),
+    ).toBe(true);
+    expect(needsPreparationVersionReplacement({}, current)).toBe(true);
+  });
+
   it("preserves rolling guidance when disabling and clears it only when enabling a fresh plan", () => {
     expect(
       planProfileTransition({ wasEnabled: true, willBeEnabled: false }),

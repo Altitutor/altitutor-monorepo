@@ -60,6 +60,18 @@ type GenerateExtraStudyTaskInput = StudyPlanExtraStudyInput & {
 
 const COGNITIVE_SECTION_COUNT = 3;
 const FULL_MOCK_MINUTES = 125;
+const PRACTICE_ACTIVITY_KINDS: ReadonlySet<
+  PreparationActivityCandidate["kind"]
+> = new Set([
+  "related_practice",
+  "broad_practice",
+  "mixed_practice",
+  "targeted_practice",
+]);
+
+function isPracticeActivity(activity: PreparationActivityCandidate): boolean {
+  return PRACTICE_ACTIVITY_KINDS.has(activity.kind);
+}
 
 function selectedDates(
   from: string,
@@ -92,6 +104,9 @@ function capacityRisk(
   profile: StudyPlanProfileInput,
   signals: StudyPlanSectionSignal[],
   readiness: StudyPlanReadinessSnapshot,
+  outstandingSectionEquivalents: number,
+  schedulableSectionEquivalents: number,
+  demandFitsSlots: boolean,
 ): StudyPlanCapacityRisk {
   const estimates = signals
     .slice(0, COGNITIVE_SECTION_COUNT)
@@ -115,19 +130,69 @@ function capacityRisk(
     (signal) => signal.timingCapacityConstrained,
   );
   const risky =
-    profile.availableDays.length < minimumDays || timingCapacityConstrained;
+    outstandingSectionEquivalents > schedulableSectionEquivalents ||
+    !demandFitsSlots ||
+    profile.availableDays.length < minimumDays ||
+    timingCapacityConstrained;
   return {
     level: risky ? "warning" : "none",
     availableMinutesPerWeek: available,
     recommendedMinutesPerWeek: recommended,
+    outstandingSectionEquivalents,
+    schedulableSectionEquivalents,
     message: risky
-      ? timingCapacityConstrained
+      ? outstandingSectionEquivalents > schedulableSectionEquivalents ||
+        !demandFitsSlots
+        ? `${outstandingSectionEquivalents.toFixed(1)} outstanding section-equivalents cannot fit inside the sustainable 21-day intensity envelope. Add an available weekday or expect the plan to prioritise the most important milestones.`
+        : timingCapacityConstrained
         ? "There may not be enough broad practice opportunities to reach reliable exam pace before the exam phase. The plan will move gradually and prioritise representative work."
         : readiness.mode === "exam"
           ? "There are fewer available study days than the exam-phase mock cadence needs. The plan will prioritise mocks and the highest-value weaknesses on the days you selected."
           : "There are very few available study days. The plan will still prioritise the highest-value work and replan unfinished work instead of building a backlog."
       : null,
   };
+}
+
+function demandKey(activity: PreparationActivityCandidate): string {
+  return isPracticeActivity(activity)
+    ? `practice:${activity.sectionId}:${activity.objective}`
+    : activity.id;
+}
+
+function activityDemand(activity: PreparationActivityCandidate): number {
+  const practice = isPracticeActivity(activity);
+  const calculated =
+    Math.max(0.25, activity.dose.sectionEquivalents) +
+    (practice ? activity.ranking.targetGap / 80 : 0);
+  if (activity.kind === "related_practice" || activity.dose.questionCount === 10) {
+    return Math.max(calculated, activity.dose.sectionEquivalents * 3);
+  }
+  if (practice && activity.dose.sectionEquivalents >= 0.75) {
+    return Math.max(calculated, activity.dose.sectionEquivalents * 4);
+  }
+  return calculated;
+}
+
+function demandByMilestone(
+  activities: PreparationActivityCandidate[],
+): Map<string, number> {
+  const demandByMilestone = new Map<string, number>();
+  for (const activity of activities) {
+    if (
+      activity.requirement !== "required" ||
+      activity.kind === "mock" ||
+      activity.kind === "review"
+    ) {
+      continue;
+    }
+    const key = demandKey(activity);
+    const demand = activityDemand(activity);
+    demandByMilestone.set(
+      key,
+      Math.max(demandByMilestone.get(key) ?? 0, demand),
+    );
+  }
+  return demandByMilestone;
 }
 
 function practiceTask(input: {
@@ -541,43 +606,68 @@ export function generateStudyPlan(
     input.profile.preferredMockWeekday,
     input.planningDate,
   );
+  const nonMockDayCount = dates.filter((date) => !mocks.has(date)).length;
+  const remainingDemand = demandByMilestone(plannedActivities);
+  const outstandingSectionEquivalents = [...remainingDemand.values()].reduce(
+    (sum, demand) => sum + demand,
+    0,
+  );
+  const schedulableSectionEquivalents = nonMockDayCount * 2;
   const hasLearning = readiness.sections.some(
     (section) => section.mode === "learning",
   );
   const hasTiming = readiness.sections.some(
     (section) => section.mode !== "learning",
   );
-  const learningSlots =
-    input.profile.targetScore >= 2400 ||
-    input.profile.availableDays.length <= 2
-      ? 2
-      : 1;
-  const ordinaryCoreSlots = hasLearning
-    ? learningSlots + (hasTiming ? 1 : 0)
-    : input.profile.targetScore >= 2400
-      ? 3
-      : 2;
+  const demandPerNonMockDay =
+    outstandingSectionEquivalents / Math.max(1, nonMockDayCount);
+  const ordinaryCoreSlots = hasLearning ? (hasTiming ? 2 : 1) : 2;
+  const lowAvailabilityPressure =
+    input.profile.availableDays.length <= 2 && demandPerNonMockDay > 1;
+  const justifiedCoreSlots =
+    demandPerNonMockDay > 2.5
+      ? 4
+      : demandPerNonMockDay > 1.5 || lowAvailabilityPressure
+        ? 3
+        : ordinaryCoreSlots;
   const dayEnvelopes = dates.map((scheduledDate) => ({
     scheduledDate,
     isMock: mocks.has(scheduledDate),
-    coreSlotCount: mocks.has(scheduledDate) ? 1 : ordinaryCoreSlots,
+    coreSlotCount: mocks.has(scheduledDate) ? 1 : justifiedCoreSlots,
     includeWarmup:
       !mocks.has(scheduledDate) &&
       hasTiming &&
       input.skillTrainers.length > 0,
   }));
+  const doseByMilestone = new Map<string, number>();
+  for (const activity of plannedActivities) {
+    const key = demandKey(activity);
+    if (!remainingDemand.has(key)) continue;
+    doseByMilestone.set(
+      key,
+      Math.max(
+        doseByMilestone.get(key) ?? 0,
+        Math.max(0.25, activity.dose.sectionEquivalents),
+      ),
+    );
+  }
+  const requiredSessionCount = [...remainingDemand].reduce(
+    (count, [key, remaining]) =>
+      count + Math.ceil(remaining / Math.max(0.25, doseByMilestone.get(key) ?? 0)),
+    0,
+  );
+  const discreteSlotCapacity = dayEnvelopes
+    .filter((envelope) => !envelope.isMock)
+    .reduce((sum, envelope) => sum + envelope.coreSlotCount, 0);
+  const demandFitsSlots = requiredSessionCount <= discreteSlotCapacity;
 
-  const practiceKinds = new Set<PreparationActivityCandidate["kind"]>([
-    "related_practice",
-    "broad_practice",
-    "mixed_practice",
-    "targeted_practice",
-  ]);
   const useCounts = new Map<string, number>();
   const sectionEquivalentUse = new Map<string, number>();
   const consumedOnce = new Set<string>();
   const canonicalTasks: GeneratedStudyPlanTask[] = [];
   let canonicalMockNumber = input.completedMockCount;
+  let ordinaryCoreSessionCount = 0;
+  let calibrationCount = 0;
 
   const taskForCandidate = (
     activity: PreparationActivityCandidate,
@@ -612,7 +702,7 @@ export function generateStudyPlan(
         sortOrder,
         readiness.mode,
       );
-    } else if (practiceKinds.has(activity.kind) && section) {
+    } else if (isPracticeActivity(activity) && section) {
       const categories = activity.categoryIds.flatMap((categoryId) => {
         const category = input.categories.find((item) => item.id === categoryId);
         return category ? [category] : [];
@@ -652,6 +742,7 @@ export function generateStudyPlan(
         activityCandidateId: activity.id,
         activityObjective: activity.objective,
         activityReasonCode: activity.reasonCode,
+        sectionEquivalents: activity.dose.sectionEquivalents,
         optional: false,
       },
     };
@@ -663,24 +754,61 @@ export function generateStudyPlan(
       (activity) => activity.kind === "mock",
     );
     const candidatesForDay: PreparationActivityCandidate[] = [];
+    let dailySectionEquivalents = 0;
+    const dailyCognitiveSections = new Set<string>();
     if (envelope.isMock) {
       if (mockCandidate) candidatesForDay.push(mockCandidate);
     } else {
       for (let slot = 0; slot < envelope.coreSlotCount; slot += 1) {
         const eligible = plannedActivities.filter((activity) => {
             if (activity.kind === "mock" || activity.kind === "review") return false;
+            if ((remainingDemand.get(demandKey(activity)) ?? 0) <= 0) {
+              return false;
+            }
+            if (
+              activity.kind === "calibration" &&
+              (slot > 0 ||
+                (readiness.mode !== "exam" &&
+                  ordinaryCoreSessionCount < (calibrationCount + 1) * 2))
+            ) {
+              return false;
+            }
             if (
               (activity.kind === "instruction" || activity.kind === "calibration") &&
               consumedOnce.has(activity.id)
             ) {
               return false;
             }
+            if (
+              dailySectionEquivalents + activity.dose.sectionEquivalents >
+              2.01
+            ) {
+              return false;
+            }
+            if (
+              envelope.coreSlotCount > 2 &&
+              activity.sectionId &&
+              !dailyCognitiveSections.has(activity.sectionId) &&
+              dailyCognitiveSections.size >= 2
+            ) {
+              return false;
+            }
             return activity.kind !== "optional_warmup";
         });
+        const broadEligible = eligible.filter(
+          (activity) =>
+            activity.kind === "broad_practice" ||
+            activity.kind === "mixed_practice" ||
+            activity.kind === "related_practice",
+        );
+        const slotEligible =
+          envelope.coreSlotCount > 2 && slot === 0 && broadEligible.length > 0
+            ? broadEligible
+            : eligible;
         const adjustedPriority = (activity: PreparationActivityCandidate) =>
           activity.ranking.total -
           (useCounts.get(activity.id) ?? 0) * 60 -
-          (activity.sectionId && practiceKinds.has(activity.kind)
+          (activity.sectionId && isPracticeActivity(activity)
             ? ((sectionEquivalentUse.get(activity.sectionId) ?? 0) +
                 activity.dose.sectionEquivalents) *
               1000
@@ -690,7 +818,7 @@ export function generateStudyPlan(
           readinessBySection.get(activity.sectionId)?.mode !== "learning"
             ? 2
             : 0);
-        const selected = [...eligible].sort((left, right) => {
+        const selected = [...slotEligible].sort((left, right) => {
           const leftAdjusted = adjustedPriority(left);
           const rightAdjusted = adjustedPriority(right);
           return rightAdjusted - leftAdjusted || left.id.localeCompare(right.id);
@@ -699,11 +827,21 @@ export function generateStudyPlan(
         if (selected.kind === "calibration") {
           candidatesForDay.splice(0, candidatesForDay.length, selected);
           consumedOnce.add(selected.id);
+          calibrationCount += 1;
+          remainingDemand.set(demandKey(selected), 0);
           break;
         }
         candidatesForDay.push(selected);
+        remainingDemand.set(
+          demandKey(selected),
+          (remainingDemand.get(demandKey(selected)) ?? 0) -
+            Math.max(0.25, selected.dose.sectionEquivalents),
+        );
+        dailySectionEquivalents += selected.dose.sectionEquivalents;
+        if (selected.sectionId) dailyCognitiveSections.add(selected.sectionId);
         useCounts.set(selected.id, (useCounts.get(selected.id) ?? 0) + 1);
-        if (selected.sectionId && practiceKinds.has(selected.kind)) {
+        if (selected.sectionId && isPracticeActivity(selected)) {
+          ordinaryCoreSessionCount += 1;
           sectionEquivalentUse.set(
             selected.sectionId,
             (sectionEquivalentUse.get(selected.sectionId) ?? 0) +
@@ -726,7 +864,8 @@ export function generateStudyPlan(
     );
     if (
       warmupCandidate?.skillTrainerId &&
-      envelope.includeWarmup
+      envelope.includeWarmup &&
+      candidatesForDay.every((activity) => activity.kind !== "calibration")
     ) {
       const trainer = input.skillTrainers.find(
         (item) => item.id === warmupCandidate.skillTrainerId,
@@ -767,9 +906,19 @@ export function generateStudyPlan(
     }
   }
 
+  const allDemandPacked = [...remainingDemand.values()].every(
+    (remaining) => remaining <= 0.01,
+  );
   return {
     tasks: canonicalTasks,
-    capacityRisk: capacityRisk(input.profile, input.signals, readiness),
+    capacityRisk: capacityRisk(
+      input.profile,
+      input.signals,
+      readiness,
+      outstandingSectionEquivalents,
+      schedulableSectionEquivalents,
+      demandFitsSlots && allDemandPacked,
+    ),
     sectionTargets,
     readiness,
     endsOn,

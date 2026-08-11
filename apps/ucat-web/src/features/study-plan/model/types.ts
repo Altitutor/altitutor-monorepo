@@ -174,6 +174,8 @@ export type StudyPlanCapacityRisk = {
   level: "none" | "warning";
   availableMinutesPerWeek: number;
   recommendedMinutesPerWeek: number;
+  outstandingSectionEquivalents: number;
+  schedulableSectionEquivalents: number;
   message: string | null;
 };
 

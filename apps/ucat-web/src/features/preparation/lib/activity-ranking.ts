@@ -276,7 +276,7 @@ export function rankActivityCandidates(
             sectionId: section.id,
             learningModuleId: learningModule.id,
             scope: "section",
-            dose: { questionCount: null, sectionEquivalents: 0 },
+            dose: { questionCount: null, sectionEquivalents: 0.25 },
             duration: {
               practiceMinutes: learningModule.estimatedMinutes,
               reviewMinutes: 0,

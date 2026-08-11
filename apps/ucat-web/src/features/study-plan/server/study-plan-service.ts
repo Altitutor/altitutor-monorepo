@@ -32,6 +32,7 @@ import {
 } from "@/features/study-plan/lib/generator";
 import { estimateLearningModuleMinutes } from "@/features/study-plan/lib/module-duration";
 import {
+  needsPreparationVersionReplacement,
   planProfileTransition,
   prepareStudyPlanTasks,
 } from "@/features/study-plan/lib/persistence";
@@ -1235,6 +1236,8 @@ function readCapacityRisk(value: Json | null): StudyPlanCapacityRisk {
     level: "none",
     availableMinutesPerWeek: 0,
     recommendedMinutesPerWeek: 0,
+    outstandingSectionEquivalents: 0,
+    schedulableSectionEquivalents: 0,
     message: null,
   };
   if (!value || typeof value !== "object" || Array.isArray(value))
@@ -1249,6 +1252,14 @@ function readCapacityRisk(value: Json | null): StudyPlanCapacityRisk {
     recommendedMinutesPerWeek:
       typeof record.recommendedMinutesPerWeek === "number"
         ? record.recommendedMinutesPerWeek
+        : 0,
+    outstandingSectionEquivalents:
+      typeof record.outstandingSectionEquivalents === "number"
+        ? record.outstandingSectionEquivalents
+        : 0,
+    schedulableSectionEquivalents:
+      typeof record.schedulableSectionEquivalents === "number"
+        ? record.schedulableSectionEquivalents
         : 0,
     message: typeof record.message === "string" ? record.message : null,
   };
@@ -1990,11 +2001,30 @@ export async function getStudyPlan(
   const mockCompletedSinceGeneration = generation
     ? latestCompletedMocks > readCompletedMockCount(generation.input_snapshot)
     : false;
+  const preparationVersionChanged = generation
+    ? needsPreparationVersionReplacement(
+        generation.input_snapshot,
+        CURRENT_PREPARATION_VERSIONS,
+      )
+    : false;
+  let missedWorkSinceGeneration = false;
+  if (generation && options.allowAutomaticReplan !== false) {
+    const { count, error } = await admin
+      .from("ucat_student_study_plan_tasks")
+      .select("id", { count: "exact", head: true })
+      .eq("generation_id", generation.id)
+      .lt("scheduled_date", today)
+      .in("status", ["planned", "partial"]);
+    if (error) throw error;
+    missedWorkSinceGeneration = (count ?? 0) > 0;
+  }
   if (
     profile.study_plan_enabled &&
     options.allowAutomaticReplan !== false &&
     (!generation ||
       mockCompletedSinceGeneration ||
+      preparationVersionChanged ||
+      missedWorkSinceGeneration ||
       !profile.next_weekly_replan_on ||
       profile.next_weekly_replan_on <= today)
   ) {
@@ -2004,7 +2034,9 @@ export async function getStudyPlan(
       profile,
       !generation
         ? "onboarding"
-        : mockCompletedSinceGeneration
+        : preparationVersionChanged || missedWorkSinceGeneration
+          ? "significant_activity"
+          : mockCompletedSinceGeneration
           ? "mock_completed"
           : "weekly",
     );
@@ -2154,6 +2186,7 @@ export async function getStudyPlan(
 }
 
 export async function updateStudyPlanTask(
+  supabase: SupabaseClient<Database>,
   userId: string,
   taskId: string,
   action: "start" | "skip" | "unskip" | "complete",
@@ -2228,6 +2261,19 @@ export async function updateStudyPlanTask(
         })
         .eq("id", companion.id);
       if (unskipCompanionError) throw unskipCompanionError;
+    }
+  }
+
+  if (action === "skip") {
+    const { data: profile, error: profileError } = await admin
+      .from("ucat_student_study_plan_profiles")
+      .select("*")
+      .eq("student_id", studentId)
+      .eq("study_plan_enabled", true)
+      .maybeSingle();
+    if (profileError) throw profileError;
+    if (profile) {
+      await generateForProfile(supabase, studentId, profile, "significant_activity");
     }
   }
 }

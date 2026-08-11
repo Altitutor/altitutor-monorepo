@@ -486,6 +486,138 @@ describe("generateStudyPlan", () => {
     expect(calibrations / (ordinary + calibrations)).toBeLessThanOrEqual(1 / 3);
   });
 
+  it("packs required work inside the daily section-equivalent and section-count envelope", () => {
+    const result = generateStudyPlan({
+      today: "2026-05-04",
+      planningDate: "2026-07-05",
+      profile: {
+        ...profile,
+        targetScore: 2600,
+        availableDays: [{ weekday: 1, maxMinutes: 20 }],
+      },
+      sections,
+      signals: sections.map((section) => ({
+        sectionId: section.id,
+        currentEstimate: section.sectionNumber <= 3 ? 450 : null,
+        scoreConfidence: "high" as const,
+        evidenceCount: 5,
+        completedFullSets: section.sectionNumber <= 3 ? 1 : 0,
+        representativeSessionCount: 2,
+        representativeSectionEquivalents: 1,
+        representativeAccuracy: 0.55,
+        benchmarkCompleted: true,
+        prescribedPace: 0.8,
+      })),
+      learningModules: [],
+      categories: timingCategories,
+      skillTrainers,
+      completedMockCount: 0,
+    });
+
+    const requiredByDate = new Map<string, typeof result.tasks>();
+    for (const task of result.tasks.filter(
+      (candidate) =>
+        candidate.taskType !== "review" &&
+        candidate.taskType !== "skill_trainer" &&
+        candidate.taskType !== "mock",
+    )) {
+      requiredByDate.set(task.scheduledDate, [
+        ...(requiredByDate.get(task.scheduledDate) ?? []),
+        task,
+      ]);
+    }
+    expect([...requiredByDate.values()].some((tasks) => tasks.length >= 3)).toBe(
+      true,
+    );
+    for (const tasks of requiredByDate.values()) {
+      expect(tasks).toHaveLength(Math.min(tasks.length, 4));
+      expect(
+        tasks.reduce(
+          (sum, task) =>
+            sum + Number(task.launchConfig.sectionEquivalents ?? 0),
+          0,
+        ),
+      ).toBeLessThanOrEqual(2.01);
+      expect(new Set(tasks.flatMap((task) => task.sectionId ?? [])).size).toBeLessThanOrEqual(2);
+    }
+  });
+
+  it("keeps each calibration day exclusive of unrelated required work", () => {
+    const result = generateStudyPlan({
+      today: "2026-03-02",
+      planningDate: "2026-08-05",
+      profile: {
+        ...profile,
+        targetScore: 2500,
+        availableDays: [0, 1, 2, 3, 4, 5, 6].map((weekday) => ({
+          weekday: weekday as 0 | 1 | 2 | 3 | 4 | 5 | 6,
+          maxMinutes: 30,
+        })),
+      },
+      sections,
+      signals: sections.map((section) => ({
+        sectionId: section.id,
+        currentEstimate: section.sectionNumber <= 3 ? 600 : null,
+        evidenceCount: 5,
+        completedFullSets: section.sectionNumber <= 3 ? 1 : 0,
+        representativeSessionCount: 2,
+        representativeSectionEquivalents: 1,
+        representativeAccuracy: 0.7,
+        benchmarkCompleted: true,
+        calibrationDue: section.sectionNumber <= 3,
+      })),
+      learningModules: [],
+      categories: timingCategories,
+      skillTrainers,
+      completedMockCount: 0,
+    });
+    const calibrationDates = new Set(
+      result.tasks
+        .filter((task) => task.taskType === "section_benchmark")
+        .map((task) => task.scheduledDate),
+    );
+    expect(calibrationDates.size).toBeGreaterThan(0);
+    for (const date of calibrationDates) {
+      expect(
+        result.tasks.filter(
+          (task) =>
+            task.scheduledDate === date &&
+            task.taskType !== "section_benchmark" &&
+            task.taskType !== "review",
+        ),
+      ).toHaveLength(0);
+    }
+  });
+
+  it("quantifies capacity risk when milestone demand exceeds the intensity envelope", () => {
+    const result = generateStudyPlan({
+      today: "2026-06-15",
+      planningDate: "2026-07-05",
+      profile: {
+        ...profile,
+        targetScore: 2600,
+        availableDays: [{ weekday: 1, maxMinutes: 20 }],
+      },
+      sections,
+      signals: sections.map((section) => ({
+        sectionId: section.id,
+        currentEstimate: section.sectionNumber <= 3 ? 400 : null,
+        scoreConfidence: "high" as const,
+        evidenceCount: 5,
+        completedFullSets: 0,
+      })),
+      learningModules: [],
+      ...contentInputs,
+      completedMockCount: 0,
+    });
+
+    expect(result.capacityRisk).toMatchObject({ level: "warning" });
+    expect(result.capacityRisk.outstandingSectionEquivalents).toBeGreaterThan(
+      result.capacityRisk.schedulableSectionEquivalents,
+    );
+    expect(result.capacityRisk.message).toContain("section-equivalents");
+  });
+
   it("does not advance prescribed pace from scheduled work", () => {
     const result = generateStudyPlan({
       today: "2026-03-02",
