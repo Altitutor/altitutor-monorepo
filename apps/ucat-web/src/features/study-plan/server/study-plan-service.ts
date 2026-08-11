@@ -6,26 +6,24 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import {
   CURRENT_PREPARATION_VERSIONS,
-  estimateRepresentativeScore,
   parseRepresentativeScoreEvidence,
   prepareStudent,
-  rankActivityCandidates,
   REPRESENTATIVE_SCORE_EVIDENCE_SELECT,
   STANDARD_PREPARATION_TIMING_PROFILE,
   type PreparationEngineResult,
   type ActivityTagSignal,
   type RepresentativeScoreEvidence,
 } from "@/features/preparation";
-import { derivePreparationForecastEvidence } from "@/features/preparation/lib/forecast-evidence";
+import {
+  derivePreparationForecastEvidence,
+  mergeCurrentPreparationHistory,
+} from "@/features/preparation/lib/forecast-evidence";
 import {
   hasPreparationSnapshot,
   loadPreparationSnapshotHistory,
   persistPreparationSnapshot,
 } from "@/features/preparation/server/preparation-snapshot";
-import {
-  latestCompletedMockDate,
-  normalizeSjtPreference,
-} from "@/features/preparation/lib/sjt-allocation-policy";
+import { normalizeSjtPreference } from "@/features/preparation/lib/sjt-allocation-policy";
 import {
   extractTextFromRichJson,
   type JsonLike,
@@ -377,14 +375,6 @@ async function loadGenerationInputs(
       ];
     },
   );
-  const evidenceBySection = new Map<string, typeof evidenceRes.data>();
-  for (const row of evidenceRes.data ?? []) {
-    if (!row.section_id) continue;
-    evidenceBySection.set(row.section_id, [
-      ...(evidenceBySection.get(row.section_id) ?? []),
-      row,
-    ]);
-  }
   const fullSets = new Map(
     (fullSetRes.data ?? []).flatMap((row) =>
       row.section_id
@@ -405,33 +395,14 @@ async function loadGenerationInputs(
     const evidence = parseRepresentativeScoreEvidence(row);
     return evidence ? [evidence] : [];
   });
-  const representativeScore = estimateRepresentativeScore({
-    now: new Date().toISOString(),
-    modelVersion: CURRENT_PREPARATION_VERSIONS.scoreModel,
-    evidence: scoreEvidence,
-  });
-  const scoreBySection = new Map(
-    representativeScore.sections.map((section) => [section.sectionId, section]),
-  );
   const graduationBySection = new Map(
     (graduationStatesRes.data ?? []).map((state) => [state.section_id, state]),
   );
   const signals = sections.map((section) => {
-    const evidence = evidenceBySection.get(section.id) ?? [];
-    const estimate = scoreBySection.get(section.id);
     const readinessEvidence = (readinessEvidenceRes.data ?? []).find(
       (row) =>
         row.readiness_scope === "section" && row.section_id === section.id,
     );
-    const legacyRepresentative = evidence.filter((row) => {
-      const totalPoints = row.total_points ?? 0;
-      const pace = row.prescribed_pace ?? row.observed_pace ?? 0;
-      const broadEnough =
-        row.source === "set" ||
-        row.source === "mock" ||
-        totalPoints >= section.questionCount * 0.5;
-      return row.was_timed === true && pace >= 0.5 && broadEnough;
-    });
     const completedTiming = (timingEvidenceRes.data ?? []).filter(
       (row) => row.section_id === section.id,
     );
@@ -463,11 +434,6 @@ async function loadGenerationInputs(
       (sum, row) => sum + Math.max(0, row.section_equivalents ?? 0),
       0,
     );
-    const legacyBenchmark = [...legacyRepresentative]
-      .filter((row) => (row.total_points ?? 0) >= section.questionCount * 0.9)
-      .sort((left, right) =>
-        (right.completed_at ?? "").localeCompare(left.completed_at ?? ""),
-      )[0];
     const timingBenchmark = [...representativeTiming]
       .filter((row) => (row.section_equivalents ?? 0) >= 0.9)
       .sort((left, right) =>
@@ -481,10 +447,9 @@ async function loadGenerationInputs(
         : null;
     return {
       sectionId: section.id,
-      currentEstimate:
-        section.sectionNumber <= 3 ? estimate?.currentEstimate ?? null : null,
-      evidenceCount: estimate?.qualifyingEvidenceCount ?? 0,
-      scoreConfidence: estimate?.confidence ?? null,
+      currentEstimate: null,
+      evidenceCount: 0,
+      scoreConfidence: null,
       completedFullSets: fullSets.get(section.id) ?? 0,
       attemptedQuestionCount: readinessEvidence?.attempted_question_count ?? 0,
       completedPracticeSessions:
@@ -495,15 +460,8 @@ async function loadGenerationInputs(
         readinessEvidence?.largest_practice_session_question_count ?? 0,
       recentAccuracy: readinessEvidence?.recent_accuracy ?? null,
       observedPace: readinessEvidence?.observed_pace ?? null,
-      representativeSessionCount:
-        representativeTiming.length || legacyRepresentative.length,
-      representativeSectionEquivalents:
-        representativeTiming.length > 0
-          ? representativeEquivalents
-          : legacyRepresentative.reduce(
-              (sum, row) => sum + (row.total_points ?? 0),
-              0,
-            ) / section.questionCount,
+      representativeSessionCount: representativeTiming.length,
+      representativeSectionEquivalents: representativeEquivalents,
       representativeAccuracy:
         representativeAccuracyWeight > 0
           ? representativeAccuracyScore / representativeAccuracyWeight
@@ -511,20 +469,11 @@ async function loadGenerationInputs(
       targetedPracticeSessionCount: targetedTiming.length,
       targetedSectionEquivalents: targetedEquivalents,
       benchmarkCompleted:
-        timingBenchmark != null ||
-        legacyBenchmark != null ||
-        (fullSets.get(section.id) ?? 0) > 0,
-      benchmarkAccuracy:
-        timingBenchmark?.accuracy ??
-        (legacyBenchmark && (legacyBenchmark.total_points ?? 0) > 0
-          ? (legacyBenchmark.score_points ?? 0) /
-            (legacyBenchmark.total_points ?? 1)
-          : null),
+        timingBenchmark != null || (fullSets.get(section.id) ?? 0) > 0,
+      benchmarkAccuracy: timingBenchmark?.accuracy ?? null,
       benchmarkPace:
         timingBenchmark?.prescribed_pace ??
         timingBenchmark?.observed_pace ??
-        legacyBenchmark?.prescribed_pace ??
-        legacyBenchmark?.observed_pace ??
         null,
       learningGraduatedAt: graduation?.learning_graduated_at ?? null,
       learningGraduationRoute,
@@ -995,7 +944,7 @@ async function generateForProfile(
     inputs.timingSessions,
     inputs.sections,
   );
-  const preparation = prepareStudent({
+  const generatedPreparation = prepareStudent({
     clock: {
       now: now.toISOString(),
       today,
@@ -1022,6 +971,18 @@ async function generateForProfile(
       forecast,
     },
   });
+  const preparation: PreparationEngineResult = {
+    ...generatedPreparation,
+    trajectory: {
+      ...generatedPreparation.trajectory,
+      history: mergeCurrentPreparationHistory(
+        generatedPreparation.trajectory.history,
+        generatedPreparation.currentScore,
+        today,
+        generatedPreparation.versions.trajectoryModel,
+      ),
+    },
+  };
   await persistPreparationProgression(
     studentId,
     profile.test_year,
@@ -1036,6 +997,74 @@ async function generateForProfile(
     inputs.completedMockCount,
     inputs.signals,
   );
+}
+
+export async function getCurrentPreparation(
+  supabase: SupabaseClient<Database>,
+  userId: string,
+): Promise<PreparationEngineResult> {
+  const student = await resolveStudent(userId);
+  const { data: profile, error } = await requireAdmin()
+    .from("ucat_student_study_plan_profiles")
+    .select("*")
+    .eq("student_id", student.id)
+    .maybeSingle();
+  if (error) throw error;
+  if (!profile) throw new Error("Set your UCAT goal first.");
+
+  const [{ planningDate }, inputs] = await Promise.all([
+    planningDateFor(profile),
+    loadGenerationInputs(supabase, student.id, profile.test_year),
+  ]);
+  const now = new Date();
+  const today = todayIso(now, student.timezone);
+  const forecast = await loadForecastEvidence(
+    supabase,
+    student.id,
+    today,
+    inputs.timingSessions,
+    inputs.sections,
+  );
+  const generatedPreparation = prepareStudent({
+    clock: { now: now.toISOString(), today },
+    seed: `current-preparation:${student.id}:${today}`,
+    versions: CURRENT_PREPARATION_VERSIONS,
+    timingProfile: STANDARD_PREPARATION_TIMING_PROFILE,
+    goal: { planningDate, profile: profileInput(profile) },
+    content: {
+      sections: inputs.sections,
+      categories: inputs.categories,
+      learningModules: inputs.learningModules,
+      skillTrainers: inputs.skillTrainers,
+      tagSignals: inputs.tagSignals,
+    },
+    evidence: {
+      sectionSignals: inputs.signals,
+      timingSessions: inputs.timingSessions,
+      scoreEvidence: inputs.scoreEvidence,
+      completedMockCount: inputs.completedMockCount,
+      forecast,
+    },
+  });
+  const preparation: PreparationEngineResult = {
+    ...generatedPreparation,
+    trajectory: {
+      ...generatedPreparation.trajectory,
+      history: mergeCurrentPreparationHistory(
+        generatedPreparation.trajectory.history,
+        generatedPreparation.currentScore,
+        today,
+        generatedPreparation.versions.trajectoryModel,
+      ),
+    },
+  };
+  await persistPreparationProgression(
+    student.id,
+    profile.test_year,
+    preparation,
+  );
+  await persistPreparationSnapshot(student.id, today, preparation);
+  return preparation;
 }
 
 async function linkCompanionReview(
@@ -1853,7 +1882,47 @@ export async function suggestAlternativeStudyGuidance(
       incompleteReview: describedIncompleteReview,
     },
   );
-  const draft = buildAlternativeNextStep(buildInput, input);
+  const now = new Date();
+  const forecast = await loadForecastEvidence(
+    supabase,
+    student.id,
+    today,
+    buildInput.timingSessions,
+    buildInput.sections,
+  );
+  const preparation = prepareStudent({
+    clock: { now: now.toISOString(), today },
+    seed: `alternative:${student.id}:${today}:${input.excludedKeys.join("|")}`,
+    versions: CURRENT_PREPARATION_VERSIONS,
+    timingProfile: STANDARD_PREPARATION_TIMING_PROFILE,
+    goal: {
+      planningDate: buildInput.planningDate,
+      profile: profileInput(profileResult.data),
+    },
+    content: {
+      sections: buildInput.sections,
+      categories: buildInput.categories,
+      learningModules: buildInput.learningModules,
+      skillTrainers: buildInput.skillTrainers,
+      tagSignals: buildInput.tagSignals,
+    },
+    evidence: {
+      sectionSignals: buildInput.signals,
+      timingSessions: buildInput.timingSessions,
+      scoreEvidence: buildInput.scoreEvidence,
+      completedMockCount: buildInput.completedMockCount,
+      forecast,
+    },
+    guidance: {
+      dailyWarmup: false,
+      incompleteReview: describedIncompleteReview,
+      trainerAttemptCounts: Object.fromEntries(buildInput.trainerAttemptCounts),
+    },
+  });
+  const draft = buildAlternativeNextStep(
+    { ...buildInput, activityCandidates: preparation.activityCandidates },
+    input,
+  );
   if (!draft)
     throw new Error("There are no more suitable alternatives right now.");
   return {
@@ -1966,31 +2035,41 @@ export async function createExtraStudyTask(
     studentId,
     currentPlan.profile.testYear,
   );
+  const now = new Date();
+  const forecast = await loadForecastEvidence(
+    supabase,
+    studentId,
+    currentPlan.today,
+    generationInputs.timingSessions,
+    generationInputs.sections,
+  );
+  const preparation = prepareStudent({
+    clock: { now: now.toISOString(), today: currentPlan.today },
+    seed: `extra-study:${studentId}:${currentPlan.today}:${input.minutes}:${input.sectionKey ?? "any"}`,
+    versions: CURRENT_PREPARATION_VERSIONS,
+    timingProfile: STANDARD_PREPARATION_TIMING_PROFILE,
+    goal: {
+      planningDate: currentPlan.profile.planningDate,
+      profile: currentPlan.profile,
+    },
+    content: {
+      sections: generationInputs.sections,
+      categories: generationInputs.categories,
+      learningModules: generationInputs.learningModules,
+      skillTrainers: generationInputs.skillTrainers,
+      tagSignals: generationInputs.tagSignals,
+    },
+    evidence: {
+      sectionSignals: generationInputs.signals,
+      timingSessions: generationInputs.timingSessions,
+      scoreEvidence: generationInputs.scoreEvidence,
+      completedMockCount: generationInputs.completedMockCount,
+      forecast,
+    },
+  });
   const nextSortOrder =
     Math.max(-1, ...currentPlan.todayTasks.map((task) => task.sortOrder)) + 1;
-  const extraActivityCandidates = currentPlan.generation.readiness
-    ? rankActivityCandidates({
-        today: currentPlan.today,
-        planningDate: currentPlan.profile.planningDate,
-        targetScore: currentPlan.profile.targetScore,
-        readiness: currentPlan.generation.readiness,
-        sections: generationInputs.sections,
-        signals: generationInputs.signals,
-        categories: generationInputs.categories,
-        learningModules: generationInputs.learningModules,
-        skillTrainers: generationInputs.skillTrainers,
-        tagSignals: generationInputs.tagSignals,
-        trainerAttemptCounts: new Map(),
-        incompleteReview: null,
-        completedMockCount: generationInputs.completedMockCount,
-        sjtPreference: normalizeSjtPreference(
-          currentPlan.profile.sjtPreference,
-        ),
-        lastCompletedMockDate: latestCompletedMockDate(
-          generationInputs.timingSessions,
-        ),
-      })
-    : undefined;
+  const extraActivityCandidates = preparation.activityCandidates;
   const extraTasks = (() => {
     try {
       return generateExtraStudyTasks({

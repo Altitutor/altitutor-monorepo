@@ -257,6 +257,8 @@ export function StudyPlanActivationPage() {
     useState<StudyPlanSjtPreference>("a_little");
   const [availability, setAvailability] =
     useState<StudyPlanAvailability[]>(DEFAULT_AVAILABILITY);
+  const [preferredMockWeekday, setPreferredMockWeekday] =
+    useState<StudyPlanWeekday | null>(null);
   const [savedPlan, setSavedPlan] = useState<StudyPlanResponse | null>(null);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -299,6 +301,7 @@ export function StudyPlanActivationPage() {
     if (plan.profile.availableDays.length) {
       setAvailability(plan.profile.availableDays);
     }
+    setPreferredMockWeekday(plan.profile.preferredMockWeekday ?? null);
   }, [plan?.profile]);
 
   useEffect(() => {
@@ -324,6 +327,7 @@ export function StudyPlanActivationPage() {
   }, [completionMinimumElapsed, completionPhase, completionReady]);
 
   function toggleDay(weekday: StudyPlanWeekday) {
+    if (preferredMockWeekday === weekday) setPreferredMockWeekday(null);
     setAvailability((current) =>
       current.some((day) => day.weekday === weekday)
         ? current.filter((day) => day.weekday !== weekday)
@@ -365,7 +369,11 @@ export function StudyPlanActivationPage() {
         testYear,
         testDate: testDate || null,
         availableDays: availability,
-        preferredMockWeekday: inferPreferredMockWeekday(availability),
+        preferredMockWeekday:
+          preferredMockWeekday != null &&
+          availability.some((day) => day.weekday === preferredMockWeekday)
+            ? preferredMockWeekday
+            : inferPreferredMockWeekday(availability),
         sjtPreference,
       });
       setSavedPlan(nextPlan);
@@ -542,7 +550,7 @@ export function StudyPlanActivationPage() {
             kicker: `Study plan setup · ${stepCount} of ${stepCount}`,
             title: "When could you realistically study?",
             description:
-              "Choose the days and maximum time Altitutor can plan around.",
+              "Choose your usual study days and, optionally, the day you would prefer for full mocks.",
           };
 
   return (
@@ -767,6 +775,40 @@ export function StudyPlanActivationPage() {
                       </div>
                     );
                   })}
+                  <label
+                    className={cn(
+                      "block rounded-ucatShell px-4 py-4 text-sm sm:px-5",
+                      UCAT_SURFACE_CARD,
+                    )}
+                  >
+                    <span className="font-medium text-foreground">
+                      Soft mock weekday
+                    </span>
+                    <select
+                      aria-label="Soft mock weekday"
+                      value={preferredMockWeekday ?? ""}
+                      disabled={pending}
+                      onChange={(event) =>
+                        setPreferredMockWeekday(
+                          event.target.value === ""
+                            ? null
+                            : (Number(event.target.value) as StudyPlanWeekday),
+                        )
+                      }
+                      className="mt-2 block w-full rounded-lg border bg-background px-3 py-2"
+                    >
+                      <option value="">No preference</option>
+                      {DAYS.filter((day) =>
+                        availability.some(
+                          (available) => available.weekday === day.value,
+                        ),
+                      ).map((day) => (
+                        <option key={day.value} value={day.value}>
+                          {day.label}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
                   <div
                     className={cn(
                       "flex gap-3 rounded-ucatShell px-4 py-3 text-sm text-muted-foreground",
@@ -779,9 +821,9 @@ export function StudyPlanActivationPage() {
                       Choose the days you can normally study. Altitutor will
                       adjust the session length and number of practice blocks as
                       your readiness and exam date change. Your longest day is a
-                      soft mock preference, not a restriction. Workload and mock
-                      frequency increase as the exam approaches, with recovery
-                      protected near test day.
+                      chosen mock weekday as a preference, not a restriction.
+                      Workload and mock frequency increase as the exam approaches,
+                      with recovery protected near test day.
                     </p>
                   </div>
                 </div>

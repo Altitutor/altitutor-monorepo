@@ -139,16 +139,17 @@ export function SectionProgressPage({
   const sectionTargets =
     planQuery.data?.generation?.sectionTargets ??
     (planQuery.data?.profile
-      ? allocateSectionTargets(
-          planQuery.data.profile.targetScore,
-          (projectionQuery.data?.sections ?? [])
+      ? allocateSectionTargets({
+          totalTarget: planQuery.data.profile.targetScore,
+          sections: (projectionQuery.data?.sections ?? [])
             .filter((item) => item.sectionNumber <= 3)
             .sort((left, right) => left.sectionNumber - right.sectionNumber)
             .map((item) => ({
               sectionId: item.sectionId,
               currentEstimate: item.currentEstimate,
+              confidence: item.confidence,
             })),
-        )
+        })
       : {});
   return (
     <SectionProgressContent

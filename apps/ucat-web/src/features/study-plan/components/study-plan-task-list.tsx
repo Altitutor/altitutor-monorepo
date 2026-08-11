@@ -57,6 +57,16 @@ function TaskIcon({ task }: { task: StudyPlanTask }) {
   return <BrainCircuit className={className} />;
 }
 
+function configString(task: StudyPlanTask, key: string): string | null {
+  const value = task.launchConfig[key];
+  return typeof value === "string" && value.trim() ? value : null;
+}
+
+function configNumber(task: StudyPlanTask, key: string): number | null {
+  const value = task.launchConfig[key];
+  return typeof value === "number" && Number.isFinite(value) ? value : null;
+}
+
 function TaskRow({
   task,
   compact,
@@ -89,6 +99,13 @@ function TaskRow({
   const awaitingReviewAttempt =
     task.taskType === "review" && task.launchConfig.awaitingAttempt !== false;
   const canSkip = Boolean(today && task.scheduledDate <= today);
+  const sectionName = configString(task, "sectionName");
+  const preparationPhase = configString(task, "preparationPhase");
+  const prescribedPace = configNumber(task, "prescribedPace");
+  const nextMilestone = configString(task, "nextMilestone");
+  const preparationWarning = configString(task, "preparationWarning");
+  const practiceMinutes = configNumber(task, "practiceMinutes");
+  const reviewMinutes = configNumber(task, "reviewMinutes");
 
   return (
     <motion.li
@@ -131,14 +148,48 @@ function TaskRow({
           <p className="mt-1 text-sm text-muted-foreground">
             {task.description}
           </p>
+          {sectionName || preparationPhase || prescribedPace != null ? (
+            <div className="mt-2 flex flex-wrap gap-1.5">
+              {sectionName ? <Badge variant="outline">{sectionName}</Badge> : null}
+              {preparationPhase ? (
+                <Badge variant="secondary">
+                  {preparationPhase[0]!.toUpperCase() + preparationPhase.slice(1)} phase
+                </Badge>
+              ) : null}
+              {prescribedPace != null ? (
+                <Badge variant="outline">{prescribedPace.toFixed(1)}× pace</Badge>
+              ) : null}
+            </div>
+          ) : null}
           {!compact && task.rationale ? (
             <p className="mt-2 text-xs text-muted-foreground/80">
               Why this: {task.rationale}
             </p>
           ) : null}
+          {!compact && nextMilestone ? (
+            <p className="mt-1 text-xs text-muted-foreground/80">
+              Next milestone: {nextMilestone}
+            </p>
+          ) : null}
+          {preparationWarning ? (
+            <p
+              role="alert"
+              className="mt-2 rounded-lg bg-amber-500/10 px-3 py-2 text-xs text-amber-800 dark:text-amber-200"
+            >
+              {preparationWarning}
+            </p>
+          ) : null}
           <div className="mt-2 flex items-center gap-1 text-xs text-muted-foreground">
             <Clock3 className="h-3.5 w-3.5" aria-hidden />
-            About {task.estimatedMinutes} min
+            {practiceMinutes != null || reviewMinutes != null ? (
+              <span>
+                {practiceMinutes ? `Activity ${practiceMinutes} min` : null}
+                {practiceMinutes && reviewMinutes ? " · " : null}
+                {reviewMinutes ? `Review ${reviewMinutes} min` : null}
+              </span>
+            ) : (
+              <>About {task.estimatedMinutes} min</>
+            )}
           </div>
           {error ? (
             <p className="mt-3 rounded-lg bg-destructive/10 px-3 py-2 text-xs text-destructive">

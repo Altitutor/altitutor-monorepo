@@ -1,12 +1,77 @@
-import { derivePreparationForecastEvidence } from "@/features/preparation/lib/forecast-evidence";
+import {
+  derivePreparationForecastEvidence,
+  mergeCurrentPreparationHistory,
+} from "@/features/preparation/lib/forecast-evidence";
 import { CURRENT_PREPARATION_VERSIONS } from "@/features/preparation/lib/policy";
 
 describe("preparation forecast evidence", () => {
+  it("includes first-load current evidence and replaces an existing same-day point", () => {
+    const currentScore = {
+      status: "available" as const,
+      currentEstimate: 1900,
+      confidence: "medium" as const,
+      uncertainty: 55,
+      sections: [
+        {
+          sectionId: "vr",
+          sectionNumber: 1,
+          currentEstimate: 620,
+          confidence: "medium" as const,
+          uncertainty: 32,
+          evidenceCount: 5,
+          evidenceStatus: "available" as const,
+        },
+      ],
+    };
+
+    expect(
+      mergeCurrentPreparationHistory([], currentScore, "2026-01-21", "model-v1"),
+    ).toEqual([
+      expect.objectContaining({ date: "2026-01-21", currentEstimate: 1900 }),
+    ]);
+    expect(
+      mergeCurrentPreparationHistory(
+        [
+          {
+            date: "2026-01-20",
+            currentEstimate: 1800,
+            modelVersion: "model-v1",
+          },
+          {
+            date: "2026-01-21",
+            currentEstimate: 1850,
+            modelVersion: "model-v1",
+          },
+        ],
+        currentScore,
+        "2026-01-21",
+        "model-v1",
+      ),
+    ).toEqual([
+      expect.objectContaining({ date: "2026-01-20", currentEstimate: 1800 }),
+      expect.objectContaining({ date: "2026-01-21", currentEstimate: 1900 }),
+    ]);
+  });
+
   it("uses core-task adherence and keeps only compatible trajectory history", () => {
     const currentSnapshot = {
       versions: CURRENT_PREPARATION_VERSIONS,
       sectionTargets: { vr: 730, dm: 730, qr: 740 },
-      currentScore: { status: "available", currentEstimate: 1800 },
+      currentScore: {
+        status: "available",
+        currentEstimate: 1800,
+        confidence: "high",
+        uncertainty: 45,
+        sections: [
+          {
+            sectionId: "vr",
+            currentEstimate: 600,
+            confidence: "medium",
+            uncertainty: 30,
+            evidenceCount: 4,
+          },
+        ],
+      },
     };
     const result = derivePreparationForecastEvidence({
       today: "2026-01-21",
@@ -19,6 +84,17 @@ describe("preparation forecast evidence", () => {
         {
           generatedAt: "2026-01-20T00:00:00.000Z",
           projectionSnapshot: currentSnapshot,
+        },
+        {
+          generatedAt: "2026-01-20T12:00:00.000Z",
+          projectionSnapshot: {
+            ...currentSnapshot,
+            currentScore: {
+              ...currentSnapshot.currentScore,
+              currentEstimate: 1810,
+              uncertainty: 40,
+            },
+          },
         },
         {
           generatedAt: "2026-01-13T00:00:00.000Z",
@@ -88,7 +164,21 @@ describe("preparation forecast evidence", () => {
       recentCoreSectionEquivalentsPerWeek: 0.5,
       history: [
         { date: "2026-01-13", currentEstimate: 1750 },
-        { date: "2026-01-20", currentEstimate: 1800 },
+        {
+          date: "2026-01-20",
+          currentEstimate: 1810,
+          confidence: "high",
+          uncertainty: 40,
+          effectiveEvidenceWeight: 4,
+          sections: {
+            vr: {
+              currentEstimate: 600,
+              confidence: "medium",
+              uncertainty: 30,
+              evidenceCount: 4,
+            },
+          },
+        },
       ],
     });
     expect(result.adherenceUncertainty).toBeGreaterThan(0);

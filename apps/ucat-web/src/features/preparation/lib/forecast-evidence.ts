@@ -1,5 +1,7 @@
 import type {
+  PreparationCurrentScoreEstimate,
   PreparationEngineInput,
+  PreparationTrajectoryHistoryPoint,
   PreparationVersions,
 } from "@/features/preparation/model/types";
 import type {
@@ -67,11 +69,107 @@ function historyPoint(
   ) {
     return null;
   }
+  const sections = Array.isArray(currentScore.sections)
+    ? Object.fromEntries(
+        currentScore.sections.flatMap((value) => {
+          const section = record(value);
+          return typeof section?.sectionId === "string" &&
+            typeof section.currentEstimate === "number"
+            ? [
+                [
+                  section.sectionId,
+                  {
+                    currentEstimate: section.currentEstimate,
+                    confidence:
+                      section.confidence === "low" ||
+                      section.confidence === "medium" ||
+                      section.confidence === "high"
+                        ? section.confidence
+                        : null,
+                    uncertainty:
+                      typeof section.uncertainty === "number"
+                        ? section.uncertainty
+                        : null,
+                    evidenceCount:
+                      typeof section.evidenceCount === "number"
+                        ? section.evidenceCount
+                        : 0,
+                  },
+                ] as const,
+              ]
+            : [];
+        }),
+      )
+    : {};
+  const confidence: "low" | "medium" | "high" | null =
+    currentScore.confidence === "low" ||
+    currentScore.confidence === "medium" ||
+    currentScore.confidence === "high"
+      ? currentScore.confidence
+      : null;
   return {
     date: snapshotEvidence.generatedAt.slice(0, 10),
     currentEstimate: currentScore.currentEstimate,
     modelVersion: versions.trajectoryModel,
+    confidence,
+    uncertainty:
+      typeof currentScore.uncertainty === "number"
+        ? currentScore.uncertainty
+        : null,
+    effectiveEvidenceWeight: Object.values(sections).reduce(
+      (sum, section) => sum + section.evidenceCount,
+      0,
+    ),
+    sections,
   };
+}
+
+export function mergeCurrentPreparationHistory(
+  history: PreparationTrajectoryHistoryPoint[],
+  currentScore: Pick<
+    PreparationCurrentScoreEstimate,
+    "status" | "currentEstimate" | "confidence" | "uncertainty" | "sections"
+  >,
+  date: string,
+  modelVersion: string,
+): PreparationTrajectoryHistoryPoint[] {
+  if (currentScore.status !== "available" || currentScore.currentEstimate == null) {
+    return history;
+  }
+  const sections = Object.fromEntries(
+    currentScore.sections.flatMap((section) =>
+      section.currentEstimate == null
+        ? []
+        : [
+            [
+              section.sectionId,
+              {
+                currentEstimate: section.currentEstimate,
+                confidence: section.confidence,
+                uncertainty: section.uncertainty,
+                evidenceCount: section.evidenceCount,
+              },
+            ] as const,
+          ],
+    ),
+  );
+  const current: PreparationTrajectoryHistoryPoint = {
+    date,
+    currentEstimate: currentScore.currentEstimate,
+    modelVersion,
+    confidence: currentScore.confidence,
+    uncertainty: currentScore.uncertainty,
+    effectiveEvidenceWeight: currentScore.sections.reduce(
+      (sum, section) => sum + section.evidenceCount,
+      0,
+    ),
+    sections,
+  };
+  return Array.from(
+    [...history, current]
+      .reduce((points, point) => points.set(point.date, point), new Map<string, PreparationTrajectoryHistoryPoint>())
+      .values(),
+  ).sort((left, right) => left.date.localeCompare(right.date));
 }
 
 export function derivePreparationForecastEvidence(input: {
@@ -133,11 +231,16 @@ export function derivePreparationForecastEvidence(input: {
         : null,
     expectedAdherence,
     adherenceUncertainty,
-    history: input.historySnapshots
-      .flatMap((snapshot) => {
-        const point = historyPoint(snapshot, input.versions);
-        return point ? [point] : [];
-      })
-      .sort((left, right) => left.date.localeCompare(right.date)),
+    history: Array.from(
+      input.historySnapshots
+        .slice()
+        .sort((left, right) => left.generatedAt.localeCompare(right.generatedAt))
+        .reduce((points, snapshot) => {
+          const point = historyPoint(snapshot, input.versions);
+          if (point) points.set(point.date, point);
+          return points;
+        }, new Map<string, NonNullable<ReturnType<typeof historyPoint>>>())
+        .values(),
+    ),
   };
 }

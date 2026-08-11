@@ -4,13 +4,9 @@ import {
   STANDARD_PREPARATION_TIMING_PROFILE,
   type PreparationEngineInput,
 } from "@/features/preparation";
-import {
-  generateExtraStudyTasks,
-  generateStudyPlan,
-} from "@/features/study-plan/lib/generator";
+import { generateExtraStudyTasks } from "@/features/study-plan/lib/generator";
 import {
   buildAlternativeNextStep,
-  buildNextStepDrafts,
   guidanceItemKey,
 } from "@/features/study-plan/lib/next-step-guidance";
 import type {
@@ -149,12 +145,12 @@ describe("prepareStudent", () => {
     expect(first.assessment).toEqual(first.plan.readiness);
     expect(first.explanationTrace.map((item) => item.code)).toEqual(
       expect.arrayContaining([
-        "preparation.assessment.legacy_adapter",
+        "preparation.assessment.canonical",
         "preparation.score.representative_evidence",
-        "preparation.plan.legacy_adapter",
+        "preparation.plan.canonical",
         "preparation.timing.profile",
         "timing.initial_placement",
-        "preparation.guidance.legacy_adapter",
+        "preparation.guidance.canonical",
       ]),
     );
   });
@@ -353,48 +349,6 @@ describe("prepareStudent", () => {
     expect(vrPriority!.ranking.total).toBeGreaterThan(0);
   });
 
-  it("preserves the existing plan and guidance behavior through adapters", () => {
-    const fixture = input();
-    fixture.content.skillTrainers = [
-      {
-        id: "trainer-vr",
-        key: "vr_warmup",
-        name: "VR warm-up",
-        sectionId: "vr",
-        categoryIds: ["vr-category"],
-        estimatedMinutes: 3,
-      },
-    ];
-    const result = prepareStudent(fixture);
-    const directPlan = generateStudyPlan({
-      today: fixture.clock.today,
-      planningDate: fixture.goal.planningDate,
-      profile: fixture.goal.profile,
-      sections: fixture.content.sections,
-      signals: fixture.evidence.sectionSignals,
-      categories: fixture.content.categories,
-      learningModules: fixture.content.learningModules,
-      skillTrainers: fixture.content.skillTrainers,
-      completedMockCount: fixture.evidence.completedMockCount,
-    });
-    const directGuidance = buildNextStepDrafts({
-      today: fixture.clock.today,
-      planningDate: fixture.goal.planningDate,
-      dailyWarmup: false,
-      incompleteReview: null,
-      sections: fixture.content.sections,
-      signals: fixture.evidence.sectionSignals,
-      categories: fixture.content.categories,
-      learningModules: fixture.content.learningModules,
-      skillTrainers: fixture.content.skillTrainers,
-      trainerAttemptCounts: new Map(),
-      completedMockCount: fixture.evidence.completedMockCount,
-    });
-
-    expect(result.plan).toEqual(directPlan);
-    expect(result.immediateGuidance).toEqual(directGuidance);
-  });
-
   it("uses the same ranked preparation objective for the plan and rolling guidance", () => {
     const fixture = input();
     fixture.content.skillTrainers = [
@@ -475,6 +429,24 @@ describe("prepareStudent", () => {
     ).toMatchObject({
       optional: true,
       activityObjective: firstRequired?.objective,
+    });
+  });
+
+  it("gives Student tasks one canonical phase, pace, milestone and split duration context", () => {
+    const result = prepareStudent(input());
+    const task = result.plan.tasks.find(
+      (candidate) =>
+        typeof candidate.launchConfig.activityCandidateId === "string" &&
+        candidate.sectionId != null,
+    );
+
+    expect(task?.launchConfig).toMatchObject({
+      preparationPhase: expect.stringMatching(/learning|timing|exam/),
+      prescribedPace: expect.any(Number),
+      nextMilestone: expect.any(String),
+      sectionName: expect.any(String),
+      practiceMinutes: expect.any(Number),
+      reviewMinutes: expect.any(Number),
     });
   });
 

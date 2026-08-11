@@ -120,6 +120,18 @@ export type PreparationTrajectoryHistoryPoint = {
   date: string;
   currentEstimate: number;
   modelVersion: string;
+  confidence?: "low" | "medium" | "high" | null;
+  uncertainty?: number | null;
+  effectiveEvidenceWeight?: number;
+  sections?: Record<
+    string,
+    {
+      currentEstimate: number;
+      confidence: "low" | "medium" | "high" | null;
+      uncertainty: number | null;
+      evidenceCount: number;
+    }
+  >;
 };
 
 export type PreparationTrajectoryPoint = {

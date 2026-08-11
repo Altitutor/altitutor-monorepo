@@ -1,0 +1,168 @@
+import {
+  comparePreparationSandboxCase,
+  exportPreparationSandboxCase,
+  exportPreparationSandboxComparison,
+  PREPARATION_SANDBOX_PERSONAS,
+  replayPreparationSandboxCase,
+  replayPreparationSandboxComparison,
+  runPreparationSandboxCase,
+  type PreparationSandboxCase,
+} from "@/features/preparation/testing/sandbox";
+
+const REQUIRED_PERSONAS = [
+  "new-student",
+  "experienced-high-performing",
+  "accurate-slow",
+  "fast-inaccurate",
+  "uneven-sections",
+  "low-availability",
+  "imminent-exam",
+] as const;
+
+describe("Preparation policy sandbox", () => {
+  it("ships every release persona as a complete canonical regression fixture", () => {
+    expect(Object.keys(PREPARATION_SANDBOX_PERSONAS).sort()).toEqual(
+      [...REQUIRED_PERSONAS].sort(),
+    );
+
+    for (const key of REQUIRED_PERSONAS) {
+      const fixture = PREPARATION_SANDBOX_PERSONAS[key];
+      const run = runPreparationSandboxCase(fixture);
+
+      expect(run.result.seed).toBe(fixture.input.seed);
+      expect(run.result.plan.tasks.length).toBeGreaterThan(0);
+      expect(run.result.assessment.sections).toHaveLength(3);
+      expect(run.dailyWork).toHaveLength(21);
+      expect(run.dailyWork.every((day) => day.practiceMinutes >= 0)).toBe(true);
+      expect(run.dailyWork.every((day) => day.reviewMinutes >= 0)).toBe(true);
+      expect(run.result.explanationTrace.length).toBeGreaterThan(4);
+    }
+  });
+
+  it("exports stable JSON that replays to the identical canonical result", () => {
+    const fixture = PREPARATION_SANDBOX_PERSONAS["uneven-sections"];
+    const exported = exportPreparationSandboxCase(fixture);
+    const replayed = replayPreparationSandboxCase(exported);
+
+    expect(exported).toBe(exportPreparationSandboxCase(fixture));
+    expect(replayed.fixture).toEqual(fixture);
+    expect(replayed.result).toEqual(runPreparationSandboxCase(fixture).result);
+  });
+
+  it("compares policy versions with identical evidence, clock and seed", () => {
+    const fixture = PREPARATION_SANDBOX_PERSONAS["accurate-slow"];
+    const policies = {
+      left: {
+        versions: {
+          ...fixture.input.versions,
+          policy: "preparation-policy-control-v1",
+        },
+        timingProfile: fixture.input.timingProfile,
+      },
+      right: {
+        versions: {
+          ...fixture.input.versions,
+          policy: "preparation-policy-candidate-v2",
+        },
+        timingProfile: {
+          ...fixture.input.timingProfile,
+          id: "candidate-accessible-timing",
+          version: "candidate-accessible-timing-v1",
+          defaultTimeMultiplier: 1.5,
+        },
+      },
+    };
+    const comparison = comparePreparationSandboxCase(fixture, policies);
+
+    expect(comparison.left.fixture.input.seed).toBe(
+      comparison.right.fixture.input.seed,
+    );
+    expect(comparison.left.fixture.input.clock).toEqual(
+      comparison.right.fixture.input.clock,
+    );
+    expect(comparison.left.fixture.input.content).toEqual(
+      comparison.right.fixture.input.content,
+    );
+    expect(comparison.left.fixture.input.evidence).toEqual(
+      comparison.right.fixture.input.evidence,
+    );
+    expect(comparison.left.result.versions.policy).toBe(
+      "preparation-policy-control-v1",
+    );
+    expect(comparison.right.result.versions.policy).toBe(
+      "preparation-policy-candidate-v2",
+    );
+    expect(comparison.left.fixture.input.timingProfile).not.toEqual(
+      comparison.right.fixture.input.timingProfile,
+    );
+    expect(comparison.left.result.timingProfile).not.toEqual(
+      comparison.right.result.timingProfile,
+    );
+
+    const exported = exportPreparationSandboxComparison({
+      fixture,
+      policies,
+    });
+    const replayed = replayPreparationSandboxComparison(exported);
+    expect(replayed.left.result).toEqual(comparison.left.result);
+    expect(replayed.right.result).toEqual(comparison.right.result);
+  });
+
+  it("reports canonical practice and review duration splits for mock days", () => {
+    const run = runPreparationSandboxCase(
+      PREPARATION_SANDBOX_PERSONAS["imminent-exam"],
+    );
+
+    expect(
+      run.dailyWork.some(
+        (day) => day.practiceMinutes === 120 && day.reviewMinutes === 30,
+      ),
+    ).toBe(true);
+  });
+
+  it("accepts editable dates, availability, target, SJT, evidence, pace, adherence and versions", () => {
+    const base = PREPARATION_SANDBOX_PERSONAS["new-student"];
+    const fixture = JSON.parse(
+      exportPreparationSandboxCase(base),
+    ) as PreparationSandboxCase;
+    fixture.input.clock = {
+      today: "2026-05-04",
+      now: "2026-05-04T00:00:00.000Z",
+    };
+    fixture.input.goal.planningDate = "2026-07-06";
+    fixture.input.goal.profile = {
+      ...fixture.input.goal.profile,
+      targetScore: 2500,
+      testDate: "2026-07-06",
+      availableDays: [{ weekday: 6, maxMinutes: 180 }],
+      preferredMockWeekday: 6,
+      sjtPreference: "not_at_all",
+    };
+    fixture.input.evidence.sectionSignals[0] = {
+      ...fixture.input.evidence.sectionSignals[0]!,
+      attemptedQuestionCount: 44,
+      recentAccuracy: 0.8,
+      observedPace: 1.1,
+      prescribedPace: 0.9,
+    };
+    fixture.input.evidence.forecast = {
+      expectedAdherence: 0.55,
+      adherenceUncertainty: 0.3,
+    };
+    fixture.input.versions = {
+      ...fixture.input.versions,
+      policy: "editable-policy-v7",
+    };
+
+    const run = runPreparationSandboxCase(fixture);
+
+    expect(run.result.versions.policy).toBe("editable-policy-v7");
+    expect(run.result.assessment.daysUntilExam).toBe(63);
+    expect(run.result.assessment.sections[0]).toMatchObject({
+      observedPace: 1.1,
+    });
+    expect(
+      run.result.plan.tasks.some((task) => task.sectionId === "sjt"),
+    ).toBe(false);
+  });
+});

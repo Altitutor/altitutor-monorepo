@@ -107,7 +107,7 @@ function explanationTrace(
 ): PreparationExplanationTraceItem[] {
   return [
     {
-      code: "preparation.assessment.legacy_adapter",
+      code: "preparation.assessment.canonical",
       source: "assessment",
       details: { policyVersion: input.versions.policy },
     },
@@ -135,7 +135,7 @@ function explanationTrace(
       details: { modelVersion: input.versions.scoreModel },
     },
     {
-      code: "preparation.plan.legacy_adapter",
+      code: "preparation.plan.canonical",
       source: "plan",
       details: { horizonDays: 21, capacityWarning },
     },
@@ -151,7 +151,7 @@ function explanationTrace(
     ...(input.guidance
       ? [
           {
-            code: "preparation.guidance.legacy_adapter",
+            code: "preparation.guidance.canonical",
             source: "guidance" as const,
             details: {
               dailyWarmup: input.guidance.dailyWarmup,
@@ -187,11 +187,25 @@ export function prepareStudent(
 ): PreparationEngineResult {
   validateInput(input);
   const currentScore = currentScoreFromRepresentativeEvidence(input);
+  const currentScoreBySection = new Map(
+    currentScore.sections.map((section) => [section.sectionId, section]),
+  );
+  const canonicalScoreSignals = input.evidence.sectionSignals.map((signal) => {
+    const score = currentScoreBySection.get(signal.sectionId);
+    return score?.currentEstimate == null
+      ? signal
+      : {
+          ...signal,
+          currentEstimate: score.currentEstimate,
+          evidenceCount: score.evidenceCount,
+          scoreConfidence: score.confidence,
+        };
+  });
   const baseAssessment = buildReadinessSnapshot({
     today: input.clock.today,
     planningDate: input.goal.planningDate,
     sections: input.content.sections,
-    signals: input.evidence.sectionSignals,
+    signals: canonicalScoreSignals,
     categories: input.content.categories,
     learningModules: input.content.learningModules,
   });
@@ -199,7 +213,7 @@ export function prepareStudent(
     baseAssessment.sections.map((section) => [section.sectionId, section]),
   );
   const timingAssessments = new Map<string, TimingPolicyAssessment>();
-  const enrichedSignals = input.evidence.sectionSignals.map((signal) => {
+  const enrichedSignals = canonicalScoreSignals.map((signal) => {
     const section = input.content.sections.find(
       (candidate) => candidate.id === signal.sectionId,
     );
@@ -241,9 +255,6 @@ export function prepareStudent(
   const lastCompletedMockDate = latestCompletedMockDate(
     input.evidence.timingSessions,
   );
-  const currentScoreBySection = new Map(
-    currentScore.sections.map((section) => [section.sectionId, section]),
-  );
   const sectionTargets = allocateSectionTargets({
     totalTarget: input.goal.profile.targetScore,
     sections: input.content.sections
@@ -260,25 +271,19 @@ export function prepareStudent(
     previousTargetsSetAt: input.evidence.forecast?.previousSectionTargetsSetAt,
     now: input.clock.now,
   });
-  const plan = generateStudyPlan({
+  const assessment = buildReadinessSnapshot({
     today: input.clock.today,
     planningDate: input.goal.planningDate,
-    profile: input.goal.profile,
     sections: input.content.sections,
     signals: enrichedSignals,
     categories: input.content.categories,
     learningModules: input.content.learningModules,
-    skillTrainers: input.content.skillTrainers,
-    tagSignals: input.content.tagSignals,
-    completedMockCount: input.evidence.completedMockCount,
-    lastCompletedMockDate,
-    sectionTargets,
   });
   const activityCandidates = rankActivityCandidates({
     today: input.clock.today,
     planningDate: input.goal.planningDate,
     targetScore: input.goal.profile.targetScore,
-    readiness: plan.readiness,
+    readiness: assessment,
     sections: input.content.sections,
     signals: enrichedSignals,
     categories: input.content.categories,
@@ -292,6 +297,22 @@ export function prepareStudent(
     completedMockCount: input.evidence.completedMockCount,
     sjtPreference: input.goal.profile.sjtPreference,
     lastCompletedMockDate,
+  });
+  const plan = generateStudyPlan({
+    today: input.clock.today,
+    planningDate: input.goal.planningDate,
+    profile: input.goal.profile,
+    sections: input.content.sections,
+    signals: enrichedSignals,
+    categories: input.content.categories,
+    learningModules: input.content.learningModules,
+    skillTrainers: input.content.skillTrainers,
+    tagSignals: input.content.tagSignals,
+    completedMockCount: input.evidence.completedMockCount,
+    lastCompletedMockDate,
+    sectionTargets,
+    readiness: assessment,
+    activityCandidates,
   });
   const immediateGuidance = input.guidance
     ? buildNextStepDrafts({

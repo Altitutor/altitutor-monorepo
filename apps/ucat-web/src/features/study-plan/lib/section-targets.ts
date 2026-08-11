@@ -80,20 +80,7 @@ function withinWeeklyHold(input: AllocateSectionTargetsInput): boolean {
  */
 export function allocateSectionTargets(
   input: AllocateSectionTargetsInput,
-): Record<string, number>;
-/** @deprecated Callers with persisted preparation state should use the object interface. */
-export function allocateSectionTargets(
-  totalTarget: number,
-  sections: SectionTargetEvidence[],
-): Record<string, number>;
-export function allocateSectionTargets(
-  inputOrTarget: AllocateSectionTargetsInput | number,
-  legacySections: SectionTargetEvidence[] = [],
 ): Record<string, number> {
-  const input: AllocateSectionTargetsInput =
-    typeof inputOrTarget === "number"
-      ? { totalTarget: inputOrTarget, sections: legacySections }
-      : inputOrTarget;
   const cognitive = input.sections.slice(0, 3);
   if (!cognitive.length) return {};
   const initial = distributeTotal(input.totalTarget, cognitive.length);

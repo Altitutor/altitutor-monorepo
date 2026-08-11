@@ -49,6 +49,8 @@ type GenerateStudyPlanInput = {
   lastCompletedMockDate?: string | null;
   tagSignals?: ActivityTagSignal[];
   sectionTargets?: Record<string, number>;
+  readiness?: StudyPlanReadinessSnapshot;
+  activityCandidates?: PreparationActivityCandidate[];
 };
 
 type GenerateExtraStudyTaskInput = StudyPlanExtraStudyInput & {
@@ -625,37 +627,39 @@ export function generateStudyPlan(
   const horizonEnd = addDays(input.today, STUDY_PLAN_DETAILED_HORIZON_DAYS - 1);
   const endsOn = examEnd < horizonEnd ? examEnd : horizonEnd;
   const dates = selectedDates(input.today, endsOn, input.profile);
-  const readiness = buildReadinessSnapshot(input);
+  const readiness = input.readiness ?? buildReadinessSnapshot(input);
   const sectionTargets =
     input.sectionTargets ??
-    allocateSectionTargets(
-      input.profile.targetScore,
-      input.sections
+    allocateSectionTargets({
+      totalTarget: input.profile.targetScore,
+      sections: input.sections
         .filter((section) => section.sectionNumber <= COGNITIVE_SECTION_COUNT)
         .map((section) => ({
           sectionId: section.id,
           currentEstimate:
             input.signals.find((signal) => signal.sectionId === section.id)
               ?.currentEstimate ?? null,
-        })),
-    );
-  const rankedActivities = rankActivityCandidates({
-    today: input.today,
-    planningDate: input.planningDate,
-    targetScore: input.profile.targetScore,
-    readiness,
-    sections: input.sections,
-    signals: input.signals,
-    categories: input.categories,
-    learningModules: input.learningModules,
-    skillTrainers: input.skillTrainers,
-    tagSignals: input.tagSignals,
-    trainerAttemptCounts: new Map(),
-    incompleteReview: null,
-    completedMockCount: input.completedMockCount,
-    sjtPreference: input.profile.sjtPreference,
-    lastCompletedMockDate: input.lastCompletedMockDate,
-  });
+          })),
+    });
+  const rankedActivities =
+    input.activityCandidates ??
+    rankActivityCandidates({
+      today: input.today,
+      planningDate: input.planningDate,
+      targetScore: input.profile.targetScore,
+      readiness,
+      sections: input.sections,
+      signals: input.signals,
+      categories: input.categories,
+      learningModules: input.learningModules,
+      skillTrainers: input.skillTrainers,
+      tagSignals: input.tagSignals,
+      trainerAttemptCounts: new Map(),
+      incompleteReview: null,
+      completedMockCount: input.completedMockCount,
+      sjtPreference: input.profile.sjtPreference,
+      lastCompletedMockDate: input.lastCompletedMockDate,
+    });
   const plannedActivities = selectActivityCandidates(rankedActivities, {
     experience: "plan",
   });
@@ -746,9 +750,13 @@ export function generateStudyPlan(
     activity: PreparationActivityCandidate,
     scheduledDate: string,
     sortOrder: number,
+    intensiveDay: boolean,
   ): GeneratedStudyPlanTask | null => {
     const section = activity.sectionId
       ? sectionById.get(activity.sectionId)
+      : null;
+    const sectionReadiness = section
+      ? readinessBySection.get(section.id)
       : null;
     let generated: GeneratedStudyPlanTask | null = null;
     if (activity.kind === "instruction" && activity.learningModuleId) {
@@ -780,7 +788,6 @@ export function generateStudyPlan(
         const category = input.categories.find((item) => item.id === categoryId);
         return category ? [category] : [];
       });
-      const sectionReadiness = readinessBySection.get(section.id);
       const uses = useCounts.get(activity.id) ?? 0;
       const useOverspeed =
         Boolean(sectionReadiness?.overspeedEligible) && (uses + 1) % 4 === 0;
@@ -816,6 +823,19 @@ export function generateStudyPlan(
         activityObjective: activity.objective,
         activityReasonCode: activity.reasonCode,
         sectionEquivalents: activity.dose.sectionEquivalents,
+        preparationPhase: sectionReadiness?.mode ?? readiness.mode,
+        prescribedPace:
+          sectionReadiness?.paceMultiplier ??
+          (activity.kind === "mock" ? 1 : null),
+        nextMilestone:
+          sectionReadiness?.nextMilestone ??
+          "Rehearse the complete exam under realistic conditions.",
+        sectionName: section?.name ?? "Full UCAT",
+        practiceMinutes: activity.duration.practiceMinutes,
+        reviewMinutes: activity.duration.reviewMinutes,
+        preparationWarning: intensiveDay
+          ? "This is an intensive study day because the remaining preparation demand is high for your available days."
+          : null,
         optional: false,
       },
     };
@@ -958,7 +978,12 @@ export function generateStudyPlan(
       }
     }
     for (const activity of candidatesForDay) {
-      const selectedTask = taskForCandidate(activity, date, sortOrder++);
+      const selectedTask = taskForCandidate(
+        activity,
+        date,
+        sortOrder++,
+        envelope.coreSlotCount > 2,
+      );
       if (!selectedTask) continue;
       canonicalTasks.push(selectedTask);
       if (activity.duration.reviewMinutes > 0 && activity.kind !== "mock") {
@@ -972,6 +997,14 @@ export function generateStudyPlan(
             activityCandidateId: activity.id,
             activityObjective: activity.objective,
             activityReasonCode: activity.reasonCode,
+            preparationPhase: selectedTask.launchConfig.preparationPhase,
+            prescribedPace: selectedTask.launchConfig.prescribedPace,
+            nextMilestone: selectedTask.launchConfig.nextMilestone,
+            sectionName: selectedTask.launchConfig.sectionName,
+            practiceMinutes: 0,
+            reviewMinutes: activity.duration.reviewMinutes,
+            preparationWarning:
+              selectedTask.launchConfig.preparationWarning,
             derivedReview: true,
           },
         });

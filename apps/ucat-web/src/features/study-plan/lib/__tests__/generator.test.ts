@@ -93,6 +93,44 @@ const timingCategories = categories.map((category) => ({
 }));
 
 describe("generateStudyPlan", () => {
+  it("normalises scheduled core dose by the actual shortened horizon", () => {
+    const result = generateStudyPlan({
+      today: "2026-01-05",
+      planningDate: "2026-01-11",
+      profile: {
+        ...profile,
+        testDate: "2026-01-11",
+        availableDays: [0, 1, 2, 3, 4, 5, 6].map((weekday) => ({
+          weekday: weekday as 0 | 1 | 2 | 3 | 4 | 5 | 6,
+          maxMinutes: 90,
+        })),
+      },
+      sections,
+      signals: sections.map((section) => ({
+        sectionId: section.id,
+        currentEstimate: 600,
+        evidenceCount: 2,
+        completedFullSets: 0,
+      })),
+      learningModules: [],
+      ...contentInputs,
+      completedMockCount: 0,
+    });
+    const questionCounts = new Map(
+      sections.map((section) => [section.id, section.questionCount]),
+    );
+    const scheduledDose = result.tasks.reduce((sum, task) => {
+      if (task.taskType === "mock") return sum + 3;
+      if (task.taskType !== "practice" || !task.sectionId || !task.targetUnits) {
+        return sum;
+      }
+      return sum + task.targetUnits / questionCounts.get(task.sectionId)!;
+    }, 0);
+
+    expect(result.endsOn).toBe("2026-01-11");
+    expect(result.coreSectionEquivalentsPerWeek).toBeCloseTo(scheduledDose, 1);
+  });
+
   it("starts with short learning loops inside a rolling horizon", () => {
     const result = generateStudyPlan({
       today: "2026-01-05",

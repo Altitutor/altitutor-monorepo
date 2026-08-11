@@ -32,4 +32,20 @@ describe("section target allocation", () => {
       }),
     ).toEqual({ vr: 700, dm: 700, qr: 700 });
   });
+
+  it("preserves an explicitly changed total immediately", () => {
+    expect(
+      allocateSectionTargets({
+        totalTarget: 2100,
+        sections: [
+          { sectionId: "vr", currentEstimate: 500, confidence: "high" },
+          { sectionId: "dm", currentEstimate: 700, confidence: "high" },
+          { sectionId: "qr", currentEstimate: 800, confidence: "high" },
+        ],
+        previousTargets: { vr: 730, dm: 730, qr: 740 },
+        previousTargetsSetAt: "2026-01-10T00:00:00.000Z",
+        now: "2026-01-11T00:00:00.000Z",
+      }),
+    ).toEqual({ vr: 700, dm: 700, qr: 700 });
+  });
 });

@@ -184,16 +184,17 @@ export function ProgressPage() {
   const sectionTargets =
     plan?.generation?.sectionTargets ??
     (plan?.profile
-      ? allocateSectionTargets(
-          plan.profile.targetScore,
-          (scoreProjectionQuery.data?.sections ?? [])
+      ? allocateSectionTargets({
+          totalTarget: plan.profile.targetScore,
+          sections: (scoreProjectionQuery.data?.sections ?? [])
             .filter((section) => section.sectionNumber <= 3)
             .sort((left, right) => left.sectionNumber - right.sectionNumber)
             .map((section) => ({
               sectionId: section.sectionId,
               currentEstimate: section.currentEstimate,
+              confidence: section.confidence,
             })),
-        )
+        })
       : {});
 
   return (

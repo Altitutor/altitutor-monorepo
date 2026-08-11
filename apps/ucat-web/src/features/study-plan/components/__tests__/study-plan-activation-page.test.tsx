@@ -362,8 +362,17 @@ describe("StudyPlanActivationPage", () => {
     fireEvent.click(
       screen.getByRole("button", { name: /Choose my study week/i }),
     );
+    fireEvent.change(screen.getByLabelText("Soft mock weekday"), {
+      target: { value: "5" },
+    });
     fireEvent.click(
       screen.getByRole("button", { name: "Build my Study plan" }),
+    );
+
+    await waitFor(() =>
+      expect(mockSaveStudyPlan).toHaveBeenCalledWith(
+        expect.objectContaining({ preferredMockWeekday: 5 }),
+      ),
     );
 
     await waitFor(() =>

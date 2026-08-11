@@ -7,10 +7,14 @@ import {
   prepareStudent,
 } from "@/features/preparation";
 import {
+  createExtraStudyTask,
   getStudyPlan,
   saveStudyPlanProfile,
+  suggestAlternativeStudyGuidance,
   updateStudyPlanTask,
 } from "@/features/study-plan/server/study-plan-service";
+import { generateExtraStudyTasks } from "@/features/study-plan/lib/generator";
+import { buildAlternativeNextStep } from "@/features/study-plan/lib/next-step-guidance";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 
 jest.mock("server-only", () => ({}));
@@ -21,6 +25,16 @@ jest.mock("@/features/preparation", () => {
 jest.mock("@/lib/supabase/admin", () => ({
   supabaseAdmin: { from: jest.fn(), rpc: jest.fn() },
 }));
+jest.mock("@/features/study-plan/lib/generator", () => {
+  const actual = jest.requireActual("@/features/study-plan/lib/generator");
+  return { ...actual, generateExtraStudyTasks: jest.fn() };
+});
+jest.mock("@/features/study-plan/lib/next-step-guidance", () => {
+  const actual = jest.requireActual(
+    "@/features/study-plan/lib/next-step-guidance",
+  );
+  return { ...actual, buildAlternativeNextStep: jest.fn() };
+});
 
 type QueryResult = { data: unknown; error: null; count?: number };
 type RecordedUpdate = {
@@ -32,10 +46,11 @@ type RecordedUpsert = {
   table: string;
   payload: unknown;
 };
+type RecordedInsert = { table: string; payload: unknown };
 type QueryChain = {
   select: jest.Mock<QueryChain, []>;
   update: jest.Mock<QueryChain, [Record<string, unknown>]>;
-  insert: jest.Mock<QueryChain, []>;
+  insert: jest.Mock<QueryChain, [unknown]>;
   upsert: jest.Mock<QueryChain, [unknown]>;
   eq: jest.Mock<QueryChain, [string, unknown]>;
   is: jest.Mock<QueryChain, [string, unknown]>;
@@ -107,10 +122,13 @@ function createDatabaseHarness(
     studyPlanEnabled?: boolean;
     wasEnabled?: boolean;
     recentTimingEvidence?: boolean;
+    completedMockCount?: number;
+    taskType?: "practice" | "review";
   } = {},
 ) {
   const updates: RecordedUpdate[] = [];
   const upserts: RecordedUpsert[] = [];
+  const inserts: RecordedInsert[] = [];
   let replacementPersisted = false;
   let profileUpserted = false;
   const activeGeneration = options.currentPolicy
@@ -158,7 +176,7 @@ function createDatabaseHarness(
         data: {
           id: "task-today",
           status: "planned",
-          task_type: "practice",
+          task_type: options.taskType ?? "practice",
           generation_id: "generation-old",
           scheduled_date: "2026-08-11",
           sort_order: 0,
@@ -179,7 +197,11 @@ function createDatabaseHarness(
       };
     }
     if (table === "student_ucat_mock_attempts") {
-      return { data: null, error: null, count: 0 };
+      return {
+        data: null,
+        error: null,
+        count: options.completedMockCount ?? 0,
+      };
     }
     if (options.recentTimingEvidence && table === "ucat_sections") {
       return {
@@ -235,7 +257,10 @@ function createDatabaseHarness(
         updatePayload = payload;
         return chain;
       }),
-      insert: jest.fn(() => chain),
+      insert: jest.fn((payload: unknown) => {
+        inserts.push({ table, payload });
+        return chain;
+      }),
       upsert: jest.fn((payload: unknown) => {
         upserts.push({ table, payload });
         if (table === "ucat_student_study_plan_profiles") {
@@ -301,10 +326,37 @@ function createDatabaseHarness(
     from: jest.fn((table: string) => query(table)),
   } as unknown as SupabaseClient<Database>;
 
-  return { admin, studentClient, updates, upserts };
+  return { admin, studentClient, updates, upserts, inserts };
 }
 
 function mockReplacementPlan() {
+  const activityCandidates = [
+    {
+      id: "canonical-practice-vr",
+      kind: "practice",
+      requirement: "optional",
+      sectionId: "section-1",
+      categoryIds: ["category-1"],
+      questionTagIds: [],
+      learningModuleId: null,
+      skillTrainerId: null,
+      sourceAttemptId: null,
+      scope: "category",
+      dose: { questionCount: 10, sectionEquivalents: 0.25 },
+      duration: { practiceMinutes: 15, reviewMinutes: 5 },
+      objective: "reliable_weakness",
+      reasonCode: "preparation.practice.reliable_weakness",
+      studentReason: "Reliable evidence shows this is useful next.",
+      ranking: {
+        milestone: 1,
+        weakness: 2,
+        uncertainty: 0,
+        targetGap: 0,
+        tagSampling: 0,
+        total: 3,
+      },
+    },
+  ];
   jest.mocked(prepareStudent).mockReturnValue({
     generatedAt: "2026-08-11T00:00:00.000Z",
     seed: "replacement-seed",
@@ -312,9 +364,16 @@ function mockReplacementPlan() {
     timingProfile: {},
     progressionEvents: [],
     assessment: { sections: [] },
-    currentScore: { sections: [] },
-    trajectory: {},
+    currentScore: {
+      status: "unavailable",
+      currentEstimate: null,
+      confidence: null,
+      uncertainty: null,
+      sections: [],
+    },
+    trajectory: { status: "unavailable", history: [], points: [] },
     immediateGuidance: [],
+    activityCandidates,
     explanationTrace: [],
     plan: {
       tasks: [
@@ -402,6 +461,51 @@ describe("Study plan persistence orchestration", () => {
           }),
         ],
       }),
+    );
+  });
+
+  it("persists review completion without advancing future work from scheduling", async () => {
+    const { admin, studentClient, updates } = createDatabaseHarness({
+      taskType: "review",
+    });
+
+    await updateStudyPlanTask(
+      studentClient,
+      "user-1",
+      "task-today",
+      "complete",
+    );
+
+    expect(updates).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          table: "ucat_student_study_plan_tasks",
+          payload: expect.objectContaining({
+            status: "completed",
+            completed_units: 1,
+          }),
+        }),
+      ]),
+    );
+    expect(admin.rpc).not.toHaveBeenCalled();
+  });
+
+  it("replaces future work after a newly completed mock", async () => {
+    const { admin, studentClient } = createDatabaseHarness({
+      currentPolicy: true,
+      completedMockCount: 1,
+    });
+
+    await getStudyPlan(studentClient, "user-1", { reconcileTasks: false });
+
+    expect(prepareStudent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        evidence: expect.objectContaining({ completedMockCount: 1 }),
+      }),
+    );
+    expect(admin.rpc).toHaveBeenCalledWith(
+      "replace_ucat_study_plan_generation",
+      expect.objectContaining({ p_reason: "mock_completed" }),
     );
   });
 
@@ -529,5 +633,91 @@ describe("Study plan persistence orchestration", () => {
       ),
     ).toBe(true);
     expect(admin.rpc).not.toHaveBeenCalled();
+  });
+
+  it("wires canonical Preparation candidates into alternative guidance", async () => {
+    const { studentClient } = createDatabaseHarness();
+    jest.mocked(buildAlternativeNextStep).mockReturnValue({
+      taskType: "practice",
+      title: "Canonical alternative",
+      description: "Practice a useful section.",
+      rationale: "Reliable evidence shows this is useful next.",
+      estimatedMinutes: 20,
+      sectionId: "section-1",
+      questionStemCategoryId: "category-1",
+      learningModuleId: null,
+      questionSetId: null,
+      mockId: null,
+      skillTrainerId: null,
+      launchPath: "/practice",
+      launchConfig: { optional: true },
+      sourceAttemptType: null,
+      sourceAttemptId: null,
+    });
+
+    const alternative = await suggestAlternativeStudyGuidance(
+      studentClient,
+      "user-1",
+      { excludedKeys: [], currentTaskTypes: [] },
+    );
+
+    const candidates = jest.mocked(prepareStudent).mock.results.at(-1)?.value
+      .activityCandidates;
+    expect(buildAlternativeNextStep).toHaveBeenCalledWith(
+      expect.objectContaining({ activityCandidates: candidates }),
+      { excludedKeys: [], currentTaskTypes: [] },
+    );
+    expect(alternative).toMatchObject({
+      title: "Canonical alternative",
+      launchConfig: { optional: true },
+    });
+  });
+
+  it("wires canonical Preparation candidates into Give me more and persists the task", async () => {
+    const { studentClient, inserts } = createDatabaseHarness({
+      currentPolicy: true,
+    });
+    jest.mocked(generateExtraStudyTasks).mockReturnValue([
+      {
+        scheduledDate: "2026-08-11",
+        sortOrder: 0,
+        taskType: "practice",
+        title: "Canonical extra practice",
+        description: "Optional extension.",
+        rationale: "Reliable evidence shows this is useful next.",
+        estimatedMinutes: 20,
+        targetUnits: 10,
+        sectionId: "section-1",
+        questionStemCategoryId: "category-1",
+        questionTagId: null,
+        learningModuleId: null,
+        questionSetId: null,
+        mockId: null,
+        skillTrainerId: null,
+        launchPath: "/practice",
+        launchConfig: { optional: true },
+      },
+    ]);
+
+    await createExtraStudyTask(studentClient, "user-1", {
+      minutes: 30,
+      sectionKey: null,
+    });
+
+    const candidates = jest.mocked(prepareStudent).mock.results.at(-1)?.value
+      .activityCandidates;
+    expect(generateExtraStudyTasks).toHaveBeenCalledWith(
+      expect.objectContaining({ activityCandidates: candidates }),
+    );
+    expect(inserts).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          table: "ucat_student_study_plan_tasks",
+          payload: expect.arrayContaining([
+            expect.objectContaining({ title: "Canonical extra practice" }),
+          ]),
+        }),
+      ]),
+    );
   });
 });

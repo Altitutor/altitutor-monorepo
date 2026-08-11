@@ -1,0 +1,110 @@
+import { GET } from "@/app/api/ucat/score-projection/route";
+import { getSupabaseServerClient } from "@/lib/supabase/server";
+import { getCurrentPreparation } from "@/features/study-plan/server/study-plan-service";
+import {
+  PREPARATION_SANDBOX_PERSONAS,
+  runPreparationSandboxCase,
+} from "@/features/preparation/testing/sandbox";
+
+jest.mock("@/lib/supabase/server", () => ({
+  getSupabaseServerClient: jest.fn(),
+}));
+jest.mock("next/server", () => ({
+  NextResponse: {
+    json: (body: unknown, init?: { status?: number }) => ({
+      status: init?.status ?? 200,
+      json: async () => body,
+    }),
+  },
+}));
+jest.mock("@/features/study-plan/server/study-plan-service", () => ({
+  getCurrentPreparation: jest.fn(),
+}));
+
+const mockGetSupabaseServerClient = jest.mocked(getSupabaseServerClient);
+const mockGetCurrentPreparation = jest.mocked(getCurrentPreparation);
+
+describe("GET /api/ucat/score-projection", () => {
+  it("presents the canonical current estimate and trajectory without a second model", async () => {
+    const preparation = runPreparationSandboxCase(
+      PREPARATION_SANDBOX_PERSONAS["experienced-high-performing"],
+    ).result;
+    expect(preparation.trajectory.status).toBe("available");
+    if (preparation.trajectory.status !== "available") return;
+    preparation.trajectory.history = [
+      {
+        date: "2026-01-04",
+        currentEstimate: 2200,
+        modelVersion: preparation.versions.trajectoryModel,
+        confidence: "medium",
+        uncertainty: 61,
+        effectiveEvidenceWeight: 9,
+        sections: Object.fromEntries(
+          preparation.currentScore.sections.map((section, index) => [
+            section.sectionId,
+            {
+              currentEstimate: [720, 730, 750][index]!,
+              confidence: "medium" as const,
+              uncertainty: 31 + index,
+              evidenceCount: 2 + index,
+            },
+          ]),
+        ),
+      },
+    ];
+    mockGetSupabaseServerClient.mockResolvedValue({
+      auth: {
+        getUser: jest.fn().mockResolvedValue({
+          data: { user: { id: "user-1" } },
+          error: null,
+        }),
+      },
+    } as never);
+    mockGetCurrentPreparation.mockResolvedValue(preparation);
+
+    const response = await GET();
+    const payload = await response.json();
+    const sectionTotal = payload.sections.reduce(
+      (sum: number, section: { currentEstimate: number | null }) =>
+        sum + (section.currentEstimate ?? 0),
+      0,
+    );
+
+    expect(response.status).toBe(200);
+    expect(sectionTotal).toBe(preparation.currentScore.currentEstimate);
+    expect(payload.modelVersion).toBe(preparation.versions.trajectoryModel);
+    expect(mockGetCurrentPreparation).toHaveBeenCalledWith(
+      expect.anything(),
+      "user-1",
+    );
+    expect(payload.snapshots[0]).toMatchObject({
+      date: "2026-01-04",
+      confidence: "medium",
+      uncertainty: 61,
+      effectiveEvidenceWeight: 9,
+    });
+    expect(payload.sections[0].history[0]).toMatchObject({
+      value: 720,
+      confidence: "medium",
+      uncertainty: 31,
+      effectiveEvidenceWeight: 2,
+    });
+
+    for (const point of preparation.trajectory.points) {
+      const projectedTotal = payload.sections.reduce(
+        (
+          sum: number,
+          section: {
+            projection: Array<{ day: number; realistic: number }>;
+          },
+        ) =>
+          sum +
+          (section.projection.find(
+            (candidate: { day: number }) => candidate.day === point.day,
+          )?.realistic ?? 0),
+        0,
+      );
+      expect(projectedTotal).toBe(point.middle);
+    }
+  });
+});

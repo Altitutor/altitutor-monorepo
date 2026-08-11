@@ -523,16 +523,17 @@ export function DashboardTrajectoryHero({
   const targetBreakdown = dashboardTargetBreakdown(
     sections,
     plan.generation?.sectionTargets ??
-      allocateSectionTargets(
-        plan.profile.targetScore,
-        sections
+      allocateSectionTargets({
+        totalTarget: plan.profile.targetScore,
+        sections: sections
           .filter((section) => section.sectionNumber <= 3)
           .sort((left, right) => left.sectionNumber - right.sectionNumber)
           .map((section) => ({
             sectionId: section.sectionId,
             currentEstimate: section.currentEstimate,
+            confidence: section.confidence,
           })),
-      ),
+      }),
   );
   return (
     <section className="relative isolate -mt-20 overflow-hidden border-b border-border/60 bg-gradient-to-b from-muted/25 via-background to-background pt-20">
