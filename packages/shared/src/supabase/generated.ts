@@ -35671,6 +35671,10 @@ export type Database = {
         Args: { p_source_id: string; p_source_type: string }
         Returns: Json
       }
+      get_student_ucat_question_set_engine_payload: {
+        Args: { p_set_id: string }
+        Returns: Json
+      }
       get_subjects_for_student: {
         Args: { p_curriculum: string; p_year_level: number }
         Returns: {
@@ -37406,4 +37410,3 @@ export const Constants = {
     },
   },
 } as const
-

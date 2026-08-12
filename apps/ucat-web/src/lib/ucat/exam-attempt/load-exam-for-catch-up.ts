@@ -429,7 +429,15 @@ export async function resolveExamForCatchUp(
   },
 ): Promise<QuestionEngineExam | null> {
   if (options.exam) return options.exam;
-  if (options.requireQuestionContent && options.readerClient) {
+  // Set and mock catch-up can reach finalization, which compiles and persists
+  // every response contract. Their stored exam timing intentionally contains
+  // placeholder questions only, so prefer the live delivered content whenever
+  // a reader is available. Timing-only snapshots remain a fallback for
+  // position recovery, never the authoritative final-answer source.
+  if (
+    options.readerClient &&
+    (options.requireQuestionContent || attempt.kind !== "practice")
+  ) {
     const fullExam = await loadExamForCatchUp(options.readerClient, attempt);
     if (fullExam?.questions.length) return fullExam;
   }
