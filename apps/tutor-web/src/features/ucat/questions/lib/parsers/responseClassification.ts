@@ -74,6 +74,7 @@ const FORMAL_PREMISE_SIGNAL_PATTERNS = [
   ['no', /\bno\b/u],
   ['none', /\bnone\b/u],
   ['every', /\bevery\b/u],
+  ['never', /\bnever\b/u],
 ] as const
 
 const FACTUAL_DATA_SIGNAL_PATTERNS = [
@@ -87,7 +88,22 @@ const FACTUAL_DATA_SIGNAL_PATTERNS = [
   ['survey', /\bsurvey\b/u],
   ['study', /\bstudy\b/u],
   ['figure', /\bfigures?\b/u],
+  ['diagram', /\bdiagram\b/u],
+  ['image', /\bimage\b/u],
 ] as const
+
+/** Visual presentation cues used to prefer Interpreting Information over Syllogisms. */
+const VISUAL_PRESENTATION_PATTERNS = [
+  /\btable\b/u,
+  /\bchart\b/u,
+  /\bgraph\b/u,
+  /\bfigures?\b/u,
+  /\bdiagram\b/u,
+  /\bimage\b/u,
+] as const
+
+const LEADING_QUANTIFIER_PATTERN = /^(?:all|every|some|no|none|never)\b/u
+const COORDINATED_QUANTIFIER_PATTERN = /\band\s+(?:all|every|some|no|none|never)\b/gu
 
 export type DecisionMakingFormalPremiseSignal =
   (typeof FORMAL_PREMISE_SIGNAL_PATTERNS)[number][0]
@@ -98,6 +114,34 @@ export type DecisionMakingCategoryEvidence = {
   isConclusionTask: boolean
   formalPremiseSignals: DecisionMakingFormalPremiseSignal[]
   factualDataSignals: DecisionMakingFactualDataSignal[]
+  hasVisualPresentation: boolean
+  quantifiedPremiseStatementCount: number
+}
+
+/**
+ * Count quantified premise clauses without treating mid-prose "some customers" as
+ * a premise. Prefer sentence-initial All/Some/No/… and coordinated "and no/all…".
+ */
+function countQuantifiedPremiseStatements(stemText: string): number {
+  const sentences = stemText
+    .split(/[.!?]+/u)
+    .map((sentence) => sentence.trim())
+    .filter((sentence) => sentence.length > 0)
+
+  let count = 0
+  for (const sentence of sentences) {
+    const probe = normalizeProbe(sentence)
+    if (!probe) continue
+    if (LEADING_QUANTIFIER_PATTERN.test(probe)) count += 1
+    const coordinated = probe.match(COORDINATED_QUANTIFIER_PATTERN)
+    if (coordinated) count += coordinated.length
+  }
+  return count
+}
+
+function hasVisualPresentationMarkers(stemText: string, probe: string): boolean {
+  if (/\[\[(?:IMG|TABLE):/iu.test(stemText)) return true
+  return VISUAL_PRESENTATION_PATTERNS.some((pattern) => pattern.test(probe))
 }
 
 /** Semantic DM category evidence; deliberately has no response-contract input. */
@@ -107,6 +151,15 @@ export function extractDecisionMakingCategoryEvidence(input: {
 }): DecisionMakingCategoryEvidence {
   const probe = normalizeProbe(input.stemText)
   const directiveProbe = normalizeProbe(input.directive)
+  const factualDataSignals = FACTUAL_DATA_SIGNAL_PATTERNS
+    .filter(([, pattern]) => pattern.test(probe))
+    .map(([signal]) => signal)
+  if (/\[\[IMG:/iu.test(input.stemText) && !factualDataSignals.includes('image')) {
+    factualDataSignals.push('image')
+  }
+  if (/\[\[TABLE:/iu.test(input.stemText) && !factualDataSignals.includes('table')) {
+    factualDataSignals.push('table')
+  }
   return {
     isConclusionTask:
       /\bconclusions?\b/u.test(directiveProbe) &&
@@ -114,9 +167,9 @@ export function extractDecisionMakingCategoryEvidence(input: {
     formalPremiseSignals: FORMAL_PREMISE_SIGNAL_PATTERNS
       .filter(([, pattern]) => pattern.test(probe))
       .map(([signal]) => signal),
-    factualDataSignals: FACTUAL_DATA_SIGNAL_PATTERNS
-      .filter(([, pattern]) => pattern.test(probe))
-      .map(([signal]) => signal),
+    factualDataSignals,
+    hasVisualPresentation: hasVisualPresentationMarkers(input.stemText, probe),
+    quantifiedPremiseStatementCount: countQuantifiedPremiseStatements(input.stemText),
   }
 }
 
@@ -345,7 +398,12 @@ export function parseUntypedAnswerEvidence(input: string): UntypedAnswerEvidence
   return [whole]
 }
 
-/** Category inference is intentionally independent of interaction and answer tokens. */
+/**
+ * Category inference for Yes/No conclusion tasks.
+ * Decision tree: visual presentation → Interpreting Information;
+ * strong quantified premises → Syllogisms; otherwise Interpreting Information.
+ * Intentionally independent of interaction and answer tokens.
+ */
 export function inferDecisionMakingCategory(input: {
   stemText: string
   directive: string
@@ -364,17 +422,15 @@ export function inferDecisionMakingCategory(input: {
   if (!categoryEvidence.isConclusionTask) {
     return { value: null, confidence: 'absent', evidence: [], conflicts: [] }
   }
-  const formalPremises = categoryEvidence.formalPremiseSignals.length >= 2
-  const factualPresentation = categoryEvidence.factualDataSignals.length > 0
-  if (formalPremises && factualPresentation) {
+  if (categoryEvidence.hasVisualPresentation) {
     return {
-      value: null,
-      confidence: 'weak',
-      evidence: ['formal_quantified_premises', 'structured_factual_presentation'],
-      conflicts: ['ambiguous_dm_category'],
+      value: 'Interpreting Information and Drawing Conclusions',
+      confidence: 'strong',
+      evidence: ['visual_presentation'],
+      conflicts: [],
     }
   }
-  if (formalPremises) {
+  if (categoryEvidence.quantifiedPremiseStatementCount >= 2) {
     return {
       value: 'Syllogisms',
       confidence: 'strong',
@@ -382,15 +438,12 @@ export function inferDecisionMakingCategory(input: {
       conflicts: [],
     }
   }
-  if (factualPresentation) {
-    return {
-      value: 'Interpreting Information and Drawing Conclusions',
-      confidence: 'strong',
-      evidence: ['structured_factual_presentation'],
-      conflicts: [],
-    }
+  return {
+    value: 'Interpreting Information and Drawing Conclusions',
+    confidence: 'strong',
+    evidence: ['prose_information_presentation'],
+    conflicts: [],
   }
-  return { value: null, confidence: 'absent', evidence: [], conflicts: [] }
 }
 
 function pairedMostLeastDirective(directive: string): boolean {

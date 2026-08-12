@@ -87,14 +87,14 @@ describe('auditDecisionMakingCategoryRecords', () => {
         factualDataSignals: ['data', 'survey'],
         suggestedCategory: 'Interpreting Information and Drawing Conclusions',
         confidence: 'strong',
-        evidence: ['structured_factual_presentation'],
+        evidence: ['prose_information_presentation'],
         conflicts: [],
         requiresHumanReview: false,
       }),
     ])
   })
 
-  it('includes stem-deleted content and requires review for conflicting evidence', () => {
+  it('includes stem-deleted content and prefers Interpreting Information for visual stems', () => {
     expect(
       auditDecisionMakingCategoryRecords([
         record({
@@ -106,10 +106,11 @@ describe('auditDecisionMakingCategoryRecords', () => {
       ])[0]
     ).toMatchObject({
       stemLifecycle: 'stem_deleted',
-      suggestedCategory: null,
-      confidence: 'weak',
-      conflicts: ['ambiguous_dm_category'],
-      requiresHumanReview: true,
+      suggestedCategory: 'Interpreting Information and Drawing Conclusions',
+      confidence: 'strong',
+      evidence: ['visual_presentation'],
+      conflicts: [],
+      requiresHumanReview: false,
     })
   })
 
@@ -161,8 +162,8 @@ describe('auditDecisionMakingCategoryRecords', () => {
       activeQuestions: 3,
       softDeletedQuestions: 0,
       suggestedSyllogisms: 1,
-      suggestedInterpretingInformation: 1,
-      requiresHumanReview: 1,
+      suggestedInterpretingInformation: 2,
+      requiresHumanReview: 0,
     })
     expect(report.rows.map((row) => row.stemId)).toEqual([
       '10000000-0000-4000-8000-000000000001',

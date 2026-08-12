@@ -50,6 +50,7 @@ import { UcatSelectionToolbar } from '@/features/ucat/shared/selection-toolbar'
 import { useUcatSetsTable, type SetRow } from '@/features/ucat/sets/hooks/useUcatSetsTable'
 import { ucatSetsApi } from '@/features/ucat/sets/api/sets'
 import {
+  blueprintPreferredCategoryTargets,
   buildAutoSetPreviewAsync,
   positiveIntFromInput,
   type AutoCategoryRow,
@@ -333,11 +334,41 @@ export function UcatSetsPage() {
   )
   const autoSection = sections.find(section => section.id === autoSectionId)
   const autoBlueprintSection = blueprintSectionCode(autoSection?.section_number)
+  const autoBlueprintCategoryTargets = useMemo(() => {
+    if (autoMode !== 'blueprint' || !autoSectionId) return {}
+    const eligibleForPreset = stemCatalog.filter((stem) => {
+      if (stem.sectionId !== autoSectionId) return false
+      if (!stem.categoryId) return false
+      if (stem.questionsCount <= 0) return false
+      if (autoStemVisibility === 'public' && stem.accessScope === 'private') return false
+      if (autoStemVisibility === 'private' && stem.accessScope !== 'private') return false
+      if (autoOnlyNotInAnotherSet && stem.setIds.length > 0) return false
+      return true
+    })
+    return blueprintPreferredCategoryTargets({
+      sectionNumber: autoSection?.section_number,
+      categories: autoSectionCategories
+        .filter((category): category is AutoCategoryRow & { id: string; name: string } =>
+          Boolean(category.id && category.name),
+        )
+        .map((category) => ({ id: category.id, name: category.name })),
+      eligibleStems: eligibleForPreset,
+    })
+  }, [
+    autoMode,
+    autoOnlyNotInAnotherSet,
+    autoSection?.section_number,
+    autoSectionCategories,
+    autoSectionId,
+    autoStemVisibility,
+    stemCatalog,
+  ])
   const autoTargetQuestions = autoMode === 'total'
     ? positiveIntFromInput(autoTargetTotal)
     : autoMode === 'category'
       ? Object.values(autoCategoryTargets).reduce((sum, value) => sum + positiveIntFromInput(value), 0)
-      : UCAT_ANZ_2026_V1.official.sections.find(section => section.section === autoBlueprintSection)?.questionCount ?? 0
+      : Object.values(autoBlueprintCategoryTargets).reduce((sum, value) => sum + positiveIntFromInput(value), 0)
+        || (UCAT_ANZ_2026_V1.official.sections.find(section => section.section === autoBlueprintSection)?.questionCount ?? 0)
   const autoCriteriaReady = !autoCriteriaEnabled || (!!autoSectionId && autoTargetQuestions > 0)
 
   useEffect(() => {
@@ -1048,15 +1079,34 @@ export function UcatSetsPage() {
                           placeholder="e.g. 20"
                         />
                       </label>
-                    ) : autoMode === 'category' ? (
+                    ) : autoMode === 'category' || autoMode === 'blueprint' ? (
                       <div className="space-y-2">
-                        <div className="text-sm font-medium">Questions by category</div>
+                        <div className="text-sm font-medium">
+                          {autoMode === 'blueprint' ? '2026 preferred targets by category' : 'Questions by category'}
+                        </div>
+                        {autoMode === 'blueprint' ? (
+                          <p className="text-xs text-muted-foreground">
+                            Same picker as By category, prefilled from the 2026 full-mock preferred counts
+                            {Object.keys(autoBlueprintCategoryTargets).length === 0
+                              ? ' (this section uses the official question total only).'
+                              : '.'}
+                          </p>
+                        ) : null}
                         {autoSectionCategories.length === 0 ? (
                           <p className="text-xs text-muted-foreground">No categories are configured for this section.</p>
+                        ) : autoMode === 'blueprint' && Object.keys(autoBlueprintCategoryTargets).length === 0 ? (
+                          <p className="text-xs text-muted-foreground">
+                            Official target: {autoTargetQuestions} questions.
+                          </p>
                         ) : (
                           autoSectionCategories.map((category) => {
                             const id = category.id ?? ''
                             const previewRow = autoPreview?.byCategory.find((row) => row.categoryId === id)
+                            const targetValue =
+                              autoMode === 'blueprint'
+                                ? (autoBlueprintCategoryTargets[id] ?? '')
+                                : (autoCategoryTargets[id] ?? '')
+                            if (autoMode === 'blueprint' && !targetValue) return null
                             const eligibleCount =
                               previewRow?.eligibleStemCount ??
                               stemCatalog.filter(
@@ -1081,8 +1131,11 @@ export function UcatSetsPage() {
                                 <Input
                                   type="number"
                                   min={0}
-                                  value={autoCategoryTargets[id] ?? ''}
+                                  value={targetValue}
+                                  readOnly={autoMode === 'blueprint'}
+                                  disabled={autoMode === 'blueprint'}
                                   onChange={(event) => {
+                                    if (autoMode !== 'category') return
                                     setAutoCategoryTargets((prev) => ({
                                       ...prev,
                                       [id]: event.target.value,
@@ -1096,11 +1149,7 @@ export function UcatSetsPage() {
                           })
                         )}
                       </div>
-                    ) : (
-                      <div className="rounded-md border bg-muted/20 p-3 text-xs text-muted-foreground">
-                        Selects whole stems only when the exact section total and every 2026 allowed range can be met. Preferred values break ties; impossible catalogues return explicit shortfalls.
-                      </div>
-                    )}
+                    ) : null}
 
                     <label className="block text-sm">
                       <span className="mb-1 block font-medium">Stem visibility</span>
@@ -1178,7 +1227,7 @@ export function UcatSetsPage() {
                           {autoPreview.totalQuestions} / {autoPreview.targetQuestions} questions
                         </Badge>
                       </div>
-                      {autoMode === 'category' && autoPreview.byCategory.length > 0 ? (
+                      {(autoMode === 'category' || autoMode === 'blueprint') && autoPreview.byCategory.length > 0 ? (
                         <div className="space-y-1 text-xs text-muted-foreground">
                           {autoPreview.byCategory.map((row) => (
                             <div key={row.categoryId} className="flex justify-between gap-3">

@@ -8,9 +8,28 @@ jest.mock('@/shared/utils', () => ({
 jest.mock('@/features/ucat/question-engine-preview/UcatRichContentBlock', () => ({
   UcatRichContentBlock: ({ plainText }: { plainText: string }) => <span>{plainText}</span>,
 }))
+
+function collectPlainText(value: Json | null | undefined): string {
+  if (!value || typeof value !== 'object') return ''
+  const rec = value as Record<string, unknown>
+  if (typeof rec.text === 'string') return rec.text
+  const content = rec.content
+  if (!Array.isArray(content)) return ''
+  return content.map((child) => collectPlainText(child as Json)).join('')
+}
+
 jest.mock('../BulkImportRichTextPreview', () => ({
-  BulkImportRichTextPreview: ({ emptyFallback }: { emptyFallback?: React.ReactNode }) =>
-    emptyFallback ?? <span />,
+  BulkImportRichTextPreview: ({
+    json,
+    emptyFallback,
+  }: {
+    json?: Json | null
+    emptyFallback?: React.ReactNode
+  }) => {
+    const plain = collectPlainText(json ?? null).trim()
+    if (!plain) return emptyFallback ?? <span />
+    return <span>{plain}</span>
+  },
 }))
 
 import { CollapsibleAnswerQuestionCard } from '../CollapsibleAnswerQuestionCard'
@@ -76,5 +95,28 @@ describe('bulk-import syllogism rendering', () => {
 
     expect(screen.getByText('•')).toBeInTheDocument()
     expect(screen.queryByText('A)')).not.toBeInTheDocument()
+  })
+
+  it('does not show raw [[B:]] tokens in the parsed question preview', () => {
+    render(
+      <CollapsibleParsedQuestionCard
+        question={{
+          number: 1,
+          text: '[[B:]]She says that the probability that her next baby will be a boy is 50%. Is she correct?[[/B:]]',
+          options: [{ label: 'A', text: '[[B:]]Yes[[/B:]], independent births' }],
+        }}
+        index={0}
+        expanded
+        onToggle={jest.fn()}
+      />,
+    )
+
+    expect(screen.queryByText(/\[\[B:\]\]/)).not.toBeInTheDocument()
+    expect(
+      screen.getByText(
+        'She says that the probability that her next baby will be a boy is 50%. Is she correct?'
+      )
+    ).toBeInTheDocument()
+    expect(screen.getByText('Yes, independent births')).toBeInTheDocument()
   })
 })

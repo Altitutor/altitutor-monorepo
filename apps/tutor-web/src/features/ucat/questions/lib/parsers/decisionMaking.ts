@@ -399,8 +399,11 @@ function stemHasProbabilisticSignals(stem: ParsedDecisionMakingStem): boolean {
 
 /**
  * Get Decision Making category name from stem content.
- * Rules applied in order: Syllogisms, Recognising Assumptions, Venn Diagrams,
- * Probabilistic and Statistical Reasoning, Logical Puzzles.
+ * Yes/No conclusion tasks resolve to Syllogisms or Interpreting Information
+ * and Drawing Conclusions (visual → Interpreting Information; strong quantified
+ * premises → Syllogisms; otherwise Interpreting Information). Other rules:
+ * Recognising Assumptions, Venn Diagrams, Probabilistic and Statistical
+ * Reasoning, then Logical Puzzles.
  */
 export function getDecisionMakingStemCategoryName(
   stem: ParsedDecisionMakingStem

@@ -833,6 +833,24 @@
 - **Study plan calibration phase** — The opening phase used when a student has insufficient Attempt evidence for confident personalisation. It begins immediately and emphasises learning modules, short representative practice, and frequent review rather than requiring a diagnostic mock. Existing history may shorten or bypass calibration. A first mock is scheduled only after the student demonstrates reasonable familiarity with the question types, not merely because their preferred mock day arrives.
   _Avoid_: Mandatory diagnostic mock, first-week mock, unpersonalised permanent plan
 
+- **Module-linked practice** — Learning-phase Practice prescribed immediately after a Learning module to apply that module's methods. It always matches the module's section, is restricted to the module's categories when any are configured, and preferentially draws whole stems containing unattempted questions from the module's tags without allowing one configured category or tag to crowd out the others; its exact resumable stem snapshot is fixed when the Student starts it.
+  _Avoid_: Same-section practice, preselected future question list, extracted question without its stem
+
+- **Learning module sequence** — The authored progression of Learning modules within one UCAT section. The Study plan chooses a section first, then prescribes that section's earliest incomplete Essential module in authored order; only after the section's Essential tier is exhausted may its Recommended tier be considered in authored order.
+  _Avoid_: Global cross-section lesson order, weakness-ranked lesson order, UUID order
+
+- **Recommended learning module** — A Learning module considered in authored order only after its section's Essential tier is complete and only while that section remains in Learning because it lacks sufficient accuracy or representative experience. Partial progress does not move a module earlier in the Learning module sequence; only full completion removes it from future prescription.
+  _Avoid_: Required graduation gate, started-module priority, automatically prescribed optional module
+
+- **Benchmark set** — A published, accessible, staff-authored Question set prescribed by ID for a controlled section-level performance observation. It is drawn only from the standalone Student Set library, never from the component sets of any Mock, and launches through the Set exam experience so answer feedback remains unavailable until completion. It strictly matches the required section, may be a full-section or approved partial form, and is selected by approximate dose and nearest authored pace; Student-facing copy always reports the selected Set's actual pace rather than an unmet target pace.
+  _Avoid_: Dynamically filtered Practice, Mock component set, relabelled timing
+
+- **Benchmark mock** — A published, accessible Mock prescribed by ID for a controlled whole-exam performance observation. The Study plan prefers unattempted Benchmark mocks and never substitutes dynamically assembled Practice for a missing Mock.
+  _Avoid_: Generic Mocks-page task, filtered Practice, unbound mock recommendation
+
+- **Preparation sandbox** — A development-only testing surface for inspecting the canonical preparation policy with either deterministic synthetic personas or the real development content catalog. Catalog-backed runs expose whether each prescribed activity can be fulfilled without writing Student data; seeded end-to-end tests separately verify actual launches. Its availability is controlled by deployment environment rather than an Adminstaff identity that cannot enter UCAT Web.
+  _Avoid_: Production feature, Student-data editor, presentation-only Study plan preview
+
 - **Study feedback progression** — The Study plan's normal movement from learning and short-loop practice with feedback after each stem, through longer mini practice, into full-section benchmarks and finally mocks. Longer feedback intervals are prescribed only as familiarity grows. This is an adaptive progression rather than a compulsory sequence: credible historical or out-of-plan attempt evidence may place an experienced student directly into a later stage, and learning is prescribed only where evidence indicates it is useful.
   _Avoid_: Fixed course sequence, mocks from day one, mandatory Learn completion
 

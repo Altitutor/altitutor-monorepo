@@ -47,6 +47,8 @@ export type DecisionMakingCategoryAuditRow = {
 
 const DECISION_MAKING_AUDIT_EVIDENCE = [
   'formal_quantified_premises',
+  'visual_presentation',
+  'prose_information_presentation',
   'structured_factual_presentation',
 ] as const
 type DecisionMakingAuditEvidence =

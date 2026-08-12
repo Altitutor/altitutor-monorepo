@@ -15,8 +15,12 @@ import {
   Tabs,
   TabsContent,
   Textarea,
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
 } from '@altitutor/ui'
-import { Eye, EyeOff } from 'lucide-react'
+import { Eye, EyeOff, Info } from 'lucide-react'
 import { SegmentedControl } from '@/shared/components/segmented-control'
 import { cn } from '@/shared/utils'
 import { tutorCardCn } from '@/shared/lib/tutor-visual'
@@ -96,11 +100,35 @@ type UcatStemEditorPropertiesPanelProps = {
   className?: string
 }
 
+function PropertyHint({ label, hint }: { label: string; hint: string }) {
+  return (
+    <span className="inline-flex items-center gap-1">
+      {label}
+      <TooltipProvider delayDuration={200}>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <button
+              type="button"
+              className="inline-flex shrink-0 items-center justify-center text-muted-foreground hover:text-foreground"
+              aria-label={`${label} info`}
+            >
+              <Info className="h-3.5 w-3.5" aria-hidden />
+            </button>
+          </TooltipTrigger>
+          <TooltipContent side="left" className="max-w-xs text-xs leading-relaxed">
+            {hint}
+          </TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
+    </span>
+  )
+}
+
 function PropertyRow({ label, children }: { label: ReactNode; children: ReactNode }) {
   return (
-    <div className="flex items-center justify-between gap-3 py-1.5">
+    <div className="flex items-center gap-3 py-1.5">
       <span className="shrink-0 text-sm text-muted-foreground">{label}</span>
-      <div className="min-w-0 w-[58%]">{children}</div>
+      <div className="min-w-0 flex-1">{children}</div>
     </div>
   )
 }
@@ -902,48 +930,46 @@ export function UcatStemEditorPropertiesPanel({
               {fields.length > 1 ? (
                 <div className="text-xs font-medium text-muted-foreground">Question {safeQuestionIndex + 1}</div>
               ) : null}
-              <PropertyRow label="Difficulty">
-                <div className="space-y-1.5">
-                  <Input
-                    type="number"
-                    min="0"
-                    max="1"
-                    step="0.01"
-                    placeholder="0.50"
-                    aria-describedby={`question-${safeQuestionIndex}-difficulty-help`}
-                    className="h-9"
-                    {...form.register(`questions.${safeQuestionIndex}.difficulty`, {
-                      setValueAs: (value) => {
-                        if (value === '' || value == null) return null
-                        const parsed = typeof value === 'number' ? value : Number(value)
-                        return Number.isFinite(parsed) ? parsed : null
-                      },
-                    })}
+              <PropertyRow
+                label={(
+                  <PropertyHint
+                    label="Difficulty"
+                    hint="Expected proportion incorrect: 0 easiest, 1 hardest. Leave blank if unknown."
                   />
-                  <p
-                    id={`question-${safeQuestionIndex}-difficulty-help`}
-                    className="text-xs leading-snug text-muted-foreground"
-                  >
-                    Expected proportion incorrect: 0 easiest, 1 hardest. Leave blank if unknown.
-                  </p>
-                </div>
+                )}
+              >
+                <Input
+                  type="number"
+                  min="0"
+                  max="1"
+                  step="0.01"
+                  placeholder="0.50"
+                  aria-label="Difficulty"
+                  className="h-9"
+                  {...form.register(`questions.${safeQuestionIndex}.difficulty`, {
+                    setValueAs: (value) => {
+                      if (value === '' || value == null) return null
+                      const parsed = typeof value === 'number' ? value : Number(value)
+                      return Number.isFinite(parsed) ? parsed : null
+                    },
+                  })}
+                />
               </PropertyRow>
-              <PropertyRow label="Expected time to correct">
-                <div className="space-y-1.5">
-                  <Input
-                    type="text"
-                    className="h-9"
-                    placeholder="1:30 or 90"
-                    aria-describedby={`question-${safeQuestionIndex}-time-burden-help`}
-                    {...form.register(`questions.${safeQuestionIndex}.timeBurdenSeconds`)}
+              <PropertyRow
+                label={(
+                  <PropertyHint
+                    label="Expected time"
+                    hint="First-exposure working time in authored stem order. Leave blank if unknown."
                   />
-                  <p
-                    id={`question-${safeQuestionIndex}-time-burden-help`}
-                    className="text-xs leading-snug text-muted-foreground"
-                  >
-                    First-exposure working time in authored stem order. Leave blank if unknown.
-                  </p>
-                </div>
+                )}
+              >
+                <Input
+                  type="text"
+                  className="h-9"
+                  placeholder="1:30 or 90"
+                  aria-label="Expected time "
+                  {...form.register(`questions.${safeQuestionIndex}.timeBurdenSeconds`)}
+                />
               </PropertyRow>
             </PropertiesCard>
           ) : null}

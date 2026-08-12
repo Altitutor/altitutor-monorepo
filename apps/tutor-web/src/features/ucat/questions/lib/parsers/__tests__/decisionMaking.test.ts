@@ -160,6 +160,38 @@ E. Fifth statement`)
     )
   })
 
+  it('classifies mixed universal and particular syllogism premises as Syllogisms', () => {
+    const input = `All the patients in the respiratory ward who are smokers are women. Patient A is not a smoker. All the smokers on the ward live in the city. Patient B lives in the city.
+
+Place 'Yes' if the conclusion does follow. Place 'No' if the conclusion does not follow.
+
+Patient A is a man
+All of the female patients on the respiratory ward live in the city
+Patient B is a woman
+There are no female non-smokers
+All male patients on the ward are non-smokers`
+
+    const stems = parseDecisionMakingPlainText(input)
+    expect(getDecisionMakingStemCategoryName(stems[0]!)).toBe('Syllogisms')
+  })
+
+  it('classifies prose Yes/No information passages as Interpreting Information and Drawing Conclusions', () => {
+    const input = `For small independent companies, where the company values are not the priority, selling their business out to larger corporate companies can boost sales significantly. Small companies can benefit from the expertise and vast resources that large corporations can certainly offer. Provided that it is well managed, independent companies that have been bought out by corporate companies can expand their businesses at a rate that is not achievable had they not have had the input of large corporations. The involvement of a corporate company is known to compromise the devotion of some customers, particularly those who prefer independent companies.
+
+Place 'Yes' if the conclusion does follow. Place 'No' if the conclusion does not follow.
+
+The input of a large corporation is purely advantageous to small independent companies
+A small company whose company values are the priority, should not sell their business to larger corporate companies
+All independent companies that have sold their business out to large corporations will see their business expand at a faster rate
+Large corporate companies have greater expertise and more resources than small independent companies
+Some people will be deterred from remaining as customers if they know that the company has been bought out by a large corporation`
+
+    const stems = parseDecisionMakingPlainText(input)
+    expect(getDecisionMakingStemCategoryName(stems[0]!)).toBe(
+      'Interpreting Information and Drawing Conclusions'
+    )
+  })
+
   it('classifies dice re-roll expected-value questions as probabilistic reasoning', () => {
     const input = `Damien and Martin are playing a game using a fair six-sided dice. Damien states that he will pay Martin $10 multiplied by the number on the dice that Martin rolls. Martin rolls the dice and it lands on a "three". Damien says that he will let Martin roll the dice once more if he wants to.
 

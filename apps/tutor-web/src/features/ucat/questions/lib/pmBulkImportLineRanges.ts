@@ -18,6 +18,7 @@ import {
   isQuestionTableWithNestedOptions,
   nodeToText,
 } from '@/features/ucat/questions/lib/parsers/core'
+import { stripBulkImportFormatTokens } from '@/features/ucat/shared/lib/bulk-import-inline-format'
 
 type RSt = {
   lines: string[]
@@ -118,7 +119,9 @@ export function collectQuestionLineTextRanges(
   const actualItems = st.lines.map((line, index) => ({ line, range: st.ranges[index]! }))
   if (st.lines.length !== expect.length) return alignQuestionLineRanges(expect, actualItems)
   for (let i = 0; i < expect.length; i += 1) {
-    if (st.lines[i] !== expect[i]) {
+    // Logical collectors emit [[B:]]/[[I:]] tokens; the PM walker uses plain textContent.
+    // Compare format-stripped so fully bold/italic lines still get highlight ranges.
+    if (normalizedLine(st.lines[i] ?? '') !== normalizedLine(expect[i] ?? '')) {
       return alignQuestionLineRanges(expect, actualItems)
     }
   }
@@ -126,7 +129,7 @@ export function collectQuestionLineTextRanges(
 }
 
 function normalizedLine(s: string): string {
-  return s.replace(/\s+/g, ' ').trim()
+  return stripBulkImportFormatTokens(s).replace(/\s+/g, ' ').trim()
 }
 
 function lineRangeMatchesExpected(expected: string, actual: string): boolean {

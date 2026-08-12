@@ -259,6 +259,9 @@ describe('reconcileIngestedResponseContract', () => {
 })
 
 describe('inferDecisionMakingCategory', () => {
+  const yesNoDirective =
+    "Place 'Yes' if the conclusion does follow. Place 'No' if the conclusion does not follow."
+
   it('extracts auditable semantic signals independently of interaction shape', () => {
     expect(
       extractDecisionMakingCategoryEvidence({
@@ -270,6 +273,10 @@ describe('inferDecisionMakingCategory', () => {
       isConclusionTask: true,
       formalPremiseSignals: ['all', 'no'],
       factualDataSignals: ['table', 'survey'],
+      hasVisualPresentation: true,
+      // Mid-sentence "that all … and no …" counts the coordinated "and no" clause only;
+      // sentence-initial quantifiers are absent because the sentence opens with "A survey…".
+      quantifiedPremiseStatementCount: 1,
     })
   })
 
@@ -277,16 +284,16 @@ describe('inferDecisionMakingCategory', () => {
     expect(
       inferDecisionMakingCategory({
         stemText: 'All architects are readers. Some readers are musicians. No musician is a pilot.',
-        directive: "Place 'Yes' if the conclusion follows and 'No' if it does not.",
+        directive: yesNoDirective,
       })
     ).toMatchObject({ value: 'Syllogisms', confidence: 'strong', conflicts: [] })
   })
 
-  it('classifies structured factual presentations as Interpreting Information and Drawing Conclusions', () => {
+  it('classifies visual presentations as Interpreting Information and Drawing Conclusions', () => {
     expect(
       inferDecisionMakingCategory({
         stemText: 'The table shows clinic attendance by month and age group.',
-        directive: "Place 'Yes' if the conclusion follows and 'No' if it does not.",
+        directive: yesNoDirective,
       })
     ).toMatchObject({
       value: 'Interpreting Information and Drawing Conclusions',
@@ -295,13 +302,54 @@ describe('inferDecisionMakingCategory', () => {
     })
   })
 
-  it('leaves mixed quantified and factual presentation evidence for review', () => {
+  it('prefers Interpreting Information when a visual stem also has quantified wording', () => {
     expect(
       inferDecisionMakingCategory({
         stemText: 'The table shows that all architects are readers and no readers attended in May.',
-        directive: "Place 'Yes' if the conclusion follows and 'No' if it does not.",
+        directive: yesNoDirective,
       })
-    ).toMatchObject({ value: null, conflicts: ['ambiguous_dm_category'] })
+    ).toMatchObject({
+      value: 'Interpreting Information and Drawing Conclusions',
+      confidence: 'strong',
+      conflicts: [],
+    })
+  })
+
+  it('classifies mixed universal and particular syllogism premises as Syllogisms', () => {
+    expect(
+      inferDecisionMakingCategory({
+        stemText:
+          'All the patients in the respiratory ward who are smokers are women. Patient A is not a smoker. All the smokers on the ward live in the city. Patient B lives in the city.',
+        directive: yesNoDirective,
+      })
+    ).toMatchObject({ value: 'Syllogisms', confidence: 'strong', conflicts: [] })
+  })
+
+  it('classifies prose information passages as Interpreting Information despite incidental quantifiers', () => {
+    expect(
+      inferDecisionMakingCategory({
+        stemText:
+          'For small independent companies, where the company values are not the priority, selling their business out to larger corporate companies can boost sales significantly. Small companies can benefit from the expertise and vast resources that large corporations can certainly offer. Provided that it is well managed, independent companies that have been bought out by corporate companies can expand their businesses at a rate that is not achievable had they not have had the input of large corporations. The involvement of a corporate company is known to compromise the devotion of some customers, particularly those who prefer independent companies.',
+        directive: yesNoDirective,
+      })
+    ).toMatchObject({
+      value: 'Interpreting Information and Drawing Conclusions',
+      confidence: 'strong',
+      conflicts: [],
+    })
+  })
+
+  it('treats image tokens as visual Interpreting Information evidence', () => {
+    expect(
+      inferDecisionMakingCategory({
+        stemText: '[[IMG:asset-1]] Attendance by clinic.',
+        directive: yesNoDirective,
+      })
+    ).toMatchObject({
+      value: 'Interpreting Information and Drawing Conclusions',
+      evidence: expect.arrayContaining(['visual_presentation']),
+      conflicts: [],
+    })
   })
 
   it('does not classify an ordinary factual table without a conclusion task', () => {
