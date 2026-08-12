@@ -117,14 +117,24 @@ describe("generateStudyPlan", () => {
       completedMockCount: 0,
     });
     const questionCounts = new Map(
-      sections.map((section) => [section.id, section.questionCount]),
+      sections
+        .filter((section) => section.sectionNumber <= 3)
+        .map((section) => [section.id, section.questionCount]),
     );
     const scheduledDose = result.tasks.reduce((sum, task) => {
       if (task.taskType === "mock") return sum + 3;
-      if (task.taskType !== "practice" || !task.sectionId || !task.targetUnits) {
+      if (
+        (task.taskType !== "practice" &&
+          task.taskType !== "section_benchmark") ||
+        !task.sectionId ||
+        !task.targetUnits
+      ) {
         return sum;
       }
-      return sum + task.targetUnits / questionCounts.get(task.sectionId)!;
+      const sectionQuestionCount = questionCounts.get(task.sectionId);
+      return sectionQuestionCount
+        ? sum + task.targetUnits / sectionQuestionCount
+        : sum;
     }, 0);
 
     expect(result.endsOn).toBe("2026-01-11");
@@ -284,6 +294,10 @@ describe("generateStudyPlan", () => {
         currentEstimate: section.sectionNumber <= 3 ? 500 : null,
         evidenceCount: 1,
         completedFullSets: 0,
+        learningGraduatedAt:
+          section.sectionNumber <= 3 ? "2026-06-01T00:00:00.000Z" : null,
+        learningGraduationRoute:
+          section.sectionNumber <= 3 ? "accuracy" : null,
       })),
       learningModules: [],
       ...contentInputs,
@@ -392,6 +406,10 @@ describe("generateStudyPlan", () => {
         currentEstimate: section.sectionNumber <= 3 ? 650 : null,
         evidenceCount: 3,
         completedFullSets: section.sectionNumber <= 3 ? 1 : 0,
+        learningGraduatedAt:
+          section.sectionNumber <= 3 ? "2026-06-01T00:00:00.000Z" : null,
+        learningGraduationRoute:
+          section.sectionNumber <= 3 ? "accuracy" : null,
       })),
       learningModules: [],
       ...contentInputs,
@@ -547,6 +565,10 @@ describe("generateStudyPlan", () => {
         currentEstimate: section.sectionNumber <= 3 ? 650 : null,
         evidenceCount: 3,
         completedFullSets: section.sectionNumber <= 3 ? 1 : 0,
+        learningGraduatedAt:
+          section.sectionNumber <= 3 ? "2026-06-01T00:00:00.000Z" : null,
+        learningGraduationRoute:
+          section.sectionNumber <= 3 ? "accuracy" : null,
       })),
       learningModules: [],
       ...contentInputs,
@@ -577,6 +599,10 @@ describe("generateStudyPlan", () => {
         currentEstimate: section.sectionNumber <= 3 ? 650 : null,
         evidenceCount: 3,
         completedFullSets: section.sectionNumber <= 3 ? 1 : 0,
+        learningGraduatedAt:
+          section.sectionNumber <= 3 ? "2026-06-01T00:00:00.000Z" : null,
+        learningGraduationRoute:
+          section.sectionNumber <= 3 ? "accuracy" : null,
       })),
       learningModules: [],
       ...contentInputs,
@@ -860,6 +886,10 @@ describe("generateStudyPlan", () => {
         scoreConfidence: "high" as const,
         evidenceCount: 5,
         completedFullSets: 0,
+        learningGraduatedAt:
+          section.sectionNumber <= 3 ? "2026-06-01T00:00:00.000Z" : null,
+        learningGraduationRoute:
+          section.sectionNumber <= 3 ? "accuracy" : null,
       })),
       learningModules: [],
       ...contentInputs,
@@ -990,6 +1020,33 @@ describe("generateExtraStudyTasks", () => {
     expect(tasks[0]?.launchConfig).toMatchObject({
       timeMode: "speed",
       timeSpeedMultiplier: 0.9,
+    });
+  });
+
+  it("falls back to broad section practice when no category evidence exists", () => {
+    const tasks = generateExtraStudyTasks({
+      today: "2026-07-15",
+      planningDate: "2026-08-05",
+      targetScore: 2100,
+      minutes: 30,
+      sectionKey: "verbal_reasoning",
+      sections,
+      signals,
+      categories: [],
+      skillTrainers: [],
+      sortOrder: 0,
+    });
+
+    expect(tasks).toHaveLength(1);
+    expect(tasks[0]).toMatchObject({
+      taskType: "practice",
+      sectionId: "vr",
+      questionStemCategoryId: null,
+      estimatedMinutes: 30,
+      launchConfig: {
+        categoryIds: [],
+        requestedSectionKey: "verbal_reasoning",
+      },
     });
   });
 

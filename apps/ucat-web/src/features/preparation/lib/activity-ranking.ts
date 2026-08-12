@@ -485,7 +485,20 @@ export function rankActivityCandidates(
     );
   }
 
-  if (input.readiness.sections.every((section) => section.mode !== "learning")) {
+  const cognitiveSectionIds = new Set(
+    input.sections
+      .filter((section) => section.sectionNumber <= 3)
+      .map((section) => section.id),
+  );
+  const cognitiveSectionsGraduated =
+    cognitiveSectionIds.size > 0 &&
+    [...cognitiveSectionIds].every(
+      (sectionId) =>
+        input.readiness.sections.find(
+          (section) => section.sectionId === sectionId,
+        )?.learningRoute != null,
+    );
+  if (cognitiveSectionsGraduated) {
     result.push(
       candidate({
         id: `mock:${input.completedMockCount + 1}`,

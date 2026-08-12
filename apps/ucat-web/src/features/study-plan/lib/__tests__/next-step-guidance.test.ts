@@ -285,6 +285,11 @@ describe("rolling next-step guidance", () => {
     const steps = build({
       today: "2026-07-10",
       planningDate: "2026-07-20",
+      signals: signals.map((signal) => ({
+        ...signal,
+        learningGraduatedAt: "2026-06-01T00:00:00.000Z",
+        learningGraduationRoute: "accuracy",
+      })),
     });
 
     expect(steps.map((step) => step.taskType)).toEqual(["mock", "practice"]);

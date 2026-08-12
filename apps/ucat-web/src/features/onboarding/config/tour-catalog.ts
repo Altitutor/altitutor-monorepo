@@ -12,6 +12,21 @@ export const UCAT_QUESTION_ENGINE_CONTROLS_TOUR =
 export const UCAT_SECTION_PROGRESS_TOUR = "ucat-section-progress-intro";
 export const UCAT_ATTEMPT_REVIEW_TOUR = "ucat-attempt-review-intro";
 
+/** Current persisted version for every contextual tutorial. */
+export const UCAT_TOUR_VERSIONS: Readonly<Record<string, number>> = {
+  [UCAT_DASHBOARD_TOUR]: 2,
+  [UCAT_STUDY_PLAN_TOUR]: 2,
+  [UCAT_PROGRESS_TOUR]: 4,
+  [UCAT_LEARN_TOUR]: 3,
+  [UCAT_SKILL_TRAINER_TOUR]: 3,
+  [UCAT_PRACTICE_TOUR]: 2,
+  [UCAT_SETS_TOUR]: 2,
+  [UCAT_MOCKS_TOUR]: 3,
+  [UCAT_QUESTION_ENGINE_CONTROLS_TOUR]: 1,
+  [UCAT_QUESTION_ENGINE_TOUR]: 2,
+  [UCAT_ATTEMPT_REVIEW_TOUR]: 2,
+};
+
 export interface AutoStartTourEntry {
   tourId: string;
   startStep: number;

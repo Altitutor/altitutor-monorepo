@@ -670,13 +670,15 @@ export function generateStudyPlan(
   const readinessBySection = new Map(
     readiness.sections.map((section) => [section.sectionId, section]),
   );
-  const mocks = mockDates(
-    dates,
-    readiness,
-    input.profile.preferredMockWeekday,
-    input.planningDate,
-    input.lastCompletedMockDate ?? null,
-  );
+  const mocks = plannedActivities.some((activity) => activity.kind === "mock")
+    ? mockDates(
+        dates,
+        readiness,
+        input.profile.preferredMockWeekday,
+        input.planningDate,
+        input.lastCompletedMockDate ?? null,
+      )
+    : new Set<string>();
   const nonMockDayCount = dates.filter((date) => !mocks.has(date)).length;
   const remainingDemand = demandByMilestone(plannedActivities);
   if (mocks.size > 0) {
@@ -1083,11 +1085,6 @@ export function generateExtraStudyTasks(
     : null;
   const category =
     rankedCategory ?? pickCategory(section.id, input.categories, scheduledCounts);
-  if (!category) {
-    throw new Error(
-      `There are no suitable ${section.shortName} questions available yet.`,
-    );
-  }
   const signal = signalBySection.get(section.id);
   const canonicalReadiness = input.readiness?.sections.find(
     (candidate) => candidate.sectionId === section.id,
@@ -1102,9 +1099,9 @@ export function generateExtraStudyTasks(
   const pace = canonicalReadiness?.paceMultiplier ?? paceLadderStep(signal?.observedPace);
   const trainer = pickSkillTrainer(
     section.id,
-    category.id,
+    category?.id ?? null,
     input.skillTrainers,
-    scheduledCounts.get(category.id) ?? 0,
+    category ? (scheduledCounts.get(category.id) ?? 0) : 0,
   );
   const includeWarmup = Boolean(
     trainer && trainer.estimatedMinutes <= Math.max(2, input.minutes * 0.25),

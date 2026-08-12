@@ -121,6 +121,33 @@ function addRepresentativeScoreEvidence(fixture: PreparationEngineInput): void {
 }
 
 describe("prepareStudent", () => {
+  it("keeps full mocks locked when Exam proximity overrides an ungraduated Learning section", () => {
+    const fixture = input();
+    fixture.goal.planningDate = "2026-01-26";
+    fixture.goal.profile.testDate = "2026-01-26";
+
+    const result = prepareStudent(fixture);
+
+    expect(result.assessment).toMatchObject({
+      mode: "exam",
+      examDateOverride: true,
+      sections: expect.arrayContaining([
+        expect.objectContaining({ mode: "exam", learningRoute: null }),
+      ]),
+    });
+    expect(
+      result.activityCandidates.some((candidate) => candidate.kind === "mock"),
+    ).toBe(false);
+    expect(result.plan.tasks.some((task) => task.taskType === "mock")).toBe(
+      false,
+    );
+    expect(
+      result.plan.tasks.some(
+        (task) => task.taskType === "learn" || task.taskType === "practice",
+      ),
+    ).toBe(true);
+  });
+
   it("is deterministic and returns the complete canonical result shape", () => {
     const first = prepareStudent(input());
     const second = prepareStudent(input());

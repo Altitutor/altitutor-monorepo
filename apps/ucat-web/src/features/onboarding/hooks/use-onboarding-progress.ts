@@ -6,17 +6,7 @@ import type { Database } from "@altitutor/shared";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import { useAuth } from "@/features/auth";
 import {
-  UCAT_ATTEMPT_REVIEW_TOUR,
-  UCAT_DASHBOARD_TOUR,
-  UCAT_LEARN_TOUR,
-  UCAT_MOCKS_TOUR,
-  UCAT_PRACTICE_TOUR,
-  UCAT_PROGRESS_TOUR,
-  UCAT_QUESTION_ENGINE_CONTROLS_TOUR,
-  UCAT_QUESTION_ENGINE_TOUR,
-  UCAT_SETS_TOUR,
-  UCAT_SKILL_TRAINER_TOUR,
-  UCAT_STUDY_PLAN_TOUR,
+  UCAT_TOUR_VERSIONS,
 } from "@/features/onboarding/config/tour-catalog";
 
 /**
@@ -37,22 +27,8 @@ export type OnboardingProgress = Record<string, OnboardingTourState>;
  * as "not completed" so a content refresh can re-introduce a tour without a
  * destructive reset.
  */
-const TOUR_VERSIONS: Record<string, number> = {
-  [UCAT_DASHBOARD_TOUR]: 2,
-  [UCAT_STUDY_PLAN_TOUR]: 2,
-  [UCAT_PROGRESS_TOUR]: 4,
-  [UCAT_LEARN_TOUR]: 3,
-  [UCAT_SKILL_TRAINER_TOUR]: 3,
-  [UCAT_PRACTICE_TOUR]: 2,
-  [UCAT_SETS_TOUR]: 2,
-  [UCAT_MOCKS_TOUR]: 3,
-  [UCAT_QUESTION_ENGINE_CONTROLS_TOUR]: 1,
-  [UCAT_QUESTION_ENGINE_TOUR]: 2,
-  [UCAT_ATTEMPT_REVIEW_TOUR]: 2,
-};
-
 function currentVersion(tourId: string): number {
-  return TOUR_VERSIONS[tourId] ?? 1;
+  return UCAT_TOUR_VERSIONS[tourId] ?? 1;
 }
 
 type StudentProfileView =
