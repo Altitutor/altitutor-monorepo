@@ -209,6 +209,7 @@ function PlacementQuestionContent({
   const [answers, setAnswers] = useState<Record<string, PlacementValue>>(
     () => ({ ...placementSnapshot }),
   );
+  const answersRef = useRef(answers);
   const touchDragRef = useRef<{
     pointerId: number;
     choice: PlacementValue;
@@ -216,7 +217,9 @@ function PlacementQuestionContent({
   } | null>(null);
 
   useEffect(() => {
-    setAnswers({ ...placementSnapshot });
+    const next = { ...placementSnapshot };
+    answersRef.current = next;
+    setAnswers(next);
   }, [placementSnapshot, question.id]);
 
   const syncSnapshot = useCallback(
@@ -224,6 +227,20 @@ function PlacementQuestionContent({
       onChangePlacementSnapshot?.(next);
     },
     [onChangePlacementSnapshot],
+  );
+
+  const commitAnswers = useCallback(
+    (
+      update: (
+        previous: Record<string, PlacementValue>,
+      ) => Record<string, PlacementValue>,
+    ) => {
+      const next = update(answersRef.current);
+      answersRef.current = next;
+      setAnswers(next);
+      syncSnapshot(next);
+    },
+    [syncSnapshot],
   );
 
   const assignChoice = useCallback((
@@ -243,11 +260,9 @@ function PlacementQuestionContent({
 
   const handleAssign = (optionId: string, choice: PlacementValue) => {
     if (readOnly || lockedOptionIds.has(optionId)) return;
-    setAnswers((prev) => {
-      const next = assignChoice(prev, optionId, choice, null);
-      syncSnapshot(next);
-      return next;
-    });
+    commitAnswers((previous) =>
+      assignChoice(previous, optionId, choice, null),
+    );
   };
 
   useEffect(() => {
@@ -264,16 +279,14 @@ function PlacementQuestionContent({
       const targetOptionId = optionElement?.dataset.syllogismOptionId;
 
       if (targetOptionId && !lockedOptionIds.has(targetOptionId)) {
-        setAnswers((previous) => {
-          const next = assignChoice(
+        commitAnswers((previous) =>
+          assignChoice(
             previous,
             targetOptionId,
             drag.choice,
             drag.sourceOptionId,
-          );
-          syncSnapshot(next);
-          return next;
-        });
+          ),
+        );
         return;
       }
 
@@ -282,10 +295,9 @@ function PlacementQuestionContent({
         target?.closest("[data-syllogism-token-area]") &&
         !lockedOptionIds.has(drag.sourceOptionId)
       ) {
-        setAnswers((previous) => {
+        commitAnswers((previous) => {
           const next = { ...previous };
           delete next[drag.sourceOptionId!];
-          syncSnapshot(next);
           return next;
         });
       }
@@ -297,7 +309,7 @@ function PlacementQuestionContent({
       window.removeEventListener("pointerup", finishTouchDrag);
       window.removeEventListener("pointercancel", finishTouchDrag);
     };
-  }, [assignChoice, lockedOptionIds, readOnly, syllogismDragOnly, syncSnapshot]);
+  }, [assignChoice, commitAnswers, lockedOptionIds, readOnly, syllogismDragOnly]);
 
   const startTouchDrag = (
     event: React.PointerEvent,
@@ -326,11 +338,9 @@ function PlacementQuestionContent({
       const fromOptionId =
         event.dataTransfer.getData("ucat-syllogism-source") || null;
 
-      setAnswers((prev) => {
-        const next = assignChoice(prev, optionId, choice, fromOptionId);
-        syncSnapshot(next);
-        return next;
-      });
+      commitAnswers((previous) =>
+        assignChoice(previous, optionId, choice, fromOptionId),
+      );
     };
 
   const handleDragOver: DragEventHandler<HTMLDivElement> = (event) => {
@@ -345,11 +355,10 @@ function PlacementQuestionContent({
     if (!fromOptionId) return;
     if (lockedOptionIds.has(fromOptionId)) return;
 
-    setAnswers((prev) => {
-      if (!prev[fromOptionId]) return prev;
-      const next = { ...prev };
+    if (!answersRef.current[fromOptionId]) return;
+    commitAnswers((previous) => {
+      const next = { ...previous };
       delete next[fromOptionId];
-      syncSnapshot(next);
       return next;
     });
   };

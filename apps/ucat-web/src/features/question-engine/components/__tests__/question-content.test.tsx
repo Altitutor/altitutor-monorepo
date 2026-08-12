@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 import { fireEvent, render, screen } from "@testing-library/react";
 import { QuestionContent } from "@/features/question-engine/components/question-content";
 import type { QuestionItem } from "@/features/question-engine/model/types";
@@ -136,6 +136,43 @@ describe("QuestionContent syllogism restoration", () => {
     });
 
     expect(onChange).toHaveBeenLastCalledWith({ "action-b": "most" });
+  });
+
+  it("does not update its parent from inside the placement state updater", () => {
+    const consoleError = jest
+      .spyOn(console, "error")
+      .mockImplementation(() => undefined);
+
+    function StatefulEngineHarness() {
+      const [snapshot, setSnapshot] = useState<
+        Record<string, "yes" | "no" | "most" | "least">
+      >({});
+      return (
+        <QuestionContent
+          question={question}
+          onSelectOption={() => undefined}
+          placementSnapshot={snapshot}
+          onChangePlacementSnapshot={setSnapshot}
+        />
+      );
+    }
+
+    render(<StatefulEngineHarness />);
+    const target = screen.getAllByLabelText("Drop Yes or No here")[0]!;
+    fireEvent.drop(target, {
+      dataTransfer: dataTransfer({
+        "ucat-syllogism-choice": "yes",
+        "ucat-syllogism-source": "",
+      }),
+    });
+
+    expect(
+      consoleError.mock.calls
+        .flat()
+        .map(String)
+        .join("\n"),
+    ).not.toContain("Cannot update a component");
+    consoleError.mockRestore();
   });
 });
 
