@@ -435,7 +435,14 @@ export function ResultsSyllogismQuestionBlock({
           {options.map((opt, index) => (
             <div
               key={index}
-              className="grid grid-cols-[minmax(0,2.5fr)_minmax(0,1fr)_minmax(0,2.5fr)] items-start gap-x-3 pl-4 pr-3"
+              className={cn(
+                'grid grid-cols-[minmax(0,2.5fr)_minmax(0,1fr)_minmax(0,2.5fr)] items-start gap-x-3 rounded-md py-2 pl-4 pr-3',
+                answerMode === 'most_least' && opt.answerKeyValue === 'most'
+                  ? 'border border-green-200 bg-green-50'
+                  : answerMode === 'most_least' && opt.answerKeyValue === 'least'
+                    ? 'border border-red-200 bg-red-50'
+                    : null,
+              )}
             >
               <div className="flex min-w-0 items-start gap-2">
                 <span className={cn(ENGINE_MUTED_LABEL, 'mt-1 shrink-0 leading-none')}>•</span>
