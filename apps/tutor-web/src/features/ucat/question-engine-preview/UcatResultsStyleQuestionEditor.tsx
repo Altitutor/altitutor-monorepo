@@ -48,6 +48,8 @@ export type ResultsMcQuestionBlockProps = {
   correctOptionIndex: number
   sectionName?: string | null
   setCorrectOptionIndex: (i: number) => void
+  answerScheme?: 'single_choice' | 'situational_judgement_rating' | 'situational_judgement_most_least'
+  setAnswerKeyValue?: (optionIndex: number, value: 'most' | 'least' | null) => void
   answerExplanation: Json | null | undefined
   setAnswerExplanation: (v: Json | null | undefined) => void
   optionLabel: (index: number) => string
@@ -69,6 +71,8 @@ export function ResultsMcQuestionBlock({
   correctOptionIndex,
   sectionName,
   setCorrectOptionIndex,
+  answerScheme = 'single_choice',
+  setAnswerKeyValue,
   answerExplanation,
   setAnswerExplanation,
   optionLabel,
@@ -151,26 +155,56 @@ export function ResultsMcQuestionBlock({
             correctIndex: correctOptionIndex,
           })
           const isPartial = sjOutcome === 'partial'
-          const bgClass = optionIsCorrect
-            ? 'bg-green-100'
-            : isPartial
-              ? 'bg-amber-100'
-              : 'bg-red-50'
+          const bgClass = answerScheme === 'situational_judgement_most_least'
+            ? options[index]?.answerKeyValue === 'most'
+              ? 'bg-green-100'
+              : options[index]?.answerKeyValue === 'least'
+                ? 'bg-amber-100'
+                : 'bg-white'
+            : optionIsCorrect
+              ? 'bg-green-100'
+              : isPartial
+                ? 'bg-amber-100'
+                : 'bg-red-50'
 
           return (
             <div key={index} className="space-y-0.5">
               <div className={`rounded px-3 py-2 ${bgClass}`}>
                 <div className="flex min-h-8 items-center gap-2">
-                  <input
-                    type="radio"
-                    name="bulk-import-correct-mc"
-                    checked={correctOptionIndex === index}
-                    onChange={() => setCorrectOptionIndex(index)}
-                    className="h-4 w-4 shrink-0 cursor-pointer"
-                    aria-label={`Mark option ${letter} as correct`}
-                  />
+                  {answerScheme === 'situational_judgement_most_least' ? (
+                    <select
+                      value={options[index]?.answerKeyValue ?? 'none'}
+                      onChange={(event) => setAnswerKeyValue?.(
+                        index,
+                        event.target.value === 'most' || event.target.value === 'least'
+                          ? event.target.value
+                          : null,
+                      )}
+                      className="h-8 rounded border border-[#9ba9bd] bg-white px-2 text-sm text-black"
+                      aria-label={`Set answer key for option ${letter}`}
+                    >
+                      <option value="none">Not keyed</option>
+                      <option value="most">Most appropriate</option>
+                      <option value="least">Least appropriate</option>
+                    </select>
+                  ) : (
+                    <input
+                      type="radio"
+                      name="bulk-import-correct-mc"
+                      checked={correctOptionIndex === index}
+                      onChange={() => setCorrectOptionIndex(index)}
+                      className="h-4 w-4 shrink-0 cursor-pointer"
+                      aria-label={`Mark option ${letter} as correct`}
+                    />
+                  )}
                   <span className={cn('inline-block w-7 shrink-0', ENGINE_MUTED_LABEL)}>{letter}.</span>
-                  {optionIsCorrect ? (
+                  {answerScheme === 'situational_judgement_most_least'
+                    ? options[index]?.answerKeyValue === 'most'
+                      ? <span className="rounded-full bg-green-200 px-2 py-0.5 text-[9pt] font-medium text-green-800">Most appropriate</span>
+                      : options[index]?.answerKeyValue === 'least'
+                        ? <span className="rounded-full bg-amber-200 px-2 py-0.5 text-[9pt] font-medium text-amber-800">Least appropriate</span>
+                        : null
+                    : optionIsCorrect ? (
                     <span className="rounded-full bg-green-200 px-2 py-0.5 text-[9pt] font-medium text-green-800">
                       Correct
                     </span>

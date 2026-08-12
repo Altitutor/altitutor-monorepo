@@ -17,6 +17,12 @@ export type SuggestedResponseContract = {
   answerScheme: AnswerSchemeKind
 }
 
+const INTERPRETING_INFORMATION_CATEGORY = 'interpreting information and drawing conclusions'
+
+export function allowsResponseTypeChoice(categoryName: string | null | undefined): boolean {
+  return (categoryName ?? '').trim().toLowerCase().startsWith('interpreting information')
+}
+
 export function authoredResponseContract(
   question: Pick<AuthoredQuestion, 'questionType' | 'responseType' | 'answerScheme'>,
 ): SuggestedResponseContract {
@@ -72,7 +78,7 @@ export function suggestedResponseContract(
   }
   if (
     category.startsWith('syllogism')
-    || category === 'interpreting information and drawing conclusions'
+    || category === INTERPRETING_INFORMATION_CATEGORY
   ) {
     return { responseType: 'drag_and_drop', answerScheme: 'decision_making_binary_placement' }
   }

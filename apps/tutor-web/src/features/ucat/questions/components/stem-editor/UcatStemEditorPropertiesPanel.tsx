@@ -39,6 +39,7 @@ import {
 import { taxonomyDisplayLabel } from '@/features/ucat/shared/lib/taxonomy-paths'
 import {
   authoredResponseContract,
+  allowsResponseTypeChoice,
   responseContractForType,
   responseContractIssues,
   shouldApplyCategoryDefaults,
@@ -201,6 +202,7 @@ export function UcatStemEditorPropertiesPanel({
     : suggestedContract
   const currentResponseType = currentContract.responseType
   const currentAnswerScheme = currentContract.answerScheme
+  const responseTypeChoiceAllowed = allowsResponseTypeChoice(selectedCategory?.name)
   const answerSchemeLabels = {
     single_choice: 'Single choice',
     situational_judgement_rating: 'SJT rating',
@@ -845,7 +847,7 @@ export function UcatStemEditorPropertiesPanel({
                 getItemId={(i) => i.value}
               />
             </PropertyRow>
-            <PropertyRow label="Interaction">
+            <PropertyRow label={responseTypeChoiceAllowed ? 'Interaction' : 'Interaction (automatic)'}>
               <SearchableSelect<{ value: 'multiple_choice' | 'drag_and_drop'; label: string }>
                 items={[
                   { value: 'multiple_choice', label: 'Multiple Choice' },
@@ -856,6 +858,7 @@ export function UcatStemEditorPropertiesPanel({
                     ? { value: 'drag_and_drop' as const, label: 'Drag and Drop' }
                     : { value: 'multiple_choice', label: 'Multiple Choice' }
                 }
+                disabled={!responseTypeChoiceAllowed}
                 onValueChange={(item) => {
                   if (!item || !activeQuestion) return
                   const target = responseContractForType(
@@ -873,16 +876,6 @@ export function UcatStemEditorPropertiesPanel({
                 getItemLabel={(i) => i.label}
                 getItemId={(i) => i.value}
               />
-            </PropertyRow>
-            <PropertyRow label="Answer scheme (automatic)">
-              <div>
-                <div className="text-sm font-medium">{answerSchemeLabels[currentAnswerScheme]}</div>
-                <div className="text-xs text-muted-foreground">
-                  {categoryContractDiffers
-                    ? 'Determined by the selected interaction. The category has a different suggestion below.'
-                    : 'Determined automatically by the interaction and UCAT context.'}
-                </div>
-              </div>
             </PropertyRow>
             {categoryContractDiffers ? (
               <div className="space-y-2 rounded-md border border-black/10 p-2 dark:border-white/10">
@@ -939,76 +932,9 @@ export function UcatStemEditorPropertiesPanel({
                   <QuestionTagsSelect questionIndex={safeQuestionIndex} form={form} tags={tags} compact />
                 </div>
               </PropertyRow>
-              {currentAnswerScheme === 'situational_judgement_most_least' ? (
-              <div className="space-y-2 py-1.5">
-                <div className="text-sm text-muted-foreground">Most/Least answer key</div>
-                <div className="text-xs text-muted-foreground">
-                  Most/Least uses two keyed destinations, so its key is edited here.
-                </div>
-                {(activeQuestion?.options ?? []).map((option, optionIndex) => {
-                  const scheme = activeQuestion?.answerScheme ?? 'single_choice'
-                  const items = scheme === 'decision_making_binary_placement'
-                    ? [
-                        { value: 'yes', label: 'Yes' },
-                        { value: 'no', label: 'No' },
-                      ]
-                    : scheme === 'situational_judgement_most_least'
-                      ? [
-                          { value: 'none', label: 'Not keyed' },
-                          { value: 'most', label: 'Most appropriate' },
-                          { value: 'least', label: 'Least appropriate' },
-                        ]
-                      : [
-                          { value: 'none', label: 'Not correct' },
-                          { value: 'correct', label: 'Correct' },
-                        ]
-                  const currentValue = option.answerKeyValue ?? (
-                    scheme === 'decision_making_binary_placement'
-                      ? option.isAnswer ? 'yes' : 'no'
-                      : option.isAnswer ? 'correct' : 'none'
-                  )
-                  return (
-                    <div key={option.id ?? optionIndex} className="flex items-center gap-2">
-                      <span className="w-6 text-xs font-medium text-muted-foreground">
-                        {String.fromCharCode(65 + optionIndex)}
-                      </span>
-                      <SearchableSelect<{ value: string; label: string }>
-                        items={items}
-                        value={items.find((item) => item.value === currentValue) ?? items[0]!}
-                        onValueChange={(item) => {
-                          if (!item) return
-                          const key = item.value === 'none'
-                            ? null
-                            : item.value as 'correct' | 'yes' | 'no' | 'most' | 'least'
-                          const currentOptions = form.getValues(`questions.${safeQuestionIndex}.options`)
-                          const exclusive = key === 'correct' || key === 'most' || key === 'least'
-                          const nextOptions = currentOptions.map((currentOption, currentIndex) => {
-                            const clearDuplicate = exclusive
-                              && currentIndex !== optionIndex
-                              && currentOption.answerKeyValue === key
-                            const answerKeyValue = currentIndex === optionIndex
-                              ? key
-                              : clearDuplicate ? null : currentOption.answerKeyValue
-                            return {
-                              ...currentOption,
-                              answerKeyValue,
-                              isAnswer: answerKeyValue === 'correct' || answerKeyValue === 'yes',
-                            }
-                          })
-                          form.setValue(`questions.${safeQuestionIndex}.options`, nextOptions, { shouldDirty: true })
-                        }}
-                        getItemLabel={(item) => item.label}
-                        getItemId={(item) => item.value}
-                      />
-                    </div>
-                  )
-                })}
+              <div className="py-1.5 text-xs text-muted-foreground">
+                Answer keys are edited directly beside the options in the question editor.
               </div>
-              ) : (
-                <div className="py-1.5 text-xs text-muted-foreground">
-                  The answer key is edited directly beside the options above.
-                </div>
-              )}
               {focusTarget === 'explanation' ? (
                 <div className="rounded-md border border-amber-300 bg-amber-50 p-2 text-xs text-amber-950 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-100">
                   Add the missing explanation in the question editor on the left.

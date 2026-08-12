@@ -98,6 +98,21 @@ export function UcatStemEngineInlineEditor({
     )
   }
 
+  const setMostLeastAnswerKey = (optionIndex: number, value: 'most' | 'least' | null) => {
+    const current = form.getValues(`questions.${questionIndex}.options`) ?? []
+    form.setValue(
+      `questions.${questionIndex}.options`,
+      current.map((option, index) => ({
+        ...option,
+        answerKeyValue: index === optionIndex
+          ? value
+          : option.answerKeyValue === value ? null : option.answerKeyValue,
+        isAnswer: false,
+      })),
+      { shouldDirty: true },
+    )
+  }
+
   const setSyllogismPattern = (pattern: string) => {
     const current = form.getValues(`questions.${questionIndex}.options`) ?? []
     form.setValue(
@@ -131,6 +146,8 @@ export function UcatStemEngineInlineEditor({
       correctOptionIndex={correctOptionIndex}
       sectionName={sectionName}
       setCorrectOptionIndex={setCorrectOptionIndex}
+      answerScheme={answerScheme === 'situational_judgement_most_least' ? answerScheme : 'single_choice'}
+      setAnswerKeyValue={setMostLeastAnswerKey}
       answerExplanation={(question?.answerExplanation ?? null) as Json | null}
       setAnswerExplanation={setAnswerExplanation}
       optionLabel={optionLabel}
@@ -224,6 +241,8 @@ export function UcatStemEngineInlineEditor({
               correctOptionIndex={correctOptionIndex}
               sectionName={sectionName}
               setCorrectOptionIndex={setCorrectOptionIndex}
+              answerScheme={answerScheme === 'situational_judgement_most_least' ? answerScheme : 'single_choice'}
+              setAnswerKeyValue={setMostLeastAnswerKey}
               answerExplanation={(question?.answerExplanation ?? null) as Json | null}
               setAnswerExplanation={setAnswerExplanation}
               optionLabel={optionLabel}
