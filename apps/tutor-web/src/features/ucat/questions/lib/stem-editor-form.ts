@@ -111,11 +111,11 @@ export function formValuesToStemBundlePayload(
         answerText: option.answerText,
         answerExplanation: toExplanationNull(option.answerExplanation),
         isAnswer: option.isAnswer,
-        answerKeyValue: option.answerKeyValue ?? (
-          question.questionType === 'syllogism'
+        answerKeyValue: option.answerKeyValue !== undefined
+          ? option.answerKeyValue
+          : question.questionType === 'syllogism'
             ? option.isAnswer ? 'yes' : 'no'
-            : option.isAnswer ? 'correct' : null
-        ),
+            : option.isAnswer ? 'correct' : null,
       })),
     })),
   }
