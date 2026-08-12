@@ -6,6 +6,7 @@ import type { Editor } from '@tiptap/react'
 import type { UseFormReturn } from 'react-hook-form'
 import { UCAT_COLORS, UCAT_FONTS } from '@altitutor/ui/components/ucat/ucat-theme'
 import { Label } from '@altitutor/ui'
+import { resolveAnswerSchemeDisplayColumns } from '@altitutor/ucat-response-contract'
 import {
   ResultsMcQuestionBlock,
   ResultsSyllogismQuestionBlock,
@@ -47,7 +48,9 @@ export function UcatStemEngineInlineEditor({
 }: UcatStemEngineInlineEditorProps) {
   const answerScheme = form.watch(`questions.${questionIndex}.answerScheme`) ?? 'single_choice'
   const isBinaryPlacement = answerScheme === 'decision_making_binary_placement'
-  const isTwoColumn = sectionDisplayColumns === 2
+  const isMostLeast = answerScheme === 'situational_judgement_most_least'
+  const isTwoColumn =
+    resolveAnswerSchemeDisplayColumns(answerScheme, sectionDisplayColumns) === 2
 
   const stemText = form.watch('stemText') as Json
   const question = form.watch(`questions.${questionIndex}`)
@@ -147,7 +150,6 @@ export function UcatStemEngineInlineEditor({
       sectionName={sectionName}
       setCorrectOptionIndex={setCorrectOptionIndex}
       answerScheme={answerScheme === 'situational_judgement_most_least' ? answerScheme : 'single_choice'}
-      setAnswerKeyValue={setMostLeastAnswerKey}
       answerExplanation={(question?.answerExplanation ?? null) as Json | null}
       setAnswerExplanation={setAnswerExplanation}
       optionLabel={optionLabel}
@@ -180,7 +182,29 @@ export function UcatStemEngineInlineEditor({
     />
   )
 
-  const body = isBinaryPlacement ? syllogismBlock : mcBlock
+  const mostLeastBlock = (
+    <ResultsSyllogismQuestionBlock
+      includeStem={!isTwoColumn}
+      stemText={stemText}
+      setStemText={setStemText}
+      questionText={(question?.questionText ?? EMPTY_DOC) as Json}
+      setQuestionText={setQuestionText}
+      questionNumber={questionNumber}
+      options={options}
+      setOptions={setOptions}
+      syllogismPattern=""
+      setSyllogismPattern={() => undefined}
+      answerMode="most_least"
+      setMostLeastAnswerKey={setMostLeastAnswerKey}
+      answerExplanation={(question?.answerExplanation ?? null) as Json | null}
+      setAnswerExplanation={setAnswerExplanation}
+      showQuestionExplanation
+      onTextEditorActive={onTextEditorActive}
+      {...imageHandlers}
+    />
+  )
+
+  const body = isBinaryPlacement ? syllogismBlock : isMostLeast ? mostLeastBlock : mcBlock
 
   if (isTwoColumn) {
     return (
@@ -228,6 +252,26 @@ export function UcatStemEngineInlineEditor({
               onTextEditorActive={onTextEditorActive}
               {...imageHandlers}
             />
+          ) : isMostLeast ? (
+            <ResultsSyllogismQuestionBlock
+              includeStem={false}
+              stemText={stemText}
+              setStemText={setStemText}
+              questionText={(question?.questionText ?? EMPTY_DOC) as Json}
+              setQuestionText={setQuestionText}
+              questionNumber={questionNumber}
+              options={options}
+              setOptions={setOptions}
+              syllogismPattern=""
+              setSyllogismPattern={() => undefined}
+              answerMode="most_least"
+              setMostLeastAnswerKey={setMostLeastAnswerKey}
+              answerExplanation={(question?.answerExplanation ?? null) as Json | null}
+              setAnswerExplanation={setAnswerExplanation}
+              showQuestionExplanation
+              onTextEditorActive={onTextEditorActive}
+              {...imageHandlers}
+            />
           ) : (
             <ResultsMcQuestionBlock
               includeStem={false}
@@ -241,8 +285,7 @@ export function UcatStemEngineInlineEditor({
               correctOptionIndex={correctOptionIndex}
               sectionName={sectionName}
               setCorrectOptionIndex={setCorrectOptionIndex}
-              answerScheme={answerScheme === 'situational_judgement_most_least' ? answerScheme : 'single_choice'}
-              setAnswerKeyValue={setMostLeastAnswerKey}
+              answerScheme="single_choice"
               answerExplanation={(question?.answerExplanation ?? null) as Json | null}
               setAnswerExplanation={setAnswerExplanation}
               optionLabel={optionLabel}

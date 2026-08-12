@@ -356,6 +356,8 @@ export type ResultsSyllogismQuestionBlockProps = {
   setOptions: Dispatch<SetStateAction<OptionsState>>
   syllogismPattern: string
   setSyllogismPattern: (v: string) => void
+  answerMode?: 'binary' | 'most_least'
+  setMostLeastAnswerKey?: (optionIndex: number, value: 'most' | 'least' | null) => void
   answerExplanation: Json | null | undefined
   setAnswerExplanation: (v: Json | null | undefined) => void
   questionNumber?: number
@@ -372,6 +374,8 @@ export function ResultsSyllogismQuestionBlock({
   setOptions,
   syllogismPattern,
   setSyllogismPattern,
+  answerMode = 'binary',
+  setMostLeastAnswerKey,
   answerExplanation,
   setAnswerExplanation,
   questionNumber,
@@ -423,7 +427,7 @@ export function ResultsSyllogismQuestionBlock({
       <div className="mt-3 space-y-2">
         <div className="grid grid-cols-[minmax(0,2.5fr)_minmax(0,1fr)_minmax(0,2.5fr)] items-center gap-x-3 pl-4 pr-3">
           <span className={ENGINE_MUTED_LABEL}>Statement</span>
-          <span className={cn(ENGINE_MUTED_LABEL, 'text-center')}>Answer</span>
+          <span className={cn(ENGINE_MUTED_LABEL, 'text-center')}>{answerMode === 'most_least' ? 'Answer key' : 'Answer'}</span>
           <span className={cn(ENGINE_MUTED_LABEL, 'text-center')}>Explanation</span>
         </div>
         <div className="space-y-3">
@@ -453,23 +457,47 @@ export function ResultsSyllogismQuestionBlock({
                 </div>
               </div>
               <div className="flex items-start justify-center pt-1">
-                <SegmentedControl
-                  variant="light"
-                  size="sm"
-                  aria-label={`Correct answer for statement ${index + 1}`}
-                  value={syllogismPattern.charAt(index) === 'Y' ? 'Y' : 'N'}
-                  onValueChange={(answerValue) => {
-                    const arr = syllogismPattern.split('')
-                    arr[index] = answerValue
-                    setSyllogismPattern(
-                      arr.join('').padEnd(options.length, 'N').slice(0, options.length)
-                    )
-                  }}
-                  options={[
-                    { value: 'Y', label: 'Yes' },
-                    { value: 'N', label: 'No' },
-                  ]}
-                />
+                {answerMode === 'most_least' ? (
+                  <SearchableSelect<{ value: 'none' | 'most' | 'least'; label: string }>
+                    items={[
+                      { value: 'none', label: 'Not keyed' },
+                      { value: 'most', label: 'Most appropriate' },
+                      { value: 'least', label: 'Least appropriate' },
+                    ]}
+                    value={[
+                      { value: 'none' as const, label: 'Not keyed' },
+                      { value: 'most' as const, label: 'Most appropriate' },
+                      { value: 'least' as const, label: 'Least appropriate' },
+                    ].find((item) => item.value === (opt.answerKeyValue ?? 'none')) ?? { value: 'none', label: 'Not keyed' }}
+                    onValueChange={(item) => setMostLeastAnswerKey?.(
+                      index,
+                      item?.value === 'most' || item?.value === 'least' ? item.value : null,
+                    )}
+                    getItemLabel={(item) => item.label}
+                    getItemId={(item) => item.value}
+                    triggerClassName="h-8 w-40 shrink-0 !border-[#9ba9bd] !bg-white !text-black dark:!border-[#9ba9bd] dark:!bg-white dark:!text-black dark:hover:!bg-[#f3f4f6]"
+                    className="!bg-white !text-black [&_[cmdk-group]]:!text-black [&_[cmdk-group-heading]]:!text-gray-500 [&_[cmdk-input]]:!text-black [&_[cmdk-input]]:!placeholder:text-gray-500 [&_[cmdk-item]]:!text-black"
+                    ariaLabel={`Set answer key for option ${index + 1}`}
+                  />
+                ) : (
+                  <SegmentedControl
+                    variant="light"
+                    size="sm"
+                    aria-label={`Correct answer for statement ${index + 1}`}
+                    value={syllogismPattern.charAt(index) === 'Y' ? 'Y' : 'N'}
+                    onValueChange={(answerValue) => {
+                      const arr = syllogismPattern.split('')
+                      arr[index] = answerValue
+                      setSyllogismPattern(
+                        arr.join('').padEnd(options.length, 'N').slice(0, options.length)
+                      )
+                    }}
+                    options={[
+                      { value: 'Y', label: 'Yes' },
+                      { value: 'N', label: 'No' },
+                    ]}
+                  />
+                )}
               </div>
               <div className="min-w-0">
                 <UcatRichTextEditor
@@ -550,6 +578,17 @@ export function UcatResultsStyleQuestionEditor({
     initialPattern.padEnd(question.options?.length ?? 0, 'N').slice(0, question.options?.length ?? 0)
   )
   const isSyllogism = question.questionType === 'syllogism'
+  const isMostLeast = question.answerScheme === 'situational_judgement_most_least'
+
+  const setMostLeastAnswerKey = (optionIndex: number, value: 'most' | 'least' | null) => {
+    setOptions((previous) => previous.map((option, index) => ({
+      ...option,
+      answerKeyValue: index === optionIndex
+        ? value
+        : option.answerKeyValue === value ? null : option.answerKeyValue,
+      isAnswer: false,
+    })))
+  }
 
   const handleSave = () => {
     const n = options.length
@@ -558,7 +597,7 @@ export function UcatResultsStyleQuestionEditor({
       ...opt,
       isAnswer: isSyllogism
         ? syllogismPattern.charAt(i).toUpperCase() === 'Y'
-        : i === resolvedCorrect,
+        : isMostLeast ? false : i === resolvedCorrect,
     }))
     const qWithPattern = {
       ...question,
@@ -599,6 +638,8 @@ export function UcatResultsStyleQuestionEditor({
     setOptions,
     syllogismPattern,
     setSyllogismPattern,
+    answerMode: isMostLeast ? 'most_least' : 'binary',
+    setMostLeastAnswerKey,
     answerExplanation,
     setAnswerExplanation,
   }
@@ -610,7 +651,7 @@ export function UcatResultsStyleQuestionEditor({
     </div>
   )
 
-  if (isSyllogism) {
+  if (isSyllogism || isMostLeast) {
     if (sectionDisplayColumns === 2) {
       return shell(
         <div
