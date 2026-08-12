@@ -136,17 +136,17 @@ describe('persistStemFormValues', () => {
     ])
   })
 
-  it('preserves an explicitly unkeyed Most/Least action in the writer payload', () => {
+  it('repairs the legacy no fallback for an unkeyed Most/Least action', () => {
     const values = formValues('in_review')
     const question = values.questions[0]!
     question.questionType = 'syllogism'
     question.responseType = 'drag_and_drop'
     question.answerScheme = 'situational_judgement_most_least'
-    question.options = ['most', 'least', null].map((answerKeyValue, index) => ({
+    question.options = ['most', 'least', 'no'].map((answerKeyValue, index) => ({
       answerText: plainTextToProseMirror(`Action ${index + 1}`),
       answerExplanation: null,
-      isAnswer: answerKeyValue !== null,
-      answerKeyValue: answerKeyValue as 'most' | 'least' | null,
+      isAnswer: answerKeyValue === 'most' || answerKeyValue === 'least',
+      answerKeyValue: answerKeyValue as 'most' | 'least' | 'no',
     }))
 
     const payload = formValuesToStemBundlePayload(values)

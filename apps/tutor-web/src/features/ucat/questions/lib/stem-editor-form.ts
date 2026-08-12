@@ -111,11 +111,15 @@ export function formValuesToStemBundlePayload(
         answerText: option.answerText,
         answerExplanation: toExplanationNull(option.answerExplanation),
         isAnswer: option.isAnswer,
-        answerKeyValue: option.answerKeyValue !== undefined
-          ? option.answerKeyValue
-          : question.questionType === 'syllogism'
-            ? option.isAnswer ? 'yes' : 'no'
-            : option.isAnswer ? 'correct' : null,
+        answerKeyValue: question.answerScheme === 'situational_judgement_most_least'
+          ? option.answerKeyValue === 'most' || option.answerKeyValue === 'least'
+            ? option.answerKeyValue
+            : null
+          : option.answerKeyValue !== undefined
+            ? option.answerKeyValue
+            : question.questionType === 'syllogism'
+              ? option.isAnswer ? 'yes' : 'no'
+              : option.isAnswer ? 'correct' : null,
       })),
     })),
   }
