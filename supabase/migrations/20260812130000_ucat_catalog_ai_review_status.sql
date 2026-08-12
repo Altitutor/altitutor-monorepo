@@ -72,7 +72,6 @@ SELECT
   projection.question_text_fingerprint,
   projection.question_bundle_fingerprint,
   projection.is_available_in_question_pool,
-  projection.ai_review_status,
   ARRAY(
     SELECT DISTINCT question.response_type::TEXT
     FROM public.ucat_questions question
@@ -86,7 +85,9 @@ SELECT
     WHERE question.question_stem_id = stem.id
       AND question.deleted_at IS NULL
     ORDER BY question.answer_scheme::TEXT
-  ) AS answer_schemes
+  ) AS answer_schemes,
+  -- Append-only: CREATE OR REPLACE VIEW cannot rename/reorder existing columns.
+  projection.ai_review_status
 FROM public.question_stems stem
 JOIN public.ucat_question_catalog_projection projection ON projection.stem_id = stem.id
 JOIN public.ucat_sections section ON section.id = stem.section_id
