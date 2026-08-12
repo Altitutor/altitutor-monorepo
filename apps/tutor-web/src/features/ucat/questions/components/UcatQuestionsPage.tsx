@@ -141,6 +141,8 @@ import {
   buildQuestionCatalogQuery,
   CREATED_AT_FROM_FILTER_KEY,
   CREATED_AT_TO_FILTER_KEY,
+  QUESTION_COUNT_MAX_FILTER_KEY,
+  QUESTION_COUNT_MIN_FILTER_KEY,
 } from '@/features/ucat/questions/lib/question-catalog-query'
 import { FindSimilarQuestionStemsSubmenu } from '@/features/ucat/questions/components/FindSimilarQuestionStemsSubmenu'
 import { CreatedAtDateTimeRangeFilter } from '@/features/ucat/questions/components/CreatedAtDateTimeRangeFilter'
@@ -211,6 +213,13 @@ const filterDefinitions: DataTableFilterDefinition[] = [
   { key: 'section_id', label: 'Section' },
   { key: 'question_stem_category_id', label: 'Category' },
   { key: 'question_tag_id', label: 'Tag' },
+  {
+    key: 'question_count',
+    label: 'Questions',
+    type: 'number-range',
+    minKey: QUESTION_COUNT_MIN_FILTER_KEY,
+    maxKey: QUESTION_COUNT_MAX_FILTER_KEY,
+  },
   {
     key: 'visibility',
     label: 'Visibility',

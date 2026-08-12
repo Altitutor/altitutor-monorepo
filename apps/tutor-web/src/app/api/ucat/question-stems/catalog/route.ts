@@ -57,6 +57,13 @@ function parseTimestamp(value: string | null): string | null {
   return Number.isFinite(timestamp) ? new Date(timestamp).toISOString() : null
 }
 
+function parseNonNegativeInteger(value: string | null): number | null {
+  if (value == null || value.trim() === '') return null
+  const parsed = Number(value)
+  if (!Number.isInteger(parsed) || parsed < 0) return null
+  return parsed
+}
+
 export async function GET(request: NextRequest) {
   const access = await requireUcatTutor()
   if (!access.ok) return access.response
@@ -75,6 +82,18 @@ export async function GET(request: NextRequest) {
     || createdFrom && createdTo && createdFrom > createdTo
   ) {
     return NextResponse.json({ error: 'Invalid created-at range' }, { status: 400 })
+  }
+
+  const questionCountMin = parseNonNegativeInteger(searchParams.get('questionCountMin'))
+  const questionCountMax = parseNonNegativeInteger(searchParams.get('questionCountMax'))
+  if (
+    searchParams.has('questionCountMin') && questionCountMin == null
+    || searchParams.has('questionCountMax') && questionCountMax == null
+    || questionCountMin != null
+      && questionCountMax != null
+      && questionCountMin > questionCountMax
+  ) {
+    return NextResponse.json({ error: 'Invalid question-count range' }, { status: 400 })
   }
 
   const sortBy = searchParams.get('sort')
@@ -110,6 +129,8 @@ export async function GET(request: NextRequest) {
     p_created_by: parseUuidList(searchParams, 'createdBy'),
     p_created_from: createdFrom,
     p_created_to: createdTo,
+    p_question_count_min: questionCountMin,
+    p_question_count_max: questionCountMax,
     p_sort_by: sortBy && SORT_KEYS.has(sortBy) ? sortBy : null,
     p_sort_direction: searchParams.get('direction') === 'asc' ? 'asc' : 'desc',
     p_page: parsePositiveInteger(searchParams.get('page'), 1, 100_000),

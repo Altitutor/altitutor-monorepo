@@ -3,6 +3,8 @@
 import { useEffect, useRef, useState } from "react";
 import { discardExamAttempt } from "@/features/exam-attempts/api/exam-attempts-api";
 import { useActiveExamAttempt } from "@/features/exam-attempts/context/active-exam-attempt-context";
+import { getLaunchConflictAttempt } from "@/features/exam-attempts/lib/active-exam-attempt-state";
+import { isAttemptAtResults } from "@/features/exam-attempts/lib/banner-copy";
 import type {
   ActiveExamAttempt,
   ExamAttemptKind,
@@ -40,15 +42,23 @@ export function useExamAttemptLaunchGate(
       return;
     }
 
-    if (!active || (active.kind === kind && active.resourceId === resourceId)) {
+    if (active && isAttemptAtResults(active)) {
+      clearLocal();
       setConflictActive(null);
       setStatus("allowed");
       return;
     }
 
-    setConflictActive(active);
+    const conflict = getLaunchConflictAttempt(active, kind, resourceId);
+    if (!conflict) {
+      setConflictActive(null);
+      setStatus("allowed");
+      return;
+    }
+
+    setConflictActive(conflict);
     setStatus("blocked");
-  }, [kind, resourceId, active, isLoading, isDiscarding]);
+  }, [kind, resourceId, active, isLoading, isDiscarding, clearLocal]);
 
   async function discardConflictAndContinue() {
     if (discardPromiseRef.current) return discardPromiseRef.current;
