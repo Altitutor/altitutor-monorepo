@@ -22,12 +22,26 @@ async function assertPracticeSessionActive(response: Response): Promise<void> {
   }
 }
 
+async function responseError(
+  response: Response,
+  fallback: string,
+): Promise<Error> {
+  const body = (await response.json().catch(() => null)) as {
+    error?: unknown;
+  } | null;
+  return new Error(
+    typeof body?.error === "string" && body.error.trim()
+      ? body.error
+      : fallback,
+  );
+}
+
 export async function fetchActiveExamAttempt(): Promise<ActiveExamAttempt | null> {
   const response = await fetch("/api/ucat/exam-attempts/active", {
     cache: "no-store",
   });
   if (!response.ok) {
-    throw new Error("Failed to load active exam attempt");
+    throw await responseError(response, "Failed to load active exam attempt");
   }
   const data = (await response.json()) as { active: ActiveExamAttempt | null };
   return data.active;
@@ -57,7 +71,7 @@ export async function beginExamAttempt(
   await assertPracticeSessionActive(response);
   if (!response.ok) {
     await assertOkOrQuotaExceeded(response);
-    throw new Error("Failed to begin exam attempt");
+    throw await responseError(response, "Failed to begin exam attempt");
   }
   return response.json();
 }
@@ -79,7 +93,7 @@ export async function syncExamAttempt(
   });
   await assertPracticeSessionActive(response);
   if (!response.ok) {
-    throw new Error("Failed to sync exam attempt");
+    throw await responseError(response, "Failed to sync exam attempt");
   }
   return response.json();
 }

@@ -43,8 +43,21 @@ export async function GET() {
     );
   }
 
-  const active = await getActiveExamAttempt(supabaseAdmin, student.id, {
-    readerClient: supabase,
-  });
-  return NextResponse.json({ active });
+  try {
+    const active = await getActiveExamAttempt(supabaseAdmin, student.id, {
+      readerClient: supabase,
+    });
+    return NextResponse.json({ active });
+  } catch (error) {
+    captureApiError(error, "/api/ucat/exam-attempts/active");
+    return NextResponse.json(
+      {
+        error:
+          error instanceof Error
+            ? error.message
+            : "Failed to load active exam attempt",
+      },
+      { status: 500 },
+    );
+  }
 }
