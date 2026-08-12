@@ -16,6 +16,11 @@ module.exports = {
       "<rootDir>/../../packages/ucat-percentiles/src/index.ts",
     "^@altitutor/ucat-percentiles/(.*)$":
       "<rootDir>/../../packages/ucat-percentiles/src/$1",
+    // Shared/marking import this; map to source so tests work without a package build (CI).
+    "^@altitutor/ucat-response-contract$":
+      "<rootDir>/../../packages/ucat-response-contract/src/index.ts",
+    "^@altitutor/ucat-response-contract/(.*)$":
+      "<rootDir>/../../packages/ucat-response-contract/src/$1",
     "\\.(css|less|scss|sass)$": "identity-obj-proxy",
   },
   transform: {
