@@ -47,6 +47,7 @@ import { InstructionsContent } from "@/features/question-engine/components/instr
 import { NavigatorPanel } from "@/features/question-engine/components/navigator-panel";
 import { QuestionContent } from "@/features/question-engine/components/question-content";
 import { computeMarkingResult } from "@/features/question-engine/lib/marking";
+import { navigateToAttemptResults } from "@/features/question-engine/lib/attempt-results-navigation";
 import {
   buildPersistedQuestionResponse,
   canonicalPlacementSnapshotToLegacy,
@@ -1155,10 +1156,9 @@ export function QuestionEnginePage({
       }
       if (redirectHref) {
         skipBeforeUnloadRef.current = true;
-        clearActiveExamAttempt();
         void prefetchAttemptResults();
         if (!(practice && practiceSessionId && onPracticeSessionCompleted)) {
-          router.replace(redirectHref);
+          navigateToAttemptResults(redirectHref);
         }
         return true;
       }
@@ -1176,11 +1176,9 @@ export function QuestionEnginePage({
     completePracticeSession,
     getFinalPracticeAnswers,
     flushQuestionTiming,
-    clearActiveExamAttempt,
     queryClient,
     prefetchAttemptResults,
     toast,
-    router,
     reportQuestionEngineCompletion,
   ]);
 

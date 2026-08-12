@@ -19,7 +19,7 @@ import { getAttemptPercentile } from "@/features/progress/server/attempt-percent
 import type { CohortPercentileResult } from "@altitutor/ucat-percentiles";
 import type { AttemptRecentPerformance } from "@/features/progress/lib/attempt-insights";
 import { fetchRecentAttemptPerformance } from "@/features/progress/server/attempt-insight-trend-service";
-import { getQuestionMaximumMarks, parseBinaryPlacementResponseSnapshot } from "@/features/question-engine/lib/response-state";
+import { getQuestionMaximumMarks } from "@/features/question-engine/lib/response-state";
 
 export type SetAttemptDetailResponse = {
   id: string;
@@ -59,8 +59,8 @@ export type SetAttemptDetailResponse = {
     questionStemCategoryId: string | null;
     /** For answers view: selected option id (multiple choice) or null */
     questionAnswerOptionId: string | null;
-    /** For answers view: syllogism snapshot { optionId: boolean } */
-    answerSnapshot: Record<string, boolean> | null;
+    /** Canonical persisted response snapshot used by answer-scheme review. */
+    answerSnapshot: unknown;
   }[];
 };
 
@@ -169,13 +169,7 @@ export async function GET(
         categoryName: qa.category_name,
         questionStemCategoryId: qa.question_stem_category_id,
         questionAnswerOptionId: qa.question_answer_option_id ?? null,
-        answerSnapshot:
-          qa.question_type === "syllogism" && qa.question_id
-            ? parseBinaryPlacementResponseSnapshot(
-                qa.answer_snapshot,
-                qa.question_id,
-              )
-            : null,
+        answerSnapshot: qa.answer_snapshot,
         isFlagged: qa.is_flagged ?? false,
         snapshot,
       },

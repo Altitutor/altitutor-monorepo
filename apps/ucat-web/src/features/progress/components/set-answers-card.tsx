@@ -37,7 +37,6 @@ import {
   hasAnswerExplanation,
   OptionText,
 } from "@/features/question-engine/components/question-content";
-import { computeMarkingResult } from "@/features/question-engine/lib/marking";
 import {
   getQuestionMaximumMarks,
   isPlacementResponse,
@@ -48,6 +47,7 @@ import type {
 } from "@/features/question-engine/model/types";
 import { formatTimeSeconds } from "../lib/format-time";
 import { buildQuestionAttemptInsight } from "../lib/attempt-insights";
+import { projectStoredQuestionAttemptReview } from "../lib/attempt-response-review";
 import { getWrongAnswerExplanations } from "../lib/question-insight-evidence";
 import { AttemptInsightCard } from "./attempt-insight-card";
 import { ContentRatingControls } from "@/features/content-ratings/components/content-rating-controls";
@@ -57,7 +57,7 @@ type QuestionAttemptForCard = {
   questionNumber?: number;
   questionId: string;
   questionAnswerOptionId?: string | null;
-  answerSnapshot?: Record<string, boolean> | null;
+  answerSnapshot?: unknown;
   result?: "correct" | "partial" | "incorrect" | "not_attempted";
   score?: number | null;
   timeSpentSeconds?: number | null;
@@ -93,17 +93,12 @@ function formatPoints(points: number): string {
 function isQuestionNotAnswered(
   question: QuestionItem,
   attempt?: QuestionAttemptForCard,
+  reviewOutcome?: "correct" | "partial" | "incorrect" | "unanswered",
 ): boolean {
   if (!attempt) return true;
   if (attempt.result === "not_attempted") return true;
   if (isPlacementResponse(question)) {
-    if (attempt.result === "correct" || attempt.result === "partial") {
-      return false;
-    }
-    return (
-      !attempt.answerSnapshot ||
-      Object.keys(attempt.answerSnapshot).length === 0
-    );
+    return reviewOutcome === "unanswered";
   }
   return !attempt.questionAnswerOptionId;
 }
@@ -293,18 +288,14 @@ export function SetAnswersCard({
   const isLoadingExam = !examProp && isLoading;
   const examError = !examProp && error;
 
-  const { selectedAnswers, syllogismSnapshots } = useMemo(() => {
+  const selectedAnswers = useMemo(() => {
     const selected: Record<string, string> = {};
-    const syllogism: Record<string, Record<string, boolean>> = {};
     for (const a of questionAttempts) {
       if (a.questionAnswerOptionId) {
         selected[a.questionId] = a.questionAnswerOptionId;
       }
-      if (a.answerSnapshot && Object.keys(a.answerSnapshot).length > 0) {
-        syllogism[a.questionId] = a.answerSnapshot;
-      }
     }
-    return { selectedAnswers: selected, syllogismSnapshots: syllogism };
+    return selected;
   }, [questionAttempts]);
 
   const [viewingIndex, setViewingIndex] = useState(initialQuestionIndex);
@@ -321,20 +312,23 @@ export function SetAnswersCard({
 
   const currentQuestion = questions[viewingIndex];
   const currentAttempt = questionAttempts[viewingIndex];
+  const currentProjection = useMemo(
+    () =>
+      currentQuestion
+        ? projectStoredQuestionAttemptReview(currentQuestion, currentAttempt)
+        : null,
+    [currentAttempt, currentQuestion],
+  );
   const notAnswered = currentQuestion
-    ? isQuestionNotAnswered(currentQuestion, currentAttempt)
+    ? isQuestionNotAnswered(
+        currentQuestion,
+        currentAttempt,
+        currentProjection?.review.outcome,
+      )
     : false;
   const resultBadge = getAttemptResultBadge(currentAttempt, notAnswered);
-  const markingResult = useMemo(
-    () =>
-      questions.length > 0
-        ? computeMarkingResult(questions, selectedAnswers, syllogismSnapshots)
-        : null,
-    [questions, selectedAnswers, syllogismSnapshots],
-  );
-  const currentMarkingRow = markingResult?.rows[viewingIndex];
   const wrongAnswerExplanations = currentQuestion
-    ? getWrongAnswerExplanations(currentQuestion, currentMarkingRow?.review)
+    ? getWrongAnswerExplanations(currentQuestion, currentProjection?.review)
     : [];
   const questionInsight = buildQuestionAttemptInsight({
     result: currentAttempt?.result ?? "not_attempted",
@@ -345,8 +339,7 @@ export function SetAnswersCard({
     wrongAnswerExplanations,
   });
 
-  const points =
-    markingResult && currentQuestion ? currentMarkingRow?.points : undefined;
+  const points = currentProjection?.points;
 
   const getCachedContent = useRefreshedContentCache(questions, viewingIndex);
   const timingMax = Math.max(
@@ -457,7 +450,7 @@ export function SetAnswersCard({
                   selectedOptionId={selectedAnswers[currentQuestion.id]}
                   correctOptionId={currentQuestion.correctOptionId}
                   points={points}
-                  syllogismSnapshot={syllogismSnapshots[currentQuestion.id]}
+                  review={currentProjection?.review}
                   preloadedContent={getCachedContent(currentQuestion.id)}
                 />
               </div>
@@ -557,7 +550,7 @@ export function SetAnswersCard({
                   question={currentQuestion}
                   selectedOptionId={selectedAnswers[currentQuestion.id]}
                   correctOptionId={currentQuestion.correctOptionId}
-                  syllogismSnapshot={syllogismSnapshots[currentQuestion.id]}
+                  review={currentProjection?.review}
                   preloadedContent={getCachedContent(currentQuestion.id)}
                   variant="site"
                   showExplanations={false}

@@ -9,7 +9,7 @@ import {
 } from "@/features/progress/lib/attempt-review-question-metadata";
 import type { AttemptRecentPerformance } from "@/features/progress/lib/attempt-insights";
 import { fetchRecentAttemptPerformance } from "@/features/progress/server/attempt-insight-trend-service";
-import { getQuestionMaximumMarks, parseBinaryPlacementResponseSnapshot } from "@/features/question-engine/lib/response-state";
+import { getQuestionMaximumMarks } from "@/features/question-engine/lib/response-state";
 import {
   mapQuestionStemsToItems,
   type QuestionStemWithQuestions,
@@ -44,7 +44,7 @@ export type PracticeAttemptDetailResponse = {
     categoryDescription: string | null;
     questionStemCategoryId: string | null;
     questionAnswerOptionId: string | null;
-    answerSnapshot: Record<string, boolean> | null;
+    answerSnapshot: unknown;
   }[];
 };
 
@@ -82,9 +82,7 @@ export async function GET(
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const { data: session, error: sessionError } = await (
-    supabase as { from: (t: string) => ReturnType<typeof supabase.from> }
-  )
+  const { data: session, error: sessionError } = await supabase
     .from("vstudent_ucat_my_practice_sessions")
     .select(
       "id, ucat_section_id, section_name, section_key, score_points, total_points, question_count, started_at, completed_at, stems_snapshot",
@@ -162,13 +160,7 @@ export async function GET(
         categoryName: qa.category_name,
         questionStemCategoryId: qa.question_stem_category_id,
         questionAnswerOptionId: qa.question_answer_option_id ?? null,
-        answerSnapshot:
-          qa.question_type === "syllogism" && qa.question_id
-            ? parseBinaryPlacementResponseSnapshot(
-                qa.answer_snapshot,
-                qa.question_id,
-              )
-            : null,
+        answerSnapshot: qa.answer_snapshot,
         isFlagged: qa.is_flagged ?? false,
       },
     ]),

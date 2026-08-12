@@ -19,7 +19,7 @@ import { getAttemptPercentile } from "@/features/progress/server/attempt-percent
 import type { CohortPercentileResult } from "@altitutor/ucat-percentiles";
 import type { AttemptRecentPerformance } from "@/features/progress/lib/attempt-insights";
 import { fetchRecentAttemptPerformance } from "@/features/progress/server/attempt-insight-trend-service";
-import { getQuestionMaximumMarks, parseBinaryPlacementResponseSnapshot } from "@/features/question-engine/lib/response-state";
+import { getQuestionMaximumMarks } from "@/features/question-engine/lib/response-state";
 
 export type MockSetInfo = {
   setAttemptId: string;
@@ -64,7 +64,7 @@ export type MockAttemptDetailResponse = {
     questionType: "multiple_choice" | "syllogism" | null;
     result: "correct" | "partial" | "incorrect" | "not_attempted";
     questionAnswerOptionId: string | null;
-    answerSnapshot: Record<string, boolean> | null;
+    answerSnapshot: unknown;
     categoryName: string | null;
     categoryDescription: string | null;
     questionStemCategoryId: string | null;
@@ -175,7 +175,7 @@ export async function GET(
       timeBurdenSeconds: number | null;
       questionType: "multiple_choice" | "syllogism" | null;
       questionAnswerOptionId: string | null;
-      answerSnapshot: Record<string, boolean> | null;
+      answerSnapshot: unknown;
       categoryName: string | null;
       questionStemCategoryId: string | null;
       isFlagged: boolean;
@@ -190,13 +190,7 @@ export async function GET(
       timeBurdenSeconds: qa.time_burden_seconds,
       questionType: qa.question_type as "multiple_choice" | "syllogism" | null,
       questionAnswerOptionId: qa.question_answer_option_id ?? null,
-      answerSnapshot:
-        qa.question_type === "syllogism" && qa.question_id
-          ? parseBinaryPlacementResponseSnapshot(
-              qa.answer_snapshot,
-              qa.question_id,
-            )
-          : null,
+      answerSnapshot: qa.answer_snapshot,
       categoryName: qa.category_name ?? null,
       questionStemCategoryId: qa.question_stem_category_id ?? null,
       isFlagged: qa.is_flagged ?? false,
