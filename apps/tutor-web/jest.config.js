@@ -10,11 +10,19 @@ const config = {
     '^@altitutor/shared/(.*)$': '<rootDir>/../../packages/shared/src/$1',
     '^@altitutor/ui$': '<rootDir>/../../packages/ui/src/index.ts',
     '^@altitutor/ui/(.*)$': '<rootDir>/../../packages/ui/src/$1',
-    // Shared imports this; map to source so tests work without a package build (CI).
+    // Workspace packages point at dist/; map to source so tests work without a build (CI).
     '^@altitutor/ucat-response-contract$':
       '<rootDir>/../../packages/ucat-response-contract/src/index.ts',
     '^@altitutor/ucat-response-contract/(.*)$':
       '<rootDir>/../../packages/ucat-response-contract/src/$1',
+    '^@altitutor/ucat-blueprint$':
+      '<rootDir>/../../packages/ucat-blueprint/src/index.ts',
+    '^@altitutor/ucat-blueprint/(.*)$':
+      '<rootDir>/../../packages/ucat-blueprint/src/$1',
+    '^@altitutor/ucat-percentiles$':
+      '<rootDir>/../../packages/ucat-percentiles/src/index.ts',
+    '^@altitutor/ucat-percentiles/(.*)$':
+      '<rootDir>/../../packages/ucat-percentiles/src/$1',
   },
   testMatch: ['**/__tests__/**/*.test.[jt]s?(x)'],
   transform: {

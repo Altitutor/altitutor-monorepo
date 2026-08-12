@@ -52,6 +52,8 @@ export type ResultsMcQuestionBlockProps = {
   setAnswerExplanation: (v: Json | null | undefined) => void
   optionLabel: (index: number) => string
   showOptionExplanations?: boolean
+  /** When true, option explanation editors appear under the question answer explanation section. */
+  showOptionExplanationsUnderQuestion?: boolean
   showQuestionExplanation?: boolean
   allowOptionAddRemove?: boolean
 } & RichEditorImageProps
@@ -72,6 +74,7 @@ export function ResultsMcQuestionBlock({
   optionLabel,
   questionNumber,
   showOptionExplanations = true,
+  showOptionExplanationsUnderQuestion = false,
   showQuestionExplanation = true,
   allowOptionAddRemove = false,
   stemId = null,
@@ -242,19 +245,50 @@ export function ResultsMcQuestionBlock({
       </div>
       {showQuestionExplanation ? (
         <div
-          className="mt-3 space-y-2 border-t border-[#9ba9bd] pt-3 text-[11pt] leading-relaxed"
+          className="mt-3 space-y-3 border-t border-[#9ba9bd] pt-3 text-[11pt] leading-relaxed"
           style={EXPLANATION_MUTED_STYLE}
         >
-          <Label className="text-[11pt] font-medium">Question answer explanation</Label>
-          <UcatRichTextEditor
-            {...RTE}
-            {...imageProps}
-            value={answerExplanation}
-            onChange={(v) => setAnswerExplanation(v)}
-            minHeight="60px"
-            pasteTableBehavior="keep"
-            onEditorReady={onEditorReady}
-          />
+          <div className="space-y-2">
+            <Label className="text-[11pt] font-medium">Question answer explanation</Label>
+            <UcatRichTextEditor
+              {...RTE}
+              {...imageProps}
+              value={answerExplanation}
+              onChange={(v) => setAnswerExplanation(v)}
+              minHeight="60px"
+              pasteTableBehavior="keep"
+              onEditorReady={onEditorReady}
+            />
+          </div>
+          {showOptionExplanationsUnderQuestion
+            ? options.map((opt, index) => {
+                const letter = optionLabel(index)
+                return (
+                  <div key={index} className="space-y-2">
+                    <Label className="text-[11pt] font-medium">
+                      Option {letter} explanation (optional)
+                    </Label>
+                    <UcatRichTextEditor
+                      {...RTE}
+                      {...imageProps}
+                      value={opt.answerExplanation ?? null}
+                      onChange={(v) => {
+                        setOptions((prev) => {
+                          const next = [...prev]
+                          const current = next[index]
+                          if (!current) return prev
+                          next[index] = { ...current, answerExplanation: v }
+                          return next
+                        })
+                      }}
+                      minHeight="36px"
+                      pasteTableBehavior="keep"
+                      onEditorReady={onEditorReady}
+                    />
+                  </div>
+                )
+              })
+            : null}
         </div>
       ) : null}
     </div>

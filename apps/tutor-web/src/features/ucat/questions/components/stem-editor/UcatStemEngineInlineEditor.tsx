@@ -135,6 +135,7 @@ export function UcatStemEngineInlineEditor({
       setAnswerExplanation={setAnswerExplanation}
       optionLabel={optionLabel}
       showOptionExplanations={false}
+      showOptionExplanationsUnderQuestion
       showQuestionExplanation
       allowOptionAddRemove
       onTextEditorActive={onTextEditorActive}
@@ -156,7 +157,7 @@ export function UcatStemEngineInlineEditor({
       setSyllogismPattern={setSyllogismPattern}
       answerExplanation={(question?.answerExplanation ?? null) as Json | null}
       setAnswerExplanation={setAnswerExplanation}
-      showQuestionExplanation={false}
+      showQuestionExplanation
       onTextEditorActive={onTextEditorActive}
       {...imageHandlers}
     />
@@ -206,7 +207,7 @@ export function UcatStemEngineInlineEditor({
               setSyllogismPattern={setSyllogismPattern}
               answerExplanation={(question?.answerExplanation ?? null) as Json | null}
               setAnswerExplanation={setAnswerExplanation}
-              showQuestionExplanation={false}
+              showQuestionExplanation
               onTextEditorActive={onTextEditorActive}
               {...imageHandlers}
             />
@@ -227,6 +228,7 @@ export function UcatStemEngineInlineEditor({
               setAnswerExplanation={setAnswerExplanation}
               optionLabel={optionLabel}
               showOptionExplanations={false}
+              showOptionExplanationsUnderQuestion
               showQuestionExplanation
               allowOptionAddRemove
               onTextEditorActive={onTextEditorActive}
