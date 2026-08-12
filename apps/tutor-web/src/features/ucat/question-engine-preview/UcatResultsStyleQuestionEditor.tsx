@@ -182,46 +182,59 @@ export function ResultsMcQuestionBlock({
                     />
                   )}
                   <span className={cn('inline-block w-7 shrink-0', ENGINE_MUTED_LABEL)}>{letter}.</span>
-                  {answerScheme === 'situational_judgement_most_least'
-                    ? options[index]?.answerKeyValue === 'most'
-                      ? <span className="rounded-full bg-green-200 px-2 py-0.5 text-[9pt] font-medium text-green-800">Most appropriate</span>
-                      : options[index]?.answerKeyValue === 'least'
-                        ? <span className="rounded-full bg-red-200 px-2 py-0.5 text-[9pt] font-medium text-red-800">Least appropriate</span>
-                        : null
-                    : optionIsCorrect ? (
-                    <span className="rounded-full bg-green-200 px-2 py-0.5 text-[9pt] font-medium text-green-800">
-                      Correct
-                    </span>
-                  ) : isPartial ? (
-                    <span className="rounded-full bg-amber-200 px-2 py-0.5 text-[9pt] font-medium text-amber-800">
-                      Partial
-                    </span>
-                  ) : (
-                    <span className="rounded-full bg-red-100 px-2 py-0.5 text-[9pt] font-medium text-red-700">
-                      {sjOutcome === 'incorrect' ? 'Wrong polarity' : 'Wrong'}
-                    </span>
-                  )}
-                  <div className="flex-1" />
-                  {answerScheme === 'situational_judgement_most_least' ? (
-                    <SearchableSelect<{ value: 'none' | 'most' | 'least'; label: string }>
-                      items={[
-                        { value: 'none', label: 'Not keyed' },
-                        { value: 'most', label: 'Most appropriate' },
-                        { value: 'least', label: 'Least appropriate' },
-                      ]}
-                      value={[
-                        { value: 'none' as const, label: 'Not keyed' },
-                        { value: 'most' as const, label: 'Most appropriate' },
-                        { value: 'least' as const, label: 'Least appropriate' },
-                      ].find((item) => item.value === (options[index]?.answerKeyValue ?? 'none')) ?? { value: 'none', label: 'Not keyed' }}
-                      onValueChange={(item) => setAnswerKeyValue?.(index, item?.value === 'most' || item?.value === 'least' ? item.value : null)}
-                      getItemLabel={(item) => item.label}
-                      getItemId={(item) => item.value}
-                      triggerClassName="h-8 min-w-40"
-                      ariaLabel={`Set answer key for option ${letter}`}
-                    />
+                  {answerScheme !== 'situational_judgement_most_least' ? (
+                    optionIsCorrect ? (
+                      <span className="rounded-full bg-green-200 px-2 py-0.5 text-[9pt] font-medium text-green-800">
+                        Correct
+                      </span>
+                    ) : isPartial ? (
+                      <span className="rounded-full bg-amber-200 px-2 py-0.5 text-[9pt] font-medium text-amber-800">
+                        Partial
+                      </span>
+                    ) : (
+                      <span className="rounded-full bg-red-100 px-2 py-0.5 text-[9pt] font-medium text-red-700">
+                        {sjOutcome === 'incorrect' ? 'Wrong polarity' : 'Wrong'}
+                      </span>
+                    )
                   ) : null}
-                  {allowOptionAddRemove && options.length > 1 ? (
+                  <div className="ml-auto flex min-w-0 shrink-0 items-center gap-2">
+                    {answerScheme === 'situational_judgement_most_least' ? (
+                      <div className={cn(
+                        'w-36 shrink-0 truncate text-right text-[9pt] font-medium',
+                        options[index]?.answerKeyValue === 'most'
+                          ? 'text-green-800'
+                          : options[index]?.answerKeyValue === 'least'
+                            ? 'text-red-800'
+                            : 'text-[#5a6c7d]',
+                      )}>
+                        {options[index]?.answerKeyValue === 'most'
+                          ? 'Most appropriate'
+                          : options[index]?.answerKeyValue === 'least'
+                            ? 'Least appropriate'
+                            : 'Not keyed'}
+                      </div>
+                    ) : null}
+                    {answerScheme === 'situational_judgement_most_least' ? (
+                      <SearchableSelect<{ value: 'none' | 'most' | 'least'; label: string }>
+                        items={[
+                          { value: 'none', label: 'Not keyed' },
+                          { value: 'most', label: 'Most appropriate' },
+                          { value: 'least', label: 'Least appropriate' },
+                        ]}
+                        value={[
+                          { value: 'none' as const, label: 'Not keyed' },
+                          { value: 'most' as const, label: 'Most appropriate' },
+                          { value: 'least' as const, label: 'Least appropriate' },
+                        ].find((item) => item.value === (options[index]?.answerKeyValue ?? 'none')) ?? { value: 'none', label: 'Not keyed' }}
+                        onValueChange={(item) => setAnswerKeyValue?.(index, item?.value === 'most' || item?.value === 'least' ? item.value : null)}
+                        getItemLabel={(item) => item.label}
+                        getItemId={(item) => item.value}
+                        triggerClassName="h-8 w-40 shrink-0 !border-[#9ba9bd] !bg-white !text-black dark:!border-[#9ba9bd] dark:!bg-white dark:!text-black dark:hover:!bg-[#f3f4f6]"
+                        className="!bg-white !text-black [&_[cmdk-group]]:!text-black [&_[cmdk-group-heading]]:!text-gray-500 [&_[cmdk-input]]:!text-black [&_[cmdk-input]]:!placeholder:text-gray-500 [&_[cmdk-item]]:!text-black"
+                        ariaLabel={`Set answer key for option ${letter}`}
+                      />
+                    ) : null}
+                    {allowOptionAddRemove && options.length > 1 ? (
                     <Button
                       type="button"
                       variant="ghost"
@@ -234,7 +247,8 @@ export function ResultsMcQuestionBlock({
                     >
                       <Trash2 className="h-4 w-4" />
                     </Button>
-                  ) : null}
+                    ) : null}
+                  </div>
                 </div>
                 <div className="pt-1.5">
                   <UcatRichTextEditor
