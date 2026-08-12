@@ -3,7 +3,7 @@
 import { useState, type Dispatch, type ReactNode, type SetStateAction } from 'react'
 import type { Json } from '@altitutor/shared'
 import type { Editor } from '@tiptap/react'
-import { Button, Label } from '@altitutor/ui'
+import { Button, Label, SearchableSelect } from '@altitutor/ui'
 import { Plus, Trash2 } from 'lucide-react'
 import { UCAT_COLORS, UCAT_FONTS } from '@altitutor/ui/components/ucat/ucat-theme'
 import { SegmentedControl } from '@/shared/components/segmented-control'
@@ -159,7 +159,7 @@ export function ResultsMcQuestionBlock({
             ? options[index]?.answerKeyValue === 'most'
               ? 'bg-green-100'
               : options[index]?.answerKeyValue === 'least'
-                ? 'bg-amber-100'
+                ? 'bg-red-100'
                 : 'bg-white'
             : optionIsCorrect
               ? 'bg-green-100'
@@ -171,23 +171,7 @@ export function ResultsMcQuestionBlock({
             <div key={index} className="space-y-0.5">
               <div className={`rounded px-3 py-2 ${bgClass}`}>
                 <div className="flex min-h-8 items-center gap-2">
-                  {answerScheme === 'situational_judgement_most_least' ? (
-                    <select
-                      value={options[index]?.answerKeyValue ?? 'none'}
-                      onChange={(event) => setAnswerKeyValue?.(
-                        index,
-                        event.target.value === 'most' || event.target.value === 'least'
-                          ? event.target.value
-                          : null,
-                      )}
-                      className="h-8 rounded border border-[#9ba9bd] bg-white px-2 text-sm text-black"
-                      aria-label={`Set answer key for option ${letter}`}
-                    >
-                      <option value="none">Not keyed</option>
-                      <option value="most">Most appropriate</option>
-                      <option value="least">Least appropriate</option>
-                    </select>
-                  ) : (
+                  {answerScheme === 'situational_judgement_most_least' ? null : (
                     <input
                       type="radio"
                       name="bulk-import-correct-mc"
@@ -202,7 +186,7 @@ export function ResultsMcQuestionBlock({
                     ? options[index]?.answerKeyValue === 'most'
                       ? <span className="rounded-full bg-green-200 px-2 py-0.5 text-[9pt] font-medium text-green-800">Most appropriate</span>
                       : options[index]?.answerKeyValue === 'least'
-                        ? <span className="rounded-full bg-amber-200 px-2 py-0.5 text-[9pt] font-medium text-amber-800">Least appropriate</span>
+                        ? <span className="rounded-full bg-red-200 px-2 py-0.5 text-[9pt] font-medium text-red-800">Least appropriate</span>
                         : null
                     : optionIsCorrect ? (
                     <span className="rounded-full bg-green-200 px-2 py-0.5 text-[9pt] font-medium text-green-800">
@@ -218,6 +202,25 @@ export function ResultsMcQuestionBlock({
                     </span>
                   )}
                   <div className="flex-1" />
+                  {answerScheme === 'situational_judgement_most_least' ? (
+                    <SearchableSelect<{ value: 'none' | 'most' | 'least'; label: string }>
+                      items={[
+                        { value: 'none', label: 'Not keyed' },
+                        { value: 'most', label: 'Most appropriate' },
+                        { value: 'least', label: 'Least appropriate' },
+                      ]}
+                      value={[
+                        { value: 'none' as const, label: 'Not keyed' },
+                        { value: 'most' as const, label: 'Most appropriate' },
+                        { value: 'least' as const, label: 'Least appropriate' },
+                      ].find((item) => item.value === (options[index]?.answerKeyValue ?? 'none')) ?? { value: 'none', label: 'Not keyed' }}
+                      onValueChange={(item) => setAnswerKeyValue?.(index, item?.value === 'most' || item?.value === 'least' ? item.value : null)}
+                      getItemLabel={(item) => item.label}
+                      getItemId={(item) => item.value}
+                      triggerClassName="h-8 min-w-40"
+                      ariaLabel={`Set answer key for option ${letter}`}
+                    />
+                  ) : null}
                   {allowOptionAddRemove && options.length > 1 ? (
                     <Button
                       type="button"

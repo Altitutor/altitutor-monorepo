@@ -42,7 +42,6 @@ import {
   allowsResponseTypeChoice,
   responseContractForType,
   responseContractIssues,
-  shouldApplyCategoryDefaults,
   suggestedResponseContract,
   transformResponseContract,
 } from '@/features/ucat/questions/lib/response-contract-authoring'
@@ -201,23 +200,9 @@ export function UcatStemEditorPropertiesPanel({
     ? authoredResponseContract(activeQuestion)
     : suggestedContract
   const currentResponseType = currentContract.responseType
-  const currentAnswerScheme = currentContract.answerScheme
   const responseTypeChoiceAllowed = allowsResponseTypeChoice(selectedCategory?.name)
-  const answerSchemeLabels = {
-    single_choice: 'Single choice',
-    situational_judgement_rating: 'SJT rating',
-    decision_making_binary_placement: 'DM Yes/No placement',
-    situational_judgement_most_least: 'SJT Most/Least',
-  } as const
-  const categoryContractDiffers = currentResponseType !== suggestedContract.responseType
-    || currentAnswerScheme !== suggestedContract.answerScheme
 
   function handleCategoryChange(nextCategoryId: string | null): void {
-    const shouldApplyDefaults = shouldApplyCategoryDefaults({
-      stemId,
-      previousCategoryId: watchedStem.categoryId,
-      questionsDirty: form.getFieldState('questions').isDirty,
-    })
     form.setValue('categoryId', nextCategoryId, {
       shouldDirty: true,
     })
@@ -225,8 +210,6 @@ export function UcatStemEditorPropertiesPanel({
 
     const nextCategory = categories.find((category) => category.id === nextCategoryId)
     const defaultContract = suggestedResponseContract(nextCategory?.name, selectedSection?.name)
-    if (!shouldApplyDefaults) return
-
     form.setValue(
       'questions',
       form.getValues('questions').map((question) => transformResponseContract(question, defaultContract)),
@@ -847,7 +830,7 @@ export function UcatStemEditorPropertiesPanel({
                 getItemId={(i) => i.value}
               />
             </PropertyRow>
-            <PropertyRow label={responseTypeChoiceAllowed ? 'Interaction' : 'Interaction (automatic)'}>
+            <PropertyRow label='Interaction'>
               <SearchableSelect<{ value: 'multiple_choice' | 'drag_and_drop'; label: string }>
                 items={[
                   { value: 'multiple_choice', label: 'Multiple Choice' },
@@ -877,31 +860,7 @@ export function UcatStemEditorPropertiesPanel({
                 getItemId={(i) => i.value}
               />
             </PropertyRow>
-            {categoryContractDiffers ? (
-              <div className="space-y-2 rounded-md border border-black/10 p-2 dark:border-white/10">
-                <p className="text-xs text-muted-foreground">
-                  Category suggestion: {suggestedContract.responseType === 'drag_and_drop' ? 'Drag and Drop' : 'Multiple Choice'} with {answerSchemeLabels[suggestedContract.answerScheme]}.
-                </p>
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="outline"
-                  className="w-full"
-                  onClick={() => {
-                    const questions = form.getValues('questions').map((question) => (
-                      transformResponseContract(question, suggestedContract)
-                    ))
-                    form.setValue('questions', questions, { shouldDirty: true })
-                    onQuestionIndexChange(Math.min(safeQuestionIndex, questions.length - 1))
-                  }}
-                >
-                  Apply category response format
-                </Button>
-                <div className="text-xs text-amber-700 dark:text-amber-300">
-                  This is only a suggestion. Apply it if this is the intended interaction; otherwise keep the current interaction.
-                </div>
-              </div>
-            ) : contractIssues.length > 0 ? (
+            {contractIssues.length > 0 ? (
               <div className="space-y-2 rounded-md border border-black/10 p-2 dark:border-white/10">
                 <div className="text-xs text-amber-700 dark:text-amber-300">
                   {contractIssues[0]?.message}
