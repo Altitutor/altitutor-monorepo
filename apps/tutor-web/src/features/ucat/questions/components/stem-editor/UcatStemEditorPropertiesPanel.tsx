@@ -845,7 +845,7 @@ export function UcatStemEditorPropertiesPanel({
                 getItemId={(i) => i.value}
               />
             </PropertyRow>
-            <PropertyRow label="Response type">
+            <PropertyRow label="Interaction">
               <SearchableSelect<{ value: 'multiple_choice' | 'drag_and_drop'; label: string }>
                 items={[
                   { value: 'multiple_choice', label: 'Multiple Choice' },
@@ -874,21 +874,21 @@ export function UcatStemEditorPropertiesPanel({
                 getItemId={(i) => i.value}
               />
             </PropertyRow>
-            <PropertyRow label="Answer scheme">
+            <PropertyRow label="Answer scheme (automatic)">
               <div>
                 <div className="text-sm font-medium">{answerSchemeLabels[currentAnswerScheme]}</div>
                 <div className="text-xs text-muted-foreground">
                   {categoryContractDiffers
-                    ? 'Derived from the selected Response type. The category has a different suggested format.'
-                    : 'Derived automatically from the Response type and UCAT context.'}
+                    ? 'Determined by the selected interaction. The category has a different suggestion below.'
+                    : 'Determined automatically by the interaction and UCAT context.'}
                 </div>
               </div>
             </PropertyRow>
-            <div className="space-y-2 rounded-md border border-black/10 p-2 dark:border-white/10">
-              <p className="text-xs text-muted-foreground">
-                This category uses {suggestedContract.responseType === 'drag_and_drop' ? 'Drag and Drop' : 'Multiple Choice'} with {answerSchemeLabels[suggestedContract.answerScheme]}.
-              </p>
-              {categoryContractDiffers ? (
+            {categoryContractDiffers ? (
+              <div className="space-y-2 rounded-md border border-black/10 p-2 dark:border-white/10">
+                <p className="text-xs text-muted-foreground">
+                  Category suggestion: {suggestedContract.responseType === 'drag_and_drop' ? 'Drag and Drop' : 'Multiple Choice'} with {answerSchemeLabels[suggestedContract.answerScheme]}.
+                </p>
                 <Button
                   type="button"
                   size="sm"
@@ -904,20 +904,18 @@ export function UcatStemEditorPropertiesPanel({
                 >
                   Apply category response format
                 </Button>
-              ) : null}
-              {categoryContractDiffers ? (
                 <div className="text-xs text-amber-700 dark:text-amber-300">
-                  The selected category suggests a different response format. Apply it only if that is the intended interaction.
+                  This is only a suggestion. Apply it if this is the intended interaction; otherwise keep the current interaction.
                 </div>
-              ) : contractIssues.length > 0 ? (
+              </div>
+            ) : contractIssues.length > 0 ? (
+              <div className="space-y-2 rounded-md border border-black/10 p-2 dark:border-white/10">
                 <div className="text-xs text-amber-700 dark:text-amber-300">
                   {contractIssues[0]?.message}
                   {contractIssues.length > 1 ? ` (+${contractIssues.length - 1} more)` : ''}
                 </div>
-              ) : (
-                <div className="text-xs text-emerald-700 dark:text-emerald-300">Response contract is compatible.</div>
-              )}
-            </div>
+              </div>
+            ) : null}
           </PropertiesCard>
 
           <PropertiesCard value="sets" title="Set membership">
@@ -941,8 +939,12 @@ export function UcatStemEditorPropertiesPanel({
                   <QuestionTagsSelect questionIndex={safeQuestionIndex} form={form} tags={tags} compact />
                 </div>
               </PropertyRow>
+              {currentAnswerScheme === 'situational_judgement_most_least' ? (
               <div className="space-y-2 py-1.5">
-                <div className="text-sm text-muted-foreground">Answer key</div>
+                <div className="text-sm text-muted-foreground">Most/Least answer key</div>
+                <div className="text-xs text-muted-foreground">
+                  Most/Least uses two keyed destinations, so its key is edited here.
+                </div>
                 {(activeQuestion?.options ?? []).map((option, optionIndex) => {
                   const scheme = activeQuestion?.answerScheme ?? 'single_choice'
                   const items = scheme === 'decision_making_binary_placement'
@@ -1002,6 +1004,11 @@ export function UcatStemEditorPropertiesPanel({
                   )
                 })}
               </div>
+              ) : (
+                <div className="py-1.5 text-xs text-muted-foreground">
+                  The answer key is edited directly beside the options above.
+                </div>
+              )}
               {focusTarget === 'explanation' ? (
                 <div className="rounded-md border border-amber-300 bg-amber-50 p-2 text-xs text-amber-950 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-100">
                   Add the missing explanation in the question editor on the left.
