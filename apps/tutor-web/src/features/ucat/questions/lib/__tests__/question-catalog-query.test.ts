@@ -38,7 +38,7 @@ describe('buildQuestionCatalogQuery', () => {
       },
     })
 
-    expect(query).toMatchObject({
+      expect(query).toMatchObject({
       status: 'in_review',
       search: 'Kidney',
       sectionIds: ['section-1'],
@@ -46,7 +46,7 @@ describe('buildQuestionCatalogQuery', () => {
       includeNoCategory: true,
       tagIds: ['tag-1'],
       accessScopes: ['private'],
-      questionTypes: ['multiple_choice'],
+        questionTypes: [],
       setIds: ['set-1'],
       includeWithoutSet: true,
       sourceChannels: ['bulk_import'],

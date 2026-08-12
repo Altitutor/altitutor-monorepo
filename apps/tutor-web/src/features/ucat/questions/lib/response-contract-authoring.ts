@@ -73,6 +73,31 @@ export function suggestedResponseContract(
   return { responseType: 'multiple_choice', answerScheme: 'single_choice' }
 }
 
+export function responseContractForType(
+  responseType: ResponseType,
+  categoryName: string | null | undefined,
+  sectionName: string | null | undefined,
+): SuggestedResponseContract {
+  const suggested = suggestedResponseContract(categoryName, sectionName)
+  if (suggested.responseType === responseType) return suggested
+
+  if (responseType === 'multiple_choice') {
+    return {
+      responseType,
+      answerScheme: (sectionName ?? '').trim().toLowerCase() === 'situational judgement'
+        ? 'situational_judgement_rating'
+        : 'single_choice',
+    }
+  }
+
+  return {
+    responseType,
+    answerScheme: (categoryName ?? '').trim().toLowerCase() === 'most/least appropriate'
+      ? 'situational_judgement_most_least'
+      : 'decision_making_binary_placement',
+  }
+}
+
 function optionId(question: AuthoredQuestion, index: number): string {
   return question.options[index]?.id ?? `draft-option-${index}`
 }

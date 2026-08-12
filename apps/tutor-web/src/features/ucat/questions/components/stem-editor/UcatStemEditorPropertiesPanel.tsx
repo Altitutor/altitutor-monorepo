@@ -38,11 +38,11 @@ import {
 } from '@/features/ucat/shared/lib/rich-text'
 import { taxonomyDisplayLabel } from '@/features/ucat/shared/lib/taxonomy-paths'
 import {
+  responseContractForType,
   responseContractIssues,
   shouldApplyCategoryDefaults,
   suggestedResponseContract,
   transformResponseContract,
-  type AnswerSchemeKind,
 } from '@/features/ucat/questions/lib/response-contract-authoring'
 import { UcatStemSetMembershipCard } from '@/features/ucat/questions/components/stem-editor/UcatStemSetMembershipCard'
 import { UcatStemLearningModuleMembershipCard } from '@/features/ucat/questions/components/stem-editor/UcatStemLearningModuleMembershipCard'
@@ -195,6 +195,22 @@ export function UcatStemEditorPropertiesPanel({
   const selectedSection = sections.find((section) => section.id === sectionId)
   const suggestedContract = suggestedResponseContract(selectedCategory?.name, selectedSection?.name)
   const contractIssues = activeQuestion ? responseContractIssues(activeQuestion) : []
+  const currentResponseType = activeQuestion?.responseType ?? (
+    activeQuestion?.questionType === 'syllogism' ? 'drag_and_drop' : 'multiple_choice'
+  )
+  const currentAnswerScheme = activeQuestion?.answerScheme ?? (
+    activeQuestion?.questionType === 'syllogism'
+      ? 'decision_making_binary_placement'
+      : 'single_choice'
+  )
+  const answerSchemeLabels = {
+    single_choice: 'Single choice',
+    situational_judgement_rating: 'SJT rating',
+    decision_making_binary_placement: 'DM Yes/No placement',
+    situational_judgement_most_least: 'SJT Most/Least',
+  } as const
+  const categoryContractDiffers = currentResponseType !== suggestedContract.responseType
+    || currentAnswerScheme !== suggestedContract.answerScheme
 
   function handleCategoryChange(nextCategoryId: string | null): void {
     const shouldApplyDefaults = shouldApplyCategoryDefaults({
@@ -841,58 +857,52 @@ export function UcatStemEditorPropertiesPanel({
                     : { value: 'multiple_choice', label: 'Multiple Choice' }
                 }
                 onValueChange={(item) => {
-                  if (!item) return
-                  form.setValue(`questions.${safeQuestionIndex}.responseType`, item.value, { shouldDirty: true })
+                  if (!item || !activeQuestion) return
+                  const target = responseContractForType(
+                    item.value,
+                    selectedCategory?.name,
+                    selectedSection?.name,
+                  )
+                  const questions = form.getValues('questions').map((question, questionIndex) => (
+                    questionIndex === safeQuestionIndex
+                      ? transformResponseContract(question, target)
+                      : question
+                  ))
+                  form.setValue('questions', questions, { shouldDirty: true })
                 }}
                 getItemLabel={(i) => i.label}
                 getItemId={(i) => i.value}
               />
             </PropertyRow>
             <PropertyRow label="Answer scheme">
-              <SearchableSelect<{ value: AnswerSchemeKind; label: string }>
-                items={[
-                  { value: 'single_choice', label: 'Single choice' },
-                  { value: 'situational_judgement_rating', label: 'SJT rating' },
-                  { value: 'decision_making_binary_placement', label: 'DM Yes/No placement' },
-                  { value: 'situational_judgement_most_least', label: 'SJT Most/Least' },
-                ]}
-                value={(() => {
-                  const value = activeQuestion?.answerScheme ?? 'single_choice'
-                  const labels: Record<AnswerSchemeKind, string> = {
-                    single_choice: 'Single choice',
-                    situational_judgement_rating: 'SJT rating',
-                    decision_making_binary_placement: 'DM Yes/No placement',
-                    situational_judgement_most_least: 'SJT Most/Least',
-                  }
-                  return { value, label: labels[value] }
-                })()}
-                onValueChange={(item) => {
-                  if (!item) return
-                  form.setValue(`questions.${safeQuestionIndex}.answerScheme`, item.value, { shouldDirty: true })
-                }}
-                getItemLabel={(item) => item.label}
-                getItemId={(item) => item.value}
-              />
+              <div>
+                <div className="text-sm font-medium">{answerSchemeLabels[currentAnswerScheme]}</div>
+                <div className="text-xs text-muted-foreground">
+                  Set automatically from the Response type and UCAT category.
+                </div>
+              </div>
             </PropertyRow>
             <div className="space-y-2 rounded-md border border-black/10 p-2 dark:border-white/10">
               <p className="text-xs text-muted-foreground">
-                Suggested for this category: {suggestedContract.responseType === 'drag_and_drop' ? 'Drag and Drop' : 'Multiple Choice'} / {suggestedContract.answerScheme.replaceAll('_', ' ')}.
+                This category uses {suggestedContract.responseType === 'drag_and_drop' ? 'Drag and Drop' : 'Multiple Choice'} with {answerSchemeLabels[suggestedContract.answerScheme]}.
               </p>
-              <Button
-                type="button"
-                size="sm"
-                variant="outline"
-                className="w-full"
-                onClick={() => {
-                  const questions = form.getValues('questions').map((question) => (
-                    transformResponseContract(question, suggestedContract)
-                  ))
-                  form.setValue('questions', questions, { shouldDirty: true })
-                  onQuestionIndexChange(Math.min(safeQuestionIndex, questions.length - 1))
-                }}
-              >
-                Transform to suggested contract
-              </Button>
+              {categoryContractDiffers ? (
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  className="w-full"
+                  onClick={() => {
+                    const questions = form.getValues('questions').map((question) => (
+                      transformResponseContract(question, suggestedContract)
+                    ))
+                    form.setValue('questions', questions, { shouldDirty: true })
+                    onQuestionIndexChange(Math.min(safeQuestionIndex, questions.length - 1))
+                  }}
+                >
+                  Apply category response format
+                </Button>
+              ) : null}
               {contractIssues.length > 0 ? (
                 <div className="text-xs text-amber-700 dark:text-amber-300">
                   {contractIssues[0]?.message}

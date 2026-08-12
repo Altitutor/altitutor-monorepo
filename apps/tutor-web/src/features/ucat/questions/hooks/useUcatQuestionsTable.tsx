@@ -228,12 +228,6 @@ export function useUcatQuestionsTable<T extends QuestionListRowInput>({
         createdAtWindows.length === 0 ||
         createdAtWindows.some((windowRaw) => rowMatchesCreatedAtWindow(row.created_at, windowRaw))
 
-      const typeSelected = (tableState.filters.question_type?.[0] as string | undefined) ?? 'all'
-      const typeHit =
-        typeSelected === 'all' ||
-        (typeSelected === 'multiple_choice' && row.type_summary.includes('multiple_choice')) ||
-        (typeSelected === 'syllogism' && row.type_summary.includes('syllogism'))
-
       const selectedSetIds = getFilterValues(tableState, 'question_set_id').map(String)
       const wantsNotInAnySet = selectedSetIds.includes(UCAT_FILTER_NOT_IN_ANY_SET)
       const specificSetIds = selectedSetIds.filter((id) => id !== UCAT_FILTER_NOT_IN_ANY_SET)
@@ -248,7 +242,6 @@ export function useUcatQuestionsTable<T extends QuestionListRowInput>({
         categoryHit &&
         tagHit &&
         visibilityHit &&
-        typeHit &&
         setHit &&
         sourceHit &&
         createdByHit &&

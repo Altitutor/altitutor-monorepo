@@ -144,10 +144,12 @@ export function responseDefinitionForQuestion(
         ? "multiple_choice"
         : "drag_and_drop"),
     answerScheme,
-    options: question.options.map((option) => ({
-      id: option.id,
-      index: option.index,
-    })),
+    options: [...question.options]
+      .sort((left, right) => left.index - right.index)
+      .map((option, index) => ({
+        id: option.id,
+        index,
+      })),
   };
 }
 

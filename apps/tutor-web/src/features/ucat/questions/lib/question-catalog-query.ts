@@ -88,7 +88,10 @@ export function buildQuestionCatalogQuery(input: {
     includeNoCategory: rawCategoryIds.includes(UCAT_FILTER_NO_CATEGORY),
     tagIds: filterStrings(tableState, 'question_tag_id'),
     accessScopes: filterStrings(tableState, 'visibility'),
-    questionTypes: filterStrings(tableState, 'question_type'),
+    // `question_type` is a temporary storage compatibility field, not a tutor
+    // filtering concept. Category and the canonical response fields own those
+    // concerns during activation; ALTI-545 removes the legacy column itself.
+    questionTypes: [],
     setIds: rawSetIds.filter((id) => id !== UCAT_FILTER_NOT_IN_ANY_SET),
     includeWithoutSet: rawSetIds.includes(UCAT_FILTER_NOT_IN_ANY_SET),
     sourceChannels: filterStrings(tableState, 'source_channel'),

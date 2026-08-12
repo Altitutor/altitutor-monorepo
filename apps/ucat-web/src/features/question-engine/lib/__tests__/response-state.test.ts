@@ -107,6 +107,26 @@ describe("canonical question response persistence", () => {
     ).toThrow("unknown option");
   });
 
+  it("normalizes persisted option ordering before compiling the response contract", () => {
+    const historicallyOneBased = {
+      ...singleChoiceQuestion,
+      id: "one-based-options",
+      options: [
+        { id: "option-a", index: 1, answerKeyValue: null },
+        { id: "option-b", index: 2, answerKeyValue: "correct" },
+      ],
+    } as QuestionItem;
+
+    expect(
+      snapshotQuestionResponse(historicallyOneBased, "option-b"),
+    ).toEqual({
+      type: "ucat_response_v1",
+      questionId: "one-based-options",
+      answerScheme: "single_choice",
+      response: { kind: "single_select", selectedOptionId: "option-b" },
+    });
+  });
+
   it("isolates legacy DM reads and restores them into engine state", () => {
     expect(
       restoreQuestionResponse(binaryQuestion, {

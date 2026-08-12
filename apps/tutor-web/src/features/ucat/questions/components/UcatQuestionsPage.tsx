@@ -220,14 +220,6 @@ const filterDefinitions: DataTableFilterDefinition[] = [
     ],
   },
   {
-    key: 'question_type',
-    label: 'Type',
-    options: [
-      { label: 'Multiple Choice', value: 'multiple_choice' },
-      { label: 'Syllogism', value: 'syllogism' },
-    ],
-  },
-  {
     key: 'source_channel',
     label: 'Source',
     options: [
@@ -356,6 +348,12 @@ export function UcatQuestionsPage() {
     syncShowDeleted: true,
     availableColumns: availableColumnKeys,
   })
+  const toolbarTableState = useMemo(() => {
+    if (!('question_type' in tableState.state.filters)) return tableState.state
+    const filters = { ...tableState.state.filters }
+    delete filters.question_type
+    return { ...tableState.state, filters }
+  }, [tableState.state])
   const showDeleted = tableState.showDeleted ?? false
   const setShowDeleted = tableState.setShowDeleted ?? (() => undefined)
   const catalogQuery = useMemo(
@@ -371,6 +369,13 @@ export function UcatQuestionsPage() {
   const previousTabRef = useRef(activeTab)
   const tableActionsRef = useRef(tableState.actions)
   tableActionsRef.current = tableState.actions
+
+  useEffect(() => {
+    if (!('question_type' in tableState.state.filters)) return
+    const filters = { ...tableState.state.filters }
+    delete filters.question_type
+    tableActionsRef.current.onFiltersChange(filters)
+  }, [tableState.state.filters])
 
   const expandedStemArray = useMemo(() => Array.from(expandedStemIds), [expandedStemIds])
   const detailQueries = useQueries({
@@ -976,13 +981,12 @@ export function UcatQuestionsPage() {
       },
       filterDefinitions[3],
       filterDefinitions[4],
-      filterDefinitions[5],
       ...(aiReviewEnabled ? [aiReviewFilterDefinition] : []),
       {
-        ...filterDefinitions[6],
+        ...filterDefinitions[5],
         options: createdByFilterOptions,
       },
-      filterDefinitions[7],
+      filterDefinitions[6],
       {
         key: 'question_set_id',
         label: 'Set',
@@ -1077,7 +1081,7 @@ export function UcatQuestionsPage() {
       />
 
       <DataTableToolbar
-        state={tableState.state}
+        state={toolbarTableState}
         onSearchChange={tableState.actions.onSearchChange}
         onFiltersChange={tableState.actions.onFiltersChange}
         onSortChange={tableState.actions.onSortChange}

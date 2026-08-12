@@ -1,4 +1,5 @@
 import {
+  responseContractForType,
   responseContractIssues,
   shouldApplyCategoryDefaults,
   suggestedResponseContract,
@@ -44,6 +45,32 @@ describe('UCAT response-contract authoring', () => {
       answerScheme: 'decision_making_binary_placement',
     })
     expect(question).toEqual(before)
+  })
+
+  it('derives the Answer scheme when a tutor explicitly changes Response type', () => {
+    expect(responseContractForType(
+      'multiple_choice',
+      'Syllogisms',
+      'Decision Making',
+    )).toEqual({ responseType: 'multiple_choice', answerScheme: 'single_choice' })
+
+    expect(responseContractForType(
+      'multiple_choice',
+      'How Appropriate',
+      'Situational Judgement',
+    )).toEqual({
+      responseType: 'multiple_choice',
+      answerScheme: 'situational_judgement_rating',
+    })
+
+    expect(responseContractForType(
+      'drag_and_drop',
+      'Most/Least Appropriate',
+      'Situational Judgement',
+    )).toEqual({
+      responseType: 'drag_and_drop',
+      answerScheme: 'situational_judgement_most_least',
+    })
   })
 
   it('only changes response data through the deliberate transform action', () => {
