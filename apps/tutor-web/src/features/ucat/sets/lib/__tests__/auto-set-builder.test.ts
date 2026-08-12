@@ -1,4 +1,8 @@
-import { buildAutoSetPreview } from '@/features/ucat/sets/lib/auto-set-builder'
+import {
+  BLUEPRINT_CANDIDATE_STEM_CAP,
+  buildAutoSetPreview,
+  selectBlueprintCandidatePool,
+} from '@/features/ucat/sets/lib/auto-set-builder'
 import { UCAT_ANZ_2026_V1 } from '@altitutor/ucat-blueprint'
 import { recalculateLinkedMockBlueprintCompliance } from '@/features/ucat/mocks/lib/blueprint-compliance'
 import type { UcatStemCatalogItem } from '@/features/ucat/questions/hooks/useUcatQuestions'
@@ -13,7 +17,6 @@ function stem(id: string, categoryId: string, categoryName: string): UcatStemCat
     sectionId: 'vr',
     categoryId,
     categoryName,
-    presentationFormat: 'passage',
     accessScope: 'public',
     status: 'published',
     sourceChannel: 'individual',
@@ -90,6 +93,43 @@ describe('2026 blueprint set creation', () => {
     expect(result.warnings).toEqual(expect.arrayContaining([
       expect.stringContaining("True, False, Can't Tell"),
     ]))
+  })
+
+  it('caps the blueprint candidate pool before exact selection', () => {
+    const stems = [
+      ...Array.from({ length: 80 }, (_, index) => stem(`reading-${index}`, 'reading', 'Reading Comprehension')),
+      ...Array.from({ length: 40 }, (_, index) => stem(`tfct-${index}`, 'tfct', "True, False, Can't Tell")),
+    ]
+    const pool = selectBlueprintCandidatePool(stems, 44)
+
+    expect(pool.length).toBeLessThanOrEqual(BLUEPRINT_CANDIDATE_STEM_CAP)
+    expect(pool.some((item) => item.categoryId === 'reading')).toBe(true)
+    expect(pool.some((item) => item.categoryId === 'tfct')).toBe(true)
+  })
+
+  it('selects a compliant set from a large catalog without using the full stem list', () => {
+    const stems = [
+      ...Array.from({ length: 80 }, (_, index) => stem(`reading-${index}`, 'reading', 'Reading Comprehension')),
+      ...Array.from({ length: 40 }, (_, index) => stem(`tfct-${index}`, 'tfct', "True, False, Can't Tell")),
+    ]
+
+    const result = buildAutoSetPreview({
+      mode: 'blueprint',
+      targetTotal: 0,
+      categoryTargets: {},
+      sectionId: 'vr',
+      sectionNumber: 1,
+      stemVisibility: 'either',
+      onlyNotInAnotherSet: false,
+      categories,
+      stems,
+      seed: 1,
+    })
+
+    expect(result.totalQuestions).toBe(44)
+    expect(result.selectedStems).toHaveLength(11)
+    expect(result.warnings).toEqual([])
+    expect(result.blueprintCompliance?.compliant).toBe(true)
   })
 
   it('recalculates linked mock rules from an unsaved set draft', () => {

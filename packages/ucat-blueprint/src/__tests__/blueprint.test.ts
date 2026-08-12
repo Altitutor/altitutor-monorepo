@@ -19,13 +19,11 @@ const stems = (
   section: BlueprintSectionCode,
   category: string,
   questionCounts: number[],
-  presentationFormat: BlueprintStem['presentationFormat'] = null,
   answerScheme: BlueprintStem['questions'][number]['answerScheme'] = 'single_choice',
 ): BlueprintStem[] =>
   questionCounts.map((questionCount, stemIndex) => ({
     id: `${section}-${category}-${questionCounts.length}-${questionCounts.join('-')}-${stemIndex}`,
     category,
-    presentationFormat,
     questions: Array.from({ length: questionCount }, (_, questionIndex) => ({
       id: `${section}-${category}-${questionCounts.length}-${questionCounts.join('-')}-${stemIndex}-${questionIndex}`,
       answerScheme,
@@ -46,14 +44,7 @@ const passingComposition = (): BlueprintComposition => {
     ...stems(
       'decision_making',
       'Interpreting Information and Drawing Conclusions',
-      [1, 1, 1],
-      'passage',
-    ),
-    ...stems(
-      'decision_making',
-      'Interpreting Information and Drawing Conclusions',
-      [1, 1],
-      'table',
+      [1, 1, 1, 1, 1],
     ),
     ...stems('decision_making', 'Venn Diagrams', [1, 1, 1, 1, 1, 1, 1, 1]),
     ...stems(
@@ -70,13 +61,11 @@ const passingComposition = (): BlueprintComposition => {
     'situational_judgement',
     'How Appropriate',
     [6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6],
-    'passage',
     'situational_judgement_rating',
   )
   const sjtMostLeast: BlueprintStem[] = Array.from({ length: 3 }, (_, index) => ({
     id: `situational_judgement-most-least-${index}`,
     category: 'Most/Least Appropriate',
-    presentationFormat: 'passage',
     questions: [
       {
         id: `situational_judgement-most-least-${index}-0`,
@@ -144,8 +133,7 @@ describe('UCAT ANZ 2026 v1 blueprint', () => {
       ...stems('decision_making', 'Syllogisms', [1, 1, 1, 1, 1, 1, 1]),
       ...stems('decision_making', 'Logical Puzzles', [1, 1, 1, 1, 1, 1]),
       ...stems('decision_making', 'Recognising Assumptions', [1, 1, 1, 1, 1]),
-      ...stems('decision_making', 'Interpreting Information and Drawing Conclusions', [1, 1, 1, 1], 'passage'),
-      ...stems('decision_making', 'Interpreting Information and Drawing Conclusions', [1], 'graph_or_chart'),
+      ...stems('decision_making', 'Interpreting Information and Drawing Conclusions', [1, 1, 1, 1, 1]),
       ...stems('decision_making', 'Venn Diagrams', [1, 1, 1, 1, 1, 1, 1]),
       ...stems('decision_making', 'Probabilistic and Statistical Reasoning', [1, 1, 1, 1, 1]),
     ]
@@ -248,7 +236,7 @@ describe('UCAT ANZ 2026 v1 blueprint', () => {
     const composition = passingComposition()
     const sjt = composition.sections[3]
     if (!sjt) throw new Error('fixture is missing Situational Judgement')
-    sjt.stems.push({ id: 'empty-scenario', category: 'How Important', presentationFormat: 'passage', questions: [] })
+    sjt.stems.push({ id: 'empty-scenario', category: 'How Important', questions: [] })
 
     const result = evaluateBlueprint(UCAT_ANZ_2026_V1, composition)
 
@@ -346,7 +334,6 @@ describe('UCAT ANZ 2026 v1 blueprint', () => {
     const candidate = (id: string, category: string): BlueprintStem => ({
       id,
       category,
-      presentationFormat: null,
       questions: [{
         id: `${id}-question`,
         answerScheme: 'single_choice',

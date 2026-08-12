@@ -1,6 +1,6 @@
 # Altitutor 2026 UCAT exam blueprint
 
-This is Altitutor's accepted composition policy for full 2026 UCAT mocks. Section totals and timings are exact. Category and presentation targets are Altitutor-authored ranges or preferences unless an official source explicitly establishes them; they are not universal restrictions on focused practice sets.
+This is Altitutor's accepted composition policy for full 2026 UCAT mocks. Section totals and timings are exact. Category and structure targets are Altitutor-authored ranges or preferences unless an official source explicitly establishes them; they are not universal restrictions on focused practice sets.
 
 ## Composition units
 
@@ -35,12 +35,6 @@ This is Altitutor's accepted composition policy for full 2026 UCAT mocks. Sectio
 | Venn Diagrams | Venn Diagrams | 8 | 7–9 |
 | Probabilistic and Statistical Reasoning | Probability | 5 | 4–6 |
 
-Within Interpreting Information and Drawing Conclusions:
-
-- Passage: **3–4 questions**
-- Table or Graph/chart: **1–2 questions**
-- Remaining questions, if any, may use Diagram/image, Mixed, or Other.
-
 ## Quantitative Reasoning
 
 - Exact total: **36 questions**
@@ -73,7 +67,7 @@ Every Most/Least Appropriate stem contains one question with exactly three actio
 ## Existing mocks
 
 - Existing mocks and sets start without a blueprint reference; the migration does not silently claim that legacy content meets the 2026 policy.
-- A deterministic eligibility audit checks section order, exact totals, separate timings, category ranges, presentation-format ranges, stem cardinalities, publication state, and response-contract validity.
-- Unresolved Decision Making category classification or presentation format produces a provisional review result rather than an automatic attachment.
+- A deterministic eligibility audit checks section order, exact totals, separate timings, category ranges, stem cardinalities, publication state, and response-contract validity.
+- Unresolved Decision Making category classification produces a provisional review result rather than an automatic attachment.
 - Because sets may be shared by several mocks, the audit never retimes or recomposes a set automatically.
 - A tutor confirms attachment after all hard gates pass. Failed and provisional checks remain visible with stable reason codes.

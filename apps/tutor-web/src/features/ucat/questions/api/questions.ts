@@ -562,14 +562,14 @@ export const ucatQuestionsApi = {
           ? supabase
               .from("vtutor_ucat_question_stem_detail")
               .select(
-                "id,stem_text,questions,section_name,section_number,section_id,question_stem_category_id,category_name,presentation_format,status,access_scope,source_channel,created_at,deleted_at",
+                "id,stem_text,questions,section_name,section_number,section_id,question_stem_category_id,category_name,status,access_scope,source_channel,created_at,deleted_at",
               )
               .is("deleted_at", null)
               .eq("status", "published")
           : supabase
               .from("vtutor_ucat_question_stem_detail")
               .select(
-                "id,stem_text,questions,section_name,section_number,section_id,question_stem_category_id,category_name,presentation_format,status,access_scope,source_channel,created_at,deleted_at",
+                "id,stem_text,questions,section_name,section_number,section_id,question_stem_category_id,category_name,status,access_scope,source_channel,created_at,deleted_at",
               )
               .is("deleted_at", null)
         )
@@ -606,7 +606,6 @@ export const ucatQuestionsApi = {
         section_id: string | null;
         question_stem_category_id: string | null;
         category_name: string | null;
-        presentation_format: Database['public']['Enums']['ucat_stem_presentation_format'] | null;
         status: UcatContentStatus;
         access_scope: UcatAccessScope;
         source_channel: UcatQuestionSourceChannel | null;

@@ -19,7 +19,6 @@ export type DecisionMakingAuditRecord = {
   stem_id: string
   current_category: string
   stem_text: Json
-  presentation_format?: string | null
   status: string
   deleted_at: string | null
   questions: DecisionMakingAuditQuestionRecord[]
@@ -32,7 +31,6 @@ export type DecisionMakingCategoryAuditRow = {
   stemLifecycle: 'active' | 'stem_deleted'
   activeQuestionIds: string[]
   softDeletedQuestionIds: string[]
-  declaredPresentationFormat: string | null
   observedPresentationFormats: ObservedPresentationFormat[]
   richNodeTypes: string[]
   assetFileIds: string[]
@@ -193,7 +191,6 @@ export function auditDecisionMakingCategoryRecords(
       softDeletedQuestionIds: record.questions
         .filter((question) => question.deleted_at !== null)
         .map((question) => question.id),
-      declaredPresentationFormat: record.presentation_format ?? null,
       observedPresentationFormats: observedPresentationFormats(nodeTypes, stemText),
       richNodeTypes: nodeTypes,
       assetFileIds: stemContent.assetFileIds,

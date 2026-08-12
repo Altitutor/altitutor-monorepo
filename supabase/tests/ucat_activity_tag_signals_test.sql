@@ -32,7 +32,6 @@ SELECT
   question.id AS question_id,
   stem.section_id,
   stem.question_stem_category_id AS category_id,
-  stem.presentation_format,
   question.question_text,
   question.question_type,
   question.response_type,
@@ -65,13 +64,11 @@ SELECT question_id, '55200000-0000-4000-8000-000000000001'
 FROM activity_tag_fixture;
 
 INSERT INTO public.question_stems (
-  id, section_id, question_stem_category_id, stem_text, status, access_scope,
-  presentation_format
+  id, section_id, question_stem_category_id, stem_text, status, access_scope
 )
 SELECT
   '55200000-0000-4000-8000-000000000003', section_id, category_id,
-  '{"type":"doc","content":[]}'::jsonb, 'published', 'private',
-  presentation_format
+  '{"type":"doc","content":[]}'::jsonb, 'published', 'private'
 FROM activity_tag_fixture;
 
 INSERT INTO public.ucat_questions (

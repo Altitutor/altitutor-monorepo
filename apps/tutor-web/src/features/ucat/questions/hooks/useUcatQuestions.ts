@@ -169,7 +169,6 @@ export type UcatStemCatalogItem = {
   sectionId: string | null
   categoryId: string | null
   categoryName: string | null
-  presentationFormat?: BlueprintStem['presentationFormat']
   accessScope: UcatAccessScope
   status: UcatContentStatus
   sourceChannel: 'individual' | 'bulk_import' | 'ai_generation' | null
@@ -237,11 +236,16 @@ export function useUcatQuestionCatalog(enabled: boolean) {
   })
 }
 
-export function useUcatStemCatalog(enabled: boolean, options?: { publishedOnly?: boolean }) {
+export function useUcatStemCatalog(
+  enabled: boolean,
+  options?: { publishedOnly?: boolean; lite?: boolean },
+) {
+  const publishedOnly = options?.publishedOnly ?? false
+  const lite = options?.lite ?? false
   return useQuery({
-    queryKey: [...ucatKeys.stemCatalog(), options?.publishedOnly ? 'published' : 'all'],
+    queryKey: [...ucatKeys.stemCatalog(), publishedOnly ? 'published' : 'all', lite ? 'lite' : 'full'],
     queryFn: async () => {
-      const rows = await ucatQuestionsApi.getStemCatalog(options)
+      const rows = await ucatQuestionsApi.getStemCatalog({ publishedOnly })
       return rows.map((row) => {
         const activeQuestions = Array.isArray(row.questions)
           ? (row.questions as Array<{
@@ -263,19 +267,21 @@ export function useUcatStemCatalog(enabled: boolean, options?: { publishedOnly?:
           for (const tag of tags) {
             if (tag.id) tagIds.add(tag.id)
           }
-          const questionText = proseMirrorToPlainText(question.question_text)
-          if (questionText) questionTexts.push(questionText)
-          const answerOptions = Array.isArray(
-            (question as { answer_options?: Array<{ deleted_at?: string | null; answer_text?: Json | null }> })
-              .answer_options,
-          )
-            ? (question as { answer_options: Array<{ deleted_at?: string | null; answer_text?: Json | null }> })
-                .answer_options
-            : []
-          for (const option of answerOptions) {
-            if (option.deleted_at) continue
-            const answerText = proseMirrorToPlainText(option.answer_text)
-            if (answerText) answerOptionTexts.push(answerText)
+          if (!lite) {
+            const questionText = proseMirrorToPlainText(question.question_text)
+            if (questionText) questionTexts.push(questionText)
+            const answerOptions = Array.isArray(
+              (question as { answer_options?: Array<{ deleted_at?: string | null; answer_text?: Json | null }> })
+                .answer_options,
+            )
+              ? (question as { answer_options: Array<{ deleted_at?: string | null; answer_text?: Json | null }> })
+                  .answer_options
+              : []
+            for (const option of answerOptions) {
+              if (option.deleted_at) continue
+              const answerText = proseMirrorToPlainText(option.answer_text)
+              if (answerText) answerOptionTexts.push(answerText)
+            }
           }
         }
         const questionTypes = Array.from(
@@ -323,7 +329,6 @@ export function useUcatStemCatalog(enabled: boolean, options?: { publishedOnly?:
           sectionId: row.section_id ?? null,
           categoryId: row.question_stem_category_id ?? null,
           categoryName: row.category_name ?? null,
-          presentationFormat: row.presentation_format ?? null,
           accessScope: row.access_scope,
           status: row.status,
           sourceChannel: row.source_channel,

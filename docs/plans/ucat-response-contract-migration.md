@@ -10,7 +10,6 @@ This plan separates Question stem category, Response type, and Answer scheme acr
 - Answer options carry an explicit key value: `correct | yes | no | most | least | null`.
 - Compound candidate answers use the canonical `ucat_response_v1` snapshot.
 - A shared pure response-contract module owns definition validation, blank state, completeness, persistence normalization, scoring, maximum score, and review projection. Category names never select runtime behavior.
-- `presentation_format` is optional stem metadata: `passage | table | graph_or_chart | diagram_or_image | mixed | other`.
 
 ## Release 1: expand and backfill foundations
 

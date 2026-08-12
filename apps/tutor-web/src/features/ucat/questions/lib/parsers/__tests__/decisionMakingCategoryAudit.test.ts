@@ -16,7 +16,6 @@ function record(
     stem_id: '10000000-0000-4000-8000-000000000001',
     current_category: 'Syllogisms',
     stem_text: textDoc('All artists are readers. No readers are pilots.'),
-    presentation_format: null,
     status: 'published',
     deleted_at: null,
     questions: [
@@ -61,7 +60,6 @@ describe('auditDecisionMakingCategoryRecords', () => {
       auditDecisionMakingCategoryRecords([
         record({
           stem_text: stemText,
-          presentation_format: 'table',
           questions: [
             {
               id: '20000000-0000-4000-8000-000000000001',
@@ -83,7 +81,6 @@ describe('auditDecisionMakingCategoryRecords', () => {
         stemLifecycle: 'active',
         activeQuestionIds: ['20000000-0000-4000-8000-000000000001'],
         softDeletedQuestionIds: ['20000000-0000-4000-8000-000000000002'],
-        declaredPresentationFormat: 'table',
         observedPresentationFormats: ['table'],
         richNodeTypes: ['table', 'tableCell', 'tableRow'],
         formalPremiseSignals: [],

@@ -50,10 +50,11 @@ import { UcatSelectionToolbar } from '@/features/ucat/shared/selection-toolbar'
 import { useUcatSetsTable, type SetRow } from '@/features/ucat/sets/hooks/useUcatSetsTable'
 import { ucatSetsApi } from '@/features/ucat/sets/api/sets'
 import {
-  buildAutoSetPreview,
+  buildAutoSetPreviewAsync,
   positiveIntFromInput,
   type AutoCategoryRow,
   type AutoSetMode,
+  type AutoSetPreview,
   type AutoStemVisibility,
 } from '@/features/ucat/sets/lib/auto-set-builder'
 import { UcatBlueprintCompliancePanel } from '@/features/ucat/mocks/components/UcatBlueprintCompliancePanel'
@@ -140,6 +141,8 @@ export function UcatSetsPage() {
   const [autoStemVisibility, setAutoStemVisibility] = useState<AutoStemVisibility>('either')
   const [autoOnlyNotInAnotherSet, setAutoOnlyNotInAnotherSet] = useState(true)
   const [autoSeed, setAutoSeed] = useState(1)
+  const [autoPreview, setAutoPreview] = useState<AutoSetPreview | null>(null)
+  const [autoPreviewLoading, setAutoPreviewLoading] = useState(false)
   const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false)
   const [bulkVisibilityOpen, setBulkVisibilityOpen] = useState(false)
   const [bulkVisibilityPrivate, setBulkVisibilityPrivate] = useState<boolean | null>(null)
@@ -151,8 +154,18 @@ export function UcatSetsPage() {
   const [mockFilterSearch, setMockFilterSearch] = useState('')
   const updateSetMutation = useUpdateUcatSet()
   const mocksQuery = useUcatMocks()
-  const stemCatalogQuery = useUcatStemCatalog(openCreate && autoCriteriaEnabled)
+  const stemCatalogQuery = useUcatStemCatalog(openCreate && autoCriteriaEnabled, {
+    publishedOnly: true,
+    lite: true,
+  })
   const stemCatalog = useMemo(() => stemCatalogQuery.data ?? [], [stemCatalogQuery.data])
+  const stemCatalogLoading = stemCatalogQuery.isPending && !stemCatalogQuery.data
+  const stemCatalogError =
+    stemCatalogQuery.isError
+      ? stemCatalogQuery.error instanceof Error
+        ? stemCatalogQuery.error.message
+        : 'Failed to load eligible stems.'
+      : null
 
   useEffect(() => {
     const editId = searchParams.get('edit')
@@ -326,42 +339,76 @@ export function UcatSetsPage() {
       ? Object.values(autoCategoryTargets).reduce((sum, value) => sum + positiveIntFromInput(value), 0)
       : UCAT_ANZ_2026_V1.official.sections.find(section => section.section === autoBlueprintSection)?.questionCount ?? 0
   const autoCriteriaReady = !autoCriteriaEnabled || (!!autoSectionId && autoTargetQuestions > 0)
-  const autoPreview = useMemo(
-    () =>
-      autoCriteriaEnabled
-        ? buildAutoSetPreview({
-            mode: autoMode,
-            targetTotal: positiveIntFromInput(autoTargetTotal),
-            categoryTargets: autoCategoryTargets,
-            sectionId: autoSectionId,
-            sectionNumber: autoSection?.section_number,
-            stemVisibility: autoStemVisibility,
-            onlyNotInAnotherSet: autoOnlyNotInAnotherSet,
-            categories: (categoriesQuery.data ?? []) as AutoCategoryRow[],
-            stems: stemCatalog,
-            seed: autoSeed,
-          })
-        : null,
-    [
-      autoCategoryTargets,
-      autoCriteriaEnabled,
-      autoMode,
-      autoOnlyNotInAnotherSet,
-      autoSectionId,
-      autoSection?.section_number,
-      autoSeed,
-      autoStemVisibility,
-      autoTargetTotal,
-      categoriesQuery.data,
-      stemCatalog,
-    ],
-  )
+
+  useEffect(() => {
+    if (!autoCriteriaEnabled) {
+      setAutoPreview(null)
+      setAutoPreviewLoading(false)
+      return
+    }
+    if (!autoSectionId || autoTargetQuestions <= 0 || stemCatalogLoading) {
+      setAutoPreview(null)
+      setAutoPreviewLoading(false)
+      return
+    }
+    if (stemCatalogError) {
+      setAutoPreview(null)
+      setAutoPreviewLoading(false)
+      return
+    }
+
+    let cancelled = false
+    setAutoPreviewLoading(true)
+    void buildAutoSetPreviewAsync({
+      mode: autoMode,
+      targetTotal: positiveIntFromInput(autoTargetTotal),
+      categoryTargets: autoCategoryTargets,
+      sectionId: autoSectionId,
+      sectionNumber: autoSection?.section_number,
+      stemVisibility: autoStemVisibility,
+      onlyNotInAnotherSet: autoOnlyNotInAnotherSet,
+      categories: (categoriesQuery.data ?? []) as AutoCategoryRow[],
+      stems: stemCatalog,
+      seed: autoSeed,
+    }).then((preview) => {
+      if (!cancelled) {
+        setAutoPreview(preview)
+        setAutoPreviewLoading(false)
+      }
+    }).catch(() => {
+      if (!cancelled) {
+        setAutoPreview(null)
+        setAutoPreviewLoading(false)
+      }
+    })
+
+    return () => {
+      cancelled = true
+    }
+  }, [
+    autoCategoryTargets,
+    autoCriteriaEnabled,
+    autoMode,
+    autoOnlyNotInAnotherSet,
+    autoSection?.section_number,
+    autoSectionId,
+    autoSeed,
+    autoStemVisibility,
+    autoTargetQuestions,
+    autoTargetTotal,
+    categoriesQuery.data,
+    stemCatalog,
+    stemCatalogError,
+    stemCatalogLoading,
+  ])
+
   const autoPrivateStemCount =
     autoPreview?.selectedStems.filter((stem) => stem.accessScope === 'private').length ?? 0
   const autoCreateDisabled =
     autoCriteriaEnabled &&
     (!autoCriteriaReady ||
-      stemCatalogQuery.isLoading ||
+      stemCatalogLoading ||
+      autoPreviewLoading ||
       !autoPreview ||
       autoPreview.selectedStems.length === 0 ||
       autoPreview.totalQuestions <= 0)
@@ -1111,12 +1158,18 @@ export function UcatSetsPage() {
                       Refresh
                     </Button>
                   </div>
-                  {stemCatalogQuery.isLoading ? (
+                  {stemCatalogLoading ? (
                     <p className="text-xs text-muted-foreground">Loading eligible stems...</p>
+                  ) : stemCatalogError ? (
+                    <p className="text-xs text-amber-700 dark:text-amber-400">{stemCatalogError}</p>
                   ) : !autoSectionId ? (
                     <p className="text-xs text-muted-foreground">Select a section to preview stems.</p>
                   ) : autoTargetQuestions <= 0 ? (
                     <p className="text-xs text-muted-foreground">Enter a positive question target to preview stems.</p>
+                  ) : autoPreviewLoading ? (
+                    <p className="text-xs text-muted-foreground">
+                      {autoMode === 'blueprint' ? 'Building 2026 blueprint preview...' : 'Building preview...'}
+                    </p>
                   ) : autoPreview ? (
                     <div className="space-y-2">
                       <div className="flex flex-wrap items-center gap-2">

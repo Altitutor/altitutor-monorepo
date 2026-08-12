@@ -18,10 +18,10 @@ INSERT INTO public.ucat_mock_blueprint_sections (
   '{"categoryRules":[{"category":"Syllogisms","unit":"questions","min":2,"max":2}]}'::jsonb
 );
 
-INSERT INTO public.question_stems (id, section_id, question_stem_category_id, stem_text, status, access_scope, presentation_format)
+INSERT INTO public.question_stems (id, section_id, question_stem_category_id, stem_text, status, access_scope)
 SELECT input.id, section.id, category.id,
   '{"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"All foxes sleep."}]}]}'::jsonb,
-  'published', 'public', 'passage'
+  'published', 'public'
 FROM (VALUES
   ('54310000-0000-4000-8000-000000000001'::uuid),
   ('54310000-0000-4000-8000-000000000002'::uuid)

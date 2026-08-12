@@ -9,13 +9,6 @@ export type BlueprintSectionCode =
   | 'quantitative_reasoning'
   | 'situational_judgement'
 
-export type StemPresentationFormat =
-  | 'passage'
-  | 'table'
-  | 'graph_or_chart'
-  | 'diagram_or_image'
-  | 'mixed'
-  | 'other'
 
 export type BlueprintAnswerScheme =
   | 'single_choice'
@@ -33,7 +26,6 @@ export interface BlueprintQuestion {
 export interface BlueprintStem {
   id: string
   category: string
-  presentationFormat: StemPresentationFormat | null
   questions: BlueprintQuestion[]
 }
 
@@ -60,11 +52,6 @@ type CategoryRule = Range & { unit: 'questions' | 'stems' } & (
   | { category?: never; answerScheme: BlueprintAnswerScheme; label: string }
 )
 
-interface PresentationRule extends Range {
-  category: string
-  formats: StemPresentationFormat[]
-  unit: 'questions'
-}
 
 type StructureRule = Range & (
   | {
@@ -102,7 +89,6 @@ export interface UcatBlueprint {
       readonly section: BlueprintSectionCode
       readonly exactStemCount?: number
       readonly categoryRules?: readonly CategoryRule[]
-      readonly presentationRules?: readonly PresentationRule[]
       readonly structureRules?: readonly StructureRule[]
       readonly responseContractRules?: readonly ResponseContractRule[]
     }[]
@@ -159,22 +145,6 @@ export const UCAT_ANZ_2026_V1 = deepFreeze<UcatBlueprint>({
           { category: 'Venn Diagrams', unit: 'questions', min: 7, max: 9, preferred: 8 },
           { category: 'Probabilistic and Statistical Reasoning', unit: 'questions', min: 4, max: 6, preferred: 5 },
         ],
-        presentationRules: [
-          {
-            category: 'Interpreting Information and Drawing Conclusions',
-            formats: ['passage'],
-            unit: 'questions',
-            min: 3,
-            max: 4,
-          },
-          {
-            category: 'Interpreting Information and Drawing Conclusions',
-            formats: ['table', 'graph_or_chart'],
-            unit: 'questions',
-            min: 1,
-            max: 2,
-          },
-        ],
       },
       {
         section: 'quantitative_reasoning',
@@ -214,7 +184,6 @@ export type BlueprintReasonCode =
   | 'STEM_TOTAL_MISMATCH'
   | 'CATEGORY_QUESTION_COUNT_OUT_OF_RANGE'
   | 'CATEGORY_STEM_COUNT_OUT_OF_RANGE'
-  | 'PRESENTATION_QUESTION_COUNT_OUT_OF_RANGE'
   | 'QR_MULTI_STEM_COUNT_OUT_OF_RANGE'
   | 'QR_SINGLE_STEM_COUNT_OUT_OF_RANGE'
   | 'SJT_SCENARIO_QUESTION_LIMIT_EXCEEDED'
@@ -308,8 +277,7 @@ const rangeReason = (
   code: Extract<BlueprintReasonCode,
     | 'CATEGORY_QUESTION_COUNT_OUT_OF_RANGE'
     | 'CATEGORY_STEM_COUNT_OUT_OF_RANGE'
-    | 'PRESENTATION_QUESTION_COUNT_OUT_OF_RANGE'
-    | 'QR_MULTI_STEM_COUNT_OUT_OF_RANGE'
+      | 'QR_MULTI_STEM_COUNT_OUT_OF_RANGE'
     | 'QR_SINGLE_STEM_COUNT_OUT_OF_RANGE'>,
   section: BlueprintSectionCode,
   label: string,
@@ -547,33 +515,6 @@ export function evaluateBlueprint(
         }
       }
     }
-    for (const rule of policy.presentationRules ?? []) {
-      const matching = section.stems.filter(
-        stem => stem.category === rule.category && stem.presentationFormat !== null && rule.formats.includes(stem.presentationFormat),
-      )
-      const actual = totalQuestions(matching)
-      checks.push({
-        code: 'PRESENTATION_QUESTION_COUNT_OUT_OF_RANGE',
-        source: 'altitutor',
-        section: official.section,
-        label: `${rule.category}: ${rule.formats.join(' or ')}`,
-        unit: 'questions',
-        actual,
-        minimum: rule.min,
-        maximum: rule.max,
-        compliant: actual >= rule.min && actual <= rule.max,
-      })
-      if (actual < rule.min || actual > rule.max) {
-        reasons.push(rangeReason(
-          'PRESENTATION_QUESTION_COUNT_OUT_OF_RANGE',
-          official.section,
-          `${rule.category} ${rule.formats.join(' or ')} questions`,
-          actual,
-          rule,
-        ))
-      }
-    }
-
     for (const rule of policy.structureRules ?? []) {
       if (rule.kind === 'stem_count') {
         const actual = section.stems.filter(stem =>
@@ -785,11 +726,6 @@ function preferredDistance(blueprint: UcatBlueprint, section: BlueprintSectionCo
       preferredByLabel.set(rule.label ?? rule.category ?? 'Answer-scheme questions', rule.preferred)
     }
   }
-  for (const rule of policy.presentationRules ?? []) {
-    if (rule.preferred !== undefined) {
-      preferredByLabel.set(`${rule.category}: ${rule.formats.join(' or ')}`, rule.preferred)
-    }
-  }
   for (const rule of policy.structureRules ?? []) {
     if (rule.preferred !== undefined) preferredByLabel.set(rule.label, rule.preferred)
   }
@@ -797,6 +733,11 @@ function preferredDistance(blueprint: UcatBlueprint, section: BlueprintSectionCo
     (distance, check) => distance + Math.abs(check.actual - (preferredByLabel.get(check.label) ?? check.actual)),
     0,
   )
+}
+
+export type BuildBlueprintSectionOptions = {
+  /** Abort exact search after this many milliseconds and return a timed-out shortfall. */
+  maxRuntimeMs?: number
 }
 
 /**
@@ -808,13 +749,30 @@ export function buildBlueprintSection(
   blueprint: UcatBlueprint,
   section: BlueprintSectionCode,
   candidates: BlueprintStem[],
+  options?: BuildBlueprintSectionOptions,
 ): BlueprintSectionBuildResult {
   const official = blueprint.official.sections.find(candidate => candidate.section === section)
   if (!official) throw new Error(`Blueprint ${blueprint.id} does not define ${section}.`)
   const orderedCandidates = [...candidates].sort((left, right) => left.id.localeCompare(right.id))
   let states = new Map<string, BlueprintStem[]>([['', []]])
+  const startedAt = Date.now()
+  const maxRuntimeMs = options?.maxRuntimeMs
 
   for (const candidate of orderedCandidates) {
+    if (maxRuntimeMs !== undefined && Date.now() - startedAt > maxRuntimeMs) {
+      const availability = sectionEvaluation(blueprint, section, orderedCandidates)
+      return {
+        compliant: false,
+        selectedStems: [],
+        evaluation: availability,
+        shortfalls: [{
+          label: 'Blueprint search time budget',
+          available: 0,
+          expected: 1,
+          shortfall: 1,
+        }],
+      }
+    }
     const next = new Map(states)
     for (const selected of states.values()) {
       const proposed = [...selected, candidate]
