@@ -213,6 +213,67 @@ REVOKE ALL ON FUNCTION public.ucat_canonical_response_snapshot(
   UUID, public.ucat_answer_scheme, JSONB, UUID
 ) FROM PUBLIC, anon, authenticated;
 
+-- Legacy syllogism autosaves could accumulate placements from a previously
+-- viewed question. Preserve only evidence whose option belongs to this
+-- attempt's question before converting it to the canonical response shape.
+-- Structurally malformed answers remain untouched so the pure converter still
+-- fails closed instead of silently repairing an unknown legacy shape.
+CREATE FUNCTION public.ucat_canonical_attempt_response_snapshot(
+  p_question_id UUID,
+  p_answer_scheme public.ucat_answer_scheme,
+  p_answer_snapshot JSONB,
+  p_selected_option_id UUID
+)
+RETURNS JSONB
+LANGUAGE plpgsql
+STABLE
+SET search_path = ''
+AS $$
+DECLARE
+  v_answer_snapshot JSONB := p_answer_snapshot;
+  v_answers JSONB;
+BEGIN
+  IF p_answer_snapshot->>'type' = 'syllogism_v1'
+    AND jsonb_typeof(p_answer_snapshot->'answers') = 'array'
+  THEN
+    SELECT coalesce(jsonb_agg(item.answer ORDER BY item.ordinal), '[]'::jsonb)
+    INTO v_answers
+    FROM jsonb_array_elements(p_answer_snapshot->'answers')
+      WITH ORDINALITY AS item(answer, ordinal)
+    WHERE (
+      jsonb_typeof(item.answer) = 'object'
+      AND jsonb_typeof(item.answer->'question_answer_option_id') = 'string'
+      AND (item.answer->>'question_answer_option_id') ~*
+        '^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$'
+      AND NOT EXISTS (
+        SELECT 1
+        FROM public.question_answer_options option
+        WHERE option.id::TEXT = item.answer->>'question_answer_option_id'
+          AND option.question_id = p_question_id
+      )
+    ) IS NOT TRUE;
+
+    v_answer_snapshot := jsonb_set(
+      p_answer_snapshot,
+      '{answers}',
+      v_answers,
+      false
+    );
+  END IF;
+
+  RETURN public.ucat_canonical_response_snapshot(
+    p_question_id,
+    p_answer_scheme,
+    v_answer_snapshot,
+    p_selected_option_id
+  );
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.ucat_canonical_attempt_response_snapshot(
+  UUID, public.ucat_answer_scheme, JSONB, UUID
+) FROM PUBLIC, anon, authenticated;
+
 CREATE FUNCTION public.ucat_canonical_content_snapshot(p_snapshot JSONB)
 RETURNS JSONB
 LANGUAGE plpgsql
@@ -454,7 +515,7 @@ WHERE question.id = option.question_id
   END;
 
 UPDATE public.student_question_attempts attempt
-SET answer_snapshot = public.ucat_canonical_response_snapshot(
+SET answer_snapshot = public.ucat_canonical_attempt_response_snapshot(
   COALESCE(attempt.question_id, (attempt.content_snapshot#>>'{question,id}')::UUID),
   COALESCE(
     (

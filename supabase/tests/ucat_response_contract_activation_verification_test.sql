@@ -1,5 +1,5 @@
 BEGIN;
-SELECT plan(20);
+SELECT plan(23);
 
 SELECT col_not_null(
   'public',
@@ -381,6 +381,9 @@ VALUES (
   'correct'
 );
 
+ALTER TABLE public.student_question_attempts
+  DISABLE TRIGGER validate_ucat_question_attempt_response;
+
 INSERT INTO public.student_question_attempts (
   id,
   student_id,
@@ -395,6 +398,9 @@ SELECT
 FROM public.students student
 ORDER BY student.id
 LIMIT 1;
+
+ALTER TABLE public.student_question_attempts
+  ENABLE TRIGGER validate_ucat_question_attempt_response;
 
 UPDATE public.question_answer_options
 SET deleted_at = clock_timestamp()
@@ -426,6 +432,126 @@ SELECT is(
   ),
   'ucat_response_v1',
   'the soft-deleted historical attempt stores a canonical response snapshot'
+);
+
+INSERT INTO public.ucat_questions (
+  id,
+  question_stem_id,
+  question_text,
+  index,
+  response_type,
+  answer_scheme
+)
+VALUES
+  (
+    'a4410000-0000-4000-8000-000000000011',
+    'a4400000-0000-4000-8000-000000000001',
+    '{"type":"doc","content":[]}'::jsonb,
+    5,
+    'drag_and_drop',
+    'decision_making_binary_placement'
+  ),
+  (
+    'a4410000-0000-4000-8000-000000000012',
+    'a4400000-0000-4000-8000-000000000001',
+    '{"type":"doc","content":[]}'::jsonb,
+    6,
+    'drag_and_drop',
+    'decision_making_binary_placement'
+  );
+
+INSERT INTO public.question_answer_options (
+  id,
+  question_id,
+  answer_text,
+  index,
+  answer_key_value
+)
+VALUES
+  (
+    'a4420000-0000-4000-8000-000000000011',
+    'a4410000-0000-4000-8000-000000000011',
+    '{"type":"doc","content":[]}'::jsonb,
+    0,
+    'yes'
+  ),
+  (
+    'a4420000-0000-4000-8000-000000000012',
+    'a4410000-0000-4000-8000-000000000012',
+    '{"type":"doc","content":[]}'::jsonb,
+    0,
+    'no'
+  );
+
+ALTER TABLE public.student_question_attempts
+  DISABLE TRIGGER validate_ucat_question_attempt_response;
+
+INSERT INTO public.student_question_attempts (
+  id,
+  student_id,
+  question_id,
+  answer_snapshot
+)
+SELECT
+  'a4430000-0000-4000-8000-000000000011',
+  student.id,
+  'a4410000-0000-4000-8000-000000000011',
+  jsonb_build_object(
+    'type', 'syllogism_v1',
+    'answers', jsonb_build_array(
+      jsonb_build_object(
+        'question_answer_option_id', 'a4420000-0000-4000-8000-000000000012',
+        'answer', false
+      ),
+      jsonb_build_object(
+        'question_answer_option_id', 'a4420000-0000-4000-8000-000000000011',
+        'answer', true
+      )
+    )
+  )
+FROM public.students student
+ORDER BY student.id
+LIMIT 1;
+
+ALTER TABLE public.student_question_attempts
+  ENABLE TRIGGER validate_ucat_question_attempt_response;
+
+SELECT lives_ok(
+  $$
+    UPDATE public.student_question_attempts
+    SET answer_snapshot = public.ucat_canonical_attempt_response_snapshot(
+      question_id,
+      'decision_making_binary_placement',
+      answer_snapshot,
+      question_answer_option_id
+    )
+    WHERE id = 'a4430000-0000-4000-8000-000000000011'
+  $$,
+  'legacy conversion removes placement answers belonging to another question'
+);
+
+SELECT is(
+  (
+    SELECT answer_snapshot#>'{response,placements}'
+    FROM public.student_question_attempts
+    WHERE id = 'a4430000-0000-4000-8000-000000000011'
+  ),
+  jsonb_build_object('a4420000-0000-4000-8000-000000000011', 'yes'),
+  'legacy conversion preserves only this attempt question''s placement evidence'
+);
+
+SELECT throws_ok(
+  $$
+    SELECT public.ucat_canonical_attempt_response_snapshot(
+      'a4410000-0000-4000-8000-000000000011',
+      'decision_making_binary_placement',
+      '{"type":"syllogism_v1","answers":[{"answer":true}]}'::jsonb,
+      NULL
+    )
+  $$,
+  'P0001',
+  'Malformed legacy UCAT response snapshot',
+  'attempt canonicalization still rejects structurally malformed legacy answers'
 );
 
 SELECT * FROM finish();

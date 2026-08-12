@@ -36921,6 +36921,15 @@ export type Database = {
       ucat_ai_positive_number: { Args: { value: Json }; Returns: number }
       ucat_ai_stable_json_stringify: { Args: { value: Json }; Returns: string }
       ucat_ai_stable_json_value: { Args: { value: Json }; Returns: Json }
+      ucat_canonical_attempt_response_snapshot: {
+        Args: {
+          p_answer_scheme: Database["public"]["Enums"]["ucat_answer_scheme"]
+          p_answer_snapshot: Json
+          p_question_id: string
+          p_selected_option_id: string
+        }
+        Returns: Json
+      }
       ucat_canonical_content_snapshot: {
         Args: { p_snapshot: Json }
         Returns: Json
