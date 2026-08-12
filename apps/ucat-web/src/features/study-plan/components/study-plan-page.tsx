@@ -39,6 +39,7 @@ import {
   daysBetweenDateKeys,
   formatStudyPlanDate,
 } from "@/features/study-plan/lib/calendar";
+import { studentCapacityRiskMessage } from "@/features/study-plan/lib/capacity-risk-copy";
 import { UCAT_CARD_CHROME } from "@/lib/ucat-surface-motion";
 import { useUcatStaggerMotion } from "@/shared/hooks/use-ucat-stagger-motion";
 import { cn } from "@/lib/utils";
@@ -291,10 +292,10 @@ export function StudyPlanPage({
             <motion.div variants={itemVariants}>
               <Alert className="border-amber-500/30 bg-amber-500/10">
                 <AlertTriangle className="h-4 w-4 text-amber-600" />
-                <AlertTitle>There is a capacity gap</AlertTitle>
+                <AlertTitle>Your plan is prioritising</AlertTitle>
                 <AlertDescription>
-                  {plan.generation.capacityRisk.message} This is guidance, not a
-                  block.
+                  {studentCapacityRiskMessage(plan.generation.capacityRisk)} This
+                  is guidance, not a block.
                 </AlertDescription>
               </Alert>
             </motion.div>

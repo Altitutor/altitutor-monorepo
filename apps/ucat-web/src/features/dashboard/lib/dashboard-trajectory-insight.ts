@@ -50,6 +50,13 @@ export function buildDashboardTrajectoryInsight({
 
   switch (state.stage) {
     case "building_baseline": {
+      if (state.missingSectionNames.length === 0) {
+        return {
+          ruleId: "dashboard_trajectory.building_baseline",
+          title: "Your score estimate is being built",
+          body: "Complete more timed practice across the cognitive sections to build a reliable estimate.",
+        };
+      }
       const missing = new Intl.ListFormat("en-AU", {
         style: "long",
         type: "conjunction",

@@ -171,10 +171,11 @@ test.describe("personalised Study plan", () => {
   }) => {
     await signIn(page, "bob.taylor@student.test");
 
-    await expect(page.getByText("There is a capacity gap")).toBeVisible();
+    await expect(page.getByText("Your plan is prioritising")).toBeVisible();
     await expect(
       page.getByText("This is guidance, not a block."),
     ).toBeVisible();
+    await expect(page.getByText(/section-equivalents/i)).toHaveCount(0);
     await expect(
       page.getByRole("region", { name: "Study plan calendar" }),
     ).toBeVisible();

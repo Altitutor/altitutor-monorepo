@@ -199,6 +199,57 @@ describe("generateStudyPlan", () => {
     expect(Math.max(...practiceByDate.values())).toBe(1);
   });
 
+  it("mixes practice into Learning when many unfinished lessons could fill the horizon", () => {
+    const learningModules = sections
+      .filter((section) => section.sectionNumber <= 3)
+      .flatMap((section) =>
+        Array.from({ length: 6 }, (_, index) => ({
+          id: `${section.id}-lesson-${index}`,
+          title: `${section.shortName} lesson ${index + 1}`,
+          sectionId: section.id,
+          sectionNumber: section.sectionNumber,
+          priority: "essential" as const,
+          estimatedMinutes: 30,
+          completionPercent: 0,
+          relevanceScore: 0.5,
+        })),
+      );
+    const result = generateStudyPlan({
+      today: "2026-08-12",
+      planningDate: "2027-07-28",
+      profile: {
+        ...profile,
+        testDate: "2027-07-28",
+        availableDays: [
+          { weekday: 1, maxMinutes: 60 },
+          { weekday: 2, maxMinutes: 60 },
+          { weekday: 4, maxMinutes: 60 },
+          { weekday: 5, maxMinutes: 60 },
+          { weekday: 6, maxMinutes: 120 },
+        ],
+      },
+      sections,
+      signals: sections.map((section) => ({
+        sectionId: section.id,
+        currentEstimate: section.sectionNumber <= 3 ? 340 : null,
+        evidenceCount: section.sectionNumber <= 3 ? 6 : 0,
+        completedFullSets: section.sectionNumber <= 3 ? 4 : 0,
+      })),
+      learningModules,
+      ...contentInputs,
+      completedMockCount: 9,
+    });
+
+    const coreTasks = result.tasks.filter(
+      (task) => task.taskType === "learn" || task.taskType === "practice",
+    );
+    expect(coreTasks.some((task) => task.taskType === "learn")).toBe(true);
+    expect(coreTasks.some((task) => task.taskType === "practice")).toBe(true);
+    expect(result.capacityRisk.message).not.toMatch(
+      /section-equivalents|intensity envelope/i,
+    );
+  });
+
   it("continues from essential into recommended instruction while Learning", () => {
     const result = generateStudyPlan({
       today: "2026-01-05",
@@ -900,7 +951,9 @@ describe("generateStudyPlan", () => {
     expect(result.capacityRisk.outstandingSectionEquivalents).toBeGreaterThan(
       result.capacityRisk.schedulableSectionEquivalents,
     );
-    expect(result.capacityRisk.message).toContain("section-equivalents");
+    expect(result.capacityRisk.message).toBe(
+      "Your available study time cannot fit every recommended activity into the next 21 days. Add another study day if you want to cover more sooner.",
+    );
   });
 
   it("does not advance prescribed pace from scheduled work", () => {

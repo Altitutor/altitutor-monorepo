@@ -30,6 +30,7 @@ import type {
   StudyPlanSkillTrainer,
   StudyPlanTrainingMode,
 } from "@/features/study-plan/model/types";
+import { STUDENT_CAPACITY_RISK_MESSAGE } from "@/features/study-plan/lib/capacity-risk-copy";
 import {
   mockIntervalDays,
   targetMocksInHorizon,
@@ -190,7 +191,7 @@ function capacityRisk(
     message: risky
       ? outstandingSectionEquivalents > schedulableSectionEquivalents ||
         !demandFitsSlots
-        ? `${outstandingSectionEquivalents.toFixed(1)} outstanding section-equivalents cannot fit inside the sustainable 21-day intensity envelope. Add an available weekday or expect the plan to prioritise the most important milestones.`
+        ? STUDENT_CAPACITY_RISK_MESSAGE
         : timingCapacityConstrained
         ? "There may not be enough broad practice opportunities to reach reliable exam pace before the exam phase. The plan will move gradually and prioritise representative work."
         : readiness.mode === "exam"
@@ -743,6 +744,8 @@ export function generateStudyPlan(
 
   const useCounts = new Map<string, number>();
   const sectionEquivalentUse = new Map<string, number>();
+  const instructionUseBySection = new Map<string, number>();
+  const practiceUseBySection = new Map<string, number>();
   const consumedOnce = new Set<string>();
   const canonicalTasks: GeneratedStudyPlanTask[] = [];
   let canonicalMockNumber = input.completedMockCount;
@@ -876,6 +879,14 @@ export function generateStudyPlan(
               return false;
             }
             if (
+              activity.kind === "instruction" &&
+              activity.sectionId &&
+              (instructionUseBySection.get(activity.sectionId) ?? 0) >
+                (practiceUseBySection.get(activity.sectionId) ?? 0)
+            ) {
+              return false;
+            }
+            if (
               dailySectionEquivalents + activity.dose.sectionEquivalents >
               2.01
             ) {
@@ -938,6 +949,10 @@ export function generateStudyPlan(
         useCounts.set(selected.id, (useCounts.get(selected.id) ?? 0) + 1);
         if (selected.sectionId && isPracticeActivity(selected)) {
           ordinaryCoreSessionCount += 1;
+          practiceUseBySection.set(
+            selected.sectionId,
+            (practiceUseBySection.get(selected.sectionId) ?? 0) + 1,
+          );
           sectionEquivalentUse.set(
             selected.sectionId,
             (sectionEquivalentUse.get(selected.sectionId) ?? 0) +
@@ -946,6 +961,12 @@ export function generateStudyPlan(
         }
         if (selected.kind === "instruction") {
           consumedOnce.add(selected.id);
+          if (selected.sectionId) {
+            instructionUseBySection.set(
+              selected.sectionId,
+              (instructionUseBySection.get(selected.sectionId) ?? 0) + 1,
+            );
+          }
         }
       }
     }

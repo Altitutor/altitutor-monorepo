@@ -54,6 +54,7 @@ import {
 import { type StudentUcatSession } from "@/features/sessions/api/sessions-api";
 import { useStudentUcatSessions } from "@/features/sessions/hooks/use-sessions";
 import { deriveTotalScoreProjection } from "@/features/score-projection/lib/total-projection";
+import { studentCapacityRiskMessage } from "@/features/study-plan/lib/capacity-risk-copy";
 import { useScoreProjection } from "@/features/score-projection/hooks/use-score-projection";
 import type {
   ScoreProjectionSnapshot,
@@ -1076,9 +1077,11 @@ export function DashboardHome() {
                     Your available time is tight
                   </h2>
                   <p className="mt-1 text-sm text-muted-foreground">
-                    {planQuery.data.generation.capacityRisk.message} Your plan
-                    is already choosing the highest-value work within that
-                    limit.
+                    {studentCapacityRiskMessage(
+                      planQuery.data.generation.capacityRisk,
+                    )}{" "}
+                    Your plan is already choosing the highest-value work within
+                    that limit.
                   </p>
                 </div>
               </div>

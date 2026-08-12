@@ -30,6 +30,25 @@ function state(
 }
 
 describe("buildDashboardTrajectoryInsight", () => {
+  it("does not render an empty section list while building a baseline", () => {
+    const insight = buildDashboardTrajectoryInsight({
+      state: state({
+        stage: "building_baseline",
+        currentEstimate: null,
+        confidence: null,
+        readySectionCount: 0,
+        missingSectionNames: [],
+      }),
+      weakestSection: null,
+      recentImprovement: null,
+      studyPlanEnabled: true,
+    });
+
+    expect(insight.body).toBe(
+      "Complete more timed practice across the cognitive sections to build a reliable estimate.",
+    );
+  });
+
   it("identifies a target outside even the optimistic range", () => {
     expect(
       buildDashboardTrajectoryInsight({

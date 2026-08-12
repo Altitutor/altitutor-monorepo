@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import { StudyPlanTaskList } from "@/features/study-plan/components/study-plan-task-list";
 import { StudyPlanExtraStudy } from "@/features/study-plan/components/study-plan-extra-study";
+import { studentCapacityRiskMessage } from "@/features/study-plan/lib/capacity-risk-copy";
 import { useStudyPlan } from "@/features/study-plan/hooks/use-study-plan";
 import {
   UCAT_CARD_CHROME,
@@ -100,7 +101,9 @@ export function StudyPlanDashboardCard() {
         {plan.generation?.capacityRisk.level === "warning" ? (
           <div className="flex gap-2 rounded-xl border border-amber-500/20 bg-amber-500/10 px-3 py-2.5 text-sm text-amber-700 dark:text-amber-300">
             <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
-            <span>{plan.generation.capacityRisk.message}</span>
+            <span>
+              {studentCapacityRiskMessage(plan.generation.capacityRisk)}
+            </span>
           </div>
         ) : null}
         {tasks.length ? (
