@@ -872,7 +872,7 @@ export function UcatStemEditorPropertiesPanel({
                   { value: 'drag_and_drop', label: 'Drag and Drop' },
                 ]}
                 value={
-                  activeQuestion?.responseType === 'drag_and_drop'
+                  currentResponseType === 'drag_and_drop'
                     ? { value: 'drag_and_drop' as const, label: 'Drag and Drop' }
                     : { value: 'multiple_choice', label: 'Multiple Choice' }
                 }

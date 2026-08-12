@@ -101,10 +101,19 @@ export function responseContractForType(
 
   return {
     responseType,
-    answerScheme: (categoryName ?? '').trim().toLowerCase() === 'most/least appropriate'
-      ? 'situational_judgement_most_least'
-      : 'decision_making_binary_placement',
+    answerScheme: 'decision_making_binary_placement',
   }
+}
+
+export function questionsMatchSuggestedResponseContract(
+  questions: readonly AuthoredQuestion[],
+  suggested: SuggestedResponseContract,
+): boolean {
+  return questions.every((question) => {
+    const current = authoredResponseContract(question)
+    return current.responseType === suggested.responseType
+      && current.answerScheme === suggested.answerScheme
+  })
 }
 
 function optionId(question: AuthoredQuestion, index: number): string {

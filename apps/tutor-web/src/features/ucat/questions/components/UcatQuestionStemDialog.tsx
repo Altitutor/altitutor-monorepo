@@ -51,6 +51,10 @@ import {
   replaceSelectedImageAttrs,
   type SelectedVisualImage,
 } from '@/features/ucat/shared/lib/selected-visual-image'
+import {
+  questionsMatchSuggestedResponseContract,
+  suggestedResponseContract,
+} from '@/features/ucat/questions/lib/response-contract-authoring'
 
 /** Get the first validation error message from react-hook-form errors (supports nested paths). */
 function getFirstValidationMessage(errors: Record<string, unknown>): string {
@@ -294,6 +298,22 @@ export function UcatQuestionStemDialog({
     ) => () => Promise<void>
     submit(
       async (values) => {
+        const category = categories.find((candidate) => candidate.id === values.categoryId)
+        const section = sections.find((candidate) => candidate.id === values.sectionId)
+        const suggestedContract = suggestedResponseContract(category?.name, section?.name)
+        if (!questionsMatchSuggestedResponseContract(values.questions, suggestedContract)) {
+          const message = 'Apply the category response format before saving this question stem.'
+          form.setError('categoryId', {
+            type: 'response-contract-mismatch',
+            message,
+          })
+          toast({
+            title: 'Validation failed',
+            description: message,
+            variant: 'destructive',
+          })
+          return
+        }
         try {
           // Deep copy to avoid form state mutations (e.g. reset) overwriting values before API call
           const valuesCopy = JSON.parse(JSON.stringify(values)) as UcatQuestionStemFormValues
