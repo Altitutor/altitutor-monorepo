@@ -1,4 +1,5 @@
 import {
+  blueprintCategoryRanges,
   blueprintPreferredCategoryTargets,
   buildAutoSetPreview,
 } from '@/features/ucat/sets/lib/auto-set-builder'
@@ -71,9 +72,11 @@ describe('2026 blueprint set creation', () => {
     ]
 
     const result = buildAutoSetPreview({
-      mode: 'blueprint',
+      mode: 'category',
+      blueprintSource: '2026',
       targetTotal: 0,
       categoryTargets: {},
+      categoryRanges: {},
       sectionId: 'vr',
       sectionNumber: 1,
       stemVisibility: 'either',
@@ -99,9 +102,11 @@ describe('2026 blueprint set creation', () => {
     const stems = Array.from({ length: 10 }, (_, index) => stem(`reading-${index}`, 'reading', 'Reading Comprehension'))
 
     const result = buildAutoSetPreview({
-      mode: 'blueprint',
+      mode: 'category',
+      blueprintSource: '2026',
       targetTotal: 0,
       categoryTargets: {},
+      categoryRanges: {},
       sectionId: 'vr',
       sectionNumber: 1,
       stemVisibility: 'either',
@@ -125,9 +130,11 @@ describe('2026 blueprint set creation', () => {
     ]
 
     const result = buildAutoSetPreview({
-      mode: 'blueprint',
+      mode: 'category',
+      blueprintSource: '2026',
       targetTotal: 0,
       categoryTargets: {},
+      categoryRanges: {},
       sectionId: 'vr',
       sectionNumber: 1,
       stemVisibility: 'either',
@@ -175,9 +182,11 @@ describe('2026 blueprint set creation', () => {
     ]
 
     const result = buildAutoSetPreview({
-      mode: 'blueprint',
+      mode: 'category',
+      blueprintSource: '2026',
       targetTotal: 0,
       categoryTargets: {},
+      categoryRanges: {},
       sectionId: 'dm',
       sectionNumber: 2,
       stemVisibility: 'either',
@@ -199,9 +208,11 @@ describe('2026 blueprint set creation', () => {
       ...Array.from({ length: 3 }, (_, index) => stem(`tfct-${index}`, 'tfct', "True, False, Can't Tell")),
     ].map((item) => ({ ...item, setIds: ['set-1'] }))
     const initial = buildAutoSetPreview({
-      mode: 'blueprint',
+      mode: 'category',
+      blueprintSource: '2026',
       targetTotal: 0,
       categoryTargets: {},
+      categoryRanges: {},
       sectionId: 'vr',
       sectionNumber: 1,
       stemVisibility: 'either',
@@ -257,5 +268,220 @@ describe('2026 blueprint set creation', () => {
 
     expect(report?.compliance.compliant).toBe(false)
     expect(report?.compliance.sections[0]?.checks.some((check) => !check.compliant)).toBe(true)
+  })
+})
+
+describe('Total + category ranges', () => {
+  const oneQuestion = (id: string, categoryId: string, categoryName: string): UcatStemCatalogItem => ({
+    ...stem(id, categoryId, categoryName),
+    questionsCount: 1,
+    blueprintQuestions: [{
+      id: `${id}-q0`,
+      answerScheme: 'single_choice',
+      optionCount: 4,
+      requiredPlacementCount: 0,
+    }],
+  })
+
+  it('blocks when sum of mins exceeds the global total', () => {
+    const stems = [
+      ...Array.from({ length: 10 }, (_, index) => oneQuestion(`a-${index}`, 'reading', 'Reading Comprehension')),
+      ...Array.from({ length: 10 }, (_, index) => oneQuestion(`b-${index}`, 'tfct', "True, False, Can't Tell")),
+    ]
+    const result = buildAutoSetPreview({
+      mode: 'range',
+      blueprintSource: 'manual',
+      targetTotal: 5,
+      categoryTargets: {},
+      categoryRanges: {
+        reading: { min: '4', max: '6' },
+        tfct: { min: '3', max: '5' },
+      },
+      sectionId: 'vr',
+      sectionNumber: 1,
+      stemVisibility: 'either',
+      onlyNotInAnotherSet: false,
+      categories,
+      stems,
+      seed: 1,
+    })
+
+    expect(result.selectedStems).toEqual([])
+    expect(result.totalQuestions).toBe(0)
+    expect(result.warnings).toEqual(
+      expect.arrayContaining([expect.stringMatching(/sum of minimums|minimums exceed/i)]),
+    )
+  })
+
+  it('blocks when sum of maxes is below the global total', () => {
+    const stems = [
+      ...Array.from({ length: 10 }, (_, index) => oneQuestion(`a-${index}`, 'reading', 'Reading Comprehension')),
+      ...Array.from({ length: 10 }, (_, index) => oneQuestion(`b-${index}`, 'tfct', "True, False, Can't Tell")),
+    ]
+    const result = buildAutoSetPreview({
+      mode: 'range',
+      blueprintSource: 'manual',
+      targetTotal: 20,
+      categoryTargets: {},
+      categoryRanges: {
+        reading: { min: '2', max: '4' },
+        tfct: { min: '2', max: '4' },
+      },
+      sectionId: 'vr',
+      sectionNumber: 1,
+      stemVisibility: 'either',
+      onlyNotInAnotherSet: false,
+      categories,
+      stems,
+      seed: 1,
+    })
+
+    expect(result.selectedStems).toEqual([])
+    expect(result.warnings).toEqual(
+      expect.arrayContaining([expect.stringMatching(/sum of maximums|maximums are below/i)]),
+    )
+  })
+
+  it('hits the global total while keeping each category inside its range', () => {
+    const stems = [
+      ...Array.from({ length: 20 }, (_, index) => oneQuestion(`a-${index}`, 'reading', 'Reading Comprehension')),
+      ...Array.from({ length: 20 }, (_, index) => oneQuestion(`b-${index}`, 'tfct', "True, False, Can't Tell")),
+    ]
+    const result = buildAutoSetPreview({
+      mode: 'range',
+      blueprintSource: 'manual',
+      targetTotal: 10,
+      categoryTargets: {},
+      categoryRanges: {
+        reading: { min: '3', max: '7' },
+        tfct: { min: '3', max: '7' },
+      },
+      sectionId: 'vr',
+      sectionNumber: 1,
+      stemVisibility: 'either',
+      onlyNotInAnotherSet: false,
+      categories,
+      stems,
+      seed: 1,
+    })
+
+    expect(result.warnings).toEqual([])
+    expect(result.totalQuestions).toBe(10)
+    expect(result.targetQuestions).toBe(10)
+    for (const row of result.byCategory) {
+      expect(row.actualQuestions).toBeGreaterThanOrEqual(row.minQuestions ?? 0)
+      expect(row.actualQuestions).toBeLessThanOrEqual(row.maxQuestions ?? 0)
+    }
+    const reading = result.byCategory.find((row) => row.categoryId === 'reading')
+    const tfct = result.byCategory.find((row) => row.categoryId === 'tfct')
+    expect((reading?.actualQuestions ?? 0) + (tfct?.actualQuestions ?? 0)).toBe(10)
+  })
+
+  it('trades off between categories to hit the global total near midpoints', () => {
+    const stems = [
+      ...Array.from({ length: 20 }, (_, index) => oneQuestion(`a-${index}`, 'reading', 'Reading Comprehension')),
+      ...Array.from({ length: 20 }, (_, index) => oneQuestion(`b-${index}`, 'tfct', "True, False, Can't Tell")),
+    ]
+    const result = buildAutoSetPreview({
+      mode: 'range',
+      blueprintSource: 'manual',
+      targetTotal: 10,
+      categoryTargets: {},
+      categoryRanges: {
+        reading: { min: '2', max: '8' },
+        tfct: { min: '2', max: '8' },
+      },
+      sectionId: 'vr',
+      sectionNumber: 1,
+      stemVisibility: 'either',
+      onlyNotInAnotherSet: false,
+      categories,
+      stems,
+      seed: 1,
+    })
+
+    expect(result.totalQuestions).toBe(10)
+    const reading = result.byCategory.find((row) => row.categoryId === 'reading')
+    const tfct = result.byCategory.find((row) => row.categoryId === 'tfct')
+    // Midpoints are 5/5; equal split minimises midpoint distance.
+    expect(reading?.actualQuestions).toBe(5)
+    expect(tfct?.actualQuestions).toBe(5)
+  })
+
+  it('falls back to the closest in-range total when exact T is impossible with whole stems', () => {
+    const stems = [
+      ...Array.from({ length: 5 }, (_, index) => stem(`reading-${index}`, 'reading', 'Reading Comprehension')),
+      ...Array.from({ length: 5 }, (_, index) => stem(`tfct-${index}`, 'tfct', "True, False, Can't Tell")),
+    ]
+    const result = buildAutoSetPreview({
+      mode: 'range',
+      blueprintSource: 'manual',
+      targetTotal: 10,
+      categoryTargets: {},
+      categoryRanges: {
+        reading: { min: '4', max: '8' },
+        tfct: { min: '4', max: '8' },
+      },
+      sectionId: 'vr',
+      sectionNumber: 1,
+      stemVisibility: 'either',
+      onlyNotInAnotherSet: false,
+      categories,
+      stems,
+      seed: 1,
+    })
+
+    // 4-question stems only → achievable in-range totals are multiples of 4 (8, 12, 16…).
+    expect(result.totalQuestions).not.toBe(10)
+    expect([8, 12, 16]).toContain(result.totalQuestions)
+    expect(result.warnings).toEqual(
+      expect.arrayContaining([expect.stringMatching(/not exactly 10/i)]),
+    )
+    for (const row of result.byCategory) {
+      expect(row.actualQuestions).toBeGreaterThanOrEqual(row.minQuestions ?? 0)
+      expect(row.actualQuestions).toBeLessThanOrEqual(row.maxQuestions ?? 0)
+    }
+  })
+
+  it('maps VR blueprint policy into question ranges and official total for range + 2026', () => {
+    const stems = [
+      ...Array.from({ length: 10 }, (_, index) => stem(`reading-${index}`, 'reading', 'Reading Comprehension')),
+      ...Array.from({ length: 5 }, (_, index) => stem(`tfct-${index}`, 'tfct', "True, False, Can't Tell")),
+    ]
+    expect(
+      blueprintCategoryRanges({
+        sectionNumber: 1,
+        categories: [
+          { id: 'reading', name: 'Reading Comprehension' },
+          { id: 'tfct', name: "True, False, Can't Tell" },
+        ],
+        eligibleStems: stems,
+      }),
+    ).toEqual({
+      reading: { min: '28', max: '36', preferred: '32' },
+      tfct: { min: '8', max: '16', preferred: '12' },
+    })
+
+    const result = buildAutoSetPreview({
+      mode: 'range',
+      blueprintSource: '2026',
+      targetTotal: 44,
+      categoryTargets: {},
+      categoryRanges: {
+        reading: { min: '28', max: '36' },
+        tfct: { min: '8', max: '16' },
+      },
+      sectionId: 'vr',
+      sectionNumber: 1,
+      stemVisibility: 'either',
+      onlyNotInAnotherSet: false,
+      categories,
+      stems,
+      seed: 1,
+    })
+
+    expect(result.totalQuestions).toBe(44)
+    expect(result.blueprintCompliance?.compliant).toBe(true)
+    expect(result.warnings).toEqual([])
   })
 })

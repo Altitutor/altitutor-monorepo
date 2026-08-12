@@ -50,9 +50,13 @@ import { UcatSelectionToolbar } from '@/features/ucat/shared/selection-toolbar'
 import { useUcatSetsTable, type SetRow } from '@/features/ucat/sets/hooks/useUcatSetsTable'
 import { ucatSetsApi } from '@/features/ucat/sets/api/sets'
 import {
+  blueprintCategoryRanges,
   blueprintPreferredCategoryTargets,
   buildAutoSetPreviewAsync,
+  parseCategoryRange,
   positiveIntFromInput,
+  type AutoBlueprintSource,
+  type AutoCategoryRangeInput,
   type AutoCategoryRow,
   type AutoSetMode,
   type AutoSetPreview,
@@ -137,8 +141,10 @@ export function UcatSetsPage() {
   const [autoCriteriaEnabled, setAutoCriteriaEnabled] = useState(false)
   const [autoSectionId, setAutoSectionId] = useState<string | null>(null)
   const [autoMode, setAutoMode] = useState<AutoSetMode>('total')
+  const [autoBlueprintSource, setAutoBlueprintSource] = useState<AutoBlueprintSource>('manual')
   const [autoTargetTotal, setAutoTargetTotal] = useState('')
   const [autoCategoryTargets, setAutoCategoryTargets] = useState<Record<string, string>>({})
+  const [autoCategoryRanges, setAutoCategoryRanges] = useState<Record<string, AutoCategoryRangeInput>>({})
   const [autoStemVisibility, setAutoStemVisibility] = useState<AutoStemVisibility>('either')
   const [autoOnlyNotInAnotherSet, setAutoOnlyNotInAnotherSet] = useState(true)
   const [autoSeed, setAutoSeed] = useState(1)
@@ -334,9 +340,9 @@ export function UcatSetsPage() {
   )
   const autoSection = sections.find(section => section.id === autoSectionId)
   const autoBlueprintSection = blueprintSectionCode(autoSection?.section_number)
-  const autoBlueprintCategoryTargets = useMemo(() => {
-    if (autoMode !== 'blueprint' || !autoSectionId) return {}
-    const eligibleForPreset = stemCatalog.filter((stem) => {
+  const autoEligibleStems = useMemo(() => {
+    if (!autoSectionId) return []
+    return stemCatalog.filter((stem) => {
       if (stem.sectionId !== autoSectionId) return false
       if (!stem.categoryId) return false
       if (stem.questionsCount <= 0) return false
@@ -345,31 +351,126 @@ export function UcatSetsPage() {
       if (autoOnlyNotInAnotherSet && stem.setIds.length > 0) return false
       return true
     })
-    return blueprintPreferredCategoryTargets({
-      sectionNumber: autoSection?.section_number,
-      categories: autoSectionCategories
+  }, [autoOnlyNotInAnotherSet, autoSectionId, autoStemVisibility, stemCatalog])
+
+  const autoNamedCategories = useMemo(
+    () =>
+      autoSectionCategories
         .filter((category): category is AutoCategoryRow & { id: string; name: string } =>
           Boolean(category.id && category.name),
         )
         .map((category) => ({ id: category.id, name: category.name })),
-      eligibleStems: eligibleForPreset,
+    [autoSectionCategories],
+  )
+
+  const autoBlueprintPreferredTargets = useMemo(() => {
+    if (autoBlueprintSource !== '2026' || autoMode !== 'category' || !autoSectionId) return {}
+    return blueprintPreferredCategoryTargets({
+      sectionNumber: autoSection?.section_number,
+      categories: autoNamedCategories,
+      eligibleStems: autoEligibleStems,
     })
   }, [
+    autoBlueprintSource,
+    autoEligibleStems,
     autoMode,
-    autoOnlyNotInAnotherSet,
+    autoNamedCategories,
     autoSection?.section_number,
-    autoSectionCategories,
     autoSectionId,
-    autoStemVisibility,
-    stemCatalog,
   ])
+
+  const autoBlueprintRanges = useMemo(() => {
+    if (autoBlueprintSource !== '2026' || autoMode !== 'range' || !autoSectionId) return {}
+    return blueprintCategoryRanges({
+      sectionNumber: autoSection?.section_number,
+      categories: autoNamedCategories,
+      eligibleStems: autoEligibleStems,
+    })
+  }, [
+    autoBlueprintSource,
+    autoEligibleStems,
+    autoMode,
+    autoNamedCategories,
+    autoSection?.section_number,
+    autoSectionId,
+  ])
+
+  function applyBlueprintSource(source: AutoBlueprintSource, mode: AutoSetMode = autoMode) {
+    setAutoBlueprintSource(source)
+    if (source !== '2026') {
+      setAutoSeed((prev) => prev + 1)
+      return
+    }
+    if (mode === 'category') {
+      const preferred = blueprintPreferredCategoryTargets({
+        sectionNumber: autoSection?.section_number,
+        categories: autoNamedCategories,
+        eligibleStems: autoEligibleStems,
+      })
+      setAutoCategoryTargets(preferred)
+    } else if (mode === 'range') {
+      const ranges = blueprintCategoryRanges({
+        sectionNumber: autoSection?.section_number,
+        categories: autoNamedCategories,
+        eligibleStems: autoEligibleStems,
+      })
+      const officialTotal = autoBlueprintSection
+        ? (UCAT_ANZ_2026_V1.official.sections.find((section) => section.section === autoBlueprintSection)?.questionCount ?? 0)
+        : 0
+      setAutoTargetTotal(officialTotal > 0 ? String(officialTotal) : '')
+      setAutoCategoryRanges(
+        Object.fromEntries(
+          Object.entries(ranges).map(([id, range]) => [id, { min: range.min, max: range.max }]),
+        ),
+      )
+    }
+    setAutoSeed((prev) => prev + 1)
+  }
+
   const autoTargetQuestions = autoMode === 'total'
     ? positiveIntFromInput(autoTargetTotal)
     : autoMode === 'category'
       ? Object.values(autoCategoryTargets).reduce((sum, value) => sum + positiveIntFromInput(value), 0)
-      : Object.values(autoBlueprintCategoryTargets).reduce((sum, value) => sum + positiveIntFromInput(value), 0)
-        || (UCAT_ANZ_2026_V1.official.sections.find(section => section.section === autoBlueprintSection)?.questionCount ?? 0)
-  const autoCriteriaReady = !autoCriteriaEnabled || (!!autoSectionId && autoTargetQuestions > 0)
+      : positiveIntFromInput(autoTargetTotal)
+
+  const autoRangeValidationError = useMemo(() => {
+    if (autoMode !== 'range' || autoTargetQuestions <= 0) return null
+    const optedIn = autoSectionCategories.flatMap((category) => {
+      const id = category.id ?? ''
+      const parsed = parseCategoryRange(autoCategoryRanges[id])
+      if (!parsed) return []
+      return [{ name: category.name ?? 'Untitled category', ...parsed }]
+    })
+    if (optedIn.length === 0) {
+      return autoBlueprintSource === '2026' && Object.keys(autoBlueprintRanges).length === 0
+        ? null
+        : 'Enter min and max for at least one category.'
+    }
+    for (const row of optedIn) {
+      if (row.max < row.min) {
+        return `${row.name}: max is less than min.`
+      }
+    }
+    const sumMin = optedIn.reduce((sum, row) => sum + row.min, 0)
+    const sumMax = optedIn.reduce((sum, row) => sum + row.max, 0)
+    if (sumMin > autoTargetQuestions) {
+      return `Sum of minimums (${sumMin}) exceeds the global total (${autoTargetQuestions}).`
+    }
+    if (sumMax < autoTargetQuestions) {
+      return `Sum of maximums (${sumMax}) is below the global total (${autoTargetQuestions}).`
+    }
+    return null
+  }, [
+    autoBlueprintRanges,
+    autoBlueprintSource,
+    autoCategoryRanges,
+    autoMode,
+    autoSectionCategories,
+    autoTargetQuestions,
+  ])
+
+  const autoCriteriaReady = !autoCriteriaEnabled
+    || (!!autoSectionId && autoTargetQuestions > 0 && !autoRangeValidationError)
 
   useEffect(() => {
     if (!autoCriteriaEnabled) {
@@ -377,7 +478,7 @@ export function UcatSetsPage() {
       setAutoPreviewLoading(false)
       return
     }
-    if (!autoSectionId || autoTargetQuestions <= 0 || stemCatalogLoading) {
+    if (!autoSectionId || autoTargetQuestions <= 0 || stemCatalogLoading || autoRangeValidationError) {
       setAutoPreview(null)
       setAutoPreviewLoading(false)
       return
@@ -392,8 +493,10 @@ export function UcatSetsPage() {
     setAutoPreviewLoading(true)
     void buildAutoSetPreviewAsync({
       mode: autoMode,
+      blueprintSource: autoBlueprintSource,
       targetTotal: positiveIntFromInput(autoTargetTotal),
       categoryTargets: autoCategoryTargets,
+      categoryRanges: autoCategoryRanges,
       sectionId: autoSectionId,
       sectionNumber: autoSection?.section_number,
       stemVisibility: autoStemVisibility,
@@ -417,10 +520,13 @@ export function UcatSetsPage() {
       cancelled = true
     }
   }, [
+    autoBlueprintSource,
+    autoCategoryRanges,
     autoCategoryTargets,
     autoCriteriaEnabled,
     autoMode,
     autoOnlyNotInAnotherSet,
+    autoRangeValidationError,
     autoSection?.section_number,
     autoSectionId,
     autoSeed,
@@ -440,6 +546,7 @@ export function UcatSetsPage() {
     (!autoCriteriaReady ||
       stemCatalogLoading ||
       autoPreviewLoading ||
+      !!autoRangeValidationError ||
       !autoPreview ||
       autoPreview.selectedStems.length === 0 ||
       autoPreview.totalQuestions <= 0)
@@ -554,8 +661,10 @@ export function UcatSetsPage() {
     setAutoCriteriaEnabled(false)
     setAutoSectionId(null)
     setAutoMode('total')
+    setAutoBlueprintSource('manual')
     setAutoTargetTotal('')
     setAutoCategoryTargets({})
+    setAutoCategoryRanges({})
     setAutoStemVisibility('either')
     setAutoOnlyNotInAnotherSet(true)
     setAutoSeed((prev) => prev + 1)
@@ -1030,6 +1139,8 @@ export function UcatSetsPage() {
                     onValueChange={(section) => {
                       setAutoSectionId(section?.id ?? null)
                       setAutoCategoryTargets({})
+                      setAutoCategoryRanges({})
+                      setAutoBlueprintSource('manual')
                       setAutoSeed((prev) => prev + 1)
                     }}
                     getItemLabel={(section) => section.name ?? 'Untitled'}
@@ -1046,18 +1157,24 @@ export function UcatSetsPage() {
                         items={[
                           { value: 'total', label: 'Total only' },
                           { value: 'category', label: 'By category' },
-                          { value: 'blueprint', label: '2026 full-mock blueprint' },
+                          { value: 'range', label: 'Total + category ranges' },
                         ]}
                         value={
-                          autoMode === 'blueprint'
-                            ? { value: 'blueprint', label: '2026 full-mock blueprint' }
+                          autoMode === 'range'
+                            ? { value: 'range', label: 'Total + category ranges' }
                             : autoMode === 'category'
-                            ? { value: 'category', label: 'By category' }
-                            : { value: 'total', label: 'Total only' }
+                              ? { value: 'category', label: 'By category' }
+                              : { value: 'total', label: 'Total only' }
                         }
                         onValueChange={(item) => {
                           if (!item) return
                           setAutoMode(item.value)
+                          if (item.value === 'total') {
+                            setAutoBlueprintSource('manual')
+                          } else if (autoBlueprintSource === '2026') {
+                            applyBlueprintSource('2026', item.value)
+                            return
+                          }
                           setAutoSeed((prev) => prev + 1)
                         }}
                         getItemLabel={(item) => item.label}
@@ -1065,7 +1182,30 @@ export function UcatSetsPage() {
                       />
                     </label>
 
-                    {autoMode === 'total' ? (
+                    {autoMode === 'category' || autoMode === 'range' ? (
+                      <label className="block text-sm">
+                        <span className="mb-1 block font-medium">Target source</span>
+                        <SearchableSelect<{ value: AutoBlueprintSource; label: string }>
+                          items={[
+                            { value: 'manual', label: 'Manual' },
+                            { value: '2026', label: '2026 full-mock blueprint' },
+                          ]}
+                          value={
+                            autoBlueprintSource === '2026'
+                              ? { value: '2026', label: '2026 full-mock blueprint' }
+                              : { value: 'manual', label: 'Manual' }
+                          }
+                          onValueChange={(item) => {
+                            if (!item) return
+                            applyBlueprintSource(item.value)
+                          }}
+                          getItemLabel={(item) => item.label}
+                          getItemId={(item) => item.value}
+                        />
+                      </label>
+                    ) : null}
+
+                    {autoMode === 'total' || autoMode === 'range' ? (
                       <label className="block text-sm">
                         <span className="mb-1 block font-medium">Total questions</span>
                         <Input
@@ -1079,22 +1219,22 @@ export function UcatSetsPage() {
                           placeholder="e.g. 20"
                         />
                       </label>
-                    ) : autoMode === 'category' || autoMode === 'blueprint' ? (
+                    ) : null}
+
+                    {autoMode === 'category' ? (
                       <div className="space-y-2">
-                        <div className="text-sm font-medium">
-                          {autoMode === 'blueprint' ? '2026 preferred targets by category' : 'Questions by category'}
-                        </div>
-                        {autoMode === 'blueprint' ? (
+                        <div className="text-sm font-medium">Questions by category</div>
+                        {autoBlueprintSource === '2026' ? (
                           <p className="text-xs text-muted-foreground">
-                            Same picker as By category, prefilled from the 2026 full-mock preferred counts
-                            {Object.keys(autoBlueprintCategoryTargets).length === 0
+                            Prefills preferred counts from the 2026 full-mock blueprint
+                            {Object.keys(autoBlueprintPreferredTargets).length === 0
                               ? ' (this section uses the official question total only).'
-                              : '.'}
+                              : '; values stay editable.'}
                           </p>
                         ) : null}
                         {autoSectionCategories.length === 0 ? (
                           <p className="text-xs text-muted-foreground">No categories are configured for this section.</p>
-                        ) : autoMode === 'blueprint' && Object.keys(autoBlueprintCategoryTargets).length === 0 ? (
+                        ) : autoBlueprintSource === '2026' && Object.keys(autoBlueprintPreferredTargets).length === 0 ? (
                           <p className="text-xs text-muted-foreground">
                             Official target: {autoTargetQuestions} questions.
                           </p>
@@ -1102,24 +1242,10 @@ export function UcatSetsPage() {
                           autoSectionCategories.map((category) => {
                             const id = category.id ?? ''
                             const previewRow = autoPreview?.byCategory.find((row) => row.categoryId === id)
-                            const targetValue =
-                              autoMode === 'blueprint'
-                                ? (autoBlueprintCategoryTargets[id] ?? '')
-                                : (autoCategoryTargets[id] ?? '')
-                            if (autoMode === 'blueprint' && !targetValue) return null
+                            const targetValue = autoCategoryTargets[id] ?? ''
                             const eligibleCount =
                               previewRow?.eligibleStemCount ??
-                              stemCatalog.filter(
-                                (stem) =>
-                                  stem.sectionId === autoSectionId &&
-                                  stem.categoryId === id &&
-                                  stem.questionsCount > 0 &&
-                                  (autoStemVisibility === 'either' ||
-                                    (autoStemVisibility === 'public'
-                                      ? stem.accessScope === 'public'
-                                      : stem.accessScope === 'private')) &&
-                                  (!autoOnlyNotInAnotherSet || stem.setIds.length === 0),
-                              ).length
+                              autoEligibleStems.filter((stem) => stem.categoryId === id).length
                             return (
                               <label key={id} className="grid grid-cols-[1fr_5rem] items-center gap-3 text-sm">
                                 <span className="min-w-0">
@@ -1132,10 +1258,7 @@ export function UcatSetsPage() {
                                   type="number"
                                   min={0}
                                   value={targetValue}
-                                  readOnly={autoMode === 'blueprint'}
-                                  disabled={autoMode === 'blueprint'}
                                   onChange={(event) => {
-                                    if (autoMode !== 'category') return
                                     setAutoCategoryTargets((prev) => ({
                                       ...prev,
                                       [id]: event.target.value,
@@ -1148,6 +1271,81 @@ export function UcatSetsPage() {
                             )
                           })
                         )}
+                      </div>
+                    ) : null}
+
+                    {autoMode === 'range' ? (
+                      <div className="space-y-2">
+                        <div className="text-sm font-medium">Category ranges</div>
+                        <p className="text-xs text-muted-foreground">
+                          Enter both min and max to include a category. Categories can trade off as long as the
+                          global total is hit.
+                        </p>
+                        {autoBlueprintSource === '2026' ? (
+                          <p className="text-xs text-muted-foreground">
+                            Prefills official total and policy min/max from the 2026 full-mock blueprint
+                            {Object.keys(autoBlueprintRanges).length === 0
+                              ? ' (this section has no category bands; total only).'
+                              : '; values stay editable.'}
+                          </p>
+                        ) : null}
+                        {autoSectionCategories.length === 0 ? (
+                          <p className="text-xs text-muted-foreground">No categories are configured for this section.</p>
+                        ) : autoBlueprintSource === '2026' && Object.keys(autoBlueprintRanges).length === 0 ? (
+                          <p className="text-xs text-muted-foreground">
+                            Official target: {autoTargetQuestions} questions.
+                          </p>
+                        ) : (
+                          autoSectionCategories.map((category) => {
+                            const id = category.id ?? ''
+                            const previewRow = autoPreview?.byCategory.find((row) => row.categoryId === id)
+                            const rangeValue = autoCategoryRanges[id] ?? { min: '', max: '' }
+                            const eligibleCount =
+                              previewRow?.eligibleStemCount ??
+                              autoEligibleStems.filter((stem) => stem.categoryId === id).length
+                            return (
+                              <div key={id} className="grid grid-cols-[1fr_4.5rem_4.5rem] items-center gap-2 text-sm">
+                                <span className="min-w-0">
+                                  <span className="block truncate">{category.name ?? 'Untitled category'}</span>
+                                  <span className="block text-xs text-muted-foreground">
+                                    {eligibleCount} eligible {eligibleCount === 1 ? 'stem' : 'stems'}
+                                  </span>
+                                </span>
+                                <Input
+                                  type="number"
+                                  min={0}
+                                  value={rangeValue.min}
+                                  onChange={(event) => {
+                                    setAutoCategoryRanges((prev) => ({
+                                      ...prev,
+                                      [id]: { min: event.target.value, max: prev[id]?.max ?? '' },
+                                    }))
+                                    setAutoSeed((prev) => prev + 1)
+                                  }}
+                                  placeholder="min"
+                                  aria-label={`${category.name ?? 'Category'} minimum`}
+                                />
+                                <Input
+                                  type="number"
+                                  min={0}
+                                  value={rangeValue.max}
+                                  onChange={(event) => {
+                                    setAutoCategoryRanges((prev) => ({
+                                      ...prev,
+                                      [id]: { min: prev[id]?.min ?? '', max: event.target.value },
+                                    }))
+                                    setAutoSeed((prev) => prev + 1)
+                                  }}
+                                  placeholder="max"
+                                  aria-label={`${category.name ?? 'Category'} maximum`}
+                                />
+                              </div>
+                            )
+                          })
+                        )}
+                        {autoRangeValidationError ? (
+                          <p className="text-xs text-amber-700 dark:text-amber-400">{autoRangeValidationError}</p>
+                        ) : null}
                       </div>
                     ) : null}
 
@@ -1215,9 +1413,11 @@ export function UcatSetsPage() {
                     <p className="text-xs text-muted-foreground">Select a section to preview stems.</p>
                   ) : autoTargetQuestions <= 0 ? (
                     <p className="text-xs text-muted-foreground">Enter a positive question target to preview stems.</p>
+                  ) : autoRangeValidationError ? (
+                    <p className="text-xs text-muted-foreground">Fix the range validation error to preview stems.</p>
                   ) : autoPreviewLoading ? (
                     <p className="text-xs text-muted-foreground">
-                      {autoMode === 'blueprint' ? 'Building 2026 blueprint preview...' : 'Building preview...'}
+                      {autoBlueprintSource === '2026' ? 'Building 2026 blueprint preview...' : 'Building preview...'}
                     </p>
                   ) : autoPreview ? (
                     <div className="space-y-2">
@@ -1227,19 +1427,21 @@ export function UcatSetsPage() {
                           {autoPreview.totalQuestions} / {autoPreview.targetQuestions} questions
                         </Badge>
                       </div>
-                      {(autoMode === 'category' || autoMode === 'blueprint') && autoPreview.byCategory.length > 0 ? (
+                      {(autoMode === 'category' || autoMode === 'range') && autoPreview.byCategory.length > 0 ? (
                         <div className="space-y-1 text-xs text-muted-foreground">
                           {autoPreview.byCategory.map((row) => (
                             <div key={row.categoryId} className="flex justify-between gap-3">
                               <span className="truncate">{row.categoryName}</span>
                               <span className="shrink-0">
-                                {row.actualQuestions} / {row.targetQuestions} questions
+                                {autoMode === 'range' && row.minQuestions != null && row.maxQuestions != null
+                                  ? `${row.actualQuestions} in ${row.minQuestions}–${row.maxQuestions}`
+                                  : `${row.actualQuestions} / ${row.targetQuestions} questions`}
                               </span>
                             </div>
                           ))}
                         </div>
                       ) : null}
-                      {autoMode === 'blueprint' && autoPreview.blueprintCompliance ? (
+                      {autoBlueprintSource === '2026' && autoPreview.blueprintCompliance ? (
                         <UcatBlueprintCompliancePanel compliance={autoPreview.blueprintCompliance} />
                       ) : null}
                       {autoPreview.selectedStems.length > 0 ? (
