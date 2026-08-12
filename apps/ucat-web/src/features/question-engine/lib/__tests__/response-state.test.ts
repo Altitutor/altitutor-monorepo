@@ -127,6 +127,23 @@ describe("canonical question response persistence", () => {
     });
   });
 
+  it("rejects duplicate or gapped persisted option indexes", () => {
+    for (const indexes of [[1, 1], [1, 3]]) {
+      const malformed = {
+        ...singleChoiceQuestion,
+        id: `malformed-${indexes.join("-")}`,
+        options: singleChoiceQuestion.options.map((option, position) => ({
+          ...option,
+          index: indexes[position]!,
+        })),
+      } as QuestionItem;
+
+      expect(() => snapshotQuestionResponse(malformed, "option-b")).toThrow(
+        "contiguous from zero or one",
+      );
+    }
+  });
+
   it("isolates legacy DM reads and restores them into engine state", () => {
     expect(
       restoreQuestionResponse(binaryQuestion, {

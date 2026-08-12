@@ -26,7 +26,6 @@ Use the **Questions** tab (not **Generated questions**).
 - Common filters:
   - **Section**, **Category**, **Tag**
   - **Visibility** — Public / Private
-  - **Type** — Multiple Choice / Syllogism
   - **Source** — Individual add / Bulk import / AI generation
   - **Created by**, **Set** (including “Not in any set”)
 - Toggle **Show deleted** to restore soft-deleted stems.

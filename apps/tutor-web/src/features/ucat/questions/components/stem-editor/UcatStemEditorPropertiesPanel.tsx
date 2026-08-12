@@ -38,6 +38,7 @@ import {
 } from '@/features/ucat/shared/lib/rich-text'
 import { taxonomyDisplayLabel } from '@/features/ucat/shared/lib/taxonomy-paths'
 import {
+  authoredResponseContract,
   responseContractForType,
   responseContractIssues,
   shouldApplyCategoryDefaults,
@@ -195,14 +196,11 @@ export function UcatStemEditorPropertiesPanel({
   const selectedSection = sections.find((section) => section.id === sectionId)
   const suggestedContract = suggestedResponseContract(selectedCategory?.name, selectedSection?.name)
   const contractIssues = activeQuestion ? responseContractIssues(activeQuestion) : []
-  const currentResponseType = activeQuestion?.responseType ?? (
-    activeQuestion?.questionType === 'syllogism' ? 'drag_and_drop' : 'multiple_choice'
-  )
-  const currentAnswerScheme = activeQuestion?.answerScheme ?? (
-    activeQuestion?.questionType === 'syllogism'
-      ? 'decision_making_binary_placement'
-      : 'single_choice'
-  )
+  const currentContract = activeQuestion
+    ? authoredResponseContract(activeQuestion)
+    : suggestedContract
+  const currentResponseType = currentContract.responseType
+  const currentAnswerScheme = currentContract.answerScheme
   const answerSchemeLabels = {
     single_choice: 'Single choice',
     situational_judgement_rating: 'SJT rating',
@@ -221,10 +219,32 @@ export function UcatStemEditorPropertiesPanel({
     form.setValue('categoryId', nextCategoryId, {
       shouldDirty: true,
     })
-    if (!shouldApplyDefaults || nextCategoryId == null) return
+    if (nextCategoryId == null) {
+      form.clearErrors('categoryId')
+      return
+    }
 
     const nextCategory = categories.find((category) => category.id === nextCategoryId)
     const defaultContract = suggestedResponseContract(nextCategory?.name, selectedSection?.name)
+    if (!shouldApplyDefaults) {
+      const currentQuestions = form.getValues('questions')
+      const hasMismatch = currentQuestions.some((question) => {
+        const contract = authoredResponseContract(question)
+        return contract.responseType !== defaultContract.responseType
+          || contract.answerScheme !== defaultContract.answerScheme
+      })
+      if (hasMismatch) {
+        form.setError('categoryId', {
+          type: 'response-contract-mismatch',
+          message: 'Apply the category response format before saving this category change.',
+        })
+      } else {
+        form.clearErrors('categoryId')
+      }
+      return
+    }
+
+    form.clearErrors('categoryId')
     form.setValue(
       'questions',
       form.getValues('questions').map((question) => transformResponseContract(question, defaultContract)),
@@ -878,7 +898,9 @@ export function UcatStemEditorPropertiesPanel({
               <div>
                 <div className="text-sm font-medium">{answerSchemeLabels[currentAnswerScheme]}</div>
                 <div className="text-xs text-muted-foreground">
-                  Set automatically from the Response type and UCAT category.
+                  {categoryContractDiffers
+                    ? 'Current scheme. Reconcile the category response format before saving.'
+                    : 'Set automatically from the Response type and UCAT category.'}
                 </div>
               </div>
             </PropertyRow>
@@ -897,13 +919,18 @@ export function UcatStemEditorPropertiesPanel({
                       transformResponseContract(question, suggestedContract)
                     ))
                     form.setValue('questions', questions, { shouldDirty: true })
+                    form.clearErrors('categoryId')
                     onQuestionIndexChange(Math.min(safeQuestionIndex, questions.length - 1))
                   }}
                 >
                   Apply category response format
                 </Button>
               ) : null}
-              {contractIssues.length > 0 ? (
+              {categoryContractDiffers ? (
+                <div className="text-xs text-amber-700 dark:text-amber-300">
+                  The category and response contract do not match. Apply the category response format to continue.
+                </div>
+              ) : contractIssues.length > 0 ? (
                 <div className="text-xs text-amber-700 dark:text-amber-300">
                   {contractIssues[0]?.message}
                   {contractIssues.length > 1 ? ` (+${contractIssues.length - 1} more)` : ''}

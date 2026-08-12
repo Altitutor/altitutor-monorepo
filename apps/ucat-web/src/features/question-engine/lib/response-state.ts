@@ -136,6 +136,15 @@ export function responseDefinitionForQuestion(
       break;
   }
 
+  const sortedOptions = [...question.options].sort(
+    (left, right) => left.index - right.index,
+  );
+  const isZeroBased = sortedOptions.every((option, position) => option.index === position);
+  const isOneBased = sortedOptions.every((option, position) => option.index === position + 1);
+  if (!isZeroBased && !isOneBased) {
+    throw new Error("Option indexes must be contiguous from zero or one.");
+  }
+
   return {
     questionId: question.id,
     responseType:
@@ -144,11 +153,10 @@ export function responseDefinitionForQuestion(
         ? "multiple_choice"
         : "drag_and_drop"),
     answerScheme,
-    options: [...question.options]
-      .sort((left, right) => left.index - right.index)
-      .map((option, index) => ({
+    options: sortedOptions
+      .map((option, contractIndex) => ({
         id: option.id,
-        index,
+        index: contractIndex,
       })),
   };
 }

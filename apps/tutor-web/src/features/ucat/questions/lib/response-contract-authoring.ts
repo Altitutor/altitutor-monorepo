@@ -17,6 +17,22 @@ export type SuggestedResponseContract = {
   answerScheme: AnswerSchemeKind
 }
 
+export function authoredResponseContract(
+  question: Pick<AuthoredQuestion, 'questionType' | 'responseType' | 'answerScheme'>,
+): SuggestedResponseContract {
+  const responseType = question.responseType ?? (
+    question.questionType === 'syllogism' ? 'drag_and_drop' : 'multiple_choice'
+  )
+  return {
+    responseType,
+    answerScheme: question.answerScheme ?? (
+      question.questionType === 'syllogism'
+        ? 'decision_making_binary_placement'
+        : 'single_choice'
+    ),
+  }
+}
+
 export function shouldApplyCategoryDefaults(input: {
   stemId: string | null | undefined
   previousCategoryId: string | null | undefined
@@ -28,14 +44,7 @@ export function shouldApplyCategoryDefaults(input: {
 }
 
 export function normalizeAuthoredQuestionContract(question: AuthoredQuestion): AuthoredQuestion {
-  const responseType = question.responseType ?? (
-    question.questionType === 'syllogism' ? 'drag_and_drop' : 'multiple_choice'
-  )
-  const answerScheme = question.answerScheme ?? (
-    question.questionType === 'syllogism'
-      ? 'decision_making_binary_placement'
-      : 'single_choice'
-  )
+  const { responseType, answerScheme } = authoredResponseContract(question)
   return {
     ...question,
     responseType,
@@ -103,11 +112,7 @@ function optionId(question: AuthoredQuestion, index: number): string {
 }
 
 function answerSchemeDefinition(question: AuthoredQuestion): AnswerScheme {
-  const kind = question.answerScheme ?? (
-    question.questionType === 'syllogism'
-      ? 'decision_making_binary_placement'
-      : 'single_choice'
-  )
+  const { answerScheme: kind } = authoredResponseContract(question)
   const keyed = question.options.map((option, index) => ({
     id: optionId(question, index),
     value: option.answerKeyValue ?? (
@@ -141,11 +146,10 @@ function answerSchemeDefinition(question: AuthoredQuestion): AnswerScheme {
 }
 
 export function responseContractIssues(question: AuthoredQuestion): readonly ContractIssue[] {
+  const { responseType } = authoredResponseContract(question)
   const result = compileResponseContract({
     questionId: question.id ?? 'draft-question',
-    responseType: question.responseType ?? (
-      question.questionType === 'syllogism' ? 'drag_and_drop' : 'multiple_choice'
-    ),
+    responseType,
     answerScheme: answerSchemeDefinition(question),
     options: question.options.map((_, index) => ({ id: optionId(question, index), index })),
   })
