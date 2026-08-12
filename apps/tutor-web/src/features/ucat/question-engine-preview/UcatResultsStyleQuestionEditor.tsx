@@ -231,6 +231,7 @@ export function ResultsMcQuestionBlock({
                         getItemId={(item) => item.value}
                         triggerClassName="h-8 w-40 shrink-0 !border-[#9ba9bd] !bg-white !text-black dark:!border-[#9ba9bd] dark:!bg-white dark:!text-black dark:hover:!bg-[#f3f4f6]"
                         className="!bg-white !text-black [&_[cmdk-group]]:!text-black [&_[cmdk-group-heading]]:!text-gray-500 [&_[cmdk-input]]:!text-black [&_[cmdk-input]]:!placeholder:text-gray-500 [&_[cmdk-item]]:!text-black"
+                        forceLight
                         ariaLabel={`Set answer key for option ${letter}`}
                       />
                     ) : null}
@@ -477,6 +478,7 @@ export function ResultsSyllogismQuestionBlock({
                     getItemId={(item) => item.value}
                     triggerClassName="h-8 w-40 shrink-0 !border-[#9ba9bd] !bg-white !text-black dark:!border-[#9ba9bd] dark:!bg-white dark:!text-black dark:hover:!bg-[#f3f4f6]"
                     className="!bg-white !text-black [&_[cmdk-group]]:!text-black [&_[cmdk-group-heading]]:!text-gray-500 [&_[cmdk-input]]:!text-black [&_[cmdk-input]]:!placeholder:text-gray-500 [&_[cmdk-item]]:!text-black"
+                    forceLight
                     ariaLabel={`Set answer key for option ${index + 1}`}
                   />
                 ) : (

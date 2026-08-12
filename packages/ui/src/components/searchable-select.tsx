@@ -76,6 +76,8 @@ export interface SearchableSelectProps<T> {
   onOpenChange?: (open: boolean) => void;
   /** Show chevron on the right side of the trigger button (default: true) */
   showChevron?: boolean;
+  /** Render the portaled menu with the light UCAT editor palette. */
+  forceLight?: boolean;
 }
 
 /**
@@ -115,6 +117,7 @@ export function SearchableSelect<T>({
   open: controlledOpen,
   onOpenChange,
   showChevron = true,
+  forceLight = false,
 }: SearchableSelectProps<T>) {
   const [internalOpen, setInternalOpen] = React.useState(false);
   const [search, setSearch] = React.useState("");
@@ -257,13 +260,17 @@ export function SearchableSelect<T>({
         )}
         align={align}
         side={side}
-        style={contentWidth ? { width: contentWidth } : undefined}
+        style={{
+          ...(contentWidth ? { width: contentWidth } : {}),
+          ...(forceLight ? { backgroundColor: '#ffffff', color: '#000000' } : {}),
+        }}
       >
         <Command
           shouldFilter={!isServerSideSearch}
           disablePointerSelection={false}
           value={isServerSideSearch ? highlightedValue ?? "" : undefined}
           onValueChange={isServerSideSearch ? setHighlightedValue : undefined}
+          style={forceLight ? { backgroundColor: '#ffffff', color: '#000000' } : undefined}
           className="rounded-lg border-0 flex flex-col min-h-0 flex-1 overflow-hidden"
         >
           <CommandInput
