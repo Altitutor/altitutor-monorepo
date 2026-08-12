@@ -13,6 +13,8 @@ import {
   sjtAllocationWeight,
 } from "@/features/preparation/lib/sjt-allocation-policy";
 
+export const LEARNING_MODULE_SESSION_MINUTES = 20;
+
 export type PreparationActivityKind =
   | "instruction"
   | "related_practice"
@@ -287,7 +289,10 @@ export function rankActivityCandidates(
             scope: "section",
             dose: { questionCount: null, sectionEquivalents: 0.25 },
             duration: {
-              practiceMinutes: learningModule.estimatedMinutes,
+              practiceMinutes: Math.min(
+                learningModule.estimatedMinutes,
+                LEARNING_MODULE_SESSION_MINUTES,
+              ),
               reviewMinutes: 0,
             },
             objective: "complete_instruction",

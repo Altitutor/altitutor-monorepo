@@ -15,7 +15,7 @@ import {
   buildStudyPlanCalendarMonths,
   formatStudyPlanDate,
   studyPlanCalendarIntensityLevel,
-  studyPlanPracticeMinutes,
+  studyPlanPlannedMinutes,
 } from "@/features/study-plan/lib/calendar";
 import {
   isCarryOverStudyPlanTask,
@@ -48,10 +48,10 @@ function taskMinutes(tasks: StudyPlanTask[]) {
   return tasks.reduce((sum, task) => sum + task.estimatedMinutes, 0);
 }
 
-function maxPracticeMinutesInMonths(
+function maxPlannedMinutesInMonths(
   months: UcatCalendarMonth[],
   visibleMonthKeys: readonly string[],
-  practiceMinutesByDate: Map<string, number>,
+  plannedMinutesByDate: Map<string, number>,
 ): number {
   const visible = new Set(visibleMonthKeys);
   let max = 0;
@@ -59,7 +59,7 @@ function maxPracticeMinutesInMonths(
     if (!visible.has(month.key)) continue;
     for (const day of month.days) {
       if (!day) continue;
-      max = Math.max(max, practiceMinutesByDate.get(day.dateKey) ?? 0);
+      max = Math.max(max, plannedMinutesByDate.get(day.dateKey) ?? 0);
     }
   }
   return max;
@@ -69,13 +69,13 @@ function dayAriaLabel({
   dateKey,
   isTestDate,
   isToday,
-  practiceMinutes,
+  plannedMinutes,
   tasks,
 }: {
   dateKey: string;
   isTestDate: boolean;
   isToday: boolean;
-  practiceMinutes: number;
+  plannedMinutes: number;
   tasks: StudyPlanTask[];
 }) {
   const details = [
@@ -90,7 +90,7 @@ function dayAriaLabel({
   if (isTestDate) details.push("UCAT test date");
   if (tasks.length) {
     details.push(
-      `${tasks.length} planned task${tasks.length === 1 ? "" : "s"}, ${practiceMinutes} minutes of practice`,
+      `${tasks.length} planned task${tasks.length === 1 ? "" : "s"}, ${plannedMinutes} minutes planned`,
     );
   } else {
     details.push("no planned tasks");
@@ -114,10 +114,10 @@ export function StudyPlanCalendar({
     return grouped;
   }, [plan.tasks]);
 
-  const practiceMinutesByDate = useMemo(() => {
+  const plannedMinutesByDate = useMemo(() => {
     const map = new Map<string, number>();
     for (const [dateKey, tasks] of tasksByDate) {
-      map.set(dateKey, studyPlanPracticeMinutes(tasks));
+      map.set(dateKey, studyPlanPlannedMinutes(tasks));
     }
     return map;
   }, [tasksByDate]);
@@ -165,14 +165,14 @@ export function StudyPlanCalendar({
     context: UcatMonthCalendarDayContext,
   ) {
     const tasks = tasksByDate.get(day.dateKey) ?? [];
-    const practiceMinutes = practiceMinutesByDate.get(day.dateKey) ?? 0;
-    const visibleMax = maxPracticeMinutesInMonths(
+    const plannedMinutes = plannedMinutesByDate.get(day.dateKey) ?? 0;
+    const visibleMax = maxPlannedMinutesInMonths(
       months,
       context.visibleMonthKeys,
-      practiceMinutesByDate,
+      plannedMinutesByDate,
     );
     const intensity = studyPlanCalendarIntensityLevel(
-      practiceMinutes,
+      plannedMinutes,
       visibleMax,
     );
     const isSelected = selectedDate === day.dateKey;
@@ -190,7 +190,7 @@ export function StudyPlanCalendar({
           dateKey: day.dateKey,
           isTestDate,
           isToday,
-          practiceMinutes,
+          plannedMinutes,
           tasks,
         })}
         onClick={() => setSelectedDate(day.dateKey)}

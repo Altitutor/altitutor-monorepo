@@ -552,7 +552,7 @@ test.describe("personalised Study plan", () => {
     const title = "Reading comprehension foundations";
     const { data: learningTask, error: learningTaskError } = await admin
       .from("ucat_student_study_plan_tasks")
-      .select("scheduled_date")
+      .select("scheduled_date,section_id,estimated_minutes")
       .eq("student_id", studentId)
       .eq("learning_module_id", moduleId)
       .order("scheduled_date")
@@ -561,9 +561,32 @@ test.describe("personalised Study plan", () => {
     if (learningTaskError) throw learningTaskError;
     if (!learningTask?.scheduled_date)
       throw new Error("Diana has no planned learning task.");
+    expect(learningTask.estimated_minutes).toBeLessThanOrEqual(20);
+    const { data: learningDayTasks, error: learningDayTasksError } = await admin
+      .from("ucat_student_study_plan_tasks")
+      .select("task_type,section_id")
+      .eq("student_id", studentId)
+      .eq("scheduled_date", learningTask.scheduled_date);
+    if (learningDayTasksError) throw learningDayTasksError;
+    expect(
+      learningDayTasks?.some(
+        (plannedTask) =>
+          plannedTask.task_type === "practice" &&
+          plannedTask.section_id === learningTask.section_id,
+      ),
+    ).toBe(true);
+    expect(
+      learningDayTasks?.some(
+        (plannedTask) =>
+          plannedTask.task_type === "review" &&
+          plannedTask.section_id === learningTask.section_id,
+      ),
+    ).toBe(true);
     await selectCalendarDate(page, learningTask.scheduled_date);
     const task = page.locator("li").filter({ hasText: title }).first();
     await expect(task).toContainText("In progress");
+    await expect(task).not.toContainText("Learning phase");
+    await expect(task).not.toContainText(/\d\.\d× pace/);
     await task.getByRole("button", { name: "Continue" }).click();
     await page.waitForURL((url) => url.pathname.endsWith(`/${moduleId}`));
     await page.getByRole("button", { name: "Mark lesson complete" }).click();

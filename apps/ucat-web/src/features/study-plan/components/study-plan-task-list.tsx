@@ -29,6 +29,7 @@ import {
 } from "lucide-react";
 import { useStudyPlanTaskActions } from "@/features/study-plan/hooks/use-study-plan-task-actions";
 import { studyPlanActivityTypeLabel } from "@/features/study-plan/lib/activity-type-label";
+import { visibleTaskPace } from "@/features/study-plan/lib/task-card-metadata";
 import type { StudyPlanTask } from "@/features/study-plan/model/types";
 import {
   UCAT_COMPLETED_ITEM_SURFACE,
@@ -102,10 +103,13 @@ function TaskRow({
   const awaitingReviewAttempt =
     task.taskType === "review" && task.launchConfig.awaitingAttempt !== false;
   const canSkip = Boolean(today && task.scheduledDate <= today);
-  const sectionName = configString(task, "sectionName");
-  const preparationPhase = configString(task, "preparationPhase");
-  const prescribedPace = configNumber(task, "prescribedPace");
-  const nextMilestone = configString(task, "nextMilestone");
+  const isDerivedReview =
+    task.taskType === "review" && task.launchConfig.derivedReview === true;
+  const sectionName = isDerivedReview ? null : configString(task, "sectionName");
+  const prescribedPace = visibleTaskPace(task);
+  const nextMilestone = isDerivedReview
+    ? null
+    : configString(task, "nextMilestone");
   const preparationWarning = configString(task, "preparationWarning");
   const practiceMinutes = configNumber(task, "practiceMinutes");
   const reviewMinutes = configNumber(task, "reviewMinutes");
@@ -154,27 +158,19 @@ function TaskRow({
               {task.description}
             </p>
           ) : null}
-          {sectionName || preparationPhase || prescribedPace != null ? (
+          {sectionName || prescribedPace != null ? (
             <div className="mt-2 flex flex-wrap gap-1.5">
               {sectionName ? <Badge variant="outline">{sectionName}</Badge> : null}
-              {preparationPhase ? (
-                <Badge variant="secondary">
-                  {preparationPhase[0]!.toUpperCase() + preparationPhase.slice(1)} phase
-                </Badge>
-              ) : null}
               {prescribedPace != null ? (
                 <Badge variant="outline">{prescribedPace.toFixed(1)}× pace</Badge>
               ) : null}
             </div>
           ) : null}
-          {task.rationale ? (
+          {!isDerivedReview && (task.rationale || nextMilestone) ? (
             <p className="mt-2 text-xs text-muted-foreground/80">
-              Why this: {task.rationale}
-            </p>
-          ) : null}
-          {nextMilestone ? (
-            <p className="mt-1 text-xs text-muted-foreground/80">
-              Next milestone: {nextMilestone}
+              {task.rationale ? `Why this: ${task.rationale}` : null}
+              {task.rationale && nextMilestone ? " · " : null}
+              {nextMilestone ? `Next: ${nextMilestone}` : null}
             </p>
           ) : null}
           {preparationWarning ? (

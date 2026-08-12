@@ -62,11 +62,11 @@ const WEEKDAYS: Array<{ value: StudyPlanWeekday; label: string }> = [
 ];
 
 const DEFAULT_AVAILABILITY: StudyPlanAvailability[] = [
-  { weekday: 1, maxMinutes: 60 },
-  { weekday: 2, maxMinutes: 60 },
-  { weekday: 4, maxMinutes: 60 },
-  { weekday: 5, maxMinutes: 60 },
-  { weekday: 6, maxMinutes: 120 },
+  { weekday: 1 },
+  { weekday: 2 },
+  { weekday: 4 },
+  { weekday: 5 },
+  { weekday: 6 },
 ];
 
 const SELECT_TRIGGER =
@@ -78,10 +78,6 @@ const SETTINGS_LEAVE_MESSAGE =
 
 type YearOption = { year: number };
 type WeekdayOption = (typeof WEEKDAYS)[number];
-
-function defaultMinutesForDay(day: StudyPlanWeekday): number {
-  return day === 0 || day === 6 ? 120 : 60;
-}
 
 function sortAvailability(
   days: StudyPlanAvailability[],
@@ -220,7 +216,7 @@ export function SettingsStudyPlanPage() {
         if (current.some((item) => item.weekday === day)) return current;
         return sortAvailability([
           ...current,
-          { weekday: day, maxMinutes: defaultMinutesForDay(day) },
+          { weekday: day },
         ]);
       }
       const next = current.filter((item) => item.weekday !== day);

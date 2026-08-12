@@ -1,16 +1,23 @@
 import type { StudyPlanCapacityRisk } from "@/features/study-plan/model/types";
 
 export const STUDENT_CAPACITY_RISK_MESSAGE =
-  "Your available study time cannot fit every recommended activity into the next 21 days. Add another study day if you want to cover more sooner.";
+  "Add another study day to give the plan more chances to practise and review what you learn.";
 
-const INTERNAL_CAPACITY_TERMS = /section-equivalents|intensity envelope/i;
+const LEGACY_DEMAND_CAPACITY_TERMS =
+  /section-equivalents|intensity envelope|cannot fit every recommended activity/i;
+
+export function isLegacyDemandCapacityRiskMessage(
+  message: string | null,
+): boolean {
+  return message != null && LEGACY_DEMAND_CAPACITY_TERMS.test(message);
+}
 
 export function studentCapacityRiskMessage(
   capacityRisk: StudyPlanCapacityRisk,
 ): string {
   if (
     capacityRisk.message == null ||
-    INTERNAL_CAPACITY_TERMS.test(capacityRisk.message)
+    isLegacyDemandCapacityRiskMessage(capacityRisk.message)
   ) {
     return STUDENT_CAPACITY_RISK_MESSAGE;
   }

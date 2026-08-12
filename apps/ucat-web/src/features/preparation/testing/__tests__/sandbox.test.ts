@@ -143,6 +143,63 @@ describe("Preparation policy sandbox", () => {
     );
   });
 
+  it("gives a new student coherent Learning loops instead of isolated lessons", () => {
+    const run = runPreparationSandboxCase(
+      PREPARATION_SANDBOX_PERSONAS["new-student"],
+    );
+    const tasksByDate = Map.groupBy(
+      run.result.plan.tasks,
+      (task) => task.scheduledDate,
+    );
+
+    for (const lesson of run.result.plan.tasks.filter(
+      (task) => task.taskType === "learn",
+    )) {
+      const tasks = tasksByDate.get(lesson.scheduledDate) ?? [];
+      expect(
+        tasks.some(
+          (task) =>
+            task.taskType === "practice" && task.sectionId === lesson.sectionId,
+        ),
+      ).toBe(true);
+      expect(
+        tasks.some(
+          (task) =>
+            task.taskType === "review" && task.sectionId === lesson.sectionId,
+        ),
+      ).toBe(true);
+    }
+    expect(
+      run.result.plan.tasks
+        .filter((task) => task.taskType === "learn")
+        .every((task) => task.estimatedMinutes <= 20),
+    ).toBe(true);
+  });
+
+  it("warns only the release persona with too few selected study days", () => {
+    for (const key of REQUIRED_PERSONAS) {
+      const run = runPreparationSandboxCase(PREPARATION_SANDBOX_PERSONAS[key]);
+      expect(run.result.plan.capacityRisk.level).toBe(
+        key === "low-availability" ? "warning" : "none",
+      );
+    }
+  });
+
+  it("does not prescribe lessons to experienced release personas", () => {
+    for (const key of [
+      "experienced-high-performing",
+      "accurate-slow",
+      "fast-inaccurate",
+      "uneven-sections",
+      "imminent-exam",
+    ] as const) {
+      const run = runPreparationSandboxCase(PREPARATION_SANDBOX_PERSONAS[key]);
+      expect(
+        run.result.plan.tasks.some((task) => task.taskType === "learn"),
+      ).toBe(false);
+    }
+  });
+
   it("accepts editable dates, availability, target, SJT, evidence, pace, adherence and versions", () => {
     const base = PREPARATION_SANDBOX_PERSONAS["new-student"];
     const fixture = JSON.parse(
@@ -157,7 +214,7 @@ describe("Preparation policy sandbox", () => {
       ...fixture.input.goal.profile,
       targetScore: 2500,
       testDate: "2026-07-06",
-      availableDays: [{ weekday: 6, maxMinutes: 180 }],
+      availableDays: [{ weekday: 6 }],
       preferredMockWeekday: 6,
       sjtPreference: "not_at_all",
     };

@@ -23,9 +23,9 @@ const profile: StudyPlanProfileInput = {
   testYear: 2026,
   testDate: "2026-08-05",
   availableDays: [
-    { weekday: 1, maxMinutes: 60 },
-    { weekday: 3, maxMinutes: 60 },
-    { weekday: 6, maxMinutes: 60 },
+    { weekday: 1 },
+    { weekday: 3 },
+    { weekday: 6 },
   ],
   preferredMockWeekday: 6,
 };
@@ -201,7 +201,7 @@ describe("Timing policy", () => {
     const result = assess({
       signal: signal({ prescribedPaceSetAt: "2026-01-01T00:00:00.000Z" }),
       sessions: [],
-      availableDays: [{ weekday: 6, maxMinutes: 60 }],
+      availableDays: [{ weekday: 6 }],
       today: "2026-05-01",
       planningDate: "2026-08-05",
     });

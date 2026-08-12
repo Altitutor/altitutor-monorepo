@@ -13,6 +13,7 @@ import { allocateSectionTargets } from "@/features/study-plan/lib/section-target
 import {
   rankActivityCandidates,
   selectActivityCandidates,
+  LEARNING_MODULE_SESSION_MINUTES,
   type PreparationActivityCandidate,
   type ActivityTagSignal,
 } from "@/features/preparation/lib/activity-ranking";
@@ -30,7 +31,6 @@ import type {
   StudyPlanSkillTrainer,
   StudyPlanTrainingMode,
 } from "@/features/study-plan/model/types";
-import { STUDENT_CAPACITY_RISK_MESSAGE } from "@/features/study-plan/lib/capacity-risk-copy";
 import {
   mockIntervalDays,
   targetMocksInHorizon,
@@ -136,67 +136,31 @@ function selectedDates(
   return result;
 }
 
-function recommendedWeeklyMinutes(
-  targetScore: number,
-  currentTotal: number | null,
-  readiness: StudyPlanReadinessSnapshot,
-): number {
-  const scoreGap = Math.max(0, targetScore - (currentTotal ?? 1800));
-  const base =
-    readiness.mode === "exam" ? 420 : readiness.mode === "timing" ? 240 : 90;
-  const scoreAdjustment = Math.min(180, Math.round(scoreGap / 5));
-  return Math.round((base + scoreAdjustment) / 15) * 15;
-}
-
 function capacityRisk(
   profile: StudyPlanProfileInput,
   signals: StudyPlanSectionSignal[],
   readiness: StudyPlanReadinessSnapshot,
   outstandingSectionEquivalents: number,
   schedulableSectionEquivalents: number,
-  demandFitsSlots: boolean,
 ): StudyPlanCapacityRisk {
-  const estimates = signals
-    .slice(0, COGNITIVE_SECTION_COUNT)
-    .map((signal) => signal.currentEstimate)
-    .filter((value): value is number => value != null);
-  const currentTotal =
-    estimates.length === COGNITIVE_SECTION_COUNT
-      ? estimates.reduce((sum, value) => sum + value, 0)
-      : null;
-  const recommended = recommendedWeeklyMinutes(
-    profile.targetScore,
-    currentTotal,
-    readiness,
-  );
-  const typicalSessionMinutes =
-    readiness.mode === "exam" ? 90 : readiness.mode === "timing" ? 75 : 35;
-  const available = profile.availableDays.length * typicalSessionMinutes;
-  const minimumDays =
-    readiness.mode === "exam" ? 3 : readiness.mode === "timing" ? 2 : 1;
+  const recommendedDays = readiness.mode === "exam" ? 3 : 2;
   const timingCapacityConstrained = signals.some(
     (signal) => signal.timingCapacityConstrained,
   );
-  const risky =
-    outstandingSectionEquivalents > schedulableSectionEquivalents ||
-    !demandFitsSlots ||
-    profile.availableDays.length < minimumDays ||
-    timingCapacityConstrained;
+  const tooFewStudyDays = profile.availableDays.length < recommendedDays;
+  const risky = tooFewStudyDays || timingCapacityConstrained;
   return {
     level: risky ? "warning" : "none",
-    availableMinutesPerWeek: available,
-    recommendedMinutesPerWeek: recommended,
+    availableStudyDaysPerWeek: profile.availableDays.length,
+    recommendedStudyDaysPerWeek: recommendedDays,
     outstandingSectionEquivalents,
     schedulableSectionEquivalents,
     message: risky
-      ? outstandingSectionEquivalents > schedulableSectionEquivalents ||
-        !demandFitsSlots
-        ? STUDENT_CAPACITY_RISK_MESSAGE
-        : timingCapacityConstrained
+      ? timingCapacityConstrained
         ? "There may not be enough broad practice opportunities to reach reliable exam pace before the exam phase. The plan will move gradually and prioritise representative work."
         : readiness.mode === "exam"
-          ? "There are fewer available study days than the exam-phase mock cadence needs. The plan will prioritise mocks and the highest-value weaknesses on the days you selected."
-          : "There are very few available study days. The plan will still prioritise the highest-value work and replan unfinished work instead of building a backlog."
+          ? "You selected fewer study days than the exam phase normally needs. The plan will prioritise mocks and the highest-value weaknesses on the days you selected."
+          : "You selected one study day each week. Add another day to give the plan more chances to practise and review what you learn."
       : null,
   };
 }
@@ -694,15 +658,12 @@ export function generateStudyPlan(
     0,
   );
   const schedulableSectionEquivalents = nonMockDayCount * 2;
-  const hasLearning = readiness.sections.some(
-    (section) => section.mode === "learning",
-  );
   const hasTiming = readiness.sections.some(
     (section) => section.mode !== "learning",
   );
   const demandPerNonMockDay =
     outstandingSectionEquivalents / Math.max(1, nonMockDayCount);
-  const ordinaryCoreSlots = hasLearning ? (hasTiming ? 2 : 1) : 2;
+  const ordinaryCoreSlots = 2;
   const lowAvailabilityPressure =
     input.profile.availableDays.length <= 2 && demandPerNonMockDay > 1;
   const justifiedCoreSlots =
@@ -720,28 +681,6 @@ export function generateStudyPlan(
       hasTiming &&
       input.skillTrainers.length > 0,
   }));
-  const doseByMilestone = new Map<string, number>();
-  for (const activity of plannedActivities) {
-    const key = demandKey(activity);
-    if (!remainingDemand.has(key)) continue;
-    doseByMilestone.set(
-      key,
-      Math.max(
-        doseByMilestone.get(key) ?? 0,
-        Math.max(0.25, activity.dose.sectionEquivalents),
-      ),
-    );
-  }
-  const requiredSessionCount = [...remainingDemand].reduce(
-    (count, [key, remaining]) =>
-      count + Math.ceil(remaining / Math.max(0.25, doseByMilestone.get(key) ?? 0)),
-    0,
-  );
-  const discreteSlotCapacity = dayEnvelopes
-    .filter((envelope) => !envelope.isMock)
-    .reduce((sum, envelope) => sum + envelope.coreSlotCount, 0);
-  const demandFitsSlots = requiredSessionCount <= discreteSlotCapacity;
-
   const useCounts = new Map<string, number>();
   const sectionEquivalentUse = new Map<string, number>();
   const instructionUseBySection = new Map<string, number>();
@@ -812,8 +751,15 @@ export function generateStudyPlan(
       });
     }
     if (!generated) return null;
+    const allocatedLearningSession =
+      activity.kind === "instruction" &&
+      generated.taskType === "learn" &&
+      generated.estimatedMinutes > LEARNING_MODULE_SESSION_MINUTES;
     return {
       ...generated,
+      description: allocatedLearningSession
+        ? `Work through the next ${LEARNING_MODULE_SESSION_MINUTES} minutes of this module. You can continue it in a later session.`
+        : generated.description,
       rationale: activity.studentReason,
       estimatedMinutes: activity.duration.practiceMinutes,
       targetUnits: activity.dose.questionCount ?? generated.targetUnits,
@@ -880,6 +826,12 @@ export function generateStudyPlan(
             }
             if (
               activity.kind === "instruction" &&
+              slot === envelope.coreSlotCount - 1
+            ) {
+              return false;
+            }
+            if (
+              activity.kind === "instruction" &&
               activity.sectionId &&
               (instructionUseBySection.get(activity.sectionId) ?? 0) >
                 (practiceUseBySection.get(activity.sectionId) ?? 0)
@@ -908,8 +860,20 @@ export function generateStudyPlan(
             activity.kind === "mixed_practice" ||
             activity.kind === "related_practice",
         );
+        const previousCandidate = candidatesForDay.at(-1);
+        const pairedPractice =
+          previousCandidate?.kind === "instruction" &&
+          previousCandidate.sectionId
+            ? eligible.filter(
+                (activity) =>
+                  isPracticeActivity(activity) &&
+                  activity.sectionId === previousCandidate.sectionId,
+              )
+            : [];
         const slotEligible =
-          envelope.coreSlotCount > 2 && slot === 0 && broadEligible.length > 0
+          pairedPractice.length > 0
+            ? pairedPractice
+            : envelope.coreSlotCount > 2 && slot === 0 && broadEligible.length > 0
             ? broadEligible
             : eligible;
         const adjustedPriority = (activity: PreparationActivityCandidate) =>
@@ -1036,9 +1000,6 @@ export function generateStudyPlan(
     }
   }
 
-  const allDemandPacked = [...remainingDemand.values()].every(
-    (remaining) => remaining <= 0.01,
-  );
   return {
     tasks: canonicalTasks,
     capacityRisk: capacityRisk(
@@ -1047,7 +1008,6 @@ export function generateStudyPlan(
       readiness,
       outstandingSectionEquivalents,
       schedulableSectionEquivalents,
-      demandFitsSlots && allDemandPacked,
     ),
     sectionTargets,
     coreSectionEquivalentsPerWeek: coreSectionEquivalentsPerWeek(

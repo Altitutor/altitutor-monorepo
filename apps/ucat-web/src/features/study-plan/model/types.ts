@@ -3,7 +3,6 @@ export type StudyPlanSjtPreference = "normally" | "a_little" | "not_at_all";
 
 export type StudyPlanAvailability = {
   weekday: StudyPlanWeekday;
-  maxMinutes: number;
 };
 
 export type StudyPlanProfileInput = {
@@ -174,8 +173,8 @@ export type GeneratedStudyPlanTask = {
 
 export type StudyPlanCapacityRisk = {
   level: "none" | "warning";
-  availableMinutesPerWeek: number;
-  recommendedMinutesPerWeek: number;
+  availableStudyDaysPerWeek: number;
+  recommendedStudyDaysPerWeek: number;
   outstandingSectionEquivalents: number;
   schedulableSectionEquivalents: number;
   message: string | null;

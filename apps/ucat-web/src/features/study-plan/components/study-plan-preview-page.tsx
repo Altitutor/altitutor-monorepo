@@ -323,7 +323,6 @@ function makePlan(
     testDate: scenarioId === "provisional_date" ? null : planningDate,
     availableDays: weekdays.map((weekday) => ({
       weekday: weekday as 0 | 1 | 2 | 3 | 4 | 5 | 6,
-      maxMinutes: 60,
     })),
     preferredMockWeekday: 6 as const,
   };

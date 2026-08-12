@@ -7,8 +7,8 @@ import type { StudyPlanCapacityRisk } from "@/features/study-plan/model/types";
 function risk(message: string | null): StudyPlanCapacityRisk {
   return {
     level: "warning",
-    availableMinutesPerWeek: 360,
-    recommendedMinutesPerWeek: 720,
+    availableStudyDaysPerWeek: 1,
+    recommendedStudyDaysPerWeek: 2,
     outstandingSectionEquivalents: 15.3,
     schedulableSectionEquivalents: 8,
     message,

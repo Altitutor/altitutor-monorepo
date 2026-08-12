@@ -5,7 +5,7 @@ const baseProfile = {
   targetScore: 2100,
   testYear: 2026,
   testDate: null,
-  availableDays: [{ weekday: 1, maxMinutes: 60 }],
+  availableDays: [{ weekday: 1 }],
   preferredMockWeekday: 1,
 };
 

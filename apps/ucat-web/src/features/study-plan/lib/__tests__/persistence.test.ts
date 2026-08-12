@@ -34,7 +34,7 @@ function task(
 describe("Study plan persistence", () => {
   it("replaces generations when any canonical preparation policy version changes", () => {
     const current = CURRENT_PREPARATION_VERSIONS;
-    expect(current.policy).toBe("evidence-driven-preparation-policy-v5");
+    expect(current.policy).toBe("evidence-driven-preparation-policy-v6");
     expect(
       needsPreparationVersionReplacement({ versions: current }, current),
     ).toBe(false);

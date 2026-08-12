@@ -41,9 +41,9 @@ const profile: StudyPlanProfileInput = {
   testYear: 2026,
   testDate: "2026-08-05",
   availableDays: [
-    { weekday: 1, maxMinutes: 90 },
-    { weekday: 3, maxMinutes: 90 },
-    { weekday: 6, maxMinutes: 150 },
+    { weekday: 1 },
+    { weekday: 3 },
+    { weekday: 6 },
   ],
   preferredMockWeekday: 6,
 };
@@ -102,7 +102,6 @@ describe("generateStudyPlan", () => {
         testDate: "2026-01-11",
         availableDays: [0, 1, 2, 3, 4, 5, 6].map((weekday) => ({
           weekday: weekday as 0 | 1 | 2 | 3 | 4 | 5 | 6,
-          maxMinutes: 90,
         })),
       },
       sections,
@@ -196,7 +195,7 @@ describe("generateStudyPlan", () => {
         (practiceByDate.get(task.scheduledDate) ?? 0) + 1,
       );
     }
-    expect(Math.max(...practiceByDate.values())).toBe(1);
+    expect(Math.max(...practiceByDate.values())).toBeLessThanOrEqual(2);
   });
 
   it("mixes practice into Learning when many unfinished lessons could fill the horizon", () => {
@@ -221,11 +220,11 @@ describe("generateStudyPlan", () => {
         ...profile,
         testDate: "2027-07-28",
         availableDays: [
-          { weekday: 1, maxMinutes: 60 },
-          { weekday: 2, maxMinutes: 60 },
-          { weekday: 4, maxMinutes: 60 },
-          { weekday: 5, maxMinutes: 60 },
-          { weekday: 6, maxMinutes: 120 },
+          { weekday: 1 },
+          { weekday: 2 },
+          { weekday: 4 },
+          { weekday: 5 },
+          { weekday: 6 },
         ],
       },
       sections,
@@ -245,9 +244,37 @@ describe("generateStudyPlan", () => {
     );
     expect(coreTasks.some((task) => task.taskType === "learn")).toBe(true);
     expect(coreTasks.some((task) => task.taskType === "practice")).toBe(true);
-    expect(result.capacityRisk.message).not.toMatch(
-      /section-equivalents|intensity envelope/i,
+    expect(
+      Math.max(
+        ...result.tasks
+          .filter((task) => task.taskType === "learn")
+          .map((task) => task.estimatedMinutes),
+      ),
+    ).toBe(20);
+    const tasksByDate = Map.groupBy(
+      result.tasks,
+      (task) => task.scheduledDate,
     );
+    for (const learningTask of result.tasks.filter(
+      (task) => task.taskType === "learn",
+    )) {
+      const tasks = tasksByDate.get(learningTask.scheduledDate) ?? [];
+      expect(
+        tasks.some(
+          (task) =>
+            task.taskType === "practice" &&
+            task.sectionId === learningTask.sectionId,
+        ),
+      ).toBe(true);
+      expect(
+        tasks.some(
+          (task) =>
+            task.taskType === "review" &&
+            task.sectionId === learningTask.sectionId,
+        ),
+      ).toBe(true);
+    }
+    expect(result.capacityRisk.message).toBeNull();
   });
 
   it("continues from essential into recommended instruction while Learning", () => {
@@ -258,7 +285,6 @@ describe("generateStudyPlan", () => {
         ...profile,
         availableDays: [0, 1, 2, 3, 4, 5, 6].map((weekday) => ({
           weekday: weekday as 0 | 1 | 2 | 3 | 4 | 5 | 6,
-          maxMinutes: 60,
         })),
       },
       sections,
@@ -309,7 +335,6 @@ describe("generateStudyPlan", () => {
         ...profile,
         availableDays: [0, 1, 2, 3, 4, 5, 6].map((weekday) => ({
           weekday: weekday as 0 | 1 | 2 | 3 | 4 | 5 | 6,
-          maxMinutes: 60,
         })),
       },
       sections,
@@ -337,7 +362,7 @@ describe("generateStudyPlan", () => {
       profile: {
         ...profile,
         targetScore: 2500,
-        availableDays: [{ weekday: 6, maxMinutes: 30 }],
+        availableDays: [{ weekday: 6 }],
       },
       sections,
       signals: sections.map((section) => ({
@@ -372,7 +397,6 @@ describe("generateStudyPlan", () => {
         targetScore: 2500,
         availableDays: [0, 1, 2, 3, 4, 5, 6].map((weekday) => ({
           weekday: weekday as 0 | 1 | 2 | 3 | 4 | 5 | 6,
-          maxMinutes: 30,
         })),
       },
       sections,
@@ -446,8 +470,8 @@ describe("generateStudyPlan", () => {
       profile: {
         ...profile,
         availableDays: [
-          { weekday: 5, maxMinutes: 30 },
-          { weekday: 6, maxMinutes: 30 },
+          { weekday: 5 },
+          { weekday: 6 },
         ],
         preferredMockWeekday: 6,
       },
@@ -504,7 +528,6 @@ describe("generateStudyPlan", () => {
           testDate: planningDate,
           availableDays: [0, 1, 2, 3, 4, 5, 6].map((weekday) => ({
             weekday: weekday as 0 | 1 | 2 | 3 | 4 | 5 | 6,
-            maxMinutes: 150,
           })),
         },
         sections,
@@ -540,7 +563,6 @@ describe("generateStudyPlan", () => {
         sjtPreference: "normally",
         availableDays: [0, 1, 2, 3, 4, 5, 6].map((weekday) => ({
           weekday: weekday as 0 | 1 | 2 | 3 | 4 | 5 | 6,
-          maxMinutes: 90,
         })),
       },
       sections,
@@ -572,7 +594,6 @@ describe("generateStudyPlan", () => {
         sjtPreference: "normally",
         availableDays: [0, 1, 2, 3, 4, 5, 6].map((weekday) => ({
           weekday: weekday as 0 | 1 | 2 | 3 | 4 | 5 | 6,
-          maxMinutes: 90,
         })),
       },
       sections,
@@ -607,7 +628,6 @@ describe("generateStudyPlan", () => {
         testDate: planningDate,
         availableDays: [0, 1, 2, 3, 4, 5, 6].map((weekday) => ({
           weekday: weekday as 0 | 1 | 2 | 3 | 4 | 5 | 6,
-          maxMinutes: 150,
         })),
       },
       sections,
@@ -641,7 +661,7 @@ describe("generateStudyPlan", () => {
       profile: {
         ...profile,
         testDate: planningDate,
-        availableDays: [{ weekday: 1, maxMinutes: 150 }],
+        availableDays: [{ weekday: 1 }],
         preferredMockWeekday: 1,
       },
       sections,
@@ -681,7 +701,6 @@ describe("generateStudyPlan", () => {
           sjtPreference,
           availableDays: [0, 1, 2, 3, 4, 5, 6].map((weekday) => ({
             weekday: weekday as 0 | 1 | 2 | 3 | 4 | 5 | 6,
-            maxMinutes: 90,
           })),
         },
         sections,
@@ -785,7 +804,6 @@ describe("generateStudyPlan", () => {
         ...profile,
         availableDays: [0, 1, 2, 3, 4, 5, 6].map((weekday) => ({
           weekday: weekday as 0 | 1 | 2 | 3 | 4 | 5 | 6,
-          maxMinutes: 60,
         })),
       },
       sections,
@@ -825,7 +843,7 @@ describe("generateStudyPlan", () => {
       profile: {
         ...profile,
         targetScore: 2600,
-        availableDays: [{ weekday: 1, maxMinutes: 20 }],
+        availableDays: [{ weekday: 1 }],
       },
       sections,
       signals: sections.map((section) => ({
@@ -883,7 +901,6 @@ describe("generateStudyPlan", () => {
         targetScore: 2500,
         availableDays: [0, 1, 2, 3, 4, 5, 6].map((weekday) => ({
           weekday: weekday as 0 | 1 | 2 | 3 | 4 | 5 | 6,
-          maxMinutes: 30,
         })),
       },
       sections,
@@ -921,14 +938,14 @@ describe("generateStudyPlan", () => {
     }
   });
 
-  it("quantifies capacity risk when milestone demand exceeds the intensity envelope", () => {
+  it("warns when the student selects too few study days for the phase", () => {
     const result = generateStudyPlan({
       today: "2026-06-15",
       planningDate: "2026-07-05",
       profile: {
         ...profile,
         targetScore: 2600,
-        availableDays: [{ weekday: 1, maxMinutes: 20 }],
+        availableDays: [{ weekday: 1 }],
       },
       sections,
       signals: sections.map((section) => ({
@@ -952,7 +969,7 @@ describe("generateStudyPlan", () => {
       result.capacityRisk.schedulableSectionEquivalents,
     );
     expect(result.capacityRisk.message).toBe(
-      "Your available study time cannot fit every recommended activity into the next 21 days. Add another study day if you want to cover more sooner.",
+      "You selected fewer study days than the exam phase normally needs. The plan will prioritise mocks and the highest-value weaknesses on the days you selected.",
     );
   });
 
@@ -963,11 +980,11 @@ describe("generateStudyPlan", () => {
       profile: {
         ...profile,
         availableDays: [
-          { weekday: 1, maxMinutes: 30 },
-          { weekday: 2, maxMinutes: 30 },
-          { weekday: 3, maxMinutes: 30 },
-          { weekday: 4, maxMinutes: 30 },
-          { weekday: 5, maxMinutes: 30 },
+          { weekday: 1 },
+          { weekday: 2 },
+          { weekday: 3 },
+          { weekday: 4 },
+          { weekday: 5 },
         ],
       },
       sections,

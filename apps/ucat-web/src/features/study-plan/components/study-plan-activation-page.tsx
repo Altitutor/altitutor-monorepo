@@ -81,11 +81,11 @@ const DAYS: Array<{ value: StudyPlanWeekday; label: string }> = [
 ];
 
 const DEFAULT_AVAILABILITY: StudyPlanAvailability[] = [
-  { weekday: 1, maxMinutes: 60 },
-  { weekday: 2, maxMinutes: 60 },
-  { weekday: 4, maxMinutes: 60 },
-  { weekday: 5, maxMinutes: 60 },
-  { weekday: 6, maxMinutes: 120 },
+  { weekday: 1 },
+  { weekday: 2 },
+  { weekday: 4 },
+  { weekday: 5 },
+  { weekday: 6 },
 ];
 
 const WORKSPACE_SETUP_ANIMATION_MS = 4_100;
@@ -110,10 +110,6 @@ const SJT_OPTIONS: Array<{
     description: "Use full mocks for SJT and skip standalone SJT work.",
   },
 ];
-
-function defaultMinutesForDay(day: StudyPlanWeekday): number {
-  return day === 0 || day === 6 ? 120 : 60;
-}
 
 function formatDate(value: string): string {
   return new Date(`${value}T00:00:00`).toLocaleDateString("en-AU", {
@@ -331,7 +327,7 @@ export function StudyPlanActivationPage() {
     setAvailability((current) =>
       current.some((day) => day.weekday === weekday)
         ? current.filter((day) => day.weekday !== weekday)
-        : [...current, { weekday, maxMinutes: defaultMinutesForDay(weekday) }],
+        : [...current, { weekday }],
     );
   }
 

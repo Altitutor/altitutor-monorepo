@@ -96,14 +96,8 @@ export function parseStudyPlanProfileInput(
         throw new Error("Invalid available day.");
       const day = item as Record<string, unknown>;
       const weekday = integer(day.weekday, "Weekday");
-      const maxMinutes = integer(day.maxMinutes, "Daily time");
       if (weekday < 0 || weekday > 6) throw new Error("Invalid weekday.");
-      if (maxMinutes < 15 || maxMinutes > 360) {
-        throw new Error(
-          "Daily study time must be between 15 minutes and 6 hours.",
-        );
-      }
-      return { weekday: weekday as StudyPlanWeekday, maxMinutes };
+      return { weekday: weekday as StudyPlanWeekday };
     },
   );
   if (

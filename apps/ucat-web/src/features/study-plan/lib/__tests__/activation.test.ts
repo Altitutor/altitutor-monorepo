@@ -1,21 +1,21 @@
 import { inferPreferredMockWeekday } from "@/features/study-plan/lib/activation";
 
 describe("inferPreferredMockWeekday", () => {
-  it("chooses the available day with the greatest capacity", () => {
+  it("chooses the earliest available weekday when no weekend is selected", () => {
     expect(
       inferPreferredMockWeekday([
-        { weekday: 1, maxMinutes: 60 },
-        { weekday: 3, maxMinutes: 90 },
-        { weekday: 6, maxMinutes: 75 },
+        { weekday: 1 },
+        { weekday: 3 },
+        { weekday: 4 },
       ]),
-    ).toBe(3);
+    ).toBe(1);
   });
 
-  it("prefers a weekend when the greatest capacity is tied", () => {
+  it("prefers a weekend for a full mock", () => {
     expect(
       inferPreferredMockWeekday([
-        { weekday: 2, maxMinutes: 120 },
-        { weekday: 6, maxMinutes: 120 },
+        { weekday: 2 },
+        { weekday: 6 },
       ]),
     ).toBe(6);
   });

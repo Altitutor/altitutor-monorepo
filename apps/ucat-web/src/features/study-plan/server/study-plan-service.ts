@@ -40,6 +40,7 @@ import {
   reviewTask,
 } from "@/features/study-plan/lib/generator";
 import { estimateLearningModuleMinutes } from "@/features/study-plan/lib/module-duration";
+import { isLegacyDemandCapacityRiskMessage } from "@/features/study-plan/lib/capacity-risk-copy";
 import {
   needsPreparationVersionReplacement,
   planProfileTransition,
@@ -138,15 +139,13 @@ function parseAvailability(
   return value.flatMap((item) => {
     if (!item || typeof item !== "object" || Array.isArray(item)) return [];
     const weekday = item.weekday;
-    const maxMinutes = item.maxMinutes;
     if (
       typeof weekday !== "number" ||
-      typeof maxMinutes !== "number" ||
       weekday < 0 ||
       weekday > 6
     )
       return [];
-    return [{ weekday: weekday as 0 | 1 | 2 | 3 | 4 | 5 | 6, maxMinutes }];
+    return [{ weekday: weekday as 0 | 1 | 2 | 3 | 4 | 5 | 6 }];
   });
 }
 
@@ -1384,8 +1383,8 @@ function mapTask(row: TaskRow): StudyPlanTask {
 function readCapacityRisk(value: Json | null): StudyPlanCapacityRisk {
   const fallback: StudyPlanCapacityRisk = {
     level: "none",
-    availableMinutesPerWeek: 0,
-    recommendedMinutesPerWeek: 0,
+    availableStudyDaysPerWeek: 0,
+    recommendedStudyDaysPerWeek: 0,
     outstandingSectionEquivalents: 0,
     schedulableSectionEquivalents: 0,
     message: null,
@@ -1393,15 +1392,17 @@ function readCapacityRisk(value: Json | null): StudyPlanCapacityRisk {
   if (!value || typeof value !== "object" || Array.isArray(value))
     return fallback;
   const record = value as Record<string, Json | undefined>;
+  const message = typeof record.message === "string" ? record.message : null;
+  if (isLegacyDemandCapacityRiskMessage(message)) return fallback;
   return {
     level: record.level === "warning" ? "warning" : "none",
-    availableMinutesPerWeek:
-      typeof record.availableMinutesPerWeek === "number"
-        ? record.availableMinutesPerWeek
+    availableStudyDaysPerWeek:
+      typeof record.availableStudyDaysPerWeek === "number"
+        ? record.availableStudyDaysPerWeek
         : 0,
-    recommendedMinutesPerWeek:
-      typeof record.recommendedMinutesPerWeek === "number"
-        ? record.recommendedMinutesPerWeek
+    recommendedStudyDaysPerWeek:
+      typeof record.recommendedStudyDaysPerWeek === "number"
+        ? record.recommendedStudyDaysPerWeek
         : 0,
     outstandingSectionEquivalents:
       typeof record.outstandingSectionEquivalents === "number"
@@ -1411,7 +1412,7 @@ function readCapacityRisk(value: Json | null): StudyPlanCapacityRisk {
       typeof record.schedulableSectionEquivalents === "number"
         ? record.schedulableSectionEquivalents
         : 0,
-    message: typeof record.message === "string" ? record.message : null,
+    message,
   };
 }
 

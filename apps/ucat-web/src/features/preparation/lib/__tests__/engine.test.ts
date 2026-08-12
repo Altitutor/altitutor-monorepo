@@ -59,9 +59,9 @@ function input(): PreparationEngineInput {
         testYear: 2026,
         testDate: "2026-08-05",
         availableDays: [
-          { weekday: 1, maxMinutes: 60 },
-          { weekday: 3, maxMinutes: 60 },
-          { weekday: 6, maxMinutes: 60 },
+          { weekday: 1 },
+          { weekday: 3 },
+          { weekday: 6 },
         ],
         preferredMockWeekday: 6,
       },
@@ -593,7 +593,6 @@ describe("prepareStudent", () => {
     fixture.goal.profile.availableDays = [0, 1, 2, 3, 4, 5, 6].map(
       (weekday) => ({
         weekday: weekday as 0 | 1 | 2 | 3 | 4 | 5 | 6,
-        maxMinutes: 60,
       }),
     );
     fixture.content.categories = [

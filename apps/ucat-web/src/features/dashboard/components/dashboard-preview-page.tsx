@@ -362,7 +362,6 @@ function makePlan(
       testDate,
       availableDays: [1, 3, 5].map((weekday) => ({
         weekday: weekday as 1 | 3 | 5,
-        maxMinutes: 45,
       })),
       preferredMockWeekday: 6,
       planningDate: testDate ?? addDays(today, 365),
@@ -377,8 +376,8 @@ function makePlan(
       endsOn: testDate ?? addDays(today, 365),
       capacityRisk: {
         level: "none",
-        availableMinutesPerWeek: 135,
-        recommendedMinutesPerWeek: 120,
+        availableStudyDaysPerWeek: 3,
+        recommendedStudyDaysPerWeek: 2,
         outstandingSectionEquivalents: 3,
         schedulableSectionEquivalents: 12,
         message: null,

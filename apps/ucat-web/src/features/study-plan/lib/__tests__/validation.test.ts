@@ -5,7 +5,7 @@ const baseProfile = {
   targetScore: 2100,
   testYear: 2026,
   testDate: null,
-  availableDays: [{ weekday: 1, maxMinutes: 60 }],
+  availableDays: [{ weekday: 1 }],
   preferredMockWeekday: 1,
 };
 
@@ -26,6 +26,15 @@ describe("parseStudyPlanProfileInput test date validation", () => {
         testDate: "2026-09-15",
       }),
     ).toMatchObject({ testDate: "2026-09-15" });
+  });
+
+  it("keeps only weekdays when an older client still sends hidden minute limits", () => {
+    expect(
+      parseStudyPlanProfileInput({
+        ...baseProfile,
+        availableDays: [{ weekday: 1, maxMinutes: 60 }],
+      }).availableDays,
+    ).toEqual([{ weekday: 1 }]);
   });
 
   it("accepts today as the test date", () => {

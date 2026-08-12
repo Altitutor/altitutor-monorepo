@@ -59,7 +59,7 @@ function plan(tasks: StudyPlanTask[]): StudyPlanResponse {
       planningDateIsProvisional: false,
       nextWeeklyReplanOn: null,
       preferredMockWeekday: 6,
-      availableDays: [{ weekday: 3, maxMinutes: 45 }],
+      availableDays: [{ weekday: 3 }],
     },
     generation: null,
     tasks,

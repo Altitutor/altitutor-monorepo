@@ -1,9 +1,8 @@
 import {
   buildStudyPlanCalendarMonths,
   daysBetweenDateKeys,
-  isStudyPlanPracticeTask,
   studyPlanCalendarIntensityLevel,
-  studyPlanPracticeMinutes,
+  studyPlanPlannedMinutes,
 } from "@/features/study-plan/lib/calendar";
 import type { StudyPlanTask } from "@/features/study-plan/model/types";
 
@@ -61,19 +60,14 @@ describe("Study plan calendar", () => {
     expect(daysBetweenDateKeys("2026-09-30", "2026-10-04")).toBe(4);
   });
 
-  it("counts practice minutes and ignores review tasks", () => {
+  it("counts the complete planned workload", () => {
     expect(
-      isStudyPlanPracticeTask(
-        task({ taskType: "review", estimatedMinutes: 20 }),
-      ),
-    ).toBe(false);
-    expect(
-      studyPlanPracticeMinutes([
+      studyPlanPlannedMinutes([
         task({ taskType: "practice", estimatedMinutes: 30 }),
         task({ taskType: "review", estimatedMinutes: 15 }),
         task({ taskType: "learn", estimatedMinutes: 20 }),
       ]),
-    ).toBe(50);
+    ).toBe(65);
   });
 
   it("scales practice load against the visible window maximum", () => {

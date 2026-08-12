@@ -413,8 +413,8 @@ function mockReplacementPlan() {
       endsOn: "2026-09-01",
       capacityRisk: {
         level: "none",
-        availableMinutesPerWeek: 60,
-        recommendedMinutesPerWeek: 60,
+        availableStudyDaysPerWeek: 1,
+        recommendedStudyDaysPerWeek: 2,
         outstandingSectionEquivalents: 1,
         schedulableSectionEquivalents: 2,
         message: null,
@@ -584,7 +584,7 @@ describe("Study plan persistence orchestration", () => {
       targetScore: 2400,
       testYear: 2026,
       testDate: "2026-09-01",
-      availableDays: [{ weekday: 2, maxMinutes: 60 }],
+      availableDays: [{ weekday: 2 }],
       preferredMockWeekday: 2,
       sjtPreference: "a_little",
     });
@@ -644,7 +644,7 @@ describe("Study plan persistence orchestration", () => {
       targetScore: 2400,
       testYear: 2026,
       testDate: "2026-09-01",
-      availableDays: [{ weekday: 2, maxMinutes: 60 }],
+      availableDays: [{ weekday: 2 }],
       preferredMockWeekday: 2,
       sjtPreference: "a_little",
     });

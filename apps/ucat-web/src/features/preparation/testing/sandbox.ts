@@ -139,9 +139,9 @@ function baseInput(): PreparationEngineInput {
         testYear: 2026,
         testDate: "2026-08-05",
         availableDays: [
-          { weekday: 1, maxMinutes: 90 },
-          { weekday: 3, maxMinutes: 90 },
-          { weekday: 6, maxMinutes: 90 },
+          { weekday: 1 },
+          { weekday: 3 },
+          { weekday: 6 },
         ],
         preferredMockWeekday: 6,
         sjtPreference: "a_little",
@@ -319,7 +319,7 @@ export const PREPARATION_SANDBOX_PERSONAS = {
     "Low availability",
     "One available day exposes capacity trade-offs instead of an unlimited backlog.",
     (input) => {
-      input.goal.profile.availableDays = [{ weekday: 6, maxMinutes: 120 }];
+      input.goal.profile.availableDays = [{ weekday: 6 }];
       setExperiencedEvidence(input, { vr: 0.62, dm: 0.65, qr: 0.67 }, { vr: 0.8, dm: 0.8, qr: 0.85 });
     },
   ),
@@ -332,7 +332,6 @@ export const PREPARATION_SANDBOX_PERSONAS = {
       input.goal.profile.testDate = input.goal.planningDate;
       input.goal.profile.availableDays = [0, 1, 2, 3, 4, 5].map((weekday) => ({
         weekday: weekday as 0 | 1 | 2 | 3 | 4 | 5,
-        maxMinutes: 180,
       }));
       setExperiencedEvidence(input, { vr: 0.7, dm: 0.72, qr: 0.74 }, { vr: 1, dm: 1, qr: 1 });
     },

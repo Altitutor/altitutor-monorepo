@@ -41,29 +41,20 @@ export function daysBetweenDateKeys(fromDateKey: string, toDateKey: string) {
   return Math.round((toUtc - fromUtc) / DAY_MS);
 }
 
-/** Practice load for calendar heat — excludes review tasks. */
-export function isStudyPlanPracticeTask(task: StudyPlanTask): boolean {
-  return task.taskType !== "review";
-}
-
-export function studyPlanPracticeMinutes(tasks: StudyPlanTask[]): number {
-  return tasks.reduce(
-    (sum, task) =>
-      isStudyPlanPracticeTask(task) ? sum + task.estimatedMinutes : sum,
-    0,
-  );
+export function studyPlanPlannedMinutes(tasks: StudyPlanTask[]): number {
+  return tasks.reduce((sum, task) => sum + task.estimatedMinutes, 0);
 }
 
 /**
- * Maps a day's scheduled practice minutes against the busiest day in the
+ * Maps a day's planned minutes against the busiest day in the
  * currently visible calendar window.
  */
 export function studyPlanCalendarIntensityLevel(
-  scheduledPracticeMinutes: number,
+  scheduledMinutes: number,
   visibleMaxMinutes: number,
 ): ActivityIntensityLevel {
   return relativeActivityIntensityLevel(
-    Math.max(0, scheduledPracticeMinutes),
+    Math.max(0, scheduledMinutes),
     Math.max(0, visibleMaxMinutes),
   );
 }
