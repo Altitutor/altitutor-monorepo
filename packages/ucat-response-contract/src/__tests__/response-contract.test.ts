@@ -7,6 +7,7 @@ import {
   getAnswerSchemeProgressPoints,
   getAnswerSchemeContract,
   getAnswerSchemePresentation,
+  resolveAnswerSchemeDisplayColumns,
   tryGetPlacementPresentation,
 } from '../index'
 
@@ -26,6 +27,8 @@ describe('UCAT response contract', () => {
     expect(getAnswerSchemeProgressPoints('single_choice')).toBe(1)
     expect(getAnswerSchemeProgressPoints('decision_making_binary_placement')).toBe(2)
     expect(getAnswerSchemeProgressPoints('situational_judgement_most_least')).toBe(1)
+    expect(resolveAnswerSchemeDisplayColumns('situational_judgement_rating', 2)).toBe(2)
+    expect(resolveAnswerSchemeDisplayColumns('situational_judgement_most_least', 2)).toBe(1)
   })
 
   it('owns once-only placement transitions for every UI surface', () => {
@@ -156,6 +159,7 @@ describe('UCAT response contract', () => {
           ],
           reuse: 'unlimited',
           requiredPlacements: 5,
+          dragDirection: 'tokens_to_options',
         },
       }),
     })
@@ -248,6 +252,8 @@ describe('UCAT response contract', () => {
           ],
           reuse: 'once_each',
           requiredPlacements: 2,
+          displayColumnsOverride: 1,
+          dragDirection: 'options_to_tokens',
         },
       }),
     })

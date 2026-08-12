@@ -23,8 +23,7 @@ const EXPLANATION_MUTED_STYLE = { color: '#5a6c7d' } as const
 const ENGINE_MUTED_LABEL = 'text-[10pt] font-normal text-[#9ba9bd]'
 
 /** Engine UI ignores app dark theme — matches ucat-web exam shell. */
-const ENGINE_LIGHT_TEXT =
-  'bg-white text-black [color-scheme:light] dark:bg-white dark:text-black'
+const ENGINE_LIGHT_TEXT = 'bg-white text-black [color-scheme:light] dark:bg-white dark:text-black'
 
 /** Mirrors ucat-web QuestionItem subset used for display-only preview. */
 export type UcatEnginePreviewQuestion = {
@@ -38,7 +37,11 @@ export type UcatEnginePreviewQuestion = {
   questionJson?: Record<string, unknown> | null
   questionType: 'multiple_choice' | 'syllogism'
   responseType?: 'multiple_choice' | 'drag_and_drop'
-  answerScheme?: 'single_choice' | 'situational_judgement_rating' | 'decision_making_binary_placement' | 'situational_judgement_most_least'
+  answerScheme?:
+    | 'single_choice'
+    | 'situational_judgement_rating'
+    | 'decision_making_binary_placement'
+    | 'situational_judgement_most_least'
   options: Array<{
     id: string
     index: number
@@ -84,7 +87,7 @@ function wrapInteractive(children: ReactNode, interactive: boolean) {
 
 function hasExplanationContent(
   plain: string | undefined,
-  json: Record<string, unknown> | null | undefined
+  json: Record<string, unknown> | null | undefined,
 ): boolean {
   return (plain?.trim().length ?? 0) > 0 || hasRichTextContent(json as Json | null | undefined)
 }
@@ -141,13 +144,15 @@ function PlacementPreviewBody({
   placementSnapshot,
 }: {
   question: UcatEnginePreviewQuestion
-  preloadedContent?: { stem?: Record<string, unknown> | null; question?: Record<string, unknown> | null } | null
+  preloadedContent?: {
+    stem?: Record<string, unknown> | null
+    question?: Record<string, unknown> | null
+  } | null
   showAnswerExplanations?: boolean
   showAnswerResults?: boolean
   interactive?: boolean
   placementSnapshot?: Record<string, PlacementValue> | null
 }) {
-  const isTwoColumn = question.sectionDisplayColumns === 2
   const answerScheme = question.answerScheme ?? 'decision_making_binary_placement'
   const presentation = getAnswerSchemePresentation(
     answerScheme,
@@ -158,17 +163,23 @@ function PlacementPreviewBody({
   if (presentation.kind !== 'placement') {
     throw new Error('The preview question does not use a placement response.')
   }
+  const isTwoColumn = (presentation.displayColumnsOverride ?? question.sectionDisplayColumns) === 2
   const [positiveToken, negativeToken] = presentation.tokens
   if (!positiveToken || !negativeToken) {
     throw new Error('Placement responses require two presentation tokens.')
   }
 
   const [answers, setAnswers] = useState<Record<string, PlacementValue>>({})
-  const touchDragRef = useRef<{
-    pointerId: number
-    choice: PlacementValue
-    sourceOptionId: string | null
-  } | null>(null)
+  const touchDragRef = useRef<
+    | {
+        kind: 'token'
+        pointerId: number
+        choice: PlacementValue
+        sourceOptionId: string | null
+      }
+    | { kind: 'option'; pointerId: number; sourceOptionId: string }
+    | null
+  >(null)
 
   const assignChoice = (
     previous: Record<string, PlacementValue>,
@@ -197,15 +208,28 @@ function PlacementPreviewBody({
       if (!drag || drag.pointerId !== event.pointerId || !interactive) return
       touchDragRef.current = null
       const target = document.elementFromPoint(event.clientX, event.clientY)
+      if (drag.kind === 'option') {
+        const tokenElement = target?.closest<HTMLElement>('[data-preview-placement-token-value]')
+        const token = tokenElement?.dataset.previewPlacementTokenValue as PlacementValue | undefined
+        if (token && presentation.tokens.some((item) => item.value === token)) {
+          setAnswers((previous) =>
+            assignChoice(previous, drag.sourceOptionId, token, drag.sourceOptionId),
+          )
+        } else if (target?.closest('[data-preview-placement-option-tray]')) {
+          setAnswers((previous) => {
+            const next = { ...previous }
+            delete next[drag.sourceOptionId]
+            return next
+          })
+        }
+        return
+      }
       const optionElement = target?.closest<HTMLElement>('[data-preview-placement-option-id]')
       const targetOptionId = optionElement?.dataset.previewPlacementOptionId
       if (targetOptionId) {
-        setAnswers((previous) => assignChoice(
-          previous,
-          targetOptionId,
-          drag.choice,
-          drag.sourceOptionId,
-        ))
+        setAnswers((previous) =>
+          assignChoice(previous, targetOptionId, drag.choice, drag.sourceOptionId),
+        )
         return
       }
       if (drag.sourceOptionId && target?.closest('[data-preview-placement-token-area]')) {
@@ -231,7 +255,22 @@ function PlacementPreviewBody({
   ) => {
     if (event.pointerType === 'mouse' || !interactive) return
     event.preventDefault()
-    touchDragRef.current = { pointerId: event.pointerId, choice, sourceOptionId }
+    touchDragRef.current = {
+      kind: 'token',
+      pointerId: event.pointerId,
+      choice,
+      sourceOptionId,
+    }
+  }
+
+  const startOptionTouchDrag = (event: React.PointerEvent, sourceOptionId: string) => {
+    if (event.pointerType === 'mouse' || !interactive) return
+    event.preventDefault()
+    touchDragRef.current = {
+      kind: 'option',
+      pointerId: event.pointerId,
+      sourceOptionId,
+    }
   }
 
   const makeHandleDrop =
@@ -265,7 +304,140 @@ function PlacementPreviewBody({
     })
   }
 
-  const content = (
+  const makeOptionDestinationDrop =
+    (token: PlacementValue): DragEventHandler<HTMLDivElement> =>
+    (event) => {
+      event.preventDefault()
+      if (!interactive) return
+      const optionId = event.dataTransfer.getData('ucat-placement-option')
+      if (!optionId || !presentation.targetIds.includes(optionId)) return
+      setAnswers((previous) => assignChoice(previous, optionId, token, optionId))
+    }
+
+  const handleOptionTrayDrop: DragEventHandler<HTMLDivElement> = (event) => {
+    event.preventDefault()
+    if (!interactive) return
+    const optionId = event.dataTransfer.getData('ucat-placement-option')
+    if (!optionId) return
+    setAnswers((previous) => {
+      if (!previous[optionId]) return previous
+      const next = { ...previous }
+      delete next[optionId]
+      return next
+    })
+  }
+
+  const visibleAnswers = interactive ? answers : (placementSnapshot ?? {})
+  const optionsToTokensContent = (
+    <section className="space-y-5">
+      <QuestionPromptBlock
+        questionNumber={question.questionNumber}
+        questionJson={question.questionJson}
+        questionText={question.questionText}
+        preloadedQuestion={preloadedContent?.question}
+      />
+      <div className="max-w-4xl space-y-3">
+        {presentation.tokens.map((token) => {
+          const placedOptionId = Object.entries(visibleAnswers).find(
+            ([, value]) => value === token.value,
+          )?.[0]
+          const placedOption = question.options.find((option) => option.id === placedOptionId)
+          const placedCorrectly = placedOption?.answerKeyValue === token.value
+          return (
+            <div key={token.value} className="flex items-stretch gap-3 sm:gap-5">
+              <div className="flex w-36 shrink-0 items-center justify-center rounded border border-black bg-white px-3 py-4 text-center font-medium sm:w-44">
+                {token.label}
+              </div>
+              <div
+                data-preview-placement-token-value={token.value}
+                className="flex min-h-[68px] flex-1 items-center justify-center rounded border border-black bg-[#d1cbcb] p-2"
+                onDrop={interactive ? makeOptionDestinationDrop(token.value) : undefined}
+                onDragOver={interactive ? handleDragOver : undefined}
+                role={interactive ? 'button' : undefined}
+                tabIndex={interactive ? 0 : undefined}
+                aria-label={interactive ? `Drop an action into ${token.label}` : undefined}
+              >
+                {placedOption ? (
+                  <div className="w-full space-y-1">
+                    <div
+                      className={`flex min-h-[50px] w-full touch-none items-center justify-center rounded border bg-white px-4 py-2 text-center ${
+                        !interactive && (showAnswerExplanations || showAnswerResults)
+                          ? placedCorrectly
+                            ? 'border-green-600 bg-green-100'
+                            : 'border-red-600 bg-red-100'
+                          : 'border-black'
+                      }`}
+                      draggable={interactive}
+                      onPointerDown={(event) => startOptionTouchDrag(event, placedOption.id)}
+                      onDragStart={
+                        interactive
+                          ? (event) => {
+                              event.dataTransfer.setData('ucat-placement-option', placedOption.id)
+                              event.dataTransfer.effectAllowed = 'move'
+                            }
+                          : undefined
+                      }
+                    >
+                      <UcatRichContentBlock
+                        json={placedOption.answerJson}
+                        plainText={placedOption.text}
+                        className="w-full text-center"
+                      />
+                    </div>
+                    {!interactive &&
+                    (showAnswerExplanations || showAnswerResults) &&
+                    !placedCorrectly ? (
+                      <div className="text-right text-[9pt] text-emerald-700">
+                        Correct answer:{' '}
+                        {placedOption.answerKeyValue == null
+                          ? 'Not placed'
+                          : placedOption.answerKeyValue === positiveToken.value
+                            ? positiveToken.label
+                            : negativeToken.label}
+                      </div>
+                    ) : null}
+                  </div>
+                ) : null}
+              </div>
+            </div>
+          )
+        })}
+      </div>
+      <div
+        data-preview-placement-option-tray
+        className="max-w-3xl space-y-3 rounded bg-[#dfdfdf] p-5 sm:ml-12 sm:p-7"
+        onDrop={interactive ? handleOptionTrayDrop : undefined}
+        onDragOver={interactive ? handleDragOver : undefined}
+      >
+        {question.options
+          .filter((option) => !visibleAnswers[option.id])
+          .map((option) => (
+            <div
+              key={option.id}
+              className="flex min-h-[58px] touch-none items-center justify-center rounded border border-black bg-white px-4 py-2 text-center"
+              draggable={interactive}
+              onPointerDown={(event) => startOptionTouchDrag(event, option.id)}
+              onDragStart={
+                interactive
+                  ? (event) => {
+                      event.dataTransfer.setData('ucat-placement-option', option.id)
+                      event.dataTransfer.effectAllowed = 'move'
+                    }
+                  : undefined
+              }
+            >
+              <UcatRichContentBlock
+                json={option.answerJson}
+                plainText={option.text}
+                className="w-full text-center"
+              />
+            </div>
+          ))}
+      </div>
+    </section>
+  )
+
+  const tokensToOptionsContent = (
     <section className="space-y-4">
       <QuestionPromptBlock
         questionNumber={question.questionNumber}
@@ -278,20 +450,18 @@ function PlacementPreviewBody({
           {question.options.map((option) => {
             const savedAnswer = placementSnapshot?.[option.id]
             const choice =
-              !interactive && savedAnswer != null
-                ? savedAnswer
-                : (answers[option.id] ?? null)
-            const correctChoice = option.answerKeyValue === positiveToken.value
-              || option.answerKeyValue === negativeToken.value
-              ? option.answerKeyValue
-              : answerScheme === 'decision_making_binary_placement'
-                ? option.isAnswer ? positiveToken.value : negativeToken.value
-                : null
-            const showReviewState = Boolean(
-              showAnswerExplanations || showAnswerResults
-            )
-            const answerIsCorrect =
-              choice != null && choice === correctChoice
+              !interactive && savedAnswer != null ? savedAnswer : (answers[option.id] ?? null)
+            const correctChoice =
+              option.answerKeyValue === positiveToken.value ||
+              option.answerKeyValue === negativeToken.value
+                ? option.answerKeyValue
+                : answerScheme === 'decision_making_binary_placement'
+                  ? option.isAnswer
+                    ? positiveToken.value
+                    : negativeToken.value
+                  : null
+            const showReviewState = Boolean(showAnswerExplanations || showAnswerResults)
+            const answerIsCorrect = choice != null && choice === correctChoice
             return (
               <div
                 key={option.id}
@@ -321,12 +491,13 @@ function PlacementPreviewBody({
                     }
                     onClick={
                       interactive && presentation.reuse !== 'once_each'
-                        ? () => handleAssign(
-                            option.id,
-                            choice === positiveToken.value
-                              ? negativeToken.value
-                              : positiveToken.value,
-                          )
+                        ? () =>
+                            handleAssign(
+                              option.id,
+                              choice === positiveToken.value
+                                ? negativeToken.value
+                                : positiveToken.value,
+                            )
                         : undefined
                     }
                   >
@@ -360,7 +531,8 @@ function PlacementPreviewBody({
                 </div>
                 {showReviewState && !interactive && !answerIsCorrect ? (
                   <div className="text-right text-[9pt] text-emerald-700">
-                    Correct answer: {correctChoice == null
+                    Correct answer:{' '}
+                    {correctChoice == null
                       ? 'Not placed'
                       : correctChoice === positiveToken.value
                         ? positiveToken.label
@@ -389,7 +561,11 @@ function PlacementPreviewBody({
             <button
               type="button"
               draggable={interactive && !Object.values(answers).includes(positiveToken.value)}
-              disabled={interactive && presentation.reuse === 'once_each' && Object.values(answers).includes(positiveToken.value)}
+              disabled={
+                interactive &&
+                presentation.reuse === 'once_each' &&
+                Object.values(answers).includes(positiveToken.value)
+              }
               onPointerDown={(event) => startTouchDrag(event, positiveToken.value, null)}
               onDragStart={
                 interactive
@@ -407,7 +583,11 @@ function PlacementPreviewBody({
             <button
               type="button"
               draggable={interactive && !Object.values(answers).includes(negativeToken.value)}
-              disabled={interactive && presentation.reuse === 'once_each' && Object.values(answers).includes(negativeToken.value)}
+              disabled={
+                interactive &&
+                presentation.reuse === 'once_each' &&
+                Object.values(answers).includes(negativeToken.value)
+              }
               onPointerDown={(event) => startTouchDrag(event, negativeToken.value, null)}
               onDragStart={
                 interactive
@@ -435,6 +615,11 @@ function PlacementPreviewBody({
       ) : null}
     </section>
   )
+
+  const content =
+    presentation.dragDirection === 'options_to_tokens'
+      ? optionsToTokensContent
+      : tokensToOptionsContent
 
   if (isTwoColumn) {
     return (
@@ -494,7 +679,10 @@ function MultipleChoicePreviewBody({
   selectedOptionId: savedOptionId,
 }: {
   question: UcatEnginePreviewQuestion
-  preloadedContent?: { stem?: Record<string, unknown> | null; question?: Record<string, unknown> | null } | null
+  preloadedContent?: {
+    stem?: Record<string, unknown> | null
+    question?: Record<string, unknown> | null
+  } | null
   showAnswerExplanations?: boolean
   showAnswerResults?: boolean
   interactive?: boolean
@@ -515,19 +703,11 @@ function MultipleChoicePreviewBody({
       <div className="space-y-2 pl-6">
         {question.options.map((option, index) => {
           const letter = String.fromCharCode(65 + index)
-          const showReviewState = Boolean(
-            showAnswerExplanations || showAnswerResults
-          )
+          const showReviewState = Boolean(showAnswerExplanations || showAnswerResults)
           const selectedInReview = showReviewState && savedOptionId === option.id
-          const reviewHighlight = Boolean(
-            showReviewState && option.isAnswer
-          )
-          const incorrectHighlight = Boolean(
-            selectedInReview && !option.isAnswer
-          )
-          const radioChecked = showReviewState
-            ? selectedInReview
-            : selectedOptionId === option.id
+          const reviewHighlight = Boolean(showReviewState && option.isAnswer)
+          const incorrectHighlight = Boolean(selectedInReview && !option.isAnswer)
+          const radioChecked = showReviewState ? selectedInReview : selectedOptionId === option.id
           return (
             <div key={option.id} className="space-y-0.5">
               <div
@@ -643,9 +823,9 @@ export function UcatQuestionEnginePreview({
       : null
 
   if (
-    question.answerScheme === 'decision_making_binary_placement'
-    || question.answerScheme === 'situational_judgement_most_least'
-    || (!question.answerScheme && question.questionType === 'syllogism')
+    question.answerScheme === 'decision_making_binary_placement' ||
+    question.answerScheme === 'situational_judgement_most_least' ||
+    (!question.answerScheme && question.questionType === 'syllogism')
   ) {
     return wrapInteractive(
       <PlacementPreviewBody
@@ -656,7 +836,7 @@ export function UcatQuestionEnginePreview({
         interactive={interactive}
         placementSnapshot={placementSnapshot}
       />,
-      interactive
+      interactive,
     )
   }
 
@@ -669,6 +849,6 @@ export function UcatQuestionEnginePreview({
       interactive={interactive}
       selectedOptionId={selectedOptionId}
     />,
-    interactive
+    interactive,
   )
 }

@@ -90,6 +90,9 @@ export type PresentationContract =
       tokens: readonly { value: PlacementValue; label: string }[]
       reuse: 'unlimited' | 'once_each'
       requiredPlacements: number
+      /** Overrides the section default for an official scheme-specific layout. */
+      displayColumnsOverride?: 1 | 2
+      dragDirection: 'tokens_to_options' | 'options_to_tokens'
     }
 
 const compiledContractData = Symbol('compiled-response-contract-data')
@@ -844,6 +847,7 @@ const schemeImplementations: Record<
       ],
       reuse: 'unlimited',
       requiredPlacements: 5,
+      dragDirection: 'tokens_to_options',
     }),
     blankState: blankPlacement,
     normalize: (contract, value) =>
@@ -866,6 +870,8 @@ const schemeImplementations: Record<
       ],
       reuse: 'once_each',
       requiredPlacements: 2,
+      displayColumnsOverride: 1,
+      dragDirection: 'options_to_tokens',
     }),
     blankState: blankPlacement,
     normalize: (contract, value) =>
@@ -908,6 +914,16 @@ export function getAnswerSchemePresentation(
   orderedOptionIds: readonly string[]
 ): PresentationContract {
   return schemeImplementations[kind].presentation(orderedOptionIds)
+}
+
+export function resolveAnswerSchemeDisplayColumns(
+  kind: AnswerScheme['kind'],
+  sectionDefault: 1 | 2
+): 1 | 2 {
+  const presentation = getAnswerSchemePresentation(kind, [])
+  return presentation.kind === 'placement'
+    ? (presentation.displayColumnsOverride ?? sectionDefault)
+    : sectionDefault
 }
 
 export function tryGetPlacementPresentation(

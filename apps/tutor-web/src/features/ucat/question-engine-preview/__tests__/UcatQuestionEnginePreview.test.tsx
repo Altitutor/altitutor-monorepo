@@ -12,7 +12,7 @@ describe('UcatQuestionEnginePreview', () => {
       <UcatQuestionEnginePreview
         question={{
           id: 'most-least-preview',
-          sectionDisplayColumns: 1,
+          sectionDisplayColumns: 2,
           stemText: 'Scenario',
           questionText: 'Drag each destination.',
           questionType: 'multiple_choice',
@@ -27,16 +27,15 @@ describe('UcatQuestionEnginePreview', () => {
       />,
     )
 
-    expect(screen.getByRole('button', { name: 'Most Appropriate' })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Least Appropriate' })).toBeInTheDocument()
-    const targets = screen.getAllByLabelText('Drop Most Appropriate or Least Appropriate here')
-    expect(targets).toHaveLength(3)
+    expect(screen.getByText('Most Appropriate')).toBeInTheDocument()
+    expect(screen.getByText('Least Appropriate')).toBeInTheDocument()
+    const mostTarget = screen.getByLabelText('Drop an action into Most Appropriate')
 
     Object.defineProperty(document, 'elementFromPoint', {
       configurable: true,
-      value: () => targets[0],
+      value: () => mostTarget,
     })
-    fireEvent.pointerDown(screen.getByRole('button', { name: 'Most Appropriate' }), {
+    fireEvent.pointerDown(screen.getByText('Action A'), {
       pointerId: 1,
       pointerType: 'touch',
     })
@@ -46,7 +45,7 @@ describe('UcatQuestionEnginePreview', () => {
       clientX: 10,
       clientY: 10,
     })
-    expect(targets[0]).toHaveTextContent('Most Appropriate')
+    expect(mostTarget).toHaveTextContent('Action A')
   })
 
   it('shows the unkeyed middle action as not placed in read-only feedback', () => {
@@ -73,5 +72,6 @@ describe('UcatQuestionEnginePreview', () => {
     )
 
     expect(screen.getByText('Correct answer: Not placed')).toBeInTheDocument()
+    expect(screen.getByText('Action B').closest('.bg-red-100')).not.toBeNull()
   })
 })

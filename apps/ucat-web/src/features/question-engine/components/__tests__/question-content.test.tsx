@@ -94,6 +94,7 @@ describe("QuestionContent syllogism restoration", () => {
       questionType: "multiple_choice",
       responseType: "drag_and_drop",
       answerScheme: "situational_judgement_most_least",
+      sectionDisplayColumns: 2,
       options: [
         { id: "action-a", index: 0, text: "Action A", answerKeyValue: "most" },
         { id: "action-b", index: 1, text: "Action B", answerKeyValue: null },
@@ -109,33 +110,38 @@ describe("QuestionContent syllogism restoration", () => {
       />,
     );
 
-    expect(screen.getByRole("button", { name: "Most Appropriate" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Least Appropriate" })).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Yes" })).not.toBeInTheDocument();
+    expect(screen.getByText("Most Appropriate")).toBeInTheDocument();
+    expect(screen.getByText("Least Appropriate")).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Yes" }),
+    ).not.toBeInTheDocument();
 
-    const [firstTarget, secondTarget] = screen.getAllByLabelText(
-      "Drop Most Appropriate or Least Appropriate here",
+    const mostTarget = screen.getByLabelText(
+      "Drop an action into Most Appropriate",
     );
-    fireEvent.dragStart(screen.getByRole("button", { name: "Most Appropriate" }), {
+    const leastTarget = screen.getByLabelText(
+      "Drop an action into Least Appropriate",
+    );
+    fireEvent.dragStart(screen.getByText("Action A"), {
       dataTransfer: dataTransfer({
-        "ucat-syllogism-choice": "most",
-        "ucat-syllogism-source": "",
+        "ucat-placement-option": "action-a",
       }),
     });
-    fireEvent.drop(firstTarget!, {
+    fireEvent.drop(mostTarget, {
       dataTransfer: dataTransfer({
-        "ucat-syllogism-choice": "most",
-        "ucat-syllogism-source": "",
+        "ucat-placement-option": "action-a",
       }),
     });
-    fireEvent.drop(secondTarget!, {
+    expect(mostTarget).toHaveTextContent("Action A");
+
+    fireEvent.drop(leastTarget, {
       dataTransfer: dataTransfer({
-        "ucat-syllogism-choice": "most",
-        "ucat-syllogism-source": "action-a",
+        "ucat-placement-option": "action-a",
       }),
     });
 
-    expect(onChange).toHaveBeenLastCalledWith({ "action-b": "most" });
+    expect(onChange).toHaveBeenLastCalledWith({ "action-a": "least" });
+    expect(leastTarget).toHaveTextContent("Action A");
   });
 
   it("does not update its parent from inside the placement state updater", () => {
@@ -166,12 +172,9 @@ describe("QuestionContent syllogism restoration", () => {
       }),
     });
 
-    expect(
-      consoleError.mock.calls
-        .flat()
-        .map(String)
-        .join("\n"),
-    ).not.toContain("Cannot update a component");
+    expect(consoleError.mock.calls.flat().map(String).join("\n")).not.toContain(
+      "Cannot update a component",
+    );
     consoleError.mockRestore();
   });
 });

@@ -166,7 +166,9 @@ type QuestionContentProps = {
   selectedOptionId?: string;
   onSelectOption: (optionId: string) => void;
   placementSnapshot?: Record<string, PlacementValue>;
-  onChangePlacementSnapshot?: (snapshot: Record<string, PlacementValue>) => void;
+  onChangePlacementSnapshot?: (
+    snapshot: Record<string, PlacementValue>,
+  ) => void;
   /** Pre-refreshed stem/question content for instant image display. */
   preloadedContent?: CachedContent | null;
   /** When true (e.g. in-exam review), show explanations when the question/options include them. */
@@ -191,8 +193,10 @@ function PlacementQuestionContent({
   syllogismCorrectOptionIds = [],
   onSyllogismClickAttempt,
 }: QuestionContentProps) {
-  const isTwoColumn = question.sectionDisplayColumns === 2;
   const presentation = placementPresentationForQuestion(question);
+  const isTwoColumn =
+    (presentation.displayColumnsOverride ?? question.sectionDisplayColumns) ===
+    2;
   const [positiveToken, negativeToken] = presentation.tokens;
   if (!positiveToken || !negativeToken) {
     throw new Error("Placement responses require two presentation tokens.");
@@ -210,11 +214,16 @@ function PlacementQuestionContent({
     () => ({ ...placementSnapshot }),
   );
   const answersRef = useRef(answers);
-  const touchDragRef = useRef<{
-    pointerId: number;
-    choice: PlacementValue;
-    sourceOptionId: string | null;
-  } | null>(null);
+  const touchDragRef = useRef<
+    | {
+        kind: "token";
+        pointerId: number;
+        choice: PlacementValue;
+        sourceOptionId: string | null;
+      }
+    | { kind: "option"; pointerId: number; sourceOptionId: string }
+    | null
+  >(null);
 
   useEffect(() => {
     const next = { ...placementSnapshot };
@@ -243,26 +252,27 @@ function PlacementQuestionContent({
     [syncSnapshot],
   );
 
-  const assignChoice = useCallback((
-    previous: Record<string, PlacementValue>,
-    optionId: string,
-    choice: PlacementValue,
-    sourceOptionId: string | null,
-  ): Record<string, PlacementValue> => ({
-    ...applyPlacementTransition({
-      presentation,
-      placements: previous,
-      targetId: optionId,
-      token: choice,
-      sourceId: sourceOptionId,
+  const assignChoice = useCallback(
+    (
+      previous: Record<string, PlacementValue>,
+      optionId: string,
+      choice: PlacementValue,
+      sourceOptionId: string | null,
+    ): Record<string, PlacementValue> => ({
+      ...applyPlacementTransition({
+        presentation,
+        placements: previous,
+        targetId: optionId,
+        token: choice,
+        sourceId: sourceOptionId,
+      }),
     }),
-  }), [presentation]);
+    [presentation],
+  );
 
   const handleAssign = (optionId: string, choice: PlacementValue) => {
     if (readOnly || lockedOptionIds.has(optionId)) return;
-    commitAnswers((previous) =>
-      assignChoice(previous, optionId, choice, null),
-    );
+    commitAnswers((previous) => assignChoice(previous, optionId, choice, null));
   };
 
   useEffect(() => {
@@ -273,6 +283,34 @@ function PlacementQuestionContent({
       if (readOnly || syllogismDragOnly) return;
 
       const target = document.elementFromPoint(event.clientX, event.clientY);
+      if (drag.kind === "option") {
+        const tokenElement = target?.closest<HTMLElement>(
+          "[data-placement-token-value]",
+        );
+        const token = tokenElement?.dataset.placementTokenValue as
+          | PlacementValue
+          | undefined;
+        if (
+          token &&
+          (token === positiveToken.value || token === negativeToken.value)
+        ) {
+          commitAnswers((previous) =>
+            assignChoice(
+              previous,
+              drag.sourceOptionId,
+              token,
+              drag.sourceOptionId,
+            ),
+          );
+        } else if (target?.closest("[data-placement-option-tray]")) {
+          commitAnswers((previous) => {
+            const next = { ...previous };
+            delete next[drag.sourceOptionId];
+            return next;
+          });
+        }
+        return;
+      }
       const optionElement = target?.closest<HTMLElement>(
         "[data-syllogism-option-id]",
       );
@@ -309,7 +347,15 @@ function PlacementQuestionContent({
       window.removeEventListener("pointerup", finishTouchDrag);
       window.removeEventListener("pointercancel", finishTouchDrag);
     };
-  }, [assignChoice, commitAnswers, lockedOptionIds, readOnly, syllogismDragOnly]);
+  }, [
+    assignChoice,
+    commitAnswers,
+    lockedOptionIds,
+    negativeToken.value,
+    positiveToken.value,
+    readOnly,
+    syllogismDragOnly,
+  ]);
 
   const startTouchDrag = (
     event: React.PointerEvent,
@@ -319,8 +365,22 @@ function PlacementQuestionContent({
     if (event.pointerType === "mouse" || readOnly) return;
     event.preventDefault();
     touchDragRef.current = {
+      kind: "token",
       pointerId: event.pointerId,
       choice,
+      sourceOptionId,
+    };
+  };
+
+  const startOptionTouchDrag = (
+    event: React.PointerEvent,
+    sourceOptionId: string,
+  ) => {
+    if (event.pointerType === "mouse" || readOnly) return;
+    event.preventDefault();
+    touchDragRef.current = {
+      kind: "option",
+      pointerId: event.pointerId,
       sourceOptionId,
     };
   };
@@ -330,10 +390,11 @@ function PlacementQuestionContent({
     (event) => {
       event.preventDefault();
       if (readOnly || lockedOptionIds.has(optionId)) return;
-      const choice = event.dataTransfer.getData(
-        "ucat-syllogism-choice",
-      ) as PlacementValue | "";
-      if (choice !== positiveToken.value && choice !== negativeToken.value) return;
+      const choice = event.dataTransfer.getData("ucat-syllogism-choice") as
+        | PlacementValue
+        | "";
+      if (choice !== positiveToken.value && choice !== negativeToken.value)
+        return;
 
       const fromOptionId =
         event.dataTransfer.getData("ucat-syllogism-source") || null;
@@ -363,7 +424,127 @@ function PlacementQuestionContent({
     });
   };
 
-  const content = (
+  const makeOptionDestinationDrop =
+    (token: PlacementValue): DragEventHandler<HTMLDivElement> =>
+    (event) => {
+      event.preventDefault();
+      if (readOnly) return;
+      const optionId = event.dataTransfer.getData("ucat-placement-option");
+      if (!optionId || !presentation.targetIds.includes(optionId)) return;
+      commitAnswers((previous) =>
+        assignChoice(previous, optionId, token, optionId),
+      );
+    };
+
+  const handleOptionTrayDrop: DragEventHandler<HTMLDivElement> = (event) => {
+    event.preventDefault();
+    if (readOnly) return;
+    const optionId = event.dataTransfer.getData("ucat-placement-option");
+    if (!optionId || !answersRef.current[optionId]) return;
+    commitAnswers((previous) => {
+      const next = { ...previous };
+      delete next[optionId];
+      return next;
+    });
+  };
+
+  const optionById = useMemo(
+    () => new Map(question.options.map((option) => [option.id, option])),
+    [question.options],
+  );
+
+  const optionsToTokensContent = (
+    <section data-tour="question-engine-question" className="space-y-5">
+      <div className="font-medium text-[12pt]">
+        <RichContentBlock
+          json={question.questionJson}
+          plainText={question.questionText}
+          preloadedContent={preloadedContent?.question}
+          highlightText={highlightText}
+        />
+      </div>
+      <div className="max-w-4xl space-y-3">
+        {presentation.tokens.map((token) => {
+          const placedOptionId = Object.entries(answers).find(
+            ([, value]) => value === token.value,
+          )?.[0];
+          const placedOption = placedOptionId
+            ? optionById.get(placedOptionId)
+            : undefined;
+          return (
+            <div
+              key={token.value}
+              className="flex items-stretch gap-3 sm:gap-5"
+            >
+              <div className="flex w-36 shrink-0 items-center justify-center rounded border border-black bg-white px-3 py-4 text-center font-medium sm:w-44">
+                {token.label}
+              </div>
+              <div
+                data-placement-token-value={token.value}
+                className="flex min-h-[68px] flex-1 items-center justify-center rounded border border-black bg-[#d1cbcb] p-2"
+                onDrop={makeOptionDestinationDrop(token.value)}
+                onDragOver={handleDragOver}
+                role="button"
+                tabIndex={0}
+                aria-label={`Drop an action into ${token.label}`}
+              >
+                {placedOption ? (
+                  <div
+                    className="flex min-h-[50px] w-full touch-none items-center justify-center rounded border border-black bg-white px-4 py-2 text-center"
+                    draggable={!readOnly}
+                    onPointerDown={(event) =>
+                      startOptionTouchDrag(event, placedOption.id)
+                    }
+                    onDragStart={(event) => {
+                      event.dataTransfer.setData(
+                        "ucat-placement-option",
+                        placedOption.id,
+                      );
+                      event.dataTransfer.effectAllowed = "move";
+                    }}
+                  >
+                    <OptionText option={placedOption} />
+                  </div>
+                ) : null}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+      <div
+        data-placement-option-tray
+        className="max-w-3xl space-y-3 rounded bg-[#dfdfdf] p-5 sm:ml-12 sm:p-7"
+        onDrop={handleOptionTrayDrop}
+        onDragOver={handleDragOver}
+      >
+        {question.options
+          .filter((option) => !answers[option.id])
+          .map((option) => (
+            <div
+              key={option.id}
+              className="flex min-h-[58px] touch-none items-center justify-center rounded border border-black bg-white px-4 py-2 text-center"
+              draggable={!readOnly}
+              onPointerDown={(event) => startOptionTouchDrag(event, option.id)}
+              onDragStart={(event) => {
+                event.dataTransfer.setData("ucat-placement-option", option.id);
+                event.dataTransfer.effectAllowed = "move";
+              }}
+            >
+              <OptionText option={option} />
+            </div>
+          ))}
+      </div>
+      {showAnswerExplanations && hasAnswerExplanation(question) ? (
+        <AnswerExplanation
+          text={question.answerExplanation}
+          json={question.answerExplanationJson}
+          className="mt-3 border-t border-[#9ba9bd] pt-3 dark:border-border"
+        />
+      ) : null}
+    </section>
+  );
+
+  const tokensToOptionsContent = (
     <section data-tour="question-engine-question" className="space-y-4">
       <div className="font-medium text-[12pt]">
         <RichContentBlock
@@ -416,7 +597,8 @@ function PlacementQuestionContent({
                     onClick={
                       locked
                         ? undefined
-                        : syllogismDragOnly || presentation.reuse === "once_each"
+                        : syllogismDragOnly ||
+                            presentation.reuse === "once_each"
                           ? onSyllogismClickAttempt
                           : () =>
                               handleAssign(
@@ -541,6 +723,11 @@ function PlacementQuestionContent({
       ) : null}
     </section>
   );
+
+  const content =
+    presentation.dragDirection === "options_to_tokens"
+      ? optionsToTokensContent
+      : tokensToOptionsContent;
 
   if (isTwoColumn) {
     return (
