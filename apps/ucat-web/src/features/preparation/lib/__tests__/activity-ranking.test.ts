@@ -110,6 +110,52 @@ function rankingInput(): ActivityRankingInput {
 }
 
 describe("canonical activity ranking", () => {
+  it("does not assign a sectionless learning module to an arbitrary section", () => {
+    const input = rankingInput();
+    input.readiness = {
+      ...readiness,
+      mode: "learning",
+      sections: readiness.sections.map((section) => ({
+        ...section,
+        mode: "learning",
+      })),
+    };
+    input.learningModules = [
+      {
+        id: "sectionless-module",
+        title: "General advice",
+        sectionId: null,
+        sectionNumber: null,
+        priority: "essential",
+        estimatedMinutes: 10,
+        completionPercent: 0,
+        relevanceScore: 1,
+      },
+      {
+        id: "vr-module",
+        title: "VR foundations",
+        sectionId: "vr",
+        sectionNumber: 1,
+        priority: "essential",
+        estimatedMinutes: 10,
+        completionPercent: 0,
+        relevanceScore: 1,
+      },
+    ];
+
+    const instructionCandidates = rankActivityCandidates(input).filter(
+      (candidate) => candidate.kind === "instruction",
+    );
+
+    expect(instructionCandidates).toEqual([
+      expect.objectContaining({
+        id: "instruction:vr-module",
+        learningModuleId: "vr-module",
+        sectionId: "vr",
+      }),
+    ]);
+  });
+
   it("returns complete candidate provenance and ranks milestones by section rather than taxonomy count", () => {
     const candidates = rankActivityCandidates(rankingInput());
     const firstRequired = candidates.find(

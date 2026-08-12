@@ -15,8 +15,6 @@ import {
   type PreparationSandboxRun,
 } from "@/features/preparation/testing/sandbox";
 
-const PERSONAS = Object.values(PREPARATION_SANDBOX_PERSONAS);
-
 function policyText(fixture: PreparationSandboxCase, policySuffix = "") {
   return JSON.stringify(
     {
@@ -109,6 +107,49 @@ function Summary({ run, label }: { run: PreparationSandboxRun; label: string }) 
         </div>
       </div>
 
+      {result.plan.contentGaps.length > 0 ? (
+        <div className="rounded-xl border border-amber-500/40 bg-amber-500/10 p-3">
+          <h3 className="text-sm font-semibold">Development catalog gaps</h3>
+          <ul className="mt-2 list-disc pl-5 text-xs">
+            {result.plan.contentGaps.map((gap, index) => (
+              <li key={`${gap.kind}:${gap.sectionId}:${index}`}>
+                {gap.kind} · {gap.sectionId ?? "whole exam"}
+                {gap.moduleId ? ` · module ${gap.moduleId}` : ""} · {gap.reason}
+                {gap.availableQuestionCount != null
+                  ? ` · ${gap.availableQuestionCount}/${gap.requestedQuestionCount} questions available`
+                  : ""}
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
+
+      {run.fixture.input.content.learningModules.some(
+        (module) =>
+          (module.targetedPracticeInventory?.selectedStemIds?.length ?? 0) > 0,
+      ) ? (
+        <div className="rounded-xl border p-3">
+          <h3 className="text-sm font-semibold">Targeted selection diagnostics</h3>
+          <ul className="mt-2 space-y-2 text-xs">
+            {run.fixture.input.content.learningModules.flatMap((module) => {
+              const inventory = module.targetedPracticeInventory;
+              if (!inventory?.selectedStemIds?.length) return [];
+              return [
+                <li key={module.id}>
+                  <span className="font-semibold">{module.title}</span> · stems{" "}
+                  <span className="font-mono">
+                    {inventory.selectedStemIds.join(", ")}
+                  </span>
+                  {inventory.selectionTrace?.map((item) =>
+                    ` · ${item.stemId}: tier ${item.fallbackTier}, ${item.questionCount}q, tags ${item.matchedTagIds.join(",") || "none"}`,
+                  )}
+                </li>,
+              ];
+            })}
+          </ul>
+        </div>
+      ) : null}
+
       <div>
         <h3 className="text-sm font-semibold">21-day plan</h3>
         <div className="mt-2 overflow-x-auto">
@@ -119,6 +160,7 @@ function Summary({ run, label }: { run: PreparationSandboxRun; label: string }) 
                 <th className="pb-2">Activity</th>
                 <th className="pb-2">Practice</th>
                 <th className="pb-2">Review</th>
+                <th className="pb-2">Bound content</th>
                 <th className="pb-2">Reason</th>
               </tr>
             </thead>
@@ -135,6 +177,11 @@ function Summary({ run, label }: { run: PreparationSandboxRun; label: string }) 
                     </td>
                     <td className="py-2 pr-3">{day.practiceMinutes} min</td>
                     <td className="py-2 pr-3">{day.reviewMinutes} min</td>
+                    <td className="py-2 pr-3 font-mono">
+                      {tasks
+                        .flatMap((task) => task.questionSetId ?? task.mockId ?? [])
+                        .join(" · ") || "—"}
+                    </td>
                     <td className="max-w-sm py-2 text-muted-foreground">
                       {tasks[0]?.rationale ?? "—"}
                     </td>
@@ -158,8 +205,15 @@ function Summary({ run, label }: { run: PreparationSandboxRun; label: string }) 
   );
 }
 
-export function PreparationSandboxPage() {
-  const initial = PREPARATION_SANDBOX_PERSONAS["new-student"];
+export function PreparationSandboxPage({
+  catalogCase,
+}: {
+  catalogCase?: PreparationSandboxCase | null;
+}) {
+  const personas = catalogCase
+    ? [...Object.values(PREPARATION_SANDBOX_PERSONAS), catalogCase]
+    : Object.values(PREPARATION_SANDBOX_PERSONAS);
+  const initial = catalogCase ?? PREPARATION_SANDBOX_PERSONAS["new-student"];
   const [fixtureText, setFixtureText] = useState(
     exportPreparationSandboxCase(initial),
   );
@@ -188,9 +242,7 @@ export function PreparationSandboxPage() {
   }, [deferredFixtureText, deferredLeftPolicyText, deferredRightPolicyText]);
 
   function choosePersona(key: string) {
-    const fixture = PREPARATION_SANDBOX_PERSONAS[
-      key as keyof typeof PREPARATION_SANDBOX_PERSONAS
-    ];
+    const fixture = personas.find((persona) => persona.key === key);
     if (!fixture) return;
     setFixtureText(exportPreparationSandboxCase(fixture));
     setLeftPolicyText(policyText(fixture));
@@ -216,7 +268,7 @@ export function PreparationSandboxPage() {
   return (
     <main className="mx-auto min-h-screen w-full max-w-[1600px] space-y-6 p-4 sm:p-6 lg:p-8">
       <header className="space-y-2">
-        <Badge>ADMINSTAFF only · no Student writes</Badge>
+        <Badge>Development only · no Student writes</Badge>
         <h1 className="text-3xl font-semibold">UCAT Preparation policy laboratory</h1>
         <p className="max-w-4xl text-sm text-muted-foreground">
           Edit a versioned canonical engine case, compare the same evidence and seed,
@@ -233,7 +285,7 @@ export function PreparationSandboxPage() {
               value={comparison?.fixture.key ?? ""}
               onChange={(event) => choosePersona(event.target.value)}
             >
-              {PERSONAS.map((persona) => (
+              {personas.map((persona) => (
                 <option key={persona.key} value={persona.key}>
                   {persona.label}
                 </option>

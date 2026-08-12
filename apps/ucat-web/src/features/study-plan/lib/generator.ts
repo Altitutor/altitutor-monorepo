@@ -36,6 +36,12 @@ import {
   targetMocksInHorizon,
   UCAT_MOCK_CADENCE_POLICY,
 } from "@/features/preparation/lib/mock-cadence-policy";
+import {
+  selectBenchmarkMock,
+  selectBenchmarkSet,
+  type BenchmarkMockAsset,
+  type BenchmarkSetAsset,
+} from "@/features/preparation/lib/benchmark-selection";
 
 type GenerateStudyPlanInput = {
   today: string;
@@ -52,6 +58,9 @@ type GenerateStudyPlanInput = {
   sectionTargets?: Record<string, number>;
   readiness?: StudyPlanReadinessSnapshot;
   activityCandidates?: PreparationActivityCandidate[];
+  benchmarkSets?: BenchmarkSetAsset[];
+  benchmarkMocks?: BenchmarkMockAsset[];
+  lastLearningModuleServedAtBySection?: Record<string, string>;
 };
 
 type GenerateExtraStudyTaskInput = StudyPlanExtraStudyInput & {
@@ -282,46 +291,45 @@ function benchmarkTask(
   section: StudyPlanSection,
   scheduledDate: string,
   sortOrder: number,
-  prescribedPace: number,
+  asset: BenchmarkSetAsset,
+  repeated: boolean,
 ): GeneratedStudyPlanTask {
-  const pace = Math.max(0.5, Math.min(1, prescribedPace));
+  const pace = asset.pace;
   const atExamPace = pace === 1;
   return {
     scheduledDate,
     sortOrder,
     taskType: "section_benchmark",
-    title: `Full ${section.shortName} ${atExamPace ? "calibration set" : "learning benchmark"}`,
-    description: `${section.questionCount} questions at ${pace.toFixed(1)}× exam pace with feedback held until the end.`,
+    title: `${repeated ? "Repeat benchmark · " : ""}${asset.name}`,
+    description: `${asset.questionCount} questions at ${pace.toFixed(1)}× exam pace with feedback held until the end.`,
     rationale: atExamPace
       ? "A regular 1.0x full set keeps the pace ladder calibrated against real section conditions."
       : "This checks whether the section method is holding together and gives the timing phase a reliable baseline.",
     estimatedMinutes:
       Math.ceil(
-        (section.questionCount * section.timePerQuestionSeconds) / (60 * pace),
+        (asset.questionCount * section.timePerQuestionSeconds) / (60 * pace),
       ) + 8,
-    targetUnits: section.questionCount,
+    targetUnits: asset.questionCount,
     sectionId: section.id,
     questionStemCategoryId: null,
     questionTagId: null,
     learningModuleId: null,
-    questionSetId: null,
+    questionSetId: asset.id,
     mockId: null,
     skillTrainerId: null,
-    launchPath: "/practice",
+    launchPath: `/sets/${asset.id}`,
     launchConfig: {
-      kind: "practice",
+      kind: "set",
       corePractice: true,
       benchmark: true,
+      repeatedBenchmark: repeated,
       calibrationPurpose: atExamPace ? "exam_pace" : "learning_diagnostic",
       trackActiveAnsweringTime: true,
       section: section.key,
       ucatSectionId: section.id,
-      questionCount: section.questionCount,
-      categoryIds: [],
-      timeMode: "speed",
-      timeSpeedMultiplier: pace,
-      timePerQuestionSeconds: Math.round(section.timePerQuestionSeconds / pace),
-      reviewTiming: "atEnd",
+      questionCount: asset.questionCount,
+      prescribedPace: pace,
+      actualPace: pace,
     },
   };
 }
@@ -494,16 +502,17 @@ function pickCategory(
 }
 
 function mockTask(
-  number: number,
   scheduledDate: string,
   sortOrder: number,
   mode: StudyPlanTrainingMode,
+  asset: BenchmarkMockAsset,
+  repeated: boolean,
 ): GeneratedStudyPlanTask {
   return {
     scheduledDate,
     sortOrder,
     taskType: "mock",
-    title: `Full UCAT mock ${number}`,
+    title: `${repeated ? "Repeat benchmark · " : ""}${asset.name}`,
     description:
       "Complete a full mock at 1.0x under uninterrupted exam conditions.",
     rationale:
@@ -517,13 +526,14 @@ function mockTask(
     questionTagId: null,
     learningModuleId: null,
     questionSetId: null,
-    mockId: null,
+    mockId: asset.id,
     skillTrainerId: null,
-    launchPath: "/mocks",
+    launchPath: `/mocks/${asset.id}`,
     launchConfig: {
       kind: "mock",
       corePractice: true,
       timeSpeedMultiplier: 1,
+      repeatedBenchmark: repeated,
     },
   };
 }
@@ -687,7 +697,9 @@ export function generateStudyPlan(
   const practiceUseBySection = new Map<string, number>();
   const consumedOnce = new Set<string>();
   const canonicalTasks: GeneratedStudyPlanTask[] = [];
-  let canonicalMockNumber = input.completedMockCount;
+  const usedSetIds = new Set<string>();
+  const usedMockIds = new Set<string>();
+  const contentGaps: StudyPlanGenerationResult["contentGaps"] = [];
   let ordinaryCoreSessionCount = 0;
   let calibrationCount = 0;
 
@@ -712,21 +724,53 @@ export function generateStudyPlan(
         ? learningTask(learningModule, scheduledDate, sortOrder)
         : null;
     } else if (activity.kind === "calibration" && section) {
+      const selected = selectBenchmarkSet({
+        sectionId: section.id,
+        sectionQuestionCount: section.questionCount,
+        requestedQuestionCount: activity.dose.questionCount ?? section.questionCount,
+        requestedPace: readinessBySection.get(section.id)?.paceMultiplier ?? 1,
+        usedSetIds,
+        sets: input.benchmarkSets ?? [],
+      });
+      if (selected.status === "gap") {
+        contentGaps.push({
+          kind: "benchmark_set",
+          sectionId: section.id,
+          reason: selected.reason,
+        });
+        return null;
+      }
+      usedSetIds.add(selected.asset.id);
       generated = benchmarkTask(
         section,
         scheduledDate,
         sortOrder,
-        readinessBySection.get(section.id)?.paceMultiplier ?? 1,
+        selected.asset,
+        selected.repeated,
       );
       if (activity.reasonCode === "activity.diagnostic_due") {
-        generated.title = `${section.shortName} diagnostic`;
+        generated.title = `${selected.repeated ? "Repeat benchmark · " : ""}${selected.asset.name}`;
       }
     } else if (activity.kind === "mock") {
+      const selected = selectBenchmarkMock({
+        usedMockIds,
+        mocks: input.benchmarkMocks ?? [],
+      });
+      if (selected.status === "gap") {
+        contentGaps.push({
+          kind: "benchmark_mock",
+          sectionId: null,
+          reason: selected.reason,
+        });
+        return null;
+      }
+      usedMockIds.add(selected.asset.id);
       generated = mockTask(
-        ++canonicalMockNumber,
         scheduledDate,
         sortOrder,
         readiness.mode,
+        selected.asset,
+        selected.repeated,
       );
     } else if (isPracticeActivity(activity) && section) {
       const categories = activity.categoryIds.flatMap((categoryId) => {
@@ -777,6 +821,7 @@ export function generateStudyPlan(
         sectionEquivalents: activity.dose.sectionEquivalents,
         preparationPhase: sectionReadiness?.mode ?? readiness.mode,
         prescribedPace:
+          generated.launchConfig.prescribedPace ??
           sectionReadiness?.paceMultiplier ??
           (activity.kind === "mock" ? 1 : null),
         nextMilestone:
@@ -825,20 +870,6 @@ export function generateStudyPlan(
               return false;
             }
             if (
-              activity.kind === "instruction" &&
-              slot === envelope.coreSlotCount - 1
-            ) {
-              return false;
-            }
-            if (
-              activity.kind === "instruction" &&
-              activity.sectionId &&
-              (instructionUseBySection.get(activity.sectionId) ?? 0) >
-                (practiceUseBySection.get(activity.sectionId) ?? 0)
-            ) {
-              return false;
-            }
-            if (
               dailySectionEquivalents + activity.dose.sectionEquivalents >
               2.01
             ) {
@@ -860,20 +891,8 @@ export function generateStudyPlan(
             activity.kind === "mixed_practice" ||
             activity.kind === "related_practice",
         );
-        const previousCandidate = candidatesForDay.at(-1);
-        const pairedPractice =
-          previousCandidate?.kind === "instruction" &&
-          previousCandidate.sectionId
-            ? eligible.filter(
-                (activity) =>
-                  isPracticeActivity(activity) &&
-                  activity.sectionId === previousCandidate.sectionId,
-              )
-            : [];
         const slotEligible =
-          pairedPractice.length > 0
-            ? pairedPractice
-            : envelope.coreSlotCount > 2 && slot === 0 && broadEligible.length > 0
+          envelope.coreSlotCount > 2 && slot === 0 && broadEligible.length > 0
             ? broadEligible
             : eligible;
         const adjustedPriority = (activity: PreparationActivityCandidate) =>
@@ -884,6 +903,9 @@ export function generateStudyPlan(
                 activity.dose.sectionEquivalents) *
               1000
             : 0) -
+          (activity.kind === "instruction" && activity.sectionId
+            ? (instructionUseBySection.get(activity.sectionId) ?? 0) * 1000
+            : 0) -
           (activity.kind === "targeted_practice" &&
           activity.sectionId &&
           readinessBySection.get(activity.sectionId)?.mode !== "learning"
@@ -892,7 +914,32 @@ export function generateStudyPlan(
         const selected = [...slotEligible].sort((left, right) => {
           const leftAdjusted = adjustedPriority(left);
           const rightAdjusted = adjustedPriority(right);
-          return rightAdjusted - leftAdjusted || left.id.localeCompare(right.id);
+          if (left.kind === "instruction" && right.kind === "instruction") {
+            const useDifference =
+              (instructionUseBySection.get(left.sectionId ?? "") ?? 0) -
+              (instructionUseBySection.get(right.sectionId ?? "") ?? 0);
+            const recencyDifference = (
+              input.lastLearningModuleServedAtBySection?.[
+                left.sectionId ?? ""
+              ] ?? ""
+            ).localeCompare(
+              input.lastLearningModuleServedAtBySection?.[
+                right.sectionId ?? ""
+              ] ?? "",
+            );
+            return (
+              useDifference ||
+              recencyDifference ||
+              rightAdjusted - leftAdjusted ||
+              (sectionById.get(left.sectionId ?? "")?.sectionNumber ?? 99) -
+                (sectionById.get(right.sectionId ?? "")?.sectionNumber ?? 99) ||
+              left.id.localeCompare(right.id)
+            );
+          }
+          return (
+            rightAdjusted - leftAdjusted ||
+            left.id.localeCompare(right.id)
+          );
         })[0];
         if (!selected) break;
         if (selected.kind === "calibration") {
@@ -973,6 +1020,117 @@ export function generateStudyPlan(
         envelope.coreSlotCount > 2,
       );
       if (!selectedTask) continue;
+      if (
+        activity.kind === "instruction" &&
+        selectedTask.taskType === "learn" &&
+        selectedTask.sectionId
+      ) {
+        const section = sectionById.get(selectedTask.sectionId);
+        if (section) {
+          const learningModule = input.learningModules.find(
+            (module) => module.id === selectedTask.learningModuleId,
+          );
+          const inventory = learningModule?.targetedPracticeInventory;
+          const requestedQuestionCount = Math.min(
+            10,
+            inventory?.strictSelectableQuestionCount ??
+              inventory?.strictQuestionCount ??
+              10,
+          );
+          if (inventory && requestedQuestionCount < 10) {
+            contentGaps.push({
+              kind: "targeted_practice",
+              sectionId: section.id,
+              moduleId: learningModule.id,
+              reason: "insufficient_strict_content",
+              requestedQuestionCount: 10,
+              availableQuestionCount: requestedQuestionCount,
+            });
+          } else if (
+            inventory &&
+            activity.questionTagIds.length > 0 &&
+            (inventory.preferredTagSelectableQuestionCount ??
+              inventory.preferredTagQuestionCount) < requestedQuestionCount
+          ) {
+            contentGaps.push({
+              kind: "targeted_practice",
+              sectionId: section.id,
+              moduleId: learningModule.id,
+              reason: "tag_fallback_required",
+              requestedQuestionCount,
+              availableQuestionCount:
+                inventory.preferredTagSelectableQuestionCount ??
+                inventory.preferredTagQuestionCount,
+            });
+          }
+          if (requestedQuestionCount === 0) continue;
+          canonicalTasks.push(selectedTask);
+          const linkedCategories = activity.categoryIds.flatMap((categoryId) => {
+            const category = input.categories.find((item) => item.id === categoryId);
+            return category ? [category] : [];
+          });
+          const linkedPractice = practiceTask({
+            section,
+            category: linkedCategories[0] ?? null,
+            additionalCategories: linkedCategories.slice(1),
+            mode: "learning",
+            pace: readinessBySection.get(section.id)?.paceMultiplier ?? 0.5,
+            questionCount: requestedQuestionCount,
+            scheduledDate: date,
+            sortOrder: sortOrder++,
+            extraConfig: {
+              learningModuleId: selectedTask.learningModuleId,
+              questionTagIds: activity.questionTagIds,
+              linkedLearningPractice: true,
+              activityCandidateId: activity.id,
+              activityObjective: "build_learning_exposure",
+              activityReasonCode: "activity.module_linked_practice",
+              preparationPhase: "learning",
+              prescribedPace: null,
+              nextMilestone: selectedTask.launchConfig.nextMilestone,
+              sectionName: section.name,
+              optional: false,
+            },
+          });
+          linkedPractice.title = `Practice · ${selectedTask.title}`;
+          linkedPractice.rationale =
+            "Apply the method from the module while it is still fresh.";
+          linkedPractice.questionTagId =
+            activity.questionTagIds.length === 1
+              ? activity.questionTagIds[0]!
+              : null;
+          canonicalTasks.push(linkedPractice);
+          const linkedReview = reviewTask(
+            linkedPractice,
+            date,
+            sortOrder++,
+            "learning",
+          );
+          canonicalTasks.push({
+            ...linkedReview,
+            rationale: linkedPractice.rationale,
+            launchConfig: {
+              ...linkedReview.launchConfig,
+              linkedLearningPractice: true,
+              learningModuleId: selectedTask.learningModuleId,
+              derivedReview: true,
+              preparationPhase: "learning",
+              prescribedPace: null,
+              sectionName: section.name,
+            },
+          });
+          practiceUseBySection.set(
+            section.id,
+            (practiceUseBySection.get(section.id) ?? 0) + 1,
+          );
+          sectionEquivalentUse.set(
+            section.id,
+            (sectionEquivalentUse.get(section.id) ?? 0) +
+              linkedPractice.targetUnits! / section.questionCount,
+          );
+        }
+        continue;
+      }
       canonicalTasks.push(selectedTask);
       if (activity.duration.reviewMinutes > 0 && activity.kind !== "mock") {
         const review = reviewTask(selectedTask, date, sortOrder++);
@@ -1018,6 +1176,7 @@ export function generateStudyPlan(
     ),
     readiness,
     endsOn,
+    contentGaps,
   };
 }
 

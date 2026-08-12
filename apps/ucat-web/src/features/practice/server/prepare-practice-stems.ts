@@ -33,7 +33,8 @@ export async function preparePracticeStems({
   const enforcePracticeQuota =
     quotaStatus != null && !quotaStatus.isQuotaExempt;
   const result = await pickStems(reader, input, {
-    allowOversizedFallback: !enforcePracticeQuota,
+    allowOversizedFallback:
+      !enforcePracticeQuota && input.linkedLearningPractice !== true,
   });
   if (result.chosenStemIds.length === 0) {
     throw new PracticeStemSelectionError(

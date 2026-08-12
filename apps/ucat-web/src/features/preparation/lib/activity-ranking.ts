@@ -269,13 +269,15 @@ export function rankActivityCandidates(
         .filter(
           (item) =>
             item.completionPercent < 100 &&
-            (item.sectionId == null || item.sectionId === section.id),
+            item.priority !== "optional" &&
+            item.sectionId === section.id,
         )
         .sort(
           (left, right) =>
             Number(right.priority === "essential") -
               Number(left.priority === "essential") ||
-            right.relevanceScore - left.relevanceScore ||
+            (left.authoredOrder ?? Number.MAX_SAFE_INTEGER) -
+              (right.authoredOrder ?? Number.MAX_SAFE_INTEGER) ||
             left.id.localeCompare(right.id),
         );
       for (const [moduleIndex, learningModule] of learningModules.entries()) {
@@ -285,6 +287,8 @@ export function rankActivityCandidates(
             kind: "instruction",
             requirement: "required",
             sectionId: section.id,
+            categoryIds: learningModule.categoryIds ?? [],
+            questionTagIds: learningModule.questionTagIds ?? [],
             learningModuleId: learningModule.id,
             scope: "section",
             dose: { questionCount: null, sectionEquivalents: 0.25 },

@@ -313,6 +313,10 @@ export function prepareStudent(
     sectionTargets,
     readiness: assessment,
     activityCandidates,
+    benchmarkSets: input.content.benchmarkSets,
+    benchmarkMocks: input.content.benchmarkMocks,
+    lastLearningModuleServedAtBySection:
+      input.evidence.lastLearningModuleServedAtBySection,
   });
   const immediateGuidance = input.guidance
     ? buildNextStepDrafts({

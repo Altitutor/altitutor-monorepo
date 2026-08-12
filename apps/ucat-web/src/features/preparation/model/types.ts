@@ -16,6 +16,10 @@ import type {
   ActivityTagSignal,
   PreparationActivityCandidate,
 } from "@/features/preparation/lib/activity-ranking";
+import type {
+  BenchmarkMockAsset,
+  BenchmarkSetAsset,
+} from "@/features/preparation/lib/benchmark-selection";
 
 export type PreparationVersions = {
   readonly engine: string;
@@ -69,12 +73,15 @@ export type PreparationEngineInput = {
     learningModules: StudyPlanLearningModule[];
     skillTrainers: StudyPlanSkillTrainer[];
     tagSignals?: ActivityTagSignal[];
+    benchmarkSets?: BenchmarkSetAsset[];
+    benchmarkMocks?: BenchmarkMockAsset[];
   };
   evidence: {
     sectionSignals: StudyPlanSectionSignal[];
     timingSessions?: StudyPlanTimingEvidenceSession[];
     scoreEvidence?: RepresentativeScoreEvidence[];
     completedMockCount: number;
+    lastLearningModuleServedAtBySection?: Record<string, string>;
     forecast?: {
       previousSectionTargets?: Record<string, number>;
       previousSectionTargetsSetAt?: string | null;

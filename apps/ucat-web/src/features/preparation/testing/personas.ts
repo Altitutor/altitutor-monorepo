@@ -44,12 +44,13 @@ export const ACCURATE_SLOW_PREPARATION_PERSONA: PreparationPersona = {
           marksAvailable: section.questionCount,
           questionCount: section.questionCount,
           sectionQuestionCount: section.questionCount,
+          sectionCategoryCount: 4,
           wasTimed: true,
           prescribedPace: 1,
           breadth: "broad" as const,
           feedbackWithheld: true,
           isStudentGenerated: false,
-          isStandardised: true,
+          categoryIds: [`${section.id}-category`],
         })),
         sectionSignals: base.evidence.sectionSignals.map((signal) =>
           signal.sectionId === "vr"

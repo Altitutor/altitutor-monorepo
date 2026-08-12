@@ -170,6 +170,21 @@ function baseInput(): PreparationEngineInput {
           estimatedMinutes: 3,
         },
       ],
+      benchmarkSets: SECTIONS.slice(0, 3).flatMap((section) =>
+        [0.5, 0.8, 1].map((pace) => ({
+          id: `${section.id}-set-${pace}`,
+          name: `${section.shortName} ${pace.toFixed(1)}× set`,
+          sectionId: section.id,
+          questionCount: section.questionCount,
+          pace,
+          completedAttempts: [],
+        })),
+      ),
+      benchmarkMocks: Array.from({ length: 8 }, (_, index) => ({
+        id: `mock-${index + 1}`,
+        name: `UCAT mock ${index + 1}`,
+        completedAttempts: [],
+      })),
     },
     evidence: {
       sectionSignals: sectionSignals(),
@@ -201,12 +216,13 @@ function representativeEvidence(
     marksAvailable: section.questionCount,
     questionCount: section.questionCount,
     sectionQuestionCount: section.questionCount,
+    sectionCategoryCount: 4,
     wasTimed: true,
     prescribedPace: 1,
     breadth: "broad" as const,
     feedbackWithheld: true,
     isStudentGenerated: false,
-    isStandardised: true,
+    categoryIds: [`${section.id}-category-1`, `${section.id}-category-2`],
   }));
 }
 

@@ -82,6 +82,23 @@ function input(): PreparationEngineInput {
         },
       ],
       skillTrainers: [],
+      benchmarkSets: sections
+        .filter((section) => section.sectionNumber <= 3)
+        .flatMap((section) =>
+          [0.5, 0.8, 1].map((pace) => ({
+            id: `${section.id}-set-${pace}`,
+            name: `${section.shortName} ${pace.toFixed(1)}× set`,
+            sectionId: section.id,
+            questionCount: section.questionCount,
+            pace,
+            completedAttempts: [],
+          })),
+        ),
+      benchmarkMocks: Array.from({ length: 8 }, (_, index) => ({
+        id: `mock-${index + 1}`,
+        name: `UCAT mock ${index + 1}`,
+        completedAttempts: [],
+      })),
     },
     evidence: {
       sectionSignals: sections.map((section) => ({
@@ -111,12 +128,13 @@ function addRepresentativeScoreEvidence(fixture: PreparationEngineInput): void {
     marksAvailable: section.questionCount,
     questionCount: section.questionCount,
     sectionQuestionCount: section.questionCount,
+    sectionCategoryCount: 4,
     wasTimed: true,
     prescribedPace: 1,
     breadth: "broad" as const,
     feedbackWithheld: true,
     isStudentGenerated: false,
-    isStandardised: true,
+    categoryIds: [`${section.id}-category`],
   }));
 }
 
@@ -409,14 +427,11 @@ describe("prepareStudent", () => {
     const plannedPractice = result.plan.tasks.find(
       (task) => task.taskType === "practice",
     );
-    const plannedPracticeCandidate = result.activityCandidates.find(
-      (candidate) =>
-        candidate.id === plannedPractice?.launchConfig.activityCandidateId,
-    );
-    expect(plannedPractice).toMatchObject({
-      targetUnits: plannedPracticeCandidate?.dose.questionCount,
-      rationale: plannedPracticeCandidate?.studentReason,
+    expect(plannedPractice?.launchConfig).toMatchObject({
+      linkedLearningPractice: true,
+      learningModuleId: "module-vr",
     });
+    expect(plannedPractice).toMatchObject({ targetUnits: 10 });
     const guidanceInput = {
       today: fixture.clock.today,
       planningDate: fixture.goal.planningDate,

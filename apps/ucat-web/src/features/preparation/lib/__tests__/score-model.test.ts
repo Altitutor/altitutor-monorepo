@@ -19,12 +19,13 @@ function evidence(
     marksAvailable: 44,
     questionCount: 44,
     sectionQuestionCount: 44,
+    sectionCategoryCount: 4,
     wasTimed: true,
     prescribedPace: 1,
     breadth: "broad",
     feedbackWithheld: true,
     isStudentGenerated: false,
-    isStandardised: false,
+    categoryIds: ["category-a", "category-b"],
     ...overrides,
   };
 }
@@ -38,7 +39,7 @@ describe("representative score model", () => {
       ),
     ).toBe("representative_partial");
     expect(classifyScoreEvidence(evidence({ breadth: "narrow" }))).toBe(
-      "learning_only",
+      "representative_full",
     );
     expect(classifyScoreEvidence(evidence({ prescribedPace: 0.8 }))).toBe(
       "learning_only",
@@ -51,14 +52,70 @@ describe("representative score model", () => {
     );
     expect(
       classifyScoreEvidence(
-        evidence({
-          breadth: "mixed",
-          isStandardised: true,
-          questionCount: 22,
-          marksAvailable: 22,
-        }),
+        evidence({ breadth: "mixed", questionCount: 22, marksAvailable: 22 }),
       ),
     ).toBe("representative_partial");
+  });
+
+  it("pools complementary small sets but withholds repeated narrow coverage", () => {
+    const complementary = estimateRepresentativeScore({
+      now: NOW,
+      modelVersion: "representative-score-v2",
+      evidence: [
+        evidence({
+          evidenceSessionId: "small-a",
+          marksAwarded: 7,
+          marksAvailable: 12,
+          questionCount: 12,
+          breadth: "narrow",
+          sectionCategoryCount: 5,
+          categoryIds: ["category-a"],
+        }),
+        evidence({
+          evidenceSessionId: "small-b",
+          marksAwarded: 7,
+          marksAvailable: 12,
+          questionCount: 12,
+          breadth: "narrow",
+          sectionCategoryCount: 5,
+          categoryIds: ["category-b"],
+        }),
+        evidence({
+          evidenceSessionId: "small-c",
+          marksAwarded: 7,
+          marksAvailable: 12,
+          questionCount: 12,
+          breadth: "narrow",
+          sectionCategoryCount: 5,
+          categoryIds: ["category-c"],
+        }),
+      ],
+    });
+    const repeatedNarrow = estimateRepresentativeScore({
+      now: NOW,
+      modelVersion: "representative-score-v2",
+      evidence: [
+        evidence({
+          evidenceSessionId: "small-a-1",
+          marksAwarded: 7,
+          marksAvailable: 12,
+          questionCount: 12,
+          breadth: "narrow",
+          categoryIds: ["category-a"],
+        }),
+        evidence({
+          evidenceSessionId: "small-a-2",
+          marksAwarded: 7,
+          marksAvailable: 12,
+          questionCount: 12,
+          breadth: "narrow",
+          categoryIds: ["category-a"],
+        }),
+      ],
+    });
+
+    expect(complementary.sections[0]?.status).toBe("available");
+    expect(repeatedNarrow.sections[0]?.status).toBe("unavailable");
   });
 
   it("pools marks before conversion, including DM partial marks and omissions", () => {

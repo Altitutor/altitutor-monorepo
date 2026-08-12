@@ -5644,7 +5644,6 @@ export type Database = {
           name: Json | null
           published_at: string | null
           published_by: string | null
-          score_evidence_standardised: boolean
           sections: Json | null
           speed: number | null
           status: Database["public"]["Enums"]["ucat_content_status"]
@@ -5666,7 +5665,6 @@ export type Database = {
           name?: Json | null
           published_at?: string | null
           published_by?: string | null
-          score_evidence_standardised?: boolean
           sections?: Json | null
           speed?: number | null
           status?: Database["public"]["Enums"]["ucat_content_status"]
@@ -5688,7 +5686,6 @@ export type Database = {
           name?: Json | null
           published_at?: string | null
           published_by?: string | null
-          score_evidence_standardised?: boolean
           sections?: Json | null
           speed?: number | null
           status?: Database["public"]["Enums"]["ucat_content_status"]
@@ -6183,9 +6180,6 @@ export type Database = {
           deleted_at: string | null
           deleted_by: string | null
           id: string
-          presentation_format:
-            | Database["public"]["Enums"]["ucat_stem_presentation_format"]
-            | null
           published_at: string | null
           published_by: string | null
           question_stem_category_id: string | null
@@ -6209,9 +6203,6 @@ export type Database = {
           deleted_at?: string | null
           deleted_by?: string | null
           id?: string
-          presentation_format?:
-            | Database["public"]["Enums"]["ucat_stem_presentation_format"]
-            | null
           published_at?: string | null
           published_by?: string | null
           question_stem_category_id?: string | null
@@ -6235,9 +6226,6 @@ export type Database = {
           deleted_at?: string | null
           deleted_by?: string | null
           id?: string
-          presentation_format?:
-            | Database["public"]["Enums"]["ucat_stem_presentation_format"]
-            | null
           published_at?: string | null
           published_by?: string | null
           question_stem_category_id?: string | null
@@ -25417,6 +25405,7 @@ export type Database = {
           id: string | null
           question_ids: string[] | null
           question_stem_category_id: string | null
+          question_tag_ids: string[] | null
           section_id: string | null
         }
         Relationships: [
@@ -26508,16 +26497,17 @@ export type Database = {
       vstudent_ucat_score_projection_evidence: {
         Row: {
           breadth: string | null
+          category_ids: string[] | null
           completed_at: string | null
           evidence_session_id: string | null
           feedback_withheld: boolean | null
-          is_standardised: boolean | null
           is_student_generated: boolean | null
           observed_pace: number | null
           prescribed_pace: number | null
           question_count: number | null
           scaled_score: number | null
           score_points: number | null
+          section_category_count: number | null
           section_id: string | null
           section_number: number | null
           section_question_count: number | null
@@ -32854,9 +32844,6 @@ export type Database = {
           deleted_by: string | null
           display_columns: number | null
           id: string | null
-          presentation_format:
-            | Database["public"]["Enums"]["ucat_stem_presentation_format"]
-            | null
           publication_issues: Json | null
           question_stem_category_id: string | null
           questions: Json | null
@@ -36198,6 +36185,10 @@ export type Database = {
         }
         Returns: Json
       }
+      service_ucat_invalidate_catalog_ai_review_statuses: {
+        Args: never
+        Returns: number
+      }
       service_ucat_persist_generated_stem: {
         Args: { p_output_index: number; p_run_id: string; p_stem: Json }
         Returns: string
@@ -36422,6 +36413,8 @@ export type Database = {
           p_include_without_set?: boolean
           p_page?: number
           p_page_size?: number
+          p_question_count_max?: number
+          p_question_count_min?: number
           p_question_types?: string[]
           p_search?: string
           p_search_scopes?: string[]
@@ -37178,13 +37171,6 @@ export type Database = {
         | "ai_generation"
       ucat_question_type: "multiple_choice" | "syllogism"
       ucat_response_type: "multiple_choice" | "drag_and_drop"
-      ucat_stem_presentation_format:
-        | "passage"
-        | "table"
-        | "graph_or_chart"
-        | "diagram_or_image"
-        | "mixed"
-        | "other"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -37399,14 +37385,6 @@ export const Constants = {
       ],
       ucat_question_type: ["multiple_choice", "syllogism"],
       ucat_response_type: ["multiple_choice", "drag_and_drop"],
-      ucat_stem_presentation_format: [
-        "passage",
-        "table",
-        "graph_or_chart",
-        "diagram_or_image",
-        "mixed",
-        "other",
-      ],
     },
   },
 } as const

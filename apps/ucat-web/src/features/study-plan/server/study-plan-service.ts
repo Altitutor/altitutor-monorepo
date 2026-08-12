@@ -25,6 +25,14 @@ import {
   persistPreparationSnapshot,
 } from "@/features/preparation/server/preparation-snapshot";
 import { normalizeSjtPreference } from "@/features/preparation/lib/sjt-allocation-policy";
+import type {
+  BenchmarkMockAsset,
+  BenchmarkSetAsset,
+} from "@/features/preparation/lib/benchmark-selection";
+import {
+  PREPARATION_SANDBOX_PERSONAS,
+  type PreparationSandboxCase,
+} from "@/features/preparation/testing/sandbox";
 import {
   extractTextFromRichJson,
   type JsonLike,
@@ -40,6 +48,11 @@ import {
   reviewTask,
 } from "@/features/study-plan/lib/generator";
 import { estimateLearningModuleMinutes } from "@/features/study-plan/lib/module-duration";
+import {
+  maximumTieredWholeStemDose,
+  maximumWholeStemDose,
+  pickStems,
+} from "@/features/practice/server/pick-stems";
 import { isLegacyDemandCapacityRiskMessage } from "@/features/study-plan/lib/capacity-risk-copy";
 import {
   needsPreparationVersionReplacement,
@@ -224,6 +237,9 @@ async function loadGenerationInputs(
   scoreEvidence: RepresentativeScoreEvidence[];
   completedMockCount: number;
   tagSignals: ActivityTagSignal[];
+  benchmarkSets: BenchmarkSetAsset[];
+  benchmarkMocks: BenchmarkMockAsset[];
+  lastLearningModuleServedAtBySection: Record<string, string>;
 }> {
   const admin = requireAdmin();
   const [
@@ -238,6 +254,7 @@ async function loadGenerationInputs(
     modulesRes,
     blocksRes,
     moduleCategoriesRes,
+    moduleTagsRes,
     trainersRes,
     trainerCategoriesRes,
     trainerItemsRes,
@@ -246,6 +263,13 @@ async function loadGenerationInputs(
     graduationStatesRes,
     timingEvidenceRes,
     tagSignalsRes,
+    setCatalogRes,
+    setAttemptsRes,
+    mockCatalogRes,
+    mockAttemptsRes,
+    practiceInventoryRes,
+    lastLearningTasksRes,
+    practiceAttemptsRes,
   ] = await Promise.all([
     admin
       .from("ucat_sections")
@@ -280,9 +304,8 @@ async function loadGenerationInputs(
     supabase
       .from("vstudent_ucat_learning_modules")
       .select(
-        "id, title, kind, ucat_section_id, study_plan_priority, completion_percent",
+        "id, title, kind, ucat_section_id, study_plan_priority, completion_percent, parent_ucat_learning_module_id, index",
       )
-      .eq("kind", "lesson")
       .neq("study_plan_priority", "excluded"),
     supabase
       .from("vstudent_ucat_learning_module_blocks")
@@ -292,6 +315,9 @@ async function loadGenerationInputs(
     admin
       .from("ucat_learning_module_question_stem_categories")
       .select("learning_module_id, question_stem_category_id"),
+    admin
+      .from("ucat_learning_module_question_tags")
+      .select("learning_module_id, question_tag_id"),
     admin
       .from("ucat_skill_trainers")
       .select("id, key, name, ucat_section_id")
@@ -329,6 +355,36 @@ async function loadGenerationInputs(
       .select(
         "tag_id, section_id, category_id, available_question_count, independent_session_count, weakness_score",
       ),
+    supabase
+      .from("vstudent_ucat_question_sets")
+      .select(
+        "id, name, sections, speed, time_limit_at_exam_speed_seconds, is_available_in_sets_library",
+      )
+      .eq("is_available_in_sets_library", true),
+    supabase
+      .from("vstudent_ucat_my_set_attempts")
+      .select("question_set_id, completed_at, student_ucat_mock_attempt_id")
+      .not("completed_at", "is", null),
+    supabase.from("vstudent_ucat_mocks").select("id, name"),
+    supabase
+      .from("vstudent_ucat_my_mock_attempts")
+      .select("ucat_mock_id, completed_at")
+      .not("completed_at", "is", null),
+    supabase
+      .from("vstudent_ucat_practice_stem_index")
+      .select(
+        "id, section_id, question_stem_category_id, question_ids, question_tag_ids",
+      ),
+    admin
+      .from("ucat_student_study_plan_tasks")
+      .select("section_id, scheduled_date, started_at, completed_at")
+      .eq("student_id", studentId)
+      .eq("task_type", "learn")
+      .in("status", ["in_progress", "completed"])
+      .not("section_id", "is", null),
+    supabase
+      .from("vstudent_ucat_my_question_attempts")
+      .select("question_id, score, is_submitted"),
   ]);
   for (const result of [
     sectionsRes,
@@ -342,6 +398,7 @@ async function loadGenerationInputs(
     modulesRes,
     blocksRes,
     moduleCategoriesRes,
+    moduleTagsRes,
     trainersRes,
     trainerCategoriesRes,
     trainerItemsRes,
@@ -350,6 +407,13 @@ async function loadGenerationInputs(
     graduationStatesRes,
     timingEvidenceRes,
     tagSignalsRes,
+    setCatalogRes,
+    setAttemptsRes,
+    mockCatalogRes,
+    mockAttemptsRes,
+    practiceInventoryRes,
+    lastLearningTasksRes,
+    practiceAttemptsRes,
   ]) {
     if (result.error) throw result.error;
   }
@@ -549,6 +613,52 @@ async function loadGenerationInputs(
   const categorySignals = new Map(
     categories.map((category) => [category.id, category]),
   );
+  const attemptsByQuestionId = new Map<
+    string,
+    Array<{ score: number | null; isSubmitted: boolean }>
+  >();
+  for (const attempt of practiceAttemptsRes.data ?? []) {
+    if (!attempt.question_id) continue;
+    attemptsByQuestionId.set(attempt.question_id, [
+      ...(attemptsByQuestionId.get(attempt.question_id) ?? []),
+      { score: attempt.score, isSubmitted: attempt.is_submitted === true },
+    ]);
+  }
+  const questionStatus = (questionId: string) => {
+    const attempts = (attemptsByQuestionId.get(questionId) ?? []).filter(
+      (attempt) => attempt.isSubmitted,
+    );
+    if (!attempts.length) return "unanswered" as const;
+    return attempts.some((attempt) => (attempt.score ?? 0) > 0)
+      ? ("correct" as const)
+      : ("incorrect" as const);
+  };
+  const moduleRows = modulesRes.data ?? [];
+  const childrenByParent = new Map<string | null, typeof moduleRows>();
+  for (const moduleRow of moduleRows) {
+    const parentId = moduleRow.parent_ucat_learning_module_id ?? null;
+    childrenByParent.set(parentId, [
+      ...(childrenByParent.get(parentId) ?? []),
+      moduleRow,
+    ]);
+  }
+  const authoredOrderByModuleId = new Map<string, number>();
+  let authoredOrder = 0;
+  const visitModules = (parentId: string | null): void => {
+    const children = [...(childrenByParent.get(parentId) ?? [])].sort(
+      (left, right) =>
+        (left.index ?? 0) - (right.index ?? 0) ||
+        (left.id ?? "").localeCompare(right.id ?? ""),
+    );
+    for (const child of children) {
+      if (!child.id) continue;
+      if (child.kind === "lesson") {
+        authoredOrderByModuleId.set(child.id, authoredOrder++);
+      }
+      visitModules(child.id);
+    }
+  };
+  visitModules(null);
   const blocksByModule = new Map<
     string,
     Array<{
@@ -574,35 +684,95 @@ async function loadGenerationInputs(
       },
     ]);
   }
-  const learningModules: StudyPlanLearningModule[] = (
-    modulesRes.data ?? []
-  ).flatMap((module) => {
+  const learningModules: StudyPlanLearningModule[] = moduleRows.flatMap((moduleRow) => {
     if (
-      !module.id ||
-      !module.title ||
-      module.study_plan_priority === "excluded"
+      !moduleRow.id ||
+      !moduleRow.title ||
+      moduleRow.kind !== "lesson" ||
+      moduleRow.study_plan_priority === "excluded"
     )
       return [];
     const categoryIds = (moduleCategoriesRes.data ?? [])
-      .filter((link) => link.learning_module_id === module.id)
+      .filter((link) => link.learning_module_id === moduleRow.id)
       .map((link) => link.question_stem_category_id);
     const categoryScores = categoryIds.flatMap((categoryId) => {
       const signal = categorySignals.get(categoryId);
       return signal ? [signal.weaknessScore] : [];
     });
+    const questionTagIds = (moduleTagsRes.data ?? [])
+      .filter((link) => link.learning_module_id === moduleRow.id)
+      .map((link) => link.question_tag_id);
+    const strictStems = (practiceInventoryRes.data ?? []).filter(
+      (stem) =>
+        stem.section_id === moduleRow.ucat_section_id &&
+        (categoryIds.length === 0 ||
+          (stem.question_stem_category_id != null &&
+            categoryIds.includes(stem.question_stem_category_id))),
+    );
+    const preferredTagStems = strictStems.filter((stem) =>
+      (stem.question_tag_ids ?? []).some((tagId) =>
+        questionTagIds.includes(tagId),
+      ),
+    );
+    const tierQuestionCounts = [0, 1, 2, 3].map((tier) =>
+      strictStems.flatMap((stem) => {
+        const statuses = (stem.question_ids ?? []).map(questionStatus);
+        const allUnanswered = statuses.every((status) => status === "unanswered");
+        const anyIncorrect = statuses.some((status) => status === "incorrect");
+        const tagMatched = (stem.question_tag_ids ?? []).some((tagId) =>
+          questionTagIds.includes(tagId),
+        );
+        const stemTier = allUnanswered
+          ? tagMatched
+            ? 0
+            : 1
+          : tagMatched && anyIncorrect
+            ? 2
+            : 3;
+        return stemTier === tier ? [stem.question_ids?.length ?? 0] : [];
+      }),
+    );
+    let remainingTarget = 10;
+    const selectedDoseByTier = tierQuestionCounts.map((questionCounts) => {
+      const dose = maximumWholeStemDose(questionCounts, remainingTarget);
+      remainingTarget -= dose;
+      return dose;
+    });
     return [
       {
-        id: module.id,
-        title: module.title,
-        sectionId: module.ucat_section_id,
+        id: moduleRow.id,
+        title: moduleRow.title,
+        sectionId: moduleRow.ucat_section_id,
         sectionNumber:
-          sections.find((section) => section.id === module.ucat_section_id)
+          sections.find((section) => section.id === moduleRow.ucat_section_id)
             ?.sectionNumber ?? null,
-        priority: module.study_plan_priority ?? "recommended",
+        priority: moduleRow.study_plan_priority ?? "recommended",
         estimatedMinutes: estimateLearningModuleMinutes(
-          blocksByModule.get(module.id) ?? [],
+          blocksByModule.get(moduleRow.id) ?? [],
         ),
-        completionPercent: module.completion_percent ?? 0,
+        completionPercent: moduleRow.completion_percent ?? 0,
+        authoredOrder:
+          authoredOrderByModuleId.get(moduleRow.id) ?? Number.MAX_SAFE_INTEGER,
+        categoryIds,
+        questionTagIds,
+        targetedPracticeInventory: {
+          strictStemCount: strictStems.length,
+          strictQuestionCount: strictStems.reduce(
+            (sum, stem) => sum + (stem.question_ids?.length ?? 0),
+            0,
+          ),
+          preferredTagStemCount: preferredTagStems.length,
+          preferredTagQuestionCount: preferredTagStems.reduce(
+            (sum, stem) => sum + (stem.question_ids?.length ?? 0),
+            0,
+          ),
+          strictSelectableQuestionCount: maximumTieredWholeStemDose(
+            tierQuestionCounts,
+            10,
+          ),
+          preferredTagSelectableQuestionCount:
+            selectedDoseByTier[0] + selectedDoseByTier[2],
+        },
         relevanceScore: categoryScores.length
           ? categoryScores.reduce((sum, score) => sum + score, 0) /
             categoryScores.length
@@ -686,6 +856,88 @@ async function loadGenerationInputs(
           ]
         : [],
   );
+  const benchmarkSets: BenchmarkSetAsset[] = (setCatalogRes.data ?? []).flatMap(
+    (set) => {
+      if (!set.id || !Array.isArray(set.sections) || set.sections.length !== 1) {
+        return [];
+      }
+      const sectionJson = set.sections[0];
+      if (
+        sectionJson == null ||
+        typeof sectionJson !== "object" ||
+        Array.isArray(sectionJson)
+      ) {
+        return [];
+      }
+      const sectionNumber = Number(sectionJson.section_number);
+      const section = sections.find(
+        (candidate) => candidate.sectionNumber === sectionNumber,
+      );
+      const examSeconds = Number(set.time_limit_at_exam_speed_seconds ?? 0);
+      const pace = Number(set.speed ?? 0);
+      if (!section || examSeconds <= 0 || pace <= 0) return [];
+      return [
+        {
+          id: set.id,
+          name:
+            extractTextFromRichJson(set.name as JsonLike).trim() ||
+            `${section.shortName} set`,
+          sectionId: section.id,
+          questionCount: Math.max(
+            1,
+            Math.round(examSeconds / section.timePerQuestionSeconds),
+          ),
+          pace,
+          completedAttempts: (setAttemptsRes.data ?? []).flatMap((attempt) =>
+            attempt.question_set_id === set.id &&
+            attempt.student_ucat_mock_attempt_id == null &&
+            attempt.completed_at
+              ? [attempt.completed_at]
+              : [],
+          ),
+        },
+      ];
+    },
+  );
+  const benchmarkMocks: BenchmarkMockAsset[] = (
+    mockCatalogRes.data ?? []
+  ).flatMap((mock) =>
+    mock.id
+      ? [
+          {
+            id: mock.id,
+            name: mock.name?.trim() || "UCAT mock",
+            completedAttempts: (mockAttemptsRes.data ?? []).flatMap((attempt) =>
+              attempt.ucat_mock_id === mock.id && attempt.completed_at
+                ? [attempt.completed_at]
+                : [],
+            ),
+          },
+        ]
+      : [],
+  );
+  const lastLearningModuleServedAtBySection = Object.fromEntries(
+    [...(lastLearningTasksRes.data ?? [])]
+      .filter((task) => task.section_id)
+      .sort((left, right) => {
+        const leftAt = left.completed_at ?? left.started_at ?? left.scheduled_date;
+        const rightAt =
+          right.completed_at ?? right.started_at ?? right.scheduled_date;
+        return rightAt.localeCompare(leftAt);
+      })
+      .flatMap((task) =>
+        task.section_id
+          ? [[
+              task.section_id,
+              task.completed_at ?? task.started_at ?? task.scheduled_date,
+            ]]
+          : [],
+      )
+      .filter(
+        ([sectionId], index, rows) =>
+          rows.findIndex(([candidate]) => candidate === sectionId) === index,
+      ),
+  );
   return {
     sections,
     signals,
@@ -696,6 +948,122 @@ async function loadGenerationInputs(
     scoreEvidence,
     tagSignals,
     completedMockCount: mockRes.count ?? 0,
+    benchmarkSets,
+    benchmarkMocks,
+    lastLearningModuleServedAtBySection,
+  };
+}
+
+/** Read-only development catalog case for the Preparation sandbox. */
+export async function loadDevelopmentCatalogSandboxCase(
+  supabase: SupabaseClient<Database>,
+  userId: string,
+): Promise<PreparationSandboxCase> {
+  const student = await resolveStudent(userId);
+  const base = PREPARATION_SANDBOX_PERSONAS["new-student"];
+  const inputs = await loadGenerationInputs(
+    supabase,
+    student.id,
+    base.input.goal.profile.testYear,
+  );
+  const catalogCase: PreparationSandboxCase = {
+    ...base,
+    key: "development-catalog",
+    label: "Development catalog",
+    description:
+      "Synthetic preparation evidence fulfilled against the real development catalog and the signed-in tester's real Practice attempt history.",
+    input: {
+      ...base.input,
+      seed: "sandbox:development-catalog:v1",
+      content: {
+        sections: inputs.sections,
+        categories: inputs.categories,
+        learningModules: inputs.learningModules,
+        skillTrainers: inputs.skillTrainers,
+        tagSignals: inputs.tagSignals,
+        benchmarkSets: inputs.benchmarkSets,
+        benchmarkMocks: inputs.benchmarkMocks,
+      },
+      evidence: {
+        sectionSignals: inputs.sections.map((section) => ({
+          sectionId: section.id,
+          currentEstimate: null,
+          evidenceCount: 0,
+          completedFullSets: 0,
+        })),
+        completedMockCount: 0,
+        lastLearningModuleServedAtBySection:
+          inputs.lastLearningModuleServedAtBySection,
+      },
+    },
+  };
+  const preliminary = prepareStudent(catalogCase.input);
+  const scheduledModuleIds = new Set(
+    preliminary.plan.tasks.flatMap((task) =>
+      task.taskType === "learn" && task.learningModuleId
+        ? [task.learningModuleId]
+        : [],
+    ),
+  );
+  const diagnostics = new Map(
+    await Promise.all(
+      catalogCase.input.content.learningModules
+        .filter((module) => scheduledModuleIds.has(module.id))
+        .flatMap((module) => {
+          const section = catalogCase.input.content.sections.find(
+            (candidate) => candidate.id === module.sectionId,
+          );
+          if (!section) return [];
+          return [
+            pickStems(
+              supabase,
+              {
+                section: section.key,
+                questionCount: 10,
+                categoryIds: module.categoryIds ?? [],
+                questionTagIds: module.questionTagIds ?? [],
+                linkedLearningPractice: true,
+                unansweredOnly: false,
+                incorrectOnly: false,
+                timeMode: "off",
+                timeSpeedMultiplier: 1,
+                customTimeMinutes: null,
+                timePerQuestionSeconds: null,
+              },
+              { allowOversizedFallback: false, deterministic: true },
+            ).then((result) => [module.id, result] as const),
+          ];
+        }),
+    ),
+  );
+  return {
+    ...catalogCase,
+    input: {
+      ...catalogCase.input,
+      content: {
+        ...catalogCase.input.content,
+        learningModules: catalogCase.input.content.learningModules.map(
+          (module) => {
+            const diagnostic = diagnostics.get(module.id);
+            if (!diagnostic) return module;
+            return {
+              ...module,
+              targetedPracticeInventory: {
+                ...(module.targetedPracticeInventory ?? {
+                  strictStemCount: 0,
+                  strictQuestionCount: 0,
+                  preferredTagStemCount: 0,
+                  preferredTagQuestionCount: 0,
+                }),
+                strictSelectableQuestionCount: diagnostic.questionCount,
+                selectedStemIds: diagnostic.chosenStemIds,
+                selectionTrace: diagnostic.selectionTrace,
+              },
+            };
+          },
+        ),
+      },
+    },
   };
 }
 
@@ -933,6 +1301,9 @@ type CanonicalPreparationInputs = {
   timingSessions: StudyPlanTimingEvidenceSession[];
   scoreEvidence: RepresentativeScoreEvidence[];
   completedMockCount: number;
+  benchmarkSets: BenchmarkSetAsset[];
+  benchmarkMocks: BenchmarkMockAsset[];
+  lastLearningModuleServedAtBySection: Record<string, string>;
 };
 
 async function runCanonicalPreparation(input: {
@@ -965,12 +1336,16 @@ async function runCanonicalPreparation(input: {
       learningModules: input.inputs.learningModules,
       skillTrainers: input.inputs.skillTrainers,
       tagSignals: input.inputs.tagSignals,
+      benchmarkSets: input.inputs.benchmarkSets,
+      benchmarkMocks: input.inputs.benchmarkMocks,
     },
     evidence: {
       sectionSignals: input.inputs.signals,
       timingSessions: input.inputs.timingSessions,
       scoreEvidence: input.inputs.scoreEvidence,
       completedMockCount: input.inputs.completedMockCount,
+      lastLearningModuleServedAtBySection:
+        input.inputs.lastLearningModuleServedAtBySection,
       forecast,
     },
     guidance: input.guidance,
@@ -1088,7 +1463,7 @@ async function linkCompanionReview(
   sourceTask: TaskRow,
   activity: {
     id: string;
-    type: "practice_session" | "mock_attempt";
+    type: "practice_session" | "set_attempt" | "mock_attempt";
     questionCount: number | null;
   },
 ): Promise<void> {
@@ -1106,6 +1481,8 @@ async function linkCompanionReview(
   const launchPath =
     activity.type === "mock_attempt"
       ? `/progress/mocks/mock-attempts/${activity.id}`
+      : activity.type === "set_attempt"
+        ? `/progress/set-attempts/${activity.id}`
       : `/progress/practice-sessions/${activity.id}`;
   if (
     review.matched_activity_type === activity.type &&
@@ -1156,13 +1533,14 @@ async function reconcileTasks(
     if (
       sourceTask.matched_activity_id &&
       (sourceTask.matched_activity_type === "practice_session" ||
+        sourceTask.matched_activity_type === "set_attempt" ||
         sourceTask.matched_activity_type === "mock_attempt")
     ) {
       await linkCompanionReview(tasks, sourceTask, {
         id: sourceTask.matched_activity_id,
         type: sourceTask.matched_activity_type,
         questionCount:
-          sourceTask.matched_activity_type === "practice_session"
+          sourceTask.matched_activity_type !== "mock_attempt"
             ? sourceTask.completed_units
             : null,
       });
@@ -1176,7 +1554,7 @@ async function reconcileTasks(
         : earliest,
     generation.generated_at,
   );
-  const [learningRes, practiceRes, mockRes, trainerRes] = await Promise.all([
+  const [learningRes, practiceRes, setRes, mockRes, trainerRes] = await Promise.all([
     admin
       .from("ucat_student_learning_module_progress")
       .select("id, learning_module_id, completion_percent, completed_at")
@@ -1190,8 +1568,15 @@ async function reconcileTasks(
       .gte("started_at", evidenceSince)
       .order("started_at"),
     admin
+      .from("student_question_set_attempts")
+      .select("id, question_set_id, attempted_at, completed_at, total_points")
+      .eq("student_id", studentId)
+      .is("student_ucat_mock_attempt_id", null)
+      .gte("attempted_at", evidenceSince)
+      .order("attempted_at"),
+    admin
       .from("student_ucat_mock_attempts")
-      .select("id, attempted_at, completed_at")
+      .select("id, ucat_mock_id, attempted_at, completed_at")
       .eq("student_id", studentId)
       .gte("attempted_at", evidenceSince)
       .order("attempted_at"),
@@ -1202,7 +1587,7 @@ async function reconcileTasks(
       .gte("started_at", evidenceSince)
       .order("started_at"),
   ]);
-  for (const result of [learningRes, practiceRes, mockRes, trainerRes]) {
+  for (const result of [learningRes, practiceRes, setRes, mockRes, trainerRes]) {
     if (result.error) throw result.error;
   }
   const usedActivities = new Set<string>(
@@ -1217,7 +1602,7 @@ async function reconcileTasks(
       | null = null;
     let reviewActivity: {
       id: string;
-      type: "practice_session" | "mock_attempt";
+      type: "practice_session" | "set_attempt" | "mock_attempt";
       questionCount: number | null;
     } | null = null;
     if (task.task_type === "learn" && task.learning_module_id) {
@@ -1249,10 +1634,29 @@ async function reconcileTasks(
           matched_activity_id: progress!.id,
         };
       }
-    } else if (
-      ["practice", "section_benchmark"].includes(task.task_type) &&
-      task.section_id
-    ) {
+    } else if (task.task_type === "section_benchmark" && task.question_set_id) {
+      const attempt = setRes.data?.find(
+        (item) =>
+          item.question_set_id === task.question_set_id &&
+          !usedActivities.has(item.id) &&
+          item.completed_at,
+      );
+      if (attempt?.completed_at) {
+        usedActivities.add(attempt.id);
+        update = {
+          status: "completed",
+          completed_at: attempt.completed_at,
+          completed_units: task.target_units ?? attempt.total_points ?? 1,
+          matched_activity_type: "set_attempt",
+          matched_activity_id: attempt.id,
+        };
+        reviewActivity = {
+          id: attempt.id,
+          type: "set_attempt",
+          questionCount: task.target_units,
+        };
+      }
+    } else if (task.task_type === "practice" && task.section_id) {
       const candidate = (practiceRes.data ?? []).flatMap((session) => {
         if (
           usedActivities.has(session.id) &&
@@ -1263,10 +1667,7 @@ async function reconcileTasks(
           {
             taskId: task.id,
             sectionId: task.section_id!,
-            questionStemCategoryId:
-              task.task_type === "section_benchmark"
-                ? null
-                : task.question_stem_category_id,
+            questionStemCategoryId: task.question_stem_category_id,
             targetUnits: task.target_units,
           },
           {
@@ -1297,7 +1698,10 @@ async function reconcileTasks(
       }
     } else if (task.task_type === "mock") {
       const attempt = mockRes.data?.find(
-        (item) => !usedActivities.has(item.id) && item.completed_at,
+        (item) =>
+          (!task.mock_id || item.ucat_mock_id === task.mock_id) &&
+          !usedActivities.has(item.id) &&
+          item.completed_at,
       );
       if (attempt?.completed_at) {
         usedActivities.add(attempt.id);
@@ -1664,6 +2068,9 @@ async function loadNextStepBuildInput(
   BuildNextStepsInput & {
     timingSessions: StudyPlanTimingEvidenceSession[];
     scoreEvidence: RepresentativeScoreEvidence[];
+    benchmarkSets: BenchmarkSetAsset[];
+    benchmarkMocks: BenchmarkMockAsset[];
+    lastLearningModuleServedAtBySection: Record<string, string>;
   }
 > {
   const admin = requireAdmin();
@@ -1799,12 +2206,16 @@ async function getOrRefreshNextSteps(
       learningModules: buildInput.learningModules,
       skillTrainers: buildInput.skillTrainers,
       tagSignals: buildInput.tagSignals,
+      benchmarkSets: buildInput.benchmarkSets,
+      benchmarkMocks: buildInput.benchmarkMocks,
     },
     evidence: {
       sectionSignals: buildInput.signals,
       timingSessions: buildInput.timingSessions,
       scoreEvidence: buildInput.scoreEvidence,
       completedMockCount: buildInput.completedMockCount,
+      lastLearningModuleServedAtBySection:
+        buildInput.lastLearningModuleServedAtBySection,
       forecast,
     },
     guidance: {

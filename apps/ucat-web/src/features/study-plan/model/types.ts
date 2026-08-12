@@ -144,6 +144,26 @@ export type StudyPlanLearningModule = {
   estimatedMinutes: number;
   completionPercent: number;
   relevanceScore: number;
+  /** Depth-first position in the authored Learn tree for this section. */
+  authoredOrder?: number;
+  categoryIds?: string[];
+  questionTagIds?: string[];
+  targetedPracticeInventory?: {
+    strictStemCount: number;
+    strictQuestionCount: number;
+    preferredTagStemCount: number;
+    preferredTagQuestionCount: number;
+    strictSelectableQuestionCount?: number;
+    preferredTagSelectableQuestionCount?: number;
+    selectedStemIds?: string[];
+    selectionTrace?: Array<{
+      stemId: string;
+      questionCount: number;
+      categoryId: string | null;
+      matchedTagIds: string[];
+      fallbackTier: number;
+    }>;
+  };
 };
 
 export type GeneratedStudyPlanTask = {
@@ -235,6 +255,18 @@ export type StudyPlanGenerationResult = {
   coreSectionEquivalentsPerWeek: number;
   readiness: StudyPlanReadinessSnapshot;
   endsOn: string;
+  contentGaps: Array<{
+    kind: "benchmark_set" | "benchmark_mock" | "targeted_practice";
+    sectionId: string | null;
+    moduleId?: string;
+    reason:
+      | "no_eligible_set"
+      | "no_eligible_mock"
+      | "insufficient_strict_content"
+      | "tag_fallback_required";
+    requestedQuestionCount?: number;
+    availableQuestionCount?: number;
+  }>;
 };
 
 export type StudyPlanTask = GeneratedStudyPlanTask & {

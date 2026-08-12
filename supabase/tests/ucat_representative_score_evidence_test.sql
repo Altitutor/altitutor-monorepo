@@ -12,8 +12,8 @@ SELECT has_column('public', 'vstudent_ucat_score_projection_evidence', 'prescrib
 SELECT has_column('public', 'vstudent_ucat_score_projection_evidence', 'breadth', 'evidence exposes composition breadth');
 SELECT has_column('public', 'vstudent_ucat_score_projection_evidence', 'feedback_withheld', 'evidence exposes feedback conditions');
 SELECT has_column('public', 'vstudent_ucat_score_projection_evidence', 'is_student_generated', 'evidence exposes selection provenance');
-SELECT has_column('public', 'vstudent_ucat_score_projection_evidence', 'is_standardised', 'evidence exposes standardised-form provenance');
-SELECT has_column('public', 'question_sets', 'score_evidence_standardised', 'controlled partial forms can be explicitly approved');
+SELECT has_column('public', 'vstudent_ucat_score_projection_evidence', 'category_ids', 'evidence exposes category coverage for pooled breadth');
+SELECT has_column('public', 'vstudent_ucat_score_projection_evidence', 'section_category_count', 'evidence exposes the section breadth denominator');
 SELECT has_column('public', 'ucat_score_projection_snapshots', 'model_version', 'snapshots record their score-model version');
 SELECT col_not_null(
   'public',

@@ -126,7 +126,7 @@ test.describe("personalised Study plan", () => {
     ).toBeVisible();
     const { data: generatedTasks, error: generatedTasksError } = await admin
       .from("ucat_student_study_plan_tasks")
-      .select("task_type,source_task_id,launch_config")
+      .select("task_type,source_task_id,launch_config,scheduled_date")
       .eq("student_id", "10000000-0000-0000-0000-000000000001");
     if (generatedTasksError) throw generatedTasksError;
     expect(
@@ -151,6 +151,11 @@ test.describe("personalised Study plan", () => {
           );
         }),
     ).toBe(true);
+    const firstReviewDate = generatedTasks?.find(
+      (task) => task.task_type === "review",
+    )?.scheduled_date;
+    if (!firstReviewDate) throw new Error("Alice has no planned review task.");
+    await selectCalendarDate(page, firstReviewDate);
     await expect(
       page.getByRole("button", { name: "Finish attempt first" }).first(),
     ).toBeDisabled();
@@ -163,7 +168,7 @@ test.describe("personalised Study plan", () => {
     await expect(
       page.getByRole("heading", { name: "Good to see you, Alice" }),
     ).toBeVisible();
-    await expect(page.getByRole("link", { name: "Open Study plan" })).toBeVisible();
+    await expect(page.getByRole("link", { name: "View Study plan" })).toBeVisible();
   });
 
   test("warns but still generates a plan for constrained availability", async ({
@@ -495,7 +500,7 @@ test.describe("personalised Study plan", () => {
     });
     const { data: mockTask, error: mockTaskError } = await admin
       .from("ucat_student_study_plan_tasks")
-      .select("scheduled_date")
+      .select("scheduled_date,title")
       .eq("student_id", studentId)
       .eq("task_type", "mock")
       .order("scheduled_date")
@@ -505,7 +510,7 @@ test.describe("personalised Study plan", () => {
     if (!mockTask?.scheduled_date)
       throw new Error("Charlie has no planned mock task.");
     await selectCalendarDate(page, mockTask.scheduled_date);
-    await expect(page.getByText(/Full UCAT mock \d+/).first()).toBeVisible();
+    await expect(page.getByText(mockTask.title).first()).toBeVisible();
   });
 
   test("marks a learning task complete after completing the lesson", async ({
@@ -806,28 +811,39 @@ test.describe("personalised Study plan", () => {
     if (accessError) throw accessError;
 
     await signIn(page, "fiona.harris@student.test");
-    await expect(page.getByText(/Review ·/).first()).toBeVisible({
-      timeout: 30_000,
-    });
-    const { data: quantitativeSection, error: quantitativeSectionError } =
-      await admin
-      .from("ucat_sections")
-      .select("id")
-      .eq("section_number", 3)
-      .single();
-    if (quantitativeSectionError) throw quantitativeSectionError;
+    await expect
+      .poll(
+        async () => {
+          const { data, error } = await admin
+            .from("ucat_student_study_plan_tasks")
+            .select("id, title, scheduled_date")
+            .eq("student_id", studentId)
+            .eq("task_type", "practice")
+            .order("scheduled_date")
+            .order("sort_order")
+            .limit(1)
+            .maybeSingle();
+          if (error) throw error;
+          return data?.id ?? null;
+        },
+        { timeout: 30_000 },
+      )
+      .not.toBeNull();
     const { data: task, error: taskError } = await admin
       .from("ucat_student_study_plan_tasks")
-      .select("id, title")
+      .select("id, title, scheduled_date")
       .eq("student_id", studentId)
       .eq("task_type", "practice")
-      .eq("section_id", quantitativeSection.id)
       .order("scheduled_date")
       .order("sort_order")
       .limit(1)
-      .maybeSingle();
+      .single();
     if (taskError) throw taskError;
     if (!task?.title) throw new Error("Fiona has no planned practice task.");
+    await selectCalendarDate(page, task.scheduled_date);
+    await expect(page.getByText(/Review ·/).first()).toBeVisible({
+      timeout: 30_000,
+    });
 
     const practiceTask = page
       .locator("li")

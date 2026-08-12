@@ -18,12 +18,13 @@ export type RepresentativeScoreEvidence = {
   marksAvailable: number;
   questionCount: number;
   sectionQuestionCount: number;
+  sectionCategoryCount: number;
   wasTimed: boolean;
   prescribedPace: number | null;
   breadth: "broad" | "mixed" | "narrow";
+  categoryIds: string[];
   feedbackWithheld: boolean;
   isStudentGenerated: boolean;
-  isStandardised: boolean;
 };
 
 export type RepresentativeSectionScore = {
@@ -70,8 +71,7 @@ export function classifyScoreEvidence(
   const representativeConditions =
     standardTiming &&
     evidence.feedbackWithheld &&
-    !evidence.isStudentGenerated &&
-    (evidence.breadth === "broad" || evidence.isStandardised);
+    !evidence.isStudentGenerated;
   if (!representativeConditions) return "learning_only";
 
   const fullFormMarks = FULL_FORM_MARKS[evidence.sectionNumber];
@@ -82,7 +82,7 @@ export function classifyScoreEvidence(
   if (evidence.source === "mock" || equivalent >= 0.9) {
     return "representative_full";
   }
-  return equivalent >= 0.5 ? "representative_partial" : "learning_only";
+  return equivalent > 0 ? "representative_partial" : "learning_only";
 }
 
 function recencyWeight(completedAt: string, now: number): number {
@@ -111,6 +111,25 @@ function estimateSection(
         .map((item) => [item.evidenceSessionId, item]),
     ).values(),
   ];
+  const pooledEquivalent = qualifying.reduce(
+    (sum, item) => sum + item.marksAvailable / FULL_FORM_MARKS[item.sectionNumber]!,
+    0,
+  );
+  const pooledCategories = new Set(
+    qualifying.flatMap((item) => item.categoryIds),
+  );
+  const pooledBreadthIsRepresentative =
+    qualifying.some(
+      (item) => item.source === "mock" || item.breadth === "broad",
+    ) ||
+    pooledCategories.size >=
+      Math.max(
+        2,
+        Math.ceil(
+          Math.max(...qualifying.map((item) => item.sectionCategoryCount), 0) /
+            2,
+        ),
+      );
   const totals = qualifying.reduce(
     (result, item) => {
       const weight = recencyWeight(item.completedAt, now);
@@ -153,6 +172,9 @@ function estimateSection(
     representativeMarksAvailable: totals.rawAvailable,
     representativeSectionEquivalents: totals.weightedEquivalents,
   });
+  if (pooledEquivalent < 0.5 || !pooledBreadthIsRepresentative) {
+    return unavailable();
+  }
   if (totals.rawEquivalents < 0.5 || totals.weightedAvailable <= 0) {
     return unavailable();
   }

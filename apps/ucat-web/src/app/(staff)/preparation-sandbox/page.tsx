@@ -1,9 +1,9 @@
-import { PreparationSandboxPage } from "@/features/preparation/components/preparation-sandbox-page";
-import { requirePreparationSandboxAccess } from "@/features/preparation/server/require-preparation-sandbox-access";
+import { redirect } from "next/navigation";
+import { requireDevelopmentPreview } from "@/features/development-preview/lib/development-preview";
 
 export const dynamic = "force-dynamic";
 
-export default async function PreparationSandboxRoute() {
-  await requirePreparationSandboxAccess();
-  return <PreparationSandboxPage />;
+export default function PreparationSandboxRoute() {
+  requireDevelopmentPreview();
+  redirect("/study-plan/preview");
 }

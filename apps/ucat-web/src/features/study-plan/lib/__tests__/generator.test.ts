@@ -82,7 +82,29 @@ const skillTrainers: StudyPlanSkillTrainer[] = sections
     estimatedMinutes: 1,
   }));
 
-const contentInputs = { categories, skillTrainers };
+const benchmarkSets = sections
+  .filter((section) => section.sectionNumber <= 3)
+  .flatMap((section) =>
+    [0.5, 0.6, 0.7, 0.8, 0.9, 1].map((pace) => ({
+      id: `${section.id}-set-${pace}`,
+      name: `${section.shortName} ${pace.toFixed(1)}× set`,
+      sectionId: section.id,
+      questionCount: section.questionCount,
+      pace,
+      completedAttempts: [],
+    })),
+  );
+const benchmarkMocks = Array.from({ length: 12 }, (_, index) => ({
+  id: `mock-${index + 1}`,
+  name: `UCAT mock ${index + 1}`,
+  completedAttempts: [],
+}));
+const contentInputs = {
+  categories,
+  skillTrainers,
+  benchmarkSets,
+  benchmarkMocks,
+};
 const timingCategories = categories.map((category) => ({
   ...category,
   attemptedQuestionCount: 20,
@@ -180,7 +202,7 @@ describe("generateStudyPlan", () => {
       reviewTiming: "afterEachStem",
     });
     expect(result.tasks.some((task) => task.taskType === "mock")).toBe(false);
-    expect(firstPractice?.questionStemCategoryId).toBe("vr-weak");
+    expect(firstPractice?.questionStemCategoryId).toBeNull();
     expect(result.tasks.some((task) => task.taskType === "skill_trainer")).toBe(
       false,
     );
@@ -327,6 +349,302 @@ describe("generateStudyPlan", () => {
     ).toEqual(["vr-essential", "vr-recommended"]);
   });
 
+  it("prescribes authored module-linked Learning loops without prioritising partial progress", () => {
+    const result = generateStudyPlan({
+      today: "2026-01-05",
+      planningDate: "2026-08-05",
+      profile: {
+        ...profile,
+        availableDays: [0, 1, 2, 3, 4, 5, 6].map((weekday) => ({
+          weekday: weekday as 0 | 1 | 2 | 3 | 4 | 5 | 6,
+        })),
+      },
+      sections,
+      signals: sections.map((section) => ({
+        sectionId: section.id,
+        currentEstimate: null,
+        evidenceCount: 0,
+        completedFullSets: 0,
+      })),
+      learningModules: [
+        {
+          id: "vr-essential-later",
+          title: "Later essential",
+          sectionId: "vr",
+          sectionNumber: 1,
+          priority: "essential",
+          estimatedMinutes: 15,
+          completionPercent: 80,
+          relevanceScore: 1,
+          authoredOrder: 2,
+          categoryIds: ["vr-strong"],
+          questionTagIds: ["tag-later"],
+        },
+        {
+          id: "vr-recommended-first-index",
+          title: "Recommended module",
+          sectionId: "vr",
+          sectionNumber: 1,
+          priority: "recommended",
+          estimatedMinutes: 15,
+          completionPercent: 0,
+          relevanceScore: 1,
+          authoredOrder: 0,
+          categoryIds: ["vr-strong"],
+          questionTagIds: ["tag-recommended"],
+        },
+        {
+          id: "vr-essential-first",
+          title: "First essential",
+          sectionId: "vr",
+          sectionNumber: 1,
+          priority: "essential",
+          estimatedMinutes: 15,
+          completionPercent: 0,
+          relevanceScore: 0,
+          authoredOrder: 1,
+          categoryIds: ["vr-weak", "vr-strong"],
+          questionTagIds: ["tag-a", "tag-b"],
+        },
+      ],
+      ...contentInputs,
+      completedMockCount: 0,
+    });
+
+    const learningTasks = result.tasks.filter((task) => task.taskType === "learn");
+    expect(learningTasks.map((task) => task.learningModuleId)).toEqual([
+      "vr-essential-first",
+      "vr-essential-later",
+      "vr-recommended-first-index",
+    ]);
+
+    for (const learningTask of learningTasks) {
+      const tasksOnDay = result.tasks
+        .filter((task) => task.scheduledDate === learningTask.scheduledDate)
+        .sort((left, right) => left.sortOrder - right.sortOrder);
+      const learningIndex = tasksOnDay.findIndex(
+        (task) => task.learningModuleId === learningTask.learningModuleId,
+      );
+      expect(tasksOnDay[learningIndex + 1]).toMatchObject({
+        taskType: "practice",
+        sectionId: learningTask.sectionId,
+      });
+      expect(tasksOnDay[learningIndex + 2]).toMatchObject({
+        taskType: "review",
+        sectionId: learningTask.sectionId,
+      });
+    }
+
+    const firstLinkedPractice = result.tasks.find(
+      (task) =>
+        task.taskType === "practice" &&
+        task.launchConfig.learningModuleId === "vr-essential-first",
+    );
+    expect(firstLinkedPractice?.launchConfig).toMatchObject({
+      categoryIds: ["vr-weak", "vr-strong"],
+      questionTagIds: ["tag-a", "tag-b"],
+      linkedLearningPractice: true,
+      reviewTiming: "afterEachStem",
+    });
+  });
+
+  it("rotates Learning modules by section and never auto-prescribes optional modules", () => {
+    const result = generateStudyPlan({
+      today: "2026-01-05",
+      planningDate: "2026-08-05",
+      profile: {
+        ...profile,
+        availableDays: [0, 1, 2, 3, 4, 5, 6].map((weekday) => ({
+          weekday: weekday as 0 | 1 | 2 | 3 | 4 | 5 | 6,
+        })),
+      },
+      sections,
+      signals: sections.map((section) => ({
+        sectionId: section.id,
+        currentEstimate: null,
+        evidenceCount: 0,
+        completedFullSets: 0,
+      })),
+      learningModules: [
+        ...sections.slice(0, 3).flatMap((section) =>
+          [1, 2].map((authoredOrder) => ({
+            id: `${section.id}-essential-${authoredOrder}`,
+            title: `${section.shortName} essential ${authoredOrder}`,
+            sectionId: section.id,
+            sectionNumber: section.sectionNumber,
+            priority: "essential" as const,
+            estimatedMinutes: 15,
+            completionPercent: 0,
+            relevanceScore: section.id === "vr" ? 1 : 0,
+            authoredOrder,
+          })),
+        ),
+        {
+          id: "vr-optional",
+          title: "VR optional",
+          sectionId: "vr",
+          sectionNumber: 1,
+          priority: "optional",
+          estimatedMinutes: 15,
+          completionPercent: 0,
+          relevanceScore: 1,
+          authoredOrder: 0,
+        },
+      ],
+      ...contentInputs,
+      completedMockCount: 0,
+    });
+
+    const learningTasks = result.tasks.filter((task) => task.taskType === "learn");
+    expect(learningTasks.slice(0, 3).map((task) => task.sectionId)).toEqual([
+      "vr",
+      "dm",
+      "qr",
+    ]);
+    expect(
+      learningTasks.some((task) => task.learningModuleId === "vr-optional"),
+    ).toBe(false);
+  });
+
+  it("continues Learning rotation from the least recently served section", () => {
+    const result = generateStudyPlan({
+      today: "2026-01-05",
+      planningDate: "2026-08-05",
+      profile,
+      sections,
+      signals: sections.map((section) => ({
+        sectionId: section.id,
+        currentEstimate: null,
+        evidenceCount: 0,
+        completedFullSets: 0,
+      })),
+      learningModules: sections.slice(0, 3).map((section) => ({
+        id: `${section.id}-essential`,
+        title: `${section.shortName} essential`,
+        sectionId: section.id,
+        sectionNumber: section.sectionNumber,
+        priority: "essential" as const,
+        estimatedMinutes: 15,
+        completionPercent: 0,
+        relevanceScore: 0,
+        authoredOrder: 0,
+      })),
+      lastLearningModuleServedAtBySection: {
+        vr: "2026-01-04",
+        dm: "2026-01-02",
+        qr: "2026-01-03",
+      },
+      ...contentInputs,
+      completedMockCount: 0,
+    });
+
+    expect(result.tasks.find((task) => task.taskType === "learn")?.sectionId).toBe(
+      "dm",
+    );
+  });
+
+  it("shrinks strict module practice and exposes catalog fallback diagnostics", () => {
+    const result = generateStudyPlan({
+      today: "2026-01-05",
+      planningDate: "2026-08-05",
+      profile,
+      sections,
+      signals: sections.map((section) => ({
+        sectionId: section.id,
+        currentEstimate: null,
+        evidenceCount: 0,
+        completedFullSets: 0,
+      })),
+      learningModules: [
+        {
+          id: "vr-strict-shortage",
+          title: "VR strict shortage",
+          sectionId: "vr",
+          sectionNumber: 1,
+          priority: "essential",
+          estimatedMinutes: 15,
+          completionPercent: 0,
+          relevanceScore: 0,
+          authoredOrder: 0,
+          categoryIds: ["vr-weak"],
+          questionTagIds: ["tag-a"],
+          targetedPracticeInventory: {
+            strictStemCount: 2,
+            strictQuestionCount: 6,
+            preferredTagStemCount: 1,
+            preferredTagQuestionCount: 3,
+          },
+        },
+      ],
+      ...contentInputs,
+      completedMockCount: 0,
+    });
+
+    expect(
+      result.tasks.find(
+        (task) => task.launchConfig.learningModuleId === "vr-strict-shortage",
+      )?.targetUnits,
+    ).toBe(6);
+    expect(result.contentGaps).toContainEqual({
+      kind: "targeted_practice",
+      sectionId: "vr",
+      moduleId: "vr-strict-shortage",
+      reason: "insufficient_strict_content",
+      requestedQuestionCount: 10,
+      availableQuestionCount: 6,
+    });
+  });
+
+  it("suppresses the whole Learning loop when no strict whole stem fits", () => {
+    const result = generateStudyPlan({
+      today: "2026-01-05",
+      planningDate: "2026-08-05",
+      profile,
+      sections,
+      signals: sections.map((section) => ({
+        sectionId: section.id,
+        currentEstimate: null,
+        evidenceCount: 0,
+        completedFullSets: 0,
+      })),
+      learningModules: [
+        {
+          id: "vr-no-strict-stem",
+          title: "VR no strict stem",
+          sectionId: "vr",
+          sectionNumber: 1,
+          priority: "essential",
+          estimatedMinutes: 15,
+          completionPercent: 0,
+          relevanceScore: 0,
+          authoredOrder: 0,
+          targetedPracticeInventory: {
+            strictStemCount: 1,
+            strictQuestionCount: 12,
+            preferredTagStemCount: 0,
+            preferredTagQuestionCount: 0,
+            strictSelectableQuestionCount: 0,
+          },
+        },
+      ],
+      ...contentInputs,
+      completedMockCount: 0,
+    });
+
+    expect(
+      result.tasks.some(
+        (task) => task.learningModuleId === "vr-no-strict-stem",
+      ),
+    ).toBe(false);
+    expect(result.contentGaps).toContainEqual(
+      expect.objectContaining({
+        kind: "targeted_practice",
+        moduleId: "vr-no-strict-stem",
+        availableQuestionCount: 0,
+      }),
+    );
+  });
+
   it("does not repeat diagnostics when equivalent section evidence exists", () => {
     const result = generateStudyPlan({
       today: "2026-01-05",
@@ -418,8 +736,9 @@ describe("generateStudyPlan", () => {
     expect(
       benchmarks.every(
         (task) =>
-          task.launchConfig.timeMode === "speed" &&
-          task.launchConfig.timeSpeedMultiplier === 0.5 &&
+          task.questionSetId != null &&
+          task.launchConfig.kind === "set" &&
+          task.launchConfig.actualPace === 0.5 &&
           task.launchConfig.calibrationPurpose === "learning_diagnostic",
       ),
     ).toBe(true);
@@ -451,6 +770,8 @@ describe("generateStudyPlan", () => {
       learningModules: [],
       categories: timingCategories,
       skillTrainers,
+      benchmarkSets,
+      benchmarkMocks,
       completedMockCount: 1,
     });
 
@@ -752,6 +1073,8 @@ describe("generateStudyPlan", () => {
       learningModules: [],
       categories: timingCategories,
       skillTrainers,
+      benchmarkSets,
+      benchmarkMocks,
       completedMockCount: 1,
     });
 
@@ -823,6 +1146,8 @@ describe("generateStudyPlan", () => {
       learningModules: [],
       categories: timingCategories,
       skillTrainers,
+      benchmarkSets,
+      benchmarkMocks,
       completedMockCount: 1,
     });
 
@@ -861,6 +1186,8 @@ describe("generateStudyPlan", () => {
       learningModules: [],
       categories: timingCategories,
       skillTrainers,
+      benchmarkSets,
+      benchmarkMocks,
       completedMockCount: 0,
     });
 
@@ -918,6 +1245,8 @@ describe("generateStudyPlan", () => {
       learningModules: [],
       categories: timingCategories,
       skillTrainers,
+      benchmarkSets,
+      benchmarkMocks,
       completedMockCount: 0,
     });
     const calibrationDates = new Set(
@@ -1007,6 +1336,8 @@ describe("generateStudyPlan", () => {
       learningModules: [],
       categories: timingCategories,
       skillTrainers,
+      benchmarkSets,
+      benchmarkMocks,
       completedMockCount: 1,
     });
 
