@@ -171,6 +171,7 @@ export type UcatQuestionCatalogRow = UcatQuestionStemRow & {
   set_names: Json;
   question_count: number;
   is_available_in_question_pool: boolean;
+  ai_review_status?: UcatAiReviewStatus | null;
 };
 
 export type UcatQuestionCatalogPage = {
@@ -178,6 +179,7 @@ export type UcatQuestionCatalogPage = {
   total: number;
   page: number;
   pageSize: number;
+  aiReviewEnabled?: boolean;
 };
 
 export type UcatQuestionCatalogCreator = {

@@ -16998,6 +16998,7 @@ export type Database = {
       }
       ucat_question_catalog_projection: {
         Row: {
+          ai_review_status: string
           answer_option_search_text: string
           is_available_in_question_pool: boolean
           question_bundle_fingerprint: string
@@ -17017,6 +17018,7 @@ export type Database = {
           tutor_source_note_search_text: string
         }
         Insert: {
+          ai_review_status?: string
           answer_option_search_text?: string
           is_available_in_question_pool?: boolean
           question_bundle_fingerprint?: string
@@ -17036,6 +17038,7 @@ export type Database = {
           tutor_source_note_search_text?: string
         }
         Update: {
+          ai_review_status?: string
           answer_option_search_text?: string
           is_available_in_question_pool?: boolean
           question_bundle_fingerprint?: string
@@ -32144,6 +32147,7 @@ export type Database = {
         Row: {
           access_scope: Database["public"]["Enums"]["ucat_access_scope"] | null
           ai_generation_metadata: Json | null
+          ai_review_status: string | null
           answer_option_search_text: string | null
           answer_schemes: string[] | null
           category_name: string | null
@@ -36404,6 +36408,7 @@ export type Database = {
       tutor_ucat_list_question_catalog: {
         Args: {
           p_access_scopes?: string[]
+          p_ai_review_statuses?: string[]
           p_category_ids?: string[]
           p_created_by?: string[]
           p_created_from?: string

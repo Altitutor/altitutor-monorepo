@@ -102,6 +102,7 @@ export function useRequestUcatAiAssessment() {
       queryClient.invalidateQueries({
         queryKey: [...ucatKeys.questions('all'), 'ai-assessment-statuses'],
       })
+      queryClient.invalidateQueries({ queryKey: ucatKeys.questions() })
     },
   })
 }

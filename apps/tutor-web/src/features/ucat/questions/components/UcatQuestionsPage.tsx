@@ -56,7 +56,6 @@ import {
   useRestoreUcatQuestionStem,
   useSetUcatQuestionStemStatus,
   useRequestUcatAiAssessment,
-  useUcatAiAssessmentStatuses,
   useUcatCategories,
   useUcatQuestionCatalogCreators,
   useUcatQuestionCatalogPage,
@@ -151,6 +150,7 @@ import { getUcatContentStatusTransitionOptions, type UcatContentStatus } from '@
 import {
   shouldShowRequestAiReviewAction,
   UCAT_AI_REVIEW_STATUS_COPY,
+  UCAT_DURABLE_AI_REVIEW_STATUSES,
 } from '@/features/ucat/questions/lib/ai-assessment/review-status'
 
 type QuestionsTab = UcatContentStatus
@@ -245,6 +245,15 @@ const filterDefinitions: DataTableFilterDefinition[] = [
     toKey: CREATED_AT_TO_FILTER_KEY,
   },
 ]
+
+const aiReviewFilterDefinition: DataTableFilterDefinition = {
+  key: 'ai_review_status',
+  label: 'AI review',
+  options: UCAT_DURABLE_AI_REVIEW_STATUSES.map((status) => ({
+    label: UCAT_AI_REVIEW_STATUS_COPY[status].shortLabel,
+    value: status,
+  })),
+}
 
 const columnDefinitions: DataTableColumnDefinition[] = [
   { key: 'section_category', label: 'Section', visibleByDefault: true },
@@ -451,8 +460,7 @@ export function UcatQuestionsPage() {
   const pageCount = Math.max(1, Math.ceil(totalRows / pageSize))
   const effectivePage = Math.min(page, pageCount)
   const paginatedRows = rows
-  const paginatedStemIds = useMemo(() => paginatedRows.map((row) => row.id), [paginatedRows])
-  const aiReviewStatuses = useUcatAiAssessmentStatuses(paginatedStemIds)
+  const aiReviewEnabled = questions.data?.aiReviewEnabled !== false
 
   useEffect(() => {
     if (page > pageCount) tableState.actions.onPageChange(pageCount)
@@ -969,6 +977,7 @@ export function UcatQuestionsPage() {
       filterDefinitions[3],
       filterDefinitions[4],
       filterDefinitions[5],
+      ...(aiReviewEnabled ? [aiReviewFilterDefinition] : []),
       {
         ...filterDefinitions[6],
         options: createdByFilterOptions,
@@ -990,6 +999,7 @@ export function UcatQuestionsPage() {
     tableState.state.filters,
     setFilterOptions,
     createdByFilterOptions,
+    aiReviewEnabled,
   ])
 
   if (access.isLoading || questions.isLoading) {
@@ -1298,23 +1308,18 @@ export function UcatQuestionsPage() {
                     {visible('status') && <TableCell className="capitalize">{row.status}</TableCell>}
                     {visible('ai_review') && (
                       <TableCell>
-                        {aiReviewStatuses.data?.statuses[row.id] ? (
+                        {row.ai_review_status ? (
                           <Badge
                             variant="outline"
                             className={cn(
                               'whitespace-nowrap font-normal',
-                              UCAT_AI_REVIEW_STATUS_COPY[aiReviewStatuses.data.statuses[row.id]].className,
+                              UCAT_AI_REVIEW_STATUS_COPY[row.ai_review_status].className,
                             )}
                           >
-                            {UCAT_AI_REVIEW_STATUS_COPY[aiReviewStatuses.data.statuses[row.id]].shortLabel}
+                            {UCAT_AI_REVIEW_STATUS_COPY[row.ai_review_status].shortLabel}
                           </Badge>
                         ) : (
-                          <span
-                            className="text-muted-foreground"
-                            title={aiReviewStatuses.isError ? 'AI review status could not be loaded' : undefined}
-                          >
-                            —
-                          </span>
+                          <span className="text-muted-foreground">—</span>
                         )}
                       </TableCell>
                     )}
@@ -1351,7 +1356,7 @@ export function UcatQuestionsPage() {
                               : []),
                             ...(!showDeleted
                               ? [
-                                  ...(shouldShowRequestAiReviewAction(aiReviewStatuses.data?.statuses[row.id])
+                                  ...(shouldShowRequestAiReviewAction(row.ai_review_status ?? undefined)
                                     ? [{
                                         label: 'Request AI review',
                                         icon: <Bot className="h-4 w-4" />,

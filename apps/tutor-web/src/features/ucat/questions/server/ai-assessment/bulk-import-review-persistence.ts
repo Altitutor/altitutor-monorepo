@@ -18,6 +18,7 @@ import {
 import { runUcatFormatChecks } from './format-checks'
 import { loadGenerationReviewConfig } from './dispatcher'
 import { verifyBulkImportReviewToken } from './bulk-import-review-token'
+import { syncUcatCatalogAiReviewStatusesBestEffort } from './persist-catalog-status'
 
 const FingerprintsSchema = z.object({
   content: z.string().min(1),
@@ -319,5 +320,6 @@ export async function persistFreshBulkImportAiReviews(params: {
     }
   }
 
+  await syncUcatCatalogAiReviewStatusesBestEffort(admin, persistedStemIds)
   return { persistedStemIds, skipped }
 }

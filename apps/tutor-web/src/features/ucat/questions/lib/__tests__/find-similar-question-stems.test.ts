@@ -50,6 +50,7 @@ function baseRow(overrides: Partial<QuestionRow> = {}): QuestionRow {
       tutorSourceNote: null,
     },
     is_available_in_question_pool: true,
+    ai_review_status: null,
     ...overrides,
   }
 }

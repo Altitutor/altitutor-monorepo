@@ -19,6 +19,7 @@ import {
   resolveReviewTriggerGate,
 } from './environment'
 import { runUcatFormatChecks } from './format-checks'
+import { syncUcatCatalogAiReviewStatusesBestEffort } from './persist-catalog-status'
 
 export const UCAT_QUESTION_ASSESSMENT_TOPIC = 'ucat-question-assessment'
 
@@ -148,6 +149,22 @@ export async function requestUcatQuestionAssessment(params: {
   userClient?: SupabaseClient<Database>
 }): Promise<RequestResult> {
   const admin = getServiceRoleClient()
+  try {
+    return await requestUcatQuestionAssessmentInner(params, admin)
+  } finally {
+    await syncUcatCatalogAiReviewStatusesBestEffort(admin, [params.stemId])
+  }
+}
+
+async function requestUcatQuestionAssessmentInner(
+  params: {
+    stemId: string
+    triggerKind: TriggerKind
+    requestedBy?: string | null
+    userClient?: SupabaseClient<Database>
+  },
+  admin: SupabaseClient<Database>,
+): Promise<RequestResult> {
   const reviewConfig = await loadGenerationReviewConfig(admin)
   if (resolveReviewTriggerGate({
     envEnabled: manualReviewEnvironment().enabled,
@@ -271,9 +288,12 @@ export async function enqueueUcatQuestionAssessmentPreparation(params: {
   triggerKind: Exclude<TriggerKind, 'manual_request'>
   requestedBy?: string | null
 }): Promise<boolean> {
-  if (!manualReviewEnvironment().enabled) return false
   const stemIds = [...new Set(params.stemIds)]
   if (stemIds.length === 0) return false
+  // Persist durable status even when assessment enqueue is skipped (env off / drafts),
+  // so fingerprint invalidation still updates the catalog filter column.
+  await syncUcatCatalogAiReviewStatusesBestEffort(getServiceRoleClient(), stemIds)
+  if (!manualReviewEnvironment().enabled) return false
   const message: UcatQuestionAssessmentQueueMessage = {
     kind: 'prepare',
     stemIds,
@@ -442,6 +462,12 @@ export async function recoverQueuedUcatQuestionAssessments(limit = 50): Promise<
   const admin = getServiceRoleClient()
   const now = new Date().toISOString()
   const staleBefore = new Date(Date.now() - UCAT_AI_REVIEW_RUNNING_STALE_MS).toISOString()
+  const { data: staleRuns, error: staleSelectError } = await asAny(admin)
+    .from('ucat_ai_question_assessment_runs')
+    .select('id,stem_id')
+    .eq('status', 'running')
+    .or(`started_at.is.null,started_at.lt.${staleBefore}`)
+  if (staleSelectError) throw staleSelectError
   const { error: staleError } = await asAny(admin)
     .from('ucat_ai_question_assessment_runs')
     .update({
@@ -452,9 +478,13 @@ export async function recoverQueuedUcatQuestionAssessments(limit = 50): Promise<
     .eq('status', 'running')
     .or(`started_at.is.null,started_at.lt.${staleBefore}`)
   if (staleError) throw staleError
+  await syncUcatCatalogAiReviewStatusesBestEffort(
+    admin,
+    (staleRuns ?? []).map((run: { stem_id: string }) => run.stem_id),
+  )
   const { data, error } = await asAny(admin)
     .from('ucat_ai_question_assessment_runs')
-    .select('id')
+    .select('id,stem_id')
     .in('status', ['queued', 'deferred'])
     .is('queue_message_id', null)
     .or(`deferred_until.is.null,deferred_until.lte.${now}`)
@@ -465,5 +495,9 @@ export async function recoverQueuedUcatQuestionAssessments(limit = 50): Promise<
   for (const run of data ?? []) {
     if (await enqueueUcatQuestionAssessmentRun(String(run.id))) dispatched += 1
   }
+  await syncUcatCatalogAiReviewStatusesBestEffort(
+    admin,
+    (data ?? []).map((run: { stem_id: string }) => run.stem_id),
+  )
   return dispatched
 }

@@ -4,6 +4,8 @@ import {
   requireUcatTutor,
   type UcatTutorSupabaseClient,
 } from '@/features/ucat/shared/server/guard'
+import { UCAT_DURABLE_AI_REVIEW_STATUSES } from '@/features/ucat/questions/lib/ai-assessment/review-status'
+import { manualReviewEnvironment } from '@/features/ucat/questions/server/ai-assessment/environment'
 
 const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/iu
@@ -29,6 +31,7 @@ const STATUSES = new Set(['draft', 'in_review', 'published'])
 const ACCESS_SCOPES = new Set(['public', 'private'])
 const QUESTION_TYPES = new Set(['multiple_choice', 'syllogism'])
 const SOURCE_CHANNELS = new Set(['individual', 'bulk_import', 'ai_generation'])
+const AI_REVIEW_STATUSES = new Set<string>(UCAT_DURABLE_AI_REVIEW_STATUSES)
 
 function parsePositiveInteger(value: string | null, fallback: number, maximum: number): number {
   const parsed = Number(value)
@@ -82,6 +85,11 @@ export async function GET(request: NextRequest) {
       ? requestedScopes
       : ['stem_text', 'question_text', 'answer_option_text', 'tutor_source_note']
 
+  const aiReviewEnabled = manualReviewEnvironment().enabled
+  const aiReviewStatuses = aiReviewEnabled
+    ? parseEnumList(searchParams, 'aiReview', AI_REVIEW_STATUSES)
+    : []
+
   const client = access.userClient as unknown as UcatTutorSupabaseClient
   const idsOnly = searchParams.get('idsOnly') === '1'
   const { data, error } = await client.rpc('tutor_ucat_list_question_catalog', {
@@ -98,6 +106,7 @@ export async function GET(request: NextRequest) {
     p_set_ids: parseUuidList(searchParams, 'set'),
     p_include_without_set: searchParams.get('withoutSet') === '1',
     p_source_channels: parseEnumList(searchParams, 'source', SOURCE_CHANNELS),
+    p_ai_review_statuses: aiReviewStatuses,
     p_created_by: parseUuidList(searchParams, 'createdBy'),
     p_created_from: createdFrom,
     p_created_to: createdTo,
@@ -116,7 +125,19 @@ export async function GET(request: NextRequest) {
     )
   }
 
-  return NextResponse.json(data, {
-    headers: { 'Cache-Control': 'private, no-store' },
-  })
+  const payload = data && typeof data === 'object' && !Array.isArray(data)
+    ? data as Record<string, unknown>
+    : { items: [], total: 0, page: 1, pageSize: 20 }
+
+  if (!aiReviewEnabled && Array.isArray(payload.items)) {
+    payload.items = payload.items.map((item) => {
+      if (!item || typeof item !== 'object' || Array.isArray(item)) return item
+      return { ...item, ai_review_status: 'disabled' }
+    })
+  }
+
+  return NextResponse.json(
+    { ...payload, aiReviewEnabled },
+    { headers: { 'Cache-Control': 'private, no-store' } },
+  )
 }

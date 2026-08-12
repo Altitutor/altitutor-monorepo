@@ -1,6 +1,10 @@
 import { useMemo } from 'react'
 import type { DataTableState, Json } from '@altitutor/shared'
 import type { UcatQuestionSourceChannel } from '@/features/ucat/questions/api/questions'
+import {
+  UCAT_AI_REVIEW_STATUS_COPY,
+  type UcatAiReviewStatus,
+} from '@/features/ucat/questions/lib/ai-assessment/review-status'
 import type { UcatAccessScope, UcatContentStatus } from '@/features/ucat/shared/types'
 import { buildStemSourceDisplay, type StemSourceDisplay } from '@/features/ucat/questions/lib/source-display'
 import {
@@ -52,6 +56,7 @@ export type QuestionRow = {
   source_channel: UcatQuestionSourceChannel | null
   source: StemSourceDisplay
   is_available_in_question_pool: boolean
+  ai_review_status: UcatAiReviewStatus | null
 }
 
 type QuestionListRowInput = {
@@ -76,13 +81,19 @@ type QuestionListRowInput = {
   status?: UcatContentStatus | null
   is_available_in_question_pool?: boolean | null
   source_channel?: UcatQuestionSourceChannel | null
+  ai_review_status?: string | null
   ai_generation_metadata?: unknown
   tutor_source_note?: string | null
   created_by_first_name?: string | null
   created_by_last_name?: string | null
-  status_changed_at?: string | null
   status_changed_by_first_name?: string | null
   status_changed_by_last_name?: string | null
+  status_changed_at?: string | null
+}
+
+function parseCatalogAiReviewStatus(value: unknown): UcatAiReviewStatus | null {
+  if (typeof value !== 'string') return null
+  return value in UCAT_AI_REVIEW_STATUS_COPY ? (value as UcatAiReviewStatus) : null
 }
 
 function parseStemSets(setNamesRaw: unknown, setIds: string[]): Array<{ id: string; name: string }> {
@@ -179,6 +190,7 @@ export function useUcatQuestionsTable<T extends QuestionListRowInput>({
             statusChangedAt: row.status_changed_at,
           }),
           is_available_in_question_pool: row.is_available_in_question_pool ?? false,
+          ai_review_status: parseCatalogAiReviewStatus(row.ai_review_status),
         }
       }),
     [data, stemTypes, stemTagIds, questionSearchTexts],

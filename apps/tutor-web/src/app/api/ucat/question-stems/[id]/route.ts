@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireUcatTutor, type UcatTutorSupabaseClient } from '@/features/ucat/shared/server/guard'
 import { enqueueUcatQuestionAssessmentPreparation } from '@/features/ucat/questions/server/ai-assessment/dispatcher'
+import { syncUcatCatalogAiReviewStatusesBestEffort } from '@/features/ucat/questions/server/ai-assessment/persist-catalog-status'
+import { getServiceRoleClient } from '@/shared/lib/supabase/service-role'
 
 export async function PATCH(request: NextRequest, { params }: { params: { id: string } }) {
   const access = await requireUcatTutor()
@@ -43,6 +45,8 @@ export async function PATCH(request: NextRequest, { params }: { params: { id: st
       }).catch((assessmentError) => {
         console.error('Could not queue supplementary UCAT AI assessment preparation after stem save', assessmentError)
       })
+    } else {
+      await syncUcatCatalogAiReviewStatusesBestEffort(getServiceRoleClient(), [params.id])
     }
     return NextResponse.json({ id: data })
   } catch (error) {

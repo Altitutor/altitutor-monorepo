@@ -1,22 +1,27 @@
-import type { Database, Json } from '@altitutor/shared'
+import type { Database } from '@altitutor/shared'
 import type { SupabaseClient } from '@supabase/supabase-js'
-import type { UcatAiReviewStatus } from '@/features/ucat/questions/lib/ai-assessment/review-status'
 import {
-  fingerprintUcatAssessmentSnapshot,
-  ucatAssessmentSnapshotFromDetailRow,
-} from './content'
+  UCAT_DURABLE_AI_REVIEW_STATUSES,
+  type UcatAiReviewStatus,
+  type UcatDurableAiReviewStatus,
+} from '@/features/ucat/questions/lib/ai-assessment/review-status'
 import { buildUcatAiReviewEnvironment } from './environment'
-import { summarizeCurrentUcatAiReview, type UcatAiReviewSummaryRun } from './status-summary'
 
-type CycleRow = { id: string; stem_id: string }
-
-function stringRecord(value: Json | null): Record<string, string> {
-  if (!value || Array.isArray(value) || typeof value !== 'object') return {}
-  return Object.fromEntries(
-    Object.entries(value).filter((entry): entry is [string, string] => typeof entry[1] === 'string'),
-  )
+type SupabaseAny = {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  from: (table: string) => any
 }
 
+function asAny(client: SupabaseClient<Database>): SupabaseAny {
+  return client as unknown as SupabaseAny
+}
+
+function isDurableAiReviewStatus(value: unknown): value is UcatDurableAiReviewStatus {
+  return typeof value === 'string'
+    && (UCAT_DURABLE_AI_REVIEW_STATUSES as ReadonlyArray<string>).includes(value)
+}
+
+/** Read persisted catalog AI review statuses (single source with env overlay for `disabled`). */
 export async function loadUcatCatalogAiReviewStatuses(params: {
   admin: SupabaseClient<Database>
   tutorClient: SupabaseClient<Database>
@@ -30,61 +35,20 @@ export async function loadUcatCatalogAiReviewStatuses(params: {
     return Object.fromEntries(stemIds.map((stemId) => [stemId, 'disabled' as const]))
   }
 
-  const [detailResult, cycleResult] = await Promise.all([
-    params.tutorClient
-      .from('vtutor_ucat_question_stem_detail')
-      .select('*')
-      .in('id', stemIds),
-    params.admin
-      .from('ucat_ai_question_assessment_cycles')
-      .select('id,stem_id')
-      .in('stem_id', stemIds)
-      .eq('is_current', true),
-  ])
-  if (detailResult.error) throw detailResult.error
-  if (cycleResult.error) throw cycleResult.error
+  const { data, error } = await asAny(params.admin)
+    .from('ucat_question_catalog_projection')
+    .select('stem_id,ai_review_status')
+    .in('stem_id', stemIds)
+  if (error) throw error
 
-  const cycles = (cycleResult.data ?? []) as CycleRow[]
-  const cycleIds = cycles.map((cycle) => cycle.id)
-  const runResult = cycleIds.length === 0
-    ? { data: [], error: null }
-    : await params.admin
-        .from('ucat_ai_question_assessment_runs')
-        .select('id,cycle_id,scope_type,target_question_ids,shared_fingerprint,question_fingerprints,status,prompt_version,assessment_result,requested_at,started_at')
-        .in('cycle_id', cycleIds)
-        .order('requested_at', { ascending: false })
-  if (runResult.error) throw runResult.error
-
-  const runs = (runResult.data ?? []).map((run): UcatAiReviewSummaryRun => ({
-    id: run.id,
-    cycle_id: run.cycle_id,
-    scope_type: run.scope_type === 'questions' ? 'questions' : 'full',
-    target_question_ids: Array.isArray(run.target_question_ids) ? run.target_question_ids : [],
-    shared_fingerprint: run.shared_fingerprint,
-    question_fingerprints: stringRecord(run.question_fingerprints),
-    status: run.status,
-    prompt_version: run.prompt_version,
-    assessment_result: run.assessment_result,
-    requested_at: run.requested_at,
-    started_at: run.started_at,
-  }))
-  const cycleByStemId = new Map(cycles.map((cycle) => [cycle.stem_id, cycle.id]))
-  const snapshotByStemId = new Map(
-    (detailResult.data ?? []).flatMap((row) => {
-      const snapshot = ucatAssessmentSnapshotFromDetailRow(row)
-      return snapshot ? [[snapshot.stemId, snapshot] as const] : []
-    }),
+  const byStemId = new Map<string, UcatAiReviewStatus>(
+    (data ?? []).map((row: { stem_id: string; ai_review_status: string }) => [
+      row.stem_id,
+      isDurableAiReviewStatus(row.ai_review_status) ? row.ai_review_status : 'not_requested',
+    ]),
   )
 
-  return Object.fromEntries(stemIds.map((stemId) => {
-    const snapshot = snapshotByStemId.get(stemId)
-    if (!snapshot) return [stemId, 'not_requested']
-    return [stemId, summarizeCurrentUcatAiReview({
-      environmentEnabled: true,
-      currentCycleId: cycleByStemId.get(stemId) ?? null,
-      runs,
-      fingerprints: fingerprintUcatAssessmentSnapshot(snapshot),
-      questionIds: snapshot.questions.map((question) => question.id),
-    }).status]
-  }))
+  return Object.fromEntries(
+    stemIds.map((stemId) => [stemId, byStemId.get(stemId) ?? 'not_requested']),
+  )
 }

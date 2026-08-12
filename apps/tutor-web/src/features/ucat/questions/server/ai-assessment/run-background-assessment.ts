@@ -23,6 +23,7 @@ import {
   fingerprintUcatAssessmentSnapshot,
   loadUcatAssessmentSnapshot,
 } from './content'
+import { syncUcatCatalogAiReviewStatusesBestEffort } from './persist-catalog-status'
 import {
   ASSESSMENT_SYSTEM_PROMPT,
   BULK_IMPORT_AUDIT_REPAIR_SYSTEM_PROMPT,
@@ -866,6 +867,17 @@ export async function runBackgroundUcatQuestionAssessment(
   if (error) throw error
   if (!data) throw new Error('UCAT AI assessment run not found')
   const run = data as RunRow
+  try {
+    return await runBackgroundUcatQuestionAssessmentInner(admin, run)
+  } finally {
+    await syncUcatCatalogAiReviewStatusesBestEffort(admin, [run.stem_id])
+  }
+}
+
+async function runBackgroundUcatQuestionAssessmentInner(
+  admin: SupabaseClient<Database>,
+  run: RunRow,
+): Promise<{ runId: string; status: string }> {
   if (['completed', 'superseded', 'format_blocked'].includes(run.status)) {
     return { runId: run.id, status: run.status }
   }
