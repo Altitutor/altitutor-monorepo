@@ -1,5 +1,6 @@
 'use client'
 
+import React from 'react'
 import { UcatRichContentBlock } from '@/features/ucat/question-engine-preview/UcatRichContentBlock'
 import { cn } from '@/shared/utils'
 import {
@@ -8,6 +9,8 @@ import {
 } from '../lib/attempt-content-snapshot'
 import {
   getAnswerSchemePresentation,
+  projectPlacementReviewByDestination,
+  type PresentationContract,
   type ReviewContract,
 } from '@altitutor/ucat-response-contract'
 
@@ -36,6 +39,87 @@ function OptionContent({
   )
 }
 
+function DestinationFirstPlacementReview({
+  options,
+  presentation,
+  review,
+}: {
+  options: readonly AttemptReviewQuestion['options'][number][]
+  presentation: Extract<PresentationContract, { kind: 'placement' }>
+  review: Extract<ReviewContract, { kind: 'placement' }>
+}) {
+  const optionById = new Map(options.map((option) => [option.id, option]))
+  const destinations = projectPlacementReviewByDestination(
+    presentation,
+    review
+  )
+
+  return (
+    <div className="mt-3 space-y-1.5">
+      <div className="grid grid-cols-[minmax(0,1.25fr)_minmax(0,3fr)_minmax(0,3fr)] gap-x-2 px-3 text-xs font-medium text-muted-foreground">
+        <div>Destination</div>
+        <div className="text-center">Your answer</div>
+        <div className="text-center">Correct answer</div>
+      </div>
+      <div className="space-y-1.5">
+        {destinations.map((destination) => {
+          const isCorrect = destination.outcome === 'correct'
+          const selectedOptions = destination.selectedTargetIds
+            .map((id) => optionById.get(id))
+            .filter((option) => option !== undefined)
+          const correctOptions = destination.correctTargetIds
+            .map((id) => optionById.get(id))
+            .filter((option) => option !== undefined)
+
+          return (
+            <div
+              key={destination.token ?? 'not-placed'}
+              data-testid={`placement-destination-${destination.token ?? 'not-placed'}`}
+              className={cn(
+                'grid grid-cols-[minmax(0,1.25fr)_minmax(0,3fr)_minmax(0,3fr)] items-stretch gap-2 rounded px-3 py-1',
+                isCorrect ? 'bg-green-500/10' : 'bg-red-500/10'
+              )}
+            >
+              <div className="flex min-h-[50px] items-center font-medium">
+                {destination.label}
+              </div>
+              <div
+                className={cn(
+                  'flex min-h-[50px] flex-col items-center justify-center gap-1 rounded-md border px-4 text-center text-sm',
+                  selectedOptions.length === 0
+                    ? 'border-dashed border-muted-foreground/50 text-muted-foreground'
+                    : isCorrect
+                      ? 'border-green-600/50 bg-green-500/10 dark:border-green-700/50'
+                      : 'border-red-600/50 bg-red-500/10 dark:border-red-700/50'
+                )}
+              >
+                {selectedOptions.length === 0
+                  ? '—'
+                  : selectedOptions.map((option) => (
+                      <OptionContent
+                        key={option.id}
+                        text={option.text}
+                        json={option.answerJson}
+                      />
+                    ))}
+              </div>
+              <div className="flex min-h-[50px] flex-col items-center justify-center gap-1 rounded-md border border-border bg-card px-4 text-center text-sm">
+                {correctOptions.map((option) => (
+                  <OptionContent
+                    key={option.id}
+                    text={option.text}
+                    json={option.answerJson}
+                  />
+                ))}
+              </div>
+            </div>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
 function PlacementResults({
   question,
   review,
@@ -51,6 +135,9 @@ function PlacementResults({
   const tokenLabel = new Map(
     presentation.tokens.map((token) => [token.value, token.label]),
   )
+  const isDestinationFirst =
+    presentation.dragDirection === 'options_to_tokens' &&
+    review?.kind === 'placement'
 
   return (
     <div className="space-y-4 py-4 sm:py-5">
@@ -70,6 +157,13 @@ function PlacementResults({
             textTone="theme"
           />
         </div>
+        {isDestinationFirst && review?.kind === 'placement' ? (
+          <DestinationFirstPlacementReview
+            options={options}
+            presentation={presentation}
+            review={review}
+          />
+        ) : (
         <div className="mt-3 space-y-1.5">
           <div className="grid grid-cols-[minmax(0,3fr)_minmax(0,1.4fr)_minmax(0,1.4fr)] gap-x-1 px-3 text-xs font-medium text-muted-foreground">
             <div>Statement</div>
@@ -137,6 +231,7 @@ function PlacementResults({
             })}
           </div>
         </div>
+        )}
       </section>
     </div>
   )

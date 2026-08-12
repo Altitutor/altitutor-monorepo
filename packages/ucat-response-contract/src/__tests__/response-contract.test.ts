@@ -7,6 +7,7 @@ import {
   getAnswerSchemeProgressPoints,
   getAnswerSchemeContract,
   getAnswerSchemePresentation,
+  projectPlacementReviewByDestination,
   resolveAnswerSchemeDisplayColumns,
   tryGetPlacementPresentation,
 } from '../index'
@@ -49,6 +50,39 @@ describe('UCAT response contract', () => {
     })).toEqual({ b: 'most', c: 'least' })
     expect(tryGetPlacementPresentation('unknown', ['a'])).toBeNull()
     expect(tryGetPlacementPresentation('single_choice', ['a'])).toBeNull()
+  })
+
+  it('projects option-to-token reviews in the same destination-first shape as answering', () => {
+    const presentation = getAnswerSchemePresentation(
+      'situational_judgement_most_least',
+      ['a', 'b', 'c']
+    )
+    if (presentation.kind !== 'placement') {
+      throw new Error('Expected a placement presentation')
+    }
+
+    expect(projectPlacementReviewByDestination(presentation, {
+      kind: 'placement',
+      rows: [
+        { targetId: 'a', placedToken: 'least', correctToken: 'most', outcome: 'incorrect' },
+        { targetId: 'b', placedToken: null, correctToken: null, outcome: 'correct' },
+        { targetId: 'c', placedToken: 'most', correctToken: 'least', outcome: 'incorrect' },
+      ],
+      outcome: 'incorrect',
+    })).toEqual([
+      {
+        token: 'most', label: 'Most Appropriate',
+        selectedTargetIds: ['c'], correctTargetIds: ['a'], outcome: 'incorrect',
+      },
+      {
+        token: 'least', label: 'Least Appropriate',
+        selectedTargetIds: ['a'], correctTargetIds: ['c'], outcome: 'incorrect',
+      },
+      {
+        token: null, label: 'Not placed',
+        selectedTargetIds: ['b'], correctTargetIds: ['b'], outcome: 'correct',
+      },
+    ])
   })
 
   it('supports a complete single-choice response through one public contract', () => {

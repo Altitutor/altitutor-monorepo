@@ -1,5 +1,5 @@
 import React from "react";
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import { ResultsQuestionViewer } from "@/features/question-engine/components/results-question-viewer";
 import type { QuestionItem } from "@/features/question-engine/model/types";
 
@@ -27,17 +27,28 @@ const question: QuestionItem = {
 };
 
 describe("ResultsQuestionViewer placement review", () => {
-  it("shows both Most/Least destinations and the unplaced middle action", () => {
+  it("reviews Most/Least by destination, matching the answering interaction", () => {
     render(
       <ResultsQuestionViewer
         question={question}
-        syllogismSnapshot={{ a: true, c: false }}
-        points={8}
+        syllogismSnapshot={{ a: false, c: true }}
+        points={0}
       />,
     );
 
-    expect(screen.getAllByText("Most Appropriate").length).toBeGreaterThan(0);
-    expect(screen.getAllByText("Least Appropriate").length).toBeGreaterThan(0);
-    expect(screen.getByText("Not placed")).toBeInTheDocument();
+    expect(screen.getByText("Destination")).toBeInTheDocument();
+    const mostRow = screen.getByTestId("placement-destination-most");
+    expect(within(mostRow).getByText("Most Appropriate")).toBeInTheDocument();
+    expect(within(mostRow).getByText("Action C")).toBeInTheDocument();
+    expect(within(mostRow).getByText("Action A")).toBeInTheDocument();
+
+    const leastRow = screen.getByTestId("placement-destination-least");
+    expect(within(leastRow).getByText("Least Appropriate")).toBeInTheDocument();
+    expect(within(leastRow).getByText("Action A")).toBeInTheDocument();
+    expect(within(leastRow).getByText("Action C")).toBeInTheDocument();
+
+    const unplacedRow = screen.getByTestId("placement-destination-not-placed");
+    expect(within(unplacedRow).getByText("Not placed")).toBeInTheDocument();
+    expect(within(unplacedRow).getAllByText("Action B")).toHaveLength(2);
   });
 });

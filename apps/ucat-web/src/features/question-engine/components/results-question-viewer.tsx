@@ -23,7 +23,11 @@ import {
   hasAnswerExplanation,
   OptionText,
 } from "./question-content";
-import type { ReviewContract } from "@altitutor/ucat-response-contract";
+import {
+  projectPlacementReviewByDestination,
+  type PresentationContract,
+  type ReviewContract,
+} from "@altitutor/ucat-response-contract";
 import {
   evaluatePersistedQuestionResponse,
   getQuestionMaximumMarks,
@@ -187,6 +191,111 @@ const syllogismAnswerCorrectClass = (site: boolean) =>
     ? "border-green-700 bg-green-50 text-green-800 dark:bg-green-950/40 dark:text-green-300"
     : "border-green-700 bg-green-50 text-green-800";
 
+function DestinationFirstPlacementReview({
+  options,
+  presentation,
+  review,
+  theme,
+  textTone,
+  showExplanations,
+}: {
+  options: readonly AnswerOption[];
+  presentation: Extract<PresentationContract, { kind: "placement" }>;
+  review: Extract<ReviewContract, { kind: "placement" }>;
+  theme: ReturnType<typeof getResultsViewerTheme>;
+  textTone: "theme" | "engine";
+  showExplanations: boolean;
+}) {
+  const optionById = new Map(options.map((option) => [option.id, option]));
+  const destinations = projectPlacementReviewByDestination(
+    presentation,
+    review,
+  );
+
+  return (
+    <div className="mt-3 space-y-1.5">
+      <div
+        className={cn(
+          "grid grid-cols-[minmax(0,1.25fr)_minmax(0,3fr)_minmax(0,3fr)] gap-x-2 px-3",
+          theme.gridHeader,
+        )}
+      >
+        <div>Destination</div>
+        <div className="text-center">Your answer</div>
+        <div className="text-center">Correct answer</div>
+      </div>
+      <div className="space-y-1.5">
+        {destinations.map((destination) => {
+          const isCorrect = destination.outcome === "correct";
+          const selectedOptions = destination.selectedTargetIds
+            .map((id) => optionById.get(id))
+            .filter((option): option is AnswerOption => option != null);
+          const correctOptions = destination.correctTargetIds
+            .map((id) => optionById.get(id))
+            .filter((option): option is AnswerOption => option != null);
+
+          return (
+            <div
+              key={destination.token ?? "not-placed"}
+              data-testid={`placement-destination-${destination.token ?? "not-placed"}`}
+              className={cn(
+                "grid grid-cols-[minmax(0,1.25fr)_minmax(0,3fr)_minmax(0,3fr)] items-stretch gap-2 rounded px-3 py-1",
+                isCorrect ? theme.correctRowBg : theme.wrongRowBg,
+              )}
+            >
+              <div className="flex min-h-[50px] items-center font-medium">
+                {destination.label}
+              </div>
+              <div
+                className={cn(
+                  "flex min-h-[50px] flex-col items-center justify-center gap-1 rounded-md border px-4 text-center",
+                  theme.site ? "text-sm" : "text-[11pt]",
+                  selectedOptions.length === 0
+                    ? "border-dashed border-muted-foreground/50 text-muted-foreground"
+                    : isCorrect
+                      ? "border-green-600/50 bg-green-500/10 dark:border-green-700/50"
+                      : "border-red-600/50 bg-red-500/10 dark:border-red-700/50",
+                )}
+              >
+                {selectedOptions.length === 0
+                  ? "—"
+                  : selectedOptions.map((option) => (
+                      <OptionText
+                        key={option.id}
+                        option={option}
+                        textTone={textTone}
+                      />
+                    ))}
+              </div>
+              <div className={theme.statementBox}>
+                {correctOptions.map((option) => (
+                  <OptionText
+                    key={option.id}
+                    option={option}
+                    textTone={textTone}
+                  />
+                ))}
+              </div>
+              {showExplanations && correctOptions.some(hasAnswerExplanation) ? (
+                <div className="col-span-3 pl-1">
+                  {correctOptions.filter(hasAnswerExplanation).map((option) => (
+                    <AnswerExplanation
+                      key={option.id}
+                      text={option.answerExplanation}
+                      json={option.answerExplanationJson}
+                      textTone={textTone}
+                    />
+                  ))}
+                </div>
+              ) : null}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 export function ResultsQuestionViewer({
   question,
   selectedOptionId,
@@ -281,6 +390,9 @@ export function ResultsQuestionViewer({
     const syllogismGridCols = showStudentsColumn
       ? "grid-cols-[minmax(0,3fr)_minmax(0,1.4fr)_minmax(0,1.4fr)_minmax(0,1.2fr)]"
       : "grid-cols-[minmax(0,3fr)_minmax(0,1.4fr)_minmax(0,1.4fr)]";
+    const isDestinationFirst =
+      presentation.dragDirection === "options_to_tokens" &&
+      projectedReview.kind === "placement";
 
     const content = (
       <div
@@ -313,6 +425,16 @@ export function ResultsQuestionViewer({
               not saved. New placement attempts retain these answers.
             </p>
           ) : null}
+          {isDestinationFirst && projectedReview.kind === "placement" ? (
+            <DestinationFirstPlacementReview
+              options={options}
+              presentation={presentation}
+              review={projectedReview}
+              theme={theme}
+              textTone={contentTextTone}
+              showExplanations={showExplanations}
+            />
+          ) : (
           <div className="mt-3 space-y-1.5">
             <div
               className={cn(
@@ -446,6 +568,7 @@ export function ResultsQuestionViewer({
               )}
             </div>
           </div>
+          )}
           {showQuestionFooter ? (
             <div className={theme.footer}>
               {typeof points === "number" ? (

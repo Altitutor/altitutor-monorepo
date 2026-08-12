@@ -467,6 +467,57 @@ export type ReviewContract =
       outcome: ReviewOutcome
     }
 
+export type PlacementDestinationReviewRow = {
+  token: PlacementValue | null
+  label: string
+  selectedTargetIds: readonly string[]
+  correctTargetIds: readonly string[]
+  outcome: 'correct' | 'incorrect' | 'unanswered'
+}
+
+/** Inverts target-first review data for options dragged into named destinations. */
+export function projectPlacementReviewByDestination(
+  presentation: Extract<PresentationContract, { kind: 'placement' }>,
+  review: Extract<ReviewContract, { kind: 'placement' }>
+): readonly PlacementDestinationReviewRow[] {
+  const reviewByTargetId = new Map(review.rows.map((row) => [row.targetId, row]))
+  const orderedRows = presentation.targetIds
+    .map((targetId) => reviewByTargetId.get(targetId))
+    .filter((row) => row !== undefined)
+
+  return [
+    ...presentation.tokens.map((token) => ({
+      token: token.value,
+      label: token.label,
+    })),
+    { token: null, label: 'Not placed' },
+  ].map(({ token, label }) => {
+    const selectedTargetIds = orderedRows
+      .filter((row) => row.placedToken === token)
+      .map((row) => row.targetId)
+    const correctTargetIds = orderedRows
+      .filter((row) => row.correctToken === token)
+      .map((row) => row.targetId)
+    const isCorrect =
+      selectedTargetIds.length === correctTargetIds.length &&
+      selectedTargetIds.every(
+        (targetId, index) => targetId === correctTargetIds[index]
+      )
+
+    return {
+      token,
+      label,
+      selectedTargetIds,
+      correctTargetIds,
+      outcome: isCorrect
+        ? 'correct'
+        : selectedTargetIds.length === 0
+          ? 'unanswered'
+          : 'incorrect',
+    }
+  })
+}
+
 export type EvaluationResult =
   | { ok: false; issues: readonly ContractIssue[] }
   | {
