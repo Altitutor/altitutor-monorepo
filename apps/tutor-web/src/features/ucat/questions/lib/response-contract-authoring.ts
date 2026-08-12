@@ -105,17 +105,6 @@ export function responseContractForType(
   }
 }
 
-export function questionsMatchSuggestedResponseContract(
-  questions: readonly AuthoredQuestion[],
-  suggested: SuggestedResponseContract,
-): boolean {
-  return questions.every((question) => {
-    const current = authoredResponseContract(question)
-    return current.responseType === suggested.responseType
-      && current.answerScheme === suggested.answerScheme
-  })
-}
-
 function optionId(question: AuthoredQuestion, index: number): string {
   return question.options[index]?.id ?? `draft-option-${index}`
 }

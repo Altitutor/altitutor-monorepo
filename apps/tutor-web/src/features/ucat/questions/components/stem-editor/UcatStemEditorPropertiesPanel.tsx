@@ -219,32 +219,12 @@ export function UcatStemEditorPropertiesPanel({
     form.setValue('categoryId', nextCategoryId, {
       shouldDirty: true,
     })
-    if (nextCategoryId == null) {
-      form.clearErrors('categoryId')
-      return
-    }
+    if (nextCategoryId == null) return
 
     const nextCategory = categories.find((category) => category.id === nextCategoryId)
     const defaultContract = suggestedResponseContract(nextCategory?.name, selectedSection?.name)
-    if (!shouldApplyDefaults) {
-      const currentQuestions = form.getValues('questions')
-      const hasMismatch = currentQuestions.some((question) => {
-        const contract = authoredResponseContract(question)
-        return contract.responseType !== defaultContract.responseType
-          || contract.answerScheme !== defaultContract.answerScheme
-      })
-      if (hasMismatch) {
-        form.setError('categoryId', {
-          type: 'response-contract-mismatch',
-          message: 'Apply the category response format before saving this category change.',
-        })
-      } else {
-        form.clearErrors('categoryId')
-      }
-      return
-    }
+    if (!shouldApplyDefaults) return
 
-    form.clearErrors('categoryId')
     form.setValue(
       'questions',
       form.getValues('questions').map((question) => transformResponseContract(question, defaultContract)),
@@ -899,8 +879,8 @@ export function UcatStemEditorPropertiesPanel({
                 <div className="text-sm font-medium">{answerSchemeLabels[currentAnswerScheme]}</div>
                 <div className="text-xs text-muted-foreground">
                   {categoryContractDiffers
-                    ? 'Current scheme. Reconcile the category response format before saving.'
-                    : 'Set automatically from the Response type and UCAT category.'}
+                    ? 'Derived from the selected Response type. The category has a different suggested format.'
+                    : 'Derived automatically from the Response type and UCAT context.'}
                 </div>
               </div>
             </PropertyRow>
@@ -919,7 +899,6 @@ export function UcatStemEditorPropertiesPanel({
                       transformResponseContract(question, suggestedContract)
                     ))
                     form.setValue('questions', questions, { shouldDirty: true })
-                    form.clearErrors('categoryId')
                     onQuestionIndexChange(Math.min(safeQuestionIndex, questions.length - 1))
                   }}
                 >
@@ -928,7 +907,7 @@ export function UcatStemEditorPropertiesPanel({
               ) : null}
               {categoryContractDiffers ? (
                 <div className="text-xs text-amber-700 dark:text-amber-300">
-                  The category and response contract do not match. Apply the category response format to continue.
+                  The selected category suggests a different response format. Apply it only if that is the intended interaction.
                 </div>
               ) : contractIssues.length > 0 ? (
                 <div className="text-xs text-amber-700 dark:text-amber-300">

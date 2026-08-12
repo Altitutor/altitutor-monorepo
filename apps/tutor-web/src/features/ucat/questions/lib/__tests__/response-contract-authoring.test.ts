@@ -1,5 +1,4 @@
 import {
-  questionsMatchSuggestedResponseContract,
   responseContractForType,
   responseContractIssues,
   shouldApplyCategoryDefaults,
@@ -93,24 +92,6 @@ describe('UCAT response-contract authoring', () => {
     expect(transformed.options).toHaveLength(5)
     expect(transformed.options.every((option) => option.answerKeyValue === 'yes' || option.answerKeyValue === 'no')).toBe(true)
     expect(responseContractIssues(transformed)).toEqual([])
-  })
-
-  it('blocks saving until every question matches the selected category contract', () => {
-    const question = buildEmptyStemFormValues().questions[0]!
-    const decisionMakingContract = suggestedResponseContract(
-      'Syllogisms',
-      'Decision Making',
-    )
-
-    expect(questionsMatchSuggestedResponseContract(
-      [question],
-      decisionMakingContract,
-    )).toBe(false)
-
-    expect(questionsMatchSuggestedResponseContract(
-      [transformResponseContract(question, decisionMakingContract)],
-      decisionMakingContract,
-    )).toBe(true)
   })
 
   it('reports scheme-driven option and key incompatibilities', () => {
