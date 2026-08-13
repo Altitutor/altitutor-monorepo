@@ -55,6 +55,10 @@ import {
 } from "@/features/practice/server/pick-stems";
 import { isLegacyDemandCapacityRiskMessage } from "@/features/study-plan/lib/capacity-risk-copy";
 import {
+  countPracticeQuestionsByCategory,
+  deriveActivityTagSignals,
+} from "@/features/study-plan/lib/practice-inventory";
+import {
   needsPreparationVersionReplacement,
   planProfileTransition,
   prepareStudyPlanTasks,
@@ -248,7 +252,6 @@ async function loadGenerationInputs(
     fullSetRes,
     completedBenchmarksRes,
     categoriesRes,
-    categoryCountsRes,
     categoryProgressRes,
     readinessEvidenceRes,
     modulesRes,
@@ -262,7 +265,6 @@ async function loadGenerationInputs(
     mockRes,
     graduationStatesRes,
     timingEvidenceRes,
-    tagSignalsRes,
     setCatalogRes,
     setAttemptsRes,
     mockCatalogRes,
@@ -290,9 +292,6 @@ async function loadGenerationInputs(
       .eq("task_type", "section_benchmark")
       .eq("status", "completed"),
     admin.from("question_stem_categories").select("id, name, ucat_section_id"),
-    supabase
-      .from("vstudent_ucat_public_question_counts")
-      .select("section_id, question_stem_category_id, total_questions"),
     supabase
       .from("vstudent_ucat_my_question_progress")
       .select("category_id, correct_score, max_score"),
@@ -351,11 +350,6 @@ async function loadGenerationInputs(
         "evidence_session_id, source, section_id, completed_at, prescribed_pace, observed_pace, accuracy, section_equivalents, category_ids, breadth",
       ),
     supabase
-      .from("vstudent_ucat_activity_tag_signals")
-      .select(
-        "tag_id, section_id, category_id, available_question_count, independent_session_count, weakness_score",
-      ),
-    supabase
       .from("vstudent_ucat_question_sets")
       .select(
         "id, name, sections, speed, time_limit_at_exam_speed_seconds, is_available_in_sets_library",
@@ -384,38 +378,42 @@ async function loadGenerationInputs(
       .not("section_id", "is", null),
     supabase
       .from("vstudent_ucat_my_question_attempts")
-      .select("question_id, score, is_submitted"),
+      .select(
+        "id, question_id, score, is_submitted, student_practice_session_id, student_question_set_attempt_id",
+      ),
   ]);
-  for (const result of [
-    sectionsRes,
-    evidenceRes,
-    fullSetRes,
-    completedBenchmarksRes,
-    categoriesRes,
-    categoryCountsRes,
-    categoryProgressRes,
-    readinessEvidenceRes,
-    modulesRes,
-    blocksRes,
-    moduleCategoriesRes,
-    moduleTagsRes,
-    trainersRes,
-    trainerCategoriesRes,
-    trainerItemsRes,
-    trainerConfigsRes,
-    mockRes,
-    graduationStatesRes,
-    timingEvidenceRes,
-    tagSignalsRes,
-    setCatalogRes,
-    setAttemptsRes,
-    mockCatalogRes,
-    mockAttemptsRes,
-    practiceInventoryRes,
-    lastLearningTasksRes,
-    practiceAttemptsRes,
-  ]) {
-    if (result.error) throw result.error;
+  for (const [source, result] of [
+    ["sections", sectionsRes],
+    ["score evidence", evidenceRes],
+    ["completed sets", fullSetRes],
+    ["completed benchmarks", completedBenchmarksRes],
+    ["categories", categoriesRes],
+    ["category progress", categoryProgressRes],
+    ["readiness evidence", readinessEvidenceRes],
+    ["learning modules", modulesRes],
+    ["learning module blocks", blocksRes],
+    ["learning module categories", moduleCategoriesRes],
+    ["learning module tags", moduleTagsRes],
+    ["skill trainers", trainersRes],
+    ["skill trainer categories", trainerCategoriesRes],
+    ["skill trainer items", trainerItemsRes],
+    ["skill trainer configuration", trainerConfigsRes],
+    ["completed mocks", mockRes],
+    ["graduation states", graduationStatesRes],
+    ["timing evidence", timingEvidenceRes],
+    ["set catalog", setCatalogRes],
+    ["set attempts", setAttemptsRes],
+    ["mock catalog", mockCatalogRes],
+    ["mock attempts", mockAttemptsRes],
+    ["practice inventory", practiceInventoryRes],
+    ["learning history", lastLearningTasksRes],
+    ["practice attempts", practiceAttemptsRes],
+  ] as const) {
+    if (result.error) {
+      throw new Error(
+        `Failed to load Study plan ${source}: ${result.error.message}`,
+      );
+    }
   }
   const sections: StudyPlanSection[] = (sectionsRes.data ?? []).flatMap(
     (row) => {
@@ -547,12 +545,8 @@ async function loadGenerationInputs(
       pacePolicyVersion: graduation?.pace_policy_version ?? null,
     };
   });
-  const categoryCounts = new Map(
-    (categoryCountsRes.data ?? []).flatMap((row) =>
-      row.question_stem_category_id
-        ? [[row.question_stem_category_id, row.total_questions ?? 0] as const]
-        : [],
-    ),
+  const categoryCounts = countPracticeQuestionsByCategory(
+    practiceInventoryRes.data ?? [],
   );
   const categoryProgress = new Map(
     (categoryProgressRes.data ?? []).flatMap((row) =>
@@ -837,24 +831,9 @@ async function loadGenerationInputs(
       },
     ];
   });
-  const tagSignals: ActivityTagSignal[] = (tagSignalsRes.data ?? []).flatMap(
-    (row) =>
-      row.tag_id &&
-      row.section_id &&
-      row.category_id &&
-      row.available_question_count != null &&
-      row.independent_session_count != null
-        ? [
-            {
-              id: row.tag_id,
-              sectionId: row.section_id,
-              categoryId: row.category_id,
-              availableQuestionCount: row.available_question_count,
-              independentSessionCount: row.independent_session_count,
-              weaknessScore: Number(row.weakness_score ?? 0.5),
-            },
-          ]
-        : [],
+  const tagSignals: ActivityTagSignal[] = deriveActivityTagSignals(
+    practiceInventoryRes.data ?? [],
+    practiceAttemptsRes.data ?? [],
   );
   const benchmarkSets: BenchmarkSetAsset[] = (setCatalogRes.data ?? []).flatMap(
     (set) => {

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireUcatTutor, type UcatTutorSupabaseClient } from '@/features/ucat/shared/server/guard'
+import { jsonUcatDeleteErrorResponse, jsonUcatVisibilityErrorResponse, ucatMemberIds } from '@/features/ucat/shared/server/delete-blocked-response'
 
 export async function PATCH(request: NextRequest, { params }: { params: { id: string } }) {
   const access = await requireUcatTutor()
@@ -18,7 +19,15 @@ export async function PATCH(request: NextRequest, { params }: { params: { id: st
       p_stem_ids: body.stemIds ?? [],
     })
 
-    if (error) return NextResponse.json({ error: error.message }, { status: 400 })
+    if (error) {
+      return jsonUcatVisibilityErrorResponse(client, {
+        contentType: 'set',
+        contentId: params.id,
+        accessScope: body.accessScope === 'private' ? 'private' : 'public',
+        memberIds: ucatMemberIds(body.stemIds),
+        errorMessage: error.message,
+      })
+    }
     return NextResponse.json({ id: data })
   } catch (error) {
     return NextResponse.json({ error: 'Invalid request payload', details: String(error) }, { status: 400 })
@@ -32,6 +41,12 @@ export async function DELETE(_: NextRequest, { params }: { params: { id: string 
   const client = access.userClient as unknown as UcatTutorSupabaseClient
   const { error } = await client.rpc('tutor_ucat_delete_question_set', { p_set_id: params.id })
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 400 })
+  if (error) {
+    return jsonUcatDeleteErrorResponse(client, {
+      contentType: 'set',
+      contentId: params.id,
+      errorMessage: error.message,
+    })
+  }
   return NextResponse.json({ ok: true })
 }

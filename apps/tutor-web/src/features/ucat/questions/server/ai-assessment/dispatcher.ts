@@ -137,9 +137,11 @@ export function assessmentDedupeKey(params: {
   scopeType: 'full' | 'questions'
   questionIds: string[]
   promptVersion?: number
+  forceNonce?: string
 }) {
   const scope = params.scopeType === 'full' ? 'full' : [...params.questionIds].sort().join(',')
-  return `${params.cycleId}:v${params.promptVersion ?? AI_ASSESSMENT_PROMPT_VERSION}:${params.fingerprint}:${params.scopeType}:${scope}`
+  const base = `${params.cycleId}:v${params.promptVersion ?? AI_ASSESSMENT_PROMPT_VERSION}:${params.fingerprint}:${params.scopeType}:${scope}`
+  return params.forceNonce ? `${base}:force:${params.forceNonce}` : base
 }
 
 export async function requestUcatQuestionAssessment(params: {
@@ -147,6 +149,7 @@ export async function requestUcatQuestionAssessment(params: {
   triggerKind: TriggerKind
   requestedBy?: string | null
   userClient?: SupabaseClient<Database>
+  force?: boolean
 }): Promise<RequestResult> {
   const admin = getServiceRoleClient()
   try {
@@ -162,6 +165,7 @@ async function requestUcatQuestionAssessmentInner(
     triggerKind: TriggerKind
     requestedBy?: string | null
     userClient?: SupabaseClient<Database>
+    force?: boolean
   },
   admin: SupabaseClient<Database>,
 ): Promise<RequestResult> {
@@ -207,7 +211,8 @@ async function requestUcatQuestionAssessmentInner(
   }
 
   const currentFingerprints = fingerprintUcatAssessmentSnapshot(snapshot)
-  const previousFingerprints = params.triggerKind === 'review_submission'
+  const force = params.force === true && params.triggerKind === 'manual_request'
+  const previousFingerprints = params.triggerKind === 'review_submission' || force
     ? null
     : await latestRunFingerprints(admin, cycleId)
   const changed = changedAssessmentScope(previousFingerprints, currentFingerprints)
@@ -222,6 +227,7 @@ async function requestUcatQuestionAssessmentInner(
     scopeType: changed.scopeType,
     questionIds: targetQuestionIds,
     promptVersion: AI_ASSESSMENT_PROMPT_VERSION,
+    forceNonce: force ? crypto.randomUUID() : undefined,
   })
   const { data: existing, error: existingError } = await asAny(admin)
     .from('ucat_ai_question_assessment_runs')

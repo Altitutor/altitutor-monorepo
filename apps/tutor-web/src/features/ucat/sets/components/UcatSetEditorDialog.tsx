@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import type { Editor } from '@tiptap/react'
-import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { useToast } from '@altitutor/ui'
 import { useUcatSetDetail, useUpdateUcatSet } from '@/features/ucat/sets/hooks/useUcatSets'
 import {
@@ -33,7 +33,7 @@ import { Trash2 } from 'lucide-react'
 import { useUcatCopyId } from '@/features/ucat/shared/hooks/useUcatCopyId'
 import { buildCopyIdRowAction, withCopyIdDescription } from '@/features/ucat/shared/lib/copy-id-actions'
 import { UcatRowActions } from '@/features/ucat/shared/row-actions'
-import { parseUcatVisibilityError } from '@/features/ucat/shared/lib/visibility-error'
+import { lifecycleErrorToast, type UcatLifecycleEntityType } from '@/features/ucat/shared/lifecycle-errors'
 import { UcatSetEditorContent } from '@/features/ucat/sets/components/UcatSetEditorContent'
 import { UcatSetPreviewContent } from '@/features/ucat/sets/components/UcatSetPreviewContent'
 import { UcatMockEditorDialog } from '@/features/ucat/mocks/components/UcatMockEditorDialog'
@@ -65,6 +65,7 @@ export function UcatSetEditorDialog({
   warningPills?: string[]
 }) {
   const { toast } = useToast()
+  const router = useRouter()
   const { copyId } = useUcatCopyId()
   const detail = useUcatSetDetail(open ? setId : null)
   const updateSet = useUpdateUcatSet()
@@ -279,6 +280,22 @@ export function UcatSetEditorDialog({
     [categoriesQuery.data],
   )
 
+  function openLifecycleEntity(entityType: UcatLifecycleEntityType, entityId: string) {
+    if (entityType === 'stem') {
+      setEditingStemId(entityId)
+      return true
+    }
+    if (entityType === 'mock') {
+      setViewingMockId(entityId)
+      return true
+    }
+    if (entityType === 'set' && entityId === setId) {
+      setEditingStemId(null)
+      return true
+    }
+    return false
+  }
+
   async function handleStemUpdate(payload: UcatQuestionStemFormValues) {
     if (!editingStemId) return
 
@@ -288,22 +305,7 @@ export function UcatSetEditorDialog({
       await updateStemMutation.mutateAsync({ stemId: editingStemId, payload: mapped })
       setEditingStemId(null)
     } catch (error) {
-      const msg = error instanceof Error ? error.message : 'Failed to save question stem'
-      const parsed = parseUcatVisibilityError(msg)
-      toast({
-        title: 'Failed to save',
-        description: parsed.link ? (
-          <span>
-            {parsed.textBeforeLink}{' '}
-            <Link href={parsed.link.href} className="underline font-medium">
-              {parsed.link.label}
-            </Link>
-          </span>
-        ) : (
-          msg
-        ),
-        variant: 'destructive',
-      })
+      toast(lifecycleErrorToast(error, 'Failed to save', router.push, openLifecycleEntity))
     }
   }
 
@@ -323,22 +325,7 @@ export function UcatSetEditorDialog({
       })
       onClose()
     } catch (error) {
-      const msg = error instanceof Error ? error.message : 'Failed to save set'
-      const parsed = parseUcatVisibilityError(msg)
-      toast({
-        title: 'Failed to save',
-        description: parsed.link ? (
-          <span>
-            {parsed.textBeforeLink}{' '}
-            <Link href={parsed.link.href} className="underline font-medium">
-              {parsed.link.label}
-            </Link>
-          </span>
-        ) : (
-          msg
-        ),
-        variant: 'destructive',
-      })
+      toast(lifecycleErrorToast(error, 'Failed to save', router.push, openLifecycleEntity))
     }
   }
 
@@ -502,6 +489,7 @@ export function UcatSetEditorDialog({
         tags={mapTagsToOptions(tagsQuery.data ?? []) as TagOption[]}
         initial={stemDetail.data}
         loading={updateStemMutation.isPending || stemDetail.isLoading}
+        onOpenLifecycleEntity={openLifecycleEntity}
       />
 
       <UcatPdfExportDialog

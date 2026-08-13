@@ -101,6 +101,14 @@ import {
 } from '@/features/ucat/shared/lib/taxonomy-paths'
 import { useUcatTableUrlState } from '@/features/ucat/shared/hooks/useUcatTableUrlState'
 import { useUcatRowSelection } from '@/features/ucat/shared/hooks/useUcatRowSelection'
+import { useBackgroundBulkAction } from '@/features/ucat/shared/hooks/useBackgroundBulkAction'
+import {
+  bulkDeleteProgressToast,
+  bulkStatusProgressToast,
+  bulkUpdateProgressToast,
+  nextBulkActionToastId,
+  type BackgroundBulkToast,
+} from '@/features/ucat/shared/lib/background-bulk-action'
 import {
   countStemsInSets,
   useUcatQuestionsTable,
@@ -336,10 +344,6 @@ export function UcatQuestionsPage() {
   const [editingSetId, setEditingSetId] = useState<string | null>(null)
   const [bulkStatusOpen, setBulkStatusOpen] = useState(false)
   const [bulkStatus, setBulkStatus] = useState<UcatContentStatus | null>(null)
-  const [bulkCategoryPending, setBulkCategoryPending] = useState(false)
-  const [bulkVisibilityPending, setBulkVisibilityPending] = useState(false)
-  const [bulkStatusPending, setBulkStatusPending] = useState(false)
-  const [bulkDeletePending, setBulkDeletePending] = useState(false)
   const [singleDeletePending, setSingleDeletePending] = useState(false)
   const [setFilterSearch, setSetFilterSearch] = useState('')
   const [searchScopes, setSearchScopes] = useState<QuestionSearchScope[]>(defaultQuestionSearchScopes)
@@ -448,6 +452,8 @@ export function UcatQuestionsPage() {
   const setStatusMutation = useSetUcatQuestionStemStatus()
   const bulkImportMutation = useBulkImportUcatQuestionStems()
   const requestAiReviewMutation = useRequestUcatAiAssessment()
+  const { toast } = useToast()
+  const { start: startBackgroundBulk, selectionIsBusy } = useBackgroundBulkAction()
 
   const { rows } = useUcatQuestionsTable({
     data: questions.data?.items,
@@ -490,6 +496,7 @@ export function UcatQuestionsPage() {
     toggleSelectAllVisible,
     clearSelection,
   } = useUcatRowSelection(paginatedRows)
+  const bulkSelectionBusy = selectionIsBusy(selectedStemIds)
 
   useEffect(() => {
     if (previousTabRef.current === activeTab) return
@@ -538,6 +545,8 @@ export function UcatQuestionsPage() {
       return true
     }
     if (entityType === 'set') {
+      setEditingStemId(null)
+      setDeletingStemId(null)
       setEditingSetId(entityId)
       return true
     }
@@ -786,88 +795,112 @@ export function UcatQuestionsPage() {
     }
   }
 
-  async function handleBulkCategoryConfirm() {
+  function handleBulkCategoryConfirm() {
     if (bulkCategoryId == null) return
-    setBulkCategoryPending(true)
-    try {
-      await ucatQuestionsApi.bulkUpdateMetadata(Array.from(selectedStemIds), { categoryId: bulkCategoryId })
-      await invalidateQuestionsListQueries()
-      setBulkCategoryOpen(false)
-      setBulkCategoryId(null)
-      clearSelection()
-    } finally {
-      setBulkCategoryPending(false)
-    }
+    const ids = Array.from(selectedStemIds)
+    const categoryId = bulkCategoryId
+    startBackgroundBulk({
+      ids,
+      toastId: nextBulkActionToastId('category'),
+      progress: bulkUpdateProgressToast(ids.length, 'question', 'category'),
+      begin: () => {
+        setBulkCategoryOpen(false)
+        setBulkCategoryId(null)
+        clearSelection()
+      },
+      run: async () => {
+        await ucatQuestionsApi.bulkUpdateMetadata(ids, { categoryId })
+        await invalidateQuestionsListQueries()
+      },
+      onSuccess: () => ({ title: ids.length === 1 ? 'Category updated' : `Category updated for ${ids.length} questions` }),
+      onError: (error) => ({
+        title: 'Could not update category',
+        description: error instanceof Error ? error.message : 'Failed to update category.',
+        variant: 'destructive',
+      }),
+    })
   }
 
-  async function handleBulkVisibilityConfirm() {
+  function handleBulkVisibilityConfirm() {
     if (bulkVisibilityPrivate == null) return
-    setBulkVisibilityPending(true)
-    try {
-      await ucatQuestionsApi.bulkUpdateMetadata(Array.from(selectedStemIds), {
-        accessScope: bulkVisibilityPrivate ? 'private' : 'public',
-      })
-      await invalidateQuestionsListQueries()
-      setBulkVisibilityOpen(false)
-      setBulkVisibilityPrivate(null)
-      clearSelection()
-    } finally {
-      setBulkVisibilityPending(false)
-    }
+    const ids = Array.from(selectedStemIds)
+    const accessScope = bulkVisibilityPrivate ? 'private' : 'public'
+    startBackgroundBulk({
+      ids,
+      toastId: nextBulkActionToastId('visibility'),
+      progress: bulkUpdateProgressToast(ids.length, 'question', 'visibility'),
+      begin: () => {
+        setBulkVisibilityOpen(false)
+        setBulkVisibilityPrivate(null)
+        clearSelection()
+      },
+      run: async () => {
+        await ucatQuestionsApi.bulkUpdateMetadata(ids, { accessScope })
+        await invalidateQuestionsListQueries()
+      },
+      onSuccess: () => ({ title: ids.length === 1 ? 'Visibility updated' : `Visibility updated for ${ids.length} questions` }),
+      onError: (error) => lifecycleErrorToast(error, 'Could not update visibility', router.push, openLifecycleEntity),
+    })
   }
 
-  async function handleBulkStatusConfirm() {
+  function handleBulkStatusConfirm() {
     if (!bulkStatus) return
-    setBulkStatusPending(true)
-    try {
-      const result = await ucatQuestionsApi.bulkSetStatus(Array.from(selectedStemIds), bulkStatus)
-      await invalidateQuestionsListQueries()
-      const movedIds = result.movedIds
-      const nextStatus = bulkStatus
-      setBulkStatusOpen(false)
-      setBulkStatus(null)
-      clearSelection()
-      if (movedIds.length > 0) {
-        toast(lifecycleStatusSuccessToast({
-          contentLabel: 'Question',
-          count: movedIds.length,
-          status: nextStatus,
-          onUndo: () => {
-            void ucatQuestionsApi.bulkRestoreStatus(movedIds, nextStatus, activeTab)
-              .then(async () => {
-                await invalidateQuestionsListQueries()
-                toast({ title: movedIds.length === 1 ? 'Question status restored' : 'Question statuses restored' })
-              })
-              .catch((error) => toast(lifecycleErrorToast(error, 'Could not undo status change', router.push, openLifecycleEntity)))
-          },
-        }))
-      }
-      const failureError = firstUcatBulkStatusFailureError(result)
-      if (failureError) {
-        const count = result.failures.length
-        toast(lifecycleErrorToast(
-          failureError,
-          count === 1 ? '1 question could not be moved' : `${count} questions could not be moved`,
-          router.push,
-          openLifecycleEntity,
-        ))
-      }
-    } catch (error) {
-      toast(lifecycleErrorToast(error, 'Cannot move selected questions', router.push, openLifecycleEntity))
-    } finally {
-      setBulkStatusPending(false)
-    }
+    const ids = Array.from(selectedStemIds)
+    const nextStatus = bulkStatus
+    startBackgroundBulk({
+      ids,
+      toastId: nextBulkActionToastId('status'),
+      progress: bulkStatusProgressToast(ids.length, 'question', nextStatus),
+      begin: () => {
+        setBulkStatusOpen(false)
+        setBulkStatus(null)
+        clearSelection()
+      },
+      run: async () => {
+        const result = await ucatQuestionsApi.bulkSetStatus(ids, nextStatus)
+        await invalidateQuestionsListQueries()
+        return result
+      },
+      onSuccess: (result) => {
+        const toasts: BackgroundBulkToast[] = []
+        if (result.movedIds.length > 0) {
+          toasts.push(lifecycleStatusSuccessToast({
+            contentLabel: 'Question',
+            count: result.movedIds.length,
+            status: nextStatus,
+            onUndo: () => {
+              void ucatQuestionsApi.bulkRestoreStatus(result.movedIds, nextStatus, activeTab)
+                .then(async () => {
+                  await invalidateQuestionsListQueries()
+                  toast({ title: result.movedIds.length === 1 ? 'Question status restored' : 'Question statuses restored' })
+                })
+                .catch((error) => toast(lifecycleErrorToast(error, 'Could not undo status change', router.push, openLifecycleEntity)))
+            },
+          }))
+        }
+        const failureError = firstUcatBulkStatusFailureError(result)
+        if (failureError) {
+          const count = result.failures.length
+          toasts.push(lifecycleErrorToast(
+            failureError,
+            count === 1 ? '1 question could not be moved' : `${count} questions could not be moved`,
+            router.push,
+            openLifecycleEntity,
+          ))
+        }
+        return toasts
+      },
+      onError: (error) => lifecycleErrorToast(error, 'Cannot move selected questions', router.push, openLifecycleEntity),
+    })
   }
-
-  const { toast } = useToast()
 
   async function invalidateQuestionsListQueries() {
     await queryClient.invalidateQueries({ queryKey: ucatKeys.questions('all') })
   }
 
-  function showStemDeleteSuccessToast(stemIds: string[]) {
+  function stemDeleteSuccessToast(stemIds: string[]) {
     const count = stemIds.length
-    toast({
+    return {
       title: count === 1 ? 'Question stem deleted' : `${count} question stems deleted`,
       description: 'Tap Undo to restore.',
       duration: 10_000,
@@ -885,16 +918,16 @@ export function UcatQuestionsPage() {
               toast({
                 title: 'Could not undo',
                 description: err instanceof Error ? err.message : 'Failed to restore question stems.',
-                variant: 'destructive',
+                variant: 'destructive' as const,
               })
             }
           })()
         },
       },
-    })
+    }
   }
 
-  async function deleteStemsWithToast(stemIds: string[]) {
+  async function deleteStems(stemIds: string[]) {
     if (stemIds.length === 1) {
       await deleteMutation.mutateAsync(stemIds[0])
     } else {
@@ -908,26 +941,28 @@ export function UcatQuestionsPage() {
         void queryClient.invalidateQueries({ queryKey: ucatKeys.set(setId) })
       })
     })
-    showStemDeleteSuccessToast(stemIds)
   }
 
-  async function handleBulkDeleteConfirm() {
+  async function deleteStemsWithToast(stemIds: string[]) {
+    await deleteStems(stemIds)
+    toast(stemDeleteSuccessToast(stemIds))
+  }
+
+  function handleBulkDeleteConfirm() {
     const ids = Array.from(selectedStemIds)
-    setBulkDeletePending(true)
-    try {
-      await deleteStemsWithToast(ids)
-      setBulkDeleteOpen(false)
-      clearSelection()
-    } catch (err) {
-      toast({
-        title: 'Cannot delete',
-        description: err instanceof Error ? err.message : 'Failed to delete question stems.',
-        variant: 'destructive',
-      })
-      throw err
-    } finally {
-      setBulkDeletePending(false)
-    }
+    const started = startBackgroundBulk({
+      ids,
+      toastId: nextBulkActionToastId('delete'),
+      progress: bulkDeleteProgressToast(ids.length, 'question stem'),
+      begin: () => {
+        setBulkDeleteOpen(false)
+        clearSelection()
+      },
+      run: () => deleteStems(ids),
+      onSuccess: () => stemDeleteSuccessToast(ids),
+      onError: (error) => lifecycleErrorToast(error, 'Cannot delete', router.push, openLifecycleEntity),
+    })
+    if (!started) throw new Error('already in progress')
   }
 
   const bulkDeleteInSetsCount = countStemsInSets(selectedStemIdsArray, rows)
@@ -1572,11 +1607,12 @@ export function UcatQuestionsPage() {
         selectedCount={selectedStemIds.size}
         onCancel={clearSelection}
         onDelete={() => setBulkDeleteOpen(true)}
-        deletePending={deleteMutation.isPending}
+        deletePending={bulkSelectionBusy}
       >
         <SearchableSelect<CategoryOption>
           items={categoryOptions}
           value={null}
+          disabled={bulkSelectionBusy}
           onValueChange={(c) => {
             if (c?.id) {
               setBulkCategoryId(c.id)
@@ -1615,6 +1651,7 @@ export function UcatQuestionsPage() {
           placeholder="Visibility"
           searchPlaceholder="Search..."
           emptyMessage="No options"
+          disabled={bulkSelectionBusy}
           trigger={
             <Button variant="outline" size="sm" className={tutorBtnOutline}>
               Visibility
@@ -1637,6 +1674,7 @@ export function UcatQuestionsPage() {
           placeholder="Status"
           searchPlaceholder="Search statuses..."
           emptyMessage="No status found"
+          disabled={bulkSelectionBusy}
           trigger={
             <Button variant="outline" size="sm" className={tutorBtnOutline}>
               Status
@@ -1657,9 +1695,9 @@ export function UcatQuestionsPage() {
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={bulkCategoryPending}>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={() => void handleBulkCategoryConfirm()} disabled={bulkCategoryPending}>
-              {bulkCategoryPending ? 'Updating...' : 'Yes'}
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={() => handleBulkCategoryConfirm()}>
+              Yes
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -1673,9 +1711,9 @@ export function UcatQuestionsPage() {
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={bulkVisibilityPending}>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={() => void handleBulkVisibilityConfirm()} disabled={bulkVisibilityPending}>
-              {bulkVisibilityPending ? 'Updating...' : 'Yes'}
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={() => handleBulkVisibilityConfirm()}>
+              Yes
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -1689,9 +1727,9 @@ export function UcatQuestionsPage() {
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={bulkStatusPending}>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={() => void handleBulkStatusConfirm()} disabled={bulkStatusPending}>
-              {bulkStatusPending ? 'Moving...' : 'Move questions'}
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={() => handleBulkStatusConfirm()}>
+              Move questions
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -1706,7 +1744,6 @@ export function UcatQuestionsPage() {
             : 'The selected stems will be hidden from students. You can restore them later from the deleted list.'
         }
         onConfirm={handleBulkDeleteConfirm}
-        isPending={bulkDeletePending}
       />
 
       <UcatQuestionStemDialog
@@ -1741,6 +1778,7 @@ export function UcatQuestionsPage() {
         initial={detail.data}
         initialEditorMode={editDialogInitialMode}
         loading={updateMutation.isPending || detail.isLoading}
+        onOpenLifecycleEntity={openLifecycleEntity}
         onDelete={
           editingStemId
             ? () => {
@@ -1765,12 +1803,7 @@ export function UcatQuestionsPage() {
             await deleteStemsWithToast([deletingStemId])
             setEditingStemId((prev) => (prev === deletingStemId ? null : prev))
           } catch (err) {
-            toast({
-              title: 'Cannot delete',
-              description: err instanceof Error ? err.message : 'Failed to delete question stem.',
-              variant: 'destructive',
-            })
-            throw err
+            toast(lifecycleErrorToast(err, 'Cannot delete', router.push, openLifecycleEntity))
           } finally {
             setSingleDeletePending(false)
           }

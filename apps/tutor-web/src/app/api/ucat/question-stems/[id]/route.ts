@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireUcatTutor, type UcatTutorSupabaseClient } from '@/features/ucat/shared/server/guard'
+import { jsonUcatDeleteErrorResponse, jsonUcatVisibilityErrorResponse } from '@/features/ucat/shared/server/delete-blocked-response'
 import { enqueueUcatQuestionAssessmentPreparation } from '@/features/ucat/questions/server/ai-assessment/dispatcher'
 import { syncUcatCatalogAiReviewStatusesBestEffort } from '@/features/ucat/questions/server/ai-assessment/persist-catalog-status'
 import { getServiceRoleClient } from '@/shared/lib/supabase/service-role'
@@ -36,7 +37,12 @@ export async function PATCH(request: NextRequest, { params }: { params: { id: st
           { status: 409 },
         )
       }
-      return NextResponse.json({ error: error.message }, { status: 400 })
+      return jsonUcatVisibilityErrorResponse(client, {
+        contentType: 'stem',
+        contentId: params.id,
+        accessScope: body.accessScope === 'private' ? 'private' : 'public',
+        errorMessage: error.message,
+      })
     }
     if (body.requestAssessment !== false) {
       await enqueueUcatQuestionAssessmentPreparation({
@@ -61,6 +67,12 @@ export async function DELETE(_: NextRequest, { params }: { params: { id: string 
   const client = access.userClient as unknown as UcatTutorSupabaseClient
   const { error } = await client.rpc('tutor_ucat_delete_question_stem', { p_stem_id: params.id })
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 400 })
+  if (error) {
+    return jsonUcatDeleteErrorResponse(client, {
+      contentType: 'stem',
+      contentId: params.id,
+      errorMessage: error.message,
+    })
+  }
   return NextResponse.json({ ok: true })
 }

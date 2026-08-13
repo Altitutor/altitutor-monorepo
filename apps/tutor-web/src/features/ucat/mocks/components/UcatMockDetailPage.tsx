@@ -1,7 +1,7 @@
 'use client'
 
 import { useMemo, useState } from 'react'
-import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { Button, useToast } from '@altitutor/ui'
 import { useUcatSets } from '@/features/ucat/sets/hooks/useUcatSets'
 import { useUcatSections } from '@/features/ucat/sections/hooks/useUcatSections'
@@ -11,7 +11,7 @@ import { useUcatMockBlueprints } from '@/features/ucat/mocks/hooks/useUcatMocks'
 import { useUcatMockBlueprintCandidate } from '@/features/ucat/mocks/hooks/useUcatMockBlueprintCandidate'
 import { UcatPageHeader, UcatPageSkeleton, UcatAccessDenied } from '@/features/ucat/shared/components'
 import { useUcatAccess } from '@/features/ucat/shared/hooks/useUcatAccess'
-import { parseUcatVisibilityError } from '@/features/ucat/shared/lib/visibility-error'
+import { lifecycleErrorToast, type UcatLifecycleEntityType } from '@/features/ucat/shared/lifecycle-errors'
 import { UcatMockEditorContent } from '@/features/ucat/mocks/components/UcatMockEditorContent'
 import { UcatSetEditorDialog } from '@/features/ucat/sets/components/UcatSetEditorDialog'
 import { parseSetSections } from '@/features/ucat/shared/lib/set-section-status'
@@ -37,6 +37,7 @@ type UcatMockDetailPageProps = {
 
 export function UcatMockDetailPage({ mockId }: UcatMockDetailPageProps) {
   const { toast } = useToast()
+  const router = useRouter()
   const access = useUcatAccess()
   const sets = useUcatSets()
   const sectionsQuery = useUcatSections()
@@ -123,22 +124,13 @@ export function UcatMockDetailPage({ mockId }: UcatMockDetailPageProps) {
               try {
                 await save()
               } catch (error) {
-                const msg = error instanceof Error ? error.message : 'Failed to save mock'
-                const parsed = parseUcatVisibilityError(msg)
-                toast({
-                  title: 'Failed to save',
-                  description: parsed.link ? (
-                    <span>
-                      {parsed.textBeforeLink}{' '}
-                      <Link href={parsed.link.href} className="underline font-medium">
-                        {parsed.link.label}
-                      </Link>
-                    </span>
-                  ) : (
-                    msg
-                  ),
-                  variant: 'destructive',
-                })
+                toast(lifecycleErrorToast(error, 'Failed to save', router.push, (entityType: UcatLifecycleEntityType, entityId: string) => {
+                  if (entityType === 'set') {
+                    setEditingSetId(entityId)
+                    return true
+                  }
+                  return false
+                }))
               }
             }}
             disabled={!isDirty || isSaving}

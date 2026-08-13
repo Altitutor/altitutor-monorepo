@@ -188,13 +188,92 @@ function removeById<T extends { id?: string }>(items: T[], id: string, label: st
   items.splice(index, 1)
 }
 
-function optionFromInput(option: QuestionInput['options'][number]): StemAnswerOptionDraft {
+function asQuestionType(value: unknown): StemQuestionDraft['question_type'] {
+  return value === 'syllogism' ? 'syllogism' : 'multiple_choice'
+}
+
+function asResponseType(
+  value: unknown,
+  questionType: StemQuestionDraft['question_type'],
+): StemQuestionDraft['response_type'] {
+  if (value === 'drag_and_drop' || value === 'multiple_choice') return value
+  return questionType === 'syllogism' ? 'drag_and_drop' : 'multiple_choice'
+}
+
+function asAnswerScheme(
+  value: unknown,
+  questionType: StemQuestionDraft['question_type'],
+  responseType: StemQuestionDraft['response_type'],
+): StemQuestionDraft['answer_scheme'] {
+  if (
+    value === 'single_choice'
+    || value === 'situational_judgement_rating'
+    || value === 'decision_making_binary_placement'
+    || value === 'situational_judgement_most_least'
+  ) {
+    return value
+  }
+  if (questionType === 'syllogism' || responseType === 'drag_and_drop') {
+    return 'decision_making_binary_placement'
+  }
+  return 'single_choice'
+}
+
+function asAnswerKeyValue(
+  value: unknown,
+  answerScheme: StemQuestionDraft['answer_scheme'],
+  isAnswer: boolean,
+): StemAnswerOptionDraft['answer_key_value'] {
+  if (
+    value === 'correct'
+    || value === 'yes'
+    || value === 'no'
+    || value === 'most'
+    || value === 'least'
+  ) {
+    return value
+  }
+  if (answerScheme === 'decision_making_binary_placement') {
+    return isAnswer ? 'yes' : 'no'
+  }
+  if (answerScheme === 'situational_judgement_most_least') return null
+  return isAnswer ? 'correct' : null
+}
+
+function questionTypeFromContract(
+  responseType: StemQuestionDraft['response_type'],
+  answerScheme: StemQuestionDraft['answer_scheme'],
+): StemQuestionDraft['question_type'] {
+  return responseType === 'drag_and_drop'
+    || answerScheme === 'decision_making_binary_placement'
+    ? 'syllogism'
+    : 'multiple_choice'
+}
+
+function isAnswerFromKey(
+  answerKeyValue: StemAnswerOptionDraft['answer_key_value'],
+): boolean {
+  return answerKeyValue === 'correct'
+    || answerKeyValue === 'yes'
+    || answerKeyValue === 'most'
+    || answerKeyValue === 'least'
+}
+
+function optionFromInput(
+  option: QuestionInput['options'][number],
+  answerScheme?: StemQuestionDraft['answer_scheme'],
+): StemAnswerOptionDraft {
+  const answerKeyValue = asAnswerKeyValue(
+    option.answerKeyValue,
+    answerScheme ?? 'single_choice',
+    option.isAnswer,
+  )
   return {
     answer_text: toRichTextJson(option.answerText) ?? {},
     answer_explanation: toRichTextJson(option.answerExplanation ?? null),
     index: 0,
-    is_answer: option.isAnswer,
-    answer_key_value: option.answerKeyValue ?? (option.isAnswer ? 'correct' : null),
+    is_answer: isAnswerFromKey(answerKeyValue),
+    answer_key_value: answerKeyValue,
   }
 }
 
@@ -220,7 +299,7 @@ export function questionFromInput(question: QuestionInput): StemQuestionDraft {
     index: 0,
     difficulty: question.difficulty ?? null,
     time_burden_seconds: question.timeBurdenSeconds ?? null,
-    question_type: reconciled.responseType === 'drag_and_drop' ? 'syllogism' : 'multiple_choice',
+    question_type: questionTypeFromContract(reconciled.responseType, reconciled.answerScheme),
     response_type: reconciled.responseType,
     answer_scheme: reconciled.answerScheme,
     source_channel: 'ai_generation',
@@ -252,6 +331,13 @@ export function questionStemDraftFromDetail(detail: Record<string, unknown>): Qu
       ? rawQuestion.answer_options
       : []
     const tags = Array.isArray(rawQuestion.tags) ? rawQuestion.tags : []
+    const questionType = asQuestionType(rawQuestion.question_type)
+    const responseType = asResponseType(rawQuestion.response_type, questionType)
+    const answerScheme = asAnswerScheme(
+      rawQuestion.answer_scheme,
+      questionType,
+      responseType,
+    )
     return {
       id: asString(rawQuestion.id, 'Question id'),
       question_text: asJson(rawQuestion.question_text, {}),
@@ -259,13 +345,9 @@ export function questionStemDraftFromDetail(detail: Record<string, unknown>): Qu
       index: asNumber(rawQuestion.index, 1),
       difficulty: asNullableNumber(rawQuestion.difficulty),
       time_burden_seconds: asNullableNumber(rawQuestion.time_burden_seconds),
-      question_type: rawQuestion.question_type === 'syllogism' ? 'syllogism' : 'multiple_choice',
-      response_type: rawQuestion.response_type === 'drag_and_drop' ? 'drag_and_drop' : 'multiple_choice',
-      answer_scheme: rawQuestion.answer_scheme === 'situational_judgement_rating'
-        || rawQuestion.answer_scheme === 'decision_making_binary_placement'
-        || rawQuestion.answer_scheme === 'situational_judgement_most_least'
-        ? rawQuestion.answer_scheme
-        : 'single_choice',
+      question_type: questionType,
+      response_type: responseType,
+      answer_scheme: answerScheme,
       source_channel: rawQuestion.source_channel === 'bulk_import'
         ? 'bulk_import'
         : rawQuestion.source_channel === 'ai_generation'
@@ -284,13 +366,11 @@ export function questionStemDraftFromDetail(detail: Record<string, unknown>): Qu
           answer_explanation: asJson(rawOption.answer_explanation, null),
           index: asNumber(rawOption.index, 1),
           is_answer: rawOption.is_answer === true,
-          answer_key_value: rawOption.answer_key_value === 'correct'
-            || rawOption.answer_key_value === 'yes'
-            || rawOption.answer_key_value === 'no'
-            || rawOption.answer_key_value === 'most'
-            || rawOption.answer_key_value === 'least'
-            ? rawOption.answer_key_value
-            : null,
+          answer_key_value: asAnswerKeyValue(
+            rawOption.answer_key_value,
+            answerScheme,
+            rawOption.is_answer === true,
+          ),
         }
       }),
     }
@@ -308,6 +388,31 @@ export function questionStemDraftFromDetail(detail: Record<string, unknown>): Qu
   }
   reindexQuestions(draft.questions)
   return draft
+}
+
+export function toStemRpcQuestions(draft: QuestionStemDraft): Json {
+  return draft.questions.map((question) => ({
+    ...(question.id ? { id: question.id } : {}),
+    index: question.index,
+    question_text: question.question_text,
+    answer_explanation: question.answer_explanation,
+    difficulty: question.difficulty,
+    time_burden_seconds: question.time_burden_seconds,
+    question_type: question.question_type,
+    response_type: question.response_type,
+    answer_scheme: question.answer_scheme,
+    source_channel: question.source_channel,
+    ai_generation_metadata: question.ai_generation_metadata,
+    tag_ids: question.tag_ids,
+    answer_options: question.answer_options.map((option) => ({
+      ...(option.id ? { id: option.id } : {}),
+      index: option.index,
+      answer_text: option.answer_text,
+      answer_explanation: option.answer_explanation,
+      is_answer: option.is_answer,
+      answer_key_value: option.answer_key_value,
+    })),
+  })) as Json
 }
 
 export function applyQuestionStemOperations(
@@ -351,9 +456,25 @@ export function applyQuestionStemOperations(
       if (changes.questionText !== undefined) {
         question.question_text = toRichTextJson(changes.questionText) ?? {}
       }
-      if (changes.questionType !== undefined) question.question_type = changes.questionType
       if (changes.responseType !== undefined) question.response_type = changes.responseType
       if (changes.answerScheme !== undefined) question.answer_scheme = changes.answerScheme
+      if (changes.questionType !== undefined && changes.responseType === undefined) {
+        question.question_type = changes.questionType
+        question.response_type = asResponseType(undefined, changes.questionType)
+        if (changes.answerScheme === undefined) {
+          question.answer_scheme = asAnswerScheme(
+            undefined,
+            changes.questionType,
+            question.response_type,
+          )
+        }
+      }
+      if (changes.responseType !== undefined || changes.answerScheme !== undefined) {
+        question.question_type = questionTypeFromContract(
+          question.response_type,
+          question.answer_scheme,
+        )
+      }
       if (changes.answerExplanation !== undefined) {
         question.answer_explanation = toRichTextJson(changes.answerExplanation)
       }
@@ -367,7 +488,7 @@ export function applyQuestionStemOperations(
     if (operation.type === 'add_answer_option') {
       insertAt(
         question.answer_options,
-        optionFromInput(operation.option),
+        optionFromInput(operation.option, question.answer_scheme),
         operation.toIndex,
       )
       continue
@@ -396,11 +517,17 @@ export function applyQuestionStemOperations(
     }
     if (operation.changes.isAnswer !== undefined) {
       option.is_answer = operation.changes.isAnswer
+      if (operation.changes.answerKeyValue === undefined) {
+        option.answer_key_value = asAnswerKeyValue(
+          undefined,
+          question.answer_scheme,
+          operation.changes.isAnswer,
+        )
+      }
     }
     if (operation.changes.answerKeyValue !== undefined) {
       option.answer_key_value = operation.changes.answerKeyValue
-      option.is_answer = operation.changes.answerKeyValue === 'correct'
-        || operation.changes.answerKeyValue === 'yes'
+      option.is_answer = isAnswerFromKey(operation.changes.answerKeyValue)
     }
   }
 

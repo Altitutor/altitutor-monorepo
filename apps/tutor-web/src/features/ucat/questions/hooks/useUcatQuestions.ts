@@ -95,8 +95,8 @@ export function useRetryUcatAiAssessment() {
 export function useRequestUcatAiAssessment() {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: ({ stemId }: { stemId: string }) =>
-      ucatQuestionsApi.requestAiAssessment(stemId),
+    mutationFn: ({ stemId, force }: { stemId: string; force?: boolean }) =>
+      ucatQuestionsApi.requestAiAssessment(stemId, { force }),
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ucatKeys.aiAssessment(variables.stemId) })
       queryClient.invalidateQueries({

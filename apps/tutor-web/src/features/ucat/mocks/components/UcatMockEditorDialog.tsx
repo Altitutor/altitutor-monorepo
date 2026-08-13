@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
-import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { useToast } from '@altitutor/ui'
 import { useUcatSections } from '@/features/ucat/sections/hooks/useUcatSections'
 import { useUcatSets } from '@/features/ucat/sets/hooks/useUcatSets'
@@ -12,7 +12,7 @@ import { buildCopyIdRowAction, withCopyIdDescription } from '@/features/ucat/sha
 import { UcatRowActions } from '@/features/ucat/shared/row-actions'
 import { Trash2 } from 'lucide-react'
 import { UcatMockEditorContent } from '@/features/ucat/mocks/components/UcatMockEditorContent'
-import { parseUcatVisibilityError } from '@/features/ucat/shared/lib/visibility-error'
+import { lifecycleErrorToast, type UcatLifecycleEntityType } from '@/features/ucat/shared/lifecycle-errors'
 import { proseMirrorToPlainText } from '@/features/ucat/shared/lib/rich-text'
 import { parseSetSections } from '@/features/ucat/shared/lib/set-section-status'
 import { buildSetCatalogFilterDefinitions } from '@/features/ucat/shared/lib/set-catalog-filters'
@@ -81,6 +81,7 @@ export function UcatMockEditorDialog({
   )
 
   const { toast } = useToast()
+  const router = useRouter()
   const { copyId } = useUcatCopyId()
   const {
     detail,
@@ -197,22 +198,13 @@ export function UcatMockEditorDialog({
           await save()
           onClose()
         } catch (error) {
-          const msg = error instanceof Error ? error.message : 'Failed to save mock'
-          const parsed = parseUcatVisibilityError(msg)
-          toast({
-            title: 'Failed to save',
-            description: parsed.link ? (
-              <span>
-                {parsed.textBeforeLink}{' '}
-                <Link href={parsed.link.href} className="underline font-medium">
-                  {parsed.link.label}
-                </Link>
-              </span>
-            ) : (
-              msg
-            ),
-            variant: 'destructive',
-          })
+          toast(lifecycleErrorToast(error, 'Failed to save', router.push, (entityType: UcatLifecycleEntityType, entityId: string) => {
+            if (entityType === 'set' && onEditSet) {
+              onEditSet(entityId)
+              return true
+            }
+            return false
+          }))
         }
       }}
       saveDisabled={!isDirty || isSaving}

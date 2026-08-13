@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { requireUcatTutor, type UcatTutorSupabaseClient } from '@/features/ucat/shared/server/guard'
+import { jsonUcatDeleteErrorResponse } from '@/features/ucat/shared/server/delete-blocked-response'
 
 const BodySchema = z.object({
   moduleIds: z.array(z.string().uuid()).min(1).max(500),
@@ -20,10 +21,11 @@ export async function POST(request: NextRequest) {
     p_module_ids: parsed.data.moduleIds,
   })
   if (error) {
-    const message = error.message.includes('status_blocked_by_attachment')
-      ? 'Remove session-linked lessons from their class sessions before deleting them.'
-      : error.message
-    return NextResponse.json({ error: message }, { status: 409 })
+    return jsonUcatDeleteErrorResponse(client, {
+      contentType: 'lesson',
+      contentId: parsed.data.moduleIds[0],
+      errorMessage: error.message,
+    })
   }
   return NextResponse.json({ ok: true })
 }

@@ -292,11 +292,35 @@ async function renderVisualPatch(
   return clone
 }
 
+export function assessmentPatchCurrentPlainText(
+  values: UcatQuestionStemFormValues,
+  patch: Extract<UcatAssessmentPatch, { operation: 'replace_text' | 'set_text' | 'set_rich_content' | 'update_visual_spec' }>,
+): string {
+  return proseMirrorToPlainText(getTextTarget(values, patch).get()).trim()
+}
+
+/** True when a whole-field set_text suggestion was based on a different value than the live draft. */
+export function ucatAssessmentSetTextIsStale(
+  values: UcatQuestionStemFormValues,
+  patches: UcatAssessmentPatch[],
+): boolean {
+  return patches.some((patch) => {
+    if (patch.operation !== 'set_text') return false
+    if (patchAlreadyApplied(values, patch)) return false
+    try {
+      return (patch.beforeText ?? '').trim() !== assessmentPatchCurrentPlainText(values, patch)
+    } catch {
+      return false
+    }
+  })
+}
+
 export async function applyUcatAssessmentPatches(
   current: UcatQuestionStemFormValues,
   patches: UcatAssessmentPatch[],
   options?: {
     renderVisual?: Parameters<typeof renderVisualPatch>[2]
+    overwriteMismatchedSetText?: boolean
   },
 ) {
   const values = cloneJson(current)
@@ -310,7 +334,7 @@ export async function applyUcatAssessmentPatches(
       case 'set_text': {
         const target = getTextTarget(values, patch)
         const currentText = proseMirrorToPlainText(target.get()).trim()
-        if ((patch.beforeText ?? '').trim() !== currentText) {
+        if ((patch.beforeText ?? '').trim() !== currentText && !options?.overwriteMismatchedSetText) {
           throw new Error('The suggested text field has changed since this suggestion was created.')
         }
         target.set(aiTextToProseMirror(patch.afterText))

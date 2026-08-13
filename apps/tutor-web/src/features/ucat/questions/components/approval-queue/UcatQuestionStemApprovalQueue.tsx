@@ -25,6 +25,7 @@ import {
 } from '@altitutor/ui'
 import { ChevronLeft, ChevronRight, Trash2, X } from 'lucide-react'
 import { useQueryClient } from '@tanstack/react-query'
+import { useRouter } from 'next/navigation'
 import { ucatQuestionStemSchema, type UcatQuestionStemFormValues } from '@/features/ucat/questions/types/schema'
 import {
   useSetUcatQuestionStemStatus,
@@ -56,7 +57,7 @@ import {
 } from '@/features/ucat/questions/lib/stem-editor-form'
 import { ucatKeys } from '@/features/ucat/shared/lib/query-keys'
 import { fetchReconciliationData } from '@/features/ucat/reconciliation/api/reconciliation'
-import { lifecycleStatusSuccessToast } from '@/features/ucat/shared/lifecycle-errors'
+import { lifecycleErrorToast, lifecycleStatusSuccessToast } from '@/features/ucat/shared/lifecycle-errors'
 import { ucatQuestionsApi } from '@/features/ucat/questions/api/questions'
 import { cn } from '@/shared/utils'
 import {
@@ -172,6 +173,7 @@ function UcatQuestionStemApprovalQueue({
   onToggleExpanded?: () => void
 }) {
   const { toast } = useToast()
+  const router = useRouter()
   const { copyId } = useUcatCopyId()
   const queryClient = useQueryClient()
   const [index, setIndex] = useState(0)
@@ -488,11 +490,15 @@ function UcatQuestionStemApprovalQueue({
   async function handleDeleteStem() {
     if (!currentEntry) return
     const stemId = currentEntry.stemId
-    await deleteMutation.mutateAsync(stemId)
-    setDeleteDialogOpen(false)
-    toast({ title: 'Question stem deleted' })
-    goNext()
-    void invalidateQueueData(stemId)
+    try {
+      await deleteMutation.mutateAsync(stemId)
+      setDeleteDialogOpen(false)
+      toast({ title: 'Question stem deleted' })
+      goNext()
+      void invalidateQueueData(stemId)
+    } catch (error) {
+      toast(lifecycleErrorToast(error, 'Cannot delete', router.push))
+    }
   }
 
   // Page-mode queues are not wrapped in DialogContent; dialog-mode defers to the shared

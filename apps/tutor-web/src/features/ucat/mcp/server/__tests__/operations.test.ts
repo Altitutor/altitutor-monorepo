@@ -9,6 +9,7 @@ import {
   questionSetDraftFromDetail,
   questionStemDraftFromDetail,
   toRichTextJson,
+  toStemRpcQuestions,
 } from '@/features/ucat/mcp/server/operations'
 
 const STEM_ID = '10000000-0000-0000-0000-000000000001'
@@ -72,7 +73,141 @@ function stemDetail() {
   }
 }
 
+const CANONICAL_RESPONSE_TYPES = new Set(['multiple_choice', 'drag_and_drop'])
+const CANONICAL_ANSWER_SCHEMES = new Set([
+  'single_choice',
+  'situational_judgement_rating',
+  'decision_making_binary_placement',
+  'situational_judgement_most_least',
+])
+const CANONICAL_ANSWER_KEYS = new Set(['correct', 'yes', 'no', 'most', 'least'])
+
+function canonicalResponseContractViolations(questions: unknown): string[] {
+  if (!Array.isArray(questions)) return ['questions_not_array']
+  const violations: string[] = []
+  questions.forEach((question, questionIndex) => {
+    if (!question || typeof question !== 'object' || Array.isArray(question)) {
+      violations.push(`question[${questionIndex}] is not an object`)
+      return
+    }
+    const record = question as Record<string, unknown>
+    if (!('response_type' in record) || record.response_type == null) {
+      violations.push(`question[${questionIndex}] missing response_type`)
+    } else if (
+      typeof record.response_type !== 'string'
+      || !CANONICAL_RESPONSE_TYPES.has(record.response_type)
+    ) {
+      violations.push(`question[${questionIndex}] invalid response_type`)
+    }
+    if (!('answer_scheme' in record) || record.answer_scheme == null) {
+      violations.push(`question[${questionIndex}] missing answer_scheme`)
+    } else if (
+      typeof record.answer_scheme !== 'string'
+      || !CANONICAL_ANSWER_SCHEMES.has(record.answer_scheme)
+    ) {
+      violations.push(`question[${questionIndex}] invalid answer_scheme`)
+    }
+    if (!Array.isArray(record.answer_options)) {
+      violations.push(`question[${questionIndex}] answer_options is not an array`)
+      return
+    }
+    record.answer_options.forEach((option, optionIndex) => {
+      if (!option || typeof option !== 'object' || Array.isArray(option)) {
+        violations.push(`question[${questionIndex}].option[${optionIndex}] is not an object`)
+        return
+      }
+      const optionRecord = option as Record<string, unknown>
+      if (!('answer_key_value' in optionRecord)) {
+        violations.push(
+          `question[${questionIndex}].option[${optionIndex}] missing answer_key_value`,
+        )
+      } else if (
+        optionRecord.answer_key_value != null
+        && (
+          typeof optionRecord.answer_key_value !== 'string'
+          || !CANONICAL_ANSWER_KEYS.has(optionRecord.answer_key_value)
+        )
+      ) {
+        violations.push(
+          `question[${questionIndex}].option[${optionIndex}] invalid answer_key_value`,
+        )
+      }
+    })
+  })
+  return violations
+}
+
 describe('UCAT MCP typed operations', () => {
+  it('emits a canonical response contract when updating only an explanation', () => {
+    const updated = applyQuestionStemOperations(questionStemDraftFromDetail(stemDetail()), [{
+      type: 'update_question',
+      questionId: QUESTION_ONE,
+      changes: { answerExplanation: 'Option A is the only supported conclusion.' },
+    }])
+    const payload = JSON.parse(JSON.stringify(toStemRpcQuestions(updated)))
+
+    expect(canonicalResponseContractViolations(payload)).toEqual([])
+    expect(payload[0]).toMatchObject({
+      response_type: 'multiple_choice',
+      answer_scheme: 'single_choice',
+      answer_options: [
+        { answer_key_value: 'correct' },
+        { answer_key_value: null },
+      ],
+    })
+    expect(Object.prototype.hasOwnProperty.call(payload[0].answer_options[1], 'answer_key_value')).toBe(true)
+  })
+
+  it('emits a canonical response contract when updating a syllogism option explanation', () => {
+    const updated = applyQuestionStemOperations(questionStemDraftFromDetail({
+      ...stemDetail(),
+      questions: [{
+        id: QUESTION_ONE,
+        question_text: { type: 'doc', content: [] },
+        answer_explanation: null,
+        index: 1,
+        difficulty: null,
+        time_burden_seconds: null,
+        question_type: 'syllogism',
+        source_channel: 'individual',
+        ai_generation_metadata: null,
+        tags: [],
+        answer_options: [
+          {
+            id: OPTION_ONE,
+            answer_text: { type: 'doc', content: [] },
+            answer_explanation: null,
+            index: 1,
+            is_answer: true,
+          },
+          {
+            id: OPTION_TWO,
+            answer_text: { type: 'doc', content: [] },
+            answer_explanation: null,
+            index: 2,
+            is_answer: false,
+          },
+        ],
+      }],
+    }), [{
+      type: 'update_answer_option',
+      questionId: QUESTION_ONE,
+      optionId: OPTION_ONE,
+      changes: { answerExplanation: 'This conclusion follows from the two premises.' },
+    }])
+    const payload = JSON.parse(JSON.stringify(toStemRpcQuestions(updated)))
+
+    expect(canonicalResponseContractViolations(payload)).toEqual([])
+    expect(payload[0]).toMatchObject({
+      response_type: 'drag_and_drop',
+      answer_scheme: 'decision_making_binary_placement',
+      answer_options: [
+        { answer_key_value: 'yes' },
+        { answer_key_value: 'no' },
+      ],
+    })
+  })
+
   it('carries the canonical response contract through an add-question operation', () => {
     const draft = questionStemDraftFromDetail(stemDetail())
     const updated = applyQuestionStemOperations(draft, [{

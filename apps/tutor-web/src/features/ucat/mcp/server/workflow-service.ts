@@ -9,6 +9,7 @@ import {
   mockDraftFromDetail,
   questionSetDraftFromDetail,
   questionStemDraftFromDetail,
+  toStemRpcQuestions,
   type LearningModuleDraft,
   type MockDraft,
   type QuestionSetDraft,
@@ -30,6 +31,10 @@ import {
   getUcatMcpAiAssessment,
   type UcatMcpAggregateType,
 } from '@/features/ucat/mcp/server/service'
+import {
+  isUcatVisibilityBlockedError,
+  ucatVisibilityBlockedFallbackMessage,
+} from '@/features/ucat/shared/lifecycle-errors'
 import { UcatAssessmentResponseSchema } from '@/features/ucat/questions/lib/ai-assessment/schema'
 import { applyUcatAssessmentPatches } from '@/features/ucat/questions/lib/ai-assessment/apply-patches'
 import {
@@ -113,6 +118,9 @@ async function callRpc(
     if (error.message.includes('audit_run_not_authorized_to_apply')) {
       throw new Error('This audit run is not authorised to apply published changes.')
     }
+    if (isUcatVisibilityBlockedError(error.message)) {
+      throw new Error(ucatVisibilityBlockedFallbackMessage(error.message))
+    }
     throw new Error(error.message)
   }
   return requireRecord(data, name)
@@ -125,7 +133,7 @@ function stemSnapshot(draft: QuestionStemDraft): Record<string, unknown> {
     stemText: draft.stemText,
     accessScope: draft.accessScope,
     tutorSourceNote: draft.tutorSourceNote,
-    questions: draft.questions as unknown as Json,
+    questions: toStemRpcQuestions(draft),
   }
 }
 

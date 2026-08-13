@@ -1,6 +1,5 @@
 'use client'
 
-import Link from 'next/link'
 import { useMemo } from 'react'
 import type { ColumnDef } from '@tanstack/react-table'
 import { Badge, getUcatVisibilityColor } from '@altitutor/ui'
@@ -60,6 +59,7 @@ type UseUcatSetsTableParams<T> = {
   /** Initial visible column keys; defaults to all base columns if not provided */
   initialVisibleColumns?: string[]
   status: SetRow['status']
+  onOpenMock: (mockId: string) => void
 }
 
 type SetRowInput = {
@@ -85,6 +85,7 @@ export function useUcatSetsTable<T extends SetRowInput>({
   mocks = [],
   initialVisibleColumns,
   status,
+  onOpenMock,
 }: UseUcatSetsTableParams<T>) {
   const baseColumns: Array<{ key: string; label: string }> = [
     { key: 'name', label: 'Name' },
@@ -290,15 +291,18 @@ export function useUcatSetsTable<T extends SetRowInput>({
             <div className="space-y-1">
               <div className="space-y-0.5">
                 {row.original.mocks.map((mock) => (
-                  <Link
+                  <button
                     key={mock.id}
-                    href={`/ucat/mocks/${mock.id}`}
+                    type="button"
                     className="block max-w-full truncate text-left text-sm text-brand-darkBlue underline-offset-2 hover:underline dark:text-white"
                     title={mock.name}
-                    onClick={(event) => event.stopPropagation()}
+                    onClick={(event) => {
+                      event.stopPropagation()
+                      onOpenMock(mock.id)
+                    }}
                   >
                     {mock.name}
-                  </Link>
+                  </button>
                 ))}
               </div>
               <Badge

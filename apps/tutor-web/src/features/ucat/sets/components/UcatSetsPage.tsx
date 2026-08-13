@@ -65,6 +65,14 @@ import {
 import { UcatBlueprintCompliancePanel } from '@/features/ucat/mocks/components/UcatBlueprintCompliancePanel'
 import { setDetailToUpdatePayload } from '@/features/ucat/sets/lib/set-payload-mappers'
 import { useUcatRowSelection } from '@/features/ucat/shared/hooks/useUcatRowSelection'
+import { useBackgroundBulkAction } from '@/features/ucat/shared/hooks/useBackgroundBulkAction'
+import {
+  bulkDeleteProgressToast,
+  bulkStatusProgressToast,
+  bulkUpdateProgressToast,
+  nextBulkActionToastId,
+  type BackgroundBulkToast,
+} from '@/features/ucat/shared/lib/background-bulk-action'
 import { ucatKeys } from '@/features/ucat/shared/lib/query-keys'
 import { cn } from '@/shared/utils'
 import { tutorBtnOutline, tutorBtnPrimary, tutorDataTableProps, tutorToolbarProps } from '@/shared/lib/tutor-visual'
@@ -155,8 +163,6 @@ export function UcatSetsPage() {
   const [bulkVisibilityPrivate, setBulkVisibilityPrivate] = useState<boolean | null>(null)
   const [bulkStatusOpen, setBulkStatusOpen] = useState(false)
   const [bulkStatus, setBulkStatus] = useState<UcatContentStatus | null>(null)
-  const [bulkStatusPending, setBulkStatusPending] = useState(false)
-  const [bulkDeletePending, setBulkDeletePending] = useState(false)
   const [singleDeletePending, setSingleDeletePending] = useState(false)
   const [mockFilterSearch, setMockFilterSearch] = useState('')
   const updateSetMutation = useUpdateUcatSet()
@@ -260,6 +266,7 @@ export function UcatSetsPage() {
     mocks: mocksQuery.data ?? [],
     initialVisibleColumns: columnDefinitions.filter((c) => c.visibleByDefault).map((c) => c.key),
     status: activeStatus,
+    onOpenMock: setEditingMockId,
   })
 
   function changeStatusTab(status: UcatContentStatus) {
@@ -287,26 +294,37 @@ export function UcatSetsPage() {
     toggleSelectAllVisible,
     clearSelection,
   } = useUcatRowSelection(paginatedRows)
+  const { toast } = useToast()
+  const { start: startBackgroundBulk, selectionIsBusy } = useBackgroundBulkAction()
+  const bulkSelectionBusy = selectionIsBusy(selectedSetIds)
 
-  async function handleBulkVisibilityConfirm() {
+  function handleBulkVisibilityConfirm() {
     if (bulkVisibilityPrivate == null) return
     const ids = Array.from(selectedSetIds)
-    for (const setId of ids) {
-      const detail = await ucatSetsApi.detail(setId)
-      if (!detail) continue
-      await updateSetMutation.mutateAsync({
-        setId,
-        payload: setDetailToUpdatePayload(detail, {
-          accessScope: bulkVisibilityPrivate ? 'private' : 'public',
-        }),
-      })
-    }
-    setBulkVisibilityOpen(false)
-    setBulkVisibilityPrivate(null)
-    clearSelection()
+    const accessScope = bulkVisibilityPrivate ? 'private' : 'public'
+    startBackgroundBulk({
+      ids,
+      toastId: nextBulkActionToastId('visibility'),
+      progress: bulkUpdateProgressToast(ids.length, 'set', 'visibility'),
+      begin: () => {
+        setBulkVisibilityOpen(false)
+        setBulkVisibilityPrivate(null)
+        clearSelection()
+      },
+      run: async () => {
+        for (const setId of ids) {
+          const detail = await ucatSetsApi.detail(setId)
+          if (!detail) continue
+          await updateSetMutation.mutateAsync({
+            setId,
+            payload: setDetailToUpdatePayload(detail, { accessScope }),
+          })
+        }
+      },
+      onSuccess: () => ({ title: ids.length === 1 ? 'Visibility updated' : `Visibility updated for ${ids.length} sets` }),
+      onError: (error) => lifecycleErrorToast(error, 'Could not update visibility', router.push, openLifecycleEntity),
+    })
   }
-
-  const { toast } = useToast()
 
   async function openSetPdfExport(row: SetRow) {
     try {
@@ -571,6 +589,8 @@ export function UcatSetsPage() {
       return true
     }
     if (entityType === 'mock') {
+      setEditingSetId(null)
+      setDeletingSetId(null)
       setEditingMockId(entityId)
       return true
     }
@@ -605,48 +625,55 @@ export function UcatSetsPage() {
     })()
   }
 
-  async function handleBulkStatusConfirm() {
+  function handleBulkStatusConfirm() {
     if (!bulkStatus) return
     const ids = Array.from(selectedSetIds)
-    setBulkStatusPending(true)
-    try {
-      const result = await ucatSetsApi.bulkSetStatus(ids, bulkStatus)
-      await invalidateSetsListQueries(ids)
-      const movedIds = result.movedIds
-      const nextStatus = bulkStatus
-      setBulkStatusOpen(false)
-      setBulkStatus(null)
-      clearSelection()
-      if (movedIds.length > 0) {
-        toast(lifecycleStatusSuccessToast({
-          contentLabel: 'Set',
-          count: movedIds.length,
-          status: nextStatus,
-          onUndo: () => {
-            void ucatSetsApi.bulkRestoreStatus(movedIds, nextStatus, activeStatus)
-              .then(async () => {
-                await invalidateSetsListQueries(movedIds)
-                toast({ title: movedIds.length === 1 ? 'Set status restored' : 'Set statuses restored' })
-              })
-              .catch((error) => toast(lifecycleErrorToast(error, 'Could not undo status change', router.push, openLifecycleEntity)))
-          },
-        }))
-      }
-      const failureError = firstUcatBulkStatusFailureError(result)
-      if (failureError) {
-        const count = result.failures.length
-        toast(lifecycleErrorToast(
-          failureError,
-          count === 1 ? '1 set could not be moved' : `${count} sets could not be moved`,
-          router.push,
-          openLifecycleEntity,
-        ))
-      }
-    } catch (error) {
-      toast(lifecycleErrorToast(error, 'Cannot move selected sets', router.push, openLifecycleEntity))
-    } finally {
-      setBulkStatusPending(false)
-    }
+    const nextStatus = bulkStatus
+    startBackgroundBulk({
+      ids,
+      toastId: nextBulkActionToastId('status'),
+      progress: bulkStatusProgressToast(ids.length, 'set', nextStatus),
+      begin: () => {
+        setBulkStatusOpen(false)
+        setBulkStatus(null)
+        clearSelection()
+      },
+      run: async () => {
+        const result = await ucatSetsApi.bulkSetStatus(ids, nextStatus)
+        await invalidateSetsListQueries(ids)
+        return result
+      },
+      onSuccess: (result) => {
+        const toasts: BackgroundBulkToast[] = []
+        if (result.movedIds.length > 0) {
+          toasts.push(lifecycleStatusSuccessToast({
+            contentLabel: 'Set',
+            count: result.movedIds.length,
+            status: nextStatus,
+            onUndo: () => {
+              void ucatSetsApi.bulkRestoreStatus(result.movedIds, nextStatus, activeStatus)
+                .then(async () => {
+                  await invalidateSetsListQueries(result.movedIds)
+                  toast({ title: result.movedIds.length === 1 ? 'Set status restored' : 'Set statuses restored' })
+                })
+                .catch((error) => toast(lifecycleErrorToast(error, 'Could not undo status change', router.push, openLifecycleEntity)))
+            },
+          }))
+        }
+        const failureError = firstUcatBulkStatusFailureError(result)
+        if (failureError) {
+          const count = result.failures.length
+          toasts.push(lifecycleErrorToast(
+            failureError,
+            count === 1 ? '1 set could not be moved' : `${count} sets could not be moved`,
+            router.push,
+            openLifecycleEntity,
+          ))
+        }
+        return toasts
+      },
+      onError: (error) => lifecycleErrorToast(error, 'Cannot move selected sets', router.push, openLifecycleEntity),
+    })
   }
 
   function resetCreateForm() {
@@ -670,9 +697,9 @@ export function UcatSetsPage() {
     setAutoSeed((prev) => prev + 1)
   }
 
-  function showSetDeleteSuccessToast(setIds: string[]) {
+  function setDeleteSuccessToast(setIds: string[]) {
     const count = setIds.length
-    toast({
+    return {
       title: count === 1 ? 'Set deleted' : `${count} sets deleted`,
       description: 'Tap Undo to restore.',
       duration: 10_000,
@@ -696,36 +723,38 @@ export function UcatSetsPage() {
           })()
         },
       },
-    })
+    }
   }
 
-  async function deleteSetsWithMockRemoval(setIds: string[]) {
+  async function deleteSets(setIds: string[]) {
     if (setIds.length === 1) {
       await deleteSet.mutateAsync(setIds[0])
     } else {
       await ucatSetsApi.bulkRemove(setIds)
     }
     await invalidateSetsListQueries(setIds)
-    showSetDeleteSuccessToast(setIds)
   }
 
-  async function handleBulkDeleteConfirm() {
+  async function deleteSetsWithMockRemoval(setIds: string[]) {
+    await deleteSets(setIds)
+    toast(setDeleteSuccessToast(setIds))
+  }
+
+  function handleBulkDeleteConfirm() {
     const ids = Array.from(selectedSetIds)
-    setBulkDeletePending(true)
-    try {
-      await deleteSetsWithMockRemoval(ids)
-      setBulkDeleteOpen(false)
-      clearSelection()
-    } catch (err) {
-      toast({
-        title: 'Cannot delete',
-        description: err instanceof Error ? err.message : 'Failed to delete sets.',
-        variant: 'destructive',
-      })
-      throw err
-    } finally {
-      setBulkDeletePending(false)
-    }
+    const started = startBackgroundBulk({
+      ids,
+      toastId: nextBulkActionToastId('delete'),
+      progress: bulkDeleteProgressToast(ids.length, 'set'),
+      begin: () => {
+        setBulkDeleteOpen(false)
+        clearSelection()
+      },
+      run: () => deleteSets(ids),
+      onSuccess: () => setDeleteSuccessToast(ids),
+      onError: (error) => lifecycleErrorToast(error, 'Cannot delete', router.push, openLifecycleEntity),
+    })
+    if (!started) throw new Error('already in progress')
   }
 
   async function onCreate() {
@@ -740,23 +769,27 @@ export function UcatSetsPage() {
       accessScope: form.isPrivate ? 'private' : 'public',
       stemIds,
     }
-    const result = await createSet.mutateAsync(payload)
-    const setName = form.name.trim() || 'Untitled'
-    setOpenCreate(false)
-    resetCreateForm()
-    if (result.id) setEditingSetId(result.id)
-    toast({
-      title: `Set ${setName} created`,
-      description: (
-        <button
-          type="button"
-          onClick={() => setEditingSetId(result.id)}
-          className="underline font-medium hover:no-underline text-left"
-        >
-          View set
-        </button>
-      ),
-    })
+    try {
+      const result = await createSet.mutateAsync(payload)
+      const setName = form.name.trim() || 'Untitled'
+      setOpenCreate(false)
+      resetCreateForm()
+      if (result.id) setEditingSetId(result.id)
+      toast({
+        title: `Set ${setName} created`,
+        description: (
+          <button
+            type="button"
+            onClick={() => setEditingSetId(result.id)}
+            className="underline font-medium hover:no-underline text-left"
+          >
+            View set
+          </button>
+        ),
+      })
+    } catch (error) {
+      toast(lifecycleErrorToast(error, 'Cannot create set', router.push, openLifecycleEntity))
+    }
   }
 
   if (access.isLoading || sets.isLoading) return <UcatPageSkeleton rows={8} />
@@ -932,7 +965,7 @@ export function UcatSetsPage() {
         selectedCount={selectedSetIds.size}
         onCancel={clearSelection}
         onDelete={() => setBulkDeleteOpen(true)}
-        deletePending={bulkDeletePending}
+        deletePending={bulkSelectionBusy}
       >
         <SearchableSelect<{ value: boolean; label: string }>
           items={[
@@ -940,6 +973,7 @@ export function UcatSetsPage() {
             { value: true, label: 'Private' },
           ]}
           value={null}
+          disabled={bulkSelectionBusy}
           onValueChange={(item) => {
             if (item) {
               setBulkVisibilityPrivate(item.value);
@@ -973,6 +1007,7 @@ export function UcatSetsPage() {
           placeholder="Status"
           searchPlaceholder="Search statuses..."
           emptyMessage="No status found"
+          disabled={bulkSelectionBusy}
           trigger={
             <Button variant="outline" size="sm" className={tutorBtnOutline}>
               Status
@@ -994,7 +1029,7 @@ export function UcatSetsPage() {
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={() => void handleBulkVisibilityConfirm()}>
+            <AlertDialogAction onClick={() => handleBulkVisibilityConfirm()}>
               Yes
             </AlertDialogAction>
           </AlertDialogFooter>
@@ -1009,9 +1044,9 @@ export function UcatSetsPage() {
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={bulkStatusPending}>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={() => void handleBulkStatusConfirm()} disabled={bulkStatusPending}>
-              {bulkStatusPending ? 'Moving...' : 'Move sets'}
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={() => handleBulkStatusConfirm()}>
+              Move sets
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -1026,7 +1061,6 @@ export function UcatSetsPage() {
             : 'The selected sets will be hidden from students. You can restore them later from the deleted list.'
         }
         onConfirm={handleBulkDeleteConfirm}
-        isPending={bulkDeletePending}
       />
 
       <UcatDialogShell
@@ -1518,12 +1552,7 @@ export function UcatSetsPage() {
             await deleteSetsWithMockRemoval([deletingSetId])
             setEditingSetId((prev) => (prev === deletingSetId ? null : prev))
           } catch (err) {
-            toast({
-              title: 'Cannot delete',
-              description: err instanceof Error ? err.message : 'Failed to delete set.',
-              variant: 'destructive',
-            })
-            throw err
+            toast(lifecycleErrorToast(err, 'Cannot delete', router.push, openLifecycleEntity))
           } finally {
             setSingleDeletePending(false)
           }

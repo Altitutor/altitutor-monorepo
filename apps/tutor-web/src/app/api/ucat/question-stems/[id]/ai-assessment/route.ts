@@ -142,7 +142,7 @@ export async function GET(_: NextRequest, { params }: { params: { id: string } }
 export async function POST(request: NextRequest, { params }: { params: { id: string } }) {
   const access = await requireUcatTutor()
   if (!access.ok) return access.response
-  const body = await request.json().catch(() => null) as { action?: string; runId?: string } | null
+  const body = await request.json().catch(() => null) as { action?: string; runId?: string; force?: boolean } | null
   if (!manualReviewEnvironment().enabled) {
     return NextResponse.json({ error: 'AI review is disabled in this environment' }, { status: 409 })
   }
@@ -152,6 +152,7 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
         stemId: params.id,
         triggerKind: 'manual_request',
         userClient: access.userClient as unknown as SupabaseClient<Database>,
+        force: body.force === true,
       })
       if (result.kind === 'skipped') {
         return NextResponse.json({

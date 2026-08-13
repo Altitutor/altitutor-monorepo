@@ -12,6 +12,7 @@ import type { UcatAccessScope, UcatContentStatus } from '@/features/ucat/shared/
 import {
   readUcatBulkStatusResponse,
   throwFirstUcatBulkStatusFailure,
+  throwUcatLifecycleResponseError,
 } from '@/features/ucat/shared/lifecycle-errors'
 
 export type UcatStemLearningModuleMembership = {
@@ -307,10 +308,7 @@ export const ucatLearningModulesApi = {
 
   async remove(moduleId: string): Promise<void> {
     const res = await fetch(`/api/ucat/learning-modules/${moduleId}`, { method: 'DELETE' })
-    if (!res.ok) {
-      const json = (await res.json()) as { error?: string }
-      throw new Error(friendlyLearningModuleError(json.error) ?? 'Failed to delete learning module')
-    }
+    if (!res.ok) await throwUcatLifecycleResponseError(res, 'Failed to delete learning module')
   },
 
   async bulkRemove(moduleIds: string[]): Promise<void> {
@@ -319,10 +317,7 @@ export const ucatLearningModulesApi = {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ moduleIds }),
     })
-    if (!res.ok) {
-      const json = (await res.json()) as { error?: string }
-      throw new Error(friendlyLearningModuleError(json.error) ?? 'Failed to delete learning modules')
-    }
+    if (!res.ok) await throwUcatLifecycleResponseError(res, 'Failed to delete learning modules')
   },
 
   async restore(moduleId: string): Promise<void> {

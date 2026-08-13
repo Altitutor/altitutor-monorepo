@@ -25,6 +25,8 @@ apps/student-app/credentials/*
 # Editor directories and files
 .idea
 .vscode
+# Local MCP server config (may contain API keys)
+.cursor/mcp.json
 *.suo
 *.ntvs*
 *.njsproj

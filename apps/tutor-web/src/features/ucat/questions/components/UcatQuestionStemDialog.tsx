@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { Editor } from '@tiptap/react'
 import type { Json } from '@altitutor/shared'
-import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import type { UseFormReturn } from 'react-hook-form'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -35,7 +35,6 @@ import {
 } from '@/features/ucat/questions/hooks/useUcatQuestions'
 import { isSnapshotDirty, snapshotQuestionStemFormValues } from '@/features/ucat/shared/lib/dirty-state'
 import { UcatDialogShell } from '@/features/ucat/shared/dialog-shell'
-import { parseUcatVisibilityError } from '@/features/ucat/shared/lib/visibility-error'
 import { useUcatCopyId } from '@/features/ucat/shared/hooks/useUcatCopyId'
 import { buildCopyIdRowAction, buildStemCopyIdEntries } from '@/features/ucat/shared/lib/copy-id-actions'
 import { UcatRowActions } from '@/features/ucat/shared/row-actions'
@@ -45,7 +44,7 @@ import { UcatDetectedStemMetadataControl } from '@/features/ucat/questions/compo
 import { UcatStemEditorHeaderControls } from '@/features/ucat/questions/components/stem-editor/UcatStemEditorHeaderControls'
 import { taxonomyDisplayLabel } from '@/features/ucat/shared/lib/taxonomy-paths'
 import { filterTagsForImportSection } from '@/features/ucat/shared/lib/taxonomy-reparent'
-import { lifecycleStatusSuccessToast } from '@/features/ucat/shared/lifecycle-errors'
+import { lifecycleErrorToast, lifecycleStatusSuccessToast, type UcatLifecycleEntityType } from '@/features/ucat/shared/lifecycle-errors'
 import { UcatDeleteConfirmDialog } from '@/features/ucat/shared/delete-confirm-dialog'
 import {
   replaceSelectedImageAttrs,
@@ -132,6 +131,7 @@ export function UcatQuestionStemDialog({
   initialEditorMode = 'edit',
   readOnly = false,
   warningPills,
+  onOpenLifecycleEntity,
 }: {
   open: boolean
   title: string
@@ -148,8 +148,10 @@ export function UcatQuestionStemDialog({
   initialEditorMode?: StemEditorMode
   readOnly?: boolean
   warningPills?: string[]
+  onOpenLifecycleEntity?: (entityType: UcatLifecycleEntityType, entityId: string) => boolean
 }) {
   const { toast } = useToast()
+  const router = useRouter()
   const { copyId } = useUcatCopyId()
   const statusMutation = useSetUcatQuestionStemStatus()
   const deleteStemMutation = useDeleteUcatQuestionStem()
@@ -341,22 +343,7 @@ export function UcatQuestionStemDialog({
             setBaseline(snapshotQuestionStemFormValues(nextValues))
           }
         } catch (error) {
-          const msg = error instanceof Error ? error.message : 'Failed to save question stem'
-          const parsed = parseUcatVisibilityError(msg)
-          toast({
-            title: 'Failed to save',
-            description: parsed.link ? (
-              <span>
-                {parsed.textBeforeLink}{' '}
-                <Link href={parsed.link.href} className="underline font-medium">
-                  {parsed.link.label}
-                </Link>
-              </span>
-            ) : (
-              msg
-            ),
-            variant: 'destructive',
-          })
+          toast(lifecycleErrorToast(error, 'Failed to save', router.push, onOpenLifecycleEntity))
         }
       },
       (errs: Record<string, unknown>) => {
@@ -533,7 +520,7 @@ export function UcatQuestionStemDialog({
         open={deleteConfirmOpen}
         onOpenChange={setDeleteConfirmOpen}
         title="Delete question stem?"
-        description="The stem and all its questions will be soft-deleted and removed from any sets. You can restore it later from the deleted list."
+        description="The stem and all its questions will be hidden from students. Remove it from any sets, sessions, or lessons first. You can restore it later from the deleted list."
         isPending={deleteStemMutation.isPending}
         onConfirm={async () => {
           if (!stemId) return
@@ -542,15 +529,11 @@ export function UcatQuestionStemDialog({
             setDeleteConfirmOpen(false)
             toast({
               title: 'Question stem deleted',
-              description: 'The stem was soft-deleted and removed from any sets.',
+              description: 'The stem was soft-deleted.',
             })
             onClose()
           } catch (error) {
-            toast({
-              title: 'Cannot delete question stem',
-              description: error instanceof Error ? error.message : 'Please try again.',
-              variant: 'destructive',
-            })
+            toast(lifecycleErrorToast(error, 'Cannot delete question stem', router.push, onOpenLifecycleEntity))
           }
         }}
       />

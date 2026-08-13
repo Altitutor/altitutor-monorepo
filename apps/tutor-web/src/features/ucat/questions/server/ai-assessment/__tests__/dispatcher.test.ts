@@ -16,6 +16,20 @@ describe('UCAT question assessment queue consumer', () => {
       .not.toBe(assessmentDedupeKey({ ...base, promptVersion: 18 }))
   })
 
+  it('does not reuse a completed review when a tutor forces a new run', () => {
+    const base = {
+      cycleId: 'cycle',
+      fingerprint: 'fingerprint',
+      scopeType: 'full' as const,
+      questionIds: ['question'],
+      promptVersion: 18,
+    }
+    expect(assessmentDedupeKey({ ...base, forceNonce: 'one' }))
+      .not.toBe(assessmentDedupeKey(base))
+    expect(assessmentDedupeKey({ ...base, forceNonce: 'one' }))
+      .not.toBe(assessmentDedupeKey({ ...base, forceNonce: 'two' }))
+  })
+
   it('prepares an automatic assessment only after the preparation message reaches the queue', async () => {
     const message: UcatQuestionAssessmentQueueMessage = {
       kind: 'prepare',

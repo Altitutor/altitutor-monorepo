@@ -35,6 +35,7 @@ import {
 import {
   deriveUcatAiScopeReviewStatus,
   isStaleUcatAiReviewRun,
+  shouldShowRerunAiReviewAction,
   UCAT_AI_REVIEW_STATUS_COPY,
 } from '@/features/ucat/questions/lib/ai-assessment/review-status'
 import type {
@@ -46,7 +47,9 @@ import type {
 } from '@/features/ucat/questions/lib/ai-assessment/schema'
 import {
   applyUcatAssessmentPatches,
+  assessmentPatchCurrentPlainText,
   ucatAssessmentPatchesAlreadyApplied,
+  ucatAssessmentSetTextIsStale,
 } from '@/features/ucat/questions/lib/ai-assessment/apply-patches'
 import type { z } from 'zod'
 import { cn } from '@/shared/utils'
@@ -289,7 +292,23 @@ function AssessmentPatchPreview({
   patches: UcatAssessmentPatch[]
   values: UcatQuestionStemFormValues
 }) {
-  const rows = patches.flatMap((patch) => patchPreviewRows(patch, values))
+  const rows = patches.flatMap((patch) => {
+    const preview = patchPreviewRows(patch, values)
+    if (patch.operation !== 'set_text') {
+      return preview.map((row) => ({ ...row, current: null as string | null }))
+    }
+    let current = ''
+    try {
+      current = assessmentPatchCurrentPlainText(values, patch)
+    } catch {
+      current = ''
+    }
+    const before = (patch.beforeText ?? '').trim()
+    return preview.map((row) => ({
+      ...row,
+      current: current === before ? null : (current || 'Empty'),
+    }))
+  })
   return (
     <div className="space-y-3">
       <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Proposed changes</p>
@@ -300,6 +319,12 @@ function AssessmentPatchPreview({
             <span className="text-[11px] font-medium text-red-700 dark:text-red-300">Before</span>
             <pre className="max-h-40 overflow-auto whitespace-pre-wrap break-words rounded bg-red-50 p-2 font-sans text-xs text-red-950 dark:bg-red-950/30 dark:text-red-100">{row.before || 'Empty'}</pre>
           </div>
+          {row.current ? (
+            <div className="space-y-1">
+              <span className="text-[11px] font-medium text-amber-700 dark:text-amber-300">Current draft</span>
+              <pre className="max-h-40 overflow-auto whitespace-pre-wrap break-words rounded bg-amber-50 p-2 font-sans text-xs text-amber-950 dark:bg-amber-950/30 dark:text-amber-100">{row.current}</pre>
+            </div>
+          ) : null}
           <div className="space-y-1">
             <span className="text-[11px] font-medium text-emerald-700 dark:text-emerald-300">After</span>
             <pre className="max-h-40 overflow-auto whitespace-pre-wrap break-words rounded bg-emerald-50 p-2 font-sans text-xs text-emerald-950 dark:bg-emerald-950/30 dark:text-emerald-100">{row.after || 'Empty'}</pre>
@@ -327,6 +352,10 @@ function FindingCard({
   const decisionMutation = useRecordUcatAiAssessmentDecision()
   const [applying, setApplying] = useState(false)
   const decision = data.decisions.find((item) => item.run_id === run.id && item.finding_key === finding.key)
+  const values = form.watch()
+  const staleSetText = Boolean(
+    finding.suggestion && ucatAssessmentSetTextIsStale(values, finding.suggestion.patches),
+  )
 
   async function decide(nextDecision: 'dismissed' | 'suggestion_accepted' | 'suggestion_rejected', reason?: string) {
     await decisionMutation.mutateAsync({
@@ -355,13 +384,15 @@ function FindingCard({
     if (!finding.suggestion) return
     setApplying(true)
     try {
-      const next = await applyUcatAssessmentPatches(form.getValues(), finding.suggestion.patches)
+      const next = await applyUcatAssessmentPatches(form.getValues(), finding.suggestion.patches, {
+        overwriteMismatchedSetText: staleSetText,
+      })
       form.setValue('sectionId', next.sectionId, { shouldDirty: true })
       form.setValue('categoryId', next.categoryId, { shouldDirty: true })
       form.setValue('stemText', next.stemText, { shouldDirty: true })
       form.setValue('questions', next.questions, { shouldDirty: true })
       toast({
-        title: 'Suggestion applied to the unsaved draft',
+        title: staleSetText ? 'Current text replaced in the unsaved draft' : 'Suggestion applied to the unsaved draft',
         description: 'Save the edit to resolve the current finding. Discarding the form leaves it unresolved.',
       })
     } catch (error) {
@@ -388,10 +419,16 @@ function FindingCard({
         <div className="space-y-3 rounded-md bg-muted/60 p-3 text-sm">
           <p className="font-medium">Suggested edit: {finding.suggestion.summary}</p>
           <p className="text-muted-foreground">{finding.suggestion.rationale}</p>
-          <AssessmentPatchPreview patches={finding.suggestion.patches} values={form.getValues()} />
-          <p className="text-xs text-muted-foreground">
-            {finding.suggestion.patches.length} bounded {finding.suggestion.patches.length === 1 ? 'change' : 'changes'}; applied to the form only.
-          </p>
+          <AssessmentPatchPreview patches={finding.suggestion.patches} values={values} />
+          {staleSetText ? (
+            <p className="text-xs text-amber-800 dark:text-amber-200">
+              This suggestion was based on a different field value. Replacing overwrites the current draft text with the suggestion.
+            </p>
+          ) : (
+            <p className="text-xs text-muted-foreground">
+              {finding.suggestion.patches.length} bounded {finding.suggestion.patches.length === 1 ? 'change' : 'changes'}; applied to the form only.
+            </p>
+          )}
         </div>
       ) : null}
       {decision ? (
@@ -406,7 +443,7 @@ function FindingCard({
               <>
                 <Button size="sm" onClick={acceptSuggestion} disabled={applying || decisionMutation.isPending}>
                   {applying ? <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" /> : null}
-                  Accept edit
+                  {staleSetText ? 'Replace current text' : 'Accept edit'}
                 </Button>
                 <Button size="sm" variant="outline" onClick={() => void handleDecision('suggestion_rejected')} disabled={decisionMutation.isPending}>
                   Reject edit
@@ -578,9 +615,9 @@ export function UcatAiAssessmentControl({
     }
   }
 
-  async function requestReview() {
+  async function requestReview(force = false) {
     try {
-      const result = await requestMutation.mutateAsync({ stemId })
+      const result = await requestMutation.mutateAsync({ stemId, force })
       toast({
         title: result.kind === 'queued' ? 'AI review queued' : 'AI review already requested',
         description: result.kind === 'queued'
@@ -701,6 +738,27 @@ export function UcatAiAssessmentControl({
                     </Button>
                   </ReviewAccordionCard>
                 </Accordion>
+              ) : null}
+
+              {shouldShowRerunAiReviewAction(data.status) && !unavailableRun ? (
+                <div className="space-y-2 rounded-lg border border-dashed p-4">
+                  <div>
+                    <p className="text-sm font-medium">Request a new review</p>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      Re-runs AI review of the saved stem, even if the content has not changed.
+                    </p>
+                  </div>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    onClick={() => void requestReview(true)}
+                    disabled={requestMutation.isPending || !data.environment.enabled}
+                  >
+                    {requestMutation.isPending ? <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" /> : <RotateCcw className="mr-2 h-3.5 w-3.5" />}
+                    {requestMutation.isPending ? 'Adding to queue…' : 'Request new review'}
+                  </Button>
+                </div>
               ) : null}
 
             </div>

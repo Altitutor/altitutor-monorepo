@@ -35941,6 +35941,10 @@ export type Database = {
         Args: { stem_ids: string[] }
         Returns: undefined
       }
+      refresh_ucat_question_catalog_set_derived_fields_for_stems: {
+        Args: { stem_ids: string[] }
+        Returns: undefined
+      }
       reject_ucat_referral_gift: {
         Args: { p_referral_id: string; p_referred_student_id: string }
         Returns: boolean
@@ -36358,11 +36362,24 @@ export type Database = {
         Args: { p_audit_id: string }
         Returns: string
       }
+      tutor_ucat_content_delete_blockers: {
+        Args: { p_content_id: string; p_content_type: string }
+        Returns: Json
+      }
       tutor_ucat_content_status_blockers: {
         Args: {
           p_content_id: string
           p_content_type: string
           p_status: Database["public"]["Enums"]["ucat_content_status"]
+        }
+        Returns: Json
+      }
+      tutor_ucat_content_visibility_blockers: {
+        Args: {
+          p_access_scope: Database["public"]["Enums"]["ucat_access_scope"]
+          p_content_id: string
+          p_content_type: string
+          p_member_ids?: string[]
         }
         Returns: Json
       }
@@ -36973,6 +36990,10 @@ export type Database = {
         Args: { p_content_id: string; p_content_type: string }
         Returns: Json
       }
+      ucat_current_ai_assessment_prompt_version: {
+        Args: never
+        Returns: number
+      }
       ucat_mcp_assert_audit_application: {
         Args: { p_content_id: string; p_content_type: string; p_run_id: string }
         Returns: undefined
@@ -37388,3 +37409,4 @@ export const Constants = {
     },
   },
 } as const
+
