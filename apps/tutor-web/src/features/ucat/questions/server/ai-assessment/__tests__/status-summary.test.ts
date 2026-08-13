@@ -69,6 +69,10 @@ describe('summarizeCurrentUcatAiReview', () => {
     })).toEqual({ status: 'not_requested', effectiveRunIds: [] })
   })
 
+  it('keeps the publication gate on the same review contract version', () => {
+    expect(AI_ASSESSMENT_PROMPT_VERSION).toBe(18)
+  })
+
   it('combines current partial runs and preserves the worst result', () => {
     const concern = run({
       id: 'run-2',
