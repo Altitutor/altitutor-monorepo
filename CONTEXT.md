@@ -499,11 +499,8 @@
 - **Tutor source note** — Optional free-text provenance entered by a tutor to describe where source-derived UCAT content came from. It complements the question source channel and is not shown to students.
   _Avoid_: Citation, student explanation, generation metadata
 
-- **UCAT question set** — An ordered collection of question stems that a student can attempt as one practice unit. A set includes every question on each selected stem; question counts are derived from the selected stems, so tutor auto-selection may approximate a requested question total rather than match it exactly. Students cannot generate or persist their own sets.
-  _Avoid_: Individual question playlist
-
-- **UCAT set instruction section** — The UCAT section whose instructions are shown before a question set. For a multi-section set, this is the section represented by the largest number of stems in that set; ties use the earliest canonical UCAT section order. Its instruction content and instruction timing define the set's instructions segment.
-  _Avoid_: First stem section, arbitrary section
+- **UCAT question set** — A practice unit that belongs to exactly one UCAT section and contains an ordered collection of question stems from that section. Belonging is a fact about the set, not a summary of its current members, so an unpublished set may be empty and still belong to its section. That section may be changed only while the set has no member stems. A set includes every question on each selected stem; question counts are derived from the selected stems, so tutor auto-selection may approximate a requested question total rather than match it exactly. Students cannot generate or persist their own sets. The set's UCAT section supplies the instructions shown before its questions.
+  _Avoid_: Individual question playlist, multi-section set, mixed-section set, first-stem section
 
 - **Stem available in the question pool** — A published public question stem that is not included in any published, non-deleted question set. Draft and in-review sets do not reserve their stems from the pool.
   _Avoid_: Unused question, not attempted, not in any set

@@ -45,6 +45,14 @@ import {
 import { UcatAccessDenied, UcatPageHeader, UcatPageSkeleton } from '@/features/ucat/shared/components'
 import { useUcatAccess } from '@/features/ucat/shared/hooks/useUcatAccess'
 import { useUcatRowSelection } from '@/features/ucat/shared/hooks/useUcatRowSelection'
+import { useBackgroundBulkAction } from '@/features/ucat/shared/hooks/useBackgroundBulkAction'
+import {
+  bulkDeleteProgressToast,
+  bulkStatusProgressToast,
+  bulkUpdateProgressToast,
+  nextBulkActionToastId,
+  type BackgroundBulkToast,
+} from '@/features/ucat/shared/lib/background-bulk-action'
 import { UcatRowActions, type UcatRowAction } from '@/features/ucat/shared/row-actions'
 import { UcatCreateLearningModuleDialog } from '@/features/ucat/learning-modules/components/UcatCreateLearningModuleDialog'
 import { UcatLearningModuleDialog } from '@/features/ucat/learning-modules/components/UcatLearningModuleDialog'
@@ -184,12 +192,9 @@ export function UcatLearningModulesPage() {
 
   const [bulkVisibilityOpen, setBulkVisibilityOpen] = useState(false)
   const [bulkVisibilityPrivate, setBulkVisibilityPrivate] = useState<boolean | null>(null)
-  const [bulkVisibilityPending, setBulkVisibilityPending] = useState(false)
   const [bulkStatusOpen, setBulkStatusOpen] = useState(false)
   const [bulkStatus, setBulkStatus] = useState<UcatContentStatus | null>(null)
-  const [bulkStatusPending, setBulkStatusPending] = useState(false)
   const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false)
-  const [bulkDeletePending, setBulkDeletePending] = useState(false)
 
   const bulkStatusOptions = useMemo(
     () => getUcatContentStatusTransitionOptions(activeTab),
@@ -300,6 +305,8 @@ export function UcatLearningModulesPage() {
     toggleSelectAllVisible,
     clearSelection,
   } = useUcatRowSelection(paginatedRows)
+  const { start: startBackgroundBulk, selectionIsBusy } = useBackgroundBulkAction()
+  const bulkSelectionBusy = selectionIsBusy(selectedLessonIds)
 
   const setViewMode = useCallback(
     (mode: 'table' | 'hierarchy') => {
@@ -443,110 +450,128 @@ export function UcatLearningModulesPage() {
     [restoreModule, toast],
   )
 
-  async function handleBulkVisibilityConfirm() {
+  function handleBulkVisibilityConfirm() {
     if (bulkVisibilityPrivate == null) return
-    setBulkVisibilityPending(true)
-    try {
-      const accessScope = bulkVisibilityPrivate ? 'private' : 'public'
-      for (const id of selectedIdsArray) {
-        const row = rowById.get(id)
-        if (!row || row.kind !== 'lesson') continue
-        await upsert.mutateAsync({
-          moduleId: id,
-          kind: row.kind,
-          title: row.title,
-          description: row.description,
-          ucatSectionId: row.ucat_section_id,
-          parentId: row.parent_ucat_learning_module_id,
-          index: row.index,
-          accessScope,
-        })
-      }
-      setBulkVisibilityOpen(false)
-      setBulkVisibilityPrivate(null)
-      clearSelection()
-      toast({
+    const ids = [...selectedIdsArray]
+    const accessScope = bulkVisibilityPrivate ? 'private' : 'public'
+    const lessons = ids
+      .map((id) => rowById.get(id))
+      .filter((row): row is NonNullable<typeof row> => row != null && row.kind === 'lesson')
+    startBackgroundBulk({
+      ids,
+      toastId: nextBulkActionToastId('visibility'),
+      progress: bulkUpdateProgressToast(ids.length, 'lesson', 'visibility'),
+      begin: () => {
+        setBulkVisibilityOpen(false)
+        setBulkVisibilityPrivate(null)
+        clearSelection()
+      },
+      run: async () => {
+        for (const row of lessons) {
+          await upsert.mutateAsync({
+            moduleId: row.id,
+            kind: row.kind,
+            title: row.title,
+            description: row.description,
+            ucatSectionId: row.ucat_section_id,
+            parentId: row.parent_ucat_learning_module_id,
+            index: row.index,
+            accessScope,
+          })
+        }
+      },
+      onSuccess: () => ({
         title: 'Access updated',
-        description: `Set ${selectedIdsArray.length} lesson(s) to ${accessScope}.`,
-      })
-    } catch (error) {
-      toast({
+        description: `Set ${ids.length} lesson(s) to ${accessScope}.`,
+      }),
+      onError: (error) => ({
         title: 'Could not update access',
         description: error instanceof Error ? error.message : String(error),
         variant: 'destructive',
-      })
-    } finally {
-      setBulkVisibilityPending(false)
-    }
+      }),
+    })
   }
 
-  async function handleBulkStatusConfirm() {
+  function handleBulkStatusConfirm() {
     if (!bulkStatus) return
-    setBulkStatusPending(true)
-    try {
-      const result = await ucatLearningModulesApi.bulkSetStatus(selectedIdsArray, bulkStatus)
-      await invalidateModules()
-      const movedIds = result.movedIds
-      const nextStatus = bulkStatus
-      setBulkStatusOpen(false)
-      setBulkStatus(null)
-      clearSelection()
-      if (movedIds.length > 0) {
-        toast(
-          lifecycleStatusSuccessToast({
-            contentLabel: 'Lesson',
-            count: movedIds.length,
-            status: nextStatus,
-            onUndo: () => {
-              void ucatLearningModulesApi
-                .bulkRestoreStatus(movedIds, nextStatus, activeTab)
-                .then(async () => {
-                  await invalidateModules()
-                  toast({
-                    title: movedIds.length === 1 ? 'Lesson status restored' : 'Lesson statuses restored',
+    const ids = [...selectedIdsArray]
+    const nextStatus = bulkStatus
+    startBackgroundBulk({
+      ids,
+      toastId: nextBulkActionToastId('status'),
+      progress: bulkStatusProgressToast(ids.length, 'lesson', nextStatus),
+      begin: () => {
+        setBulkStatusOpen(false)
+        setBulkStatus(null)
+        clearSelection()
+      },
+      run: async () => {
+        const result = await ucatLearningModulesApi.bulkSetStatus(ids, nextStatus)
+        await invalidateModules()
+        return result
+      },
+      onSuccess: (result) => {
+        const toasts: BackgroundBulkToast[] = []
+        if (result.movedIds.length > 0) {
+          toasts.push(
+            lifecycleStatusSuccessToast({
+              contentLabel: 'Lesson',
+              count: result.movedIds.length,
+              status: nextStatus,
+              onUndo: () => {
+                void ucatLearningModulesApi
+                  .bulkRestoreStatus(result.movedIds, nextStatus, activeTab)
+                  .then(async () => {
+                    await invalidateModules()
+                    toast({
+                      title: result.movedIds.length === 1 ? 'Lesson status restored' : 'Lesson statuses restored',
+                    })
                   })
-                })
-                .catch((error) =>
-                  toast(lifecycleErrorToast(error, 'Could not undo status change', router.push)),
-                )
-            },
-          }),
-        )
-      }
-      const failureError = firstUcatBulkStatusFailureError(result)
-      if (failureError) {
-        const count = result.failures.length
-        toast(
-          lifecycleErrorToast(
-            failureError,
-            count === 1 ? '1 lesson could not be moved' : `${count} lessons could not be moved`,
-            router.push,
-          ),
-        )
-      }
-    } catch (error) {
-      toast(lifecycleErrorToast(error, 'Cannot move selected lessons', router.push))
-    } finally {
-      setBulkStatusPending(false)
-    }
+                  .catch((error) =>
+                    toast(lifecycleErrorToast(error, 'Could not undo status change', router.push)),
+                  )
+              },
+            }),
+          )
+        }
+        const failureError = firstUcatBulkStatusFailureError(result)
+        if (failureError) {
+          const count = result.failures.length
+          toasts.push(
+            lifecycleErrorToast(
+              failureError,
+              count === 1 ? '1 lesson could not be moved' : `${count} lessons could not be moved`,
+              router.push,
+            ),
+          )
+        }
+        return toasts
+      },
+      onError: (error) => lifecycleErrorToast(error, 'Cannot move selected lessons', router.push),
+    })
   }
 
-  async function handleBulkDeleteConfirm() {
-    setBulkDeletePending(true)
-    try {
-      await ucatLearningModulesApi.bulkRemove(selectedIdsArray)
-      await invalidateModules()
-      setBulkDeleteOpen(false)
-      clearSelection()
-      toast({
-        title: selectedIdsArray.length === 1 ? 'Lesson deleted' : `${selectedIdsArray.length} lessons deleted`,
+  function handleBulkDeleteConfirm() {
+    const ids = [...selectedIdsArray]
+    const started = startBackgroundBulk({
+      ids,
+      toastId: nextBulkActionToastId('delete'),
+      progress: bulkDeleteProgressToast(ids.length, 'lesson'),
+      begin: () => {
+        setBulkDeleteOpen(false)
+        clearSelection()
+      },
+      run: async () => {
+        await ucatLearningModulesApi.bulkRemove(ids)
+        await invalidateModules()
+      },
+      onSuccess: () => ({
+        title: ids.length === 1 ? 'Lesson deleted' : `${ids.length} lessons deleted`,
         description: 'You can restore them from the deleted list.',
-      })
-    } catch (error) {
-      toast(lifecycleErrorToast(error, 'Delete failed', router.push))
-    } finally {
-      setBulkDeletePending(false)
-    }
+      }),
+      onError: (error) => lifecycleErrorToast(error, 'Delete failed', router.push),
+    })
+    if (!started) throw new Error('already in progress')
   }
 
   const getRowActions = useCallback(
@@ -1145,7 +1170,7 @@ export function UcatLearningModulesPage() {
           selectedCount={selectedLessonIds.size}
           onCancel={clearSelection}
           onDelete={() => setBulkDeleteOpen(true)}
-          deletePending={bulkDeletePending}
+          deletePending={bulkSelectionBusy}
         >
           <SearchableSelect<{ value: boolean; label: string }>
             items={[
@@ -1153,6 +1178,7 @@ export function UcatLearningModulesPage() {
               { value: true, label: 'Private' },
             ]}
             value={null}
+            disabled={bulkSelectionBusy}
             onValueChange={(item) => {
               if (item) {
                 setBulkVisibilityPrivate(item.value)
@@ -1186,6 +1212,7 @@ export function UcatLearningModulesPage() {
             placeholder="Status"
             searchPlaceholder="Search statuses..."
             emptyMessage="No status found"
+            disabled={bulkSelectionBusy}
             trigger={
               <Button variant="outline" size="sm" className={tutorBtnOutline}>
                 Status
@@ -1207,9 +1234,9 @@ export function UcatLearningModulesPage() {
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={bulkVisibilityPending}>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={() => void handleBulkVisibilityConfirm()} disabled={bulkVisibilityPending}>
-              {bulkVisibilityPending ? 'Updating...' : 'Yes'}
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={() => handleBulkVisibilityConfirm()}>
+              Yes
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -1226,9 +1253,9 @@ export function UcatLearningModulesPage() {
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={bulkStatusPending}>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={() => void handleBulkStatusConfirm()} disabled={bulkStatusPending}>
-              {bulkStatusPending ? 'Moving...' : 'Move lessons'}
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={() => handleBulkStatusConfirm()}>
+              Move lessons
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -1240,7 +1267,6 @@ export function UcatLearningModulesPage() {
         title={`Delete ${selectedLessonIds.size} lesson(s)?`}
         description="Selected lessons will be soft-deleted. Remove them from class sessions first if delete is blocked. You can restore them later from the deleted list."
         onConfirm={handleBulkDeleteConfirm}
-        isPending={bulkDeletePending}
       />
 
       <UcatCreateLearningModuleDialog

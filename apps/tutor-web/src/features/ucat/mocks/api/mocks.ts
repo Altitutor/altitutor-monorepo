@@ -5,6 +5,7 @@ import type { UcatContentStatus, UcatMockPayload } from '@/features/ucat/shared/
 import {
   readUcatBulkStatusResponse,
   throwFirstUcatBulkStatusFailure,
+  throwUcatLifecycleResponseError,
 } from '@/features/ucat/shared/lifecycle-errors'
 
 export const ucatMocksApi = {
@@ -72,10 +73,7 @@ export const ucatMocksApi = {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
     })
-    if (!response.ok) {
-      const body = await response.json().catch(() => ({}))
-      throw new Error(body.error ?? 'Failed to create mock')
-    }
+    if (!response.ok) await throwUcatLifecycleResponseError(response, 'Failed to create mock')
     return response.json() as Promise<{ id: string }>
   },
 
@@ -85,10 +83,7 @@ export const ucatMocksApi = {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ ...payload, id: mockId }),
     })
-    if (!response.ok) {
-      const body = await response.json().catch(() => ({}))
-      throw new Error(body.error ?? 'Failed to update mock')
-    }
+    if (!response.ok) await throwUcatLifecycleResponseError(response, 'Failed to update mock')
     return response.json() as Promise<{ id: string }>
   },
 
@@ -118,10 +113,7 @@ export const ucatMocksApi = {
 
   async remove(mockId: string) {
     const response = await fetch(`/api/ucat/mocks/${mockId}`, { method: 'DELETE' })
-    if (!response.ok) {
-      const body = await response.json().catch(() => ({}))
-      throw new Error(body.error ?? 'Failed to delete mock')
-    }
+    if (!response.ok) await throwUcatLifecycleResponseError(response, 'Failed to delete mock')
   },
 
   async bulkRemove(mockIds: string[]) {
@@ -130,10 +122,7 @@ export const ucatMocksApi = {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ mockIds }),
     })
-    if (!response.ok) {
-      const body = await response.json().catch(() => ({}))
-      throw new Error(body.error ?? 'Failed to bulk delete mocks')
-    }
+    if (!response.ok) await throwUcatLifecycleResponseError(response, 'Failed to bulk delete mocks')
     return response.json() as Promise<{ ok: true }>
   },
 

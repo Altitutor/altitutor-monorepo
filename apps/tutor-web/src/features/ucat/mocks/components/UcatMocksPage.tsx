@@ -33,6 +33,14 @@ import { useUcatMocksTable, type MockRow } from '@/features/ucat/mocks/hooks/use
 import { UcatAccessDenied, UcatPageHeader, UcatPageSkeleton } from '@/features/ucat/shared/components'
 import { useUcatAccess } from '@/features/ucat/shared/hooks/useUcatAccess'
 import { useUcatRowSelection } from '@/features/ucat/shared/hooks/useUcatRowSelection'
+import { useBackgroundBulkAction } from '@/features/ucat/shared/hooks/useBackgroundBulkAction'
+import {
+  bulkDeleteProgressToast,
+  bulkStatusProgressToast,
+  bulkUpdateProgressToast,
+  nextBulkActionToastId,
+  type BackgroundBulkToast,
+} from '@/features/ucat/shared/lib/background-bulk-action'
 import { UcatRowActions } from '@/features/ucat/shared/row-actions'
 import { UcatPdfExportDialog, type UcatPdfExportSource } from '@/features/ucat/shared/components/UcatPdfExportDialog'
 import { buildUcatPdfExportAction } from '@/features/ucat/shared/pdf/pdf-export-action'
@@ -113,8 +121,6 @@ export function UcatMocksPage() {
   const [bulkVisibilityPrivate, setBulkVisibilityPrivate] = useState<boolean | null>(null)
   const [bulkStatusOpen, setBulkStatusOpen] = useState(false)
   const [bulkStatus, setBulkStatus] = useState<UcatContentStatus | null>(null)
-  const [bulkStatusPending, setBulkStatusPending] = useState(false)
-  const [bulkDeletePending, setBulkDeletePending] = useState(false)
   const [singleDeletePending, setSingleDeletePending] = useState(false)
   const queryClient = useQueryClient()
   const updateMockMutation = useUpdateUcatMock()
@@ -158,6 +164,8 @@ export function UcatMocksPage() {
     toggleSelectAllVisible,
     clearSelection,
   } = useUcatRowSelection(paginatedRows)
+  const { start: startBackgroundBulk, selectionIsBusy } = useBackgroundBulkAction()
+  const bulkSelectionBusy = selectionIsBusy(selectedMockIds)
 
   const openLifecycleEntity = useCallback((entityType: UcatLifecycleEntityType, entityId: string) => {
     if (entityType === 'mock') {
@@ -284,25 +292,37 @@ export function UcatMocksPage() {
     ),
   }
 
-  async function handleBulkVisibilityConfirm() {
+  function handleBulkVisibilityConfirm() {
     if (bulkVisibilityPrivate == null) return
     const ids = Array.from(selectedMockIds)
-    for (const mockId of ids) {
-      const detail = await ucatMocksApi.detail(mockId)
-      if (!detail) continue
-      const setIds = (detail.sets as Array<{ id: string }> | null)?.map((set) => set.id) ?? []
-      await updateMockMutation.mutateAsync({
-        mockId,
-        payload: {
-          name: detail.name ?? 'Untitled',
-          accessScope: bulkVisibilityPrivate ? 'private' : 'public',
-          setIds,
-        },
-      })
-    }
-    setBulkVisibilityOpen(false)
-    setBulkVisibilityPrivate(null)
-    clearSelection()
+    const accessScope = bulkVisibilityPrivate ? 'private' : 'public'
+    startBackgroundBulk({
+      ids,
+      toastId: nextBulkActionToastId('visibility'),
+      progress: bulkUpdateProgressToast(ids.length, 'mock', 'visibility'),
+      begin: () => {
+        setBulkVisibilityOpen(false)
+        setBulkVisibilityPrivate(null)
+        clearSelection()
+      },
+      run: async () => {
+        for (const mockId of ids) {
+          const detail = await ucatMocksApi.detail(mockId)
+          if (!detail) continue
+          const setIds = (detail.sets as Array<{ id: string }> | null)?.map((set) => set.id) ?? []
+          await updateMockMutation.mutateAsync({
+            mockId,
+            payload: {
+              name: detail.name ?? 'Untitled',
+              accessScope,
+              setIds,
+            },
+          })
+        }
+      },
+      onSuccess: () => ({ title: ids.length === 1 ? 'Visibility updated' : `Visibility updated for ${ids.length} mocks` }),
+      onError: (error) => lifecycleErrorToast(error, 'Could not update visibility', router.push, openLifecycleEntity),
+    })
   }
 
   async function invalidateMocksListQueries(mockIds: string[] = []) {
@@ -313,53 +333,60 @@ export function UcatMocksPage() {
     ])
   }
 
-  async function handleBulkStatusConfirm() {
+  function handleBulkStatusConfirm() {
     if (!bulkStatus) return
     const ids = Array.from(selectedMockIds)
-    setBulkStatusPending(true)
-    try {
-      const result = await ucatMocksApi.bulkSetStatus(ids, bulkStatus)
-      await invalidateMocksListQueries(ids)
-      const movedIds = result.movedIds
-      const nextStatus = bulkStatus
-      setBulkStatusOpen(false)
-      setBulkStatus(null)
-      clearSelection()
-      if (movedIds.length > 0) {
-        toast(lifecycleStatusSuccessToast({
-          contentLabel: 'Mock',
-          count: movedIds.length,
-          status: nextStatus,
-          onUndo: () => {
-            void ucatMocksApi.bulkRestoreStatus(movedIds, nextStatus, activeStatus)
-              .then(async () => {
-                await invalidateMocksListQueries(movedIds)
-                toast({ title: movedIds.length === 1 ? 'Mock status restored' : 'Mock statuses restored' })
-              })
-              .catch((error) => toast(lifecycleErrorToast(error, 'Could not undo status change', router.push, openLifecycleEntity)))
-          },
-        }))
-      }
-      const failureError = firstUcatBulkStatusFailureError(result)
-      if (failureError) {
-        const count = result.failures.length
-        toast(lifecycleErrorToast(
-          failureError,
-          count === 1 ? '1 mock could not be moved' : `${count} mocks could not be moved`,
-          router.push,
-          openLifecycleEntity,
-        ))
-      }
-    } catch (error) {
-      toast(lifecycleErrorToast(error, 'Cannot move selected mocks', router.push, openLifecycleEntity))
-    } finally {
-      setBulkStatusPending(false)
-    }
+    const nextStatus = bulkStatus
+    startBackgroundBulk({
+      ids,
+      toastId: nextBulkActionToastId('status'),
+      progress: bulkStatusProgressToast(ids.length, 'mock', nextStatus),
+      begin: () => {
+        setBulkStatusOpen(false)
+        setBulkStatus(null)
+        clearSelection()
+      },
+      run: async () => {
+        const result = await ucatMocksApi.bulkSetStatus(ids, nextStatus)
+        await invalidateMocksListQueries(ids)
+        return result
+      },
+      onSuccess: (result) => {
+        const toasts: BackgroundBulkToast[] = []
+        if (result.movedIds.length > 0) {
+          toasts.push(lifecycleStatusSuccessToast({
+            contentLabel: 'Mock',
+            count: result.movedIds.length,
+            status: nextStatus,
+            onUndo: () => {
+              void ucatMocksApi.bulkRestoreStatus(result.movedIds, nextStatus, activeStatus)
+                .then(async () => {
+                  await invalidateMocksListQueries(result.movedIds)
+                  toast({ title: result.movedIds.length === 1 ? 'Mock status restored' : 'Mock statuses restored' })
+                })
+                .catch((error) => toast(lifecycleErrorToast(error, 'Could not undo status change', router.push, openLifecycleEntity)))
+            },
+          }))
+        }
+        const failureError = firstUcatBulkStatusFailureError(result)
+        if (failureError) {
+          const count = result.failures.length
+          toasts.push(lifecycleErrorToast(
+            failureError,
+            count === 1 ? '1 mock could not be moved' : `${count} mocks could not be moved`,
+            router.push,
+            openLifecycleEntity,
+          ))
+        }
+        return toasts
+      },
+      onError: (error) => lifecycleErrorToast(error, 'Cannot move selected mocks', router.push, openLifecycleEntity),
+    })
   }
 
-  function showMockDeleteSuccessToast(mockIds: string[]) {
+  function mockDeleteSuccessToast(mockIds: string[]) {
     const count = mockIds.length
-    toast({
+    return {
       title: count === 1 ? 'Mock deleted' : `${count} mocks deleted`,
       description: 'Tap Undo to restore.',
       duration: 10_000,
@@ -377,42 +404,44 @@ export function UcatMocksPage() {
               toast({
                 title: 'Could not undo',
                 description: err instanceof Error ? err.message : 'Failed to restore mocks.',
-                variant: 'destructive',
+                variant: 'destructive' as const,
               })
             }
           })()
         },
       },
-    })
+    }
   }
 
-  async function deleteMocksWithToast(mockIds: string[]) {
+  async function deleteMocks(mockIds: string[]) {
     if (mockIds.length === 1) {
       await deleteMock.mutateAsync(mockIds[0])
     } else {
       await ucatMocksApi.bulkRemove(mockIds)
     }
     await invalidateMocksListQueries(mockIds)
-    showMockDeleteSuccessToast(mockIds)
   }
 
-  async function handleBulkDeleteConfirm() {
+  async function deleteMocksWithToast(mockIds: string[]) {
+    await deleteMocks(mockIds)
+    toast(mockDeleteSuccessToast(mockIds))
+  }
+
+  function handleBulkDeleteConfirm() {
     const ids = Array.from(selectedMockIds)
-    setBulkDeletePending(true)
-    try {
-      await deleteMocksWithToast(ids)
-      setBulkDeleteOpen(false)
-      clearSelection()
-    } catch (err) {
-      toast({
-        title: 'Cannot delete',
-        description: err instanceof Error ? err.message : 'Failed to delete mocks.',
-        variant: 'destructive',
-      })
-      throw err
-    } finally {
-      setBulkDeletePending(false)
-    }
+    const started = startBackgroundBulk({
+      ids,
+      toastId: nextBulkActionToastId('delete'),
+      progress: bulkDeleteProgressToast(ids.length, 'mock'),
+      begin: () => {
+        setBulkDeleteOpen(false)
+        clearSelection()
+      },
+      run: () => deleteMocks(ids),
+      onSuccess: () => mockDeleteSuccessToast(ids),
+      onError: (error) => lifecycleErrorToast(error, 'Cannot delete', router.push, openLifecycleEntity),
+    })
+    if (!started) throw new Error('already in progress')
   }
 
   async function onCreate() {
@@ -541,11 +570,11 @@ export function UcatMocksPage() {
         selectedCount={selectedMockIds.size}
         onCancel={clearSelection}
         onDelete={() => setBulkDeleteOpen(true)}
-        deletePending={bulkDeletePending}
+        deletePending={bulkSelectionBusy}
       >
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="outline" size="sm" className={tutorBtnOutline}>
+            <Button variant="outline" size="sm" className={tutorBtnOutline} disabled={bulkSelectionBusy}>
               Visibility
             </Button>
           </DropdownMenuTrigger>
@@ -571,6 +600,7 @@ export function UcatMocksPage() {
           placeholder="Status"
           searchPlaceholder="Search statuses..."
           emptyMessage="No status found"
+          disabled={bulkSelectionBusy}
           trigger={
             <Button variant="outline" size="sm" className={tutorBtnOutline}>
               Status
@@ -592,7 +622,7 @@ export function UcatMocksPage() {
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={() => void handleBulkVisibilityConfirm()}>
+            <AlertDialogAction onClick={() => handleBulkVisibilityConfirm()}>
               Yes
             </AlertDialogAction>
           </AlertDialogFooter>
@@ -607,9 +637,9 @@ export function UcatMocksPage() {
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={bulkStatusPending}>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={() => void handleBulkStatusConfirm()} disabled={bulkStatusPending}>
-              {bulkStatusPending ? 'Moving...' : 'Move mocks'}
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={() => handleBulkStatusConfirm()}>
+              Move mocks
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -620,7 +650,6 @@ export function UcatMocksPage() {
         title={`Delete ${selectedMockIds.size} mock(s)?`}
         description="The selected mocks will be hidden from students. You can restore them later from the deleted list."
         onConfirm={handleBulkDeleteConfirm}
-        isPending={bulkDeletePending}
       />
 
       <UcatDialogShell
@@ -701,12 +730,7 @@ export function UcatMocksPage() {
             await deleteMocksWithToast([deletingMockId])
             setEditingMockId((prev) => (prev === deletingMockId ? null : prev))
           } catch (err) {
-            toast({
-              title: 'Cannot delete',
-              description: err instanceof Error ? err.message : 'Failed to delete mock.',
-              variant: 'destructive',
-            })
-            throw err
+            toast(lifecycleErrorToast(err, 'Cannot delete', router.push, openLifecycleEntity))
           } finally {
             setSingleDeletePending(false)
           }

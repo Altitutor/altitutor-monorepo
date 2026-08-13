@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireUcatTutor, type UcatTutorSupabaseClient } from '@/features/ucat/shared/server/guard'
+import { jsonUcatDeleteErrorResponse } from '@/features/ucat/shared/server/delete-blocked-response'
 
 export async function DELETE(_: NextRequest, { params }: { params: { id: string } }) {
   const access = await requireUcatTutor()
@@ -10,6 +11,12 @@ export async function DELETE(_: NextRequest, { params }: { params: { id: string 
     p_module_id: params.id,
   })
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 400 })
+  if (error) {
+    return jsonUcatDeleteErrorResponse(client, {
+      contentType: 'lesson',
+      contentId: params.id,
+      errorMessage: error.message,
+    })
+  }
   return NextResponse.json({ ok: true })
 }

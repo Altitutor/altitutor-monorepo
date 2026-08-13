@@ -2,6 +2,13 @@ import type { Database, Json } from '@altitutor/shared'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { proseMirrorToPlainText } from '@/features/ucat/shared/lib/rich-text'
 import {
+  isUcatVisibilityBlockedError,
+  isUcatVisibilityBlockedMessage,
+  parseUcatLifecycleBlockers,
+  ucatVisibilityBlockedFallbackMessage,
+  type UcatVisibilityContentType,
+} from '@/features/ucat/shared/lifecycle-errors'
+import {
   applyLearningModuleOperations,
   applyMockOperations,
   applyQuestionSetOperations,
@@ -15,6 +22,7 @@ import {
   reindexBlocks,
   reindexQuestions,
   toRichTextJson,
+  toStemRpcQuestions,
   type LearningModuleDraft,
   type MockDraft,
   type QuestionSetDraft,
@@ -494,6 +502,9 @@ async function callMutation(
     if (error.message.includes('status_blocked_by_attachment')) {
       throw new Error('This learning module is attached to a session and cannot be deleted.')
     }
+    if (isUcatVisibilityBlockedError(error.message)) {
+      throw new Error(ucatVisibilityBlockedFallbackMessage(error.message))
+    }
     if (error.message.includes('mcp_content_already_deleted')) {
       throw new Error('This content is already deleted. Re-read search results before retrying.')
     }
@@ -506,6 +517,52 @@ async function callMutation(
     throw new Error('Authoring mutation returned an invalid result')
   }
   return data as MutationResult
+}
+
+const NIL_AUTHORING_ID = '00000000-0000-0000-0000-000000000000'
+
+async function throwEnrichedVisibilityError(
+  client: SupabaseClient<Database>,
+  error: unknown,
+  options: {
+    contentType: UcatVisibilityContentType
+    contentId: string
+    accessScope: 'public' | 'private'
+    memberIds?: string[]
+  },
+): Promise<never> {
+  const message = error instanceof Error ? error.message : ''
+  if (!isUcatVisibilityBlockedMessage(message)) throw error
+  const { data } = await rpcClient(client).rpc('tutor_ucat_content_visibility_blockers', {
+    p_content_type: options.contentType,
+    p_content_id: options.contentId,
+    p_access_scope: options.accessScope,
+    p_member_ids: options.memberIds ?? null,
+  })
+  const blockers = parseUcatLifecycleBlockers(data)
+  const extraCount = Math.max(0, blockers.length - 1)
+  const extra = extraCount > 0
+    ? ` There ${extraCount === 1 ? 'is' : 'are'} ${extraCount} more blocker${extraCount === 1 ? '' : 's'}.`
+    : ''
+  throw new Error((blockers[0]?.message ?? ucatVisibilityBlockedFallbackMessage(message)) + extra)
+}
+
+async function callMutationWithVisibility(
+  client: SupabaseClient<Database>,
+  name: string,
+  args: Record<string, unknown>,
+  visibility: {
+    contentType: UcatVisibilityContentType
+    contentId: string
+    accessScope: 'public' | 'private'
+    memberIds?: string[]
+  },
+): Promise<MutationResult> {
+  try {
+    return await callMutation(client, name, args)
+  } catch (error) {
+    return throwEnrichedVisibilityError(client, error, visibility)
+  }
 }
 
 export async function recordUcatMcpAuxiliaryActivity(
@@ -533,10 +590,6 @@ export async function recordUcatMcpAuxiliaryActivity(
   if (error) throw new Error(error.message)
 }
 
-function stemRpcQuestions(draft: QuestionStemDraft): Json {
-  return draft.questions as unknown as Json
-}
-
 function operationKinds(operations: Array<{ type: string }>): string[] {
   return [...new Set(operations.map((operation) => operation.type))]
 }
@@ -559,18 +612,22 @@ export async function createUcatMcpQuestionStem(
     source: 'codex_mcp',
     generatedAt: new Date().toISOString(),
   }
-  const result = await callMutation(client, 'tutor_ucat_mcp_upsert_question_stem_bundle', {
+  const result = await callMutationWithVisibility(client, 'tutor_ucat_mcp_upsert_question_stem_bundle', {
     p_stem_id: null,
     p_expected_updated_at: null,
     p_section_id: draft.sectionId,
     p_question_stem_category_id: draft.categoryId,
     p_stem_text: draft.stemText,
     p_access_scope: draft.accessScope,
-    p_questions: stemRpcQuestions(draft),
+    p_questions: toStemRpcQuestions(draft),
     p_source_channel: 'ai_generation',
     p_tutor_source_note: draft.tutorSourceNote,
     p_ai_generation_metadata: metadata,
     p_operation_kinds: ['create'],
+  }, {
+    contentType: 'stem',
+    contentId: NIL_AUTHORING_ID,
+    accessScope: draft.accessScope,
   })
   return getStem(client, result.id)
 }
@@ -583,18 +640,22 @@ export async function updateUcatMcpQuestionStem(
 ): Promise<Record<string, unknown>> {
   const current = await getStem(client, id)
   const draft = applyQuestionStemOperations(questionStemDraftFromDetail(current), operations)
-  const result = await callMutation(client, 'tutor_ucat_mcp_upsert_question_stem_bundle', {
+  const result = await callMutationWithVisibility(client, 'tutor_ucat_mcp_upsert_question_stem_bundle', {
     p_stem_id: id,
     p_expected_updated_at: decodeAuthoringRevision(revision, id),
     p_section_id: draft.sectionId,
     p_question_stem_category_id: draft.categoryId,
     p_stem_text: draft.stemText,
     p_access_scope: draft.accessScope,
-    p_questions: stemRpcQuestions(draft),
+    p_questions: toStemRpcQuestions(draft),
     p_source_channel: 'ai_generation',
     p_tutor_source_note: draft.tutorSourceNote,
     p_ai_generation_metadata: null,
     p_operation_kinds: operationKinds(operations),
+  }, {
+    contentType: 'stem',
+    contentId: id,
+    accessScope: draft.accessScope,
   })
   const updated = await getStem(client, result.id)
   if (updated.status === 'in_review') {
@@ -619,7 +680,7 @@ export async function createUcatMcpQuestionSet(
     accessScope: input.accessScope,
     stemIds: [...input.stemIds],
   }
-  const result = await callMutation(client, 'tutor_ucat_mcp_upsert_question_set', {
+  const result = await callMutationWithVisibility(client, 'tutor_ucat_mcp_upsert_question_set', {
     p_set_id: null,
     p_expected_updated_at: null,
     p_name: draft.name,
@@ -628,6 +689,11 @@ export async function createUcatMcpQuestionSet(
     p_access_scope: draft.accessScope,
     p_stem_ids: draft.stemIds,
     p_operation_kinds: ['create'],
+  }, {
+    contentType: 'set',
+    contentId: NIL_AUTHORING_ID,
+    accessScope: draft.accessScope,
+    memberIds: draft.stemIds,
   })
   return getSet(client, result.id)
 }
@@ -640,7 +706,7 @@ export async function updateUcatMcpQuestionSet(
 ): Promise<Record<string, unknown>> {
   const current = await getSet(client, id)
   const draft = applyQuestionSetOperations(questionSetDraftFromDetail(current), operations)
-  const result = await callMutation(client, 'tutor_ucat_mcp_upsert_question_set', {
+  const result = await callMutationWithVisibility(client, 'tutor_ucat_mcp_upsert_question_set', {
     p_set_id: id,
     p_expected_updated_at: decodeAuthoringRevision(revision, id),
     p_name: draft.name,
@@ -649,6 +715,11 @@ export async function updateUcatMcpQuestionSet(
     p_access_scope: draft.accessScope,
     p_stem_ids: draft.stemIds,
     p_operation_kinds: operationKinds(operations),
+  }, {
+    contentType: 'set',
+    contentId: id,
+    accessScope: draft.accessScope,
+    memberIds: draft.stemIds,
   })
   return getSet(client, result.id)
 }
@@ -663,7 +734,7 @@ export async function createUcatMcpMock(
     accessScope: input.accessScope,
     setIds: [...input.setIds],
   }
-  const result = await callMutation(client, 'tutor_ucat_mcp_upsert_mock', {
+  const result = await callMutationWithVisibility(client, 'tutor_ucat_mcp_upsert_mock', {
     p_mock_id: null,
     p_expected_updated_at: null,
     p_name: draft.name,
@@ -671,6 +742,11 @@ export async function createUcatMcpMock(
     p_set_ids: draft.setIds,
     p_instructions_text: draft.instructionsText,
     p_operation_kinds: ['create'],
+  }, {
+    contentType: 'mock',
+    contentId: NIL_AUTHORING_ID,
+    accessScope: draft.accessScope,
+    memberIds: draft.setIds,
   })
   return getMock(client, result.id)
 }
@@ -683,7 +759,7 @@ export async function updateUcatMcpMock(
 ): Promise<Record<string, unknown>> {
   const current = await getMock(client, id)
   const draft = applyMockOperations(mockDraftFromDetail(current), operations)
-  const result = await callMutation(client, 'tutor_ucat_mcp_upsert_mock', {
+  const result = await callMutationWithVisibility(client, 'tutor_ucat_mcp_upsert_mock', {
     p_mock_id: id,
     p_expected_updated_at: decodeAuthoringRevision(revision, id),
     p_name: draft.name,
@@ -691,6 +767,11 @@ export async function updateUcatMcpMock(
     p_set_ids: draft.setIds,
     p_instructions_text: draft.instructionsText,
     p_operation_kinds: operationKinds(operations),
+  }, {
+    contentType: 'mock',
+    contentId: id,
+    accessScope: draft.accessScope,
+    memberIds: draft.setIds,
   })
   return getMock(client, result.id)
 }
@@ -814,12 +895,40 @@ export async function deleteUcatMcpContent(
   id: string,
   revision: string,
 ): Promise<MutationResult & { deletedAt?: string | null }> {
-  return callMutation(client, 'tutor_ucat_mcp_set_deleted', {
-    p_content_type: contentType,
-    p_content_id: id,
-    p_expected_updated_at: decodeAuthoringRevision(revision, id),
-    p_deleted: true,
-  })
+  try {
+    return await callMutation(client, 'tutor_ucat_mcp_set_deleted', {
+      p_content_type: contentType,
+      p_content_id: id,
+      p_expected_updated_at: decodeAuthoringRevision(revision, id),
+      p_deleted: true,
+    })
+  } catch (error) {
+    const message = error instanceof Error ? error.message : ''
+    if (
+      !message.includes('delete_blocked_by_dependency') &&
+      !message.includes('status_blocked_by_attachment') &&
+      !message.includes('still used by another active UCAT') &&
+      !message.includes('attached to a session')
+    ) {
+      throw error
+    }
+    const { data } = await rpcClient(client).rpc('tutor_ucat_content_delete_blockers', {
+      p_content_type: contentType === 'learning_module' ? 'lesson' : contentType,
+      p_content_id: id,
+    })
+    const blockers = parseUcatLifecycleBlockers(data)
+    const extraCount = Math.max(0, blockers.length - 1)
+    const extra = extraCount > 0
+      ? ` There ${extraCount === 1 ? 'is' : 'are'} ${extraCount} more blocker${extraCount === 1 ? '' : 's'}.`
+      : ''
+    throw new Error(
+      (blockers[0]?.message ?? (
+        message.includes('status_blocked_by_attachment') || message.includes('attached to a session')
+          ? 'This learning module is attached to a session and cannot be deleted.'
+          : 'This content is still used by another active UCAT aggregate or session and cannot be deleted.'
+      )) + extra,
+    )
+  }
 }
 
 export async function restoreUcatMcpContent(

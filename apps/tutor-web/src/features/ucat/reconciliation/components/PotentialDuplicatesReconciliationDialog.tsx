@@ -1,5 +1,6 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import {
@@ -34,6 +35,7 @@ import {
 } from "../lib/duplicate-queue-match";
 import { UcatRichContentBlock } from "@/features/ucat/question-engine-preview/UcatRichContentBlock";
 import { UcatDeleteConfirmDialog } from "@/features/ucat/shared/delete-confirm-dialog";
+import { lifecycleErrorToast } from "@/features/ucat/shared/lifecycle-errors";
 import { UcatVisibilityBadge } from "@/features/ucat/shared/components/UcatVisibilityBadge";
 import { useDeleteUcatQuestionStem } from "@/features/ucat/questions/hooks/useUcatQuestions";
 import { proseMirrorToPlainText } from "@/features/ucat/shared/lib/rich-text";
@@ -217,6 +219,7 @@ export function PotentialDuplicatesReconciliationDialog({
   onOpenChange,
 }: PotentialDuplicatesReconciliationDialogProps) {
   const { toast } = useToast();
+  const router = useRouter();
   const queryClient = useQueryClient();
   const { onOpenStemDialog, onEditSet } = useUcatReconciliationHandlers();
   const deleteMutation = useDeleteUcatQuestionStem();
@@ -286,14 +289,19 @@ export function PotentialDuplicatesReconciliationDialog({
       void queryClient.invalidateQueries({
         queryKey: ucatKeys.reconciliationQueue("exact-duplicates"),
       });
-      toast({
-        title: "Cannot delete",
-        description:
-          err instanceof Error
-            ? `${err.message} The queue has been refreshed.`
-            : "Failed to delete question stem. The queue has been refreshed.",
-        variant: "destructive",
-      });
+      toast(lifecycleErrorToast(err, "Cannot delete", router.push, (entityType, entityId) => {
+        if (entityType === "stem") {
+          onOpenChange(false);
+          onOpenStemDialog(entityId);
+          return true;
+        }
+        if (entityType === "set") {
+          onOpenChange(false);
+          onEditSet(entityId);
+          return true;
+        }
+        return false;
+      }));
     });
   }
 

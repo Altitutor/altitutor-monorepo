@@ -10,8 +10,11 @@ import type {
 } from "@/features/ucat/shared/types";
 import { fetchAllSupabaseRows } from "@/features/ucat/shared/lib/fetch-all-supabase-rows";
 import {
+  parseUcatLifecycleBlockers,
   readUcatBulkStatusResponse,
   throwFirstUcatBulkStatusFailure,
+  throwUcatLifecycleResponseError,
+  UcatLifecycleError,
 } from "@/features/ucat/shared/lifecycle-errors";
 import { humanizeQuestionStemError } from "@/features/ucat/questions/lib/question-stem-error";
 import {
@@ -631,7 +634,14 @@ export const ucatQuestionsApi = {
     });
 
     if (!response.ok) {
-      const body = await response.json().catch(() => ({}));
+      const body = (await response.json().catch(() => ({}))) as { error?: string; blockers?: unknown };
+      const blockers = parseUcatLifecycleBlockers(body.blockers);
+      if (blockers.length > 0) {
+        throw new UcatLifecycleError(
+          body.error ?? "Failed to create question stem",
+          blockers,
+        );
+      }
       throw new Error(
         humanizeQuestionStemError(
           body.error ?? "Failed to create question stem",
@@ -658,7 +668,14 @@ export const ucatQuestionsApi = {
     });
 
     if (!response.ok) {
-      const body = await response.json().catch(() => ({}));
+      const body = (await response.json().catch(() => ({}))) as { error?: string; blockers?: unknown };
+      const blockers = parseUcatLifecycleBlockers(body.blockers);
+      if (blockers.length > 0) {
+        throw new UcatLifecycleError(
+          body.error ?? "Failed to update question stem",
+          blockers,
+        );
+      }
       throw new Error(
         humanizeQuestionStemError(
           body.error ?? "Failed to update question stem",
@@ -754,10 +771,7 @@ export const ucatQuestionsApi = {
     const response = await fetch(`/api/ucat/question-stems/${stemId}`, {
       method: "DELETE",
     });
-    if (!response.ok) {
-      const body = await response.json().catch(() => ({}));
-      throw new Error(body.error ?? "Failed to delete question stem");
-    }
+    if (!response.ok) await throwUcatLifecycleResponseError(response, "Failed to delete question stem");
   },
 
   async bulkRemove(stemIds: string[]) {
@@ -766,10 +780,7 @@ export const ucatQuestionsApi = {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ stemIds }),
     });
-    if (!response.ok) {
-      const body = await response.json().catch(() => ({}));
-      throw new Error(body.error ?? "Failed to bulk delete question stems");
-    }
+    if (!response.ok) await throwUcatLifecycleResponseError(response, "Failed to bulk delete question stems");
     return response.json() as Promise<{ ok: true }>;
   },
 
@@ -797,10 +808,7 @@ export const ucatQuestionsApi = {
       }),
     });
 
-    if (!response.ok) {
-      const body = await response.json().catch(() => ({}));
-      throw new Error(body.error ?? "Failed to bulk update question stems");
-    }
+    if (!response.ok) await throwUcatLifecycleResponseError(response, "Failed to bulk update question stems");
 
     return response.json() as Promise<{ ok: true }>;
   },

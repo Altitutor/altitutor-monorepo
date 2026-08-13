@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireUcatTutor, type UcatTutorSupabaseClient } from '@/features/ucat/shared/server/guard'
+import { jsonUcatVisibilityErrorResponse } from '@/features/ucat/shared/server/delete-blocked-response'
 
 export async function PATCH(request: NextRequest) {
   const access = await requireUcatTutor()
@@ -22,7 +23,14 @@ export async function PATCH(request: NextRequest) {
       p_access_scope: accessScope ?? null,
     })
 
-    if (error) return NextResponse.json({ error: error.message }, { status: 400 })
+    if (error) {
+      return jsonUcatVisibilityErrorResponse(client, {
+        contentType: 'stem',
+        contentId: stemIds[0],
+        accessScope: accessScope === 'private' ? 'private' : 'public',
+        errorMessage: error.message,
+      })
+    }
     return NextResponse.json({ ok: true })
   } catch (error) {
     return NextResponse.json({ error: 'Invalid request payload', details: String(error) }, { status: 400 })

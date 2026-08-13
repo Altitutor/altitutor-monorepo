@@ -7,6 +7,7 @@ import { fetchAllSupabaseRows } from '@/features/ucat/shared/lib/fetch-all-supab
 import {
   readUcatBulkStatusResponse,
   throwFirstUcatBulkStatusFailure,
+  throwUcatLifecycleResponseError,
 } from '@/features/ucat/shared/lifecycle-errors'
 
 export const ucatSetsApi = {
@@ -39,10 +40,7 @@ export const ucatSetsApi = {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(serialize(payload)),
     })
-    if (!response.ok) {
-      const body = await response.json().catch(() => ({}))
-      throw new Error(body.error ?? 'Failed to create set')
-    }
+    if (!response.ok) await throwUcatLifecycleResponseError(response, 'Failed to create set')
     return response.json() as Promise<{ id: string }>
   },
 
@@ -52,10 +50,7 @@ export const ucatSetsApi = {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(serialize({ ...payload, id: setId })),
     })
-    if (!response.ok) {
-      const body = await response.json().catch(() => ({}))
-      throw new Error(body.error ?? 'Failed to update set')
-    }
+    if (!response.ok) await throwUcatLifecycleResponseError(response, 'Failed to update set')
     return response.json() as Promise<{ id: string }>
   },
 
@@ -85,10 +80,7 @@ export const ucatSetsApi = {
 
   async remove(setId: string) {
     const response = await fetch(`/api/ucat/question-sets/${setId}`, { method: 'DELETE' })
-    if (!response.ok) {
-      const body = await response.json().catch(() => ({}))
-      throw new Error(body.error ?? 'Failed to delete set')
-    }
+    if (!response.ok) await throwUcatLifecycleResponseError(response, 'Failed to delete set')
   },
 
   async bulkRemove(setIds: string[]) {
@@ -97,10 +89,7 @@ export const ucatSetsApi = {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ setIds }),
     })
-    if (!response.ok) {
-      const body = await response.json().catch(() => ({}))
-      throw new Error(body.error ?? 'Failed to bulk delete sets')
-    }
+    if (!response.ok) await throwUcatLifecycleResponseError(response, 'Failed to bulk delete sets')
     return response.json() as Promise<{ ok: true }>
   },
 
