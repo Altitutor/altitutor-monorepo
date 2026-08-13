@@ -64,6 +64,17 @@ describe('runBulkImportDeterministicReview', () => {
     expect(result.hasHardFailures).toBe(false)
   })
 
+  it('accepts VR stems with more than four questions', () => {
+    const result = runBulkImportDeterministicReview({
+      values: stem(Array.from({ length: 5 }, () => question())),
+      sectionName: 'Verbal Reasoning',
+      categoryName: 'Reading Comprehension',
+    })
+
+    expect(result.issues.map((issue) => issue.code)).not.toContain('vr_question_count')
+    expect(result.hasHardFailures).toBe(false)
+  })
+
   it('removes only anchored synthetic VR passage labels', () => {
     const input = stem(
       Array.from({ length: 4 }, () => question()),

@@ -44,6 +44,37 @@ describe('validateGeneratedStemCandidate', () => {
     expect(issues.filter((issue) => issue.severity === 'blocking')).toEqual([])
   })
 
+  it('blocks VR stems with fewer than four questions', () => {
+    const issues = validateGeneratedStemCandidate(
+      stem({ questions: [mcQuestion(), mcQuestion(), mcQuestion()] }),
+      0,
+      {
+        sectionName: 'Verbal Reasoning',
+        categoryName: 'Reading Comprehension',
+      },
+    )
+
+    expect(issues).toContainEqual(expect.objectContaining({
+      code: 'vr_question_count',
+      severity: 'blocking',
+    }))
+  })
+
+  it('accepts VR stems with more than four questions', () => {
+    const issues = validateGeneratedStemCandidate(
+      stem({
+        questions: [mcQuestion(), mcQuestion(), mcQuestion(), mcQuestion(), mcQuestion()],
+      }),
+      0,
+      {
+        sectionName: 'Verbal Reasoning',
+        categoryName: 'Reading Comprehension',
+      },
+    )
+
+    expect(issues.map((issue) => issue.code)).not.toContain('vr_question_count')
+  })
+
   it('blocks missing and out-of-catalogue question tags when a tag catalogue is available', () => {
     const validTagId = '11111111-1111-4111-8111-111111111111'
     const invalidTagId = '22222222-2222-4222-8222-222222222222'

@@ -317,8 +317,8 @@ function vrChecks(
   issues: BulkImportGateIssue[],
   fixes: BulkImportAutomaticFix[],
 ) {
-  if (values.questions.length !== 4) {
-    addIssue(issues, 'vr_question_count', 'Verbal Reasoning stems must contain exactly four questions.', stemScope())
+  if (values.questions.length < 4) {
+    addIssue(issues, 'vr_question_count', 'Verbal Reasoning stems must contain at least four questions.', stemScope())
   }
   const stripped = stripVrPassageLabels(values.stemText)
   if (stripped.changed) {

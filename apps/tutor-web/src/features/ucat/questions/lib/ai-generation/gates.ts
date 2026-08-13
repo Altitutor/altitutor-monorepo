@@ -336,8 +336,8 @@ function validateTags(
 
 function validateVr(stem: GeneratedStem, stemIndex: number, categoryName: string | null, issues: GenerationGateIssue[]) {
   const category = norm(categoryName)
-  if (stem.questions.length !== 4) {
-    add(issues, 'blocking', 'vr_question_count', 'Verbal Reasoning stems must have exactly 4 questions.', stemIndex)
+  if (stem.questions.length < 4) {
+    add(issues, 'blocking', 'vr_question_count', 'Verbal Reasoning stems must have at least 4 questions.', stemIndex)
   }
   const count = paragraphCount(stemText(stem))
   if (count < 2 || count > 6) {

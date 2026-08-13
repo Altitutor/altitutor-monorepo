@@ -80,7 +80,7 @@ function commonChecks(snapshot: UcatAssessmentSnapshot, checks: UcatFormatCheck[
 
 function vrChecks(snapshot: UcatAssessmentSnapshot, checks: UcatFormatCheck[]) {
   const category = norm(snapshot.categoryName)
-  if (snapshot.questions.length !== 4) add(checks, 'error', 'vr_question_count', 'Verbal Reasoning stems must contain exactly four questions.')
+  if (snapshot.questions.length < 4) add(checks, 'error', 'vr_question_count', 'Verbal Reasoning stems must contain at least four questions.')
   const paragraphs = paragraphCount(snapshot.stemTextPlain)
   if (paragraphs < 2 || paragraphs > 6) add(checks, 'error', 'vr_paragraph_count', 'Verbal Reasoning passages must contain two to six paragraphs.')
   if (!['reading comprehension', "true false can't tell"].includes(category)) {
