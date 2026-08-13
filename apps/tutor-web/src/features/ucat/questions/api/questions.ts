@@ -364,11 +364,11 @@ export const ucatQuestionsApi = {
     return response.json() as Promise<{ queued: boolean }>;
   },
 
-  async requestAiAssessment(stemId: string) {
+  async requestAiAssessment(stemId: string, options?: { force?: boolean }) {
     const response = await fetch(`/api/ucat/question-stems/${stemId}/ai-assessment`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action: "request" }),
+      body: JSON.stringify({ action: "request", force: options?.force === true }),
     });
     if (!response.ok) {
       const body = await response.json().catch(() => ({}));

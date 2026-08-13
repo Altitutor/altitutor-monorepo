@@ -1,4 +1,8 @@
-import type { UcatAssessmentResponse } from '@/features/ucat/questions/lib/ai-assessment/schema'
+import type {
+  UcatAssessmentPatch,
+  UcatAssessmentResponse,
+  UcatAssessmentSnapshot,
+} from '@/features/ucat/questions/lib/ai-assessment/schema'
 
 /**
  * Finding keys are model-authored UI identifiers, not content-duplicate signals.
@@ -31,3 +35,59 @@ export function normalizeDuplicateAssessmentFindingKeys(
 
   return { ...assessment, findings }
 }
+
+function snapshotPlainForTextTarget(
+  snapshot: UcatAssessmentSnapshot,
+  target: Extract<UcatAssessmentPatch, { operation: 'set_text' }>['target'],
+): string | null | undefined {
+  if (target.kind === 'stem') {
+    if (target.field !== 'stem_text') return undefined
+    return snapshot.stemTextPlain.trim() || null
+  }
+  if (target.kind === 'question' && target.id) {
+    const question = snapshot.questions.find((item) => item.id === target.id)
+    if (!question) return undefined
+    if (target.field === 'question_text') return question.questionTextPlain.trim() || null
+    if (target.field === 'answer_explanation') return question.answerExplanationPlain.trim() || null
+    return undefined
+  }
+  if (target.kind === 'option' && target.id) {
+    const option = snapshot.questions
+      .flatMap((question) => question.options)
+      .find((item) => item.id === target.id)
+    if (!option) return undefined
+    if (target.field === 'answer_text') return option.answerTextPlain.trim() || null
+    if (target.field === 'answer_explanation') return option.answerExplanationPlain.trim() || null
+  }
+  return undefined
+}
+
+/**
+ * Models often emit set_text with beforeText=null even when the field already has
+ * content. Bind the optimistic-concurrency baseline to the reviewed snapshot so
+ * Accept works unless the tutor actually changed the field afterwards.
+ */
+export function bindAssessmentSetTextBeforesToSnapshot(
+  assessment: UcatAssessmentResponse,
+  snapshot: UcatAssessmentSnapshot,
+): UcatAssessmentResponse {
+  return {
+    ...assessment,
+    findings: assessment.findings.map((finding) => {
+      if (!finding.suggestion) return finding
+      return {
+        ...finding,
+        suggestion: {
+          ...finding.suggestion,
+          patches: finding.suggestion.patches.map((patch) => {
+            if (patch.operation !== 'set_text') return patch
+            const actual = snapshotPlainForTextTarget(snapshot, patch.target)
+            if (actual === undefined) return patch
+            return { ...patch, beforeText: actual }
+          }),
+        },
+      }
+    }),
+  }
+}
+

@@ -1,6 +1,7 @@
 import {
   deriveUcatAiScopeReviewStatus,
   shouldShowRequestAiReviewAction,
+  shouldShowRerunAiReviewAction,
   type UcatAiReviewStatus,
 } from '../review-status'
 
@@ -23,6 +24,15 @@ describe('UCAT AI review table action', () => {
       expect(shouldShowRequestAiReviewAction(status)).toBe(false)
     }
     expect(shouldShowRequestAiReviewAction(undefined)).toBe(false)
+  })
+
+  it('offers a rerun from the editor once a review already exists', () => {
+    expect(shouldShowRerunAiReviewAction('critical')).toBe(true)
+    expect(shouldShowRerunAiReviewAction('passed')).toBe(true)
+    expect(shouldShowRerunAiReviewAction('unavailable')).toBe(true)
+    expect(shouldShowRerunAiReviewAction('not_requested')).toBe(false)
+    expect(shouldShowRerunAiReviewAction('reviewing')).toBe(false)
+    expect(shouldShowRerunAiReviewAction('disabled')).toBe(false)
   })
 })
 

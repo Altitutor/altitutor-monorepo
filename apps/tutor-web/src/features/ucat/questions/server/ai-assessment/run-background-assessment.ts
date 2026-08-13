@@ -44,7 +44,7 @@ import {
   promptWithStructuredOutputRetry,
   runWithStructuredOutputRetry,
 } from './structured-output-retry'
-import { normalizeDuplicateAssessmentFindingKeys } from './normalize-assessment'
+import { bindAssessmentSetTextBeforesToSnapshot, normalizeDuplicateAssessmentFindingKeys } from './normalize-assessment'
 
 type SupabaseAny = {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -797,6 +797,7 @@ export async function assessUcatQuestionSnapshot(params: {
     targetQuestionIds: params.targetQuestionIds,
     includeShared: params.includeSharedAssessment,
   })
+  assessment = bindAssessmentSetTextBeforesToSnapshot(assessment, params.snapshot)
   return {
     assessment,
     blindSolution,

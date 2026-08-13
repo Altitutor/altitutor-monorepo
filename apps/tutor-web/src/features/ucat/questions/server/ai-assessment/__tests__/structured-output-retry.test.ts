@@ -1,6 +1,7 @@
 import { z } from 'zod'
 import { runWithStructuredOutputRetry } from '../structured-output-retry'
-import { normalizeDuplicateAssessmentFindingKeys } from '../normalize-assessment'
+import { bindAssessmentSetTextBeforesToSnapshot, normalizeDuplicateAssessmentFindingKeys } from '../normalize-assessment'
+import type { UcatAssessmentSnapshot } from '@/features/ucat/questions/lib/ai-assessment/schema'
 
 describe('runWithStructuredOutputRetry', () => {
   it('retries one invalid structured response with corrective context', async () => {
@@ -63,5 +64,74 @@ describe('normalizeDuplicateAssessmentFindingKeys', () => {
     expect(assessment.findings.map((item) => item.key)).toHaveLength(2)
     expect(new Set(assessment.findings.map((item) => item.key)).size).toBe(2)
     expect(assessment.findings[0]?.key).toBe('missing-explanation')
+  })
+})
+
+describe('bindAssessmentSetTextBeforesToSnapshot', () => {
+  it('replaces a model-claimed empty beforeText with the reviewed explanation', () => {
+    const questionId = '30000000-0000-4000-8000-000000000001'
+    const snapshot = {
+      stemId: '00000000-0000-4000-8000-000000000099',
+      status: 'in_review',
+      sectionId: '00000000-0000-4000-8000-000000000002',
+      sectionName: 'Decision Making',
+      sectionNumber: 1,
+      displayColumns: 1,
+      categoryId: null,
+      categoryName: null,
+      accessScope: 'public',
+      stemTextPlain: '',
+      stemText: { type: 'doc', content: [] },
+      images: [],
+      questions: [{
+        id: questionId,
+        index: 1,
+        questionTextPlain: 'Which option completes the final equation?',
+        questionText: { type: 'doc', content: [] },
+        answerExplanationPlain: 'Let one arrow have value a. The missing term is 2a.',
+        answerExplanation: { type: 'doc', content: [] },
+        questionType: 'multiple_choice',
+        difficulty: null,
+        timeBurdenSeconds: null,
+        tagIds: [],
+        tagNames: [],
+        images: [],
+        options: [],
+      }],
+    } as UcatAssessmentSnapshot
+
+    const bound = bindAssessmentSetTextBeforesToSnapshot({
+      overallSummary: 'The explanation reaches the wrong result.',
+      categories: [],
+      findings: [{
+        key: 'wrong-explanation',
+        scopeType: 'question',
+        questionId,
+        category: 'explanation_quality',
+        rating: 'critical',
+        confidence: 0.99,
+        title: 'Explanation reaches the wrong result',
+        detail: 'The current explanation contradicts the keyed answer.',
+        evidence: [],
+        recommendedAction: 'fix',
+        suggestion: {
+          id: 'replace-explanation',
+          summary: 'Replace the explanation',
+          rationale: 'The missing value is one arrow.',
+          application: 'approval_required',
+          patches: [{
+            operation: 'set_text',
+            target: { kind: 'question', id: questionId, field: 'answer_explanation' },
+            beforeText: null,
+            afterText: 'The missing value is one arrow.',
+          }],
+        },
+      }],
+    }, snapshot)
+
+    expect(bound.findings[0]?.suggestion?.patches[0]).toEqual(expect.objectContaining({
+      operation: 'set_text',
+      beforeText: 'Let one arrow have value a. The missing term is 2a.',
+    }))
   })
 })

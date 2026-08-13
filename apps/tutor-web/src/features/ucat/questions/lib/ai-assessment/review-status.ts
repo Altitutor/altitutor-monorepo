@@ -42,6 +42,10 @@ export function shouldShowRequestAiReviewAction(status: UcatAiReviewStatus | und
   return status === 'not_requested'
 }
 
+export function shouldShowRerunAiReviewAction(status: UcatAiReviewStatus | undefined): boolean {
+  return Boolean(status && !['disabled', 'not_requested', 'reviewing'].includes(status))
+}
+
 export function deriveUcatAiScopeReviewStatus(params: {
   overallStatus: UcatAiReviewStatus
   ratings: Array<'pass' | 'critical' | 'concern' | 'unreviewable' | 'not_applicable'>

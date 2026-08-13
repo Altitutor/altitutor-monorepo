@@ -24,6 +24,7 @@ import { EXPLANATION_TEACHING_RUBRIC } from '@/features/ucat/questions/lib/ai-ge
 import {
   applyUcatAssessmentPatches,
   ucatAssessmentPatchesAlreadyApplied,
+  ucatAssessmentSetTextIsStale,
 } from '../apply-patches'
 import { plainTextToProseMirror, proseMirrorToPlainText } from '@/features/ucat/shared/lib/rich-text'
 import { parseEmbeddedImageDataUri } from '@/features/ucat/questions/server/ai-assessment/visual-evidence'
@@ -787,6 +788,34 @@ describe('bounded suggestion patches', () => {
       beforeText: null,
       afterText: 'A newly accepted explanation.',
     }])).toBe(true)
+  })
+
+  it('refuses set_text when the model claimed the field was empty but the draft has text', async () => {
+    const form = formFromSnapshot(snapshot())
+    const patches: Parameters<typeof applyUcatAssessmentPatches>[1] = [{
+      operation: 'set_text',
+      target: { kind: 'question', id: QUESTION_1, field: 'answer_explanation' },
+      beforeText: null,
+      afterText: 'One arrow completes the equation.',
+    }]
+
+    await expect(applyUcatAssessmentPatches(form, patches)).rejects.toThrow(
+      'The suggested text field has changed since this suggestion was created.',
+    )
+    expect(ucatAssessmentSetTextIsStale(form, patches)).toBe(true)
+  })
+
+  it('replaces the whole field when the tutor confirms a stale set_text suggestion', async () => {
+    const form = formFromSnapshot(snapshot())
+    const result = await applyUcatAssessmentPatches(form, [{
+      operation: 'set_text',
+      target: { kind: 'question', id: QUESTION_1, field: 'answer_explanation' },
+      beforeText: null,
+      afterText: 'One arrow completes the equation.',
+    }], { overwriteMismatchedSetText: true })
+
+    expect(proseMirrorToPlainText(result.questions[0].answerExplanation).trim())
+      .toBe('One arrow completes the equation.')
   })
 })
 
