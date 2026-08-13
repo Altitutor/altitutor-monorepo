@@ -20,6 +20,8 @@ export async function middleware(req: NextRequest) {
     pathname.startsWith('/reset-password') ||
     pathname.startsWith('/invite/') ||
     pathname.startsWith('/register/') ||
+    pathname.startsWith('/r/') ||
+    pathname.startsWith('/b/') ||
     pathname.startsWith('/auth/') ||
     pathname.startsWith('/form/') ||
     pathname.startsWith('/booking/trial-session') ||

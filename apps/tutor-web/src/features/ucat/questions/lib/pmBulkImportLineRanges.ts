@@ -18,6 +18,7 @@ import {
   isQuestionTableWithNestedOptions,
   nodeToText,
 } from '@/features/ucat/questions/lib/parsers/core'
+import { stripBulkImportFormatTokens } from '@/features/ucat/shared/lib/bulk-import-inline-format'
 
 type RSt = {
   lines: string[]
@@ -50,6 +51,12 @@ export function inner(n: Node, pBefore: number): { from: number; to: number } {
   }
   if (n.childCount === 0) return { from: pBefore + 1, to: pBefore + 1 }
   return { from: pBefore + 1, to: pBefore + n.nodeSize - 1 }
+}
+
+/** Convert the walker's first-inside position to the node range for a leaf node. */
+function leaf(n: Node, pBefore: number): { from: number; to: number } {
+  const from = Math.max(0, pBefore - 1)
+  return { from, to: from + n.nodeSize }
 }
 
 /**
@@ -112,7 +119,9 @@ export function collectQuestionLineTextRanges(
   const actualItems = st.lines.map((line, index) => ({ line, range: st.ranges[index]! }))
   if (st.lines.length !== expect.length) return alignQuestionLineRanges(expect, actualItems)
   for (let i = 0; i < expect.length; i += 1) {
-    if (st.lines[i] !== expect[i]) {
+    // Logical collectors emit [[B:]]/[[I:]] tokens; the PM walker uses plain textContent.
+    // Compare format-stripped so fully bold/italic lines still get highlight ranges.
+    if (normalizedLine(st.lines[i] ?? '') !== normalizedLine(expect[i] ?? '')) {
       return alignQuestionLineRanges(expect, actualItems)
     }
   }
@@ -120,7 +129,7 @@ export function collectQuestionLineTextRanges(
 }
 
 function normalizedLine(s: string): string {
-  return s.replace(/\s+/g, ' ').trim()
+  return stripBulkImportFormatTokens(s).replace(/\s+/g, ' ').trim()
 }
 
 function lineRangeMatchesExpected(expected: string, actual: string): boolean {
@@ -359,7 +368,7 @@ function walkVrDmSj(n: Node, pBefore: number, st: RSt): void {
   if (t === 'image') {
     if (!isBlank(nodeToText(j).trim() ?? '')) {
       st.lines.push((st.prefixForNextLine ?? '') + (nodeToText(j).trim() as string))
-      st.ranges.push({ from: pBefore, to: pBefore + n.nodeSize })
+      st.ranges.push(leaf(n, pBefore))
       st.prefixForNextLine = undefined
     }
     return
@@ -574,7 +583,7 @@ function walkQrNode(n: Node, pBefore: number, st: RSt): void {
   if (t === 'image') {
     if (nodeToText(j).trim().length > 0) {
       st.lines.push((st.prefixForNextLine ?? '') + nodeToText(j).trim())
-      st.ranges.push({ from: pBefore, to: pBefore + n.nodeSize })
+      st.ranges.push(leaf(n, pBefore))
       st.prefixForNextLine = undefined
     }
     return

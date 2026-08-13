@@ -16,6 +16,10 @@ import {
   assertOkOrQuotaExceeded,
 } from "@/lib/ucat/quota/parse-quota-error";
 import type { FinalExamQuestionAttemptInput } from "@/lib/ucat/exam-attempt/finalize-attempt";
+import {
+  buildPersistedQuestionResponse,
+  isPlacementResponse,
+} from "@/features/question-engine/lib/response-state";
 
 type QuestionAttemptMode =
   | "question"
@@ -114,24 +118,19 @@ export function buildFinalExamQuestionAttempts(
   return exam.questions.map((question) => {
     const selectedOptionId = state.selectedAnswers[question.id];
     const syllogismSnapshot = state.syllogismSnapshots?.[question.id];
-    const isSyllogism = question.questionType === "syllogism";
+    const response = buildPersistedQuestionResponse(
+      question,
+      selectedOptionId,
+      syllogismSnapshot,
+    );
     const answer: FinalExamQuestionAttemptInput = {
       questionSetId: question.questionSetId,
       questionId: question.id,
-      questionAnswerOptionId: isSyllogism ? null : (selectedOptionId ?? null),
+      ...response,
       isFlagged: state.flaggedIds.includes(question.id),
       wasTimed: getWasTimedForSet(mode, exam, question),
       mode: toDbMode(mode),
     };
-    if (isSyllogism && syllogismSnapshot) {
-      answer.answerSnapshot = {
-        type: "syllogism_v1",
-        answers: Object.entries(syllogismSnapshot).map(([optionId, value]) => ({
-          question_answer_option_id: optionId,
-          answer: value,
-        })),
-      };
-    }
     return answer;
   });
 }
@@ -366,38 +365,20 @@ export function useQuestionEnginePersistence({
     }
 
     const question = findQuestion(exam, questionId);
-    const isSyllogism = question?.questionType === "syllogism";
+    if (!question) return;
+    const persistedResponse = buildPersistedQuestionResponse(
+      question,
+      questionAnswerOptionId || undefined,
+      state.syllogismSnapshots?.[questionId],
+    );
 
     const inputBase: UpsertQuestionAttemptInput = withLearnContext({
       studentQuestionSetAttemptId: practiceSessionId ? null : null,
       studentPracticeSessionId: practiceSessionId ?? undefined,
       questionId,
-      questionAnswerOptionId: isSyllogism
-        ? null
-        : questionAnswerOptionId
-          ? questionAnswerOptionId
-          : null,
-      answerSnapshot: undefined,
+      ...persistedResponse,
       isFlagged,
     });
-
-    if (isSyllogism) {
-      const snapshot = (
-        state as QuestionEngineState & {
-          syllogismSnapshots?: Record<string, Record<string, boolean>>;
-        }
-      ).syllogismSnapshots?.[questionId];
-
-      if (snapshot) {
-        inputBase.answerSnapshot = {
-          type: "syllogism_v1",
-          answers: Object.entries(snapshot).map(([optionId, value]) => ({
-            question_answer_option_id: optionId,
-            answer: value,
-          })),
-        };
-      }
-    }
 
     if (mode === "questionStem" || mode === "questions") {
       upsertQuestionAttempt.mutate({
@@ -407,8 +388,6 @@ export function useQuestionEnginePersistence({
       });
       return;
     }
-
-    if (!question) return;
 
     const setAttemptId =
       attemptStateRef.current.setAttemptIdsBySetId.get(
@@ -441,20 +420,13 @@ export function useQuestionEnginePersistence({
       return;
     }
     const question = findQuestion(exam, questionId);
-    if (question?.questionType !== "syllogism") return;
+    if (!question || !isPlacementResponse(question)) return;
 
     const input: UpsertQuestionAttemptInput = withLearnContext({
       studentQuestionSetAttemptId: practiceSessionId ? null : null,
       studentPracticeSessionId: practiceSessionId ?? undefined,
       questionId,
-      questionAnswerOptionId: null,
-      answerSnapshot: {
-        type: "syllogism_v1",
-        answers: Object.entries(snapshot).map(([optionId, value]) => ({
-          question_answer_option_id: optionId,
-          answer: value,
-        })),
-      },
+      ...buildPersistedQuestionResponse(question, undefined, snapshot),
       isFlagged,
     });
 
@@ -594,34 +566,16 @@ export function useQuestionEnginePersistence({
         studentQuestionSetAttemptId: null,
         studentPracticeSessionId: practiceSessionId ?? undefined,
         questionId: q.id,
-        questionAnswerOptionId:
-          q.questionType === "syllogism"
-            ? null
-            : (state.selectedAnswers[q.id] ?? null),
-        answerSnapshot: undefined,
+        ...buildPersistedQuestionResponse(
+          q,
+          state.selectedAnswers[q.id],
+          state.syllogismSnapshots?.[q.id],
+        ),
         isFlagged,
         wasTimed: false,
         mode: toDbMode(mode),
         submittedByStem: true,
       });
-
-      if (q.questionType === "syllogism") {
-        const snapshot = (
-          state as QuestionEngineState & {
-            syllogismSnapshots?: Record<string, Record<string, boolean>>;
-          }
-        ).syllogismSnapshots?.[q.id];
-
-        if (snapshot) {
-          base.answerSnapshot = {
-            type: "syllogism_v1",
-            answers: Object.entries(snapshot).map(([optionId, value]) => ({
-              question_answer_option_id: optionId,
-              answer: value,
-            })),
-          };
-        }
-      }
 
       inputs.push(base);
     }

@@ -97,7 +97,7 @@ For students preparing for UCAT ANZ who are unsure how to turn practice into pro
 
 Free must be genuinely useful. Unlimited must be meaningfully more convenient and powerful.
 
-- **Free** provides the complete learning loop at a sustainable pace: practise, review, track, and receive direction, subject to resetting limits.
+- **Free** provides the complete learning loop at a sustainable pace: practice, review, track, and receive direction, subject to resetting limits.
 - **Unlimited** removes waiting and volume limits for students who want to prepare faster or more intensively.
 - Do not deliberately make Free confusing or ineffective to force conversion.
 - Do not give Unlimited so little additional value that paying feels like a donation disguised as a subscription.
@@ -192,7 +192,7 @@ Altitutor UCAT should sound like a calm, observant, excellent tutor beside the s
 - “This is the most useful area to work on next.”
 - “Your target is within your current plausible range.”
 - “You can keep preparing on Free.”
-- “Go Unlimited when you want to practise without limits.”
+- “Go Unlimited when you want to practice without limits.”
 - “You do not need to catch up all at once.”
 
 ### Avoid
@@ -329,7 +329,7 @@ Replace or supplement this with verified product and organisational figures when
 
 **4. Watch your trajectory change**
 
-> Track your estimated score, section performance, and progress towards your target as you practise.
+> Track your estimated score, section performance, and progress towards your target as you practice.
 
 The distinction between rolling next-step guidance and the optional scheduled Study plan must remain accurate.
 
@@ -341,7 +341,7 @@ The distinction between rolling next-step guidance and the optional scheduled St
 
 **Body**
 
-> This is not a short trial or a handful of questions that disappear once you have used them. Your free practice allowances reset, giving you an ongoing way to learn, practise, and measure your progress.
+> This is not a short trial or a handful of questions that disappear once you have used them. Your free practice allowances reset, giving you an ongoing way to learn, practice, and measure your progress.
 
 **Action**
 
@@ -351,7 +351,7 @@ The distinction between rolling next-step guidance and the optional scheduled St
 
 **Headline**
 
-> **Everything you need to practise. Direction on how to use it.**
+> **Everything you need to practice. Direction on how to use it.**
 
 Show:
 
@@ -407,7 +407,7 @@ Working draft:
 
 > Hi, I’m Matt—a doctor working across hospitals in South Australia and the founder of Altitutor. I started Altitutor with friends while I was in medical school because we believed excellent education should be available to students who could not otherwise afford it.
 >
-> I remember how overwhelming UCAT preparation felt when I did not know where to start. I would have loved a tool that could show me my weak points and what to practise next. Altitutor UCAT is the tool I wish I had: clear, evidence-based direction with a Free plan students can keep using.
+> I remember how overwhelming UCAT preparation felt when I did not know where to start. I would have loved a tool that could show me my weak points and what to practice next. Altitutor UCAT is the tool I wish I had: clear, evidence-based direction with a Free plan students can keep using.
 >
 > Since we began helping students in 2017, Altitutor has provided free or subsidised education to hundreds of students. Members of our first Year 12 cohort are now qualified doctors, dentists, and other working professionals. When a student chooses UCAT Unlimited or tutoring, that revenue helps us support more students facing financial barriers.
 >
@@ -429,7 +429,7 @@ Replace this draft after a founder interview so it reflects Matthew’s actual e
 
 **Unlimited**
 
-> Practise without waiting or area limits. Get unrestricted access across questions, sets, mocks, skill trainers, learning, and progress tools.
+> Practice without waiting or area limits. Get unrestricted access across questions, sets, mocks, skill trainers, learning, and progress tools.
 
 Explain accountability discounts plainly and show the undiscounted price with equal prominence. Do not make students calculate the likely bill themselves.
 
@@ -496,7 +496,7 @@ Do not interrupt active practice, show the referral prompt immediately after sig
 
 ### Suggested sharing copy
 
-> I’ve been using Altitutor UCAT to practise and track what to work on next. This link gives you free Unlimited access to get started: [link]
+> I’ve been using Altitutor UCAT to practice and track what to work on next. This link gives you free Unlimited access to get started: [link]
 
 ### Measurement
 
@@ -598,7 +598,7 @@ Offer separate preferences for:
 
 Account security, billing, requested access, and earned-reward messages remain transactional.
 
-The signup marketing checkbox must start unchecked. Store the consent date, source, and version of the consent language. Marketing email must identify Altitutor, include current contact details, and provide a direct unsubscribe that does not require login.
+Signup shows a short notice that personalised progress updates and occasional preparation tips may be emailed, with opt-out anytime. Do not use a marketing opt-in checkbox. Store the consent date, source, and version of the notice language. Marketing email must identify Altitutor, include current contact details, and provide a direct unsubscribe that does not require login.
 
 ## 9. Email visual system
 
@@ -704,7 +704,7 @@ Core question, mock, analytics, and Study plan workflows are not ground-up redes
 
 ### Phase 4: lifecycle system
 
-- Make marketing consent explicit
+- Default account-holder lifecycle email with signup notice + unsubscribe/preferences
 - Add communication preferences
 - Implement event-aware onboarding
 - Implement useful weekly progress

@@ -76,7 +76,7 @@ const SCENARIOS: PreviewScenario[] = [
   },
   {
     id: "baseline",
-    label: "Building baseline",
+    label: "Building estimate",
     description: "A plan exists, but only one of Sections 1–3 is ready.",
     planTier: "free",
     targetScore: 2350,
@@ -137,7 +137,7 @@ const SCENARIOS: PreviewScenario[] = [
   {
     id: "within_reach",
     label: "Within reach",
-    description: "The target sits inside the plausible test-day range.",
+    description: "The target sits inside the projected test-day score range.",
     planTier: "free",
     targetScore: 2350,
     testDate: "exact",
@@ -173,7 +173,7 @@ const SCENARIOS: PreviewScenario[] = [
   {
     id: "projection_error",
     label: "Projection unavailable",
-    description: "The Study plan remains usable while score evidence reloads.",
+    description: "The Study plan remains usable while the score estimate reloads.",
     planTier: "free",
     targetScore: 2350,
     testDate: "exact",
@@ -362,7 +362,6 @@ function makePlan(
       testDate,
       availableDays: [1, 3, 5].map((weekday) => ({
         weekday: weekday as 1 | 3 | 5,
-        maxMinutes: 45,
       })),
       preferredMockWeekday: 6,
       planningDate: testDate ?? addDays(today, 365),
@@ -377,8 +376,10 @@ function makePlan(
       endsOn: testDate ?? addDays(today, 365),
       capacityRisk: {
         level: "none",
-        availableMinutesPerWeek: 135,
-        recommendedMinutesPerWeek: 120,
+        availableStudyDaysPerWeek: 3,
+        recommendedStudyDaysPerWeek: 2,
+        outstandingSectionEquivalents: 3,
+        schedulableSectionEquivalents: 12,
         message: null,
       },
       sectionTargets: { vr: 760, dm: 760, qr: 780 },
@@ -558,37 +559,39 @@ export function DashboardPreviewPage({
 
   return (
     <div className="space-y-6 pb-8">
-      {!embedded ? <div className="mx-auto flex w-full max-w-[1400px] flex-col gap-3 px-5 sm:flex-row sm:items-end sm:justify-between sm:px-6">
-        <div>
-          <Badge variant="secondary">Development preview</Badge>
-          <h1 className="mt-2 text-2xl font-semibold">Dashboard state lab</h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            {scenario.description}
-          </p>
+      {!embedded ? (
+        <div className="mx-auto flex w-full max-w-[1400px] flex-col gap-3 px-5 sm:flex-row sm:items-end sm:justify-between sm:px-6">
+          <div>
+            <Badge variant="secondary">Development preview</Badge>
+            <h1 className="mt-2 text-2xl font-semibold">Dashboard state lab</h1>
+            <p className="mt-1 text-sm text-muted-foreground">
+              {scenario.description}
+            </p>
+          </div>
+          <label className="text-sm font-medium">
+            Scenario
+            <select
+              value={scenarioId}
+              onChange={(event) => {
+                const next = event.target.value as PreviewScenarioId;
+                setScenarioId(next);
+                window.history.replaceState(
+                  null,
+                  "",
+                  `/dashboard/preview?scenario=${next}`,
+                );
+              }}
+              className="mt-1 block min-w-64 rounded-lg border bg-background px-3 py-2 text-sm"
+            >
+              {SCENARIOS.map((option) => (
+                <option key={option.id} value={option.id}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </label>
         </div>
-        <label className="text-sm font-medium">
-          Scenario
-          <select
-            value={scenarioId}
-            onChange={(event) => {
-              const next = event.target.value as PreviewScenarioId;
-              setScenarioId(next);
-              window.history.replaceState(
-                null,
-                "",
-                `/dashboard/preview?scenario=${next}`,
-              );
-            }}
-            className="mt-1 block min-w-64 rounded-lg border bg-background px-3 py-2 text-sm"
-          >
-            {SCENARIOS.map((option) => (
-              <option key={option.id} value={option.id}>
-                {option.label}
-              </option>
-            ))}
-          </select>
-        </label>
-      </div> : null}
+      ) : null}
 
       <DashboardTrajectoryHero
         firstName="Preview student"
@@ -625,14 +628,19 @@ export function DashboardPreviewPage({
         <PreviewRecentAttempts />
       </div>
 
-      {!embedded ? <div className="mx-auto flex w-full max-w-[1400px] flex-wrap gap-2 px-5 sm:px-6">
-        <Button asChild variant="outline">
-          <Link href="/dashboard">Return to live dashboard</Link>
-        </Button>
-        <Button asChild variant="ghost">
-          <Link href="/study-plan/preview">Open Study plan preview</Link>
-        </Button>
-      </div> : null}
+      {!embedded ? (
+        <div className="mx-auto flex w-full max-w-[1400px] flex-wrap gap-2 px-5 sm:px-6">
+          <Button asChild variant="outline">
+            <Link href="/dashboard">Return to live dashboard</Link>
+          </Button>
+          <Button asChild variant="ghost">
+            <Link href="/study-plan/preview">Open Study plan preview</Link>
+          </Button>
+          <Button asChild variant="ghost">
+            <Link href="/insights/preview">Open insight gallery</Link>
+          </Button>
+        </div>
+      ) : null}
     </div>
   );
 }

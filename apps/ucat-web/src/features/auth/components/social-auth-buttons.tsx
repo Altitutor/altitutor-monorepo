@@ -50,14 +50,12 @@ export function SocialAuthButtons({
   enabledProviders,
   intent,
   redirectTo,
-  newsletterOptIn = false,
   referralCode = null,
   className,
 }: {
   enabledProviders: SocialAuthProvider[];
   intent: Exclude<SocialAuthIntent, "link">;
   redirectTo: string;
-  newsletterOptIn?: boolean;
   referralCode?: string | null;
   className?: string;
 }) {
@@ -78,7 +76,6 @@ export function SocialAuthButtons({
       intent,
       provider,
       next: redirectTo,
-      newsletterOptIn,
       referralCode,
     });
 
@@ -86,7 +83,7 @@ export function SocialAuthButtons({
       captureUcatEvent("signup_started", {
         auth_provider: provider,
         referral_present: Boolean(referralCode),
-        newsletter_opt_in: newsletterOptIn,
+        newsletter_opt_in: true,
       });
     }
 

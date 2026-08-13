@@ -1,5 +1,6 @@
 'use client';
 
+import { memo } from 'react';
 import type { EntityListPillColumn } from '@altitutor/ui';
 import type { ProjectWithLead } from '../types';
 import { clickableCardInteractiveCn, cn } from '@/shared/utils';
@@ -8,15 +9,20 @@ interface ProjectCardProps {
   project: ProjectWithLead;
   visiblePillKeys?: string[];
   rightPills?: EntityListPillColumn<ProjectWithLead, unknown>[];
-  onClick?: () => void;
+  onOpen?: (projectId: string) => void;
 }
 
-export function ProjectCard({ project, onClick, visiblePillKeys = [], rightPills = [] }: ProjectCardProps) {
+export const ProjectCard = memo(function ProjectCard({
+  project,
+  onOpen,
+  visiblePillKeys = [],
+  rightPills = [],
+}: ProjectCardProps) {
   const visiblePills = rightPills.filter((pill) => visiblePillKeys.includes(pill.key));
 
   return (
     <div
-      onClick={onClick}
+      onClick={() => onOpen?.(project.id)}
       className={cn(
         'group flex cursor-pointer flex-col gap-2 rounded-lg border bg-card p-3 transition-all',
         clickableCardInteractiveCn,
@@ -44,4 +50,4 @@ export function ProjectCard({ project, onClick, visiblePillKeys = [], rightPills
       )}
     </div>
   );
-}
+});

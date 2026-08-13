@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { useNextStep } from "nextstepjs";
 import {
   getFirstSelectorForTour,
-  UCAT_ONBOARDING_TOUR,
+  UCAT_DASHBOARD_TOUR,
 } from "@/features/onboarding/config/tour-steps";
 import { useResetOnboardingTour } from "@/features/onboarding/hooks/use-onboarding-progress";
 import { suppressNextOnboardingAutoStart } from "@/features/onboarding/lib/suppress-next-auto-tour";
@@ -26,7 +26,7 @@ export function useOnboardingTour() {
   const resetTour = useResetOnboardingTour();
 
   const startTour = useCallback(
-    (tourId: string = UCAT_ONBOARDING_TOUR) => {
+    (tourId: string = UCAT_DASHBOARD_TOUR) => {
       startNextStep(tourId);
     },
     [startNextStep],

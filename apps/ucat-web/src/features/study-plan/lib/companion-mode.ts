@@ -3,9 +3,7 @@ export type StudyPlanCompanionMode = "available" | "hidden" | "activity";
 const LEARN_CATALOG_SEGMENTS = new Set(["sections"]);
 
 function isLearningModuleRoute(pathname: string): boolean {
-  const sectionModule = pathname.match(
-    /^\/learn\/sections\/([1-4])\/([^/]+)$/,
-  );
+  const sectionModule = pathname.match(/^\/learn\/sections\/([1-4])\/([^/]+)$/);
   if (sectionModule) return true;
 
   const legacyModule = pathname.match(/^\/learn\/([^/]+)$/);
@@ -27,6 +25,10 @@ function isLearningModuleRoute(pathname: string): boolean {
 export function getStudyPlanCompanionMode(
   pathname: string,
 ): StudyPlanCompanionMode {
+  if (/(?:^|\/)preview(?:\/|$)/.test(pathname)) {
+    return "hidden";
+  }
+
   if (/^\/skill-trainer\/[^/]+\/play$/.test(pathname)) {
     return "activity";
   }

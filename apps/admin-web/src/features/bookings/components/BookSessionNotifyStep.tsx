@@ -5,7 +5,7 @@ import { format } from 'date-fns';
 import { useSessionWithTutorLog } from '@/features/sessions/hooks/useSessionsQuery';
 import { useCurrentStaff } from '@/shared/hooks';
 import { useParentsForStudent } from '@/features/enrollments/hooks/useParentsForStudent';
-import { getBookingConfirmationUrl } from '@/shared/utils/invites';
+import { usePublicLink } from '@/shared/hooks/usePublicLink';
 import {
   getBookingConfirmationMessageForClient,
   getSenderNameFromStaff,
@@ -50,6 +50,11 @@ export function BookSessionNotifyStep({
   const firstStudentId = studentIds[0];
 
   const { data: currentStaff } = useCurrentStaff();
+  const { data: bookingLink } = usePublicLink(
+    'booking',
+    sessionId,
+    sessionType === 'TRIAL_SESSION' || sessionType === 'SUBSIDY_INTERVIEW'
+  );
   const { data: parents = [] } = useParentsForStudent(
     firstStudentId,
     !!firstStudentId && (sessionType === 'SUBSIDY_INTERVIEW' || sessionType === 'TRIAL_SESSION')
@@ -126,7 +131,7 @@ export function BookSessionNotifyStep({
         : session?.start_at
           ? format(new Date(session.start_at), 'h:mm a')
           : undefined;
-    const bookingUrl = getBookingConfirmationUrl(sessionId);
+    const bookingUrl = bookingLink?.url ?? '';
     const firstName = (() => {
       const r0 = recipients[0];
       if (!r0) return 'there';
@@ -154,7 +159,7 @@ export function BookSessionNotifyStep({
     return () => {
       cancelled = true;
     };
-  }, [sessionData, sessionId, sessionType, recipients, sessionsStudents, currentStaff]);
+  }, [sessionData, sessionType, recipients, sessionsStudents, currentStaff, bookingLink?.url]);
 
   if (isLoading) {
     return (

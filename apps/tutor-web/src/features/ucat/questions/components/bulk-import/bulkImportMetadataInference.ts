@@ -23,7 +23,15 @@ import {
   getVerbalReasoningStemCategoryName,
   getVerbalReasoningTagPathsForQuestion,
 } from '@/features/ucat/questions/lib/parsers/verbalReasoning'
-import { proseMirrorToPlainText } from '@/features/ucat/shared/lib/rich-text'
+import {
+  proseMirrorHasBlockTable,
+  proseMirrorHasImage,
+  proseMirrorToPlainText,
+} from '@/features/ucat/shared/lib/rich-text'
+import {
+  inferResponseContract,
+  type ResponseContractInference,
+} from '@/features/ucat/questions/lib/parsers/responseClassification'
 
 export type BulkImportCategoryRow = {
   id?: string | null
@@ -42,7 +50,7 @@ export type BulkImportTagRow = {
 export type ManualStemMetadataRecommendation = {
   sectionId: string | null
   categoryId: string | null
-  questionType: 'multiple_choice' | 'syllogism' | null
+  responseContractsByQuestionIndex: Record<number, ResponseContractInference>
   tagIdsByQuestionIndex: Record<number, string[]>
 }
 
@@ -242,9 +250,18 @@ function richTextToPlainText(value: Json | null | undefined): string {
   return proseMirrorToPlainText(value ?? null)?.trim() ?? ''
 }
 
+function enrichStemTextWithStructuralTokens(plainText: string, richText: Json): string {
+  const markers: string[] = []
+  if (proseMirrorHasImage(richText)) markers.push('[[IMG:detected]]')
+  if (proseMirrorHasBlockTable(richText)) markers.push('[[TABLE:detected]]')
+  if (markers.length === 0) return plainText
+  return plainText.length > 0 ? `${plainText}\n${markers.join('\n')}` : markers.join('\n')
+}
+
 function formValuesToParsedStem(values: UcatQuestionStemFormValues): ParsedStem {
+  const stemRichText = values.stemText as Json
   return {
-    stemText: richTextToPlainText(values.stemText as Json),
+    stemText: enrichStemTextWithStructuralTokens(richTextToPlainText(stemRichText), stemRichText),
     questions: (values.questions ?? []).map((question, index) => ({
       number: index + 1,
       text: richTextToPlainText(question.questionText as Json),
@@ -319,14 +336,15 @@ export function inferManualStemMetadataRecommendation(args: {
           categories: args.categories,
         })
       : null)
-  const questionType = section === 'decision_making' && categoryId
-    ? (() => {
-        const category = args.categories.find((row) => row.id === categoryId)
-        return (category?.name ?? '').trim().toLowerCase().startsWith('syllogism')
-          ? 'syllogism' as const
-          : null
-      })()
-    : null
+  const responseContractsByQuestionIndex: Record<number, ResponseContractInference> = {}
+  stem.questions.forEach((question, index) => {
+    const inference = inferResponseContract({
+      directive: question.text,
+      targetCount: question.options.length,
+      optionTexts: question.options.map((option) => option.text),
+    })
+    responseContractsByQuestionIndex[index] = inference
+  })
 
   const tagIdsByQuestionIndex: Record<number, string[]> = {}
   if (section && sectionId) {
@@ -344,12 +362,17 @@ export function inferManualStemMetadataRecommendation(args: {
   }
 
   const hasTags = Object.keys(tagIdsByQuestionIndex).length > 0
-  if (!sectionCandidate && !categoryId && !hasTags) return null
+  if (
+    !sectionCandidate &&
+    !categoryId &&
+    !hasTags &&
+    Object.keys(responseContractsByQuestionIndex).length === 0
+  ) return null
 
   return {
     sectionId: sectionCandidate?.sectionId ?? null,
     categoryId,
-    questionType,
+    responseContractsByQuestionIndex,
     tagIdsByQuestionIndex,
   }
 }

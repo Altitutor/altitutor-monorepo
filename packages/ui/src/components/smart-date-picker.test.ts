@@ -18,4 +18,13 @@ describe('parseNaturalDate', () => {
     expect(parsed?.getDate()).toBe(16);
     expect(parsed?.getMonth()).toBe(0);
   });
+
+  it('anchors typed month/day to a fixed year', () => {
+    const parsed = parseNaturalDate('28 Jul', referenceDate, { anchorYear: 2027 });
+
+    expect(parsed).not.toBeNull();
+    expect(parsed?.getFullYear()).toBe(2027);
+    expect(parsed?.getDate()).toBe(28);
+    expect(parsed?.getMonth()).toBe(6);
+  });
 });

@@ -10,6 +10,7 @@ import {
   type BulkImportTagRow,
 } from '@/features/ucat/questions/components/bulk-import/bulkImportMetadataInference'
 import type { UcatQuestionStemFormValues } from '@/features/ucat/questions/types/schema'
+import type { ResponseContractInference } from '@/features/ucat/questions/lib/parsers/responseClassification'
 import { proseMirrorToPlainText } from '@/features/ucat/shared/lib/rich-text'
 
 function buildMetadataDetectionSignature(values: UcatQuestionStemFormValues): string {
@@ -32,7 +33,7 @@ function sameIds(left: string[], right: string[]): boolean {
 export type PendingStemMetadataDiff = {
   sectionId: string | null
   categoryId: string | null
-  questionType: 'multiple_choice' | 'syllogism' | null
+  responseContractsByQuestionIndex: Record<number, ResponseContractInference>
   tagIdsByQuestionIndex: Record<number, string[]>
 }
 
@@ -55,15 +56,21 @@ export function getPendingStemMetadataDiff(
       ? recommendation.categoryId
       : null
 
-  let questionType: PendingStemMetadataDiff['questionType'] = null
-  if (recommendation.questionType) {
-    const needsTypeChange = (values.questions ?? []).some(
-      (question) => question.questionType !== recommendation.questionType,
-    )
-    if (needsTypeChange) {
-      questionType = recommendation.questionType
+  const responseContractsByQuestionIndex: Record<number, ResponseContractInference> = {}
+  Object.entries(recommendation.responseContractsByQuestionIndex).forEach(
+    ([indexText, inference]) => {
+      const index = Number(indexText)
+      const question = values.questions?.[index]
+      if (!question) return
+      if (
+        (inference.responseType.value && inference.responseType.value !== question.responseType) ||
+        (inference.answerScheme.value && inference.answerScheme.value !== question.answerScheme) ||
+        inference.reviewState !== 'prefilled'
+      ) {
+        responseContractsByQuestionIndex[index] = inference
+      }
     }
-  }
+  )
 
   const tagIdsByQuestionIndex: Record<number, string[]> = {}
   Object.entries(recommendation.tagIdsByQuestionIndex).forEach(([indexText, tagIds]) => {
@@ -77,13 +84,13 @@ export function getPendingStemMetadataDiff(
   if (
     !sectionId &&
     !categoryId &&
-    !questionType &&
+    Object.keys(responseContractsByQuestionIndex).length === 0 &&
     Object.keys(tagIdsByQuestionIndex).length === 0
   ) {
     return null
   }
 
-  return { sectionId, categoryId, questionType, tagIdsByQuestionIndex }
+  return { sectionId, categoryId, responseContractsByQuestionIndex, tagIdsByQuestionIndex }
 }
 
 export function applyStemMetadataRecommendation(
@@ -96,15 +103,25 @@ export function applyStemMetadataRecommendation(
   if (recommendation.categoryId) {
     form.setValue('categoryId', recommendation.categoryId, { shouldDirty: true })
   }
-  if (recommendation.questionType) {
-    const questionType = recommendation.questionType
-    const questions = form.getValues('questions') ?? []
-    questions.forEach((question, index) => {
-      if (question.questionType !== questionType) {
-        form.setValue(`questions.${index}.questionType`, questionType, { shouldDirty: true })
+  Object.entries(recommendation.responseContractsByQuestionIndex).forEach(
+    ([indexText, inference]) => {
+      if (inference.reviewState === 'blocked') return
+      const index = Number(indexText)
+      const responseType = inference.responseType.value
+      const answerScheme = inference.answerScheme.value
+      if (responseType) {
+        form.setValue(`questions.${index}.responseType`, responseType, { shouldDirty: true })
+        form.setValue(
+          `questions.${index}.questionType`,
+          responseType === 'drag_and_drop' ? 'syllogism' : 'multiple_choice',
+          { shouldDirty: true },
+        )
       }
-    })
-  }
+      if (answerScheme) {
+        form.setValue(`questions.${index}.answerScheme`, answerScheme, { shouldDirty: true })
+      }
+    }
+  )
   Object.entries(recommendation.tagIdsByQuestionIndex).forEach(([indexText, tagIds]) => {
     const index = Number(indexText)
     form.setValue(`questions.${index}.tagIds`, tagIds, { shouldDirty: true })

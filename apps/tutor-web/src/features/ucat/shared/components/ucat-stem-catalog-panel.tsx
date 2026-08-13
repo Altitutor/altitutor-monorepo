@@ -205,6 +205,8 @@ type UcatStemCatalogListPanelProps = {
   categoryPathLookup?: Map<string, string>
   filterSearchValues?: Record<string, string>
   onFilterSearchChange?: (filterKey: string, value: string) => void
+  publishedSetIds?: ReadonlySet<string>
+  currentSetId?: string | null
   isLoading?: boolean
   emptyMessage?: string
   searchPlaceholder?: string
@@ -229,6 +231,8 @@ export function UcatStemCatalogListPanel({
   categoryPathLookup = EMPTY_CATEGORY_PATH_LOOKUP,
   filterSearchValues,
   onFilterSearchChange,
+  publishedSetIds,
+  currentSetId = null,
   isLoading = false,
   emptyMessage = 'No stems match the current filters.',
   searchPlaceholder = 'Search stems or questions',
@@ -256,8 +260,10 @@ export function UcatStemCatalogListPanel({
         search,
         filters,
         searchScopes,
+        publishedSetIds,
+        currentSetId,
       }),
-    [stems, excludedIds, includedIds, search, filters, searchScopes],
+    [stems, excludedIds, includedIds, search, filters, searchScopes, publishedSetIds, currentSetId],
   )
 
   const sortedStems = useMemo(
@@ -342,6 +348,8 @@ type UcatStemMembershipListPanelProps = {
   filterDefinitions: DataTableFilterDefinition[]
   filterSearchValues?: Record<string, string>
   onFilterSearchChange?: (filterKey: string, value: string) => void
+  publishedSetIds?: ReadonlySet<string>
+  currentSetId?: string | null
   onEditStem?: (stemId: string) => void
   emptyMessage?: string
   searchPlaceholder?: string
@@ -355,6 +363,8 @@ export function UcatStemMembershipListPanel({
   filterDefinitions,
   filterSearchValues,
   onFilterSearchChange,
+  publishedSetIds,
+  currentSetId = null,
   onEditStem,
   emptyMessage = 'No stems match the current filters.',
   searchPlaceholder = 'Search stems or questions',
@@ -376,8 +386,16 @@ export function UcatStemMembershipListPanel({
   )
 
   const filteredStems = useMemo(
-    () => filterStemCatalogItems({ stems: membershipStems, search, filters, searchScopes }),
-    [membershipStems, search, filters, searchScopes],
+    () =>
+      filterStemCatalogItems({
+        stems: membershipStems,
+        search,
+        filters,
+        searchScopes,
+        publishedSetIds,
+        currentSetId,
+      }),
+    [membershipStems, search, filters, searchScopes, publishedSetIds, currentSetId],
   )
 
   const filteredIdSet = useMemo(() => new Set(filteredStems.map((stem) => stem.id)), [filteredStems])

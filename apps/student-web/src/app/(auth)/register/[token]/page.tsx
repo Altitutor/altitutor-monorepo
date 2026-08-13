@@ -69,7 +69,7 @@ export default function RegisterPage({ params }: { params: { token: string } }) 
             router.push('/login');
             return;
           }
-          setError(data.error || 'Invalid or expired registration link');
+          setError(data.error || 'This registration link is invalid');
           return;
         }
 

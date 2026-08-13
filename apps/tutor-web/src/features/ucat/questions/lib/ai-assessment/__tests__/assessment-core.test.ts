@@ -44,6 +44,8 @@ function snapshot(): UcatAssessmentSnapshot {
     answerExplanation: plainTextToProseMirror('Teaching explanation'),
     answerExplanationPlain: 'Teaching explanation',
     questionType: 'multiple_choice' as const,
+    responseType: 'multiple_choice' as const,
+    answerScheme: 'single_choice' as const,
     difficulty: 0.5,
     timeBurdenSeconds: 75,
     tagIds: [],
@@ -57,6 +59,7 @@ function snapshot(): UcatAssessmentSnapshot {
       answerExplanation: null,
       answerExplanationPlain: '',
       isAnswer: optionIndex === 0,
+      answerKeyValue: optionIndex === 0 ? 'correct' as const : null,
       images: [],
     })),
   })
@@ -75,6 +78,27 @@ function snapshot(): UcatAssessmentSnapshot {
     images: [],
     questions: [question(QUESTION_1, 1), question(QUESTION_2, 2)],
   }
+}
+
+function vrSnapshot(questionCount: number): UcatAssessmentSnapshot {
+  const value = snapshot()
+  value.sectionName = 'Verbal Reasoning'
+  value.categoryName = 'Reading Comprehension'
+  value.stemText = plainTextToProseMirror('First paragraph.\n\nSecond paragraph.')
+  value.stemTextPlain = 'First paragraph.\n\nSecond paragraph.'
+  const template = value.questions[0]
+  if (!template) throw new Error('expected a template question')
+  value.questions = Array.from({ length: questionCount }, (_, index) => ({
+    ...template,
+    id: `00000000-0000-0000-0000-${String(index + 10).padStart(12, '0')}`,
+    index: index + 1,
+    options: template.options.slice(0, 4).map((option, optionIndex) => ({
+      ...option,
+      id: `00000000-0000-0000-${String(index + 10).padStart(4, '0')}-${String(optionIndex + 1).padStart(12, '0')}`,
+      index: optionIndex,
+    })),
+  }))
+  return value
 }
 
 describe('automatic review environment gate', () => {
@@ -476,6 +500,24 @@ describe('assessment prompts and deterministic checks', () => {
 
     expect(runUcatFormatChecks(value).map((check) => check.code)).not.toContain(
       'qr_question_count',
+    )
+  })
+
+  it('blocks Verbal Reasoning stems that contain fewer than four questions', () => {
+    const value = vrSnapshot(3)
+
+    expect(runUcatFormatChecks(value)).toContainEqual(expect.objectContaining({
+      severity: 'error',
+      code: 'vr_question_count',
+      scopeType: 'shared',
+    }))
+  })
+
+  it('allows Verbal Reasoning stems to contain more than four questions', () => {
+    const value = vrSnapshot(5)
+
+    expect(runUcatFormatChecks(value).map((check) => check.code)).not.toContain(
+      'vr_question_count',
     )
   })
 

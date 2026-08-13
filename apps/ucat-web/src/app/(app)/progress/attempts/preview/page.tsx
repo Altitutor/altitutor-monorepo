@@ -1,7 +1,7 @@
-import { notFound } from "next/navigation";
 import { AttemptPreviewPage } from "@/features/progress/components/attempt-preview-page";
+import { requireDevelopmentPreview } from "@/features/development-preview/lib/development-preview";
 
 export default function AttemptPreviewRoute() {
-  if (process.env.NODE_ENV !== "development") notFound();
+  requireDevelopmentPreview();
   return <AttemptPreviewPage />;
 }

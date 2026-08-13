@@ -25,7 +25,17 @@ describe("renderEmail", () => {
     expect(email.html).toContain(">Altitutor</p>");
     expect(email.html).toContain("Your new session time is ready.");
     expect(email.html).toContain("New time: 4:00 pm.");
+    expect(email.html).toContain("Level 1, 17A Solomon St, Adelaide SA 5000");
+    expect(email.html).toContain("Phone:");
+    expect(email.html).toContain("+61 483 849 842");
+    expect(email.html).toContain("Email:");
+    expect(email.html).toContain("admin@altitutor.com");
+    expect(email.html).toContain("Web:");
+    expect(email.html).toContain("altitutor.com");
+    expect(email.html).toContain("https://altitutor.com");
+    expect(email.html).not.toContain("Need help?");
     expect(email.html).not.toContain("Altitutor UCAT");
+    expect(email.html).not.toContain("A not-for-profit initiative by Altitutor.");
   });
 
   it("preserves the Altitutor UCAT visual identity and safe primitives", () => {
@@ -46,8 +56,23 @@ describe("renderEmail", () => {
     expect(email.from).toBe("Altitutor UCAT <admin@altitutor.com>");
     expect(email.html).toContain(">Altitutor UCAT</p>");
     expect(email.html).toContain("UCAT preparation from Altitutor");
+    expect(email.html).toContain("A not-for-profit initiative by Altitutor.");
+    expect(email.html).toContain("Email:");
+    expect(email.html).toContain("admin@altitutor.com");
+    expect(email.html).toContain("Web:");
+    expect(email.html).toContain("altitutor.com/ucat");
+    expect(email.html).toContain("https://altitutor.com/ucat");
+    expect(email.html).not.toContain("Phone:");
+    expect(email.html).not.toContain("Level 1, 17A Solomon St");
     expect(email.html).toContain("class=\"email-panel\"");
     expect(email.html).toContain("https://ucat.altitutor.com/results?from=a&amp;next=b");
     expect(email.html).toContain("Review &lt;results&gt;");
+    expect(email.html).toContain(".email-panel td");
+    expect(email.html).toContain(".email-content a");
+    expect(email.html).toContain("color: #b7d4df !important");
+    expect(email.html).toContain(".email-content a.email-button");
+    expect(email.html).toMatch(
+      /\.email-content a\.email-button[\s\S]*color: #1c1c1c !important/,
+    );
   });
 });

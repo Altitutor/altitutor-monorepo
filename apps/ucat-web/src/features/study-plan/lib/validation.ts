@@ -5,7 +5,13 @@ import type {
   StudyPlanSection,
   StudyPlanWeekday,
 } from "@/features/study-plan/model/types";
-import { parseIsoDate } from "@/features/study-plan/lib/dates";
+import { parseIsoDate, todayIso } from "@/features/study-plan/lib/dates";
+import { roundTargetScore } from "@/features/study-plan/lib/target-score";
+import { isTestDateInBounds } from "@/features/study-plan/lib/test-date-bounds";
+import {
+  DEFAULT_SJT_PREFERENCE,
+  isSjtPreference,
+} from "@/features/preparation/lib/sjt-allocation-policy";
 
 function integer(value: unknown, label: string): number {
   if (typeof value !== "number" || !Number.isInteger(value)) {
@@ -55,11 +61,11 @@ export function parseStudyPlanProfileInput(
     throw new Error("Choose whether you want to use a Study plan.");
   }
   const studyPlanEnabled = record.studyPlanEnabled;
-  const targetScore = integer(record.targetScore, "Target score");
-  if (targetScore < 900 || targetScore > 2700 || targetScore % 10 !== 0) {
-    throw new Error(
-      "Target score must be between 900 and 2700, in 10-point increments.",
-    );
+  const targetScore = roundTargetScore(
+    integer(record.targetScore, "Target score"),
+  );
+  if (targetScore < 900 || targetScore > 2700) {
+    throw new Error("Target score must be between 900 and 2700.");
   }
   const testYear = integer(record.testYear, "Test year");
   if (
@@ -77,6 +83,9 @@ export function parseStudyPlanProfileInput(
     if (Number(testDate.slice(0, 4)) !== testYear) {
       throw new Error("Test date must be in the selected test year.");
     }
+    if (!isTestDateInBounds(testDate, testYear, todayIso())) {
+      throw new Error("Test date must be today or in the future.");
+    }
   }
   if (!Array.isArray(record.availableDays)) {
     throw new Error("Choose at least one available study day.");
@@ -87,14 +96,8 @@ export function parseStudyPlanProfileInput(
         throw new Error("Invalid available day.");
       const day = item as Record<string, unknown>;
       const weekday = integer(day.weekday, "Weekday");
-      const maxMinutes = integer(day.maxMinutes, "Daily time");
       if (weekday < 0 || weekday > 6) throw new Error("Invalid weekday.");
-      if (maxMinutes < 15 || maxMinutes > 360) {
-        throw new Error(
-          "Daily study time must be between 15 minutes and 6 hours.",
-        );
-      }
-      return { weekday: weekday as StudyPlanWeekday, maxMinutes };
+      return { weekday: weekday as StudyPlanWeekday };
     },
   );
   if (
@@ -113,13 +116,9 @@ export function parseStudyPlanProfileInput(
   if (preferredMockWeekday < 0 || preferredMockWeekday > 6) {
     throw new Error("Choose a valid preferred mock day.");
   }
-  if (
-    studyPlanEnabled &&
-    !availableDays.some((day) => day.weekday === preferredMockWeekday)
-  ) {
-    throw new Error(
-      "Your preferred mock day must be one of your available days.",
-    );
+  const sjtPreference = record.sjtPreference ?? DEFAULT_SJT_PREFERENCE;
+  if (!isSjtPreference(sjtPreference)) {
+    throw new Error("Choose how much standalone SJT practice you want.");
   }
   return {
     studyPlanEnabled,
@@ -128,5 +127,6 @@ export function parseStudyPlanProfileInput(
     testDate,
     availableDays,
     preferredMockWeekday: preferredMockWeekday as StudyPlanWeekday,
+    sjtPreference,
   };
 }

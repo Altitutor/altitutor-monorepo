@@ -522,6 +522,7 @@ export function AppSidebar({
 
   return (
     <aside
+      data-tour={!collapsed ? "app-navigation" : undefined}
       className={cn(
         "fixed left-0 top-0 z-40 h-dvh overflow-hidden transition-[transform,width] duration-200 ease-[cubic-bezier(0.32,0.72,0,1)]",
         "rounded-r-ucatShell border-r border-border bg-sidebar text-sidebar-foreground shadow-sm",

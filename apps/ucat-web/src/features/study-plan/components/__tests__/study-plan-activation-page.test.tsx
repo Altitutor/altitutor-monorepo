@@ -304,11 +304,18 @@ describe("StudyPlanActivationPage", () => {
     const year = String(new Date().getFullYear());
     fireEvent.click(screen.getByRole("combobox", { name: "UCAT year" }));
     fireEvent.click(screen.getByRole("option", { name: year }));
+    expect(
+      screen.getByRole("radio", { name: /A little/i }),
+    ).toBeChecked();
+    fireEvent.click(screen.getByRole("radio", { name: /Normally/i }));
     fireEvent.click(screen.getByRole("button", { name: /Save and finish/i }));
 
     await waitFor(() => expect(mockSaveStudyPlan).toHaveBeenCalled());
     expect(mockSaveStudyPlan).toHaveBeenCalledWith(
-      expect.objectContaining({ studyPlanEnabled: false }),
+      expect.objectContaining({
+        studyPlanEnabled: false,
+        sjtPreference: "normally",
+      }),
     );
     await waitFor(() =>
       expect(replace).toHaveBeenCalledWith("/settings/study-plan"),
@@ -325,11 +332,11 @@ describe("StudyPlanActivationPage", () => {
         testYear: new Date().getFullYear(),
         testDate: null,
         availableDays: [
-          { weekday: 1, maxMinutes: 60 },
-          { weekday: 2, maxMinutes: 60 },
-          { weekday: 3, maxMinutes: 60 },
-          { weekday: 4, maxMinutes: 60 },
-          { weekday: 5, maxMinutes: 60 },
+          { weekday: 1 },
+          { weekday: 2 },
+          { weekday: 3 },
+          { weekday: 4 },
+          { weekday: 5 },
         ],
         preferredMockWeekday: 5,
         planningDate: "2026-07-18",
@@ -355,8 +362,17 @@ describe("StudyPlanActivationPage", () => {
     fireEvent.click(
       screen.getByRole("button", { name: /Choose my study week/i }),
     );
+    fireEvent.change(screen.getByLabelText("Soft mock weekday"), {
+      target: { value: "5" },
+    });
     fireEvent.click(
       screen.getByRole("button", { name: "Build my Study plan" }),
+    );
+
+    await waitFor(() =>
+      expect(mockSaveStudyPlan).toHaveBeenCalledWith(
+        expect.objectContaining({ preferredMockWeekday: 5 }),
+      ),
     );
 
     await waitFor(() =>

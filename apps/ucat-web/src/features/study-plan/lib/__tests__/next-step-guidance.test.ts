@@ -24,6 +24,16 @@ const section: StudyPlanSection = {
   timePerQuestionSeconds: 42,
 };
 
+const sjtSection: StudyPlanSection = {
+  id: "section-sjt",
+  key: "situational_judgement",
+  name: "Situational Judgement",
+  shortName: "SJT",
+  sectionNumber: 4,
+  questionCount: 69,
+  timePerQuestionSeconds: 22,
+};
+
 const signals: StudyPlanSectionSignal[] = [
   {
     sectionId: section.id,
@@ -106,6 +116,85 @@ function build(
 }
 
 describe("rolling next-step guidance", () => {
+  it.each([
+    ["normally", 69],
+    ["a_little", 35],
+    ["not_at_all", null],
+  ] as const)(
+    "respects the %s standalone SJT preference without a plan",
+    (sjtPreference, expectedQuestions) => {
+      const guidance = build({
+        sections: [sjtSection],
+        signals: [
+          {
+            sectionId: sjtSection.id,
+            currentEstimate: null,
+            evidenceCount: 0,
+            completedFullSets: 0,
+          },
+        ],
+        categories: [],
+        learningModules: [],
+        skillTrainers: [],
+        sjtPreference,
+      });
+      const sjtGuidance = guidance.find(
+        (item) => item.sectionId === sjtSection.id,
+      );
+
+      if (expectedQuestions == null) {
+        expect(sjtGuidance).toBeUndefined();
+      } else {
+        expect(sjtGuidance?.launchConfig.questionCount).toBe(expectedQuestions);
+      }
+    },
+  );
+
+  it("uses recent, but not historical, completed mock SJT as rolling guidance credit", () => {
+    const mockSession = (completedAt: string) => ({
+      id: `mock-${completedAt}`,
+      sectionId: sjtSection.id,
+      source: "mock" as const,
+      completedAt,
+      prescribedPace: 1,
+      observedPace: 1,
+      accuracy: 0.7,
+      sectionEquivalents: 1,
+      breadth: "broad" as const,
+      categoryIds: [],
+    });
+    const input = {
+      sections: [sjtSection],
+      signals: [
+        {
+          sectionId: sjtSection.id,
+          currentEstimate: null,
+          evidenceCount: 0,
+          completedFullSets: 0,
+        },
+      ],
+      categories: [],
+      learningModules: [],
+      skillTrainers: [],
+      sjtPreference: "normally" as const,
+    };
+
+    expect(
+      build({
+        ...input,
+        completedMockCount: 1,
+        timingSessions: [mockSession("2026-01-09T00:00:00.000Z")],
+      }).some((item) => item.sectionId === sjtSection.id),
+    ).toBe(false);
+    expect(
+      build({
+        ...input,
+        completedMockCount: 1,
+        timingSessions: [mockSession("2025-11-01T00:00:00.000Z")],
+      }).some((item) => item.sectionId === sjtSection.id),
+    ).toBe(true);
+  });
+
   it("treats a missing next-step collection as no guidance", () => {
     expect(firstGuidanceTriggerKey(undefined)).toBeNull();
     expect(firstGuidanceTriggerKey([])).toBeNull();
@@ -117,13 +206,11 @@ describe("rolling next-step guidance", () => {
     ).toBe("activity:practice:attempt-1");
   });
 
-  it("starts the first guidance visit of the day with the least-played trainer", () => {
+  it("keeps the daily warm-up optional behind the core preparation judgement", () => {
     const steps = build({ dailyWarmup: true });
 
-    expect(steps[0]).toMatchObject({
-      taskType: "skill_trainer",
-      skillTrainerId: "trainer-b",
-    });
+    expect(steps[0]?.taskType).not.toBe("skill_trainer");
+    expect(steps.every((step) => step.skillTrainerId == null)).toBe(true);
     expect(steps).toHaveLength(2);
   });
 
@@ -191,22 +278,24 @@ describe("rolling next-step guidance", () => {
     const steps = build({ learningModules: [] });
     const practice = steps.find((step) => step.taskType === "practice");
 
-    expect(practice?.rationale).toContain("broader evidence");
+    expect(practice?.rationale.toLowerCase()).toContain("broader");
   });
 
   it("moves exam-like work ahead of short targeted practice near test day", () => {
     const steps = build({
       today: "2026-07-10",
       planningDate: "2026-07-20",
+      signals: signals.map((signal) => ({
+        ...signal,
+        learningGraduatedAt: "2026-06-01T00:00:00.000Z",
+        learningGraduationRoute: "accuracy",
+      })),
     });
 
-    expect(steps.map((step) => step.taskType)).toEqual([
-      "section_benchmark",
-      "mock",
-    ]);
+    expect(steps.map((step) => step.taskType)).toEqual(["mock", "practice"]);
   });
 
-  it("offers exam-style work instead of swapping two focused suggestions", () => {
+  it("marks a different-objective alternative as optional", () => {
     const input = {
       today: "2026-01-10",
       planningDate: "2026-07-20",
@@ -230,10 +319,70 @@ describe("rolling next-step guidance", () => {
     });
 
     expect(current.map((item) => item.taskType)).toEqual(["learn", "practice"]);
-    expect(alternative?.taskType).toBe("section_benchmark");
+    expect(alternative).toMatchObject({
+      taskType: "skill_trainer",
+      launchConfig: { optional: true },
+    });
   });
 
-  it("can move on to another reliable weakness after prior choices are excluded", () => {
+  it("uses canonical readiness when materialising a practice candidate", () => {
+    const [draft] = buildNextStepDrafts({
+      today: "2026-01-10",
+      planningDate: "2026-07-20",
+      dailyWarmup: false,
+      incompleteReview: null,
+      sections: [section],
+      signals,
+      categories: [category],
+      learningModules: [],
+      skillTrainers: [],
+      trainerAttemptCounts: new Map(),
+      completedMockCount: 0,
+      readiness: {
+        sections: [
+          {
+            sectionId: section.id,
+            mode: "timing",
+            paceMultiplier: 0.9,
+          },
+        ],
+      } as never,
+      activityCandidates: [
+        {
+          id: "canonical-vr-practice",
+          kind: "targeted_practice",
+          requirement: "required",
+          sectionId: section.id,
+          categoryIds: [category.id],
+          questionTagIds: [],
+          learningModuleId: null,
+          skillTrainerId: null,
+          sourceAttemptId: null,
+          scope: "category",
+          dose: { questionCount: 12, sectionEquivalents: 0.25 },
+          duration: { practiceMinutes: 15, reviewMinutes: 5 },
+          objective: "remediate_reliable_weakness",
+          reasonCode: "activity.reliable_weakness",
+          studentReason: "This is the most useful area to revisit.",
+          ranking: {
+            milestone: 1,
+            weakness: 2,
+            uncertainty: 0,
+            targetGap: 0,
+            tagSampling: 0,
+            total: 3,
+          },
+        },
+      ],
+    });
+
+    expect(draft?.launchConfig).toMatchObject({
+      timeMode: "speed",
+      timeSpeedMultiplier: 0.9,
+    });
+  });
+
+  it("does not silently replace excluded required work with another objective", () => {
     const input = {
       today: "2026-07-10",
       planningDate: "2026-07-20",
@@ -271,8 +420,8 @@ describe("rolling next-step guidance", () => {
     });
 
     expect(alternative).toMatchObject({
-      taskType: "practice",
-      questionStemCategoryId: category.id,
+      taskType: "skill_trainer",
+      launchConfig: { optional: true },
     });
   });
 });

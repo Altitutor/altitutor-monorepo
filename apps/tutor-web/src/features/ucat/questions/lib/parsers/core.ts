@@ -1,4 +1,10 @@
 import type { Json } from '@altitutor/shared'
+import {
+  BULK_IMPORT_LIST_ITEM_PREFIX,
+  encodeBulkImportMarkedText,
+  execRegexOnTokenizedLine,
+  stripBulkImportFormatTokens,
+} from '@/features/ucat/shared/lib/bulk-import-inline-format'
 
 /**
  * Shared output types for the line-based UCAT parser.
@@ -127,7 +133,7 @@ function isImageTokenLine(line: string): boolean {
 }
 
 function normaliseStructuralText(text: string): string {
-  return text
+  return stripBulkImportFormatTokens(text)
     .replace(/\[\[TABLE:[^\]]+\]\]/g, '[[TABLE]]')
     .replace(/\[\[IMG:[^\]]+\]\]/g, '[[IMG]]')
     .replace(/\s+/g, ' ')
@@ -203,6 +209,39 @@ export function nodeToText(node: PMNode | null | undefined): string {
   return parts.join('')
 }
 
+/**
+ * Like {@link nodeToText}, but encodes bold/italic marks as bulk-import tokens so they
+ * survive the logical-line round-trip. Images still become [[IMG:…]] placeholders.
+ */
+export function nodeToTokenizedText(node: PMNode | null | undefined): string {
+  if (!node) return ''
+
+  if (node.type === 'image') {
+    const token = encodeImageToken(node.attrs)
+    return token ?? ''
+  }
+
+  if (node.type === 'hardBreak') return '\n'
+
+  if (typeof node.text === 'string') {
+    const marks = Array.isArray(node.marks)
+      ? (node.marks as Array<{ type?: string | null }>)
+      : null
+    return encodeBulkImportMarkedText(node.text, marks)
+  }
+  if (!Array.isArray(node.content) || node.content.length === 0) return ''
+
+  const parts = node.content.map((child) => nodeToTokenizedText(child))
+  const hasBlockChild = node.content.some((child) => BLOCK_NODE_TYPES.has(child?.type ?? ''))
+  if (hasBlockChild) {
+    return parts
+      .map((part) => part.trim())
+      .filter((part) => part.length > 0)
+      .join(' ')
+  }
+  return parts.join('')
+}
+
 /** Emit question-cell paragraphs as separate logical lines (preserves line breaks). */
 function appendQuestionTextLogicalLines(qText: string, lines: string[]): void {
   for (const part of qText.split('\n')) {
@@ -243,7 +282,7 @@ export function extractQuestionRowFromNestedTable(
       break
     }
     if (c?.type === 'paragraph') {
-      const t = nodeToText(c).replace(/\n+/g, '\n').trim()
+      const t = nodeToTokenizedText(c).replace(/\n+/g, '\n').trim()
       if (t.length > 0) qText += (qText ? '\n' : '') + t
     }
   }
@@ -253,7 +292,7 @@ export function extractQuestionRowFromNestedTable(
     ? (nestedTable.content as PMNode[]).map((r) => {
         const rContent = (r as PMNode)?.content
         const rowCells = Array.isArray(rContent) ? rContent : []
-        return rowCells.map((cell) => nodeToText(cell).trim())
+        return rowCells.map((cell) => nodeToTokenizedText(cell).trim())
       })
     : []
   if (!isOptionsTable(nestedRows)) return null
@@ -279,9 +318,10 @@ export function isQuestionTableWithNestedOptions(tableNode: PMNode): boolean {
 export function isOptionsTable(rows: string[][]): boolean {
   if (rows.length < 2 || rows.length > 6) return false
   for (const row of rows) {
-    const hasLabelOrCombined = row.some(
-      (cell) => OPTION_LABEL_RE.test(cell.trim()) || OPTION_LABEL_WITH_TEXT_RE.test(cell.trim())
-    )
+    const hasLabelOrCombined = row.some((cell) => {
+      const plain = stripBulkImportFormatTokens(cell).trim()
+      return OPTION_LABEL_RE.test(plain) || OPTION_LABEL_WITH_TEXT_RE.test(plain)
+    })
     if (!hasLabelOrCombined) return false
   }
   return true
@@ -300,14 +340,14 @@ export function extractOptionLinesFromTable(rows: string[][]): string[] {
     let textCell = ''
     for (const cell of row) {
       const trimmed = cell.trim()
-      const combined = OPTION_LABEL_WITH_TEXT_RE.exec(trimmed)
+      const combined = execRegexOnTokenizedLine(trimmed, OPTION_LABEL_WITH_TEXT_RE)
       if (combined) {
         labelChar = (combined[1] ?? '').toUpperCase()
         labelSeparator = combined[2] === ')' ? ')' : '.'
         textCell = (combined[3] ?? '').trim()
         break
       }
-      const labelOnly = OPTION_LABEL_RE.exec(trimmed)
+      const labelOnly = OPTION_LABEL_RE.exec(stripBulkImportFormatTokens(trimmed))
       if (labelOnly) {
         labelChar = (labelOnly[1] ?? '').toUpperCase()
         labelSeparator = labelOnly[2] === ')' ? ')' : '.'
@@ -376,12 +416,12 @@ function appendLinesFromTableCell(cell: PMNode, lines: string[], st: CollectStat
     if (c.type === 'table') {
       collectLogicalLinesFromNode(c, lines, st)
       pushed = true
-    } else if (c.type === 'orderedList') {
+    } else if (c.type === 'orderedList' || c.type === 'bulletList') {
       collectLogicalLinesFromNode(c, lines, st)
       pushed = true
     } else if (c.type === 'paragraph') {
       const before = lines.length
-      appendLogicalLinesFromParagraphText(nodeToText(c), lines, st)
+      appendLogicalLinesFromParagraphText(nodeToTokenizedText(c), lines, st)
       if (lines.length > before) pushed = true
     } else if (Array.isArray(c.content) && c.content.length > 0) {
       appendLinesFromTableCell(c, lines, st)
@@ -390,7 +430,7 @@ function appendLinesFromTableCell(cell: PMNode, lines: string[], st: CollectStat
   }
 
   if (!pushed) {
-    appendLogicalLinesFromParagraphText(nodeToText(cell), lines, st)
+    appendLogicalLinesFromParagraphText(nodeToTokenizedText(cell), lines, st)
   }
 }
 
@@ -399,7 +439,7 @@ function collectLogicalLinesFromNode(node: PMNode, lines: string[], state?: Coll
   const st = state ?? {}
 
   if (node.type === 'image') {
-    const text = nodeToText(node).trim()
+    const text = nodeToTokenizedText(node).trim()
     if (text.length > 0) {
       lines.push((st.prefixForNextLine ?? '') + text)
       st.prefixForNextLine = undefined
@@ -432,7 +472,7 @@ function collectLogicalLinesFromNode(node: PMNode, lines: string[], state?: Coll
       const row = rows[r]
       const cells = Array.isArray(row?.content) ? row.content : []
       for (const cell of cells) {
-        const text = nodeToText(cell).trim()
+        const text = nodeToTokenizedText(cell).trim()
         if (text.length > 0) {
           lines.push((st.prefixForNextLine ?? '') + text)
           st.prefixForNextLine = undefined
@@ -454,8 +494,19 @@ function collectLogicalLinesFromNode(node: PMNode, lines: string[], state?: Coll
     return
   }
 
+  if (node.type === 'bulletList') {
+    const items = Array.isArray(node.content) ? node.content : []
+    for (const item of items) {
+      if (!item) continue
+      st.prefixForNextLine = `${st.prefixForNextLine ?? ''}${BULK_IMPORT_LIST_ITEM_PREFIX}`
+      collectLogicalLinesFromNode(item, lines, st)
+      st.prefixForNextLine = undefined
+    }
+    return
+  }
+
   if (node.type === 'paragraph') {
-    appendLogicalLinesFromParagraphText(nodeToText(node), lines, st)
+    appendLogicalLinesFromParagraphText(nodeToTokenizedText(node), lines, st)
     return
   }
 
@@ -517,7 +568,7 @@ function collectBlocksFromNodeForQR(
   const st = state ?? {}
 
   if (node.type === 'image') {
-    const text = nodeToText(node).trim()
+    const text = nodeToTokenizedText(node).trim()
     if (text.length > 0) {
       lines.push((st.prefixForNextLine ?? '') + text)
       st.prefixForNextLine = undefined
@@ -545,7 +596,7 @@ function collectBlocksFromNodeForQR(
       ? (node.content as PMNode[]).map((row) => {
           const rowContent = (row as PMNode)?.content
           const cells = Array.isArray(rowContent) ? rowContent : []
-          return cells.map((cell) => nodeToText(cell).trim())
+          return cells.map((cell) => nodeToTokenizedText(cell).trim())
         })
       : []
     if (isOptionsTable(rows)) {
@@ -580,8 +631,19 @@ function collectBlocksFromNodeForQR(
     return
   }
 
+  if (node.type === 'bulletList') {
+    const items = Array.isArray(node.content) ? node.content : []
+    for (const item of items) {
+      if (!item) continue
+      st.prefixForNextLine = `${st.prefixForNextLine ?? ''}${BULK_IMPORT_LIST_ITEM_PREFIX}`
+      collectBlocksFromNodeForQR(item, lines, tableMap, st)
+      st.prefixForNextLine = undefined
+    }
+    return
+  }
+
   if (node.type === 'paragraph') {
-    appendLogicalLinesFromParagraphText(nodeToText(node), lines, st)
+    appendLogicalLinesFromParagraphText(nodeToTokenizedText(node), lines, st)
     return
   }
 
@@ -630,17 +692,17 @@ function getQuestionMatch(
   qRe: ReturnType<typeof buildQuestionRegexes>,
   questionNumberOnOwnLine: boolean
 ): QuestionMatch | null {
-  const inlineQuestionMatch = qRe.inline.exec(line)
-  const numberOnlyMatch = qRe.numberOnly.exec(line)
+  const inlineQuestionMatch = execRegexOnTokenizedLine(line, qRe.inline)
+  const numberOnlyMatch = execRegexOnTokenizedLine(line, qRe.numberOnly)
   const isQuestionLine = !!numberOnlyMatch || (!questionNumberOnOwnLine && !!inlineQuestionMatch)
 
   if (!isQuestionLine) return null
 
   const numberRaw =
     inlineQuestionMatch != null ? (inlineQuestionMatch[1] ?? '') : (numberOnlyMatch?.[1] ?? '')
-  const number = Number.parseInt(numberRaw, 10)
+  const number = Number.parseInt(stripBulkImportFormatTokens(numberRaw), 10)
   return {
-    numberRaw,
+    numberRaw: stripBulkImportFormatTokens(numberRaw),
     number: Number.isNaN(number) ? null : number,
     inlineText: inlineQuestionMatch?.[2] ?? '',
     isInline: inlineQuestionMatch != null,
@@ -684,8 +746,8 @@ function hasNearbyAnswerOptionEvidence(
       return true
     }
 
-    const inlineOptionMatch = oRe.inline.exec(candidate)
-    const labelOnlyMatch = oRe.labelOnly.exec(candidate)
+    const inlineOptionMatch = execRegexOnTokenizedLine(candidate, oRe.inline)
+    const labelOnlyMatch = execRegexOnTokenizedLine(candidate, oRe.labelOnly)
     if (answerOptionOnOwnLine ? !!labelOnlyMatch : !!(inlineOptionMatch || labelOnlyMatch)) {
       return true
     }
@@ -719,8 +781,8 @@ function lineLooksLikeOptionStart(
   answerOptionOnOwnLine: boolean
 ): boolean {
   return !!(answerOptionOnOwnLine
-    ? oRe.labelOnly.exec(line)
-    : oRe.inline.exec(line) || oRe.labelOnly.exec(line))
+    ? execRegexOnTokenizedLine(line, oRe.labelOnly)
+    : execRegexOnTokenizedLine(line, oRe.inline) || execRegexOnTokenizedLine(line, oRe.labelOnly))
 }
 
 /**
@@ -825,8 +887,8 @@ export function parseFromLines(
         config.enforceSequentialQuestionNumbers !== false
       ) &&
       hasNearbyAnswerOptionEvidence(rawLines, idx, config, qRe, oRe)
-    const inlineOptionMatch = oRe.inline.exec(line)
-    const labelOnlyMatch = oRe.labelOnly.exec(line)
+    const inlineOptionMatch = execRegexOnTokenizedLine(line, oRe.inline)
+    const labelOnlyMatch = execRegexOnTokenizedLine(line, oRe.labelOnly)
 
     if (expectingQuestionTextLine && currentQuestion) {
       if (!isBlank(trimmed)) {
@@ -868,9 +930,9 @@ export function parseFromLines(
       (answerOptionOnOwnLine ? !!labelOnlyMatch : !!(inlineOptionMatch || labelOnlyMatch)) &&
       currentQuestion
 
-    if (isOptionLine) {
+      if (isOptionLine) {
       flushCurrentOption()
-      const label = (inlineOptionMatch ?? labelOnlyMatch)?.[1] ?? ''
+      const label = stripBulkImportFormatTokens((inlineOptionMatch ?? labelOnlyMatch)?.[1] ?? '')
       const textFromLine =
         !answerOptionOnOwnLine && inlineOptionMatch ? (inlineOptionMatch[2] ?? '').trim() : ''
       currentOption = { label, text: '' }
@@ -919,7 +981,9 @@ export function parseFromLines(
           const firstIdx = last5NonBlank[0]
           const allNonOption = last5NonBlank.every((i) => {
             const l = questionTextLines[i] ?? ''
-            return !oRe.inline.test(l) && !oRe.labelOnly.test(l)
+            return (
+              !execRegexOnTokenizedLine(l, oRe.inline) && !execRegexOnTokenizedLine(l, oRe.labelOnly)
+            )
           })
           // Require firstIdx > 0 so we keep at least the question text line (index 0); otherwise
           // we'd splice away everything when questionTextLines has exactly 5 lines (question + 4 options).
@@ -1083,8 +1147,8 @@ export function classifyParseLineRoles(
         config.enforceSequentialQuestionNumbers !== false
       ) &&
       hasNearbyAnswerOptionEvidence(rawLines, idx, config, qRe, oRe)
-    const inlineOptionMatch = oRe.inline.exec(line)
-    const labelOnlyMatch = oRe.labelOnly.exec(line)
+    const inlineOptionMatch = execRegexOnTokenizedLine(line, oRe.inline)
+    const labelOnlyMatch = execRegexOnTokenizedLine(line, oRe.labelOnly)
 
     if (expectingQuestionTextLine && currentQuestion) {
       if (!isBlank(trimmed)) {
@@ -1133,7 +1197,7 @@ export function classifyParseLineRoles(
     if (isOptionLine) {
       roles[idx] = 'option'
       flushCurrentOption()
-      const label = (inlineOptionMatch ?? labelOnlyMatch)?.[1] ?? ''
+      const label = stripBulkImportFormatTokens((inlineOptionMatch ?? labelOnlyMatch)?.[1] ?? '')
       const textFromLine =
         !answerOptionOnOwnLine && inlineOptionMatch ? (inlineOptionMatch[2] ?? '').trim() : ''
       currentOption = { label, text: '' }
@@ -1191,7 +1255,9 @@ export function classifyParseLineRoles(
           const firstIdx = last5NonBlank[0]
           const allNonOption = last5NonBlank.every((i) => {
             const l = questionTextLines[i] ?? ''
-            return !oRe.inline.test(l) && !oRe.labelOnly.test(l)
+            return (
+              !execRegexOnTokenizedLine(l, oRe.inline) && !execRegexOnTokenizedLine(l, oRe.labelOnly)
+            )
           })
           if (allNonOption && firstIdx > 0) {
             const optionTexts = last5NonBlank.map((i) => questionTextLines[i] ?? '')
@@ -1278,16 +1344,16 @@ export function buildQuestionPasteSpansForLine(
   }
 
   if (role === 'question') {
-    const inlineMatch = qRe.inline.exec(line)
+    const inlineMatch = execRegexOnTokenizedLine(line, qRe.inline)
     if (inlineMatch) return inlineTextSpan(inlineMatch, 'question')
-    if (questionNumberOnOwnLine && qRe.numberOnly.test(line)) return []
-    if (qRe.numberOnly.test(line)) return []
+    if (questionNumberOnOwnLine && execRegexOnTokenizedLine(line, qRe.numberOnly)) return []
+    if (execRegexOnTokenizedLine(line, qRe.numberOnly)) return []
     return trimmedSpan('question')
   }
 
   if (role === 'option') {
-    const inlineMatch = oRe.inline.exec(line)
-    const labelOnlyMatch = oRe.labelOnly.exec(line)
+    const inlineMatch = execRegexOnTokenizedLine(line, oRe.inline)
+    const labelOnlyMatch = execRegexOnTokenizedLine(line, oRe.labelOnly)
     if (inlineMatch) return inlineTextSpan(inlineMatch, 'option')
     if (answerOptionOnOwnLine && labelOnlyMatch) return []
     if (labelOnlyMatch) return []

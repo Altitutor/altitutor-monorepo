@@ -37,13 +37,18 @@ import {
   hasAnswerExplanation,
   OptionText,
 } from "@/features/question-engine/components/question-content";
-import { computeMarkingResult } from "@/features/question-engine/lib/marking";
+import {
+  getQuestionMaximumMarks,
+  isPlacementResponse,
+} from "@/features/question-engine/lib/response-state";
 import type {
   QuestionEngineExam,
   QuestionItem,
 } from "@/features/question-engine/model/types";
 import { formatTimeSeconds } from "../lib/format-time";
 import { buildQuestionAttemptInsight } from "../lib/attempt-insights";
+import { projectStoredQuestionAttemptReview } from "../lib/attempt-response-review";
+import { getWrongAnswerExplanations } from "../lib/question-insight-evidence";
 import { AttemptInsightCard } from "./attempt-insight-card";
 import { ContentRatingControls } from "@/features/content-ratings/components/content-rating-controls";
 import { contentSnapshotVersion } from "@/features/content-ratings/lib";
@@ -52,7 +57,7 @@ type QuestionAttemptForCard = {
   questionNumber?: number;
   questionId: string;
   questionAnswerOptionId?: string | null;
-  answerSnapshot?: Record<string, boolean> | null;
+  answerSnapshot?: unknown;
   result?: "correct" | "partial" | "incorrect" | "not_attempted";
   score?: number | null;
   timeSpentSeconds?: number | null;
@@ -81,10 +86,6 @@ type SetAnswersCardProps = {
   ratingContextKey?: string;
 };
 
-function getQuestionMaxPoints(question: QuestionItem): number {
-  return question.questionType === "syllogism" ? 2 : 1;
-}
-
 function formatPoints(points: number): string {
   return Number.isInteger(points) ? String(points) : points.toFixed(1);
 }
@@ -92,17 +93,12 @@ function formatPoints(points: number): string {
 function isQuestionNotAnswered(
   question: QuestionItem,
   attempt?: QuestionAttemptForCard,
+  reviewOutcome?: "correct" | "partial" | "incorrect" | "unanswered",
 ): boolean {
   if (!attempt) return true;
   if (attempt.result === "not_attempted") return true;
-  if (question.questionType === "syllogism") {
-    if (attempt.result === "correct" || attempt.result === "partial") {
-      return false;
-    }
-    return (
-      !attempt.answerSnapshot ||
-      Object.keys(attempt.answerSnapshot).length === 0
-    );
+  if (isPlacementResponse(question)) {
+    return reviewOutcome === "unanswered";
   }
   return !attempt.questionAnswerOptionId;
 }
@@ -292,18 +288,14 @@ export function SetAnswersCard({
   const isLoadingExam = !examProp && isLoading;
   const examError = !examProp && error;
 
-  const { selectedAnswers, syllogismSnapshots } = useMemo(() => {
+  const selectedAnswers = useMemo(() => {
     const selected: Record<string, string> = {};
-    const syllogism: Record<string, Record<string, boolean>> = {};
     for (const a of questionAttempts) {
       if (a.questionAnswerOptionId) {
         selected[a.questionId] = a.questionAnswerOptionId;
       }
-      if (a.answerSnapshot && Object.keys(a.answerSnapshot).length > 0) {
-        syllogism[a.questionId] = a.answerSnapshot;
-      }
     }
-    return { selectedAnswers: selected, syllogismSnapshots: syllogism };
+    return selected;
   }, [questionAttempts]);
 
   const [viewingIndex, setViewingIndex] = useState(initialQuestionIndex);
@@ -320,29 +312,34 @@ export function SetAnswersCard({
 
   const currentQuestion = questions[viewingIndex];
   const currentAttempt = questionAttempts[viewingIndex];
+  const currentProjection = useMemo(
+    () =>
+      currentQuestion
+        ? projectStoredQuestionAttemptReview(currentQuestion, currentAttempt)
+        : null,
+    [currentAttempt, currentQuestion],
+  );
   const notAnswered = currentQuestion
-    ? isQuestionNotAnswered(currentQuestion, currentAttempt)
+    ? isQuestionNotAnswered(
+        currentQuestion,
+        currentAttempt,
+        currentProjection?.review.outcome,
+      )
     : false;
   const resultBadge = getAttemptResultBadge(currentAttempt, notAnswered);
+  const wrongAnswerExplanations = currentQuestion
+    ? getWrongAnswerExplanations(currentQuestion, currentProjection?.review)
+    : [];
   const questionInsight = buildQuestionAttemptInsight({
     result: currentAttempt?.result ?? "not_attempted",
     timeSpentSeconds: currentAttempt?.timeSpentSeconds ?? null,
     averageTimeSeconds: currentAttempt?.averageTimeSeconds ?? null,
     averageTimeSampleSize: currentAttempt?.averageTimeSampleSize ?? 0,
     wasFlagged: currentAttempt?.isFlagged ?? false,
+    wrongAnswerExplanations,
   });
-  const markingResult = useMemo(
-    () =>
-      questions.length > 0
-        ? computeMarkingResult(questions, selectedAnswers, syllogismSnapshots)
-        : null,
-    [questions, selectedAnswers, syllogismSnapshots],
-  );
 
-  const points =
-    markingResult && currentQuestion
-      ? markingResult.rows[viewingIndex]?.points
-      : undefined;
+  const points = currentProjection?.points;
 
   const getCachedContent = useRefreshedContentCache(questions, viewingIndex);
   const timingMax = Math.max(
@@ -453,7 +450,7 @@ export function SetAnswersCard({
                   selectedOptionId={selectedAnswers[currentQuestion.id]}
                   correctOptionId={currentQuestion.correctOptionId}
                   points={points}
-                  syllogismSnapshot={syllogismSnapshots[currentQuestion.id]}
+                  review={currentProjection?.review}
                   preloadedContent={getCachedContent(currentQuestion.id)}
                 />
               </div>
@@ -507,7 +504,9 @@ export function SetAnswersCard({
               <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
                 <span className="tabular-nums">
                   Points: {formatPoints(points ?? currentAttempt?.score ?? 0)} /{" "}
-                  {currentQuestion ? getQuestionMaxPoints(currentQuestion) : 1}
+                  {currentQuestion
+                    ? getQuestionMaximumMarks(currentQuestion)
+                    : 1}
                 </span>
                 {resultBadge ? (
                   <Badge
@@ -551,7 +550,7 @@ export function SetAnswersCard({
                   question={currentQuestion}
                   selectedOptionId={selectedAnswers[currentQuestion.id]}
                   correctOptionId={currentQuestion.correctOptionId}
-                  syllogismSnapshot={syllogismSnapshots[currentQuestion.id]}
+                  review={currentProjection?.review}
                   preloadedContent={getCachedContent(currentQuestion.id)}
                   variant="site"
                   showExplanations={false}
@@ -593,7 +592,7 @@ export function SetAnswersCard({
         </Card>
       </div>
 
-      <div id="tour-attempt-explanation" className="min-w-0 space-y-4">
+      <div className="min-w-0 space-y-4">
         {questionInsight ? (
           <AttemptInsightCard
             label="Question insight"
@@ -602,7 +601,10 @@ export function SetAnswersCard({
           />
         ) : null}
 
-        <Card className={cn(UCAT_CARD_CHROME, "min-w-0")}>
+        <Card
+          id="tour-attempt-explanation"
+          className={cn(UCAT_CARD_CHROME, "min-w-0")}
+        >
           <CardHeader className="pb-3">
             <CardTitle className="text-base font-medium">
               Answer explanation
@@ -644,108 +646,112 @@ export function SetAnswersCard({
           </CardContent>
         </Card>
 
-        <Card className={cn(UCAT_CARD_CHROME, "min-w-0")}>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base font-medium">
-              Question timing
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <MeterRow
-              label="Your time"
-              value={currentAttempt?.timeSpentSeconds}
-              max={timingMax}
-            />
-            {currentAttempt?.averageTimeSeconds != null ? (
+        <div id="tour-attempt-question-properties" className="space-y-4">
+          <Card className={cn(UCAT_CARD_CHROME, "min-w-0")}>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base font-medium">
+                Question timing
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
               <MeterRow
-                label="Full-mark attempt average"
-                value={currentAttempt.averageTimeSeconds}
+                label="Your time"
+                value={currentAttempt?.timeSpentSeconds}
                 max={timingMax}
-                tone="muted"
               />
-            ) : null}
-            {currentAttempt?.timeBurdenSeconds != null ? (
-              <MeterRow
-                label="Expected time to correct"
-                value={currentAttempt.timeBurdenSeconds}
-                max={timingMax}
-                tone="amber"
-              />
-            ) : null}
-          </CardContent>
-        </Card>
+              {currentAttempt?.averageTimeSeconds != null ? (
+                <MeterRow
+                  label="Full-mark attempt average"
+                  value={currentAttempt.averageTimeSeconds}
+                  max={timingMax}
+                  tone="muted"
+                />
+              ) : null}
+              {currentAttempt?.timeBurdenSeconds != null ? (
+                <MeterRow
+                  label="Expected time to correct"
+                  value={currentAttempt.timeBurdenSeconds}
+                  max={timingMax}
+                  tone="amber"
+                />
+              ) : null}
+            </CardContent>
+          </Card>
 
-        <Card className={cn(UCAT_CARD_CHROME, "min-w-0")}>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base font-medium">
-              Question properties
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="flex items-start justify-between gap-4">
-              <div className="shrink-0 text-xs font-medium text-muted-foreground">
-                Stem category
-              </div>
-              {currentAttempt?.categoryName ? (
-                <div className="flex min-w-0 justify-end">
-                  <DescriptionPill
-                    variant="secondary"
-                    description={currentAttempt.categoryDescription}
-                  >
-                    {currentAttempt.categoryName}
-                  </DescriptionPill>
-                </div>
-              ) : (
-                <span className="text-sm text-muted-foreground">—</span>
-              )}
-            </div>
-            <div className="flex items-start justify-between gap-4">
-              <div className="shrink-0 text-xs font-medium text-muted-foreground">
-                Question tags
-              </div>
-              {currentAttempt?.questionTags?.length ? (
-                <div className="flex min-w-0 flex-wrap justify-end gap-1.5">
-                  {currentAttempt.questionTags.map((tag) => (
-                    <DescriptionPill
-                      key={getTagName(tag)}
-                      description={getTagDescription(tag)}
-                    >
-                      {getTagName(tag)}
-                    </DescriptionPill>
-                  ))}
-                </div>
-              ) : (
-                <span className="text-sm text-muted-foreground">—</span>
-              )}
-            </div>
-            {currentAttempt?.difficulty != null ? (
+          <Card className={cn(UCAT_CARD_CHROME, "min-w-0")}>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base font-medium">
+                Question properties
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
               <div className="flex items-start justify-between gap-4">
                 <div className="shrink-0 text-xs font-medium text-muted-foreground">
-                  Difficulty
+                  Stem category
                 </div>
-                <div className="min-w-0 flex-1 space-y-1.5">
-                  <div className="text-right text-xs tabular-nums">
-                    {formatUcatQuestionDifficulty(currentAttempt.difficulty)}
+                {currentAttempt?.categoryName ? (
+                  <div className="flex min-w-0 justify-end">
+                    <DescriptionPill
+                      variant="secondary"
+                      description={currentAttempt.categoryDescription}
+                    >
+                      {currentAttempt.categoryName}
+                    </DescriptionPill>
                   </div>
-                  <div className="h-2 overflow-hidden rounded-full bg-muted">
-                    <div
-                      className="h-full rounded-full bg-primary"
-                      style={{
-                        width: `${Math.min(
-                          100,
-                          Math.max(
-                            0,
-                            ucatQuestionDifficultyPercent(currentAttempt.difficulty),
-                          ),
-                        )}%`,
-                      }}
-                    />
-                  </div>
-                </div>
+                ) : (
+                  <span className="text-sm text-muted-foreground">—</span>
+                )}
               </div>
-            ) : null}
-          </CardContent>
-        </Card>
+              <div className="flex items-start justify-between gap-4">
+                <div className="shrink-0 text-xs font-medium text-muted-foreground">
+                  Question tags
+                </div>
+                {currentAttempt?.questionTags?.length ? (
+                  <div className="flex min-w-0 flex-wrap justify-end gap-1.5">
+                    {currentAttempt.questionTags.map((tag) => (
+                      <DescriptionPill
+                        key={getTagName(tag)}
+                        description={getTagDescription(tag)}
+                      >
+                        {getTagName(tag)}
+                      </DescriptionPill>
+                    ))}
+                  </div>
+                ) : (
+                  <span className="text-sm text-muted-foreground">—</span>
+                )}
+              </div>
+              {currentAttempt?.difficulty != null ? (
+                <div className="flex items-start justify-between gap-4">
+                  <div className="shrink-0 text-xs font-medium text-muted-foreground">
+                    Difficulty
+                  </div>
+                  <div className="min-w-0 flex-1 space-y-1.5">
+                    <div className="text-right text-xs tabular-nums">
+                      {formatUcatQuestionDifficulty(currentAttempt.difficulty)}
+                    </div>
+                    <div className="h-2 overflow-hidden rounded-full bg-muted">
+                      <div
+                        className="h-full rounded-full bg-primary"
+                        style={{
+                          width: `${Math.min(
+                            100,
+                            Math.max(
+                              0,
+                              ucatQuestionDifficultyPercent(
+                                currentAttempt.difficulty,
+                              ),
+                            ),
+                          )}%`,
+                        }}
+                      />
+                    </div>
+                  </div>
+                </div>
+              ) : null}
+            </CardContent>
+          </Card>
+        </div>
       </div>
     </div>
   );

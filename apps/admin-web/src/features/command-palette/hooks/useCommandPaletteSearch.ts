@@ -1,4 +1,5 @@
 import { useEntitySearch } from '@/shared/hooks/useEntitySearch';
+import { excludeDoneEntities } from '../utils/excludeDoneEntities';
 import { getEntitySearchTypes, shouldRunEntitySearch } from '../utils/entitySearchTypes';
 import type { UseCommandPaletteSearchOptions } from '../types';
 
@@ -24,20 +25,8 @@ export function useCommandPaletteSearch({
     types: entitySearchTypes,
   });
 
-  const filteredResults = results.filter((result) => {
-    if (result.type === 'task') {
-      return result.data.status !== 'done';
-    }
-
-    if (result.type === 'issue') {
-      return result.data.status !== 'resolved';
-    }
-
-    return true;
-  });
-
   return {
-    results: filteredResults,
+    results: excludeDoneEntities(results),
     isLoading,
     hasError,
   };

@@ -4,23 +4,16 @@ export type QuestionAttemptChartResult =
   | "incorrect"
   | "not_attempted";
 
-export function getQuestionMaxPoints(
-  questionType: "multiple_choice" | "syllogism" | null | undefined,
-): number {
-  return questionType === "syllogism" ? 2 : 1;
-}
-
 export function computeQuestionAttemptResult(params: {
   score: number | null;
-  questionType: "multiple_choice" | "syllogism" | null | undefined;
+  maximumPoints: number;
   hasAttempt: boolean;
 }): QuestionAttemptChartResult {
-  const { score, questionType, hasAttempt } = params;
+  const { score, maximumPoints, hasAttempt } = params;
   if (!hasAttempt) return "not_attempted";
   if (score == null) return "not_attempted";
 
-  const maxScore = getQuestionMaxPoints(questionType);
   if (score <= 0) return "incorrect";
-  if (score >= maxScore) return "correct";
+  if (score >= maximumPoints) return "correct";
   return "partial";
 }

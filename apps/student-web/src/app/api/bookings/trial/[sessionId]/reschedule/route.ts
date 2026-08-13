@@ -5,7 +5,6 @@ import {
   formatSessionDateTime,
   getBookingConfirmationUrl,
   getMinAdvanceBookingDays,
-  isValidUuid,
   isWithinMinAdvanceThreshold,
   loadPublicBookingSession,
 } from '@/features/bookings/lib/public-booking-guards';
@@ -20,8 +19,8 @@ export async function POST(
 ) {
   try {
     const sessionId = params.sessionId;
-    if (!sessionId || !isValidUuid(sessionId)) {
-      return NextResponse.json({ error: 'Invalid session ID' }, { status: 400 });
+    if (!sessionId) {
+      return NextResponse.json({ error: 'Booking link is required' }, { status: 400 });
     }
 
     const body = await request.json();
@@ -102,6 +101,10 @@ export async function POST(
     }
 
     const { sessionDate, sessionTime } = formatSessionDateTime(startAt, endAt);
+    const { data: bookingToken } = await supabase.rpc(
+      'issue_session_booking_public_token',
+      { p_session_id: session.id }
+    );
     if (session.student_email) {
       try {
         await sendEmail({
@@ -112,7 +115,9 @@ export async function POST(
               .join(' '),
             sessionDate,
             sessionTime,
-            bookingUrl: getBookingConfirmationUrl(session.id),
+            bookingUrl: getBookingConfirmationUrl(
+              typeof bookingToken === 'string' ? bookingToken : sessionId
+            ),
           }),
         });
       } catch (emailError) {

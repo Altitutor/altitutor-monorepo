@@ -5,6 +5,7 @@ import { formatSubjectDisplay } from './index';
 
 interface BookingData {
   session_id: string;
+  booking_token?: string | null;
   start_at: string;
   end_at: string;
   student_first_name: string;
@@ -44,7 +45,9 @@ export function generateCalendarEvent(bookingData: BookingData): string {
     return process.env.NEXT_PUBLIC_STUDENT_URL || process.env.NEXT_PUBLIC_SITE_URL || 'https://student.altitutor.com';
   };
 
-  const bookingUrl = `${getBaseUrl()}/booking-success?sessionId=${bookingData.session_id}`;
+  const bookingUrl = bookingData.booking_token
+    ? `${getBaseUrl()}/b/${bookingData.booking_token}`
+    : `${getBaseUrl()}/booking-success?sessionId=${bookingData.session_id}`;
 
   const description = `Contact Altitutor at:
 ${CONTACT_PHONE}

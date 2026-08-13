@@ -11,6 +11,7 @@ const mockConflictingAttempt = {
   attemptId: "attempt-1",
   resourceId: "set-1",
   label: "Existing set",
+  engineSnapshot: { phase: "question" },
 } as ActiveExamAttempt;
 let mockActive: ActiveExamAttempt | null = mockConflictingAttempt;
 
@@ -80,5 +81,23 @@ describe("useExamAttemptLaunchGate", () => {
     expect(mockRefresh).toHaveBeenCalledTimes(1);
     expect(result.current.launchAllowed).toBe(true);
     expect(result.current.isDiscardingConflict).toBe(false);
+  });
+
+  it("allows launch when the lingering active attempt is already at results", async () => {
+    mockActive = {
+      kind: "mock",
+      attemptId: "mock-attempt-1",
+      resourceId: "mock-1",
+      label: "Study plan golden mock 2",
+      engineSnapshot: { phase: "mockScore" },
+    } as ActiveExamAttempt;
+
+    const { result } = renderHook(() =>
+      useExamAttemptLaunchGate("set", "set-1"),
+    );
+
+    await waitFor(() => expect(result.current.launchAllowed).toBe(true));
+    expect(result.current.conflictActive).toBeNull();
+    expect(mockClearLocal).toHaveBeenCalled();
   });
 });

@@ -82,6 +82,24 @@ function parseSetNames(setNames: unknown): string[] {
     .filter(Boolean);
 }
 
+function parseSetIds(setIds: unknown): string[] {
+  if (!Array.isArray(setIds)) return [];
+  return setIds.filter((id): id is string => typeof id === "string");
+}
+
+function parseStemSets(
+  setNames: unknown,
+  setIds: unknown,
+): Array<{ id: string; name: string }> {
+  const ids = parseSetIds(setIds);
+  const names = Array.isArray(setNames) ? setNames : [];
+  return ids.map((id, index) => ({
+    id,
+    name:
+      proseMirrorToPlainText(names[index] as Json)?.trim() || "Untitled",
+  }));
+}
+
 type ModuleBlockAttachmentRow = {
   question_stem_id: string | null;
   question_id: string | null;
@@ -144,7 +162,7 @@ export async function GET() {
       .is("deleted_at", null),
     access.userClient
       .from("vtutor_ucat_question_stems")
-      .select("id,access_scope,set_names")
+      .select("id,access_scope,set_names,set_ids")
       .is("deleted_at", null),
     access.userClient
       .from("vtutor_ucat_sections")
@@ -260,12 +278,20 @@ export async function GET() {
     );
 
   const privateStemIdsNotInSet = new Set<string>();
+  const stemIdsInMultipleSets = new Set<string>();
+  const setsByStemId = new Map<string, Array<{ id: string; name: string }>>();
   for (const s of stemsListResult.data ?? []) {
     const row = s as {
       id: string;
       access_scope: "public" | "private";
       set_names: unknown;
+      set_ids: unknown;
     };
+    const sets = parseStemSets(row.set_names, row.set_ids);
+    setsByStemId.set(row.id, sets);
+    if (sets.length > 1) {
+      stemIdsInMultipleSets.add(row.id);
+    }
     const setNames = parseSetNames(row.set_names);
     if (row.access_scope !== "private") continue;
     if (setNames.length === 0 && !attachedStemIds.has(row.id)) {
@@ -350,9 +376,24 @@ export async function GET() {
       questions: (r.questions ?? []) as QuestionRow[],
     }));
 
-  // Exact duplicates have their own indexed, paginated queue. Keeping the
-  // former fuzzy scan out of this legacy report prevents unrelated issue pages,
-  // sets, and mocks from paying its O(n²) request-time cost.
+  const stemsInMultipleSets = rows
+    .filter((r) => stemIdsInMultipleSets.has(r.id))
+    .map((r) => ({
+      id: r.id,
+      sectionId: r.section_id,
+      sectionName: r.section_name ?? "",
+      categoryId: r.question_stem_category_id,
+      categoryName: r.category_name ?? null,
+      stemText: r.stem_text,
+      sets: setsByStemId.get(r.id) ?? [],
+      questions: (r.questions ?? []) as QuestionRow[],
+    }))
+    .sort((left, right) => right.sets.length - left.sets.length);
+
+  // Exact + high-confidence near-copy duplicates have their own indexed,
+  // paginated queue. Keeping the former fuzzy scan out of this legacy report
+  // prevents unrelated issue pages, sets, and mocks from paying its O(n²)
+  // request-time cost.
   const potentialDuplicatePairs: never[] = [];
 
   const sections: UcatSectionForStatus[] = (sectionsResult.data ?? []).map(
@@ -495,6 +536,7 @@ export async function GET() {
     downvotedExplanations,
     untaggedQuestions,
     privateStemsNotInSet,
+    stemsInMultipleSets,
     potentialDuplicatePairs,
     setsWithIncorrectQuestionCount,
     setsWithIncorrectTiming,

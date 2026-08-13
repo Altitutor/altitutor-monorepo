@@ -25,6 +25,8 @@ const VenueMap = dynamic(() => import('@/shared/components/VenueMap').then(mod =
 
 interface BookingData {
   session_id: string;
+  booking_token?: string | null;
+  is_terminal?: boolean;
   session_type?: string;
   status?: string;
   start_at: string;
@@ -47,7 +49,9 @@ function isPublicBookingType(
 
 export default function BookingSuccessPage() {
   const searchParams = useSearchParams();
+  const publicBookingIdentifier = searchParams.get('sessionId');
   const [bookingData, setBookingData] = useState<BookingData | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [changeOpen, setChangeOpen] = useState(false);
   const [cancelOpen, setCancelOpen] = useState(false);
@@ -63,7 +67,7 @@ export default function BookingSuccessPage() {
       try {
         const parsed = JSON.parse(storedData) as BookingData;
         // Verify sessionId matches if provided
-        if (!sessionId || parsed.session_id === sessionId) {
+        if (!sessionId || parsed.session_id === sessionId || parsed.booking_token === sessionId) {
           setBookingData({ ...parsed, status: parsed.status ?? 'ACTIVE' });
           setIsLoading(false);
           // Clear the stored data after reading
@@ -80,17 +84,18 @@ export default function BookingSuccessPage() {
       fetch(`/api/bookings/trial/${sessionId}`)
         .then(async (response) => {
           if (!response.ok) {
+            const payload = await response.json().catch(() => null) as { error?: string } | null;
             if (response.status === 404) {
               throw new Error('Session not found');
             }
-            throw new Error('Failed to fetch booking data');
+            throw new Error(payload?.error || 'Failed to fetch booking data');
           }
           const data = await response.json();
           setBookingData(data);
         })
         .catch((error) => {
           console.error('Failed to fetch booking data:', error);
-          // Keep loading state false to show error message
+          setLoadError(error instanceof Error ? error.message : 'Unable to load booking details.');
         })
         .finally(() => {
           setIsLoading(false);
@@ -114,11 +119,13 @@ export default function BookingSuccessPage() {
   const canManage =
     !!bookingData &&
     !isCancelled &&
+    !bookingData.is_terminal &&
     isPublicBookingType(bookingData.session_type) &&
     !isWithinMinAdvanceThreshold(bookingData.start_at, minAdvanceDays);
   const thresholdBlocksManage =
     !!bookingData &&
     !isCancelled &&
+    !bookingData.is_terminal &&
     isPublicBookingType(bookingData.session_type) &&
     isWithinMinAdvanceThreshold(bookingData.start_at, minAdvanceDays);
 
@@ -139,7 +146,7 @@ export default function BookingSuccessPage() {
       <div className="container max-w-6xl py-8">
         <div className="flex items-center justify-center py-12">
           <div className="text-center">
-            <p className="text-muted-foreground">Unable to load booking details.</p>
+            <p className="text-muted-foreground">{loadError || 'Unable to load booking details.'}</p>
             <p className="text-sm text-muted-foreground mt-2">
               If you just completed a booking, please check your email for confirmation.
             </p>
@@ -151,6 +158,7 @@ export default function BookingSuccessPage() {
 
   const sessionStart = parseISO(bookingData.start_at);
   const sessionEnd = parseISO(bookingData.end_at);
+  const isCompleted = bookingData.is_terminal && !isCancelled;
 
   const durationMinutes = differenceInMinutes(sessionEnd, sessionStart);
   const durationHours = Math.floor(durationMinutes / 60);
@@ -199,18 +207,20 @@ export default function BookingSuccessPage() {
               : 'bg-green-100 dark:bg-green-900/20'
           )}
         >
-          {isCancelled ? (
+          {isCancelled || isCompleted ? (
             <XCircle className="h-8 w-8 text-muted-foreground" />
           ) : (
             <Check className="h-8 w-8 text-green-600 dark:text-green-400" />
           )}
         </div>
         <h1 className="text-3xl font-bold mb-2">
-          {isCancelled ? 'Booking Cancelled' : 'Booking Confirmed!'}
+          {isCancelled ? 'Booking Cancelled' : isCompleted ? 'Session Completed' : 'Booking Confirmed!'}
         </h1>
         <p className="text-muted-foreground">
           {isCancelled
             ? `Your ${sessionTypeLabel} has been cancelled`
+            : isCompleted
+              ? `Your ${sessionTypeLabel} has been completed`
             : bookingData.session_type
               ? `Your ${sessionTypeLabel} has been successfully booked`
               : 'Your session has been successfully booked'}
@@ -263,22 +273,30 @@ export default function BookingSuccessPage() {
                   <div className="text-sm">
                     {bookingData.student_first_name} {bookingData.student_last_name}
                   </div>
-                  
-                  <div className="text-sm font-medium text-muted-foreground">Email:</div>
-                  <div className="text-sm">{bookingData.student_email}</div>
-                  
-                  {bookingData.student_phone && (
+
+                  {!bookingData.is_terminal && (
+                    <>
+                      <div className="text-sm font-medium text-muted-foreground">Email:</div>
+                      <div className="text-sm">{bookingData.student_email}</div>
+                    </>
+                  )}
+
+                  {!bookingData.is_terminal && bookingData.student_phone && (
                     <>
                       <div className="text-sm font-medium text-muted-foreground">Phone:</div>
                       <div className="text-sm">{bookingData.student_phone}</div>
                     </>
                   )}
-                  
-                  <div className="text-sm font-medium text-muted-foreground">Curriculum:</div>
-                  <div className="text-sm">
-                    {bookingData.curriculum}
-                    {bookingData.year_level && ` - Year ${bookingData.year_level === 'Reception' || bookingData.year_level === 0 ? 'Reception' : bookingData.year_level}`}
-                  </div>
+
+                  {!bookingData.is_terminal && (
+                    <>
+                      <div className="text-sm font-medium text-muted-foreground">Curriculum:</div>
+                      <div className="text-sm">
+                        {bookingData.curriculum}
+                        {bookingData.year_level && ` - Year ${bookingData.year_level === 'Reception' || bookingData.year_level === 0 ? 'Reception' : bookingData.year_level}`}
+                      </div>
+                    </>
+                  )}
                   
                   {bookingData.subjects && bookingData.subjects.length > 0 && (
                     <>
@@ -469,7 +487,7 @@ export default function BookingSuccessPage() {
           <ChangeSessionDialog
             open={changeOpen}
             onOpenChange={setChangeOpen}
-            sessionId={bookingData.session_id}
+            sessionId={publicBookingIdentifier ?? bookingData.session_id}
             sessionType={bookingData.session_type}
             currentStartAt={bookingData.start_at}
             currentEndAt={bookingData.end_at}
@@ -489,7 +507,7 @@ export default function BookingSuccessPage() {
           <CancelBookingDialog
             open={cancelOpen}
             onOpenChange={setCancelOpen}
-            sessionId={bookingData.session_id}
+            sessionId={publicBookingIdentifier ?? bookingData.session_id}
             sessionLabel={sessionTypeLabel}
             onCancelled={() => {
               setBookingData((prev) =>

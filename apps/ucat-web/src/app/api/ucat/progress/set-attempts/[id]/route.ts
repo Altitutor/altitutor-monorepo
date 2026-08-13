@@ -13,12 +13,13 @@ import {
   buildAttemptReviewExam,
   parseAttemptContentSnapshot,
   snapshotQuestionMetadata,
-  snapshotSyllogismOptions,
+  snapshotToQuestionItem,
 } from "@/features/progress/lib/attempt-content-snapshot";
 import { getAttemptPercentile } from "@/features/progress/server/attempt-percentile-service";
 import type { CohortPercentileResult } from "@altitutor/ucat-percentiles";
 import type { AttemptRecentPerformance } from "@/features/progress/lib/attempt-insights";
 import { fetchRecentAttemptPerformance } from "@/features/progress/server/attempt-insight-trend-service";
+import { getQuestionMaximumMarks } from "@/features/question-engine/lib/response-state";
 
 export type SetAttemptDetailResponse = {
   id: string;
@@ -58,27 +59,10 @@ export type SetAttemptDetailResponse = {
     questionStemCategoryId: string | null;
     /** For answers view: selected option id (multiple choice) or null */
     questionAnswerOptionId: string | null;
-    /** For answers view: syllogism snapshot { optionId: boolean } */
-    answerSnapshot: Record<string, boolean> | null;
+    /** Canonical persisted response snapshot used by answer-scheme review. */
+    answerSnapshot: unknown;
   }[];
 };
-
-function parseAnswerSnapshot(
-  snapshot: unknown,
-): Record<string, boolean> | null {
-  if (!snapshot || typeof snapshot !== "object") return null;
-  const obj = snapshot as Record<string, unknown>;
-  if (obj.type !== "syllogism_v1" || !Array.isArray(obj.answers)) return null;
-  const answers = obj.answers as Array<{
-    question_answer_option_id: string;
-    answer: boolean;
-  }>;
-  const result: Record<string, boolean> = {};
-  for (const a of answers) {
-    result[a.question_answer_option_id] = a.answer;
-  }
-  return result;
-}
 
 export async function GET(
   _request: Request,
@@ -169,10 +153,6 @@ export async function GET(
     );
   const questionIds = orderedAttempts.map(({ snapshot }) => snapshot.question.id);
   const questionMetadata = await fetchAttemptReviewQuestionMetadata(supabase, questionIds);
-  const syllogismOptionsByQuestionId = new Map(
-    orderedAttempts.map(({ snapshot }) => [snapshot.question.id, snapshotSyllogismOptions(snapshot)]),
-  );
-
   const attemptsByQuestionId = new Map(
     (questionAttemptsRaw ?? []).map((qa) => {
       const snapshot = parseAttemptContentSnapshot(qa.content_snapshot);
@@ -189,7 +169,7 @@ export async function GET(
         categoryName: qa.category_name,
         questionStemCategoryId: qa.question_stem_category_id,
         questionAnswerOptionId: qa.question_answer_option_id ?? null,
-        answerSnapshot: parseAnswerSnapshot(qa.answer_snapshot),
+        answerSnapshot: qa.answer_snapshot,
         isFlagged: qa.is_flagged ?? false,
         snapshot,
       },
@@ -211,9 +191,10 @@ export async function GET(
       const snapshotMetadata = snapshotQuestionMetadata(snapshot);
       const questionNumber = index + 1;
       const { score, result } = resolveQuestionAttemptScoreAndResult({
-        questionId,
         attemptData,
-        syllogismOptionsByQuestionId,
+        maximumPoints: getQuestionMaximumMarks(
+          snapshotToQuestionItem(snapshot, index, attempt.question_set_id ?? "review"),
+        ),
       });
       const timeSpentSeconds = attemptData?.timeSpentSeconds ?? null;
       const metadata = questionMetadata.get(questionId);

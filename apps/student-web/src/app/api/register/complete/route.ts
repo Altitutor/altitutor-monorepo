@@ -2,6 +2,10 @@ import { captureApiError } from '@/lib/sentry/capture-api-error';
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import type { Database } from '@altitutor/shared';
+import {
+  isRegistrationTokenRevoked,
+  resolveRegistrationStudentId,
+} from '@/features/registration/lib/public-registration-token';
 
 export async function POST(request: NextRequest) {
   try {
@@ -31,7 +35,6 @@ export async function POST(request: NextRequest) {
       subject_ids,
       password,
       confirmPassword,
-      skipPassword,
     } = body;
 
     // Validate required fields
@@ -39,35 +42,9 @@ export async function POST(request: NextRequest) {
     if (!token) missingFields.push('token');
     if (!student) missingFields.push('student');
     
-    // Password validation depends on skipPassword flag
-    if (skipPassword) {
-      // When skipping password creation, we still need password for sign-in
-      if (!password) missingFields.push('password');
-    } else {
-      // When creating new password, both password and confirmPassword are required
-      if (!password) missingFields.push('password');
-      if (!confirmPassword) missingFields.push('confirmPassword');
-    }
-    
     if (missingFields.length > 0) {
       return NextResponse.json(
         { error: `Missing required fields: ${missingFields.join(', ')}` },
-        { status: 400 }
-      );
-    }
-
-    // Validate password match (only when not skipping password)
-    if (!skipPassword && password !== confirmPassword) {
-      return NextResponse.json(
-        { error: 'Passwords do not match' },
-        { status: 400 }
-      );
-    }
-
-    // Validate password strength (weaker requirements)
-    if (password && password.length < 6) {
-      return NextResponse.json(
-        { error: 'Password must be at least 6 characters' },
         { status: 400 }
       );
     }
@@ -132,11 +109,25 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // First, verify token is still valid and student exists
+    if (await isRegistrationTokenRevoked(supabaseAdmin, token)) {
+      return NextResponse.json(
+        { error: 'This registration link has been replaced. Please use the newest link from Altitutor.' },
+        { status: 410 }
+      );
+    }
+
+    const registrationStudentId = await resolveRegistrationStudentId(supabaseAdmin, token);
+    if (!registrationStudentId) {
+      return NextResponse.json(
+        { error: 'Invalid or revoked registration link' },
+        { status: 404 }
+      );
+    }
+
     const { data: studentCheck, error: studentCheckError } = await supabaseAdmin
       .from('students')
-      .select('id, status, user_id, invite_token')
-      .eq('invite_token', token)
+      .select('id, status, user_id')
+      .eq('id', registrationStudentId)
       .maybeSingle();
 
     if (studentCheckError || !studentCheck) {
@@ -146,18 +137,48 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Check if student is already fully registered (has account AND status is ACTIVE)
-    if (studentCheck.user_id && studentCheck.status === 'ACTIVE') {
+    if (studentCheck.status === 'ACTIVE') {
       return NextResponse.json(
         { error: 'This student is already fully registered', alreadyRegistered: true },
         { status: 400 }
       );
     }
-    
-    // If skipPassword is true, student should already have an account
-    if (skipPassword && !studentCheck.user_id) {
+
+    if (studentCheck.status !== 'TRIAL') {
       return NextResponse.json(
-        { error: 'Cannot skip password: student does not have an account', alreadyRegistered: false },
+        { error: 'Registration is not available for this student' },
+        { status: 409 }
+      );
+    }
+    
+    // Account ownership is authoritative. Never let a bearer-token caller choose
+    // whether this request creates another Auth user.
+    const skipPassword = Boolean(studentCheck.user_id);
+
+    if (!password) {
+      return NextResponse.json(
+        { error: 'Missing required fields: password' },
+        { status: 400 }
+      );
+    }
+
+    if (!skipPassword && !confirmPassword) {
+      return NextResponse.json(
+        { error: 'Missing required fields: confirmPassword' },
+        { status: 400 }
+      );
+    }
+
+    if (!skipPassword && password !== confirmPassword) {
+      return NextResponse.json(
+        { error: 'Passwords do not match' },
+        { status: 400 }
+      );
+    }
+
+    if (password.length < 6) {
+      return NextResponse.json(
+        { error: 'Password must be at least 6 characters' },
         { status: 400 }
       );
     }
@@ -190,7 +211,7 @@ export async function POST(request: NextRequest) {
 
     // Call the database function to atomically update student, parents, and subjects
     const { data: dbResult, error: dbError } = await supabaseAdmin.rpc(
-      'complete_student_registration',
+      'complete_student_registration_public',
       {
         p_token: token,
         p_student_first_name: student.first_name,
@@ -275,6 +296,19 @@ export async function POST(request: NextRequest) {
         );
       }
 
+      const { error: activateError } = await supabaseAdmin
+        .from('students')
+        .update({ status: 'ACTIVE', invite_token: null })
+        .eq('id', studentId);
+
+      if (activateError) {
+        captureApiError(activateError, "/api/register/complete");
+        return NextResponse.json(
+          { error: 'Failed to activate registration' },
+          { status: 500 }
+        );
+      }
+
       // Registration complete - return success (student already has account, no need to sign in)
       return NextResponse.json({
         success: true,
@@ -284,7 +318,6 @@ export async function POST(request: NextRequest) {
     }
 
     // Create auth user and link it to the student (normal flow)
-    // Use the invite_token in user_metadata so the trigger links it
     const { data: authData, error: createAuthError } = await supabaseAdmin.auth.admin.createUser({
       email: student.email,
       password: password!,
@@ -292,7 +325,7 @@ export async function POST(request: NextRequest) {
       user_metadata: {
         first_name: student.first_name,
         last_name: student.last_name,
-        invite_token: token, // Include token for the link_precreated_user trigger
+        registration_student_id: studentId,
       }
     });
 
@@ -340,22 +373,24 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // If user_id wasn't set by trigger, set it manually
-    if (!updatedStudent.user_id) {
-      const { error: linkError } = await supabaseAdmin
-        .from('students')
-        .update({ user_id: authData.user.id })
-        .eq('id', studentId!);
+    // Link the account, activate the In-person relationship, and retire any
+    // now-obsolete account invite. The durable registration link is retained.
+    const { error: linkError } = await supabaseAdmin
+      .from('students')
+      .update({
+        user_id: updatedStudent.user_id ?? authData.user.id,
+        status: 'ACTIVE',
+        invite_token: null,
+      })
+      .eq('id', studentId!);
 
-      if (linkError) {
-        console.error('Failed to link user:', linkError);
-        // Clean up auth user
-        await supabaseAdmin.auth.admin.deleteUser(authData.user.id);
-        return NextResponse.json(
-          { error: 'Failed to link account' },
-          { status: 500 }
-        );
-      }
+    if (linkError) {
+      console.error('Failed to link user:', linkError);
+      await supabaseAdmin.auth.admin.deleteUser(authData.user.id);
+      return NextResponse.json(
+        { error: 'Failed to link account' },
+        { status: 500 }
+      );
     }
 
     // Return success - the frontend will handle signing in the user

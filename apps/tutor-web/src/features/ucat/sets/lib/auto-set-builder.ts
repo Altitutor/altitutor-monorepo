@@ -1,7 +1,36 @@
 import type { UcatStemCatalogItem } from '@/features/ucat/questions/hooks/useUcatQuestions'
+import {
+  evaluateBlueprint,
+  UCAT_ANZ_2026_V1,
+  type BlueprintSectionCode,
+} from '@altitutor/ucat-blueprint'
+import {
+  blueprintSectionCode,
+  catalogStemToBlueprintStem,
+  evaluationToStoredCompliance,
+  type StoredBlueprintCompliance,
+} from '@/features/ucat/mocks/lib/blueprint-compliance'
 
-export type AutoSetMode = 'total' | 'category'
+export type AutoSetMode = 'total' | 'category' | 'range'
+export type AutoBlueprintSource = 'manual' | '2026'
 export type AutoStemVisibility = 'either' | 'public' | 'private'
+
+export type AutoCategoryRangeInput = {
+  min: string
+  max: string
+}
+
+function yieldToMain(): Promise<void> {
+  return new Promise((resolve) => {
+    if (typeof window === 'undefined') {
+      resolve()
+      return
+    }
+    window.requestAnimationFrame(() => {
+      window.setTimeout(resolve, 0)
+    })
+  })
+}
 
 export type AutoSetPreview = {
   selectedStems: UcatStemCatalogItem[]
@@ -11,10 +40,13 @@ export type AutoSetPreview = {
     categoryId: string
     categoryName: string
     targetQuestions: number
+    minQuestions?: number
+    maxQuestions?: number
     actualQuestions: number
     stemCount: number
     eligibleStemCount: number
   }>
+  blueprintCompliance?: StoredBlueprintCompliance
   warnings: string[]
 }
 
@@ -27,6 +59,21 @@ export type AutoCategoryRow = {
 export function positiveIntFromInput(value: string): number {
   const parsed = Number.parseInt(value, 10)
   return Number.isFinite(parsed) && parsed > 0 ? parsed : 0
+}
+
+export function nonNegativeIntFromInput(value: string): number | null {
+  const trimmed = value.trim()
+  if (trimmed === '') return null
+  const parsed = Number.parseInt(trimmed, 10)
+  return Number.isFinite(parsed) && parsed >= 0 ? parsed : null
+}
+
+export function parseCategoryRange(input: AutoCategoryRangeInput | undefined): { min: number; max: number } | null {
+  if (!input) return null
+  const min = nonNegativeIntFromInput(input.min)
+  const max = nonNegativeIntFromInput(input.max)
+  if (min === null || max === null) return null
+  return { min, max }
 }
 
 function hashString(value: string): number {
@@ -59,9 +106,8 @@ function shuffleWithSeed<T>(items: T[], seed: string): T[] {
   return copy
 }
 
-function chooseClosestWholeStemSet(stems: UcatStemCatalogItem[], targetQuestions: number): UcatStemCatalogItem[] {
-  if (targetQuestions <= 0 || stems.length === 0) return []
-
+/** Achievable question totals → stem indexes (prefer fewer stems for the same total). */
+function achievableQuestionTotals(stems: UcatStemCatalogItem[]): Map<number, number[]> {
   const choices = new Map<number, number[]>()
   choices.set(0, [])
 
@@ -76,6 +122,13 @@ function chooseClosestWholeStemSet(stems: UcatStemCatalogItem[], targetQuestions
     }
   })
 
+  return choices
+}
+
+function chooseClosestWholeStemSet(stems: UcatStemCatalogItem[], targetQuestions: number): UcatStemCatalogItem[] {
+  if (targetQuestions <= 0 || stems.length === 0) return []
+
+  const choices = achievableQuestionTotals(stems)
   let bestTotal = 0
   let bestIndexes = choices.get(0) ?? []
   for (const [total, indexes] of choices.entries()) {
@@ -94,69 +147,209 @@ function chooseClosestWholeStemSet(stems: UcatStemCatalogItem[], targetQuestions
   return bestIndexes.map((index) => stems[index]).filter((stem): stem is UcatStemCatalogItem => Boolean(stem))
 }
 
-export function buildAutoSetPreview({
-  mode,
-  targetTotal,
-  categoryTargets,
+type CategoryPolicyRule = NonNullable<
+  (typeof UCAT_ANZ_2026_V1.altitutorPolicy.sectionRules)[number]['categoryRules']
+>[number]
+
+function categoryRulePreferred(rule: CategoryPolicyRule): number {
+  if (rule.preferred !== undefined) return rule.preferred
+  return Math.round((rule.min + rule.max) / 2)
+}
+
+function typicalQuestionsPerStem(stems: UcatStemCatalogItem[]): number {
+  if (stems.length === 0) return 1
+  const counts = [...stems.map((stem) => stem.questionsCount)].sort((a, b) => a - b)
+  return counts[Math.floor(counts.length / 2)] ?? 1
+}
+
+function toQuestionBounds(
+  rule: CategoryPolicyRule,
+  categoryStems: UcatStemCatalogItem[],
+): { min: number; max: number; preferred: number } {
+  const preferred = categoryRulePreferred(rule)
+  if (rule.unit === 'stems') {
+    const typical = typicalQuestionsPerStem(categoryStems)
+    return {
+      min: rule.min * typical,
+      max: rule.max * typical,
+      preferred: preferred * typical,
+    }
+  }
+  return { min: rule.min, max: rule.max, preferred }
+}
+
+/**
+ * Map the 2026 full-mock blueprint into the same per-category question targets
+ * used by "By category" mode (stem-unit rules convert via typical questions/stem).
+ */
+export function blueprintPreferredCategoryTargets({
+  sectionNumber,
+  categories,
+  eligibleStems,
+}: {
+  sectionNumber?: number | null
+  categories: Array<{ id: string; name: string }>
+  eligibleStems: UcatStemCatalogItem[]
+}): Record<string, string> {
+  const ranges = blueprintCategoryRanges({ sectionNumber, categories, eligibleStems })
+  const targets: Record<string, string> = {}
+  for (const [categoryId, range] of Object.entries(ranges)) {
+    const min = Number.parseInt(range.min, 10)
+    const max = Number.parseInt(range.max, 10)
+    if (!Number.isFinite(min) || !Number.isFinite(max)) continue
+    const preferred = range.preferred !== undefined
+      ? Number.parseInt(range.preferred, 10)
+      : Math.round((min + max) / 2)
+    if (Number.isFinite(preferred) && preferred > 0) targets[categoryId] = String(preferred)
+  }
+  return targets
+}
+
+export type BlueprintCategoryRange = {
+  min: string
+  max: string
+  preferred?: string
+}
+
+/**
+ * Map 2026 policy category rules into question min/max (and preferred) for range mode.
+ */
+export function blueprintCategoryRanges({
+  sectionNumber,
+  categories,
+  eligibleStems,
+}: {
+  sectionNumber?: number | null
+  categories: Array<{ id: string; name: string }>
+  eligibleStems: UcatStemCatalogItem[]
+}): Record<string, BlueprintCategoryRange> {
+  const section = blueprintSectionCode(sectionNumber)
+  if (!section) return {}
+
+  const policy = UCAT_ANZ_2026_V1.altitutorPolicy.sectionRules.find((rule) => rule.section === section)
+  if (!policy?.categoryRules?.length) return {}
+
+  const targets: Record<string, BlueprintCategoryRange> = {}
+  const namedRules = policy.categoryRules.filter((rule) => Boolean(rule.category))
+  const schemeOnlyRules = policy.categoryRules.filter((rule) => rule.answerScheme !== undefined && !rule.category)
+
+  for (const rule of namedRules) {
+    const category = categories.find((row) => row.name === rule.category)
+    if (!category) continue
+    const categoryStems = eligibleStems.filter((stem) => stem.categoryId === category.id)
+    const bounds = toQuestionBounds(rule, categoryStems)
+    if (bounds.max > 0 || bounds.min > 0) {
+      targets[category.id] = {
+        min: String(bounds.min),
+        max: String(bounds.max),
+        preferred: String(bounds.preferred),
+      }
+    }
+  }
+
+  for (const rule of schemeOnlyRules) {
+    const remaining = categories.filter((category) => !(category.id in targets))
+    if (remaining.length === 0) continue
+    const preferred = categoryRulePreferred(rule)
+    const capacities = remaining.map((category) => ({
+      id: category.id,
+      capacity: eligibleStems
+        .filter((stem) => stem.categoryId === category.id)
+        .reduce((sum, stem) => sum + stem.questionsCount, 0),
+    }))
+    const totalCapacity = capacities.reduce((sum, row) => sum + row.capacity, 0)
+
+    const allocateAcross = (amount: number): Record<string, number> => {
+      const shares: Record<string, number> = {}
+      if (totalCapacity <= 0) {
+        const even = Math.floor(amount / remaining.length)
+        let leftover = amount - even * remaining.length
+        for (const category of remaining) {
+          const share = even + (leftover > 0 ? 1 : 0)
+          if (leftover > 0) leftover -= 1
+          shares[category.id] = Math.max(0, share)
+        }
+        return shares
+      }
+      let allocated = 0
+      capacities.forEach((row, index) => {
+        if (index === capacities.length - 1) {
+          shares[row.id] = Math.max(0, amount - allocated)
+          return
+        }
+        const share = Math.round((amount * row.capacity) / totalCapacity)
+        allocated += share
+        shares[row.id] = Math.max(0, share)
+      })
+      return shares
+    }
+
+    const minShares = allocateAcross(rule.min)
+    const maxShares = allocateAcross(rule.max)
+    const preferredShares = allocateAcross(preferred)
+    for (const category of remaining) {
+      const min = minShares[category.id] ?? 0
+      const max = Math.max(min, maxShares[category.id] ?? 0)
+      if (max <= 0 && min <= 0) continue
+      targets[category.id] = {
+        min: String(min),
+        max: String(max),
+        preferred: String(preferredShares[category.id] ?? Math.round((min + max) / 2)),
+      }
+    }
+  }
+
+  return targets
+}
+
+function blueprintPreviewCompliance(
+  section: BlueprintSectionCode,
+  selectedStems: UcatStemCatalogItem[],
+): StoredBlueprintCompliance {
+  const official = UCAT_ANZ_2026_V1.official.sections.find((rule) => rule.section === section)
+  const selectedEvaluation = evaluateBlueprint(UCAT_ANZ_2026_V1, {
+    purpose: 'full_mock',
+    sections: official
+      ? [{
+          section,
+          answeringTimeSeconds: official.answeringTimeSeconds,
+          instructionTimeSeconds: official.instructionTimeSeconds,
+          stems: selectedStems.map(catalogStemToBlueprintStem),
+        }]
+      : [],
+  })
+  const blueprintCompliance = evaluationToStoredCompliance(selectedEvaluation)
+  blueprintCompliance.sections = blueprintCompliance.sections
+    .filter((result) => result.section === section)
+    .map((result) => ({
+      ...result,
+      checks: result.checks.filter((check) => check.code !== 'SECTION_ORDER_INVALID'),
+    }))
+  blueprintCompliance.compliant =
+    blueprintCompliance.sections.length === 1
+    && blueprintCompliance.sections.every((result) => result.checks.every((check) => check.compliant))
+  blueprintCompliance.reasons = []
+  return blueprintCompliance
+}
+
+function buildCategoryPreview({
   sectionId,
+  sectionCategories,
+  eligibleStems,
+  categoryTargets,
   stemVisibility,
   onlyNotInAnotherSet,
-  categories,
-  stems,
   seed,
 }: {
-  mode: AutoSetMode
-  targetTotal: number
+  sectionId: string
+  sectionCategories: Array<{ id: string; name: string }>
+  eligibleStems: UcatStemCatalogItem[]
   categoryTargets: Record<string, string>
-  sectionId: string | null
   stemVisibility: AutoStemVisibility
   onlyNotInAnotherSet: boolean
-  categories: AutoCategoryRow[]
-  stems: UcatStemCatalogItem[]
   seed: number
-}): AutoSetPreview {
-  if (!sectionId) {
-    return { selectedStems: [], totalQuestions: 0, targetQuestions: 0, byCategory: [], warnings: [] }
-  }
-
-  const sectionCategories = categories
-    .filter((category) => category.id && category.ucat_section_id === sectionId)
-    .map((category) => ({ id: category.id as string, name: category.name ?? 'Untitled category' }))
-  const categoryIds = new Set(sectionCategories.map((category) => category.id))
-  const eligibleStems = stems.filter((stem) => {
-    if (stem.sectionId !== sectionId) return false
-    if (!stem.categoryId || !categoryIds.has(stem.categoryId)) return false
-    if (stem.questionsCount <= 0) return false
-    if (stemVisibility === 'public' && stem.accessScope === 'private') return false
-    if (stemVisibility === 'private' && stem.accessScope !== 'private') return false
-    if (onlyNotInAnotherSet && stem.setIds.length > 0) return false
-    return true
-  })
-
+}): Omit<AutoSetPreview, 'blueprintCompliance'> {
   const warnings: string[] = []
-
-  if (mode === 'total') {
-    const shuffled = shuffleWithSeed(
-      eligibleStems,
-      `total:${sectionId}:${targetTotal}:${stemVisibility}:${onlyNotInAnotherSet}:${seed}`,
-    )
-    const selectedStems = chooseClosestWholeStemSet(shuffled, targetTotal)
-    const totalQuestions = selectedStems.reduce((sum, stem) => sum + stem.questionsCount, 0)
-    if (targetTotal > 0 && selectedStems.length === 0) {
-      warnings.push('No eligible stems match these criteria.')
-    } else if (targetTotal > 0 && totalQuestions !== targetTotal) {
-      warnings.push(`Whole stems make ${totalQuestions} questions, not exactly ${targetTotal}.`)
-    }
-
-    return {
-      selectedStems: shuffleWithSeed(selectedStems, `order:${sectionId}:${targetTotal}:${seed}`),
-      totalQuestions,
-      targetQuestions: targetTotal,
-      byCategory: [],
-      warnings,
-    }
-  }
-
   const selectedByCategory: UcatStemCatalogItem[] = []
   const byCategory = sectionCategories
     .map((category) => {
@@ -183,7 +376,9 @@ export function buildAutoSetPreview({
       if (selectedStems.length === 0) {
         warnings.push(`${category.name}: no eligible stems match these criteria.`)
       } else if (actualQuestions !== targetQuestions) {
-        warnings.push(`${category.name}: whole stems make ${actualQuestions} questions, not exactly ${targetQuestions}.`)
+        warnings.push(
+          `${category.name}: whole stems make ${actualQuestions} questions, not exactly ${targetQuestions}.`,
+        )
       }
       return {
         categoryId: category.id,
@@ -214,4 +409,506 @@ export function buildAutoSetPreview({
     byCategory,
     warnings,
   }
+}
+
+type RangeCategoryPlan = {
+  categoryId: string
+  categoryName: string
+  min: number
+  max: number
+  preferred: number
+  eligibleStemCount: number
+  shuffled: UcatStemCatalogItem[]
+  inRangeTotals: Map<number, number[]>
+}
+
+function buildRangePreview({
+  sectionId,
+  sectionCategories,
+  eligibleStems,
+  categoryRanges,
+  targetTotal,
+  preferredByCategory,
+  stemVisibility,
+  onlyNotInAnotherSet,
+  seed,
+}: {
+  sectionId: string
+  sectionCategories: Array<{ id: string; name: string }>
+  eligibleStems: UcatStemCatalogItem[]
+  categoryRanges: Record<string, AutoCategoryRangeInput>
+  targetTotal: number
+  preferredByCategory?: Record<string, number>
+  stemVisibility: AutoStemVisibility
+  onlyNotInAnotherSet: boolean
+  seed: number
+}): Omit<AutoSetPreview, 'blueprintCompliance'> {
+  const warnings: string[] = []
+  const plans: RangeCategoryPlan[] = []
+
+  for (const category of sectionCategories) {
+    const parsed = parseCategoryRange(categoryRanges[category.id])
+    if (!parsed) continue
+    if (parsed.max < parsed.min) {
+      warnings.push(
+        `${category.name}: max (${parsed.max}) is less than min (${parsed.min}).`,
+      )
+      return {
+        selectedStems: [],
+        totalQuestions: 0,
+        targetQuestions: targetTotal,
+        byCategory: [],
+        warnings,
+      }
+    }
+
+    const categoryEligibleStems = eligibleStems.filter((stem) => stem.categoryId === category.id)
+    const preferred =
+      preferredByCategory?.[category.id]
+      ?? Math.round((parsed.min + parsed.max) / 2)
+    const shuffled = shuffleWithSeed(
+      categoryEligibleStems,
+      `range:${category.id}:${parsed.min}:${parsed.max}:${stemVisibility}:${onlyNotInAnotherSet}:${seed}`,
+    )
+    const achievable = achievableQuestionTotals(shuffled)
+    const inRangeTotals = new Map<number, number[]>()
+    for (const [total, indexes] of achievable.entries()) {
+      if (total >= parsed.min && total <= parsed.max) {
+        inRangeTotals.set(total, indexes)
+      }
+    }
+
+    plans.push({
+      categoryId: category.id,
+      categoryName: category.name,
+      min: parsed.min,
+      max: parsed.max,
+      preferred,
+      eligibleStemCount: categoryEligibleStems.length,
+      shuffled,
+      inRangeTotals,
+    })
+  }
+
+  if (plans.length === 0 || targetTotal <= 0) {
+    return {
+      selectedStems: [],
+      totalQuestions: 0,
+      targetQuestions: targetTotal,
+      byCategory: [],
+      warnings: targetTotal <= 0 ? warnings : [...warnings, 'Enter a positive question total and at least one category range.'],
+    }
+  }
+
+  const sumMin = plans.reduce((sum, plan) => sum + plan.min, 0)
+  const sumMax = plans.reduce((sum, plan) => sum + plan.max, 0)
+  if (sumMin > targetTotal) {
+    return {
+      selectedStems: [],
+      totalQuestions: 0,
+      targetQuestions: targetTotal,
+      byCategory: plans.map((plan) => ({
+        categoryId: plan.categoryId,
+        categoryName: plan.categoryName,
+        targetQuestions: plan.preferred,
+        minQuestions: plan.min,
+        maxQuestions: plan.max,
+        actualQuestions: 0,
+        stemCount: 0,
+        eligibleStemCount: plan.eligibleStemCount,
+      })),
+      warnings: [
+        ...warnings,
+        `Sum of minimums (${sumMin}) exceeds the global total (${targetTotal}).`,
+      ],
+    }
+  }
+  if (sumMax < targetTotal) {
+    return {
+      selectedStems: [],
+      totalQuestions: 0,
+      targetQuestions: targetTotal,
+      byCategory: plans.map((plan) => ({
+        categoryId: plan.categoryId,
+        categoryName: plan.categoryName,
+        targetQuestions: plan.preferred,
+        minQuestions: plan.min,
+        maxQuestions: plan.max,
+        actualQuestions: 0,
+        stemCount: 0,
+        eligibleStemCount: plan.eligibleStemCount,
+      })),
+      warnings: [
+        ...warnings,
+        `Sum of maximums (${sumMax}) is below the global total (${targetTotal}).`,
+      ],
+    }
+  }
+
+  for (const plan of plans) {
+    if (plan.inRangeTotals.size === 0) {
+      warnings.push(
+        `${plan.categoryName}: no whole-stem combination falls in ${plan.min}–${plan.max} questions.`,
+      )
+    }
+  }
+  if (plans.some((plan) => plan.inRangeTotals.size === 0)) {
+    return {
+      selectedStems: [],
+      totalQuestions: 0,
+      targetQuestions: targetTotal,
+      byCategory: plans.map((plan) => ({
+        categoryId: plan.categoryId,
+        categoryName: plan.categoryName,
+        targetQuestions: plan.preferred,
+        minQuestions: plan.min,
+        maxQuestions: plan.max,
+        actualQuestions: 0,
+        stemCount: 0,
+        eligibleStemCount: plan.eligibleStemCount,
+      })),
+      warnings,
+    }
+  }
+
+  type CombineState = {
+    assignments: number[]
+    preferredDistance: number
+    stemCount: number
+  }
+
+  let states = new Map<number, CombineState>()
+  states.set(0, { assignments: [], preferredDistance: 0, stemCount: 0 })
+
+  for (const plan of plans) {
+    const nextStates = new Map<number, CombineState>()
+    for (const [sum, state] of states.entries()) {
+      for (const [total, indexes] of plan.inRangeTotals.entries()) {
+        const nextSum = sum + total
+        const next: CombineState = {
+          assignments: [...state.assignments, total],
+          preferredDistance: state.preferredDistance + Math.abs(total - plan.preferred),
+          stemCount: state.stemCount + indexes.length,
+        }
+        const existing = nextStates.get(nextSum)
+        const better =
+          !existing ||
+          next.preferredDistance < existing.preferredDistance ||
+          (next.preferredDistance === existing.preferredDistance && next.stemCount < existing.stemCount)
+        if (better) nextStates.set(nextSum, next)
+      }
+    }
+    states = nextStates
+  }
+
+  if (states.size === 0) {
+    return {
+      selectedStems: [],
+      totalQuestions: 0,
+      targetQuestions: targetTotal,
+      byCategory: plans.map((plan) => ({
+        categoryId: plan.categoryId,
+        categoryName: plan.categoryName,
+        targetQuestions: plan.preferred,
+        minQuestions: plan.min,
+        maxQuestions: plan.max,
+        actualQuestions: 0,
+        stemCount: 0,
+        eligibleStemCount: plan.eligibleStemCount,
+      })),
+      warnings: [...warnings, 'No eligible stems match these criteria.'],
+    }
+  }
+
+  let bestSum = -1
+  let bestState: CombineState | null = null
+  for (const [sum, state] of states.entries()) {
+    if (!bestState) {
+      bestSum = sum
+      bestState = state
+      continue
+    }
+    const bestDiff = Math.abs(bestSum - targetTotal)
+    const nextDiff = Math.abs(sum - targetTotal)
+    const better =
+      nextDiff < bestDiff ||
+      (nextDiff === bestDiff && state.preferredDistance < bestState.preferredDistance) ||
+      (nextDiff === bestDiff
+        && state.preferredDistance === bestState.preferredDistance
+        && sum < bestSum) ||
+      (nextDiff === bestDiff
+        && state.preferredDistance === bestState.preferredDistance
+        && sum === bestSum
+        && state.stemCount < bestState.stemCount)
+    if (better) {
+      bestSum = sum
+      bestState = state
+    }
+  }
+
+  if (!bestState) {
+    return {
+      selectedStems: [],
+      totalQuestions: 0,
+      targetQuestions: targetTotal,
+      byCategory: [],
+      warnings: [...warnings, 'No eligible stems match these criteria.'],
+    }
+  }
+
+  const selectedByCategory: UcatStemCatalogItem[] = []
+  const byCategory = plans.map((plan, index) => {
+    const chosenTotal = bestState.assignments[index] ?? 0
+    const indexes = plan.inRangeTotals.get(chosenTotal) ?? []
+    const selectedStems = indexes
+      .map((stemIndex) => plan.shuffled[stemIndex])
+      .filter((stem): stem is UcatStemCatalogItem => Boolean(stem))
+    selectedByCategory.push(...selectedStems)
+    return {
+      categoryId: plan.categoryId,
+      categoryName: plan.categoryName,
+      targetQuestions: plan.preferred,
+      minQuestions: plan.min,
+      maxQuestions: plan.max,
+      actualQuestions: chosenTotal,
+      stemCount: selectedStems.length,
+      eligibleStemCount: plan.eligibleStemCount,
+    }
+  })
+
+  const selectedStems = shuffleWithSeed(
+    selectedByCategory,
+    `range-order:${sectionId}:${targetTotal}:${JSON.stringify(categoryRanges)}:${seed}`,
+  )
+  const totalQuestions = selectedStems.reduce((sum, stem) => sum + stem.questionsCount, 0)
+
+  if (totalQuestions !== targetTotal) {
+    warnings.push(
+      `Whole stems make ${totalQuestions} questions, not exactly ${targetTotal}.`,
+    )
+  }
+
+  return {
+    selectedStems,
+    totalQuestions,
+    targetQuestions: targetTotal,
+    byCategory,
+    warnings,
+  }
+}
+
+function officialQuestionCount(sectionNumber?: number | null): number {
+  const section = blueprintSectionCode(sectionNumber)
+  if (!section) return 0
+  return UCAT_ANZ_2026_V1.official.sections.find((rule) => rule.section === section)?.questionCount ?? 0
+}
+
+export function buildAutoSetPreview({
+  mode,
+  blueprintSource = 'manual',
+  targetTotal,
+  categoryTargets,
+  categoryRanges = {},
+  sectionId,
+  sectionNumber,
+  stemVisibility,
+  onlyNotInAnotherSet,
+  categories,
+  stems,
+  seed,
+}: {
+  mode: AutoSetMode
+  blueprintSource?: AutoBlueprintSource
+  targetTotal: number
+  categoryTargets: Record<string, string>
+  categoryRanges?: Record<string, AutoCategoryRangeInput>
+  sectionId: string | null
+  sectionNumber?: number | null
+  stemVisibility: AutoStemVisibility
+  onlyNotInAnotherSet: boolean
+  categories: AutoCategoryRow[]
+  stems: UcatStemCatalogItem[]
+  seed: number
+}): AutoSetPreview {
+  if (!sectionId) {
+    return { selectedStems: [], totalQuestions: 0, targetQuestions: 0, byCategory: [], warnings: [] }
+  }
+
+  const sectionCategories = categories
+    .filter((category) => category.id && category.ucat_section_id === sectionId)
+    .map((category) => ({ id: category.id as string, name: category.name ?? 'Untitled category' }))
+  const categoryIds = new Set(sectionCategories.map((category) => category.id))
+  const eligibleStems = stems.filter((stem) => {
+    if (stem.sectionId !== sectionId) return false
+    if (!stem.categoryId || !categoryIds.has(stem.categoryId)) return false
+    if (stem.questionsCount <= 0) return false
+    if (stemVisibility === 'public' && stem.accessScope === 'private') return false
+    if (stemVisibility === 'private' && stem.accessScope !== 'private') return false
+    if (onlyNotInAnotherSet && stem.setIds.length > 0) return false
+    return true
+  })
+
+  const useBlueprint = blueprintSource === '2026'
+  const section = blueprintSectionCode(sectionNumber)
+
+  if (mode === 'range') {
+    const preferredFromBlueprint = useBlueprint
+      ? blueprintCategoryRanges({
+          sectionNumber,
+          categories: sectionCategories,
+          eligibleStems,
+        })
+      : {}
+    const preferredByCategory: Record<string, number> = {}
+    for (const [categoryId, range] of Object.entries(preferredFromBlueprint)) {
+      if (range.preferred) {
+        const preferred = Number.parseInt(range.preferred, 10)
+        if (Number.isFinite(preferred)) preferredByCategory[categoryId] = preferred
+      }
+    }
+
+    const effectiveTotal = targetTotal > 0
+      ? targetTotal
+      : useBlueprint && Object.keys(categoryRanges).length === 0
+        ? officialQuestionCount(sectionNumber)
+        : 0
+    const effectiveRanges = Object.keys(categoryRanges).length > 0
+      ? categoryRanges
+      : useBlueprint
+        ? Object.fromEntries(
+            Object.entries(preferredFromBlueprint).map(([id, range]) => [id, { min: range.min, max: range.max }]),
+          )
+        : categoryRanges
+
+    const hasOptedInRange = Object.values(effectiveRanges).some((range) => parseCategoryRange(range))
+    if (!hasOptedInRange && useBlueprint) {
+      const shuffled = shuffleWithSeed(
+        eligibleStems,
+        `blueprint-total:${sectionId}:${effectiveTotal}:${stemVisibility}:${onlyNotInAnotherSet}:${seed}`,
+      )
+      const selectedStems = chooseClosestWholeStemSet(shuffled, effectiveTotal)
+      const totalQuestions = selectedStems.reduce((sum, stem) => sum + stem.questionsCount, 0)
+      const warnings: string[] = []
+      if (effectiveTotal > 0 && selectedStems.length === 0) {
+        warnings.push('No eligible stems match these criteria.')
+      } else if (effectiveTotal > 0 && totalQuestions !== effectiveTotal) {
+        warnings.push(`Whole stems make ${totalQuestions} questions, not exactly ${effectiveTotal}.`)
+      }
+      return {
+        selectedStems: shuffleWithSeed(selectedStems, `order:${sectionId}:${effectiveTotal}:${seed}`),
+        totalQuestions,
+        targetQuestions: effectiveTotal,
+        byCategory: [],
+        warnings,
+        blueprintCompliance: section ? blueprintPreviewCompliance(section, selectedStems) : undefined,
+      }
+    }
+
+    const preview = buildRangePreview({
+      sectionId,
+      sectionCategories,
+      eligibleStems,
+      categoryRanges: effectiveRanges,
+      targetTotal: effectiveTotal,
+      preferredByCategory: Object.keys(preferredByCategory).length > 0 ? preferredByCategory : undefined,
+      stemVisibility,
+      onlyNotInAnotherSet,
+      seed,
+    })
+
+    return {
+      ...preview,
+      blueprintCompliance: useBlueprint && section
+        ? blueprintPreviewCompliance(section, preview.selectedStems)
+        : undefined,
+    }
+  }
+
+  if (mode === 'category') {
+    const hasManualTargets = Object.values(categoryTargets).some((value) => positiveIntFromInput(value) > 0)
+    const resolvedTargets =
+      hasManualTargets
+        ? categoryTargets
+        : useBlueprint && Object.keys(categoryTargets).length === 0
+          ? blueprintPreferredCategoryTargets({
+              sectionNumber,
+              categories: sectionCategories,
+              eligibleStems,
+            })
+          : categoryTargets
+
+    const hasCategoryPreset = Object.values(resolvedTargets).some((value) => positiveIntFromInput(value) > 0)
+
+    if (useBlueprint && !hasCategoryPreset) {
+      // QR-style: structure-only — fall back to official total path.
+      const officialTotal = officialQuestionCount(sectionNumber)
+      const shuffled = shuffleWithSeed(
+        eligibleStems,
+        `blueprint-total:${sectionId}:${officialTotal}:${stemVisibility}:${onlyNotInAnotherSet}:${seed}`,
+      )
+      const selectedStems = chooseClosestWholeStemSet(shuffled, officialTotal)
+      const totalQuestions = selectedStems.reduce((sum, stem) => sum + stem.questionsCount, 0)
+      const warnings: string[] = []
+      if (officialTotal > 0 && selectedStems.length === 0) {
+        warnings.push('No eligible stems match these criteria.')
+      } else if (officialTotal > 0 && totalQuestions !== officialTotal) {
+        warnings.push(`Whole stems make ${totalQuestions} questions, not exactly ${officialTotal}.`)
+      }
+      return {
+        selectedStems: shuffleWithSeed(selectedStems, `order:${sectionId}:${officialTotal}:${seed}`),
+        totalQuestions,
+        targetQuestions: officialTotal,
+        byCategory: [],
+        warnings,
+        blueprintCompliance: section ? blueprintPreviewCompliance(section, selectedStems) : undefined,
+      }
+    }
+
+    const preview = buildCategoryPreview({
+      sectionId,
+      sectionCategories,
+      eligibleStems,
+      categoryTargets: resolvedTargets,
+      stemVisibility,
+      onlyNotInAnotherSet,
+      seed,
+    })
+
+    return {
+      ...preview,
+      blueprintCompliance: useBlueprint && section
+        ? blueprintPreviewCompliance(section, preview.selectedStems)
+        : undefined,
+    }
+  }
+
+  // total
+  const warnings: string[] = []
+  const shuffled = shuffleWithSeed(
+    eligibleStems,
+    `total:${sectionId}:${targetTotal}:${stemVisibility}:${onlyNotInAnotherSet}:${seed}`,
+  )
+  const selectedStems = chooseClosestWholeStemSet(shuffled, targetTotal)
+  const totalQuestions = selectedStems.reduce((sum, stem) => sum + stem.questionsCount, 0)
+  if (targetTotal > 0 && selectedStems.length === 0) {
+    warnings.push('No eligible stems match these criteria.')
+  } else if (targetTotal > 0 && totalQuestions !== targetTotal) {
+    warnings.push(`Whole stems make ${totalQuestions} questions, not exactly ${targetTotal}.`)
+  }
+
+  return {
+    selectedStems: shuffleWithSeed(selectedStems, `order:${sectionId}:${targetTotal}:${seed}`),
+    totalQuestions,
+    targetQuestions: targetTotal,
+    byCategory: [],
+    warnings,
+  }
+}
+
+/** Yields to the browser once, then builds — keeps create-set controls responsive. */
+export async function buildAutoSetPreviewAsync(
+  input: Parameters<typeof buildAutoSetPreview>[0],
+): Promise<AutoSetPreview> {
+  await yieldToMain()
+  return buildAutoSetPreview(input)
 }

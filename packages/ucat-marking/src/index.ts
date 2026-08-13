@@ -19,10 +19,8 @@ export {
   UCAT_SCORING_MODEL,
 } from './config'
 export type {
-  Attempt,
-  QuestionMeta,
   RawScoreResult,
+  ScoringQuestion,
   UcatScoringSection,
   UcatSectionScoreEstimate,
-  UcatQuestionType,
 } from './types'

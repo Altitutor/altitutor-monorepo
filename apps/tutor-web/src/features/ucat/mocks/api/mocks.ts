@@ -8,6 +8,17 @@ import {
 } from '@/features/ucat/shared/lifecycle-errors'
 
 export const ucatMocksApi = {
+  async blueprints() {
+    const supabase = getSupabaseClient() as SupabaseClient<Database>
+    const { data, error } = await supabase
+      .from('vtutor_ucat_mock_blueprints')
+      .select('*')
+      .order('test_year', { ascending: false })
+      .order('version', { ascending: false })
+    if (error) throw error
+    return data ?? []
+  },
+
   async list() {
     const supabase = getSupabaseClient() as SupabaseClient<Database>
     const { data, error } = await supabase.from('vtutor_ucat_mocks').select('*').order('updated_at', { ascending: false })
@@ -20,6 +31,39 @@ export const ucatMocksApi = {
     const { data, error } = await supabase.from('vtutor_ucat_mock_detail').select('*').eq('id', mockId).maybeSingle()
     if (error) throw error
     return data
+  },
+
+  async blueprintAudits(mockId: string) {
+    const supabase = getSupabaseClient() as SupabaseClient<Database>
+    const { data, error } = await supabase
+      .from('vtutor_ucat_mock_blueprint_audits')
+      .select('*')
+      .eq('mock_id', mockId)
+      .order('checked_at', { ascending: false })
+    if (error) throw error
+    return data ?? []
+  },
+
+  async auditBlueprint(mockId: string, blueprintId: string) {
+    const response = await fetch(`/api/ucat/mocks/${mockId}/blueprint-audit`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ blueprintId }),
+    })
+    const body = await response.json().catch(() => ({}))
+    if (!response.ok) throw new Error(body.error ?? 'Failed to audit blueprint candidate')
+    return body as { auditId: string }
+  },
+
+  async confirmBlueprintAudit(mockId: string, auditId: string) {
+    const response = await fetch(`/api/ucat/mocks/${mockId}/blueprint-audit`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ auditId }),
+    })
+    const body = await response.json().catch(() => ({}))
+    if (!response.ok) throw new Error(body.error ?? 'Failed to confirm blueprint candidate')
+    return body as { auditId: string }
   },
 
   async create(payload: UcatMockPayload) {

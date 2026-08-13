@@ -3,6 +3,8 @@
 import { useRef, useState } from "react";
 import { discardExamAttempt } from "@/features/exam-attempts/api/exam-attempts-api";
 import { useActiveExamAttempt } from "@/features/exam-attempts/context/active-exam-attempt-context";
+import { getLaunchConflictAttempt } from "@/features/exam-attempts/lib/active-exam-attempt-state";
+import { isAttemptAtResults } from "@/features/exam-attempts/lib/banner-copy";
 import type {
   ActiveExamAttempt,
   ExamAttemptKind,
@@ -24,8 +26,13 @@ export function useExamAttemptLaunchPreflight({
   const discardPromiseRef = useRef<Promise<void> | null>(null);
 
   function requestLaunch() {
-    if (active && (active.kind !== kind || active.resourceId !== resourceId)) {
-      setConflictActive(active);
+    const conflict = getLaunchConflictAttempt(active, kind, resourceId);
+    if (!conflict && active && isAttemptAtResults(active)) {
+      // Finished attempts can linger client-side after timeout catch-up.
+      clearLocal();
+    }
+    if (conflict) {
+      setConflictActive(conflict);
       return;
     }
     void onLaunch();

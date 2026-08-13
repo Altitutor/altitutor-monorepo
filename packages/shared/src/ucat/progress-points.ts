@@ -1,52 +1,57 @@
+import {
+  getAnswerSchemeProgressPoints,
+  type AnswerScheme,
+} from "@altitutor/ucat-response-contract";
+
 export type ProgressQuestionRef = {
   id: string;
   stemId: string;
   questionType: string | null;
+  answerScheme: AnswerScheme["kind"] | null;
 };
 
 /**
- * Maximum progress points for a set of questions, aligned with UCAT raw-score
- * weighting: each non-syllogism question counts 1; each syllogism stem counts 2
- * once regardless of how many conclusion statements it contains.
+ * Progress points for a set of questions. The Answer scheme owns each question's
+ * weight; grouped Decision Making rows contribute two points once per stem.
  */
 export function computeQuestionProgressPoints(
   questions: ProgressQuestionRef[],
 ): number {
-  const countedSyllogismStems = new Set<string>();
   let points = 0;
+  const countedGroupedQuestionIds = new Set<string>();
   for (const question of questions) {
-    points += progressPointsForQuestion(question, countedSyllogismStems);
+    points += progressPointsForQuestion(question, countedGroupedQuestionIds);
   }
   return points;
 }
 
 /**
  * Progress points contributed by one question when building a running total.
- * Pass the same `countedSyllogismStems` set across calls to avoid double-counting
- * syllogism stems.
+ * Pass the same `countedGroupedQuestionIds` set across calls to avoid counting a
+ * grouped Answer scheme more than once.
  */
 export function progressPointsForQuestion(
   question: ProgressQuestionRef,
-  countedSyllogismStems: Set<string>,
+  countedGroupedQuestionIds: Set<string>,
 ): number {
-  if (question.questionType === "syllogism") {
-    if (countedSyllogismStems.has(question.stemId)) {
-      return 0;
-    }
-    countedSyllogismStems.add(question.stemId);
-    return 2;
+  if (!question.answerScheme) return 1;
+  if (question.answerScheme === "decision_making_binary_placement") {
+    if (countedGroupedQuestionIds.has(question.stemId)) return 0;
+    countedGroupedQuestionIds.add(question.stemId);
   }
-  return 1;
+  return getAnswerSchemeProgressPoints(question.answerScheme);
 }
 
 export function toProgressQuestionRef(question: {
   questionId: string;
   questionStemId?: string | null;
   questionType?: string | null;
+  answerScheme?: AnswerScheme["kind"] | null;
 }): ProgressQuestionRef {
   return {
     id: question.questionId,
     stemId: question.questionStemId ?? question.questionId,
     questionType: question.questionType ?? null,
+    answerScheme: question.answerScheme ?? null,
   };
 }

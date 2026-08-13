@@ -40,7 +40,6 @@ export async function loadSignupOnboardingInitial(user: {
       metadataLastName ||
       (fullNameParts.length > 1 ? fullNameParts.slice(1).join(" ") : ""),
     phone: profile.phone,
-    newsletterOptIn: metadata?.pending_newsletter_opt_in === true,
     step: state.step,
   };
 }

@@ -59,6 +59,28 @@ jest.mock('@/features/topics/api', () => ({
   },
 }));
 
+jest.mock('@/features/tasks/api', () => ({
+  tasksApi: {
+    get: jest.fn(),
+  },
+}));
+
+jest.mock('@/features/issues/api/issues', () => ({
+  issuesApi: {
+    get: jest.fn(),
+  },
+}));
+
+jest.mock('@/features/projects/api/projects', () => ({
+  projectsApi: {
+    get: jest.fn(),
+  },
+}));
+
+jest.mock('@/features/notes/api/queries', () => ({
+  useNote: jest.fn(() => ({ data: undefined })),
+}));
+
 const mockStudentsApi = studentsApi as jest.Mocked<typeof studentsApi>;
 const mockStaffApi = staffApi as jest.Mocked<typeof staffApi>;
 const mockClassesApi = classesApi as jest.Mocked<typeof classesApi>;

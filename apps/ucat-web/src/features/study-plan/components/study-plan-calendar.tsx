@@ -15,7 +15,7 @@ import {
   buildStudyPlanCalendarMonths,
   formatStudyPlanDate,
   studyPlanCalendarIntensityLevel,
-  studyPlanPracticeMinutes,
+  studyPlanPlannedMinutes,
 } from "@/features/study-plan/lib/calendar";
 import {
   isCarryOverStudyPlanTask,
@@ -48,10 +48,10 @@ function taskMinutes(tasks: StudyPlanTask[]) {
   return tasks.reduce((sum, task) => sum + task.estimatedMinutes, 0);
 }
 
-function maxPracticeMinutesInMonths(
+function maxPlannedMinutesInMonths(
   months: UcatCalendarMonth[],
   visibleMonthKeys: readonly string[],
-  practiceMinutesByDate: Map<string, number>,
+  plannedMinutesByDate: Map<string, number>,
 ): number {
   const visible = new Set(visibleMonthKeys);
   let max = 0;
@@ -59,7 +59,7 @@ function maxPracticeMinutesInMonths(
     if (!visible.has(month.key)) continue;
     for (const day of month.days) {
       if (!day) continue;
-      max = Math.max(max, practiceMinutesByDate.get(day.dateKey) ?? 0);
+      max = Math.max(max, plannedMinutesByDate.get(day.dateKey) ?? 0);
     }
   }
   return max;
@@ -69,13 +69,13 @@ function dayAriaLabel({
   dateKey,
   isTestDate,
   isToday,
-  practiceMinutes,
+  plannedMinutes,
   tasks,
 }: {
   dateKey: string;
   isTestDate: boolean;
   isToday: boolean;
-  practiceMinutes: number;
+  plannedMinutes: number;
   tasks: StudyPlanTask[];
 }) {
   const details = [
@@ -90,7 +90,7 @@ function dayAriaLabel({
   if (isTestDate) details.push("UCAT test date");
   if (tasks.length) {
     details.push(
-      `${tasks.length} planned task${tasks.length === 1 ? "" : "s"}, ${practiceMinutes} minutes of practice`,
+      `${tasks.length} planned task${tasks.length === 1 ? "" : "s"}, ${plannedMinutes} minutes planned`,
     );
   } else {
     details.push("no planned tasks");
@@ -114,10 +114,10 @@ export function StudyPlanCalendar({
     return grouped;
   }, [plan.tasks]);
 
-  const practiceMinutesByDate = useMemo(() => {
+  const plannedMinutesByDate = useMemo(() => {
     const map = new Map<string, number>();
     for (const [dateKey, tasks] of tasksByDate) {
-      map.set(dateKey, studyPlanPracticeMinutes(tasks));
+      map.set(dateKey, studyPlanPlannedMinutes(tasks));
     }
     return map;
   }, [tasksByDate]);
@@ -165,14 +165,14 @@ export function StudyPlanCalendar({
     context: UcatMonthCalendarDayContext,
   ) {
     const tasks = tasksByDate.get(day.dateKey) ?? [];
-    const practiceMinutes = practiceMinutesByDate.get(day.dateKey) ?? 0;
-    const visibleMax = maxPracticeMinutesInMonths(
+    const plannedMinutes = plannedMinutesByDate.get(day.dateKey) ?? 0;
+    const visibleMax = maxPlannedMinutesInMonths(
       months,
       context.visibleMonthKeys,
-      practiceMinutesByDate,
+      plannedMinutesByDate,
     );
     const intensity = studyPlanCalendarIntensityLevel(
-      practiceMinutes,
+      plannedMinutes,
       visibleMax,
     );
     const isSelected = selectedDate === day.dateKey;
@@ -184,12 +184,13 @@ export function StudyPlanCalendar({
       <button
         type="button"
         data-study-plan-date={day.dateKey}
+        data-tour-task-day={tasks.length ? "" : undefined}
         aria-pressed={isSelected}
         aria-label={dayAriaLabel({
           dateKey: day.dateKey,
           isTestDate,
           isToday,
-          practiceMinutes,
+          plannedMinutes,
           tasks,
         })}
         onClick={() => setSelectedDate(day.dateKey)}
@@ -230,31 +231,38 @@ export function StudyPlanCalendar({
   return (
     <div className="space-y-5">
       <div className="grid items-stretch gap-4 lg:grid-cols-[minmax(0,1fr)_20rem] xl:grid-cols-[minmax(0,1fr)_22rem]">
-        <UcatMonthCalendar
-          className="h-full"
-          months={months}
-          initialMonthKey={plan.today.slice(0, 7)}
-          monthsVisible={2}
-          density="compact"
-          ariaLabel="Study plan calendar"
-          title="Study plan"
-          legend={
-            <>
-              <UcatActivityIntensityLegend />
-              {plan.profile?.testDate ? (
-                <span className="flex items-center gap-1">
-                  <Target className="h-3 w-3" aria-hidden /> Test date
-                </span>
-              ) : null}
-            </>
-          }
-          renderDay={renderDay}
-        />
+        <div id="tour-study-plan-calendar" className="h-full">
+          <UcatMonthCalendar
+            className="h-full"
+            months={months}
+            initialMonthKey={plan.today.slice(0, 7)}
+            monthsVisible={2}
+            density="compact"
+            ariaLabel="Study plan calendar"
+            title="Study plan"
+            legend={
+              <>
+                <UcatActivityIntensityLegend />
+                {plan.profile?.testDate ? (
+                  <span className="flex items-center gap-1">
+                    <Target className="h-3 w-3" aria-hidden /> Test date
+                  </span>
+                ) : null}
+              </>
+            }
+            renderDay={renderDay}
+          />
+        </div>
 
         {summaryCards}
       </div>
 
-      <section key={selectedDate} aria-live="polite" className="space-y-4">
+      <section
+        data-tour-study-plan-selected-day
+        key={selectedDate}
+        aria-live="polite"
+        className="scroll-mt-24 space-y-4"
+      >
         <div className="flex flex-wrap items-end justify-between gap-3">
           <div>
             <p className="text-sm text-muted-foreground">Selected day</p>
@@ -307,46 +315,55 @@ export function StudyPlanCalendar({
           </div>
         </div>
 
-        {selectedTasks.length ? (
-          <div className="space-y-3">
-            {selectedDate === plan.today && carryOverTasks.length ? (
-              <div className="rounded-xl border border-amber-500/20 bg-amber-500/[0.06] px-4 py-3">
-                <p className="text-sm font-medium">Still to do</p>
-                <p className="mt-0.5 text-xs text-muted-foreground">
-                  {carryOverTasks.length === 1
-                    ? "One task from an earlier study day is waiting. Finish it or skip it, then your plan will move on."
-                    : `${carryOverTasks.length} tasks from earlier study days are waiting. Finish or skip them, then your plan will move on.`}
-                </p>
-              </div>
-            ) : null}
+        <div
+          data-tour={!selectedTasks.length ? "study-plan-task" : undefined}
+          className="scroll-mt-24"
+        >
+          {selectedTasks.length ? (
+            <div className="space-y-3">
+              {selectedDate === plan.today && carryOverTasks.length ? (
+                <div className="rounded-xl border border-amber-500/20 bg-amber-500/[0.06] px-4 py-3">
+                  <p className="text-sm font-medium">Still to do</p>
+                  <p className="mt-0.5 text-xs text-muted-foreground">
+                    {carryOverTasks.length === 1
+                      ? "One task from an earlier study day is waiting. Finish it or skip it, then your plan will move on."
+                      : `${carryOverTasks.length} tasks from earlier study days are waiting. Finish or skip them, then your plan will move on.`}
+                  </p>
+                </div>
+              ) : null}
+              <StudyPlanTaskList
+                tasks={selectedTasks}
+                today={plan.today}
+                afterTasks={
+                  showExtraStudy ? (
+                    <StudyPlanExtraStudy
+                      plan={plan}
+                      interactive={!previewMode}
+                    />
+                  ) : null
+                }
+                previewMode={previewMode}
+                tourFirstTask
+              />
+            </div>
+          ) : showExtraStudy ? (
             <StudyPlanTaskList
-              tasks={selectedTasks}
+              tasks={[]}
               today={plan.today}
               afterTasks={
-                showExtraStudy ? (
-                  <StudyPlanExtraStudy plan={plan} interactive={!previewMode} />
-                ) : null
+                <StudyPlanExtraStudy plan={plan} interactive={!previewMode} />
               }
               previewMode={previewMode}
             />
-          </div>
-        ) : showExtraStudy ? (
-          <StudyPlanTaskList
-            tasks={[]}
-            today={plan.today}
-            afterTasks={
-              <StudyPlanExtraStudy plan={plan} interactive={!previewMode} />
-            }
-            previewMode={previewMode}
-          />
-        ) : (
-          <div className="rounded-2xl border border-dashed border-border/70 bg-muted/20 px-6 py-10 text-center">
-            <p className="font-medium">No Study plan tasks</p>
-            <p className="mt-1 text-sm text-muted-foreground">
-              This day is clear. Choose another date to see its planned work.
-            </p>
-          </div>
-        )}
+          ) : (
+            <div className="rounded-2xl border border-dashed border-border/70 bg-muted/20 px-6 py-10 text-center">
+              <p className="font-medium">No Study plan tasks</p>
+              <p className="mt-1 text-sm text-muted-foreground">
+                This day is clear. Choose another date to see its planned work.
+              </p>
+            </div>
+          )}
+        </div>
       </section>
     </div>
   );

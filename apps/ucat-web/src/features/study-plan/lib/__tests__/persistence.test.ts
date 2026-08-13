@@ -1,5 +1,10 @@
-import { prepareStudyPlanTasks } from "@/features/study-plan/lib/persistence";
+import {
+  needsPreparationVersionReplacement,
+  planProfileTransition,
+  prepareStudyPlanTasks,
+} from "@/features/study-plan/lib/persistence";
 import type { GeneratedStudyPlanTask } from "@/features/study-plan/model/types";
+import { CURRENT_PREPARATION_VERSIONS } from "@/features/preparation";
 
 function task(
   overrides: Partial<GeneratedStudyPlanTask>,
@@ -27,6 +32,38 @@ function task(
 }
 
 describe("Study plan persistence", () => {
+  it("replaces generations when any canonical preparation policy version changes", () => {
+    const current = CURRENT_PREPARATION_VERSIONS;
+    expect(current.policy).toBe("evidence-driven-preparation-policy-v6");
+    expect(
+      needsPreparationVersionReplacement({ versions: current }, current),
+    ).toBe(false);
+    expect(
+      needsPreparationVersionReplacement(
+        { versions: { ...current, policy: "policy-v2" } },
+        current,
+      ),
+    ).toBe(true);
+    expect(needsPreparationVersionReplacement({}, current)).toBe(true);
+  });
+
+  it("preserves rolling guidance when disabling and clears it only when enabling a fresh plan", () => {
+    expect(
+      planProfileTransition({ wasEnabled: true, willBeEnabled: false }),
+    ).toEqual({
+      clearGuidance: false,
+      generateFreshPlan: false,
+      retireFuturePlan: true,
+    });
+    expect(
+      planProfileTransition({ wasEnabled: false, willBeEnabled: true }),
+    ).toEqual({
+      clearGuidance: true,
+      generateFreshPlan: true,
+      retireFuturePlan: false,
+    });
+  });
+
   it("resolves a generated review to the durable id of its source task", () => {
     let id = 0;
     const prepared = prepareStudyPlanTasks(

@@ -8,7 +8,7 @@ import {
 } from '@/features/ucat/shared/lib/rich-text'
 import {
   parseAttemptContentSnapshot,
-  parseSyllogismAnswerSnapshot,
+  parseLegacyPlacementProjection,
   resultForAttempt,
   snapshotToReviewQuestion,
   type AttemptReviewQuestion,
@@ -261,7 +261,12 @@ export async function GET(
         questionTags: tags,
         isFlagged: row.is_flagged,
         questionType,
-        result: resultForAttempt(row.score, questionType, true),
+        answerScheme: snapshot.question.answerScheme,
+        result: resultForAttempt(
+          row.score,
+          snapshot.question.answerScheme,
+          true
+        ),
         categoryName: snapshot.stem.categoryName ?? null,
         categoryDescription: snapshot.stem.categoryDescription
           ? extractTextFromRichJson(
@@ -270,7 +275,7 @@ export async function GET(
           : null,
         questionStemCategoryId: snapshot.stem.categoryId ?? null,
         questionAnswerOptionId: row.question_answer_option_id,
-        answerSnapshot: parseSyllogismAnswerSnapshot(row.answer_snapshot),
+        answerSnapshot: parseLegacyPlacementProjection(row.answer_snapshot),
       })
       questions.push(
         snapshotToReviewQuestion(snapshot, questionNumber, questionSetId)

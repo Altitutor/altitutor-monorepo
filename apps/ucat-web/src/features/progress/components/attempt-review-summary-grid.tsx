@@ -21,7 +21,6 @@ import {
 import type { CategoryBreakdownEntry } from "../lib/compute-category-breakdown";
 import type { CohortPercentileResult } from "@altitutor/ucat-percentiles";
 import { ATTEMPT_CHART_RESULT_COLORS } from "../lib/attempt-chart-result-colors";
-import { computeQuestionAttemptResult } from "../lib/compute-question-attempt-result";
 
 const SetAttemptAnalysisChart = dynamic(
   () =>
@@ -122,14 +121,7 @@ function QuestionAttemptsCard({
                 >
                   <div className="flex flex-wrap justify-center gap-1">
                     {group.questions.map((question) => {
-                      const result =
-                        question.score != null
-                          ? computeQuestionAttemptResult({
-                              score: question.score,
-                              questionType: question.questionType ?? null,
-                              hasAttempt: question.result !== "not_attempted",
-                            })
-                          : question.result;
+                      const result = question.result;
                       const selected = question.index === selectedQuestionIndex;
                       const isNotAttempted = result === "not_attempted";
                       return (

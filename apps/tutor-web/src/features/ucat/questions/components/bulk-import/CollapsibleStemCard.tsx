@@ -1,15 +1,18 @@
 'use client'
 
 import { cn } from '@/shared/utils'
+import { BulkImportRichTextPreview } from '@/features/ucat/questions/components/bulk-import/BulkImportRichTextPreview'
+import { stripBulkImportFormatTokens } from '@/features/ucat/shared/lib/bulk-import-inline-format'
+import { tokenizedPlainTextToProseMirrorWithLineBreaks } from '@/features/ucat/shared/lib/rich-text'
 
 const PREVIEW_LINE_LIMIT = 4
 
 function getStemLines(text: string): string[] {
-  return text.trim().split('\n')
+  return stripBulkImportFormatTokens(text).trim().split('\n')
 }
 
 function stemNeedsExpand(text: string): boolean {
-  const trimmed = text.trim()
+  const trimmed = stripBulkImportFormatTokens(text).trim()
   if (trimmed.length === 0) return false
   const lines = getStemLines(text)
   return (
@@ -43,15 +46,11 @@ export function CollapsibleStemCard({
   const canExpand = stemNeedsExpand(stem)
   const showExpandHint = !expanded && canExpand
   const selectable = onSelect != null
+  const stemPreviewDoc = tokenizedPlainTextToProseMirrorWithLineBreaks(trimmedStem)
 
   const stemBody = (
-    <div
-      className={cn(
-        'mt-1 whitespace-pre-wrap font-sans leading-relaxed text-foreground/90',
-        !expanded && canExpand && 'line-clamp-4'
-      )}
-    >
-      {trimmedStem}
+    <div className={cn('mt-1', !expanded && canExpand && 'line-clamp-4')}>
+      <BulkImportRichTextPreview json={stemPreviewDoc} />
     </div>
   )
 

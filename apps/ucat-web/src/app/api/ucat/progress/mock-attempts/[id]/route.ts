@@ -13,12 +13,13 @@ import {
   buildAttemptReviewExam,
   parseAttemptContentSnapshot,
   snapshotQuestionMetadata,
-  snapshotSyllogismOptions,
+  snapshotToQuestionItem,
 } from "@/features/progress/lib/attempt-content-snapshot";
 import { getAttemptPercentile } from "@/features/progress/server/attempt-percentile-service";
 import type { CohortPercentileResult } from "@altitutor/ucat-percentiles";
 import type { AttemptRecentPerformance } from "@/features/progress/lib/attempt-insights";
 import { fetchRecentAttemptPerformance } from "@/features/progress/server/attempt-insight-trend-service";
+import { getQuestionMaximumMarks } from "@/features/question-engine/lib/response-state";
 
 export type MockSetInfo = {
   setAttemptId: string;
@@ -63,7 +64,7 @@ export type MockAttemptDetailResponse = {
     questionType: "multiple_choice" | "syllogism" | null;
     result: "correct" | "partial" | "incorrect" | "not_attempted";
     questionAnswerOptionId: string | null;
-    answerSnapshot: Record<string, boolean> | null;
+    answerSnapshot: unknown;
     categoryName: string | null;
     categoryDescription: string | null;
     questionStemCategoryId: string | null;
@@ -72,23 +73,6 @@ export type MockAttemptDetailResponse = {
   setBoundaryIndices: number[];
   exam: QuestionEngineExam;
 };
-
-function parseAnswerSnapshot(
-  snapshot: unknown,
-): Record<string, boolean> | null {
-  if (!snapshot || typeof snapshot !== "object") return null;
-  const obj = snapshot as Record<string, unknown>;
-  if (obj.type !== "syllogism_v1" || !Array.isArray(obj.answers)) return null;
-  const answers = obj.answers as Array<{
-    question_answer_option_id: string;
-    answer: boolean;
-  }>;
-  const result: Record<string, boolean> = {};
-  for (const a of answers) {
-    result[a.question_answer_option_id] = a.answer;
-  }
-  return result;
-}
 
 export async function GET(
   _request: Request,
@@ -191,7 +175,7 @@ export async function GET(
       timeBurdenSeconds: number | null;
       questionType: "multiple_choice" | "syllogism" | null;
       questionAnswerOptionId: string | null;
-      answerSnapshot: Record<string, boolean> | null;
+      answerSnapshot: unknown;
       categoryName: string | null;
       questionStemCategoryId: string | null;
       isFlagged: boolean;
@@ -206,7 +190,7 @@ export async function GET(
       timeBurdenSeconds: qa.time_burden_seconds,
       questionType: qa.question_type as "multiple_choice" | "syllogism" | null,
       questionAnswerOptionId: qa.question_answer_option_id ?? null,
-      answerSnapshot: parseAnswerSnapshot(qa.answer_snapshot),
+      answerSnapshot: qa.answer_snapshot,
       categoryName: qa.category_name ?? null,
       questionStemCategoryId: qa.question_stem_category_id ?? null,
       isFlagged: qa.is_flagged ?? false,
@@ -241,9 +225,6 @@ export async function GET(
     });
   const allQuestionIds = orderedSnapshotAttempts.map(({ snapshot }) => snapshot.question.id);
   const questionMetadata = await fetchAttemptReviewQuestionMetadata(supabase, allQuestionIds);
-  const syllogismOptionsByQuestionId = new Map(
-    orderedSnapshotAttempts.map(({ snapshot }) => [snapshot.question.id, snapshotSyllogismOptions(snapshot)]),
-  );
 
   for (let setIndex = 0; setIndex < mockSetIds.length; setIndex++) {
     const questionSetId = mockSetIds[setIndex];
@@ -284,9 +265,10 @@ export async function GET(
         const snapshotMetadata = snapshotQuestionMetadata(snapshot);
 
         const { score, result } = resolveQuestionAttemptScoreAndResult({
-          questionId,
           attemptData,
-          syllogismOptionsByQuestionId,
+          maximumPoints: getQuestionMaximumMarks(
+            snapshotToQuestionItem(snapshot, globalQuestionNumber - 1, questionSetId),
+          ),
         });
         const timeSpentSeconds = attemptData?.timeSpentSeconds ?? null;
         const metadata = questionMetadata.get(questionId);

@@ -18,7 +18,6 @@ import {
   updateInvoicePaymentError,
 } from './invoice-creation.ts';
 import { sendInvoiceEmail } from './invoice-email.ts';
-import { ensureStripeCustomerEmail } from './customer-email.ts';
 import {
   getStripeErrorDetails,
   formatStripeErrorMessage,
@@ -330,15 +329,6 @@ export async function processStudentInvoicing(
     if (!shouldAutoBill) {
       // Create invoice with send_invoice collection method (no auto-charge)
       try {
-        // Stripe requires the linked customer to have an email for send_invoice.
-        // Existing billing accounts can predate the student's email or drift out
-        // of sync, so repair only a missing Stripe email before invoice creation.
-        await ensureStripeCustomerEmail(
-          stripe,
-          billing.stripe_customer_id!,
-          studentEmailById[studentId] || parentEmailsByStudent[studentId]?.[0]
-        );
-
         // Create draft invoice (no pending items sweep)
         const draftInvoice = await createDraftSendInvoiceInvoice(
           stripe,
@@ -349,7 +339,8 @@ export async function processStudentInvoicing(
           isStripeLiveKey,
           timestamp,
           sessionsStudentsIds,
-          stripeInvoiceCreateNonce
+          stripeInvoiceCreateNonce,
+          studentEmailById[studentId] || parentEmailsByStudent[studentId]?.[0]
         );
 
         let stripeInvoiceItems: Array<InvoiceItemRow & { stripe_invoice_item_id: string }> = [];

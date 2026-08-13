@@ -25,7 +25,7 @@ describe('parseCombinedDocumentForSection', () => {
               {
                 type: 'text',
                 text:
-                  'Physicians are from either Melbourne or Sydney and practise in either General Medicine or Oncology. Some physicians are from Melbourne and the rest practise Oncology.',
+                  'Physicians are from either Melbourne or Sydney and practice in either General Medicine or Oncology. Some physicians are from Melbourne and the rest practice Oncology.',
               },
             ],
           },

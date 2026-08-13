@@ -10,6 +10,10 @@ import {
   parseFromLines,
   type ParserConfig,
 } from '@/features/ucat/questions/lib/parsers/core'
+import {
+  inferDecisionMakingCategory,
+  inferResponseContract,
+} from '@/features/ucat/questions/lib/parsers/responseClassification'
 
 /** Same shape as core ParsedOption; used when we attach questionType. */
 export type ParsedDecisionMakingOption = {
@@ -344,6 +348,7 @@ function toRichText(text: string): Json {
 
 export type DecisionMakingCategoryName =
   | 'Syllogisms'
+  | 'Interpreting Information and Drawing Conclusions'
   | 'Recognising Assumptions'
   | 'Venn Diagrams'
   | 'Probabilistic and Statistical Reasoning'
@@ -394,27 +399,33 @@ function stemHasProbabilisticSignals(stem: ParsedDecisionMakingStem): boolean {
 
 /**
  * Get Decision Making category name from stem content.
- * Rules applied in order: Syllogisms, Recognising Assumptions, Venn Diagrams,
- * Probabilistic and Statistical Reasoning, Logical Puzzles.
+ * Yes/No conclusion tasks resolve to Syllogisms or Interpreting Information
+ * and Drawing Conclusions (visual → Interpreting Information; strong quantified
+ * premises → Syllogisms; otherwise Interpreting Information). Other rules:
+ * Recognising Assumptions, Venn Diagrams, Probabilistic and Statistical
+ * Reasoning, then Logical Puzzles.
  */
 export function getDecisionMakingStemCategoryName(
   stem: ParsedDecisionMakingStem
-): DecisionMakingCategoryName {
+): DecisionMakingCategoryName | null {
   const stemLower = stem.stemText.toLowerCase()
   const hasDiagramInStem = stemLower.includes('diagram')
 
   const containsImage = (text: string): boolean => text.includes('[[IMG:')
 
   const stemHasImage = containsImage(stem.stemText)
+  const trustedCategoryName = /^\s*interpreting information and drawing conclusions\b/iu.test(stem.stemText)
+    ? 'Interpreting Information and Drawing Conclusions' as const
+    : /^\s*syllogisms?\b/iu.test(stem.stemText)
+      ? 'Syllogisms' as const
+      : null
+  if (trustedCategoryName) return trustedCategoryName
 
   for (const q of stem.questions) {
     const qLower = q.text.toLowerCase()
     const questionHasImage = containsImage(q.text)
     const anyOptionHasImage = q.options.some((opt) => containsImage(opt.text))
 
-    if (q.questionType === 'syllogism') {
-      return 'Syllogisms'
-    }
     if (qLower.includes('argument')) {
       return 'Recognising Assumptions'
     }
@@ -424,6 +435,15 @@ export function getDecisionMakingStemCategoryName(
     ) {
       return 'Venn Diagrams'
     }
+  }
+
+  for (const question of stem.questions) {
+    const category = inferDecisionMakingCategory({
+      stemText: stem.stemText,
+      directive: question.text,
+    })
+    if (category.conflicts.length > 0) return null
+    if (category.value) return category.value
   }
 
   if (stemHasProbabilisticSignals(stem)) {
@@ -907,9 +927,19 @@ export function mapParsedDecisionMakingToFormValues(
         )
     )
     .map((stem) => {
-      const questions = stem.questions.map((q) => ({
+      const questions = stem.questions.map((q) => {
+        const inference = inferResponseContract({
+          directive: q.text,
+          targetCount: q.options.length,
+          optionTexts: q.options.map((option) => option.text),
+        })
+        const responseType = inference.responseType.value ?? 'multiple_choice'
+        const answerScheme = inference.answerScheme.value ?? 'single_choice'
+        return {
         questionText: toRichText(q.text),
-        questionType: q.questionType,
+        questionType: responseType === 'drag_and_drop' ? 'syllogism' as const : 'multiple_choice' as const,
+        responseType,
+        answerScheme,
         syllogismAnswerPattern: null,
         answerExplanation: null,
         difficulty: null,
@@ -919,8 +949,9 @@ export function mapParsedDecisionMakingToFormValues(
           answerText: toRichText(opt.text),
           answerExplanation: null,
           isAnswer: false,
+          answerKeyValue: null,
         })),
-      }))
+      }})
       const resolvedCategoryId =
         getCategoryIdForStem != null ? getCategoryIdForStem(stem) : categoryId
 

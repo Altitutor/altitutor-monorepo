@@ -22,6 +22,7 @@ import {
   isLastQuestionOfUnit,
 } from "@/features/question-engine/lib/practice";
 import type { QuestionStemWithQuestions } from "@/features/question-engine/model/types";
+import { snapshotQuestionResponse } from "@/features/question-engine/lib/response-state";
 
 export type NeedMoreStemsResult =
   | { status: "loaded"; stems: QuestionStemWithQuestions[] }
@@ -122,6 +123,7 @@ const initialState: QuestionEngineState = {
   flaggedIds: [],
   selectedAnswers: {},
   syllogismSnapshots: {},
+  responseSnapshots: {},
   showNavigator: false,
   showCalculator: false,
   showEndExamDialog: false,
@@ -746,6 +748,14 @@ export function useQuestionEngineState(
         ...current.selectedAnswers,
         [currentQuestion.id]: optionId,
       },
+      responseSnapshots: {
+        ...(current.responseSnapshots ?? {}),
+        [currentQuestion.id]: snapshotQuestionResponse(
+          currentQuestion,
+          optionId,
+          current.syllogismSnapshots?.[currentQuestion.id],
+        ),
+      },
     }));
   }
 
@@ -758,6 +768,14 @@ export function useQuestionEngineState(
       syllogismSnapshots: {
         ...(current.syllogismSnapshots ?? {}),
         [questionId]: snapshot,
+      },
+      responseSnapshots: {
+        ...(current.responseSnapshots ?? {}),
+        [questionId]: snapshotQuestionResponse(
+          questions.find((question) => question.id === questionId)!,
+          current.selectedAnswers[questionId],
+          snapshot,
+        ),
       },
     }));
   }

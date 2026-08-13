@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
   UCAT_COLORS,
   UCAT_FONTS,
@@ -23,7 +23,18 @@ import {
   hasAnswerExplanation,
   OptionText,
 } from "./question-content";
-import { getSituationalJudgementMarkingOutcome } from "@altitutor/ucat-marking";
+import {
+  projectPlacementReviewByDestination,
+  type PresentationContract,
+  type ReviewContract,
+} from "@altitutor/ucat-response-contract";
+import {
+  evaluatePersistedQuestionResponse,
+  getQuestionMaximumMarks,
+  isPlacementResponse,
+  placementPresentationForQuestion,
+  snapshotQuestionResponse,
+} from "@/features/question-engine/lib/response-state";
 
 type ResultsViewerVariant = "ucat" | "site";
 
@@ -142,10 +153,6 @@ function StudentStatsBar({
   );
 }
 
-function getQuestionMaxPoints(question: QuestionItem): number {
-  return question.questionType === "syllogism" ? 2 : 1;
-}
-
 function getPointsColorClass(scored: number, maxPoints: number): string {
   if (scored <= 0) return "text-red-700 dark:text-red-400";
   if (scored >= maxPoints) return "text-green-700 dark:text-green-400";
@@ -159,7 +166,7 @@ function QuestionPointsFooter({
   points: number;
   question: QuestionItem;
 }) {
-  const maxPoints = getQuestionMaxPoints(question);
+  const maxPoints = getQuestionMaximumMarks(question);
   const scored = points;
   const formattedPoints = Number.isInteger(scored)
     ? String(scored)
@@ -184,12 +191,118 @@ const syllogismAnswerCorrectClass = (site: boolean) =>
     ? "border-green-700 bg-green-50 text-green-800 dark:bg-green-950/40 dark:text-green-300"
     : "border-green-700 bg-green-50 text-green-800";
 
+function DestinationFirstPlacementReview({
+  options,
+  presentation,
+  review,
+  theme,
+  textTone,
+  showExplanations,
+}: {
+  options: readonly AnswerOption[];
+  presentation: Extract<PresentationContract, { kind: "placement" }>;
+  review: Extract<ReviewContract, { kind: "placement" }>;
+  theme: ReturnType<typeof getResultsViewerTheme>;
+  textTone: "theme" | "engine";
+  showExplanations: boolean;
+}) {
+  const optionById = new Map(options.map((option) => [option.id, option]));
+  const destinations = projectPlacementReviewByDestination(
+    presentation,
+    review,
+  );
+
+  return (
+    <div className="mt-3 space-y-1.5">
+      <div
+        className={cn(
+          "grid grid-cols-[minmax(0,1.25fr)_minmax(0,3fr)_minmax(0,3fr)] gap-x-2 px-3",
+          theme.gridHeader,
+        )}
+      >
+        <div>Destination</div>
+        <div className="text-center">Your answer</div>
+        <div className="text-center">Correct answer</div>
+      </div>
+      <div className="space-y-1.5">
+        {destinations.map((destination) => {
+          const isCorrect = destination.outcome === "correct";
+          const selectedOptions = destination.selectedTargetIds
+            .map((id) => optionById.get(id))
+            .filter((option): option is AnswerOption => option != null);
+          const correctOptions = destination.correctTargetIds
+            .map((id) => optionById.get(id))
+            .filter((option): option is AnswerOption => option != null);
+
+          return (
+            <div
+              key={destination.token ?? "not-placed"}
+              data-testid={`placement-destination-${destination.token ?? "not-placed"}`}
+              className={cn(
+                "grid grid-cols-[minmax(0,1.25fr)_minmax(0,3fr)_minmax(0,3fr)] items-stretch gap-2 rounded px-3 py-1",
+                isCorrect ? theme.correctRowBg : theme.wrongRowBg,
+              )}
+            >
+              <div className="flex min-h-[50px] items-center font-medium">
+                {destination.label}
+              </div>
+              <div
+                className={cn(
+                  "flex min-h-[50px] flex-col items-center justify-center gap-1 rounded-md border px-4 text-center",
+                  theme.site ? "text-sm" : "text-[11pt]",
+                  selectedOptions.length === 0
+                    ? "border-dashed border-muted-foreground/50 text-muted-foreground"
+                    : isCorrect
+                      ? "border-green-600/50 bg-green-500/10 dark:border-green-700/50"
+                      : "border-red-600/50 bg-red-500/10 dark:border-red-700/50",
+                )}
+              >
+                {selectedOptions.length === 0
+                  ? "—"
+                  : selectedOptions.map((option) => (
+                      <OptionText
+                        key={option.id}
+                        option={option}
+                        textTone={textTone}
+                      />
+                    ))}
+              </div>
+              <div className={theme.statementBox}>
+                {correctOptions.map((option) => (
+                  <OptionText
+                    key={option.id}
+                    option={option}
+                    textTone={textTone}
+                  />
+                ))}
+              </div>
+              {showExplanations && correctOptions.some(hasAnswerExplanation) ? (
+                <div className="col-span-3 pl-1">
+                  {correctOptions.filter(hasAnswerExplanation).map((option) => (
+                    <AnswerExplanation
+                      key={option.id}
+                      text={option.answerExplanation}
+                      json={option.answerExplanationJson}
+                      textTone={textTone}
+                    />
+                  ))}
+                </div>
+              ) : null}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 export function ResultsQuestionViewer({
   question,
   selectedOptionId,
   correctOptionId,
   points,
   syllogismSnapshot,
+  review,
   preloadedContent,
   variant = "ucat",
   showExplanations = true,
@@ -200,6 +313,8 @@ export function ResultsQuestionViewer({
   correctOptionId?: string;
   points?: number;
   syllogismSnapshot?: Record<string, boolean>;
+  /** Canonical evaluator projection; computed here only when a caller has not supplied it. */
+  review?: ReviewContract;
   /** Pre-refreshed stem/question content for instant image display. */
   preloadedContent?: CachedContent | null;
   /** `site` uses app theme (progress attempt review); `ucat` matches exam engine styling. */
@@ -217,6 +332,12 @@ export function ResultsQuestionViewer({
 
   const optionLabel = (index: number) => String.fromCharCode(65 + index);
   const [animateBars, setAnimateBars] = useState(false);
+  const projectedReview =
+    review ??
+    evaluatePersistedQuestionResponse(
+      question,
+      snapshotQuestionResponse(question, selectedOptionId, syllogismSnapshot),
+    ).review;
 
   useEffect(() => {
     // Trigger bar animation when question changes
@@ -225,14 +346,21 @@ export function ResultsQuestionViewer({
     return () => window.clearTimeout(id);
   }, [question.id]);
 
-  if (question.questionType === "syllogism") {
+  if (isPlacementResponse(question)) {
     const options = [...question.options].sort((a, b) => a.index - b.index);
+    const presentation = placementPresentationForQuestion(question);
+    const tokenLabel = new Map(
+      presentation.tokens.map((token) => [token.value, token.label]),
+    );
 
     const rows = options.map((opt) => {
-      const studentYes = syllogismSnapshot?.[opt.id] === true;
-      const studentHasAnswer = syllogismSnapshot && opt.id in syllogismSnapshot;
-      const correctYes = !!opt.isAnswer;
-      const isCorrect = studentHasAnswer && studentYes === correctYes;
+      const projectedRow =
+        projectedReview.kind === "placement"
+          ? projectedReview.rows.find((row) => row.targetId === opt.id)
+          : undefined;
+      const studentToken = projectedRow?.placedToken ?? null;
+      const correctToken = projectedRow?.correctToken ?? null;
+      const isCorrect = studentToken === correctToken;
 
       const hasStats =
         opt.totalAnswered != null &&
@@ -242,9 +370,8 @@ export function ResultsQuestionViewer({
 
       return {
         option: opt,
-        studentYes,
-        studentHasAnswer,
-        correctYes,
+        studentToken,
+        correctToken,
         isCorrect,
         hasStats,
         pct,
@@ -263,6 +390,9 @@ export function ResultsQuestionViewer({
     const syllogismGridCols = showStudentsColumn
       ? "grid-cols-[minmax(0,3fr)_minmax(0,1.4fr)_minmax(0,1.4fr)_minmax(0,1.2fr)]"
       : "grid-cols-[minmax(0,3fr)_minmax(0,1.4fr)_minmax(0,1.4fr)]";
+    const isDestinationFirst =
+      presentation.dragDirection === "options_to_tokens" &&
+      projectedReview.kind === "placement";
 
     const content = (
       <div
@@ -291,10 +421,20 @@ export function ResultsQuestionViewer({
           </div>
           {savedAnswersUnavailable ? (
             <p className="rounded-md border border-amber-500/35 bg-amber-500/10 px-3 py-2 text-sm text-amber-800 dark:text-amber-300">
-              This attempt was scored, but its individual statement answers were
-              not saved. New syllogism attempts retain these answers.
+              This attempt was scored, but its individual placement answers were
+              not saved. New placement attempts retain these answers.
             </p>
           ) : null}
+          {isDestinationFirst && projectedReview.kind === "placement" ? (
+            <DestinationFirstPlacementReview
+              options={options}
+              presentation={presentation}
+              review={projectedReview}
+              theme={theme}
+              textTone={contentTextTone}
+              showExplanations={showExplanations}
+            />
+          ) : (
           <div className="mt-3 space-y-1.5">
             <div
               className={cn(
@@ -314,18 +454,15 @@ export function ResultsQuestionViewer({
               {rows.map(
                 ({
                   option,
-                  studentYes,
-                  studentHasAnswer,
-                  correctYes,
+                  studentToken,
+                  correctToken,
                   isCorrect,
                   hasStats,
                   pct,
                   barWidth,
                 }) => {
-                  const isStatementCorrect =
-                    studentHasAnswer && studentYes === correctYes;
                   const rowHighlight = isReviewingSyllogism
-                    ? isStatementCorrect
+                    ? isCorrect
                       ? "correct"
                       : "wrong"
                     : null;
@@ -380,7 +517,7 @@ export function ResultsQuestionViewer({
                               ? syllogismAnswerCorrectClass(theme.site)
                               : rowHighlight === "wrong"
                                 ? syllogismAnswerWrongClass(theme.site)
-                                : !studentHasAnswer
+                                : studentToken == null
                                   ? theme.site
                                     ? "border-dashed border-muted-foreground/50 text-muted-foreground"
                                     : "border-dashed border-[#9ca3af] text-[#9ca3af]"
@@ -389,12 +526,16 @@ export function ResultsQuestionViewer({
                                     : syllogismAnswerWrongClass(theme.site),
                           )}
                         >
-                          {studentHasAnswer ? (studentYes ? "Yes" : "No") : "—"}
+                          {studentToken == null
+                            ? "—"
+                            : (tokenLabel.get(studentToken) ?? studentToken)}
                         </div>
                       </div>
                       <div className="flex items-center justify-center">
                         <div className={theme.correctAnswerBox}>
-                          {correctYes ? "Yes" : "No"}
+                          {correctToken == null
+                            ? "Not placed"
+                            : (tokenLabel.get(correctToken) ?? correctToken)}
                         </div>
                       </div>
                       {showStudentsColumn ? (
@@ -427,6 +568,7 @@ export function ResultsQuestionViewer({
               )}
             </div>
           </div>
+          )}
           {showQuestionFooter ? (
             <div className={theme.footer}>
               {typeof points === "number" ? (
@@ -474,31 +616,26 @@ export function ResultsQuestionViewer({
     return <div className={cn(theme.body, theme.scrollRoot)}>{content}</div>;
   }
 
-  const selectedIndex = question.options.findIndex(
-    (option) => option.id === selectedOptionId,
-  );
-  const correctIndex = question.options.findIndex(
-    (option) => option.id === correctOptionId,
-  );
-  const sjOutcome = getSituationalJudgementMarkingOutcome({
-    sectionName: question.sectionName,
-    optionCount: question.options.length,
-    selectedIndex,
-    correctIndex,
-  });
+  const singleSelectReview =
+    projectedReview.kind === "single_select" ? projectedReview : null;
+  const projectedSelectedOptionId =
+    singleSelectReview?.selectedOptionId ?? selectedOptionId;
+  const projectedCorrectOptionId =
+    singleSelectReview?.correctOptionId ?? correctOptionId;
   const answeredIncorrectly =
-    correctOptionId != null && selectedOptionId !== correctOptionId;
+    projectedCorrectOptionId != null &&
+    projectedSelectedOptionId !== projectedCorrectOptionId;
 
   const renderOption = (option: AnswerOption, index: number) => {
-    const optionIsCorrect = option.id === correctOptionId;
-    const optionIsSelected = option.id === selectedOptionId;
+    const optionIsCorrect = option.id === projectedCorrectOptionId;
+    const optionIsSelected = option.id === projectedSelectedOptionId;
     const optionIsWrongSelection =
       answeredIncorrectly &&
       optionIsSelected &&
       !optionIsCorrect &&
-      sjOutcome !== "partial";
+      singleSelectReview?.outcome !== "partial";
     const optionIsPartialSelection =
-      optionIsSelected && sjOutcome === "partial";
+      optionIsSelected && singleSelectReview?.outcome === "partial";
     const letter = optionLabel(index);
     const hasStats =
       option.totalAnswered != null &&

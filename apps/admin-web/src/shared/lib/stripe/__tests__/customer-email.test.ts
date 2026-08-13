@@ -1,4 +1,5 @@
 import {
+  createSendInvoiceWithEmailRecovery,
   ensureStripeCustomerEmail,
   type StripeCustomerEmailClient,
 } from '../../../../../../../supabase/functions/billing-runner/shared/customer-email';
@@ -69,5 +70,71 @@ describe('ensureStripeCustomerEmail', () => {
     ).rejects.toThrow(
       'Stripe customer cus_without_email has no email, and no student or parent email is available',
     );
+  });
+});
+
+describe('createSendInvoiceWithEmailRecovery', () => {
+  it('escapes a cached missing-email response on the original idempotency key', async () => {
+    const stripe: StripeCustomerEmailClient = {
+      customers: {
+        retrieve: async () => ({ email: 'student@example.com' }),
+        update: async (_customerId, params) => ({ email: params.email }),
+      },
+    };
+    const attemptedKeys: string[] = [];
+
+    const result = await createSendInvoiceWithEmailRecovery({
+      stripe,
+      customerId: 'cus_with_email',
+      fallbackEmail: 'student@example.com',
+      idempotencyKey: 'invoice_session_with_cached_error',
+      createInvoice: async (idempotencyKey) => {
+        attemptedKeys.push(idempotencyKey);
+        if (idempotencyKey === 'invoice_session_with_cached_error') {
+          const error = new Error(
+            'Missing email. In order to create invoices that are sent to the customer, the customer must have a valid email.'
+          ) as Error & { statusCode: number; type: string };
+          error.statusCode = 400;
+          error.type = 'StripeInvalidRequestError';
+          throw error;
+        }
+        return { id: 'in_recovered' };
+      },
+    });
+
+    expect(result).toEqual({ id: 'in_recovered' });
+    expect(attemptedKeys).toEqual([
+      'invoice_session_with_cached_error',
+      'invoice_session_with_cached_error_email_recovery_v1',
+    ]);
+  });
+
+  it('does not retry unrelated Stripe errors with a different key', async () => {
+    const stripe: StripeCustomerEmailClient = {
+      customers: {
+        retrieve: async () => ({ email: 'student@example.com' }),
+        update: async (_customerId, params) => ({ email: params.email }),
+      },
+    };
+    const attemptedKeys: string[] = [];
+    const cardError = Object.assign(new Error('Card declined'), {
+      statusCode: 402,
+      type: 'StripeCardError',
+    });
+
+    await expect(
+      createSendInvoiceWithEmailRecovery({
+        stripe,
+        customerId: 'cus_with_email',
+        fallbackEmail: 'student@example.com',
+        idempotencyKey: 'invoice_card_error',
+        createInvoice: async (idempotencyKey) => {
+          attemptedKeys.push(idempotencyKey);
+          throw cardError;
+        },
+      })
+    ).rejects.toBe(cardError);
+
+    expect(attemptedKeys).toEqual(['invoice_card_error']);
   });
 });

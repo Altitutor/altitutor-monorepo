@@ -10,6 +10,7 @@ export type UcatPdfAnswerOption = {
   answer_explanation: Json | null
   index: number
   is_answer: boolean
+  answer_key_value: 'correct' | 'yes' | 'no' | 'most' | 'least' | null
 }
 
 export type UcatPdfQuestion = {
@@ -18,6 +19,8 @@ export type UcatPdfQuestion = {
   answer_explanation: Json | null
   index: number
   question_type: 'multiple_choice' | 'syllogism'
+  response_type: 'multiple_choice' | 'drag_and_drop'
+  answer_scheme: 'single_choice' | 'situational_judgement_rating' | 'decision_making_binary_placement' | 'situational_judgement_most_least'
   answer_options: UcatPdfAnswerOption[]
 }
 
@@ -310,7 +313,7 @@ function StemBlock({ stem, stemNumber }: { stem: UcatPdfStem; stemNumber: number
 function MultipleChoiceOptions({ question, includeAnswers }: { question: UcatPdfQuestion; includeAnswers: boolean }) {
   const sortedOptions = [...question.answer_options].sort((left, right) => left.index - right.index)
   const correctLabels = sortedOptions
-    .map((option, index) => (option.is_answer ? String.fromCharCode(65 + index) : null))
+    .map((option, index) => (option.answer_key_value === 'correct' || option.is_answer ? String.fromCharCode(65 + index) : null))
     .filter((label): label is string => label != null)
 
   return (
@@ -322,7 +325,7 @@ function MultipleChoiceOptions({ question, includeAnswers }: { question: UcatPdf
             <RichBlocks value={option.answer_text} />
             {includeAnswers && hasRichContent(option.answer_explanation) ? (
               <View style={styles.answerBox}>
-                <Text style={styles.answerLabel}>{option.is_answer ? 'Correct option' : 'Option explanation'}</Text>
+                <Text style={styles.answerLabel}>{option.answer_key_value === 'correct' || option.is_answer ? 'Correct option' : 'Option explanation'}</Text>
                 <Explanation value={option.answer_explanation} />
               </View>
             ) : null}
@@ -349,7 +352,7 @@ function SyllogismOptions({ question, includeAnswers }: { question: UcatPdfQuest
             <Text style={styles.questionHeading}>Statement {index + 1}</Text>
             <RichBlocks value={option.answer_text} />
             <Text style={styles.responseLine}>
-              {includeAnswers ? `Answer: ${option.is_answer ? 'Yes' : 'No'}` : 'Response:  Yes  /  No'}
+              {includeAnswers ? `Answer: ${option.answer_key_value === 'yes' || option.is_answer ? 'Yes' : 'No'}` : 'Response:  Yes  /  No'}
             </Text>
             {includeAnswers ? <Explanation value={option.answer_explanation} /> : null}
           </View>
@@ -360,6 +363,27 @@ function SyllogismOptions({ question, includeAnswers }: { question: UcatPdfQuest
           <Explanation value={question.answer_explanation} />
         </View>
       ) : null}
+    </View>
+  )
+}
+
+function MostLeastOptions({ question, includeAnswers }: { question: UcatPdfQuestion; includeAnswers: boolean }) {
+  return (
+    <View>
+      {[...question.answer_options]
+        .sort((left, right) => left.index - right.index)
+        .map((option, index) => (
+          <View key={option.id} style={styles.syllogismOption}>
+            <Text style={styles.questionHeading}>Action {index + 1}</Text>
+            <RichBlocks value={option.answer_text} />
+            <Text style={styles.responseLine}>
+              {includeAnswers
+                ? `Answer: ${option.answer_key_value === 'most' ? 'Most appropriate' : option.answer_key_value === 'least' ? 'Least appropriate' : 'Not selected'}`
+                : 'Response:  Most appropriate  /  Least appropriate'}
+            </Text>
+          </View>
+        ))}
+      {includeAnswers ? <Explanation value={question.answer_explanation} /> : null}
     </View>
   )
 }
@@ -379,8 +403,10 @@ function QuestionBlock({
         Question {questionNumber}
       </Text>
       <RichBlocks value={question.question_text} />
-      {question.question_type === 'syllogism' ? (
+      {question.answer_scheme === 'decision_making_binary_placement' ? (
         <SyllogismOptions question={question} includeAnswers={includeAnswers} />
+      ) : question.answer_scheme === 'situational_judgement_most_least' ? (
+        <MostLeastOptions question={question} includeAnswers={includeAnswers} />
       ) : (
         <MultipleChoiceOptions question={question} includeAnswers={includeAnswers} />
       )}

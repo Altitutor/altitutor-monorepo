@@ -10,6 +10,8 @@ module.exports = {
     // Shared package main entry points at dist/; map to source so tests work without a build.
     '^@altitutor/shared$': '<rootDir>/../shared/src/index.ts',
     '^@altitutor/shared/(.*)$': '<rootDir>/../shared/src/$1',
+    '^@altitutor/ucat-response-contract$': '<rootDir>/../ucat-response-contract/src/index.ts',
+    '^@altitutor/ucat-response-contract/(.*)$': '<rootDir>/../ucat-response-contract/src/$1',
   },
   passWithNoTests: true,
 };

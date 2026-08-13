@@ -36,7 +36,6 @@ import {
   type QuestionEngineTutorialControl,
   type QuestionEngineTutorialSnapshot,
 } from "@/features/question-engine/components/question-engine-page";
-import { UCAT_QUESTION_ENGINE_TOUR } from "@/features/onboarding/config/tour-steps";
 import { useCompleteOnboardingTour } from "@/features/onboarding/hooks/use-onboarding-progress";
 import {
   UCAT_GUIDED_SAMPLER_COMPLETED,
@@ -646,7 +645,7 @@ function FamiliarityEntry({
           Let’s get you ready for your first UCAT session
         </h1>
         <p className="mt-3 max-w-2xl text-muted-foreground">
-          Work through two easy, representative questions from each section.
+          Work through two easy, realistic questions from each section.
           We’ll match the amount of coaching to your experience. About 6
           minutes.
         </p>
@@ -794,14 +793,14 @@ const SECTION_BRIEFINGS = {
     approach:
       "Read the stem first and identify the professional duty at risk. Then judge whether the action protects the patient and is proportionate to the situation.",
     watchOut:
-      "Answer the exact scale being asked. A fact can have minor importance without changing the action Mina should take.",
+      "Answer the exact scale being asked.",
   },
 } as const;
 
 const FAMILIARITY_BRIEFING = {
   new: "We’ll coach you through the method and keep you on each question until you reach the correct answer.",
   familiar:
-    "Use these questions to practise the method. We’ll give feedback after you submit and step in with a hint if needed.",
+    "Use these questions to practice the method. We’ll give feedback after you submit and step in with a hint if needed.",
   experienced:
     "Treat these as a quick technique check. Coaching stays minimal, but feedback and hints are available if you need them.",
 } as const satisfies Record<UcatFamiliarity, string>;
@@ -1674,7 +1673,6 @@ export function GuidedSamplerPage() {
     try {
       await patchSignupProgress({ familiarity });
       await completeMilestone.mutateAsync(UCAT_GUIDED_SAMPLER_DECIDED);
-      await completeMilestone.mutateAsync(UCAT_QUESTION_ENGINE_TOUR);
       if (completed) {
         await completeMilestone.mutateAsync(UCAT_GUIDED_SAMPLER_COMPLETED);
         captureUcatEvent("first_value_reached", {

@@ -1,6 +1,5 @@
 import type { Json } from "@altitutor/shared";
-import { computeMaxRawScore, computeRawScore } from "@altitutor/ucat-marking";
-import type { QuestionMeta } from "@altitutor/ucat-marking";
+import { computeRawScore, type ScoringQuestion } from "@altitutor/ucat-marking";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import {
   mapQuestionStemsToItems,
@@ -9,6 +8,12 @@ import {
 } from "@/features/question-engine/model/types";
 import type { FinalQuestionAttemptInput } from "@/lib/ucat/set-attempts/complete-student-set-attempt";
 import { persistQuestionAttemptBatch } from "@/lib/ucat/question-attempts/persist-question-attempt-batch";
+import {
+  isPlacementResponse,
+  responseDefinitionForQuestion,
+  restorePersistedQuestionResponse,
+  snapshotQuestionResponse,
+} from "@/features/question-engine/lib/response-state";
 
 type AdminClient = SupabaseClient;
 
@@ -42,49 +47,11 @@ function parsePracticeQuestions(stemsSnapshot: Json | null): QuestionItem[] {
   }
 }
 
-function questionMeta(questions: QuestionItem[]): QuestionMeta[] {
+function scoringQuestions(questions: QuestionItem[]): ScoringQuestion[] {
   return questions.map((question) => ({
-    id: question.id,
-    stemId: question.stemId,
+    definition: responseDefinitionForQuestion(question),
     sectionName: question.sectionName,
-    questionType: question.questionType,
-    correctOptionId: question.correctOptionId ?? "",
-    options: question.options.map((option) => ({
-      id: option.id,
-      index: option.index,
-    })),
   }));
-}
-
-function syllogismSnapshot(
-  value: Json | null | undefined,
-): Record<string, boolean> | null {
-  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
-  const snapshot = value as {
-    type?: unknown;
-    answers?: unknown;
-  };
-  if (snapshot.type !== "syllogism_v1" || !Array.isArray(snapshot.answers)) {
-    return null;
-  }
-
-  const answers: Record<string, boolean> = {};
-  for (const answer of snapshot.answers) {
-    if (!answer || typeof answer !== "object" || Array.isArray(answer)) {
-      continue;
-    }
-    const row = answer as {
-      question_answer_option_id?: unknown;
-      answer?: unknown;
-    };
-    if (
-      typeof row.question_answer_option_id === "string" &&
-      typeof row.answer === "boolean"
-    ) {
-      answers[row.question_answer_option_id] = row.answer;
-    }
-  }
-  return answers;
 }
 
 export function scorePracticeAnswers(
@@ -95,51 +62,32 @@ export function scorePracticeAnswers(
   totalRawScore: number;
   maxRawScore: number;
 } {
-  const meta = questionMeta(questions);
-  const nonSyllogismMeta = meta.filter(
-    (question) => question.questionType !== "syllogism",
-  );
-  const nonSyllogismAttempts = nonSyllogismMeta.flatMap((question) => {
-    const selectedOptionId = answersByQuestionId.get(
-      question.id,
-    )?.questionAnswerOptionId;
-    return selectedOptionId
-      ? [{ questionId: question.id, selectedOptionId }]
-      : [];
-  });
+  const scoring = scoringQuestions(questions);
+  const responses = new Map(questions.map((item) => {
+    const answer = answersByQuestionId.get(item.id);
+    const restored = restorePersistedQuestionResponse(
+      item,
+      answer?.answerSnapshot,
+      answer?.questionAnswerOptionId,
+    );
+    return [
+      item.id,
+      snapshotQuestionResponse(
+        item,
+        restored.selectedOptionId ?? undefined,
+        restored.syllogismSnapshot ?? undefined,
+      ).response,
+    ] as const;
+  }));
   const scored = computeRawScore({
-    attempts: nonSyllogismAttempts,
-    questions: nonSyllogismMeta,
+    responses,
+    questions: scoring,
   });
-  const questionScores = new Map(scored.questionScores);
-
-  // A practice syllogism is represented by one question with several
-  // true/false judgements, so score it against every option exactly as the UI
-  // does rather than reducing it to one selected option.
-  for (const question of questions) {
-    if (question.questionType !== "syllogism") continue;
-    const snapshot = syllogismSnapshot(
-      answersByQuestionId.get(question.id)?.answerSnapshot,
-    );
-    let correctCount = 0;
-    for (const option of question.options) {
-      if (snapshot?.[option.id] === (option.isAnswer === true)) {
-        correctCount += 1;
-      }
-    }
-    questionScores.set(
-      question.id,
-      correctCount >= 5 ? 2 : correctCount >= 3 ? 1 : 0,
-    );
-  }
 
   return {
-    questionScores,
-    totalRawScore: [...questionScores.values()].reduce(
-      (total, score) => total + score,
-      0,
-    ),
-    maxRawScore: computeMaxRawScore(meta),
+    questionScores: scored.questionScores,
+    totalRawScore: scored.totalRawScore,
+    maxRawScore: scored.maximumRawScore,
   };
 }
 
@@ -201,7 +149,7 @@ export async function completeStudentPracticeSession(
     return {
       questionId: question.id,
       questionAnswerOptionId:
-        question.questionType === "syllogism"
+        isPlacementResponse(question)
           ? null
           : (supplied?.questionAnswerOptionId ?? null),
       answerSnapshot: supplied?.answerSnapshot ?? null,

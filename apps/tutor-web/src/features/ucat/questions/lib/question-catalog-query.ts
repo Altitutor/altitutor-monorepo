@@ -6,12 +6,18 @@ import type {
   QuestionSearchScope,
 } from '@/features/ucat/questions/hooks/useUcatQuestionsTable'
 import {
+  getRangeFilterMax,
+  getRangeFilterMin,
+} from '@/features/ucat/shared/hooks/useUcatTableState'
+import {
   UCAT_FILTER_NO_CATEGORY,
   UCAT_FILTER_NOT_IN_ANY_SET,
 } from '@/features/ucat/shared/lib/table-filter-sentinel'
 
 export const CREATED_AT_FROM_FILTER_KEY = 'created_at_from'
 export const CREATED_AT_TO_FILTER_KEY = 'created_at_to'
+export const QUESTION_COUNT_MIN_FILTER_KEY = 'question_count_min'
+export const QUESTION_COUNT_MAX_FILTER_KEY = 'question_count_max'
 
 const CATALOG_SORT_KEYS = new Set([
   'section_name',
@@ -39,9 +45,12 @@ export type QuestionCatalogQuery = {
   setIds: string[]
   includeWithoutSet: boolean
   sourceChannels: string[]
+  aiReviewStatuses: string[]
   createdByIds: string[]
   createdFrom: string | null
   createdTo: string | null
+  questionCountMin: number | null
+  questionCountMax: number | null
   sortBy: string | null
   sortDirection: 'asc' | 'desc'
   page: number
@@ -59,6 +68,12 @@ function filterStrings(state: DataTableState, key: string): string[] {
 
 function firstFilterString(state: DataTableState, key: string): string | null {
   return filterStrings(state, key)[0] ?? null
+}
+
+function nonNegativeIntegerOrNull(value: number | null): number | null {
+  if (value == null || !Number.isFinite(value)) return null
+  const truncated = Math.trunc(value)
+  return truncated >= 0 ? truncated : null
 }
 
 export function toUtcIso(value: string | null): string | null {
@@ -87,13 +102,23 @@ export function buildQuestionCatalogQuery(input: {
     includeNoCategory: rawCategoryIds.includes(UCAT_FILTER_NO_CATEGORY),
     tagIds: filterStrings(tableState, 'question_tag_id'),
     accessScopes: filterStrings(tableState, 'visibility'),
-    questionTypes: filterStrings(tableState, 'question_type'),
+    // `question_type` is a temporary storage compatibility field, not a tutor
+    // filtering concept. Category and the canonical response fields own those
+    // concerns during activation; ALTI-545 removes the legacy column itself.
+    questionTypes: [],
     setIds: rawSetIds.filter((id) => id !== UCAT_FILTER_NOT_IN_ANY_SET),
     includeWithoutSet: rawSetIds.includes(UCAT_FILTER_NOT_IN_ANY_SET),
     sourceChannels: filterStrings(tableState, 'source_channel'),
+    aiReviewStatuses: filterStrings(tableState, 'ai_review_status'),
     createdByIds: filterStrings(tableState, 'created_by'),
     createdFrom: toUtcIso(firstFilterString(tableState, CREATED_AT_FROM_FILTER_KEY)),
     createdTo: toUtcIso(firstFilterString(tableState, CREATED_AT_TO_FILTER_KEY)),
+    questionCountMin: nonNegativeIntegerOrNull(
+      getRangeFilterMin(tableState, QUESTION_COUNT_MIN_FILTER_KEY),
+    ),
+    questionCountMax: nonNegativeIntegerOrNull(
+      getRangeFilterMax(tableState, QUESTION_COUNT_MAX_FILTER_KEY),
+    ),
     sortBy:
       tableState.sortBy && CATALOG_SORT_KEYS.has(tableState.sortBy)
         ? tableState.sortBy
@@ -119,9 +144,16 @@ export function serializeQuestionCatalogQuery(query: QuestionCatalogQuery): stri
   for (const value of query.setIds) params.append('set', value)
   if (query.includeWithoutSet) params.set('withoutSet', '1')
   for (const value of query.sourceChannels) params.append('source', value)
+  for (const value of query.aiReviewStatuses) params.append('aiReview', value)
   for (const value of query.createdByIds) params.append('createdBy', value)
   if (query.createdFrom) params.set('createdFrom', query.createdFrom)
   if (query.createdTo) params.set('createdTo', query.createdTo)
+  if (query.questionCountMin != null) {
+    params.set('questionCountMin', String(query.questionCountMin))
+  }
+  if (query.questionCountMax != null) {
+    params.set('questionCountMax', String(query.questionCountMax))
+  }
   if (query.sortBy) params.set('sort', query.sortBy)
   params.set('direction', query.sortDirection)
   params.set('page', String(query.page))

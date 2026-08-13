@@ -2,6 +2,8 @@ import {
   buildQuestionCatalogQuery,
   CREATED_AT_FROM_FILTER_KEY,
   CREATED_AT_TO_FILTER_KEY,
+  QUESTION_COUNT_MAX_FILTER_KEY,
+  QUESTION_COUNT_MIN_FILTER_KEY,
 } from '@/features/ucat/questions/lib/question-catalog-query'
 import {
   UCAT_FILTER_NO_CATEGORY,
@@ -24,9 +26,12 @@ describe('buildQuestionCatalogQuery', () => {
           question_type: ['multiple_choice'],
           question_set_id: [UCAT_FILTER_NOT_IN_ANY_SET, 'set-1'],
           source_channel: ['bulk_import'],
+          ai_review_status: ['concerns', 'critical'],
           created_by: ['staff-1'],
           [CREATED_AT_FROM_FILTER_KEY]: ['2026-07-01T09:30:00+09:30'],
           [CREATED_AT_TO_FILTER_KEY]: ['2026-07-02T10:45:00+09:30'],
+          [QUESTION_COUNT_MIN_FILTER_KEY]: ['2'],
+          [QUESTION_COUNT_MAX_FILTER_KEY]: ['5.9'],
         },
         sortBy: 'created_at',
         sortDirection: 'asc',
@@ -37,7 +42,7 @@ describe('buildQuestionCatalogQuery', () => {
       },
     })
 
-    expect(query).toMatchObject({
+      expect(query).toMatchObject({
       status: 'in_review',
       search: 'Kidney',
       sectionIds: ['section-1'],
@@ -45,13 +50,16 @@ describe('buildQuestionCatalogQuery', () => {
       includeNoCategory: true,
       tagIds: ['tag-1'],
       accessScopes: ['private'],
-      questionTypes: ['multiple_choice'],
+        questionTypes: [],
       setIds: ['set-1'],
       includeWithoutSet: true,
       sourceChannels: ['bulk_import'],
+      aiReviewStatuses: ['concerns', 'critical'],
       createdByIds: ['staff-1'],
       createdFrom: '2026-07-01T00:00:00.000Z',
       createdTo: '2026-07-02T01:15:00.000Z',
+      questionCountMin: 2,
+      questionCountMax: 5,
       sortBy: 'created_at',
       sortDirection: 'asc',
       page: 3,

@@ -9,7 +9,6 @@ import type {
   QuestionItem,
 } from "@/features/question-engine/model/types";
 import type { AttemptReviewQuestionTag } from "./attempt-review-question-metadata";
-import type { SyllogismOption } from "./syllogism-attempt-scoring";
 
 type SnapshotOption = {
   id: string;
@@ -17,6 +16,7 @@ type SnapshotOption = {
   answerText: unknown;
   answerExplanation?: unknown;
   isAnswer: boolean;
+  answerKeyValue?: QuestionItem["options"][number]["answerKeyValue"];
 };
 
 export type UcatAttemptContentSnapshot = {
@@ -40,6 +40,8 @@ export type UcatAttemptContentSnapshot = {
     difficulty?: number | null;
     timeBurdenSeconds?: number | null;
     questionType: "multiple_choice" | "syllogism";
+    responseType?: QuestionItem["responseType"];
+    answerScheme?: QuestionItem["answerScheme"];
     tags?: Array<{ id?: string; name?: string; description?: unknown }>;
   };
   answerOptions: SnapshotOption[];
@@ -89,17 +91,6 @@ export function snapshotQuestionMetadata(snapshot: UcatAttemptContentSnapshot) {
   };
 }
 
-export function snapshotSyllogismOptions(
-  snapshot: UcatAttemptContentSnapshot,
-): SyllogismOption[] {
-  if (snapshot.question.questionType !== "syllogism") return [];
-  return snapshot.answerOptions.map((option) => ({
-    id: option.id,
-    index: option.index,
-    isAnswer: option.isAnswer,
-  }));
-}
-
 export function snapshotToQuestionItem(
   snapshot: UcatAttemptContentSnapshot,
   index: number,
@@ -118,6 +109,7 @@ export function snapshotToQuestionItem(
             ? (option.answerText as Record<string, unknown>)
             : null,
         isAnswer: option.isAnswer,
+        answerKeyValue: option.answerKeyValue ?? null,
         answerExplanation: explanation.text,
         answerExplanationJson: explanation.json,
       };
@@ -147,6 +139,8 @@ export function snapshotToQuestionItem(
         ? (snapshot.question.questionText as Record<string, unknown>)
         : null,
     questionType: snapshot.question.questionType,
+    responseType: snapshot.question.responseType,
+    answerScheme: snapshot.question.answerScheme,
     options,
     correctOptionId: options.find((option) => option.isAnswer)?.id,
     answerExplanation: questionExplanation.text,

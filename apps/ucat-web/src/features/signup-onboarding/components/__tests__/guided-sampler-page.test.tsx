@@ -48,10 +48,6 @@ jest.mock("@/features/onboarding/hooks/use-onboarding-progress", () => ({
   useCompleteOnboardingTour: () => ({ mutateAsync: jest.fn() }),
 }));
 
-jest.mock("@/features/onboarding/config/tour-steps", () => ({
-  UCAT_QUESTION_ENGINE_TOUR: "ucat-question-engine",
-}));
-
 const emptySnapshot: QuestionEngineTutorialSnapshot = {
   questionId: "sampler-vr-1",
   questionIndex: 0,

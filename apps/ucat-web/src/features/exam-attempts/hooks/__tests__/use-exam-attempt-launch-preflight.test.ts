@@ -28,6 +28,7 @@ const conflictingAttempt = {
   attemptId: "practice-1",
   resourceId: "practice-1",
   label: "Practice · Verbal Reasoning",
+  engineSnapshot: { phase: "question" },
 } as ActiveExamAttempt;
 
 describe("useExamAttemptLaunchPreflight", () => {
@@ -84,5 +85,29 @@ describe("useExamAttemptLaunchPreflight", () => {
     expect(mockClearLocal).toHaveBeenCalledTimes(1);
     expect(mockRefresh).toHaveBeenCalledTimes(1);
     expect(onLaunch).toHaveBeenCalledTimes(1);
+  });
+
+  it("clears a finished results-phase attempt and launches without conflict", () => {
+    mockActive = {
+      kind: "mock",
+      attemptId: "mock-attempt-1",
+      resourceId: "mock-1",
+      label: "Study plan golden mock 2",
+      engineSnapshot: { phase: "mockScore" },
+    } as ActiveExamAttempt;
+    const onLaunch = jest.fn();
+    const { result } = renderHook(() =>
+      useExamAttemptLaunchPreflight({
+        kind: "set",
+        resourceId: "set-1",
+        onLaunch,
+      }),
+    );
+
+    act(() => result.current.requestLaunch());
+
+    expect(mockClearLocal).toHaveBeenCalledTimes(1);
+    expect(onLaunch).toHaveBeenCalledTimes(1);
+    expect(result.current.conflictActive).toBeNull();
   });
 });

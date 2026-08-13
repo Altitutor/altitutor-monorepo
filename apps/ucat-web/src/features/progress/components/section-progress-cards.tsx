@@ -334,7 +334,7 @@ export function SectionProgressCards({
                             score == null
                               ? "Estimate pending"
                               : `Estimate ${Math.round(score)}`,
-                          body: "Your current section estimate from recent timed evidence.",
+                          body: "Your current section estimate from recent timed practice.",
                         }}
                         targetTooltip={{
                           title:
@@ -347,11 +347,13 @@ export function SectionProgressCards({
                     </div>
                   </div>
                   {linkToSection ? (
-                    <UcatTableRowActionLink
-                      href={href}
-                      label="View"
-                      ariaLabel={`View ${section.sectionName} progress`}
-                    />
+                    <span data-tour="progress-section-link">
+                      <UcatTableRowActionLink
+                        href={href}
+                        label="View"
+                        ariaLabel={`View ${section.sectionName} progress`}
+                      />
+                    </span>
                   ) : null}
                 </motion.div>
               );

@@ -387,6 +387,23 @@ export function ProjectsBoard() {
     onStatusChange: (project, value) => handleUpdate(project, { status: value as ProjectStatus }),
   };
 
+  const handleOpenProject = useCallback((projectId: string) => {
+    setSelectedProjectId(projectId);
+    setIsEditDialogOpen(true);
+  }, []);
+
+  const renderCard = useCallback(
+    (p: ProjectWithLead, visiblePillKeys: string[]) => (
+      <ProjectCard
+        project={p}
+        visiblePillKeys={visiblePillKeys}
+        rightPills={rightPills}
+        onOpen={handleOpenProject}
+      />
+    ),
+    [rightPills, handleOpenProject]
+  );
+
   return (
     <>
       <KanbanBoard<ProjectWithLead>
@@ -395,17 +412,7 @@ export function ProjectsBoard() {
         columnDefs={columnDefs}
         activeColumnKey={activeColumnKey ?? 'status'}
         onActiveColumnKeyChange={setActiveColumnKey}
-        renderCard={(p, visiblePillKeys) => (
-          <ProjectCard
-            project={p}
-            visiblePillKeys={visiblePillKeys}
-            rightPills={rightPills}
-            onClick={() => {
-              setSelectedProjectId(p.id);
-              setIsEditDialogOpen(true);
-            }}
-          />
-        )}
+        renderCard={renderCard}
         statusColumn={statusColumn}
         rightPills={rightPills}
         groupByOptions={groupByOptions}

@@ -16,7 +16,7 @@ import { Button } from "@altitutor/ui";
 import { useToast } from "@altitutor/ui";
 import { Loader2, Mail, MessageSquare, Copy, Check, X, ChevronDown, Paperclip } from 'lucide-react';
 import { Skeleton } from '@altitutor/ui';
-import { useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   getStudentInviteMessageForClient,
   getStudentRegistrationInviteMessageForClient,
@@ -250,7 +250,7 @@ export function SendStudentInviteDialog({
         }
 
         await response.json();
-        queryClient.invalidateQueries({ queryKey: studentInviteDataKeys.detail(student.id, 'register') });
+        queryClient.invalidateQueries({ queryKey: studentInviteDataKeys.detail(student.id, 'registration') });
       }
     } catch (error) {
       console.error('Failed to generate token:', error);
@@ -263,6 +263,34 @@ export function SendStudentInviteDialog({
       setIsGenerating(false);
     }
   }, [student.id, linkType, token, toast, queryClient]);
+
+  const replaceRegistrationLink = useMutation({
+    mutationFn: async () => {
+      const response = await fetch('/api/public-links', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ purpose: 'registration', id: student.id }),
+      });
+      const result = (await response.json()) as { error?: string };
+      if (!response.ok) throw new Error(result.error || 'Failed to replace registration link');
+    },
+    onSuccess: async () => {
+      setComposerDraft('');
+      setCustomMessage('');
+      await queryClient.invalidateQueries({
+        queryKey: studentInviteDataKeys.detail(student.id, 'registration'),
+      });
+      toast({
+        title: 'Registration link replaced',
+        description: 'Previously sent registration links no longer work.',
+      });
+    },
+    onError: (error) => toast({
+      title: 'Could not replace link',
+      description: error instanceof Error ? error.message : 'Please try again',
+      variant: 'destructive',
+    }),
+  });
 
   // Generate token when modal opens ONLY if no existing token
   useEffect(() => {
@@ -617,6 +645,24 @@ export function SendStudentInviteDialog({
                       </>
                     )}
                   </Button>
+                  {linkType === 'registration' && (
+                    <Button
+                      size="sm"
+                      variant="destructive"
+                      disabled={replaceRegistrationLink.isPending}
+                      onClick={() => {
+                        if (window.confirm('Replace this registration link? Previously sent links will stop working.')) {
+                          replaceRegistrationLink.mutate();
+                        }
+                      }}
+                    >
+                      {replaceRegistrationLink.isPending ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        'Replace link'
+                      )}
+                    </Button>
+                  )}
                 </div>
               </div>
 

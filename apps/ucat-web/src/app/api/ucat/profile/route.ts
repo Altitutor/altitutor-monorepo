@@ -39,7 +39,7 @@ export async function GET() {
 
   const { data: student, error: studentError } = await supabaseAdmin
     .from("students")
-    .select("id, timezone, first_name, last_name, email")
+    .select("id, timezone, first_name, last_name, email, ucat_initial_familiarity")
     .eq("user_id", user.id)
     .maybeSingle();
 
@@ -69,6 +69,7 @@ export async function GET() {
     firstName: student.first_name,
     lastName: student.last_name,
     email: user.email ?? student.email ?? "",
+    ucatInitialFamiliarity: student.ucat_initial_familiarity,
   });
 }
 

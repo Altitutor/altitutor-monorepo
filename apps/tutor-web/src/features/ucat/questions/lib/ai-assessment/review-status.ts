@@ -10,6 +10,21 @@ export type UcatAiReviewStatus =
   | 'concerns'
   | 'critical'
 
+/** Durable catalog statuses — excludes env-only `disabled`. */
+export const UCAT_DURABLE_AI_REVIEW_STATUSES = [
+  'not_requested',
+  'reviewing',
+  'deferred',
+  'format_blocked',
+  'unavailable',
+  'unreviewable',
+  'passed',
+  'concerns',
+  'critical',
+] as const satisfies ReadonlyArray<Exclude<UcatAiReviewStatus, 'disabled'>>
+
+export type UcatDurableAiReviewStatus = (typeof UCAT_DURABLE_AI_REVIEW_STATUSES)[number]
+
 export const UCAT_AI_REVIEW_RUNNING_STALE_MS = 9 * 60_000
 
 export function isStaleUcatAiReviewRun(

@@ -28,13 +28,20 @@ import type { RichTextJson } from '@/features/ucat/shared/types'
 import type { UcatQuestionStemFormValues } from '@/features/ucat/questions/types/schema'
 import type { CategoryOption, TagOption } from '@/features/ucat/questions/components/UcatQuestionStemDialog'
 import { mapCategoriesToOptions, mapTagsToOptions, buildTaxonomyPathLookup, categoriesToTaxonomyNodes } from '@/features/ucat/shared/lib/taxonomy-paths'
-import { buildStemCatalogFilterDefinitions, buildStemCatalogSetFilterOptions } from '@/features/ucat/shared/lib/stem-catalog-filters'
+import { buildStemCatalogFilterDefinitions, buildStemCatalogSetFilterOptions, getDefaultStemCatalogFiltersForSetStatus } from '@/features/ucat/shared/lib/stem-catalog-filters'
 import { useUcatSets } from '@/features/ucat/sets/hooks/useUcatSets'
 import { UcatPageHeader, UcatPageSkeleton, UcatAccessDenied } from '@/features/ucat/shared/components'
 import { useUcatAccess } from '@/features/ucat/shared/hooks/useUcatAccess'
 import { parseUcatVisibilityError } from '@/features/ucat/shared/lib/visibility-error'
 import { UcatSetEditorContent } from '@/features/ucat/sets/components/UcatSetEditorContent'
+import { UcatMockEditorDialog } from '@/features/ucat/mocks/components/UcatMockEditorDialog'
 import { UcatRichTextFloatingToolbar } from '@/features/ucat/shared/components/UcatRichTextFloatingToolbar'
+import { useUcatMockBlueprints } from '@/features/ucat/mocks/hooks/useUcatMocks'
+import {
+  parseLinkedMockBlueprintCompliance,
+  recalculateLinkedMockBlueprintCompliance,
+} from '@/features/ucat/mocks/lib/blueprint-compliance'
+import { parseSetSections } from '@/features/ucat/shared/lib/set-section-status'
 
 /** Shape of each stem in vtutor_ucat_question_set_detail.stems (from DB view) */
 type SetDetailStem = { stem_id: string; stem_text?: unknown; questions_meta?: Array<{ id: string; index: number }> }
@@ -55,7 +62,9 @@ export function UcatSetDetailPage({ setId }: UcatSetDetailPageProps) {
   const categoriesQuery = useUcatCategories()
   const tagsQuery = useUcatTags()
   const setsQuery = useUcatSets()
+  const blueprintsQuery = useUcatMockBlueprints()
   const [editingStemId, setEditingStemId] = useState<string | null>(null)
+  const [viewingMockId, setViewingMockId] = useState<string | null>(null)
   const [search, setSearch] = useState('')
   const [setFilterSearch, setSetFilterSearch] = useState('')
   const [draftName, setDraftName] = useState('')
@@ -69,6 +78,12 @@ export function UcatSetDetailPage({ setId }: UcatSetDetailPageProps) {
   const [draftStemIds, setDraftStemIds] = useState<string[]>([])
   const [baseline, setBaseline] = useState<string>('')
   const [activeTextEditor, setActiveTextEditor] = useState<Editor | null>(null)
+  const storedLinkedBlueprintReports = useMemo(() => {
+    const row = (setsQuery.data ?? []).find(candidate => candidate.id === setId)
+    return parseLinkedMockBlueprintCompliance(row?.linked_mock_blueprint_compliance)
+  }, [setId, setsQuery.data])
+
+  const [filters, setFilters] = useState<Record<string, unknown[]>>({})
 
   useEffect(() => {
     const current = detail.data
@@ -96,9 +111,8 @@ export function UcatSetDetailPage({ setId }: UcatSetDetailPageProps) {
         stemIds,
       })
     )
+    setFilters(getDefaultStemCatalogFiltersForSetStatus(current.status))
   }, [detail.data])
-
-  const [filters, setFilters] = useState<Record<string, unknown[]>>({})
 
   const stemDetail = useUcatQuestionDetail(editingStemId)
   const updateStemMutation = useUpdateUcatQuestionStem()
@@ -150,6 +164,45 @@ export function UcatSetDetailPage({ setId }: UcatSetDetailPageProps) {
     return minutesSecondsToTotal(draftTimeLimitMinutes, draftTimeLimitSeconds)
   })()
 
+  const linkedBlueprintReports = useMemo(() => recalculateLinkedMockBlueprintCompliance({
+    linkedReports: storedLinkedBlueprintReports,
+    blueprints: blueprintsQuery.data ?? [],
+    setCatalog: (setsQuery.data ?? []).map(set => {
+      const parsed = parseSetSections(set.sections ?? null)
+      return {
+        id: set.id ?? '',
+        name: proseMirrorToPlainText(set.name ?? null) || 'Untitled',
+        sectionDisplay: '',
+        sectionCount: parsed.sectionCount,
+        firstSectionNumber: parsed.firstSectionNumber,
+        question_count: set.question_count ?? null,
+        time_limit_seconds: set.time_limit_seconds ?? null,
+        access_scope: set.access_scope ?? null,
+        stem_count: set.stem_count ?? null,
+      }
+    }),
+    stemCatalog,
+    editedSet: {
+      id: setId,
+      stemIds: draftStemIds,
+      timeLimitSeconds,
+      sectionNumbers: setSectionsFromStems.flatMap(draftSection => {
+        const sectionNumber = (sectionsQuery.data ?? []).find(section => section.id === draftSection.sectionId)?.section_number
+        return sectionNumber == null ? [] : [sectionNumber]
+      }),
+    },
+  }), [
+    blueprintsQuery.data,
+    draftStemIds,
+    sectionsQuery.data,
+    setSectionsFromStems,
+    setId,
+    setsQuery.data,
+    stemCatalog,
+    storedLinkedBlueprintReports,
+    timeLimitSeconds,
+  ])
+
   const isTimeLimitValid =
     !draftIsTimed ||
     (timeLimitSeconds != null &&
@@ -176,11 +229,20 @@ export function UcatSetDetailPage({ setId }: UcatSetDetailPageProps) {
         categoriesQuery.data ?? [],
         tagsQuery.data ?? [],
         filters,
-        buildStemCatalogSetFilterOptions(setsList, setFilterSearch),
+        buildStemCatalogSetFilterOptions(setsList, setFilterSearch, { includeNotInPublishedSet: true }),
       )
     },
     [sectionsQuery.data, categoriesQuery.data, tagsQuery.data, filters, setsQuery.data, setFilterSearch],
   )
+
+  const publishedSetIds = useMemo(() => {
+    const ids = new Set<string>()
+    for (const set of setsQuery.data ?? []) {
+      if ((set as { deleted_at?: string | null }).deleted_at) continue
+      if (set.status === 'published' && set.id) ids.add(set.id)
+    }
+    return ids
+  }, [setsQuery.data])
 
   const categoryPathLookup = useMemo(
     () => buildTaxonomyPathLookup(categoriesToTaxonomyNodes(categoriesQuery.data ?? [])),
@@ -302,6 +364,8 @@ export function UcatSetDetailPage({ setId }: UcatSetDetailPageProps) {
           onFilterSearchChange={(filterKey, value) => {
             if (filterKey === 'question_set_id') setSetFilterSearch(value)
           }}
+          publishedSetIds={publishedSetIds}
+          currentSetId={setId}
           stemCatalogLoading={stemCatalogQuery.isLoading}
           onEditStem={(id) => setEditingStemId(id)}
           onChangeName={setDraftName}
@@ -320,6 +384,8 @@ export function UcatSetDetailPage({ setId }: UcatSetDetailPageProps) {
           onChangeTimeLimitSpeed={setDraftTimeLimitSpeed}
           onChangePrivate={(value) => setDraftPrivate(value)}
           onActiveTextEditorChange={setActiveTextEditor}
+          linkedBlueprintReports={linkedBlueprintReports}
+          onViewMock={setViewingMockId}
           sections={(sectionsQuery.data ?? []).map((s) => ({
             id: s.id ?? '',
             name: s.name ?? null,
@@ -330,6 +396,12 @@ export function UcatSetDetailPage({ setId }: UcatSetDetailPageProps) {
         />
         <UcatRichTextFloatingToolbar editor={activeTextEditor} />
       </div>
+
+      <UcatMockEditorDialog
+        open={!!viewingMockId}
+        mockId={viewingMockId}
+        onClose={() => setViewingMockId(null)}
+      />
 
       <UcatQuestionStemDialog
         open={!!editingStemId}

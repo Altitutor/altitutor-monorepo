@@ -10,6 +10,7 @@ import { cn } from '@/shared/utils';
 import { entityTypes } from '@/features/command-palette/config/commandPalette.config';
 import { getEntityDisplayText } from '@/features/command-palette/utils/entityFormatters';
 import { calculateMatchScore } from '@/features/command-palette/utils/matchScoring';
+import { excludeDoneEntities } from '@/features/command-palette/utils/excludeDoneEntities';
 import { useEntitySearch } from '@/shared/hooks/useEntitySearch';
 import type { CommandPaletteEntityResult } from '@/features/command-palette/types';
 
@@ -78,7 +79,8 @@ export const MentionList = forwardRef<MentionListRef, MentionListProps>((props, 
   );
 
   const items = useMemo(
-    () => results.filter((item) => !excludeSet.has(item.id)),
+    () =>
+      excludeDoneEntities(results).filter((item) => !excludeSet.has(item.id)),
     [results, excludeSet]
   );
 

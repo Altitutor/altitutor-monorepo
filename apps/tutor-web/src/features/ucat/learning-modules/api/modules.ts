@@ -14,6 +14,14 @@ import {
   throwFirstUcatBulkStatusFailure,
 } from '@/features/ucat/shared/lifecycle-errors'
 
+export type UcatStemLearningModuleMembership = {
+  moduleId: string
+  title: string
+  status: UcatContentStatus
+  blockCount: number
+  attachedBlockCount: number
+}
+
 function mapModuleRow(row: Record<string, unknown>): UcatLearningModuleRow {
   const status = (row.status as UcatContentStatus | null) ?? 'draft'
   const accessScope = (row.access_scope as UcatAccessScope | null) ?? 'public'
@@ -169,6 +177,63 @@ export const ucatLearningModulesApi = {
       .map((row) => mapBlockRow(row as Record<string, unknown>))
   },
 
+  async listStemMembership(stemId: string): Promise<UcatStemLearningModuleMembership[]> {
+    const supabase = getSupabaseClient() as SupabaseClient<Database>
+    const questionIds = await listQuestionIdsForStem(supabase, stemId)
+
+    const stemBlocksQuery = supabase
+      .from('vtutor_ucat_learning_module_blocks')
+      .select('id, learning_module_id, question_stem_id, question_id')
+      .eq('question_stem_id', stemId)
+
+    const questionBlocksQuery =
+      questionIds.length > 0
+        ? supabase
+            .from('vtutor_ucat_learning_module_blocks')
+            .select('id, learning_module_id, question_stem_id, question_id')
+            .in('question_id', questionIds)
+        : Promise.resolve({ data: [] as Array<Record<string, unknown>>, error: null })
+
+    const [stemBlocksResult, questionBlocksResult] = await Promise.all([
+      stemBlocksQuery,
+      questionBlocksQuery,
+    ])
+    if (stemBlocksResult.error) throw stemBlocksResult.error
+    if (questionBlocksResult.error) throw questionBlocksResult.error
+
+    const attachedByModuleId = new Map<string, Set<string>>()
+    for (const row of [...(stemBlocksResult.data ?? []), ...(questionBlocksResult.data ?? [])]) {
+      const moduleId = row.learning_module_id
+      const blockId = row.id
+      if (typeof moduleId !== 'string' || typeof blockId !== 'string') continue
+      const existing = attachedByModuleId.get(moduleId) ?? new Set<string>()
+      existing.add(blockId)
+      attachedByModuleId.set(moduleId, existing)
+    }
+
+    if (attachedByModuleId.size === 0) return []
+
+    const moduleIds = Array.from(attachedByModuleId.keys())
+    const { data: modules, error: modulesError } = await supabase
+      .from('vtutor_ucat_learning_modules')
+      .select('id, title, status, block_count, kind, deleted_at')
+      .in('id', moduleIds)
+      .eq('kind', 'lesson')
+      .is('deleted_at', null)
+    if (modulesError) throw modulesError
+
+    return (modules ?? [])
+      .filter((row): row is typeof row & { id: string } => typeof row.id === 'string')
+      .map((row) => ({
+        moduleId: row.id,
+        title: (row.title as string | null)?.trim() || 'Untitled lesson',
+        status: ((row.status as UcatContentStatus | null) ?? 'draft'),
+        blockCount: (row.block_count as number | null) ?? 0,
+        attachedBlockCount: attachedByModuleId.get(row.id)?.size ?? 0,
+      }))
+      .sort((a, b) => a.title.localeCompare(b.title))
+  },
+
   async upsert(payload: UcatLearningModuleUpsertPayload): Promise<string> {
     const res = await fetch('/api/ucat/learning-modules', {
       method: 'POST',
@@ -288,4 +353,28 @@ function friendlyLearningModuleError(raw: string | undefined): string | undefine
     if (raw.includes(code)) return message
   }
   return raw
+}
+
+async function listQuestionIdsForStem(
+  supabase: SupabaseClient<Database>,
+  stemId: string,
+): Promise<string[]> {
+  const { data, error } = await supabase
+    .from('vtutor_ucat_question_stem_detail')
+    .select('questions')
+    .eq('id', stemId)
+    .maybeSingle()
+  if (error) throw error
+  const questions = data?.questions
+  if (!Array.isArray(questions)) return []
+  return questions
+    .map((question) => {
+      if (!question || typeof question !== 'object') return null
+      const id = (question as { id?: unknown }).id
+      const deletedAt = (question as { deleted_at?: unknown }).deleted_at
+      if (typeof id !== 'string' || !id) return null
+      if (deletedAt != null && deletedAt !== '') return null
+      return id
+    })
+    .filter((id): id is string => id != null)
 }

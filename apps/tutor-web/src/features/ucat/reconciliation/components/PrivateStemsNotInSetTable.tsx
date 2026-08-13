@@ -44,6 +44,9 @@ import {
   UcatQuestionStemApprovalQueueDialog,
   type UcatApprovalQueueEntry,
 } from '@/features/ucat/questions/components/approval-queue/UcatQuestionStemApprovalQueue'
+import { getQuestionIssueDefinition } from '../lib/question-issue-definitions'
+
+const ISSUE = getQuestionIssueDefinition('private-not-in-set')
 
 const TRUNCATE_LEN = 80
 
@@ -55,9 +58,11 @@ function truncate(text: string, max: number): string {
 export function PrivateStemsNotInSetTable({
   onOpenStemDialog,
   onEditSet,
+  showCountBadge = true,
 }: {
   onOpenStemDialog?: (stemId: string) => void
   onEditSet?: (setId: string) => void
+  showCountBadge?: boolean
 }) {
   const { toast } = useToast()
   const queryClient = useQueryClient()
@@ -388,7 +393,9 @@ export function PrivateStemsNotInSetTable({
   return (
     <>
       <ReconciliationTable<PrivateStemNotInSet>
-        title="Unused private question stems"
+        title={ISSUE.title}
+        description={ISSUE.description}
+        showCountBadge={showCountBadge}
         items={filteredStems}
         isLoading={isLoading}
         pagination={{

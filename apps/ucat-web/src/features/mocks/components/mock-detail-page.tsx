@@ -93,6 +93,7 @@ export function MockDetailPage({
   const {
     isLoading: questionEngineTourLoading,
     isBlocked: questionEngineTourBlocked,
+    tutorialKind: questionEngineTutorialKind,
   } = useQuestionEngineTutorialGate();
   const { data: mocks, isLoading, error } = useMocks();
   const { data: attempts = [] } = useMockAttemptsWithBreakdown(mockId);
@@ -214,6 +215,7 @@ export function MockDetailPage({
       router.push(
         buildQuestionEngineTutorialHref(
           `${window.location.pathname}${window.location.search}`,
+          questionEngineTutorialKind,
         ),
       );
       return;
@@ -277,6 +279,7 @@ export function MockDetailPage({
       </motion.div>
 
       <motion.section
+        data-tour="mock-structure"
         variants={itemVariants}
         className={ucatClickableCardClassName({
           interactive: false,
@@ -313,6 +316,7 @@ export function MockDetailPage({
         className="mt-4 flex min-h-10 items-center justify-end"
       >
         <Button
+          data-tour="mock-start"
           className={UCAT_PRIMARY_ACTION_BUTTON}
           onClick={handleLaunchMock}
         >

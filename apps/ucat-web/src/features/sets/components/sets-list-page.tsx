@@ -200,13 +200,18 @@ export function SetsListPage({
           </p>
         ) : (
           <motion.ul
+            data-tour="set-options"
             className="space-y-3"
             variants={containerVariants}
             initial="hidden"
             animate="show"
           >
             {filteredSets.map((set) => (
-              <motion.li key={set.id} variants={itemVariants}>
+              <motion.li
+                key={set.id}
+                data-tour="set-option"
+                variants={itemVariants}
+              >
                 <SetCard
                   set={set}
                   attemptedSetIds={attemptedSetIds}

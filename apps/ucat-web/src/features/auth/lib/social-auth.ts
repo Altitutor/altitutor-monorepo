@@ -46,14 +46,12 @@ export function buildSocialAuthCallbackUrl({
   intent,
   provider,
   next,
-  newsletterOptIn = false,
   referralCode,
 }: {
   origin: string;
   intent: SocialAuthIntent;
   provider: SocialAuthProvider;
   next: string;
-  newsletterOptIn?: boolean;
   referralCode?: string | null;
 }): string {
   const safeNext = safePostAuthReturnPath(next);
@@ -63,7 +61,6 @@ export function buildSocialAuthCallbackUrl({
   callback.searchParams.set("next", safeNext);
 
   if (intent === "signup") {
-    callback.searchParams.set("newsletter", newsletterOptIn ? "1" : "0");
     const normalizedReferralCode = normalizeReferralCode(referralCode);
     if (normalizedReferralCode) {
       callback.searchParams.set("ref", normalizedReferralCode);

@@ -118,11 +118,13 @@ describe('explanation fill prompts', () => {
   it('uses the shared teaching rubric and tutor-focused fill workflow', () => {
     expect(EXPLANATION_FILL_SYSTEM_PROMPT).toContain(EXPLANATION_TEACHING_RUBRIC)
     expect(EXPLANATION_FILL_SYSTEM_PROMPT).toContain(
-      'Option-level explanations may be included'
+      'Also return option-level explanations whenever they add distinct teaching'
     )
     expect(EXPLANATION_FILL_SYSTEM_PROMPT).toContain(
-      'Include a question-level explanation only when'
+      'Add a question-level answerExplanation when appropriate to teach general strategy'
     )
+    expect(EXPLANATION_FILL_SYSTEM_PROMPT).toContain('For drag-and-drop questions')
+    expect(EXPLANATION_FILL_SYSTEM_PROMPT).not.toContain('For syllogism questions')
     expect(EXPLANATION_FILL_SYSTEM_PROMPT).toContain('calculator use')
     expect(EXPLANATION_FILL_SYSTEM_PROMPT).toContain('Australian English spelling')
     expect(EXPLANATION_FILL_SYSTEM_PROMPT).toContain(

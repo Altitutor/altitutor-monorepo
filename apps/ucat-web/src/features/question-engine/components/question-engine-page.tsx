@@ -47,6 +47,12 @@ import { InstructionsContent } from "@/features/question-engine/components/instr
 import { NavigatorPanel } from "@/features/question-engine/components/navigator-panel";
 import { QuestionContent } from "@/features/question-engine/components/question-content";
 import { computeMarkingResult } from "@/features/question-engine/lib/marking";
+import { navigateToAttemptResults } from "@/features/question-engine/lib/attempt-results-navigation";
+import {
+  buildPersistedQuestionResponse,
+  canonicalPlacementSnapshotToLegacy,
+  legacyPlacementSnapshotToCanonical,
+} from "@/features/question-engine/lib/response-state";
 import { NoFlaggedDialog } from "@/features/question-engine/components/no-flagged-dialog";
 import { ReviewInstructionsDialog } from "@/features/question-engine/components/review-instructions-dialog";
 import { TimeExpiredDialog } from "@/features/question-engine/components/time-expired-dialog";
@@ -871,22 +877,11 @@ export function QuestionEnginePage({
         studentQuestionSetAttemptId: null,
         studentPracticeSessionId: practiceSessionId,
         questionId: question.id,
-        questionAnswerOptionId:
-          question.questionType === "syllogism"
-            ? null
-            : (state.selectedAnswers[question.id] ?? null),
-        answerSnapshot:
-          question.questionType === "syllogism" && syllogismSnapshot
-            ? {
-                type: "syllogism_v1",
-                answers: Object.entries(syllogismSnapshot).map(
-                  ([optionId, value]) => ({
-                    question_answer_option_id: optionId,
-                    answer: value,
-                  }),
-                ),
-              }
-            : undefined,
+        ...buildPersistedQuestionResponse(
+          question,
+          state.selectedAnswers[question.id],
+          syllogismSnapshot,
+        ),
         isFlagged: state.flaggedIds.includes(question.id),
         wasTimed: false,
         mode: dbMode,
@@ -1161,10 +1156,9 @@ export function QuestionEnginePage({
       }
       if (redirectHref) {
         skipBeforeUnloadRef.current = true;
-        clearActiveExamAttempt();
         void prefetchAttemptResults();
         if (!(practice && practiceSessionId && onPracticeSessionCompleted)) {
-          router.replace(redirectHref);
+          navigateToAttemptResults(redirectHref);
         }
         return true;
       }
@@ -1182,11 +1176,9 @@ export function QuestionEnginePage({
     completePracticeSession,
     getFinalPracticeAnswers,
     flushQuestionTiming,
-    clearActiveExamAttempt,
     queryClient,
     prefetchAttemptResults,
     toast,
-    router,
     reportQuestionEngineCompletion,
   ]);
 
@@ -3192,6 +3184,13 @@ export function QuestionEnginePage({
                     state.syllogismSnapshots,
                   ).rows[state.viewingQuestionIndex!]?.points
                 }
+                review={
+                  computeMarkingResult(
+                    questions,
+                    state.selectedAnswers,
+                    state.syllogismSnapshots,
+                  ).rows[state.viewingQuestionIndex!]?.review
+                }
                 syllogismSnapshot={
                   state.syllogismSnapshots?.[
                     questions[state.viewingQuestionIndex]!.id
@@ -3228,13 +3227,20 @@ export function QuestionEnginePage({
                 allowTutorialControl("syllogismChoice");
               }}
               selectedOptionId={state.selectedAnswers[currentQuestion.id]}
-              syllogismSnapshot={state.syllogismSnapshots?.[currentQuestion.id]}
-              onChangeSyllogismSnapshot={(snapshot) => {
+              placementSnapshot={legacyPlacementSnapshotToCanonical(
+                currentQuestion,
+                state.syllogismSnapshots?.[currentQuestion.id],
+              )}
+              onChangePlacementSnapshot={(snapshot) => {
                 if (tutorialQuestionLocked) return;
-                setSyllogismSnapshot(currentQuestion.id, snapshot);
+                const legacySnapshot = canonicalPlacementSnapshotToLegacy(
+                  currentQuestion,
+                  snapshot,
+                );
+                setSyllogismSnapshot(currentQuestion.id, legacySnapshot);
                 recordSyllogismSnapshot(
                   currentQuestion.id,
-                  snapshot,
+                  legacySnapshot,
                   flaggedCurrent,
                 );
               }}

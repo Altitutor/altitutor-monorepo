@@ -16,7 +16,8 @@ import { useToast } from '@altitutor/ui';
 import { Loader2, Mail, MessageSquare, Copy, Check, X, ChevronDown, Paperclip } from 'lucide-react';
 import { Skeleton } from '@altitutor/ui';
 import { format } from 'date-fns';
-import { getBookingConfirmationUrl } from '@/shared/utils/invites';
+import { usePublicLink } from '@/shared/hooks/usePublicLink';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   getBookingConfirmationMessageForClient,
   getSenderNameFromStaff,
@@ -52,6 +53,7 @@ export function SendBookingConfirmationDialog({
   studentId,
 }: SendBookingConfirmationDialogProps) {
   const { toast } = useToast();
+  const queryClient = useQueryClient();
   const [emailSent, setEmailSent] = useState<Record<string, boolean>>({});
   const [smsSent, setSmsSent] = useState<Record<string, boolean>>({});
   const [copied, setCopied] = useState(false);
@@ -80,7 +82,34 @@ export function SendBookingConfirmationDialog({
   const student = data?.student ?? null;
   const parents = useMemo(() => data?.parents ?? [], [data?.parents]);
   const session = data?.session ?? null;
-  const bookingUrl = sessionId ? getBookingConfirmationUrl(sessionId) : null;
+  const { data: bookingLink, isLoading: isLinkLoading } = usePublicLink(
+    'booking',
+    sessionId,
+    isOpen
+  );
+  const bookingUrl = bookingLink?.url ?? null;
+  const rotateLink = useMutation({
+    mutationFn: async () => {
+      const response = await fetch('/api/public-links', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ purpose: 'booking', id: sessionId }),
+      });
+      const result = (await response.json()) as { error?: string };
+      if (!response.ok) throw new Error(result.error || 'Failed to replace booking link');
+    },
+    onSuccess: async () => {
+      setComposerDraft('');
+      setCustomMessage('');
+      await queryClient.invalidateQueries({ queryKey: ['public-link', 'booking', sessionId] });
+      toast({ title: 'Booking link replaced', description: 'Previously sent booking links no longer work.' });
+    },
+    onError: (error) => toast({
+      title: 'Could not replace link',
+      description: error instanceof Error ? error.message : 'Please try again',
+      variant: 'destructive',
+    }),
+  });
 
   const sessionDate = session?.start_at
     ? format(new Date(session.start_at), 'EEEE, dd MMMM yyyy')
@@ -403,7 +432,7 @@ export function SendBookingConfirmationDialog({
         </DialogHeader>
 
         <div className="flex flex-col flex-1 min-h-0 py-4 overflow-hidden">
-          {isDataLoading ? (
+          {isDataLoading || isLinkLoading ? (
             <div className="flex flex-col gap-4 px-4">
               <Skeleton className="h-10 w-full" />
               <Skeleton className="h-32 w-full" />
@@ -439,6 +468,18 @@ export function SendBookingConfirmationDialog({
                           Copy
                         </>
                       )}
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="destructive"
+                      disabled={rotateLink.isPending}
+                      onClick={() => {
+                        if (window.confirm('Replace this booking link? Previously sent links will stop working.')) {
+                          rotateLink.mutate();
+                        }
+                      }}
+                    >
+                      {rotateLink.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Replace link'}
                     </Button>
                   </div>
                 </div>

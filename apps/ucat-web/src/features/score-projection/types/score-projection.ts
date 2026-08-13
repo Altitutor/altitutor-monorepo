@@ -26,6 +26,7 @@ export type HistoricalProjectionPoint = {
 };
 
 export type ScoreProjectionSnapshot = {
+  modelVersion?: string;
   date: string;
   currentEstimate: number;
   confidence: ProjectionConfidence;
@@ -51,6 +52,7 @@ export type SectionScoreProjection = {
 };
 
 export type ScoreProjectionResponse = {
+  modelVersion: string;
   generatedAt: string;
   horizons: number[];
   sections: SectionScoreProjection[];

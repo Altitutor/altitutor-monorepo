@@ -10,12 +10,16 @@ import { classesApi } from '@/features/classes/api';
 import { sessionsApi } from '@/features/sessions/api';
 import { subjectsApi } from '@/features/subjects/api';
 import { topicsApi } from '@/features/topics/api';
+import { tasksApi } from '@/features/tasks/api';
+import { issuesApi } from '@/features/issues/api/issues';
+import { projectsApi } from '@/features/projects/api/projects';
 import { useNote } from '@/features/notes/api/queries';
 
 // Map of path segments to display labels
 const pathLabelMap: Record<string, string> = {
   dashboard: 'Dashboard',
   tasks: 'Tasks',
+  issues: 'Issues',
   projects: 'Projects',
   students: 'Students',
   staff: 'Staff',
@@ -88,7 +92,11 @@ export function useBreadcrumbs(): BreadcrumbItem[] {
 
   // Determine which entity IDs we need to fetch
   const entityIds = useMemo(() => {
-    const ids: { type: 'student' | 'staff' | 'class' | 'session' | 'subject' | 'topic' | 'note'; id: string; index: number }[] = [];
+    const ids: {
+      type: 'student' | 'staff' | 'class' | 'session' | 'subject' | 'topic' | 'note' | 'task' | 'issue' | 'project';
+      id: string;
+      index: number;
+    }[] = [];
     
     segments.forEach((segment, index) => {
       if (isUUID(segment)) {
@@ -116,6 +124,12 @@ export function useBreadcrumbs(): BreadcrumbItem[] {
           ids.push({ type: 'topic', id: segment, index });
         } else if (prevSegment === 'documents') {
           ids.push({ type: 'note', id: segment, index });
+        } else if (prevSegment === 'tasks') {
+          ids.push({ type: 'task', id: segment, index });
+        } else if (prevSegment === 'issues') {
+          ids.push({ type: 'issue', id: segment, index });
+        } else if (prevSegment === 'projects') {
+          ids.push({ type: 'project', id: segment, index });
         } else if (prevSegment === 'invoices') {
           // Invoices keep ID as-is
         }
@@ -281,6 +295,75 @@ export function useBreadcrumbs(): BreadcrumbItem[] {
     staleTime: 1000 * 60 * 5,
   });
 
+  const taskQueries = useQuery({
+    queryKey: ['breadcrumb-task', entityIds.filter(e => e.type === 'task').map(e => e.id)],
+    queryFn: async () => {
+      const taskIds = entityIds.filter(e => e.type === 'task').map(e => e.id);
+      const results: Record<string, string> = {};
+      await Promise.all(
+        taskIds.map(async (id) => {
+          try {
+            const task = await tasksApi.get(id);
+            if (task?.title) {
+              results[id] = task.title;
+            }
+          } catch {
+            // Ignore errors
+          }
+        })
+      );
+      return results;
+    },
+    enabled: entityIds.some(e => e.type === 'task'),
+    staleTime: 1000 * 60 * 5,
+  });
+
+  const issueQueries = useQuery({
+    queryKey: ['breadcrumb-issue', entityIds.filter(e => e.type === 'issue').map(e => e.id)],
+    queryFn: async () => {
+      const issueIds = entityIds.filter(e => e.type === 'issue').map(e => e.id);
+      const results: Record<string, string> = {};
+      await Promise.all(
+        issueIds.map(async (id) => {
+          try {
+            const issue = await issuesApi.get(id);
+            if (issue?.name) {
+              results[id] = issue.name;
+            }
+          } catch {
+            // Ignore errors
+          }
+        })
+      );
+      return results;
+    },
+    enabled: entityIds.some(e => e.type === 'issue'),
+    staleTime: 1000 * 60 * 5,
+  });
+
+  const projectQueries = useQuery({
+    queryKey: ['breadcrumb-project', entityIds.filter(e => e.type === 'project').map(e => e.id)],
+    queryFn: async () => {
+      const projectIds = entityIds.filter(e => e.type === 'project').map(e => e.id);
+      const results: Record<string, string> = {};
+      await Promise.all(
+        projectIds.map(async (id) => {
+          try {
+            const project = await projectsApi.get(id);
+            if (project?.name) {
+              results[id] = project.name;
+            }
+          } catch {
+            // Ignore errors
+          }
+        })
+      );
+      return results;
+    },
+    enabled: entityIds.some(e => e.type === 'project'),
+    staleTime: 1000 * 60 * 5,
+  });
+
   // Get note ID if we're on a note page
   const noteId = useMemo(() => {
     const noteEntity = entityIds.find(e => e.type === 'note');
@@ -328,6 +411,12 @@ export function useBreadcrumbs(): BreadcrumbItem[] {
             name = topicQueries.data?.[entityId.id];
           } else if (entityId.type === 'note') {
             name = noteQuery.data?.title;
+          } else if (entityId.type === 'task') {
+            name = taskQueries.data?.[entityId.id];
+          } else if (entityId.type === 'issue') {
+            name = issueQueries.data?.[entityId.id];
+          } else if (entityId.type === 'project') {
+            name = projectQueries.data?.[entityId.id];
           }
           
           if (name) {
@@ -358,5 +447,18 @@ export function useBreadcrumbs(): BreadcrumbItem[] {
     });
 
     return items;
-  }, [segments, entityIds, studentQueries.data, staffQueries.data, classQueries.data, sessionQueries.data, subjectQueries.data, topicQueries.data, noteQuery.data]);
+  }, [
+    segments,
+    entityIds,
+    studentQueries.data,
+    staffQueries.data,
+    classQueries.data,
+    sessionQueries.data,
+    subjectQueries.data,
+    topicQueries.data,
+    noteQuery.data,
+    taskQueries.data,
+    issueQueries.data,
+    projectQueries.data,
+  ]);
 }

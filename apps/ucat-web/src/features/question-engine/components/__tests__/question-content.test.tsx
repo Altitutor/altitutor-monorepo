@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 import { fireEvent, render, screen } from "@testing-library/react";
 import { QuestionContent } from "@/features/question-engine/components/question-content";
 import type { QuestionItem } from "@/features/question-engine/model/types";
@@ -30,7 +30,7 @@ describe("QuestionContent syllogism restoration", () => {
       <QuestionContent
         question={question}
         onSelectOption={() => undefined}
-        syllogismSnapshot={undefined}
+        placementSnapshot={undefined}
       />,
     );
 
@@ -42,7 +42,7 @@ describe("QuestionContent syllogism restoration", () => {
       <QuestionContent
         question={question}
         onSelectOption={() => undefined}
-        syllogismSnapshot={{ "statement-1": true, "statement-2": false }}
+        placementSnapshot={{ "statement-1": "yes", "statement-2": "no" }}
       />,
     );
 
@@ -60,7 +60,7 @@ describe("QuestionContent syllogism restoration", () => {
       <QuestionContent
         question={question}
         onSelectOption={() => undefined}
-        onChangeSyllogismSnapshot={onChangeSyllogismSnapshot}
+        onChangePlacementSnapshot={onChangeSyllogismSnapshot}
       />,
     );
 
@@ -83,7 +83,106 @@ describe("QuestionContent syllogism restoration", () => {
     });
 
     expect(onChangeSyllogismSnapshot).toHaveBeenLastCalledWith({
-      "statement-1": true,
+      "statement-1": "yes",
     });
   });
+
+  it("renders Most/Least as physical once-only placement for a canonical drag question", () => {
+    const mostLeastQuestion: QuestionItem = {
+      ...question,
+      id: "most-least",
+      questionType: "multiple_choice",
+      responseType: "drag_and_drop",
+      answerScheme: "situational_judgement_most_least",
+      sectionDisplayColumns: 2,
+      options: [
+        { id: "action-a", index: 0, text: "Action A", answerKeyValue: "most" },
+        { id: "action-b", index: 1, text: "Action B", answerKeyValue: null },
+        { id: "action-c", index: 2, text: "Action C", answerKeyValue: "least" },
+      ],
+    };
+    const onChange = jest.fn();
+    render(
+      <QuestionContent
+        question={mostLeastQuestion}
+        onSelectOption={() => undefined}
+        onChangePlacementSnapshot={onChange}
+      />,
+    );
+
+    expect(screen.getByText("Most Appropriate")).toBeInTheDocument();
+    expect(screen.getByText("Least Appropriate")).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Yes" }),
+    ).not.toBeInTheDocument();
+
+    const mostTarget = screen.getByLabelText(
+      "Drop an action into Most Appropriate",
+    );
+    const leastTarget = screen.getByLabelText(
+      "Drop an action into Least Appropriate",
+    );
+    fireEvent.dragStart(screen.getByText("Action A"), {
+      dataTransfer: dataTransfer({
+        "ucat-placement-option": "action-a",
+      }),
+    });
+    fireEvent.drop(mostTarget, {
+      dataTransfer: dataTransfer({
+        "ucat-placement-option": "action-a",
+      }),
+    });
+    expect(mostTarget).toHaveTextContent("Action A");
+
+    fireEvent.drop(leastTarget, {
+      dataTransfer: dataTransfer({
+        "ucat-placement-option": "action-a",
+      }),
+    });
+
+    expect(onChange).toHaveBeenLastCalledWith({ "action-a": "least" });
+    expect(leastTarget).toHaveTextContent("Action A");
+  });
+
+  it("does not update its parent from inside the placement state updater", () => {
+    const consoleError = jest
+      .spyOn(console, "error")
+      .mockImplementation(() => undefined);
+
+    function StatefulEngineHarness() {
+      const [snapshot, setSnapshot] = useState<
+        Record<string, "yes" | "no" | "most" | "least">
+      >({});
+      return (
+        <QuestionContent
+          question={question}
+          onSelectOption={() => undefined}
+          placementSnapshot={snapshot}
+          onChangePlacementSnapshot={setSnapshot}
+        />
+      );
+    }
+
+    render(<StatefulEngineHarness />);
+    const target = screen.getAllByLabelText("Drop Yes or No here")[0]!;
+    fireEvent.drop(target, {
+      dataTransfer: dataTransfer({
+        "ucat-syllogism-choice": "yes",
+        "ucat-syllogism-source": "",
+      }),
+    });
+
+    expect(consoleError.mock.calls.flat().map(String).join("\n")).not.toContain(
+      "Cannot update a component",
+    );
+    consoleError.mockRestore();
+  });
 });
+
+function dataTransfer(values: Record<string, string>) {
+  return {
+    getData: (key: string) => values[key] ?? "",
+    setData: jest.fn(),
+    effectAllowed: "none",
+  };
+}

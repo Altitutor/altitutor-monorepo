@@ -214,7 +214,7 @@ function commercialModule(
   const title =
     mode === "quota"
       ? "Unlimited removes the wait"
-      : "Unlimited gets cheaper when you practise consistently";
+      : "Unlimited gets cheaper when you practice consistently";
   const detail =
     mode === "quota"
       ? "Keep practising across questions, sets, mocks, learning and skill trainers without Free allowance resets."
@@ -337,7 +337,7 @@ function onboardingLesson(
           "Hi " +
             firstName +
             ", timing does not mean reading and calculating as fast as possible.",
-          "First learn a method without pressure. Then practise recognising when another 20 seconds is unlikely to improve your answer.",
+          "First learn a method without pressure. Then practice recognising when another 20 seconds is unlikely to improve your answer.",
         ],
         moduleTitle: "Build timing in the right order",
         rows: [
@@ -420,7 +420,7 @@ function onboardingLesson(
           "Hi " +
             firstName +
             ", reviewing the correct option is useful, but the bigger gain comes from identifying why your original decision failed.",
-          "Classify the mistake before you practise again. That turns review into a specific change you can test.",
+          "Classify the mistake before you practice again. That turns review into a specific change you can test.",
         ],
         moduleTitle: "A practical error check",
         rows: [
@@ -527,7 +527,7 @@ function onboardingLesson(
       onboarding_technique: {
         subject: "Make each UCAT session test one change",
         preview: "Deliberate practice works best when the variable is clear.",
-        heading: "Practise the change, not just the question type",
+        heading: "Practice the change, not just the question type",
         paragraphs: [
           "Hi " +
             firstName +
@@ -642,7 +642,7 @@ function copy(
           : "Build my study plan"
         : key === "onboarding_starting_point"
           ? "Start my first session"
-          : "Practise this",
+          : "Practice this",
       path: plan
         ? candidate.has_study_plan
           ? "/study-plan"
@@ -746,7 +746,7 @@ function copy(
       };
     case "upgrade_consistency":
       return {
-        subject: "Your Unlimited plan can get cheaper as you practise",
+        subject: "Your Unlimited plan can get cheaper as you practice",
         preview:
           "Consistent practice reduces the next monthly Unlimited price.",
         heading: "We built the price around a useful study habit",
@@ -827,14 +827,8 @@ export function buildLifecycleEmail(
       content.module.html +
       renderUcatEmailButton(actionUrl, content.cta) +
       signoff.html,
-    footerHtml:
-      '<p style="margin:0 0 8px;color:#52606a;font-size:12px;line-height:1.6">Questions? Reply or contact <a class="email-link" href="mailto:' +
-      ADMIN_EMAIL +
-      '" style="color:#0a2941">' +
-      ADMIN_EMAIL +
-      "</a>.</p>",
     marketingFooterHtml:
-      '<p style="margin:0;color:#73808a;font-size:11px;line-height:1.6"><a href="' +
+      '<p style="margin:12px 0 0;color:#73808a;font-size:11px;line-height:1.6"><a href="' +
       escapeEmailHtml(preferencesUrl) +
       '" style="color:#52606a">Email preferences</a> · <a href="' +
       escapeEmailHtml(unsubscribeUrl) +
@@ -852,9 +846,9 @@ export function buildLifecycleEmail(
     actionUrl +
     "\n\n" +
     signoff.text +
-    "\n\nA not-for-profit initiative by Altitutor.\nQuestions? " +
+    "\n\nA not-for-profit initiative by Altitutor.\nEmail: " +
     ADMIN_EMAIL +
-    "\nEmail preferences: " +
+    "\nWeb: https://altitutor.com/ucat\nEmail preferences: " +
     preferencesUrl +
     "\nUnsubscribe: " +
     unsubscribeUrl;

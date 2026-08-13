@@ -1,13 +1,18 @@
+type ExplanationResponseType = 'multiple_choice' | 'drag_and_drop'
+
+/** @deprecated Prefer responseType. Legacy question_type maps syllogism → drag_and_drop. */
 type ExplanationQuestionType = 'multiple_choice' | 'syllogism'
 
 type ExplanationPolicyParams = {
   sectionName?: string | null
+  responseType?: ExplanationResponseType | null
+  /** @deprecated Prefer responseType. */
   questionType?: ExplanationQuestionType | null
 }
 
-const QUESTION_TYPE_RULES: Record<ExplanationQuestionType, string> = {
-  multiple_choice: '- For multiple_choice, provide one non-empty question-level answerExplanation. Include an option-level explanation only when it helps a student who selected that option understand a specific mistake or adds useful teaching beyond the question-level explanation. Otherwise omit it.',
-  syllogism: '- For syllogism, provide an explanation for every Yes/No statement at option level. Include a question-level explanation only when it teaches a useful strategy, technique, or shortcut beyond those option explanations.',
+const RESPONSE_TYPE_RULES: Record<ExplanationResponseType, string> = {
+  multiple_choice: '- For multiple_choice, provide one non-empty question-level answerExplanation. Also provide option-level explanations for answer choices whenever they add distinct teaching for a student who selected that option. Omit an option-level explanation only when it would merely repeat the question-level explanation without new information.',
+  drag_and_drop: '- For drag_and_drop, provide an explanation for every statement or placement item at option level. Add a question-level explanation when it is appropriate to teach a general strategy, technique, or shortcut, without repeating what the option-level explanations already cover.',
 }
 
 const SECTION_RULES = {
@@ -38,20 +43,28 @@ function sectionRule(sectionName: string | null | undefined): string | null {
   return null
 }
 
+function resolveResponseType(params: ExplanationPolicyParams): ExplanationResponseType | null {
+  if (params.responseType) return params.responseType
+  if (params.questionType === 'syllogism') return 'drag_and_drop'
+  if (params.questionType === 'multiple_choice') return 'multiple_choice'
+  return null
+}
+
 /**
  * Canonical student-facing explanation policy shared by generation, fill, and review.
  * When a section is known, the returned prompt contains only its relevant section rule.
  */
 export function buildUcatExplanationPolicy(params: ExplanationPolicyParams = {}): string {
-  const questionTypeRules = params.questionType
-    ? [QUESTION_TYPE_RULES[params.questionType]]
-    : Object.values(QUESTION_TYPE_RULES)
+  const responseType = resolveResponseType(params)
+  const responseTypeRules = responseType
+    ? [RESPONSE_TYPE_RULES[responseType]]
+    : Object.values(RESPONSE_TYPE_RULES)
   const selectedSectionRule = sectionRule(params.sectionName)
   const sectionRules = selectedSectionRule
     ? [selectedSectionRule]
     : Object.values(SECTION_RULES)
 
-  return [CORE_RULES, ...questionTypeRules, ...sectionRules, OUTPUT_CONTRACT].join('\n')
+  return [CORE_RULES, ...responseTypeRules, ...sectionRules, OUTPUT_CONTRACT].join('\n')
 }
 
 export const UCAT_EXPLANATION_POLICY_PROMPT = buildUcatExplanationPolicy()

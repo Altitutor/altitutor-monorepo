@@ -89,6 +89,38 @@ export function SendRegistrationInviteDialog({
   });
 
   const isGenerating = generateTokenMutation.isPending;
+  const replaceLinkMutation = useMutation({
+    mutationFn: async () => {
+      const response = await fetch('/api/public-links', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ purpose: 'registration', id: studentId }),
+      });
+      const result = (await response.json()) as { token?: string; url?: string; error?: string };
+      if (!response.ok || !result.token || !result.url) {
+        throw new Error(result.error || 'Failed to replace registration link');
+      }
+      return result;
+    },
+    onSuccess: (result) => {
+      setEmailSent(false);
+      setSmsSent(false);
+      queryClient.setQueryData(
+        registrationInviteDataKeys.detail(studentId),
+        (prev: { student: unknown; parents: unknown } | undefined) =>
+          prev ? { ...prev, token: result.token, inviteUrl: result.url } : prev
+      );
+      toast({
+        title: 'Registration link replaced',
+        description: 'Previously sent registration links no longer work.',
+      });
+    },
+    onError: (error) => toast({
+      title: 'Could not replace link',
+      description: error instanceof Error ? error.message : 'Please try again',
+      variant: 'destructive',
+    }),
+  });
 
   // Auto-generate token when modal opens and no existing token
   useEffect(() => {
@@ -294,6 +326,18 @@ export function SendRegistrationInviteDialog({
                       Copy
                     </>
                   )}
+                </Button>
+                <Button
+                  size="sm"
+                  variant="destructive"
+                  disabled={replaceLinkMutation.isPending}
+                  onClick={() => {
+                    if (window.confirm('Replace this registration link? Previously sent links will stop working.')) {
+                      replaceLinkMutation.mutate();
+                    }
+                  }}
+                >
+                  {replaceLinkMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Replace link'}
                 </Button>
               </div>
             </div>

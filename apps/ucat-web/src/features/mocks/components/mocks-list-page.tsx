@@ -135,13 +135,18 @@ export function MocksListPage() {
           </p>
         ) : (
           <motion.ul
+            data-tour="mock-options"
             className="space-y-3"
             variants={containerVariants}
             initial="hidden"
             animate="show"
           >
             {filteredMocks.map((mock) => (
-              <motion.li key={mock.id} variants={itemVariants}>
+              <motion.li
+                key={mock.id}
+                data-tour="mock-option"
+                variants={itemVariants}
+              >
                 <MockCard
                   mock={mock}
                   attemptedMockIds={attemptedMockIds}

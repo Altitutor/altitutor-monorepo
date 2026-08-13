@@ -16,7 +16,7 @@ export type SectionProgress = {
   weightedAverageScaledScore?: number | null
   /** @deprecated ucat-web no longer uses legacy section-level percentage EMA. */
   weightedAveragePercentage?: number | null
-  /** Total accessible question progress points in this section (question-based; syllogism stem=2 once, else 1 per question) */
+  /** Total accessible question progress points in this section, weighted by Answer scheme. */
   totalPublicQuestions?: number
 }
 
@@ -91,6 +91,12 @@ export type QuestionAttemptRow = {
   attemptedAt: string
   score: number | null
   questionType: string | null
+  answerScheme:
+    | 'single_choice'
+    | 'situational_judgement_rating'
+    | 'decision_making_binary_placement'
+    | 'situational_judgement_most_least'
+    | null
   timeSpentSeconds: number | null
   studentQuestionSpeed: number | null
   wasTimed: boolean
@@ -109,7 +115,7 @@ export type SectionCategoryProgress = {
   percentage: number
   /** @deprecated ucat-web now uses raw/filtered category correctness only. */
   weightedAveragePercentage?: number | null
-  /** Total accessible question progress points in this category (question-based; syllogism stem=2 once, else 1 per question) */
+  /** Total accessible question progress points in this category, weighted by Answer scheme. */
   totalPublicQuestions?: number
 }
 

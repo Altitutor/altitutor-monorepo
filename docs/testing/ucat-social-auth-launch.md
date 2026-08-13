@@ -80,7 +80,7 @@ Run each provider through these paths in development, then smoke-test them in pr
 - New signup with the provider email unchanged: lands at details, skips initial email OTP, must set a password, and completes the sampler/plan sequence.
 - New signup with a different email: sends secure email-change confirmation, still requires a password, and synchronizes the confirmed email into the Student profile after the callback.
 - Signup from a paid-plan URL: preserves the selected plan and reaches the intended checkout.
-- Signup with a referral and newsletter consent: preserves the referral and subscribes the chosen email.
+- Signup with a referral: preserves the referral and opts the chosen email into lifecycle email by default.
 - First provider sign-in started from the login page: an incomplete account resumes signup onboarding; a completed account reaches its requested destination.
 - Existing verified email/password user signing in with the same provider email: Supabase automatically attaches the identity to the existing user rather than creating a second Student account.
 - My profile **Connect**: returns to the same account and displays the connected provider.

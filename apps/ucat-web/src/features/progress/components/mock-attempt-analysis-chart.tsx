@@ -15,7 +15,6 @@ import {
   ATTEMPT_CHART_RESULT_COLORS,
   ATTEMPT_CHART_RESULT_LABELS,
 } from "../lib/attempt-chart-result-colors";
-import { computeQuestionAttemptResult } from "../lib/compute-question-attempt-result";
 import type { QuestionAttemptChartResult } from "../lib/compute-question-attempt-result";
 import {
   ATTEMPT_CHART_HIDDEN_SCROLLBAR_CLASS,
@@ -105,14 +104,7 @@ export function MockAttemptAnalysisChart({
   const chartData = data.map((d, i) => {
     const prevStem = data[i - 1]?.stemIndex;
     const isStemStart = d.stemIndex != null && d.stemIndex !== prevStem;
-    const result =
-      d.score != null
-        ? computeQuestionAttemptResult({
-            score: d.score,
-            questionType: d.questionType ?? null,
-            hasAttempt: d.result !== "not_attempted",
-          })
-        : d.result;
+    const result = d.result;
 
     return {
       index: i,

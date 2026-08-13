@@ -178,6 +178,7 @@ export function SessionHoverTooltip({ session, children, onRequestRescheduleDraf
       class_id: session.class_id,
       type: session.session_type || 'CLASS',
       billing_type: null,
+      booking_public_token: null,
       status: 'SCHEDULED',
       subject_id: session.subject_id,
       admin_shift_id: null,

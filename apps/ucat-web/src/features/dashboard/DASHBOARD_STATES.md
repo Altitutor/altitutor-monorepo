@@ -130,3 +130,5 @@ In development, signed-in staff can visit `/dashboard/preview` and switch betwee
 - projection unavailable.
 
 The route returns `notFound()` in production. Fixtures never write attempts, snapshots, profiles, or Study plans to Supabase.
+
+All feature-owned UCAT insight rules and their representative conditions are available from `/insights/preview` in development. The insight gallery complements these contextual state previews; it does not replace them.

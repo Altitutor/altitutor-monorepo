@@ -13,6 +13,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import type { ActiveExamAttempt } from "@/lib/ucat/exam-attempt/types";
 import { fetchActiveExamAttempt } from "@/features/exam-attempts/api/exam-attempts-api";
 import { isAttemptAtResults } from "@/features/exam-attempts/lib/banner-copy";
+import { resolveActiveExamAttemptFromSources } from "@/features/exam-attempts/lib/active-exam-attempt-state";
 
 type ActiveExamAttemptContextValue = {
   active: ActiveExamAttempt | null;
@@ -47,6 +48,10 @@ export function ActiveExamAttemptProvider({ children }: { children: ReactNode })
       setCompletedNotice(query.data);
     } else if (query.data) {
       setLocalActive(query.data);
+      setCompletedNotice(null);
+    } else if (query.data === null) {
+      // Successful empty fetch must drop stale local/completed fallbacks.
+      setLocalActive(null);
       setCompletedNotice(null);
     }
   }, [query.data]);
@@ -85,9 +90,15 @@ export function ActiveExamAttemptProvider({ children }: { children: ReactNode })
     [queryClient],
   );
 
+  const active = resolveActiveExamAttemptFromSources({
+    queryData: query.data,
+    localActive,
+    completedNotice,
+  });
+
   const value = useMemo(
     () => ({
-      active: query.data ?? localActive ?? completedNotice,
+      active,
       isLoading: query.isLoading,
       refresh,
       setLocal,
@@ -95,9 +106,7 @@ export function ActiveExamAttemptProvider({ children }: { children: ReactNode })
       clearLocal,
     }),
     [
-      query.data,
-      localActive,
-      completedNotice,
+      active,
       query.isLoading,
       refresh,
       setLocal,

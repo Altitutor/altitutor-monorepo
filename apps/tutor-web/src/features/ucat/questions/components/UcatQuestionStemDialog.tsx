@@ -232,6 +232,8 @@ export function UcatQuestionStemDialog({
           {
             questionText: EMPTY_DOC,
             questionType: 'multiple_choice',
+            responseType: 'multiple_choice',
+            answerScheme: 'single_choice',
             answerExplanation: null,
             difficulty: null,
             timeBurdenSeconds: '',
@@ -271,6 +273,7 @@ export function UcatQuestionStemDialog({
                 answerText: EMPTY_DOC,
                 answerExplanation: null,
                 isAnswer: false,
+                answerKeyValue: 'no' as const,
               }))
             : [...DEFAULT_OPTIONS],
       }

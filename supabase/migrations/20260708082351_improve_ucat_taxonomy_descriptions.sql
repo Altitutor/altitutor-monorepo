@@ -78,7 +78,7 @@ WITH RECURSIVE tag_paths AS (
 tag_descriptions(section_name, path, description_text) AS (
   VALUES
     ('Verbal Reasoning', 'Evidence handling', 'Use this for questions where the main skill is finding the right evidence in the passage and using it accurately.'),
-    ('Verbal Reasoning', 'Evidence handling / Detail retrieval', 'The answer is based on a stated detail. Practise locating the exact sentence or phrase and checking it against the option.'),
+    ('Verbal Reasoning', 'Evidence handling / Detail retrieval', 'The answer is based on a stated detail. Practice locating the exact sentence or phrase and checking it against the option.'),
     ('Verbal Reasoning', 'Evidence handling / Paraphrasing', 'The passage and answer say the same idea in different words, so focus on meaning rather than matching exact vocabulary.'),
     ('Verbal Reasoning', 'Evidence handling / Inference', 'You need to draw a careful conclusion from what the passage implies without adding outside knowledge or assumptions.'),
     ('Verbal Reasoning', 'Evidence handling / Insufficient information / Can''t tell', 'The passage does not provide enough evidence to prove or disprove the statement, even if it sounds plausible.'),
@@ -509,7 +509,7 @@ SET
   description = public.__tmp_ucat_taxonomy_description_doc(
     CASE
       WHEN tag_paths.parent_question_tag_id IS NULL
-        THEN 'Use this tag family for questions where ' || lower(tag_paths.name) || ' is the main skill being practised. Review it by asking what method or judgement the question required.'
+        THEN 'Use this tag family for questions where ' || lower(tag_paths.name) || ' is the main skill being practiced. Review it by asking what method or judgement the question required.'
       ELSE 'Use this tag when ' || lower(tag_paths.name) || ' is the specific skill that made the question difficult. Review it by identifying the clue, rule, or calculation step that mattered.'
     END
   ),

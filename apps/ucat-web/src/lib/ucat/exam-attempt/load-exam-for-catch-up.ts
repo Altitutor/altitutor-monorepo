@@ -44,14 +44,23 @@ type FullQuestionRow = {
   id: string;
   index: number;
   question_type: "multiple_choice" | "syllogism";
+  response_type?: QuestionItem["responseType"];
+  answer_scheme?: QuestionItem["answerScheme"];
   answer_options?: Array<{
     id: string;
     index: number;
     is_answer?: boolean;
+    answer_key_value?:
+      | "correct"
+      | "yes"
+      | "no"
+      | "most"
+      | "least"
+      | null;
   }> | null;
 };
 
-function mapSetQuestions(
+export function mapSetQuestionsForCatchUp(
   setId: string,
   stems: SetStemMeta[],
   stemRows: FullStemRow[],
@@ -78,6 +87,7 @@ function mapSetQuestions(
           index: option.index,
           text: "",
           isAnswer: option.is_answer === true,
+          answerKeyValue: option.answer_key_value ?? null,
         }));
       questions.push({
         id: question.id,
@@ -89,6 +99,8 @@ function mapSetQuestions(
         stemText: "",
         questionText: "",
         questionType: question.question_type,
+        responseType: question.response_type,
+        answerScheme: question.answer_scheme,
         options,
         correctOptionId: options.find((option) => option.isAnswer)?.id,
       });
@@ -215,7 +227,7 @@ async function loadSetExamForCatchUp(
     sourceType: "set",
     sourceId: setId,
     title: "",
-    questions: mapSetQuestions(setId, stems, stemRows),
+    questions: mapSetQuestionsForCatchUp(setId, stems, stemRows),
     instructionsScreens: [],
     setModeTiming: {
       setTimeLimitSeconds,
@@ -300,7 +312,7 @@ async function loadMockExamForCatchUp(
           unknown
         >;
       }
-      const setQuestions = mapSetQuestions(
+      const setQuestions = mapSetQuestionsForCatchUp(
         setId,
         stems,
         (stemRows ?? []) as FullStemRow[],
@@ -417,7 +429,15 @@ export async function resolveExamForCatchUp(
   },
 ): Promise<QuestionEngineExam | null> {
   if (options.exam) return options.exam;
-  if (options.requireQuestionContent && options.readerClient) {
+  // Set and mock catch-up can reach finalization, which compiles and persists
+  // every response contract. Their stored exam timing intentionally contains
+  // placeholder questions only, so prefer the live delivered content whenever
+  // a reader is available. Timing-only snapshots remain a fallback for
+  // position recovery, never the authoritative final-answer source.
+  if (
+    options.readerClient &&
+    (options.requireQuestionContent || attempt.kind !== "practice")
+  ) {
     const fullExam = await loadExamForCatchUp(options.readerClient, attempt);
     if (fullExam?.questions.length) return fullExam;
   }

@@ -59,12 +59,19 @@ export async function getMinAdvanceBookingDays(
 
 export async function loadPublicBookingSession(
   supabase: SupabaseClient<Database>,
-  sessionId: string
+  publicIdentifier: string
 ): Promise<PublicBookingSessionRecord | null> {
+  if (await isPublicBookingIdentifierRevoked(supabase, publicIdentifier)) {
+    return null;
+  }
+
+  const identifierColumn = isValidUuid(publicIdentifier)
+    ? 'id'
+    : 'booking_public_token';
   const { data: session, error: sessionError } = await supabase
     .from('sessions')
     .select('id, start_at, end_at, type, status, subject_id')
-    .eq('id', sessionId)
+    .eq(identifierColumn, publicIdentifier)
     .single();
 
   if (sessionError || !session || !isPublicBookingSessionType(session.type)) {
@@ -78,7 +85,7 @@ export async function loadPublicBookingSession(
   const { data: enrollment, error: enrollmentError } = await supabase
     .from('sessions_students')
     .select('student_id')
-    .eq('session_id', sessionId)
+    .eq('session_id', session.id)
     .eq('planned_absence', false)
     .maybeSingle();
 
@@ -110,12 +117,26 @@ export async function loadPublicBookingSession(
   };
 }
 
-export function getBookingConfirmationUrl(sessionId: string): string {
+export async function isPublicBookingIdentifierRevoked(
+  supabase: SupabaseClient<Database>,
+  publicIdentifier: string
+): Promise<boolean> {
+  const { data } = await supabase
+    .from('public_link_revocations')
+    .select('token')
+    .eq('purpose', 'BOOKING')
+    .eq('token', publicIdentifier)
+    .maybeSingle();
+
+  return Boolean(data);
+}
+
+export function getBookingConfirmationUrl(publicToken: string): string {
   const baseUrl =
     process.env.NEXT_PUBLIC_STUDENT_URL ||
     process.env.NEXT_PUBLIC_SITE_URL ||
     'https://student.altitutor.com';
-  return `${baseUrl.replace(/\/$/, '')}/booking-success?sessionId=${sessionId}`;
+  return `${baseUrl.replace(/\/$/, '')}/b/${publicToken}`;
 }
 
 export function formatSessionDateTime(startAt: string, endAt: string): {

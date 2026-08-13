@@ -1,0 +1,3957 @@
+{
+  "schemaVersion": 1,
+  "reviewedAt": "2026-08-10",
+  "policy": {
+    "syllogisms": "Short quantified class relations and formal implication chains.",
+    "interpretingInformationAndDrawingConclusions": "Tables, charts, images, schedules, factual passages, and applied business conditions.",
+    "probability": "Explicit chance, frequency, random-selection, and statistical-overlap reasoning.",
+    "responseContractExcluded": true
+  },
+  "sourceAudits": [
+    {
+      "environment": "development",
+      "projectRef": "ysfslbdcacpbemodkwtl",
+      "projectName": "altitutor-backend-dev",
+      "sourceFile": "alti-540-dm-category-audit-2026-08-10.json",
+      "rows": 337
+    },
+    {
+      "environment": "production",
+      "projectRef": "mzgunxjfgvcyivcyqimn",
+      "projectName": "altitutor-backend-prod",
+      "sourceFile": "alti-540-dm-category-audit-prod-2026-08-10.json",
+      "rows": 251
+    }
+  ],
+  "summary": {
+    "uniqueStemIds": 414,
+    "sharedStemIds": 174,
+    "developmentOnlyStemIds": 163,
+    "productionOnlyStemIds": 77,
+    "crossEnvironmentDecisionsResolvedToProductionSemantics": 3,
+    "development": {
+      "sourceRows": 337,
+      "approvedCategories": {
+        "Syllogisms": 199,
+        "Interpreting Information and Drawing Conclusions": 134,
+        "Probabilistic and Statistical Reasoning": 3
+      },
+      "quarantined": 1,
+      "unresolvedActivePublished": 0,
+      "responseCategoryCouplingEvidence": 0
+    },
+    "production": {
+      "sourceRows": 251,
+      "approvedCategories": {
+        "Syllogisms": 134,
+        "Interpreting Information and Drawing Conclusions": 113,
+        "Probabilistic and Statistical Reasoning": 4
+      },
+      "quarantined": 0,
+      "unresolvedActivePublished": 0,
+      "responseCategoryCouplingEvidence": 0
+    }
+  },
+  "rows": [
+    {
+      "stemId": "0001a878-1e48-4f27-b27d-318b4f3cdd10",
+      "environments": [
+        "development"
+      ],
+      "action": "reclassify",
+      "approvedCategory": "Interpreting Information and Drawing Conclusions",
+      "rationale": "Graph-based factual interpretation."
+    },
+    {
+      "stemId": "00e845fc-83db-455d-91c8-f3d436563a1c",
+      "environments": [
+        "production"
+      ],
+      "action": "reclassify",
+      "approvedCategory": "Interpreting Information and Drawing Conclusions",
+      "rationale": "Applied ordering puzzle with people, schools, transport, and race-position constraints."
+    },
+    {
+      "stemId": "0331c9f0-fee0-4e0c-8412-014ebfe80a02",
+      "environments": [
+        "production"
+      ],
+      "action": "retain",
+      "approvedCategory": "Syllogisms",
+      "rationale": "Chained universal class and packaging implications for drug formats."
+    },
+    {
+      "stemId": "033f55c0-b750-488d-8cdb-92c0f2071173",
+      "environments": [
+        "development",
+        "production"
+      ],
+      "action": "retain",
+      "approvedCategory": "Syllogisms",
+      "rationale": "Strong formal-premise evidence; retained as Syllogisms."
+    },
+    {
+      "stemId": "045432fd-64ab-41ce-adc4-dc89fc26a531",
+      "environments": [
+        "development",
+        "production"
+      ],
+      "action": "reclassify",
+      "approvedCategory": "Interpreting Information and Drawing Conclusions",
+      "rationale": "Extended factual argument about environmental effects of vegan and Western diets."
+    },
+    {
+      "stemId": "056495ce-87ce-4aa6-82c4-375f522e79e4",
+      "environments": [
+        "development"
+      ],
+      "action": "reclassify",
+      "approvedCategory": "Interpreting Information and Drawing Conclusions",
+      "rationale": "Campaign graph interpretation."
+    },
+    {
+      "stemId": "05920eb6-4290-4975-a44b-3fb3b34d5d08",
+      "environments": [
+        "development",
+        "production"
+      ],
+      "action": "retain",
+      "approvedCategory": "Syllogisms",
+      "rationale": "Strong formal-premise evidence; retained as Syllogisms."
+    },
+    {
+      "stemId": "066bfea3-40ad-4f93-9a6d-af69ada25b9a",
+      "environments": [
+        "development",
+        "production"
+      ],
+      "action": "reclassify",
+      "approvedCategory": "Probabilistic and Statistical Reasoning",
+      "rationale": "Explicit one-in-ten success frequency modified by a bypass condition."
+    },
+    {
+      "stemId": "0691f0ee-1c42-4730-80ee-b82a124cb8ce",
+      "environments": [
+        "development",
+        "production"
+      ],
+      "action": "retain",
+      "approvedCategory": "Syllogisms",
+      "rationale": "Strong formal-premise evidence; retained as Syllogisms."
+    },
+    {
+      "stemId": "06a57ad8-b58c-412c-8086-482fb6b5782b",
+      "environments": [
+        "development"
+      ],
+      "action": "reclassify",
+      "approvedCategory": "Interpreting Information and Drawing Conclusions",
+      "rationale": "Graph of daily activity."
+    },
+    {
+      "stemId": "06e9ae20-ea48-41a6-931b-ea2a5b8f1424",
+      "environments": [
+        "development",
+        "production"
+      ],
+      "action": "retain",
+      "approvedCategory": "Syllogisms",
+      "rationale": "Strong formal-premise evidence; retained as Syllogisms."
+    },
+    {
+      "stemId": "076ce54a-1867-4206-8a60-a3da2dcb4b2a",
+      "environments": [
+        "development"
+      ],
+      "action": "reclassify",
+      "approvedCategory": "Interpreting Information and Drawing Conclusions",
+      "rationale": "Scientific argument and evidential conclusions."
+    },
+    {
+      "stemId": "07b05f14-a665-437c-89f0-029e3da9e1f6",
+      "environments": [
+        "production"
+      ],
+      "action": "retain",
+      "approvedCategory": "Syllogisms",
+      "rationale": "Strong formal-premise evidence; retained as Syllogisms."
+    },
+    {
+      "stemId": "08215058-dccb-4306-b610-9a8cb8a08ecb",
+      "environments": [
+        "development",
+        "production"
+      ],
+      "action": "reclassify",
+      "approvedCategory": "Interpreting Information and Drawing Conclusions",
+      "rationale": "Applied schedule or business conditions; production review resolves the shared-ID decision to IIDC."
+    },
+    {
+      "stemId": "08cb0dc8-b029-428c-a6b9-04df808d1077",
+      "environments": [
+        "development",
+        "production"
+      ],
+      "action": "retain",
+      "approvedCategory": "Syllogisms",
+      "rationale": "Short universal vehicle-class and equipment implications."
+    },
+    {
+      "stemId": "0941287c-d6bf-47a8-83bd-f33cf9428a2b",
+      "environments": [
+        "production"
+      ],
+      "action": "reclassify",
+      "approvedCategory": "Interpreting Information and Drawing Conclusions",
+      "rationale": "Scientific explanatory passage about gravity and air resistance."
+    },
+    {
+      "stemId": "09eef1ef-146f-460c-b142-820654d44d69",
+      "environments": [
+        "development"
+      ],
+      "action": "retain",
+      "approvedCategory": "Syllogisms",
+      "rationale": "Short chained all/not-all class relations."
+    },
+    {
+      "stemId": "0acc4874-043c-4472-8072-609c233ccff3",
+      "environments": [
+        "development"
+      ],
+      "action": "retain",
+      "approvedCategory": "Syllogisms",
+      "rationale": "Strong formal-premise evidence; retained as Syllogisms."
+    },
+    {
+      "stemId": "0aed46dd-32f6-4c14-aefd-91cb05fe30c1",
+      "environments": [
+        "development",
+        "production"
+      ],
+      "action": "retain",
+      "approvedCategory": "Syllogisms",
+      "rationale": "Strong formal-premise evidence; retained as Syllogisms."
+    },
+    {
+      "stemId": "0b455bbc-cc0b-475a-937c-a1c013c71c98",
+      "environments": [
+        "development",
+        "production"
+      ],
+      "action": "retain",
+      "approvedCategory": "Syllogisms",
+      "rationale": "Strong formal-premise evidence; retained as Syllogisms."
+    },
+    {
+      "stemId": "0b6bdb34-8bb6-4ce2-bafc-f1187c189274",
+      "environments": [
+        "production"
+      ],
+      "action": "retain",
+      "approvedCategory": "Syllogisms",
+      "rationale": "Short contradictory quantified premises using nobody and many."
+    },
+    {
+      "stemId": "0c1bd956-82d9-469f-9801-84f8ef58126a",
+      "environments": [
+        "development"
+      ],
+      "action": "retain",
+      "approvedCategory": "Syllogisms",
+      "rationale": "Short always/if implication chain."
+    },
+    {
+      "stemId": "0c1c8a9f-4437-4362-8bdd-e2747e0d7b21",
+      "environments": [
+        "development",
+        "production"
+      ],
+      "action": "reclassify",
+      "approvedCategory": "Interpreting Information and Drawing Conclusions",
+      "rationale": "Explicit share-price chart requiring interpretation."
+    },
+    {
+      "stemId": "0d390645-cf6b-4f41-a470-44124b3aa022",
+      "environments": [
+        "development",
+        "production"
+      ],
+      "action": "reclassify",
+      "approvedCategory": "Interpreting Information and Drawing Conclusions",
+      "rationale": "Table and image showing seasonal climate data."
+    },
+    {
+      "stemId": "0dd5dca5-b389-43a7-95fa-166c94c4861c",
+      "environments": [
+        "development",
+        "production"
+      ],
+      "action": "retain",
+      "approvedCategory": "Syllogisms",
+      "rationale": "Strong formal-premise evidence; retained as Syllogisms."
+    },
+    {
+      "stemId": "0eb0ead3-265c-4f2b-9cdf-899f35ebdeba",
+      "environments": [
+        "development",
+        "production"
+      ],
+      "action": "retain",
+      "approvedCategory": "Syllogisms",
+      "rationale": "Short formal entity and class premises using at-least-one and no-player relations."
+    },
+    {
+      "stemId": "0f3d2d49-1d04-4cee-bb8b-3ef9f28d1357",
+      "environments": [
+        "development"
+      ],
+      "action": "retain",
+      "approvedCategory": "Syllogisms",
+      "rationale": "Compact quantified most/all premise set."
+    },
+    {
+      "stemId": "0f7073e8-ba43-4c08-8c0b-834b456fa7d9",
+      "environments": [
+        "production"
+      ],
+      "action": "reclassify",
+      "approvedCategory": "Interpreting Information and Drawing Conclusions",
+      "rationale": "Scientific biographical passage about Hawking and black holes."
+    },
+    {
+      "stemId": "11a023fe-7afd-4669-9da5-43b9f8dd2602",
+      "environments": [
+        "production"
+      ],
+      "action": "retain",
+      "approvedCategory": "Syllogisms",
+      "rationale": "Short quantified student-set rules with all, except, and only."
+    },
+    {
+      "stemId": "11eae439-e1be-4076-b8af-74dce5b41784",
+      "environments": [
+        "development"
+      ],
+      "action": "retain",
+      "approvedCategory": "Syllogisms",
+      "rationale": "Strong formal-premise evidence; retained as Syllogisms."
+    },
+    {
+      "stemId": "156d9328-eefa-4848-9fce-be980fc846b7",
+      "environments": [
+        "development"
+      ],
+      "action": "retain",
+      "approvedCategory": "Syllogisms",
+      "rationale": "Strong formal-premise evidence; retained as Syllogisms."
+    },
+    {
+      "stemId": "156f6fac-4dee-4c14-9c3a-8218a8dc192d",
+      "environments": [
+        "development"
+      ],
+      "action": "reclassify",
+      "approvedCategory": "Interpreting Information and Drawing Conclusions",
+      "rationale": "Applied storage-service conditions and limits."
+    },
+    {
+      "stemId": "1591e2ba-c07c-43af-95ce-ed1ba58cea81",
+      "environments": [
+        "development"
+      ],
+      "action": "retain",
+      "approvedCategory": "Syllogisms",
+      "rationale": "Strong formal-premise evidence; retained as Syllogisms."
+    },
+    {
+      "stemId": "15dc25a3-4fb6-434d-8882-5eb5bf80839b",
+      "environments": [
+        "development"
+      ],
+      "action": "reclassify",
+      "approvedCategory": "Interpreting Information and Drawing Conclusions",
+      "rationale": "Graph comparison."
+    },
+    {
+      "stemId": "16f15d04-2f5c-4b00-ac27-e8442a38b5e3",
+      "environments": [
+        "development",
+        "production"
+      ],
+      "action": "retain",
+      "approvedCategory": "Syllogisms",
+      "rationale": "Short universal, exception, and more-than quantified premises."
+    },
+    {
+      "stemId": "175dbfe2-2283-4e71-8718-f2da8b1a91e7",
+      "environments": [
+        "development",
+        "production"
+      ],
+      "action": "retain",
+      "approvedCategory": "Syllogisms",
+      "rationale": "Strong formal-premise evidence; retained as Syllogisms."
+    },
+    {
+      "stemId": "177bcf4c-88a8-4157-9656-31e7c0bda2d9",
+      "environments": [
+        "development"
+      ],
+      "action": "retain",
+      "approvedCategory": "Syllogisms",
+      "rationale": "Compact attribute constraint puzzle."
+    },
+    {
+      "stemId": "18063e98-f754-4b05-9e84-592f34042dc0",
+      "environments": [
+        "development"
+      ],
+      "action": "retain",
+      "approvedCategory": "Syllogisms",
+      "rationale": "Strong formal-premise evidence; retained as Syllogisms."
+    },
+    {
+      "stemId": "182e2c89-0d36-4dea-b050-57c1f3dc357b",
+      "environments": [
+        "development"
+      ],
+      "action": "retain",
+      "approvedCategory": "Syllogisms",
+      "rationale": "Strong formal-premise evidence; retained as Syllogisms."
+    },
+    {
+      "stemId": "185dbc2c-0b56-4623-9671-c152101f83a0",
+      "environments": [
+        "development",
+        "production"
+      ],
+      "action": "reclassify",
+      "approvedCategory": "Interpreting Information and Drawing Conclusions",
+      "rationale": "Applied schedule or business conditions; production review resolves the shared-ID decision to IIDC."
+    },
+    {
+      "stemId": "187be46b-cda6-4a2b-8a83-4981d018b0d6",
+      "environments": [
+        "development",
+        "production"
+      ],
+      "action": "retain",
+      "approvedCategory": "Syllogisms",
+      "rationale": "Short all-except and more-than-one quantified premises."
+    },
+    {
+      "stemId": "18f7437a-983a-4d31-9d9b-ced1d6083033",
+      "environments": [
+        "development"
+      ],
+      "action": "retain",
+      "approvedCategory": "Syllogisms",
+      "rationale": "Short closed comparison system among palm-tree types."
+    },
+    {
+      "stemId": "1981fe3d-adce-4beb-82c0-1dd3b9966d19",
+      "environments": [
+        "development",
+        "production"
+      ],
+      "action": "reclassify",
+      "approvedCategory": "Interpreting Information and Drawing Conclusions",
+      "rationale": "Explicit graph of car weights and fuel-efficiency ratings."
+    },
+    {
+      "stemId": "1ba2a58e-0533-4a27-bd2a-3e32b792e415",
+      "environments": [
+        "production"
+      ],
+      "action": "retain",
+      "approvedCategory": "Syllogisms",
+      "rationale": "Strong formal-premise evidence; retained as Syllogisms."
+    },
+    {
+      "stemId": "1c120d8b-043f-4513-b55b-6b932d432787",
+      "environments": [
+        "development",
+        "production"
+      ],
+      "action": "reclassify",
+      "approvedCategory": "Interpreting Information and Drawing Conclusions",
+      "rationale": "Diagrams and graph about atmospheric solar radiation."
+    },
+    {
+      "stemId": "1cae29e8-63ae-4729-a435-95eabdc0f36d",
+      "environments": [
+        "development"
+      ],
+      "action": "retain",
+      "approvedCategory": "Syllogisms",
+      "rationale": "Strong formal-premise evidence; retained as Syllogisms."
+    },
+    {
+      "stemId": "1cbeb7f3-01ab-4c1b-9844-77e318690098",
+      "environments": [
+        "development",
+        "production"
+      ],
+      "action": "reclassify",
+      "approvedCategory": "Interpreting Information and Drawing Conclusions",
+      "rationale": "Explicit graph of colon-cancer incidence."
+    },
+    {
+      "stemId": "1d933737-4089-452d-85d8-3767f57f122b",
+      "environments": [
+        "development",
+        "production"
+      ],
+      "action": "reclassify",
+      "approvedCategory": "Interpreting Information and Drawing Conclusions",
+      "rationale": "Argumentative scientific passage evaluating an astronomer's inference."
+    },
+    {
+      "stemId": "1e6d56d5-506e-41e9-8935-43179e15d0ca",
+      "environments": [
+        "development"
+      ],
+      "action": "reclassify",
+      "approvedCategory": "Interpreting Information and Drawing Conclusions",
+      "rationale": "Real-world guide qualification conditions."
+    },
+    {
+      "stemId": "1ea19928-6d4d-48da-8959-72eb36520962",
+      "environments": [
+        "development"
+      ],
+      "action": "retain",
+      "approvedCategory": "Syllogisms",
+      "rationale": "Explicit every/no chained propositions."
+    },
+    {
+      "stemId": "1fc4fb1f-62d8-48c7-8656-5a78cb1f6620",
+      "environments": [
+        "development"
+      ],
+      "action": "retain",
+      "approvedCategory": "Syllogisms",
+      "rationale": "Strong formal-premise evidence; retained as Syllogisms."
+    },
+    {
+      "stemId": "1fde3007-8a2c-494a-9ae7-53607aa8ba94",
+      "environments": [
+        "development"
+      ],
+      "action": "retain",
+      "approvedCategory": "Syllogisms",
+      "rationale": "Strong formal-premise evidence; retained as Syllogisms."
+    },
+    {
+      "stemId": "20569c1d-0a3b-402e-be3a-8474a925c1db",
+      "environments": [
+        "development",
+        "production"
+      ],
+      "action": "reclassify",
+      "approvedCategory": "Interpreting Information and Drawing Conclusions",
+      "rationale": "Extended historical passage requiring factual conclusions."
+    },
+    {
+      "stemId": "214c1af6-1294-4998-8b66-b356d7b5f197",
+      "environments": [
+        "development",
+        "production"
+      ],
+      "action": "reclassify",
+      "approvedCategory": "Interpreting Information and Drawing Conclusions",
+      "rationale": "Applied hotel upgrade and discount eligibility rules."
+    },
+    {
+      "stemId": "2180d12b-3b50-414c-8152-a445cbdf6be7",
+      "environments": [
+        "development",
+        "production"
+      ],
+      "action": "reclassify",
+      "approvedCategory": "Interpreting Information and Drawing Conclusions",
+      "rationale": "Extended applied passage about social-media effects at work and school."
+    },
+    {
+      "stemId": "21c0c256-007e-4f24-87c9-9cdda2243ac6",
+      "environments": [
+        "development"
+      ],
+      "action": "reclassify",
+      "approvedCategory": "Interpreting Information and Drawing Conclusions",
+      "rationale": "Discursive argument about vocational skills."
+    },
+    {
+      "stemId": "2381d45b-7c06-42de-a3cf-0c45a5d7070c",
+      "environments": [
+        "production"
+      ],
+      "action": "reclassify",
+      "approvedCategory": "Interpreting Information and Drawing Conclusions",
+      "rationale": "Applied company hiring conditions."
+    },
+    {
+      "stemId": "23ff512c-d1cf-4d7d-9766-f885bf7decc7",
+      "environments": [
+        "development",
+        "production"
+      ],
+      "action": "retain",
+      "approvedCategory": "Syllogisms",
+      "rationale": "Strong formal-premise evidence; retained as Syllogisms."
+    },
+    {
+      "stemId": "276b00d7-b351-4475-8d55-c8adc6c9e079",
+      "environments": [
+        "production"
+      ],
+      "action": "retain",
+      "approvedCategory": "Syllogisms",
+      "rationale": "Short abstract class statements about phones, technology, and metal."
+    },
+    {
+      "stemId": "27e23991-99e0-49b5-833b-b2b37ba501c5",
+      "environments": [
+        "development",
+        "production"
+      ],
+      "action": "retain",
+      "approvedCategory": "Syllogisms",
+      "rationale": "Strong formal-premise evidence; retained as Syllogisms."
+    },
+    {
+      "stemId": "280680e3-6146-44f3-9613-8f2db2b5d39d",
+      "environments": [
+        "development"
+      ],
+      "action": "retain",
+      "approvedCategory": "Syllogisms",
+      "rationale": "Strong formal-premise evidence; retained as Syllogisms."
+    },
+    {
+      "stemId": "281c5e4d-0b9f-4cd1-812e-171779646204",
+      "environments": [
+        "development"
+      ],
+      "action": "reclassify",
+      "approvedCategory": "Interpreting Information and Drawing Conclusions",
+      "rationale": "Survey percentages and factual conclusions."
+    },
+    {
+      "stemId": "284d88b2-7bf5-4787-9dd8-ecc0045baaa0",
+      "environments": [
+        "development"
+      ],
+      "action": "retain",
+      "approvedCategory": "Syllogisms",
+      "rationale": "Short all/class-membership propositions."
+    },
+    {
+      "stemId": "28ba0690-8c0e-4d07-a3ad-b0bf0d305e45",
+      "environments": [
+        "development",
+        "production"
+      ],
+      "action": "retain",
+      "approvedCategory": "Syllogisms",
+      "rationale": "Strong formal-premise evidence; retained as Syllogisms."
+    },
+    {
+      "stemId": "28ed787e-3b9e-407f-8dac-193c5867a62b",
+      "environments": [
+        "development",
+        "production"
+      ],
+      "action": "reclassify",
+      "approvedCategory": "Interpreting Information and Drawing Conclusions",
+      "rationale": "Applied candidate-eligibility conditions for a company."
+    },
+    {
+      "stemId": "2b712640-cc01-4655-9d6b-194e2bd82e2e",
+      "environments": [
+        "production"
+      ],
+      "action": "retain",
+      "approvedCategory": "Syllogisms",
+      "rationale": "Short quantified giving relations among named entities and all schoolchildren."
+    },
+    {
+      "stemId": "2b893b44-36dd-4bf9-949e-21682964deef",
+      "environments": [
+        "development"
+      ],
+      "action": "retain",
+      "approvedCategory": "Syllogisms",
+      "rationale": "Short closed set of only/age family relations."
+    },
+    {
+      "stemId": "2bb8788f-90bc-487d-8a93-c8799679d929",
+      "environments": [
+        "development"
+      ],
+      "action": "retain",
+      "approvedCategory": "Syllogisms",
+      "rationale": "Short all/either class relations."
+    },
+    {
+      "stemId": "2e2f56a2-01c1-4799-ac4b-d1f5f840e71e",
+      "environments": [
+        "development"
+      ],
+      "action": "reclassify",
+      "approvedCategory": "Interpreting Information and Drawing Conclusions",
+      "rationale": "Clinical-trial facts and numerical evidence."
+    },
+    {
+      "stemId": "2e4820be-1571-4144-bb06-0c612d20c30e",
+      "environments": [
+        "development",
+        "production"
+      ],
+      "action": "reclassify",
+      "approvedCategory": "Interpreting Information and Drawing Conclusions",
+      "rationale": "Applied computer grading, viability, and downgrade rules."
+    },
+    {
+      "stemId": "2ea882bd-7b7b-466a-8018-ffa5bb2117e1",
+      "environments": [
+        "development"
+      ],
+      "action": "retain",
+      "approvedCategory": "Syllogisms",
+      "rationale": "Strong formal-premise evidence; retained as Syllogisms."
+    },
+    {
+      "stemId": "2f9e5670-9f44-4e85-bed9-2a8609e61480",
+      "environments": [
+        "development",
+        "production"
+      ],
+      "action": "reclassify",
+      "approvedCategory": "Interpreting Information and Drawing Conclusions",
+      "rationale": "Content is carried by a diagram or image, which requires visual interpretation."
+    },
+    {
+      "stemId": "30784a0b-5949-4901-aeaa-277c02f9421d",
+      "environments": [
+        "development"
+      ],
+      "action": "retain",
+      "approvedCategory": "Syllogisms",
+      "rationale": "Strong formal-premise evidence; retained as Syllogisms."
+    },
+    {
+      "stemId": "310a9cc2-52c3-4f50-86fb-668307abed25",
+      "environments": [
+        "development",
+        "production"
+      ],
+      "action": "reclassify",
+      "approvedCategory": "Interpreting Information and Drawing Conclusions",
+      "rationale": "Graph showing interest-rate trends."
+    },
+    {
+      "stemId": "311045c5-600b-42f2-9432-5662d61c5b38",
+      "environments": [
+        "development"
+      ],
+      "action": "reclassify",
+      "approvedCategory": "Interpreting Information and Drawing Conclusions",
+      "rationale": "Image supplies the substantive information."
+    },
+    {
+      "stemId": "32292de7-7f23-45e6-a0e2-eae21ae431b7",
+      "environments": [
+        "development"
+      ],
+      "action": "retain",
+      "approvedCategory": "Syllogisms",
+      "rationale": "Strong formal-premise evidence; retained as Syllogisms."
+    },
+    {
+      "stemId": "325f30e0-a2f0-45f6-b1e7-16cfbedf407e",
+      "environments": [
+        "development",
+        "production"
+      ],
+      "action": "reclassify",
+      "approvedCategory": "Interpreting Information and Drawing Conclusions",
+      "rationale": "Wave-height table and threshold rule requiring data interpretation."
+    },
+    {
+      "stemId": "33826350-ca1e-494d-9c05-c5b076786a05",
+      "environments": [
+        "development",
+        "production"
+      ],
+      "action": "retain",
+      "approvedCategory": "Syllogisms",
+      "rationale": "Strong formal-premise evidence; retained as Syllogisms."
+    },
+    {
+      "stemId": "34ddd1d2-a1ff-447f-b4c0-85e374777ff0",
+      "environments": [
+        "development"
+      ],
+      "action": "retain",
+      "approvedCategory": "Syllogisms",
+      "rationale": "Short all implication with named countercondition."
+    },
+    {
+      "stemId": "36dbc4d8-878b-48cf-b0c0-3a9a5899f0db",
+      "environments": [
+        "development",
+        "production"
+      ],
+      "action": "reclassify",
+      "approvedCategory": "Interpreting Information and Drawing Conclusions",
+      "rationale": "Argumentative factual passage about advertising and teenage drinking."
+    },
+    {
+      "stemId": "3880a739-915c-4175-a7ea-1b1c7d25719e",
+      "environments": [
+        "development",
+        "production"
+      ],
+      "action": "retain",
+      "approvedCategory": "Syllogisms",
+      "rationale": "Strong formal-premise evidence; retained as Syllogisms."
+    },
+    {
+      "stemId": "388e4e22-f061-4165-9b62-6263f32705b8",
+      "environments": [
+        "development"
+      ],
+      "action": "retain",
+      "approvedCategory": "Syllogisms",
+      "rationale": "Strong formal-premise evidence; retained as Syllogisms."
+    },
+    {
+      "stemId": "39483567-2371-499a-b836-ccb14f738f87",
+      "environments": [
+        "development",
+        "production"
+      ],
+      "action": "retain",
+      "approvedCategory": "Syllogisms",
+      "rationale": "Strong formal-premise evidence; retained as Syllogisms."
+    },
+    {
+      "stemId": "3a73b446-f63a-487e-85a3-5b6183f9891f",
+      "environments": [
+        "development",
+        "production"
+      ],
+      "action": "retain",
+      "approvedCategory": "Syllogisms",
+      "rationale": "Strong formal-premise evidence; retained as Syllogisms."
+    },
+    {
+      "stemId": "3a85f1ed-228f-4d5d-bbc4-dfb50bc752e3",
+      "environments": [
+        "development",
+        "production"
+      ],
+      "action": "reclassify",
+      "approvedCategory": "Interpreting Information and Drawing Conclusions",
+      "rationale": "Explicit graph of air-pollution measurements across two days."
+    },
+    {
+      "stemId": "3aa9f94f-9f74-4afe-8655-582420f65ee4",
+      "environments": [
+        "development",
+        "production"
+      ],
+      "action": "reclassify",
+      "approvedCategory": "Interpreting Information and Drawing Conclusions",
+      "rationale": "Applied supermarket loyalty-points thresholds."
+    },
+    {
+      "stemId": "3aaf9b68-f016-49f8-9994-9e048eeca92c",
+      "environments": [
+        "production"
+      ],
+      "action": "retain",
+      "approvedCategory": "Syllogisms",
+      "rationale": "Short quantified biscuit-brand class relations using all, exception, and several."
+    },
+    {
+      "stemId": "3acb8b92-5409-4636-8704-c7bdabf4c5bf",
+      "environments": [
+        "production"
+      ],
+      "action": "retain",
+      "approvedCategory": "Syllogisms",
+      "rationale": "Strong formal-premise evidence; retained as Syllogisms."
+    },
+    {
+      "stemId": "3b879dcf-da73-448b-a2a6-a4e283174925",
+      "environments": [
+        "development",
+        "production"
+      ],
+      "action": "reclassify",
+      "approvedCategory": "Interpreting Information and Drawing Conclusions",
+      "rationale": "Applied pilot licensing and geographic work conditions."
+    },
+    {
+      "stemId": "3c00d61e-be73-497f-bc46-b44bea04f4a7",
+      "environments": [
+        "development"
+      ],
+      "action": "retain",
+      "approvedCategory": "Syllogisms",
+      "rationale": "Short all/either class relations."
+    },
+    {
+      "stemId": "3c800ca9-850c-4619-9b80-80de9709e977",
+      "environments": [
+        "development"
+      ],
+      "action": "retain",
+      "approvedCategory": "Syllogisms",
+      "rationale": "Strong formal-premise evidence; retained as Syllogisms."
+    },
+    {
+      "stemId": "3d4e9536-c466-4382-abe0-b3694dc5066f",
+      "environments": [
+        "development",
+        "production"
+      ],
+      "action": "retain",
+      "approvedCategory": "Syllogisms",
+      "rationale": "Strong formal-premise evidence; retained as Syllogisms."
+    },
+    {
+      "stemId": "3dc59f2f-b8ee-436c-a060-cf4e4b2c0209",
+      "environments": [
+        "production"
+      ],
+      "action": "retain",
+      "approvedCategory": "Syllogisms",
+      "rationale": "Short chained formal implications among tables, carpenters, baldness, and hats."
+    },
+    {
+      "stemId": "3e7715c9-13cc-4732-8136-5b27bdf2b54e",
+      "environments": [
+        "development",
+        "production"
+      ],
+      "action": "retain",
+      "approvedCategory": "Syllogisms",
+      "rationale": "Short universal implication about drinks."
+    },
+    {
+      "stemId": "3eb34cb0-87fc-476d-98e9-956b6fa35a84",
+      "environments": [
+        "production"
+      ],
+      "action": "retain",
+      "approvedCategory": "Syllogisms",
+      "rationale": "Strong formal-premise evidence; retained as Syllogisms."
+    },
+    {
+      "stemId": "3f295510-8c75-4c02-8c49-dba928a28082",
+      "environments": [
+        "development",
+        "production"
+      ],
+      "action": "retain",
+      "approvedCategory": "Syllogisms",
+      "rationale": "Strong formal-premise evidence; retained as Syllogisms."
+    },
+    {
+      "stemId": "3f374d06-682b-4d30-b624-d45c15fda04c",
+      "environments": [
+        "development"
+      ],
+      "action": "retain",
+      "approvedCategory": "Syllogisms",
+      "rationale": "Strong formal-premise evidence; retained as Syllogisms."
+    },
+    {
+      "stemId": "3f47e21e-5e82-4533-9ad9-a0bf01e68de4",
+      "environments": [
+        "production"
+      ],
+      "action": "retain",
+      "approvedCategory": "Syllogisms",
+      "rationale": "Strong formal-premise evidence; retained as Syllogisms."
+    },
+    {
+      "stemId": "4000592d-e863-49c0-af59-1bb81be680dd",
+      "environments": [
+        "development"
+      ],
+      "action": "reclassify",
+      "approvedCategory": "Interpreting Information and Drawing Conclusions",
+      "rationale": "Two climate graphs."
+    },
+    {
+      "stemId": "40132683-d491-4cce-b214-a4da7654f429",
+      "environments": [
+        "development",
+        "production"
+      ],
+      "action": "retain",
+      "approvedCategory": "Syllogisms",
+      "rationale": "Strong formal-premise evidence; retained as Syllogisms."
+    },
+    {
+      "stemId": "403cb9dd-46c5-4268-925a-1846bdf8ef0d",
+      "environments": [
+        "development",
+        "production"
+      ],
+      "action": "retain",
+      "approvedCategory": "Syllogisms",
+      "rationale": "Strong formal-premise evidence; retained as Syllogisms."
+    },
+    {
+      "stemId": "40bf1cf1-fdc5-485d-9201-69d96451a534",
+      "environments": [
+        "development"
+      ],
+      "action": "reclassify",
+      "approvedCategory": "Interpreting Information and Drawing Conclusions",
+      "rationale": "Factual university bus-pass business scenario."
+    },
+    {
+      "stemId": "4168b11e-97f6-4134-9dfe-0ed5b62446de",
+      "environments": [
+        "development"
+      ],
+      "action": "reclassify",
+      "approvedCategory": "Interpreting Information and Drawing Conclusions",
+      "rationale": "Extended factual environmental passage."
+    },
+    {
+      "stemId": "417f03f5-7ebc-4f30-8781-b4baf6bdb3e1",
+      "environments": [
+        "development",
+        "production"
+      ],
+      "action": "reclassify",
+      "approvedCategory": "Interpreting Information and Drawing Conclusions",
+      "rationale": "Applied business-policy statement about penalties for unpaid fees."
+    },
+    {
+      "stemId": "41c23efa-1e7d-4ee5-8184-ba7550277a24",
+      "environments": [
+        "development",
+        "production"
+      ],
+      "action": "retain",
+      "approvedCategory": "Syllogisms",
+      "rationale": "Strong formal-premise evidence; retained as Syllogisms."
+    },
+    {
+      "stemId": "41c28abe-4dbc-4a54-b445-7e0c797bb914",
+      "environments": [
+        "development"
+      ],
+      "action": "retain",
+      "approvedCategory": "Syllogisms",
+      "rationale": "Strong formal-premise evidence; retained as Syllogisms."
+    },
+    {
+      "stemId": "41e875d4-f15f-4b5d-8c50-69eb49e8e86d",
+      "environments": [
+        "production"
+      ],
+      "action": "retain",
+      "approvedCategory": "Syllogisms",
+      "rationale": "Strong formal-premise evidence; retained as Syllogisms."
+    },
+    {
+      "stemId": "42090f97-20b3-4be4-8935-5c04ddc00cb7",
+      "environments": [
+        "development"
+      ],
+      "action": "retain",
+      "approvedCategory": "Syllogisms",
+      "rationale": "Strong formal-premise evidence; retained as Syllogisms."
+    },
+    {
+      "stemId": "421f27fc-357a-42c0-a330-a7451f848669",
+      "environments": [
+        "production"
+      ],
+      "action": "retain",
+      "approvedCategory": "Syllogisms",
+      "rationale": "Strong formal-premise evidence; retained as Syllogisms."
+    },
+    {
+      "stemId": "42259210-d254-45ca-8660-40514cd09461",
+      "environments": [
+        "development"
+      ],
+      "action": "reclassify",
+      "approvedCategory": "Interpreting Information and Drawing Conclusions",
+      "rationale": "Extended factual automotive passage."
+    },
+    {
+      "stemId": "4358a62e-b174-495b-b344-6e29575a2573",
+      "environments": [
+        "development",
+        "production"
+      ],
+      "action": "reclassify",
+      "approvedCategory": "Interpreting Information and Drawing Conclusions",
+      "rationale": "Pie-chart comparison of sport and instrument preferences."
+    },
+    {
+      "stemId": "44299f0f-67ea-4123-a09f-6f907e162be9",
+      "environments": [
+        "development",
+        "production"
+      ],
+      "action": "retain",
+      "approvedCategory": "Syllogisms",
+      "rationale": "Strong formal-premise evidence; retained as Syllogisms."
+    },
+    {
+      "stemId": "443361b0-36c7-4efb-abc0-b59e80d7b2a8",
+      "environments": [
+        "development",
+        "production"
+      ],
+      "action": "retain",
+      "approvedCategory": "Syllogisms",
+      "rationale": "Strong formal-premise evidence; retained as Syllogisms."
+    },
+    {
+      "stemId": "4446a754-b462-4f5c-bb9e-bba25d38f96d",
+      "environments": [
+        "development"
+      ],
+      "action": "retain",
+      "approvedCategory": "Syllogisms",
+      "rationale": "Strong formal-premise evidence; retained as Syllogisms."
+    },
+    {
+      "stemId": "44f23ecb-aff8-4dfc-bd6c-8d85ed134ad8",
+      "environments": [
+        "production"
+      ],
+      "action": "retain",
+      "approvedCategory": "Syllogisms",
+      "rationale": "Strong formal-premise evidence; retained as Syllogisms."
+    },
+    {
+      "stemId": "4516a2a4-6676-4430-9899-964e393f7afb",
+      "environments": [
+        "production"
+      ],
+      "action": "retain",
+      "approvedCategory": "Syllogisms",
+      "rationale": "Strong formal-premise evidence; retained as Syllogisms."
+    },
+    {
+      "stemId": "451bebe4-19c0-400b-8ae8-9b7736de1671",
+      "environments": [
+        "development"
+      ],
+      "action": "reclassify",
+      "approvedCategory": "Interpreting Information and Drawing Conclusions",
+      "rationale": "Clinical-trial data passage."
+    },
+    {
+      "stemId": "4531dbe2-6408-4985-af58-3ba41f711dc1",
+      "environments": [
+        "development"
+      ],
+      "action": "reclassify",
+      "approvedCategory": "Interpreting Information and Drawing Conclusions",
+      "rationale": "Scientific graph interpretation."
+    },
+    {
+      "stemId": "45849201-27a2-406e-a309-5403f5eefdb4",
+      "environments": [
+        "development",
+        "production"
+      ],
+      "action": "reclassify",
+      "approvedCategory": "Interpreting Information and Drawing Conclusions",
+      "rationale": "Percentage data about watershed quality requiring factual interpretation."
+    },
+    {
+      "stemId": "464b7feb-d3ef-4f1a-812e-5e5a35a9d1d1",
+      "environments": [
+        "development",
+        "production"
+      ],
+      "action": "reclassify",
+      "approvedCategory": "Interpreting Information and Drawing Conclusions",
+      "rationale": "Factual argumentative passage about environmental effects of diets."
+    },
+    {
+      "stemId": "465d5b4a-19d8-4033-a5d8-f33f515b7191",
+      "environments": [
+        "development"
+      ],
+      "action": "retain",
+      "approvedCategory": "Syllogisms",
+      "rationale": "Strong formal-premise evidence; retained as Syllogisms."
+    },
+    {
+      "stemId": "46c3d605-5bd0-42e6-98f5-18aa08f2bb3d",
+      "environments": [
+        "development"
+      ],
+      "action": "retain",
+      "approvedCategory": "Syllogisms",
+      "rationale": "Strong formal-premise evidence; retained as Syllogisms."
+    },
+    {
+      "stemId": "4755348a-0caa-4954-9bd3-4be2c2cbf3d7",
+      "environments": [
+        "development"
+      ],
+      "action": "retain",
+      "approvedCategory": "Syllogisms",
+      "rationale": "All/except/more-than-one quantified relations."
+    },
+    {
+      "stemId": "475e65d9-2a30-435b-9159-f28051244983",
+      "environments": [
+        "development",
+        "production"
+      ],
+      "action": "reclassify",
+      "approvedCategory": "Interpreting Information and Drawing Conclusions",
+      "rationale": "Scientific factual statements about starch and amylase."
+    },
+    {
+      "stemId": "47c77ec0-7eca-4da3-8d8f-ab632bb5a292",
+      "environments": [
+        "production"
+      ],
+      "action": "reclassify",
+      "approvedCategory": "Interpreting Information and Drawing Conclusions",
+      "rationale": "Applied cross-border passport and identity-document rules."
+    },
+    {
+      "stemId": "47d8d745-61e1-42c7-8fb9-b670a80d4414",
+      "environments": [
+        "production"
+      ],
+      "action": "retain",
+      "approvedCategory": "Syllogisms",
+      "rationale": "Strong formal-premise evidence; retained as Syllogisms."
+    },
+    {
+      "stemId": "4837c15b-e2f5-4fc3-b77d-9bda0bdcaa62",
+      "environments": [
+        "development"
+      ],
+      "action": "retain",
+      "approvedCategory": "Syllogisms",
+      "rationale": "Strong formal-premise evidence; retained as Syllogisms."
+    },
+    {
+      "stemId": "49775aff-d105-4624-a411-2283a327951b",
+      "environments": [
+        "development"
+      ],
+      "action": "retain",
+      "approvedCategory": "Syllogisms",
+      "rationale": "Strong formal-premise evidence; retained as Syllogisms."
+    },
+    {
+      "stemId": "4a23425d-6f00-43fc-a18d-ec555b7fd5cd",
+      "environments": [
+        "development",
+        "production"
+      ],
+      "action": "reclassify",
+      "approvedCategory": "Interpreting Information and Drawing Conclusions",
+      "rationale": "Applied bank-robbery scenario requiring conclusions from operational facts."
+    },
+    {
+      "stemId": "4a8fd6a4-b7f9-41e3-83c1-25b80c57fae1",
+      "environments": [
+        "development"
+      ],
+      "action": "reclassify",
+      "approvedCategory": "Interpreting Information and Drawing Conclusions",
+      "rationale": "Factual scientific passage about vision and temperature."
+    },
+    {
+      "stemId": "4abfd2ab-2747-49de-b1d4-6afe7eda645e",
+      "environments": [
+        "development"
+      ],
+      "action": "retain",
+      "approvedCategory": "Syllogisms",
+      "rationale": "Strong formal-premise evidence; retained as Syllogisms."
+    },
+    {
+      "stemId": "4b24984c-d521-41d0-b310-dda2cdb41a68",
+      "environments": [
+        "development",
+        "production"
+      ],
+      "action": "reclassify",
+      "approvedCategory": "Probabilistic and Statistical Reasoning",
+      "rationale": "Explicit random selection among boxes with stated prize frequencies."
+    },
+    {
+      "stemId": "4b7c7977-15ad-47bc-a24a-150b95c4c6d7",
+      "environments": [
+        "development",
+        "production"
+      ],
+      "action": "retain",
+      "approvedCategory": "Syllogisms",
+      "rationale": "Short abstract class relations linking hats, brims, colours, and baseball caps."
+    },
+    {
+      "stemId": "4c266313-f4e8-4b61-950e-d316e9d4f227",
+      "environments": [
+        "production"
+      ],
+      "action": "reclassify",
+      "approvedCategory": "Probabilistic and Statistical Reasoning",
+      "rationale": "Statistical proportions with potentially overlapping sport groups."
+    },
+    {
+      "stemId": "4d0526f2-3a34-49ad-bf03-99115e549fe3",
+      "environments": [
+        "development",
+        "production"
+      ],
+      "action": "reclassify",
+      "approvedCategory": "Interpreting Information and Drawing Conclusions",
+      "rationale": "Applied sports eligibility rule combined with a concrete exception and game facts."
+    },
+    {
+      "stemId": "4e2acd71-8b2c-4679-82e5-368dba73f480",
+      "environments": [
+        "development"
+      ],
+      "action": "retain",
+      "approvedCategory": "Syllogisms",
+      "rationale": "Strong formal-premise evidence; retained as Syllogisms."
+    },
+    {
+      "stemId": "4e5b6193-3b6e-4471-a492-bc17fa595d1c",
+      "environments": [
+        "development",
+        "production"
+      ],
+      "action": "retain",
+      "approvedCategory": "Syllogisms",
+      "rationale": "Short all-except and less-than quantified class premises."
+    },
+    {
+      "stemId": "4ec6df65-8d8a-4e8a-843b-3ea9fef641a3",
+      "environments": [
+        "development",
+        "production"
+      ],
+      "action": "reclassify",
+      "approvedCategory": "Probabilistic and Statistical Reasoning",
+      "rationale": "Random draws without replacement from a bag of coloured balls."
+    },
+    {
+      "stemId": "509feca3-ff22-48ca-8dad-1fe20758e4fe",
+      "environments": [
+        "development",
+        "production"
+      ],
+      "action": "reclassify",
+      "approvedCategory": "Interpreting Information and Drawing Conclusions",
+      "rationale": "Bar diagram of exports, imports, and trade balance."
+    },
+    {
+      "stemId": "50cec392-1071-4624-b8bb-1751acddfaf0",
+      "environments": [
+        "development",
+        "production"
+      ],
+      "action": "retain",
+      "approvedCategory": "Syllogisms",
+      "rationale": "Strong formal-premise evidence; retained as Syllogisms."
+    },
+    {
+      "stemId": "52f49283-c442-452c-bf85-bca23861449e",
+      "environments": [
+        "development",
+        "production"
+      ],
+      "action": "reclassify",
+      "approvedCategory": "Interpreting Information and Drawing Conclusions",
+      "rationale": "Extended biological passage about seahorse reproduction and courtship."
+    },
+    {
+      "stemId": "53970afd-b2d2-4d38-a1bc-25a39c7ae926",
+      "environments": [
+        "development",
+        "production"
+      ],
+      "action": "reclassify",
+      "approvedCategory": "Interpreting Information and Drawing Conclusions",
+      "rationale": "Applied employee promotion eligibility conditions."
+    },
+    {
+      "stemId": "540d5019-39be-4542-aac7-afe207f35a7e",
+      "environments": [
+        "development",
+        "production"
+      ],
+      "action": "retain",
+      "approvedCategory": "Syllogisms",
+      "rationale": "Single short existential class statement using some wild birds."
+    },
+    {
+      "stemId": "54e8bb0e-b198-4737-b245-c2857256a8e8",
+      "environments": [
+        "production"
+      ],
+      "action": "retain",
+      "approvedCategory": "Syllogisms",
+      "rationale": "Strong formal-premise evidence; retained as Syllogisms."
+    },
+    {
+      "stemId": "552a20de-db70-41ad-9224-6bde09f49ae9",
+      "environments": [
+        "development",
+        "production"
+      ],
+      "action": "retain",
+      "approvedCategory": "Syllogisms",
+      "rationale": "Strong formal-premise evidence; retained as Syllogisms."
+    },
+    {
+      "stemId": "552eb412-4e78-4b63-bff6-87425eca93d2",
+      "environments": [
+        "development"
+      ],
+      "action": "reclassify",
+      "approvedCategory": "Interpreting Information and Drawing Conclusions",
+      "rationale": "Reported watershed percentage data."
+    },
+    {
+      "stemId": "556116d3-bcc5-426b-8e0a-b9fa61025196",
+      "environments": [
+        "production"
+      ],
+      "action": "reclassify",
+      "approvedCategory": "Interpreting Information and Drawing Conclusions",
+      "rationale": "Applied store coupon eligibility conditions."
+    },
+    {
+      "stemId": "559f6107-a3bf-45e2-9096-dc7a94aa1f35",
+      "environments": [
+        "development"
+      ],
+      "action": "retain",
+      "approvedCategory": "Syllogisms",
+      "rationale": "Strong formal-premise evidence; retained as Syllogisms."
+    },
+    {
+      "stemId": "58a80ebe-ea03-459d-99f0-024f525a6c53",
+      "environments": [
+        "development"
+      ],
+      "action": "reclassify",
+      "approvedCategory": "Interpreting Information and Drawing Conclusions",
+      "rationale": "Real-world qualification rule with exception."
+    },
+    {
+      "stemId": "58c96024-5260-4efc-a273-7dc34b975086",
+      "environments": [
+        "development"
+      ],
+      "action": "reclassify",
+      "approvedCategory": "Interpreting Information and Drawing Conclusions",
+      "rationale": "Import/export bar diagram and calculations."
+    },
+    {
+      "stemId": "599d0f8e-861b-4f3a-ac47-06365dcfe260",
+      "environments": [
+        "development",
+        "production"
+      ],
+      "action": "reclassify",
+      "approvedCategory": "Interpreting Information and Drawing Conclusions",
+      "rationale": "Applied narrative about training, knowledge, and a successful repair."
+    },
+    {
+      "stemId": "59a885f7-fa7d-4adc-8649-151f9597d722",
+      "environments": [
+        "development",
+        "production"
+      ],
+      "action": "retain",
+      "approvedCategory": "Syllogisms",
+      "rationale": "Strong formal-premise evidence; retained as Syllogisms."
+    },
+    {
+      "stemId": "5a741726-88ef-459c-af06-13029905451f",
+      "environments": [
+        "development"
+      ],
+      "action": "retain",
+      "approvedCategory": "Syllogisms",
+      "rationale": "Short chained all/not-all class relations."
+    },
+    {
+      "stemId": "5b436806-8a11-4c70-bc82-8c42c43eac01",
+      "environments": [
+        "development",
+        "production"
+      ],
+      "action": "retain",
+      "approvedCategory": "Syllogisms",
+      "rationale": "Strong formal-premise evidence; retained as Syllogisms."
+    },
+    {
+      "stemId": "5c91d97c-aa61-4c1b-8140-cf18ca699433",
+      "environments": [
+        "development"
+      ],
+      "action": "retain",
+      "approvedCategory": "Syllogisms",
+      "rationale": "Short all-except/less-than quantified set."
+    },
+    {
+      "stemId": "5df27053-1bd1-4b62-a7b2-c4a1ca564fb8",
+      "environments": [
+        "development"
+      ],
+      "action": "retain",
+      "approvedCategory": "Syllogisms",
+      "rationale": "Short some/rest/either physician relations."
+    },
+    {
+      "stemId": "5e64356c-a37f-440e-9358-7fef5a42d0fe",
+      "environments": [
+        "development"
+      ],
+      "action": "retain",
+      "approvedCategory": "Syllogisms",
+      "rationale": "Strong formal-premise evidence; retained as Syllogisms."
+    },
+    {
+      "stemId": "5e8c2904-e6d6-4527-9281-a5572216394a",
+      "environments": [
+        "development",
+        "production"
+      ],
+      "action": "reclassify",
+      "approvedCategory": "Interpreting Information and Drawing Conclusions",
+      "rationale": "Applied family-age and gender relationship constraints."
+    },
+    {
+      "stemId": "5fa3910c-9517-4b93-8e56-0dddafab8d73",
+      "environments": [
+        "development",
+        "production"
+      ],
+      "action": "retain",
+      "approvedCategory": "Syllogisms",
+      "rationale": "Strong formal-premise evidence; retained as Syllogisms."
+    },
+    {
+      "stemId": "60ac9f46-a04a-491d-889a-07abb0b44027",
+      "environments": [
+        "development",
+        "production"
+      ],
+      "action": "reclassify",
+      "approvedCategory": "Interpreting Information and Drawing Conclusions",
+      "rationale": "Extended factual explanation of perceived visual size."
+    },
+    {
+      "stemId": "611ad210-c7c7-4093-880a-0ee9870b2daa",
+      "environments": [
+        "production"
+      ],
+      "action": "reclassify",
+      "approvedCategory": "Interpreting Information and Drawing Conclusions",
+      "rationale": "Graph comparing stock prices over time."
+    },
+    {
+      "stemId": "6125ecff-418e-4b45-944a-b9825a863ab5",
+      "environments": [
+        "development",
+        "production"
+      ],
+      "action": "retain",
+      "approvedCategory": "Syllogisms",
+      "rationale": "Strong formal-premise evidence; retained as Syllogisms."
+    },
+    {
+      "stemId": "61a1f55b-6b21-4494-b3da-71894e55b4ec",
+      "environments": [
+        "production"
+      ],
+      "action": "reclassify",
+      "approvedCategory": "Interpreting Information and Drawing Conclusions",
+      "rationale": "Extended argument comparing data quantity, quality, and processing techniques."
+    },
+    {
+      "stemId": "63790b31-a510-437b-9303-68e39f7cfe21",
+      "environments": [
+        "development",
+        "production"
+      ],
+      "action": "reclassify",
+      "approvedCategory": "Interpreting Information and Drawing Conclusions",
+      "rationale": "Applied ballet-class selection conditions."
+    },
+    {
+      "stemId": "63b44f0f-070e-4b3b-b6cd-df4d181c92c9",
+      "environments": [
+        "development",
+        "production"
+      ],
+      "action": "retain",
+      "approvedCategory": "Syllogisms",
+      "rationale": "Strong formal-premise evidence; retained as Syllogisms."
+    },
+    {
+      "stemId": "63fef82e-1570-4c95-90e3-118c9b57e88e",
+      "environments": [
+        "development",
+        "production"
+      ],
+      "action": "reclassify",
+      "approvedCategory": "Interpreting Information and Drawing Conclusions",
+      "rationale": "Applied price and bundle information from two fruit shops."
+    },
+    {
+      "stemId": "645ed8b9-9443-45fb-8160-75e72db9aacc",
+      "environments": [
+        "production"
+      ],
+      "action": "retain",
+      "approvedCategory": "Syllogisms",
+      "rationale": "Strong formal-premise evidence; retained as Syllogisms."
+    },
+    {
+      "stemId": "64aafa9f-0943-4d74-a274-2ac7962009f3",
+      "environments": [
+        "production"
+      ],
+      "action": "retain",
+      "approvedCategory": "Syllogisms",
+      "rationale": "Strong formal-premise evidence; retained as Syllogisms."
+    },
+    {
+      "stemId": "653613c3-a6a7-4a1c-9311-96fc7fff17b4",
+      "environments": [
+        "development"
+      ],
+      "action": "retain",
+      "approvedCategory": "Syllogisms",
+      "rationale": "Deleted placeholder retained in current category; no active published content."
+    },
+    {
+      "stemId": "655002d9-cffb-49f6-b5ef-6e66eb6b5c11",
+      "environments": [
+        "development"
+      ],
+      "action": "reclassify",
+      "approvedCategory": "Interpreting Information and Drawing Conclusions",
+      "rationale": "Scientific centrifuge diagram interpretation."
+    },
+    {
+      "stemId": "65a5b91f-6e29-4743-9d19-304e94e3373c",
+      "environments": [
+        "development",
+        "production"
+      ],
+      "action": "reclassify",
+      "approvedCategory": "Interpreting Information and Drawing Conclusions",
+      "rationale": "Medical trial results and mortality comparison."
+    },
+    {
+      "stemId": "65ba83b5-cad6-4903-91d7-f267bb18dff9",
+      "environments": [
+        "development",
+        "production"
+      ],
+      "action": "retain",
+      "approvedCategory": "Syllogisms",
+      "rationale": "Strong formal-premise evidence; retained as Syllogisms."
+    },
+    {
+      "stemId": "66ab6174-d4a9-4d72-9d6f-4059bec73459",
+      "environments": [
+        "development"
+      ],
+      "action": "retain",
+      "approvedCategory": "Syllogisms",
+      "rationale": "Strong formal-premise evidence; retained as Syllogisms."
+    },
+    {
+      "stemId": "670108a3-b1f6-4199-b099-fc8a2c30f4ca",
+      "environments": [
+        "development"
+      ],
+      "action": "retain",
+      "approvedCategory": "Syllogisms",
+      "rationale": "Deleted placeholder retained in current category; no active content."
+    },
+    {
+      "stemId": "67557dd4-f263-4b0a-92e3-f7ca4f2c7c7f",
+      "environments": [
+        "development"
+      ],
+      "action": "retain",
+      "approvedCategory": "Syllogisms",
+      "rationale": "Strong formal-premise evidence; retained as Syllogisms."
+    },
+    {
+      "stemId": "6797be2a-c728-4df8-8663-f92a78b60fb7",
+      "environments": [
+        "development",
+        "production"
+      ],
+      "action": "retain",
+      "approvedCategory": "Syllogisms",
+      "rationale": "Strong formal-premise evidence; retained as Syllogisms."
+    },
+    {
+      "stemId": "67e3c07d-0234-4bf9-a927-2d4d4bcf8565",
+      "environments": [
+        "development",
+        "production"
+      ],
+      "action": "reclassify",
+      "approvedCategory": "Interpreting Information and Drawing Conclusions",
+      "rationale": "Explicit production graph plus cost and profit rules."
+    },
+    {
+      "stemId": "67e462c7-b1f7-4e8f-a960-6ab0587681f7",
+      "environments": [
+        "development"
+      ],
+      "action": "retain",
+      "approvedCategory": "Syllogisms",
+      "rationale": "Short chained always/if rules."
+    },
+    {
+      "stemId": "68499103-8776-4287-b2ad-d3724c6a5129",
+      "environments": [
+        "development"
+      ],
+      "action": "retain",
+      "approvedCategory": "Syllogisms",
+      "rationale": "Strong formal-premise evidence; retained as Syllogisms."
+    },
+    {
+      "stemId": "68c79f19-346d-44d3-b0cf-fdff0de31995",
+      "environments": [
+        "development"
+      ],
+      "action": "retain",
+      "approvedCategory": "Syllogisms",
+      "rationale": "Short some/rest/exclusive class relations."
+    },
+    {
+      "stemId": "6b44a3dd-a16e-4500-a400-42080608eb37",
+      "environments": [
+        "development",
+        "production"
+      ],
+      "action": "reclassify",
+      "approvedCategory": "Interpreting Information and Drawing Conclusions",
+      "rationale": "Discursive factual passage comparing data quantity and quality."
+    },
+    {
+      "stemId": "6b4a5f24-ae5f-45d7-9a96-14a6b5b57365",
+      "environments": [
+        "development",
+        "production"
+      ],
+      "action": "reclassify",
+      "approvedCategory": "Interpreting Information and Drawing Conclusions",
+      "rationale": "Explicit graph of poverty rates over time."
+    },
+    {
+      "stemId": "6bc2deee-688a-4fa9-b16b-4475258456ea",
+      "environments": [
+        "development",
+        "production"
+      ],
+      "action": "reclassify",
+      "approvedCategory": "Interpreting Information and Drawing Conclusions",
+      "rationale": "Scientific image and explanation of microwave heating."
+    },
+    {
+      "stemId": "6cf1f4c4-d762-46a0-9b7c-cc775d02005a",
+      "environments": [
+        "development"
+      ],
+      "action": "retain",
+      "approvedCategory": "Syllogisms",
+      "rationale": "Strong formal-premise evidence; retained as Syllogisms."
+    },
+    {
+      "stemId": "6cfea982-df21-4140-bd6c-b70a2e8438e3",
+      "environments": [
+        "development",
+        "production"
+      ],
+      "action": "retain",
+      "approvedCategory": "Syllogisms",
+      "rationale": "Strong formal-premise evidence; retained as Syllogisms."
+    },
+    {
+      "stemId": "6def193e-e1df-4413-b8e7-aaad7a781aa4",
+      "environments": [
+        "development"
+      ],
+      "action": "reclassify",
+      "approvedCategory": "Interpreting Information and Drawing Conclusions",
+      "rationale": "Explicit blood-alcohol tables."
+    },
+    {
+      "stemId": "6e42301b-b930-485e-8e48-58f5e24ccd11",
+      "environments": [
+        "development",
+        "production"
+      ],
+      "action": "reclassify",
+      "approvedCategory": "Interpreting Information and Drawing Conclusions",
+      "rationale": "Explicit graph of world oil supply and demand."
+    },
+    {
+      "stemId": "6e7165d0-4ac6-4ff6-a466-dabe24cf56d6",
+      "environments": [
+        "production"
+      ],
+      "action": "reclassify",
+      "approvedCategory": "Interpreting Information and Drawing Conclusions",
+      "rationale": "Applied tart-count constraints after three unspecified choices."
+    },
+    {
+      "stemId": "6fe1fa6b-8416-4501-be68-77c84c9f246f",
+      "environments": [
+        "production"
+      ],
+      "action": "retain",
+      "approvedCategory": "Syllogisms",
+      "rationale": "Strong formal-premise evidence; retained as Syllogisms."
+    },
+    {
+      "stemId": "6ff16cbb-5bd5-4d68-9efe-090e0e2fdf68",
+      "environments": [
+        "development"
+      ],
+      "action": "retain",
+      "approvedCategory": "Syllogisms",
+      "rationale": "Short always/if implication chain."
+    },
+    {
+      "stemId": "70227b1a-c115-4254-9671-1007c963e7f4",
+      "environments": [
+        "production"
+      ],
+      "action": "retain",
+      "approvedCategory": "Syllogisms",
+      "rationale": "Strong formal-premise evidence; retained as Syllogisms."
+    },
+    {
+      "stemId": "70330872-fe4a-449c-8a85-f2efeeb8e5d2",
+      "environments": [
+        "development"
+      ],
+      "action": "retain",
+      "approvedCategory": "Syllogisms",
+      "rationale": "Strong formal-premise evidence; retained as Syllogisms."
+    },
+    {
+      "stemId": "70969a3d-b965-4d1c-91ca-dd286619fcac",
+      "environments": [
+        "production"
+      ],
+      "action": "reclassify",
+      "approvedCategory": "Interpreting Information and Drawing Conclusions",
+      "rationale": "Applied shop-product and sales-format conditions."
+    },
+    {
+      "stemId": "70e8f46f-30e3-4cc1-a028-b5f1af10ae63",
+      "environments": [
+        "development",
+        "production"
+      ],
+      "action": "reclassify",
+      "approvedCategory": "Interpreting Information and Drawing Conclusions",
+      "rationale": "Applied schedule or business conditions; production review resolves the shared-ID decision to IIDC."
+    },
+    {
+      "stemId": "717a9fe6-639a-45b3-b0dd-fa51c5fd0340",
+      "environments": [
+        "development",
+        "production"
+      ],
+      "action": "reclassify",
+      "approvedCategory": "Interpreting Information and Drawing Conclusions",
+      "rationale": "Extended factual explanation of chemical, mechanical, and nuclear explosives."
+    },
+    {
+      "stemId": "71a026e0-fc66-4b89-a25b-071ef7398813",
+      "environments": [
+        "development"
+      ],
+      "action": "retain",
+      "approvedCategory": "Syllogisms",
+      "rationale": "Strong formal-premise evidence; retained as Syllogisms."
+    },
+    {
+      "stemId": "74d469c0-d306-4a37-bbc7-f964b996a568",
+      "environments": [
+        "development"
+      ],
+      "action": "reclassify",
+      "approvedCategory": "Interpreting Information and Drawing Conclusions",
+      "rationale": "Applied employment-law passage with qualifications."
+    },
+    {
+      "stemId": "750cf922-c42d-436f-b12a-a625b942c019",
+      "environments": [
+        "development",
+        "production"
+      ],
+      "action": "retain",
+      "approvedCategory": "Syllogisms",
+      "rationale": "Strong formal-premise evidence; retained as Syllogisms."
+    },
+    {
+      "stemId": "757f4b83-c59d-4c69-ad32-a80b0da61388",
+      "environments": [
+        "development"
+      ],
+      "action": "reclassify",
+      "approvedCategory": "Interpreting Information and Drawing Conclusions",
+      "rationale": "Extended historical/factual passage."
+    },
+    {
+      "stemId": "76a255a6-884d-4ac5-a7df-3c854874fe40",
+      "environments": [
+        "development"
+      ],
+      "action": "retain",
+      "approvedCategory": "Syllogisms",
+      "rationale": "Strong formal-premise evidence; retained as Syllogisms."
+    },
+    {
+      "stemId": "7704fa37-1ef2-49df-a87b-f1227dae6c57",
+      "environments": [
+        "development",
+        "production"
+      ],
+      "action": "reclassify",
+      "approvedCategory": "Interpreting Information and Drawing Conclusions",
+      "rationale": "Applied store coupon eligibility rule."
+    },
+    {
+      "stemId": "782fb2ee-1b34-4ba8-80bf-771dc7008024",
+      "environments": [
+        "development"
+      ],
+      "action": "retain",
+      "approvedCategory": "Syllogisms",
+      "rationale": "Strong formal-premise evidence; retained as Syllogisms."
+    },
+    {
+      "stemId": "786bfdfe-f783-488c-b273-4a94e58db4f2",
+      "environments": [
+        "production"
+      ],
+      "action": "retain",
+      "approvedCategory": "Syllogisms",
+      "rationale": "Strong formal-premise evidence; retained as Syllogisms."
+    },
+    {
+      "stemId": "79335663-783d-4428-83f3-e1a198876641",
+      "environments": [
+        "development"
+      ],
+      "action": "reclassify",
+      "approvedCategory": "Interpreting Information and Drawing Conclusions",
+      "rationale": "Government-spending graph."
+    },
+    {
+      "stemId": "7946794a-08f0-46cc-847b-85b912df1984",
+      "environments": [
+        "development",
+        "production"
+      ],
+      "action": "reclassify",
+      "approvedCategory": "Interpreting Information and Drawing Conclusions",
+      "rationale": "Extended scientific passage about nanoscale particles and physical properties."
+    },
+    {
+      "stemId": "7ab32d77-0a30-469c-ab03-cafd54e433b3",
+      "environments": [
+        "development",
+        "production"
+      ],
+      "action": "retain",
+      "approvedCategory": "Syllogisms",
+      "rationale": "Strong formal-premise evidence; retained as Syllogisms."
+    },
+    {
+      "stemId": "7bc10ae0-0dac-4d4a-a368-209884d0b342",
+      "environments": [
+        "development",
+        "production"
+      ],
+      "action": "reclassify",
+      "approvedCategory": "Interpreting Information and Drawing Conclusions",
+      "rationale": "Argumentative passage about commercial publishing effects."
+    },
+    {
+      "stemId": "7dfe2a0e-5b98-4b94-ba01-027ee372a320",
+      "environments": [
+        "development",
+        "production"
+      ],
+      "action": "retain",
+      "approvedCategory": "Syllogisms",
+      "rationale": "Strong formal-premise evidence; retained as Syllogisms."
+    },
+    {
+      "stemId": "7e3607ca-fc19-4d20-9fe6-56257a3711cf",
+      "environments": [
+        "production"
+      ],
+      "action": "retain",
+      "approvedCategory": "Syllogisms",
+      "rationale": "Strong formal-premise evidence; retained as Syllogisms."
+    },
+    {
+      "stemId": "7e77ee87-d494-4e2f-8123-3117a9ebdab3",
+      "environments": [
+        "development",
+        "production"
+      ],
+      "action": "reclassify",
+      "approvedCategory": "Interpreting Information and Drawing Conclusions",
+      "rationale": "Applied school-orchestra eligibility condition with exclusive alternatives."
+    },
+    {
+      "stemId": "7f3743a5-73de-4214-9992-fc7cea2cb6ad",
+      "environments": [
+        "development"
+      ],
+      "action": "reclassify",
+      "approvedCategory": "Interpreting Information and Drawing Conclusions",
+      "rationale": "League-medal eligibility and exception facts."
+    },
+    {
+      "stemId": "7f5e9250-7ea3-4e27-b937-9f615ec62b56",
+      "environments": [
+        "development"
+      ],
+      "action": "retain",
+      "approvedCategory": "Syllogisms",
+      "rationale": "Strong formal-premise evidence; retained as Syllogisms."
+    },
+    {
+      "stemId": "7f6a0807-12b1-4557-9530-28bb4737133c",
+      "environments": [
+        "development",
+        "production"
+      ],
+      "action": "reclassify",
+      "approvedCategory": "Interpreting Information and Drawing Conclusions",
+      "rationale": "Applied biconditional coupon eligibility rule."
+    },
+    {
+      "stemId": "80931028-4486-44a9-a06c-f381a147af20",
+      "environments": [
+        "production"
+      ],
+      "action": "retain",
+      "approvedCategory": "Syllogisms",
+      "rationale": "Strong formal-premise evidence; retained as Syllogisms."
+    },
+    {
+      "stemId": "80dab34f-215e-4edd-ae30-0373d7f76746",
+      "environments": [
+        "development"
+      ],
+      "action": "retain",
+      "approvedCategory": "Syllogisms",
+      "rationale": "Short either/some/rest class relations."
+    },
+    {
+      "stemId": "821c125c-1670-4823-bb65-084ddd10e615",
+      "environments": [
+        "development"
+      ],
+      "action": "retain",
+      "approvedCategory": "Syllogisms",
+      "rationale": "Strong formal-premise evidence; retained as Syllogisms."
+    },
+    {
+      "stemId": "82c62fb8-cee3-449c-9aa3-61dd60940d97",
+      "environments": [
+        "development"
+      ],
+      "action": "retain",
+      "approvedCategory": "Syllogisms",
+      "rationale": "Strong formal-premise evidence; retained as Syllogisms."
+    },
+    {
+      "stemId": "837ff0ab-f68c-423e-9afd-3b38f4edf404",
+      "environments": [
+        "production"
+      ],
+      "action": "retain",
+      "approvedCategory": "Syllogisms",
+      "rationale": "Strong formal-premise evidence; retained as Syllogisms."
+    },
+    {
+      "stemId": "84980871-ff76-485d-be05-37792283fbb5",
+      "environments": [
+        "development"
+      ],
+      "action": "reclassify",
+      "approvedCategory": "Interpreting Information and Drawing Conclusions",
+      "rationale": "Economic facts and rates requiring conclusions."
+    },
+    {
+      "stemId": "84d0b18d-e404-4719-a065-183587ae8f95",
+      "environments": [
+        "development",
+        "production"
+      ],
+      "action": "retain",
+      "approvedCategory": "Syllogisms",
+      "rationale": "Strong formal-premise evidence; retained as Syllogisms."
+    },
+    {
+      "stemId": "859ba9bb-56be-4cab-a1a0-abc1a976631d",
+      "environments": [
+        "development",
+        "production"
+      ],
+      "action": "reclassify",
+      "approvedCategory": "Interpreting Information and Drawing Conclusions",
+      "rationale": "Multi-year financial table requiring calculation and comparison."
+    },
+    {
+      "stemId": "86031589-33a5-4184-865f-32f3683a9737",
+      "environments": [
+        "development",
+        "production"
+      ],
+      "action": "reclassify",
+      "approvedCategory": "Interpreting Information and Drawing Conclusions",
+      "rationale": "Experimental factual passage about word learning."
+    },
+    {
+      "stemId": "8713138b-41d3-436a-9a39-4f6e2ba3f54c",
+      "environments": [
+        "development"
+      ],
+      "action": "retain",
+      "approvedCategory": "Syllogisms",
+      "rationale": "Strong formal-premise evidence; retained as Syllogisms."
+    },
+    {
+      "stemId": "88c03366-3761-499b-9805-cea42703fb43",
+      "environments": [
+        "development",
+        "production"
+      ],
+      "action": "reclassify",
+      "approvedCategory": "Interpreting Information and Drawing Conclusions",
+      "rationale": "Scientific process description with temperature, pressure, catalyst, and reaction facts."
+    },
+    {
+      "stemId": "8a0f87f4-0066-47f6-a0ea-f72a13873c02",
+      "environments": [
+        "development"
+      ],
+      "action": "retain",
+      "approvedCategory": "Syllogisms",
+      "rationale": "Strong formal-premise evidence; retained as Syllogisms."
+    },
+    {
+      "stemId": "8a298592-38ce-47e3-8c42-ec5a1f06618e",
+      "environments": [
+        "development",
+        "production"
+      ],
+      "action": "reclassify",
+      "approvedCategory": "Interpreting Information and Drawing Conclusions",
+      "rationale": "Applied house-building area and garden restrictions."
+    },
+    {
+      "stemId": "8acf534f-429e-482c-9746-10db4b255268",
+      "environments": [
+        "development",
+        "production"
+      ],
+      "action": "retain",
+      "approvedCategory": "Syllogisms",
+      "rationale": "Strong formal-premise evidence; retained as Syllogisms."
+    },
+    {
+      "stemId": "8cb845f4-3737-455c-93c6-6d4fbe8e30c6",
+      "environments": [
+        "development",
+        "production"
+      ],
+      "action": "reclassify",
+      "approvedCategory": "Interpreting Information and Drawing Conclusions",
+      "rationale": "Business performance percentages requiring comparison of divisions."
+    },
+    {
+      "stemId": "8cd2c0fd-6058-4bf8-847b-d4906cfc2bd9",
+      "environments": [
+        "development",
+        "production"
+      ],
+      "action": "retain",
+      "approvedCategory": "Syllogisms",
+      "rationale": "Strong formal-premise evidence; retained as Syllogisms."
+    },
+    {
+      "stemId": "8ceda0d7-2a96-4457-9ad8-f5a681b6a00b",
+      "environments": [
+        "production"
+      ],
+      "action": "reclassify",
+      "approvedCategory": "Interpreting Information and Drawing Conclusions",
+      "rationale": "Applied driving-speed relationships and numerical constraints."
+    },
+    {
+      "stemId": "8dcce8b1-070d-4c3c-aa7e-f7bcbdeecc65",
+      "environments": [
+        "development"
+      ],
+      "action": "retain",
+      "approvedCategory": "Syllogisms",
+      "rationale": "Strong formal-premise evidence; retained as Syllogisms."
+    },
+    {
+      "stemId": "8dde3c0a-8169-4d8e-8b23-cab3b0571211",
+      "environments": [
+        "production"
+      ],
+      "action": "retain",
+      "approvedCategory": "Syllogisms",
+      "rationale": "Short negative quantified relation between dog sex and breed."
+    },
+    {
+      "stemId": "8e72b6d0-5505-41b1-aef5-46f5aca24697",
+      "environments": [
+        "development"
+      ],
+      "action": "retain",
+      "approvedCategory": "Syllogisms",
+      "rationale": "Strong formal-premise evidence; retained as Syllogisms."
+    },
+    {
+      "stemId": "8e8ca2ed-777c-4b7d-be4d-f43b3da6d4c6",
+      "environments": [
+        "development"
+      ],
+      "action": "retain",
+      "approvedCategory": "Syllogisms",
+      "rationale": "Strong formal-premise evidence; retained as Syllogisms."
+    },
+    {
+      "stemId": "8e918d48-d89e-4a0f-9596-8b0cfff60de5",
+      "environments": [
+        "development",
+        "production"
+      ],
+      "action": "reclassify",
+      "approvedCategory": "Interpreting Information and Drawing Conclusions",
+      "rationale": "Graph of moth flight-muscle temperature."
+    },
+    {
+      "stemId": "8f08bd03-0df3-48df-a291-8dcbf06aab04",
+      "environments": [
+        "development"
+      ],
+      "action": "retain",
+      "approvedCategory": "Syllogisms",
+      "rationale": "Strong formal-premise evidence; retained as Syllogisms."
+    },
+    {
+      "stemId": "8f7f69e8-971b-4ebf-8f8e-ef69decf3b47",
+      "environments": [
+        "production"
+      ],
+      "action": "retain",
+      "approvedCategory": "Syllogisms",
+      "rationale": "Short quantified student-set relations using only and all."
+    },
+    {
+      "stemId": "91719caf-dec5-4c22-851a-692495ff0a1c",
+      "environments": [
+        "production"
+      ],
+      "action": "reclassify",
+      "approvedCategory": "Interpreting Information and Drawing Conclusions",
+      "rationale": "Applied café-order conditions requiring a conclusion about a case."
+    },
+    {
+      "stemId": "91a76cb6-b99d-4f52-9d32-5ad7afa25114",
+      "environments": [
+        "development",
+        "production"
+      ],
+      "action": "retain",
+      "approvedCategory": "Syllogisms",
+      "rationale": "Short chained class statements about tea, bitterness, drinks, and heat."
+    },
+    {
+      "stemId": "92af66fa-b921-4f39-8336-9d1a7cae7102",
+      "environments": [
+        "development"
+      ],
+      "action": "retain",
+      "approvedCategory": "Syllogisms",
+      "rationale": "Short chained all/not-all class relations."
+    },
+    {
+      "stemId": "92bb8848-b993-4530-b7f6-1c03ed86d111",
+      "environments": [
+        "development",
+        "production"
+      ],
+      "action": "retain",
+      "approvedCategory": "Syllogisms",
+      "rationale": "Short quantified occupation classes using everyone and some."
+    },
+    {
+      "stemId": "9385460c-d569-4a16-86e8-ed4eed0ccbc5",
+      "environments": [
+        "development",
+        "production"
+      ],
+      "action": "retain",
+      "approvedCategory": "Syllogisms",
+      "rationale": "Strong formal-premise evidence; retained as Syllogisms."
+    },
+    {
+      "stemId": "93871284-5521-4c7c-998f-791a37ba9200",
+      "environments": [
+        "development"
+      ],
+      "action": "reclassify",
+      "approvedCategory": "Interpreting Information and Drawing Conclusions",
+      "rationale": "Applied wine-shop product and pricing rules."
+    },
+    {
+      "stemId": "939171b7-8cee-4213-be2e-b25529382f5e",
+      "environments": [
+        "development",
+        "production"
+      ],
+      "action": "retain",
+      "approvedCategory": "Syllogisms",
+      "rationale": "Short bidirectional-style class implications involving exhibits, value, and gold."
+    },
+    {
+      "stemId": "9472fa28-3719-49ca-ae72-63453546fb89",
+      "environments": [
+        "development"
+      ],
+      "action": "retain",
+      "approvedCategory": "Syllogisms",
+      "rationale": "Strong formal-premise evidence; retained as Syllogisms."
+    },
+    {
+      "stemId": "95c84cb6-c6da-45c0-a2f8-43640de6d480",
+      "environments": [
+        "production"
+      ],
+      "action": "reclassify",
+      "approvedCategory": "Interpreting Information and Drawing Conclusions",
+      "rationale": "Graph comparing football television audiences."
+    },
+    {
+      "stemId": "95dc5186-6ab3-42b0-bfff-811b82e4c3a3",
+      "environments": [
+        "development",
+        "production"
+      ],
+      "action": "reclassify",
+      "approvedCategory": "Interpreting Information and Drawing Conclusions",
+      "rationale": "Extended applied real-estate and zoning argument."
+    },
+    {
+      "stemId": "96de2e71-9648-4f50-9093-a8bea3ddb0e5",
+      "environments": [
+        "development"
+      ],
+      "action": "retain",
+      "approvedCategory": "Syllogisms",
+      "rationale": "Strong formal-premise evidence; retained as Syllogisms."
+    },
+    {
+      "stemId": "97aa35d3-0812-476d-a2e1-59c37cbd34be",
+      "environments": [
+        "development",
+        "production"
+      ],
+      "action": "retain",
+      "approvedCategory": "Syllogisms",
+      "rationale": "Short chained implications explicitly signalled by always."
+    },
+    {
+      "stemId": "98ae01f1-c613-42be-a361-9661551fa6dd",
+      "environments": [
+        "development",
+        "production"
+      ],
+      "action": "retain",
+      "approvedCategory": "Syllogisms",
+      "rationale": "Strong formal-premise evidence; retained as Syllogisms."
+    },
+    {
+      "stemId": "98d2a981-d186-4f14-95b7-0ce068be33c5",
+      "environments": [
+        "development"
+      ],
+      "action": "retain",
+      "approvedCategory": "Syllogisms",
+      "rationale": "Strong formal-premise evidence; retained as Syllogisms."
+    },
+    {
+      "stemId": "9aee073b-492f-4e73-9f47-306ce102a793",
+      "environments": [
+        "production"
+      ],
+      "action": "retain",
+      "approvedCategory": "Syllogisms",
+      "rationale": "Strong formal-premise evidence; retained as Syllogisms."
+    },
+    {
+      "stemId": "9ba69c41-bb97-4485-88d2-322af8a6b878",
+      "environments": [
+        "development"
+      ],
+      "action": "reclassify",
+      "approvedCategory": "Interpreting Information and Drawing Conclusions",
+      "rationale": "Income table interpretation."
+    },
+    {
+      "stemId": "9bdc6e37-9013-4b85-aa83-c53d216f4e0b",
+      "environments": [
+        "production"
+      ],
+      "action": "retain",
+      "approvedCategory": "Syllogisms",
+      "rationale": "Strong formal-premise evidence; retained as Syllogisms."
+    },
+    {
+      "stemId": "9c53530b-4b84-453f-97de-045d767a5b7a",
+      "environments": [
+        "development",
+        "production"
+      ],
+      "action": "reclassify",
+      "approvedCategory": "Interpreting Information and Drawing Conclusions",
+      "rationale": "Applied candidate-eligibility routes requiring conclusions from business conditions."
+    },
+    {
+      "stemId": "9c5de188-300f-4594-b419-7f392df5af47",
+      "environments": [
+        "development"
+      ],
+      "action": "retain",
+      "approvedCategory": "Syllogisms",
+      "rationale": "Strong formal-premise evidence; retained as Syllogisms."
+    },
+    {
+      "stemId": "9d16c3c2-bdf6-456b-bf89-5436cc729c42",
+      "environments": [
+        "development",
+        "production"
+      ],
+      "action": "retain",
+      "approvedCategory": "Syllogisms",
+      "rationale": "Short universal instrument-class premises."
+    },
+    {
+      "stemId": "9d804dcc-a94b-47a6-8b7c-161cbceeac3e",
+      "environments": [
+        "development"
+      ],
+      "action": "reclassify",
+      "approvedCategory": "Interpreting Information and Drawing Conclusions",
+      "rationale": "Factual real-estate scenario."
+    },
+    {
+      "stemId": "9da20d48-a4ed-4532-93bc-dba3ff20c275",
+      "environments": [
+        "development",
+        "production"
+      ],
+      "action": "reclassify",
+      "approvedCategory": "Interpreting Information and Drawing Conclusions",
+      "rationale": "Applied university bus-pass scenario and resulting revenue effect."
+    },
+    {
+      "stemId": "9de2a104-8184-4c8d-b913-f3561ff4e8f2",
+      "environments": [
+        "development",
+        "production"
+      ],
+      "action": "retain",
+      "approvedCategory": "Syllogisms",
+      "rationale": "Strong formal-premise evidence; retained as Syllogisms."
+    },
+    {
+      "stemId": "9e299eb6-0a88-4b3e-9783-75f3abd30248",
+      "environments": [
+        "production"
+      ],
+      "action": "retain",
+      "approvedCategory": "Syllogisms",
+      "rationale": "Short quantified premises using neither, most, and no-player relations."
+    },
+    {
+      "stemId": "9e4b75f6-0b00-4c00-9796-1070a8d18c81",
+      "environments": [
+        "development"
+      ],
+      "action": "retain",
+      "approvedCategory": "Syllogisms",
+      "rationale": "Strong formal-premise evidence; retained as Syllogisms."
+    },
+    {
+      "stemId": "9ff39515-305d-4c55-9bf9-b9bbabe2b3dc",
+      "environments": [
+        "development"
+      ],
+      "action": "reclassify",
+      "approvedCategory": "Interpreting Information and Drawing Conclusions",
+      "rationale": "Factual music-industry passage."
+    },
+    {
+      "stemId": "a028e71a-314e-4d24-98b6-c5a1dac58819",
+      "environments": [
+        "development",
+        "production"
+      ],
+      "action": "reclassify",
+      "approvedCategory": "Interpreting Information and Drawing Conclusions",
+      "rationale": "Freezing-point table requiring comparison under an applied usability rule."
+    },
+    {
+      "stemId": "a036b156-b2cb-487b-b4d5-3b72e5f74f8a",
+      "environments": [
+        "production"
+      ],
+      "action": "retain",
+      "approvedCategory": "Syllogisms",
+      "rationale": "Strong formal-premise evidence; retained as Syllogisms."
+    },
+    {
+      "stemId": "a03f06d1-0dbe-463c-92b9-2724bbeae66a",
+      "environments": [
+        "production"
+      ],
+      "action": "reclassify",
+      "approvedCategory": "Interpreting Information and Drawing Conclusions",
+      "rationale": "Store-occupancy diagram; visual information must be interpreted to draw conclusions."
+    },
+    {
+      "stemId": "a09b1a41-a99e-4da7-bcec-3c8f6aa8ffe2",
+      "environments": [
+        "development",
+        "production"
+      ],
+      "action": "retain",
+      "approvedCategory": "Syllogisms",
+      "rationale": "Strong formal-premise evidence; retained as Syllogisms."
+    },
+    {
+      "stemId": "a0a167de-fbdd-4264-b33c-7e640f8cd1c8",
+      "environments": [
+        "development"
+      ],
+      "action": "reclassify",
+      "approvedCategory": "Interpreting Information and Drawing Conclusions",
+      "rationale": "Real-world guide qualification conditions."
+    },
+    {
+      "stemId": "a1411b74-ff81-47b9-93dd-98d4d4e180e5",
+      "environments": [
+        "development"
+      ],
+      "action": "retain",
+      "approvedCategory": "Syllogisms",
+      "rationale": "Strong formal-premise evidence; retained as Syllogisms."
+    },
+    {
+      "stemId": "a153f414-f0c4-4b18-af93-431d7d6fbddd",
+      "environments": [
+        "development",
+        "production"
+      ],
+      "action": "reclassify",
+      "approvedCategory": "Interpreting Information and Drawing Conclusions",
+      "rationale": "Business performance percentages across company divisions."
+    },
+    {
+      "stemId": "a1e9dd3c-365f-4c80-839e-44b8afa565c1",
+      "environments": [
+        "development",
+        "production"
+      ],
+      "action": "retain",
+      "approvedCategory": "Syllogisms",
+      "rationale": "Short abstract class statements using type, existence, and no-technology relations."
+    },
+    {
+      "stemId": "a27bdc25-c190-4c6f-92b0-5b0b32c55ed1",
+      "environments": [
+        "development",
+        "production"
+      ],
+      "action": "retain",
+      "approvedCategory": "Syllogisms",
+      "rationale": "Short no-member and at-least-one quantified toy premises."
+    },
+    {
+      "stemId": "a38a0c83-00ab-4697-9956-635f6035e3f6",
+      "environments": [
+        "development",
+        "production"
+      ],
+      "action": "reclassify",
+      "approvedCategory": "Interpreting Information and Drawing Conclusions",
+      "rationale": "Applied circular-seating arrangement with named-person constraints."
+    },
+    {
+      "stemId": "a3c63d35-8260-4124-aab2-5be3da583577",
+      "environments": [
+        "development"
+      ],
+      "action": "reclassify",
+      "approvedCategory": "Interpreting Information and Drawing Conclusions",
+      "rationale": "Discursive political argument."
+    },
+    {
+      "stemId": "a3d46392-aaea-4255-ba8e-05cc217cfe27",
+      "environments": [
+        "production"
+      ],
+      "action": "reclassify",
+      "approvedCategory": "Interpreting Information and Drawing Conclusions",
+      "rationale": "Graphs comparing milk consumption over time."
+    },
+    {
+      "stemId": "a430317e-2899-4bf3-bb84-bec81b125abe",
+      "environments": [
+        "development",
+        "production"
+      ],
+      "action": "retain",
+      "approvedCategory": "Syllogisms",
+      "rationale": "Strong formal-premise evidence; retained as Syllogisms."
+    },
+    {
+      "stemId": "a4491b1b-8ceb-4dd4-8da2-0d2ef997bf96",
+      "environments": [
+        "production"
+      ],
+      "action": "retain",
+      "approvedCategory": "Syllogisms",
+      "rationale": "Short formal quantified equivalences among book attributes."
+    },
+    {
+      "stemId": "a4567294-5e94-4044-9811-9c7ebf48d1ff",
+      "environments": [
+        "development",
+        "production"
+      ],
+      "action": "retain",
+      "approvedCategory": "Syllogisms",
+      "rationale": "Short quantified occupation-class premises."
+    },
+    {
+      "stemId": "a4ec026f-d7a6-4ff9-a0f3-43ec86e2bb0c",
+      "environments": [
+        "production"
+      ],
+      "action": "retain",
+      "approvedCategory": "Syllogisms",
+      "rationale": "Strong formal-premise evidence; retained as Syllogisms."
+    },
+    {
+      "stemId": "a52d19b6-5dd6-42d1-9096-3d19a9b7bb10",
+      "environments": [
+        "development"
+      ],
+      "action": "retain",
+      "approvedCategory": "Syllogisms",
+      "rationale": "Strong formal-premise evidence; retained as Syllogisms."
+    },
+    {
+      "stemId": "a5585ac8-8d94-4d24-ab1f-fde879124185",
+      "environments": [
+        "development"
+      ],
+      "action": "retain",
+      "approvedCategory": "Syllogisms",
+      "rationale": "Short chained all/either class relations; deleted but semantic."
+    },
+    {
+      "stemId": "a5747992-4d94-4d42-ad54-1aacd68693d3",
+      "environments": [
+        "development"
+      ],
+      "action": "retain",
+      "approvedCategory": "Syllogisms",
+      "rationale": "Strong formal-premise evidence; retained as Syllogisms."
+    },
+    {
+      "stemId": "a6476984-ac8f-4df6-ab6d-1d635906d7c1",
+      "environments": [
+        "development",
+        "production"
+      ],
+      "action": "reclassify",
+      "approvedCategory": "Interpreting Information and Drawing Conclusions",
+      "rationale": "Applied employee-role and annual-training policy conditions."
+    },
+    {
+      "stemId": "a6ffe977-5779-4c3c-a242-b03e9001691e",
+      "environments": [
+        "production"
+      ],
+      "action": "retain",
+      "approvedCategory": "Syllogisms",
+      "rationale": "Short universal pet-class premises."
+    },
+    {
+      "stemId": "a7047db6-6694-4b71-b3d9-12ade9cd0320",
+      "environments": [
+        "development"
+      ],
+      "action": "retain",
+      "approvedCategory": "Syllogisms",
+      "rationale": "Strong formal-premise evidence; retained as Syllogisms."
+    },
+    {
+      "stemId": "a8a5b42d-8226-49fb-9df4-84ec4db28b69",
+      "environments": [
+        "development",
+        "production"
+      ],
+      "action": "reclassify",
+      "approvedCategory": "Interpreting Information and Drawing Conclusions",
+      "rationale": "Extended factual business scenario explaining trading mistakes."
+    },
+    {
+      "stemId": "aa340d22-6d31-4869-b18b-473e59d23d86",
+      "environments": [
+        "development",
+        "production"
+      ],
+      "action": "reclassify",
+      "approvedCategory": "Interpreting Information and Drawing Conclusions",
+      "rationale": "The substantive stimulus is an image requiring visual interpretation."
+    },
+    {
+      "stemId": "aa455a21-3464-45e5-99c1-c332cec907b1",
+      "environments": [
+        "development"
+      ],
+      "action": "retain",
+      "approvedCategory": "Syllogisms",
+      "rationale": "Strong formal-premise evidence; retained as Syllogisms."
+    },
+    {
+      "stemId": "abc95c4e-f221-4272-8314-edb46aa7cf93",
+      "environments": [
+        "production"
+      ],
+      "action": "retain",
+      "approvedCategory": "Syllogisms",
+      "rationale": "Strong formal-premise evidence; retained as Syllogisms."
+    },
+    {
+      "stemId": "ad13c6e0-f9ad-47fe-853e-1f925febd345",
+      "environments": [
+        "production"
+      ],
+      "action": "reclassify",
+      "approvedCategory": "Interpreting Information and Drawing Conclusions",
+      "rationale": "Applied meal-choice constraints and drink availability."
+    },
+    {
+      "stemId": "ad73b643-4571-44d5-ac8f-6fe52edead85",
+      "environments": [
+        "development"
+      ],
+      "action": "retain",
+      "approvedCategory": "Syllogisms",
+      "rationale": "Strong formal-premise evidence; retained as Syllogisms."
+    },
+    {
+      "stemId": "ae067ff9-a1ca-47bc-8cc5-e2ff9ce08e05",
+      "environments": [
+        "development",
+        "production"
+      ],
+      "action": "reclassify",
+      "approvedCategory": "Interpreting Information and Drawing Conclusions",
+      "rationale": "Argumentative factual passage about uses and misuse of mathematics."
+    },
+    {
+      "stemId": "af4008a4-6a92-4889-bd7d-dd4944acc617",
+      "environments": [
+        "development"
+      ],
+      "action": "retain",
+      "approvedCategory": "Syllogisms",
+      "rationale": "Strong formal-premise evidence; retained as Syllogisms."
+    },
+    {
+      "stemId": "af766392-cbce-413f-9f66-a6b06a1803f4",
+      "environments": [
+        "development"
+      ],
+      "action": "retain",
+      "approvedCategory": "Syllogisms",
+      "rationale": "Strong formal-premise evidence; retained as Syllogisms."
+    },
+    {
+      "stemId": "b1684508-1dc1-47dc-95f8-d3a09a3405fa",
+      "environments": [
+        "development",
+        "production"
+      ],
+      "action": "reclassify",
+      "approvedCategory": "Interpreting Information and Drawing Conclusions",
+      "rationale": "Explicit campaign-involvement graph requiring interpretation."
+    },
+    {
+      "stemId": "b1a964ba-e443-41f1-803e-9b43ba4288d1",
+      "environments": [
+        "development"
+      ],
+      "action": "retain",
+      "approvedCategory": "Syllogisms",
+      "rationale": "Short all/class-membership propositions; deleted but semantic."
+    },
+    {
+      "stemId": "b30f94d4-d1ce-4924-8cb8-ab2d3e1007b0",
+      "environments": [
+        "production"
+      ],
+      "action": "reclassify",
+      "approvedCategory": "Interpreting Information and Drawing Conclusions",
+      "rationale": "Applied numerical comparison of antiseptic effectiveness and tolerance."
+    },
+    {
+      "stemId": "b3c3fcd4-4122-444f-b123-eadc44a80c43",
+      "environments": [
+        "development"
+      ],
+      "action": "retain",
+      "approvedCategory": "Syllogisms",
+      "rationale": "Strong formal-premise evidence; retained as Syllogisms."
+    },
+    {
+      "stemId": "b46ed3d6-8004-4708-b1c7-4c03d129ae33",
+      "environments": [
+        "development"
+      ],
+      "action": "reclassify",
+      "approvedCategory": "Interpreting Information and Drawing Conclusions",
+      "rationale": "Hotel-revenue bar graph."
+    },
+    {
+      "stemId": "b4781f78-4c22-47bc-b87b-33722d4ed592",
+      "environments": [
+        "production"
+      ],
+      "action": "retain",
+      "approvedCategory": "Syllogisms",
+      "rationale": "Strong formal-premise evidence; retained as Syllogisms."
+    },
+    {
+      "stemId": "b50c3363-e27a-40e1-91ed-f0490984cc86",
+      "environments": [
+        "production"
+      ],
+      "action": "retain",
+      "approvedCategory": "Syllogisms",
+      "rationale": "Strong formal-premise evidence; retained as Syllogisms."
+    },
+    {
+      "stemId": "b6bdbf8a-df15-4e59-b1a7-13ca8f99aa23",
+      "environments": [
+        "development"
+      ],
+      "action": "retain",
+      "approvedCategory": "Syllogisms",
+      "rationale": "Strong formal-premise evidence; retained as Syllogisms."
+    },
+    {
+      "stemId": "b6d79fa9-f539-49c4-acfc-b72720324122",
+      "environments": [
+        "development"
+      ],
+      "action": "reclassify",
+      "approvedCategory": "Interpreting Information and Drawing Conclusions",
+      "rationale": "Graph-based factual comparison; deleted but semantic."
+    },
+    {
+      "stemId": "b74ce3b4-4ddf-48da-8245-648e55356dca",
+      "environments": [
+        "development",
+        "production"
+      ],
+      "action": "reclassify",
+      "approvedCategory": "Interpreting Information and Drawing Conclusions",
+      "rationale": "Concrete real-estate ownership and location facts."
+    },
+    {
+      "stemId": "b80fdee4-461a-4def-b098-f2c336de8fb8",
+      "environments": [
+        "development"
+      ],
+      "action": "retain",
+      "approvedCategory": "Syllogisms",
+      "rationale": "Strong formal-premise evidence; retained as Syllogisms."
+    },
+    {
+      "stemId": "b8c5a78a-163e-4788-b0f2-c9f511d64f1b",
+      "environments": [
+        "development"
+      ],
+      "action": "retain",
+      "approvedCategory": "Syllogisms",
+      "rationale": "Short closed music-preference constraint system."
+    },
+    {
+      "stemId": "baf60dc3-c5bf-43e2-af60-4794e68165f3",
+      "environments": [
+        "development",
+        "production"
+      ],
+      "action": "reclassify",
+      "approvedCategory": "Interpreting Information and Drawing Conclusions",
+      "rationale": "Graph-based interpretation of cancer incidence."
+    },
+    {
+      "stemId": "bb20e39a-f595-445f-8b06-49244c74d5ef",
+      "environments": [
+        "development"
+      ],
+      "action": "retain",
+      "approvedCategory": "Syllogisms",
+      "rationale": "Strong formal-premise evidence; retained as Syllogisms."
+    },
+    {
+      "stemId": "bb9fd798-dc0c-42d4-9e10-e67baa8a64d0",
+      "environments": [
+        "development"
+      ],
+      "action": "retain",
+      "approvedCategory": "Syllogisms",
+      "rationale": "Strong formal-premise evidence; retained as Syllogisms."
+    },
+    {
+      "stemId": "bc41a995-3ba0-42bf-b1cc-0edee99e9b67",
+      "environments": [
+        "development",
+        "production"
+      ],
+      "action": "retain",
+      "approvedCategory": "Syllogisms",
+      "rationale": "Short quantified newspaper relations using most and every."
+    },
+    {
+      "stemId": "bc8569ee-6de9-4970-a14d-2aa4abb1baff",
+      "environments": [
+        "development",
+        "production"
+      ],
+      "action": "retain",
+      "approvedCategory": "Syllogisms",
+      "rationale": "Short universal-exception and more-than-one quantified premises."
+    },
+    {
+      "stemId": "bd6114ce-73de-437f-899c-7633f6dc66bf",
+      "environments": [
+        "development",
+        "production"
+      ],
+      "action": "reclassify",
+      "approvedCategory": "Interpreting Information and Drawing Conclusions",
+      "rationale": "Extended argumentative passage about gun control and crime evidence."
+    },
+    {
+      "stemId": "bdfb48be-57e6-4a00-86c1-c03435bd7bcc",
+      "environments": [
+        "production"
+      ],
+      "action": "retain",
+      "approvedCategory": "Syllogisms",
+      "rationale": "Short universal implication about drinks."
+    },
+    {
+      "stemId": "bedbd8be-3050-4cc2-9de0-87528d98824f",
+      "environments": [
+        "production"
+      ],
+      "action": "reclassify",
+      "approvedCategory": "Interpreting Information and Drawing Conclusions",
+      "rationale": "Experimental narrative requiring conclusions from observed child behaviour."
+    },
+    {
+      "stemId": "bedfef08-25b6-40f0-bef8-d4a21a3acdc6",
+      "environments": [
+        "development",
+        "production"
+      ],
+      "action": "reclassify",
+      "approvedCategory": "Interpreting Information and Drawing Conclusions",
+      "rationale": "Economic factual data about weather, spending, and home sales."
+    },
+    {
+      "stemId": "bf0d8cbb-fe53-4885-bc0a-8ecdc46a7e1f",
+      "environments": [
+        "development",
+        "production"
+      ],
+      "action": "retain",
+      "approvedCategory": "Syllogisms",
+      "rationale": "Strong formal-premise evidence; retained as Syllogisms."
+    },
+    {
+      "stemId": "bf365d9e-c77a-4b48-aedf-6a788d268e21",
+      "environments": [
+        "development",
+        "production"
+      ],
+      "action": "reclassify",
+      "approvedCategory": "Interpreting Information and Drawing Conclusions",
+      "rationale": "Extended factual passage about flood hazards and fatalities."
+    },
+    {
+      "stemId": "bf3d1c99-a792-414c-ad61-9fd751d05869",
+      "environments": [
+        "development",
+        "production"
+      ],
+      "action": "reclassify",
+      "approvedCategory": "Interpreting Information and Drawing Conclusions",
+      "rationale": "Applied employee promotion eligibility conditions."
+    },
+    {
+      "stemId": "bf65e495-728e-434f-b427-b37011ece396",
+      "environments": [
+        "development"
+      ],
+      "action": "retain",
+      "approvedCategory": "Syllogisms",
+      "rationale": "Contentless deleted placeholder retained in current category."
+    },
+    {
+      "stemId": "c163b0ba-812a-4693-bac6-56356347b19d",
+      "environments": [
+        "development"
+      ],
+      "action": "retain",
+      "approvedCategory": "Syllogisms",
+      "rationale": "Strong formal-premise evidence; retained as Syllogisms."
+    },
+    {
+      "stemId": "c1a2d144-3342-4ac6-94d5-69f1286ab81f",
+      "environments": [
+        "production"
+      ],
+      "action": "reclassify",
+      "approvedCategory": "Interpreting Information and Drawing Conclusions",
+      "rationale": "Applied employee-bonus eligibility condition."
+    },
+    {
+      "stemId": "c290d223-fa11-4f8d-bfbf-5ba473cd0350",
+      "environments": [
+        "development"
+      ],
+      "action": "retain",
+      "approvedCategory": "Syllogisms",
+      "rationale": "Strong formal-premise evidence; retained as Syllogisms."
+    },
+    {
+      "stemId": "c2b690b4-3dc4-40b1-8801-5db3c0d83759",
+      "environments": [
+        "development"
+      ],
+      "action": "retain",
+      "approvedCategory": "Syllogisms",
+      "rationale": "Deleted placeholder retained in current category; no active published content."
+    },
+    {
+      "stemId": "c2c00bcd-4e20-4b13-8769-5187fa3a91e0",
+      "environments": [
+        "development"
+      ],
+      "action": "retain",
+      "approvedCategory": "Syllogisms",
+      "rationale": "Short all/if museum-object relations."
+    },
+    {
+      "stemId": "c3eea135-a30c-4143-8442-07fea6c356ef",
+      "environments": [
+        "development",
+        "production"
+      ],
+      "action": "retain",
+      "approvedCategory": "Syllogisms",
+      "rationale": "Strong formal-premise evidence; retained as Syllogisms."
+    },
+    {
+      "stemId": "c40f577f-8c56-40be-b77c-ee14511568d7",
+      "environments": [
+        "development",
+        "production"
+      ],
+      "action": "retain",
+      "approvedCategory": "Syllogisms",
+      "rationale": "Short formal person-subject relations using only and negation."
+    },
+    {
+      "stemId": "c4552b21-47bf-47b0-a36f-4cd623c3b1b0",
+      "environments": [
+        "development",
+        "production"
+      ],
+      "action": "retain",
+      "approvedCategory": "Syllogisms",
+      "rationale": "Strong formal-premise evidence; retained as Syllogisms."
+    },
+    {
+      "stemId": "c546320e-e697-4e1a-8653-59ca504bf082",
+      "environments": [
+        "development",
+        "production"
+      ],
+      "action": "reclassify",
+      "approvedCategory": "Interpreting Information and Drawing Conclusions",
+      "rationale": "Explicit temperature-change graph with a baseline assumption."
+    },
+    {
+      "stemId": "c5bf1240-d6af-4427-be54-2bd11fe4d0b0",
+      "environments": [
+        "production"
+      ],
+      "action": "retain",
+      "approvedCategory": "Syllogisms",
+      "rationale": "Short chained class implications about trees and plants."
+    },
+    {
+      "stemId": "c5c52be5-5778-4994-9046-337a11edb7b9",
+      "environments": [
+        "development",
+        "production"
+      ],
+      "action": "reclassify",
+      "approvedCategory": "Interpreting Information and Drawing Conclusions",
+      "rationale": "Extended argument about vocational skills, jobs, and a proposed policy."
+    },
+    {
+      "stemId": "c61f0eff-1743-4e29-8f54-e0bebd865c3e",
+      "environments": [
+        "development"
+      ],
+      "action": "retain",
+      "approvedCategory": "Syllogisms",
+      "rationale": "Strong formal-premise evidence; retained as Syllogisms."
+    },
+    {
+      "stemId": "c802e771-2b2b-42d3-83b3-de2e140e8c21",
+      "environments": [
+        "development"
+      ],
+      "action": "retain",
+      "approvedCategory": "Syllogisms",
+      "rationale": "Short closed vehicle-class and property relations."
+    },
+    {
+      "stemId": "c98bf690-30f2-4296-ba90-bb0eedcd3733",
+      "environments": [
+        "development",
+        "production"
+      ],
+      "action": "retain",
+      "approvedCategory": "Syllogisms",
+      "rationale": "Strong formal-premise evidence; retained as Syllogisms."
+    },
+    {
+      "stemId": "c990e25e-f067-4df9-bd3b-5d03f6701c62",
+      "environments": [
+        "development"
+      ],
+      "action": "retain",
+      "approvedCategory": "Syllogisms",
+      "rationale": "Short some/can quantified relation."
+    },
+    {
+      "stemId": "ca30d425-dd73-4e0d-8efd-1ec535f53ced",
+      "environments": [
+        "production"
+      ],
+      "action": "reclassify",
+      "approvedCategory": "Interpreting Information and Drawing Conclusions",
+      "rationale": "Applied employee promotion eligibility conditions."
+    },
+    {
+      "stemId": "ca65e479-966c-42ca-9451-60d136d937c8",
+      "environments": [
+        "development"
+      ],
+      "action": "reclassify",
+      "approvedCategory": "Interpreting Information and Drawing Conclusions",
+      "rationale": "Applied airline reward conditions."
+    },
+    {
+      "stemId": "cc0dac9a-6bc1-4c92-84d7-593afdc73425",
+      "environments": [
+        "development",
+        "production"
+      ],
+      "action": "retain",
+      "approvedCategory": "Syllogisms",
+      "rationale": "Short formal plant-class relations using either, all, and only."
+    },
+    {
+      "stemId": "cc3621ca-7e5a-473b-bf32-b6258f2dfefa",
+      "environments": [
+        "development",
+        "production"
+      ],
+      "action": "reclassify",
+      "approvedCategory": "Interpreting Information and Drawing Conclusions",
+      "rationale": "Factual passage about phone manufacturing and working conditions."
+    },
+    {
+      "stemId": "ced27d87-15cd-49bb-b620-1db449645525",
+      "environments": [
+        "development"
+      ],
+      "action": "reclassify",
+      "approvedCategory": "Interpreting Information and Drawing Conclusions",
+      "rationale": "Image-present rule; placeholder excerpt is test image."
+    },
+    {
+      "stemId": "cfbff7c7-baaf-4856-bc06-4cdd2034306f",
+      "environments": [
+        "development"
+      ],
+      "action": "retain",
+      "approvedCategory": "Syllogisms",
+      "rationale": "Short closed sibling-ordering constraint system."
+    },
+    {
+      "stemId": "d063e2f7-c1c9-4082-a552-16a0ebfe351b",
+      "environments": [
+        "development",
+        "production"
+      ],
+      "action": "reclassify",
+      "approvedCategory": "Interpreting Information and Drawing Conclusions",
+      "rationale": "Explicit graph showing allocation of time across a day."
+    },
+    {
+      "stemId": "d093730c-d95b-4e86-84bd-3556963e9a8e",
+      "environments": [
+        "development"
+      ],
+      "action": "retain",
+      "approvedCategory": "Syllogisms",
+      "rationale": "Strong formal-premise evidence; retained as Syllogisms."
+    },
+    {
+      "stemId": "d11807e9-de6c-4c97-ab3b-c94220db4a2b",
+      "environments": [
+        "production"
+      ],
+      "action": "retain",
+      "approvedCategory": "Syllogisms",
+      "rationale": "Strong formal-premise evidence; retained as Syllogisms."
+    },
+    {
+      "stemId": "d1536f74-d819-4da8-a4ae-875da974a721",
+      "environments": [
+        "production"
+      ],
+      "action": "retain",
+      "approvedCategory": "Syllogisms",
+      "rationale": "Short universal and reciprocal relations among concert ticket holders."
+    },
+    {
+      "stemId": "d1f0d38a-ab8d-449e-8110-67bfe62ae353",
+      "environments": [
+        "development"
+      ],
+      "action": "retain",
+      "approvedCategory": "Syllogisms",
+      "rationale": "Short all/class-membership propositions; deleted but semantic."
+    },
+    {
+      "stemId": "d227fde5-fa61-46a7-a6b3-cf3dfad8e0bf",
+      "environments": [
+        "production"
+      ],
+      "action": "retain",
+      "approvedCategory": "Syllogisms",
+      "rationale": "Two short universal class relations among invented categories."
+    },
+    {
+      "stemId": "d2954a52-fac8-4275-a544-6436f57ff02d",
+      "environments": [
+        "development",
+        "production"
+      ],
+      "action": "retain",
+      "approvedCategory": "Syllogisms",
+      "rationale": "Short all-member and only-preference family premises."
+    },
+    {
+      "stemId": "d31baed4-132b-46c5-bfee-baa61bda412a",
+      "environments": [
+        "production"
+      ],
+      "action": "retain",
+      "approvedCategory": "Syllogisms",
+      "rationale": "Two short universal class relations among invented categories."
+    },
+    {
+      "stemId": "d3c9b02f-a962-4b83-b78b-100cd47c4345",
+      "environments": [
+        "production"
+      ],
+      "action": "reclassify",
+      "approvedCategory": "Interpreting Information and Drawing Conclusions",
+      "rationale": "Factual argumentative passage about environmental effects of diets."
+    },
+    {
+      "stemId": "d593701e-2b24-46be-bdbc-3bcec2b878a4",
+      "environments": [
+        "development"
+      ],
+      "action": "retain",
+      "approvedCategory": "Syllogisms",
+      "rationale": "Short some/rest/either physician relations; deleted but semantic."
+    },
+    {
+      "stemId": "d643f72d-57ba-4a5a-b878-3637d510fdc2",
+      "environments": [
+        "development"
+      ],
+      "action": "reclassify",
+      "approvedCategory": "Interpreting Information and Drawing Conclusions",
+      "rationale": "Extended factual explosives passage."
+    },
+    {
+      "stemId": "d6d4c545-6293-40a9-9201-477c818d55f2",
+      "environments": [
+        "development"
+      ],
+      "action": "retain",
+      "approvedCategory": "Syllogisms",
+      "rationale": "Short chained all/either class relations; deleted but semantic."
+    },
+    {
+      "stemId": "d740a95f-94d8-4a94-afe1-f7b1f22f1aa5",
+      "environments": [
+        "development",
+        "production"
+      ],
+      "action": "reclassify",
+      "approvedCategory": "Interpreting Information and Drawing Conclusions",
+      "rationale": "Scientific centrifuge diagram requiring visual interpretation."
+    },
+    {
+      "stemId": "d88dfb59-77c6-4079-a60c-04e5fcd561da",
+      "environments": [
+        "development"
+      ],
+      "action": "reclassify",
+      "approvedCategory": "Interpreting Information and Drawing Conclusions",
+      "rationale": "Discursive historiography passage."
+    },
+    {
+      "stemId": "d96a08f0-76aa-4e3c-9f6b-54609dbeac4f",
+      "environments": [
+        "development"
+      ],
+      "action": "retain",
+      "approvedCategory": "Syllogisms",
+      "rationale": "Strong formal-premise evidence; retained as Syllogisms."
+    },
+    {
+      "stemId": "d9f89cf5-554f-45a6-8112-cc25ed89d239",
+      "environments": [
+        "production"
+      ],
+      "action": "retain",
+      "approvedCategory": "Syllogisms",
+      "rationale": "Strong formal-premise evidence; retained as Syllogisms."
+    },
+    {
+      "stemId": "da180890-062a-4cbb-8601-f219b5a49c99",
+      "environments": [
+        "development"
+      ],
+      "action": "retain",
+      "approvedCategory": "Syllogisms",
+      "rationale": "Strong formal-premise evidence; retained as Syllogisms."
+    },
+    {
+      "stemId": "dac3b36e-5b4b-4329-968c-e443e62fd8f8",
+      "environments": [
+        "development",
+        "production"
+      ],
+      "action": "retain",
+      "approvedCategory": "Syllogisms",
+      "rationale": "Strong formal-premise evidence; retained as Syllogisms."
+    },
+    {
+      "stemId": "daf0a713-6ebd-41e7-8edc-c26e74a8867b",
+      "environments": [
+        "production"
+      ],
+      "action": "retain",
+      "approvedCategory": "Syllogisms",
+      "rationale": "Strong formal-premise evidence; retained as Syllogisms."
+    },
+    {
+      "stemId": "db6d9555-7bce-4fe4-afad-7eb6d8a941ad",
+      "environments": [
+        "development"
+      ],
+      "action": "reclassify",
+      "approvedCategory": "Interpreting Information and Drawing Conclusions",
+      "rationale": "Supply/demand graph."
+    },
+    {
+      "stemId": "dc840fb2-d067-43ea-bbb4-da285cf0914b",
+      "environments": [
+        "development",
+        "production"
+      ],
+      "action": "reclassify",
+      "approvedCategory": "Interpreting Information and Drawing Conclusions",
+      "rationale": "Survey estimate and explanatory claim about Shakespeare readership."
+    },
+    {
+      "stemId": "dca347b8-4549-418a-9321-ce36169c6de6",
+      "environments": [
+        "development",
+        "production"
+      ],
+      "action": "retain",
+      "approvedCategory": "Syllogisms",
+      "rationale": "Short chained relation from cake to baked to burnt."
+    },
+    {
+      "stemId": "dcf1d6c1-2bec-4ff7-b588-2540143f4cc8",
+      "environments": [
+        "development"
+      ],
+      "action": "retain",
+      "approvedCategory": "Syllogisms",
+      "rationale": "Strong formal-premise evidence; retained as Syllogisms."
+    },
+    {
+      "stemId": "deb85b17-64f7-4552-9d6a-3c0d1f491fef",
+      "environments": [
+        "development",
+        "production"
+      ],
+      "action": "retain",
+      "approvedCategory": "Syllogisms",
+      "rationale": "Short universal-exception and at-least-two quantified premises."
+    },
+    {
+      "stemId": "def755fa-ad11-4343-a738-153021d545d3",
+      "environments": [
+        "development"
+      ],
+      "action": "retain",
+      "approvedCategory": "Syllogisms",
+      "rationale": "Strong formal-premise evidence; retained as Syllogisms."
+    },
+    {
+      "stemId": "df091699-5ceb-439e-ad88-78146ceaffe9",
+      "environments": [
+        "development",
+        "production"
+      ],
+      "action": "retain",
+      "approvedCategory": "Syllogisms",
+      "rationale": "Strong formal-premise evidence; retained as Syllogisms."
+    },
+    {
+      "stemId": "dff1d7ca-b17f-4196-953a-b2ca0022b5f8",
+      "environments": [
+        "development"
+      ],
+      "action": "retain",
+      "approvedCategory": "Syllogisms",
+      "rationale": "Strong formal-premise evidence; retained as Syllogisms."
+    },
+    {
+      "stemId": "dffe684b-d60c-470a-8148-aa2e8c432da4",
+      "environments": [
+        "development",
+        "production"
+      ],
+      "action": "retain",
+      "approvedCategory": "Syllogisms",
+      "rationale": "Short chained universal relations from nutritious to good to should-be-eaten."
+    },
+    {
+      "stemId": "e0261be6-4cbe-4e8c-bf91-607197c4e367",
+      "environments": [
+        "development"
+      ],
+      "action": "retain",
+      "approvedCategory": "Syllogisms",
+      "rationale": "Strong formal-premise evidence; retained as Syllogisms."
+    },
+    {
+      "stemId": "e0894b65-b8c6-4a07-b639-420415fef5e1",
+      "environments": [
+        "production"
+      ],
+      "action": "retain",
+      "approvedCategory": "Syllogisms",
+      "rationale": "Short quantified class premises about drugs and remedies."
+    },
+    {
+      "stemId": "e0a7ae3a-23ab-4e3d-bbc5-ded03733b2ae",
+      "environments": [
+        "development",
+        "production"
+      ],
+      "action": "retain",
+      "approvedCategory": "Syllogisms",
+      "rationale": "Strong formal-premise evidence; retained as Syllogisms."
+    },
+    {
+      "stemId": "e10ece53-b1c4-4220-92b5-ac8a2547245d",
+      "environments": [
+        "development",
+        "production"
+      ],
+      "action": "retain",
+      "approvedCategory": "Syllogisms",
+      "rationale": "Strong formal-premise evidence; retained as Syllogisms."
+    },
+    {
+      "stemId": "e2310974-6f12-4b1f-aa1c-423e975fceb8",
+      "environments": [
+        "production"
+      ],
+      "action": "retain",
+      "approvedCategory": "Syllogisms",
+      "rationale": "Short quantified tourist-preference relations using all, most, and fewer."
+    },
+    {
+      "stemId": "e29d3e11-36cc-4bc3-bdce-137515304fdf",
+      "environments": [
+        "development",
+        "production"
+      ],
+      "action": "retain",
+      "approvedCategory": "Syllogisms",
+      "rationale": "Formal universal worksite rules linking hat classes, entry, boots, and tools."
+    },
+    {
+      "stemId": "e3ecf9dc-4ea1-465b-bcde-6a14c05f175f",
+      "environments": [
+        "development",
+        "production"
+      ],
+      "action": "reclassify",
+      "approvedCategory": "Interpreting Information and Drawing Conclusions",
+      "rationale": "Applied law-school leadership eligibility conditions."
+    },
+    {
+      "stemId": "e421a4e9-308b-44c3-a709-0a9008085524",
+      "environments": [
+        "development"
+      ],
+      "action": "soft_delete",
+      "approvedCategory": null,
+      "rationale": "Human-approved quarantine of active garbage placeholder content."
+    },
+    {
+      "stemId": "e48ad7d6-467b-4919-bb14-9c4ecc71f801",
+      "environments": [
+        "development"
+      ],
+      "action": "reclassify",
+      "approvedCategory": "Interpreting Information and Drawing Conclusions",
+      "rationale": "Factual art-history passage."
+    },
+    {
+      "stemId": "e540f7c9-eb67-46f4-93d6-510a62fff51c",
+      "environments": [
+        "development"
+      ],
+      "action": "reclassify",
+      "approvedCategory": "Interpreting Information and Drawing Conclusions",
+      "rationale": "Applied legal/policing quotation and qualifications."
+    },
+    {
+      "stemId": "e69a0a52-eade-4c62-b1ae-c0daae83c6e7",
+      "environments": [
+        "development",
+        "production"
+      ],
+      "action": "reclassify",
+      "approvedCategory": "Interpreting Information and Drawing Conclusions",
+      "rationale": "Graph and pie chart of habitat loss."
+    },
+    {
+      "stemId": "e6ea27bd-698b-4851-bc75-9044120ff534",
+      "environments": [
+        "development",
+        "production"
+      ],
+      "action": "retain",
+      "approvedCategory": "Syllogisms",
+      "rationale": "Short formal student-subject relations using some, every, and no."
+    },
+    {
+      "stemId": "e7092e0a-a62c-4810-80e9-ef6d57e180a0",
+      "environments": [
+        "development"
+      ],
+      "action": "reclassify",
+      "approvedCategory": "Interpreting Information and Drawing Conclusions",
+      "rationale": "Share-price chart."
+    },
+    {
+      "stemId": "e73a2f53-6680-41c1-aaac-feeec6753d4f",
+      "environments": [
+        "development"
+      ],
+      "action": "retain",
+      "approvedCategory": "Syllogisms",
+      "rationale": "Short not-all/all/except zoo-set relations."
+    },
+    {
+      "stemId": "e7576ce5-a26c-4090-96c1-47b054e778a2",
+      "environments": [
+        "production"
+      ],
+      "action": "retain",
+      "approvedCategory": "Syllogisms",
+      "rationale": "Short quantified occupation premises using all and other-class relations."
+    },
+    {
+      "stemId": "e8baa1fc-bb47-4a64-b7b1-c98a2ccda869",
+      "environments": [
+        "development"
+      ],
+      "action": "retain",
+      "approvedCategory": "Syllogisms",
+      "rationale": "Strong formal-premise evidence; retained as Syllogisms."
+    },
+    {
+      "stemId": "e8f3ca57-0fe0-469e-8604-82cfe72f4151",
+      "environments": [
+        "development",
+        "production"
+      ],
+      "action": "retain",
+      "approvedCategory": "Syllogisms",
+      "rationale": "Strong formal-premise evidence; retained as Syllogisms."
+    },
+    {
+      "stemId": "e910a370-e08f-4846-b7dc-ce3e26f14eba",
+      "environments": [
+        "production"
+      ],
+      "action": "retain",
+      "approvedCategory": "Syllogisms",
+      "rationale": "Short existential relations among apples and green objects."
+    },
+    {
+      "stemId": "eaf1ceec-b2d0-4167-b350-c528e8f127a4",
+      "environments": [
+        "development"
+      ],
+      "action": "retain",
+      "approvedCategory": "Syllogisms",
+      "rationale": "Strong formal-premise evidence; retained as Syllogisms."
+    },
+    {
+      "stemId": "eb08075c-5261-444c-a600-01edcbcbcbf8",
+      "environments": [
+        "development",
+        "production"
+      ],
+      "action": "reclassify",
+      "approvedCategory": "Interpreting Information and Drawing Conclusions",
+      "rationale": "Factual passage about organic produce pricing and consumer beliefs."
+    },
+    {
+      "stemId": "eb0c3b63-e884-407f-8c5a-1c400615eadd",
+      "environments": [
+        "development"
+      ],
+      "action": "retain",
+      "approvedCategory": "Syllogisms",
+      "rationale": "Short all/except/more-than-one sports relations."
+    },
+    {
+      "stemId": "ed0c7ef9-9045-4ab9-93c7-49b1f84473b4",
+      "environments": [
+        "development",
+        "production"
+      ],
+      "action": "reclassify",
+      "approvedCategory": "Interpreting Information and Drawing Conclusions",
+      "rationale": "Extended applied oil-rig safety and disposal scenario."
+    },
+    {
+      "stemId": "ede696cb-baa8-4d6c-ada3-a6a5e6033971",
+      "environments": [
+        "development",
+        "production"
+      ],
+      "action": "retain",
+      "approvedCategory": "Syllogisms",
+      "rationale": "Strong formal-premise evidence; retained as Syllogisms."
+    },
+    {
+      "stemId": "ee593cdf-90bc-4189-a75c-f14c181f441f",
+      "environments": [
+        "development",
+        "production"
+      ],
+      "action": "retain",
+      "approvedCategory": "Syllogisms",
+      "rationale": "Strong formal-premise evidence; retained as Syllogisms."
+    },
+    {
+      "stemId": "eff5abae-bc5d-4b4c-9914-0f6da810d40d",
+      "environments": [
+        "development"
+      ],
+      "action": "retain",
+      "approvedCategory": "Syllogisms",
+      "rationale": "Strong formal-premise evidence; retained as Syllogisms."
+    },
+    {
+      "stemId": "f38ce3ed-708f-4bb1-9832-47f5406852c9",
+      "environments": [
+        "development"
+      ],
+      "action": "reclassify",
+      "approvedCategory": "Interpreting Information and Drawing Conclusions",
+      "rationale": "Discursive factual passage; deleted but semantic."
+    },
+    {
+      "stemId": "f3d52f6c-3550-4f95-a40a-d4979d9e39f9",
+      "environments": [
+        "development"
+      ],
+      "action": "retain",
+      "approvedCategory": "Syllogisms",
+      "rationale": "Strong formal-premise evidence; retained as Syllogisms."
+    },
+    {
+      "stemId": "f42f2494-bb73-455d-bd8b-4eb6c09c4dbc",
+      "environments": [
+        "development",
+        "production"
+      ],
+      "action": "retain",
+      "approvedCategory": "Syllogisms",
+      "rationale": "Strong formal-premise evidence; retained as Syllogisms."
+    },
+    {
+      "stemId": "f4b1fd65-57a5-41c1-9960-29fa96d0738a",
+      "environments": [
+        "development"
+      ],
+      "action": "retain",
+      "approvedCategory": "Syllogisms",
+      "rationale": "Strong formal-premise evidence; retained as Syllogisms."
+    },
+    {
+      "stemId": "f5899190-b24e-4e96-b878-89c9b9aba4b3",
+      "environments": [
+        "production"
+      ],
+      "action": "reclassify",
+      "approvedCategory": "Interpreting Information and Drawing Conclusions",
+      "rationale": "Scientific factual passage explaining devil's gardens."
+    },
+    {
+      "stemId": "f6895a6d-828c-4c59-8b2f-2785ba50a6fb",
+      "environments": [
+        "production"
+      ],
+      "action": "reclassify",
+      "approvedCategory": "Interpreting Information and Drawing Conclusions",
+      "rationale": "Applied marketing scenario with profit percentages, pricing, and sales results."
+    },
+    {
+      "stemId": "f6966912-6b43-4277-b14d-db60e100690d",
+      "environments": [
+        "development"
+      ],
+      "action": "retain",
+      "approvedCategory": "Syllogisms",
+      "rationale": "Compact all/visitor-threshold relations."
+    },
+    {
+      "stemId": "f71369c7-e2c1-4154-8bab-5e46170fa85e",
+      "environments": [
+        "production"
+      ],
+      "action": "reclassify",
+      "approvedCategory": "Interpreting Information and Drawing Conclusions",
+      "rationale": "Graphs comparing mortgage types across years."
+    },
+    {
+      "stemId": "f7598464-5443-4c52-8be6-da6194f02d00",
+      "environments": [
+        "development",
+        "production"
+      ],
+      "action": "retain",
+      "approvedCategory": "Syllogisms",
+      "rationale": "Short quantified bat and sound-hearing class relations using all and not all."
+    },
+    {
+      "stemId": "f87400f4-c868-4ad5-bcde-fb4380651fdd",
+      "environments": [
+        "development",
+        "production"
+      ],
+      "action": "reclassify",
+      "approvedCategory": "Interpreting Information and Drawing Conclusions",
+      "rationale": "Factual passage about a resurgence in banjo music."
+    },
+    {
+      "stemId": "f8a7124d-0a4d-419a-95d1-7052431be98a",
+      "environments": [
+        "development"
+      ],
+      "action": "retain",
+      "approvedCategory": "Syllogisms",
+      "rationale": "Short chained all/either class relations; deleted but semantic."
+    },
+    {
+      "stemId": "f9bba219-74a5-46e6-b8a0-a50c2dd29320",
+      "environments": [
+        "development",
+        "production"
+      ],
+      "action": "reclassify",
+      "approvedCategory": "Interpreting Information and Drawing Conclusions",
+      "rationale": "Football statistics table plus arithmetic comparison constraints."
+    },
+    {
+      "stemId": "faad3d92-7a54-46c0-ac9f-2c11e9fe4339",
+      "environments": [
+        "development",
+        "production"
+      ],
+      "action": "reclassify",
+      "approvedCategory": "Interpreting Information and Drawing Conclusions",
+      "rationale": "Graph of exports, imports, and trade balance."
+    },
+    {
+      "stemId": "fbf743b6-c2ce-43e0-ba6d-8488c21e01a5",
+      "environments": [
+        "development",
+        "production"
+      ],
+      "action": "retain",
+      "approvedCategory": "Syllogisms",
+      "rationale": "Strong formal-premise evidence; retained as Syllogisms."
+    },
+    {
+      "stemId": "fd123b7f-85d3-4e27-81d1-f840e8862788",
+      "environments": [
+        "development",
+        "production"
+      ],
+      "action": "reclassify",
+      "approvedCategory": "Interpreting Information and Drawing Conclusions",
+      "rationale": "Applied business case about innovations and sales-growth change."
+    },
+    {
+      "stemId": "fdd591c8-e961-4642-bfa0-346fd359189a",
+      "environments": [
+        "production"
+      ],
+      "action": "reclassify",
+      "approvedCategory": "Interpreting Information and Drawing Conclusions",
+      "rationale": "Medication-dose table and cardiac-risk thresholds."
+    },
+    {
+      "stemId": "fe1d823a-ebd0-45c3-922b-7982f6248948",
+      "environments": [
+        "development"
+      ],
+      "action": "reclassify",
+      "approvedCategory": "Interpreting Information and Drawing Conclusions",
+      "rationale": "Factual socioeconomic passage; deleted but semantic."
+    },
+    {
+      "stemId": "fe205227-9a07-444e-8b10-b50888caad72",
+      "environments": [
+        "development",
+        "production"
+      ],
+      "action": "retain",
+      "approvedCategory": "Syllogisms",
+      "rationale": "Strong formal-premise evidence; retained as Syllogisms."
+    },
+    {
+      "stemId": "fe6b1673-b656-4aee-993d-71b5f920f6ca",
+      "environments": [
+        "production"
+      ],
+      "action": "reclassify",
+      "approvedCategory": "Interpreting Information and Drawing Conclusions",
+      "rationale": "Applied narrative about training, knowledge, and a successful repair."
+    },
+    {
+      "stemId": "ff3bff88-f8a3-44c5-acb0-d99d6df9b2fa",
+      "environments": [
+        "development"
+      ],
+      "action": "reclassify",
+      "approvedCategory": "Interpreting Information and Drawing Conclusions",
+      "rationale": "Extended real-world conditional passage, not compact categorical logic."
+    },
+    {
+      "stemId": "ffc370cc-e9e6-439b-9319-7ab5ee2c7f1b",
+      "environments": [
+        "development",
+        "production"
+      ],
+      "action": "reclassify",
+      "approvedCategory": "Interpreting Information and Drawing Conclusions",
+      "rationale": "Bar chart of hotel room revenue."
+    }
+  ]
+}

@@ -20,12 +20,15 @@ type StemDetailQuestion = {
   answer_explanation?: unknown;
   index: number;
   question_type: "multiple_choice" | "syllogism";
+  response_type?: "multiple_choice" | "drag_and_drop";
+  answer_scheme?: QuestionEngineQuestion["answerScheme"];
   answer_options?: Array<{
     id: string;
     answer_text: unknown;
     answer_explanation?: unknown;
     index: number;
     is_answer?: boolean;
+    answer_key_value?: AnswerOption["answerKeyValue"];
   }>;
 };
 
@@ -122,6 +125,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
         index: opt.index,
         text: extractTextFromRichJson(opt.answer_text as JsonLike),
         isAnswer: opt.is_answer ?? false,
+        answerKeyValue: opt.answer_key_value ?? null,
         answerExplanation: optionExplanation.text,
         answerExplanationJson: optionExplanation.json,
       };
@@ -138,6 +142,8 @@ export async function GET(request: NextRequest, context: RouteContext) {
     stemText: extractTextFromRichJson(stem.stem_text as JsonLike),
     questionText: extractTextFromRichJson(question.question_text as JsonLike),
     questionType: question.question_type,
+    responseType: question.response_type,
+    answerScheme: question.answer_scheme,
     options,
     answerExplanation: questionExplanation.text,
     answerExplanationJson: questionExplanation.json,

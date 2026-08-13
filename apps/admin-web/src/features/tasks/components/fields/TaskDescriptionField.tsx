@@ -49,6 +49,7 @@ export function TaskDescriptionField({ form, value: _value, onTagClick: _onTagCl
                 ref={effectiveRef}
                 content={field.value || ''}
                 onChange={field.onChange}
+                onChangeDebounceMs={200}
                 placeholder="Add task description..."
                 className="min-h-0"
                 mentionSuggestions={mentionSuggestions}

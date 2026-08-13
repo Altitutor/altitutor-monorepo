@@ -511,12 +511,18 @@ export function generateUUID(): string {
 
 // Helper function to build student invite URL
 export function buildStudentInviteUrl(token: string, path: 'invite' | 'register' = 'invite'): string {
-  const isDevelopment = Deno.env.get('ENVIRONMENT') === 'development' || 
-                        Deno.env.get('NODE_ENV') === 'development';
-  const baseUrl = isDevelopment 
-    ? 'http://localhost:3001'
-    : (Deno.env.get('NEXT_PUBLIC_STUDENT_URL') || 'https://student.altitutor.com');
-  return `${baseUrl}/${path}/${token}`;
+  const baseUrl = Deno.env.get('STUDENT_WEB_URL') ||
+                  Deno.env.get('NEXT_PUBLIC_STUDENT_URL') ||
+                  'https://student.altitutor.com';
+  const route = path === 'register' ? 'r' : 'invite';
+  return `${baseUrl.replace(/\/$/, '')}/${route}/${token}`;
+}
+
+export function buildBookingManagementUrl(token: string): string {
+  const baseUrl = Deno.env.get('STUDENT_WEB_URL') ||
+                  Deno.env.get('NEXT_PUBLIC_STUDENT_URL') ||
+                  'https://student.altitutor.com';
+  return `${baseUrl.replace(/\/$/, '')}/b/${token}`;
 }
 
 // Helper function to build staff invite URL
@@ -586,10 +592,10 @@ export async function getOrGenerateStudentRegistrationToken(
   supabase: SupabaseClient,
   studentId: string
 ): Promise<string | null> {
-  // Check if student exists and get invite_token (used for registration)
+  // Check eligibility before issuing the durable registration token.
   const { data: student, error } = await supabase
     .from('students')
-    .select('id, status, invite_token')
+    .select('id, status, registration_public_token')
     .eq('id', studentId)
     .maybeSingle();
   
@@ -601,29 +607,47 @@ export async function getOrGenerateStudentRegistrationToken(
   // `status` is the in-person lifecycle. Account linkage is deliberately not
   // used here: an online Student may already have a user_id while still needing
   // to complete in-person registration.
-  if (student.status === 'ACTIVE') {
+  if (student.status !== 'TRIAL') {
     return null;
   }
   
-  // Reuse existing token if available
-  if (student.invite_token) {
-    return student.invite_token;
+  if (student.registration_public_token) {
+    return student.registration_public_token;
   }
-  
-  // Generate new token
-  const token = generateUUID();
-  
-  // Update student with invite token
-  const { error: updateError } = await supabase
-    .from('students')
-    .update({ invite_token: token })
-    .eq('id', studentId);
-  
-  if (updateError) {
-    console.warn('[activity-processor] Failed to update student registration token', { studentId, error: updateError });
+
+  const { data: token, error: issueError } = await supabase.rpc(
+    'issue_student_registration_public_token',
+    { p_student_id: studentId }
+  );
+
+  if (issueError || typeof token !== 'string') {
+    console.warn('[activity-processor] Failed to issue student registration token', {
+      studentId,
+      error: issueError,
+    });
     return null;
   }
-  
+
+  return token;
+}
+
+export async function getOrGenerateSessionBookingToken(
+  supabase: SupabaseClient,
+  sessionId: string
+): Promise<string | null> {
+  const { data: token, error } = await supabase.rpc(
+    'issue_session_booking_public_token',
+    { p_session_id: sessionId }
+  );
+
+  if (error || typeof token !== 'string') {
+    console.warn('[activity-processor] Failed to issue booking public token', {
+      sessionId,
+      error,
+    });
+    return null;
+  }
+
   return token;
 }
 
@@ -941,13 +965,14 @@ export async function extractTemplateVariables(
         ['TRIAL_SESSION', 'SUBSIDY_INTERVIEW'].includes(sessionData.type) &&
         sessionData.id
       ) {
-        // Determine base URL (use environment variable or default to production)
-        const studentUrl = Deno.env.get('NEXT_PUBLIC_STUDENT_URL') || 'https://student.altitutor.com';
-        const bookingConfirmationUrl = `${studentUrl}/booking-success?sessionId=${sessionData.id}`;
-        variables['booking_confirmation_link'] = bookingConfirmationUrl;
-        variables['booking_confirmation_url'] = bookingConfirmationUrl;
-        variables['session.booking_confirmation_link'] = bookingConfirmationUrl;
-        variables['session.booking_confirmation_url'] = bookingConfirmationUrl;
+        const bookingToken = await getOrGenerateSessionBookingToken(supabase, sessionData.id);
+        const bookingManagementUrl = bookingToken
+          ? buildBookingManagementUrl(bookingToken)
+          : '';
+        variables['booking_confirmation_link'] = bookingManagementUrl;
+        variables['booking_confirmation_url'] = bookingManagementUrl;
+        variables['session.booking_confirmation_link'] = bookingManagementUrl;
+        variables['session.booking_confirmation_url'] = bookingManagementUrl;
       }
     }
   }

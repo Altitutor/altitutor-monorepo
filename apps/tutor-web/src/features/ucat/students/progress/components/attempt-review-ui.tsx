@@ -23,6 +23,7 @@ import { UcatRichContentBlock } from '@/features/ucat/question-engine-preview/Uc
 import { tutorBtnIconOutline, tutorCardCn } from '@/shared/lib/tutor-visual'
 import { cn } from '@/shared/utils'
 import type { AttemptReviewQuestion } from '../lib/attempt-content-snapshot'
+import { getAnswerSchemeMaximum } from '@altitutor/ucat-response-contract'
 import type { SetAttemptQuestion } from '@/app/api/ucat/students/[studentId]/progress/sets/[attemptId]/route'
 import type {
   MockAttemptQuestion,
@@ -380,7 +381,9 @@ export function AttemptQuestionReview({
   const question = questions[selectedIndex]
   const attempt = attempts[selectedIndex]
   if (!question || !attempt) return null
-  const maxPoints = question.questionType === 'syllogism' ? 2 : 1
+  const maxPoints = question.answerScheme
+    ? getAnswerSchemeMaximum(question.answerScheme)
+    : 1
   const timingMax = Math.max(
     attempt.timeSpentSeconds ?? 0,
     attempt.averageTimeSeconds ?? 0,
@@ -436,7 +439,7 @@ export function AttemptQuestionReview({
           <AttemptQuestionViewer
             question={question}
             selectedOptionId={attempt.questionAnswerOptionId}
-            syllogismSnapshot={attempt.answerSnapshot}
+            legacyPlacementSnapshot={attempt.answerSnapshot}
             result={attempt.result}
           />
         </CardContent>

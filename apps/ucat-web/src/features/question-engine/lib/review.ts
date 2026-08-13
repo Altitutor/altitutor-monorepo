@@ -1,5 +1,9 @@
 import type { QuestionItem } from "@/features/question-engine/model/types";
 import type { ReviewFilter } from "@/features/question-engine/model/types";
+import {
+  evaluatePersistedQuestionResponse,
+  snapshotQuestionResponse,
+} from "@/features/question-engine/lib/response-state";
 
 export type ReviewQuestionStatus = "unseen" | "incomplete" | "complete";
 
@@ -9,16 +13,15 @@ export function getReviewQuestionStatus(
   selectedAnswers: Record<string, string>,
   syllogismSnapshots?: Record<string, Record<string, boolean>>,
 ): ReviewQuestionStatus {
-  if (question.questionType === "syllogism") {
-    const snapshot = syllogismSnapshots?.[question.id];
-    const optionCount = question.options.length;
-    const answeredCount = snapshot ? Object.keys(snapshot).length : 0;
-    const allAnswered = optionCount > 0 && answeredCount >= optionCount;
-    if (allAnswered) return "complete";
-  } else {
-    const answered = Boolean(selectedAnswers[question.id]);
-    if (answered) return "complete";
-  }
+  const evaluation = evaluatePersistedQuestionResponse(
+    question,
+    snapshotQuestionResponse(
+      question,
+      selectedAnswers[question.id],
+      syllogismSnapshots?.[question.id],
+    ),
+  );
+  if (evaluation.complete) return "complete";
 
   const visited = visitedQuestionIds.includes(question.id);
   return visited ? "incomplete" : "unseen";

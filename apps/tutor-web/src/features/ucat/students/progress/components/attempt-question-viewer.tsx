@@ -1,14 +1,25 @@
 'use client'
 
+import React from 'react'
 import { UcatRichContentBlock } from '@/features/ucat/question-engine-preview/UcatRichContentBlock'
 import { cn } from '@/shared/utils'
-import type { AttemptReviewQuestion } from '../lib/attempt-content-snapshot'
+import {
+  projectAttemptReview,
+  type AttemptReviewQuestion,
+} from '../lib/attempt-content-snapshot'
+import {
+  getAnswerSchemePresentation,
+  projectPlacementReviewByDestination,
+  type PresentationContract,
+  type ReviewContract,
+} from '@altitutor/ucat-response-contract'
 
 type AttemptQuestionViewerProps = {
   question: AttemptReviewQuestion
   selectedOptionId?: string | null
-  syllogismSnapshot?: Record<string, boolean> | null
+  legacyPlacementSnapshot?: Record<string, boolean> | null
   result?: 'correct' | 'partial' | 'incorrect' | 'not_attempted'
+  review?: ReviewContract
 }
 
 function OptionContent({
@@ -28,11 +39,105 @@ function OptionContent({
   )
 }
 
-function SyllogismResults({
+function DestinationFirstPlacementReview({
+  options,
+  presentation,
+  review,
+}: {
+  options: readonly AttemptReviewQuestion['options'][number][]
+  presentation: Extract<PresentationContract, { kind: 'placement' }>
+  review: Extract<ReviewContract, { kind: 'placement' }>
+}) {
+  const optionById = new Map(options.map((option) => [option.id, option]))
+  const destinations = projectPlacementReviewByDestination(
+    presentation,
+    review
+  )
+
+  return (
+    <div className="mt-3 space-y-1.5">
+      <div className="grid grid-cols-[minmax(0,1.25fr)_minmax(0,3fr)_minmax(0,3fr)] gap-x-2 px-3 text-xs font-medium text-muted-foreground">
+        <div>Destination</div>
+        <div className="text-center">Your answer</div>
+        <div className="text-center">Correct answer</div>
+      </div>
+      <div className="space-y-1.5">
+        {destinations.map((destination) => {
+          const isCorrect = destination.outcome === 'correct'
+          const selectedOptions = destination.selectedTargetIds
+            .map((id) => optionById.get(id))
+            .filter((option) => option !== undefined)
+          const correctOptions = destination.correctTargetIds
+            .map((id) => optionById.get(id))
+            .filter((option) => option !== undefined)
+
+          return (
+            <div
+              key={destination.token ?? 'not-placed'}
+              data-testid={`placement-destination-${destination.token ?? 'not-placed'}`}
+              className={cn(
+                'grid grid-cols-[minmax(0,1.25fr)_minmax(0,3fr)_minmax(0,3fr)] items-stretch gap-2 rounded px-3 py-1',
+                isCorrect ? 'bg-green-500/10' : 'bg-red-500/10'
+              )}
+            >
+              <div className="flex min-h-[50px] items-center font-medium">
+                {destination.label}
+              </div>
+              <div
+                className={cn(
+                  'flex min-h-[50px] flex-col items-center justify-center gap-1 rounded-md border px-4 text-center text-sm',
+                  selectedOptions.length === 0
+                    ? 'border-dashed border-muted-foreground/50 text-muted-foreground'
+                    : isCorrect
+                      ? 'border-green-600/50 bg-green-500/10 dark:border-green-700/50'
+                      : 'border-red-600/50 bg-red-500/10 dark:border-red-700/50'
+                )}
+              >
+                {selectedOptions.length === 0
+                  ? '—'
+                  : selectedOptions.map((option) => (
+                      <OptionContent
+                        key={option.id}
+                        text={option.text}
+                        json={option.answerJson}
+                      />
+                    ))}
+              </div>
+              <div className="flex min-h-[50px] flex-col items-center justify-center gap-1 rounded-md border border-border bg-card px-4 text-center text-sm">
+                {correctOptions.map((option) => (
+                  <OptionContent
+                    key={option.id}
+                    text={option.text}
+                    json={option.answerJson}
+                  />
+                ))}
+              </div>
+            </div>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
+function PlacementResults({
   question,
-  syllogismSnapshot,
+  review,
 }: AttemptQuestionViewerProps) {
   const options = [...question.options].sort((a, b) => a.index - b.index)
+  const presentation = getAnswerSchemePresentation(
+    question.answerScheme ?? 'decision_making_binary_placement',
+    options.map((option) => option.id),
+  )
+  if (presentation.kind !== 'placement') {
+    throw new Error('The attempt does not use a placement response.')
+  }
+  const tokenLabel = new Map(
+    presentation.tokens.map((token) => [token.value, token.label]),
+  )
+  const isDestinationFirst =
+    presentation.dragDirection === 'options_to_tokens' &&
+    review?.kind === 'placement'
 
   return (
     <div className="space-y-4 py-4 sm:py-5">
@@ -52,6 +157,13 @@ function SyllogismResults({
             textTone="theme"
           />
         </div>
+        {isDestinationFirst && review?.kind === 'placement' ? (
+          <DestinationFirstPlacementReview
+            options={options}
+            presentation={presentation}
+            review={review}
+          />
+        ) : (
         <div className="mt-3 space-y-1.5">
           <div className="grid grid-cols-[minmax(0,3fr)_minmax(0,1.4fr)_minmax(0,1.4fr)] gap-x-1 px-3 text-xs font-medium text-muted-foreground">
             <div>Statement</div>
@@ -60,21 +172,20 @@ function SyllogismResults({
           </div>
           <div className="space-y-1">
             {options.map((option) => {
-              const hasAnswer =
-                syllogismSnapshot != null && option.id in syllogismSnapshot
-              const studentAnswer = hasAnswer
-                ? syllogismSnapshot?.[option.id] === true
-                : null
-              const correctAnswer = option.isAnswer === true
-              const isCorrect =
-                hasAnswer && studentAnswer === correctAnswer
+              const row =
+                review?.kind === 'placement'
+                  ? review.rows.find((candidate) => candidate.targetId === option.id)
+                  : undefined
+              const studentAnswer = row?.placedToken ?? null
+              const correctAnswer = row?.correctToken ?? null
+              const isCorrect = studentAnswer === correctAnswer
 
               return (
                 <div
                   key={option.id}
                   className={cn(
                     'grid grid-cols-[minmax(0,3fr)_minmax(0,1.4fr)_minmax(0,1.4fr)] items-stretch gap-x-1 rounded px-3 py-0.5',
-                    hasAnswer &&
+                    review?.kind === 'placement' &&
                       (isCorrect ? 'bg-green-500/10' : 'bg-red-500/10')
                   )}
                 >
@@ -82,7 +193,7 @@ function SyllogismResults({
                     <div
                       className={cn(
                         'flex min-h-[50px] w-full items-center justify-center rounded-md border px-4 text-center text-sm',
-                        hasAnswer
+                        review?.kind === 'placement'
                           ? isCorrect
                             ? 'border-green-600/50 bg-green-500/10 dark:border-green-700/50'
                             : 'border-red-600/50 bg-red-500/10 dark:border-red-700/50'
@@ -96,7 +207,7 @@ function SyllogismResults({
                     <div
                       className={cn(
                         'flex h-9 w-20 items-center justify-center rounded-md border text-sm font-medium',
-                        !hasAnswer
+                        studentAnswer == null
                           ? 'border-dashed border-muted-foreground/50 text-muted-foreground'
                           : isCorrect
                             ? 'border-green-700 bg-green-50 text-green-800 dark:bg-green-950/40 dark:text-green-300'
@@ -105,14 +216,14 @@ function SyllogismResults({
                     >
                       {studentAnswer == null
                         ? '—'
-                        : studentAnswer
-                          ? 'Yes'
-                          : 'No'}
+                        : (tokenLabel.get(studentAnswer) ?? studentAnswer)}
                     </div>
                   </div>
                   <div className="flex items-center justify-center">
                     <div className="flex h-9 w-20 items-center justify-center rounded-md border border-border bg-card text-sm font-medium">
-                      {correctAnswer ? 'Yes' : 'No'}
+                      {correctAnswer == null
+                        ? 'Not placed'
+                        : (tokenLabel.get(correctAnswer) ?? correctAnswer)}
                     </div>
                   </div>
                 </div>
@@ -120,6 +231,7 @@ function SyllogismResults({
             })}
           </div>
         </div>
+        )}
       </section>
     </div>
   )
@@ -127,10 +239,11 @@ function SyllogismResults({
 
 function MultipleChoiceResults({
   question,
-  selectedOptionId,
-  result,
+  review,
 }: AttemptQuestionViewerProps) {
-  const correctOptionId = question.options.find((option) => option.isAnswer)?.id
+  const projected = review?.kind === 'single_select' ? review : null
+  const selectedOptionId = projected?.selectedOptionId
+  const correctOptionId = projected?.correctOptionId
   const answeredIncorrectly =
     selectedOptionId != null && selectedOptionId !== correctOptionId
 
@@ -160,8 +273,9 @@ function MultipleChoiceResults({
               answeredIncorrectly &&
               isSelected &&
               !isCorrect &&
-              result !== 'partial'
-            const isPartialSelection = isSelected && result === 'partial'
+              projected?.outcome !== 'partial'
+            const isPartialSelection =
+              isSelected && projected?.outcome === 'partial'
             const label = isCorrect
               ? answeredIncorrectly
                 ? 'Correct answer'
@@ -224,9 +338,15 @@ function MultipleChoiceResults({
 }
 
 export function AttemptQuestionViewer(props: AttemptQuestionViewerProps) {
-  return props.question.questionType === 'syllogism' ? (
-    <SyllogismResults {...props} />
+  const review = projectAttemptReview({
+    question: props.question,
+    selectedOptionId: props.selectedOptionId,
+    legacyPlacementSnapshot: props.legacyPlacementSnapshot,
+  })
+  return props.question.answerScheme === 'decision_making_binary_placement'
+    || props.question.answerScheme === 'situational_judgement_most_least' ? (
+    <PlacementResults {...props} review={review} />
   ) : (
-    <MultipleChoiceResults {...props} />
+    <MultipleChoiceResults {...props} review={review} />
   )
 }

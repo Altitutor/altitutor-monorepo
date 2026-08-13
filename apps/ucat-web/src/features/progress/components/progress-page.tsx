@@ -12,10 +12,15 @@ import { allocateSectionTargets } from "@/features/study-plan/lib/section-target
 import { useProgressSummary } from "../hooks/use-progress";
 import { useProgressSeries } from "../hooks/use-progress-series";
 import { calculateRecentWeightedMockScore } from "../lib/mock-progress-insights";
+import { buildTotalScoreInsight } from "../lib/score-insights";
 import { ProgressTrajectoryCanvas } from "./progress-trajectory-canvas";
 import { SectionProgressCards } from "./section-progress-cards";
 import { ReviewActivityCalendarCard } from "./review-activity-calendar-card";
-import { AnimatedFraction, AnimatedInteger, ProgressCircular } from "./progress-animated-display";
+import {
+  AnimatedFraction,
+  AnimatedInteger,
+  ProgressCircular,
+} from "./progress-animated-display";
 import { UCAT_CARD_CHROME, UCAT_DIVIDER_TOP } from "@/lib/ucat-surface-motion";
 import { cn } from "@/lib/utils";
 import { useUcatStaggerMotion } from "@/shared/hooks/use-ucat-stagger-motion";
@@ -179,16 +184,17 @@ export function ProgressPage() {
   const sectionTargets =
     plan?.generation?.sectionTargets ??
     (plan?.profile
-      ? allocateSectionTargets(
-          plan.profile.targetScore,
-          (scoreProjectionQuery.data?.sections ?? [])
+      ? allocateSectionTargets({
+          totalTarget: plan.profile.targetScore,
+          sections: (scoreProjectionQuery.data?.sections ?? [])
             .filter((section) => section.sectionNumber <= 3)
             .sort((left, right) => left.sectionNumber - right.sectionNumber)
             .map((section) => ({
               sectionId: section.sectionId,
               currentEstimate: section.currentEstimate,
+              confidence: section.confidence,
             })),
-        )
+        })
       : {});
 
   return (
@@ -251,26 +257,18 @@ export function ProgressPageContent({
     }));
   const statusLabel =
     currentEstimate == null
-      ? "Building baseline"
+      ? "Building estimate"
       : totalProjection?.confidence === "high"
-        ? "Strong evidence"
+        ? "Reliable estimate"
         : totalProjection?.confidence === "medium"
           ? "Estimate forming"
           : "Early estimate";
-  const insightTitle =
-    improvement != null && improvement >= 20
-      ? `Your estimate has improved by ${improvement} points`
-      : projectedGain != null && projectedGain > 0
-        ? `Your score is predicted to improve by about ${projectedGain} points over the next 90 days`
-        : currentEstimate == null
-          ? "Build your baseline one section at a time"
-          : "Your estimate is the starting point - not the verdict";
-  const insightBody =
-    currentEstimate == null
-      ? "Complete one timed set in each cognitive section to build a score estimate."
-      : benchmark.percentileLabel
-        ? `Your ${currentEstimate} estimate is around the ${benchmark.percentileLabel.toLowerCase()} against the published UCAT ANZ benchmark. The shaded range shows what the current evidence can support, not a guaranteed result.`
-        : "Keep adding timed evidence. The shaded range will narrow as the model sees more representative work across Sections 1–3.";
+  const insight = buildTotalScoreInsight({
+    currentEstimate,
+    improvement,
+    projectedGain,
+    benchmarkPercentileLabel: benchmark.percentileLabel,
+  });
 
   return (
     <motion.div
@@ -279,7 +277,7 @@ export function ProgressPageContent({
       initial="hidden"
       animate="show"
     >
-      <motion.div variants={itemVariants}>
+      <motion.div id="tour-progress-predicted-score" variants={itemVariants}>
         <ProgressTrajectoryCanvas
           title="Score progress"
           description={
@@ -294,9 +292,9 @@ export function ProgressPageContent({
           targetScore={targetScore}
           testDate={testDate}
           targetBreakdown={targetBreakdown}
-          insightTitle={insightTitle}
-          insightBody={insightBody}
-          ratingTargetKey="total-score-trajectory"
+          insightTitle={insight.title}
+          insightBody={insight.body}
+          insightRuleId={insight.ruleId}
           ratingContextKey="progress:total-score"
           insightMeta={
             <div>
@@ -325,12 +323,18 @@ export function ProgressPageContent({
         variants={itemVariants}
         className="mx-auto grid w-full max-w-[1400px] grid-cols-[repeat(auto-fit,minmax(min(100%,18rem),1fr))] gap-5 px-5 sm:px-6"
       >
-        <ReviewActivityCalendarCard
-          className="h-full"
-          previewData={activityPreviewData}
-        />
+        <div id="tour-progress-activity">
+          <ReviewActivityCalendarCard
+            className="h-full"
+            previewData={activityPreviewData}
+          />
+        </div>
 
-        <section aria-label="Sections" className="min-w-0">
+        <section
+          id="tour-progress-sections"
+          aria-label="Sections"
+          className="min-w-0"
+        >
           <SectionProgressCards
             sections={sections}
             linkToSection={linkToSections}
@@ -342,7 +346,9 @@ export function ProgressPageContent({
             mockTargetScore={targetScore}
           />
         </section>
-        <QuestionsCompletedCard sections={sections} className="h-full" />
+        <div id="tour-progress-questions-completed">
+          <QuestionsCompletedCard sections={sections} className="h-full" />
+        </div>
       </motion.div>
     </motion.div>
   );

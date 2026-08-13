@@ -618,6 +618,9 @@ export function AttemptPreviewPage({
         <Button asChild variant="ghost">
           <Link href="/dashboard/preview">Open dashboard state lab</Link>
         </Button>
+        <Button asChild variant="ghost">
+          <Link href="/insights/preview">Open insight gallery</Link>
+        </Button>
       </div>
     </div>
   );

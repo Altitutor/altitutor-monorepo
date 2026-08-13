@@ -1,4 +1,7 @@
-import { backgroundRepairPatchAllowed } from '@/features/ucat/questions/server/ai-assessment/verified-background-repair'
+import {
+  backgroundRepairPatchAllowed,
+  verifiedRepairFormValuesFromSnapshot,
+} from '@/features/ucat/questions/server/ai-assessment/verified-background-repair'
 import type {
   UcatAssessmentPatch,
   UcatAssessmentSnapshot,
@@ -29,6 +32,8 @@ const snapshot = {
     answerExplanation: null,
     answerExplanationPlain: '',
     questionType: 'multiple_choice',
+    responseType: 'multiple_choice',
+    answerScheme: 'single_choice',
     difficulty: null,
     timeBurdenSeconds: null,
     tagIds: [],
@@ -42,6 +47,7 @@ const snapshot = {
       answerExplanation: null,
       answerExplanationPlain: '',
       isAnswer: true,
+      answerKeyValue: 'correct',
       images: [],
     }],
   }],
@@ -67,6 +73,43 @@ function allowed(
 }
 
 describe('verified background repair policy', () => {
+  it('preserves Most/Least keys and fails closed on a legacy-only snapshot', () => {
+    const mostLeast = {
+      ...snapshot,
+      questions: [{
+        ...snapshot.questions[0],
+        answerScheme: 'situational_judgement_most_least' as const,
+        options: [
+          { ...snapshot.questions[0].options[0], answerKeyValue: 'most' as const },
+          {
+            ...snapshot.questions[0].options[0],
+            id: '40000000-0000-4000-8000-000000000002',
+            index: 2,
+            isAnswer: false,
+            answerKeyValue: 'least' as const,
+          },
+        ],
+      }],
+    } satisfies UcatAssessmentSnapshot
+
+    expect(verifiedRepairFormValuesFromSnapshot(mostLeast).questions[0].options)
+      .toMatchObject([{ answerKeyValue: 'most' }, { answerKeyValue: 'least' }])
+
+    const legacyOnly = {
+      ...snapshot,
+      questions: snapshot.questions.map((question) => ({
+        ...question,
+        options: question.options.map((option) => ({ ...option })),
+      })),
+    } as unknown as {
+      questions: Array<Record<string, unknown> & { options: Array<Record<string, unknown>> }>
+    }
+    delete legacyOnly.questions[0].responseType
+    expect(() => verifiedRepairFormValuesFromSnapshot(
+      legacyOnly as unknown as UcatAssessmentSnapshot,
+    )).toThrow('missing its canonical response contract')
+  })
+
   it('allows missing explanations and missing options only when a matching gate failed', () => {
     const explanationPatch: UcatAssessmentPatch = {
       operation: 'set_text',

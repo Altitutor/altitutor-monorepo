@@ -8,16 +8,9 @@ import {
 
 const paragraphStyle =
   "margin:0 0 18px;color:#394650;font-size:15px;line-height:1.7";
-const mutedStyle =
-  "margin:0;color:#68757e;font-size:13px;line-height:1.6";
 
 function textWithBreaks(value: string): string {
   return escapeEmailHtml(value).replaceAll("\n", "<br />");
-}
-
-function actionFallback(url: string): string {
-  const safeUrl = escapeEmailHtml(url);
-  return `<p class="email-muted" style="${mutedStyle}">If the button does not work, copy this link into your browser:<br /><a class="email-link" href="${safeUrl}" style="color:#0a2941;word-break:break-all">${safeUrl}</a></p>`;
 }
 
 export function buildInvitationEmail(input: {
@@ -47,7 +40,6 @@ export function buildInvitationEmail(input: {
       ${introductionHtml}
       <p class="email-copy" style="${paragraphStyle}">You’ve been invited to create your Altitutor account. Use the secure invitation below to get started.</p>
       ${renderEmailButton(input.inviteUrl, "Create account")}
-      ${actionFallback(input.inviteUrl)}
       <p class="email-muted" style="margin:18px 0 0;color:#68757e;font-size:13px;line-height:1.6">This invitation link expires in ${escapeEmailHtml(expiry)}. If you did not expect this invitation, you can safely ignore this email.</p>
     `,
   });
@@ -79,7 +71,6 @@ export function buildRegistrationEmail(input: {
       ${introductionHtml}
       <p class="email-copy" style="${paragraphStyle}">Please complete ${escapeEmailHtml(input.studentName)}’s student registration using the secure link below.</p>
       ${renderEmailButton(input.registrationUrl, "Complete registration")}
-      ${actionFallback(input.registrationUrl)}
       <p class="email-muted" style="margin:18px 0 0;color:#68757e;font-size:13px;line-height:1.6">If you did not expect this email, you can safely ignore it.</p>
     `,
   });
@@ -117,7 +108,6 @@ export function buildBookingConfirmationEmail(input: {
       ${introductionHtml}
       <p class="email-copy" style="${paragraphStyle}">Your booking confirmation${escapeEmailHtml(when)} is ready.</p>
       ${renderEmailButton(input.bookingUrl, "View booking confirmation")}
-      ${actionFallback(input.bookingUrl)}
     `,
   });
 }
@@ -143,7 +133,6 @@ export function buildBookingChangedEmail(
       <p class="email-copy" style="${paragraphStyle}">Hello ${escapeEmailHtml(input.recipientName)},</p>
       <p class="email-copy" style="${paragraphStyle}">Your booking has been updated to <strong class="email-strong" style="color:#0a2941">${escapeEmailHtml(input.sessionDate)}</strong> at <strong class="email-strong" style="color:#0a2941">${escapeEmailHtml(input.sessionTime)}</strong>.</p>
       ${renderEmailButton(input.bookingUrl, "View updated booking")}
-      ${actionFallback(input.bookingUrl)}
     `,
   });
 }
@@ -167,42 +156,79 @@ export function buildBookingCancelledEmail(
   });
 }
 
+export type InvoiceEmailLineItem = {
+  description: string;
+  amount: string;
+};
+
 export function buildInvoiceNotificationEmail(input: {
   invoiceNumber: string;
   invoiceDate: string;
   dueDate: string;
   amount: string;
+  paid: boolean;
+  lineItems?: InvoiceEmailLineItem[];
   hostedInvoiceUrl?: string;
   invoicePdfUrl?: string;
 }): RenderedEmail {
-  const heading = `Invoice ${input.invoiceNumber} is ready`;
+  const paid = input.paid;
+  const heading = paid
+    ? `Invoice ${input.invoiceNumber} has been paid`
+    : `Invoice ${input.invoiceNumber} is ready`;
+  const intro = paid
+    ? "Your Altitutor invoice has been paid."
+    : "Your Altitutor invoice is ready.";
+  const ctaLabel = paid ? "View invoice" : "Pay invoice";
+  const amountLabel = paid ? "Amount paid" : "Amount due";
   const hostedAction = input.hostedInvoiceUrl
-    ? renderEmailButton(input.hostedInvoiceUrl, "View and pay invoice") +
-      actionFallback(input.hostedInvoiceUrl)
+    ? renderEmailButton(input.hostedInvoiceUrl, ctaLabel)
     : "";
   const pdfAction = input.invoicePdfUrl
     ? `<p style="margin:18px 0 0;color:#394650;font-size:14px;line-height:1.6"><a class="email-link" href="${escapeEmailHtml(input.invoicePdfUrl)}" style="color:#0a2941;font-weight:600">Download invoice PDF</a></p>`
     : "";
+  const lineItems = input.lineItems ?? [];
+  const lineItemRowsHtml = lineItems
+    .map(
+      (item) =>
+        `<tr><td class="email-muted" style="padding:12px 20px;border-bottom:1px solid #d1e0e5;color:#52606a;font-size:14px">${escapeEmailHtml(item.description)}</td><td class="email-strong" align="right" style="padding:12px 20px;border-bottom:1px solid #d1e0e5;color:#223b4b;font-size:14px;font-weight:600;white-space:nowrap">${escapeEmailHtml(item.amount)}</td></tr>`,
+    )
+    .join("");
+  const lineItemsText = lineItems
+    .map((item) => `${item.description}: ${item.amount}`)
+    .join("\n");
   const textActions = [
     input.hostedInvoiceUrl ? `Hosted invoice: ${input.hostedInvoiceUrl}` : null,
     input.invoicePdfUrl ? `Invoice PDF: ${input.invoicePdfUrl}` : null,
   ]
     .filter((value): value is string => value !== null)
     .join("\n");
-  const bodyText = `Invoice date: ${input.invoiceDate}\nDue date: ${input.dueDate}\nAmount: ${input.amount}${textActions ? `\n\n${textActions}` : ""}`;
+  const bodyText = [
+    intro,
+    "",
+    `Invoice date: ${input.invoiceDate}`,
+    `Due date: ${input.dueDate}`,
+    ...(lineItemsText ? [lineItemsText] : []),
+    `${amountLabel}: ${input.amount}`,
+    ...(textActions ? ["", textActions] : []),
+  ].join("\n");
 
   return renderEmail({
     brand: "altitutor",
-    subject: `Invoice ${input.invoiceNumber} is ready — Altitutor`,
-    previewText: `Invoice ${input.invoiceNumber} for ${input.amount} is ready.`,
+    subject: paid
+      ? `Invoice ${input.invoiceNumber} has been paid — Altitutor`
+      : `Invoice ${input.invoiceNumber} is ready — Altitutor`,
+    previewText: paid
+      ? `Invoice ${input.invoiceNumber} for ${input.amount} has been paid.`
+      : `Invoice ${input.invoiceNumber} for ${input.amount} is ready.`,
     heading,
     bodyText,
     bodyHtml: `
-      <p class="email-copy" style="${paragraphStyle}">Your Altitutor invoice is ready. Stripe securely hosts the invoice and payment page.</p>
+      <p class="email-copy" style="${paragraphStyle}">${intro}</p>
       <table class="email-panel" role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" bgcolor="#eaf1f3" style="margin:22px 0;background-color:#eaf1f3;border:1px solid #d1e0e5;border-radius:12px">
-        <tr><td style="padding:12px 20px;border-bottom:1px solid #d1e0e5;color:#52606a;font-size:14px">Invoice date</td><td align="right" style="padding:12px 20px;border-bottom:1px solid #d1e0e5;color:#223b4b;font-size:14px;font-weight:600">${escapeEmailHtml(input.invoiceDate)}</td></tr>
-        <tr><td style="padding:12px 20px;border-bottom:1px solid #d1e0e5;color:#52606a;font-size:14px">Due date</td><td align="right" style="padding:12px 20px;border-bottom:1px solid #d1e0e5;color:#223b4b;font-size:14px;font-weight:600">${escapeEmailHtml(input.dueDate)}</td></tr>
-        <tr><td style="padding:14px 20px;color:#52606a;font-size:14px">Amount</td><td align="right" style="padding:14px 20px;color:#0a2941;font-size:18px;font-weight:700">${escapeEmailHtml(input.amount)}</td></tr>
+        <tr><td class="email-muted" style="padding:12px 20px;border-bottom:1px solid #d1e0e5;color:#52606a;font-size:14px">Invoice date</td><td class="email-strong" align="right" style="padding:12px 20px;border-bottom:1px solid #d1e0e5;color:#223b4b;font-size:14px;font-weight:600">${escapeEmailHtml(input.invoiceDate)}</td></tr>
+        <tr><td class="email-muted" style="padding:12px 20px;border-bottom:1px solid #d1e0e5;color:#52606a;font-size:14px">Due date</td><td class="email-strong" align="right" style="padding:12px 20px;border-bottom:1px solid #d1e0e5;color:#223b4b;font-size:14px;font-weight:600">${escapeEmailHtml(input.dueDate)}</td></tr>
+        ${lineItemRowsHtml}
+        <tr><td class="email-muted" style="padding:14px 20px;color:#52606a;font-size:14px">${amountLabel}</td><td class="email-accent" align="right" style="padding:14px 20px;color:#0a2941;font-size:18px;font-weight:700">${escapeEmailHtml(input.amount)}</td></tr>
       </table>
       ${hostedAction}
       ${pdfAction}

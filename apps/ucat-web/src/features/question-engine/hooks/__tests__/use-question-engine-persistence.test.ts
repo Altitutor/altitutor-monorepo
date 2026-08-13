@@ -27,7 +27,12 @@ const exam: QuestionEngineExam = {
       stemText: "Stem",
       questionText: "Seen question",
       questionType: "multiple_choice",
-      options: [],
+      responseType: "multiple_choice",
+      answerScheme: "single_choice",
+      options: [
+        { id: "option-1", index: 0, text: "A", answerKeyValue: "correct" },
+        { id: "option-2", index: 1, text: "B", answerKeyValue: null },
+      ],
     },
     {
       id: "question-2",
@@ -39,7 +44,12 @@ const exam: QuestionEngineExam = {
       stemText: "Stem",
       questionText: "Unseen question",
       questionType: "multiple_choice",
-      options: [],
+      responseType: "multiple_choice",
+      answerScheme: "single_choice",
+      options: [
+        { id: "option-3", index: 0, text: "A", answerKeyValue: "correct" },
+        { id: "option-4", index: 1, text: "B", answerKeyValue: null },
+      ],
     },
   ],
 };
@@ -59,10 +69,22 @@ describe("buildFinalExamQuestionAttempts", () => {
       expect.objectContaining({
         questionId: "question-1",
         questionAnswerOptionId: "option-1",
+        answerSnapshot: {
+          type: "ucat_response_v1",
+          questionId: "question-1",
+          answerScheme: "single_choice",
+          response: { kind: "single_select", selectedOptionId: "option-1" },
+        },
       }),
       expect.objectContaining({
         questionId: "question-2",
         questionAnswerOptionId: null,
+        answerSnapshot: {
+          type: "ucat_response_v1",
+          questionId: "question-2",
+          answerScheme: "single_choice",
+          response: { kind: "single_select", selectedOptionId: null },
+        },
       }),
     ]);
   });

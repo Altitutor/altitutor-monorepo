@@ -7,6 +7,7 @@ import { StudyPlanPreviewPage } from "@/features/study-plan/components/study-pla
 import { StudyPlanExtraStudyProvider } from "@/features/study-plan/components/study-plan-extra-study";
 import { LearningLessonPreviewPage } from "@/features/learning/components/learning-lesson-preview-page";
 import { MarketingPreviewLightMode } from "../marketing-preview-light-mode";
+import { requireDevelopmentPreview } from "@/features/development-preview/lib/development-preview";
 
 const SURFACES = [
   "dashboard",
@@ -32,9 +33,7 @@ export default function MarketingPreviewPage({
 }: {
   params: { surface: string };
 }) {
-  if (process.env.NODE_ENV === "production") {
-    notFound();
-  }
+  requireDevelopmentPreview();
 
   if (!SURFACES.includes(params.surface as MarketingPreviewSurface)) {
     notFound();

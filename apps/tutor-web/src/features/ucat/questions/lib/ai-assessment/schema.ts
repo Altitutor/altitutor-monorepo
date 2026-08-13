@@ -1,6 +1,7 @@
 import { z } from 'zod'
 import type { Json } from '@altitutor/shared'
 
+/** Keep in sync with public.ucat_current_ai_assessment_prompt_version(). */
 export const AI_ASSESSMENT_PROMPT_VERSION = 18
 
 export const UcatAssessmentCategorySchema = z.enum([
@@ -459,6 +460,7 @@ export type UcatAssessmentOptionSnapshot = {
   answerExplanation: Json | null
   answerExplanationPlain: string
   isAnswer: boolean
+  answerKeyValue?: 'correct' | 'yes' | 'no' | 'most' | 'least' | null
   images: UcatAssessmentImage[]
 }
 
@@ -470,6 +472,8 @@ export type UcatAssessmentQuestionSnapshot = {
   answerExplanation: Json | null
   answerExplanationPlain: string
   questionType: 'multiple_choice' | 'syllogism'
+  responseType?: 'multiple_choice' | 'drag_and_drop'
+  answerScheme?: 'single_choice' | 'situational_judgement_rating' | 'decision_making_binary_placement' | 'situational_judgement_most_least'
   sourceChannel?: 'individual' | 'bulk_import' | 'ai_generation' | null
   aiGenerationMetadata?: Json | null
   difficulty: number | null

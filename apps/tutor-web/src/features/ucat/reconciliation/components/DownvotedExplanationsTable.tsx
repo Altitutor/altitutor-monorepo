@@ -2,11 +2,13 @@
 
 import { Button, TableCell, TableRow } from '@altitutor/ui'
 import { ReconciliationTable } from './ReconciliationTable'
+import { getQuestionIssueDefinition } from '../lib/question-issue-definitions'
 import { useReconciliationData } from '@/features/ucat/reconciliation/hooks/useReconciliation'
 import type { DownvotedExplanation } from '@/features/ucat/reconciliation/api/reconciliation'
 import { proseMirrorToPlainText } from '@/features/ucat/shared/lib/rich-text'
 import { tutorBtnOutline, tutorTableBodyRow } from '@/shared/lib/tutor-visual'
 
+const ISSUE = getQuestionIssueDefinition('downvoted-explanations')
 const columns = [
   { key: 'section', label: 'Section', visibleByDefault: true },
   { key: 'question', label: 'Question', visibleByDefault: true },
@@ -19,13 +21,21 @@ function preview(value: unknown, max = 100) {
   return text.length > max ? `${text.slice(0, max).trim()}…` : text
 }
 
-export function DownvotedExplanationsTable({ onOpenStemDialog }: { onOpenStemDialog?: (stemId: string) => void }) {
+export function DownvotedExplanationsTable({
+  onOpenStemDialog,
+  showCountBadge = true,
+}: {
+  onOpenStemDialog?: (stemId: string) => void
+  showCountBadge?: boolean
+}) {
   const { data, isLoading } = useReconciliationData()
   const items = data?.downvotedExplanations ?? []
 
   return (
     <ReconciliationTable<DownvotedExplanation>
-      title="Downvoted explanations"
+      title={ISSUE.title}
+      description={ISSUE.description}
+      showCountBadge={showCountBadge}
       items={items}
       isLoading={isLoading}
       columnDefinitions={columns}

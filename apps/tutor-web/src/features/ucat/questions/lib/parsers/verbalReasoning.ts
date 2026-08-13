@@ -115,6 +115,8 @@ export function mapParsedVerbalReasoningToFormValues(
       .map((q) => ({
         questionText: toRichText(q.text),
         questionType: 'multiple_choice' as const,
+        responseType: 'multiple_choice' as const,
+        answerScheme: 'single_choice' as const,
         answerExplanation: null,
         difficulty: null,
         timeBurdenSeconds: '',
@@ -123,6 +125,7 @@ export function mapParsedVerbalReasoningToFormValues(
           answerText: toRichText(opt.text),
           answerExplanation: null,
           isAnswer: false,
+          answerKeyValue: null,
         })),
       }))
 

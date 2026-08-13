@@ -92,20 +92,38 @@ Deno.serve(async (req: Request) => {
       return json({ error: 'Registration token required' }, 400);
     }
 
-    // Validate token and get student (same validation as /api/register/validate)
-    const { data: student, error: studentError } = await supabaseService
-      .from('students')
-      .select('id, status, user_id')
-      .eq('invite_token', registrationToken)
+    const { data: revocation } = await supabaseService
+      .from('public_link_revocations')
+      .select('token')
+      .eq('purpose', 'REGISTRATION')
+      .eq('token', registrationToken)
       .maybeSingle();
 
-    if (studentError || !student) {
-      return json({ error: 'Invalid or expired registration token' }, 404);
+    if (revocation) {
+      return json({ error: 'Registration link was revoked' }, 404);
     }
 
-    // Security check: prevent reuse of token for already registered students
-    if (student.user_id && student.status === 'ACTIVE') {
+    const studentQuery = supabaseService
+      .from('students')
+      .select('id, status, user_id');
+    const isLegacyUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+      .test(registrationToken);
+    const { data: student, error: studentError } = isLegacyUuid
+      ? await studentQuery.or(
+          `registration_public_token.eq.${registrationToken},legacy_registration_token.eq.${registrationToken}`
+        ).maybeSingle()
+      : await studentQuery.eq('registration_public_token', registrationToken).maybeSingle();
+
+    if (studentError || !student) {
+      return json({ error: 'Invalid registration link' }, 404);
+    }
+
+    if (student.status === 'ACTIVE') {
       return json({ error: 'Student already registered' }, 400);
+    }
+
+    if (student.status !== 'TRIAL') {
+      return json({ error: 'Registration is unavailable for this student' }, 409);
     }
 
     authenticatedStudentId = student.id;

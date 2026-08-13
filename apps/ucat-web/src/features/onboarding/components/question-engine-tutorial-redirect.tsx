@@ -22,7 +22,8 @@ export function QuestionEngineTutorialRedirect() {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const router = useRouter();
-  const { isLoading, isBlocked } = useQuestionEngineTutorialGate();
+  const { isLoading, isBlocked, tutorialKind } =
+    useQuestionEngineTutorialGate();
   const { active, isLoading: activeLoading } = useActiveExamAttempt();
   const abandonedSessionRef = useRef<string | null>(null);
 
@@ -50,7 +51,7 @@ export function QuestionEngineTutorialRedirect() {
       }
     }
 
-    router.replace(buildQuestionEngineTutorialHref(returnTo));
+    router.replace(buildQuestionEngineTutorialHref(returnTo, tutorialKind));
   }, [
     active,
     activeLoading,
@@ -59,6 +60,7 @@ export function QuestionEngineTutorialRedirect() {
     pathname,
     router,
     searchParams,
+    tutorialKind,
   ]);
 
   return null;

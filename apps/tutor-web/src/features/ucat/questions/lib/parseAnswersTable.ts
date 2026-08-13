@@ -624,11 +624,11 @@ export function getAnswerTsvLineRowKinds(value: string): ('header' | 'data' | 'e
 }
 
 /** Convert letter A–E to option index 0–4. */
-export function letterToOptionIndex(letter: string): number {
+export function letterToOptionIndex(letter: string): number | null {
   const upper = (letter ?? '').charAt(0).toUpperCase()
   const idx = upper.charCodeAt(0) - 'A'.charCodeAt(0)
   if (idx >= 0 && idx <= 4) return idx
-  return 0
+  return null
 }
 
 // Accept Y / N plus common expansions like "ye", "yes", "no" (any casing, optional whitespace)

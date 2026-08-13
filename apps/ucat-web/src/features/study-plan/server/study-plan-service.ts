@@ -2,20 +2,41 @@ import "server-only";
 
 import { randomUUID } from "node:crypto";
 import type { Database, Json } from "@altitutor/shared";
-import { estimateUcatSectionScore } from "@altitutor/ucat-marking";
-import type { UcatScoringSection } from "@altitutor/ucat-marking";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { supabaseAdmin } from "@/lib/supabase/admin";
+import {
+  CURRENT_PREPARATION_VERSIONS,
+  parseRepresentativeScoreEvidence,
+  prepareStudent,
+  REPRESENTATIVE_SCORE_EVIDENCE_SELECT,
+  STANDARD_PREPARATION_TIMING_PROFILE,
+  type PreparationEngineResult,
+  type PreparationEngineInput,
+  type ActivityTagSignal,
+  type RepresentativeScoreEvidence,
+} from "@/features/preparation";
+import {
+  derivePreparationForecastEvidence,
+  mergeCurrentPreparationHistory,
+} from "@/features/preparation/lib/forecast-evidence";
+import {
+  hasPreparationSnapshot,
+  loadPreparationSnapshotHistory,
+  persistPreparationSnapshot,
+} from "@/features/preparation/server/preparation-snapshot";
+import { normalizeSjtPreference } from "@/features/preparation/lib/sjt-allocation-policy";
+import type {
+  BenchmarkMockAsset,
+  BenchmarkSetAsset,
+} from "@/features/preparation/lib/benchmark-selection";
+import {
+  PREPARATION_SANDBOX_PERSONAS,
+  type PreparationSandboxCase,
+} from "@/features/preparation/testing/sandbox";
 import {
   extractTextFromRichJson,
   type JsonLike,
 } from "@/features/question-engine/model/rich-text";
-import {
-  defaultSettings,
-  estimateSectionScore,
-  type AttemptEvidence,
-  type ScoreProjectionSettings,
-} from "@/features/score-projection/lib/model";
 import {
   addDays,
   midpointDate,
@@ -24,14 +45,22 @@ import {
 import {
   estimateReviewMinutes,
   generateExtraStudyTasks,
-  generateStudyPlan,
   reviewTask,
 } from "@/features/study-plan/lib/generator";
 import { estimateLearningModuleMinutes } from "@/features/study-plan/lib/module-duration";
-import { prepareStudyPlanTasks } from "@/features/study-plan/lib/persistence";
+import {
+  maximumTieredWholeStemDose,
+  maximumWholeStemDose,
+  pickStems,
+} from "@/features/practice/server/pick-stems";
+import { isLegacyDemandCapacityRiskMessage } from "@/features/study-plan/lib/capacity-risk-copy";
+import {
+  needsPreparationVersionReplacement,
+  planProfileTransition,
+  prepareStudyPlanTasks,
+} from "@/features/study-plan/lib/persistence";
 import {
   buildAlternativeNextStep,
-  buildNextStepDrafts,
   formatAttemptReviewLabel,
   resolveGuidanceTrigger,
   type BuildNextStepsInput,
@@ -47,7 +76,6 @@ import type {
   StudyPlanCapacityRisk,
   StudyPlanCategorySignal,
   StudyPlanExtraStudyInput,
-  StudyPlanGenerationResult,
   StudyGuidanceAlternativeInput,
   StudyGuidanceItem,
   StudyPlanLearningModule,
@@ -58,6 +86,8 @@ import type {
   StudyPlanSectionSignal,
   StudyPlanSkillTrainer,
   StudyPlanTask,
+  StudyPlanTaskStatus,
+  StudyPlanTimingEvidenceSession,
 } from "@/features/study-plan/model/types";
 
 type StudyPlanReason =
@@ -102,6 +132,19 @@ function shortSectionName(sectionNumber: number): string {
   );
 }
 
+function taskStatus(value: string): StudyPlanTaskStatus {
+  if (
+    value === "planned" ||
+    value === "in_progress" ||
+    value === "partial" ||
+    value === "completed" ||
+    value === "skipped"
+  ) {
+    return value;
+  }
+  return "planned";
+}
+
 function parseAvailability(
   value: Json,
 ): StudyPlanProfileInput["availableDays"] {
@@ -109,16 +152,33 @@ function parseAvailability(
   return value.flatMap((item) => {
     if (!item || typeof item !== "object" || Array.isArray(item)) return [];
     const weekday = item.weekday;
-    const maxMinutes = item.maxMinutes;
     if (
       typeof weekday !== "number" ||
-      typeof maxMinutes !== "number" ||
       weekday < 0 ||
       weekday > 6
     )
       return [];
-    return [{ weekday: weekday as 0 | 1 | 2 | 3 | 4 | 5 | 6, maxMinutes }];
+    return [{ weekday: weekday as 0 | 1 | 2 | 3 | 4 | 5 | 6 }];
   });
+}
+
+function profileInput(profile: ProfileRow): StudyPlanProfileInput {
+  return {
+    studyPlanEnabled: profile.study_plan_enabled,
+    targetScore: profile.target_score,
+    testYear: profile.test_year,
+    testDate: profile.test_date,
+    availableDays: parseAvailability(profile.available_days),
+    preferredMockWeekday: profile.preferred_mock_weekday as
+      | 0
+      | 1
+      | 2
+      | 3
+      | 4
+      | 5
+      | 6,
+    sjtPreference: normalizeSjtPreference(profile.sjt_preference),
+  };
 }
 
 async function resolveStudentId(userId: string): Promise<string> {
@@ -163,112 +223,28 @@ async function planningDateFor(profile: ProfileRow): Promise<{
   return { planningDate: `${profile.test_year}-07-15`, provisional: true };
 }
 
-function projectionSettings(
-  row:
-    | {
-        mock_source_weight: number | null;
-        set_source_weight: number | null;
-        practice_source_weight: number | null;
-        timed_weight: number | null;
-        slow_timed_weight: number | null;
-        untimed_weight: number | null;
-        recency_half_life_days: number | null;
-        min_practice_scored_points: number | null;
-        min_prediction_evidence_weight: number | null;
-      }
-    | undefined,
-): ScoreProjectionSettings {
-  const defaults = defaultSettings();
-  if (!row) return defaults;
-  return {
-    ...defaults,
-    mockSourceWeight: row.mock_source_weight ?? defaults.mockSourceWeight,
-    setSourceWeight: row.set_source_weight ?? defaults.setSourceWeight,
-    practiceSourceWeight:
-      row.practice_source_weight ?? defaults.practiceSourceWeight,
-    timedWeight: row.timed_weight ?? defaults.timedWeight,
-    slowTimedWeight: row.slow_timed_weight ?? defaults.slowTimedWeight,
-    untimedWeight: row.untimed_weight ?? defaults.untimedWeight,
-    recencyHalfLifeDays:
-      row.recency_half_life_days ?? defaults.recencyHalfLifeDays,
-    minPracticeScoredPoints:
-      row.min_practice_scored_points ?? defaults.minPracticeScoredPoints,
-    minPredictionEvidenceWeight:
-      row.min_prediction_evidence_weight ??
-      defaults.minPredictionEvidenceWeight,
-  };
-}
-
-function predictedScoreFromEvidence(
-  rows: Array<{
-    source: string | null;
-    completed_at: string | null;
-    score_points: number | null;
-    total_points: number | null;
-    was_timed: boolean | null;
-    student_exam_speed: number | null;
-  }>,
-  settings: ScoreProjectionSettings,
-  section: UcatScoringSection,
-): ReturnType<typeof estimateSectionScore> {
-  const evidence: AttemptEvidence[] = rows.flatMap((row) => {
-    if (
-      row.source !== "practice" &&
-      row.source !== "set" &&
-      row.source !== "mock"
-    )
-      return [];
-    if (
-      row.score_points == null ||
-      row.total_points == null ||
-      row.total_points <= 0
-    )
-      return [];
-    if (
-      row.source === "practice" &&
-      row.total_points < settings.minPracticeScoredPoints
-    )
-      return [];
-    const score = estimateUcatSectionScore({
-      section,
-      rawScore: row.score_points,
-      maxRawScore: row.total_points,
-    }).scaledScore;
-    const timestamp = row.completed_at
-      ? new Date(row.completed_at).getTime()
-      : Number.NaN;
-    if (score == null || !Number.isFinite(timestamp)) return [];
-    return [
-      {
-        source: row.source,
-        score,
-        scoredPoints: row.score_points,
-        totalPoints: row.total_points,
-        timestamp,
-        wasTimed: row.was_timed ?? false,
-        examSpeedRatio: row.student_exam_speed,
-      },
-    ];
-  });
-  return estimateSectionScore(evidence, settings, Date.now());
-}
-
 async function loadGenerationInputs(
   supabase: SupabaseClient<Database>,
   studentId: string,
+  testYear: number,
 ): Promise<{
   sections: StudyPlanSection[];
   signals: StudyPlanSectionSignal[];
   categories: StudyPlanCategorySignal[];
   learningModules: StudyPlanLearningModule[];
   skillTrainers: StudyPlanSkillTrainer[];
+  timingSessions: StudyPlanTimingEvidenceSession[];
+  scoreEvidence: RepresentativeScoreEvidence[];
   completedMockCount: number;
+  tagSignals: ActivityTagSignal[];
+  benchmarkSets: BenchmarkSetAsset[];
+  benchmarkMocks: BenchmarkMockAsset[];
+  lastLearningModuleServedAtBySection: Record<string, string>;
 }> {
   const admin = requireAdmin();
   const [
     sectionsRes,
     evidenceRes,
-    projectionSettingsRes,
     fullSetRes,
     completedBenchmarksRes,
     categoriesRes,
@@ -278,11 +254,22 @@ async function loadGenerationInputs(
     modulesRes,
     blocksRes,
     moduleCategoriesRes,
+    moduleTagsRes,
     trainersRes,
     trainerCategoriesRes,
     trainerItemsRes,
     trainerConfigsRes,
     mockRes,
+    graduationStatesRes,
+    timingEvidenceRes,
+    tagSignalsRes,
+    setCatalogRes,
+    setAttemptsRes,
+    mockCatalogRes,
+    mockAttemptsRes,
+    practiceInventoryRes,
+    lastLearningTasksRes,
+    practiceAttemptsRes,
   ] = await Promise.all([
     admin
       .from("ucat_sections")
@@ -292,14 +279,7 @@ async function loadGenerationInputs(
       .order("section_number"),
     supabase
       .from("vstudent_ucat_score_projection_evidence")
-      .select(
-        "source, section_id, completed_at, score_points, total_points, was_timed, student_exam_speed",
-      ),
-    admin
-      .from("ucat_score_projection_settings")
-      .select(
-        "section_id, mock_source_weight, set_source_weight, practice_source_weight, timed_weight, slow_timed_weight, untimed_weight, recency_half_life_days, min_practice_scored_points, min_prediction_evidence_weight",
-      ),
+      .select(REPRESENTATIVE_SCORE_EVIDENCE_SELECT),
     supabase
       .from("vstudent_ucat_section_set_progress")
       .select("section_id, total_completed"),
@@ -324,9 +304,8 @@ async function loadGenerationInputs(
     supabase
       .from("vstudent_ucat_learning_modules")
       .select(
-        "id, title, kind, ucat_section_id, study_plan_priority, completion_percent",
+        "id, title, kind, ucat_section_id, study_plan_priority, completion_percent, parent_ucat_learning_module_id, index",
       )
-      .eq("kind", "lesson")
       .neq("study_plan_priority", "excluded"),
     supabase
       .from("vstudent_ucat_learning_module_blocks")
@@ -336,6 +315,9 @@ async function loadGenerationInputs(
     admin
       .from("ucat_learning_module_question_stem_categories")
       .select("learning_module_id, question_stem_category_id"),
+    admin
+      .from("ucat_learning_module_question_tags")
+      .select("learning_module_id, question_tag_id"),
     admin
       .from("ucat_skill_trainers")
       .select("id, key, name, ucat_section_id")
@@ -357,11 +339,56 @@ async function loadGenerationInputs(
       .select("id", { count: "exact", head: true })
       .eq("student_id", studentId)
       .not("completed_at", "is", null),
+    supabase
+      .from("vstudent_ucat_preparation_section_states")
+      .select(
+        "section_id, learning_graduated_at, learning_graduation_route, policy_version, prescribed_pace, prescribed_pace_set_at, pace_policy_version",
+      )
+      .eq("test_year", testYear),
+    supabase
+      .from("vstudent_ucat_preparation_timing_evidence")
+      .select(
+        "evidence_session_id, source, section_id, completed_at, prescribed_pace, observed_pace, accuracy, section_equivalents, category_ids, breadth",
+      ),
+    supabase
+      .from("vstudent_ucat_activity_tag_signals")
+      .select(
+        "tag_id, section_id, category_id, available_question_count, independent_session_count, weakness_score",
+      ),
+    supabase
+      .from("vstudent_ucat_question_sets")
+      .select(
+        "id, name, sections, speed, time_limit_at_exam_speed_seconds, is_available_in_sets_library",
+      )
+      .eq("is_available_in_sets_library", true),
+    supabase
+      .from("vstudent_ucat_my_set_attempts")
+      .select("question_set_id, completed_at, student_ucat_mock_attempt_id")
+      .not("completed_at", "is", null),
+    supabase.from("vstudent_ucat_mocks").select("id, name"),
+    supabase
+      .from("vstudent_ucat_my_mock_attempts")
+      .select("ucat_mock_id, completed_at")
+      .not("completed_at", "is", null),
+    supabase
+      .from("vstudent_ucat_practice_stem_index")
+      .select(
+        "id, section_id, question_stem_category_id, question_ids, question_tag_ids",
+      ),
+    admin
+      .from("ucat_student_study_plan_tasks")
+      .select("section_id, scheduled_date, started_at, completed_at")
+      .eq("student_id", studentId)
+      .eq("task_type", "learn")
+      .in("status", ["in_progress", "completed"])
+      .not("section_id", "is", null),
+    supabase
+      .from("vstudent_ucat_my_question_attempts")
+      .select("question_id, score, is_submitted"),
   ]);
   for (const result of [
     sectionsRes,
     evidenceRes,
-    projectionSettingsRes,
     fullSetRes,
     completedBenchmarksRes,
     categoriesRes,
@@ -371,11 +398,22 @@ async function loadGenerationInputs(
     modulesRes,
     blocksRes,
     moduleCategoriesRes,
+    moduleTagsRes,
     trainersRes,
     trainerCategoriesRes,
     trainerItemsRes,
     trainerConfigsRes,
     mockRes,
+    graduationStatesRes,
+    timingEvidenceRes,
+    tagSignalsRes,
+    setCatalogRes,
+    setAttemptsRes,
+    mockCatalogRes,
+    mockAttemptsRes,
+    practiceInventoryRes,
+    lastLearningTasksRes,
+    practiceAttemptsRes,
   ]) {
     if (result.error) throw result.error;
   }
@@ -401,14 +439,6 @@ async function loadGenerationInputs(
       ];
     },
   );
-  const evidenceBySection = new Map<string, typeof evidenceRes.data>();
-  for (const row of evidenceRes.data ?? []) {
-    if (!row.section_id) continue;
-    evidenceBySection.set(row.section_id, [
-      ...(evidenceBySection.get(row.section_id) ?? []),
-      row,
-    ]);
-  }
   const fullSets = new Map(
     (fullSetRes.data ?? []).flatMap((row) =>
       row.section_id
@@ -423,27 +453,67 @@ async function loadGenerationInputs(
       Math.max(1, fullSets.get(benchmark.section_id) ?? 0),
     );
   }
-  const settingsBySection = new Map(
-    (projectionSettingsRes.data ?? []).flatMap((row) =>
-      row.section_id ? [[row.section_id, row] as const] : [],
-    ),
+  const scoreEvidence: RepresentativeScoreEvidence[] = (
+    evidenceRes.data ?? []
+  ).flatMap((row) => {
+    const evidence = parseRepresentativeScoreEvidence(row);
+    return evidence ? [evidence] : [];
+  });
+  const graduationBySection = new Map(
+    (graduationStatesRes.data ?? []).map((state) => [state.section_id, state]),
   );
   const signals = sections.map((section) => {
-    const evidence = evidenceBySection.get(section.id) ?? [];
-    const estimate = predictedScoreFromEvidence(
-      evidence,
-      projectionSettings(settingsBySection.get(section.id)),
-      section.key,
-    );
     const readinessEvidence = (readinessEvidenceRes.data ?? []).find(
       (row) =>
         row.readiness_scope === "section" && row.section_id === section.id,
     );
+    const completedTiming = (timingEvidenceRes.data ?? []).filter(
+      (row) => row.section_id === section.id,
+    );
+    const representativeTiming = completedTiming.filter(
+      (row) =>
+        row.breadth !== "narrow" &&
+        (row.prescribed_pace ?? row.observed_pace ?? 0) >= 0.5,
+    );
+    const representativeEquivalents = representativeTiming.reduce(
+      (sum, row) => sum + Math.max(0, row.section_equivalents ?? 0),
+      0,
+    );
+    const representativeAccuracyWeight = representativeTiming.reduce(
+      (sum, row) =>
+        sum +
+        (row.accuracy == null ? 0 : Math.max(0, row.section_equivalents ?? 0)),
+      0,
+    );
+    const representativeAccuracyScore = representativeTiming.reduce(
+      (sum, row) =>
+        sum + (row.accuracy ?? 0) * Math.max(0, row.section_equivalents ?? 0),
+      0,
+    );
+    const targetedTiming = completedTiming.filter(
+      (row) =>
+        row.source === "practice" && (row.section_equivalents ?? 0) < 0.9,
+    );
+    const targetedEquivalents = targetedTiming.reduce(
+      (sum, row) => sum + Math.max(0, row.section_equivalents ?? 0),
+      0,
+    );
+    const timingBenchmark = [...representativeTiming]
+      .filter((row) => (row.section_equivalents ?? 0) >= 0.9)
+      .sort((left, right) =>
+        (right.completed_at ?? "").localeCompare(left.completed_at ?? ""),
+      )[0];
+    const graduation = graduationBySection.get(section.id);
+    const learningGraduationRoute: "accuracy" | "experience" | null =
+      graduation?.learning_graduation_route === "accuracy" ||
+      graduation?.learning_graduation_route === "experience"
+        ? graduation.learning_graduation_route
+        : null;
     return {
       sectionId: section.id,
-      currentEstimate:
-        section.sectionNumber <= 3 ? estimate.currentEstimate : null,
-      evidenceCount: estimate.evidenceCount,
+      currentEstimate: null,
+      evidenceCount: 0,
+      scoreConfidence: null,
       completedFullSets: fullSets.get(section.id) ?? 0,
       attemptedQuestionCount: readinessEvidence?.attempted_question_count ?? 0,
       completedPracticeSessions:
@@ -454,6 +524,27 @@ async function loadGenerationInputs(
         readinessEvidence?.largest_practice_session_question_count ?? 0,
       recentAccuracy: readinessEvidence?.recent_accuracy ?? null,
       observedPace: readinessEvidence?.observed_pace ?? null,
+      representativeSessionCount: representativeTiming.length,
+      representativeSectionEquivalents: representativeEquivalents,
+      representativeAccuracy:
+        representativeAccuracyWeight > 0
+          ? representativeAccuracyScore / representativeAccuracyWeight
+          : null,
+      targetedPracticeSessionCount: targetedTiming.length,
+      targetedSectionEquivalents: targetedEquivalents,
+      benchmarkCompleted:
+        timingBenchmark != null || (fullSets.get(section.id) ?? 0) > 0,
+      benchmarkAccuracy: timingBenchmark?.accuracy ?? null,
+      benchmarkPace:
+        timingBenchmark?.prescribed_pace ??
+        timingBenchmark?.observed_pace ??
+        null,
+      learningGraduatedAt: graduation?.learning_graduated_at ?? null,
+      learningGraduationRoute,
+      learningGraduationPolicyVersion: graduation?.policy_version ?? null,
+      prescribedPace: graduation?.prescribed_pace ?? null,
+      prescribedPaceSetAt: graduation?.prescribed_pace_set_at ?? null,
+      pacePolicyVersion: graduation?.pace_policy_version ?? null,
     };
   });
   const categoryCounts = new Map(
@@ -522,6 +613,52 @@ async function loadGenerationInputs(
   const categorySignals = new Map(
     categories.map((category) => [category.id, category]),
   );
+  const attemptsByQuestionId = new Map<
+    string,
+    Array<{ score: number | null; isSubmitted: boolean }>
+  >();
+  for (const attempt of practiceAttemptsRes.data ?? []) {
+    if (!attempt.question_id) continue;
+    attemptsByQuestionId.set(attempt.question_id, [
+      ...(attemptsByQuestionId.get(attempt.question_id) ?? []),
+      { score: attempt.score, isSubmitted: attempt.is_submitted === true },
+    ]);
+  }
+  const questionStatus = (questionId: string) => {
+    const attempts = (attemptsByQuestionId.get(questionId) ?? []).filter(
+      (attempt) => attempt.isSubmitted,
+    );
+    if (!attempts.length) return "unanswered" as const;
+    return attempts.some((attempt) => (attempt.score ?? 0) > 0)
+      ? ("correct" as const)
+      : ("incorrect" as const);
+  };
+  const moduleRows = modulesRes.data ?? [];
+  const childrenByParent = new Map<string | null, typeof moduleRows>();
+  for (const moduleRow of moduleRows) {
+    const parentId = moduleRow.parent_ucat_learning_module_id ?? null;
+    childrenByParent.set(parentId, [
+      ...(childrenByParent.get(parentId) ?? []),
+      moduleRow,
+    ]);
+  }
+  const authoredOrderByModuleId = new Map<string, number>();
+  let authoredOrder = 0;
+  const visitModules = (parentId: string | null): void => {
+    const children = [...(childrenByParent.get(parentId) ?? [])].sort(
+      (left, right) =>
+        (left.index ?? 0) - (right.index ?? 0) ||
+        (left.id ?? "").localeCompare(right.id ?? ""),
+    );
+    for (const child of children) {
+      if (!child.id) continue;
+      if (child.kind === "lesson") {
+        authoredOrderByModuleId.set(child.id, authoredOrder++);
+      }
+      visitModules(child.id);
+    }
+  };
+  visitModules(null);
   const blocksByModule = new Map<
     string,
     Array<{
@@ -547,35 +684,95 @@ async function loadGenerationInputs(
       },
     ]);
   }
-  const learningModules: StudyPlanLearningModule[] = (
-    modulesRes.data ?? []
-  ).flatMap((module) => {
+  const learningModules: StudyPlanLearningModule[] = moduleRows.flatMap((moduleRow) => {
     if (
-      !module.id ||
-      !module.title ||
-      module.study_plan_priority === "excluded"
+      !moduleRow.id ||
+      !moduleRow.title ||
+      moduleRow.kind !== "lesson" ||
+      moduleRow.study_plan_priority === "excluded"
     )
       return [];
     const categoryIds = (moduleCategoriesRes.data ?? [])
-      .filter((link) => link.learning_module_id === module.id)
+      .filter((link) => link.learning_module_id === moduleRow.id)
       .map((link) => link.question_stem_category_id);
     const categoryScores = categoryIds.flatMap((categoryId) => {
       const signal = categorySignals.get(categoryId);
       return signal ? [signal.weaknessScore] : [];
     });
+    const questionTagIds = (moduleTagsRes.data ?? [])
+      .filter((link) => link.learning_module_id === moduleRow.id)
+      .map((link) => link.question_tag_id);
+    const strictStems = (practiceInventoryRes.data ?? []).filter(
+      (stem) =>
+        stem.section_id === moduleRow.ucat_section_id &&
+        (categoryIds.length === 0 ||
+          (stem.question_stem_category_id != null &&
+            categoryIds.includes(stem.question_stem_category_id))),
+    );
+    const preferredTagStems = strictStems.filter((stem) =>
+      (stem.question_tag_ids ?? []).some((tagId) =>
+        questionTagIds.includes(tagId),
+      ),
+    );
+    const tierQuestionCounts = [0, 1, 2, 3].map((tier) =>
+      strictStems.flatMap((stem) => {
+        const statuses = (stem.question_ids ?? []).map(questionStatus);
+        const allUnanswered = statuses.every((status) => status === "unanswered");
+        const anyIncorrect = statuses.some((status) => status === "incorrect");
+        const tagMatched = (stem.question_tag_ids ?? []).some((tagId) =>
+          questionTagIds.includes(tagId),
+        );
+        const stemTier = allUnanswered
+          ? tagMatched
+            ? 0
+            : 1
+          : tagMatched && anyIncorrect
+            ? 2
+            : 3;
+        return stemTier === tier ? [stem.question_ids?.length ?? 0] : [];
+      }),
+    );
+    let remainingTarget = 10;
+    const selectedDoseByTier = tierQuestionCounts.map((questionCounts) => {
+      const dose = maximumWholeStemDose(questionCounts, remainingTarget);
+      remainingTarget -= dose;
+      return dose;
+    });
     return [
       {
-        id: module.id,
-        title: module.title,
-        sectionId: module.ucat_section_id,
+        id: moduleRow.id,
+        title: moduleRow.title,
+        sectionId: moduleRow.ucat_section_id,
         sectionNumber:
-          sections.find((section) => section.id === module.ucat_section_id)
+          sections.find((section) => section.id === moduleRow.ucat_section_id)
             ?.sectionNumber ?? null,
-        priority: module.study_plan_priority ?? "recommended",
+        priority: moduleRow.study_plan_priority ?? "recommended",
         estimatedMinutes: estimateLearningModuleMinutes(
-          blocksByModule.get(module.id) ?? [],
+          blocksByModule.get(moduleRow.id) ?? [],
         ),
-        completionPercent: module.completion_percent ?? 0,
+        completionPercent: moduleRow.completion_percent ?? 0,
+        authoredOrder:
+          authoredOrderByModuleId.get(moduleRow.id) ?? Number.MAX_SAFE_INTEGER,
+        categoryIds,
+        questionTagIds,
+        targetedPracticeInventory: {
+          strictStemCount: strictStems.length,
+          strictQuestionCount: strictStems.reduce(
+            (sum, stem) => sum + (stem.question_ids?.length ?? 0),
+            0,
+          ),
+          preferredTagStemCount: preferredTagStems.length,
+          preferredTagQuestionCount: preferredTagStems.reduce(
+            (sum, stem) => sum + (stem.question_ids?.length ?? 0),
+            0,
+          ),
+          strictSelectableQuestionCount: maximumTieredWholeStemDose(
+            tierQuestionCounts,
+            10,
+          ),
+          preferredTagSelectableQuestionCount:
+            selectedDoseByTier[0] + selectedDoseByTier[2],
+        },
         relevanceScore: categoryScores.length
           ? categoryScores.reduce((sum, score) => sum + score, 0) /
             categoryScores.length
@@ -609,27 +806,339 @@ async function loadGenerationInputs(
       },
     ];
   });
+  const timingSessions: StudyPlanTimingEvidenceSession[] = (
+    timingEvidenceRes.data ?? []
+  ).flatMap((row) => {
+    if (
+      !row.evidence_session_id ||
+      !row.section_id ||
+      !row.completed_at ||
+      (row.source !== "practice" &&
+        row.source !== "set" &&
+        row.source !== "mock") ||
+      (row.breadth !== "broad" &&
+        row.breadth !== "mixed" &&
+        row.breadth !== "narrow")
+    ) {
+      return [];
+    }
+    return [
+      {
+        id: row.evidence_session_id,
+        sectionId: row.section_id,
+        source: row.source,
+        completedAt: row.completed_at,
+        prescribedPace: row.prescribed_pace,
+        observedPace: row.observed_pace,
+        accuracy: row.accuracy,
+        sectionEquivalents: Math.max(0, row.section_equivalents ?? 0),
+        breadth: row.breadth,
+        categoryIds: row.category_ids ?? [],
+      },
+    ];
+  });
+  const tagSignals: ActivityTagSignal[] = (tagSignalsRes.data ?? []).flatMap(
+    (row) =>
+      row.tag_id &&
+      row.section_id &&
+      row.category_id &&
+      row.available_question_count != null &&
+      row.independent_session_count != null
+        ? [
+            {
+              id: row.tag_id,
+              sectionId: row.section_id,
+              categoryId: row.category_id,
+              availableQuestionCount: row.available_question_count,
+              independentSessionCount: row.independent_session_count,
+              weaknessScore: Number(row.weakness_score ?? 0.5),
+            },
+          ]
+        : [],
+  );
+  const benchmarkSets: BenchmarkSetAsset[] = (setCatalogRes.data ?? []).flatMap(
+    (set) => {
+      if (!set.id || !Array.isArray(set.sections) || set.sections.length !== 1) {
+        return [];
+      }
+      const sectionJson = set.sections[0];
+      if (
+        sectionJson == null ||
+        typeof sectionJson !== "object" ||
+        Array.isArray(sectionJson)
+      ) {
+        return [];
+      }
+      const sectionNumber = Number(sectionJson.section_number);
+      const section = sections.find(
+        (candidate) => candidate.sectionNumber === sectionNumber,
+      );
+      const examSeconds = Number(set.time_limit_at_exam_speed_seconds ?? 0);
+      const pace = Number(set.speed ?? 0);
+      if (!section || examSeconds <= 0 || pace <= 0) return [];
+      return [
+        {
+          id: set.id,
+          name:
+            extractTextFromRichJson(set.name as JsonLike).trim() ||
+            `${section.shortName} set`,
+          sectionId: section.id,
+          questionCount: Math.max(
+            1,
+            Math.round(examSeconds / section.timePerQuestionSeconds),
+          ),
+          pace,
+          completedAttempts: (setAttemptsRes.data ?? []).flatMap((attempt) =>
+            attempt.question_set_id === set.id &&
+            attempt.student_ucat_mock_attempt_id == null &&
+            attempt.completed_at
+              ? [attempt.completed_at]
+              : [],
+          ),
+        },
+      ];
+    },
+  );
+  const benchmarkMocks: BenchmarkMockAsset[] = (
+    mockCatalogRes.data ?? []
+  ).flatMap((mock) =>
+    mock.id
+      ? [
+          {
+            id: mock.id,
+            name: mock.name?.trim() || "UCAT mock",
+            completedAttempts: (mockAttemptsRes.data ?? []).flatMap((attempt) =>
+              attempt.ucat_mock_id === mock.id && attempt.completed_at
+                ? [attempt.completed_at]
+                : [],
+            ),
+          },
+        ]
+      : [],
+  );
+  const lastLearningModuleServedAtBySection = Object.fromEntries(
+    [...(lastLearningTasksRes.data ?? [])]
+      .filter((task) => task.section_id)
+      .sort((left, right) => {
+        const leftAt = left.completed_at ?? left.started_at ?? left.scheduled_date;
+        const rightAt =
+          right.completed_at ?? right.started_at ?? right.scheduled_date;
+        return rightAt.localeCompare(leftAt);
+      })
+      .flatMap((task) =>
+        task.section_id
+          ? [[
+              task.section_id,
+              task.completed_at ?? task.started_at ?? task.scheduled_date,
+            ]]
+          : [],
+      )
+      .filter(
+        ([sectionId], index, rows) =>
+          rows.findIndex(([candidate]) => candidate === sectionId) === index,
+      ),
+  );
   return {
     sections,
     signals,
     categories,
     learningModules,
     skillTrainers,
+    timingSessions,
+    scoreEvidence,
+    tagSignals,
     completedMockCount: mockRes.count ?? 0,
+    benchmarkSets,
+    benchmarkMocks,
+    lastLearningModuleServedAtBySection,
   };
+}
+
+/** Read-only development catalog case for the Preparation sandbox. */
+export async function loadDevelopmentCatalogSandboxCase(
+  supabase: SupabaseClient<Database>,
+  userId: string,
+): Promise<PreparationSandboxCase> {
+  const student = await resolveStudent(userId);
+  const base = PREPARATION_SANDBOX_PERSONAS["new-student"];
+  const inputs = await loadGenerationInputs(
+    supabase,
+    student.id,
+    base.input.goal.profile.testYear,
+  );
+  const catalogCase: PreparationSandboxCase = {
+    ...base,
+    key: "development-catalog",
+    label: "Development catalog",
+    description:
+      "Synthetic preparation evidence fulfilled against the real development catalog and the signed-in tester's real Practice attempt history.",
+    input: {
+      ...base.input,
+      seed: "sandbox:development-catalog:v1",
+      content: {
+        sections: inputs.sections,
+        categories: inputs.categories,
+        learningModules: inputs.learningModules,
+        skillTrainers: inputs.skillTrainers,
+        tagSignals: inputs.tagSignals,
+        benchmarkSets: inputs.benchmarkSets,
+        benchmarkMocks: inputs.benchmarkMocks,
+      },
+      evidence: {
+        sectionSignals: inputs.sections.map((section) => ({
+          sectionId: section.id,
+          currentEstimate: null,
+          evidenceCount: 0,
+          completedFullSets: 0,
+        })),
+        completedMockCount: 0,
+        lastLearningModuleServedAtBySection:
+          inputs.lastLearningModuleServedAtBySection,
+      },
+    },
+  };
+  const preliminary = prepareStudent(catalogCase.input);
+  const scheduledModuleIds = new Set(
+    preliminary.plan.tasks.flatMap((task) =>
+      task.taskType === "learn" && task.learningModuleId
+        ? [task.learningModuleId]
+        : [],
+    ),
+  );
+  const diagnostics = new Map(
+    await Promise.all(
+      catalogCase.input.content.learningModules
+        .filter((module) => scheduledModuleIds.has(module.id))
+        .flatMap((module) => {
+          const section = catalogCase.input.content.sections.find(
+            (candidate) => candidate.id === module.sectionId,
+          );
+          if (!section) return [];
+          return [
+            pickStems(
+              supabase,
+              {
+                section: section.key,
+                questionCount: 10,
+                categoryIds: module.categoryIds ?? [],
+                questionTagIds: module.questionTagIds ?? [],
+                linkedLearningPractice: true,
+                unansweredOnly: false,
+                incorrectOnly: false,
+                timeMode: "off",
+                timeSpeedMultiplier: 1,
+                customTimeMinutes: null,
+                timePerQuestionSeconds: null,
+              },
+              { allowOversizedFallback: false, deterministic: true },
+            ).then((result) => [module.id, result] as const),
+          ];
+        }),
+    ),
+  );
+  return {
+    ...catalogCase,
+    input: {
+      ...catalogCase.input,
+      content: {
+        ...catalogCase.input.content,
+        learningModules: catalogCase.input.content.learningModules.map(
+          (module) => {
+            const diagnostic = diagnostics.get(module.id);
+            if (!diagnostic) return module;
+            return {
+              ...module,
+              targetedPracticeInventory: {
+                ...(module.targetedPracticeInventory ?? {
+                  strictStemCount: 0,
+                  strictQuestionCount: 0,
+                  preferredTagStemCount: 0,
+                  preferredTagQuestionCount: 0,
+                }),
+                strictSelectableQuestionCount: diagnostic.questionCount,
+                selectedStemIds: diagnostic.chosenStemIds,
+                selectionTrace: diagnostic.selectionTrace,
+              },
+            };
+          },
+        ),
+      },
+    },
+  };
+}
+
+async function persistPreparationProgression(
+  studentId: string,
+  testYear: number,
+  preparation: PreparationEngineResult,
+): Promise<void> {
+  const graduationEvents = preparation.progressionEvents.filter(
+    (event) => event.type === "learning_graduated",
+  );
+  const rows = graduationEvents.map((event) => ({
+    student_id: studentId,
+    test_year: testYear,
+    section_id: event.sectionId,
+    learning_graduated_at: event.occurredAt,
+    learning_graduation_route: event.route,
+    policy_version: event.policyVersion,
+    evidence_snapshot: {
+      assessment: preparation.assessment.sections.find(
+        (section) => section.sectionId === event.sectionId,
+      ),
+      score: preparation.currentScore.sections.find(
+        (section) => section.sectionId === event.sectionId,
+      ),
+    },
+  }));
+  const admin = requireAdmin();
+  if (rows.length) {
+    const { error } = await admin
+      .from("ucat_student_preparation_section_states")
+      .upsert(rows, {
+        onConflict: "student_id,test_year,section_id",
+        ignoreDuplicates: true,
+      });
+    if (error) throw error;
+  }
+  const timingEvents = preparation.progressionEvents.filter(
+    (event) => event.type === "timing_pace_changed",
+  );
+  await Promise.all(
+    timingEvents.map(async (event) => {
+      const { error } = await admin
+        .from("ucat_student_preparation_section_states")
+        .update({
+          prescribed_pace: event.toPace,
+          prescribed_pace_set_at: event.occurredAt,
+          pace_policy_version: event.policyVersion,
+          timing_evidence_snapshot: {
+            reason: event.reason,
+            assessment: preparation.assessment.sections.find(
+              (section) => section.sectionId === event.sectionId,
+            ),
+          },
+        })
+        .eq("student_id", studentId)
+        .eq("test_year", testYear)
+        .eq("section_id", event.sectionId);
+      if (error) throw error;
+    }),
+  );
 }
 
 async function persistGeneration(
   studentId: string,
   profile: ProfileRow,
   planningDate: string,
-  result: StudyPlanGenerationResult,
+  preparation: PreparationEngineResult,
   reason: StudyPlanReason,
   completedMockCount: number,
   signals: StudyPlanSectionSignal[],
 ): Promise<void> {
   const admin = requireAdmin();
-  const generatedAt = new Date().toISOString();
+  const result = preparation.plan;
+  const generatedAt = preparation.generatedAt;
   const preserveThrough = reason === "onboarding" ? null : todayIso();
   if (preserveThrough) {
     const { data: activeGeneration, error: generationError } = await admin
@@ -683,17 +1192,25 @@ async function persistGeneration(
     p_starts_on: todayIso(),
     p_ends_on: result.endsOn,
     p_input_snapshot: {
+      seed: preparation.seed,
+      versions: preparation.versions,
+      timingProfile: preparation.timingProfile,
       targetScore: profile.target_score,
       testYear: profile.test_year,
       testDate: profile.test_date,
       availableDays: profile.available_days,
       preferredMockWeekday: profile.preferred_mock_weekday,
+      sjtPreference: normalizeSjtPreference(profile.sjt_preference),
       completedMockCount,
     },
     p_projection_snapshot: {
+      versions: preparation.versions,
       sectionTargets: result.sectionTargets,
       sectionSignals: signals,
       readiness: result.readiness,
+      currentScore: preparation.currentScore,
+      trajectory: preparation.trajectory,
+      explanationTrace: preparation.explanationTrace,
     },
     p_capacity_risk: result.capacityRisk as unknown as Json,
     p_tasks: taskRows as unknown as Json,
@@ -704,6 +1221,137 @@ async function persistGeneration(
   if (error) throw error;
 }
 
+async function loadForecastEvidence(
+  supabase: SupabaseClient<Database>,
+  studentId: string,
+  today: string,
+  timingSessions: StudyPlanTimingEvidenceSession[],
+  sections: StudyPlanSection[],
+) {
+  const admin = requireAdmin();
+  const [generationResult, preparationHistory] = await Promise.all([
+    admin
+      .from("ucat_student_study_plan_generations")
+      .select("id, generated_at, superseded_at, projection_snapshot")
+      .eq("student_id", studentId)
+      .order("generated_at", { ascending: false }),
+    loadPreparationSnapshotHistory(supabase),
+  ]);
+  const { data: generations, error: generationError } = generationResult;
+  if (generationError) throw generationError;
+
+  const activeGeneration = (generations ?? []).find(
+    (generation) => generation.superseded_at == null,
+  );
+  let tasks: Array<{
+    scheduled_date: string;
+    status: string;
+    launch_config: Json;
+  }> = [];
+  if (activeGeneration) {
+    const { data: taskRows, error: tasksError } = await admin
+      .from("ucat_student_study_plan_tasks")
+      .select("status, scheduled_date, launch_config")
+      .eq("generation_id", activeGeneration.id);
+    if (tasksError) throw tasksError;
+    tasks = taskRows ?? [];
+  }
+
+  return derivePreparationForecastEvidence({
+    today,
+    versions: CURRENT_PREPARATION_VERSIONS,
+    activePlanSnapshot: activeGeneration
+      ? {
+          generatedAt: activeGeneration.generated_at,
+          projectionSnapshot: activeGeneration.projection_snapshot,
+        }
+      : null,
+    historySnapshots: [
+      ...(generations ?? []).map((generation) => ({
+        generatedAt: generation.generated_at,
+        projectionSnapshot: generation.projection_snapshot,
+      })),
+      ...preparationHistory,
+    ],
+    activeGenerationTasks: tasks.map((task) => ({
+      scheduledDate: task.scheduled_date,
+      status: taskStatus(task.status),
+      optional:
+        task.launch_config != null &&
+        typeof task.launch_config === "object" &&
+        !Array.isArray(task.launch_config) &&
+        task.launch_config.optional === true,
+    })),
+    timingSessions,
+    cognitiveSectionIds: new Set(
+      sections
+        .filter((section) => section.sectionNumber <= 3)
+        .map((section) => section.id),
+    ),
+  });
+}
+
+type CanonicalPreparationInputs = {
+  sections: StudyPlanSection[];
+  signals: StudyPlanSectionSignal[];
+  categories: StudyPlanCategorySignal[];
+  learningModules: StudyPlanLearningModule[];
+  skillTrainers: StudyPlanSkillTrainer[];
+  tagSignals?: ActivityTagSignal[];
+  timingSessions: StudyPlanTimingEvidenceSession[];
+  scoreEvidence: RepresentativeScoreEvidence[];
+  completedMockCount: number;
+  benchmarkSets: BenchmarkSetAsset[];
+  benchmarkMocks: BenchmarkMockAsset[];
+  lastLearningModuleServedAtBySection: Record<string, string>;
+};
+
+async function runCanonicalPreparation(input: {
+  supabase: SupabaseClient<Database>;
+  studentId: string;
+  profile: StudyPlanProfileInput;
+  planningDate: string;
+  inputs: CanonicalPreparationInputs;
+  today: string;
+  now: string;
+  seed: string;
+  guidance?: PreparationEngineInput["guidance"];
+}): Promise<PreparationEngineResult> {
+  const forecast = await loadForecastEvidence(
+    input.supabase,
+    input.studentId,
+    input.today,
+    input.inputs.timingSessions,
+    input.inputs.sections,
+  );
+  return prepareStudent({
+    clock: { now: input.now, today: input.today },
+    seed: input.seed,
+    versions: CURRENT_PREPARATION_VERSIONS,
+    timingProfile: STANDARD_PREPARATION_TIMING_PROFILE,
+    goal: { planningDate: input.planningDate, profile: input.profile },
+    content: {
+      sections: input.inputs.sections,
+      categories: input.inputs.categories,
+      learningModules: input.inputs.learningModules,
+      skillTrainers: input.inputs.skillTrainers,
+      tagSignals: input.inputs.tagSignals,
+      benchmarkSets: input.inputs.benchmarkSets,
+      benchmarkMocks: input.inputs.benchmarkMocks,
+    },
+    evidence: {
+      sectionSignals: input.inputs.signals,
+      timingSessions: input.inputs.timingSessions,
+      scoreEvidence: input.inputs.scoreEvidence,
+      completedMockCount: input.inputs.completedMockCount,
+      lastLearningModuleServedAtBySection:
+        input.inputs.lastLearningModuleServedAtBySection,
+      forecast,
+    },
+    guidance: input.guidance,
+  });
+}
+
 async function generateForProfile(
   supabase: SupabaseClient<Database>,
   studentId: string,
@@ -711,36 +1359,103 @@ async function generateForProfile(
   reason: StudyPlanReason,
 ): Promise<void> {
   const { planningDate } = await planningDateFor(profile);
-  const inputs = await loadGenerationInputs(supabase, studentId);
-  const result = generateStudyPlan({
-    today: todayIso(),
+  const inputs = await loadGenerationInputs(
+    supabase,
+    studentId,
+    profile.test_year,
+  );
+  const now = new Date();
+  const today = todayIso(now);
+  const generatedPreparation = await runCanonicalPreparation({
+    supabase,
+    studentId,
+    profile: { ...profileInput(profile), studyPlanEnabled: true },
     planningDate,
-    profile: {
-      studyPlanEnabled: true,
-      targetScore: profile.target_score,
-      testYear: profile.test_year,
-      testDate: profile.test_date,
-      availableDays: parseAvailability(profile.available_days),
-      preferredMockWeekday: profile.preferred_mock_weekday as
-        | 0
-        | 1
-        | 2
-        | 3
-        | 4
-        | 5
-        | 6,
-    },
-    ...inputs,
+    inputs,
+    today,
+    now: now.toISOString(),
+    seed: `study-plan:${studentId}:${reason}:${today}`,
   });
+  const preparation: PreparationEngineResult = {
+    ...generatedPreparation,
+    trajectory: {
+      ...generatedPreparation.trajectory,
+      history: mergeCurrentPreparationHistory(
+        generatedPreparation.trajectory.history,
+        generatedPreparation.currentScore,
+        today,
+        generatedPreparation.versions.trajectoryModel,
+      ),
+    },
+  };
+  await persistPreparationProgression(
+    studentId,
+    profile.test_year,
+    preparation,
+  );
   await persistGeneration(
     studentId,
     profile,
     planningDate,
-    result,
+    preparation,
     reason,
     inputs.completedMockCount,
     inputs.signals,
   );
+}
+
+export async function getCurrentPreparation(
+  supabase: SupabaseClient<Database>,
+  _userId: string,
+): Promise<PreparationEngineResult> {
+  const { data: profileView, error } = await supabase
+    .from("vstudent_ucat_study_plan_profiles")
+    .select("*")
+    .maybeSingle();
+  if (error) throw error;
+  if (!profileView) throw new Error("Set your UCAT goal first.");
+  const profile = profileView as ProfileRow;
+  const { data: student, error: studentError } = await supabase
+    .from("vstudent_ucat_my_activity_start")
+    .select("timezone")
+    .maybeSingle();
+  if (studentError) throw studentError;
+
+  const [{ planningDate }, inputs] = await Promise.all([
+    planningDateFor(profile),
+    loadGenerationInputs(supabase, profile.student_id, profile.test_year),
+  ]);
+  const now = new Date();
+  const today = todayIso(now, student?.timezone || "Australia/Adelaide");
+  const generatedPreparation = await runCanonicalPreparation({
+    supabase,
+    studentId: profile.student_id,
+    profile: profileInput(profile),
+    planningDate,
+    inputs,
+    today,
+    now: now.toISOString(),
+    seed: `current-preparation:${profile.student_id}:${today}`,
+  });
+  const preparation: PreparationEngineResult = {
+    ...generatedPreparation,
+    trajectory: {
+      ...generatedPreparation.trajectory,
+      history: mergeCurrentPreparationHistory(
+        generatedPreparation.trajectory.history,
+        generatedPreparation.currentScore,
+        today,
+        generatedPreparation.versions.trajectoryModel,
+      ),
+    },
+  };
+  await persistPreparationProgression(
+    profile.student_id,
+    profile.test_year,
+    preparation,
+  );
+  await persistPreparationSnapshot(profile.student_id, today, preparation);
+  return preparation;
 }
 
 async function linkCompanionReview(
@@ -748,7 +1463,7 @@ async function linkCompanionReview(
   sourceTask: TaskRow,
   activity: {
     id: string;
-    type: "practice_session" | "mock_attempt";
+    type: "practice_session" | "set_attempt" | "mock_attempt";
     questionCount: number | null;
   },
 ): Promise<void> {
@@ -766,6 +1481,8 @@ async function linkCompanionReview(
   const launchPath =
     activity.type === "mock_attempt"
       ? `/progress/mocks/mock-attempts/${activity.id}`
+      : activity.type === "set_attempt"
+        ? `/progress/set-attempts/${activity.id}`
       : `/progress/practice-sessions/${activity.id}`;
   if (
     review.matched_activity_type === activity.type &&
@@ -816,13 +1533,14 @@ async function reconcileTasks(
     if (
       sourceTask.matched_activity_id &&
       (sourceTask.matched_activity_type === "practice_session" ||
+        sourceTask.matched_activity_type === "set_attempt" ||
         sourceTask.matched_activity_type === "mock_attempt")
     ) {
       await linkCompanionReview(tasks, sourceTask, {
         id: sourceTask.matched_activity_id,
         type: sourceTask.matched_activity_type,
         questionCount:
-          sourceTask.matched_activity_type === "practice_session"
+          sourceTask.matched_activity_type !== "mock_attempt"
             ? sourceTask.completed_units
             : null,
       });
@@ -836,7 +1554,7 @@ async function reconcileTasks(
         : earliest,
     generation.generated_at,
   );
-  const [learningRes, practiceRes, mockRes, trainerRes] = await Promise.all([
+  const [learningRes, practiceRes, setRes, mockRes, trainerRes] = await Promise.all([
     admin
       .from("ucat_student_learning_module_progress")
       .select("id, learning_module_id, completion_percent, completed_at")
@@ -850,8 +1568,15 @@ async function reconcileTasks(
       .gte("started_at", evidenceSince)
       .order("started_at"),
     admin
+      .from("student_question_set_attempts")
+      .select("id, question_set_id, attempted_at, completed_at, total_points")
+      .eq("student_id", studentId)
+      .is("student_ucat_mock_attempt_id", null)
+      .gte("attempted_at", evidenceSince)
+      .order("attempted_at"),
+    admin
       .from("student_ucat_mock_attempts")
-      .select("id, attempted_at, completed_at")
+      .select("id, ucat_mock_id, attempted_at, completed_at")
       .eq("student_id", studentId)
       .gte("attempted_at", evidenceSince)
       .order("attempted_at"),
@@ -862,7 +1587,7 @@ async function reconcileTasks(
       .gte("started_at", evidenceSince)
       .order("started_at"),
   ]);
-  for (const result of [learningRes, practiceRes, mockRes, trainerRes]) {
+  for (const result of [learningRes, practiceRes, setRes, mockRes, trainerRes]) {
     if (result.error) throw result.error;
   }
   const usedActivities = new Set<string>(
@@ -877,7 +1602,7 @@ async function reconcileTasks(
       | null = null;
     let reviewActivity: {
       id: string;
-      type: "practice_session" | "mock_attempt";
+      type: "practice_session" | "set_attempt" | "mock_attempt";
       questionCount: number | null;
     } | null = null;
     if (task.task_type === "learn" && task.learning_module_id) {
@@ -909,10 +1634,29 @@ async function reconcileTasks(
           matched_activity_id: progress!.id,
         };
       }
-    } else if (
-      ["practice", "section_benchmark"].includes(task.task_type) &&
-      task.section_id
-    ) {
+    } else if (task.task_type === "section_benchmark" && task.question_set_id) {
+      const attempt = setRes.data?.find(
+        (item) =>
+          item.question_set_id === task.question_set_id &&
+          !usedActivities.has(item.id) &&
+          item.completed_at,
+      );
+      if (attempt?.completed_at) {
+        usedActivities.add(attempt.id);
+        update = {
+          status: "completed",
+          completed_at: attempt.completed_at,
+          completed_units: task.target_units ?? attempt.total_points ?? 1,
+          matched_activity_type: "set_attempt",
+          matched_activity_id: attempt.id,
+        };
+        reviewActivity = {
+          id: attempt.id,
+          type: "set_attempt",
+          questionCount: task.target_units,
+        };
+      }
+    } else if (task.task_type === "practice" && task.section_id) {
       const candidate = (practiceRes.data ?? []).flatMap((session) => {
         if (
           usedActivities.has(session.id) &&
@@ -923,10 +1667,7 @@ async function reconcileTasks(
           {
             taskId: task.id,
             sectionId: task.section_id!,
-            questionStemCategoryId:
-              task.task_type === "section_benchmark"
-                ? null
-                : task.question_stem_category_id,
+            questionStemCategoryId: task.question_stem_category_id,
             targetUnits: task.target_units,
           },
           {
@@ -957,7 +1698,10 @@ async function reconcileTasks(
       }
     } else if (task.task_type === "mock") {
       const attempt = mockRes.data?.find(
-        (item) => !usedActivities.has(item.id) && item.completed_at,
+        (item) =>
+          (!task.mock_id || item.ucat_mock_id === task.mock_id) &&
+          !usedActivities.has(item.id) &&
+          item.completed_at,
       );
       if (attempt?.completed_at) {
         usedActivities.add(attempt.id);
@@ -1043,24 +1787,36 @@ function mapTask(row: TaskRow): StudyPlanTask {
 function readCapacityRisk(value: Json | null): StudyPlanCapacityRisk {
   const fallback: StudyPlanCapacityRisk = {
     level: "none",
-    availableMinutesPerWeek: 0,
-    recommendedMinutesPerWeek: 0,
+    availableStudyDaysPerWeek: 0,
+    recommendedStudyDaysPerWeek: 0,
+    outstandingSectionEquivalents: 0,
+    schedulableSectionEquivalents: 0,
     message: null,
   };
   if (!value || typeof value !== "object" || Array.isArray(value))
     return fallback;
   const record = value as Record<string, Json | undefined>;
+  const message = typeof record.message === "string" ? record.message : null;
+  if (isLegacyDemandCapacityRiskMessage(message)) return fallback;
   return {
     level: record.level === "warning" ? "warning" : "none",
-    availableMinutesPerWeek:
-      typeof record.availableMinutesPerWeek === "number"
-        ? record.availableMinutesPerWeek
+    availableStudyDaysPerWeek:
+      typeof record.availableStudyDaysPerWeek === "number"
+        ? record.availableStudyDaysPerWeek
         : 0,
-    recommendedMinutesPerWeek:
-      typeof record.recommendedMinutesPerWeek === "number"
-        ? record.recommendedMinutesPerWeek
+    recommendedStudyDaysPerWeek:
+      typeof record.recommendedStudyDaysPerWeek === "number"
+        ? record.recommendedStudyDaysPerWeek
         : 0,
-    message: typeof record.message === "string" ? record.message : null,
+    outstandingSectionEquivalents:
+      typeof record.outstandingSectionEquivalents === "number"
+        ? record.outstandingSectionEquivalents
+        : 0,
+    schedulableSectionEquivalents:
+      typeof record.schedulableSectionEquivalents === "number"
+        ? record.schedulableSectionEquivalents
+        : 0,
+    message,
   };
 }
 
@@ -1308,10 +2064,18 @@ async function loadNextStepBuildInput(
     BuildNextStepsInput,
     "today" | "dailyWarmup" | "incompleteReview"
   >,
-): Promise<BuildNextStepsInput> {
+): Promise<
+  BuildNextStepsInput & {
+    timingSessions: StudyPlanTimingEvidenceSession[];
+    scoreEvidence: RepresentativeScoreEvidence[];
+    benchmarkSets: BenchmarkSetAsset[];
+    benchmarkMocks: BenchmarkMockAsset[];
+    lastLearningModuleServedAtBySection: Record<string, string>;
+  }
+> {
   const admin = requireAdmin();
   const [inputs, trainerAttempts, planning] = await Promise.all([
-    loadGenerationInputs(supabase, studentId),
+    loadGenerationInputs(supabase, studentId, profile.test_year),
     admin
       .from("student_skill_trainer_attempts")
       .select("skill_trainer_id")
@@ -1330,6 +2094,8 @@ async function loadNextStepBuildInput(
   return {
     ...options,
     planningDate: planning.planningDate,
+    targetScore: profile.target_score,
+    sjtPreference: normalizeSjtPreference(profile.sjt_preference),
     ...inputs,
     trainerAttemptCounts,
   };
@@ -1388,7 +2154,16 @@ async function getOrRefreshNextSteps(
     currentGeneratedOn: current[0]?.generated_on ?? null,
     latestActivity,
   });
-  if (current.length >= 2 && triggerKey === currentTrigger) {
+  const currentSnapshotExists = await hasPreparationSnapshot(
+    supabase,
+    today,
+    CURRENT_PREPARATION_VERSIONS,
+  );
+  if (
+    current.length >= 2 &&
+    triggerKey === currentTrigger &&
+    currentSnapshotExists
+  ) {
     return current.map(mapNextStep);
   }
 
@@ -1407,8 +2182,55 @@ async function getOrRefreshNextSteps(
       incompleteReview,
     },
   );
-  const drafts = buildNextStepDrafts(buildInput);
   const nextTrigger = triggerKey ?? `daily:${today}`;
+  const now = new Date();
+  const forecast = await loadForecastEvidence(
+    supabase,
+    studentId,
+    today,
+    buildInput.timingSessions,
+    buildInput.sections,
+  );
+  const preparation = prepareStudent({
+    clock: { now: now.toISOString(), today },
+    seed: `guidance:${studentId}:${nextTrigger}`,
+    versions: CURRENT_PREPARATION_VERSIONS,
+    timingProfile: STANDARD_PREPARATION_TIMING_PROFILE,
+    goal: {
+      planningDate: buildInput.planningDate,
+      profile: profileInput(profile),
+    },
+    content: {
+      sections: buildInput.sections,
+      categories: buildInput.categories,
+      learningModules: buildInput.learningModules,
+      skillTrainers: buildInput.skillTrainers,
+      tagSignals: buildInput.tagSignals,
+      benchmarkSets: buildInput.benchmarkSets,
+      benchmarkMocks: buildInput.benchmarkMocks,
+    },
+    evidence: {
+      sectionSignals: buildInput.signals,
+      timingSessions: buildInput.timingSessions,
+      scoreEvidence: buildInput.scoreEvidence,
+      completedMockCount: buildInput.completedMockCount,
+      lastLearningModuleServedAtBySection:
+        buildInput.lastLearningModuleServedAtBySection,
+      forecast,
+    },
+    guidance: {
+      dailyWarmup: buildInput.dailyWarmup,
+      incompleteReview: buildInput.incompleteReview,
+      trainerAttemptCounts: Object.fromEntries(buildInput.trainerAttemptCounts),
+    },
+  });
+  await persistPreparationProgression(
+    studentId,
+    profile.test_year,
+    preparation,
+  );
+  await persistPreparationSnapshot(studentId, today, preparation);
+  const drafts = preparation.immediateGuidance;
   const { data, error } = await admin
     .from("ucat_student_next_steps")
     .upsert(
@@ -1489,7 +2311,30 @@ export async function suggestAlternativeStudyGuidance(
       incompleteReview: describedIncompleteReview,
     },
   );
-  const draft = buildAlternativeNextStep(buildInput, input);
+  const now = new Date();
+  const preparation = await runCanonicalPreparation({
+    supabase,
+    studentId: student.id,
+    profile: profileInput(profileResult.data),
+    planningDate: buildInput.planningDate,
+    inputs: buildInput,
+    today,
+    now: now.toISOString(),
+    seed: `alternative:${student.id}:${today}:${input.excludedKeys.join("|")}`,
+    guidance: {
+      dailyWarmup: false,
+      incompleteReview: describedIncompleteReview,
+      trainerAttemptCounts: Object.fromEntries(buildInput.trainerAttemptCounts),
+    },
+  });
+  const draft = buildAlternativeNextStep(
+    {
+      ...buildInput,
+      activityCandidates: preparation.activityCandidates,
+      readiness: preparation.assessment,
+    },
+    input,
+  );
   if (!draft)
     throw new Error("There are no more suitable alternatives right now.");
   return {
@@ -1508,6 +2353,12 @@ export async function saveStudyPlanProfile(
 ): Promise<StudyPlanResponse> {
   const admin = requireAdmin();
   const studentId = await resolveStudentId(userId);
+  const { data: existingProfile, error: existingProfileError } = await admin
+    .from("ucat_student_study_plan_profiles")
+    .select("study_plan_enabled")
+    .eq("student_id", studentId)
+    .maybeSingle();
+  if (existingProfileError) throw existingProfileError;
   const { data: profile, error } = await admin
     .from("ucat_student_study_plan_profiles")
     .upsert(
@@ -1519,6 +2370,7 @@ export async function saveStudyPlanProfile(
         test_date: input.testDate,
         available_days: input.availableDays as unknown as Json,
         preferred_mock_weekday: input.preferredMockWeekday,
+        sjt_preference: normalizeSjtPreference(input.sjtPreference),
         setup_completed_at: new Date().toISOString(),
       },
       { onConflict: "student_id" },
@@ -1526,19 +2378,25 @@ export async function saveStudyPlanProfile(
     .select("*")
     .single();
   if (error) throw error;
-  const { error: clearStepsError } = await admin
-    .from("ucat_student_next_steps")
-    .delete()
-    .eq("student_id", studentId);
-  if (clearStepsError) throw clearStepsError;
-  if (input.studyPlanEnabled) {
+  const transition = planProfileTransition({
+    wasEnabled: existingProfile?.study_plan_enabled ?? false,
+    willBeEnabled: input.studyPlanEnabled,
+  });
+  if (transition.clearGuidance) {
+    const { error: clearStepsError } = await admin
+      .from("ucat_student_next_steps")
+      .delete()
+      .eq("student_id", studentId);
+    if (clearStepsError) throw clearStepsError;
+  }
+  if (transition.generateFreshPlan) {
     await generateForProfile(
       supabase,
       studentId,
       profile,
       profile.last_generated_at ? "profile_changed" : "onboarding",
     );
-  } else {
+  } else if (transition.retireFuturePlan) {
     const { error: retirePlanError } = await admin
       .from("ucat_student_study_plan_generations")
       .update({ superseded_at: new Date().toISOString() })
@@ -1584,9 +2442,25 @@ export async function createExtraStudyTask(
   }
 
   const studentId = await resolveStudentId(userId);
-  const generationInputs = await loadGenerationInputs(supabase, studentId);
+  const generationInputs = await loadGenerationInputs(
+    supabase,
+    studentId,
+    currentPlan.profile.testYear,
+  );
+  const now = new Date();
+  const preparation = await runCanonicalPreparation({
+    supabase,
+    studentId,
+    profile: currentPlan.profile,
+    planningDate: currentPlan.profile.planningDate,
+    inputs: generationInputs,
+    today: currentPlan.today,
+    now: now.toISOString(),
+    seed: `extra-study:${studentId}:${currentPlan.today}:${input.minutes}:${input.sectionKey ?? "any"}`,
+  });
   const nextSortOrder =
     Math.max(-1, ...currentPlan.todayTasks.map((task) => task.sortOrder)) + 1;
+  const extraActivityCandidates = preparation.activityCandidates;
   const extraTasks = (() => {
     try {
       return generateExtraStudyTasks({
@@ -1603,6 +2477,8 @@ export async function createExtraStudyTask(
           (scheduledTask) => scheduledTask.questionStemCategoryId,
         ),
         sortOrder: nextSortOrder,
+        activityCandidates: extraActivityCandidates,
+        readiness: preparation.assessment,
       });
     } catch (error) {
       if (error instanceof Error && error.message.startsWith("There are no")) {
@@ -1732,11 +2608,30 @@ export async function getStudyPlan(
   const mockCompletedSinceGeneration = generation
     ? latestCompletedMocks > readCompletedMockCount(generation.input_snapshot)
     : false;
+  const preparationVersionChanged = generation
+    ? needsPreparationVersionReplacement(
+        generation.input_snapshot,
+        CURRENT_PREPARATION_VERSIONS,
+      )
+    : false;
+  let missedWorkSinceGeneration = false;
+  if (generation && options.allowAutomaticReplan !== false) {
+    const { count, error } = await admin
+      .from("ucat_student_study_plan_tasks")
+      .select("id", { count: "exact", head: true })
+      .eq("generation_id", generation.id)
+      .lt("scheduled_date", today)
+      .in("status", ["planned", "partial"]);
+    if (error) throw error;
+    missedWorkSinceGeneration = (count ?? 0) > 0;
+  }
   if (
     profile.study_plan_enabled &&
     options.allowAutomaticReplan !== false &&
     (!generation ||
       mockCompletedSinceGeneration ||
+      preparationVersionChanged ||
+      missedWorkSinceGeneration ||
       !profile.next_weekly_replan_on ||
       profile.next_weekly_replan_on <= today)
   ) {
@@ -1746,7 +2641,9 @@ export async function getStudyPlan(
       profile,
       !generation
         ? "onboarding"
-        : mockCompletedSinceGeneration
+        : preparationVersionChanged || missedWorkSinceGeneration
+          ? "significant_activity"
+          : mockCompletedSinceGeneration
           ? "mock_completed"
           : "weekly",
     );
@@ -1865,6 +2762,7 @@ export async function getStudyPlan(
         | 4
         | 5
         | 6,
+      sjtPreference: normalizeSjtPreference(profile.sjt_preference),
       planningDate: planning.planningDate,
       planningDateIsProvisional: planning.provisional,
       nextWeeklyReplanOn: profile.next_weekly_replan_on,
@@ -1896,6 +2794,7 @@ export async function getStudyPlan(
 }
 
 export async function updateStudyPlanTask(
+  supabase: SupabaseClient<Database>,
   userId: string,
   taskId: string,
   action: "start" | "skip" | "unskip" | "complete",
@@ -1972,6 +2871,19 @@ export async function updateStudyPlanTask(
       if (unskipCompanionError) throw unskipCompanionError;
     }
   }
+
+  if (action === "skip") {
+    const { data: profile, error: profileError } = await admin
+      .from("ucat_student_study_plan_profiles")
+      .select("*")
+      .eq("student_id", studentId)
+      .eq("study_plan_enabled", true)
+      .maybeSingle();
+    if (profileError) throw profileError;
+    if (profile) {
+      await generateForProfile(supabase, studentId, profile, "significant_activity");
+    }
+  }
 }
 
 /** Mark the linked Study plan review task complete when attempt review finishes. */
@@ -1992,7 +2904,9 @@ export async function completeStudyPlanReviewForAttempt(
 
   const { data: tasks, error } = await admin
     .from("ucat_student_study_plan_tasks")
-    .select("id, matched_activity_id, matched_activity_type, launch_path, status")
+    .select(
+      "id, matched_activity_id, matched_activity_type, launch_path, status",
+    )
     .eq("student_id", studentId)
     .eq("task_type", "review")
     .in("status", ["planned", "in_progress", "partial"]);

@@ -26,7 +26,7 @@ export async function PATCH(
       return NextResponse.json({ error: "Invalid action" }, { status: 400 });
     }
     const { taskId } = await context.params;
-    await updateStudyPlanTask(user.id, taskId, body.action);
+    await updateStudyPlanTask(supabase, user.id, taskId, body.action);
     return NextResponse.json({ ok: true });
   } catch (error) {
     captureApiError(error, "/api/ucat/study-plan/tasks/[taskId]");

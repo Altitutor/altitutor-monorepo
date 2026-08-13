@@ -88,6 +88,30 @@ describe("dashboard trajectory", () => {
     });
   });
 
+  it("keeps an available current estimate when a future projection is unavailable", () => {
+    const currentOnly = {
+      ...total("high"),
+      currentEstimate: 1010,
+      projection: [],
+    };
+
+    expect(
+      resolveDashboardTrajectory({
+        today: "2026-08-12",
+        targetScore: 2090,
+        testDate: "2027-07-28",
+        total: currentOnly,
+        sections: sections(),
+      }),
+    ).toMatchObject({
+      stage: "early_estimate",
+      currentEstimate: 1010,
+      confidence: "high",
+      readySectionCount: 3,
+      missingSectionNames: [],
+    });
+  });
+
   it("does not create an exam-day forecast without an exact test date", () => {
     expect(
       resolveDashboardTrajectory({

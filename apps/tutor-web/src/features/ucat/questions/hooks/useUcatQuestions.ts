@@ -5,6 +5,8 @@ import type { UcatAccessScope, UcatContentStatus, UcatQuestionStemBundlePayload 
 import { proseMirrorToPlainText } from '@/features/ucat/shared/lib/rich-text'
 import type { Json } from '@altitutor/shared'
 import type { QuestionCatalogQuery } from '@/features/ucat/questions/lib/question-catalog-query'
+import { getAnswerSchemePresentation } from '@altitutor/ucat-response-contract'
+import type { BlueprintStem } from '@altitutor/ucat-blueprint'
 
 function parseStemCatalogSetIds(value: unknown): string[] {
   if (value == null || !Array.isArray(value)) return []
@@ -100,6 +102,7 @@ export function useRequestUcatAiAssessment() {
       queryClient.invalidateQueries({
         queryKey: [...ucatKeys.questions('all'), 'ai-assessment-statuses'],
       })
+      queryClient.invalidateQueries({ queryKey: ucatKeys.questions() })
     },
   })
 }
@@ -170,6 +173,9 @@ export type UcatStemCatalogItem = {
   status: UcatContentStatus
   sourceChannel: 'individual' | 'bulk_import' | 'ai_generation' | null
   questionTypes: ('multiple_choice' | 'syllogism')[]
+  responseTypes?: ('multiple_choice' | 'drag_and_drop')[]
+  answerSchemes?: string[]
+  blueprintQuestions?: BlueprintStem['questions']
   tagIds: string[]
   createdAt: string | null
   questionSearchText: string
@@ -204,6 +210,8 @@ export function useUcatQuestionCatalog(enabled: boolean) {
               id?: string
               deleted_at?: string | null
               question_type?: string | null
+              response_type?: string | null
+              answer_scheme?: string | null
               index?: number | null
             }>)
           : []
@@ -228,18 +236,27 @@ export function useUcatQuestionCatalog(enabled: boolean) {
   })
 }
 
-export function useUcatStemCatalog(enabled: boolean, options?: { publishedOnly?: boolean }) {
+export function useUcatStemCatalog(
+  enabled: boolean,
+  options?: { publishedOnly?: boolean; lite?: boolean },
+) {
+  const publishedOnly = options?.publishedOnly ?? false
+  const lite = options?.lite ?? false
   return useQuery({
-    queryKey: [...ucatKeys.stemCatalog(), options?.publishedOnly ? 'published' : 'all'],
+    queryKey: [...ucatKeys.stemCatalog(), publishedOnly ? 'published' : 'all', lite ? 'lite' : 'full'],
     queryFn: async () => {
-      const rows = await ucatQuestionsApi.getStemCatalog(options)
+      const rows = await ucatQuestionsApi.getStemCatalog({ publishedOnly })
       return rows.map((row) => {
         const activeQuestions = Array.isArray(row.questions)
           ? (row.questions as Array<{
               deleted_at?: string | null
               question_type?: string | null
+              response_type?: string | null
+              answer_scheme?: string | null
+              id?: string | null
               question_text?: Json | null
               tags?: Array<{ id?: string | null }> | null
+              answer_options?: Array<{ id?: string | null; deleted_at?: string | null }> | null
             }>).filter((q) => !q.deleted_at)
           : []
         const tagIds = new Set<string>()
@@ -250,19 +267,21 @@ export function useUcatStemCatalog(enabled: boolean, options?: { publishedOnly?:
           for (const tag of tags) {
             if (tag.id) tagIds.add(tag.id)
           }
-          const questionText = proseMirrorToPlainText(question.question_text)
-          if (questionText) questionTexts.push(questionText)
-          const answerOptions = Array.isArray(
-            (question as { answer_options?: Array<{ deleted_at?: string | null; answer_text?: Json | null }> })
-              .answer_options,
-          )
-            ? (question as { answer_options: Array<{ deleted_at?: string | null; answer_text?: Json | null }> })
-                .answer_options
-            : []
-          for (const option of answerOptions) {
-            if (option.deleted_at) continue
-            const answerText = proseMirrorToPlainText(option.answer_text)
-            if (answerText) answerOptionTexts.push(answerText)
+          if (!lite) {
+            const questionText = proseMirrorToPlainText(question.question_text)
+            if (questionText) questionTexts.push(questionText)
+            const answerOptions = Array.isArray(
+              (question as { answer_options?: Array<{ deleted_at?: string | null; answer_text?: Json | null }> })
+                .answer_options,
+            )
+              ? (question as { answer_options: Array<{ deleted_at?: string | null; answer_text?: Json | null }> })
+                  .answer_options
+              : []
+            for (const option of answerOptions) {
+              if (option.deleted_at) continue
+              const answerText = proseMirrorToPlainText(option.answer_text)
+              if (answerText) answerOptionTexts.push(answerText)
+            }
           }
         }
         const questionTypes = Array.from(
@@ -272,6 +291,32 @@ export function useUcatStemCatalog(enabled: boolean, options?: { publishedOnly?:
             )
           )
         ) as ('multiple_choice' | 'syllogism')[]
+        const responseTypes = Array.from(new Set(activeQuestions.flatMap((question) => (
+          question.response_type === 'multiple_choice' || question.response_type === 'drag_and_drop'
+            ? [question.response_type]
+            : []
+        )))) as ('multiple_choice' | 'drag_and_drop')[]
+        const answerSchemes = Array.from(new Set(activeQuestions.flatMap((question) => (
+          typeof question.answer_scheme === 'string' ? [question.answer_scheme] : []
+        ))))
+        const blueprintQuestions: BlueprintStem['questions'] = activeQuestions.flatMap((question, questionIndex) => {
+          if (
+            question.answer_scheme !== 'single_choice'
+            && question.answer_scheme !== 'situational_judgement_rating'
+            && question.answer_scheme !== 'decision_making_binary_placement'
+            && question.answer_scheme !== 'situational_judgement_most_least'
+          ) return []
+          const optionIds = (question.answer_options ?? [])
+            .filter(option => !option.deleted_at)
+            .map((option, optionIndex) => option.id ?? `${row.id}-q${questionIndex}-o${optionIndex}`)
+          const presentation = getAnswerSchemePresentation(question.answer_scheme, optionIds)
+          return [{
+            id: question.id ?? `${row.id}-question-${questionIndex}`,
+            answerScheme: question.answer_scheme,
+            optionCount: optionIds.length,
+            requiredPlacementCount: presentation.kind === 'placement' ? presentation.requiredPlacements : 0,
+          }]
+        })
         const setIds = parseStemCatalogSetIds((row as { set_ids?: unknown }).set_ids)
         const setNames = parseStemCatalogSetNames((row as { set_names?: unknown }).set_names)
 
@@ -288,6 +333,9 @@ export function useUcatStemCatalog(enabled: boolean, options?: { publishedOnly?:
           status: row.status,
           sourceChannel: row.source_channel,
           questionTypes,
+          responseTypes,
+          answerSchemes,
+          blueprintQuestions,
           tagIds: Array.from(tagIds),
           createdAt: row.created_at ?? null,
           questionSearchText: questionTexts.join(' '),

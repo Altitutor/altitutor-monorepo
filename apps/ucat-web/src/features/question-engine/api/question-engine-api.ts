@@ -7,6 +7,7 @@ import {
   type JsonLike,
 } from "@/features/question-engine/model/rich-text";
 import type {
+  AnswerOption,
   QuestionEngineExam,
   QuestionEngineMode,
   QuestionItem,
@@ -59,12 +60,15 @@ type StemDetailQuestion = {
   answer_explanation?: unknown;
   index: number;
   question_type: "multiple_choice" | "syllogism";
+  response_type?: QuestionItem["responseType"];
+  answer_scheme?: QuestionItem["answerScheme"];
   answer_options: Array<{
     id: string;
     answer_text: unknown;
     answer_explanation?: unknown;
     index: number;
     is_answer?: boolean;
+    answer_key_value?: AnswerOption["answerKeyValue"];
     selection_count?: number;
     total_answered?: number;
     percentage?: number;
@@ -168,6 +172,7 @@ function mapSetToQuestions(
                 ? (option.answer_text as Record<string, unknown>)
                 : null,
             isAnswer: option.is_answer ?? false,
+            answerKeyValue: option.answer_key_value ?? null,
             answerExplanation: optionExplanation.text,
             answerExplanationJson: optionExplanation.json,
             selectionCount: option.selection_count,
@@ -204,6 +209,8 @@ function mapSetToQuestions(
         stemJson,
         questionJson,
         questionType: question.question_type,
+        responseType: question.response_type,
+        answerScheme: question.answer_scheme,
         options,
         correctOptionId: correctOption?.id,
         answerExplanation: questionExplanation.text,
@@ -222,22 +229,58 @@ async function loadEnginePayload(
   const supabase = getSupabaseBrowserClient() as unknown as {
     rpc: (
       fn: string,
-      args: { p_source_type: DbQuestionEngineMode; p_source_id: string },
+      args:
+        | { p_set_id: string }
+        | { p_source_type: DbQuestionEngineMode; p_source_id: string },
     ) => Promise<{
       data: SetEnginePayload | MockEnginePayload | null;
       error: { message: string } | null;
     }>;
   };
-  const { data, error } = await supabase.rpc(
-    "get_student_ucat_question_engine_payload",
-    { p_source_type: sourceType, p_source_id: sourceId },
-  );
+  const { data, error } =
+    sourceType === "set"
+      ? await supabase.rpc("get_student_ucat_question_set_engine_payload", {
+          p_set_id: sourceId,
+        })
+      : await supabase.rpc("get_student_ucat_question_engine_payload", {
+          p_source_type: sourceType,
+          p_source_id: sourceId,
+        });
 
   if (error || !data || data.source_type !== sourceType) {
     throw new Error(error?.message ?? `Unable to load ${sourceType} detail`);
   }
 
   return data;
+}
+
+async function loadMockEnginePayload(mockId: string): Promise<MockEnginePayload> {
+  const supabase = getSupabaseBrowserClient();
+  const { data, error } = await supabase
+    .from("vstudent_ucat_mock_detail")
+    .select("id, name, instructions_text, sets")
+    .eq("id", mockId)
+    .maybeSingle();
+
+  if (error || !data) {
+    throw new Error(error?.message ?? "Unable to load mock detail");
+  }
+
+  const mockDetail = data as unknown as MockDetailRow;
+  const sets = await Promise.all(
+    (mockDetail.sets ?? []).map(async (set) => {
+      const payload = await loadEnginePayload("set", set.id);
+      if (payload.source_type !== "set") {
+        throw new Error(`Unable to load question set detail: ${set.id}`);
+      }
+      return {
+        set_detail: payload.set_detail,
+        stem_details: payload.stem_details,
+      };
+    }),
+  );
+
+  return { source_type: "mock", mock_detail: mockDetail, sets };
 }
 
 async function buildSetExam(setId: string): Promise<QuestionEngineExam> {
@@ -298,10 +341,7 @@ type SetPayloadWithTiming = {
 };
 
 async function buildMockExam(mockId: string): Promise<QuestionEngineExam> {
-  const payload = await loadEnginePayload("mock", mockId);
-  if (payload.source_type !== "mock") {
-    throw new Error("Unable to load mock detail");
-  }
+  const payload = await loadMockEnginePayload(mockId);
   const mockDetail = payload.mock_detail;
   const setIds = (mockDetail.sets || []).map((set) => set.id) as string[];
   const setPayloadById = new Map(

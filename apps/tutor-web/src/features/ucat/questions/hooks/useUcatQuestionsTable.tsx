@@ -1,6 +1,10 @@
 import { useMemo } from 'react'
 import type { DataTableState, Json } from '@altitutor/shared'
 import type { UcatQuestionSourceChannel } from '@/features/ucat/questions/api/questions'
+import {
+  UCAT_AI_REVIEW_STATUS_COPY,
+  type UcatAiReviewStatus,
+} from '@/features/ucat/questions/lib/ai-assessment/review-status'
 import type { UcatAccessScope, UcatContentStatus } from '@/features/ucat/shared/types'
 import { buildStemSourceDisplay, type StemSourceDisplay } from '@/features/ucat/questions/lib/source-display'
 import {
@@ -52,6 +56,7 @@ export type QuestionRow = {
   source_channel: UcatQuestionSourceChannel | null
   source: StemSourceDisplay
   is_available_in_question_pool: boolean
+  ai_review_status: UcatAiReviewStatus | null
 }
 
 type QuestionListRowInput = {
@@ -68,19 +73,27 @@ type QuestionListRowInput = {
   stem_text?: unknown
   tag_ids?: unknown
   question_types?: unknown
+  response_types?: unknown
+  answer_schemes?: unknown
   set_names?: unknown
   set_ids?: unknown
   deleted_at?: string | null
   status?: UcatContentStatus | null
   is_available_in_question_pool?: boolean | null
   source_channel?: UcatQuestionSourceChannel | null
+  ai_review_status?: string | null
   ai_generation_metadata?: unknown
   tutor_source_note?: string | null
   created_by_first_name?: string | null
   created_by_last_name?: string | null
-  status_changed_at?: string | null
   status_changed_by_first_name?: string | null
   status_changed_by_last_name?: string | null
+  status_changed_at?: string | null
+}
+
+function parseCatalogAiReviewStatus(value: unknown): UcatAiReviewStatus | null {
+  if (typeof value !== 'string') return null
+  return value in UCAT_AI_REVIEW_STATUS_COPY ? (value as UcatAiReviewStatus) : null
 }
 
 function parseStemSets(setNamesRaw: unknown, setIds: string[]): Array<{ id: string; name: string }> {
@@ -177,6 +190,7 @@ export function useUcatQuestionsTable<T extends QuestionListRowInput>({
             statusChangedAt: row.status_changed_at,
           }),
           is_available_in_question_pool: row.is_available_in_question_pool ?? false,
+          ai_review_status: parseCatalogAiReviewStatus(row.ai_review_status),
         }
       }),
     [data, stemTypes, stemTagIds, questionSearchTexts],
@@ -214,12 +228,6 @@ export function useUcatQuestionsTable<T extends QuestionListRowInput>({
         createdAtWindows.length === 0 ||
         createdAtWindows.some((windowRaw) => rowMatchesCreatedAtWindow(row.created_at, windowRaw))
 
-      const typeSelected = (tableState.filters.question_type?.[0] as string | undefined) ?? 'all'
-      const typeHit =
-        typeSelected === 'all' ||
-        (typeSelected === 'multiple_choice' && row.type_summary.includes('multiple_choice')) ||
-        (typeSelected === 'syllogism' && row.type_summary.includes('syllogism'))
-
       const selectedSetIds = getFilterValues(tableState, 'question_set_id').map(String)
       const wantsNotInAnySet = selectedSetIds.includes(UCAT_FILTER_NOT_IN_ANY_SET)
       const specificSetIds = selectedSetIds.filter((id) => id !== UCAT_FILTER_NOT_IN_ANY_SET)
@@ -234,7 +242,6 @@ export function useUcatQuestionsTable<T extends QuestionListRowInput>({
         categoryHit &&
         tagHit &&
         visibilityHit &&
-        typeHit &&
         setHit &&
         sourceHit &&
         createdByHit &&

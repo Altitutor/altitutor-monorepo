@@ -1,6 +1,7 @@
 import type { DataTableColumnDefinition, DataTableFilterDefinition, DataTableSortOption } from '@altitutor/shared'
 import type { UcatStemCatalogItem } from '@/features/ucat/questions/hooks/useUcatQuestions'
-import type { UcatSection } from '@/features/ucat/shared/types'
+import type { UcatContentStatus, UcatSection } from '@/features/ucat/shared/types'
+import { UCAT_CONTENT_STATUS_OPTIONS } from '@/features/ucat/shared/types'
 import {
   applyBooleanTextFilter,
   applyCategoryFilter,
@@ -17,7 +18,11 @@ import {
   type TagRowForSectionFilter,
 } from '@/features/ucat/shared/lib/taxonomy-reparent'
 import { resolveSectionIdsFromIdFilter } from '@/features/ucat/shared/lib/taxonomy-section-filter'
-import { UCAT_FILTER_NO_CATEGORY, UCAT_FILTER_NOT_IN_ANY_SET } from '@/features/ucat/shared/lib/table-filter-sentinel'
+import {
+  UCAT_FILTER_NO_CATEGORY,
+  UCAT_FILTER_NOT_IN_ANY_PUBLISHED_SET,
+  UCAT_FILTER_NOT_IN_ANY_SET,
+} from '@/features/ucat/shared/lib/table-filter-sentinel'
 import { proseMirrorToPlainText } from '@/features/ucat/shared/lib/rich-text'
 import type { Json } from '@altitutor/shared'
 
@@ -62,6 +67,14 @@ const baseStemCatalogFilterDefinitions: DataTableFilterDefinition[] = [
   { key: 'question_stem_category_id', label: 'Category' },
   { key: 'question_tag_id', label: 'Tag' },
   {
+    key: 'status',
+    label: 'Status',
+    options: UCAT_CONTENT_STATUS_OPTIONS.map((option) => ({
+      label: option.label,
+      value: option.value,
+    })),
+  },
+  {
     key: 'visibility',
     label: 'Visibility',
     options: [
@@ -79,7 +92,28 @@ const baseStemCatalogFilterDefinitions: DataTableFilterDefinition[] = [
   },
 ]
 
+/** Default add-stem sidebar filters when editing a published set. */
+export function getDefaultStemCatalogFiltersForSetStatus(
+  setStatus: UcatContentStatus | null | undefined,
+): Record<string, unknown[]> {
+  if (setStatus !== 'published') return {}
+  return {
+    status: ['published'],
+    question_set_id: [UCAT_FILTER_NOT_IN_ANY_PUBLISHED_SET],
+  }
+}
+
+export function stemIsInAnotherPublishedSet(
+  stemSetIds: string[],
+  publishedSetIds: ReadonlySet<string>,
+  currentSetId?: string | null,
+): boolean {
+  return stemSetIds.some((setId) => setId !== currentSetId && publishedSetIds.has(setId))
+}
+
 type SetFilterOption = { label: string; value: string }
+
+const EMPTY_PUBLISHED_SET_IDS: ReadonlySet<string> = new Set()
 
 export function buildStemCatalogFilterDefinitions(
   sections: UcatSection[],
@@ -119,6 +153,7 @@ export function buildStemCatalogFilterDefinitions(
     },
     baseStemCatalogFilterDefinitions[3],
     baseStemCatalogFilterDefinitions[4],
+    baseStemCatalogFilterDefinitions[5],
   ]
 
   if (setOptions.length > 0) {
@@ -158,6 +193,8 @@ export function filterStemCatalogItems({
   search,
   filters,
   searchScopes = defaultStemCatalogSearchScopes,
+  publishedSetIds,
+  currentSetId = null,
 }: {
   stems: UcatStemCatalogItem[]
   excludedIds?: string[]
@@ -165,6 +202,8 @@ export function filterStemCatalogItems({
   search: string
   filters: Record<string, unknown[]>
   searchScopes?: StemCatalogSearchScope[]
+  publishedSetIds?: ReadonlySet<string>
+  currentSetId?: string | null
 }): UcatStemCatalogItem[] {
   const questionTypeFilter = filters.question_type?.[0] as string | undefined
   const stemsTableState = {
@@ -177,6 +216,7 @@ export function filterStemCatalogItems({
     pageSize: 100,
     visibleColumns: [] as string[],
   }
+  const resolvedPublishedSetIds = publishedSetIds ?? EMPTY_PUBLISHED_SET_IDS
 
   return stems.filter((stem) => {
     if (excludedIds.includes(stem.id)) return false
@@ -185,6 +225,7 @@ export function filterStemCatalogItems({
     if (!applyMultiSelectFilter(stemsTableState, 'section_id', stem.sectionId)) return false
     if (!applyCategoryFilter(stemsTableState, stem.categoryId, UCAT_FILTER_NO_CATEGORY)) return false
     if (!applyTagFilter(stemsTableState, stem.tagIds)) return false
+    if (!applyMultiSelectFilter(stemsTableState, 'status', stem.status)) return false
     if (!applyBooleanTextFilter(stemsTableState, 'visibility', stem.accessScope === 'private')) return false
     if (questionTypeFilter && questionTypeFilter !== 'all') {
       if (!stem.questionTypes.includes(questionTypeFilter as 'multiple_choice' | 'syllogism')) {
@@ -194,10 +235,15 @@ export function filterStemCatalogItems({
 
     const selectedSetIds = getFilterValues(stemsTableState, 'question_set_id').map(String)
     const wantsNotInAnySet = selectedSetIds.includes(UCAT_FILTER_NOT_IN_ANY_SET)
-    const specificSetIds = selectedSetIds.filter((id) => id !== UCAT_FILTER_NOT_IN_ANY_SET)
+    const wantsNotInAnotherPublishedSet = selectedSetIds.includes(UCAT_FILTER_NOT_IN_ANY_PUBLISHED_SET)
+    const specificSetIds = selectedSetIds.filter(
+      (id) => id !== UCAT_FILTER_NOT_IN_ANY_SET && id !== UCAT_FILTER_NOT_IN_ANY_PUBLISHED_SET,
+    )
     const setHit =
       selectedSetIds.length === 0 ||
       (wantsNotInAnySet && stem.setIds.length === 0) ||
+      (wantsNotInAnotherPublishedSet &&
+        !stemIsInAnotherPublishedSet(stem.setIds, resolvedPublishedSetIds, currentSetId)) ||
       specificSetIds.some((setId) => stem.setIds.includes(setId))
 
     return setHit
@@ -230,9 +276,14 @@ export function getDefaultStemCatalogVisibleColumns(): string[] {
 export function buildStemCatalogSetFilterOptions(
   sets: Array<{ id?: string | null; name?: Json | null }>,
   search: string,
+  options?: { includeNotInPublishedSet?: boolean },
 ): SetFilterOption[] {
   const query = search.trim().toLowerCase()
   const noneOption = { label: 'Not in any set', value: UCAT_FILTER_NOT_IN_ANY_SET }
+  const notInPublishedOption = {
+    label: 'Not in another published set',
+    value: UCAT_FILTER_NOT_IN_ANY_PUBLISHED_SET,
+  }
   const fromSets = sets
     .filter((set) => {
       if (!set.id) return false
@@ -244,7 +295,11 @@ export function buildStemCatalogSetFilterOptions(
       label: proseMirrorToPlainText(set.name) || 'Untitled',
       value: set.id as string,
     }))
-  const combined = [noneOption, ...fromSets]
+  const combined = [
+    noneOption,
+    ...(options?.includeNotInPublishedSet ? [notInPublishedOption] : []),
+    ...fromSets,
+  ]
   if (!query) return combined
   return combined.filter((option) => option.label.toLowerCase().includes(query))
 }

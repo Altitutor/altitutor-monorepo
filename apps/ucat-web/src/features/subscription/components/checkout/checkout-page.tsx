@@ -7,6 +7,7 @@ import {
   ArrowRight,
   CalendarCheck,
   Check,
+  Info,
   LockKeyhole,
   Mail,
   Sparkles,
@@ -15,6 +16,12 @@ import { addDays, addMonths, addWeeks, subDays } from "date-fns";
 import { loadStripe } from "@stripe/stripe-js";
 import { CheckoutProvider } from "@stripe/react-stripe-js/checkout";
 import { useTheme } from "next-themes";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@altitutor/ui";
 import { Button } from "@/components/ui/button";
 import { createUcatCheckoutSession } from "@/features/subscription/api/create-checkout";
 import { usePublicSubscriptionConfig } from "@/features/subscription/hooks/use-public-subscription-config";
@@ -47,7 +54,7 @@ const stripePromise = stripeKey ? loadStripe(stripeKey) : Promise.resolve(null);
 const UNLIMITED_FEATURES = [
   "Unlimited practice across every UCAT section",
   "Full-length mock exams and percentile tracking",
-  "Adaptive skill trainer and progress analytics",
+  "Earn a discount on your next bill for every day you practice",
 ] as const;
 
 type JourneyContext =
@@ -83,6 +90,33 @@ function formatTimelineDate(date: Date) {
     month: "short",
     year: "numeric",
   });
+}
+
+function PracticeDiscountInfo({
+  label,
+  children,
+}: {
+  label: string;
+  children: string;
+}) {
+  return (
+    <TooltipProvider delayDuration={200}>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <button
+            type="button"
+            className="inline-flex shrink-0 rounded-full p-0.5 text-muted-foreground transition hover:text-foreground"
+            aria-label={label}
+          >
+            <Info className="h-3.5 w-3.5" aria-hidden />
+          </button>
+        </TooltipTrigger>
+        <TooltipContent side="top" className="max-w-xs text-sm">
+          {children}
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
+  );
 }
 
 function CheckoutFieldsSkeleton() {
@@ -387,15 +421,24 @@ export function CheckoutPage() {
                     )}
                   </span>
                 </div>
-                <p className="text-xs leading-relaxed text-muted-foreground">
-                  Answer {config.minQuestionsPerDay}+ questions in a day and
-                  earn{" "}
-                  {formatMoneyFromMinorUnits(
-                    discount?.discountPerDayCents ?? 0,
-                    config.currency,
-                  )}{" "}
-                  off, up to {discount?.maxDiscountsPerPeriod ?? 0} times per{" "}
-                  {intervalNoun(interval)}.
+                <p className="flex items-start gap-1.5 text-xs leading-relaxed text-muted-foreground">
+                  <span>
+                    Earn{" "}
+                    {formatMoneyFromMinorUnits(
+                      discount?.discountPerDayCents ?? 0,
+                      config.currency,
+                    )}{" "}
+                    discount on your next bill for every day you practice.
+                    Maximum {intervalNoun(interval)}ly discount{" "}
+                    {formatMoneyFromMinorUnits(
+                      pricing.standardPeriodCents - pricing.idealPeriodCents,
+                      config.currency,
+                    )}
+                    .
+                  </span>
+                  <PracticeDiscountInfo label="How practice day discounts work">
+                    {`Log on and complete ${config.minQuestionsPerDay} questions to earn a practice day discount.`}
+                  </PracticeDiscountInfo>
                 </p>
                 <div className="flex justify-between gap-4 border-t border-border pt-3">
                   <span className="font-medium">
@@ -497,13 +540,24 @@ export function CheckoutPage() {
                         {formatTimelineDate(firstChargeAt)}
                       </time>
                     </div>
-                    <p className="mt-3 text-xs leading-relaxed text-muted-foreground">
-                      You’ll be charged{" "}
-                      {formatMoneyFromMinorUnits(
-                        pricing.standardPeriodCents,
-                        config.currency,
-                      )}{" "}
-                      minus any practice discount you earn before this bill.
+                    <p className="mt-3 flex items-start gap-1.5 text-xs leading-relaxed text-muted-foreground">
+                      <span>
+                        You’ll be charged{" "}
+                        {formatMoneyFromMinorUnits(
+                          pricing.standardPeriodCents,
+                          config.currency,
+                        )}{" "}
+                        minus any practice discount you earn before this bill.
+                        Practice consistently and your bill will only be{" "}
+                        {formatMoneyFromMinorUnits(
+                          pricing.idealPeriodCents,
+                          config.currency,
+                        )}
+                        .
+                      </span>
+                      <PracticeDiscountInfo label="How to lower this bill">
+                        {`Log on and complete ${config.minQuestionsPerDay} questions to earn a practice day discount.`}
+                      </PracticeDiscountInfo>
                     </p>
                   </li>
                 </ol>

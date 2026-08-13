@@ -7,7 +7,7 @@ describe('buildUcatExplanationPolicy', () => {
   it('selects concise or structured QR presentation according to the reasoning', () => {
     const policy = buildUcatExplanationPolicy({
       sectionName: 'Quantitative Reasoning',
-      questionType: 'multiple_choice',
+      responseType: 'multiple_choice',
     })
 
     expect(policy).toContain('shortest efficient method')
@@ -24,7 +24,7 @@ describe('buildUcatExplanationPolicy', () => {
   it('keeps VR evidence-led without applying the QR presentation rule', () => {
     const policy = buildUcatExplanationPolicy({
       sectionName: 'Verbal Reasoning',
-      questionType: 'multiple_choice',
+      responseType: 'multiple_choice',
     })
 
     expect(policy).toContain('specific passage evidence')
@@ -33,10 +33,31 @@ describe('buildUcatExplanationPolicy', () => {
     expect(policy).not.toContain('calculator')
   })
 
+  it('encourages option-level explanations for multiple choice unless they would only repeat', () => {
+    const policy = buildUcatExplanationPolicy({ responseType: 'multiple_choice' })
+
+    expect(policy).toContain('Also provide option-level explanations for answer choices whenever they add distinct teaching')
+    expect(policy).toContain('Omit an option-level explanation only when it would merely repeat')
+    expect(policy).not.toContain('Include an option-level explanation only when')
+  })
+
+  it('uses drag_and_drop response wording and maps legacy syllogism questionType', () => {
+    const byResponse = buildUcatExplanationPolicy({ responseType: 'drag_and_drop' })
+    const byLegacy = buildUcatExplanationPolicy({ questionType: 'syllogism' })
+
+    expect(byResponse).toContain('For drag_and_drop')
+    expect(byResponse).toContain('Add a question-level explanation when it is appropriate')
+    expect(byResponse).not.toContain('Include a question-level explanation only when')
+    expect(byResponse).not.toContain('For syllogism')
+    expect(byLegacy).toContain('For drag_and_drop')
+  })
+
   it('provides a conditional all-section policy for workflows without a fixed section', () => {
     expect(UCAT_EXPLANATION_POLICY_PROMPT).toContain('Decision Making explanations')
     expect(UCAT_EXPLANATION_POLICY_PROMPT).toContain('Quantitative Reasoning explanations')
     expect(UCAT_EXPLANATION_POLICY_PROMPT).toContain('Verbal Reasoning explanations')
     expect(UCAT_EXPLANATION_POLICY_PROMPT).toContain('Situational Judgement explanations')
+    expect(UCAT_EXPLANATION_POLICY_PROMPT).toContain('For drag_and_drop')
+    expect(UCAT_EXPLANATION_POLICY_PROMPT).not.toContain('For syllogism')
   })
 })

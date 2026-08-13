@@ -1,8 +1,8 @@
 export type StudyPlanWeekday = 0 | 1 | 2 | 3 | 4 | 5 | 6;
+export type StudyPlanSjtPreference = "normally" | "a_little" | "not_at_all";
 
 export type StudyPlanAvailability = {
   weekday: StudyPlanWeekday;
-  maxMinutes: number;
 };
 
 export type StudyPlanProfileInput = {
@@ -12,6 +12,7 @@ export type StudyPlanProfileInput = {
   testDate: string | null;
   availableDays: StudyPlanAvailability[];
   preferredMockWeekday: StudyPlanWeekday;
+  sjtPreference?: StudyPlanSjtPreference;
 };
 
 export type StudyPlanTaskType =
@@ -54,6 +55,7 @@ export type StudyPlanSectionSignal = {
   sectionId: string;
   currentEstimate: number | null;
   evidenceCount: number;
+  scoreConfidence?: "low" | "medium" | "high" | null;
   completedFullSets: number;
   attemptedQuestionCount?: number;
   completedPracticeSessions?: number;
@@ -61,7 +63,52 @@ export type StudyPlanSectionSignal = {
   largestPracticeSessionQuestionCount?: number;
   recentAccuracy?: number | null;
   observedPace?: number | null;
+  representativeSessionCount?: number;
+  representativeSectionEquivalents?: number;
+  representativeAccuracy?: number | null;
+  targetedPracticeSessionCount?: number;
+  targetedSectionEquivalents?: number;
+  benchmarkCompleted?: boolean;
+  benchmarkAccuracy?: number | null;
+  benchmarkPace?: number | null;
+  learningGraduatedAt?: string | null;
+  learningGraduationRoute?: "accuracy" | "experience" | null;
+  learningGraduationPolicyVersion?: string | null;
+  prescribedPace?: number | null;
+  prescribedPaceSetAt?: string | null;
+  pacePolicyVersion?: string | null;
+  timingDecisionCode?: StudyPlanTimingDecisionCode;
+  timingAdvanceFrom?: number | null;
+  timingAdvanceTo?: number | null;
+  timingCapacityConstrained?: boolean;
+  calibrationDue?: boolean;
+  overspeedEligible?: boolean;
+  overspeedPace?: number | null;
 };
+
+export type StudyPlanTimingBreadth = "broad" | "mixed" | "narrow";
+
+export type StudyPlanTimingEvidenceSession = {
+  id: string;
+  sectionId: string;
+  source: "practice" | "set" | "mock";
+  completedAt: string;
+  prescribedPace: number | null;
+  observedPace: number | null;
+  accuracy: number | null;
+  sectionEquivalents: number;
+  breadth: StudyPlanTimingBreadth;
+  categoryIds: string[];
+};
+
+export type StudyPlanTimingDecisionCode =
+  | "timing.initial_placement"
+  | "timing.hold_insufficient_evidence"
+  | "timing.hold_accuracy"
+  | "timing.advance_normal"
+  | "timing.advance_accelerated_1x"
+  | "timing.advance_deadline"
+  | "timing.at_exam_pace";
 
 export type StudyPlanCategorySignal = {
   id: string;
@@ -97,6 +144,26 @@ export type StudyPlanLearningModule = {
   estimatedMinutes: number;
   completionPercent: number;
   relevanceScore: number;
+  /** Depth-first position in the authored Learn tree for this section. */
+  authoredOrder?: number;
+  categoryIds?: string[];
+  questionTagIds?: string[];
+  targetedPracticeInventory?: {
+    strictStemCount: number;
+    strictQuestionCount: number;
+    preferredTagStemCount: number;
+    preferredTagQuestionCount: number;
+    strictSelectableQuestionCount?: number;
+    preferredTagSelectableQuestionCount?: number;
+    selectedStemIds?: string[];
+    selectionTrace?: Array<{
+      stemId: string;
+      questionCount: number;
+      categoryId: string | null;
+      matchedTagIds: string[];
+      fallbackTier: number;
+    }>;
+  };
 };
 
 export type GeneratedStudyPlanTask = {
@@ -126,8 +193,10 @@ export type GeneratedStudyPlanTask = {
 
 export type StudyPlanCapacityRisk = {
   level: "none" | "warning";
-  availableMinutesPerWeek: number;
-  recommendedMinutesPerWeek: number;
+  availableStudyDaysPerWeek: number;
+  recommendedStudyDaysPerWeek: number;
+  outstandingSectionEquivalents: number;
+  schedulableSectionEquivalents: number;
   message: string | null;
 };
 
@@ -135,8 +204,7 @@ export type StudyPlanTrainingMode = "learning" | "timing" | "exam";
 
 export type StudyPlanReadinessRoute =
   | "accuracy"
-  | "exposure"
-  | "full_set"
+  | "experience"
   | "exam_override"
   | null;
 
@@ -160,6 +228,16 @@ export type StudyPlanSectionReadiness = {
   mode: StudyPlanTrainingMode;
   paceMultiplier: number;
   observedPace: number | null;
+  learningGraduatedAt: string | null;
+  learningRoute: Exclude<
+    StudyPlanReadinessRoute,
+    "exam_override" | null
+  > | null;
+  nextMilestone: string;
+  timingDecisionCode: StudyPlanTimingDecisionCode;
+  calibrationDue: boolean;
+  overspeedEligible: boolean;
+  overspeedPace: number | null;
   units: StudyPlanReadinessUnit[];
 };
 
@@ -174,8 +252,21 @@ export type StudyPlanGenerationResult = {
   tasks: GeneratedStudyPlanTask[];
   capacityRisk: StudyPlanCapacityRisk;
   sectionTargets: Record<string, number>;
+  coreSectionEquivalentsPerWeek: number;
   readiness: StudyPlanReadinessSnapshot;
   endsOn: string;
+  contentGaps: Array<{
+    kind: "benchmark_set" | "benchmark_mock" | "targeted_practice";
+    sectionId: string | null;
+    moduleId?: string;
+    reason:
+      | "no_eligible_set"
+      | "no_eligible_mock"
+      | "insufficient_strict_content"
+      | "tag_fallback_required";
+    requestedQuestionCount?: number;
+    availableQuestionCount?: number;
+  }>;
 };
 
 export type StudyPlanTask = GeneratedStudyPlanTask & {

@@ -5,6 +5,7 @@ import {
   proseMirrorHasOuterTable,
   proseMirrorToPlainText,
   stripOuterTablesFromProseMirrorDoc,
+  tokenizedPlainTextToProseMirrorWithLineBreaks,
 } from "@/features/ucat/shared/lib/rich-text";
 
 describe("aiTextToProseMirror", () => {
@@ -376,5 +377,56 @@ describe("stripOuterTablesFromProseMirrorDoc", () => {
     };
     expect(stripOuterTablesFromProseMirrorDoc(doc)).toEqual(doc);
     expect(proseMirrorHasOuterTable(doc)).toBe(false);
+  });
+});
+
+describe("tokenizedPlainTextToProseMirrorWithLineBreaks bulk-import format", () => {
+  it("restores bold, italic, and bullet lists from tokens", () => {
+    const doc = tokenizedPlainTextToProseMirrorWithLineBreaks(
+      [
+        "The [[B:]]figure[[/B:]] shows [[I:]]shares[[/I:]].",
+        "[[LI:]][[B:]]Blue Skies[[/B:]]",
+        "[[LI:]]Fresh Orange",
+      ].join("\n")
+    );
+
+    expect(doc).toMatchObject({
+      type: "doc",
+      content: [
+        {
+          type: "paragraph",
+          content: [
+            { type: "text", text: "The " },
+            { type: "text", text: "figure", marks: [{ type: "bold" }] },
+            { type: "text", text: " shows " },
+            { type: "text", text: "shares", marks: [{ type: "italic" }] },
+            { type: "text", text: "." },
+          ],
+        },
+        {
+          type: "bulletList",
+          content: [
+            {
+              type: "listItem",
+              content: [
+                {
+                  type: "paragraph",
+                  content: [{ type: "text", text: "Blue Skies", marks: [{ type: "bold" }] }],
+                },
+              ],
+            },
+            {
+              type: "listItem",
+              content: [
+                {
+                  type: "paragraph",
+                  content: [{ type: "text", text: "Fresh Orange" }],
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    });
   });
 });

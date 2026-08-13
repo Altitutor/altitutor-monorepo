@@ -1,6 +1,7 @@
 import { daysBetween } from "@/features/study-plan/lib/dates";
 import type {
   StudyPlanCategorySignal,
+  StudyPlanLearningModule,
   StudyPlanReadinessRoute,
   StudyPlanReadinessSnapshot,
   StudyPlanReadinessUnit,
@@ -13,11 +14,15 @@ import type {
 export const STUDY_PLAN_DETAILED_HORIZON_DAYS = 21;
 export const STUDY_PLAN_EXAM_OVERRIDE_DAYS = 60;
 export const LEARNING_COVERAGE_QUESTIONS = 20;
-export const LEARNING_EXPOSURE_EXIT_QUESTIONS = 40;
-export const LEARNING_MIN_SESSIONS = 2;
+export const LEARNING_CATEGORY_EXPOSURE_QUESTIONS = 1;
 export const LEARNING_QUALIFYING_SESSION_QUESTIONS = 10;
-export const LEARNING_RELIABLE_ACCURACY = 0.65;
-export const PACE_LADDER = [0.5, 0.6, 0.7, 0.8, 0.9, 1, 1.1, 1.2, 1.3] as const;
+export const LEARNING_ACCURACY_SESSIONS = 2;
+export const LEARNING_ACCURACY_SECTION_EQUIVALENTS = 1;
+export const LEARNING_SLOW_ACCURACY = 0.75;
+export const LEARNING_EXAM_PACE_ACCURACY = 0.7;
+export const LEARNING_EXPERIENCE_SESSIONS = 3;
+export const LEARNING_EXPERIENCE_SECTION_EQUIVALENTS = 1.5;
+export const PACE_LADDER = [0.5, 0.6, 0.7, 0.8, 0.9, 1] as const;
 
 type ReadinessInput = {
   today: string;
@@ -25,6 +30,7 @@ type ReadinessInput = {
   sections: StudyPlanSection[];
   signals: StudyPlanSectionSignal[];
   categories: StudyPlanCategorySignal[];
+  learningModules?: StudyPlanLearningModule[];
 };
 
 function finiteNonNegative(value: number | null | undefined): number {
@@ -48,81 +54,15 @@ export function paceLadderStep(
   observedPace: number | null | undefined,
 ): number {
   if (observedPace == null || !Number.isFinite(observedPace)) return 0.5;
-  const clamped = Math.max(PACE_LADDER[0], Math.min(1.3, observedPace));
+  const clamped = Math.max(PACE_LADDER[0], Math.min(1, observedPace));
   return [...PACE_LADDER].reverse().find((pace) => pace <= clamped) ?? 0.5;
-}
-
-function routeForUnit(input: {
-  attemptedQuestionCount: number;
-  completedPracticeSessions: number;
-  qualifyingPracticeSessions: number;
-  largestPracticeSessionQuestionCount: number;
-  accuracy: number | null;
-  completedFullSets: number;
-  examDateOverride: boolean;
-}): StudyPlanReadinessRoute {
-  if (input.examDateOverride) return "exam_override";
-  const hasCoverage =
-    input.attemptedQuestionCount >= LEARNING_COVERAGE_QUESTIONS &&
-    input.completedPracticeSessions >= LEARNING_MIN_SESSIONS &&
-    input.qualifyingPracticeSessions >= 1 &&
-    input.largestPracticeSessionQuestionCount >=
-      LEARNING_QUALIFYING_SESSION_QUESTIONS;
-  if (hasCoverage && input.completedFullSets > 0) return "full_set";
-  if (hasCoverage && (input.accuracy ?? 0) >= LEARNING_RELIABLE_ACCURACY) {
-    return "accuracy";
-  }
-  if (
-    input.attemptedQuestionCount >= LEARNING_EXPOSURE_EXIT_QUESTIONS &&
-    input.completedPracticeSessions >= 3 &&
-    input.qualifyingPracticeSessions >= 2
-  ) {
-    return "exposure";
-  }
-  return null;
-}
-
-function unit(input: {
-  id: string;
-  name: string;
-  scope: StudyPlanReadinessUnit["scope"];
-  attemptedQuestionCount: number;
-  completedPracticeSessions: number;
-  qualifyingPracticeSessions: number;
-  largestPracticeSessionQuestionCount: number;
-  accuracy: number | null;
-  completedFullSets: number;
-  examDateOverride: boolean;
-}): StudyPlanReadinessUnit {
-  const readinessRoute = routeForUnit(input);
-  return {
-    id: input.id,
-    name: input.name,
-    scope: input.scope,
-    attemptedQuestionCount: input.attemptedQuestionCount,
-    completedPracticeSessions: input.completedPracticeSessions,
-    qualifyingPracticeSessions: input.qualifyingPracticeSessions,
-    largestPracticeSessionQuestionCount:
-      input.largestPracticeSessionQuestionCount,
-    accuracy: input.accuracy,
-    coverageComplete:
-      input.attemptedQuestionCount >= LEARNING_COVERAGE_QUESTIONS &&
-      input.completedPracticeSessions >= LEARNING_MIN_SESSIONS &&
-      input.qualifyingPracticeSessions >= 1 &&
-      input.largestPracticeSessionQuestionCount >=
-        LEARNING_QUALIFYING_SESSION_QUESTIONS,
-    learningComplete: readinessRoute != null,
-    readinessRoute,
-  };
 }
 
 function categoryUnit(
   category: StudyPlanCategorySignal,
-  completedFullSets: number,
-  examDateOverride: boolean,
 ): StudyPlanReadinessUnit {
   const attemptedQuestionCount = finiteNonNegative(
-    category.attemptedQuestionCount ?? category.maxScore,
+    category.attemptedQuestionCount,
   );
   const completedPracticeSessions = finiteNonNegative(
     category.completedPracticeSessions,
@@ -137,7 +77,9 @@ function categoryUnit(
         ? 1
         : 0),
   );
-  return unit({
+  const coverageComplete =
+    attemptedQuestionCount >= LEARNING_CATEGORY_EXPOSURE_QUESTIONS;
+  return {
     id: category.id,
     name: category.name,
     scope: "category",
@@ -146,15 +88,15 @@ function categoryUnit(
     qualifyingPracticeSessions,
     largestPracticeSessionQuestionCount,
     accuracy: accuracyFor(category),
-    completedFullSets,
-    examDateOverride,
-  });
+    coverageComplete,
+    learningComplete: coverageComplete,
+    readinessRoute: null,
+  };
 }
 
 function sectionUnit(
   section: StudyPlanSection,
   signal: StudyPlanSectionSignal | undefined,
-  examDateOverride: boolean,
 ): StudyPlanReadinessUnit {
   const attemptedQuestionCount = finiteNonNegative(
     signal?.attemptedQuestionCount,
@@ -172,7 +114,9 @@ function sectionUnit(
         ? 1
         : 0),
   );
-  return unit({
+  const coverageComplete =
+    attemptedQuestionCount >= LEARNING_COVERAGE_QUESTIONS;
+  return {
     id: section.id,
     name: section.name,
     scope: "section",
@@ -181,19 +125,94 @@ function sectionUnit(
     qualifyingPracticeSessions,
     largestPracticeSessionQuestionCount,
     accuracy: signal?.recentAccuracy ?? null,
-    completedFullSets: signal?.completedFullSets ?? 0,
-    examDateOverride,
-  });
+    coverageComplete,
+    learningComplete: coverageComplete,
+    readinessRoute: null,
+  };
+}
+
+function essentialModulesComplete(
+  sectionId: string,
+  learningModules: StudyPlanLearningModule[],
+): boolean {
+  return learningModules
+    .filter(
+      (module) =>
+        module.sectionId === sectionId && module.priority === "essential",
+    )
+    .every((module) => module.completionPercent >= 100);
+}
+
+function learningRoute(input: {
+  section: StudyPlanSection;
+  signal: StudyPlanSectionSignal | undefined;
+  units: StudyPlanReadinessUnit[];
+  essentialModulesComplete: boolean;
+}): Exclude<StudyPlanReadinessRoute, "exam_override" | null> | null {
+  const persisted = input.signal?.learningGraduationRoute;
+  if (
+    input.signal?.learningGraduatedAt &&
+    (persisted === "accuracy" || persisted === "experience")
+  ) {
+    return persisted;
+  }
+  const representativeSessions = finiteNonNegative(
+    input.signal?.representativeSessionCount ??
+      input.signal?.qualifyingPracticeSessions,
+  );
+  const representativeEquivalents = finiteNonNegative(
+    input.signal?.representativeSectionEquivalents ??
+      finiteNonNegative(input.signal?.attemptedQuestionCount) /
+        input.section.questionCount,
+  );
+  const representativeAccuracy =
+    input.signal?.representativeAccuracy ??
+    input.signal?.recentAccuracy ??
+    null;
+  const benchmarkCompleted =
+    input.signal?.benchmarkCompleted ??
+    finiteNonNegative(input.signal?.completedFullSets) > 0;
+  const benchmarkPace = input.signal?.benchmarkPace ?? 0.5;
+  const requiredAccuracy =
+    benchmarkPace >= 1 ? LEARNING_EXAM_PACE_ACCURACY : LEARNING_SLOW_ACCURACY;
+  const representativeBreadth = input.units.every(
+    (unit) => unit.coverageComplete,
+  );
+  if (
+    representativeSessions >= LEARNING_ACCURACY_SESSIONS &&
+    representativeEquivalents >= LEARNING_ACCURACY_SECTION_EQUIVALENTS &&
+    benchmarkCompleted &&
+    representativeBreadth &&
+    (representativeAccuracy ?? 0) >= requiredAccuracy
+  ) {
+    return "accuracy";
+  }
+  const targetedSessions = finiteNonNegative(
+    input.signal?.targetedPracticeSessionCount ??
+      input.signal?.completedPracticeSessions,
+  );
+  const targetedEquivalents = finiteNonNegative(
+    input.signal?.targetedSectionEquivalents ??
+      finiteNonNegative(input.signal?.attemptedQuestionCount) /
+        input.section.questionCount,
+  );
+  if (
+    input.essentialModulesComplete &&
+    targetedSessions >= LEARNING_EXPERIENCE_SESSIONS &&
+    targetedEquivalents >= LEARNING_EXPERIENCE_SECTION_EQUIVALENTS &&
+    benchmarkCompleted
+  ) {
+    return "experience";
+  }
+  return null;
 }
 
 function modeForSection(
-  units: StudyPlanReadinessUnit[],
+  route: Exclude<StudyPlanReadinessRoute, "exam_override" | null> | null,
   examDateOverride: boolean,
 ): StudyPlanTrainingMode {
   if (examDateOverride) return "exam";
-  return units.length > 0 && units.every((item) => item.learningComplete)
-    ? "timing"
-    : "learning";
+  return route ? "timing" : "learning";
 }
 
 export function buildReadinessSnapshot(
@@ -215,23 +234,56 @@ export function buildReadinessSnapshot(
         section.key === "verbal_reasoning" || section.key === "decision_making";
       const categoryUnits = input.categories
         .filter((category) => category.sectionId === section.id)
-        .map((category) =>
-          categoryUnit(
-            category,
-            signal?.completedFullSets ?? 0,
-            examDateOverride,
-          ),
-        );
+        .map(categoryUnit);
       const units =
         useCategoryReadiness && categoryUnits.length > 0
           ? categoryUnits
-          : [sectionUnit(section, signal, examDateOverride)];
+          : [sectionUnit(section, signal)];
+      const route = learningRoute({
+        section,
+        signal,
+        units,
+        essentialModulesComplete: essentialModulesComplete(
+          section.id,
+          input.learningModules ?? [],
+        ),
+      });
+      const mode = modeForSection(route, examDateOverride);
+      const prescribedPace =
+        signal?.prescribedPace ?? paceLadderStep(signal?.observedPace);
+      const benchmarkCompleted =
+        signal?.benchmarkCompleted ??
+        finiteNonNegative(signal?.completedFullSets) > 0;
+      const breadthComplete = units.every((unit) => unit.coverageComplete);
       return {
         sectionId: section.id,
         sectionKey: section.key,
-        mode: modeForSection(units, examDateOverride),
-        paceMultiplier: paceLadderStep(signal?.observedPace),
+        mode,
+        paceMultiplier: prescribedPace,
         observedPace: signal?.observedPace ?? null,
+        learningGraduatedAt: signal?.learningGraduatedAt ?? null,
+        learningRoute: route,
+        nextMilestone:
+          mode === "exam"
+            ? "Practise at exam pace and act on recurring weaknesses."
+            : mode === "timing"
+              ? signal?.timingDecisionCode === "timing.hold_accuracy"
+                ? "Protect accuracy at this pace before moving faster."
+                : signal?.calibrationDue
+                  ? "Refresh this pace with a broad section calibration."
+                  : prescribedPace >= 1
+                    ? "Keep exam pace reliable across broad and targeted work."
+                    : "Complete broad practice reliably at this prescribed pace."
+              : !breadthComplete
+                ? "Build experience across the whole section."
+                : !benchmarkCompleted
+                  ? "Complete a full-section diagnostic."
+                  : "Show reliable accuracy or build more guided section experience.",
+        timingDecisionCode:
+          signal?.timingDecisionCode ?? "timing.initial_placement",
+        calibrationDue: signal?.calibrationDue ?? false,
+        overspeedEligible: signal?.overspeedEligible ?? false,
+        overspeedPace: signal?.overspeedPace ?? null,
         units,
       };
     });

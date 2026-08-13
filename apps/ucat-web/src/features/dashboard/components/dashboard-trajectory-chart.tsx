@@ -124,8 +124,8 @@ function PreviewChart({
         isBlurred
           ? "Preview of a future score trajectory"
           : targetScore != null
-            ? `Score trajectory awaiting baseline evidence toward target ${targetScore}`
-            : "Score trajectory awaiting baseline evidence"
+            ? `Score trajectory awaiting a starting estimate toward target ${targetScore}`
+            : "Score trajectory awaiting a starting estimate"
       }
     >
       <div
@@ -534,7 +534,7 @@ export function DashboardTrajectoryChart({
                 </div>
               ) : (
                 <p className="mt-1 text-xs text-muted-foreground">
-                  Section estimates will appear here as evidence builds.
+                  Section estimates will appear here as you practice.
                 </p>
               )}
             </div>
@@ -634,6 +634,9 @@ export function DashboardTrajectoryChart({
           {` is scheduled on ${chartDateLabel(nextMock.date)}.`}
         </p>
       ) : null}
+      <p className="px-11 pb-2 text-[11px] text-muted-foreground">
+        The central path depends on completing your core preparation work.
+      </p>
     </div>
   );
 }

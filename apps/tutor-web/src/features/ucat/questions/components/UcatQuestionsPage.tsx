@@ -56,7 +56,6 @@ import {
   useRestoreUcatQuestionStem,
   useSetUcatQuestionStemStatus,
   useRequestUcatAiAssessment,
-  useUcatAiAssessmentStatuses,
   useUcatCategories,
   useUcatQuestionCatalogCreators,
   useUcatQuestionCatalogPage,
@@ -142,6 +141,8 @@ import {
   buildQuestionCatalogQuery,
   CREATED_AT_FROM_FILTER_KEY,
   CREATED_AT_TO_FILTER_KEY,
+  QUESTION_COUNT_MAX_FILTER_KEY,
+  QUESTION_COUNT_MIN_FILTER_KEY,
 } from '@/features/ucat/questions/lib/question-catalog-query'
 import { FindSimilarQuestionStemsSubmenu } from '@/features/ucat/questions/components/FindSimilarQuestionStemsSubmenu'
 import { CreatedAtDateTimeRangeFilter } from '@/features/ucat/questions/components/CreatedAtDateTimeRangeFilter'
@@ -151,6 +152,7 @@ import { getUcatContentStatusTransitionOptions, type UcatContentStatus } from '@
 import {
   shouldShowRequestAiReviewAction,
   UCAT_AI_REVIEW_STATUS_COPY,
+  UCAT_DURABLE_AI_REVIEW_STATUSES,
 } from '@/features/ucat/questions/lib/ai-assessment/review-status'
 
 type QuestionsTab = UcatContentStatus
@@ -212,19 +214,18 @@ const filterDefinitions: DataTableFilterDefinition[] = [
   { key: 'question_stem_category_id', label: 'Category' },
   { key: 'question_tag_id', label: 'Tag' },
   {
+    key: 'question_count',
+    label: 'Questions',
+    type: 'number-range',
+    minKey: QUESTION_COUNT_MIN_FILTER_KEY,
+    maxKey: QUESTION_COUNT_MAX_FILTER_KEY,
+  },
+  {
     key: 'visibility',
     label: 'Visibility',
     options: [
       { label: 'Public', value: 'public' },
       { label: 'Private', value: 'private' },
-    ],
-  },
-  {
-    key: 'question_type',
-    label: 'Type',
-    options: [
-      { label: 'Multiple Choice', value: 'multiple_choice' },
-      { label: 'Syllogism', value: 'syllogism' },
     ],
   },
   {
@@ -245,6 +246,15 @@ const filterDefinitions: DataTableFilterDefinition[] = [
     toKey: CREATED_AT_TO_FILTER_KEY,
   },
 ]
+
+const aiReviewFilterDefinition: DataTableFilterDefinition = {
+  key: 'ai_review_status',
+  label: 'AI review',
+  options: UCAT_DURABLE_AI_REVIEW_STATUSES.map((status) => ({
+    label: UCAT_AI_REVIEW_STATUS_COPY[status].shortLabel,
+    value: status,
+  })),
+}
 
 const columnDefinitions: DataTableColumnDefinition[] = [
   { key: 'section_category', label: 'Section', visibleByDefault: true },
@@ -347,6 +357,12 @@ export function UcatQuestionsPage() {
     syncShowDeleted: true,
     availableColumns: availableColumnKeys,
   })
+  const toolbarTableState = useMemo(() => {
+    if (!('question_type' in tableState.state.filters)) return tableState.state
+    const filters = { ...tableState.state.filters }
+    delete filters.question_type
+    return { ...tableState.state, filters }
+  }, [tableState.state])
   const showDeleted = tableState.showDeleted ?? false
   const setShowDeleted = tableState.setShowDeleted ?? (() => undefined)
   const catalogQuery = useMemo(
@@ -362,6 +378,13 @@ export function UcatQuestionsPage() {
   const previousTabRef = useRef(activeTab)
   const tableActionsRef = useRef(tableState.actions)
   tableActionsRef.current = tableState.actions
+
+  useEffect(() => {
+    if (!('question_type' in tableState.state.filters)) return
+    const filters = { ...tableState.state.filters }
+    delete filters.question_type
+    tableActionsRef.current.onFiltersChange(filters)
+  }, [tableState.state.filters])
 
   const expandedStemArray = useMemo(() => Array.from(expandedStemIds), [expandedStemIds])
   const detailQueries = useQueries({
@@ -451,8 +474,7 @@ export function UcatQuestionsPage() {
   const pageCount = Math.max(1, Math.ceil(totalRows / pageSize))
   const effectivePage = Math.min(page, pageCount)
   const paginatedRows = rows
-  const paginatedStemIds = useMemo(() => paginatedRows.map((row) => row.id), [paginatedRows])
-  const aiReviewStatuses = useUcatAiAssessmentStatuses(paginatedStemIds)
+  const aiReviewEnabled = questions.data?.aiReviewEnabled !== false
 
   useEffect(() => {
     if (page > pageCount) tableState.actions.onPageChange(pageCount)
@@ -968,12 +990,12 @@ export function UcatQuestionsPage() {
       },
       filterDefinitions[3],
       filterDefinitions[4],
-      filterDefinitions[5],
+      ...(aiReviewEnabled ? [aiReviewFilterDefinition] : []),
       {
-        ...filterDefinitions[6],
+        ...filterDefinitions[5],
         options: createdByFilterOptions,
       },
-      filterDefinitions[7],
+      filterDefinitions[6],
       {
         key: 'question_set_id',
         label: 'Set',
@@ -990,6 +1012,7 @@ export function UcatQuestionsPage() {
     tableState.state.filters,
     setFilterOptions,
     createdByFilterOptions,
+    aiReviewEnabled,
   ])
 
   if (access.isLoading || questions.isLoading) {
@@ -1067,7 +1090,7 @@ export function UcatQuestionsPage() {
       />
 
       <DataTableToolbar
-        state={tableState.state}
+        state={toolbarTableState}
         onSearchChange={tableState.actions.onSearchChange}
         onFiltersChange={tableState.actions.onFiltersChange}
         onSortChange={tableState.actions.onSortChange}
@@ -1298,23 +1321,18 @@ export function UcatQuestionsPage() {
                     {visible('status') && <TableCell className="capitalize">{row.status}</TableCell>}
                     {visible('ai_review') && (
                       <TableCell>
-                        {aiReviewStatuses.data?.statuses[row.id] ? (
+                        {row.ai_review_status ? (
                           <Badge
                             variant="outline"
                             className={cn(
                               'whitespace-nowrap font-normal',
-                              UCAT_AI_REVIEW_STATUS_COPY[aiReviewStatuses.data.statuses[row.id]].className,
+                              UCAT_AI_REVIEW_STATUS_COPY[row.ai_review_status].className,
                             )}
                           >
-                            {UCAT_AI_REVIEW_STATUS_COPY[aiReviewStatuses.data.statuses[row.id]].shortLabel}
+                            {UCAT_AI_REVIEW_STATUS_COPY[row.ai_review_status].shortLabel}
                           </Badge>
                         ) : (
-                          <span
-                            className="text-muted-foreground"
-                            title={aiReviewStatuses.isError ? 'AI review status could not be loaded' : undefined}
-                          >
-                            —
-                          </span>
+                          <span className="text-muted-foreground">—</span>
                         )}
                       </TableCell>
                     )}
@@ -1351,7 +1369,7 @@ export function UcatQuestionsPage() {
                               : []),
                             ...(!showDeleted
                               ? [
-                                  ...(shouldShowRequestAiReviewAction(aiReviewStatuses.data?.statuses[row.id])
+                                  ...(shouldShowRequestAiReviewAction(row.ai_review_status ?? undefined)
                                     ? [{
                                         label: 'Request AI review',
                                         icon: <Bot className="h-4 w-4" />,

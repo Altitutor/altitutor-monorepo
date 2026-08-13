@@ -24,6 +24,7 @@ function createBaseSession(): Tables<'sessions'> {
     class_id: null,
     subject_id: null,
     billing_type: 'CLASS',
+    booking_public_token: null,
     admin_shift_id: null,
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString(),
@@ -159,4 +160,3 @@ describe('SessionsTableRow - invoice column', () => {
     expect(screen.queryByRole('button', { name: /send invoice/i })).not.toBeInTheDocument();
   });
 });
-

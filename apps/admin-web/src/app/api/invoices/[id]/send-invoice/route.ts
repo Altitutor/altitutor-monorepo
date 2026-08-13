@@ -144,12 +144,31 @@ export async function POST(
     const dueDate = stripeInvoice.due_date ? new Date(stripeInvoice.due_date * 1000).toLocaleDateString() : 'N/A';
     const hostedInvoiceUrl = stripeInvoice.hosted_invoice_url || '';
     const invoicePdfUrl = stripeInvoice.invoice_pdf || '';
+    const paid = stripeInvoice.status === 'paid';
+
+    let lineItems: Array<{ description: string; amount: string }> = [];
+    try {
+      const lines = await stripe.invoices.listLineItems(invoice.stripe_invoice_id, {
+        limit: 100,
+      });
+      lineItems = lines.data.map((line) => ({
+        description: line.description || 'Invoice item',
+        amount: `${currency} $${(line.amount / 100).toFixed(2)}`,
+      }));
+    } catch (err) {
+      console.warn(
+        `[api/invoices/send-invoice] Failed to list line items for ${invoice.stripe_invoice_id}:`,
+        err
+      );
+    }
 
     const email = buildInvoiceNotificationEmail({
       invoiceNumber,
       invoiceDate,
       dueDate,
       amount: `${currency} $${amount}`,
+      paid,
+      lineItems,
       hostedInvoiceUrl: hostedInvoiceUrl || undefined,
       invoicePdfUrl: invoicePdfUrl || undefined,
     });

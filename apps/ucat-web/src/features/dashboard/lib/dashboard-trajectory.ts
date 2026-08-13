@@ -112,15 +112,26 @@ export function resolveDashboardTrajectory({
       ? interpolateProjectionAtDay(total.projection, forecastHorizonDays)
       : null;
 
-  if (
-    !total ||
-    total.currentEstimate == null ||
-    total.projection.length === 0
-  ) {
+  if (!total || total.currentEstimate == null) {
     return {
       stage: "building_baseline",
       currentEstimate: null,
       confidence: null,
+      targetScore,
+      testDay: testDate ? Math.max(0, daysBetween(today, testDate)) : null,
+      forecastHorizonDays,
+      forecastPoint,
+      projectedAtTest: null,
+      readySectionCount,
+      missingSectionNames,
+    };
+  }
+
+  if (total.projection.length === 0) {
+    return {
+      stage: "early_estimate",
+      currentEstimate: total.currentEstimate,
+      confidence: total.confidence,
       targetScore,
       testDay: testDate ? Math.max(0, daysBetween(today, testDate)) : null,
       forecastHorizonDays,

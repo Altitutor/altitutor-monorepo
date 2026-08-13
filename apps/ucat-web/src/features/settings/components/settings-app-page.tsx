@@ -373,9 +373,7 @@ export function SettingsAppPage() {
           title="App tours"
           description={
             <>
-              Replay a guided walkthrough for a specific area. We reset only
-              that tour, then take you to the right page to play it.
-              {isMobile ? " Tours are available on desktop-width layouts." : ""}
+              Replay a guided walkthrough for a specific area.
             </>
           }
           control={
@@ -393,7 +391,7 @@ export function SettingsAppPage() {
                 placeholder="Replay app tour"
                 searchPlaceholder="Search tours…"
                 emptyMessage="No matching tour."
-                disabled={isMobile || isResetting}
+                disabled={isResetting}
                 triggerClassName={SELECT_TRIGGER}
                 contentWidth={SELECT_CONTENT_WIDTH}
               />

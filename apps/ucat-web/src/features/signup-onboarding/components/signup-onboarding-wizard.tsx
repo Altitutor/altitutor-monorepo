@@ -354,11 +354,11 @@ export function SignupOnboardingWizard({
     navigateAfterSignupComplete,
   ]);
 
-  const goToReturnIntent = useCallback(() => {
+  const goToDashboard = useCallback(() => {
     // Soft router.replace races middleware when the access view briefly
     // reports incomplete → /dashboard ↔ /signup/complete soft-nav storm.
-    navigateAfterAuth(returnTo);
-  }, [returnTo]);
+    navigateAfterAuth("/dashboard");
+  }, []);
 
   const finishOnboarding = () => {
     setError(null);
@@ -428,7 +428,7 @@ export function SignupOnboardingWizard({
             void completePaidSignup(null);
           }
         }}
-        onComplete={goToReturnIntent}
+        onComplete={goToDashboard}
       />
     );
   }
@@ -491,7 +491,6 @@ export function SignupOnboardingWizard({
                   initialFirstName={details.firstName}
                   initialLastName={details.lastName}
                   initialPhone={details.phone}
-                  newsletterOptIn={initial.newsletterOptIn}
                   returnTo={returnTo}
                   onComplete={(savedDetails) => {
                     setDetails(savedDetails);

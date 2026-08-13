@@ -47,7 +47,8 @@ export function QuestionEngineShortcutTourContent() {
     <div className="space-y-3">
       <p>
         The shortcut letter is underlined on each question-engine button. Try
-        any shortcut below to control the example. On a Mac, use Option in
+        any shortcut below to see its action highlighted; shortcuts are paused
+        on this step so the example stays in place. On a Mac, use Option in
         place of Alt.
       </p>
       <div className="grid gap-2 sm:grid-cols-2">

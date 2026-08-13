@@ -18,10 +18,13 @@ import { UcatFloatingToolbar } from "@/features/layout/components/ucat-floating-
 import { UcatExamToolbar } from "@/features/exam-experience/components/ucat-exam-toolbar";
 import { ExamExperienceProvider } from "@/features/exam-experience/context/exam-experience-context";
 import { useUcatInterfacePreferences } from "@/features/interface-preferences/hooks/use-ucat-interface-preferences";
+import type { ExamToolbarLayout } from "@/features/interface-preferences/model/types";
+import { isQuestionEngineTutorialPath } from "@/features/onboarding/lib/question-engine-tutorial-gate";
 import { isComingSoon } from "@/features/layout/config/coming-soon";
 import {
   OnboardingAutoStart,
   OnboardingProvider,
+  UCAT_NEXTSTEP_DIM_ONLY_TARGET,
   UCAT_NEXTSTEP_FIXED_VIEWPORT_ID,
 } from "@/features/onboarding";
 import { UcatLagProvider } from "@/features/question-engine/context/ucat-lag-context";
@@ -43,6 +46,8 @@ import { StudyPlanCompanion } from "@/features/study-plan/components/study-plan-
 import { StudyPlanCompanionProvider } from "@/features/study-plan/context/study-plan-companion-context";
 import { StudyPlanExtraStudyProvider } from "@/features/study-plan/components/study-plan-extra-study";
 import { getStudyPlanCompanionMode } from "@/features/study-plan/lib/companion-mode";
+import { ProgressAccessGuard } from "@/features/progress/components/progress-access-guard";
+import { requiresCompletedQuestion } from "@/features/progress/lib/progress-access";
 
 type AppShellProps = {
   children: React.ReactNode;
@@ -135,16 +140,22 @@ function AppShellInner({ children }: AppShellProps) {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [bottomFloatingDockVisible, setBottomFloatingDockVisible] =
     useState(false);
+  const [tutorialToolbarVisible, setTutorialToolbarVisible] = useState(false);
+  const [tutorialToolbarLayout, setTutorialToolbarLayout] =
+    useState<ExamToolbarLayout>("compact_top");
   const sidebarOverride = useSidebarOverride();
   const effectiveCollapsed = sidebarOverride?.collapsedOverride ?? collapsed;
   const hideTopBar = sidebarOverride?.hideTopBar ?? false;
   const isExamRoute = pathname.startsWith("/exam");
   const isImmersiveRoute = isExamRoute;
-  const isTutorialRoute = pathname === "/exam/tutorial";
-  const examToolbarLayout =
-    isMobile || isTutorialRoute ? "compact_top" : preferences.examToolbarLayout;
+  const isTutorialRoute = isQuestionEngineTutorialPath(pathname);
+  const examToolbarLayout = isMobile
+    ? "compact_top"
+    : isTutorialRoute
+      ? tutorialToolbarLayout
+      : preferences.examToolbarLayout;
   const examToolbarVisible = isTutorialRoute
-    ? true
+    ? tutorialToolbarVisible
     : preferences.examToolbarVisible;
   const studyPlanCompanionMode = getStudyPlanCompanionMode(pathname);
   // Fullscreen engines hide the orb entirely. In-progress activities stay
@@ -156,6 +167,12 @@ function AppShellInner({ children }: AppShellProps) {
     },
     [updatePreferences],
   );
+
+  useEffect(() => {
+    if (!isTutorialRoute) return;
+    setTutorialToolbarVisible(false);
+    setTutorialToolbarLayout("compact_top");
+  }, [isTutorialRoute, pathname]);
 
   useEffect(() => {
     if (compactExamToolbarRef.current) {
@@ -248,6 +265,7 @@ function AppShellInner({ children }: AppShellProps) {
 
   const sidebarExpanded = isMobile ? mobileOpen : !effectiveCollapsed;
   const comingSoonPath = isComingSoon(pathname);
+  const guardProgressAccess = requiresCompletedQuestion(pathname);
 
   const handleComingSoonConfirm = () => {
     router.replace("/dashboard");
@@ -283,7 +301,12 @@ function AppShellInner({ children }: AppShellProps) {
           id={UCAT_NEXTSTEP_FIXED_VIEWPORT_ID}
           className="pointer-events-none fixed inset-0 z-[1100]"
           aria-hidden
-        />
+        >
+          <span
+            data-tour={UCAT_NEXTSTEP_DIM_ONLY_TARGET}
+            className="absolute -left-24 -top-24 h-px w-px"
+          />
+        </div>
         <AppShellLayoutProvider
           value={{
             mainContentHasSidebarInset: sidebarExpanded && !isMobile,
@@ -309,7 +332,13 @@ function AppShellInner({ children }: AppShellProps) {
                       onEnabledChange={handleLagModeChange}
                     >
                       <ExamExperienceProvider>
-                        <UcatFloatingToolbar />
+                        <UcatFloatingToolbar
+                          tutorialToolbarVisible={tutorialToolbarVisible}
+                          tutorialToolbarLayout={tutorialToolbarLayout}
+                          onTutorialToolbarVisibleChange={
+                            setTutorialToolbarVisible
+                          }
+                        />
                         <div
                           className={cn(
                             "flex h-dvh min-h-0 w-screen overflow-hidden",
@@ -330,7 +359,14 @@ function AppShellInner({ children }: AppShellProps) {
                               className="shrink-0 overflow-hidden"
                               aria-hidden={!examToolbarVisible}
                             >
-                              <UcatExamToolbar layout="compact_top" />
+                              <UcatExamToolbar
+                                layout="compact_top"
+                                onLayoutChange={
+                                  isTutorialRoute
+                                    ? setTutorialToolbarLayout
+                                    : undefined
+                                }
+                              />
                             </motion.div>
                           ) : null}
                           <main className="min-h-0 min-w-0 flex-1 overflow-hidden p-0">
@@ -361,7 +397,14 @@ function AppShellInner({ children }: AppShellProps) {
                               className="shrink-0 overflow-hidden"
                               aria-hidden={!examToolbarVisible}
                             >
-                              <UcatExamToolbar layout="detailed_right" />
+                              <UcatExamToolbar
+                                layout="detailed_right"
+                                onLayoutChange={
+                                  isTutorialRoute
+                                    ? setTutorialToolbarLayout
+                                    : undefined
+                                }
+                              />
                             </motion.div>
                           ) : null}
                         </div>
@@ -373,6 +416,7 @@ function AppShellInner({ children }: AppShellProps) {
                         <FloatingAppActions
                           onToggleNav={handleToggleNav}
                           isMenuOpen={sidebarExpanded}
+                          isMobile={isMobile}
                         />
                       ) : null}
                       <AppSidebar
@@ -382,6 +426,7 @@ function AppShellInner({ children }: AppShellProps) {
                         onCloseMobile={() => setMobileOpen(false)}
                       />
                       <main
+                        data-ucat-app-scroll="main"
                         className={cn(
                           "ucat-app-scroll min-h-0 min-w-0 flex-1",
                           "transition-[margin] duration-200 ease-[cubic-bezier(0.32,0.72,0,1)]",
@@ -406,7 +451,13 @@ function AppShellInner({ children }: AppShellProps) {
                             }}
                             className="min-h-0 w-full min-w-0"
                           >
-                            {children}
+                            {guardProgressAccess ? (
+                              <ProgressAccessGuard>
+                                {children}
+                              </ProgressAccessGuard>
+                            ) : (
+                              children
+                            )}
                           </motion.div>
                         </div>
                       </main>

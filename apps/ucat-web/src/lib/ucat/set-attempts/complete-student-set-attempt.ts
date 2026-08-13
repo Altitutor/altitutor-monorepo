@@ -7,18 +7,21 @@ import {
   resolveSingleUcatScoringSection,
   UCAT_SCORING_MODEL,
 } from "@altitutor/ucat-marking";
-import type { QuestionMeta } from "@altitutor/ucat-marking";
+import type { ScoringQuestion } from "@altitutor/ucat-marking";
+import {
+  compileResponseContract,
+  createResponseState,
+  type CandidateResponse,
+} from "@altitutor/ucat-response-contract";
 import { maybeGrantPracticeDayDiscount } from "@/lib/ucat/practice-day-discount";
 import { persistQuestionAttemptBatch } from "@/lib/ucat/question-attempts/persist-question-attempt-batch";
+import {
+  parseAttemptContentSnapshot,
+  snapshotToQuestionItem,
+} from "@/features/progress/lib/attempt-content-snapshot";
+import { responseDefinitionForQuestion } from "@/features/question-engine/lib/response-state";
 
 type AdminClient = SupabaseClient;
-
-type OptionRow = {
-  id: string;
-  question_id: string;
-  index: number;
-  is_answer: boolean;
-};
 
 type QuestionAttemptForScoring = {
   id: string;
@@ -46,75 +49,28 @@ export type FinalQuestionAttemptInput = {
 export function buildQuestionMetaFromAttemptSnapshots(
   attempts: QuestionAttemptForScoring[],
   expectedQuestionIds: Set<string>,
-): QuestionMeta[] | null {
+): ScoringQuestion[] | null {
   const attemptByQuestionId = new Map(
     attempts.map((attempt) => [attempt.question_id, attempt]),
   );
-  const questions: QuestionMeta[] = [];
+  const questions: ScoringQuestion[] = [];
 
   for (const questionId of expectedQuestionIds) {
     const snapshot = attemptByQuestionId.get(questionId)?.content_snapshot;
-    if (!snapshot || typeof snapshot !== "object" || Array.isArray(snapshot)) {
-      return null;
-    }
-    const value = snapshot as Record<string, unknown>;
-    const stem = value.stem;
-    const question = value.question;
-    const answerOptions = value.answerOptions;
     if (
-      !stem ||
-      typeof stem !== "object" ||
-      Array.isArray(stem) ||
-      !question ||
-      typeof question !== "object" ||
-      Array.isArray(question) ||
-      !Array.isArray(answerOptions)
+      !snapshot ||
+      typeof snapshot !== "object" ||
+      Array.isArray(snapshot) ||
+      !Array.isArray((snapshot as Record<string, unknown>).answerOptions)
     ) {
       return null;
     }
-
-    const stemValue = stem as Record<string, unknown>;
-    const questionValue = question as Record<string, unknown>;
-    if (
-      typeof stemValue.id !== "string" ||
-      typeof stemValue.sectionName !== "string" ||
-      questionValue.id !== questionId ||
-      (questionValue.questionType !== "multiple_choice" &&
-        questionValue.questionType !== "syllogism")
-    ) {
-      return null;
-    }
-
-    const options: OptionRow[] = [];
-    for (const option of answerOptions) {
-      if (!option || typeof option !== "object" || Array.isArray(option)) {
-        return null;
-      }
-      const optionValue = option as Record<string, unknown>;
-      if (
-        typeof optionValue.id !== "string" ||
-        typeof optionValue.index !== "number" ||
-        typeof optionValue.isAnswer !== "boolean"
-      ) {
-        return null;
-      }
-      options.push({
-        id: optionValue.id,
-        question_id: questionId,
-        index: optionValue.index,
-        is_answer: optionValue.isAnswer,
-      });
-    }
-    const correctOption = options.find((option) => option.is_answer);
+    const parsed = parseAttemptContentSnapshot(snapshot);
+    if (!parsed || parsed.question.id !== questionId) return null;
+    const question = snapshotToQuestionItem(parsed, questions.length, "attempt");
     questions.push({
-      id: questionId,
-      stemId: stemValue.id,
-      sectionName: stemValue.sectionName,
-      questionType: questionValue.questionType,
-      correctOptionId: correctOption?.id ?? "",
-      options: options
-        .sort((a, b) => a.index - b.index)
-        .map((option) => ({ id: option.id, index: option.index })),
+      definition: responseDefinitionForQuestion(question),
+      sectionName: question.sectionName,
     });
   }
 
@@ -144,6 +100,43 @@ export async function persistFinalQuestionAttempts(
       submittedByStem: true,
     })),
   );
+}
+
+export function buildQuestionAttemptsForScoring(
+  questionMeta: ScoringQuestion[],
+  questionAttempts: QuestionAttemptForScoring[],
+): Map<string, CandidateResponse> {
+  const questionById = new Map(
+    questionMeta.map((question) => [question.definition.questionId, question]),
+  );
+  const responses = new Map<string, CandidateResponse>();
+  for (const attempt of questionAttempts) {
+    const question = questionById.get(attempt.question_id);
+    if (!question) continue;
+    const compiled = compileResponseContract(question.definition);
+    if (!compiled.ok) {
+      throw new Error(compiled.issues.map((issue) => issue.message).join(" "));
+    }
+    const storedAnswer =
+      attempt.answer_snapshot ??
+      (compiled.contract.presentation.kind === "single_select"
+        ? {
+            type: "ucat_response_v1",
+            questionId: attempt.question_id,
+            answerScheme: compiled.contract.answerSchemeKind,
+            response: {
+              kind: "single_select",
+              selectedOptionId: attempt.question_answer_option_id,
+            },
+          }
+        : undefined);
+    const restored = createResponseState(compiled.contract, storedAnswer);
+    if (!restored.ok) {
+      throw new Error(restored.issues.map((issue) => issue.message).join(" "));
+    }
+    responses.set(attempt.question_id, restored.state);
+  }
+  return responses;
 }
 
 export async function completeStudentSetAttempt(
@@ -230,60 +223,13 @@ export async function completeStudentSetAttempt(
   totalQuestions = questionMeta.length;
 
   if (questionMeta.length > 0) {
-    const syllogismQuestionIds = new Set(
-      questionMeta
-        .filter((question) => question.questionType === "syllogism")
-        .map((question) => question.id),
+    const responses = buildQuestionAttemptsForScoring(
+      questionMeta,
+      (questionAttempts ?? []) as QuestionAttemptForScoring[],
     );
 
-    const attempts = (questionAttempts ?? []).flatMap((qa) => {
-      if (!syllogismQuestionIds.has(qa.question_id)) {
-        if (!qa.question_answer_option_id) return [];
-        return [
-          {
-            questionId: qa.question_id,
-            selectedOptionId: qa.question_answer_option_id as string,
-          },
-        ];
-      }
-
-      const snapshot = qa.answer_snapshot as
-        | {
-            type?: string;
-            answers?: { question_answer_option_id: string; answer: boolean }[];
-          }
-        | null
-        | undefined;
-
-      if (
-        !snapshot ||
-        snapshot.type !== "syllogism_v1" ||
-        !Array.isArray(snapshot.answers)
-      ) {
-        if (!qa.question_answer_option_id) return [];
-        return [
-          {
-            questionId: qa.question_id,
-            selectedOptionId: qa.question_answer_option_id as string,
-          },
-        ];
-      }
-
-      const chosen = snapshot.answers.find((a) => a.answer === true);
-      if (!chosen) {
-        return [];
-      }
-
-      return [
-        {
-          questionId: qa.question_id,
-          selectedOptionId: chosen.question_answer_option_id,
-        },
-      ];
-    });
-
     const { questionScores, totalRawScore } = computeRawScore({
-      attempts,
+      responses,
       questions: questionMeta,
     });
 

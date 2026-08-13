@@ -1,7 +1,7 @@
-import { notFound } from "next/navigation";
 import { OnboardingPreviewLab } from "@/features/onboarding/components/onboarding-preview-lab";
+import { requireDevelopmentPreview } from "@/features/development-preview/lib/development-preview";
 
 export default function OnboardingPreviewRoute() {
-  if (process.env.NODE_ENV !== "development") notFound();
+  requireDevelopmentPreview();
   return <OnboardingPreviewLab />;
 }

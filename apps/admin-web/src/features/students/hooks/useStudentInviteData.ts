@@ -38,15 +38,18 @@ async function fetchStudentInviteData(
 
   const { data: studentData, error: studentError } = await supabase
     .from('students')
-    .select('invite_token')
+    .select('invite_token, registration_public_token')
     .eq('id', studentId)
     .single();
 
   let token: string | null = null;
   let inviteUrl: string | null = null;
 
-  if (!studentError && studentData?.invite_token) {
-    token = studentData.invite_token;
+  const storedToken = linkType === 'registration'
+    ? studentData?.registration_public_token
+    : studentData?.invite_token;
+  if (!studentError && storedToken) {
+    token = storedToken;
     inviteUrl = getInviteUrlForStudent(token, path);
   }
 

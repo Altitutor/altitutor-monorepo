@@ -21,12 +21,13 @@ export function LearningCatalogPage() {
         />
       </div>
       <motion.div
+        data-tour="learn-options"
         className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5"
         variants={containerVariants}
         initial="hidden"
         animate="show"
       >
-        <motion.div variants={itemVariants}>
+        <motion.div data-tour="learn-area-link" variants={itemVariants}>
           <UcatClickableCardLink
             href="/learn/general"
             icon={BookOpen}
@@ -34,7 +35,11 @@ export function LearningCatalogPage() {
           />
         </motion.div>
         {SECTIONS.map((sectionNumber) => (
-          <motion.div key={sectionNumber} variants={itemVariants}>
+          <motion.div
+            key={sectionNumber}
+            data-tour="learn-area-link"
+            variants={itemVariants}
+          >
             <UcatClickableCardLink
               href={`/learn/sections/${sectionNumber}`}
               icon={BookOpen}

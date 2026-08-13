@@ -14,7 +14,23 @@ import {
   formatDateTime,
   formatClassName,
   getActivityEventVariables,
+  buildStudentInviteUrl,
+  buildBookingManagementUrl,
 } from '../utils.ts';
+
+describe('public journey URLs', () => {
+  it('uses the short registration route', () => {
+    expect(buildStudentInviteUrl('registration-token', 'register')).toBe(
+      'https://student.altitutor.com/r/registration-token'
+    );
+  });
+
+  it('uses the short booking-management route', () => {
+    expect(buildBookingManagementUrl('booking-token')).toBe(
+      'https://student.altitutor.com/b/booking-token'
+    );
+  });
+});
 
 describe('evaluateConditions', () => {
   describe('empty or invalid conditions', () => {

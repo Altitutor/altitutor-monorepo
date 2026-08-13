@@ -48,7 +48,10 @@ export function SkillTrainerHub() {
             description="Timed drills to sharpen individual UCAT skills. Pick a trainer, beat your best score, and climb the leaderboard."
           />
         </div>
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <div
+          data-tour="skill-trainer-options"
+          className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3"
+        >
           {Array.from({ length: 6 }).map((_, i) => (
             <Skeleton key={i} className="h-36 w-full rounded-ucatShell" />
           ))}
@@ -83,32 +86,41 @@ export function SkillTrainerHub() {
         </motion.p>
       ) : null}
 
-      {sections.map((section) => (
-        <motion.section
-          key={section.sectionNumber}
-          className="space-y-3"
-          variants={itemVariants}
-        >
-          <h2 className="text-lg font-semibold">{section.sectionName}</h2>
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {section.trainers
-              .sort((a, b) => a.sort_order - b.sort_order)
-              .map((trainer) => (
-                <UcatClickableCardLink
-                  key={trainer.id}
-                  href={`/skill-trainer/${trainerKeyToSlug(trainer.key as UcatSkillTrainerKey)}`}
-                  iconNode={
-                    <UcatClickableCardIcon>
-                      <TrainerIcon name={trainer.icon} className="h-5 w-5" />
-                    </UcatClickableCardIcon>
-                  }
-                  title={trainer.name}
-                  description={trainer.description ?? "Timed skill drill"}
-                />
-              ))}
-          </div>
-        </motion.section>
-      ))}
+      <div
+        data-tour="skill-trainer-options"
+        className="space-y-6"
+      >
+        {sections.map((section) => (
+          <motion.section
+            key={section.sectionNumber}
+            className="space-y-3"
+            variants={itemVariants}
+          >
+            <h2 className="text-lg font-semibold">{section.sectionName}</h2>
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              {section.trainers
+                .sort((a, b) => a.sort_order - b.sort_order)
+                .map((trainer) => (
+                  <div key={trainer.id} data-tour="skill-trainer-option">
+                    <UcatClickableCardLink
+                      href={`/skill-trainer/${trainerKeyToSlug(trainer.key as UcatSkillTrainerKey)}`}
+                      iconNode={
+                        <UcatClickableCardIcon>
+                          <TrainerIcon
+                            name={trainer.icon}
+                            className="h-5 w-5"
+                          />
+                        </UcatClickableCardIcon>
+                      }
+                      title={trainer.name}
+                      description={trainer.description ?? "Timed skill drill"}
+                    />
+                  </div>
+                ))}
+            </div>
+          </motion.section>
+        ))}
+      </div>
     </motion.div>
   );
 }

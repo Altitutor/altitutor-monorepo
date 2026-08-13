@@ -33,7 +33,7 @@ import {
   type AttemptHistoryPreviewData,
 } from "./attempt-history-explorer";
 import type { DailyProgressSeriesPoint } from "@/app/api/ucat/progress/series/route";
-import { formatSpeedPercentAsMultiplier } from "../lib/format-speed-multiplier";
+import { buildSectionScoreInsight } from "../lib/score-insights";
 import { SegmentedControl } from "./segmented-control";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
@@ -139,16 +139,17 @@ export function SectionProgressPage({
   const sectionTargets =
     planQuery.data?.generation?.sectionTargets ??
     (planQuery.data?.profile
-      ? allocateSectionTargets(
-          planQuery.data.profile.targetScore,
-          (projectionQuery.data?.sections ?? [])
+      ? allocateSectionTargets({
+          totalTarget: planQuery.data.profile.targetScore,
+          sections: (projectionQuery.data?.sections ?? [])
             .filter((item) => item.sectionNumber <= 3)
             .sort((left, right) => left.sectionNumber - right.sectionNumber)
             .map((item) => ({
               sectionId: item.sectionId,
               currentEstimate: item.currentEstimate,
+              confidence: item.confidence,
             })),
-        )
+        })
       : {});
   return (
     <SectionProgressContent
@@ -249,22 +250,18 @@ export function SectionProgressContent({
     score != null && scoreProjection?.projection.length
       ? Math.round(scoreProjection.projection.at(-1)!.realistic - score)
       : null;
-  const insightTitle = weakestCategory
-    ? `${weakestCategory.categoryName} is the clearest opportunity`
-    : score == null
-      ? `Start ${section.sectionName} with a representative timed set`
-      : projectedGain != null && projectedGain > 0
-        ? `Your score is predicted to improve by about ${projectedGain} points`
-        : "Keep the evidence representative";
-  const insightBody = weakestCategory
-    ? `${Math.round(weakestCategory.percentage)}% accuracy makes this your weakest attempted category.${
-        averageExamSpeed == null
-          ? " Complete more timed sets to add a reliable timing insight."
-          : averageExamSpeed > 105
-            ? ` Your recent exam speed is ${formatSpeedPercentAsMultiplier(averageExamSpeed)}, so accuracy is the higher-priority constraint.`
-            : ` Your recent exam speed is ${formatSpeedPercentAsMultiplier(averageExamSpeed)}, so timing and accuracy should improve together.`
-      }`
-    : "Choose a short timed set and work at your normal pace. Afterwards, review the first missed reasoning step before trying to get faster.";
+  const insight = buildSectionScoreInsight({
+    sectionName: section.sectionName,
+    score,
+    projectedGain,
+    weakestCategory: weakestCategory
+      ? {
+          name: weakestCategory.categoryName,
+          accuracy: weakestCategory.percentage,
+        }
+      : null,
+    averageExamSpeed,
+  });
   const resolvedTimingSeries =
     timingSeries ?? attemptHistoryPreviewData?.set?.series ?? [];
   const trajectoryToggle = (
@@ -293,6 +290,7 @@ export function SectionProgressContent({
       </div>
       <AnimatePresence mode="wait" initial={false}>
         <motion.div
+          id="tour-section-predicted-score"
           key={trajectoryView}
           initial={{ opacity: 0, y: 8 }}
           animate={{ opacity: 1, y: 0 }}
@@ -302,10 +300,7 @@ export function SectionProgressContent({
           {trajectoryView === "score" ? (
             <ProgressTrajectoryCanvas
               projection={scoreProjection}
-              snapshots={sectionEstimateSnapshots(
-                snapshots,
-                section.sectionId,
-              )}
+              snapshots={sectionEstimateSnapshots(snapshots, section.sectionId)}
               today={today}
               targetScore={effectiveTargetScore}
               testDate={testDate}
@@ -322,9 +317,9 @@ export function SectionProgressContent({
               }
               scoreMinimum={300}
               scoreMaximum={900}
-              insightTitle={insightTitle}
-              insightBody={insightBody}
-              ratingTargetKey="section-score-trajectory"
+              insightTitle={insight.title}
+              insightBody={insight.body}
+              insightRuleId={insight.ruleId}
               ratingContextKey={`progress:section:${section.sectionId}`}
               insightMeta={
                 <>
@@ -390,7 +385,10 @@ export function SectionProgressContent({
         className="mx-auto w-full max-w-[1400px] px-5 sm:px-6"
         variants={itemVariants}
       >
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div
+          id="tour-section-stats"
+          className="grid grid-cols-1 gap-4 md:grid-cols-3"
+        >
           <Card className={UCAT_CARD_CHROME}>
             <CardContent className="flex flex-col gap-4 pt-6">
               <div className="flex flex-row justify-between items-center gap-4">

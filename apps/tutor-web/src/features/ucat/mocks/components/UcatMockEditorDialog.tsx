@@ -22,6 +22,8 @@ import type { StemEditorMode } from '@/features/ucat/questions/components/stem-e
 import { UcatMockPreviewContent } from '@/features/ucat/mocks/components/UcatMockPreviewContent'
 import { UcatPdfExportDialog } from '@/features/ucat/shared/components/UcatPdfExportDialog'
 import { buildUcatPdfExportAction } from '@/features/ucat/shared/pdf/pdf-export-action'
+import { useUcatMockBlueprints } from '@/features/ucat/mocks/hooks/useUcatMocks'
+import { useUcatMockBlueprintCandidate } from '@/features/ucat/mocks/hooks/useUcatMockBlueprintCandidate'
 
 export type SetOption = {
   id: string
@@ -71,6 +73,7 @@ export function UcatMockEditorDialog({
   const [showAnswer, setShowAnswer] = useState(false)
   const [exportDialogOpen, setExportDialogOpen] = useState(false)
   const stemCatalogQuery = useUcatStemCatalog(open)
+  const blueprintsQuery = useUcatMockBlueprints()
 
   const setFilterDefinitions = useMemo(
     () => buildSetCatalogFilterDefinitions(sections),
@@ -80,11 +83,13 @@ export function UcatMockEditorDialog({
   const { toast } = useToast()
   const { copyId } = useUcatCopyId()
   const {
+    detail,
     name,
     isPrivate,
     instructionsText,
     setInstructionsText,
     draftSetIds,
+    blueprintId,
     setName,
     setIsPrivate,
     setDraftSetIds,
@@ -111,6 +116,20 @@ export function UcatMockEditorDialog({
         }
       })
   }, [sets.data])
+  const blueprints = useMemo(() => (blueprintsQuery.data ?? []).flatMap(blueprint =>
+    blueprint.id && blueprint.code && blueprint.test_year != null && blueprint.version != null
+      ? [{ id: blueprint.id, code: blueprint.code, test_year: blueprint.test_year, version: blueprint.version }]
+      : []
+  ), [blueprintsQuery.data])
+  const blueprintCandidate = useUcatMockBlueprintCandidate({
+    mockId: mockId ?? '',
+    attachedBlueprintId: blueprintId,
+    storedCompliance: detail.data?.blueprint_compliance,
+    blueprints: blueprintsQuery.data ?? [],
+    draftSetIds,
+    setCatalog,
+    stemCatalog: stemCatalogQuery.data ?? [],
+  })
 
   useEffect(() => {
     if (!open) {
@@ -232,6 +251,8 @@ export function UcatMockEditorDialog({
             setCatalogLoading={sets.isLoading}
             sections={sections}
             onEditSet={onEditSet}
+            blueprints={blueprints}
+            blueprintCandidate={blueprintCandidate}
           />
         ) : (
           <UcatMockPreviewContent

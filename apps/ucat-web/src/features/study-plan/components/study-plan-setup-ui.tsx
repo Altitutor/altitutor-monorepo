@@ -1,8 +1,8 @@
 "use client";
 
-import React, { type ReactNode, useEffect, useState } from "react";
+import React, { type ReactNode, useEffect, useMemo, useState } from "react";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
-import { SearchableSelect } from "@altitutor/ui";
+import { SearchableSelect, SmartDatePickerField } from "@altitutor/ui";
 import { AlertTriangle, Check } from "lucide-react";
 import { ThemeToggle } from "@/components/theme/theme-toggle";
 import { NoiseOverlay } from "@/features/landing/components/marketing/noise-overlay";
@@ -11,8 +11,12 @@ import {
   UCAT_PRIMARY_ACTION_BUTTON,
 } from "@/lib/ucat-surface-motion";
 import { cn } from "@/lib/utils";
+import { testDateBounds } from "@/features/study-plan/lib/test-date-bounds";
 
 export type GoalYearOption = { year: number };
+
+export const STUDY_PLAN_TEST_DATE_PLACEHOLDER = "Pick date";
+export const STUDY_PLAN_TEST_DATE_INPUT_PLACEHOLDER = "e.g. 2 Jul or 2/7";
 
 export const STUDY_SETUP_FIELD_CLASS =
   "w-full rounded-xl border border-border bg-background/70 px-4 py-3 text-foreground outline-none transition-[border-color,box-shadow,background-color] focus:border-primary/50 focus:ring-2 focus:ring-primary/20 disabled:opacity-50 dark:focus:border-accent/50 dark:focus:ring-accent/20";
@@ -112,6 +116,10 @@ export function StudyPlanGoalFields({
   );
   const selectedYear =
     yearOptions.find((option) => option.year === testYear) ?? null;
+  const testDateBoundsForYear = useMemo(
+    () => (testYear != null ? testDateBounds(testYear) : null),
+    [testYear],
+  );
   const scoreProgress = ((targetScore - 900) / (2700 - 900)) * 100;
   const selectTriggerClass = cn(
     STUDY_SETUP_FIELD_CLASS,
@@ -298,14 +306,17 @@ export function StudyPlanGoalFields({
               htmlFor={`${idPrefix}-date`}
             >
               <span>Exact date (optional)</span>
-              <input
-                id={`${idPrefix}-date`}
-                type="date"
-                min={`${testYear}-01-01`}
-                max={`${testYear}-12-31`}
-                value={testDate}
+              <SmartDatePickerField
+                value={testDate || null}
+                onChange={(value) => onTestDateChange(value ?? "")}
+                valueFormat="date"
+                showPresets={false}
+                anchorYear={testYear}
+                minDate={testDateBoundsForYear?.minDate}
+                maxDate={testDateBoundsForYear?.maxDate}
+                placeholder={STUDY_PLAN_TEST_DATE_PLACEHOLDER}
+                inputPlaceholder={STUDY_PLAN_TEST_DATE_INPUT_PLACEHOLDER}
                 disabled={disabled}
-                onChange={(event) => onTestDateChange(event.target.value)}
                 className={STUDY_SETUP_FIELD_CLASS}
               />
               <span className="block text-xs text-muted-foreground/75">

@@ -2,7 +2,6 @@ import { captureApiError } from "@/lib/sentry/capture-api-error";
 import { NextResponse } from "next/server";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 import { resolveQuestionAttemptScoreAndResult } from "@/features/progress/lib/build-question-attempt-row";
-import { fetchSyllogismOptionsByQuestionId } from "@/features/progress/lib/syllogism-attempt-scoring";
 import {
   fetchAttemptReviewCategoryDescriptions,
   fetchAttemptReviewQuestionMetadata,
@@ -10,6 +9,11 @@ import {
 } from "@/features/progress/lib/attempt-review-question-metadata";
 import type { AttemptRecentPerformance } from "@/features/progress/lib/attempt-insights";
 import { fetchRecentAttemptPerformance } from "@/features/progress/server/attempt-insight-trend-service";
+import { getQuestionMaximumMarks } from "@/features/question-engine/lib/response-state";
+import {
+  mapQuestionStemsToItems,
+  type QuestionStemWithQuestions,
+} from "@/features/question-engine/model/types";
 
 export type PracticeAttemptDetailResponse = {
   id: string;
@@ -40,34 +44,12 @@ export type PracticeAttemptDetailResponse = {
     categoryDescription: string | null;
     questionStemCategoryId: string | null;
     questionAnswerOptionId: string | null;
-    answerSnapshot: Record<string, boolean> | null;
+    answerSnapshot: unknown;
   }[];
 };
 
-function parseAnswerSnapshot(
-  snapshot: unknown,
-): Record<string, boolean> | null {
-  if (!snapshot || typeof snapshot !== "object") return null;
-  const obj = snapshot as Record<string, unknown>;
-  if (obj.type !== "syllogism_v1" || !Array.isArray(obj.answers)) return null;
-  const answers = obj.answers as Array<{
-    question_answer_option_id: string;
-    answer: boolean;
-  }>;
-  const result: Record<string, boolean> = {};
-  for (const a of answers) {
-    result[a.question_answer_option_id] = a.answer;
-  }
-  return result;
-}
-
-type StemWithQuestions = {
-  id: string;
-  questions?: Array<{ id: string; index: number }>;
-};
-
 function getOrderedQuestionIds(
-  stems: StemWithQuestions[],
+  stems: QuestionStemWithQuestions[],
 ): { questionId: string; stemId: string }[] {
   const result: { questionId: string; stemId: string }[] = [];
   for (const stem of stems) {
@@ -100,9 +82,7 @@ export async function GET(
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const { data: session, error: sessionError } = await (
-    supabase as { from: (t: string) => ReturnType<typeof supabase.from> }
-  )
+  const { data: session, error: sessionError } = await supabase
     .from("vstudent_ucat_my_practice_sessions")
     .select(
       "id, ucat_section_id, section_name, section_key, score_points, total_points, question_count, started_at, completed_at, stems_snapshot",
@@ -137,11 +117,17 @@ export async function GET(
   const s = session as SessionRaw;
   const stemsSnapshot = s.stems_snapshot ?? [];
   const stems = Array.isArray(stemsSnapshot) ? stemsSnapshot : [];
-  const orderedQuestions = getOrderedQuestionIds(stems as StemWithQuestions[]);
+  const orderedQuestions = getOrderedQuestionIds(
+    stems as unknown as QuestionStemWithQuestions[],
+  );
+  const practiceQuestionById = new Map(
+    mapQuestionStemsToItems(
+      stems as unknown as QuestionStemWithQuestions[],
+    ).map((question) => [question.id, question]),
+  );
 
-  const stemIds = orderedQuestions.map((q) => q.stemId);
   const questionIds = orderedQuestions.map((q) => q.questionId);
-  const [questionAttemptsResult, syllogismOptionsByQuestionId, questionMetadata] =
+  const [questionAttemptsResult, questionMetadata] =
     await Promise.all([
       supabase
         .from("vstudent_ucat_my_question_attempts")
@@ -150,7 +136,6 @@ export async function GET(
         )
         .eq("student_practice_session_id", sessionId)
         .eq("is_submitted", true),
-      fetchSyllogismOptionsByQuestionId(supabase, stemIds),
       fetchAttemptReviewQuestionMetadata(supabase, questionIds),
     ]);
 
@@ -175,7 +160,7 @@ export async function GET(
         categoryName: qa.category_name,
         questionStemCategoryId: qa.question_stem_category_id,
         questionAnswerOptionId: qa.question_answer_option_id ?? null,
-        answerSnapshot: parseAnswerSnapshot(qa.answer_snapshot),
+        answerSnapshot: qa.answer_snapshot,
         isFlagged: qa.is_flagged ?? false,
       },
     ]),
@@ -198,10 +183,13 @@ export async function GET(
       }
       const attemptData = attemptsByQuestionId.get(questionId);
       const questionNumber = index + 1;
+      const question = practiceQuestionById.get(questionId);
+      if (!question) {
+        throw new Error("Practice review question snapshot is incomplete");
+      }
       const { score, result } = resolveQuestionAttemptScoreAndResult({
-        questionId,
         attemptData,
-        syllogismOptionsByQuestionId,
+        maximumPoints: getQuestionMaximumMarks(question),
       });
       const timeSpentSeconds = attemptData?.timeSpentSeconds ?? null;
       const metadata = questionMetadata.get(questionId);

@@ -1,4 +1,46 @@
 import type { GeneratedStudyPlanTask } from "@/features/study-plan/model/types";
+import type { PreparationVersions } from "@/features/preparation/model/types";
+
+export function needsPreparationVersionReplacement(
+  inputSnapshot: unknown,
+  current: PreparationVersions,
+): boolean {
+  if (!inputSnapshot || typeof inputSnapshot !== "object" || Array.isArray(inputSnapshot)) {
+    return true;
+  }
+  const versions = (inputSnapshot as Record<string, unknown>).versions;
+  if (!versions || typeof versions !== "object" || Array.isArray(versions)) {
+    return true;
+  }
+  const record = versions as Record<string, unknown>;
+  return (
+    record.engine !== current.engine ||
+    record.policy !== current.policy ||
+    record.scoreModel !== current.scoreModel ||
+    record.trajectoryModel !== current.trajectoryModel
+  );
+}
+
+export function planProfileTransition(input: {
+  wasEnabled: boolean;
+  willBeEnabled: boolean;
+}): {
+  clearGuidance: boolean;
+  generateFreshPlan: boolean;
+  retireFuturePlan: boolean;
+} {
+  return input.willBeEnabled
+    ? {
+        clearGuidance: true,
+        generateFreshPlan: true,
+        retireFuturePlan: false,
+      }
+    : {
+        clearGuidance: false,
+        generateFreshPlan: false,
+        retireFuturePlan: input.wasEnabled,
+      };
+}
 
 export type PreparedStudyPlanTask = GeneratedStudyPlanTask & {
   id: string;

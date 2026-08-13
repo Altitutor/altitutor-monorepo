@@ -1,4 +1,12 @@
 import type { Json } from '@altitutor/shared'
+import {
+  BULK_IMPORT_BOLD_CLOSE,
+  BULK_IMPORT_BOLD_OPEN,
+  BULK_IMPORT_ITALIC_CLOSE,
+  BULK_IMPORT_ITALIC_OPEN,
+  isBulkImportListItemLine,
+  stripBulkImportListItemPrefix,
+} from '@/features/ucat/shared/lib/bulk-import-inline-format'
 
 export type JsonLike = string | number | boolean | null | JsonLike[] | { [key: string]: JsonLike }
 
@@ -96,60 +104,145 @@ type ProseMirrorNode = {
   content?: Json[]
 }
 
+function activeMarkList(active: Set<'bold' | 'italic'>): Array<{ type: string }> | undefined {
+  if (active.size === 0) return undefined
+  const marks: Array<{ type: string }> = []
+  if (active.has('bold')) marks.push({ type: 'bold' })
+  if (active.has('italic')) marks.push({ type: 'italic' })
+  return marks
+}
+
+function pushMarkedText(
+  nodes: ProseMirrorNode[],
+  value: string,
+  active: Set<'bold' | 'italic'>
+): void {
+  if (!value) return
+  const marks = activeMarkList(active)
+  nodes.push(marks ? { type: 'text', text: value, marks } : { type: 'text', text: value })
+}
+
+function pushImageFromParamString(nodes: ProseMirrorNode[], paramString: string, rawToken: string): void {
+  const params = Object.create(null) as Record<string, string>
+  for (const part of paramString.split(';')) {
+    if (!part) continue
+    const [key, rawValue] = part.split('=')
+    if (!key) continue
+    try {
+      params[key] = decodeURIComponent(rawValue ?? '')
+    } catch {
+      params[key] = rawValue ?? ''
+    }
+  }
+
+  const src = params.s ?? ''
+  const fileId = params.f ?? ''
+  if (src || fileId) {
+    const attrs: Record<string, Json | undefined> = {}
+    if (src) attrs.src = src
+    if (fileId) attrs.fileId = fileId
+    nodes.push({ type: 'image', attrs })
+    return
+  }
+  pushMarkedText(nodes, rawToken, new Set())
+}
+
+/**
+ * Convert bulk-import tokenized plain text into inline ProseMirror nodes.
+ * Supports [[IMG:…]], [[B:]]/[[I:]] mark wrappers, and leaves unknown [[…]] intact.
+ */
 function buildInlineNodesFromTokenizedString(text: string): ProseMirrorNode[] {
   const nodes: ProseMirrorNode[] = []
   if (!text) return nodes
 
-  const tokenRegex = /\[\[IMG:([^\]]+)\]\]/g
-  let lastIndex = 0
-  let match: RegExpExecArray | null
-
-  // Helper to push a text node if non-empty
-  const pushText = (value: string) => {
-    if (!value) return
-    nodes.push({ type: 'text', text: value })
-  }
-
-  while ((match = tokenRegex.exec(text)) !== null) {
-    const before = text.slice(lastIndex, match.index)
-    pushText(before)
-
-    const paramString = match[1] ?? ''
-    const params = Object.create(null) as Record<string, string>
-    for (const part of paramString.split(';')) {
-      if (!part) continue
-      const [key, rawValue] = part.split('=')
-      if (!key) continue
-      try {
-        params[key] = decodeURIComponent(rawValue ?? '')
-      } catch {
-        params[key] = rawValue ?? ''
+  const active = new Set<'bold' | 'italic'>()
+  let i = 0
+  while (i < text.length) {
+    if (text.startsWith(BULK_IMPORT_BOLD_OPEN, i)) {
+      active.add('bold')
+      i += BULK_IMPORT_BOLD_OPEN.length
+      continue
+    }
+    if (text.startsWith(BULK_IMPORT_BOLD_CLOSE, i)) {
+      active.delete('bold')
+      i += BULK_IMPORT_BOLD_CLOSE.length
+      continue
+    }
+    if (text.startsWith(BULK_IMPORT_ITALIC_OPEN, i)) {
+      active.add('italic')
+      i += BULK_IMPORT_ITALIC_OPEN.length
+      continue
+    }
+    if (text.startsWith(BULK_IMPORT_ITALIC_CLOSE, i)) {
+      active.delete('italic')
+      i += BULK_IMPORT_ITALIC_CLOSE.length
+      continue
+    }
+    if (text.startsWith('[[IMG:', i)) {
+      const close = text.indexOf(']]', i + 6)
+      if (close !== -1) {
+        const token = text.slice(i, close + 2)
+        const paramString = text.slice(i + 6, close)
+        pushImageFromParamString(nodes, paramString, token)
+        i = close + 2
+        continue
       }
     }
 
-    const src = params.s ?? ''
-    const fileId = params.f ?? ''
-
-    if (src || fileId) {
-      const attrs: Record<string, Json | undefined> = {}
-      if (src) attrs.src = src
-      if (fileId) attrs.fileId = fileId
-      nodes.push({
-        type: 'image',
-        attrs,
-      })
-    } else {
-      // Fallback: treat token as plain text if it had no usable data
-      pushText(match[0] ?? '')
+    let next = text.length
+    const boldOpen = text.indexOf(BULK_IMPORT_BOLD_OPEN, i)
+    const boldClose = text.indexOf(BULK_IMPORT_BOLD_CLOSE, i)
+    const italicOpen = text.indexOf(BULK_IMPORT_ITALIC_OPEN, i)
+    const italicClose = text.indexOf(BULK_IMPORT_ITALIC_CLOSE, i)
+    const img = text.indexOf('[[IMG:', i)
+    for (const idx of [boldOpen, boldClose, italicOpen, italicClose, img]) {
+      if (idx !== -1 && idx < next) next = idx
     }
-
-    lastIndex = tokenRegex.lastIndex
+    pushMarkedText(nodes, text.slice(i, next), active)
+    i = next
   }
 
-  const after = text.slice(lastIndex)
-  pushText(after)
-
   return nodes
+}
+
+function paragraphFromTokenizedLine(line: string): Json {
+  return {
+    type: 'paragraph',
+    content: buildInlineNodesFromTokenizedString(line),
+  }
+}
+
+function bulletListFromItemLines(itemLines: string[]): Json {
+  return {
+    type: 'bulletList',
+    content: itemLines.map((line) => ({
+      type: 'listItem',
+      content: [paragraphFromTokenizedLine(stripBulkImportListItemPrefix(line))],
+    })),
+  }
+}
+
+/** Build doc block content from tokenized lines, restoring bullet lists from [[LI:]] prefixes. */
+function blocksFromTokenizedLines(lines: string[]): Json[] {
+  const content: Json[] = []
+  let listItems: string[] = []
+
+  const flushList = () => {
+    if (listItems.length === 0) return
+    content.push(bulletListFromItemLines(listItems))
+    listItems = []
+  }
+
+  for (const line of lines) {
+    if (isBulkImportListItemLine(line)) {
+      listItems.push(line)
+      continue
+    }
+    flushList()
+    content.push(paragraphFromTokenizedLine(line))
+  }
+  flushList()
+  return content
 }
 
 const TABLE_PLACEHOLDER_RE = /^\[\[TABLE:([^\]]+)\]\]$/
@@ -593,11 +686,11 @@ export function tokenizedPlainTextToProseMirrorWithLineBreaks(text: string): Jso
     return { type: 'doc', content: [{ type: 'paragraph', content: [] }] }
   }
   const lines = text.split('\n')
-  const content = lines.map((line) => ({
-    type: 'paragraph',
-    content: buildInlineNodesFromTokenizedString(line),
-  }))
-  return { type: 'doc', content }
+  const content = blocksFromTokenizedLines(lines)
+  return {
+    type: 'doc',
+    content: content.length > 0 ? content : [{ type: 'paragraph', content: [] }],
+  }
 }
 
 /**
@@ -616,10 +709,18 @@ export function tokenizedPlainTextToProseMirrorWithLineBreaksAndTables(
   }
   const lines = text.split('\n')
   const content: Json[] = []
+  let listItems: string[] = []
+
+  const flushList = () => {
+    if (listItems.length === 0) return
+    content.push(bulletListFromItemLines(listItems))
+    listItems = []
+  }
 
   for (const line of lines) {
     const tableMatch = TABLE_PLACEHOLDER_RE.exec(line.trim())
     if (tableMatch && tableMap) {
+      flushList()
       const tableId = tableMatch[1]
       const tableNode = tableMap.get(tableId ?? '')
       if (tableNode && typeof tableNode === 'object' && (tableNode as Record<string, unknown>).type === 'table') {
@@ -627,13 +728,19 @@ export function tokenizedPlainTextToProseMirrorWithLineBreaksAndTables(
         continue
       }
     }
-    content.push({
-      type: 'paragraph',
-      content: buildInlineNodesFromTokenizedString(line),
-    })
+    if (isBulkImportListItemLine(line)) {
+      listItems.push(line)
+      continue
+    }
+    flushList()
+    content.push(paragraphFromTokenizedLine(line))
   }
+  flushList()
 
-  return { type: 'doc', content }
+  return {
+    type: 'doc',
+    content: content.length > 0 ? content : [{ type: 'paragraph', content: [] }],
+  }
 }
 
 export function proseMirrorToPlainText(value: Json | null | undefined): string {
@@ -672,7 +779,7 @@ export function proseMirrorToPlainText(value: Json | null | undefined): string {
   return walk(value).replace(/\n{3,}/g, '\n\n').trim()
 }
 
-function proseMirrorHasImage(value: Json | null | undefined): boolean {
+export function proseMirrorHasImage(value: Json | null | undefined): boolean {
   if (!value || typeof value !== 'object') return false
   const root = value as Record<string, unknown>
 

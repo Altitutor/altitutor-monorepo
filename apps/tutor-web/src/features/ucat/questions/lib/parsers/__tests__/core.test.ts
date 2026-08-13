@@ -610,3 +610,153 @@ c) 30`
     ])
   })
 })
+
+describe('bulk-import bold/italic/bullet preservation', () => {
+  it('encodes bold and italic marks into logical lines', () => {
+    const lines = collectLogicalLinesFromDoc({
+      type: 'doc',
+      content: [
+        {
+          type: 'paragraph',
+          content: [
+            { type: 'text', text: 'The ' },
+            { type: 'text', text: 'figure', marks: [{ type: 'bold' }] },
+            { type: 'text', text: ' shows ' },
+            { type: 'text', text: 'shares', marks: [{ type: 'italic' }] },
+            { type: 'text', text: '.' },
+          ],
+        },
+      ],
+    })
+
+    expect(lines).toEqual(['The [[B:]]figure[[/B:]] shows [[I:]]shares[[/I:]].'])
+  })
+
+  it('encodes bullet lists as [[LI:]] lines without treating them as questions', () => {
+    const lines = collectLogicalLinesFromDoc({
+      type: 'doc',
+      content: [
+        {
+          type: 'paragraph',
+          content: [{ type: 'text', text: 'Supermarkets include:' }],
+        },
+        {
+          type: 'bulletList',
+          content: [
+            {
+              type: 'listItem',
+              content: [
+                {
+                  type: 'paragraph',
+                  content: [{ type: 'text', text: 'Blue Skies', marks: [{ type: 'bold' }] }],
+                },
+              ],
+            },
+            {
+              type: 'listItem',
+              content: [
+                { type: 'paragraph', content: [{ type: 'text', text: 'Fresh Orange' }] },
+              ],
+            },
+          ],
+        },
+        {
+          type: 'paragraph',
+          content: [{ type: 'text', text: '1. Which had the highest share?' }],
+        },
+        {
+          type: 'paragraph',
+          content: [{ type: 'text', text: 'A. Blue Skies' }],
+        },
+        {
+          type: 'paragraph',
+          content: [{ type: 'text', text: 'B. Fresh Orange' }],
+        },
+      ],
+    })
+
+    expect(lines).toEqual([
+      'Supermarkets include:',
+      '[[LI:]][[B:]]Blue Skies[[/B:]]',
+      '[[LI:]]Fresh Orange',
+      '1. Which had the highest share?',
+      'A. Blue Skies',
+      'B. Fresh Orange',
+    ])
+
+    const stems = parseFromLines(lines, {
+      ...PAREN_OPTION_CONFIG,
+      answerOptionIndicator: 'dot',
+      questionNumberOnOwnLine: false,
+      answerOptionOnOwnLine: false,
+    })
+
+    expect(stems).toHaveLength(1)
+    expect(stems[0]?.stemText).toContain('[[LI:]][[B:]]Blue Skies[[/B:]]')
+    expect(stems[0]?.questions).toHaveLength(1)
+    expect(stems[0]?.questions[0]?.text).toBe('Which had the highest share?')
+  })
+
+  it('still flattens ordered lists to numbered prefixes for question parsing', () => {
+    const lines = collectLogicalLinesFromDoc({
+      type: 'doc',
+      content: [
+        {
+          type: 'paragraph',
+          content: [{ type: 'text', text: 'A short stem.' }],
+        },
+        {
+          type: 'orderedList',
+          attrs: { start: 1 },
+          content: [
+            {
+              type: 'listItem',
+              content: [
+                {
+                  type: 'paragraph',
+                  content: [{ type: 'text', text: 'What is the answer?' }],
+                },
+              ],
+            },
+          ],
+        },
+        {
+          type: 'paragraph',
+          content: [{ type: 'text', text: 'A. One' }],
+        },
+        {
+          type: 'paragraph',
+          content: [{ type: 'text', text: 'B. Two' }],
+        },
+      ],
+    })
+
+    expect(lines[1]).toBe('1. What is the answer?')
+    const stems = parseFromLines(lines, {
+      answerOptionIndicator: 'dot',
+      questionNumberOnOwnLine: false,
+      answerOptionOnOwnLine: false,
+    })
+    expect(stems[0]?.questions[0]?.text).toBe('What is the answer?')
+  })
+
+  it('parses question numbers even when the number itself is bold', () => {
+    const stems = parseFromLines(
+      [
+        'Stem with a chart.',
+        '[[B:]]1.[[/B:]] Which supermarket grew fastest?',
+        'A. Blue Skies',
+        'B. Big Green',
+      ],
+      {
+        answerOptionIndicator: 'dot',
+        questionNumberOnOwnLine: false,
+        answerOptionOnOwnLine: false,
+      }
+    )
+
+    expect(stems[0]?.questions).toHaveLength(1)
+    expect(stems[0]?.questions[0]?.number).toBe(1)
+    expect(stems[0]?.questions[0]?.text).toBe('Which supermarket grew fastest?')
+  })
+})

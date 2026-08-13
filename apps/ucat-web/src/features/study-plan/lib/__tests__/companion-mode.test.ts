@@ -12,6 +12,17 @@ describe("Study Plan companion route mode", () => {
   );
 
   it.each([
+    "/dashboard/preview",
+    "/insights/preview",
+    "/onboarding/preview",
+    "/progress/preview",
+    "/progress/attempts/preview",
+    "/study-plan/preview",
+  ])("hides on development preview route %s", (pathname) => {
+    expect(getStudyPlanCompanionMode(pathname)).toBe("hidden");
+  });
+
+  it.each([
     "/skill-trainer/quick-syllogism/play",
     "/learn/module-1",
     "/learn/sections/2/module-1",

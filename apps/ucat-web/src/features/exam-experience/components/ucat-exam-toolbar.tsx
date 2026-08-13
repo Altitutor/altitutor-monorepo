@@ -111,6 +111,7 @@ function CompactAction({
   destructive = false,
   showLabel,
   className,
+  tourTarget,
 }: {
   label: string;
   tooltip?: string;
@@ -120,10 +121,12 @@ function CompactAction({
   destructive?: boolean;
   showLabel: boolean;
   className?: string;
+  tourTarget?: string;
 }) {
   const accessibleLabel = tooltip ?? label;
   const button = (
     <Button
+      data-tour={tourTarget}
       variant={destructive ? "destructive" : filled ? "default" : "ghost"}
       size="sm"
       aria-label={accessibleLabel}
@@ -162,6 +165,7 @@ function CompactLagControl({
     <Tooltip>
       <TooltipTrigger asChild>
         <div
+          data-tour="question-engine-toolbar-lag"
           className="inline-flex h-9 shrink-0 cursor-pointer items-center gap-1.5 rounded-md px-2 text-sm font-medium transition-colors hover:!bg-muted hover:!text-foreground"
           onClick={() => onCheckedChange(!checked)}
         >
@@ -231,7 +235,13 @@ function getActivityLabel(kind: "practice" | "set" | "mock" | undefined) {
   }
 }
 
-export function UcatExamToolbar({ layout }: { layout: ExamToolbarLayout }) {
+export function UcatExamToolbar({
+  layout,
+  onLayoutChange,
+}: {
+  layout: ExamToolbarLayout;
+  onLayoutChange?: (layout: ExamToolbarLayout) => void;
+}) {
   const detailed = layout === "detailed_right";
   const { title, practice, requestExit } = useExamExperience();
   const { active } = useActiveExamAttempt();
@@ -242,6 +252,10 @@ export function UcatExamToolbar({ layout }: { layout: ExamToolbarLayout }) {
 
   const toggleLayout = () => {
     const next: ExamToolbarLayout = detailed ? "compact_top" : "detailed_right";
+    if (onLayoutChange) {
+      onLayoutChange(next);
+      return;
+    }
     void updatePreferences({ examToolbarLayout: next });
   };
   const reportBug = () =>
@@ -259,7 +273,10 @@ export function UcatExamToolbar({ layout }: { layout: ExamToolbarLayout }) {
   if (!detailed) {
     return (
       <TooltipProvider delayDuration={200}>
-        <aside className="flex h-12 min-w-0 items-center gap-1 border-b bg-background px-3 shadow-sm">
+        <aside
+          data-tour="question-engine-settings"
+          className="flex h-12 min-w-0 items-center gap-1 border-b bg-background px-3 shadow-sm"
+        >
           <CompactToolbarTitle title={title} />
           {practice ? (
             <>
@@ -304,6 +321,7 @@ export function UcatExamToolbar({ layout }: { layout: ExamToolbarLayout }) {
             onClick={toggleLayout}
             showLabel={hasRoomForActionLabels}
             className="hidden md:inline-flex"
+            tourTarget="question-engine-toolbar-layout"
           />
           <CompactAction
             label="Report bug"
@@ -311,6 +329,7 @@ export function UcatExamToolbar({ layout }: { layout: ExamToolbarLayout }) {
             icon={<Bug className="h-4 w-4" />}
             onClick={() => void reportBug()}
             showLabel={hasRoomForActionLabels}
+            tourTarget="question-engine-toolbar-report"
           />
           {practice?.onFinishPractice ? (
             <CompactAction
@@ -329,6 +348,7 @@ export function UcatExamToolbar({ layout }: { layout: ExamToolbarLayout }) {
             onClick={requestExit}
             destructive
             showLabel={hasRoomForActionLabels}
+            tourTarget="question-engine-toolbar-exit"
           />
         </aside>
       </TooltipProvider>
@@ -336,7 +356,10 @@ export function UcatExamToolbar({ layout }: { layout: ExamToolbarLayout }) {
   }
 
   return (
-    <aside className="flex h-full w-64 shrink-0 flex-col border-l bg-background p-4 shadow-sm">
+    <aside
+      data-tour="question-engine-settings"
+      className="flex h-full w-64 shrink-0 flex-col border-l bg-background p-4 shadow-sm"
+    >
       <div className="min-h-0 flex-1 space-y-5 overflow-y-auto">
         <div>
           <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
@@ -415,6 +438,7 @@ export function UcatExamToolbar({ layout }: { layout: ExamToolbarLayout }) {
             <Tooltip>
               <TooltipTrigger asChild>
                 <div
+                  data-tour="question-engine-toolbar-lag"
                   className="flex h-9 cursor-pointer items-center justify-between rounded-md px-2 transition-colors hover:!bg-muted/80"
                   onClick={() => setLagEnabled(!lagEnabled)}
                 >
@@ -463,6 +487,7 @@ export function UcatExamToolbar({ layout }: { layout: ExamToolbarLayout }) {
             </div>
           ) : null}
           <Button
+            data-tour="question-engine-toolbar-layout"
             variant="ghost"
             className="w-full justify-start gap-2 px-2 hover:!bg-muted/80 hover:!text-foreground"
             onClick={toggleLayout}
@@ -471,6 +496,7 @@ export function UcatExamToolbar({ layout }: { layout: ExamToolbarLayout }) {
             Move toolbar to top
           </Button>
           <Button
+            data-tour="question-engine-toolbar-report"
             variant="ghost"
             className="w-full justify-start gap-2 px-2 hover:!bg-muted/80 hover:!text-foreground"
             onClick={() => void reportBug()}
@@ -487,7 +513,12 @@ export function UcatExamToolbar({ layout }: { layout: ExamToolbarLayout }) {
             Finish practice
           </Button>
         ) : null}
-        <Button variant="destructive" className="w-full" onClick={requestExit}>
+        <Button
+          data-tour="question-engine-toolbar-exit"
+          variant="destructive"
+          className="w-full"
+          onClick={requestExit}
+        >
           <LogOut className="mr-2 h-4 w-4" />
           Exit session
         </Button>

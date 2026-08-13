@@ -20,6 +20,9 @@ export function buildDraftUcatAssessmentSnapshot(params: {
 }): UcatAssessmentSnapshot {
   const questions = params.values.questions.map((question, questionIndex) => {
     if (!question.id) throw new Error(`Question ${questionIndex + 1} is missing its draft ID.`)
+    if (!question.responseType || !question.answerScheme) {
+      throw new Error(`Question ${questionIndex + 1} is missing its canonical response contract.`)
+    }
     const questionText = question.questionText as Json
     const answerExplanation = (question.answerExplanation ?? null) as Json | null
     return {
@@ -30,6 +33,8 @@ export function buildDraftUcatAssessmentSnapshot(params: {
       answerExplanation,
       answerExplanationPlain: plain(answerExplanation),
       questionType: question.questionType,
+      responseType: question.responseType,
+      answerScheme: question.answerScheme,
       sourceChannel: question.sourceChannel ?? null,
       aiGenerationMetadata: question.aiGenerationMetadata ?? null,
       difficulty: question.difficulty ?? null,
@@ -44,6 +49,9 @@ export function buildDraftUcatAssessmentSnapshot(params: {
         if (!option.id) {
           throw new Error(`Question ${questionIndex + 1}, option ${optionIndex + 1} is missing its draft ID.`)
         }
+        if (!Object.prototype.hasOwnProperty.call(option, 'answerKeyValue')) {
+          throw new Error(`Question ${questionIndex + 1}, option ${optionIndex + 1} is missing its canonical answer key.`)
+        }
         const answerText = option.answerText as Json
         const optionExplanation = (option.answerExplanation ?? null) as Json | null
         return {
@@ -54,6 +62,7 @@ export function buildDraftUcatAssessmentSnapshot(params: {
           answerExplanation: optionExplanation,
           answerExplanationPlain: plain(optionExplanation),
           isAnswer: option.isAnswer,
+          answerKeyValue: option.answerKeyValue ?? null,
           images: [
             ...collectAssessmentImages(answerText, `option:${option.id}:answer_text`),
             ...collectAssessmentImages(optionExplanation, `option:${option.id}:answer_explanation`),

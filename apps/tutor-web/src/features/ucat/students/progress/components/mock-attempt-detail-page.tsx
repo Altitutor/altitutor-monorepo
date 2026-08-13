@@ -13,6 +13,7 @@ import {
   AttemptTimingCard,
   type CategoryBreakdown,
 } from './attempt-review-ui'
+import { getAnswerSchemeMaximum } from '@altitutor/ucat-response-contract'
 
 type MockAttemptDetailPageProps = {
   studentId: string
@@ -39,7 +40,9 @@ export function MockAttemptDetailPage({
         const name = question.categoryName ?? 'Uncategorized'
         const current = categories.get(name) ?? { name, score: 0, total: 0 }
         current.score += question.score ?? 0
-        current.total += question.questionType === 'syllogism' ? 2 : 1
+        current.total += question.answerScheme
+          ? getAnswerSchemeMaximum(question.answerScheme)
+          : 1
         categories.set(name, current)
       }
       return [...categories.values()].sort((a, b) => a.name.localeCompare(b.name))

@@ -50,6 +50,7 @@ export function PracticePage() {
   const {
     isLoading: questionEngineTourLoading,
     isBlocked: questionEngineTourBlocked,
+    tutorialKind: questionEngineTutorialKind,
   } = useQuestionEngineTutorialGate();
   const { data: quota } = useQuotaUsage();
   const { openQuotaLimit } = useQuotaLimitDialog();
@@ -198,7 +199,12 @@ export function PracticePage() {
     // points at the unified exam route which immediately redirects to tutorial.
     if (questionEngineTourBlocked) {
       setPendingPracticeStart(startInput);
-      router.push(buildQuestionEngineTutorialHref("/practice"));
+      router.push(
+        buildQuestionEngineTutorialHref(
+          "/practice",
+          questionEngineTutorialKind,
+        ),
+      );
       return;
     }
 

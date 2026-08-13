@@ -8,6 +8,10 @@ import {
   captureUcatReferral,
   pendingReferralCodeFromUser,
 } from "@/lib/ucat/referrals/capture-referral";
+import {
+  UCAT_SIGNUP_CONSENT_VERSION,
+  UCAT_SIGNUP_CONSENT_WORDING,
+} from "@/features/communications/lib/communication-preferences";
 
 type StudentUpdate = Database["public"]["Tables"]["students"]["Update"];
 type StudentInsert = Database["public"]["Tables"]["students"]["Insert"];
@@ -281,24 +285,52 @@ export async function POST(request: NextRequest) {
     .is("unsubscribed_at", null)
     .maybeSingle();
 
-  if (verifiedConsent) {
-    const now = new Date().toISOString();
-    const { error: preferencesError } = await supabaseAdmin
-      .from("ucat_communication_preferences")
-      .upsert({
-        student_id: studentId,
-        weekly_progress_and_guidance: true,
-        lessons_and_tips: true,
-        product_news: true,
-        offers_and_referrals: true,
-        updated_at: now,
-      });
-    if (preferencesError) {
+  // Default opt-in for account holders (inferred consent). Subscribe may have
+  // already run; still initialise preferences here so student creation cannot
+  // race past topic flags.
+  const now = new Date().toISOString();
+  if (!verifiedConsent) {
+    const { error: subscriberError } = await supabaseAdmin
+      .from("newsletter_subscribers")
+      .upsert(
+        {
+          auth_user_id: user.id,
+          email,
+          source: "ucat_signup_complete",
+          student_id: studentId,
+          subscribed_at: now,
+          unsubscribed_at: null,
+          consent_version: UCAT_SIGNUP_CONSENT_VERSION,
+          consent_wording: UCAT_SIGNUP_CONSENT_WORDING,
+          consent_verified_at: now,
+          resend_audience_synced_at: null,
+          updated_at: now,
+        },
+        { onConflict: "email" },
+      );
+    if (subscriberError) {
       console.warn(
-        "[signup complete] Failed to initialise communication preferences:",
-        preferencesError,
+        "[signup complete] Failed to create newsletter subscriber:",
+        subscriberError,
       );
     }
+  }
+
+  const { error: preferencesError } = await supabaseAdmin
+    .from("ucat_communication_preferences")
+    .upsert({
+      student_id: studentId,
+      weekly_progress_and_guidance: true,
+      lessons_and_tips: true,
+      product_news: true,
+      offers_and_referrals: true,
+      updated_at: now,
+    });
+  if (preferencesError) {
+    console.warn(
+      "[signup complete] Failed to initialise communication preferences:",
+      preferencesError,
+    );
   }
   await captureUcatReferral(studentId, pendingReferralCodeFromUser(user));
   return NextResponse.json({ success: true });

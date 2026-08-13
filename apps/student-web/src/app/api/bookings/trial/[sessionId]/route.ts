@@ -1,7 +1,12 @@
 import { captureApiError } from '@/lib/sentry/capture-api-error';
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
 import type { Database } from '@altitutor/shared';
+import {
+  createServiceRoleClient,
+  isPublicBookingIdentifierRevoked,
+  isValidUuid,
+  loadPublicBookingSession,
+} from '@/features/bookings/lib/public-booking-guards';
 
 export async function GET(
   request: NextRequest,
@@ -17,15 +22,6 @@ export async function GET(
       );
     }
 
-    // Validate sessionId format (UUID)
-    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-    if (!uuidRegex.test(sessionId)) {
-      return NextResponse.json(
-        { error: 'Invalid session ID format' },
-        { status: 400 }
-      );
-    }
-
     // Use service role to bypass RLS for public trial session lookup
     if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
       console.error('SUPABASE_SERVICE_ROLE_KEY not configured');
@@ -35,36 +31,19 @@ export async function GET(
       );
     }
 
-    const serviceRoleSupabase = createClient<Database>(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!
-    );
+    const serviceRoleSupabase = createServiceRoleClient();
 
-    // Public booking confirmation: trial / subsidy interview only
-    const { data: sessionData, error: sessionError } = await serviceRoleSupabase
-      .from('sessions')
-      .select('id, start_at, end_at, type, subject_id, status')
-      .eq('id', sessionId)
-      .in('type', ['TRIAL_SESSION', 'SUBSIDY_INTERVIEW'])
-      .single();
-
-    if (sessionError || !sessionData) {
+    if (await isPublicBookingIdentifierRevoked(serviceRoleSupabase, sessionId)) {
       return NextResponse.json(
-        { error: 'Session not found or is not a public booking type' },
-        { status: 404 }
+        { error: 'This booking link has been replaced. Please use the newest link from Altitutor.', revoked: true },
+        { status: 410 }
       );
     }
 
-    // Get student ID from sessions_students
-    const { data: sessionStudentData, error: sessionStudentError } = await serviceRoleSupabase
-      .from('sessions_students')
-      .select('student_id')
-      .eq('session_id', sessionId)
-      .single();
-
-    if (sessionStudentError || !sessionStudentData) {
+    const sessionData = await loadPublicBookingSession(serviceRoleSupabase, sessionId);
+    if (!sessionData) {
       return NextResponse.json(
-        { error: 'Student not found for this session' },
+        { error: 'Session not found or is not a public booking type' },
         { status: 404 }
       );
     }
@@ -72,7 +51,7 @@ export async function GET(
     const { data: studentData, error: studentError } = await serviceRoleSupabase
       .from('students')
       .select('id, first_name, last_name, email, phone, curriculum, year_level')
-      .eq('id', sessionStudentData.student_id)
+      .eq('id', sessionData.student_id)
       .single();
 
     if (studentError || !studentData) {
@@ -82,47 +61,33 @@ export async function GET(
       );
     }
 
-    // Get subjects for this session
-    // For DRAFTING sessions, use the session's subject_id
-    // For other meeting types, use student's subjects
-    let subjects: Database['public']['Tables']['subjects']['Row'][] = [];
-    
-    if (sessionData.type === 'DRAFTING' && sessionData.subject_id) {
-      // For DRAFTING sessions, fetch the specific subject
-      const { data: subjectData } = await serviceRoleSupabase
-        .from('subjects')
-        .select('*')
-        .eq('id', sessionData.subject_id)
-        .single();
-      
-      if (subjectData) {
-        subjects = [subjectData];
-      }
-    } else {
-      // For other meeting types, get all subjects for the student
-      const { data: subjectsData } = await serviceRoleSupabase
-        .from('students_subjects')
-        .select('subject_id, subjects(*)')
-        .eq('student_id', studentData.id);
+    const isTerminal = sessionData.status !== 'ACTIVE' || new Date(sessionData.end_at) <= new Date();
+    const { data: subjectsData } = isTerminal
+      ? { data: [] }
+      : await serviceRoleSupabase
+          .from('students_subjects')
+          .select('subject_id, subjects(*)')
+          .eq('student_id', studentData.id);
 
-      subjects = subjectsData
-        ?.map((item) => item.subjects)
-        .filter((s): s is Database['public']['Tables']['subjects']['Row'] => s !== null) || [];
-    }
+    const subjects = (subjectsData ?? [])
+      .map((item) => item.subjects)
+      .filter((s): s is Database['public']['Tables']['subjects']['Row'] => s !== null);
 
     // Transform to match BookingData interface
     const bookingData = {
       session_id: sessionData.id,
       session_type: sessionData.type,
       status: sessionData.status,
+      is_terminal: isTerminal,
+      booking_token: isValidUuid(sessionId) ? null : sessionId,
       start_at: sessionData.start_at,
       end_at: sessionData.end_at,
       student_first_name: studentData.first_name,
-      student_last_name: studentData.last_name,
-      student_email: studentData.email || '',
-      student_phone: studentData.phone || undefined,
-      curriculum: studentData.curriculum || '',
-      year_level: studentData.year_level || undefined,
+      student_last_name: isTerminal ? '' : studentData.last_name,
+      student_email: isTerminal ? '' : (studentData.email || ''),
+      student_phone: isTerminal ? undefined : (studentData.phone || undefined),
+      curriculum: isTerminal ? '' : (studentData.curriculum || ''),
+      year_level: isTerminal ? undefined : (studentData.year_level || undefined),
       subject_ids: subjects.map((s) => s.id),
       subjects: subjects.length > 0 ? subjects : undefined,
     };

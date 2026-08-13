@@ -9,6 +9,7 @@ import {
 } from '@/features/ucat/questions/server/generate-question-stems'
 import { upsertUcatGenerationNotification } from '@/features/ucat/questions/server/ucat-generation-notification'
 import { enqueueUcatQuestionAssessmentPreparation } from '@/features/ucat/questions/server/ai-assessment/dispatcher'
+import { toPersistencePayload } from '@/features/ucat/questions/server/generation-persistence-payload'
 
 export type UcatQuestionGenerationQueueMessage = {
   runId: string
@@ -123,35 +124,6 @@ export async function runBackgroundUcatGeneration(
     generatedStemIds: stemIds,
   })
   return { runId: input.runId, stemIds }
-}
-
-function toPersistencePayload(stem: Record<string, unknown>): Record<string, unknown> {
-  const questions = Array.isArray(stem.questions) ? stem.questions as Array<Record<string, unknown>> : []
-  return {
-    sectionId: stem.sectionId,
-    categoryId: stem.categoryId ?? null,
-    stemText: stem.stemText ?? {},
-    accessScope: 'public',
-    ai_generation_metadata: stem.aiGenerationMetadata ?? null,
-    questions: questions.map((question) => ({
-      index: question.index,
-      question_text: question.questionText ?? {},
-      answer_explanation: question.answerExplanation ?? null,
-      difficulty: question.difficulty ?? null,
-      time_burden_seconds: question.timeBurdenSeconds ?? null,
-      question_type: question.questionType ?? 'multiple_choice',
-      source_channel: 'ai_generation',
-      ai_generation_metadata: stem.aiGenerationMetadata ?? null,
-      tag_ids: question.tagIds ?? [],
-      answer_options: (Array.isArray(question.options) ? question.options as Array<Record<string, unknown>> : [])
-        .map((option) => ({
-          index: option.index,
-          answer_text: option.answerText ?? {},
-          answer_explanation: option.answerExplanation ?? null,
-          is_answer: option.isAnswer ?? false,
-        })),
-    })),
-  }
 }
 
 async function finishFailedRun(

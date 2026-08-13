@@ -14,11 +14,14 @@ export function SetsLandingPage() {
 
   return (
     <div className="space-y-6">
-      <UcatPageHeader
-        title="Sets"
-        description="Choose a section to browse and practice question sets."
-      />
+      <div id="tour-sets-page">
+        <UcatPageHeader
+          title="Sets"
+          description="Choose a section to browse and practice question sets."
+        />
+      </div>
       <motion.div
+        data-tour="sets-options"
         className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4"
         variants={containerVariants}
         initial="hidden"
@@ -27,7 +30,11 @@ export function SetsLandingPage() {
         {SECTIONS.map((num) => {
           const label = SECTION_NUMBER_TO_NAME[num] ?? `Section ${num}`;
           return (
-            <motion.div key={num} variants={itemVariants}>
+            <motion.div
+              key={num}
+              data-tour="sets-section-link"
+              variants={itemVariants}
+            >
               <UcatClickableCardLink
                 href={`/sets/sections/${num}`}
                 icon={ListChecks}

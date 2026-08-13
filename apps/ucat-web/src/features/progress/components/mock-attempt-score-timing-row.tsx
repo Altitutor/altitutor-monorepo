@@ -39,7 +39,7 @@ export function MockAttemptScoreTimingRow({
         showPercentile ? "lg:grid-cols-3" : "lg:grid-cols-2",
       )}
     >
-      <Card id="mock-attempt-score" className={cn(UCAT_CARD_CHROME, "h-full")}>
+      <Card id="tour-attempt-score" className={cn(UCAT_CARD_CHROME, "h-full")}>
         <CardHeader className="pb-2">
           <CardTitle className="text-base font-medium">
             Overall scaled score

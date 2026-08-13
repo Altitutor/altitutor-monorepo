@@ -7,13 +7,17 @@ import { useUcatSets } from '@/features/ucat/sets/hooks/useUcatSets'
 import { useUcatSections } from '@/features/ucat/sections/hooks/useUcatSections'
 import { proseMirrorToPlainText } from '@/features/ucat/shared/lib/rich-text'
 import { useUcatMockDraft } from '@/features/ucat/mocks/hooks/useUcatMockDraft'
+import { useUcatMockBlueprints } from '@/features/ucat/mocks/hooks/useUcatMocks'
+import { useUcatMockBlueprintCandidate } from '@/features/ucat/mocks/hooks/useUcatMockBlueprintCandidate'
 import { UcatPageHeader, UcatPageSkeleton, UcatAccessDenied } from '@/features/ucat/shared/components'
 import { useUcatAccess } from '@/features/ucat/shared/hooks/useUcatAccess'
 import { parseUcatVisibilityError } from '@/features/ucat/shared/lib/visibility-error'
 import { UcatMockEditorContent } from '@/features/ucat/mocks/components/UcatMockEditorContent'
+import { UcatSetEditorDialog } from '@/features/ucat/sets/components/UcatSetEditorDialog'
 import { parseSetSections } from '@/features/ucat/shared/lib/set-section-status'
 import { buildSetCatalogFilterDefinitions } from '@/features/ucat/shared/lib/set-catalog-filters'
 import type { SetOption } from '@/features/ucat/mocks/components/UcatMockEditorDialog'
+import { useUcatStemCatalog } from '@/features/ucat/questions/hooks/useUcatQuestions'
 
 function formatSectionsDisplay(sections: unknown): string {
   if (!Array.isArray(sections)) return ''
@@ -37,8 +41,11 @@ export function UcatMockDetailPage({ mockId }: UcatMockDetailPageProps) {
   const sets = useUcatSets()
   const sectionsQuery = useUcatSections()
   const sections = useMemo(() => sectionsQuery.data ?? [], [sectionsQuery.data])
+  const blueprintsQuery = useUcatMockBlueprints()
+  const stemCatalogQuery = useUcatStemCatalog(true)
   const [search, setSearch] = useState('')
   const [filters, setFilters] = useState<Record<string, unknown[]>>({})
+  const [editingSetId, setEditingSetId] = useState<string | null>(null)
 
   const setFilterDefinitions = useMemo(
     () => buildSetCatalogFilterDefinitions(sections),
@@ -52,6 +59,7 @@ export function UcatMockDetailPage({ mockId }: UcatMockDetailPageProps) {
     instructionsText,
     setInstructionsText,
     draftSetIds,
+    blueprintId,
     setName,
     setIsPrivate,
     setDraftSetIds,
@@ -78,6 +86,20 @@ export function UcatMockDetailPage({ mockId }: UcatMockDetailPageProps) {
         }
       })
   }, [sets.data])
+  const blueprints = useMemo(() => (blueprintsQuery.data ?? []).flatMap(blueprint =>
+    blueprint.id && blueprint.code && blueprint.test_year != null && blueprint.version != null
+      ? [{ id: blueprint.id, code: blueprint.code, test_year: blueprint.test_year, version: blueprint.version }]
+      : []
+  ), [blueprintsQuery.data])
+  const blueprintCandidate = useUcatMockBlueprintCandidate({
+    mockId,
+    attachedBlueprintId: blueprintId,
+    storedCompliance: detail.data?.blueprint_compliance,
+    blueprints: blueprintsQuery.data ?? [],
+    draftSetIds,
+    setCatalog,
+    stemCatalog: stemCatalogQuery.data ?? [],
+  })
 
   const isLoading = access.isLoading || sets.isLoading || detail.isLoading
 
@@ -144,8 +166,17 @@ export function UcatMockDetailPage({ mockId }: UcatMockDetailPageProps) {
           setCatalog={setCatalog}
           setCatalogLoading={sets.isLoading}
           sections={sections}
+          onEditSet={setEditingSetId}
+          blueprints={blueprints}
+          blueprintCandidate={blueprintCandidate}
         />
       </div>
+
+      <UcatSetEditorDialog
+        open={!!editingSetId}
+        setId={editingSetId}
+        onClose={() => setEditingSetId(null)}
+      />
     </div>
   )
 }

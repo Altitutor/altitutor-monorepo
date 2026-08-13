@@ -9,8 +9,19 @@ SET ucat_signup_step = 4,
     ucat_signup_completed_at = COALESCE(ucat_signup_completed_at, NOW()),
     ucat_onboarding_completed_at = COALESCE(ucat_onboarding_completed_at, NOW()),
     onboarding_progress = COALESCE(onboarding_progress, '{}'::jsonb) || jsonb_build_object(
-      'ucat-question-engine-intro',
-      jsonb_build_object('completed_at', NOW(), 'version', 1)
+      'ucat-dashboard-intro', jsonb_build_object('completed_at', NOW(), 'version', 2),
+      'ucat-study-plan-intro', jsonb_build_object('completed_at', NOW(), 'version', 2),
+      'ucat-progress-intro', jsonb_build_object('completed_at', NOW(), 'version', 4),
+      'ucat-learn-intro', jsonb_build_object('completed_at', NOW(), 'version', 3),
+      'ucat-skill-trainer-intro', jsonb_build_object('completed_at', NOW(), 'version', 3),
+      'ucat-practice-intro', jsonb_build_object('completed_at', NOW(), 'version', 2),
+      'ucat-sets-intro', jsonb_build_object('completed_at', NOW(), 'version', 2),
+      'ucat-mocks-intro', jsonb_build_object('completed_at', NOW(), 'version', 3),
+      'ucat-question-engine-controls-intro', jsonb_build_object('completed_at', NOW(), 'version', 1),
+      'ucat-question-engine-intro', jsonb_build_object('completed_at', NOW(), 'version', 2),
+      'ucat-attempt-review-intro', jsonb_build_object('completed_at', NOW(), 'version', 2),
+      'ucat-study-orb-intro-seen', jsonb_build_object('completed_at', NOW(), 'version', 1),
+      'ucat-study-plan-decided', jsonb_build_object('completed_at', NOW(), 'version', 1)
     )
 WHERE id IN (
   '10000000-0000-0000-0000-000000000001',
@@ -20,6 +31,22 @@ WHERE id IN (
   '10000000-0000-0000-0000-000000000005',
   '10000000-0000-0000-0000-000000000006'
 );
+
+INSERT INTO public.student_online_product_relationships (
+  student_id, product, started_at, closed_at
+)
+SELECT
+  student.id, 'UCAT_WEB', COALESCE(student.ucat_signup_completed_at, NOW()), NULL
+FROM public.students student
+WHERE student.id IN (
+  '10000000-0000-0000-0000-000000000001',
+  '10000000-0000-0000-0000-000000000002',
+  '10000000-0000-0000-0000-000000000003',
+  '10000000-0000-0000-0000-000000000004',
+  '10000000-0000-0000-0000-000000000005',
+  '10000000-0000-0000-0000-000000000006'
+)
+ON CONFLICT (student_id, product) DO UPDATE SET closed_at = NULL;
 
 DELETE FROM public.ucat_student_study_plan_generations
 WHERE student_id IN (
@@ -38,17 +65,17 @@ INSERT INTO public.ucat_student_study_plan_profiles (
 )
 VALUES
   -- Alice: new student, no historical evidence.
-  ('f5000000-0000-4000-8000-000000000001', '10000000-0000-0000-0000-000000000001', 2100, EXTRACT(YEAR FROM CURRENT_DATE + 21)::INT, CURRENT_DATE + 21, jsonb_build_array(jsonb_build_object('weekday', EXTRACT(DOW FROM CURRENT_DATE)::INT, 'maxMinutes', 60), jsonb_build_object('weekday', (EXTRACT(DOW FROM CURRENT_DATE)::INT + 2) % 7, 'maxMinutes', 60), jsonb_build_object('weekday', (EXTRACT(DOW FROM CURRENT_DATE)::INT + 4) % 7, 'maxMinutes', 120)), EXTRACT(DOW FROM CURRENT_DATE)::INT, NOW(), NULL, NULL),
+  ('f5000000-0000-4000-8000-000000000001', '10000000-0000-0000-0000-000000000001', 2100, EXTRACT(YEAR FROM CURRENT_DATE + 21)::INT, CURRENT_DATE + 21, jsonb_build_array(jsonb_build_object('weekday', EXTRACT(DOW FROM CURRENT_DATE)::INT), jsonb_build_object('weekday', (EXTRACT(DOW FROM CURRENT_DATE)::INT + 2) % 7), jsonb_build_object('weekday', (EXTRACT(DOW FROM CURRENT_DATE)::INT + 4) % 7)), EXTRACT(DOW FROM CURRENT_DATE)::INT, NOW(), NULL, NULL),
   -- Bob: severely constrained availability, used to verify warning-not-blocking.
-  ('f5000000-0000-4000-8000-000000000002', '10000000-0000-0000-0000-000000000002', 2500, EXTRACT(YEAR FROM CURRENT_DATE + 21)::INT, CURRENT_DATE + 21, jsonb_build_array(jsonb_build_object('weekday', EXTRACT(DOW FROM CURRENT_DATE)::INT, 'maxMinutes', 30)), EXTRACT(DOW FROM CURRENT_DATE)::INT, NOW(), NULL, NULL),
+  ('f5000000-0000-4000-8000-000000000002', '10000000-0000-0000-0000-000000000002', 2500, EXTRACT(YEAR FROM CURRENT_DATE + 21)::INT, CURRENT_DATE + 21, jsonb_build_array(jsonb_build_object('weekday', EXTRACT(DOW FROM CURRENT_DATE)::INT)), EXTRACT(DOW FROM CURRENT_DATE)::INT, NOW(), NULL, NULL),
   -- Charlie: experienced and ready for performance work.
-  ('f5000000-0000-4000-8000-000000000003', '10000000-0000-0000-0000-000000000003', 2400, EXTRACT(YEAR FROM CURRENT_DATE + 21)::INT, CURRENT_DATE + 21, jsonb_build_array(jsonb_build_object('weekday', EXTRACT(DOW FROM CURRENT_DATE)::INT, 'maxMinutes', 150), jsonb_build_object('weekday', (EXTRACT(DOW FROM CURRENT_DATE)::INT + 2) % 7, 'maxMinutes', 90), jsonb_build_object('weekday', (EXTRACT(DOW FROM CURRENT_DATE)::INT + 4) % 7, 'maxMinutes', 90), jsonb_build_object('weekday', (EXTRACT(DOW FROM CURRENT_DATE)::INT + 6) % 7, 'maxMinutes', 90)), EXTRACT(DOW FROM CURRENT_DATE)::INT, NOW(), NULL, NULL),
+  ('f5000000-0000-4000-8000-000000000003', '10000000-0000-0000-0000-000000000003', 2400, EXTRACT(YEAR FROM CURRENT_DATE + 21)::INT, CURRENT_DATE + 21, jsonb_build_array(jsonb_build_object('weekday', EXTRACT(DOW FROM CURRENT_DATE)::INT), jsonb_build_object('weekday', (EXTRACT(DOW FROM CURRENT_DATE)::INT + 2) % 7), jsonb_build_object('weekday', (EXTRACT(DOW FROM CURRENT_DATE)::INT + 4) % 7), jsonb_build_object('weekday', (EXTRACT(DOW FROM CURRENT_DATE)::INT + 6) % 7)), EXTRACT(DOW FROM CURRENT_DATE)::INT, NOW(), NULL, NULL),
   -- Diana: partially completed beginner curriculum.
-  ('f5000000-0000-4000-8000-000000000004', '10000000-0000-0000-0000-000000000004', 2200, EXTRACT(YEAR FROM CURRENT_DATE + 30)::INT, CURRENT_DATE + 30, jsonb_build_array(jsonb_build_object('weekday', EXTRACT(DOW FROM CURRENT_DATE)::INT, 'maxMinutes', 60), jsonb_build_object('weekday', (EXTRACT(DOW FROM CURRENT_DATE)::INT + 2) % 7, 'maxMinutes', 60), jsonb_build_object('weekday', (EXTRACT(DOW FROM CURRENT_DATE)::INT + 4) % 7, 'maxMinutes', 60)), EXTRACT(DOW FROM CURRENT_DATE)::INT, NOW(), NULL, NULL),
+  ('f5000000-0000-4000-8000-000000000004', '10000000-0000-0000-0000-000000000004', 2200, EXTRACT(YEAR FROM CURRENT_DATE + 90)::INT, CURRENT_DATE + 90, jsonb_build_array(jsonb_build_object('weekday', EXTRACT(DOW FROM CURRENT_DATE)::INT), jsonb_build_object('weekday', (EXTRACT(DOW FROM CURRENT_DATE)::INT + 2) % 7), jsonb_build_object('weekday', (EXTRACT(DOW FROM CURRENT_DATE)::INT + 4) % 7)), EXTRACT(DOW FROM CURRENT_DATE)::INT, NOW(), NULL, NULL),
   -- Edward: near-test taper with high daily capacity.
-  ('f5000000-0000-4000-8000-000000000005', '10000000-0000-0000-0000-000000000005', 2300, EXTRACT(YEAR FROM CURRENT_DATE + 10)::INT, CURRENT_DATE + 10, jsonb_build_array(jsonb_build_object('weekday', EXTRACT(DOW FROM CURRENT_DATE)::INT, 'maxMinutes', 150), jsonb_build_object('weekday', (EXTRACT(DOW FROM CURRENT_DATE)::INT + 1) % 7, 'maxMinutes', 120), jsonb_build_object('weekday', (EXTRACT(DOW FROM CURRENT_DATE)::INT + 3) % 7, 'maxMinutes', 120), jsonb_build_object('weekday', (EXTRACT(DOW FROM CURRENT_DATE)::INT + 5) % 7, 'maxMinutes', 120)), EXTRACT(DOW FROM CURRENT_DATE)::INT, NOW(), NULL, NULL),
+  ('f5000000-0000-4000-8000-000000000005', '10000000-0000-0000-0000-000000000005', 2300, EXTRACT(YEAR FROM CURRENT_DATE + 10)::INT, CURRENT_DATE + 10, jsonb_build_array(jsonb_build_object('weekday', EXTRACT(DOW FROM CURRENT_DATE)::INT), jsonb_build_object('weekday', (EXTRACT(DOW FROM CURRENT_DATE)::INT + 1) % 7), jsonb_build_object('weekday', (EXTRACT(DOW FROM CURRENT_DATE)::INT + 3) % 7), jsonb_build_object('weekday', (EXTRACT(DOW FROM CURRENT_DATE)::INT + 5) % 7)), EXTRACT(DOW FROM CURRENT_DATE)::INT, NOW(), NULL, NULL),
   -- Fiona: one-section weakness with otherwise strong evidence.
-  ('f5000000-0000-4000-8000-000000000006', '10000000-0000-0000-0000-000000000006', 2400, EXTRACT(YEAR FROM CURRENT_DATE + 21)::INT, CURRENT_DATE + 21, jsonb_build_array(jsonb_build_object('weekday', EXTRACT(DOW FROM CURRENT_DATE)::INT, 'maxMinutes', 120), jsonb_build_object('weekday', (EXTRACT(DOW FROM CURRENT_DATE)::INT + 2) % 7, 'maxMinutes', 75), jsonb_build_object('weekday', (EXTRACT(DOW FROM CURRENT_DATE)::INT + 4) % 7, 'maxMinutes', 75)), EXTRACT(DOW FROM CURRENT_DATE)::INT, NOW(), NULL, NULL)
+  ('f5000000-0000-4000-8000-000000000006', '10000000-0000-0000-0000-000000000006', 2400, EXTRACT(YEAR FROM CURRENT_DATE + 21)::INT, CURRENT_DATE + 21, jsonb_build_array(jsonb_build_object('weekday', EXTRACT(DOW FROM CURRENT_DATE)::INT), jsonb_build_object('weekday', (EXTRACT(DOW FROM CURRENT_DATE)::INT + 2) % 7), jsonb_build_object('weekday', (EXTRACT(DOW FROM CURRENT_DATE)::INT + 4) % 7)), EXTRACT(DOW FROM CURRENT_DATE)::INT, NOW(), NULL, NULL)
 ON CONFLICT (student_id) DO UPDATE SET
   target_score = EXCLUDED.target_score,
   test_year = EXCLUDED.test_year,
@@ -59,6 +86,31 @@ ON CONFLICT (student_id) DO UPDATE SET
   last_generated_at = NULL,
   next_weekly_replan_on = NULL,
   updated_at = NOW();
+
+-- Charlie is an experienced persona whose cognitive sections have permanently
+-- graduated from Learning in this preparation cycle. Completed sets alone do
+-- not grant graduation; the state is explicit and evidence-versioned.
+INSERT INTO public.ucat_student_preparation_section_states (
+  student_id, test_year, section_id, learning_graduated_at,
+  learning_graduation_route, policy_version, evidence_snapshot
+)
+SELECT
+  profile.student_id,
+  profile.test_year,
+  section.id,
+  NOW() - INTERVAL '14 days',
+  'accuracy',
+  'evidence-driven-preparation-policy-v5',
+  jsonb_build_object('fixture', 'experienced-e2e-persona')
+FROM public.ucat_student_study_plan_profiles profile
+CROSS JOIN public.ucat_sections section
+WHERE profile.student_id = '10000000-0000-0000-0000-000000000003'
+  AND section.section_number <= 3
+ON CONFLICT (student_id, test_year, section_id) DO UPDATE SET
+  learning_graduated_at = EXCLUDED.learning_graduated_at,
+  learning_graduation_route = EXCLUDED.learning_graduation_route,
+  policy_version = EXCLUDED.policy_version,
+  evidence_snapshot = EXCLUDED.evidence_snapshot;
 
 -- Diana has a partially completed essential lesson and a finished one, which
 -- verifies that regeneration continues one and excludes the other.

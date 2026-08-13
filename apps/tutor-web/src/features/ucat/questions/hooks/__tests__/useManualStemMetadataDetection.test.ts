@@ -18,6 +18,8 @@ function stemValues(overrides: Partial<UcatQuestionStemFormValues> = {}): UcatQu
       {
         questionText: text(''),
         questionType: 'multiple_choice',
+        responseType: 'multiple_choice',
+        answerScheme: 'single_choice',
         answerExplanation: null,
         difficulty: null,
         timeBurdenSeconds: '',
@@ -34,11 +36,22 @@ function stemValues(overrides: Partial<UcatQuestionStemFormValues> = {}): UcatQu
 }
 
 describe('getPendingStemMetadataDiff', () => {
+  const multipleChoiceInference = {
+    responseType: { value: 'multiple_choice' as const, confidence: 'certain' as const, evidence: ['single_answer_letter'], conflicts: [] },
+    answerScheme: { value: 'single_choice' as const, confidence: 'certain' as const, evidence: ['single_choice_answer'], conflicts: [] },
+    reviewState: 'prefilled' as const,
+  }
+  const binaryInference = {
+    responseType: { value: 'drag_and_drop' as const, confidence: 'strong' as const, evidence: ['binary_conclusion_directive'], conflicts: [] },
+    answerScheme: { value: 'decision_making_binary_placement' as const, confidence: 'strong' as const, evidence: ['binary_conclusion_directive'], conflicts: [] },
+    reviewState: 'confirmation_required' as const,
+  }
+
   it('returns null when recommendation matches current values', () => {
     const recommendation: ManualStemMetadataRecommendation = {
       sectionId: 'section-vr',
       categoryId: null,
-      questionType: 'multiple_choice',
+      responseContractsByQuestionIndex: { 0: multipleChoiceInference },
       tagIdsByQuestionIndex: { 0: [] },
     }
     expect(getPendingStemMetadataDiff(recommendation, stemValues())).toBeNull()
@@ -48,14 +61,14 @@ describe('getPendingStemMetadataDiff', () => {
     const recommendation: ManualStemMetadataRecommendation = {
       sectionId: 'section-dm',
       categoryId: 'cat-syll',
-      questionType: 'syllogism',
+      responseContractsByQuestionIndex: { 0: binaryInference },
       tagIdsByQuestionIndex: { 0: ['tag-a', 'tag-b'] },
     }
     const diff = getPendingStemMetadataDiff(recommendation, stemValues())
     expect(diff).toEqual({
       sectionId: 'section-dm',
       categoryId: 'cat-syll',
-      questionType: 'syllogism',
+      responseContractsByQuestionIndex: { 0: binaryInference },
       tagIdsByQuestionIndex: { 0: ['tag-a', 'tag-b'] },
     })
   })
@@ -64,7 +77,7 @@ describe('getPendingStemMetadataDiff', () => {
     const recommendation: ManualStemMetadataRecommendation = {
       sectionId: 'section-vr',
       categoryId: 'cat-tf',
-      questionType: null,
+      responseContractsByQuestionIndex: {},
       tagIdsByQuestionIndex: { 0: ['tag-a'] },
     }
     const diff = getPendingStemMetadataDiff(
@@ -75,6 +88,8 @@ describe('getPendingStemMetadataDiff', () => {
           {
             questionText: text(''),
             questionType: 'multiple_choice',
+            responseType: 'multiple_choice',
+            answerScheme: 'single_choice',
             answerExplanation: null,
             difficulty: null,
             timeBurdenSeconds: '',
@@ -91,8 +106,24 @@ describe('getPendingStemMetadataDiff', () => {
     expect(diff).toEqual({
       sectionId: null,
       categoryId: 'cat-tf',
-      questionType: null,
+      responseContractsByQuestionIndex: {},
       tagIdsByQuestionIndex: {},
     })
+  })
+
+  it('keeps absent response evidence visible for review even when defaults match', () => {
+    const absentInference = {
+      responseType: { value: null, confidence: 'absent' as const, evidence: [], conflicts: [] },
+      answerScheme: { value: null, confidence: 'absent' as const, evidence: [], conflicts: [] },
+      reviewState: 'review_required' as const,
+    }
+    const diff = getPendingStemMetadataDiff({
+      sectionId: null,
+      categoryId: null,
+      responseContractsByQuestionIndex: { 0: absentInference },
+      tagIdsByQuestionIndex: {},
+    }, stemValues())
+
+    expect(diff?.responseContractsByQuestionIndex[0]).toEqual(absentInference)
   })
 })

@@ -1,23 +1,18 @@
-export type UcatQuestionType = 'multiple_choice' | 'syllogism'
+import type {
+  ResponseDefinition,
+  ReviewContract,
+} from '@altitutor/ucat-response-contract'
 
-export type QuestionMeta = {
-  id: string
-  stemId: string
+export type ScoringQuestion = {
+  definition: ResponseDefinition
   sectionName: string
-  questionType: UcatQuestionType
-  correctOptionId: string
-  /** Options ordered by index. For SJ: index 0=A, 1=B, 2=C, 3=D. */
-  options: Array<{ id: string; index: number }>
-}
-
-export type Attempt = {
-  questionId: string
-  selectedOptionId: string
 }
 
 export type RawScoreResult = {
   questionScores: Map<string, number>
   totalRawScore: number
+  maximumRawScore: number
+  reviews: Map<string, ReviewContract>
 }
 
 export type UcatScoringSection =

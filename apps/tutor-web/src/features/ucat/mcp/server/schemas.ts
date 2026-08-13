@@ -34,11 +34,19 @@ export const AnswerOptionInputSchema = z.object({
   answerText: RichTextSchema,
   answerExplanation: NullableRichTextSchema.optional(),
   isAnswer: z.boolean().default(false),
+  answerKeyValue: z.enum(['correct', 'yes', 'no', 'most', 'least']).nullable().optional(),
 })
 
 export const QuestionInputSchema = z.object({
   questionText: RichTextSchema,
   questionType: z.enum(['multiple_choice', 'syllogism']).default('multiple_choice'),
+  responseType: z.enum(['multiple_choice', 'drag_and_drop']).optional(),
+  answerScheme: z.enum([
+    'single_choice',
+    'situational_judgement_rating',
+    'decision_making_binary_placement',
+    'situational_judgement_most_least',
+  ]).optional(),
   answerExplanation: NullableRichTextSchema.optional(),
   difficulty: z.number().min(0).max(1).nullable().optional().describe(
     'Expected proportion of the target UCAT candidate cohort who would answer incorrectly on first exposure under realistic section timing and without assistance. 0 is easiest, 1 is hardest, and null means unknown.',
@@ -53,6 +61,13 @@ export const QuestionInputSchema = z.object({
 const QuestionChangesSchema = z.object({
   questionText: RichTextSchema.optional(),
   questionType: z.enum(['multiple_choice', 'syllogism']).optional(),
+  responseType: z.enum(['multiple_choice', 'drag_and_drop']).optional(),
+  answerScheme: z.enum([
+    'single_choice',
+    'situational_judgement_rating',
+    'decision_making_binary_placement',
+    'situational_judgement_most_least',
+  ]).optional(),
   answerExplanation: NullableRichTextSchema.optional(),
   difficulty: z.number().min(0).max(1).nullable().optional().describe(
     'Expected proportion incorrect on first exposure under realistic section timing. 0 is easiest, 1 is hardest, and null means unknown.',
@@ -67,6 +82,7 @@ const AnswerOptionChangesSchema = z.object({
   answerText: RichTextSchema.optional(),
   answerExplanation: NullableRichTextSchema.optional(),
   isAnswer: z.boolean().optional(),
+  answerKeyValue: z.enum(['correct', 'yes', 'no', 'most', 'least']).nullable().optional(),
 })
 
 export const QuestionStemOperationSchema = z.discriminatedUnion('type', [

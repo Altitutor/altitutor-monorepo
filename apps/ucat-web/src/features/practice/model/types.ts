@@ -15,6 +15,10 @@ export type PracticeSelectionInput = {
    * When empty, all categories for the selected sections are included.
    */
   categoryIds: string[];
+  /** Preferred question tags. Categories remain strict; tags rank matching stems first. */
+  questionTagIds?: string[];
+  /** Study-plan module loop: keep whole stems within the prescribed dose. */
+  linkedLearningPractice?: boolean;
   /**
    * Time mode for the generated set:
    * - 'off'   → no time limit

@@ -15,9 +15,12 @@ import {
   Tabs,
   TabsContent,
   Textarea,
-  useToast,
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
 } from '@altitutor/ui'
-import { Eye, EyeOff } from 'lucide-react'
+import { Eye, EyeOff, Info } from 'lucide-react'
 import { SegmentedControl } from '@/shared/components/segmented-control'
 import { cn } from '@/shared/utils'
 import { tutorCardCn } from '@/shared/lib/tutor-visual'
@@ -39,10 +42,15 @@ import {
 } from '@/features/ucat/shared/lib/rich-text'
 import { taxonomyDisplayLabel } from '@/features/ucat/shared/lib/taxonomy-paths'
 import {
-  applyStemTypeSwitch,
-  isSyllogismCategory,
-} from '@/features/ucat/questions/components/stem-editor/stemEditorStemType'
+  authoredResponseContract,
+  allowsResponseTypeChoice,
+  responseContractForType,
+  responseContractIssues,
+  suggestedResponseContract,
+  transformResponseContract,
+} from '@/features/ucat/questions/lib/response-contract-authoring'
 import { UcatStemSetMembershipCard } from '@/features/ucat/questions/components/stem-editor/UcatStemSetMembershipCard'
+import { UcatStemLearningModuleMembershipCard } from '@/features/ucat/questions/components/stem-editor/UcatStemLearningModuleMembershipCard'
 import { UcatAuthoringAgentChat } from '@/features/ucat/authoring-agent/UcatAuthoringAgentChat'
 import type { UcatAuthoringToolCall, UcatAuthoringToolResult } from '@/features/ucat/authoring-agent/types'
 import { appendImageNode, appendImageNodeToDoc, replaceFirstImageNode, replaceFirstImageNodeInDoc } from '@/features/ucat/authoring-agent/rich-text-image'
@@ -92,11 +100,35 @@ type UcatStemEditorPropertiesPanelProps = {
   className?: string
 }
 
+function PropertyHint({ label, hint }: { label: string; hint: string }) {
+  return (
+    <span className="inline-flex items-center gap-1">
+      {label}
+      <TooltipProvider delayDuration={200}>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <button
+              type="button"
+              className="inline-flex shrink-0 items-center justify-center text-muted-foreground hover:text-foreground"
+              aria-label={`${label} info`}
+            >
+              <Info className="h-3.5 w-3.5" aria-hidden />
+            </button>
+          </TooltipTrigger>
+          <TooltipContent side="left" className="max-w-xs text-xs leading-relaxed">
+            {hint}
+          </TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
+    </span>
+  )
+}
+
 function PropertyRow({ label, children }: { label: ReactNode; children: ReactNode }) {
   return (
-    <div className="flex items-center justify-between gap-3 py-1.5">
+    <div className="flex items-center gap-3 py-1.5">
       <span className="shrink-0 text-sm text-muted-foreground">{label}</span>
-      <div className="min-w-0 w-[58%]">{children}</div>
+      <div className="min-w-0 flex-1">{children}</div>
     </div>
   )
 }
@@ -159,7 +191,6 @@ export function UcatStemEditorPropertiesPanel({
   bulkImportAiReview = null,
   className,
 }: UcatStemEditorPropertiesPanelProps) {
-  const { toast } = useToast()
   const { fields, append, remove } = useFieldArray({ control: form.control, name: 'questions' })
   const [uncontrolledActiveTab, setUncontrolledActiveTab] = useState<'properties' | 'ai' | 'review'>('properties')
   const activeTab = controlledActiveTab ?? uncontrolledActiveTab
@@ -172,10 +203,6 @@ export function UcatStemEditorPropertiesPanel({
 
   const sectionId = form.watch('sectionId')
   const watchedStem = form.watch()
-  const stemType = (form.watch('questions.0.questionType') ?? 'multiple_choice') as
-    | 'multiple_choice'
-    | 'syllogism'
-  const isSyllogism = stemType === 'syllogism'
   const aiModel = metadataString(aiGenerationMetadata, 'model')
   const generatedAtLabel = formatGeneratedTimestamp(metadataString(aiGenerationMetadata, 'generatedAt'))
   const generatedByName =
@@ -193,23 +220,29 @@ export function UcatStemEditorPropertiesPanel({
   const safeQuestionIndex =
     fields.length > 0 ? Math.min(Math.max(0, currentQuestionIndex), fields.length - 1) : 0
   const activeQuestion = watchedStem.questions?.[safeQuestionIndex]
+  const selectedCategory = categories.find((category) => category.id === watchedStem.categoryId)
+  const selectedSection = sections.find((section) => section.id === sectionId)
+  const suggestedContract = suggestedResponseContract(selectedCategory?.name, selectedSection?.name)
+  const contractIssues = activeQuestion ? responseContractIssues(activeQuestion) : []
+  const currentContract = activeQuestion
+    ? authoredResponseContract(activeQuestion)
+    : suggestedContract
+  const currentResponseType = currentContract.responseType
+  const responseTypeChoiceAllowed = allowsResponseTypeChoice(selectedCategory?.name)
 
   function handleCategoryChange(nextCategoryId: string | null): void {
-    const nextCategory = categories.find((category) => category.id === nextCategoryId)
-    const nextIsSyllogismCategory = isSyllogismCategory(nextCategory)
-    if (nextIsSyllogismCategory) {
-      const ok = applyStemTypeSwitch(form, 'syllogism', sections, categories)
-      if (!ok) return
-      onQuestionIndexChange(0)
-      return
-    }
-    if (isSyllogism) {
-      const ok = applyStemTypeSwitch(form, 'multiple_choice', sections, categories)
-      if (!ok) return
-    }
     form.setValue('categoryId', nextCategoryId, {
       shouldDirty: true,
     })
+    if (nextCategoryId == null) return
+
+    const nextCategory = categories.find((category) => category.id === nextCategoryId)
+    const defaultContract = suggestedResponseContract(nextCategory?.name, selectedSection?.name)
+    form.setValue(
+      'questions',
+      form.getValues('questions').map((question) => transformResponseContract(question, defaultContract)),
+      { shouldDirty: true },
+    )
   }
 
   const executeStemAgentTool = async (toolCall: UcatAuthoringToolCall): Promise<UcatAuthoringToolResult> => {
@@ -756,7 +789,7 @@ export function UcatStemEditorPropertiesPanel({
 
         <Accordion
           type="multiple"
-          defaultValue={['ai', 'stem', 'sets', 'question', 'source']}
+          defaultValue={['ai', 'stem', 'sets', 'learning-modules', 'question', 'source']}
           className="space-y-4"
         >
           <PropertiesCard value="stem" title="Stem properties">
@@ -765,10 +798,6 @@ export function UcatStemEditorPropertiesPanel({
                 items={sections}
                 value={sections.find((s) => (s.id ?? '') === sectionId) ?? null}
                 onValueChange={(section) => {
-                  if (isSyllogism) {
-                    toast({ description: 'Section is locked for syllogism stems.', variant: 'destructive' })
-                    return
-                  }
                   form.setValue('sectionId', section?.id ?? '', { shouldDirty: true })
                   form.setValue('categoryId', null, { shouldDirty: true })
                 }}
@@ -829,35 +858,56 @@ export function UcatStemEditorPropertiesPanel({
                 getItemId={(i) => i.value}
               />
             </PropertyRow>
-            <PropertyRow label="Type">
-              <SearchableSelect<{ value: 'multiple_choice' | 'syllogism'; label: string }>
+            <PropertyRow label='Interaction'>
+              <SearchableSelect<{ value: 'multiple_choice' | 'drag_and_drop'; label: string }>
                 items={[
                   { value: 'multiple_choice', label: 'Multiple Choice' },
-                  { value: 'syllogism', label: 'Syllogism' },
+                  { value: 'drag_and_drop', label: 'Drag and Drop' },
                 ]}
                 value={
-                  isSyllogism
-                    ? { value: 'syllogism', label: 'Syllogism' }
+                  currentResponseType === 'drag_and_drop'
+                    ? { value: 'drag_and_drop' as const, label: 'Drag and Drop' }
                     : { value: 'multiple_choice', label: 'Multiple Choice' }
                 }
+                disabled={!responseTypeChoiceAllowed}
                 onValueChange={(item) => {
-                  if (!item) return
-                  const ok = applyStemTypeSwitch(form, item.value, sections, categories)
-                  if (!ok) return
-                  if (item.value === 'syllogism') {
-                    onQuestionIndexChange(0)
-                  }
+                  if (!item || !activeQuestion) return
+                  const target = responseContractForType(
+                    item.value,
+                    selectedCategory?.name,
+                    selectedSection?.name,
+                  )
+                  const questions = form.getValues('questions').map((question, questionIndex) => (
+                    questionIndex === safeQuestionIndex
+                      ? transformResponseContract(question, target)
+                      : question
+                  ))
+                  form.setValue('questions', questions, { shouldDirty: true })
                 }}
                 getItemLabel={(i) => i.label}
                 getItemId={(i) => i.value}
               />
             </PropertyRow>
+            {contractIssues.length > 0 ? (
+              <div className="space-y-2 rounded-md border border-black/10 p-2 dark:border-white/10">
+                <div className="text-xs text-amber-700 dark:text-amber-300">
+                  {contractIssues[0]?.message}
+                  {contractIssues.length > 1 ? ` (+${contractIssues.length - 1} more)` : ''}
+                </div>
+              </div>
+            ) : null}
           </PropertiesCard>
 
           <PropertiesCard value="sets" title="Set membership">
             <UcatStemSetMembershipCard
               stemId={stemId}
-              stemSectionId={sectionId}
+              highlighted={focusTarget === 'sets'}
+            />
+          </PropertiesCard>
+
+          <PropertiesCard value="learning-modules" title="Learning module membership">
+            <UcatStemLearningModuleMembershipCard
+              stemId={stemId}
               highlighted={focusTarget === 'sets'}
             />
           </PropertiesCard>
@@ -869,6 +919,9 @@ export function UcatStemEditorPropertiesPanel({
                   <QuestionTagsSelect questionIndex={safeQuestionIndex} form={form} tags={tags} compact />
                 </div>
               </PropertyRow>
+              <div className="py-1.5 text-xs text-muted-foreground">
+                Answer keys are edited directly beside the options in the question editor.
+              </div>
               {focusTarget === 'explanation' ? (
                 <div className="rounded-md border border-amber-300 bg-amber-50 p-2 text-xs text-amber-950 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-100">
                   Add the missing explanation in the question editor on the left.
@@ -877,48 +930,46 @@ export function UcatStemEditorPropertiesPanel({
               {fields.length > 1 ? (
                 <div className="text-xs font-medium text-muted-foreground">Question {safeQuestionIndex + 1}</div>
               ) : null}
-              <PropertyRow label="Difficulty">
-                <div className="space-y-1.5">
-                  <Input
-                    type="number"
-                    min="0"
-                    max="1"
-                    step="0.01"
-                    placeholder="0.50"
-                    aria-describedby={`question-${safeQuestionIndex}-difficulty-help`}
-                    className="h-9"
-                    {...form.register(`questions.${safeQuestionIndex}.difficulty`, {
-                      setValueAs: (value) => {
-                        if (value === '' || value == null) return null
-                        const parsed = typeof value === 'number' ? value : Number(value)
-                        return Number.isFinite(parsed) ? parsed : null
-                      },
-                    })}
+              <PropertyRow
+                label={(
+                  <PropertyHint
+                    label="Difficulty"
+                    hint="Expected proportion incorrect: 0 easiest, 1 hardest. Leave blank if unknown."
                   />
-                  <p
-                    id={`question-${safeQuestionIndex}-difficulty-help`}
-                    className="text-xs leading-snug text-muted-foreground"
-                  >
-                    Expected proportion incorrect: 0 easiest, 1 hardest. Leave blank if unknown.
-                  </p>
-                </div>
+                )}
+              >
+                <Input
+                  type="number"
+                  min="0"
+                  max="1"
+                  step="0.01"
+                  placeholder="0.50"
+                  aria-label="Difficulty"
+                  className="h-9"
+                  {...form.register(`questions.${safeQuestionIndex}.difficulty`, {
+                    setValueAs: (value) => {
+                      if (value === '' || value == null) return null
+                      const parsed = typeof value === 'number' ? value : Number(value)
+                      return Number.isFinite(parsed) ? parsed : null
+                    },
+                  })}
+                />
               </PropertyRow>
-              <PropertyRow label="Expected time to correct">
-                <div className="space-y-1.5">
-                  <Input
-                    type="text"
-                    className="h-9"
-                    placeholder="1:30 or 90"
-                    aria-describedby={`question-${safeQuestionIndex}-time-burden-help`}
-                    {...form.register(`questions.${safeQuestionIndex}.timeBurdenSeconds`)}
+              <PropertyRow
+                label={(
+                  <PropertyHint
+                    label="Expected time"
+                    hint="First-exposure working time in authored stem order. Leave blank if unknown."
                   />
-                  <p
-                    id={`question-${safeQuestionIndex}-time-burden-help`}
-                    className="text-xs leading-snug text-muted-foreground"
-                  >
-                    First-exposure working time in authored stem order. Leave blank if unknown.
-                  </p>
-                </div>
+                )}
+              >
+                <Input
+                  type="text"
+                  className="h-9"
+                  placeholder="1:30 or 90"
+                  aria-label="Expected time "
+                  {...form.register(`questions.${safeQuestionIndex}.timeBurdenSeconds`)}
+                />
               </PropertyRow>
             </PropertiesCard>
           ) : null}

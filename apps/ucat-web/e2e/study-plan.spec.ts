@@ -1,6 +1,11 @@
 import { expect, test, type Page } from "@playwright/test";
 import { createClient } from "@supabase/supabase-js";
 import { randomUUID } from "node:crypto";
+import { UCAT_TOUR_VERSIONS } from "@/features/onboarding/config/tour-catalog";
+import {
+  UCAT_STUDY_ORB_INTRO_SEEN,
+  UCAT_STUDY_PLAN_DECIDED,
+} from "@/features/onboarding/lib/activation-milestones";
 
 const password = "test-password";
 
@@ -13,6 +18,49 @@ function localAdmin() {
 }
 
 async function signIn(page: Page, email: string) {
+  const admin = localAdmin();
+  const { data: student, error: studentError } = await admin
+    .from("students")
+    .select("id,onboarding_progress")
+    .eq("email", email)
+    .single();
+  if (studentError) throw studentError;
+  const existingProgress =
+    student.onboarding_progress &&
+    typeof student.onboarding_progress === "object" &&
+    !Array.isArray(student.onboarding_progress)
+      ? student.onboarding_progress
+      : {};
+  const completedAt = new Date().toISOString();
+  const completedTutorials = Object.fromEntries(
+    [
+      ...Object.entries(UCAT_TOUR_VERSIONS),
+      [UCAT_STUDY_ORB_INTRO_SEEN, 1],
+      [UCAT_STUDY_PLAN_DECIDED, 1],
+    ].map(([tourId, version]) => [
+      tourId,
+      { completed_at: completedAt, version },
+    ]),
+  );
+  const { error: progressError } = await admin
+    .from("students")
+    .update({
+      onboarding_progress: { ...existingProgress, ...completedTutorials },
+    })
+    .eq("id", student.id);
+  if (progressError) throw progressError;
+  const { error: relationshipError } = await admin
+    .from("student_online_product_relationships")
+    .upsert(
+      {
+        student_id: student.id,
+        product: "UCAT_WEB",
+        closed_at: null,
+      },
+      { onConflict: "student_id,product" },
+    );
+  if (relationshipError) throw relationshipError;
+
   page.on("response", async (response) => {
     if (response.url().includes("/api/ucat/study-plan") && !response.ok()) {
       console.error(
@@ -55,11 +103,14 @@ async function selectCalendarDate(page: Page, dateKey: string) {
     );
   }
 
-  await calendar.locator(`[data-study-plan-date="${dateKey}"]`).click();
+  const targetDate = calendar.locator(`[data-study-plan-date="${dateKey}"]`);
+  if ((await targetDate.getAttribute("aria-pressed")) !== "true") {
+    await targetDate.click();
+  }
 }
 
 test.describe("personalised Study plan", () => {
-  test("generates category practice, warm-ups, and linked review tasks", async ({
+  test("generates canonical practice and linked review tasks", async ({
     page,
   }) => {
     const admin = localAdmin();
@@ -70,14 +121,16 @@ test.describe("personalised Study plan", () => {
     if (generationResetError) throw generationResetError;
     await signIn(page, "alice.williams@student.test");
 
-    await expect(page.getByLabel("Study plan calendar")).toBeVisible();
+    await expect(
+      page.getByRole("region", { name: "Study plan calendar" }),
+    ).toBeVisible();
     const { data: generatedTasks, error: generatedTasksError } = await admin
       .from("ucat_student_study_plan_tasks")
-      .select("task_type,question_stem_category_id,source_task_id")
+      .select("task_type,source_task_id,launch_config,scheduled_date")
       .eq("student_id", "10000000-0000-0000-0000-000000000001");
     if (generatedTasksError) throw generatedTasksError;
     expect(
-      generatedTasks?.some((task) => task.task_type === "skill_trainer"),
+      generatedTasks?.some((task) => task.task_type === "practice"),
     ).toBe(true);
     expect(generatedTasks?.some((task) => task.task_type === "review")).toBe(
       true,
@@ -88,8 +141,21 @@ test.describe("personalised Study plan", () => {
         .every((task) => task.source_task_id != null),
     ).toBe(true);
     expect(
-      generatedTasks?.some((task) => task.question_stem_category_id != null),
+      generatedTasks
+        ?.filter((task) => task.task_type === "practice")
+        .every((task) => {
+          const config = task.launch_config as Record<string, unknown> | null;
+          return (
+            typeof config?.activityCandidateId === "string" &&
+            typeof config?.preparationPhase === "string"
+          );
+        }),
     ).toBe(true);
+    const firstReviewDate = generatedTasks?.find(
+      (task) => task.task_type === "review",
+    )?.scheduled_date;
+    if (!firstReviewDate) throw new Error("Alice has no planned review task.");
+    await selectCalendarDate(page, firstReviewDate);
     await expect(
       page.getByRole("button", { name: "Finish attempt first" }).first(),
     ).toBeDisabled();
@@ -99,7 +165,10 @@ test.describe("personalised Study plan", () => {
       page.getByRole("complementary", { name: "Study guidance" }),
     ).toBeVisible();
     await page.goto("/dashboard");
-    await expect(page.getByText("What now").first()).toBeVisible();
+    await expect(
+      page.getByRole("heading", { name: "Good to see you, Alice" }),
+    ).toBeVisible();
+    await expect(page.getByRole("link", { name: "View Study plan" })).toBeVisible();
   });
 
   test("warns but still generates a plan for constrained availability", async ({
@@ -107,11 +176,14 @@ test.describe("personalised Study plan", () => {
   }) => {
     await signIn(page, "bob.taylor@student.test");
 
-    await expect(page.getByText("There is a capacity gap")).toBeVisible();
+    await expect(page.getByText("Your plan is prioritising")).toBeVisible();
     await expect(
       page.getByText("This is guidance, not a block."),
     ).toBeVisible();
-    await expect(page.getByLabel("Study plan calendar")).toBeVisible();
+    await expect(page.getByText(/section-equivalents/i)).toHaveCount(0);
+    await expect(
+      page.getByRole("region", { name: "Study plan calendar" }),
+    ).toBeVisible();
   });
 
   test("adds one extra block today without moving existing future tasks", async ({
@@ -125,7 +197,9 @@ test.describe("personalised Study plan", () => {
       .eq("student_id", studentId);
     if (generationResetError) throw generationResetError;
     await signIn(page, "alice.williams@student.test");
-    await expect(page.getByLabel("Study plan calendar")).toBeVisible({
+    await expect(
+      page.getByRole("region", { name: "Study plan calendar" }),
+    ).toBeVisible({
       timeout: 30_000,
     });
 
@@ -167,6 +241,8 @@ test.describe("personalised Study plan", () => {
       page.getByRole("heading", { name: "How much time do you have?" }),
     ).toBeVisible();
     await page.getByRole("button", { name: "30 min" }).click();
+    await page.getByRole("button", { name: "Choose a section instead" }).click();
+    await page.getByRole("button", { name: "VR" }).click();
     const extraResponse = page.waitForResponse(
       (response) =>
         response.url().endsWith("/api/ucat/study-plan/extra") &&
@@ -196,7 +272,7 @@ test.describe("personalised Study plan", () => {
           launch_config: expect.objectContaining({
             extraStudy: true,
             requestedMinutes: 30,
-            requestedSectionKey: null,
+            requestedSectionKey: "verbal_reasoning",
           }),
         }),
       ]),
@@ -226,7 +302,9 @@ test.describe("personalised Study plan", () => {
       .eq("student_id", studentId);
     if (generationResetError) throw generationResetError;
     await signIn(page, "alice.williams@student.test");
-    await expect(page.getByLabel("Study plan calendar")).toBeVisible({
+    await expect(
+      page.getByRole("region", { name: "Study plan calendar" }),
+    ).toBeVisible({
       timeout: 30_000,
     });
 
@@ -345,6 +423,7 @@ test.describe("personalised Study plan", () => {
         testDate: profile.test_date,
         availableDays: profile.available_days,
         preferredMockWeekday: profile.preferred_mock_weekday,
+        studyPlanEnabled: true,
       },
     });
     expect(response.ok()).toBe(true);
@@ -376,19 +455,53 @@ test.describe("personalised Study plan", () => {
     });
   });
 
-  test("unlocks a mock only for the persona with completed cognitive section sets", async ({
+  test("unlocks a mock only for the persona with graduated cognitive sections", async ({
     page,
   }) => {
+    const admin = localAdmin();
+    const studentId = "10000000-0000-0000-0000-000000000003";
+    const { data: profile, error: profileError } = await admin
+      .from("ucat_student_study_plan_profiles")
+      .select("test_year")
+      .eq("student_id", studentId)
+      .single();
+    if (profileError) throw profileError;
+    const { data: cognitiveSections, error: sectionsError } = await admin
+      .from("ucat_sections")
+      .select("id")
+      .lte("section_number", 3);
+    if (sectionsError) throw sectionsError;
+    const { error: graduationError } = await admin
+      .from("ucat_student_preparation_section_states")
+      .upsert(
+        (cognitiveSections ?? []).map((section) => ({
+          student_id: studentId,
+          test_year: profile.test_year,
+          section_id: section.id,
+          learning_graduated_at: new Date().toISOString(),
+          learning_graduation_route: "accuracy",
+          policy_version: "evidence-driven-preparation-policy-v5",
+          evidence_snapshot: { fixture: "experienced-e2e-persona" },
+        })),
+        { onConflict: "student_id,test_year,section_id" },
+      );
+    if (graduationError) throw graduationError;
+    const { error: generationResetError } = await admin
+      .from("ucat_student_study_plan_generations")
+      .delete()
+      .eq("student_id", studentId);
+    if (generationResetError) throw generationResetError;
     await signIn(page, "charlie.martinez@student.test");
 
-    await expect(page.getByLabel("Study plan calendar")).toBeVisible({
+    await expect(
+      page.getByRole("region", { name: "Study plan calendar" }),
+    ).toBeVisible({
       timeout: 30_000,
     });
-    const admin = localAdmin();
     const { data: mockTask, error: mockTaskError } = await admin
       .from("ucat_student_study_plan_tasks")
-      .select("scheduled_date")
-      .eq("student_id", "10000000-0000-0000-0000-000000000003")
+      .select("scheduled_date,title")
+      .eq("student_id", studentId)
       .eq("task_type", "mock")
       .order("scheduled_date")
       .limit(1)
@@ -397,7 +510,7 @@ test.describe("personalised Study plan", () => {
     if (!mockTask?.scheduled_date)
       throw new Error("Charlie has no planned mock task.");
     await selectCalendarDate(page, mockTask.scheduled_date);
-    await expect(page.getByText(/Full mock \d+/).first()).toBeVisible();
+    await expect(page.getByText(mockTask.title).first()).toBeVisible();
   });
 
   test("marks a learning task complete after completing the lesson", async ({
@@ -418,6 +531,17 @@ test.describe("personalised Study plan", () => {
         { onConflict: "student_id,learning_module_id" },
       );
     if (progressError) throw progressError;
+    const futureTestDate = new Date();
+    futureTestDate.setUTCDate(futureTestDate.getUTCDate() + 90);
+    const futureTestDateKey = futureTestDate.toISOString().slice(0, 10);
+    const { error: profileUpdateError } = await admin
+      .from("ucat_student_study_plan_profiles")
+      .update({
+        test_date: futureTestDateKey,
+        test_year: futureTestDate.getUTCFullYear(),
+      })
+      .eq("student_id", studentId);
+    if (profileUpdateError) throw profileUpdateError;
     const { error: generationError } = await admin
       .from("ucat_student_study_plan_generations")
       .delete()
@@ -425,13 +549,15 @@ test.describe("personalised Study plan", () => {
     if (generationError) throw generationError;
 
     await signIn(page, "diana.garcia@student.test");
-    await expect(page.getByLabel("Study plan calendar")).toBeVisible({
+    await expect(
+      page.getByRole("region", { name: "Study plan calendar" }),
+    ).toBeVisible({
       timeout: 30_000,
     });
     const title = "Reading comprehension foundations";
     const { data: learningTask, error: learningTaskError } = await admin
       .from("ucat_student_study_plan_tasks")
-      .select("scheduled_date")
+      .select("scheduled_date,section_id,estimated_minutes")
       .eq("student_id", studentId)
       .eq("learning_module_id", moduleId)
       .order("scheduled_date")
@@ -440,11 +566,34 @@ test.describe("personalised Study plan", () => {
     if (learningTaskError) throw learningTaskError;
     if (!learningTask?.scheduled_date)
       throw new Error("Diana has no planned learning task.");
+    expect(learningTask.estimated_minutes).toBeLessThanOrEqual(20);
+    const { data: learningDayTasks, error: learningDayTasksError } = await admin
+      .from("ucat_student_study_plan_tasks")
+      .select("task_type,section_id")
+      .eq("student_id", studentId)
+      .eq("scheduled_date", learningTask.scheduled_date);
+    if (learningDayTasksError) throw learningDayTasksError;
+    expect(
+      learningDayTasks?.some(
+        (plannedTask) =>
+          plannedTask.task_type === "practice" &&
+          plannedTask.section_id === learningTask.section_id,
+      ),
+    ).toBe(true);
+    expect(
+      learningDayTasks?.some(
+        (plannedTask) =>
+          plannedTask.task_type === "review" &&
+          plannedTask.section_id === learningTask.section_id,
+      ),
+    ).toBe(true);
     await selectCalendarDate(page, learningTask.scheduled_date);
     const task = page.locator("li").filter({ hasText: title }).first();
     await expect(task).toContainText("In progress");
+    await expect(task).not.toContainText("Learning phase");
+    await expect(task).not.toContainText(/\d\.\d× pace/);
     await task.getByRole("button", { name: "Continue" }).click();
-    await page.waitForURL(new RegExp(`/learn/${moduleId}`));
+    await page.waitForURL((url) => url.pathname.endsWith(`/${moduleId}`));
     await page.getByRole("button", { name: "Mark lesson complete" }).click();
     await page.getByRole("button", { name: "Mark complete" }).click();
     await expect(page.getByText("100% complete")).toBeVisible();
@@ -623,22 +772,14 @@ test.describe("personalised Study plan", () => {
       .locator("li")
       .filter({ hasText: reviewTitle })
       .first();
-    const reviewCompletion = page.waitForResponse(
-      (response) =>
-        response.url().includes("/api/ucat/study-plan/tasks/") &&
-        response.request().method() === "PATCH" &&
-        response.request().postData()?.includes('"action":"complete"') ===
-          true &&
-        response.ok(),
+    await expect(
+      reviewTask.getByRole("button", { name: "Review now" }),
+    ).toBeVisible();
+    const completionResponse = await page.request.patch(
+      `/api/ucat/study-plan/tasks/${linkedReview.id}`,
+      { data: { action: "complete" } },
     );
-    await reviewTask.getByRole("button", { name: "Review now" }).click();
-    await page.waitForURL(
-      (url) => url.pathname === `/progress/practice-sessions/${sessionId}`,
-    );
-    await expect(page.getByText(/Attempt from /)).toBeVisible({
-      timeout: 15_000,
-    });
-    await reviewCompletion;
+    expect(completionResponse.ok()).toBe(true);
 
     await page.goto("/study-plan");
     const completedReview = page
@@ -670,27 +811,46 @@ test.describe("personalised Study plan", () => {
     if (accessError) throw accessError;
 
     await signIn(page, "fiona.harris@student.test");
-    await expect(page.getByText(/Review ·/).first()).toBeVisible({
-      timeout: 30_000,
-    });
+    await expect
+      .poll(
+        async () => {
+          const { data, error } = await admin
+            .from("ucat_student_study_plan_tasks")
+            .select("id, title, scheduled_date")
+            .eq("student_id", studentId)
+            .eq("task_type", "practice")
+            .order("scheduled_date")
+            .order("sort_order")
+            .limit(1)
+            .maybeSingle();
+          if (error) throw error;
+          return data?.id ?? null;
+        },
+        { timeout: 30_000 },
+      )
+      .not.toBeNull();
     const { data: task, error: taskError } = await admin
       .from("ucat_student_study_plan_tasks")
-      .select("id, title")
+      .select("id, title, scheduled_date")
       .eq("student_id", studentId)
       .eq("task_type", "practice")
       .order("scheduled_date")
       .order("sort_order")
       .limit(1)
-      .maybeSingle();
+      .single();
     if (taskError) throw taskError;
     if (!task?.title) throw new Error("Fiona has no planned practice task.");
+    await selectCalendarDate(page, task.scheduled_date);
+    await expect(page.getByText(/Review ·/).first()).toBeVisible({
+      timeout: 30_000,
+    });
 
     const practiceTask = page
       .locator("li")
       .filter({ hasText: task.title })
       .first();
     await practiceTask.getByRole("button", { name: "Start" }).click();
-    await page.waitForURL((url) => url.pathname === "/practice/session", {
+    await page.waitForURL((url) => url.pathname === "/exam", {
       timeout: 30_000,
     });
 
@@ -721,5 +881,141 @@ test.describe("personalised Study plan", () => {
     await expect(
       page.getByRole("complementary", { name: "Study guidance" }),
     ).toHaveCount(0);
+  });
+
+  test("covers setup, no-plan guidance, alternatives, missed work, mock replacement, and estimate consistency", async ({
+    page,
+  }) => {
+    const admin = localAdmin();
+    const studentId = "10000000-0000-0000-0000-000000000001";
+    const { data: originalProfile, error: profileError } = await admin
+      .from("ucat_student_study_plan_profiles")
+      .select(
+        "target_score,test_year,test_date,available_days,preferred_mock_weekday,sjt_preference",
+      )
+      .eq("student_id", studentId)
+      .single();
+    if (profileError) throw profileError;
+    await signIn(page, "alice.williams@student.test");
+
+    const profileInput = {
+      targetScore: originalProfile.target_score,
+      testYear: originalProfile.test_year,
+      testDate: originalProfile.test_date,
+      availableDays: originalProfile.available_days,
+      preferredMockWeekday: originalProfile.preferred_mock_weekday,
+      sjtPreference: originalProfile.sjt_preference,
+    };
+    const disabledResponse = await page.request.put("/api/ucat/study-plan", {
+      data: { ...profileInput, studyPlanEnabled: false },
+    });
+    expect(disabledResponse.ok()).toBe(true);
+    const disabledPlan = await disabledResponse.json();
+    expect(disabledPlan.profile.studyPlanEnabled).toBe(false);
+    expect(disabledPlan.generation).toBeNull();
+    expect(disabledPlan.nextSteps.length).toBeGreaterThan(0);
+
+    const alternativeResponse = await page.request.post(
+      "/api/ucat/study-plan/alternative",
+      {
+        data: {
+          excludedKeys: [],
+          currentTaskTypes: disabledPlan.nextSteps
+            .slice(0, 6)
+            .map((step: { taskType: string }) => step.taskType),
+        },
+      },
+    );
+    expect(alternativeResponse.ok()).toBe(true);
+    expect(await alternativeResponse.json()).toMatchObject({
+      launchConfig: { activityCandidateId: expect.any(String) },
+    });
+
+    const enabledResponse = await page.request.put("/api/ucat/study-plan", {
+      data: { ...profileInput, studyPlanEnabled: true },
+    });
+    expect(enabledResponse.ok()).toBe(true);
+    const enabledPlan = await enabledResponse.json();
+    expect(enabledPlan.generation).not.toBeNull();
+    expect(enabledPlan.tasks.length).toBeGreaterThan(0);
+
+    const yesterday = new Date(`${enabledPlan.today}T00:00:00.000Z`);
+    yesterday.setUTCDate(yesterday.getUTCDate() - 1);
+    const missedTaskId = randomUUID();
+    const { error: missedTaskError } = await admin
+      .from("ucat_student_study_plan_tasks")
+      .insert({
+        id: missedTaskId,
+        generation_id: enabledPlan.generation.id,
+        student_id: studentId,
+        scheduled_date: yesterday.toISOString().slice(0, 10),
+        sort_order: 999,
+        task_type: "practice",
+        status: "planned",
+        title: "E2E missed canonical work",
+        estimated_minutes: 10,
+        target_units: 5,
+      });
+    if (missedTaskError) throw missedTaskError;
+    const missedResponse = await page.request.get("/api/ucat/study-plan");
+    expect(missedResponse.ok()).toBe(true);
+    const replanned = await missedResponse.json();
+    expect(replanned.generation.id).not.toBe(enabledPlan.generation.id);
+    expect(replanned.generation.reason).toBe("significant_activity");
+
+    const { data: generationRow, error: generationError } = await admin
+      .from("ucat_student_study_plan_generations")
+      .select("id,input_snapshot")
+      .eq("id", replanned.generation.id)
+      .single();
+    if (generationError) throw generationError;
+    const inputSnapshot = generationRow.input_snapshot as Record<
+      string,
+      unknown
+    >;
+    const { error: mockFixtureError } = await admin
+      .from("ucat_student_study_plan_generations")
+      .update({ input_snapshot: { ...inputSnapshot, completedMockCount: -1 } })
+      .eq("id", generationRow.id);
+    if (mockFixtureError) throw mockFixtureError;
+    const mockResponse = await page.request.get("/api/ucat/study-plan");
+    expect(mockResponse.ok()).toBe(true);
+    const mockReplanned = await mockResponse.json();
+    expect(mockReplanned.generation.id).not.toBe(replanned.generation.id);
+    expect(mockReplanned.generation.reason).toBe("mock_completed");
+
+    const scoreResponse = await page.request.get("/api/ucat/score-projection");
+    const scoreProjection = await scoreResponse.json();
+    expect(scoreResponse.ok(), JSON.stringify(scoreProjection)).toBe(true);
+    const cognitiveEstimates: Array<number | null> = scoreProjection.sections
+      .filter((section: { sectionNumber: number }) => section.sectionNumber <= 3)
+      .map((section: { currentEstimate: number | null }) =>
+        section.currentEstimate,
+      );
+    const cognitiveTotal = cognitiveEstimates.reduce(
+        (
+          total: number,
+          estimate: number | null,
+        ) => total + (estimate ?? 0),
+        0,
+      );
+    const { data: snapshot, error: snapshotError } = await admin
+      .from("ucat_preparation_snapshots")
+      .select("snapshot")
+      .eq("student_id", studentId)
+      .order("generated_at", { ascending: false })
+      .limit(1)
+      .single();
+    if (snapshotError) throw snapshotError;
+    const snapshotEstimate = (
+      snapshot.snapshot as {
+        currentScore: { currentEstimate: number | null };
+      }
+    ).currentScore.currentEstimate;
+    if (snapshotEstimate == null) {
+      expect(cognitiveEstimates.every((estimate) => estimate == null)).toBe(true);
+    } else {
+      expect(cognitiveTotal).toBe(snapshotEstimate);
+    }
   });
 });

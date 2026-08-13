@@ -29,6 +29,7 @@ import {
 } from "lucide-react";
 import { useStudyPlanTaskActions } from "@/features/study-plan/hooks/use-study-plan-task-actions";
 import { studyPlanActivityTypeLabel } from "@/features/study-plan/lib/activity-type-label";
+import { visibleTaskPace } from "@/features/study-plan/lib/task-card-metadata";
 import type { StudyPlanTask } from "@/features/study-plan/model/types";
 import {
   UCAT_COMPLETED_ITEM_SURFACE,
@@ -43,6 +44,7 @@ type StudyPlanTaskListProps = {
   today?: string;
   afterTasks?: ReactNode;
   previewMode?: boolean;
+  tourFirstTask?: boolean;
 };
 
 function TaskIcon({ task }: { task: StudyPlanTask }) {
@@ -57,6 +59,16 @@ function TaskIcon({ task }: { task: StudyPlanTask }) {
   return <BrainCircuit className={className} />;
 }
 
+function configString(task: StudyPlanTask, key: string): string | null {
+  const value = task.launchConfig[key];
+  return typeof value === "string" && value.trim() ? value : null;
+}
+
+function configNumber(task: StudyPlanTask, key: string): number | null {
+  const value = task.launchConfig[key];
+  return typeof value === "number" && Number.isFinite(value) ? value : null;
+}
+
 function TaskRow({
   task,
   compact,
@@ -64,6 +76,7 @@ function TaskRow({
   variants,
   previewMode,
   sourceTask,
+  tourTarget,
 }: {
   task: StudyPlanTask;
   compact: boolean;
@@ -71,6 +84,7 @@ function TaskRow({
   variants: Variants;
   previewMode: boolean;
   sourceTask: StudyPlanTask | null;
+  tourTarget: boolean;
 }) {
   const {
     error,
@@ -89,9 +103,20 @@ function TaskRow({
   const awaitingReviewAttempt =
     task.taskType === "review" && task.launchConfig.awaitingAttempt !== false;
   const canSkip = Boolean(today && task.scheduledDate <= today);
+  const isDerivedReview =
+    task.taskType === "review" && task.launchConfig.derivedReview === true;
+  const sectionName = isDerivedReview ? null : configString(task, "sectionName");
+  const prescribedPace = visibleTaskPace(task);
+  const nextMilestone = isDerivedReview
+    ? null
+    : configString(task, "nextMilestone");
+  const preparationWarning = configString(task, "preparationWarning");
+  const practiceMinutes = configNumber(task, "practiceMinutes");
+  const reviewMinutes = configNumber(task, "reviewMinutes");
 
   return (
     <motion.li
+      data-tour={tourTarget ? "study-plan-task" : undefined}
       variants={variants}
       className={cn(
         UCAT_CARD_CHROME,
@@ -128,17 +153,45 @@ function TaskRow({
             ) : null}
             {isSkipped ? <Badge variant="outline">Skipped</Badge> : null}
           </div>
-          <p className="mt-1 text-sm text-muted-foreground">
-            {task.description}
-          </p>
-          {!compact && task.rationale ? (
+          {!compact && task.description ? (
+            <p className="mt-1 text-sm text-muted-foreground">
+              {task.description}
+            </p>
+          ) : null}
+          {sectionName || prescribedPace != null ? (
+            <div className="mt-2 flex flex-wrap gap-1.5">
+              {sectionName ? <Badge variant="outline">{sectionName}</Badge> : null}
+              {prescribedPace != null ? (
+                <Badge variant="outline">{prescribedPace.toFixed(1)}× pace</Badge>
+              ) : null}
+            </div>
+          ) : null}
+          {!isDerivedReview && (task.rationale || nextMilestone) ? (
             <p className="mt-2 text-xs text-muted-foreground/80">
-              Why this: {task.rationale}
+              {task.rationale ? `Why this: ${task.rationale}` : null}
+              {task.rationale && nextMilestone ? " · " : null}
+              {nextMilestone ? `Next: ${nextMilestone}` : null}
+            </p>
+          ) : null}
+          {preparationWarning ? (
+            <p
+              role="alert"
+              className="mt-2 rounded-lg bg-amber-500/10 px-3 py-2 text-xs text-amber-800 dark:text-amber-200"
+            >
+              {preparationWarning}
             </p>
           ) : null}
           <div className="mt-2 flex items-center gap-1 text-xs text-muted-foreground">
             <Clock3 className="h-3.5 w-3.5" aria-hidden />
-            About {task.estimatedMinutes} min
+            {practiceMinutes != null || reviewMinutes != null ? (
+              <span>
+                {practiceMinutes ? `Activity ${practiceMinutes} min` : null}
+                {practiceMinutes && reviewMinutes ? " · " : null}
+                {reviewMinutes ? `Review ${reviewMinutes} min` : null}
+              </span>
+            ) : (
+              <>About {task.estimatedMinutes} min</>
+            )}
           </div>
           {error ? (
             <p className="mt-3 rounded-lg bg-destructive/10 px-3 py-2 text-xs text-destructive">
@@ -165,6 +218,7 @@ function TaskRow({
           </div>
         ) : isSkipped ? (
           <Button
+            data-tour-study-plan-task-action
             size="sm"
             variant="outline"
             onClick={() => void unskipTask()}
@@ -180,6 +234,7 @@ function TaskRow({
         ) : !isDone ? (
           <div className="flex shrink-0 flex-col gap-2 sm:flex-row">
             <Button
+              data-tour-study-plan-task-action
               size="sm"
               onClick={() => void startTask()}
               disabled={pendingAction != null || awaitingReviewAttempt}
@@ -197,6 +252,7 @@ function TaskRow({
             </Button>
             {canSkip ? (
               <Button
+                data-tour-study-plan-task-action
                 size="sm"
                 variant="outline"
                 onClick={() => void skipTask()}
@@ -260,6 +316,7 @@ export function StudyPlanTaskList({
   today,
   afterTasks,
   previewMode = false,
+  tourFirstTask = false,
 }: StudyPlanTaskListProps) {
   const { containerVariants, itemVariants } = useUcatStaggerMotion();
   const tasksById = new Map(tasks.map((task) => [task.id, task]));
@@ -271,7 +328,7 @@ export function StudyPlanTaskList({
       initial="hidden"
       animate="show"
     >
-      {tasks.map((task) => (
+      {tasks.map((task, index) => (
         <TaskRow
           key={task.id}
           task={task}
@@ -284,6 +341,7 @@ export function StudyPlanTaskList({
               ? (tasksById.get(task.sourceTaskId) ?? null)
               : null
           }
+          tourTarget={tourFirstTask && index === 0}
         />
       ))}
       {afterTasks ? (

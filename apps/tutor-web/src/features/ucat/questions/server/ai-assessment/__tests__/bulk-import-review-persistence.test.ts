@@ -38,6 +38,8 @@ function snapshot(questionText = 'Which answer is correct?'): UcatAssessmentSnap
       answerExplanation: null,
       answerExplanationPlain: '',
       questionType: 'multiple_choice',
+      responseType: 'multiple_choice',
+      answerScheme: 'single_choice',
       difficulty: 3,
       timeBurdenSeconds: 60,
       tagIds: [],
@@ -54,6 +56,7 @@ function snapshot(questionText = 'Which answer is correct?'): UcatAssessmentSnap
         answerExplanation: null,
         answerExplanationPlain: '',
         isAnswer: true,
+        answerKeyValue: 'correct',
         images: [],
       }],
     }],
@@ -123,6 +126,25 @@ describe('bulk-import AI review persistence freshness gate', () => {
   it('rejects a review after the imported question content changes', () => {
     const reviewed = snapshot()
     const imported = snapshot('Which answer is definitely correct?')
+
+    expect(selectFreshBulkImportAiReview({
+      stemId: STEM_ID,
+      snapshot: imported,
+      review: reviewFor(reviewed),
+    })).toEqual({ ok: false, reason: 'content_changed_after_review' })
+  })
+
+  it('rejects a review after only the canonical response contract changes', () => {
+    const reviewed = snapshot()
+    const imported = {
+      ...reviewed,
+      questions: [{
+        ...reviewed.questions[0],
+        responseType: 'drag_and_drop' as const,
+        answerScheme: 'decision_making_binary_placement' as const,
+        options: [{ ...reviewed.questions[0].options[0], answerKeyValue: 'yes' as const }],
+      }],
+    }
 
     expect(selectFreshBulkImportAiReview({
       stemId: STEM_ID,

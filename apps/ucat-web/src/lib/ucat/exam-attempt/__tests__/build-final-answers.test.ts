@@ -11,11 +11,23 @@ describe("buildFinalAnswersFromEngineSnapshot", () => {
           id: "answered",
           questionSetId: "set-1",
           questionType: "multiple_choice",
+          responseType: "multiple_choice",
+          answerScheme: "single_choice",
+          options: [
+            { id: "option-1", index: 0, answerKeyValue: "correct" },
+            { id: "option-2", index: 1, answerKeyValue: null },
+          ],
         },
         {
           id: "blank",
           questionSetId: "set-1",
           questionType: "multiple_choice",
+          responseType: "multiple_choice",
+          answerScheme: "single_choice",
+          options: [
+            { id: "option-3", index: 0, answerKeyValue: "correct" },
+            { id: "option-4", index: 1, answerKeyValue: null },
+          ],
         },
       ],
     } as unknown as QuestionEngineExam;
@@ -30,10 +42,12 @@ describe("buildFinalAnswersFromEngineSnapshot", () => {
       expect.objectContaining({
         questionId: "answered",
         questionAnswerOptionId: "option-1",
+        answerSnapshot: expect.objectContaining({ type: "ucat_response_v1" }),
       }),
       expect.objectContaining({
         questionId: "blank",
         questionAnswerOptionId: null,
+        answerSnapshot: expect.objectContaining({ type: "ucat_response_v1" }),
       }),
     ]);
   });
@@ -48,6 +62,15 @@ describe("buildFinalAnswersFromEngineSnapshot", () => {
           id: "syllogism",
           questionSetId: "set-1",
           questionType: "syllogism",
+          responseType: "drag_and_drop",
+          answerScheme: "decision_making_binary_placement",
+          options: [
+            { id: "option-1", index: 0, answerKeyValue: "yes" },
+            { id: "option-2", index: 1, answerKeyValue: "no" },
+            { id: "option-3", index: 2, answerKeyValue: "yes" },
+            { id: "option-4", index: 3, answerKeyValue: "no" },
+            { id: "option-5", index: 4, answerKeyValue: "yes" },
+          ],
         },
       ],
     } as unknown as QuestionEngineExam;
@@ -66,11 +89,13 @@ describe("buildFinalAnswersFromEngineSnapshot", () => {
         questionId: "syllogism",
         questionAnswerOptionId: null,
         answerSnapshot: {
-          type: "syllogism_v1",
-          answers: [
-            { question_answer_option_id: "option-1", answer: true },
-            { question_answer_option_id: "option-2", answer: false },
-          ],
+          type: "ucat_response_v1",
+          questionId: "syllogism",
+          answerScheme: "decision_making_binary_placement",
+          response: {
+            kind: "placement",
+            placements: { "option-1": "yes", "option-2": "no" },
+          },
         },
         isFlagged: true,
         wasTimed: true,

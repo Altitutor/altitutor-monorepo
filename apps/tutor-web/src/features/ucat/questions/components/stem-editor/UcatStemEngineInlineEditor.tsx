@@ -6,6 +6,7 @@ import type { Editor } from '@tiptap/react'
 import type { UseFormReturn } from 'react-hook-form'
 import { UCAT_COLORS, UCAT_FONTS } from '@altitutor/ui/components/ucat/ucat-theme'
 import { Label } from '@altitutor/ui'
+import { resolveAnswerSchemeDisplayColumns } from '@altitutor/ucat-response-contract'
 import {
   ResultsMcQuestionBlock,
   ResultsSyllogismQuestionBlock,
@@ -45,23 +46,23 @@ export function UcatStemEngineInlineEditor({
   onTextEditorActive,
   explanationFeedback,
 }: UcatStemEngineInlineEditorProps) {
-  const stemType = (form.watch('questions.0.questionType') ?? 'multiple_choice') as
-    | 'multiple_choice'
-    | 'syllogism'
-  const isSyllogism = stemType === 'syllogism'
-  const isTwoColumn = sectionDisplayColumns === 2
+  const answerScheme = form.watch(`questions.${questionIndex}.answerScheme`) ?? 'single_choice'
+  const isBinaryPlacement = answerScheme === 'decision_making_binary_placement'
+  const isMostLeast = answerScheme === 'situational_judgement_most_least'
+  const isTwoColumn =
+    resolveAnswerSchemeDisplayColumns(answerScheme, sectionDisplayColumns) === 2
 
   const stemText = form.watch('stemText') as Json
   const question = form.watch(`questions.${questionIndex}`)
   const options = useMemo(() => question?.options ?? [], [question?.options])
 
   const correctOptionIndex = useMemo(() => {
-    const idx = options.findIndex((opt) => opt.isAnswer)
+    const idx = options.findIndex((opt) => opt.answerKeyValue === 'correct' || opt.isAnswer)
     return idx >= 0 ? idx : 0
   }, [options])
 
   const syllogismPattern = useMemo(
-    () => options.map((opt) => (opt.isAnswer ? 'Y' : 'N')).join(''),
+    () => options.map((opt) => (opt.answerKeyValue === 'yes' || opt.isAnswer ? 'Y' : 'N')).join(''),
     [options]
   )
 
@@ -91,8 +92,27 @@ export function UcatStemEngineInlineEditor({
     const current = form.getValues(`questions.${questionIndex}.options`) ?? []
     form.setValue(
       `questions.${questionIndex}.options`,
-      current.map((opt, i) => ({ ...opt, isAnswer: i === index })),
+      current.map((opt, i) => ({
+        ...opt,
+        isAnswer: i === index,
+        answerKeyValue: i === index ? 'correct' : null,
+      })),
       { shouldDirty: true }
+    )
+  }
+
+  const setMostLeastAnswerKey = (optionIndex: number, value: 'most' | 'least' | null) => {
+    const current = form.getValues(`questions.${questionIndex}.options`) ?? []
+    form.setValue(
+      `questions.${questionIndex}.options`,
+      current.map((option, index) => ({
+        ...option,
+        answerKeyValue: index === optionIndex
+          ? value
+          : option.answerKeyValue === value ? null : option.answerKeyValue,
+        isAnswer: false,
+      })),
+      { shouldDirty: true },
     )
   }
 
@@ -103,6 +123,7 @@ export function UcatStemEngineInlineEditor({
       current.map((opt, i) => ({
         ...opt,
         isAnswer: pattern.charAt(i).toUpperCase() === 'Y',
+        answerKeyValue: pattern.charAt(i).toUpperCase() === 'Y' ? 'yes' : 'no',
       })),
       { shouldDirty: true }
     )
@@ -128,10 +149,12 @@ export function UcatStemEngineInlineEditor({
       correctOptionIndex={correctOptionIndex}
       sectionName={sectionName}
       setCorrectOptionIndex={setCorrectOptionIndex}
+      answerScheme={answerScheme === 'situational_judgement_most_least' ? answerScheme : 'single_choice'}
       answerExplanation={(question?.answerExplanation ?? null) as Json | null}
       setAnswerExplanation={setAnswerExplanation}
       optionLabel={optionLabel}
       showOptionExplanations={false}
+      showOptionExplanationsUnderQuestion
       showQuestionExplanation
       allowOptionAddRemove
       onTextEditorActive={onTextEditorActive}
@@ -153,13 +176,35 @@ export function UcatStemEngineInlineEditor({
       setSyllogismPattern={setSyllogismPattern}
       answerExplanation={(question?.answerExplanation ?? null) as Json | null}
       setAnswerExplanation={setAnswerExplanation}
-      showQuestionExplanation={false}
+      showQuestionExplanation
       onTextEditorActive={onTextEditorActive}
       {...imageHandlers}
     />
   )
 
-  const body = isSyllogism ? syllogismBlock : mcBlock
+  const mostLeastBlock = (
+    <ResultsSyllogismQuestionBlock
+      includeStem={!isTwoColumn}
+      stemText={stemText}
+      setStemText={setStemText}
+      questionText={(question?.questionText ?? EMPTY_DOC) as Json}
+      setQuestionText={setQuestionText}
+      questionNumber={questionNumber}
+      options={options}
+      setOptions={setOptions}
+      syllogismPattern=""
+      setSyllogismPattern={() => undefined}
+      answerMode="most_least"
+      setMostLeastAnswerKey={setMostLeastAnswerKey}
+      answerExplanation={(question?.answerExplanation ?? null) as Json | null}
+      setAnswerExplanation={setAnswerExplanation}
+      showQuestionExplanation
+      onTextEditorActive={onTextEditorActive}
+      {...imageHandlers}
+    />
+  )
+
+  const body = isBinaryPlacement ? syllogismBlock : isMostLeast ? mostLeastBlock : mcBlock
 
   if (isTwoColumn) {
     return (
@@ -189,7 +234,7 @@ export function UcatStemEngineInlineEditor({
           className="flex-[2] h-full min-w-0 overscroll-contain overflow-y-auto py-4 pl-2 pr-1 sm:py-5"
           data-ucat-preview-scroll-target="true"
         >
-          {isSyllogism ? (
+          {isBinaryPlacement ? (
             <ResultsSyllogismQuestionBlock
               includeStem={false}
               stemText={stemText}
@@ -203,7 +248,27 @@ export function UcatStemEngineInlineEditor({
               setSyllogismPattern={setSyllogismPattern}
               answerExplanation={(question?.answerExplanation ?? null) as Json | null}
               setAnswerExplanation={setAnswerExplanation}
-              showQuestionExplanation={false}
+              showQuestionExplanation
+              onTextEditorActive={onTextEditorActive}
+              {...imageHandlers}
+            />
+          ) : isMostLeast ? (
+            <ResultsSyllogismQuestionBlock
+              includeStem={false}
+              stemText={stemText}
+              setStemText={setStemText}
+              questionText={(question?.questionText ?? EMPTY_DOC) as Json}
+              setQuestionText={setQuestionText}
+              questionNumber={questionNumber}
+              options={options}
+              setOptions={setOptions}
+              syllogismPattern=""
+              setSyllogismPattern={() => undefined}
+              answerMode="most_least"
+              setMostLeastAnswerKey={setMostLeastAnswerKey}
+              answerExplanation={(question?.answerExplanation ?? null) as Json | null}
+              setAnswerExplanation={setAnswerExplanation}
+              showQuestionExplanation
               onTextEditorActive={onTextEditorActive}
               {...imageHandlers}
             />
@@ -220,10 +285,12 @@ export function UcatStemEngineInlineEditor({
               correctOptionIndex={correctOptionIndex}
               sectionName={sectionName}
               setCorrectOptionIndex={setCorrectOptionIndex}
+              answerScheme="single_choice"
               answerExplanation={(question?.answerExplanation ?? null) as Json | null}
               setAnswerExplanation={setAnswerExplanation}
               optionLabel={optionLabel}
               showOptionExplanations={false}
+              showOptionExplanationsUnderQuestion
               showQuestionExplanation
               allowOptionAddRemove
               onTextEditorActive={onTextEditorActive}

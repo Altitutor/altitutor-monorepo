@@ -4,9 +4,14 @@ import Link from "next/link";
 import { useMemo, useState } from "react";
 import { Badge } from "@altitutor/ui";
 import { Button } from "@/components/ui/button";
+import {
+  CURRENT_PREPARATION_VERSIONS,
+  prepareStudent,
+  STANDARD_PREPARATION_TIMING_PROFILE,
+  type PreparationEngineResult,
+} from "@/features/preparation";
 import { StudyPlanPage } from "@/features/study-plan/components/study-plan-page";
 import { addDays, todayIso } from "@/features/study-plan/lib/dates";
-import { generateStudyPlan } from "@/features/study-plan/lib/generator";
 import type {
   GeneratedStudyPlanTask,
   StudyPlanCategorySignal,
@@ -291,16 +296,19 @@ function makePlan(
   today: string,
   scenarioId: PreviewScenarioId,
   settings: SandboxSettings,
-): StudyPlanResponse {
+): { plan: StudyPlanResponse; preparation: PreparationEngineResult | null } {
   if (scenarioId === "no_plan") {
     return {
-      profile: null,
-      generation: null,
-      tasks: [],
-      nextSteps: [],
-      today,
-      todayTasks: [],
-      completion: { completed: 0, scheduledThroughToday: 0, percent: 0 },
+      plan: {
+        profile: null,
+        generation: null,
+        tasks: [],
+        nextSteps: [],
+        today,
+        todayTasks: [],
+        completion: { completed: 0, scheduledThroughToday: 0, percent: 0 },
+      },
+      preparation: null,
     };
   }
   const planningDate = addDays(today, settings.daysUntilExam);
@@ -315,44 +323,55 @@ function makePlan(
     testDate: scenarioId === "provisional_date" ? null : planningDate,
     availableDays: weekdays.map((weekday) => ({
       weekday: weekday as 0 | 1 | 2 | 3 | 4 | 5 | 6,
-      maxMinutes: 60,
     })),
     preferredMockWeekday: 6 as const,
   };
-  const generated = generateStudyPlan({
-    today,
-    planningDate,
-    profile,
-    sections: SECTIONS,
-    signals: signals(settings),
-    categories: categories(settings),
-    learningModules:
-      settings.evidenceStage === "new"
-        ? [
-            {
-              id: "preview-learning-module",
-              title: "How to approach unfamiliar UCAT questions",
-              sectionId: "vr",
-              sectionNumber: 1,
-              priority: "recommended",
-              estimatedMinutes: 15,
-              completionPercent: 0,
-              relevanceScore: 0.8,
-            },
-          ]
-        : [],
-    skillTrainers: [
-      {
-        id: "preview-trainer",
-        key: "decision_making_warmup",
-        name: "Decision Making warm-up",
-        sectionId: "dm",
-        categoryIds: ["dm-3"],
-        estimatedMinutes: 3,
-      },
-    ],
-    completedMockCount: settings.evidenceStage === "ready" ? 2 : 0,
+  const preparation = prepareStudent({
+    clock: { now: `${today}T00:00:00.000Z`, today },
+    seed: `preview:${scenarioId}:${settings.evidenceStage}:${settings.daysUntilExam}:${settings.availableDayCount}:${settings.naturalPace}:${settings.targetScore}`,
+    versions: CURRENT_PREPARATION_VERSIONS,
+    timingProfile: STANDARD_PREPARATION_TIMING_PROFILE,
+    goal: { planningDate, profile },
+    content: {
+      sections: SECTIONS,
+      categories: categories(settings),
+      learningModules:
+        settings.evidenceStage === "new"
+          ? [
+              {
+                id: "preview-learning-module",
+                title: "How to approach unfamiliar UCAT questions",
+                sectionId: "vr",
+                sectionNumber: 1,
+                priority: "recommended",
+                estimatedMinutes: 15,
+                completionPercent: 0,
+                relevanceScore: 0.8,
+              },
+            ]
+          : [],
+      skillTrainers: [
+        {
+          id: "preview-trainer",
+          key: "decision_making_warmup",
+          name: "Decision Making warm-up",
+          sectionId: "dm",
+          categoryIds: ["dm-3"],
+          estimatedMinutes: 3,
+        },
+      ],
+    },
+    evidence: {
+      sectionSignals: signals(settings),
+      completedMockCount: settings.evidenceStage === "ready" ? 2 : 0,
+    },
+    guidance: {
+      dailyWarmup: false,
+      incompleteReview: null,
+      trainerAttemptCounts: {},
+    },
   });
+  const generated = preparation.plan;
   let tasks = generated.tasks.map(asTask);
   if (scenarioId === "still_to_do") {
     tasks = [incompleteEarlierTask(today), ...tasks];
@@ -377,33 +396,36 @@ function makePlan(
     (task) => task.status === "completed",
   ).length;
   return {
-    profile: {
-      ...profile,
-      id: "study-plan-preview-profile",
-      planningDate,
-      planningDateIsProvisional: scenarioId === "provisional_date",
-      nextWeeklyReplanOn: addDays(today, 7),
-    },
-    generation: {
-      id: "study-plan-preview-generation",
-      generatedAt: `${today}T00:00:00.000Z`,
-      reason: "policy_sandbox",
-      startsOn: today,
-      endsOn: generated.endsOn,
-      capacityRisk: generated.capacityRisk,
-      sectionTargets: generated.sectionTargets,
-      readiness: generated.readiness,
-    },
-    tasks,
-    nextSteps: [],
-    today,
-    todayTasks,
-    completion: {
-      completed,
-      scheduledThroughToday: throughToday.length,
-      percent: throughToday.length
-        ? Math.round((completed / throughToday.length) * 100)
-        : 0,
+    preparation,
+    plan: {
+      profile: {
+        ...profile,
+        id: "study-plan-preview-profile",
+        planningDate,
+        planningDateIsProvisional: scenarioId === "provisional_date",
+        nextWeeklyReplanOn: addDays(today, 7),
+      },
+      generation: {
+        id: "study-plan-preview-generation",
+        generatedAt: preparation.generatedAt,
+        reason: "policy_sandbox",
+        startsOn: today,
+        endsOn: generated.endsOn,
+        capacityRisk: generated.capacityRisk,
+        sectionTargets: generated.sectionTargets,
+        readiness: generated.readiness,
+      },
+      tasks,
+      nextSteps: [],
+      today,
+      todayTasks,
+      completion: {
+        completed,
+        scheduledThroughToday: throughToday.length,
+        percent: throughToday.length
+          ? Math.round((completed / throughToday.length) * 100)
+          : 0,
+      },
     },
   };
 }
@@ -431,10 +453,11 @@ export function StudyPlanPreviewPage({
     selectedScenario.settings,
   );
   const today = todayIso();
-  const plan = useMemo(
+  const preview = useMemo(
     () => makePlan(today, scenarioId, settings),
     [scenarioId, settings, today],
   );
+  const plan = preview.plan;
 
   function chooseScenario(next: PreviewScenarioId) {
     const scenario = SCENARIOS.find((candidate) => candidate.id === next);
@@ -574,6 +597,52 @@ export function StudyPlanPreviewPage({
               </label>
             </div>
           ) : null}
+        </div>
+      ) : null}
+
+      {!embedded && preview.preparation ? (
+        <div className="grid gap-4 rounded-2xl border bg-background p-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,2fr)]">
+          <div>
+            <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+              Canonical engine
+            </p>
+            <dl className="mt-2 space-y-1 text-sm">
+              <div className="flex justify-between gap-4">
+                <dt>Engine</dt>
+                <dd className="font-mono text-xs">
+                  {preview.preparation.versions.engine}
+                </dd>
+              </div>
+              <div className="flex justify-between gap-4">
+                <dt>Policy</dt>
+                <dd className="font-mono text-xs">
+                  {preview.preparation.versions.policy}
+                </dd>
+              </div>
+              <div className="flex justify-between gap-4">
+                <dt>Score model</dt>
+                <dd className="font-mono text-xs">
+                  {preview.preparation.versions.scoreModel}
+                </dd>
+              </div>
+              <div className="flex justify-between gap-4">
+                <dt>Timing profile</dt>
+                <dd className="font-mono text-xs">
+                  {preview.preparation.timingProfile.id}
+                </dd>
+              </div>
+            </dl>
+          </div>
+          <div>
+            <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+              Explanation trace
+            </p>
+            <ul className="mt-2 grid gap-1 font-mono text-xs text-muted-foreground sm:grid-cols-2">
+              {preview.preparation.explanationTrace.map((item) => (
+                <li key={item.code}>{item.code}</li>
+              ))}
+            </ul>
+          </div>
         </div>
       ) : null}
 

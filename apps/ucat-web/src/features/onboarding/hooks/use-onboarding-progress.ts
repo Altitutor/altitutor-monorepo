@@ -5,6 +5,9 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { Database } from "@altitutor/shared";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import { useAuth } from "@/features/auth";
+import {
+  UCAT_TOUR_VERSIONS,
+} from "@/features/onboarding/config/tour-catalog";
 
 /**
  * Per-tour completion state stored in `students.onboarding_progress` JSONB.
@@ -24,13 +27,8 @@ export type OnboardingProgress = Record<string, OnboardingTourState>;
  * as "not completed" so a content refresh can re-introduce a tour without a
  * destructive reset.
  */
-const TOUR_VERSIONS: Record<string, number> = {
-  "ucat-welcome": 2,
-  "ucat-progress-intro": 2,
-};
-
 function currentVersion(tourId: string): number {
-  return TOUR_VERSIONS[tourId] ?? 1;
+  return UCAT_TOUR_VERSIONS[tourId] ?? 1;
 }
 
 type StudentProfileView =

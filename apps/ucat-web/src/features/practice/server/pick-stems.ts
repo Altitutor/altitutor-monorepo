@@ -13,6 +13,7 @@ type StemIndexRow = {
   section_id: string;
   question_stem_category_id: string | null;
   question_ids: string[] | null;
+  question_tag_ids?: string[] | null;
 };
 
 type QuestionAttemptRow = {
@@ -74,6 +75,8 @@ export type PickStemsOptions = {
   limitStems?: number;
   /** When false, do not pick a single oversized fallback stem above questionCount. */
   allowOversizedFallback?: boolean;
+  /** Stable ordering for read-only development diagnostics. */
+  deterministic?: boolean;
 };
 
 export type PickStemsResult = {
@@ -82,7 +85,44 @@ export type PickStemsResult = {
   questionCount: number;
   sectionRows: SectionRow[];
   stemDetailRows: StemIndexRow[];
+  selectionTrace: Array<{
+    stemId: string;
+    questionCount: number;
+    categoryId: string | null;
+    matchedTagIds: string[];
+    fallbackTier: number;
+  }>;
 };
+
+export function maximumWholeStemDose(
+  questionCounts: number[],
+  targetQuestionCount: number,
+): number {
+  const attainable = new Set([0]);
+  for (const count of questionCounts) {
+    if (count <= 0 || count > targetQuestionCount) continue;
+    for (const existing of [...attainable]) {
+      if (existing + count <= targetQuestionCount) {
+        attainable.add(existing + count);
+      }
+    }
+  }
+  return Math.max(...attainable);
+}
+
+export function maximumTieredWholeStemDose(
+  tierQuestionCounts: number[][],
+  targetQuestionCount: number,
+): number {
+  let capacity = targetQuestionCount;
+  let dose = 0;
+  for (const questionCounts of tierQuestionCounts) {
+    const tierDose = maximumWholeStemDose(questionCounts, capacity);
+    dose += tierDose;
+    capacity -= tierDose;
+  }
+  return dose;
+}
 
 /**
  * Picks question stems matching the given filters. Shared by set generator and practice.
@@ -102,6 +142,7 @@ export async function pickStems(
       questionCount: 0,
       sectionRows: [],
       stemDetailRows: [],
+      selectionTrace: [],
     };
   }
 
@@ -119,6 +160,7 @@ export async function pickStems(
       questionCount: 0,
       sectionRows: [],
       stemDetailRows: [],
+      selectionTrace: [],
     };
   }
 
@@ -127,7 +169,9 @@ export async function pickStems(
 
   let stemsQuery = supabase
     .from("vstudent_ucat_practice_stem_index")
-    .select("id,section_id,question_stem_category_id,question_ids")
+    .select(
+      "id,section_id,question_stem_category_id,question_ids,question_tag_ids",
+    )
     .in("section_id", sectionIds);
 
   if (input.categoryIds && input.categoryIds.length > 0) {
@@ -143,6 +187,7 @@ export async function pickStems(
       questionCount: 0,
       sectionRows,
       stemDetailRows: [],
+      selectionTrace: [],
     };
   }
 
@@ -162,12 +207,17 @@ export async function pickStems(
       questionCount: 0,
       sectionRows,
       stemDetailRows,
+      selectionTrace: [],
     };
   }
 
   let attemptsByQuestionId = new Map<string, QuestionAttemptRow[]>();
 
-  if (input.unansweredOnly || input.incorrectOnly) {
+  if (
+    input.unansweredOnly ||
+    input.incorrectOnly ||
+    (input.questionTagIds?.length ?? 0) > 0
+  ) {
     const questionIds = Array.from(
       new Set(allQuestions.map((q) => q.questionId)),
     );
@@ -192,6 +242,8 @@ export async function pickStems(
     stem: StemIndexRow;
     allQuestionsCount: number;
     matchingQuestionsCount: number;
+    tier: number;
+    matchedTagIds: string[];
   };
 
   const aggregatesByStemId = new Map<string, StemAggregate>();
@@ -200,6 +252,8 @@ export async function pickStems(
     const questionIds = stem.question_ids ?? [];
     let allCount = 0;
     let matchingCount = 0;
+    let allUnanswered = true;
+    let anyIncorrect = false;
 
     for (const questionId of questionIds) {
       allCount += 1;
@@ -209,6 +263,8 @@ export async function pickStems(
         const status = computeQuestionStatus(
           attemptsByQuestionId.get(questionId),
         );
+        allUnanswered &&= status === "unanswered";
+        anyIncorrect ||= status === "incorrect";
         if (input.unansweredOnly) {
           performanceOk = status === "unanswered";
         } else if (input.incorrectOnly) {
@@ -216,15 +272,35 @@ export async function pickStems(
         }
       }
 
+      if (!input.unansweredOnly && !input.incorrectOnly) {
+        const status = computeQuestionStatus(attemptsByQuestionId.get(questionId));
+        allUnanswered &&= status === "unanswered";
+        anyIncorrect ||= status === "incorrect";
+      }
+
       if (performanceOk) {
         matchingCount += 1;
       }
     }
 
+    const preferredTags = new Set(input.questionTagIds ?? []);
+    const matchedTagIds = (stem.question_tag_ids ?? []).filter((tagId) =>
+      preferredTags.has(tagId),
+    );
+    const tagMatched = matchedTagIds.length > 0;
+    const tier = allUnanswered
+      ? tagMatched
+        ? 0
+        : 1
+      : tagMatched && anyIncorrect
+        ? 2
+        : 3;
     aggregatesByStemId.set(stem.id, {
       stem,
       allQuestionsCount: allCount,
       matchingQuestionsCount: matchingCount,
+      tier,
+      matchedTagIds,
     });
   }
 
@@ -248,6 +324,7 @@ export async function pickStems(
       questionCount: 0,
       sectionRows,
       stemDetailRows,
+      selectionTrace: [],
     };
   }
 
@@ -272,17 +349,102 @@ export async function pickStems(
 
   const chosenStems: StemIndexRow[] = [];
   let runningQuestions = 0;
-
-  // Random order so repeated sessions with the same filters vary.
-  shuffleInPlace(candidateStems);
-
-  for (const agg of candidateStems) {
-    if (limitStems != null && chosenStems.length >= limitStems) break;
-    if (runningQuestions + agg.allQuestionsCount > targetQuestionCount) {
-      continue;
+  const remainingDoseByTier = new Map<number, number>();
+  if (limitStems == null) {
+    const tiers = [...new Set(candidateStems.map((item) => item.tier))].sort(
+      (left, right) => left - right,
+    );
+    let capacity = targetQuestionCount;
+    for (const tier of tiers) {
+      const tierDose = maximumWholeStemDose(
+        candidateStems
+          .filter((item) => item.tier === tier)
+          .map((item) => item.allQuestionsCount),
+        capacity,
+      );
+      remainingDoseByTier.set(tier, tierDose);
+      capacity -= tierDose;
     }
-    chosenStems.push(agg.stem);
-    runningQuestions += agg.allQuestionsCount;
+  }
+
+  // Randomise ties, then greedily favour the least-represented configured
+  // tags/categories inside each fallback tier.
+  if (!options?.deterministic) shuffleInPlace(candidateStems);
+  const tagUse = new Map<string, number>();
+  const categoryUse = new Map<string, number>();
+  const remaining = [...candidateStems];
+  while (remaining.length > 0) {
+    if (limitStems != null && chosenStems.length >= limitStems) break;
+    const fitting = remaining
+      .map((aggregate, index) => ({ aggregate, index }))
+      .filter(
+        ({ aggregate, index }) => {
+          if (limitStems != null) return true;
+          const activeTier = [...remainingDoseByTier]
+            .filter(([, dose]) => dose > 0)
+            .sort(([left], [right]) => left - right)[0]?.[0];
+          if (aggregate.tier !== activeTier) return false;
+          const tierTarget = remainingDoseByTier.get(aggregate.tier) ?? 0;
+          const remainingTarget =
+            tierTarget - aggregate.allQuestionsCount;
+          if (remainingTarget < 0) return false;
+          return (
+            maximumWholeStemDose(
+              remaining
+                .filter(
+                  (candidate, candidateIndex) =>
+                    candidateIndex !== index &&
+                    candidate.tier === aggregate.tier,
+                )
+                .map((candidate) => candidate.allQuestionsCount),
+              remainingTarget,
+            ) === remainingTarget
+          );
+        },
+      )
+      .sort((left, right) => {
+        const leftTagUse = left.aggregate.matchedTagIds.length
+          ? Math.min(
+              ...left.aggregate.matchedTagIds.map((id) => tagUse.get(id) ?? 0),
+            )
+          : 0;
+        const rightTagUse = right.aggregate.matchedTagIds.length
+          ? Math.min(
+              ...right.aggregate.matchedTagIds.map((id) => tagUse.get(id) ?? 0),
+            )
+          : 0;
+        const leftCategoryUse = left.aggregate.stem.question_stem_category_id
+          ? (categoryUse.get(left.aggregate.stem.question_stem_category_id) ?? 0)
+          : 0;
+        const rightCategoryUse = right.aggregate.stem.question_stem_category_id
+          ? (categoryUse.get(right.aggregate.stem.question_stem_category_id) ?? 0)
+          : 0;
+        return (
+          left.aggregate.tier - right.aggregate.tier ||
+          leftTagUse - rightTagUse ||
+          leftCategoryUse - rightCategoryUse ||
+          left.aggregate.stem.id.localeCompare(right.aggregate.stem.id)
+        );
+      });
+    const selected = fitting[0];
+    if (!selected) break;
+    remaining.splice(selected.index, 1);
+    chosenStems.push(selected.aggregate.stem);
+    runningQuestions += selected.aggregate.allQuestionsCount;
+    if (limitStems == null) {
+      remainingDoseByTier.set(
+        selected.aggregate.tier,
+        (remainingDoseByTier.get(selected.aggregate.tier) ?? 0) -
+          selected.aggregate.allQuestionsCount,
+      );
+    }
+    for (const tagId of selected.aggregate.matchedTagIds) {
+      tagUse.set(tagId, (tagUse.get(tagId) ?? 0) + 1);
+    }
+    const categoryId = selected.aggregate.stem.question_stem_category_id;
+    if (categoryId) {
+      categoryUse.set(categoryId, (categoryUse.get(categoryId) ?? 0) + 1);
+    }
   }
 
   if (
@@ -307,5 +469,15 @@ export async function pickStems(
     questionCount: runningQuestions,
     sectionRows,
     stemDetailRows,
+    selectionTrace: chosenStems.map((stem) => {
+      const aggregate = aggregatesByStemId.get(stem.id)!;
+      return {
+        stemId: stem.id,
+        questionCount: aggregate.allQuestionsCount,
+        categoryId: stem.question_stem_category_id,
+        matchedTagIds: aggregate.matchedTagIds,
+        fallbackTier: aggregate.tier,
+      };
+    }),
   };
 }

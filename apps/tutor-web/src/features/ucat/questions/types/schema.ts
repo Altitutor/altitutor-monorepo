@@ -38,6 +38,7 @@ export const ucatQuestionOptionSchema = z.object({
   answerText: jsonSchema,
   answerExplanation: jsonSchema.nullable().optional(),
   isAnswer: z.boolean(),
+  answerKeyValue: z.enum(['correct', 'yes', 'no', 'most', 'least']).nullable().optional(),
 })
 
 export const ucatQuestionItemSchema = z
@@ -45,6 +46,13 @@ export const ucatQuestionItemSchema = z
     id: z.string().uuid().optional(),
     questionText: nonEmptyRichTextSchema,
     questionType: z.enum(['multiple_choice', 'syllogism']),
+    responseType: z.enum(['multiple_choice', 'drag_and_drop']).optional(),
+    answerScheme: z.enum([
+      'single_choice',
+      'situational_judgement_rating',
+      'decision_making_binary_placement',
+      'situational_judgement_most_least',
+    ]).optional(),
     /** For syllogism: 'Y'/'N' per option, e.g. 'YYNNY'. Only used in bulk import UI; not persisted to API. */
     syllogismAnswerPattern: z.string().nullable().optional(),
     answerExplanation: jsonSchema.nullable().optional(),
@@ -65,14 +73,41 @@ export const ucatQuestionItemSchema = z
     { message: 'At least one answer option must have content.', path: ['options'] }
   )
 
-export const ucatQuestionStemSchema = z.object({
-  sectionId: z.string().uuid('Section is required'),
-  categoryId: z.string().uuid().nullable().optional(),
-  stemText: nonEmptyRichTextSchema,
-  accessScope: z.enum(['public', 'private']).default('public'),
-  tutorSourceNote: z.string().max(1000, 'Source note must be 1000 characters or fewer').nullable().optional(),
-  status: z.enum(['published', 'in_review', 'draft']).optional(),
-  questions: z.array(ucatQuestionItemSchema).min(1, 'At least one question is required'),
-})
+export const ucatQuestionStemSchema = z
+  .object({
+    sectionId: z.string().uuid('Section is required'),
+    categoryId: z.string().uuid().nullable().optional(),
+    stemText: nonEmptyRichTextSchema,
+    accessScope: z.enum(['public', 'private']).default('public'),
+    tutorSourceNote: z.string().max(1000, 'Source note must be 1000 characters or fewer').nullable().optional(),
+    status: z.enum(['published', 'in_review', 'draft']).optional(),
+    questions: z.array(ucatQuestionItemSchema).min(1, 'At least one question is required'),
+  })
+  .superRefine((stem, context) => {
+    if (
+      stem.questions.some(
+        (question) => question.answerScheme === 'situational_judgement_most_least',
+      )
+      && stem.questions.length !== 1
+    ) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['questions'],
+        message: 'A Most/Least Appropriate stem must contain exactly one question.',
+      })
+    }
+    if (
+      stem.questions.every(
+        (question) => question.answerScheme === 'situational_judgement_rating',
+      )
+      && stem.questions.length > 6
+    ) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['questions'],
+        message: 'An SJT rating stem may contain at most six questions.',
+      })
+    }
+  })
 
 export type UcatQuestionStemFormValues = z.infer<typeof ucatQuestionStemSchema>

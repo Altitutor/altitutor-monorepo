@@ -3,11 +3,14 @@
 import React from 'react'
 import { cn } from '@/shared/utils'
 import type { ParsedOption, ParsedQuestion } from '@/features/ucat/questions/lib/parsers/core'
+import { BulkImportRichTextPreview } from '@/features/ucat/questions/components/bulk-import/BulkImportRichTextPreview'
+import { stripBulkImportFormatTokens } from '@/features/ucat/shared/lib/bulk-import-inline-format'
+import { tokenizedPlainTextToProseMirrorWithLineBreaks } from '@/features/ucat/shared/lib/rich-text'
 
 const PREVIEW_LINE_LIMIT = 2
 
 function questionNeedsExpand(question: ParsedQuestion): boolean {
-  const trimmed = question.text.trim()
+  const trimmed = stripBulkImportFormatTokens(question.text).trim()
   if (trimmed.length === 0) return question.options.length > 0
   const lines = trimmed.split('\n').filter((line) => line.trim().length > 0)
   return lines.length > PREVIEW_LINE_LIMIT || trimmed.length > 100 || question.options.length > 0
@@ -43,6 +46,8 @@ export function CollapsibleParsedQuestionCard({
       : `Question ${index + 1}`
   const canExpand = questionNeedsExpand(question)
   const showExpandHint = !expanded && canExpand
+  const questionPreviewDoc =
+    trimmedText.length > 0 ? tokenizedPlainTextToProseMirrorWithLineBreaks(trimmedText) : null
 
   return (
     <div
@@ -67,32 +72,41 @@ export function CollapsibleParsedQuestionCard({
           <span className="shrink-0 text-[10px] text-muted-foreground">Click to expand</span>
         ) : null}
       </div>
-      {trimmedText.length > 0 ? (
-        <div
-          className={cn(
-            'mt-1 whitespace-pre-wrap font-sans leading-relaxed text-foreground/90',
-            !expanded && canExpand && 'line-clamp-2'
-          )}
-        >
-          {trimmedText}
+      {questionPreviewDoc ? (
+        <div className={cn('mt-1', !expanded && canExpand && 'line-clamp-2')}>
+          <BulkImportRichTextPreview json={questionPreviewDoc} />
         </div>
       ) : (
         <p className="mt-1 text-muted-foreground italic">No question text</p>
       )}
       {expanded && question.options.length > 0 ? (
         <ul className="mt-2 space-y-1.5 border-t border-border/60 pt-2">
-          {question.options.map((option: ParsedOption) => (
-            <li key={`${option.label}-${option.text}`} className="leading-relaxed text-foreground/90">
-              {question.questionType === 'syllogism' ? (
-                <span className="mr-2 font-medium text-muted-foreground">•</span>
-              ) : (
-                <span className="font-medium text-muted-foreground">
-                  {formatOptionLabel(option.label)})
-                </span>
-              )}{' '}
-              {option.text.trim() || <span className="italic text-muted-foreground">Empty option</span>}
-            </li>
-          ))}
+          {question.options.map((option: ParsedOption) => {
+            const optionText = option.text.trim()
+            const optionDoc =
+              optionText.length > 0
+                ? tokenizedPlainTextToProseMirrorWithLineBreaks(optionText)
+                : null
+            return (
+              <li
+                key={`${option.label}-${optionText}`}
+                className="flex items-start gap-1 leading-relaxed text-foreground/90"
+              >
+                {question.questionType === 'syllogism' ? (
+                  <span className="mt-0.5 shrink-0 font-medium text-muted-foreground">•</span>
+                ) : (
+                  <span className="mt-0.5 shrink-0 font-medium text-muted-foreground">
+                    {formatOptionLabel(option.label)})
+                  </span>
+                )}
+                {optionDoc ? (
+                  <BulkImportRichTextPreview json={optionDoc} className="min-w-0 flex-1" />
+                ) : (
+                  <span className="italic text-muted-foreground">Empty option</span>
+                )}
+              </li>
+            )
+          })}
         </ul>
       ) : null}
       {expanded && question.options.length === 0 ? (

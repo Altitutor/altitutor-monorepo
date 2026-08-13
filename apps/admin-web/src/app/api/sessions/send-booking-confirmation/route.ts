@@ -21,9 +21,9 @@ export async function POST(request: NextRequest) {
     // Check if user is admin and get staff name for sender_name
     const { data: staffData, error: staffError } = await supabase
       .from('staff')
-      .select('role, first_name, last_name')
+      .select('id, role, first_name, last_name')
       .eq('user_id', user.id)
-      .single<{ role: string; first_name: string | null; last_name: string | null }>();
+      .single<{ id: string; role: string; first_name: string | null; last_name: string | null }>();
 
     if (staffError || !staffData || (staffData.role !== 'ADMINSTAFF' && staffData.role !== 'OFFICE_ADMIN')) {
       return NextResponse.json({ error: 'Forbidden: Admin access required' }, { status: 403 });
@@ -128,7 +128,19 @@ export async function POST(request: NextRequest) {
       effectiveRecipients = recipients.filter((r) => r.id === recipientId);
     }
 
-    const bookingUrl = getBookingConfirmationUrl(sessionId);
+    const { data: bookingToken, error: bookingTokenError } = await supabaseAdmin.rpc(
+      'issue_session_booking_public_token',
+      { p_session_id: sessionId }
+    );
+    if (bookingTokenError || typeof bookingToken !== 'string') {
+      captureApiError(bookingTokenError, "/api/sessions/send-booking-confirmation");
+      return NextResponse.json(
+        { error: bookingTokenError?.message || 'Failed to issue booking link' },
+        { status: 500 }
+      );
+    }
+
+    const bookingUrl = getBookingConfirmationUrl(bookingToken);
     const studentName = `${student.first_name} ${student.last_name}`;
 
     // Format session date and time

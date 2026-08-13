@@ -41,6 +41,10 @@ function practiceStartInput(task: StudyPlanTask) {
     categoryIds: Array.isArray(config.categoryIds)
       ? config.categoryIds.filter((id): id is string => typeof id === "string")
       : [],
+    questionTagIds: Array.isArray(config.questionTagIds)
+      ? config.questionTagIds.filter((id): id is string => typeof id === "string")
+      : [],
+    linkedLearningPractice: config.linkedLearningPractice === true,
     timeMode: config.timeMode === "off" ? "off" : "speed",
     timeSpeedMultiplier:
       typeof config.timeSpeedMultiplier === "number"

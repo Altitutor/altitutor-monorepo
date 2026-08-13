@@ -1,3 +1,9 @@
+import type {
+  AnswerScheme,
+  ResponseSnapshotV1,
+  ResponseType,
+} from "@altitutor/ucat-response-contract";
+
 export type QuestionEngineMode = "set" | "mock" | "questionStem" | "questions";
 
 export type AnswerOption = {
@@ -8,6 +14,8 @@ export type AnswerOption = {
   textJson?: Record<string, unknown> | null;
   /** True if this option is the correct answer. Used for marking display. */
   isAnswer?: boolean;
+  /** Canonical answer-key role used by the shared response contract. */
+  answerKeyValue?: "correct" | "yes" | "no" | "most" | "least" | null;
   /** Option-level answer explanation (shown in results review). */
   answerExplanation?: string;
   /** Rich JSON for option answer explanation (Tiptap). */
@@ -34,6 +42,10 @@ export type QuestionItem = {
   /** Rich JSON for question text (Tiptap). When present, use for rendering images/formatting. */
   questionJson?: Record<string, unknown> | null;
   questionType: "multiple_choice" | "syllogism";
+  /** Candidate interaction, independent of the authored category. */
+  responseType?: ResponseType;
+  /** Validation, scoring, persistence, and review behavior. */
+  answerScheme?: AnswerScheme["kind"];
   options: AnswerOption[];
   /** ID of the correct answer option. Used for marking. */
   correctOptionId?: string;
@@ -108,6 +120,8 @@ export type QuestionStemWithQuestions = {
     /** Rich JSON for question text (Tiptap). */
     questionJson?: Record<string, unknown> | null;
     questionType: "multiple_choice" | "syllogism";
+    responseType?: ResponseType;
+    answerScheme?: QuestionItem["answerScheme"];
     options: AnswerOption[];
     /** Question-level explanation (shown in review when present). */
     answerExplanation?: string;
@@ -144,6 +158,8 @@ export function mapQuestionStemsToItems(
         questionText: question.questionText,
         questionJson: question.questionJson,
         questionType: question.questionType,
+        responseType: question.responseType,
+        answerScheme: question.answerScheme,
         options: sortedOptions,
         correctOptionId: correctOption?.id,
         answerExplanation: question.answerExplanation,
@@ -163,6 +179,8 @@ export type QuestionEngineQuestion = {
   stemText: string;
   questionText: string;
   questionType: "multiple_choice" | "syllogism";
+  responseType?: ResponseType;
+  answerScheme?: QuestionItem["answerScheme"];
   options: AnswerOption[];
   /** Question-level explanation (shown in review when present). */
   answerExplanation?: string;
@@ -187,6 +205,8 @@ export function mapQuestionsToItems(
       stemText: question.stemText,
       questionText: question.questionText,
       questionType: question.questionType,
+      responseType: question.responseType,
+      answerScheme: question.answerScheme,
       options: sortedOptions,
       correctOptionId: correctOption?.id,
       answerExplanation: question.answerExplanation,
@@ -231,6 +251,8 @@ export type QuestionEngineState = {
   selectedAnswers: Record<string, string>;
   /** For syllogism questions: map of questionId -> optionId -> true (Yes) / false (No). */
   syllogismSnapshots?: Record<string, Record<string, boolean>>;
+  /** Canonical durable responses; legacy maps above are UI projections only. */
+  responseSnapshots?: Record<string, ResponseSnapshotV1>;
   showNavigator: boolean;
   showCalculator: boolean;
   showEndExamDialog: boolean;

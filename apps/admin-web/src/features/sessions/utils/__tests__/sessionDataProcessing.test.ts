@@ -112,6 +112,8 @@ describe('processSessionStudents', () => {
     created_by: null,
     user_id: null,
     invite_token: null,
+    registration_public_token: null,
+    legacy_registration_token: null,
     onboarding_progress: {},
     timezone: 'Australia/Adelaide',
     ucat_onboarding_completed_at: null,

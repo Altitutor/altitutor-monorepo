@@ -73,15 +73,15 @@ E`;
   });
 
   it('parses an unnumbered syllogism instruction followed by five statements', () => {
-    const input = `Physicians are from either Melbourne or Sydney and practise in either General Medicine or Oncology. Some physicians are from Melbourne and the rest practise Oncology.
+    const input = `Physicians are from either Melbourne or Sydney and practice in either General Medicine or Oncology. Some physicians are from Melbourne and the rest practice Oncology.
 
 Place 'Yes' if the conclusion does follow. Place 'No' if the conclusion does not follow.
 
-All physicians from Sydney practise General Medicine.
-Some physicians from Melbourne practise Oncology.
-No physicians from Sydney practise Oncology.
+All physicians from Sydney practice General Medicine.
+Some physicians from Melbourne practice Oncology.
+No physicians from Sydney practice Oncology.
 Some Oncology physicians are from Melbourne.
-All physicians who practise General Medicine are from Sydney.`;
+All physicians who practice General Medicine are from Sydney.`;
 
     const stems = parseDecisionMakingPlainText(input);
     expect(stems).toHaveLength(1);
@@ -91,7 +91,7 @@ All physicians who practise General Medicine are from Sydney.`;
     expect(stems[0]?.questions[0]?.text).toContain("Place 'Yes'");
     expect(stems[0]?.questions[0]?.options).toHaveLength(5);
     expect(stems[0]?.questions[0]?.options[0]?.text).toBe(
-      'All physicians from Sydney practise General Medicine.'
+      'All physicians from Sydney practice General Medicine.'
     );
   });
 
@@ -144,6 +144,54 @@ With Candice in the back row of the other car`;
 });
 
 describe('getDecisionMakingStemCategoryName', () => {
+  it('lets a trusted category heading win over conflicting content signals', () => {
+    const stems = parseDecisionMakingPlainText(`Interpreting Information and Drawing Conclusions
+The table shows that all architects are readers and no readers attended in May.
+
+1. Place Yes if the conclusion follows. Place No if the conclusion does not follow.
+A. First statement
+B. Second statement
+C. Third statement
+D. Fourth statement
+E. Fifth statement`)
+
+    expect(getDecisionMakingStemCategoryName(stems[0]!)).toBe(
+      'Interpreting Information and Drawing Conclusions'
+    )
+  })
+
+  it('classifies mixed universal and particular syllogism premises as Syllogisms', () => {
+    const input = `All the patients in the respiratory ward who are smokers are women. Patient A is not a smoker. All the smokers on the ward live in the city. Patient B lives in the city.
+
+Place 'Yes' if the conclusion does follow. Place 'No' if the conclusion does not follow.
+
+Patient A is a man
+All of the female patients on the respiratory ward live in the city
+Patient B is a woman
+There are no female non-smokers
+All male patients on the ward are non-smokers`
+
+    const stems = parseDecisionMakingPlainText(input)
+    expect(getDecisionMakingStemCategoryName(stems[0]!)).toBe('Syllogisms')
+  })
+
+  it('classifies prose Yes/No information passages as Interpreting Information and Drawing Conclusions', () => {
+    const input = `For small independent companies, where the company values are not the priority, selling their business out to larger corporate companies can boost sales significantly. Small companies can benefit from the expertise and vast resources that large corporations can certainly offer. Provided that it is well managed, independent companies that have been bought out by corporate companies can expand their businesses at a rate that is not achievable had they not have had the input of large corporations. The involvement of a corporate company is known to compromise the devotion of some customers, particularly those who prefer independent companies.
+
+Place 'Yes' if the conclusion does follow. Place 'No' if the conclusion does not follow.
+
+The input of a large corporation is purely advantageous to small independent companies
+A small company whose company values are the priority, should not sell their business to larger corporate companies
+All independent companies that have sold their business out to large corporations will see their business expand at a faster rate
+Large corporate companies have greater expertise and more resources than small independent companies
+Some people will be deterred from remaining as customers if they know that the company has been bought out by a large corporation`
+
+    const stems = parseDecisionMakingPlainText(input)
+    expect(getDecisionMakingStemCategoryName(stems[0]!)).toBe(
+      'Interpreting Information and Drawing Conclusions'
+    )
+  })
+
   it('classifies dice re-roll expected-value questions as probabilistic reasoning', () => {
     const input = `Damien and Martin are playing a game using a fair six-sided dice. Damien states that he will pay Martin $10 multiplied by the number on the dice that Martin rolls. Martin rolls the dice and it lands on a "three". Damien says that he will let Martin roll the dice once more if he wants to.
 

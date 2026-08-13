@@ -26,16 +26,94 @@ export const EMAIL_SENDERS = {
   },
 } as const;
 
-const EMAIL_BRANDS = {
+export type EmailBrandContact = {
+  email: string;
+  websiteLabel: string;
+  websiteUrl: string;
+  phone?: string;
+  phoneHref?: string;
+  address?: string;
+};
+
+/** Public Altitutor contact details (same values as student-web). */
+export const COMPANY_CONTACT = {
+  email: "admin@altitutor.com",
+  phone: "+61 483 849 842",
+  phoneHref: "+61483849842",
+  address: "Level 1, 17A Solomon St, Adelaide SA 5000",
+  websiteLabel: "altitutor.com",
+  websiteUrl: "https://altitutor.com",
+} as const satisfies EmailBrandContact;
+
+const EMAIL_BRANDS: Record<
+  EmailBrand,
+  {
+    name: string;
+    subtitle: string | null;
+    footerTagline: string | null;
+    contact: EmailBrandContact;
+  }
+> = {
   altitutor: {
     name: "Altitutor",
     subtitle: null,
+    footerTagline: null,
+    contact: COMPANY_CONTACT,
   },
   ucat: {
     name: "Altitutor UCAT",
     subtitle: "UCAT preparation from Altitutor",
+    footerTagline: "A not-for-profit initiative by Altitutor.",
+    contact: {
+      email: COMPANY_CONTACT.email,
+      websiteLabel: "altitutor.com/ucat",
+      websiteUrl: "https://altitutor.com/ucat",
+    },
   },
-} as const;
+};
+
+function renderBrandFooterHtml(brand: (typeof EMAIL_BRANDS)[EmailBrand]): string {
+  const title = `<p class="email-accent" style="margin:0 0 ${
+    brand.footerTagline ? "3px" : "8px"
+  };color:#0a2941;font-size:13px;font-weight:700;line-height:1.5">${escapeEmailHtml(brand.name)}</p>`;
+  if (!brand.footerTagline) return title;
+  return `${title}
+            <p style="margin:0 0 10px;color:#52606a;font-size:12px;line-height:1.5">${escapeEmailHtml(brand.footerTagline)}</p>`;
+}
+
+function renderContactFooterHtml(contact: EmailBrandContact): string {
+  const mutedLine = "margin:0;color:#52606a;font-size:12px;line-height:1.6";
+  const lines: string[] = [];
+
+  if (contact.address) {
+    lines.push(
+      `<p style="${mutedLine}">${escapeEmailHtml(contact.address)}</p>`,
+    );
+  }
+
+  const detailLines: string[] = [];
+  if (contact.phone && contact.phoneHref) {
+    detailLines.push(
+      `Phone: <a class="email-link" href="tel:${escapeEmailHtml(contact.phoneHref)}" style="color:#0a2941">${escapeEmailHtml(contact.phone)}</a>`,
+    );
+  }
+  detailLines.push(
+    `Email: <a class="email-link" href="mailto:${escapeEmailHtml(contact.email)}" style="color:#0a2941">${escapeEmailHtml(contact.email)}</a>`,
+  );
+  detailLines.push(
+    `Web: <a class="email-link" href="${escapeEmailHtml(contact.websiteUrl)}" style="color:#0a2941">${escapeEmailHtml(contact.websiteLabel)}</a>`,
+  );
+
+  for (const [index, detail] of detailLines.entries()) {
+    const style =
+      index === 0 && contact.address
+        ? "margin:12px 0 0;color:#52606a;font-size:12px;line-height:1.6"
+        : mutedLine;
+    lines.push(`<p style="${style}">${detail}</p>`);
+  }
+
+  return lines.join("\n            ");
+}
 
 export function escapeEmailHtml(value: string | number): string {
   return String(value)
@@ -77,7 +155,7 @@ export function renderEmail(input: {
   bodyHtml: string;
   bodyText: string;
   sender?: EmailSender;
-  footerHtml?: string;
+  /** Optional marketing actions (preferences / unsubscribe). Rendered after contact. */
   marketingFooterHtml?: string;
   year?: number | string;
 }): RenderedEmail {
@@ -89,9 +167,8 @@ export function renderEmail(input: {
   const subtitle = brand.subtitle
     ? `<p class="email-brand-subtitle" style="margin:6px 0 0;color:#b9d1d9;font-size:13px;line-height:1.5">${escapeEmailHtml(brand.subtitle)}</p>`
     : "";
-  const footerHtml =
-    input.footerHtml ??
-    `<p style="margin:0;color:#52606a;font-size:12px;line-height:1.6">Need help? Reply to this email or contact <a class="email-link" href="mailto:${sender.replyTo}" style="color:#0a2941">${sender.replyTo}</a>.</p>`;
+  const brandFooterHtml = renderBrandFooterHtml(brand);
+  const contactFooterHtml = renderContactFooterHtml(brand.contact);
 
   return {
     subject: input.subject,
@@ -121,37 +198,46 @@ export function renderEmail(input: {
         body, .email-page { background-color: #171717 !important; }
         .email-card, .email-content, .email-header { background-color: #1f1f1f !important; }
         .email-card, .email-header { border-color: #2b2b2b !important; }
-        a, .email-brand, .email-link, .email-accent,
-        .email-panel-copy .email-accent { color: #92b5c3 !important; }
-        .email-brand-subtitle, .email-muted { color: #b3b3b3 !important; }
-        .email-heading, .email-strong { color: #ffffff !important; }
-        .email-copy, .email-copy p, .email-copy li { color: #f5f5f5 !important; }
+        a, a.email-link, .email-brand, .email-link, .email-accent,
+        .email-content a, .email-copy a, .email-muted a, .email-panel a,
+        .email-panel-copy .email-accent, .email-panel .email-accent { color: #b7d4df !important; }
+        .email-brand-subtitle, .email-muted, .email-panel .email-muted { color: #b3b3b3 !important; }
+        .email-heading, .email-strong, .email-panel .email-strong { color: #ffffff !important; }
+        .email-copy, .email-copy p, .email-copy li, .email-copy td { color: #f5f5f5 !important; }
         .email-panel { background-color: #262626 !important; border-color: #2b2b2b !important; }
-        .email-panel-copy, .email-panel-copy p, .email-panel-copy td { color: #f5f5f5 !important; }
+        .email-panel td, .email-panel-copy, .email-panel-copy p, .email-panel-copy td { color: #f5f5f5 !important; }
         .email-module-surface { background-color: #2b2b2b !important; border-color: #2b2b2b !important; }
         .email-footer { background-color: #262626 !important; border-color: #2b2b2b !important; }
         .email-footer p { color: #b3b3b3 !important; }
-        .email-footer a { color: #92b5c3 !important; }
+        .email-footer a { color: #b7d4df !important; }
         .email-button-cell { background-color: #92b5c3 !important; }
-        .email-button { color: #1c1c1c !important; }
+        a.email-button, .email-button, .email-content a.email-button,
+        .email-copy a.email-button, .email-button-cell a { color: #1c1c1c !important; }
         .email-accent-fill { background-color: #92b5c3 !important; color:#1c1c1c !important; }
       }
       [data-ogsc] body, [data-ogsc] .email-page { background-color: #171717 !important; }
       [data-ogsc] .email-card, [data-ogsc] .email-content, [data-ogsc] .email-header { background-color: #1f1f1f !important; }
       [data-ogsc] .email-card, [data-ogsc] .email-header { border-color: #2b2b2b !important; }
-      [data-ogsc] a, [data-ogsc] .email-brand, [data-ogsc] .email-link,
-      [data-ogsc] .email-accent, [data-ogsc] .email-panel-copy .email-accent { color: #92b5c3 !important; }
-      [data-ogsc] .email-brand-subtitle, [data-ogsc] .email-muted { color: #b3b3b3 !important; }
-      [data-ogsc] .email-heading, [data-ogsc] .email-strong { color: #ffffff !important; }
-      [data-ogsc] .email-copy, [data-ogsc] .email-copy p, [data-ogsc] .email-copy li { color: #f5f5f5 !important; }
+      [data-ogsc] a, [data-ogsc] a.email-link, [data-ogsc] .email-brand, [data-ogsc] .email-link,
+      [data-ogsc] .email-accent, [data-ogsc] .email-content a, [data-ogsc] .email-copy a,
+      [data-ogsc] .email-muted a, [data-ogsc] .email-panel a, [data-ogsc] .email-panel-copy .email-accent,
+      [data-ogsc] .email-panel .email-accent { color: #b7d4df !important; }
+      [data-ogsc] .email-brand-subtitle, [data-ogsc] .email-muted,
+      [data-ogsc] .email-panel .email-muted { color: #b3b3b3 !important; }
+      [data-ogsc] .email-heading, [data-ogsc] .email-strong,
+      [data-ogsc] .email-panel .email-strong { color: #ffffff !important; }
+      [data-ogsc] .email-copy, [data-ogsc] .email-copy p, [data-ogsc] .email-copy li,
+      [data-ogsc] .email-copy td { color: #f5f5f5 !important; }
       [data-ogsc] .email-panel { background-color: #262626 !important; border-color: #2b2b2b !important; }
-      [data-ogsc] .email-panel-copy, [data-ogsc] .email-panel-copy p, [data-ogsc] .email-panel-copy td { color: #f5f5f5 !important; }
+      [data-ogsc] .email-panel td, [data-ogsc] .email-panel-copy, [data-ogsc] .email-panel-copy p,
+      [data-ogsc] .email-panel-copy td { color: #f5f5f5 !important; }
       [data-ogsc] .email-module-surface { background-color: #2b2b2b !important; border-color: #2b2b2b !important; }
       [data-ogsc] .email-footer { background-color: #262626 !important; border-color: #2b2b2b !important; }
       [data-ogsc] .email-footer p { color: #b3b3b3 !important; }
-      [data-ogsc] .email-footer a { color: #92b5c3 !important; }
+      [data-ogsc] .email-footer a { color: #b7d4df !important; }
       [data-ogsc] .email-button-cell { background-color: #92b5c3 !important; }
-      [data-ogsc] .email-button { color: #1c1c1c !important; }
+      [data-ogsc] a.email-button, [data-ogsc] .email-button, [data-ogsc] .email-content a.email-button,
+      [data-ogsc] .email-copy a.email-button, [data-ogsc] .email-button-cell a { color: #1c1c1c !important; }
       [data-ogsb] .email-accent-fill { background-color: #92b5c3 !important; }
       [data-ogsc] .email-accent-fill { color: #1c1c1c !important; }
     </style>
@@ -171,8 +257,8 @@ export function renderEmail(input: {
             ${input.bodyHtml}
           </td></tr>
           <tr><td class="email-footer" bgcolor="#eaf1f3" style="padding:24px 36px;background-color:#eaf1f3;border-top:1px solid #dce5e8">
-            <p class="email-accent" style="margin:0 0 8px;color:#0a2941;font-size:13px;font-weight:600;line-height:1.5">A not-for-profit initiative by Altitutor.</p>
-            ${footerHtml}${input.marketingFooterHtml ? `
+            ${brandFooterHtml}
+            ${contactFooterHtml}${input.marketingFooterHtml ? `
             ${input.marketingFooterHtml}` : ""}
             <p style="margin:12px 0 0;color:#73808a;font-size:11px;line-height:1.5">&copy; ${year} Altitutor.</p>
           </td></tr>

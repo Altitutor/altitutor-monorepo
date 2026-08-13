@@ -4,7 +4,6 @@ import {
   createServiceRoleClient,
   formatSessionDateTime,
   getMinAdvanceBookingDays,
-  isValidUuid,
   isWithinMinAdvanceThreshold,
   loadPublicBookingSession,
 } from '@/features/bookings/lib/public-booking-guards';
@@ -19,8 +18,8 @@ export async function POST(
 ) {
   try {
     const sessionId = params.sessionId;
-    if (!sessionId || !isValidUuid(sessionId)) {
-      return NextResponse.json({ error: 'Invalid session ID' }, { status: 400 });
+    if (!sessionId) {
+      return NextResponse.json({ error: 'Booking link is required' }, { status: 400 });
     }
 
     const supabase = createServiceRoleClient();

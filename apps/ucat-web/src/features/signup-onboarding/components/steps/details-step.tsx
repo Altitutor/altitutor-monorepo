@@ -33,7 +33,6 @@ type SignupCompleteDetailsStepProps = {
   initialFirstName: string;
   initialLastName: string;
   initialPhone: string;
-  newsletterOptIn: boolean;
   returnTo: string;
   onComplete: (details: {
     email: string;
@@ -54,7 +53,6 @@ export function SignupCompleteDetailsStep({
   initialFirstName,
   initialLastName,
   initialPhone,
-  newsletterOptIn,
   returnTo,
   onComplete,
   error,
@@ -144,9 +142,7 @@ export function SignupCompleteDetailsStep({
         return;
       }
 
-      if (newsletterOptIn) {
-        await subscribeToUcatNewsletter("ucat_social_signup");
-      }
+      await subscribeToUcatNewsletter("ucat_social_signup");
 
       onComplete({
         email: normalizedEmail,

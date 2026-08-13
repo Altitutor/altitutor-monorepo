@@ -64,6 +64,7 @@ export function UcatGoalSetupPage() {
         testDate: testDate || null,
         availableDays: existing?.availableDays ?? [],
         preferredMockWeekday: existing?.preferredMockWeekday ?? 6,
+        sjtPreference: existing?.sjtPreference ?? "a_little",
       });
       queryClient.setQueryData(STUDY_PLAN_QUERY_KEY, nextPlan);
       await queryClient.invalidateQueries({ queryKey: STUDY_PLAN_QUERY_KEY });

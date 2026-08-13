@@ -1,6 +1,7 @@
 import type { QuestionEngineExam } from "@/features/question-engine/model/types";
 import type { FinalExamQuestionAttemptInput } from "@/lib/ucat/exam-attempt/finalize-attempt";
 import type { ExamEngineSnapshot } from "@/lib/ucat/exam-attempt/types";
+import { buildPersistedQuestionResponse } from "@/features/question-engine/lib/response-state";
 
 function isQuestionTimed(
   exam: QuestionEngineExam,
@@ -29,11 +30,15 @@ export function buildFinalAnswersFromEngineSnapshot(
   return exam.questions.map((question, questionIndex) => {
     const selectedOptionId = state.selectedAnswers[question.id];
     const syllogismSnapshot = state.syllogismSnapshots?.[question.id];
-    const isSyllogism = question.questionType === "syllogism";
+    const response = buildPersistedQuestionResponse(
+      question,
+      selectedOptionId,
+      syllogismSnapshot,
+    );
     const answer: FinalExamQuestionAttemptInput = {
       questionSetId: question.questionSetId,
       questionId: question.id,
-      questionAnswerOptionId: isSyllogism ? null : (selectedOptionId ?? null),
+      ...response,
       isFlagged: state.flaggedIds.includes(question.id),
       wasTimed: isQuestionTimed(exam, questionIndex),
       mode:
@@ -45,16 +50,6 @@ export function buildFinalAnswersFromEngineSnapshot(
               ? "question"
               : "question_stem",
     };
-
-    if (isSyllogism && syllogismSnapshot) {
-      answer.answerSnapshot = {
-        type: "syllogism_v1",
-        answers: Object.entries(syllogismSnapshot).map(([optionId, value]) => ({
-          question_answer_option_id: optionId,
-          answer: value,
-        })),
-      };
-    }
 
     return answer;
   });

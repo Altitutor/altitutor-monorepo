@@ -1,5 +1,6 @@
 import { useCallback, useMemo, useState } from 'react'
 import type { UcatQuestionStemFormValues } from '@/features/ucat/questions/types/schema'
+import { normalizeAuthoredQuestionContract } from '@/features/ucat/questions/lib/response-contract-authoring'
 
 export type BulkImportStemDraft = {
   id: string
@@ -40,7 +41,9 @@ export function useBulkImportWizard(): BulkImportWizardApi {
         id: stemId,
         values: {
           ...value,
-          questions: value.questions.map((question) => ({
+          questions: value.questions.map((rawQuestion) => {
+            const question = normalizeAuthoredQuestionContract(rawQuestion)
+            return {
             ...question,
             id:
               question.id
@@ -51,7 +54,8 @@ export function useBulkImportWizard(): BulkImportWizardApi {
                 option.id
                 ?? draftUuid(),
             })),
-          })),
+            }
+          }),
         },
       }
     })

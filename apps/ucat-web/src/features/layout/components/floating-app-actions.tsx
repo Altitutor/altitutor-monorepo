@@ -12,12 +12,14 @@ import { cn } from "@/lib/utils";
 type FloatingAppActionsProps = {
   onToggleNav: () => void;
   isMenuOpen: boolean;
+  isMobile: boolean;
   className?: string;
 };
 
 export function FloatingAppActions({
   onToggleNav,
   isMenuOpen,
+  isMobile,
   className,
 }: FloatingAppActionsProps) {
   return (
@@ -37,6 +39,7 @@ export function FloatingAppActions({
         >
           <Button
             type="button"
+            data-tour={isMobile || !isMenuOpen ? "app-navigation" : undefined}
             variant="outline"
             size="icon"
             onClick={onToggleNav}

@@ -4,6 +4,14 @@ import {
   extractTextFromRichJson,
   type JsonLike,
 } from "@/features/question-engine/model/rich-text";
+import {
+  getAnswerSchemeMaximum,
+  type AnswerScheme,
+} from "@altitutor/ucat-response-contract";
+import {
+  parseAttemptContentSnapshot,
+  snapshotQuestionMetadata,
+} from "./attempt-content-snapshot";
 
 type SupabaseServerClient = Awaited<ReturnType<typeof getSupabaseServerClient>>;
 
@@ -39,7 +47,7 @@ const MIN_AVERAGE_TIME_SAMPLE_SIZE = 5;
 
 type QuestionTimingDefinition = {
   id: string;
-  question_type: "multiple_choice" | "syllogism";
+  answer_scheme: AnswerScheme["kind"] | null;
 };
 
 type SubmittedQuestionTiming = {
@@ -56,10 +64,11 @@ export function calculateSuccessfulQuestionTiming(
   { averageTimeSeconds: number | null; sampleSize: number }
 > {
   const maxScoreByQuestion = new Map(
-    questions.map((question) => [
-      question.id,
-      question.question_type === "syllogism" ? 2 : 1,
-    ]),
+    questions.flatMap((question) =>
+      question.answer_scheme
+        ? [[question.id, getAnswerSchemeMaximum(question.answer_scheme)] as const]
+        : [],
+    ),
   );
   const totalsByQuestion = new Map<
     string,
@@ -120,32 +129,8 @@ export async function fetchAttemptReviewQuestionMetadata(
   if (ids.length === 0) return result;
 
   const questionRowsPromise = supabase
-    .from("ucat_questions")
-    .select("id, difficulty, time_burden_seconds, question_type")
-    .in("id", ids);
-
-  const tagRowsPromise = (
-    supabase as unknown as {
-      from: (table: string) => {
-        select: (columns: string) => {
-          in: (
-            column: string,
-            values: string[],
-          ) => Promise<{
-            data: Array<{
-              question_id?: string | null;
-              question_tags?: {
-                name?: string | null;
-                description?: unknown;
-              } | null;
-            }> | null;
-          }>;
-        };
-      };
-    }
-  )
-    .from("questions_question_tags")
-    .select("question_id, question_tags(name, description)")
+    .from("vstudent_ucat_my_question_attempts")
+    .select("question_id, time_burden_seconds, content_snapshot")
     .in("question_id", ids);
 
   const timingRowsPromise = supabaseAdmin
@@ -158,44 +143,34 @@ export async function fetchAttemptReviewQuestionMetadata(
         .gt("score", 0)
     : Promise.resolve({ data: [] });
 
-  const [questionResult, tagResult, timingResult] = await Promise.all([
+  const [questionResult, timingResult] = await Promise.all([
     questionRowsPromise,
-    tagRowsPromise,
     timingRowsPromise,
   ]);
 
-  const questionRows = questionResult.data;
-
-  for (const row of questionRows ?? []) {
-    if (!row.id) continue;
-    const current = result.get(row.id) ?? { ...EMPTY_METADATA };
-    result.set(row.id, {
-      ...current,
-      difficulty: row.difficulty ?? null,
-      timeBurdenSeconds: row.time_burden_seconds ?? null,
+  const definitionsByQuestionId = new Map<string, QuestionTimingDefinition>();
+  for (const row of questionResult.data ?? []) {
+    if (!row.question_id) continue;
+    const snapshot = parseAttemptContentSnapshot(row.content_snapshot);
+    if (!snapshot) continue;
+    const snapshotMetadata = snapshotQuestionMetadata(snapshot);
+    definitionsByQuestionId.set(row.question_id, {
+      id: row.question_id,
+      answer_scheme: snapshot.question.answerScheme ?? null,
     });
-  }
-
-  const tagRows = tagResult.data;
-
-  for (const row of tagRows ?? []) {
-    if (!row.question_id || !row.question_tags?.name) continue;
     const current = result.get(row.question_id) ?? { ...EMPTY_METADATA };
     result.set(row.question_id, {
       ...current,
-      questionTags: [
-        ...current.questionTags,
-        {
-          name: row.question_tags.name,
-          description: descriptionToText(row.question_tags.description),
-        },
-      ],
+      difficulty: snapshotMetadata.difficulty,
+      timeBurdenSeconds:
+        row.time_burden_seconds ?? snapshotMetadata.timeBurdenSeconds,
+      questionTags: snapshotMetadata.questionTags,
     });
   }
 
   const timingRows = timingResult.data;
   const timingByQuestion = calculateSuccessfulQuestionTiming(
-    questionRows ?? [],
+    [...definitionsByQuestionId.values()],
     timingRows ?? [],
   );
 

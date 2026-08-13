@@ -46,6 +46,9 @@ import {
 } from '@/features/ucat/questions/lib/ai-generation/gates'
 import { sampleWithoutReplacement } from '@/features/ucat/questions/lib/ai-generation/sample-without-replacement'
 import {
+  reconcileIngestedResponseContract,
+} from '@/features/ucat/questions/lib/parsers/responseClassification'
+import {
   generateUcatImageBytes,
   imageConfigFromProvider,
   resolveImageApiConfig,
@@ -1214,21 +1217,39 @@ async function toDraft(params: {
     params.body.categoryId ??
     params.categoryIdByName.get(normalizeLabel(params.stem.categoryName)) ??
     null
-  const questions = await Promise.all(params.stem.questions.map(async (question, questionIndex) => ({
-    index: questionIndex + 1,
-    questionText: await generatedContentToProseMirrorServer(question.questionText),
-    answerExplanation: question.answerExplanation ? await generatedContentToProseMirrorServer(question.answerExplanation) : null,
-    difficulty: difficultyToNumber(question.estimatedDifficulty, question.difficultyTarget),
-    timeBurdenSeconds: question.estimatedTimeBurdenSeconds ?? null,
-    questionType: question.questionType === 'syllogism' ? 'syllogism' : 'multiple_choice',
-    tagIds: question.tagIds?.length ? question.tagIds : params.body.targetTagIds,
-    options: await Promise.all(question.options.map(async (option, optionIndex) => ({
-      index: optionIndex + 1,
-      answerText: await generatedContentToProseMirrorServer(option.answerText),
-      answerExplanation: option.answerExplanation ? await generatedContentToProseMirrorServer(option.answerExplanation) : null,
-      isAnswer: !!option.isAnswer,
-    }))),
-  })))
+  const questions = await Promise.all(params.stem.questions.map(async (question, questionIndex) => {
+    const directive = generatedContentToPlainText(question.questionText)
+    const optionTexts = question.options.map((option) => generatedContentToPlainText(option.answerText))
+    const reconciled = reconcileIngestedResponseContract({
+      directive,
+      optionTexts,
+      declaredResponseType: question.responseType,
+      declaredAnswerScheme: question.answerScheme,
+      answerKeyValues: question.options.map((option) => option.answerKeyValue ?? null),
+      legacyIsAnswerValues: question.options.map((option) => option.isAnswer),
+    })
+    if (reconciled.conflicts.length > 0) {
+      throw new Error(`Generated question ${questionIndex + 1} has conflicting response-contract evidence.`)
+    }
+    return {
+      index: questionIndex + 1,
+      questionText: await generatedContentToProseMirrorServer(question.questionText),
+      answerExplanation: question.answerExplanation ? await generatedContentToProseMirrorServer(question.answerExplanation) : null,
+      difficulty: difficultyToNumber(question.estimatedDifficulty, question.difficultyTarget),
+      timeBurdenSeconds: question.estimatedTimeBurdenSeconds ?? null,
+      questionType: reconciled.responseType === 'drag_and_drop' ? 'syllogism' : 'multiple_choice',
+      responseType: reconciled.responseType,
+      answerScheme: reconciled.answerScheme,
+      tagIds: question.tagIds?.length ? question.tagIds : params.body.targetTagIds,
+      options: await Promise.all(question.options.map(async (option, optionIndex) => ({
+        index: optionIndex + 1,
+        answerText: await generatedContentToProseMirrorServer(option.answerText),
+        answerExplanation: option.answerExplanation ? await generatedContentToProseMirrorServer(option.answerExplanation) : null,
+        isAnswer: !!option.isAnswer,
+        answerKeyValue: reconciled.answerKeyValues[optionIndex] ?? null,
+      }))),
+    }
+  }))
 
   return {
     sectionId: params.body.sectionId,
