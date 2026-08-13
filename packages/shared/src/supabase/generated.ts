@@ -36374,6 +36374,15 @@ export type Database = {
         }
         Returns: Json
       }
+      tutor_ucat_content_visibility_blockers: {
+        Args: {
+          p_access_scope: Database["public"]["Enums"]["ucat_access_scope"]
+          p_content_id: string
+          p_content_type: string
+          p_member_ids?: string[]
+        }
+        Returns: Json
+      }
       tutor_ucat_delete_mock: {
         Args: { p_mock_id: string }
         Returns: undefined
