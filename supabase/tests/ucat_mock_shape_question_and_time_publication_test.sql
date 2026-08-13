@@ -35,28 +35,28 @@ VALUES
     1, 'multiple_choice', 'multiple_choice', 'single_choice'
   );
 
-INSERT INTO public.question_sets (id, name, time_limit_seconds, status, access_scope)
+INSERT INTO public.question_sets (id, name, time_limit_seconds, status, access_scope, section_id)
 VALUES
   (
     '54430000-0000-4000-8000-000000000001',
     '{"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"Short DM"}]}]}'::jsonb,
     60,
     'published',
-    'public'
+    'public',
+    'd777da9c-e74c-4ff2-9d45-93f93e60f73a'
   ),
   (
     '54430000-0000-4000-8000-000000000002',
-    '{"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"Mixed"}]}]}'::jsonb,
+    '{"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"Empty DM"}]}]}'::jsonb,
     60,
     'published',
-    'public'
+    'public',
+    'd777da9c-e74c-4ff2-9d45-93f93e60f73a'
   );
 
 INSERT INTO public.question_stems_question_sets (question_stem_id, question_set_id, index)
 VALUES
-  ('54410000-0000-4000-8000-000000000001', '54430000-0000-4000-8000-000000000001', 1),
-  ('54410000-0000-4000-8000-000000000001', '54430000-0000-4000-8000-000000000002', 1),
-  ('54410000-0000-4000-8000-000000000002', '54430000-0000-4000-8000-000000000002', 2);
+  ('54410000-0000-4000-8000-000000000001', '54430000-0000-4000-8000-000000000001', 1);
 
 INSERT INTO public.ucat_mocks (id, name, status, access_scope)
 VALUES
@@ -91,7 +91,7 @@ SELECT ok(
 SELECT ok(
   public.ucat_mock_publication_shape_issues('54440000-0000-4000-8000-000000000002') @>
     '[{"code":"invalid_set_sections"}]'::jsonb,
-  'every set in a mock must still contain questions from exactly one UCAT section'
+  'a mock set with no stems still fails the single-section shape rule'
 );
 
 SELECT * FROM finish();

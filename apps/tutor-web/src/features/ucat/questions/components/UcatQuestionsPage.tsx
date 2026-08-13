@@ -750,6 +750,7 @@ export function UcatQuestionsPage() {
           description: args.addToSet.description,
           timeLimitSeconds: args.addToSet.timeLimitSeconds,
           accessScope: args.addToSet.isPrivate ? 'private' : 'public',
+          sectionId: args.sectionId,
           stemIds: ids,
         })
         await queryClient.invalidateQueries({ queryKey: ucatKeys.set(id) })

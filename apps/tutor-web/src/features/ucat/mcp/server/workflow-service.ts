@@ -143,6 +143,7 @@ function setSnapshot(draft: QuestionSetDraft): Record<string, unknown> {
     description: draft.description,
     timeLimitSeconds: draft.timeLimitSeconds,
     accessScope: draft.accessScope,
+    sectionId: draft.sectionId,
     stemIds: draft.stemIds,
   }
 }

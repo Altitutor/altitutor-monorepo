@@ -389,7 +389,7 @@ BEGIN
       INSERT INTO public.question_sets (
         id, name, description, sections, time_limit_seconds,
         time_limit_at_exam_speed_seconds, speed, status, access_scope,
-        status_changed_at, published_at, deleted_at
+        status_changed_at, published_at, deleted_at, section_id
       ) VALUES (
         set_id,
         jsonb_build_object('type', 'doc', 'content', jsonb_build_array(jsonb_build_object('type', 'paragraph', 'content', jsonb_build_array(jsonb_build_object('type', 'text', 'text', set_name))))),
@@ -402,7 +402,8 @@ BEGIN
         'public',
         NOW(),
         NOW(),
-        NULL
+        NULL,
+        section_record.id
       )
       ON CONFLICT (id) DO UPDATE SET
         name = EXCLUDED.name,
@@ -415,6 +416,7 @@ BEGIN
         access_scope = 'public',
         published_at = NOW(),
         deleted_at = NULL,
+        section_id = EXCLUDED.section_id,
         updated_at = NOW();
 
       DELETE FROM public.question_stems_question_sets WHERE question_set_id = set_id;

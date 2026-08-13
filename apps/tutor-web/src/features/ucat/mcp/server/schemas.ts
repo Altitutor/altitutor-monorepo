@@ -165,6 +165,7 @@ export const QuestionSetOperationSchema = z.discriminatedUnion('type', [
     description: RichTextSchema.optional(),
     timeLimitSeconds: z.number().int().positive().nullable().optional(),
     accessScope: UcatAccessScopeSchema.optional(),
+    sectionId: z.string().uuid().optional(),
   }),
   z.object({
     type: z.literal('add_stem'),

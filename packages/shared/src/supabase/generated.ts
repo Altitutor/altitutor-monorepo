@@ -5644,6 +5644,7 @@ export type Database = {
           name: Json | null
           published_at: string | null
           published_by: string | null
+          section_id: string
           sections: Json | null
           speed: number | null
           status: Database["public"]["Enums"]["ucat_content_status"]
@@ -5665,6 +5666,7 @@ export type Database = {
           name?: Json | null
           published_at?: string | null
           published_by?: string | null
+          section_id: string
           sections?: Json | null
           speed?: number | null
           status?: Database["public"]["Enums"]["ucat_content_status"]
@@ -5686,6 +5688,7 @@ export type Database = {
           name?: Json | null
           published_at?: string | null
           published_by?: string | null
+          section_id?: string
           sections?: Json | null
           speed?: number | null
           status?: Database["public"]["Enums"]["ucat_content_status"]
@@ -5780,6 +5783,48 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "vtutor_profile"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "question_sets_section_id_fkey"
+            columns: ["section_id"]
+            isOneToOne: false
+            referencedRelation: "ucat_sections"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "question_sets_section_id_fkey"
+            columns: ["section_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_ucat_mock_section_progress"
+            referencedColumns: ["section_id"]
+          },
+          {
+            foreignKeyName: "question_sets_section_id_fkey"
+            columns: ["section_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_ucat_section_set_progress"
+            referencedColumns: ["section_id"]
+          },
+          {
+            foreignKeyName: "question_sets_section_id_fkey"
+            columns: ["section_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_ucat_sections"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "question_sets_section_id_fkey"
+            columns: ["section_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_ucat_sections"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "question_sets_section_id_fkey"
+            columns: ["section_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_ucat_student_question_attempts_for_progress"
+            referencedColumns: ["ucat_section_id"]
           },
           {
             foreignKeyName: "question_sets_status_changed_by_fkey"
@@ -25781,13 +25826,58 @@ export type Database = {
           id: string | null
           is_available_in_sets_library: boolean | null
           name: Json | null
+          section_id: string | null
+          section_number: number | null
           sections: Json | null
           speed: number | null
           time_limit_at_exam_speed_seconds: number | null
           time_limit_seconds: number | null
           updated_at: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "question_sets_section_id_fkey"
+            columns: ["section_id"]
+            isOneToOne: false
+            referencedRelation: "ucat_sections"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "question_sets_section_id_fkey"
+            columns: ["section_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_ucat_mock_section_progress"
+            referencedColumns: ["section_id"]
+          },
+          {
+            foreignKeyName: "question_sets_section_id_fkey"
+            columns: ["section_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_ucat_section_set_progress"
+            referencedColumns: ["section_id"]
+          },
+          {
+            foreignKeyName: "question_sets_section_id_fkey"
+            columns: ["section_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_ucat_sections"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "question_sets_section_id_fkey"
+            columns: ["section_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_ucat_sections"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "question_sets_section_id_fkey"
+            columns: ["section_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_ucat_student_question_attempts_for_progress"
+            referencedColumns: ["ucat_section_id"]
+          },
+        ]
       }
       vstudent_ucat_question_stem_categories: {
         Row: {
@@ -32372,6 +32462,9 @@ export type Database = {
           id: string | null
           name: Json | null
           publication_issues: Json | null
+          section_id: string | null
+          section_name: string | null
+          section_number: number | null
           status: Database["public"]["Enums"]["ucat_content_status"] | null
           status_changed_at: string | null
           status_changed_by: string | null
@@ -32379,42 +32472,6 @@ export type Database = {
           time_limit_seconds: number | null
           updated_at: string | null
           updated_by: string | null
-        }
-        Insert: {
-          access_scope?: Database["public"]["Enums"]["ucat_access_scope"] | null
-          created_at?: string | null
-          created_by?: string | null
-          deleted_at?: string | null
-          deleted_by?: string | null
-          description?: Json | null
-          id?: string | null
-          name?: Json | null
-          publication_issues?: never
-          status?: Database["public"]["Enums"]["ucat_content_status"] | null
-          status_changed_at?: string | null
-          status_changed_by?: string | null
-          stems?: never
-          time_limit_seconds?: number | null
-          updated_at?: string | null
-          updated_by?: string | null
-        }
-        Update: {
-          access_scope?: Database["public"]["Enums"]["ucat_access_scope"] | null
-          created_at?: string | null
-          created_by?: string | null
-          deleted_at?: string | null
-          deleted_by?: string | null
-          description?: Json | null
-          id?: string | null
-          name?: Json | null
-          publication_issues?: never
-          status?: Database["public"]["Enums"]["ucat_content_status"] | null
-          status_changed_at?: string | null
-          status_changed_by?: string | null
-          stems?: never
-          time_limit_seconds?: number | null
-          updated_at?: string | null
-          updated_by?: string | null
         }
         Relationships: [
           {
@@ -32472,6 +32529,48 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "vtutor_profile"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "question_sets_section_id_fkey"
+            columns: ["section_id"]
+            isOneToOne: false
+            referencedRelation: "ucat_sections"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "question_sets_section_id_fkey"
+            columns: ["section_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_ucat_mock_section_progress"
+            referencedColumns: ["section_id"]
+          },
+          {
+            foreignKeyName: "question_sets_section_id_fkey"
+            columns: ["section_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_ucat_section_set_progress"
+            referencedColumns: ["section_id"]
+          },
+          {
+            foreignKeyName: "question_sets_section_id_fkey"
+            columns: ["section_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_ucat_sections"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "question_sets_section_id_fkey"
+            columns: ["section_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_ucat_sections"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "question_sets_section_id_fkey"
+            columns: ["section_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_ucat_student_question_attempts_for_progress"
+            referencedColumns: ["ucat_section_id"]
           },
           {
             foreignKeyName: "question_sets_status_changed_by_fkey"
@@ -32547,6 +32646,9 @@ export type Database = {
           name: Json | null
           publication_issues: Json | null
           question_count: number | null
+          section_id: string | null
+          section_name: string | null
+          section_number: number | null
           sections: Json | null
           speed: number | null
           status: Database["public"]["Enums"]["ucat_content_status"] | null
@@ -32615,6 +32717,48 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "vtutor_profile"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "question_sets_section_id_fkey"
+            columns: ["section_id"]
+            isOneToOne: false
+            referencedRelation: "ucat_sections"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "question_sets_section_id_fkey"
+            columns: ["section_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_ucat_mock_section_progress"
+            referencedColumns: ["section_id"]
+          },
+          {
+            foreignKeyName: "question_sets_section_id_fkey"
+            columns: ["section_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_ucat_section_set_progress"
+            referencedColumns: ["section_id"]
+          },
+          {
+            foreignKeyName: "question_sets_section_id_fkey"
+            columns: ["section_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_ucat_sections"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "question_sets_section_id_fkey"
+            columns: ["section_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_ucat_sections"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "question_sets_section_id_fkey"
+            columns: ["section_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_ucat_student_question_attempts_for_progress"
+            referencedColumns: ["ucat_section_id"]
           },
           {
             foreignKeyName: "question_sets_status_changed_by_fkey"
@@ -36651,6 +36795,7 @@ export type Database = {
           p_expected_updated_at: string
           p_name: Json
           p_operation_kinds: Json
+          p_section_id: string
           p_set_id: string
           p_stem_ids: Json
           p_time_limit_seconds: number
@@ -36842,22 +36987,36 @@ export type Database = {
         }
         Returns: string
       }
-      tutor_ucat_upsert_question_set: {
-        Args: {
-          p_access_scope: Database["public"]["Enums"]["ucat_access_scope"]
-          p_description: Json
-          p_name: Json
-          p_set_id: string
-          p_stem_ids: Json
-          p_time_limit_seconds: number
-        }
-        Returns: string
-      }
+      tutor_ucat_upsert_question_set:
+        | {
+            Args: {
+              p_access_scope: Database["public"]["Enums"]["ucat_access_scope"]
+              p_description: Json
+              p_name: Json
+              p_set_id: string
+              p_stem_ids: Json
+              p_time_limit_seconds: number
+            }
+            Returns: string
+          }
+        | {
+            Args: {
+              p_access_scope: Database["public"]["Enums"]["ucat_access_scope"]
+              p_description: Json
+              p_name: Json
+              p_section_id: string
+              p_set_id: string
+              p_stem_ids: Json
+              p_time_limit_seconds: number
+            }
+            Returns: string
+          }
       tutor_ucat_upsert_question_set_before_mock_blueprint_guard: {
         Args: {
           p_access_scope: Database["public"]["Enums"]["ucat_access_scope"]
           p_description: Json
           p_name: Json
+          p_section_id: string
           p_set_id: string
           p_stem_ids: Json
           p_time_limit_seconds: number

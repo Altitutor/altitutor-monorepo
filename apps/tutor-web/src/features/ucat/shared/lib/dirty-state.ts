@@ -6,6 +6,7 @@ export function snapshotSetDetail(value: {
   description: string | Json | null
   time: number | null
   accessScope: 'public' | 'private'
+  sectionId: string
   stemIds: string[]
 }) {
   return JSON.stringify({
@@ -16,6 +17,7 @@ export function snapshotSetDetail(value: {
         : jsonToPlainText(value.description),
     time: value.time,
     accessScope: value.accessScope,
+    sectionId: value.sectionId,
     stemIds: value.stemIds,
   })
 }

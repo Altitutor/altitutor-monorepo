@@ -102,6 +102,8 @@ type UcatSetEditorContentProps = {
   onFilterSearchChange?: (filterKey: string, value: string) => void
   publishedSetIds?: ReadonlySet<string>
   currentSetId?: string | null
+  draftSectionId: string
+  onChangeSectionId: (sectionId: string) => void
   stemCatalogLoading?: boolean
   onEditStem: (id: string) => void
   onChangeName: (value: string) => void
@@ -140,6 +142,8 @@ export function UcatSetEditorContent({
   onFilterSearchChange,
   publishedSetIds,
   currentSetId = null,
+  draftSectionId,
+  onChangeSectionId,
   stemCatalogLoading = false,
   onEditStem,
   onChangeName,
@@ -166,41 +170,27 @@ export function UcatSetEditorContent({
     [onActiveTextEditorChange],
   )
 
-  const setSectionsFromStems = useMemo(() => {
-    const sectionMap = new Map<string, { sectionId: string; sectionNumber: number; questionCount: number }>()
-    for (const stemId of draftStemIds) {
-      const stem = stemCatalog.find((s) => s.id === stemId)
-      if (!stem?.sectionId) continue
-      const existing = sectionMap.get(stem.sectionId)
-      if (existing) {
-        existing.questionCount += stem.questionsCount
-      } else {
-        sectionMap.set(stem.sectionId, {
-          sectionId: stem.sectionId,
-          sectionNumber: stem.sectionNumber,
-          questionCount: stem.questionsCount,
-        })
-      }
-    }
-    return Array.from(sectionMap.values())
-  }, [draftStemIds, stemCatalog])
-
-  const setSectionCount = setSectionsFromStems.length
-  const firstSetSection = setSectionsFromStems[0]
-  const firstUcatSection = firstSetSection ? sections.find((s) => s.id === firstSetSection.sectionId) : null
+  const authoredSection = sections.find((section) => section.id === draftSectionId) ?? null
+  const memberQuestionCount = useMemo(
+    () =>
+      draftStemIds.reduce((sum, stemId) => {
+        const stem = stemCatalog.find((item) => item.id === stemId)
+        return sum + (stem?.questionsCount ?? 0)
+      }, 0),
+    [draftStemIds, stemCatalog],
+  )
+  const setSectionCount = authoredSection ? 1 : 0
+  const firstSetSection = authoredSection
+    ? { sectionId: authoredSection.id, questionCount: memberQuestionCount }
+    : null
+  const firstUcatSection = authoredSection
 
   const sectionFullTimeSeconds = firstUcatSection?.time_limit_seconds ?? null
   const sectionAutoTimeSeconds = useMemo(() => {
-    let total = 0
-    for (const ss of setSectionsFromStems) {
-      const sec = sections.find((s) => s.id === ss.sectionId)
-      const tpq = sec?.time_per_question
-      if (tpq != null && tpq > 0) {
-        total += ss.questionCount * tpq
-      }
-    }
-    return total > 0 ? total : null
-  }, [setSectionsFromStems, sections])
+    const tpq = authoredSection?.time_per_question
+    if (tpq == null || tpq <= 0 || memberQuestionCount <= 0) return null
+    return memberQuestionCount * tpq
+  }, [authoredSection, memberQuestionCount])
 
   const sectionFullTimeFormatted =
     sectionFullTimeSeconds != null && sectionFullTimeSeconds > 0
@@ -240,9 +230,9 @@ export function UcatSetEditorContent({
   const timeLimitTooltips: Record<string, string> = {
     untimed: 'No time limit for this set.',
     section_full:
-      "Uses the section's full exam time limit. Only available when the set contains questions from a single section.",
+      "Uses the set's UCAT section full exam time limit.",
     section_auto:
-      'Uses section time-per-question × number of questions for each section in the set. Speed: 1× = exam pace, higher = less time (faster), lower = more time (slower).',
+      "Uses the set's section time-per-question × number of questions. Speed: 1× = exam pace, higher = less time (faster), lower = more time (slower).",
     custom: 'Set a custom time limit in minutes and seconds.',
   }
 
@@ -330,6 +320,26 @@ export function UcatSetEditorContent({
               <PropertiesCard value="set" title="Set properties">
                 <SetPropertyRow label="Name">
                   <Input value={draftName} onChange={(e) => onChangeName(e.target.value)} placeholder="Set name" />
+                </SetPropertyRow>
+                <SetPropertyRow label="Section">
+                  <div className="space-y-1">
+                    <SearchableSelect<(typeof sections)[number]>
+                      items={sections}
+                      value={authoredSection}
+                      onValueChange={(section) => {
+                        if (section?.id) onChangeSectionId(section.id)
+                      }}
+                      getItemLabel={(section) => section.name ?? 'Untitled'}
+                      getItemId={(section) => section.id}
+                      placeholder="Select section"
+                      disabled={draftStemIds.length > 0}
+                    />
+                    {draftStemIds.length > 0 ? (
+                      <p className="text-xs text-muted-foreground">
+                        Remove every stem before changing this set’s section.
+                      </p>
+                    ) : null}
+                  </div>
                 </SetPropertyRow>
                 <SetPropertyRow label="Description">
                   <div className="overflow-hidden rounded-md border border-input bg-background px-2 ring-offset-background focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-2">
@@ -491,6 +501,7 @@ export function UcatSetEditorContent({
               onFilterSearchChange={onFilterSearchChange}
               publishedSetIds={publishedSetIds}
               currentSetId={currentSetId}
+              lockedSectionId={draftSectionId || null}
               isLoading={stemCatalogLoading}
               onAddStem={(stemId) => setDraftStemIds([...draftStemIds, stemId])}
               onEditStem={onEditStem}

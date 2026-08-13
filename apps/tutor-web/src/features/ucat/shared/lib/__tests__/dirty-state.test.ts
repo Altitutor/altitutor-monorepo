@@ -12,6 +12,7 @@ describe('set detail dirty snapshot', () => {
       description: 'Set 1',
       time: 1200,
       accessScope: 'public',
+      sectionId: 'section-vr',
       stemIds: ['s1', 's2'],
     })
 
@@ -20,11 +21,32 @@ describe('set detail dirty snapshot', () => {
       description: 'Set 1',
       time: 1200,
       accessScope: 'public',
+      sectionId: 'section-vr',
       stemIds: ['s2', 's1'],
     })
 
     expect(isSnapshotDirty(changed, baseline)).toBe(true)
     expect(isSnapshotDirty(baseline, baseline)).toBe(false)
+  })
+
+  it('detects an authored section change', () => {
+    const baseline = snapshotSetDetail({
+      name: 'Set 1',
+      description: 'Set 1',
+      time: 1200,
+      accessScope: 'public',
+      sectionId: 'section-vr',
+      stemIds: [],
+    })
+    const changed = snapshotSetDetail({
+      name: 'Set 1',
+      description: 'Set 1',
+      time: 1200,
+      accessScope: 'public',
+      sectionId: 'section-dm',
+      stemIds: [],
+    })
+    expect(isSnapshotDirty(changed, baseline)).toBe(true)
   })
 })
 

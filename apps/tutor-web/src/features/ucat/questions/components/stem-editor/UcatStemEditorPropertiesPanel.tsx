@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, type ReactNode } from 'react'
+import { useMemo, useState, type ReactNode } from 'react'
 import type { UseFormReturn } from 'react-hook-form'
 import { useFieldArray } from 'react-hook-form'
 import type { Json } from '@altitutor/shared'
@@ -50,6 +50,7 @@ import {
   transformResponseContract,
 } from '@/features/ucat/questions/lib/response-contract-authoring'
 import { UcatStemSetMembershipCard } from '@/features/ucat/questions/components/stem-editor/UcatStemSetMembershipCard'
+import { useUcatStemCatalog } from '@/features/ucat/questions/hooks/useUcatQuestions'
 import { UcatStemLearningModuleMembershipCard } from '@/features/ucat/questions/components/stem-editor/UcatStemLearningModuleMembershipCard'
 import { UcatAuthoringAgentChat } from '@/features/ucat/authoring-agent/UcatAuthoringAgentChat'
 import type { UcatAuthoringToolCall, UcatAuthoringToolResult } from '@/features/ucat/authoring-agent/types'
@@ -194,6 +195,12 @@ export function UcatStemEditorPropertiesPanel({
   const { fields, append, remove } = useFieldArray({ control: form.control, name: 'questions' })
   const [uncontrolledActiveTab, setUncontrolledActiveTab] = useState<'properties' | 'ai' | 'review'>('properties')
   const activeTab = controlledActiveTab ?? uncontrolledActiveTab
+  const stemCatalogQuery = useUcatStemCatalog(Boolean(stemId))
+  const sectionLocked = useMemo(() => {
+    if (!stemId) return false
+    const item = stemCatalogQuery.data?.find((stem) => stem.id === stemId)
+    return (item?.setIds.length ?? 0) > 0
+  }, [stemId, stemCatalogQuery.data])
 
   function handleActiveTabChange(value: string) {
     const next = value as 'properties' | 'ai' | 'review'
@@ -466,7 +473,9 @@ export function UcatStemEditorPropertiesPanel({
         return { toolCallId: toolCall.id, ok: true, message: 'Updated draft stem text.' }
 
       case 'updateStemProperties': {
-        if (typeof input.sectionId === 'string') form.setValue('sectionId', input.sectionId, { shouldDirty: true })
+        if (typeof input.sectionId === 'string' && !sectionLocked) {
+          form.setValue('sectionId', input.sectionId, { shouldDirty: true })
+        }
         if (typeof input.categoryId === 'string' || input.categoryId === null) {
           form.setValue('categoryId', input.categoryId ?? null, { shouldDirty: true })
         }
@@ -794,17 +803,25 @@ export function UcatStemEditorPropertiesPanel({
         >
           <PropertiesCard value="stem" title="Stem properties">
             <PropertyRow label="Section">
-              <SearchableSelect<{ id: string | null; name: string | null }>
-                items={sections}
-                value={sections.find((s) => (s.id ?? '') === sectionId) ?? null}
-                onValueChange={(section) => {
-                  form.setValue('sectionId', section?.id ?? '', { shouldDirty: true })
-                  form.setValue('categoryId', null, { shouldDirty: true })
-                }}
-                getItemLabel={(s) => s.name ?? 'Untitled'}
-                getItemId={(s) => s.id ?? ''}
-                placeholder="Select section"
-              />
+              <div className="space-y-1">
+                <SearchableSelect<{ id: string | null; name: string | null }>
+                  items={sections}
+                  value={sections.find((s) => (s.id ?? '') === sectionId) ?? null}
+                  onValueChange={(section) => {
+                    form.setValue('sectionId', section?.id ?? '', { shouldDirty: true })
+                    form.setValue('categoryId', null, { shouldDirty: true })
+                  }}
+                  getItemLabel={(s) => s.name ?? 'Untitled'}
+                  getItemId={(s) => s.id ?? ''}
+                  placeholder="Select section"
+                  disabled={sectionLocked}
+                />
+                {sectionLocked ? (
+                  <p className="text-xs text-muted-foreground">
+                    Remove this stem from its set before changing section.
+                  </p>
+                ) : null}
+              </div>
             </PropertyRow>
             <PropertyRow label="Category">
               <div className={cn(focusTarget === 'category' && 'rounded-md ring-2 ring-amber-400 ring-offset-2 ring-offset-background')}>

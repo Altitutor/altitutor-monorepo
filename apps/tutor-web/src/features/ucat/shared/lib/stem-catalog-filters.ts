@@ -121,19 +121,25 @@ export function buildStemCatalogFilterDefinitions(
   tagRows: TagRowForSectionFilter[] = [],
   filters: Record<string, unknown[]> = {},
   setOptions: SetFilterOption[] = [],
+  options?: { lockedSectionId?: string | null },
 ): DataTableFilterDefinition[] {
-  const selectedSectionIds = resolveSectionIdsFromIdFilter(filters)
+  const lockedSectionId = options?.lockedSectionId ?? null
+  const selectedSectionIds = lockedSectionId
+    ? [lockedSectionId]
+    : resolveSectionIdsFromIdFilter(filters)
   const categories = mapCategoriesToOptions(filterCategoriesForSections(categoryRows, selectedSectionIds))
   const tags = mapTagsToOptions(filterTagsForSections(tagRows, selectedSectionIds))
 
   const defs: DataTableFilterDefinition[] = [
-    {
-      ...baseStemCatalogFilterDefinitions[0],
-      options: sections.map((section) => ({
-        label: section.name ?? 'Untitled',
-        value: section.id ?? '',
-      })),
-    },
+    ...(lockedSectionId
+      ? []
+      : [{
+          ...baseStemCatalogFilterDefinitions[0],
+          options: sections.map((section) => ({
+            label: section.name ?? 'Untitled',
+            value: section.id ?? '',
+          })),
+        }]),
     {
       ...baseStemCatalogFilterDefinitions[1],
       options: [
@@ -195,6 +201,7 @@ export function filterStemCatalogItems({
   searchScopes = defaultStemCatalogSearchScopes,
   publishedSetIds,
   currentSetId = null,
+  lockedSectionId = null,
 }: {
   stems: UcatStemCatalogItem[]
   excludedIds?: string[]
@@ -204,6 +211,7 @@ export function filterStemCatalogItems({
   searchScopes?: StemCatalogSearchScope[]
   publishedSetIds?: ReadonlySet<string>
   currentSetId?: string | null
+  lockedSectionId?: string | null
 }): UcatStemCatalogItem[] {
   const questionTypeFilter = filters.question_type?.[0] as string | undefined
   const stemsTableState = {
@@ -222,7 +230,8 @@ export function filterStemCatalogItems({
     if (excludedIds.includes(stem.id)) return false
     if (includedIds && !includedIds.has(stem.id)) return false
     if (!stemMatchesSearch(stem, search, searchScopes)) return false
-    if (!applyMultiSelectFilter(stemsTableState, 'section_id', stem.sectionId)) return false
+    if (lockedSectionId && stem.sectionId !== lockedSectionId) return false
+    if (!lockedSectionId && !applyMultiSelectFilter(stemsTableState, 'section_id', stem.sectionId)) return false
     if (!applyCategoryFilter(stemsTableState, stem.categoryId, UCAT_FILTER_NO_CATEGORY)) return false
     if (!applyTagFilter(stemsTableState, stem.tagIds)) return false
     if (!applyMultiSelectFilter(stemsTableState, 'status', stem.status)) return false

@@ -65,11 +65,12 @@ SELECT lives_ok(
   'a published VR stem can be made public without satisfying publication gates'
 );
 
-INSERT INTO public.question_sets (id, name, time_limit_seconds, status, access_scope)
+INSERT INTO public.question_sets (id, name, time_limit_seconds, status, access_scope, section_id)
 VALUES (
   '54530000-0000-4000-8000-000000000001',
   '{"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"Public set"}]}]}'::jsonb,
-  60, 'published', 'public'
+  60, 'published', 'public',
+  'f659f363-ffcc-4ade-ad2f-8a9dd3a4dfcc'
 );
 
 INSERT INTO public.question_stems_question_sets (question_stem_id, question_set_id, index)

@@ -45,8 +45,11 @@ SELECT question.id, jsonb_build_object('type','doc','content',jsonb_build_array(
 FROM public.ucat_questions question CROSS JOIN generate_series(1, 2) option(index)
 WHERE question.question_stem_id::text LIKE '54310000-0000-4000-8000-%';
 
-INSERT INTO public.question_sets (id, name, time_limit_seconds, status, access_scope)
-VALUES ('54330000-0000-4000-8000-000000000001', '{"type":"doc"}'::jsonb, 120, 'published', 'public');
+INSERT INTO public.question_sets (id, name, time_limit_seconds, status, access_scope, section_id)
+SELECT '54330000-0000-4000-8000-000000000001', '{"type":"doc"}'::jsonb, 120, 'published', 'public', section.id
+FROM public.ucat_sections section
+WHERE section.section_number = 2
+LIMIT 1;
 INSERT INTO public.question_stems_question_sets (question_stem_id, question_set_id, index)
 SELECT id, '54330000-0000-4000-8000-000000000001', row_number() OVER (ORDER BY id)
 FROM public.question_stems WHERE id::text LIKE '54310000-0000-4000-8000-%';

@@ -207,6 +207,7 @@ type UcatStemCatalogListPanelProps = {
   onFilterSearchChange?: (filterKey: string, value: string) => void
   publishedSetIds?: ReadonlySet<string>
   currentSetId?: string | null
+  lockedSectionId?: string | null
   isLoading?: boolean
   emptyMessage?: string
   searchPlaceholder?: string
@@ -233,6 +234,7 @@ export function UcatStemCatalogListPanel({
   onFilterSearchChange,
   publishedSetIds,
   currentSetId = null,
+  lockedSectionId = null,
   isLoading = false,
   emptyMessage = 'No stems match the current filters.',
   searchPlaceholder = 'Search stems or questions',
@@ -262,8 +264,9 @@ export function UcatStemCatalogListPanel({
         searchScopes,
         publishedSetIds,
         currentSetId,
+        lockedSectionId,
       }),
-    [stems, excludedIds, includedIds, search, filters, searchScopes, publishedSetIds, currentSetId],
+    [stems, excludedIds, includedIds, search, filters, searchScopes, publishedSetIds, currentSetId, lockedSectionId],
   )
 
   const sortedStems = useMemo(

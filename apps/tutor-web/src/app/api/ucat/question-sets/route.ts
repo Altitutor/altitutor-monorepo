@@ -17,6 +17,7 @@ export async function POST(request: NextRequest) {
       p_time_limit_seconds: body.timeLimitSeconds ?? null,
       p_access_scope: body.accessScope ?? 'public',
       p_stem_ids: body.stemIds ?? [],
+      p_section_id: body.sectionId,
     })
 
     if (error) {

@@ -68,12 +68,15 @@ FROM public.ucat_questions question
 CROSS JOIN generate_series(1, 4) AS option(index)
 WHERE question.question_stem_id::text LIKE '54210000-0000-4000-8000-%';
 
-INSERT INTO public.question_sets (id, name, time_limit_seconds, status, access_scope)
-VALUES (
+INSERT INTO public.question_sets (id, name, time_limit_seconds, status, access_scope, section_id)
+SELECT
   '54230000-0000-4000-8000-000000000001',
   '{"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"DM"}]}]}'::jsonb,
-  240, 'published', 'public'
-);
+  240, 'published', 'public',
+  section.id
+FROM public.ucat_sections section
+WHERE section.section_number = 2
+LIMIT 1;
 
 INSERT INTO public.question_stems_question_sets (question_stem_id, question_set_id, index)
 SELECT stem.id, '54230000-0000-4000-8000-000000000001', row_number() OVER (ORDER BY stem.id)

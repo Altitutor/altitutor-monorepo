@@ -73,6 +73,7 @@ export type UcatQuestionSetPayload = {
   description: string | RichTextJson
   timeLimitSeconds?: number | null
   accessScope: UcatAccessScope
+  sectionId: string
   stemIds: string[]
 }
 

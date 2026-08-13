@@ -285,6 +285,7 @@ describe('UCAT MCP typed operations', () => {
       description: {},
       time_limit_seconds: null,
       access_scope: 'private',
+      section_id: '50000000-0000-0000-0000-000000000001',
       stems: [{ stem_id: STEM_ID }, { stem_id: QUESTION_TWO }],
     })
     const updatedSet = applyQuestionSetOperations(setDraft, [
@@ -292,6 +293,20 @@ describe('UCAT MCP typed operations', () => {
       { type: 'add_stem', stemId: QUESTION_ONE, toIndex: 0 },
     ])
     expect(updatedSet.stemIds).toEqual([QUESTION_ONE, QUESTION_TWO])
+    expect(updatedSet.sectionId).toBe('50000000-0000-0000-0000-000000000001')
+
+    const emptySet = questionSetDraftFromDetail({
+      name: null,
+      description: {},
+      time_limit_seconds: null,
+      access_scope: 'private',
+      section_id: '50000000-0000-0000-0000-000000000001',
+      stems: [],
+    })
+    const retargeted = applyQuestionSetOperations(emptySet, [
+      { type: 'set_metadata', sectionId: '50000000-0000-0000-0000-000000000002' },
+    ])
+    expect(retargeted.sectionId).toBe('50000000-0000-0000-0000-000000000002')
 
     const mockDraft = mockDraftFromDetail({
       name: 'Mock',

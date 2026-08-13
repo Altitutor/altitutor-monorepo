@@ -57,6 +57,7 @@ export type QuestionSetDraft = {
   description: Json
   timeLimitSeconds: number | null
   accessScope: AccessScope
+  sectionId: string
   stemIds: string[]
 }
 
@@ -542,6 +543,7 @@ export function questionSetDraftFromDetail(detail: Record<string, unknown>): Que
     description: asJson(detail.description, {}),
     timeLimitSeconds: asNullableNumber(detail.time_limit_seconds),
     accessScope: asAccessScope(detail.access_scope),
+    sectionId: asString(detail.section_id, 'Section id'),
     stemIds: stems
       .filter(isRecord)
       .map((stem) => asNullableString(stem.stem_id))
@@ -571,6 +573,7 @@ export function applyQuestionSetOperations(
         next.timeLimitSeconds = operation.timeLimitSeconds
       }
       if (operation.accessScope !== undefined) next.accessScope = operation.accessScope
+      if (operation.sectionId !== undefined) next.sectionId = operation.sectionId
     } else if (operation.type === 'add_stem') {
       if (next.stemIds.includes(operation.stemId)) {
         throw new Error(`Stem ${operation.stemId} is already in this set`)

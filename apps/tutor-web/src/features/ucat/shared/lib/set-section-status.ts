@@ -4,6 +4,7 @@ import { proseMirrorToPlainText } from './rich-text'
 export type SetAddStemWarningSet = {
   name?: unknown
   sections?: unknown
+  section_id?: string | null
   question_count?: number | null
 }
 
@@ -14,9 +15,11 @@ export function getSetAddStemWarning(
 ): { setName: string; title: string; description: string } | null {
   if (!set) return null
   const parsed = parseSetSections(set.sections ?? null)
-  if (parsed.sectionCount !== 1 || parsed.firstSectionNumber == null) return null
-
-  const setSection = sections.find((section) => section.section_number === parsed.firstSectionNumber)
+  const setSection = set.section_id
+    ? sections.find((section) => section.id === set.section_id)
+    : parsed.sectionCount === 1 && parsed.firstSectionNumber != null
+      ? sections.find((section) => section.section_number === parsed.firstSectionNumber)
+      : null
   if (!setSection) return null
   const stemSection = sections.find((section) => section.id === stemSectionId)
   const setName = proseMirrorToPlainText(set.name as Json) || 'Untitled'

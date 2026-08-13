@@ -1063,6 +1063,7 @@ export function BulkImportQuestionStemsModal({
       return (
         <div className="space-y-4">
           <Step4CreateSet
+            sectionId={sectionId ?? ''}
             addToSetEnabled={addToSetEnabled}
             onAddToSetEnabledChange={setAddToSetEnabled}
             addToSetConfig={addToSetConfig}
