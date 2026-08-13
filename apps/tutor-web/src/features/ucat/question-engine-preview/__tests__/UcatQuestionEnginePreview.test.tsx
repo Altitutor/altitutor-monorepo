@@ -15,8 +15,7 @@ describe('UcatQuestionEnginePreview', () => {
           sectionDisplayColumns: 2,
           stemText: 'Scenario',
           questionText: 'Drag each destination.',
-          questionType: 'multiple_choice',
-          responseType: 'drag_and_drop',
+           responseType: 'drag_and_drop',
           answerScheme: 'situational_judgement_most_least',
           options: [
             { id: 'a', index: 0, text: 'Action A', answerKeyValue: 'most' },
@@ -59,8 +58,7 @@ describe('UcatQuestionEnginePreview', () => {
           sectionDisplayColumns: 1,
           stemText: 'Scenario',
           questionText: 'Review destinations.',
-          questionType: 'multiple_choice',
-          responseType: 'drag_and_drop',
+           responseType: 'drag_and_drop',
           answerScheme: 'situational_judgement_most_least',
           options: [
             { id: 'a', index: 0, text: 'Action A', answerKeyValue: 'most' },

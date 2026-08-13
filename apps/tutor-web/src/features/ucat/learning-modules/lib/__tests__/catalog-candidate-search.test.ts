@@ -19,7 +19,6 @@ function stem(partial: Partial<UcatStemCatalogItem> & Pick<UcatStemCatalogItem, 
     accessScope: 'public',
     status: 'published',
     sourceChannel: null,
-    questionTypes: [],
     tagIds: [],
     createdAt: null,
     questionSearchText: '',
@@ -38,7 +37,7 @@ function question(
     stemId: 'stem-1',
     questionIndex: 0,
     sectionName: 'Decision Making',
-    questionType: 'multiple_choice',
+    responseType: 'multiple_choice', answerScheme: 'single_choice',
     ...partial,
   }
 }
@@ -63,8 +62,8 @@ describe('catalog candidate search', () => {
 
   it('returns top question candidates', () => {
     const candidates = searchQuestionCandidates('venn diagram', [
-      question({ id: 'q1', label: 'Venn diagram overlap question', questionType: 'multiple_choice' }),
-      question({ id: 'q2', label: 'Reading comprehension passage', questionType: 'syllogism' }),
+      question({ id: 'q1', label: 'Venn diagram overlap question', responseType: 'multiple_choice', answerScheme: 'single_choice' }),
+      question({ id: 'q2', label: 'Reading comprehension passage', responseType: 'drag_and_drop', answerScheme: 'decision_making_binary_placement' }),
     ])
 
     expect(candidates).toHaveLength(1)

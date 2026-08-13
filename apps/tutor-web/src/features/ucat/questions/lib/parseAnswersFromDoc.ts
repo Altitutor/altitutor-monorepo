@@ -307,11 +307,11 @@ export type ParsedDecisionMakingAnswerRich = {
 
 export function parseDecisionMakingAnswersFromDoc(
   doc: Json | null | undefined,
-  questionTypes: ('syllogism' | 'multiple_choice')[],
+  responseKinds: ('placement' | 'single_choice')[],
   options?: AnswerParseOptions
 ): ParsedDecisionMakingAnswerRich[] {
   const plain = answerDocToPlainTsv(doc)
-  const parsed = parseDecisionMakingAnswers(plain, questionTypes, options)
+  const parsed = parseDecisionMakingAnswers(plain, responseKinds, options)
   const tokenDocs = extractDecisionMakingTokenExplanationDocsFromDoc(doc, options)
 
   const docsByQuestion = new Map<number, { explanationDoc: Json | null; plainExplanation: string }[]>()
@@ -326,9 +326,9 @@ export function parseDecisionMakingAnswersFromDoc(
   return parsed.map((row, index) => {
     const qNum = sortedQuestions[index]
     const tokenEntries = qNum != null ? docsByQuestion.get(qNum) ?? [] : []
-    const type = questionTypes[index]
+    const type = responseKinds[index]
 
-    if (type === 'syllogism' && row.optionExplanations) {
+    if (type === 'placement' && row.optionExplanations) {
       const optionExplanationDocs = row.optionExplanations.map((plain, optIndex) =>
         resolveExplanationDoc(
           tokenEntries[optIndex]?.explanationDoc ?? null,

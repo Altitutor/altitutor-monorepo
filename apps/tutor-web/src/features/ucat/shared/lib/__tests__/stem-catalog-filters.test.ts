@@ -20,7 +20,6 @@ function stem(overrides: Partial<UcatStemCatalogItem> & Pick<UcatStemCatalogItem
     accessScope: 'public',
     status: 'published',
     sourceChannel: 'individual',
-    questionTypes: ['multiple_choice'],
     tagIds: [],
     createdAt: null,
     questionSearchText: '',

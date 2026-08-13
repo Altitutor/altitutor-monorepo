@@ -9,7 +9,6 @@ export type UcatPdfAnswerOption = {
   answer_text: Json
   answer_explanation: Json | null
   index: number
-  is_answer: boolean
   answer_key_value: 'correct' | 'yes' | 'no' | 'most' | 'least' | null
 }
 
@@ -18,7 +17,6 @@ export type UcatPdfQuestion = {
   question_text: Json
   answer_explanation: Json | null
   index: number
-  question_type: 'multiple_choice' | 'syllogism'
   response_type: 'multiple_choice' | 'drag_and_drop'
   answer_scheme: 'single_choice' | 'situational_judgement_rating' | 'decision_making_binary_placement' | 'situational_judgement_most_least'
   answer_options: UcatPdfAnswerOption[]
@@ -95,7 +93,7 @@ const styles = StyleSheet.create({
   option: { flexDirection: 'row', marginBottom: 6 },
   optionMarker: { color: colours.muted, fontWeight: 700, width: 22 },
   optionBody: { flexGrow: 1, flexBasis: 0 },
-  syllogismOption: {
+  placementOption: {
     borderBottomColor: colours.line,
     borderBottomWidth: 0.6,
     marginBottom: 8,
@@ -313,7 +311,7 @@ function StemBlock({ stem, stemNumber }: { stem: UcatPdfStem; stemNumber: number
 function MultipleChoiceOptions({ question, includeAnswers }: { question: UcatPdfQuestion; includeAnswers: boolean }) {
   const sortedOptions = [...question.answer_options].sort((left, right) => left.index - right.index)
   const correctLabels = sortedOptions
-    .map((option, index) => (option.answer_key_value === 'correct' || option.is_answer ? String.fromCharCode(65 + index) : null))
+    .map((option, index) => (option.answer_key_value === 'correct' ? String.fromCharCode(65 + index) : null))
     .filter((label): label is string => label != null)
 
   return (
@@ -325,7 +323,7 @@ function MultipleChoiceOptions({ question, includeAnswers }: { question: UcatPdf
             <RichBlocks value={option.answer_text} />
             {includeAnswers && hasRichContent(option.answer_explanation) ? (
               <View style={styles.answerBox}>
-                <Text style={styles.answerLabel}>{option.answer_key_value === 'correct' || option.is_answer ? 'Correct option' : 'Option explanation'}</Text>
+                <Text style={styles.answerLabel}>{option.answer_key_value === 'correct' ? 'Correct option' : 'Option explanation'}</Text>
                 <Explanation value={option.answer_explanation} />
               </View>
             ) : null}
@@ -342,17 +340,17 @@ function MultipleChoiceOptions({ question, includeAnswers }: { question: UcatPdf
   )
 }
 
-function SyllogismOptions({ question, includeAnswers }: { question: UcatPdfQuestion; includeAnswers: boolean }) {
+function BinaryPlacementOptions({ question, includeAnswers }: { question: UcatPdfQuestion; includeAnswers: boolean }) {
   return (
     <View>
       {[...question.answer_options]
         .sort((left, right) => left.index - right.index)
         .map((option, index) => (
-          <View key={option.id} style={styles.syllogismOption}>
+          <View key={option.id} style={styles.placementOption}>
             <Text style={styles.questionHeading}>Statement {index + 1}</Text>
             <RichBlocks value={option.answer_text} />
             <Text style={styles.responseLine}>
-              {includeAnswers ? `Answer: ${option.answer_key_value === 'yes' || option.is_answer ? 'Yes' : 'No'}` : 'Response:  Yes  /  No'}
+              {includeAnswers ? `Answer: ${option.answer_key_value === 'yes' ? 'Yes' : 'No'}` : 'Response:  Yes  /  No'}
             </Text>
             {includeAnswers ? <Explanation value={option.answer_explanation} /> : null}
           </View>
@@ -373,7 +371,7 @@ function MostLeastOptions({ question, includeAnswers }: { question: UcatPdfQuest
       {[...question.answer_options]
         .sort((left, right) => left.index - right.index)
         .map((option, index) => (
-          <View key={option.id} style={styles.syllogismOption}>
+          <View key={option.id} style={styles.placementOption}>
             <Text style={styles.questionHeading}>Action {index + 1}</Text>
             <RichBlocks value={option.answer_text} />
             <Text style={styles.responseLine}>
@@ -404,7 +402,7 @@ function QuestionBlock({
       </Text>
       <RichBlocks value={question.question_text} />
       {question.answer_scheme === 'decision_making_binary_placement' ? (
-        <SyllogismOptions question={question} includeAnswers={includeAnswers} />
+        <BinaryPlacementOptions question={question} includeAnswers={includeAnswers} />
       ) : question.answer_scheme === 'situational_judgement_most_least' ? (
         <MostLeastOptions question={question} includeAnswers={includeAnswers} />
       ) : (

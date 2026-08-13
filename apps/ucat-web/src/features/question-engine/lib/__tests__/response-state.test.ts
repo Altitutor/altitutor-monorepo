@@ -16,7 +16,7 @@ const singleChoiceQuestion = {
     { id: "option-a", index: 0, answerKeyValue: null },
     { id: "option-b", index: 1, answerKeyValue: "correct" },
   ],
-} as QuestionItem;
+} as unknown as QuestionItem;
 
 const binaryQuestion = {
   id: "binary",
@@ -29,12 +29,11 @@ const binaryQuestion = {
     { id: "statement-4", index: 3, answerKeyValue: "no" },
     { id: "statement-5", index: 4, answerKeyValue: "yes" },
   ],
-} as QuestionItem;
+} as unknown as QuestionItem;
 
 const mostLeastQuestion = {
   ...singleChoiceQuestion,
   id: "most-least",
-  questionType: "multiple_choice",
   responseType: "drag_and_drop",
   answerScheme: "situational_judgement_most_least",
   options: [
@@ -42,7 +41,7 @@ const mostLeastQuestion = {
     { id: "action-b", index: 1, answerKeyValue: null },
     { id: "action-c", index: 2, answerKeyValue: "least" },
   ],
-} as QuestionItem;
+} as unknown as QuestionItem;
 
 describe("canonical question response persistence", () => {
   it("writes canonical snapshots for single choice, DM placement, and blanks", () => {
@@ -60,8 +59,8 @@ describe("canonical question response persistence", () => {
     });
     expect(
       snapshotQuestionResponse(binaryQuestion, undefined, {
-        "statement-1": true,
-        "statement-2": false,
+        "statement-1": "yes",
+        "statement-2": "no",
       }),
     ).toEqual({
       type: "ucat_response_v1",
@@ -76,8 +75,8 @@ describe("canonical question response persistence", () => {
 
   it("round-trips Most/Least placements through the engine persistence projection", () => {
     const snapshot = snapshotQuestionResponse(mostLeastQuestion, undefined, {
-      "action-a": true,
-      "action-c": false,
+      "action-a": "most",
+      "action-c": "least",
     });
 
     expect(snapshot).toEqual({
@@ -91,7 +90,7 @@ describe("canonical question response persistence", () => {
     });
     expect(restoreQuestionResponse(mostLeastQuestion, snapshot)).toEqual({
       selectedOptionId: null,
-      syllogismSnapshot: { "action-a": true, "action-c": false },
+      placementSnapshot: { "action-a": "most", "action-c": "least" },
     });
     expect(evaluatePersistedQuestionResponse(mostLeastQuestion, snapshot)).toEqual(
       expect.objectContaining({
@@ -144,21 +143,6 @@ describe("canonical question response persistence", () => {
     }
   });
 
-  it("isolates legacy DM reads and restores them into engine state", () => {
-    expect(
-      restoreQuestionResponse(binaryQuestion, {
-        type: "syllogism_v1",
-        answers: [
-          { question_answer_option_id: "statement-1", answer: true },
-          { question_answer_option_id: "statement-2", answer: false },
-        ],
-      }),
-    ).toEqual({
-      selectedOptionId: null,
-      syllogismSnapshot: { "statement-1": true, "statement-2": false },
-    });
-  });
-
   it("rejects mismatched snapshots and duplicate once-only tokens", () => {
     expect(() =>
       restoreQuestionResponse(singleChoiceQuestion, {
@@ -182,7 +166,7 @@ describe("canonical question response persistence", () => {
     ).toThrow("only once");
   });
 
-  it("hydrates canonical engine snapshots and upgrades legacy engine state", () => {
+  it("hydrates canonical engine snapshots and canonical UI state", () => {
     const canonical = canonicalizeEngineResponses([singleChoiceQuestion], {
       responseSnapshots: {
         "single-choice": snapshotQuestionResponse(
@@ -191,43 +175,41 @@ describe("canonical question response persistence", () => {
         ),
       },
       selectedAnswers: {},
-      syllogismSnapshots: {},
+      placementSnapshots: {},
     });
     expect(canonical.selectedAnswers).toEqual({
       "single-choice": "option-b",
     });
 
-    const upgraded = canonicalizeEngineResponses([binaryQuestion], {
+    const projected = canonicalizeEngineResponses([binaryQuestion], {
       selectedAnswers: {},
-      syllogismSnapshots: { binary: { "statement-1": true } },
+      placementSnapshots: { binary: { "statement-1": "yes" } },
     });
-    expect(upgraded.responseSnapshots.binary).toEqual(
+    expect(projected.responseSnapshots.binary).toEqual(
       expect.objectContaining({ type: "ucat_response_v1" }),
     );
   });
 
-  it("owns compatibility-column persistence and canonical DM review reads", () => {
+  it("owns canonical persistence and DM review reads", () => {
     expect(
       buildPersistedQuestionResponse(singleChoiceQuestion, "option-b"),
     ).toEqual({
-      questionAnswerOptionId: "option-b",
       answerSnapshot: expect.objectContaining({ type: "ucat_response_v1" }),
     });
     const persistedDm = buildPersistedQuestionResponse(
       binaryQuestion,
       undefined,
-      { "statement-1": true, "statement-2": false },
+      { "statement-1": "yes", "statement-2": "no" },
     );
-    expect(persistedDm.questionAnswerOptionId).toBeNull();
     expect(
       parseBinaryPlacementResponseSnapshot(
         persistedDm.answerSnapshot,
         "binary",
       ),
-    ).toEqual({ "statement-1": true, "statement-2": false });
+    ).toEqual({ "statement-1": "yes", "statement-2": "no" });
   });
 
-  it("projects score, maximum, and review for canonical and historical snapshots", () => {
+  it("projects score, maximum, and review for canonical snapshots", () => {
     expect(
       evaluatePersistedQuestionResponse(
         singleChoiceQuestion,
@@ -241,16 +223,16 @@ describe("canonical question response persistence", () => {
     );
 
     expect(
-      evaluatePersistedQuestionResponse(binaryQuestion, {
-        type: "syllogism_v1",
-        answers: [
-          { question_answer_option_id: "statement-1", answer: true },
-          { question_answer_option_id: "statement-2", answer: false },
-          { question_answer_option_id: "statement-3", answer: true },
-          { question_answer_option_id: "statement-4", answer: false },
-          { question_answer_option_id: "statement-5", answer: false },
-        ],
-      }),
+      evaluatePersistedQuestionResponse(
+        binaryQuestion,
+        snapshotQuestionResponse(binaryQuestion, undefined, {
+          "statement-1": "yes",
+          "statement-2": "no",
+          "statement-3": "yes",
+          "statement-4": "no",
+          "statement-5": "no",
+        }),
+      ),
     ).toEqual(
       expect.objectContaining({
         score: { awarded: 1, maximum: 2 },

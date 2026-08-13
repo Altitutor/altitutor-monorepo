@@ -17,8 +17,7 @@ function stemValues(overrides: Partial<UcatQuestionStemFormValues> = {}): UcatQu
     questions: [
       {
         questionText: text(''),
-        questionType: 'multiple_choice',
-        responseType: 'multiple_choice',
+         responseType: 'multiple_choice',
         answerScheme: 'single_choice',
         answerExplanation: null,
         difficulty: null,
@@ -27,7 +26,7 @@ function stemValues(overrides: Partial<UcatQuestionStemFormValues> = {}): UcatQu
         sourceChannel: 'individual',
         aiGenerationMetadata: null,
         options: [
-          { answerText: text(''), answerExplanation: null, isAnswer: true },
+          { answerText: text(''), answerExplanation: null, answerKeyValue: 'correct' },
         ],
       },
     ],
@@ -87,8 +86,7 @@ describe('getPendingStemMetadataDiff', () => {
         questions: [
           {
             questionText: text(''),
-            questionType: 'multiple_choice',
-            responseType: 'multiple_choice',
+             responseType: 'multiple_choice',
             answerScheme: 'single_choice',
             answerExplanation: null,
             difficulty: null,
@@ -97,7 +95,7 @@ describe('getPendingStemMetadataDiff', () => {
             sourceChannel: 'individual',
             aiGenerationMetadata: null,
             options: [
-              { answerText: text(''), answerExplanation: null, isAnswer: true },
+              { answerText: text(''), answerExplanation: null, answerKeyValue: 'correct' },
             ],
           },
         ],

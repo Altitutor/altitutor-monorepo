@@ -37,7 +37,6 @@ SELECT public.tutor_ucat_upsert_question_stem_bundle(
   jsonb_build_array(jsonb_build_object(
     'index', 1,
     'question_text', '{"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"Place Yes or No"}]}]}'::jsonb,
-    'question_type', 'syllogism',
     'response_type', 'drag_and_drop',
     'answer_scheme', 'decision_making_binary_placement',
     'tag_ids', '[]'::jsonb,
@@ -54,7 +53,6 @@ SELECT public.tutor_ucat_upsert_question_stem_bundle(
             ))
           ))
         ),
-        'is_answer', option_index <= 2,
         'answer_key_value', CASE WHEN option_index <= 2 THEN 'yes' ELSE 'no' END
       ) ORDER BY option_index)
       FROM generate_series(1, 5) option_index

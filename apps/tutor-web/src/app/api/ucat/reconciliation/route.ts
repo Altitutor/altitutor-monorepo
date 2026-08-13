@@ -50,7 +50,7 @@ type QuestionRow = {
     answer_text?: unknown;
     answer_explanation: unknown;
     index?: number;
-    is_answer?: boolean | null;
+    answer_key_value?: string | null;
     deleted_at?: string | null;
   }>;
 };

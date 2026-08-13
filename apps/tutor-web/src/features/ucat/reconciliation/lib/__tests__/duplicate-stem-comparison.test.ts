@@ -11,10 +11,12 @@ const richText = (text: string) => ({
 const question = (text: string, options = ["Yes", "No"]) => ({
   question_text: richText(text),
   index: 0,
+  response_type: 'multiple_choice',
+  answer_scheme: 'single_choice',
   answer_options: options.map((answer, index) => ({
     answer_text: richText(answer),
     index,
-    is_answer: index === 0,
+    answer_key_value: index === 0 ? 'correct' : null,
   })),
 });
 

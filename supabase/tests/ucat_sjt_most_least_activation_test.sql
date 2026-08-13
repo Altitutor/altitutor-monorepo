@@ -23,7 +23,6 @@ SELECT public.tutor_ucat_upsert_question_stem_bundle(
   jsonb_build_array(jsonb_build_object(
     'index', 1,
     'question_text', '{"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"Choose the most and least appropriate actions."}]}]}'::jsonb,
-    'question_type', 'multiple_choice',
     'response_type', 'drag_and_drop',
     'answer_scheme', 'situational_judgement_most_least',
     'answer_explanation', '{"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"The destinations reflect the relative appropriateness of the actions."}]}]}'::jsonb,
@@ -38,7 +37,6 @@ SELECT public.tutor_ucat_upsert_question_stem_bundle(
             'content', jsonb_build_array(jsonb_build_object('type', 'text', 'text', 'Action ' || option_index))
           ))
         ),
-        'is_answer', option_index = 1,
         'answer_key_value', CASE option_index WHEN 1 THEN 'most' WHEN 3 THEN 'least' ELSE NULL END
       ) ORDER BY option_index)
       FROM generate_series(1, 3) option_index
@@ -72,7 +70,6 @@ SELECT isnt(
 INSERT INTO public.ucat_questions (
   question_stem_id,
   question_text,
-  question_type,
   response_type,
   answer_scheme,
   index
@@ -80,7 +77,6 @@ INSERT INTO public.ucat_questions (
 VALUES (
   (SELECT id FROM most_least_stem),
   '{"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"Conflicting second question"}]}]}'::jsonb,
-  'multiple_choice',
   'multiple_choice',
   'single_choice',
   2

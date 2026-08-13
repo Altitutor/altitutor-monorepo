@@ -1,5 +1,5 @@
 BEGIN;
-SELECT plan(8);
+SELECT plan(6);
 
 CREATE TEMP TABLE response_fixture AS
 SELECT
@@ -26,9 +26,9 @@ SELECT ok(
 SELECT lives_ok(
   $$
     INSERT INTO public.student_question_attempts (
-      student_id, question_id, question_answer_option_id, answer_snapshot
+      student_id, question_id, answer_snapshot
     )
-    SELECT student_id, question_id, option_id, jsonb_build_object(
+    SELECT student_id, question_id, jsonb_build_object(
       'type', 'ucat_response_v1',
       'questionId', question_id,
       'answerScheme', answer_scheme,
@@ -61,29 +61,6 @@ SELECT throws_ok(
   'P0001',
   'UCAT response references an unknown option',
   'an unknown option ID is rejected'
-);
-
-SELECT throws_ok(
-  $$
-    INSERT INTO public.student_question_attempts (
-      student_id, question_id, question_answer_option_id, answer_snapshot
-    )
-    SELECT student_id, question_id,
-      'ffffffff-ffff-4fff-8fff-ffffffffffff'::UUID,
-      jsonb_build_object(
-        'type', 'ucat_response_v1',
-        'questionId', question_id,
-        'answerScheme', answer_scheme,
-        'response', jsonb_build_object(
-          'kind', 'single_select',
-          'selectedOptionId', option_id
-        )
-      )
-    FROM response_fixture
-  $$,
-  'P0001',
-  'UCAT response snapshot conflicts with the selected option column',
-  'conflicting canonical and compatibility answers are rejected'
 );
 
 SELECT throws_ok(
@@ -132,22 +109,6 @@ SELECT throws_ok(
   'P0001',
   'Invalid UCAT single-select response',
   'a missing response object is rejected'
-);
-
-SELECT throws_ok(
-  $$
-    INSERT INTO public.student_question_attempts (
-      student_id, question_id, answer_snapshot
-    )
-    SELECT student_id, question_id, jsonb_build_object(
-      'type', 'syllogism_v1',
-      'answers', '[]'::jsonb
-    )
-    FROM response_fixture
-  $$,
-  'P0001',
-  'Invalid UCAT response snapshot contract',
-  'new persistence rejects legacy response snapshots'
 );
 
 SELECT * FROM finish();

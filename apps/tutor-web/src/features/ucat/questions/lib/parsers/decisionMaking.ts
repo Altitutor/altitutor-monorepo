@@ -15,7 +15,7 @@ import {
   inferResponseContract,
 } from '@/features/ucat/questions/lib/parsers/responseClassification'
 
-/** Same shape as core ParsedOption; used when we attach questionType. */
+/** Same shape as core ParsedOption with a canonical response contract. */
 export type ParsedDecisionMakingOption = {
   label: string
   text: string
@@ -24,7 +24,8 @@ export type ParsedDecisionMakingOption = {
 export type ParsedDecisionMakingQuestion = {
   number: number | null
   text: string
-  questionType: 'syllogism' | 'multiple_choice'
+  responseType: 'multiple_choice' | 'drag_and_drop'
+  answerScheme: 'single_choice' | 'decision_making_binary_placement'
   options: ParsedDecisionMakingOption[]
 }
 
@@ -51,7 +52,7 @@ function normaliseForSyllogismDetection(text: string): string {
  * True if normalised question text indicates a syllogism (e.g. "Place 'Yes' if the conclusion does follow").
  * Decision Making analogue of VR's getVerbalReasoningStemCategoryName.
  */
-export function isSyllogismQuestionText(questionText: string): boolean {
+export function isPlacementQuestionText(questionText: string): boolean {
   const n = normaliseForSyllogismDetection(questionText)
   if (!n) return false
   const hasYes = n.includes('yes')
@@ -101,17 +102,17 @@ export const SYLLOGISM_IMAGE_PLACEHOLDER_LINES = [
   '[Syllogism image statement 5 pending OCR]',
 ] as const
 
-export function isSyllogismManualEntryPlaceholder(text: string): boolean {
+export function isPlacementManualEntryPlaceholder(text: string): boolean {
   const trimmed = text.trim()
   return SYLLOGISM_IMAGE_PLACEHOLDER_LINES.some((placeholder) => placeholder === trimmed)
 }
 
-export function questionNeedsSyllogismManualEntry(
-  question: Pick<ParsedDecisionMakingQuestion, 'questionType' | 'options'>
+export function questionNeedsPlacementManualEntry(
+  question: Pick<ParsedDecisionMakingQuestion, 'answerScheme' | 'options'>
 ): boolean {
-  if (question.questionType !== 'syllogism') return false
+  if (question.answerScheme !== 'decision_making_binary_placement') return false
   if (question.options.length !== 5) return true
-  return question.options.some((option) => isSyllogismManualEntryPlaceholder(option.text))
+  return question.options.some((option) => isPlacementManualEntryPlaceholder(option.text))
 }
 
 function stripQuestionNumber(line: string, config: Partial<ParserConfig>): string {
@@ -130,7 +131,7 @@ function isSyllogismImageTokenForPreviousQuestion(
   if (!IMAGE_TOKEN_RE.test(line)) return false
   const previous = previousNonBlankLine(lines, index)
   if (!previous) return false
-  return isSyllogismQuestionText(stripQuestionNumber(previous, config))
+  return isPlacementQuestionText(stripQuestionNumber(previous, config))
 }
 
 function isQuestionNumberLine(line: string, config: Partial<ParserConfig>): boolean {
@@ -174,14 +175,14 @@ function findItemStemOptionStart(lines: string[], config: Partial<ParserConfig>)
   for (let i = 1; i < lines.length; i += 1) {
     if (
       IMAGE_TOKEN_RE.test((lines[i] ?? '').trim()) &&
-      isSyllogismQuestionText(lines[findLastNonBlankIndex(lines, i)] ?? '')
+      isPlacementQuestionText(lines[findLastNonBlankIndex(lines, i)] ?? '')
     ) {
       return i
     }
   }
 
   for (let i = 0; i < lines.length; i += 1) {
-    if (!isSyllogismQuestionText(lines[i] ?? '')) continue
+    if (!isPlacementQuestionText(lines[i] ?? '')) continue
     const trailingNonBlank = lines.slice(i + 1).filter((line) => line.trim().length > 0)
     if (trailingNonBlank.length >= 5) return i + 1
   }
@@ -280,7 +281,7 @@ export function normalizeDecisionMakingSyllogismLines(
     }
 
     const trimmed = line.trim()
-    if (!isSyllogismQuestionText(trimmed)) {
+    if (!isPlacementQuestionText(trimmed)) {
       normalized.push(line)
       return
     }
@@ -318,9 +319,12 @@ function parseDecisionMakingFromLines(
     questions: stem.questions.map((q) => ({
       number: q.number,
       text: q.text,
-      questionType: isSyllogismQuestionText(q.text)
-        ? ('syllogism' as const)
+      responseType: isPlacementQuestionText(q.text)
+        ? ('drag_and_drop' as const)
         : ('multiple_choice' as const),
+      answerScheme: isPlacementQuestionText(q.text)
+        ? ('decision_making_binary_placement' as const)
+        : ('single_choice' as const),
       options: q.options.map((opt) => ({ label: opt.label, text: opt.text })),
     })),
   }))
@@ -496,7 +500,7 @@ const DM_TAG_RULES: DecisionMakingTagRule[] = [
       /\bat least one\b/,
       /\bthe rest\b/,
     ],
-    matches: ({ question }) => question.questionType === 'syllogism',
+    matches: ({ question }) => question.answerScheme === 'decision_making_binary_placement',
   },
   {
     path: ['Deductive logic', 'Conditional reasoning'],
@@ -904,7 +908,7 @@ export function getDecisionMakingTagPathsForQuestion(args: {
 
 /**
  * Map parsed Decision Making stems to UcatQuestionStemFormValues.
- * Each question gets questionType from isSyllogismQuestionText.
+ * Each question gets a canonical response contract from structural evidence.
  */
 export function mapParsedDecisionMakingToFormValues(
   stems: ParsedDecisionMakingStem[],
@@ -937,10 +941,8 @@ export function mapParsedDecisionMakingToFormValues(
         const answerScheme = inference.answerScheme.value ?? 'single_choice'
         return {
         questionText: toRichText(q.text),
-        questionType: responseType === 'drag_and_drop' ? 'syllogism' as const : 'multiple_choice' as const,
         responseType,
         answerScheme,
-        syllogismAnswerPattern: null,
         answerExplanation: null,
         difficulty: null,
         timeBurdenSeconds: '',
@@ -948,7 +950,6 @@ export function mapParsedDecisionMakingToFormValues(
         options: q.options.map((opt) => ({
           answerText: toRichText(opt.text),
           answerExplanation: null,
-          isAnswer: false,
           answerKeyValue: null,
         })),
       }})

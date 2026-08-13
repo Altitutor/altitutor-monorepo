@@ -438,8 +438,8 @@ export function AttemptQuestionReview({
         <CardContent className="min-h-[420px]">
           <AttemptQuestionViewer
             question={question}
-            selectedOptionId={attempt.questionAnswerOptionId}
-            legacyPlacementSnapshot={attempt.answerSnapshot}
+            selectedOptionId={attempt.selectedOptionId}
+            placementSnapshot={attempt.answerSnapshot}
             result={attempt.result}
           />
         </CardContent>

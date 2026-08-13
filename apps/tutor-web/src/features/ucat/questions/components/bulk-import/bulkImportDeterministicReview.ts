@@ -121,22 +121,6 @@ function replaceQuestionText(
   addFix(fixes, code, message, questionScope(questionIndex))
 }
 
-function setQuestionType(
-  question: Question,
-  questionType: Question['questionType'],
-  questionIndex: number,
-  fixes: BulkImportAutomaticFix[],
-) {
-  if (question.questionType === questionType) return
-  question.questionType = questionType
-  addFix(
-    fixes,
-    'question_type',
-    `Changed the stored question type to ${questionType}.`,
-    questionScope(questionIndex),
-  )
-}
-
 /**
  * Reorders a recognisable canonical option set and normalises its labels while
  * preserving the answer key and explanations attached to each semantic option.
@@ -285,7 +269,8 @@ function readinessSnapshot(input: ReviewInput, values: UcatQuestionStemFormValue
       questionTextPlain: plain(question.questionText),
       answerExplanation: question.answerExplanation ?? null,
       answerExplanationPlain: plain(question.answerExplanation),
-      questionType: question.questionType,
+      responseType: question.responseType,
+      answerScheme: question.answerScheme,
       difficulty: question.difficulty ?? null,
       timeBurdenSeconds: null,
       tagIds: question.tagIds,
@@ -301,7 +286,7 @@ function readinessSnapshot(input: ReviewInput, values: UcatQuestionStemFormValue
         answerTextPlain: plain(option.answerText),
         answerExplanation: option.answerExplanation ?? null,
         answerExplanationPlain: plain(option.answerExplanation),
-        isAnswer: option.isAnswer,
+        answerKeyValue: option.answerKeyValue,
         images: [
           ...visualImages(option.answerText, `option:${questionIndex}:${optionIndex}:answer_text`),
           ...visualImages(option.answerExplanation, `option:${questionIndex}:${optionIndex}:answer_explanation`),
@@ -347,7 +332,6 @@ function vrChecks(
   }
 
   values.questions.forEach((question, questionIndex) => {
-    setQuestionType(question, 'multiple_choice', questionIndex, fixes)
     if (isReadingComprehension && question.options.length !== 4) {
       addIssue(
         issues,
@@ -389,8 +373,7 @@ function dmChecks(
 
   const question = values.questions[0]
   if (!question) return
-  if (category === 'syllogisms') {
-    setQuestionType(question, 'syllogism', 0, fixes)
+  if (question.answerScheme === 'decision_making_binary_placement') {
     replaceQuestionText(
       question,
       SYLLOGISM_INSTRUCTION,
@@ -410,7 +393,6 @@ function dmChecks(
     return
   }
 
-  setQuestionType(question, 'multiple_choice', 0, fixes)
   if (category === 'recognising assumptions') {
     replaceQuestionText(
       question,
@@ -487,7 +469,6 @@ function sjChecks(
   }
 
   values.questions.forEach((question, questionIndex) => {
-    setQuestionType(question, 'multiple_choice', questionIndex, fixes)
     if (
       expected &&
       !canonicalizeOptions(question, expected, questionIndex, 'sjt_options', fixes)

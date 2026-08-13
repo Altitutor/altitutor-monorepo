@@ -25,11 +25,11 @@ describe('generated content blocks', () => {
         stemText: 'A valid stem.',
         questions: [{
           questionText: 'Which is correct?',
-          questionType: 'multiple_choice',
+          responseType: 'multiple_choice', answerScheme: 'single_choice',
           answerExplanation: 'The question-level teaching explanation.',
           options: [
-            { answerText: 'A', isAnswer: true, answerExplanation: 'Redundant option explanation.' },
-            { answerText: 'B', isAnswer: false, answerExplanation: 'Another redundant explanation.' },
+            { answerText: 'A', answerKeyValue: 'correct', answerExplanation: 'Redundant option explanation.' },
+            { answerText: 'B', answerKeyValue: null, answerExplanation: 'Another redundant explanation.' },
           ],
         }],
       }],
@@ -48,11 +48,11 @@ describe('generated content blocks', () => {
         stemText: 'A valid syllogism stem.',
         questions: [{
           questionText: "Place 'Yes' if the conclusion does follow. Place 'No' if the conclusion does not follow.",
-          questionType: 'syllogism',
+          responseType: 'drag_and_drop', answerScheme: 'decision_making_binary_placement',
           answerExplanation: 'Use a quick Venn sketch to test each conclusion.',
           options: [
-            { answerText: 'Conclusion one', isAnswer: true, answerExplanation: 'Yes, because it follows.' },
-            { answerText: 'Conclusion two', isAnswer: false, answerExplanation: 'No, because it does not follow.' },
+            { answerText: 'Conclusion one', answerKeyValue: 'correct', answerExplanation: 'Yes, because it follows.' },
+            { answerText: 'Conclusion two', answerKeyValue: null, answerExplanation: 'No, because it does not follow.' },
           ],
         }],
       }],
@@ -147,11 +147,11 @@ describe('generated content blocks', () => {
         }],
         questions: [{
           questionText: 'Which is correct?',
-          questionType: 'multiple_choice',
+          responseType: 'multiple_choice', answerScheme: 'single_choice',
           answerExplanation: 'Asha has the recorded score.',
           options: [
-            { answerText: 'Asha', isAnswer: true },
-            { answerText: 'Ben', isAnswer: false },
+            { answerText: 'Asha', answerKeyValue: 'correct' },
+            { answerText: 'Ben', answerKeyValue: null },
           ],
         }],
       }],
@@ -171,12 +171,12 @@ describe('generated content blocks', () => {
         stemText: 'A valid stem.',
         questions: [{
           questionText: 'Which is correct?',
-          questionType: 'multiple_choice',
+          responseType: 'multiple_choice', answerScheme: 'single_choice',
           answerExplanation: 'Option A follows.',
           tagIds: ['Set interpretation', '11111111-1111-4111-8111-111111111111'],
           options: [
-            { answerText: 'A', isAnswer: true },
-            { answerText: 'B', isAnswer: false },
+            { answerText: 'A', answerKeyValue: 'correct' },
+            { answerText: 'B', answerKeyValue: null },
           ],
         }],
       }],
@@ -204,11 +204,11 @@ describe('generated content blocks', () => {
         ],
         questions: [{
           questionText: 'How many are in both sets?',
-          questionType: 'multiple_choice',
+          responseType: 'multiple_choice', answerScheme: 'single_choice',
           answerExplanation: 'Use the overlap label.',
           options: [
-            { answerText: '12', isAnswer: true },
-            { answerText: '6', isAnswer: false },
+            { answerText: '12', answerKeyValue: 'correct' },
+            { answerText: '6', answerKeyValue: null },
           ],
         }],
       }],
@@ -231,11 +231,11 @@ describe('generated content blocks', () => {
         }],
         questions: [{
           questionText: 'Which is correct?',
-          questionType: 'multiple_choice',
+          responseType: 'multiple_choice', answerScheme: 'single_choice',
           answerExplanation: 'Use the relevant row and total.',
           options: [
-            { answerText: 'A', isAnswer: true },
-            { answerText: 'B', isAnswer: false },
+            { answerText: 'A', answerKeyValue: 'correct' },
+            { answerText: 'B', answerKeyValue: null },
           ],
         }],
       }],
@@ -560,11 +560,11 @@ describe('generated content blocks', () => {
         }],
         questions: [{
           questionText: 'Which is correct?',
-          questionType: 'multiple_choice',
+          responseType: 'multiple_choice', answerScheme: 'single_choice',
           answerExplanation: 'The route map is no longer an accepted generated visual type.',
           options: [
-            { answerText: 'A', isAnswer: true },
-            { answerText: 'B', isAnswer: false },
+            { answerText: 'A', answerKeyValue: 'correct' },
+            { answerText: 'B', answerKeyValue: null },
           ],
         }],
       }],
@@ -696,11 +696,11 @@ describe('generated content blocks', () => {
         }],
         questions: [{
           questionText: 'Which region is represented?',
-          questionType: 'multiple_choice',
+          responseType: 'multiple_choice', answerScheme: 'single_choice',
           answerExplanation: 'Read the two overlapping shapes.',
           options: [
-            { answerText: 'A', isAnswer: true },
-            { answerText: 'B', isAnswer: false },
+            { answerText: 'A', answerKeyValue: 'correct' },
+            { answerText: 'B', answerKeyValue: null },
           ],
         }],
       }],

@@ -108,9 +108,7 @@ export async function GET(
 
   const { data: attempts, error: attemptsError } = await supabaseAdmin
     .from("student_question_attempts")
-    .select(
-      "question_id, time_spent_seconds, question_answer_option_id, answer_snapshot, is_submitted",
-    )
+    .select("question_id, time_spent_seconds, answer_snapshot, is_submitted")
     .eq("student_id", student.id)
     .eq("student_practice_session_id", params.id)
     .is("student_question_set_attempt_id", null);
@@ -130,11 +128,7 @@ export async function GET(
     persistedSecondsByQuestionId[attempt.question_id] =
       (persistedSecondsByQuestionId[attempt.question_id] ?? 0) +
       Math.max(0, attempt.time_spent_seconds ?? 0);
-    if (
-      attempt.is_submitted ||
-      attempt.question_answer_option_id != null ||
-      attempt.answer_snapshot != null
-    ) {
+    if (attempt.is_submitted || attempt.answer_snapshot != null) {
       submittedQuestionIds.push(attempt.question_id);
     }
   }

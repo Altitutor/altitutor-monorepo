@@ -47,7 +47,7 @@ function toExamEngineSnapshot(
 ): StoredExamSnapshot["state"] {
   const responses = canonicalizeEngineResponses(exam.questions, {
     selectedAnswers: state.selectedAnswers,
-    syllogismSnapshots: state.syllogismSnapshots,
+    placementSnapshots: state.placementSnapshots,
   });
   return {
     phase: state.phase,
@@ -60,7 +60,7 @@ function toExamEngineSnapshot(
     visitedQuestionIds: state.visitedQuestionIds,
     flaggedIds: state.flaggedIds,
     selectedAnswers: responses.selectedAnswers,
-    syllogismSnapshots: responses.syllogismSnapshots,
+    placementSnapshots: responses.placementSnapshots,
     responseSnapshots: responses.responseSnapshots,
     reviewFilter: state.reviewFilter,
     reviewFilterIndex: state.reviewFilterIndex,
@@ -94,7 +94,7 @@ export function sanitizeEngineSnapshotForExam(
   const responses = canonicalizeEngineResponses(exam.questions, {
     responseSnapshots: filterQuestionRecord(snapshot.responseSnapshots),
     selectedAnswers: filterQuestionRecord(snapshot.selectedAnswers),
-    syllogismSnapshots: filterQuestionRecord(snapshot.syllogismSnapshots),
+    placementSnapshots: filterQuestionRecord(snapshot.placementSnapshots),
   });
 
   return {
@@ -121,7 +121,7 @@ export function sanitizeEngineSnapshotForExam(
     flaggedIds: filterQuestionIds(snapshot.flaggedIds),
     responseSnapshots: responses.responseSnapshots,
     selectedAnswers: responses.selectedAnswers,
-    syllogismSnapshots: responses.syllogismSnapshots,
+    placementSnapshots: responses.placementSnapshots,
   };
 }
 

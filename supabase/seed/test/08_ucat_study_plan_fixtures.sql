@@ -218,13 +218,12 @@ BEGIN
 
       INSERT INTO public.ucat_questions (
         id, question_stem_id, question_text, index, difficulty,
-        time_burden_seconds, question_type, response_type, answer_scheme,
+        time_burden_seconds, response_type, answer_scheme,
         answer_explanation,
         source_channel, deleted_at
       ) VALUES (
         question_id, stem_id, v_rich_document, 0, 0.5,
         category_record.time_per_question,
-        'multiple_choice',
         'multiple_choice',
         CASE category_record.section_number
           WHEN 4 THEN 'situational_judgement_rating'::public.ucat_answer_scheme
@@ -255,7 +254,7 @@ BEGIN
           )
         );
         INSERT INTO public.question_answer_options (
-          id, question_id, answer_text, answer_explanation, index, is_answer,
+          id, question_id, answer_text, answer_explanation, index,
           answer_key_value, deleted_at
         ) VALUES (
           option_id,
@@ -263,7 +262,6 @@ BEGIN
           v_option_document,
           v_rich_document,
           option_index,
-          option_index = 0,
           CASE
             WHEN option_index = 0 THEN 'correct'::public.ucat_answer_key_value
             ELSE NULL
@@ -273,7 +271,6 @@ BEGIN
         ON CONFLICT (id) DO UPDATE SET
           answer_text = EXCLUDED.answer_text,
           answer_explanation = EXCLUDED.answer_explanation,
-          is_answer = EXCLUDED.is_answer,
           answer_key_value = EXCLUDED.answer_key_value,
           deleted_at = NULL,
           updated_at = NOW();

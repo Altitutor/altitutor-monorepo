@@ -56,7 +56,7 @@ import { contentSnapshotVersion } from "@/features/content-ratings/lib";
 type QuestionAttemptForCard = {
   questionNumber?: number;
   questionId: string;
-  questionAnswerOptionId?: string | null;
+  selectedOptionId?: string | null;
   answerSnapshot?: unknown;
   result?: "correct" | "partial" | "incorrect" | "not_attempted";
   score?: number | null;
@@ -100,7 +100,7 @@ function isQuestionNotAnswered(
   if (isPlacementResponse(question)) {
     return reviewOutcome === "unanswered";
   }
-  return !attempt.questionAnswerOptionId;
+  return !attempt.selectedOptionId;
 }
 
 function getAttemptResultBadge(
@@ -291,8 +291,8 @@ export function SetAnswersCard({
   const selectedAnswers = useMemo(() => {
     const selected: Record<string, string> = {};
     for (const a of questionAttempts) {
-      if (a.questionAnswerOptionId) {
-        selected[a.questionId] = a.questionAnswerOptionId;
+      if (a.selectedOptionId) {
+        selected[a.questionId] = a.selectedOptionId;
       }
     }
     return selected;
@@ -566,13 +566,13 @@ export function SetAnswersCard({
                         stemJson: currentQuestion.stemJson ?? null,
                         questionText: currentQuestion.questionText,
                         questionJson: currentQuestion.questionJson ?? null,
-                        questionType: currentQuestion.questionType,
+                        answerScheme: currentQuestion.answerScheme,
                         options: currentQuestion.options.map((option) => ({
                           id: option.id,
                           index: option.index,
                           text: option.text,
                           textJson: option.textJson ?? null,
-                          isAnswer: option.isAnswer ?? false,
+                          answerKeyValue: option.answerKeyValue ?? null,
                         })),
                       }),
                     };

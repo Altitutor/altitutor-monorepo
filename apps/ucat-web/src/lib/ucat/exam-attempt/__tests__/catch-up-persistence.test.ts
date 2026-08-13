@@ -27,7 +27,7 @@ describe("buildCatchUpPersistence", () => {
         {
           phase: "question",
           selectedAnswers: {},
-          syllogismSnapshots: {},
+          placementSnapshots: {},
           responseSnapshots: {},
           flaggedIds: [],
           visitedQuestionIds: [],
@@ -73,20 +73,17 @@ describe("buildCatchUpPersistence", () => {
               {
                 id: "question-1",
                 index: 1,
-                question_type: "multiple_choice",
                 response_type: "multiple_choice",
                 answer_scheme: "single_choice",
                 answer_options: [
                   {
                     id: "option-1",
                     index: 1,
-                    is_answer: true,
                     answer_key_value: "correct",
                   },
                   {
                     id: "option-2",
                     index: 2,
-                    is_answer: false,
                     answer_key_value: null,
                   },
                 ],
@@ -143,7 +140,6 @@ describe("buildCatchUpPersistence", () => {
         {
           id: "question-1",
           questionSetId: "set-1",
-          questionType: "multiple_choice",
           responseType: "multiple_choice",
           answerScheme: "single_choice",
           options: [
@@ -157,7 +153,7 @@ describe("buildCatchUpPersistence", () => {
       phase: "question",
       currentIndex: 0,
       selectedAnswers: { "question-1": "option-1" },
-      syllogismSnapshots: {},
+      placementSnapshots: {},
       responseSnapshots: {
         "question-1": {
           type: "ucat_response_v1",
@@ -192,7 +188,6 @@ describe("buildCatchUpPersistence", () => {
     expect(result.finalAnswers).toEqual([
       expect.objectContaining({
         questionId: "question-1",
-        questionAnswerOptionId: "option-1",
         answerSnapshot: expect.objectContaining({ type: "ucat_response_v1" }),
         isFlagged: true,
       }),

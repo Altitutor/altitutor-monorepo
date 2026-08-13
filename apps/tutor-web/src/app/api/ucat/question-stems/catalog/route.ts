@@ -21,7 +21,6 @@ const SORT_KEYS = new Set([
   'category_name',
   'question_count',
   'sets',
-  'type_summary',
   'visibility',
   'source',
   'created_at',
@@ -29,7 +28,6 @@ const SORT_KEYS = new Set([
 ])
 const STATUSES = new Set(['draft', 'in_review', 'published'])
 const ACCESS_SCOPES = new Set(['public', 'private'])
-const QUESTION_TYPES = new Set(['multiple_choice', 'syllogism'])
 const SOURCE_CHANNELS = new Set(['individual', 'bulk_import', 'ai_generation'])
 const AI_REVIEW_STATUSES = new Set<string>(UCAT_DURABLE_AI_REVIEW_STATUSES)
 
@@ -121,7 +119,6 @@ export async function GET(request: NextRequest) {
     p_include_no_category: searchParams.get('noCategory') === '1',
     p_tag_ids: parseUuidList(searchParams, 'tag'),
     p_access_scopes: parseEnumList(searchParams, 'access', ACCESS_SCOPES),
-    p_question_types: parseEnumList(searchParams, 'type', QUESTION_TYPES),
     p_set_ids: parseUuidList(searchParams, 'set'),
     p_include_without_set: searchParams.get('withoutSet') === '1',
     p_source_channels: parseEnumList(searchParams, 'source', SOURCE_CHANNELS),

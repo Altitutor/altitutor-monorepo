@@ -67,7 +67,7 @@ type SeenControl =
   | "flag"
   | "navigator"
   | "previous"
-  | "syllogismChoice";
+  | "placementChoice";
 
 type TutorialSnapshot = QuestionEngineTutorialSnapshot;
 
@@ -102,7 +102,7 @@ const EMPTY_SNAPSHOT: TutorialSnapshot = {
   questionId: null,
   questionIndex: 0,
   selectedOptionId: null,
-  syllogismSnapshot: {},
+  placementSnapshot: {},
   flagged: false,
   showCalculator: false,
   showNavigator: false,
@@ -125,8 +125,8 @@ function snapshotIsAnswered(snapshot: TutorialSnapshot): boolean {
     (candidate) => candidate.id === snapshot.questionId,
   );
   return (
-    question?.questionType === "syllogism" &&
-    Object.keys(snapshot.syllogismSnapshot).length === question.options.length
+    question?.responseType === "drag_and_drop" &&
+    Object.keys(snapshot.placementSnapshot).length === question.options.length
   );
 }
 
@@ -135,45 +135,46 @@ function snapshotIsCorrect(snapshot: TutorialSnapshot): boolean {
     (candidate) => candidate.id === snapshot.questionId,
   );
   if (!question) return false;
-  if (question.questionType === "syllogism") {
+  if (question.responseType === "drag_and_drop") {
     return question.options.every(
       (option) =>
-        snapshot.syllogismSnapshot[option.id] === Boolean(option.isAnswer),
+        snapshot.placementSnapshot[option.id] === option.answerKeyValue,
     );
   }
   return question.options.some(
     (option) =>
-      option.id === snapshot.selectedOptionId && Boolean(option.isAnswer),
+      option.id === snapshot.selectedOptionId &&
+      option.answerKeyValue === "correct",
   );
 }
 
 function answerSignature(snapshot: TutorialSnapshot): string {
   if (snapshot.selectedOptionId) return snapshot.selectedOptionId;
-  return Object.entries(snapshot.syllogismSnapshot)
+  return Object.entries(snapshot.placementSnapshot)
     .sort(([a], [b]) => a.localeCompare(b))
-    .map(([id, value]) => `${id}:${value ? "yes" : "no"}`)
+    .map(([id, value]) => `${id}:${value}`)
     .join("|");
 }
 
-function correctSyllogismOptionIds(snapshot: TutorialSnapshot): string[] {
+function correctPlacementOptionIds(snapshot: TutorialSnapshot): string[] {
   const question = SAMPLER_QUESTIONS.find(
     (candidate) => candidate.id === snapshot.questionId,
   );
-  if (question?.questionType !== "syllogism") return [];
+  if (question?.responseType !== "drag_and_drop") return [];
   return question.options
     .filter(
       (option) =>
-        snapshot.syllogismSnapshot[option.id] === Boolean(option.isAnswer),
+        snapshot.placementSnapshot[option.id] === option.answerKeyValue,
     )
     .map((option) => option.id);
 }
 
-function wrongSyllogismOptionIds(snapshot: TutorialSnapshot): string[] {
-  const correct = new Set(correctSyllogismOptionIds(snapshot));
+function wrongPlacementOptionIds(snapshot: TutorialSnapshot): string[] {
+  const correct = new Set(correctPlacementOptionIds(snapshot));
   const question = SAMPLER_QUESTIONS.find(
     (candidate) => candidate.id === snapshot.questionId,
   );
-  return question?.questionType === "syllogism"
+  return question?.responseType === "drag_and_drop"
     ? question.options
         .filter((option) => !correct.has(option.id))
         .map((option) => option.id)
@@ -183,7 +184,7 @@ function wrongSyllogismOptionIds(snapshot: TutorialSnapshot): string[] {
 function answerStep(snapshot: TutorialSnapshot, body: string): CoachStep {
   const hasAnswer =
     snapshot.selectedOptionId !== null ||
-    Object.keys(snapshot.syllogismSnapshot).length === 5;
+    Object.keys(snapshot.placementSnapshot).length === 5;
   return {
     title: "Choose your answer",
     body,
@@ -236,7 +237,7 @@ function coachSteps(snapshot: TutorialSnapshot): CoachStep[] {
         ),
       ];
     case "sampler-dm-syllogism": {
-      const answered = Object.keys(snapshot.syllogismSnapshot).length;
+      const answered = Object.keys(snapshot.placementSnapshot).length;
       return [
         readStemStep(
           "Read all three facts about the Cedar Club, cyclists, swimmers and musicians before testing any conclusion.",
@@ -1331,8 +1332,8 @@ export function GuidedSamplerPage() {
       const answerChanged =
         previousSnapshot.questionId !== nextSnapshot.questionId ||
         previousSnapshot.selectedOptionId !== nextSnapshot.selectedOptionId ||
-        JSON.stringify(previousSnapshot.syllogismSnapshot) !==
-          JSON.stringify(nextSnapshot.syllogismSnapshot);
+        JSON.stringify(previousSnapshot.placementSnapshot) !==
+          JSON.stringify(nextSnapshot.placementSnapshot);
       snapshotRef.current = nextSnapshot;
       setSnapshot(nextSnapshot);
       setFeedback((current) => {
@@ -1383,7 +1384,7 @@ export function GuidedSamplerPage() {
     inactivityNudgesEnabled,
     snapshot.questionId,
     snapshot.selectedOptionId,
-    snapshot.syllogismSnapshot,
+    snapshot.placementSnapshot,
   ]);
 
   // Escalate inactivity hints at 1×, 1.5×, 2×… section exam seconds-per-question.
@@ -1440,7 +1441,7 @@ export function GuidedSamplerPage() {
     section.timePerQuestionSeconds,
     snapshot.questionId,
     snapshot.selectedOptionId,
-    snapshot.syllogismSnapshot,
+    snapshot.placementSnapshot,
   ]);
 
   const handleTutorialRequestNext = useCallback(
@@ -1481,10 +1482,10 @@ export function GuidedSamplerPage() {
 
       if (snapshotIsCorrect(nextSnapshot)) {
         setCorrectQuestionIds((current) => new Set(current).add(questionId));
-        if (Object.keys(nextSnapshot.syllogismSnapshot).length) {
+        if (Object.keys(nextSnapshot.placementSnapshot).length) {
           setCorrectSyllogismRows((current) => ({
             ...current,
-            [questionId]: correctSyllogismOptionIds(nextSnapshot),
+            [questionId]: correctPlacementOptionIds(nextSnapshot),
           }));
         }
         if (familiarity === "experienced") return true;
@@ -1522,8 +1523,8 @@ export function GuidedSamplerPage() {
       const selectedOptionFeedback = nextSnapshot.selectedOptionId
         ? questionFeedback?.optionFeedback?.[nextSnapshot.selectedOptionId]
         : undefined;
-      const wrongSyllogismRows = wrongSyllogismOptionIds(nextSnapshot);
-      const newlyCorrectRows = correctSyllogismOptionIds(nextSnapshot);
+      const wrongSyllogismRows = wrongPlacementOptionIds(nextSnapshot);
+      const newlyCorrectRows = correctPlacementOptionIds(nextSnapshot);
       if (newlyCorrectRows.length) {
         setCorrectSyllogismRows((current) => ({
           ...current,
@@ -1622,7 +1623,7 @@ export function GuidedSamplerPage() {
         return false;
       }
 
-      if (control === "syllogismChoice") {
+      if (control === "placementChoice") {
         setFeedback({
           kind: "control",
           title: "Drag the Yes or No tile",
@@ -1881,14 +1882,14 @@ export function GuidedSamplerPage() {
           tutorialCalculatorDraggable
           tutorialSequential
           tutorialHidePrevious
-          tutorialSyllogismDragOnly
+          tutorialPlacementDragOnly
           tutorialPrimaryActionLabel={showCorrectNext ? "Next" : "Submit"}
           tutorialHidePrimaryAction={
             currentQuestionIsCorrect && !showCorrectNext
           }
           tutorialLockedQuestionIds={lockedQuestionIds}
-          tutorialLockedSyllogismOptionIds={correctSyllogismRows}
-          tutorialCorrectSyllogismOptionIds={correctSyllogismRows}
+          tutorialLockedPlacementOptionIds={correctSyllogismRows}
+          tutorialCorrectPlacementOptionIds={correctSyllogismRows}
           tutorialHighlightText={
             feedback?.questionId === snapshot.questionId &&
             (feedback.hint || feedback.details?.length)

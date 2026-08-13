@@ -5,7 +5,7 @@
 import {
   getDecisionMakingStemCategoryName,
   getDecisionMakingTagPathsForQuestion,
-  isSyllogismQuestionText,
+  isPlacementQuestionText,
   parseDecisionMakingPlainText,
 } from '../decisionMaking';
 
@@ -13,29 +13,29 @@ beforeAll(() => {
   global.fetch = jest.fn().mockResolvedValue({}) as typeof fetch;
 });
 
-describe('isSyllogismQuestionText', () => {
+describe('isPlacementQuestionText', () => {
   it('returns true for "Place Yes if the conclusion does follow"', () => {
-    expect(isSyllogismQuestionText('Place Yes if the conclusion does follow')).toBe(true);
+    expect(isPlacementQuestionText('Place Yes if the conclusion does follow')).toBe(true);
   });
 
   it('returns true for "Place No if the conclusion does not follow"', () => {
-    expect(isSyllogismQuestionText('Place No if the conclusion does not follow')).toBe(true);
+    expect(isPlacementQuestionText('Place No if the conclusion does not follow')).toBe(true);
   });
 
   it('returns true for "Place Yes/No if the conclusion does follow"', () => {
-    expect(isSyllogismQuestionText('Place Yes/No if the conclusion does follow')).toBe(true);
+    expect(isPlacementQuestionText('Place Yes/No if the conclusion does follow')).toBe(true);
   });
 
   it('returns true when has conclusion and follow', () => {
-    expect(isSyllogismQuestionText('Does the conclusion follow?')).toBe(true);
+    expect(isPlacementQuestionText('Does the conclusion follow?')).toBe(true);
   });
 
   it('returns false for empty string', () => {
-    expect(isSyllogismQuestionText('')).toBe(false);
+    expect(isPlacementQuestionText('')).toBe(false);
   });
 
   it('returns false for multiple choice style', () => {
-    expect(isSyllogismQuestionText('Which of the following is true?')).toBe(false);
+    expect(isPlacementQuestionText('Which of the following is true?')).toBe(false);
   });
 });
 
@@ -69,7 +69,10 @@ D
 E`;
 
     const stems = parseDecisionMakingPlainText(input);
-    expect(stems[0]?.questions[0]?.questionType).toBe('syllogism');
+    expect(stems[0]?.questions[0]).toMatchObject({
+      responseType: 'drag_and_drop',
+      answerScheme: 'decision_making_binary_placement',
+    });
   });
 
   it('parses an unnumbered syllogism instruction followed by five statements', () => {
@@ -87,7 +90,10 @@ All physicians who practice General Medicine are from Sydney.`;
     expect(stems).toHaveLength(1);
     expect(stems[0]?.stemText).toContain('Physicians are from either Melbourne or Sydney');
     expect(stems[0]?.questions).toHaveLength(1);
-    expect(stems[0]?.questions[0]?.questionType).toBe('syllogism');
+    expect(stems[0]?.questions[0]).toMatchObject({
+      responseType: 'drag_and_drop',
+      answerScheme: 'decision_making_binary_placement',
+    });
     expect(stems[0]?.questions[0]?.text).toContain("Place 'Yes'");
     expect(stems[0]?.questions[0]?.options).toHaveLength(5);
     expect(stems[0]?.questions[0]?.options[0]?.text).toBe(
@@ -104,7 +110,7 @@ b) B
 c) C`;
 
     const stems = parseDecisionMakingPlainText(input, { answerOptionIndicator: 'paren' });
-    expect(stems[0]?.questions[0]?.questionType).toBe('multiple_choice');
+    expect(stems[0]?.questions[0]?.responseType).toBe('multiple_choice');
   });
 
   it('parses item-stem numbered blocks by using the last paragraph before options as question text', () => {

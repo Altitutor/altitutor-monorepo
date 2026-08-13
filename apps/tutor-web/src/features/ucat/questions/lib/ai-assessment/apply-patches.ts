@@ -151,7 +151,8 @@ function metadataValue(
   if (patch.field === 'difficulty') return normalizeDifficulty(question.difficulty)
   if (patch.field === 'time_burden_seconds') return normalizeTimeBurdenSeconds(question.timeBurdenSeconds)
   if (patch.field === 'tag_ids') return question.tagIds
-  if (patch.field === 'question_type') return question.questionType
+  if (patch.field === 'response_type') return question.responseType
+  if (patch.field === 'answer_scheme') return question.answerScheme
   throw new Error('The suggested question metadata field is invalid.')
 }
 
@@ -212,7 +213,8 @@ function replacementQuestion(question: ReplacementQuestion, existingId?: string)
   return {
     id: existingId ?? newDraftId(),
     questionText: aiTextToProseMirror(question.questionText),
-    questionType: question.questionType,
+    responseType: question.responseType,
+    answerScheme: question.answerScheme,
     answerExplanation: question.answerExplanation ? aiTextToProseMirror(question.answerExplanation) : null,
     difficulty: question.difficulty ?? null,
     timeBurdenSeconds: secondsToTimeString(question.timeBurdenSeconds ?? null),
@@ -223,7 +225,7 @@ function replacementQuestion(question: ReplacementQuestion, existingId?: string)
       id: option.id ?? newDraftId(),
       answerText: aiTextToProseMirror(option.answerText),
       answerExplanation: option.answerExplanation ? aiTextToProseMirror(option.answerExplanation) : null,
-      isAnswer: option.isAnswer,
+      answerKeyValue: option.answerKeyValue,
     })),
   }
 }
@@ -350,7 +352,7 @@ export async function applyUcatAssessmentPatches(
       }
       case 'set_answer_key': {
         const index = questionIndex(values, patch.questionId)
-        const currentCorrectOptionId = values.questions[index].options.find((option) => option.isAnswer)?.id ?? null
+        const currentCorrectOptionId = values.questions[index].options.find((option) => option.answerKeyValue === 'correct')?.id ?? null
         if (currentCorrectOptionId !== patch.currentCorrectOptionId) {
           throw new Error('The keyed answer has changed since this suggestion was created.')
         }
@@ -358,7 +360,7 @@ export async function applyUcatAssessmentPatches(
           throw new Error('The suggested correct answer no longer exists in the draft.')
         }
         values.questions[index].options.forEach((option) => {
-          option.isAnswer = option.id === patch.correctOptionId
+          option.answerKeyValue = option.id === patch.correctOptionId ? 'correct' : null
         })
         break
       }
@@ -374,7 +376,7 @@ export async function applyUcatAssessmentPatches(
           option.answerExplanation = patch.answerExplanation ? aiTextToProseMirror(patch.answerExplanation) : null
         }
         values.questions[index].options.forEach((candidate) => {
-          candidate.isAnswer = candidate.id === patch.optionId
+          candidate.answerKeyValue = candidate.id === patch.optionId ? 'correct' : null
         })
         break
       }
@@ -411,7 +413,7 @@ export async function applyUcatAssessmentPatches(
           answerExplanation: patch.option.answerExplanation
             ? aiTextToProseMirror(patch.option.answerExplanation)
             : null,
-          isAnswer: patch.option.isAnswer,
+          answerKeyValue: patch.option.answerKeyValue,
         }
         if (patch.afterOptionId == null) options.unshift(nextOption)
         else {
@@ -474,8 +476,18 @@ export async function applyUcatAssessmentPatches(
           question.timeBurdenSeconds = secondsToTimeString(nextSeconds)
         } else if (patch.field === 'tag_ids' && Array.isArray(patch.after) && patch.after.every((id) => typeof id === 'string')) {
           question.tagIds = patch.after
-        } else if (patch.field === 'question_type' && (patch.after === 'multiple_choice' || patch.after === 'syllogism')) {
-          question.questionType = patch.after
+        } else if (patch.field === 'response_type' && (patch.after === 'multiple_choice' || patch.after === 'drag_and_drop')) {
+          question.responseType = patch.after
+        } else if (
+          patch.field === 'answer_scheme'
+          && (
+            patch.after === 'single_choice'
+            || patch.after === 'situational_judgement_rating'
+            || patch.after === 'decision_making_binary_placement'
+            || patch.after === 'situational_judgement_most_least'
+          )
+        ) {
+          question.answerScheme = patch.after
         } else throw new Error('The suggested question metadata change is invalid.')
         break
       }
@@ -508,14 +520,14 @@ function patchAlreadyApplied(
         return sameJson(getTextTarget(values, patch).get(), patch.after)
       case 'set_answer_key': {
         const question = values.questions[questionIndex(values, patch.questionId)]
-        return question.options.find((option) => option.isAnswer)?.id === patch.correctOptionId
+        return question.options.find((option) => option.answerKeyValue === 'correct')?.id === patch.correctOptionId
       }
       case 'replace_option_and_key': {
         const question = values.questions[questionIndex(values, patch.questionId)]
         const option = question.options.find((candidate) => candidate.id === patch.optionId)
         return Boolean(
           option
-          && option.isAnswer
+          && option.answerKeyValue === 'correct'
           && proseMirrorToPlainText(option.answerText).trim() === patch.answerText.trim()
         )
       }

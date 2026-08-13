@@ -26,13 +26,13 @@ VALUES (
 );
 
 INSERT INTO public.ucat_questions (
-  id, question_stem_id, question_text, index, question_type, response_type, answer_scheme
+  id, question_stem_id, question_text, index, response_type, answer_scheme
 )
 VALUES (
   '54520000-0000-4000-8000-000000000001',
   '54510000-0000-4000-8000-000000000001',
   '{"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"Question"}]}]}'::jsonb,
-  1, 'multiple_choice', 'multiple_choice', 'single_choice'
+  1, 'multiple_choice', 'single_choice'
 );
 
 SELECT ok(

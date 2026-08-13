@@ -3,6 +3,7 @@
 import { useCallback, useMemo, useRef } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import type {
+  PlacementSnapshot,
   QuestionEngineExam,
   QuestionEngineMode,
   QuestionEngineState,
@@ -33,7 +34,6 @@ type UpsertQuestionAttemptInput = {
   studentPracticeSessionId?: string | null;
   learningModuleBlockId?: string | null;
   questionId: string;
-  questionAnswerOptionId: string | null;
   answerSnapshot?: unknown;
   isFlagged?: boolean;
   wasTimed?: boolean;
@@ -112,16 +112,16 @@ export function buildFinalExamQuestionAttempts(
   exam: QuestionEngineExam,
   state: Pick<
     QuestionEngineState,
-    "selectedAnswers" | "syllogismSnapshots" | "flaggedIds"
+    "selectedAnswers" | "placementSnapshots" | "flaggedIds"
   >,
 ): FinalExamQuestionAttemptInput[] {
   return exam.questions.map((question) => {
     const selectedOptionId = state.selectedAnswers[question.id];
-    const syllogismSnapshot = state.syllogismSnapshots?.[question.id];
+    const placementSnapshot = state.placementSnapshots?.[question.id];
     const response = buildPersistedQuestionResponse(
       question,
       selectedOptionId,
-      syllogismSnapshot,
+      placementSnapshot,
     );
     const answer: FinalExamQuestionAttemptInput = {
       questionSetId: question.questionSetId,
@@ -211,7 +211,7 @@ export function useQuestionEnginePersistence({
     Error,
     UpsertQuestionAttemptInput
   >({
-    // Preserve the order of rapid syllogism snapshot updates. Final submission
+    // Preserve the order of rapid placement snapshot updates. Final submission
     // is queued behind them, so an older response cannot overwrite newer state.
     scope: { id: "question-attempt-upserts" },
     mutationFn: async (input) => {
@@ -349,7 +349,7 @@ export function useQuestionEnginePersistence({
 
   function recordAnswer(
     questionId: string,
-    questionAnswerOptionId: string,
+    selectedOptionId: string,
     isFlagged: boolean,
   ) {
     if (disableQuestionAttemptLogging) return;
@@ -368,8 +368,8 @@ export function useQuestionEnginePersistence({
     if (!question) return;
     const persistedResponse = buildPersistedQuestionResponse(
       question,
-      questionAnswerOptionId || undefined,
-      state.syllogismSnapshots?.[questionId],
+      selectedOptionId || undefined,
+      state.placementSnapshots?.[questionId],
     );
 
     const inputBase: UpsertQuestionAttemptInput = withLearnContext({
@@ -404,9 +404,9 @@ export function useQuestionEnginePersistence({
     });
   }
 
-  function recordSyllogismSnapshot(
+  function recordPlacementSnapshot(
     questionId: string,
-    snapshot: Record<string, boolean>,
+    snapshot: PlacementSnapshot,
     isFlagged: boolean,
   ) {
     if (disableQuestionAttemptLogging || !exam) return;
@@ -569,7 +569,7 @@ export function useQuestionEnginePersistence({
         ...buildPersistedQuestionResponse(
           q,
           state.selectedAnswers[q.id],
-          state.syllogismSnapshots?.[q.id],
+          state.placementSnapshots?.[q.id],
         ),
         isFlagged,
         wasTimed: false,
@@ -622,7 +622,7 @@ export function useQuestionEnginePersistence({
 
   return {
     recordAnswer,
-    recordSyllogismSnapshot,
+    recordPlacementSnapshot,
     recordAnswersForUnit,
     handleExamCompleted,
     completePracticeSession,

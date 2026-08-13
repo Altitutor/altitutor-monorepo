@@ -143,12 +143,6 @@ export function useUcatQuestionStemListIndex() {
 }
 
 /** @deprecated Prefer useUcatQuestionStemListIndex — shares the same cached fetch. */
-export function useUcatQuestionStemTypes() {
-  const query = useUcatQuestionStemListIndex()
-  return { ...query, data: query.data?.types }
-}
-
-/** @deprecated Prefer useUcatQuestionStemListIndex — shares the same cached fetch. */
 export function useUcatStemTagIds() {
   const query = useUcatQuestionStemListIndex()
   return { ...query, data: query.data?.tagIds }
@@ -172,7 +166,6 @@ export type UcatStemCatalogItem = {
   accessScope: UcatAccessScope
   status: UcatContentStatus
   sourceChannel: 'individual' | 'bulk_import' | 'ai_generation' | null
-  questionTypes: ('multiple_choice' | 'syllogism')[]
   responseTypes?: ('multiple_choice' | 'drag_and_drop')[]
   answerSchemes?: string[]
   blueprintQuestions?: BlueprintStem['questions']
@@ -191,7 +184,8 @@ export type UcatQuestionCatalogItem = {
   stemId: string
   questionIndex: number
   sectionName: string
-  questionType: string
+  responseType: 'multiple_choice' | 'drag_and_drop'
+  answerScheme: string
 }
 
 export function useUcatQuestionCatalog(enabled: boolean) {
@@ -209,7 +203,6 @@ export function useUcatQuestionCatalog(enabled: boolean) {
           ? (row.questions as Array<{
               id?: string
               deleted_at?: string | null
-              question_type?: string | null
               response_type?: string | null
               answer_scheme?: string | null
               index?: number | null
@@ -221,11 +214,12 @@ export function useUcatQuestionCatalog(enabled: boolean) {
           const questionIndex = question.index ?? 0
           items.push({
             id: question.id,
-            label: `${stemPreview} · Q${questionIndex + 1} (${question.question_type ?? 'unknown'})`,
+            label: `${stemPreview} · Q${questionIndex + 1} (${question.answer_scheme ?? 'unknown'})`,
             stemId: row.id,
             questionIndex,
             sectionName: row.section_name ?? 'Unknown section',
-            questionType: question.question_type ?? 'unknown',
+            responseType: question.response_type === 'drag_and_drop' ? 'drag_and_drop' : 'multiple_choice',
+            answerScheme: question.answer_scheme ?? 'unknown',
           })
         }
       }
@@ -250,7 +244,6 @@ export function useUcatStemCatalog(
         const activeQuestions = Array.isArray(row.questions)
           ? (row.questions as Array<{
               deleted_at?: string | null
-              question_type?: string | null
               response_type?: string | null
               answer_scheme?: string | null
               id?: string | null
@@ -284,13 +277,6 @@ export function useUcatStemCatalog(
             }
           }
         }
-        const questionTypes = Array.from(
-          new Set(
-            activeQuestions.flatMap((q) =>
-              q.question_type === 'multiple_choice' || q.question_type === 'syllogism' ? [q.question_type] : []
-            )
-          )
-        ) as ('multiple_choice' | 'syllogism')[]
         const responseTypes = Array.from(new Set(activeQuestions.flatMap((question) => (
           question.response_type === 'multiple_choice' || question.response_type === 'drag_and_drop'
             ? [question.response_type]
@@ -332,7 +318,6 @@ export function useUcatStemCatalog(
           accessScope: row.access_scope,
           status: row.status,
           sourceChannel: row.source_channel,
-          questionTypes,
           responseTypes,
           answerSchemes,
           blueprintQuestions,
@@ -342,7 +327,7 @@ export function useUcatStemCatalog(
           answerOptionSearchText: answerOptionTexts.join(' '),
           setIds,
           setNames,
-          typeSummary: questionTypes.length > 0 ? questionTypes.join(', ') : '-',
+          typeSummary: answerSchemes.length > 0 ? answerSchemes.join(', ') : '-',
         }
       })
     },

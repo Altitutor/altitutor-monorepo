@@ -36,7 +36,6 @@ export type UcatQuestionFormOption = {
   answerText: RichTextJson
   answerExplanation?: RichTextJson | null
   index: number
-  isAnswer: boolean
   answerKeyValue: 'correct' | 'yes' | 'no' | 'most' | 'least' | null
 }
 
@@ -44,7 +43,6 @@ export type UcatQuestionFormItem = {
   id?: string
   index: number
   questionText: RichTextJson
-  questionType: 'multiple_choice' | 'syllogism'
   responseType: 'multiple_choice' | 'drag_and_drop'
   answerScheme: 'single_choice' | 'situational_judgement_rating' | 'decision_making_binary_placement' | 'situational_judgement_most_least'
   answerExplanation?: RichTextJson | null

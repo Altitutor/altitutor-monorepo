@@ -6,7 +6,6 @@ import {
 export type ProgressQuestionRef = {
   id: string;
   stemId: string;
-  questionType: string | null;
   answerScheme: AnswerScheme["kind"] | null;
 };
 
@@ -45,13 +44,11 @@ export function progressPointsForQuestion(
 export function toProgressQuestionRef(question: {
   questionId: string;
   questionStemId?: string | null;
-  questionType?: string | null;
   answerScheme?: AnswerScheme["kind"] | null;
 }): ProgressQuestionRef {
   return {
     id: question.questionId,
     stemId: question.questionStemId ?? question.questionId,
-    questionType: question.questionType ?? null,
     answerScheme: question.answerScheme ?? null,
   };
 }

@@ -57,12 +57,12 @@ export function UcatStemEngineInlineEditor({
   const options = useMemo(() => question?.options ?? [], [question?.options])
 
   const correctOptionIndex = useMemo(() => {
-    const idx = options.findIndex((opt) => opt.answerKeyValue === 'correct' || opt.isAnswer)
+    const idx = options.findIndex((opt) => opt.answerKeyValue === 'correct')
     return idx >= 0 ? idx : 0
   }, [options])
 
-  const syllogismPattern = useMemo(
-    () => options.map((opt) => (opt.answerKeyValue === 'yes' || opt.isAnswer ? 'Y' : 'N')).join(''),
+  const placementPattern = useMemo(
+    () => options.map((opt) => (opt.answerKeyValue === 'yes' ? 'Y' : 'N')).join(''),
     [options]
   )
 
@@ -94,7 +94,6 @@ export function UcatStemEngineInlineEditor({
       `questions.${questionIndex}.options`,
       current.map((opt, i) => ({
         ...opt,
-        isAnswer: i === index,
         answerKeyValue: i === index ? 'correct' : null,
       })),
       { shouldDirty: true }
@@ -110,19 +109,17 @@ export function UcatStemEngineInlineEditor({
         answerKeyValue: index === optionIndex
           ? value
           : option.answerKeyValue === value ? null : option.answerKeyValue,
-        isAnswer: false,
       })),
       { shouldDirty: true },
     )
   }
 
-  const setSyllogismPattern = (pattern: string) => {
+  const setPlacementPattern = (pattern: string) => {
     const current = form.getValues(`questions.${questionIndex}.options`) ?? []
     form.setValue(
       `questions.${questionIndex}.options`,
       current.map((opt, i) => ({
         ...opt,
-        isAnswer: pattern.charAt(i).toUpperCase() === 'Y',
         answerKeyValue: pattern.charAt(i).toUpperCase() === 'Y' ? 'yes' : 'no',
       })),
       { shouldDirty: true }
@@ -162,7 +159,7 @@ export function UcatStemEngineInlineEditor({
     />
   )
 
-  const syllogismBlock = (
+  const binaryPlacementBlock = (
     <ResultsSyllogismQuestionBlock
       includeStem={!isTwoColumn}
       stemText={stemText}
@@ -172,8 +169,8 @@ export function UcatStemEngineInlineEditor({
       questionNumber={questionNumber}
       options={options}
       setOptions={setOptions}
-      syllogismPattern={syllogismPattern}
-      setSyllogismPattern={setSyllogismPattern}
+      placementPattern={placementPattern}
+      setPlacementPattern={setPlacementPattern}
       answerExplanation={(question?.answerExplanation ?? null) as Json | null}
       setAnswerExplanation={setAnswerExplanation}
       showQuestionExplanation
@@ -192,8 +189,8 @@ export function UcatStemEngineInlineEditor({
       questionNumber={questionNumber}
       options={options}
       setOptions={setOptions}
-      syllogismPattern=""
-      setSyllogismPattern={() => undefined}
+      placementPattern=""
+      setPlacementPattern={() => undefined}
       answerMode="most_least"
       setMostLeastAnswerKey={setMostLeastAnswerKey}
       answerExplanation={(question?.answerExplanation ?? null) as Json | null}
@@ -204,7 +201,7 @@ export function UcatStemEngineInlineEditor({
     />
   )
 
-  const body = isBinaryPlacement ? syllogismBlock : isMostLeast ? mostLeastBlock : mcBlock
+  const body = isBinaryPlacement ? binaryPlacementBlock : isMostLeast ? mostLeastBlock : mcBlock
 
   if (isTwoColumn) {
     return (
@@ -244,8 +241,8 @@ export function UcatStemEngineInlineEditor({
               questionNumber={questionNumber}
               options={options}
               setOptions={setOptions}
-              syllogismPattern={syllogismPattern}
-              setSyllogismPattern={setSyllogismPattern}
+              placementPattern={placementPattern}
+              setPlacementPattern={setPlacementPattern}
               answerExplanation={(question?.answerExplanation ?? null) as Json | null}
               setAnswerExplanation={setAnswerExplanation}
               showQuestionExplanation
@@ -262,8 +259,8 @@ export function UcatStemEngineInlineEditor({
               questionNumber={questionNumber}
               options={options}
               setOptions={setOptions}
-              syllogismPattern=""
-              setSyllogismPattern={() => undefined}
+              placementPattern=""
+              setPlacementPattern={() => undefined}
               answerMode="most_least"
               setMostLeastAnswerKey={setMostLeastAnswerKey}
               answerExplanation={(question?.answerExplanation ?? null) as Json | null}

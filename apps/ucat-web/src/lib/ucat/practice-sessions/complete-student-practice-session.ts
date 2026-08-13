@@ -9,7 +9,6 @@ import {
 import type { FinalQuestionAttemptInput } from "@/lib/ucat/set-attempts/complete-student-set-attempt";
 import { persistQuestionAttemptBatch } from "@/lib/ucat/question-attempts/persist-question-attempt-batch";
 import {
-  isPlacementResponse,
   responseDefinitionForQuestion,
   restorePersistedQuestionResponse,
   snapshotQuestionResponse,
@@ -68,14 +67,13 @@ export function scorePracticeAnswers(
     const restored = restorePersistedQuestionResponse(
       item,
       answer?.answerSnapshot,
-      answer?.questionAnswerOptionId,
     );
     return [
       item.id,
       snapshotQuestionResponse(
         item,
         restored.selectedOptionId ?? undefined,
-        restored.syllogismSnapshot ?? undefined,
+        restored.placementSnapshot ?? undefined,
       ).response,
     ] as const;
   }));
@@ -134,13 +132,7 @@ export async function completeStudentPracticeSession(
     if (!question) {
       throw new Error("Question is not part of this practice session");
     }
-    const optionIds = new Set(question.options.map((option) => option.id));
-    if (
-      answer.questionAnswerOptionId != null &&
-      !optionIds.has(answer.questionAnswerOptionId)
-    ) {
-      throw new Error("Answer option is not part of this practice question");
-    }
+    restorePersistedQuestionResponse(question, answer.answerSnapshot);
     suppliedByQuestionId.set(answer.questionId, answer);
   }
 
@@ -148,10 +140,6 @@ export async function completeStudentPracticeSession(
     const supplied = suppliedByQuestionId.get(question.id);
     return {
       questionId: question.id,
-      questionAnswerOptionId:
-        isPlacementResponse(question)
-          ? null
-          : (supplied?.questionAnswerOptionId ?? null),
       answerSnapshot: supplied?.answerSnapshot ?? null,
       isFlagged: supplied?.isFlagged ?? false,
       wasTimed: supplied?.wasTimed ?? false,

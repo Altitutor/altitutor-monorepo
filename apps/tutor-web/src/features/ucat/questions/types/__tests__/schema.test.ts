@@ -23,11 +23,11 @@ function imageOnlyDoc() {
 describe('ucatQuestionItemSchema', () => {
   const baseQuestion = {
     questionText: plainTextToProseMirror('Which option is correct?'),
-    questionType: 'multiple_choice' as const,
+    responseType: 'multiple_choice', answerScheme: 'single_choice' as const,
     options: [
       {
         answerText: emptyDoc(),
-        isAnswer: true,
+        answerKeyValue: 'correct',
       },
     ],
   }
@@ -38,7 +38,7 @@ describe('ucatQuestionItemSchema', () => {
       options: [
         {
           answerText: imageOnlyDoc(),
-          isAnswer: true,
+          answerKeyValue: 'correct',
         },
       ],
     })
@@ -66,27 +66,27 @@ describe('ucatQuestionItemSchema', () => {
   it('accepts only positive whole seconds or mm:ss for expected time to correct', () => {
     expect(ucatQuestionItemSchema.safeParse({
       ...baseQuestion,
-      options: [{ answerText: plainTextToProseMirror('A'), isAnswer: true }],
+      options: [{ answerText: plainTextToProseMirror('A'), answerKeyValue: 'correct' }],
       timeBurdenSeconds: '1:30',
     }).success).toBe(true)
     expect(ucatQuestionItemSchema.safeParse({
       ...baseQuestion,
-      options: [{ answerText: plainTextToProseMirror('A'), isAnswer: true }],
+      options: [{ answerText: plainTextToProseMirror('A'), answerKeyValue: 'correct' }],
       timeBurdenSeconds: '90',
     }).success).toBe(true)
     expect(ucatQuestionItemSchema.safeParse({
       ...baseQuestion,
-      options: [{ answerText: plainTextToProseMirror('A'), isAnswer: true }],
+      options: [{ answerText: plainTextToProseMirror('A'), answerKeyValue: 'correct' }],
       timeBurdenSeconds: '',
     }).success).toBe(true)
     expect(ucatQuestionItemSchema.safeParse({
       ...baseQuestion,
-      options: [{ answerText: plainTextToProseMirror('A'), isAnswer: true }],
+      options: [{ answerText: plainTextToProseMirror('A'), answerKeyValue: 'correct' }],
       timeBurdenSeconds: '0',
     }).success).toBe(false)
     expect(ucatQuestionItemSchema.safeParse({
       ...baseQuestion,
-      options: [{ answerText: plainTextToProseMirror('A'), isAnswer: true }],
+      options: [{ answerText: plainTextToProseMirror('A'), answerKeyValue: 'correct' }],
       timeBurdenSeconds: '1:75',
     }).success).toBe(false)
   })
@@ -101,10 +101,10 @@ describe('ucatQuestionStemSchema', () => {
       accessScope: 'public',
       questions: [{
         questionText: plainTextToProseMirror('Which sector is largest?'),
-        questionType: 'multiple_choice',
+        responseType: 'multiple_choice', answerScheme: 'single_choice',
         options: [{
           answerText: plainTextToProseMirror('Services'),
-          isAnswer: true,
+          answerKeyValue: 'correct',
         }],
       }],
     })

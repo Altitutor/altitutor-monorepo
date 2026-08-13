@@ -156,7 +156,6 @@ export async function POST(request: NextRequest) {
       attempts.some(
         (attempt) =>
           attempt.submittedByStem === true ||
-          attempt.questionAnswerOptionId != null ||
           attempt.answerSnapshot != null,
       )
     ) {

@@ -134,30 +134,30 @@ describe('letterToOptionIndex', () => {
 describe('parseDecisionMakingAnswers', () => {
   it('parses syllogism Y/N pattern from line format', () => {
     const input = '1\nY\nN\nY\nN\nY';
-    const result = parseDecisionMakingAnswers(input, ['syllogism']);
+    const result = parseDecisionMakingAnswers(input, ['placement']);
     expect(result.length).toBeGreaterThanOrEqual(1);
     expect(result[0]).toHaveProperty('pattern');
     expect(result[0]?.pattern).toMatch(/^[YN]+$/);
   });
 
   it('parses a compact five-character syllogism pattern', () => {
-    const result = parseDecisionMakingAnswers('YNNYN', ['syllogism']);
+    const result = parseDecisionMakingAnswers('YNNYN', ['placement']);
     expect(result).toEqual([{ pattern: 'YNNYN', optionExplanations: ['', '', '', '', ''] }]);
   });
 
   it('parses comma-separated Yes/No syllogism answers', () => {
-    const result = parseDecisionMakingAnswers('No, yes, no, no, yes', ['syllogism']);
+    const result = parseDecisionMakingAnswers('No, yes, no, no, yes', ['placement']);
     expect(result).toEqual([{ pattern: 'NYNNY', optionExplanations: ['', '', '', '', ''] }]);
   });
 
   it('parses a compact pattern after a question number on its own line', () => {
-    const result = parseDecisionMakingAnswers('1\nYNNYN', ['syllogism']);
+    const result = parseDecisionMakingAnswers('1\nYNNYN', ['placement']);
     expect(result[0]?.pattern).toBe('YNNYN');
   });
 
   it('parses multiple choice letter', () => {
     const input = '1\nB';
-    const result = parseDecisionMakingAnswers(input, ['multiple_choice']);
+    const result = parseDecisionMakingAnswers(input, ['single_choice']);
     expect(result.length).toBeGreaterThanOrEqual(1);
     expect(result[0]).toHaveProperty('letter');
     expect(result[0]?.letter).toBe('B');
@@ -166,7 +166,7 @@ describe('parseDecisionMakingAnswers', () => {
   it('parses numbered answer lists for Decision Making', () => {
     const result = parseDecisionMakingAnswers(
       '1. C\n2. A\n3. B',
-      ['multiple_choice', 'multiple_choice', 'multiple_choice'],
+      ['single_choice', 'single_choice', 'single_choice'],
       { inputFormat: 'numbered_list' }
     )
     expect(result).toEqual([{ letter: 'C' }, { letter: 'A' }, { letter: 'B' }])
@@ -174,7 +174,7 @@ describe('parseDecisionMakingAnswers', () => {
 
   it('keeps explanation text from loose multiple choice line format', () => {
     const input = '1\nB\nOnly this option is supported by the stem.'
-    const result = parseDecisionMakingAnswers(input, ['multiple_choice'])
+    const result = parseDecisionMakingAnswers(input, ['single_choice'])
     expect(result[0]).toEqual({
       letter: 'B',
       explanation: 'Only this option is supported by the stem.',
@@ -190,7 +190,7 @@ The second conclusion contradicts the stem.
 Y
 N
 Y`
-    const result = parseDecisionMakingAnswers(input, ['syllogism'])
+    const result = parseDecisionMakingAnswers(input, ['placement'])
     expect(result[0]?.pattern).toBe('YNYNY')
     expect(result[0]?.optionExplanations).toEqual([
       'The first conclusion follows.',
@@ -202,7 +202,7 @@ Y`
   })
 
   it('returns empty array for empty input', () => {
-    expect(parseDecisionMakingAnswers('', ['syllogism'])).toEqual([]);
+    expect(parseDecisionMakingAnswers('', ['placement'])).toEqual([]);
   });
 
   it('returns empty array for empty questionTypes', () => {

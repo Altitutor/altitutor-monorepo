@@ -22,7 +22,7 @@ const INITIAL_ENGINE_SNAPSHOT: ExamEngineSnapshot = {
   visitedQuestionIds: [],
   flaggedIds: [],
   selectedAnswers: {},
-  syllogismSnapshots: {},
+  placementSnapshots: {},
   reviewFilter: null,
   reviewFilterIndex: 0,
   reviewFilterIndicesSnapshot: null,

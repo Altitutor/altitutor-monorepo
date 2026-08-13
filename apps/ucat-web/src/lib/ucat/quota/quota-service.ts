@@ -451,9 +451,7 @@ export async function countNewPracticeQuestionsForStudent(
     .in("question_id", uniqueQuestionIds)
     .not("student_practice_session_id", "is", null)
     .is("student_question_set_attempt_id", null)
-    .or(
-      "question_answer_option_id.not.is.null,answer_snapshot.not.is.null,is_submitted.eq.true",
-    )
+    .or("answer_snapshot.not.is.null,is_submitted.eq.true")
     .gte("attempted_at", periodStart);
 
   if (error) throw new Error(error.message);

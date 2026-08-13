@@ -20,7 +20,6 @@ function stem(id: string, categoryId: string, categoryName: string): UcatStemCat
     accessScope: 'public',
     status: 'published',
     sourceChannel: 'individual',
-    questionTypes: ['multiple_choice'],
     responseTypes: ['multiple_choice'],
     answerSchemes: ['single_choice'],
     blueprintQuestions: Array.from({ length: 4 }, (_, index) => ({

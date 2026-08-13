@@ -10,7 +10,6 @@ const question: QuestionItem = {
   sectionDisplayColumns: 1,
   stemText: "test most least",
   questionText: "question most least",
-  questionType: "multiple_choice",
   responseType: "drag_and_drop",
   answerScheme: "situational_judgement_most_least",
   options: [
@@ -24,7 +23,7 @@ describe("projectStoredQuestionAttemptReview", () => {
   it("restores a canonical Most/Least snapshot and preserves its stored score", () => {
     const projection = projectStoredQuestionAttemptReview(question, {
       score: 6,
-      questionAnswerOptionId: null,
+      selectedOptionId: null,
       answerSnapshot: {
         type: "ucat_response_v1",
         questionId: question.id,

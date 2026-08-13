@@ -6,13 +6,15 @@ type ComparableOption = {
   answer_text?: unknown;
   answer_explanation?: unknown;
   index?: number;
-  is_answer?: boolean | null;
+  answer_key_value?: string | null;
 };
 
 type ComparableQuestion = {
   question_text: unknown;
   answer_explanation?: unknown;
   index: number;
+  response_type?: string | null;
+  answer_scheme?: string | null;
   answer_options?: ComparableOption[];
 };
 
@@ -24,12 +26,14 @@ function canonicalQuestion(question: ComparableQuestion) {
   return {
     questionText: normalizedRichText(question.question_text),
     answerExplanation: normalizedRichText(question.answer_explanation),
+    responseType: question.response_type ?? null,
+    answerScheme: question.answer_scheme ?? null,
     options: [...(question.answer_options ?? [])]
       .sort((a, b) => (a.index ?? 0) - (b.index ?? 0))
       .map((option) => ({
         answerText: normalizedRichText(option.answer_text),
         answerExplanation: normalizedRichText(option.answer_explanation),
-        isAnswer: Boolean(option.is_answer),
+        answerKeyValue: option.answer_key_value ?? null,
       })),
   };
 }

@@ -29,11 +29,11 @@ export function buildFinalAnswersFromEngineSnapshot(
 ): FinalExamQuestionAttemptInput[] {
   return exam.questions.map((question, questionIndex) => {
     const selectedOptionId = state.selectedAnswers[question.id];
-    const syllogismSnapshot = state.syllogismSnapshots?.[question.id];
+    const placementSnapshot = state.placementSnapshots?.[question.id];
     const response = buildPersistedQuestionResponse(
       question,
       selectedOptionId,
-      syllogismSnapshot,
+      placementSnapshot,
     );
     const answer: FinalExamQuestionAttemptInput = {
       questionSetId: question.questionSetId,

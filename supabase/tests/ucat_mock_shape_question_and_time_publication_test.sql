@@ -19,20 +19,20 @@ VALUES
   );
 
 INSERT INTO public.ucat_questions (
-  id, question_stem_id, question_text, index, question_type, response_type, answer_scheme
+  id, question_stem_id, question_text, index, response_type, answer_scheme
 )
 VALUES
   (
     '54420000-0000-4000-8000-000000000001',
     '54410000-0000-4000-8000-000000000001',
     '{"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"DM question"}]}]}'::jsonb,
-    1, 'multiple_choice', 'multiple_choice', 'single_choice'
+    1, 'multiple_choice', 'single_choice'
   ),
   (
     '54420000-0000-4000-8000-000000000002',
     '54410000-0000-4000-8000-000000000002',
     '{"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"VR question"}]}]}'::jsonb,
-    1, 'multiple_choice', 'multiple_choice', 'single_choice'
+    1, 'multiple_choice', 'single_choice'
   );
 
 INSERT INTO public.question_sets (id, name, time_limit_seconds, status, access_scope, section_id)

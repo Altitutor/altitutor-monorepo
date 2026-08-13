@@ -15,7 +15,6 @@ const SerializedAnswerOptionSchema = z.object({
   // Allow full JSON structures (ProseMirror, etc.) for answer text/explanation.
   answer_text: z.unknown(),
   answer_explanation: z.unknown().nullable().optional(),
-  is_answer: z.boolean(),
   answer_key_value: z.enum(['correct', 'yes', 'no', 'most', 'least']).nullable(),
 })
 
@@ -27,7 +26,6 @@ const SerializedQuestionSchema = z.object({
   answer_explanation: z.unknown().nullable().optional(),
   difficulty: z.number().min(0).max(1).nullable().optional(),
   time_burden_seconds: z.number().int().positive().nullable().optional(),
-  question_type: z.enum(['multiple_choice', 'syllogism']),
   response_type: z.enum(['multiple_choice', 'drag_and_drop']),
   answer_scheme: z.enum([
     'single_choice',
@@ -75,7 +73,6 @@ function readinessValues(stem: SerializedStem): UcatQuestionStemFormValues {
     questions: stem.questions.map((question) => ({
       id: question.id ?? crypto.randomUUID(),
       questionText: json(question.question_text),
-      questionType: question.question_type,
       responseType: question.response_type,
       answerScheme: question.answer_scheme,
       answerExplanation: question.answer_explanation == null
@@ -96,7 +93,6 @@ function readinessValues(stem: SerializedStem): UcatQuestionStemFormValues {
         answerExplanation: option.answer_explanation == null
           ? null
           : json(option.answer_explanation),
-        isAnswer: option.is_answer,
         answerKeyValue: option.answer_key_value,
       })),
     })),

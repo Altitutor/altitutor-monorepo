@@ -35,9 +35,8 @@ export type UcatEnginePreviewQuestion = {
   stemJson?: Record<string, unknown> | null
   questionText: string
   questionJson?: Record<string, unknown> | null
-  questionType: 'multiple_choice' | 'syllogism'
-  responseType?: 'multiple_choice' | 'drag_and_drop'
-  answerScheme?:
+  responseType: 'multiple_choice' | 'drag_and_drop'
+  answerScheme:
     | 'single_choice'
     | 'situational_judgement_rating'
     | 'decision_making_binary_placement'
@@ -47,8 +46,7 @@ export type UcatEnginePreviewQuestion = {
     index: number
     text: string
     answerJson?: Record<string, unknown> | null
-    isAnswer?: boolean
-    answerKeyValue?: 'correct' | 'yes' | 'no' | 'most' | 'least' | null
+    answerKeyValue: 'correct' | 'yes' | 'no' | 'most' | 'least' | null
     answerExplanation?: string
     answerExplanationJson?: Record<string, unknown> | null
   }>
@@ -61,7 +59,7 @@ type PreviewShellProps = {
   /** Pre-refreshed rich JSON for instant images (optional). */
   preloadedStem?: Record<string, unknown> | null
   preloadedQuestion?: Record<string, unknown> | null
-  /** When true, shows MC/syllogism explanations like post-submit review. */
+  /** When true, shows single-choice/placement explanations like post-submit review. */
   showAnswerExplanations?: boolean
   /** When true, marks the submitted and correct answers without embedding explanations. */
   showAnswerResults?: boolean
@@ -277,10 +275,10 @@ function PlacementPreviewBody({
     (optionId: string): DragEventHandler<HTMLDivElement> =>
     (event) => {
       event.preventDefault()
-      const choice = event.dataTransfer.getData('ucat-syllogism-choice') as '' | PlacementValue
+      const choice = event.dataTransfer.getData('ucat-placement-value') as '' | PlacementValue
       if (choice !== positiveToken.value && choice !== negativeToken.value) return
 
-      const fromOptionId = event.dataTransfer.getData('ucat-syllogism-source') || null
+      const fromOptionId = event.dataTransfer.getData('ucat-placement-source') || null
 
       setAnswers((prev) => {
         return assignChoice(prev, optionId, choice, fromOptionId)
@@ -293,7 +291,7 @@ function PlacementPreviewBody({
 
   const handleTokenAreaDrop: DragEventHandler<HTMLDivElement> = (event) => {
     event.preventDefault()
-    const fromOptionId = event.dataTransfer.getData('ucat-syllogism-source') || null
+    const fromOptionId = event.dataTransfer.getData('ucat-placement-source') || null
     if (!fromOptionId) return
 
     setAnswers((prev) => {
@@ -455,11 +453,7 @@ function PlacementPreviewBody({
               option.answerKeyValue === positiveToken.value ||
               option.answerKeyValue === negativeToken.value
                 ? option.answerKeyValue
-                : answerScheme === 'decision_making_binary_placement'
-                  ? option.isAnswer
-                    ? positiveToken.value
-                    : negativeToken.value
-                  : null
+                : null
             const showReviewState = Boolean(showAnswerExplanations || showAnswerResults)
             const answerIsCorrect = choice != null && choice === correctChoice
             return (
@@ -515,8 +509,8 @@ function PlacementPreviewBody({
                         onDragStart={
                           interactive
                             ? (event) => {
-                                event.dataTransfer.setData('ucat-syllogism-choice', choice)
-                                event.dataTransfer.setData('ucat-syllogism-source', option.id)
+                                event.dataTransfer.setData('ucat-placement-value', choice)
+                                event.dataTransfer.setData('ucat-placement-source', option.id)
                                 event.dataTransfer.effectAllowed = 'move'
                               }
                             : undefined
@@ -570,8 +564,8 @@ function PlacementPreviewBody({
               onDragStart={
                 interactive
                   ? (event) => {
-                      event.dataTransfer.setData('ucat-syllogism-choice', positiveToken.value)
-                      event.dataTransfer.setData('ucat-syllogism-source', '')
+                      event.dataTransfer.setData('ucat-placement-value', positiveToken.value)
+                      event.dataTransfer.setData('ucat-placement-source', '')
                       event.dataTransfer.effectAllowed = 'copy'
                     }
                   : undefined
@@ -592,8 +586,8 @@ function PlacementPreviewBody({
               onDragStart={
                 interactive
                   ? (event) => {
-                      event.dataTransfer.setData('ucat-syllogism-choice', negativeToken.value)
-                      event.dataTransfer.setData('ucat-syllogism-source', '')
+                      event.dataTransfer.setData('ucat-placement-value', negativeToken.value)
+                      event.dataTransfer.setData('ucat-placement-source', '')
                       event.dataTransfer.effectAllowed = 'copy'
                     }
                   : undefined
@@ -705,8 +699,9 @@ function MultipleChoicePreviewBody({
           const letter = String.fromCharCode(65 + index)
           const showReviewState = Boolean(showAnswerExplanations || showAnswerResults)
           const selectedInReview = showReviewState && savedOptionId === option.id
-          const reviewHighlight = Boolean(showReviewState && option.isAnswer)
-          const incorrectHighlight = Boolean(selectedInReview && !option.isAnswer)
+          const isCorrect = option.answerKeyValue === 'correct'
+          const reviewHighlight = Boolean(showReviewState && isCorrect)
+          const incorrectHighlight = Boolean(selectedInReview && !isCorrect)
           const radioChecked = showReviewState ? selectedInReview : selectedOptionId === option.id
           return (
             <div key={option.id} className="space-y-0.5">
@@ -806,7 +801,7 @@ function MultipleChoicePreviewBody({
   )
 }
 
-/** Parity with ucat-web QuestionContent: fonts, two-column stem layout, MC radios, syllogism drag UI. */
+/** Parity with ucat-web QuestionContent: fonts, stem layout, single-choice radios, placement UI. */
 export function UcatQuestionEnginePreview({
   question,
   preloadedStem,
@@ -824,8 +819,7 @@ export function UcatQuestionEnginePreview({
 
   if (
     question.answerScheme === 'decision_making_binary_placement' ||
-    question.answerScheme === 'situational_judgement_most_least' ||
-    (!question.answerScheme && question.questionType === 'syllogism')
+    question.answerScheme === 'situational_judgement_most_least'
   ) {
     return wrapInteractive(
       <PlacementPreviewBody

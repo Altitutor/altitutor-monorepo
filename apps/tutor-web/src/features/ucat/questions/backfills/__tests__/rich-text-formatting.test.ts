@@ -407,7 +407,7 @@ describe("UCAT leaked rich-text formatting backfill", () => {
             {
               id: "00000000-0000-0000-0000-000000000003",
               index: 1,
-              is_answer: true,
+              answer_key_value: 'correct',
               answer_text: doc(
                 {
                   type: "image",
@@ -420,7 +420,7 @@ describe("UCAT leaked rich-text formatting backfill", () => {
             {
               id: "00000000-0000-0000-0000-000000000004",
               index: 2,
-              is_answer: false,
+              answer_key_value: null,
               answer_text: rich("B"),
               answer_explanation: null,
             },

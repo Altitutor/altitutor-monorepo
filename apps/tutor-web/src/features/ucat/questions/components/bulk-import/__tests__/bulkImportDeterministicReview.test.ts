@@ -13,11 +13,15 @@ function doc(text: string): Json {
   }
 }
 
-function options(labels: string[], correctIndex = 0, explanations = false) {
+function options(
+  labels: string[],
+  correctIndex = 0,
+  explanations = false,
+): UcatQuestionStemFormValues['questions'][number]['options'] {
   return labels.map((label, index) => ({
     answerText: doc(label),
     answerExplanation: explanations ? doc(`Explanation for ${label}.`) : null,
-    isAnswer: index === correctIndex,
+    answerKeyValue: index === correctIndex ? 'correct' : null,
   }))
 }
 
@@ -26,7 +30,7 @@ function question(
 ): UcatQuestionStemFormValues['questions'][number] {
   return {
     questionText: doc('Which answer is correct?'),
-    questionType: 'multiple_choice',
+    responseType: 'multiple_choice', answerScheme: 'single_choice',
     answerExplanation: doc('A complete teaching explanation.'),
     difficulty: null,
     timeBurdenSeconds: '',
@@ -107,10 +111,10 @@ describe('runBulkImportDeterministicReview', () => {
     expect(
       result.values.questions[0]?.options.map((option) => proseMirrorToPlainText(option.answerText)),
     ).toEqual(['True', 'False', "Can't Tell"])
-    expect(result.values.questions[0]?.options.map((option) => option.isAnswer)).toEqual([
-      true,
-      false,
-      false,
+    expect(result.values.questions[0]?.options.map((option) => option.answerKeyValue)).toEqual([
+      'correct',
+      null,
+      null,
     ])
     expect(result.issues).toEqual([])
     expect(result.fixes.filter((fix) => fix.code === 'vr_tfct_options')).toHaveLength(4)
@@ -138,12 +142,13 @@ describe('runBulkImportDeterministicReview', () => {
     expect(result.hasHardFailures).toBe(true)
   })
 
-  it('repairs canonical DM syllogism fields while gating missing statements and explanations', () => {
+  it('does not derive a response contract from the Decision Making category', () => {
     const result = runBulkImportDeterministicReview({
       values: stem([
         question({
           questionText: doc('Decide whether each follows.'),
-          questionType: 'multiple_choice',
+          responseType: 'multiple_choice',
+          answerScheme: 'single_choice',
           answerExplanation: null,
           options: options(['One', 'Two', 'Three', 'Four']),
         }),
@@ -152,22 +157,15 @@ describe('runBulkImportDeterministicReview', () => {
       categoryName: 'Syllogisms',
     })
 
-    expect(result.values.questions[0]?.questionType).toBe('syllogism')
+    expect(result.values.questions[0]).toMatchObject({
+      responseType: 'multiple_choice',
+      answerScheme: 'single_choice',
+    })
     expect(proseMirrorToPlainText(result.values.questions[0]?.questionText)).toBe(
-      "Place 'Yes' if the conclusion does follow. Place 'No' if the conclusion does not follow.",
+      'Decide whether each follows.',
     )
-    expect(result.fixes.map((fix) => fix.code)).toEqual([
-      'question_type',
-      'dm_syllogism_instruction',
-    ])
-    expect(result.issues).toEqual(expect.arrayContaining([
-      expect.objectContaining({ code: 'syllogism_option_count' }),
-      expect.objectContaining({
-        code: 'missing_syllogism_option_explanation',
-        scope: { type: 'option', questionIndex: 0, optionIndex: 0 },
-      }),
-    ]))
-    expect(result.issues.some((issue) => issue.code === 'missing_question_explanation')).toBe(false)
+    expect(result.fixes).toEqual([])
+    expect(result.issues).toContainEqual(expect.objectContaining({ code: 'missing_question_explanation' }))
   })
 
   it('blocks Decision Making stems that contain more than one question', () => {
@@ -252,7 +250,7 @@ describe('runBulkImportDeterministicReview', () => {
   it('enforces explanation completeness according to question type', () => {
     const mc = question({ answerExplanation: null })
     const syllogism = question({
-      questionType: 'syllogism',
+      responseType: 'drag_and_drop', answerScheme: 'decision_making_binary_placement',
       answerExplanation: doc('Optional overall strategy.'),
       options: options(['One', 'Two', 'Three', 'Four', 'Five'], 0, true),
     })
@@ -273,9 +271,63 @@ describe('runBulkImportDeterministicReview', () => {
       code: 'missing_question_explanation',
     }))
     expect(syllogismResult.issues).toContainEqual(expect.objectContaining({
-      code: 'missing_syllogism_option_explanation',
+      code: 'missing_placement_option_explanation',
       scope: { type: 'option', questionIndex: 0, optionIndex: 3 },
     }))
     expect(syllogismResult.issues.some((issue) => issue.code === 'missing_question_explanation')).toBe(false)
+  })
+
+  it('accepts Interpreting Information as either response contract', () => {
+    const placement = question({
+      questionText: doc("Place 'Yes' if the conclusion does follow. Place 'No' if the conclusion does not follow."),
+      responseType: 'drag_and_drop',
+      answerScheme: 'decision_making_binary_placement',
+      answerExplanation: null,
+      options: options(['One', 'Two', 'Three', 'Four', 'Five'], 0, true).map((option, index) => ({
+        ...option,
+        answerKeyValue: index % 2 === 0 ? 'yes' as const : 'no' as const,
+      })),
+    })
+    const multipleChoice = runBulkImportDeterministicReview({
+      values: stem([question()]),
+      sectionName: 'Decision Making',
+      categoryName: 'Interpreting Information and Drawing Conclusions',
+    })
+    const placementResult = runBulkImportDeterministicReview({
+      values: stem([placement]),
+      sectionName: 'Decision Making',
+      categoryName: 'Interpreting Information and Drawing Conclusions',
+    })
+
+    expect(multipleChoice.issues.map((issue) => issue.code)).not.toEqual(expect.arrayContaining([
+      'dm_category',
+      'dm_response_type',
+    ]))
+    expect(placementResult.issues.map((issue) => issue.code)).not.toEqual(expect.arrayContaining([
+      'dm_category',
+      'dm_response_type',
+    ]))
+  })
+
+  it('accepts Most/Least Appropriate without forcing a rating response', () => {
+    const result = runBulkImportDeterministicReview({
+      values: stem([question({
+        questionText: doc('Place the most and least appropriate actions.'),
+        responseType: 'drag_and_drop',
+        answerScheme: 'situational_judgement_most_least',
+        options: [
+          { answerText: doc('Reassure the patient'), answerExplanation: null, answerKeyValue: 'most' },
+          { answerText: doc('Escalate immediately'), answerExplanation: null, answerKeyValue: 'least' },
+          { answerText: doc('Ignore the concern'), answerExplanation: null, answerKeyValue: null },
+        ],
+      })]),
+      sectionName: 'Situational Judgement',
+      categoryName: 'Most/Least Appropriate',
+    })
+
+    expect(result.issues.map((issue) => issue.code)).not.toEqual(expect.arrayContaining([
+      'sjt_category',
+      'sj_response_type',
+    ]))
   })
 })

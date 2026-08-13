@@ -330,10 +330,9 @@ async function getRequiredQuestionIdsForBlock(
 }
 
 function attemptHasAnswer(row: {
-  question_answer_option_id: string | null;
   answer_snapshot: Json | null;
 }): boolean {
-  return row.question_answer_option_id != null || row.answer_snapshot != null;
+  return row.answer_snapshot != null;
 }
 
 /** Marks the block complete when every question in a question / stem block has a learn attempt with an answer. */
@@ -376,7 +375,7 @@ export async function maybeAutoCompleteQuestionBlock(
 
   const { data: attempts, error: attemptsError } = await supabase
     .from("student_question_attempts")
-    .select("question_id, question_answer_option_id, answer_snapshot")
+    .select("question_id, answer_snapshot")
     .eq("student_id", studentId)
     .eq("learning_module_block_id", blockId)
     .in("question_id", requiredIds);

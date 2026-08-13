@@ -2,33 +2,35 @@ import type { QuestionItem } from "@/features/question-engine/model/types";
 import { scorePracticeAnswers } from "@/lib/ucat/practice-sessions/complete-student-practice-session";
 
 describe("scorePracticeAnswers", () => {
-  it("derives multiple-choice and syllogism scores from server content", () => {
+  it("derives single-choice and placement scores from canonical responses", () => {
     const questions = [
       {
         id: "multiple-choice",
         stemId: "stem-1",
         sectionName: "Decision Making",
-        questionType: "multiple_choice",
+        responseType: "multiple_choice",
+    answerScheme: "single_choice",
         correctOptionId: "mc-correct",
         options: [
-          { id: "mc-wrong", index: 0, isAnswer: false },
-          { id: "mc-correct", index: 1, isAnswer: true },
+          { id: "mc-wrong", index: 0, answerKeyValue: null },
+          { id: "mc-correct", index: 1, answerKeyValue: "correct" },
         ],
       },
       {
         id: "syllogism",
         stemId: "stem-2",
         sectionName: "Decision Making",
-        questionType: "syllogism",
+        responseType: "drag_and_drop",
+    answerScheme: "decision_making_binary_placement",
         options: [
-          { id: "s-1", index: 0, isAnswer: true },
-          { id: "s-2", index: 1, isAnswer: false },
-          { id: "s-3", index: 2, isAnswer: true },
-          { id: "s-4", index: 3, isAnswer: false },
-          { id: "s-5", index: 4, isAnswer: true },
+          { id: "s-1", index: 0, answerKeyValue: "yes" },
+          { id: "s-2", index: 1, answerKeyValue: "no" },
+          { id: "s-3", index: 2, answerKeyValue: "yes" },
+          { id: "s-4", index: 3, answerKeyValue: "no" },
+          { id: "s-5", index: 4, answerKeyValue: "yes" },
         ],
       },
-    ] as QuestionItem[];
+    ] as unknown as QuestionItem[];
 
     const result = scorePracticeAnswers(
       questions,
@@ -37,23 +39,29 @@ describe("scorePracticeAnswers", () => {
           "multiple-choice",
           {
             questionId: "multiple-choice",
-            questionAnswerOptionId: "mc-correct",
+            answerSnapshot: {
+              type: "ucat_response_v1",
+              questionId: "multiple-choice",
+              answerScheme: "single_choice",
+              response: { kind: "single_select", selectedOptionId: "mc-correct" },
+            },
           },
         ],
         [
           "syllogism",
           {
             questionId: "syllogism",
-            questionAnswerOptionId: null,
             answerSnapshot: {
-              type: "syllogism_v1",
-              answers: [
-                { question_answer_option_id: "s-1", answer: true },
-                { question_answer_option_id: "s-2", answer: false },
-                { question_answer_option_id: "s-3", answer: true },
-                { question_answer_option_id: "s-4", answer: false },
-                { question_answer_option_id: "s-5", answer: true },
-              ],
+              type: "ucat_response_v1",
+              questionId: "syllogism",
+              answerScheme: "decision_making_binary_placement",
+              response: {
+                kind: "placement",
+                placements: {
+                  "s-1": "yes", "s-2": "no", "s-3": "yes",
+                  "s-4": "no", "s-5": "yes",
+                },
+              },
             },
           },
         ],

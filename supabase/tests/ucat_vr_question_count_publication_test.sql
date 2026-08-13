@@ -23,7 +23,8 @@ INSERT INTO public.ucat_questions (
   question_stem_id,
   question_text,
   index,
-  question_type
+  response_type,
+  answer_scheme
 )
 SELECT
   stem.id,
@@ -35,7 +36,8 @@ SELECT
     ))
   ),
   question_index,
-  'multiple_choice'
+  'multiple_choice',
+  'single_choice'
 FROM (
   VALUES
     ('a1300000-0000-4000-8000-000000000001'::uuid, 3),

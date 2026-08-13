@@ -66,14 +66,14 @@ describe('question stem form snapshot', () => {
       questions: [
         {
           questionText: docWithText,
-          questionType: 'multiple_choice',
+          responseType: 'multiple_choice', answerScheme: 'single_choice',
           answerExplanation: null,
           difficulty: null,
           timeBurdenSeconds: '90',
           tagIds: [],
           options: [
-            { answerText: docWithText, answerExplanation: null, isAnswer: true },
-            { answerText: emptyDoc, answerExplanation: null, isAnswer: false },
+            { answerText: docWithText, answerExplanation: null, answerKeyValue: 'correct' },
+            { answerText: emptyDoc, answerExplanation: null, answerKeyValue: null },
           ],
         },
       ],
@@ -92,14 +92,14 @@ describe('question stem form snapshot', () => {
       questions: [
         {
           questionText: docWithText,
-          questionType: 'multiple_choice',
+          responseType: 'multiple_choice', answerScheme: 'single_choice',
           answerExplanation: null,
           difficulty: null,
           timeBurdenSeconds: '90',
           tagIds: [],
           options: [
-            { answerText: docWithText, answerExplanation: null, isAnswer: true },
-            { answerText: structurallyDifferent, answerExplanation: null, isAnswer: false },
+            { answerText: docWithText, answerExplanation: null, answerKeyValue: 'correct' },
+            { answerText: structurallyDifferent, answerExplanation: null, answerKeyValue: null },
           ],
         },
       ],
@@ -117,14 +117,14 @@ describe('question stem form snapshot', () => {
       questions: [
         {
           questionText: docWithText,
-          questionType: 'multiple_choice',
+          responseType: 'multiple_choice', answerScheme: 'single_choice',
           answerExplanation: null,
           difficulty: null,
           timeBurdenSeconds: '90',
           tagIds: [],
           options: [
-            { answerText: docWithText, answerExplanation: null, isAnswer: true },
-            { answerText: emptyDoc, answerExplanation: null, isAnswer: false },
+            { answerText: docWithText, answerExplanation: null, answerKeyValue: 'correct' },
+            { answerText: emptyDoc, answerExplanation: null, answerKeyValue: null },
           ],
         },
       ],
@@ -138,14 +138,14 @@ describe('question stem form snapshot', () => {
       questions: [
         {
           questionText: docWithText,
-          questionType: 'multiple_choice',
+          responseType: 'multiple_choice', answerScheme: 'single_choice',
           answerExplanation: null,
           difficulty: null,
           timeBurdenSeconds: '90',
           tagIds: [],
           options: [
-            { answerText: docWithText, answerExplanation: null, isAnswer: true },
-            { answerText: emptyDoc, answerExplanation: null, isAnswer: false },
+            { answerText: docWithText, answerExplanation: null, answerKeyValue: 'correct' },
+            { answerText: emptyDoc, answerExplanation: null, answerKeyValue: null },
           ],
         },
       ],
@@ -164,9 +164,9 @@ describe('question stem form snapshot', () => {
       questions: [
         {
           questionText: docWithText,
-          questionType: 'multiple_choice',
+          responseType: 'multiple_choice', answerScheme: 'single_choice',
           options: [
-            { answerText: docWithText, answerExplanation: null, isAnswer: true },
+            { answerText: docWithText, answerExplanation: null, answerKeyValue: 'correct' },
           ],
         },
       ],
@@ -189,7 +189,7 @@ describe('question stem form snapshot', () => {
       questions: [
         {
           questionText: docWithText,
-          questionType: 'multiple_choice',
+          responseType: 'multiple_choice', answerScheme: 'single_choice',
           options: undefined,
         },
       ],

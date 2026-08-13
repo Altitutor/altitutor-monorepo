@@ -386,7 +386,7 @@ export function registerUcatMcpTools(
     {
       title: 'Create a draft question-stem bundle',
       description:
-        'Create a question stem plus its questions and answer options as a draft with codex_mcp AI provenance. Author questions with responseType, answerScheme, and option answerKeyValue. questionType and isAnswer are temporary rollback mirrors. Drafts may be incomplete but references and supplied structure must be valid.',
+        'Create a question stem plus its questions and answer options as a draft with codex_mcp AI provenance. Author questions with responseType, answerScheme, and option answerKeyValue. Drafts may be incomplete but references and supplied structure must be valid.',
       inputSchema: {
         idempotencyKey: IdempotencyKeySchema,
         sectionId: z.string().uuid(),
@@ -416,7 +416,7 @@ export function registerUcatMcpTools(
     {
       title: 'Update a draft or in-review question-stem bundle',
       description:
-        'Apply explicit add/update/move/remove operations to stem metadata, questions, and answer options. Change Response type, Answer scheme, or answerKeyValue rather than the legacy questionType/isAnswer mirrors. Omission never deletes. Published or stale-revision writes are rejected atomically.',
+        'Apply explicit add/update/move/remove operations to stem metadata, questions, and answer options. Omission never deletes. Published or stale-revision writes are rejected atomically.',
       inputSchema: {
         id: z.string().uuid(),
         revision: z.string().min(1),

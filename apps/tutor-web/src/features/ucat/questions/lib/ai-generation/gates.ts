@@ -272,8 +272,8 @@ function validateCommon(stem: GeneratedStem, stemIndex: number, issues: Generati
     const question = stem.questions[questionIndex]
     if (!question) continue
 
-    if (question.questionType === 'multiple_choice') {
-      const correctCount = question.options.filter((option) => option.isAnswer).length
+    if (question.responseType === 'multiple_choice') {
+      const correctCount = question.options.filter((option) => option.answerKeyValue === 'correct').length
       if (correctCount !== 1) {
         add(issues, 'blocking', 'multiple_choice_correct_count', 'Multiple-choice questions must have exactly one correct answer.', stemIndex, questionIndex)
       }
@@ -285,7 +285,7 @@ function validateCommon(stem: GeneratedStem, stemIndex: number, issues: Generati
       }
     }
 
-    if (question.questionType === 'syllogism') {
+    if (question.answerScheme === 'decision_making_binary_placement') {
       if (question.options.length !== 5) {
         add(issues, 'blocking', 'syllogism_option_count', 'Syllogism questions must have exactly five Yes/No statements.', stemIndex, questionIndex)
       }
@@ -362,8 +362,8 @@ function validateVr(stem: GeneratedStem, stemIndex: number, categoryName: string
   for (let questionIndex = 0; questionIndex < stem.questions.length; questionIndex += 1) {
     const question = stem.questions[questionIndex]
     if (!question) continue
-    if (question.questionType !== 'multiple_choice') {
-      add(issues, 'blocking', 'vr_question_type', 'Verbal Reasoning questions must be stored as multiple_choice.', stemIndex, questionIndex)
+    if (question.responseType !== 'multiple_choice') {
+      add(issues, 'blocking', 'vr_response_type', 'Verbal Reasoning questions must use multiple_choice.', stemIndex, questionIndex)
     }
     if (category === 'reading comprehension' && question.options.length !== 4) {
       add(issues, 'blocking', 'vr_reading_comprehension_options', 'Reading Comprehension questions must have exactly 4 options.', stemIndex, questionIndex)
@@ -390,13 +390,13 @@ function validateDm(stem: GeneratedStem, stemIndex: number, categoryName: string
     add(issues, 'blocking', 'dm_question_count', 'Decision Making stems must have exactly 1 question.', stemIndex)
   }
   const qText = norm(questionText(stem, 0))
-  if (category === 'syllogisms') {
+  if (stem.questions[0]?.answerScheme === 'decision_making_binary_placement') {
     const expected = norm("Place 'Yes' if the conclusion does follow. Place 'No' if the conclusion does not follow.")
     if (qText !== expected) {
       add(issues, 'blocking', 'dm_syllogism_question_text', 'Syllogism question text must match the required UCAT instruction.', stemIndex, 0)
     }
-    if (stem.questions[0]?.questionType !== 'syllogism') {
-      add(issues, 'blocking', 'dm_syllogism_question_type', 'Syllogism category questions must be stored as syllogism.', stemIndex, 0)
+    if (stem.questions[0]?.responseType !== 'drag_and_drop') {
+      add(issues, 'blocking', 'dm_placement_response_type', 'Binary placement questions must use drag_and_drop.', stemIndex, 0)
     }
   }
   if (category === 'recognising assumptions') {
@@ -623,8 +623,8 @@ function validateQr(
   targetedCategory: boolean
 ) {
   stem.questions.forEach((question, questionIndex) => {
-    if (question.questionType !== 'multiple_choice') {
-      add(issues, 'blocking', 'qr_question_type', 'Quantitative Reasoning questions must be stored as multiple_choice.', stemIndex, questionIndex)
+    if (question.responseType !== 'multiple_choice') {
+      add(issues, 'blocking', 'qr_response_type', 'Quantitative Reasoning questions must use multiple_choice.', stemIndex, questionIndex)
     }
     if (question.options.length !== 5) {
       add(issues, 'blocking', 'qr_option_count', 'Quantitative Reasoning questions must have exactly 5 answer options.', stemIndex, questionIndex)
@@ -876,8 +876,8 @@ function validateSj(stem: GeneratedStem, stemIndex: number, categoryName: string
   }
 
   stem.questions.forEach((question, questionIndex) => {
-    if (question.questionType !== 'multiple_choice') {
-      add(issues, 'blocking', 'sj_question_type', 'Situational Judgement questions must be stored as multiple_choice.', stemIndex, questionIndex)
+    if (question.responseType !== 'multiple_choice') {
+      add(issues, 'blocking', 'sj_response_type', 'Situational Judgement rating questions must use multiple_choice.', stemIndex, questionIndex)
     }
     if (question.options.length !== 4) {
       add(issues, 'blocking', 'sj_option_count', 'Situational Judgement questions must have exactly 4 options.', stemIndex, questionIndex)

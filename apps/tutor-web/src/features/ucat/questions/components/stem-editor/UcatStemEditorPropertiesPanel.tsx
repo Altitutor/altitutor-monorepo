@@ -505,7 +505,8 @@ export function UcatStemEditorPropertiesPanel({
           questionText: plainTextToProseMirrorWithLineBreaks(
             typeof input.questionText === 'string' ? input.questionText : 'New question',
           ),
-          questionType: 'multiple_choice' as const,
+          responseType: 'multiple_choice' as const,
+          answerScheme: 'single_choice' as const,
           answerExplanation:
             typeof input.answerExplanation === 'string' && input.answerExplanation.trim()
               ? aiTextToProseMirror(input.answerExplanation)
@@ -523,7 +524,7 @@ export function UcatStemEditorPropertiesPanel({
                 return {
                   answerText: plainTextToProseMirror(typeof record.answerText === 'string' ? record.answerText : ''),
                   answerExplanation: null,
-                  isAnswer: record.isAnswer === true,
+                  answerKeyValue: record.answerKeyValue === 'correct' ? 'correct' as const : null,
                 }
               })
             : [...DEFAULT_OPTIONS],
@@ -574,7 +575,14 @@ export function UcatStemEditorPropertiesPanel({
             {
               answerText: plainTextToProseMirror(typeof input.answerText === 'string' ? input.answerText : ''),
               answerExplanation: null,
-              isAnswer: input.isAnswer === true,
+              answerKeyValue:
+                input.answerKeyValue === 'correct' ||
+                input.answerKeyValue === 'yes' ||
+                input.answerKeyValue === 'no' ||
+                input.answerKeyValue === 'most' ||
+                input.answerKeyValue === 'least'
+                  ? input.answerKeyValue
+                  : null,
             },
           ],
           { shouldDirty: true },
@@ -591,8 +599,15 @@ export function UcatStemEditorPropertiesPanel({
         if (typeof input.answerExplanation === 'string') {
           form.setValue(`questions.${questionIndex}.options.${optionIndex}.answerExplanation`, aiTextToProseMirror(input.answerExplanation), { shouldDirty: true })
         }
-        if (typeof input.isAnswer === 'boolean') {
-          form.setValue(`questions.${questionIndex}.options.${optionIndex}.isAnswer`, input.isAnswer, { shouldDirty: true })
+        if (
+          input.answerKeyValue === null ||
+          input.answerKeyValue === 'correct' ||
+          input.answerKeyValue === 'yes' ||
+          input.answerKeyValue === 'no' ||
+          input.answerKeyValue === 'most' ||
+          input.answerKeyValue === 'least'
+        ) {
+          form.setValue(`questions.${questionIndex}.options.${optionIndex}.answerKeyValue`, input.answerKeyValue, { shouldDirty: true })
         }
         return { toolCallId: toolCall.id, ok: true, message: `Updated answer option ${optionIndex + 1}.` }
 
@@ -604,7 +619,7 @@ export function UcatStemEditorPropertiesPanel({
           `questions.${questionIndex}.options`,
           current.questions[questionIndex].options.map((option, index) => ({
             ...option,
-            isAnswer: index === optionIndex,
+            answerKeyValue: index === optionIndex ? 'correct' as const : null,
           })),
           { shouldDirty: true },
         )

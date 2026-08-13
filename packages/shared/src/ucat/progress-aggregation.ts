@@ -6,7 +6,6 @@ import {
 type AttemptWithProgressFields = {
   questionId: string;
   questionStemId?: string | null;
-  questionType?: string | null;
   answerScheme?:
     | 'single_choice'
     | 'situational_judgement_rating'
@@ -29,12 +28,12 @@ export function sumCorrectScoreFromAttempts(
 export function sumProgressPointsFromAttempts(
   attempts: AttemptWithProgressFields[],
 ): number {
-  const countedSyllogismStems = new Set<string>();
+  const countedGroupedStems = new Set<string>();
   let points = 0;
   for (const attempt of attempts) {
     points += progressPointsForQuestion(
       toProgressQuestionRef(attempt),
-      countedSyllogismStems,
+      countedGroupedStems,
     );
   }
   return points;
@@ -66,7 +65,7 @@ export function accumulateProgressByKey<T extends AttemptWithProgressFields>(
 type ProgressBucket = {
   correct: number;
   max: number;
-  syllogismStems: Set<string>;
+  countedGroupedStems: Set<string>;
 };
 
 export function getOrCreateProgressBucket(
@@ -78,7 +77,7 @@ export function getOrCreateProgressBucket(
   const bucket: ProgressBucket = {
     correct: 0,
     max: 0,
-    syllogismStems: new Set<string>(),
+    countedGroupedStems: new Set<string>(),
   };
   map.set(key, bucket);
   return bucket;
@@ -91,6 +90,6 @@ export function accumulateProgressAttempt(
   bucket.correct += attempt.score ?? 0;
   bucket.max += progressPointsForQuestion(
     toProgressQuestionRef(attempt),
-    bucket.syllogismStems,
+    bucket.countedGroupedStems,
   );
 }

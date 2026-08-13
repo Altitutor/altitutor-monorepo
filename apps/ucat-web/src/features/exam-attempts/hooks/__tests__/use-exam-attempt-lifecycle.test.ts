@@ -96,7 +96,7 @@ function createState(): QuestionEngineState {
     visitedQuestionIds: [],
     flaggedIds: [],
     selectedAnswers: {},
-    syllogismSnapshots: {},
+    placementSnapshots: {},
     showNavigator: false,
     showCalculator: false,
     showEndExamDialog: false,
@@ -129,7 +129,6 @@ const exam: QuestionEngineExam = {
       sectionDisplayColumns: 1,
       stemText: "Stem",
       questionText: "Question",
-      questionType: "multiple_choice",
       responseType: "multiple_choice",
       answerScheme: "single_choice",
       options: [
@@ -162,7 +161,7 @@ function createAttempt(
       visitedQuestionIds: state.visitedQuestionIds,
       flaggedIds: state.flaggedIds,
       selectedAnswers: state.selectedAnswers,
-      syllogismSnapshots: state.syllogismSnapshots,
+      placementSnapshots: state.placementSnapshots,
       reviewFilter: state.reviewFilter,
       reviewFilterIndex: state.reviewFilterIndex,
       reviewFilterIndicesSnapshot: state.reviewFilterIndicesSnapshot,
@@ -631,8 +630,8 @@ describe("sanitizeEngineSnapshotForExam", () => {
       "stale-question": "stale-option",
       "question-1": "option-1",
     };
-    stale.syllogismSnapshots = {
-      "stale-question": { "stale-option": true },
+    stale.placementSnapshots = {
+      "stale-question": { "stale-option": "yes" },
     };
 
     expect(sanitizeEngineSnapshotForExam(exam, stale)).toMatchObject({
@@ -641,7 +640,7 @@ describe("sanitizeEngineSnapshotForExam", () => {
       visitedQuestionIds: ["question-1"],
       flaggedIds: [],
       selectedAnswers: { "question-1": "option-1" },
-      syllogismSnapshots: {},
+      placementSnapshots: {},
     });
   });
 

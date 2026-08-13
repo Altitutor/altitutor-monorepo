@@ -143,7 +143,6 @@ async function completeStudentMockAttempt(
     const list = answersByQuestionSetId.get(answer.questionSetId) ?? [];
     list.push({
       questionId: answer.questionId,
-      questionAnswerOptionId: answer.questionAnswerOptionId,
       answerSnapshot: answer.answerSnapshot,
       isFlagged: answer.isFlagged,
       wasTimed: answer.wasTimed,

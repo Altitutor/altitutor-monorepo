@@ -42,7 +42,7 @@ export function CollapsibleAnswerQuestionCard({
     questionTextDoc,
     options,
     answerLetter,
-    syllogismPattern,
+    placementPattern,
     explanationPreviewDoc,
     hasExplanation,
     isParsed,
@@ -55,8 +55,8 @@ export function CollapsibleAnswerQuestionCard({
   const answerLabel = isParsed
     ? answerLetter != null
       ? answerLetter
-      : syllogismPattern != null
-        ? syllogismPattern
+      : placementPattern != null
+        ? placementPattern
         : '—'
     : null
 
@@ -122,7 +122,7 @@ export function CollapsibleAnswerQuestionCard({
         <ul className="mt-2 space-y-1.5 border-t border-border/60 pt-2">
           {options.map((option) => (
             <li key={option.label} className="leading-relaxed">
-              {preview.row.isSyllogism ? (
+              {preview.row.isPlacement ? (
                 <span className="mr-2 font-medium text-muted-foreground">•</span>
               ) : (
                 <span className="font-medium text-muted-foreground">

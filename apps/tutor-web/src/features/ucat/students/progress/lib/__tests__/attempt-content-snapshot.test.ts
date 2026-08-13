@@ -1,14 +1,14 @@
 import {
   parseAttemptContentSnapshot,
-  parseLegacyPlacementProjection,
+  parsePlacementProjection,
   projectAttemptReview,
   resultForAttempt,
   snapshotToReviewQuestion,
   type AttemptReviewQuestion,
 } from '../attempt-content-snapshot'
 
-describe('legacy tutor attempt snapshots', () => {
-  it('infers the Decision Making contract before scoring and review', () => {
+describe('canonical tutor attempt snapshots', () => {
+  it('uses the Decision Making contract for scoring and review', () => {
     const snapshot = parseAttemptContentSnapshot({
       schemaVersion: 1,
       stem: { id: 'stem-1', stemText: 'Legacy stem' },
@@ -16,13 +16,14 @@ describe('legacy tutor attempt snapshots', () => {
         id: 'question-1',
         questionText: 'Which conclusions follow?',
         index: 0,
-        questionType: 'syllogism',
+        responseType: 'drag_and_drop',
+        answerScheme: 'decision_making_binary_placement',
       },
       answerOptions: Array.from({ length: 5 }, (_, index) => ({
         id: `option-${index + 1}`,
         index,
         answerText: `Conclusion ${index + 1}`,
-        isAnswer: index < 3,
+        answerKeyValue: index < 3 ? 'yes' : 'no',
       })),
     })
 
@@ -38,12 +39,12 @@ describe('legacy tutor attempt snapshots', () => {
 
     const review = projectAttemptReview({
       question: snapshotToReviewQuestion(snapshot, 1, 'set-1'),
-      legacyPlacementSnapshot: {
-        'option-1': true,
-        'option-2': true,
-        'option-3': true,
-        'option-4': false,
-        'option-5': true,
+      placementSnapshot: {
+        'option-1': 'yes',
+        'option-2': 'yes',
+        'option-3': 'yes',
+        'option-4': 'no',
+        'option-5': 'yes',
       },
     })
 
@@ -63,8 +64,7 @@ describe('legacy tutor attempt snapshots', () => {
       sectionDisplayColumns: 1,
       stemText: 'Scenario',
       questionText: 'Choose Most and Least.',
-      questionType: 'multiple_choice',
-      responseType: 'drag_and_drop',
+       responseType: 'drag_and_drop',
       answerScheme: 'situational_judgement_most_least',
       options: [
         { id: 'a', index: 0, text: 'Action A', answerKeyValue: 'most' },
@@ -73,7 +73,7 @@ describe('legacy tutor attempt snapshots', () => {
       ],
     }
 
-    const persistedProjection = parseLegacyPlacementProjection({
+    const persistedProjection = parsePlacementProjection({
       type: 'ucat_response_v1',
       questionId: 'most-least',
       answerScheme: 'situational_judgement_most_least',
@@ -82,11 +82,11 @@ describe('legacy tutor attempt snapshots', () => {
         placements: { a: 'most', c: 'least' },
       },
     })
-    expect(persistedProjection).toEqual({ a: true, c: false })
+    expect(persistedProjection).toEqual({ a: 'most', c: 'least' })
 
     expect(projectAttemptReview({
       question,
-      legacyPlacementSnapshot: persistedProjection,
+      placementSnapshot: persistedProjection,
     })).toMatchObject({
       kind: 'placement',
       outcome: 'correct',

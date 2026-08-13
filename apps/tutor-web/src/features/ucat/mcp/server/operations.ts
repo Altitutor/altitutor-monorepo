@@ -23,7 +23,6 @@ export type StemAnswerOptionDraft = {
   answer_text: Json
   answer_explanation: Json | null
   index: number
-  is_answer: boolean
   answer_key_value: 'correct' | 'yes' | 'no' | 'most' | 'least' | null
 }
 
@@ -34,7 +33,6 @@ export type StemQuestionDraft = {
   index: number
   difficulty: number | null
   time_burden_seconds: number | null
-  question_type: 'multiple_choice' | 'syllogism'
   response_type: 'multiple_choice' | 'drag_and_drop'
   answer_scheme: 'single_choice' | 'situational_judgement_rating' | 'decision_making_binary_placement' | 'situational_judgement_most_least'
   source_channel: 'individual' | 'bulk_import' | 'ai_generation'
@@ -189,22 +187,13 @@ function removeById<T extends { id?: string }>(items: T[], id: string, label: st
   items.splice(index, 1)
 }
 
-function asQuestionType(value: unknown): StemQuestionDraft['question_type'] {
-  return value === 'syllogism' ? 'syllogism' : 'multiple_choice'
-}
-
-function asResponseType(
-  value: unknown,
-  questionType: StemQuestionDraft['question_type'],
-): StemQuestionDraft['response_type'] {
+function asResponseType(value: unknown): StemQuestionDraft['response_type'] {
   if (value === 'drag_and_drop' || value === 'multiple_choice') return value
-  return questionType === 'syllogism' ? 'drag_and_drop' : 'multiple_choice'
+  throw new Error('Question is missing its canonical response type')
 }
 
 function asAnswerScheme(
   value: unknown,
-  questionType: StemQuestionDraft['question_type'],
-  responseType: StemQuestionDraft['response_type'],
 ): StemQuestionDraft['answer_scheme'] {
   if (
     value === 'single_choice'
@@ -214,16 +203,12 @@ function asAnswerScheme(
   ) {
     return value
   }
-  if (questionType === 'syllogism' || responseType === 'drag_and_drop') {
-    return 'decision_making_binary_placement'
-  }
-  return 'single_choice'
+  throw new Error('Question is missing its canonical answer scheme')
 }
 
 function asAnswerKeyValue(
   value: unknown,
   answerScheme: StemQuestionDraft['answer_scheme'],
-  isAnswer: boolean,
 ): StemAnswerOptionDraft['answer_key_value'] {
   if (
     value === 'correct'
@@ -234,46 +219,22 @@ function asAnswerKeyValue(
   ) {
     return value
   }
-  if (answerScheme === 'decision_making_binary_placement') {
-    return isAnswer ? 'yes' : 'no'
-  }
-  if (answerScheme === 'situational_judgement_most_least') return null
-  return isAnswer ? 'correct' : null
-}
-
-function questionTypeFromContract(
-  responseType: StemQuestionDraft['response_type'],
-  answerScheme: StemQuestionDraft['answer_scheme'],
-): StemQuestionDraft['question_type'] {
-  return responseType === 'drag_and_drop'
-    || answerScheme === 'decision_making_binary_placement'
-    ? 'syllogism'
-    : 'multiple_choice'
-}
-
-function isAnswerFromKey(
-  answerKeyValue: StemAnswerOptionDraft['answer_key_value'],
-): boolean {
-  return answerKeyValue === 'correct'
-    || answerKeyValue === 'yes'
-    || answerKeyValue === 'most'
-    || answerKeyValue === 'least'
+  if (value === null) return null
+  throw new Error(`Answer option is missing a canonical key for ${answerScheme}`)
 }
 
 function optionFromInput(
   option: QuestionInput['options'][number],
-  answerScheme?: StemQuestionDraft['answer_scheme'],
+  answerScheme: StemQuestionDraft['answer_scheme'],
 ): StemAnswerOptionDraft {
   const answerKeyValue = asAnswerKeyValue(
     option.answerKeyValue,
-    answerScheme ?? 'single_choice',
-    option.isAnswer,
+    answerScheme,
   )
   return {
     answer_text: toRichTextJson(option.answerText) ?? {},
     answer_explanation: toRichTextJson(option.answerExplanation ?? null),
     index: 0,
-    is_answer: isAnswerFromKey(answerKeyValue),
     answer_key_value: answerKeyValue,
   }
 }
@@ -289,7 +250,6 @@ export function questionFromInput(question: QuestionInput): StemQuestionDraft {
     declaredResponseType: question.responseType,
     declaredAnswerScheme: question.answerScheme,
     answerKeyValues: question.options.map((option) => option.answerKeyValue ?? null),
-    legacyIsAnswerValues: question.options.map((option) => option.isAnswer),
   })
   if (reconciled.conflicts.length > 0) {
     throw new Error('Question response fields conflict with structural or answer evidence')
@@ -300,7 +260,6 @@ export function questionFromInput(question: QuestionInput): StemQuestionDraft {
     index: 0,
     difficulty: question.difficulty ?? null,
     time_burden_seconds: question.timeBurdenSeconds ?? null,
-    question_type: questionTypeFromContract(reconciled.responseType, reconciled.answerScheme),
     response_type: reconciled.responseType,
     answer_scheme: reconciled.answerScheme,
     source_channel: 'ai_generation',
@@ -309,7 +268,7 @@ export function questionFromInput(question: QuestionInput): StemQuestionDraft {
     },
     tag_ids: [...question.tagIds],
     answer_options: question.options.map((option, optionIndex) => ({
-      ...optionFromInput(option),
+      ...optionFromInput(option, reconciled.answerScheme),
       answer_key_value: reconciled.answerKeyValues[optionIndex] ?? null,
     })),
   }
@@ -332,13 +291,8 @@ export function questionStemDraftFromDetail(detail: Record<string, unknown>): Qu
       ? rawQuestion.answer_options
       : []
     const tags = Array.isArray(rawQuestion.tags) ? rawQuestion.tags : []
-    const questionType = asQuestionType(rawQuestion.question_type)
-    const responseType = asResponseType(rawQuestion.response_type, questionType)
-    const answerScheme = asAnswerScheme(
-      rawQuestion.answer_scheme,
-      questionType,
-      responseType,
-    )
+    const responseType = asResponseType(rawQuestion.response_type)
+    const answerScheme = asAnswerScheme(rawQuestion.answer_scheme)
     return {
       id: asString(rawQuestion.id, 'Question id'),
       question_text: asJson(rawQuestion.question_text, {}),
@@ -346,7 +300,6 @@ export function questionStemDraftFromDetail(detail: Record<string, unknown>): Qu
       index: asNumber(rawQuestion.index, 1),
       difficulty: asNullableNumber(rawQuestion.difficulty),
       time_burden_seconds: asNullableNumber(rawQuestion.time_burden_seconds),
-      question_type: questionType,
       response_type: responseType,
       answer_scheme: answerScheme,
       source_channel: rawQuestion.source_channel === 'bulk_import'
@@ -366,11 +319,9 @@ export function questionStemDraftFromDetail(detail: Record<string, unknown>): Qu
           answer_text: asJson(rawOption.answer_text, {}),
           answer_explanation: asJson(rawOption.answer_explanation, null),
           index: asNumber(rawOption.index, 1),
-          is_answer: rawOption.is_answer === true,
           answer_key_value: asAnswerKeyValue(
             rawOption.answer_key_value,
             answerScheme,
-            rawOption.is_answer === true,
           ),
         }
       }),
@@ -399,7 +350,6 @@ export function toStemRpcQuestions(draft: QuestionStemDraft): Json {
     answer_explanation: question.answer_explanation,
     difficulty: question.difficulty,
     time_burden_seconds: question.time_burden_seconds,
-    question_type: question.question_type,
     response_type: question.response_type,
     answer_scheme: question.answer_scheme,
     source_channel: question.source_channel,
@@ -410,7 +360,6 @@ export function toStemRpcQuestions(draft: QuestionStemDraft): Json {
       index: option.index,
       answer_text: option.answer_text,
       answer_explanation: option.answer_explanation,
-      is_answer: option.is_answer,
       answer_key_value: option.answer_key_value,
     })),
   })) as Json
@@ -459,23 +408,6 @@ export function applyQuestionStemOperations(
       }
       if (changes.responseType !== undefined) question.response_type = changes.responseType
       if (changes.answerScheme !== undefined) question.answer_scheme = changes.answerScheme
-      if (changes.questionType !== undefined && changes.responseType === undefined) {
-        question.question_type = changes.questionType
-        question.response_type = asResponseType(undefined, changes.questionType)
-        if (changes.answerScheme === undefined) {
-          question.answer_scheme = asAnswerScheme(
-            undefined,
-            changes.questionType,
-            question.response_type,
-          )
-        }
-      }
-      if (changes.responseType !== undefined || changes.answerScheme !== undefined) {
-        question.question_type = questionTypeFromContract(
-          question.response_type,
-          question.answer_scheme,
-        )
-      }
       if (changes.answerExplanation !== undefined) {
         question.answer_explanation = toRichTextJson(changes.answerExplanation)
       }
@@ -516,19 +448,8 @@ export function applyQuestionStemOperations(
     if (operation.changes.answerExplanation !== undefined) {
       option.answer_explanation = toRichTextJson(operation.changes.answerExplanation)
     }
-    if (operation.changes.isAnswer !== undefined) {
-      option.is_answer = operation.changes.isAnswer
-      if (operation.changes.answerKeyValue === undefined) {
-        option.answer_key_value = asAnswerKeyValue(
-          undefined,
-          question.answer_scheme,
-          operation.changes.isAnswer,
-        )
-      }
-    }
     if (operation.changes.answerKeyValue !== undefined) {
       option.answer_key_value = operation.changes.answerKeyValue
-      option.is_answer = isAnswerFromKey(operation.changes.answerKeyValue)
     }
   }
 

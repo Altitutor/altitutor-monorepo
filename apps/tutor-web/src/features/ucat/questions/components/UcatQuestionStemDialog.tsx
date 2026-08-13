@@ -233,7 +233,6 @@ export function UcatQuestionStemDialog({
         questions: [
           {
             questionText: EMPTY_DOC,
-            questionType: 'multiple_choice',
             responseType: 'multiple_choice',
             answerScheme: 'single_choice',
             answerExplanation: null,
@@ -255,12 +254,14 @@ export function UcatQuestionStemDialog({
     const nextValues = buildEmptyStemFormValues(values.sectionId)
     const previousQuestions = values.questions?.length ? values.questions : nextValues.questions
     const nextQuestions = previousQuestions.map((question) => {
-      const questionType = question.questionType ?? 'multiple_choice'
+      const responseType = question.responseType
+      const answerScheme = question.answerScheme
       return {
         ...nextValues.questions[0]!,
-        questionType,
+        responseType,
+        answerScheme,
         questionText:
-          questionType === 'syllogism'
+          responseType === 'drag_and_drop'
             ? question.questionText
             : EMPTY_DOC,
         answerExplanation: null,
@@ -270,11 +271,10 @@ export function UcatQuestionStemDialog({
         sourceChannel: 'individual' as const,
         aiGenerationMetadata: null,
         options:
-          questionType === 'syllogism'
+          responseType === 'drag_and_drop'
             ? Array.from({ length: 5 }, () => ({
                 answerText: EMPTY_DOC,
                 answerExplanation: null,
-                isAnswer: false,
                 answerKeyValue: 'no' as const,
               }))
             : [...DEFAULT_OPTIONS],

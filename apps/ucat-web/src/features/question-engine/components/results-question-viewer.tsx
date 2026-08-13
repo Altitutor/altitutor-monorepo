@@ -13,6 +13,7 @@ import {
 } from "@altitutor/ui";
 import type {
   AnswerOption,
+  PlacementSnapshot,
   QuestionItem,
 } from "@/features/question-engine/model/types";
 import type { CachedContent } from "@/features/question-engine/hooks/use-refreshed-content-cache";
@@ -181,12 +182,12 @@ function QuestionPointsFooter({
   );
 }
 
-const syllogismAnswerWrongClass = (site: boolean) =>
+const placementAnswerWrongClass = (site: boolean) =>
   site
     ? "border-red-700 bg-red-50 text-red-800 dark:bg-red-950/40 dark:text-red-300"
     : "border-red-700 bg-red-50 text-red-800";
 
-const syllogismAnswerCorrectClass = (site: boolean) =>
+const placementAnswerCorrectClass = (site: boolean) =>
   site
     ? "border-green-700 bg-green-50 text-green-800 dark:bg-green-950/40 dark:text-green-300"
     : "border-green-700 bg-green-50 text-green-800";
@@ -301,7 +302,7 @@ export function ResultsQuestionViewer({
   selectedOptionId,
   correctOptionId,
   points,
-  syllogismSnapshot,
+  placementSnapshot,
   review,
   preloadedContent,
   variant = "ucat",
@@ -312,7 +313,7 @@ export function ResultsQuestionViewer({
   selectedOptionId?: string;
   correctOptionId?: string;
   points?: number;
-  syllogismSnapshot?: Record<string, boolean>;
+  placementSnapshot?: PlacementSnapshot;
   /** Canonical evaluator projection; computed here only when a caller has not supplied it. */
   review?: ReviewContract;
   /** Pre-refreshed stem/question content for instant image display. */
@@ -336,7 +337,7 @@ export function ResultsQuestionViewer({
     review ??
     evaluatePersistedQuestionResponse(
       question,
-      snapshotQuestionResponse(question, selectedOptionId, syllogismSnapshot),
+      snapshotQuestionResponse(question, selectedOptionId, placementSnapshot),
     ).review;
 
   useEffect(() => {
@@ -384,10 +385,10 @@ export function ResultsQuestionViewer({
       isAttemptReview &&
       points != null &&
       points > 0 &&
-      syllogismSnapshot == null;
-    const isReviewingSyllogism = syllogismSnapshot != null;
+      placementSnapshot == null;
+    const isReviewingPlacement = placementSnapshot != null;
     const showStudentsColumn = rows.some((row) => row.hasStats);
-    const syllogismGridCols = showStudentsColumn
+    const placementGridCols = showStudentsColumn
       ? "grid-cols-[minmax(0,3fr)_minmax(0,1.4fr)_minmax(0,1.4fr)_minmax(0,1.2fr)]"
       : "grid-cols-[minmax(0,3fr)_minmax(0,1.4fr)_minmax(0,1.4fr)]";
     const isDestinationFirst =
@@ -439,7 +440,7 @@ export function ResultsQuestionViewer({
             <div
               className={cn(
                 "grid gap-x-1 gap-y-0.5 pl-4 pr-3",
-                syllogismGridCols,
+                placementGridCols,
                 theme.gridHeader,
               )}
             >
@@ -461,7 +462,7 @@ export function ResultsQuestionViewer({
                   pct,
                   barWidth,
                 }) => {
-                  const rowHighlight = isReviewingSyllogism
+                  const rowHighlight = isReviewingPlacement
                     ? isCorrect
                       ? "correct"
                       : "wrong"
@@ -478,7 +479,7 @@ export function ResultsQuestionViewer({
                       key={option.id}
                       className={cn(
                         "grid items-stretch gap-x-1 gap-y-1 rounded py-0.5 pl-4 pr-3",
-                        syllogismGridCols,
+                        placementGridCols,
                         rowBgClass,
                       )}
                     >
@@ -514,16 +515,16 @@ export function ResultsQuestionViewer({
                             "flex h-9 w-20 items-center justify-center rounded border font-medium",
                             theme.site ? "text-sm" : "text-[11pt]",
                             rowHighlight === "correct"
-                              ? syllogismAnswerCorrectClass(theme.site)
+                              ? placementAnswerCorrectClass(theme.site)
                               : rowHighlight === "wrong"
-                                ? syllogismAnswerWrongClass(theme.site)
+                                ? placementAnswerWrongClass(theme.site)
                                 : studentToken == null
                                   ? theme.site
                                     ? "border-dashed border-muted-foreground/50 text-muted-foreground"
                                     : "border-dashed border-[#9ca3af] text-[#9ca3af]"
                                   : isCorrect
-                                    ? syllogismAnswerCorrectClass(theme.site)
-                                    : syllogismAnswerWrongClass(theme.site),
+                                    ? placementAnswerCorrectClass(theme.site)
+                                    : placementAnswerWrongClass(theme.site),
                           )}
                         >
                           {studentToken == null

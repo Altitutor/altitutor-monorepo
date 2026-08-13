@@ -18,8 +18,7 @@ function formValues(status: 'in_review' | 'published'): UcatQuestionStemFormValu
     questions: [
       {
         questionText: plainTextToProseMirror('Which option is correct?'),
-        questionType: 'multiple_choice',
-        responseType: 'multiple_choice',
+         responseType: 'multiple_choice',
         answerScheme: 'single_choice',
         answerExplanation: plainTextToProseMirror('Option A is correct.'),
         tagIds: [],
@@ -27,13 +26,11 @@ function formValues(status: 'in_review' | 'published'): UcatQuestionStemFormValu
           {
             answerText: plainTextToProseMirror('Option A'),
             answerExplanation: null,
-            isAnswer: true,
             answerKeyValue: 'correct',
           },
           {
             answerText: plainTextToProseMirror('Option B'),
             answerExplanation: null,
-            isAnswer: false,
             answerKeyValue: null,
           },
         ],
@@ -104,7 +101,6 @@ describe('persistStemFormValues', () => {
         index: 1,
         difficulty: null,
         time_burden_seconds: null,
-        question_type: 'syllogism',
         response_type: 'drag_and_drop',
         answer_scheme: 'decision_making_binary_placement',
         answer_options: Array.from({ length: 5 }, (_, index) => ({
@@ -112,7 +108,6 @@ describe('persistStemFormValues', () => {
           answer_text: plainTextToProseMirror(`Statement ${index + 1}`),
           answer_explanation: null,
           index: index + 1,
-          is_answer: index < 2,
           answer_key_value: index < 2 ? 'yes' : 'no',
         })),
       }],
@@ -136,17 +131,15 @@ describe('persistStemFormValues', () => {
     ])
   })
 
-  it('repairs the legacy no fallback for an unkeyed Most/Least action', () => {
+  it('preserves an unkeyed Most/Least action', () => {
     const values = formValues('in_review')
     const question = values.questions[0]!
-    question.questionType = 'syllogism'
     question.responseType = 'drag_and_drop'
     question.answerScheme = 'situational_judgement_most_least'
-    question.options = ['most', 'least', 'no'].map((answerKeyValue, index) => ({
+    question.options = ['most', 'least', null].map((answerKeyValue, index) => ({
       answerText: plainTextToProseMirror(`Action ${index + 1}`),
       answerExplanation: null,
-      isAnswer: answerKeyValue === 'most' || answerKeyValue === 'least',
-      answerKeyValue: answerKeyValue as 'most' | 'least' | 'no',
+      answerKeyValue: answerKeyValue as 'most' | 'least' | null,
     }))
 
     const payload = formValuesToStemBundlePayload(values)

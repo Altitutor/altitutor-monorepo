@@ -35,7 +35,7 @@ const SECTION_PROMPTS: Record<AiGenerationSectionKey, string> = {
 - Candidate must fit one of these categories: Syllogisms, Recognising Assumptions, Venn Diagrams, Probabilistic and Statistical Reasoning, Logical Puzzles.
 - Generate exactly 1 question per stem.
 - For multiple-choice questions, include 4-5 options and exactly one correct answer.
-- For syllogism questions, each option is a statement and isAnswer means Yes/No truth value.
+- For binary-placement questions, each option is a statement and answerKeyValue is yes or no.
 - Syllogisms question text must be exactly: Place 'Yes' if the conclusion does follow. Place 'No' if the conclusion does not follow.
 - Recognising Assumptions question text must be exactly: Select the strongest argument from the statements below.
 - Syllogisms must have exactly five statements and per-option explanations.
@@ -102,7 +102,7 @@ export function buildAiGenerationUserPrompt(input: {
         'Return exactly stemCount stems.',
         'Multiple-choice questions: answerExplanation must be non-empty and every option answerExplanation must be null.',
         'Syllogism questions: answerExplanation must be null and every option answerExplanation must be non-empty.',
-        'Every multiple_choice question must have exactly one option with isAnswer=true.',
+        'Every single_choice or situational_judgement_rating question must have exactly one option with answerKeyValue="correct".',
         'Do not generate image-dependent content.',
       ],
       examples: input.examples,
@@ -113,13 +113,14 @@ export function buildAiGenerationUserPrompt(input: {
             questions: [
               {
                 questionText: 'string',
-                questionType: 'multiple_choice|syllogism',
+                responseType: 'multiple_choice|drag_and_drop',
+                answerScheme: 'single_choice|situational_judgement_rating|decision_making_binary_placement|situational_judgement_most_least',
                 answerExplanation: 'non-empty for multiple_choice; null for syllogism',
                 options: [
                   {
                     answerText: 'string',
                     answerExplanation: 'null for multiple_choice; non-empty for syllogism',
-                    isAnswer: true,
+                    answerKeyValue: 'correct|yes|no|most|least|null',
                   },
                 ],
               },
@@ -390,7 +391,7 @@ export function buildWriterPrompt(input: AiGenerationBrief & { plan: unknown }):
         'In questionText, wrap decisive logical qualifiers such as MUST, CANNOT, COULD, EXCEPT, NOT, ALWAYS, LEAST, MOST, TRUE, and FALSE in **bold markers** and capitalize them. Do not bold ordinary words.',
         'Do not copy selected source examples, scenario premises, distinctive data relationships, or near-exact wording.',
         'Follow explanationPolicy for explanation location, teaching content, presentation, and maths formatting.',
-        'Every multiple_choice question must have exactly one isAnswer=true option.',
+        'Every single_choice or situational_judgement_rating question must have exactly one answerKeyValue="correct" option.',
       ],
       outputShape: {
         stems: [
@@ -403,7 +404,8 @@ export function buildWriterPrompt(input: AiGenerationBrief & { plan: unknown }):
             questions: [
               {
                 questionText: 'string or GeneratedContentBlock[]',
-                questionType: 'multiple_choice|syllogism',
+                responseType: 'multiple_choice|drag_and_drop',
+                answerScheme: 'single_choice|situational_judgement_rating|decision_making_binary_placement|situational_judgement_most_least',
                 answerExplanation: 'string or GeneratedContentBlock[] or null',
                 difficultyTarget: 'easy|medium|hard|mixed',
                 timeBurdenTarget: 'low|medium|high|mixed',
@@ -414,7 +416,7 @@ export function buildWriterPrompt(input: AiGenerationBrief & { plan: unknown }):
                   {
                     answerText: 'string or GeneratedContentBlock[]',
                     answerExplanation: 'string or GeneratedContentBlock[] or null',
-                    isAnswer: true,
+                    answerKeyValue: 'correct|yes|no|most|least|null',
                   },
                 ],
               },

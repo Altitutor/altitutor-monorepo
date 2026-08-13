@@ -72,7 +72,6 @@ type QuestionListRowInput = {
   created_by?: string | null
   stem_text?: unknown
   tag_ids?: unknown
-  question_types?: unknown
   response_types?: unknown
   answer_schemes?: unknown
   set_names?: unknown
@@ -110,7 +109,6 @@ export function countStemsInSets(stemIds: string[], rows: QuestionRow[]): number
 
 type UseUcatQuestionsTableParams<T extends QuestionListRowInput> = {
   data: T[] | undefined
-  stemTypes: Record<string, Iterable<string>>
   stemTagIds: Record<string, string[]>
   questionSearchTexts: Record<string, { questionText: string; answerOptionText: string }> | undefined
   categoryPathLookup: Map<string, string>
@@ -123,7 +121,6 @@ type UseUcatQuestionsTableParams<T extends QuestionListRowInput> = {
 
 export function useUcatQuestionsTable<T extends QuestionListRowInput>({
   data,
-  stemTypes,
   stemTagIds,
   questionSearchTexts,
   categoryPathLookup,
@@ -136,14 +133,10 @@ export function useUcatQuestionsTable<T extends QuestionListRowInput>({
   const rows = useMemo(
     () =>
       (data ?? []).map((row) => {
-        const projectedQuestionTypes = Array.isArray(row.question_types)
-          ? row.question_types.filter((value): value is string => typeof value === 'string')
+        const projectedAnswerSchemes = Array.isArray(row.answer_schemes)
+          ? row.answer_schemes.filter((value): value is string => typeof value === 'string')
           : []
-        const summary = projectedQuestionTypes.length > 0
-          ? projectedQuestionTypes.join(', ')
-          : row.id
-            ? Array.from(stemTypes[row.id] ?? []).join(', ')
-            : ''
+        const summary = projectedAnswerSchemes.join(', ')
         const searchTexts = row.id ? questionSearchTexts?.[row.id] : null
         const setIds = parseJsonUuidArray(row.set_ids)
         const sets = parseStemSets(row.set_names, setIds)
@@ -193,7 +186,7 @@ export function useUcatQuestionsTable<T extends QuestionListRowInput>({
           ai_review_status: parseCatalogAiReviewStatus(row.ai_review_status),
         }
       }),
-    [data, stemTypes, stemTagIds, questionSearchTexts],
+    [data, stemTagIds, questionSearchTexts],
   )
 
   const filteredRows = useMemo(() => {

@@ -174,10 +174,10 @@ type QuestionContentProps = {
   /** When true (e.g. in-exam review), show explanations when the question/options include them. */
   showAnswerExplanations?: boolean;
   highlightText?: string;
-  syllogismDragOnly?: boolean;
-  syllogismLockedOptionIds?: readonly string[];
-  syllogismCorrectOptionIds?: readonly string[];
-  onSyllogismClickAttempt?: () => void;
+  placementDragOnly?: boolean;
+  placementLockedOptionIds?: readonly string[];
+  placementCorrectOptionIds?: readonly string[];
+  onPlacementClickAttempt?: () => void;
 };
 
 function PlacementQuestionContent({
@@ -188,10 +188,10 @@ function PlacementQuestionContent({
   preloadedContent,
   showAnswerExplanations,
   highlightText,
-  syllogismDragOnly = false,
-  syllogismLockedOptionIds = [],
-  syllogismCorrectOptionIds = [],
-  onSyllogismClickAttempt,
+  placementDragOnly = false,
+  placementLockedOptionIds = [],
+  placementCorrectOptionIds = [],
+  onPlacementClickAttempt,
 }: QuestionContentProps) {
   const presentation = placementPresentationForQuestion(question);
   const isTwoColumn =
@@ -202,12 +202,12 @@ function PlacementQuestionContent({
     throw new Error("Placement responses require two presentation tokens.");
   }
   const lockedOptionIds = useMemo(
-    () => new Set(syllogismLockedOptionIds),
-    [syllogismLockedOptionIds],
+    () => new Set(placementLockedOptionIds),
+    [placementLockedOptionIds],
   );
   const correctOptionIds = useMemo(
-    () => new Set(syllogismCorrectOptionIds),
-    [syllogismCorrectOptionIds],
+    () => new Set(placementCorrectOptionIds),
+    [placementCorrectOptionIds],
   );
 
   const [answers, setAnswers] = useState<Record<string, PlacementValue>>(
@@ -280,7 +280,7 @@ function PlacementQuestionContent({
       const drag = touchDragRef.current;
       if (!drag || drag.pointerId !== event.pointerId) return;
       touchDragRef.current = null;
-      if (readOnly || syllogismDragOnly) return;
+      if (readOnly || placementDragOnly) return;
 
       const target = document.elementFromPoint(event.clientX, event.clientY);
       if (drag.kind === "option") {
@@ -312,9 +312,9 @@ function PlacementQuestionContent({
         return;
       }
       const optionElement = target?.closest<HTMLElement>(
-        "[data-syllogism-option-id]",
+        "[data-placement-option-id]",
       );
-      const targetOptionId = optionElement?.dataset.syllogismOptionId;
+      const targetOptionId = optionElement?.dataset.placementOptionId;
 
       if (targetOptionId && !lockedOptionIds.has(targetOptionId)) {
         commitAnswers((previous) =>
@@ -330,7 +330,7 @@ function PlacementQuestionContent({
 
       if (
         drag.sourceOptionId &&
-        target?.closest("[data-syllogism-token-area]") &&
+        target?.closest("[data-placement-token-area]") &&
         !lockedOptionIds.has(drag.sourceOptionId)
       ) {
         commitAnswers((previous) => {
@@ -354,7 +354,7 @@ function PlacementQuestionContent({
     negativeToken.value,
     positiveToken.value,
     readOnly,
-    syllogismDragOnly,
+    placementDragOnly,
   ]);
 
   const startTouchDrag = (
@@ -390,14 +390,14 @@ function PlacementQuestionContent({
     (event) => {
       event.preventDefault();
       if (readOnly || lockedOptionIds.has(optionId)) return;
-      const choice = event.dataTransfer.getData("ucat-syllogism-choice") as
+      const choice = event.dataTransfer.getData("ucat-placement-choice") as
         | PlacementValue
         | "";
       if (choice !== positiveToken.value && choice !== negativeToken.value)
         return;
 
       const fromOptionId =
-        event.dataTransfer.getData("ucat-syllogism-source") || null;
+        event.dataTransfer.getData("ucat-placement-source") || null;
 
       commitAnswers((previous) =>
         assignChoice(previous, optionId, choice, fromOptionId),
@@ -412,7 +412,7 @@ function PlacementQuestionContent({
     event.preventDefault();
     if (readOnly) return;
     const fromOptionId =
-      event.dataTransfer.getData("ucat-syllogism-source") || null;
+      event.dataTransfer.getData("ucat-placement-source") || null;
     if (!fromOptionId) return;
     if (lockedOptionIds.has(fromOptionId)) return;
 
@@ -563,7 +563,7 @@ function PlacementQuestionContent({
             return (
               <div
                 key={option.id}
-                data-syllogism-option-id={option.id}
+                data-placement-option-id={option.id}
                 className="space-y-1"
               >
                 <div className="flex flex-row items-stretch gap-4">
@@ -597,9 +597,9 @@ function PlacementQuestionContent({
                     onClick={
                       locked
                         ? undefined
-                        : syllogismDragOnly ||
+                        : placementDragOnly ||
                             presentation.reuse === "once_each"
-                          ? onSyllogismClickAttempt
+                          ? onPlacementClickAttempt
                           : () =>
                               handleAssign(
                                 option.id,
@@ -623,11 +623,11 @@ function PlacementQuestionContent({
                         }
                         onDragStart={(event) => {
                           event.dataTransfer.setData(
-                            "ucat-syllogism-choice",
+                            "ucat-placement-choice",
                             choice,
                           );
                           event.dataTransfer.setData(
-                            "ucat-syllogism-source",
+                            "ucat-placement-source",
                             option.id,
                           );
                           event.dataTransfer.effectAllowed = "move";
@@ -658,7 +658,7 @@ function PlacementQuestionContent({
         </div>
         <div className="mt-1 w-[139px] rounded border border-black bg-[#dfdfdf] px-2 py-2">
           <div
-            data-syllogism-token-area
+            data-placement-token-area
             className="flex h-full w-full flex-col items-center justify-start gap-2"
             onDrop={handleTokenAreaDrop}
             onDragOver={handleDragOver}
@@ -674,13 +674,13 @@ function PlacementQuestionContent({
                 (presentation.reuse === "once_each" &&
                   Object.values(answers).includes(positiveToken.value))
               }
-              onClick={syllogismDragOnly ? onSyllogismClickAttempt : undefined}
+              onClick={placementDragOnly ? onPlacementClickAttempt : undefined}
               onDragStart={(event) => {
                 event.dataTransfer.setData(
-                  "ucat-syllogism-choice",
+                  "ucat-placement-choice",
                   positiveToken.value,
                 );
-                event.dataTransfer.setData("ucat-syllogism-source", "");
+                event.dataTransfer.setData("ucat-placement-source", "");
                 event.dataTransfer.effectAllowed = "copy";
               }}
               className="flex h-9 w-20 touch-none items-center justify-center rounded border border-black bg-white text-[11pt] font-medium"
@@ -698,13 +698,13 @@ function PlacementQuestionContent({
                 (presentation.reuse === "once_each" &&
                   Object.values(answers).includes(negativeToken.value))
               }
-              onClick={syllogismDragOnly ? onSyllogismClickAttempt : undefined}
+              onClick={placementDragOnly ? onPlacementClickAttempt : undefined}
               onDragStart={(event) => {
                 event.dataTransfer.setData(
-                  "ucat-syllogism-choice",
+                  "ucat-placement-choice",
                   negativeToken.value,
                 );
-                event.dataTransfer.setData("ucat-syllogism-source", "");
+                event.dataTransfer.setData("ucat-placement-source", "");
                 event.dataTransfer.effectAllowed = "copy";
               }}
               className="flex h-9 w-20 touch-none items-center justify-center rounded border border-black bg-white text-[11pt] font-medium"
@@ -786,17 +786,14 @@ export function QuestionContent({
   preloadedContent,
   showAnswerExplanations = false,
   highlightText,
-  syllogismDragOnly,
-  syllogismLockedOptionIds,
-  syllogismCorrectOptionIds,
-  onSyllogismClickAttempt,
+  placementDragOnly,
+  placementLockedOptionIds,
+  placementCorrectOptionIds,
+  onPlacementClickAttempt,
 }: QuestionContentProps) {
   const isTwoColumn = question.sectionDisplayColumns === 2;
 
-  if (
-    question.responseType === "drag_and_drop" ||
-    question.questionType === "syllogism"
-  ) {
+  if (question.responseType === "drag_and_drop") {
     return (
       <PlacementQuestionContent
         question={question}
@@ -808,10 +805,10 @@ export function QuestionContent({
         preloadedContent={preloadedContent}
         showAnswerExplanations={showAnswerExplanations}
         highlightText={highlightText}
-        syllogismDragOnly={syllogismDragOnly}
-        syllogismLockedOptionIds={syllogismLockedOptionIds}
-        syllogismCorrectOptionIds={syllogismCorrectOptionIds}
-        onSyllogismClickAttempt={onSyllogismClickAttempt}
+        placementDragOnly={placementDragOnly}
+        placementLockedOptionIds={placementLockedOptionIds}
+        placementCorrectOptionIds={placementCorrectOptionIds}
+        onPlacementClickAttempt={onPlacementClickAttempt}
       />
     );
   }

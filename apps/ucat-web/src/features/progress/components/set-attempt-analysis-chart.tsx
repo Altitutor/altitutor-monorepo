@@ -35,7 +35,7 @@ export type QuestionAttemptForChart = {
   timeSpentSeconds: number | null;
   result: QuestionAttemptChartResult;
   score?: number | null;
-  questionType?: "multiple_choice" | "syllogism" | null;
+  answerScheme?: import("@altitutor/ucat-response-contract").AnswerScheme["kind"] | null;
 };
 
 type SetAttemptAnalysisChartProps = {

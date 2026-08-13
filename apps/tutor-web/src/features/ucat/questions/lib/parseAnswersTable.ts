@@ -304,11 +304,11 @@ export type AnswerPasteQuestionCoverage = {
 export type AnswersPasteAnalysis = {
   /** Rows parsed as A–E answer letters (same rows as {@link parseAnswersTable}). */
   totalMcqAnswerRows: number
-  /** Decision Making syllogism lines: question # + Y/N + optional explanation. */
-  totalSyllogismTokenRows: number
+  /** Binary-placement lines: question # + Y/N + optional explanation. */
+  totalBinaryPlacementTokenRows: number
   /** Question-level explanation cells (single MCQ row per question with non-empty explanation). */
   totalQuestionExplanations: number
-  /** Option-level explanation cells (syllogism per-option text, or rare multi-row MCQ). */
+  /** Option-level explanation cells (binary-placement text, or rare multi-row MCQ). */
   totalOptionExplanations: number
   coverage: AnswerPasteQuestionCoverage[]
 }
@@ -338,7 +338,7 @@ export function analyzeAnswersPaste(input: string, options?: AnswerParseOptions)
     sortKey: number
     label: string
     mcqRows: ParsedAnswerRow[]
-    syllogismExplanations: string[]
+    binaryPlacementExplanations: string[]
   }
 
   const groups = new Map<string, Group>()
@@ -349,7 +349,7 @@ export function analyzeAnswersPaste(input: string, options?: AnswerParseOptions)
       const key = `q:${q}`
       let g = groups.get(key)
       if (!g) {
-        g = { sortKey: q, label: `Q${q}`, mcqRows: [], syllogismExplanations: [] }
+        g = { sortKey: q, label: `Q${q}`, mcqRows: [], binaryPlacementExplanations: [] }
         groups.set(key, g)
       }
       return g
@@ -360,13 +360,13 @@ export function analyzeAnswersPaste(input: string, options?: AnswerParseOptions)
       sortKey: 10_000 + seq,
       label: `#${seq}`,
       mcqRows: [],
-      syllogismExplanations: [],
+      binaryPlacementExplanations: [],
     }
     groups.set(key, g)
     return g
   }
 
-  let syllogismTokenRows = 0
+  let binaryPlacementTokenRows = 0
 
   for (const cells of dataRows) {
     const mcq = parseRowToAnswer(cells, joinChar)
@@ -381,8 +381,8 @@ export function analyzeAnswersPaste(input: string, options?: AnswerParseOptions)
       const tok = (t[1] ?? '').trim()
       const expl = t.slice(2).join('\t').trim()
       if (!Number.isNaN(num) && num >= 1 && num <= 999 && isYnToken(tok)) {
-        getGroup(cells).syllogismExplanations.push(expl)
-        syllogismTokenRows += 1
+        getGroup(cells).binaryPlacementExplanations.push(expl)
+        binaryPlacementTokenRows += 1
       }
     }
   }
@@ -393,13 +393,13 @@ export function analyzeAnswersPaste(input: string, options?: AnswerParseOptions)
 
   for (const g of groups.values()) {
     const hasMcq = g.mcqRows.length > 0
-    const hasSyl = g.syllogismExplanations.length > 0
-    const hasAnswer = hasMcq || hasSyl
+    const hasBinaryPlacement = g.binaryPlacementExplanations.length > 0
+    const hasAnswer = hasMcq || hasBinaryPlacement
 
     let hasQuestionExplanation = false
     let hasOptionExplanations = false
 
-    if (hasMcq && !hasSyl) {
+    if (hasMcq && !hasBinaryPlacement) {
       if (g.mcqRows.length === 1) {
         const expl = g.mcqRows[0]!.explanation.trim()
         if (expl.length > 0) {
@@ -415,8 +415,8 @@ export function analyzeAnswersPaste(input: string, options?: AnswerParseOptions)
       }
     }
 
-    if (hasSyl) {
-      const nonEmpty = g.syllogismExplanations.filter((e) => e.trim().length > 0)
+    if (hasBinaryPlacement) {
+      const nonEmpty = g.binaryPlacementExplanations.filter((e) => e.trim().length > 0)
       if (nonEmpty.length > 0) {
         hasOptionExplanations = true
         totalOptionExplanations += nonEmpty.length
@@ -441,7 +441,7 @@ export function analyzeAnswersPaste(input: string, options?: AnswerParseOptions)
 
   return {
     totalMcqAnswerRows,
-    totalSyllogismTokenRows: syllogismTokenRows,
+    totalBinaryPlacementTokenRows: binaryPlacementTokenRows,
     totalQuestionExplanations,
     totalOptionExplanations,
     coverage,
@@ -657,7 +657,7 @@ function isAthroughE(s: string): boolean {
 
 function parseNumberedListDecisionMakingAnswers(
   input: string,
-  questionTypes: ('syllogism' | 'multiple_choice')[]
+  responseKinds: ('placement' | 'single_choice')[]
 ): { letter?: string; pattern?: string; optionExplanations?: string[] }[] {
   const values = input
     .split(/\r\n|\n|\r/)
@@ -671,8 +671,8 @@ function parseNumberedListDecisionMakingAnswers(
   const result: { letter?: string; pattern?: string; optionExplanations?: string[] }[] = []
   let valueIndex = 0
 
-  for (const type of questionTypes) {
-    if (type === 'syllogism') {
+  for (const type of responseKinds) {
+    if (type === 'placement') {
       const sequence = parseYorNSequence(values[valueIndex] ?? '')
       if (sequence) {
         result.push({ pattern: sequence.join(''), optionExplanations: sequence.map(() => '') })
@@ -720,16 +720,16 @@ function parseNumberedListDecisionMakingAnswers(
  */
 export function parseDecisionMakingAnswers(
   input: string,
-  questionTypes: ('syllogism' | 'multiple_choice')[],
+  responseKinds: ('placement' | 'single_choice')[],
   options?: AnswerParseOptions
 ): { letter?: string; pattern?: string; explanation?: string; optionExplanations?: string[] }[] {
-  if (!input || typeof input !== 'string' || questionTypes.length === 0)
+  if (!input || typeof input !== 'string' || responseKinds.length === 0)
     return []
   const trimmed = input.trim()
   if (!trimmed.length) return []
 
   if (resolveInputFormat(options) === 'numbered_list') {
-    return parseNumberedListDecisionMakingAnswers(trimmed, questionTypes)
+    return parseNumberedListDecisionMakingAnswers(trimmed, responseKinds)
   }
 
   const separator = resolveFieldSeparator(options)
@@ -818,12 +818,12 @@ export function parseDecisionMakingAnswers(
       explanations: tokens.map(() => ''),
     }))
   )
-  for (let i = 0; i < questionTypes.length && i < tokenGroups.length; i++) {
+  for (let i = 0; i < responseKinds.length && i < tokenGroups.length; i++) {
     const group = tokenGroups[i]
     if (!group) continue
     const { tokens, explanations } = group
-    const type = questionTypes[i]
-    if (type === 'syllogism') {
+    const type = responseKinds[i]
+    if (type === 'placement') {
       const pairs = tokens
         .map((t, idx) => ({ token: t, explanation: explanations[idx] ?? '' }))
         .filter((p) => p.token === 'Y' || p.token === 'N')
@@ -853,12 +853,12 @@ export function parseDecisionMakingAnswers(
   for (let i = 0; i < lines.length; i++) {
     if (/^\d+$/.test(lines[i] ?? '')) segmentStarts.push(i)
   }
-  for (let s = 0; s < segmentStarts.length && s < questionTypes.length; s++) {
+  for (let s = 0; s < segmentStarts.length && s < responseKinds.length; s++) {
     const start = segmentStarts[s] ?? 0
     const end = segmentStarts[s + 1] ?? lines.length
     const segmentLines = lines.slice(start + 1, end)
-    const type = questionTypes[s]
-    if (type === 'syllogism') {
+    const type = responseKinds[s]
+    if (type === 'placement') {
       const pairs: { token: string; explanation: string }[] = []
       for (let i = 0; i < segmentLines.length; i += 1) {
         const ln = segmentLines[i] ?? ''

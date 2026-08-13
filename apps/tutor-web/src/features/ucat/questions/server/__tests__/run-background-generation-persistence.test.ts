@@ -4,12 +4,11 @@ function generatedQuestion() {
   return {
     index: 1,
     questionText: {},
-    questionType: 'multiple_choice',
-    responseType: 'multiple_choice',
+     responseType: 'multiple_choice',
     answerScheme: 'single_choice',
     options: [
-      { index: 1, answerText: {}, isAnswer: true, answerKeyValue: 'correct' },
-      { index: 2, answerText: {}, isAnswer: false, answerKeyValue: null },
+      { index: 1, answerText: {}, answerKeyValue: 'correct' },
+      { index: 2, answerText: {}, answerKeyValue: null },
     ],
   }
 }

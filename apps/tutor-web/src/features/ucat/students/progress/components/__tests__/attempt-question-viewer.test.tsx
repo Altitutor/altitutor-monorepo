@@ -21,8 +21,7 @@ describe('AttemptQuestionViewer', () => {
           sectionDisplayColumns: 1,
           stemText: 'Scenario',
           questionText: 'Choose Most and Least.',
-          questionType: 'multiple_choice',
-          responseType: 'drag_and_drop',
+           responseType: 'drag_and_drop',
           answerScheme: 'situational_judgement_most_least',
           options: [
             { id: 'a', index: 0, text: 'Action A', answerKeyValue: 'most' },
@@ -30,7 +29,7 @@ describe('AttemptQuestionViewer', () => {
             { id: 'c', index: 2, text: 'Action C', answerKeyValue: 'least' },
           ],
         }}
-        legacyPlacementSnapshot={{ a: false, c: true }}
+        placementSnapshot={{ a: 'least', c: 'most' }}
       />
     )
 

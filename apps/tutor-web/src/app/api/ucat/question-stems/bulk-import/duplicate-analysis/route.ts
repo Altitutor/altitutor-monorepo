@@ -12,13 +12,14 @@ const OptionSchema = z.object({
   id: z.string().optional(),
   answerText: z.unknown(),
   answerExplanation: z.unknown().optional(),
-  isAnswer: z.boolean(),
+  answerKeyValue: z.enum(['correct', 'yes', 'no', 'most', 'least']).nullable(),
 })
 
 const QuestionSchema = z.object({
   id: z.string().optional(),
   questionText: z.unknown(),
-  questionType: z.enum(['multiple_choice', 'syllogism']),
+  responseType: z.enum(['multiple_choice', 'drag_and_drop']),
+  answerScheme: z.enum(['single_choice', 'situational_judgement_rating', 'decision_making_binary_placement', 'situational_judgement_most_least']),
   answerExplanation: z.unknown().optional(),
   options: z.array(OptionSchema).max(20),
 })

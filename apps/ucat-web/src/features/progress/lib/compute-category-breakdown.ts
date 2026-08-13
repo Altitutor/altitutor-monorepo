@@ -14,7 +14,7 @@ type QuestionAttemptForCategoryBreakdown = {
   questionStemId?: string | null;
   questionStemCategoryId?: string | null;
   categoryName?: string | null;
-  questionType: string | null;
+  answerScheme: import("@altitutor/ucat-response-contract").AnswerScheme["kind"] | null;
   score?: number | null;
 };
 
@@ -27,7 +27,7 @@ export function computeCategoryBreakdown(
       name: string;
       score: number;
       total: number;
-      syllogismStems: Set<string>;
+      groupedStems: Set<string>;
     }
   >();
 
@@ -39,12 +39,12 @@ export function computeCategoryBreakdown(
       name: catName,
       score: 0,
       total: 0,
-      syllogismStems: new Set<string>(),
+      groupedStems: new Set<string>(),
     };
     entry.score += score;
     entry.total += progressPointsForQuestion(
       toProgressQuestionRef(q),
-      entry.syllogismStems,
+      entry.groupedStems,
     );
     byCategory.set(catKey, entry);
   }

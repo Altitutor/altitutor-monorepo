@@ -20,20 +20,17 @@ describe("mapSetQuestionsForCatchUp", () => {
             {
               id: "question-1",
               index: 1,
-              question_type: "multiple_choice",
               response_type: "multiple_choice",
               answer_scheme: "single_choice",
               answer_options: [
                 {
                   id: "option-1",
                   index: 1,
-                  is_answer: true,
                   answer_key_value: "correct",
                 },
                 {
                   id: "option-2",
                   index: 2,
-                  is_answer: false,
                   answer_key_value: null,
                 },
               ],
@@ -62,7 +59,6 @@ describe("mapSetQuestionsForCatchUp", () => {
       }),
     );
     expect(buildPersistedQuestionResponse(questions[0])).toEqual({
-      questionAnswerOptionId: null,
       answerSnapshot: {
         type: "ucat_response_v1",
         questionId: "question-1",

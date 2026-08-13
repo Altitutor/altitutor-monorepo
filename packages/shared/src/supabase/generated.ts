@@ -5499,7 +5499,6 @@ export type Database = {
           deleted_by: string | null
           id: string
           index: number
-          is_answer: boolean
           question_id: string
           updated_at: string | null
           updated_by: string | null
@@ -5516,7 +5515,6 @@ export type Database = {
           deleted_by?: string | null
           id?: string
           index: number
-          is_answer?: boolean
           question_id: string
           updated_at?: string | null
           updated_by?: string | null
@@ -5533,7 +5531,6 @@ export type Database = {
           deleted_by?: string | null
           id?: string
           index?: number
-          is_answer?: boolean
           question_id?: string
           updated_at?: string | null
           updated_by?: string | null
@@ -9453,7 +9450,6 @@ export type Database = {
           is_submitted: boolean
           learning_module_block_id: string | null
           mode: string | null
-          question_answer_option_id: string | null
           question_id: string | null
           score: number
           student_id: string
@@ -9474,7 +9470,6 @@ export type Database = {
           is_submitted?: boolean
           learning_module_block_id?: string | null
           mode?: string | null
-          question_answer_option_id?: string | null
           question_id?: string | null
           score?: number
           student_id: string
@@ -9495,7 +9490,6 @@ export type Database = {
           is_submitted?: boolean
           learning_module_block_id?: string | null
           mode?: string | null
-          question_answer_option_id?: string | null
           question_id?: string | null
           score?: number
           student_id?: string
@@ -9526,13 +9520,6 @@ export type Database = {
             columns: ["learning_module_block_id"]
             isOneToOne: false
             referencedRelation: "vtutor_ucat_learning_module_blocks"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "student_question_attempts_question_answer_option_id_fkey"
-            columns: ["question_answer_option_id"]
-            isOneToOne: false
-            referencedRelation: "question_answer_options"
             referencedColumns: ["id"]
           },
           {
@@ -17038,7 +17025,6 @@ export type Database = {
           question_count: number
           question_search_text: string
           question_text_fingerprint: string
-          question_types: string[]
           refreshed_at: string
           set_ids: string[]
           set_names: Json
@@ -17058,7 +17044,6 @@ export type Database = {
           question_count?: number
           question_search_text?: string
           question_text_fingerprint?: string
-          question_types?: string[]
           refreshed_at?: string
           set_ids?: string[]
           set_names?: Json
@@ -17078,7 +17063,6 @@ export type Database = {
           question_count?: number
           question_search_text?: string
           question_text_fingerprint?: string
-          question_types?: string[]
           refreshed_at?: string
           set_ids?: string[]
           set_names?: Json
@@ -17170,7 +17154,6 @@ export type Database = {
           index: number
           question_stem_id: string
           question_text: Json
-          question_type: Database["public"]["Enums"]["ucat_question_type"]
           response_type: Database["public"]["Enums"]["ucat_response_type"]
           source_channel: Database["public"]["Enums"]["ucat_question_source_channel"]
           time_burden_seconds: number | null
@@ -17190,7 +17173,6 @@ export type Database = {
           index: number
           question_stem_id: string
           question_text: Json
-          question_type: Database["public"]["Enums"]["ucat_question_type"]
           response_type: Database["public"]["Enums"]["ucat_response_type"]
           source_channel?: Database["public"]["Enums"]["ucat_question_source_channel"]
           time_burden_seconds?: number | null
@@ -17210,7 +17192,6 @@ export type Database = {
           index?: number
           question_stem_id?: string
           question_text?: Json
-          question_type?: Database["public"]["Enums"]["ucat_question_type"]
           response_type?: Database["public"]["Enums"]["ucat_response_type"]
           source_channel?: Database["public"]["Enums"]["ucat_question_source_channel"]
           time_burden_seconds?: number | null
@@ -17764,33 +17745,6 @@ export type Database = {
             referencedColumns: ["student_id"]
           },
         ]
-      }
-      ucat_response_contract_legacy_write_observations: {
-        Row: {
-          actor_id: string | null
-          id: number
-          occurred_at: string
-          operation: string
-          record_id: string
-          relation_name: string
-        }
-        Insert: {
-          actor_id?: string | null
-          id?: never
-          occurred_at?: string
-          operation: string
-          record_id: string
-          relation_name: string
-        }
-        Update: {
-          actor_id?: string | null
-          id?: never
-          occurred_at?: string
-          operation?: string
-          record_id?: string
-          relation_name?: string
-        }
-        Relationships: []
       }
       ucat_score_projection_settings: {
         Row: {
@@ -24821,6 +24775,9 @@ export type Database = {
       }
       vstudent_ucat_my_question_attempts: {
         Row: {
+          answer_scheme:
+            | Database["public"]["Enums"]["ucat_answer_scheme"]
+            | null
           answer_snapshot: Json | null
           attempted_at: string | null
           category_name: string | null
@@ -24829,14 +24786,13 @@ export type Database = {
           is_flagged: boolean | null
           is_submitted: boolean | null
           mode: string | null
-          question_answer_option_id: string | null
           question_id: string | null
           question_index: number | null
           question_stem_category_id: string | null
           question_stem_id: string | null
           question_text: Json | null
-          question_type:
-            | Database["public"]["Enums"]["ucat_question_type"]
+          response_type:
+            | Database["public"]["Enums"]["ucat_response_type"]
             | null
           score: number | null
           section_name: string | null
@@ -24853,13 +24809,6 @@ export type Database = {
           was_timed: boolean | null
         }
         Relationships: [
-          {
-            foreignKeyName: "student_question_attempts_question_answer_option_id_fkey"
-            columns: ["question_answer_option_id"]
-            isOneToOne: false
-            referencedRelation: "question_answer_options"
-            referencedColumns: ["id"]
-          },
           {
             foreignKeyName: "student_question_attempts_student_id_fkey"
             columns: ["student_id"]
@@ -32244,7 +32193,6 @@ export type Database = {
           question_search_text: string | null
           question_stem_category_id: string | null
           question_text_fingerprint: string | null
-          question_types: string[] | null
           response_types: string[] | null
           section_display_columns: number | null
           section_id: string | null
@@ -34517,7 +34465,6 @@ export type Database = {
           is_flagged: boolean | null
           is_submitted: boolean | null
           mode: string | null
-          question_answer_option_id: string | null
           question_id: string | null
           score: number | null
           student_first_name: string | null
@@ -34529,13 +34476,6 @@ export type Database = {
           was_timed: boolean | null
         }
         Relationships: [
-          {
-            foreignKeyName: "student_question_attempts_question_answer_option_id_fkey"
-            columns: ["question_answer_option_id"]
-            isOneToOne: false
-            referencedRelation: "question_answer_options"
-            referencedColumns: ["id"]
-          },
           {
             foreignKeyName: "student_question_attempts_question_id_fkey"
             columns: ["question_id"]
@@ -34620,12 +34560,11 @@ export type Database = {
           is_flagged: boolean | null
           is_submitted: boolean | null
           mode: string | null
-          question_answer_option_id: string | null
           question_id: string | null
           question_stem_category_id: string | null
           question_stem_id: string | null
-          question_type:
-            | Database["public"]["Enums"]["ucat_question_type"]
+          response_type:
+            | Database["public"]["Enums"]["ucat_response_type"]
             | null
           score: number | null
           section_name: string | null
@@ -34659,13 +34598,6 @@ export type Database = {
             columns: ["question_stem_category_id"]
             isOneToOne: false
             referencedRelation: "vtutor_ucat_question_stem_categories"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "student_question_attempts_question_answer_option_id_fkey"
-            columns: ["question_answer_option_id"]
-            isOneToOne: false
-            referencedRelation: "question_answer_options"
             referencedColumns: ["id"]
           },
           {
@@ -36576,7 +36508,6 @@ export type Database = {
           p_page_size?: number
           p_question_count_max?: number
           p_question_count_min?: number
-          p_question_types?: string[]
           p_search?: string
           p_search_scopes?: string[]
           p_section_ids?: string[]
@@ -37036,19 +36967,6 @@ export type Database = {
         }
         Returns: string
       }
-      tutor_ucat_upsert_question_stem_bundle_legacy: {
-        Args: {
-          p_access_scope: Database["public"]["Enums"]["ucat_access_scope"]
-          p_question_stem_category_id: string
-          p_questions: Json
-          p_section_id: string
-          p_source_channel?: Database["public"]["Enums"]["ucat_question_source_channel"]
-          p_stem_id: string
-          p_stem_text: Json
-          p_tutor_source_note?: string
-        }
-        Returns: string
-      }
       tutor_ucat_upsert_skill_trainer_item: {
         Args: {
           p_content: Json
@@ -37072,7 +36990,7 @@ export type Database = {
         }
         Returns: string
       }
-      tutor_ucat_upsert_stem_response_adapter: {
+      tutor_ucat_upsert_stem_with_blueprint_guard: {
         Args: {
           p_access_scope: Database["public"]["Enums"]["ucat_access_scope"]
           p_question_stem_category_id: string
@@ -37099,28 +37017,6 @@ export type Database = {
       ucat_ai_positive_number: { Args: { value: Json }; Returns: number }
       ucat_ai_stable_json_stringify: { Args: { value: Json }; Returns: string }
       ucat_ai_stable_json_value: { Args: { value: Json }; Returns: Json }
-      ucat_canonical_attempt_response_snapshot: {
-        Args: {
-          p_answer_scheme: Database["public"]["Enums"]["ucat_answer_scheme"]
-          p_answer_snapshot: Json
-          p_question_id: string
-          p_selected_option_id: string
-        }
-        Returns: Json
-      }
-      ucat_canonical_content_snapshot: {
-        Args: { p_snapshot: Json }
-        Returns: Json
-      }
-      ucat_canonical_response_snapshot: {
-        Args: {
-          p_answer_scheme: Database["public"]["Enums"]["ucat_answer_scheme"]
-          p_answer_snapshot: Json
-          p_question_id: string
-          p_selected_option_id: string
-        }
-        Returns: Json
-      }
       ucat_catalog_media_identity: {
         Args: { json_content: Json }
         Returns: string
@@ -37217,14 +37113,6 @@ export type Database = {
       ucat_recompute_question_set_timing: {
         Args: { p_question_set_id: string }
         Returns: undefined
-      }
-      ucat_response_contract_activation_report: {
-        Args: { p_observation_started_at?: string }
-        Returns: {
-          check_name: string
-          issue_count: number
-          sample_ids: string[]
-        }[]
       }
       ucat_rich_text_has_content: { Args: { p_value: Json }; Returns: boolean }
       ucat_unresolved_current_ai_assessment_findings: {
@@ -37349,7 +37237,6 @@ export type Database = {
         | "individual"
         | "bulk_import"
         | "ai_generation"
-      ucat_question_type: "multiple_choice" | "syllogism"
       ucat_response_type: "multiple_choice" | "drag_and_drop"
     }
     CompositeTypes: {
@@ -37563,7 +37450,6 @@ export const Constants = {
         "bulk_import",
         "ai_generation",
       ],
-      ucat_question_type: ["multiple_choice", "syllogism"],
       ucat_response_type: ["multiple_choice", "drag_and_drop"],
     },
   },

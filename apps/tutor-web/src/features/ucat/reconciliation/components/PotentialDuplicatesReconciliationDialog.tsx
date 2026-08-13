@@ -183,7 +183,7 @@ function StemComparePanel({
                           key={`${question.id}-opt-${optionIndex}`}
                           className={cn(
                             "rounded-md border px-2 py-1.5",
-                            option.is_answer &&
+                            option.answer_key_value === 'correct' &&
                               "border-green-500/40 bg-green-500/5",
                           )}
                         >
@@ -191,7 +191,7 @@ function StemComparePanel({
                             {String.fromCharCode(65 + optionIndex)}.{" "}
                           </span>
                           {optionPlain || "—"}
-                          {option.is_answer ? (
+                          {option.answer_key_value === 'correct' ? (
                             <span className="ml-2 text-xs font-medium text-green-700 dark:text-green-300">
                               Correct
                             </span>

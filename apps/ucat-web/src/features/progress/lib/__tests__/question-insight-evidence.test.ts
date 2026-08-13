@@ -12,9 +12,10 @@ function questionWithExplanations(): QuestionItem {
     sectionDisplayColumns: 1,
     stemText: "Stem",
     questionText: "Question",
-    questionType: "multiple_choice",
+    responseType: "multiple_choice",
+    answerScheme: "single_choice",
     options: [
-      { id: "option-a", index: 0, text: "A", isAnswer: true },
+      { id: "option-a", index: 0, text: "A", answerKeyValue: "correct" },
       {
         id: "option-b",
         index: 1,

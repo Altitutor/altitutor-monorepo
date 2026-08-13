@@ -16,7 +16,7 @@ type UcatStemQuestionNavigatorProps = {
   currentQuestionIndex: number
   onQuestionIndexChange: (index: number) => void
   /** When true, only one question is allowed and add/delete controls are hidden. */
-  isSyllogism?: boolean
+  isSingleQuestionPlacement?: boolean
   className?: string
 }
 
@@ -24,7 +24,7 @@ export function UcatStemQuestionNavigator({
   form,
   currentQuestionIndex,
   onQuestionIndexChange,
-  isSyllogism = false,
+  isSingleQuestionPlacement = false,
   className,
 }: UcatStemQuestionNavigatorProps) {
   const { fields, append, remove } = useFieldArray({ control: form.control, name: 'questions' })
@@ -33,9 +33,7 @@ export function UcatStemQuestionNavigator({
   const safeQuestionIndex =
     fields.length > 0 ? Math.min(Math.max(0, currentQuestionIndex), fields.length - 1) : 0
 
-  const stemType = (form.watch('questions.0.questionType') ?? 'multiple_choice') as
-    | 'multiple_choice'
-    | 'syllogism'
+  const firstAnswerScheme = form.watch('questions.0.answerScheme') ?? 'single_choice'
 
   const performDelete = useCallback(
     (questionIndex: number) => {
@@ -65,23 +63,24 @@ export function UcatStemQuestionNavigator({
   const handleAddQuestion = useCallback(() => {
     append({
       questionText: EMPTY_DOC,
-      questionType: stemType,
+      responseType: isSingleQuestionPlacement ? 'drag_and_drop' : 'multiple_choice',
+      answerScheme: firstAnswerScheme,
       answerExplanation: null,
       difficulty: null,
       timeBurdenSeconds: '',
       tagIds: [],
       sourceChannel: 'individual',
       aiGenerationMetadata: null,
-      options: isSyllogism
+      options: isSingleQuestionPlacement
         ? Array.from({ length: 5 }, () => ({
             answerText: EMPTY_DOC,
             answerExplanation: null,
-            isAnswer: false,
+            answerKeyValue: 'no',
           }))
         : [...DEFAULT_OPTIONS],
     })
     onQuestionIndexChange(fields.length)
-  }, [append, fields.length, isSyllogism, onQuestionIndexChange, stemType])
+  }, [append, fields.length, isSingleQuestionPlacement, onQuestionIndexChange, firstAnswerScheme])
 
   if (fields.length === 0) return null
 
@@ -142,7 +141,7 @@ export function UcatStemQuestionNavigator({
             )
           })}
         </div>
-        {!isSyllogism ? (
+        {!isSingleQuestionPlacement ? (
           <Button
             type="button"
             variant="outline"

@@ -24,18 +24,11 @@ export function allowsResponseTypeChoice(categoryName: string | null | undefined
 }
 
 export function authoredResponseContract(
-  question: Pick<AuthoredQuestion, 'questionType' | 'responseType' | 'answerScheme'>,
+  question: Pick<AuthoredQuestion, 'responseType' | 'answerScheme'>,
 ): SuggestedResponseContract {
-  const responseType = question.responseType ?? (
-    question.questionType === 'syllogism' ? 'drag_and_drop' : 'multiple_choice'
-  )
   return {
-    responseType,
-    answerScheme: question.answerScheme ?? (
-      question.questionType === 'syllogism'
-        ? 'decision_making_binary_placement'
-        : 'single_choice'
-    ),
+    responseType: question.responseType,
+    answerScheme: question.answerScheme,
   }
 }
 
@@ -50,18 +43,11 @@ export function shouldApplyCategoryDefaults(input: {
 }
 
 export function normalizeAuthoredQuestionContract(question: AuthoredQuestion): AuthoredQuestion {
-  const { responseType, answerScheme } = authoredResponseContract(question)
   return {
     ...question,
-    responseType,
-    answerScheme,
     options: question.options.map((option) => ({
       ...option,
-      answerKeyValue: option.answerKeyValue ?? (
-        answerScheme === 'decision_making_binary_placement'
-          ? option.isAnswer ? 'yes' : 'no'
-          : option.isAnswer ? 'correct' : null
-      ),
+      answerKeyValue: option.answerKeyValue,
     })),
   }
 }
@@ -119,11 +105,7 @@ function answerSchemeDefinition(question: AuthoredQuestion): AnswerScheme {
   const { answerScheme: kind } = authoredResponseContract(question)
   const keyed = question.options.map((option, index) => ({
     id: optionId(question, index),
-    value: option.answerKeyValue ?? (
-      question.questionType === 'syllogism'
-        ? option.isAnswer ? 'yes' : 'no'
-        : option.isAnswer ? 'correct' : null
-    ),
+    value: option.answerKeyValue,
   }))
 
   if (kind === 'decision_making_binary_placement') {
@@ -168,7 +150,6 @@ function optionForTransform(
   const existing = question.options[index]
   return {
     ...(existing ?? { answerText: EMPTY_DOC, answerExplanation: null }),
-    isAnswer: answerKeyValue === 'correct' || answerKeyValue === 'yes',
     answerKeyValue,
   }
 }
@@ -178,7 +159,7 @@ export function transformResponseContract(
   target: SuggestedResponseContract,
 ): AuthoredQuestion {
   const existingCorrectIndex = Math.max(0, question.options.findIndex((option) => (
-    option.answerKeyValue === 'correct' || option.isAnswer
+    option.answerKeyValue === 'correct'
   )))
   const optionCountContract = getAnswerSchemeContract(target.answerScheme).optionCount
   const optionCount = typeof optionCountContract === 'number'
@@ -199,7 +180,6 @@ export function transformResponseContract(
 
   return {
     ...question,
-    questionType: target.responseType === 'drag_and_drop' ? 'syllogism' : 'multiple_choice',
     responseType: target.responseType,
     answerScheme: target.answerScheme,
     options,
