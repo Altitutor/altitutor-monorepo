@@ -70,3 +70,6 @@ supabase/templates-rendered/
 
 # Reference code
 ref/
+
+# Local wayfinder / planning scratch (not for commit)
+.scratch/

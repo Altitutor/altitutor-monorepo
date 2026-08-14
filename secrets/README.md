@@ -79,6 +79,17 @@ Or individually:
 ./deploy-supabase.sh
 ```
 
+### Print bridge (Mac Mini)
+
+Office print uses the same pull-connector pattern as iMessage. Generate/sync the Mac `.env` from this folder:
+
+```bash
+./secrets/scripts/setup-print-bridge-env.sh --env production
+./secrets/scripts/deploy-supabase.sh
+```
+
+That writes `CONNECTOR_SECRET` into `.env.production` if missing (reusing `IMESSAGE_WEBHOOK_SECRET` when present) and creates `../print-bridge/.env`.
+
 ## Environment Files
 
 ### `.env.shared`
@@ -173,6 +184,8 @@ From `.env.shared` plus the matching environment file. Deployed keys include:
 
 - `TWILIO_*`
 - `IMESSAGE_*`
+- `CONNECTOR_SECRET` (shared Mac pull-connector for iMessage + office print; Edge Functions also accept `IMESSAGE_WEBHOOK_SECRET` as fallback)
+- `PRINT_CONNECTOR_SECRET` (optional override; print-connector falls back to `CONNECTOR_SECRET`)
 - `STRIPE_SECRET_KEY`
 - `STRIPE_WEBHOOK_SECRET`
 - `RESEND_API_KEY`
@@ -249,7 +262,7 @@ Deploys derived `EXPO_PUBLIC_*` values only.
 
 ### Supabase (`deploy-supabase.sh`)
 
-Deploys `TWILIO_*`, `IMESSAGE_*`, `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, and `RESEND_API_KEY`.
+Deploys `TWILIO_*`, `IMESSAGE_*`, `CONNECTOR_SECRET`, `PRINT_CONNECTOR_SECRET`, `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, and `RESEND_API_KEY`.
 
 Edit the patterns in each script if naming conventions change.
 
