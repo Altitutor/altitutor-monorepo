@@ -9,7 +9,9 @@ function isActiveStaffRole(value: unknown): value is ActiveStaffRole {
 export async function loadActiveStaffRole(
   userId: string,
 ): Promise<ActiveStaffRole | null> {
-  if (!supabaseAdmin) return null;
+  if (!supabaseAdmin) {
+    throw new Error("Staff eligibility lookup is unavailable.");
+  }
 
   const { data, error } = await supabaseAdmin
     .from("staff")
@@ -18,6 +20,7 @@ export async function loadActiveStaffRole(
     .in("status", ["ACTIVE", "TRIAL"])
     .maybeSingle();
 
-  if (error || !isActiveStaffRole(data?.role)) return null;
+  if (error) throw new Error("Staff eligibility lookup failed.");
+  if (!isActiveStaffRole(data?.role)) return null;
   return data.role;
 }

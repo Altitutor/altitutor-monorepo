@@ -96,6 +96,13 @@ function AuthCallbackInner() {
       return true;
     };
 
+    const continueAfterEmailAuth = () => {
+      const continueUrl = new URL("/auth/continue", window.location.origin);
+      continueUrl.searchParams.set("intent", intent);
+      continueUrl.searchParams.set("next", next);
+      navigateAfterAuth(`${continueUrl.pathname}${continueUrl.search}`);
+    };
+
     void (async () => {
       if (queryError || fragmentError) {
         finish(queryError || fragmentError || "Authentication was cancelled.");
@@ -118,7 +125,11 @@ function AuthCallbackInner() {
                 body: JSON.stringify({ syncEmailFromAuth: true }),
               }).catch(() => undefined);
             }
-            navigateAfterAuth(next);
+            if (isRecoveryFlow || typeParam === "email_change") {
+              navigateAfterAuth(next);
+            } else {
+              continueAfterEmailAuth();
+            }
             return;
           }
           lastVerifyError = error;
@@ -135,7 +146,8 @@ function AuthCallbackInner() {
             if (isSocialAuthCallback && (await continueAfterSocialAuth())) {
               return;
             }
-            navigateAfterAuth(next);
+            if (isRecoveryFlow) navigateAfterAuth(next);
+            else continueAfterEmailAuth();
             return;
           }
           if (process.env.NODE_ENV !== "production") {
@@ -164,7 +176,11 @@ function AuthCallbackInner() {
             body: JSON.stringify({ syncEmailFromAuth: true }),
           }).catch(() => undefined);
         }
-        navigateAfterAuth(next);
+        if (isRecoveryFlow || typeParam === "email_change") {
+          navigateAfterAuth(next);
+        } else {
+          continueAfterEmailAuth();
+        }
         return;
       }
 

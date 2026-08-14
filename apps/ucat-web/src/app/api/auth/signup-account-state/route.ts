@@ -3,7 +3,7 @@ import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 
-type SignupAccountState = "confirmed" | "new" | "unconfirmed";
+type SignupAccountState = "available" | "confirmed";
 
 function response(
   body: { state?: SignupAccountState; error?: string },
@@ -26,7 +26,7 @@ function clientKey(request: NextRequest): string {
 }
 
 function isSignupAccountState(value: unknown): value is SignupAccountState {
-  return value === "confirmed" || value === "new" || value === "unconfirmed";
+  return value === "available" || value === "confirmed";
 }
 
 export async function POST(request: NextRequest) {

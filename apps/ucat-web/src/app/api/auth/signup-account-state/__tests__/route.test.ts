@@ -51,4 +51,13 @@ describe("POST /api/auth/signup-account-state", () => {
       error: "Too many attempts. Please try again shortly.",
     });
   });
+
+  it("uses one public state for absent and unconfirmed accounts", async () => {
+    mockedRpc.mockResolvedValue({ data: "available", error: null } as never);
+
+    const response = await POST(request("unfinished@example.com"));
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toEqual({ state: "available" });
+  });
 });

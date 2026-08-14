@@ -13,6 +13,7 @@ let searchParams = new URLSearchParams(
 const exchangeCodeForSession = jest.fn();
 const getSession = jest.fn();
 const updateUser = jest.fn();
+const verifyOtp = jest.fn();
 
 jest.mock("next/navigation", () => ({
   useSearchParams: () => searchParams,
@@ -28,7 +29,7 @@ jest.mock("@/lib/supabase/client", () => ({
       exchangeCodeForSession,
       getSession,
       updateUser,
-      verifyOtp: jest.fn(),
+      verifyOtp,
     },
   }),
 }));
@@ -43,6 +44,7 @@ describe("AuthCallbackClient", () => {
     exchangeCodeForSession.mockReset();
     getSession.mockReset();
     updateUser.mockReset();
+    verifyOtp.mockReset();
     searchParams = new URLSearchParams(
       "code=pkce-code&intent=login&provider=apple&next=%2Fdashboard",
     );
@@ -68,6 +70,21 @@ describe("AuthCallbackClient", () => {
 
     getSession.mockResolvedValue({ data: { session: { user: { id: "u1" } } } });
     updateUser.mockResolvedValue({ error: null });
+  });
+
+  it("routes email confirmation links through the server account gate", async () => {
+    searchParams = new URLSearchParams(
+      "token_hash=email-token&type=email&intent=signup&next=%2Fdashboard",
+    );
+    verifyOtp.mockResolvedValue({ error: null });
+
+    render(<AuthCallbackClient />);
+
+    await waitFor(() =>
+      expect(navigateAfterAuth).toHaveBeenCalledWith(
+        "/auth/continue?intent=signup&next=%2Fdashboard",
+      ),
+    );
   });
 
   it("exchanges the PKCE code and hard-navigates at most once when searchParams identity churns", async () => {

@@ -35453,6 +35453,7 @@ export type Database = {
       current_staff_id: { Args: never; Returns: string }
       current_student_id: { Args: never; Returns: string }
       current_tutor_id: { Args: never; Returns: string }
+      current_ucat_signup_staff_role: { Args: never; Returns: string }
       discard_ucat_exam_attempt: {
         Args: {
           p_attempt_id: string

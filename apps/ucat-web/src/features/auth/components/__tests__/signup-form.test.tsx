@@ -87,10 +87,10 @@ describe("SignupForm", () => {
     expect(takePendingLoginEmail()).toBe("existing@example.com");
   });
 
-  it("resumes OTP signup for an unconfirmed account", async () => {
+  it("resumes OTP signup when no confirmed account is disclosed", async () => {
     (global.fetch as jest.Mock).mockResolvedValueOnce({
       ok: true,
-      json: async () => ({ state: "unconfirmed" }),
+      json: async () => ({ state: "available" }),
     });
 
     render(<SignupForm />);

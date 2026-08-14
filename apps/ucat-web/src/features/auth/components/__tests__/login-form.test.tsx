@@ -6,6 +6,7 @@ import {
   getLastSignInMethod,
   rememberLastSignInMethod,
 } from "@/features/auth/lib/last-sign-in-method";
+import { hasPasswordAuthHandoff } from "@/features/auth/lib/password-auth-handoff";
 
 const signInWithPassword = jest.fn();
 const navigateAfterAuth = jest.fn();
@@ -66,6 +67,7 @@ describe("LoginForm", () => {
       ),
     );
     expect(getLastSignInMethod()).toBe("password");
+    expect(hasPasswordAuthHandoff()).toBe(true);
   });
 
   it("keeps password failures generic", async () => {

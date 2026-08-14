@@ -1,6 +1,6 @@
 "use client";
 
-import React, { FormEvent, useMemo, useState } from "react";
+import React, { FormEvent, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input, Label } from "@altitutor/ui";
@@ -18,6 +18,7 @@ import {
   getLastSignInMethod,
   rememberLastSignInMethod,
 } from "@/features/auth/lib/last-sign-in-method";
+import { savePasswordAuthHandoff } from "@/features/auth/lib/password-auth-handoff";
 
 const { typography: typo } = MARKETING_TOKENS;
 
@@ -37,14 +38,19 @@ export function LoginForm({
   authError?: string;
 }) {
   const supabase = useMemo(() => getSupabaseBrowserClient(), []);
-  const [email, setEmail] = useState(
-    () =>
-      initialEmail || (accountExists ? (takePendingLoginEmail() ?? "") : ""),
-  );
+  const [email, setEmail] = useState(initialEmail);
   const [password, setPassword] = useState("");
-  const [lastSignInMethod] = useState(getLastSignInMethod);
+  const [lastSignInMethod, setLastSignInMethod] =
+    useState<ReturnType<typeof getLastSignInMethod>>(null);
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  useEffect(() => {
+    setLastSignInMethod(getLastSignInMethod());
+    if (accountExists && !initialEmail) {
+      setEmail(takePendingLoginEmail() ?? "");
+    }
+  }, [accountExists, initialEmail]);
 
   async function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -63,6 +69,7 @@ export function LoginForm({
     }
 
     rememberLastSignInMethod("password");
+    savePasswordAuthHandoff();
 
     const continueUrl = new URL("/auth/continue", window.location.origin);
     continueUrl.searchParams.set("intent", "login");

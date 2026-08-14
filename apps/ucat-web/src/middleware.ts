@@ -118,7 +118,7 @@ export async function middleware(request: NextRequest) {
         .from("vstudent_ucat_my_access")
         .select("ucat_signup_completed_at")
         .maybeSingle(),
-      supabase.from("vtutor_profile").select("role").maybeSingle(),
+      supabase.rpc("current_ucat_signup_staff_role"),
     ]);
 
     // Fail open on lookup errors / missing row so a transient
@@ -130,7 +130,13 @@ export async function middleware(request: NextRequest) {
           ? null
           : Boolean(accessResult.data.ucat_signup_completed_at);
     }
-    if (!staffResult.error) activeStaffRole = staffResult.data?.role ?? null;
+    if (staffResult.error) {
+      return new NextResponse(
+        "We couldn't verify account access. Please try again.",
+        { status: 503 },
+      );
+    }
+    activeStaffRole = staffResult.data;
   }
 
   if (user && activeStaffRole) {

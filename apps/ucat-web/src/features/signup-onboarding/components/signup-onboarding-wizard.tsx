@@ -44,6 +44,10 @@ import {
   pathWithReturnIntent,
   safePostAuthReturnPath,
 } from "@/features/auth/lib/return-intent";
+import {
+  clearPasswordAuthHandoff,
+  hasPasswordAuthHandoff,
+} from "@/features/auth/lib/password-auth-handoff";
 
 const { typography: typo } = MARKETING_TOKENS;
 
@@ -132,12 +136,18 @@ export function SignupOnboardingWizard({
   const { refetch: refetchOnboardingProgress } = useOnboardingProgress();
   const reduceMotion = useReducedMotion();
   const supabase = useMemo(() => getSupabaseBrowserClient(), []);
+  const [passwordAlreadyAuthenticated, setPasswordAlreadyAuthenticated] =
+    useState(false);
 
   const returnTo = safePostAuthReturnPath(searchParams.get("redirect"));
   const planIntent = useMemo(() => parseSignupPlanIntent(returnTo), [returnTo]);
   const checkoutStatus = searchParams.get("checkout");
   const checkoutReturnedSuccessfully = checkoutStatus === "success";
   const samplerReturnedComplete = searchParams.get("sampler") === "complete";
+
+  useEffect(() => {
+    setPasswordAlreadyAuthenticated(hasPasswordAuthHandoff());
+  }, []);
   const giftQuery = useQuery({
     queryKey: ["ucat-referral-gifts"],
     queryFn: fetchReferralGifts,
@@ -171,6 +181,7 @@ export function SignupOnboardingWizard({
   );
   const paidSignupCompletionStarted = useRef(false);
   const postCompleteNavigationStarted = useRef(false);
+  const passwordSkipInFlight = useRef(false);
   const planHandoffStartedAt = useRef<number | null>(
     checkoutReturnedSuccessfully ? Date.now() : null,
   );
@@ -393,6 +404,26 @@ export function SignupOnboardingWizard({
     goToStep(SIGNUP_STEP.SAMPLER, 1);
   };
 
+  const skipConfirmedPasswordStep = () => {
+    if (passwordSkipInFlight.current) return;
+    passwordSkipInFlight.current = true;
+    clearPasswordAuthHandoff();
+    setPasswordAlreadyAuthenticated(false);
+    void handlePasswordComplete();
+  };
+
+  useEffect(() => {
+    if (passwordAlreadyAuthenticated && step === SIGNUP_STEP.PASSWORD) {
+      skipConfirmedPasswordStep();
+    }
+    if (passwordAlreadyAuthenticated && step > SIGNUP_STEP.PASSWORD) {
+      clearPasswordAuthHandoff();
+      setPasswordAlreadyAuthenticated(false);
+    }
+    // The step transition is intentionally driven only when these values change.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [passwordAlreadyAuthenticated, step]);
+
   const handlePlanComplete = () => {
     finishOnboarding();
   };
@@ -490,7 +521,11 @@ export function SignupOnboardingWizard({
                   initialPhone={details.phone}
                   onComplete={(savedDetails) => {
                     setDetails(savedDetails);
-                    goToStep(SIGNUP_STEP.PASSWORD, 1);
+                    if (passwordAlreadyAuthenticated) {
+                      skipConfirmedPasswordStep();
+                    } else {
+                      goToStep(SIGNUP_STEP.PASSWORD, 1);
+                    }
                   }}
                   error={error}
                   setError={setError}

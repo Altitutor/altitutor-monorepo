@@ -56,4 +56,30 @@ describe("GET /auth/continue", () => {
       "https://ucat.altitutor.com/auth/staff-account",
     );
   });
+
+  it("fails closed when staff eligibility cannot be checked", async () => {
+    mockedAdminFrom.mockImplementation((relation: string) => {
+      if (relation === "staff") {
+        return {
+          select: jest.fn(() => ({
+            eq: jest.fn(() => ({
+              in: jest.fn(() => ({
+                maybeSingle: jest.fn(async () => ({
+                  data: null,
+                  error: { message: "database unavailable" },
+                })),
+              })),
+            })),
+          })),
+        } as never;
+      }
+      throw new Error(`Unexpected relation: ${relation}`);
+    });
+
+    await expect(
+      GET({
+        url: "https://ucat.altitutor.com/auth/continue?intent=login&next=%2Fdashboard",
+      } as NextRequest),
+    ).rejects.toThrow("Staff eligibility lookup failed");
+  });
 });

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import {
   buildSocialAuthCallbackUrl,
@@ -65,7 +65,12 @@ export function SocialAuthButtons({
     null,
   );
   const [error, setError] = useState<string | null>(null);
-  const [lastSignInMethod] = useState(getLastSignInMethod);
+  const [lastSignInMethod, setLastSignInMethod] =
+    useState<ReturnType<typeof getLastSignInMethod>>(null);
+
+  useEffect(() => {
+    setLastSignInMethod(getLastSignInMethod());
+  }, []);
 
   if (enabledProviders.length === 0) return null;
 
