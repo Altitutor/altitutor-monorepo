@@ -57,10 +57,12 @@ export function LoginForm({
     setIsSubmitting(true);
     setError(null);
 
-    const { error: signInError } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
+    const { data, error: signInError } = await supabase.auth.signInWithPassword(
+      {
+        email,
+        password,
+      },
+    );
 
     if (signInError) {
       setError("Incorrect email or password.");
@@ -69,7 +71,7 @@ export function LoginForm({
     }
 
     rememberLastSignInMethod("password");
-    savePasswordAuthHandoff();
+    if (data.user) savePasswordAuthHandoff(data.user.id);
 
     const continueUrl = new URL("/auth/continue", window.location.origin);
     continueUrl.searchParams.set("intent", "login");

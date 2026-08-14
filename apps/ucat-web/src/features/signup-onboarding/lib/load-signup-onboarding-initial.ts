@@ -32,6 +32,7 @@ export async function loadSignupOnboardingInitial(user: {
   const fullNameParts = fullName.split(/\s+/).filter(Boolean);
 
   return {
+    userId: user.id,
     email: user.email ?? "",
     pendingEmail: user.new_email?.trim() ?? "",
     firstName: profile.firstName || metadataFirstName || fullNameParts[0] || "",

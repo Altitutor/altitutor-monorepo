@@ -146,8 +146,8 @@ export function SignupOnboardingWizard({
   const samplerReturnedComplete = searchParams.get("sampler") === "complete";
 
   useEffect(() => {
-    setPasswordAlreadyAuthenticated(hasPasswordAuthHandoff());
-  }, []);
+    setPasswordAlreadyAuthenticated(hasPasswordAuthHandoff(initial.userId));
+  }, [initial.userId]);
   const giftQuery = useQuery({
     queryKey: ["ucat-referral-gifts"],
     queryFn: fetchReferralGifts,

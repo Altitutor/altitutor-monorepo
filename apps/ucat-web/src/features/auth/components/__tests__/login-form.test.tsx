@@ -31,7 +31,10 @@ describe("LoginForm", () => {
     window.sessionStorage.clear();
     window.localStorage.clear();
     jest.clearAllMocks();
-    signInWithPassword.mockResolvedValue({ error: null });
+    signInWithPassword.mockResolvedValue({
+      data: { user: { id: "student-user" } },
+      error: null,
+    });
   });
 
   it("marks password as the last method used on this browser", () => {
@@ -67,7 +70,7 @@ describe("LoginForm", () => {
       ),
     );
     expect(getLastSignInMethod()).toBe("password");
-    expect(hasPasswordAuthHandoff()).toBe(true);
+    expect(hasPasswordAuthHandoff("student-user")).toBe(true);
   });
 
   it("keeps password failures generic", async () => {
