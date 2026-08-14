@@ -9,10 +9,7 @@ import {
 } from "@altitutor/ui";
 import { cn } from "@/lib/utils";
 import { UCAT_SIGNUP_PRIMARY_ACTION } from "@/lib/ucat-surface-motion";
-import type { SupabaseClient } from "@supabase/supabase-js";
-import type { Database } from "@altitutor/shared";
 import { subscribeToUcatNewsletter } from "@/features/auth/api/newsletter";
-import { pathWithReturnIntent } from "@/features/auth/lib/return-intent";
 
 const { typography: typo } = MARKETING_TOKENS;
 
@@ -26,14 +23,10 @@ const signupPhoneCountryClassName = cn(
 );
 
 type SignupCompleteDetailsStepProps = {
-  supabase: SupabaseClient<Database>;
   confirmedEmail: string;
-  initialEmail: string;
-  pendingEmail: string;
   initialFirstName: string;
   initialLastName: string;
   initialPhone: string;
-  returnTo: string;
   onComplete: (details: {
     email: string;
     pendingEmail: string;
@@ -46,21 +39,16 @@ type SignupCompleteDetailsStepProps = {
 };
 
 export function SignupCompleteDetailsStep({
-  supabase,
   confirmedEmail,
-  initialEmail,
-  pendingEmail,
   initialFirstName,
   initialLastName,
   initialPhone,
-  returnTo,
   onComplete,
   error,
   setError,
 }: SignupCompleteDetailsStepProps) {
   const [firstName, setFirstName] = useState(initialFirstName);
   const [lastName, setLastName] = useState(initialLastName);
-  const [email, setEmail] = useState(initialEmail);
   const [phone, setPhone] = useState(initialPhone);
   const [phoneError, setPhoneError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -72,12 +60,6 @@ export function SignupCompleteDetailsStep({
 
     if (!firstName.trim() || !lastName.trim()) {
       setError("First name and last name are required.");
-      return;
-    }
-
-    const normalizedEmail = email.trim().toLowerCase();
-    if (!/^\S+@\S+\.\S+$/.test(normalizedEmail)) {
-      setError("Enter a valid email address.");
       return;
     }
 
@@ -111,25 +93,6 @@ export function SignupCompleteDetailsStep({
 
     setIsSubmitting(true);
     try {
-      const shouldRequestEmailChange =
-        normalizedEmail !== confirmedEmail.toLowerCase() &&
-        normalizedEmail !== pendingEmail.toLowerCase();
-      if (shouldRequestEmailChange) {
-        const emailRedirectTo = `${window.location.origin}/auth/callback?next=${encodeURIComponent(
-          pathWithReturnIntent("/signup/complete", returnTo),
-        )}`;
-        const { error: emailError } = await supabase.auth.updateUser(
-          { email: normalizedEmail },
-          { emailRedirectTo },
-        );
-        if (emailError) {
-          setError(
-            emailError.message || "Could not update your email address.",
-          );
-          return;
-        }
-      }
-
       const res = await fetch("/api/ucat/signup/complete", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -145,11 +108,8 @@ export function SignupCompleteDetailsStep({
       await subscribeToUcatNewsletter("ucat_social_signup");
 
       onComplete({
-        email: normalizedEmail,
-        pendingEmail:
-          normalizedEmail === confirmedEmail.toLowerCase()
-            ? ""
-            : normalizedEmail,
+        email: confirmedEmail.trim().toLowerCase(),
+        pendingEmail: "",
         firstName: payload.firstName,
         lastName: payload.lastName,
         phone: phoneResult.phone ?? "",
@@ -219,17 +179,14 @@ export function SignupCompleteDetailsStep({
           type="email"
           required
           autoComplete="email"
-          value={email}
-          onChange={(event) => setEmail(event.target.value)}
+          value={confirmedEmail}
+          readOnly
           disabled={isSubmitting}
-          className={`w-full rounded-xl border border-border bg-background/70 px-4 py-3 text-foreground placeholder:text-muted-foreground/60 outline-none transition-[border-color,box-shadow] duration-200 focus:border-primary/50 focus:ring-2 focus:ring-primary/20 disabled:opacity-50 dark:focus:border-accent/50 dark:focus:ring-accent/20 ${typo.secondarySans}`}
+          className={`w-full cursor-not-allowed rounded-xl border border-border bg-muted/60 px-4 py-3 text-muted-foreground outline-none disabled:opacity-50 ${typo.secondarySans}`}
         />
         <p className={`text-xs text-muted-foreground ${typo.secondarySans}`}>
-          {email.trim().toLowerCase() === confirmedEmail.toLowerCase()
-            ? "This will be your email and password sign-in address."
-            : email.trim().toLowerCase() === pendingEmail.toLowerCase()
-              ? `Change pending. Continue using ${confirmedEmail} until the confirmation is complete.`
-              : "Changing the provider email sends a confirmation before it becomes your email and password sign-in address."}
+          This is the authenticated email for your account. You can change it
+          later in Settings.
         </p>
       </div>
 

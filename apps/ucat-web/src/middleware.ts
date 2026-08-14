@@ -111,19 +111,30 @@ export async function middleware(request: NextRequest) {
   }
 
   let signupCompleted: boolean | null = null;
+  let activeStaffRole: string | null = null;
   if (user && !isApiPath) {
-    const { data: accessRow, error: accessError } = await supabase
-      .from("vstudent_ucat_my_access")
-      .select("ucat_signup_completed_at")
-      .maybeSingle();
+    const [accessResult, staffResult] = await Promise.all([
+      supabase
+        .from("vstudent_ucat_my_access")
+        .select("ucat_signup_completed_at")
+        .maybeSingle(),
+      supabase.from("vtutor_profile").select("role").maybeSingle(),
+    ]);
 
     // Fail open on lookup errors / missing row so a transient
     // current_student_id() blip cannot invent "incomplete" and bounce
     // /dashboard ↔ /signup/complete.
-    if (!accessError) {
+    if (!accessResult.error) {
       signupCompleted =
-        accessRow == null ? null : Boolean(accessRow.ucat_signup_completed_at);
+        accessResult.data == null
+          ? null
+          : Boolean(accessResult.data.ucat_signup_completed_at);
     }
+    if (!staffResult.error) activeStaffRole = staffResult.data?.role ?? null;
+  }
+
+  if (user && activeStaffRole) {
+    return NextResponse.redirect(new URL("/auth/staff-account", origin));
   }
 
   if (user && pathname === "/") {

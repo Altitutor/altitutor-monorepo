@@ -12,6 +12,7 @@ import {
 import { navigateAfterAuth } from "@/features/auth/lib/navigate-after-auth";
 import { captureUcatEvent } from "@/lib/analytics/posthog";
 import { pathWithReturnIntent } from "@/features/auth/lib/return-intent";
+import { rememberLastSignInMethod } from "@/features/auth/lib/last-sign-in-method";
 
 /**
  * Completes email signup/sign-in: token_hash (any browser) or PKCE code exchange (same browser).
@@ -81,6 +82,10 @@ function AuthCallbackInner() {
           auth_provider: provider,
           referral_present: Boolean(referralCode),
         });
+      }
+
+      if (intent === "login" || intent === "signup") {
+        rememberLastSignInMethod(provider);
       }
 
       const continueUrl = new URL("/auth/continue", window.location.origin);

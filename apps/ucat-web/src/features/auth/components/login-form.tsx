@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useMemo, useState } from "react";
+import React, { FormEvent, useMemo, useState } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input, Label } from "@altitutor/ui";
@@ -11,12 +11,13 @@ import {
   SocialAuthButtons,
   SocialAuthDivider,
 } from "@/features/auth/components/social-auth-buttons";
-import {
-  resolvePostAuthDestination,
-  type SocialAuthProvider,
-} from "@/features/auth/lib/social-auth";
+import { type SocialAuthProvider } from "@/features/auth/lib/social-auth";
 import { navigateAfterAuth } from "@/features/auth/lib/navigate-after-auth";
-import { fetchSignupProgress } from "@/features/signup-onboarding/api/signup-progress";
+import { takePendingLoginEmail } from "@/features/auth/lib/pending-login-email";
+import {
+  getLastSignInMethod,
+  rememberLastSignInMethod,
+} from "@/features/auth/lib/last-sign-in-method";
 
 const { typography: typo } = MARKETING_TOKENS;
 
@@ -36,8 +37,12 @@ export function LoginForm({
   authError?: string;
 }) {
   const supabase = useMemo(() => getSupabaseBrowserClient(), []);
-  const [email, setEmail] = useState(initialEmail);
+  const [email, setEmail] = useState(
+    () =>
+      initialEmail || (accountExists ? (takePendingLoginEmail() ?? "") : ""),
+  );
   const [password, setPassword] = useState("");
+  const [lastSignInMethod] = useState(getLastSignInMethod);
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -52,25 +57,17 @@ export function LoginForm({
     });
 
     if (signInError) {
-      setError(signInError.message);
+      setError("Incorrect email or password.");
       setIsSubmitting(false);
       return;
     }
 
-    let destination = redirectTo;
-    try {
-      const progress = await fetchSignupProgress();
-      destination = resolvePostAuthDestination({
-        intent: "login",
-        provider: null,
-        next: redirectTo,
-        signupCompleted: progress.signupCompleted,
-      });
-    } catch {
-      // Middleware / OnboardingGate still catch incomplete signups if this fails.
-    }
+    rememberLastSignInMethod("password");
 
-    navigateAfterAuth(destination);
+    const continueUrl = new URL("/auth/continue", window.location.origin);
+    continueUrl.searchParams.set("intent", "login");
+    continueUrl.searchParams.set("next", redirectTo);
+    navigateAfterAuth(`${continueUrl.pathname}${continueUrl.search}`);
   }
 
   return (
@@ -143,12 +140,18 @@ export function LoginForm({
           className="col-start-1 row-start-1 text-sm font-medium text-foreground/90"
         >
           Password
+          {lastSignInMethod === "password" ? (
+            <span className="ml-2 rounded-full bg-primary/10 px-2 py-0.5 text-[11px] font-semibold text-primary">
+              Last used
+            </span>
+          ) : null}
         </Label>
         <Input
           id="password"
           type="password"
           required
           autoComplete="current-password"
+          autoFocus={accountExists}
           value={password}
           onChange={(e) => setPassword(e.target.value)}
           disabled={isSubmitting}

@@ -18363,6 +18363,27 @@ export type Database = {
           },
         ]
       }
+      ucat_signup_email_lookup_limits: {
+        Row: {
+          attempt_count: number
+          client_key: string
+          updated_at: string
+          window_started_at: string
+        }
+        Insert: {
+          attempt_count?: number
+          client_key: string
+          updated_at?: string
+          window_started_at?: string
+        }
+        Update: {
+          attempt_count?: number
+          client_key?: string
+          updated_at?: string
+          window_started_at?: string
+        }
+        Relationships: []
+      }
       ucat_skill_trainer_config: {
         Row: {
           created_at: string
@@ -36074,6 +36095,10 @@ export type Database = {
           p_student_id: string
           p_subject_id?: string
         }
+        Returns: string
+      }
+      resolve_ucat_signup_email_state: {
+        Args: { p_client_key: string; p_email: string }
         Returns: string
       }
       rotate_session_booking_public_token: {
