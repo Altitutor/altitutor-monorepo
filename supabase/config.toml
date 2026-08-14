@@ -332,6 +332,9 @@ verify_jwt = false
 [functions.imessage-connector]
 verify_jwt = false
 
+[functions.print-connector]
+verify_jwt = false
+
 [functions.imessage-control]
 verify_jwt = true
 

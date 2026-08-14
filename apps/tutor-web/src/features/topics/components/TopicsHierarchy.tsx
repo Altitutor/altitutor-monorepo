@@ -126,6 +126,7 @@ export function TopicNode({
                     storagePath={tf.storage_path}
                     externalUrl={tf.external_url}
                     mimeType={tf.mimetype ?? undefined}
+                    fileId={tf.file_id}
                     topicFileId={tf.id}
                     currentTopicId={topic.id}
                     currentSubjectId={fullTopic?.subject_id}
