@@ -85,7 +85,7 @@ Keep each justification to one decisive sentence. Do not restate the full questi
 Rules:
 - For multiple-choice questions, select the exact optionId when one supplied option is defensibly correct.
 - If none of the supplied options is correct, selectedOptionId must be null and proposedAnswer should state the answer that should have been available.
-- For syllogism questions, independently return Yes or No for every optionId.
+- For binary-placement questions, independently return Yes or No for every optionId.
 - Mark ambiguous=true when more than one answer is defensible or wording materially changes the answer.
 - Mark unsolvable=true when the supplied information cannot support an answer.
 - Give a concise, auditable justification using the decisive calculation, passage evidence, logical constraint, or professional principle.
@@ -128,7 +128,7 @@ Ratings are pass, concern, critical, unreviewable, or not_applicable.
 Core rules:
 - presentation_integrity covers malformed tables, squashed or lost line breaks, rich-text rendering defects, and visual integrity.
 - ucat_suitability covers whether the item resembles real UCAT ANZ content, uses appropriate knowledge and professional context, and is worth retaining. Use recommendedAction="exclude" only for probably irrecoverable candidates.
-- answer_correctness_fairness requires independent solution, exactly one defensible keyed answer for multiple choice, correct Yes/No conclusions for syllogisms, plausible distractors, and fair discrimination at UCAT calculator/visual precision.
+- answer_correctness_fairness requires independent solution, exactly one defensible keyed answer for multiple choice, correct Yes/No conclusions for binary-placement questions, plausible distractors, and fair discrimination at UCAT calculator/visual precision.
 - explanation_quality follows the shared Explanation teaching standard in the audit criteria. Incorrect keys, unsupported objective answers, materially wrong teaching, bare answer recaps, or genuinely unsolvable questions are critical.
 - Failed deterministic format checks are supplied separately. Repair every failure that needs content judgment when a coherent repair is possible. Return a complete one-click suggestion rather than merely describing the problem.
 - When an option-count check fails, add plausible, mutually exclusive distractors or remove the weakest/redundant options until the exact required count is reached. Independently solve the repaired question, preserve or correct the answer key, and ensure exactly one answer is defensible.

@@ -243,6 +243,9 @@ export function useExamAttemptLifecycle({
       beginBlockedRef.current = true;
       syncBlockedRef.current = true;
       if (syncTimerRef.current) clearTimeout(syncTimerRef.current);
+      if (latestStateRef.current.phase === "practiceComplete") {
+        return true;
+      }
       if (practiceSessionEndedRef.current) return true;
       practiceSessionEndedRef.current = true;
       clearLocal();

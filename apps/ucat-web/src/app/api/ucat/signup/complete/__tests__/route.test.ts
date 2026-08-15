@@ -64,20 +64,29 @@ describe("POST /api/ucat/signup/complete", () => {
   });
 
   it("explains that an active staff account cannot become a student account", async () => {
-    const response = await POST({
-      json: async () => ({
-        firstName: "Tutor",
-        lastName: "Tester",
-      }),
-    } as unknown as NextRequest);
+    const consoleError = jest
+      .spyOn(console, "error")
+      .mockImplementation(() => undefined);
 
-    expect(response.status).toBe(400);
-    expect(insertedStudent).toEqual(
-      expect.objectContaining({ status: null }),
-    );
-    await expect(response.json()).resolves.toEqual({
-      error:
-        "This email is already linked to an Altitutor staff account. Please use a different email address for your student account.",
-    });
+    try {
+      const response = await POST({
+        json: async () => ({
+          firstName: "Tutor",
+          lastName: "Tester",
+        }),
+      } as unknown as NextRequest);
+
+      expect(response.status).toBe(400);
+      expect(insertedStudent).toEqual(
+        expect.objectContaining({ status: null }),
+      );
+      await expect(response.json()).resolves.toEqual({
+        error:
+          "This email is already linked to an Altitutor staff account. Please use a different email address for your student account.",
+      });
+      expect(consoleError).toHaveBeenCalled();
+    } finally {
+      consoleError.mockRestore();
+    }
   });
 });

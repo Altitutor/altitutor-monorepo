@@ -131,6 +131,8 @@ export function UcatSetEditorDialog({
   }, [detail.data])
 
   const [filters, setFilters] = useState<Record<string, unknown[]>>({})
+  const setDetailId = detail.data?.id
+  const setDetailStatus = detail.data?.status
 
   useEffect(() => {
     if (!open) {
@@ -143,9 +145,9 @@ export function UcatSetEditorDialog({
       setSetFilterSearch('')
       return
     }
-    if (!detail.data || detail.data.id !== setId) return
-    setFilters(getDefaultStemCatalogFiltersForSetStatus(detail.data.status))
-  }, [open, setId, detail.data?.id, detail.data?.status])
+    if (!setDetailId || setDetailId !== setId) return
+    setFilters(getDefaultStemCatalogFiltersForSetStatus(setDetailStatus))
+  }, [open, setId, setDetailId, setDetailStatus])
 
   const stemDetail = useUcatQuestionDetail(editingStemId)
   const updateStemMutation = useUpdateUcatQuestionStem()

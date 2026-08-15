@@ -155,7 +155,7 @@ function assertBlindSolutionTargets(params: {
     if (question.answerScheme === 'decision_making_binary_placement') {
       const returned = solution.placementAnswers.map((answer) => answer.optionId)
       if (returned.length !== optionIds.size || new Set(returned).size !== optionIds.size || returned.some((id) => !optionIds.has(id))) {
-        throw new Error('Blind solver did not answer every syllogism statement exactly once')
+        throw new Error('Blind solver did not answer every binary-placement statement exactly once')
       }
     }
   }

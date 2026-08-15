@@ -3,6 +3,7 @@ import {
   exportPreparationSandboxCase,
   exportPreparationSandboxComparison,
   PREPARATION_SANDBOX_PERSONAS,
+  PREPARATION_SANDBOX_JOURNEYS,
   replayPreparationSandboxCase,
   replayPreparationSandboxComparison,
   runPreparationSandboxCase,
@@ -11,6 +12,8 @@ import {
 
 const REQUIRED_PERSONAS = [
   "new-student",
+  "learning-progressing",
+  "benchmark-ready",
   "experienced-high-performing",
   "accurate-slow",
   "fast-inaccurate",
@@ -20,6 +23,19 @@ const REQUIRED_PERSONAS = [
 ] as const;
 
 describe("Preparation policy sandbox", () => {
+  it("groups every release persona into a human-readable journey checkpoint", () => {
+    const checkpointKeys = PREPARATION_SANDBOX_JOURNEYS.flatMap((journey) =>
+      journey.checkpoints.map((checkpoint) => checkpoint.fixtureKey),
+    );
+
+    expect(checkpointKeys.sort()).toEqual([...REQUIRED_PERSONAS].sort());
+    expect(
+      PREPARATION_SANDBOX_JOURNEYS.find(
+        (journey) => journey.key === "foundations",
+      )?.checkpoints.map((checkpoint) => checkpoint.fixtureKey),
+    ).toEqual(["new-student", "learning-progressing", "benchmark-ready"]);
+  });
+
   it("ships every release persona as a complete canonical regression fixture", () => {
     expect(Object.keys(PREPARATION_SANDBOX_PERSONAS).sort()).toEqual(
       [...REQUIRED_PERSONAS].sort(),
@@ -176,6 +192,42 @@ describe("Preparation policy sandbox", () => {
     ).toBe(true);
   });
 
+  it("shows ordered daily Learning loops followed by predefined section diagnostics", () => {
+    const run = runPreparationSandboxCase(
+      PREPARATION_SANDBOX_PERSONAS["new-student"],
+    );
+    const learningTasks = run.result.plan.tasks.filter(
+      (task) => task.taskType === "learn",
+    );
+
+    expect(
+      learningTasks.slice(0, 3).map((task) => ({
+        date: task.scheduledDate,
+        moduleId: task.learningModuleId,
+      })),
+    ).toEqual([
+      { date: "2026-01-05", moduleId: "module-vr-1" },
+      { date: "2026-01-07", moduleId: "module-dm-1" },
+      { date: "2026-01-10", moduleId: "module-qr-1" },
+    ]);
+    expect(
+      run.result.plan.tasks
+        .filter(
+          (task) =>
+            task.taskType === "practice" &&
+            task.launchConfig.linkedLearningPractice === true,
+        )
+        .slice(0, 3)
+        .map((task) => task.targetUnits),
+    ).toEqual([27, 21, 22]);
+    expect(
+      run.result.plan.tasks.some(
+        (task) =>
+          task.taskType === "section_benchmark" && task.questionSetId != null,
+      ),
+    ).toBe(true);
+  });
+
   it("warns only the release persona with too few selected study days", () => {
     for (const key of REQUIRED_PERSONAS) {
       const run = runPreparationSandboxCase(PREPARATION_SANDBOX_PERSONAS[key]);
@@ -241,8 +293,8 @@ describe("Preparation policy sandbox", () => {
     expect(run.result.assessment.sections[0]).toMatchObject({
       observedPace: 1.1,
     });
-    expect(
-      run.result.plan.tasks.some((task) => task.sectionId === "sjt"),
-    ).toBe(false);
+    expect(run.result.plan.tasks.some((task) => task.sectionId === "sjt")).toBe(
+      false,
+    );
   });
 });

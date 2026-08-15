@@ -12,6 +12,7 @@ import {
   normalizeSjtPreference,
   sjtAllocationWeight,
 } from "@/features/preparation/lib/sjt-allocation-policy";
+import { learningLoopTargetQuestionCount } from "@/features/preparation/lib/policy";
 
 export const LEARNING_MODULE_SESSION_MINUTES = 20;
 
@@ -184,7 +185,9 @@ export function rankActivityCandidates(
 ): PreparationActivityCandidate[] {
   const result: PreparationActivityCandidate[] = [];
   const sectionById = new Map(input.sections.map((item) => [item.id, item]));
-  const signalBySection = new Map(input.signals.map((item) => [item.sectionId, item]));
+  const signalBySection = new Map(
+    input.signals.map((item) => [item.sectionId, item]),
+  );
   const equalTarget = input.targetScore / 3;
 
   if (input.incompleteReview) {
@@ -200,7 +203,8 @@ export function rankActivityCandidates(
         duration: { practiceMinutes: 0, reviewMinutes: 10 },
         objective: "consolidate_review",
         reasonCode: "activity.incomplete_review",
-        studentReason: "Review this result while the decisions are still fresh.",
+        studentReason:
+          "Review this result while the decisions are still fresh.",
         ranking: factors({
           milestone: 400,
           weakness: 0,
@@ -257,7 +261,8 @@ export function rankActivityCandidates(
       )
       .sort(
         (left, right) =>
-          right.weaknessScore - left.weaknessScore || left.id.localeCompare(right.id),
+          right.weaknessScore - left.weaknessScore ||
+          left.id.localeCompare(right.id),
       )
       .slice(0, 3);
     const useMixedScope = similarlyReliableCategories.length >= 2;
@@ -301,7 +306,8 @@ export function rankActivityCandidates(
             },
             objective: "complete_instruction",
             reasonCode: "activity.outstanding_instruction",
-            studentReason: "Build the method here before adding timing pressure.",
+            studentReason:
+              "Build the method here before adding timing pressure.",
             ranking: factors({
               milestone: milestone + 75 - moduleIndex,
               weakness: 0,
@@ -320,11 +326,15 @@ export function rankActivityCandidates(
             requirement: "required",
             sectionId: section.id,
             scope: "section",
-            dose: { questionCount: section.questionCount, sectionEquivalents: 1 },
+            dose: {
+              questionCount: section.questionCount,
+              sectionEquivalents: 1,
+            },
             duration: duration(section, section.questionCount, true),
             objective: "refresh_calibration",
             reasonCode: "activity.diagnostic_due",
-            studentReason: "A whole-section diagnostic will establish a useful baseline.",
+            studentReason:
+              "A whole-section diagnostic will establish a useful baseline.",
             ranking: factors({
               milestone: 20,
               weakness: 0,
@@ -349,7 +359,8 @@ export function rankActivityCandidates(
           duration: duration(section, section.questionCount, true),
           objective: "refresh_calibration",
           reasonCode: "activity.calibration_due",
-          studentReason: "A whole-section check will show whether your pace transfers.",
+          studentReason:
+            "A whole-section check will show whether your pace transfers.",
           ranking: factors({
             milestone: milestone + 20,
             weakness: 0,
@@ -364,7 +375,7 @@ export function rankActivityCandidates(
     const questionCount = readiness.overspeedEligible
       ? Math.max(20, Math.ceil(section.questionCount * 0.8))
       : readiness.mode === "learning"
-        ? 10
+        ? learningLoopTargetQuestionCount(section.questionCount)
         : Math.max(20, Math.ceil(section.questionCount * 0.55));
     const objective: PreparationActivityObjective = strongestCategory
       ? "remediate_reliable_weakness"
@@ -417,7 +428,11 @@ export function rankActivityCandidates(
           questionCount,
           sectionEquivalents: questionCount / section.questionCount,
         },
-        duration: duration(section, questionCount, readiness.mode !== "learning"),
+        duration: duration(
+          section,
+          questionCount,
+          readiness.mode !== "learning",
+        ),
         objective,
         reasonCode,
         studentReason,
@@ -436,7 +451,11 @@ export function rankActivityCandidates(
             questionCount,
             sectionEquivalents: questionCount / section.questionCount,
           },
-          duration: duration(section, questionCount, readiness.mode !== "learning"),
+          duration: duration(
+            section,
+            questionCount,
+            readiness.mode !== "learning",
+          ),
           objective,
           reasonCode,
           studentReason,
@@ -452,7 +471,9 @@ export function rankActivityCandidates(
     }
   }
 
-  const sjtSection = input.sections.find((section) => section.sectionNumber === 4);
+  const sjtSection = input.sections.find(
+    (section) => section.sectionNumber === 4,
+  );
   const sjtPreference = normalizeSjtPreference(input.sjtPreference);
   const sjtWeight = sjtAllocationWeight(sjtPreference);
   if (
@@ -550,7 +571,10 @@ export function rankActivityCandidates(
         skillTrainerId: warmup.id,
         scope: "category",
         dose: { questionCount: null, sectionEquivalents: 0 },
-        duration: { practiceMinutes: warmup.estimatedMinutes, reviewMinutes: 0 },
+        duration: {
+          practiceMinutes: warmup.estimatedMinutes,
+          reviewMinutes: 0,
+        },
         objective: "warm_up",
         reasonCode: "activity.optional_warmup",
         studentReason: "Use this as a short warm-up before core practice.",
@@ -591,7 +615,9 @@ export function selectActivityCandidates(
     if (!selection.requiredWorkComplete) return [];
     const source = required.find(
       (item) =>
-        item.kind !== "review" && item.kind !== "calibration" && item.kind !== "mock",
+        item.kind !== "review" &&
+        item.kind !== "calibration" &&
+        item.kind !== "mock",
     );
     return source
       ? [

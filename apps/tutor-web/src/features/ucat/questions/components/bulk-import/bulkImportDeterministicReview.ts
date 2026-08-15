@@ -44,7 +44,7 @@ type ReviewInput = {
 type Question = UcatQuestionStemFormValues['questions'][number]
 type Option = Question['options'][number]
 
-const SYLLOGISM_INSTRUCTION =
+const BINARY_PLACEMENT_INSTRUCTION =
   "Place 'Yes' if the conclusion does follow. Place 'No' if the conclusion does not follow."
 const ASSUMPTION_INSTRUCTION = 'Select the strongest argument from the statements below.'
 const TFCT_OPTIONS = ['True', 'False', "Can't Tell"] as const
@@ -358,6 +358,7 @@ function dmChecks(
   fixes: BulkImportAutomaticFix[],
 ) {
   const validCategories = new Set([
+    'interpreting information and drawing conclusions',
     'logical puzzles',
     'probabilistic and statistical reasoning',
     'recognising assumptions',
@@ -376,17 +377,17 @@ function dmChecks(
   if (question.answerScheme === 'decision_making_binary_placement') {
     replaceQuestionText(
       question,
-      SYLLOGISM_INSTRUCTION,
+      BINARY_PLACEMENT_INSTRUCTION,
       0,
-      'dm_syllogism_instruction',
-      'Replaced the syllogism instruction with the canonical UCAT wording.',
+      'dm_placement_instruction',
+      'Replaced the binary-placement instruction with the canonical UCAT wording.',
       fixes,
     )
     if (question.options.length !== 5) {
       addIssue(
         issues,
-        'syllogism_option_count',
-        'Syllogism questions must have exactly five conclusion statements.',
+        'dm_placement_option_count',
+        'Binary-placement questions must have exactly five conclusion statements.',
         questionScope(0),
       )
     }
@@ -449,11 +450,11 @@ function sjChecks(
       : category === 'how appropriate'
         ? SJ_APPROPRIATE_OPTIONS
         : null
-  if (!expected) {
+  if (!['how important', 'how appropriate', 'most least appropriate'].includes(category)) {
     addIssue(
       issues,
       'sjt_category',
-      'Situational Judgement must use How Important or How Appropriate.',
+      'Situational Judgement must use How Important, How Appropriate, or Most/Least Appropriate.',
       stemScope(),
     )
   }

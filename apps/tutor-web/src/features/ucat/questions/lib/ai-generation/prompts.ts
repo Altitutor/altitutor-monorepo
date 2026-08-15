@@ -32,17 +32,17 @@ const SECTION_PROMPTS: Record<AiGenerationSectionKey, string> = {
 - Include a question-level answerExplanation for every question, explaining the textual evidence for the correct answer and the flaw in the strongest distractor.
 - In every answerExplanation, identify the passage paragraph number whenever quoting, paraphrasing, or relying on textual evidence, e.g. "Paragraph 2 states..." or "This is supported by paragraph 4."`,
   decision_making: `Decision Making rules:
-- Candidate must fit one of these categories: Syllogisms, Recognising Assumptions, Venn Diagrams, Probabilistic and Statistical Reasoning, Logical Puzzles.
+- Candidate must fit one of these categories: Syllogisms, Interpreting Information and Drawing Conclusions, Recognising Assumptions, Venn Diagrams, Probabilistic and Statistical Reasoning, Logical Puzzles.
 - Generate exactly 1 question per stem.
 - For multiple-choice questions, include 4-5 options and exactly one correct answer.
 - For binary-placement questions, each option is a statement and answerKeyValue is yes or no.
-- Syllogisms question text must be exactly: Place 'Yes' if the conclusion does follow. Place 'No' if the conclusion does not follow.
+- Binary-placement question text must be exactly: Place 'Yes' if the conclusion does follow. Place 'No' if the conclusion does not follow.
 - Recognising Assumptions question text must be exactly: Select the strongest argument from the statements below.
-- Syllogisms must have exactly five statements and per-option explanations.
+- Binary-placement questions must have exactly five statements and per-option explanations.
 - Keep standalone stems compact. Use precise conditions, dates, quantities, set relationships, rankings, eligibility rules, or short public-policy prompts.
 - Correct answers must follow from the supplied information, not real-world plausibility. Distractors should fail by adding assumptions, reversing conditions, confusing necessary and sufficient conditions, or ignoring constraints.
 - Argument items should use a balanced public question and four arguments. The strongest option should be directly relevant, evidence-based, and decisive; weaker options should be emotive, tangential, unsupported, or too narrow.
-- Include a question-level answerExplanation for non-syllogism questions.
+- Include a question-level answerExplanation for multiple-choice questions.
 - Teach the fastest appropriate method: use a compact table or elimination grid for assignments, a slot diagram for ordering/seating, set notation or a Venn diagram for sets, a probability tree or complement method for probability, and a necessary-versus-sufficient rule check for conditional logic.
 - Explanations should first show the efficient setup, then apply the decisive rule or calculation, then briefly identify why each distractor fails. Do not include hidden deliberation or narrate trial-and-error.`,
   quantitative_reasoning: `Quantitative Reasoning rules:
@@ -56,11 +56,12 @@ const SECTION_PROMPTS: Record<AiGenerationSectionKey, string> = {
 - Include a question-level answerExplanation for every question with auditable working and units.`,
   situational_judgement: `Situational Judgement rules:
 - Generate realistic professional/ethical scenarios.
-- Generate exactly 4 questions per stem.
-- Use either How Important or How Appropriate for all questions in the stem, never both.
+- Use How Important, How Appropriate, or Most/Least Appropriate.
+- How Important and How Appropriate stems generate exactly 4 questions, each with a multiple-choice rating response.
 - How Important options exactly: Very important; Important; Of minor importance; Not important at all.
 - How Appropriate options exactly: A very appropriate thing to do; Appropriate, but not ideal; Inappropriate, but not awful; A very inappropriate thing to do.
-- Include exactly one best answer per question.
+- Most/Least Appropriate stems generate exactly 1 drag-and-drop question with three actions. Mark one action most and one action least.
+- Include exactly one best answer per rating question.
 - Scenario context should be brief and concrete: medical student, junior doctor, patient, colleague, tutor, supervisor, ward, clinic, placement, confidentiality, consent, safety, honesty, respect, teamwork, or escalation.
 - Each question should evaluate one consideration or action, not a bundle of several actions.
 - The best answer should reflect patient safety, professional integrity, scope of practice, confidentiality, seeking help, and respectful communication.
@@ -101,7 +102,7 @@ export function buildAiGenerationUserPrompt(input: {
       requirements: [
         'Return exactly stemCount stems.',
         'Multiple-choice questions: answerExplanation must be non-empty and every option answerExplanation must be null.',
-        'Syllogism questions: answerExplanation must be null and every option answerExplanation must be non-empty.',
+        'Binary-placement questions: answerExplanation must be null and every option answerExplanation must be non-empty.',
         'Every single_choice or situational_judgement_rating question must have exactly one option with answerKeyValue="correct".',
         'Do not generate image-dependent content.',
       ],
@@ -115,11 +116,11 @@ export function buildAiGenerationUserPrompt(input: {
                 questionText: 'string',
                 responseType: 'multiple_choice|drag_and_drop',
                 answerScheme: 'single_choice|situational_judgement_rating|decision_making_binary_placement|situational_judgement_most_least',
-                answerExplanation: 'non-empty for multiple_choice; null for syllogism',
+                answerExplanation: 'non-empty for multiple_choice; null for drag_and_drop',
                 options: [
                   {
                     answerText: 'string',
-                    answerExplanation: 'null for multiple_choice; non-empty for syllogism',
+                    answerExplanation: 'null for multiple_choice; non-empty for drag_and_drop',
                     answerKeyValue: 'correct|yes|no|most|least|null',
                   },
                 ],
@@ -215,7 +216,7 @@ export function buildPlanningPrompt(input: AiGenerationBrief): string {
         'For QR, category is organisational metadata unless the tutor explicitly selected a category. In default generation, use categoryName only as a soft source-format intent for retrieving and calibrating examples; write a realistic source first, then classify the final stem honestly.',
         "For VR, each stem must still be either Reading Comprehension or True, False, Can't Tell, but vary passage source style, traps, evidence distribution, and question mix within the category.",
         'For DM, each stem must fit one DM category, but vary scenario domain, reasoning structure, diagrams, constraints, wording, and distractor logic within the category.',
-        'For SJ, each stem must be How Important or How Appropriate, but vary professional context, ethical principle, stakeholder, and judgement nuance within that mode.',
+        'For SJ, each stem must be How Important, How Appropriate, or Most/Least Appropriate, but vary professional context, ethical principle, stakeholder, and judgement nuance within that item type.',
         'Vary scenario domains, question archetypes, distractor plans, wording patterns, names, data relationships, and source layouts.',
         'Avoid planning disguised clones of source examples.',
       ],

@@ -10,14 +10,12 @@ import {
   stripePriceMatchesUcatPlan,
 } from "@/lib/ucat/plan-price-lookup";
 import {
+  buildUcatCheckoutReturnPath,
   parseUcatCheckoutRequest,
   type UcatCheckoutRequest,
 } from "@/lib/ucat/subscription-plan";
 import { isStandardUcatTrialEligible } from "@/lib/ucat/subscription-trial";
-import {
-  pathWithReturnIntent,
-  safePostAuthReturnPath,
-} from "@/features/auth/lib/return-intent";
+import { safePostAuthReturnPath } from "@/features/auth/lib/return-intent";
 
 const REFERRAL_GIFT_COUPON_ID = "ucat-referral-unlimited-gift";
 const REFERRAL_GIFT_COUPON_NAME = "UCAT gift — first period free";
@@ -376,19 +374,11 @@ export async function POST(request: NextRequest) {
     metadata.ucat_referral_gift_kind = referralGift.kind;
   }
 
-  const checkoutReturnBase =
-    returnContext === "signup_onboarding"
-      ? `${origin}/signup/complete`
-      : returnContext === "practice_session"
-        ? `${origin}/exam`
-        : `${origin}/dashboard`;
   const returnTo = safePostAuthReturnPath(selection.returnTo);
-  const checkoutReturnPath =
-    returnContext === "signup_onboarding"
-      ? pathWithReturnIntent("/signup/complete", returnTo, {
-          checkout: "success",
-        })
-      : `${new URL(checkoutReturnBase).pathname}?checkout=success`;
+  const checkoutReturnPath = buildUcatCheckoutReturnPath(
+    returnContext,
+    returnTo,
+  );
 
   const subscriptionData: Stripe.Checkout.SessionCreateParams.SubscriptionData =
     { metadata };
@@ -400,7 +390,6 @@ export async function POST(request: NextRequest) {
   const sessionParams: Stripe.Checkout.SessionCreateParams = {
     mode: "subscription",
     ui_mode: "custom",
-    payment_method_types: ["card"],
     wallet_options: { link: { display: "never" } },
     line_items: [{ price: priceId, quantity: 1 }],
     subscription_data: subscriptionData,

@@ -67,11 +67,11 @@ function commonChecks(snapshot: UcatAssessmentSnapshot, checks: UcatFormatCheck[
       }
     } else if (question.answerScheme === 'decision_making_binary_placement') {
       if (question.options.length !== 5) {
-        add(checks, 'error', 'syllogism_option_count', 'Syllogism questions must have exactly five Yes/No statements.', question)
+        add(checks, 'error', 'dm_placement_option_count', 'Binary-placement questions must have exactly five Yes/No statements.', question)
       }
       question.options.forEach((option, optionIndex) => {
         if (!option.answerExplanationPlain.trim()) {
-          add(checks, 'error', 'missing_syllogism_option_explanation', `Syllogism option ${optionIndex + 1} needs its own teaching explanation.`, question, optionIndex)
+          add(checks, 'error', 'missing_placement_option_explanation', `Binary-placement statement ${optionIndex + 1} needs its own teaching explanation.`, question, optionIndex)
         }
       })
     } else if (!question.answerExplanationPlain.trim()) {
@@ -103,17 +103,28 @@ function vrChecks(snapshot: UcatAssessmentSnapshot, checks: UcatFormatCheck[]) {
 
 function dmChecks(snapshot: UcatAssessmentSnapshot, checks: UcatFormatCheck[]) {
   const category = norm(snapshot.categoryName)
-  const valid = new Set(['logical puzzles', 'probabilistic and statistical reasoning', 'recognising assumptions', 'syllogisms', 'venn diagrams'])
+  const valid = new Set([
+    'interpreting information and drawing conclusions',
+    'logical puzzles',
+    'probabilistic and statistical reasoning',
+    'recognising assumptions',
+    'syllogisms',
+    'venn diagrams',
+  ])
   if (!valid.has(category)) add(checks, 'error', 'dm_category', 'Decision Making must use a recognised category.')
   if (snapshot.questions.length !== 1) add(checks, 'error', 'dm_question_count', 'Decision Making stems must contain exactly one question.')
   const question = snapshot.questions[0]
   if (!question) return
   if (question.answerScheme === 'decision_making_binary_placement') {
     const expected = norm("Place 'Yes' if the conclusion does follow. Place 'No' if the conclusion does not follow.")
-    if (norm(question.questionTextPlain) !== expected) add(checks, 'error', 'dm_syllogism_instruction', 'The syllogism instruction must match the UCAT Yes/No wording.', question)
-    if (question.responseType !== 'drag_and_drop') add(checks, 'error', 'dm_placement_response_type', 'Binary placement questions must use a drag-and-drop response.', question)
-  } else if (question.responseType !== 'multiple_choice') {
-    add(checks, 'error', 'dm_response_type', 'This Decision Making question must use a multiple-choice response.', question)
+    if (norm(question.questionTextPlain) !== expected) {
+      add(checks, 'error', 'dm_placement_instruction', 'Binary-placement question text must match the UCAT Yes/No wording.', question)
+    }
+    if (question.responseType !== 'drag_and_drop') {
+      add(checks, 'error', 'dm_placement_response_type', 'Binary-placement questions must use a drag-and-drop response.', question)
+    }
+  } else if (question.responseType === 'drag_and_drop') {
+    add(checks, 'error', 'dm_placement_answer_scheme', 'Drag-and-drop Decision Making questions must use binary placement.', question)
   }
   if (category === 'recognising assumptions') {
     const expected = norm('Select the strongest argument from the statements below.')
@@ -139,8 +150,25 @@ function sjChecks(snapshot: UcatAssessmentSnapshot, checks: UcatFormatCheck[]) {
   const category = norm(snapshot.categoryName)
   const important = ['Very important', 'Important', 'Of minor importance', 'Not important at all']
   const appropriate = ['A very appropriate thing to do', 'Appropriate, but not ideal', 'Inappropriate, but not awful', 'A very inappropriate thing to do']
+  if (!['how important', 'how appropriate', 'most least appropriate'].includes(category)) {
+    add(checks, 'error', 'sjt_category', 'Situational Judgement must use How Important, How Appropriate, or Most/Least Appropriate.')
+  }
+  const mostLeastQuestion = snapshot.questions.find((question) => (
+    question.answerScheme === 'situational_judgement_most_least'
+  ))
+  if (mostLeastQuestion) {
+    if (snapshot.questions.length !== 1) {
+      add(checks, 'error', 'sj_most_least_question_count', 'Most/Least Appropriate stems must contain exactly one question.')
+    }
+    if (mostLeastQuestion.responseType !== 'drag_and_drop') {
+      add(checks, 'error', 'sj_most_least_response_type', 'Most/Least questions must use a drag-and-drop response.', mostLeastQuestion)
+    }
+    if (mostLeastQuestion.options.length !== 3) {
+      add(checks, 'error', 'sj_most_least_option_count', 'Most/Least questions must have exactly three actions.', mostLeastQuestion)
+    }
+    return
+  }
   const expected = category === 'how important' ? important : category === 'how appropriate' ? appropriate : null
-  if (!expected) add(checks, 'error', 'sjt_category', 'Situational Judgement must use How Important or How Appropriate.')
   const modes = new Set(snapshot.questions.flatMap((question) => {
     const actual = question.options.map((option) => optionNorm(option.answerTextPlain)).sort().join('|')
     if (actual === important.map(optionNorm).sort().join('|')) return ['important']

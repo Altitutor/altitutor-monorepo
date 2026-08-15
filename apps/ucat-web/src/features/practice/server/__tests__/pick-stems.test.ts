@@ -15,6 +15,54 @@ describe("maximumWholeStemDose", () => {
 });
 
 describe("pickStems", () => {
+  it("reuses a preloaded catalogue snapshot without issuing database queries", async () => {
+    const from = jest.fn();
+    const result = await pickStems(
+      { from } as unknown as SupabaseClient,
+      {
+        section: "verbal_reasoning",
+        questionCount: 2,
+        categoryIds: ["category-1"],
+        questionTagIds: ["tag-1"],
+        unansweredOnly: false,
+        incorrectOnly: false,
+        timeMode: "off",
+        timeSpeedMultiplier: 1,
+        customTimeMinutes: null,
+        timePerQuestionSeconds: null,
+      },
+      {
+        deterministic: true,
+        preloaded: {
+          sections: [
+            {
+              id: "section-1",
+              section_number: 1,
+              time_per_question: 60,
+              number_of_questions: 44,
+            },
+          ],
+          stems: [
+            {
+              id: "stem-1",
+              section_id: "section-1",
+              question_stem_category_id: "category-1",
+              question_ids: ["question-1", "question-2"],
+              question_tag_ids: ["tag-1"],
+            },
+          ],
+          attempts: [],
+        },
+      },
+    );
+
+    expect(result).toMatchObject({
+      chosenStemIds: ["stem-1"],
+      questionCount: 2,
+    });
+    expect(from).not.toHaveBeenCalled();
+  });
+
   it("selects from the lightweight practice index without loading rich stem details", async () => {
     const from = jest.fn((relation: string) => {
       if (relation === "vstudent_ucat_sections") {

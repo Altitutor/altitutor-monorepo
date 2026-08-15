@@ -5,10 +5,25 @@ import type {
 
 export const CURRENT_PREPARATION_VERSIONS: PreparationVersions = Object.freeze({
   engine: "preparation-engine-v1",
-  policy: "evidence-driven-preparation-policy-v6",
+  policy: "evidence-driven-preparation-policy-v7",
   scoreModel: "pooled-representative-evidence-score-v2",
   trajectoryModel: "conditional-preparation-trajectory-v1",
 });
+
+/**
+ * The buffer above half a section absorbs whole-stem rounding while keeping
+ * the 1.5-equivalent calibration threshold reachable in three Learning loops.
+ */
+export const LEARNING_LOOP_TARGET_SECTION_EQUIVALENTS = 0.6;
+
+export function learningLoopTargetQuestionCount(
+  sectionQuestionCount: number,
+): number {
+  return Math.max(
+    1,
+    Math.ceil(sectionQuestionCount * LEARNING_LOOP_TARGET_SECTION_EQUIVALENTS),
+  );
+}
 
 export const STANDARD_PREPARATION_TIMING_PROFILE: PreparationTimingProfile = {
   id: "standard",

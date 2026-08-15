@@ -42,6 +42,10 @@ import {
   type BenchmarkMockAsset,
   type BenchmarkSetAsset,
 } from "@/features/preparation/lib/benchmark-selection";
+import {
+  learningLoopTargetQuestionCount,
+  LEARNING_LOOP_TARGET_SECTION_EQUIVALENTS,
+} from "@/features/preparation/lib/policy";
 
 type GenerateStudyPlanInput = {
   today: string;
@@ -188,7 +192,10 @@ function activityDemand(activity: PreparationActivityCandidate): number {
   const calculated =
     Math.max(0.25, activity.dose.sectionEquivalents) +
     (practice ? activity.ranking.targetGap / 80 : 0);
-  if (activity.kind === "related_practice" || activity.dose.questionCount === 10) {
+  if (
+    activity.kind === "related_practice" ||
+    activity.dose.questionCount === 10
+  ) {
     return Math.max(calculated, activity.dose.sectionEquivalents * 3);
   }
   if (practice && activity.dose.sectionEquivalents >= 0.75) {
@@ -615,7 +622,7 @@ export function generateStudyPlan(
           currentEstimate:
             input.signals.find((signal) => signal.sectionId === section.id)
               ?.currentEstimate ?? null,
-          })),
+        })),
     });
   const rankedActivities =
     input.activityCandidates ??
@@ -644,6 +651,9 @@ export function generateStudyPlan(
   );
   const readinessBySection = new Map(
     readiness.sections.map((section) => [section.sectionId, section]),
+  );
+  const learningModuleById = new Map(
+    input.learningModules.map((module) => [module.id, module]),
   );
   const mocks = plannedActivities.some((activity) => activity.kind === "mock")
     ? mockDates(
@@ -687,9 +697,7 @@ export function generateStudyPlan(
     isMock: mocks.has(scheduledDate),
     coreSlotCount: mocks.has(scheduledDate) ? 1 : justifiedCoreSlots,
     includeWarmup:
-      !mocks.has(scheduledDate) &&
-      hasTiming &&
-      input.skillTrainers.length > 0,
+      !mocks.has(scheduledDate) && hasTiming && input.skillTrainers.length > 0,
   }));
   const useCounts = new Map<string, number>();
   const sectionEquivalentUse = new Map<string, number>();
@@ -727,7 +735,8 @@ export function generateStudyPlan(
       const selected = selectBenchmarkSet({
         sectionId: section.id,
         sectionQuestionCount: section.questionCount,
-        requestedQuestionCount: activity.dose.questionCount ?? section.questionCount,
+        requestedQuestionCount:
+          activity.dose.questionCount ?? section.questionCount,
         requestedPace: readinessBySection.get(section.id)?.paceMultiplier ?? 1,
         usedSetIds,
         sets: input.benchmarkSets ?? [],
@@ -774,7 +783,9 @@ export function generateStudyPlan(
       );
     } else if (isPracticeActivity(activity) && section) {
       const categories = activity.categoryIds.flatMap((categoryId) => {
-        const category = input.categories.find((item) => item.id === categoryId);
+        const category = input.categories.find(
+          (item) => item.id === categoryId,
+        );
         return category ? [category] : [];
       });
       const uses = useCounts.get(activity.id) ?? 0;
@@ -838,6 +849,12 @@ export function generateStudyPlan(
     };
   };
 
+  const schedulingDose = (activity: PreparationActivityCandidate) =>
+    activity.dose.sectionEquivalents +
+    (activity.kind === "instruction"
+      ? LEARNING_LOOP_TARGET_SECTION_EQUIVALENTS
+      : 0);
+
   for (const envelope of dayEnvelopes) {
     const date = envelope.scheduledDate;
     const mockCandidate = plannedActivities.find(
@@ -849,52 +866,104 @@ export function generateStudyPlan(
     if (envelope.isMock) {
       if (mockCandidate) candidatesForDay.push(mockCandidate);
     } else {
+      const outstandingInstructions = plannedActivities.filter(
+        (activity) =>
+          activity.kind === "instruction" &&
+          !consumedOnce.has(activity.id) &&
+          (remainingDemand.get(demandKey(activity)) ?? 0) > 0,
+      );
+      const intensiveLearningDay = envelope.coreSlotCount > ordinaryCoreSlots;
+      const learningLoopDay = outstandingInstructions.length > 0;
       for (let slot = 0; slot < envelope.coreSlotCount; slot += 1) {
+        const sectionsRequiringInitialExposure = new Set(
+          plannedActivities.flatMap((activity) =>
+            activity.kind === "instruction" && activity.sectionId
+              ? [activity.sectionId]
+              : [],
+          ),
+        );
+        const hasBasicLearningExposure = [
+          ...sectionsRequiringInitialExposure,
+        ].every(
+          (sectionId) => (instructionUseBySection.get(sectionId) ?? 0) > 0,
+        );
         const eligible = plannedActivities.filter((activity) => {
-            if (activity.kind === "mock" || activity.kind === "review") return false;
-            if ((remainingDemand.get(demandKey(activity)) ?? 0) <= 0) {
-              return false;
-            }
-            if (
-              activity.kind === "calibration" &&
-              (slot > 0 ||
-                (readiness.mode !== "exam" &&
-                  ordinaryCoreSessionCount < (calibrationCount + 1) * 2))
-            ) {
-              return false;
-            }
-            if (
-              (activity.kind === "instruction" || activity.kind === "calibration") &&
-              consumedOnce.has(activity.id)
-            ) {
-              return false;
-            }
-            if (
-              dailySectionEquivalents + activity.dose.sectionEquivalents >
-              2.01
-            ) {
-              return false;
-            }
-            if (
-              envelope.coreSlotCount > 2 &&
-              activity.sectionId &&
-              !dailyCognitiveSections.has(activity.sectionId) &&
-              dailyCognitiveSections.size >= 2
-            ) {
-              return false;
-            }
-            return activity.kind !== "optional_warmup";
+          if (activity.kind === "mock" || activity.kind === "review")
+            return false;
+          if (activity.kind === "instruction" && !learningLoopDay) return false;
+          if ((remainingDemand.get(demandKey(activity)) ?? 0) <= 0) {
+            return false;
+          }
+          if (
+            activity.kind === "calibration" &&
+            ((activity.reasonCode === "activity.diagnostic_due" &&
+              !hasBasicLearningExposure) ||
+              slot > 0 ||
+              (activity.reasonCode !== "activity.diagnostic_due" &&
+                readiness.mode !== "exam" &&
+                ordinaryCoreSessionCount < (calibrationCount + 1) * 2))
+          ) {
+            return false;
+          }
+          if (
+            (activity.kind === "instruction" ||
+              activity.kind === "calibration") &&
+            consumedOnce.has(activity.id)
+          ) {
+            return false;
+          }
+          if (dailySectionEquivalents + schedulingDose(activity) > 2.01) {
+            return false;
+          }
+          if (
+            envelope.coreSlotCount > 2 &&
+            activity.sectionId &&
+            !dailyCognitiveSections.has(activity.sectionId) &&
+            dailyCognitiveSections.size >= 2
+          ) {
+            return false;
+          }
+          return activity.kind !== "optional_warmup";
         });
+        const instructionEligible = eligible.filter(
+          (activity) => activity.kind === "instruction",
+        );
+        const initialDiagnosticEligible = eligible.filter(
+          (activity) =>
+            activity.kind === "calibration" &&
+            activity.reasonCode === "activity.diagnostic_due",
+        );
+        const prioritiseInitialDiagnostic =
+          initialDiagnosticEligible.length > 0;
+        const prioritiseInstruction =
+          !prioritiseInitialDiagnostic &&
+          learningLoopDay &&
+          instructionEligible.length > 0;
         const broadEligible = eligible.filter(
           (activity) =>
             activity.kind === "broad_practice" ||
             activity.kind === "mixed_practice" ||
             activity.kind === "related_practice",
         );
-        const slotEligible =
-          envelope.coreSlotCount > 2 && slot === 0 && broadEligible.length > 0
-            ? broadEligible
-            : eligible;
+        const hasOutstandingEssentialInstruction = instructionEligible.some(
+          (activity) =>
+            learningModuleById.get(activity.learningModuleId ?? "")
+              ?.priority === "essential",
+        );
+        const slotEligible = prioritiseInitialDiagnostic
+          ? initialDiagnosticEligible
+          : prioritiseInstruction
+            ? instructionEligible.filter(
+                (activity) =>
+                  !hasOutstandingEssentialInstruction ||
+                  learningModuleById.get(activity.learningModuleId ?? "")
+                    ?.priority === "essential",
+              )
+            : envelope.coreSlotCount > 2 &&
+                slot === 0 &&
+                broadEligible.length > 0
+              ? broadEligible
+              : eligible;
         const adjustedPriority = (activity: PreparationActivityCandidate) =>
           activity.ranking.total -
           (useCounts.get(activity.id) ?? 0) * 60 -
@@ -902,9 +971,6 @@ export function generateStudyPlan(
             ? ((sectionEquivalentUse.get(activity.sectionId) ?? 0) +
                 activity.dose.sectionEquivalents) *
               1000
-            : 0) -
-          (activity.kind === "instruction" && activity.sectionId
-            ? (instructionUseBySection.get(activity.sectionId) ?? 0) * 1000
             : 0) -
           (activity.kind === "targeted_practice" &&
           activity.sectionId &&
@@ -915,6 +981,15 @@ export function generateStudyPlan(
           const leftAdjusted = adjustedPriority(left);
           const rightAdjusted = adjustedPriority(right);
           if (left.kind === "instruction" && right.kind === "instruction") {
+            const leftModule = learningModuleById.get(
+              left.learningModuleId ?? "",
+            );
+            const rightModule = learningModuleById.get(
+              right.learningModuleId ?? "",
+            );
+            const priorityDifference =
+              Number(rightModule?.priority === "essential") -
+              Number(leftModule?.priority === "essential");
             const useDifference =
               (instructionUseBySection.get(left.sectionId ?? "") ?? 0) -
               (instructionUseBySection.get(right.sectionId ?? "") ?? 0);
@@ -928,24 +1003,30 @@ export function generateStudyPlan(
               ] ?? "",
             );
             return (
+              priorityDifference ||
               useDifference ||
               recencyDifference ||
-              rightAdjusted - leftAdjusted ||
+              (left.sectionId === right.sectionId
+                ? (leftModule?.authoredOrder ?? Number.MAX_SAFE_INTEGER) -
+                  (rightModule?.authoredOrder ?? Number.MAX_SAFE_INTEGER)
+                : 0) ||
               (sectionById.get(left.sectionId ?? "")?.sectionNumber ?? 99) -
                 (sectionById.get(right.sectionId ?? "")?.sectionNumber ?? 99) ||
+              rightAdjusted - leftAdjusted ||
               left.id.localeCompare(right.id)
             );
           }
           return (
-            rightAdjusted - leftAdjusted ||
-            left.id.localeCompare(right.id)
+            rightAdjusted - leftAdjusted || left.id.localeCompare(right.id)
           );
         })[0];
         if (!selected) break;
         if (selected.kind === "calibration") {
           candidatesForDay.splice(0, candidatesForDay.length, selected);
           consumedOnce.add(selected.id);
-          calibrationCount += 1;
+          if (selected.reasonCode !== "activity.diagnostic_due") {
+            calibrationCount += 1;
+          }
           remainingDemand.set(demandKey(selected), 0);
           break;
         }
@@ -955,7 +1036,7 @@ export function generateStudyPlan(
           (remainingDemand.get(demandKey(selected)) ?? 0) -
             Math.max(0.25, selected.dose.sectionEquivalents),
         );
-        dailySectionEquivalents += selected.dose.sectionEquivalents;
+        dailySectionEquivalents += schedulingDose(selected);
         if (selected.sectionId) dailyCognitiveSections.add(selected.sectionId);
         useCounts.set(selected.id, (useCounts.get(selected.id) ?? 0) + 1);
         if (selected.sectionId && isPracticeActivity(selected)) {
@@ -978,6 +1059,7 @@ export function generateStudyPlan(
               (instructionUseBySection.get(selected.sectionId) ?? 0) + 1,
             );
           }
+          if (!intensiveLearningDay) break;
         }
       }
     }
@@ -1031,19 +1113,22 @@ export function generateStudyPlan(
             (module) => module.id === selectedTask.learningModuleId,
           );
           const inventory = learningModule?.targetedPracticeInventory;
+          const targetQuestionCount = learningLoopTargetQuestionCount(
+            section.questionCount,
+          );
           const requestedQuestionCount = Math.min(
-            10,
+            targetQuestionCount,
             inventory?.strictSelectableQuestionCount ??
               inventory?.strictQuestionCount ??
-              10,
+              targetQuestionCount,
           );
-          if (inventory && requestedQuestionCount < 10) {
+          if (inventory && requestedQuestionCount < targetQuestionCount) {
             contentGaps.push({
               kind: "targeted_practice",
               sectionId: section.id,
               moduleId: learningModule.id,
               reason: "insufficient_strict_content",
-              requestedQuestionCount: 10,
+              requestedQuestionCount: targetQuestionCount,
               availableQuestionCount: requestedQuestionCount,
             });
           } else if (
@@ -1065,10 +1150,14 @@ export function generateStudyPlan(
           }
           if (requestedQuestionCount === 0) continue;
           canonicalTasks.push(selectedTask);
-          const linkedCategories = activity.categoryIds.flatMap((categoryId) => {
-            const category = input.categories.find((item) => item.id === categoryId);
-            return category ? [category] : [];
-          });
+          const linkedCategories = activity.categoryIds.flatMap(
+            (categoryId) => {
+              const category = input.categories.find(
+                (item) => item.id === categoryId,
+              );
+              return category ? [category] : [];
+            },
+          );
           const linkedPractice = practiceTask({
             section,
             category: linkedCategories[0] ?? null,
@@ -1093,6 +1182,9 @@ export function generateStudyPlan(
             },
           });
           linkedPractice.title = `Practice · ${selectedTask.title}`;
+          linkedPractice.estimatedMinutes = Math.ceil(
+            requestedQuestionCount * 1.5,
+          );
           linkedPractice.rationale =
             "Apply the method from the module while it is still fresh.";
           linkedPractice.questionTagId =
@@ -1128,6 +1220,7 @@ export function generateStudyPlan(
             (sectionEquivalentUse.get(section.id) ?? 0) +
               linkedPractice.targetUnits! / section.questionCount,
           );
+          ordinaryCoreSessionCount += 1;
         }
         continue;
       }
@@ -1149,8 +1242,7 @@ export function generateStudyPlan(
             sectionName: selectedTask.launchConfig.sectionName,
             practiceMinutes: 0,
             reviewMinutes: activity.duration.reviewMinutes,
-            preparationWarning:
-              selectedTask.launchConfig.preparationWarning,
+            preparationWarning: selectedTask.launchConfig.preparationWarning,
             derivedReview: true,
           },
         });
@@ -1199,15 +1291,15 @@ export function generateExtraStudyTasks(
     ? input.sections.find((candidate) => candidate.key === input.sectionKey)
     : extension?.sectionId
       ? input.sections.find((candidate) => candidate.id === extension.sectionId)
-    : [...cognitiveSections].sort((a, b) => {
-        const aSignal = signalBySection.get(a.id);
-        const bSignal = signalBySection.get(b.id);
-        return (
-          (aSignal?.currentEstimate ?? 500) -
-            (bSignal?.currentEstimate ?? 500) ||
-          (aSignal?.evidenceCount ?? 0) - (bSignal?.evidenceCount ?? 0)
-        );
-      })[0];
+      : [...cognitiveSections].sort((a, b) => {
+          const aSignal = signalBySection.get(a.id);
+          const bSignal = signalBySection.get(b.id);
+          return (
+            (aSignal?.currentEstimate ?? 500) -
+              (bSignal?.currentEstimate ?? 500) ||
+            (aSignal?.evidenceCount ?? 0) - (bSignal?.evidenceCount ?? 0)
+          );
+        })[0];
   if (!section) {
     throw new Error("There are no suitable practice questions available yet.");
   }
@@ -1221,10 +1313,13 @@ export function generateExtraStudyTasks(
     }
   }
   const rankedCategory = extension?.categoryIds[0]
-    ? input.categories.find((candidate) => candidate.id === extension.categoryIds[0])
+    ? input.categories.find(
+        (candidate) => candidate.id === extension.categoryIds[0],
+      )
     : null;
   const category =
-    rankedCategory ?? pickCategory(section.id, input.categories, scheduledCounts);
+    rankedCategory ??
+    pickCategory(section.id, input.categories, scheduledCounts);
   const signal = signalBySection.get(section.id);
   const canonicalReadiness = input.readiness?.sections.find(
     (candidate) => candidate.sectionId === section.id,
@@ -1236,7 +1331,8 @@ export function generateExtraStudyTasks(
   const timed = canonicalReadiness
     ? canonicalReadiness.mode !== "learning"
     : daysRemaining <= 60 || (signal?.completedFullSets ?? 0) > 0;
-  const pace = canonicalReadiness?.paceMultiplier ?? paceLadderStep(signal?.observedPace);
+  const pace =
+    canonicalReadiness?.paceMultiplier ?? paceLadderStep(signal?.observedPace);
   const trainer = pickSkillTrainer(
     section.id,
     category?.id ?? null,

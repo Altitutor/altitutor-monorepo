@@ -1002,10 +1002,10 @@ describe('validateGeneratedStemCandidate', () => {
     expect(similarityIssue?.details).toEqual(expect.objectContaining({ sourceId: 'copied-shuttle-source' }))
   })
 
-  it('blocks syllogisms without five explained statements', () => {
+  it('blocks binary-placement questions without five explained statements', () => {
     const issues = validateGeneratedStemCandidate(
       stem({
-        categoryName: 'Syllogisms',
+        categoryName: 'Interpreting Information and Drawing Conclusions',
         questions: [
           {
             ...mcQuestion(),
@@ -1013,8 +1013,8 @@ describe('validateGeneratedStemCandidate', () => {
             responseType: 'drag_and_drop', answerScheme: 'decision_making_binary_placement',
             answerExplanation: null,
             options: [
-              { answerText: 'Conclusion 1', answerKeyValue: 'correct', answerExplanation: 'Yes, because it follows.' },
-              { answerText: 'Conclusion 2', answerKeyValue: null, answerExplanation: null },
+              { answerText: 'Conclusion 1', answerKeyValue: 'yes', answerExplanation: 'Yes, because it follows.' },
+              { answerText: 'Conclusion 2', answerKeyValue: 'no', answerExplanation: null },
             ],
           },
         ],
@@ -1022,12 +1022,89 @@ describe('validateGeneratedStemCandidate', () => {
       0,
       {
         sectionName: 'Decision Making',
-        categoryName: 'Syllogisms',
+        categoryName: 'Interpreting Information and Drawing Conclusions',
       }
     )
 
-    expect(issues.some((issue) => issue.code === 'syllogism_option_count')).toBe(true)
-    expect(issues.some((issue) => issue.code === 'missing_syllogism_option_explanation')).toBe(true)
+    expect(issues.some((issue) => issue.code === 'dm_placement_option_count')).toBe(true)
+    expect(issues.some((issue) => issue.code === 'missing_placement_option_explanation')).toBe(true)
+    expect(issues.some((issue) => issue.code === 'dm_category')).toBe(false)
+  })
+
+  it('accepts Interpreting Information stored as either response contract', () => {
+    const placement = validateGeneratedStemCandidate(
+      stem({
+        categoryName: 'Interpreting Information and Drawing Conclusions',
+        questions: [{
+          ...mcQuestion(),
+          questionText: "Place 'Yes' if the conclusion does follow. Place 'No' if the conclusion does not follow.",
+          responseType: 'drag_and_drop',
+          answerScheme: 'decision_making_binary_placement',
+          answerExplanation: null,
+          options: Array.from({ length: 5 }, (_, index) => ({
+            answerText: `Conclusion ${index + 1}`,
+            answerKeyValue: index % 2 === 0 ? 'yes' as const : 'no' as const,
+            answerExplanation: `Why statement ${index + 1} is Yes or No.`,
+          })),
+        }],
+      }),
+      0,
+      {
+        sectionName: 'Decision Making',
+        categoryName: 'Interpreting Information and Drawing Conclusions',
+      }
+    )
+    const multipleChoice = validateGeneratedStemCandidate(
+      stem({
+        categoryName: 'Interpreting Information and Drawing Conclusions',
+        questions: [mcQuestion()],
+      }),
+      0,
+      {
+        sectionName: 'Decision Making',
+        categoryName: 'Interpreting Information and Drawing Conclusions',
+      }
+    )
+
+    expect(placement.map((issue) => issue.code)).not.toEqual(expect.arrayContaining([
+      'dm_category',
+      'dm_response_type',
+    ]))
+    expect(multipleChoice.map((issue) => issue.code)).not.toEqual(expect.arrayContaining([
+      'dm_category',
+      'dm_response_type',
+    ]))
+  })
+
+  it('accepts Most/Least Appropriate as a single drag-and-drop question', () => {
+    const issues = validateGeneratedStemCandidate(
+      stem({
+        categoryName: 'Most/Least Appropriate',
+        questions: [{
+          ...mcQuestion(),
+          questionText: 'Place the most and least appropriate actions.',
+          responseType: 'drag_and_drop',
+          answerScheme: 'situational_judgement_most_least',
+          options: [
+            { answerText: 'Reassure the patient', answerKeyValue: 'most', answerExplanation: null },
+            { answerText: 'Escalate immediately', answerKeyValue: 'least', answerExplanation: null },
+            { answerText: 'Ignore the concern', answerKeyValue: null, answerExplanation: null },
+          ],
+        }],
+      }),
+      0,
+      {
+        sectionName: 'Situational Judgement',
+        categoryName: 'Most/Least Appropriate',
+      }
+    )
+
+    expect(issues.map((issue) => issue.code)).not.toEqual(expect.arrayContaining([
+      'sj_category',
+      'sj_response_type',
+      'sj_question_count',
+      'sj_option_count',
+    ]))
   })
 
   it('blocks logical puzzles whose explanations admit unresolved ambiguity', () => {

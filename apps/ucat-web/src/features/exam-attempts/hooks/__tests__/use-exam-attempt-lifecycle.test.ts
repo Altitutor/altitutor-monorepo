@@ -174,6 +174,28 @@ function createAttempt(
   };
 }
 
+function createPracticeAttempt(
+  state: QuestionEngineState = {
+    ...createState(),
+    phase: "question",
+    timerStartedAt: null,
+    visitedQuestionIds: ["question-1"],
+  },
+): ActiveExamAttempt {
+  return {
+    ...createAttempt(state, null),
+    kind: "practice",
+    attemptId: "practice-session-1",
+    resourceId: "practice-session-1",
+    label: "Practice",
+    resumeHref: "/exam",
+    resultsHref: "/progress/practice-sessions/practice-session-1",
+    setAttemptIdsBySetId: {},
+    practiceSessionId: "practice-session-1",
+    wasTimed: false,
+  };
+}
+
 function useLifecycleHarness() {
   const [state, setState] = useState(createState);
   const attemptStateRef = useRef({
@@ -574,6 +596,91 @@ describe("useExamAttemptLifecycle request races", () => {
     expect(mockClearLocal).toHaveBeenCalledTimes(1);
     expect(mockReplace).toHaveBeenCalledWith("/practice");
     expect(mockSyncExamAttempt).not.toHaveBeenCalled();
+
+    unmount();
+  });
+
+  it("routes back to practice when a later snapshot sync reports the session ended", async () => {
+    mockBeginExamAttempt.mockResolvedValue({
+      attempt: createPracticeAttempt(),
+      resumed: false,
+    });
+    const pendingSync = deferred<{
+      currentSegmentEndsAt: string | null;
+    }>();
+    mockSyncExamAttempt.mockReturnValue(pendingSync.promise);
+
+    const { result, unmount } = renderHook(usePracticeLifecycleHarness);
+
+    await waitFor(() =>
+      expect(result.current.lifecycle.attemptId).toBe("practice-session-1"),
+    );
+
+    act(() => {
+      result.current.setState((current) => ({
+        ...current,
+        selectedAnswers: { "question-1": "option-1" },
+      }));
+    });
+
+    await waitFor(() => expect(mockSyncExamAttempt).toHaveBeenCalled());
+
+    await act(async () => {
+      pendingSync.reject(new PracticeSessionEndedError());
+      await pendingSync.promise.catch(() => undefined);
+    });
+
+    await waitFor(() =>
+      expect(mockToast).toHaveBeenCalledWith({
+        title: "Practice session ended",
+        description:
+          "This session ended in another tab or device. Start a new session to continue practising.",
+      }),
+    );
+    expect(mockReplace).toHaveBeenCalledWith("/practice");
+
+    unmount();
+  });
+
+  it("does not steal navigation when a late sync fails after practice reaches results", async () => {
+    mockBeginExamAttempt.mockResolvedValue({
+      attempt: createPracticeAttempt(),
+      resumed: false,
+    });
+    const pendingSync = deferred<{
+      currentSegmentEndsAt: string | null;
+    }>();
+    mockSyncExamAttempt.mockReturnValue(pendingSync.promise);
+
+    const { result, unmount } = renderHook(usePracticeLifecycleHarness);
+
+    await waitFor(() =>
+      expect(result.current.lifecycle.attemptId).toBe("practice-session-1"),
+    );
+
+    act(() => {
+      result.current.setState((current) => ({
+        ...current,
+        selectedAnswers: { "question-1": "option-1" },
+      }));
+    });
+
+    await waitFor(() => expect(mockSyncExamAttempt).toHaveBeenCalled());
+
+    act(() => {
+      result.current.setState((current) => ({
+        ...current,
+        phase: "practiceComplete",
+      }));
+    });
+
+    await act(async () => {
+      pendingSync.reject(new PracticeSessionEndedError());
+      await pendingSync.promise.catch(() => undefined);
+    });
+
+    expect(mockToast).not.toHaveBeenCalled();
+    expect(mockReplace).not.toHaveBeenCalledWith("/practice");
 
     unmount();
   });

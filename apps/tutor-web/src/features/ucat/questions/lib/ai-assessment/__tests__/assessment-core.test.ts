@@ -320,6 +320,8 @@ describe('assessment prompts and deterministic checks', () => {
     expect(ASSESSMENT_SYSTEM_PROMPT).toContain(
       'Verbal Reasoning explanations should identify the specific passage evidence',
     )
+    expect(ASSESSMENT_SYSTEM_PROMPT).toContain('correct Yes/No conclusions for binary-placement questions')
+    expect(ASSESSMENT_SYSTEM_PROMPT).not.toContain('Yes/No conclusions for syllogisms')
   })
 
   it('uses atomic typed directives without exposing the blind solve', () => {

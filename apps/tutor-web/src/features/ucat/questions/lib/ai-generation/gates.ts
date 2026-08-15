@@ -32,6 +32,7 @@ export type GenerationContext = {
 }
 
 const DM_CATEGORIES = new Set([
+  'interpreting information and drawing conclusions',
   'logical puzzles',
   'probabilistic and statistical reasoning',
   'recognising assumptions',
@@ -287,14 +288,14 @@ function validateCommon(stem: GeneratedStem, stemIndex: number, issues: Generati
 
     if (question.answerScheme === 'decision_making_binary_placement') {
       if (question.options.length !== 5) {
-        add(issues, 'blocking', 'syllogism_option_count', 'Syllogism questions must have exactly five Yes/No statements.', stemIndex, questionIndex)
+        add(issues, 'blocking', 'dm_placement_option_count', 'Binary-placement questions must have exactly five Yes/No statements.', stemIndex, questionIndex)
       }
       question.options.forEach((option, optionIndex) => {
         const explanation = explanationText(option.answerExplanation)
         if (!explanation.trim()) {
-          add(issues, 'blocking', 'missing_syllogism_option_explanation', `Syllogism option ${optionIndex + 1} must explain why the answer is Yes or No.`, stemIndex, questionIndex)
+          add(issues, 'blocking', 'missing_placement_option_explanation', `Binary-placement statement ${optionIndex + 1} must explain why the answer is Yes or No.`, stemIndex, questionIndex)
         } else if (explanation.length < 30) {
-          add(issues, 'warning', 'thin_syllogism_option_explanation', `Syllogism option ${optionIndex + 1} explanation may be too thin.`, stemIndex, questionIndex)
+          add(issues, 'warning', 'thin_placement_option_explanation', `Binary-placement statement ${optionIndex + 1} explanation may be too thin.`, stemIndex, questionIndex)
         }
       })
     }
@@ -393,11 +394,13 @@ function validateDm(stem: GeneratedStem, stemIndex: number, categoryName: string
   if (stem.questions[0]?.answerScheme === 'decision_making_binary_placement') {
     const expected = norm("Place 'Yes' if the conclusion does follow. Place 'No' if the conclusion does not follow.")
     if (qText !== expected) {
-      add(issues, 'blocking', 'dm_syllogism_question_text', 'Syllogism question text must match the required UCAT instruction.', stemIndex, 0)
+      add(issues, 'blocking', 'dm_placement_question_text', 'Binary-placement question text must match the required UCAT instruction.', stemIndex, 0)
     }
     if (stem.questions[0]?.responseType !== 'drag_and_drop') {
       add(issues, 'blocking', 'dm_placement_response_type', 'Binary placement questions must use drag_and_drop.', stemIndex, 0)
     }
+  } else if (stem.questions[0]?.responseType === 'drag_and_drop') {
+    add(issues, 'blocking', 'dm_placement_answer_scheme', 'Drag-and-drop Decision Making questions must use binary placement.', stemIndex, 0)
   }
   if (category === 'recognising assumptions') {
     const expected = norm('Select the strongest argument from the statements below.')
@@ -862,6 +865,25 @@ function vegaLiteNeedsSeriesKey(value: unknown): boolean {
 
 function validateSj(stem: GeneratedStem, stemIndex: number, categoryName: string | null, issues: GenerationGateIssue[]) {
   const category = norm(categoryName)
+  const validCategories = new Set(['how important', 'how appropriate', 'most/least appropriate'])
+  if (!validCategories.has(category)) {
+    add(issues, 'blocking', 'sj_category', 'Situational Judgement category must be How Important, How Appropriate, or Most/Least Appropriate.', stemIndex)
+  }
+  const mostLeastQuestion = stem.questions.find((question) => (
+    question.answerScheme === 'situational_judgement_most_least'
+  ))
+  if (mostLeastQuestion) {
+    if (stem.questions.length !== 1) {
+      add(issues, 'blocking', 'sj_most_least_question_count', 'Most/Least Appropriate stems must have exactly 1 question.', stemIndex)
+    }
+    if (mostLeastQuestion.responseType !== 'drag_and_drop') {
+      add(issues, 'blocking', 'sj_most_least_response_type', 'Most/Least questions must use drag_and_drop.', stemIndex, 0)
+    }
+    if (mostLeastQuestion.options.length !== 3) {
+      add(issues, 'blocking', 'sj_most_least_option_count', 'Most/Least questions must have exactly 3 actions.', stemIndex, 0)
+    }
+    return
+  }
   if (stem.questions.length !== 4) {
     add(issues, 'blocking', 'sj_question_count', 'Situational Judgement stems must have exactly 4 questions.', stemIndex)
   }
@@ -871,9 +893,6 @@ function validateSj(stem: GeneratedStem, stemIndex: number, categoryName: string
       : category === 'how appropriate'
         ? ['A very appropriate thing to do', 'Appropriate, but not ideal', 'Inappropriate, but not awful', 'A very inappropriate thing to do']
         : null
-  if (!expected) {
-    add(issues, 'blocking', 'sj_category', 'Situational Judgement category must be How Important or How Appropriate.', stemIndex)
-  }
 
   stem.questions.forEach((question, questionIndex) => {
     if (question.responseType !== 'multiple_choice') {
