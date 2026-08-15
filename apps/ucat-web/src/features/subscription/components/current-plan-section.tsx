@@ -5,11 +5,15 @@ import { Button } from "@/components/ui/button";
 import { ArrowRight, Check, Sparkles } from "lucide-react";
 import { useUcatAccess } from "@/features/ucat-access/hooks/use-ucat-access";
 import { FreePlanQuotaLimitsCard } from "@/features/subscription/components/free-plan-quota-limits-card";
+import { ScheduledPlanDowngradeNotice } from "@/features/subscription/components/scheduled-plan-downgrade-notice";
 import { useUcatSubscriptionBilling } from "@/features/subscription/hooks/use-ucat-subscription-billing";
 import { formatSubscriptionStatus } from "@/features/subscription/lib/invoice-display";
 import { UCAT_ONLINE_TIER_LABELS } from "@/features/subscription/lib/plan-tier-display";
 import { resolveCurrentPlanDisplayKey } from "@/features/subscription/lib/resolve-subscribed-plan";
-import { isSubscriptionCancelScheduled } from "@/lib/ucat/stripe-subscription-fields";
+import {
+  getSubscriptionEndDateIso,
+  isSubscriptionCancelScheduled,
+} from "@/lib/ucat/stripe-subscription-fields";
 import { useUpsellDialog } from "@/features/ucat-access/context/upsell-dialog-context";
 import {
   UCAT_PRIMARY_ACTION_BUTTON,
@@ -45,6 +49,9 @@ export function CurrentPlanSection() {
   const isCancelScheduled = subscription
     ? isSubscriptionCancelScheduled(subscription)
     : false;
+  const cancelEndDate = subscription
+    ? getSubscriptionEndDateIso(subscription)
+    : null;
 
   const billingAwaiting = isLoading || (isPending && !data && !isError);
 
@@ -67,6 +74,10 @@ export function CurrentPlanSection() {
 
   return (
     <div className="space-y-4">
+      {isCancelScheduled && cancelEndDate ? (
+        <ScheduledPlanDowngradeNotice endDate={cancelEndDate} />
+      ) : null}
+
       <section
         className={cn(
           "rounded-ucatShell overflow-hidden",
@@ -92,9 +103,11 @@ export function CurrentPlanSection() {
                   {isFree ? (
                     <Badge variant="secondary">Free</Badge>
                   ) : subscription ? (
-                    <Badge variant={isCancelScheduled ? "outline" : "default"}>
+                    <Badge
+                      variant={isCancelScheduled ? "destructive" : "default"}
+                    >
                       {isCancelScheduled
-                        ? "Switching to Free"
+                        ? "Downgrading to Free"
                         : formatSubscriptionStatus(subscription.status)}
                     </Badge>
                   ) : (

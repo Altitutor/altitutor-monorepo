@@ -12,6 +12,7 @@ import { PlanPickerCheckIcon } from "./plan-picker-check-icon";
 import { PlanPickerCta } from "./plan-picker-cta";
 import { PlanPickerPriceSkeleton } from "./plan-picker-price-skeleton";
 import { PlanCancellationDialog } from "./plan-cancellation-dialog";
+import { ScheduledPlanDowngradeNotice } from "../scheduled-plan-downgrade-notice";
 import { planPickerCardMotionProps } from "./plan-picker-dialog-shell";
 import {
   planPickerSurface,
@@ -134,6 +135,8 @@ export function PlanPicker({
     needsOnboarding,
     isOnPaid,
     isOnUnlimited,
+    isDowngradeScheduled,
+    scheduledDowngradeEndDate,
     paidCta,
     unlimitedPricing,
     unlimitedAvailable,
@@ -145,6 +148,7 @@ export function PlanPicker({
     formatFreeQuotaLine,
     handleFreePlanAction,
     handleContinueCurrentPlan,
+    handleKeepUnlimited,
     handleOnlineSubscribe,
     canDowngradeTo,
     handleDowngrade,
@@ -205,7 +209,7 @@ export function PlanPicker({
   const showFreeCta =
     showFree && (freeIsDowngrade || !(isOnPaid && audience === "app"));
   const currentPaidPlanActionable =
-    Boolean(onContinueCurrentPlan) && needsOnboarding;
+    isDowngradeScheduled || (Boolean(onContinueCurrentPlan) && needsOnboarding);
 
   const cardGridVariants = useMemo(
     () => ({
@@ -231,6 +235,12 @@ export function PlanPicker({
 
   return (
     <div className={className}>
+      {isDowngradeScheduled && scheduledDowngradeEndDate ? (
+        <div className="mb-6">
+          <ScheduledPlanDowngradeNotice endDate={scheduledDowngradeEndDate} />
+        </div>
+      ) : null}
+
       {showBillingIntervalSelector ? (
         <BillingIntervalSelector
           value={billingInterval}
@@ -499,7 +509,9 @@ export function PlanPicker({
             <PlanPickerCta
               variant="proAccent"
               surfaceTheme={surfaceTheme}
-              isCurrentPlan={unlimitedIsCurrentPlan}
+              isCurrentPlan={
+                unlimitedIsCurrentPlan && !isDowngradeScheduled
+              }
               currentPlanActionable={currentPaidPlanActionable}
               isDowngrade={unlimitedIsDowngrade}
               disabled={
@@ -513,14 +525,20 @@ export function PlanPicker({
                 void (unlimitedIsDowngrade
                   ? handleDowngrade("unlimited")
                   : unlimitedIsCurrentPlan
-                    ? handleContinueCurrentPlan()
+                    ? isDowngradeScheduled
+                      ? handleKeepUnlimited()
+                      : handleContinueCurrentPlan()
                     : handleOnlineSubscribe("unlimited"))
               }
             >
               {unlimitedIsCurrentPlan
-                ? currentPaidPlanActionable
-                  ? "Continue with Unlimited"
-                  : "Your current plan"
+                ? isDowngradeScheduled
+                  ? loadingPlan === "unlimited"
+                    ? "Keeping…"
+                    : "Keep UCAT Unlimited"
+                  : currentPaidPlanActionable
+                    ? "Continue with Unlimited"
+                    : "Your current plan"
                 : unlimitedIsDowngrade
                   ? "Downgrade"
                   : isPricingLoading

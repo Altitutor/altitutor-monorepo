@@ -33,7 +33,7 @@ export function ImmediatePlanCancellationDialog({
     <AlertDialog open={open} onOpenChange={onOpenChange}>
       <AlertDialogContent className="max-w-md">
         <AlertDialogHeader>
-          <AlertDialogTitle>Switch to UCAT Free now?</AlertDialogTitle>
+          <AlertDialogTitle>Downgrade to UCAT Free now?</AlertDialogTitle>
           <AlertDialogDescription asChild>
             <div className="space-y-3 text-left text-sm text-muted-foreground">
               <p>
@@ -65,10 +65,10 @@ export function ImmediatePlanCancellationDialog({
             {confirming ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Switching…
+                Downgrading…
               </>
             ) : (
-              "Switch to Free now"
+              "Downgrade to Free now"
             )}
           </Button>
         </AlertDialogFooter>
