@@ -1,5 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Database, Json } from '@altitutor/shared'
+import { getServiceRoleClient } from '@/shared/lib/supabase/service-role'
 import { callCodexOAuthJson, type CodexOAuthUserContentPart } from './ucat-codex-oauth'
 
 type SupabaseAny = SupabaseClient<Database> & {
@@ -386,9 +387,10 @@ export async function getUcatAiPromptLayers(params: {
   return (data ?? []) as unknown as PromptLayerRow[]
 }
 
-async function assertBudget(client: SupabaseClient<Database>, settings: SettingsRow) {
+async function assertBudget(settings: SettingsRow) {
   if (!settings.daily_token_budget && !settings.daily_cost_budget_cents) return
 
+  const client = getServiceRoleClient()
   const since = new Date()
   since.setHours(0, 0, 0, 0)
   const { data, error } = await asAny(client)
@@ -414,14 +416,13 @@ async function assertBudget(client: SupabaseClient<Database>, settings: Settings
 }
 
 async function recordUsage(params: {
-  client: SupabaseClient<Database>
   config: UcatAiResolvedConfig
   operation: string
   model: string
   usage: UcatAiUsage
   metadata?: Json | null
 }) {
-  await asAny(params.client)
+  const { error } = await asAny(getServiceRoleClient())
     .from('ucat_ai_generation_usage')
     .insert({
       model_profile_id: params.config.modelProfile.id,
@@ -434,6 +435,9 @@ async function recordUsage(params: {
       estimated_cost_cents: null,
       metadata: params.metadata ?? null,
     })
+  if (error) {
+    console.error('Failed to record UCAT AI usage', error)
+  }
 }
 
 export async function callUcatAiJson(params: {
@@ -458,7 +462,7 @@ export async function callUcatAiJson(params: {
     params.modelProfileId,
     params.tutorScoped ?? false,
   )
-  await assertBudget(params.client, config.settings)
+  await assertBudget(config.settings)
 
   const timeoutMs = params.timeoutMs ?? 120000
   const maxCompletionTokens = params.maxCompletionTokens ?? config.modelProfile.max_completion_tokens
@@ -575,7 +579,6 @@ export async function callUcatAiJson(params: {
   }
 
   await recordUsage({
-    client: params.client,
     config,
     operation: params.operation,
     model: config.modelProfile.model,
