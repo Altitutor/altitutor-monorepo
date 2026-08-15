@@ -103,12 +103,13 @@ export type SourceStem = {
   questions: Array<{
     question_text?: Json | null
     answer_explanation?: Json | null
-    question_type?: 'multiple_choice' | 'syllogism'
+    response_type: 'multiple_choice' | 'drag_and_drop'
+    answer_scheme: 'single_choice' | 'situational_judgement_rating' | 'decision_making_binary_placement' | 'situational_judgement_most_least'
     tags?: Array<{ id?: string | null; name?: string | null }> | null
     answer_options?: Array<{
       answer_text?: Json | null
       answer_explanation?: Json | null
-      is_answer?: boolean
+      answer_key_value: 'correct' | 'yes' | 'no' | 'most' | 'least' | null
     }>
   }> | null
 }
@@ -252,15 +253,16 @@ function compactStemForPrompt(stem: SourceStem): Record<string, unknown> {
     stemText: extractText(stem.stem_text).slice(0, 2400),
     questions: (stem.questions ?? []).slice(0, 4).map((question) => ({
       questionText: extractText((question.question_text ?? null) as Json).slice(0, 220),
-      questionType: question.question_type ?? 'multiple_choice',
+      responseType: question.response_type,
+      answerScheme: question.answer_scheme,
       answerExplanation: extractText((question.answer_explanation ?? null) as Json).slice(0, 700),
       tags: (question.tags ?? []).map((tag) => tag.name).filter(Boolean),
       options: (question.answer_options ?? []).slice(0, 5).map((option) => ({
         answerText: extractText((option.answer_text ?? null) as Json).slice(0, 100),
-        ...(question.question_type === 'syllogism'
+        ...(question.response_type === 'drag_and_drop'
           ? { answerExplanation: extractText((option.answer_explanation ?? null) as Json).slice(0, 240) }
           : {}),
-        isAnswer: !!option.is_answer,
+        answerKeyValue: option.answer_key_value,
       })),
     })),
   }
@@ -1226,7 +1228,6 @@ async function toDraft(params: {
       declaredResponseType: question.responseType,
       declaredAnswerScheme: question.answerScheme,
       answerKeyValues: question.options.map((option) => option.answerKeyValue ?? null),
-      legacyIsAnswerValues: question.options.map((option) => option.isAnswer),
     })
     if (reconciled.conflicts.length > 0) {
       throw new Error(`Generated question ${questionIndex + 1} has conflicting response-contract evidence.`)
@@ -1237,7 +1238,6 @@ async function toDraft(params: {
       answerExplanation: question.answerExplanation ? await generatedContentToProseMirrorServer(question.answerExplanation) : null,
       difficulty: difficultyToNumber(question.estimatedDifficulty, question.difficultyTarget),
       timeBurdenSeconds: question.estimatedTimeBurdenSeconds ?? null,
-      questionType: reconciled.responseType === 'drag_and_drop' ? 'syllogism' : 'multiple_choice',
       responseType: reconciled.responseType,
       answerScheme: reconciled.answerScheme,
       tagIds: question.tagIds?.length ? question.tagIds : params.body.targetTagIds,
@@ -1245,7 +1245,6 @@ async function toDraft(params: {
         index: optionIndex + 1,
         answerText: await generatedContentToProseMirrorServer(option.answerText),
         answerExplanation: option.answerExplanation ? await generatedContentToProseMirrorServer(option.answerExplanation) : null,
-        isAnswer: !!option.isAnswer,
         answerKeyValue: reconciled.answerKeyValues[optionIndex] ?? null,
       }))),
     }

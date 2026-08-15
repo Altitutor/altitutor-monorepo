@@ -50,7 +50,7 @@ const sections: { heading: string; cards: UcatNavCard[] }[] = [
     cards: [
       {
         title: 'Questions',
-        description: 'Manage question stems, multiple-choice questions, and syllogisms',
+        description: 'Manage question stems and their response contracts',
         href: '/ucat/questions',
         icon: FileQuestion,
       },

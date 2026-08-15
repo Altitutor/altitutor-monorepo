@@ -13,36 +13,17 @@ import {
 } from "@altitutor/ucat-response-contract";
 import type { QuestionItem } from "@/features/question-engine/model/types";
 
-function legacyAnswerScheme(question: QuestionItem): AnswerScheme["kind"] {
-  if (question.questionType === "syllogism") {
-    return "decision_making_binary_placement";
-  }
-  return "single_choice";
-}
-
 export function isPlacementResponse(question: {
-  answerScheme?: AnswerScheme["kind"];
-  questionType: string;
-  responseType?: string;
+  responseType: string;
 }): boolean {
-  const scheme =
-    question.answerScheme ??
-    (question.questionType === "syllogism"
-      ? "decision_making_binary_placement"
-      : "single_choice");
-  return (
-    question.responseType === "drag_and_drop" ||
-    scheme === "decision_making_binary_placement" ||
-    scheme === "situational_judgement_most_least"
-  );
+  return question.responseType === "drag_and_drop";
 }
 
 export function placementPresentationForQuestion(
-  question: Pick<QuestionItem, "answerScheme" | "questionType" | "options">,
+  question: Pick<QuestionItem, "answerScheme" | "options">,
 ): Extract<PresentationContract, { kind: "placement" }> {
-  const kind = question.answerScheme ?? legacyAnswerScheme(question as QuestionItem);
   const presentation = getAnswerSchemePresentation(
-    kind,
+    question.answerScheme,
     [...question.options]
       .sort((left, right) => left.index - right.index)
       .map((option) => option.id),
@@ -53,49 +34,13 @@ export function placementPresentationForQuestion(
   return presentation;
 }
 
-export function legacyPlacementSnapshotToCanonical(
-  question: QuestionItem,
-  snapshot?: Record<string, boolean>,
-): Record<string, PlacementValue> | undefined {
-  if (!snapshot) return undefined;
-  const [positive, negative] = placementPresentationForQuestion(question).tokens;
-  if (!positive || !negative) {
-    throw new Error("Placement responses require two presentation tokens.");
-  }
-  return Object.fromEntries(
-    Object.entries(snapshot).map(([optionId, value]) => [
-      optionId,
-      value ? positive.value : negative.value,
-    ]),
-  );
-}
-
-export function canonicalPlacementSnapshotToLegacy(
-  question: QuestionItem,
-  snapshot: Readonly<Record<string, PlacementValue>>,
-): Record<string, boolean> {
-  const [positive, negative] = placementPresentationForQuestion(question).tokens;
-  if (!positive || !negative) {
-    throw new Error("Placement responses require two presentation tokens.");
-  }
-  return Object.fromEntries(
-    Object.entries(snapshot).map(([optionId, value]) => {
-      if (value !== positive.value && value !== negative.value) {
-        throw new Error("The placement snapshot contains an unsupported token.");
-      }
-      return [optionId, value === positive.value];
-    }),
-  );
-}
-
 export function responseDefinitionForQuestion(
   question: QuestionItem,
 ): ResponseDefinition {
-  const kind = question.answerScheme ?? legacyAnswerScheme(question);
+  const kind = question.answerScheme;
   const correctOptionId =
     question.options.find((option) => option.answerKeyValue === "correct")?.id ??
     question.correctOptionId ??
-    question.options.find((option) => option.isAnswer)?.id ??
     "";
   let answerScheme: AnswerScheme;
 
@@ -106,13 +51,7 @@ export function responseDefinitionForQuestion(
         correctByOptionId: Object.fromEntries(
           question.options.map((option) => [
             option.id,
-            option.answerKeyValue
-              ? option.answerKeyValue === "yes"
-                ? "yes"
-                : "no"
-              : option.isAnswer
-                ? "yes"
-                : "no",
+            option.answerKeyValue === "yes" ? "yes" : "no",
           ]),
         ),
       };
@@ -147,11 +86,7 @@ export function responseDefinitionForQuestion(
 
   return {
     questionId: question.id,
-    responseType:
-      question.responseType ??
-      (kind === "single_choice" || kind === "situational_judgement_rating"
-        ? "multiple_choice"
-        : "drag_and_drop"),
+    responseType: question.responseType,
     answerScheme,
     options: sortedOptions
       .map((option, contractIndex) => ({
@@ -172,18 +107,9 @@ function contractForQuestion(question: QuestionItem) {
 export function evaluatePersistedQuestionResponse(
   question: QuestionItem,
   storedAnswer: unknown,
-  legacySelectedOptionId?: string | null,
 ): Extract<EvaluationResult, { ok: true }> {
   const contract = contractForQuestion(question);
-  const restored = createResponseState(
-    contract,
-    storedAnswer ??
-      snapshotQuestionResponse(
-        question,
-        legacySelectedOptionId ?? undefined,
-        undefined,
-      ),
-  );
+  const restored = createResponseState(contract, storedAnswer);
   if (!restored.ok) {
     throw new Error(restored.issues.map((issue) => issue.message).join(" "));
   }
@@ -210,27 +136,26 @@ export function getQuestionMaximumMarks(question: QuestionItem): number {
 function candidateResponse(
   question: QuestionItem,
   selectedOptionId?: string,
-  syllogismSnapshot?: Record<string, boolean>,
+  placementSnapshot?: Record<string, PlacementValue>,
 ): CandidateResponse {
-  const kind = question.answerScheme ?? legacyAnswerScheme(question);
+  const kind = question.answerScheme;
   if (kind === "single_choice" || kind === "situational_judgement_rating") {
     return { kind: "single_select", selectedOptionId: selectedOptionId ?? null };
   }
   return {
     kind: "placement",
-    placements:
-      legacyPlacementSnapshotToCanonical(question, syllogismSnapshot) ?? {},
+    placements: placementSnapshot ?? {},
   };
 }
 
 export function snapshotQuestionResponse(
   question: QuestionItem,
   selectedOptionId?: string,
-  syllogismSnapshot?: Record<string, boolean>,
+  placementSnapshot?: Record<string, PlacementValue>,
 ): ResponseSnapshotV1 {
   const result = evaluateResponse(
     contractForQuestion(question),
-    candidateResponse(question, selectedOptionId, syllogismSnapshot),
+    candidateResponse(question, selectedOptionId, placementSnapshot),
   );
   if (!result.ok) {
     throw new Error(result.issues.map((issue) => issue.message).join(" "));
@@ -241,21 +166,16 @@ export function snapshotQuestionResponse(
 export function buildPersistedQuestionResponse(
   question: QuestionItem,
   selectedOptionId?: string,
-  syllogismSnapshot?: Record<string, boolean>,
+  placementSnapshot?: Record<string, PlacementValue>,
 ): {
-  questionAnswerOptionId: string | null;
   answerSnapshot: ResponseSnapshotV1;
 } {
   const answerSnapshot = snapshotQuestionResponse(
     question,
     selectedOptionId,
-    syllogismSnapshot,
+    placementSnapshot,
   );
   return {
-    questionAnswerOptionId:
-      answerSnapshot.response.kind === "single_select"
-        ? answerSnapshot.response.selectedOptionId
-        : null,
     answerSnapshot,
   };
 }
@@ -263,37 +183,12 @@ export function buildPersistedQuestionResponse(
 export function parseBinaryPlacementResponseSnapshot(
   storedAnswer: unknown,
   expectedQuestionId: string,
-): Record<string, boolean> | null {
+): Record<string, PlacementValue> | null {
   if (storedAnswer === null || storedAnswer === undefined) return null;
   if (typeof storedAnswer !== "object" || Array.isArray(storedAnswer)) {
     throw new Error("The stored answer is not a supported response snapshot.");
   }
   const snapshot = storedAnswer as Record<string, unknown>;
-  if (snapshot.type === "syllogism_v1") {
-    if (!Array.isArray(snapshot.answers)) {
-      throw new Error("The legacy DM snapshot is malformed.");
-    }
-    const answers: Record<string, boolean> = {};
-    for (const value of snapshot.answers) {
-      if (
-        typeof value !== "object" ||
-        value === null ||
-        Array.isArray(value)
-      ) {
-        throw new Error("The legacy DM snapshot is malformed.");
-      }
-      const row = value as Record<string, unknown>;
-      if (
-        typeof row.question_answer_option_id !== "string" ||
-        typeof row.answer !== "boolean" ||
-        row.question_answer_option_id in answers
-      ) {
-        throw new Error("The legacy DM snapshot is malformed.");
-      }
-      answers[row.question_answer_option_id] = row.answer;
-    }
-    return answers;
-  }
   if (
     snapshot.type !== "ucat_response_v1" ||
     snapshot.questionId !== expectedQuestionId ||
@@ -323,7 +218,7 @@ export function parseBinaryPlacementResponseSnapshot(
       if (token !== "yes" && token !== "no") {
         throw new Error("The stored DM response contains an unknown token.");
       }
-      return [optionId, token === "yes"];
+      return [optionId, token];
     }),
   );
 }
@@ -333,7 +228,7 @@ export function restoreQuestionResponse(
   storedAnswer: unknown,
 ): {
   selectedOptionId: string | null;
-  syllogismSnapshot: Record<string, boolean> | null;
+  placementSnapshot: Record<string, PlacementValue> | null;
 } {
   const result = createResponseState(contractForQuestion(question), storedAnswer);
   if (!result.ok) {
@@ -342,35 +237,20 @@ export function restoreQuestionResponse(
   if (result.state.kind === "single_select") {
     return {
       selectedOptionId: result.state.selectedOptionId,
-      syllogismSnapshot: null,
+      placementSnapshot: null,
     };
   }
   return {
     selectedOptionId: null,
-    syllogismSnapshot: canonicalPlacementSnapshotToLegacy(
-      question,
-      result.state.placements,
-    ),
+    placementSnapshot: result.state.placements,
   };
 }
 
-/** Compatibility read boundary; callers always receive canonical validated state. */
 export function restorePersistedQuestionResponse(
   question: QuestionItem,
   storedAnswer: unknown,
-  legacySelectedOptionId?: string | null,
 ): ReturnType<typeof restoreQuestionResponse> {
-  if (storedAnswer !== null && storedAnswer !== undefined) {
-    return restoreQuestionResponse(question, storedAnswer);
-  }
-  return restoreQuestionResponse(
-    question,
-    snapshotQuestionResponse(
-      question,
-      legacySelectedOptionId ?? undefined,
-      undefined,
-    ),
-  );
+  return restoreQuestionResponse(question, storedAnswer);
 }
 
 export function canonicalizeEngineResponses(
@@ -378,16 +258,16 @@ export function canonicalizeEngineResponses(
   state: {
     responseSnapshots?: Record<string, ResponseSnapshotV1>;
     selectedAnswers?: Record<string, string>;
-    syllogismSnapshots?: Record<string, Record<string, boolean>>;
+    placementSnapshots?: Record<string, Record<string, PlacementValue>>;
   },
 ): {
   responseSnapshots: Record<string, ResponseSnapshotV1>;
   selectedAnswers: Record<string, string>;
-  syllogismSnapshots: Record<string, Record<string, boolean>>;
+  placementSnapshots: Record<string, Record<string, PlacementValue>>;
 } {
   const responseSnapshots: Record<string, ResponseSnapshotV1> = {};
   const selectedAnswers: Record<string, string> = {};
-  const syllogismSnapshots: Record<string, Record<string, boolean>> = {};
+  const placementSnapshots: Record<string, Record<string, PlacementValue>> = {};
 
   for (const question of questions) {
     const stored = state.responseSnapshots?.[question.id];
@@ -396,17 +276,17 @@ export function canonicalizeEngineResponses(
       snapshotQuestionResponse(
         question,
         state.selectedAnswers?.[question.id],
-        state.syllogismSnapshots?.[question.id],
+        state.placementSnapshots?.[question.id],
       );
     const restored = restoreQuestionResponse(question, snapshot);
     responseSnapshots[question.id] = snapshot;
     if (restored.selectedOptionId) {
       selectedAnswers[question.id] = restored.selectedOptionId;
     }
-    if (restored.syllogismSnapshot) {
-      syllogismSnapshots[question.id] = restored.syllogismSnapshot;
+    if (restored.placementSnapshot) {
+      placementSnapshots[question.id] = restored.placementSnapshot;
     }
   }
 
-  return { responseSnapshots, selectedAnswers, syllogismSnapshots };
+  return { responseSnapshots, selectedAnswers, placementSnapshots };
 }

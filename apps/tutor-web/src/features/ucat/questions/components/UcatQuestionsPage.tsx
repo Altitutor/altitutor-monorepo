@@ -191,7 +191,7 @@ const answerOptionColumnDefinitions: DataTableColumnDefinition[] = [
   { key: 'index', label: 'Index', visibleByDefault: false },
   { key: 'answer_text', label: 'Answer text', visibleByDefault: true },
   { key: 'answer_explanation', label: 'Answer explanation', visibleByDefault: true },
-  { key: 'is_answer', label: 'Correct answer', visibleByDefault: true },
+  { key: 'answer_key_value', label: 'Answer key', visibleByDefault: true },
 ]
 
 const defaultVisibleQuestionColumns = questionColumnDefinitions
@@ -361,12 +361,7 @@ export function UcatQuestionsPage() {
     syncShowDeleted: true,
     availableColumns: availableColumnKeys,
   })
-  const toolbarTableState = useMemo(() => {
-    if (!('question_type' in tableState.state.filters)) return tableState.state
-    const filters = { ...tableState.state.filters }
-    delete filters.question_type
-    return { ...tableState.state, filters }
-  }, [tableState.state])
+  const toolbarTableState = tableState.state
   const showDeleted = tableState.showDeleted ?? false
   const setShowDeleted = tableState.setShowDeleted ?? (() => undefined)
   const catalogQuery = useMemo(
@@ -382,13 +377,6 @@ export function UcatQuestionsPage() {
   const previousTabRef = useRef(activeTab)
   const tableActionsRef = useRef(tableState.actions)
   tableActionsRef.current = tableState.actions
-
-  useEffect(() => {
-    if (!('question_type' in tableState.state.filters)) return
-    const filters = { ...tableState.state.filters }
-    delete filters.question_type
-    tableActionsRef.current.onFiltersChange(filters)
-  }, [tableState.state.filters])
 
   const expandedStemArray = useMemo(() => Array.from(expandedStemIds), [expandedStemIds])
   const detailQueries = useQueries({
@@ -458,7 +446,6 @@ export function UcatQuestionsPage() {
   const { rows } = useUcatQuestionsTable({
     data: questions.data?.items,
     status: activeTab,
-    stemTypes: {},
     stemTagIds: {},
     questionSearchTexts: undefined,
     categoryPathLookup,
@@ -750,6 +737,7 @@ export function UcatQuestionsPage() {
           description: args.addToSet.description,
           timeLimitSeconds: args.addToSet.timeLimitSeconds,
           accessScope: args.addToSet.isPrivate ? 'private' : 'public',
+          sectionId: args.sectionId,
           stemIds: ids,
         })
         await queryClient.invalidateQueries({ queryKey: ucatKeys.set(id) })
@@ -1534,8 +1522,8 @@ export function UcatQuestionsPage() {
                                                   {visibleAnswerOption('answer_explanation') && (
                                                     <TableHead className="min-w-0">Answer explanation</TableHead>
                                                   )}
-                                                  {visibleAnswerOption('is_answer') && (
-                                                    <TableHead className="w-28 shrink-0">Correct answer</TableHead>
+                                                  {visibleAnswerOption('answer_key_value') && (
+                                                    <TableHead className="w-28 shrink-0">Answer key</TableHead>
                                                   )}
                                                 </TableRow>
                                               </TableHeader>
@@ -1566,8 +1554,8 @@ export function UcatQuestionsPage() {
                                                         )}
                                                       </TableCell>
                                                     )}
-                                                    {visibleAnswerOption('is_answer') && (
-                                                      <TableCell>{opt.is_answer ? 'Yes' : 'No'}</TableCell>
+                                                    {visibleAnswerOption('answer_key_value') && (
+                                                      <TableCell>{opt.answer_key_value ?? 'Not keyed'}</TableCell>
                                                     )}
                                                   </TableRow>
                                                 ))}

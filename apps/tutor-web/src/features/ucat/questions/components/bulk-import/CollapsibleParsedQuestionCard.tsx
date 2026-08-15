@@ -92,7 +92,7 @@ export function CollapsibleParsedQuestionCard({
                 key={`${option.label}-${optionText}`}
                 className="flex items-start gap-1 leading-relaxed text-foreground/90"
               >
-                {question.questionType === 'syllogism' ? (
+                {'responseType' in question && question.responseType === 'drag_and_drop' ? (
                   <span className="mt-0.5 shrink-0 font-medium text-muted-foreground">•</span>
                 ) : (
                   <span className="mt-0.5 shrink-0 font-medium text-muted-foreground">

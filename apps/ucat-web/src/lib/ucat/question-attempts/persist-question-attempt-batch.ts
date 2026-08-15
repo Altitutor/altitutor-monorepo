@@ -5,7 +5,6 @@ type AdminClient = SupabaseClient;
 
 export type QuestionAttemptBatchInput = {
   questionId: string;
-  questionAnswerOptionId: string | null;
   answerSnapshot?: Json | null;
   isFlagged?: boolean;
   wasTimed?: boolean;
@@ -58,7 +57,6 @@ export async function persistQuestionAttemptBatch(
         p_student_practice_session_id: context.studentPracticeSessionId,
         p_attempts: inputs.map((input) => ({
           question_id: input.questionId,
-          question_answer_option_id: input.questionAnswerOptionId,
           answer_snapshot: input.answerSnapshot ?? null,
           has_answer_snapshot: Object.prototype.hasOwnProperty.call(
             input,
@@ -125,7 +123,6 @@ export async function persistQuestionAttemptBatch(
       "answerSnapshot",
     );
     const shared = {
-      question_answer_option_id: input.questionAnswerOptionId,
       ...(hasAnswerSnapshot
         ? { answer_snapshot: input.answerSnapshot ?? null }
         : {}),
@@ -172,7 +169,6 @@ export async function persistQuestionAttemptBatch(
       student_practice_session_id: null,
       learning_module_block_id: context.learningModuleBlockId,
       question_id: input.questionId,
-      question_answer_option_id: input.questionAnswerOptionId,
       answer_snapshot: input.answerSnapshot ?? null,
       is_flagged: input.isFlagged ?? false,
       is_submitted: input.submittedByStem === true,

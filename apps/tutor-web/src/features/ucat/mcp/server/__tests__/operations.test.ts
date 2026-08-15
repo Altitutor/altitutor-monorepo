@@ -35,7 +35,8 @@ function stemDetail() {
         index: 1,
         difficulty: null,
         time_burden_seconds: null,
-        question_type: 'multiple_choice',
+        response_type: 'multiple_choice',
+        answer_scheme: 'single_choice',
         source_channel: 'individual',
         ai_generation_metadata: null,
         tags: [{ id: TAG_ID }],
@@ -45,14 +46,14 @@ function stemDetail() {
             answer_text: { type: 'doc', content: [] },
             answer_explanation: null,
             index: 1,
-            is_answer: true,
+            answer_key_value: 'correct',
           },
           {
             id: OPTION_TWO,
             answer_text: { type: 'doc', content: [] },
             answer_explanation: null,
             index: 2,
-            is_answer: false,
+            answer_key_value: null,
           },
         ],
       },
@@ -63,7 +64,8 @@ function stemDetail() {
         index: 2,
         difficulty: null,
         time_burden_seconds: null,
-        question_type: 'multiple_choice',
+        response_type: 'multiple_choice',
+        answer_scheme: 'single_choice',
         source_channel: 'individual',
         ai_generation_metadata: null,
         tags: [],
@@ -158,7 +160,7 @@ describe('UCAT MCP typed operations', () => {
     expect(Object.prototype.hasOwnProperty.call(payload[0].answer_options[1], 'answer_key_value')).toBe(true)
   })
 
-  it('emits a canonical response contract when updating a syllogism option explanation', () => {
+  it('emits a canonical response contract when updating a binary-placement option explanation', () => {
     const updated = applyQuestionStemOperations(questionStemDraftFromDetail({
       ...stemDetail(),
       questions: [{
@@ -168,7 +170,8 @@ describe('UCAT MCP typed operations', () => {
         index: 1,
         difficulty: null,
         time_burden_seconds: null,
-        question_type: 'syllogism',
+        response_type: 'drag_and_drop',
+        answer_scheme: 'decision_making_binary_placement',
         source_channel: 'individual',
         ai_generation_metadata: null,
         tags: [],
@@ -178,14 +181,14 @@ describe('UCAT MCP typed operations', () => {
             answer_text: { type: 'doc', content: [] },
             answer_explanation: null,
             index: 1,
-            is_answer: true,
+            answer_key_value: 'yes',
           },
           {
             id: OPTION_TWO,
             answer_text: { type: 'doc', content: [] },
             answer_explanation: null,
             index: 2,
-            is_answer: false,
+            answer_key_value: 'no',
           },
         ],
       }],
@@ -214,13 +217,11 @@ describe('UCAT MCP typed operations', () => {
       type: 'add_question',
       question: {
         questionText: 'Place each conclusion as Yes or No.',
-        questionType: 'syllogism',
         responseType: 'drag_and_drop',
         answerScheme: 'decision_making_binary_placement',
         tagIds: [],
         options: Array.from({ length: 5 }, (_, index) => ({
           answerText: `Conclusion ${index + 1}`,
-          isAnswer: index < 2,
           answerKeyValue: index < 2 ? 'yes' as const : 'no' as const,
         })),
       },
@@ -285,6 +286,7 @@ describe('UCAT MCP typed operations', () => {
       description: {},
       time_limit_seconds: null,
       access_scope: 'private',
+      section_id: '50000000-0000-0000-0000-000000000001',
       stems: [{ stem_id: STEM_ID }, { stem_id: QUESTION_TWO }],
     })
     const updatedSet = applyQuestionSetOperations(setDraft, [
@@ -292,6 +294,20 @@ describe('UCAT MCP typed operations', () => {
       { type: 'add_stem', stemId: QUESTION_ONE, toIndex: 0 },
     ])
     expect(updatedSet.stemIds).toEqual([QUESTION_ONE, QUESTION_TWO])
+    expect(updatedSet.sectionId).toBe('50000000-0000-0000-0000-000000000001')
+
+    const emptySet = questionSetDraftFromDetail({
+      name: null,
+      description: {},
+      time_limit_seconds: null,
+      access_scope: 'private',
+      section_id: '50000000-0000-0000-0000-000000000001',
+      stems: [],
+    })
+    const retargeted = applyQuestionSetOperations(emptySet, [
+      { type: 'set_metadata', sectionId: '50000000-0000-0000-0000-000000000002' },
+    ])
+    expect(retargeted.sectionId).toBe('50000000-0000-0000-0000-000000000002')
 
     const mockDraft = mockDraftFromDetail({
       name: 'Mock',

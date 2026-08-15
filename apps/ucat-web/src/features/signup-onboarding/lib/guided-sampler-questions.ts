@@ -1,4 +1,4 @@
-import type { QuestionEngineQuestion } from "@/features/question-engine/model/types";
+import type { AnswerOption, QuestionEngineQuestion } from "@/features/question-engine/model/types";
 
 export type GuidedSamplerSection = {
   key: "vr" | "dm" | "qr" | "sjt";
@@ -21,8 +21,13 @@ export type GuidedSamplerFeedback = {
   syllogismHints?: Record<string, [string, string]>;
 };
 
-function option(id: string, index: number, text: string, isAnswer = false) {
-  return { id, index, text, isAnswer };
+function option(
+  id: string,
+  index: number,
+  text: string,
+  answerKeyValue: AnswerOption["answerKeyValue"] = null,
+) {
+  return { id, index, text, answerKeyValue };
 }
 
 /**
@@ -76,9 +81,10 @@ export const GUIDED_SAMPLER_SECTIONS: GuidedSamplerSection[] = [
         stemText: VR_PASSAGE,
         questionText:
           "Restoring urban rivers can create habitats for wildlife.",
-        questionType: "multiple_choice",
+        responseType: "multiple_choice",
+        answerScheme: "single_choice",
         options: [
-          option("sampler-vr-1-a", 0, "True", true),
+          option("sampler-vr-1-a", 0, "True", "correct"),
           option("sampler-vr-1-b", 1, "False"),
           option("sampler-vr-1-c", 2, "Can’t tell"),
         ],
@@ -91,7 +97,8 @@ export const GUIDED_SAMPLER_SECTIONS: GuidedSamplerSection[] = [
         stemText: VR_PASSAGE,
         questionText:
           "According to the passage, why do restored river projects need ongoing monitoring?",
-        questionType: "multiple_choice",
+        responseType: "multiple_choice",
+        answerScheme: "single_choice",
         options: [
           option(
             "sampler-vr-2-a",
@@ -102,7 +109,7 @@ export const GUIDED_SAMPLER_SECTIONS: GuidedSamplerSection[] = [
             "sampler-vr-2-b",
             1,
             "Newly planted banks may erode before vegetation becomes established",
-            true,
+            "correct",
           ),
           option(
             "sampler-vr-2-c",
@@ -134,30 +141,33 @@ export const GUIDED_SAMPLER_SECTIONS: GuidedSamplerSection[] = [
           "All members of the Cedar Club are cyclists.\nNo cyclist is a swimmer.\nSome swimmers are musicians.",
         questionText:
           "Place ‘Yes’ if the conclusion follows. Place ‘No’ if it does not follow.",
-        questionType: "syllogism",
+        responseType: "drag_and_drop",
+        answerScheme: "decision_making_binary_placement",
         options: [
           option(
             "sampler-dm-syllogism-a",
             0,
             "No member of the Cedar Club is a swimmer.",
-            true,
+            "yes",
           ),
           option(
             "sampler-dm-syllogism-b",
             1,
             "Some members of the Cedar Club are musicians.",
+            "no",
           ),
           option(
             "sampler-dm-syllogism-c",
             2,
             "Some musicians are swimmers.",
-            true,
+            "yes",
           ),
-          option("sampler-dm-syllogism-d", 3, "No musician is a cyclist."),
+          option("sampler-dm-syllogism-d", 3, "No musician is a cyclist.", "no"),
           option(
             "sampler-dm-syllogism-e",
             4,
             "All cyclists are members of the Cedar Club.",
+            "no",
           ),
         ],
       },
@@ -169,11 +179,12 @@ export const GUIDED_SAMPLER_SECTIONS: GuidedSamplerSection[] = [
         stemText:
           "Four talks - History, Medicine, Science and Travel - are scheduled in a particular order.\nHistory is before Medicine.\nScience is immediately after History.\nTravel is last.",
         questionText: "Which talk must be second?",
-        questionType: "multiple_choice",
+        responseType: "multiple_choice",
+        answerScheme: "single_choice",
         options: [
           option("sampler-dm-logic-a", 0, "History"),
           option("sampler-dm-logic-b", 1, "Medicine"),
-          option("sampler-dm-logic-c", 2, "Science", true),
+          option("sampler-dm-logic-c", 2, "Science", "correct"),
           option("sampler-dm-logic-d", 3, "Travel"),
         ],
       },
@@ -193,11 +204,12 @@ export const GUIDED_SAMPLER_SECTIONS: GuidedSamplerSection[] = [
         sectionDisplayColumns: 1,
         stemText: QR_TABLE,
         questionText: "How much revenue came from adult admissions?",
-        questionType: "multiple_choice",
+        responseType: "multiple_choice",
+        answerScheme: "single_choice",
         options: [
           option("sampler-qr-1-a", 0, "$320"),
           option("sampler-qr-1-b", 1, "$360"),
-          option("sampler-qr-1-c", 2, "$480", true),
+          option("sampler-qr-1-c", 2, "$480", "correct"),
           option("sampler-qr-1-d", 3, "$760"),
         ],
       },
@@ -209,10 +221,11 @@ export const GUIDED_SAMPLER_SECTIONS: GuidedSamplerSection[] = [
         stemText: QR_TABLE,
         questionText:
           "Concession admissions were what percentage of all admissions? Give your answer to the nearest whole percent.",
-        questionType: "multiple_choice",
+        responseType: "multiple_choice",
+        answerScheme: "single_choice",
         options: [
           option("sampler-qr-2-a", 0, "19%"),
-          option("sampler-qr-2-b", 1, "21%", true),
+          option("sampler-qr-2-b", 1, "21%", "correct"),
           option("sampler-qr-2-c", 2, "24%"),
           option("sampler-qr-2-d", 3, "27%"),
         ],
@@ -236,9 +249,10 @@ export const GUIDED_SAMPLER_SECTIONS: GuidedSamplerSection[] = [
           "Mina, a medical student, notices that another student has posted a photograph from a teaching ward on social media. A patient’s name is visible on a board in the background. Mina privately tells the student, who says the post will disappear after 24 hours and refuses to remove it.",
         questionText:
           "How appropriate is it for Mina to raise the matter promptly with her supervising clinician?",
-        questionType: "multiple_choice",
+        responseType: "multiple_choice",
+        answerScheme: "situational_judgement_rating",
         options: [
-          option("sampler-sjt-1-a", 0, "A very appropriate thing to do", true),
+          option("sampler-sjt-1-a", 0, "A very appropriate thing to do", "correct"),
           option("sampler-sjt-1-b", 1, "Appropriate, but not ideal"),
           option("sampler-sjt-1-c", 2, "Inappropriate, but not awful"),
           option("sampler-sjt-1-d", 3, "A very inappropriate thing to do"),
@@ -253,11 +267,12 @@ export const GUIDED_SAMPLER_SECTIONS: GuidedSamplerSection[] = [
           "Mina, a medical student, notices that another student has posted a photograph from a teaching ward on social media. A patient’s name is visible on a board in the background. Mina privately tells the student, who says the post will disappear after 24 hours and refuses to remove it.",
         questionText:
           "How important is the fact that the post will disappear after 24 hours when deciding what Mina should do?",
-        questionType: "multiple_choice",
+        responseType: "multiple_choice",
+        answerScheme: "situational_judgement_rating",
         options: [
           option("sampler-sjt-2-a", 0, "Very important"),
           option("sampler-sjt-2-b", 1, "Important"),
-          option("sampler-sjt-2-c", 2, "Of minor importance", true),
+          option("sampler-sjt-2-c", 2, "Of minor importance", "correct"),
           option("sampler-sjt-2-d", 3, "Not important at all"),
         ],
       },

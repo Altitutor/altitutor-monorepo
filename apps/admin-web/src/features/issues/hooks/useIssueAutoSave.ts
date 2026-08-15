@@ -49,7 +49,7 @@ export function useIssueAutoSave({
   // Use useEffect (not useLayoutEffect) so this runs after the parent's useEffect that calls form.reset().
   // Depend on issue.id (not issue) so query refetches don't reset the baseline mid-edit.
   useEffect(() => {
-    if (issue && isInitialized) {
+    if (issue?.id && isInitialized) {
       const values = form.getValues();
       lastSavedValuesRef.current = {
         name: values.name,

@@ -17,9 +17,11 @@ import {
 } from "@/features/progress/lib/attempt-content-snapshot";
 import { getAttemptPercentile } from "@/features/progress/server/attempt-percentile-service";
 import type { CohortPercentileResult } from "@altitutor/ucat-percentiles";
+import type { AnswerScheme } from "@altitutor/ucat-response-contract";
 import type { AttemptRecentPerformance } from "@/features/progress/lib/attempt-insights";
 import { fetchRecentAttemptPerformance } from "@/features/progress/server/attempt-insight-trend-service";
 import { getQuestionMaximumMarks } from "@/features/question-engine/lib/response-state";
+import { selectedOptionIdFromSnapshot } from "@/features/progress/lib/attempt-response-review";
 
 export type MockSetInfo = {
   setAttemptId: string;
@@ -61,9 +63,9 @@ export type MockAttemptDetailResponse = {
     difficulty: number | null;
     questionTags: AttemptReviewQuestionTag[];
     isFlagged: boolean;
-    questionType: "multiple_choice" | "syllogism" | null;
+    answerScheme: AnswerScheme["kind"] | null;
     result: "correct" | "partial" | "incorrect" | "not_attempted";
-    questionAnswerOptionId: string | null;
+    selectedOptionId: string | null;
     answerSnapshot: unknown;
     categoryName: string | null;
     categoryDescription: string | null;
@@ -154,7 +156,7 @@ export async function GET(
   const { data: allQuestionAttempts, error: qaError } = await supabase
     .from("vstudent_ucat_my_question_attempts")
     .select(
-      "question_id, score, time_spent_seconds, time_burden_seconds, question_type, student_question_set_attempt_id, question_answer_option_id, answer_snapshot, category_name, question_stem_category_id, is_flagged, attempted_at, content_snapshot",
+      "question_id, score, time_spent_seconds, time_burden_seconds, response_type, answer_scheme, student_question_set_attempt_id, answer_snapshot, category_name, question_stem_category_id, is_flagged, attempted_at, content_snapshot",
     )
     .in(
       "student_question_set_attempt_id",
@@ -173,8 +175,8 @@ export async function GET(
       score: number | null;
       timeSpentSeconds: number | null;
       timeBurdenSeconds: number | null;
-      questionType: "multiple_choice" | "syllogism" | null;
-      questionAnswerOptionId: string | null;
+      answerScheme: AnswerScheme["kind"] | null;
+      selectedOptionId: string | null;
       answerSnapshot: unknown;
       categoryName: string | null;
       questionStemCategoryId: string | null;
@@ -188,8 +190,8 @@ export async function GET(
       score: qa.score,
       timeSpentSeconds: qa.time_spent_seconds,
       timeBurdenSeconds: qa.time_burden_seconds,
-      questionType: qa.question_type as "multiple_choice" | "syllogism" | null,
-      questionAnswerOptionId: qa.question_answer_option_id ?? null,
+      answerScheme: qa.answer_scheme,
+      selectedOptionId: selectedOptionIdFromSnapshot(qa.answer_snapshot),
       answerSnapshot: qa.answer_snapshot,
       categoryName: qa.category_name ?? null,
       questionStemCategoryId: qa.question_stem_category_id ?? null,
@@ -274,7 +276,7 @@ export async function GET(
         const metadata = questionMetadata.get(questionId);
         const timeBurdenSeconds =
           attemptData?.timeBurdenSeconds ?? snapshotMetadata.timeBurdenSeconds ?? metadata?.timeBurdenSeconds ?? null;
-        const questionType = attemptData?.questionType ?? snapshot.question.questionType;
+        const answerScheme = attemptData?.answerScheme ?? snapshot.question.answerScheme;
 
         const categoryName =
           attemptData?.categoryName ?? snapshotMetadata.categoryName;
@@ -295,9 +297,9 @@ export async function GET(
           difficulty: snapshotMetadata.difficulty ?? metadata?.difficulty ?? null,
           questionTags: snapshotMetadata.questionTags.length > 0 ? snapshotMetadata.questionTags : (metadata?.questionTags ?? []),
           isFlagged: attemptData?.isFlagged ?? false,
-          questionType,
+          answerScheme,
           result,
-          questionAnswerOptionId: attemptData?.questionAnswerOptionId ?? null,
+          selectedOptionId: attemptData?.selectedOptionId ?? null,
           answerSnapshot: attemptData?.answerSnapshot ?? null,
           categoryName,
           categoryDescription,

@@ -143,6 +143,7 @@ function setSnapshot(draft: QuestionSetDraft): Record<string, unknown> {
     description: draft.description,
     timeLimitSeconds: draft.timeLimitSeconds,
     accessScope: draft.accessScope,
+    sectionId: draft.sectionId,
     stemIds: draft.stemIds,
   }
 }
@@ -665,7 +666,6 @@ export async function acceptUcatMcpAssessmentSuggestion(
       index: question.index,
       difficulty: question.difficulty ?? null,
       time_burden_seconds: question.timeBurdenSeconds ?? null,
-      question_type: question.questionType,
       response_type: question.responseType,
       answer_scheme: question.answerScheme,
       source_channel: question.sourceChannel ?? 'individual',
@@ -676,7 +676,6 @@ export async function acceptUcatMcpAssessmentSuggestion(
         answer_text: option.answerText,
         answer_explanation: option.answerExplanation ?? null,
         index: option.index,
-        is_answer: option.isAnswer,
         answer_key_value: option.answerKeyValue,
       })),
     })),

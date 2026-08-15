@@ -10,7 +10,7 @@ JOIN public.question_stems stem
   ON stem.id = question.question_stem_id
 WHERE question.deleted_at IS NULL
   AND stem.deleted_at IS NULL
-  AND question.question_type <> 'syllogism'
+  AND question.answer_scheme <> 'decision_making_binary_placement'
 ORDER BY question.id
 LIMIT 3;
 

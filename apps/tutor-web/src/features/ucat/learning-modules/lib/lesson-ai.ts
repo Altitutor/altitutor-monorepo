@@ -197,7 +197,7 @@ function compactQuestion(question: Record<string, unknown>, questionIndex: numbe
       label: String.fromCharCode(65 + optionIndex),
       answerText: richTextPlain(option.answer_text, 320),
       answerExplanation: richTextPlain(option.answer_explanation, 500),
-      isAnswer: !!option.is_answer,
+      answerKeyValue: typeof option.answer_key_value === 'string' ? option.answer_key_value : null,
     })),
   }
 }

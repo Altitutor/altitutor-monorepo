@@ -1,5 +1,4 @@
-import type { QuestionItem } from "@/features/question-engine/model/types";
-import type { ReviewFilter } from "@/features/question-engine/model/types";
+import type { PlacementSnapshot, QuestionItem, ReviewFilter } from "@/features/question-engine/model/types";
 import {
   evaluatePersistedQuestionResponse,
   snapshotQuestionResponse,
@@ -11,14 +10,14 @@ export function getReviewQuestionStatus(
   question: QuestionItem,
   visitedQuestionIds: string[],
   selectedAnswers: Record<string, string>,
-  syllogismSnapshots?: Record<string, Record<string, boolean>>,
+  placementSnapshots?: Record<string, PlacementSnapshot>,
 ): ReviewQuestionStatus {
   const evaluation = evaluatePersistedQuestionResponse(
     question,
     snapshotQuestionResponse(
       question,
       selectedAnswers[question.id],
-      syllogismSnapshots?.[question.id],
+      placementSnapshots?.[question.id],
     ),
   );
   if (evaluation.complete) return "complete";
@@ -36,7 +35,7 @@ export function getReviewFilterIndices(
   visitedQuestionIds: string[],
   selectedAnswers: Record<string, string>,
   flaggedIds: string[],
-  syllogismSnapshots?: Record<string, Record<string, boolean>>,
+  placementSnapshots?: Record<string, PlacementSnapshot>,
 ): number[] {
   const indices: number[] = [];
   for (let i = 0; i < questions.length; i++) {
@@ -45,7 +44,7 @@ export function getReviewFilterIndices(
       q,
       visitedQuestionIds,
       selectedAnswers,
-      syllogismSnapshots,
+      placementSnapshots,
     );
     const flagged = flaggedIds.includes(q.id);
     if (filter === "all") {
@@ -63,7 +62,7 @@ export function getIncompleteCount(
   questions: QuestionItem[],
   visitedQuestionIds: string[],
   selectedAnswers: Record<string, string>,
-  syllogismSnapshots?: Record<string, Record<string, boolean>>,
+  placementSnapshots?: Record<string, PlacementSnapshot>,
 ): number {
   return questions.filter(
     (q) =>
@@ -71,7 +70,7 @@ export function getIncompleteCount(
         q,
         visitedQuestionIds,
         selectedAnswers,
-        syllogismSnapshots,
+        placementSnapshots,
       ) !== "complete",
   ).length;
 }

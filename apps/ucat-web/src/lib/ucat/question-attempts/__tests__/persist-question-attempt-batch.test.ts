@@ -29,14 +29,23 @@ describe("persistQuestionAttemptBatch", () => {
       [
         {
           questionId: "question-1",
-          questionAnswerOptionId: "option-1",
+          answerSnapshot: {
+            type: "ucat_response_v1",
+            questionId: "question-1",
+            answerScheme: "single_choice",
+            response: { kind: "single_select", selectedOptionId: "option-1" },
+          },
           submittedByStem: true,
           score: 1,
         },
         {
           questionId: "question-2",
-          questionAnswerOptionId: null,
-          answerSnapshot: { type: "syllogism_v1", answers: [] },
+          answerSnapshot: {
+            type: "ucat_response_v1",
+            questionId: "question-2",
+            answerScheme: "decision_making_binary_placement",
+            response: { kind: "placement", placements: {} },
+          },
           isFlagged: true,
           submittedByStem: true,
           score: 0,
@@ -53,7 +62,9 @@ describe("persistQuestionAttemptBatch", () => {
         p_attempts: [
           expect.objectContaining({
             question_id: "question-1",
-            question_answer_option_id: "option-1",
+            answer_snapshot: expect.objectContaining({
+              type: "ucat_response_v1",
+            }),
             is_submitted: true,
             score: 1,
             has_score: true,
@@ -84,7 +95,7 @@ describe("persistQuestionAttemptBatch", () => {
       [
         {
           questionId: "question-1",
-          questionAnswerOptionId: "option-1",
+          answerSnapshot: { selected: "option-1" },
           submittedByStem: true,
         },
       ],
@@ -122,8 +133,14 @@ describe("persistQuestionAttemptBatch", () => {
         learningModuleBlockId: null,
       },
       [
-        { questionId: "question-1", questionAnswerOptionId: "old" },
-        { questionId: "question-1", questionAnswerOptionId: "new" },
+        {
+          questionId: "question-1",
+          answerSnapshot: { selected: "old" },
+        },
+        {
+          questionId: "question-1",
+          answerSnapshot: { selected: "new" },
+        },
       ],
     );
 
@@ -131,7 +148,7 @@ describe("persistQuestionAttemptBatch", () => {
       [
         expect.objectContaining({
           question_id: "question-1",
-          question_answer_option_id: "new",
+          answer_snapshot: { selected: "new" },
         }),
       ],
       { onConflict: "id" },
@@ -152,12 +169,12 @@ describe("persistQuestionAttemptBatch", () => {
       [
         {
           questionId: "question-1",
-          questionAnswerOptionId: "option-1",
+          answerSnapshot: { selected: "option-1" },
           timeSpentMilliseconds: 3900,
         },
         {
           questionId: "question-2",
-          questionAnswerOptionId: "option-2",
+          answerSnapshot: { selected: "option-2" },
           timeSpentMilliseconds: 1000,
         },
       ],

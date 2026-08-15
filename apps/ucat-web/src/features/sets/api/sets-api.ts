@@ -12,6 +12,7 @@ export type StudentSetRow = {
   description: unknown;
   time_limit_seconds: number | null;
   sections: SetSectionJson[] | null;
+  section_number?: number | null;
   created_at: string | null;
   updated_at: string | null;
 };
@@ -24,7 +25,7 @@ export type SetsFilters = {
 };
 
 const STUDENT_SET_COLUMNS =
-  "id,name,description,time_limit_seconds,sections,created_at,updated_at";
+  "id,name,description,time_limit_seconds,sections,section_number,created_at,updated_at";
 
 export async function getAccessibleStudentSets(): Promise<StudentSetRow[]> {
   const supabase = getSupabaseBrowserClient();
@@ -154,11 +155,15 @@ export function filterSets(
       return false;
     }
     if (filters.sectionNumber != null) {
-      const sections = Array.isArray(set.sections) ? set.sections : [];
-      const hasSection = sections.some(
-        (s) => s.section_number === filters.sectionNumber,
-      );
-      if (!hasSection) return false;
+      if (set.section_number != null) {
+        if (set.section_number !== filters.sectionNumber) return false;
+      } else {
+        const sections = Array.isArray(set.sections) ? set.sections : [];
+        const hasSection = sections.some(
+          (s) => s.section_number === filters.sectionNumber,
+        );
+        if (!hasSection) return false;
+      }
     }
     if (filters.attempted === "unattempted" && attemptedSetIds?.has(set.id)) {
       return false;

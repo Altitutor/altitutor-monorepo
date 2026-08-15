@@ -12,14 +12,17 @@ FROM public.ucat_sections section
 WHERE section.section_number = 2
 LIMIT 1;
 
-INSERT INTO public.question_sets (id, name, time_limit_seconds, status, access_scope)
-VALUES (
+INSERT INTO public.question_sets (id, name, time_limit_seconds, status, access_scope, section_id)
+SELECT
   'c1300000-0000-4000-8000-000000000010',
   '{"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"In-review set"}]}]}'::jsonb,
   240,
   'in_review',
-  'private'
-);
+  'private',
+  section.id
+FROM public.ucat_sections section
+WHERE section.section_number = 2
+LIMIT 1;
 
 INSERT INTO public.question_stems_question_sets (question_stem_id, question_set_id, index)
 VALUES (

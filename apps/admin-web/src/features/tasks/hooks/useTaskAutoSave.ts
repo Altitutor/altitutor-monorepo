@@ -64,7 +64,7 @@ export function useTaskAutoSave({
   // Use useEffect (not useLayoutEffect) so this runs after the parent's useEffect that calls form.reset().
   // Depend on task.id (not task) so query refetches don't reset the baseline mid-edit.
   useEffect(() => {
-    if (task && isInitialized) {
+    if (task?.id && isInitialized) {
       const values = form.getValues();
       lastSavedValuesRef.current = {
         title: values.title,

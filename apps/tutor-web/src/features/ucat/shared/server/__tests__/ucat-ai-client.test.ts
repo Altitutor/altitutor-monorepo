@@ -43,7 +43,7 @@ describe('parseUcatAiJsonContent', () => {
   })
 
   it('repairs the malformed table-to-paragraph transition seen in completed writer output', () => {
-    expect(parseUcatAiJsonContent('{"stems":[{"stemText":"Stem","questions":[{"questionText":"Question","answerExplanation":[{"type":"table","columns":["A"],"rows":[["1"]}],"},{"type":"paragraph","text":"Done"}],"options":[{"answerText":"A","isAnswer":true}]}]}]}'))
+    expect(parseUcatAiJsonContent('{"stems":[{"stemText":"Stem","questions":[{"questionText":"Question","responseType":"multiple_choice","answerScheme":"single_choice","answerExplanation":[{"type":"table","columns":["A"],"rows":[["1"]}],"},{"type":"paragraph","text":"Done"}],"options":[{"answerText":"A","answerKeyValue":"correct"}]}]}]}'))
       .toMatchObject({
         stems: [{
           questions: [{

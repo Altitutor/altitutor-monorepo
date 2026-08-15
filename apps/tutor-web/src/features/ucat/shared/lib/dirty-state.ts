@@ -6,6 +6,7 @@ export function snapshotSetDetail(value: {
   description: string | Json | null
   time: number | null
   accessScope: 'public' | 'private'
+  sectionId: string
   stemIds: string[]
 }) {
   return JSON.stringify({
@@ -16,6 +17,7 @@ export function snapshotSetDetail(value: {
         : jsonToPlainText(value.description),
     time: value.time,
     accessScope: value.accessScope,
+    sectionId: value.sectionId,
     stemIds: value.stemIds,
   })
 }
@@ -43,7 +45,8 @@ export function snapshotQuestionStemFormValues(values: {
   status?: 'draft' | 'in_review' | 'published' | null
   questions: Array<{
     questionText: Json
-    questionType: string
+    responseType: string
+    answerScheme: string
     answerExplanation?: Json | null
     difficulty?: number | null
     timeBurdenSeconds?: string | null
@@ -53,7 +56,7 @@ export function snapshotQuestionStemFormValues(values: {
     options: Array<{
       answerText: Json
       answerExplanation?: Json | null
-      isAnswer: boolean
+      answerKeyValue?: string | null
     }>
   }>
 }): string {
@@ -69,7 +72,8 @@ export function snapshotQuestionStemFormValues(values: {
     status: values.status ?? null,
     questions: questions.map((q) => ({
       questionText: jsonToPlainText(q.questionText),
-      questionType: q.questionType,
+      responseType: q.responseType,
+      answerScheme: q.answerScheme,
       answerExplanation: jsonToPlainText(q.answerExplanation ?? null),
       difficulty: q.difficulty ?? null,
       timeBurdenSeconds: q.timeBurdenSeconds ?? '',
@@ -79,7 +83,7 @@ export function snapshotQuestionStemFormValues(values: {
       options: (Array.isArray(q.options) ? q.options : []).map((opt) => ({
         answerText: jsonToPlainText(opt.answerText),
         answerExplanation: jsonToPlainText(opt.answerExplanation ?? null),
-        isAnswer: opt.isAnswer,
+        answerKeyValue: opt.answerKeyValue ?? null,
       })),
     })),
   }

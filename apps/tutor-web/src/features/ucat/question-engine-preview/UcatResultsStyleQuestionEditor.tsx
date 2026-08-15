@@ -136,7 +136,7 @@ export function ResultsMcQuestionBlock({
               onClick={() =>
                 setOptions((prev) => [
                   ...prev,
-                  { answerText: EMPTY_DOC, answerExplanation: null, isAnswer: false },
+                  { answerText: EMPTY_DOC, answerExplanation: null, answerKeyValue: null },
                 ])
               }
             >
@@ -355,8 +355,8 @@ export type ResultsSyllogismQuestionBlockProps = {
   setQuestionText: (v: Json | null | undefined) => void
   options: OptionsState
   setOptions: Dispatch<SetStateAction<OptionsState>>
-  syllogismPattern: string
-  setSyllogismPattern: (v: string) => void
+  placementPattern: string
+  setPlacementPattern: (v: string) => void
   answerMode?: 'binary' | 'most_least'
   setMostLeastAnswerKey?: (optionIndex: number, value: 'most' | 'least' | null) => void
   answerExplanation: Json | null | undefined
@@ -373,8 +373,8 @@ export function ResultsSyllogismQuestionBlock({
   setQuestionText,
   options,
   setOptions,
-  syllogismPattern,
-  setSyllogismPattern,
+  placementPattern,
+  setPlacementPattern,
   answerMode = 'binary',
   setMostLeastAnswerKey,
   answerExplanation,
@@ -493,11 +493,11 @@ export function ResultsSyllogismQuestionBlock({
                     variant="light"
                     size="sm"
                     aria-label={`Correct answer for statement ${index + 1}`}
-                    value={syllogismPattern.charAt(index) === 'Y' ? 'Y' : 'N'}
+                    value={placementPattern.charAt(index) === 'Y' ? 'Y' : 'N'}
                     onValueChange={(answerValue) => {
-                      const arr = syllogismPattern.split('')
+                      const arr = placementPattern.split('')
                       arr[index] = answerValue
-                      setSyllogismPattern(
+                      setPlacementPattern(
                         arr.join('').padEnd(options.length, 'N').slice(0, options.length)
                       )
                     }}
@@ -572,21 +572,19 @@ export function UcatResultsStyleQuestionEditor({
   const [questionText, setQuestionText] = useState<Json | null | undefined>(question.questionText)
   const [options, setOptions] = useState(question.options ?? [])
   const [correctOptionIndex, setCorrectOptionIndex] = useState(() => {
-    const idx = question.options?.findIndex((o) => o.isAnswer) ?? 0
+    const idx = question.options?.findIndex((o) => o.answerKeyValue === 'correct') ?? 0
     return idx >= 0 ? idx : 0
   })
   const [answerExplanation, setAnswerExplanation] = useState<Json | null | undefined>(
     question.answerExplanation
   )
-  const initialPattern =
-    (question as { syllogismAnswerPattern?: string | null }).syllogismAnswerPattern ??
-    (question.options ?? [])
-      .map((o) => (o.isAnswer ? 'Y' : 'N'))
-      .join('')
-  const [syllogismPattern, setSyllogismPattern] = useState(() =>
+  const initialPattern = (question.options ?? [])
+    .map((option) => (option.answerKeyValue === 'yes' ? 'Y' : 'N'))
+    .join('')
+  const [placementPattern, setPlacementPattern] = useState(() =>
     initialPattern.padEnd(question.options?.length ?? 0, 'N').slice(0, question.options?.length ?? 0)
   )
-  const isSyllogism = question.questionType === 'syllogism'
+  const isBinaryPlacement = question.answerScheme === 'decision_making_binary_placement'
   const isMostLeast = question.answerScheme === 'situational_judgement_most_least'
 
   const setMostLeastAnswerKey = (optionIndex: number, value: 'most' | 'least' | null) => {
@@ -595,7 +593,6 @@ export function UcatResultsStyleQuestionEditor({
       answerKeyValue: index === optionIndex
         ? value
         : option.answerKeyValue === value ? null : option.answerKeyValue,
-      isAnswer: false,
     })))
   }
 
@@ -604,17 +601,15 @@ export function UcatResultsStyleQuestionEditor({
     const resolvedCorrect = n > 0 ? Math.min(Math.max(0, correctOptionIndex), n - 1) : 0
     const updatedOptions = options.map((opt, i) => ({
       ...opt,
-      isAnswer: isSyllogism
-        ? syllogismPattern.charAt(i).toUpperCase() === 'Y'
-        : isMostLeast ? false : i === resolvedCorrect,
+      answerKeyValue: isBinaryPlacement
+        ? placementPattern.charAt(i).toUpperCase() === 'Y' ? 'yes' as const : 'no' as const
+        : isMostLeast ? opt.answerKeyValue : i === resolvedCorrect ? 'correct' as const : null,
     }))
     const qWithPattern = {
       ...question,
       questionText: questionText ?? question.questionText,
       answerExplanation: answerExplanation ?? question.answerExplanation,
       options: updatedOptions,
-      syllogismAnswerPattern:
-        isSyllogism && syllogismPattern.length === options.length ? syllogismPattern : null,
     } as UcatQuestionStemFormValues['questions'][number]
     onSave(stemText, qWithPattern)
   }
@@ -645,8 +640,8 @@ export function UcatResultsStyleQuestionEditor({
     setQuestionText,
     options,
     setOptions,
-    syllogismPattern,
-    setSyllogismPattern,
+    placementPattern,
+    setPlacementPattern,
     answerMode: isMostLeast ? 'most_least' : 'binary',
     setMostLeastAnswerKey,
     answerExplanation,
@@ -660,7 +655,7 @@ export function UcatResultsStyleQuestionEditor({
     </div>
   )
 
-  if (isSyllogism || isMostLeast) {
+  if (isBinaryPlacement || isMostLeast) {
     if (sectionDisplayColumns === 2) {
       return shell(
         <div

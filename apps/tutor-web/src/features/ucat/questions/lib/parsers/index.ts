@@ -44,7 +44,7 @@ export {
 export {
   parseDecisionMakingFromDoc,
   parseDecisionMakingPlainText,
-  isSyllogismQuestionText,
+  isPlacementQuestionText,
   getDecisionMakingStemCategoryName,
   getDecisionMakingTagPathsForQuestion,
   mapParsedDecisionMakingToFormValues,

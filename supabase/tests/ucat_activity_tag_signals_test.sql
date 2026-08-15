@@ -33,7 +33,6 @@ SELECT
   stem.section_id,
   stem.question_stem_category_id AS category_id,
   question.question_text,
-  question.question_type,
   question.response_type,
   question.answer_scheme,
   question.answer_explanation
@@ -73,12 +72,12 @@ FROM activity_tag_fixture;
 
 INSERT INTO public.ucat_questions (
   id, question_stem_id, question_text, answer_explanation, index,
-  question_type, response_type, answer_scheme
+  response_type, answer_scheme
 )
 SELECT
   '55200000-0000-4000-8000-000000000004',
   '55200000-0000-4000-8000-000000000003',
-  question_text, answer_explanation, 1, question_type, response_type, answer_scheme
+  question_text, answer_explanation, 1, response_type, answer_scheme
 FROM activity_tag_fixture;
 
 INSERT INTO public.questions_question_tags (question_id, tag_id)

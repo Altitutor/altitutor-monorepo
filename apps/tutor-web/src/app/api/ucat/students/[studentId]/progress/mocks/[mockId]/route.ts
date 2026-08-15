@@ -8,7 +8,8 @@ import {
 } from '@/features/ucat/shared/lib/rich-text'
 import {
   parseAttemptContentSnapshot,
-  parseLegacyPlacementProjection,
+  parsePlacementProjection,
+  parseSelectedOptionId,
   resultForAttempt,
   snapshotToReviewQuestion,
   type AttemptReviewQuestion,
@@ -128,7 +129,7 @@ export async function GET(
     ? await supabaseAdmin
         .from('student_question_attempts')
         .select(
-          'question_id, score, time_spent_seconds, question_answer_option_id, answer_snapshot, is_flagged, attempted_at, content_snapshot, student_question_set_attempt_id'
+          'question_id, score, time_spent_seconds, answer_snapshot, is_flagged, attempted_at, content_snapshot, student_question_set_attempt_id'
         )
         .in('student_question_set_attempt_id', setAttemptIds)
         .eq('student_id', studentId)
@@ -238,7 +239,6 @@ export async function GET(
         currentStemId = snapshot.stem.id
         stemIndex += 1
       }
-      const questionType = snapshot.question.questionType
       const tags = (snapshot.question.tags ?? [])
         .filter((tag) => Boolean(tag.name))
         .map((tag) => ({
@@ -260,7 +260,6 @@ export async function GET(
         difficulty: snapshot.question.difficulty ?? null,
         questionTags: tags,
         isFlagged: row.is_flagged,
-        questionType,
         answerScheme: snapshot.question.answerScheme,
         result: resultForAttempt(
           row.score,
@@ -274,8 +273,8 @@ export async function GET(
             ) || null
           : null,
         questionStemCategoryId: snapshot.stem.categoryId ?? null,
-        questionAnswerOptionId: row.question_answer_option_id,
-        answerSnapshot: parseLegacyPlacementProjection(row.answer_snapshot),
+        selectedOptionId: parseSelectedOptionId(row.answer_snapshot),
+        answerSnapshot: parsePlacementProjection(row.answer_snapshot),
       })
       questions.push(
         snapshotToReviewQuestion(snapshot, questionNumber, questionSetId)

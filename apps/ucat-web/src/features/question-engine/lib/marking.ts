@@ -4,7 +4,7 @@ import {
   resolveSingleUcatScoringSection,
   type ScoringQuestion,
 } from "@altitutor/ucat-marking";
-import type { QuestionItem } from "@/features/question-engine/model/types";
+import type { PlacementSnapshot, QuestionItem } from "@/features/question-engine/model/types";
 import type { ReviewContract } from "@altitutor/ucat-response-contract";
 import {
   responseDefinitionForQuestion,
@@ -38,7 +38,7 @@ function buildScoringQuestions(questions: QuestionItem[]): ScoringQuestion[] {
 export function computeMarkingResult(
   questions: QuestionItem[],
   selectedAnswers: Record<string, string>,
-  syllogismSnapshots?: Record<string, Record<string, boolean>>,
+  placementSnapshots?: Record<string, PlacementSnapshot>,
 ): MarkingResult {
   const scoringQuestions = buildScoringQuestions(questions);
   const responses = new Map(
@@ -47,7 +47,7 @@ export function computeMarkingResult(
       snapshotQuestionResponse(
         question,
         selectedAnswers[question.id],
-        syllogismSnapshots?.[question.id],
+        placementSnapshots?.[question.id],
       ).response,
     ]),
   );

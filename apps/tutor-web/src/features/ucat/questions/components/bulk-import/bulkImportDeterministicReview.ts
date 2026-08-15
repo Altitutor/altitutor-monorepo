@@ -44,7 +44,7 @@ type ReviewInput = {
 type Question = UcatQuestionStemFormValues['questions'][number]
 type Option = Question['options'][number]
 
-const SYLLOGISM_INSTRUCTION =
+const BINARY_PLACEMENT_INSTRUCTION =
   "Place 'Yes' if the conclusion does follow. Place 'No' if the conclusion does not follow."
 const ASSUMPTION_INSTRUCTION = 'Select the strongest argument from the statements below.'
 const TFCT_OPTIONS = ['True', 'False', "Can't Tell"] as const
@@ -119,22 +119,6 @@ function replaceQuestionText(
   if (proseMirrorToPlainText(question.questionText) === text) return
   question.questionText = plainTextToProseMirror(text)
   addFix(fixes, code, message, questionScope(questionIndex))
-}
-
-function setQuestionType(
-  question: Question,
-  questionType: Question['questionType'],
-  questionIndex: number,
-  fixes: BulkImportAutomaticFix[],
-) {
-  if (question.questionType === questionType) return
-  question.questionType = questionType
-  addFix(
-    fixes,
-    'question_type',
-    `Changed the stored question type to ${questionType}.`,
-    questionScope(questionIndex),
-  )
 }
 
 /**
@@ -285,7 +269,8 @@ function readinessSnapshot(input: ReviewInput, values: UcatQuestionStemFormValue
       questionTextPlain: plain(question.questionText),
       answerExplanation: question.answerExplanation ?? null,
       answerExplanationPlain: plain(question.answerExplanation),
-      questionType: question.questionType,
+      responseType: question.responseType,
+      answerScheme: question.answerScheme,
       difficulty: question.difficulty ?? null,
       timeBurdenSeconds: null,
       tagIds: question.tagIds,
@@ -301,7 +286,7 @@ function readinessSnapshot(input: ReviewInput, values: UcatQuestionStemFormValue
         answerTextPlain: plain(option.answerText),
         answerExplanation: option.answerExplanation ?? null,
         answerExplanationPlain: plain(option.answerExplanation),
-        isAnswer: option.isAnswer,
+        answerKeyValue: option.answerKeyValue,
         images: [
           ...visualImages(option.answerText, `option:${questionIndex}:${optionIndex}:answer_text`),
           ...visualImages(option.answerExplanation, `option:${questionIndex}:${optionIndex}:answer_explanation`),
@@ -347,7 +332,6 @@ function vrChecks(
   }
 
   values.questions.forEach((question, questionIndex) => {
-    setQuestionType(question, 'multiple_choice', questionIndex, fixes)
     if (isReadingComprehension && question.options.length !== 4) {
       addIssue(
         issues,
@@ -374,6 +358,7 @@ function dmChecks(
   fixes: BulkImportAutomaticFix[],
 ) {
   const validCategories = new Set([
+    'interpreting information and drawing conclusions',
     'logical puzzles',
     'probabilistic and statistical reasoning',
     'recognising assumptions',
@@ -389,28 +374,26 @@ function dmChecks(
 
   const question = values.questions[0]
   if (!question) return
-  if (category === 'syllogisms') {
-    setQuestionType(question, 'syllogism', 0, fixes)
+  if (question.answerScheme === 'decision_making_binary_placement') {
     replaceQuestionText(
       question,
-      SYLLOGISM_INSTRUCTION,
+      BINARY_PLACEMENT_INSTRUCTION,
       0,
-      'dm_syllogism_instruction',
-      'Replaced the syllogism instruction with the canonical UCAT wording.',
+      'dm_placement_instruction',
+      'Replaced the binary-placement instruction with the canonical UCAT wording.',
       fixes,
     )
     if (question.options.length !== 5) {
       addIssue(
         issues,
-        'syllogism_option_count',
-        'Syllogism questions must have exactly five conclusion statements.',
+        'dm_placement_option_count',
+        'Binary-placement questions must have exactly five conclusion statements.',
         questionScope(0),
       )
     }
     return
   }
 
-  setQuestionType(question, 'multiple_choice', 0, fixes)
   if (category === 'recognising assumptions') {
     replaceQuestionText(
       question,
@@ -467,11 +450,11 @@ function sjChecks(
       : category === 'how appropriate'
         ? SJ_APPROPRIATE_OPTIONS
         : null
-  if (!expected) {
+  if (!['how important', 'how appropriate', 'most least appropriate'].includes(category)) {
     addIssue(
       issues,
       'sjt_category',
-      'Situational Judgement must use How Important or How Appropriate.',
+      'Situational Judgement must use How Important, How Appropriate, or Most/Least Appropriate.',
       stemScope(),
     )
   }
@@ -487,7 +470,6 @@ function sjChecks(
   }
 
   values.questions.forEach((question, questionIndex) => {
-    setQuestionType(question, 'multiple_choice', questionIndex, fixes)
     if (
       expected &&
       !canonicalizeOptions(question, expected, questionIndex, 'sjt_options', fixes)

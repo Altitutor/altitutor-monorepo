@@ -41,7 +41,6 @@ import {
   parseLinkedMockBlueprintCompliance,
   recalculateLinkedMockBlueprintCompliance,
 } from '@/features/ucat/mocks/lib/blueprint-compliance'
-import { parseSetSections } from '@/features/ucat/shared/lib/set-section-status'
 
 /** Shape of each stem in vtutor_ucat_question_set_detail.stems (from DB view) */
 type SetDetailStem = { stem_id: string; stem_text?: unknown; questions_meta?: Array<{ id: string; index: number }> }
@@ -76,6 +75,7 @@ export function UcatSetDetailPage({ setId }: UcatSetDetailPageProps) {
   const [draftTimeLimitSource, setDraftTimeLimitSource] = useState<'untimed' | 'section_full' | 'section_auto' | 'custom'>('custom')
   const [draftTimeLimitSpeed, setDraftTimeLimitSpeed] = useState(1)
   const [draftPrivate, setDraftPrivate] = useState(false)
+  const [draftSectionId, setDraftSectionId] = useState('')
   const [draftStemIds, setDraftStemIds] = useState<string[]>([])
   const [baseline, setBaseline] = useState<string>('')
   const [activeTextEditor, setActiveTextEditor] = useState<Editor | null>(null)
@@ -102,6 +102,7 @@ export function UcatSetDetailPage({ setId }: UcatSetDetailPageProps) {
     setDraftTimeLimitSource(sec > 0 ? 'custom' : 'untimed')
     setDraftTimeLimitSpeed(1)
     setDraftPrivate(current.access_scope === 'private')
+    setDraftSectionId(current.section_id ?? '')
     setDraftStemIds(stemIds)
     setBaseline(
       snapshotSetDetail({
@@ -109,6 +110,7 @@ export function UcatSetDetailPage({ setId }: UcatSetDetailPageProps) {
         description: (current.description ?? null) as RichTextJson | null,
         time: current.time_limit_seconds ?? null,
         accessScope: current.access_scope ?? 'public',
+        sectionId: current.section_id ?? '',
         stemIds,
       })
     )
@@ -118,40 +120,24 @@ export function UcatSetDetailPage({ setId }: UcatSetDetailPageProps) {
   const stemDetail = useUcatQuestionDetail(editingStemId)
   const updateStemMutation = useUpdateUcatQuestionStem()
 
-  const setSectionsFromStems = useMemo(() => {
-    const sectionMap = new Map<string, { sectionId: string; questionCount: number }>()
-    for (const stemId of draftStemIds) {
-      const stem = stemCatalog.find((s) => s.id === stemId)
-      if (!stem?.sectionId) continue
-      const existing = sectionMap.get(stem.sectionId)
-      if (existing) {
-        existing.questionCount += stem.questionsCount
-      } else {
-        sectionMap.set(stem.sectionId, { sectionId: stem.sectionId, questionCount: stem.questionsCount })
-      }
-    }
-    return Array.from(sectionMap.values())
-  }, [draftStemIds, stemCatalog])
-
-  const setSectionCount = setSectionsFromStems.length
-  const firstSetSection = setSectionsFromStems[0]
-  const firstUcatSection = firstSetSection
-    ? (sectionsQuery.data ?? []).find((s) => s.id === firstSetSection.sectionId)
-    : null
+  const authoredSection = (sectionsQuery.data ?? []).find((section) => section.id === draftSectionId) ?? null
+  const memberQuestionCount = useMemo(
+    () =>
+      draftStemIds.reduce((sum, stemId) => {
+        const stem = stemCatalog.find((item) => item.id === stemId)
+        return sum + (stem?.questionsCount ?? 0)
+      }, 0),
+    [draftStemIds, stemCatalog],
+  )
+  const setSectionCount = authoredSection ? 1 : 0
+  const firstUcatSection = authoredSection
 
   const sectionFullTimeSeconds = firstUcatSection?.time_limit_seconds ?? null
   const sectionAutoTimeSeconds = useMemo(() => {
-    let total = 0
-    const sectionsData = sectionsQuery.data ?? []
-    for (const ss of setSectionsFromStems) {
-      const sec = sectionsData.find((s) => s.id === ss.sectionId)
-      const tpq = sec?.time_per_question
-      if (tpq != null && tpq > 0) {
-        total += ss.questionCount * tpq
-      }
-    }
-    return total > 0 ? total : null
-  }, [setSectionsFromStems, sectionsQuery.data])
+    const tpq = firstUcatSection?.time_per_question
+    if (tpq == null || tpq <= 0 || memberQuestionCount <= 0) return null
+    return memberQuestionCount * tpq
+  }, [firstUcatSection, memberQuestionCount])
 
   const timeLimitSeconds = (() => {
     if (draftTimeLimitSource === 'untimed' || !draftIsTimed) return null
@@ -169,13 +155,12 @@ export function UcatSetDetailPage({ setId }: UcatSetDetailPageProps) {
     linkedReports: storedLinkedBlueprintReports,
     blueprints: blueprintsQuery.data ?? [],
     setCatalog: (setsQuery.data ?? []).map(set => {
-      const parsed = parseSetSections(set.sections ?? null)
       return {
         id: set.id ?? '',
         name: proseMirrorToPlainText(set.name ?? null) || 'Untitled',
         sectionDisplay: '',
-        sectionCount: parsed.sectionCount,
-        firstSectionNumber: parsed.firstSectionNumber,
+        sectionCount: set.section_id ? 1 : 0,
+        firstSectionNumber: set.section_number ?? null,
         question_count: set.question_count ?? null,
         time_limit_seconds: set.time_limit_seconds ?? null,
         access_scope: set.access_scope ?? null,
@@ -187,16 +172,12 @@ export function UcatSetDetailPage({ setId }: UcatSetDetailPageProps) {
       id: setId,
       stemIds: draftStemIds,
       timeLimitSeconds,
-      sectionNumbers: setSectionsFromStems.flatMap(draftSection => {
-        const sectionNumber = (sectionsQuery.data ?? []).find(section => section.id === draftSection.sectionId)?.section_number
-        return sectionNumber == null ? [] : [sectionNumber]
-      }),
+      sectionNumbers: firstUcatSection?.section_number == null ? [] : [firstUcatSection.section_number],
     },
   }), [
     blueprintsQuery.data,
     draftStemIds,
-    sectionsQuery.data,
-    setSectionsFromStems,
+    firstUcatSection,
     setId,
     setsQuery.data,
     stemCatalog,
@@ -215,10 +196,11 @@ export function UcatSetDetailPage({ setId }: UcatSetDetailPageProps) {
       description: draftDescription,
       time: timeLimitSeconds,
       accessScope: draftPrivate ? 'private' : 'public',
+      sectionId: draftSectionId,
       stemIds: draftStemIds,
     })
     return isSnapshotDirty(snapshot, baseline)
-  }, [baseline, draftName, draftDescription, draftPrivate, draftStemIds, timeLimitSeconds])
+  }, [baseline, draftName, draftDescription, draftPrivate, draftSectionId, draftStemIds, timeLimitSeconds])
 
   const filterDefinitions = useMemo(
     () => {
@@ -231,9 +213,10 @@ export function UcatSetDetailPage({ setId }: UcatSetDetailPageProps) {
         tagsQuery.data ?? [],
         filters,
         buildStemCatalogSetFilterOptions(setsList, setFilterSearch, { includeNotInPublishedSet: true }),
+        { lockedSectionId: draftSectionId || null },
       )
     },
-    [sectionsQuery.data, categoriesQuery.data, tagsQuery.data, filters, setsQuery.data, setFilterSearch],
+    [sectionsQuery.data, categoriesQuery.data, tagsQuery.data, filters, setsQuery.data, setFilterSearch, draftSectionId],
   )
 
   const publishedSetIds = useMemo(() => {
@@ -289,6 +272,7 @@ export function UcatSetDetailPage({ setId }: UcatSetDetailPageProps) {
           description: draftDescription,
           timeLimitSeconds,
           accessScope: draftPrivate ? 'private' : 'public',
+          sectionId: draftSectionId,
           stemIds: draftStemIds,
         },
       })
@@ -322,7 +306,7 @@ export function UcatSetDetailPage({ setId }: UcatSetDetailPageProps) {
           },
         ]}
         actions={
-          <Button onClick={save} disabled={!isDirty || !isTimeLimitValid || updateSet.isPending}>
+          <Button onClick={save} disabled={!isDirty || !isTimeLimitValid || !draftSectionId || updateSet.isPending}>
             {updateSet.isPending ? 'Saving...' : 'Save changes'}
           </Button>
         }
@@ -338,6 +322,8 @@ export function UcatSetDetailPage({ setId }: UcatSetDetailPageProps) {
           draftTimeLimitSource={draftTimeLimitSource}
           draftTimeLimitSpeed={draftTimeLimitSpeed}
           draftPrivate={draftPrivate}
+          draftSectionId={draftSectionId}
+          onChangeSectionId={setDraftSectionId}
           draftStemIds={draftStemIds}
           setDraftStemIds={setDraftStemIds}
           stemCatalog={stemCatalog as unknown as UcatStemCatalogItem[]}

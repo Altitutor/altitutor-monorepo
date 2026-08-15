@@ -69,7 +69,6 @@ type QuestionAttemptRaw = {
   student_question_set_attempt_id: string | null
   attempted_at: string | null
   score: number | null
-  question_type: string | null
   answer_scheme: QuestionAttemptRow['answerScheme']
   time_spent_seconds: number | null
   student_question_speed: number | null
@@ -134,7 +133,7 @@ export async function GET(
   const { data: questionAttemptsAll, error: qaError } = await supabase
     .from('vtutor_ucat_student_question_attempts_for_progress')
     .select(
-      'id, question_id, question_stem_id, student_question_set_attempt_id, attempted_at, ucat_section_id, section_name, section_number, score, question_type, answer_scheme, time_spent_seconds, student_question_speed, was_timed, question_stem_category_id, category_name'
+      'id, question_id, question_stem_id, student_question_set_attempt_id, attempted_at, ucat_section_id, section_name, section_number, score, answer_scheme, time_spent_seconds, student_question_speed, was_timed, question_stem_category_id, category_name'
     )
     .eq('student_id', studentId)
     .eq('is_submitted', true)
@@ -176,7 +175,7 @@ export async function GET(
       number: number
       correct: number
       max: number
-      syllogismStems: Set<string>
+      countedGroupedStems: Set<string>
     }
   >()
   for (const qa of uniqueQuestionAttempts) {
@@ -186,7 +185,6 @@ export async function GET(
     const attempt = {
       questionId: qa.question_id ?? qa.id ?? '',
       questionStemId: qa.question_stem_id,
-      questionType: qa.question_type,
       answerScheme: qa.answer_scheme,
       score: qa.score,
     }
@@ -194,19 +192,19 @@ export async function GET(
       existing.correct += qa.score ?? 0
       existing.max += progressPointsForQuestion(
         toProgressQuestionRef(attempt),
-        existing.syllogismStems
+        existing.countedGroupedStems
       )
     } else {
-      const syllogismStems = new Set<string>()
+      const countedGroupedStems = new Set<string>()
       sectionMap.set(sectionId, {
         name: qa.section_name ?? 'Unknown',
         number: qa.section_number ?? 0,
         correct: qa.score ?? 0,
         max: progressPointsForQuestion(
           toProgressQuestionRef(attempt),
-          syllogismStems
+          countedGroupedStems
         ),
-        syllogismStems,
+        countedGroupedStems,
       })
     }
   }
@@ -433,7 +431,7 @@ export async function GET(
   }
   const qaBySectionDate = new Map<
     string,
-    { correct: number; max: number; syllogismStems: Set<string> }
+    { correct: number; max: number; countedGroupedStems: Set<string> }
   >()
   for (const qa of uniqueQuestionAttempts) {
     const sectionId = qa.ucat_section_id
@@ -446,7 +444,6 @@ export async function GET(
     accumulateProgressAttempt(getOrCreateProgressBucket(qaBySectionDate, key), {
       questionId: qa.question_id ?? qa.id ?? '',
       questionStemId: qa.question_stem_id,
-      questionType: qa.question_type,
       answerScheme: qa.answer_scheme,
       score: qa.score,
     })
@@ -518,11 +515,11 @@ export async function GET(
   // Compute per-section, per-category stats
   const sectionCategorySums = new Map<
     string,
-    { correct: number; max: number; syllogismStems: Set<string> }
+    { correct: number; max: number; countedGroupedStems: Set<string> }
   >()
   const qaBySectionCategoryDate = new Map<
     string,
-    { correct: number; max: number; syllogismStems: Set<string> }
+    { correct: number; max: number; countedGroupedStems: Set<string> }
   >()
   for (const qa of uniqueQuestionAttempts) {
     const sectionId = qa.ucat_section_id
@@ -537,7 +534,6 @@ export async function GET(
     const attempt = {
       questionId: qa.question_id ?? qa.id ?? '',
       questionStemId: qa.question_stem_id,
-      questionType: qa.question_type,
       answerScheme: qa.answer_scheme,
       score: qa.score,
     }
@@ -745,7 +741,6 @@ export async function GET(
     studentQuestionSetAttemptId: r.student_question_set_attempt_id ?? null,
     attemptedAt: r.attempted_at ?? '',
     score: r.score,
-    questionType: r.question_type,
     answerScheme: r.answer_scheme,
     timeSpentSeconds: r.time_spent_seconds,
     studentQuestionSpeed: r.student_question_speed,

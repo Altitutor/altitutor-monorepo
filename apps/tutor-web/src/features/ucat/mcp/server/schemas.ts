@@ -33,17 +33,14 @@ const PositionSchema = z.number().int().min(0)
 export const AnswerOptionInputSchema = z.object({
   answerText: RichTextSchema,
   answerExplanation: NullableRichTextSchema.optional(),
-  answerKeyValue: z.enum(['correct', 'yes', 'no', 'most', 'least']).nullable().optional().describe(
-    'Canonical answer key. Use correct for a single-choice or SJT-rating key, yes/no for Decision Making binary placement, and most/least for SJT Most/Least. Null is a distractor. Prefer this over isAnswer.',
-  ),
-  isAnswer: z.boolean().default(false).describe(
-    'Legacy Boolean mirror. Omit it when answerKeyValue is supplied. It will be removed with ALTI-545.',
+  answerKeyValue: z.enum(['correct', 'yes', 'no', 'most', 'least']).nullable().describe(
+    'Canonical answer key. Use correct for a single-choice or SJT-rating key, yes/no for Decision Making binary placement, and most/least for SJT Most/Least. Null is a distractor.',
   ),
 })
 
 export const QuestionInputSchema = z.object({
   questionText: RichTextSchema,
-  responseType: z.enum(['multiple_choice', 'drag_and_drop']).optional().describe(
+  responseType: z.enum(['multiple_choice', 'drag_and_drop']).describe(
     'Candidate-facing interaction. Use drag_and_drop for Yes/No placements and SJT Most/Least; otherwise multiple_choice.',
   ),
   answerScheme: z.enum([
@@ -51,11 +48,8 @@ export const QuestionInputSchema = z.object({
     'situational_judgement_rating',
     'decision_making_binary_placement',
     'situational_judgement_most_least',
-  ]).optional().describe(
-    'Canonical answer contract. Use this instead of questionType. questionType is a temporary rollback mirror.',
-  ),
-  questionType: z.enum(['multiple_choice', 'syllogism']).default('multiple_choice').describe(
-    'Legacy rollback mirror of Answer scheme. Prefer responseType and answerScheme. syllogism here means drag_and_drop + decision_making_binary_placement, not the Syllogisms category.',
+  ]).describe(
+    'Canonical answer contract.',
   ),
   answerExplanation: NullableRichTextSchema.optional(),
   difficulty: z.number().min(0).max(1).nullable().optional().describe(
@@ -71,7 +65,7 @@ export const QuestionInputSchema = z.object({
 const QuestionChangesSchema = z.object({
   questionText: RichTextSchema.optional(),
   responseType: z.enum(['multiple_choice', 'drag_and_drop']).optional().describe(
-    'Candidate-facing interaction. Prefer this over questionType.',
+    'Candidate-facing interaction.',
   ),
   answerScheme: z.enum([
     'single_choice',
@@ -79,10 +73,7 @@ const QuestionChangesSchema = z.object({
     'decision_making_binary_placement',
     'situational_judgement_most_least',
   ]).optional().describe(
-    'Canonical answer contract. Prefer this over questionType.',
-  ),
-  questionType: z.enum(['multiple_choice', 'syllogism']).optional().describe(
-    'Legacy rollback mirror. Prefer responseType and answerScheme.',
+    'Canonical answer contract.',
   ),
   answerExplanation: NullableRichTextSchema.optional(),
   difficulty: z.number().min(0).max(1).nullable().optional().describe(
@@ -98,10 +89,7 @@ const AnswerOptionChangesSchema = z.object({
   answerText: RichTextSchema.optional(),
   answerExplanation: NullableRichTextSchema.optional(),
   answerKeyValue: z.enum(['correct', 'yes', 'no', 'most', 'least']).nullable().optional().describe(
-    'Canonical answer key. Prefer this over isAnswer.',
-  ),
-  isAnswer: z.boolean().optional().describe(
-    'Legacy Boolean mirror. Omit it when answerKeyValue is supplied.',
+    'Canonical answer key.',
   ),
 })
 
@@ -165,6 +153,7 @@ export const QuestionSetOperationSchema = z.discriminatedUnion('type', [
     description: RichTextSchema.optional(),
     timeLimitSeconds: z.number().int().positive().nullable().optional(),
     accessScope: UcatAccessScopeSchema.optional(),
+    sectionId: z.string().uuid().optional(),
   }),
   z.object({
     type: z.literal('add_stem'),

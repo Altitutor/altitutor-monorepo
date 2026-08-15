@@ -26,7 +26,6 @@ type AdminClient = SupabaseClient;
 type QuestionAttemptForScoring = {
   id: string;
   question_id: string;
-  question_answer_option_id: string | null;
   answer_snapshot: Json | null;
   content_snapshot?: Json | null;
   student_id: string;
@@ -34,7 +33,6 @@ type QuestionAttemptForScoring = {
 
 export type FinalQuestionAttemptInput = {
   questionId: string;
-  questionAnswerOptionId: string | null;
   answerSnapshot?: Json | null;
   isFlagged?: boolean;
   wasTimed?: boolean;
@@ -117,20 +115,7 @@ export function buildQuestionAttemptsForScoring(
     if (!compiled.ok) {
       throw new Error(compiled.issues.map((issue) => issue.message).join(" "));
     }
-    const storedAnswer =
-      attempt.answer_snapshot ??
-      (compiled.contract.presentation.kind === "single_select"
-        ? {
-            type: "ucat_response_v1",
-            questionId: attempt.question_id,
-            answerScheme: compiled.contract.answerSchemeKind,
-            response: {
-              kind: "single_select",
-              selectedOptionId: attempt.question_answer_option_id,
-            },
-          }
-        : undefined);
-    const restored = createResponseState(compiled.contract, storedAnswer);
+    const restored = createResponseState(compiled.contract, attempt.answer_snapshot);
     if (!restored.ok) {
       throw new Error(restored.issues.map((issue) => issue.message).join(" "));
     }
@@ -193,7 +178,7 @@ export async function completeStudentSetAttempt(
   const { data: questionAttempts, error: questionAttemptsError } = await admin
     .from("student_question_attempts")
     .select(
-      "id, question_id, question_answer_option_id, answer_snapshot, content_snapshot, student_id",
+      "id, question_id, answer_snapshot, content_snapshot, student_id",
     )
     .eq("student_question_set_attempt_id", attemptId)
     .eq("student_id", studentId);

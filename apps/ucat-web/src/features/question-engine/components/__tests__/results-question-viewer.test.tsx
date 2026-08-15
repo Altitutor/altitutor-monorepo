@@ -16,7 +16,6 @@ const question: QuestionItem = {
   sectionDisplayColumns: 1,
   stemText: "Scenario",
   questionText: "Choose the destinations.",
-  questionType: "multiple_choice",
   responseType: "drag_and_drop",
   answerScheme: "situational_judgement_most_least",
   options: [
@@ -31,7 +30,7 @@ describe("ResultsQuestionViewer placement review", () => {
     render(
       <ResultsQuestionViewer
         question={question}
-        syllogismSnapshot={{ a: false, c: true }}
+        placementSnapshot={{ a: "least", c: "most" }}
         points={0}
       />,
     );

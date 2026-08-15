@@ -8,7 +8,7 @@ import type { UcatQuestionStemFormValues } from '@/features/ucat/questions/types
 import {
   getDecisionMakingTagPathsForQuestion,
   getDecisionMakingStemCategoryName,
-  isSyllogismQuestionText,
+  isPlacementQuestionText,
   type ParsedDecisionMakingStem,
 } from '@/features/ucat/questions/lib/parsers/decisionMaking'
 import {
@@ -86,7 +86,10 @@ function toDecisionMakingStem(stem: ParsedStem): ParsedDecisionMakingStem {
       number: q.number,
       text: q.text,
       options: q.options,
-      questionType: isSyllogismQuestionText(q.text) ? 'syllogism' : 'multiple_choice',
+      responseType: isPlacementQuestionText(q.text) ? 'drag_and_drop' : 'multiple_choice',
+      answerScheme: isPlacementQuestionText(q.text)
+        ? 'decision_making_binary_placement'
+        : 'single_choice',
     })),
   }
 }
@@ -192,9 +195,12 @@ export function inferBulkImportTagIdsForParsedQuestion(args: {
             number: args.question.number,
             text: args.question.text,
             options: args.question.options,
-            questionType: isSyllogismQuestionText(args.question.text)
-              ? 'syllogism'
+            responseType: isPlacementQuestionText(args.question.text)
+              ? 'drag_and_drop'
               : 'multiple_choice',
+            answerScheme: isPlacementQuestionText(args.question.text)
+              ? 'decision_making_binary_placement'
+              : 'single_choice',
           },
         })
       : args.section === 'quantitative_reasoning'

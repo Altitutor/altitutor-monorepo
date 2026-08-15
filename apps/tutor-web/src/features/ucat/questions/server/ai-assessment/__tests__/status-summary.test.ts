@@ -70,7 +70,7 @@ describe('summarizeCurrentUcatAiReview', () => {
   })
 
   it('keeps the publication gate on the same review contract version', () => {
-    expect(AI_ASSESSMENT_PROMPT_VERSION).toBe(18)
+    expect(AI_ASSESSMENT_PROMPT_VERSION).toBe(19)
   })
 
   it('combines current partial runs and preserves the worst result', () => {

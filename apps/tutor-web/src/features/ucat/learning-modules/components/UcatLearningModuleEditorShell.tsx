@@ -786,7 +786,8 @@ export function UcatLearningModuleEditorShell({
                       id: question.id,
                       label: question.label,
                       sectionName: question.sectionName,
-                      questionType: question.questionType,
+                      responseType: question.responseType,
+                      answerScheme: question.answerScheme,
                     })),
                   },
                 } as Json}

@@ -49,7 +49,6 @@ type AssessmentQuestionRow = Pick<
   | 'index'
   | 'difficulty'
   | 'time_burden_seconds'
-  | 'question_type'
   | 'response_type'
   | 'answer_scheme'
   | 'source_channel'
@@ -58,7 +57,7 @@ type AssessmentQuestionRow = Pick<
 
 type AssessmentOptionRow = Pick<
   Database['public']['Tables']['question_answer_options']['Row'],
-  'id' | 'question_id' | 'answer_text' | 'answer_explanation' | 'index' | 'is_answer' | 'answer_key_value'
+  'id' | 'question_id' | 'answer_text' | 'answer_explanation' | 'index' | 'answer_key_value'
 >
 
 type AssessmentTagLinkRow = Pick<
@@ -263,7 +262,7 @@ async function loadAssessmentDetailRow(
     categoryPromise,
     source
       .from('ucat_questions')
-      .select('id,question_text,answer_explanation,index,difficulty,time_burden_seconds,question_type,response_type,answer_scheme,source_channel,ai_generation_metadata')
+      .select('id,question_text,answer_explanation,index,difficulty,time_burden_seconds,response_type,answer_scheme,source_channel,ai_generation_metadata')
       .eq('question_stem_id', stem.id)
       .is('deleted_at', null),
   ])
@@ -282,7 +281,7 @@ async function loadAssessmentDetailRow(
     const [optionResult, tagLinkResult] = await Promise.all([
       source
         .from('question_answer_options')
-        .select('id,question_id,answer_text,answer_explanation,index,is_answer,answer_key_value')
+        .select('id,question_id,answer_text,answer_explanation,index,answer_key_value')
         .in('question_id', questionIds)
         .is('deleted_at', null),
       source
@@ -383,7 +382,6 @@ export function ucatAssessmentSnapshotFromDetailRow(
             answerTextPlain: richTextPlain(answerText),
             answerExplanation: optionExplanation,
             answerExplanationPlain: richTextPlain(optionExplanation),
-            isAnswer: option.is_answer === true,
             answerKeyValue:
               option.answer_key_value === 'correct'
                 ? 'correct' as const
@@ -410,7 +408,6 @@ export function ucatAssessmentSnapshotFromDetailRow(
         questionTextPlain: richTextPlain(questionText),
         answerExplanation,
         answerExplanationPlain: richTextPlain(answerExplanation),
-        questionType: question.question_type === 'syllogism' ? 'syllogism' as const : 'multiple_choice' as const,
         responseType: question.response_type === 'drag_and_drop' ? 'drag_and_drop' as const : 'multiple_choice' as const,
         answerScheme:
           question.answer_scheme === 'situational_judgement_rating'
@@ -499,7 +496,6 @@ export function fingerprintUcatAssessmentSnapshot(snapshot: UcatAssessmentSnapsh
       index: question.index,
       questionText: canonicalRichNode(question.questionText),
       answerExplanation: canonicalRichNode(question.answerExplanation),
-      questionType: question.questionType,
       responseType: question.responseType,
       answerScheme: question.answerScheme,
       difficulty: question.difficulty,
@@ -509,7 +505,6 @@ export function fingerprintUcatAssessmentSnapshot(snapshot: UcatAssessmentSnapsh
         index: option.index,
         answerText: canonicalRichNode(option.answerText),
         answerExplanation: canonicalRichNode(option.answerExplanation),
-        isAnswer: option.isAnswer,
         answerKeyValue: option.answerKeyValue,
       })),
     }),

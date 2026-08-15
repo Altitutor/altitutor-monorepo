@@ -85,7 +85,7 @@ Keep each justification to one decisive sentence. Do not restate the full questi
 Rules:
 - For multiple-choice questions, select the exact optionId when one supplied option is defensibly correct.
 - If none of the supplied options is correct, selectedOptionId must be null and proposedAnswer should state the answer that should have been available.
-- For syllogism questions, independently return Yes or No for every optionId.
+- For binary-placement questions, independently return Yes or No for every optionId.
 - Mark ambiguous=true when more than one answer is defensible or wording materially changes the answer.
 - Mark unsolvable=true when the supplied information cannot support an answer.
 - Give a concise, auditable justification using the decisive calculation, passage evidence, logical constraint, or professional principle.
@@ -99,7 +99,7 @@ Response shape:
       "questionId": "uuid",
       "selectedOptionId": "uuid or null",
       "proposedAnswer": "string or null",
-      "syllogismAnswers": [{ "optionId": "uuid", "answer": "yes or no" }],
+      "placementAnswers": [{ "optionId": "uuid", "answer": "yes or no" }],
       "justification": "concise auditable reasoning",
       "confidence": 0.0,
       "ambiguous": false,
@@ -128,7 +128,7 @@ Ratings are pass, concern, critical, unreviewable, or not_applicable.
 Core rules:
 - presentation_integrity covers malformed tables, squashed or lost line breaks, rich-text rendering defects, and visual integrity.
 - ucat_suitability covers whether the item resembles real UCAT ANZ content, uses appropriate knowledge and professional context, and is worth retaining. Use recommendedAction="exclude" only for probably irrecoverable candidates.
-- answer_correctness_fairness requires independent solution, exactly one defensible keyed answer for multiple choice, correct Yes/No conclusions for syllogisms, plausible distractors, and fair discrimination at UCAT calculator/visual precision.
+- answer_correctness_fairness requires independent solution, exactly one defensible keyed answer for multiple choice, correct Yes/No conclusions for binary-placement questions, plausible distractors, and fair discrimination at UCAT calculator/visual precision.
 - explanation_quality follows the shared Explanation teaching standard in the audit criteria. Incorrect keys, unsupported objective answers, materially wrong teaching, bare answer recaps, or genuinely unsolvable questions are critical.
 - Failed deterministic format checks are supplied separately. Repair every failure that needs content judgment when a coherent repair is possible. Return a complete one-click suggestion rather than merely describing the problem.
 - When an option-count check fails, add plausible, mutually exclusive distractors or remove the weakest/redundant options until the exact required count is reached. Independently solve the repaired question, preserve or correct the answer key, and ensure exactly one answer is defensible.
@@ -170,13 +170,13 @@ Allowed patch JSON shapes (use only these exact operations/field names):
 - {"operation":"set_rich_content","target":{"kind":"stem|question|option","id":"uuid or null","field":"stem_text|question_text|answer_text|answer_explanation"},"before":{"type":"doc","content":[]},"after":{"type":"doc","content":[]}}
 - {"operation":"set_answer_key","questionId":"uuid","currentCorrectOptionId":"currently keyed uuid or null","correctOptionId":"uuid"}
 - {"operation":"replace_option_and_key","questionId":"uuid","optionId":"uuid","beforeAnswerText":"exact current option text","answerText":"replacement answer","answerExplanation":"optional explanation or null"}
-- {"operation":"replace_question","questionId":"uuid","beforeQuestionText":"exact current question text","question":{"questionText":"replacement","questionType":"multiple_choice|syllogism","answerExplanation":"string or null","difficulty":0.0,"timeBurdenSeconds":60,"tagIds":["uuid"],"options":[{"id":"existing uuid or null","answerText":"text","answerExplanation":"string or null","isAnswer":true}]}}
+- {"operation":"replace_question","questionId":"uuid","beforeQuestionText":"exact current question text","question":{"questionText":"replacement","responseType":"multiple_choice|drag_and_drop","answerScheme":"single_choice|situational_judgement_rating|decision_making_binary_placement|situational_judgement_most_least","answerExplanation":"string or null","difficulty":0.0,"timeBurdenSeconds":60,"tagIds":["uuid"],"options":[{"id":"existing uuid or null","answerText":"text","answerExplanation":"string or null","answerKeyValue":"correct|yes|no|most|least|null"}]}}
 - {"operation":"insert_question","afterQuestionId":"uuid or null","question":{/* complete question as above */}}
 - {"operation":"remove_question","questionId":"uuid","beforeQuestionText":"exact current question text"}
-- {"operation":"insert_option","questionId":"uuid","afterOptionId":"uuid or null","option":{"id":null,"answerText":"text","answerExplanation":"string or null","isAnswer":false}}
+- {"operation":"insert_option","questionId":"uuid","afterOptionId":"uuid or null","option":{"id":null,"answerText":"text","answerExplanation":"string or null","answerKeyValue":null}}
 - {"operation":"remove_option","questionId":"uuid","optionId":"uuid","beforeAnswerText":"exact current answer text"}
 - {"operation":"reorder_options","questionId":"uuid","optionIds":["every existing option uuid in final order"]}
-- {"operation":"set_metadata","targetKind":"stem|question","targetId":"uuid","field":"section_id|category_id|difficulty|time_burden_seconds|tag_ids|question_type","before":null,"after":null}
+- {"operation":"set_metadata","targetKind":"stem|question","targetId":"uuid","field":"section_id|category_id|difficulty|time_burden_seconds|tag_ids|response_type|answer_scheme","before":null,"after":null}
 - {"operation":"update_visual_spec","target":{"kind":"stem|question|option","id":"uuid or null","field":"stem_text|question_text|answer_text|answer_explanation"},"imageIndex":0,"visualType":"venn_diagram|set_diagram|vega_lite_chart","beforeSpec":{},"afterSpec":{},"title":null,"altText":null}
 
 When returning a suggestion, use:
@@ -277,7 +277,8 @@ export function buildBlindSolverUserPrompt(params: {
       .map((question) => ({
         questionId: question.id,
         questionIndex: question.index,
-        questionType: question.questionType,
+        responseType: question.responseType,
+        answerScheme: question.answerScheme,
         questionText: reviewText(question.questionText, question.questionTextPlain),
         options: question.options.map((option) => ({
           optionId: option.id,
@@ -303,11 +304,12 @@ export function buildAssessmentUserPrompt(params: {
     .map((question) => ({
       questionId: question.id,
       questionIndex: question.index,
-      questionType: question.questionType,
+      responseType: question.responseType,
+      answerScheme: question.answerScheme,
       questionText: reviewText(question.questionText, question.questionTextPlain),
-      keyedAnswer: question.questionType === 'syllogism'
-        ? question.options.map((option) => ({ optionId: option.id, answer: option.isAnswer ? 'yes' : 'no' }))
-        : question.options.find((option) => option.isAnswer)?.id ?? null,
+      keyedAnswer: question.responseType === 'drag_and_drop'
+        ? question.options.map((option) => ({ optionId: option.id, answer: option.answerKeyValue }))
+        : question.options.find((option) => option.answerKeyValue === 'correct')?.id ?? null,
       answerExplanation: question.answerExplanationPlain
         ? reviewText(question.answerExplanation, question.answerExplanationPlain)
         : null,
@@ -321,7 +323,7 @@ export function buildAssessmentUserPrompt(params: {
         answerExplanation: option.answerExplanationPlain
           ? reviewText(option.answerExplanation, option.answerExplanationPlain)
           : null,
-        isAnswer: option.isAnswer,
+        answerKeyValue: option.answerKeyValue,
       })),
     }))
 
@@ -457,7 +459,7 @@ function bulkImportAllowedPatchShapes() {
         id: null,
         answerText: 'complete distractor text',
         answerExplanation: 'explanation or null',
-        isAnswer: false,
+        answerKeyValue: null,
       },
     },
     {

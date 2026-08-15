@@ -11,13 +11,12 @@ const snapshot = {
   },
   question: {
     id: "question-1",
-    questionType: "multiple_choice",
     responseType: "multiple_choice",
     answerScheme: "single_choice",
   },
   answerOptions: [
-    { id: "option-1", index: 0, isAnswer: false, answerKeyValue: null },
-    { id: "option-2", index: 1, isAnswer: true, answerKeyValue: "correct" },
+    { id: "option-1", index: 0, answerKeyValue: null },
+    { id: "option-2", index: 1, answerKeyValue: "correct" },
   ],
 };
 
@@ -30,7 +29,6 @@ describe("buildQuestionMetaFromAttemptSnapshots", () => {
             id: "attempt-1",
             student_id: "student-1",
             question_id: "question-1",
-            question_answer_option_id: "option-2",
             answer_snapshot: null,
             content_snapshot: snapshot,
           },
@@ -64,7 +62,6 @@ describe("buildQuestionMetaFromAttemptSnapshots", () => {
             id: "attempt-1",
             student_id: "student-1",
             question_id: "question-1",
-            question_answer_option_id: null,
             answer_snapshot: null,
             content_snapshot: { ...snapshot, answerOptions: null },
           },
@@ -107,7 +104,6 @@ describe("buildQuestionAttemptsForScoring", () => {
             id: "attempt-1",
             student_id: "student-1",
             question_id: "dm-question",
-            question_answer_option_id: null,
             answer_snapshot: {
               type: "ucat_response_v1",
               questionId: "dm-question",

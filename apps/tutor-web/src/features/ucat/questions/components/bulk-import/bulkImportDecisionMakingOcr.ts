@@ -2,7 +2,7 @@ import type { Json } from '@altitutor/shared'
 import type { ParserConfig } from '@/features/ucat/questions/lib/parsers/core'
 import { collectLogicalLinesFromDoc } from '@/features/ucat/questions/lib/parsers/core'
 import {
-  isSyllogismQuestionText,
+  isPlacementQuestionText,
   SYLLOGISM_IMAGE_PLACEHOLDER_LINES,
 } from '@/features/ucat/questions/lib/parsers/decisionMaking'
 
@@ -407,7 +407,7 @@ export async function collectDecisionMakingLinesWithSyllogismImageOcr(
     if (!IMAGE_TOKEN_RE.test(line)) return []
     const previous = previousNonBlank(lines, index)
     if (!previous) return []
-    return isSyllogismQuestionText(stripQuestionNumber(previous, config)) ? [index] : []
+    return isPlacementQuestionText(stripQuestionNumber(previous, config)) ? [index] : []
   })
 
   if (candidateIndexes.length === 0) {

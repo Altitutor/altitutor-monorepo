@@ -86,6 +86,7 @@ type CreateQuestionSetInput = {
   description: string | Record<string, unknown>
   timeLimitSeconds?: number | null
   accessScope: UcatMcpAccessScope
+  sectionId: string
   stemIds: string[]
 }
 
@@ -678,6 +679,7 @@ export async function createUcatMcpQuestionSet(
     description: toRichTextJson(input.description) ?? {},
     timeLimitSeconds: input.timeLimitSeconds ?? null,
     accessScope: input.accessScope,
+    sectionId: input.sectionId,
     stemIds: [...input.stemIds],
   }
   const result = await callMutationWithVisibility(client, 'tutor_ucat_mcp_upsert_question_set', {
@@ -688,6 +690,7 @@ export async function createUcatMcpQuestionSet(
     p_time_limit_seconds: draft.timeLimitSeconds,
     p_access_scope: draft.accessScope,
     p_stem_ids: draft.stemIds,
+    p_section_id: draft.sectionId,
     p_operation_kinds: ['create'],
   }, {
     contentType: 'set',
@@ -714,6 +717,7 @@ export async function updateUcatMcpQuestionSet(
     p_time_limit_seconds: draft.timeLimitSeconds,
     p_access_scope: draft.accessScope,
     p_stem_ids: draft.stemIds,
+    p_section_id: draft.sectionId,
     p_operation_kinds: operationKinds(operations),
   }, {
     contentType: 'set',

@@ -16,7 +16,8 @@ export type QuestionCatalogCandidate = {
   id: string
   label: string
   sectionName: string
-  questionType: string
+  responseType: string
+  answerScheme: string
   score: number
 }
 
@@ -77,10 +78,11 @@ export function searchQuestionCandidates(
       id: question.id,
       label: question.label,
       sectionName: question.sectionName,
-      questionType: question.questionType,
+      responseType: question.responseType,
+      answerScheme: question.answerScheme,
       score: scoreCatalogMatch(
         trimmed,
-        [question.label, question.sectionName, question.questionType].filter(Boolean).join(' '),
+        [question.label, question.sectionName, question.responseType, question.answerScheme].filter(Boolean).join(' '),
       ),
     }))
     .filter((candidate) => candidate.score > 0)

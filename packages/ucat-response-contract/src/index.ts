@@ -66,7 +66,6 @@ export type ContractIssue = {
     | 'unsupported_snapshot'
     | 'snapshot_question_mismatch'
     | 'snapshot_scheme_mismatch'
-    | 'legacy_snapshot_scheme_mismatch'
     | 'unknown_option'
     | 'unknown_token'
     | 'token_reused'
@@ -139,10 +138,6 @@ type SchemeImplementation = {
     contract: CompiledResponseContract,
     response: CandidateResponse
   ) => EvaluationResult
-  restoreLegacy?: (
-    contract: CompiledResponseContract,
-    snapshot: Record<string, unknown>
-  ) => CreateResponseStateResult
 }
 
 export type CompileResult =
@@ -253,16 +248,6 @@ export function createResponseState(
         'The stored answer is not a supported response snapshot.'
       )
     }
-    if (storedAnswer.type === 'syllogism_v1') {
-      const restoreLegacy =
-        contract[compiledContractData].implementation.restoreLegacy
-      return restoreLegacy
-        ? restoreLegacy(contract, storedAnswer)
-        : responseStateIssue(
-            'legacy_snapshot_scheme_mismatch',
-            'A legacy syllogism snapshot can only restore a DM binary placement response.'
-          )
-    }
     if (storedAnswer.type !== 'ucat_response_v1') {
       return responseStateIssue(
         'unsupported_snapshot',
@@ -290,39 +275,6 @@ export function createResponseState(
     ok: true,
     state: contract[compiledContractData].implementation.blankState(),
   }
-}
-
-function restoreLegacyDmResponse(
-  contract: CompiledResponseContract,
-  snapshot: Record<string, unknown>
-): CreateResponseStateResult {
-  if (!Array.isArray(snapshot.answers)) {
-    return responseStateIssue(
-      'unsupported_snapshot',
-      'The legacy DM snapshot is malformed.'
-    )
-  }
-
-  const placements: Record<string, PlacementValue> = {}
-  for (const row of snapshot.answers) {
-    if (
-      !isRecord(row) ||
-      typeof row.question_answer_option_id !== 'string' ||
-      typeof row.answer !== 'boolean' ||
-      row.question_answer_option_id in placements
-    ) {
-      return responseStateIssue(
-        'unsupported_snapshot',
-        'The legacy DM snapshot contains a malformed or duplicate answer.'
-      )
-    }
-    placements[row.question_answer_option_id] = row.answer ? 'yes' : 'no'
-  }
-
-  return normalizeCandidateResponse(contract, {
-    kind: 'placement',
-    placements,
-  })
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -904,7 +856,6 @@ const schemeImplementations: Record<
     normalize: (contract, value) =>
       normalizePlacementResponse(contract, value, ['yes', 'no'], 'unlimited'),
     evaluate: evaluateDecisionMakingBinary,
-    restoreLegacy: restoreLegacyDmResponse,
   },
   situational_judgement_most_least: {
     responseType: 'drag_and_drop',

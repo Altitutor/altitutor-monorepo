@@ -48,7 +48,7 @@ export const stemCatalogColumnDefinitions: DataTableColumnDefinition[] = [
   { key: 'sets', label: 'Sets', visibleByDefault: false },
   { key: 'visibility', label: 'Visibility', visibleByDefault: true },
   { key: 'created_at', label: 'Date created', visibleByDefault: false },
-  { key: 'type_summary', label: 'Type', visibleByDefault: false },
+  { key: 'type_summary', label: 'Answer schemes', visibleByDefault: false },
 ]
 
 export const stemCatalogSortOptions: DataTableSortOption[] = [
@@ -57,7 +57,7 @@ export const stemCatalogSortOptions: DataTableSortOption[] = [
   { key: 'stem_text', label: 'Stem text' },
   { key: 'question_count', label: 'Questions' },
   { key: 'sets', label: 'Sets' },
-  { key: 'type_summary', label: 'Type' },
+  { key: 'type_summary', label: 'Answer schemes' },
   { key: 'visibility', label: 'Visibility' },
   { key: 'created_at', label: 'Date created' },
 ]
@@ -80,14 +80,6 @@ const baseStemCatalogFilterDefinitions: DataTableFilterDefinition[] = [
     options: [
       { label: 'Public', value: 'public' },
       { label: 'Private', value: 'private' },
-    ],
-  },
-  {
-    key: 'question_type',
-    label: 'Type',
-    options: [
-      { label: 'Multiple Choice', value: 'multiple_choice' },
-      { label: 'Syllogism', value: 'syllogism' },
     ],
   },
 ]
@@ -121,19 +113,25 @@ export function buildStemCatalogFilterDefinitions(
   tagRows: TagRowForSectionFilter[] = [],
   filters: Record<string, unknown[]> = {},
   setOptions: SetFilterOption[] = [],
+  options?: { lockedSectionId?: string | null },
 ): DataTableFilterDefinition[] {
-  const selectedSectionIds = resolveSectionIdsFromIdFilter(filters)
+  const lockedSectionId = options?.lockedSectionId ?? null
+  const selectedSectionIds = lockedSectionId
+    ? [lockedSectionId]
+    : resolveSectionIdsFromIdFilter(filters)
   const categories = mapCategoriesToOptions(filterCategoriesForSections(categoryRows, selectedSectionIds))
   const tags = mapTagsToOptions(filterTagsForSections(tagRows, selectedSectionIds))
 
   const defs: DataTableFilterDefinition[] = [
-    {
-      ...baseStemCatalogFilterDefinitions[0],
-      options: sections.map((section) => ({
-        label: section.name ?? 'Untitled',
-        value: section.id ?? '',
-      })),
-    },
+    ...(lockedSectionId
+      ? []
+      : [{
+          ...baseStemCatalogFilterDefinitions[0],
+          options: sections.map((section) => ({
+            label: section.name ?? 'Untitled',
+            value: section.id ?? '',
+          })),
+        }]),
     {
       ...baseStemCatalogFilterDefinitions[1],
       options: [
@@ -153,7 +151,6 @@ export function buildStemCatalogFilterDefinitions(
     },
     baseStemCatalogFilterDefinitions[3],
     baseStemCatalogFilterDefinitions[4],
-    baseStemCatalogFilterDefinitions[5],
   ]
 
   if (setOptions.length > 0) {
@@ -195,6 +192,7 @@ export function filterStemCatalogItems({
   searchScopes = defaultStemCatalogSearchScopes,
   publishedSetIds,
   currentSetId = null,
+  lockedSectionId = null,
 }: {
   stems: UcatStemCatalogItem[]
   excludedIds?: string[]
@@ -204,8 +202,8 @@ export function filterStemCatalogItems({
   searchScopes?: StemCatalogSearchScope[]
   publishedSetIds?: ReadonlySet<string>
   currentSetId?: string | null
+  lockedSectionId?: string | null
 }): UcatStemCatalogItem[] {
-  const questionTypeFilter = filters.question_type?.[0] as string | undefined
   const stemsTableState = {
     search,
     filters,
@@ -222,17 +220,12 @@ export function filterStemCatalogItems({
     if (excludedIds.includes(stem.id)) return false
     if (includedIds && !includedIds.has(stem.id)) return false
     if (!stemMatchesSearch(stem, search, searchScopes)) return false
-    if (!applyMultiSelectFilter(stemsTableState, 'section_id', stem.sectionId)) return false
+    if (lockedSectionId && stem.sectionId !== lockedSectionId) return false
+    if (!lockedSectionId && !applyMultiSelectFilter(stemsTableState, 'section_id', stem.sectionId)) return false
     if (!applyCategoryFilter(stemsTableState, stem.categoryId, UCAT_FILTER_NO_CATEGORY)) return false
     if (!applyTagFilter(stemsTableState, stem.tagIds)) return false
     if (!applyMultiSelectFilter(stemsTableState, 'status', stem.status)) return false
     if (!applyBooleanTextFilter(stemsTableState, 'visibility', stem.accessScope === 'private')) return false
-    if (questionTypeFilter && questionTypeFilter !== 'all') {
-      if (!stem.questionTypes.includes(questionTypeFilter as 'multiple_choice' | 'syllogism')) {
-        return false
-      }
-    }
-
     const selectedSetIds = getFilterValues(stemsTableState, 'question_set_id').map(String)
     const wantsNotInAnySet = selectedSetIds.includes(UCAT_FILTER_NOT_IN_ANY_SET)
     const wantsNotInAnotherPublishedSet = selectedSetIds.includes(UCAT_FILTER_NOT_IN_ANY_PUBLISHED_SET)

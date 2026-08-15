@@ -90,7 +90,6 @@ export type QuestionAttemptRow = {
   studentQuestionSetAttemptId: string | null
   attemptedAt: string
   score: number | null
-  questionType: string | null
   answerScheme:
     | 'single_choice'
     | 'situational_judgement_rating'

@@ -48,11 +48,7 @@ import { NavigatorPanel } from "@/features/question-engine/components/navigator-
 import { QuestionContent } from "@/features/question-engine/components/question-content";
 import { computeMarkingResult } from "@/features/question-engine/lib/marking";
 import { navigateToAttemptResults } from "@/features/question-engine/lib/attempt-results-navigation";
-import {
-  buildPersistedQuestionResponse,
-  canonicalPlacementSnapshotToLegacy,
-  legacyPlacementSnapshotToCanonical,
-} from "@/features/question-engine/lib/response-state";
+import { buildPersistedQuestionResponse } from "@/features/question-engine/lib/response-state";
 import { NoFlaggedDialog } from "@/features/question-engine/components/no-flagged-dialog";
 import { ReviewInstructionsDialog } from "@/features/question-engine/components/review-instructions-dialog";
 import { TimeExpiredDialog } from "@/features/question-engine/components/time-expired-dialog";
@@ -71,6 +67,7 @@ import {
 } from "@/features/question-engine/lib/timing";
 import { getTimedSegmentKey } from "@/features/question-engine/lib/timed-segment-key";
 import type {
+  PlacementSnapshot,
   QuestionEngineMode,
   QuestionEngineQuestion,
   QuestionEngineState,
@@ -361,7 +358,7 @@ export type QuestionEngineTutorialSnapshot = {
   questionId: string | null;
   questionIndex: number;
   selectedOptionId: string | null;
-  syllogismSnapshot: Record<string, boolean>;
+  placementSnapshot: PlacementSnapshot;
   flagged: boolean;
   showCalculator: boolean;
   showNavigator: boolean;
@@ -373,7 +370,7 @@ export type QuestionEngineTutorialControl =
   | "flag"
   | "navigator"
   | "previous"
-  | "syllogismChoice";
+  | "placementChoice";
 
 export function QuestionEnginePage({
   mode,
@@ -403,10 +400,10 @@ export function QuestionEnginePage({
   tutorialCalculatorDraggable = false,
   tutorialSequential = false,
   tutorialLockedQuestionIds = [],
-  tutorialLockedSyllogismOptionIds = {},
-  tutorialCorrectSyllogismOptionIds = {},
+  tutorialLockedPlacementOptionIds = {},
+  tutorialCorrectPlacementOptionIds = {},
   tutorialHighlightText,
-  tutorialSyllogismDragOnly = false,
+  tutorialPlacementDragOnly = false,
   tutorialHidePrevious = false,
   tutorialHidePrimaryAction = false,
   tutorialPrimaryActionLabel,
@@ -470,14 +467,14 @@ export function QuestionEnginePage({
   tutorialSequential?: boolean;
   /** Keep already-correct tutorial answers visible and immutable. */
   tutorialLockedQuestionIds?: readonly string[];
-  /** Lock individual correct syllogism rows while the student retries the rest. */
-  tutorialLockedSyllogismOptionIds?: Record<string, readonly string[]>;
-  /** Visually mark correctly assigned syllogism rows. */
-  tutorialCorrectSyllogismOptionIds?: Record<string, readonly string[]>;
+  /** Lock individual correct placement rows while the student retries the rest. */
+  tutorialLockedPlacementOptionIds?: Record<string, readonly string[]>;
+  /** Visually mark correctly assigned placement rows. */
+  tutorialCorrectPlacementOptionIds?: Record<string, readonly string[]>;
   /** Emphasise exact plain text referenced by sampler coaching. */
   tutorialHighlightText?: string;
-  /** Require drag-and-drop for tutorial syllogism tokens. */
-  tutorialSyllogismDragOnly?: boolean;
+  /** Require drag-and-drop for tutorial placement tokens. */
+  tutorialPlacementDragOnly?: boolean;
   /** Hide Previous while preserving the normal engine default. */
   tutorialHidePrevious?: boolean;
   /** Let an external feedback card own progression after a correct answer. */
@@ -611,7 +608,7 @@ export function QuestionEnginePage({
     goToReviewScreen,
     startReviewFilter,
     goToReviewQuestionByGlobalIndex,
-    setSyllogismSnapshot,
+    setPlacementSnapshot,
   } = useQuestionEngineState(exam, {
     practice: immediatePracticeReview,
     reviewAtEnd: practice && reviewTiming === "atEnd",
@@ -725,8 +722,8 @@ export function QuestionEnginePage({
       selectedOptionId: currentQuestion
         ? (state.selectedAnswers[currentQuestion.id] ?? null)
         : null,
-      syllogismSnapshot: currentQuestion
-        ? (state.syllogismSnapshots?.[currentQuestion.id] ?? {})
+      placementSnapshot: currentQuestion
+        ? (state.placementSnapshots?.[currentQuestion.id] ?? {})
         : {},
       flagged: currentQuestion
         ? state.flaggedIds.includes(currentQuestion.id)
@@ -743,7 +740,7 @@ export function QuestionEnginePage({
       state.selectedAnswers,
       state.showCalculator,
       state.showNavigator,
-      state.syllogismSnapshots,
+      state.placementSnapshots,
     ],
   );
   const tutorialQuestionLocked =
@@ -848,7 +845,7 @@ export function QuestionEnginePage({
 
   const {
     recordAnswer,
-    recordSyllogismSnapshot,
+    recordPlacementSnapshot,
     recordAnswersForUnit,
     handleExamCompleted,
     completePracticeSession,
@@ -872,7 +869,7 @@ export function QuestionEnginePage({
         ? ("question_stem" as const)
         : ("question" as const);
     return exam.questions.map((question) => {
-      const syllogismSnapshot = state.syllogismSnapshots?.[question.id];
+      const placementSnapshot = state.placementSnapshots?.[question.id];
       return {
         studentQuestionSetAttemptId: null,
         studentPracticeSessionId: practiceSessionId,
@@ -880,7 +877,7 @@ export function QuestionEnginePage({
         ...buildPersistedQuestionResponse(
           question,
           state.selectedAnswers[question.id],
-          syllogismSnapshot,
+          placementSnapshot,
         ),
         isFlagged: state.flaggedIds.includes(question.id),
         wasTimed: false,
@@ -894,7 +891,7 @@ export function QuestionEnginePage({
     practiceSessionId,
     state.flaggedIds,
     state.selectedAnswers,
-    state.syllogismSnapshots,
+    state.placementSnapshots,
   ]);
 
   const getFinalPracticeAnswers = useCallback(() => {
@@ -1252,7 +1249,7 @@ export function QuestionEnginePage({
       questions,
       state.visitedQuestionIds,
       state.selectedAnswers,
-      state.syllogismSnapshots,
+      state.placementSnapshots,
     );
     if (
       exam.sourceType === "mock" &&
@@ -1266,7 +1263,7 @@ export function QuestionEnginePage({
           questions.slice(summary.questionStartIndex, summary.questionEndIndex),
           state.visitedQuestionIds,
           state.selectedAnswers,
-          state.syllogismSnapshots,
+          state.placementSnapshots,
         );
       }
     }
@@ -1289,7 +1286,7 @@ export function QuestionEnginePage({
     questions,
     state.visitedQuestionIds,
     state.selectedAnswers,
-    state.syllogismSnapshots,
+    state.placementSnapshots,
     state.phase,
     state.mockCurrentSetIndex,
     setState,
@@ -1331,10 +1328,10 @@ export function QuestionEnginePage({
         ? computeMarkingResult(
             exam!.questions,
             state.selectedAnswers,
-            state.syllogismSnapshots,
+            state.placementSnapshots,
           )
         : null,
-    [practice, exam, state.selectedAnswers, state.syllogismSnapshots],
+    [practice, exam, state.selectedAnswers, state.placementSnapshots],
   );
   const practiceCorrectCount =
     practiceMarkingResult?.rows.filter((r) => r.points > 0).length ?? 0;
@@ -1396,6 +1393,13 @@ export function QuestionEnginePage({
 
       if (practiceSessionId) {
         reportQuestionEngineCompletion();
+        setState((current) => ({
+          ...current,
+          phase: "practiceComplete",
+          viewingQuestionIndex: null,
+          practiceAnswerUnitStartIndex: undefined,
+          practiceAnswerUnitEndIndex: undefined,
+        }));
         const attemptHref = `/progress/practice-sessions/${practiceSessionId}`;
         onPracticeSessionCompleted?.(attemptHref);
         clearActiveExamAttempt();
@@ -2019,7 +2023,7 @@ export function QuestionEnginePage({
       reviewTiming === "atEnd"
         ? new Set([
             ...Object.keys(state.selectedAnswers),
-            ...Object.keys(state.syllogismSnapshots ?? {}),
+            ...Object.keys(state.placementSnapshots ?? {}),
           ])
         : new Set([
             ...submittedPracticeQuestionIds,
@@ -2031,7 +2035,7 @@ export function QuestionEnginePage({
     const markingResult = computeMarkingResult(
       questions,
       state.selectedAnswers,
-      state.syllogismSnapshots,
+      state.placementSnapshots,
     );
     const correctCount = markingResult.rows.filter(
       (row) => submittedIds.has(row.question.id) && row.points > 0,
@@ -2142,7 +2146,7 @@ export function QuestionEnginePage({
     questions,
     state.visitedQuestionIds,
     state.selectedAnswers,
-    state.syllogismSnapshots,
+    state.placementSnapshots,
     state.phase,
     state.viewingQuestionIndex,
     state.practiceAnswerUnitStartIndex,
@@ -2348,7 +2352,7 @@ export function QuestionEnginePage({
       questions,
       state.visitedQuestionIds,
       state.selectedAnswers,
-      state.syllogismSnapshots,
+      state.placementSnapshots,
     );
     if (
       exam?.sourceType === "mock" &&
@@ -2366,7 +2370,7 @@ export function QuestionEnginePage({
           setQuestions,
           state.visitedQuestionIds,
           state.selectedAnswers,
-          state.syllogismSnapshots,
+          state.placementSnapshots,
         );
       }
     }
@@ -3181,18 +3185,18 @@ export function QuestionEnginePage({
                   computeMarkingResult(
                     questions,
                     state.selectedAnswers,
-                    state.syllogismSnapshots,
+                    state.placementSnapshots,
                   ).rows[state.viewingQuestionIndex!]?.points
                 }
                 review={
                   computeMarkingResult(
                     questions,
                     state.selectedAnswers,
-                    state.syllogismSnapshots,
+                    state.placementSnapshots,
                   ).rows[state.viewingQuestionIndex!]?.review
                 }
-                syllogismSnapshot={
-                  state.syllogismSnapshots?.[
+                placementSnapshot={
+                  state.placementSnapshots?.[
                     questions[state.viewingQuestionIndex]!.id
                   ]
                 }
@@ -3212,35 +3216,28 @@ export function QuestionEnginePage({
               question={currentQuestion}
               readOnly={tutorialQuestionLocked}
               highlightText={tutorialHighlightText}
-              syllogismDragOnly={tutorialMode && tutorialSyllogismDragOnly}
-              syllogismLockedOptionIds={
+              placementDragOnly={tutorialMode && tutorialPlacementDragOnly}
+              placementLockedOptionIds={
                 currentQuestion
-                  ? tutorialLockedSyllogismOptionIds[currentQuestion.id]
+                  ? tutorialLockedPlacementOptionIds[currentQuestion.id]
                   : undefined
               }
-              syllogismCorrectOptionIds={
+              placementCorrectOptionIds={
                 currentQuestion
-                  ? tutorialCorrectSyllogismOptionIds[currentQuestion.id]
+                  ? tutorialCorrectPlacementOptionIds[currentQuestion.id]
                   : undefined
               }
-              onSyllogismClickAttempt={() => {
-                allowTutorialControl("syllogismChoice");
+              onPlacementClickAttempt={() => {
+                allowTutorialControl("placementChoice");
               }}
               selectedOptionId={state.selectedAnswers[currentQuestion.id]}
-              placementSnapshot={legacyPlacementSnapshotToCanonical(
-                currentQuestion,
-                state.syllogismSnapshots?.[currentQuestion.id],
-              )}
+              placementSnapshot={state.placementSnapshots?.[currentQuestion.id]}
               onChangePlacementSnapshot={(snapshot) => {
                 if (tutorialQuestionLocked) return;
-                const legacySnapshot = canonicalPlacementSnapshotToLegacy(
-                  currentQuestion,
-                  snapshot,
-                );
-                setSyllogismSnapshot(currentQuestion.id, legacySnapshot);
-                recordSyllogismSnapshot(
+                setPlacementSnapshot(currentQuestion.id, snapshot);
+                recordPlacementSnapshot(
                   currentQuestion.id,
-                  legacySnapshot,
+                  snapshot,
                   flaggedCurrent,
                 );
               }}
@@ -3306,7 +3303,7 @@ export function QuestionEnginePage({
               flaggedIds={state.flaggedIds}
               selectedAnswers={state.selectedAnswers}
               visitedQuestionIds={state.visitedQuestionIds}
-              syllogismSnapshots={state.syllogismSnapshots}
+              placementSnapshots={state.placementSnapshots}
               onSelect={(index: number) =>
                 void runWithLag(() => {
                   const globalIndex =

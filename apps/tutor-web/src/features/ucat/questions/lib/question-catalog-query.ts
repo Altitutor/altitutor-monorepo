@@ -24,7 +24,6 @@ const CATALOG_SORT_KEYS = new Set([
   'category_name',
   'question_count',
   'sets',
-  'type_summary',
   'visibility',
   'source',
   'created_at',
@@ -41,7 +40,6 @@ export type QuestionCatalogQuery = {
   includeNoCategory: boolean
   tagIds: string[]
   accessScopes: string[]
-  questionTypes: string[]
   setIds: string[]
   includeWithoutSet: boolean
   sourceChannels: string[]
@@ -102,10 +100,6 @@ export function buildQuestionCatalogQuery(input: {
     includeNoCategory: rawCategoryIds.includes(UCAT_FILTER_NO_CATEGORY),
     tagIds: filterStrings(tableState, 'question_tag_id'),
     accessScopes: filterStrings(tableState, 'visibility'),
-    // `question_type` is a temporary storage compatibility field, not a tutor
-    // filtering concept. Category and the canonical response fields own those
-    // concerns during activation; ALTI-545 removes the legacy column itself.
-    questionTypes: [],
     setIds: rawSetIds.filter((id) => id !== UCAT_FILTER_NOT_IN_ANY_SET),
     includeWithoutSet: rawSetIds.includes(UCAT_FILTER_NOT_IN_ANY_SET),
     sourceChannels: filterStrings(tableState, 'source_channel'),
@@ -140,7 +134,6 @@ export function serializeQuestionCatalogQuery(query: QuestionCatalogQuery): stri
   if (query.includeNoCategory) params.set('noCategory', '1')
   for (const value of query.tagIds) params.append('tag', value)
   for (const value of query.accessScopes) params.append('access', value)
-  for (const value of query.questionTypes) params.append('type', value)
   for (const value of query.setIds) params.append('set', value)
   if (query.includeWithoutSet) params.set('withoutSet', '1')
   for (const value of query.sourceChannels) params.append('source', value)

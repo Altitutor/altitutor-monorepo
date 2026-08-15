@@ -38,7 +38,7 @@ function questionPackageContext(value: unknown): string {
       if (Array.isArray(question.options)) {
         question.options.forEach((option, optionIndex) => {
           if (!isRecord(option)) return
-          lines.push(`Option ${optionIndex + 1}${option.isAnswer === true ? ' (correct)' : ''}: ${richText(option.answerText)}`)
+          lines.push(`Option ${optionIndex + 1}${option.answerKeyValue === 'correct' ? ' (correct)' : ''}: ${richText(option.answerText)}`)
         })
       }
       const explanation = richText(question.answerExplanation)

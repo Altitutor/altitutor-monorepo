@@ -34,7 +34,6 @@ export function toPersistencePayload(stem: Record<string, unknown>): Record<stri
         answer_explanation: question.answerExplanation ?? null,
         difficulty: question.difficulty ?? null,
         time_burden_seconds: question.timeBurdenSeconds ?? null,
-        question_type: question.questionType ?? 'multiple_choice',
         response_type: responseType,
         answer_scheme: answerScheme,
         source_channel: 'ai_generation',
@@ -44,7 +43,6 @@ export function toPersistencePayload(stem: Record<string, unknown>): Record<stri
           index: option.index,
           answer_text: option.answerText ?? {},
           answer_explanation: option.answerExplanation ?? null,
-          is_answer: option.isAnswer ?? false,
           answer_key_value: option.answerKeyValue ?? null,
         })),
       }

@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import type {
+  PlacementSnapshot,
   QuestionEngineExam,
   QuestionEngineState,
   ReviewFilter,
@@ -122,7 +123,7 @@ const initialState: QuestionEngineState = {
   visitedQuestionIds: [],
   flaggedIds: [],
   selectedAnswers: {},
-  syllogismSnapshots: {},
+  placementSnapshots: {},
   responseSnapshots: {},
   showNavigator: false,
   showCalculator: false,
@@ -253,7 +254,7 @@ export function useQuestionEngineState(
       state.visitedQuestionIds,
       state.selectedAnswers,
       state.flaggedIds,
-      state.syllogismSnapshots,
+      state.placementSnapshots,
     );
     if (
       exam?.sourceType === "mock" &&
@@ -277,7 +278,7 @@ export function useQuestionEngineState(
     state.visitedQuestionIds,
     state.selectedAnswers,
     state.flaggedIds,
-    state.syllogismSnapshots,
+    state.placementSnapshots,
     questions,
     exam?.sourceType,
     exam?.mockSetSummaries,
@@ -353,7 +354,7 @@ export function useQuestionEngineState(
           question,
           state.visitedQuestionIds,
           state.selectedAnswers,
-          state.syllogismSnapshots,
+          state.placementSnapshots,
         ) as ReviewQuestionStatus,
         flagged: state.flaggedIds.includes(question.id),
       };
@@ -365,7 +366,7 @@ export function useQuestionEngineState(
     state.visitedQuestionIds,
     state.selectedAnswers,
     state.flaggedIds,
-    state.syllogismSnapshots,
+    state.placementSnapshots,
     exam?.sourceType,
     exam?.mockSetSummaries,
   ]);
@@ -674,7 +675,7 @@ export function useQuestionEngineState(
       state.visitedQuestionIds,
       state.selectedAnswers,
       state.flaggedIds,
-      state.syllogismSnapshots,
+      state.placementSnapshots,
     );
     if (
       exam?.sourceType === "mock" &&
@@ -710,7 +711,7 @@ export function useQuestionEngineState(
       state.visitedQuestionIds,
       state.selectedAnswers,
       state.flaggedIds,
-      state.syllogismSnapshots,
+      state.placementSnapshots,
     );
     const pos = indices.indexOf(globalIndex);
     const reviewFilterIndex = pos >= 0 ? pos : 0;
@@ -753,20 +754,20 @@ export function useQuestionEngineState(
         [currentQuestion.id]: snapshotQuestionResponse(
           currentQuestion,
           optionId,
-          current.syllogismSnapshots?.[currentQuestion.id],
+          current.placementSnapshots?.[currentQuestion.id],
         ),
       },
     }));
   }
 
-  function setSyllogismSnapshot(
+  function setPlacementSnapshot(
     questionId: string,
-    snapshot: Record<string, boolean>,
+    snapshot: PlacementSnapshot,
   ) {
     setState((current) => ({
       ...current,
-      syllogismSnapshots: {
-        ...(current.syllogismSnapshots ?? {}),
+      placementSnapshots: {
+        ...(current.placementSnapshots ?? {}),
         [questionId]: snapshot,
       },
       responseSnapshots: {
@@ -799,7 +800,7 @@ export function useQuestionEngineState(
     toggleFlagCurrent,
     toggleFlagById,
     setAnswer,
-    setSyllogismSnapshot,
+    setPlacementSnapshot,
     goToReviewScreen,
     startReviewFilter,
     goToReviewQuestionByGlobalIndex,

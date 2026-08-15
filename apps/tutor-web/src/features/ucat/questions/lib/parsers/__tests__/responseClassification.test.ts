@@ -229,12 +229,11 @@ describe('inferAnswerEvidenceFromKeyValues', () => {
 })
 
 describe('reconcileIngestedResponseContract', () => {
-  it('normalizes legacy booleans from structural binary evidence at every ingestion boundary', () => {
+  it('preserves canonical binary keys at every ingestion boundary', () => {
     expect(reconcileIngestedResponseContract({
       directive: "Place 'Yes' if the conclusion follows and 'No' if it does not.",
       optionTexts: ['One', 'Two', 'Three', 'Four', 'Five'],
-      answerKeyValues: [null, null, null, null, null],
-      legacyIsAnswerValues: [true, false, true, false, false],
+      answerKeyValues: ['yes', 'no', 'yes', 'no', 'no'],
     })).toMatchObject({
       responseType: 'drag_and_drop',
       answerScheme: 'decision_making_binary_placement',
@@ -250,7 +249,6 @@ describe('reconcileIngestedResponseContract', () => {
       declaredResponseType: 'multiple_choice',
       declaredAnswerScheme: 'single_choice',
       answerKeyValues: ['yes', 'no', 'yes', 'no', 'no'],
-      legacyIsAnswerValues: [true, false, true, false, false],
     }).conflicts).toEqual(expect.arrayContaining([
       'declared_response_type_mismatch',
       'declared_answer_scheme_mismatch',

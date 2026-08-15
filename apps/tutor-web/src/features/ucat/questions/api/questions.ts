@@ -5,6 +5,8 @@ import type {
   UcatAccessScope,
   UcatContentStatus,
   UcatPublicationIssue,
+  UcatQuestionFormItem,
+  UcatQuestionFormOption,
   UcatQuestionStem,
   UcatQuestionStemBundlePayload,
 } from "@/features/ucat/shared/types";
@@ -125,7 +127,6 @@ export type UcatGeneratedDraftStem = {
     answerExplanation: Json | null;
     difficulty: number | null;
     timeBurdenSeconds: number | null;
-    questionType: "multiple_choice" | "syllogism";
     responseType: "multiple_choice" | "drag_and_drop";
     answerScheme: "single_choice" | "situational_judgement_rating" | "decision_making_binary_placement" | "situational_judgement_most_least";
     tagIds: string[];
@@ -133,7 +134,6 @@ export type UcatGeneratedDraftStem = {
       index: number;
       answerText: Json;
       answerExplanation: Json | null;
-      isAnswer: boolean;
       answerKeyValue: "correct" | "yes" | "no" | "most" | "least" | null;
     }>;
   }>;
@@ -167,7 +167,6 @@ export type UcatQuestionSourceChannel =
 
 export type UcatQuestionCatalogRow = UcatQuestionStemRow & {
   tag_ids: string[];
-  question_types: string[];
   response_types: string[];
   answer_schemes: string[];
   set_ids: Json;
@@ -198,7 +197,6 @@ type StemDetailQuestion = {
   index: number;
   difficulty: number | null;
   time_burden_seconds: number | null;
-  question_type: "multiple_choice" | "syllogism";
   response_type: "multiple_choice" | "drag_and_drop";
   answer_scheme: "single_choice" | "situational_judgement_rating" | "decision_making_binary_placement" | "situational_judgement_most_least";
   source_channel?: UcatQuestionSourceChannel | null;
@@ -209,7 +207,6 @@ type StemDetailQuestion = {
     answer_text: Json;
     answer_explanation: Json | null;
     index: number;
-    is_answer: boolean;
     answer_key_value: "correct" | "yes" | "no" | "most" | "least" | null;
     option_text_file_ids?: string[];
     option_explanation_file_ids?: string[];
@@ -947,7 +944,8 @@ export const ucatQuestionsApi = {
       isPrivate?: boolean;
       questions: Array<{
         questionText: unknown;
-        questionType: "multiple_choice" | "syllogism";
+        responseType: "multiple_choice" | "drag_and_drop";
+        answerScheme: UcatQuestionFormItem["answerScheme"];
         answerExplanation?: unknown;
         difficulty?: number | null;
         timeBurdenSeconds?: string | null;
@@ -955,7 +953,7 @@ export const ucatQuestionsApi = {
         options: Array<{
           answerText: unknown;
           answerExplanation?: unknown;
-          isAnswer: boolean;
+          answerKeyValue: UcatQuestionFormOption["answerKeyValue"];
         }>;
       }>;
       questionIndices?: number[];
@@ -1090,7 +1088,6 @@ function stemDetailToBundlePayload(
       index: q.index,
       id: q.id,
       questionText: q.question_text ?? {},
-      questionType: q.question_type ?? "multiple_choice",
       responseType: q.response_type,
       answerScheme: q.answer_scheme,
       answerExplanation: toJsonOrNull(q.answer_explanation),
@@ -1104,7 +1101,6 @@ function stemDetailToBundlePayload(
         index: opt.index,
         answerText: opt.answer_text ?? {},
         answerExplanation: toJsonOrNull(opt.answer_explanation),
-        isAnswer: opt.is_answer,
         answerKeyValue: opt.answer_key_value,
       })),
     })),
@@ -1130,7 +1126,6 @@ function serializePayload(
       answer_explanation: toJsonOrNull(question.answerExplanation),
       difficulty: question.difficulty ?? null,
       time_burden_seconds: question.timeBurdenSeconds ?? null,
-      question_type: question.questionType,
       response_type: question.responseType,
       answer_scheme: question.answerScheme,
       source_channel: question.sourceChannel ?? payload.sourceChannel ?? null,
@@ -1141,7 +1136,6 @@ function serializePayload(
         index: option.index,
         answer_text: option.answerText,
         answer_explanation: toJsonOrNull(option.answerExplanation),
-        is_answer: option.isAnswer,
         answer_key_value: option.answerKeyValue,
       })),
     })),

@@ -95,7 +95,7 @@ function buildChartData(input: {
       ),
       result,
       score: result === "correct" ? 1 : 0,
-      questionType: "multiple_choice",
+      answerScheme: "single_choice",
     };
   });
 }
@@ -103,7 +103,7 @@ function buildChartData(input: {
 type PreviewQuestionAttempt = {
   questionNumber: number;
   questionId: string;
-  questionAnswerOptionId: string | null;
+  selectedOptionId: string | null;
   result: "correct" | "partial" | "incorrect" | "not_attempted";
   score: number;
   timeSpentSeconds: number | null;
@@ -129,7 +129,7 @@ function buildReviewContent(
           id: "preview-dm-option-a",
           index: 1,
           text: "Frosty Frank sells strawberry ice cream",
-          isAnswer: false,
+          answerKeyValue: null,
           selectionCount: 8,
           totalAnswered: 100,
           percentage: 8,
@@ -138,7 +138,7 @@ function buildReviewContent(
           id: "preview-dm-option-b",
           index: 2,
           text: "There is only one shop that sells chocolate flavoured ice cream",
-          isAnswer: false,
+          answerKeyValue: null,
           selectionCount: 21,
           totalAnswered: 100,
           percentage: 21,
@@ -147,7 +147,7 @@ function buildReviewContent(
           id: "preview-dm-option-c",
           index: 3,
           text: "Icy Ian sells chocolate ice cream",
-          isAnswer: true,
+          answerKeyValue: "correct" as const,
           selectionCount: 57,
           totalAnswered: 100,
           percentage: 57,
@@ -156,7 +156,7 @@ function buildReviewContent(
           id: "preview-dm-option-d",
           index: 4,
           text: "Cold Claire sells vanilla ice cream",
-          isAnswer: false,
+          answerKeyValue: null,
           selectionCount: 14,
           totalAnswered: 100,
           percentage: 14,
@@ -173,7 +173,8 @@ function buildReviewContent(
         stemText:
           "Four ice cream shops sell ice cream in either cups or cones, but not both. Each shop sells one flavour: vanilla or chocolate.\n\n• Icy Ian sells ice cream in the same container as Frosty Frank.\n• Frosty Frank sells a different flavour from the other three shops.\n• Cold Claire is the only shop that sells ice cream in cups.\n• Chill Phil sells chocolate ice cream in cones.",
         questionText: "Which of the following must be true?",
-        questionType: "multiple_choice",
+        responseType: "multiple_choice",
+        answerScheme: "single_choice",
         options,
         correctOptionId: "preview-dm-option-c",
         answerExplanation:
@@ -201,7 +202,7 @@ function buildReviewContent(
       id: `preview-question-${index}-option-${optionIndex}`,
       index: optionIndex,
       text,
-      isAnswer: optionIndex === correctOptionIndex,
+      answerKeyValue: optionIndex === correctOptionIndex ? "correct" as const : null,
       answerExplanation:
         optionIndex === correctOptionIndex
           ? "This is the best answer because it follows from the stated evidence without introducing a new assumption."
@@ -225,7 +226,8 @@ function buildReviewContent(
           : index % 3 === 1
             ? "Which statement most accurately reflects the relationship described?"
             : "Based only on the information provided, which option should be selected?",
-      questionType: "multiple_choice",
+      responseType: "multiple_choice",
+      answerScheme: "single_choice",
       options,
       correctOptionId: options[correctOptionIndex]?.id,
       answerExplanation: `The key is to use only the evidence provided in placeholder stem ${stemNumber}. The correct option preserves the distinction between an observed association and a guaranteed cause. The other options either overstate the conclusion, introduce information that was not supplied, or contradict the passage.`,
@@ -235,7 +237,7 @@ function buildReviewContent(
   const questionAttempts = chartData.map((question, index) => {
     const currentQuestion = questions[index]!;
     const correctOptionIndex = currentQuestion.options.findIndex(
-      (option) => option.isAnswer,
+      (option) => option.answerKeyValue === "correct",
     );
     const selectedOptionIndex =
       question.result === "correct"
@@ -248,7 +250,7 @@ function buildReviewContent(
     return {
       questionNumber: index + 1,
       questionId: currentQuestion.id,
-      questionAnswerOptionId:
+      selectedOptionId:
         selectedOptionIndex < 0
           ? null
           : (currentQuestion.options[selectedOptionIndex]?.id ?? null),

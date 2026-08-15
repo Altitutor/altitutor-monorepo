@@ -237,7 +237,10 @@ function SetCard({
 }) {
   const title = setDisplayName(set) || "Question set";
   const timeLabel = formatExamDurationSeconds(set.time_limit_seconds);
-  const sectionsText = formatSetSections(set.sections);
+  const sectionsText =
+    set.section_number != null
+      ? formatSetSections([{ section_number: set.section_number }])
+      : formatSetSections(set.sections);
   const attempted = attemptedSetIds.has(set.id);
   const setHref =
     sectionNumber != null

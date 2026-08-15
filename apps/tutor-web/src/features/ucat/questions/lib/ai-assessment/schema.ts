@@ -2,7 +2,7 @@ import { z } from 'zod'
 import type { Json } from '@altitutor/shared'
 
 /** Keep in sync with public.ucat_current_ai_assessment_prompt_version(). */
-export const AI_ASSESSMENT_PROMPT_VERSION = 18
+export const AI_ASSESSMENT_PROMPT_VERSION = 19
 
 export const UcatAssessmentCategorySchema = z.enum([
   'presentation_integrity',
@@ -62,12 +62,13 @@ const ReplacementOptionSchema = z.object({
   id: z.string().uuid().nullable().optional(),
   answerText: z.string().trim().min(1),
   answerExplanation: z.string().trim().nullable().optional(),
-  isAnswer: z.boolean(),
+  answerKeyValue: z.enum(['correct', 'yes', 'no', 'most', 'least']).nullable(),
 })
 
 const ReplacementQuestionSchema = z.object({
   questionText: z.string().trim().min(1),
-  questionType: z.enum(['multiple_choice', 'syllogism']),
+  responseType: z.enum(['multiple_choice', 'drag_and_drop']),
+  answerScheme: z.enum(['single_choice', 'situational_judgement_rating', 'decision_making_binary_placement', 'situational_judgement_most_least']),
   answerExplanation: z.string().trim().nullable().optional(),
   difficulty: z.number().min(0).max(1).nullable().optional().describe(
     'Expected proportion incorrect on first exposure under realistic section timing. 0 is easiest, 1 is hardest, and null means unknown.',
@@ -155,7 +156,8 @@ export const UcatAssessmentPatchSchema = z.discriminatedUnion('operation', [
       'difficulty',
       'time_burden_seconds',
       'tag_ids',
-      'question_type',
+      'response_type',
+      'answer_scheme',
     ]),
     before: PatchValueSchema,
     after: PatchValueSchema,
@@ -184,7 +186,7 @@ export const BlindQuestionSolutionSchema = z.object({
   questionId: z.string().uuid(),
   selectedOptionId: z.string().trim().min(1).nullable().optional(),
   proposedAnswer: z.string().trim().nullable().optional(),
-  syllogismAnswers: z.array(z.object({
+  placementAnswers: z.array(z.object({
     optionId: z.string().uuid(),
     answer: z.enum(['yes', 'no']),
   })).optional().default([]),
@@ -459,8 +461,7 @@ export type UcatAssessmentOptionSnapshot = {
   answerTextPlain: string
   answerExplanation: Json | null
   answerExplanationPlain: string
-  isAnswer: boolean
-  answerKeyValue?: 'correct' | 'yes' | 'no' | 'most' | 'least' | null
+  answerKeyValue: 'correct' | 'yes' | 'no' | 'most' | 'least' | null
   images: UcatAssessmentImage[]
 }
 
@@ -471,9 +472,8 @@ export type UcatAssessmentQuestionSnapshot = {
   questionTextPlain: string
   answerExplanation: Json | null
   answerExplanationPlain: string
-  questionType: 'multiple_choice' | 'syllogism'
-  responseType?: 'multiple_choice' | 'drag_and_drop'
-  answerScheme?: 'single_choice' | 'situational_judgement_rating' | 'decision_making_binary_placement' | 'situational_judgement_most_least'
+  responseType: 'multiple_choice' | 'drag_and_drop'
+  answerScheme: 'single_choice' | 'situational_judgement_rating' | 'decision_making_binary_placement' | 'situational_judgement_most_least'
   sourceChannel?: 'individual' | 'bulk_import' | 'ai_generation' | null
   aiGenerationMetadata?: Json | null
   difficulty: number | null

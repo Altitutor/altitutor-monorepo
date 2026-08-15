@@ -333,7 +333,6 @@ export function mapParsedQuantitativeReasoningToFormValues(
           q.text,
           tableMap
         ) as Json,
-        questionType: 'multiple_choice' as const,
         responseType: 'multiple_choice' as const,
         answerScheme: 'single_choice' as const,
         answerExplanation: null,
@@ -343,7 +342,6 @@ export function mapParsedQuantitativeReasoningToFormValues(
         options: q.options.map((opt) => ({
           answerText: tokenizedPlainTextToProseMirrorWithTables(opt.text, tableMap) as Json,
           answerExplanation: null,
-          isAnswer: false,
           answerKeyValue: null,
         })),
       }))

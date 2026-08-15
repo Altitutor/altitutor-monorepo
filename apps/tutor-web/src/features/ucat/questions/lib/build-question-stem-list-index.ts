@@ -1,17 +1,13 @@
 import type { Json } from '@altitutor/shared'
 import { proseMirrorToPlainText } from '@/features/ucat/shared/lib/rich-text'
 
-export type UcatStemListQuestionType = 'multiple_choice' | 'syllogism'
-
 export type UcatQuestionStemListIndex = {
-  types: Record<string, Set<UcatStemListQuestionType>>
   tagIds: Record<string, string[]>
   searchTexts: Record<string, { questionText: string; answerOptionText: string }>
 }
 
 type DetailQuestion = {
   deleted_at?: string | null
-  question_type?: string | null
   question_text?: Json | null
   tags?: Array<{ id?: string | null }> | null
   answer_options?: Array<{
@@ -27,7 +23,6 @@ type DetailRow = {
 
 /** Derive list-index maps from one `vtutor_ucat_question_stem_detail` payload. */
 export function buildQuestionStemListIndex(rows: DetailRow[]): UcatQuestionStemListIndex {
-  const types: Record<string, Set<UcatStemListQuestionType>> = {}
   const tagIds: Record<string, string[]> = {}
   const searchTexts: Record<string, { questionText: string; answerOptionText: string }> = {}
 
@@ -35,19 +30,11 @@ export function buildQuestionStemListIndex(rows: DetailRow[]): UcatQuestionStemL
     if (!row.id) continue
 
     const questions = Array.isArray(row.questions) ? (row.questions as DetailQuestion[]) : []
-    const typeSet = new Set<UcatStemListQuestionType>()
     const tagIdSet = new Set<string>()
     const questionTexts: string[] = []
     const answerOptionTexts: string[] = []
 
     for (const question of questions) {
-      if (
-        question.question_type === 'multiple_choice' ||
-        question.question_type === 'syllogism'
-      ) {
-        typeSet.add(question.question_type)
-      }
-
       if (question.deleted_at) continue
 
       const tags = Array.isArray(question.tags) ? question.tags : []
@@ -66,7 +53,6 @@ export function buildQuestionStemListIndex(rows: DetailRow[]): UcatQuestionStemL
       }
     }
 
-    types[row.id] = typeSet
     tagIds[row.id] = Array.from(tagIdSet)
     searchTexts[row.id] = {
       questionText: questionTexts.join(' '),
@@ -74,5 +60,5 @@ export function buildQuestionStemListIndex(rows: DetailRow[]): UcatQuestionStemL
     }
   }
 
-  return { types, tagIds, searchTexts }
+  return { tagIds, searchTexts }
 }

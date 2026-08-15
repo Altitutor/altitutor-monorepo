@@ -4,7 +4,7 @@ import type { GeneratedContentBlock, GeneratedStem } from '../schema'
 function mcQuestion(overrides: Partial<GeneratedStem['questions'][number]> = {}): GeneratedStem['questions'][number] {
   return {
     questionText: 'Which option is correct?',
-    questionType: 'multiple_choice',
+    responseType: 'multiple_choice', answerScheme: 'single_choice',
     answerExplanation:
       'A is correct because it follows directly from the stem. B, C and D are wrong because they contradict the stated facts.',
     difficultyTarget: 'medium',
@@ -13,10 +13,10 @@ function mcQuestion(overrides: Partial<GeneratedStem['questions'][number]> = {})
     estimatedTimeBurdenSeconds: 80,
     tagIds: [],
     options: [
-      { answerText: 'A', isAnswer: true, answerExplanation: null },
-      { answerText: 'B', isAnswer: false, answerExplanation: null },
-      { answerText: 'C', isAnswer: false, answerExplanation: null },
-      { answerText: 'D', isAnswer: false, answerExplanation: null },
+      { answerText: 'A', answerKeyValue: 'correct', answerExplanation: null },
+      { answerText: 'B', answerKeyValue: null, answerExplanation: null },
+      { answerText: 'C', answerKeyValue: null, answerExplanation: null },
+      { answerText: 'D', answerKeyValue: null, answerExplanation: null },
     ],
     ...overrides,
   }
@@ -138,9 +138,9 @@ describe('validateGeneratedStemCandidate', () => {
 
   it('blocks answer leakage in true false cannot tell statements', () => {
     const tfctOptions = [
-      { answerText: 'True', isAnswer: true, answerExplanation: null },
-      { answerText: 'False', isAnswer: false, answerExplanation: null },
-      { answerText: "Can't Tell", isAnswer: false, answerExplanation: null },
+      { answerText: 'True', answerKeyValue: 'correct' as const, answerExplanation: null },
+      { answerText: 'False', answerKeyValue: null, answerExplanation: null },
+      { answerText: "Can't Tell", answerKeyValue: null, answerExplanation: null },
     ]
     const issues = validateGeneratedStemCandidate(
       stem({
@@ -184,11 +184,11 @@ describe('validateGeneratedStemCandidate', () => {
         categoryName: 'Graphs and Charts',
         questions: [mcQuestion({
           options: [
-            { answerText: 'A', isAnswer: true, answerExplanation: null },
-            { answerText: 'B', isAnswer: false, answerExplanation: null },
-            { answerText: 'C', isAnswer: false, answerExplanation: null },
-            { answerText: 'D', isAnswer: false, answerExplanation: null },
-            { answerText: 'E', isAnswer: false, answerExplanation: null },
+            { answerText: 'A', answerKeyValue: 'correct', answerExplanation: null },
+            { answerText: 'B', answerKeyValue: null, answerExplanation: null },
+            { answerText: 'C', answerKeyValue: null, answerExplanation: null },
+            { answerText: 'D', answerKeyValue: null, answerExplanation: null },
+            { answerText: 'E', answerKeyValue: null, answerExplanation: null },
           ],
         })],
       }),
@@ -208,11 +208,11 @@ describe('validateGeneratedStemCandidate', () => {
         categoryName: 'Graphs and Charts',
         questions: [mcQuestion({
           options: [
-            { answerText: 'A', isAnswer: true, answerExplanation: null },
-            { answerText: 'B', isAnswer: false, answerExplanation: null },
-            { answerText: 'C', isAnswer: false, answerExplanation: null },
-            { answerText: 'D', isAnswer: false, answerExplanation: null },
-            { answerText: 'E', isAnswer: false, answerExplanation: null },
+            { answerText: 'A', answerKeyValue: 'correct', answerExplanation: null },
+            { answerText: 'B', answerKeyValue: null, answerExplanation: null },
+            { answerText: 'C', answerKeyValue: null, answerExplanation: null },
+            { answerText: 'D', answerKeyValue: null, answerExplanation: null },
+            { answerText: 'E', answerKeyValue: null, answerExplanation: null },
           ],
         })],
       }),
@@ -251,12 +251,12 @@ describe('validateGeneratedStemCandidate', () => {
                     ],
                   },
                 }],
-                isAnswer: true,
+                answerKeyValue: 'correct',
                 answerExplanation: null,
               },
-              { answerText: 'B', isAnswer: false, answerExplanation: null },
-              { answerText: 'C', isAnswer: false, answerExplanation: null },
-              { answerText: 'D', isAnswer: false, answerExplanation: null },
+              { answerText: 'B', answerKeyValue: null, answerExplanation: null },
+              { answerText: 'C', answerKeyValue: null, answerExplanation: null },
+              { answerText: 'D', answerKeyValue: null, answerExplanation: null },
             ],
           }),
         ],
@@ -275,7 +275,7 @@ describe('validateGeneratedStemCandidate', () => {
   })
 
   it('accepts qualitative Venn answer-option diagrams without invented numeric regions', () => {
-    const diagramOption = (offset: number, isAnswer: boolean) => ({
+    const diagramOption = (offset: number, keyed: boolean) => ({
       answerText: [{
         type: 'visual' as const,
         visualType: 'set_diagram' as const,
@@ -289,7 +289,7 @@ describe('validateGeneratedStemCandidate', () => {
           regionLabels: [],
         },
       }],
-      isAnswer,
+      answerKeyValue: keyed ? 'correct' as const : null,
       answerExplanation: null,
     })
     const issues = validateGeneratedStemCandidate(
@@ -504,10 +504,10 @@ describe('validateGeneratedStemCandidate', () => {
         questions: [mcQuestion({
           questionText: 'Which diagram **COULD** represent this?',
           options: [
-            { answerText: optionVisual('A'), isAnswer: true, answerExplanation: null },
-            { answerText: optionVisual('B'), isAnswer: false, answerExplanation: null },
-            { answerText: optionVisual('C'), isAnswer: false, answerExplanation: null },
-            { answerText: optionVisual('D'), isAnswer: false, answerExplanation: null },
+            { answerText: optionVisual('A'), answerKeyValue: 'correct', answerExplanation: null },
+            { answerText: optionVisual('B'), answerKeyValue: null, answerExplanation: null },
+            { answerText: optionVisual('C'), answerKeyValue: null, answerExplanation: null },
+            { answerText: optionVisual('D'), answerKeyValue: null, answerExplanation: null },
           ],
         })],
       }),
@@ -540,10 +540,10 @@ describe('validateGeneratedStemCandidate', () => {
           },
         }],
         questions: [mcQuestion({ options: [
-          { answerText: 'Health checks', isAnswer: true, answerExplanation: null },
-          { answerText: 'Nutrition advice', isAnswer: false, answerExplanation: null },
-          { answerText: 'Housing advice', isAnswer: false, answerExplanation: null },
-          { answerText: 'Job support', isAnswer: false, answerExplanation: null },
+          { answerText: 'Health checks', answerKeyValue: 'correct', answerExplanation: null },
+          { answerText: 'Nutrition advice', answerKeyValue: null, answerExplanation: null },
+          { answerText: 'Housing advice', answerKeyValue: null, answerExplanation: null },
+          { answerText: 'Job support', answerKeyValue: null, answerExplanation: null },
         ] })],
       }),
       0,
@@ -683,11 +683,11 @@ describe('validateGeneratedStemCandidate', () => {
         }],
         questions: [mcQuestion({
           options: [
-            { answerText: '20 min', isAnswer: true, answerExplanation: null },
-            { answerText: '25 min', isAnswer: false, answerExplanation: null },
-            { answerText: '30 min', isAnswer: false, answerExplanation: null },
-            { answerText: '35 min', isAnswer: false, answerExplanation: null },
-            { answerText: '40 min', isAnswer: false, answerExplanation: null },
+            { answerText: '20 min', answerKeyValue: 'correct', answerExplanation: null },
+            { answerText: '25 min', answerKeyValue: null, answerExplanation: null },
+            { answerText: '30 min', answerKeyValue: null, answerExplanation: null },
+            { answerText: '35 min', answerKeyValue: null, answerExplanation: null },
+            { answerText: '40 min', answerKeyValue: null, answerExplanation: null },
           ],
         })],
       }),
@@ -777,11 +777,11 @@ describe('validateGeneratedStemCandidate', () => {
         }],
         questions: [mcQuestion({
           options: [
-            { answerText: '1050 m', isAnswer: true, answerExplanation: null },
-            { answerText: '720 m', isAnswer: false, answerExplanation: null },
-            { answerText: '680 m', isAnswer: false, answerExplanation: null },
-            { answerText: '620 m', isAnswer: false, answerExplanation: null },
-            { answerText: '600 m', isAnswer: false, answerExplanation: null },
+            { answerText: '1050 m', answerKeyValue: 'correct', answerExplanation: null },
+            { answerText: '720 m', answerKeyValue: null, answerExplanation: null },
+            { answerText: '680 m', answerKeyValue: null, answerExplanation: null },
+            { answerText: '620 m', answerKeyValue: null, answerExplanation: null },
+            { answerText: '600 m', answerKeyValue: null, answerExplanation: null },
           ],
         })],
       }),
@@ -861,11 +861,11 @@ describe('validateGeneratedStemCandidate', () => {
         }],
         questions: [mcQuestion({
           options: [
-            { answerText: '10', isAnswer: true, answerExplanation: null },
-            { answerText: '11', isAnswer: false, answerExplanation: null },
-            { answerText: '12', isAnswer: false, answerExplanation: null },
-            { answerText: '13', isAnswer: false, answerExplanation: null },
-            { answerText: '14', isAnswer: false, answerExplanation: null },
+            { answerText: '10', answerKeyValue: 'correct', answerExplanation: null },
+            { answerText: '11', answerKeyValue: null, answerExplanation: null },
+            { answerText: '12', answerKeyValue: null, answerExplanation: null },
+            { answerText: '13', answerKeyValue: null, answerExplanation: null },
+            { answerText: '14', answerKeyValue: null, answerExplanation: null },
           ],
         })],
       }),
@@ -902,11 +902,11 @@ describe('validateGeneratedStemCandidate', () => {
         }],
         questions: [mcQuestion({
           options: [
-            { answerText: 'A', isAnswer: true, answerExplanation: null },
-            { answerText: 'B', isAnswer: false, answerExplanation: null },
-            { answerText: 'C', isAnswer: false, answerExplanation: null },
-            { answerText: 'D', isAnswer: false, answerExplanation: null },
-            { answerText: 'E', isAnswer: false, answerExplanation: null },
+            { answerText: 'A', answerKeyValue: 'correct', answerExplanation: null },
+            { answerText: 'B', answerKeyValue: null, answerExplanation: null },
+            { answerText: 'C', answerKeyValue: null, answerExplanation: null },
+            { answerText: 'D', answerKeyValue: null, answerExplanation: null },
+            { answerText: 'E', answerKeyValue: null, answerExplanation: null },
           ],
         })],
       }),
@@ -925,11 +925,11 @@ describe('validateGeneratedStemCandidate', () => {
         questions: [mcQuestion({
           questionText: 'How many books were borrowed in March?',
           options: [
-            { answerText: '360', isAnswer: false, answerExplanation: null },
-            { answerText: '384', isAnswer: false, answerExplanation: null },
-            { answerText: '400', isAnswer: true, answerExplanation: null },
-            { answerText: '460', isAnswer: false, answerExplanation: null },
-            { answerText: '576', isAnswer: false, answerExplanation: null },
+            { answerText: '360', answerKeyValue: null, answerExplanation: null },
+            { answerText: '384', answerKeyValue: null, answerExplanation: null },
+            { answerText: '400', answerKeyValue: 'correct', answerExplanation: null },
+            { answerText: '460', answerKeyValue: null, answerExplanation: null },
+            { answerText: '576', answerKeyValue: null, answerExplanation: null },
           ],
         })],
       }),
@@ -974,11 +974,11 @@ describe('validateGeneratedStemCandidate', () => {
     const copiedStem = 'A community shuttle charges a booking fee of $42 plus $0.68 per kilometre travelled. A journey costs $178 in total, and the booking fee is waived on Sundays.'
     const copiedQuestion = 'What is the charge for the same 200 kilometre journey on Sunday?'
     const copiedOptions = [
-      { answerText: '$128', isAnswer: false, answerExplanation: null },
-      { answerText: '$136', isAnswer: true, answerExplanation: null },
-      { answerText: '$170', isAnswer: false, answerExplanation: null },
-      { answerText: '$178', isAnswer: false, answerExplanation: null },
-      { answerText: '$220', isAnswer: false, answerExplanation: null },
+      { answerText: '$128', answerKeyValue: null, answerExplanation: null },
+      { answerText: '$136', answerKeyValue: 'correct' as const, answerExplanation: null },
+      { answerText: '$170', answerKeyValue: null, answerExplanation: null },
+      { answerText: '$178', answerKeyValue: null, answerExplanation: null },
+      { answerText: '$220', answerKeyValue: null, answerExplanation: null },
     ]
     const issues = validateGeneratedStemCandidate(
       stem({
@@ -1002,19 +1002,19 @@ describe('validateGeneratedStemCandidate', () => {
     expect(similarityIssue?.details).toEqual(expect.objectContaining({ sourceId: 'copied-shuttle-source' }))
   })
 
-  it('blocks syllogisms without five explained statements', () => {
+  it('blocks binary-placement questions without five explained statements', () => {
     const issues = validateGeneratedStemCandidate(
       stem({
-        categoryName: 'Syllogisms',
+        categoryName: 'Interpreting Information and Drawing Conclusions',
         questions: [
           {
             ...mcQuestion(),
             questionText: "Place 'Yes' if the conclusion does follow. Place 'No' if the conclusion does not follow.",
-            questionType: 'syllogism',
+            responseType: 'drag_and_drop', answerScheme: 'decision_making_binary_placement',
             answerExplanation: null,
             options: [
-              { answerText: 'Conclusion 1', isAnswer: true, answerExplanation: 'Yes, because it follows.' },
-              { answerText: 'Conclusion 2', isAnswer: false, answerExplanation: null },
+              { answerText: 'Conclusion 1', answerKeyValue: 'yes', answerExplanation: 'Yes, because it follows.' },
+              { answerText: 'Conclusion 2', answerKeyValue: 'no', answerExplanation: null },
             ],
           },
         ],
@@ -1022,12 +1022,89 @@ describe('validateGeneratedStemCandidate', () => {
       0,
       {
         sectionName: 'Decision Making',
-        categoryName: 'Syllogisms',
+        categoryName: 'Interpreting Information and Drawing Conclusions',
       }
     )
 
-    expect(issues.some((issue) => issue.code === 'syllogism_option_count')).toBe(true)
-    expect(issues.some((issue) => issue.code === 'missing_syllogism_option_explanation')).toBe(true)
+    expect(issues.some((issue) => issue.code === 'dm_placement_option_count')).toBe(true)
+    expect(issues.some((issue) => issue.code === 'missing_placement_option_explanation')).toBe(true)
+    expect(issues.some((issue) => issue.code === 'dm_category')).toBe(false)
+  })
+
+  it('accepts Interpreting Information stored as either response contract', () => {
+    const placement = validateGeneratedStemCandidate(
+      stem({
+        categoryName: 'Interpreting Information and Drawing Conclusions',
+        questions: [{
+          ...mcQuestion(),
+          questionText: "Place 'Yes' if the conclusion does follow. Place 'No' if the conclusion does not follow.",
+          responseType: 'drag_and_drop',
+          answerScheme: 'decision_making_binary_placement',
+          answerExplanation: null,
+          options: Array.from({ length: 5 }, (_, index) => ({
+            answerText: `Conclusion ${index + 1}`,
+            answerKeyValue: index % 2 === 0 ? 'yes' as const : 'no' as const,
+            answerExplanation: `Why statement ${index + 1} is Yes or No.`,
+          })),
+        }],
+      }),
+      0,
+      {
+        sectionName: 'Decision Making',
+        categoryName: 'Interpreting Information and Drawing Conclusions',
+      }
+    )
+    const multipleChoice = validateGeneratedStemCandidate(
+      stem({
+        categoryName: 'Interpreting Information and Drawing Conclusions',
+        questions: [mcQuestion()],
+      }),
+      0,
+      {
+        sectionName: 'Decision Making',
+        categoryName: 'Interpreting Information and Drawing Conclusions',
+      }
+    )
+
+    expect(placement.map((issue) => issue.code)).not.toEqual(expect.arrayContaining([
+      'dm_category',
+      'dm_response_type',
+    ]))
+    expect(multipleChoice.map((issue) => issue.code)).not.toEqual(expect.arrayContaining([
+      'dm_category',
+      'dm_response_type',
+    ]))
+  })
+
+  it('accepts Most/Least Appropriate as a single drag-and-drop question', () => {
+    const issues = validateGeneratedStemCandidate(
+      stem({
+        categoryName: 'Most/Least Appropriate',
+        questions: [{
+          ...mcQuestion(),
+          questionText: 'Place the most and least appropriate actions.',
+          responseType: 'drag_and_drop',
+          answerScheme: 'situational_judgement_most_least',
+          options: [
+            { answerText: 'Reassure the patient', answerKeyValue: 'most', answerExplanation: null },
+            { answerText: 'Escalate immediately', answerKeyValue: 'least', answerExplanation: null },
+            { answerText: 'Ignore the concern', answerKeyValue: null, answerExplanation: null },
+          ],
+        }],
+      }),
+      0,
+      {
+        sectionName: 'Situational Judgement',
+        categoryName: 'Most/Least Appropriate',
+      }
+    )
+
+    expect(issues.map((issue) => issue.code)).not.toEqual(expect.arrayContaining([
+      'sj_category',
+      'sj_response_type',
+      'sj_question_count',
+      'sj_option_count',
+    ]))
   })
 
   it('blocks logical puzzles whose explanations admit unresolved ambiguity', () => {
@@ -1083,10 +1160,10 @@ describe('validateGeneratedStemCandidate', () => {
         questions: [
           mcQuestion({
             options: [
-              { answerText: 'Alice and Charles', isAnswer: true, answerExplanation: null },
-              { answerText: 'Bob and Alice', isAnswer: false, answerExplanation: null },
-              { answerText: 'Charles and Alice', isAnswer: false, answerExplanation: null },
-              { answerText: 'Bob and Charles', isAnswer: false, answerExplanation: null },
+              { answerText: 'Alice and Charles', answerKeyValue: 'correct', answerExplanation: null },
+              { answerText: 'Bob and Alice', answerKeyValue: null, answerExplanation: null },
+              { answerText: 'Charles and Alice', answerKeyValue: null, answerExplanation: null },
+              { answerText: 'Bob and Charles', answerKeyValue: null, answerExplanation: null },
             ],
           }),
         ],

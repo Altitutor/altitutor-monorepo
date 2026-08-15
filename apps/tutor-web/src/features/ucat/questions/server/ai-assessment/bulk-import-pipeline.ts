@@ -324,15 +324,15 @@ function blindSolutionAgreesWithQuestion(params: {
     || solution.unsolvable
     || solution.confidence < 0.95
   ) return false
-  if (question.questionType === 'multiple_choice') {
-    const keyedOptionId = question.options.find((option) => option.isAnswer)?.id ?? null
+  if (question.responseType === 'multiple_choice') {
+    const keyedOptionId = question.options.find((option) => option.answerKeyValue === 'correct')?.id ?? null
     return Boolean(keyedOptionId && solution.selectedOptionId === keyedOptionId)
   }
   const answersByOptionId = new Map(
-    solution.syllogismAnswers.map((answer) => [answer.optionId, answer.answer])
+    solution.placementAnswers.map((answer) => [answer.optionId, answer.answer])
   )
   return question.options.length > 0 && question.options.every(
-    (option) => answersByOptionId.get(option.id as string) === (option.isAnswer ? 'yes' : 'no')
+    (option) => answersByOptionId.get(option.id as string) === option.answerKeyValue
   )
 }
 
@@ -361,7 +361,7 @@ function targetedBlindDisagreementDetail(params: {
   const selectedLabel = selectedOption
     ? proseMirrorToPlainText(selectedOption.answerText).trim()
     : solution.proposedAnswer?.trim() || solution.selectedOptionId || 'a different answer'
-  const keyedOption = question?.options.find((option) => option.isAnswer)
+  const keyedOption = question?.options.find((option) => option.answerKeyValue === 'correct')
   const keyedLabel = keyedOption
     ? proseMirrorToPlainText(keyedOption.answerText).trim()
     : 'the repaired key'

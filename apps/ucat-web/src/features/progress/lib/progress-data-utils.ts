@@ -107,7 +107,7 @@ export function applyAttemptFilterToProgress(
       number: number;
       correct: number;
       max: number;
-      syllogismStems: Set<string>;
+      countedGroupedStems: Set<string>;
     }
   >();
   for (const s of data.sectionProgress) {
@@ -116,7 +116,7 @@ export function applyAttemptFilterToProgress(
       number: s.sectionNumber,
       correct: 0,
       max: 0,
-      syllogismStems: new Set(),
+      countedGroupedStems: new Set(),
     });
   }
   for (const qa of unique) {
@@ -127,7 +127,7 @@ export function applyAttemptFilterToProgress(
     entry.correct += qa.score ?? 0;
     entry.max += progressPointsForQuestion(
       toProgressQuestionRef(qa),
-      entry.syllogismStems,
+      entry.countedGroupedStems,
     );
   }
   const sectionProgress: SectionProgress[] = data.sectionProgress.map((s) => {
@@ -144,7 +144,7 @@ export function applyAttemptFilterToProgress(
 
   const categoryMap = new Map<
     string,
-    { correct: number; max: number; syllogismStems: Set<string> }
+    { correct: number; max: number; countedGroupedStems: Set<string> }
   >();
   for (const qa of unique) {
     const sectionId = qa.ucatSectionId;
@@ -154,12 +154,12 @@ export function applyAttemptFilterToProgress(
     const existing = categoryMap.get(key) ?? {
       correct: 0,
       max: 0,
-      syllogismStems: new Set<string>(),
+      countedGroupedStems: new Set<string>(),
     };
     existing.correct += qa.score ?? 0;
     existing.max += progressPointsForQuestion(
       toProgressQuestionRef(qa),
-      existing.syllogismStems,
+      existing.countedGroupedStems,
     );
     categoryMap.set(key, existing);
   }
@@ -261,7 +261,7 @@ export function computeSectionProgressFromFiltered(
       number: number;
       correct: number;
       max: number;
-      syllogismStems: Set<string>;
+      countedGroupedStems: Set<string>;
     }
   >();
   for (const s of sectionProgress) {
@@ -270,7 +270,7 @@ export function computeSectionProgressFromFiltered(
       number: s.sectionNumber,
       correct: 0,
       max: 0,
-      syllogismStems: new Set(),
+      countedGroupedStems: new Set(),
     });
   }
   const unique = getBestAttemptPerQuestion(questionAttempts);
@@ -282,7 +282,7 @@ export function computeSectionProgressFromFiltered(
     entry.correct += qa.score ?? 0;
     entry.max += progressPointsForQuestion(
       toProgressQuestionRef(qa),
-      entry.syllogismStems,
+      entry.countedGroupedStems,
     );
   }
   return sectionProgress.map((s) => {
@@ -307,7 +307,7 @@ export function computeCategoryProgressFromFiltered(
   const result: Record<string, SectionCategoryProgress[]> = {};
   const categoryMap = new Map<
     string,
-    { correct: number; max: number; syllogismStems: Set<string> }
+    { correct: number; max: number; countedGroupedStems: Set<string> }
   >();
   const unique = getBestAttemptPerQuestion(questionAttempts);
   for (const qa of unique) {
@@ -318,12 +318,12 @@ export function computeCategoryProgressFromFiltered(
     const existing = categoryMap.get(key) ?? {
       correct: 0,
       max: 0,
-      syllogismStems: new Set<string>(),
+      countedGroupedStems: new Set<string>(),
     };
     existing.correct += qa.score ?? 0;
     existing.max += progressPointsForQuestion(
       toProgressQuestionRef(qa),
-      existing.syllogismStems,
+      existing.countedGroupedStems,
     );
     categoryMap.set(key, existing);
   }

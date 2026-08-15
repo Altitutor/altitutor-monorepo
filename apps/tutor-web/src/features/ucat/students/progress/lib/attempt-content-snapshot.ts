@@ -7,6 +7,7 @@ import {
   tryGetPlacementPresentation,
   type AnswerScheme,
   type CandidateResponse,
+  type PlacementValue,
   type ReviewContract,
 } from '@altitutor/ucat-response-contract'
 import {
@@ -19,8 +20,7 @@ type SnapshotOption = {
   index: number
   answerText: unknown
   answerExplanation?: unknown
-  isAnswer: boolean
-  answerKeyValue?: 'correct' | 'yes' | 'no' | 'most' | 'least' | null
+  answerKeyValue: 'correct' | 'yes' | 'no' | 'most' | 'least' | null
 }
 
 export type UcatAttemptContentSnapshot = {
@@ -42,9 +42,8 @@ export type UcatAttemptContentSnapshot = {
     index: number
     difficulty?: number | null
     timeBurdenSeconds?: number | null
-    questionType: 'multiple_choice' | 'syllogism'
-    responseType?: 'multiple_choice' | 'drag_and_drop'
-    answerScheme?: AnswerScheme['kind']
+    responseType: 'multiple_choice' | 'drag_and_drop'
+    answerScheme: AnswerScheme['kind']
     tags?: Array<{ id?: string; name?: string; description?: unknown }>
   }
   answerOptions: SnapshotOption[]
@@ -62,8 +61,9 @@ export function parseAttemptContentSnapshot(
   const snapshot = value as Partial<UcatAttemptContentSnapshot>
   if (!snapshot.stem?.id || !snapshot.question?.id) return null
   if (
-    snapshot.question.questionType !== 'multiple_choice' &&
-    snapshot.question.questionType !== 'syllogism'
+    (snapshot.question.responseType !== 'multiple_choice' &&
+      snapshot.question.responseType !== 'drag_and_drop') ||
+    !snapshot.question.answerScheme
   ) {
     return null
   }
@@ -71,19 +71,7 @@ export function parseAttemptContentSnapshot(
     ...snapshot,
     schemaVersion: snapshot.schemaVersion ?? 1,
     stem: snapshot.stem,
-    question: {
-      ...snapshot.question,
-      responseType:
-        snapshot.question.responseType ??
-        (snapshot.question.questionType === 'syllogism'
-          ? 'drag_and_drop'
-          : 'multiple_choice'),
-      answerScheme:
-        snapshot.question.answerScheme ??
-        (snapshot.question.questionType === 'syllogism'
-          ? 'decision_making_binary_placement'
-          : 'single_choice'),
-    },
+    question: snapshot.question,
     answerOptions: Array.isArray(snapshot.answerOptions)
       ? snapshot.answerOptions
       : [],
@@ -114,7 +102,6 @@ export function snapshotToReviewQuestion(
       snapshot.question.questionText as JsonLike
     ),
     questionJson: richJson(snapshot.question.questionText),
-    questionType: snapshot.question.questionType,
     responseType: snapshot.question.responseType,
     answerScheme: snapshot.question.answerScheme,
     options: [...snapshot.answerOptions]
@@ -124,8 +111,7 @@ export function snapshotToReviewQuestion(
         index: option.index,
         text: extractTextFromRichJson(option.answerText as JsonLike),
         answerJson: richJson(option.answerText),
-        isAnswer: option.isAnswer,
-        answerKeyValue: option.answerKeyValue ?? null,
+        answerKeyValue: option.answerKeyValue,
         answerExplanation: extractTextFromRichJson(
           option.answerExplanation as JsonLike
         ),
@@ -138,9 +124,7 @@ export function snapshotToReviewQuestion(
   }
 }
 
-export function parseLegacyPlacementProjection(
-  value: unknown
-): Record<string, boolean> | null {
+export function parsePlacementProjection(value: unknown): Record<string, PlacementValue> | null {
   if (!value || typeof value !== 'object') return null
   const snapshot = value as Record<string, unknown>
   if (snapshot.type === 'ucat_response_v1') {
@@ -163,24 +147,19 @@ export function parseLegacyPlacementProjection(
     ) {
       return null
     }
-    return Object.fromEntries(entries.map(([optionId, token]) => [
-      optionId,
-      token === positive.value,
-    ]))
+    return Object.fromEntries(entries) as Record<string, PlacementValue>
   }
-  if (snapshot.type !== 'syllogism_v1' || !Array.isArray(snapshot.answers)) return null
-  const answers: Record<string, boolean> = {}
-  for (const item of snapshot.answers) {
-    if (!item || typeof item !== 'object') continue
-    const answer = item as Record<string, unknown>
-    if (
-      typeof answer.question_answer_option_id === 'string' &&
-      typeof answer.answer === 'boolean'
-    ) {
-      answers[answer.question_answer_option_id] = answer.answer
-    }
-  }
-  return Object.keys(answers).length > 0 ? answers : null
+  return null
+}
+
+export function parseSelectedOptionId(value: unknown): string | null {
+  if (!value || typeof value !== 'object') return null
+  const snapshot = value as Record<string, unknown>
+  if (snapshot.type !== 'ucat_response_v1') return null
+  const response = snapshot.response
+  if (!response || typeof response !== 'object') return null
+  const selectedOptionId = (response as Record<string, unknown>).selectedOptionId
+  return typeof selectedOptionId === 'string' ? selectedOptionId : null
 }
 
 export function resultForAttempt(
@@ -197,7 +176,7 @@ export function resultForAttempt(
 export function projectAttemptReview(params: {
   question: AttemptReviewQuestion
   selectedOptionId?: string | null
-  legacyPlacementSnapshot?: Record<string, boolean> | null
+  placementSnapshot?: Record<string, PlacementValue> | null
 }): ReviewContract {
   const { question } = params
   const kind = question.answerScheme ?? 'single_choice'
@@ -214,9 +193,7 @@ export function projectAttemptReview(params: {
                 ? option.answerKeyValue === 'yes'
                   ? 'yes'
                   : 'no'
-                : option.isAnswer
-                  ? 'yes'
-                  : 'no',
+                : 'no',
             ])
           ),
         }
@@ -229,9 +206,7 @@ export function projectAttemptReview(params: {
         : {
             kind,
             correctOptionId:
-              keyedOptionId('correct') ||
-              question.options.find((option) => option.isAnswer)?.id ||
-              '',
+              keyedOptionId('correct'),
           }
   const compiled = compileResponseContract({
     questionId: question.id,
@@ -262,18 +237,7 @@ export function projectAttemptReview(params: {
             if (presentation.kind !== 'placement') {
               throw new Error('The attempt does not use a placement response.')
             }
-            const [positive, negative] = presentation.tokens
-            if (!positive || !negative) {
-              throw new Error('Placement responses require two presentation tokens.')
-            }
-            return Object.fromEntries(
-              Object.entries(params.legacyPlacementSnapshot ?? {}).map(
-                ([optionId, value]) => [
-                  optionId,
-                  value ? positive.value : negative.value,
-                ]
-              )
-            )
+            return params.placementSnapshot ?? {}
           })(),
         }
   const evaluation = evaluateResponse(compiled.contract, response)

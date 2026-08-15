@@ -242,7 +242,8 @@ export function Step3SetAnswers({
             accessScope: payload.accessScope,
             questions: payload.questions.map((question) => ({
               questionText: question.questionText,
-              questionType: question.questionType,
+              responseType: question.responseType,
+              answerScheme: question.answerScheme,
               answerExplanation: question.answerExplanation ?? null,
               difficulty: question.difficulty ?? null,
               timeBurdenSeconds: question.timeBurdenSeconds ?? null,
@@ -250,7 +251,7 @@ export function Step3SetAnswers({
               options: question.options.map((option) => ({
                 answerText: option.answerText,
                 answerExplanation: option.answerExplanation ?? null,
-                isAnswer: option.isAnswer,
+                answerKeyValue: option.answerKeyValue,
               })),
             })),
             questionIndices: [

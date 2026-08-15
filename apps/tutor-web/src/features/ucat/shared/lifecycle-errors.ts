@@ -189,6 +189,22 @@ function blockerAction(blocker: UcatLifecycleBlocker) {
   }
 }
 
+export const UCAT_SET_SECTION_FALLBACK = {
+  question_set_section_required: 'Choose a UCAT section for this set.',
+  ucat_section_not_found: 'That UCAT section was not found.',
+  question_set_section_has_members: 'Remove every stem from this set before changing its section.',
+  question_set_stem_section_mismatch: 'Every stem in a set must belong to the set’s section.',
+  question_stem_section_frozen_by_set: 'Remove this stem from its set before changing its section.',
+  question_set_restore_section_mismatch:
+    'This set cannot be restored until every remaining member stem matches its section.',
+} as const
+
+export function ucatSetSectionFallbackMessage(message: string): string {
+  const code = (Object.keys(UCAT_SET_SECTION_FALLBACK) as Array<keyof typeof UCAT_SET_SECTION_FALLBACK>)
+    .find((candidate) => message.includes(candidate))
+  return code ? UCAT_SET_SECTION_FALLBACK[code] : message
+}
+
 export function lifecycleErrorToast(
   error: unknown,
   title: string,
@@ -198,7 +214,8 @@ export function lifecycleErrorToast(
   const blocker = error instanceof UcatLifecycleError ? error.blockers[0] : null
   const action = blocker ? blockerAction(blocker) : null
   const extraCount = error instanceof UcatLifecycleError ? Math.max(0, error.blockers.length - 1) : 0
-  const message = error instanceof Error ? error.message : 'The lifecycle change could not be completed.'
+  const rawMessage = error instanceof Error ? error.message : 'The lifecycle change could not be completed.'
+  const message = ucatSetSectionFallbackMessage(rawMessage)
 
   return {
     title,

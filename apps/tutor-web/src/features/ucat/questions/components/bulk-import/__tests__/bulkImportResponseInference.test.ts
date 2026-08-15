@@ -23,8 +23,7 @@ function values(questionText: string, optionCount: number): UcatQuestionStemForm
     accessScope: 'public',
     questions: [{
       questionText: doc(questionText),
-      questionType: 'multiple_choice',
-      responseType: 'multiple_choice',
+       responseType: 'multiple_choice',
       answerScheme: 'single_choice',
       answerExplanation: null,
       difficulty: null,
@@ -33,7 +32,6 @@ function values(questionText: string, optionCount: number): UcatQuestionStemForm
       options: Array.from({ length: optionCount }, (_, index) => ({
         answerText: doc(`Option ${index + 1}`),
         answerExplanation: null,
-        isAnswer: false,
         answerKeyValue: null,
       })),
     }],

@@ -90,7 +90,7 @@ describe('bindAssessmentSetTextBeforesToSnapshot', () => {
         questionText: { type: 'doc', content: [] },
         answerExplanationPlain: 'Let one arrow have value a. The missing term is 2a.',
         answerExplanation: { type: 'doc', content: [] },
-        questionType: 'multiple_choice',
+        responseType: 'multiple_choice', answerScheme: 'single_choice',
         difficulty: null,
         timeBurdenSeconds: null,
         tagIds: [],

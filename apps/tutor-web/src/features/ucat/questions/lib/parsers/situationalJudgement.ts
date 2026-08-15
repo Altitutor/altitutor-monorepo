@@ -161,7 +161,6 @@ export function mapParsedSituationalJudgementToFormValues(
         const answerScheme = inference.answerScheme.value ?? 'situational_judgement_rating'
         return {
         questionText: toRichText(q.text),
-        questionType: responseType === 'drag_and_drop' ? 'syllogism' as const : 'multiple_choice' as const,
         responseType,
         answerScheme,
         answerExplanation: null,
@@ -171,7 +170,6 @@ export function mapParsedSituationalJudgementToFormValues(
         options: q.options.map((opt) => ({
           answerText: toRichText(opt.text),
           answerExplanation: null,
-          isAnswer: false,
           answerKeyValue: null,
         })),
       }})

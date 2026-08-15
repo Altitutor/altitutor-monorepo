@@ -43,13 +43,11 @@ type FullStemRow = StemInstructionRow & {
 type FullQuestionRow = {
   id: string;
   index: number;
-  question_type: "multiple_choice" | "syllogism";
-  response_type?: QuestionItem["responseType"];
-  answer_scheme?: QuestionItem["answerScheme"];
+  response_type: QuestionItem["responseType"];
+  answer_scheme: QuestionItem["answerScheme"];
   answer_options?: Array<{
     id: string;
     index: number;
-    is_answer?: boolean;
     answer_key_value?:
       | "correct"
       | "yes"
@@ -86,7 +84,6 @@ export function mapSetQuestionsForCatchUp(
           id: option.id,
           index: option.index,
           text: "",
-          isAnswer: option.is_answer === true,
           answerKeyValue: option.answer_key_value ?? null,
         }));
       questions.push({
@@ -98,11 +95,12 @@ export function mapSetQuestionsForCatchUp(
         sectionDisplayColumns: stem.display_columns === 2 ? 2 : 1,
         stemText: "",
         questionText: "",
-        questionType: question.question_type,
         responseType: question.response_type,
         answerScheme: question.answer_scheme,
         options,
-        correctOptionId: options.find((option) => option.isAnswer)?.id,
+        correctOptionId: options.find(
+          (option) => option.answerKeyValue === "correct",
+        )?.id,
       });
     }
   }
@@ -151,7 +149,8 @@ function stubQuestions(count: number, setId = ""): QuestionItem[] {
     sectionDisplayColumns: 1 as const,
     stemText: "",
     questionText: "",
-    questionType: "multiple_choice" as const,
+    responseType: "multiple_choice" as const,
+    answerScheme: "single_choice" as const,
     options: [],
   }));
 }

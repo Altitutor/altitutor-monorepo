@@ -32,7 +32,6 @@ export function buildDraftUcatAssessmentSnapshot(params: {
       questionTextPlain: plain(questionText),
       answerExplanation,
       answerExplanationPlain: plain(answerExplanation),
-      questionType: question.questionType,
       responseType: question.responseType,
       answerScheme: question.answerScheme,
       sourceChannel: question.sourceChannel ?? null,
@@ -61,7 +60,6 @@ export function buildDraftUcatAssessmentSnapshot(params: {
           answerTextPlain: plain(answerText),
           answerExplanation: optionExplanation,
           answerExplanationPlain: plain(optionExplanation),
-          isAnswer: option.isAnswer,
           answerKeyValue: option.answerKeyValue ?? null,
           images: [
             ...collectAssessmentImages(answerText, `option:${option.id}:answer_text`),

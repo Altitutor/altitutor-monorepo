@@ -9,7 +9,10 @@ import {
   writtenQuestionToFormValue,
 } from '../ai-tools'
 
-function baseStem(questionType: 'multiple_choice' | 'syllogism'): UcatQuestionStemFormValues {
+function baseStem(
+  responseType: 'multiple_choice' | 'drag_and_drop',
+  answerScheme: 'single_choice' | 'decision_making_binary_placement' = 'single_choice',
+): UcatQuestionStemFormValues {
   return {
     sectionId: '00000000-0000-0000-0000-000000000001',
     categoryId: null,
@@ -18,15 +21,18 @@ function baseStem(questionType: 'multiple_choice' | 'syllogism'): UcatQuestionSt
     questions: [
       {
         questionText: plainTextToProseMirror('Question'),
-        questionType,
+        responseType,
+        answerScheme,
         answerExplanation: null,
         difficulty: null,
         timeBurdenSeconds: '',
         tagIds: [],
-        options: Array.from({ length: questionType === 'syllogism' ? 5 : 4 }, (_, index) => ({
+        options: Array.from({ length: responseType === 'drag_and_drop' ? 5 : 4 }, (_, index) => ({
           answerText: plainTextToProseMirror(`Option ${index + 1}`),
           answerExplanation: null,
-          isAnswer: index === 0,
+          answerKeyValue: answerScheme === 'decision_making_binary_placement'
+            ? (index === 0 ? 'yes' : 'no')
+            : (index === 0 ? 'correct' : null),
         })),
       },
     ],
@@ -62,7 +68,7 @@ describe('AI tools explanation helpers', () => {
   })
 
   it('requires every syllogism option to have an explanation', () => {
-    const stem = baseStem('syllogism')
+    const stem = baseStem('drag_and_drop', 'decision_making_binary_placement')
     stem.questions[0]!.options[0]!.answerExplanation = plainTextToProseMirror('Explained')
 
     expect(findMissingExplanations(stem)).toEqual([
@@ -74,7 +80,7 @@ describe('AI tools explanation helpers', () => {
   })
 
   it('fills only empty explanations and preserves existing text', () => {
-    const stem = baseStem('syllogism')
+    const stem = baseStem('drag_and_drop', 'decision_making_binary_placement')
     stem.questions[0]!.options[0]!.answerExplanation = plainTextToProseMirror('Keep this')
 
     const result = applyExplanationUpdates(stem, [
@@ -114,7 +120,7 @@ describe('AI tools explanation helpers', () => {
       plainTextToProseMirror('This uses the final value as the denominator.')
     )
 
-    const syllogism = applyExplanationUpdates(baseStem('syllogism'), [{
+    const syllogism = applyExplanationUpdates(baseStem('drag_and_drop', 'decision_making_binary_placement'), [{
       questionIndex: 0,
       answerExplanation: 'Sketch the premises as nested sets before checking each conclusion.',
       optionExplanations: ['A', 'B', 'C', 'D', 'E'],
@@ -161,7 +167,7 @@ describe('AI tools explanation helpers', () => {
       suggestedChanges: 'Change answer to B.',
     })
 
-    expect(result.questions[0]!.options.map((option) => option.isAnswer)).toEqual([false, true, false, false])
+    expect(result.questions[0]!.options.map((option) => option.answerKeyValue)).toEqual([null, 'correct', null, null])
     expect(result.questions[0]!.answerExplanation).toEqual(
       plainTextToProseMirror('B is correct because it is directly supported.')
     )
@@ -240,11 +246,11 @@ describe('AI tools explanation helpers', () => {
       suggestedChanges: 'The correct answer should be C.',
     })
 
-    expect(result.questions[0]!.options.map((option) => option.isAnswer)).toEqual([
-      false,
-      false,
-      true,
-      false,
+    expect(result.questions[0]!.options.map((option) => option.answerKeyValue)).toEqual([
+      null,
+      null,
+      'correct',
+      null,
     ])
   })
 
@@ -256,7 +262,7 @@ describe('AI tools explanation helpers', () => {
         optionIndex: 0,
         label: 'A',
         answerText: 'Option 1',
-        isAnswer: true,
+        answerKeyValue: 'correct',
       },
     ])
   })
@@ -277,17 +283,17 @@ describe('AI tools explanation helpers', () => {
         questionText: 'Which statement follows?',
         answerExplanation: 'Use the final sentence to eliminate the distractors.',
         options: [
-          { answerText: 'A follows', isAnswer: true },
-          { answerText: 'B follows', isAnswer: false },
+          { answerText: 'A follows', answerKeyValue: 'correct' },
+          { answerText: 'B follows', answerKeyValue: null },
         ],
         rationale: 'Tests inference.',
       },
       ['00000000-0000-0000-0000-000000000010']
     )
 
-    expect(question.questionType).toBe('multiple_choice')
+    expect(question).toMatchObject({ responseType: 'multiple_choice', answerScheme: 'single_choice' })
     expect(question.tagIds).toEqual(['00000000-0000-0000-0000-000000000010'])
-    expect(question.options.map((option) => option.isAnswer)).toEqual([true, false])
+    expect(question.options.map((option) => option.answerKeyValue)).toEqual(['correct', null])
     expect(question.answerExplanation).toEqual(
       plainTextToProseMirror('Use the final sentence to eliminate the distractors.')
     )

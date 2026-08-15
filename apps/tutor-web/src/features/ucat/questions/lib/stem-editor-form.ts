@@ -16,7 +16,6 @@ export function buildEmptyStemFormValues(sectionId = ''): UcatQuestionStemFormVa
     questions: [
       {
         questionText: EMPTY_DOC,
-        questionType: 'multiple_choice',
         responseType: 'multiple_choice',
         answerScheme: 'single_choice',
         answerExplanation: null,
@@ -48,9 +47,8 @@ export function stemDetailToFormValues(
       id: question.id,
       questionText: (question.question_text ?? EMPTY_DOC) as Json,
       answerExplanation: (question.answer_explanation ?? null) as Json | null,
-      questionType: question.question_type,
-      responseType: question.response_type ?? (question.question_type === 'syllogism' ? 'drag_and_drop' : 'multiple_choice'),
-      answerScheme: question.answer_scheme ?? (question.question_type === 'syllogism' ? 'decision_making_binary_placement' : 'single_choice'),
+      responseType: question.response_type,
+      answerScheme: question.answer_scheme,
       difficulty: question.difficulty,
       timeBurdenSeconds: question.time_burden_seconds != null ? secondsToTimeString(question.time_burden_seconds) : '',
       tagIds: (question.tags ?? []).map((tag) => tag.id),
@@ -62,12 +60,7 @@ export function stemDetailToFormValues(
               id: option.id,
               answerText: (option.answer_text ?? EMPTY_DOC) as Json,
               answerExplanation: (option.answer_explanation ?? null) as Json | null,
-              isAnswer: option.is_answer,
-              answerKeyValue: option.answer_key_value ?? (
-                question.question_type === 'syllogism'
-                  ? option.is_answer ? 'yes' : 'no'
-                  : option.is_answer ? 'correct' : null
-              ),
+              answerKeyValue: option.answer_key_value,
             }))
           : [...DEFAULT_OPTIONS],
     })),
@@ -96,9 +89,8 @@ export function formValuesToStemBundlePayload(
       index: index + 1,
       id: question.id,
       questionText: question.questionText,
-      questionType: question.questionType,
-      responseType: question.responseType ?? (question.questionType === 'syllogism' ? 'drag_and_drop' : 'multiple_choice'),
-      answerScheme: question.answerScheme ?? (question.questionType === 'syllogism' ? 'decision_making_binary_placement' : 'single_choice'),
+      responseType: question.responseType,
+      answerScheme: question.answerScheme,
       answerExplanation: toExplanationNull(question.answerExplanation),
       difficulty: question.difficulty,
       timeBurdenSeconds: parseTimeToSeconds(question.timeBurdenSeconds ?? '') ?? null,
@@ -110,16 +102,11 @@ export function formValuesToStemBundlePayload(
         index: optionIndex + 1,
         answerText: option.answerText,
         answerExplanation: toExplanationNull(option.answerExplanation),
-        isAnswer: option.isAnswer,
         answerKeyValue: question.answerScheme === 'situational_judgement_most_least'
           ? option.answerKeyValue === 'most' || option.answerKeyValue === 'least'
             ? option.answerKeyValue
             : null
-          : option.answerKeyValue !== undefined
-            ? option.answerKeyValue
-            : question.questionType === 'syllogism'
-              ? option.isAnswer ? 'yes' : 'no'
-              : option.isAnswer ? 'correct' : null,
+          : option.answerKeyValue,
       })),
     })),
   }

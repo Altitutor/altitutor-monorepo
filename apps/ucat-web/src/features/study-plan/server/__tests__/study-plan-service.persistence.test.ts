@@ -10,6 +10,7 @@ import {
   createExtraStudyTask,
   getCurrentPreparation,
   getStudyPlan,
+  loadDevelopmentCatalogSandboxCase,
   saveStudyPlanProfile,
   suggestAlternativeStudyGuidance,
   updateStudyPlanTask,
@@ -434,6 +435,19 @@ describe("Study plan persistence orchestration", () => {
 
   afterEach(() => {
     jest.useRealTimers();
+  });
+
+  it("builds the development catalog preview without loading unused score evidence", async () => {
+    const { studentClient } = createDatabaseHarness({ currentPolicy: true });
+
+    await loadDevelopmentCatalogSandboxCase(
+      studentClient,
+      "user-1",
+    );
+
+    expect(studentClient.from).not.toHaveBeenCalledWith(
+      "vstudent_ucat_score_projection_evidence",
+    );
   });
 
   it("regenerates future work through the replacement RPC after today's task is skipped", async () => {

@@ -57,14 +57,14 @@ function SidePanel({ label, side }: { label: string; side: BulkImportDuplicateFi
                       key={`${question.id ?? question.questionIndex}:option:${optionIndex}`}
                       className={cn(
                         'rounded-md border px-2 py-1.5',
-                        option.isAnswer && 'border-emerald-500/40 bg-emerald-500/5',
+                        option.answerKeyValue != null && 'border-emerald-500/40 bg-emerald-500/5',
                       )}
                     >
                       <span className="mr-1 text-muted-foreground">
                         {String.fromCharCode(65 + optionIndex)}.
                       </span>
                       <RichContent value={option.answerText} />
-                      {option.isAnswer ? (
+                      {option.answerKeyValue != null ? (
                         <span className="mt-1 block text-xs font-medium text-emerald-700 dark:text-emerald-300">
                           Correct answer
                         </span>

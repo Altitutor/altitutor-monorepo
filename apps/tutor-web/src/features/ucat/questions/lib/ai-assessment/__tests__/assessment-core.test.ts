@@ -44,7 +44,6 @@ function snapshot(): UcatAssessmentSnapshot {
     questionTextPlain: `Question ${index}`,
     answerExplanation: plainTextToProseMirror('Teaching explanation'),
     answerExplanationPlain: 'Teaching explanation',
-    questionType: 'multiple_choice' as const,
     responseType: 'multiple_choice' as const,
     answerScheme: 'single_choice' as const,
     difficulty: 0.5,
@@ -59,7 +58,6 @@ function snapshot(): UcatAssessmentSnapshot {
       answerTextPlain: `Option ${optionIndex + 1}`,
       answerExplanation: null,
       answerExplanationPlain: '',
-      isAnswer: optionIndex === 0,
       answerKeyValue: optionIndex === 0 ? 'correct' as const : null,
       images: [],
     })),
@@ -186,8 +184,8 @@ describe('assessment fingerprints and scope', () => {
     expect(changedAssessmentScope(initialFingerprints, fingerprintUcatAssessmentSnapshot(formattingOnly))).toBeNull()
 
     const changed = JSON.parse(JSON.stringify(initial)) as UcatAssessmentSnapshot
-    changed.questions[1].options[1].isAnswer = true
-    changed.questions[1].options[0].isAnswer = false
+    changed.questions[1].options[1].answerKeyValue = 'correct'
+    changed.questions[1].options[0].answerKeyValue = null
     expect(changedAssessmentScope(initialFingerprints, fingerprintUcatAssessmentSnapshot(changed))).toEqual({
       scopeType: 'questions',
       questionIds: [QUESTION_2],
@@ -322,6 +320,8 @@ describe('assessment prompts and deterministic checks', () => {
     expect(ASSESSMENT_SYSTEM_PROMPT).toContain(
       'Verbal Reasoning explanations should identify the specific passage evidence',
     )
+    expect(ASSESSMENT_SYSTEM_PROMPT).toContain('correct Yes/No conclusions for binary-placement questions')
+    expect(ASSESSMENT_SYSTEM_PROMPT).not.toContain('Yes/No conclusions for syllogisms')
   })
 
   it('uses atomic typed directives without exposing the blind solve', () => {
@@ -467,7 +467,7 @@ describe('assessment prompts and deterministic checks', () => {
           questionId: QUESTION_1,
           selectedOptionId: value.questions[0].options[1].id,
           proposedAnswer: null,
-          syllogismAnswers: [],
+          placementAnswers: [],
           justification: 'Independent result',
           confidence: 0.9,
           ambiguous: false,
@@ -587,7 +587,8 @@ describe('bounded suggestion patches', () => {
       questions: value.questions.map((question) => ({
         id: question.id,
         questionText: question.questionText,
-        questionType: question.questionType,
+        responseType: question.responseType,
+        answerScheme: question.answerScheme,
         answerExplanation: question.answerExplanation,
         difficulty: question.difficulty,
         timeBurdenSeconds: '1:15',
@@ -628,7 +629,8 @@ describe('bounded suggestion patches', () => {
       questions: value.questions.map((question) => ({
         id: question.id,
         questionText: question.questionText,
-        questionType: question.questionType,
+        responseType: question.responseType,
+        answerScheme: question.answerScheme,
         answerExplanation: question.id === QUESTION_1 ? explanation : question.answerExplanation,
         difficulty: question.difficulty,
         timeBurdenSeconds: '1:15',
@@ -637,7 +639,7 @@ describe('bounded suggestion patches', () => {
           id: option.id,
           answerText: option.answerText,
           answerExplanation: option.answerExplanation,
-          isAnswer: option.isAnswer,
+          answerKeyValue: option.answerKeyValue,
         })),
       })),
     } as UcatQuestionStemFormValues
@@ -664,7 +666,8 @@ describe('bounded suggestion patches', () => {
       questions: value.questions.map((question) => ({
         id: question.id,
         questionText: question.questionText,
-        questionType: question.questionType,
+        responseType: question.responseType,
+        answerScheme: question.answerScheme,
         answerExplanation: question.answerExplanation,
         difficulty: question.difficulty,
         timeBurdenSeconds: '1:15',
@@ -673,7 +676,7 @@ describe('bounded suggestion patches', () => {
           id: option.id,
           answerText: option.answerText,
           answerExplanation: option.answerExplanation,
-          isAnswer: option.isAnswer,
+          answerKeyValue: option.answerKeyValue,
         })),
       })),
     }
@@ -684,8 +687,8 @@ describe('bounded suggestion patches', () => {
       currentCorrectOptionId: value.questions[0].options[0].id,
       correctOptionId: target,
     }])
-    expect(result.questions[0].options.map((option) => option.isAnswer)).toEqual([false, false, true, false, false])
-    expect(form.questions[0].options[0].isAnswer).toBe(true)
+    expect(result.questions[0].options.map((option) => option.answerKeyValue)).toEqual([null, null, 'correct', null, null])
+    expect(form.questions[0].options[0].answerKeyValue).toBe('correct')
   })
 
   function formFromSnapshot(value: UcatAssessmentSnapshot, overrides?: {
@@ -700,7 +703,8 @@ describe('bounded suggestion patches', () => {
       questions: value.questions.map((question) => ({
         id: question.id,
         questionText: question.questionText,
-        questionType: question.questionType,
+        responseType: question.responseType,
+        answerScheme: question.answerScheme,
         answerExplanation: question.answerExplanation,
         difficulty: (overrides?.difficulty !== undefined
           ? overrides.difficulty
@@ -713,7 +717,7 @@ describe('bounded suggestion patches', () => {
           id: option.id,
           answerText: option.answerText,
           answerExplanation: option.answerExplanation,
-          isAnswer: option.isAnswer,
+          answerKeyValue: option.answerKeyValue,
         })),
       })),
     }
@@ -976,7 +980,7 @@ describe('assessment provider input normalization', () => {
         questionId: QUESTION_1,
         selectedOptionId: 'Option C',
         proposedAnswer: null,
-        syllogismAnswers: [],
+        placementAnswers: [],
         justification: 'Option C has the correct calculation.',
         confidence: 0.9,
         ambiguous: false,
@@ -994,7 +998,7 @@ describe('assessment provider input normalization', () => {
         questionId: QUESTION_1,
         selectedOptionId,
         proposedAnswer: null,
-        syllogismAnswers: [],
+        placementAnswers: [],
         justification: 'The first option is correct.',
         confidence: 0.99,
         ambiguous: false,

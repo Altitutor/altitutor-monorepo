@@ -111,11 +111,6 @@ export function applyStemMetadataRecommendation(
       const answerScheme = inference.answerScheme.value
       if (responseType) {
         form.setValue(`questions.${index}.responseType`, responseType, { shouldDirty: true })
-        form.setValue(
-          `questions.${index}.questionType`,
-          responseType === 'drag_and_drop' ? 'syllogism' : 'multiple_choice',
-          { shouldDirty: true },
-        )
       }
       if (answerScheme) {
         form.setValue(`questions.${index}.answerScheme`, answerScheme, { shouldDirty: true })

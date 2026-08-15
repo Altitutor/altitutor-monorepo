@@ -23,7 +23,7 @@ function snapshot(phase: ExamEngineSnapshot["phase"]): ExamEngineSnapshot {
     visitedQuestionIds: [],
     flaggedIds: [],
     selectedAnswers: {},
-    syllogismSnapshots: {},
+    placementSnapshots: {},
     reviewFilter: null,
     reviewFilterIndex: 0,
     reviewFilterIndicesSnapshot: null,

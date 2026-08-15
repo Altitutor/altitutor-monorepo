@@ -285,7 +285,7 @@ export async function getPracticeDiscountDashboardStatus(
       .select("attempted_at")
       .eq("student_id", studentId)
       .eq("is_submitted", true)
-      .or("question_answer_option_id.not.is.null,answer_snapshot.not.is.null")
+      .not("answer_snapshot", "is", null)
       .gte("attempted_at", lookbackStart)
       .not("attempted_at", "is", null),
     supabase

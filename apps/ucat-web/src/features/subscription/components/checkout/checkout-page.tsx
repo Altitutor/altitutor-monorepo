@@ -194,10 +194,7 @@ export function CheckoutPage() {
       interval,
       returnContext: context,
       referralGiftId,
-      returnTo:
-        context === "signup_onboarding" && returnTo !== "/dashboard"
-          ? returnTo
-          : undefined,
+      returnTo: returnTo !== "/dashboard" ? returnTo : undefined,
     })
       .then((session) => {
         captureUcatEvent("checkout_started", {
