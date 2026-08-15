@@ -20,7 +20,7 @@ const baseProps = {
 };
 
 describe("PlanCancellationDialog", () => {
-  it("shows lost benefits and a positive earned discount when switching to Free", () => {
+  it("shows lost benefits and a positive earned discount when downgrading to Free", () => {
     render(
       <PlanCancellationDialog
         {...baseProps}
@@ -32,7 +32,7 @@ describe("PlanCancellationDialog", () => {
 
     expect(
       screen.getByRole("heading", {
-        name: "Are you sure you want to switch to UCAT Free?",
+        name: "Are you sure you want to downgrade to UCAT Free?",
       }),
     ).toBeInTheDocument();
     expect(screen.getByText("Unlimited practice")).toBeInTheDocument();
@@ -40,11 +40,11 @@ describe("PlanCancellationDialog", () => {
       screen.getByText("You've already earned $6.00 off your next bill"),
     ).toBeInTheDocument();
     expect(
-      screen.getByRole("button", { name: /switch to free on/i }),
+      screen.getByRole("button", { name: /downgrade to free on/i }),
     ).toBeDisabled();
     expect(
       screen.getByRole("radiogroup", {
-        name: "Main reason for switching to UCAT Free",
+        name: "Main reason for downgrading to UCAT Free",
       }),
     ).toBeInTheDocument();
   });

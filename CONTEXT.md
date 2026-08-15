@@ -166,6 +166,42 @@
 
 ## Tutor timetable
 
+- **Class** — A stable tutor-led teaching cohort with a shared subject, level, student enrolments, and lifecycle. A Class may meet at multiple scheduled times; its meeting schedule does not define its identity.
+  _Avoid_: Weekly time slot, recurring session, timetable entry
+
+- **Class cohort label** — An optional staff-authored discriminator such as `A` or `2026 A` that distinguishes Classes sharing a Subject. It contributes to the stable Class name independently of when the Class meets.
+  _Avoid_: Schedule summary, weekday label, Class level
+
+- **Class activity status** — Whether a Class is active or inactive as a teaching cohort. Capacity or willingness to accept another enrolment is not a Class lifecycle status.
+  _Avoid_: Full Class status, Session status, enrolment capacity
+
+- **Class session** — One dated occurrence of a Class. It may originate from the Class schedule or be explicitly planned, and remains an independently identifiable occurrence when its time or status differs from the surrounding schedule.
+  _Avoid_: Class, recurrence rule, weekly time slot
+
+- **Class schedule** — The plan that determines the dated Class sessions for a bounded period. It is either a Recurring class schedule or a Custom class timetable.
+  _Avoid_: Class identity, session list
+
+- **Class schedule revision** — The complete Class schedule that applies from a stated date until it is replaced or the Class ends. Revisions preserve how earlier Class sessions were planned and make a future schedule change effective as one coherent decision.
+  _Avoid_: Independent slot edit, timeless current rule, overwritten schedule
+
+- **Recurring class schedule** — A Class schedule that repeats one or more weekday, time, and room combinations every week or every two weeks. Its recurrence is anchored to a bounded teaching period rather than expressed as an unrestricted calendar rule.
+  _Avoid_: RRULE, monthly recurrence, custom timetable
+
+- **Custom class timetable** — A Class schedule made from explicitly dated Class sessions rather than a repeating pattern.
+  _Avoid_: Irregular recurrence, recurring class schedule, RRULE
+
+- **Class display label** — The canonical presentation of a Subject-derived Class name, optional Class cohort label, and compact schedule summary. Short and long variants preserve schedule-at-a-glance context wherever Classes are identified, while the underlying Class name remains stable when its schedule changes.
+  _Avoid_: Class name, admin-only label, schedule-generated identity
+
+- **Class session exception** — A Class session deliberately moved, cancelled, or otherwise changed independently of the Class schedule. Later schedule changes preserve the exception unless ADMINSTAFF explicitly resolves it.
+  _Avoid_: Schedule change, regenerated session, accidental drift
+
+- **Pristine generated class session** — A future Class session that still matches its originating Class schedule and has no independently authored operational information. It may be replaced or removed when ADMINSTAFF confirms a schedule change; enriched, exceptional, and past Class sessions are preserved.
+  _Avoid_: Any future session, historical session, class session exception
+
+- **Class schedule timezone** — The named timezone in which a Class schedule's dates and wall-clock times are defined. It defaults to Australia/Adelaide; each materialized Class session represents an absolute time across daylight-saving changes.
+  _Avoid_: Browser timezone, fixed UTC offset, implicit server timezone
+
 - **Tutor onboarding** — The invite-completion journey that establishes a tutor's Tutor credentials, teaching preferences, availability, and Altitutor-specific employment evidence. It does not collect payroll identifiers.
   _Avoid_: Payroll onboarding, employee self setup, tutor profile
 

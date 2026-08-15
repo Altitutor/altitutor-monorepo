@@ -120,7 +120,7 @@ export async function POST(request: NextRequest) {
       error instanceof Error ? error.message : String(error),
     );
     return NextResponse.json(
-      { error: "Failed to switch to UCAT Free. Please try again." },
+      { error: "Failed to downgrade to UCAT Free. Please try again." },
       { status: 500 },
     );
   }
@@ -168,7 +168,9 @@ export async function PUT() {
   }
   if (!context.subscription.cancel_at_period_end) {
     return NextResponse.json(
-      { error: "This subscription is not scheduled to switch to UCAT Free." },
+      {
+        error: "This subscription is not scheduled to downgrade to UCAT Free.",
+      },
       { status: 409 },
     );
   }
@@ -235,7 +237,7 @@ export async function PUT() {
       error instanceof Error ? error.message : String(error),
     );
     return NextResponse.json(
-      { error: "Failed to switch to UCAT Free now. Please try again." },
+      { error: "Failed to downgrade to UCAT Free now. Please try again." },
       { status: 500 },
     );
   }

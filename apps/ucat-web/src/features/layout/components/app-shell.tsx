@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  Suspense,
   useEffect,
   useCallback,
   useRef,
@@ -296,7 +297,9 @@ function AppShellInner({ children }: AppShellProps) {
     >
       <OnboardingProvider>
         <OnboardingAutoStart />
-        <QuestionEngineTutorialRedirect />
+        <Suspense fallback={null}>
+          <QuestionEngineTutorialRedirect />
+        </Suspense>
         <div
           id={UCAT_NEXTSTEP_FIXED_VIEWPORT_ID}
           className="pointer-events-none fixed inset-0 z-[1100]"

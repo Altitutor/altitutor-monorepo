@@ -57,6 +57,7 @@ import {
 } from "@/features/subscription/api/change-subscription-cancellation";
 import { trackSubscriptionJourneyEvent } from "@/features/subscription/api/track-subscription-journey";
 import { ImmediatePlanCancellationDialog } from "@/features/subscription/components/immediate-plan-cancellation-dialog";
+import { ScheduledPlanDowngradeNotice } from "@/features/subscription/components/scheduled-plan-downgrade-notice";
 import { UcatPaymentMethodDialog } from "@/features/subscription/components/ucat-payment-method-dialog";
 import { applyUcatPaymentMethod } from "@/features/subscription/api/ucat-payment-method";
 import {
@@ -413,7 +414,7 @@ export function SubscriptionBillingSection() {
       setImmediateCancelOpen(false);
     } catch (e) {
       setImmediateCancelError(
-        e instanceof Error ? e.message : "Failed to switch to UCAT Free now",
+        e instanceof Error ? e.message : "Failed to downgrade to UCAT Free now",
       );
     } finally {
       setImmediateCancelLoading(false);
@@ -561,49 +562,38 @@ export function SubscriptionBillingSection() {
       ) : null}
 
       {isCancelScheduled && cancelEndDate ? (
-        <div
-          role="alert"
-          className="rounded-ucatShell flex flex-col gap-3 border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-950 sm:flex-row sm:items-center sm:justify-between dark:text-amber-100"
-        >
-          <div>
-            <p>
-              You&apos;re switching to UCAT Free on{" "}
-              <span className="font-semibold">
-                {formatInvoiceDate(cancelEndDate)}
-              </span>
-              . You&apos;ll keep paid access until then.
-            </p>
-            {resumeError ? (
-              <p className="mt-1 text-destructive">{resumeError}</p>
-            ) : null}
-          </div>
-          <div className="flex flex-wrap gap-2 sm:justify-end">
-            <Button
-              type="button"
-              variant="ghost"
-              className="shrink-0 text-amber-950 hover:bg-amber-500/15 hover:text-amber-950 dark:text-amber-100 dark:hover:text-amber-100"
-              disabled={resumeLoading}
-              onClick={() => {
-                setImmediateCancelError(null);
-                setImmediateCancelOpen(true);
-              }}
-            >
-              Switch now
-            </Button>
-            <Button
-              type="button"
-              variant="outline"
-              className="shrink-0"
-              disabled={resumeLoading}
-              onClick={() => void handleKeepPaidPlan()}
-            >
-              {resumeLoading ? (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              ) : null}
-              Keep paid plan
-            </Button>
-          </div>
-        </div>
+        <ScheduledPlanDowngradeNotice
+          endDate={cancelEndDate}
+          error={resumeError}
+          actions={
+            <>
+              <Button
+                type="button"
+                variant="ghost"
+                className="shrink-0 text-amber-950 hover:bg-amber-500/15 hover:text-amber-950 dark:text-amber-100 dark:hover:text-amber-100"
+                disabled={resumeLoading}
+                onClick={() => {
+                  setImmediateCancelError(null);
+                  setImmediateCancelOpen(true);
+                }}
+              >
+                Downgrade now
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                className="shrink-0"
+                disabled={resumeLoading}
+                onClick={() => void handleKeepPaidPlan()}
+              >
+                {resumeLoading ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : null}
+                Keep paid plan
+              </Button>
+            </>
+          }
+        />
       ) : null}
 
       <section
@@ -624,9 +614,17 @@ export function SubscriptionBillingSection() {
                 <h2 className="text-2xl font-semibold tracking-tight sm:text-3xl">
                   {formatSubscriptionPlan(subscription)}
                 </h2>
-                <Badge variant={hasPaidAccess ? "default" : "secondary"}>
+                <Badge
+                  variant={
+                    isCancelScheduled
+                      ? "destructive"
+                      : hasPaidAccess
+                        ? "default"
+                        : "secondary"
+                  }
+                >
                   {isCancelScheduled
-                    ? "Switching to Free"
+                    ? "Downgrading to Free"
                     : formatSubscriptionStatus(subscription.status)}
                 </Badge>
               </div>
@@ -634,7 +632,7 @@ export function SubscriptionBillingSection() {
                 {isCancelScheduled
                   ? cancelEndDate
                     ? `Paid access until ${formatInvoiceDate(cancelEndDate)}`
-                    : "Your subscription will switch to UCAT Free."
+                    : "Your subscription will downgrade to UCAT Free."
                   : "Your plan, renewal and practice rewards at a glance."}
               </p>
             </div>
