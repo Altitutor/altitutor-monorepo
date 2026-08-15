@@ -1,6 +1,5 @@
 /**
  * Office print client helpers for admin-web.
- * Types are local until `pnpm db:types` regenerates shared Database types.
  */
 
 import { getSupabaseClient } from '@/shared/lib/supabase/client';
@@ -66,13 +65,10 @@ export async function enqueuePrintJob(
   input: EnqueuePrintJobInput
 ): Promise<PrintJobRow> {
   const supabase = getSupabaseClient();
-  const { data, error } = await supabase.rpc(
-    'enqueue_print_job' as never,
-    {
-      p_file_id: input.fileId,
-      p_copies: input.copies,
-    } as never
-  );
+  const { data, error } = await supabase.rpc('enqueue_print_job', {
+    p_file_id: input.fileId,
+    p_copies: input.copies,
+  });
   if (error) {
     throw new Error(error.message);
   }
@@ -82,11 +78,11 @@ export async function enqueuePrintJob(
 export async function getPrintJob(jobId: string): Promise<PrintJobRow | null> {
   const supabase = getSupabaseClient();
   const { data, error } = await supabase
-    .from('print_jobs' as never)
+    .from('print_jobs')
     .select(
-      'id, file_id, filename, copies, status, cups_job_id, error, created_at, completed_at' as never
+      'id, file_id, filename, copies, status, cups_job_id, error, created_at, completed_at'
     )
-    .eq('id' as never, jobId as never)
+    .eq('id', jobId)
     .maybeSingle();
   if (error) {
     throw new Error(error.message);
@@ -97,9 +93,7 @@ export async function getPrintJob(jobId: string): Promise<PrintJobRow | null> {
 
 export async function isPrintConnectorOnline(): Promise<boolean> {
   const supabase = getSupabaseClient();
-  const { data, error } = await supabase.rpc(
-    'is_print_connector_online' as never
-  );
+  const { data, error } = await supabase.rpc('is_print_connector_online');
   if (error) {
     throw new Error(error.message);
   }

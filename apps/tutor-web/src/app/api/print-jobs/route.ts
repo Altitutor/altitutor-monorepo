@@ -1,7 +1,9 @@
-import { captureApiError } from '@/lib/sentry/capture-api-error';
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/shared/lib/supabase/server-ssr';
+import type { Database } from '@altitutor/shared';
+import type { SupabaseClient } from '@supabase/supabase-js';
 import { z } from 'zod';
+import { captureApiError } from '@/lib/sentry/capture-api-error';
+import { createClient } from '@/shared/lib/supabase/server-ssr';
 
 const bodySchema = z.object({
   fileId: z.string().uuid(),
@@ -22,7 +24,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       );
     }
 
-    const userClient = createClient();
+    const userClient = createClient() as unknown as SupabaseClient<Database>;
     const { data: isTutor, error: tutorCheckError } = await userClient.rpc('is_tutor');
     if (tutorCheckError) {
       captureApiError(tutorCheckError, '/api/print-jobs');
@@ -32,10 +34,10 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
     }
 
-    const { data, error } = await userClient.rpc('enqueue_print_job' as never, {
+    const { data, error } = await userClient.rpc('enqueue_print_job', {
       p_file_id: parsed.data.fileId,
       p_copies: parsed.data.copies,
-    } as never);
+    });
 
     if (error) {
       captureApiError(error, '/api/print-jobs');

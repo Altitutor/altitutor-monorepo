@@ -69,9 +69,9 @@ async function pollJob(jobId: string): Promise<PrintJobRow> {
   const started = Date.now();
   while (Date.now() - started < 120_000) {
     const { data, error } = await supabase
-      .from('vtutor_print_jobs' as never)
-      .select('id, status, filename, copies, error' as never)
-      .eq('id' as never, jobId as never)
+      .from('vtutor_print_jobs')
+      .select('id, status, filename, copies, error')
+      .eq('id', jobId)
       .maybeSingle();
     if (error) throw new Error(error.message);
     if (data) {
@@ -110,8 +110,8 @@ export function OfficePrintConfirmDialog({
       const supabase = getSupabaseClient();
       try {
         const [onlineRes, windowRes] = await Promise.all([
-          supabase.rpc('is_print_connector_online' as never),
-          supabase.rpc('is_office_print_window_open' as never),
+          supabase.rpc('is_print_connector_online'),
+          supabase.rpc('is_office_print_window_open'),
         ]);
         if (cancelled) return;
         setOnline(onlineRes.data === true);
