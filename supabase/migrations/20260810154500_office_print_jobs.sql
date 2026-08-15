@@ -62,10 +62,12 @@ CREATE POLICY "ADMINSTAFF read print connector state"
   ON public.print_connector_state FOR SELECT TO authenticated
   USING ((SELECT public.is_adminstaff_active()));
 
--- Tutors may read connector health (for offline gate UX) without seeing other jobs
-CREATE POLICY "Staff read print connector state"
+-- Tutors may read connector health (for offline gate UX) without seeing other jobs.
+-- Use is_tutor() (not is_staff()): development has no public.is_staff(), and
+-- ADMINSTAFF already have their own SELECT policy via is_adminstaff_active().
+CREATE POLICY "Tutors read print connector state"
   ON public.print_connector_state FOR SELECT TO authenticated
-  USING ((SELECT public.is_staff()));
+  USING ((SELECT public.is_tutor()));
 
 REVOKE ALL ON public.print_jobs FROM anon, authenticated;
 REVOKE ALL ON public.print_connector_state FROM anon, authenticated;
