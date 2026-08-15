@@ -62,6 +62,7 @@ export default function MessagesPage() {
   const [prefillPhoneForModal, setPrefillPhoneForModal] = useState<string | null>(null);
   const [isLinkingPhone, setIsLinkingPhone] = useState(false);
   const [selectedOwnedNumberId, setSelectedOwnedNumberId] = useState<string | null>(null);
+  const [composerSenderId, setComposerSenderId] = useState<string | null>(null);
   const { data: conversationsByContact } = useConversationList(selectedOwnedNumberId);
   const { data: availableSenders = [] } = useAvailableSenders();
   const { data: students = [] } = useStudents();
@@ -86,6 +87,10 @@ export default function MessagesPage() {
   const markUnread = useMarkUnread();
   const markConversationRead = useMarkConversationRead();
   const imessageControl = useImessageControl();
+
+  useEffect(() => {
+    setComposerSenderId(null);
+  }, [activeContactId]);
   
   // Convert conversationId to contactId if provided (backward compatibility)
   useEffect(() => {
@@ -519,12 +524,17 @@ export default function MessagesPage() {
                   searchTerm={searchTerm}
                   onSearchTermChange={setSearchTerm}
                   onExitSearch={() => setIsSearching(false)}
+                  onResentViaSms={(smsOwnedNumberId) => {
+                    setSelectedOwnedNumberId(null);
+                    setComposerSenderId(smsOwnedNumberId);
+                  }}
                 />
                 <Composer 
                   contactId={activeContactId} 
                   conversationId={activeGroup?.conversationId}
                   groupChatId={activeGroup?.groupChatId}
                   initialSenderId={activeGroup?.ownedNumberId}
+                  preferredSenderId={composerSenderId}
                   onTyping={() => setIsSearching(false)}
                   draft={currentDraft}
                   onDraftChange={handleDraftChange}

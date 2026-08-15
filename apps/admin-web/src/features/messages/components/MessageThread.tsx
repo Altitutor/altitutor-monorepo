@@ -1,9 +1,9 @@
 'use client';
 
 import { useEffect, useRef, useMemo, useState, useLayoutEffect } from 'react';
-import { useMessages, useMessagesForContact, useContactHeader } from '../api/queries';
+import { useMessages, useMessagesForContact, useContactHeader, useAvailableSenders } from '../api/queries';
 import { getSupabaseClient } from '@/shared/lib/supabase/client';
-import { useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { formatMessageDate, formatMessageStatus, formatDaySeparator, isDifferentDay } from '../utils/formatDate';
 import { StaffAvatar } from './StaffAvatar';
 import { X, File, Download, Music, Play, Pause } from 'lucide-react';
@@ -19,7 +19,18 @@ import type { IssueTagInsert, IssueWithTags, IssueUpdate } from '@/features/issu
 import { extractMentions } from '@/shared/utils/extractMentions';
 import { cn } from '@/shared/utils';
 import { getTagEntity, resolveTagLabels } from '@/features/issues/utils/mentionLabels';
+import { useSendMessage } from '../api/mutations';
 import { ImessageMessageActions } from '../imessage/ImessageMessageActions';
+import {
+  AMBIGUOUS_SMS_RESEND_CONFIRM,
+  asAppleService,
+  asOwnedNumberProvider,
+  defaultPhoneSmsSender,
+  isResendViaSmsSpent,
+  messageBubbleClassName,
+  outboundStatusClassName,
+  resendViaSmsAvailability,
+} from '../utils/macBridgePresentation';
 import {
   buildReactionsByTargetGuid,
   collectAttachedReactionIds,
@@ -67,6 +78,7 @@ interface Props {
   onSearchTermChange?: (term: string) => void;
   onExitSearch?: () => void;
   hideAddIssueHover?: boolean;
+  onResentViaSms?: (smsOwnedNumberId: string) => void;
 }
 
 interface AttachmentProps {
@@ -400,7 +412,8 @@ export function MessageThread({
   searchTerm = '',
   onSearchTermChange,
   onExitSearch,
-  hideAddIssueHover = false
+  hideAddIssueHover = false,
+  onResentViaSms,
 }: Props) {
   const contactMessages = useMessagesForContact(contactId ?? null, ownedNumberId);
   const conversationMessages = useMessages(conversationId ?? '');
@@ -408,6 +421,28 @@ export function MessageThread({
     ? conversationMessages
     : contactMessages;
   const qc = useQueryClient();
+  const { data: availableSenders = [] } = useAvailableSenders();
+  const sendMessage = useSendMessage();
+  const smsSender = defaultPhoneSmsSender(availableSenders);
+  const isGroupThread = Boolean(conversationId) && !contactId;
+  const threadItems = data?.pages.flatMap((page) => page.items) ?? [];
+  const resendSourceIds = threadItems
+    .filter((message) => message.status === 'FAILED' || message.status === 'AMBIGUOUS')
+    .map((message) => message.id);
+  const resendSourceKey = [...resendSourceIds].sort().join(',');
+  const { data: linkedSmsResends = [] } = useQuery({
+    queryKey: ['messages', 'sms-resends', contactId, resendSourceKey],
+    enabled: Boolean(contactId) && resendSourceIds.length > 0,
+    queryFn: async () => {
+      const supabase = getSupabaseClient();
+      const { data: rows, error } = await supabase
+        .from('messages')
+        .select('resent_from_message_id, status')
+        .in('resent_from_message_id', resendSourceIds);
+      if (error) throw error;
+      return rows ?? [];
+    },
+  });
   const scrollRef = useRef<HTMLDivElement>(null);
   const shouldStickToBottomRef = useRef(true);
   const selectionKey = conversationId ? `group:${conversationId}` : `contact:${contactId ?? ''}`;
@@ -727,6 +762,19 @@ export function MessageThread({
     }
   };
 
+  const handleResendViaSms = async (messageId: string, body: string, requireConfirm: boolean) => {
+    if (!contactId || !smsSender) return;
+    if (requireConfirm && !window.confirm(AMBIGUOUS_SMS_RESEND_CONFIRM)) return;
+    await sendMessage.mutateAsync({
+      contactId,
+      body,
+      selectedSenderId: smsSender.id,
+      resentFromMessageId: messageId,
+    });
+    onResentViaSms?.(smsSender.id);
+    void qc.invalidateQueries({ queryKey: ['messages', 'sms-resends'] });
+  };
+
   return (
     <div className="flex flex-col flex-1 min-h-0 h-full">
       {/* Search bar */}
@@ -786,6 +834,15 @@ export function MessageThread({
               const showDateSeparator = !isSearching && (index === 0 || (prevIsMessage && prevCreatedAt && isDifferentDay(m.created_at, prevCreatedAt)));
               
               const direction = m.direction as 'INBOUND' | 'OUTBOUND';
+              const cleanedBody = m.body
+                ?.replace(/\uFFFC/g, '')
+                .replace(/OBJ/gi, '')
+                .trim() || '';
+              const isMacBridge = asOwnedNumberProvider(m.sender?.provider) === 'IMESSAGE';
+              const showError = direction === 'OUTBOUND' &&
+                isMacBridge &&
+                (m.status === 'FAILED' || m.status === 'AMBIGUOUS') &&
+                Boolean(m.error_message);
               
               return (
                 <div key={m.id}>
@@ -832,10 +889,6 @@ export function MessageThread({
 
                         // Filter out Unicode object replacement character (U+FFFC) and "OBJ" text that appears when attachments are present
                         // The iMessage bridge sends U+FFFC (￼) as a placeholder for attachments
-                        const cleanedBody = m.body
-                          ?.replace(/\uFFFC/g, '') // Remove Unicode object replacement character
-                          .replace(/OBJ/gi, '') // Remove "OBJ" text as fallback
-                          .trim() || '';
                         const attachments = m.message_attachments ?? [];
                         const hasAttachments = attachments.length > 0;
                         if (!cleanedBody && !hasAttachments) return null;
@@ -855,11 +908,12 @@ export function MessageThread({
                             )}
                             {cleanedBody ? (
                               <div className={`inline-block px-3 py-2 rounded-2xl text-sm whitespace-pre-wrap ${
-                                direction === 'OUTBOUND'
-                                  ? (m.sender?.provider === 'TWILIO'
-                                      ? 'bg-[#30D158] dark:bg-[#1E8E3E] text-white'
-                                      : 'bg-[#007AFF] dark:bg-[#0A84FF] text-white')
-                                  : 'bg-muted'
+                                messageBubbleClassName({
+                                  direction,
+                                  provider: asOwnedNumberProvider(m.sender?.provider),
+                                  appleService: asAppleService(m.apple_service),
+                                  isGroup: isGroupThread,
+                                })
                               } break-words [overflow-wrap:anywhere] max-w-full`}>
                                 {isSearching && searchTerm ? highlightText(cleanedBody, searchTerm) : cleanedBody}
                               </div>
@@ -885,11 +939,39 @@ export function MessageThread({
                           </div>
                         );
                       })()}
-                      <div className={`text-[10px] text-muted-foreground mt-1 flex items-center gap-1.5 ${direction === 'OUTBOUND' ? 'justify-end' : 'justify-start'}`}>
+                      <div className={`text-[10px] text-muted-foreground mt-1 flex flex-col gap-0.5 ${direction === 'OUTBOUND' ? 'items-end' : 'items-start'}`}>
+                        <div className={`flex items-center gap-1.5 ${direction === 'OUTBOUND' ? 'justify-end' : 'justify-start'}`}>
                         <span>{formatMessageDate(m.created_at)}</span>
                         {direction === 'OUTBOUND' && m.status && (
-                          <span className="text-[9px]">• {formatMessageStatus(m.status)}</span>
+                          <span className={outboundStatusClassName(m.status, asOwnedNumberProvider(m.sender?.provider) === 'IMESSAGE')}>• {formatMessageStatus(m.status)}</span>
                         )}
+                        {(() => {
+                          const resend = resendViaSmsAvailability({
+                            direction,
+                            status: m.status,
+                            body: cleanedBody,
+                            provider: asOwnedNumberProvider(m.sender?.provider),
+                            isGroup: isGroupThread,
+                            spent: isResendViaSmsSpent(m.id, linkedSmsResends),
+                          });
+                          if (resend === 'hidden') return null;
+                          if (resend === 'spent') {
+                            return <span className="text-[10px] text-muted-foreground">Resent via SMS</span>;
+                          }
+                          const disabled = resend === 'unavailable' || !smsSender || sendMessage.isPending;
+                          return (
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              className="h-6 px-1.5 text-[10px]"
+                              disabled={disabled}
+                              onClick={() => void handleResendViaSms(m.id, cleanedBody, resend === 'confirm')}
+                            >
+                              Resend via SMS
+                            </Button>
+                          );
+                        })()}
                         {!m.is_reaction && (
                           <ImessageMessageActions
                             messageId={m.id}
@@ -910,6 +992,12 @@ export function MessageThread({
                             onAddToIssue={handleAddToIssue}
                           />
                         )}
+                        </div>
+                        {showError ? (
+                          <div className={`max-w-full text-[11px] ${m.status === 'FAILED' ? 'text-destructive' : 'text-amber-600 dark:text-amber-400'}`}>
+                            {m.error_message}
+                          </div>
+                        ) : null}
                       </div>
                     </div>
                   </div>

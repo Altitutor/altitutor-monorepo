@@ -4188,6 +4188,7 @@ export type Database = {
       messages: {
         Row: {
           account_sid: string | null
+          apple_service: string | null
           associated_message_guid: string | null
           body: string
           conversation_id: string
@@ -4211,6 +4212,7 @@ export type Database = {
           reaction_type: string | null
           read_at: string | null
           received_at: string | null
+          resent_from_message_id: string | null
           sent_at: string | null
           status: string
           status_updated_at: string | null
@@ -4219,6 +4221,7 @@ export type Database = {
         }
         Insert: {
           account_sid?: string | null
+          apple_service?: string | null
           associated_message_guid?: string | null
           body: string
           conversation_id: string
@@ -4242,6 +4245,7 @@ export type Database = {
           reaction_type?: string | null
           read_at?: string | null
           received_at?: string | null
+          resent_from_message_id?: string | null
           sent_at?: string | null
           status: string
           status_updated_at?: string | null
@@ -4250,6 +4254,7 @@ export type Database = {
         }
         Update: {
           account_sid?: string | null
+          apple_service?: string | null
           associated_message_guid?: string | null
           body?: string
           conversation_id?: string
@@ -4273,6 +4278,7 @@ export type Database = {
           reaction_type?: string | null
           read_at?: string | null
           received_at?: string | null
+          resent_from_message_id?: string | null
           sent_at?: string | null
           status?: string
           status_updated_at?: string | null
@@ -4320,6 +4326,13 @@ export type Database = {
             columns: ["created_by_staff_id"]
             isOneToOne: false
             referencedRelation: "vtutor_profile"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "messages_resent_from_message_id_fkey"
+            columns: ["resent_from_message_id"]
+            isOneToOne: false
+            referencedRelation: "messages"
             referencedColumns: ["id"]
           },
         ]

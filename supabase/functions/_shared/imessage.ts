@@ -234,6 +234,39 @@ export function extractChatIdentifier(chatGuid: unknown): string | null {
   return (parts.at(-1) ?? chatGuid).trim() || null;
 }
 
+export type AppleService = "iMessage" | "SMS";
+
+export function parseAppleService(input: {
+  service?: unknown;
+  chatGuid?: unknown;
+}): AppleService | null {
+  const fromService = normalizeAppleService(input.service);
+  if (fromService) return fromService;
+  if (typeof input.chatGuid !== "string" || !input.chatGuid.trim()) return null;
+  const prefix = input.chatGuid.split(";")[0]?.trim();
+  return normalizeAppleService(prefix);
+}
+
+export function monotonicAppleService(
+  current: AppleService | null,
+  incoming: AppleService | null,
+): AppleService | null {
+  if (current) return current;
+  return incoming;
+}
+
+function normalizeAppleService(value: unknown): AppleService | null {
+  if (typeof value !== "string") return null;
+  const normalized = value.trim().toLowerCase();
+  if (normalized === "sms") return "SMS";
+  if (normalized === "imessage") return "iMessage";
+  return null;
+}
+
+export function knownAppleService(value: unknown): AppleService | null {
+  return normalizeAppleService(value);
+}
+
 export function statusRank(status: IMessageMessageStatus): number {
   switch (status) {
     case "QUEUED":

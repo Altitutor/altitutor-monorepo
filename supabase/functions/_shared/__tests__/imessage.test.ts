@@ -3,7 +3,9 @@ import { expect } from "jsr:@std/expect";
 import {
   authenticateBearer,
   extractChatIdentifier,
+  monotonicAppleService,
   monotonicStatus,
+  parseAppleService,
   parseIMessageEvent,
   statusRank,
   timingSafeEqual,
@@ -170,6 +172,30 @@ describe("iMessage status mapping", () => {
     expect(monotonicStatus("SENT", "FAILED")).toBe("FAILED");
     expect(monotonicStatus("DELIVERED", "FAILED")).toBe("DELIVERED");
     expect(statusRank("READ")).toBeGreaterThan(statusRank("DELIVERED"));
+  });
+});
+
+describe("Apple service from inbox events", () => {
+  it("persists webhook Service SMS and iMessage", () => {
+    expect(parseAppleService({ service: "SMS" })).toBe("SMS");
+    expect(parseAppleService({ service: "iMessage" })).toBe("iMessage");
+  });
+
+  it("falls back to Chat GUID prefix only when Service is omitted", () => {
+    expect(parseAppleService({ chatGuid: "SMS;-;+61400000000" })).toBe("SMS");
+    expect(parseAppleService({ chatGuid: "iMessage;-;+61400000000" })).toBe(
+      "iMessage",
+    );
+    expect(
+      parseAppleService({ service: "SMS", chatGuid: "iMessage;-;+61400000000" }),
+    ).toBe("SMS");
+    expect(parseAppleService({ chatGuid: "any;-;+61400000000" })).toBeNull();
+  });
+
+  it("fills unknown then keeps a known value when a later event omits service", () => {
+    expect(monotonicAppleService(null, "SMS")).toBe("SMS");
+    expect(monotonicAppleService("iMessage", null)).toBe("iMessage");
+    expect(monotonicAppleService("SMS", "iMessage")).toBe("SMS");
   });
 });
 
