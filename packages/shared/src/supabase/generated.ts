@@ -5241,6 +5241,168 @@ export type Database = {
         }
         Relationships: []
       }
+      print_connector_state: {
+        Row: {
+          app_version: string | null
+          capabilities: Json
+          connector_id: string
+          created_at: string
+          host_label: string | null
+          last_error_code: string | null
+          last_heartbeat_at: string
+          metrics: Json
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          app_version?: string | null
+          capabilities?: Json
+          connector_id: string
+          created_at?: string
+          host_label?: string | null
+          last_error_code?: string | null
+          last_heartbeat_at?: string
+          metrics?: Json
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          app_version?: string | null
+          capabilities?: Json
+          connector_id?: string
+          created_at?: string
+          host_label?: string | null
+          last_error_code?: string | null
+          last_heartbeat_at?: string
+          metrics?: Json
+          status?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      print_jobs: {
+        Row: {
+          attempts: number
+          available_at: string
+          bucket: string
+          claimed_at: string | null
+          claimed_by: string | null
+          completed_at: string | null
+          copies: number
+          created_at: string
+          cups_job_id: string | null
+          error: string | null
+          file_id: string
+          filename: string
+          id: string
+          max_attempts: number
+          requested_by_staff_id: string
+          result: Json
+          status: string
+          storage_path: string
+          updated_at: string
+        }
+        Insert: {
+          attempts?: number
+          available_at?: string
+          bucket: string
+          claimed_at?: string | null
+          claimed_by?: string | null
+          completed_at?: string | null
+          copies?: number
+          created_at?: string
+          cups_job_id?: string | null
+          error?: string | null
+          file_id: string
+          filename: string
+          id?: string
+          max_attempts?: number
+          requested_by_staff_id: string
+          result?: Json
+          status?: string
+          storage_path: string
+          updated_at?: string
+        }
+        Update: {
+          attempts?: number
+          available_at?: string
+          bucket?: string
+          claimed_at?: string | null
+          claimed_by?: string | null
+          completed_at?: string | null
+          copies?: number
+          created_at?: string
+          cups_job_id?: string | null
+          error?: string | null
+          file_id?: string
+          filename?: string
+          id?: string
+          max_attempts?: number
+          requested_by_staff_id?: string
+          result?: Json
+          status?: string
+          storage_path?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "print_jobs_file_id_fkey"
+            columns: ["file_id"]
+            isOneToOne: false
+            referencedRelation: "files"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "print_jobs_file_id_fkey"
+            columns: ["file_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_subject_images"
+            referencedColumns: ["file_id"]
+          },
+          {
+            foreignKeyName: "print_jobs_file_id_fkey"
+            columns: ["file_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_files"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "print_jobs_file_id_fkey"
+            columns: ["file_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_subject_images"
+            referencedColumns: ["file_id"]
+          },
+          {
+            foreignKeyName: "print_jobs_requested_by_staff_id_fkey"
+            columns: ["requested_by_staff_id"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "print_jobs_requested_by_staff_id_fkey"
+            columns: ["requested_by_staff_id"]
+            isOneToOne: false
+            referencedRelation: "vmarketing_staff_profiles"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "print_jobs_requested_by_staff_id_fkey"
+            columns: ["requested_by_staff_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_pay_tier_profile"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "print_jobs_requested_by_staff_id_fkey"
+            columns: ["requested_by_staff_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_profile"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       projects: {
         Row: {
           completed_at: string | null
@@ -28418,6 +28580,105 @@ export type Database = {
         }
         Relationships: []
       }
+      vtutor_print_jobs: {
+        Row: {
+          completed_at: string | null
+          copies: number | null
+          created_at: string | null
+          cups_job_id: string | null
+          error: string | null
+          file_id: string | null
+          filename: string | null
+          id: string | null
+          requested_by_staff_id: string | null
+          status: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          completed_at?: string | null
+          copies?: number | null
+          created_at?: string | null
+          cups_job_id?: string | null
+          error?: string | null
+          file_id?: string | null
+          filename?: string | null
+          id?: string | null
+          requested_by_staff_id?: string | null
+          status?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          completed_at?: string | null
+          copies?: number | null
+          created_at?: string | null
+          cups_job_id?: string | null
+          error?: string | null
+          file_id?: string | null
+          filename?: string | null
+          id?: string | null
+          requested_by_staff_id?: string | null
+          status?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "print_jobs_file_id_fkey"
+            columns: ["file_id"]
+            isOneToOne: false
+            referencedRelation: "files"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "print_jobs_file_id_fkey"
+            columns: ["file_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_subject_images"
+            referencedColumns: ["file_id"]
+          },
+          {
+            foreignKeyName: "print_jobs_file_id_fkey"
+            columns: ["file_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_files"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "print_jobs_file_id_fkey"
+            columns: ["file_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_subject_images"
+            referencedColumns: ["file_id"]
+          },
+          {
+            foreignKeyName: "print_jobs_requested_by_staff_id_fkey"
+            columns: ["requested_by_staff_id"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "print_jobs_requested_by_staff_id_fkey"
+            columns: ["requested_by_staff_id"]
+            isOneToOne: false
+            referencedRelation: "vmarketing_staff_profiles"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "print_jobs_requested_by_staff_id_fkey"
+            columns: ["requested_by_staff_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_pay_tier_profile"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "print_jobs_requested_by_staff_id_fkey"
+            columns: ["requested_by_staff_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_profile"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       vtutor_profile: {
         Row: {
           availability_friday: boolean | null
@@ -35102,6 +35363,10 @@ export type Database = {
         Args: { p_connector_id: string; p_limit?: number }
         Returns: Json[]
       }
+      claim_print_jobs: {
+        Args: { p_connector_id: string; p_limit?: number }
+        Returns: Json[]
+      }
       claim_ucat_lifecycle_email: {
         Args: {
           p_campaign_key: string
@@ -35201,6 +35466,42 @@ export type Database = {
         SetofOptions: {
           from: "*"
           to: "imessage_commands"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      complete_print_job: {
+        Args: {
+          p_connector_id: string
+          p_error?: string
+          p_job_id: string
+          p_result?: Json
+          p_status: string
+        }
+        Returns: {
+          attempts: number
+          available_at: string
+          bucket: string
+          claimed_at: string | null
+          claimed_by: string | null
+          completed_at: string | null
+          copies: number
+          created_at: string
+          cups_job_id: string | null
+          error: string | null
+          file_id: string
+          filename: string
+          id: string
+          max_attempts: number
+          requested_by_staff_id: string
+          result: Json
+          status: string
+          storage_path: string
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "print_jobs"
           isOneToOne: true
           isSetofReturn: false
         }
@@ -35420,6 +35721,36 @@ export type Database = {
         SetofOptions: {
           from: "*"
           to: "imessage_commands"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      enqueue_print_job: {
+        Args: { p_copies?: number; p_file_id: string }
+        Returns: {
+          attempts: number
+          available_at: string
+          bucket: string
+          claimed_at: string | null
+          claimed_by: string | null
+          completed_at: string | null
+          copies: number
+          created_at: string
+          cups_job_id: string | null
+          error: string | null
+          file_id: string
+          filename: string
+          id: string
+          max_attempts: number
+          requested_by_staff_id: string
+          result: Json
+          status: string
+          storage_path: string
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "print_jobs"
           isOneToOne: true
           isSetofReturn: false
         }
@@ -35761,6 +36092,35 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      heartbeat_print_connector: {
+        Args: {
+          p_app_version?: string
+          p_capabilities?: Json
+          p_connector_id: string
+          p_host_label?: string
+          p_last_error_code?: string
+          p_metrics?: Json
+          p_status: string
+        }
+        Returns: {
+          app_version: string | null
+          capabilities: Json
+          connector_id: string
+          created_at: string
+          host_label: string | null
+          last_error_code: string | null
+          last_heartbeat_at: string
+          metrics: Json
+          status: string
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "print_connector_state"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       imessage_connector_wake_topic: { Args: never; Returns: string }
       imessage_is_destructive: {
         Args: { p_command_type: string }
@@ -35791,6 +36151,11 @@ export type Database = {
       is_adminstaff_active: { Args: never; Returns: boolean }
       is_notes_folder_tutor_documentation_ancestor: {
         Args: { folder_id: string }
+        Returns: boolean
+      }
+      is_office_print_window_open: { Args: never; Returns: boolean }
+      is_print_connector_online: {
+        Args: { p_stale_after?: string }
         Returns: boolean
       }
       is_staff: { Args: never; Returns: boolean }
