@@ -186,6 +186,20 @@
 - **User interface preference** — A user-owned, app-scoped choice that changes how a Product app is presented or operated without changing authorization, billing, learning progress, communication consent, or other domain outcomes. Preferences may follow the same authenticated user across devices while remaining independently typed for each Product app.
   _Avoid_: User setting, profile field, domain configuration
 
+## Office printing
+
+- **Office print** — Sending a staff-selected file from admin-web or tutor-web to the physical office printer (FUJ) via the Mac Mini print bridge, as distinct from the browser’s local print dialog.
+  _Avoid_: Browser print, window.print, local print
+
+- **Print job** — One durable request to office-print a specific file, with lifecycle from queued through a terminal outcome on the print bridge.
+  _Avoid_: Print command, CUPS job (unless referring to the printer subsystem’s own id), print request
+
+- **Print bridge** — The always-on Mac Mini service that pulls print jobs from Supabase and submits them to the local CUPS queue for FUJ.
+  _Avoid_: Print server, CUPS share, imessage-bridge
+
+- **Office print window** — The time range during which tutors are allowed to create print jobs: any ACTIVE `ADMIN_SHIFT` session overlapping now. Admins are not limited by this window; closing the window does not cancel in-flight jobs.
+  _Avoid_: Opening hours, centre open flag, AltiTutor open (unless explicitly equated in a decision)
+
 ## Subject resources
 
 - **Form** — A staff-defined set of questions that can collect structured responses from students, staff, parents, or public respondents. A form may be used for surveys, feedback, check-ins, unenrolment, discontinuation, or unsubscribe flows; those are form purposes, not separate product concepts.
