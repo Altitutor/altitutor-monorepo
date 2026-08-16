@@ -171,6 +171,40 @@ export function renderTransactionalEmail(
           }`,
       });
 
+    case "public_interest_interview_training_waitlist_received":
+      return render({
+        row,
+        sender: "founder",
+        subject: "You’re on the Altitutor interview training waitlist",
+        previewText:
+          "We will contact you when medical interview course places are released.",
+        heading: "You’re on the waitlist",
+        bodyHtml: paragraph(`Hi ${name},`) +
+          paragraph(
+            "Thanks for registering your interest in Altitutor medical interview preparation. We will contact you when course places are released as university offers come out.",
+          ) +
+          renderUcatEmailPanel(
+            "Joining the waitlist is not a booking and does not guarantee a place. In the meantime, you can use Altitutor UCAT Free to keep preparing.",
+            "cream",
+          ) +
+          renderUcatEmailButton(
+            buildUcatEmailActionUrl({
+              path: "/signup",
+              campaign: row.template_key,
+              content: "start_free",
+            }),
+            "Start preparing free",
+          ),
+        text:
+          `Hi ${name},\n\nThanks for registering your interest in Altitutor medical interview preparation. We will contact you when course places are released as university offers come out.\n\nJoining the waitlist is not a booking and does not guarantee a place.\n\nStart preparing free: ${
+            buildUcatEmailActionUrl({
+              path: "/signup",
+              campaign: row.template_key,
+              content: "start_free",
+            })
+          }`,
+      });
+
     case "referral_gift_received": {
       const giftDuration = duration(payload);
       const referrer = value(payload, "referrer_name") || "A friend";

@@ -15,6 +15,8 @@ import { MagneticButton } from "./magnetic-button";
 import { UcatInterestDialog } from "./ucat-interest-dialog";
 import {
   UCAT_SECTION_EYEBROW_CLASS,
+  UCAT_PLAN_BADGE_LIGHT_CLASS,
+  UCAT_PLAN_BADGE_DARK_CLASS,
   UCAT_SECTION_PADDING_CLASS,
   UCAT_SECTION_DESCRIPTION_CLASS,
   UCAT_BODY_DESCRIPTION_CLASS,
@@ -93,7 +95,7 @@ function CheckItem({
 }) {
   return (
     <li
-      className={`flex items-start gap-2.5 ${dark ? "text-marketing-accent" : "text-marketing-primary"}`}
+      className={`flex items-start gap-2.5 ${dark ? "text-marketing-cream/72" : "text-marketing-primary"}`}
     >
       <Check className="mt-0.5 size-4 shrink-0" aria-hidden />
       <span
@@ -247,11 +249,11 @@ export function UcatLandingPricing() {
         <div className="mt-10 grid gap-6 lg:grid-cols-2">
           <article className="flex flex-col justify-between rounded-[2.25rem] border border-marketing-charcoal/10 bg-white p-7 shadow-sm sm:p-10">
             <div>
-              <p
-                className={`text-xs font-semibold uppercase tracking-[0.15em] text-marketing-primary/55 ${typo.dataMono}`}
+              <span
+                className={`${UCAT_PLAN_BADGE_LIGHT_CLASS} ${typo.dataMono}`}
               >
                 Altitutor UCAT Free
-              </p>
+              </span>
               <h3
                 className={`mt-4 ${UCAT_CARD_TITLE_CLASS} ${typo.headingSans}`}
               >
@@ -306,11 +308,11 @@ export function UcatLandingPricing() {
           <article className="relative flex flex-col justify-between overflow-hidden rounded-[2.25rem] bg-marketing-primary p-7 text-marketing-cream shadow-2xl sm:p-10">
             <div className="absolute -right-20 -top-20 h-60 w-60 rounded-full bg-marketing-accent/10 blur-[60px]" />
             <div className="relative">
-              <p
-                className={`text-xs font-semibold uppercase tracking-[0.15em] text-marketing-accent ${typo.dataMono}`}
+              <span
+                className={`${UCAT_PLAN_BADGE_DARK_CLASS} ${typo.dataMono}`}
               >
                 Altitutor UCAT Unlimited
-              </p>
+              </span>
               <h3 className={`mt-4 ${UCAT_CARD_TITLE_DARK_CLASS} ${typo.headingSans}`}>
                 Practice without waiting.
               </h3>
@@ -322,7 +324,7 @@ export function UcatLandingPricing() {
               </p>
               {(config?.trialDays ?? 0) > 0 ? (
                 <p
-                  className={`mt-5 inline-flex rounded-full bg-white/10 px-3 py-1.5 text-sm font-semibold text-marketing-accent ${typo.secondarySans}`}
+                  className={`mt-5 inline-flex rounded-full bg-white/10 px-3 py-1.5 text-sm font-semibold text-marketing-cream ${typo.secondarySans}`}
                 >
                   {config?.trialDays}-day Unlimited trial for eligible new
                   students
@@ -337,7 +339,7 @@ export function UcatLandingPricing() {
               ) : price ? (
                 <div className="mt-7">
                   <div className="flex flex-wrap items-end gap-x-2 gap-y-1">
-                    <span className={`text-5xl font-bold ${typo.headingSans}`}>
+                    <span className={`text-5xl font-bold text-marketing-cream ${typo.headingSans}`}>
                       {formatMoney(price.idealWeeklyCents)}
                     </span>
                     <span

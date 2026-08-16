@@ -23,7 +23,7 @@ export function UcatLandingNavbar() {
       aria-label="Altitutor UCAT"
       className={`fixed left-1/2 top-4 z-50 flex h-16 w-[calc(100%-2rem)] max-w-6xl -translate-x-1/2 items-center justify-between rounded-full px-4 transition-[background-color,border-color,box-shadow,backdrop-filter,color] duration-500 sm:top-6 sm:px-6 lg:grid lg:grid-cols-[1fr_auto_1fr] lg:justify-normal ${
         scrolled
-          ? "border border-black/5 bg-marketing-cream/90 text-marketing-charcoal shadow-[0_8px_32px_rgba(0,0,0,0.08)] backdrop-blur-xl"
+          ? "border border-white/10 bg-marketing-charcoal/90 text-marketing-cream shadow-[0_8px_32px_rgba(0,0,0,0.24)] backdrop-blur-xl"
           : "border border-transparent bg-transparent text-marketing-charcoal"
       }`}
     >
@@ -65,7 +65,9 @@ export function UcatLandingNavbar() {
         <AnalyticsLink
           href={PRODUCT_LINKS.ucatLogin}
           analytics={{ product: "ucat", placement: "navbar", action: "login" }}
-          className="rounded-full px-3 py-2 text-sm font-medium transition-colors hover:bg-black/5 sm:px-4"
+          className={`rounded-full px-3 py-2 text-sm font-medium transition-colors sm:px-4 ${
+            scrolled ? "hover:bg-white/10" : "hover:bg-black/5"
+          }`}
         >
           Sign in
         </AnalyticsLink>

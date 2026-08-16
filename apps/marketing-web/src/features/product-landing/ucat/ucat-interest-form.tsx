@@ -14,16 +14,53 @@ import { ArrowRight, CheckCircle2, Loader2 } from "lucide-react";
 import { AnalyticsLink } from "../analytics-link";
 import { PRODUCT_LINKS } from "@/lib/site";
 import { MagneticButton } from "./magnetic-button";
+import {
+  type UcatInterestKind,
+  isSupportedAccessKind,
+} from "./ucat-interest-kind";
 
 const { typography: typo } = MARKETING_TOKENS;
 
 const supportedAccessFormHeightClass = "min-h-[32rem]";
 const waitlistFormHeightClass = "min-h-[24rem]";
 
-function formHeightClass(kind: "supported_access" | "online_tutoring_waitlist") {
-  return kind === "supported_access"
+function formHeightClass(kind: UcatInterestKind) {
+  return isSupportedAccessKind(kind)
     ? supportedAccessFormHeightClass
     : waitlistFormHeightClass;
+}
+
+function interestCopy(kind: UcatInterestKind) {
+  if (isSupportedAccessKind(kind)) {
+    return {
+      successTitle: "Application received",
+      successBody:
+        "Thank you. The Altitutor team will review your application and contact you if supported access is suitable.",
+      successPlacement: "supported_access_success" as const,
+      formLabel: "Supported access application",
+      submitLabel: "Submit application",
+    };
+  }
+
+  if (kind === "interview_training_waitlist") {
+    return {
+      successTitle: "You are on the waitlist",
+      successBody:
+        "Thank you. We will contact you when medical interview course places are released.",
+      successPlacement: "interview_waitlist_success" as const,
+      formLabel: "Interview training waitlist",
+      submitLabel: "Join the waitlist",
+    };
+  }
+
+  return {
+    successTitle: "You are on the waitlist",
+    successBody:
+      "Thank you. We will contact you when online tutoring places become available.",
+    successPlacement: "tutoring_waitlist_success" as const,
+    formLabel: "Online tutoring waitlist",
+    submitLabel: "Join the waitlist",
+  };
 }
 
 const phoneInputClassName = clsx(
@@ -37,13 +74,10 @@ const phoneCountryClassName =
 const fieldClass =
   "mt-1.5 block w-full rounded-xl border border-marketing-charcoal/12 bg-white px-4 py-3 text-sm text-marketing-charcoal outline-none transition focus:border-marketing-primary focus:ring-2 focus:ring-marketing-primary/12";
 
-function InterestFormSuccess({
-  kind,
-}: {
-  kind: "supported_access" | "online_tutoring_waitlist";
-}) {
+function InterestFormSuccess({ kind }: { kind: UcatInterestKind }) {
   const reduceMotion = useReducedMotion();
-  const isSupportedAccess = kind === "supported_access";
+  const copy = interestCopy(kind);
+  const isSupportedAccess = isSupportedAccessKind(kind);
 
   return (
     <div
@@ -78,7 +112,7 @@ function InterestFormSuccess({
         transition={reduceMotion ? { duration: 0 } : { delay: 0.18, duration: 0.35 }}
         className={`mt-6 text-2xl font-semibold tracking-tight text-marketing-charcoal ${typo.headingSans}`}
       >
-        {isSupportedAccess ? "Application received" : "You are on the waitlist"}
+        {copy.successTitle}
       </motion.h4>
 
       <motion.p
@@ -87,9 +121,7 @@ function InterestFormSuccess({
         transition={reduceMotion ? { duration: 0 } : { delay: 0.26, duration: 0.35 }}
         className={`mt-3 max-w-sm ${UCAT_BODY_DESCRIPTION_CLASS} ${typo.secondarySans}`}
       >
-        {isSupportedAccess
-          ? "Thank you. The Altitutor team will review your application and contact you if supported access is suitable."
-          : "Thank you. We will contact you when online tutoring places become available."}
+        {copy.successBody}
       </motion.p>
 
       <motion.div
@@ -109,9 +141,7 @@ function InterestFormSuccess({
           href={PRODUCT_LINKS.ucatSignup}
           analytics={{
             product: "ucat",
-            placement: isSupportedAccess
-              ? "supported_access_success"
-              : "tutoring_waitlist_success",
+            placement: copy.successPlacement,
             action: "start_free",
           }}
           className="inline-flex w-full"
@@ -125,17 +155,14 @@ function InterestFormSuccess({
   );
 }
 
-export function UcatInterestForm({
-  kind,
-}: {
-  kind: "supported_access" | "online_tutoring_waitlist";
-}) {
+export function UcatInterestForm({ kind }: { kind: UcatInterestKind }) {
   const startedAt = useRef(Date.now());
   const [state, setState] = useState<"idle" | "submitting" | "success" | "error">("idle");
   const [message, setMessage] = useState("");
   const [phone, setPhone] = useState("");
   const [phoneError, setPhoneError] = useState<string | null>(null);
-  const isSupportedAccess = kind === "supported_access";
+  const copy = interestCopy(kind);
+  const isSupportedAccess = isSupportedAccessKind(kind);
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -207,9 +234,7 @@ export function UcatInterestForm({
     <form
       onSubmit={submit}
       className={`grid ${formHeightClass(kind)} content-start gap-4`}
-      aria-label={
-        isSupportedAccess ? "Supported access application" : "Online tutoring waitlist"
-      }
+      aria-label={copy.formLabel}
     >
       <div className="grid gap-4 sm:grid-cols-2">
         <label className={`text-sm font-medium text-marketing-charcoal ${typo.secondarySans}`}>
@@ -285,8 +310,7 @@ export function UcatInterestForm({
       </label>
       <p className={`${UCAT_SUPPORTING_TEXT_CLASS} ${typo.secondarySans}`}>
         By submitting, you are asking Altitutor to contact you about this{" "}
-        {isSupportedAccess ? "application" : "waitlist"}. This does not subscribe you to general
-        marketing emails.
+        {isSupportedAccess ? "application" : "waitlist"}.
       </p>
       {state === "error" ? (
         <p role="alert" className="text-sm text-red-700">
@@ -306,11 +330,7 @@ export function UcatInterestForm({
           ) : (
             <ArrowRight className="size-4" aria-hidden />
           )}
-          {state === "submitting"
-            ? "Sending…"
-            : isSupportedAccess
-              ? "Submit application"
-              : "Join the waitlist"}
+          {state === "submitting" ? "Sending…" : copy.submitLabel}
         </MagneticButton>
       </button>
     </form>

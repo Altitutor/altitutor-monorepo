@@ -170,6 +170,12 @@ const transactionalTemplates = [
     EMAIL_SETTINGS.required,
   ],
   [
+    "public_interest_interview_training_waitlist_received",
+    "Interview training waitlist received",
+    "Immediately after someone joins the medical interview training waitlist.",
+    EMAIL_SETTINGS.required,
+  ],
+  [
     "referral_gift_received",
     "Friend received a gift",
     "When a referral gift is created for the invited student, before they accept it.",

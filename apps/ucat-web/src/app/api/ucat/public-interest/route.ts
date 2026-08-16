@@ -2,7 +2,10 @@ import { createClient } from "@supabase/supabase-js";
 import { NextResponse, type NextRequest } from "next/server";
 import type { Database } from "@altitutor/shared";
 
-type SubmissionKind = "supported_access" | "online_tutoring_waitlist";
+type SubmissionKind =
+  | "supported_access"
+  | "online_tutoring_waitlist"
+  | "interview_training_waitlist";
 
 type SubmissionBody = {
   kind?: unknown;
@@ -45,7 +48,15 @@ export async function POST(request: NextRequest) {
   const phone = textField(body.phone, 40);
   const reason = textField(body.reason, 3000);
 
-  if (!(["supported_access", "online_tutoring_waitlist"] as const).includes(kind)) {
+  if (
+    !(
+      [
+        "supported_access",
+        "online_tutoring_waitlist",
+        "interview_training_waitlist",
+      ] as const
+    ).includes(kind)
+  ) {
     return NextResponse.json({ error: "Unknown form type." }, { status: 400 });
   }
   if (name.length < 2 || phone.length < 6 || !validEmail(email)) {

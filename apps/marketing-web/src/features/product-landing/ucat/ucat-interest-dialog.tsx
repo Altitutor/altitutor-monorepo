@@ -13,16 +13,18 @@ import { MARKETING_TOKENS } from "@altitutor/shared";
 import { UCAT_BODY_DESCRIPTION_CLASS } from "./ucat-landing-section-eyebrow";
 import { ArrowRight } from "lucide-react";
 import { UcatInterestForm } from "./ucat-interest-form";
+import type { UcatInterestKind } from "./ucat-interest-kind";
 
 const { typography: typo } = MARKETING_TOKENS;
 const BOTTOM_SHEET_DISMISS_DRAG_PX = 96;
 
 type UcatInterestDialogProps = {
-  kind: "supported_access" | "online_tutoring_waitlist";
+  kind: UcatInterestKind;
   triggerLabel: string;
   title: string;
   description: string;
   triggerClassName?: string;
+  hideTriggerIcon?: boolean;
 };
 
 export function UcatInterestDialog({
@@ -31,6 +33,7 @@ export function UcatInterestDialog({
   title,
   description,
   triggerClassName,
+  hideTriggerIcon = false,
 }: UcatInterestDialogProps) {
   const [open, setOpen] = useState(false);
 
@@ -85,7 +88,10 @@ export function UcatInterestDialog({
             "inline-flex items-center justify-center gap-2 rounded-full bg-marketing-primary px-6 py-3.5 text-sm font-semibold text-white transition hover:bg-marketing-charcoal"
           }
         >
-          {triggerLabel} <ArrowRight className="size-4" aria-hidden />
+          {triggerLabel}
+          {hideTriggerIcon ? null : (
+            <ArrowRight className="size-4" aria-hidden />
+          )}
         </button>
       </DialogTrigger>
       <DialogContent
