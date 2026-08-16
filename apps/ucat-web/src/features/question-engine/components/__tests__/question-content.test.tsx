@@ -9,7 +9,7 @@ jest.mock("@/features/question-engine/components/rich-content-block", () => ({
 }));
 
 const question: QuestionItem = {
-  id: "syllogism-1",
+  id: "placement-1",
   index: 0,
   questionSetId: "set-1",
   stemId: "stem-1",
@@ -17,14 +17,15 @@ const question: QuestionItem = {
   sectionDisplayColumns: 1,
   stemText: "Stem",
   questionText: "Which conclusions follow?",
-  questionType: "syllogism",
+  responseType: "drag_and_drop",
+    answerScheme: "decision_making_binary_placement",
   options: [
     { id: "statement-1", index: 0, text: "Statement one" },
     { id: "statement-2", index: 1, text: "Statement two" },
   ],
 };
 
-describe("QuestionContent syllogism restoration", () => {
+describe("QuestionContent placement restoration", () => {
   it("shows a snapshot that arrives after resume hydration", () => {
     const { rerender } = render(
       <QuestionContent
@@ -55,12 +56,12 @@ describe("QuestionContent syllogism restoration", () => {
   });
 
   it("assigns a Yes token with touch pointer dragging", () => {
-    const onChangeSyllogismSnapshot = jest.fn();
+    const onChangePlacementSnapshot = jest.fn();
     render(
       <QuestionContent
         question={question}
         onSelectOption={() => undefined}
-        onChangePlacementSnapshot={onChangeSyllogismSnapshot}
+        onChangePlacementSnapshot={onChangePlacementSnapshot}
       />,
     );
 
@@ -82,7 +83,7 @@ describe("QuestionContent syllogism restoration", () => {
       clientY: 10,
     });
 
-    expect(onChangeSyllogismSnapshot).toHaveBeenLastCalledWith({
+    expect(onChangePlacementSnapshot).toHaveBeenLastCalledWith({
       "statement-1": "yes",
     });
   });
@@ -91,7 +92,6 @@ describe("QuestionContent syllogism restoration", () => {
     const mostLeastQuestion: QuestionItem = {
       ...question,
       id: "most-least",
-      questionType: "multiple_choice",
       responseType: "drag_and_drop",
       answerScheme: "situational_judgement_most_least",
       sectionDisplayColumns: 2,
@@ -167,8 +167,8 @@ describe("QuestionContent syllogism restoration", () => {
     const target = screen.getAllByLabelText("Drop Yes or No here")[0]!;
     fireEvent.drop(target, {
       dataTransfer: dataTransfer({
-        "ucat-syllogism-choice": "yes",
-        "ucat-syllogism-source": "",
+        "ucat-placement-choice": "yes",
+        "ucat-placement-source": "",
       }),
     });
 

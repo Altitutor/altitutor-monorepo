@@ -96,7 +96,7 @@ function createState(): QuestionEngineState {
     visitedQuestionIds: [],
     flaggedIds: [],
     selectedAnswers: {},
-    syllogismSnapshots: {},
+    placementSnapshots: {},
     showNavigator: false,
     showCalculator: false,
     showEndExamDialog: false,
@@ -129,7 +129,6 @@ const exam: QuestionEngineExam = {
       sectionDisplayColumns: 1,
       stemText: "Stem",
       questionText: "Question",
-      questionType: "multiple_choice",
       responseType: "multiple_choice",
       answerScheme: "single_choice",
       options: [
@@ -162,7 +161,7 @@ function createAttempt(
       visitedQuestionIds: state.visitedQuestionIds,
       flaggedIds: state.flaggedIds,
       selectedAnswers: state.selectedAnswers,
-      syllogismSnapshots: state.syllogismSnapshots,
+      placementSnapshots: state.placementSnapshots,
       reviewFilter: state.reviewFilter,
       reviewFilterIndex: state.reviewFilterIndex,
       reviewFilterIndicesSnapshot: state.reviewFilterIndicesSnapshot,
@@ -172,6 +171,28 @@ function createAttempt(
     setAttemptIdsBySetId: { "set-1": "set-attempt-1" },
     practiceSessionId: null,
     wasTimed: true,
+  };
+}
+
+function createPracticeAttempt(
+  state: QuestionEngineState = {
+    ...createState(),
+    phase: "question",
+    timerStartedAt: null,
+    visitedQuestionIds: ["question-1"],
+  },
+): ActiveExamAttempt {
+  return {
+    ...createAttempt(state, null),
+    kind: "practice",
+    attemptId: "practice-session-1",
+    resourceId: "practice-session-1",
+    label: "Practice",
+    resumeHref: "/exam",
+    resultsHref: "/progress/practice-sessions/practice-session-1",
+    setAttemptIdsBySetId: {},
+    practiceSessionId: "practice-session-1",
+    wasTimed: false,
   };
 }
 
@@ -578,6 +599,91 @@ describe("useExamAttemptLifecycle request races", () => {
 
     unmount();
   });
+
+  it("routes back to practice when a later snapshot sync reports the session ended", async () => {
+    mockBeginExamAttempt.mockResolvedValue({
+      attempt: createPracticeAttempt(),
+      resumed: false,
+    });
+    const pendingSync = deferred<{
+      currentSegmentEndsAt: string | null;
+    }>();
+    mockSyncExamAttempt.mockReturnValue(pendingSync.promise);
+
+    const { result, unmount } = renderHook(usePracticeLifecycleHarness);
+
+    await waitFor(() =>
+      expect(result.current.lifecycle.attemptId).toBe("practice-session-1"),
+    );
+
+    act(() => {
+      result.current.setState((current) => ({
+        ...current,
+        selectedAnswers: { "question-1": "option-1" },
+      }));
+    });
+
+    await waitFor(() => expect(mockSyncExamAttempt).toHaveBeenCalled());
+
+    await act(async () => {
+      pendingSync.reject(new PracticeSessionEndedError());
+      await pendingSync.promise.catch(() => undefined);
+    });
+
+    await waitFor(() =>
+      expect(mockToast).toHaveBeenCalledWith({
+        title: "Practice session ended",
+        description:
+          "This session ended in another tab or device. Start a new session to continue practising.",
+      }),
+    );
+    expect(mockReplace).toHaveBeenCalledWith("/practice");
+
+    unmount();
+  });
+
+  it("does not steal navigation when a late sync fails after practice reaches results", async () => {
+    mockBeginExamAttempt.mockResolvedValue({
+      attempt: createPracticeAttempt(),
+      resumed: false,
+    });
+    const pendingSync = deferred<{
+      currentSegmentEndsAt: string | null;
+    }>();
+    mockSyncExamAttempt.mockReturnValue(pendingSync.promise);
+
+    const { result, unmount } = renderHook(usePracticeLifecycleHarness);
+
+    await waitFor(() =>
+      expect(result.current.lifecycle.attemptId).toBe("practice-session-1"),
+    );
+
+    act(() => {
+      result.current.setState((current) => ({
+        ...current,
+        selectedAnswers: { "question-1": "option-1" },
+      }));
+    });
+
+    await waitFor(() => expect(mockSyncExamAttempt).toHaveBeenCalled());
+
+    act(() => {
+      result.current.setState((current) => ({
+        ...current,
+        phase: "practiceComplete",
+      }));
+    });
+
+    await act(async () => {
+      pendingSync.reject(new PracticeSessionEndedError());
+      await pendingSync.promise.catch(() => undefined);
+    });
+
+    expect(mockToast).not.toHaveBeenCalled();
+    expect(mockReplace).not.toHaveBeenCalledWith("/practice");
+
+    unmount();
+  });
 });
 
 describe("getExamSnapshotSyncDelay", () => {
@@ -631,8 +737,8 @@ describe("sanitizeEngineSnapshotForExam", () => {
       "stale-question": "stale-option",
       "question-1": "option-1",
     };
-    stale.syllogismSnapshots = {
-      "stale-question": { "stale-option": true },
+    stale.placementSnapshots = {
+      "stale-question": { "stale-option": "yes" },
     };
 
     expect(sanitizeEngineSnapshotForExam(exam, stale)).toMatchObject({
@@ -641,7 +747,7 @@ describe("sanitizeEngineSnapshotForExam", () => {
       visitedQuestionIds: ["question-1"],
       flaggedIds: [],
       selectedAnswers: { "question-1": "option-1" },
-      syllogismSnapshots: {},
+      placementSnapshots: {},
     });
   });
 

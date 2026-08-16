@@ -1,13 +1,8 @@
 type ExplanationResponseType = 'multiple_choice' | 'drag_and_drop'
 
-/** @deprecated Prefer responseType. Legacy question_type maps syllogism → drag_and_drop. */
-type ExplanationQuestionType = 'multiple_choice' | 'syllogism'
-
 type ExplanationPolicyParams = {
   sectionName?: string | null
   responseType?: ExplanationResponseType | null
-  /** @deprecated Prefer responseType. */
-  questionType?: ExplanationQuestionType | null
 }
 
 const RESPONSE_TYPE_RULES: Record<ExplanationResponseType, string> = {
@@ -44,10 +39,7 @@ function sectionRule(sectionName: string | null | undefined): string | null {
 }
 
 function resolveResponseType(params: ExplanationPolicyParams): ExplanationResponseType | null {
-  if (params.responseType) return params.responseType
-  if (params.questionType === 'syllogism') return 'drag_and_drop'
-  if (params.questionType === 'multiple_choice') return 'multiple_choice'
-  return null
+  return params.responseType ?? null
 }
 
 /**

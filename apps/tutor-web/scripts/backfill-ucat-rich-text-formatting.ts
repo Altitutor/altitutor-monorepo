@@ -208,7 +208,7 @@ async function getDryRunAggregate(
   const questionsResult = await client
     .from("ucat_questions")
     .select(
-      "id,question_text,answer_explanation,index,difficulty,time_burden_seconds,question_type,source_channel,ai_generation_metadata",
+      "id,question_text,answer_explanation,index,difficulty,time_burden_seconds,response_type,answer_scheme,source_channel,ai_generation_metadata",
     )
     .eq("question_stem_id", stemId)
     .is("deleted_at", null)
@@ -224,7 +224,7 @@ async function getDryRunAggregate(
           client
             .from("question_answer_options")
             .select(
-              "id,question_id,answer_text,answer_explanation,index,is_answer",
+              "id,question_id,answer_text,answer_explanation,index,answer_key_value",
             )
             .in("question_id", questionIds)
             .is("deleted_at", null)

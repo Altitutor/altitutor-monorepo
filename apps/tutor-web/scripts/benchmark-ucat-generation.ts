@@ -33,12 +33,13 @@ type SourceStem = {
   questions: Array<{
     question_text?: Json | null
     answer_explanation?: Json | null
-    question_type?: 'multiple_choice' | 'syllogism'
+    response_type?: 'multiple_choice' | 'drag_and_drop'
+    answer_scheme?: 'single_choice' | 'situational_judgement_rating' | 'decision_making_binary_placement' | 'situational_judgement_most_least'
     tags?: Array<{ name?: string | null }> | null
     answer_options?: Array<{
       answer_text?: Json | null
       answer_explanation?: Json | null
-      is_answer?: boolean
+      answer_key_value?: 'correct' | 'yes' | 'no' | 'most' | 'least' | null
     }>
   }> | null
 }
@@ -72,15 +73,16 @@ function compactStem(stem: SourceStem): Record<string, unknown> {
     stemText: extractText(stem.stem_text).slice(0, 2400),
     questions: (stem.questions ?? []).slice(0, 4).map((question) => ({
       questionText: extractText(question.question_text).slice(0, 220),
-      questionType: question.question_type ?? 'multiple_choice',
+      responseType: question.response_type,
+      answerScheme: question.answer_scheme,
       answerExplanation: extractText(question.answer_explanation).slice(0, 700),
       tags: (question.tags ?? []).map((tag) => tag.name).filter(Boolean),
       options: (question.answer_options ?? []).slice(0, 5).map((option) => ({
         answerText: extractText(option.answer_text).slice(0, 100),
-        ...(question.question_type === 'syllogism'
+        ...(question.answer_scheme === 'decision_making_binary_placement'
           ? { answerExplanation: extractText(option.answer_explanation).slice(0, 240) }
           : {}),
-        isAnswer: !!option.is_answer,
+        answerKeyValue: option.answer_key_value ?? null,
       })),
     })),
   }
@@ -181,7 +183,7 @@ async function main() {
   const { data: questionData, error: questionError } = sourceIds.length > 0
     ? await client
         .from('ucat_questions')
-        .select('id,question_stem_id,question_text,answer_explanation,question_type,index')
+        .select('id,question_stem_id,question_text,answer_explanation,response_type,answer_scheme,index')
         .in('question_stem_id', sourceIds)
         .is('deleted_at', null)
         .order('index')
@@ -192,7 +194,7 @@ async function main() {
   const { data: optionData, error: optionError } = questionIds.length > 0
     ? await client
         .from('question_answer_options')
-        .select('question_id,answer_text,answer_explanation,is_answer,index')
+        .select('question_id,answer_text,answer_explanation,answer_key_value,index')
         .in('question_id', questionIds)
         .is('deleted_at', null)
         .order('index')
@@ -208,13 +210,14 @@ async function main() {
       .map((question) => ({
         question_text: question.question_text,
         answer_explanation: question.answer_explanation,
-        question_type: question.question_type,
+        response_type: question.response_type,
+        answer_scheme: question.answer_scheme,
         answer_options: (optionData ?? [])
           .filter((option) => option.question_id === question.id)
           .map((option) => ({
             answer_text: option.answer_text,
             answer_explanation: option.answer_explanation,
-            is_answer: option.is_answer,
+            answer_key_value: option.answer_key_value,
           })),
       })),
   }))

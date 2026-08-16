@@ -10,7 +10,6 @@ describe("buildFinalAnswersFromEngineSnapshot", () => {
         {
           id: "answered",
           questionSetId: "set-1",
-          questionType: "multiple_choice",
           responseType: "multiple_choice",
           answerScheme: "single_choice",
           options: [
@@ -21,7 +20,6 @@ describe("buildFinalAnswersFromEngineSnapshot", () => {
         {
           id: "blank",
           questionSetId: "set-1",
-          questionType: "multiple_choice",
           responseType: "multiple_choice",
           answerScheme: "single_choice",
           options: [
@@ -33,7 +31,7 @@ describe("buildFinalAnswersFromEngineSnapshot", () => {
     } as unknown as QuestionEngineExam;
     const state = {
       selectedAnswers: { answered: "option-1" },
-      syllogismSnapshots: {},
+      placementSnapshots: {},
       flaggedIds: [],
       visitedQuestionIds: ["answered"],
     } as unknown as ExamEngineSnapshot;
@@ -41,12 +39,10 @@ describe("buildFinalAnswersFromEngineSnapshot", () => {
     expect(buildFinalAnswersFromEngineSnapshot(exam, state)).toEqual([
       expect.objectContaining({
         questionId: "answered",
-        questionAnswerOptionId: "option-1",
         answerSnapshot: expect.objectContaining({ type: "ucat_response_v1" }),
       }),
       expect.objectContaining({
         questionId: "blank",
-        questionAnswerOptionId: null,
         answerSnapshot: expect.objectContaining({ type: "ucat_response_v1" }),
       }),
     ]);
@@ -61,7 +57,6 @@ describe("buildFinalAnswersFromEngineSnapshot", () => {
         {
           id: "syllogism",
           questionSetId: "set-1",
-          questionType: "syllogism",
           responseType: "drag_and_drop",
           answerScheme: "decision_making_binary_placement",
           options: [
@@ -76,8 +71,8 @@ describe("buildFinalAnswersFromEngineSnapshot", () => {
     } as unknown as QuestionEngineExam;
     const state = {
       selectedAnswers: {},
-      syllogismSnapshots: {
-        syllogism: { "option-1": true, "option-2": false },
+      placementSnapshots: {
+        syllogism: { "option-1": "yes", "option-2": "no" },
       },
       flaggedIds: ["syllogism"],
       visitedQuestionIds: ["syllogism"],
@@ -87,7 +82,6 @@ describe("buildFinalAnswersFromEngineSnapshot", () => {
       {
         questionSetId: "set-1",
         questionId: "syllogism",
-        questionAnswerOptionId: null,
         answerSnapshot: {
           type: "ucat_response_v1",
           questionId: "syllogism",

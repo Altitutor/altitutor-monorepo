@@ -133,7 +133,7 @@ export function MockAttemptDetailPage({
     timeSpentSeconds: q.timeSpentSeconds,
     result: q.result,
     score: q.score,
-    questionType: q.questionType,
+    answerScheme: q.answerScheme,
   }));
 
   const handleSelectSet = (setIndex: number) => {

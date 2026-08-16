@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import {
   buildSocialAuthCallbackUrl,
@@ -9,6 +9,7 @@ import {
 } from "@/features/auth/lib/social-auth";
 import { cn } from "@/lib/utils";
 import { captureUcatEvent } from "@/lib/analytics/posthog";
+import { getLastSignInMethod } from "@/features/auth/lib/last-sign-in-method";
 
 function GoogleIcon() {
   return (
@@ -64,6 +65,12 @@ export function SocialAuthButtons({
     null,
   );
   const [error, setError] = useState<string | null>(null);
+  const [lastSignInMethod, setLastSignInMethod] =
+    useState<ReturnType<typeof getLastSignInMethod>>(null);
+
+  useEffect(() => {
+    setLastSignInMethod(getLastSignInMethod());
+  }, []);
 
   if (enabledProviders.length === 0) return null;
 
@@ -115,6 +122,11 @@ export function SocialAuthButtons({
           {busyProvider === provider
             ? `Opening ${PROVIDER_LABEL[provider]}…`
             : `Continue with ${PROVIDER_LABEL[provider]}`}
+          {intent === "login" && lastSignInMethod === provider ? (
+            <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[11px] font-semibold text-primary">
+              Last used
+            </span>
+          ) : null}
         </button>
       ))}
       {error ? (

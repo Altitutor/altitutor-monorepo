@@ -12,6 +12,7 @@ import {
 import { navigateAfterAuth } from "@/features/auth/lib/navigate-after-auth";
 import { captureUcatEvent } from "@/lib/analytics/posthog";
 import { pathWithReturnIntent } from "@/features/auth/lib/return-intent";
+import { rememberLastSignInMethod } from "@/features/auth/lib/last-sign-in-method";
 
 /**
  * Completes email signup/sign-in: token_hash (any browser) or PKCE code exchange (same browser).
@@ -83,12 +84,23 @@ function AuthCallbackInner() {
         });
       }
 
+      if (intent === "login" || intent === "signup") {
+        rememberLastSignInMethod(provider);
+      }
+
       const continueUrl = new URL("/auth/continue", window.location.origin);
       continueUrl.searchParams.set("intent", intent);
       continueUrl.searchParams.set("provider", provider);
       continueUrl.searchParams.set("next", next);
       navigateAfterAuth(`${continueUrl.pathname}${continueUrl.search}`);
       return true;
+    };
+
+    const continueAfterEmailAuth = () => {
+      const continueUrl = new URL("/auth/continue", window.location.origin);
+      continueUrl.searchParams.set("intent", intent);
+      continueUrl.searchParams.set("next", next);
+      navigateAfterAuth(`${continueUrl.pathname}${continueUrl.search}`);
     };
 
     void (async () => {
@@ -113,7 +125,11 @@ function AuthCallbackInner() {
                 body: JSON.stringify({ syncEmailFromAuth: true }),
               }).catch(() => undefined);
             }
-            navigateAfterAuth(next);
+            if (isRecoveryFlow || typeParam === "email_change") {
+              navigateAfterAuth(next);
+            } else {
+              continueAfterEmailAuth();
+            }
             return;
           }
           lastVerifyError = error;
@@ -130,7 +146,8 @@ function AuthCallbackInner() {
             if (isSocialAuthCallback && (await continueAfterSocialAuth())) {
               return;
             }
-            navigateAfterAuth(next);
+            if (isRecoveryFlow) navigateAfterAuth(next);
+            else continueAfterEmailAuth();
             return;
           }
           if (process.env.NODE_ENV !== "production") {
@@ -159,7 +176,11 @@ function AuthCallbackInner() {
             body: JSON.stringify({ syncEmailFromAuth: true }),
           }).catch(() => undefined);
         }
-        navigateAfterAuth(next);
+        if (isRecoveryFlow || typeParam === "email_change") {
+          navigateAfterAuth(next);
+        } else {
+          continueAfterEmailAuth();
+        }
         return;
       }
 

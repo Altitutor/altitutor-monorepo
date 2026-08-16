@@ -16,7 +16,10 @@ import {
   extractChatIdentifier,
   firstString,
   isRecord,
+  knownAppleService,
+  monotonicAppleService,
   monotonicStatus,
+  parseAppleService,
   type ParsedIMessageEvent,
   parseIMessageEvent,
 } from "../_shared/imessage.ts";
@@ -45,6 +48,7 @@ interface NormalizedMessage {
   deliveredAt: string | null;
   readAt: string | null;
   errorCode: string | null;
+  appleService: "iMessage" | "SMS" | null;
   attachments: Array<{
     storage_url: string;
     filename: string | null;
@@ -159,6 +163,10 @@ function normalizeMessage(event: ParsedIMessageEvent): NormalizedMessage {
     ),
     readAt: firstString(payload.dateRead, payload.DateRead),
     errorCode: stringOrNumber(payload.errorCode, payload.ErrorCode),
+    appleService: parseAppleService({
+      service: firstString(payload.Service, payload.service),
+      chatGuid: firstString(payload.ChatGuid, payload.chatGuid),
+    }),
     attachments,
   };
 }
@@ -265,7 +273,7 @@ async function processMessage(
   const { data: byGuid, error: guidError } = await supabase
     .from("messages")
     .select(
-      "id, status, imessage_guid, imessage_temp_guid, is_historical_import",
+      "id, status, imessage_guid, imessage_temp_guid, is_historical_import, apple_service",
     )
     .eq("imessage_guid", message.guid)
     .maybeSingle();
@@ -276,7 +284,7 @@ async function processMessage(
     const { data: byTempGuid, error: tempError } = await supabase
       .from("messages")
       .select(
-        "id, status, imessage_guid, imessage_temp_guid, is_historical_import",
+        "id, status, imessage_guid, imessage_temp_guid, is_historical_import, apple_service",
       )
       .eq("imessage_temp_guid", message.tempGuid)
       .maybeSingle();
@@ -295,6 +303,7 @@ async function processMessage(
     const nextHistorical = fromLiveWebhook
       ? false
       : existing.is_historical_import === true;
+    const currentAppleService = knownAppleService(existing.apple_service);
     const { error } = await supabase.from("messages").update({
       imessage_guid: message.guid,
       imessage_temp_guid: message.tempGuid ?? existing.imessage_temp_guid,
@@ -307,9 +316,9 @@ async function processMessage(
       delivered_at: message.deliveredAt ?? undefined,
       read_at: message.readAt ?? undefined,
       provider_error_at: status === "FAILED" ? message.date : undefined,
-      error_message: status === "FAILED" ? "iMessage delivery failed" : null,
-      provider_error_code: status === "FAILED" ? message.errorCode : null,
+      provider_error_code: status === "FAILED" ? message.errorCode : undefined,
       is_historical_import: nextHistorical,
+      apple_service: monotonicAppleService(currentAppleService, message.appleService),
     }).eq("id", messageId);
     if (error) throw error;
   } else {
@@ -342,6 +351,7 @@ async function processMessage(
         ? "iMessage delivery failed"
         : null,
       is_historical_import: isHistoricalImport,
+      apple_service: message.appleService,
     }).select("id").single();
     if (error || !data) throw error ?? new Error("Message insert failed");
     messageId = String(data.id);
@@ -502,7 +512,11 @@ async function dispatchEvent(
     case "new-message":
     case "reconciliation-message":
       return processMessage(supabase, await ownedNumber(supabase), event);
-    case "message-send-error":
+    case "message-send-error": {
+      const incomingApple = parseAppleService({
+        service: firstString(event.payload.Service, event.payload.service),
+        chatGuid: firstString(event.payload.ChatGuid, event.payload.chatGuid),
+      });
       return updateCorrelatedMessage(supabase, event, {
         status: "FAILED",
         status_updated_at: new Date().toISOString(),
@@ -515,7 +529,9 @@ async function dispatchEvent(
         error_message:
           firstString(event.payload.error, event.payload.message) ??
             "iMessage send failed",
+        ...(incomingApple ? { apple_service: incomingApple } : {}),
       });
+    }
     case "delivery":
       return processMessage(supabase, await ownedNumber(supabase), event);
     case "read": {

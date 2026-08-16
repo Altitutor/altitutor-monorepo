@@ -31,8 +31,7 @@ const snapshot = {
     questionTextPlain: 'Question',
     answerExplanation: null,
     answerExplanationPlain: '',
-    questionType: 'multiple_choice',
-    responseType: 'multiple_choice',
+     responseType: 'multiple_choice',
     answerScheme: 'single_choice',
     difficulty: null,
     timeBurdenSeconds: null,
@@ -46,7 +45,6 @@ const snapshot = {
       answerTextPlain: 'A',
       answerExplanation: null,
       answerExplanationPlain: '',
-      isAnswer: true,
       answerKeyValue: 'correct',
       images: [],
     }],
@@ -85,7 +83,6 @@ describe('verified background repair policy', () => {
             ...snapshot.questions[0].options[0],
             id: '40000000-0000-4000-8000-000000000002',
             index: 2,
-            isAnswer: false,
             answerKeyValue: 'least' as const,
           },
         ],
@@ -121,7 +118,7 @@ describe('verified background repair policy', () => {
       operation: 'insert_option',
       questionId,
       afterOptionId: optionId,
-      option: { answerText: 'B', isAnswer: false },
+      option: { answerText: 'B', answerKeyValue: null },
     }
     expect(allowed(explanationPatch, [check('missing_question_explanation')])).toBe(true)
     expect(allowed(explanationPatch, [])).toBe(false)

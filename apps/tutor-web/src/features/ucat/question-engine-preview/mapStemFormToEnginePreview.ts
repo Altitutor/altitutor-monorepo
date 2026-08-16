@@ -44,25 +44,13 @@ export function stemFormValuesToEnginePreviewQuestion(
       opt.answerText != null && typeof opt.answerText === 'object'
         ? (opt.answerText as Record<string, unknown>)
         : null,
-    isAnswer: opt.isAnswer,
-    answerKeyValue: opt.answerKeyValue ?? (opt.isAnswer ? 'correct' : null),
+    answerKeyValue: opt.answerKeyValue,
     answerExplanation: cleanRichExplanationPlain(opt.answerExplanation ?? null),
     answerExplanationJson:
       opt.answerExplanation != null && typeof opt.answerExplanation === 'object'
         ? (opt.answerExplanation as Record<string, unknown>)
         : null,
   }))
-
-  const syllogismPattern = (q as { syllogismAnswerPattern?: string | null }).syllogismAnswerPattern ?? null
-  const isSyllogism = q.questionType === 'syllogism'
-
-  const resolvedOptions =
-    isSyllogism && syllogismPattern && syllogismPattern.length === options.length
-      ? options.map((opt, index) => ({
-          ...opt,
-          isAnswer: syllogismPattern.charAt(index).toUpperCase() === 'Y',
-        }))
-      : options
 
   return {
     id: `preview-q-${questionIndex}`,
@@ -72,10 +60,9 @@ export function stemFormValuesToEnginePreviewQuestion(
     stemJson,
     questionText: proseMirrorToPlainText(q.questionText)?.trim() ?? '',
     questionJson,
-    questionType: q.questionType,
-    responseType: q.responseType ?? (q.questionType === 'syllogism' ? 'drag_and_drop' : 'multiple_choice'),
-    answerScheme: q.answerScheme ?? (q.questionType === 'syllogism' ? 'decision_making_binary_placement' : 'single_choice'),
-    options: resolvedOptions,
+    responseType: q.responseType,
+    answerScheme: q.answerScheme,
+    options,
     answerExplanation: cleanRichExplanationPlain(q.answerExplanation ?? null),
     answerExplanationJson:
       q.answerExplanation != null && typeof q.answerExplanation === 'object'

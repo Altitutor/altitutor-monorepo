@@ -16,13 +16,14 @@ type DetailRow = Database['public']['Views']['vtutor_ucat_question_stem_detail']
 export type BulkImportDuplicateDraftQuestion = {
   id?: string
   questionText: unknown
-  questionType: 'multiple_choice' | 'syllogism'
+  responseType: 'multiple_choice' | 'drag_and_drop'
+  answerScheme: 'single_choice' | 'situational_judgement_rating' | 'decision_making_binary_placement' | 'situational_judgement_most_least'
   answerExplanation?: unknown
   options: Array<{
     id?: string
     answerText: unknown
     answerExplanation?: unknown
-    isAnswer: boolean
+    answerKeyValue: 'correct' | 'yes' | 'no' | 'most' | 'least' | null
   }>
 }
 
@@ -47,14 +48,15 @@ type CatalogQuestion = {
   id: string
   index: number
   question_text: unknown
-  question_type: 'multiple_choice' | 'syllogism'
+  response_type: 'multiple_choice' | 'drag_and_drop'
+  answer_scheme: 'single_choice' | 'situational_judgement_rating' | 'decision_making_binary_placement' | 'situational_judgement_most_least'
   answer_explanation?: unknown
   answer_options: Array<{
     id: string
     index: number
     answer_text: unknown
     answer_explanation?: unknown
-    is_answer: boolean | null
+    answer_key_value: 'correct' | 'yes' | 'no' | 'most' | 'least' | null
   }>
 }
 
@@ -70,7 +72,7 @@ export type BulkImportDuplicateQuestionRef = {
   options: Array<{
     answerText: unknown
     answerExplanation?: unknown
-    isAnswer: boolean
+    answerKeyValue: 'correct' | 'yes' | 'no' | 'most' | 'least' | null
   }>
 }
 
@@ -113,6 +115,18 @@ function normalizeCatalogText(value: string): string {
 function record(value: unknown): Record<string, unknown> | null {
   return value != null && typeof value === 'object' && !Array.isArray(value)
     ? (value as Record<string, unknown>)
+    : null
+}
+
+function catalogAnswerKeyValue(
+  value: unknown,
+): CatalogQuestion['answer_options'][number]['answer_key_value'] {
+  return value === 'correct' ||
+    value === 'yes' ||
+    value === 'no' ||
+    value === 'most' ||
+    value === 'least'
+    ? value
     : null
 }
 
@@ -176,13 +190,14 @@ function catalogCompositeText(stem: BulkImportDuplicateCatalogSummary): string {
 function canonicalDraftBundle(stem: BulkImportDuplicateDraft): string {
   return JSON.stringify(
     stem.questions.map((question) => ({
-      questionType: question.questionType,
+      responseType: question.responseType,
+      answerScheme: question.answerScheme,
       questionText: canonicalDraftRichText(question.questionText),
       answerExplanation: canonicalDraftRichText(question.answerExplanation),
       options: question.options.map((option) => ({
         answerText: canonicalDraftRichText(option.answerText),
         answerExplanation: canonicalDraftRichText(option.answerExplanation),
-        isAnswer: option.isAnswer,
+        answerKeyValue: option.answerKeyValue,
       })),
     })),
   )
@@ -193,7 +208,8 @@ function canonicalCatalogBundle(stem: BulkImportDuplicateCatalogStem): string {
     [...stem.questions]
       .sort((left, right) => left.index - right.index || left.id.localeCompare(right.id))
       .map((question) => ({
-        questionType: question.question_type,
+        responseType: question.response_type,
+        answerScheme: question.answer_scheme,
         questionText: canonicalDraftRichText(question.question_text),
         answerExplanation: canonicalDraftRichText(question.answer_explanation),
         options: [...question.answer_options]
@@ -201,7 +217,7 @@ function canonicalCatalogBundle(stem: BulkImportDuplicateCatalogStem): string {
           .map((option) => ({
             answerText: canonicalDraftRichText(option.answer_text),
             answerExplanation: canonicalDraftRichText(option.answer_explanation),
-            isAnswer: Boolean(option.is_answer),
+            answerKeyValue: option.answer_key_value,
           })),
       })),
   )
@@ -225,7 +241,7 @@ function draftSide(stem: BulkImportDuplicateDraft): Extract<
       options: question.options.map((option) => ({
         answerText: option.answerText,
         answerExplanation: option.answerExplanation,
-        isAnswer: option.isAnswer,
+        answerKeyValue: option.answerKeyValue,
       })),
     })),
   }
@@ -252,7 +268,7 @@ function catalogSide(
           .map((option) => ({
             answerText: option.answer_text,
             answerExplanation: option.answer_explanation,
-            isAnswer: Boolean(option.is_answer),
+            answerKeyValue: option.answer_key_value,
           })),
       })),
   }
@@ -429,7 +445,13 @@ function catalogQuestions(value: Json | null): CatalogQuestion[] {
       !question ||
       typeof question.id !== 'string' ||
       typeof question.index !== 'number' ||
-      (question.question_type !== 'multiple_choice' && question.question_type !== 'syllogism')
+      (question.response_type !== 'multiple_choice' && question.response_type !== 'drag_and_drop') ||
+      ![
+        'single_choice',
+        'situational_judgement_rating',
+        'decision_making_binary_placement',
+        'situational_judgement_most_least',
+      ].includes(String(question.answer_scheme))
     ) {
       return []
     }
@@ -449,8 +471,7 @@ function catalogQuestions(value: Json | null): CatalogQuestion[] {
               index: option.index,
               answer_text: option.answer_text,
               answer_explanation: option.answer_explanation,
-              is_answer:
-                typeof option.is_answer === 'boolean' ? option.is_answer : null,
+              answer_key_value: catalogAnswerKeyValue(option.answer_key_value),
             },
           ]
         })
@@ -460,7 +481,8 @@ function catalogQuestions(value: Json | null): CatalogQuestion[] {
         id: question.id,
         index: question.index,
         question_text: question.question_text,
-        question_type: question.question_type,
+        response_type: question.response_type,
+        answer_scheme: question.answer_scheme as CatalogQuestion['answer_scheme'],
         answer_explanation: question.answer_explanation,
         answer_options: options,
       },

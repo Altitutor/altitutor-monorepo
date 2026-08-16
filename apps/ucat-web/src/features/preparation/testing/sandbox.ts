@@ -49,6 +49,17 @@ export type PreparationSandboxComparisonCase = {
   };
 };
 
+export type PreparationSandboxJourney = {
+  key: string;
+  label: string;
+  description: string;
+  checkpoints: Array<{
+    fixtureKey: keyof typeof PREPARATION_SANDBOX_PERSONAS;
+    label: string;
+    description: string;
+  }>;
+};
+
 const SECTIONS: StudyPlanSection[] = [
   ["vr", "verbal_reasoning", "Verbal Reasoning", "VR", 1, 44, 47],
   ["dm", "decision_making", "Decision Making", "DM", 2, 35, 64],
@@ -75,6 +86,27 @@ const CATEGORY_NAMES: Record<string, string[]> = {
   ],
   qr: ["Quantitative Reasoning"],
   sjt: ["Situational Judgement"],
+};
+
+const LEARNING_MODULE_TITLES: Record<string, string[]> = {
+  vr: [
+    "Reading for structure",
+    "Main idea and author purpose",
+    "Evaluating statements from the passage",
+    "Handling dense passages",
+  ],
+  dm: [
+    "Drawing valid conclusions",
+    "Structuring logical puzzles",
+    "Working with probability",
+    "Testing arguments and assumptions",
+  ],
+  qr: [
+    "Setting up calculations",
+    "Working with rates and proportions",
+    "Reading tables and charts",
+    "Choosing efficient numerical methods",
+  ],
 };
 
 function addDays(date: string, days: number): string {
@@ -150,16 +182,24 @@ function baseInput(): PreparationEngineInput {
     content: {
       sections: SECTIONS,
       categories: categories(),
-      learningModules: SECTIONS.slice(0, 3).map((section) => ({
-        id: `module-${section.id}`,
-        title: `${section.shortName} foundations`,
-        sectionId: section.id,
-        sectionNumber: section.sectionNumber,
-        priority: "essential" as const,
-        estimatedMinutes: 15,
-        completionPercent: 0,
-        relevanceScore: 1,
-      })),
+      learningModules: SECTIONS.slice(0, 3).flatMap((section) =>
+        (LEARNING_MODULE_TITLES[section.id] ?? []).map((title, index) => ({
+          id: `module-${section.id}-${index + 1}`,
+          title,
+          sectionId: section.id,
+          sectionNumber: section.sectionNumber,
+          priority: index < 3 ? ("essential" as const) : ("recommended" as const),
+          authoredOrder: index + 1,
+          categoryIds: [
+            `${section.id}-category-${
+              (index % (CATEGORY_NAMES[section.id]?.length ?? 1)) + 1
+            }`,
+          ],
+          estimatedMinutes: 15,
+          completionPercent: 0,
+          relevanceScore: 1,
+        })),
+      ),
       skillTrainers: [
         {
           id: "trainer-dm",
@@ -306,6 +346,74 @@ export const PREPARATION_SANDBOX_PERSONAS = {
     "New student",
     "No prior evidence; begins with methods and representative exposure.",
   ),
+  "learning-progressing": fixture(
+    "learning-progressing",
+    "Learning foundations in progress",
+    "The Student has completed an initial learning loop and the plan rotates to the next outstanding section.",
+    (input) => {
+      input.content.learningModules = input.content.learningModules.map(
+        (module) =>
+          module.id === "module-vr-1"
+            ? { ...module, completionPercent: 100 }
+            : module,
+      );
+      input.content.categories = input.content.categories.map((category) =>
+        category.sectionId === "vr"
+          ? {
+              ...category,
+              correctScore: 7,
+              maxScore: 10,
+              weaknessScore: 0.3,
+              attemptedQuestionCount: 10,
+              completedPracticeSessions: 1,
+              qualifyingPracticeSessions: 1,
+              largestPracticeSessionQuestionCount: 10,
+              recentAccuracy: 0.7,
+            }
+          : category,
+      );
+      input.evidence.lastLearningModuleServedAtBySection = {
+        vr: input.clock.now,
+      };
+    },
+  ),
+  "benchmark-ready": fixture(
+    "benchmark-ready",
+    "Ready for first benchmarks",
+    "Essential learning and broad category exposure are complete, so full-section diagnostics come next.",
+    (input) => {
+      input.content.learningModules = input.content.learningModules.map(
+        (module) => ({ ...module, completionPercent: 100 }),
+      );
+      input.content.categories = input.content.categories.map((category) => ({
+        ...category,
+        correctScore: 15,
+        maxScore: 20,
+        weaknessScore: 0.25,
+        attemptedQuestionCount: 20,
+        completedPracticeSessions: 2,
+        qualifyingPracticeSessions: 2,
+        largestPracticeSessionQuestionCount: 10,
+        recentAccuracy: 0.75,
+        observedPace: 0.7,
+      }));
+      input.evidence.sectionSignals = input.evidence.sectionSignals.map(
+        (signal) => ({
+          ...signal,
+          attemptedQuestionCount: 40,
+          completedPracticeSessions: 2,
+          qualifyingPracticeSessions: 2,
+          largestPracticeSessionQuestionCount: 20,
+          recentAccuracy: 0.75,
+          observedPace: 0.7,
+          representativeSessionCount: 2,
+          representativeSectionEquivalents: 1,
+          representativeAccuracy: 0.75,
+          benchmarkCompleted: false,
+        }),
+      );
+    },
+  ),
   "experienced-high-performing": fixture(
     "experienced-high-performing",
     "Experienced, high-performing",
@@ -353,6 +461,86 @@ export const PREPARATION_SANDBOX_PERSONAS = {
     },
   ),
 } satisfies Record<string, PreparationSandboxCase>;
+
+export const PREPARATION_SANDBOX_JOURNEYS: PreparationSandboxJourney[] = [
+  {
+    key: "foundations",
+    label: "First-time Student",
+    description:
+      "Follow the transition from first methods through targeted loops to full-section diagnostics.",
+    checkpoints: [
+      {
+        fixtureKey: "new-student",
+        label: "Starting point",
+        description: "No prior evidence or completed learning.",
+      },
+      {
+        fixtureKey: "learning-progressing",
+        label: "After initial learning loops",
+        description: "One section has begun building reliable experience.",
+      },
+      {
+        fixtureKey: "benchmark-ready",
+        label: "Ready for first benchmarks",
+        description: "Essential learning and broad exposure are complete.",
+      },
+    ],
+  },
+  {
+    key: "timing",
+    label: "Timing improvement",
+    description:
+      "Compare how the plan responds when pace and accuracy are out of balance.",
+    checkpoints: [
+      {
+        fixtureKey: "accurate-slow",
+        label: "Accurate but slow",
+        description: "Accuracy is protected while pace increases gradually.",
+      },
+      {
+        fixtureKey: "fast-inaccurate",
+        label: "Fast but inaccurate",
+        description: "Timing pressure is held while method and accuracy recover.",
+      },
+      {
+        fixtureKey: "experienced-high-performing",
+        label: "Reliable at exam pace",
+        description: "Broad evidence supports advanced preparation.",
+      },
+    ],
+  },
+  {
+    key: "uneven",
+    label: "Uneven sections",
+    description:
+      "See section-specific decisions when strengths, weaknesses and pace differ.",
+    checkpoints: [
+      {
+        fixtureKey: "uneven-sections",
+        label: "Mixed section readiness",
+        description: "Strong QR, developing DM and weak VR.",
+      },
+    ],
+  },
+  {
+    key: "constraints",
+    label: "Time and capacity pressure",
+    description:
+      "Inspect prioritisation when study days are scarce or the test is close.",
+    checkpoints: [
+      {
+        fixtureKey: "low-availability",
+        label: "One study day per week",
+        description: "The plan must prioritise within limited availability.",
+      },
+      {
+        fixtureKey: "imminent-exam",
+        label: "Test in 20 days",
+        description: "Exam preparation and mock cadence take precedence.",
+      },
+    ],
+  },
+];
 
 function dailyWork(result: PreparationEngineResult, today: string) {
   return Array.from({ length: 21 }, (_, day) => {

@@ -416,62 +416,6 @@ describe('UCAT response contract', () => {
     })
   })
 
-  it('reads a legacy DM snapshot but only emits the canonical snapshot', () => {
-    const compiled = compileResponseContract({
-      questionId: 'legacy-dm-question',
-      responseType: 'drag_and_drop',
-      answerScheme: {
-        kind: 'decision_making_binary_placement',
-        correctByOptionId: {
-          'option-1': 'yes',
-          'option-2': 'no',
-          'option-3': 'yes',
-          'option-4': 'no',
-          'option-5': 'yes',
-        },
-      },
-      options: [1, 2, 3, 4, 5].map((index) => ({
-        id: `option-${index}`,
-        index: index - 1,
-      })),
-    })
-    if (!compiled.ok) throw new Error('Expected a valid contract')
-
-    const restored = createResponseState(compiled.contract, {
-      type: 'syllogism_v1',
-      answers: [
-        { question_answer_option_id: 'option-1', answer: true },
-        { question_answer_option_id: 'option-2', answer: false },
-        { question_answer_option_id: 'option-3', answer: true },
-        { question_answer_option_id: 'option-4', answer: false },
-        { question_answer_option_id: 'option-5', answer: true },
-      ],
-    })
-
-    expect(restored).toEqual({
-      ok: true,
-      state: {
-        kind: 'placement',
-        placements: {
-          'option-1': 'yes',
-          'option-2': 'no',
-          'option-3': 'yes',
-          'option-4': 'no',
-          'option-5': 'yes',
-        },
-      },
-    })
-    if (!restored.ok) throw new Error('Expected a restored response')
-
-    const evaluated = evaluateResponse(compiled.contract, restored.state)
-    expect(evaluated).toEqual(
-      expect.objectContaining({
-        ok: true,
-        snapshot: expect.objectContaining({ type: 'ucat_response_v1' }),
-      })
-    )
-  })
-
   it('keeps a partially placed DM response incomplete', () => {
     const compiled = compileResponseContract({
       questionId: 'incomplete-dm',

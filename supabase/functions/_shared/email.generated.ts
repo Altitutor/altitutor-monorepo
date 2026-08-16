@@ -42,7 +42,7 @@ var EMAIL_BRANDS = {
   }
 };
 function renderBrandFooterHtml(brand) {
-  const title = `<p class="email-accent" style="margin:0 0 ${brand.footerTagline ? "3px" : "8px"};color:#0a2941;font-size:13px;font-weight:700;line-height:1.5">${escapeEmailHtml(brand.name)}</p>`;
+  const title = `<p class="email-accent" style="margin:0 0 ${brand.footerTagline ? "3px" : "8px"};color:#1a1a1a;font-size:13px;font-weight:700;line-height:1.5">${escapeEmailHtml(brand.name)}</p>`;
   if (!brand.footerTagline) return title;
   return `${title}
             <p style="margin:0 0 10px;color:#52606a;font-size:12px;line-height:1.5">${escapeEmailHtml(brand.footerTagline)}</p>`;
@@ -58,14 +58,14 @@ function renderContactFooterHtml(contact) {
   const detailLines = [];
   if (contact.phone && contact.phoneHref) {
     detailLines.push(
-      `Phone: <a class="email-link" href="tel:${escapeEmailHtml(contact.phoneHref)}" style="color:#0a2941">${escapeEmailHtml(contact.phone)}</a>`
+      `Phone: <a class="email-link" href="tel:${escapeEmailHtml(contact.phoneHref)}" style="color:#1a1a1a">${escapeEmailHtml(contact.phone)}</a>`
     );
   }
   detailLines.push(
-    `Email: <a class="email-link" href="mailto:${escapeEmailHtml(contact.email)}" style="color:#0a2941">${escapeEmailHtml(contact.email)}</a>`
+    `Email: <a class="email-link" href="mailto:${escapeEmailHtml(contact.email)}" style="color:#1a1a1a">${escapeEmailHtml(contact.email)}</a>`
   );
   detailLines.push(
-    `Web: <a class="email-link" href="${escapeEmailHtml(contact.websiteUrl)}" style="color:#0a2941">${escapeEmailHtml(contact.websiteLabel)}</a>`
+    `Web: <a class="email-link" href="${escapeEmailHtml(contact.websiteUrl)}" style="color:#1a1a1a">${escapeEmailHtml(contact.websiteLabel)}</a>`
   );
   for (const [index, detail] of detailLines.entries()) {
     const style = index === 0 && contact.address ? "margin:12px 0 0;color:#52606a;font-size:12px;line-height:1.6" : mutedLine;
@@ -75,6 +75,71 @@ function renderContactFooterHtml(contact) {
 }
 function escapeEmailHtml(value) {
   return String(value).replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;").replaceAll("'", "&#039;");
+}
+function parseEmailDate(value) {
+  const slashDate = /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/.exec(value.trim());
+  if (slashDate) {
+    const [, first, second, year] = slashDate;
+    const firstNumber = Number(first);
+    const secondNumber = Number(second);
+    const isDayFirst = firstNumber > 12 && secondNumber <= 12;
+    const month = isDayFirst ? secondNumber : firstNumber;
+    const day = isDayFirst ? firstNumber : secondNumber;
+    if (month < 1 || month > 12 || day < 1 || day > 31) return null;
+    const parsed2 = new Date(
+      Date.UTC(Number(year), month - 1, day)
+    );
+    return Number.isNaN(parsed2.getTime()) ? null : parsed2;
+  }
+  const textualDate = /^(?:(?:Sunday|Monday|Tuesday|Wednesday|Thursday|Friday|Saturday),?\s+)?(\d{1,2})\s+(January|February|March|April|May|June|July|August|September|October|November|December|Jan|Feb|Mar|Apr|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s+(\d{4})$/i.exec(
+    value.trim()
+  );
+  if (textualDate) {
+    const months = [
+      "jan",
+      "feb",
+      "mar",
+      "apr",
+      "may",
+      "jun",
+      "jul",
+      "aug",
+      "sep",
+      "oct",
+      "nov",
+      "dec"
+    ];
+    const [, day, month, year] = textualDate;
+    const monthIndex = months.findIndex(
+      (name) => name.startsWith(month.slice(0, 3).toLowerCase())
+    );
+    const parsed2 = new Date(Date.UTC(Number(year), monthIndex, Number(day)));
+    return monthIndex < 0 || Number.isNaN(parsed2.getTime()) ? null : parsed2;
+  }
+  const parsed = new Date(value);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+}
+function formatEmailDate(value) {
+  const parsed = parseEmailDate(value);
+  if (!parsed) return value;
+  return new Intl.DateTimeFormat("en-GB", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    timeZone: "UTC"
+  }).format(parsed);
+}
+function formatEmailDateText(value) {
+  return value.replace(
+    /\b(\d{4})-(\d{2})-(\d{2})\b/g,
+    (_, year, month, day) => formatEmailDate(`${month}/${day}/${year}`)
+  ).replace(
+    /\b(\d{1,2})\/(\d{1,2})\/(\d{4})\b/g,
+    (match) => formatEmailDate(match)
+  ).replace(
+    /\b(\d{1,2})\s+(January|February|March|April|May|June|July|August|September|October|November|December|Jan|Feb|Mar|Apr|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s+(\d{4})\b/g,
+    (match) => formatEmailDate(match)
+  );
 }
 function renderEmailButton(href, label) {
   return `<table role="presentation" cellspacing="0" cellpadding="0" border="0" style="margin:26px 0">
@@ -120,7 +185,7 @@ ${input.bodyText}`,
     <title>${escapeEmailHtml(input.heading)}</title>
     <style>
       :root { color-scheme: light dark; supported-color-schemes: light dark; }
-      a { color: #0a2941; }
+      a { color: #1a1a1a; }
       @media only screen and (max-width: 620px) {
         .email-page-pad { padding: 18px 10px !important; }
         .email-header, .email-content, .email-footer { padding-left: 22px !important; padding-right: 22px !important; }
@@ -138,6 +203,7 @@ ${input.bodyText}`,
         .email-heading, .email-strong, .email-panel .email-strong { color: #ffffff !important; }
         .email-copy, .email-copy p, .email-copy li, .email-copy td { color: #f5f5f5 !important; }
         .email-panel { background-color: #262626 !important; border-color: #2b2b2b !important; }
+        .email-panel td { border-color: #383838 !important; }
         .email-panel td, .email-panel-copy, .email-panel-copy p, .email-panel-copy td { color: #f5f5f5 !important; }
         .email-module-surface { background-color: #2b2b2b !important; border-color: #2b2b2b !important; }
         .email-footer { background-color: #262626 !important; border-color: #2b2b2b !important; }
@@ -147,6 +213,7 @@ ${input.bodyText}`,
         a.email-button, .email-button, .email-content a.email-button,
         .email-copy a.email-button, .email-button-cell a { color: #1c1c1c !important; }
         .email-accent-fill { background-color: #92b5c3 !important; color:#1c1c1c !important; }
+        .email-signature { filter: invert(1) !important; -webkit-filter: invert(1) !important; }
       }
       [data-ogsc] body, [data-ogsc] .email-page { background-color: #171717 !important; }
       [data-ogsc] .email-card, [data-ogsc] .email-content, [data-ogsc] .email-header { background-color: #1f1f1f !important; }
@@ -162,6 +229,7 @@ ${input.bodyText}`,
       [data-ogsc] .email-copy, [data-ogsc] .email-copy p, [data-ogsc] .email-copy li,
       [data-ogsc] .email-copy td { color: #f5f5f5 !important; }
       [data-ogsc] .email-panel { background-color: #262626 !important; border-color: #2b2b2b !important; }
+      [data-ogsc] .email-panel td { border-color: #383838 !important; }
       [data-ogsc] .email-panel td, [data-ogsc] .email-panel-copy, [data-ogsc] .email-panel-copy p,
       [data-ogsc] .email-panel-copy td { color: #f5f5f5 !important; }
       [data-ogsc] .email-module-surface { background-color: #2b2b2b !important; border-color: #2b2b2b !important; }
@@ -173,6 +241,7 @@ ${input.bodyText}`,
       [data-ogsc] .email-copy a.email-button, [data-ogsc] .email-button-cell a { color: #1c1c1c !important; }
       [data-ogsb] .email-accent-fill { background-color: #92b5c3 !important; }
       [data-ogsc] .email-accent-fill { color: #1c1c1c !important; }
+      [data-ogsc] .email-signature { filter: invert(1) !important; -webkit-filter: invert(1) !important; }
     </style>
     <!--[if mso]><style type="text/css">body, table, td, a { font-family: Arial, sans-serif !important; }</style><![endif]-->
   </head>
@@ -186,7 +255,7 @@ ${input.bodyText}`,
             ${subtitle}` : ""}
           </td></tr>
           <tr><td class="email-content email-copy" bgcolor="#ffffff" style="padding:36px;background-color:#ffffff;color:#394650">
-            <h1 class="email-heading" style="margin:0 0 18px;color:#0a2941;font-size:26px;font-weight:700;line-height:1.25">${escapeEmailHtml(input.heading)}</h1>
+            <h1 class="email-heading" style="margin:0 0 18px;color:#1a1a1a;font-size:26px;font-weight:700;line-height:1.25">${escapeEmailHtml(input.heading)}</h1>
             ${input.bodyHtml}
           </td></tr>
           <tr><td class="email-footer" bgcolor="#eaf1f3" style="padding:24px 36px;background-color:#eaf1f3;border-top:1px solid #dce5e8">
@@ -267,7 +336,8 @@ If you did not expect this email, you can safely ignore it.`;
 }
 function buildBookingConfirmationEmail(input) {
   const heading = "Your booking confirmation";
-  const when = input.sessionDate && input.sessionTime ? ` for ${input.sessionDate} at ${input.sessionTime}` : "";
+  const sessionDate = input.sessionDate ? formatEmailDate(input.sessionDate) : void 0;
+  const when = sessionDate && input.sessionTime ? ` for ${sessionDate} at ${input.sessionTime}` : "";
   const introductionHtml = input.staffIntroduction ? `<p class="email-copy" style="${paragraphStyle}">${textWithBreaks(input.staffIntroduction)}</p>` : "";
   const introductionText = input.staffIntroduction ? `${input.staffIntroduction}
 
@@ -293,57 +363,63 @@ View booking confirmation: ${input.bookingUrl}`;
 }
 function buildBookingChangedEmail(input) {
   const heading = "Your session has changed";
+  const sessionDate = formatEmailDate(input.sessionDate);
   const bodyText = `Hello ${input.recipientName},
 
-Your booking has been updated to ${input.sessionDate} at ${input.sessionTime}.
+Your booking has been updated to ${sessionDate} at ${input.sessionTime}.
 
 View updated booking: ${input.bookingUrl}`;
   return renderEmail({
     brand: "altitutor",
     subject: "Your Altitutor session has changed",
-    previewText: `Your session is now ${input.sessionDate} at ${input.sessionTime}.`,
+    previewText: `Your session is now ${sessionDate} at ${input.sessionTime}.`,
     heading,
     bodyText,
     bodyHtml: `
       <p class="email-copy" style="${paragraphStyle}">Hello ${escapeEmailHtml(input.recipientName)},</p>
-      <p class="email-copy" style="${paragraphStyle}">Your booking has been updated to <strong class="email-strong" style="color:#0a2941">${escapeEmailHtml(input.sessionDate)}</strong> at <strong class="email-strong" style="color:#0a2941">${escapeEmailHtml(input.sessionTime)}</strong>.</p>
+      <p class="email-copy" style="${paragraphStyle}">Your booking has been updated to <strong class="email-strong" style="color:#1a1a1a">${escapeEmailHtml(sessionDate)}</strong> at <strong class="email-strong" style="color:#1a1a1a">${escapeEmailHtml(input.sessionTime)}</strong>.</p>
       ${renderEmailButton(input.bookingUrl, "View updated booking")}
     `
   });
 }
 function buildBookingCancelledEmail(input) {
   const heading = "Your session has been cancelled";
+  const sessionDate = formatEmailDate(input.sessionDate);
   const bodyText = `Hello ${input.recipientName},
 
-Your booking on ${input.sessionDate} at ${input.sessionTime} has been cancelled.
+Your booking on ${sessionDate} at ${input.sessionTime} has been cancelled.
 
 If this was a mistake or you would like to book again, reply to this email.`;
   return renderEmail({
     brand: "altitutor",
     subject: "Your Altitutor session has been cancelled",
-    previewText: `Your session on ${input.sessionDate} has been cancelled.`,
+    previewText: `Your session on ${sessionDate} has been cancelled.`,
     heading,
     bodyText,
     bodyHtml: `
       <p class="email-copy" style="${paragraphStyle}">Hello ${escapeEmailHtml(input.recipientName)},</p>
-      <p class="email-copy" style="${paragraphStyle}">Your booking on <strong class="email-strong" style="color:#0a2941">${escapeEmailHtml(input.sessionDate)}</strong> at <strong class="email-strong" style="color:#0a2941">${escapeEmailHtml(input.sessionTime)}</strong> has been cancelled.</p>
+      <p class="email-copy" style="${paragraphStyle}">Your booking on <strong class="email-strong" style="color:#1a1a1a">${escapeEmailHtml(sessionDate)}</strong> at <strong class="email-strong" style="color:#1a1a1a">${escapeEmailHtml(input.sessionTime)}</strong> has been cancelled.</p>
       <p class="email-copy" style="${paragraphStyle}">If this was a mistake or you would like to book again, reply to this email.</p>
     `
   });
 }
 function buildInvoiceNotificationEmail(input) {
+  const invoiceDate = formatEmailDate(input.invoiceDate);
+  const dueDate = formatEmailDate(input.dueDate);
   const paid = input.paid;
   const heading = paid ? `Invoice ${input.invoiceNumber} has been paid` : `Invoice ${input.invoiceNumber} is ready`;
   const intro = paid ? "Your Altitutor invoice has been paid." : "Your Altitutor invoice is ready.";
   const ctaLabel = paid ? "View invoice" : "Pay invoice";
   const amountLabel = paid ? "Amount paid" : "Amount due";
   const hostedAction = input.hostedInvoiceUrl ? renderEmailButton(input.hostedInvoiceUrl, ctaLabel) : "";
-  const pdfAction = input.invoicePdfUrl ? `<p style="margin:18px 0 0;color:#394650;font-size:14px;line-height:1.6"><a class="email-link" href="${escapeEmailHtml(input.invoicePdfUrl)}" style="color:#0a2941;font-weight:600">Download invoice PDF</a></p>` : "";
+  const pdfAction = input.invoicePdfUrl ? `<p style="margin:18px 0 0;color:#394650;font-size:14px;line-height:1.6"><a class="email-link" href="${escapeEmailHtml(input.invoicePdfUrl)}" style="color:#1a1a1a;font-weight:600">Download invoice PDF</a></p>` : "";
   const lineItems = input.lineItems ?? [];
   const lineItemRowsHtml = lineItems.map(
-    (item) => `<tr><td class="email-muted" style="padding:12px 20px;border-bottom:1px solid #d1e0e5;color:#52606a;font-size:14px">${escapeEmailHtml(item.description)}</td><td class="email-strong" align="right" style="padding:12px 20px;border-bottom:1px solid #d1e0e5;color:#223b4b;font-size:14px;font-weight:600;white-space:nowrap">${escapeEmailHtml(item.amount)}</td></tr>`
+    (item) => `<tr><td class="email-muted" style="padding:12px 20px;border-bottom:1px solid #d1e0e5;color:#52606a;font-size:14px">${escapeEmailHtml(formatEmailDateText(item.description))}</td><td class="email-strong" align="right" style="padding:12px 20px;border-bottom:1px solid #d1e0e5;color:#223b4b;font-size:14px;font-weight:600;white-space:nowrap">${escapeEmailHtml(item.amount)}</td></tr>`
   ).join("");
-  const lineItemsText = lineItems.map((item) => `${item.description}: ${item.amount}`).join("\n");
+  const lineItemsText = lineItems.map(
+    (item) => `${formatEmailDateText(item.description)}: ${item.amount}`
+  ).join("\n");
   const textActions = [
     input.hostedInvoiceUrl ? `Hosted invoice: ${input.hostedInvoiceUrl}` : null,
     input.invoicePdfUrl ? `Invoice PDF: ${input.invoicePdfUrl}` : null
@@ -351,8 +427,8 @@ function buildInvoiceNotificationEmail(input) {
   const bodyText = [
     intro,
     "",
-    `Invoice date: ${input.invoiceDate}`,
-    `Due date: ${input.dueDate}`,
+    `Invoice date: ${invoiceDate}`,
+    `Due date: ${dueDate}`,
     ...lineItemsText ? [lineItemsText] : [],
     `${amountLabel}: ${input.amount}`,
     ...textActions ? ["", textActions] : []
@@ -366,10 +442,10 @@ function buildInvoiceNotificationEmail(input) {
     bodyHtml: `
       <p class="email-copy" style="${paragraphStyle}">${intro}</p>
       <table class="email-panel" role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" bgcolor="#eaf1f3" style="margin:22px 0;background-color:#eaf1f3;border:1px solid #d1e0e5;border-radius:12px">
-        <tr><td class="email-muted" style="padding:12px 20px;border-bottom:1px solid #d1e0e5;color:#52606a;font-size:14px">Invoice date</td><td class="email-strong" align="right" style="padding:12px 20px;border-bottom:1px solid #d1e0e5;color:#223b4b;font-size:14px;font-weight:600">${escapeEmailHtml(input.invoiceDate)}</td></tr>
-        <tr><td class="email-muted" style="padding:12px 20px;border-bottom:1px solid #d1e0e5;color:#52606a;font-size:14px">Due date</td><td class="email-strong" align="right" style="padding:12px 20px;border-bottom:1px solid #d1e0e5;color:#223b4b;font-size:14px;font-weight:600">${escapeEmailHtml(input.dueDate)}</td></tr>
+        <tr><td class="email-muted" style="padding:12px 20px;border-bottom:1px solid #d1e0e5;color:#52606a;font-size:14px">Invoice date</td><td class="email-strong" align="right" style="padding:12px 20px;border-bottom:1px solid #d1e0e5;color:#223b4b;font-size:14px;font-weight:600">${escapeEmailHtml(invoiceDate)}</td></tr>
+        <tr><td class="email-muted" style="padding:12px 20px;border-bottom:1px solid #d1e0e5;color:#52606a;font-size:14px">Due date</td><td class="email-strong" align="right" style="padding:12px 20px;border-bottom:1px solid #d1e0e5;color:#223b4b;font-size:14px;font-weight:600">${escapeEmailHtml(dueDate)}</td></tr>
         ${lineItemRowsHtml}
-        <tr><td class="email-muted" style="padding:14px 20px;color:#52606a;font-size:14px">${amountLabel}</td><td class="email-accent" align="right" style="padding:14px 20px;color:#0a2941;font-size:18px;font-weight:700">${escapeEmailHtml(input.amount)}</td></tr>
+        <tr><td class="email-muted" style="padding:14px 20px;color:#52606a;font-size:14px">${amountLabel}</td><td class="email-accent" align="right" style="padding:14px 20px;color:#1a1a1a;font-size:18px;font-weight:700">${escapeEmailHtml(input.amount)}</td></tr>
       </table>
       ${hostedAction}
       ${pdfAction}
@@ -412,7 +488,7 @@ var mutedStyle = "margin:0;color:#68757e;font-size:13px;line-height:1.6";
 function codePanel(label, token) {
   return `<table class="email-panel" role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" bgcolor="#eaf1f3" style="margin:28px 0;background-color:#eaf1f3;border:1px solid #d1e0e5;border-radius:12px"><tr><td align="center" style="padding:22px 18px">
     <p class="email-muted" style="margin:0 0 8px;color:#52606a;font-size:11px;font-weight:700;letter-spacing:0.14em;text-transform:uppercase">${escapeEmailHtml(label)}</p>
-    <p class="email-heading" style="margin:0;color:#0a2941;font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace;font-size:32px;font-weight:800;letter-spacing:0.28em">${token}</p>
+    <p class="email-heading" style="margin:0;color:#1a1a1a;font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace;font-size:32px;font-weight:800;letter-spacing:0.28em">${token}</p>
   </td></tr></table>`;
 }
 function identityEmail(input) {
@@ -481,7 +557,7 @@ This link expires in 1 hour.`,
       bodyText: `You asked to change your Altitutor email address to {{ .NewEmail }}.
 
 Confirm new email: ${confirmationUrl}`,
-      bodyHtml: `<p class="email-copy" style="${copyStyle}">You asked to change the email address on your Altitutor account to <strong class="email-strong" style="color:#0a2941">{{ .NewEmail }}</strong>.</p>${renderEmailButton(confirmationUrl, "Confirm new email")}<p class="email-muted" style="margin:0;color:#68757e;font-size:13px;line-height:1.6">If you did not request this change, you can safely ignore this email and your current email address will remain unchanged.</p>`
+      bodyHtml: `<p class="email-copy" style="${copyStyle}">You asked to change the email address on your Altitutor account to <strong class="email-strong" style="color:#1a1a1a">{{ .NewEmail }}</strong>.</p>${renderEmailButton(confirmationUrl, "Confirm new email")}<p class="email-muted" style="margin:0;color:#68757e;font-size:13px;line-height:1.6">If you did not request this change, you can safely ignore this email and your current email address will remain unchanged.</p>`
     }),
     reauthentication: identityEmail({
       year,
@@ -542,6 +618,8 @@ export {
   buildRegistrationEmail,
   deliverEdgeEmail,
   escapeEmailHtml,
+  formatEmailDate,
+  formatEmailDateText,
   renderEmail,
   renderEmailButton,
   renderEmailPanel

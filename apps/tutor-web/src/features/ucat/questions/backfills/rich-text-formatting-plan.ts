@@ -267,7 +267,7 @@ function referencedFileIds(
 type StemShape = {
   questionIds: string[];
   optionIds: string[][];
-  correctAnswers: Array<{ id: string; isAnswer: boolean }>;
+  answerKeys: Array<{ id: string; answerKeyValue: string | null }>;
   referencedFileIds: string[];
 };
 
@@ -284,11 +284,11 @@ function stemShape(value: Record<string, unknown>): StemShape {
             .map((option) => stringId(option.id) ?? "")
         : [],
     ),
-    correctAnswers: questions.flatMap((question) =>
+    answerKeys: questions.flatMap((question) =>
       Array.isArray(question.answer_options)
         ? question.answer_options.filter(isRecord).map((option) => ({
             id: stringId(option.id) ?? "",
-            isAnswer: option.is_answer === true,
+            answerKeyValue: typeof option.answer_key_value === 'string' ? option.answer_key_value : null,
           }))
         : [],
     ),

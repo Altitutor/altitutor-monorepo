@@ -21,7 +21,7 @@ const mutedStyle = "margin:0;color:#68757e;font-size:13px;line-height:1.6";
 function codePanel(label: string, token: string): string {
   return `<table class="email-panel" role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" bgcolor="#eaf1f3" style="margin:28px 0;background-color:#eaf1f3;border:1px solid #d1e0e5;border-radius:12px"><tr><td align="center" style="padding:22px 18px">
     <p class="email-muted" style="margin:0 0 8px;color:#52606a;font-size:11px;font-weight:700;letter-spacing:0.14em;text-transform:uppercase">${escapeEmailHtml(label)}</p>
-    <p class="email-heading" style="margin:0;color:#0a2941;font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace;font-size:32px;font-weight:800;letter-spacing:0.28em">${token}</p>
+    <p class="email-heading" style="margin:0;color:#1a1a1a;font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace;font-size:32px;font-weight:800;letter-spacing:0.28em">${token}</p>
   </td></tr></table>`;
 }
 
@@ -86,7 +86,7 @@ export function buildAuthEmails(input: {
       previewText: "Confirm the new email address for your Altitutor account.",
       heading: "Confirm your new email",
       bodyText: `You asked to change your Altitutor email address to {{ .NewEmail }}.\n\nConfirm new email: ${confirmationUrl}`,
-      bodyHtml: `<p class="email-copy" style="${copyStyle}">You asked to change the email address on your Altitutor account to <strong class="email-strong" style="color:#0a2941">{{ .NewEmail }}</strong>.</p>${renderEmailButton(confirmationUrl, "Confirm new email")}<p class="email-muted" style="margin:0;color:#68757e;font-size:13px;line-height:1.6">If you did not request this change, you can safely ignore this email and your current email address will remain unchanged.</p>`,
+      bodyHtml: `<p class="email-copy" style="${copyStyle}">You asked to change the email address on your Altitutor account to <strong class="email-strong" style="color:#1a1a1a">{{ .NewEmail }}</strong>.</p>${renderEmailButton(confirmationUrl, "Confirm new email")}<p class="email-muted" style="margin:0;color:#68757e;font-size:13px;line-height:1.6">If you did not request this change, you can safely ignore this email and your current email address will remain unchanged.</p>`,
     }),
     reauthentication: identityEmail({
       year,

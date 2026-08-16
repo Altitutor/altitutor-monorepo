@@ -9,6 +9,7 @@ export type SignupProgress = {
 };
 
 export type SignupOnboardingInitial = {
+  userId: string;
   email: string;
   pendingEmail: string;
   firstName: string;

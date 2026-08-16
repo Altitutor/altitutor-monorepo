@@ -634,9 +634,6 @@ export function DashboardTrajectoryChart({
           {` is scheduled on ${chartDateLabel(nextMock.date)}.`}
         </p>
       ) : null}
-      <p className="px-11 pb-2 text-[11px] text-muted-foreground">
-        The central path depends on completing your core preparation work.
-      </p>
     </div>
   );
 }

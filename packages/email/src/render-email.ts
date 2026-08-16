@@ -75,7 +75,7 @@ const EMAIL_BRANDS: Record<
 function renderBrandFooterHtml(brand: (typeof EMAIL_BRANDS)[EmailBrand]): string {
   const title = `<p class="email-accent" style="margin:0 0 ${
     brand.footerTagline ? "3px" : "8px"
-  };color:#0a2941;font-size:13px;font-weight:700;line-height:1.5">${escapeEmailHtml(brand.name)}</p>`;
+  };color:#1a1a1a;font-size:13px;font-weight:700;line-height:1.5">${escapeEmailHtml(brand.name)}</p>`;
   if (!brand.footerTagline) return title;
   return `${title}
             <p style="margin:0 0 10px;color:#52606a;font-size:12px;line-height:1.5">${escapeEmailHtml(brand.footerTagline)}</p>`;
@@ -94,14 +94,14 @@ function renderContactFooterHtml(contact: EmailBrandContact): string {
   const detailLines: string[] = [];
   if (contact.phone && contact.phoneHref) {
     detailLines.push(
-      `Phone: <a class="email-link" href="tel:${escapeEmailHtml(contact.phoneHref)}" style="color:#0a2941">${escapeEmailHtml(contact.phone)}</a>`,
+      `Phone: <a class="email-link" href="tel:${escapeEmailHtml(contact.phoneHref)}" style="color:#1a1a1a">${escapeEmailHtml(contact.phone)}</a>`,
     );
   }
   detailLines.push(
-    `Email: <a class="email-link" href="mailto:${escapeEmailHtml(contact.email)}" style="color:#0a2941">${escapeEmailHtml(contact.email)}</a>`,
+    `Email: <a class="email-link" href="mailto:${escapeEmailHtml(contact.email)}" style="color:#1a1a1a">${escapeEmailHtml(contact.email)}</a>`,
   );
   detailLines.push(
-    `Web: <a class="email-link" href="${escapeEmailHtml(contact.websiteUrl)}" style="color:#0a2941">${escapeEmailHtml(contact.websiteLabel)}</a>`,
+    `Web: <a class="email-link" href="${escapeEmailHtml(contact.websiteUrl)}" style="color:#1a1a1a">${escapeEmailHtml(contact.websiteLabel)}</a>`,
   );
 
   for (const [index, detail] of detailLines.entries()) {
@@ -122,6 +122,84 @@ export function escapeEmailHtml(value: string | number): string {
     .replaceAll(">", "&gt;")
     .replaceAll('"', "&quot;")
     .replaceAll("'", "&#039;");
+}
+
+function parseEmailDate(value: string): Date | null {
+  const slashDate = /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/.exec(value.trim());
+  if (slashDate) {
+    const [, first, second, year] = slashDate;
+    const firstNumber = Number(first);
+    const secondNumber = Number(second);
+    const isDayFirst = firstNumber > 12 && secondNumber <= 12;
+    const month = isDayFirst ? secondNumber : firstNumber;
+    const day = isDayFirst ? firstNumber : secondNumber;
+    if (month < 1 || month > 12 || day < 1 || day > 31) return null;
+    const parsed = new Date(
+      Date.UTC(Number(year), month - 1, day),
+    );
+    return Number.isNaN(parsed.getTime()) ? null : parsed;
+  }
+
+  const textualDate =
+    /^(?:(?:Sunday|Monday|Tuesday|Wednesday|Thursday|Friday|Saturday),?\s+)?(\d{1,2})\s+(January|February|March|April|May|June|July|August|September|October|November|December|Jan|Feb|Mar|Apr|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s+(\d{4})$/i.exec(
+      value.trim(),
+    );
+  if (textualDate) {
+    const months = [
+      "jan",
+      "feb",
+      "mar",
+      "apr",
+      "may",
+      "jun",
+      "jul",
+      "aug",
+      "sep",
+      "oct",
+      "nov",
+      "dec",
+    ];
+    const [, day, month, year] = textualDate;
+    const monthIndex = months.findIndex((name) =>
+      name.startsWith(month.slice(0, 3).toLowerCase()),
+    );
+    const parsed = new Date(Date.UTC(Number(year), monthIndex, Number(day)));
+    return monthIndex < 0 || Number.isNaN(parsed.getTime()) ? null : parsed;
+  }
+
+  const parsed = new Date(value);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+}
+
+/** Format a date for email content using the Australian dd/mm/yyyy convention. */
+export function formatEmailDate(value: string): string {
+  const parsed = parseEmailDate(value);
+  if (!parsed) return value;
+
+  return new Intl.DateTimeFormat("en-GB", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    timeZone: "UTC",
+  }).format(parsed);
+}
+
+/** Normalize common date formats embedded in an email description. */
+export function formatEmailDateText(value: string): string {
+  return value
+    .replace(
+      /\b(\d{4})-(\d{2})-(\d{2})\b/g,
+      (_, year: string, month: string, day: string) =>
+        formatEmailDate(`${month}/${day}/${year}`),
+    )
+    .replace(
+      /\b(\d{1,2})\/(\d{1,2})\/(\d{4})\b/g,
+      (match: string) => formatEmailDate(match),
+    )
+    .replace(
+      /\b(\d{1,2})\s+(January|February|March|April|May|June|July|August|September|October|November|December|Jan|Feb|Mar|Apr|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s+(\d{4})\b/g,
+      (match: string) => formatEmailDate(match),
+    );
 }
 
 export function renderEmailButton(href: string, label: string): string {
@@ -187,7 +265,7 @@ export function renderEmail(input: {
     <title>${escapeEmailHtml(input.heading)}</title>
     <style>
       :root { color-scheme: light dark; supported-color-schemes: light dark; }
-      a { color: #0a2941; }
+      a { color: #1a1a1a; }
       @media only screen and (max-width: 620px) {
         .email-page-pad { padding: 18px 10px !important; }
         .email-header, .email-content, .email-footer { padding-left: 22px !important; padding-right: 22px !important; }
@@ -205,6 +283,7 @@ export function renderEmail(input: {
         .email-heading, .email-strong, .email-panel .email-strong { color: #ffffff !important; }
         .email-copy, .email-copy p, .email-copy li, .email-copy td { color: #f5f5f5 !important; }
         .email-panel { background-color: #262626 !important; border-color: #2b2b2b !important; }
+        .email-panel td { border-color: #383838 !important; }
         .email-panel td, .email-panel-copy, .email-panel-copy p, .email-panel-copy td { color: #f5f5f5 !important; }
         .email-module-surface { background-color: #2b2b2b !important; border-color: #2b2b2b !important; }
         .email-footer { background-color: #262626 !important; border-color: #2b2b2b !important; }
@@ -214,6 +293,7 @@ export function renderEmail(input: {
         a.email-button, .email-button, .email-content a.email-button,
         .email-copy a.email-button, .email-button-cell a { color: #1c1c1c !important; }
         .email-accent-fill { background-color: #92b5c3 !important; color:#1c1c1c !important; }
+        .email-signature { filter: invert(1) !important; -webkit-filter: invert(1) !important; }
       }
       [data-ogsc] body, [data-ogsc] .email-page { background-color: #171717 !important; }
       [data-ogsc] .email-card, [data-ogsc] .email-content, [data-ogsc] .email-header { background-color: #1f1f1f !important; }
@@ -229,6 +309,7 @@ export function renderEmail(input: {
       [data-ogsc] .email-copy, [data-ogsc] .email-copy p, [data-ogsc] .email-copy li,
       [data-ogsc] .email-copy td { color: #f5f5f5 !important; }
       [data-ogsc] .email-panel { background-color: #262626 !important; border-color: #2b2b2b !important; }
+      [data-ogsc] .email-panel td { border-color: #383838 !important; }
       [data-ogsc] .email-panel td, [data-ogsc] .email-panel-copy, [data-ogsc] .email-panel-copy p,
       [data-ogsc] .email-panel-copy td { color: #f5f5f5 !important; }
       [data-ogsc] .email-module-surface { background-color: #2b2b2b !important; border-color: #2b2b2b !important; }
@@ -240,6 +321,7 @@ export function renderEmail(input: {
       [data-ogsc] .email-copy a.email-button, [data-ogsc] .email-button-cell a { color: #1c1c1c !important; }
       [data-ogsb] .email-accent-fill { background-color: #92b5c3 !important; }
       [data-ogsc] .email-accent-fill { color: #1c1c1c !important; }
+      [data-ogsc] .email-signature { filter: invert(1) !important; -webkit-filter: invert(1) !important; }
     </style>
     <!--[if mso]><style type="text/css">body, table, td, a { font-family: Arial, sans-serif !important; }</style><![endif]-->
   </head>
@@ -253,7 +335,7 @@ export function renderEmail(input: {
             ${subtitle}` : ""}
           </td></tr>
           <tr><td class="email-content email-copy" bgcolor="#ffffff" style="padding:36px;background-color:#ffffff;color:#394650">
-            <h1 class="email-heading" style="margin:0 0 18px;color:#0a2941;font-size:26px;font-weight:700;line-height:1.25">${escapeEmailHtml(input.heading)}</h1>
+            <h1 class="email-heading" style="margin:0 0 18px;color:#1a1a1a;font-size:26px;font-weight:700;line-height:1.25">${escapeEmailHtml(input.heading)}</h1>
             ${input.bodyHtml}
           </td></tr>
           <tr><td class="email-footer" bgcolor="#eaf1f3" style="padding:24px 36px;background-color:#eaf1f3;border-top:1px solid #dce5e8">

@@ -1,7 +1,14 @@
 import React from "react";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import {
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import { SocialAuthButtons } from "@/features/auth/components/social-auth-buttons";
 import { captureUcatEvent } from "@/lib/analytics/posthog";
+import { rememberLastSignInMethod } from "@/features/auth/lib/last-sign-in-method";
 
 const signInWithOAuth = jest.fn();
 
@@ -18,7 +25,29 @@ jest.mock("@/lib/analytics/posthog", () => ({
 describe("SocialAuthButtons", () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    window.localStorage.clear();
     signInWithOAuth.mockResolvedValue({ error: null });
+  });
+
+  it("badges the last social method used on this browser", () => {
+    rememberLastSignInMethod("google");
+    render(
+      <SocialAuthButtons
+        enabledProviders={["google", "apple"]}
+        intent="login"
+        redirectTo="/dashboard"
+      />,
+    );
+
+    const google = screen.getByRole("button", {
+      name: /Continue with Google/i,
+    });
+    expect(within(google).getByText("Last used")).toBeInTheDocument();
+    expect(
+      within(
+        screen.getByRole("button", { name: /Continue with Apple/i }),
+      ).queryByText("Last used"),
+    ).not.toBeInTheDocument();
   });
 
   it("starts Google signup with callback context and analytics", async () => {

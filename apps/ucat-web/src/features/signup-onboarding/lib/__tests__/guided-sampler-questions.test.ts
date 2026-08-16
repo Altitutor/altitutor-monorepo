@@ -37,24 +37,31 @@ describe("guided UCAT sampler", () => {
       questions.length,
     );
     for (const question of questions) {
-      if (question.questionType === "syllogism") {
+      if (question.responseType === "drag_and_drop") {
         expect(question.options).toHaveLength(5);
         expect(
-          question.options.filter((option) => option.isAnswer),
+          question.options.filter((option) => option.answerKeyValue === "yes"),
         ).toHaveLength(2);
+        expect(
+          question.options.every((option) =>
+            option.answerKeyValue === "yes" || option.answerKeyValue === "no",
+          ),
+        ).toBe(true);
       } else {
         expect(
-          question.options.filter((option) => option.isAnswer),
+          question.options.filter(
+            (option) => option.answerKeyValue === "correct",
+          ),
         ).toHaveLength(1);
       }
     }
   });
 
-  it("uses two independent DM stems: one syllogism and one non-syllogism", () => {
+  it("uses two independent DM stems with distinct response contracts", () => {
     const dm = GUIDED_SAMPLER_SECTIONS.find((section) => section.key === "dm");
-    expect(dm?.questions.map((question) => question.questionType)).toEqual([
-      "syllogism",
-      "multiple_choice",
+    expect(dm?.questions.map((question) => question.answerScheme)).toEqual([
+      "decision_making_binary_placement",
+      "single_choice",
     ]);
     expect(new Set(dm?.questions.map((question) => question.stemId)).size).toBe(
       2,
@@ -71,7 +78,7 @@ describe("guided UCAT sampler", () => {
       "Can’t tell",
     ]);
     expect(firstVr?.stemText).toContain("create wildlife habitat");
-    expect(firstVr?.options.find((option) => option.isAnswer)?.text).toBe(
+    expect(firstVr?.options.find((option) => option.answerKeyValue === "correct")?.text).toBe(
       "True",
     );
   });
@@ -81,7 +88,7 @@ describe("guided UCAT sampler", () => {
       (section) => section.key === "vr",
     )?.questions[1];
     const answerText = secondVr?.options.find(
-      (option) => option.isAnswer,
+      (option) => option.answerKeyValue === "correct",
     )?.text;
     expect(secondVr?.options).toHaveLength(4);
     expect(secondVr?.options.some((option) => option.text === "True")).toBe(
@@ -121,7 +128,7 @@ describe("guided UCAT sampler", () => {
       (section) => section.key === "qr",
     )?.questions[0];
     expect(firstQr?.questionText).toMatch(/adult admissions/i);
-    expect(firstQr?.options.find((option) => option.isAnswer)?.text).toBe(
+    expect(firstQr?.options.find((option) => option.answerKeyValue === "correct")?.text).toBe(
       "$480",
     );
     expect(

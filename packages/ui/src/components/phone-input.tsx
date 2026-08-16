@@ -88,11 +88,6 @@ export function PhoneInput({
           <span>{error}</span>
         </p>
       )}
-      {!error && !disabled && (
-        <p className="text-xs text-muted-foreground">
-          Enter phone number with country code
-        </p>
-      )}
     </div>
   );
 }

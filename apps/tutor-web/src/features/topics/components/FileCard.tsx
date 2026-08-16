@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import Image from 'next/image';
 import { Button } from '@altitutor/ui';
-import { Download, Loader2, Edit, Printer, X } from 'lucide-react';
+import { Download, Loader2, Edit, Printer, Building2, X } from 'lucide-react';
 import { SkeletonMediaPreview } from '@altitutor/ui';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@altitutor/ui';
 import { getFileTypeIcon, getFileTypeLabel } from '../utils/file-type-icons';
@@ -14,6 +14,7 @@ import {
 } from '@/shared/components/expandable-dialog';
 import { cn } from '@/shared/utils';
 import { getSignedUrl } from '@/shared/lib/supabase/storage';
+import { OfficePrintConfirmDialog } from '@/features/office-print/components/OfficePrintConfirmDialog';
 import type { Enums } from '@altitutor/shared';
 import { parseExternalVideoEmbed } from '@altitutor/shared';
 
@@ -24,6 +25,7 @@ export interface FileCardProps {
   storagePath?: string | null;
   externalUrl?: string | null;
   mimeType?: string;
+  fileId?: string | null;
   topicFileId?: string;
   currentTopicId?: string;
   currentSubjectId?: string;
@@ -38,6 +40,7 @@ export function FileCard({
   storagePath,
   externalUrl,
   mimeType,
+  fileId,
   topicFileId,
   currentTopicId: _currentTopicId,
   currentSubjectId: _currentSubjectId,
@@ -46,6 +49,7 @@ export function FileCard({
 }: FileCardProps) {
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
   const [expanded, setExpanded] = useState(false);
+  const [officePrintOpen, setOfficePrintOpen] = useState(false);
   useEffect(() => {
     if (!isPreviewOpen) {
       setExpanded(false);
@@ -276,6 +280,15 @@ export function FileCard({
                 Print
               </Button>
             )}
+            {isPdf && previewUrl && fileId && !externalUrl?.trim() && (
+              <Button
+                variant="outline"
+                onClick={() => setOfficePrintOpen(true)}
+              >
+                <Building2 className="h-4 w-4 mr-2" />
+                Print to office
+              </Button>
+            )}
             <Button
               variant="outline"
               onClick={handleDownload}
@@ -304,6 +317,12 @@ export function FileCard({
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      <OfficePrintConfirmDialog
+        open={officePrintOpen}
+        onOpenChange={setOfficePrintOpen}
+        fileId={fileId ?? null}
+        filename={filename}
+      />
     </>
   );
 }

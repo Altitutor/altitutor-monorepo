@@ -58,22 +58,24 @@ function commonChecks(snapshot: UcatAssessmentSnapshot, checks: UcatFormatCheck[
       add(checks, 'error', 'literal_rich_text_syntax', 'The question contains Markdown or LaTeX source that would be displayed literally.', question)
     }
 
-    if (question.questionType === 'multiple_choice') {
-      if (question.options.filter((option) => option.isAnswer).length !== 1) {
+    if (question.responseType === 'multiple_choice') {
+      if (question.options.filter((option) => option.answerKeyValue === 'correct').length !== 1) {
         add(checks, 'error', 'multiple_choice_correct_count', 'Multiple-choice questions must have exactly one keyed answer.', question)
       }
       if (!question.answerExplanationPlain.trim()) {
         add(checks, 'error', 'missing_question_explanation', 'Multiple-choice questions need one question-level teaching explanation.', question)
       }
-    } else {
+    } else if (question.answerScheme === 'decision_making_binary_placement') {
       if (question.options.length !== 5) {
-        add(checks, 'error', 'syllogism_option_count', 'Syllogism questions must have exactly five Yes/No statements.', question)
+        add(checks, 'error', 'dm_placement_option_count', 'Binary-placement questions must have exactly five Yes/No statements.', question)
       }
       question.options.forEach((option, optionIndex) => {
         if (!option.answerExplanationPlain.trim()) {
-          add(checks, 'error', 'missing_syllogism_option_explanation', `Syllogism option ${optionIndex + 1} needs its own teaching explanation.`, question, optionIndex)
+          add(checks, 'error', 'missing_placement_option_explanation', `Binary-placement statement ${optionIndex + 1} needs its own teaching explanation.`, question, optionIndex)
         }
       })
+    } else if (!question.answerExplanationPlain.trim()) {
+      add(checks, 'error', 'missing_question_explanation', 'Placement questions need one question-level teaching explanation.', question)
     }
   }
 }
@@ -87,7 +89,7 @@ function vrChecks(snapshot: UcatAssessmentSnapshot, checks: UcatFormatCheck[]) {
     add(checks, 'error', 'vr_category', "Verbal Reasoning must use Reading Comprehension or True, False, Can't Tell.")
   }
   for (const question of snapshot.questions) {
-    if (question.questionType !== 'multiple_choice') add(checks, 'error', 'vr_question_type', 'Verbal Reasoning questions must be stored as multiple choice.', question)
+    if (question.responseType !== 'multiple_choice') add(checks, 'error', 'vr_response_type', 'Verbal Reasoning questions must use a multiple-choice response.', question)
     if (category === 'reading comprehension' && question.options.length !== 4) {
       add(checks, 'error', 'vr_reading_comprehension_options', 'Reading Comprehension questions must have four answer options.', question)
     }
@@ -101,17 +103,28 @@ function vrChecks(snapshot: UcatAssessmentSnapshot, checks: UcatFormatCheck[]) {
 
 function dmChecks(snapshot: UcatAssessmentSnapshot, checks: UcatFormatCheck[]) {
   const category = norm(snapshot.categoryName)
-  const valid = new Set(['logical puzzles', 'probabilistic and statistical reasoning', 'recognising assumptions', 'syllogisms', 'venn diagrams'])
+  const valid = new Set([
+    'interpreting information and drawing conclusions',
+    'logical puzzles',
+    'probabilistic and statistical reasoning',
+    'recognising assumptions',
+    'syllogisms',
+    'venn diagrams',
+  ])
   if (!valid.has(category)) add(checks, 'error', 'dm_category', 'Decision Making must use a recognised category.')
   if (snapshot.questions.length !== 1) add(checks, 'error', 'dm_question_count', 'Decision Making stems must contain exactly one question.')
   const question = snapshot.questions[0]
   if (!question) return
-  if (category === 'syllogisms') {
+  if (question.answerScheme === 'decision_making_binary_placement') {
     const expected = norm("Place 'Yes' if the conclusion does follow. Place 'No' if the conclusion does not follow.")
-    if (norm(question.questionTextPlain) !== expected) add(checks, 'error', 'dm_syllogism_instruction', 'The syllogism instruction must match the UCAT Yes/No wording.', question)
-    if (question.questionType !== 'syllogism') add(checks, 'error', 'dm_syllogism_question_type', 'Syllogism questions must be stored as syllogism.', question)
-  } else if (question.questionType !== 'multiple_choice') {
-    add(checks, 'error', 'dm_question_type', 'Non-syllogism Decision Making questions must be stored as multiple choice.', question)
+    if (norm(question.questionTextPlain) !== expected) {
+      add(checks, 'error', 'dm_placement_instruction', 'Binary-placement question text must match the UCAT Yes/No wording.', question)
+    }
+    if (question.responseType !== 'drag_and_drop') {
+      add(checks, 'error', 'dm_placement_response_type', 'Binary-placement questions must use a drag-and-drop response.', question)
+    }
+  } else if (question.responseType === 'drag_and_drop') {
+    add(checks, 'error', 'dm_placement_answer_scheme', 'Drag-and-drop Decision Making questions must use binary placement.', question)
   }
   if (category === 'recognising assumptions') {
     const expected = norm('Select the strongest argument from the statements below.')
@@ -128,7 +141,7 @@ function dmChecks(snapshot: UcatAssessmentSnapshot, checks: UcatFormatCheck[]) {
 
 function qrChecks(snapshot: UcatAssessmentSnapshot, checks: UcatFormatCheck[]) {
   for (const question of snapshot.questions) {
-    if (question.questionType !== 'multiple_choice') add(checks, 'error', 'qr_question_type', 'Quantitative Reasoning questions must be stored as multiple choice.', question)
+    if (question.responseType !== 'multiple_choice') add(checks, 'error', 'qr_response_type', 'Quantitative Reasoning questions must use a multiple-choice response.', question)
     if (question.options.length !== 5) add(checks, 'error', 'qr_option_count', 'Quantitative Reasoning questions must have five answer options.', question)
   }
 }
@@ -137,8 +150,25 @@ function sjChecks(snapshot: UcatAssessmentSnapshot, checks: UcatFormatCheck[]) {
   const category = norm(snapshot.categoryName)
   const important = ['Very important', 'Important', 'Of minor importance', 'Not important at all']
   const appropriate = ['A very appropriate thing to do', 'Appropriate, but not ideal', 'Inappropriate, but not awful', 'A very inappropriate thing to do']
+  if (!['how important', 'how appropriate', 'most least appropriate'].includes(category)) {
+    add(checks, 'error', 'sjt_category', 'Situational Judgement must use How Important, How Appropriate, or Most/Least Appropriate.')
+  }
+  const mostLeastQuestion = snapshot.questions.find((question) => (
+    question.answerScheme === 'situational_judgement_most_least'
+  ))
+  if (mostLeastQuestion) {
+    if (snapshot.questions.length !== 1) {
+      add(checks, 'error', 'sj_most_least_question_count', 'Most/Least Appropriate stems must contain exactly one question.')
+    }
+    if (mostLeastQuestion.responseType !== 'drag_and_drop') {
+      add(checks, 'error', 'sj_most_least_response_type', 'Most/Least questions must use a drag-and-drop response.', mostLeastQuestion)
+    }
+    if (mostLeastQuestion.options.length !== 3) {
+      add(checks, 'error', 'sj_most_least_option_count', 'Most/Least questions must have exactly three actions.', mostLeastQuestion)
+    }
+    return
+  }
   const expected = category === 'how important' ? important : category === 'how appropriate' ? appropriate : null
-  if (!expected) add(checks, 'error', 'sjt_category', 'Situational Judgement must use How Important or How Appropriate.')
   const modes = new Set(snapshot.questions.flatMap((question) => {
     const actual = question.options.map((option) => optionNorm(option.answerTextPlain)).sort().join('|')
     if (actual === important.map(optionNorm).sort().join('|')) return ['important']
@@ -147,7 +177,7 @@ function sjChecks(snapshot: UcatAssessmentSnapshot, checks: UcatFormatCheck[]) {
   }))
   if (modes.size > 1) add(checks, 'error', 'sjt_mixed_modes', 'Situational Judgement questions must use one response mode consistently within a stem.')
   for (const question of snapshot.questions) {
-    if (question.questionType !== 'multiple_choice') add(checks, 'error', 'sj_question_type', 'Situational Judgement questions must be stored as multiple choice.', question)
+    if (question.responseType !== 'multiple_choice') add(checks, 'error', 'sj_response_type', 'Rating questions must use a multiple-choice response.', question)
     if (question.options.length !== 4) add(checks, 'error', 'sj_option_count', 'Situational Judgement questions must have four answer options.', question)
     if (expected && question.options.map((option) => norm(option.answerTextPlain)).join('|') !== expected.map(norm).join('|')) {
       add(checks, 'error', 'sjt_options', 'Situational Judgement options must exactly match the selected mode and order.', question)

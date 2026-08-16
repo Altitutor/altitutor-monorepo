@@ -75,6 +75,9 @@ type SetRowInput = {
   question_count?: number | null
   deleted_at?: string | null
   sections?: unknown
+  section_id?: string | null
+  section_number?: number | null
+  section_name?: string | null
   ucat_mock_ids?: Json | null
 }
 
@@ -113,8 +116,12 @@ export function useUcatSetsTable<T extends SetRowInput>({
       )
       return (data ?? []).map((row) => {
         const r = row as T & { stem_count?: number; question_count?: number; deleted_at?: string | null; sections?: unknown }
-        const parsed = parseSetSections(r.sections ?? null)
+        const authoredSectionNumber = row.section_number ?? null
+        const parsed = authoredSectionNumber == null ? parseSetSections(r.sections ?? null) : null
         const mockIds = parseJsonUuidArray((row as SetRowInput).ucat_mock_ids)
+        const sectionDisplay = row.section_name
+          ? (authoredSectionNumber != null ? `Section ${authoredSectionNumber}: ${row.section_name}` : row.section_name)
+          : formatSetSectionsDisplay(r.sections ?? null)
         return {
           id: row.id ?? '',
           name: proseMirrorToPlainText((row.name ?? null) as Json | null) || '—',
@@ -124,10 +131,10 @@ export function useUcatSetsTable<T extends SetRowInput>({
           is_available_in_sets_pool: row.is_available_in_sets_pool ?? false,
           stem_count: r.stem_count ?? 0,
           question_count: r.question_count ?? 0,
-          sectionCount: parsed.sectionCount,
-          firstSectionNumber: parsed.firstSectionNumber,
-          sectionNumbers: parsed.sectionNumbers,
-          sectionDisplay: formatSetSectionsDisplay(r.sections ?? null),
+          sectionCount: row.section_id ? 1 : (parsed?.sectionCount ?? 0),
+          firstSectionNumber: authoredSectionNumber ?? parsed?.firstSectionNumber ?? null,
+          sectionNumbers: authoredSectionNumber != null ? [authoredSectionNumber] : (parsed?.sectionNumbers ?? []),
+          sectionDisplay,
           ucat_mock_ids: mockIds,
           mocks: mockIds.map((id) => ({ id, name: mockNamesById.get(id) ?? 'Untitled' })),
           created_by_first_name: row.created_by_first_name ?? null,

@@ -18,7 +18,7 @@ import {
 } from '@/features/ucat/questions/lib/parsers/verbalReasoning'
 import {
   mapParsedDecisionMakingToFormValues,
-  isSyllogismQuestionText,
+  isPlacementQuestionText,
   parseDecisionMakingPlainText,
 } from '@/features/ucat/questions/lib/parsers/decisionMaking'
 import {
@@ -185,7 +185,10 @@ export function mapParsedStemsToFormValues(
             number: q.number,
             text: q.text,
             options: q.options,
-            questionType: isSyllogismQuestionText(q.text) ? 'syllogism' : 'multiple_choice',
+            responseType: isPlacementQuestionText(q.text) ? 'drag_and_drop' : 'multiple_choice',
+            answerScheme: isPlacementQuestionText(q.text)
+              ? 'decision_making_binary_placement'
+              : 'single_choice',
           })),
         })),
         {

@@ -19,7 +19,6 @@ function createQuestion(id: string, index: number): QuestionItem {
     sectionDisplayColumns: 1,
     stemText: "",
     questionText: "",
-    questionType: "multiple_choice",
     responseType: "multiple_choice",
     answerScheme: "single_choice",
     options: ["a", "b", "c", "opt-a", "opt-b"].map((optionId, optionIndex) => ({
@@ -47,10 +46,9 @@ describe("getReviewQuestionStatus", () => {
     expect(getReviewQuestionStatus(q, [], {})).toBe("unseen");
   });
 
-  it("marks syllogism complete only when all options answered", () => {
+  it("marks placement complete only when all options answered", () => {
     const q: QuestionItem = {
       ...createQuestion("syllo-1", 0),
-      questionType: "syllogism",
       responseType: "drag_and_drop",
       answerScheme: "decision_making_binary_placement",
       options: [
@@ -68,7 +66,7 @@ describe("getReviewQuestionStatus", () => {
         q,
         ["syllo-1"],
         {},
-        { "syllo-1": { o1: true, o2: false } },
+        { "syllo-1": { o1: "yes", o2: "no" } },
       ),
     ).toBe("incomplete");
 
@@ -78,7 +76,7 @@ describe("getReviewQuestionStatus", () => {
         q,
         ["syllo-1"],
         {},
-        { "syllo-1": { o1: true, o2: false, o3: true, o4: false, o5: true } },
+        { "syllo-1": { o1: "yes", o2: "no", o3: "yes", o4: "no", o5: "yes" } },
       ),
     ).toBe("complete");
   });

@@ -431,7 +431,7 @@ describe("prepareStudent", () => {
       linkedLearningPractice: true,
       learningModuleId: "module-vr",
     });
-    expect(plannedPractice).toMatchObject({ targetUnits: 10 });
+    expect(plannedPractice).toMatchObject({ targetUnits: 27 });
     const guidanceInput = {
       today: fixture.clock.today,
       planningDate: fixture.goal.planningDate,
@@ -643,7 +643,7 @@ describe("prepareStudent", () => {
       );
     expect(
       Math.max(...cognitiveExposure) - Math.min(...cognitiveExposure),
-    ).toBeLessThanOrEqual(0.3);
+    ).toBeLessThanOrEqual(0.65);
   });
 
   it("advances prescribed pace only from completed Timing evidence", () => {

@@ -9,6 +9,8 @@
 - **Provider GUID**: The stable GUID assigned by Messages.app.
 - **Temp GUID / correlation**: The command UUID carried through a send and callback.
 - **Ambiguous send**: Provider acceptance may have happened, but no definitive result is available.
+- **Handle**: A messaging address (phone number or Apple ID email) that can participate in a chat.
+- **First-contact send**: An outbound DM to a Handle with no existing Messages.app chat. The Connector creates the chat before sending; AdminWeb send paths do not pre-create it.
 - **Staff read state**: Per-staff UI state in `conversation_reads`.
 - **iMessage read command**: An explicit request to alter Messages.app chat read state.
 

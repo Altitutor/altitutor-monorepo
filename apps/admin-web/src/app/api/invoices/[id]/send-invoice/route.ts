@@ -140,8 +140,8 @@ export async function POST(
     const amount = stripeInvoice.total ? (stripeInvoice.total / 100).toFixed(2) : '0.00';
     const currency = stripeInvoice.currency?.toUpperCase() || 'AUD';
     const invoiceNumber = stripeInvoice.number || invoiceId.slice(0, 8);
-    const invoiceDate = stripeInvoice.created ? new Date(stripeInvoice.created * 1000).toLocaleDateString() : 'N/A';
-    const dueDate = stripeInvoice.due_date ? new Date(stripeInvoice.due_date * 1000).toLocaleDateString() : 'N/A';
+    const invoiceDate = stripeInvoice.created ? new Date(stripeInvoice.created * 1000).toISOString() : 'N/A';
+    const dueDate = stripeInvoice.due_date ? new Date(stripeInvoice.due_date * 1000).toISOString() : 'N/A';
     const hostedInvoiceUrl = stripeInvoice.hosted_invoice_url || '';
     const invoicePdfUrl = stripeInvoice.invoice_pdf || '';
     const paid = stripeInvoice.status === 'paid';

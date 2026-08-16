@@ -43,13 +43,13 @@ JOIN public.question_stem_categories category
   ON category.ucat_section_id = section.id AND category.name = input.category_name;
 
 INSERT INTO public.ucat_questions (
-  id, question_stem_id, question_text, index, question_type, response_type, answer_scheme
+  id, question_stem_id, question_text, index, response_type, answer_scheme
 )
 SELECT
   ('54220000-0000-4000-8000-' || lpad(row_number() OVER ()::text, 12, '0'))::uuid,
   stem.id,
   '{"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"Question"}]}]}'::jsonb,
-  1, 'multiple_choice', 'multiple_choice', 'single_choice'
+  1, 'multiple_choice', 'single_choice'
 FROM public.question_stems stem
 WHERE stem.id::text LIKE '54210000-0000-4000-8000-%';
 
@@ -57,23 +57,26 @@ UPDATE public.ucat_questions
 SET answer_explanation = '{"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"Explanation"}]}]}'::jsonb
 WHERE question_stem_id::text LIKE '54210000-0000-4000-8000-%';
 
-INSERT INTO public.question_answer_options (question_id, answer_text, index, is_answer, answer_key_value)
+INSERT INTO public.question_answer_options (question_id, answer_text, index, answer_key_value)
 SELECT question.id,
   jsonb_build_object('type', 'doc', 'content', jsonb_build_array(jsonb_build_object(
     'type', 'paragraph', 'content', jsonb_build_array(jsonb_build_object('type', 'text', 'text', option.index::text))
   ))),
-  option.index, option.index = 1,
+  option.index,
   CASE WHEN option.index = 1 THEN 'correct'::public.ucat_answer_key_value ELSE NULL END
 FROM public.ucat_questions question
 CROSS JOIN generate_series(1, 4) AS option(index)
 WHERE question.question_stem_id::text LIKE '54210000-0000-4000-8000-%';
 
-INSERT INTO public.question_sets (id, name, time_limit_seconds, status, access_scope)
-VALUES (
+INSERT INTO public.question_sets (id, name, time_limit_seconds, status, access_scope, section_id)
+SELECT
   '54230000-0000-4000-8000-000000000001',
   '{"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"DM"}]}]}'::jsonb,
-  240, 'published', 'public'
-);
+  240, 'published', 'public',
+  section.id
+FROM public.ucat_sections section
+WHERE section.section_number = 2
+LIMIT 1;
 
 INSERT INTO public.question_stems_question_sets (question_stem_id, question_set_id, index)
 SELECT stem.id, '54230000-0000-4000-8000-000000000001', row_number() OVER (ORDER BY stem.id)
@@ -135,11 +138,11 @@ SELECT throws_ok(
     (SELECT jsonb_agg(jsonb_build_object(
       'id', question.id, 'index', question.index, 'question_text', question.question_text,
       'answer_explanation', question.answer_explanation,
-      'question_type', question.question_type, 'response_type', question.response_type,
+      'response_type', question.response_type,
       'answer_scheme', question.answer_scheme,
       'answer_options', (SELECT jsonb_agg(jsonb_build_object(
         'id', option.id, 'index', option.index, 'answer_text', option.answer_text,
-        'is_answer', option.is_answer, 'answer_key_value', option.answer_key_value
+        'answer_key_value', option.answer_key_value
       ) ORDER BY option.index) FROM public.question_answer_options option
         WHERE option.question_id = question.id AND option.deleted_at IS NULL)
     )) FROM public.ucat_questions question

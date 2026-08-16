@@ -95,9 +95,8 @@ Supabase RLS is based on roles in the `staff` table (and student identity for st
 
 Policies typically use:
 
-- `public.is_adminstaff()`
+- `public.is_adminstaff_active()`
 - `public.is_tutor()`
-- `public.is_staff()`
 - `public.current_staff_id()`
 - `public.current_student_id()`
 

@@ -7,7 +7,9 @@ export const dynamic = "force-static";
 export default function sitemap(): MetadataRoute.Sitemap {
   const legacyPages: MetadataRoute.Sitemap = getSitemapPages().map((page) => ({
     url: `${SITE_URL}${page.path}`,
-    lastModified: page.modified,
+    // Imported WordPress timestamps do not include a timezone. A date-only
+    // value is unambiguous and valid under the sitemap protocol.
+    lastModified: page.modified.slice(0, 10),
     changeFrequency: page.path === "/" ? "weekly" : "monthly",
     priority: page.path === "/" ? 1 : 0.7,
   }));

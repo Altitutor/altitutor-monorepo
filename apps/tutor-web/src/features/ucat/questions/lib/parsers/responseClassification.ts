@@ -663,7 +663,6 @@ export type IngestedResponseContractInput = {
   declaredResponseType?: ResponseTypeInferenceValue
   declaredAnswerScheme?: AnswerSchemeInferenceValue
   answerKeyValues: readonly AnswerKeyInferenceValue[]
-  legacyIsAnswerValues: readonly boolean[]
 }
 
 export type ReconciledIngestedResponseContract = {
@@ -678,18 +677,7 @@ export type ReconciledIngestedResponseContract = {
 export function reconcileIngestedResponseContract(
   input: IngestedResponseContractInput
 ): ReconciledIngestedResponseContract {
-  const structuralInference = inferResponseContract({
-    directive: input.directive,
-    targetCount: input.optionTexts.length,
-    optionTexts: input.optionTexts,
-  })
-  const hasExplicitKeys = input.answerKeyValues.some((value) => value !== null)
-  const keyScheme = structuralInference.answerScheme.value ?? input.declaredAnswerScheme
-  const answerKeyValues: AnswerKeyInferenceValue[] = hasExplicitKeys
-    ? [...input.answerKeyValues]
-    : keyScheme === 'decision_making_binary_placement'
-      ? input.legacyIsAnswerValues.map((isAnswer) => isAnswer ? 'yes' : 'no')
-      : input.legacyIsAnswerValues.map((isAnswer) => isAnswer ? 'correct' : null)
+  const answerKeyValues: AnswerKeyInferenceValue[] = [...input.answerKeyValues]
   const answerEvidence = inferAnswerEvidenceFromKeyValues(answerKeyValues)
   const inference = inferResponseContract({
     directive: input.directive,

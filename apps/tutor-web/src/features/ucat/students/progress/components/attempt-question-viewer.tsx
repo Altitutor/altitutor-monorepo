@@ -17,7 +17,7 @@ import {
 type AttemptQuestionViewerProps = {
   question: AttemptReviewQuestion
   selectedOptionId?: string | null
-  legacyPlacementSnapshot?: Record<string, boolean> | null
+  placementSnapshot?: Record<string, import('@altitutor/ucat-response-contract').PlacementValue> | null
   result?: 'correct' | 'partial' | 'incorrect' | 'not_attempted'
   review?: ReviewContract
 }
@@ -341,7 +341,7 @@ export function AttemptQuestionViewer(props: AttemptQuestionViewerProps) {
   const review = projectAttemptReview({
     question: props.question,
     selectedOptionId: props.selectedOptionId,
-    legacyPlacementSnapshot: props.legacyPlacementSnapshot,
+    placementSnapshot: props.placementSnapshot,
   })
   return props.question.answerScheme === 'decision_making_binary_placement'
     || props.question.answerScheme === 'situational_judgement_most_least' ? (

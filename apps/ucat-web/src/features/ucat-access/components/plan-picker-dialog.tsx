@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useRef } from "react";
-import { useRouter } from "next/navigation";
+import React, { useEffect, useRef } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { PlanPicker } from "@/features/subscription/components/plan-picker/plan-picker";
 import { PlanPickerDialogShell } from "@/features/subscription/components/plan-picker/plan-picker-dialog-shell";
@@ -15,6 +15,8 @@ const QUOTA_UPSELL_TIERS: PlanPickerTier[] = ["unlimited"];
 
 export function PlanPickerDialog() {
   const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
   const trackedQuotaOpenRef = useRef(false);
   const {
     planPickerOpen,
@@ -78,6 +80,8 @@ export function PlanPickerDialog() {
     ?.replace(/^Back to /i, "")
     .replace(/^Dismiss$/i, "");
   const quotaDismissLabel = `No thanks, take me back${dismissDestination ? ` to ${dismissDestination}` : ""}`;
+  const currentQuery = searchParams.toString();
+  const currentPage = currentQuery ? `${pathname}?${currentQuery}` : pathname;
 
   return (
     <PlanPickerDialogShell
@@ -104,6 +108,7 @@ export function PlanPickerDialog() {
         variant="dialog"
         surfaceTheme="app"
         visibleTiers={quotaContext ? QUOTA_UPSELL_TIERS : undefined}
+        postCheckoutReturnTo={quotaContext ? currentPage : undefined}
         onContinueFree={quotaContext ? undefined : closePlanPicker}
         onCheckoutStart={() => {
           if (quotaPayload) {

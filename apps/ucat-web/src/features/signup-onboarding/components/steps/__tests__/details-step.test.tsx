@@ -28,7 +28,6 @@ jest.mock("@/features/auth/api/newsletter", () => ({
   subscribeToUcatNewsletter: jest.fn().mockResolvedValue(undefined),
 }));
 
-const updateUser = jest.fn();
 const fetchMock = jest.fn();
 
 function renderStep({
@@ -40,14 +39,10 @@ function renderStep({
 } = {}) {
   render(
     <SignupCompleteDetailsStep
-      supabase={{ auth: { updateUser } } as never}
       confirmedEmail="provider@example.com"
-      initialEmail="provider@example.com"
-      pendingEmail=""
       initialFirstName="Taylor"
       initialLastName="Student"
       initialPhone=""
-      returnTo="/dashboard"
       onComplete={onComplete}
       error={null}
       setError={setError}
@@ -59,7 +54,6 @@ function renderStep({
 describe("SignupCompleteDetailsStep", () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    updateUser.mockResolvedValue({ error: null });
     fetchMock.mockResolvedValue({
       ok: true,
       json: async () => ({ success: true }),
@@ -85,7 +79,6 @@ describe("SignupCompleteDetailsStep", () => {
     fireEvent.click(screen.getByRole("button", { name: "Next" }));
 
     await waitFor(() => expect(onComplete).toHaveBeenCalledTimes(1));
-    expect(updateUser).not.toHaveBeenCalled();
     expect(fetchMock).toHaveBeenCalledWith(
       "/api/ucat/signup/complete",
       expect.objectContaining({ method: "POST" }),
@@ -101,45 +94,21 @@ describe("SignupCompleteDetailsStep", () => {
     );
   });
 
-  it("requests a confirmed Auth email change while retaining social sign-in", async () => {
+  it("keeps the authenticated email read-only and never starts an email change", async () => {
     const { onComplete } = renderStep();
-    fireEvent.change(screen.getByLabelText("Email address"), {
-      target: { value: "chosen@example.com" },
-    });
+    const email = screen.getByLabelText("Email address");
+
+    expect(email).toHaveValue("provider@example.com");
+    expect(email).toHaveAttribute("readonly");
 
     fireEvent.click(screen.getByRole("button", { name: "Next" }));
 
-    await waitFor(() => expect(updateUser).toHaveBeenCalledTimes(1));
-    expect(updateUser).toHaveBeenCalledWith(
-      { email: "chosen@example.com" },
-      {
-        emailRedirectTo:
-          "http://localhost/auth/callback?next=%2Fsignup%2Fcomplete",
-      },
-    );
+    await waitFor(() => expect(onComplete).toHaveBeenCalledTimes(1));
     expect(onComplete).toHaveBeenCalledWith(
       expect.objectContaining({
-        email: "chosen@example.com",
-        pendingEmail: "chosen@example.com",
+        email: "provider@example.com",
+        pendingEmail: "",
       }),
     );
-  });
-
-  it("does not save profile details when the Auth email change fails", async () => {
-    updateUser.mockResolvedValue({
-      error: { message: "Email address is already in use" },
-    });
-    const { onComplete, setError } = renderStep();
-    fireEvent.change(screen.getByLabelText("Email address"), {
-      target: { value: "taken@example.com" },
-    });
-
-    fireEvent.click(screen.getByRole("button", { name: "Next" }));
-
-    await waitFor(() =>
-      expect(setError).toHaveBeenCalledWith("Email address is already in use"),
-    );
-    expect(fetchMock).not.toHaveBeenCalled();
-    expect(onComplete).not.toHaveBeenCalled();
   });
 });

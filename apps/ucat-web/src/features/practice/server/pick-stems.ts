@@ -1,14 +1,14 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { PracticeSelectionInput } from "@/features/practice/model/types";
 
-type SectionRow = {
+export type PracticeSectionIndexRow = {
   id: string;
   section_number: number;
   time_per_question: number | null;
   number_of_questions: number | null;
 };
 
-type StemIndexRow = {
+export type PracticeStemIndexRow = {
   id: string;
   section_id: string;
   question_stem_category_id: string | null;
@@ -16,7 +16,7 @@ type StemIndexRow = {
   question_tag_ids?: string[] | null;
 };
 
-type QuestionAttemptRow = {
+export type PracticeQuestionAttemptIndexRow = {
   question_id: string;
   score: number | null;
   is_submitted: boolean;
@@ -29,7 +29,9 @@ const SECTION_KEY_TO_NUMBER: Record<string, number> = {
   situational_judgement: 4,
 };
 
-function computeQuestionStatus(attempts: QuestionAttemptRow[] | undefined) {
+function computeQuestionStatus(
+  attempts: PracticeQuestionAttemptIndexRow[] | undefined,
+) {
   if (!attempts || attempts.length === 0) {
     return "unanswered" as const;
   }
@@ -45,7 +47,7 @@ function computeQuestionStatus(attempts: QuestionAttemptRow[] | undefined) {
 
 function resolveEffectiveQuestionCount(
   requested: number,
-  sections: SectionRow[],
+  sections: PracticeSectionIndexRow[],
   availableQuestions: number,
 ): number {
   const maxBySections = sections.reduce((sum, section) => {
@@ -77,14 +79,20 @@ export type PickStemsOptions = {
   allowOversizedFallback?: boolean;
   /** Stable ordering for read-only development diagnostics. */
   deterministic?: boolean;
+  /** Reuse an already-loaded catalogue snapshot for read-only diagnostics. */
+  preloaded?: {
+    sections: PracticeSectionIndexRow[];
+    stems: PracticeStemIndexRow[];
+    attempts: PracticeQuestionAttemptIndexRow[];
+  };
 };
 
 export type PickStemsResult = {
   chosenStemIds: string[];
   totalMatchingQuestions: number;
   questionCount: number;
-  sectionRows: SectionRow[];
-  stemDetailRows: StemIndexRow[];
+  sectionRows: PracticeSectionIndexRow[];
+  stemDetailRows: PracticeStemIndexRow[];
   selectionTrace: Array<{
     stemId: string;
     questionCount: number;
@@ -148,12 +156,19 @@ export async function pickStems(
 
   const sectionNumbers = [sectionNumber];
 
-  const { data: sections, error: sectionsError } = await supabase
-    .from("vstudent_ucat_sections")
-    .select("id,section_number,time_per_question,number_of_questions")
-    .in("section_number", sectionNumbers);
+  const sectionQuery = options?.preloaded
+    ? {
+        data: options.preloaded.sections.filter((section) =>
+          sectionNumbers.includes(section.section_number),
+        ),
+        error: null,
+      }
+    : await supabase
+        .from("vstudent_ucat_sections")
+        .select("id,section_number,time_per_question,number_of_questions")
+        .in("section_number", sectionNumbers);
 
-  if (sectionsError || !sections?.length) {
+  if (sectionQuery.error || !sectionQuery.data?.length) {
     return {
       chosenStemIds: [],
       totalMatchingQuestions: 0,
@@ -164,21 +179,35 @@ export async function pickStems(
     };
   }
 
-  const sectionRows = sections as SectionRow[];
+  const sectionRows = sectionQuery.data as PracticeSectionIndexRow[];
   const sectionIds = sectionRows.map((row) => row.id);
 
-  let stemsQuery = supabase
-    .from("vstudent_ucat_practice_stem_index")
-    .select(
-      "id,section_id,question_stem_category_id,question_ids,question_tag_ids",
-    )
-    .in("section_id", sectionIds);
+  let stems: PracticeStemIndexRow[] | null;
+  let stemsError: { message: string } | null;
+  if (options?.preloaded) {
+    stems = options.preloaded.stems.filter(
+      (stem) =>
+        sectionIds.includes(stem.section_id) &&
+        (!input.categoryIds?.length ||
+          (stem.question_stem_category_id != null &&
+            input.categoryIds.includes(stem.question_stem_category_id))),
+    );
+    stemsError = null;
+  } else {
+    let stemsQuery = supabase
+      .from("vstudent_ucat_practice_stem_index")
+      .select(
+        "id,section_id,question_stem_category_id,question_ids,question_tag_ids",
+      )
+      .in("section_id", sectionIds);
 
-  if (input.categoryIds && input.categoryIds.length > 0) {
-    stemsQuery = stemsQuery.in("question_stem_category_id", input.categoryIds);
+    if (input.categoryIds && input.categoryIds.length > 0) {
+      stemsQuery = stemsQuery.in("question_stem_category_id", input.categoryIds);
+    }
+    const result = await stemsQuery;
+    stems = result.data as PracticeStemIndexRow[] | null;
+    stemsError = result.error;
   }
-
-  const { data: stems, error: stemsError } = await stemsQuery;
 
   if (stemsError || !stems?.length) {
     return {
@@ -191,7 +220,7 @@ export async function pickStems(
     };
   }
 
-  const stemDetailRows = stems as StemIndexRow[];
+  const stemDetailRows = stems as PracticeStemIndexRow[];
 
   const allQuestions: { stemId: string; questionId: string }[] = [];
   for (const stem of stemDetailRows) {
@@ -211,7 +240,10 @@ export async function pickStems(
     };
   }
 
-  let attemptsByQuestionId = new Map<string, QuestionAttemptRow[]>();
+  let attemptsByQuestionId = new Map<
+    string,
+    PracticeQuestionAttemptIndexRow[]
+  >();
 
   if (
     input.unansweredOnly ||
@@ -222,24 +254,32 @@ export async function pickStems(
       new Set(allQuestions.map((q) => q.questionId)),
     );
 
-    const { data: attempts, error: attemptsError } = await supabase
-      .from("vstudent_ucat_my_question_attempts")
-      .select("question_id,score,is_submitted")
-      .in("question_id", questionIds);
+    const attemptsResult = options?.preloaded
+      ? {
+          data: options.preloaded.attempts.filter((attempt) =>
+            questionIds.includes(attempt.question_id),
+          ),
+          error: null,
+        }
+      : await supabase
+          .from("vstudent_ucat_my_question_attempts")
+          .select("question_id,score,is_submitted")
+          .in("question_id", questionIds);
 
-    if (!attemptsError && attempts) {
-      const attemptRows = attempts as QuestionAttemptRow[];
+    if (!attemptsResult.error && attemptsResult.data) {
+      const attemptRows =
+        attemptsResult.data as PracticeQuestionAttemptIndexRow[];
       attemptsByQuestionId = attemptRows.reduce((map, row) => {
         const existing = map.get(row.question_id) ?? [];
         existing.push(row);
         map.set(row.question_id, existing);
         return map;
-      }, new Map<string, QuestionAttemptRow[]>());
+      }, new Map<string, PracticeQuestionAttemptIndexRow[]>());
     }
   }
 
   type StemAggregate = {
-    stem: StemIndexRow;
+    stem: PracticeStemIndexRow;
     allQuestionsCount: number;
     matchingQuestionsCount: number;
     tier: number;
@@ -347,7 +387,7 @@ export async function pickStems(
           availableQuestions,
         );
 
-  const chosenStems: StemIndexRow[] = [];
+  const chosenStems: PracticeStemIndexRow[] = [];
   let runningQuestions = 0;
   const remainingDoseByTier = new Map<number, number>();
   if (limitStems == null) {

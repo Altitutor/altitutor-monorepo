@@ -7,7 +7,7 @@ export type ExplanationScope = 'question' | 'per_option'
 
 export type PerQuestionAnswerDraft = {
   correctOptionIndex: number | null
-  syllogismPattern: string | null
+  placementPattern: string | null
   explanationScope: ExplanationScope
   questionExplanation: Json | null
   optionExplanations: Array<Json | null>
@@ -19,7 +19,7 @@ export type FlatQuestionRef = {
   questionIndex: number
   globalIndex: number
   label: string
-  isSyllogism: boolean
+  isPlacement: boolean
   optionCount: number
 }
 
@@ -35,7 +35,7 @@ export function flattenBulkImportQuestions(stems: BulkImportStemDraft[]): FlatQu
         questionIndex,
         globalIndex,
         label: `Stem ${stemIndex + 1} · Q${questionIndex + 1}`,
-        isSyllogism: (q as { questionType?: string }).questionType === 'syllogism',
+        isPlacement: q.responseType === 'drag_and_drop',
         optionCount: q.options?.length ?? 0,
       })
       globalIndex += 1
@@ -49,10 +49,10 @@ export function createDefaultPerQuestionAnswers(
 ): PerQuestionAnswerDraft[] {
   return flat.map((row) => ({
     correctOptionIndex: null,
-    syllogismPattern: row.isSyllogism
+    placementPattern: row.isPlacement
       ? 'N'.repeat(Math.max(row.optionCount, 5)).slice(0, row.optionCount)
       : null,
-    explanationScope: row.isSyllogism ? 'per_option' : 'question',
+    explanationScope: row.isPlacement ? 'per_option' : 'question',
     questionExplanation: null,
     optionExplanations: Array.from({ length: row.optionCount }, () => null),
   }))
@@ -66,8 +66,8 @@ export function isPerQuestionAnswerComplete(
   row: FlatQuestionRef,
   draft: PerQuestionAnswerDraft
 ): boolean {
-  if (row.isSyllogism) {
-    const pattern = draft.syllogismPattern ?? ''
+  if (row.isPlacement) {
+    const pattern = draft.placementPattern ?? ''
     if (pattern.length < row.optionCount) return false
     if (draft.explanationScope === 'per_option') {
       return draft.optionExplanations.some((e) => hasRichTextContent(e))
@@ -103,11 +103,11 @@ export function applyPerQuestionAnswersToStems(
     const q = questions[row.questionIndex]
     if (!q || !q.options) return
 
-    if (row.isSyllogism) {
-      const pattern = (draft.syllogismPattern ?? '').slice(0, q.options.length)
+    if (row.isPlacement) {
+      const pattern = (draft.placementPattern ?? '').slice(0, q.options.length)
       const options = q.options.map((opt, j) => ({
         ...opt,
-        isAnswer: pattern.charAt(j).toUpperCase() === 'Y',
+        answerKeyValue: pattern.charAt(j).toUpperCase() === 'Y' ? 'yes' as const : 'no' as const,
         answerExplanation:
           draft.explanationScope === 'per_option'
             ? (draft.optionExplanations[j] ?? null)
@@ -115,7 +115,6 @@ export function applyPerQuestionAnswersToStems(
       }))
       questions[row.questionIndex] = {
         ...q,
-        syllogismAnswerPattern: pattern,
         options,
         answerExplanation:
           draft.explanationScope === 'question' ? draft.questionExplanation : null,
@@ -124,7 +123,7 @@ export function applyPerQuestionAnswersToStems(
       const correctIndex = draft.correctOptionIndex ?? 0
       const options = q.options.map((opt, j) => ({
         ...opt,
-        isAnswer: j === correctIndex,
+        answerKeyValue: j === correctIndex ? 'correct' as const : null,
         answerExplanation:
           draft.explanationScope === 'per_option'
             ? (draft.optionExplanations[j] ?? null)

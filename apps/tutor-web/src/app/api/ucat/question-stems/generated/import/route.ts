@@ -7,7 +7,6 @@ const GeneratedOptionSchema = z.object({
   index: z.number().int().positive(),
   answerText: z.unknown(),
   answerExplanation: z.unknown().nullable().optional(),
-  isAnswer: z.boolean(),
   answerKeyValue: z.enum(['correct', 'yes', 'no', 'most', 'least']).nullable(),
 })
 
@@ -17,7 +16,6 @@ const GeneratedQuestionSchema = z.object({
   answerExplanation: z.unknown().nullable().optional(),
   difficulty: z.number().min(0).max(1).nullable().optional(),
   timeBurdenSeconds: z.number().int().positive().nullable().optional(),
-  questionType: z.enum(['multiple_choice', 'syllogism']),
   responseType: z.enum(['multiple_choice', 'drag_and_drop']),
   answerScheme: z.enum([
     'single_choice',
@@ -73,7 +71,6 @@ export async function POST(request: NextRequest) {
           : question.answerExplanation,
       difficulty: question.difficulty ?? null,
       time_burden_seconds: question.timeBurdenSeconds ?? null,
-      question_type: question.questionType,
       response_type: question.responseType,
       answer_scheme: question.answerScheme,
       source_channel: 'ai_generation',
@@ -86,7 +83,6 @@ export async function POST(request: NextRequest) {
           option.answerExplanation == null || option.answerExplanation === 'null'
             ? null
             : option.answerExplanation,
-        is_answer: option.isAnswer,
         answer_key_value: option.answerKeyValue,
       })),
     })),

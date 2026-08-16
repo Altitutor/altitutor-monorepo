@@ -59,15 +59,13 @@ type StemDetailQuestion = {
   question_text: unknown;
   answer_explanation?: unknown;
   index: number;
-  question_type: "multiple_choice" | "syllogism";
-  response_type?: QuestionItem["responseType"];
-  answer_scheme?: QuestionItem["answerScheme"];
+  response_type: QuestionItem["responseType"];
+  answer_scheme: QuestionItem["answerScheme"];
   answer_options: Array<{
     id: string;
     answer_text: unknown;
     answer_explanation?: unknown;
     index: number;
-    is_answer?: boolean;
     answer_key_value?: AnswerOption["answerKeyValue"];
     selection_count?: number;
     total_answered?: number;
@@ -171,7 +169,6 @@ function mapSetToQuestions(
               typeof option.answer_text === "object"
                 ? (option.answer_text as Record<string, unknown>)
                 : null,
-            isAnswer: option.is_answer ?? false,
             answerKeyValue: option.answer_key_value ?? null,
             answerExplanation: optionExplanation.text,
             answerExplanationJson: optionExplanation.json,
@@ -181,7 +178,9 @@ function mapSetToQuestions(
           };
         })
         .sort((a, b) => a.index - b.index);
-      const correctOption = options.find((o) => o.isAnswer);
+      const correctOption = options.find(
+        (option) => option.answerKeyValue === "correct",
+      );
       const questionExplanation = mapRichExplanation(
         question.answer_explanation,
       );
@@ -208,7 +207,6 @@ function mapSetToQuestions(
         ),
         stemJson,
         questionJson,
-        questionType: question.question_type,
         responseType: question.response_type,
         answerScheme: question.answer_scheme,
         options,

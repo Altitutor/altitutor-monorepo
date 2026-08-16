@@ -50,7 +50,7 @@ describe('bulk-import syllogism rendering', () => {
         question={{
           number: 6,
           text: "Place 'Yes' if the conclusion does follow.",
-          questionType: 'syllogism',
+          responseType: 'drag_and_drop', answerScheme: 'decision_making_binary_placement',
           options: [{ label: 'A', text: 'All physicians are insured.' }],
         }}
         index={0}
@@ -71,14 +71,14 @@ describe('bulk-import syllogism rendering', () => {
         questionIndex: 0,
         globalIndex: 0,
         label: 'Stem 1 · Q1',
-        isSyllogism: true,
+        isPlacement: true,
         optionCount: 1,
       },
       questionText: "Place 'Yes' if the conclusion does follow.",
       questionTextDoc: doc("Place 'Yes' if the conclusion does follow."),
-      options: [{ label: 'a', answerTextDoc: doc('All physicians are insured.'), isAnswer: false }],
+      options: [{ label: 'a', answerTextDoc: doc('All physicians are insured.'), isKeyed: false }],
       answerLetter: null,
-      syllogismPattern: 'N',
+      placementPattern: 'N',
       explanationPreview: null,
       explanationPreviewDoc: null,
       hasExplanation: false,

@@ -164,7 +164,8 @@ function detailQuestionToPreview(
     stemJson: toRecordJson(detail.stem_text),
     questionText: proseMirrorToPlainText(question.question_text),
     questionJson: toRecordJson(question.question_text),
-    questionType: question.question_type,
+    responseType: question.response_type,
+    answerScheme: question.answer_scheme,
     options: [...(question.answer_options ?? [])]
       .sort((a, b) => (a.index ?? 0) - (b.index ?? 0))
       .map((option, index) => ({
@@ -172,7 +173,7 @@ function detailQuestionToPreview(
         index,
         text: proseMirrorToPlainText(option.answer_text),
         answerJson: toRecordJson(option.answer_text),
-        isAnswer: option.is_answer,
+        answerKeyValue: option.answer_key_value,
         answerExplanation: proseMirrorToPlainText(option.answer_explanation),
         answerExplanationJson: toRecordJson(option.answer_explanation),
       })),

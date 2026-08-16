@@ -58,6 +58,7 @@ type AttemptRowBase = {
 
 type PersistedAttemptSnapshot = {
   inProgress: boolean;
+  completed: boolean;
   stored: StoredExamSnapshot | null;
   currentSegmentEndsAt: string | null;
 };
@@ -623,15 +624,7 @@ async function loadPersistedAttemptSnapshot(
       .eq("id", attemptId)
       .eq("student_id", studentId)
       .maybeSingle();
-    return {
-      inProgress:
-        data != null &&
-        data.completed_at == null &&
-        data.discarded_at == null &&
-        data.expired_at == null,
-      stored: parseStoredSnapshot(data?.engine_snapshot ?? null),
-      currentSegmentEndsAt: data?.current_segment_ends_at ?? null,
-    };
+    return toPersistedAttemptSnapshot(data);
   }
   if (kind === "mock") {
     const { data } = await admin
@@ -640,15 +633,7 @@ async function loadPersistedAttemptSnapshot(
       .eq("id", attemptId)
       .eq("student_id", studentId)
       .maybeSingle();
-    return {
-      inProgress:
-        data != null &&
-        data.completed_at == null &&
-        data.discarded_at == null &&
-        data.expired_at == null,
-      stored: parseStoredSnapshot(data?.engine_snapshot ?? null),
-      currentSegmentEndsAt: data?.current_segment_ends_at ?? null,
-    };
+    return toPersistedAttemptSnapshot(data);
   }
   const { data, error } = await admin
     .from("student_practice_sessions")
@@ -657,15 +642,41 @@ async function loadPersistedAttemptSnapshot(
     .eq("student_id", studentId)
     .maybeSingle();
   if (error) throw new Error(error.message);
+  return toPersistedAttemptSnapshot(data);
+}
+
+function toPersistedAttemptSnapshot(data: {
+  completed_at: string | null;
+  discarded_at: string | null;
+  expired_at: string | null;
+  engine_snapshot: Json | null;
+  current_segment_ends_at: string | null;
+} | null): PersistedAttemptSnapshot {
   return {
     inProgress:
       data != null &&
       data.completed_at == null &&
       data.discarded_at == null &&
       data.expired_at == null,
+    completed: data?.completed_at != null,
     stored: parseStoredSnapshot(data?.engine_snapshot ?? null),
     currentSegmentEndsAt: data?.current_segment_ends_at ?? null,
   };
+}
+
+async function ignoreCompletedOrThrowPracticeEnded(
+  admin: AdminClient,
+  studentId: string,
+  attemptId: string,
+): Promise<null> {
+  const latest = await loadPersistedAttemptSnapshot(
+    admin,
+    studentId,
+    "practice",
+    attemptId,
+  );
+  if (latest.completed) return null;
+  throw new PracticeSessionEndedError();
 }
 
 function clampIntervalEnd(
@@ -952,7 +963,9 @@ async function persistSnapshot(
     attemptId,
   );
   if (!persisted.inProgress) {
-    if (kind === "practice") throw new PracticeSessionEndedError();
+    if (kind === "practice" && !persisted.completed) {
+      throw new PracticeSessionEndedError();
+    }
     return null;
   }
 
@@ -1066,7 +1079,9 @@ async function persistSnapshot(
       },
     );
     if (error) throw new Error(error.message);
-    if (!data) throw new PracticeSessionEndedError();
+    if (!data) {
+      return ignoreCompletedOrThrowPracticeEnded(admin, studentId, attemptId);
+    }
     return setAttemptIdsBySetId;
   }
   const { data, error } = await admin
@@ -1080,7 +1095,9 @@ async function persistSnapshot(
     .select("id")
     .maybeSingle();
   if (error) throw new Error(error.message);
-  if (!data) throw new PracticeSessionEndedError();
+  if (!data) {
+    return ignoreCompletedOrThrowPracticeEnded(admin, studentId, attemptId);
+  }
   return setAttemptIdsBySetId;
 }
 

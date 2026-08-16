@@ -110,7 +110,8 @@ function toImportPayload(draft: DraftWithMetadata): Record<string, unknown> {
         question.timeBurdenSeconds && question.timeBurdenSeconds.trim().length > 0
           ? parseTimeToSeconds(question.timeBurdenSeconds)
           : null,
-      questionType: question.questionType,
+      responseType: question.responseType,
+      answerScheme: question.answerScheme,
       tagIds: question.tagIds ?? [],
       sourceChannel: question.sourceChannel ?? 'ai_generation',
       aiGenerationMetadata: question.aiGenerationMetadata ?? draft.aiGenerationMetadata,
@@ -118,7 +119,7 @@ function toImportPayload(draft: DraftWithMetadata): Record<string, unknown> {
         index: optionIndex + 1,
         answerText: option.answerText,
         answerExplanation: option.answerExplanation ?? null,
-        isAnswer: option.isAnswer,
+        answerKeyValue: option.answerKeyValue,
       })),
     })),
     aiGenerationMetadata: draft.aiGenerationMetadata,
@@ -135,7 +136,7 @@ function formatDebugJson(value: unknown): string {
   return JSON.stringify(value, null, 2)
 }
 
-const SOURCE_STEM_FILTER_KEYS = new Set(['question_tag_id', 'visibility', 'question_type'])
+const SOURCE_STEM_FILTER_KEYS = new Set(['question_tag_id', 'visibility'])
 const GENERATION_STEP_LABELS: Record<UcatGenerationProgress['step'], string> = {
   setup: 'Setup',
   sources: 'Sources',

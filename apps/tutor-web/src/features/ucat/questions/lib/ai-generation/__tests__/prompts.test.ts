@@ -164,6 +164,17 @@ describe('VR writer prompts', () => {
   })
 })
 
+describe('DM writer prompts', () => {
+  it('treats Interpreting Information as a category and binary placement as a response contract', () => {
+    const prompt = getAiGenerationSectionPrompt('decision_making')
+
+    expect(prompt).toContain('Interpreting Information and Drawing Conclusions')
+    expect(prompt).toContain('For binary-placement questions')
+    expect(prompt).not.toContain('non-syllogism questions')
+    expect(prompt).not.toContain('Syllogisms question text must be exactly')
+  })
+})
+
 describe('DM Venn writer prompts', () => {
   it('preserves complex multi-shape diagrams and diagram answer options', () => {
     const prompt = buildWriterPrompt({

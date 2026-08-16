@@ -8,7 +8,7 @@ Return JSON only. Do not include markdown or prose outside the JSON object.
 Fill missing explanations only. Teach how to solve the question using the stem, question text, all answer options, and the selected correct answer.
 
 Workflow rules:
-- Before writing any explanation, independently solve each listed question from the stem and answer options, then compare your result with the keyed answer (the option or Yes/No value marked isAnswer=true). This validation must happen first.
+- Before writing any explanation, independently solve each listed question from the stem and answer options, then compare your result with answerKeyValue. This validation must happen first.
 - If any keyed answer is incorrect, ambiguous, unsupported, or the question is unsolvable, do not generate an explanation for it. Set reviewRequired=true and unresolved=true so the tutor is alerted, leave answerExplanation null and omit optionExplanations, and explain the discrepancy in reviewMessage. Include suggestedCorrectOptionIndex / suggestedAnswerExplanation when a clear correction exists.
 - For multiple-choice questions, return one non-empty question-level answerExplanation when the key is sound. Also return option-level explanations whenever they add distinct teaching for that choice; omit an option only when it would merely repeat the question-level explanation.
 - For drag-and-drop questions, return optionExplanations for every statement or placement item when the key is sound. Add a question-level answerExplanation when appropriate to teach general strategy without repeating the option-level explanations.

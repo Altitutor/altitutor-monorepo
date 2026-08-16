@@ -152,10 +152,10 @@ function assertBlindSolutionTargets(params: {
     if (solution.selectedOptionId && !optionIds.has(solution.selectedOptionId)) {
       throw new Error('Blind solver returned an option ID outside its question')
     }
-    if (question.questionType === 'syllogism') {
-      const returned = solution.syllogismAnswers.map((answer) => answer.optionId)
+    if (question.answerScheme === 'decision_making_binary_placement') {
+      const returned = solution.placementAnswers.map((answer) => answer.optionId)
       if (returned.length !== optionIds.size || new Set(returned).size !== optionIds.size || returned.some((id) => !optionIds.has(id))) {
-        throw new Error('Blind solver did not answer every syllogism statement exactly once')
+        throw new Error('Blind solver did not answer every binary-placement statement exactly once')
       }
     }
   }
@@ -215,10 +215,10 @@ function patchTargetsCurrentScope(params: {
       return textTargetAllowed(patch.target)
     case 'set_answer_key': {
       const question = params.snapshot.questions.find((item) => item.id === patch.questionId)
-      const currentCorrectOptionId = question?.options.find((option) => option.isAnswer)?.id ?? null
+      const currentCorrectOptionId = question?.options.find((option) => option.answerKeyValue === 'correct')?.id ?? null
       return Boolean(
         question
-        && question.questionType === 'multiple_choice'
+        && question.answerScheme === 'single_choice'
         && params.targetQuestionIds.has(question.id)
         && currentCorrectOptionId === patch.currentCorrectOptionId
         && question.options.some((option) => option.id === patch.correctOptionId),
@@ -229,7 +229,7 @@ function patchTargetsCurrentScope(params: {
       const option = question?.options.find((item) => item.id === patch.optionId)
       return Boolean(
         question
-        && question.questionType === 'multiple_choice'
+        && question.answerScheme === 'single_choice'
         && params.targetQuestionIds.has(question.id)
         && optionQuestion.get(patch.optionId) === question.id
         && option?.answerTextPlain.trim() === patch.beforeAnswerText.trim(),

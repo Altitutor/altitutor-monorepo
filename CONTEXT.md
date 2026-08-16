@@ -166,6 +166,42 @@
 
 ## Tutor timetable
 
+- **Class** — A stable tutor-led teaching cohort with a shared subject, level, student enrolments, and lifecycle. A Class may meet at multiple scheduled times; its meeting schedule does not define its identity.
+  _Avoid_: Weekly time slot, recurring session, timetable entry
+
+- **Class cohort label** — An optional staff-authored discriminator such as `A` or `2026 A` that distinguishes Classes sharing a Subject. It contributes to the stable Class name independently of when the Class meets.
+  _Avoid_: Schedule summary, weekday label, Class level
+
+- **Class activity status** — Whether a Class is active or inactive as a teaching cohort. Capacity or willingness to accept another enrolment is not a Class lifecycle status.
+  _Avoid_: Full Class status, Session status, enrolment capacity
+
+- **Class session** — One dated occurrence of a Class. It may originate from the Class schedule or be explicitly planned, and remains an independently identifiable occurrence when its time or status differs from the surrounding schedule.
+  _Avoid_: Class, recurrence rule, weekly time slot
+
+- **Class schedule** — The plan that determines the dated Class sessions for a bounded period. It is either a Recurring class schedule or a Custom class timetable.
+  _Avoid_: Class identity, session list
+
+- **Class schedule revision** — The complete Class schedule that applies from a stated date until it is replaced or the Class ends. Revisions preserve how earlier Class sessions were planned and make a future schedule change effective as one coherent decision.
+  _Avoid_: Independent slot edit, timeless current rule, overwritten schedule
+
+- **Recurring class schedule** — A Class schedule that repeats one or more weekday, time, and room combinations every week or every two weeks. Its recurrence is anchored to a bounded teaching period rather than expressed as an unrestricted calendar rule.
+  _Avoid_: RRULE, monthly recurrence, custom timetable
+
+- **Custom class timetable** — A Class schedule made from explicitly dated Class sessions rather than a repeating pattern.
+  _Avoid_: Irregular recurrence, recurring class schedule, RRULE
+
+- **Class display label** — The canonical presentation of a Subject-derived Class name, optional Class cohort label, and compact schedule summary. Short and long variants preserve schedule-at-a-glance context wherever Classes are identified, while the underlying Class name remains stable when its schedule changes.
+  _Avoid_: Class name, admin-only label, schedule-generated identity
+
+- **Class session exception** — A Class session deliberately moved, cancelled, or otherwise changed independently of the Class schedule. Later schedule changes preserve the exception unless ADMINSTAFF explicitly resolves it.
+  _Avoid_: Schedule change, regenerated session, accidental drift
+
+- **Pristine generated class session** — A future Class session that still matches its originating Class schedule and has no independently authored operational information. It may be replaced or removed when ADMINSTAFF confirms a schedule change; enriched, exceptional, and past Class sessions are preserved.
+  _Avoid_: Any future session, historical session, class session exception
+
+- **Class schedule timezone** — The named timezone in which a Class schedule's dates and wall-clock times are defined. It defaults to Australia/Adelaide; each materialized Class session represents an absolute time across daylight-saving changes.
+  _Avoid_: Browser timezone, fixed UTC offset, implicit server timezone
+
 - **Tutor onboarding** — The invite-completion journey that establishes a tutor's Tutor credentials, teaching preferences, availability, and Altitutor-specific employment evidence. It does not collect payroll identifiers.
   _Avoid_: Payroll onboarding, employee self setup, tutor profile
 
@@ -185,6 +221,20 @@
 
 - **User interface preference** — A user-owned, app-scoped choice that changes how a Product app is presented or operated without changing authorization, billing, learning progress, communication consent, or other domain outcomes. Preferences may follow the same authenticated user across devices while remaining independently typed for each Product app.
   _Avoid_: User setting, profile field, domain configuration
+
+## Office printing
+
+- **Office print** — Sending a staff-selected file from admin-web or tutor-web to the physical office printer (FUJ) via the Mac Mini print bridge, as distinct from the browser’s local print dialog.
+  _Avoid_: Browser print, window.print, local print
+
+- **Print job** — One durable request to office-print a specific file, with lifecycle from queued through a terminal outcome on the print bridge.
+  _Avoid_: Print command, CUPS job (unless referring to the printer subsystem’s own id), print request
+
+- **Print bridge** — The always-on Mac Mini service that pulls print jobs from Supabase and submits them to the local CUPS queue for FUJ.
+  _Avoid_: Print server, CUPS share, imessage-bridge
+
+- **Office print window** — The time range during which tutors are allowed to create print jobs: any ACTIVE `ADMIN_SHIFT` session overlapping now. Admins are not limited by this window; closing the window does not cancel in-flight jobs.
+  _Avoid_: Opening hours, centre open flag, AltiTutor open (unless explicitly equated in a decision)
 
 ## Subject resources
 
@@ -484,7 +534,7 @@
 - **UCAT authoring revision** — An opaque concurrency token returned with every MCP aggregate read and required by MCP updates or review submissions. The database checks it while holding the aggregate lock and rejects stale writes, requiring Codex to re-read and reconcile.
   _Avoid_: Content version, publication revision, updated-at timestamp
 
-- **Deleted UCAT content** — A soft-deleted question stem, question set, mock exam, or learning module **lesson**. Deleted content is hidden from students and normal tutor lists and appears in the tutor Deleted view. Restoring deleted content always returns it to draft. Learning module folders may also be soft-deleted as catalog structure, but they do not participate in the content status lifecycle.
+- **Deleted UCAT content** — A soft-deleted question stem, question set, mock exam, or learning module **lesson**. Deleted content is hidden from students and normal tutor lists and appears in the tutor Deleted view. Restoring deleted content always returns it to draft. A deleted question set may be restored only when every remaining member stem belongs to the set's UCAT section. Learning module folders may also be soft-deleted as catalog structure, but they do not participate in the content status lifecycle.
   _Avoid_: Archived content, unpublished content
 
 - **UCAT publication readiness** — The hard validation required before a question stem, set, mock, or learning module **lesson** can become published. A stem requires a category, valid answer structure, and complete student-facing explanations. Question tags improve discovery and remain a reconciliation concern, but do not block publication. A published parent may contain only published children, and a public parent may contain only public children. A lesson may publish only when every assessment block references published (non-deleted) stem/question content and has no pending generated placeholders; those stems may still be private so the lesson can grant access without putting them in the public pool.
@@ -526,7 +576,7 @@
 - **Post-publication AI assessment alert** — A deduplicated notification to the tutor who published a stem when an assessment that was still running at publication later returns a Critical finding. It links to the published stem and its AI Review panel but never changes publication state; passes, ordinary concerns, stale results, and provider failures do not send an alert.
   _Avoid_: Automatic unpublish, general assessment notification, provider-failure alert
 
-- **UCAT format check** — A UCAT readiness gate concerning structural requirements such as question and option counts, exact answer-mode labels and ordering, stored question type, required instructions, explanations, and required visual structure. Format checks are displayed separately from AI findings and do not consume reviewer-model tokens.
+- **UCAT format check** — A UCAT readiness gate concerning structural requirements such as question and option counts, exact answer-mode labels and ordering, response type, answer scheme, required instructions, explanations, and required visual structure. Format checks are displayed separately from AI findings and do not consume reviewer-model tokens.
   _Avoid_: Category-fit score, AI format opinion, UCAT authenticity assessment
 
 - **UCAT authenticity and task quality** — The judgement-based portion of an AI question stem assessment that evaluates whether the underlying cognitive task, scenario, reasoning demand, wording, and distractors genuinely resemble a fair UCAT question after deterministic format requirements have passed. It does not assess Quantitative Reasoning category fit because QR categories describe information presentation rather than strict question types; deterministic QR category inference remains metadata rather than a quality score.
@@ -737,8 +787,11 @@
 - **Sign-in method** — A way a person authenticates to one Student account: email and password, Google, or Apple. A Student account may have multiple sign-in methods; connecting or removing one does not merge, replace, or delete the Student account or its learning history.
   _Avoid_: Social account, linked account, separate account
 
-- **Signup onboarding** — The required first-time sequence for newly signed-up UCAT students. Steps: (1) confirm student details and the email used for email-and-password sign-in, (2) set a password, (3) complete or explicitly skip the Guided UCAT sampler, and (4) choose UCAT Free or a paid subscription. Google or Apple may authenticate the initial signup and provide the default email, but every student still establishes email-and-password sign-in during this sequence. A student with clear paid intent may complete checkout before the sampler and return to it afterward. A student with a pending referral gift sees that it is waiting before the sampler and may accept it immediately, while the full gift or plan decision remains the final signup step. `/subscribe` remains for returning students managing or changing plans, not first-time gating.
+- **Signup onboarding** — The required first-time sequence for a Student establishing an Altitutor UCAT relationship, whether the Student identity is new or already has another Altitutor relationship. Steps: (1) confirm student details against the immutable authenticated email, (2) establish email-and-password sign-in when it is not already available, (3) complete or explicitly skip the Guided UCAT sampler, and (4) choose UCAT Free or a paid subscription. Google or Apple may authenticate the initial signup and provide the default email. A student with clear paid intent may complete checkout before the sampler and return to it afterward. A student with a pending referral gift sees that it is waiting before the sampler and may accept it immediately, while the full gift or plan decision remains the final signup step. `/subscribe` remains for returning students managing or changing plans, not first-time gating.
   _Avoid_: Onboarding flow, signup wizard
+
+- **UCAT signup eligibility** — A new or existing Student identity may establish an Altitutor UCAT relationship after authentication. An identity linked to an active or trial staff relationship cannot enter Student signup onboarding; an inactive former staff relationship does not by itself make a person ineligible.
+  _Avoid_: Auth-user eligibility, account-type check, staff-to-student conversion
 
 - **Signup onboarding gate** — While signup onboarding is incomplete, the student may only reach `/signup/complete` (and auth/API paths required for the wizard). All other app routes redirect to `/signup/complete` at their persisted step. `/subscribe` is not part of first-time gating. Legacy accounts with plan choice recorded but no new completion flag are treated as fully onboarded.
   _Avoid_: Onboarding redirect, subscribe gate

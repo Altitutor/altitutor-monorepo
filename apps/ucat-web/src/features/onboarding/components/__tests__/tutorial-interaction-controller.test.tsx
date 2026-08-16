@@ -259,6 +259,8 @@ describe("TutorialInteractionController", () => {
     mainScrollport.dataset.ucatAppScroll = "main";
     Object.defineProperty(mainScrollport, "scrollTo", { value: mainScrollTo });
     document.body.appendChild(mainScrollport);
+    const windowScrollTo = jest.fn();
+    Object.defineProperty(window, "scrollTo", { value: windowScrollTo });
     jest
       .spyOn(window, "requestAnimationFrame")
       .mockImplementation((callback) => {
@@ -275,6 +277,7 @@ describe("TutorialInteractionController", () => {
     render(<TutorialInteractionController />);
 
     expect(mainScrollTo).toHaveBeenCalledWith({ top: 0, behavior: "auto" });
+    expect(windowScrollTo).toHaveBeenCalledWith({ top: 0, behavior: "auto" });
     expect(sidebarScrollTo).not.toHaveBeenCalled();
   });
 

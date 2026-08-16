@@ -33,7 +33,7 @@ function form(stemText: Json): UcatQuestionStemFormValues {
     questions: [
       {
         questionText: doc([paragraph("What is the answer?")]),
-        questionType: "multiple_choice",
+        responseType: "multiple_choice", answerScheme: "single_choice",
         answerExplanation: null,
         difficulty: null,
         timeBurdenSeconds: "",
@@ -42,12 +42,12 @@ function form(stemText: Json): UcatQuestionStemFormValues {
           {
             answerText: doc([paragraph("A")]),
             answerExplanation: null,
-            isAnswer: true,
+            answerKeyValue: 'correct',
           },
           {
             answerText: doc([paragraph("B")]),
             answerExplanation: null,
-            isAnswer: false,
+            answerKeyValue: null,
           },
         ],
       },

@@ -15,6 +15,7 @@ import { ArrowRight } from "lucide-react";
 import type { UcatFeature } from "./ucat-feature-data";
 import { UcatFeatureDetailPreview } from "./ucat-feature-micro-ui";
 import { MagneticButton } from "./magnetic-button";
+import { UCAT_BODY_DESCRIPTION_CLASS } from "./ucat-landing-section-eyebrow";
 
 const { typography: typo } = MARKETING_TOKENS;
 
@@ -127,7 +128,7 @@ export function UcatFeatureDetailDialog({ feature }: UcatFeatureDetailDialogProp
                 </div>
               </div>
               <DialogDescription
-                className={`mt-4 text-sm leading-relaxed text-marketing-charcoal/58 ${typo.secondarySans}`}
+                className={`mt-4 ${UCAT_BODY_DESCRIPTION_CLASS} ${typo.secondarySans}`}
               >
                 {feature.body}
               </DialogDescription>
@@ -167,7 +168,7 @@ export function UcatFeatureDetailDialog({ feature }: UcatFeatureDetailDialogProp
                     {detail.title}
                   </h3>
                   <p
-                    className={`mt-2 text-sm leading-relaxed text-marketing-charcoal/58 ${typo.secondarySans}`}
+                    className={`mt-2 ${UCAT_BODY_DESCRIPTION_CLASS} ${typo.secondarySans}`}
                   >
                     {detail.body}
                   </p>

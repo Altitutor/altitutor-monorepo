@@ -17,9 +17,11 @@ import {
 } from "@/features/progress/lib/attempt-content-snapshot";
 import { getAttemptPercentile } from "@/features/progress/server/attempt-percentile-service";
 import type { CohortPercentileResult } from "@altitutor/ucat-percentiles";
+import type { AnswerScheme } from "@altitutor/ucat-response-contract";
 import type { AttemptRecentPerformance } from "@/features/progress/lib/attempt-insights";
 import { fetchRecentAttemptPerformance } from "@/features/progress/server/attempt-insight-trend-service";
 import { getQuestionMaximumMarks } from "@/features/question-engine/lib/response-state";
+import { selectedOptionIdFromSnapshot } from "@/features/progress/lib/attempt-response-review";
 
 export type SetAttemptDetailResponse = {
   id: string;
@@ -51,14 +53,14 @@ export type SetAttemptDetailResponse = {
     difficulty: number | null;
     questionTags: AttemptReviewQuestionTag[];
     isFlagged: boolean;
-    questionType: "multiple_choice" | "syllogism" | null;
+    answerScheme: AnswerScheme["kind"] | null;
     /** 'correct' | 'partial' | 'incorrect' | 'not_attempted' */
     result: "correct" | "partial" | "incorrect" | "not_attempted";
     categoryName: string | null;
     categoryDescription: string | null;
     questionStemCategoryId: string | null;
     /** For answers view: selected option id (multiple choice) or null */
-    questionAnswerOptionId: string | null;
+    selectedOptionId: string | null;
     /** Canonical persisted response snapshot used by answer-scheme review. */
     answerSnapshot: unknown;
   }[];
@@ -130,7 +132,7 @@ export async function GET(
       supabase
         .from("vstudent_ucat_my_question_attempts")
         .select(
-          "question_id, score, time_spent_seconds, time_burden_seconds, question_type, category_name, question_stem_category_id, question_answer_option_id, answer_snapshot, is_flagged, attempted_at, content_snapshot",
+          "question_id, score, time_spent_seconds, time_burden_seconds, response_type, answer_scheme, category_name, question_stem_category_id, answer_snapshot, is_flagged, attempted_at, content_snapshot",
         )
         .eq("student_question_set_attempt_id", attemptId)
         .eq("is_submitted", true);
@@ -162,13 +164,10 @@ export async function GET(
         score: qa.score,
         timeSpentSeconds: qa.time_spent_seconds,
         timeBurdenSeconds: qa.time_burden_seconds,
-        questionType: qa.question_type as
-          | "multiple_choice"
-          | "syllogism"
-          | null,
+        answerScheme: qa.answer_scheme,
         categoryName: qa.category_name,
         questionStemCategoryId: qa.question_stem_category_id,
-        questionAnswerOptionId: qa.question_answer_option_id ?? null,
+        selectedOptionId: selectedOptionIdFromSnapshot(qa.answer_snapshot),
         answerSnapshot: qa.answer_snapshot,
         isFlagged: qa.is_flagged ?? false,
         snapshot,
@@ -200,7 +199,7 @@ export async function GET(
       const metadata = questionMetadata.get(questionId);
       const timeBurdenSeconds =
         attemptData?.timeBurdenSeconds ?? snapshotMetadata.timeBurdenSeconds ?? metadata?.timeBurdenSeconds ?? null;
-      const questionType = attemptData?.questionType ?? snapshot.question.questionType;
+      const answerScheme = attemptData?.answerScheme ?? snapshot.question.answerScheme;
 
       const categoryName =
         attemptData?.categoryName ?? snapshotMetadata.categoryName;
@@ -208,8 +207,8 @@ export async function GET(
         attemptData?.questionStemCategoryId ?? snapshotMetadata.questionStemCategoryId;
       const categoryDescription = snapshotMetadata.categoryDescription;
 
-      const questionAnswerOptionId =
-        attemptData?.questionAnswerOptionId ?? null;
+      const selectedOptionId =
+        attemptData?.selectedOptionId ?? null;
       const answerSnapshot = attemptData?.answerSnapshot ?? null;
 
       return {
@@ -224,12 +223,12 @@ export async function GET(
         difficulty: snapshotMetadata.difficulty ?? metadata?.difficulty ?? null,
         questionTags: snapshotMetadata.questionTags.length > 0 ? snapshotMetadata.questionTags : (metadata?.questionTags ?? []),
         isFlagged: attemptData?.isFlagged ?? false,
-        questionType,
+        answerScheme,
         result,
         categoryName,
         categoryDescription,
         questionStemCategoryId,
-        questionAnswerOptionId,
+        selectedOptionId,
         answerSnapshot,
       };
     },

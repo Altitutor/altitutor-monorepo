@@ -12,6 +12,7 @@ describe('set detail dirty snapshot', () => {
       description: 'Set 1',
       time: 1200,
       accessScope: 'public',
+      sectionId: 'section-vr',
       stemIds: ['s1', 's2'],
     })
 
@@ -20,11 +21,32 @@ describe('set detail dirty snapshot', () => {
       description: 'Set 1',
       time: 1200,
       accessScope: 'public',
+      sectionId: 'section-vr',
       stemIds: ['s2', 's1'],
     })
 
     expect(isSnapshotDirty(changed, baseline)).toBe(true)
     expect(isSnapshotDirty(baseline, baseline)).toBe(false)
+  })
+
+  it('detects an authored section change', () => {
+    const baseline = snapshotSetDetail({
+      name: 'Set 1',
+      description: 'Set 1',
+      time: 1200,
+      accessScope: 'public',
+      sectionId: 'section-vr',
+      stemIds: [],
+    })
+    const changed = snapshotSetDetail({
+      name: 'Set 1',
+      description: 'Set 1',
+      time: 1200,
+      accessScope: 'public',
+      sectionId: 'section-dm',
+      stemIds: [],
+    })
+    expect(isSnapshotDirty(changed, baseline)).toBe(true)
   })
 })
 
@@ -44,14 +66,14 @@ describe('question stem form snapshot', () => {
       questions: [
         {
           questionText: docWithText,
-          questionType: 'multiple_choice',
+          responseType: 'multiple_choice', answerScheme: 'single_choice',
           answerExplanation: null,
           difficulty: null,
           timeBurdenSeconds: '90',
           tagIds: [],
           options: [
-            { answerText: docWithText, answerExplanation: null, isAnswer: true },
-            { answerText: emptyDoc, answerExplanation: null, isAnswer: false },
+            { answerText: docWithText, answerExplanation: null, answerKeyValue: 'correct' },
+            { answerText: emptyDoc, answerExplanation: null, answerKeyValue: null },
           ],
         },
       ],
@@ -70,14 +92,14 @@ describe('question stem form snapshot', () => {
       questions: [
         {
           questionText: docWithText,
-          questionType: 'multiple_choice',
+          responseType: 'multiple_choice', answerScheme: 'single_choice',
           answerExplanation: null,
           difficulty: null,
           timeBurdenSeconds: '90',
           tagIds: [],
           options: [
-            { answerText: docWithText, answerExplanation: null, isAnswer: true },
-            { answerText: structurallyDifferent, answerExplanation: null, isAnswer: false },
+            { answerText: docWithText, answerExplanation: null, answerKeyValue: 'correct' },
+            { answerText: structurallyDifferent, answerExplanation: null, answerKeyValue: null },
           ],
         },
       ],
@@ -95,14 +117,14 @@ describe('question stem form snapshot', () => {
       questions: [
         {
           questionText: docWithText,
-          questionType: 'multiple_choice',
+          responseType: 'multiple_choice', answerScheme: 'single_choice',
           answerExplanation: null,
           difficulty: null,
           timeBurdenSeconds: '90',
           tagIds: [],
           options: [
-            { answerText: docWithText, answerExplanation: null, isAnswer: true },
-            { answerText: emptyDoc, answerExplanation: null, isAnswer: false },
+            { answerText: docWithText, answerExplanation: null, answerKeyValue: 'correct' },
+            { answerText: emptyDoc, answerExplanation: null, answerKeyValue: null },
           ],
         },
       ],
@@ -116,14 +138,14 @@ describe('question stem form snapshot', () => {
       questions: [
         {
           questionText: docWithText,
-          questionType: 'multiple_choice',
+          responseType: 'multiple_choice', answerScheme: 'single_choice',
           answerExplanation: null,
           difficulty: null,
           timeBurdenSeconds: '90',
           tagIds: [],
           options: [
-            { answerText: docWithText, answerExplanation: null, isAnswer: true },
-            { answerText: emptyDoc, answerExplanation: null, isAnswer: false },
+            { answerText: docWithText, answerExplanation: null, answerKeyValue: 'correct' },
+            { answerText: emptyDoc, answerExplanation: null, answerKeyValue: null },
           ],
         },
       ],
@@ -142,9 +164,9 @@ describe('question stem form snapshot', () => {
       questions: [
         {
           questionText: docWithText,
-          questionType: 'multiple_choice',
+          responseType: 'multiple_choice', answerScheme: 'single_choice',
           options: [
-            { answerText: docWithText, answerExplanation: null, isAnswer: true },
+            { answerText: docWithText, answerExplanation: null, answerKeyValue: 'correct' },
           ],
         },
       ],
@@ -167,7 +189,7 @@ describe('question stem form snapshot', () => {
       questions: [
         {
           questionText: docWithText,
-          questionType: 'multiple_choice',
+          responseType: 'multiple_choice', answerScheme: 'single_choice',
           options: undefined,
         },
       ],

@@ -59,7 +59,7 @@ export async function sendUcatBillingAccessEndedEmail(
       <p style="margin:0 0 16px;color:#394650;font-size:15px;line-height:1.7">We could not recover your subscription payment after several attempts, so your Altitutor UCAT Unlimited subscription has ended.</p>
       ${
       renderUcatEmailPanel(
-        `<strong class="email-strong" style="color:#0a2941">Your account, practice history and results are safe.</strong> You can keep preparing on Free or restart Unlimited whenever you are ready.`,
+        `<strong class="email-strong" style="color:#1a1a1a">Your account, practice history and results are safe.</strong> You can keep preparing on Free or restart Unlimited whenever you are ready.`,
       )
     }
       ${renderUcatEmailButton(manageUrl, "Review your plan")}

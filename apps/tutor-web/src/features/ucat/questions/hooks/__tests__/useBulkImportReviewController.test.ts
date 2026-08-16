@@ -25,7 +25,7 @@ function values(questionIds: string[]): UcatQuestionStemFormValues {
     questions: questionIds.map((id) => ({
       id,
       questionText: { type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text: id }] }] },
-      questionType: 'multiple_choice' as const,
+      responseType: 'multiple_choice', answerScheme: 'single_choice' as const,
       answerExplanation: null,
       difficulty: null,
       timeBurdenSeconds: null,
@@ -34,7 +34,7 @@ function values(questionIds: string[]): UcatQuestionStemFormValues {
         id: id.replace(/.$/u, '9'),
         answerText: { type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text: 'A' }] }] },
         answerExplanation: null,
-        isAnswer: true,
+        answerKeyValue: 'correct',
       }],
     })),
   }
@@ -218,7 +218,7 @@ describe('automaticFindingStillSafe', () => {
       solutions: [{
         questionId: QUESTION_ONE,
         selectedOptionId: optionId,
-        syllogismAnswers: [],
+        placementAnswers: [],
         justification: 'The option follows.',
         confidence: 0.99,
         ambiguous: false,
@@ -281,7 +281,7 @@ describe('bulk import one-click AI fixes', () => {
             id: null,
             answerText: 'Plausible distractor',
             answerExplanation: null,
-            isAnswer: false,
+            answerKeyValue: null,
           },
         }],
       },

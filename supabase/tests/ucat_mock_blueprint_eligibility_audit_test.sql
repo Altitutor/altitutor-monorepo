@@ -30,23 +30,26 @@ JOIN public.ucat_sections section ON section.section_number = 2
 JOIN public.question_stem_categories category ON category.ucat_section_id = section.id AND category.name = 'Syllogisms';
 
 INSERT INTO public.ucat_questions (
-  id, question_stem_id, question_text, answer_explanation, index, question_type, response_type, answer_scheme
+  id, question_stem_id, question_text, answer_explanation, index, response_type, answer_scheme
 )
 SELECT ('54320000-0000-4000-8000-' || lpad(row_number() OVER ()::text, 12, '0'))::uuid, stem.id,
   '{"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"Conclusion"}]}]}'::jsonb,
   '{"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"Reason"}]}]}'::jsonb,
-  1, 'multiple_choice', 'multiple_choice', 'single_choice'
+  1, 'multiple_choice', 'single_choice'
 FROM public.question_stems stem WHERE stem.id::text LIKE '54310000-0000-4000-8000-%';
 
-INSERT INTO public.question_answer_options (question_id, answer_text, index, is_answer, answer_key_value)
+INSERT INTO public.question_answer_options (question_id, answer_text, index, answer_key_value)
 SELECT question.id, jsonb_build_object('type','doc','content',jsonb_build_array(jsonb_build_object(
   'type','paragraph','content',jsonb_build_array(jsonb_build_object('type','text','text',option.index::text))))),
-  option.index, option.index = 1, CASE WHEN option.index = 1 THEN 'correct'::public.ucat_answer_key_value END
+  option.index, CASE WHEN option.index = 1 THEN 'correct'::public.ucat_answer_key_value END
 FROM public.ucat_questions question CROSS JOIN generate_series(1, 2) option(index)
 WHERE question.question_stem_id::text LIKE '54310000-0000-4000-8000-%';
 
-INSERT INTO public.question_sets (id, name, time_limit_seconds, status, access_scope)
-VALUES ('54330000-0000-4000-8000-000000000001', '{"type":"doc"}'::jsonb, 120, 'published', 'public');
+INSERT INTO public.question_sets (id, name, time_limit_seconds, status, access_scope, section_id)
+SELECT '54330000-0000-4000-8000-000000000001', '{"type":"doc"}'::jsonb, 120, 'published', 'public', section.id
+FROM public.ucat_sections section
+WHERE section.section_number = 2
+LIMIT 1;
 INSERT INTO public.question_stems_question_sets (question_stem_id, question_set_id, index)
 SELECT id, '54330000-0000-4000-8000-000000000001', row_number() OVER (ORDER BY id)
 FROM public.question_stems WHERE id::text LIKE '54310000-0000-4000-8000-%';

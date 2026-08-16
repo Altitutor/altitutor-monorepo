@@ -95,7 +95,7 @@ function SelectedQuestionCard({
 const questionSortOptions: DataTableSortOption[] = [
   { key: 'label', label: 'Question' },
   { key: 'section_name', label: 'Section' },
-  { key: 'question_type', label: 'Type' },
+  { key: 'answer_scheme', label: 'Answer scheme' },
   { key: 'stem_text', label: 'Stem' },
 ]
 
@@ -129,7 +129,7 @@ function QuestionPickerList({
   onViewQuestion: (stemId: string, questionIndex: number) => void
   onEditQuestion: (stemId: string, questionIndex: number) => void
 }) {
-  const listState = useUcatCatalogListState(['label', 'section_name', 'question_type'])
+  const listState = useUcatCatalogListState(['label', 'section_name', 'answer_scheme'])
   const { state, actions } = listState
   const filterDefinitions = useMemo(
     () =>
@@ -151,7 +151,7 @@ function QuestionPickerList({
         !query ||
         row.question.label.toLowerCase().includes(query) ||
         row.question.sectionName.toLowerCase().includes(query) ||
-        row.question.questionType.toLowerCase().includes(query) ||
+        row.question.answerScheme.toLowerCase().includes(query) ||
         (stem?.text ?? '').toLowerCase().includes(query) ||
         (stem?.questionSearchText ?? '').toLowerCase().includes(query)
 
@@ -160,7 +160,6 @@ function QuestionPickerList({
       if (!applyCategoryFilter(state, stem?.categoryId ?? null, UCAT_FILTER_NO_CATEGORY)) return false
       if (!applyTagFilter(state, stem?.tagIds ?? [])) return false
       if (!applyBooleanTextFilter(state, 'visibility', stem?.accessScope === 'private')) return false
-      if (!applyMultiSelectFilter(state, 'question_type', row.question.questionType)) return false
 
       const selectedSetIds = getFilterValues(state, 'question_set_id').map(String)
       if (selectedSetIds.length === 0) return true
@@ -178,7 +177,7 @@ function QuestionPickerList({
       applySort(filtered, state.sortBy, state.sortDirection, {
         label: (row) => row.question.label,
         section_name: (row) => row.question.sectionName,
-        question_type: (row) => row.question.questionType,
+        answer_scheme: (row) => row.question.answerScheme,
         stem_text: (row) => row.stem?.text ?? '',
       }),
     [filtered, state.sortBy, state.sortDirection],
@@ -220,7 +219,7 @@ function QuestionPickerList({
           <div className="min-w-0">
             <p className="line-clamp-2 font-medium">{question.label}</p>
             <p className="mt-1 text-xs text-muted-foreground">
-              {question.sectionName} · {question.questionType}
+              {question.sectionName} · {question.answerScheme}
             </p>
             {stem ? (
               <>

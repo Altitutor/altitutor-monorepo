@@ -25,7 +25,9 @@ export function UcatAccessShell({ children }: UcatAccessShellProps) {
           <QuotaRouteGuard />
         </Suspense>
         {children}
-        <PlanPickerDialog />
+        <Suspense fallback={null}>
+          <PlanPickerDialog />
+        </Suspense>
         <InPersonUpsellDialog />
       </ActiveExamAttemptProvider>
     </UpsellDialogProvider>

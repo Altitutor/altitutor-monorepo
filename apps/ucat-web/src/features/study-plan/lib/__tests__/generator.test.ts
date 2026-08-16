@@ -40,11 +40,7 @@ const profile: StudyPlanProfileInput = {
   targetScore: 2100,
   testYear: 2026,
   testDate: "2026-08-05",
-  availableDays: [
-    { weekday: 1 },
-    { weekday: 3 },
-    { weekday: 6 },
-  ],
+  availableDays: [{ weekday: 1 }, { weekday: 3 }, { weekday: 6 }],
   preferredMockWeekday: 6,
 };
 
@@ -273,10 +269,7 @@ describe("generateStudyPlan", () => {
           .map((task) => task.estimatedMinutes),
       ),
     ).toBe(20);
-    const tasksByDate = Map.groupBy(
-      result.tasks,
-      (task) => task.scheduledDate,
-    );
+    const tasksByDate = Map.groupBy(result.tasks, (task) => task.scheduledDate);
     for (const learningTask of result.tasks.filter(
       (task) => task.taskType === "learn",
     )) {
@@ -297,6 +290,129 @@ describe("generateStudyPlan", () => {
       ).toBe(true);
     }
     expect(result.capacityRisk.message).toBeNull();
+  });
+
+  it("uses every ordinary Learning day for an ordered loop, then starts section diagnostics", () => {
+    const learningModules = sections
+      .filter((section) => section.sectionNumber <= 3)
+      .flatMap((section) =>
+        Array.from({ length: 4 }, (_, index) => ({
+          id: `${section.id}-essential-${index + 1}`,
+          title: `${section.shortName} essential ${index + 1}`,
+          sectionId: section.id,
+          sectionNumber: section.sectionNumber,
+          priority: "essential" as const,
+          authoredOrder: index + 1,
+          estimatedMinutes: 15,
+          completionPercent: 0,
+          relevanceScore: 1,
+        })),
+      );
+    const result = generateStudyPlan({
+      today: "2026-01-05",
+      planningDate: "2026-08-05",
+      profile,
+      sections,
+      signals: sections.map((section) => ({
+        sectionId: section.id,
+        currentEstimate: null,
+        evidenceCount: 0,
+        completedFullSets: 0,
+      })),
+      learningModules,
+      ...contentInputs,
+      completedMockCount: 0,
+    });
+    const tasksByDate = Map.groupBy(result.tasks, (task) => task.scheduledDate);
+    const learningDays = [...tasksByDate]
+      .filter(([, tasks]) => tasks.some((task) => task.taskType === "learn"))
+      .map(([date, tasks]) => ({
+        date,
+        modules: tasks
+          .filter((task) => task.taskType === "learn")
+          .map((task) => task.learningModuleId),
+        linkedQuestionCounts: tasks
+          .filter(
+            (task) =>
+              task.taskType === "practice" &&
+              task.launchConfig.linkedLearningPractice === true,
+          )
+          .map((task) => task.targetUnits),
+      }));
+
+    expect(learningDays.slice(0, 3)).toEqual([
+      {
+        date: "2026-01-05",
+        modules: ["vr-essential-1"],
+        linkedQuestionCounts: [27],
+      },
+      {
+        date: "2026-01-07",
+        modules: ["dm-essential-1"],
+        linkedQuestionCounts: [21],
+      },
+      {
+        date: "2026-01-10",
+        modules: ["qr-essential-1"],
+        linkedQuestionCounts: [22],
+      },
+    ]);
+    const firstBenchmark = result.tasks.find(
+      (task) => task.taskType === "section_benchmark",
+    );
+    expect((firstBenchmark?.scheduledDate ?? "") > "2026-01-10").toBe(true);
+    expect(
+      result.tasks
+        .filter((task) => task.taskType === "section_benchmark")
+        .every((task) => task.questionSetId != null),
+    ).toBe(true);
+  });
+
+  it("allows multiple ordered Learning loops when selected days create capacity pressure", () => {
+    const learningModules = sections
+      .filter((section) => section.sectionNumber <= 3)
+      .flatMap((section) =>
+        Array.from({ length: 4 }, (_, index) => ({
+          id: `${section.id}-pressure-${index + 1}`,
+          title: `${section.shortName} pressure module ${index + 1}`,
+          sectionId: section.id,
+          sectionNumber: section.sectionNumber,
+          priority: "essential" as const,
+          authoredOrder: index + 1,
+          estimatedMinutes: 15,
+          completionPercent: 0,
+          relevanceScore: 1,
+        })),
+      );
+    const result = generateStudyPlan({
+      today: "2026-01-05",
+      planningDate: "2026-08-05",
+      profile: {
+        ...profile,
+        availableDays: [{ weekday: 1 }],
+      },
+      sections,
+      signals: sections.map((section) => ({
+        sectionId: section.id,
+        currentEstimate: null,
+        evidenceCount: 0,
+        completedFullSets: 0,
+      })),
+      learningModules,
+      ...contentInputs,
+      completedMockCount: 0,
+    });
+    const firstDayLearningTasks = result.tasks.filter(
+      (task) =>
+        task.scheduledDate === "2026-01-05" && task.taskType === "learn",
+    );
+
+    expect(firstDayLearningTasks).toHaveLength(2);
+    expect(firstDayLearningTasks.map((task) => task.sectionId)).toEqual([
+      "vr",
+      "dm",
+    ]);
+    expect(result.capacityRisk.level).toBe("warning");
   });
 
   it("continues from essential into recommended instruction while Learning", () => {
@@ -411,7 +527,9 @@ describe("generateStudyPlan", () => {
       completedMockCount: 0,
     });
 
-    const learningTasks = result.tasks.filter((task) => task.taskType === "learn");
+    const learningTasks = result.tasks.filter(
+      (task) => task.taskType === "learn",
+    );
     expect(learningTasks.map((task) => task.learningModuleId)).toEqual([
       "vr-essential-first",
       "vr-essential-later",
@@ -495,7 +613,9 @@ describe("generateStudyPlan", () => {
       completedMockCount: 0,
     });
 
-    const learningTasks = result.tasks.filter((task) => task.taskType === "learn");
+    const learningTasks = result.tasks.filter(
+      (task) => task.taskType === "learn",
+    );
     expect(learningTasks.slice(0, 3).map((task) => task.sectionId)).toEqual([
       "vr",
       "dm",
@@ -538,9 +658,9 @@ describe("generateStudyPlan", () => {
       completedMockCount: 0,
     });
 
-    expect(result.tasks.find((task) => task.taskType === "learn")?.sectionId).toBe(
-      "dm",
-    );
+    expect(
+      result.tasks.find((task) => task.taskType === "learn")?.sectionId,
+    ).toBe("dm");
   });
 
   it("shrinks strict module practice and exposes catalog fallback diagnostics", () => {
@@ -590,7 +710,7 @@ describe("generateStudyPlan", () => {
       sectionId: "vr",
       moduleId: "vr-strict-shortage",
       reason: "insufficient_strict_content",
-      requestedQuestionCount: 10,
+      requestedQuestionCount: 27,
       availableQuestionCount: 6,
     });
   });
@@ -690,8 +810,7 @@ describe("generateStudyPlan", () => {
         completedFullSets: 0,
         learningGraduatedAt:
           section.sectionNumber <= 3 ? "2026-06-01T00:00:00.000Z" : null,
-        learningGraduationRoute:
-          section.sectionNumber <= 3 ? "accuracy" : null,
+        learningGraduationRoute: section.sectionNumber <= 3 ? "accuracy" : null,
       })),
       learningModules: [],
       ...contentInputs,
@@ -790,10 +909,7 @@ describe("generateStudyPlan", () => {
       planningDate: "2026-07-25",
       profile: {
         ...profile,
-        availableDays: [
-          { weekday: 5 },
-          { weekday: 6 },
-        ],
+        availableDays: [{ weekday: 5 }, { weekday: 6 }],
         preferredMockWeekday: 6,
       },
       sections,
@@ -804,8 +920,7 @@ describe("generateStudyPlan", () => {
         completedFullSets: section.sectionNumber <= 3 ? 1 : 0,
         learningGraduatedAt:
           section.sectionNumber <= 3 ? "2026-06-01T00:00:00.000Z" : null,
-        learningGraduationRoute:
-          section.sectionNumber <= 3 ? "accuracy" : null,
+        learningGraduationRoute: section.sectionNumber <= 3 ? "accuracy" : null,
       })),
       learningModules: [],
       ...contentInputs,
@@ -858,9 +973,7 @@ describe("generateStudyPlan", () => {
           evidenceCount: 3,
           completedFullSets: section.sectionNumber <= 3 ? 1 : 0,
           learningGraduatedAt:
-            section.sectionNumber <= 3
-              ? "2025-12-01T00:00:00.000Z"
-              : null,
+            section.sectionNumber <= 3 ? "2025-12-01T00:00:00.000Z" : null,
           learningGraduationRoute:
             section.sectionNumber <= 3 ? "accuracy" : null,
         })),
@@ -959,8 +1072,7 @@ describe("generateStudyPlan", () => {
         completedFullSets: section.sectionNumber <= 3 ? 1 : 0,
         learningGraduatedAt:
           section.sectionNumber <= 3 ? "2026-06-01T00:00:00.000Z" : null,
-        learningGraduationRoute:
-          section.sectionNumber <= 3 ? "accuracy" : null,
+        learningGraduationRoute: section.sectionNumber <= 3 ? "accuracy" : null,
       })),
       learningModules: [],
       ...contentInputs,
@@ -993,8 +1105,7 @@ describe("generateStudyPlan", () => {
         completedFullSets: section.sectionNumber <= 3 ? 1 : 0,
         learningGraduatedAt:
           section.sectionNumber <= 3 ? "2026-06-01T00:00:00.000Z" : null,
-        learningGraduationRoute:
-          section.sectionNumber <= 3 ? "accuracy" : null,
+        learningGraduationRoute: section.sectionNumber <= 3 ? "accuracy" : null,
       })),
       learningModules: [],
       ...contentInputs,
@@ -1203,9 +1314,9 @@ describe("generateStudyPlan", () => {
         task,
       ]);
     }
-    expect([...requiredByDate.values()].some((tasks) => tasks.length >= 3)).toBe(
-      true,
-    );
+    expect(
+      [...requiredByDate.values()].some((tasks) => tasks.length >= 3),
+    ).toBe(true);
     for (const tasks of requiredByDate.values()) {
       expect(tasks).toHaveLength(Math.min(tasks.length, 4));
       expect(
@@ -1215,7 +1326,9 @@ describe("generateStudyPlan", () => {
           0,
         ),
       ).toBeLessThanOrEqual(2.01);
-      expect(new Set(tasks.flatMap((task) => task.sectionId ?? [])).size).toBeLessThanOrEqual(2);
+      expect(
+        new Set(tasks.flatMap((task) => task.sectionId ?? [])).size,
+      ).toBeLessThanOrEqual(2);
     }
   });
 
@@ -1285,8 +1398,7 @@ describe("generateStudyPlan", () => {
         completedFullSets: 0,
         learningGraduatedAt:
           section.sectionNumber <= 3 ? "2026-06-01T00:00:00.000Z" : null,
-        learningGraduationRoute:
-          section.sectionNumber <= 3 ? "accuracy" : null,
+        learningGraduationRoute: section.sectionNumber <= 3 ? "accuracy" : null,
       })),
       learningModules: [],
       ...contentInputs,

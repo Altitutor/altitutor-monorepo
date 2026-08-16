@@ -18,6 +18,7 @@ export function useSendMessage() {
       groupChatId?: string | null;
       body: string; 
       selectedSenderId: string;
+      resentFromMessageId?: string;
       attachments?: Array<{
         storageUrl: string;
         filename: string;
@@ -90,6 +91,7 @@ export function useSendMessage() {
           created_by_staff_id: staffRow?.id || null,
           from_number_e164: sender.sender_type === 'PHONE' ? sender.phone_e164 : null, // NULL for alphanumeric
           to_number_e164: toNumber,
+          resent_from_message_id: args.resentFromMessageId ?? null,
         })
         .select('id')
         .single();

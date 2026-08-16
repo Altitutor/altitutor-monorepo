@@ -33,7 +33,7 @@ export const NAV_ITEMS = [
   { href: "/", label: "Home" },
   { href: "/classes/", label: "Courses" },
   { href: "/classes/weekly-classes/", label: "Weekly tutoring" },
-  { href: "/classes/ucatprep/", label: "UCAT" },
+  { href: "/ucat/", label: "Online UCAT preparation" },
   { href: "/resources/", label: "Resources" },
   { href: "/about/", label: "About" },
   { href: "/about/contact/", label: "Contact" },

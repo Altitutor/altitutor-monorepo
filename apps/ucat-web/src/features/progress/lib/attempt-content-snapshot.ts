@@ -15,8 +15,7 @@ type SnapshotOption = {
   index: number;
   answerText: unknown;
   answerExplanation?: unknown;
-  isAnswer: boolean;
-  answerKeyValue?: QuestionItem["options"][number]["answerKeyValue"];
+  answerKeyValue: QuestionItem["options"][number]["answerKeyValue"];
 };
 
 export type UcatAttemptContentSnapshot = {
@@ -39,9 +38,8 @@ export type UcatAttemptContentSnapshot = {
     index: number;
     difficulty?: number | null;
     timeBurdenSeconds?: number | null;
-    questionType: "multiple_choice" | "syllogism";
-    responseType?: QuestionItem["responseType"];
-    answerScheme?: QuestionItem["answerScheme"];
+    responseType: QuestionItem["responseType"];
+    answerScheme: QuestionItem["answerScheme"];
     tags?: Array<{ id?: string; name?: string; description?: unknown }>;
   };
   answerOptions: SnapshotOption[];
@@ -53,10 +51,7 @@ export function parseAttemptContentSnapshot(
   if (!value || typeof value !== "object") return null;
   const snapshot = value as Partial<UcatAttemptContentSnapshot>;
   if (!snapshot.stem?.id || !snapshot.question?.id) return null;
-  if (
-    snapshot.question.questionType !== "multiple_choice" &&
-    snapshot.question.questionType !== "syllogism"
-  ) {
+  if (!snapshot.question.responseType || !snapshot.question.answerScheme) {
     return null;
   }
   return {
@@ -108,7 +103,6 @@ export function snapshotToQuestionItem(
           option.answerText && typeof option.answerText === "object"
             ? (option.answerText as Record<string, unknown>)
             : null,
-        isAnswer: option.isAnswer,
         answerKeyValue: option.answerKeyValue ?? null,
         answerExplanation: explanation.text,
         answerExplanationJson: explanation.json,
@@ -138,11 +132,12 @@ export function snapshotToQuestionItem(
       typeof snapshot.question.questionText === "object"
         ? (snapshot.question.questionText as Record<string, unknown>)
         : null,
-    questionType: snapshot.question.questionType,
     responseType: snapshot.question.responseType,
     answerScheme: snapshot.question.answerScheme,
     options,
-    correctOptionId: options.find((option) => option.isAnswer)?.id,
+    correctOptionId: options.find(
+      (option) => option.answerKeyValue === "correct",
+    )?.id,
     answerExplanation: questionExplanation.text,
     answerExplanationJson: questionExplanation.json,
   };

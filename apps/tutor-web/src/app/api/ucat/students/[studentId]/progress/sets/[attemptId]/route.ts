@@ -8,7 +8,8 @@ import {
 } from '@/features/ucat/shared/lib/rich-text'
 import {
   parseAttemptContentSnapshot,
-  parseLegacyPlacementProjection,
+  parsePlacementProjection,
+  parseSelectedOptionId,
   resultForAttempt,
   snapshotToReviewQuestion,
   type AttemptReviewQuestion,
@@ -26,14 +27,13 @@ export type SetAttemptQuestion = {
   difficulty: number | null
   questionTags: Array<{ name: string; description: string | null }>
   isFlagged: boolean
-  questionType: 'multiple_choice' | 'syllogism' | null
   answerScheme: AttemptReviewQuestion['answerScheme']
   result: 'correct' | 'partial' | 'incorrect' | 'not_attempted'
   categoryName: string | null
   categoryDescription: string | null
   questionStemCategoryId: string | null
-  questionAnswerOptionId: string | null
-  answerSnapshot: Record<string, boolean> | null
+  selectedOptionId: string | null
+  answerSnapshot: Record<string, import('@altitutor/ucat-response-contract').PlacementValue> | null
 }
 
 export type SetAttemptDetailResponse = {
@@ -119,7 +119,7 @@ export async function GET(
   const { data: rows, error: questionError } = await supabaseAdmin
     .from('student_question_attempts')
     .select(
-      'question_id, score, time_spent_seconds, question_answer_option_id, answer_snapshot, is_flagged, attempted_at, content_snapshot'
+      'question_id, score, time_spent_seconds, answer_snapshot, is_flagged, attempted_at, content_snapshot'
     )
     .eq('student_question_set_attempt_id', attemptId)
     .eq('student_id', studentId)
@@ -166,7 +166,6 @@ export async function GET(
         currentStemId = snapshot.stem.id
         stemIndex += 1
       }
-      const questionType = snapshot.question.questionType
       const tags = (snapshot.question.tags ?? [])
         .filter((tag) => Boolean(tag.name))
         .map((tag) => ({
@@ -187,7 +186,6 @@ export async function GET(
         difficulty: snapshot.question.difficulty ?? null,
         questionTags: tags,
         isFlagged: row.is_flagged,
-        questionType,
         answerScheme: snapshot.question.answerScheme,
         result: resultForAttempt(
           row.score,
@@ -201,8 +199,8 @@ export async function GET(
             ) || null
           : null,
         questionStemCategoryId: snapshot.stem.categoryId ?? null,
-        questionAnswerOptionId: row.question_answer_option_id,
-        answerSnapshot: parseLegacyPlacementProjection(row.answer_snapshot),
+        selectedOptionId: parseSelectedOptionId(row.answer_snapshot),
+        answerSnapshot: parsePlacementProjection(row.answer_snapshot),
       }
     }
   )

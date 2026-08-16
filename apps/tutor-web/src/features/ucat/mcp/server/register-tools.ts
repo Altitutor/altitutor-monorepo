@@ -386,7 +386,7 @@ export function registerUcatMcpTools(
     {
       title: 'Create a draft question-stem bundle',
       description:
-        'Create a question stem plus its questions and answer options as a draft with codex_mcp AI provenance. Author questions with responseType, answerScheme, and option answerKeyValue. questionType and isAnswer are temporary rollback mirrors. Drafts may be incomplete but references and supplied structure must be valid.',
+        'Create a question stem plus its questions and answer options as a draft with codex_mcp AI provenance. Author questions with responseType, answerScheme, and option answerKeyValue. Drafts may be incomplete but references and supplied structure must be valid.',
       inputSchema: {
         idempotencyKey: IdempotencyKeySchema,
         sectionId: z.string().uuid(),
@@ -416,7 +416,7 @@ export function registerUcatMcpTools(
     {
       title: 'Update a draft or in-review question-stem bundle',
       description:
-        'Apply explicit add/update/move/remove operations to stem metadata, questions, and answer options. Change Response type, Answer scheme, or answerKeyValue rather than the legacy questionType/isAnswer mirrors. Omission never deletes. Published or stale-revision writes are rejected atomically.',
+        'Apply explicit add/update/move/remove operations to stem metadata, questions, and answer options. Omission never deletes. Published or stale-revision writes are rejected atomically.',
       inputSchema: {
         id: z.string().uuid(),
         revision: z.string().min(1),
@@ -436,13 +436,14 @@ export function registerUcatMcpTools(
     {
       title: 'Create a draft UCAT question set',
       description:
-        'Create a draft set with an ordered initial stem membership. An empty set is allowed while drafting.',
+        'Create a draft set that belongs to one UCAT section, with an ordered initial stem membership. An empty set is allowed while drafting. Member stems must belong to the same section.',
       inputSchema: {
         idempotencyKey: IdempotencyKeySchema,
         name: NullableRichTextSchema.optional(),
         description: RichTextSchema,
         timeLimitSeconds: z.number().int().positive().nullable().optional(),
         accessScope: UcatAccessScopeSchema.default('public'),
+        sectionId: z.string().uuid(),
         stemIds: z.array(z.string().uuid()).default([]),
       },
       outputSchema: StructuredObjectOutputSchema,
@@ -465,7 +466,7 @@ export function registerUcatMcpTools(
     {
       title: 'Update a draft or in-review UCAT question set',
       description:
-        'Apply explicit metadata and add/move/remove stem-membership operations. Omission never deletes; published and stale writes are rejected atomically.',
+        'Apply explicit metadata and add/move/remove stem-membership operations. Section may change only while the set has no member stems. Omission never deletes; published and stale writes are rejected atomically.',
       inputSchema: {
         id: z.string().uuid(),
         revision: z.string().min(1),

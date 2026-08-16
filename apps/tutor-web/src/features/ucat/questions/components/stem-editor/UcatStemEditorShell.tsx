@@ -193,10 +193,10 @@ export function UcatStemEditorShell({
   const questionCount = watchedQuestions?.length ?? 0
   const safeQuestionIndex =
     questionCount > 0 ? Math.min(currentQuestionIndex, questionCount - 1) : 0
-  const stemType = (watchedQuestions?.[0]?.questionType ?? 'multiple_choice') as
-    | 'multiple_choice'
-    | 'syllogism'
-  const isSyllogism = stemType === 'syllogism'
+  const firstAnswerScheme = watchedQuestions?.[0]?.answerScheme ?? 'single_choice'
+  const isSingleQuestionPlacement =
+    firstAnswerScheme === 'decision_making_binary_placement' ||
+    firstAnswerScheme === 'situational_judgement_most_least'
   const showExamQuestionNavigator = showQuestionNavigator || questionCount > 1
   const currentQuestionId = watchedQuestions?.[safeQuestionIndex]?.id
   const currentExplanationFeedback = explanationFeedbackQuery.data?.find(
@@ -286,7 +286,7 @@ export function UcatStemEditorShell({
             form={form}
             currentQuestionIndex={safeQuestionIndex}
             onQuestionIndexChange={handleQuestionIndexChange}
-            isSyllogism={isSyllogism}
+            isSingleQuestionPlacement={isSingleQuestionPlacement}
           />
           <UcatTutorStemPreviewExamChrome
             sectionTitle={previewSectionTitle}

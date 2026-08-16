@@ -124,6 +124,7 @@ export const ucatSetsApi = {
       description: proseMirrorToPlainText(detail.description) ?? '',
       timeLimitSeconds: detail.time_limit_seconds ?? null,
       accessScope: detail.access_scope ?? 'public',
+      sectionId: requireSetSectionId(detail),
       stemIds: merged,
     }
     return this.update(setId, payload)
@@ -140,6 +141,7 @@ export const ucatSetsApi = {
       description: proseMirrorToPlainText(detail.description) ?? '',
       timeLimitSeconds: detail.time_limit_seconds ?? null,
       accessScope: detail.access_scope ?? 'public',
+      sectionId: requireSetSectionId(detail),
       stemIds: nextStemIds,
     }
     return this.update(setId, payload)
@@ -158,6 +160,12 @@ function serialize(payload: UcatQuestionSetPayload) {
     description,
     timeLimitSeconds: payload.timeLimitSeconds ?? null,
     accessScope: payload.accessScope,
+    sectionId: payload.sectionId,
     stemIds: payload.stemIds,
   }
+}
+
+function requireSetSectionId(detail: { section_id?: string | null }): string {
+  if (!detail.section_id) throw new Error('Set section is required')
+  return detail.section_id
 }

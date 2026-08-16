@@ -55,8 +55,8 @@ export async function sendInvoiceEmail(
   const amount = invoice.total ? (invoice.total / 100).toFixed(2) : '0.00';
   const currency = invoice.currency?.toUpperCase() || 'AUD';
   const invoiceNumber = invoice.number || invoiceId.slice(0, 8);
-  const invoiceDate = invoice.created ? new Date(invoice.created * 1000).toLocaleDateString() : 'N/A';
-  const dueDate = invoice.due_date ? new Date(invoice.due_date * 1000).toLocaleDateString() : 'N/A';
+  const invoiceDate = invoice.created ? new Date(invoice.created * 1000).toISOString() : 'N/A';
+  const dueDate = invoice.due_date ? new Date(invoice.due_date * 1000).toISOString() : 'N/A';
   const paid = invoice.status === 'paid';
 
   let lineItems: Array<{ description: string; amount: string }> = [];

@@ -60,6 +60,7 @@ export type AddToSetConfig =
     }
 
 type Step4CreateSetProps = {
+  sectionId: string
   addToSetEnabled: boolean
   onAddToSetEnabledChange: (value: boolean) => void
   addToSetConfig: AddToSetConfig | null
@@ -101,6 +102,7 @@ const SET_FILTER_DEFINITIONS: DataTableFilterDefinition[] = [
 ]
 
 export function Step4CreateSet({
+  sectionId,
   addToSetEnabled,
   onAddToSetEnabledChange,
   addToSetConfig,
@@ -122,16 +124,19 @@ export function Step4CreateSet({
   const setCatalog = useMemo<SetOption[]>(() => {
     return (setsQuery.data ?? [])
         .filter((set) => (set as { deleted_at?: string | null }).deleted_at == null)
+        .filter((set) => !sectionId || set.section_id === sectionId)
       .map((set) => ({
         id: set.id ?? '',
         name: proseMirrorToPlainText(set.name ?? null) || 'Untitled',
-        sectionDisplay: formatSectionsDisplay(set.sections ?? null),
+        sectionDisplay: set.section_name
+          ? (set.section_number != null ? `Section ${set.section_number}: ${set.section_name}` : set.section_name)
+          : formatSectionsDisplay(set.sections ?? null),
         question_count: set.question_count ?? null,
         time_limit_seconds: set.time_limit_seconds ?? null,
         access_scope: (set as { access_scope?: 'public' | 'private' | null }).access_scope ?? null,
         stem_count: (set as { stem_count?: number | null }).stem_count ?? null,
       }))
-  }, [setsQuery.data])
+  }, [sectionId, setsQuery.data])
 
   const setsTableState = useMemo(
     () => ({

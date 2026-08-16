@@ -52,7 +52,7 @@ const emptySnapshot: QuestionEngineTutorialSnapshot = {
   questionId: "sampler-vr-1",
   questionIndex: 0,
   selectedOptionId: null,
-  syllogismSnapshot: {},
+  placementSnapshot: {},
   flagged: false,
   showCalculator: false,
   showNavigator: false,

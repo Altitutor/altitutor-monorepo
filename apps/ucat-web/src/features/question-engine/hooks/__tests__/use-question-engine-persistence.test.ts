@@ -26,7 +26,6 @@ const exam: QuestionEngineExam = {
       sectionDisplayColumns: 1,
       stemText: "Stem",
       questionText: "Seen question",
-      questionType: "multiple_choice",
       responseType: "multiple_choice",
       answerScheme: "single_choice",
       options: [
@@ -43,7 +42,6 @@ const exam: QuestionEngineExam = {
       sectionDisplayColumns: 1,
       stemText: "Stem",
       questionText: "Unseen question",
-      questionType: "multiple_choice",
       responseType: "multiple_choice",
       answerScheme: "single_choice",
       options: [
@@ -58,17 +56,16 @@ describe("buildFinalExamQuestionAttempts", () => {
   it("persists every set question, including completely unseen questions", () => {
     const state = {
       selectedAnswers: { "question-1": "option-1" },
-      syllogismSnapshots: {},
+      placementSnapshots: {},
       flaggedIds: [],
     } satisfies Pick<
       QuestionEngineState,
-      "selectedAnswers" | "syllogismSnapshots" | "flaggedIds"
+      "selectedAnswers" | "placementSnapshots" | "flaggedIds"
     >;
 
     expect(buildFinalExamQuestionAttempts("set", exam, state)).toEqual([
       expect.objectContaining({
         questionId: "question-1",
-        questionAnswerOptionId: "option-1",
         answerSnapshot: {
           type: "ucat_response_v1",
           questionId: "question-1",
@@ -78,7 +75,6 @@ describe("buildFinalExamQuestionAttempts", () => {
       }),
       expect.objectContaining({
         questionId: "question-2",
-        questionAnswerOptionId: null,
         answerSnapshot: {
           type: "ucat_response_v1",
           questionId: "question-2",
@@ -119,7 +115,7 @@ describe("buildFinalExamQuestionAttempts", () => {
 
     const attempts = buildFinalExamQuestionAttempts("mock", mockExam, {
       selectedAnswers: {},
-      syllogismSnapshots: {},
+      placementSnapshots: {},
       flaggedIds: [],
     });
 
@@ -127,13 +123,11 @@ describe("buildFinalExamQuestionAttempts", () => {
       expect.objectContaining({
         questionId: "question-1",
         questionSetId: "set-1",
-        questionAnswerOptionId: null,
         wasTimed: false,
       }),
       expect.objectContaining({
         questionId: "question-2",
         questionSetId: "set-2",
-        questionAnswerOptionId: null,
         wasTimed: true,
       }),
     ]);

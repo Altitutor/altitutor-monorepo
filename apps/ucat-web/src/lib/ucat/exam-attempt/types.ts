@@ -30,7 +30,7 @@ export type ExamEngineSnapshot = Pick<
   | "visitedQuestionIds"
   | "flaggedIds"
   | "selectedAnswers"
-  | "syllogismSnapshots"
+  | "placementSnapshots"
   | "responseSnapshots"
   | "reviewFilter"
   | "reviewFilterIndex"

@@ -246,7 +246,7 @@ export function SearchableSelect<T>({
 
   return (
     <Popover open={open} onOpenChange={setOpen} modal={false}>
-      <span ref={triggerRef} className="contents">
+      <span ref={triggerRef} className="inline-flex w-fit max-w-full">
         <PopoverTrigger asChild>
           {trigger ?? defaultTrigger}
         </PopoverTrigger>

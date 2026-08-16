@@ -27,6 +27,7 @@ interface Props {
   conversationId?: string | null;
   groupChatId?: string | null;
   initialSenderId?: string | null;
+  preferredSenderId?: string | null;
   onTyping?: () => void;
   onBeforeSend?: (messageBody: string, selectedSenderId: string) => Promise<string | null>;
   draft?: string;
@@ -39,6 +40,7 @@ export function Composer({
   conversationId,
   groupChatId,
   initialSenderId,
+  preferredSenderId,
   onTyping, 
   onBeforeSend,
   draft,
@@ -84,6 +86,16 @@ export function Composer({
       setSelectedSenderId(defaultSender.id);
     }
   }, [availableSenders, groupChatId, selectedSenderId]);
+
+  useEffect(() => {
+    setSelectedSenderId(initialSenderId ?? null);
+  }, [contactId, groupChatId, initialSenderId]);
+
+  useEffect(() => {
+    if (preferredSenderId) {
+      setSelectedSenderId(preferredSenderId);
+    }
+  }, [preferredSenderId]);
 
   // Check if selected sender is iMessage
   const selectedSender = availableSenders?.find(s => s.id === selectedSenderId);

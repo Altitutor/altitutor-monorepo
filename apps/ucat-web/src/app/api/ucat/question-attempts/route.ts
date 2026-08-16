@@ -38,7 +38,6 @@ export async function POST(request: NextRequest) {
     studentQuestionSetAttemptId: string | null;
     studentPracticeSessionId?: string | null;
     questionId: string;
-    questionAnswerOptionId: string | null;
     answerSnapshot?: Json | null;
     isFlagged?: boolean;
     wasTimed?: boolean;
@@ -170,16 +169,13 @@ export async function POST(request: NextRequest) {
 
   if (existing) {
     const updatePayload: {
-      question_answer_option_id: string | null;
       answer_snapshot?: Json | null;
       is_submitted?: boolean;
       is_flagged?: boolean;
       was_timed?: boolean;
       mode?: "question" | "question_stem" | "set" | "mock" | "learn";
       learning_module_block_id?: string | null;
-    } = {
-      question_answer_option_id: body.questionAnswerOptionId,
-    };
+    } = {};
 
     if (Object.prototype.hasOwnProperty.call(body, "answerSnapshot")) {
       updatePayload.answer_snapshot = body.answerSnapshot ?? null;
@@ -211,8 +207,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: updateError.message }, { status: 500 });
     }
 
-    const hasAnswer =
-      body.questionAnswerOptionId != null || body.answerSnapshot != null;
+    const hasAnswer = body.answerSnapshot != null;
     if (isLearnAttempt && hasAnswer) {
       try {
         const progress = await maybeAutoCompleteQuestionBlock(
@@ -250,7 +245,6 @@ export async function POST(request: NextRequest) {
     student_question_set_attempt_id: string | null;
     student_practice_session_id: string | null;
     question_id: string;
-    question_answer_option_id: string | null;
     answer_snapshot: Json | null;
     is_flagged: boolean;
     is_submitted: boolean;
@@ -267,7 +261,6 @@ export async function POST(request: NextRequest) {
       ? body.learningModuleBlockId!
       : null,
     question_id: body.questionId,
-    question_answer_option_id: body.questionAnswerOptionId,
     answer_snapshot: body.answerSnapshot ?? null,
     is_flagged: hasFlag ? (body.isFlagged ?? false) : false,
     is_submitted: isSubmitted,
@@ -299,7 +292,6 @@ export async function POST(request: NextRequest) {
 
   const hasAnswer =
     body.submittedByStem === true ||
-    body.questionAnswerOptionId != null ||
     body.answerSnapshot != null;
   if (isLearnAttempt && hasAnswer) {
     try {

@@ -62,7 +62,6 @@ export function verifiedRepairFormValuesFromSnapshot(
     questions: canonicalVerifiedRepairSnapshot(snapshot).questions.map((question) => ({
       id: question.id,
       questionText: question.questionText,
-      questionType: question.questionType,
       responseType: question.responseType,
       answerScheme: question.answerScheme,
       answerExplanation: question.answerExplanation,
@@ -77,7 +76,6 @@ export function verifiedRepairFormValuesFromSnapshot(
         id: option.id,
         answerText: option.answerText,
         answerExplanation: option.answerExplanation,
-        isAnswer: option.isAnswer,
         answerKeyValue: option.answerKeyValue,
       })),
     })),
@@ -150,7 +148,6 @@ function contentSnapshot(
       answer_explanation: question.answerExplanation ?? null,
       difficulty: question.difficulty ?? null,
       time_burden_seconds: parseTimeToSeconds(question.timeBurdenSeconds ?? '') ?? null,
-      question_type: question.questionType,
       response_type: question.responseType,
       answer_scheme: question.answerScheme,
       source_channel: question.sourceChannel ?? null,
@@ -163,7 +160,6 @@ function contentSnapshot(
         index: optionIndex + 1,
         answer_text: option.answerText,
         answer_explanation: option.answerExplanation ?? null,
-        is_answer: option.isAnswer,
         answer_key_value: option.answerKeyValue ?? null,
       })),
     })) as unknown as Json,
@@ -308,7 +304,8 @@ export function backgroundRepairPatchAllowed(params: {
   }
   if (patch.operation === 'set_metadata') {
     return (patch.field === 'category_id' && relevantCodes.some((code) => code.includes('category')))
-      || (patch.field === 'question_type' && relevantCodes.some((code) => code.includes('question_type')))
+      || (patch.field === 'response_type' && relevantCodes.some((code) => code.includes('response_type')))
+      || (patch.field === 'answer_scheme' && relevantCodes.some((code) => code.includes('answer_scheme')))
   }
   return false
 }

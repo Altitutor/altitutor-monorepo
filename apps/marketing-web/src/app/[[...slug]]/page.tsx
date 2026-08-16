@@ -41,7 +41,8 @@ const LEGACY_SITE_FOOTER_HTML = `
       <a href="/classes/weekly-classes/">Weekly subject tutoring</a>
       <a href="/classes/english-assignment-drafting/">English assignment drafting</a>
       <a href="/classes/examprep/">Exam preparation courses</a>
-      <a href="/classes/ucatprep/">UCAT preparation</a>
+      <a href="/ucat/">Online UCAT preparation</a>
+      <a href="/classes/ucatprep/">Adelaide UCAT classes</a>
       <a href="/classes/medical-interview-preparation/">Medical Interview Preparation</a>
     </nav>
     <nav class="legacy-site-footer__nav" aria-label="Company links">
@@ -112,6 +113,7 @@ export default function MarketingRoute({ params }: PageProps) {
         <nav className="legacy-site-header__nav" aria-label="Primary navigation">
           <a href="/about/">About us</a>
           <a href="/classes/">Courses</a>
+          <a href="/ucat/">Online UCAT preparation</a>
           <a href="/resources/">Online resources</a>
           <a href="/about/contact/">Contact us</a>
         </nav>

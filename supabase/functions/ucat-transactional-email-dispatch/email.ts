@@ -114,7 +114,7 @@ export function renderTransactionalEmail(
   switch (row.template_key) {
     case "public_interest_supported_access_received": {
       const panel = renderUcatEmailPanel(`
-        <p style="margin:0 0 8px"><strong class="email-strong" style="color:#0a2941">What happens next</strong></p>
+        <p style="margin:0 0 8px"><strong class="email-strong" style="color:#1a1a1a">What happens next</strong></p>
         <p style="margin:0">The Altitutor team will review your application, contact you to arrange a short online interview, then let you know what support is available. Decisions are based on financial circumstances and the funding available at the time.</p>
       `);
       return render({
@@ -171,6 +171,40 @@ export function renderTransactionalEmail(
           }`,
       });
 
+    case "public_interest_interview_training_waitlist_received":
+      return render({
+        row,
+        sender: "founder",
+        subject: "You’re on the Altitutor interview training waitlist",
+        previewText:
+          "We will contact you when medical interview course places are released.",
+        heading: "You’re on the waitlist",
+        bodyHtml: paragraph(`Hi ${name},`) +
+          paragraph(
+            "Thanks for registering your interest in Altitutor medical interview preparation. We will contact you when course places are released as university offers come out.",
+          ) +
+          renderUcatEmailPanel(
+            "Joining the waitlist is not a booking and does not guarantee a place. In the meantime, you can use Altitutor UCAT Free to keep preparing.",
+            "cream",
+          ) +
+          renderUcatEmailButton(
+            buildUcatEmailActionUrl({
+              path: "/signup",
+              campaign: row.template_key,
+              content: "start_free",
+            }),
+            "Start preparing free",
+          ),
+        text:
+          `Hi ${name},\n\nThanks for registering your interest in Altitutor medical interview preparation. We will contact you when course places are released as university offers come out.\n\nJoining the waitlist is not a booking and does not guarantee a place.\n\nStart preparing free: ${
+            buildUcatEmailActionUrl({
+              path: "/signup",
+              campaign: row.template_key,
+              content: "start_free",
+            })
+          }`,
+      });
+
     case "referral_gift_received": {
       const giftDuration = duration(payload);
       const referrer = value(payload, "referrer_name") || "A friend";
@@ -188,7 +222,7 @@ export function renderTransactionalEmail(
             `${referrer} has gifted you one free ${giftDuration} of Altitutor UCAT Unlimited.`,
           ) +
           renderUcatEmailPanel(
-            `<strong class="email-strong" style="color:#0a2941">Review it by ${
+            `<strong class="email-strong" style="color:#1a1a1a">Review it by ${
               escapeEmailHtml(expiry)
             }.</strong><br>When you accept, we will show you exactly how the free access works before anything begins.`,
           ) +
@@ -236,7 +270,7 @@ export function renderTransactionalEmail(
           renderUcatEmailPanel(
             `${
               credit
-                ? `<strong class="email-strong" style="color:#0a2941">Credit earned: ${
+                ? `<strong class="email-strong" style="color:#1a1a1a">Credit earned: ${
                   escapeEmailHtml(credit)
                 }</strong><br>`
                 : ""
@@ -289,7 +323,7 @@ export function renderTransactionalEmail(
           ) +
           (isTrial
             ? renderUcatEmailPanel(
-              `Your trial ends on <strong class="email-strong" style="color:#0a2941">${
+              `Your trial ends on <strong class="email-strong" style="color:#1a1a1a">${
                 escapeEmailHtml(trialEnd)
               }</strong>. We will send you a separate reminder showing your estimated first payment before then.`,
             )

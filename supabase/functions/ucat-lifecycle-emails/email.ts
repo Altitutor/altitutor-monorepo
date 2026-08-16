@@ -61,7 +61,7 @@ function panel(
     html:
       '<table class="email-panel" role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin:24px 0;background:#f5f8f8;border:1px solid #d5e2e5;border-radius:12px"><tr><td class="email-panel-copy" style="padding:20px 22px"><p style="margin:0 0 7px;color:#527487;font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase">' +
       escapeEmailHtml(label) +
-      '</p><p class="email-accent" style="margin:0 0 15px;color:#0a2941;font-size:18px;font-weight:700;line-height:1.35">' +
+      '</p><p class="email-accent" style="margin:0 0 15px;color:#1a1a1a;font-size:18px;font-weight:700;line-height:1.35">' +
       escapeEmailHtml(title) +
       "</p>" +
       bodyHtml +
@@ -78,9 +78,9 @@ function numberedModule(
   const html = rows
     .map(
       (row, index) =>
-        '<tr><td width="34" valign="top" style="padding:7px 10px 7px 0"><span class="email-accent-fill" style="display:inline-block;width:26px;height:26px;border-radius:13px;background:#dcecee;color:#0a2941;font-size:12px;font-weight:700;line-height:26px;text-align:center">' +
+        '<tr><td width="34" valign="top" style="padding:7px 10px 7px 0"><span class="email-accent-fill" style="display:inline-block;width:26px;height:26px;border-radius:13px;background:#dcecee;color:#1a1a1a;font-size:12px;font-weight:700;line-height:26px;text-align:center">' +
         (index + 1) +
-        '</span></td><td valign="top" style="padding:7px 0;color:#52606a;font-size:13px;line-height:1.55"><strong class="email-accent" style="color:#0a2941">' +
+        '</span></td><td valign="top" style="padding:7px 0;color:#52606a;font-size:13px;line-height:1.55"><strong class="email-accent" style="color:#1a1a1a">' +
         escapeEmailHtml(row.title) +
         "</strong><br>" +
         escapeEmailHtml(row.detail) +
@@ -131,7 +131,7 @@ function statsModule(candidate: LifecycleCandidate): EmailModule {
   const stat = (value: number, label: string, border: boolean) =>
     '<td width="33.33%" align="center" valign="top" style="padding:12px 6px;' +
     (border ? "border-right:1px solid #dce5e8;" : "") +
-    '"><p class="email-accent" style="margin:0;color:#0a2941;font-size:22px;font-weight:700">' +
+    '"><p class="email-accent" style="margin:0;color:#1a1a1a;font-size:22px;font-weight:700">' +
     value +
     '</p><p style="margin:3px 0 0;color:#73808a;font-size:11px">' +
     escapeEmailHtml(label) +
@@ -149,7 +149,7 @@ function statsModule(candidate: LifecycleCandidate): EmailModule {
   const estimateLine =
     delta == null
       ? ""
-      : '<p style="margin:14px 0 0;color:#52606a;font-size:13px;line-height:1.55">Estimated score change: <strong class="email-accent" style="color:#0a2941">' +
+      : '<p style="margin:14px 0 0;color:#52606a;font-size:13px;line-height:1.55">Estimated score change: <strong class="email-accent" style="color:#1a1a1a">' +
         (delta > 0 ? "+" : "") +
         delta +
         "</strong></p>";
@@ -183,7 +183,7 @@ function estimateModule(estimate: number): EmailModule {
   return panel(
     "Your first estimate",
     "A starting point, not a verdict",
-    '<table class="email-module-surface" role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#fff;border:1px solid #dce5e8;border-radius:9px"><tr><td align="center" style="padding:20px"><p style="margin:0 0 4px;color:#73808a;font-size:11px;text-transform:uppercase;letter-spacing:.07em">Current estimated score</p><p class="email-accent" style="margin:0;color:#0a2941;font-size:32px;font-weight:700">' +
+    '<table class="email-module-surface" role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#fff;border:1px solid #dce5e8;border-radius:9px"><tr><td align="center" style="padding:20px"><p style="margin:0 0 4px;color:#73808a;font-size:11px;text-transform:uppercase;letter-spacing:.07em">Current estimated score</p><p class="email-accent" style="margin:0;color:#1a1a1a;font-size:32px;font-weight:700">' +
       escapeEmailHtml(estimate) +
       '</p></td></tr></table><p style="margin:14px 0 0;color:#52606a;font-size:13px;line-height:1.6">This will move as you complete more representative practice. Use the progress page to see the trend and decide what to work on next.</p>',
     "Current estimated score: " +
@@ -224,9 +224,9 @@ function commercialModule(
     title,
     '<p style="margin:0 0 12px;color:#52606a;font-size:13px;line-height:1.6">' +
       escapeEmailHtml(detail) +
-      '</p><table class="email-module-surface" role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#fff;border:1px solid #dce5e8;border-radius:9px"><tr><td style="padding:13px 15px;border-right:1px solid #dce5e8"><p style="margin:0 0 3px;color:#73808a;font-size:11px">Monthly base</p><p class="email-accent" style="margin:0;color:#0a2941;font-size:18px;font-weight:700">' +
+      '</p><table class="email-module-surface" role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#fff;border:1px solid #dce5e8;border-radius:9px"><tr><td style="padding:13px 15px;border-right:1px solid #dce5e8"><p style="margin:0 0 3px;color:#73808a;font-size:11px">Monthly base</p><p class="email-accent" style="margin:0;color:#1a1a1a;font-size:18px;font-weight:700">' +
       escapeEmailHtml(base) +
-      '</p></td><td style="padding:13px 15px"><p style="margin:0 0 3px;color:#73808a;font-size:11px">Per qualifying day</p><p class="email-accent" style="margin:0;color:#0a2941;font-size:18px;font-weight:700">−' +
+      '</p></td><td style="padding:13px 15px"><p style="margin:0 0 3px;color:#73808a;font-size:11px">Per qualifying day</p><p class="email-accent" style="margin:0;color:#1a1a1a;font-size:18px;font-weight:700">−' +
       escapeEmailHtml(daily) +
       "</p></td></tr></table>" +
       (maximum > 0
@@ -254,7 +254,7 @@ function signature(founderLed: boolean): { html: string; text: string } {
   }
   return {
     html:
-      '<table role="presentation" cellspacing="0" cellpadding="0" style="margin:22px 0 0"><tr><td><p style="margin:0 0 5px;color:#394650;font-size:14px;line-height:1.5">All the best,</p><img src="' +
+      '<table role="presentation" cellspacing="0" cellpadding="0" style="margin:22px 0 0"><tr><td><p style="margin:0 0 5px;color:#394650;font-size:14px;line-height:1.5">All the best,</p><img class="email-signature" src="' +
       escapeEmailHtml(SIGNATURE_URL) +
       '" alt="Matt" width="155" height="59" style="display:block;width:155px;height:auto;max-height:59px"><p style="margin:3px 0 0;color:#52606a;font-size:12px;line-height:1.5">Matt<br>Founder and tutor, Altitutor</p></td></tr></table>',
     text: "All the best,\nMatt\nFounder and tutor, Altitutor",

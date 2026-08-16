@@ -120,19 +120,19 @@ export async function sendUcatTrialReminder(
     heading: "Your Unlimited trial ends soon",
     bodyHtml: `
       <p style="margin:0 0 16px;color:#394650;font-size:15px;line-height:1.7">Hi ${firstName},</p>
-      <p style="margin:0;color:#394650;font-size:15px;line-height:1.7">Your Altitutor UCAT Unlimited trial ends on <strong class="email-accent" style="color:#0a2941">${
+      <p style="margin:0;color:#394650;font-size:15px;line-height:1.7">Your Altitutor UCAT Unlimited trial ends on <strong class="email-accent" style="color:#1a1a1a">${
       escapeEmailHtml(trialEnd)
     }</strong>. Your subscription will begin after the trial unless you cancel.</p>
       ${
       renderUcatEmailPanel(
         `<table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%"><tr><td>
-        <p style="margin:0 0 10px;color:#394650;font-size:14px;line-height:1.5"><strong class="email-accent" style="color:#0a2941">Standard price</strong><br>${
+        <p style="margin:0 0 10px;color:#394650;font-size:14px;line-height:1.5"><strong class="email-accent" style="color:#1a1a1a">Standard price</strong><br>${
           escapeEmailHtml(standardPrice)
         }</p>
-        <p style="margin:0 0 10px;color:#394650;font-size:14px;line-height:1.5"><strong class="email-accent" style="color:#0a2941">Practice discounts earned</strong><br>${
+        <p style="margin:0 0 10px;color:#394650;font-size:14px;line-height:1.5"><strong class="email-accent" style="color:#1a1a1a">Practice discounts earned</strong><br>${
           escapeEmailHtml(earnedDiscount)
         }</p>
-        <p style="margin:0;color:#394650;font-size:14px;line-height:1.5"><strong class="email-accent" style="color:#0a2941">Current estimated first payment</strong><br>${
+        <p style="margin:0;color:#394650;font-size:14px;line-height:1.5"><strong class="email-accent" style="color:#1a1a1a">Current estimated first payment</strong><br>${
           escapeEmailHtml(estimatedBill)
         }</p>
       </td></tr></table>`,

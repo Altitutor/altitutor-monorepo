@@ -28,7 +28,7 @@ function toSnapshot(state: QuestionEngineState): ExamEngineSnapshot {
     visitedQuestionIds: state.visitedQuestionIds,
     flaggedIds: state.flaggedIds,
     selectedAnswers: state.selectedAnswers,
-    syllogismSnapshots: state.syllogismSnapshots,
+    placementSnapshots: state.placementSnapshots,
     reviewFilter: state.reviewFilter,
     reviewFilterIndex: state.reviewFilterIndex,
     reviewFilterIndicesSnapshot: state.reviewFilterIndicesSnapshot,

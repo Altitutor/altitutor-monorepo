@@ -9,7 +9,10 @@ import { completeUcatOnboarding } from "@/features/ucat-access/api/complete-onbo
 import { useUcatAccess } from "@/features/ucat-access/hooks/use-ucat-access";
 import { useUcatProfile } from "@/features/layout/hooks/use-ucat-profile";
 import { createBillingPortalSession } from "@/features/subscription/api/create-billing-portal-session";
-import { scheduleUcatSubscriptionCancellation } from "@/features/subscription/api/change-subscription-cancellation";
+import {
+  resumeUcatSubscription,
+  scheduleUcatSubscriptionCancellation,
+} from "@/features/subscription/api/change-subscription-cancellation";
 import { trackSubscriptionJourneyEvent } from "@/features/subscription/api/track-subscription-journey";
 import { UCAT_SUBSCRIPTION_BILLING_QUERY_KEY } from "@/features/subscription/hooks/use-ucat-subscription-billing";
 import { usePublicSubscriptionConfig } from "@/features/subscription/hooks/use-public-subscription-config";
@@ -45,6 +48,10 @@ import {
   type CancellationReasonSelection,
 } from "@/features/subscription/lib/subscription-cancellation";
 import { captureUcatEvent } from "@/lib/analytics/posthog";
+import {
+  getSubscriptionEndDateIso,
+  isSubscriptionCancelScheduled,
+} from "@/lib/ucat/stripe-subscription-fields";
 
 const SUBSCRIPTION_SETTINGS_PATH = "/settings/plan/subscription";
 
@@ -142,6 +149,12 @@ export function usePlanPicker(options: UsePlanPickerOptions = {}) {
 
   const subscription = billingData?.subscription ?? null;
   const subscribedPlanTier = subscription?.plan_tier ?? null;
+  const isDowngradeScheduled = subscription
+    ? isSubscriptionCancelScheduled(subscription)
+    : false;
+  const scheduledDowngradeEndDate = subscription
+    ? getSubscriptionEndDateIso(subscription)
+    : null;
 
   const isOnUnlimitedTier =
     access.onlineTier === "unlimited" ||
@@ -312,6 +325,28 @@ export function usePlanPicker(options: UsePlanPickerOptions = {}) {
     options.onContinueCurrentPlan?.();
   };
 
+  const handleKeepUnlimited = async () => {
+    setLoadingPlan("unlimited");
+    setError(null);
+    try {
+      await resumeUcatSubscription();
+      await refetchSubscriptionState();
+      toast({
+        title: "UCAT Unlimited kept",
+        description: "Your scheduled downgrade has been cancelled.",
+      });
+      options.onDowngradeNavigate?.();
+    } catch (e) {
+      setError(
+        e instanceof Error
+          ? e.message
+          : "Failed to cancel your scheduled downgrade",
+      );
+    } finally {
+      setLoadingPlan(null);
+    }
+  };
+
   const billedAt = (periodCents: number) =>
     billedAtLabel(periodCents, billingInterval, formatMoney);
 
@@ -373,14 +408,14 @@ export function usePlanPicker(options: UsePlanPickerOptions = {}) {
       router.push(SUBSCRIPTION_SETTINGS_PATH);
       router.refresh();
       toast({
-        title: "Switch to UCAT Free scheduled",
+        title: "Downgrade to UCAT Free scheduled",
         description: subscription?.current_period_end
           ? `You'll keep your paid plan until ${new Date(subscription.current_period_end).toLocaleDateString("en-AU", { day: "numeric", month: "long", year: "numeric" })}.`
           : "You'll keep your paid access until the end of this billing period.",
       });
     } catch (e) {
       setCancellationError(
-        e instanceof Error ? e.message : "Failed to switch to UCAT Free",
+        e instanceof Error ? e.message : "Failed to downgrade to UCAT Free",
       );
     } finally {
       setCancellationConfirming(false);
@@ -388,6 +423,11 @@ export function usePlanPicker(options: UsePlanPickerOptions = {}) {
   };
 
   const handleDowngrade = async (target: PlanPickerTier) => {
+    if (target === "free" && isDowngradeScheduled) {
+      options.onDowngradeNavigate?.();
+      return;
+    }
+
     cancellationConfirmedRef.current = false;
     setDowngradeTarget(target);
     setCancellationReason(null);
@@ -452,6 +492,8 @@ export function usePlanPicker(options: UsePlanPickerOptions = {}) {
     needsOnboarding,
     isOnPaid,
     isOnUnlimited: isOnUnlimitedTier,
+    isDowngradeScheduled,
+    scheduledDowngradeEndDate,
     cancellationOpen,
     downgradeTarget,
     handleCancellationOpenChange,
@@ -482,6 +524,7 @@ export function usePlanPicker(options: UsePlanPickerOptions = {}) {
     formatFreeQuotaLine,
     handleFreePlanAction,
     handleContinueCurrentPlan,
+    handleKeepUnlimited,
     handleOnlineSubscribe,
     canDowngradeTo,
     handleDowngrade,

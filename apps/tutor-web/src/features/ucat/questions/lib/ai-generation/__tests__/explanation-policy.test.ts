@@ -41,15 +41,13 @@ describe('buildUcatExplanationPolicy', () => {
     expect(policy).not.toContain('Include an option-level explanation only when')
   })
 
-  it('uses drag_and_drop response wording and maps legacy syllogism questionType', () => {
+  it('uses drag_and_drop response wording', () => {
     const byResponse = buildUcatExplanationPolicy({ responseType: 'drag_and_drop' })
-    const byLegacy = buildUcatExplanationPolicy({ questionType: 'syllogism' })
 
     expect(byResponse).toContain('For drag_and_drop')
     expect(byResponse).toContain('Add a question-level explanation when it is appropriate')
     expect(byResponse).not.toContain('Include a question-level explanation only when')
     expect(byResponse).not.toContain('For syllogism')
-    expect(byLegacy).toContain('For drag_and_drop')
   })
 
   it('provides a conditional all-section policy for workflows without a fixed section', () => {

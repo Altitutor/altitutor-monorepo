@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useMemo, useState } from "react";
+import React, { FormEvent, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input, Label } from "@altitutor/ui";
@@ -11,12 +11,14 @@ import {
   SocialAuthButtons,
   SocialAuthDivider,
 } from "@/features/auth/components/social-auth-buttons";
-import {
-  resolvePostAuthDestination,
-  type SocialAuthProvider,
-} from "@/features/auth/lib/social-auth";
+import { type SocialAuthProvider } from "@/features/auth/lib/social-auth";
 import { navigateAfterAuth } from "@/features/auth/lib/navigate-after-auth";
-import { fetchSignupProgress } from "@/features/signup-onboarding/api/signup-progress";
+import { takePendingLoginEmail } from "@/features/auth/lib/pending-login-email";
+import {
+  getLastSignInMethod,
+  rememberLastSignInMethod,
+} from "@/features/auth/lib/last-sign-in-method";
+import { savePasswordAuthHandoff } from "@/features/auth/lib/password-auth-handoff";
 
 const { typography: typo } = MARKETING_TOKENS;
 
@@ -38,39 +40,43 @@ export function LoginForm({
   const supabase = useMemo(() => getSupabaseBrowserClient(), []);
   const [email, setEmail] = useState(initialEmail);
   const [password, setPassword] = useState("");
+  const [lastSignInMethod, setLastSignInMethod] =
+    useState<ReturnType<typeof getLastSignInMethod>>(null);
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  useEffect(() => {
+    setLastSignInMethod(getLastSignInMethod());
+    if (accountExists && !initialEmail) {
+      setEmail(takePendingLoginEmail() ?? "");
+    }
+  }, [accountExists, initialEmail]);
 
   async function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setIsSubmitting(true);
     setError(null);
 
-    const { error: signInError } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
+    const { data, error: signInError } = await supabase.auth.signInWithPassword(
+      {
+        email,
+        password,
+      },
+    );
 
     if (signInError) {
-      setError(signInError.message);
+      setError("Incorrect email or password.");
       setIsSubmitting(false);
       return;
     }
 
-    let destination = redirectTo;
-    try {
-      const progress = await fetchSignupProgress();
-      destination = resolvePostAuthDestination({
-        intent: "login",
-        provider: null,
-        next: redirectTo,
-        signupCompleted: progress.signupCompleted,
-      });
-    } catch {
-      // Middleware / OnboardingGate still catch incomplete signups if this fails.
-    }
+    rememberLastSignInMethod("password");
+    if (data.user) savePasswordAuthHandoff(data.user.id);
 
-    navigateAfterAuth(destination);
+    const continueUrl = new URL("/auth/continue", window.location.origin);
+    continueUrl.searchParams.set("intent", "login");
+    continueUrl.searchParams.set("next", redirectTo);
+    navigateAfterAuth(`${continueUrl.pathname}${continueUrl.search}`);
   }
 
   return (
@@ -143,12 +149,18 @@ export function LoginForm({
           className="col-start-1 row-start-1 text-sm font-medium text-foreground/90"
         >
           Password
+          {lastSignInMethod === "password" ? (
+            <span className="ml-2 rounded-full bg-primary/10 px-2 py-0.5 text-[11px] font-semibold text-primary">
+              Last used
+            </span>
+          ) : null}
         </Label>
         <Input
           id="password"
           type="password"
           required
           autoComplete="current-password"
+          autoFocus={accountExists}
           value={password}
           onChange={(e) => setPassword(e.target.value)}
           disabled={isSubmitting}

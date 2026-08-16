@@ -76,7 +76,7 @@ export function PlanCancellationDialog({
         <AlertDialogHeader>
           <AlertDialogTitle>
             {isSwitchingToFree
-              ? "Are you sure you want to switch to UCAT Free?"
+              ? "Are you sure you want to downgrade to UCAT Free?"
               : "Are you sure you want to downgrade to UCAT Unlimited?"}
           </AlertDialogTitle>
           <AlertDialogDescription asChild>
@@ -114,9 +114,9 @@ export function PlanCancellationDialog({
           {isSwitchingToFree ? (
             <div className="min-w-0 space-y-5">
               <div className="space-y-3">
-                <Label>What is the main reason you&apos;re switching?</Label>
+                <Label>What is the main reason you&apos;re downgrading?</Label>
                 <RadioGroup
-                  aria-label="Main reason for switching to UCAT Free"
+                  aria-label="Main reason for downgrading to UCAT Free"
                   value={reason ?? ""}
                   onValueChange={(value) =>
                     onReasonChange(value as CancellationReasonSelection)
@@ -213,8 +213,8 @@ export function PlanCancellationDialog({
             ) : null}
             {isSwitchingToFree
               ? endDate
-                ? `Switch to Free on ${endDate}`
-                : "Switch to Free"
+                ? `Downgrade to Free on ${endDate}`
+                : "Downgrade to Free"
               : "Continue to billing"}
           </Button>
         </AlertDialogFooter>

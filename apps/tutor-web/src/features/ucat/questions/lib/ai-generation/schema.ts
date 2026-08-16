@@ -187,20 +187,18 @@ export type GeneratedContentBlock = z.infer<typeof GeneratedContentBlockSchema>
 export const GeneratedOptionSchema = z.object({
   answerText: z.union([z.string().trim().min(1), z.array(GeneratedContentBlockSchema).min(1)]),
   answerExplanation: z.union([z.string().trim().min(1), z.array(GeneratedContentBlockSchema).min(1)]).nullable().optional(),
-  isAnswer: z.boolean(),
-  answerKeyValue: z.enum(['correct', 'yes', 'no', 'most', 'least']).nullable().optional(),
+  answerKeyValue: z.enum(['correct', 'yes', 'no', 'most', 'least']).nullable(),
 })
 
 const GeneratedQuestionBaseSchema = z.object({
   questionText: z.union([z.string().trim().min(1), z.array(GeneratedContentBlockSchema).min(1)]),
-  questionType: z.enum(['multiple_choice', 'syllogism']).default('multiple_choice'),
-  responseType: z.enum(['multiple_choice', 'drag_and_drop']).optional(),
+  responseType: z.enum(['multiple_choice', 'drag_and_drop']),
   answerScheme: z.enum([
     'single_choice',
     'situational_judgement_rating',
     'decision_making_binary_placement',
     'situational_judgement_most_least',
-  ]).optional(),
+  ]),
   answerExplanation: z.union([z.string().trim().min(1), z.array(GeneratedContentBlockSchema).min(1)]).nullable().optional(),
   difficultyTarget: DifficultyTargetSchema.optional(),
   timeBurdenTarget: TimeBurdenTargetSchema.optional(),

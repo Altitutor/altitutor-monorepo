@@ -1,3 +1,5 @@
+"use client";
+
 import { MARKETING_TOKENS } from "@altitutor/shared";
 import {
   Accordion,
@@ -5,9 +7,18 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from "@altitutor/ui";
-import { UCAT_SECTION_EYEBROW_CLASS, UCAT_SECTION_PADDING_CLASS } from "./ucat-landing-section-eyebrow";
+import {
+  UCAT_SECTION_EYEBROW_CLASS,
+  UCAT_SECTION_PADDING_CLASS,
+  UCAT_SECTION_DESCRIPTION_CLASS,
+  UCAT_SUPPORTING_TEXT_CLASS,
+  UCAT_SECTION_HEADING_CLASS,
+} from "./ucat-landing-section-eyebrow";
+import { UcatInterestDialog } from "./ucat-interest-dialog";
 
 const { typography: typo } = MARKETING_TOKENS;
+
+const faqLinkClassName = `inline font-semibold text-marketing-primary underline decoration-marketing-primary/30 underline-offset-4 transition hover:decoration-marketing-primary ${typo.secondarySans}`;
 
 const faqs = [
   {
@@ -42,13 +53,59 @@ const faqs = [
   },
   {
     question: "Can I apply for free or subsidised Unlimited access?",
-    answer:
-      "Yes. Anyone can apply. We assess applications on the student or family's financial position and circumstances, followed by a short online interview. Support depends on need and the funding available at the time.",
+    answer: (
+      <>
+        Yes. Anyone can apply. We assess applications on the student or family&apos;s
+        financial position and circumstances, followed by a short online interview.
+        Support depends on need and the funding available at the time. You can{" "}
+        <UcatInterestDialog
+          kind="supported_access"
+          triggerLabel="apply for supported access"
+          title="Apply for supported access"
+          description="Tell us how cost is affecting your access to UCAT preparation. The Altitutor team will review your application and contact suitable applicants to arrange a short online conversation."
+          triggerClassName={faqLinkClassName}
+          hideTriggerIcon
+        />
+        .
+      </>
+    ),
   },
   {
     question: "Is online tutoring included?",
-    answer:
-      "No. Online one-to-one tutoring will be an optional add-on. Your tutor will be able to see your progress and attempts, then make personalised recommendations during live video sessions. You can join the waitlist now.",
+    answer: (
+      <>
+        No. Online one-to-one tutoring will be an optional add-on. Your tutor will be
+        able to see your progress and attempts, then make personalised recommendations
+        during live video sessions. You can{" "}
+        <UcatInterestDialog
+          kind="online_tutoring_waitlist"
+          triggerLabel="join the waitlist"
+          title="Join the online tutoring waitlist"
+          description="Leave your contact details and Matt will follow up as plans for one-to-one online UCAT tutoring develop. Joining the waitlist is not a booking or guarantee of availability."
+          triggerClassName={faqLinkClassName}
+          hideTriggerIcon
+        />{" "}
+        now.
+      </>
+    ),
+  },
+  {
+    question: "Do you offer interview training?",
+    answer: (
+      <>
+        Yes. We offer medical interview preparation and will release course places when
+        university offers come out. You can{" "}
+        <UcatInterestDialog
+          kind="interview_training_waitlist"
+          triggerLabel="join the waitlist"
+          title="Join the interview training waitlist"
+          description="Leave your contact details and we will follow up when medical interview course places are released."
+          triggerClassName={faqLinkClassName}
+          hideTriggerIcon
+        />{" "}
+        and we will contact you when places open.
+      </>
+    ),
   },
 ] as const;
 
@@ -57,18 +114,16 @@ export function UcatLandingFaq() {
     <section id="faq" className={`bg-white ${UCAT_SECTION_PADDING_CLASS}`}>
       <div className="mx-auto grid max-w-6xl gap-12 lg:grid-cols-[0.72fr_1.28fr] lg:gap-20">
         <div>
-          <p
-            className={`${UCAT_SECTION_EYEBROW_CLASS} ${typo.dataMono}`}
-          >
+          <p className={`${UCAT_SECTION_EYEBROW_CLASS} ${typo.dataMono}`}>
             Frequently asked questions
           </p>
           <h2
-            className={`mt-4 text-4xl font-semibold tracking-[-0.04em] text-marketing-charcoal sm:text-5xl ${typo.headingSans}`}
+            className={`mt-4 ${UCAT_SECTION_HEADING_CLASS} ${typo.headingSans}`}
           >
             Clear answers before you start.
           </h2>
           <p
-            className={`mt-5 max-w-md text-lg leading-relaxed text-marketing-charcoal/58 sm:text-xl ${typo.secondarySans}`}
+            className={`mt-5 max-w-md ${UCAT_SECTION_DESCRIPTION_CLASS} ${typo.secondarySans}`}
           >
             If your question is not here, email admin@altitutor.com and a member
             of the Altitutor team will help.
@@ -93,9 +148,11 @@ export function UcatLandingFaq() {
               <AccordionContent
                 className={`motion-reduce:animate-none ${typo.secondarySans}`}
               >
-                <p className="max-w-2xl pb-6 pr-10 text-sm leading-relaxed text-marketing-charcoal/62 sm:text-base">
+                <div
+                  className={`max-w-2xl pb-6 pr-10 ${UCAT_SUPPORTING_TEXT_CLASS} ${typo.secondarySans}`}
+                >
                   {faq.answer}
-                </p>
+                </div>
               </AccordionContent>
             </AccordionItem>
           ))}

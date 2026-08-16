@@ -12,7 +12,8 @@ export function formValuesToExplanationStemPayload(
     accessScope: values.accessScope,
     questions: values.questions.map((question) => ({
       questionText: question.questionText,
-      questionType: question.questionType,
+      responseType: question.responseType,
+      answerScheme: question.answerScheme,
       answerExplanation: question.answerExplanation ?? null,
       difficulty: question.difficulty ?? null,
       timeBurdenSeconds: question.timeBurdenSeconds ?? null,
@@ -20,7 +21,7 @@ export function formValuesToExplanationStemPayload(
       options: question.options.map((option) => ({
         answerText: option.answerText,
         answerExplanation: option.answerExplanation ?? null,
-        isAnswer: option.isAnswer,
+        answerKeyValue: option.answerKeyValue,
       })),
     })),
   }

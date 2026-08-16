@@ -1,8 +1,17 @@
 import {
+  formatEmailDate,
   renderEmail,
   renderEmailButton,
   renderEmailPanel,
 } from "../index";
+
+describe("formatEmailDate", () => {
+  it("renders ISO, US, and Australian date inputs as dd/mm/yyyy", () => {
+    expect(formatEmailDate("2026-08-15T00:00:00.000Z")).toBe("15/08/2026");
+    expect(formatEmailDate("8/15/2026")).toBe("15/08/2026");
+    expect(formatEmailDate("15/08/2026")).toBe("15/08/2026");
+  });
+});
 
 describe("renderEmail", () => {
   it("renders a complete Altitutor email with a monitored identity", () => {
@@ -70,6 +79,9 @@ describe("renderEmail", () => {
     expect(email.html).toContain(".email-panel td");
     expect(email.html).toContain(".email-content a");
     expect(email.html).toContain("color: #b7d4df !important");
+    expect(email.html).toContain(
+      ".email-panel td { border-color: #383838 !important; }",
+    );
     expect(email.html).toContain(".email-content a.email-button");
     expect(email.html).toMatch(
       /\.email-content a\.email-button[\s\S]*color: #1c1c1c !important/,

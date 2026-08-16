@@ -5,7 +5,7 @@ import {
   UCAT_FONTS,
 } from "@altitutor/ui/components/ucat/ucat-theme";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { QuestionItem } from "@/features/question-engine/model/types";
+import type { PlacementSnapshot, QuestionItem } from "@/features/question-engine/model/types";
 import { getReviewQuestionStatus } from "@/features/question-engine/lib/review";
 import { useDraggablePanel } from "@/features/question-engine/hooks/use-draggable-panel";
 
@@ -27,7 +27,7 @@ export function NavigatorPanel({
   flaggedIds,
   selectedAnswers,
   visitedQuestionIds,
-  syllogismSnapshots,
+  placementSnapshots,
   onSelect,
   onClose,
 }: {
@@ -36,7 +36,7 @@ export function NavigatorPanel({
   flaggedIds: string[];
   selectedAnswers: Record<string, string>;
   visitedQuestionIds: string[];
-  syllogismSnapshots?: Record<string, Record<string, boolean>>;
+  placementSnapshots?: Record<string, PlacementSnapshot>;
   onSelect: (index: number) => void;
   onClose: () => void;
 }) {
@@ -69,7 +69,7 @@ export function NavigatorPanel({
       question,
       visitedQuestionIds,
       selectedAnswers,
-      syllogismSnapshots,
+      placementSnapshots,
     );
     return status === "complete" ? count : count + 1;
   }, 0);
@@ -166,7 +166,7 @@ export function NavigatorPanel({
         question,
         visitedQuestionIds,
         selectedAnswers,
-        syllogismSnapshots,
+        placementSnapshots,
       );
       const statusLabel =
         status === "complete"
@@ -215,7 +215,7 @@ export function NavigatorPanel({
     flaggedIds,
     selectedAnswers,
     visitedQuestionIds,
-    syllogismSnapshots,
+    placementSnapshots,
     sortField,
     sortDirection,
   ]);

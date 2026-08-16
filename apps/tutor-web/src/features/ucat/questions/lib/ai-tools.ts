@@ -32,7 +32,13 @@ export const AiToolQuestionStemPayloadSchema = z.object({
   questions: z.array(
     z.object({
       questionText: z.unknown(),
-      questionType: z.enum(['multiple_choice', 'syllogism']),
+      responseType: z.enum(['multiple_choice', 'drag_and_drop']),
+      answerScheme: z.enum([
+        'single_choice',
+        'situational_judgement_rating',
+        'decision_making_binary_placement',
+        'situational_judgement_most_least',
+      ]),
       answerExplanation: z.unknown().nullable().optional(),
       difficulty: z.number().min(0).max(1).nullable().optional().describe(
         'Expected proportion incorrect on first exposure under realistic section timing. 0 is easiest, 1 is hardest, and null means unknown.',
@@ -43,7 +49,7 @@ export const AiToolQuestionStemPayloadSchema = z.object({
         z.object({
           answerText: z.unknown(),
           answerExplanation: z.unknown().nullable().optional(),
-          isAnswer: z.boolean(),
+          answerKeyValue: z.enum(['correct', 'yes', 'no', 'most', 'least']).nullable(),
         })
       ),
     })
@@ -85,7 +91,7 @@ export const AiToolWriteQuestionResponseSchema = z.object({
   options: z.array(
     z.object({
       answerText: z.string().min(1),
-      isAnswer: z.boolean(),
+      answerKeyValue: z.enum(['correct']).nullable(),
     })
   ).min(2).max(5),
   rationale: z.string().nullable().optional(),
@@ -306,21 +312,22 @@ export function summarizeStemForAi(stem: AiToolQuestionStemPayload) {
     questions: stem.questions.map((question, questionIndex) => ({
       questionIndex,
       questionText: proseMirrorToPlainText(asJson(question.questionText)) ?? '',
-      questionType: question.questionType,
+      responseType: question.responseType,
+      answerScheme: question.answerScheme,
       answerExplanation: proseMirrorToPlainText(asJson(question.answerExplanation)) ?? '',
       selectedCorrectOptions: question.options
         .map((option, optionIndex) => ({
           optionIndex,
           label: String.fromCharCode(65 + optionIndex),
           answerText: proseMirrorToPlainText(asJson(option.answerText)) ?? '',
-          isAnswer: option.isAnswer,
+          answerKeyValue: option.answerKeyValue,
         }))
-        .filter((option) => option.isAnswer),
+        .filter((option) => option.answerKeyValue != null),
       options: question.options.map((option, optionIndex) => ({
         optionIndex,
         label: String.fromCharCode(65 + optionIndex),
         answerText: proseMirrorToPlainText(asJson(option.answerText)) ?? '',
-        isAnswer: option.isAnswer,
+        answerKeyValue: option.answerKeyValue,
         answerExplanation: proseMirrorToPlainText(asJson(option.answerExplanation)) ?? '',
       })),
     })),
@@ -358,7 +365,8 @@ export function writtenQuestionToFormValue(
 ): UcatQuestionStemFormValues['questions'][number] {
   return {
     questionText: plainTextToProseMirrorWithLineBreaks(response.questionText),
-    questionType: 'multiple_choice',
+    responseType: 'multiple_choice',
+    answerScheme: 'single_choice',
     answerExplanation: plainTextToProseMirror(response.answerExplanation),
     difficulty: null,
     timeBurdenSeconds: '',
@@ -368,7 +376,7 @@ export function writtenQuestionToFormValue(
     options: response.options.map((option) => ({
       answerText: plainTextToProseMirror(option.answerText),
       answerExplanation: null,
-      isAnswer: option.isAnswer,
+      answerKeyValue: option.answerKeyValue,
     })),
   }
 }
@@ -376,7 +384,7 @@ export function writtenQuestionToFormValue(
 export function findMissingExplanations(
   stem: {
     questions: Array<{
-      questionType: 'multiple_choice' | 'syllogism'
+      responseType: 'multiple_choice' | 'drag_and_drop'
       answerExplanation?: unknown
       options: Array<{ answerExplanation?: unknown }>
     }>
@@ -385,7 +393,7 @@ export function findMissingExplanations(
 ): MissingExplanationTarget[] {
   const targets: MissingExplanationTarget[] = []
   stem.questions.forEach((question, questionIndex) => {
-    if (question.questionType === 'syllogism') {
+    if (question.responseType === 'drag_and_drop') {
       question.options.forEach((option, optionIndex) => {
         if (!hasRichTextContent((option.answerExplanation ?? null) as Json | null)) {
           targets.push({
@@ -418,7 +426,7 @@ export function applyExplanationUpdates(
         (item) => item.questionIndex === questionIndex && !item.unresolved && !item.reviewRequired
       )
       if (!update) return question
-      if (question.questionType === 'syllogism') {
+      if (question.responseType === 'drag_and_drop') {
         const questionExplanation = update.answerExplanation?.trim()
         const shouldApplyQuestionExplanation =
           !hasRichTextContent(question.answerExplanation ?? null) && !!questionExplanation
@@ -483,7 +491,7 @@ export function applyReviewFlagSuggestion(
   options?: { textReplacementTo?: string }
 ): UcatQuestionStemFormValues {
   const question = stem.questions[flag.questionIndex]
-  if (!question || question.questionType === 'syllogism') {
+  if (!question || question.answerScheme !== 'single_choice') {
     return stem
   }
 
@@ -505,7 +513,7 @@ export function applyReviewFlagSuggestion(
             : item.answerExplanation ?? null,
           options: item.options.map((option, optionIndex) => ({
             ...option,
-            isAnswer: optionIndex === plan.optionIndex,
+            answerKeyValue: optionIndex === plan.optionIndex ? 'correct' : null,
           })),
         }
       }),
@@ -522,11 +530,11 @@ export function applyReviewFlagSuggestion(
           return {
             answerText: plainTextToProseMirror(text),
             answerExplanation: existing?.answerExplanation ?? null,
-            isAnswer: existing?.isAnswer === true,
+            answerKeyValue: existing?.answerKeyValue ?? null,
           }
         })
-        if (!nextOptions.some((option) => option.isAnswer) && nextOptions[0]) {
-          nextOptions[0] = { ...nextOptions[0], isAnswer: true }
+        if (!nextOptions.some((option) => option.answerKeyValue === 'correct') && nextOptions[0]) {
+          nextOptions[0] = { ...nextOptions[0], answerKeyValue: 'correct' }
         }
         return {
           ...item,

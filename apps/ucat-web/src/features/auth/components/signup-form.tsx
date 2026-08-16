@@ -31,7 +31,7 @@ import type { SocialAuthProvider } from "@/features/auth/lib/social-auth";
 import { subscribeToUcatNewsletter } from "@/features/auth/api/newsletter";
 import { UCAT_SIGNUP_CONSENT_WORDING } from "@/features/communications/lib/communication-preferences";
 import { pathWithReturnIntent } from "@/features/auth/lib/return-intent";
-
+import { savePendingLoginEmail } from "@/features/auth/lib/pending-login-email";
 
 const { typography: typo } = MARKETING_TOKENS;
 
@@ -183,6 +183,33 @@ export function SignupForm({
         newsletter_opt_in: true,
       });
 
+      const accountStateResponse = await fetch(
+        "/api/auth/signup-account-state",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          cache: "no-store",
+          body: JSON.stringify({ email: normalizedEmail }),
+        },
+      ).catch(() => null);
+      const accountState = (await accountStateResponse
+        ?.json()
+        .catch(() => null)) as { state?: string; error?: string } | null;
+      if (!accountStateResponse?.ok) {
+        setErrorMessage(
+          accountState?.error ??
+            "We couldn't check this email right now. Please try again.",
+        );
+        return;
+      }
+      if (accountState?.state === "confirmed") {
+        savePendingLoginEmail(normalizedEmail);
+        navigateAfterAuth(
+          pathWithReturnIntent("/login", redirectTo, { existing: "1" }),
+        );
+        return;
+      }
+
       const error = await sendConfirmationEmail(normalizedEmail);
 
       if (error) {
@@ -232,11 +259,13 @@ export function SignupForm({
           billing_interval: planIntent?.interval ?? null,
           referral_present: Boolean(referralCode),
         });
-        const next = pathWithReturnIntent(
-          "/signup/complete",
+        const continueUrl = new URL("/auth/continue", window.location.origin);
+        continueUrl.searchParams.set("intent", "signup");
+        continueUrl.searchParams.set(
+          "next",
           planIntent?.checkoutPath ?? redirectTo,
         );
-        navigateAfterAuth(next);
+        navigateAfterAuth(`${continueUrl.pathname}${continueUrl.search}`);
         // Leave otpSubmitting true so the button stays locked during navigation.
         return;
       }
@@ -473,6 +502,7 @@ export function SignupForm({
 
                 {errorMessage ? (
                   <p
+                    role="alert"
                     className={`auth-feedback-entrance rounded-xl bg-destructive/10 px-4 py-3 text-sm text-destructive ${typo.secondarySans}`}
                   >
                     {errorMessage}

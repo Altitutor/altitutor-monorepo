@@ -98,7 +98,7 @@ describe('bulk import AI review policy', () => {
         id: null,
         answerText: 'Distractor',
         answerExplanation: null,
-        isAnswer: false,
+        answerKeyValue: null,
       },
     })).toBe(false)
     expect(automaticBulkRepairPatchAllowed({
@@ -136,7 +136,7 @@ describe('bulk import AI review policy', () => {
         ambiguous: false,
         unsolvable: false,
         justification: 'The second option follows from the data.',
-        syllogismAnswers: [],
+        placementAnswers: [],
       }],
     }
 
@@ -213,7 +213,7 @@ describe('reconcileBulkImportAiReview', () => {
       questions: [{
         id: questionId,
         questionText: richText('Which option follows?'),
-        questionType: 'multiple_choice',
+        responseType: 'multiple_choice', answerScheme: 'single_choice',
         answerExplanation: null,
         difficulty: null,
         timeBurdenSeconds: null,
@@ -223,13 +223,13 @@ describe('reconcileBulkImportAiReview', () => {
             id: firstOptionId,
             answerText: richText('First'),
             answerExplanation: null,
-            isAnswer: true,
+            answerKeyValue: 'correct',
           },
           {
             id: secondOptionId,
             answerText: richText('Second'),
             answerExplanation: null,
-            isAnswer: false,
+            answerKeyValue: null,
           },
         ],
       }],
@@ -292,7 +292,7 @@ describe('reconcileBulkImportAiReview', () => {
         solutions: [{
           questionId,
           selectedOptionId: firstOptionId,
-          syllogismAnswers: [],
+          placementAnswers: [],
           justification: 'The first option follows from the stem.',
           confidence: 0.99,
           ambiguous: false,
@@ -337,7 +337,7 @@ describe('reconcileBulkImportAiReview', () => {
     })
 
     expect(result.values.questions[0]?.answerExplanation).not.toBeNull()
-    expect(result.values.questions[0]?.options.find((option) => option.isAnswer)?.id)
+    expect(result.values.questions[0]?.options.find((option) => option.answerKeyValue === 'correct')?.id)
       .toBe(firstOptionId)
     expect(result.appliedRepairs).toEqual(['Add explanation'])
     expect(result.assessment.findings).not.toEqual(expect.arrayContaining([
@@ -357,7 +357,7 @@ describe('reconcileBulkImportAiReview', () => {
         solutions: [{
           questionId,
           selectedOptionId: secondOptionId,
-          syllogismAnswers: [],
+          placementAnswers: [],
           justification: 'The second option follows from the stem.',
           confidence: 0.99,
           ambiguous: false,
@@ -383,7 +383,7 @@ describe('reconcileBulkImportAiReview', () => {
       },
     })
 
-    expect(agreed.values.questions[0]?.options.find((option) => option.isAnswer)?.id)
+    expect(agreed.values.questions[0]?.options.find((option) => option.answerKeyValue === 'correct')?.id)
       .toBe(secondOptionId)
     expect(agreed.appliedRepairs).toEqual(['Change answer key'])
     expect(agreed.assessment.findings).not.toEqual(expect.arrayContaining([
@@ -405,7 +405,7 @@ describe('reconcileBulkImportAiReview', () => {
       questions: [{
         id: questionId,
         questionText: richText('Question'),
-        questionType: 'multiple_choice',
+        responseType: 'multiple_choice', answerScheme: 'single_choice',
         answerExplanation: null,
         difficulty: null,
         timeBurdenSeconds: null,
@@ -414,7 +414,7 @@ describe('reconcileBulkImportAiReview', () => {
           id: '40000000-0000-4000-8000-000000000001',
           answerText: richText('Answer'),
           answerExplanation: null,
-          isAnswer: true,
+          answerKeyValue: 'correct',
         }],
       }],
     }
@@ -480,7 +480,7 @@ describe('reconcileBulkImportAiReview', () => {
       questions: [{
         id: questionId,
         questionText: richText('Which option follows?'),
-        questionType: 'multiple_choice',
+        responseType: 'multiple_choice', answerScheme: 'single_choice',
         answerExplanation: richText('The first option follows.'),
         difficulty: null,
         timeBurdenSeconds: null,
@@ -490,13 +490,13 @@ describe('reconcileBulkImportAiReview', () => {
             id: correctOptionId,
             answerText: richText('First'),
             answerExplanation: null,
-            isAnswer: true,
+            answerKeyValue: 'correct',
           },
           {
             id: '40000000-0000-4000-8000-000000000002',
             answerText: richText('Second'),
             answerExplanation: null,
-            isAnswer: false,
+            answerKeyValue: null,
           },
         ],
       }],
@@ -511,7 +511,7 @@ describe('reconcileBulkImportAiReview', () => {
         solutions: [{
           questionId,
           selectedOptionId: correctOptionId,
-          syllogismAnswers: [],
+          placementAnswers: [],
           justification: 'The first option follows.',
           confidence: 0.99,
           ambiguous: false,
@@ -522,7 +522,7 @@ describe('reconcileBulkImportAiReview', () => {
         solutions: [{
           questionId,
           selectedOptionId: correctOptionId,
-          syllogismAnswers: [],
+          placementAnswers: [],
           justification: 'The first option still necessarily follows.',
           confidence: 0.99,
           ambiguous: false,

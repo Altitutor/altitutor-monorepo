@@ -19,7 +19,7 @@ function stemValues(overrides: Partial<UcatQuestionStemFormValues> = {}): UcatQu
     questions: [
       {
         questionText: text(''),
-        questionType: 'multiple_choice',
+        responseType: 'multiple_choice', answerScheme: 'single_choice',
         answerExplanation: null,
         difficulty: null,
         timeBurdenSeconds: '',
@@ -27,8 +27,8 @@ function stemValues(overrides: Partial<UcatQuestionStemFormValues> = {}): UcatQu
         sourceChannel: 'individual',
         aiGenerationMetadata: null,
         options: [
-          { answerText: text(''), answerExplanation: null, isAnswer: true },
-          { answerText: text(''), answerExplanation: null, isAnswer: false },
+          { answerText: text(''), answerExplanation: null, answerKeyValue: 'correct' },
+          { answerText: text(''), answerExplanation: null, answerKeyValue: null },
         ],
       },
     ],
@@ -156,11 +156,11 @@ describe('inferManualStemMetadataRecommendation', () => {
             ...stemValues().questions[0]!,
             questionText: text("Place 'Yes' if the conclusion does follow. Place 'No' if the conclusion does not follow."),
             options: [
-              { answerText: text('Some tutors are clinicians.'), answerExplanation: null, isAnswer: false },
-              { answerText: text('All clinicians are mentors.'), answerExplanation: null, isAnswer: false },
-              { answerText: text('Some mentors are tutors.'), answerExplanation: null, isAnswer: true },
-              { answerText: text('No tutors are clinicians.'), answerExplanation: null, isAnswer: false },
-              { answerText: text('All mentors are tutors.'), answerExplanation: null, isAnswer: false },
+              { answerText: text('Some tutors are clinicians.'), answerExplanation: null, answerKeyValue: null },
+              { answerText: text('All clinicians are mentors.'), answerExplanation: null, answerKeyValue: null },
+              { answerText: text('Some mentors are tutors.'), answerExplanation: null, answerKeyValue: 'correct' },
+              { answerText: text('No tutors are clinicians.'), answerExplanation: null, answerKeyValue: null },
+              { answerText: text('All mentors are tutors.'), answerExplanation: null, answerKeyValue: null },
             ],
           },
         ],

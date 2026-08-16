@@ -26,7 +26,7 @@ import {
 export type QuestionOptionPreview = {
   label: string
   answerTextDoc: Json | null
-  isAnswer: boolean
+  isKeyed: boolean
 }
 
 export type QuestionAnswerPreview = {
@@ -35,7 +35,7 @@ export type QuestionAnswerPreview = {
   questionTextDoc: Json | null
   options: QuestionOptionPreview[]
   answerLetter: string | null
-  syllogismPattern: string | null
+  placementPattern: string | null
   explanationPreview: string | null
   explanationPreviewDoc: Json | null
   hasExplanation: boolean
@@ -71,7 +71,7 @@ function optionsForRow(stems: BulkImportStemDraft[], row: FlatQuestionRef): Ques
   return options.map((opt, index) => ({
     label: optionLabelForIndex(index),
     answerTextDoc: (opt.answerText ?? null) as Json | null,
-    isAnswer: opt.isAnswer === true,
+    isKeyed: opt.answerKeyValue != null,
   }))
 }
 
@@ -82,7 +82,7 @@ function emptyPreview(stems: BulkImportStemDraft[], row: FlatQuestionRef): Quest
     questionTextDoc: questionTextDocForRow(stems, row),
     options: optionsForRow(stems, row),
     answerLetter: null,
-    syllogismPattern: null,
+    placementPattern: null,
     explanationPreview: null,
     explanationPreviewDoc: null,
     hasExplanation: false,
@@ -105,19 +105,19 @@ export function buildQuestionAnswerPreviews(
   }
 
   if (isDecisionMakingSection) {
-    const questionTypes = flat.map((row) =>
-      row.isSyllogism ? ('syllogism' as const) : ('multiple_choice' as const)
+    const responseKinds = flat.map((row) =>
+      row.isPlacement ? ('placement' as const) : ('single_choice' as const)
     )
     const parsed = parseDecisionMakingAnswersFromDoc(
       pastedAnswersJson,
-      questionTypes,
+      responseKinds,
       answerParseOptions
     )
     return flat.map((row, index) => {
       const answer = parsed[index]
       if (!answer) return emptyPreview(stems, row)
 
-      if (row.isSyllogism && answer.pattern) {
+      if (row.isPlacement && answer.pattern) {
         const optionExplanations = answer.optionExplanations ?? []
         const optionExplanationDocs = answer.optionExplanationDocs ?? []
         const firstExplanationDoc =
@@ -135,7 +135,7 @@ export function buildQuestionAnswerPreviews(
           questionTextDoc: questionTextDocForRow(stems, row),
           options: optionsForRow(stems, row),
           answerLetter: null,
-          syllogismPattern: answer.pattern.split('').join(' · '),
+          placementPattern: answer.pattern.split('').join(' · '),
           explanationPreview: firstExplanation ? truncatePreview(firstExplanation, 120) : null,
           explanationPreviewDoc: firstExplanationDoc,
           hasExplanation:
@@ -157,7 +157,7 @@ export function buildQuestionAnswerPreviews(
           questionTextDoc: questionTextDocForRow(stems, row),
           options: optionsForRow(stems, row),
           answerLetter: answer.letter.toUpperCase(),
-          syllogismPattern: null,
+          placementPattern: null,
           explanationPreview: explanationPlain ? truncatePreview(explanationPlain, 120) : null,
           explanationPreviewDoc: explanationDoc,
           hasExplanation: explanationPlain.length > 0 || hasRichTextContent(explanationDoc),
@@ -182,7 +182,7 @@ export function buildQuestionAnswerPreviews(
       questionTextDoc: questionTextDocForRow(stems, row),
       options: optionsForRow(stems, row),
       answerLetter: answer.letter.toUpperCase(),
-      syllogismPattern: null,
+      placementPattern: null,
       explanationPreview: explanation ? truncatePreview(explanation, 120) : null,
       explanationPreviewDoc: explanationDoc,
       hasExplanation: explanation.length > 0 || hasRichTextContent(explanationDoc),
@@ -245,18 +245,18 @@ export function validateBulkAnswersDocument(
   }
 
   if (isDecisionMakingSection) {
-    const flat: { questionType: 'syllogism' | 'multiple_choice' }[] = []
+    const flat: { responseKind: 'placement' | 'single_choice' }[] = []
     stems.forEach((stem) => {
       ;(stem.values.questions ?? []).forEach((q) => {
         flat.push({
-          questionType:
-            (q as { questionType?: string }).questionType === 'syllogism'
-              ? 'syllogism'
-              : 'multiple_choice',
+          responseKind:
+            q.responseType === 'drag_and_drop'
+              ? 'placement'
+              : 'single_choice',
         })
       })
     })
-    const parsed = parseDecisionMakingAnswers(plain, flat.map((f) => f.questionType), answerParseOptions)
+    const parsed = parseDecisionMakingAnswers(plain, flat.map((f) => f.responseKind), answerParseOptions)
     if (parsed.length !== totalQuestions) {
       return {
         ok: false,
@@ -294,16 +294,16 @@ export function applyBulkAnswersToStems(
   const untypedEvidence = parseUntypedAnswerEvidence(answerDocToPlainTsv(pastedAnswersJson))
 
   if (isDecisionMakingSection) {
-    const questionTypes = flat.map(({ stemId, questionIndex }) => {
+    const responseKinds = flat.map(({ stemId, questionIndex }) => {
       const stem = stems.find((s) => s.id === stemId)
-      const q = stem?.values.questions?.[questionIndex] as { questionType?: string } | undefined
-      return (q?.questionType === 'syllogism' ? 'syllogism' : 'multiple_choice') as
-        | 'syllogism'
-        | 'multiple_choice'
+      const q = stem?.values.questions?.[questionIndex]
+      return (q?.responseType === 'drag_and_drop' ? 'placement' : 'single_choice') as
+        | 'placement'
+        | 'single_choice'
     })
     const dmParsed = parseDecisionMakingAnswersFromDoc(
       pastedAnswersJson,
-      questionTypes,
+      responseKinds,
       answerParseOptions
     )
     dmParsed.forEach((answer, i) => {
@@ -316,24 +316,23 @@ export function applyBulkAnswersToStems(
       const questions = [...(nextValues.questions ?? [])]
       const q = questions[questionIndex]
       if (!q || !q.options) return
-      const qWithPattern = q as typeof q & { syllogismAnswerPattern?: string | null }
-      if (answer.pattern && qWithPattern.questionType === 'syllogism') {
+      if (answer.pattern && q.responseType === 'drag_and_drop') {
         const pattern = answer.pattern
         const options = (q.options ?? []).map((opt, j) => ({
           ...opt,
-          isAnswer: pattern.charAt(j).toUpperCase() === 'Y',
+          answerKeyValue: pattern.charAt(j).toUpperCase() === 'Y' ? 'yes' as const : 'no' as const,
           answerExplanation:
             answer.optionExplanationDocs?.[j] ??
             opt.answerExplanation ??
             null,
         }))
-        questions[questionIndex] = { ...q, syllogismAnswerPattern: pattern, options }
+        questions[questionIndex] = { ...q, options }
       } else if (answer.letter) {
         const optionIndex = letterToOptionIndex(answer.letter)
         if (optionIndex == null || optionIndex >= q.options.length) return
         const options = q.options.map((opt, j) => ({
           ...opt,
-          isAnswer: j === optionIndex,
+          answerKeyValue: j === optionIndex ? 'correct' as const : null,
         }))
         questions[questionIndex] = {
           ...q,
@@ -360,7 +359,7 @@ export function applyBulkAnswersToStems(
       if (optionIndex == null || optionIndex >= q.options.length) return
       const options = q.options.map((opt, j) => ({
         ...opt,
-        isAnswer: j === optionIndex,
+        answerKeyValue: j === optionIndex ? 'correct' as const : null,
       }))
       questions[questionIndex] = {
         ...q,
@@ -401,14 +400,10 @@ export function applyBulkAnswersToStems(
         return {
           ...option,
           answerKeyValue,
-          isAnswer: answerKeyValue === 'correct' || answerKeyValue === 'yes',
         }
       })
       questions[target.questionIndex] = {
         ...question,
-        questionType: inferred.responseType.value === 'drag_and_drop'
-          ? 'syllogism'
-          : 'multiple_choice',
         responseType: inferred.responseType.value ?? question.responseType,
         answerScheme: inferred.answerScheme.value ?? question.answerScheme,
         options,

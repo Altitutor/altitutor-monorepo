@@ -53,7 +53,7 @@ export function useProjectAutoSave({
   // Use useEffect (not useLayoutEffect) so this runs after the parent's useEffect that calls form.reset().
   // Depend on project.id (not project) so query refetches don't reset the baseline mid-edit.
   useEffect(() => {
-    if (project && isInitialized) {
+    if (project?.id && isInitialized) {
       const values = form.getValues();
       lastSavedValuesRef.current = {
         name: values.name,

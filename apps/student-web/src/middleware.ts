@@ -3,6 +3,7 @@ import type { NextRequest } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
 import type { Database } from '@altitutor/shared';
 import type { PostgrestError } from '@supabase/supabase-js';
+import { MARKETING_LANDING_URL } from '@/shared/lib/marketing-home-url';
 
 export async function middleware(req: NextRequest) {
   const { pathname, origin } = new URL(req.url);
@@ -83,10 +84,16 @@ export async function middleware(req: NextRequest) {
 
   // If no user and trying to access protected route, redirect to login
   if (!user) {
-    const loginUrl = new URL('/login', origin);
-    if (pathname !== '/') {
-      loginUrl.searchParams.set('next', `${req.nextUrl.pathname}${req.nextUrl.search}`);
+    if (pathname === '/') {
+      const redirectResponse = NextResponse.redirect(MARKETING_LANDING_URL);
+      supabaseResponse.cookies.getAll().forEach((cookie) => {
+        redirectResponse.cookies.set(cookie.name, cookie.value);
+      });
+      return redirectResponse;
     }
+
+    const loginUrl = new URL('/login', origin);
+    loginUrl.searchParams.set('next', `${req.nextUrl.pathname}${req.nextUrl.search}`);
     const redirectResponse = NextResponse.redirect(loginUrl);
     // Copy cookies from supabaseResponse to redirectResponse
     supabaseResponse.cookies.getAll().forEach((cookie) => {

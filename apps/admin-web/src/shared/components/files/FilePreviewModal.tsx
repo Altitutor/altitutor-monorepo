@@ -14,7 +14,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@altitutor/ui';
-import { Download, Loader2, MoreVertical, Printer, X } from 'lucide-react';
+import { Download, Loader2, MoreVertical, Printer, Building2, X } from 'lucide-react';
 import { getFileTypeIcon } from '@/shared/utils/file-type-icons';
 import {
   ExpandButton,
@@ -24,6 +24,7 @@ import {
 import { cn } from '@/shared/utils';
 import { useFilePreview } from '@/shared/hooks/useFilePreview';
 import { isPdfFile, isImageFile, downloadFile, printPdf, setupPrintKeyboardHandler } from '@/shared/utils/fileOperations';
+import { OfficePrintConfirmDialog } from '@/features/office-print';
 import type { Enums, Tables } from '@altitutor/shared';
 import { parseExternalVideoEmbed } from '@altitutor/shared';
 
@@ -74,6 +75,7 @@ export function FilePreviewModal({
 }: FilePreviewModalProps) {
   const [downloadingFile, setDownloadingFile] = useState(false);
   const [expanded, setExpanded] = useState(false);
+  const [officePrintOpen, setOfficePrintOpen] = useState(false);
   const iframeRef = useRef<HTMLIFrameElement>(null);
 
   useEffect(() => {
@@ -193,6 +195,12 @@ export function FilePreviewModal({
                       Print
                     </DropdownMenuItem>
                   )}
+                  {isPdf && previewUrl && file?.id && !file.external_url?.trim() && (
+                    <DropdownMenuItem onClick={() => setOfficePrintOpen(true)}>
+                      <Building2 className="h-4 w-4 mr-2" />
+                      Print to office
+                    </DropdownMenuItem>
+                  )}
                   <DropdownMenuItem
                     onClick={handleDownload}
                     disabled={downloadingFile || !file}
@@ -283,6 +291,12 @@ export function FilePreviewModal({
           )}
         </div>
       </DialogContent>
+      <OfficePrintConfirmDialog
+        open={officePrintOpen}
+        onOpenChange={setOfficePrintOpen}
+        fileId={file?.id ?? null}
+        filename={filename || 'document.pdf'}
+      />
     </Dialog>
   );
 }

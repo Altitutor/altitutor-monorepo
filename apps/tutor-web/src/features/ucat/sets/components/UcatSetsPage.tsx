@@ -758,6 +758,7 @@ export function UcatSetsPage() {
   }
 
   async function onCreate() {
+    if (!autoSectionId) return
     const timeLimitSeconds = form.isTimed
       ? minutesSecondsToTotal(form.timeLimitMinutes, form.timeLimitSeconds)
       : null
@@ -767,6 +768,7 @@ export function UcatSetsPage() {
       description: form.description,
       timeLimitSeconds,
       accessScope: form.isPrivate ? 'private' : 'public',
+      sectionId: autoSectionId ?? '',
       stemIds,
     }
     try {
@@ -1075,6 +1077,7 @@ export function UcatSetsPage() {
         saveLabel="Create"
         saveDisabled={
           createSet.isPending ||
+          !autoSectionId ||
           autoCreateDisabled ||
           (form.isTimed &&
             ((t) => t == null || t <= 0)(minutesSecondsToTotal(form.timeLimitMinutes, form.timeLimitSeconds)))
@@ -1085,6 +1088,23 @@ export function UcatSetsPage() {
           <label className="block text-sm">
             <span className="mb-1 block font-medium">Name</span>
             <Input value={form.name} onChange={(e) => setForm((prev) => ({ ...prev, name: e.target.value }))} placeholder="Set name" />
+          </label>
+          <label className="block text-sm">
+            <span className="mb-1 block font-medium">Section</span>
+            <SearchableSelect<(typeof sections)[number]>
+              items={sections}
+              value={sections.find((section) => (section.id ?? '') === (autoSectionId ?? '')) ?? null}
+              onValueChange={(section) => {
+                setAutoSectionId(section?.id ?? null)
+                setAutoCategoryTargets({})
+                setAutoCategoryRanges({})
+                setAutoBlueprintSource('manual')
+                setAutoSeed((prev) => prev + 1)
+              }}
+              getItemLabel={(section) => section.name ?? 'Untitled'}
+              getItemId={(section) => section.id ?? ''}
+              placeholder="Select section"
+            />
           </label>
           <label className="block text-sm">
             <span className="mb-1 block font-medium">Description</span>
@@ -1165,24 +1185,6 @@ export function UcatSetsPage() {
 
             {autoCriteriaEnabled ? (
               <div className="space-y-4 border-t pt-4">
-                <label className="block text-sm">
-                  <span className="mb-1 block font-medium">Section</span>
-                  <SearchableSelect<(typeof sections)[number]>
-                    items={sections}
-                    value={sections.find((section) => (section.id ?? '') === (autoSectionId ?? '')) ?? null}
-                    onValueChange={(section) => {
-                      setAutoSectionId(section?.id ?? null)
-                      setAutoCategoryTargets({})
-                      setAutoCategoryRanges({})
-                      setAutoBlueprintSource('manual')
-                      setAutoSeed((prev) => prev + 1)
-                    }}
-                    getItemLabel={(section) => section.name ?? 'Untitled'}
-                    getItemId={(section) => section.id ?? ''}
-                    placeholder="Select section"
-                  />
-                </label>
-
                 {autoSectionId ? (
                   <>
                     <label className="block text-sm">

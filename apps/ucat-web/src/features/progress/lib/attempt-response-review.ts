@@ -4,9 +4,22 @@ import type { QuestionItem } from "@/features/question-engine/model/types";
 
 export type StoredQuestionAttemptResponse = {
   score?: number | null;
-  questionAnswerOptionId?: string | null;
+  selectedOptionId?: string | null;
   answerSnapshot?: unknown;
 };
+
+export function selectedOptionIdFromSnapshot(snapshot: unknown): string | null {
+  if (!snapshot || typeof snapshot !== "object" || Array.isArray(snapshot)) {
+    return null;
+  }
+  const response = (snapshot as { response?: unknown }).response;
+  if (!response || typeof response !== "object" || Array.isArray(response)) {
+    return null;
+  }
+  const selectedOptionId = (response as { selectedOptionId?: unknown })
+    .selectedOptionId;
+  return typeof selectedOptionId === "string" ? selectedOptionId : null;
+}
 
 export function projectStoredQuestionAttemptReview(
   question: QuestionItem,
@@ -17,7 +30,6 @@ export function projectStoredQuestionAttemptReview(
   const evaluation = evaluatePersistedQuestionResponse(
     question,
     attempt.answerSnapshot,
-    attempt.questionAnswerOptionId,
   );
 
   return {

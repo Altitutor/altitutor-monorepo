@@ -19,6 +19,7 @@ import {
   derivePreparationForecastEvidence,
   mergeCurrentPreparationHistory,
 } from "@/features/preparation/lib/forecast-evidence";
+import { learningLoopTargetQuestionCount } from "@/features/preparation/lib/policy";
 import {
   hasPreparationSnapshot,
   loadPreparationSnapshotHistory,
@@ -47,13 +48,14 @@ import {
   generateExtraStudyTasks,
   reviewTask,
 } from "@/features/study-plan/lib/generator";
-import { estimateLearningModuleMinutes } from "@/features/study-plan/lib/module-duration";
 import {
   maximumTieredWholeStemDose,
   maximumWholeStemDose,
   pickStems,
+  type PickStemsOptions,
 } from "@/features/practice/server/pick-stems";
 import { isLegacyDemandCapacityRiskMessage } from "@/features/study-plan/lib/capacity-risk-copy";
+import { expandQuestionTagIds } from "@/features/study-plan/lib/tag-hierarchy";
 import {
   countPracticeQuestionsByCategory,
   deriveActivityTagSignals,
@@ -156,12 +158,7 @@ function parseAvailability(
   return value.flatMap((item) => {
     if (!item || typeof item !== "object" || Array.isArray(item)) return [];
     const weekday = item.weekday;
-    if (
-      typeof weekday !== "number" ||
-      weekday < 0 ||
-      weekday > 6
-    )
-      return [];
+    if (typeof weekday !== "number" || weekday < 0 || weekday > 6) return [];
     return [{ weekday: weekday as 0 | 1 | 2 | 3 | 4 | 5 | 6 }];
   });
 }
@@ -231,6 +228,7 @@ async function loadGenerationInputs(
   supabase: SupabaseClient<Database>,
   studentId: string,
   testYear: number,
+  options: { includeScoreEvidence?: boolean } = {},
 ): Promise<{
   sections: StudyPlanSection[];
   signals: StudyPlanSectionSignal[];
@@ -244,8 +242,15 @@ async function loadGenerationInputs(
   benchmarkSets: BenchmarkSetAsset[];
   benchmarkMocks: BenchmarkMockAsset[];
   lastLearningModuleServedAtBySection: Record<string, string>;
+  practiceSelectionData: NonNullable<PickStemsOptions["preloaded"]>;
 }> {
   const admin = requireAdmin();
+  const scoreEvidenceQuery =
+    options.includeScoreEvidence === false
+      ? Promise.resolve({ data: [], error: null })
+      : supabase
+          .from("vstudent_ucat_score_projection_evidence")
+          .select(REPRESENTATIVE_SCORE_EVIDENCE_SELECT);
   const [
     sectionsRes,
     evidenceRes,
@@ -255,9 +260,9 @@ async function loadGenerationInputs(
     categoryProgressRes,
     readinessEvidenceRes,
     modulesRes,
-    blocksRes,
     moduleCategoriesRes,
     moduleTagsRes,
+    tagTaxonomyRes,
     trainersRes,
     trainerCategoriesRes,
     trainerItemsRes,
@@ -279,9 +284,7 @@ async function loadGenerationInputs(
         "id, name, section_number, number_of_questions, time_per_question",
       )
       .order("section_number"),
-    supabase
-      .from("vstudent_ucat_score_projection_evidence")
-      .select(REPRESENTATIVE_SCORE_EVIDENCE_SELECT),
+    scoreEvidenceQuery,
     supabase
       .from("vstudent_ucat_section_set_progress")
       .select("section_id, total_completed"),
@@ -303,20 +306,16 @@ async function loadGenerationInputs(
     supabase
       .from("vstudent_ucat_learning_modules")
       .select(
-        "id, title, kind, ucat_section_id, study_plan_priority, completion_percent, parent_ucat_learning_module_id, index",
+        "id, title, kind, ucat_section_id, study_plan_priority, estimated_minutes, completion_percent, parent_ucat_learning_module_id, index",
       )
       .neq("study_plan_priority", "excluded"),
-    supabase
-      .from("vstudent_ucat_learning_module_blocks")
-      .select(
-        "learning_module_id, block_type, content, question_id, question_stem_id, skill_trainer_id, file_id",
-      ),
     admin
       .from("ucat_learning_module_question_stem_categories")
       .select("learning_module_id, question_stem_category_id"),
     admin
       .from("ucat_learning_module_question_tags")
       .select("learning_module_id, question_tag_id"),
+    admin.from("question_tags").select("id, parent_question_tag_id"),
     admin
       .from("ucat_skill_trainers")
       .select("id, key, name, ucat_section_id")
@@ -391,9 +390,9 @@ async function loadGenerationInputs(
     ["category progress", categoryProgressRes],
     ["readiness evidence", readinessEvidenceRes],
     ["learning modules", modulesRes],
-    ["learning module blocks", blocksRes],
     ["learning module categories", moduleCategoriesRes],
     ["learning module tags", moduleTagsRes],
+    ["question tag taxonomy", tagTaxonomyRes],
     ["skill trainers", trainersRes],
     ["skill trainer categories", trainerCategoriesRes],
     ["skill trainer items", trainerItemsRes],
@@ -653,127 +652,117 @@ async function loadGenerationInputs(
     }
   };
   visitModules(null);
-  const blocksByModule = new Map<
-    string,
-    Array<{
-      blockType: string | null;
-      content: unknown;
-      questionId: string | null;
-      questionStemId: string | null;
-      skillTrainerId: string | null;
-      fileId: string | null;
-    }>
-  >();
-  for (const block of blocksRes.data ?? []) {
-    if (!block.learning_module_id) continue;
-    blocksByModule.set(block.learning_module_id, [
-      ...(blocksByModule.get(block.learning_module_id) ?? []),
-      {
-        blockType: block.block_type,
-        content: block.content,
-        questionId: block.question_id,
-        questionStemId: block.question_stem_id,
-        skillTrainerId: block.skill_trainer_id,
-        fileId: block.file_id,
-      },
-    ]);
-  }
-  const learningModules: StudyPlanLearningModule[] = moduleRows.flatMap((moduleRow) => {
-    if (
-      !moduleRow.id ||
-      !moduleRow.title ||
-      moduleRow.kind !== "lesson" ||
-      moduleRow.study_plan_priority === "excluded"
-    )
-      return [];
-    const categoryIds = (moduleCategoriesRes.data ?? [])
-      .filter((link) => link.learning_module_id === moduleRow.id)
-      .map((link) => link.question_stem_category_id);
-    const categoryScores = categoryIds.flatMap((categoryId) => {
-      const signal = categorySignals.get(categoryId);
-      return signal ? [signal.weaknessScore] : [];
-    });
-    const questionTagIds = (moduleTagsRes.data ?? [])
-      .filter((link) => link.learning_module_id === moduleRow.id)
-      .map((link) => link.question_tag_id);
-    const strictStems = (practiceInventoryRes.data ?? []).filter(
-      (stem) =>
-        stem.section_id === moduleRow.ucat_section_id &&
-        (categoryIds.length === 0 ||
-          (stem.question_stem_category_id != null &&
-            categoryIds.includes(stem.question_stem_category_id))),
-    );
-    const preferredTagStems = strictStems.filter((stem) =>
-      (stem.question_tag_ids ?? []).some((tagId) =>
-        questionTagIds.includes(tagId),
-      ),
-    );
-    const tierQuestionCounts = [0, 1, 2, 3].map((tier) =>
-      strictStems.flatMap((stem) => {
-        const statuses = (stem.question_ids ?? []).map(questionStatus);
-        const allUnanswered = statuses.every((status) => status === "unanswered");
-        const anyIncorrect = statuses.some((status) => status === "incorrect");
-        const tagMatched = (stem.question_tag_ids ?? []).some((tagId) =>
+  const learningModules: StudyPlanLearningModule[] = moduleRows.flatMap(
+    (moduleRow) => {
+      if (
+        !moduleRow.id ||
+        !moduleRow.title ||
+        moduleRow.kind !== "lesson" ||
+        moduleRow.study_plan_priority === "excluded"
+      )
+        return [];
+      const categoryIds = (moduleCategoriesRes.data ?? [])
+        .filter((link) => link.learning_module_id === moduleRow.id)
+        .map((link) => link.question_stem_category_id);
+      const categoryScores = categoryIds.flatMap((categoryId) => {
+        const signal = categorySignals.get(categoryId);
+        return signal ? [signal.weaknessScore] : [];
+      });
+      const authoredQuestionTagIds = (moduleTagsRes.data ?? [])
+        .filter((link) => link.learning_module_id === moduleRow.id)
+        .map((link) => link.question_tag_id);
+      const questionTagIds = expandQuestionTagIds(
+        authoredQuestionTagIds,
+        tagTaxonomyRes.data ?? [],
+      );
+      const strictStems = (practiceInventoryRes.data ?? []).filter(
+        (stem) =>
+          stem.section_id === moduleRow.ucat_section_id &&
+          (categoryIds.length === 0 ||
+            (stem.question_stem_category_id != null &&
+              categoryIds.includes(stem.question_stem_category_id))),
+      );
+      const preferredTagStems = strictStems.filter((stem) =>
+        (stem.question_tag_ids ?? []).some((tagId) =>
           questionTagIds.includes(tagId),
-        );
-        const stemTier = allUnanswered
-          ? tagMatched
-            ? 0
-            : 1
-          : tagMatched && anyIncorrect
-            ? 2
-            : 3;
-        return stemTier === tier ? [stem.question_ids?.length ?? 0] : [];
-      }),
-    );
-    let remainingTarget = 10;
-    const selectedDoseByTier = tierQuestionCounts.map((questionCounts) => {
-      const dose = maximumWholeStemDose(questionCounts, remainingTarget);
-      remainingTarget -= dose;
-      return dose;
-    });
-    return [
-      {
-        id: moduleRow.id,
-        title: moduleRow.title,
-        sectionId: moduleRow.ucat_section_id,
-        sectionNumber:
-          sections.find((section) => section.id === moduleRow.ucat_section_id)
-            ?.sectionNumber ?? null,
-        priority: moduleRow.study_plan_priority ?? "recommended",
-        estimatedMinutes: estimateLearningModuleMinutes(
-          blocksByModule.get(moduleRow.id) ?? [],
         ),
-        completionPercent: moduleRow.completion_percent ?? 0,
-        authoredOrder:
-          authoredOrderByModuleId.get(moduleRow.id) ?? Number.MAX_SAFE_INTEGER,
-        categoryIds,
-        questionTagIds,
-        targetedPracticeInventory: {
-          strictStemCount: strictStems.length,
-          strictQuestionCount: strictStems.reduce(
-            (sum, stem) => sum + (stem.question_ids?.length ?? 0),
-            0,
-          ),
-          preferredTagStemCount: preferredTagStems.length,
-          preferredTagQuestionCount: preferredTagStems.reduce(
-            (sum, stem) => sum + (stem.question_ids?.length ?? 0),
-            0,
-          ),
-          strictSelectableQuestionCount: maximumTieredWholeStemDose(
-            tierQuestionCounts,
-            10,
-          ),
-          preferredTagSelectableQuestionCount:
-            selectedDoseByTier[0] + selectedDoseByTier[2],
+      );
+      const tierQuestionCounts = [0, 1, 2, 3].map((tier) =>
+        strictStems.flatMap((stem) => {
+          const statuses = (stem.question_ids ?? []).map(questionStatus);
+          const allUnanswered = statuses.every(
+            (status) => status === "unanswered",
+          );
+          const anyIncorrect = statuses.some(
+            (status) => status === "incorrect",
+          );
+          const tagMatched = (stem.question_tag_ids ?? []).some((tagId) =>
+            questionTagIds.includes(tagId),
+          );
+          const stemTier = allUnanswered
+            ? tagMatched
+              ? 0
+              : 1
+            : tagMatched && anyIncorrect
+              ? 2
+              : 3;
+          return stemTier === tier ? [stem.question_ids?.length ?? 0] : [];
+        }),
+      );
+      const section = sections.find(
+        (item) => item.id === moduleRow.ucat_section_id,
+      );
+      const requestedQuestionCount = learningLoopTargetQuestionCount(
+        section?.questionCount ?? 10,
+      );
+      let remainingTarget = requestedQuestionCount;
+      const selectedDoseByTier = tierQuestionCounts.map((questionCounts) => {
+        const dose = maximumWholeStemDose(questionCounts, remainingTarget);
+        remainingTarget -= dose;
+        return dose;
+      });
+      return [
+        {
+          id: moduleRow.id,
+          title: moduleRow.title,
+          sectionId: moduleRow.ucat_section_id,
+          sectionNumber:
+            sections.find((section) => section.id === moduleRow.ucat_section_id)
+              ?.sectionNumber ?? null,
+          priority: moduleRow.study_plan_priority ?? "recommended",
+          estimatedMinutes: Math.max(5, moduleRow.estimated_minutes ?? 5),
+          completionPercent: moduleRow.completion_percent ?? 0,
+          authoredOrder:
+            authoredOrderByModuleId.get(moduleRow.id) ??
+            Number.MAX_SAFE_INTEGER,
+          categoryIds,
+          questionTagIds,
+          targetedPracticeInventory: {
+            strictStemCount: strictStems.length,
+            strictQuestionCount: strictStems.reduce(
+              (sum, stem) => sum + (stem.question_ids?.length ?? 0),
+              0,
+            ),
+            preferredTagStemCount: preferredTagStems.length,
+            preferredTagQuestionCount: preferredTagStems.reduce(
+              (sum, stem) => sum + (stem.question_ids?.length ?? 0),
+              0,
+            ),
+            strictSelectableQuestionCount: maximumTieredWholeStemDose(
+              tierQuestionCounts,
+              requestedQuestionCount,
+            ),
+            preferredTagSelectableQuestionCount:
+              selectedDoseByTier[0] + selectedDoseByTier[2],
+          },
+          relevanceScore: categoryScores.length
+            ? categoryScores.reduce((sum, score) => sum + score, 0) /
+              categoryScores.length
+            : 0.3,
         },
-        relevanceScore: categoryScores.length
-          ? categoryScores.reduce((sum, score) => sum + score, 0) /
-            categoryScores.length
-          : 0.3,
-      },
-    ];
-  });
+      ];
+    },
+  );
   const trainersWithItems = new Set(
     (trainerItemsRes.data ?? []).map((item) => item.skill_trainer_id),
   );
@@ -837,7 +826,11 @@ async function loadGenerationInputs(
   );
   const benchmarkSets: BenchmarkSetAsset[] = (setCatalogRes.data ?? []).flatMap(
     (set) => {
-      if (!set.id || !Array.isArray(set.sections) || set.sections.length !== 1) {
+      if (
+        !set.id ||
+        !Array.isArray(set.sections) ||
+        set.sections.length !== 1
+      ) {
         return [];
       }
       const sectionJson = set.sections[0];
@@ -886,10 +879,11 @@ async function loadGenerationInputs(
           {
             id: mock.id,
             name: mock.name?.trim() || "UCAT mock",
-            completedAttempts: (mockAttemptsRes.data ?? []).flatMap((attempt) =>
-              attempt.ucat_mock_id === mock.id && attempt.completed_at
-                ? [attempt.completed_at]
-                : [],
+            completedAttempts: (mockAttemptsRes.data ?? []).flatMap(
+              (attempt) =>
+                attempt.ucat_mock_id === mock.id && attempt.completed_at
+                  ? [attempt.completed_at]
+                  : [],
             ),
           },
         ]
@@ -899,17 +893,20 @@ async function loadGenerationInputs(
     [...(lastLearningTasksRes.data ?? [])]
       .filter((task) => task.section_id)
       .sort((left, right) => {
-        const leftAt = left.completed_at ?? left.started_at ?? left.scheduled_date;
+        const leftAt =
+          left.completed_at ?? left.started_at ?? left.scheduled_date;
         const rightAt =
           right.completed_at ?? right.started_at ?? right.scheduled_date;
         return rightAt.localeCompare(leftAt);
       })
       .flatMap((task) =>
         task.section_id
-          ? [[
-              task.section_id,
-              task.completed_at ?? task.started_at ?? task.scheduled_date,
-            ]]
+          ? [
+              [
+                task.section_id,
+                task.completed_at ?? task.started_at ?? task.scheduled_date,
+              ],
+            ]
           : [],
       )
       .filter(
@@ -930,6 +927,38 @@ async function loadGenerationInputs(
     benchmarkSets,
     benchmarkMocks,
     lastLearningModuleServedAtBySection,
+    practiceSelectionData: {
+      sections: sections.map((section) => ({
+        id: section.id,
+        section_number: section.sectionNumber,
+        time_per_question: section.timePerQuestionSeconds,
+        number_of_questions: section.questionCount,
+      })),
+      stems: (practiceInventoryRes.data ?? []).flatMap((stem) =>
+        stem.id && stem.section_id
+          ? [
+              {
+                id: stem.id,
+                section_id: stem.section_id,
+                question_stem_category_id: stem.question_stem_category_id,
+                question_ids: stem.question_ids,
+                question_tag_ids: stem.question_tag_ids,
+              },
+            ]
+          : [],
+      ),
+      attempts: (practiceAttemptsRes.data ?? []).flatMap((attempt) =>
+        attempt.question_id
+          ? [
+              {
+                question_id: attempt.question_id,
+                score: attempt.score,
+                is_submitted: attempt.is_submitted === true,
+              },
+            ]
+          : [],
+      ),
+    },
   };
 }
 
@@ -944,6 +973,7 @@ export async function loadDevelopmentCatalogSandboxCase(
     supabase,
     student.id,
     base.input.goal.profile.testYear,
+    { includeScoreEvidence: false },
   );
   const catalogCase: PreparationSandboxCase = {
     ...base,
@@ -998,7 +1028,9 @@ export async function loadDevelopmentCatalogSandboxCase(
               supabase,
               {
                 section: section.key,
-                questionCount: 10,
+                questionCount: learningLoopTargetQuestionCount(
+                  section.questionCount,
+                ),
                 categoryIds: module.categoryIds ?? [],
                 questionTagIds: module.questionTagIds ?? [],
                 linkedLearningPractice: true,
@@ -1009,7 +1041,11 @@ export async function loadDevelopmentCatalogSandboxCase(
                 customTimeMinutes: null,
                 timePerQuestionSeconds: null,
               },
-              { allowOversizedFallback: false, deterministic: true },
+              {
+                allowOversizedFallback: false,
+                deterministic: true,
+                preloaded: inputs.practiceSelectionData,
+              },
             ).then((result) => [module.id, result] as const),
           ];
         }),
@@ -1462,7 +1498,7 @@ async function linkCompanionReview(
       ? `/progress/mocks/mock-attempts/${activity.id}`
       : activity.type === "set_attempt"
         ? `/progress/set-attempts/${activity.id}`
-      : `/progress/practice-sessions/${activity.id}`;
+        : `/progress/practice-sessions/${activity.id}`;
   if (
     review.matched_activity_type === activity.type &&
     review.matched_activity_id === activity.id &&
@@ -1533,40 +1569,47 @@ async function reconcileTasks(
         : earliest,
     generation.generated_at,
   );
-  const [learningRes, practiceRes, setRes, mockRes, trainerRes] = await Promise.all([
-    admin
-      .from("ucat_student_learning_module_progress")
-      .select("id, learning_module_id, completion_percent, completed_at")
-      .eq("student_id", studentId),
-    admin
-      .from("student_practice_sessions")
-      .select(
-        "id, ucat_section_id, question_count, filters_snapshot, started_at, completed_at",
-      )
-      .eq("student_id", studentId)
-      .gte("started_at", evidenceSince)
-      .order("started_at"),
-    admin
-      .from("student_question_set_attempts")
-      .select("id, question_set_id, attempted_at, completed_at, total_points")
-      .eq("student_id", studentId)
-      .is("student_ucat_mock_attempt_id", null)
-      .gte("attempted_at", evidenceSince)
-      .order("attempted_at"),
-    admin
-      .from("student_ucat_mock_attempts")
-      .select("id, ucat_mock_id, attempted_at, completed_at")
-      .eq("student_id", studentId)
-      .gte("attempted_at", evidenceSince)
-      .order("attempted_at"),
-    admin
-      .from("student_skill_trainer_attempts")
-      .select("id, skill_trainer_id, started_at, completed_at")
-      .eq("student_id", studentId)
-      .gte("started_at", evidenceSince)
-      .order("started_at"),
-  ]);
-  for (const result of [learningRes, practiceRes, setRes, mockRes, trainerRes]) {
+  const [learningRes, practiceRes, setRes, mockRes, trainerRes] =
+    await Promise.all([
+      admin
+        .from("ucat_student_learning_module_progress")
+        .select("id, learning_module_id, completion_percent, completed_at")
+        .eq("student_id", studentId),
+      admin
+        .from("student_practice_sessions")
+        .select(
+          "id, ucat_section_id, question_count, filters_snapshot, started_at, completed_at",
+        )
+        .eq("student_id", studentId)
+        .gte("started_at", evidenceSince)
+        .order("started_at"),
+      admin
+        .from("student_question_set_attempts")
+        .select("id, question_set_id, attempted_at, completed_at, total_points")
+        .eq("student_id", studentId)
+        .is("student_ucat_mock_attempt_id", null)
+        .gte("attempted_at", evidenceSince)
+        .order("attempted_at"),
+      admin
+        .from("student_ucat_mock_attempts")
+        .select("id, ucat_mock_id, attempted_at, completed_at")
+        .eq("student_id", studentId)
+        .gte("attempted_at", evidenceSince)
+        .order("attempted_at"),
+      admin
+        .from("student_skill_trainer_attempts")
+        .select("id, skill_trainer_id, started_at, completed_at")
+        .eq("student_id", studentId)
+        .gte("started_at", evidenceSince)
+        .order("started_at"),
+    ]);
+  for (const result of [
+    learningRes,
+    practiceRes,
+    setRes,
+    mockRes,
+    trainerRes,
+  ]) {
     if (result.error) throw result.error;
   }
   const usedActivities = new Set<string>(
@@ -2623,8 +2666,8 @@ export async function getStudyPlan(
         : preparationVersionChanged || missedWorkSinceGeneration
           ? "significant_activity"
           : mockCompletedSinceGeneration
-          ? "mock_completed"
-          : "weekly",
+            ? "mock_completed"
+            : "weekly",
     );
     const [profileResult, generationResult] = await Promise.all([
       admin
@@ -2860,7 +2903,12 @@ export async function updateStudyPlanTask(
       .maybeSingle();
     if (profileError) throw profileError;
     if (profile) {
-      await generateForProfile(supabase, studentId, profile, "significant_activity");
+      await generateForProfile(
+        supabase,
+        studentId,
+        profile,
+        "significant_activity",
+      );
     }
   }
 }

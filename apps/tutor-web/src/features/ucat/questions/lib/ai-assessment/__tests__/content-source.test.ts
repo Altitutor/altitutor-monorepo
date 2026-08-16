@@ -83,7 +83,8 @@ describe('assessment snapshot source', () => {
         index: 0,
         difficulty: 0.5,
         time_burden_seconds: 60,
-        question_type: 'multiple_choice',
+        response_type: 'multiple_choice',
+        answer_scheme: 'single_choice',
         deleted_at: null,
       }],
       question_answer_options: [{
@@ -92,7 +93,7 @@ describe('assessment snapshot source', () => {
         answer_text: plainTextToProseMirror('True'),
         answer_explanation: null,
         index: 0,
-        is_answer: true,
+        answer_key_value: 'correct',
         deleted_at: null,
       }],
       questions_question_tags: [{ question_id: questionId, tag_id: tagId }],
@@ -116,7 +117,7 @@ describe('assessment snapshot source', () => {
         id: questionId,
         tagIds: [tagId],
         tagNames: ['Inference'],
-        options: [{ id: optionId, isAnswer: true }],
+        options: [{ id: optionId, answerKeyValue: 'correct' }],
       }],
     })
     expect(calls).toContain('question_stems')

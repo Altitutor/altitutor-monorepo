@@ -16,7 +16,7 @@ export function normalizeBlindSolutionSelections(
     ...solution,
     solutions: solution.solutions.map((item) => {
       const question = questions.get(item.questionId)
-      if (!question || question.questionType === 'syllogism' || !item.selectedOptionId) return item
+      if (!question || question.responseType === 'drag_and_drop' || !item.selectedOptionId) return item
       const raw = item.selectedOptionId.trim()
       const exact = question.options.find((option) => option.id === raw)
       if (exact) return item

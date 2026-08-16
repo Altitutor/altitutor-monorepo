@@ -10,25 +10,21 @@ describe("Answer-scheme progress points", () => {
         {
           id: "choice",
           stemId: "shared-stem",
-          questionType: "syllogism",
           answerScheme: "single_choice",
         },
         {
           id: "dm",
           stemId: "shared-stem",
-          questionType: "multiple_choice",
           answerScheme: "decision_making_binary_placement",
         },
         {
-          id: "dm-legacy-row-2",
+          id: "dm-row-2",
           stemId: "shared-stem",
-          questionType: "multiple_choice",
           answerScheme: "decision_making_binary_placement",
         },
         {
           id: "most-least",
           stemId: "other-stem",
-          questionType: "multiple_choice",
           answerScheme: "situational_judgement_most_least",
         },
       ]),
@@ -42,7 +38,6 @@ describe("Answer-scheme progress points", () => {
         {
           id: "dm",
           stemId: "stem",
-          questionType: "syllogism",
           answerScheme: "decision_making_binary_placement",
         },
         countedGroupedQuestionIds,
@@ -51,9 +46,8 @@ describe("Answer-scheme progress points", () => {
     expect(
       progressPointsForQuestion(
         {
-          id: "dm-legacy-row-2",
+          id: "dm-row-2",
           stemId: "stem",
-          questionType: "multiple_choice",
           answerScheme: "decision_making_binary_placement",
         },
         countedGroupedQuestionIds,

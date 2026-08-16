@@ -3,6 +3,7 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { SignupForm } from "@/features/auth/components/signup-form";
 import { savePendingSignupEmail } from "@/features/auth/lib/pending-signup-email";
 import { navigateAfterAuth } from "@/features/auth/lib/navigate-after-auth";
+import { takePendingLoginEmail } from "@/features/auth/lib/pending-login-email";
 
 const signInWithOtp = jest.fn();
 const verifyOtp = jest.fn();
@@ -63,9 +64,68 @@ describe("SignupForm", () => {
         options: expect.objectContaining({ shouldCreateUser: true }),
       }),
     );
-    expect(global.fetch).not.toHaveBeenCalled();
     expect(await screen.findByText("Check your inbox")).toBeInTheDocument();
     expect(screen.getByText("existing@example.com")).toBeInTheDocument();
+  });
+
+  it("sends an existing confirmed account to password login without an OTP", async () => {
+    (global.fetch as jest.Mock).mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ state: "confirmed" }),
+    });
+
+    render(<SignupForm />);
+    fireEvent.change(screen.getByLabelText("Email address"), {
+      target: { value: "Existing@Example.com" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Register" }));
+
+    await waitFor(() =>
+      expect(navigateAfterAuth).toHaveBeenCalledWith("/login?existing=1"),
+    );
+    expect(signInWithOtp).not.toHaveBeenCalled();
+    expect(takePendingLoginEmail()).toBe("existing@example.com");
+  });
+
+  it("resumes OTP signup when no confirmed account is disclosed", async () => {
+    (global.fetch as jest.Mock).mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ state: "available" }),
+    });
+
+    render(<SignupForm />);
+    fireEvent.change(screen.getByLabelText("Email address"), {
+      target: { value: "unfinished@example.com" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Register" }));
+
+    expect(await screen.findByText("Check your inbox")).toBeInTheDocument();
+    expect(signInWithOtp).toHaveBeenCalledWith(
+      expect.objectContaining({ email: "unfinished@example.com" }),
+    );
+    expect(navigateAfterAuth).not.toHaveBeenCalled();
+  });
+
+  it("stops signup when account discovery is rate-limited", async () => {
+    (global.fetch as jest.Mock).mockResolvedValueOnce({
+      ok: false,
+      status: 429,
+      json: async () => ({
+        error: "Too many attempts. Please try again shortly.",
+      }),
+    });
+
+    render(<SignupForm />);
+    fireEvent.change(screen.getByLabelText("Email address"), {
+      target: { value: "student@example.com" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Register" }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "Too many attempts. Please try again shortly.",
+    );
+    expect(signInWithOtp).not.toHaveBeenCalled();
+    expect(navigateAfterAuth).not.toHaveBeenCalled();
   });
 
   it("opts the student into lifecycle email after OTP verification", async () => {
@@ -76,7 +136,6 @@ describe("SignupForm", () => {
     });
     fireEvent.click(screen.getByRole("button", { name: "Register" }));
 
-    expect(global.fetch).not.toHaveBeenCalled();
     const otpInput = await screen.findByLabelText("6-digit code");
     fireEvent.change(otpInput, { target: { value: "123456" } });
     fireEvent.click(screen.getByRole("button", { name: "Continue with code" }));
@@ -119,7 +178,9 @@ describe("SignupForm", () => {
     });
     expect(verifyOtp).not.toHaveBeenCalled();
     expect(window.sessionStorage.length).toBe(0);
-    expect(navigateAfterAuth).toHaveBeenCalledWith("/signup/complete");
+    expect(navigateAfterAuth).toHaveBeenCalledWith(
+      "/auth/continue?intent=signup&next=%2Fdashboard",
+    );
   });
 
   it("defers a protected return intent until signup onboarding is complete", async () => {
@@ -135,7 +196,7 @@ describe("SignupForm", () => {
 
     await waitFor(() =>
       expect(navigateAfterAuth).toHaveBeenCalledWith(
-        "/signup/complete?redirect=%2Fstudy-plan%3Futm_source%3Daltitutor%26utm_medium%3Demail%26utm_campaign%3Ducat_onboarding_plan",
+        "/auth/continue?intent=signup&next=%2Fstudy-plan%3Futm_source%3Daltitutor%26utm_medium%3Demail%26utm_campaign%3Ducat_onboarding_plan",
       ),
     );
   });

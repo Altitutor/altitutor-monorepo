@@ -2,7 +2,10 @@ import type {
   AnswerScheme,
   ResponseSnapshotV1,
   ResponseType,
+  PlacementValue,
 } from "@altitutor/ucat-response-contract";
+
+export type PlacementSnapshot = Record<string, PlacementValue>;
 
 export type QuestionEngineMode = "set" | "mock" | "questionStem" | "questions";
 
@@ -12,8 +15,6 @@ export type AnswerOption = {
   text: string;
   /** Rich JSON for option text (Tiptap). When present, use for rendering images/formatting. */
   textJson?: Record<string, unknown> | null;
-  /** True if this option is the correct answer. Used for marking display. */
-  isAnswer?: boolean;
   /** Canonical answer-key role used by the shared response contract. */
   answerKeyValue?: "correct" | "yes" | "no" | "most" | "least" | null;
   /** Option-level answer explanation (shown in results review). */
@@ -41,11 +42,10 @@ export type QuestionItem = {
   stemJson?: Record<string, unknown> | null;
   /** Rich JSON for question text (Tiptap). When present, use for rendering images/formatting. */
   questionJson?: Record<string, unknown> | null;
-  questionType: "multiple_choice" | "syllogism";
   /** Candidate interaction, independent of the authored category. */
-  responseType?: ResponseType;
+  responseType: ResponseType;
   /** Validation, scoring, persistence, and review behavior. */
-  answerScheme?: AnswerScheme["kind"];
+  answerScheme: AnswerScheme["kind"];
   options: AnswerOption[];
   /** ID of the correct answer option. Used for marking. */
   correctOptionId?: string;
@@ -119,9 +119,8 @@ export type QuestionStemWithQuestions = {
     questionText: string;
     /** Rich JSON for question text (Tiptap). */
     questionJson?: Record<string, unknown> | null;
-    questionType: "multiple_choice" | "syllogism";
-    responseType?: ResponseType;
-    answerScheme?: QuestionItem["answerScheme"];
+    responseType: ResponseType;
+    answerScheme: QuestionItem["answerScheme"];
     options: AnswerOption[];
     /** Question-level explanation (shown in review when present). */
     answerExplanation?: string;
@@ -144,7 +143,9 @@ export function mapQuestionStemsToItems(
       const sortedOptions = [...question.options].sort(
         (a, b) => a.index - b.index,
       );
-      const correctOption = sortedOptions.find((o) => o.isAnswer);
+      const correctOption = sortedOptions.find(
+        (option) => option.answerKeyValue === "correct",
+      );
 
       items.push({
         id: question.id,
@@ -157,7 +158,6 @@ export function mapQuestionStemsToItems(
         stemJson: stem.stemJson,
         questionText: question.questionText,
         questionJson: question.questionJson,
-        questionType: question.questionType,
         responseType: question.responseType,
         answerScheme: question.answerScheme,
         options: sortedOptions,
@@ -178,9 +178,8 @@ export type QuestionEngineQuestion = {
   sectionDisplayColumns: 1 | 2;
   stemText: string;
   questionText: string;
-  questionType: "multiple_choice" | "syllogism";
-  responseType?: ResponseType;
-  answerScheme?: QuestionItem["answerScheme"];
+  responseType: ResponseType;
+  answerScheme: QuestionItem["answerScheme"];
   options: AnswerOption[];
   /** Question-level explanation (shown in review when present). */
   answerExplanation?: string;
@@ -194,7 +193,9 @@ export function mapQuestionsToItems(
     const sortedOptions = [...question.options].sort(
       (a, b) => a.index - b.index,
     );
-    const correctOption = sortedOptions.find((o) => o.isAnswer);
+    const correctOption = sortedOptions.find(
+      (option) => option.answerKeyValue === "correct",
+    );
     return {
       id: question.id,
       index,
@@ -204,7 +205,6 @@ export function mapQuestionsToItems(
       sectionDisplayColumns: question.sectionDisplayColumns,
       stemText: question.stemText,
       questionText: question.questionText,
-      questionType: question.questionType,
       responseType: question.responseType,
       answerScheme: question.answerScheme,
       options: sortedOptions,
@@ -249,9 +249,9 @@ export type QuestionEngineState = {
   visitedQuestionIds: string[];
   flaggedIds: string[];
   selectedAnswers: Record<string, string>;
-  /** For syllogism questions: map of questionId -> optionId -> true (Yes) / false (No). */
-  syllogismSnapshots?: Record<string, Record<string, boolean>>;
-  /** Canonical durable responses; legacy maps above are UI projections only. */
+  /** Placement response state, keyed by question then option. */
+  placementSnapshots?: Record<string, PlacementSnapshot>;
+  /** Canonical durable responses. */
   responseSnapshots?: Record<string, ResponseSnapshotV1>;
   showNavigator: boolean;
   showCalculator: boolean;
