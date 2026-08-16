@@ -15,17 +15,21 @@ export const UCAT_SECTION_PADDING_CLASS = "px-4 py-28 sm:px-8 sm:py-36";
 /** Matches navbar pill and product demo width. */
 export const UCAT_CONTENT_WIDTH_CLASS = "mx-auto w-full max-w-6xl min-w-0";
 
+/** Fixed nav pill — mirrors section horizontal padding (px-4 / sm:px-8). */
+export const UCAT_NAV_WIDTH_CLASS =
+  "w-[calc(100%-2rem)] sm:w-[calc(100%-4rem)] max-w-6xl";
+
 /** Section intro under h2 — Comparison reference. */
 export const UCAT_SECTION_DESCRIPTION_CLASS =
-  "text-lg leading-relaxed text-marketing-charcoal/60 sm:text-xl";
+  "text-lg leading-relaxed text-marketing-charcoal/65 sm:text-xl";
 
 /** Body copy on light cards and content blocks. */
 export const UCAT_BODY_DESCRIPTION_CLASS =
-  "text-base leading-relaxed text-marketing-charcoal/60";
+  "text-base leading-relaxed text-marketing-charcoal/65";
 
 /** Smaller supporting copy on light backgrounds (FAQ answers, disclaimers). */
 export const UCAT_SUPPORTING_TEXT_CLASS =
-  "text-sm leading-relaxed text-marketing-charcoal/60 sm:text-base";
+  "text-sm leading-relaxed text-marketing-charcoal/65 sm:text-base";
 
 /** Main section h2 on light backgrounds. */
 export const UCAT_SECTION_HEADING_CLASS =
@@ -53,8 +57,8 @@ export const UCAT_DARK_SUPPORTING_TEXT_CLASS =
 
 /** Italic student testimonial quote. */
 export const UCAT_STUDENT_QUOTE_CLASS =
-  "text-base italic leading-relaxed text-marketing-charcoal/60";
+  "text-base italic leading-relaxed text-marketing-charcoal/65";
 
 /** Student score / cohort metadata under a name. */
 export const UCAT_STUDENT_METADATA_CLASS =
-  "text-xs uppercase tracking-[0.1em] text-marketing-charcoal/60 sm:text-sm";
+  "text-xs uppercase tracking-[0.1em] text-marketing-charcoal/65 sm:text-sm";

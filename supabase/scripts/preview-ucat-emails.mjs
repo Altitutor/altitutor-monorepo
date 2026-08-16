@@ -176,6 +176,12 @@ const transactionalTemplates = [
     EMAIL_SETTINGS.required,
   ],
   [
+    "public_interest_admin_notification",
+    "Landing page enquiry (admin)",
+    "Immediately after any supported-access application or waitlist signup on the UCAT landing page.",
+    EMAIL_SETTINGS.required,
+  ],
+  [
     "referral_gift_received",
     "Friend received a gift",
     "When a referral gift is created for the invited student, before they accept it.",
@@ -226,23 +232,39 @@ const transactionalTemplates = [
 ];
 
 for (const [templateKey, label, sentWhen, setting] of transactionalTemplates) {
+  const payload =
+    templateKey === "public_interest_admin_notification"
+      ? {
+          submission_id: "00000000-0000-4000-8000-000000000001",
+          kind: "supported_access",
+          name: "Alex Morgan",
+          email: "alex.morgan@example.com",
+          phone: "+61412345678",
+          reason:
+            "Example supported-access application submitted from the UCAT landing page preview.",
+          source: "ucat_landing_page",
+        }
+      : {
+          first_name: "Alex",
+          referrer_name: "Brian",
+          duration_interval: "month",
+          expires_at: "2026-08-16T00:00:00+09:30",
+          amount_off_cents: 4900,
+          trial_end: "2026-08-16T00:00:00+09:30",
+          cancel_at: "2026-08-30T00:00:00+09:30",
+          action_path: "/settings/plan/subscription",
+        };
   const rendered = transactionalDispatch.renderTransactionalEmail({
     id: `preview-${templateKey}`,
     student_id: "preview-student",
-    recipient_email: "student@example.com",
+    recipient_email:
+      templateKey === "public_interest_admin_notification"
+        ? "admin@altitutor.com"
+        : "student@example.com",
     template_key: templateKey,
     event_key: `preview:${templateKey}`,
     attempt_count: 1,
-    payload: {
-      first_name: "Alex",
-      referrer_name: "Brian",
-      duration_interval: "month",
-      expires_at: "2026-08-16T00:00:00+09:30",
-      amount_off_cents: 4900,
-      trial_end: "2026-08-16T00:00:00+09:30",
-      cancel_at: "2026-08-30T00:00:00+09:30",
-      action_path: "/settings/plan/subscription",
-    },
+    payload,
   });
   previews.set(`transactional-${templateKey}`, {
     source: "Supabase: ucat-transactional-email-dispatch",

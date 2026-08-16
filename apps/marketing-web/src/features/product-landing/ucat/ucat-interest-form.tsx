@@ -65,7 +65,7 @@ function interestCopy(kind: UcatInterestKind) {
 
 const phoneInputClassName = clsx(
   "[&_.PhoneInputInput]:mt-1.5 [&_.PhoneInputInput]:h-auto [&_.PhoneInputInput]:rounded-xl [&_.PhoneInputInput]:border-marketing-charcoal/12 [&_.PhoneInputInput]:bg-white [&_.PhoneInputInput]:px-4 [&_.PhoneInputInput]:py-3 [&_.PhoneInputInput]:text-sm [&_.PhoneInputInput]:text-marketing-charcoal [&_.PhoneInputInput]:placeholder:text-marketing-charcoal/40 [&_.PhoneInputInput]:focus-visible:border-marketing-primary [&_.PhoneInputInput]:focus-visible:ring-2 [&_.PhoneInputInput]:focus-visible:ring-marketing-primary/12",
-  "[&>p:last-child]:text-marketing-charcoal/60",
+  "[&>p:last-child]:text-marketing-charcoal/65",
 );
 
 const phoneCountryClassName =
@@ -309,7 +309,7 @@ export function UcatInterestForm({ kind }: { kind: UcatInterestKind }) {
         <input name="website" tabIndex={-1} autoComplete="off" />
       </label>
       <p className={`${UCAT_SUPPORTING_TEXT_CLASS} ${typo.secondarySans}`}>
-        By submitting, you are asking Altitutor to contact you about this{" "}
+        By submitting, you are consenting to Altitutor contacting you about this{" "}
         {isSupportedAccess ? "application" : "waitlist"}.
       </p>
       {state === "error" ? (

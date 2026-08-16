@@ -68,22 +68,21 @@ export function UcatLandingHero() {
           className={`mx-auto mt-7 text-5xl font-semibold leading-[0.95] tracking-[-0.052em] text-marketing-charcoal sm:text-7xl lg:text-[clamp(4.7rem,7.1vw,7rem)] ${typo.headingSans}`}
         >
           <span data-hero-line className="block lg:whitespace-nowrap">
-            Know where you stand.
+            UCAT Prep?
           </span>
           <span
             data-hero-line
             className={`mt-2 block font-normal italic text-marketing-primary lg:whitespace-nowrap ${typo.dramaSerif}`}
           >
-            Know what to do next.
+            Planned for you.
           </span>
         </h1>
         <p
           data-hero-support
           className={`mx-auto mt-8 max-w-2xl ${UCAT_SECTION_DESCRIPTION_CLASS} ${typo.secondarySans}`}
         >
-          Altitutor UCAT is an online UCAT preparation platform for students in
-          Australia. It structures your practice around your
-          weaknesses, keeping you on track to hit your target score.
+          Altitutor UCAT intelligently plans practice around your
+          strengths and weaknesses, keeping you on track to hit your target score.
         </p>
 
         <div

@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { AnalyticsLink } from "../analytics-link";
 import { PRODUCT_LINKS } from "@/lib/site";
 import { MagneticButton } from "./magnetic-button";
+import { UCAT_NAV_WIDTH_CLASS } from "./ucat-landing-section-eyebrow";
 
 const { typography: typo } = MARKETING_TOKENS;
 
@@ -21,7 +22,7 @@ export function UcatLandingNavbar() {
   return (
     <nav
       aria-label="Altitutor UCAT"
-      className={`fixed left-1/2 top-4 z-50 flex h-16 w-[calc(100%-2rem)] max-w-6xl -translate-x-1/2 items-center justify-between rounded-full px-4 transition-[background-color,border-color,box-shadow,backdrop-filter,color] duration-500 sm:top-6 sm:px-6 lg:grid lg:grid-cols-[1fr_auto_1fr] lg:justify-normal ${
+      className={`fixed left-1/2 top-4 z-50 flex h-16 ${UCAT_NAV_WIDTH_CLASS} -translate-x-1/2 items-center justify-between rounded-full px-4 transition-[background-color,border-color,box-shadow,backdrop-filter,color] duration-500 sm:top-6 sm:px-6 lg:grid lg:grid-cols-[1fr_auto_1fr] lg:justify-normal ${
         scrolled
           ? "border border-white/10 bg-marketing-charcoal/90 text-marketing-cream shadow-[0_8px_32px_rgba(0,0,0,0.24)] backdrop-blur-xl"
           : "border border-transparent bg-transparent text-marketing-charcoal"

@@ -40,21 +40,21 @@ const outcomes = [
     name: "Brian J.",
     photo: "/assets/ucat/brian-j.jpeg",
     detail: "Scored 2610 · UCAT ANZ 2025",
-    outcome: "Accepted into Dentistry at Adelaide University",
+    outcome: "Accepted into Bachelor of Dental Surgery",
     comment: "I really valued the 2025 Altitutor UCAT course due to its unique combination of friendly, relatable tutors, abundant and open resources, and online mock test system."
   },
   {
     name: "Josh L.",
     photo: "/assets/ucat/josh-l.png",
     detail: "Scored 2470 · UCAT ANZ 2025",
-    outcome: "Accepted into Medicine at Adelaide University",
+    outcome: "Accepted into Bachelor of Medical Studies / Doctor of Medicine",
     comment: "I found it invaluable practice which helped me get an offer to study Medicine at Adelaide Uni."
   },
   {
     name: "Melshuel G.",
     photo: "/assets/ucat/melshuel-g.jpeg",
     detail: "Altitutor student · 2024",
-    outcome: "Accepted into Medicine at Adelaide University",
+    outcome: "Accepted into Bachelor of Medical Studies / Doctor of Medicine",
     comment: "[The course] helped me to perform extremely well and get an offer to study medicine in 2025!"
   },
 ] as const;
@@ -84,15 +84,9 @@ export function UcatLandingStories() {
             <p
               className={`mt-6 ${UCAT_SECTION_DESCRIPTION_CLASS} ${typo.secondarySans}`}
             >
-              Altitutor is a not-for-profit education initiative. Revenue from
+              Altitutor runs as a not-for-profit education company. Revenue from
               paid plans helps us provide free and subsidised educational
-              support to students who otherwise could not afford it.
-            </p>
-            <p
-              className={`mt-5 border-l-2 border-marketing-accent pl-5 text-base font-medium leading-relaxed text-marketing-primary ${typo.secondarySans}`}
-            >
-              Better educational support should be available because a student
-              needs it - not only because their family can afford it.
+              support to students who otherwise would not be able to afford it.
             </p>
             <div className="mt-6">
               <UcatInterestDialog
@@ -245,8 +239,8 @@ export function UcatLandingStories() {
               <p>
               With the launch of Altitutor UCAT, we want to now extend the not-for-profit mission of Altitutor 
               to reach more students who have the motivation to get into medicine, but don&apos;t have the money to pay 
-              for tutoring or online preparation tools. By purchasing access to UCAT Unlimited or private tutoring sessions, 
-              you&apos;re supporting the education of these students.
+              for online preparation tools. By purchasing access to UCAT Unlimited, 
+              you&apos;re supporting the education of the next generation of doctors and working professionals.
               </p>
             </div>
             <div className="mt-7 text-marketing-cream/72">

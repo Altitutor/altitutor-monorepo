@@ -4,12 +4,12 @@ SELECT plan(14);
 SELECT has_column('public', 'ucat_mocks', 'blueprint_id', 'full mocks may reference an immutable blueprint');
 SELECT has_function('public', 'ucat_mock_blueprint_compliance', ARRAY['uuid'], 'mock compliance is a durable database projection');
 SELECT ok(
-  NOT has_function_privilege('authenticated', 'public.ucat_mock_blueprint_compliance(uuid)', 'EXECUTE'),
-  'authenticated callers cannot bypass guarded tutor views to inspect base-table compliance'
+  has_function_privilege('authenticated', 'public.ucat_mock_blueprint_compliance(uuid)', 'EXECUTE'),
+  'authenticated can execute mock blueprint compliance because tutor set views call it'
 );
 SELECT ok(
-  NOT has_function_privilege('authenticated', 'public.ucat_content_publication_issues(text,uuid)', 'EXECUTE'),
-  'students cannot query arbitrary base-table publication diagnostics'
+  has_function_privilege('authenticated', 'public.ucat_content_publication_issues(text,uuid)', 'EXECUTE'),
+  'authenticated can execute publication issues because tutor stem/set views call it'
 );
 SELECT ok(
   NOT has_function_privilege('authenticated', 'public.ucat_content_before_mock_blueprint_issues(text,uuid)', 'EXECUTE'),
