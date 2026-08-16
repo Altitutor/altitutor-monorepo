@@ -7,6 +7,7 @@ const templates = [
   "public_interest_supported_access_received",
   "public_interest_online_tutoring_waitlist_received",
   "public_interest_interview_training_waitlist_received",
+  "public_interest_admin_notification",
   "referral_gift_received",
   "referral_access_gift_earned",
   "referral_billing_credit_earned",

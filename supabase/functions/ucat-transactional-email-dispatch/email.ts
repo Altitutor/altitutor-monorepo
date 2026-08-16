@@ -66,6 +66,23 @@ function paragraph(copy: string): string {
   }</p>`;
 }
 
+function publicInterestKindLabel(kind: string): string {
+  switch (kind) {
+    case "supported_access":
+      return "Supported access application";
+    case "online_tutoring_waitlist":
+      return "Online tutoring waitlist";
+    case "interview_training_waitlist":
+      return "Interview training waitlist";
+    default:
+      return kind || "Landing page enquiry";
+  }
+}
+
+function adminDetailRow(label: string, content: string): string {
+  return `<p style="margin:0 0 12px;color:#394650;font-size:15px;line-height:1.7"><strong class="email-strong" style="color:#1a1a1a">${escapeEmailHtml(label)}</strong><br>${escapeEmailHtml(content)}</p>`;
+}
+
 function render(input: {
   row: TransactionalEmailRow;
   sender: UcatEmailSender;
@@ -204,6 +221,55 @@ export function renderTransactionalEmail(
             })
           }`,
       });
+
+    case "public_interest_admin_notification": {
+      const submitterName = value(payload, "name") || "Unknown";
+      const submitterEmail = value(payload, "email") || "unknown@example.com";
+      const submitterPhone = value(payload, "phone") || "Not provided";
+      const kind = value(payload, "kind");
+      const kindLabel = publicInterestKindLabel(kind);
+      const reason = value(payload, "reason");
+      const source = value(payload, "source") || "ucat_landing_page";
+      const submissionId = value(payload, "submission_id");
+      const detailPanel = renderUcatEmailPanel(
+        [
+          adminDetailRow("Enquiry type", kindLabel),
+          adminDetailRow("Name", submitterName),
+          adminDetailRow("Email", submitterEmail),
+          adminDetailRow("Phone", submitterPhone),
+          reason ? adminDetailRow("Reason", reason) : "",
+          adminDetailRow("Source", source),
+          submissionId ? adminDetailRow("Submission ID", submissionId) : "",
+        ].join(""),
+      );
+      const rendered = render({
+        row,
+        sender: "formal",
+        subject: `New ${kindLabel} · ${submitterName}`,
+        previewText: `${submitterName} submitted a ${kindLabel.toLowerCase()} from the UCAT landing page.`,
+        heading: "New landing page enquiry",
+        bodyHtml: paragraph(
+          "A new enquiry was submitted through the Altitutor UCAT landing page.",
+        ) + detailPanel + paragraph("Reply to this email to contact the student directly."),
+        text: [
+          "New landing page enquiry",
+          "",
+          `Enquiry type: ${kindLabel}`,
+          `Name: ${submitterName}`,
+          `Email: ${submitterEmail}`,
+          `Phone: ${submitterPhone}`,
+          reason ? `Reason: ${reason}` : null,
+          `Source: ${source}`,
+          submissionId ? `Submission ID: ${submissionId}` : null,
+          "",
+          "Reply to this email to contact the student directly.",
+        ].filter(Boolean).join("\n"),
+      });
+      return {
+        ...rendered,
+        replyTo: submitterEmail,
+      };
+    }
 
     case "referral_gift_received": {
       const giftDuration = duration(payload);

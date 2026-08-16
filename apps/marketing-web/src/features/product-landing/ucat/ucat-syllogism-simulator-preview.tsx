@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { UcatExamActionButton, UcatExamShell } from "@altitutor/ui";
 import { gsap } from "gsap";
+import clsx from "clsx";
 import {
   ArrowLeft,
   ArrowRight,
@@ -134,7 +135,13 @@ function DraggingGhost({
   );
 }
 
-export function UcatSyllogismSimulatorPreview() {
+export function UcatSyllogismSimulatorPreview({
+  highlightedControl = null,
+  paused = false,
+}: {
+  highlightedControl?: "calculator" | "flag" | "navigator" | null;
+  paused?: boolean;
+}) {
   const stageRef = useRef<HTMLDivElement>(null);
   const cursorRef = useRef<HTMLDivElement>(null);
   const coordinateScale = useDemoScale();
@@ -157,7 +164,7 @@ export function UcatSyllogismSimulatorPreview() {
 
   // Real one-second countdown; resets when the drag loop restarts.
   useEffect(() => {
-    if (prefersReducedMotion) {
+    if (prefersReducedMotion || paused) {
       setTimeRemaining(START_SECONDS);
       return;
     }
@@ -165,15 +172,22 @@ export function UcatSyllogismSimulatorPreview() {
       setTimeRemaining((current) => Math.max(0, current - 1));
     }, 1000);
     return () => window.clearInterval(id);
-  }, [prefersReducedMotion]);
+  }, [prefersReducedMotion, paused]);
 
   useEffect(() => {
-    if (prefersReducedMotion) {
-      const filled: Partial<Record<string, SyllogismChoice>> = {};
-      for (const conclusion of CONCLUSIONS) {
-        filled[conclusion.id] = conclusion.correct;
+    if (prefersReducedMotion || paused) {
+      if (paused) {
+        setAnswers({
+          c1: "yes",
+          c2: "no",
+        });
+      } else {
+        const filled: Partial<Record<string, SyllogismChoice>> = {};
+        for (const conclusion of CONCLUSIONS) {
+          filled[conclusion.id] = conclusion.correct;
+        }
+        setAnswers(filled);
       }
-      setAnswers(filled);
       setDraggingChoice(null);
       return;
     }
@@ -285,7 +299,7 @@ export function UcatSyllogismSimulatorPreview() {
       observer.disconnect();
       context?.revert();
     };
-  }, [prefersReducedMotion, coordinateScale]);
+  }, [prefersReducedMotion, paused, coordinateScale]);
 
   return (
     <DemoStage className="size-full min-h-0 overflow-hidden rounded-[1rem] bg-white shadow-[0_16px_40px_rgba(10,41,65,0.12)] ring-1 ring-black/[0.08]">
@@ -303,7 +317,14 @@ export function UcatSyllogismSimulatorPreview() {
             </span>
           }
           toolLeft={
-            <span className="inline-flex items-center gap-1">
+            <span
+              data-tour="question-engine-calculator"
+              className={clsx(
+                "inline-flex items-center gap-1 rounded-md transition-shadow",
+                highlightedControl === "calculator" &&
+                  "ring-2 ring-white ring-offset-2 ring-offset-[#0a2941]",
+              )}
+            >
               <Calculator className="size-4" aria-hidden />
               <span className="text-[13pt]">
                 <span className="underline">C</span>alculator
@@ -311,7 +332,14 @@ export function UcatSyllogismSimulatorPreview() {
             </span>
           }
           toolRight={
-            <span className="inline-flex items-center gap-1">
+            <span
+              data-tour="question-engine-flag"
+              className={clsx(
+                "inline-flex items-center gap-1 rounded-md transition-shadow",
+                highlightedControl === "flag" &&
+                  "ring-2 ring-white ring-offset-2 ring-offset-[#0a2941]",
+              )}
+            >
               <Flag className="size-4" aria-hidden />
               <span className="text-[13pt]">
                 <span className="underline">F</span>lag for Review
@@ -325,7 +353,14 @@ export function UcatSyllogismSimulatorPreview() {
                   <span className="underline">P</span>revious
                 </span>
               </UcatExamActionButton>
-              <UcatExamActionButton icon={<Navigation className="size-4" />}>
+              <UcatExamActionButton
+                data-tour="question-engine-navigator"
+                className={clsx(
+                  highlightedControl === "navigator" &&
+                    "ring-2 ring-white ring-offset-2 ring-offset-[#0a2941]",
+                )}
+                icon={<Navigation className="size-4" />}
+              >
                 <span className="text-[14pt]">
                   Na<span className="underline">v</span>igator
                 </span>

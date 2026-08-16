@@ -49,7 +49,7 @@ const faqs = [
   {
     question: "Is Altitutor UCAT a not-for-profit?",
     answer:
-      "Yes. It is a not-for-profit initiative by Altitutor. Revenue from paid access helps us provide free and subsidised education to students who could not otherwise afford support, and sustain the platform that serves them.",
+      "Yes. It is a not-for-profit initiative by Altitutor. Revenue from paid access helps us provide free and subsidised education to students who could not otherwise afford support.",
   },
   {
     question: "Can I apply for free or subsidised Unlimited access?",

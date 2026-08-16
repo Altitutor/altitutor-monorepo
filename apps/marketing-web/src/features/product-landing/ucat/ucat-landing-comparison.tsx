@@ -301,7 +301,7 @@ function DetailTooltip({
         className={`max-w-64 border border-marketing-charcoal/10 bg-white px-3 py-2 text-left text-marketing-charcoal shadow-lg ${typo.secondarySans}`}
       >
         <p className="text-xs font-semibold text-marketing-charcoal">{label}</p>
-        <p className="mt-1 text-xs leading-relaxed text-marketing-charcoal/60">
+        <p className="mt-1 text-xs leading-relaxed text-marketing-charcoal/65">
           {detail}
         </p>
       </TooltipContent>

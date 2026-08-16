@@ -24,6 +24,8 @@ type ScaleToFitFrameProps = {
   className?: string;
   designWidth?: number;
   designHeight?: number;
+  /** Scale to fit width only (default), or fit within width and height. */
+  fitMode?: "width" | "contain";
 };
 
 export function ScaleToFitFrame({
@@ -31,48 +33,59 @@ export function ScaleToFitFrame({
   className = "",
   designWidth = SIMULATOR_CARD_DESIGN_WIDTH,
   designHeight = SIMULATOR_CARD_DESIGN_HEIGHT,
+  fitMode = "width",
 }: ScaleToFitFrameProps) {
   const viewportRef = useRef<HTMLDivElement>(null);
   const [scale, setScale] = useState(1);
+  const [offset, setOffset] = useState({ x: 0, y: 0 });
 
   useLayoutEffect(() => {
     const viewport = viewportRef.current;
     if (!viewport) return;
 
     const update = () => {
-      const width = viewport.getBoundingClientRect().width;
-      if (width <= 0) return;
+      const rect = viewport.getBoundingClientRect();
+      if (rect.width <= 0) return;
 
-      // Match width only — viewport aspect ratio is locked to the design canvas.
-      // Avoid min(width, height) here: height can be 0 before layout settles, which
-      // previously forced scale back to 1 and clipped the 960px canvas on mobile.
-      const nextScale = Math.min(width / designWidth, 1);
+      const scaleW = rect.width / designWidth;
+      const scaleH =
+        rect.height > 0 ? rect.height / designHeight : Number.POSITIVE_INFINITY;
+      const nextScale =
+        fitMode === "contain"
+          ? Math.min(scaleW, scaleH, 1)
+          : Math.min(scaleW, 1);
+      const scaledWidth = designWidth * nextScale;
+      const scaledHeight = designHeight * nextScale;
       setScale(nextScale);
+      setOffset({
+        x: fitMode === "contain" ? Math.max(0, (rect.width - scaledWidth) / 2) : 0,
+        y: fitMode === "contain" ? Math.max(0, (rect.height - scaledHeight) / 2) : 0,
+      });
     };
 
     update();
     const observer = new ResizeObserver(update);
     observer.observe(viewport);
     return () => observer.disconnect();
-  }, [designWidth]);
+  }, [designWidth, designHeight, fitMode]);
 
   return (
     <DemoScaleContext.Provider value={scale}>
-      {/*
-        Keep the fixed-size design canvas out of document flow so its 960px
-        width never becomes the grid item's min-content width on narrow viewports.
-      */}
       <div
         ref={viewportRef}
         className={`relative w-full min-w-0 overflow-hidden ${className}`}
-        style={{ aspectRatio: `${designWidth} / ${designHeight}` }}
+        style={
+          fitMode === "contain"
+            ? { height: "100%" }
+            : { aspectRatio: `${designWidth} / ${designHeight}` }
+        }
       >
         <div
           className="absolute left-0 top-0 origin-top-left"
           style={{
             width: designWidth,
             height: designHeight,
-            transform: `scale(${scale})`,
+            transform: `translate(${offset.x}px, ${offset.y}px) scale(${scale})`,
           }}
         >
           {children}

@@ -65,7 +65,7 @@ export function UcatLandingFeatures() {
             More questions are not the same as a better plan.
           </h2>
           <p
-            className={`mx-auto mt-6 max-w-2xl text-lg leading-relaxed text-marketing-charcoal/60 sm:text-xl ${typo.secondarySans}`}
+            className={`mx-auto mt-6 max-w-2xl text-lg leading-relaxed text-marketing-charcoal/65 sm:text-xl ${typo.secondarySans}`}
           >
             Completing questions is only useful when you know what the results
             mean. Altitutor UCAT shows where you are improving, where you are
@@ -88,7 +88,7 @@ export function UcatLandingFeatures() {
                 {title}
               </h3>
               <p
-                className={`mt-3 text-sm leading-relaxed text-marketing-charcoal/60 ${typo.secondarySans}`}
+                className={`mt-3 text-sm leading-relaxed text-marketing-charcoal/65 ${typo.secondarySans}`}
               >
                 {body}
               </p>

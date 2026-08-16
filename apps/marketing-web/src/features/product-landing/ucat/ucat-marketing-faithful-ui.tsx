@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useId, useMemo, useState } from "react";
-import { AnimatePresence, LayoutGroup, motion } from "motion/react";
+import { LayoutGroup, motion } from "motion/react";
 import clsx from "clsx";
 import {
   Card,
@@ -70,6 +70,7 @@ const SECTION_CATEGORIES: Record<
   vr: ["Reading Comprehension", "True, False, Can't Tell"],
   dm: [
     "Logical Puzzles",
+    "Interpreting Information and Drawing Conclusions",
     "Probabilistic and Statistical Reasoning",
     "Recognising Assumptions",
     "Syllogisms",
@@ -83,7 +84,7 @@ const SECTION_CATEGORIES: Record<
     "Mixed Data Sources",
     "Text-Only Scenarios",
   ],
-  sj: ["How Appropriate", "How Important"],
+  sj: ["How Appropriate", "How Important", "Most/Least Appropriate"],
 };
 
 const TIMING_BAR_COLORS = {
@@ -768,52 +769,33 @@ export function MarketingPracticeSectionCard({
             initial={animate ? { opacity: 0, y: 8 } : false}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: index * 0.06, duration: 0.35, ease: DEMO_EASE }}
+            layout
           >
             <ItemIcon className="size-5 text-black/45" aria-hidden />
             <h3 className="mt-4 font-semibold">{item.label}</h3>
-            <AnimatePresence initial={false}>
-              {selected ? (
-                <motion.div
-                  key={`${item.key}-categories`}
-                  className="mt-4 w-full overflow-hidden"
-                  initial={animate ? { opacity: 0, height: 0, y: -6 } : false}
-                  animate={{ opacity: 1, height: "auto", y: 0 }}
-                  exit={{ opacity: 0, height: 0, y: -6 }}
-                  transition={{ duration: 0.22, ease: DEMO_EASE }}
-                >
-                  <p className="text-xs font-medium text-black/45">Categories</p>
-                  <div className="mt-3 space-y-3">
-                    {categories.map((name, categoryIndex) => (
-                      <label
-                        key={name}
-                        className="flex items-center justify-between gap-3 text-xs"
-                      >
-                        <span className="min-w-0 flex-1 leading-snug">{name}</span>
-                        <Switch
-                          checked={enabled[categoryIndex] ?? true}
-                          disabled={
-                            (enabled[categoryIndex] ?? true) &&
-                            enabled.filter(Boolean).length === 1
-                          }
-                          className="pointer-events-none shrink-0"
-                        />
-                      </label>
-                    ))}
-                  </div>
-                </motion.div>
-              ) : (
-                <motion.p
-                  key={`${item.key}-hint`}
-                  className="mt-1 text-sm text-black/45"
-                  initial={animate ? { opacity: 0 } : false}
-                  animate={{ opacity: 1 }}
-                  exit={{ opacity: 0 }}
-                  transition={{ duration: 0.18 }}
-                >
-                  Tap to configure categories
-                </motion.p>
-              )}
-            </AnimatePresence>
+            <div className="mt-4 w-full">
+              <p className="text-xs font-medium text-black/45">Categories</p>
+              <div className="mt-3 space-y-3">
+                {categories.map((name, categoryIndex) => (
+                  <label
+                    key={name}
+                    className="flex items-center justify-between gap-3 text-xs"
+                  >
+                    <span className="min-w-0 flex-1 leading-snug">{name}</span>
+                    <motion.span layout transition={{ duration: 0.2, ease: DEMO_EASE }}>
+                      <Switch
+                        checked={enabled[categoryIndex] ?? true}
+                        disabled={
+                          (enabled[categoryIndex] ?? true) &&
+                          enabled.filter(Boolean).length === 1
+                        }
+                        className="pointer-events-none shrink-0"
+                      />
+                    </motion.span>
+                  </label>
+                ))}
+              </div>
+            </div>
           </motion.div>
         );
       })}
@@ -823,19 +805,13 @@ export function MarketingPracticeSectionCard({
 }
 
 export function MarketingPracticeTimingCards({ animate }: { animate: boolean }) {
-  const [isTimed, setIsTimed] = useState(true);
   const [pacing, setPacing] = useState(100);
 
   useEffect(() => {
     if (!animate) {
-      setIsTimed(true);
       setPacing(100);
       return;
     }
-
-    const modeId = window.setInterval(() => {
-      setIsTimed((value) => !value);
-    }, 4200);
 
     const pacingId = window.setInterval(() => {
       setPacing((value) => {
@@ -849,74 +825,62 @@ export function MarketingPracticeTimingCards({ animate }: { animate: boolean }) 
     }, 2200);
 
     return () => {
-      window.clearInterval(modeId);
       window.clearInterval(pacingId);
     };
   }, [animate]);
 
   return (
     <div className="grid items-stretch gap-4 sm:grid-cols-2">
-      <div className={clickableCardClass(!isTimed)}>
+      <div className={clickableCardClass(false)}>
         <TimerOff className="size-5 text-black/45" aria-hidden />
         <h3 className="mt-4 font-semibold">Untimed</h3>
         <p className="mt-1 text-sm text-black/50">Take as long as you need.</p>
       </div>
-      <motion.div className={clickableCardClass(isTimed)}>
+      <div className={clickableCardClass(true)}>
         <Clock3 className="size-5 text-black/45" aria-hidden />
         <h3 className="mt-4 font-semibold">Timed</h3>
         <p className="mt-1 text-sm text-black/50">
           Set your pace relative to the UCAT exam.
         </p>
-        <AnimatePresence initial={false}>
-          {isTimed ? (
-            <motion.div
-              key="timed-slider"
-              className="mt-5 w-full overflow-hidden pt-1"
-              initial={animate ? { opacity: 0, height: 0, y: -6 } : false}
-              animate={{ opacity: 1, height: "auto", y: 0 }}
-              exit={{ opacity: 0, height: 0, y: -6 }}
-              transition={{ duration: 0.22, ease: DEMO_EASE }}
-            >
-              <input
-                type="range"
-                min={25}
-                max={200}
-                step={25}
-                value={pacing}
-                readOnly
-                className="pointer-events-none w-full accent-[#0a2941]"
-                aria-hidden
-              />
-              <div className="mt-2 grid grid-cols-8">
-                {PACING_STEPS.map((pace) => (
-                  <div
-                    key={pace}
-                    className={clsx(
-                      "flex flex-col items-center gap-1 text-[10px] text-black/45",
-                      pace === pacing && "font-semibold text-[#0a2941]",
-                    )}
-                  >
-                    <span
-                      className={clsx(
-                        "h-2 w-px bg-black/15",
-                        pace === pacing && "h-3 bg-[#0a2941]",
-                      )}
-                    />
-                    {formatSpeedPercentAsMultiplier(pace)}
-                  </div>
-                ))}
+        <div className="mt-5 w-full overflow-hidden pt-1">
+          <input
+            type="range"
+            min={25}
+            max={200}
+            step={25}
+            value={pacing}
+            readOnly
+            className="pointer-events-none w-full accent-[#0a2941]"
+            aria-hidden
+          />
+          <div className="mt-2 grid grid-cols-8">
+            {PACING_STEPS.map((pace) => (
+              <div
+                key={pace}
+                className={clsx(
+                  "flex flex-col items-center gap-1 text-[10px] text-black/45",
+                  pace === pacing && "font-semibold text-[#0a2941]",
+                )}
+              >
+                <span
+                  className={clsx(
+                    "h-2 w-px bg-black/15",
+                    pace === pacing && "h-3 bg-[#0a2941]",
+                  )}
+                />
+                {formatSpeedPercentAsMultiplier(pace)}
               </div>
-              <p className="mt-4 text-sm">
-                Questions will be paced at{" "}
-                <span className="font-semibold">
-                  {formatSpeedPercentAsMultiplier(pacing)}
-                </span>{" "}
-                exam speed.
-              </p>
-            </motion.div>
-          ) : null}
-        </AnimatePresence>
-      </motion.div>
+            ))}
+          </div>
+          <p className="mt-4 text-sm">
+            Questions will be paced at{" "}
+            <span className="font-semibold">
+              {formatSpeedPercentAsMultiplier(pacing)}
+            </span>{" "}
+            exam speed.
+          </p>
+        </div>
+      </div>
     </div>
   );
 }
@@ -984,8 +948,8 @@ export function MarketingPracticePacingPanel({ animate }: { animate: boolean }) 
   );
 }
 
-export function MarketingExamCalculator({ animate }: { animate: boolean }) {
-  const [display, setDisplay] = useState("742");
+export function MarketingExamCalculator({ animate: _animate }: { animate: boolean }) {
+  const [display, setDisplay] = useState("0");
 
   const onKey = useCallback((label: string) => {
     if (/^[0-9]$/.test(label)) {
@@ -995,19 +959,23 @@ export function MarketingExamCalculator({ animate }: { animate: boolean }) {
     if (label === "ON/C") setDisplay("0");
   }, []);
 
-  useEffect(() => {
-    if (!animate) return;
-    const sequence = ["742", "742÷", "742÷3", "247"];
-    let index = 0;
-    const id = window.setInterval(() => {
-      index = (index + 1) % sequence.length;
-      setDisplay(sequence[index]);
-    }, 1800);
-    return () => window.clearInterval(id);
-  }, [animate]);
-
   return (
-    <div className="flex justify-center py-2">
+    <div className="relative mx-auto flex w-full max-w-[min(340px,100%)] justify-center py-2">
+      <div className="pointer-events-none absolute left-2 top-2 z-10 flex items-center gap-1 sm:hidden">
+        <span className="rounded-full bg-[#0a2941] px-2.5 py-1 text-[11px] font-semibold text-white shadow-md">
+          Try me
+        </span>
+        <svg viewBox="0 0 24 24" className="size-4 text-[#0a2941]" aria-hidden>
+          <path
+            d="M4 12 H16 M12 8 L16 12 L12 16"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+        </svg>
+      </div>
       <UcatFloatingPanel
         title="Calculator"
         titleIcon={<Calculator className="size-5" />}
@@ -2048,7 +2016,7 @@ export function MarketingProgressCardSnapshot({ animate }: { animate: boolean })
   };
 
   return (
-    <div className="relative flex w-full min-w-0 max-w-full flex-1 overflow-hidden bg-gradient-to-b from-[#f6f7f9] via-[#eef0f3] to-[#f6f7f9]">
+    <div className="relative flex w-full min-w-0 max-w-full flex-1 overflow-hidden">
       <div
         className="relative w-full min-w-0"
         style={{
@@ -2250,11 +2218,16 @@ export function MarketingProgressCardSnapshot({ animate }: { animate: boolean })
   );
 }
 
-export function MarketingSimulatorBleedPreview() {
+export function MarketingSimulatorBleedPreview({
+  className = "",
+}: {
+  className?: string;
+}) {
   return (
     <ScaleToFitFrame
       designWidth={SIMULATOR_CARD_DESIGN_WIDTH}
       designHeight={SIMULATOR_CARD_DESIGN_HEIGHT}
+      className={className}
     >
       <UcatSyllogismSimulatorPreview />
     </ScaleToFitFrame>

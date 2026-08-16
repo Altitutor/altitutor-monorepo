@@ -41,7 +41,7 @@ export type UcatFeatureTheme = {
   iconBg: string;
 };
 
-/** Shared accent for all feature cards — marketing navy. */
+/** Shared accent for all feature cards marketing navy. */
 const FEATURE_THEME: UcatFeatureTheme = {
   accent: "#0a2941",
   accentBg: "bg-marketing-primary/10",
@@ -75,7 +75,7 @@ export const UCAT_FEATURES: readonly UcatFeature[] = [
     slug: "practice-and-simulation",
     number: "01",
     eyebrow: "Practice and exam simulation",
-    title: "Build the skill—and the familiarity to use it under pressure.",
+    title: "A UCAT simulator that feels like test day.",
     cardHeadline: "A simulator that feels like test day.",
     body: "Choose focused question practice, timed section sets, or a complete mock. The simulator reproduces the UCAT’s distinctive controls and layout, so the interface feels familiar before test day.",
     points: [
@@ -115,7 +115,7 @@ export const UCAT_FEATURES: readonly UcatFeature[] = [
       },
       {
         title: "Skill trainers",
-        body: "Isolate smaller abilities — syllogism speed, reading pace, logic steps — before full questions.",
+        body: "Isolate specific skills to hone your speed and accuracy.",
         previewId: "practice-skill-trainer",
       },
     ],
@@ -130,7 +130,7 @@ export const UCAT_FEATURES: readonly UcatFeature[] = [
     points: [
       "Daily tasks targeted at your weakest sections and question types",
       "Planned mocks and review built in before test day",
-      "Adapts as you complete work and your estimate changes",
+      "Adapts to your strengths and weaknesses as you progress",
     ],
     icon: CalendarDays,
     theme: FEATURE_THEME,
@@ -158,7 +158,7 @@ export const UCAT_FEATURES: readonly UcatFeature[] = [
       },
       {
         title: "Insights",
-        body: "Rotating insights explain why the plan is recommending each block of work.",
+        body: "Insights identify patterns in your practice and suggest improvements.",
         previewId: "study-plan-insights",
       },
     ],
@@ -167,14 +167,14 @@ export const UCAT_FEATURES: readonly UcatFeature[] = [
     slug: "guided-learning",
     number: "03",
     eyebrow: "Guided learning",
-    title: "Learn the method, then check that you can apply it.",
+    title: "Learn the method with guided practice.",
     cardHeadline:
       "Learning modules teach techniques, then guide you through questions.",
     body: "Short learning modules explain the reasoning behind each UCAT skill and place relevant questions inside the lesson. Skill trainers help you isolate the smaller abilities that make the full task easier.",
     points: [
-      "Concept teaching, worked examples, and tutor notes",
-      "Questions embedded inside the learning sequence",
-      "Focused drills for timing, reading, logic, and calculation skills",
+      "Learning modules teach you through every technique you need to know for the UCAT",
+      "Concept teaching, worked examples, and tutor tips",
+      "Embedded questions and skill trainer drills for immediate application",
     ],
     icon: BookOpen,
     theme: FEATURE_THEME,
@@ -183,7 +183,7 @@ export const UCAT_FEATURES: readonly UcatFeature[] = [
     details: [
       {
         title: "Comprehensive notes",
-        body: "Browse every module in a section — concepts, examples, and practice blocks in one place.",
+        body: "Learning modules cover everything you need to know for the UCAT, from introductory concepts to advanced techniques.",
         previewId: "learn-section-directory",
       },
       {
@@ -207,9 +207,9 @@ export const UCAT_FEATURES: readonly UcatFeature[] = [
     slug: "progress-and-planning",
     number: "04",
     eyebrow: "Progress and analytics",
-    title: "Know where you stand—and what every attempt is telling you.",
+    title: "Analyse your performance, question by question.",
     cardHeadline:
-      "Track your score estimate, review each attempt, and see your trajectory to test day.",
+      "See your estimated score improve over time.",
     body: "Follow your historical estimate and projected score range, then drill into question-by-question review with explanations and timing. Attempt-level analytics reveal patterns that a final score alone would miss.",
     points: [
       "Question-by-question answers, explanations, and timing",

@@ -137,8 +137,7 @@ export function UcatFeatureCardPreview({ id }: { id: FeatureCardPreviewId }) {
 }
 
 export function UcatFeatureDetailPreview({ id }: { id: FeatureDetailPreviewId }) {
-  const interactive =
-    id === "review-timing-interactive" || id === "practice-calculator";
+  const interactive = id === "practice-calculator";
 
   return (
     <FaithfulPreview interactive={interactive}>

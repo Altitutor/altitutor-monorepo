@@ -93,7 +93,7 @@ function UcatLandingStat({ stat }: { stat: LandingStat }) {
       >
         {stat.kind === "text" ? stat.value : `0${stat.suffix}`}
       </p>
-      <p className={`mt-1 text-base font-normal text-marketing-charcoal/60 ${typo.secondarySans}`}>
+      <p className={`mt-1 text-base font-normal text-marketing-charcoal/65 ${typo.secondarySans}`}>
         {stat.label}
       </p>
     </div>

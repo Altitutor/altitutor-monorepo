@@ -273,7 +273,7 @@ export function UcatLandingPricing() {
                   $0
                 </span>
                 <span
-                  className={`mb-1 text-base text-marketing-charcoal/60 ${typo.secondarySans}`}
+                  className={`mb-1 text-base text-marketing-charcoal/65 ${typo.secondarySans}`}
                 >
                   for as long as you need
                 </span>

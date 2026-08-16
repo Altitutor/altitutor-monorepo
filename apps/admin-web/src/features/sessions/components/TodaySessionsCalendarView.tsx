@@ -14,6 +14,7 @@ import { cn } from '@/shared/utils';
 import { adelaideTimeToMinutes } from '@/shared/utils/datetime';
 import { useElementSize } from '@/shared/hooks/useElementSize';
 import { SessionsCard } from './SessionsCard';
+import { shouldDimSessionInCalendar } from '../utils/attendanceDerivation';
 
 type Props = {
   date?: string;
@@ -215,10 +216,6 @@ export function TodaySessionsCalendarView({ date, onOpenSession }: Props) {
                         const sessionStudents = sessionsData?.sessionStudents?.[s.id] || [];
                         const sessionStaff = sessionsData?.sessionStaff?.[s.id] || [];
                         
-                        // Check if session has any students attending (planned attendance)
-                        const hasAttendingStudents = sessionStudents.length > 0 && 
-                          sessionStudents.some((student) => !student.planned_absence);
-                        
                         const cardHeight = Math.max(height, 45);
                         const cardWidth =
                           dayColumnWidth > 0
@@ -229,7 +226,7 @@ export function TodaySessionsCalendarView({ date, onOpenSession }: Props) {
                         blocks.push(
                           <div
                             key={s.id}
-                            className={cn("absolute", !hasAttendingStudents && "opacity-50")}
+                            className={cn("absolute", shouldDimSessionInCalendar(sessionStudents) && "opacity-50")}
                             style={{
                               top: `${top}px`,
                               height: `${cardHeight}px`,
@@ -273,10 +270,6 @@ export function TodaySessionsCalendarView({ date, onOpenSession }: Props) {
                         const sessionStudents = (sessionsData?.sessionStudents?.[s.id] ?? []) as Array<Tables<'students'> & { planned_absence?: boolean; is_extra?: boolean }>;
                         const sessionStaff = (sessionsData?.sessionStaff?.[s.id] ?? []) as Array<Tables<'staff'> & { planned_absence?: boolean; is_swapped_in?: boolean }>;
                         
-                        // Check if session has any students attending (planned attendance)
-                        const hasAttendingStudents = sessionStudents.length > 0 && 
-                          sessionStudents.some((student) => !student.planned_absence);
-                        
                         const cardHeight = Math.max(height, 45);
                         const cardWidth =
                           dayColumnWidth > 0
@@ -287,7 +280,7 @@ export function TodaySessionsCalendarView({ date, onOpenSession }: Props) {
                         blocks.push(
                           <div
                             key={s.id}
-                            className={cn("absolute", !hasAttendingStudents && "opacity-50")}
+                            className={cn("absolute", shouldDimSessionInCalendar(sessionStudents) && "opacity-50")}
                             style={{
                               top: `${top}px`,
                               height: `${cardHeight}px`,
