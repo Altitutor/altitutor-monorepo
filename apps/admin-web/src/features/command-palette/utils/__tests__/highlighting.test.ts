@@ -61,16 +61,14 @@ describe('highlightText', () => {
     expect(textContent).toBe('Test query text');
   });
 
-  it('should handle special regex characters in query', () => {
-    // Note: The current implementation doesn't escape regex special characters
-    // This test verifies the current behavior - parentheses are treated as regex groups
-    // In practice, queries with special regex chars may not work correctly
-    const result = highlightText('Test query text', 'query');
+  it('should highlight regex metacharacters as literal search text', () => {
+    const result = highlightText('Session (trial)', '(');
     const { container } = render(React.createElement(React.Fragment, null, result));
-    
+
     const highlighted = container.querySelector('.font-semibold.text-brand-lightBlue');
     expect(highlighted).toBeTruthy();
-    expect(highlighted?.textContent).toBe('query');
+    expect(highlighted?.textContent).toBe('(');
+    expect(container.textContent).toBe('Session (trial)');
   });
 
   it('should handle query at start of text', () => {

@@ -5,6 +5,10 @@
 
 import React from 'react';
 
+function escapeRegex(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
 /**
  * Highlight matching text in a string
  */
@@ -14,7 +18,7 @@ export function highlightText(
 ): string | React.ReactNode {
   if (!text || !query.trim()) return text;
 
-  const parts = text.split(new RegExp(`(${query})`, 'gi'));
+  const parts = text.split(new RegExp(`(${escapeRegex(query)})`, 'gi'));
   return parts.map((part, i) =>
     part.toLowerCase() === query.toLowerCase() ? (
       <span key={i} className="font-semibold text-brand-lightBlue">

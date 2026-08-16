@@ -43,7 +43,7 @@ export async function GET(request: NextRequest) {
     // Use service role client to search staff (bypasses RLS)
     const serviceClient = getServiceRoleClient();
     
-    let query = serviceClient
+    const createStaffQuery = () => serviceClient
       .from('staff')
       .select('id, first_name, last_name, role, status, email, phone_number')
       .in('status', ['ACTIVE', 'TRIAL'])
@@ -54,11 +54,39 @@ export async function GET(request: NextRequest) {
     const trimmed = search.trim();
     if (trimmed.length > 0) {
       const q = `%${trimmed}%`;
-      query = query.or(`first_name.ilike.${q},last_name.ilike.${q},email.ilike.${q}`);
+      const results = await Promise.all(
+        (['first_name', 'last_name', 'email'] as const).map((column) =>
+          createStaffQuery().ilike(column, q)
+        )
+      );
+      const failedResult = results.find((result) => result.error);
+
+      if (failedResult?.error) {
+        console.error('Error searching staff:', failedResult.error);
+        captureApiError(failedResult.error, "/api/staff/search");
+        return NextResponse.json(
+          { error: 'Failed to search staff' },
+          { status: 500 }
+        );
+      }
+
+      const staffById = new Map(
+        results
+          .flatMap((result) => result.data ?? [])
+          .map((staff) => [staff.id, staff] as const)
+      );
+      const staff = [...staffById.values()]
+        .sort((left, right) =>
+          (left.first_name ?? '').localeCompare(right.first_name ?? '')
+          || (left.last_name ?? '').localeCompare(right.last_name ?? '')
+        )
+        .slice(0, limit);
+
+      return NextResponse.json({ staff });
     }
-    
-    const { data, error } = await query;
-    
+
+    const { data, error } = await createStaffQuery();
+
     if (error) {
       console.error('Error searching staff:', error);
       captureApiError(error, "/api/staff/search");
@@ -67,7 +95,7 @@ export async function GET(request: NextRequest) {
         { status: 500 }
       );
     }
-    
+
     return NextResponse.json({ staff: (data ?? []) as Tables<'staff'>[] });
   } catch (error) {
     captureApiError(error, "/api/staff/search");
