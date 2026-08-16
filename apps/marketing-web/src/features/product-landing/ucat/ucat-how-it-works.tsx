@@ -11,7 +11,15 @@ import {
 } from "lucide-react";
 import { AnalyticsLink } from "../analytics-link";
 import { PRODUCT_LINKS } from "@/lib/site";
-import { UCAT_SECTION_EYEBROW_CLASS, UCAT_SECTION_PADDING_CLASS } from "./ucat-landing-section-eyebrow";
+import {
+  UCAT_SECTION_EYEBROW_CLASS,
+  UCAT_CONTENT_WIDTH_CLASS,
+  UCAT_SECTION_PADDING_CLASS,
+  UCAT_SECTION_DESCRIPTION_CLASS,
+  UCAT_BODY_DESCRIPTION_CLASS,
+  UCAT_SECTION_HEADING_CLASS,
+  UCAT_CARD_TITLE_CLASS,
+} from "./ucat-landing-section-eyebrow";
 
 const { typography: typo } = MARKETING_TOKENS;
 
@@ -98,19 +106,19 @@ export function UcatHowItWorks() {
 
   return (
     <section ref={sectionRef} id="how-it-works" className={`bg-marketing-cream ${UCAT_SECTION_PADDING_CLASS}`}>
-      <div className="mx-auto max-w-7xl">
+      <div className={UCAT_CONTENT_WIDTH_CLASS}>
         <div className="mx-auto max-w-3xl text-center">
           <p className={`${UCAT_SECTION_EYEBROW_CLASS} ${typo.dataMono}`}>How it works</p>
-          <h2 className={`mt-4 text-4xl font-semibold tracking-[-0.04em] text-marketing-charcoal sm:text-6xl ${typo.headingSans}`}>From your first benchmark to a clearer path forward.</h2>
-          <p className={`mx-auto mt-6 max-w-2xl text-lg leading-relaxed text-marketing-charcoal/58 sm:text-xl ${typo.secondarySans}`}>Start with enough evidence to make the direction useful. Then let each attempt refine what comes next.</p>
+          <h2 className={`mt-4 ${UCAT_SECTION_HEADING_CLASS} ${typo.headingSans}`}>From your first benchmark to a clearer path forward.</h2>
+          <p className={`mx-auto mt-6 max-w-2xl ${UCAT_SECTION_DESCRIPTION_CLASS} ${typo.secondarySans}`}>Start with enough evidence to make the direction useful. Then let each attempt refine what comes next.</p>
         </div>
 
         <div className="mt-16 grid gap-5 lg:grid-cols-3">
           {steps.map((step, index) => (
             <article key={step.number} data-how-step className="flex flex-col rounded-[2rem] border border-marketing-charcoal/10 bg-white p-5 shadow-sm sm:p-7">
               <div className="flex items-center justify-between"><span className={`text-xs font-semibold tracking-[0.16em] text-marketing-primary/50 ${typo.dataMono}`}>{step.number}</span>{index === 1 ? <BarChart3 className="size-5 text-marketing-primary" aria-hidden /> : null}</div>
-              <h3 className={`mt-6 text-2xl font-semibold text-marketing-charcoal ${typo.headingSans}`}>{step.title}</h3>
-              <p className={`mt-3 min-h-[5.25rem] text-sm leading-relaxed text-marketing-charcoal/58 ${typo.secondarySans}`}>{step.body}</p>
+              <h3 className={`mt-6 ${UCAT_CARD_TITLE_CLASS} ${typo.headingSans}`}>{step.title}</h3>
+              <p className={`mt-3 min-h-[5.25rem] ${UCAT_BODY_DESCRIPTION_CLASS} ${typo.secondarySans}`}>{step.body}</p>
               <div className="mt-6">{index === 0 ? <StartVisual /> : index === 1 ? <BaselineVisual /> : <PlanVisual />}</div>
             </article>
           ))}

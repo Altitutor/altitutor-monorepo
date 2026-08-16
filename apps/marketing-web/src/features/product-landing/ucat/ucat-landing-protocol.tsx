@@ -8,7 +8,15 @@ import { UcatFeatureDetailDialog } from "./ucat-feature-detail-dialog";
 import { UcatFeatureCardPreview } from "./ucat-feature-micro-ui";
 import { UcatMobileAppPhonePreview } from "./ucat-mobile-app-phone-preview";
 import { UcatPracticeDiscountPreview } from "./ucat-practice-discount-preview";
-import { UCAT_SECTION_EYEBROW_CLASS, UCAT_SECTION_PADDING_CLASS } from "./ucat-landing-section-eyebrow";
+import {
+  UCAT_SECTION_EYEBROW_CLASS,
+  UCAT_CONTENT_WIDTH_CLASS,
+  UCAT_SECTION_PADDING_CLASS,
+  UCAT_SECTION_DESCRIPTION_CLASS,
+  UCAT_BODY_DESCRIPTION_CLASS,
+  UCAT_SECTION_HEADING_CLASS,
+  UCAT_CARD_TITLE_CLASS,
+} from "./ucat-landing-section-eyebrow";
 
 const { typography: typo } = MARKETING_TOKENS;
 
@@ -85,7 +93,7 @@ function UcatLandingStat({ stat }: { stat: LandingStat }) {
       >
         {stat.kind === "text" ? stat.value : `0${stat.suffix}`}
       </p>
-      <p className={`mt-1 text-sm text-marketing-charcoal/55 ${typo.secondarySans}`}>
+      <p className={`mt-1 text-base font-normal text-marketing-charcoal/60 ${typo.secondarySans}`}>
         {stat.label}
       </p>
     </div>
@@ -130,7 +138,7 @@ export function UcatLandingProtocol() {
       id="features"
       className={`bg-white ${UCAT_SECTION_PADDING_CLASS}`}
     >
-      <div className="mx-auto min-w-0 max-w-7xl">
+      <div className={UCAT_CONTENT_WIDTH_CLASS}>
         <div className="grid gap-8 sm:grid-cols-3 sm:gap-4">
           {LANDING_STATS.map((stat) => (
             <UcatLandingStat
@@ -147,12 +155,12 @@ export function UcatLandingProtocol() {
             Features
           </p>
           <h2
-            className={`mt-4 text-4xl font-semibold tracking-[-0.04em] text-marketing-charcoal sm:text-6xl ${typo.headingSans}`}
+            className={`mt-4 ${UCAT_SECTION_HEADING_CLASS} ${typo.headingSans}`}
           >
             Everything you need to prepare.
           </h2>
           <p
-            className={`mx-auto mt-6 max-w-2xl text-lg leading-relaxed text-marketing-charcoal/58 sm:text-xl ${typo.secondarySans}`}
+            className={`mx-auto mt-6 max-w-2xl ${UCAT_SECTION_DESCRIPTION_CLASS} ${typo.secondarySans}`}
           >
             From learning modules to full timed mock exams, get what you need at every stage of your preparation.
           </p>
@@ -182,13 +190,13 @@ export function UcatLandingProtocol() {
                 </div>
 
                 <h3
-                  className={`mt-5 text-2xl font-semibold tracking-[-0.03em] text-marketing-charcoal sm:text-[1.65rem] ${typo.headingSans}`}
+                  className={`mt-5 ${UCAT_CARD_TITLE_CLASS} ${typo.headingSans}`}
                 >
                   {feature.cardHeadline}
                 </h3>
 
                 <ul
-                  className={`mt-5 space-y-2.5 text-base text-marketing-charcoal/66 ${typo.secondarySans}`}
+                  className={`mt-5 space-y-2.5 ${UCAT_BODY_DESCRIPTION_CLASS} ${typo.secondarySans}`}
                 >
                   {feature.points.map((point) => (
                     <li key={point} className="flex items-start gap-3">
@@ -224,13 +232,11 @@ export function UcatLandingProtocol() {
             className="flex min-w-0 flex-row items-center gap-4 rounded-[2rem] bg-[#f4f5f7] p-6 sm:gap-6 sm:p-8"
           >
             <div className="min-w-0 flex-1">
-              <h3
-                className={`text-xl font-semibold tracking-[-0.03em] text-marketing-charcoal sm:text-2xl ${typo.headingSans}`}
-              >
+              <h3 className={`${UCAT_CARD_TITLE_CLASS} ${typo.headingSans}`}>
                 Practice day discounts
               </h3>
               <p
-                className={`mt-3 text-base leading-relaxed text-marketing-charcoal/66 ${typo.secondarySans}`}
+                className={`mt-3 ${UCAT_BODY_DESCRIPTION_CLASS} ${typo.secondarySans}`}
               >
                 Earn a discount for every day you log in and practice.
               </p>
@@ -251,12 +257,12 @@ export function UcatLandingProtocol() {
                 Coming soon
               </p>
               <h3
-                className={`mt-2 text-xl font-semibold tracking-[-0.03em] text-marketing-charcoal sm:text-2xl ${typo.headingSans}`}
+                className={`mt-2 ${UCAT_CARD_TITLE_CLASS} ${typo.headingSans}`}
               >
                 Practice on the go
               </h3>
               <p
-                className={`mt-3 text-base leading-relaxed text-marketing-charcoal/66 ${typo.secondarySans}`}
+                className={`mt-3 ${UCAT_BODY_DESCRIPTION_CLASS} ${typo.secondarySans}`}
               >
                 Continue your plan, practice, and review from the Altitutor UCAT
                 app. Coming soon.

@@ -1,17 +1,31 @@
-const configuredMarketingUrl = process.env.NEXT_PUBLIC_MARKETING_URL?.trim();
-const deploymentEnvironment = process.env.NEXT_PUBLIC_SENTRY_ENVIRONMENT;
-const isDevelopmentDeployment =
-  deploymentEnvironment === 'development' || deploymentEnvironment === 'preview';
+type MarketingLandingUrlInput = {
+  configuredMarketingUrl?: string;
+  nodeEnv?: string;
+  deploymentEnvironment?: string;
+};
 
-const marketingOrigin =
-  configuredMarketingUrl ||
-  (process.env.NODE_ENV === 'development'
-    ? 'http://localhost:3003'
-    : isDevelopmentDeployment
-      ? 'https://development.altitutor.com'
-      : 'https://altitutor.com');
+export function resolveMarketingLandingUrl({
+  configuredMarketingUrl,
+  nodeEnv = 'production',
+  deploymentEnvironment,
+}: MarketingLandingUrlInput = {}): string {
+  const trimmed = configuredMarketingUrl?.trim();
+  const isDevelopmentDeployment =
+    deploymentEnvironment === 'development' || deploymentEnvironment === 'preview';
 
-export const MARKETING_LANDING_URL = new URL(
-  '/online-learning/',
-  marketingOrigin,
-).toString();
+  const marketingOrigin =
+    trimmed ||
+    (nodeEnv === 'development'
+      ? 'http://localhost:3003'
+      : isDevelopmentDeployment
+        ? 'https://development.altitutor.com'
+        : 'https://altitutor.com');
+
+  return new URL('/online-learning/', marketingOrigin).toString();
+}
+
+export const MARKETING_LANDING_URL = resolveMarketingLandingUrl({
+  configuredMarketingUrl: process.env.NEXT_PUBLIC_MARKETING_URL,
+  nodeEnv: process.env.NODE_ENV,
+  deploymentEnvironment: process.env.NEXT_PUBLIC_SENTRY_ENVIRONMENT,
+});

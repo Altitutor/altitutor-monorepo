@@ -46,6 +46,7 @@ Deno.test(
   () => {
     const email = buildLifecyclePreview("upgrade_consistency");
     assertStringIncludes(email.html, "/assets/ucat/email/matt-signature.png");
+    assertStringIncludes(email.html, 'class="email-signature"');
     assertStringIncludes(email.html, 'alt="Matt"');
     assertStringIncludes(email.text, "Founder and tutor, Altitutor");
   },

@@ -135,7 +135,7 @@ previews.set("transactional-access-ended", {
   html: transactional.renderUcatTransactionalEmail({
     previewText: "Your practice history is safe, and you can keep preparing on Free.",
     heading: "Your Unlimited access has ended",
-    bodyHtml: `<p style="margin:0 0 16px;color:#394650;font-size:15px;line-height:1.7">Hi Alex,</p><p style="margin:0 0 16px;color:#394650;font-size:15px;line-height:1.7">We could not recover your subscription payment after several attempts, so your Altitutor UCAT Unlimited subscription has ended.</p><table class="email-panel" role="presentation" width="100%" style="margin:24px 0;background:#eaf1f3;border:1px solid #d1e0e5;border-radius:12px"><tr><td class="email-panel-copy" style="padding:18px 20px;color:#394650;font-size:14px;line-height:1.65"><strong class="email-strong" style="color:#0a2941">Your account, practice history and results are safe.</strong> You can keep preparing on Free or restart Unlimited whenever you are ready.</td></tr></table>`,
+    bodyHtml: `<p style="margin:0 0 16px;color:#394650;font-size:15px;line-height:1.7">Hi Alex,</p><p style="margin:0 0 16px;color:#394650;font-size:15px;line-height:1.7">We could not recover your subscription payment after several attempts, so your Altitutor UCAT Unlimited subscription has ended.</p><table class="email-panel" role="presentation" width="100%" style="margin:24px 0;background:#eaf1f3;border:1px solid #d1e0e5;border-radius:12px"><tr><td class="email-panel-copy" style="padding:18px 20px;color:#394650;font-size:14px;line-height:1.65"><strong class="email-strong" style="color:#1a1a1a">Your account, practice history and results are safe.</strong> You can keep preparing on Free or restart Unlimited whenever you are ready.</td></tr></table>`,
   }),
 });
 
@@ -152,7 +152,7 @@ previews.set("transactional-trial-ending", {
       "Your Unlimited trial ends on 16 August. Review your estimated first payment.",
     heading: "Your Unlimited trial ends soon",
     bodyHtml:
-      `<p style="margin:0 0 16px;color:#394650;font-size:15px;line-height:1.7">Hi Alex,</p><p style="margin:0;color:#394650;font-size:15px;line-height:1.7">Your Altitutor UCAT Unlimited trial ends on <strong class="email-accent" style="color:#0a2941">16 August 2026</strong>. Your subscription will begin after the trial unless you cancel.</p>${transactional.renderUcatEmailPanel("<strong class=\"email-accent\" style=\"color:#0a2941\">Current estimated first payment: $39.00</strong><br>Your final payment may be lower if you earn more practice-day discounts before billing.")}${transactional.renderUcatEmailButton("https://ucat.altitutor.com/settings/plan/subscription?utm_source=altitutor&utm_medium=email&utm_campaign=ucat_trial_ending", "Review subscription")}`,
+      `<p style="margin:0 0 16px;color:#394650;font-size:15px;line-height:1.7">Hi Alex,</p><p style="margin:0;color:#394650;font-size:15px;line-height:1.7">Your Altitutor UCAT Unlimited trial ends on <strong class="email-accent" style="color:#1a1a1a">16 August 2026</strong>. Your subscription will begin after the trial unless you cancel.</p>${transactional.renderUcatEmailPanel("<strong class=\"email-accent\" style=\"color:#1a1a1a\">Current estimated first payment: $39.00</strong><br>Your final payment may be lower if you earn more practice-day discounts before billing.")}${transactional.renderUcatEmailButton("https://ucat.altitutor.com/settings/plan/subscription?utm_source=altitutor&utm_medium=email&utm_campaign=ucat_trial_ending", "Review subscription")}`,
   }),
 });
 
@@ -466,6 +466,7 @@ function forceDarkTheme(html) {
     .email-button-cell{background-color:#92b5c3!important}
     a.email-button,.email-button,.email-content a.email-button,.email-copy a.email-button,.email-button-cell a{color:#1c1c1c!important}
     .email-accent-fill{background-color:#92b5c3!important;color:#1c1c1c!important}
+    .email-signature{filter:invert(1)!important;-webkit-filter:invert(1)!important}
   </style>`;
   return insertBeforeHeadClose(
     html,

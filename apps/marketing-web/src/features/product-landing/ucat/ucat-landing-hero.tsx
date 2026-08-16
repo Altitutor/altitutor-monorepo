@@ -6,7 +6,7 @@ import { ArrowDown, ArrowRight, HeartHandshake } from "lucide-react";
 import { AnalyticsLink } from "../analytics-link";
 import { PRODUCT_LINKS } from "@/lib/site";
 import { MagneticButton } from "./magnetic-button";
-import { UCAT_SECTION_EYEBROW_CLASS } from "./ucat-landing-section-eyebrow";
+import { UCAT_SECTION_EYEBROW_CLASS, UCAT_SECTION_DESCRIPTION_CLASS, UCAT_SUPPORTING_TEXT_CLASS } from "./ucat-landing-section-eyebrow";
 
 const { typography: typo } = MARKETING_TOKENS;
 
@@ -79,9 +79,11 @@ export function UcatLandingHero() {
         </h1>
         <p
           data-hero-support
-          className={`mx-auto mt-8 max-w-2xl text-lg leading-relaxed text-marketing-charcoal/62 sm:text-xl ${typo.secondarySans}`}
+          className={`mx-auto mt-8 max-w-2xl ${UCAT_SECTION_DESCRIPTION_CLASS} ${typo.secondarySans}`}
         >
-          Altitutor UCAT intelligently structures your UCAT practice around your weaknesses, keeping you on track to hit your target score.
+          Altitutor UCAT is an online UCAT preparation platform for students in
+          Australia. It structures your practice around your
+          weaknesses, keeping you on track to hit your target score.
         </p>
 
         <div
@@ -108,7 +110,7 @@ export function UcatLandingHero() {
 
         <div
           data-hero-support
-          className={`mt-9 flex flex-col items-center justify-center gap-2 text-sm text-marketing-charcoal/56 sm:flex-row sm:gap-5 ${typo.secondarySans}`}
+          className={`mt-9 flex flex-col items-center justify-center gap-2 ${UCAT_SUPPORTING_TEXT_CLASS} sm:flex-row sm:gap-5 ${typo.secondarySans}`}
         >
           <p className="flex items-center gap-2">
             <HeartHandshake className="h-4 w-4 text-marketing-primary" aria-hidden />

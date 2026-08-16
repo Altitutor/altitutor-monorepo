@@ -5,7 +5,13 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from "@altitutor/ui";
-import { UCAT_SECTION_EYEBROW_CLASS, UCAT_SECTION_PADDING_CLASS } from "./ucat-landing-section-eyebrow";
+import {
+  UCAT_SECTION_EYEBROW_CLASS,
+  UCAT_SECTION_PADDING_CLASS,
+  UCAT_SECTION_DESCRIPTION_CLASS,
+  UCAT_SUPPORTING_TEXT_CLASS,
+  UCAT_SECTION_HEADING_CLASS,
+} from "./ucat-landing-section-eyebrow";
 
 const { typography: typo } = MARKETING_TOKENS;
 
@@ -63,12 +69,12 @@ export function UcatLandingFaq() {
             Frequently asked questions
           </p>
           <h2
-            className={`mt-4 text-4xl font-semibold tracking-[-0.04em] text-marketing-charcoal sm:text-5xl ${typo.headingSans}`}
+            className={`mt-4 ${UCAT_SECTION_HEADING_CLASS} ${typo.headingSans}`}
           >
             Clear answers before you start.
           </h2>
           <p
-            className={`mt-5 max-w-md text-lg leading-relaxed text-marketing-charcoal/58 sm:text-xl ${typo.secondarySans}`}
+            className={`mt-5 max-w-md ${UCAT_SECTION_DESCRIPTION_CLASS} ${typo.secondarySans}`}
           >
             If your question is not here, email admin@altitutor.com and a member
             of the Altitutor team will help.
@@ -93,7 +99,7 @@ export function UcatLandingFaq() {
               <AccordionContent
                 className={`motion-reduce:animate-none ${typo.secondarySans}`}
               >
-                <p className="max-w-2xl pb-6 pr-10 text-sm leading-relaxed text-marketing-charcoal/62 sm:text-base">
+                <p className={`max-w-2xl pb-6 pr-10 ${UCAT_SUPPORTING_TEXT_CLASS} ${typo.secondarySans}`}>
                   {faq.answer}
                 </p>
               </AccordionContent>

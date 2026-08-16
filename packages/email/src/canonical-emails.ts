@@ -1,6 +1,8 @@
 import {
   escapeEmailHtml,
   EMAIL_SENDERS,
+  formatEmailDate,
+  formatEmailDateText,
   renderEmail,
   renderEmailButton,
   type RenderedEmail,
@@ -85,9 +87,12 @@ export function buildBookingConfirmationEmail(input: {
   staffIntroduction?: string;
 }): RenderedEmail {
   const heading = "Your booking confirmation";
+  const sessionDate = input.sessionDate
+    ? formatEmailDate(input.sessionDate)
+    : undefined;
   const when =
-    input.sessionDate && input.sessionTime
-      ? ` for ${input.sessionDate} at ${input.sessionTime}`
+    sessionDate && input.sessionTime
+      ? ` for ${sessionDate} at ${input.sessionTime}`
       : "";
   const introductionHtml = input.staffIntroduction
     ? `<p class="email-copy" style="${paragraphStyle}">${textWithBreaks(input.staffIntroduction)}</p>`
@@ -122,16 +127,17 @@ export function buildBookingChangedEmail(
   input: BookingChangeInput & { bookingUrl: string },
 ): RenderedEmail {
   const heading = "Your session has changed";
-  const bodyText = `Hello ${input.recipientName},\n\nYour booking has been updated to ${input.sessionDate} at ${input.sessionTime}.\n\nView updated booking: ${input.bookingUrl}`;
+  const sessionDate = formatEmailDate(input.sessionDate);
+  const bodyText = `Hello ${input.recipientName},\n\nYour booking has been updated to ${sessionDate} at ${input.sessionTime}.\n\nView updated booking: ${input.bookingUrl}`;
   return renderEmail({
     brand: "altitutor",
     subject: "Your Altitutor session has changed",
-    previewText: `Your session is now ${input.sessionDate} at ${input.sessionTime}.`,
+    previewText: `Your session is now ${sessionDate} at ${input.sessionTime}.`,
     heading,
     bodyText,
     bodyHtml: `
       <p class="email-copy" style="${paragraphStyle}">Hello ${escapeEmailHtml(input.recipientName)},</p>
-      <p class="email-copy" style="${paragraphStyle}">Your booking has been updated to <strong class="email-strong" style="color:#0a2941">${escapeEmailHtml(input.sessionDate)}</strong> at <strong class="email-strong" style="color:#0a2941">${escapeEmailHtml(input.sessionTime)}</strong>.</p>
+      <p class="email-copy" style="${paragraphStyle}">Your booking has been updated to <strong class="email-strong" style="color:#1a1a1a">${escapeEmailHtml(sessionDate)}</strong> at <strong class="email-strong" style="color:#1a1a1a">${escapeEmailHtml(input.sessionTime)}</strong>.</p>
       ${renderEmailButton(input.bookingUrl, "View updated booking")}
     `,
   });
@@ -141,16 +147,17 @@ export function buildBookingCancelledEmail(
   input: BookingChangeInput,
 ): RenderedEmail {
   const heading = "Your session has been cancelled";
-  const bodyText = `Hello ${input.recipientName},\n\nYour booking on ${input.sessionDate} at ${input.sessionTime} has been cancelled.\n\nIf this was a mistake or you would like to book again, reply to this email.`;
+  const sessionDate = formatEmailDate(input.sessionDate);
+  const bodyText = `Hello ${input.recipientName},\n\nYour booking on ${sessionDate} at ${input.sessionTime} has been cancelled.\n\nIf this was a mistake or you would like to book again, reply to this email.`;
   return renderEmail({
     brand: "altitutor",
     subject: "Your Altitutor session has been cancelled",
-    previewText: `Your session on ${input.sessionDate} has been cancelled.`,
+    previewText: `Your session on ${sessionDate} has been cancelled.`,
     heading,
     bodyText,
     bodyHtml: `
       <p class="email-copy" style="${paragraphStyle}">Hello ${escapeEmailHtml(input.recipientName)},</p>
-      <p class="email-copy" style="${paragraphStyle}">Your booking on <strong class="email-strong" style="color:#0a2941">${escapeEmailHtml(input.sessionDate)}</strong> at <strong class="email-strong" style="color:#0a2941">${escapeEmailHtml(input.sessionTime)}</strong> has been cancelled.</p>
+      <p class="email-copy" style="${paragraphStyle}">Your booking on <strong class="email-strong" style="color:#1a1a1a">${escapeEmailHtml(sessionDate)}</strong> at <strong class="email-strong" style="color:#1a1a1a">${escapeEmailHtml(input.sessionTime)}</strong> has been cancelled.</p>
       <p class="email-copy" style="${paragraphStyle}">If this was a mistake or you would like to book again, reply to this email.</p>
     `,
   });
@@ -171,6 +178,8 @@ export function buildInvoiceNotificationEmail(input: {
   hostedInvoiceUrl?: string;
   invoicePdfUrl?: string;
 }): RenderedEmail {
+  const invoiceDate = formatEmailDate(input.invoiceDate);
+  const dueDate = formatEmailDate(input.dueDate);
   const paid = input.paid;
   const heading = paid
     ? `Invoice ${input.invoiceNumber} has been paid`
@@ -184,17 +193,20 @@ export function buildInvoiceNotificationEmail(input: {
     ? renderEmailButton(input.hostedInvoiceUrl, ctaLabel)
     : "";
   const pdfAction = input.invoicePdfUrl
-    ? `<p style="margin:18px 0 0;color:#394650;font-size:14px;line-height:1.6"><a class="email-link" href="${escapeEmailHtml(input.invoicePdfUrl)}" style="color:#0a2941;font-weight:600">Download invoice PDF</a></p>`
+    ? `<p style="margin:18px 0 0;color:#394650;font-size:14px;line-height:1.6"><a class="email-link" href="${escapeEmailHtml(input.invoicePdfUrl)}" style="color:#1a1a1a;font-weight:600">Download invoice PDF</a></p>`
     : "";
   const lineItems = input.lineItems ?? [];
   const lineItemRowsHtml = lineItems
     .map(
       (item) =>
-        `<tr><td class="email-muted" style="padding:12px 20px;border-bottom:1px solid #d1e0e5;color:#52606a;font-size:14px">${escapeEmailHtml(item.description)}</td><td class="email-strong" align="right" style="padding:12px 20px;border-bottom:1px solid #d1e0e5;color:#223b4b;font-size:14px;font-weight:600;white-space:nowrap">${escapeEmailHtml(item.amount)}</td></tr>`,
+        `<tr><td class="email-muted" style="padding:12px 20px;border-bottom:1px solid #d1e0e5;color:#52606a;font-size:14px">${escapeEmailHtml(formatEmailDateText(item.description))}</td><td class="email-strong" align="right" style="padding:12px 20px;border-bottom:1px solid #d1e0e5;color:#223b4b;font-size:14px;font-weight:600;white-space:nowrap">${escapeEmailHtml(item.amount)}</td></tr>`,
     )
     .join("");
   const lineItemsText = lineItems
-    .map((item) => `${item.description}: ${item.amount}`)
+    .map(
+      (item) =>
+        `${formatEmailDateText(item.description)}: ${item.amount}`,
+    )
     .join("\n");
   const textActions = [
     input.hostedInvoiceUrl ? `Hosted invoice: ${input.hostedInvoiceUrl}` : null,
@@ -205,8 +217,8 @@ export function buildInvoiceNotificationEmail(input: {
   const bodyText = [
     intro,
     "",
-    `Invoice date: ${input.invoiceDate}`,
-    `Due date: ${input.dueDate}`,
+    `Invoice date: ${invoiceDate}`,
+    `Due date: ${dueDate}`,
     ...(lineItemsText ? [lineItemsText] : []),
     `${amountLabel}: ${input.amount}`,
     ...(textActions ? ["", textActions] : []),
@@ -225,10 +237,10 @@ export function buildInvoiceNotificationEmail(input: {
     bodyHtml: `
       <p class="email-copy" style="${paragraphStyle}">${intro}</p>
       <table class="email-panel" role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" bgcolor="#eaf1f3" style="margin:22px 0;background-color:#eaf1f3;border:1px solid #d1e0e5;border-radius:12px">
-        <tr><td class="email-muted" style="padding:12px 20px;border-bottom:1px solid #d1e0e5;color:#52606a;font-size:14px">Invoice date</td><td class="email-strong" align="right" style="padding:12px 20px;border-bottom:1px solid #d1e0e5;color:#223b4b;font-size:14px;font-weight:600">${escapeEmailHtml(input.invoiceDate)}</td></tr>
-        <tr><td class="email-muted" style="padding:12px 20px;border-bottom:1px solid #d1e0e5;color:#52606a;font-size:14px">Due date</td><td class="email-strong" align="right" style="padding:12px 20px;border-bottom:1px solid #d1e0e5;color:#223b4b;font-size:14px;font-weight:600">${escapeEmailHtml(input.dueDate)}</td></tr>
+        <tr><td class="email-muted" style="padding:12px 20px;border-bottom:1px solid #d1e0e5;color:#52606a;font-size:14px">Invoice date</td><td class="email-strong" align="right" style="padding:12px 20px;border-bottom:1px solid #d1e0e5;color:#223b4b;font-size:14px;font-weight:600">${escapeEmailHtml(invoiceDate)}</td></tr>
+        <tr><td class="email-muted" style="padding:12px 20px;border-bottom:1px solid #d1e0e5;color:#52606a;font-size:14px">Due date</td><td class="email-strong" align="right" style="padding:12px 20px;border-bottom:1px solid #d1e0e5;color:#223b4b;font-size:14px;font-weight:600">${escapeEmailHtml(dueDate)}</td></tr>
         ${lineItemRowsHtml}
-        <tr><td class="email-muted" style="padding:14px 20px;color:#52606a;font-size:14px">${amountLabel}</td><td class="email-accent" align="right" style="padding:14px 20px;color:#0a2941;font-size:18px;font-weight:700">${escapeEmailHtml(input.amount)}</td></tr>
+        <tr><td class="email-muted" style="padding:14px 20px;color:#52606a;font-size:14px">${amountLabel}</td><td class="email-accent" align="right" style="padding:14px 20px;color:#1a1a1a;font-size:18px;font-weight:700">${escapeEmailHtml(input.amount)}</td></tr>
       </table>
       ${hostedAction}
       ${pdfAction}

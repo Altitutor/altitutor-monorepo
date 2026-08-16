@@ -114,7 +114,7 @@ export function renderTransactionalEmail(
   switch (row.template_key) {
     case "public_interest_supported_access_received": {
       const panel = renderUcatEmailPanel(`
-        <p style="margin:0 0 8px"><strong class="email-strong" style="color:#0a2941">What happens next</strong></p>
+        <p style="margin:0 0 8px"><strong class="email-strong" style="color:#1a1a1a">What happens next</strong></p>
         <p style="margin:0">The Altitutor team will review your application, contact you to arrange a short online interview, then let you know what support is available. Decisions are based on financial circumstances and the funding available at the time.</p>
       `);
       return render({
@@ -188,7 +188,7 @@ export function renderTransactionalEmail(
             `${referrer} has gifted you one free ${giftDuration} of Altitutor UCAT Unlimited.`,
           ) +
           renderUcatEmailPanel(
-            `<strong class="email-strong" style="color:#0a2941">Review it by ${
+            `<strong class="email-strong" style="color:#1a1a1a">Review it by ${
               escapeEmailHtml(expiry)
             }.</strong><br>When you accept, we will show you exactly how the free access works before anything begins.`,
           ) +
@@ -236,7 +236,7 @@ export function renderTransactionalEmail(
           renderUcatEmailPanel(
             `${
               credit
-                ? `<strong class="email-strong" style="color:#0a2941">Credit earned: ${
+                ? `<strong class="email-strong" style="color:#1a1a1a">Credit earned: ${
                   escapeEmailHtml(credit)
                 }</strong><br>`
                 : ""
@@ -289,7 +289,7 @@ export function renderTransactionalEmail(
           ) +
           (isTrial
             ? renderUcatEmailPanel(
-              `Your trial ends on <strong class="email-strong" style="color:#0a2941">${
+              `Your trial ends on <strong class="email-strong" style="color:#1a1a1a">${
                 escapeEmailHtml(trialEnd)
               }</strong>. We will send you a separate reminder showing your estimated first payment before then.`,
             )

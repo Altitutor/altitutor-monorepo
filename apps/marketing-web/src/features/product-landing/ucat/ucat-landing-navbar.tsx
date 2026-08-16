@@ -21,7 +21,7 @@ export function UcatLandingNavbar() {
   return (
     <nav
       aria-label="Altitutor UCAT"
-      className={`fixed left-1/2 top-4 z-50 grid h-16 w-[calc(100%-2rem)] max-w-6xl -translate-x-1/2 grid-cols-[auto_1fr] items-center rounded-full px-4 transition-[background-color,border-color,box-shadow,backdrop-filter,color] duration-500 sm:top-6 sm:px-6 md:grid-cols-[1fr_auto_1fr] ${
+      className={`fixed left-1/2 top-4 z-50 flex h-16 w-[calc(100%-2rem)] max-w-6xl -translate-x-1/2 items-center justify-between rounded-full px-4 transition-[background-color,border-color,box-shadow,backdrop-filter,color] duration-500 sm:top-6 sm:px-6 lg:grid lg:grid-cols-[1fr_auto_1fr] lg:justify-normal ${
         scrolled
           ? "border border-black/5 bg-marketing-cream/90 text-marketing-charcoal shadow-[0_8px_32px_rgba(0,0,0,0.08)] backdrop-blur-xl"
           : "border border-transparent bg-transparent text-marketing-charcoal"
@@ -34,7 +34,7 @@ export function UcatLandingNavbar() {
         Altitutor UCAT
       </a>
       <div
-        className={`hidden items-center gap-7 text-sm md:flex ${typo.secondarySans}`}
+        className={`hidden items-center gap-7 text-sm lg:flex ${typo.secondarySans}`}
       >
         <a
           href="/ucat/#features"

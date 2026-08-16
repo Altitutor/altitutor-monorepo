@@ -7,10 +7,13 @@ const source = resolve(
   appRoot,
   "../../assets/ucat-photos/signature/Signature.png",
 );
-const destination = resolve(
-  appRoot,
+const destinations = [
   "public/assets/ucat/email/matt-signature.png",
-);
+  "public/assets/ucat/matt-signature.png",
+];
 
-mkdirSync(dirname(destination), { recursive: true });
-copyFileSync(source, destination);
+for (const relativePath of destinations) {
+  const destination = resolve(appRoot, relativePath);
+  mkdirSync(dirname(destination), { recursive: true });
+  copyFileSync(source, destination);
+}

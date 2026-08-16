@@ -1,8 +1,17 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import Image from "next/image";
+import { Check, ChevronDown, ChevronLeft, ChevronRight } from "lucide-react";
 import { MARKETING_TOKENS } from "@altitutor/shared";
-import { SegmentedControl } from "@altitutor/ui";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuTrigger,
+  SegmentedControl,
+} from "@altitutor/ui";
 import { UcatAttemptReviewPreview } from "./ucat-attempt-review-preview";
 import { UcatLearningPreview } from "./ucat-learning-preview";
 import { UcatProgressPlanPreview } from "./ucat-progress-plan-preview";
@@ -21,10 +30,13 @@ const galleryItems = [
 
 type GalleryItemId = (typeof galleryItems)[number]["id"];
 
+const labelClassName =
+  "truncate text-center text-sm font-semibold tracking-tight sm:text-base";
+
 const AUTO_ROTATE_MS = 7000;
 const POST_INTERACT_PAUSE_MS = 12_000;
 
-/** Scoop radius for the notch's top shoulders (must match square + circle sizes). */
+/** Scoop radius where the cream notch meets the hero. */
 const SCOOP = "1.5rem";
 
 function GalleryPreview({ activeItem }: { activeItem: GalleryItemId }) {
@@ -46,37 +58,143 @@ function GalleryPreview({ activeItem }: { activeItem: GalleryItemId }) {
   }
 }
 
+function wrapGalleryIndex(index: number) {
+  return (
+    ((index % galleryItems.length) + galleryItems.length) % galleryItems.length
+  );
+}
+
+function GalleryCarouselSwitcher({
+  activeItem,
+  onChange,
+}: {
+  activeItem: GalleryItemId;
+  onChange: (value: GalleryItemId) => void;
+}) {
+  const activeIndex = galleryItems.findIndex((item) => item.id === activeItem);
+  const activeLabel = galleryItems[activeIndex]?.label ?? "";
+
+  const goToOffset = (offset: number) => {
+    const next = galleryItems[wrapGalleryIndex(activeIndex + offset)];
+    if (next) onChange(next.id);
+  };
+
+  const arrowButtonClass =
+    "inline-flex size-9 shrink-0 items-center justify-center rounded-full bg-black/[0.04] text-black/40 transition-colors hover:bg-black/[0.07] hover:text-black/65 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-black/15";
+
+  return (
+    <div
+      className={`relative z-[2] grid grid-cols-[auto_auto_auto] items-center gap-2 px-1 sm:gap-3 ${typo.headingSans}`}
+      role="tablist"
+      aria-label="Explore Altitutor UCAT"
+    >
+      <button
+        type="button"
+        className={arrowButtonClass}
+        aria-label="Previous feature"
+        onClick={() => goToOffset(-1)}
+      >
+        <ChevronLeft className="size-4" aria-hidden />
+      </button>
+
+      <div className="relative grid min-w-0 [&>*]:col-start-1 [&>*]:row-start-1">
+        {galleryItems.map((item) => (
+          <span
+            key={item.id}
+            aria-hidden
+            className={`invisible ${labelClassName}`}
+          >
+            {item.label}
+          </span>
+        ))}
+
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <button
+              type="button"
+              role="tab"
+              aria-selected
+              aria-haspopup="menu"
+              className={`group relative flex w-full items-center justify-center rounded-md text-black transition-colors hover:bg-black/[0.04] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-black/15 ${labelClassName}`}
+            >
+              {activeLabel}
+              <ChevronDown
+                className="pointer-events-none absolute right-0 size-3.5 text-black/35 transition-colors group-hover:text-black/55 group-data-[state=open]:text-black/55"
+                aria-hidden
+              />
+            </button>
+          </DropdownMenuTrigger>
+
+          <DropdownMenuContent
+            align="center"
+            className="min-w-[14rem] rounded-xl border-black/10 bg-white p-1 text-marketing-charcoal shadow-[0_12px_40px_rgba(0,0,0,0.12)]"
+          >
+            <DropdownMenuLabel
+              className={`px-2 py-1.5 text-xs font-medium text-black/50 ${typo.secondarySans}`}
+            >
+              Select a feature to explore
+            </DropdownMenuLabel>
+
+            {galleryItems.map((item) => (
+              <DropdownMenuItem
+                key={item.id}
+                onSelect={() => onChange(item.id)}
+                className={`rounded-lg px-2 py-2 text-sm font-medium focus:bg-black/[0.04] ${typo.headingSans}`}
+              >
+                <span className="flex-1">{item.label}</span>
+                {item.id === activeItem ? (
+                  <Check className="size-4 text-marketing-primary" aria-hidden />
+                ) : null}
+              </DropdownMenuItem>
+            ))}
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
+
+      <button
+        type="button"
+        className={arrowButtonClass}
+        aria-label="Next feature"
+        onClick={() => goToOffset(1)}
+      >
+        <ChevronRight className="size-4" aria-hidden />
+      </button>
+    </div>
+  );
+}
+
 /**
- * Round-out corners where the cream notch meets the hero:
- * a cream square beside the notch, cut by a primary circle so the
- * surviving quarter-circle reads as a scooped shoulder.
+ * Concave corner beside the notch. Cream is the fill; the quarter-circle
+ * is a hole, so the mountain background shows through instead of a painted
+ * circle that has to match the section colour.
  */
 function NotchShoulder({ side }: { side: "left" | "right" }) {
   const isLeft = side === "left";
 
   return (
-    <>
-      <span
-        aria-hidden
-        className="pointer-events-none absolute top-0 z-0 bg-marketing-cream"
-        style={{
-          width: SCOOP,
-          height: SCOOP,
-          ...(isLeft ? { left: `-${SCOOP}` } : { right: `-${SCOOP}` }),
-        }}
+    <svg
+      aria-hidden
+      viewBox="0 0 24 24"
+      className="pointer-events-none absolute top-0 block text-marketing-cream"
+      style={{
+        width: SCOOP,
+        height: SCOOP,
+        // Overlap the cream bar so the path's vertical edge anti-aliases
+        // over cream, not over the mountain (which reads as a grey hairline).
+        ...(isLeft
+          ? { left: `calc(-${SCOOP} + 2px)` }
+          : { right: `calc(-${SCOOP} + 2px)` }),
+      }}
+    >
+      <path
+        fill="currentColor"
+        d={
+          isLeft
+            ? "M0 0h24v24A24 24 0 0 0 0 0z"
+            : "M24 0H0v24A24 24 0 0 1 24 0z"
+        }
       />
-      <span
-        aria-hidden
-        className="pointer-events-none absolute top-0 z-[1] rounded-full bg-marketing-primary"
-        style={{
-          width: `calc(${SCOOP} * 2)`,
-          height: `calc(${SCOOP} * 2)`,
-          ...(isLeft
-            ? { left: `calc(${SCOOP} * -2)` }
-            : { right: `calc(${SCOOP} * -2)` }),
-        }}
-      />
-    </>
+    </svg>
   );
 }
 
@@ -136,14 +254,20 @@ export function UcatProductStage() {
   return (
     <section
       id="product"
-      className="relative scroll-mt-24 bg-marketing-primary px-3 pb-24 text-white sm:px-6 sm:pb-28"
+      className="relative scroll-mt-24 overflow-hidden bg-marketing-primary px-4 pb-20 text-white sm:px-8 sm:pb-24"
     >
       <div
-        className="pointer-events-none absolute inset-0 overflow-hidden"
+        className="pointer-events-none absolute inset-0 z-0 opacity-70"
         aria-hidden
       >
-        <div className="absolute -left-32 top-0 size-[32rem] rounded-full bg-[#355d72] blur-[130px]" />
-        <div className="absolute -right-24 bottom-0 size-[28rem] rounded-full bg-marketing-accent/18 blur-[120px]" />
+        <Image
+          src="/images/landing/background-alt-scaled.jpg"
+          alt=""
+          fill
+          sizes="100vw"
+          className="object-cover"
+        />
+        <div className="absolute inset-0 bg-gradient-to-t from-[#0a2941] via-[#0a2941]/60 to-[#0a2941]/10" />
       </div>
 
       {/* Cream notch: continuous with hero cream — no top shadow/seam */}
@@ -167,6 +291,13 @@ export function UcatProductStage() {
           <NotchShoulder side="left" />
           <NotchShoulder side="right" />
 
+          <div className="lg:hidden">
+            <GalleryCarouselSwitcher
+              activeItem={activeItem}
+              onChange={handleTabChange}
+            />
+          </div>
+
           <SegmentedControl
             value={activeItem}
             onValueChange={handleTabChange}
@@ -176,13 +307,13 @@ export function UcatProductStage() {
             }))}
             variant="light"
             aria-label="Explore Altitutor UCAT"
-            className={`relative z-[2] max-w-full bg-transparent text-sm font-semibold tracking-tight ring-0 [--radius:9999px] md:text-base md:[&_button]:px-4 md:[&_button]:py-2.5 ${typo.headingSans}`}
+            className={`relative z-[2] hidden max-w-full overflow-x-visible bg-transparent text-sm font-semibold tracking-tight shadow-none ring-0 ring-transparent [--radius:9999px] lg:inline-flex md:text-base md:[&_button]:px-4 md:[&_button]:py-2.5 ${typo.headingSans}`}
           />
         </div>
       </div>
 
       <div
-        className="relative mx-auto mt-7 w-full max-w-[92rem] sm:mt-9"
+        className="relative z-10 mx-auto mt-7 w-full max-w-6xl sm:mt-9"
         onMouseEnter={handlePointerEnter}
         onMouseLeave={handlePointerLeave}
       >
@@ -191,7 +322,7 @@ export function UcatProductStage() {
           aria-label={
             galleryItems.find((item) => item.id === activeItem)?.label
           }
-          className="h-[35rem] overflow-hidden rounded-[1.25rem] bg-[#f6f7f9] shadow-[0_28px_90px_rgba(0,0,0,0.26)] ring-1 ring-white/15 sm:h-[42rem] lg:h-[46rem] xl:h-[50rem]"
+          className="h-[28rem] overflow-hidden rounded-[1.25rem] bg-[#f6f7f9] shadow-[0_28px_90px_rgba(0,0,0,0.26)] ring-1 ring-white/15 sm:h-[34rem] lg:aspect-[16/10] lg:h-auto"
         >
           <div
             key={activeItem}

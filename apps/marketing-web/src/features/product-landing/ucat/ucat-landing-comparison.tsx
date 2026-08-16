@@ -25,7 +25,13 @@ import {
   X,
   type LucideIcon,
 } from "lucide-react";
-import { UCAT_SECTION_EYEBROW_CLASS, UCAT_SECTION_PADDING_CLASS } from "./ucat-landing-section-eyebrow";
+import {
+  UCAT_SECTION_EYEBROW_CLASS,
+  UCAT_SECTION_PADDING_CLASS,
+  UCAT_SECTION_DESCRIPTION_CLASS,
+  UCAT_SUPPORTING_TEXT_CLASS,
+  UCAT_SECTION_HEADING_CLASS,
+} from "./ucat-landing-section-eyebrow";
 
 const { typography: typo } = MARKETING_TOKENS;
 
@@ -209,7 +215,7 @@ const STATUS_ROWS: Extract<ComparisonRow, { kind: "status" }>[] = [
       medify: {
         status: "partial",
         detail:
-          "Medify offers limited free content. Full practice, trainers, and mocks require a paid subscription.",
+          "Only learning modules are free. Practice, trainers, and mocks require a paid subscription.",
       },
     },
   },
@@ -400,12 +406,12 @@ export function UcatLandingComparison() {
             Comparison
           </p>
           <h2
-            className={`mt-4 text-4xl font-semibold tracking-[-0.035em] text-marketing-charcoal sm:text-5xl ${typo.headingSans}`}
+            className={`mt-4 ${UCAT_SECTION_HEADING_CLASS} ${typo.headingSans}`}
           >
             How Altitutor UCAT compares
           </h2>
           <p
-            className={`mx-auto mt-5 max-w-2xl text-lg leading-relaxed text-marketing-charcoal/60 sm:text-xl ${typo.secondarySans}`}
+            className={`mx-auto mt-5 max-w-2xl ${UCAT_SECTION_DESCRIPTION_CLASS} ${typo.secondarySans}`}
           >
             See how Altitutor UCAT stacks up against other platforms.
           </p>
