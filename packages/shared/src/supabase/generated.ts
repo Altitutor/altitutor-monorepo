@@ -4335,6 +4335,13 @@ export type Database = {
             referencedRelation: "messages"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "messages_resent_from_message_id_fkey"
+            columns: ["resent_from_message_id"]
+            isOneToOne: false
+            referencedRelation: "vadmin_reconciliation_unreplied_messages"
+            referencedColumns: ["last_message_id_detail"]
+          },
         ]
       }
       newsletter_subscribers: {
