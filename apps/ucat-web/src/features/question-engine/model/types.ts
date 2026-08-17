@@ -128,6 +128,72 @@ export type QuestionStemWithQuestions = {
   }[];
 };
 
+// Practice sessions keep immutable question snapshots, so a session created
+// before the response-contract rollout can be resumed after a deployment.
+// Remove this adapter only when production retention guarantees that no
+// pre-contract practice snapshot can still be active or resumed.
+type LegacyPracticeQuestion = Omit<
+  QuestionStemWithQuestions["questions"][number],
+  "answerScheme" | "options" | "responseType"
+> & {
+  questionType?: "multiple_choice" | "syllogism";
+  responseType?: ResponseType;
+  answerScheme?: AnswerScheme["kind"];
+  options: Array<AnswerOption & { isAnswer?: boolean }>;
+};
+
+function normalizePracticeQuestion(
+  question: QuestionStemWithQuestions["questions"][number],
+): Pick<QuestionItem, "answerScheme" | "options" | "responseType"> {
+  const legacyQuestion = question as LegacyPracticeQuestion;
+  const answerScheme =
+    question.answerScheme ??
+    (legacyQuestion.questionType === "syllogism"
+      ? "decision_making_binary_placement"
+      : legacyQuestion.questionType === "multiple_choice"
+        ? "single_choice"
+        : undefined);
+  const responseType =
+    question.responseType ??
+    (legacyQuestion.questionType === "syllogism"
+      ? "drag_and_drop"
+      : legacyQuestion.questionType === "multiple_choice"
+        ? "multiple_choice"
+        : undefined);
+
+  if (!answerScheme || !responseType) {
+    throw new Error("Practice question snapshot is missing its response contract");
+  }
+
+  const options = legacyQuestion.options.map((option) => {
+    if (
+      option.answerKeyValue != null ||
+      typeof option.isAnswer !== "boolean"
+    ) {
+      return option;
+    }
+
+    if (answerScheme === "decision_making_binary_placement") {
+      return {
+        ...option,
+        answerKeyValue: option.isAnswer ? ("yes" as const) : ("no" as const),
+      };
+    }
+    if (
+      answerScheme === "single_choice" ||
+      answerScheme === "situational_judgement_rating"
+    ) {
+      return {
+        ...option,
+        answerKeyValue: option.isAnswer ? ("correct" as const) : null,
+      };
+    }
+    return option;
+  });
+
+  return { answerScheme, options, responseType };
+}
+
 export function mapQuestionStemsToItems(
   stems: QuestionStemWithQuestions[],
 ): QuestionItem[] {
@@ -140,7 +206,8 @@ export function mapQuestionStemsToItems(
     );
 
     for (const question of sortedQuestions) {
-      const sortedOptions = [...question.options].sort(
+      const normalized = normalizePracticeQuestion(question);
+      const sortedOptions = [...normalized.options].sort(
         (a, b) => a.index - b.index,
       );
       const correctOption = sortedOptions.find(
@@ -158,8 +225,8 @@ export function mapQuestionStemsToItems(
         stemJson: stem.stemJson,
         questionText: question.questionText,
         questionJson: question.questionJson,
-        responseType: question.responseType,
-        answerScheme: question.answerScheme,
+        responseType: normalized.responseType,
+        answerScheme: normalized.answerScheme,
         options: sortedOptions,
         correctOptionId: correctOption?.id,
         answerExplanation: question.answerExplanation,
