@@ -46,6 +46,7 @@ export function IssueStatusField({ form }: IssueStatusFieldProps) {
                 onValueChange={(item) => field.onChange(item ? item.value : 'open')}
                 getItemLabel={(option) => option.label}
                 getItemId={(option) => option.value}
+                fullWidth
                 trigger={
                   <Button type="button" variant="outline" className="w-full justify-start font-normal">
                     <StatusIcon className={cn('h-4 w-4', iconColor)} />

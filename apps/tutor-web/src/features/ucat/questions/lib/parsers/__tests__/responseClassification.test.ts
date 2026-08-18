@@ -167,6 +167,23 @@ describe('parseUntypedAnswerEvidence', () => {
     ])
   })
 
+  it.each([
+    ['MLN', ['most', 'least', null]],
+    ['MNL', ['most', null, 'least']],
+    ['Neutral, Least, Most', [null, 'least', 'most']],
+    ['Most Appropriate | Neutral | Least Appropriate', ['most', null, 'least']],
+  ])('parses sequenced Most/Least/Neutral evidence: %s', (input, keyValues) => {
+    expect(parseUntypedAnswerEvidence(input)).toEqual([
+      {
+        kind: 'most_least_pair',
+        confidence: 'certain',
+        keyValues,
+        evidence: ['sequenced_most_least_tokens'],
+        conflicts: [],
+      },
+    ])
+  })
+
   it('leaves ambiguous compact answer pairs for review', () => {
     expect(parseUntypedAnswerEvidence('BC')).toEqual([
       {
@@ -321,6 +338,36 @@ describe('inferDecisionMakingCategory', () => {
         directive: yesNoDirective,
       })
     ).toMatchObject({ value: 'Syllogisms', confidence: 'strong', conflicts: [] })
+  })
+
+  it('classifies an exhaustive no-other-except set constraint as a Syllogism', () => {
+    expect(
+      inferDecisionMakingCategory({
+        stemText:
+          'Jane has a lot of dogs. She has Dobermans and white or grey Alsatians. She has no other type of dog except brown Rottweilers.',
+        directive: yesNoDirective,
+      })
+    ).toMatchObject({
+      value: 'Syllogisms',
+      confidence: 'strong',
+      evidence: ['exhaustive_exception_premise'],
+      conflicts: [],
+    })
+  })
+
+  it('classifies an everyone-except set constraint as a Syllogism', () => {
+    expect(
+      inferDecisionMakingCategory({
+        stemText:
+          'Everyone in the class can swim, except for Molly and Jeremy. More than three people in the class can ride a bike.',
+        directive: yesNoDirective,
+      })
+    ).toMatchObject({
+      value: 'Syllogisms',
+      confidence: 'strong',
+      evidence: ['exhaustive_exception_premise'],
+      conflicts: [],
+    })
   })
 
   it('classifies prose information passages as Interpreting Information despite incidental quantifiers', () => {

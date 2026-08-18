@@ -14,6 +14,31 @@ const parsingOptions = {
 }
 
 describe('parseCombinedDocumentForSection', () => {
+  it('shows consecutive SJ screenshots as separate preview stems', () => {
+    const stems = parseCombinedDocumentForSection(
+      {
+        type: 'doc',
+        content: ['one', 'two', 'three'].map((name) => ({
+          type: 'paragraph',
+          content: [{
+            type: 'image',
+            attrs: { fileId: `img-${name}`, src: `https://example.com/${name}.png` },
+          }],
+        })),
+      },
+      'situational_judgement',
+      parsingOptions
+    )
+
+    expect(stems).toHaveLength(3)
+    expect(stems.every((stem) => stem.questions.length === 0)).toBe(true)
+    expect(stems.map((stem) => stem.stemText)).toEqual([
+      expect.stringContaining('one.png'),
+      expect.stringContaining('two.png'),
+      expect.stringContaining('three.png'),
+    ])
+  })
+
   it('shows image-backed Decision Making syllogisms as questions in sync preview', () => {
     const stems = parseCombinedDocumentForSection(
       {

@@ -9,6 +9,7 @@ import {
 import { getServiceRoleClient } from "@/shared/lib/supabase/service-role";
 
 export const dynamic = "force-dynamic";
+export const fetchCache = "force-no-store";
 export const runtime = "nodejs";
 
 const UUID_PATTERN =

@@ -303,6 +303,7 @@ export function Step2PasteDocument({
                   }
                   getItemLabel={(i) => i.label}
                   getItemId={(i) => i.value}
+                  fullWidth
                   triggerClassName="w-full"
                 />
               </div>
@@ -323,6 +324,7 @@ export function Step2PasteDocument({
                   }
                   getItemLabel={(i) => i.label}
                   getItemId={(i) => i.value}
+                  fullWidth
                   triggerClassName="w-full"
                 />
               </div>
@@ -349,6 +351,7 @@ export function Step2PasteDocument({
                     }
                     getItemLabel={(i) => i.label}
                     getItemId={(i) => i.value}
+                    fullWidth
                     triggerClassName="w-full"
                   />
                 </div>
@@ -375,6 +378,7 @@ export function Step2PasteDocument({
                     }
                     getItemLabel={(i) => i.label}
                     getItemId={(i) => i.value}
+                    fullWidth
                     triggerClassName="w-full"
                   />
                 </div>
@@ -395,6 +399,7 @@ export function Step2PasteDocument({
                   onValueChange={(item) => item && onPasteTableBehaviorChange?.(item.value)}
                   getItemLabel={(item) => item.label}
                   getItemId={(item) => item.value}
+                  fullWidth
                   triggerClassName="w-full"
                 />
                 <Button
@@ -465,6 +470,7 @@ export function Step2PasteDocument({
                     }
                     getItemLabel={(i) => i.label}
                     getItemId={(i) => i.value}
+                    fullWidth
                     triggerClassName="w-full"
                   />
                 </div>
@@ -485,6 +491,7 @@ export function Step2PasteDocument({
                     }
                     getItemLabel={(i) => i.label}
                     getItemId={(i) => i.value}
+                    fullWidth
                     triggerClassName="w-full"
                   />
                 </div>
@@ -511,6 +518,7 @@ export function Step2PasteDocument({
                       }
                       getItemLabel={(i) => i.label}
                       getItemId={(i) => i.value}
+                      fullWidth
                       triggerClassName="w-full"
                     />
                   </div>
@@ -537,6 +545,7 @@ export function Step2PasteDocument({
                       }
                       getItemLabel={(i) => i.label}
                       getItemId={(i) => i.value}
+                      fullWidth
                       triggerClassName="w-full"
                     />
                   </div>
@@ -559,6 +568,7 @@ export function Step2PasteDocument({
                     onValueChange={(item) => item && onPasteTableBehaviorChange?.(item.value)}
                     getItemLabel={(i) => i.label}
                     getItemId={(i) => i.value}
+                    fullWidth
                     triggerClassName="w-full"
                   />
                   <Button

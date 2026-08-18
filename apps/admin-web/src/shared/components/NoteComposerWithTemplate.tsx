@@ -19,6 +19,7 @@ interface NoteComposerWithTemplateProps {
   placeholder?: string;
   minHeight?: string;
   className?: string;
+  floatingToolbar?: boolean;
 }
 
 export function NoteComposerWithTemplate({
@@ -30,6 +31,7 @@ export function NoteComposerWithTemplate({
   placeholder = 'Add a note...',
   minHeight = '80px',
   className,
+  floatingToolbar = false,
 }: NoteComposerWithTemplateProps) {
   const editorRef = useRef<NotesEditorWithMentionsRef | null>(null);
   const { data: templates = [], isLoading: isTemplatesLoading } = useRichTextTemplates();
@@ -54,6 +56,7 @@ export function NoteComposerWithTemplate({
             placeholder={placeholder}
             disabled={isSubmitting || !canPost}
             minHeight={minHeight}
+            floatingToolbar={floatingToolbar}
           />
         </div>
         <SearchableSelect<Tables<'rich_text_templates'>>

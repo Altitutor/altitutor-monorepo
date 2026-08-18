@@ -162,6 +162,7 @@ import {
   UCAT_AI_REVIEW_STATUS_COPY,
   UCAT_DURABLE_AI_REVIEW_STATUSES,
 } from '@/features/ucat/questions/lib/ai-assessment/review-status'
+import { buildQuestionCatalogProvenanceFilters } from '@/features/ucat/questions/lib/question-catalog-provenance-filters'
 
 type QuestionsTab = UcatContentStatus
 
@@ -236,16 +237,6 @@ const filterDefinitions: DataTableFilterDefinition[] = [
       { label: 'Private', value: 'private' },
     ],
   },
-  {
-    key: 'source_channel',
-    label: 'Source',
-    options: [
-      { label: 'Individual add', value: 'individual' },
-      { label: 'Bulk import', value: 'bulk_import' },
-      { label: 'AI generation', value: 'ai_generation' },
-    ],
-  },
-  { key: 'created_by', label: 'Created by' },
   {
     key: 'created_at_range',
     label: 'Created at',
@@ -1014,11 +1005,7 @@ export function UcatQuestionsPage() {
       filterDefinitions[3],
       filterDefinitions[4],
       ...(aiReviewEnabled ? [aiReviewFilterDefinition] : []),
-      {
-        ...filterDefinitions[5],
-        options: createdByFilterOptions,
-      },
-      filterDefinitions[6],
+      ...buildQuestionCatalogProvenanceFilters(createdByFilterOptions),
       {
         key: 'question_set_id',
         label: 'Set',

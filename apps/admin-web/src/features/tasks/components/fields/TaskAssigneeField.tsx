@@ -90,6 +90,7 @@ export function TaskAssigneeField({
             getItemId={(s) => s.id}
             getItemLabel={(s) => `${s.first_name} ${s.last_name}`}
             getItemValue={(s) => `${s.first_name} ${s.last_name} ${s.email ?? ''}`.trim()}
+            fullWidth
             placeholder="Unassigned"
             searchPlaceholder="Search staff..."
             emptyMessage={

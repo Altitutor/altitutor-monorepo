@@ -29,10 +29,10 @@ export function EditTaskDialog({
   issue,
   project,
 }: EditTaskDialogProps) {
-  const [expanded, setExpanded] = useState(false);
+  const [expanded, setExpanded] = useState(true);
 
   useEffect(() => {
-    if (!isOpen) setExpanded(false);
+    if (!isOpen) setExpanded(true);
   }, [isOpen]);
 
   if (!taskId || !isOpen) return null;

@@ -1,7 +1,19 @@
 'use client'
 
-import { Checkbox, Label, SearchableSelect, Textarea } from '@altitutor/ui'
+import React, { useEffect, useState } from 'react'
+import { SearchableSelect, Textarea } from '@altitutor/ui'
 import type { UcatSection } from '@/features/ucat/shared/types'
+import { UcatPropertyRow } from '@/features/ucat/shared/components/UcatPropertyRow'
+
+type StemDocumentOption = {
+  value: 'combined' | 'separate'
+  label: string
+}
+
+const STEM_DOCUMENT_OPTIONS: StemDocumentOption[] = [
+  { value: 'combined', label: 'Combined document' },
+  { value: 'separate', label: 'Separate documents' },
+]
 
 type Step1ChooseSectionProps = {
   sectionId: string | null
@@ -24,6 +36,31 @@ export function Step1ChooseSection({
 }: Step1ChooseSectionProps) {
   const hasSections = sections.length > 0
   const selected = sections.find((s) => (s.id ?? '') === (sectionId ?? '')) ?? null
+  const [sectionSelectOpen, setSectionSelectOpen] = useState(false)
+
+  useEffect(() => {
+    if (!sectionSelectOpen) return
+
+    function handleSectionShortcut(event: KeyboardEvent) {
+      if (event.altKey || event.ctrlKey || event.metaKey || event.shiftKey || event.isComposing) {
+        return
+      }
+
+      const sectionIndex = Number(event.key) - 1
+      if (!Number.isInteger(sectionIndex) || sectionIndex < 0 || sectionIndex > 3) return
+
+      const shortcutSection = sections[sectionIndex]
+      if (!shortcutSection?.id) return
+
+      event.preventDefault()
+      event.stopPropagation()
+      onChangeSection(shortcutSection.id)
+      setSectionSelectOpen(false)
+    }
+
+    window.addEventListener('keydown', handleSectionShortcut, true)
+    return () => window.removeEventListener('keydown', handleSectionShortcut, true)
+  }, [onChangeSection, sectionSelectOpen, sections])
 
   return (
     <div className="space-y-4">
@@ -35,9 +72,8 @@ export function Step1ChooseSection({
         </p>
       </div>
 
-      <div className="max-w-sm">
-        <label className="block space-y-1 text-sm">
-          <span className="font-medium">Section</span>
+      <div className="max-w-2xl space-y-1">
+        <UcatPropertyRow label="Section">
           <SearchableSelect<UcatSection>
             items={sections}
             value={selected}
@@ -46,40 +82,36 @@ export function Step1ChooseSection({
             getItemId={(s) => s.id ?? 'none'}
             placeholder={hasSections ? 'Select a section' : 'No sections available'}
             disabled={!hasSections}
+            fullWidth
+            ariaLabel="Section"
+            open={sectionSelectOpen}
+            onOpenChange={setSectionSelectOpen}
           />
-        </label>
-      </div>
-
-      <div className="max-w-lg">
-        <label className="block space-y-1 text-sm">
-          <span className="font-medium">Tutor source note</span>
+        </UcatPropertyRow>
+        <UcatPropertyRow label="Tutor source note">
           <Textarea
             className="min-h-24"
             value={tutorSourceNote}
             onChange={(event) => onTutorSourceNoteChange(event.target.value)}
             placeholder="e.g. Altitutor mock 3, official practice bank, in-house worksheet"
+            aria-label="Tutor source note"
           />
-        </label>
-      </div>
-
-      <div className="flex items-start gap-2 rounded-md border bg-muted/30 px-3 py-3 max-w-lg">
-        <Checkbox
-          id="bulk-import-separate-stem-document"
-          checked={separateStemDocument}
-          onCheckedChange={(checked) => onSeparateStemDocumentChange(checked === true)}
-        />
-        <div className="space-y-1">
-          <Label
-            htmlFor="bulk-import-separate-stem-document"
-            className="cursor-pointer text-sm font-medium"
-          >
-            Stems in separate document
-          </Label>
-          <p className="text-xs text-muted-foreground leading-snug">
-            Paste question stems from one document and questions from another. Available for all
-            UCAT sections.
-          </p>
-        </div>
+        </UcatPropertyRow>
+        <UcatPropertyRow label="Document layout">
+          <div className="space-y-1">
+            <SearchableSelect<StemDocumentOption>
+              items={STEM_DOCUMENT_OPTIONS}
+              value={STEM_DOCUMENT_OPTIONS[separateStemDocument ? 1 : 0]}
+              onValueChange={(item) => {
+                if (item) onSeparateStemDocumentChange(item.value === 'separate')
+              }}
+              getItemLabel={(item) => item.label}
+              getItemId={(item) => item.value}
+              fullWidth
+              ariaLabel="Document layout"
+            />
+          </div>
+        </UcatPropertyRow>
       </div>
     </div>
   )

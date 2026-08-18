@@ -19,10 +19,10 @@ interface EditProjectDialogProps {
 }
 
 export function EditProjectDialog({ isOpen, onClose, projectId }: EditProjectDialogProps) {
-  const [expanded, setExpanded] = useState(false);
+  const [expanded, setExpanded] = useState(true);
 
   useEffect(() => {
-    if (!isOpen) setExpanded(false);
+    if (!isOpen) setExpanded(true);
   }, [isOpen]);
 
   if (!projectId || !isOpen) return null;

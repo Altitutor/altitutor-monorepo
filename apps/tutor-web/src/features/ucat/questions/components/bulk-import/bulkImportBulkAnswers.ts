@@ -21,6 +21,7 @@ import {
   answerEvidenceFitsOptionCount,
   inferResponseContract,
   parseUntypedAnswerEvidence,
+  type UntypedAnswerEvidence,
 } from '@/features/ucat/questions/lib/parsers/responseClassification'
 
 export type QuestionOptionPreview = {
@@ -90,6 +91,45 @@ function emptyPreview(stems: BulkImportStemDraft[], row: FlatQuestionRef): Quest
   }
 }
 
+function isMostLeastQuestion(stems: BulkImportStemDraft[], row: FlatQuestionRef): boolean {
+  const stem = stems.find((candidate) => candidate.id === row.stemId)
+  const question = stem?.values.questions?.[row.questionIndex]
+  if (!question) return false
+  if (question.answerScheme === 'situational_judgement_most_least') return true
+  return inferResponseContract({
+    directive: proseMirrorToPlainText(question.questionText)?.trim() ?? '',
+    targetCount: question.options.length,
+    optionTexts: question.options.map(
+      (option) => proseMirrorToPlainText(option.answerText)?.trim() ?? ''
+    ),
+  }).answerScheme.value === 'situational_judgement_most_least'
+}
+
+function alignOptionalMostLeastEvidence(
+  evidence: UntypedAnswerEvidence[],
+  questions: FlatQuestionRef[],
+  stems: BulkImportStemDraft[]
+): Array<UntypedAnswerEvidence | null> | null {
+  const aligned: Array<UntypedAnswerEvidence | null> = []
+  let evidenceIndex = 0
+  for (const question of questions) {
+    const next = evidence[evidenceIndex]
+    if (isMostLeastQuestion(stems, question)) {
+      if (next?.kind === 'most_least_pair' && next.conflicts.length === 0) {
+        aligned.push(next)
+        evidenceIndex += 1
+      } else {
+        aligned.push(null)
+      }
+      continue
+    }
+    if (!next) return null
+    aligned.push(next)
+    evidenceIndex += 1
+  }
+  return evidenceIndex === evidence.length ? aligned : null
+}
+
 /** Live preview of parsed bulk answers aligned to wizard questions (paste order). */
 export function buildQuestionAnswerPreviews(
   stems: BulkImportStemDraft[],
@@ -102,6 +142,36 @@ export function buildQuestionAnswerPreviews(
 
   if (!plain) {
     return flat.map((row) => emptyPreview(stems, row))
+  }
+
+  const untypedEvidence = parseUntypedAnswerEvidence(plain)
+  const hasMostLeastQuestion = flat.some((row) => isMostLeastQuestion(stems, row))
+  if (hasMostLeastQuestion) {
+    const aligned = alignOptionalMostLeastEvidence(untypedEvidence, flat, stems)
+    if (aligned) {
+      return flat.map((row, index) => {
+        const evidence = aligned[index]
+        if (!evidence) return emptyPreview(stems, row)
+        if (evidence.kind === 'most_least_pair') {
+          return {
+            ...emptyPreview(stems, row),
+            placementPattern: evidence.keyValues
+              .slice(0, row.optionCount)
+              .map((value) => value === 'most' ? 'M' : value === 'least' ? 'L' : 'N')
+              .join(' · '),
+            isParsed: true,
+          }
+        }
+        const correctIndex = evidence.keyValues.indexOf('correct')
+        return correctIndex >= 0
+          ? {
+              ...emptyPreview(stems, row),
+              answerLetter: String.fromCharCode(65 + correctIndex),
+              isParsed: true,
+            }
+          : emptyPreview(stems, row)
+      })
+    }
   }
 
   if (isDecisionMakingSection) {
@@ -209,18 +279,29 @@ export function validateBulkAnswersDocument(
 
   const plain = answerDocToPlainTsv(pastedAnswersJson)
   if (!plain.trim()) {
+    const allQuestionsAreOptionalMostLeast = flatQuestions.every((question) => {
+      const stem = stems.find((candidate) => candidate.id === question.stemId)
+      return stem?.values.questions?.[question.questionIndex]?.answerScheme ===
+        'situational_judgement_most_least'
+    })
+    if (allQuestionsAreOptionalMostLeast) return { ok: true }
     return { ok: false, message: 'Paste an answers document before continuing.' }
   }
 
   const untypedEvidence = parseUntypedAnswerEvidence(plain)
-  if (untypedEvidence.length !== totalQuestions) {
+  const alignedEvidence = alignOptionalMostLeastEvidence(
+    untypedEvidence,
+    flatQuestions,
+    stems
+  )
+  if (!alignedEvidence) {
     return {
       ok: false,
-      message: `Expected ${totalQuestions} answers but found ${untypedEvidence.length}.`,
+      message: `Expected answers for ${totalQuestions} questions; Most/Least answers may be omitted.`,
     }
   }
-  const unresolved = untypedEvidence.find(
-    (evidence) => evidence.kind == null || evidence.conflicts.length > 0
+  const unresolved = alignedEvidence.find(
+    (evidence) => evidence != null && (evidence.kind == null || evidence.conflicts.length > 0)
   )
   if (unresolved) {
     return {
@@ -230,18 +311,20 @@ export function validateBulkAnswersDocument(
         : 'One or more answer shapes are ambiguous and require review.',
     }
   }
-  if (
-    untypedEvidence.some(
-      (evidence, index) => !answerEvidenceFitsOptionCount(
+  if (alignedEvidence.some(
+      (evidence, index) => evidence != null && !answerEvidenceFitsOptionCount(
         evidence,
         flatQuestions[index]?.optionCount ?? 0
       )
-    )
-  ) {
+    )) {
     return {
       ok: false,
       message: 'Answer evidence does not fit the target question options.',
     }
+  }
+
+  if (flatQuestions.some((question) => isMostLeastQuestion(stems, question))) {
+    return { ok: true }
   }
 
   if (isDecisionMakingSection) {
@@ -292,6 +375,9 @@ export function applyBulkAnswersToStems(
 
   const updatesByStem = new Map<string, UcatQuestionStemFormValues>()
   const untypedEvidence = parseUntypedAnswerEvidence(answerDocToPlainTsv(pastedAnswersJson))
+  const flatQuestions = flattenBulkImportQuestions(stems)
+  const alignedEvidence = alignOptionalMostLeastEvidence(untypedEvidence, flatQuestions, stems)
+  const hasMostLeastQuestion = flatQuestions.some((row) => isMostLeastQuestion(stems, row))
 
   if (isDecisionMakingSection) {
     const responseKinds = flat.map(({ stemId, questionIndex }) => {
@@ -343,7 +429,7 @@ export function applyBulkAnswersToStems(
       nextValues = { ...nextValues, questions }
       updatesByStem.set(stemId, nextValues)
     })
-  } else {
+  } else if (!hasMostLeastQuestion) {
     const parsed = parseAnswersTableFromDoc(pastedAnswersJson, answerParseOptions)
     parsed.forEach((row, i) => {
       if (i >= flat.length) return
@@ -371,8 +457,9 @@ export function applyBulkAnswersToStems(
     })
   }
 
-  if (untypedEvidence.length === flat.length) {
-    untypedEvidence.forEach((evidence, index) => {
+  if (alignedEvidence) {
+    alignedEvidence.forEach((evidence, index) => {
+      if (!evidence) return
       if (!evidence.kind || evidence.conflicts.length > 0) return
       const target = flat[index]
       if (!target) return

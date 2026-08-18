@@ -130,6 +130,7 @@ export function StepPasteStems({
                     onValueChange={(item) => item && onPasteTableBehaviorChange(item.value)}
                     getItemLabel={(item) => item.label}
                     getItemId={(item) => item.value}
+                    fullWidth
                     triggerClassName="w-full"
                   />
                   <Button

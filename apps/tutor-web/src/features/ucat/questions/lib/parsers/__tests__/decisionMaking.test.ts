@@ -181,6 +181,21 @@ All male patients on the ward are non-smokers`
     expect(getDecisionMakingStemCategoryName(stems[0]!)).toBe('Syllogisms')
   })
 
+  it('classifies exhaustive no-other-except premises as Syllogisms', () => {
+    const input = `Jane has a lot of dogs. She has Dobermans and white or grey Alsatians. She has no other type of dog except brown Rottweilers.
+
+Place 'Yes' if the conclusion does follow. Place 'No' if the conclusion does not follow.
+
+Jane has a brown Rottweiler
+Some of Jane's dogs are Dobermans
+Jane has no black Alsatians
+All Jane's Rottweilers are brown
+Jane has at least three types of dog`
+
+    const stems = parseDecisionMakingPlainText(input)
+    expect(getDecisionMakingStemCategoryName(stems[0]!)).toBe('Syllogisms')
+  })
+
   it('classifies prose Yes/No information passages as Interpreting Information and Drawing Conclusions', () => {
     const input = `For small independent companies, where the company values are not the priority, selling their business out to larger corporate companies can boost sales significantly. Small companies can benefit from the expertise and vast resources that large corporations can certainly offer. Provided that it is well managed, independent companies that have been bought out by corporate companies can expand their businesses at a rate that is not achievable had they not have had the input of large corporations. The involvement of a corporate company is known to compromise the devotion of some customers, particularly those who prefer independent companies.
 

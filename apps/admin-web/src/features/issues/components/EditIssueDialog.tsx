@@ -20,10 +20,10 @@ interface EditIssueDialogProps {
 }
 
 export function EditIssueDialog({ isOpen, onClose, issueId, onIssueUpdated }: EditIssueDialogProps) {
-  const [expanded, setExpanded] = useState(false);
+  const [expanded, setExpanded] = useState(true);
 
   useEffect(() => {
-    if (!isOpen) setExpanded(false);
+    if (!isOpen) setExpanded(true);
   }, [isOpen]);
 
   if (!issueId || !isOpen) return null;

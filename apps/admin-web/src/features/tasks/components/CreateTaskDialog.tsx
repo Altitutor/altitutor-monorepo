@@ -85,12 +85,12 @@ export function CreateTaskDialog({
   const [selectedIssue, setSelectedIssue] = useState<{ id: string; name: string | null } | null>(issue ?? null);
   const [selectedProject, setSelectedProject] = useState<{ id: string; name: string | null } | null>(project ?? null);
   const [createdTaskId, setCreatedTaskId] = useState<string | null>(null);
-  const [expanded, setExpanded] = useState(false);
+  const [expanded, setExpanded] = useState(true);
   const [isSaveDialogOpen, setIsSaveDialogOpen] = useState(false);
   const descriptionRef = useRef<RichTextEditorRef>(null);
 
   useEffect(() => {
-    if (!isOpen) setExpanded(false);
+    if (!isOpen) setExpanded(true);
   }, [isOpen]);
 
   // Fetch notes for created task

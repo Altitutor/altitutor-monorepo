@@ -55,6 +55,7 @@ export function IssueDescriptionField({ form, value: _value, onTagClick: _onTagC
                 mentionSuggestions={mentionSuggestions}
                 slashMenuSuggestions={slashMenuSuggestions}
                 onPasteImages={handlePasteImages}
+                floatingToolbar
               />
             </div>
           </FormControl>

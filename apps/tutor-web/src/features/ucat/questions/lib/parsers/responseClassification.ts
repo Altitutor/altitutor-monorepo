@@ -104,6 +104,10 @@ const VISUAL_PRESENTATION_PATTERNS = [
 
 const LEADING_QUANTIFIER_PATTERN = /^(?:all|every|some|no|none|never)\b/u
 const COORDINATED_QUANTIFIER_PATTERN = /\band\s+(?:all|every|some|no|none|never)\b/gu
+const EXHAUSTIVE_EXCEPTION_PREMISE_PATTERNS = [
+  /\b(?:no|none)\s+other\b[^.!?]*\b(?:except|apart from|other than)\b/u,
+  /\b(?:everyone|everybody|everything|all)\b[^.!?]*\bexcept(?:\s+for)?\b/u,
+] as const
 
 export type DecisionMakingFormalPremiseSignal =
   (typeof FORMAL_PREMISE_SIGNAL_PATTERNS)[number][0]
@@ -266,6 +270,31 @@ function labelledMostLeastKeyValues(input: string): AnswerKeyInferenceValue[] | 
   return keys
 }
 
+function sequencedMostLeastKeyValues(input: string): AnswerKeyInferenceValue[] | null {
+  const compact = input.trim().toLowerCase().replace(/[\s,;|/.-]+/gu, '')
+  const compactTokens = /^[mln]{3}$/u.test(compact) ? [...compact] : null
+  const wordTokens = normalizeProbe(input)
+    .replace(/\bmost appropriate\b/gu, 'most')
+    .replace(/\bleast appropriate\b/gu, 'least')
+    .replace(/\b(?:not selected|neither|none)\b/gu, 'neutral')
+    .split(' ')
+    .filter(Boolean)
+  const rawTokens = compactTokens ?? wordTokens
+  if (rawTokens.length !== 3) return null
+
+  const tokens = rawTokens.map((token): AnswerKeyInferenceValue | undefined => {
+    if (token === 'm' || token === 'most') return 'most'
+    if (token === 'l' || token === 'least') return 'least'
+    if (token === 'n' || token === 'neutral') return null
+    return undefined
+  })
+  if (tokens.some((token) => token === undefined)) return null
+  if (tokens.filter((token) => token === 'most').length !== 1) return null
+  if (tokens.filter((token) => token === 'least').length !== 1) return null
+  if (tokens.filter((token) => token === null).length !== 1) return null
+  return tokens as AnswerKeyInferenceValue[]
+}
+
 /**
  * Parse answer evidence before a response type or legacy question type is known.
  * The result deliberately preserves ambiguity and conflicts for reconciliation.
@@ -274,7 +303,9 @@ function parseOneUntypedAnswerEvidence(trimmed: string): UntypedAnswerEvidence {
   const lines = trimmed.split(/\r?\n/u).map((line) => line.trim()).filter(Boolean)
   const firstField = trimmed.split('\t')[0]?.trim() ?? trimmed
   const binary = binaryKeyValues(trimmed) ?? binaryKeyValues(firstField) ?? lines.map(binaryKeyValues).find((value) => value != null) ?? null
-  const mostLeast = labelledMostLeastKeyValues(trimmed) ?? lines.map(labelledMostLeastKeyValues).find((value) => value != null) ?? null
+  const labelledMostLeast = labelledMostLeastKeyValues(trimmed) ?? lines.map(labelledMostLeastKeyValues).find((value) => value != null) ?? null
+  const sequencedMostLeast = sequencedMostLeastKeyValues(trimmed) ?? lines.map(sequencedMostLeastKeyValues).find((value) => value != null) ?? null
+  const mostLeast = labelledMostLeast ?? sequencedMostLeast
   if (binary && mostLeast) {
     return {
       kind: null,
@@ -298,7 +329,7 @@ function parseOneUntypedAnswerEvidence(trimmed: string): UntypedAnswerEvidence {
       kind: 'most_least_pair',
       confidence: 'certain',
       keyValues: mostLeast,
-      evidence: ['labelled_most_least_pair'],
+      evidence: [labelledMostLeast ? 'labelled_most_least_pair' : 'sequenced_most_least_tokens'],
       conflicts: [],
     }
   }
@@ -427,6 +458,15 @@ export function inferDecisionMakingCategory(input: {
       value: 'Interpreting Information and Drawing Conclusions',
       confidence: 'strong',
       evidence: ['visual_presentation'],
+      conflicts: [],
+    }
+  }
+  const stemProbe = normalizeProbe(input.stemText)
+  if (EXHAUSTIVE_EXCEPTION_PREMISE_PATTERNS.some((pattern) => pattern.test(stemProbe))) {
+    return {
+      value: 'Syllogisms',
+      confidence: 'strong',
+      evidence: ['exhaustive_exception_premise'],
       conflicts: [],
     }
   }
