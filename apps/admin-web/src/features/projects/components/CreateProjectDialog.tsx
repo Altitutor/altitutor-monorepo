@@ -65,11 +65,11 @@ export function CreateProjectDialog({
   const { data: currentStaff } = useCurrentStaff();
   const titleFieldRef = useRef<HTMLInputElement>(null);
   const descriptionFieldRef = useRef<RichTextEditorRef>(null);
-  const [expanded, setExpanded] = useState(false);
+  const [expanded, setExpanded] = useState(true);
   const [isSaveDialogOpen, setIsSaveDialogOpen] = useState(false);
 
   useEffect(() => {
-    if (!isOpen) setExpanded(false);
+    if (!isOpen) setExpanded(true);
   }, [isOpen]);
 
   const form = useForm<ProjectFormData, unknown, ProjectFormData>({
@@ -179,7 +179,10 @@ export function CreateProjectDialog({
           <div className="flex-1 overflow-hidden min-h-0">
             <div className="h-full flex">
               <form onSubmit={form.handleSubmit(onSubmit as SubmitHandler<ProjectFormData>)} className="flex-1 flex min-h-0">
-                <div className="flex-1 min-w-0 border-r overflow-y-auto p-6 space-y-6">
+                <div
+                  className="flex-1 min-w-0 border-r overflow-y-auto p-6 space-y-6"
+                  data-rich-text-toolbar-container
+                >
                   <ProjectTitleField
                     form={form}
                     onEnter={handleTitleEnter}

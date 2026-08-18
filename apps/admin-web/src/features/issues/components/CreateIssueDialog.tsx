@@ -96,14 +96,14 @@ export function CreateIssueDialog({
   initialDueDate = null,
   initialTags 
 }: CreateIssueDialogProps) {
-  const [expanded, setExpanded] = useState(false);
+  const [expanded, setExpanded] = useState(true);
   const [isSaveDialogOpen, setIsSaveDialogOpen] = useState(false);
   const descriptionRef = useRef<RichTextEditorRef>(null);
   const createIssue = useCreateIssue();
   const { data: currentStaff } = useCurrentStaff();
 
   useEffect(() => {
-    if (!isOpen) setExpanded(false);
+    if (!isOpen) setExpanded(true);
   }, [isOpen]);
 
   const form = useForm<IssueFormData, unknown, IssueFormData>({

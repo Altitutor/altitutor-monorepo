@@ -40,6 +40,7 @@ export function StemSplitSettingsFields({
         onValueChange={(item) => item && onChange({ ...options, mode: item.value })}
         getItemLabel={(item) => item.label}
         getItemId={(item) => item.value}
+        fullWidth
         triggerClassName="w-full"
       />
 
@@ -76,6 +77,7 @@ export function StemSplitSettingsFields({
             }
             getItemLabel={(item) => item.label}
             getItemId={(item) => item.value}
+            fullWidth
             triggerClassName="w-full"
           />
         </div>

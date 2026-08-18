@@ -139,6 +139,7 @@ export function StepStemCategories({
                   placeholder="Select category"
                   searchPlaceholder="Search categories..."
                   emptyMessage="No categories found"
+                  fullWidth
                   triggerClassName="h-9 text-xs"
                 />
               </div>

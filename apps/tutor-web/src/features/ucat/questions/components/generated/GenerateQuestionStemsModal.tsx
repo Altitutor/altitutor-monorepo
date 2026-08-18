@@ -7,7 +7,6 @@ import { Copy } from 'lucide-react'
 import {
   Button,
   Input,
-  Label,
   SearchableSelect,
   Spinner,
   Switch,
@@ -47,6 +46,7 @@ import {
   UcatStemCatalogSidePanel,
 } from '@/features/ucat/shared/components/ucat-stem-catalog-panel'
 import { UcatSortableList } from '@/features/ucat/shared/drag-list'
+import { UcatPropertyRow } from '@/features/ucat/shared/components/UcatPropertyRow'
 import { cn } from '@/shared/utils'
 
 type GenerateQuestionStemsModalProps = {
@@ -695,9 +695,8 @@ export function GenerateQuestionStemsModal({ open, onClose, onStarted }: Generat
                     {generationError}
                   </div>
                 ) : null}
-                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                  <div className="space-y-2">
-                    <Label>Section</Label>
+                <div className="space-y-1">
+                  <UcatPropertyRow label="Section">
                     <SearchableSelect<(typeof sections)[number]>
                       items={sections}
                       value={selectedSection}
@@ -716,10 +715,11 @@ export function GenerateQuestionStemsModal({ open, onClose, onStarted }: Generat
                       searchPlaceholder="Search sections..."
                       emptyMessage="No sections found"
                       disabled={sections.length === 0}
+                      fullWidth
+                      ariaLabel="Section"
                     />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Stem category</Label>
+                  </UcatPropertyRow>
+                  <UcatPropertyRow label="Stem category">
                     <SearchableSelect<{ id: string; name: string }>
                       items={categoryOptions}
                       value={categoryOptions.find((item) => item.id === categoryId) ?? null}
@@ -735,23 +735,24 @@ export function GenerateQuestionStemsModal({ open, onClose, onStarted }: Generat
                       disabled={!sectionId}
                       allowClear
                       clearLabel="Realistic category mix"
+                      fullWidth
+                      ariaLabel="Stem category"
                     />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Number of stems</Label>
+                  </UcatPropertyRow>
+                  <UcatPropertyRow label="Number of stems">
                     <Input
                       type="number"
                       min={1}
                       max={maxRequestedStems}
                       value={stemCount}
+                      aria-label="Number of stems"
                       onChange={(event) => {
                         const next = Number.parseInt(event.target.value || '1', 10)
                         setStemCount(Number.isFinite(next) ? Math.max(1, Math.min(maxRequestedStems, next)) : 1)
                       }}
                     />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Difficulty target</Label>
+                  </UcatPropertyRow>
+                  <UcatPropertyRow label="Difficulty target">
                     <SearchableSelect<SelectOption<DifficultyTarget>>
                       items={DIFFICULTY_OPTIONS}
                       value={DIFFICULTY_OPTIONS.find((item) => item.id === difficultyTarget) ?? null}
@@ -761,10 +762,11 @@ export function GenerateQuestionStemsModal({ open, onClose, onStarted }: Generat
                       getItemId={(item) => item.id}
                       getItemLabel={(item) => item.label}
                       searchPlaceholder="Search difficulty..."
+                      fullWidth
+                      ariaLabel="Difficulty target"
                     />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Time burden target</Label>
+                  </UcatPropertyRow>
+                  <UcatPropertyRow label="Time burden target">
                     <SearchableSelect<SelectOption<TimeBurdenTarget>>
                       items={TIME_BURDEN_OPTIONS}
                       value={TIME_BURDEN_OPTIONS.find((item) => item.id === timeBurdenTarget) ?? null}
@@ -774,49 +776,53 @@ export function GenerateQuestionStemsModal({ open, onClose, onStarted }: Generat
                       getItemId={(item) => item.id}
                       getItemLabel={(item) => item.label}
                       searchPlaceholder="Search time burden..."
+                      fullWidth
+                      ariaLabel="Time burden target"
                     />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Target tags</Label>
-                    <SearchableSelect<{ id: string; name: string }>
-                      items={tagOptions.filter((tag) => !targetTagIds.includes(tag.id))}
-                      value={null}
-                      onValueChange={(value) => {
-                        if (value?.id && !targetTagIds.includes(value.id)) setTargetTagIds((prev) => [...prev, value.id])
-                      }}
-                      getItemId={(item) => item.id}
-                      getItemLabel={(item) => item.name}
-                      placeholder="Add tag"
-                      searchPlaceholder="Search tags..."
-                      emptyMessage="No tags found"
-                      disabled={!sectionId || tagOptions.length === 0}
-                    />
-                  </div>
+                  </UcatPropertyRow>
+                  <UcatPropertyRow label="Target tags">
+                    <div className="space-y-2">
+                      <SearchableSelect<{ id: string; name: string }>
+                        items={tagOptions.filter((tag) => !targetTagIds.includes(tag.id))}
+                        value={null}
+                        onValueChange={(value) => {
+                          if (value?.id && !targetTagIds.includes(value.id)) setTargetTagIds((prev) => [...prev, value.id])
+                        }}
+                        getItemId={(item) => item.id}
+                        getItemLabel={(item) => item.name}
+                        placeholder="Add tag"
+                        searchPlaceholder="Search tags..."
+                        emptyMessage="No tags found"
+                        disabled={!sectionId || tagOptions.length === 0}
+                        fullWidth
+                        ariaLabel="Target tags"
+                      />
+                      {selectedTags.length > 0 ? (
+                        <div className="flex flex-wrap gap-2">
+                          {selectedTags.map((tag) => (
+                            <Button
+                              key={tag.id}
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              onClick={() => setTargetTagIds((prev) => prev.filter((id) => id !== tag.id))}
+                            >
+                              {tag.name} ×
+                            </Button>
+                          ))}
+                        </div>
+                      ) : null}
+                    </div>
+                  </UcatPropertyRow>
                 </div>
-                {selectedTags.length > 0 ? (
-                  <div className="flex flex-wrap gap-2">
-                    {selectedTags.map((tag) => (
-                      <Button
-                        key={tag.id}
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setTargetTagIds((prev) => prev.filter((id) => id !== tag.id))}
-                      >
-                        {tag.name} ×
-                      </Button>
-                    ))}
-                  </div>
-                ) : null}
               </section>
 
               <section className="space-y-4 rounded-md border p-4">
                 <div>
                   <h2 className="font-semibold">AI settings</h2>
                 </div>
-                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                  <div className="space-y-2">
-                    <Label>Model profile</Label>
+                <div className="space-y-1">
+                  <UcatPropertyRow label="Model profile">
                     <SearchableSelect<(typeof modelProfiles)[number]>
                       items={modelProfiles}
                       value={modelProfiles.find((profile) => profile.id === effectiveModelProfileId) ?? null}
@@ -827,10 +833,11 @@ export function GenerateQuestionStemsModal({ open, onClose, onStarted }: Generat
                       searchPlaceholder="Search models..."
                       emptyMessage="No model profiles found"
                       loading={modelProfilesQuery.isLoading}
+                      fullWidth
+                      ariaLabel="Model profile"
                     />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Source examples</Label>
+                  </UcatPropertyRow>
+                  <UcatPropertyRow label="Source examples">
                     <SearchableSelect<SelectOption<SourceMode>>
                       items={SOURCE_MODE_OPTIONS}
                       value={SOURCE_MODE_OPTIONS.find((item) => item.id === sourceMode) ?? null}
@@ -845,38 +852,43 @@ export function GenerateQuestionStemsModal({ open, onClose, onStarted }: Generat
                       getItemId={(item) => item.id}
                       getItemLabel={(item) => item.label}
                       searchPlaceholder="Search source modes..."
+                      fullWidth
+                      ariaLabel="Source examples"
                     />
-                  </div>
-                  <div className="flex items-center justify-between gap-4 rounded-md border px-3 py-2">
-                    <Label htmlFor="include-ai-source-stems" className="text-sm font-medium">
-                      Include AI-generated source stems
-                    </Label>
-                    <Switch
-                      id="include-ai-source-stems"
-                      checked={includeAiSourceStems}
-                      disabled={sourceMode === 'none'}
-                      onCheckedChange={(checked) => {
-                        setIncludeAiSourceStems(checked)
-                        setSelectedSourceIds([])
-                      }}
-                    />
-                  </div>
-                  <div className="space-y-2 md:col-span-2">
-                    <Label>Image generation</Label>
-                    <SearchableSelect<SelectOption<ImageGenerationMode>>
-                      items={IMAGE_GENERATION_MODE_OPTIONS}
-                      value={IMAGE_GENERATION_MODE_OPTIONS.find((item) => item.id === imageGenerationMode) ?? null}
-                      onValueChange={(value) => {
-                        if (value) setImageGenerationMode(value.id)
-                      }}
-                      getItemId={(item) => item.id}
-                      getItemLabel={(item) => item.label}
-                      searchPlaceholder="Search image modes..."
-                    />
-                    <p className="text-sm text-muted-foreground">
-                      Auto uses AI for stem-level QR source images when an image API is configured, and deterministic rendering for DM set/logical diagrams.
-                    </p>
-                  </div>
+                  </UcatPropertyRow>
+                  <UcatPropertyRow label="Include AI sources">
+                    <div className="flex min-h-10 items-center justify-end">
+                      <Switch
+                        id="include-ai-source-stems"
+                        aria-label="Include AI-generated source stems"
+                        checked={includeAiSourceStems}
+                        disabled={sourceMode === 'none'}
+                        onCheckedChange={(checked) => {
+                          setIncludeAiSourceStems(checked)
+                          setSelectedSourceIds([])
+                        }}
+                      />
+                    </div>
+                  </UcatPropertyRow>
+                  <UcatPropertyRow label="Image generation">
+                    <div className="space-y-2">
+                      <SearchableSelect<SelectOption<ImageGenerationMode>>
+                        items={IMAGE_GENERATION_MODE_OPTIONS}
+                        value={IMAGE_GENERATION_MODE_OPTIONS.find((item) => item.id === imageGenerationMode) ?? null}
+                        onValueChange={(value) => {
+                          if (value) setImageGenerationMode(value.id)
+                        }}
+                        getItemId={(item) => item.id}
+                        getItemLabel={(item) => item.label}
+                        searchPlaceholder="Search image modes..."
+                        fullWidth
+                        ariaLabel="Image generation"
+                      />
+                      <p className="text-sm text-muted-foreground">
+                        Auto uses AI for stem-level QR source images when an image API is configured, and deterministic rendering for DM set/logical diagrams.
+                      </p>
+                    </div>
+                  </UcatPropertyRow>
                 </div>
 
                 {showSourceStemPicker ? (
@@ -902,15 +914,15 @@ export function GenerateQuestionStemsModal({ open, onClose, onStarted }: Generat
                 </div>
                 ) : null}
 
-                <div className="space-y-2">
-                  <Label>Run instructions</Label>
+                <UcatPropertyRow label="Run instructions">
                   <Textarea
                     className="min-h-24"
                     value={runInstructions}
                     onChange={(event) => setRunInstructions(event.target.value)}
                     placeholder="One-off notes for this generation run"
+                    aria-label="Run instructions"
                   />
-                </div>
+                </UcatPropertyRow>
               </section>
               <GenerationDebugPanel debug={generationDebug} />
             </section>

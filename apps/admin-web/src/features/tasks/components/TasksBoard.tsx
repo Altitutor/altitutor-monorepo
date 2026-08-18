@@ -51,10 +51,11 @@ interface TasksBoardProps {
     search?: string;
   };
   projectId?: string;
+  issueId?: string;
   onCreateTask?: (status: TaskStatus) => void;
 }
 
-export function TasksBoard({ filters: initialFilters, projectId }: TasksBoardProps) {
+export function TasksBoard({ filters: initialFilters, projectId, issueId }: TasksBoardProps) {
   const {
     filters,
     setFilters,
@@ -99,6 +100,7 @@ export function TasksBoard({ filters: initialFilters, projectId }: TasksBoardPro
 
   const { data: tasks = [], isLoading } = useTasks({
     ...filters,
+    ...(issueId ? { issue_id: [issueId as unknown] } : {}),
     ...(projectId ? { project_id: [projectId as unknown] } : {}),
     search: search || initialFilters?.search,
   } as TaskFilters);
@@ -409,12 +411,13 @@ export function TasksBoard({ filters: initialFilters, projectId }: TasksBoardPro
       defaults.assignedTo = columnValue === '__null__' ? null : (columnValue as string);
     }
 
+    if (issueId) defaults.issueId = issueId;
     if (projectId) defaults.projectId = projectId;
 
     setCreateDefaultStatus(defaults.status);
     setCreateDefaultValues(defaults);
     setIsCreateDialogOpen(true);
-  }, [activeColumnKey, projectId]);
+  }, [activeColumnKey, issueId, projectId]);
 
   const handleOpenTask = useCallback((taskId: string) => {
     setSelectedTaskId(taskId);
@@ -514,6 +517,7 @@ export function TasksBoard({ filters: initialFilters, projectId }: TasksBoardPro
         onClose={() => setIsCreateDialogOpen(false)}
         defaultStatus={createDefaultStatus}
         defaultValues={createDefaultValues}
+        issue={issueId ? issues.find((i) => i.id === issueId) || null : null}
         project={projectId ? projects.find((p) => p.id === projectId) || null : null}
       />
     </>

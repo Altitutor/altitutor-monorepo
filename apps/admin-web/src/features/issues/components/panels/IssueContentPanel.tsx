@@ -12,6 +12,15 @@ import { UseFormReturn } from 'react-hook-form';
 import { IssueStatusField } from '../fields/IssueStatusField';
 import { IssueDueDateField } from '../fields/IssueDueDateField';
 
+function PropertyRow({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div className="grid grid-cols-[5rem_minmax(0,1fr)] items-start gap-3">
+      <span className="pt-2.5 text-sm font-medium text-muted-foreground">{label}</span>
+      <div className="min-w-0">{children}</div>
+    </div>
+  );
+}
+
 interface IssueContentPanelProps {
   tags?: IssueTag[];
   isOpen: boolean;
@@ -107,9 +116,13 @@ export const IssueContentPanel = memo(function IssueContentPanel({ tags: propTag
         <div className="flex-1 min-h-0 overflow-hidden">
           <SegmentedTabPanelContent when="properties" activeTab={activeTab} className="h-full overflow-hidden">
             <ScrollArea className="h-full">
-              <div className="p-6 space-y-6">
-                <IssueStatusField form={form} />
-                <IssueDueDateField form={form} />
+              <div className="p-6 space-y-4">
+                <PropertyRow label="Status">
+                  <IssueStatusField form={form} />
+                </PropertyRow>
+                <PropertyRow label="Due date">
+                  <IssueDueDateField form={form} />
+                </PropertyRow>
               </div>
             </ScrollArea>
           </SegmentedTabPanelContent>

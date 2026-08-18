@@ -6,6 +6,7 @@ import {
   FormControl,
   FormField,
   FormItem,
+  FormLabel,
   FormMessage,
   Button,
   SearchableSelect,
@@ -46,14 +47,15 @@ export function ProjectPropertiesFields({ form, enabled = true }: { form: UseFor
   const statusIconColor = getProjectStatusIconColor(selectedStatus);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       <FormField
         control={form.control}
         name="status"
         render={({ field }) => {
           const selected = PROJECT_STATUS_OPTIONS.find((o) => o.value === field.value) ?? PROJECT_STATUS_OPTIONS[0];
           return (
-            <FormItem>
+            <FormItem className="grid grid-cols-[5rem_minmax(0,1fr)] items-center gap-3 space-y-0">
+              <FormLabel className="text-muted-foreground">Status</FormLabel>
               <FormControl>
                 <SearchableSelect<(typeof PROJECT_STATUS_OPTIONS)[number]>
                   items={PROJECT_STATUS_OPTIONS}
@@ -61,18 +63,18 @@ export function ProjectPropertiesFields({ form, enabled = true }: { form: UseFor
                   onValueChange={(item) => field.onChange(item?.value as ProjectStatus)}
                   getItemLabel={(o) => o.label}
                   getItemId={(o) => o.value}
+                  fullWidth
                   trigger={
                     <Button variant="outline" className="w-full justify-start">
                       <div className="flex items-center gap-2 w-full min-w-0">
                         <StatusIcon className={cn('h-4 w-4', statusIconColor)} />
-                        <span className="text-muted-foreground shrink-0">Status</span>
                         <span className="truncate">{getProjectStatusLabel(field.value)}</span>
                       </div>
                     </Button>
                   }
                 />
               </FormControl>
-              <FormMessage />
+              <FormMessage className="col-start-2" />
             </FormItem>
           );
         }}
@@ -87,7 +89,8 @@ export function ProjectPropertiesFields({ form, enabled = true }: { form: UseFor
           const priorityIconColor = getProjectPriorityIconColor(p);
           const selected = PRIORITY_OPTIONS.find((o) => o.value === p) ?? PRIORITY_OPTIONS[0];
           return (
-            <FormItem>
+            <FormItem className="grid grid-cols-[5rem_minmax(0,1fr)] items-center gap-3 space-y-0">
+              <FormLabel className="text-muted-foreground">Priority</FormLabel>
               <FormControl>
                 <SearchableSelect<(typeof PRIORITY_OPTIONS)[number]>
                   items={PRIORITY_OPTIONS}
@@ -95,18 +98,18 @@ export function ProjectPropertiesFields({ form, enabled = true }: { form: UseFor
                   onValueChange={(item) => field.onChange(item ? (item.value as ProjectPriority) : 0)}
                   getItemLabel={(o) => o.label}
                   getItemId={(o) => String(o.value)}
+                  fullWidth
                   trigger={
                     <Button variant="outline" className="w-full justify-start">
                       <div className="flex items-center gap-2 w-full min-w-0">
                         <PriorityIcon className={cn('h-4 w-4', priorityIconColor)} />
-                        <span className="text-muted-foreground shrink-0">Priority</span>
                         <span className="truncate">{getProjectPriorityLabel(p)}</span>
                       </div>
                     </Button>
                   }
                 />
               </FormControl>
-              <FormMessage />
+              <FormMessage className="col-start-2" />
             </FormItem>
           );
         }}
@@ -116,7 +119,8 @@ export function ProjectPropertiesFields({ form, enabled = true }: { form: UseFor
         control={form.control}
         name="projectLeadId"
         render={({ field }) => (
-          <FormItem>
+          <FormItem className="grid grid-cols-[5rem_minmax(0,1fr)] items-center gap-3 space-y-0">
+            <FormLabel className="text-muted-foreground">Lead</FormLabel>
             <FormControl>
               <SearchableSelect<Tables<'staff'>>
                 items={staffList}
@@ -125,6 +129,7 @@ export function ProjectPropertiesFields({ form, enabled = true }: { form: UseFor
                 getItemId={(s) => s.id}
                 getItemLabel={(s) => `${s.first_name || ''} ${s.last_name || ''}`.trim() || 'Unnamed staff'}
                 getItemValue={(s) => `${s.first_name || ''} ${s.last_name || ''}`.trim()}
+                fullWidth
                 placeholder="Assign lead"
                 searchPlaceholder="Search staff..."
                 emptyMessage={leadSearchQuery ? 'No staff match your search' : 'No staff found'}
@@ -132,7 +137,6 @@ export function ProjectPropertiesFields({ form, enabled = true }: { form: UseFor
                   <Button variant="outline" className="w-full justify-start">
                     <div className="flex items-center gap-2 flex-1 min-w-0">
                       <User className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-                      <span className="text-muted-foreground shrink-0">Lead</span>
                       <span className="truncate text-left">
                         {selectedLead ? `${selectedLead.first_name || ''} ${selectedLead.last_name || ''}`.trim() : 'Assign lead'}
                       </span>
@@ -149,7 +153,7 @@ export function ProjectPropertiesFields({ form, enabled = true }: { form: UseFor
                 disabled={!enabled}
               />
             </FormControl>
-            <FormMessage />
+            <FormMessage className="col-start-2" />
           </FormItem>
         )}
       />
@@ -158,14 +162,15 @@ export function ProjectPropertiesFields({ form, enabled = true }: { form: UseFor
         control={form.control}
         name="startDate"
         render={({ field }) => (
-          <FormItem>
+          <FormItem className="grid grid-cols-[5rem_minmax(0,1fr)] items-center gap-3 space-y-0">
+            <FormLabel className="text-muted-foreground">Start date</FormLabel>
             <FormControl>
               <SmartDatePickerField
                 value={field.value || ''}
                 onChange={(value) => field.onChange(value)}
               />
             </FormControl>
-            <FormMessage />
+            <FormMessage className="col-start-2" />
           </FormItem>
         )}
       />
@@ -174,14 +179,15 @@ export function ProjectPropertiesFields({ form, enabled = true }: { form: UseFor
         control={form.control}
         name="targetDate"
         render={({ field }) => (
-          <FormItem>
+          <FormItem className="grid grid-cols-[5rem_minmax(0,1fr)] items-center gap-3 space-y-0">
+            <FormLabel className="text-muted-foreground">Finish date</FormLabel>
             <FormControl>
               <SmartDatePickerField
                 value={field.value || ''}
                 onChange={(value) => field.onChange(value)}
               />
             </FormControl>
-            <FormMessage />
+            <FormMessage className="col-start-2" />
           </FormItem>
         )}
       />

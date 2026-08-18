@@ -69,6 +69,8 @@ export interface SearchableSelectProps<T> {
   /** Additional class names */
   className?: string;
   triggerClassName?: string;
+  /** Make the trigger wrapper fill its parent container. */
+  fullWidth?: boolean;
   /** Accessible name for the default combobox trigger. */
   ariaLabel?: string;
   /** Controlled open state - when provided, parent controls when popover is open */
@@ -113,6 +115,7 @@ export function SearchableSelect<T>({
   getItemDisabled,
   className,
   triggerClassName,
+  fullWidth = false,
   ariaLabel,
   open: controlledOpen,
   onOpenChange,
@@ -246,7 +249,10 @@ export function SearchableSelect<T>({
 
   return (
     <Popover open={open} onOpenChange={setOpen} modal={false}>
-      <span ref={triggerRef} className="inline-flex w-fit max-w-full">
+      <span
+        ref={triggerRef}
+        className={cn("inline-flex max-w-full", fullWidth ? "w-full" : "w-fit")}
+      >
         <PopoverTrigger asChild>
           {trigger ?? defaultTrigger}
         </PopoverTrigger>

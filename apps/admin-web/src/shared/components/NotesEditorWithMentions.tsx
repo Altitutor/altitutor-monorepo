@@ -19,6 +19,7 @@ export interface NotesEditorWithMentionsProps {
   className?: string;
   /** Default 200ms — fewer RHF updates while typing long notes in activity tabs. */
   onChangeDebounceMs?: number;
+  floatingToolbar?: boolean;
 }
 
 /**
@@ -29,7 +30,7 @@ export interface NotesEditorWithMentionsProps {
 export const NotesEditorWithMentions = forwardRef<
   NotesEditorWithMentionsRef,
   NotesEditorWithMentionsProps
->(({ content, onChange, placeholder = 'Add a note...', disabled, minHeight = '80px', types, className, onChangeDebounceMs = 200 }, ref) => {
+>(({ content, onChange, placeholder = 'Add a note...', disabled, minHeight = '80px', types, className, onChangeDebounceMs = 200, floatingToolbar = false }, ref) => {
   const mentionSuggestions = useMentionSuggestions({ types });
   const slashMenuSuggestions = useSlashCommandSuggestions({
     includeCollapsibleSection: false,
@@ -58,6 +59,7 @@ export const NotesEditorWithMentions = forwardRef<
         mentionSuggestions={mentionSuggestions}
         slashMenuSuggestions={slashMenuSuggestions}
         onPasteImages={handlePasteImages}
+        floatingToolbar={floatingToolbar}
       />
     </div>
   );

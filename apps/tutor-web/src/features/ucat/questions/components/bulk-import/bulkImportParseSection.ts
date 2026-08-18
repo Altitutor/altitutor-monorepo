@@ -29,12 +29,17 @@ import {
 import {
   mapParsedSituationalJudgementToFormValues,
   parseSituationalJudgementFromDoc,
+  parseSituationalJudgementPlainText,
 } from '@/features/ucat/questions/lib/parsers/situationalJudgement'
 import { parseVerbalReasoningFromDoc } from '@/features/ucat/questions/lib/parsers/verbalReasoning'
 import {
   collectDecisionMakingLinesWithSyllogismImageOcr,
   type DecisionMakingSyllogismOcrResult,
 } from '@/features/ucat/questions/components/bulk-import/bulkImportDecisionMakingOcr'
+import {
+  collectSituationalJudgementLinesWithScreenshotOcr,
+  type SituationalJudgementScreenshotOcrResult,
+} from '@/features/ucat/questions/components/bulk-import/bulkImportSituationalJudgementOcr'
 import {
   inferBulkImportCategoryIdForParsedStem,
   inferBulkImportTagIdsForParsedQuestion,
@@ -44,6 +49,8 @@ import {
 
 type CategoryRow = BulkImportCategoryRow
 type TagRow = BulkImportTagRow
+
+const STANDALONE_IMAGE_TOKEN_RE = /^\s*\[\[IMG:[^\]]+\]\]\s*$/u
 
 type ParsedSectionResult =
   | { section: BulkImportParseSection; stems: ParsedStem[] }
@@ -111,19 +118,55 @@ export function parseCombinedDocumentResultForSection(
     case 'situational_judgement':
       return {
         section,
-        stems: parseSituationalJudgementFromDoc(doc, parserConfigFromOptions(section, parsingOptions)),
+        stems: parseSituationalJudgementPreviewFromDoc(
+          doc,
+          parserConfigFromOptions(section, parsingOptions)
+        ),
       }
     default:
       return { section: 'verbal_reasoning', stems: [] }
   }
 }
 
+function parseSituationalJudgementPreviewFromDoc(
+  doc: Json | null | undefined,
+  config: ReturnType<typeof parserConfigFromOptions>
+): ParsedStem[] {
+  const lines = collectLogicalLinesFromDoc(doc, { detectNestedQuestionTables: true })
+  if (!lines.some((line) => STANDALONE_IMAGE_TOKEN_RE.test(line))) {
+    return parseSituationalJudgementFromDoc(doc, config)
+  }
+
+  const stems: ParsedStem[] = []
+  let textSegment: string[] = []
+  const flushTextSegment = () => {
+    if (textSegment.some((line) => line.trim().length > 0)) {
+      stems.push(...parseSituationalJudgementPlainText(textSegment.join('\n'), config))
+    }
+    textSegment = []
+  }
+
+  for (const line of lines) {
+    if (STANDALONE_IMAGE_TOKEN_RE.test(line)) {
+      flushTextSegment()
+      stems.push({ stemText: line, questions: [] })
+    } else {
+      textSegment.push(line)
+    }
+  }
+  flushTextSegment()
+  return stems
+}
+
 export async function parseCombinedDocumentResultForSectionWithOcr(
   doc: Json | null | undefined,
   section: BulkImportParseSection,
   parsingOptions: ParsingOptions
-): Promise<{ parsed: ParsedSectionResult; ocr: DecisionMakingSyllogismOcrResult | null }> {
-  if (section !== 'decision_making') {
+): Promise<{
+  parsed: ParsedSectionResult
+  ocr: DecisionMakingSyllogismOcrResult | SituationalJudgementScreenshotOcrResult | null
+}> {
+  if (section !== 'decision_making' && section !== 'situational_judgement') {
     return {
       parsed: parseCombinedDocumentResultForSection(doc, section, parsingOptions),
       ocr: null,
@@ -131,6 +174,16 @@ export async function parseCombinedDocumentResultForSectionWithOcr(
   }
 
   const config = parserConfigFromOptions(section, parsingOptions)
+  if (section === 'situational_judgement') {
+    const ocr = await collectSituationalJudgementLinesWithScreenshotOcr(doc, config)
+    return {
+      parsed: {
+        section,
+        stems: parseSituationalJudgementPlainText(ocr.lines.join('\n'), config),
+      },
+      ocr,
+    }
+  }
   const ocr = await collectDecisionMakingLinesWithSyllogismImageOcr(doc, config)
 
   return {

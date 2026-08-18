@@ -55,6 +55,7 @@ export function TaskDescriptionField({ form, value: _value, onTagClick: _onTagCl
                 mentionSuggestions={mentionSuggestions}
                 slashMenuSuggestions={slashMenuSuggestions}
                 onPasteImages={handlePasteImages}
+                floatingToolbar
               />
             </div>
           </FormControl>

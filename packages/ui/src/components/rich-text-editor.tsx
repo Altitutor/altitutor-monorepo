@@ -24,9 +24,11 @@ import { ExternalVideoExtension } from '../extensions/external-video';
 import { ImageSelectionHighlight } from '../extensions/image-selection-highlight';
 import { SlashCommandExtension } from '../extensions/slash-command';
 import { OMIT_TYPOGRAPHY_HEADING_CLASSNAME } from './rich-text-editor-styles';
+import { RichTextEditorBottomToolbar } from './rich-text-editor-bottom-toolbar';
 import type { JSONContent } from '@tiptap/core';
 import type { SuggestionOptions } from '@tiptap/suggestion';
-import { useEffect, useRef, useImperativeHandle, forwardRef, useCallback } from 'react';
+import { useEffect, useRef, useImperativeHandle, forwardRef, useCallback, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { cn } from '../lib/cn';
 import { shouldPreferMarkdownPaste } from '../lib/markdown-paste';
 import { transformPastedHtmlForBulkImport } from '../lib/sanitize-pasted-html';
@@ -214,6 +216,8 @@ export interface RichTextEditorProps {
    * Keep this off for normal rich text fields; enable only for document editors.
    */
   enableCollapsibleHeadings?: boolean;
+  /** Show a contextual toolbar while the editor has focus, including table controls. */
+  floatingToolbar?: boolean;
 }
 
 const BLOCK_TAGS = ['P', 'DIV', 'H1', 'H2', 'H3', 'H4', 'H5', 'H6', 'LI'];
@@ -457,7 +461,11 @@ export const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>
   slashMenuSuggestions,
   onChangeDebounceMs,
   enableCollapsibleHeadings = false,
+  floatingToolbar = false,
 }, ref) => {
+  const [isEditorFocused, setIsEditorFocused] = useState(false);
+  const editorContainerRef = useRef<HTMLDivElement>(null);
+  const [floatingToolbarStyle, setFloatingToolbarStyle] = useState<React.CSSProperties | null>(null);
   // Tracks the last value emitted to avoid unnecessary re-renders/content resets
   const lastEmittedJsonRef = useRef<string>('');
   const lastEmittedMarkdownRef = useRef<string>('');
@@ -1316,6 +1324,58 @@ export const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>
     }
   }, [editor, onEditorReady]);
 
+  useEffect(() => {
+    if (!editor || !floatingToolbar) return;
+
+    const handleFocus = () => setIsEditorFocused(true);
+    const handleBlur = () => setIsEditorFocused(false);
+
+    editor.on('focus', handleFocus);
+    editor.on('blur', handleBlur);
+    setIsEditorFocused(editor.isFocused);
+
+    return () => {
+      editor.off('focus', handleFocus);
+      editor.off('blur', handleBlur);
+    };
+  }, [editor, floatingToolbar]);
+
+  useEffect(() => {
+    if (!floatingToolbar || !isEditorFocused) {
+      setFloatingToolbarStyle(null);
+      return;
+    }
+
+    const toolbarContainer = editorContainerRef.current?.closest<HTMLElement>(
+      '[data-rich-text-toolbar-container]'
+    );
+    if (!toolbarContainer) return;
+
+    const updatePosition = () => {
+      const rect = toolbarContainer.getBoundingClientRect();
+      const inset = 12;
+      setFloatingToolbarStyle({
+        position: 'fixed',
+        zIndex: 70,
+        left: rect.left + inset,
+        width: Math.max(0, rect.width - inset * 2),
+        bottom: Math.max(inset, window.innerHeight - rect.bottom + inset),
+      });
+    };
+
+    updatePosition();
+    const resizeObserver = new ResizeObserver(updatePosition);
+    resizeObserver.observe(toolbarContainer);
+    window.addEventListener('resize', updatePosition);
+    window.addEventListener('scroll', updatePosition, true);
+
+    return () => {
+      resizeObserver.disconnect();
+      window.removeEventListener('resize', updatePosition);
+      window.removeEventListener('scroll', updatePosition, true);
+    };
+  }, [floatingToolbar, isEditorFocused]);
+
   useImperativeHandle(ref, () => ({
     focusToEnd: () => {
       if (!editor || editor.isDestroyed) return;
@@ -1363,7 +1423,8 @@ export const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>
   }
 
   return (
-    <div 
+    <div
+      ref={editorContainerRef}
       className={cn(
         'relative flex w-full min-w-0 cursor-text flex-col overflow-visible',
         autoHeight ? 'h-auto' : 'h-full min-h-0',
@@ -1382,6 +1443,14 @@ export const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>
         editor={editor}
         className={cn(autoHeight ? 'h-auto overflow-visible' : 'min-h-0 flex-1 overflow-visible')}
       />
+      {floatingToolbar && isEditorFocused && floatingToolbarStyle && createPortal(
+        <div className="pointer-events-none" style={floatingToolbarStyle}>
+          <div className="pointer-events-auto">
+            <RichTextEditorBottomToolbar editor={editor} />
+          </div>
+        </div>,
+        document.body
+      )}
     </div>
   );
 });

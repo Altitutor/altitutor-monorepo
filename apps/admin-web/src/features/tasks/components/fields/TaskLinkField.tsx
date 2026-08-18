@@ -113,6 +113,7 @@ export function TaskLinkField({
               onValueChange={onLinkChange}
               getItemId={(item) => `${item.type}-${item.id}`}
               getItemLabel={(item) => item.name || `Untitled ${item.type}`}
+              fullWidth
               placeholder="Issue or project"
               searchPlaceholder="Search issues and projects..."
               emptyMessage="No results found"
@@ -124,7 +125,6 @@ export function TaskLinkField({
                     ) : (
                       <Link2 className="h-4 w-4 text-muted-foreground flex-shrink-0" />
                     )}
-                    <span className="text-muted-foreground shrink-0">Link</span>
                     <span className={cn('truncate text-left', !activeLink && 'text-muted-foreground')}>
                       {activeLink?.name || 'Issue or project'}
                     </span>
@@ -181,4 +181,3 @@ export function TaskLinkField({
     />
   );
 }
-

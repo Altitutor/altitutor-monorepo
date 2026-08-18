@@ -47,6 +47,7 @@ export function TaskEstimateField({ form }: TaskEstimateFieldProps) {
                 }}
                 getItemLabel={(opt) => opt.label}
                 getItemId={(opt) => (opt.value == null ? 'none' : String(opt.value))}
+                fullWidth
                 placeholder="Set estimate"
                 trigger={
                   <Button variant="outline" className="w-full justify-start font-normal">

@@ -47,6 +47,7 @@ export function TaskPriorityField({ form }: TaskPriorityFieldProps) {
                 }
                 getItemId={(o) => String(o.value)}
                 getItemLabel={(o) => o.label}
+                fullWidth
                 placeholder="Priority"
                 searchPlaceholder="Search priority..."
                 emptyMessage="No options found"

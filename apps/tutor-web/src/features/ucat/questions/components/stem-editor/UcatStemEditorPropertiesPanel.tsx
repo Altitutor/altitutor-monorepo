@@ -59,6 +59,7 @@ import { generatedVisualBlockToImageNode, getGeneratedVisualSpecIssue } from '@/
 import type { GeneratedContentBlock } from '@/features/ucat/questions/lib/ai-generation/schema'
 import type { UcatAuthoringWorkspaceTab } from '@/features/ucat/shared/components/UcatAuthoringWorkspaceTabs'
 import type { SelectedVisualImage } from '@/features/ucat/shared/lib/selected-visual-image'
+import { UcatPropertyRow } from '@/features/ucat/shared/components/UcatPropertyRow'
 import { UcatAiAssessmentControl } from '@/features/ucat/questions/components/stem-editor/UcatAiAssessmentControl'
 import {
   BulkImportAiReviewPanel,
@@ -122,15 +123,6 @@ function PropertyHint({ label, hint }: { label: string; hint: string }) {
         </Tooltip>
       </TooltipProvider>
     </span>
-  )
-}
-
-function PropertyRow({ label, children }: { label: ReactNode; children: ReactNode }) {
-  return (
-    <div className="flex items-center gap-3 py-1.5">
-      <span className="shrink-0 text-sm text-muted-foreground">{label}</span>
-      <div className="min-w-0 flex-1">{children}</div>
-    </div>
   )
 }
 
@@ -768,7 +760,7 @@ export function UcatStemEditorPropertiesPanel({
       <div className="space-y-4">
         {showModeControls ? (
           <div className={tutorCardCn('space-y-4 p-3')}>
-            <PropertyRow label="Mode">
+            <UcatPropertyRow label="Mode">
               <SegmentedControl
                 fullWidth
                 value={editorMode}
@@ -778,9 +770,9 @@ export function UcatStemEditorPropertiesPanel({
                   { value: 'view', label: 'View' },
                 ]}
               />
-            </PropertyRow>
+            </UcatPropertyRow>
             {editorMode === 'view' ? (
-              <PropertyRow label="Answer">
+              <UcatPropertyRow label="Answer">
                 <Button
                   type="button"
                   variant={showAnswer ? 'secondary' : 'outline'}
@@ -800,7 +792,7 @@ export function UcatStemEditorPropertiesPanel({
                     </>
                   )}
                 </Button>
-              </PropertyRow>
+              </UcatPropertyRow>
             ) : null}
           </div>
         ) : null}
@@ -817,7 +809,7 @@ export function UcatStemEditorPropertiesPanel({
           className="space-y-4"
         >
           <PropertiesCard value="stem" title="Stem properties">
-            <PropertyRow label="Section">
+            <UcatPropertyRow label="Section">
               <div className="space-y-1">
                 <SearchableSelect<{ id: string | null; name: string | null }>
                   items={sections}
@@ -830,6 +822,7 @@ export function UcatStemEditorPropertiesPanel({
                   getItemId={(s) => s.id ?? ''}
                   placeholder="Select section"
                   disabled={sectionLocked}
+                  fullWidth
                 />
                 {sectionLocked ? (
                   <p className="text-xs text-muted-foreground">
@@ -837,8 +830,8 @@ export function UcatStemEditorPropertiesPanel({
                   </p>
                 ) : null}
               </div>
-            </PropertyRow>
-            <PropertyRow label="Category">
+            </UcatPropertyRow>
+            <UcatPropertyRow label="Category">
               <div className={cn(focusTarget === 'category' && 'rounded-md ring-2 ring-amber-400 ring-offset-2 ring-offset-background')}>
                 <SearchableSelect<{ id: string; name: string; label: string }>
                   items={[
@@ -869,10 +862,11 @@ export function UcatStemEditorPropertiesPanel({
                   getItemId={(c) => c.id}
                   placeholder={!sectionId ? 'Select section first' : 'Select category'}
                   disabled={!sectionId}
+                  fullWidth
                 />
               </div>
-            </PropertyRow>
-            <PropertyRow label="Access scope">
+            </UcatPropertyRow>
+            <UcatPropertyRow label="Access scope">
               <SearchableSelect<{ value: 'public' | 'private'; label: string }>
                 items={[
                   { value: 'public', label: 'Public' },
@@ -888,9 +882,10 @@ export function UcatStemEditorPropertiesPanel({
                 }
                 getItemLabel={(i) => i.label}
                 getItemId={(i) => i.value}
+                fullWidth
               />
-            </PropertyRow>
-            <PropertyRow label='Interaction'>
+            </UcatPropertyRow>
+            <UcatPropertyRow label="Interaction">
               <SearchableSelect<{ value: 'multiple_choice' | 'drag_and_drop'; label: string }>
                 items={[
                   { value: 'multiple_choice', label: 'Multiple Choice' },
@@ -918,8 +913,9 @@ export function UcatStemEditorPropertiesPanel({
                 }}
                 getItemLabel={(i) => i.label}
                 getItemId={(i) => i.value}
+                fullWidth
               />
-            </PropertyRow>
+            </UcatPropertyRow>
             {contractIssues.length > 0 ? (
               <div className="space-y-2 rounded-md border border-black/10 p-2 dark:border-white/10">
                 <div className="text-xs text-amber-700 dark:text-amber-300">
@@ -946,11 +942,11 @@ export function UcatStemEditorPropertiesPanel({
 
           {fields.length > 0 ? (
             <PropertiesCard value="question" title="Question properties">
-              <PropertyRow label="Tags">
+              <UcatPropertyRow label="Tags">
                 <div className={cn(focusTarget === 'tags' && 'rounded-md ring-2 ring-amber-400 ring-offset-2 ring-offset-background')}>
                   <QuestionTagsSelect questionIndex={safeQuestionIndex} form={form} tags={tags} compact />
                 </div>
-              </PropertyRow>
+              </UcatPropertyRow>
               <div className="py-1.5 text-xs text-muted-foreground">
                 Answer keys are edited directly beside the options in the question editor.
               </div>
@@ -962,7 +958,7 @@ export function UcatStemEditorPropertiesPanel({
               {fields.length > 1 ? (
                 <div className="text-xs font-medium text-muted-foreground">Question {safeQuestionIndex + 1}</div>
               ) : null}
-              <PropertyRow
+              <UcatPropertyRow
                 label={(
                   <PropertyHint
                     label="Difficulty"
@@ -986,8 +982,8 @@ export function UcatStemEditorPropertiesPanel({
                     },
                   })}
                 />
-              </PropertyRow>
-              <PropertyRow
+              </UcatPropertyRow>
+              <UcatPropertyRow
                 label={(
                   <PropertyHint
                     label="Expected time"
@@ -1002,65 +998,65 @@ export function UcatStemEditorPropertiesPanel({
                   aria-label="Expected time "
                   {...form.register(`questions.${safeQuestionIndex}.timeBurdenSeconds`)}
                 />
-              </PropertyRow>
+              </UcatPropertyRow>
             </PropertiesCard>
           ) : null}
 
           <PropertiesCard value="source" title="Source">
-            <PropertyRow label="Stem">
+            <UcatPropertyRow label="Stem">
               <ReadOnlyValue>{formatSourceChannel(sourceChannel)}</ReadOnlyValue>
-            </PropertyRow>
+            </UcatPropertyRow>
             {sourceChannel === 'ai_generation' ? (
               <>
-                <PropertyRow label="Model">
+                <UcatPropertyRow label="Model">
                   <ReadOnlyValue>{aiModel ?? 'Unknown'}</ReadOnlyValue>
-                </PropertyRow>
-                <PropertyRow label="Generated">
+                </UcatPropertyRow>
+                <UcatPropertyRow label="Generated">
                   <ReadOnlyValue>{generatedAtLabel ?? 'Unknown'}</ReadOnlyValue>
-                </PropertyRow>
-                <PropertyRow label="Generated by">
+                </UcatPropertyRow>
+                <UcatPropertyRow label="Generated by">
                   <ReadOnlyValue>{generatedByName ?? 'Unknown'}</ReadOnlyValue>
-                </PropertyRow>
+                </UcatPropertyRow>
               </>
             ) : (
-              <PropertyRow label="Created by">
+              <UcatPropertyRow label="Created by">
                 <ReadOnlyValue>{generatedByName ?? 'Unknown'}</ReadOnlyValue>
-              </PropertyRow>
+              </UcatPropertyRow>
             )}
-            <PropertyRow label="Approved by">
+            <UcatPropertyRow label="Approved by">
               <ReadOnlyValue>{statusChangedByName ?? '—'}</ReadOnlyValue>
-            </PropertyRow>
-            <PropertyRow label="Approved at">
+            </UcatPropertyRow>
+            <UcatPropertyRow label="Approved at">
               <ReadOnlyValue>{statusChangedAtLabel ?? '—'}</ReadOnlyValue>
-            </PropertyRow>
+            </UcatPropertyRow>
             {fields.length > 0 ? (
               <>
                 <div className="my-2 border-t border-black/[0.06] dark:border-white/10" />
                 {fields.length > 1 ? (
                   <div className="text-xs font-medium text-muted-foreground">Question {safeQuestionIndex + 1}</div>
                 ) : null}
-                <PropertyRow label="Question">
+                <UcatPropertyRow label="Question">
                   <ReadOnlyValue>
                     {formatSourceChannel(activeQuestion?.sourceChannel ?? sourceChannel ?? null)}
                   </ReadOnlyValue>
-                </PropertyRow>
+                </UcatPropertyRow>
                 {(activeQuestion?.sourceChannel ?? sourceChannel) === 'ai_generation' ? (
                   <>
-                    <PropertyRow label="Model">
+                    <UcatPropertyRow label="Model">
                       <ReadOnlyValue>
                         {metadataString(activeQuestion?.aiGenerationMetadata ?? null, 'model') ?? 'Unknown'}
                       </ReadOnlyValue>
-                    </PropertyRow>
-                    <PropertyRow label="Generated">
+                    </UcatPropertyRow>
+                    <UcatPropertyRow label="Generated">
                       <ReadOnlyValue>
                         {formatGeneratedTimestamp(
                           metadataString(activeQuestion?.aiGenerationMetadata ?? null, 'generatedAt'),
                         ) ?? 'Unknown'}
                       </ReadOnlyValue>
-                    </PropertyRow>
-                    <PropertyRow label="Generated by">
+                    </UcatPropertyRow>
+                    <UcatPropertyRow label="Generated by">
                       <ReadOnlyValue>{generatedByName ?? 'Unknown'}</ReadOnlyValue>
-                    </PropertyRow>
+                    </UcatPropertyRow>
                   </>
                 ) : null}
               </>

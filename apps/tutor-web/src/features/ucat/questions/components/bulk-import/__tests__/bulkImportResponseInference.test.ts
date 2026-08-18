@@ -90,6 +90,70 @@ describe('bulk import response inference', () => {
     ])
   })
 
+  it('applies sequenced Most/Least/Neutral keys in option order', () => {
+    const stem = {
+      id: 'stem-1',
+      values: values(
+        'Choose the most appropriate action and the least appropriate action.',
+        3,
+      ),
+    }
+    const update = jest.fn()
+
+    expect(validateBulkAnswersDocument(doc('MNL'), [stem], false)).toEqual({ ok: true })
+    applyBulkAnswersToStems(doc('MNL'), [stem], false, update)
+
+    const updated = update.mock.calls[0]?.[1] as UcatQuestionStemFormValues
+    expect(updated.questions[0]).toMatchObject({
+      responseType: 'drag_and_drop',
+      answerScheme: 'situational_judgement_most_least',
+    })
+    expect(updated.questions[0]?.options.map((option) => option.answerKeyValue)).toEqual([
+      'most',
+      null,
+      'least',
+    ])
+  })
+
+  it('allows a Most/Least import to leave every action unkeyed', () => {
+    const stemValues = values(
+      'Choose the most appropriate action and the least appropriate action.',
+      3,
+    )
+    stemValues.questions[0]!.responseType = 'drag_and_drop'
+    stemValues.questions[0]!.answerScheme = 'situational_judgement_most_least'
+    const stem = { id: 'stem-1', values: stemValues }
+
+    expect(validateBulkAnswersDocument(null, [stem], false)).toEqual({ ok: true })
+  })
+
+  it('keeps later SJ answers aligned when a mixed-document Most/Least key is omitted', () => {
+    const ratingBefore = { id: 'stem-1', values: values('How appropriate is this?', 4) }
+    const optionalMostLeastValues = values(
+      'Choose the most appropriate action and the least appropriate action.',
+      3,
+    )
+    optionalMostLeastValues.questions[0]!.responseType = 'drag_and_drop'
+    optionalMostLeastValues.questions[0]!.answerScheme = 'situational_judgement_most_least'
+    const optionalMostLeast = { id: 'stem-2', values: optionalMostLeastValues }
+    const ratingAfter = { id: 'stem-3', values: values('How important is this?', 4) }
+    const stems = [ratingBefore, optionalMostLeast, ratingAfter]
+    const update = jest.fn()
+
+    expect(validateBulkAnswersDocument(doc('A\nC'), stems, false)).toEqual({ ok: true })
+    applyBulkAnswersToStems(doc('A\nC'), stems, false, update)
+
+    const first = update.mock.calls.find(([stemId]) => stemId === 'stem-1')?.[1] as UcatQuestionStemFormValues
+    const third = update.mock.calls.find(([stemId]) => stemId === 'stem-3')?.[1] as UcatQuestionStemFormValues
+    expect(first.questions[0]?.options.map((option) => option.answerKeyValue)).toEqual([
+      'correct', null, null, null,
+    ])
+    expect(third.questions[0]?.options.map((option) => option.answerKeyValue)).toEqual([
+      null, null, 'correct', null,
+    ])
+    expect(update.mock.calls.some(([stemId]) => stemId === 'stem-2')).toBe(false)
+  })
+
   it('blocks invalid answer letters instead of defaulting to option A', () => {
     const stem = { id: 'stem-1', values: values('Which option is correct?', 4) }
     const update = jest.fn()

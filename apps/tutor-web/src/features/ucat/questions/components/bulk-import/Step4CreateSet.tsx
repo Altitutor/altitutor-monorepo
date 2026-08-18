@@ -390,6 +390,7 @@ export function Step4CreateSet({
                   }}
                   getItemLabel={(i) => i.label}
                   getItemId={(i) => i.value}
+                  fullWidth
                 />
               </label>
           </SegmentedTabPanelContent>

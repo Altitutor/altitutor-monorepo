@@ -55,6 +55,7 @@ export function ProjectDescriptionField({ form, descriptionRef }: ProjectDescrip
                 mentionSuggestions={mentionSuggestions}
                 slashMenuSuggestions={slashMenuSuggestions}
                 onPasteImages={handlePasteImages}
+                floatingToolbar
               />
             </div>
           </FormControl>

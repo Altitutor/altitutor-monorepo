@@ -3,7 +3,7 @@
 import { useRef, useCallback, memo } from 'react';
 import { Separator } from '@altitutor/ui';
 import { UseFormReturn } from 'react-hook-form';
-import { TasksList } from '@/features/tasks/components/TasksList';
+import { LinkedTasksSection } from '@/features/tasks/components/LinkedTasksSection';
 import { IssueActivityTab } from '@/features/issues/components/IssueActivityTab';
 import { IssueTitleField } from '@/features/issues/components/fields/IssueTitleField';
 import { IssueDescriptionField } from '@/features/issues/components/fields/IssueDescriptionField';
@@ -55,7 +55,10 @@ export const IssuePropertiesPanel = memo(function IssuePropertiesPanel({
 
   return (
     <>
-      <div className="h-full min-h-0 flex-1 min-w-0 overflow-y-auto overscroll-contain border-r">
+      <div
+        className="h-full min-h-0 flex-1 min-w-0 overflow-y-auto overscroll-contain border-r"
+        data-rich-text-toolbar-container
+      >
         <div className="p-6 space-y-6">
             {/* Title */}
             <div className="space-y-4">
@@ -80,19 +83,7 @@ export const IssuePropertiesPanel = memo(function IssuePropertiesPanel({
             {issue?.id && (
               <div className="space-y-4 min-w-0 max-w-full">
                 <Separator />
-                <div className="flex items-center justify-between">
-                  <h3 className="text-lg font-semibold">Linked Tasks</h3>
-                </div>
-                <div className="border-y bg-background overflow-hidden w-full min-w-0 max-w-full">
-                    <TasksList 
-                      issueId={issue.id} 
-                      compact 
-                      hideToolbar 
-                      showIssuePill={false}
-                      showLinkPill={false}
-                      noPadding 
-                    />
-                </div>
+                <LinkedTasksSection issueId={issue.id} />
               </div>
             )}
 

@@ -40,7 +40,7 @@ import { ProjectDescriptionField } from './fields/ProjectDescriptionField';
 import { ProjectPropertiesFields } from './fields/ProjectPropertiesFields';
 import { useProjectAutoSave } from '../hooks/useProjectAutoSave';
 import { useProjectActions } from '../hooks/useProjectActions';
-import { TasksList } from '@/features/tasks/components/TasksList';
+import { LinkedTasksSection } from '@/features/tasks/components/LinkedTasksSection';
 import { useNotes } from '@/features/notes/api/queries';
 import { useCreateNote } from '@/features/notes/hooks/useNoteMutations';
 import { EditDocumentDialog } from '@/features/notes/components/EditDocumentDialog';
@@ -380,7 +380,10 @@ export function ProjectDetailView({
                   onSave={handleAutoSave}
                 />
 
-                <div className="h-full min-h-0 flex-1 min-w-0 overflow-y-auto overscroll-contain border-r">
+                <div
+                  className="h-full min-h-0 flex-1 min-w-0 overflow-y-auto overscroll-contain border-r"
+                  data-rich-text-toolbar-container
+                >
                   <div className="p-6 space-y-6">
                     <ProjectPropertyPills form={form} enabled={enabled} />
 
@@ -395,21 +398,7 @@ export function ProjectDetailView({
                     />
 
                     <Separator />
-                    <div className="space-y-4 min-w-0 max-w-full">
-                      <div className="flex items-center justify-between">
-                        <h3 className="text-lg font-semibold">Linked Tasks</h3>
-                      </div>
-                      <div className="border-y bg-background overflow-hidden w-full min-w-0 max-w-full">
-                        <TasksList
-                          projectId={projectId}
-                          compact
-                          hideToolbar
-                          showProjectPill={false}
-                          showLinkPill={false}
-                          noPadding
-                        />
-                      </div>
-                    </div>
+                    <LinkedTasksSection projectId={projectId} />
 
                     <Separator />
                     <ProjectNotes

@@ -98,6 +98,16 @@ export function StepAnswers({
       ),
     [stems, bulkAnswersJson, isDecisionMakingSection, parseOptions]
   )
+  const allQuestionsAreOptionalMostLeast = useMemo(
+    () =>
+      stems.length > 0 &&
+      stems.every((stem) =>
+        stem.values.questions.every(
+          (question) => question.answerScheme === 'situational_judgement_most_least'
+        )
+      ),
+    [stems]
+  )
 
   const toggleQuestionExpanded = useCallback((key: string) => {
     setExpandedQuestionKeys((prev) => {
@@ -114,7 +124,9 @@ export function StepAnswers({
         <div>
           <h2 className="text-base font-semibold">Paste answers</h2>
           <p className="mt-1 text-sm text-muted-foreground">
-            Paste one answers document for all questions. Explanations are required for every question.
+            {allQuestionsAreOptionalMostLeast
+              ? 'Optional: paste Most/Least keys as MLN, MNL, or words in action order. Leave blank to import all actions unkeyed.'
+              : 'Paste one answers document for all questions. Explanations are required for every question.'}
           </p>
         </div>
         <div className="flex shrink-0 items-center gap-2">
@@ -156,6 +168,7 @@ export function StepAnswers({
                 }
                 getItemLabel={(item) => item.label}
                 getItemId={(item) => item.value}
+                fullWidth
                 triggerClassName="mb-3 w-full"
               />
               <DropdownMenuLabel className="px-0 text-xs">Field separator</DropdownMenuLabel>
@@ -178,6 +191,7 @@ export function StepAnswers({
                 }
                 getItemLabel={(item) => item.label}
                 getItemId={(item) => item.value}
+                fullWidth
                 triggerClassName="w-full"
               />
               <DropdownMenuLabel className="mt-3 px-0 text-xs">Table paste handling</DropdownMenuLabel>
@@ -200,6 +214,7 @@ export function StepAnswers({
                 }
                 getItemLabel={(item) => item.label}
                 getItemId={(item) => item.value}
+                fullWidth
                 triggerClassName="w-full"
               />
             </DropdownMenuContent>

@@ -36,6 +36,10 @@ import { collectLogicalLinesFromDoc } from '@/features/ucat/questions/lib/parser
 import { hasRichTextContent } from '@/features/ucat/shared/lib/rich-text'
 import { Step1ChooseSection } from '@/features/ucat/questions/components/bulk-import/Step1ChooseSection'
 import {
+  readBulkImportTutorSourceNoteDraft,
+  writeBulkImportTutorSourceNoteDraft,
+} from '@/features/ucat/questions/components/bulk-import/bulkImportTutorSourceNoteDraft'
+import {
   Step2PasteDocument,
   type ParsingOptions,
   type PasteTableBehavior,
@@ -200,6 +204,11 @@ export function BulkImportQuestionStemsModal({
     }, 0)
   }
 
+  const handleTutorSourceNoteChange = useCallback((value: string) => {
+    setTutorSourceNote(value)
+    writeBulkImportTutorSourceNoteDraft(value)
+  }, [])
+
   const sections = useMemo(() => sectionsQuery.data ?? [], [sectionsQuery.data])
   const categoryOptions = useMemo(
     () => mapCategoriesToOptions(categoriesQuery.data ?? []),
@@ -332,6 +341,7 @@ export function BulkImportQuestionStemsModal({
   useEffect(() => {
     if (open) {
       setExpanded(true)
+      setTutorSourceNote(readBulkImportTutorSourceNoteDraft())
       return
     }
     setStep(0)
@@ -340,7 +350,6 @@ export function BulkImportQuestionStemsModal({
     setParseError(null)
     setIsParsing(false)
     setSectionId(null)
-    setTutorSourceNote('')
     setSeparateStemDocument(false)
     setPastedContent(null)
     setStemSplitOptions(DEFAULT_STEM_SPLIT_OPTIONS)
@@ -896,7 +905,7 @@ export function BulkImportQuestionStemsModal({
           separateStemDocument={separateStemDocument}
           onSeparateStemDocumentChange={handleSeparateStemDocumentChange}
           tutorSourceNote={tutorSourceNote}
-          onTutorSourceNoteChange={setTutorSourceNote}
+          onTutorSourceNoteChange={handleTutorSourceNoteChange}
         />
       )
     }
