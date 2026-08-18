@@ -27,17 +27,17 @@ const steps = [
   {
     number: "01",
     title: "Start free",
-    body: "Create your account and set your target score.",
+    body: "Create an account, set your target score, and tell us how much time you have to study..",
   },
   {
     number: "02",
     title: "Build your baseline",
-    body: "Complete a short benchmark and our system will build you an adaptive study plan.",
+    body: "Complete a benchmark test and our system will build you a personalised study plan.",
   },
   {
     number: "03",
     title: "Follow your plan",
-    body: "Work through learning, practice questions, and mocks selected around your gaps and the time left before test day.",
+    body: "Work through learning modules, practice questions, and mocks, and see your predicted score improve over time.",
   },
 ] as const;
 
@@ -109,8 +109,8 @@ export function UcatHowItWorks() {
       <div className={UCAT_CONTENT_WIDTH_CLASS}>
         <div className="mx-auto max-w-3xl text-center">
           <p className={`${UCAT_SECTION_EYEBROW_CLASS} ${typo.dataMono}`}>How it works</p>
-          <h2 className={`mt-4 ${UCAT_SECTION_HEADING_CLASS} ${typo.headingSans}`}>From your first benchmark to a clearer path forward.</h2>
-          <p className={`mx-auto mt-6 max-w-2xl ${UCAT_SECTION_DESCRIPTION_CLASS} ${typo.secondarySans}`}>Start with enough evidence to make the direction useful. Then let each attempt refine what comes next.</p>
+          <h2 className={`mt-4 ${UCAT_SECTION_HEADING_CLASS} ${typo.headingSans}`}>Get a personalised study plan in minutes.</h2>
+          <p className={`mx-auto mt-6 max-w-2xl ${UCAT_SECTION_DESCRIPTION_CLASS} ${typo.secondarySans}`}>Answer a few questions, take a short diagnostic test, and we&apos;ll build map out your path to the score you want to get.</p>
         </div>
 
         <div className="mt-16 grid gap-5 lg:grid-cols-3">

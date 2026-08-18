@@ -8,6 +8,8 @@ import {
 import {
   UCAT_FILTER_NO_CATEGORY,
   UCAT_FILTER_NOT_IN_ANY_SET,
+  UCAT_FILTER_NOT_IN_PRACTICE_POOL,
+  UCAT_FILTER_PRACTICE_POOL,
 } from '@/features/ucat/shared/lib/table-filter-sentinel'
 
 describe('buildQuestionCatalogQuery', () => {
@@ -22,7 +24,7 @@ describe('buildQuestionCatalogQuery', () => {
           section_id: ['section-1'],
           question_stem_category_id: [UCAT_FILTER_NO_CATEGORY, 'category-1'],
           question_tag_id: ['tag-1'],
-          visibility: ['private'],
+          visibility: ['private', UCAT_FILTER_PRACTICE_POOL],
           question_set_id: [UCAT_FILTER_NOT_IN_ANY_SET, 'set-1'],
           source_channel: ['bulk_import'],
           ai_review_status: ['concerns', 'critical'],
@@ -49,6 +51,7 @@ describe('buildQuestionCatalogQuery', () => {
       includeNoCategory: true,
       tagIds: ['tag-1'],
       accessScopes: ['private'],
+      practicePool: true,
       setIds: ['set-1'],
       includeWithoutSet: true,
       sourceChannels: ['bulk_import'],
@@ -63,5 +66,28 @@ describe('buildQuestionCatalogQuery', () => {
       page: 3,
       pageSize: 50,
     })
+  })
+
+  it('treats both practice-pool choices as no pool-membership restriction', () => {
+    const query = buildQuestionCatalogQuery({
+      status: 'draft',
+      showDeleted: false,
+      searchScopes: ['stem_text'],
+      tableState: {
+        search: '',
+        filters: {
+          visibility: [UCAT_FILTER_PRACTICE_POOL, UCAT_FILTER_NOT_IN_PRACTICE_POOL],
+        },
+        sortBy: null,
+        sortDirection: 'desc',
+        groupBy: null,
+        page: 1,
+        pageSize: 20,
+        visibleColumns: [],
+      },
+    })
+
+    expect(query.accessScopes).toEqual([])
+    expect(query.practicePool).toBeNull()
   })
 })

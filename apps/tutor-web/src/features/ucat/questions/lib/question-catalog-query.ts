@@ -12,6 +12,8 @@ import {
 import {
   UCAT_FILTER_NO_CATEGORY,
   UCAT_FILTER_NOT_IN_ANY_SET,
+  UCAT_FILTER_NOT_IN_PRACTICE_POOL,
+  UCAT_FILTER_PRACTICE_POOL,
 } from '@/features/ucat/shared/lib/table-filter-sentinel'
 
 export const CREATED_AT_FROM_FILTER_KEY = 'created_at_from'
@@ -40,6 +42,7 @@ export type QuestionCatalogQuery = {
   includeNoCategory: boolean
   tagIds: string[]
   accessScopes: string[]
+  practicePool: boolean | null
   setIds: string[]
   includeWithoutSet: boolean
   sourceChannels: string[]
@@ -89,6 +92,9 @@ export function buildQuestionCatalogQuery(input: {
   const { tableState } = input
   const rawCategoryIds = filterStrings(tableState, 'question_stem_category_id')
   const rawSetIds = filterStrings(tableState, 'question_set_id')
+  const visibilityValues = filterStrings(tableState, 'visibility')
+  const includesPracticePool = visibilityValues.includes(UCAT_FILTER_PRACTICE_POOL)
+  const includesNotInPracticePool = visibilityValues.includes(UCAT_FILTER_NOT_IN_PRACTICE_POOL)
 
   return {
     status: input.status,
@@ -99,7 +105,11 @@ export function buildQuestionCatalogQuery(input: {
     categoryIds: rawCategoryIds.filter((id) => id !== UCAT_FILTER_NO_CATEGORY),
     includeNoCategory: rawCategoryIds.includes(UCAT_FILTER_NO_CATEGORY),
     tagIds: filterStrings(tableState, 'question_tag_id'),
-    accessScopes: filterStrings(tableState, 'visibility'),
+    accessScopes: visibilityValues.filter((value) => value === 'public' || value === 'private'),
+    practicePool:
+      includesPracticePool === includesNotInPracticePool
+        ? null
+        : includesPracticePool,
     setIds: rawSetIds.filter((id) => id !== UCAT_FILTER_NOT_IN_ANY_SET),
     includeWithoutSet: rawSetIds.includes(UCAT_FILTER_NOT_IN_ANY_SET),
     sourceChannels: filterStrings(tableState, 'source_channel'),
@@ -134,6 +144,7 @@ export function serializeQuestionCatalogQuery(query: QuestionCatalogQuery): stri
   if (query.includeNoCategory) params.set('noCategory', '1')
   for (const value of query.tagIds) params.append('tag', value)
   for (const value of query.accessScopes) params.append('access', value)
+  if (query.practicePool != null) params.set('practicePool', query.practicePool ? '1' : '0')
   for (const value of query.setIds) params.append('set', value)
   if (query.includeWithoutSet) params.set('withoutSet', '1')
   for (const value of query.sourceChannels) params.append('source', value)

@@ -124,7 +124,12 @@ import {
   filterTagsForSections,
 } from '@/features/ucat/shared/lib/taxonomy-reparent'
 import { resolveSectionIdsFromIdFilter } from '@/features/ucat/shared/lib/taxonomy-section-filter'
-import { UCAT_FILTER_NO_CATEGORY, UCAT_FILTER_NOT_IN_ANY_SET } from '@/features/ucat/shared/lib/table-filter-sentinel'
+import {
+  UCAT_FILTER_NO_CATEGORY,
+  UCAT_FILTER_NOT_IN_ANY_SET,
+  UCAT_FILTER_NOT_IN_PRACTICE_POOL,
+  UCAT_FILTER_PRACTICE_POOL,
+} from '@/features/ucat/shared/lib/table-filter-sentinel'
 import { UcatDeleteConfirmDialog } from '@/features/ucat/shared/delete-confirm-dialog'
 import { UcatRowActions } from '@/features/ucat/shared/row-actions'
 import { UcatSelectionToolbar } from '@/features/ucat/shared/selection-toolbar'
@@ -235,6 +240,8 @@ const filterDefinitions: DataTableFilterDefinition[] = [
     options: [
       { label: 'Public', value: 'public' },
       { label: 'Private', value: 'private' },
+      { label: 'Practice pool', value: UCAT_FILTER_PRACTICE_POOL },
+      { label: 'Not in practice pool', value: UCAT_FILTER_NOT_IN_PRACTICE_POOL },
     ],
   },
   {

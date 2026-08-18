@@ -106,6 +106,10 @@ export async function GET(request: NextRequest) {
   const aiReviewStatuses = aiReviewEnabled
     ? parseEnumList(searchParams, 'aiReview', AI_REVIEW_STATUSES)
     : []
+  const practicePoolParam = searchParams.get('practicePool')
+  if (practicePoolParam != null && practicePoolParam !== '0' && practicePoolParam !== '1') {
+    return NextResponse.json({ error: 'Invalid practice-pool filter' }, { status: 400 })
+  }
 
   const client = access.userClient as unknown as UcatTutorSupabaseClient
   const idsOnly = searchParams.get('idsOnly') === '1'
@@ -119,6 +123,7 @@ export async function GET(request: NextRequest) {
     p_include_no_category: searchParams.get('noCategory') === '1',
     p_tag_ids: parseUuidList(searchParams, 'tag'),
     p_access_scopes: parseEnumList(searchParams, 'access', ACCESS_SCOPES),
+    p_practice_pool: practicePoolParam == null ? null : practicePoolParam === '1',
     p_set_ids: parseUuidList(searchParams, 'set'),
     p_include_without_set: searchParams.get('withoutSet') === '1',
     p_source_channels: parseEnumList(searchParams, 'source', SOURCE_CHANNELS),

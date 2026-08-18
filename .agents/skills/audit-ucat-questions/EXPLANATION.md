@@ -1,6 +1,6 @@
 # Explanation teaching standard
 
-An explanation must teach a student with little UCAT experience how to reproduce the solution. It shows the useful reasoning or representation, not a restatement of why the stored answer is correct. Write it as if the student cannot see the keyed answer.
+An explanation must teach a student with little UCAT experience how to reproduce the solution. It shows the useful reasoning or representation, not only a restatement of why the stored answer is correct. Write it as if the student cannot see the keyed answer.
 
 Load the core, the response-type block, and the section block that match this question.
 
@@ -19,7 +19,7 @@ Write only that teaching. Leave out generic encouragement, advertising or links 
 
 ## `multiple_choice`
 
-One non-empty question-level `answerExplanation`. Option-level explanations only for a useful, identifiable mistake on that distractor. They must not repeat the question-level teaching.
+One non-empty question-level `answerExplanation`. Also provide option-level explanations for a useful, identifiable mistake on that distractor. They must not repeat the question-level teaching.
 
 ## `drag_and_drop`
 
@@ -36,7 +36,7 @@ When the solution needs two or more meaningful operations, use an explicitly num
    [calculation]
 4. Match the result to the answer.
 
-Give each step a short action-oriented description. Keep closely related arithmetic in the same step.
+Give each step an action-oriented description. Keep closely related arithmetic in the same step.
 
 Use exact arithmetic or a mental shortcut when faster; estimation when it safely identifies the answer; the calculator when it materially reduces time or error; as few calculator entries as practical.
 
