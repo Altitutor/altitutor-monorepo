@@ -37,6 +37,18 @@ export type PendingStemMetadataDiff = {
   tagIdsByQuestionIndex: Record<number, string[]>
 }
 
+export type StemMetadataDetectionKey =
+  | 'section'
+  | 'category'
+  | `response:${number}`
+  | `tags:${number}`
+
+export type StemMetadataDetectionControls = {
+  pendingDiff: PendingStemMetadataDiff | null
+  onAccept: (key: StemMetadataDetectionKey) => void
+  onDismiss: (key: StemMetadataDetectionKey) => void
+}
+
 /**
  * Diffs a parser recommendation against current form values.
  * Only fields that would change are included (null / empty when unchanged).
@@ -93,36 +105,6 @@ export function getPendingStemMetadataDiff(
   return { sectionId, categoryId, responseContractsByQuestionIndex, tagIdsByQuestionIndex }
 }
 
-export function applyStemMetadataRecommendation(
-  form: UseFormReturn<UcatQuestionStemFormValues>,
-  recommendation: ManualStemMetadataRecommendation,
-): void {
-  if (recommendation.sectionId) {
-    form.setValue('sectionId', recommendation.sectionId, { shouldDirty: true })
-  }
-  if (recommendation.categoryId) {
-    form.setValue('categoryId', recommendation.categoryId, { shouldDirty: true })
-  }
-  Object.entries(recommendation.responseContractsByQuestionIndex).forEach(
-    ([indexText, inference]) => {
-      if (inference.reviewState === 'blocked') return
-      const index = Number(indexText)
-      const responseType = inference.responseType.value
-      const answerScheme = inference.answerScheme.value
-      if (responseType) {
-        form.setValue(`questions.${index}.responseType`, responseType, { shouldDirty: true })
-      }
-      if (answerScheme) {
-        form.setValue(`questions.${index}.answerScheme`, answerScheme, { shouldDirty: true })
-      }
-    }
-  )
-  Object.entries(recommendation.tagIdsByQuestionIndex).forEach(([indexText, tagIds]) => {
-    const index = Number(indexText)
-    form.setValue(`questions.${index}.tagIds`, tagIds, { shouldDirty: true })
-  })
-}
-
 /**
  * Runs content parsers over stem form values and surfaces pending metadata
  * suggestions. Does not auto-apply — callers accept or dismiss explicitly.
@@ -147,16 +129,19 @@ export function useManualStemMetadataDetection({
 }): {
   recommendation: ManualStemMetadataRecommendation | null
   pendingDiff: PendingStemMetadataDiff | null
-  accept: () => void
-  dismiss: () => void
+  acceptField: (key: StemMetadataDetectionKey) => void
+  dismissField: (key: StemMetadataDetectionKey) => void
 } {
   const [recommendation, setRecommendation] = useState<ManualStemMetadataRecommendation | null>(null)
-  const [dismissedSignature, setDismissedSignature] = useState<string | null>(null)
+  const [dismissed, setDismissed] = useState<{
+    signature: string
+    fields: StemMetadataDetectionKey[]
+  } | null>(null)
   const lastRecommendationSnapshotRef = useRef<string | null>(null)
   const contentSignature = useMemo(() => buildMetadataDetectionSignature(values), [values])
 
   useEffect(() => {
-    setDismissedSignature(null)
+    setDismissed(null)
     lastRecommendationSnapshotRef.current = null
     setRecommendation(null)
   }, [resetKey])
@@ -180,26 +165,76 @@ export function useManualStemMetadataDetection({
     }
   }, [enabled, values, sections, categories, tags])
 
-  const isDismissed = dismissedSignature === contentSignature
+  const dismissedFields = useMemo(
+    () => dismissed?.signature === contentSignature ? dismissed.fields : [],
+    [contentSignature, dismissed],
+  )
   const pendingDiff = useMemo(() => {
-    if (!enabled || isDismissed) return null
-    return getPendingStemMetadataDiff(recommendation, values)
-  }, [enabled, isDismissed, recommendation, values])
+    if (!enabled) return null
+    const diff = getPendingStemMetadataDiff(recommendation, values)
+    if (!diff) return null
+    const filtered: PendingStemMetadataDiff = {
+      sectionId: dismissedFields.includes('section') ? null : diff.sectionId,
+      categoryId: dismissedFields.includes('category') ? null : diff.categoryId,
+      responseContractsByQuestionIndex: Object.fromEntries(
+        Object.entries(diff.responseContractsByQuestionIndex).filter(
+          ([index]) => !dismissedFields.includes(`response:${Number(index)}`),
+        ),
+      ),
+      tagIdsByQuestionIndex: Object.fromEntries(
+        Object.entries(diff.tagIdsByQuestionIndex).filter(
+          ([index]) => !dismissedFields.includes(`tags:${Number(index)}`),
+        ),
+      ),
+    }
+    return filtered.sectionId || filtered.categoryId
+      || Object.keys(filtered.responseContractsByQuestionIndex).length > 0
+      || Object.keys(filtered.tagIdsByQuestionIndex).length > 0
+      ? filtered
+      : null
+  }, [dismissedFields, enabled, recommendation, values])
 
-  const accept = useCallback(() => {
-    if (!recommendation) return
-    applyStemMetadataRecommendation(form, recommendation)
-    setDismissedSignature(contentSignature)
-  }, [recommendation, form, contentSignature])
-
-  const dismiss = useCallback(() => {
-    setDismissedSignature(contentSignature)
+  const dismissField = useCallback((key: StemMetadataDetectionKey) => {
+    setDismissed((current) => {
+      const fields = current?.signature === contentSignature ? current.fields : []
+      return {
+        signature: contentSignature,
+        fields: fields.includes(key) ? fields : [...fields, key],
+      }
+    })
   }, [contentSignature])
+
+  const acceptField = useCallback((key: StemMetadataDetectionKey) => {
+    if (!recommendation) return
+    if (key === 'section' && recommendation.sectionId) {
+      form.setValue('sectionId', recommendation.sectionId, { shouldDirty: true })
+    } else if (key === 'category' && recommendation.categoryId) {
+      form.setValue('categoryId', recommendation.categoryId, { shouldDirty: true })
+    } else if (key.startsWith('response:')) {
+      const index = Number(key.slice('response:'.length))
+      const inference = recommendation.responseContractsByQuestionIndex[index]
+      if (inference && inference.reviewState !== 'blocked') {
+        if (inference.responseType.value) {
+          form.setValue(`questions.${index}.responseType`, inference.responseType.value, { shouldDirty: true })
+        }
+        if (inference.answerScheme.value) {
+          form.setValue(`questions.${index}.answerScheme`, inference.answerScheme.value, { shouldDirty: true })
+        }
+      }
+    } else if (key.startsWith('tags:')) {
+      const index = Number(key.slice('tags:'.length))
+      const tagIds = recommendation.tagIdsByQuestionIndex[index]
+      if (tagIds) {
+        form.setValue(`questions.${index}.tagIds`, tagIds, { shouldDirty: true })
+      }
+    }
+    dismissField(key)
+  }, [dismissField, form, recommendation])
 
   return {
     recommendation,
     pendingDiff,
-    accept,
-    dismiss,
+    acceptField,
+    dismissField,
   }
 }

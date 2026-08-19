@@ -37,6 +37,7 @@ export type QuestionCatalogQuery = {
   showDeleted: boolean
   search: string
   searchScopes: QuestionSearchScope[]
+  stemIds: string[]
   sectionIds: string[]
   categoryIds: string[]
   includeNoCategory: boolean
@@ -101,6 +102,7 @@ export function buildQuestionCatalogQuery(input: {
     showDeleted: input.showDeleted,
     search: tableState.search.trim(),
     searchScopes: input.searchScopes,
+    stemIds: filterStrings(tableState, 'id'),
     sectionIds: filterStrings(tableState, 'section_id'),
     categoryIds: rawCategoryIds.filter((id) => id !== UCAT_FILTER_NO_CATEGORY),
     includeNoCategory: rawCategoryIds.includes(UCAT_FILTER_NO_CATEGORY),
@@ -139,6 +141,7 @@ export function serializeQuestionCatalogQuery(query: QuestionCatalogQuery): stri
   if (query.showDeleted) params.set('deleted', '1')
   if (query.search) params.set('search', query.search)
   for (const scope of query.searchScopes) params.append('scope', scope)
+  for (const value of query.stemIds) params.append('id', value)
   for (const value of query.sectionIds) params.append('section', value)
   for (const value of query.categoryIds) params.append('category', value)
   if (query.includeNoCategory) params.set('noCategory', '1')

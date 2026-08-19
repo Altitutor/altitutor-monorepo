@@ -118,6 +118,7 @@ export async function GET(request: NextRequest) {
     p_show_deleted: searchParams.get('deleted') === '1',
     p_search: search || null,
     p_search_scopes: searchScopes,
+    p_stem_ids: parseUuidList(searchParams, 'id'),
     p_section_ids: parseUuidList(searchParams, 'section'),
     p_category_ids: parseUuidList(searchParams, 'category'),
     p_include_no_category: searchParams.get('noCategory') === '1',

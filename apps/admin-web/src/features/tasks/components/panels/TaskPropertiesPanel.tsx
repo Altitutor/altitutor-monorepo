@@ -47,7 +47,7 @@ export function TaskPropertiesPanel({
   enabled = true,
 }: TaskPropertiesPanelProps) {
   return (
-    <div className="hidden h-full min-h-0 w-80 flex-shrink-0 overflow-y-auto overscroll-contain border-l p-6 space-y-4 md:block">
+    <div className="hidden h-full min-h-0 w-full overflow-y-auto overscroll-contain p-6 space-y-4 md:block">
       <PropertyRow label="Status">
         <TaskStatusField form={form} taskStatus={taskStatus} />
       </PropertyRow>

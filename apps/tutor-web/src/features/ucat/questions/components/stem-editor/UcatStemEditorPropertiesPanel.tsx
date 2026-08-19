@@ -66,6 +66,8 @@ import {
   type BulkImportAiReviewPanelProps,
 } from '@/features/ucat/questions/components/bulk-import/BulkImportAiReviewPanel'
 import { trimTextParagraphs } from '@/features/ucat/questions/components/stem-editor/stemEditorQuestionContent'
+import { UcatDetectedStemMetadataPill } from '@/features/ucat/questions/components/stem-editor/UcatDetectedStemMetadataControl'
+import type { StemMetadataDetectionControls } from '@/features/ucat/questions/hooks/useManualStemMetadataDetection'
 
 export type StemEditorMode = 'edit' | 'view'
 export type StemEditorFocusTarget = 'category' | 'explanation' | 'tags' | 'sets'
@@ -99,6 +101,7 @@ type UcatStemEditorPropertiesPanelProps = {
   onNewImageFileIds?: (fileIds: string[]) => void
   aiReviewAvailable?: boolean
   bulkImportAiReview?: Omit<BulkImportAiReviewPanelProps, 'activeQuestionId' | 'activeQuestionIndex'> | null
+  metadataDetection?: StemMetadataDetectionControls | null
   className?: string
 }
 
@@ -182,6 +185,7 @@ export function UcatStemEditorPropertiesPanel({
   onNewImageFileIds,
   aiReviewAvailable = false,
   bulkImportAiReview = null,
+  metadataDetection = null,
   className,
 }: UcatStemEditorPropertiesPanelProps) {
   const { fields, append, remove } = useFieldArray({ control: form.control, name: 'questions' })
@@ -228,6 +232,28 @@ export function UcatStemEditorPropertiesPanel({
     : suggestedContract
   const currentResponseType = currentContract.responseType
   const responseTypeChoiceAllowed = allowsResponseTypeChoice(selectedCategory?.name)
+  const detectedSectionId = metadataDetection?.pendingDiff?.sectionId ?? null
+  const detectedCategoryId = metadataDetection?.pendingDiff?.categoryId ?? null
+  const detectedResponse = metadataDetection?.pendingDiff?.responseContractsByQuestionIndex[safeQuestionIndex]
+  const detectedTagIds = metadataDetection?.pendingDiff?.tagIdsByQuestionIndex[safeQuestionIndex] ?? []
+  const detectedSectionLabel = detectedSectionId
+    ? sections.find((section) => section.id === detectedSectionId)?.name ?? 'Unknown section'
+    : null
+  const detectedCategoryLabel = detectedCategoryId
+    ? taxonomyDisplayLabel(
+        categories.find((category) => category.id === detectedCategoryId) ?? { name: 'Unknown category' },
+      )
+    : null
+  const detectedResponseLabel = detectedResponse
+    ? [detectedResponse.responseType.value, detectedResponse.answerScheme.value]
+        .flatMap((value) => typeof value === 'string' ? [value.replaceAll('_', ' ')] : [])
+        .join(' / ') || 'Review interaction'
+    : null
+  const detectedTagsLabel = detectedTagIds.length > 0
+    ? detectedTagIds
+        .map((tagId) => taxonomyDisplayLabel(tags.find((tag) => tag.id === tagId) ?? { name: 'Unknown tag' }))
+        .join(', ')
+    : null
 
   function handleCategoryChange(nextCategoryId: string | null): void {
     form.setValue('categoryId', nextCategoryId, {
@@ -742,7 +768,7 @@ export function UcatStemEditorPropertiesPanel({
   }
 
   return (
-    <aside className={cn('flex h-full min-h-0 w-full shrink-0 flex-col overflow-hidden bg-background p-3 lg:w-80 lg:border-l lg:p-4', className)}>
+    <aside className={cn('flex h-full min-h-0 w-full flex-col overflow-hidden bg-background p-3 lg:p-4', className)}>
       <Tabs value={activeTab} onValueChange={handleActiveTabChange} className="flex h-full min-h-0 flex-1 flex-col">
         <div className="hidden lg:block">
           <SegmentedControl
@@ -829,6 +855,13 @@ export function UcatStemEditorPropertiesPanel({
                     Remove this stem from its set before changing section.
                   </p>
                 ) : null}
+                {detectedSectionLabel ? (
+                  <UcatDetectedStemMetadataPill
+                    value={detectedSectionLabel}
+                    onAccept={() => metadataDetection?.onAccept('section')}
+                    onDismiss={() => metadataDetection?.onDismiss('section')}
+                  />
+                ) : null}
               </div>
             </UcatPropertyRow>
             <UcatPropertyRow label="Category">
@@ -864,6 +897,13 @@ export function UcatStemEditorPropertiesPanel({
                   disabled={!sectionId}
                   fullWidth
                 />
+                {detectedCategoryLabel ? (
+                  <UcatDetectedStemMetadataPill
+                    value={detectedCategoryLabel}
+                    onAccept={() => metadataDetection?.onAccept('category')}
+                    onDismiss={() => metadataDetection?.onDismiss('category')}
+                  />
+                ) : null}
               </div>
             </UcatPropertyRow>
             <UcatPropertyRow label="Access scope">
@@ -886,7 +926,8 @@ export function UcatStemEditorPropertiesPanel({
               />
             </UcatPropertyRow>
             <UcatPropertyRow label="Interaction">
-              <SearchableSelect<{ value: 'multiple_choice' | 'drag_and_drop'; label: string }>
+              <div className="space-y-1">
+                <SearchableSelect<{ value: 'multiple_choice' | 'drag_and_drop'; label: string }>
                 items={[
                   { value: 'multiple_choice', label: 'Multiple Choice' },
                   { value: 'drag_and_drop', label: 'Drag and Drop' },
@@ -914,7 +955,19 @@ export function UcatStemEditorPropertiesPanel({
                 getItemLabel={(i) => i.label}
                 getItemId={(i) => i.value}
                 fullWidth
-              />
+                />
+                {detectedResponseLabel ? (
+                  <UcatDetectedStemMetadataPill
+                    value={detectedResponseLabel}
+                    onAccept={
+                      detectedResponse?.reviewState === 'blocked'
+                        ? undefined
+                        : () => metadataDetection?.onAccept(`response:${safeQuestionIndex}`)
+                    }
+                    onDismiss={() => metadataDetection?.onDismiss(`response:${safeQuestionIndex}`)}
+                  />
+                ) : null}
+              </div>
             </UcatPropertyRow>
             {contractIssues.length > 0 ? (
               <div className="space-y-2 rounded-md border border-black/10 p-2 dark:border-white/10">
@@ -943,13 +996,17 @@ export function UcatStemEditorPropertiesPanel({
           {fields.length > 0 ? (
             <PropertiesCard value="question" title="Question properties">
               <UcatPropertyRow label="Tags">
-                <div className={cn(focusTarget === 'tags' && 'rounded-md ring-2 ring-amber-400 ring-offset-2 ring-offset-background')}>
+                <div className={cn('space-y-1', focusTarget === 'tags' && 'rounded-md ring-2 ring-amber-400 ring-offset-2 ring-offset-background')}>
                   <QuestionTagsSelect questionIndex={safeQuestionIndex} form={form} tags={tags} compact />
+                  {detectedTagsLabel ? (
+                    <UcatDetectedStemMetadataPill
+                      value={detectedTagsLabel}
+                      onAccept={() => metadataDetection?.onAccept(`tags:${safeQuestionIndex}`)}
+                      onDismiss={() => metadataDetection?.onDismiss(`tags:${safeQuestionIndex}`)}
+                    />
+                  ) : null}
                 </div>
               </UcatPropertyRow>
-              <div className="py-1.5 text-xs text-muted-foreground">
-                Answer keys are edited directly beside the options in the question editor.
-              </div>
               {focusTarget === 'explanation' ? (
                 <div className="rounded-md border border-amber-300 bg-amber-50 p-2 text-xs text-amber-950 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-100">
                   Add the missing explanation in the question editor on the left.

@@ -31,6 +31,7 @@ import type { Tables } from '@altitutor/shared';
 import type { TaskFormData, TaskStatus, TaskUpdate } from '../types';
 import { useNotes } from '@/shared/hooks/useNotes';
 import { TaskPropertiesPanel, TaskContentPanel } from './panels';
+import { EntityResizablePanels } from '@/shared/components/EntityResizablePanels';
 import { useTaskAutoSave } from '../hooks/useTaskAutoSave';
 import { useTaskActions } from '../hooks/useTaskActions';
 import { ActionsMenu } from '@/shared/components/ActionsMenu';
@@ -339,24 +340,29 @@ export function TaskDetailView({
                     isLoading={isLoading}
                     onSave={handleAutoSave}
                   />
-                  <TaskContentPanel
-                    form={form}
-                    taskId={taskId}
-                    notes={notes}
-                    isOpen={enabled}
-                    selectedAssignee={selectedAssignee}
-                    onAssigneeChange={setSelectedAssignee}
-                    taskStatus={task.status as TaskStatus}
-                    enabled={enabled}
-                    descriptionRef={descriptionRef}
-                  />
-                  <TaskPropertiesPanel
-                    form={form}
-                    selectedAssignee={selectedAssignee}
-                    onAssigneeChange={setSelectedAssignee}
-                    selectedIssue={selectedIssue}
-                    selectedProject={selectedProject}
-                    onLinkChange={(link) => {
+                  <EntityResizablePanels
+                    id={`task-${taskId}-panels`}
+                    main={(
+                      <TaskContentPanel
+                        form={form}
+                        taskId={taskId}
+                        notes={notes}
+                        isOpen={enabled}
+                        selectedAssignee={selectedAssignee}
+                        onAssigneeChange={setSelectedAssignee}
+                        taskStatus={task.status as TaskStatus}
+                        enabled={enabled}
+                        descriptionRef={descriptionRef}
+                      />
+                    )}
+                    sidebar={(
+                      <TaskPropertiesPanel
+                        form={form}
+                        selectedAssignee={selectedAssignee}
+                        onAssigneeChange={setSelectedAssignee}
+                        selectedIssue={selectedIssue}
+                        selectedProject={selectedProject}
+                        onLinkChange={(link) => {
                       if (!link) {
                         setSelectedIssue(null);
                         setSelectedProject(null);
@@ -376,11 +382,13 @@ export function TaskDetailView({
                         form.setValue('projectId', link.id, { shouldDirty: true });
                         form.setValue('issueId', null, { shouldDirty: true });
                       }
-                    }}
-                    onOpenIssue={(id) => setOpenIssueId(id)}
-                    onOpenProject={(id) => setOpenProjectId(id)}
-                    taskStatus={task.status as TaskStatus}
-                    enabled={enabled}
+                        }}
+                        onOpenIssue={(id) => setOpenIssueId(id)}
+                        onOpenProject={(id) => setOpenProjectId(id)}
+                        taskStatus={task.status as TaskStatus}
+                        enabled={enabled}
+                      />
+                    )}
                   />
                 </form>
               </Form>

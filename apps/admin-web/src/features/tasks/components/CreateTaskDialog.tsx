@@ -34,6 +34,7 @@ import {
 import { cn } from '@/shared/utils';
 import { useNotes } from '@/shared/hooks/useNotes';
 import { TaskPropertiesPanel, TaskContentPanel } from './panels';
+import { EntityResizablePanels } from '@/shared/components/EntityResizablePanels';
 import type { Resolver } from 'react-hook-form';
 
 const formSchema = z.object({
@@ -228,26 +229,31 @@ export function CreateTaskDialog({
           <div className="h-full flex">
             <Form {...form}>
               <form onSubmit={form.handleSubmit(onSubmit as SubmitHandler<TaskFormData>)} className="flex-1 flex min-h-0">
-                <TaskContentPanel
-                  form={form}
-                  taskId={createdTaskId}
-                  notes={notes}
-                  isOpen={isOpen}
-                  showActivity={!!createdTaskId}
-                  selectedAssignee={selectedAssignee}
-                  onAssigneeChange={setSelectedAssignee}
-                  taskStatus={defaultStatus}
-                  enabled={isOpen}
-                  autoFocusTitle={true}
-                  descriptionRef={descriptionRef}
-                />
-                <TaskPropertiesPanel
-                  form={form}
-                  selectedAssignee={selectedAssignee}
-                  onAssigneeChange={setSelectedAssignee}
-                  selectedIssue={selectedIssue}
-                  selectedProject={selectedProject}
-                  onLinkChange={(link) => {
+                <EntityResizablePanels
+                  id="create-task-panels"
+                  main={(
+                    <TaskContentPanel
+                      form={form}
+                      taskId={createdTaskId}
+                      notes={notes}
+                      isOpen={isOpen}
+                      showActivity={!!createdTaskId}
+                      selectedAssignee={selectedAssignee}
+                      onAssigneeChange={setSelectedAssignee}
+                      taskStatus={defaultStatus}
+                      enabled={isOpen}
+                      autoFocusTitle={true}
+                      descriptionRef={descriptionRef}
+                    />
+                  )}
+                  sidebar={(
+                    <TaskPropertiesPanel
+                      form={form}
+                      selectedAssignee={selectedAssignee}
+                      onAssigneeChange={setSelectedAssignee}
+                      selectedIssue={selectedIssue}
+                      selectedProject={selectedProject}
+                      onLinkChange={(link) => {
                     if (!link) {
                       setSelectedIssue(null);
                       setSelectedProject(null);
@@ -267,9 +273,11 @@ export function CreateTaskDialog({
                       form.setValue('projectId', link.id, { shouldDirty: true });
                       form.setValue('issueId', null, { shouldDirty: true });
                     }
-                  }}
-                  taskStatus={defaultStatus}
-                  enabled={isOpen}
+                      }}
+                      taskStatus={defaultStatus}
+                      enabled={isOpen}
+                    />
+                  )}
                 />
               </form>
             </Form>

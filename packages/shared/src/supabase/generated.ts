@@ -36927,6 +36927,7 @@ export type Database = {
           p_sort_direction?: string
           p_source_channels?: string[]
           p_status?: string
+          p_stem_ids?: string[]
           p_tag_ids?: string[]
         }
         Returns: Json

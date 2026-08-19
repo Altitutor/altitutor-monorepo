@@ -159,6 +159,7 @@ import {
 } from '@/features/ucat/questions/lib/question-catalog-query'
 import { FindSimilarQuestionStemsSubmenu } from '@/features/ucat/questions/components/FindSimilarQuestionStemsSubmenu'
 import { CreatedAtDateTimeRangeFilter } from '@/features/ucat/questions/components/CreatedAtDateTimeRangeFilter'
+import { QuestionStemIdFilter } from '@/features/ucat/questions/components/QuestionStemIdFilter'
 import { UcatVisibilityBadge } from '@/features/ucat/shared/components/UcatVisibilityBadge'
 import { UcatVisibilityTableHeaderLabel } from '@/features/ucat/shared/components/UcatVisibilityInfoTooltip'
 import { getUcatContentStatusTransitionOptions, type UcatContentStatus } from '@/features/ucat/shared/types'
@@ -252,6 +253,11 @@ const filterDefinitions: DataTableFilterDefinition[] = [
     toKey: CREATED_AT_TO_FILTER_KEY,
   },
 ]
+
+const questionStemIdFilterDefinition: DataTableFilterDefinition = {
+  key: 'id',
+  label: 'ID',
+}
 
 const aiReviewFilterDefinition: DataTableFilterDefinition = {
   key: 'ai_review_status',
@@ -493,21 +499,14 @@ export function UcatQuestionsPage() {
     setExpandedQuestionKeys(new Set())
   }, [activeTab, clearSelection])
 
-  async function handleBeginReviews() {
-    if (activeTab !== 'in_review') {
-      toast({
-        title: 'No stems ready for review',
-        description: 'Switch to the In review tab to begin a filtered review queue.',
-      })
-      return
-    }
+  async function handleViewQuestions() {
     setReviewQueueLoading(true)
     try {
-      const ids = await ucatQuestionsApi.listCatalogReviewIds(catalogQuery)
+      const ids = await ucatQuestionsApi.listCatalogIds(catalogQuery)
       if (ids.length === 0) {
         toast({
-          title: 'No stems ready for review',
-          description: 'No in-review stems match these filters.',
+          title: 'No matching question stems',
+          description: 'No question stems match the current filters.',
         })
         return
       }
@@ -515,7 +514,7 @@ export function UcatQuestionsPage() {
       setApprovalQueueOpen(true)
     } catch (error) {
       toast({
-        title: 'Could not start review',
+        title: 'Could not open questions',
         description: error instanceof Error ? error.message : 'Please try again.',
         variant: 'destructive',
       })
@@ -988,6 +987,7 @@ export function UcatQuestionsPage() {
     ) as TagOption[]
 
     const base: DataTableFilterDefinition[] = [
+      questionStemIdFilterDefinition,
       {
         ...filterDefinitions[0],
         options: (sections.data ?? []).map((s) => ({ label: s.name ?? 'Untitled', value: s.id ?? '' })),
@@ -1053,11 +1053,11 @@ export function UcatQuestionsPage() {
               type="button"
               variant="outline"
               className={tutorBtnOutline}
-              onClick={() => void handleBeginReviews()}
+              onClick={() => void handleViewQuestions()}
               disabled={reviewQueueLoading}
             >
               <ListChecks className="mr-2 h-4 w-4" />
-              {reviewQueueLoading ? 'Preparing…' : 'Begin review'}
+              {reviewQueueLoading ? 'Preparing…' : 'View questions'}
             </Button>
             <SearchableSelect<(typeof addQuestionOptions)[number]>
               items={[...addQuestionOptions]}
@@ -1129,6 +1129,17 @@ export function UcatQuestionsPage() {
           if (filterKey === 'question_set_id') setSetFilterSearch(value)
         }}
         customFilterContent={{
+          id: (
+            <QuestionStemIdFilter
+              ids={(tableState.state.filters.id ?? []).map(String)}
+              onChange={(ids) => {
+                const filters = { ...tableState.state.filters }
+                if (ids.length > 0) filters.id = ids
+                else delete filters.id
+                tableState.actions.onFiltersChange(filters)
+              }}
+            />
+          ),
           created_at_range: (
             <CreatedAtDateTimeRangeFilter
               fromValue={String(
@@ -1802,8 +1813,9 @@ export function UcatQuestionsPage() {
       <GenerateQuestionStemsModal open={generateOpen} onClose={() => setGenerateOpen(false)} />
       <UcatQuestionStemApprovalQueueDialog
         open={approvalQueueOpen}
-        title="Review question stems"
+        title="View question stems"
         entries={reviewQueueEntries}
+        workflowStatus={activeTab}
         onClose={() => setApprovalQueueOpen(false)}
       />
 

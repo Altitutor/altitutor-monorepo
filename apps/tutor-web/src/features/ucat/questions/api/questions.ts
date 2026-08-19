@@ -300,7 +300,7 @@ export const ucatQuestionsApi = {
     return response.json() as Promise<UcatQuestionCatalogPage>;
   },
 
-  async listCatalogReviewIds(query: QuestionCatalogQuery): Promise<string[]> {
+  async listCatalogIds(query: QuestionCatalogQuery): Promise<string[]> {
     const params = new URLSearchParams(serializeQuestionCatalogQuery(query));
     params.set("idsOnly", "1");
     params.set("page", "1");
@@ -311,7 +311,7 @@ export const ucatQuestionsApi = {
     );
     if (!response.ok) {
       const body = await response.json().catch(() => ({}));
-      throw new Error(body.error ?? "Failed to load review queue");
+      throw new Error(body.error ?? "Failed to load question stems");
     }
     const page = await response.json() as { items?: Array<{ id?: unknown }> };
     return (page.items ?? []).flatMap((item) =>

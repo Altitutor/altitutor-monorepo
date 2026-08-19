@@ -4,6 +4,7 @@ import {
   CREATED_AT_TO_FILTER_KEY,
   QUESTION_COUNT_MAX_FILTER_KEY,
   QUESTION_COUNT_MIN_FILTER_KEY,
+  serializeQuestionCatalogQuery,
 } from '@/features/ucat/questions/lib/question-catalog-query'
 import {
   UCAT_FILTER_NO_CATEGORY,
@@ -21,6 +22,10 @@ describe('buildQuestionCatalogQuery', () => {
       tableState: {
         search: ' Kidney ',
         filters: {
+          id: [
+            '10000000-0000-4000-8000-000000000001',
+            '10000000-0000-4000-8000-000000000002',
+          ],
           section_id: ['section-1'],
           question_stem_category_id: [UCAT_FILTER_NO_CATEGORY, 'category-1'],
           question_tag_id: ['tag-1'],
@@ -43,9 +48,13 @@ describe('buildQuestionCatalogQuery', () => {
       },
     })
 
-      expect(query).toMatchObject({
+    expect(query).toMatchObject({
       status: 'in_review',
       search: 'Kidney',
+      stemIds: [
+        '10000000-0000-4000-8000-000000000001',
+        '10000000-0000-4000-8000-000000000002',
+      ],
       sectionIds: ['section-1'],
       categoryIds: ['category-1'],
       includeNoCategory: true,
@@ -66,6 +75,11 @@ describe('buildQuestionCatalogQuery', () => {
       page: 3,
       pageSize: 50,
     })
+
+    expect(new URLSearchParams(serializeQuestionCatalogQuery(query)).getAll('id')).toEqual([
+      '10000000-0000-4000-8000-000000000001',
+      '10000000-0000-4000-8000-000000000002',
+    ])
   })
 
   it('treats both practice-pool choices as no pool-membership restriction', () => {

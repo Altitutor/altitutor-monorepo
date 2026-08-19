@@ -52,6 +52,7 @@ import { ProjectNotes } from './ProjectNotes';
 import { ProjectPropertyPills } from './fields/ProjectPropertyPills';
 import { ActionsMenu } from '@/shared/components/ActionsMenu';
 import { SaveAsTemplateDialog } from '@/features/rich-text-templates/components/SaveAsTemplateDialog';
+import { EntityResizablePanels } from '@/shared/components/EntityResizablePanels';
 
 const VALID_PROJECT_STATUSES: ProjectStatus[] = ['backlog', 'planned', 'in_progress', 'completed'];
 
@@ -380,10 +381,13 @@ export function ProjectDetailView({
                   onSave={handleAutoSave}
                 />
 
-                <div
-                  className="h-full min-h-0 flex-1 min-w-0 overflow-y-auto overscroll-contain border-r"
-                  data-rich-text-toolbar-container
-                >
+                <EntityResizablePanels
+                  id={`project-${projectId}-panels`}
+                  main={(
+                    <div
+                      className="h-full min-h-0 min-w-0 overflow-y-auto overscroll-contain"
+                      data-rich-text-toolbar-container
+                    >
                   <div className="p-6 space-y-6">
                     <ProjectPropertyPills form={form} enabled={enabled} />
 
@@ -431,10 +435,12 @@ export function ProjectDetailView({
                       {documentsList}
                     </div>
                   </div>
-                </div>
+                    </div>
+                  )}
 
-                <div className="hidden h-full min-h-0 w-80 min-w-[320px] flex-col overflow-hidden border-l md:flex">
-                  <div className="flex-1 flex flex-col min-h-0">
+                  sidebar={(
+                    <div className="hidden h-full min-h-0 w-full flex-col overflow-hidden md:flex">
+                      <div className="flex-1 flex flex-col min-h-0">
                     <div className="flex-shrink-0 border-b bg-background px-6 pb-4 pt-4">
                       <SegmentedControl
                         fullWidth
@@ -463,8 +469,10 @@ export function ProjectDetailView({
                         </ScrollArea>
                       </SegmentedTabPanelContent>
                     </div>
-                  </div>
-                </div>
+                      </div>
+                    </div>
+                  )}
+                />
               </form>
             </Form>
           )}

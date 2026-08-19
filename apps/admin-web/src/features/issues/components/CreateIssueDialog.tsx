@@ -36,6 +36,7 @@ import { IssuePropertiesPanel } from './panels/IssuePropertiesPanel';
 import { useDialogHotkeys } from '@/shared/hooks';
 import { useLiveIssueTags } from '../hooks/useLiveIssueTags';
 import { getTagEntity, resolveTagLabels } from '../utils/mentionLabels';
+import { EntityResizablePanels } from '@/shared/components/EntityResizablePanels';
 
 async function buildDescriptionFromInitialTags(tags?: Omit<IssueTagInsert, 'issue_id'>[]): Promise<JSONContent | null> {
   if (!tags || tags.length === 0) return null;
@@ -219,18 +220,24 @@ export function CreateIssueDialog({
           <div className="flex-1 overflow-hidden min-h-0">
             <div className="h-full flex">
               <form onSubmit={form.handleSubmit(onSubmit as SubmitHandler<IssueFormData>)} className="flex-1 flex min-h-0">
-                <IssuePropertiesPanel
-                  form={form}
-                  notes={[]}
-                  isOpen={isOpen}
-                  onClose={handleClose}
-                  descriptionRef={descriptionRef}
-                />
-
-                <IssueContentPanel 
-                  isOpen={isOpen}
-                  form={form}
-                  tags={liveTags}
+                <EntityResizablePanels
+                  id="create-issue-panels"
+                  main={(
+                    <IssuePropertiesPanel
+                      form={form}
+                      notes={[]}
+                      isOpen={isOpen}
+                      onClose={handleClose}
+                      descriptionRef={descriptionRef}
+                    />
+                  )}
+                  sidebar={(
+                    <IssueContentPanel
+                      isOpen={isOpen}
+                      form={form}
+                      tags={liveTags}
+                    />
+                  )}
                 />
               </form>
             </div>
