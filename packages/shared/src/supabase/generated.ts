@@ -36915,6 +36915,7 @@ export type Database = {
           p_include_without_set?: boolean
           p_page?: number
           p_page_size?: number
+          p_practice_pool?: boolean
           p_question_count_max?: number
           p_question_count_min?: number
           p_search?: string
@@ -36926,6 +36927,7 @@ export type Database = {
           p_sort_direction?: string
           p_source_channels?: string[]
           p_status?: string
+          p_stem_ids?: string[]
           p_tag_ids?: string[]
         }
         Returns: Json

@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import type { Editor } from '@tiptap/react'
 import type { Json } from '@altitutor/shared'
 import type { UseFormReturn } from 'react-hook-form'
-import { useToast } from '@altitutor/ui'
+import { ResponsiveResizablePanels, useToast } from '@altitutor/ui'
 import type { UcatQuestionStemFormValues } from '@/features/ucat/questions/types/schema'
 import type { UcatQuestionSourceChannel } from '@/features/ucat/questions/api/questions'
 import { UcatQuestionEnginePreview } from '@/features/ucat/question-engine-preview/UcatQuestionEnginePreview'
@@ -36,6 +36,7 @@ import { UcatSelectedImageMenu } from '@/features/ucat/shared/components/UcatSel
 import { UcatVisualEditorDialog } from '@/features/ucat/questions/components/stem-editor/UcatVisualEditorDialog'
 import { useExplanationFeedback } from '@/features/ucat/reconciliation/hooks/useExplanationFeedback'
 import type { BulkImportAiReviewPanelProps } from '@/features/ucat/questions/components/bulk-import/BulkImportAiReviewPanel'
+import type { StemMetadataDetectionControls } from '@/features/ucat/questions/hooks/useManualStemMetadataDetection'
 
 type UcatStemEditorShellProps = {
   form: UseFormReturn<UcatQuestionStemFormValues>
@@ -82,6 +83,7 @@ type UcatStemEditorShellProps = {
   aiReviewAvailable?: boolean
   bulkImportAiReview?: Omit<BulkImportAiReviewPanelProps, 'activeQuestionId' | 'activeQuestionIndex'> | null
   onUseSelectedImageWithAi?: (image: SelectedVisualImage, editor: Editor) => void
+  metadataDetection?: StemMetadataDetectionControls | null
 }
 
 function imageNodeAttrs(imageNode: Json): Record<string, Json | undefined> | null {
@@ -129,6 +131,7 @@ export function UcatStemEditorShell({
   aiReviewAvailable = Boolean(stemId),
   bulkImportAiReview = null,
   onUseSelectedImageWithAi,
+  metadataDetection = null,
 }: UcatStemEditorShellProps) {
   const { toast } = useToast()
   const explanationFeedbackQuery = useExplanationFeedback(stemId)
@@ -273,8 +276,18 @@ export function UcatStemEditorShell({
         reviewAvailable={aiReviewAvailable}
         className="shrink-0 border-b bg-background p-2 lg:hidden"
       />
-      <div className="flex min-h-0 flex-1 overflow-hidden lg:flex-row">
-      <div className={cn('flex min-h-0 flex-1 flex-col overflow-hidden', activeWorkspace !== 'editor' && 'hidden', 'lg:flex')}>
+      <ResponsiveResizablePanels
+        id="ucat-stem-editor-panels"
+        breakpoint="lg"
+        primaryDefaultSize="70%"
+        primaryMinSize={640}
+        secondaryDefaultSize={320}
+        secondaryMinSize={280}
+        secondaryMaxSize={480}
+        handleLabel="Resize question properties sidebar"
+        mobilePanel={activeWorkspace === 'editor' ? 'primary' : 'secondary'}
+        primary={(
+      <div className="flex h-full min-h-0 flex-col overflow-hidden">
         <div
           className={
             flush
@@ -317,6 +330,8 @@ export function UcatStemEditorShell({
           </UcatTutorStemPreviewExamChrome>
         </div>
       </div>
+        )}
+        secondary={(
       <UcatStemEditorPropertiesPanel
         form={form}
         sections={sections}
@@ -346,9 +361,11 @@ export function UcatStemEditorShell({
         onNewImageFileIds={onNewImageFileIds}
         aiReviewAvailable={aiReviewAvailable}
         bulkImportAiReview={bulkImportAiReview}
-        className={cn(activeWorkspace === 'editor' && 'hidden', 'lg:flex')}
+        metadataDetection={metadataDetection}
+        className="h-full"
       />
-      </div>
+        )}
+      />
     </div>
     {visualEditorContext?.image.visualType && visualEditorContext.image.visualSpec ? (
       <UcatVisualEditorDialog

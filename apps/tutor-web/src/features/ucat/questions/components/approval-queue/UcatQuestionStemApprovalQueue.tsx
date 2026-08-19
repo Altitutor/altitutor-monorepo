@@ -38,7 +38,6 @@ import {
 } from '@/features/ucat/questions/hooks/useUcatQuestions'
 import { useManualStemMetadataDetection } from '@/features/ucat/questions/hooks/useManualStemMetadataDetection'
 import { UcatStemEditorLoadingSkeleton } from '@/features/ucat/questions/components/stem-editor/UcatStemEditorLoadingSkeleton'
-import { UcatDetectedStemMetadataControl } from '@/features/ucat/questions/components/stem-editor/UcatDetectedStemMetadataControl'
 import { UcatStemEditorHeaderControls } from '@/features/ucat/questions/components/stem-editor/UcatStemEditorHeaderControls'
 import { UcatStemEditorShell } from '@/features/ucat/questions/components/stem-editor/UcatStemEditorShell'
 import type {
@@ -77,6 +76,7 @@ import { useUcatCopyId } from '@/features/ucat/shared/hooks/useUcatCopyId'
 import { buildCopyIdRowAction, buildStemCopyIdEntries } from '@/features/ucat/shared/lib/copy-id-actions'
 import { UcatRowActions } from '@/features/ucat/shared/row-actions'
 import type { UcatAuthoringWorkspaceTab } from '@/features/ucat/shared/components/UcatAuthoringWorkspaceTabs'
+import type { UcatContentStatus } from '@/features/ucat/shared/types'
 
 export type UcatApprovalQueueEntry =
   | {
@@ -98,11 +98,13 @@ export function UcatQuestionStemApprovalQueueDialog({
   open,
   title,
   entries,
+  workflowStatus,
   onClose,
 }: {
   open: boolean
   title: string
   entries: UcatApprovalQueueEntry[]
+  workflowStatus?: UcatContentStatus
   onClose: () => void
 }) {
   const [snapshotEntries, setSnapshotEntries] = useState<UcatApprovalQueueEntry[]>([])
@@ -134,6 +136,7 @@ export function UcatQuestionStemApprovalQueueDialog({
         <UcatQuestionStemApprovalQueue
           title={title}
           entries={snapshotEntries}
+          workflowStatus={workflowStatus}
           onExit={onClose}
           expanded={expanded}
           onToggleExpanded={() => setExpanded((current) => !current)}
@@ -162,12 +165,14 @@ export function UcatQuestionStemApprovalQueuePage({
 function UcatQuestionStemApprovalQueue({
   title,
   entries,
+  workflowStatus,
   onExit,
   expanded,
   onToggleExpanded,
 }: {
   title: string
   entries: UcatApprovalQueueEntry[]
+  workflowStatus?: UcatContentStatus
   onExit: () => void
   expanded?: boolean
   onToggleExpanded?: () => void
@@ -224,9 +229,9 @@ function UcatQuestionStemApprovalQueue({
     baselineRef.current = snapshotQuestionStemFormValues(defaultValues)
     setActiveTextEditor(null)
     setActiveQuestionIndex(initialActiveQuestionIndex)
-    setEditorMode('edit')
+    setEditorMode(workflowStatus === 'published' ? 'view' : 'edit')
     setShowAnswer(false)
-  }, [detailQuery.data, defaultValues, form, initialActiveQuestionIndex])
+  }, [detailQuery.data, defaultValues, form, initialActiveQuestionIndex, workflowStatus])
 
   useEffect(() => {
     if (!nextStemId) return
@@ -242,6 +247,9 @@ function UcatQuestionStemApprovalQueue({
     detailQuery.isLoading || sectionsQuery.isLoading || categoriesQuery.isLoading || tagsQuery.isLoading
   const isMutating = updateMutation.isPending || statusMutation.isPending || deleteMutation.isPending
   const isAiMode = currentEntry?.mode === 'ai_approval'
+  const isDraftWorkflow = isAiMode && workflowStatus === 'draft'
+  const isPublishedWorkflow = isAiMode && workflowStatus === 'published'
+  const isReviewWorkflow = isAiMode && !isDraftWorkflow && !isPublishedWorkflow
   const metadataDetection = useManualStemMetadataDetection({
     enabled: isAiMode && !isLoading && detailQuery.data != null,
     resetKey: currentEntry?.stemId ?? null,
@@ -261,7 +269,9 @@ function UcatQuestionStemApprovalQueue({
   const questionCount = watchedValues.questions?.length ?? 0
   const isLastAiQuestion = !isAiMode || questionCount <= 1 || activeQuestionIndex >= questionCount - 1
   const hasPreviousAiQuestion = isAiMode && activeQuestionIndex > 0
-  const aiPrimaryLabel = isLastAiQuestion ? 'Publish' : 'Next question'
+  const aiPrimaryLabel = isLastAiQuestion
+    ? isDraftWorkflow ? 'Send for review' : 'Publish'
+    : 'Next question'
 
   const focus = getEntryFocus(currentEntry)
   const copyIdAction = detailQuery.data
@@ -408,12 +418,45 @@ function UcatQuestionStemApprovalQueue({
     void invalidateQueueData(currentEntry.stemId)
   }
 
+  async function handleSendForReview() {
+    if (!currentEntry) return
+    form.setValue('status', 'in_review', { shouldDirty: true })
+    const saved = await saveCurrent({ requestAssessment: false })
+    if (!saved) return
+    const submittedStemId = currentEntry.stemId
+    toast(lifecycleStatusSuccessToast({
+      contentLabel: 'Question',
+      count: 1,
+      status: 'in_review',
+      onUndo: () => {
+        void ucatQuestionsApi.bulkRestoreStatus([submittedStemId], 'in_review', 'draft')
+          .then(async () => {
+            await invalidateQueueData(submittedStemId)
+            toast({ title: 'Question status restored' })
+          })
+          .catch((error) => toast({
+            title: 'Could not undo status change',
+            description: error instanceof Error ? error.message : 'The question could not be returned to draft.',
+            variant: 'destructive',
+          }))
+      },
+    }))
+    if (entries.length === 1) {
+      onExit()
+      void invalidateQueueData(submittedStemId)
+      return
+    }
+    goNext()
+    void invalidateQueueData(submittedStemId)
+  }
+
   function handleAiPrimaryAction() {
     if (!isLastAiQuestion) {
       setActiveQuestionIndex((current) => Math.min(current + 1, Math.max(questionCount - 1, 0)))
       return
     }
-    void handleApprove()
+    if (isDraftWorkflow) void handleSendForReview()
+    else void handleApprove()
   }
 
   function handleAiPreviousQuestion() {
@@ -515,6 +558,7 @@ function UcatQuestionStemApprovalQueue({
       }
       if (event.target instanceof HTMLTextAreaElement) return
       if (isMutating || queueComplete || !currentEntry) return
+      if (isPublishedWorkflow) return
 
       event.preventDefault()
       event.stopPropagation()
@@ -542,16 +586,6 @@ function UcatQuestionStemApprovalQueue({
             </div>
           </div>
           <div className="flex shrink-0 items-center gap-2">
-            {isAiMode ? (
-              <UcatDetectedStemMetadataControl
-                pendingDiff={metadataDetection.pendingDiff}
-                sections={sections}
-                categories={categories}
-                tags={tags}
-                onAccept={metadataDetection.accept}
-                onDismiss={metadataDetection.dismiss}
-              />
-            ) : null}
             {currentEntry && !queueComplete ? (
               <UcatStemEditorHeaderControls
                 mode={editorMode}
@@ -606,7 +640,7 @@ function UcatQuestionStemApprovalQueue({
             tags={tags}
             stemId={currentEntry.stemId}
             initialQuestionIndex={currentEntry.mode === 'reconciliation' ? currentEntry.questionIndex : activeQuestionIndex}
-            initialEditorMode="edit"
+            initialEditorMode={isPublishedWorkflow ? 'view' : 'edit'}
             editorMode={editorMode}
             onEditorModeChange={setEditorMode}
             showAnswer={showAnswer}
@@ -628,15 +662,20 @@ function UcatQuestionStemApprovalQueue({
             statusChangedAt={detailQuery.data?.status_changed_at ?? null}
             workspaceTab={activeWorkspaceTab}
             onWorkspaceTabChange={setActiveWorkspaceTab}
+            metadataDetection={isAiMode ? {
+              pendingDiff: metadataDetection.pendingDiff,
+              onAccept: metadataDetection.acceptField,
+              onDismiss: metadataDetection.dismissField,
+            } : null}
           />
         )}
       </div>
 
       <DialogFooter className={cn('flex-shrink-0 flex-row items-center gap-3 px-6 py-4 sm:justify-start', tutorDialogFooterStrip)}>
         <div className="flex min-w-0 flex-1 items-center gap-3">
-          {!queueComplete && currentEntry && isAiMode ? (
+          {!queueComplete && currentEntry && isReviewWorkflow ? (
             <Button type="button" variant="destructive" onClick={() => void handleReject()} disabled={isMutating}>
-              Reject
+              Move to drafts
             </Button>
           ) : null}
           {entries.length > 0 && !queueComplete && currentEntry ? (
@@ -644,24 +683,22 @@ function UcatQuestionStemApprovalQueue({
               <Button
                 type="button"
                 variant="outline"
-                size="icon"
-                className={tutorBtnIconOutline}
+                className={tutorBtnOutline}
                 onClick={() => requestNavigate('prev')}
                 disabled={isMutating || !canGoPreviousStem}
-                aria-label="Previous stem"
               >
-                <ChevronLeft className="h-4 w-4" />
+                <ChevronLeft className="mr-2 h-4 w-4" />
+                Previous stem
               </Button>
               <Button
                 type="button"
                 variant="outline"
-                size="icon"
-                className={tutorBtnIconOutline}
+                className={tutorBtnOutline}
                 onClick={() => requestNavigate('next')}
                 disabled={isMutating || !canGoNextStem}
-                aria-label="Next stem"
               >
-                <ChevronRight className="h-4 w-4" />
+                Next stem
+                <ChevronRight className="ml-2 h-4 w-4" />
               </Button>
             </div>
           ) : null}
@@ -678,7 +715,7 @@ function UcatQuestionStemApprovalQueue({
             </div>
           ) : (
             <div className="flex shrink-0 items-center gap-2">
-              {isAiMode ? (
+              {isPublishedWorkflow ? null : isAiMode ? (
                 <>
                   {hasPreviousAiQuestion ? (
                     <Button

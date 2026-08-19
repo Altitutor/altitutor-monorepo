@@ -33,6 +33,7 @@ import {
   EXPANDED_DIALOG_CONTENT_CLASS,
 } from '@/shared/components/expandable-dialog';
 import { cn } from '@/shared/utils';
+import { EntityResizablePanels } from '@/shared/components/EntityResizablePanels';
 
 const formSchema = z.object({
   name: z.string().min(1, 'Name is required'),
@@ -179,23 +180,30 @@ export function CreateProjectDialog({
           <div className="flex-1 overflow-hidden min-h-0">
             <div className="h-full flex">
               <form onSubmit={form.handleSubmit(onSubmit as SubmitHandler<ProjectFormData>)} className="flex-1 flex min-h-0">
-                <div
-                  className="flex-1 min-w-0 border-r overflow-y-auto p-6 space-y-6"
-                  data-rich-text-toolbar-container
-                >
-                  <ProjectTitleField
-                    form={form}
-                    onEnter={handleTitleEnter}
-                    titleRef={titleFieldRef}
-                  />
-                  <ProjectDescriptionField
-                    form={form}
-                    descriptionRef={descriptionFieldRef}
-                  />
-                </div>
-                <div className="w-80 flex-shrink-0 overflow-y-auto p-6">
-                  <ProjectPropertiesFields form={form} />
-                </div>
+                <EntityResizablePanels
+                  id="create-project-panels"
+                  main={(
+                    <div
+                      className="h-full min-w-0 overflow-y-auto p-6 space-y-6"
+                      data-rich-text-toolbar-container
+                    >
+                      <ProjectTitleField
+                        form={form}
+                        onEnter={handleTitleEnter}
+                        titleRef={titleFieldRef}
+                      />
+                      <ProjectDescriptionField
+                        form={form}
+                        descriptionRef={descriptionFieldRef}
+                      />
+                    </div>
+                  )}
+                  sidebar={(
+                    <div className="hidden h-full w-full overflow-y-auto p-6 md:block">
+                      <ProjectPropertiesFields form={form} />
+                    </div>
+                  )}
+                />
               </form>
             </div>
           </div>

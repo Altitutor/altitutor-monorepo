@@ -37,6 +37,7 @@ import { useIssueActions } from '../hooks/useIssueActions';
 import { ActionsMenu } from '@/shared/components/ActionsMenu';
 import { SaveAsTemplateDialog } from '@/features/rich-text-templates/components/SaveAsTemplateDialog';
 import { useLiveIssueTags } from '../hooks/useLiveIssueTags';
+import { EntityResizablePanels } from '@/shared/components/EntityResizablePanels';
 
 const VALID_ISSUE_STATUSES: IssueStatus[] = ['open', 'awaiting_response', 'resolved'];
 
@@ -73,22 +74,27 @@ function IssueLiveTagsPanels({
   });
 
   return (
-    <>
-      <IssuePropertiesPanel
-        form={form}
-        issue={issue}
-        tags={liveTags}
-        notes={notes}
-        isOpen={isOpen}
-        onClose={onClose}
-        descriptionRef={descriptionRef}
-      />
-      <IssueContentPanel
-        isOpen={isOpen}
-        form={form}
-        tags={liveTags}
-      />
-    </>
+    <EntityResizablePanels
+      id={`issue-${issue.id}-panels`}
+      main={(
+        <IssuePropertiesPanel
+          form={form}
+          issue={issue}
+          tags={liveTags}
+          notes={notes}
+          isOpen={isOpen}
+          onClose={onClose}
+          descriptionRef={descriptionRef}
+        />
+      )}
+      sidebar={(
+        <IssueContentPanel
+          isOpen={isOpen}
+          form={form}
+          tags={liveTags}
+        />
+      )}
+    />
   );
 }
 

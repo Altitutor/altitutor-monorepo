@@ -252,7 +252,7 @@ export function UcatLandingPricing() {
               <span
                 className={`${UCAT_PLAN_BADGE_LIGHT_CLASS} ${typo.dataMono}`}
               >
-                Altitutor UCAT Free
+                UCAT Free
               </span>
               <h3
                 className={`mt-4 ${UCAT_CARD_TITLE_CLASS} ${typo.headingSans}`}
@@ -263,7 +263,7 @@ export function UcatLandingPricing() {
                 className={`mt-4 ${UCAT_BODY_DESCRIPTION_CLASS} ${typo.secondarySans}`}
               >
                 Learn, practice, review, and track your progress with allowances
-                that reset. This is ongoing access—not a trial you eventually
+                that reset. This is ongoing access - not a trial you eventually
                 use up.
               </p>
               <div className="mt-7 flex items-end gap-2">
@@ -311,7 +311,7 @@ export function UcatLandingPricing() {
               <span
                 className={`${UCAT_PLAN_BADGE_DARK_CLASS} ${typo.dataMono}`}
               >
-                Altitutor UCAT Unlimited
+                UCAT Unlimited
               </span>
               <h3 className={`mt-4 ${UCAT_CARD_TITLE_DARK_CLASS} ${typo.headingSans}`}>
                 Practice without waiting.

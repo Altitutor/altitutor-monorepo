@@ -53,8 +53,8 @@ export function inner(n: Node, pBefore: number): { from: number; to: number } {
   return { from: pBefore + 1, to: pBefore + n.nodeSize - 1 }
 }
 
-/** Convert the walker's first-inside position to the node range for a leaf node. */
-function leaf(n: Node, pBefore: number): { from: number; to: number } {
+/** Convert the walker's first-inside position to the range covering the whole node. */
+function whole(n: Node, pBefore: number): { from: number; to: number } {
   const from = Math.max(0, pBefore - 1)
   return { from, to: from + n.nodeSize }
 }
@@ -368,7 +368,7 @@ function walkVrDmSj(n: Node, pBefore: number, st: RSt): void {
   if (t === 'image') {
     if (!isBlank(nodeToText(j).trim() ?? '')) {
       st.lines.push((st.prefixForNextLine ?? '') + (nodeToText(j).trim() as string))
-      st.ranges.push(leaf(n, pBefore))
+      st.ranges.push(whole(n, pBefore))
       st.prefixForNextLine = undefined
     }
     return
@@ -400,7 +400,7 @@ function walkVrDmSj(n: Node, pBefore: number, st: RSt): void {
             st.lines.push(optionLines[oi] ?? '')
             const ntr = nestedT.table.child(oi)
             const pTr = beforeChild(nestedT.table, pNt, oi)
-            st.ranges.push({ from: pTr, to: pTr + ntr.nodeSize })
+            st.ranges.push(whole(ntr, pTr))
           }
         } else {
           const c1b = rowPm.child(1)
@@ -583,7 +583,7 @@ function walkQrNode(n: Node, pBefore: number, st: RSt): void {
   if (t === 'image') {
     if (nodeToText(j).trim().length > 0) {
       st.lines.push((st.prefixForNextLine ?? '') + nodeToText(j).trim())
-      st.ranges.push(leaf(n, pBefore))
+      st.ranges.push(whole(n, pBefore))
       st.prefixForNextLine = undefined
     }
     return
@@ -617,7 +617,7 @@ function walkQrNode(n: Node, pBefore: number, st: RSt): void {
             st.lines.push(optionLines[oi] ?? '')
             const ntr = nest.table.child(oi)
             const pTr = beforeChild(nest.table, pNt, oi)
-            st.ranges.push({ from: pTr, to: pTr + ntr.nodeSize })
+            st.ranges.push(whole(ntr, pTr))
           }
         } else {
           for (const o of optionLines) {
@@ -647,9 +647,9 @@ function walkQrNode(n: Node, pBefore: number, st: RSt): void {
         if (i < n.childCount) {
           const tr = n.child(i)
           const pR = beforeChild(n, pBefore, i)
-          st.ranges.push({ from: pR, to: pR + tr.nodeSize })
+          st.ranges.push(whole(tr, pR))
         } else {
-          st.ranges.push({ from: pBefore, to: pBefore + n.nodeSize })
+          st.ranges.push(whole(n, pBefore))
         }
       }
       return
@@ -658,7 +658,7 @@ function walkQrNode(n: Node, pBefore: number, st: RSt): void {
     qrTableN += 1
     const id = `t${qrTableN}`
     st.lines.push((st.prefixForNextLine ?? '') + `[[TABLE:${id}]]`)
-    st.ranges.push({ from: pBefore, to: pBefore + n.nodeSize })
+    st.ranges.push(whole(n, pBefore))
     st.prefixForNextLine = undefined
     return
   }

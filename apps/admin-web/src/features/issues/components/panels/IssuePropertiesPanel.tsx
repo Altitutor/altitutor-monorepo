@@ -56,7 +56,7 @@ export const IssuePropertiesPanel = memo(function IssuePropertiesPanel({
   return (
     <>
       <div
-        className="h-full min-h-0 flex-1 min-w-0 overflow-y-auto overscroll-contain border-r"
+        className="h-full min-h-0 flex-1 min-w-0 overflow-y-auto overscroll-contain"
         data-rich-text-toolbar-container
       >
         <div className="p-6 space-y-6">

@@ -230,8 +230,7 @@ export function UcatLandingStories() {
             >
               <p>
                 Hi, I&apos;m Matt - I&apos;m a doctor working across a few hospitals in South
-                Australia. I founded Altitutor with some friends while I was in
-                medical school, with the mission of providing accessible education to those who 
+                Australia. I founded Altitutor with the mission of providing accessible education to those who 
                 can&apos;t afford it. Over the years, Altitutor has provided free or subsidised education to 
                 hundreds of students, and I&apos;m proud to say that our first cohort of students are now 
                 fully qualified doctors, dentists and other working professionals! 

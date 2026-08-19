@@ -40,7 +40,6 @@ import { buildCopyIdRowAction, buildStemCopyIdEntries } from '@/features/ucat/sh
 import { UcatRowActions } from '@/features/ucat/shared/row-actions'
 import { UcatStemEditorShell } from '@/features/ucat/questions/components/stem-editor/UcatStemEditorShell'
 import type { StemEditorMode } from '@/features/ucat/questions/components/stem-editor/UcatStemEditorPropertiesPanel'
-import { UcatDetectedStemMetadataControl } from '@/features/ucat/questions/components/stem-editor/UcatDetectedStemMetadataControl'
 import { UcatStemEditorHeaderControls } from '@/features/ucat/questions/components/stem-editor/UcatStemEditorHeaderControls'
 import { taxonomyDisplayLabel } from '@/features/ucat/shared/lib/taxonomy-paths'
 import { filterTagsForImportSection } from '@/features/ucat/shared/lib/taxonomy-reparent'
@@ -439,22 +438,12 @@ export function UcatQuestionStemDialog({
         ) : undefined
       }
       headerControls={
-        <>
-          <UcatDetectedStemMetadataControl
-            pendingDiff={metadataDetection.pendingDiff}
-            sections={sections}
-            categories={categories}
-            tags={tags}
-            onAccept={metadataDetection.accept}
-            onDismiss={metadataDetection.dismiss}
-          />
-          <UcatStemEditorHeaderControls
-            mode={editorMode}
-            onModeChange={setEditorMode}
-            showAnswer={showAnswer}
-            onShowAnswerChange={setShowAnswer}
-          />
-        </>
+        <UcatStemEditorHeaderControls
+          mode={editorMode}
+          onModeChange={setEditorMode}
+          showAnswer={showAnswer}
+          onShowAnswerChange={setShowAnswer}
+        />
       }
       headerActions={headerActions}
       warningPills={warningPills}
@@ -512,6 +501,11 @@ export function UcatQuestionStemDialog({
             return { ok: true, message: 'The reviewed image has been applied to the question stem.' }
           }}
           onUseSelectedImageWithAi={(image, editor) => setSelectedAiImageContext({ image, editor })}
+          metadataDetection={{
+            pendingDiff: metadataDetection.pendingDiff,
+            onAccept: metadataDetection.acceptField,
+            onDismiss: metadataDetection.dismissField,
+          }}
         />
       </div>
       </UcatDialogShell>

@@ -26,6 +26,7 @@ export * from './components/phone-input';
 export * from './lib/phone';
 export * from './components/popover';
 export * from './components/radio-group';
+export * from './components/resizable';
 export * from './components/scroll-area';
 export * from './components/segmented-control';
 export * from './components/segmented-tab-panel';
