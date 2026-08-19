@@ -75,7 +75,7 @@ const SetShapeTypeSchema = z.preprocess(
 )
 
 const SetPointSchema = z.union([
-  z.tuple([z.coerce.number(), z.coerce.number()]),
+  z.array(z.coerce.number()).length(2),
   z.object({ x: z.coerce.number(), y: z.coerce.number() }),
 ])
 
