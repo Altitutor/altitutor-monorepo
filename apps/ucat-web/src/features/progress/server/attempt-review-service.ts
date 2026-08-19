@@ -7,6 +7,7 @@ import type {
 } from "@/features/progress/model/attempt-review";
 import { completeStudyPlanReviewForAttempt } from "@/features/study-plan/server/study-plan-service";
 import { supabaseAdmin } from "@/lib/supabase/admin";
+import { captureUcatActivationCompletedInBackground } from "@/lib/analytics/posthog-server";
 
 function admin() {
   if (!supabaseAdmin)
@@ -66,6 +67,12 @@ async function syncStudyPlanReviewCompletion(
 ) {
   if (!state.completedAt || previouslyComplete) return;
   await completeStudyPlanReviewForAttempt(userId, attemptType, attemptId);
+  captureUcatActivationCompletedInBackground({
+    userId,
+    attemptType,
+    attemptId,
+    completionMethod: state.completionMethod,
+  });
 }
 
 export async function startAttemptReview(

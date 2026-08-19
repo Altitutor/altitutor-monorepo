@@ -40,7 +40,7 @@ Questions belong together only when they use the same passage, data set, scenari
 - Category is one of: Interpreting Information and Drawing Conclusions; Logical Puzzles; Probabilistic and Statistical Reasoning; Recognising Assumptions; Syllogisms; Venn Diagrams.
 - Binary placement (syllogisms / follow-from-passage Yes-No): question text is exactly `Place 'Yes' if the conclusion does follow. Place 'No' if the conclusion does not follow.` Response `drag_and_drop`, five statements.
 - Recognising Assumptions: question text is exactly `Select the strongest argument from the statements below.` Four arguments, `multiple_choice`.
-- Venn Diagrams: an editable Venn or set-diagram visual on the stem.
+- Venn Diagrams: a Venn or set-diagram visual on the stem or answer options.
 
 ## Quantitative Reasoning
 

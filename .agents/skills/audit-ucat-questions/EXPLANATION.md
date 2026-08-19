@@ -63,6 +63,8 @@ For evaluating-argument questions: state the criteria for a strong argument; app
 
 For probability: define the relevant event or complement; show the setup; perform the shortest calculation; interpret the result in the wording of the question.
 
+For venn diagrams: Identify the relevant shape(s)/region(s); perform calculation if relevant. Do not use set theory symbols
+
 ## Verbal Reasoning
 
 Direct the student to the relevant paragraph or paragraphs. Identify the specific sentence, fact, contrast, or omission that decides the answer.

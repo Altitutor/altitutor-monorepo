@@ -5,6 +5,13 @@ import { Label } from "@altitutor/ui";
 import { Badge } from "@altitutor/ui";
 import { Separator } from "@altitutor/ui";
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@altitutor/ui";
+import {
   AlertDialog,
   AlertDialogAction,
   AlertDialogCancel,
@@ -35,6 +42,7 @@ export interface DetailsFormData {
   email: string;
   phone: string;
   birthday: string;
+  analyticsAccountClass?: 'external' | 'internal_test';
 }
 
 interface DetailsTabProps {
@@ -95,6 +103,10 @@ export function DetailsTab({
     email: student.email || '',
     phone: student.phone || '',
     birthday: student.birthday || '',
+    analyticsAccountClass:
+      student.ucat_analytics_account_class === 'internal_test'
+        ? 'internal_test'
+        : 'external',
   });
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -162,6 +174,35 @@ export function DetailsTab({
                   max={new Date().toISOString().slice(0, 10)}
                   onChange={(e) => handleInputChange('birthday', e.target.value)}
                 />
+              </div>
+
+              <div>
+                <Label htmlFor="analytics-account-class">
+                  Analytics account class
+                </Label>
+                <Select
+                  value={formData.analyticsAccountClass}
+                  onValueChange={(value: 'external' | 'internal_test') =>
+                    setFormData((previous) => ({
+                      ...previous,
+                      analyticsAccountClass: value,
+                    }))
+                  }
+                >
+                  <SelectTrigger id="analytics-account-class">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="external">External customer</SelectItem>
+                    <SelectItem value="internal_test">
+                      Internal / friend / test account
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Internal/test accounts are excluded from UCAT acquisition,
+                  conversion, and retention reporting.
+                </p>
               </div>
 
               <Separator className="my-6" />
@@ -470,6 +511,15 @@ export function DetailsTab({
         <div className="text-sm font-medium">Birthday:</div>
         <div>
           <TruncatedText text={student.birthday || '-'} />
+        </div>
+
+        <div className="text-sm font-medium">Analytics:</div>
+        <div>
+          <Badge variant="outline">
+            {student.ucat_analytics_account_class === 'internal_test'
+              ? 'Internal / test'
+              : 'External customer'}
+          </Badge>
         </div>
         
       </div>

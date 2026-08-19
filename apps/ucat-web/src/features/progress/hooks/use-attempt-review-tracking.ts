@@ -69,6 +69,15 @@ export function useAttemptReviewTracking(input: {
   const viewQueue = useRef(Promise.resolve());
   const requiredKey = input.requiredQuestionIds.join(",");
   const reportedCompletionKey = useRef<string | null>(null);
+  const invalidateReviewDependentQueries = useCallback(() => {
+    void queryClient.invalidateQueries({
+      queryKey: ["ucat", "progress", "attempts"],
+    });
+    void queryClient.invalidateQueries({
+      queryKey: ["ucat", "progress", "mocks", "summary"],
+    });
+    void queryClient.invalidateQueries({ queryKey: ["ucat-study-plan"] });
+  }, [queryClient]);
   const reportReviewCompletion = useCallback(() => {
     const key = `${input.attemptType}:${input.attemptId}`;
     if (reportedCompletionKey.current === key) return;
@@ -77,7 +86,13 @@ export function useAttemptReviewTracking(input: {
       title: "Progress review complete",
       detail: "You’ve reviewed this attempt.",
     });
-  }, [input.attemptId, input.attemptType, reportActivityCompletion]);
+    invalidateReviewDependentQueries();
+  }, [
+    input.attemptId,
+    input.attemptType,
+    invalidateReviewDependentQueries,
+    reportActivityCompletion,
+  ]);
 
   useEffect(() => {
     if (!input.ready) return;
@@ -92,6 +107,7 @@ export function useAttemptReviewTracking(input: {
         setReview(state);
         sentViews.current = new Set(state.viewedQuestionIds);
         setError(null);
+        if (state.completedAt) invalidateReviewDependentQueries();
       })
       .catch((caught) => {
         startedKey.current = null;
@@ -106,7 +122,7 @@ export function useAttemptReviewTracking(input: {
     input.ready,
     input.requiredQuestionIds,
     requiredKey,
-    queryClient,
+    invalidateReviewDependentQueries,
   ]);
 
   useEffect(() => {
@@ -142,7 +158,6 @@ export function useAttemptReviewTracking(input: {
         setReview(nextState);
         if (nextState.completedAt) {
           reportReviewCompletion();
-          void queryClient.invalidateQueries({ queryKey: ["ucat-study-plan"] });
         }
       } catch {
         sentViews.current.delete(questionId);
@@ -164,7 +179,6 @@ export function useAttemptReviewTracking(input: {
     input.requiredQuestionIds,
     input.selectedQuestionId,
     review,
-    queryClient,
     reportReviewCompletion,
   ]);
 
@@ -182,7 +196,6 @@ export function useAttemptReviewTracking(input: {
       setReview(state);
       setError(null);
       if (state.completedAt) reportReviewCompletion();
-      await queryClient.invalidateQueries({ queryKey: ["ucat-study-plan"] });
     } catch (caught) {
       setError(
         caught instanceof Error
@@ -192,7 +205,7 @@ export function useAttemptReviewTracking(input: {
     } finally {
       setIsPending(false);
     }
-  }, [input.attemptId, input.attemptType, queryClient, reportReviewCompletion]);
+  }, [input.attemptId, input.attemptType, reportReviewCompletion]);
 
   const nextUnviewedQuestionId = review
     ? findNextUnviewedReviewQuestion({

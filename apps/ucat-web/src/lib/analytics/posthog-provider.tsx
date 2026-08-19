@@ -4,6 +4,7 @@ import { Suspense, useEffect, useRef, useState } from "react";
 import { usePathname, useSearchParams } from "next/navigation";
 import { PostHogProvider as PHProvider } from "posthog-js/react";
 import { useAuth } from "@/features/auth";
+import { useUcatAccess } from "@/features/ucat-access/hooks/use-ucat-access";
 import {
   getUcatAnalyticsSurface,
   posthog,
@@ -54,15 +55,19 @@ function PostHogPageView({ enabled }: { enabled: boolean }) {
 
 export function UcatPostHogIdentity() {
   const { user, isLoading } = useAuth();
+  const access = useUcatAccess();
   const userId = user?.id ?? null;
   const previousUserId = useRef<string | null>(null);
 
   useEffect(() => {
-    if (isLoading || !posthog.__loaded) return;
+    if (isLoading || access.isLoading || !posthog.__loaded) return;
 
     if (userId) {
       posthog.identify(userId, {
         active_product: "ucat",
+        account_class: access.analyticsAccountClass,
+        ucat_test_year: access.testYear,
+        ucat_test_date: access.testDate,
       });
       previousUserId.current = userId;
       return;
@@ -72,7 +77,14 @@ export function UcatPostHogIdentity() {
       posthog.reset();
       previousUserId.current = null;
     }
-  }, [isLoading, userId]);
+  }, [
+    access.analyticsAccountClass,
+    access.isLoading,
+    access.testDate,
+    access.testYear,
+    isLoading,
+    userId,
+  ]);
 
   return null;
 }

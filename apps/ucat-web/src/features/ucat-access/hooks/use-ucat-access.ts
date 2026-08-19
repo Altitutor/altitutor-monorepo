@@ -18,6 +18,9 @@ export type UcatAccessFlags = {
   signupCompleted: boolean;
   signupStep: number;
   unlimitedTrialEligible: boolean;
+  analyticsAccountClass: "external" | "internal_test";
+  testYear: number | null;
+  testDate: string | null;
   isLoading: boolean;
   /** The access lookup failed, so route guards must not infer missing access. */
   accessLoadFailed: boolean;
@@ -33,7 +36,9 @@ type VstudentUcatMyAccessRow = {
   ucat_signup_step: number | null;
   ucat_signup_completed_at: string | null;
   unlimited_trial_eligible: boolean | null;
-  /** @deprecated pre-migration column name */
+  ucat_analytics_account_class: string | null;
+  ucat_test_year: number | null;
+  ucat_test_date: string | null;
 };
 
 const EMPTY_FLAGS: Omit<UcatAccessFlags, "isLoading" | "accessLoadFailed"> = {
@@ -46,7 +51,16 @@ const EMPTY_FLAGS: Omit<UcatAccessFlags, "isLoading" | "accessLoadFailed"> = {
   signupCompleted: false,
   signupStep: 1,
   unlimitedTrialEligible: false,
+  analyticsAccountClass: "external",
+  testYear: null,
+  testDate: null,
 };
+
+function parseAnalyticsAccountClass(
+  value: string | null,
+): UcatAccessFlags["analyticsAccountClass"] {
+  return value === "internal_test" ? "internal_test" : "external";
+}
 
 function parseOnlineTier(value: string | null): UcatOnlineTier | null {
   return isUcatOnlineTier(value) ? value : null;
@@ -65,6 +79,11 @@ function mapAccessRow(
     signupCompleted: Boolean(data.ucat_signup_completed_at),
     signupStep: data.ucat_signup_step ?? 1,
     unlimitedTrialEligible: Boolean(data.unlimited_trial_eligible),
+    analyticsAccountClass: parseAnalyticsAccountClass(
+      data.ucat_analytics_account_class,
+    ),
+    testYear: data.ucat_test_year,
+    testDate: data.ucat_test_date,
   };
 }
 

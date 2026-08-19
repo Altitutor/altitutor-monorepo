@@ -47,6 +47,7 @@ function loadTypescriptModule(path, transform = (source) => source) {
       env: {
         get(name) {
           if (name === "UCAT_WEB_URL") return "https://ucat.altitutor.com";
+          if (name === "MARKETING_WEB_URL") return `http://127.0.0.1:${port}`;
           if (name === "UCAT_FOUNDER_SIGNATURE_URL") {
             return `http://127.0.0.1:${port}/__matt_signature`;
           }
@@ -86,8 +87,8 @@ const lifecycleCampaigns = [
   ["onboarding_starting_point", "Onboarding 1 · Starting point", "At 9 am local time around signup day 0; delayed when a higher-priority message is due.", EMAIL_SETTINGS.lessons],
   ["onboarding_technique", "Onboarding 2 · Technique", "At 9 am local time around signup day 2, after lesson one.", EMAIL_SETTINGS.lessons],
   ["onboarding_timing", "Onboarding 3 · Timing", "At 9 am local time around signup day 5, after lesson two.", EMAIL_SETTINGS.lessons],
-  ["onboarding_plan", "Onboarding 4 · Study plan", "At 9 am local time around signup day 9, after lesson three.", EMAIL_SETTINGS.lessons],
-  ["first_score_estimate", "First score estimate", "Once, within 48 hours of the first estimate becoming available.", EMAIL_SETTINGS.weekly],
+  ["onboarding_plan", "Onboarding 4 · Attempt review", "At 9 am local time around signup day 9, after lesson three.", EMAIL_SETTINGS.lessons],
+  ["first_score_estimate", "Progress · category breakdown", "Once, within 48 hours of the first estimate becoming available. Teaches Progress; does not include the student's score.", EMAIL_SETTINGS.weekly],
   ["weekly_review", "Weekly review", "Sunday afternoon local time after at least 10 questions, one set, or one mock.", EMAIL_SETTINGS.weekly],
   ["gentle_restart", "Gentle restart", "At 9 am local time after seven to nine inactive days, no more than once per 30 days.", EMAIL_SETTINGS.weekly],
   ["upgrade_quota", "Upgrade · quota", "A Free student, 24 hours after reaching an allowance, with a shared 30-day upgrade cooldown.", "Offers and referrals"],
@@ -884,6 +885,24 @@ const server = createServer((request, response) => {
       ),
     );
     return;
+  }
+  if (url.pathname.startsWith("/assets/ucat/email/")) {
+    const filename = url.pathname.slice("/assets/ucat/email/".length);
+    if (!filename.includes("/") && filename.endsWith(".jpg")) {
+      const asset = resolve(
+        workspace,
+        "apps/marketing-web/public/assets/ucat/email",
+        filename,
+      );
+      if (existsSync(asset)) {
+        response.writeHead(200, {
+          "Content-Type": "image/jpeg",
+          "Cache-Control": "no-store",
+        });
+        response.end(readFileSync(asset));
+        return;
+      }
+    }
   }
   if (url.pathname === "/") {
     response.writeHead(200, { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-store" });

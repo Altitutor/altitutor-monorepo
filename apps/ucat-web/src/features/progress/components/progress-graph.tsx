@@ -178,11 +178,21 @@ function AxisLabelSelect<T extends { value: string; label: string }>({
 }
 
 const PROJECTION_SERIES_LABELS: Record<string, string> = {
-  value: "Estimate",
   projectionRealistic: "Projected",
   projectionPessimistic: "Low",
   projectionOptimistic: "High",
 };
+
+function graphTooltipSeriesLabel(
+  dataKey: string,
+  metricLabel: string,
+  isProjectionGraph: boolean,
+): string {
+  if (dataKey === "value") {
+    return isProjectionGraph ? "Estimate" : metricLabel;
+  }
+  return PROJECTION_SERIES_LABELS[dataKey] ?? metricLabel;
+}
 
 const GRAPH_TOOLTIP_WRAPPER_STYLE = {
   zIndex: 30,
@@ -381,7 +391,7 @@ export function ProgressGraph({
       return formatSpeedPercentAsMultiplier(value);
     }
     if (dataType === "percentage") {
-      return String(Math.round(value));
+      return `${Math.round(value)}%`;
     }
     if (dataType === "scaled_score") return String(Math.round(value));
     return String(value);
@@ -477,7 +487,7 @@ export function ProgressGraph({
         <ul className="space-y-0.5">
           {rows.map((entry) => {
             const key = String(entry.dataKey ?? entry.name ?? "value");
-            const rowLabel = PROJECTION_SERIES_LABELS[key] ?? label;
+            const rowLabel = graphTooltipSeriesLabel(key, label, showProjection);
             const numericValue =
               typeof entry.value === "number"
                 ? entry.value

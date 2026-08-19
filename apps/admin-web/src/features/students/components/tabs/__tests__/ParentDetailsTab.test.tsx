@@ -119,6 +119,7 @@ const mockStudents: Tables<'students'>[] = [
     ucat_signup_step: 0,
     birthday: null,
     ucat_initial_familiarity: null,
+    ucat_analytics_account_class: 'external',
   },
   {
     id: 'student-2',
@@ -159,6 +160,7 @@ const mockStudents: Tables<'students'>[] = [
     ucat_signup_step: 0,
     birthday: null,
     ucat_initial_familiarity: null,
+    ucat_analytics_account_class: 'external',
   },
 ];
 

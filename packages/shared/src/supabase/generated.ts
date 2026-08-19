@@ -10937,6 +10937,7 @@ export type Database = {
           school: string | null
           status: string | null
           timezone: string
+          ucat_analytics_account_class: string
           ucat_initial_familiarity: string | null
           ucat_onboarding_completed_at: string | null
           ucat_online_tier_override: string
@@ -10977,6 +10978,7 @@ export type Database = {
           school?: string | null
           status?: string | null
           timezone?: string
+          ucat_analytics_account_class?: string
           ucat_initial_familiarity?: string | null
           ucat_onboarding_completed_at?: string | null
           ucat_online_tier_override?: string
@@ -11017,6 +11019,7 @@ export type Database = {
           school?: string | null
           status?: string | null
           timezone?: string
+          ucat_analytics_account_class?: string
           ucat_initial_familiarity?: string | null
           ucat_onboarding_completed_at?: string | null
           ucat_online_tier_override?: string
@@ -24730,32 +24733,13 @@ export type Database = {
           has_ucat_access: boolean | null
           is_quota_exempt: boolean | null
           online_tier: string | null
+          ucat_analytics_account_class: string | null
           ucat_onboarding_completed_at: string | null
           ucat_signup_completed_at: string | null
           ucat_signup_step: number | null
+          ucat_test_date: string | null
+          ucat_test_year: number | null
           unlimited_trial_eligible: boolean | null
-        }
-        Insert: {
-          has_in_person_access?: never
-          has_online_access?: never
-          has_ucat_access?: never
-          is_quota_exempt?: never
-          online_tier?: never
-          ucat_onboarding_completed_at?: string | null
-          ucat_signup_completed_at?: string | null
-          ucat_signup_step?: number | null
-          unlimited_trial_eligible?: never
-        }
-        Update: {
-          has_in_person_access?: never
-          has_online_access?: never
-          has_ucat_access?: never
-          is_quota_exempt?: never
-          online_tier?: never
-          ucat_onboarding_completed_at?: string | null
-          ucat_signup_completed_at?: string | null
-          ucat_signup_step?: number | null
-          unlimited_trial_eligible?: never
         }
         Relationships: []
       }
