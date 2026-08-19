@@ -36787,6 +36787,10 @@ export type Database = {
           run_id: string
         }[]
       }
+      tutor_reorder_topic_flashcards: {
+        Args: { p_ordered_ids: string[]; p_topic_id: string }
+        Returns: undefined
+      }
       tutor_ucat_assign_mock_sessions: {
         Args: { p_mock_id: string; p_session_ids: Json }
         Returns: undefined
@@ -37441,6 +37445,7 @@ export type Database = {
         Args: { json_content: Json }
         Returns: string
       }
+      ucat_catalog_refresh_is_deferred: { Args: never; Returns: boolean }
       ucat_content_before_mock_blueprint_issues: {
         Args: { p_content_id: string; p_content_type: string }
         Returns: Json
