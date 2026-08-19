@@ -35,7 +35,9 @@ function readLocalSupabaseEnvironment() {
   const publicKey = values.ANON_KEY ?? values.PUBLISHABLE_KEY;
   const serviceKey = values.SERVICE_ROLE_KEY ?? values.SECRET_KEY;
   if (!url || !publicKey || !serviceKey) {
-    throw new Error("Local Supabase is missing an API URL, public key, or service key.");
+    throw new Error(
+      "Local Supabase is missing an API URL, public key, or service key.",
+    );
   }
   process.env.UCAT_E2E_SUPABASE_URL = url;
   process.env.UCAT_E2E_PUBLIC_KEY = publicKey;
@@ -48,7 +50,7 @@ function readLocalSupabaseEnvironment() {
 }
 
 const localSupabase = readLocalSupabaseEnvironment();
-const baseURL = process.env.UCAT_E2E_BASE_URL ?? "http://127.0.0.1:3014";
+const baseURL = process.env.UCAT_E2E_BASE_URL ?? "http://localhost:3014";
 
 export default defineConfig({
   testDir: "./e2e",
@@ -70,7 +72,7 @@ export default defineConfig({
   webServer: {
     command: "pnpm exec next dev -p 3014 -H 127.0.0.1",
     url: baseURL,
-    reuseExistingServer: true,
+    reuseExistingServer: false,
     timeout: 120_000,
     env: {
       ...localSupabase,
