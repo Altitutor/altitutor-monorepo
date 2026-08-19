@@ -68,7 +68,7 @@ describe("catchUpExpiredSegments", () => {
     expect(result.state.phase).toBe("marking");
   });
 
-  it("completes fixed review-at-end practice when its session deadline expires", () => {
+  it("shows expiry confirmation when fixed review-at-end practice expires", () => {
     const practiceExam = {
       sourceType: "questionStem",
       sourceId: "practice-1",
@@ -84,8 +84,30 @@ describe("catchUpExpiredSegments", () => {
       { practice: true },
     );
 
-    expect(result.isComplete).toBe(true);
-    expect(result.state.phase).toBe("practiceComplete");
+    expect(result.isComplete).toBe(false);
+    expect(result.state.phase).toBe("question");
+    expect(result.state.showTimeExpiredDialog).toBe(true);
+    expect(result.currentSegmentEndsAt).toBeNull();
+  });
+
+  it("shows expiry confirmation before revealing a timed practice stem", () => {
+    const practiceExam = {
+      sourceType: "questionStem",
+      sourceId: "practice-1",
+      questions: [{ id: "q1", stemId: "stem-1" }],
+      timePerQuestionSeconds: 64,
+    } as unknown as QuestionEngineExam;
+
+    const result = catchUpExpiredSegments(
+      practiceExam,
+      snapshot("question"),
+      new Date(Date.now() - 1_000).toISOString(),
+      { practice: true },
+    );
+
+    expect(result.isComplete).toBe(false);
+    expect(result.state.phase).toBe("question");
+    expect(result.state.showTimeExpiredDialog).toBe(true);
     expect(result.currentSegmentEndsAt).toBeNull();
   });
 });

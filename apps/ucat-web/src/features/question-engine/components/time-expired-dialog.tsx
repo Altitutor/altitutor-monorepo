@@ -18,7 +18,7 @@ export function TimeExpiredDialog({
   practiceReviewAtEnd?: boolean;
 }) {
   const message = practiceReviewAtEnd
-    ? "Your practice time has run out. Click OK to review your answers."
+    ? "Your practice time has run out. Review your answers when you're ready."
     : isPracticeMode
       ? "Your time has run out. Click OK to view the answer."
       : isSetMode
@@ -31,9 +31,13 @@ export function TimeExpiredDialog({
       message={<p>{message}</p>}
       actions={
         <UcatExamActionButton borders="all" onClick={onOk}>
-          <span>
-            <span className="underline">O</span>K
-          </span>
+          {practiceReviewAtEnd ? (
+            "Review answers"
+          ) : (
+            <span>
+              <span className="underline">O</span>K
+            </span>
+          )}
         </UcatExamActionButton>
       }
       className="max-w-2xl"
