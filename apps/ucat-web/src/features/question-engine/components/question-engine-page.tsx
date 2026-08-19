@@ -384,6 +384,7 @@ export function QuestionEnginePage({
   confirmPracticeTransitions = true,
   confirmNextStemTransitions = confirmPracticeTransitions,
   timePerQuestionSeconds = null,
+  practiceSessionTimeLimitSeconds = null,
   backHref,
   onBack,
   onPracticeSessionCompleted,
@@ -432,6 +433,8 @@ export function QuestionEnginePage({
   confirmNextStemTransitions?: boolean;
   /** Questions/questionStem mode only. Seconds per question for timing. Omit or null = untimed. */
   timePerQuestionSeconds?: number | null;
+  /** Fixed review-at-end practice only. One deadline for the complete session. */
+  practiceSessionTimeLimitSeconds?: number | null;
   /** When provided, show a "Back" link in the toolbar that navigates here (e.g. /practice). */
   backHref?: string;
   /** When provided, used instead of router.back() for Done/Exit. Enables clearing session state before navigating. */
@@ -532,6 +535,8 @@ export function QuestionEnginePage({
             questions: mapQuestionStemsToItems(questionStemsForExam),
             instructionsScreens: [],
             timePerQuestionSeconds: timePerQuestionSeconds ?? null,
+            practiceSessionTimeLimitSeconds:
+              practiceSessionTimeLimitSeconds ?? null,
           }
         : mode === "questions"
           ? standaloneQuestions && {
@@ -541,6 +546,8 @@ export function QuestionEnginePage({
               questions: mapQuestionsToItems(standaloneQuestions),
               instructionsScreens: [],
               timePerQuestionSeconds: timePerQuestionSeconds ?? null,
+              practiceSessionTimeLimitSeconds:
+                practiceSessionTimeLimitSeconds ?? null,
             }
           : query.data,
     [
@@ -550,6 +557,7 @@ export function QuestionEnginePage({
       standaloneQuestions,
       query.data,
       timePerQuestionSeconds,
+      practiceSessionTimeLimitSeconds,
     ],
   );
 
@@ -2392,6 +2400,21 @@ export function QuestionEnginePage({
     if (
       practice &&
       reviewTiming === "atEnd" &&
+      (exam.practiceSessionTimeLimitSeconds ?? 0) > 0
+    ) {
+      void runWithLag(async () => {
+        setState((current) => ({
+          ...current,
+          showTimeExpiredDialog: false,
+        }));
+        await handleFinishPractice();
+      });
+      return;
+    }
+
+    if (
+      practice &&
+      reviewTiming === "atEnd" &&
       (exam.sourceType === "questions" || exam.sourceType === "questionStem")
     ) {
       void runWithLag(async () => {
@@ -2599,6 +2622,10 @@ export function QuestionEnginePage({
               isPracticeMode={
                 exam?.sourceType === "questions" ||
                 exam?.sourceType === "questionStem"
+              }
+              practiceReviewAtEnd={
+                reviewTiming === "atEnd" &&
+                (exam?.practiceSessionTimeLimitSeconds ?? 0) > 0
               }
               onOk={() => void runWithLag(handleTimeExpiredOk)}
             />

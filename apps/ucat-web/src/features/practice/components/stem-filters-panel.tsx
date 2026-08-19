@@ -16,6 +16,7 @@ import {
   ucatClickableCardClassName,
 } from "@/lib/ucat-surface-motion";
 import { cn } from "@/lib/utils";
+import { getPracticeTimingSummaryLabel } from "@/features/practice/model/practice-timing-policy";
 
 export type StemFiltersWizardStep = {
   step: number;
@@ -176,6 +177,16 @@ export function StemFiltersPanel({
           )
         : 100
       : Math.round((input.timeSpeedMultiplier ?? 1) * 100);
+  const timedUnlimited =
+    isTimed && showUnlimitedOption && questionCountMode === "unlimited";
+  const timingSummaryLabel = hasReviewTimingStep
+    ? getPracticeTimingSummaryLabel({
+        timePerQuestionSeconds: input.timePerQuestionSeconds,
+        unlimited: questionCountMode === "unlimited",
+        reviewTiming: reviewTiming ?? "afterEachStem",
+        questionCount: input.questionCount,
+      })
+    : previewTimeLabel;
 
   useEffect(() => {
     if (questionCountMode === "set" && input.questionCount > fixedCountMax) {
@@ -683,22 +694,32 @@ export function StemFiltersPanel({
               ]).map((option) => {
                 const Icon = option.icon;
                 const selected = reviewTiming === option.value;
+                const disabled = option.value === "atEnd" && timedUnlimited;
                 return (
                   <div
                     key={option.value}
-                    onClick={() => onReviewTimingChange?.(option.value)}
-                    className={ucatClickableCardClassName({ selected })}
+                    onClick={() => {
+                      if (!disabled) onReviewTimingChange?.(option.value);
+                    }}
+                    aria-disabled={disabled}
+                    className={cn(
+                      ucatClickableCardClassName({ selected }),
+                      disabled && "cursor-not-allowed opacity-60",
+                    )}
                   >
                     <button
                       type="button"
                       onClick={() => onReviewTimingChange?.(option.value)}
                       aria-pressed={selected}
+                      disabled={disabled}
                       className="w-full text-left"
                     >
                       <Icon className="h-5 w-5 text-muted-foreground" />
                       <h3 className="mt-4 font-semibold">{option.title}</h3>
                       <p className="mt-1 text-sm text-muted-foreground">
-                        {option.description}
+                        {disabled
+                          ? "Choose a fixed question count so we can calculate the session time."
+                          : option.description}
                       </p>
                     </button>
                   </div>
@@ -724,7 +745,7 @@ export function StemFiltersPanel({
                         .map((category) => category.name)
                         .join(", "),
                 ],
-                ["Timing", previewTimeLabel],
+                ["Timing", timingSummaryLabel],
                 [
                   "Questions",
                   showUnlimitedOption && questionCountMode === "unlimited"

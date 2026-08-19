@@ -38,6 +38,15 @@ export function getCurrentSegmentTimeLimitSeconds(
     return seg?.timeLimitSeconds ?? null;
   }
 
+  if (
+    (exam.sourceType === "questions" || exam.sourceType === "questionStem") &&
+    state.phase === "question" &&
+    exam.practiceSessionTimeLimitSeconds != null &&
+    exam.practiceSessionTimeLimitSeconds > 0
+  ) {
+    return exam.practiceSessionTimeLimitSeconds;
+  }
+
   // Questions/questionStem mode: only timed when in question phase (answer phase is untimed)
   if (
     (exam.sourceType === "questions" || exam.sourceType === "questionStem") &&

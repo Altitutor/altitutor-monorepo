@@ -54,6 +54,13 @@ function advanceOneSegmentExpiry(
 
   if (exam.sourceType === "questions" || exam.sourceType === "questionStem") {
     if (practice) {
+      if ((exam.practiceSessionTimeLimitSeconds ?? 0) > 0) {
+        return {
+          state: { ...working, phase: "practiceComplete" },
+          currentSegmentEndsAt: null,
+          isComplete: true,
+        };
+      }
       const { startIndex, endIndex } = getStemBoundaries(
         exam.questions,
         working.currentIndex,

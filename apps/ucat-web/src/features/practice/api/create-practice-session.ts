@@ -8,6 +8,7 @@ import type {
 } from "@/features/practice/lib/session-storage";
 import { setPracticeSession } from "@/features/practice/lib/session-storage";
 import { assertOkOrQuotaExceeded } from "@/lib/ucat/quota/parse-quota-error";
+import { resolvePracticeTimingScope } from "@/features/practice/model/practice-timing-policy";
 
 export type PracticeSessionStartInput = {
   payload: PracticeSelectionInput & {
@@ -37,6 +38,17 @@ export async function createPracticeSession(
   input: PracticeSessionStartInput,
 ): Promise<CreatePracticeSessionResult> {
   const { unlimited, reviewTiming, ...filters } = input.payload;
+  if (
+    resolvePracticeTimingScope({
+      timePerQuestionSeconds: filters.timePerQuestionSeconds,
+      unlimited: unlimited === true,
+      reviewTiming,
+    }) === "invalid"
+  ) {
+    throw new Error(
+      "Timed review-at-end practice requires a fixed question count",
+    );
+  }
   const sectionKey = filters.section;
   const filtersSnapshot = {
     ...filters,

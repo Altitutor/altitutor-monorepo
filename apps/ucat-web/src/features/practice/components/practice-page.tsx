@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useMutation } from "@tanstack/react-query";
 import { motion } from "motion/react";
@@ -37,6 +37,7 @@ import {
   useQuestionEngineTutorialGate,
 } from "@/features/onboarding/hooks/use-question-engine-tutorial-gate";
 import { useUcatStaggerMotion } from "@/shared/hooks/use-ucat-stagger-motion";
+import { resolvePracticeTimingScope } from "@/features/practice/model/practice-timing-policy";
 
 export function PracticePage() {
   const router = useRouter();
@@ -105,6 +106,22 @@ export function PracticePage() {
     quota?.onlineTier === "free" && !quota.isQuotaExempt && practiceQuota
       ? Math.max(0, practiceQuota.limit - practiceQuota.used)
       : null;
+
+  useEffect(() => {
+    if (
+      resolvePracticeTimingScope({
+        timePerQuestionSeconds: filters.input.timePerQuestionSeconds,
+        unlimited: filters.questionCountMode === "unlimited",
+        reviewTiming,
+      }) === "invalid"
+    ) {
+      setReviewTiming("afterEachStem");
+    }
+  }, [
+    filters.input.timePerQuestionSeconds,
+    filters.questionCountMode,
+    reviewTiming,
+  ]);
 
   const buildStartInput = useCallback(
     (

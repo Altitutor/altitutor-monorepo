@@ -67,4 +67,25 @@ describe("catchUpExpiredSegments", () => {
     expect(result.isComplete).toBe(true);
     expect(result.state.phase).toBe("marking");
   });
+
+  it("completes fixed review-at-end practice when its session deadline expires", () => {
+    const practiceExam = {
+      sourceType: "questionStem",
+      sourceId: "practice-1",
+      questions: [{ id: "q1", stemId: "stem-1" }],
+      timePerQuestionSeconds: 64,
+      practiceSessionTimeLimitSeconds: 64,
+    } as unknown as QuestionEngineExam;
+
+    const result = catchUpExpiredSegments(
+      practiceExam,
+      snapshot("question"),
+      new Date(Date.now() - 1_000).toISOString(),
+      { practice: true },
+    );
+
+    expect(result.isComplete).toBe(true);
+    expect(result.state.phase).toBe("practiceComplete");
+    expect(result.currentSegmentEndsAt).toBeNull();
+  });
 });

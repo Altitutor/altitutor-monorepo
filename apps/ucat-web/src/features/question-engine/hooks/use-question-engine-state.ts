@@ -581,7 +581,11 @@ export function useQuestionEngineState(
               exam?.sourceType === "questionStem"
                 ? exam?.timePerQuestionSeconds
                 : null;
-            if (timePerQuestion != null && timePerQuestion > 0) {
+            if (
+              timePerQuestion != null &&
+              timePerQuestion > 0 &&
+              (exam?.practiceSessionTimeLimitSeconds ?? 0) <= 0
+            ) {
               next.timerStartedAt = Date.now();
             }
             return next;
@@ -614,7 +618,11 @@ export function useQuestionEngineState(
           exam?.sourceType === "questionStem"
             ? exam?.timePerQuestionSeconds
             : null;
-        if (timePerQuestion != null && timePerQuestion > 0) {
+        if (
+          timePerQuestion != null &&
+          timePerQuestion > 0 &&
+          (exam?.practiceSessionTimeLimitSeconds ?? 0) <= 0
+        ) {
           // In questionStem mode, only reset timer when moving to a new stem.
           // Within the same stem, keep the countdown running.
           const currentStemId = questions[current.currentIndex]?.stemId;
