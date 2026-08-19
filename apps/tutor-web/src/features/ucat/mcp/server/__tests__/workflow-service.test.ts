@@ -8,6 +8,7 @@ import { encodeAuthoringRevision } from '@/features/ucat/mcp/server/revision'
 import {
   applyUcatMcpPendingChange,
   claimUcatMcpAuditTargets,
+  listUcatMcpAuditRuns,
 } from '@/features/ucat/mcp/server/workflow-service'
 
 jest.mock('server-only', () => ({}))
@@ -98,6 +99,30 @@ describe('UCAT MCP audit target claims', () => {
         successCount: 1,
         errorCount: 1,
       },
+    })
+  })
+})
+
+describe('UCAT MCP audit run listing', () => {
+  it('passes filters and a stable compound cursor to the listing RPC', async () => {
+    const rpc = jest.fn().mockResolvedValue({
+      data: { runs: [], nextCursor: null },
+      error: null,
+    })
+    const client = { rpc } as unknown as SupabaseClient<Database>
+
+    await listUcatMcpAuditRuns(client, {
+      status: 'active',
+      cursorCreatedAt: '2026-08-19T01:02:03.000Z',
+      cursorId: RUN_ID,
+      limit: 25,
+    })
+
+    expect(rpc).toHaveBeenCalledWith('tutor_ucat_mcp_list_audit_runs', {
+      p_status: 'active',
+      p_before_created_at: '2026-08-19T01:02:03.000Z',
+      p_before_id: RUN_ID,
+      p_limit: 25,
     })
   })
 })

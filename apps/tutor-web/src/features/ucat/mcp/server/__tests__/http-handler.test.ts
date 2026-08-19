@@ -113,6 +113,16 @@ describe('UCAT MCP HTTP endpoints', () => {
     expect((authoringPayload as { result: { tools: unknown[] } }).result.tools)
       .toHaveLength(23)
     expect((productionPayload as { result: { tools: unknown[] } }).result.tools)
-      .toHaveLength(31)
+      .toHaveLength(32)
+
+    const authoringTools = (authoringPayload as {
+      result: { tools: Array<{ name: string; inputSchema: unknown }> }
+    }).result.tools
+    const visualTool = authoringTools.find((tool) => tool.name === 'render_ucat_visual')
+    expect(visualTool).toBeDefined()
+    expect(JSON.stringify(visualTool?.inputSchema)).toContain('venn_diagram')
+    expect(JSON.stringify(visualTool?.inputSchema)).toContain('set_diagram')
+    expect(JSON.stringify(visualTool?.inputSchema)).toContain('shapes')
+    expect(JSON.stringify(visualTool?.inputSchema)).toContain('regionLabels')
   })
 })
