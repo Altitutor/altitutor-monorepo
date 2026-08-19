@@ -3,6 +3,7 @@
 import { Editor } from '@tiptap/core'
 import Image from '@tiptap/extension-image'
 import StarterKit from '@tiptap/starter-kit'
+import { TableKit } from '@tiptap/extension-table'
 import { collectQuestionLineTextRanges } from '@/features/ucat/questions/lib/pmBulkImportLineRanges'
 import { createUcatParseHighlight } from '@/features/ucat/shared/ucatParseHighlightPlugin'
 
@@ -45,6 +46,65 @@ describe('bulk-import ProseMirror line ranges', () => {
     }).not.toThrow()
 
     editor.destroy()
+  })
+
+  it('keeps parse-highlight ranges valid for a QR document ending in a pasted table', () => {
+    const content = {
+      type: 'doc',
+      content: [
+        {
+          type: 'table',
+          content: [
+            {
+              type: 'tableRow',
+              content: [
+                {
+                  type: 'tableCell',
+                  content: [
+                    {
+                      type: 'paragraph',
+                      content: [{ type: 'text', text: '1. Question one' }],
+                    },
+                  ],
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    }
+    const probe = new Editor({
+      element: document.createElement('div'),
+      extensions: [StarterKit, Image, TableKit],
+      content,
+    })
+    const ranges = collectQuestionLineTextRanges(probe.state.doc, 'quantitative_reasoning')
+    expect(ranges?.[0]?.to).toBe(probe.state.doc.content.size)
+    probe.destroy()
+
+    expect(() => {
+      const editor = new Editor({
+        element: document.createElement('div'),
+        extensions: [
+          StarterKit,
+          Image,
+          TableKit,
+          createUcatParseHighlight(() => ({
+            mode: 'question',
+            section: 'quantitative_reasoning',
+            classify: {
+              questionIndicator: 'dot',
+              answerOptionIndicator: 'dot',
+              questionNumberOnOwnLine: false,
+              answerOptionOnOwnLine: false,
+              enforceSequentialQuestionNumbers: false,
+            },
+          })),
+        ],
+        content,
+      })
+      editor.destroy()
+    }).not.toThrow()
   })
 
   it('still maps a highlight range when the whole question-text line is bold', () => {
