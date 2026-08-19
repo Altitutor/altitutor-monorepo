@@ -1,181 +1,259 @@
-import { NextResponse } from 'next/server';
-import type { NextRequest } from 'next/server';
-import { createServerClient } from '@supabase/ssr';
-import type { Database } from '@altitutor/shared';
-import type { PostgrestError } from '@supabase/supabase-js';
-import { MARKETING_LANDING_URL } from '@/shared/lib/marketing-home-url';
+import type { Database } from "@altitutor/shared";
+import { createServerClient } from "@supabase/ssr";
+import { NextResponse, type NextRequest } from "next/server";
+
+import { MARKETING_LANDING_URL } from "@/shared/lib/marketing-home-url";
+
+const MIDDLEWARE_DEADLINE_MS = 10_000;
+const RETRY_AFTER_SECONDS = 5;
+
+type CookieToSet = {
+  name: string;
+  value: string;
+  options?: Parameters<NextResponse["cookies"]["set"]>[2];
+};
+
+type AccessResult<Row> = {
+  data: Row | null;
+  error: { message: string } | null;
+};
+
+class MiddlewareDeadlineError extends Error {
+  constructor() {
+    super("Student middleware dependency deadline exceeded");
+    this.name = "MiddlewareDeadlineError";
+  }
+}
+
+function createInvocationDeadline() {
+  const controller = new AbortController();
+  let timeout: ReturnType<typeof setTimeout>;
+  const expiration = new Promise<never>((_resolve, reject) => {
+    timeout = setTimeout(() => {
+      controller.abort();
+      reject(new MiddlewareDeadlineError());
+    }, MIDDLEWARE_DEADLINE_MS);
+  });
+
+  return {
+    async fetch(input: RequestInfo | URL, init: RequestInit = {}) {
+      const requestController = new AbortController();
+      const abortRequest = () => requestController.abort();
+      const signals = [controller.signal, init.signal].filter(
+        (signal): signal is AbortSignal => Boolean(signal),
+      );
+      signals.forEach((signal) => {
+        if (signal.aborted) abortRequest();
+        else signal.addEventListener("abort", abortRequest, { once: true });
+      });
+      try {
+        return await fetch(input, {
+          ...init,
+          signal: requestController.signal,
+        });
+      } finally {
+        signals.forEach((signal) =>
+          signal.removeEventListener("abort", abortRequest),
+        );
+      }
+    },
+    race<T>(operation: PromiseLike<T>) {
+      return Promise.race([Promise.resolve(operation), expiration]);
+    },
+    dispose() {
+      clearTimeout(timeout);
+    },
+  };
+}
+
+function applyResponseMetadata(response: NextResponse, cookies: CookieToSet[]) {
+  cookies.forEach(({ name, value, options }) =>
+    response.cookies.set(name, value, options),
+  );
+  response.headers.set("Cache-Control", "private, no-store");
+  return response;
+}
+
+function unavailableResponse(cookies: CookieToSet[]) {
+  return applyResponseMetadata(
+    new NextResponse(
+      "Student portal services are temporarily unavailable. Please retry.",
+      {
+        status: 503,
+        headers: { "Retry-After": String(RETRY_AFTER_SECONDS) },
+      },
+    ),
+    cookies,
+  );
+}
 
 export async function middleware(req: NextRequest) {
-  const { pathname, origin } = new URL(req.url);
+  const { pathname, search, origin } = new URL(req.url);
 
-  if (pathname.startsWith('/auth/callback&')) {
+  if (pathname.startsWith("/auth/callback&")) {
     const redirectUrl = new URL(req.url);
-    redirectUrl.pathname = '/auth/callback';
-    redirectUrl.search = pathname.slice('/auth/callback&'.length);
+    redirectUrl.pathname = "/auth/callback";
+    redirectUrl.search = pathname.slice("/auth/callback&".length);
     return NextResponse.redirect(redirectUrl);
   }
 
   const isPublicPath =
-    pathname.startsWith('/login') ||
-    pathname.startsWith('/forgot-password') ||
-    pathname.startsWith('/reset-password') ||
-    pathname.startsWith('/invite/') ||
-    pathname.startsWith('/register/') ||
-    pathname.startsWith('/r/') ||
-    pathname.startsWith('/b/') ||
-    pathname.startsWith('/auth/') ||
-    pathname.startsWith('/form/') ||
-    pathname.startsWith('/booking/trial-session') ||
-    pathname.startsWith('/booking-success') ||
-    pathname.startsWith('/sentry-example-page');
+    pathname.startsWith("/login") ||
+    pathname.startsWith("/forgot-password") ||
+    pathname.startsWith("/reset-password") ||
+    pathname.startsWith("/invite/") ||
+    pathname.startsWith("/register/") ||
+    pathname.startsWith("/r/") ||
+    pathname.startsWith("/b/") ||
+    pathname.startsWith("/auth/") ||
+    pathname.startsWith("/form/") ||
+    pathname.startsWith("/booking/trial-session") ||
+    pathname.startsWith("/booking-success") ||
+    pathname.startsWith("/sentry-example-page");
 
-  if (isPublicPath) {
-    return NextResponse.next({
-      request: req,
-    });
+  if (pathname.startsWith("/api") || isPublicPath) {
+    return NextResponse.next({ request: req });
   }
 
-  let supabaseResponse = NextResponse.next({
-    request: req,
+  const cookiesToSet: CookieToSet[] = [];
+  let response = NextResponse.next({ request: req });
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  if (!supabaseUrl || !supabaseAnonKey) {
+    console.error("Student middleware Supabase environment is unavailable");
+    return unavailableResponse(cookiesToSet);
+  }
+
+  const deadline = createInvocationDeadline();
+  const supabase = createServerClient<Database>(supabaseUrl, supabaseAnonKey, {
+    cookies: {
+      getAll() {
+        return req.cookies.getAll();
+      },
+      setAll(updatedCookies) {
+        updatedCookies.forEach(({ name, value }) =>
+          req.cookies.set(name, value),
+        );
+        updatedCookies.forEach((cookie) => {
+          const existingIndex = cookiesToSet.findIndex(
+            (existing) => existing.name === cookie.name,
+          );
+          if (existingIndex >= 0) cookiesToSet[existingIndex] = cookie;
+          else cookiesToSet.push(cookie);
+        });
+        response = NextResponse.next({ request: req });
+        applyResponseMetadata(response, cookiesToSet);
+      },
+    },
+    cookieOptions: { name: "student-auth" },
+    global: { fetch: deadline.fetch },
   });
 
-  const supabase = createServerClient<Database>(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        getAll() {
-          return req.cookies.getAll();
-        },
-        setAll(cookiesToSet) {
-          cookiesToSet.forEach(({ name, value }) => {
-            req.cookies.set(name, value);
-          });
-          supabaseResponse = NextResponse.next({
-            request: req,
-          });
-          cookiesToSet.forEach(({ name, value, options }) => {
-            supabaseResponse.cookies.set(name, value, options);
-          });
-        },
-      },
-      cookieOptions: {
-        name: 'student-auth',
-      },
-    }
-  );
-
-  // For API routes, we just refresh the token but don't redirect
-  // The API route itself will handle auth checks
-  if (pathname.startsWith('/api')) {
-    return supabaseResponse;
-  }
-
-  // IMPORTANT: Use getUser() to validate and refresh auth token
-  // This validates the token with Supabase Auth server (secure)
-  // getSession() reads from cookies without validation (insecure)
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  // Determine portal URLs based on environment
-  const adminPortalUrl = process.env.NEXT_PUBLIC_ADMIN_PORTAL_URL || 'http://localhost:3000';
-  const tutorPortalUrl = process.env.NEXT_PUBLIC_TUTOR_PORTAL_URL || 'http://localhost:3002';
-
-  // If no user and trying to access protected route, redirect to login
-  if (!user) {
-    if (pathname === '/') {
-      const redirectResponse = NextResponse.redirect(MARKETING_LANDING_URL);
-      supabaseResponse.cookies.getAll().forEach((cookie) => {
-        redirectResponse.cookies.set(cookie.name, cookie.value);
-      });
-      return redirectResponse;
+  try {
+    let claimsResult: Awaited<ReturnType<typeof supabase.auth.getClaims>>;
+    try {
+      claimsResult = await deadline.race(supabase.auth.getClaims());
+    } catch (error) {
+      console.error(
+        "Student middleware authentication dependency failed",
+        error,
+      );
+      return unavailableResponse(cookiesToSet);
     }
 
-    const loginUrl = new URL('/login', origin);
-    loginUrl.searchParams.set('next', `${req.nextUrl.pathname}${req.nextUrl.search}`);
-    const redirectResponse = NextResponse.redirect(loginUrl);
-    // Copy cookies from supabaseResponse to redirectResponse
-    supabaseResponse.cookies.getAll().forEach((cookie) => {
-      redirectResponse.cookies.set(cookie.name, cookie.value);
-    });
-    return redirectResponse;
-  }
-
-  // Check if user is a student using vstudent_profile view
-  // This view is accessible to students (unlike the students table which has RLS blocking direct access)
-  // The view automatically filters to the current user's record via current_student_id() function
-  // Type assertion needed because view may not be in generated types
-  const { data: student, error: studentError } = await (supabase as unknown as {
-    from: (table: string) => {
-      select: (columns: string) => {
-        maybeSingle: () => Promise<{ data: { id: string } | null; error: PostgrestError | null }>;
-      };
-    };
-  })
-    .from('vstudent_profile')
-    .select('id')
-    .maybeSingle();
-
-  if (studentError) {
-    // Error fetching student - continue with flow
-  }
-
-  // Check if user is staff (should not be on student portal)
-  const { data: staff, error: staffError } = await supabase
-    .from('staff')
-    .select('role')
-    .eq('user_id', user.id)
-    .maybeSingle() as { data: { role: 'ADMINSTAFF' | 'TUTOR' } | null; error: PostgrestError | null };
-
-  if (staffError) {
-    // Error fetching staff - continue with flow
-  }
-
-  // If user is staff, redirect them to appropriate portal
-  if (staff) {
-    const role = staff.role;
-    if (role === 'ADMINSTAFF') {
-      const redirectResponse = NextResponse.redirect(new URL('/admin/dashboard', adminPortalUrl));
-      // Copy cookies from supabaseResponse to redirectResponse
-      supabaseResponse.cookies.getAll().forEach((cookie) => {
-        redirectResponse.cookies.set(cookie.name, cookie.value);
-      });
-      return redirectResponse;
-    } else if (role === 'TUTOR') {
-      const redirectResponse = NextResponse.redirect(new URL('/dashboard', tutorPortalUrl));
-      // Copy cookies from supabaseResponse to redirectResponse
-      supabaseResponse.cookies.getAll().forEach((cookie) => {
-        redirectResponse.cookies.set(cookie.name, cookie.value);
-      });
-      return redirectResponse;
+    const { data: claimsData, error: claimsError } = claimsResult;
+    const isUnauthenticatedError =
+      claimsError?.name === "AuthSessionMissingError" ||
+      claimsError?.name === "AuthInvalidJwtError";
+    if (claimsError && !isUnauthenticatedError) {
+      console.error(
+        "Student middleware authentication dependency failed",
+        claimsError,
+      );
+      return unavailableResponse(cookiesToSet);
     }
-  }
+    const userId = claimsData?.claims?.sub;
 
-  // If user is not a student, block access
-  if (!student) {
-    const redirectResponse = NextResponse.redirect(new URL('/login?error=access_denied', origin));
-    // Copy cookies from supabaseResponse to redirectResponse
-    supabaseResponse.cookies.getAll().forEach((cookie) => {
-      redirectResponse.cookies.set(cookie.name, cookie.value);
-    });
-    return redirectResponse;
-  }
+    if (!userId) {
+      if (pathname === "/") {
+        return applyResponseMetadata(
+          NextResponse.redirect(MARKETING_LANDING_URL),
+          cookiesToSet,
+        );
+      }
+      const loginUrl = new URL("/login", origin);
+      loginUrl.searchParams.set("next", `${pathname}${search}`);
+      return applyResponseMetadata(
+        NextResponse.redirect(loginUrl),
+        cookiesToSet,
+      );
+    }
 
-  if (pathname === '/') {
-    const redirectResponse = NextResponse.redirect(new URL('/dashboard', origin));
-    supabaseResponse.cookies.getAll().forEach((cookie) => {
-      redirectResponse.cookies.set(cookie.name, cookie.value);
-    });
-    return redirectResponse;
-  }
+    let accessResults: [
+      AccessResult<{ id: string | null }>,
+      AccessResult<{ role: string | null; status: string | null }>,
+    ];
+    try {
+      accessResults = (await deadline.race(
+        Promise.all([
+          supabase.from("vstudent_profile").select("id").maybeSingle(),
+          supabase.from("vtutor_profile").select("role, status").maybeSingle(),
+        ]),
+      )) as typeof accessResults;
+    } catch (error) {
+      console.error("Student middleware access dependency failed", error);
+      return unavailableResponse(cookiesToSet);
+    }
 
-  // IMPORTANT: Return the supabaseResponse object to preserve cookie updates
-  return supabaseResponse;
+    const [studentResult, staffResult] = accessResults;
+    if (studentResult.error || staffResult.error) {
+      console.error("Student middleware access dependency failed", {
+        student: studentResult.error,
+        staff: staffResult.error,
+      });
+      return unavailableResponse(cookiesToSet);
+    }
+
+    const staff = staffResult.data;
+    if (staff?.status === "ACTIVE" && staff.role === "ADMINSTAFF") {
+      const adminPortalUrl =
+        process.env.NEXT_PUBLIC_ADMIN_PORTAL_URL || "http://localhost:3000";
+      return applyResponseMetadata(
+        NextResponse.redirect(new URL("/admin/dashboard", adminPortalUrl)),
+        cookiesToSet,
+      );
+    }
+    if (staff?.status === "ACTIVE" && staff.role === "TUTOR") {
+      const tutorPortalUrl =
+        process.env.NEXT_PUBLIC_TUTOR_PORTAL_URL || "http://localhost:3002";
+      return applyResponseMetadata(
+        NextResponse.redirect(new URL("/dashboard", tutorPortalUrl)),
+        cookiesToSet,
+      );
+    }
+
+    if (!studentResult.data) {
+      return applyResponseMetadata(
+        NextResponse.redirect(new URL("/login?error=access_denied", origin)),
+        cookiesToSet,
+      );
+    }
+
+    if (pathname === "/") {
+      return applyResponseMetadata(
+        NextResponse.redirect(new URL("/dashboard", origin)),
+        cookiesToSet,
+      );
+    }
+
+    return applyResponseMetadata(response, cookiesToSet);
+  } finally {
+    deadline.dispose();
+  }
 }
 
 export const config = {
   matcher: [
-    '/((?!_next/static|_next/image|favicon.ico|robots.txt|sitemap.xml|\\.well-known/|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico|css|js|map|txt|xml|json|woff|woff2)$).*)',
+    "/((?!_next/static|_next/image|favicon.ico|robots.txt|sitemap.xml|\\.well-known/|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico|css|js|map|txt|xml|json|woff|woff2)$).*)",
   ],
 };

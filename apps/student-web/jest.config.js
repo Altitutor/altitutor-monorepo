@@ -15,6 +15,7 @@ const config = {
       '<rootDir>/../../packages/ucat-response-contract/src/$1',
   },
   testMatch: ['**/__tests__/**/*.test.[jt]s?(x)', '**/?(*.)+(spec|test).[jt]s?(x)'],
+  testPathIgnorePatterns: ['<rootDir>/e2e/'],
   transform: {
     '^.+\\.(t|j)sx?$': ['@swc/jest'],
   },

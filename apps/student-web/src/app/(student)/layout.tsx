@@ -114,6 +114,7 @@ function renderDropdownChild(
     <Link
       key={child.href}
       href={child.href}
+      prefetch={false}
       className={cn(linkClassName(child.href), 'flex items-center gap-2')}
     >
       {content}
@@ -137,6 +138,7 @@ function renderSettingsLink(
   return (
     <Link
       href={item.href}
+      prefetch={false}
       {...(includeTourAttr ? { 'data-tour': getNavTourAttr(item.href) } : {})}
       className={cn(
         'flex items-center gap-3 rounded-xl px-3 py-2 text-sm',
@@ -173,6 +175,7 @@ function renderNavItem(
         <Link
           key={item.href}
           href={item.href}
+          prefetch={false}
           {...tourAttr}
           className={cn(
             'flex items-center justify-center rounded-xl px-0 py-2 text-sm',
@@ -193,7 +196,11 @@ function renderNavItem(
             isActive ? navLinkActiveStyles : navLinkInactiveStyles,
           )}
         >
-          <Link href={item.href} className="flex min-w-0 flex-1 items-center gap-3 px-1">
+          <Link
+            href={item.href}
+            prefetch={false}
+            className="flex min-w-0 flex-1 items-center gap-3 px-1"
+          >
             <Icon className="h-5 w-5 shrink-0" />
             <span className="overflow-hidden whitespace-nowrap text-left">{item.title}</span>
           </Link>
@@ -229,6 +236,7 @@ function renderNavItem(
     <Link
       key={item.href}
       href={item.href}
+      prefetch={false}
       {...(includeTourAttr ? { 'data-tour': getNavTourAttr(item.href) } : {})}
       className={cn(
         'flex items-center gap-3 rounded-xl px-3 py-2 text-sm',
