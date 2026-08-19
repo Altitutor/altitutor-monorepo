@@ -563,8 +563,75 @@ function displayCtaHref(href) {
   }
 }
 
-function previewTableRow([key, item]) {
+function uniqueSorted(values) {
+  return [...new Set(values.filter(Boolean))].sort((a, b) =>
+    a.localeCompare(b, "en", { sensitivity: "base" }),
+  );
+}
+
+function galleryToolbarConfig() {
+  const items = [...previews.values()];
+  const optionList = (values) =>
+    uniqueSorted(values).map((value) => ({ value, label: value }));
+
+  return {
+    columns: [
+      { key: "email", label: "Email" },
+      { key: "source", label: "Source app" },
+      { key: "category", label: "Category" },
+      { key: "sentWhen", label: "Sent when" },
+      { key: "setting", label: "Email setting" },
+      { key: "cta", label: "Primary CTA link" },
+      { key: "preview", label: "Preview" },
+    ],
+    searchFrom: [
+      { value: "email", label: "Email" },
+      { value: "source", label: "Source app" },
+      { value: "category", label: "Category" },
+      { value: "sentWhen", label: "Sent when" },
+      { value: "setting", label: "Email setting" },
+      { value: "cta", label: "Primary CTA link" },
+    ],
+    sortOptions: [
+      { key: "email", label: "Email" },
+      { key: "subject", label: "Subject" },
+      { key: "source", label: "Source app" },
+      { key: "category", label: "Category" },
+      { key: "sentWhen", label: "Sent when" },
+      { key: "setting", label: "Email setting" },
+      { key: "cta", label: "Primary CTA" },
+    ],
+    filters: [
+      {
+        key: "category",
+        label: "Category",
+        options: optionList(items.map((item) => item.group)),
+      },
+      {
+        key: "source",
+        label: "Source app",
+        options: optionList(items.map((item) => item.source)),
+      },
+      {
+        key: "setting",
+        label: "Email setting",
+        options: optionList(items.map((item) => item.setting)),
+      },
+      {
+        key: "hasCta",
+        label: "Primary CTA",
+        options: [
+          { value: "yes", label: "Has a primary CTA" },
+          { value: "no", label: "No primary CTA" },
+        ],
+      },
+    ],
+  };
+}
+
+function previewTableRow([key, item], index) {
   const cta = primaryCta(item.html);
+  const ctaSearch = cta ? `${cta.label} ${displayCtaHref(cta.href)}` : "";
   const ctaCell = cta
     ? `<a class="cta-link" href="${escapeHtml(cta.href)}" target="_blank" rel="noreferrer">
         <span>${escapeHtml(cta.label)}</span>
@@ -572,19 +639,30 @@ function previewTableRow([key, item]) {
       </a>`
     : '<span class="no-cta">No primary CTA</span>';
 
-  return `<tr>
-    <td>
+  return `<tr
+    data-index="${index}"
+    data-label="${escapeHtml(item.label)}"
+    data-subject="${escapeHtml(item.subject)}"
+    data-email="${escapeHtml(`${item.label} ${item.subject}`)}"
+    data-source="${escapeHtml(item.source)}"
+    data-category="${escapeHtml(item.group)}"
+    data-sent-when="${escapeHtml(item.sentWhen)}"
+    data-setting="${escapeHtml(item.setting)}"
+    data-cta="${escapeHtml(ctaSearch)}"
+    data-has-cta="${cta ? "yes" : "no"}"
+  >
+    <td data-col="email">
       <span class="tag">${escapeHtml(item.label)}</span>
       <div class="subject">${escapeHtml(item.subject)}</div>
     </td>
-    <td><span class="source">${escapeHtml(item.source)}</span></td>
-    <td><span class="category">${escapeHtml(item.group)}</span></td>
-    <td class="condition">${escapeHtml(item.sentWhen)}</td>
-    <td><span class="setting ${
+    <td data-col="source"><span class="source">${escapeHtml(item.source)}</span></td>
+    <td data-col="category"><span class="category">${escapeHtml(item.group)}</span></td>
+    <td data-col="sentWhen" class="condition">${escapeHtml(item.sentWhen)}</td>
+    <td data-col="setting"><span class="setting ${
     item.setting === EMAIL_SETTINGS.required ? "setting-required" : ""
   }">${escapeHtml(item.setting)}</span></td>
-    <td>${ctaCell}</td>
-    <td>
+    <td data-col="cta">${ctaCell}</td>
+    <td data-col="preview">
       <div class="links">
         <a href="/preview/${encodeURIComponent(key)}?theme=light" target="_blank">Light</a>
         <a href="/preview/${encodeURIComponent(key)}?theme=dark" target="_blank">Dark</a>
@@ -595,6 +673,7 @@ function previewTableRow([key, item]) {
 }
 
 function gallery() {
+  const toolbarConfig = JSON.stringify(galleryToolbarConfig()).replaceAll("<", "\\u003c");
   return `<!doctype html>
 <html>
   <head>
@@ -608,22 +687,68 @@ function gallery() {
       h1{margin:0;color:#0a2941;font-size:36px;letter-spacing:-1px}
       p{color:#52606a}
       .intro{max-width:800px}
-      .coverage{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin:30px 0}
+      .coverage{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin:30px 0 18px}
       .coverage-item{border:1px solid #d5dee1;border-radius:12px;background:#fff;padding:15px 17px;color:#52606a;font-size:13px}
       .coverage-item strong{display:block;margin-bottom:3px;color:#0a2941}
       .coverage-unused{background:#f8f6f0}
+      .toolbar{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:0 0 10px}
+      .toolbar-search{display:flex;flex:1;align-items:center;min-width:min(100%,240px);height:40px;padding:0 8px;border-radius:12px;background:#fff;box-shadow:0 1px 2px rgba(10,41,65,.06),0 0 0 1px rgba(10,41,65,.08)}
+      .toolbar-search:focus-within{box-shadow:0 1px 2px rgba(10,41,65,.06),0 0 0 2px rgba(10,41,65,.18)}
+      .toolbar-search input{flex:1;min-width:0;height:100%;border:0;background:transparent;color:#1a1a1a;font:inherit;outline:none}
+      .toolbar-search input::placeholder{color:#8a9297}
+      .search-from-wrap{position:relative;flex-shrink:0}
+      .search-from-btn,.icon-btn{display:inline-flex;align-items:center;justify-content:center;gap:4px;height:28px;padding:0 8px;border:0;border-radius:999px;background:#edf2f3;color:#52606a;font:12px/1 inherit;cursor:pointer}
+      .search-from-btn:hover,.icon-btn:hover,.search-from-wrap.is-open .search-from-btn{background:#e0eaee;color:#0a2941}
+      .search-from-label{max-width:9rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+      .icon-btn{width:28px;padding:0;background:transparent}
+      .toolbar-actions{display:flex;flex-shrink:0;align-items:center;gap:8px}
+      .toolbar-menu{position:relative;display:flex;align-items:center}
+      .toolbar-btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;height:40px;padding:0 12px;border:0;border-radius:12px;background:#fff;box-shadow:0 1px 2px rgba(10,41,65,.06),0 0 0 1px rgba(10,41,65,.08);color:#1a1a1a;font:13px/1 inherit;cursor:pointer}
+      .toolbar-btn:hover,.toolbar-menu.is-open .toolbar-btn{background:#eaf1f3}
+      .toolbar-dropdown{position:absolute;top:calc(100% + 6px);right:0;z-index:30;display:none;width:240px;max-height:min(70vh,480px);overflow:auto;padding:6px 0;border-radius:12px;background:#fff;box-shadow:0 12px 32px rgba(10,41,65,.14),0 0 0 1px rgba(10,41,65,.08)}
+      .search-from-wrap .toolbar-dropdown{left:0;right:auto;width:220px}
+      .toolbar-menu.is-open > .toolbar-dropdown,.search-from-wrap.is-open > .toolbar-dropdown{display:block}
+      .menu-label{padding:8px 12px;color:#52606a;font-size:12px;font-weight:600}
+      .menu-label.subtle{padding-top:10px;color:#8a9297;font-size:11px;letter-spacing:.06em;text-transform:uppercase}
+      .menu-divider{height:1px;margin:4px 0;background:#e1e7e9}
+      .check-row{display:flex;align-items:flex-start;gap:8px;padding:8px 12px;color:#1a1a1a;font-size:13px;line-height:1.35;cursor:pointer}
+      .check-row:hover{background:#f4f7f8}
+      .check-row input{margin:2px 0 0}
+      .sort-row{display:flex;align-items:center;gap:8px;width:100%;padding:8px 12px;border:0;background:transparent;color:#1a1a1a;font:13px/1.35 inherit;text-align:left;cursor:pointer}
+      .sort-row:hover,.sort-row.is-selected{background:#f4f7f8}
+      .sort-row-label{flex:1;min-width:0}
+      .sort-dir{display:inline-flex;align-items:center;gap:4px;height:28px;padding:0 8px;border-radius:8px;background:#fff;box-shadow:0 0 0 1px rgba(10,41,65,.1);color:#52606a;font-size:12px}
+      .clear-all{display:flex;align-items:center;gap:6px;margin:0 8px 6px;padding:6px 8px;border:1px solid #d5dee1;border-radius:8px;background:#f4f7f8;color:#234c5d;font:12px/1 inherit;cursor:pointer}
+      .clear-all:hover{background:#eaf1f3}
+      .toolbar-badge{position:absolute;top:-6px;right:-6px;z-index:2;display:inline-flex;align-items:center;justify-content:center;min-width:20px;height:20px;padding:0 6px;border:0;border-radius:999px;background:#0a2941;box-shadow:0 0 0 2px #f2f0e9;color:#fff;font:600 11px/1 inherit;cursor:pointer}
+      .toolbar-badge .badge-x{display:none}
+      .toolbar-badge:hover{background:#b42318}
+      .toolbar-badge:hover .badge-count{display:none}
+      .toolbar-badge:hover .badge-x{display:inline-flex}
+      .badge-sort{display:inline-flex;max-width:7rem;align-items:center;gap:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+      .icon{width:16px;height:16px;flex-shrink:0}
+      .result-count{margin:0 0 10px;font-size:12px}
       .table-wrap{overflow-x:auto;border:1px solid #d5dee1;border-radius:16px;background:#fff;box-shadow:0 7px 24px rgba(10,41,65,.05)}
       table{width:100%;min-width:1480px;border-collapse:collapse}
       th{padding:13px 16px;background:#eaf1f3;color:#52606a;font-size:11px;letter-spacing:.08em;text-align:left;text-transform:uppercase}
       td{padding:17px 16px;border-top:1px solid #e1e7e9;vertical-align:top}
       tbody tr:hover{background:#fbfcfc}
-      th:nth-child(1){width:19%}
-      th:nth-child(2){width:13%}
-      th:nth-child(3){width:9%}
-      th:nth-child(4){width:23%}
-      th:nth-child(5){width:16%}
-      th:nth-child(6){width:14%}
-      th:nth-child(7){width:6%}
+      tbody tr[hidden]{display:none}
+      th[data-col="email"]{width:19%}
+      th[data-col="source"]{width:13%}
+      th[data-col="category"]{width:9%}
+      th[data-col="sentWhen"]{width:23%}
+      th[data-col="setting"]{width:16%}
+      th[data-col="cta"]{width:14%}
+      th[data-col="preview"]{width:6%}
+      table.col-hide-email [data-col="email"],
+      table.col-hide-source [data-col="source"],
+      table.col-hide-category [data-col="category"],
+      table.col-hide-sentWhen [data-col="sentWhen"],
+      table.col-hide-setting [data-col="setting"],
+      table.col-hide-cta [data-col="cta"],
+      table.col-hide-preview [data-col="preview"]{display:none}
+      .empty-cell{padding:36px 16px;color:#8a9297;text-align:center}
       .tag{font:10px ui-monospace,monospace;text-transform:uppercase;letter-spacing:.12em;color:#527487}
       .subject{margin-top:5px;font-weight:700;color:#0a2941}
       .source{color:#234c5d;font:12px/1.45 ui-monospace,SFMono-Regular,Consolas,monospace;overflow-wrap:anywhere}
@@ -643,6 +768,9 @@ function gallery() {
         main{padding:34px 16px}
         h1{font-size:30px}
         .coverage{grid-template-columns:1fr}
+        .search-from-label{display:none}
+        .toolbar-btn{width:40px;padding:0}
+        .toolbar-btn-label{display:none}
       }
     </style>
   </head>
@@ -661,24 +789,59 @@ function gallery() {
           Material product news is authored as a Resend Broadcast. Admin-web schedules a suppression window so automated lifecycle email waits its turn.
         </div>
       </div>
+      <div class="toolbar">
+        <div class="toolbar-search">
+          <div class="search-from-wrap" id="search-from-wrap">
+            <button type="button" class="search-from-btn" id="search-from-btn" aria-haspopup="true" aria-expanded="false" aria-label="Search from All fields">
+              <span class="search-from-label" id="search-from-label">All fields</span>
+            </button>
+            <div class="toolbar-dropdown" id="search-from-menu" role="menu"></div>
+          </div>
+          <input id="email-search" type="text" placeholder="Search emails" autocomplete="off" spellcheck="false">
+          <button type="button" class="icon-btn" id="search-clear" hidden aria-label="Clear search"></button>
+        </div>
+        <div class="toolbar-actions">
+          <div class="toolbar-menu" id="view-wrap">
+            <button type="button" class="toolbar-btn" id="view-btn" aria-haspopup="true" aria-expanded="false" aria-label="View options"><span class="toolbar-btn-label">View</span></button>
+            <div class="toolbar-dropdown" id="view-menu"></div>
+            <button type="button" class="toolbar-badge" id="view-badge" hidden aria-label="Reset column layout to default"><span class="badge-count"></span><span class="badge-x"></span></button>
+          </div>
+          <div class="toolbar-menu" id="sort-wrap">
+            <button type="button" class="toolbar-btn" id="sort-btn" aria-haspopup="true" aria-expanded="false" aria-label="Sort"><span class="toolbar-btn-label">Sort</span></button>
+            <div class="toolbar-dropdown" id="sort-menu"></div>
+            <button type="button" class="toolbar-badge" id="sort-badge" hidden aria-label="Clear sort"><span class="badge-count"></span><span class="badge-x"></span></button>
+          </div>
+          <div class="toolbar-menu" id="filter-wrap">
+            <button type="button" class="toolbar-btn" id="filter-btn" aria-haspopup="true" aria-expanded="false" aria-label="Filter"><span class="toolbar-btn-label">Filter</span></button>
+            <div class="toolbar-dropdown" id="filter-menu"></div>
+            <button type="button" class="toolbar-badge" id="filter-badge" hidden aria-label="Clear all filters"><span class="badge-count"></span><span class="badge-x"></span></button>
+          </div>
+        </div>
+      </div>
+      <p class="result-count" id="result-count"></p>
       <div class="table-wrap">
-        <table>
+        <table id="email-table">
           <thead>
             <tr>
-              <th>Email</th>
-              <th>Source app</th>
-              <th>Category</th>
-              <th>Sent when</th>
-              <th>Email setting</th>
-              <th>Primary CTA link</th>
-              <th>Preview</th>
+              <th data-col="email">Email</th>
+              <th data-col="source">Source app</th>
+              <th data-col="category">Category</th>
+              <th data-col="sentWhen">Sent when</th>
+              <th data-col="setting">Email setting</th>
+              <th data-col="cta">Primary CTA link</th>
+              <th data-col="preview">Preview</th>
             </tr>
           </thead>
-          <tbody>${[...previews.entries()].map(previewTableRow).join("")}</tbody>
+          <tbody>
+            ${[...previews.entries()].map(previewTableRow).join("")}
+            <tr id="empty-row" hidden><td class="empty-cell" colspan="7">No emails match the current search or filters.</td></tr>
+          </tbody>
         </table>
       </div>
       <p class="footnote">Lifecycle sends additionally require an active account, verified consent, the relevant preference, no unsubscribe or suppression, treatment assignment, and the campaign’s local-time window.</p>
     </main>
+    <script type="application/json" id="email-toolbar-config">${toolbarConfig}</script>
+    <script src="/__email_preview_toolbar.js"></script>
   </body>
 </html>`;
 }
@@ -695,6 +858,19 @@ const server = createServer((request, response) => {
       "Cache-Control": "no-store",
     });
     response.end(previewVersion);
+    return;
+  }
+  if (url.pathname === "/__email_preview_toolbar.js") {
+    response.writeHead(200, {
+      "Content-Type": "text/javascript; charset=utf-8",
+      "Cache-Control": "no-store",
+    });
+    response.end(
+      readFileSync(
+        resolve(workspace, "supabase/scripts/email-preview-toolbar.js"),
+        "utf8",
+      ),
+    );
     return;
   }
   if (url.pathname === "/__matt_signature") {
