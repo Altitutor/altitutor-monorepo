@@ -134,9 +134,9 @@ const SetDiagramSpecSchema = z.object({
 }).passthrough()
 
 export const GeneratedVisualBlockSchema = z.discriminatedUnion('visualType', [
-  z.object({ type: z.literal('visual'), visualType: z.literal('vega_lite_chart'), title: z.string().trim().optional().nullable(), altText: z.string().trim().min(1), spec: VegaLiteSpecSchema }),
-  z.object({ type: z.literal('visual'), visualType: z.literal('venn_diagram'), title: z.string().trim().optional().nullable(), altText: z.string().trim().min(1), spec: SetDiagramSpecSchema }),
-  z.object({ type: z.literal('visual'), visualType: z.literal('set_diagram'), title: z.string().trim().optional().nullable(), altText: z.string().trim().min(1), spec: SetDiagramSpecSchema }),
+  z.object({ type: z.literal('visual'), visualType: z.literal('vega_lite_chart'), title: z.union([z.string().trim(), z.null()]).optional(), altText: z.string().trim().min(1), spec: VegaLiteSpecSchema }),
+  z.object({ type: z.literal('visual'), visualType: z.literal('venn_diagram'), title: z.union([z.string().trim(), z.null()]).optional(), altText: z.string().trim().min(1), spec: SetDiagramSpecSchema }),
+  z.object({ type: z.literal('visual'), visualType: z.literal('set_diagram'), title: z.union([z.string().trim(), z.null()]).optional(), altText: z.string().trim().min(1), spec: SetDiagramSpecSchema }),
 ])
 
 function hasInlineVegaData(value: unknown): boolean {
