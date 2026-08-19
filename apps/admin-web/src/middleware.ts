@@ -2,7 +2,81 @@ import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
 import type { Database } from '@altitutor/shared';
-import type { PostgrestError } from '@supabase/supabase-js';
+
+const MIDDLEWARE_DEADLINE_MS = 10_000;
+const RETRY_AFTER_SECONDS = 5;
+
+type CookieToSet = {
+  name: string;
+  value: string;
+  options?: Parameters<NextResponse['cookies']['set']>[2];
+};
+
+class MiddlewareDeadlineError extends Error {
+  constructor() {
+    super('Admin middleware dependency deadline exceeded');
+    this.name = 'MiddlewareDeadlineError';
+  }
+}
+
+function createInvocationDeadline() {
+  const controller = new AbortController();
+  let timeout: ReturnType<typeof setTimeout>;
+  const expiration = new Promise<never>((_resolve, reject) => {
+    timeout = setTimeout(() => {
+      controller.abort();
+      reject(new MiddlewareDeadlineError());
+    }, MIDDLEWARE_DEADLINE_MS);
+  });
+
+  return {
+    async fetch(input: RequestInfo | URL, init: RequestInit = {}) {
+      const requestController = new AbortController();
+      const abortRequest = () => requestController.abort();
+      const signals = [controller.signal, init.signal].filter(
+        (signal): signal is AbortSignal => Boolean(signal)
+      );
+      signals.forEach((signal) => {
+        if (signal.aborted) abortRequest();
+        else signal.addEventListener('abort', abortRequest, { once: true });
+      });
+
+      try {
+        return await fetch(input, { ...init, signal: requestController.signal });
+      } finally {
+        signals.forEach((signal) => signal.removeEventListener('abort', abortRequest));
+      }
+    },
+    race<T>(operation: PromiseLike<T>) {
+      return Promise.race([Promise.resolve(operation), expiration]);
+    },
+    dispose() {
+      clearTimeout(timeout);
+    },
+  };
+}
+
+function applyResponseMetadata(response: NextResponse, cookies: CookieToSet[]) {
+  cookies.forEach(({ name, value, options }) => {
+    response.cookies.set(name, value, options);
+  });
+  response.headers.set('Cache-Control', 'private, no-store');
+  return response;
+}
+
+function unavailableResponse(cookies: CookieToSet[]) {
+  const response = new NextResponse(
+    '<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Temporarily unavailable</title></head><body><main><h1>Temporarily unavailable</h1><p>Admin services are taking too long to respond. Please try again in a moment.</p></main></body></html>',
+    {
+      status: 503,
+      headers: {
+        'Content-Type': 'text/html; charset=utf-8',
+        'Retry-After': String(RETRY_AFTER_SECONDS),
+      },
+    }
+  );
+  return applyResponseMetadata(response, cookies);
+}
 
 export async function middleware(req: NextRequest) {
   const { pathname, origin } = new URL(req.url);
@@ -14,8 +88,7 @@ export async function middleware(req: NextRequest) {
     return NextResponse.redirect(redirectUrl);
   }
 
-  // For API routes, we just refresh the token but don't redirect
-  // The API route itself will handle auth checks
+  // API routes perform their own authorization and do not need page routing logic.
   if (pathname.startsWith('/api')) {
     return NextResponse.next({
       request: req,
@@ -43,6 +116,8 @@ export async function middleware(req: NextRequest) {
   let supabaseResponse = NextResponse.next({
     request: req,
   });
+  const cookiesToSet: CookieToSet[] = [];
+  const deadline = createInvocationDeadline();
 
   const supabase = createServerClient<Database>(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -52,18 +127,23 @@ export async function middleware(req: NextRequest) {
         getAll() {
           return req.cookies.getAll();
         },
-        setAll(cookiesToSet) {
-          cookiesToSet.forEach(({ name, value }) => {
+        setAll(updatedCookies) {
+          updatedCookies.forEach((cookie) => {
+            const { name, value } = cookie;
             req.cookies.set(name, value);
+            const existingIndex = cookiesToSet.findIndex(
+              (existing) => existing.name === name
+            );
+            if (existingIndex >= 0) {
+              cookiesToSet[existingIndex] = cookie;
+            } else {
+              cookiesToSet.push(cookie);
+            }
           });
           supabaseResponse = NextResponse.next({
             request: req,
           });
-          cookiesToSet.forEach(({ name, value, options }) => {
-            // IMPORTANT: do not strip maxAge/expires.
-            // Supabase uses these to correctly rotate/clear chunked auth cookies.
-            supabaseResponse.cookies.set(name, value, options);
-          });
+          applyResponseMetadata(supabaseResponse, cookiesToSet);
         },
       },
       cookieOptions: {
@@ -71,6 +151,9 @@ export async function middleware(req: NextRequest) {
         path: '/',
         sameSite: 'lax' as const,
         secure: process.env.NODE_ENV === 'production',
+      },
+      global: {
+        fetch: deadline.fetch,
       },
     }
   );
@@ -80,64 +163,91 @@ export async function middleware(req: NextRequest) {
     ? 'https://tutor.altitutor.com'
     : 'http://localhost:3002';
 
-  // IMPORTANT: Use getUser() to validate and refresh auth token
-  // This validates the token with Supabase Auth server (secure)
-  // getSession() reads from cookies without validation (insecure)
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  try {
+    let claimsResult: Awaited<ReturnType<typeof supabase.auth.getClaims>>;
+    try {
+      claimsResult = await deadline.race(supabase.auth.getClaims());
+    } catch (error) {
+      console.error('Admin middleware authentication dependency failed', error);
+      return unavailableResponse(cookiesToSet);
+    }
 
-  const isProtected = pathname !== '/';
-  if (!user && isProtected) {
-    const redirectResponse = NextResponse.redirect(new URL('/login', origin));
-    // Copy cookies from supabaseResponse to redirectResponse
-    supabaseResponse.cookies.getAll().forEach((cookie) => {
-      redirectResponse.cookies.set(cookie.name, cookie.value);
-    });
-    return redirectResponse;
+    const { data: claimsData, error: claimsError } = claimsResult;
+    const isMissingSession = claimsError?.name === 'AuthSessionMissingError';
+
+    if (claimsError && !isMissingSession) {
+      console.error('Admin middleware authentication dependency failed', claimsError);
+      return unavailableResponse(cookiesToSet);
+    }
+
+    const userId = claimsData?.claims?.sub;
+
+    const isProtected = pathname !== '/';
+    if (!userId && isProtected) {
+      const redirectResponse = NextResponse.redirect(new URL('/login', origin));
+      return applyResponseMetadata(redirectResponse, cookiesToSet);
+    }
+
+    if (!userId) return applyResponseMetadata(supabaseResponse, cookiesToSet);
+
+    let adminResult: Awaited<ReturnType<typeof supabase.rpc<'is_adminstaff_active'>>>;
+    try {
+      adminResult = await deadline.race(supabase.rpc('is_adminstaff_active'));
+    } catch (error) {
+      console.error('Admin middleware admin-role dependency failed', error);
+      return unavailableResponse(cookiesToSet);
+    }
+
+    if (adminResult.error) {
+      console.error('Admin middleware admin-role dependency failed', adminResult.error);
+      return unavailableResponse(cookiesToSet);
+    }
+
+    const isAdmin = adminResult.data === true;
+
+    type TutorResult = {
+      data: Pick<Database['public']['Views']['vtutor_profile']['Row'], 'id' | 'role' | 'status'> | null;
+      error: { message: string } | null;
+    };
+
+    if (!isAdmin) {
+      let tutorResult: TutorResult;
+      try {
+        tutorResult = (await deadline.race(
+          supabase
+            .from('vtutor_profile')
+            .select('id, role, status')
+            .maybeSingle()
+        )) as TutorResult;
+      } catch (error) {
+        console.error('Admin middleware tutor dependency failed', error);
+        return unavailableResponse(cookiesToSet);
+      }
+
+      if (tutorResult.error) {
+        console.error('Admin middleware tutor dependency failed', tutorResult.error);
+        return unavailableResponse(cookiesToSet);
+      }
+
+      if (tutorResult.data?.role === 'TUTOR' && tutorResult.data.status === 'ACTIVE') {
+        const redirectResponse = NextResponse.redirect(new URL(tutorAppUrl));
+        return applyResponseMetadata(redirectResponse, cookiesToSet);
+      }
+
+      const redirectResponse = NextResponse.redirect(new URL('/login?error=access_denied', origin));
+      return applyResponseMetadata(redirectResponse, cookiesToSet);
+    }
+
+    if (pathname === '/') {
+      const redirectResponse = NextResponse.redirect(new URL('/dashboard', origin));
+      return applyResponseMetadata(redirectResponse, cookiesToSet);
+    }
+
+    // IMPORTANT: Return the supabaseResponse object to preserve cookie updates
+    return applyResponseMetadata(supabaseResponse, cookiesToSet);
+  } finally {
+    deadline.dispose();
   }
-
-  if (!user) return supabaseResponse;
-
-  const { data: staff } = (await supabase
-    .from('staff')
-    .select('role')
-    .eq('user_id', user.id)
-    .maybeSingle()) as { data: { role: 'ADMINSTAFF' | 'TUTOR' } | null; error: PostgrestError | null };
-
-  const role = staff?.role;
-
-  // Only allow ADMINSTAFF - redirect TUTOR to tutor app
-  if (role === 'TUTOR') {
-    const redirectResponse = NextResponse.redirect(new URL(tutorAppUrl));
-    // Copy cookies from supabaseResponse to redirectResponse
-    supabaseResponse.cookies.getAll().forEach((cookie) => {
-      redirectResponse.cookies.set(cookie.name, cookie.value);
-    });
-    return redirectResponse;
-  }
-
-  // Block non-staff users
-  if (!staff || role !== 'ADMINSTAFF') {
-    const redirectResponse = NextResponse.redirect(new URL('/login?error=access_denied', origin));
-    // Copy cookies from supabaseResponse to redirectResponse
-    supabaseResponse.cookies.getAll().forEach((cookie) => {
-      redirectResponse.cookies.set(cookie.name, cookie.value);
-    });
-    return redirectResponse;
-  }
-
-  if (pathname === '/') {
-    const redirectResponse = NextResponse.redirect(new URL('/dashboard', origin));
-    // Copy cookies from supabaseResponse to redirectResponse
-    supabaseResponse.cookies.getAll().forEach((cookie) => {
-      redirectResponse.cookies.set(cookie.name, cookie.value);
-    });
-    return redirectResponse;
-  }
-
-  // IMPORTANT: Return the supabaseResponse object to preserve cookie updates
-  return supabaseResponse;
 }
 
 export const config = {

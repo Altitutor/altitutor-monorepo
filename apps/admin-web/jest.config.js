@@ -16,6 +16,7 @@ const config = {
     '\\.(css|less|scss|sass)$': 'identity-obj-proxy',
   },
   testMatch: ['**/__tests__/**/*.test.[jt]s?(x)', '**/?(*.)+(spec|test).[jt]s?(x)'],
+  testPathIgnorePatterns: ['<rootDir>/e2e/'],
   transform: {
     '^.+\\.(t|j)sx?$': ['@swc/jest'],
   },
