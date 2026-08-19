@@ -74,6 +74,7 @@ describe('UCAT MCP tool profiles', () => {
       'create_ucat_audit_run',
       'add_ucat_audit_run_targets',
       'start_ucat_audit_run',
+      'list_ucat_audit_runs',
       'get_ucat_audit_run',
       'claim_ucat_audit_run_targets',
       'finish_ucat_audit_run_target',

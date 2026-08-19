@@ -57,7 +57,10 @@ import {
 } from '@/features/ucat/questions/server/generate-question-stems'
 import { startUcatQuestionGeneration } from '@/features/ucat/questions/server/start-question-generation'
 import { requestUcatQuestionAssessment } from '@/features/ucat/questions/server/ai-assessment/dispatcher'
-import { GeneratedContentBlockSchema } from '@/features/ucat/questions/lib/ai-generation/schema'
+import {
+  GeneratedContentBlockSchema,
+  GeneratedVisualBlockSchema,
+} from '@/features/ucat/questions/lib/ai-generation/schema'
 import { generatedVisualBlockToImageNodeServer } from '@/features/ucat/questions/lib/ai-generation/server-content-blocks'
 import {
   acceptUcatMcpAssessmentSuggestion,
@@ -71,6 +74,7 @@ import {
   finishUcatMcpAuditTarget,
   getUcatMcpAuditRun,
   getUcatMcpContentChanges,
+  listUcatMcpAuditRuns,
   proposeUcatMcpContentChange,
   recordUcatMcpAssessmentDecision,
   rejectUcatMcpContentChange,
@@ -915,6 +919,31 @@ export function registerUcatMcpTools(
   )
 
   server.registerTool(
+    'list_ucat_audit_runs',
+    {
+      title: 'List UCAT audit runs',
+      description:
+        'List the acting tutor’s durable audit runs newest first, including target status counts. Filter by lifecycle status and use both cursor fields from nextCursor to fetch the next page.',
+      inputSchema: {
+        status: z.enum(['selecting', 'active', 'completed', 'cancelled']).optional(),
+        cursorCreatedAt: z.string().datetime({ offset: true }).optional().describe(
+          'createdAt from the previous page’s nextCursor. Supply together with cursorId.',
+        ),
+        cursorId: z.string().uuid().optional().describe(
+          'id from the previous page’s nextCursor. Supply together with cursorCreatedAt.',
+        ),
+        limit: z.number().int().min(1).max(100).default(50),
+      },
+      outputSchema: StructuredObjectOutputSchema,
+      annotations: readOnlyAnnotations,
+    },
+    async (input, extra) => executeTool(
+      extra.authInfo?.token,
+      (client) => listUcatMcpAuditRuns(client, input),
+    ),
+  )
+
+  server.registerTool(
     'get_ucat_audit_run',
     {
       title: 'Read a UCAT audit run and target progress',
@@ -1247,7 +1276,7 @@ export function registerUcatMcpTools(
       description:
         'Validate and render an inline Vega-Lite, Venn, or set-diagram visual into native raster MCP image content and a ProseMirror image node without external data references.',
       inputSchema: {
-        visual: z.unknown(),
+        visual: GeneratedVisualBlockSchema,
       },
       outputSchema: z.object({
         imageNode: RenderedImageNodeOutputSchema,

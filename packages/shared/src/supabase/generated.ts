@@ -37053,6 +37053,15 @@ export type Database = {
         }
         Returns: Json
       }
+      tutor_ucat_mcp_list_audit_runs: {
+        Args: {
+          p_before_created_at?: string
+          p_before_id?: string
+          p_limit?: number
+          p_status?: string
+        }
+        Returns: Json
+      }
       tutor_ucat_mcp_record_assessment_decision: {
         Args: {
           p_decision: string

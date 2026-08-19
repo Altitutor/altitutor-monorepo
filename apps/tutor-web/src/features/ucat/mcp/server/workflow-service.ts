@@ -507,6 +507,23 @@ export async function getUcatMcpAuditRun(
   })
 }
 
+export async function listUcatMcpAuditRuns(
+  client: SupabaseClient<Database>,
+  input: {
+    status?: 'selecting' | 'active' | 'completed' | 'cancelled'
+    cursorCreatedAt?: string
+    cursorId?: string
+    limit?: number
+  } = {},
+): Promise<Record<string, unknown>> {
+  return callRpc(client, 'tutor_ucat_mcp_list_audit_runs', {
+    p_status: input.status ?? null,
+    p_before_created_at: input.cursorCreatedAt ?? null,
+    p_before_id: input.cursorId ?? null,
+    p_limit: input.limit ?? 50,
+  })
+}
+
 export async function claimUcatMcpAuditTargets(
   client: SupabaseClient<Database>,
   runId: string,

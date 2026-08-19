@@ -1,10 +1,20 @@
 import React from "react";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import type {
+  SignInWithOAuthCredentials,
+  UserIdentity,
+} from "@supabase/supabase-js";
 import { ConnectedSignInMethods } from "@/features/settings/components/connected-sign-in-methods";
 
-const getUserIdentities = jest.fn();
-const linkIdentity = jest.fn();
-const unlinkIdentity = jest.fn();
+const getUserIdentities = jest.fn<
+  Promise<{ data: { identities: UserIdentity[] }; error: null }>,
+  []
+>();
+const linkIdentity = jest.fn<
+  Promise<{ error: null }>,
+  [SignInWithOAuthCredentials]
+>();
+const unlinkIdentity = jest.fn<Promise<{ error: null }>, [UserIdentity]>();
 const toast = jest.fn();
 
 jest.mock("next/navigation", () => ({
@@ -75,13 +85,17 @@ jest.mock("@altitutor/ui", () => ({
   ),
 }));
 
-const emailIdentity = {
+const emailIdentity: UserIdentity = {
   id: "email-identity",
+  user_id: "user-1",
+  identity_id: "email-identity",
   provider: "email",
   identity_data: { email: "student@example.com" },
 };
-const googleIdentity = {
+const googleIdentity: UserIdentity = {
   id: "google-identity",
+  user_id: "user-1",
+  identity_id: "google-identity",
   provider: "google",
   identity_data: { email: "student@gmail.com" },
 };
@@ -99,14 +113,22 @@ describe("ConnectedSignInMethods", () => {
 
   it("starts authenticated manual linking with the settings callback", async () => {
     render(<ConnectedSignInMethods enabledProviders={["google"]} />);
-    const connect = await screen.findByRole("button", { name: "Connect" });
+    const connect = await waitFor(() => {
+      const button = screen.getByRole("button", { name: "Connect" });
+      expect(button).toBeEnabled();
+      return button;
+    });
 
     fireEvent.click(connect);
 
     await waitFor(() => expect(linkIdentity).toHaveBeenCalledTimes(1));
     const request = linkIdentity.mock.calls[0][0];
     expect(request.provider).toBe("google");
-    const callback = new URL(request.options.redirectTo);
+    const redirectTo = request.options?.redirectTo;
+    if (typeof redirectTo !== "string") {
+      throw new Error("expected linkIdentity redirectTo");
+    }
+    const callback = new URL(redirectTo);
     expect(Object.fromEntries(callback.searchParams)).toEqual({
       intent: "link",
       provider: "google",
