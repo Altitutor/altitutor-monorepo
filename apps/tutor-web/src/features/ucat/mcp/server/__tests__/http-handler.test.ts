@@ -120,6 +120,7 @@ describe('UCAT MCP HTTP endpoints', () => {
     }).result.tools
     const visualTool = authoringTools.find((tool) => tool.name === 'render_ucat_visual')
     expect(visualTool).toBeDefined()
+    expect(JSON.stringify(visualTool?.inputSchema)).not.toContain('"not"')
     expect(JSON.stringify(visualTool?.inputSchema)).toContain('venn_diagram')
     expect(JSON.stringify(visualTool?.inputSchema)).toContain('set_diagram')
     expect(JSON.stringify(visualTool?.inputSchema)).toContain('shapes')
