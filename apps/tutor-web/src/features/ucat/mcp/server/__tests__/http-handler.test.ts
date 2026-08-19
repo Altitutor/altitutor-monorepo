@@ -54,6 +54,22 @@ async function mcpResponsePayload(response: Response) {
   return JSON.parse(data) as unknown
 }
 
+function findTupleItemsSchemas(value: unknown, path = '$'): string[] {
+  if (Array.isArray(value)) {
+    return value.flatMap((item, index) => findTupleItemsSchemas(item, `${path}[${index}]`))
+  }
+  if (!value || typeof value !== 'object') return []
+
+  const object = value as Record<string, unknown>
+  const matches = Array.isArray(object.items) ? [`${path}.items`] : []
+  return [
+    ...matches,
+    ...Object.entries(object).flatMap(([key, child]) => (
+      findTupleItemsSchemas(child, `${path}.${key}`)
+    )),
+  ]
+}
+
 describe('UCAT MCP HTTP endpoints', () => {
   beforeAll(() => {
     jest.useFakeTimers()
@@ -118,6 +134,14 @@ describe('UCAT MCP HTTP endpoints', () => {
     const authoringTools = (authoringPayload as {
       result: { tools: Array<{ name: string; inputSchema: unknown }> }
     }).result.tools
+    const productionTools = (productionPayload as {
+      result: { tools: Array<{ name: string; inputSchema: unknown }> }
+    }).result.tools
+    const incompatibleSchemas = [...authoringTools, ...productionTools]
+      .flatMap((tool) => findTupleItemsSchemas(tool.inputSchema)
+        .map((path) => `${tool.name}: ${path}`))
+    expect(incompatibleSchemas).toEqual([])
+
     const visualTool = authoringTools.find((tool) => tool.name === 'render_ucat_visual')
     expect(visualTool).toBeDefined()
     expect(JSON.stringify(visualTool?.inputSchema)).not.toContain('"not"')
