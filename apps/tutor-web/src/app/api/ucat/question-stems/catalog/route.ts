@@ -4,6 +4,7 @@ import {
   requireUcatTutor,
   type UcatTutorSupabaseClient,
 } from '@/features/ucat/shared/server/guard'
+import { isValidAuditCatalogFilter } from '@/features/ucat/questions/lib/audit-catalog'
 import { UCAT_DURABLE_AI_REVIEW_STATUSES } from '@/features/ucat/questions/lib/ai-assessment/review-status'
 import { manualReviewEnvironment } from '@/features/ucat/questions/server/ai-assessment/environment'
 
@@ -106,6 +107,10 @@ export async function GET(request: NextRequest) {
   const aiReviewStatuses = aiReviewEnabled
     ? parseEnumList(searchParams, 'aiReview', AI_REVIEW_STATUSES)
     : []
+  const auditFilters = [...new Set(searchParams.getAll('audit').filter(isValidAuditCatalogFilter))]
+  if (searchParams.getAll('audit').some((value) => value && !isValidAuditCatalogFilter(value))) {
+    return NextResponse.json({ error: 'Invalid audit filter' }, { status: 400 })
+  }
   const practicePoolParam = searchParams.get('practicePool')
   if (practicePoolParam != null && practicePoolParam !== '0' && practicePoolParam !== '1') {
     return NextResponse.json({ error: 'Invalid practice-pool filter' }, { status: 400 })
@@ -129,6 +134,7 @@ export async function GET(request: NextRequest) {
     p_include_without_set: searchParams.get('withoutSet') === '1',
     p_source_channels: parseEnumList(searchParams, 'source', SOURCE_CHANNELS),
     p_ai_review_statuses: aiReviewStatuses,
+    p_audit_filters: auditFilters,
     p_created_by: parseUuidList(searchParams, 'createdBy'),
     p_created_from: createdFrom,
     p_created_to: createdTo,

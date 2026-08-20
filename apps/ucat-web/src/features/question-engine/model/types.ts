@@ -103,6 +103,8 @@ export type QuestionEngineExam = {
   }>;
   /** Questions/questionStem mode only. Seconds per question for timing. Null = untimed. */
   timePerQuestionSeconds?: number | null;
+  /** Fixed practice review-at-end only. One deadline shared by every question. */
+  practiceSessionTimeLimitSeconds?: number | null;
 };
 
 export type QuestionStemWithQuestions = {
@@ -162,14 +164,13 @@ function normalizePracticeQuestion(
         : undefined);
 
   if (!answerScheme || !responseType) {
-    throw new Error("Practice question snapshot is missing its response contract");
+    throw new Error(
+      "Practice question snapshot is missing its response contract",
+    );
   }
 
   const options = legacyQuestion.options.map((option) => {
-    if (
-      option.answerKeyValue != null ||
-      typeof option.isAnswer !== "boolean"
-    ) {
+    if (option.answerKeyValue != null || typeof option.isAnswer !== "boolean") {
       return option;
     }
 

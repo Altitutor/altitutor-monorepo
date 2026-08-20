@@ -127,7 +127,7 @@ describe('UCAT MCP HTTP endpoints', () => {
       },
     })
     expect((authoringPayload as { result: { tools: unknown[] } }).result.tools)
-      .toHaveLength(23)
+      .toHaveLength(32)
     expect((productionPayload as { result: { tools: unknown[] } }).result.tools)
       .toHaveLength(32)
 

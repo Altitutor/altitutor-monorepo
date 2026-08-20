@@ -48,6 +48,7 @@ export type QuestionCatalogQuery = {
   includeWithoutSet: boolean
   sourceChannels: string[]
   aiReviewStatuses: string[]
+  auditFilters: string[]
   createdByIds: string[]
   createdFrom: string | null
   createdTo: string | null
@@ -116,6 +117,7 @@ export function buildQuestionCatalogQuery(input: {
     includeWithoutSet: rawSetIds.includes(UCAT_FILTER_NOT_IN_ANY_SET),
     sourceChannels: filterStrings(tableState, 'source_channel'),
     aiReviewStatuses: filterStrings(tableState, 'ai_review_status'),
+    auditFilters: filterStrings(tableState, 'audit'),
     createdByIds: filterStrings(tableState, 'created_by'),
     createdFrom: toUtcIso(firstFilterString(tableState, CREATED_AT_FROM_FILTER_KEY)),
     createdTo: toUtcIso(firstFilterString(tableState, CREATED_AT_TO_FILTER_KEY)),
@@ -152,6 +154,7 @@ export function serializeQuestionCatalogQuery(query: QuestionCatalogQuery): stri
   if (query.includeWithoutSet) params.set('withoutSet', '1')
   for (const value of query.sourceChannels) params.append('source', value)
   for (const value of query.aiReviewStatuses) params.append('aiReview', value)
+  for (const value of query.auditFilters) params.append('audit', value)
   for (const value of query.createdByIds) params.append('createdBy', value)
   if (query.createdFrom) params.set('createdFrom', query.createdFrom)
   if (query.createdTo) params.set('createdTo', query.createdTo)

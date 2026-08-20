@@ -15,6 +15,8 @@ import {
   PracticeStemSelectionError,
 } from "@/features/practice/server/prepare-practice-stems";
 import { ServerTiming } from "@/lib/performance/server-timing";
+import { resolvePracticeTimingScope } from "@/features/practice/model/practice-timing-policy";
+import type { PracticeReviewTiming } from "@/features/practice/lib/session-storage";
 
 export async function POST(request: NextRequest) {
   const timing = new ServerTiming();
@@ -52,6 +54,29 @@ export async function POST(request: NextRequest) {
   if (!body.sectionKey || !body.ucatSectionId) {
     return NextResponse.json(
       { error: "Missing required fields: sectionKey, ucatSectionId" },
+      { status: 400 },
+    );
+  }
+
+  const filtersSnapshot =
+    body.filtersSnapshot && typeof body.filtersSnapshot === "object"
+      ? (body.filtersSnapshot as {
+          timePerQuestionSeconds?: number | null;
+          reviewTiming?: PracticeReviewTiming;
+        })
+      : null;
+  if (
+    filtersSnapshot &&
+    resolvePracticeTimingScope({
+      timePerQuestionSeconds: filtersSnapshot.timePerQuestionSeconds,
+      unlimited: body.unlimited === true,
+      reviewTiming: filtersSnapshot.reviewTiming ?? "afterEachStem",
+    }) === "invalid"
+  ) {
+    return NextResponse.json(
+      {
+        error: "Timed review-at-end practice requires a fixed question count",
+      },
       { status: 400 },
     );
   }

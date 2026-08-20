@@ -69,7 +69,7 @@ const watchers = watchedDirectories.map((directory) =>
   watch(directory, (eventType, filename) => {
     if (!filename) return;
     const path = filename.toString();
-    if (!/\.(?:html|mjs|ts)$/.test(path)) return;
+    if (!/\.(?:html|js|mjs|ts)$/.test(path)) return;
     restartPreview(path);
   })
 );

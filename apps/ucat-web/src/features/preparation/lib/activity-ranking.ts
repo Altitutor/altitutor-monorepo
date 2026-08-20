@@ -13,6 +13,7 @@ import {
   sjtAllocationWeight,
 } from "@/features/preparation/lib/sjt-allocation-policy";
 import { learningLoopTargetQuestionCount } from "@/features/preparation/lib/policy";
+import { estimateQuestionReviewMinutes } from "@/features/preparation/lib/review-duration-policy";
 
 export const LEARNING_MODULE_SESSION_MINUTES = 20;
 
@@ -112,13 +113,23 @@ function factors(input: Factors): PreparationActivityCandidate["ranking"] {
 function duration(
   section: StudyPlanSection,
   questionCount: number,
-  timed: boolean,
+  pace: number | null,
+  expectedAccuracy: number | null,
 ): PreparationActivityCandidate["duration"] {
   return {
-    practiceMinutes: timed
-      ? Math.ceil((questionCount * section.timePerQuestionSeconds) / 60)
-      : Math.ceil(questionCount * 1.5),
-    reviewMinutes: timed ? 5 : 8,
+    practiceMinutes:
+      pace != null
+        ? Math.ceil(
+            (questionCount * section.timePerQuestionSeconds) / (60 * pace),
+          )
+        : Math.ceil(questionCount * 1.5),
+    reviewMinutes: estimateQuestionReviewMinutes([
+      {
+        questionCount,
+        examTimePerQuestionSeconds: section.timePerQuestionSeconds,
+        expectedAccuracy,
+      },
+    ]),
   };
 }
 
@@ -330,7 +341,12 @@ export function rankActivityCandidates(
               questionCount: section.questionCount,
               sectionEquivalents: 1,
             },
-            duration: duration(section, section.questionCount, true),
+            duration: duration(
+              section,
+              section.questionCount,
+              readiness.paceMultiplier,
+              signal?.recentAccuracy ?? null,
+            ),
             objective: "refresh_calibration",
             reasonCode: "activity.diagnostic_due",
             studentReason:
@@ -356,7 +372,12 @@ export function rankActivityCandidates(
           sectionId: section.id,
           scope: "section",
           dose: { questionCount: section.questionCount, sectionEquivalents: 1 },
-          duration: duration(section, section.questionCount, true),
+          duration: duration(
+            section,
+            section.questionCount,
+            readiness.paceMultiplier,
+            signal?.recentAccuracy ?? null,
+          ),
           objective: "refresh_calibration",
           reasonCode: "activity.calibration_due",
           studentReason:
@@ -372,11 +393,13 @@ export function rankActivityCandidates(
       );
     }
 
-    const questionCount = readiness.overspeedEligible
-      ? Math.max(20, Math.ceil(section.questionCount * 0.8))
-      : readiness.mode === "learning"
+    // Timing and Exam candidates describe the section-level need. The plan
+    // generator materialises their actual question count from the day's time
+    // budget; only Learning deliberately prescribes a fixed consolidation dose.
+    const questionCount =
+      readiness.mode === "learning"
         ? learningLoopTargetQuestionCount(section.questionCount)
-        : Math.max(20, Math.ceil(section.questionCount * 0.55));
+        : section.questionCount;
     const objective: PreparationActivityObjective = strongestCategory
       ? "remediate_reliable_weakness"
       : readiness.mode === "learning"
@@ -431,7 +454,8 @@ export function rankActivityCandidates(
         duration: duration(
           section,
           questionCount,
-          readiness.mode !== "learning",
+          readiness.mode === "learning" ? null : readiness.paceMultiplier,
+          strongestCategory?.recentAccuracy ?? signal?.recentAccuracy ?? null,
         ),
         objective,
         reasonCode,
@@ -454,7 +478,8 @@ export function rankActivityCandidates(
           duration: duration(
             section,
             questionCount,
-            readiness.mode !== "learning",
+            readiness.mode === "learning" ? null : readiness.paceMultiplier,
+            signal?.recentAccuracy ?? null,
           ),
           objective,
           reasonCode,
@@ -496,7 +521,9 @@ export function rankActivityCandidates(
         duration: duration(
           sjtSection,
           questionCount,
-          input.readiness.mode !== "learning",
+          input.readiness.mode === "learning" ? null : 1,
+          input.signals.find((signal) => signal.sectionId === sjtSection.id)
+            ?.recentAccuracy ?? null,
         ),
         objective: "maintain_sjt_judgement",
         reasonCode: "activity.sjt_preference",
@@ -537,7 +564,18 @@ export function rankActivityCandidates(
         sectionId: null,
         scope: "full_exam",
         dose: { questionCount: null, sectionEquivalents: 3 },
-        duration: { practiceMinutes: 120, reviewMinutes: 30 },
+        duration: {
+          practiceMinutes: 120,
+          reviewMinutes: estimateQuestionReviewMinutes(
+            input.sections.map((section) => ({
+              questionCount: section.questionCount,
+              examTimePerQuestionSeconds: section.timePerQuestionSeconds,
+              expectedAccuracy:
+                input.signals.find((signal) => signal.sectionId === section.id)
+                  ?.recentAccuracy ?? null,
+            })),
+          ),
+        },
         objective: "rehearse_full_exam",
         reasonCode: "activity.mock_cadence",
         studentReason:

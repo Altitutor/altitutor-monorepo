@@ -22,6 +22,8 @@ export const ucatKeys = {
     [...ucatKeys.questions('all'), 'catalog-page', query] as const,
   questionCatalogCreators: () =>
     [...ucatKeys.questions('all'), 'catalog-creators'] as const,
+  questionCatalogAuditRuns: () =>
+    [...ucatKeys.questions('all'), 'catalog-audit-runs'] as const,
   sets: () => [...ucatKeys.all, 'sets'] as const,
   set: (id: string) => [...ucatKeys.sets(), id] as const,
   mocks: () => [...ucatKeys.all, 'mocks'] as const,

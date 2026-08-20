@@ -48,13 +48,7 @@ type FullQuestionRow = {
   answer_options?: Array<{
     id: string;
     index: number;
-    answer_key_value?:
-      | "correct"
-      | "yes"
-      | "no"
-      | "most"
-      | "least"
-      | null;
+    answer_key_value?: "correct" | "yes" | "no" | "most" | "least" | null;
   }> | null;
 };
 
@@ -161,6 +155,8 @@ export function toStoredExamTiming(exam: QuestionEngineExam): StoredExamTiming {
     mockTimingSegments: exam.mockTimingSegments,
     mockSetSummaries: exam.mockSetSummaries,
     timePerQuestionSeconds: exam.timePerQuestionSeconds ?? null,
+    practiceSessionTimeLimitSeconds:
+      exam.practiceSessionTimeLimitSeconds ?? null,
   };
 }
 
@@ -185,6 +181,8 @@ export function examFromStoredTiming(
     mockTimingSegments: stored.examTiming.mockTimingSegments,
     mockSetSummaries: stored.examTiming.mockSetSummaries,
     timePerQuestionSeconds: stored.examTiming.timePerQuestionSeconds,
+    practiceSessionTimeLimitSeconds:
+      stored.examTiming.practiceSessionTimeLimitSeconds,
   };
 }
 
@@ -397,6 +395,8 @@ async function loadPracticeExamForCatchUp(
     ),
     instructionsScreens: [],
     timePerQuestionSeconds: timing?.timePerQuestionSeconds ?? null,
+    practiceSessionTimeLimitSeconds:
+      timing?.practiceSessionTimeLimitSeconds ?? null,
   };
 }
 

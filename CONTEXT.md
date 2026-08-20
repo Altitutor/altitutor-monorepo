@@ -199,6 +199,9 @@
 - **Pristine generated class session** — A future Class session that still matches its originating Class schedule and has no independently authored operational information. It may be replaced or removed when ADMINSTAFF confirms a schedule change; enriched, exceptional, and past Class sessions are preserved.
   _Avoid_: Any future session, historical session, class session exception
 
+- **Calendar cancellation tombstone** — A removed Class session retained temporarily only so subscribed calendar providers can observe its cancellation under the same event identity. It is absent from ordinary product views and is not an active or operational Class session.
+  _Avoid_: Active session, visible cancelled session, permanent historical record
+
 - **Class schedule timezone** — The named timezone in which a Class schedule's dates and wall-clock times are defined. It defaults to Australia/Adelaide; each materialized Class session represents an absolute time across daylight-saving changes.
   _Avoid_: Browser timezone, fixed UTC offset, implicit server timezone
 
@@ -599,6 +602,18 @@
 
 - **UCAT content change** — A recoverable mutation of a saved UCAT aggregate recorded with its exact base and resulting revisions, before-and-after content, operations, provenance, and reversal relationship. Reversal restores the prior content only when doing so cannot overwrite later work.
   _Avoid_: Browser undo, branching version, activity event
+
+- **UCAT audit run** — A durable, named quality-audit of a frozen set of UCAT aggregates. It is selecting while targets are still being added, active while agents claim them, then completed or cancelled. Cancelled runs remain stored but are not current catalog review membership.
+  _Avoid_: AI assessment run, AI assessment audit record, question stem review queue
+
+- **Audit run target** — One aggregate assigned to a UCAT audit run, most often a question stem. Its status in that run is pending, in progress, completed, failed, or skipped, independently of the aggregate's content status and of any other run it belongs to.
+  _Avoid_: Catalog row, UCAT content change, AI assessment finding
+
+- **Audit target result** — The optional terminal classification of a completed or skipped audit run target: **updated** or **unchanged** when completed, and **suggest delete** or **suggest split** when skipped. Pending, in-progress, and failed targets have no result.
+  _Avoid_: Target status, AI review status, content-change status
+
+- **Not audited** — A question stem that is not a target of any selecting, active, or completed UCAT audit run.
+  _Avoid_: Failed audit, skipped audit, cancelled-run membership
 
 - **AI visual assessment** — The visual portion of an AI question stem assessment, comparing the original asset, its stored authoring specification and dimensions when available, and its rendered student view. It evaluates content accuracy, legibility, precision fairness, question dependency, and presentation quality; a required visual that cannot be inspected is a high-severity unreviewable finding rather than a pass.
   _Avoid_: Alt-text check, original-image-only review, visual generation gate

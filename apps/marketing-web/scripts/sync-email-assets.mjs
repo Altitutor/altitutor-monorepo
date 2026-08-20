@@ -17,3 +17,17 @@ for (const relativePath of destinations) {
   mkdirSync(dirname(destination), { recursive: true });
   copyFileSync(source, destination);
 }
+
+const emailAssets = resolve(appRoot, "../../assets/ucat-photos/email");
+const emailDestination = resolve(appRoot, "public/assets/ucat/email");
+mkdirSync(emailDestination, { recursive: true });
+for (const filename of [
+  "attempt-review.jpg",
+  "timing-graph.jpg",
+  "practice-pace.jpg",
+  "category-breakdown.jpg",
+  "qr-multipliers.jpg",
+  "study-plan-tasks.jpg",
+]) {
+  copyFileSync(resolve(emailAssets, filename), resolve(emailDestination, filename));
+}

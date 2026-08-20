@@ -133,6 +133,11 @@ function ReadOnlyValue({ children }: { children: ReactNode }) {
   return <span className="block text-right text-sm text-foreground">{children}</span>
 }
 
+function humanizeDetectionToken(value: string): string {
+  const text = value.replaceAll('_', ' ')
+  return text.charAt(0).toUpperCase() + text.slice(1)
+}
+
 function PropertiesCard({
   value,
   title,
@@ -246,7 +251,7 @@ export function UcatStemEditorPropertiesPanel({
     : null
   const detectedResponseLabel = detectedResponse
     ? [detectedResponse.responseType.value, detectedResponse.answerScheme.value]
-        .flatMap((value) => typeof value === 'string' ? [value.replaceAll('_', ' ')] : [])
+        .flatMap((value) => typeof value === 'string' ? [humanizeDetectionToken(value)] : [])
         .join(' / ') || 'Review interaction'
     : null
   const detectedTagsLabel = detectedTagIds.length > 0
@@ -254,6 +259,39 @@ export function UcatStemEditorPropertiesPanel({
         .map((tagId) => taxonomyDisplayLabel(tags.find((tag) => tag.id === tagId) ?? { name: 'Unknown tag' }))
         .join(', ')
     : null
+  const currentResponseLabel = [currentContract.responseType, currentContract.answerScheme]
+    .map(humanizeDetectionToken)
+    .join(' / ')
+  const currentTagsLabel = (activeQuestion?.tagIds ?? []).length > 0
+    ? (activeQuestion?.tagIds ?? [])
+        .map((tagId) => taxonomyDisplayLabel(tags.find((tag) => tag.id === tagId) ?? { name: 'Unknown tag' }))
+        .join(', ')
+    : 'No tags'
+  const detectedResponseEvidence = detectedResponse
+    ? [...new Set([
+        ...detectedResponse.responseType.evidence,
+        ...detectedResponse.answerScheme.evidence,
+      ])].map(humanizeDetectionToken)
+    : []
+  const detectedResponseConflicts = detectedResponse
+    ? [...new Set([
+        ...detectedResponse.responseType.conflicts,
+        ...detectedResponse.answerScheme.conflicts,
+      ])].map(humanizeDetectionToken)
+    : []
+  const detectedResponseConfidence = detectedResponse
+    ? [...new Set([
+        detectedResponse.responseType.confidence,
+        detectedResponse.answerScheme.confidence,
+      ])].join(' / ')
+    : null
+  const detectedResponseExplanation = detectedResponse?.reviewState === 'prefilled'
+    ? 'The question structure and answer pattern agree with this interaction. Accepting will replace the current interaction settings.'
+    : detectedResponse?.reviewState === 'confirmation_required'
+      ? 'The content contains a likely interaction pattern, but the parser found signals that need your confirmation before changing it.'
+      : detectedResponse?.reviewState === 'blocked'
+        ? 'The parser found conflicting signals and cannot safely change the interaction. Review it manually, then reject this prompt.'
+        : 'The parser could not confidently infer a different interaction from the question structure. Accepting keeps the current interaction; rejecting hides this prompt.'
 
   function handleCategoryChange(nextCategoryId: string | null): void {
     form.setValue('categoryId', nextCategoryId, {
@@ -857,7 +895,12 @@ export function UcatStemEditorPropertiesPanel({
                 ) : null}
                 {detectedSectionLabel ? (
                   <UcatDetectedStemMetadataPill
+                    propertyLabel="Section"
                     value={detectedSectionLabel}
+                    currentValue={selectedSection?.name ?? 'No section'}
+                    detectedValue={detectedSectionLabel}
+                    explanation="The stem wording and structure matched content associated with this UCAT section. Accepting will replace the current section."
+                    evidence={[`Matched the ${detectedSectionLabel} section pattern`]}
                     onAccept={() => metadataDetection?.onAccept('section')}
                     onDismiss={() => metadataDetection?.onDismiss('section')}
                   />
@@ -899,7 +942,12 @@ export function UcatStemEditorPropertiesPanel({
                 />
                 {detectedCategoryLabel ? (
                   <UcatDetectedStemMetadataPill
+                    propertyLabel="Category"
                     value={detectedCategoryLabel}
+                    currentValue={selectedCategory ? taxonomyDisplayLabel(selectedCategory) : 'No category'}
+                    detectedValue={detectedCategoryLabel}
+                    explanation="The parser matched the stem's wording and question structure to this category. Accepting will replace the current category."
+                    evidence={[`Matched the ${detectedCategoryLabel} category pattern`]}
                     onAccept={() => metadataDetection?.onAccept('category')}
                     onDismiss={() => metadataDetection?.onDismiss('category')}
                   />
@@ -958,7 +1006,19 @@ export function UcatStemEditorPropertiesPanel({
                 />
                 {detectedResponseLabel ? (
                   <UcatDetectedStemMetadataPill
+                    propertyLabel="Interaction"
                     value={detectedResponseLabel}
+                    currentValue={currentResponseLabel}
+                    detectedValue={detectedResponseLabel === 'Review interaction'
+                      ? 'No reliable alternative detected'
+                      : detectedResponseLabel}
+                    explanation={detectedResponseExplanation}
+                    confidence={detectedResponseConfidence}
+                    evidence={detectedResponseEvidence.length > 0
+                      ? detectedResponseEvidence
+                      : ['No decisive structural or answer-pattern evidence was found']}
+                    conflicts={detectedResponseConflicts}
+                    acceptLabel={detectedResponseLabel === 'Review interaction' ? 'Keep current' : 'Accept'}
                     onAccept={
                       detectedResponse?.reviewState === 'blocked'
                         ? undefined
@@ -1000,7 +1060,17 @@ export function UcatStemEditorPropertiesPanel({
                   <QuestionTagsSelect questionIndex={safeQuestionIndex} form={form} tags={tags} compact />
                   {detectedTagsLabel ? (
                     <UcatDetectedStemMetadataPill
+                      propertyLabel="Tags"
                       value={detectedTagsLabel}
+                      currentValue={currentTagsLabel}
+                      detectedValue={detectedTagsLabel}
+                      explanation="The parser matched the active question's wording and structure to these tags. Accepting will replace the current tags for this question."
+                      evidence={detectedTagIds.map((tagId) => {
+                        const label = taxonomyDisplayLabel(
+                          tags.find((tag) => tag.id === tagId) ?? { name: 'Unknown tag' },
+                        )
+                        return `Matched the ${label} tag pattern`
+                      })}
                       onAccept={() => metadataDetection?.onAccept(`tags:${safeQuestionIndex}`)}
                       onDismiss={() => metadataDetection?.onDismiss(`tags:${safeQuestionIndex}`)}
                     />

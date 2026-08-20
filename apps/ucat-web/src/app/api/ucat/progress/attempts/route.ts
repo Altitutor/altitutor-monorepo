@@ -282,7 +282,7 @@ export async function GET(request: Request) {
   const reviewResult =
     attemptIds.length > 0
       ? await supabase
-          .from("student_ucat_attempt_reviews")
+          .from("vstudent_ucat_attempt_reviews")
           .select("attempt_type, attempt_id, completed_at")
           .in("attempt_id", attemptIds)
       : { data: [] as AttemptReviewRow[], error: null };
@@ -293,10 +293,15 @@ export async function GET(request: Request) {
     );
   }
   const reviewCompletedAtByAttempt = new Map(
-    (reviewResult.data as AttemptReviewRow[]).map((review) => [
-      `${review.attempt_type}:${review.attempt_id}`,
-      review.completed_at,
-    ]),
+    (reviewResult.data ?? []).flatMap((review) => {
+      if (!review.attempt_type || !review.attempt_id) return [];
+      return [
+        [
+          `${review.attempt_type}:${review.attempt_id}`,
+          review.completed_at,
+        ] as const,
+      ];
+    }),
   );
 
   const attempts = ((result.data ?? []) as unknown as HistoryRow[]).map(

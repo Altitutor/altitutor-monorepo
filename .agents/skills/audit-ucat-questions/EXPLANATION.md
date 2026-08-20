@@ -42,6 +42,8 @@ Use exact arithmetic or a mental shortcut when faster; estimation when it safely
 
 State which values to enter into the calculator when that is useful. Mental arithmetic when that is clearly quicker.
 
+If a distractor represents a specific execution mathematical error, explain this in an answer option level explanation.
+
 ## Decision Making
 
 Teach the construction or elimination process, not a justification of the final answer after the fact.
@@ -62,6 +64,8 @@ Use incrementally filled diagrams (slot diagrams, matching diagrams, and the lik
 For evaluating-argument questions: state the criteria for a strong argument; apply them to the winning option; briefly name the decisive weakness in each other option.
 
 For probability: define the relevant event or complement; show the setup; perform the shortest calculation; interpret the result in the wording of the question.
+
+For venn diagrams: Identify the relevant shape(s)/region(s); perform calculation if relevant. Do not use set theory symbols
 
 ## Verbal Reasoning
 

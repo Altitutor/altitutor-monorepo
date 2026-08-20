@@ -14,10 +14,12 @@ const REQUIRED_PERSONAS = [
   "new-student",
   "learning-progressing",
   "benchmark-ready",
+  "recommended-learning",
   "experienced-high-performing",
   "accurate-slow",
   "fast-inaccurate",
   "uneven-sections",
+  "calibration-due",
   "low-availability",
   "imminent-exam",
 ] as const;
@@ -33,7 +35,12 @@ describe("Preparation policy sandbox", () => {
       PREPARATION_SANDBOX_JOURNEYS.find(
         (journey) => journey.key === "foundations",
       )?.checkpoints.map((checkpoint) => checkpoint.fixtureKey),
-    ).toEqual(["new-student", "learning-progressing", "benchmark-ready"]);
+    ).toEqual([
+      "new-student",
+      "learning-progressing",
+      "benchmark-ready",
+      "recommended-learning",
+    ]);
   });
 
   it("ships every release persona as a complete canonical regression fixture", () => {
@@ -136,7 +143,10 @@ describe("Preparation policy sandbox", () => {
 
     expect(
       run.dailyWork.some(
-        (day) => day.practiceMinutes === 120 && day.reviewMinutes === 30,
+        (day) =>
+          day.practiceMinutes === 120 &&
+          day.reviewMinutes >= 10 &&
+          day.reviewMinutes <= 20,
       ),
     ).toBe(true);
   });
@@ -244,12 +254,35 @@ describe("Preparation policy sandbox", () => {
       "fast-inaccurate",
       "uneven-sections",
       "imminent-exam",
+      "calibration-due",
     ] as const) {
       const run = runPreparationSandboxCase(PREPARATION_SANDBOX_PERSONAS[key]);
       expect(
         run.result.plan.tasks.some((task) => task.taskType === "learn"),
       ).toBe(false);
     }
+  });
+
+  it("shows both recommended-learning and evidence-triggered calibration branches", () => {
+    const recommended = runPreparationSandboxCase(
+      PREPARATION_SANDBOX_PERSONAS["recommended-learning"],
+    );
+    expect(
+      recommended.result.plan.tasks.some(
+        (task) =>
+          task.taskType === "learn" &&
+          task.learningModuleId?.endsWith("-4") === true,
+      ),
+    ).toBe(true);
+
+    const calibration = runPreparationSandboxCase(
+      PREPARATION_SANDBOX_PERSONAS["calibration-due"],
+    );
+    expect(
+      calibration.result.plan.tasks.some(
+        (task) => task.taskType === "section_benchmark",
+      ),
+    ).toBe(true);
   });
 
   it("accepts editable dates, availability, target, SJT, evidence, pace, adherence and versions", () => {

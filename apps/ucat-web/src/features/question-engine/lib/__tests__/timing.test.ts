@@ -100,6 +100,28 @@ describe("getCurrentSegmentTimeLimitSeconds", () => {
       ),
     ).toBe(120);
   });
+
+  it("keeps one session-wide limit across fixed practice questions", () => {
+    const exam = {
+      sourceType: "questionStem",
+      sourceId: "practice-1",
+      title: "Practice",
+      questions: [
+        { id: "q1", stemId: "stem-1" },
+        { id: "q2", stemId: "stem-2" },
+      ],
+      instructionsScreens: [],
+      timePerQuestionSeconds: 64,
+      practiceSessionTimeLimitSeconds: 128,
+    } as unknown as QuestionEngineExam;
+
+    expect(
+      getCurrentSegmentTimeLimitSeconds(
+        exam,
+        createBaseState({ currentIndex: 1 }),
+      ),
+    ).toBe(128);
+  });
 });
 
 describe("formatTimeRemaining", () => {

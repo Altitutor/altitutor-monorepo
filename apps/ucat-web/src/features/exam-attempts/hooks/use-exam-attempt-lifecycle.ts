@@ -416,7 +416,6 @@ export function useExamAttemptLifecycle({
         const nextLocalState: QuestionEngineState = {
           ...latestStateRef.current,
           ...snapshot,
-          showTimeExpiredDialog: false,
         };
         const localSegmentKey = getTimedSegmentKey(exam, nextLocalState);
 
@@ -452,7 +451,6 @@ export function useExamAttemptLifecycle({
         setState((prev) => ({
           ...prev,
           ...snapshot,
-          showTimeExpiredDialog: false,
         }));
         setLocal({
           ...attempt,
@@ -605,7 +603,6 @@ export function useExamAttemptLifecycle({
       ? {
           ...latestState,
           ...attemptSnapshot,
-          showTimeExpiredDialog: false,
         }
       : latestState;
     const localSegmentKey = getTimedSegmentKey(exam, nextLocalState);
@@ -638,7 +635,6 @@ export function useExamAttemptLifecycle({
           ? {
               ...prev,
               ...attemptSnapshot,
-              showTimeExpiredDialog: false,
             }
           : prev === stateAtBegin
             ? nextLocalState

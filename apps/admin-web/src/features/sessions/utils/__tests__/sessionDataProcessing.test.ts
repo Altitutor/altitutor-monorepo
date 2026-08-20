@@ -123,6 +123,7 @@ describe('processSessionStudents', () => {
     ucat_signup_step: 0,
     birthday: null,
     ucat_initial_familiarity: null,
+    ucat_analytics_account_class: 'external',
   };
 
   it('should process student with planned attendance', () => {

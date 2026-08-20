@@ -858,7 +858,7 @@ export function registerUcatMcpTools(
   )
   }
 
-  if (profile === 'production-maintenance') {
+  if (profile === 'authoring' || profile === 'production-maintenance') {
   server.registerTool(
     'create_ucat_audit_run',
     {
@@ -923,7 +923,7 @@ export function registerUcatMcpTools(
     {
       title: 'List UCAT audit runs',
       description:
-        'List the acting tutor’s durable audit runs newest first, including target status counts. Filter by lifecycle status and use both cursor fields from nextCursor to fetch the next page.',
+        'List durable audit runs newest first, including target status counts. Any UCAT tutor can read every run. Filter by lifecycle status and use both cursor fields from nextCursor to fetch the next page.',
       inputSchema: {
         status: z.enum(['selecting', 'active', 'completed', 'cancelled']).optional(),
         cursorCreatedAt: z.string().datetime({ offset: true }).optional().describe(
@@ -988,12 +988,14 @@ export function registerUcatMcpTools(
     {
       title: 'Record one UCAT audit target outcome',
       description:
-        'Complete, fail, skip, or requeue a claimed target. Store a concise structured outcome, not hidden reasoning.',
+        'Complete, fail, skip, or requeue a claimed target. Store a concise structured outcome, not hidden reasoning. Pass result for completed (updated/unchanged) or skipped (suggest_delete/suggest_split) targets; it is inferred from outcome.outcome when omitted.',
       inputSchema: {
         runId: z.string().uuid(),
         contentType: AggregateTypeSchema,
         contentId: z.string().uuid(),
         status: z.enum(['completed', 'failed', 'skipped', 'pending']),
+        result: z.enum(['updated', 'unchanged', 'suggest_delete', 'suggest_split']).nullable().optional()
+          .describe('Canonical terminal result for completed or skipped targets. Inferred from outcome.outcome when omitted.'),
         claimedRevision: z.string().nullable().optional(),
         outcome: z.record(z.unknown()).nullable().optional(),
         errorMessage: z.string().max(10_000).nullable().optional(),
@@ -1028,7 +1030,7 @@ export function registerUcatMcpTools(
     {
       title: 'Cancel a UCAT audit run',
       description:
-        'Cancel a selecting or active run owned by this tutor and OAuth client. Cancellation immediately removes any run-scoped unattended published-write authority.',
+        'Cancel a selecting or active run. Cancellation immediately removes any run-scoped unattended published-write authority.',
       inputSchema: { runId: z.string().uuid() },
       outputSchema: StructuredObjectOutputSchema,
       annotations: writeAnnotations,

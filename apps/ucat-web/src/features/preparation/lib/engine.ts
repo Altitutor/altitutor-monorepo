@@ -400,8 +400,9 @@ export function prepareStudent(
   const trajectory = buildPreparationTrajectory({
     preparation: input,
     currentScore,
-    scheduledCoreSectionEquivalentsPerWeek:
-      plan.coreSectionEquivalentsPerWeek,
+    scheduledCoreSectionEquivalentsPerWeek: plan.coreSectionEquivalentsPerWeek,
+    scheduledCoreSectionEquivalentsPerWeekBySection:
+      plan.coreSectionEquivalentsPerWeekBySection,
     readiness: plan.readiness,
   });
   return {

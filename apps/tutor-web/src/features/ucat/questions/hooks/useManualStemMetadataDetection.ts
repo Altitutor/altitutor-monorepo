@@ -77,7 +77,7 @@ export function getPendingStemMetadataDiff(
       if (
         (inference.responseType.value && inference.responseType.value !== question.responseType) ||
         (inference.answerScheme.value && inference.answerScheme.value !== question.answerScheme) ||
-        inference.reviewState !== 'prefilled'
+        inference.reviewState === 'blocked'
       ) {
         responseContractsByQuestionIndex[index] = inference
       }

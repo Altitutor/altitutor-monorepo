@@ -58,11 +58,7 @@ function input(): PreparationEngineInput {
         targetScore: 2200,
         testYear: 2026,
         testDate: "2026-08-05",
-        availableDays: [
-          { weekday: 1 },
-          { weekday: 3 },
-          { weekday: 6 },
-        ],
+        availableDays: [{ weekday: 1 }, { weekday: 3 }, { weekday: 6 }],
         preferredMockWeekday: 6,
       },
     },
@@ -253,11 +249,17 @@ describe("prepareStudent", () => {
     });
   });
 
-  it("builds one uncertainty-driven saturating trajectory from scheduled core work", () => {
+  it("blends sustained behavior with probable additional plan uptake", () => {
     const fixture = input();
     addRepresentativeScoreEvidence(fixture);
     fixture.evidence.forecast = {
-      expectedAdherence: 0.8,
+      recentCoreSectionEquivalentsPerWeek: 2,
+      recentCoreSectionEquivalentsPerWeekBySection: {
+        vr: 0.5,
+        dm: 0.75,
+        qr: 0.75,
+      },
+      expectedPlanUptake: 0.5,
       learningResponse: 1,
       learningResponseUncertainty: 0.2,
       history: [
@@ -277,20 +279,45 @@ describe("prepareStudent", () => {
     const trajectory = prepareStudent(fixture).trajectory;
     expect(trajectory).toMatchObject({
       status: "available",
-      doseSource: "scheduled_core",
-      expectedAdherence: 0.8,
+      doseSource: "recent_behavior_with_plan_uplift",
+      recentCoreSectionEquivalentsPerWeek: 2,
+      expectedPlanUptake: 0.5,
       percentiles: { lower: 20, middle: 50, upper: 80 },
       history: [{ date: "2025-12-01", currentEstimate: 1700 }],
     });
     if (trajectory.status !== "available")
       throw new Error("Expected trajectory");
-    expect(trajectory.coreSectionEquivalentsPerWeek).toBeGreaterThan(0);
+    expect(trajectory.coreSectionEquivalentsPerWeek).toBeGreaterThanOrEqual(2);
+    expect(trajectory.coreSectionEquivalentsPerWeek).toBeLessThanOrEqual(
+      Math.max(2, trajectory.plannedCoreSectionEquivalentsPerWeek),
+    );
     expect(trajectory.points.length).toBeGreaterThan(2);
     for (const point of trajectory.points) {
       expect(point.lower).toBeLessThanOrEqual(point.middle);
       expect(point.middle).toBeLessThanOrEqual(point.upper);
       expect(point.upper).toBeLessThanOrEqual(2700);
+      expect(Object.keys(point.sections ?? {})).toEqual(["vr", "dm", "qr"]);
     }
+    const finalPoint = trajectory.points.at(-1)!;
+    const initialPoint = trajectory.points[0]!;
+    const gainsBySection = Object.fromEntries(
+      ["vr", "dm", "qr"].map((sectionId) => [
+        sectionId,
+        finalPoint.sections![sectionId]!.middle -
+          initialPoint.sections![sectionId]!.middle,
+      ]),
+    );
+    const effectiveDose =
+      trajectory.effectiveCoreSectionEquivalentsPerWeekBySection;
+    const lowestDoseSection = ["vr", "dm", "qr"].sort(
+      (left, right) => effectiveDose[left]! - effectiveDose[right]!,
+    )[0]!;
+    const highestDoseSection = ["vr", "dm", "qr"].sort(
+      (left, right) => effectiveDose[right]! - effectiveDose[left]!,
+    )[0]!;
+    expect(gainsBySection[highestDoseSection]).toBeGreaterThanOrEqual(
+      gainsBySection[lowestDoseSection]!,
+    );
     const earlyGain =
       trajectory.points[1]!.middle - trajectory.points[0]!.middle;
     const lateGain =
@@ -312,8 +339,25 @@ describe("prepareStudent", () => {
     fixture.evidence.forecast.recentCoreSectionEquivalentsPerWeek = 2.5;
     expect(prepareStudent(fixture).trajectory).toMatchObject({
       status: "available",
-      doseSource: "recent_sustained_workload",
+      doseSource: "recent_behavior",
       coreSectionEquivalentsPerWeek: 2.5,
+      recentCoreSectionEquivalentsPerWeek: 2.5,
+    });
+  });
+
+  it("never lets a smaller plan reduce the likely trajectory below recent behavior", () => {
+    const fixture = input();
+    addRepresentativeScoreEvidence(fixture);
+    fixture.evidence.forecast = {
+      recentCoreSectionEquivalentsPerWeek: 20,
+      expectedPlanUptake: 0.1,
+    };
+
+    expect(prepareStudent(fixture).trajectory).toMatchObject({
+      status: "available",
+      doseSource: "recent_behavior",
+      coreSectionEquivalentsPerWeek: 20,
+      recentCoreSectionEquivalentsPerWeek: 20,
     });
   });
 
@@ -324,7 +368,7 @@ describe("prepareStudent", () => {
       fixture.goal.profile.studyPlanEnabled = false;
       fixture.evidence.forecast = {
         recentCoreSectionEquivalentsPerWeek: dose,
-        expectedAdherence: 0.8,
+        expectedPlanUptake: 0.8,
       };
       const trajectory = prepareStudent(fixture).trajectory;
       if (trajectory.status !== "available")
@@ -345,34 +389,37 @@ describe("prepareStudent", () => {
     expect(excessiveFinal).toBeLessThan(2700);
   });
 
-  it("propagates adherence uncertainty without changing the current estimate", () => {
-    const lowAdherence = input();
-    addRepresentativeScoreEvidence(lowAdherence);
-    lowAdherence.evidence.forecast = {
-      expectedAdherence: 0.4,
-      adherenceUncertainty: 0.5,
+  it("propagates plan-uptake uncertainty without changing the current estimate", () => {
+    const uncertainUptake = input();
+    addRepresentativeScoreEvidence(uncertainUptake);
+    uncertainUptake.evidence.forecast = {
+      expectedPlanUptake: 0.6,
+      planUptakeUncertainty: 0.5,
       learningResponseUncertainty: 0.05,
     };
-    const highAdherence = input();
-    addRepresentativeScoreEvidence(highAdherence);
-    highAdherence.evidence.forecast = {
-      expectedAdherence: 0.95,
-      adherenceUncertainty: 0.02,
+    const certainUptake = input();
+    addRepresentativeScoreEvidence(certainUptake);
+    certainUptake.evidence.forecast = {
+      expectedPlanUptake: 0.6,
+      planUptakeUncertainty: 0.02,
       learningResponseUncertainty: 0.05,
     };
 
-    const low = prepareStudent(lowAdherence).trajectory;
-    const high = prepareStudent(highAdherence).trajectory;
-    if (low.status !== "available" || high.status !== "available") {
+    const uncertain = prepareStudent(uncertainUptake).trajectory;
+    const certain = prepareStudent(certainUptake).trajectory;
+    if (uncertain.status !== "available" || certain.status !== "available") {
       throw new Error("Expected trajectories");
     }
-    expect(low.points[0]).toEqual(high.points[0]);
-    expect(high.points.at(-1)!.middle).toBeGreaterThan(
-      low.points.at(-1)!.middle,
-    );
-    expect(low.points[4]!.upper - low.points[4]!.lower).toBeGreaterThan(
-      high.points[4]!.upper - high.points[4]!.lower,
-    );
+    expect(uncertain.points[0]).toEqual(certain.points[0]);
+    // Plan uptake uncertainty should materially change the future interval,
+    // even when saturation means its width is not monotonic at every date.
+    expect(
+      uncertain.points.some(
+        (point, index) =>
+          point.lower !== certain.points[index]!.lower ||
+          point.upper !== certain.points[index]!.upper,
+      ),
+    ).toBe(true);
   });
 
   it("prioritises an accurate-slow section even when its visible estimate is lower", () => {

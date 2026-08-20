@@ -57,6 +57,7 @@ import {
   useSetUcatQuestionStemStatus,
   useRequestUcatAiAssessment,
   useUcatCategories,
+  useUcatQuestionCatalogAuditRuns,
   useUcatQuestionCatalogCreators,
   useUcatQuestionCatalogPage,
   useUcatQuestionDetail,
@@ -89,6 +90,11 @@ import {
 import { formatSecondsToDuration } from '@/features/ucat/shared/lib/time-utils'
 import type { UcatQuestionStemFormValues } from '@/features/ucat/questions/types/schema'
 import { formValuesToStemBundlePayload } from '@/features/ucat/questions/lib/stem-editor-form'
+import {
+  auditMembershipChipClassName,
+  auditMembershipChipLabel,
+  buildAuditCatalogFilterOptions,
+} from '@/features/ucat/questions/lib/audit-catalog'
 import type { CategoryOption, TagOption } from '@/features/ucat/questions/components/UcatQuestionStemDialog'
 import { bulkImportSuccessSummary } from '@/features/ucat/questions/lib/bulk-import-success-summary'
 import {
@@ -277,7 +283,7 @@ const columnDefinitions: DataTableColumnDefinition[] = [
   { key: 'source', label: 'Source', visibleByDefault: true },
   { key: 'created_at', label: 'Date created', visibleByDefault: false },
   { key: 'status', label: 'Status', visibleByDefault: false },
-  { key: 'ai_review', label: 'AI review', visibleByDefault: true },
+  { key: 'review', label: 'Review', visibleByDefault: true },
   { key: 'type_summary', label: 'Type', visibleByDefault: false },
   { key: 'actions', label: 'Actions', visibleByDefault: true },
 ]
@@ -401,6 +407,7 @@ export function UcatQuestionsPage() {
   const access = useUcatAccess()
   const questions = useUcatQuestionCatalogPage(catalogQuery)
   const catalogCreators = useUcatQuestionCatalogCreators()
+  const catalogAuditRuns = useUcatQuestionCatalogAuditRuns()
   const sections = useUcatSections()
   const categories = useUcatCategories()
   const tags = useUcatTags()
@@ -465,6 +472,17 @@ export function UcatQuestionsPage() {
       label: [creator.first_name, creator.last_name].filter(Boolean).join(' ') || 'Unknown staff',
     }))
   }, [catalogCreators.data])
+
+  const auditFilterDefinition: DataTableFilterDefinition = useMemo(
+    () => ({
+      key: 'audit',
+      label: 'Audit',
+      options: buildAuditCatalogFilterOptions(catalogAuditRuns.data ?? []),
+      searchable: true,
+      searchPlaceholder: 'Search audits...',
+    }),
+    [catalogAuditRuns.data],
+  )
 
   const { page, pageSize } = tableState.state
   const totalRows = questions.data?.total ?? 0
@@ -673,7 +691,7 @@ export function UcatQuestionsPage() {
     (visible('source') ? 1 : 0) +
     (visible('created_at') ? 1 : 0) +
     (visible('status') ? 1 : 0) +
-    (visible('ai_review') ? 1 : 0) +
+    (visible('review') ? 1 : 0) +
     (visible('type_summary') ? 1 : 0) +
     (visible('actions') ? 1 : 0)
 
@@ -1012,6 +1030,7 @@ export function UcatQuestionsPage() {
       filterDefinitions[3],
       filterDefinitions[4],
       ...(aiReviewEnabled ? [aiReviewFilterDefinition] : []),
+      auditFilterDefinition,
       ...buildQuestionCatalogProvenanceFilters(createdByFilterOptions),
       {
         key: 'question_set_id',
@@ -1029,6 +1048,7 @@ export function UcatQuestionsPage() {
     tableState.state.filters,
     setFilterOptions,
     createdByFilterOptions,
+    auditFilterDefinition,
     aiReviewEnabled,
   ])
 
@@ -1209,7 +1229,7 @@ export function UcatQuestionsPage() {
               {visible('source') && <TableHead>Source</TableHead>}
               {visible('created_at') && <TableHead>Date created</TableHead>}
               {visible('status') && <TableHead>Status</TableHead>}
-              {visible('ai_review') && <TableHead>AI review</TableHead>}
+              {visible('review') && <TableHead>Review</TableHead>}
               {visible('type_summary') && <TableHead>Type</TableHead>}
               {visible('actions') && <TableHead className="w-16 shrink-0" />}
             </TableRow>
@@ -1347,8 +1367,9 @@ export function UcatQuestionsPage() {
                       <TableCell>{formatDateTime(row.created_at ?? '') || '—'}</TableCell>
                     )}
                     {visible('status') && <TableCell className="capitalize">{row.status}</TableCell>}
-                    {visible('ai_review') && (
+                    {visible('review') && (
                       <TableCell>
+                        <div className="flex flex-col items-start gap-1">
                         {row.ai_review_status ? (
                           <Badge
                             variant="outline"
@@ -1362,6 +1383,24 @@ export function UcatQuestionsPage() {
                         ) : (
                           <span className="text-muted-foreground">—</span>
                         )}
+                        {row.audit_memberships.length > 0 ? (
+                          <div className="flex flex-wrap gap-1">
+                            {row.audit_memberships.map((membership) => (
+                              <Badge
+                                key={`${membership.runId}:${membership.targetStatus}:${membership.result ?? ''}`}
+                                variant="outline"
+                                title={membership.why ?? undefined}
+                                className={cn(
+                                  'whitespace-nowrap font-normal',
+                                  auditMembershipChipClassName(membership),
+                                )}
+                              >
+                                {auditMembershipChipLabel(membership)}
+                              </Badge>
+                            ))}
+                          </div>
+                        ) : null}
+                        </div>
                       </TableCell>
                     )}
                     {visible('type_summary') && <TableCell>{row.type_summary}</TableCell>}

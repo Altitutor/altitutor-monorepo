@@ -1,5 +1,11 @@
 import React from "react";
-import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import {
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import { PreparationSandboxPage } from "../preparation-sandbox-page";
 
 describe("PreparationSandboxPage", () => {
@@ -17,8 +23,10 @@ describe("PreparationSandboxPage", () => {
       screen.getByRole("heading", { name: "Generated 21-day plan" }),
     ).toBeInTheDocument();
     expect(screen.getAllByText("Learning module").length).toBeGreaterThan(0);
-    expect(screen.getAllByText("Targeted Practice").length).toBeGreaterThan(0);
-    expect(screen.getAllByText("Review").length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/practice/i).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/Review of .*practice/i).length).toBeGreaterThan(
+      0,
+    );
     expect(
       within(screen.getByTestId("journey-preview")).queryByText("module-vr"),
     ).not.toBeInTheDocument();
@@ -40,7 +48,7 @@ describe("PreparationSandboxPage", () => {
     expect(screen.getByLabelText("Journey checkpoint")).toHaveValue(
       "benchmark-ready",
     );
-    expect(screen.getAllByText("Benchmark Set").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Set").length).toBeGreaterThan(0);
     expect(screen.getAllByText("Predefined Set").length).toBeGreaterThan(0);
   });
 });

@@ -43,7 +43,7 @@ export async function GET() {
         .from("vstudent_ucat_mocks")
         .select("id", { count: "exact", head: true }),
       supabase
-        .from("student_ucat_attempt_reviews")
+        .from("vstudent_ucat_attempt_reviews")
         .select("id", { count: "exact", head: true })
         .eq("attempt_type", "mock_attempt")
         .not("completed_at", "is", null),

@@ -1326,6 +1326,147 @@ export type Database = {
           },
         ]
       }
+      class_schedule_revisions: {
+        Row: {
+          anchor_date: string | null
+          class_id: string
+          created_at: string
+          created_by: string | null
+          effective_from: string
+          effective_to: string
+          frequency_weeks: number | null
+          id: string
+          schedule_type: string
+        }
+        Insert: {
+          anchor_date?: string | null
+          class_id: string
+          created_at?: string
+          created_by?: string | null
+          effective_from: string
+          effective_to: string
+          frequency_weeks?: number | null
+          id?: string
+          schedule_type: string
+        }
+        Update: {
+          anchor_date?: string | null
+          class_id?: string
+          created_at?: string
+          created_by?: string | null
+          effective_from?: string
+          effective_to?: string
+          frequency_weeks?: number | null
+          id?: string
+          schedule_type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "class_schedule_revisions_class_id_fkey"
+            columns: ["class_id"]
+            isOneToOne: false
+            referencedRelation: "classes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "class_schedule_revisions_class_id_fkey"
+            columns: ["class_id"]
+            isOneToOne: false
+            referencedRelation: "vadmin_reconciliation_unassigned_classes"
+            referencedColumns: ["class_id"]
+          },
+          {
+            foreignKeyName: "class_schedule_revisions_class_id_fkey"
+            columns: ["class_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_class_detail"
+            referencedColumns: ["class_id"]
+          },
+          {
+            foreignKeyName: "class_schedule_revisions_class_id_fkey"
+            columns: ["class_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_class_detail"
+            referencedColumns: ["class_id"]
+          },
+          {
+            foreignKeyName: "class_schedule_revisions_class_id_fkey"
+            columns: ["class_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_classes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "class_schedule_revisions_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "class_schedule_revisions_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "vmarketing_staff_profiles"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "class_schedule_revisions_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "vtutor_pay_tier_profile"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "class_schedule_revisions_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "vtutor_profile"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      class_schedule_slots: {
+        Row: {
+          created_at: string
+          day_of_week: number
+          end_time: string
+          id: string
+          position: number
+          room: string | null
+          schedule_revision_id: string
+          start_time: string
+        }
+        Insert: {
+          created_at?: string
+          day_of_week: number
+          end_time: string
+          id?: string
+          position?: number
+          room?: string | null
+          schedule_revision_id: string
+          start_time: string
+        }
+        Update: {
+          created_at?: string
+          day_of_week?: number
+          end_time?: string
+          id?: string
+          position?: number
+          room?: string | null
+          schedule_revision_id?: string
+          start_time?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "class_schedule_slots_schedule_revision_id_fkey"
+            columns: ["schedule_revision_id"]
+            isOneToOne: false
+            referencedRelation: "class_schedule_revisions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       classes: {
         Row: {
           created_at: string | null
@@ -10937,6 +11078,7 @@ export type Database = {
           school: string | null
           status: string | null
           timezone: string
+          ucat_analytics_account_class: string
           ucat_initial_familiarity: string | null
           ucat_onboarding_completed_at: string | null
           ucat_online_tier_override: string
@@ -10977,6 +11119,7 @@ export type Database = {
           school?: string | null
           status?: string | null
           timezone?: string
+          ucat_analytics_account_class?: string
           ucat_initial_familiarity?: string | null
           ucat_onboarding_completed_at?: string | null
           ucat_online_tier_override?: string
@@ -11017,6 +11160,7 @@ export type Database = {
           school?: string | null
           status?: string | null
           timezone?: string
+          ucat_analytics_account_class?: string
           ucat_initial_familiarity?: string | null
           ucat_onboarding_completed_at?: string | null
           ucat_online_tier_override?: string
@@ -16293,6 +16437,7 @@ export type Database = {
           error_message: string | null
           id: string
           outcome: Json | null
+          result: string | null
           run_id: string
           started_at: string | null
           status: string
@@ -16306,6 +16451,7 @@ export type Database = {
           error_message?: string | null
           id?: string
           outcome?: Json | null
+          result?: string | null
           run_id: string
           started_at?: string | null
           status?: string
@@ -16319,6 +16465,7 @@ export type Database = {
           error_message?: string | null
           id?: string
           outcome?: Json | null
+          result?: string | null
           run_id?: string
           started_at?: string | null
           status?: string
@@ -16329,6 +16476,13 @@ export type Database = {
             columns: ["run_id"]
             isOneToOne: false
             referencedRelation: "ucat_mcp_audit_runs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ucat_mcp_audit_run_targets_run_id_fkey"
+            columns: ["run_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_ucat_mcp_audit_runs"
             referencedColumns: ["id"]
           },
         ]
@@ -16526,6 +16680,13 @@ export type Database = {
             columns: ["audit_run_id"]
             isOneToOne: false
             referencedRelation: "ucat_mcp_audit_runs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ucat_mcp_content_changes_audit_run_id_fkey"
+            columns: ["audit_run_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_ucat_mcp_audit_runs"
             referencedColumns: ["id"]
           },
           {
@@ -24730,32 +24891,13 @@ export type Database = {
           has_ucat_access: boolean | null
           is_quota_exempt: boolean | null
           online_tier: string | null
+          ucat_analytics_account_class: string | null
           ucat_onboarding_completed_at: string | null
           ucat_signup_completed_at: string | null
           ucat_signup_step: number | null
+          ucat_test_date: string | null
+          ucat_test_year: number | null
           unlimited_trial_eligible: boolean | null
-        }
-        Insert: {
-          has_in_person_access?: never
-          has_online_access?: never
-          has_ucat_access?: never
-          is_quota_exempt?: never
-          online_tier?: never
-          ucat_onboarding_completed_at?: string | null
-          ucat_signup_completed_at?: string | null
-          ucat_signup_step?: number | null
-          unlimited_trial_eligible?: never
-        }
-        Update: {
-          has_in_person_access?: never
-          has_online_access?: never
-          has_ucat_access?: never
-          is_quota_exempt?: never
-          online_tier?: never
-          ucat_onboarding_completed_at?: string | null
-          ucat_signup_completed_at?: string | null
-          ucat_signup_step?: number | null
-          unlimited_trial_eligible?: never
         }
         Relationships: []
       }
@@ -32048,6 +32190,143 @@ export type Database = {
           },
         ]
       }
+      vtutor_ucat_mcp_audit_run_targets: {
+        Row: {
+          claimed_revision: string | null
+          completed_at: string | null
+          content_id: string | null
+          content_type: string | null
+          created_at: string | null
+          error_message: string | null
+          id: string | null
+          outcome: Json | null
+          result: string | null
+          run_id: string | null
+          started_at: string | null
+          status: string | null
+        }
+        Insert: {
+          claimed_revision?: string | null
+          completed_at?: string | null
+          content_id?: string | null
+          content_type?: string | null
+          created_at?: string | null
+          error_message?: string | null
+          id?: string | null
+          outcome?: Json | null
+          result?: string | null
+          run_id?: string | null
+          started_at?: string | null
+          status?: string | null
+        }
+        Update: {
+          claimed_revision?: string | null
+          completed_at?: string | null
+          content_id?: string | null
+          content_type?: string | null
+          created_at?: string | null
+          error_message?: string | null
+          id?: string | null
+          outcome?: Json | null
+          result?: string | null
+          run_id?: string | null
+          started_at?: string | null
+          status?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ucat_mcp_audit_run_targets_run_id_fkey"
+            columns: ["run_id"]
+            isOneToOne: false
+            referencedRelation: "ucat_mcp_audit_runs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ucat_mcp_audit_run_targets_run_id_fkey"
+            columns: ["run_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_ucat_mcp_audit_runs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      vtutor_ucat_mcp_audit_runs: {
+        Row: {
+          brief: string | null
+          cancelled_at: string | null
+          completed_at: string | null
+          created_at: string | null
+          created_by: string | null
+          id: string | null
+          published_write_mode: string | null
+          selector: Json | null
+          started_at: string | null
+          status: string | null
+          title: string | null
+          workflow_id: string | null
+          workflow_version: string | null
+        }
+        Insert: {
+          brief?: string | null
+          cancelled_at?: string | null
+          completed_at?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          id?: string | null
+          published_write_mode?: string | null
+          selector?: Json | null
+          started_at?: string | null
+          status?: string | null
+          title?: string | null
+          workflow_id?: string | null
+          workflow_version?: string | null
+        }
+        Update: {
+          brief?: string | null
+          cancelled_at?: string | null
+          completed_at?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          id?: string | null
+          published_write_mode?: string | null
+          selector?: Json | null
+          started_at?: string | null
+          status?: string | null
+          title?: string | null
+          workflow_id?: string | null
+          workflow_version?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ucat_mcp_audit_runs_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ucat_mcp_audit_runs_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "vmarketing_staff_profiles"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "ucat_mcp_audit_runs_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "vtutor_pay_tier_profile"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "ucat_mcp_audit_runs_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "vtutor_profile"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       vtutor_ucat_mock_blueprint_audits: {
         Row: {
           attached_at: string | null
@@ -36356,6 +36635,7 @@ export type Database = {
         }
         Returns: number
       }
+      preview_class_schedule: { Args: { p_proposal: Json }; Returns: Json }
       qualify_ucat_paid_referral: {
         Args: {
           p_checkout_session_id: string
@@ -36910,6 +37190,7 @@ export type Database = {
         Args: {
           p_access_scopes?: string[]
           p_ai_review_statuses?: string[]
+          p_audit_filters?: string[]
           p_category_ids?: string[]
           p_created_by?: string[]
           p_created_from?: string
@@ -37032,6 +37313,7 @@ export type Database = {
           p_content_type: string
           p_error_message: string
           p_outcome: Json
+          p_result?: string
           p_run_id: string
           p_status: string
         }
@@ -37474,6 +37756,10 @@ export type Database = {
         Args: never
         Returns: number
       }
+      ucat_is_valid_audit_catalog_filter: {
+        Args: { p_filter: string }
+        Returns: boolean
+      }
       ucat_mcp_assert_audit_application: {
         Args: { p_content_id: string; p_content_type: string; p_run_id: string }
         Returns: undefined
@@ -37530,6 +37816,10 @@ export type Database = {
       ucat_question_set_content_snapshot: {
         Args: { p_set_id: string }
         Returns: Json
+      }
+      ucat_question_stem_matches_audit_catalog_filter: {
+        Args: { p_filter: string; p_stem_id: string }
+        Returns: boolean
       }
       ucat_quota_period_start: {
         Args: { p_at?: string; p_period: string; p_timezone: string }

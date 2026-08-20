@@ -21,6 +21,8 @@ const TOAST_SELECTOR = [
   '[data-sonner-toast]',
 ].join(', ');
 
+const RESIZE_SEPARATOR_SELECTOR = '[data-separator]';
+
 /** Returns true when `element` sits inside a modal dialog or sheet. */
 export function isInsideModal(element: HTMLElement | null | undefined): boolean {
   if (!element) return false;
@@ -47,15 +49,27 @@ function eventPathIncludesSelector(event: Event, selector: string): boolean {
   return path.some((target) => target instanceof HTMLElement && Boolean(target.closest(selector)));
 }
 
-export function isToastInteraction(event: Event): boolean {
-  if (isToastTarget(event.target) || eventPathIncludesSelector(event, TOAST_SELECTOR)) {
+function targetMatchesSelector(target: EventTarget | null, selector: string): boolean {
+  if (typeof HTMLElement === 'undefined') return false;
+  return target instanceof HTMLElement && Boolean(target.closest(selector));
+}
+
+function eventOrOriginalEventIncludesSelector(event: Event, selector: string): boolean {
+  if (targetMatchesSelector(event.target, selector) || eventPathIncludesSelector(event, selector)) {
     return true;
   }
 
   const originalEvent = (event as CustomEvent<{ originalEvent?: Event }>).detail?.originalEvent;
   if (!originalEvent) return false;
 
-  return isToastTarget(originalEvent.target) || eventPathIncludesSelector(originalEvent, TOAST_SELECTOR);
+  return (
+    targetMatchesSelector(originalEvent.target, selector) ||
+    eventPathIncludesSelector(originalEvent, selector)
+  );
+}
+
+export function isToastInteraction(event: Event): boolean {
+  return eventOrOriginalEventIncludesSelector(event, TOAST_SELECTOR);
 }
 
 /** Shared handler for Radix Dialog / Sheet / AlertDialog outside interactions. */
@@ -74,6 +88,14 @@ export function handleModalInteractOutside(
   }
 
   if (isToastInteraction(event)) {
+    event.preventDefault();
+    return;
+  }
+
+  // react-resizable-panels prevents the native pointerdown while it captures
+  // the drag. Radix can consequently report that same gesture as an outside
+  // interaction even though it began on a separator inside the modal.
+  if (eventOrOriginalEventIncludesSelector(event, RESIZE_SEPARATOR_SELECTOR)) {
     event.preventDefault();
     return;
   }

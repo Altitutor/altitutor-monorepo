@@ -6,6 +6,20 @@ import {
   buildUcatLearningActivityCompletedEvent,
   type UcatLearningActivityCompletedInput,
 } from "./ucat-retention-event";
+import {
+  buildUcatActivationCompletedEvent,
+  type UcatActivationCompletedInput,
+} from "./ucat-activation-event";
+
+function postHogClient(token: string) {
+  return new PostHog(token, {
+    host: process.env.NEXT_PUBLIC_POSTHOG_HOST ?? "https://us.i.posthog.com",
+    flushAt: 1,
+    flushInterval: 0,
+    requestTimeout: 2_000,
+    fetchRetryCount: 0,
+  });
+}
 
 /**
  * Records a durable learning completion after the corresponding database write.
@@ -17,15 +31,7 @@ export async function captureUcatLearningActivityCompleted(
   const token = process.env.NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN;
   if (!token) return;
 
-  const client = new PostHog(token, {
-    host: process.env.NEXT_PUBLIC_POSTHOG_HOST ?? "https://us.i.posthog.com",
-    flushAt: 1,
-    flushInterval: 0,
-    // Completion analytics is best-effort and runs after the durable write.
-    // Keep a telemetry outage from consuming the full function lifetime.
-    requestTimeout: 2_000,
-    fetchRetryCount: 0,
-  });
+  const client = postHogClient(token);
 
   try {
     client.capture(buildUcatLearningActivityCompletedEvent(input));
@@ -36,6 +42,31 @@ export async function captureUcatLearningActivityCompleted(
       error instanceof Error ? error.message : "Unknown error",
     );
   }
+}
+
+/** Records the first durable value milestone: completed practice plus review. */
+export async function captureUcatActivationCompleted(
+  input: UcatActivationCompletedInput,
+): Promise<void> {
+  const token = process.env.NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN;
+  if (!token) return;
+
+  const client = postHogClient(token);
+  try {
+    client.capture(buildUcatActivationCompletedEvent(input));
+    await client.flush();
+  } catch (error) {
+    console.error(
+      "[posthog] Failed to capture UCAT activation event",
+      error instanceof Error ? error.message : "Unknown error",
+    );
+  }
+}
+
+export function captureUcatActivationCompletedInBackground(
+  input: UcatActivationCompletedInput,
+): void {
+  waitUntil(captureUcatActivationCompleted(input));
 }
 
 /**
@@ -49,3 +80,4 @@ export function captureUcatLearningActivityCompletedInBackground(
 }
 
 export type { UcatLearningActivityCompletedInput } from "./ucat-retention-event";
+export type { UcatActivationCompletedInput } from "./ucat-activation-event";

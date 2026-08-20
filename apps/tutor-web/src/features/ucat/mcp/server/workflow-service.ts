@@ -582,6 +582,7 @@ export async function finishUcatMcpAuditTarget(
     contentType: UcatMcpAggregateType
     contentId: string
     status: 'completed' | 'failed' | 'skipped' | 'pending'
+    result?: 'updated' | 'unchanged' | 'suggest_delete' | 'suggest_split' | null
     claimedRevision?: string | null
     outcome?: Record<string, unknown> | null
     errorMessage?: string | null
@@ -592,6 +593,7 @@ export async function finishUcatMcpAuditTarget(
     p_content_type: input.contentType,
     p_content_id: input.contentId,
     p_status: input.status,
+    p_result: input.result ?? null,
     p_claimed_revision: input.claimedRevision ?? null,
     p_outcome: input.outcome ?? null,
     p_error_message: input.errorMessage ?? null,

@@ -55,6 +55,7 @@ type QueryChain = {
   insert: jest.Mock<QueryChain, [unknown]>;
   upsert: jest.Mock<QueryChain, [unknown]>;
   eq: jest.Mock<QueryChain, [string, unknown]>;
+  or: jest.Mock<QueryChain, [string]>;
   is: jest.Mock<QueryChain, [string, unknown]>;
   lt: jest.Mock<QueryChain, [string, unknown]>;
   gte: jest.Mock<QueryChain, []>;
@@ -284,6 +285,10 @@ function createDatabaseHarness(
       }),
       eq: jest.fn((column: string, value: unknown) => {
         filters.set(column, value);
+        return chain;
+      }),
+      or: jest.fn((value: string) => {
+        filters.set("or", value);
         return chain;
       }),
       is: jest.fn((column: string, value: unknown) => {

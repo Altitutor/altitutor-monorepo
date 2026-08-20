@@ -50,6 +50,7 @@ import {
 import { cn } from "@/lib/utils";
 import { Card, CardContent, CardHeader, CardTitle } from "@altitutor/ui";
 import { Button } from "@/components/ui/button";
+import { calculatePracticeSessionTimeLimitSeconds } from "@/features/practice/model/practice-timing-policy";
 
 function getPracticeCategoryList(
   input?: PracticeSelectionInput,
@@ -758,6 +759,20 @@ export function PracticeSessionPage() {
     return null;
   }
 
+  const practiceSessionTimeLimitSeconds =
+    session.mode === "set" &&
+    (session.reviewTiming ?? "afterEachStem") === "atEnd" &&
+    session.timePerQuestionSeconds != null &&
+    session.timePerQuestionSeconds > 0
+      ? calculatePracticeSessionTimeLimitSeconds(
+          session.timePerQuestionSeconds,
+          session.stems.reduce(
+            (total, stem) => total + stem.questions.length,
+            0,
+          ),
+        )
+      : null;
+
   if (session.mode === "unlimited") {
     return (
       <div className="h-full min-h-0 w-full overflow-hidden">
@@ -790,6 +805,7 @@ export function PracticeSessionPage() {
         confirmNextStemTransitions={preferences.nextQuestionPopupEnabled}
         onPracticeStatsChange={setLiveStats}
         timePerQuestionSeconds={session.timePerQuestionSeconds}
+        practiceSessionTimeLimitSeconds={practiceSessionTimeLimitSeconds}
         onPracticeSessionCompleted={handlePracticeSessionCompleted}
       />
     </div>

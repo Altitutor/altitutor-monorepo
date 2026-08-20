@@ -92,7 +92,7 @@ const initialInput: PracticeSelectionInput = {
 
 const initialPracticeInput: PracticeSelectionInput = {
   ...initialInput,
-  timePerQuestionSeconds: null,
+  timePerQuestionSeconds: 90,
 };
 
 export type PerformanceFilter = "any" | "unanswered" | "incorrect";
@@ -118,7 +118,7 @@ export function usePracticeFilters(options: UsePracticeFiltersOptions = {}) {
   );
   const [questionCountMode, setQuestionCountMode] = useState<
     "set" | "unlimited"
-  >(showUnlimitedOption ? "unlimited" : "set");
+  >("set");
   const sectionNumber = SECTION_KEY_TO_NUMBER[input.section];
 
   const { data: sections = [] } = useQuery({

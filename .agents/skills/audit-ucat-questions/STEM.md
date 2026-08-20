@@ -2,7 +2,7 @@
 
 One stem. Load [FORMAT.md](FORMAT.md) for its section and [EXPLANATION.md](EXPLANATION.md) for its section and response type. Apply every rule that fires.
 
-If this stem is published and you were given an `auditRunId`, claim it (`limit: 1`, `includeContent: true`) unless the parent already handed you the aggregate. Re-read with `get_ucat_content` before writing anyway.
+If you were given an `auditRunId`, claim it (`limit: 1`, `includeContent: true`) unless the parent already handed you the aggregate. Re-read with `get_ucat_content` before writing anyway.
 
 ## 1. See the item
 
@@ -78,6 +78,6 @@ stemId, section, status, outcome, why
 
 `outcome` is `updated` | `unchanged` | `suggest_delete` | `suggest_split` | `failed`.
 
-If published, `finish_ucat_audit_run_target`: `completed` for updated/unchanged, `skipped` for suggest_delete/suggest_split, `failed` for failed. Put this object in `outcome`.
+If an `auditRunId` was given, `finish_ucat_audit_run_target`: `completed` for updated/unchanged, `skipped` for suggest_delete/suggest_split, `failed` for failed. Put this object in `outcome`. Set `result` to that same `outcome` value for completed and skipped targets; failed has no result.
 
 **Done when:** the parent can copy this into the run report without reading the stem again.

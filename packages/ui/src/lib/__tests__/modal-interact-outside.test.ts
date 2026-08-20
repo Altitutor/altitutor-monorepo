@@ -137,4 +137,26 @@ describe('handleModalInteractOutside', () => {
 
     document.body.removeChild(toast);
   });
+
+  it('prevents dismiss when Radix reports a resize separator as outside', () => {
+    const separator = document.createElement('div');
+    separator.setAttribute('data-separator', 'task-editor-handle');
+    document.body.appendChild(separator);
+
+    const originalEvent = {
+      target: separator,
+      composedPath: () => [separator, document.body, document],
+    } as unknown as Event;
+    const event = new CustomEvent('pointerdownoutside', {
+      detail: { originalEvent },
+      cancelable: true,
+    });
+    const preventDefault = jest.spyOn(event, 'preventDefault');
+
+    handleModalInteractOutside(event);
+
+    expect(preventDefault).toHaveBeenCalled();
+
+    document.body.removeChild(separator);
+  });
 });

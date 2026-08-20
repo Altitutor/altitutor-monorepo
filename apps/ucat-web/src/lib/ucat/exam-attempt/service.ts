@@ -32,6 +32,7 @@ export type StoredExamTiming = {
   mockTimingSegments?: QuestionEngineExam["mockTimingSegments"];
   mockSetSummaries?: QuestionEngineExam["mockSetSummaries"];
   timePerQuestionSeconds?: number | null;
+  practiceSessionTimeLimitSeconds?: number | null;
 };
 
 export type StoredExamSnapshot = {
@@ -645,13 +646,15 @@ async function loadPersistedAttemptSnapshot(
   return toPersistedAttemptSnapshot(data);
 }
 
-function toPersistedAttemptSnapshot(data: {
-  completed_at: string | null;
-  discarded_at: string | null;
-  expired_at: string | null;
-  engine_snapshot: Json | null;
-  current_segment_ends_at: string | null;
-} | null): PersistedAttemptSnapshot {
+function toPersistedAttemptSnapshot(
+  data: {
+    completed_at: string | null;
+    discarded_at: string | null;
+    expired_at: string | null;
+    engine_snapshot: Json | null;
+    current_segment_ends_at: string | null;
+  } | null,
+): PersistedAttemptSnapshot {
   return {
     inProgress:
       data != null &&
@@ -1170,7 +1173,8 @@ export async function beginExamAttempt(
       examTiming?.mockTimingSegments?.some(
         (segment) => (segment.timeLimitSeconds ?? 0) > 0,
       ) ||
-      (examTiming?.timePerQuestionSeconds ?? 0) > 0,
+      (examTiming?.timePerQuestionSeconds ?? 0) > 0 ||
+      (examTiming?.practiceSessionTimeLimitSeconds ?? 0) > 0,
   );
   const stored = wrapStoredSnapshot({
     state: input.engineSnapshot,

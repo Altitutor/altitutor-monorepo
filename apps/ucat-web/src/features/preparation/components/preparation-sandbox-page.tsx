@@ -16,6 +16,7 @@ import {
   type PreparationSandboxRun,
 } from "@/features/preparation/testing/sandbox";
 import type { GeneratedStudyPlanTask } from "@/features/study-plan/model/types";
+import { studyPlanActivityTypeLabel } from "@/features/study-plan/lib/activity-type-label";
 
 type JourneyOption = {
   key: string;
@@ -72,12 +73,7 @@ function formatDate(date: string) {
 }
 
 function taskTypeLabel(task: GeneratedStudyPlanTask) {
-  if (task.taskType === "learn") return "Learning module";
-  if (task.taskType === "practice") return "Targeted Practice";
-  if (task.taskType === "review") return "Review";
-  if (task.taskType === "section_benchmark") return "Benchmark Set";
-  if (task.taskType === "mock") return "Mock exam";
-  return "Warm-up";
+  return studyPlanActivityTypeLabel(task);
 }
 
 function stringArray(value: unknown): string[] {
@@ -135,7 +131,9 @@ function StudyPlanJourney({ run }: { run: PreparationSandboxRun }) {
           <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
             Study days
           </p>
-          <p className="mt-2 text-sm font-semibold">{availableDays || "None"}</p>
+          <p className="mt-2 text-sm font-semibold">
+            {availableDays || "None"}
+          </p>
           <p className="mt-1 text-sm text-muted-foreground">
             {fixture.input.goal.profile.availableDays.length} days each week
           </p>
@@ -179,7 +177,8 @@ function StudyPlanJourney({ run }: { run: PreparationSandboxRun }) {
               >
                 <div className="flex items-center justify-between gap-3">
                   <h3 className="font-semibold">
-                    {section?.name ?? assessment.sectionKey.replaceAll("_", " ")}
+                    {section?.name ??
+                      assessment.sectionKey.replaceAll("_", " ")}
                   </h3>
                   <Badge variant="outline">
                     {assessment.mode === "learning"
@@ -191,7 +190,8 @@ function StudyPlanJourney({ run }: { run: PreparationSandboxRun }) {
                 </div>
                 {assessment.mode === "learning" ? null : (
                   <p className="mt-2 text-xs text-muted-foreground">
-                    Working pace {assessment.paceMultiplier.toFixed(1)}× exam pace
+                    Working pace {assessment.paceMultiplier.toFixed(1)}× exam
+                    pace
                   </p>
                 )}
                 <p className="mt-3 text-sm">Next: {assessment.nextMilestone}</p>
@@ -255,7 +255,10 @@ function StudyPlanJourney({ run }: { run: PreparationSandboxRun }) {
               (left, right) => left.sortOrder - right.sortOrder,
             );
             return (
-              <article key={day.date} className="rounded-2xl border bg-background">
+              <article
+                key={day.date}
+                className="rounded-2xl border bg-background"
+              >
                 <header className="flex flex-wrap items-center justify-between gap-2 border-b px-4 py-3">
                   <h3 className="font-semibold">{formatDate(day.date)}</h3>
                   <span className="text-sm text-muted-foreground">
@@ -285,24 +288,33 @@ function StudyPlanJourney({ run }: { run: PreparationSandboxRun }) {
                     const usesModuleTags =
                       stringArray(task.launchConfig.questionTagIds).length > 0;
                     return (
-                      <li key={`${task.scheduledDate}:${task.sortOrder}`} className="p-4">
+                      <li
+                        key={`${task.scheduledDate}:${task.sortOrder}`}
+                        className="p-4"
+                      >
                         <div className="flex gap-3">
                           <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-muted text-xs font-semibold">
                             {index + 1}
                           </span>
                           <div className="min-w-0 flex-1">
                             <div className="flex flex-wrap items-center gap-2">
-                              <Badge variant="outline">{taskTypeLabel(task)}</Badge>
+                              <Badge variant="outline">
+                                {taskTypeLabel(task)}
+                              </Badge>
                               {section ? (
                                 <span className="text-xs font-medium">
                                   {section.shortName}
                                 </span>
                               ) : null}
                               {task.questionSetId ? (
-                                <Badge variant="secondary">Predefined Set</Badge>
+                                <Badge variant="secondary">
+                                  Predefined Set
+                                </Badge>
                               ) : null}
                               {task.mockId ? (
-                                <Badge variant="secondary">Predefined Mock</Badge>
+                                <Badge variant="secondary">
+                                  Predefined Mock
+                                </Badge>
                               ) : null}
                             </div>
                             <p className="mt-2 font-semibold">{task.title}</p>
@@ -311,7 +323,9 @@ function StudyPlanJourney({ run }: { run: PreparationSandboxRun }) {
                             </p>
                             {categoryNames || usesModuleTags ? (
                               <p className="mt-2 text-xs text-muted-foreground">
-                                {categoryNames ? `Categories: ${categoryNames}.` : ""}
+                                {categoryNames
+                                  ? `Categories: ${categoryNames}.`
+                                  : ""}
                                 {usesModuleTags
                                   ? " Module-linked tags are preferred before broader category questions."
                                   : ""}
@@ -351,7 +365,10 @@ function AdvancedTools({
 }: {
   comparison: ReturnType<typeof comparePreparationSandboxCase> & {
     fixture: PreparationSandboxCase;
-    policies: { left: PreparationSandboxPolicy; right: PreparationSandboxPolicy };
+    policies: {
+      left: PreparationSandboxPolicy;
+      right: PreparationSandboxPolicy;
+    };
   };
   fixtureText: string;
   leftPolicyText: string;
@@ -361,10 +378,11 @@ function AdvancedTools({
   setRightPolicyText: (value: string) => void;
   validateFixture: () => void;
 }) {
-  const selectedModules = comparison.left.fixture.input.content.learningModules.filter(
-    (module) =>
-      (module.targetedPracticeInventory?.selectedStemIds?.length ?? 0) > 0,
-  );
+  const selectedModules =
+    comparison.left.fixture.input.content.learningModules.filter(
+      (module) =>
+        (module.targetedPracticeInventory?.selectedStemIds?.length ?? 0) > 0,
+    );
   return (
     <details className="rounded-2xl border bg-muted/20">
       <summary className="cursor-pointer px-4 py-3 font-semibold">
@@ -424,13 +442,17 @@ function AdvancedTools({
           {(["left", "right"] as const).map((side) => {
             const run = comparison[side];
             return (
-              <div key={side} className="rounded-xl border bg-background p-3 text-sm">
+              <div
+                key={side}
+                className="rounded-xl border bg-background p-3 text-sm"
+              >
                 <p className="font-semibold">
                   {side === "left" ? "Control" : "Candidate"}
                 </p>
                 <p className="mt-1 text-muted-foreground">
-                  {run.result.plan.tasks.length} tasks · {run.result.plan.readiness.mode}{" "}
-                  phase · estimate {run.result.currentScore.currentEstimate ?? "pending"}
+                  {run.result.plan.tasks.length} tasks ·{" "}
+                  {run.result.plan.readiness.mode} phase · estimate{" "}
+                  {run.result.currentScore.currentEstimate ?? "pending"}
                 </p>
               </div>
             );
@@ -459,7 +481,8 @@ function AdvancedTools({
         ) : null}
         <details>
           <summary className="cursor-pointer text-sm font-semibold">
-            Full policy reason trace ({comparison.left.result.explanationTrace.length})
+            Full policy reason trace (
+            {comparison.left.result.explanationTrace.length})
           </summary>
           <pre className="mt-2 max-h-96 overflow-auto rounded-xl bg-background p-3 text-xs">
             {JSON.stringify(comparison.left.result.explanationTrace, null, 2)}
@@ -547,7 +570,9 @@ export function PreparationSandboxPage({
 
   function validateFixture() {
     try {
-      runPreparationSandboxCase(replayPreparationSandboxCase(fixtureText).fixture);
+      runPreparationSandboxCase(
+        replayPreparationSandboxCase(fixtureText).fixture,
+      );
       JSON.parse(leftPolicyText) as PreparationSandboxPolicy;
       JSON.parse(rightPolicyText) as PreparationSandboxPolicy;
       setError(null);
@@ -585,7 +610,9 @@ export function PreparationSandboxPage({
                 if (checkpoint) chooseFixture(checkpoint.fixtureKey);
               }}
             >
-              {selectedJourney ? null : <option value="custom">Edited case</option>}
+              {selectedJourney ? null : (
+                <option value="custom">Edited case</option>
+              )}
               {journeys.map((journey) => (
                 <option key={journey.key} value={journey.key}>
                   {journey.label}
@@ -605,7 +632,10 @@ export function PreparationSandboxPage({
                 <option value="custom">Edited case</option>
               )}
               {selectedJourney?.checkpoints.map((checkpoint) => (
-                <option key={checkpoint.fixtureKey} value={checkpoint.fixtureKey}>
+                <option
+                  key={checkpoint.fixtureKey}
+                  value={checkpoint.fixtureKey}
+                >
                   {checkpoint.label}
                 </option>
               ))}
@@ -614,7 +644,9 @@ export function PreparationSandboxPage({
         </div>
         <div className="mt-3 grid gap-1 text-sm">
           <p className="font-medium">{selectedJourney?.description}</p>
-          <p className="text-muted-foreground">{selectedCheckpoint?.description}</p>
+          <p className="text-muted-foreground">
+            {selectedCheckpoint?.description}
+          </p>
         </div>
       </section>
 

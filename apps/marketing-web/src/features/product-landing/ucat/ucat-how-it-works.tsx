@@ -32,7 +32,7 @@ const steps = [
   {
     number: "02",
     title: "Build your baseline",
-    body: "Complete a benchmark test and our system will build you a personalised study plan.",
+    body: "Complete a benchmark test and our system will build you a personalised study plan, which adapts over time.",
   },
   {
     number: "03",
