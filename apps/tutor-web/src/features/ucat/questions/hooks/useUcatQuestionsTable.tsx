@@ -20,6 +20,10 @@ import { parseJsonUuidArray } from '@/features/ucat/shared/lib/parse-json-uuid-a
 import { resolveCategoryPathLabel } from '@/features/ucat/shared/lib/taxonomy-paths'
 import { UCAT_FILTER_NO_CATEGORY, UCAT_FILTER_NOT_IN_ANY_SET } from '@/features/ucat/shared/lib/table-filter-sentinel'
 import {
+  parseStemAuditMemberships,
+  type StemAuditMembership,
+} from '@/features/ucat/questions/lib/audit-catalog'
+import {
   CREATED_AT_WINDOW_FILTER_KEY,
   rowMatchesCreatedAtWindow,
 } from '@/features/ucat/questions/lib/find-similar-question-stems'
@@ -57,6 +61,7 @@ export type QuestionRow = {
   source: StemSourceDisplay
   is_available_in_question_pool: boolean
   ai_review_status: UcatAiReviewStatus | null
+  audit_memberships: StemAuditMembership[]
 }
 
 type QuestionListRowInput = {
@@ -81,6 +86,7 @@ type QuestionListRowInput = {
   is_available_in_question_pool?: boolean | null
   source_channel?: UcatQuestionSourceChannel | null
   ai_review_status?: string | null
+  audit_memberships?: unknown
   ai_generation_metadata?: unknown
   tutor_source_note?: string | null
   created_by_first_name?: string | null
@@ -184,6 +190,7 @@ export function useUcatQuestionsTable<T extends QuestionListRowInput>({
           }),
           is_available_in_question_pool: row.is_available_in_question_pool ?? false,
           ai_review_status: parseCatalogAiReviewStatus(row.ai_review_status),
+          audit_memberships: parseStemAuditMemberships(row.audit_memberships),
         }
       }),
     [data, stemTagIds, questionSearchTexts],

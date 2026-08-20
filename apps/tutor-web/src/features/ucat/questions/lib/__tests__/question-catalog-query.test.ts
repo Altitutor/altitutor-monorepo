@@ -33,6 +33,7 @@ describe('buildQuestionCatalogQuery', () => {
           question_set_id: [UCAT_FILTER_NOT_IN_ANY_SET, 'set-1'],
           source_channel: ['bulk_import'],
           ai_review_status: ['concerns', 'critical'],
+          audit: ['not_audited', '71000000-0000-0000-0000-000000000001:failed'],
           created_by: ['staff-1'],
           [CREATED_AT_FROM_FILTER_KEY]: ['2026-07-01T09:30:00+09:30'],
           [CREATED_AT_TO_FILTER_KEY]: ['2026-07-02T10:45:00+09:30'],
@@ -65,6 +66,7 @@ describe('buildQuestionCatalogQuery', () => {
       includeWithoutSet: true,
       sourceChannels: ['bulk_import'],
       aiReviewStatuses: ['concerns', 'critical'],
+      auditFilters: ['not_audited', '71000000-0000-0000-0000-000000000001:failed'],
       createdByIds: ['staff-1'],
       createdFrom: '2026-07-01T00:00:00.000Z',
       createdTo: '2026-07-02T01:15:00.000Z',
@@ -79,6 +81,10 @@ describe('buildQuestionCatalogQuery', () => {
     expect(new URLSearchParams(serializeQuestionCatalogQuery(query)).getAll('id')).toEqual([
       '10000000-0000-4000-8000-000000000001',
       '10000000-0000-4000-8000-000000000002',
+    ])
+    expect(new URLSearchParams(serializeQuestionCatalogQuery(query)).getAll('audit')).toEqual([
+      'not_audited',
+      '71000000-0000-0000-0000-000000000001:failed',
     ])
   })
 

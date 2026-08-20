@@ -7,7 +7,7 @@ SELECT ok(
     'public.tutor_ucat_mcp_list_audit_runs(text,timestamp with time zone,uuid,integer)',
     'EXECUTE'
   ),
-  'authenticated tutors can list their audit runs'
+  'authenticated tutors can list audit runs'
 );
 
 INSERT INTO public.staff_subjects (staff_id, subject_id)
@@ -73,20 +73,20 @@ SELECT is(
 
 SELECT is(
   public.tutor_ucat_mcp_list_audit_runs(NULL, NULL, NULL, 2)#>>'{runs,0,run,id}',
-  '71000000-0000-0000-0000-000000000003',
-  'listing returns newest runs first'
+  '71000000-0000-0000-0000-000000000004',
+  'listing returns newest runs first across tutors'
 );
 
 SELECT is(
-  public.tutor_ucat_mcp_list_audit_runs(NULL, NULL, NULL, 2)#>>'{runs,0,targetCounts,completed}',
+  public.tutor_ucat_mcp_list_audit_runs(NULL, NULL, NULL, 2)#>>'{runs,1,targetCounts,completed}',
   '1',
   'listing includes per-status target counts'
 );
 
 SELECT is(
   public.tutor_ucat_mcp_list_audit_runs('active', NULL, NULL, 10)#>>'{runs,0,run,id}',
-  '71000000-0000-0000-0000-000000000002',
-  'listing filters by status and tutor ownership'
+  '71000000-0000-0000-0000-000000000004',
+  'listing filters by status for every tutor''s runs'
 );
 
 SELECT is(
@@ -108,7 +108,7 @@ SELECT throws_ok(
 
 SELECT is(
   public.tutor_ucat_mcp_list_audit_runs(NULL, NULL, NULL, 2)#>>'{nextCursor,id}',
-  '71000000-0000-0000-0000-000000000002',
+  '71000000-0000-0000-0000-000000000003',
   'a full page returns a cursor for the last visible run'
 );
 

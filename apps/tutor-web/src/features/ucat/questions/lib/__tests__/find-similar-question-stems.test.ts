@@ -51,6 +51,7 @@ function baseRow(overrides: Partial<QuestionRow> = {}): QuestionRow {
     },
     is_available_in_question_pool: true,
     ai_review_status: null,
+    audit_memberships: [],
     ...overrides,
   }
 }

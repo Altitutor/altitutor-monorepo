@@ -32,6 +32,10 @@ import {
   type QuestionCatalogQuery,
 } from "@/features/ucat/questions/lib/question-catalog-query";
 import type { UcatAiReviewStatus } from "@/features/ucat/questions/lib/ai-assessment/review-status";
+import {
+  AUDIT_RUN_CATALOG_STATUSES,
+  type CatalogAuditRun,
+} from "@/features/ucat/questions/lib/audit-catalog";
 
 export type { UcatQuestionStemListIndex };
 
@@ -174,6 +178,7 @@ export type UcatQuestionCatalogRow = UcatQuestionStemRow & {
   question_count: number;
   is_available_in_question_pool: boolean;
   ai_review_status?: UcatAiReviewStatus | null;
+  audit_memberships?: unknown;
 };
 
 export type UcatQuestionCatalogPage = {
@@ -326,6 +331,44 @@ export const ucatQuestionsApi = {
       throw new Error(body.error ?? "Failed to load question creators");
     }
     return response.json() as Promise<UcatQuestionCatalogCreator[]>;
+  },
+
+  async listCatalogAuditRuns(): Promise<CatalogAuditRun[]> {
+    const supabase = getSupabaseClient();
+    const runs: CatalogAuditRun[] = [];
+    let cursorCreatedAt: string | undefined;
+    let cursorId: string | undefined;
+    for (;;) {
+      const result = await supabase.rpc("tutor_ucat_mcp_list_audit_runs", {
+        p_before_created_at: cursorCreatedAt,
+        p_before_id: cursorId,
+        p_limit: 100,
+      });
+      if (result.error) throw result.error;
+      const data: unknown = result.data;
+      const payload = data && typeof data === "object" && !Array.isArray(data)
+        ? data as {
+          runs?: Array<{ run?: Record<string, unknown> }>
+          nextCursor?: { createdAt?: string; id?: string } | null
+        }
+        : { runs: [], nextCursor: null };
+      for (const item of payload.runs ?? []) {
+        const run = item.run;
+        if (!run || typeof run.id !== "string" || typeof run.title !== "string") continue;
+        if (typeof run.status !== "string") continue;
+        if (!(AUDIT_RUN_CATALOG_STATUSES as readonly string[]).includes(run.status)) continue;
+        runs.push({
+          id: run.id,
+          title: run.title,
+          status: run.status,
+          created_at: typeof run.created_at === "string" ? run.created_at : "",
+        });
+      }
+      if (!payload.nextCursor?.createdAt || !payload.nextCursor.id) break;
+      cursorCreatedAt = payload.nextCursor.createdAt;
+      cursorId = payload.nextCursor.id;
+    }
+    return runs;
   },
 
   async getAiAssessment(stemId: string) {

@@ -71,6 +71,12 @@ Write tools:
 - `start_question_generation`
 - `request_question_ai_assessment`
 - `generate_ucat_image`, `revise_ucat_image`
+- `create_ucat_audit_run`, `add_ucat_audit_run_targets`
+- `start_ucat_audit_run`, `list_ucat_audit_runs`, `get_ucat_audit_run`
+- `claim_ucat_audit_run_targets`, `finish_ucat_audit_run_target`
+- `complete_ucat_audit_run`, `cancel_ucat_audit_run`
+
+Audit-run tools on safe authoring track membership and outcomes for draft and in-review aggregates. They do not expose published mutation tools. Auto-apply still requires production maintenance because only that profile can write published content.
 
 Create tools accept a complete initial aggregate. Update tools accept explicit
 typed operations. Omitting a nested item never deletes it.
@@ -124,7 +130,7 @@ Published change tools:
 Audit-run tools:
 
 - `create_ucat_audit_run`, `add_ucat_audit_run_targets`
-- `start_ucat_audit_run`, `get_ucat_audit_run`
+- `start_ucat_audit_run`, `list_ucat_audit_runs`, `get_ucat_audit_run`
 - `claim_ucat_audit_run_targets`, `finish_ucat_audit_run_target`
 - `complete_ucat_audit_run`, `cancel_ucat_audit_run`
 

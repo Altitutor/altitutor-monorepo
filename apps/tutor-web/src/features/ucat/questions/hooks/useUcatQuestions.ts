@@ -49,6 +49,14 @@ export function useUcatQuestionCatalogCreators() {
   })
 }
 
+export function useUcatQuestionCatalogAuditRuns() {
+  return useQuery({
+    queryKey: ucatKeys.questionCatalogAuditRuns(),
+    queryFn: () => ucatQuestionsApi.listCatalogAuditRuns(),
+    staleTime: 60 * 1000,
+  })
+}
+
 export function useUcatQuestionDetail(stemId: string | null) {
   return useQuery({
     queryKey: stemId ? ucatKeys.question(stemId) : [...ucatKeys.questions(), 'empty'],

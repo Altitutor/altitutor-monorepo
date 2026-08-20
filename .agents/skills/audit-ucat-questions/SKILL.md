@@ -14,10 +14,10 @@ This skill needs the Altitutor UCAT MCP. Two profiles, same tutor token:
 
 | Profile | Edit | Use when |
 |---|---|---|
-| **Authoring** (drafts) | `create_question_stem`, `update_question_stem` | `draft` or `in_review` |
+| **Authoring** (drafts) | `create_question_stem`, `update_question_stem`, audit-run tools | `draft` or `in_review` |
 | **Production** (published) | `update_published_question_stem`, audit-run tools | `published` |
 
-Both profiles can `search_ucat_content`, `get_ucat_content`, `get_ucat_reference_data`, `get_ucat_file`, `render_ucat_visual`, `generate_ucat_image`, `revise_ucat_image`.
+Both profiles can `search_ucat_content`, `get_ucat_content`, `get_ucat_reference_data`, `get_ucat_file`, `render_ucat_visual`, `generate_ucat_image`, `revise_ucat_image`, and the audit-run lifecycle tools.
 
 If neither profile is available, stop and say so.
 
@@ -53,20 +53,18 @@ Default is inline.
 
 **Done when:** the branch is chosen.
 
-## 4. Published audit run
+## 4. Audit run
 
-For the published list only:
+Always create a run, including draft-only work. A mixed selector is still two runs (authoring vs production writes) and one report.
 
 1. `create_ucat_audit_run` with `publishedWriteMode: "apply_valid_changes"`, `workflowId: "audit-ucat-questions"`, `workflowVersion: "1"`, selector `explicit` targets `{ contentType: "stem", id }` (batches of ≤200 via `add_ucat_audit_run_targets` if needed). `idempotencyKey` stable for this run.
 2. `start_ucat_audit_run` (freezes the manifest).
-3. Each worker `claim_ucat_audit_run_targets` with `limit: 1`, `includeContent: true`, then audits, then `finish_ucat_audit_run_target` (`completed` / `failed` / `skipped`). Put the outcome object in `outcome`. Skipped = `suggest_delete` or `suggest_split`.
-4. After every published target is terminal, `complete_ucat_audit_run`.
+3. Each worker `claim_ucat_audit_run_targets` with `limit: 1`, `includeContent: true`, then audits, then `finish_ucat_audit_run_target`. Put the outcome object in `outcome`. Set `result` to that same `outcome` value for `updated`/`unchanged`/`suggest_delete`/`suggest_split`; `failed` has no result. Target status: `completed` for `updated`/`unchanged`, `skipped` for `suggest_delete`/`suggest_split`, `failed` for `failed`.
+4. After every target is terminal, `complete_ucat_audit_run`.
 
-Pass `auditRunId` on `update_published_question_stem`.
+Pass `auditRunId` on `update_published_question_stem`. Draft/in-review writes still use `update_question_stem`.
 
-Draft/in-review stems skip this step. Loop or fan-out them with `get_ucat_content` → [STEM.md](STEM.md) → `update_question_stem`.
-
-**Done when:** published targets are claimed through a started run, or there are no published targets.
+**Done when:** every target is claimed through a started run.
 
 ## 5. Fan-out prompt
 
