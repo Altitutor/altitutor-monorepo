@@ -253,6 +253,7 @@ export type StudyPlanGenerationResult = {
   capacityRisk: StudyPlanCapacityRisk;
   sectionTargets: Record<string, number>;
   coreSectionEquivalentsPerWeek: number;
+  coreSectionEquivalentsPerWeekBySection: Record<string, number>;
   readiness: StudyPlanReadinessSnapshot;
   endsOn: string;
   contentGaps: Array<{

@@ -25,7 +25,12 @@ describe("preparation forecast evidence", () => {
     };
 
     expect(
-      mergeCurrentPreparationHistory([], currentScore, "2026-01-21", "model-v1"),
+      mergeCurrentPreparationHistory(
+        [],
+        currentScore,
+        "2026-01-21",
+        "model-v1",
+      ),
     ).toEqual([
       expect.objectContaining({ date: "2026-01-21", currentEstimate: 1900 }),
     ]);
@@ -53,7 +58,7 @@ describe("preparation forecast evidence", () => {
     ]);
   });
 
-  it("uses core-task adherence and keeps only compatible trajectory history", () => {
+  it("uses six weeks of recency-weighted behavior and stable plan uptake", () => {
     const currentSnapshot = {
       versions: CURRENT_PREPARATION_VERSIONS,
       sectionTargets: { vr: 730, dm: 730, qr: 740 },
@@ -126,44 +131,64 @@ describe("preparation forecast evidence", () => {
           },
         },
       ],
-      activeGenerationTasks: [
-        { scheduledDate: "2026-01-20", status: "completed", optional: false },
+      recentPlanTaskHistory: [
+        {
+          scheduledDate: "2026-01-20",
+          status: "completed",
+          optional: false,
+          generationId: "old",
+          generationGeneratedAt: "2026-01-18T00:00:00.000Z",
+        },
+        {
+          scheduledDate: "2026-01-20",
+          status: "completed",
+          optional: false,
+          generationId: "current",
+          generationGeneratedAt: "2026-01-19T00:00:00.000Z",
+        },
+        {
+          scheduledDate: "2026-01-20",
+          status: "skipped",
+          optional: false,
+          generationId: "current",
+          generationGeneratedAt: "2026-01-19T00:00:00.000Z",
+        },
         { scheduledDate: "2026-01-21", status: "planned", optional: false },
         { scheduledDate: "2026-01-21", status: "planned", optional: true },
       ],
-      timingSessions: [
-        {
-          id: "recent-vr",
-          sectionId: "vr",
-          source: "practice",
-          completedAt: "2026-01-10T00:00:00.000Z",
-          prescribedPace: 1,
-          observedPace: 1,
-          accuracy: 0.7,
-          sectionEquivalents: 1.5,
-          breadth: "broad",
-          categoryIds: [],
-        },
+      timingSessions: Array.from({ length: 6 }, (_, week) => ({
+        id: `recent-vr-${week}`,
+        sectionId: "vr",
+        source: "practice" as const,
+        completedAt: `${["2026-01-21", "2026-01-14", "2026-01-07", "2025-12-31", "2025-12-24", "2025-12-17"][week]}T00:00:00.000Z`,
+        prescribedPace: 1,
+        observedPace: 1,
+        accuracy: 0.7,
+        sectionEquivalents: 1,
+        breadth: "broad" as const,
+        categoryIds: [],
+      })).concat([
         {
           id: "recent-sjt",
           sectionId: "sjt",
-          source: "practice",
-          completedAt: "2026-01-10T00:00:00.000Z",
+          source: "practice" as const,
+          completedAt: "2026-01-21T00:00:00.000Z",
           prescribedPace: 1,
           observedPace: 1,
           accuracy: 0.7,
           sectionEquivalents: 3,
-          breadth: "broad",
+          breadth: "broad" as const,
           categoryIds: [],
         },
-      ],
+      ]),
       cognitiveSectionIds: new Set(["vr", "dm", "qr"]),
     });
 
     expect(result).toMatchObject({
       previousSectionTargets: { vr: 730, dm: 730, qr: 740 },
-      expectedAdherence: 0.5,
-      recentCoreSectionEquivalentsPerWeek: 0.5,
+      expectedPlanUptake: 0.5,
+      recentCoreSectionEquivalentsPerWeek: 1,
+      recentCoreSectionEquivalentsPerWeekBySection: { vr: 1 },
       history: [
         { date: "2026-01-13", currentEstimate: 1750 },
         {
@@ -183,6 +208,24 @@ describe("preparation forecast evidence", () => {
         },
       ],
     });
-    expect(result.adherenceUncertainty).toBeGreaterThan(0);
+    expect(result.planUptakeUncertainty).toBeGreaterThan(0);
+  });
+
+  it("uses a cautious plan-uptake prior when no plan day is due", () => {
+    const result = derivePreparationForecastEvidence({
+      today: "2026-01-21",
+      versions: CURRENT_PREPARATION_VERSIONS,
+      activePlanSnapshot: null,
+      historySnapshots: [],
+      recentPlanTaskHistory: [],
+      timingSessions: [],
+      cognitiveSectionIds: new Set(["vr", "dm", "qr"]),
+    });
+
+    expect(result).toMatchObject({
+      expectedPlanUptake: 0.5,
+      recentCoreSectionEquivalentsPerWeek: null,
+      recentCoreSectionEquivalentsPerWeekBySection: {},
+    });
   });
 });

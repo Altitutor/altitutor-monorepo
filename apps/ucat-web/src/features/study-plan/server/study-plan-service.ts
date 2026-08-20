@@ -44,7 +44,6 @@ import {
   todayIso,
 } from "@/features/study-plan/lib/dates";
 import {
-  estimateReviewMinutes,
   generateExtraStudyTasks,
   reviewTask,
 } from "@/features/study-plan/lib/generator";
@@ -1244,11 +1243,18 @@ async function loadForecastEvidence(
   sections: StudyPlanSection[],
 ) {
   const admin = requireAdmin();
+  // A generation can contribute tasks for at most its 21-day horizon. Include
+  // that lead-in before the six-week behavior window, plus the active plan even
+  // if it has not been regenerated recently.
+  const generationHistoryStart = `${addDays(today, -63)}T00:00:00.000Z`;
   const [generationResult, preparationHistory] = await Promise.all([
     admin
       .from("ucat_student_study_plan_generations")
       .select("id, generated_at, superseded_at, projection_snapshot")
       .eq("student_id", studentId)
+      .or(
+        `generated_at.gte.${generationHistoryStart},superseded_at.is.null`,
+      )
       .order("generated_at", { ascending: false }),
     loadPreparationSnapshotHistory(supabase),
   ]);
@@ -1259,15 +1265,19 @@ async function loadForecastEvidence(
     (generation) => generation.superseded_at == null,
   );
   let tasks: Array<{
+    generation_id: string;
     scheduled_date: string;
     status: string;
     launch_config: Json;
   }> = [];
-  if (activeGeneration) {
+  const generationIds = (generations ?? []).map((generation) => generation.id);
+  if (generationIds.length > 0) {
     const { data: taskRows, error: tasksError } = await admin
       .from("ucat_student_study_plan_tasks")
-      .select("status, scheduled_date, launch_config")
-      .eq("generation_id", activeGeneration.id);
+      .select("generation_id, status, scheduled_date, launch_config")
+      .in("generation_id", generationIds)
+      .gte("scheduled_date", addDays(today, -41))
+      .lte("scheduled_date", today);
     if (tasksError) throw tasksError;
     tasks = taskRows ?? [];
   }
@@ -1288,9 +1298,13 @@ async function loadForecastEvidence(
       })),
       ...preparationHistory,
     ],
-    activeGenerationTasks: tasks.map((task) => ({
+    recentPlanTaskHistory: tasks.map((task) => ({
       scheduledDate: task.scheduled_date,
       status: taskStatus(task.status),
+      generationId: task.generation_id,
+      generationGeneratedAt: generations?.find(
+        (generation) => generation.id === task.generation_id,
+      )?.generated_at,
       optional:
         task.launch_config != null &&
         typeof task.launch_config === "object" &&
@@ -1519,9 +1533,6 @@ async function linkCompanionReview(
         sourceActivityType: activity.type,
         sourceActivityId: activity.id,
       },
-      ...(activity.questionCount != null
-        ? { estimated_minutes: estimateReviewMinutes(activity.questionCount) }
-        : {}),
     })
     .eq("id", review.id);
   if (error) throw error;

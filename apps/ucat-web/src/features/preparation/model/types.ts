@@ -86,7 +86,12 @@ export type PreparationEngineInput = {
       previousSectionTargets?: Record<string, number>;
       previousSectionTargetsSetAt?: string | null;
       recentCoreSectionEquivalentsPerWeek?: number | null;
+      recentCoreSectionEquivalentsPerWeekBySection?: Record<string, number>;
+      expectedPlanUptake?: number | null;
+      planUptakeUncertainty?: number | null;
+      /** @deprecated Replay compatibility for Preparation exports before plan uptake was separated from behavior. */
       expectedAdherence?: number | null;
+      /** @deprecated Replay compatibility for Preparation exports before plan uptake was separated from behavior. */
       adherenceUncertainty?: number | null;
       learningResponse?: number | null;
       learningResponseUncertainty?: number | null;
@@ -147,6 +152,14 @@ export type PreparationTrajectoryPoint = {
   lower: number;
   middle: number;
   upper: number;
+  sections?: Record<
+    string,
+    {
+      lower: number;
+      middle: number;
+      upper: number;
+    }
+  >;
 };
 
 export type PreparationTrajectory =
@@ -160,9 +173,14 @@ export type PreparationTrajectory =
   | {
       status: "available";
       modelVersion: string;
-      doseSource: "scheduled_core" | "recent_sustained_workload";
+      doseSource: "recent_behavior" | "recent_behavior_with_plan_uplift";
       coreSectionEquivalentsPerWeek: number;
-      expectedAdherence: number;
+      recentCoreSectionEquivalentsPerWeek: number;
+      plannedCoreSectionEquivalentsPerWeek: number;
+      expectedPlanUptake: number;
+      recentCoreSectionEquivalentsPerWeekBySection: Record<string, number>;
+      plannedCoreSectionEquivalentsPerWeekBySection: Record<string, number>;
+      effectiveCoreSectionEquivalentsPerWeekBySection: Record<string, number>;
       percentiles: { lower: 20; middle: 50; upper: 80 };
       history: PreparationTrajectoryHistoryPoint[];
       points: PreparationTrajectoryPoint[];

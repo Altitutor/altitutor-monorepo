@@ -41,7 +41,11 @@ function allocateTotalAcrossSections(
     ),
   );
   let remainder = total - allocated.reduce((sum, value) => sum + value, 0);
-  for (let index = 0; remainder !== 0 && index < allocated.length * 4; index++) {
+  for (
+    let index = 0;
+    remainder !== 0 && index < allocated.length * 4;
+    index++
+  ) {
     const target = index % allocated.length;
     const direction = remainder > 0 ? 1 : -1;
     const next = allocated[target]! + direction;
@@ -50,7 +54,9 @@ function allocateTotalAcrossSections(
     remainder -= direction;
   }
   return Object.fromEntries(
-    estimates.map((section, index) => [section.sectionId, allocated[index]!] as const),
+    estimates.map(
+      (section, index) => [section.sectionId, allocated[index]!] as const,
+    ),
   );
 }
 
@@ -79,18 +85,51 @@ export async function GET() {
     const cognitive = cognitiveSections.flatMap((section) =>
       section.currentEstimate == null
         ? []
-        : [{ sectionId: section.sectionId, currentEstimate: section.currentEstimate }],
+        : [
+            {
+              sectionId: section.sectionId,
+              currentEstimate: section.currentEstimate,
+            },
+          ],
     );
     const canAllocate = cognitive.length === 3;
     const trajectory = preparation.trajectory;
-    const trajectoryPoints = trajectory.status === "available" ? trajectory.points : [];
+    const trajectoryPoints =
+      trajectory.status === "available" ? trajectory.points : [];
     const trajectoryHistory = trajectory.history;
     const allocatedPoints = canAllocate
       ? trajectoryPoints.map((point) => ({
           point,
-          lower: allocateTotalAcrossSections(point.lower, cognitive),
-          middle: allocateTotalAcrossSections(point.middle, cognitive),
-          upper: allocateTotalAcrossSections(point.upper, cognitive),
+          lower:
+            point.sections &&
+            Object.keys(point.sections).length === cognitive.length
+              ? Object.fromEntries(
+                  Object.entries(point.sections).map(([sectionId, section]) => [
+                    sectionId,
+                    section.lower,
+                  ]),
+                )
+              : allocateTotalAcrossSections(point.lower, cognitive),
+          middle:
+            point.sections &&
+            Object.keys(point.sections).length === cognitive.length
+              ? Object.fromEntries(
+                  Object.entries(point.sections).map(([sectionId, section]) => [
+                    sectionId,
+                    section.middle,
+                  ]),
+                )
+              : allocateTotalAcrossSections(point.middle, cognitive),
+          upper:
+            point.sections &&
+            Object.keys(point.sections).length === cognitive.length
+              ? Object.fromEntries(
+                  Object.entries(point.sections).map(([sectionId, section]) => [
+                    sectionId,
+                    section.upper,
+                  ]),
+                )
+              : allocateTotalAcrossSections(point.upper, cognitive),
         }))
       : [];
     const allocatedHistory = canAllocate
@@ -152,9 +191,10 @@ export async function GET() {
         return {
           sectionId: section.sectionId,
           sectionName:
-            preparation.assessment.sections.find(
-              (candidate) => candidate.sectionId === section.sectionId,
-            )?.sectionKey.replaceAll("_", " ") ?? `Section ${section.sectionNumber}`,
+            preparation.assessment.sections
+              .find((candidate) => candidate.sectionId === section.sectionId)
+              ?.sectionKey.replaceAll("_", " ") ??
+            `Section ${section.sectionNumber}`,
           sectionNumber: section.sectionNumber,
           currentEstimate: section.currentEstimate,
           confidence: section.confidence ?? "low",
@@ -163,24 +203,30 @@ export async function GET() {
           evidenceCount: section.evidenceCount,
           paceSource:
             trajectory.status === "available" &&
-            trajectory.doseSource === "recent_sustained_workload"
-              ? "recent_activity" as const
-              : "default" as const,
+            (trajectory.recentCoreSectionEquivalentsPerWeekBySection[
+              section.sectionId
+            ] ?? 0) > 0
+              ? ("recent_activity" as const)
+              : ("default" as const),
           effectivePracticePerWeek:
             trajectory.status === "available"
-              ? trajectory.coreSectionEquivalentsPerWeek
+              ? (trajectory.effectiveCoreSectionEquivalentsPerWeekBySection[
+                  section.sectionId
+                ] ?? 0)
               : 0,
           history,
           projection,
           horizons: HORIZONS.flatMap((day) => {
             const point = projection.find((candidate) => candidate.day === day);
             return point
-              ? [{
-                  day,
-                  pessimistic: point.pessimistic,
-                  realistic: point.realistic,
-                  optimistic: point.optimistic,
-                }]
+              ? [
+                  {
+                    day,
+                    pessimistic: point.pessimistic,
+                    realistic: point.realistic,
+                    optimistic: point.optimistic,
+                  },
+                ]
               : [];
           }),
         };
@@ -188,7 +234,8 @@ export async function GET() {
     };
     return NextResponse.json(payload);
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Failed to load Preparation.";
+    const message =
+      error instanceof Error ? error.message : "Failed to load Preparation.";
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }

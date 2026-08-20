@@ -31,6 +31,10 @@ describe("GET /api/ucat/score-projection", () => {
     ).result;
     expect(preparation.trajectory.status).toBe("available");
     if (preparation.trajectory.status !== "available") return;
+    preparation.trajectory.recentCoreSectionEquivalentsPerWeek = 1;
+    preparation.trajectory.recentCoreSectionEquivalentsPerWeekBySection = {
+      [preparation.currentScore.sections[0]!.sectionId]: 1,
+    };
     preparation.trajectory.history = [
       {
         date: "2026-01-04",
@@ -112,6 +116,8 @@ describe("GET /api/ucat/score-projection", () => {
         }),
       ]),
     );
+    expect(payload.sections[0].paceSource).toBe("recent_activity");
+    expect(payload.sections[1].paceSource).toBe("default");
 
     for (const point of preparation.trajectory.points) {
       const projectedTotal = payload.sections.reduce(
@@ -128,6 +134,21 @@ describe("GET /api/ucat/score-projection", () => {
         0,
       );
       expect(projectedTotal).toBe(point.middle);
+      for (const section of payload.sections.filter(
+        (candidate: { sectionNumber: number }) =>
+          candidate.sectionNumber <= 3,
+      )) {
+        expect(
+          section.projection.find(
+            (candidate: { day: number }) => candidate.day === point.day,
+          )?.realistic,
+        ).toBe(point.sections?.[section.sectionId]?.middle);
+        expect(section.effectivePracticePerWeek).toBe(
+          preparation.trajectory.effectiveCoreSectionEquivalentsPerWeekBySection[
+            section.sectionId
+          ] ?? 0,
+        );
+      }
     }
   });
 });

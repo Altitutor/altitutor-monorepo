@@ -156,6 +156,12 @@ describe("generateStudyPlan", () => {
 
     expect(result.endsOn).toBe("2026-01-11");
     expect(result.coreSectionEquivalentsPerWeek).toBeCloseTo(scheduledDose, 1);
+    expect(
+      Object.values(result.coreSectionEquivalentsPerWeekBySection).reduce(
+        (sum, dose) => sum + dose,
+        0,
+      ),
+    ).toBeCloseTo(result.coreSectionEquivalentsPerWeek, 2);
   });
 
   it("starts with short learning loops inside a rolling horizon", () => {
@@ -793,14 +799,16 @@ describe("generateStudyPlan", () => {
     ).toBe(false);
   });
 
-  it("does not shrink exam preparation to a legacy daily minute cap", () => {
+  it("best-fits ordinary Exam work inside a 60-minute envelope", () => {
     const result = generateStudyPlan({
       today: "2026-07-01",
       planningDate: "2026-08-05",
       profile: {
         ...profile,
         targetScore: 2500,
-        availableDays: [{ weekday: 6 }],
+        availableDays: [0, 1, 2, 3, 4, 5].map((weekday) => ({
+          weekday: weekday as 0 | 1 | 2 | 3 | 4 | 5,
+        })),
       },
       sections,
       signals: sections.map((section) => ({
@@ -817,12 +825,23 @@ describe("generateStudyPlan", () => {
       completedMockCount: 0,
     });
 
-    expect(result.capacityRisk.level).toBe("warning");
     expect(result.tasks.length).toBeGreaterThan(0);
-    expect(
-      Math.max(...result.tasks.map((task) => task.estimatedMinutes)),
-    ).toBeGreaterThan(30);
     expect(result.readiness.mode).toBe("exam");
+    const ordinaryDates = new Set(
+      result.tasks
+        .filter((task) => task.taskType === "practice")
+        .map((task) => task.scheduledDate),
+    );
+    expect(ordinaryDates.size).toBeGreaterThan(0);
+    for (const date of ordinaryDates) {
+      const tasks = result.tasks.filter((task) => task.scheduledDate === date);
+      expect(
+        tasks.reduce((sum, task) => sum + task.estimatedMinutes, 0),
+      ).toBeLessThanOrEqual(60);
+      expect(
+        new Set(tasks.flatMap((task) => task.sectionId ?? [])).size,
+      ).toBeLessThanOrEqual(3);
+    }
   });
 
   it("uses prescribed-pace section diagnostics after basic learning exposure", () => {
@@ -940,7 +959,14 @@ describe("generateStudyPlan", () => {
         (mock) =>
           result.tasks.filter(
             (task) => task.scheduledDate === mock.scheduledDate,
-          ).length === 1,
+          ).length === 2 &&
+          result.tasks.some(
+            (task) =>
+              task.scheduledDate === mock.scheduledDate &&
+              task.taskType === "review" &&
+              task.sourceTaskRef?.scheduledDate === mock.scheduledDate &&
+              task.sourceTaskRef.sortOrder === mock.sortOrder,
+          ),
       ),
     ).toBe(true);
     expect(
@@ -1086,6 +1112,57 @@ describe("generateStudyPlan", () => {
     ).toBe(true);
   });
 
+  it("uses targeted Exam practice when reliable weakness evidence exists", () => {
+    const planningDate = "2026-08-01";
+    const result = generateStudyPlan({
+      today: "2026-07-11",
+      planningDate,
+      profile: {
+        ...profile,
+        testDate: planningDate,
+        availableDays: [0, 1, 2, 3, 4, 5, 6].map((weekday) => ({
+          weekday: weekday as 0 | 1 | 2 | 3 | 4 | 5 | 6,
+        })),
+      },
+      sections,
+      signals: sections.map((section) => ({
+        sectionId: section.id,
+        currentEstimate: section.sectionNumber <= 3 ? 650 : null,
+        scoreConfidence: section.sectionNumber <= 3 ? "high" : null,
+        evidenceCount: section.sectionNumber <= 3 ? 6 : 0,
+        completedFullSets: section.sectionNumber <= 3 ? 2 : 0,
+        learningGraduatedAt:
+          section.sectionNumber <= 3 ? "2026-05-01T00:00:00.000Z" : null,
+        learningGraduationRoute:
+          section.sectionNumber <= 3 ? "accuracy" : null,
+        recentAccuracy: 0.6,
+      })),
+      learningModules: [],
+      categories: timingCategories.map((category) => ({
+        ...category,
+        attemptedQuestionCount: 30,
+        qualifyingPracticeSessions: 3,
+        recentAccuracy: category.id.endsWith("-weak") ? 0.45 : 0.8,
+      })),
+      skillTrainers,
+      benchmarkSets,
+      benchmarkMocks,
+      completedMockCount: 2,
+    });
+
+    const examPractice = result.tasks.filter(
+      (task) => task.taskType === "practice" && task.sectionId !== "sjt",
+    );
+    expect(examPractice.length).toBeGreaterThan(0);
+    expect(
+      examPractice.every(
+        (task) =>
+          Array.isArray(task.launchConfig.categoryIds) &&
+          task.launchConfig.categoryIds.length > 0,
+      ),
+    ).toBe(true);
+  });
+
   it("uses two final-month mocks only as a scarce-availability fallback", () => {
     const planningDate = "2026-08-01";
     const result = generateStudyPlan({
@@ -1106,6 +1183,7 @@ describe("generateStudyPlan", () => {
         learningGraduatedAt:
           section.sectionNumber <= 3 ? "2026-06-01T00:00:00.000Z" : null,
         learningGraduationRoute: section.sectionNumber <= 3 ? "accuracy" : null,
+        recentAccuracy: 0.7,
       })),
       learningModules: [],
       ...contentInputs,
@@ -1115,6 +1193,21 @@ describe("generateStudyPlan", () => {
     expect(
       result.tasks.filter((task) => task.taskType === "mock"),
     ).toHaveLength(2);
+    for (const mock of result.tasks.filter(
+      (task) => task.taskType === "mock",
+    )) {
+      const sameDay = result.tasks.filter(
+        (task) => task.scheduledDate === mock.scheduledDate,
+      );
+      expect(sameDay.map((task) => task.taskType)).toEqual(["mock", "review"]);
+      expect(sameDay[1]).toMatchObject({
+        estimatedMinutes: 18,
+        sourceTaskRef: {
+          scheduledDate: mock.scheduledDate,
+          sortOrder: mock.sortOrder,
+        },
+      });
+    }
     expect(result.capacityRisk.level).toBe("warning");
   });
 
@@ -1272,7 +1365,7 @@ describe("generateStudyPlan", () => {
     expect(calibrations / (ordinary + calibrations)).toBeLessThanOrEqual(1 / 3);
   });
 
-  it("packs required work inside the daily section-equivalent and section-count envelope", () => {
+  it("packs required work inside the daily time and three-section envelope", () => {
     const result = generateStudyPlan({
       today: "2026-05-04",
       planningDate: "2026-07-05",
@@ -1293,6 +1386,10 @@ describe("generateStudyPlan", () => {
         representativeAccuracy: 0.55,
         benchmarkCompleted: true,
         prescribedPace: 0.8,
+        learningGraduatedAt:
+          section.sectionNumber <= 3 ? "2026-04-01T00:00:00.000Z" : null,
+        learningGraduationRoute:
+          section.sectionNumber <= 3 ? "experience" : null,
       })),
       learningModules: [],
       categories: timingCategories,
@@ -1315,20 +1412,23 @@ describe("generateStudyPlan", () => {
       ]);
     }
     expect(
-      [...requiredByDate.values()].some((tasks) => tasks.length >= 3),
+      [...requiredByDate.values()].some((tasks) => tasks.length >= 2),
     ).toBe(true);
     for (const tasks of requiredByDate.values()) {
-      expect(tasks).toHaveLength(Math.min(tasks.length, 4));
-      expect(
-        tasks.reduce(
-          (sum, task) =>
-            sum + Number(task.launchConfig.sectionEquivalents ?? 0),
-          0,
-        ),
-      ).toBeLessThanOrEqual(2.01);
       expect(
         new Set(tasks.flatMap((task) => task.sectionId ?? [])).size,
-      ).toBeLessThanOrEqual(2);
+      ).toBeLessThanOrEqual(3);
+      const date = tasks[0]!.scheduledDate;
+      if (tasks.every((task) => task.taskType === "practice")) {
+        const dayTasks = result.tasks.filter(
+          (task) => task.scheduledDate === date,
+        );
+        const totalMinutes = dayTasks.reduce(
+          (sum, task) => sum + task.estimatedMinutes,
+          0,
+        );
+        expect(totalMinutes).toBeLessThanOrEqual(60);
+      }
     }
   });
 
@@ -1599,7 +1699,7 @@ describe("generateExtraStudyTasks", () => {
     ).toBeGreaterThan(10);
   });
 
-  it("scales short review estimates with the number of questions", () => {
+  it("derives review time from question exam time and expected accuracy", () => {
     const [practice] = generateExtraStudyTasks({
       today: "2026-07-15",
       planningDate: "2026-08-05",
@@ -1614,13 +1714,20 @@ describe("generateExtraStudyTasks", () => {
     });
 
     expect(
-      reviewTask({ ...practice, targetUnits: 5 }, practice.scheduledDate, 1)
-        .estimatedMinutes,
-    ).toBe(3);
-    expect(
-      reviewTask({ ...practice, targetUnits: 30 }, practice.scheduledDate, 1)
-        .estimatedMinutes,
-    ).toBe(5);
+      reviewTask(
+        {
+          ...practice,
+          targetUnits: 20,
+          launchConfig: {
+            ...practice.launchConfig,
+            examTimePerQuestionSeconds: 47,
+            expectedAccuracy: 0.8,
+          },
+        },
+        practice.scheduledDate,
+        1,
+      ).estimatedMinutes,
+    ).toBe(2);
   });
 
   it("honours an explicit SJ preference without making SJ the default", () => {

@@ -8,7 +8,6 @@ import type {
   PreparationEngineResult,
   PreparationVersions,
 } from "@/features/preparation/model/types";
-import { ACCURATE_SLOW_PREPARATION_PERSONA } from "@/features/preparation/testing/personas";
 import type {
   StudyPlanCategorySignal,
   StudyPlanSection,
@@ -170,11 +169,7 @@ function baseInput(): PreparationEngineInput {
         targetScore: 2200,
         testYear: 2026,
         testDate: "2026-08-05",
-        availableDays: [
-          { weekday: 1 },
-          { weekday: 3 },
-          { weekday: 6 },
-        ],
+        availableDays: [{ weekday: 1 }, { weekday: 3 }, { weekday: 6 }],
         preferredMockWeekday: 6,
         sjtPreference: "a_little",
       },
@@ -188,7 +183,8 @@ function baseInput(): PreparationEngineInput {
           title,
           sectionId: section.id,
           sectionNumber: section.sectionNumber,
-          priority: index < 3 ? ("essential" as const) : ("recommended" as const),
+          priority:
+            index < 3 ? ("essential" as const) : ("recommended" as const),
           authoredOrder: index + 1,
           categoryIds: [
             `${section.id}-category-${
@@ -230,8 +226,8 @@ function baseInput(): PreparationEngineInput {
       sectionSignals: sectionSignals(),
       completedMockCount: 0,
       forecast: {
-        expectedAdherence: 0.8,
-        adherenceUncertainty: 0.15,
+        expectedPlanUptake: 0.5,
+        planUptakeUncertainty: 0.25,
       },
     },
     guidance: {
@@ -252,7 +248,8 @@ function representativeEvidence(
     sectionId: section.id,
     sectionNumber: section.sectionNumber,
     completedAt: input.clock.now,
-    marksAwarded: section.questionCount * (accuracyBySection[section.id] ?? 0.6),
+    marksAwarded:
+      section.questionCount * (accuracyBySection[section.id] ?? 0.6),
     marksAvailable: section.questionCount,
     questionCount: section.questionCount,
     sectionQuestionCount: section.questionCount,
@@ -271,10 +268,12 @@ function setExperiencedEvidence(
   accuracyBySection: Record<string, number>,
   paceBySection: Record<string, number>,
 ): void {
-  input.content.learningModules = input.content.learningModules.map((module) => ({
-    ...module,
-    completionPercent: 100,
-  }));
+  input.content.learningModules = input.content.learningModules.map(
+    (module) => ({
+      ...module,
+      completionPercent: 100,
+    }),
+  );
   input.content.categories = input.content.categories.map((category) => {
     const accuracy = accuracyBySection[category.sectionId] ?? 0.7;
     const pace = paceBySection[category.sectionId] ?? 1;
@@ -291,32 +290,86 @@ function setExperiencedEvidence(
       observedPace: pace,
     };
   });
-  input.evidence.sectionSignals = input.evidence.sectionSignals.map((signal) => {
-    const section = SECTIONS.find((candidate) => candidate.id === signal.sectionId)!;
-    const accuracy = accuracyBySection[signal.sectionId] ?? 0.7;
-    const pace = paceBySection[signal.sectionId] ?? 1;
-    return {
-      ...signal,
-      currentEstimate: section.sectionNumber <= 3 ? Math.round(300 + accuracy * 600) : null,
-      evidenceCount: 6,
-      scoreConfidence: section.sectionNumber <= 3 ? "medium" as const : null,
-      completedFullSets: section.sectionNumber <= 3 ? 2 : 0,
-      attemptedQuestionCount: section.questionCount * 3,
-      completedPracticeSessions: 5,
-      qualifyingPracticeSessions: 4,
-      largestPracticeSessionQuestionCount: section.questionCount,
-      recentAccuracy: accuracy,
-      observedPace: pace,
-      representativeSessionCount: 3,
-      representativeSectionEquivalents: 2,
-      representativeAccuracy: accuracy,
-      benchmarkCompleted: section.sectionNumber <= 3,
-      benchmarkAccuracy: accuracy,
-      benchmarkPace: pace,
-      prescribedPace: Math.min(1, pace),
-      prescribedPaceSetAt: input.clock.now,
-      pacePolicyVersion: input.versions.policy,
-    };
+  input.evidence.sectionSignals = input.evidence.sectionSignals.map(
+    (signal) => {
+      const section = SECTIONS.find(
+        (candidate) => candidate.id === signal.sectionId,
+      )!;
+      const accuracy = accuracyBySection[signal.sectionId] ?? 0.7;
+      const pace = paceBySection[signal.sectionId] ?? 1;
+      return {
+        ...signal,
+        currentEstimate:
+          section.sectionNumber <= 3 ? Math.round(300 + accuracy * 600) : null,
+        evidenceCount: 6,
+        scoreConfidence:
+          section.sectionNumber <= 3 ? ("medium" as const) : null,
+        completedFullSets: section.sectionNumber <= 3 ? 2 : 0,
+        attemptedQuestionCount: section.questionCount * 3,
+        completedPracticeSessions: 5,
+        qualifyingPracticeSessions: 4,
+        largestPracticeSessionQuestionCount: section.questionCount,
+        recentAccuracy: accuracy,
+        observedPace: pace,
+        representativeSessionCount: 3,
+        representativeSectionEquivalents: 2,
+        representativeAccuracy: accuracy,
+        benchmarkCompleted: section.sectionNumber <= 3,
+        benchmarkAccuracy: accuracy,
+        benchmarkPace: pace,
+        prescribedPace: Math.min(1, pace),
+        prescribedPaceSetAt: input.clock.now,
+        pacePolicyVersion: input.versions.policy,
+        learningGraduatedAt:
+          section.sectionNumber <= 3
+            ? `${addDays(input.clock.today, -35)}T00:00:00.000Z`
+            : null,
+        learningGraduationRoute:
+          section.sectionNumber <= 3 ? ("experience" as const) : null,
+      };
+    },
+  );
+  input.evidence.timingSessions = SECTIONS.slice(0, 3).flatMap((section) => {
+    const accuracy = accuracyBySection[section.id] ?? 0.7;
+    const pace = paceBySection[section.id] ?? 1;
+    return [
+      {
+        id: `mock-history:${section.id}`,
+        sectionId: section.id,
+        source: "mock" as const,
+        completedAt: `${addDays(input.clock.today, -35)}T00:00:00.000Z`,
+        prescribedPace: 1,
+        observedPace: pace,
+        accuracy,
+        sectionEquivalents: 1,
+        breadth: "broad" as const,
+        categoryIds: [],
+      },
+      {
+        id: `set-history:${section.id}`,
+        sectionId: section.id,
+        source: "set" as const,
+        completedAt: `${addDays(input.clock.today, -10)}T00:00:00.000Z`,
+        prescribedPace: Math.min(1, pace),
+        observedPace: pace,
+        accuracy,
+        sectionEquivalents: 1,
+        breadth: "broad" as const,
+        categoryIds: [],
+      },
+      {
+        id: `practice-history:${section.id}`,
+        sectionId: section.id,
+        source: "practice" as const,
+        completedAt: `${addDays(input.clock.today, -5)}T00:00:00.000Z`,
+        prescribedPace: Math.min(1, pace),
+        observedPace: pace,
+        accuracy,
+        sectionEquivalents: 0.55,
+        breadth: "narrow" as const,
+        categoryIds: [`${section.id}-category-1`],
+      },
+    ];
   });
   representativeEvidence(input, accuracyBySection);
   input.evidence.completedMockCount = 2;
@@ -414,29 +467,115 @@ export const PREPARATION_SANDBOX_PERSONAS = {
       );
     },
   ),
+  "recommended-learning": fixture(
+    "recommended-learning",
+    "Benchmark shows more learning is useful",
+    "Essential modules are complete, but a weak first benchmark keeps the section in Learning and unlocks recommended modules.",
+    (input) => {
+      input.content.learningModules = input.content.learningModules.map(
+        (module) => ({
+          ...module,
+          completionPercent: module.priority === "essential" ? 100 : 0,
+        }),
+      );
+      input.content.categories = input.content.categories.map((category) => ({
+        ...category,
+        correctScore: 10,
+        maxScore: 20,
+        weaknessScore: 0.5,
+        attemptedQuestionCount: 20,
+        completedPracticeSessions: 2,
+        qualifyingPracticeSessions: 2,
+        largestPracticeSessionQuestionCount: 10,
+        recentAccuracy: 0.5,
+        observedPace: 0.7,
+      }));
+      input.evidence.sectionSignals = input.evidence.sectionSignals.map(
+        (signal) => ({
+          ...signal,
+          attemptedQuestionCount: 40,
+          completedPracticeSessions: 2,
+          qualifyingPracticeSessions: 2,
+          largestPracticeSessionQuestionCount: 20,
+          recentAccuracy: 0.5,
+          observedPace: 0.7,
+          representativeSessionCount: 2,
+          representativeSectionEquivalents: 1,
+          representativeAccuracy: 0.5,
+          benchmarkCompleted: true,
+          benchmarkAccuracy: 0.5,
+          benchmarkPace: 0.7,
+        }),
+      );
+    },
+  ),
   "experienced-high-performing": fixture(
     "experienced-high-performing",
     "Experienced, high-performing",
     "Broad, accurate evidence recognises prior preparation and avoids unnecessary lessons.",
-    (input) => setExperiencedEvidence(input, { vr: 0.84, dm: 0.82, qr: 0.86 }, { vr: 1, dm: 1, qr: 1 }),
+    (input) =>
+      setExperiencedEvidence(
+        input,
+        { vr: 0.84, dm: 0.82, qr: 0.86 },
+        { vr: 1, dm: 1, qr: 1 },
+      ),
   ),
   "accurate-slow": fixture(
     "accurate-slow",
     "Accurate but slow",
     "Strong accuracy with useful pace work still outstanding.",
-    (input) => Object.assign(input, ACCURATE_SLOW_PREPARATION_PERSONA.apply(input)),
+    (input) =>
+      setExperiencedEvidence(
+        input,
+        { vr: 0.84, dm: 0.8, qr: 0.82 },
+        { vr: 0.65, dm: 0.75, qr: 0.8 },
+      ),
   ),
   "fast-inaccurate": fixture(
     "fast-inaccurate",
     "Fast but inaccurate",
     "Fast natural pace is held while accuracy and method evidence catch up.",
-    (input) => setExperiencedEvidence(input, { vr: 0.44, dm: 0.48, qr: 0.46 }, { vr: 1.2, dm: 1.15, qr: 1.25 }),
+    (input) =>
+      setExperiencedEvidence(
+        input,
+        { vr: 0.44, dm: 0.48, qr: 0.46 },
+        { vr: 1.2, dm: 1.15, qr: 1.25 },
+      ),
   ),
   "uneven-sections": fixture(
     "uneven-sections",
     "Uneven sections",
     "Strong QR, developing DM and weak VR exercise section-specific assessment.",
-    (input) => setExperiencedEvidence(input, { vr: 0.42, dm: 0.64, qr: 0.86 }, { vr: 0.7, dm: 0.85, qr: 1 }),
+    (input) =>
+      setExperiencedEvidence(
+        input,
+        { vr: 0.42, dm: 0.64, qr: 0.86 },
+        { vr: 0.7, dm: 0.85, qr: 1 },
+      ),
+  ),
+  "calibration-due": fixture(
+    "calibration-due",
+    "Section benchmark due",
+    "At least 1.5 targeted section-equivalents have accumulated since the last full-section Set, so a fresh calibration is due.",
+    (input) => {
+      setExperiencedEvidence(
+        input,
+        { vr: 0.58, dm: 0.66, qr: 0.76 },
+        { vr: 0.8, dm: 0.85, qr: 0.9 },
+      );
+      input.evidence.timingSessions?.push({
+        id: "practice-history:vr:extra",
+        sectionId: "vr",
+        source: "practice",
+        completedAt: `${addDays(input.clock.today, -2)}T00:00:00.000Z`,
+        prescribedPace: 0.8,
+        observedPace: 0.8,
+        accuracy: 0.58,
+        sectionEquivalents: 1,
+        breadth: "narrow",
+        categoryIds: ["vr-category-1"],
+      });
+    },
   ),
   "low-availability": fixture(
     "low-availability",
@@ -444,7 +583,11 @@ export const PREPARATION_SANDBOX_PERSONAS = {
     "One available day exposes capacity trade-offs instead of an unlimited backlog.",
     (input) => {
       input.goal.profile.availableDays = [{ weekday: 6 }];
-      setExperiencedEvidence(input, { vr: 0.62, dm: 0.65, qr: 0.67 }, { vr: 0.8, dm: 0.8, qr: 0.85 });
+      setExperiencedEvidence(
+        input,
+        { vr: 0.62, dm: 0.65, qr: 0.67 },
+        { vr: 0.8, dm: 0.8, qr: 0.85 },
+      );
     },
   ),
   "imminent-exam": fixture(
@@ -457,7 +600,11 @@ export const PREPARATION_SANDBOX_PERSONAS = {
       input.goal.profile.availableDays = [0, 1, 2, 3, 4, 5].map((weekday) => ({
         weekday: weekday as 0 | 1 | 2 | 3 | 4 | 5,
       }));
-      setExperiencedEvidence(input, { vr: 0.7, dm: 0.72, qr: 0.74 }, { vr: 1, dm: 1, qr: 1 });
+      setExperiencedEvidence(
+        input,
+        { vr: 0.7, dm: 0.72, qr: 0.74 },
+        { vr: 1, dm: 1, qr: 1 },
+      );
     },
   ),
 } satisfies Record<string, PreparationSandboxCase>;
@@ -484,6 +631,11 @@ export const PREPARATION_SANDBOX_JOURNEYS: PreparationSandboxJourney[] = [
         label: "Ready for first benchmarks",
         description: "Essential learning and broad exposure are complete.",
       },
+      {
+        fixtureKey: "recommended-learning",
+        label: "Benchmark needs more learning",
+        description: "Recommended modules follow a weak first benchmark.",
+      },
     ],
   },
   {
@@ -500,12 +652,19 @@ export const PREPARATION_SANDBOX_JOURNEYS: PreparationSandboxJourney[] = [
       {
         fixtureKey: "fast-inaccurate",
         label: "Fast but inaccurate",
-        description: "Timing pressure is held while method and accuracy recover.",
+        description:
+          "Timing pressure is held while method and accuracy recover.",
       },
       {
         fixtureKey: "experienced-high-performing",
         label: "Reliable at exam pace",
         description: "Broad evidence supports advanced preparation.",
+      },
+      {
+        fixtureKey: "calibration-due",
+        label: "Fresh section benchmark due",
+        description:
+          "Targeted work since the last Set now needs recalibration.",
       },
     ],
   },
@@ -545,26 +704,30 @@ export const PREPARATION_SANDBOX_JOURNEYS: PreparationSandboxJourney[] = [
 function dailyWork(result: PreparationEngineResult, today: string) {
   return Array.from({ length: 21 }, (_, day) => {
     const date = addDays(today, day);
-    const tasks = result.plan.tasks.filter((task) => task.scheduledDate === date);
+    const tasks = result.plan.tasks.filter(
+      (task) => task.scheduledDate === date,
+    );
     return {
       date,
       practiceMinutes: tasks.reduce((total, task) => {
         const split = task.launchConfig.practiceMinutes;
-        return total +
+        return (
+          total +
           (typeof split === "number"
             ? split
             : task.taskType === "review"
               ? 0
-              : task.estimatedMinutes);
+              : task.estimatedMinutes)
+        );
       }, 0),
       reviewMinutes: tasks.reduce((total, task) => {
         const split = task.launchConfig.reviewMinutes;
         if (task.taskType === "review") {
-          return total +
-            (typeof split === "number" ? split : task.estimatedMinutes);
+          return (
+            total + (typeof split === "number" ? split : task.estimatedMinutes)
+          );
         }
-        return total +
-          (task.taskType === "mock" && typeof split === "number" ? split : 0);
+        return total;
       }, 0),
     };
   });
