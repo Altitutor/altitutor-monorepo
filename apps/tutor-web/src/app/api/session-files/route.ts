@@ -42,11 +42,22 @@ export async function GET(request: NextRequest) {
       .order('display_order', { ascending: true })
     if (error) throw error
 
-    const rows = await Promise.all((data ?? []).map(async (row) => {
-      const file = row.file
-      if (!file?.storage_path) return { ...row, signedUrl: null }
-      const { data: signed } = await service.storage.from(BUCKET).createSignedUrl(file.storage_path, 3600)
-      return { ...row, signedUrl: signed?.signedUrl ?? null }
+    const storagePaths = (data ?? []).flatMap((row) => (
+      row.file?.storage_path ? [row.file.storage_path] : []
+    ))
+    const { data: signedUrls } = storagePaths.length > 0
+      ? await service.storage.from(BUCKET).createSignedUrls(storagePaths, 3600)
+      : { data: [] }
+    const signedUrlByPath = new Map(
+      (signedUrls ?? []).flatMap((signed) => (
+        signed.path ? [[signed.path, signed.signedUrl] as const] : []
+      )),
+    )
+    const rows = (data ?? []).map((row) => ({
+      ...row,
+      signedUrl: row.file?.storage_path
+        ? signedUrlByPath.get(row.file.storage_path) ?? null
+        : null,
     }))
     return NextResponse.json(rows)
   } catch (error) {

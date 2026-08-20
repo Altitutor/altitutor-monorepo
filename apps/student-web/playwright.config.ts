@@ -4,19 +4,17 @@ import { defineConfig, devices } from "@playwright/test";
 
 function readLocalSupabaseEnvironment() {
   if (
-    process.env.UCAT_E2E_SUPABASE_URL &&
-    process.env.UCAT_E2E_PUBLIC_KEY &&
-    process.env.UCAT_E2E_SERVICE_ROLE_KEY
+    process.env.STUDENT_E2E_SUPABASE_URL &&
+    process.env.STUDENT_E2E_PUBLIC_KEY
   ) {
     return {
-      NEXT_PUBLIC_SUPABASE_URL: process.env.UCAT_E2E_SUPABASE_URL,
-      NEXT_PUBLIC_SUPABASE_ANON_KEY: process.env.UCAT_E2E_PUBLIC_KEY,
-      SUPABASE_SERVICE_ROLE_KEY: process.env.UCAT_E2E_SERVICE_ROLE_KEY,
+      NEXT_PUBLIC_SUPABASE_URL: process.env.STUDENT_E2E_SUPABASE_URL,
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: process.env.STUDENT_E2E_PUBLIC_KEY,
     };
   }
-  const repositoryRoot = path.resolve(__dirname, "../..");
+
   const output = execFileSync("supabase", ["status", "-o", "env"], {
-    cwd: repositoryRoot,
+    cwd: path.resolve(__dirname, "../.."),
     encoding: "utf8",
   });
   const values = Object.fromEntries(
@@ -26,31 +24,24 @@ function readLocalSupabaseEnvironment() {
       .filter(Boolean)
       .map((line) => {
         const separator = line.indexOf("=");
-        const key = line.slice(0, separator);
-        const value = line.slice(separator + 1).replace(/^"|"$/g, "");
-        return [key, value];
+        return [
+          line.slice(0, separator),
+          line.slice(separator + 1).replace(/^"|"$/g, ""),
+        ];
       }),
   );
   const url = values.API_URL;
   const publicKey = values.ANON_KEY ?? values.PUBLISHABLE_KEY;
-  const serviceKey = values.SERVICE_ROLE_KEY ?? values.SECRET_KEY;
-  if (!url || !publicKey || !serviceKey) {
-    throw new Error(
-      "Local Supabase is missing an API URL, public key, or service key.",
-    );
+  if (!url || !publicKey) {
+    throw new Error("Local Supabase is missing an API URL or public key.");
   }
-  process.env.UCAT_E2E_SUPABASE_URL = url;
-  process.env.UCAT_E2E_PUBLIC_KEY = publicKey;
-  process.env.UCAT_E2E_SERVICE_ROLE_KEY = serviceKey;
   return {
     NEXT_PUBLIC_SUPABASE_URL: url,
     NEXT_PUBLIC_SUPABASE_ANON_KEY: publicKey,
-    SUPABASE_SERVICE_ROLE_KEY: serviceKey,
   };
 }
 
-const localSupabase = readLocalSupabaseEnvironment();
-const baseURL = process.env.UCAT_E2E_BASE_URL ?? "http://localhost:3014";
+const baseURL = process.env.STUDENT_E2E_BASE_URL ?? "http://127.0.0.1:3011";
 
 export default defineConfig({
   testDir: "./e2e",
@@ -70,12 +61,14 @@ export default defineConfig({
     },
   ],
   webServer: {
-    command: "pnpm exec next dev -p 3014 -H 127.0.0.1",
+    command: "pnpm exec next dev -p 3011 -H 127.0.0.1",
     url: baseURL,
     reuseExistingServer: false,
     timeout: 120_000,
     env: {
-      ...localSupabase,
+      ...readLocalSupabaseEnvironment(),
+      NEXT_PUBLIC_ADMIN_PORTAL_URL: "http://localhost:3000",
+      NEXT_PUBLIC_TUTOR_PORTAL_URL: "http://localhost:3002",
       NEXT_DIST_DIR: ".next-e2e",
     },
   },

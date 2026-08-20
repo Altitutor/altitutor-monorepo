@@ -102,6 +102,7 @@ function renderUcatDropdownChild(
     <Link
       key={child.href}
       href={child.href}
+      prefetch={false}
       className={cn(linkClassName(child.href), 'flex items-center gap-2')}
     >
       <Icon className="h-4 w-4 shrink-0 opacity-80" aria-hidden />
@@ -211,6 +212,7 @@ function renderSettingsLink(item: NavLinkItem, pathname: string, collapsed: bool
   return (
     <Link
       href={item.href}
+      prefetch={false}
       className={cn(
         'flex items-center gap-3 rounded-xl px-3 py-2 text-sm',
         active ? navLinkActiveStyles : navLinkInactiveStyles,
@@ -371,7 +373,7 @@ function MobileMenu({
                         isActive ? navLinkActiveStyles : navLinkInactiveStyles,
                       )}
                     >
-                      <Link href={item.href} className="flex min-w-0 flex-1 items-center gap-3 px-1">
+                      <Link href={item.href} prefetch={false} className="flex min-w-0 flex-1 items-center gap-3 px-1">
                         <Icon className="h-5 w-5 shrink-0" />
                         <span className="text-left">{item.title}</span>
                       </Link>
@@ -408,6 +410,7 @@ function MobileMenu({
                 <Link
                   key={item.href}
                   href={item.href}
+                  prefetch={false}
                   className={cn(
                     'flex items-center gap-3 rounded-xl px-3 py-2 text-sm',
                     active ? navLinkActiveStyles : navLinkInactiveStyles,
@@ -522,6 +525,7 @@ function SidebarNav({
                   <Link
                     key={item.href}
                     href={item.href}
+                    prefetch={false}
                     className={cn(
                       'flex items-center justify-center rounded-xl px-0 py-2 text-sm',
                       isActive ? navLinkActiveStyles : navLinkInactiveStyles,
@@ -539,7 +543,7 @@ function SidebarNav({
                       isActive ? navLinkActiveStyles : navLinkInactiveStyles,
                     )}
                   >
-                    <Link href={item.href} className="flex min-w-0 flex-1 items-center gap-3 px-1">
+                    <Link href={item.href} prefetch={false} className="flex min-w-0 flex-1 items-center gap-3 px-1">
                       <Icon className="h-5 w-5 shrink-0" />
                       <span className="overflow-hidden whitespace-nowrap text-left">{item.title}</span>
                     </Link>
@@ -576,6 +580,7 @@ function SidebarNav({
               <Link
                 key={item.href}
                 href={item.href}
+                prefetch={false}
                 className={cn(
                   'flex items-center gap-3 rounded-xl px-3 py-2 text-sm',
                   active ? navLinkActiveStyles : navLinkInactiveStyles,

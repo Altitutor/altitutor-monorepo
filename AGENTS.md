@@ -31,6 +31,10 @@ Altitutor monorepo (pnpm + Turborepo).
 - Issues/specs live in Obsidian (not Linear). See `docs/agents/issue-tracker.md`.
 - Stress-test plans with `/grill-with-docs`
 
+## Development portal testing
+
+- For deployed web smoke tests and local-only test-account credentials, see `docs/agents/development-web-smoke-testing.md`.
+
 ## Agent skills
 
 ### Issue tracker

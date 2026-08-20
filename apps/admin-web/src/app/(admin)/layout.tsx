@@ -303,6 +303,7 @@ function MobileMenu({ isOpen, onClose }: { isOpen: boolean; onClose: () => void 
                   <Link 
                     key={item.href} 
                     href={itemHref}
+                    prefetch={false}
                     className={cn(
                       "flex items-center gap-3 px-3 py-2 rounded-md text-sm",
                       isNavItemActive(pathname, item)
@@ -321,6 +322,7 @@ function MobileMenu({ isOpen, onClose }: { isOpen: boolean; onClose: () => void 
           <div className="border-t p-2">
             <Link 
               href="/settings"
+              prefetch={false}
               className={cn(
                 "flex items-center gap-3 px-3 py-2 rounded-md text-sm",
                 pathname === '/settings'
@@ -376,6 +378,7 @@ function SidebarNav({ className, collapsed, ...props }: SidebarNavProps) {
               <Link
                 key={item.href} 
                 href={itemHref}
+                prefetch={false}
                 className={cn(
                   "flex items-center gap-3 px-3 py-2 rounded-md text-sm",
                   isNavItemActive(pathname, item)
@@ -416,6 +419,7 @@ function SidebarNav({ className, collapsed, ...props }: SidebarNavProps) {
               <TooltipTrigger asChild>
                 <Link
                   href="/settings"
+                  prefetch={false}
                   className={cn(
                     "flex items-center gap-3 px-3 py-2 rounded-md text-sm",
                     pathname === '/settings'
@@ -436,6 +440,7 @@ function SidebarNav({ className, collapsed, ...props }: SidebarNavProps) {
         ) : (
           <Link 
           href="/settings"
+          prefetch={false}
           className={cn(
             "flex items-center gap-3 px-3 py-2 rounded-md text-sm",
             pathname === '/settings'

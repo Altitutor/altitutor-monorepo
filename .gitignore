@@ -41,6 +41,8 @@ tasks.json
 /tasks/ 
 *storybook.log
 .next
+.next-e2e
+test-results/
 
 # TypeScript build artifacts
 *.tsbuildinfo

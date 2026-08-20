@@ -145,6 +145,7 @@ function SidebarNavContent({
                     <div key={item.href} className="space-y-0.5">
                       <Link
                         href={item.href}
+                        prefetch={false}
                         data-tour={tourId}
                         className={cn(
                           "flex items-center rounded-lg px-3 py-2.5 text-sm font-medium transition-colors duration-200 ease-out",
@@ -194,6 +195,7 @@ function SidebarNavContent({
                               <Link
                                 key={num}
                                 href={`/progress/sections/${num}`}
+                                prefetch={false}
                                 className={cn(
                                   "flex items-center rounded-md px-2 py-1.5 text-sm transition-colors duration-150 ease-out",
                                   secActive
@@ -208,6 +210,7 @@ function SidebarNavContent({
                           })}
                           <Link
                             href="/progress/mocks"
+                            prefetch={false}
                             className={cn(
                               "flex items-center rounded-md px-2 py-1.5 text-sm transition-colors duration-150 ease-out",
                               pathname === "/progress/mocks" ||
@@ -266,6 +269,7 @@ function SidebarNavContent({
                     <div key={item.href} className="space-y-0.5">
                       <Link
                         href={item.href}
+                        prefetch={false}
                         data-tour={tourId}
                         className={cn(
                           "flex items-center rounded-lg px-3 py-2.5 text-sm font-medium transition-colors duration-200 ease-out",
@@ -315,6 +319,7 @@ function SidebarNavContent({
                               <Link
                                 key={num}
                                 href={`/sets/sections/${num}`}
+                                prefetch={false}
                                 className={cn(
                                   "flex items-center rounded-md px-2 py-1.5 text-sm transition-colors duration-150 ease-out",
                                   secActive
@@ -370,6 +375,7 @@ function SidebarNavContent({
                     <Link
                       key={item.href}
                       href={item.href}
+                      prefetch={false}
                       data-tour={tourId}
                       className={cn(
                         "flex items-center rounded-lg px-3 py-2.5 text-sm font-medium transition-colors duration-200 ease-out",
@@ -427,6 +433,7 @@ function SidebarNavContent({
               <Link
                 key={item.href}
                 href={item.href}
+                prefetch={false}
                 data-tour={tourId}
                 className={cn(
                   "flex items-center rounded-lg px-3 py-2.5 text-sm font-medium transition-colors duration-200 ease-out",

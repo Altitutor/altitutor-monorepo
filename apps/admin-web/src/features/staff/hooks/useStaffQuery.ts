@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient, useInfiniteQuery, keepPreviousData } from '@tanstack/react-query';
 import { staffApi } from '../api/staff';
 import type { Tables } from '@altitutor/shared';
+import { useAuthStore } from '@/shared/lib/supabase/auth';
 type Staff = Tables<'staff'>;
 type StaffRole = string;
 type StaffStatus = string;
@@ -15,7 +16,7 @@ export const staffKeys = {
   detail: (id: string) => [...staffKeys.details(), id] as const,
   detailFull: (id: string) => [...staffKeys.detail(id), 'details'] as const,
   withSubjects: () => [...staffKeys.all, 'withSubjects'] as const,
-  current: () => [...staffKeys.all, 'current'] as const,
+  current: (userId?: string) => [...staffKeys.all, 'current', userId ?? null] as const,
   byRole: (role: StaffRole) => [...staffKeys.all, 'byRole', role] as const,
   byStatus: (status: StaffStatus) => [...staffKeys.all, 'byStatus', status] as const,
 };
@@ -156,9 +157,13 @@ export function useStaffById(staffId: string) {
 
 // Get current staff member (logged in user)
 export function useCurrentStaff() {
+  const userId = useAuthStore((state) => state.user?.id);
+  const authLoading = useAuthStore((state) => state.loading);
+
   return useQuery({
-    queryKey: staffKeys.current(),
-    queryFn: staffApi.getCurrentStaff,
+    queryKey: staffKeys.current(userId),
+    queryFn: () => staffApi.getByUserId(userId!),
+    enabled: !authLoading && !!userId,
     staleTime: 1000 * 60 * 5, // 5 minutes - user data doesn't change often
     gcTime: 1000 * 60 * 15, // 15 minutes
   });
