@@ -60,7 +60,7 @@ export function PracticePage() {
     showUnlimitedOption: true,
   });
   const [reviewTiming, setReviewTiming] =
-    useState<PracticeReviewTiming>("afterEachStem");
+    useState<PracticeReviewTiming>("atEnd");
   const [conflictActive, setConflictActive] =
     useState<ActiveExamAttempt | null>(null);
   const [isDiscardingConflict, setIsDiscardingConflict] = useState(false);

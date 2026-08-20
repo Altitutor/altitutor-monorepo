@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
-import { Switch, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@altitutor/ui";
+import { Switch, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger, useToast } from "@altitutor/ui";
 import { ChevronLeft, Clock3, Eye, Gauge, Infinity as InfinityIcon, ListChecks, Rows3, TimerOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { PracticeReviewTiming } from "@/features/practice/lib/session-storage";
@@ -151,6 +151,7 @@ export function StemFiltersPanel({
   hideStepHeader = false,
   onWizardStepChange,
 }: StemFiltersPanelProps) {
+  const { toast } = useToast();
   const [{ step, direction }, setWizard] = useState({ step: 0, direction: 1 });
   const [isTransitioning, setIsTransitioning] = useState(false);
   const reduceMotion = useReducedMotion();
@@ -256,6 +257,19 @@ export function StemFiltersPanel({
         selectedCategories.filter((item) => item.id !== category.id),
       );
     }
+  }
+
+  function selectReviewTiming(timing: PracticeReviewTiming) {
+    if (timing === "atEnd" && timedUnlimited) {
+      toast({
+        id: "practice-review-at-end-unavailable",
+        title: "Review at end needs a fixed set",
+        description:
+          "Choose a fixed set, or switch to untimed to review unlimited questions at the end.",
+      });
+      return;
+    }
+    onReviewTimingChange?.(timing);
   }
 
   const performanceToggle = (
@@ -698,9 +712,7 @@ export function StemFiltersPanel({
                 return (
                   <div
                     key={option.value}
-                    onClick={() => {
-                      if (!disabled) onReviewTimingChange?.(option.value);
-                    }}
+                    onClick={() => selectReviewTiming(option.value)}
                     aria-disabled={disabled}
                     className={cn(
                       ucatClickableCardClassName({ selected }),
@@ -709,9 +721,12 @@ export function StemFiltersPanel({
                   >
                     <button
                       type="button"
-                      onClick={() => onReviewTimingChange?.(option.value)}
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        selectReviewTiming(option.value);
+                      }}
                       aria-pressed={selected}
-                      disabled={disabled}
+                      aria-disabled={disabled}
                       className="w-full text-left"
                     >
                       <Icon className="h-5 w-5 text-muted-foreground" />
