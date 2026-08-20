@@ -102,8 +102,18 @@ const VISUAL_PRESENTATION_PATTERNS = [
   /\bimage\b/u,
 ] as const
 
-const LEADING_QUANTIFIER_PATTERN = /^(?:all|every|some|no|none|never)\b/u
-const COORDINATED_QUANTIFIER_PATTERN = /\band\s+(?:all|every|some|no|none|never)\b/gu
+const QUANTIFIED_PREMISE_OPENING =
+  String.raw`(?:all|every|some|no|none|never|nothing|not\s+all|a\s+few)`
+const LEADING_QUANTIFIER_PATTERN = new RegExp(
+  `^${QUANTIFIED_PREMISE_OPENING}\\b`,
+  'u'
+)
+const COORDINATED_QUANTIFIER_PATTERN = new RegExp(
+  String.raw`\b(?:and|but|although)\s+${QUANTIFIED_PREMISE_OPENING}\b`,
+  'gu'
+)
+const LEADING_CARDINALITY_COMPARISON_PATTERN =
+  /^(?:more|fewer|less)\b[^.!?]*\bthan\b/u
 const EXHAUSTIVE_EXCEPTION_PREMISE_PATTERNS = [
   /\b(?:no|none)\s+other\b[^.!?]*\b(?:except|apart from|other than)\b/u,
   /\b(?:everyone|everybody|everything|all)\b[^.!?]*\bexcept(?:\s+for)?\b/u,
@@ -123,8 +133,9 @@ export type DecisionMakingCategoryEvidence = {
 }
 
 /**
- * Count quantified premise clauses without treating mid-prose "some customers" as
- * a premise. Prefer sentence-initial All/Some/No/… and coordinated "and no/all…".
+ * Count formal premise clauses without treating mid-prose "some customers" as
+ * a premise. Prefer sentence-leading quantifiers/cardinality comparisons and
+ * quantified clauses introduced by a conjunction.
  */
 function countQuantifiedPremiseStatements(stemText: string): number {
   const sentences = stemText
@@ -137,6 +148,7 @@ function countQuantifiedPremiseStatements(stemText: string): number {
     const probe = normalizeProbe(sentence)
     if (!probe) continue
     if (LEADING_QUANTIFIER_PATTERN.test(probe)) count += 1
+    if (LEADING_CARDINALITY_COMPARISON_PATTERN.test(probe)) count += 1
     const coordinated = probe.match(COORDINATED_QUANTIFIER_PATTERN)
     if (coordinated) count += coordinated.length
   }

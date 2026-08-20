@@ -109,19 +109,43 @@ describe('getPendingStemMetadataDiff', () => {
     })
   })
 
-  it('keeps absent response evidence visible for review even when defaults match', () => {
+  it('omits absent response evidence when it proposes no change', () => {
     const absentInference = {
       responseType: { value: null, confidence: 'absent' as const, evidence: [], conflicts: [] },
       answerScheme: { value: null, confidence: 'absent' as const, evidence: [], conflicts: [] },
       reviewState: 'review_required' as const,
     }
-    const diff = getPendingStemMetadataDiff({
+    expect(getPendingStemMetadataDiff({
       sectionId: null,
       categoryId: null,
       responseContractsByQuestionIndex: { 0: absentInference },
       tagIdsByQuestionIndex: {},
+    }, stemValues())).toBeNull()
+  })
+
+  it('keeps conflicting response evidence visible when values match', () => {
+    const blockedInference = {
+      responseType: {
+        value: 'multiple_choice' as const,
+        confidence: 'certain' as const,
+        evidence: ['single_answer_letter'],
+        conflicts: ['response_type_answer_scheme_mismatch'],
+      },
+      answerScheme: {
+        value: 'single_choice' as const,
+        confidence: 'certain' as const,
+        evidence: ['single_choice_answer'],
+        conflicts: ['response_type_answer_scheme_mismatch'],
+      },
+      reviewState: 'blocked' as const,
+    }
+    const diff = getPendingStemMetadataDiff({
+      sectionId: null,
+      categoryId: null,
+      responseContractsByQuestionIndex: { 0: blockedInference },
+      tagIdsByQuestionIndex: {},
     }, stemValues())
 
-    expect(diff?.responseContractsByQuestionIndex[0]).toEqual(absentInference)
+    expect(diff?.responseContractsByQuestionIndex[0]).toEqual(blockedInference)
   })
 })

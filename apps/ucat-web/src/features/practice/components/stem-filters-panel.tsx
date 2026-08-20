@@ -69,6 +69,26 @@ const performanceOptions: Array<{ value: PerformanceFilter; label: string }> = [
 
 const pacingSteps = [25, 50, 75, 100, 125, 150, 175, 200] as const;
 
+/** Matches explicit range thumb size below so notch centers track thumb travel. */
+const PACING_SLIDER_THUMB_PX = 20;
+
+function pacingStepLeft(index: number, stepCount: number): string {
+  if (stepCount <= 1) return `${PACING_SLIDER_THUMB_PX / 2}px`;
+  const ratio = index / (stepCount - 1);
+  const inset = PACING_SLIDER_THUMB_PX / 2;
+  return `calc(${inset}px + (100% - ${PACING_SLIDER_THUMB_PX}px) * ${ratio})`;
+}
+
+function pacingStepLabelAlignClass(index: number, stepCount: number) {
+  const isFirst = index === 0;
+  const isLast = index === stepCount - 1;
+  return cn(
+    isFirst && "-translate-x-0 items-start",
+    isLast && "-translate-x-full items-end",
+    !isFirst && !isLast && "-translate-x-1/2 items-center",
+  );
+}
+
 export const STEM_FILTERS_STEP_COPY = [
   {
     title: "Choose a section",
@@ -536,39 +556,67 @@ export function StemFiltersPanel({
                         duration: reduceMotion ? 0 : 0.22,
                         ease: [0.22, 1, 0.36, 1],
                       }}
-                      className="mt-5 w-full overflow-hidden pt-1"
+                      className="mt-5 w-full overflow-x-visible overflow-y-hidden pt-1"
                     >
-                    <input
-                      type="range"
-                      min={25}
-                      max={200}
-                      step={25}
-                      value={pacingPercent}
-                      onChange={(event) => setPacing(Number(event.target.value))}
-                      className="w-full accent-primary"
-                      aria-label="UCAT exam pacing multiplier"
-                    />
-                    <div className="mt-2 grid grid-cols-8">
-                      {pacingSteps.map((pace) => (
-                        <button
-                          key={pace}
-                          type="button"
-                          onClick={() => setPacing(pace)}
-                          className={cn(
-                            "flex flex-col items-center gap-1 text-[10px] text-muted-foreground transition-colors",
-                            pace === pacingPercent && "font-semibold text-foreground",
-                          )}
-                        >
-                          <span
-                            className={cn(
-                              "h-2 w-px bg-border",
-                              pace === pacingPercent && "h-3 bg-primary",
-                            )}
-                          />
-                          {formatSpeedPercentAsMultiplier(pace)}
-                        </button>
-                      ))}
-                    </div>
+                      <input
+                        type="range"
+                        min={25}
+                        max={200}
+                        step={25}
+                        value={pacingPercent}
+                        onChange={(event) =>
+                          setPacing(Number(event.target.value))
+                        }
+                        className={cn(
+                          "w-full accent-primary",
+                          "[&::-webkit-slider-thumb]:appearance-none",
+                          "[&::-webkit-slider-thumb]:size-5",
+                          "[&::-moz-range-thumb]:size-5",
+                          "[&::-moz-range-thumb]:border-0",
+                        )}
+                        aria-label="UCAT exam pacing multiplier"
+                      />
+                      <div className="relative mt-2">
+                        <div className="relative h-3">
+                          {pacingSteps.map((pace, index) => (
+                            <span
+                              key={`tick-${pace}`}
+                              style={{
+                                left: pacingStepLeft(index, pacingSteps.length),
+                              }}
+                              className={cn(
+                                "absolute top-0 -translate-x-1/2 w-px bg-border",
+                                pace === pacingPercent
+                                  ? "h-3 bg-primary"
+                                  : "h-2",
+                              )}
+                            />
+                          ))}
+                        </div>
+                        <div className="relative mt-1 h-4">
+                          {pacingSteps.map((pace, index) => (
+                            <button
+                              key={pace}
+                              type="button"
+                              onClick={() => setPacing(pace)}
+                              style={{
+                                left: pacingStepLeft(index, pacingSteps.length),
+                              }}
+                              className={cn(
+                                "absolute top-0 text-[10px] text-muted-foreground transition-colors",
+                                pacingStepLabelAlignClass(
+                                  index,
+                                  pacingSteps.length,
+                                ),
+                                pace === pacingPercent &&
+                                  "font-semibold text-foreground",
+                              )}
+                            >
+                              {formatSpeedPercentAsMultiplier(pace)}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
                     <p className="mt-4 text-sm">
                       Questions will be paced at{" "}
                       {formatSpeedPercentAsMultiplier(pacingPercent)} exam speed.

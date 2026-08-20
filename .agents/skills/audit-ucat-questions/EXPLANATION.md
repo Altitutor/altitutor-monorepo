@@ -42,6 +42,8 @@ Use exact arithmetic or a mental shortcut when faster; estimation when it safely
 
 State which values to enter into the calculator when that is useful. Mental arithmetic when that is clearly quicker.
 
+If a distractor represents a specific execution mathematical error, explain this in an answer option level explanation.
+
 ## Decision Making
 
 Teach the construction or elimination process, not a justification of the final answer after the fact.

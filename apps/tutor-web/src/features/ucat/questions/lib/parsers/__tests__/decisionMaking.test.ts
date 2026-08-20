@@ -150,6 +150,42 @@ With Candice in the back row of the other car`;
 });
 
 describe('getDecisionMakingStemCategoryName', () => {
+  it.each([
+    [
+      'not-all chemical premises',
+      'Tobias works in a laboratory. All the chemicals are kept in the refrigerator. Not all chemicals are poisonous except for two, E321 and E900.',
+    ],
+    [
+      'embedded few/all/not-all premises',
+      'A few people present at a musical symposium were musicians. Classical music was played by all of the musicians although not all the musicians that played classical music played jazz music.',
+    ],
+    [
+      'cardinality comparison premises',
+      '150 employees in a large company watch films. All the employees that watch films also watch documentaries. More of the employees watch television than documentaries, but less of the employees watch vlogs than television.',
+    ],
+    [
+      'all-and-only statement list',
+      'Consider the following statements: All chocolates from the UK have a blue wrapper. All chocolates from France weigh more than 100g. All and only the chocolates containing nuts have a blue wrapper. All and only the chocolates with caramel weigh more than 100g.',
+    ],
+    [
+      'nothing/some premises',
+      'Nothing in life worth doing is easy, but some things in life that are not easy are time consuming. Some things in life worth doing are not time consuming.',
+    ],
+  ])('classifies imported %s as Syllogisms', (_caseName, stemText) => {
+    const stems = parseDecisionMakingPlainText(`${stemText}
+
+Place 'Yes' if the conclusion does follow. Place 'No' if the conclusion does not follow.
+
+Conclusion one
+Conclusion two
+Conclusion three
+Conclusion four
+Conclusion five`)
+
+    expect(stems).toHaveLength(1)
+    expect(getDecisionMakingStemCategoryName(stems[0]!)).toBe('Syllogisms')
+  })
+
   it('lets a trusted category heading win over conflicting content signals', () => {
     const stems = parseDecisionMakingPlainText(`Interpreting Information and Drawing Conclusions
 The table shows that all architects are readers and no readers attended in May.
