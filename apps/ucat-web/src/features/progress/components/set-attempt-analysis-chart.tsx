@@ -295,7 +295,7 @@ export function SetAttemptAnalysisChart({
                 />
                 <Tooltip
                   {...ATTEMPT_CHART_TOOLTIP_PROPS}
-                  formatter={(value: number | undefined, _name, props) => {
+                  formatter={(value, _name, props) => {
                     const payload = props.payload as {
                       name: string;
                       result:
@@ -304,8 +304,10 @@ export function SetAttemptAnalysisChart({
                         | "incorrect"
                         | "not_attempted";
                     };
+                    const seconds =
+                      typeof value === "number" ? value : Number(value ?? 0);
                     return [
-                      `${formatTimeSeconds(value ?? 0)} · ${RESULT_LABELS[payload.result]}`,
+                      `${formatTimeSeconds(seconds)} · ${RESULT_LABELS[payload.result]}`,
                       `Q${payload.name}`,
                     ];
                   }}

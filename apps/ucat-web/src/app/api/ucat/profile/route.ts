@@ -2,6 +2,7 @@ import { captureApiError } from "@/lib/sentry/capture-api-error";
 import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 import { supabaseAdmin } from "@/lib/supabase/admin";
+import type { Database } from "@altitutor/shared";
 import {
   getSupportedIanaTimeZones,
   isSupportedIanaTimeZone,
@@ -173,7 +174,7 @@ export async function PATCH(request: NextRequest) {
     );
   }
 
-  const updates: Record<string, string> = {
+  const updates: Database["public"]["Tables"]["students"]["Update"] = {
     updated_at: new Date().toISOString(),
   };
   if (hasTimezone && timezoneRaw) {

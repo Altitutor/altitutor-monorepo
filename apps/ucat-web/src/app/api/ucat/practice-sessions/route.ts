@@ -2,6 +2,7 @@ import { captureApiError } from "@/lib/sentry/capture-api-error";
 import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 import { supabaseAdmin } from "@/lib/supabase/admin";
+import type { Json, TablesInsert } from "@altitutor/shared";
 import type { QuestionStemWithQuestions } from "@/features/question-engine/model/types";
 import type { PracticeSelectionInput } from "@/features/practice/model/types";
 import {
@@ -176,22 +177,16 @@ export async function POST(request: NextRequest) {
     }
   }
 
-  const insertPayload = {
+  const insertPayload: TablesInsert<"student_practice_sessions"> = {
     student_id: student.id,
     ucat_section_id: body.ucatSectionId,
     section_key: body.sectionKey,
-    filters_snapshot: body.filtersSnapshot ?? null,
-    stems_snapshot: body.stemsSnapshot ?? null,
+    filters_snapshot: (body.filtersSnapshot ?? null) as Json,
+    stems_snapshot: (body.stemsSnapshot ?? null) as Json,
     unlimited: body.unlimited ?? false,
   };
 
-  const { data: inserted, error: insertError } = await (
-    supabaseAdmin! as {
-      from: (
-        t: string,
-      ) => ReturnType<NonNullable<typeof supabaseAdmin>["from"]>;
-    }
-  )
+  const { data: inserted, error: insertError } = await supabaseAdmin!
     .from("student_practice_sessions")
     .insert(insertPayload)
     .select("id")

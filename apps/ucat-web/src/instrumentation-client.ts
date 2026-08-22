@@ -27,6 +27,7 @@ Sentry.init({
       maskAllText: true,
       maskAllInputs: true,
       blockAllMedia: true,
+      block: ["iframe[src^='https://js.stripe.com']"],
     }),
     Sentry.feedbackIntegration({
       autoInject: false,

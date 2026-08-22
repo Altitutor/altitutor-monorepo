@@ -12,6 +12,7 @@ import { motion, useReducedMotion } from "motion/react";
 import { usePathname, useRouter } from "next/navigation";
 import { useTheme } from "next-themes";
 import { useAuth } from "@/features/auth";
+import { AuthSessionRecovery } from "@/features/auth/components/auth-session-recovery";
 import { AppSidebar } from "@/features/layout/components/app-sidebar";
 import { ComingSoonProvider } from "@/features/layout/context/coming-soon-context";
 import { FloatingAppActions } from "@/features/layout/components/floating-app-actions";
@@ -212,12 +213,6 @@ function AppShellInner({ children }: AppShellProps) {
   const isGoalSetupRoute = pathname === "/ucat-goal/setup";
 
   useEffect(() => {
-    if (!isLoading && !user) {
-      router.replace("/login");
-    }
-  }, [isLoading, router, user]);
-
-  useEffect(() => {
     setMobileOpen(false);
   }, [pathname]);
 
@@ -246,9 +241,12 @@ function AppShellInner({ children }: AppShellProps) {
 
   if (isLoading || !user) {
     return (
-      <main className="mx-auto w-full max-w-[1400px] p-6 pt-28">
-        <AppPageSkeleton />
-      </main>
+      <>
+        <AuthSessionRecovery isLoading={isLoading} hasUser={Boolean(user)} />
+        <main className="mx-auto w-full max-w-[1400px] p-6 pt-28">
+          <AppPageSkeleton />
+        </main>
+      </>
     );
   }
 

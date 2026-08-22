@@ -21,7 +21,11 @@ import {
 export function OnboardingAutoStart() {
   const { startNextStep, setCurrentStep, isNextStepVisible } = useNextStep();
   const { user, isLoading: isAuthLoading } = useAuth();
-  const { isLoading: isProgressLoading, isCompleted } = useOnboardingProgress();
+  const {
+    isLoading: isProgressLoading,
+    isError: isProgressError,
+    isCompleted,
+  } = useOnboardingProgress();
   const pathname = usePathname();
   // Tracks the last tour we started in this mount so we don't re-trigger on
   // re-renders. Pathname changes overwrite it, which is what we want.
@@ -35,6 +39,7 @@ export function OnboardingAutoStart() {
     }
     if (isAuthLoading || !user) return;
     if (isProgressLoading) return;
+    if (isProgressError) return;
     if (isNextStepVisible) return;
 
     const routeEntry = getAutoStartTourEntryForPathname(pathname);
@@ -81,6 +86,7 @@ export function OnboardingAutoStart() {
     isAuthLoading,
     user,
     isProgressLoading,
+    isProgressError,
     pathname,
     isNextStepVisible,
     startNextStep,

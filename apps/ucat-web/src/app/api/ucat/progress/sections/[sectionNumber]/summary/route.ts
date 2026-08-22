@@ -32,12 +32,11 @@ export async function GET(
   const section = sectionRes.data;
   const sectionId = section.id as string;
 
-  const dynamic = supabase as unknown as { from: (relation: string) => ReturnType<typeof supabase.from> };
   const [progressRes, countsRes, categoriesRes, setProgressRes, publicSetsRes] = await Promise.all([
-    dynamic.from("vstudent_ucat_my_question_progress").select("category_id, correct_score, max_score").eq("section_id", sectionId),
-    dynamic.from("vstudent_ucat_public_question_counts").select("question_stem_category_id, total_questions").eq("section_id", sectionId),
+    supabase.from("vstudent_ucat_my_question_progress").select("category_id, correct_score, max_score").eq("section_id", sectionId),
+    supabase.from("vstudent_ucat_public_question_counts").select("question_stem_category_id, total_questions").eq("section_id", sectionId),
     supabase.from("vstudent_ucat_question_stem_categories").select("id, name").eq("ucat_section_id", sectionId),
-    dynamic.from("vstudent_ucat_section_set_progress").select("total_completed, untimed_completed, timed_completed").eq("section_id", sectionId).maybeSingle(),
+    supabase.from("vstudent_ucat_section_set_progress").select("total_completed, untimed_completed, timed_completed").eq("section_id", sectionId).maybeSingle(),
     supabase.from("vstudent_ucat_question_sets").select("sections, time_limit_seconds"),
   ]);
   const error = progressRes.error ?? countsRes.error ?? categoriesRes.error ?? setProgressRes.error ?? publicSetsRes.error;

@@ -16,9 +16,11 @@ const mockedUseOnboardingProgress = jest.mocked(useOnboardingProgress);
 function mockGateState({
   familiarity,
   completed = [],
+  progressError = false,
 }: {
   familiarity: string | null;
   completed?: string[];
+  progressError?: boolean;
 }) {
   mockedUseUcatProfile.mockReturnValue({
     data: { ucatInitialFamiliarity: familiarity },
@@ -26,6 +28,7 @@ function mockGateState({
   } as ReturnType<typeof useUcatProfile>);
   mockedUseOnboardingProgress.mockReturnValue({
     isLoading: false,
+    isError: progressError,
     isCompleted: (tourId: string) => completed.includes(tourId),
   } as ReturnType<typeof useOnboardingProgress>);
 }
@@ -51,6 +54,14 @@ describe("useQuestionEngineTutorialGate", () => {
       familiarity: "experienced",
       completed: ["ucat-question-engine-intro"],
     });
+
+    expect(
+      renderHook(() => useQuestionEngineTutorialGate()).result.current.isReady,
+    ).toBe(true);
+  });
+
+  it("does not block question routes when tutorial progress is unavailable", () => {
+    mockGateState({ familiarity: "new", progressError: true });
 
     expect(
       renderHook(() => useQuestionEngineTutorialGate()).result.current.isReady,

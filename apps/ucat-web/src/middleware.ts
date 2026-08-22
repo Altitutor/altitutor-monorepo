@@ -106,6 +106,13 @@ function unavailableResponse(cookies: CookieToSet[]) {
 export async function middleware(request: NextRequest) {
   const { pathname, origin } = new URL(request.url);
 
+  // Preflight requests do not carry useful application intent. Authenticating
+  // them adds two account-access queries and can turn an otherwise harmless
+  // browser probe into a user-visible 503 when Supabase is under load.
+  if (request.method === "OPTIONS") {
+    return NextResponse.next({ request });
+  }
+
   if (pathname.startsWith("/auth/callback&")) {
     const redirectUrl = new URL(request.url);
     redirectUrl.pathname = "/auth/callback";

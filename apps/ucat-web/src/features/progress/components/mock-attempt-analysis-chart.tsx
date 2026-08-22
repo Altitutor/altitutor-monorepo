@@ -354,7 +354,7 @@ export function MockAttemptAnalysisChart({
                   />
                   <Tooltip
                     {...ATTEMPT_CHART_TOOLTIP_PROPS}
-                    formatter={(value: number | undefined, _name, props) => {
+                    formatter={(value, _name, props) => {
                       const tooltipProps = props as {
                         payload?: {
                           index: number;
@@ -368,8 +368,10 @@ export function MockAttemptAnalysisChart({
                         };
                       };
                       const payload = tooltipProps.payload;
+                      const seconds =
+                        typeof value === "number" ? value : Number(value ?? 0);
                       if (!payload) {
-                        return [formatTimeSeconds(value ?? 0), ""];
+                        return [formatTimeSeconds(seconds), ""];
                       }
                       const setRange = setRanges.find((r) =>
                         indexInRange(payload.index, r),
@@ -379,7 +381,7 @@ export function MockAttemptAnalysisChart({
                           ? ` · Stem ${payload.stemIndex}`
                           : "";
                       return [
-                        `${formatTimeSeconds(value ?? 0)} · ${RESULT_LABELS[payload.result]}`,
+                        `${formatTimeSeconds(seconds)} · ${RESULT_LABELS[payload.result]}`,
                         `${setRange?.name ?? "Set"} Q${payload.name}${stemLabel}`,
                       ];
                     }}
