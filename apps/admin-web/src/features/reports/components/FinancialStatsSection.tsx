@@ -232,7 +232,7 @@ export function FinancialStatsSection({ dateRange, visibleCharts }: FinancialSta
               <div className="space-y-4">
                 <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_16rem]">
                   <div className="h-[220px] min-w-0">
-                    <ResponsiveContainer width="100%" height="100%">
+                    <ResponsiveContainer width="100%" height="100%" minWidth={0}>
                     <BarChart
                       data={errorsChartData}
                       margin={{ top: 8, right: 8, left: 0, bottom: 0 }}
@@ -299,7 +299,7 @@ export function FinancialStatsSection({ dateRange, visibleCharts }: FinancialSta
               <div className="space-y-4">
                 <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_16rem]">
                   <div className="h-[220px] min-w-0">
-                    <ResponsiveContainer width="100%" height="100%">
+                    <ResponsiveContainer width="100%" height="100%" minWidth={0}>
                     <BarChart
                       data={data?.subsidiesEnrolledByDay ?? []}
                       margin={{ top: 8, right: 8, left: 0, bottom: 0 }}
@@ -369,7 +369,7 @@ export function FinancialStatsSection({ dateRange, visibleCharts }: FinancialSta
               <div className="space-y-4">
                 <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_16rem]">
                   <div className="h-[220px] min-w-0">
-                    <ResponsiveContainer width="100%" height="100%">
+                    <ResponsiveContainer width="100%" height="100%" minWidth={0}>
                     <BarChart
                       data={data?.subsidiesCreatedByDay ?? []}
                       margin={{ top: 8, right: 8, left: 0, bottom: 0 }}

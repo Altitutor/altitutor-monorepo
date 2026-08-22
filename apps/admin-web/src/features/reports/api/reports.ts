@@ -2272,6 +2272,7 @@ export async function fetchBillingStatsReportData(
               createdBy: sub.created_by_staff
                 ? staffName(sub.created_by_staff.first_name, sub.created_by_staff.last_name, '')
                 : undefined,
+              summaryKey: sub.id,
             },
           },
         ];

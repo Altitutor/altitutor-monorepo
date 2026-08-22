@@ -41,6 +41,8 @@ export interface ReportEntityMeta {
   form?: string;
   purpose?: string;
   submittedAt?: string;
+  /** Stable identity used when a report has multiple drill-down rows per counted item. */
+  summaryKey?: string;
 }
 
 export interface IssueReportEntity {

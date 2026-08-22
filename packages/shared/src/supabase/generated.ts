@@ -1469,52 +1469,70 @@ export type Database = {
       }
       classes: {
         Row: {
+          cohort_label: string | null
           created_at: string | null
           created_by: string | null
-          day_of_week: number
-          end_time: string
+          day_of_week: number | null
+          end_time: string | null
           id: string
           level: string | null
           long_name: string | null
+          next_session_start_at: string | null
           room: string | null
-          session_end_date: string | null
-          session_start_date: string | null
+          schedule_summary_long: string | null
+          schedule_summary_short: string | null
+          schedule_timezone: string
+          schedule_weekdays: number[]
+          session_end_date: string
+          session_start_date: string
           short_name: string | null
-          start_time: string
+          start_time: string | null
           status: string
           subject_id: string | null
           updated_at: string | null
         }
         Insert: {
+          cohort_label?: string | null
           created_at?: string | null
           created_by?: string | null
-          day_of_week: number
-          end_time: string
+          day_of_week?: number | null
+          end_time?: string | null
           id: string
           level?: string | null
           long_name?: string | null
+          next_session_start_at?: string | null
           room?: string | null
-          session_end_date?: string | null
-          session_start_date?: string | null
+          schedule_summary_long?: string | null
+          schedule_summary_short?: string | null
+          schedule_timezone?: string
+          schedule_weekdays?: number[]
+          session_end_date: string
+          session_start_date: string
           short_name?: string | null
-          start_time: string
+          start_time?: string | null
           status: string
           subject_id?: string | null
           updated_at?: string | null
         }
         Update: {
+          cohort_label?: string | null
           created_at?: string | null
           created_by?: string | null
-          day_of_week?: number
-          end_time?: string
+          day_of_week?: number | null
+          end_time?: string | null
           id?: string
           level?: string | null
           long_name?: string | null
+          next_session_start_at?: string | null
           room?: string | null
-          session_end_date?: string | null
-          session_start_date?: string | null
+          schedule_summary_long?: string | null
+          schedule_summary_short?: string | null
+          schedule_timezone?: string
+          schedule_weekdays?: number[]
+          session_end_date?: string
+          session_start_date?: string
           short_name?: string | null
-          start_time?: string
+          start_time?: string | null
           status?: string
           subject_id?: string | null
           updated_at?: string | null
@@ -7511,11 +7529,19 @@ export type Database = {
           admin_shift_id: string | null
           billing_type: Database["public"]["Enums"]["billing_type"] | null
           booking_public_token: string | null
+          calendar_tombstone_until: string | null
           class_id: string | null
           created_at: string | null
           end_at: string | null
           id: string
+          is_schedule_exception: boolean
           long_name: string | null
+          original_end_at: string | null
+          original_start_at: string | null
+          room: string | null
+          schedule_origin: string
+          schedule_revision_id: string | null
+          schedule_slot_id: string | null
           short_name: string | null
           start_at: string | null
           status: string
@@ -7527,11 +7553,19 @@ export type Database = {
           admin_shift_id?: string | null
           billing_type?: Database["public"]["Enums"]["billing_type"] | null
           booking_public_token?: string | null
+          calendar_tombstone_until?: string | null
           class_id?: string | null
           created_at?: string | null
           end_at?: string | null
           id: string
+          is_schedule_exception?: boolean
           long_name?: string | null
+          original_end_at?: string | null
+          original_start_at?: string | null
+          room?: string | null
+          schedule_origin?: string
+          schedule_revision_id?: string | null
+          schedule_slot_id?: string | null
           short_name?: string | null
           start_at?: string | null
           status?: string
@@ -7543,11 +7577,19 @@ export type Database = {
           admin_shift_id?: string | null
           billing_type?: Database["public"]["Enums"]["billing_type"] | null
           booking_public_token?: string | null
+          calendar_tombstone_until?: string | null
           class_id?: string | null
           created_at?: string | null
           end_at?: string | null
           id?: string
+          is_schedule_exception?: boolean
           long_name?: string | null
+          original_end_at?: string | null
+          original_start_at?: string | null
+          room?: string | null
+          schedule_origin?: string
+          schedule_revision_id?: string | null
+          schedule_slot_id?: string | null
           short_name?: string | null
           start_at?: string | null
           status?: string
@@ -7596,6 +7638,20 @@ export type Database = {
             columns: ["class_id"]
             isOneToOne: false
             referencedRelation: "vtutor_classes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sessions_schedule_revision_id_fkey"
+            columns: ["schedule_revision_id"]
+            isOneToOne: false
+            referencedRelation: "class_schedule_revisions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sessions_schedule_slot_id_fkey"
+            columns: ["schedule_slot_id"]
+            isOneToOne: false
+            referencedRelation: "class_schedule_slots"
             referencedColumns: ["id"]
           },
           {
@@ -35636,6 +35692,10 @@ export type Database = {
     }
     Functions: {
       _format_date_ordinal: { Args: { ts: string }; Returns: string }
+      apply_class_schedule: {
+        Args: { p_expected_proposal_hash: string; p_proposal: Json }
+        Returns: Json
+      }
       apply_scheduled_student_discontinuations: { Args: never; Returns: number }
       apply_ucat_email_event_to_ledger: {
         Args: {
@@ -36554,6 +36614,10 @@ export type Database = {
         Args: { p_stale_after?: string }
         Returns: boolean
       }
+      is_pristine_generated_class_session: {
+        Args: { p_session_id: string }
+        Returns: boolean
+      }
       is_student: { Args: never; Returns: boolean }
       is_tutor: { Args: never; Returns: boolean }
       is_ucat_in_person_student: { Args: never; Returns: boolean }
@@ -36693,6 +36757,10 @@ export type Database = {
           inserted: boolean
           ledger_id: string
         }[]
+      }
+      refresh_class_schedule_projection: {
+        Args: { p_class_id: string }
+        Returns: undefined
       }
       refresh_ucat_question_catalog_projection: {
         Args: { p_stem_id: string }

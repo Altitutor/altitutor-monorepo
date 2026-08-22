@@ -15,6 +15,7 @@ import {
   useDroppable,
 } from '@dnd-kit/core';
 import {
+  type AnimateLayoutChanges,
   SortableContext,
   verticalListSortingStrategy,
   useSortable,
@@ -150,6 +151,8 @@ function getPropValue<TItem>(
 
 type FilterOption = { value: unknown; label: string };
 
+const animateSettlingLayoutChanges: AnimateLayoutChanges = () => true;
+
 // ---------------------------------------------------------------------------
 // Main Component
 // ---------------------------------------------------------------------------
@@ -197,9 +200,13 @@ export function KanbanBoard<TItem>(props: KanbanBoardProps<TItem>) {
   const [activeDragItem, setActiveDragItem] = React.useState<TItem | null>(null);
   const [dragPreview, setDragPreview] = React.useState<{
     itemId: string;
+    sourceColumnValue: unknown;
     columnValue: unknown;
     index: number;
+    dropped: boolean;
   } | null>(null);
+  const [settlingColumn, setSettlingColumn] = React.useState<{ value: unknown } | null>(null);
+  const settlingTimeoutRef = React.useRef<number | null>(null);
   const [columnSelectOpen, setColumnSelectOpen] = React.useState(false);
   const [sortOpen, setSortOpen] = React.useState(false);
   const filterPersistenceKey = `kanban-board:filters:${typeof window === 'undefined' ? '' : window.location.pathname}`;
@@ -334,7 +341,52 @@ export function KanbanBoard<TItem>(props: KanbanBoardProps<TItem>) {
     return sorted;
   }, [filteredItems, sortBy, sortDirection, rightPills, statusColumn, columnDefs]);
 
+  React.useEffect(() => {
+    if (!dragPreview?.dropped) return;
+
+    const item = items.find((candidate) => getItemId(candidate) === dragPreview.itemId);
+    if (!item) {
+      setDragPreview(null);
+      return;
+    }
+    if (
+      String(activeColumnDef.getValue(item)) !== String(dragPreview.columnValue)
+    ) {
+      return;
+    }
+
+    const frame = requestAnimationFrame(() => {
+      setSettlingColumn({ value: dragPreview.columnValue });
+      setDragPreview((current) =>
+        current?.dropped && current.itemId === dragPreview.itemId ? null : current
+      );
+      if (settlingTimeoutRef.current !== null) {
+        window.clearTimeout(settlingTimeoutRef.current);
+      }
+      settlingTimeoutRef.current = window.setTimeout(() => {
+        setSettlingColumn(null);
+        settlingTimeoutRef.current = null;
+      }, 250);
+    });
+
+    return () => cancelAnimationFrame(frame);
+  }, [activeColumnDef, dragPreview, getItemId, items]);
+
+  React.useEffect(
+    () => () => {
+      if (settlingTimeoutRef.current !== null) {
+        window.clearTimeout(settlingTimeoutRef.current);
+      }
+    },
+    []
+  );
+
   const handleDragStart = (event: DragStartEvent) => {
+    if (settlingTimeoutRef.current !== null) {
+      window.clearTimeout(settlingTimeoutRef.current);
+      settlingTimeoutRef.current = null;
+    }
+    setSettlingColumn(null);
     setDragPreview(null);
     const item = items.find((t) => getItemId(t) === event.active.id);
     if (item) {
@@ -406,20 +458,29 @@ export function KanbanBoard<TItem>(props: KanbanBoardProps<TItem>) {
       if (
         current?.itemId === itemId &&
         String(current.columnValue) === String(targetColumnValue) &&
-        current.index === index
+        current.index === index &&
+        !current.dropped
       ) {
         return current;
       }
-      return { itemId, columnValue: targetColumnValue, index };
+      return {
+        itemId,
+        sourceColumnValue,
+        columnValue: targetColumnValue,
+        index,
+        dropped: false,
+      };
     });
   };
 
   const handleDragEnd = (event: DragEndEvent) => {
     setActiveDragItem(null);
     const preview = dragPreview;
-    setDragPreview(null);
     const { active, over } = event;
-    if (!over) return;
+    if (!over) {
+      setDragPreview(null);
+      return;
+    }
 
     const itemId = active.id as string;
     const overId = String(over.id);
@@ -428,10 +489,24 @@ export function KanbanBoard<TItem>(props: KanbanBoardProps<TItem>) {
         ? preview.columnValue
         : getColumnValueForOverId(overId);
 
-    if (newColumnValue === undefined) return;
+    if (newColumnValue === undefined) {
+      setDragPreview(null);
+      return;
+    }
 
     const item = items.find((t) => getItemId(t) === itemId);
-    if (!item || activeColumnDef.getValue(item) === newColumnValue) return;
+    if (!item || activeColumnDef.getValue(item) === newColumnValue) {
+      setDragPreview(null);
+      return;
+    }
+
+    setDragPreview((current) =>
+      current &&
+      current.itemId === itemId &&
+      String(current.columnValue) === String(newColumnValue)
+        ? { ...current, dropped: true }
+        : current
+    );
 
     activeColumnDef.onValueChange(item, newColumnValue);
   };
@@ -981,9 +1056,13 @@ export function KanbanBoard<TItem>(props: KanbanBoardProps<TItem>) {
                 );
                 let columnItems = persistedColumnItems;
 
-                if (dragPreview && activeDragItem) {
+                const previewItem = dragPreview
+                  ? items.find((item) => getItemId(item) === dragPreview.itemId)
+                  : null;
+
+                if (dragPreview && previewItem) {
                   const isSourceColumn =
-                    String(activeColumnDef.getValue(activeDragItem)) === String(option.value);
+                    String(dragPreview.sourceColumnValue) === String(option.value);
                   const isTargetColumn =
                     String(dragPreview.columnValue) === String(option.value);
 
@@ -995,7 +1074,7 @@ export function KanbanBoard<TItem>(props: KanbanBoardProps<TItem>) {
                     columnItems = columnItems.filter(
                       (item) => getItemId(item) !== dragPreview.itemId
                     );
-                    columnItems.splice(dragPreview.index, 0, activeDragItem);
+                    columnItems.splice(dragPreview.index, 0, previewItem);
                   }
                 }
                 
@@ -1018,6 +1097,10 @@ export function KanbanBoard<TItem>(props: KanbanBoardProps<TItem>) {
                     columnDefs={columnDefs}
                     visiblePillKeys={cardVisiblePillKeys}
                     emptyMessage={emptyMessage}
+                    animateLayoutChanges={
+                      settlingColumn !== null &&
+                      String(settlingColumn.value) === String(option.value)
+                    }
                   />
                 );
               })}
@@ -1056,6 +1139,7 @@ interface KanbanColumnProps<TItem> {
   columnDefs: KanbanColumnDef<TItem, unknown>[];
   visiblePillKeys: string[];
   emptyMessage: string;
+  animateLayoutChanges: boolean;
 }
 
 function KanbanColumn<TItem>({
@@ -1073,6 +1157,7 @@ function KanbanColumn<TItem>({
   columnDefs,
   visiblePillKeys,
   emptyMessage,
+  animateLayoutChanges,
 }: KanbanColumnProps<TItem>) {
   const { setNodeRef, isOver } = useDroppable({ id });
 
@@ -1135,6 +1220,7 @@ function KanbanColumn<TItem>({
                       getItemId={getItemId}
                       renderCard={renderCard}
                       visiblePillKeys={visiblePillKeys}
+                      animateLayoutChanges={animateLayoutChanges}
                     />
                   ))}
                 </div>
@@ -1161,9 +1247,16 @@ interface SortableCardProps<TItem> {
   getItemId: (item: TItem) => string;
   renderCard: (item: TItem, visiblePillKeys: string[]) => React.ReactNode;
   visiblePillKeys: string[];
+  animateLayoutChanges: boolean;
 }
 
-function SortableCard<TItem>({ item, getItemId, renderCard, visiblePillKeys }: SortableCardProps<TItem>) {
+function SortableCard<TItem>({
+  item,
+  getItemId,
+  renderCard,
+  visiblePillKeys,
+  animateLayoutChanges,
+}: SortableCardProps<TItem>) {
   const id = getItemId(item);
   const {
     attributes,
@@ -1172,7 +1265,12 @@ function SortableCard<TItem>({ item, getItemId, renderCard, visiblePillKeys }: S
     transform,
     transition,
     isDragging,
-  } = useSortable({ id });
+  } = useSortable({
+    id,
+    animateLayoutChanges: animateLayoutChanges
+      ? animateSettlingLayoutChanges
+      : undefined,
+  });
 
   const style = {
     transform: CSS.Translate.toString(transform),

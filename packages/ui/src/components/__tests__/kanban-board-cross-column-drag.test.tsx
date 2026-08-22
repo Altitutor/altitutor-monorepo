@@ -20,6 +20,10 @@ type DragCallbacks = {
 let dragCallbacks: DragCallbacks = {};
 let simulateMeasurementFeedback = false;
 let dragOverlayDropAnimation: unknown = 'not-rendered';
+let sortableOptionsById = new Map<
+  string,
+  { animateLayoutChanges?: (args: Record<string, unknown>) => boolean }
+>();
 
 jest.mock('@dnd-kit/core', () => ({
   DndContext: ({ children, onDragStart, onDragOver, onDragEnd }: React.PropsWithChildren<DragCallbacks>) => {
@@ -66,14 +70,20 @@ jest.mock('@dnd-kit/core', () => ({
 jest.mock('@dnd-kit/sortable', () => ({
   SortableContext: ({ children }: React.PropsWithChildren) => <>{children}</>,
   verticalListSortingStrategy: jest.fn(),
-  useSortable: () => ({
-    attributes: {},
-    listeners: {},
-    setNodeRef: jest.fn(),
-    transform: null,
-    transition: undefined,
-    isDragging: false,
-  }),
+  useSortable: (options: {
+    id: string;
+    animateLayoutChanges?: (args: Record<string, unknown>) => boolean;
+  }) => {
+    sortableOptionsById.set(options.id, options);
+    return {
+      attributes: {},
+      listeners: {},
+      setNodeRef: jest.fn(),
+      transform: null,
+      transition: undefined,
+      isDragging: false,
+    };
+  },
 }));
 
 jest.mock('@dnd-kit/utilities', () => ({
@@ -133,6 +143,7 @@ describe('KanbanBoard cross-column drag preview', () => {
     dragCallbacks = {};
     simulateMeasurementFeedback = false;
     dragOverlayDropAnimation = 'not-rendered';
+    sortableOptionsById = new Map();
     container = document.createElement('div');
     document.body.appendChild(container);
     root = createRoot(container);
@@ -232,7 +243,7 @@ describe('KanbanBoard cross-column drag preview', () => {
     expect(dragOverlayDropAnimation).toBeNull();
   });
 
-  it('holds the dropped layout until the destination update arrives', () => {
+  it('holds the dropped layout until the destination update arrives', async () => {
     const renderBoard = (boardItems: Item[]) => {
       root.render(
         <KanbanBoard<Item>
@@ -278,5 +289,22 @@ describe('KanbanBoard cross-column drag preview', () => {
     // Preserve the exact dropped layout for the handoff; the following frame
     // can then animate from this order to the configured sorted order.
     expect(visibleCardIds()).toEqual(['a', 'c', 'b', 'd']);
+
+    await act(async () => {
+      await new Promise((resolve) => window.setTimeout(resolve, 20));
+    });
+
+    expect(visibleCardIds()).toEqual(['a', 'b', 'c', 'd']);
+
+    const destinationCardOptions = sortableOptionsById.get('c');
+    expect(destinationCardOptions?.animateLayoutChanges).toEqual(expect.any(Function));
+    expect(
+      destinationCardOptions?.animateLayoutChanges?.({
+        isSorting: false,
+        wasDragging: true,
+        items: ['b', 'c', 'd'],
+        previousItems: ['c', 'b', 'd'],
+      }),
+    ).toBe(true);
   });
 });

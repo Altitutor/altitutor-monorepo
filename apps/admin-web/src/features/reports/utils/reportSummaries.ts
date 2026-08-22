@@ -15,8 +15,9 @@ function entitiesForSummary(
   const source = totalMode === 'latest' ? data.at(-1)?.entities ?? [] : data.flatMap((d) => d.entities);
   const seen = new Set<string>();
   return source.filter((entity) => {
-    if (seen.has(entity.id)) return false;
-    seen.add(entity.id);
+    const summaryKey = entity.meta?.summaryKey ?? entity.id;
+    if (seen.has(summaryKey)) return false;
+    seen.add(summaryKey);
     return true;
   });
 }
@@ -48,4 +49,3 @@ export function buildReportSummary(
       .sort((a, b) => b.value - a.value || a.label.localeCompare(b.label)),
   };
 }
-

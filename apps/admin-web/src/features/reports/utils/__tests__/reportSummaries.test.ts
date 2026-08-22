@@ -38,5 +38,21 @@ describe('buildReportSummary', () => {
       ],
     });
   });
-});
 
+  it('uses an explicit summary identity for repeated drill-down rows', () => {
+    const repeatedRows: ReportDataPoint[] = [
+      {
+        date: '2026-08-22',
+        count: 1,
+        entities: [
+          { id: 'class-a', name: 'Class A', meta: { createdBy: 'Alex', summaryKey: 'subsidy-1' } },
+          { id: 'class-b', name: 'Class B', meta: { createdBy: 'Alex', summaryKey: 'subsidy-1' } },
+        ],
+      },
+    ];
+
+    expect(buildReportSummary(repeatedRows, 'latest', ['createdBy']).byStaff).toEqual([
+      { label: 'Alex', value: 1 },
+    ]);
+  });
+});
