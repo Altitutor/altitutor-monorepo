@@ -1,6 +1,6 @@
 BEGIN;
 
-SELECT plan(7);
+SELECT plan(8);
 
 CREATE TEMP TABLE initial_schedule AS
 SELECT jsonb_build_object(
@@ -69,6 +69,12 @@ SELECT throws_ok(
      WHERE id = '90000000-0000-0000-0000-000000000002' $$,
   'P0001', 'Class status changes must use the timetable preview',
   'direct Class status changes cannot bypass schedule reconciliation'
+);
+
+SELECT is(
+  (public.preview_class_deletion('90000000-0000-0000-0000-000000000002')->>'protected_future_session_count')::INTEGER,
+  2,
+  'Class deletion preview exposes exceptional and enriched future Sessions as protected'
 );
 
 CREATE TEMP TABLE changed_schedule AS

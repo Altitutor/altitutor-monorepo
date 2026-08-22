@@ -475,6 +475,46 @@ CREATE TRIGGER trigger_mark_generated_class_session_exception
   FOR EACH ROW
   EXECUTE FUNCTION public.mark_generated_class_session_exception();
 
+CREATE OR REPLACE FUNCTION public.preview_class_deletion(p_class_id UUID)
+RETURNS JSONB
+LANGUAGE plpgsql
+SECURITY INVOKER
+SET search_path = ''
+AS $$
+DECLARE
+  v_future_session_count INTEGER;
+  v_historical_session_count INTEGER;
+  v_protected_future_session_count INTEGER;
+BEGIN
+  IF CURRENT_USER NOT IN ('postgres', 'service_role')
+     AND NOT (SELECT public.is_adminstaff_active()) THEN
+    RAISE EXCEPTION 'ADMINSTAFF access required' USING ERRCODE = '42501';
+  END IF;
+
+  SELECT
+    COUNT(*) FILTER (
+      WHERE s.start_at >= NOW() AND public.is_pristine_generated_class_session(s.id)
+    )::INTEGER,
+    COUNT(*) FILTER (WHERE s.start_at < NOW())::INTEGER,
+    COUNT(*) FILTER (
+      WHERE s.start_at >= NOW() AND NOT public.is_pristine_generated_class_session(s.id)
+    )::INTEGER
+  INTO v_future_session_count, v_historical_session_count, v_protected_future_session_count
+  FROM public.sessions s
+  WHERE s.class_id = p_class_id;
+
+  RETURN jsonb_build_object(
+    'future_session_count', v_future_session_count,
+    'historical_session_count', v_historical_session_count,
+    'protected_future_session_count', v_protected_future_session_count,
+    'can_delete', v_historical_session_count = 0 AND v_protected_future_session_count = 0
+  );
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.preview_class_deletion(UUID) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.preview_class_deletion(UUID) TO authenticated, service_role;
+
 CREATE OR REPLACE FUNCTION public.delete_only_pristine_class()
 RETURNS TRIGGER
 LANGUAGE plpgsql

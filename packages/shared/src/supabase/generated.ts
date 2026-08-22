@@ -36759,6 +36759,7 @@ export type Database = {
         }
         Returns: number
       }
+      preview_class_deletion: { Args: { p_class_id: string }; Returns: Json }
       preview_class_schedule: { Args: { p_proposal: Json }; Returns: Json }
       purge_expired_class_session_tombstones: { Args: never; Returns: number }
       qualify_ucat_paid_referral: {

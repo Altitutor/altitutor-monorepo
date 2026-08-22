@@ -662,10 +662,11 @@ export function ClassesTable({ addModalState }: ClassesTableProps) {
             <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
             <AlertDialogDescription>
               This permanently deletes the Class
-              {classToDelete?.level ? ` "${classToDelete.level}"` : ''} and {deleteImpact?.futureSessionCount ?? 0} future Sessions.
-              {(deleteImpact?.historicalSessionCount ?? 0) > 0
-                ? ` It has ${deleteImpact?.historicalSessionCount} historical Sessions, so it cannot be deleted; make it inactive through Edit timetable instead.`
-                : ' Historical Sessions are never deleted.'}
+              {classToDelete?.level ? ` "${classToDelete.level}"` : ''} and {deleteImpact?.futureSessionCount ?? 0} pristine future Sessions.
+              {' '}Historical Sessions are never deleted.
+              {deleteImpact && !deleteImpact.canDelete
+                ? ` This Class also has ${deleteImpact.historicalSessionCount} historical and ${deleteImpact.protectedFutureSessionCount} protected future Sessions, so it cannot be deleted; make it inactive through Edit timetable instead.`
+                : ''}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <div className="py-4">
@@ -712,7 +713,7 @@ export function ClassesTable({ addModalState }: ClassesTableProps) {
               disabled={
                 deleteClassMutation.isPending
                 || isDeleteImpactLoading
-                || (deleteImpact?.historicalSessionCount ?? 0) > 0
+                || !deleteImpact?.canDelete
                 || (classToDelete?.level ? deleteConfirmText !== classToDelete.level : deleteConfirmText !== 'DELETE')
               }
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90 disabled:opacity-50 disabled:cursor-not-allowed"

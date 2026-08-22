@@ -18,6 +18,8 @@ export type MinimalClass = Pick<
 export interface ClassDeleteImpact {
   futureSessionCount: number;
   historicalSessionCount: number;
+  protectedFutureSessionCount: number;
+  canDelete: boolean;
 }
 
 /**
@@ -674,16 +676,19 @@ export const classesApi = {
 
   getDeleteImpact: async (id: string): Promise<ClassDeleteImpact> => {
     const supabase = getSupabaseClient() as SupabaseClient<Database>;
-    const now = new Date().toISOString();
-    const [futureResult, historicalResult] = await Promise.all([
-      supabase.from('sessions').select('id', { count: 'exact', head: true }).eq('class_id', id).gte('start_at', now),
-      supabase.from('sessions').select('id', { count: 'exact', head: true }).eq('class_id', id).lt('start_at', now),
-    ]);
-    if (futureResult.error) throw futureResult.error;
-    if (historicalResult.error) throw historicalResult.error;
+    const { data, error } = await supabase.rpc('preview_class_deletion', { p_class_id: id });
+    if (error) throw error;
+    const impact = data as {
+      future_session_count: number;
+      historical_session_count: number;
+      protected_future_session_count: number;
+      can_delete: boolean;
+    };
     return {
-      futureSessionCount: futureResult.count ?? 0,
-      historicalSessionCount: historicalResult.count ?? 0,
+      futureSessionCount: impact.future_session_count,
+      historicalSessionCount: impact.historical_session_count,
+      protectedFutureSessionCount: impact.protected_future_session_count,
+      canDelete: impact.can_delete,
     };
   },
   
