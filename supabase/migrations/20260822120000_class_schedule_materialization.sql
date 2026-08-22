@@ -58,6 +58,10 @@ BEGIN
     RAISE EXCEPTION 'Unknown Class schedule timezone: %', v_timezone;
   END IF;
 
+  IF v_effective_from < (NOW() AT TIME ZONE v_timezone)::DATE THEN
+    RAISE EXCEPTION 'The schedule effective date must be today or later';
+  END IF;
+
   IF v_schedule_type = 'RECURRING' THEN
     IF v_frequency_weeks NOT IN (1, 2) OR v_anchor_date IS NULL THEN
       RAISE EXCEPTION 'Recurring schedules require a weekly or fortnightly anchor';
@@ -183,7 +187,6 @@ BEGIN
         AND s.type = 'CLASS'
         AND s.status = 'ACTIVE'
         AND s.start_at >= v_effective_from::TIMESTAMP AT TIME ZONE v_timezone
-        AND (s.start_at AT TIME ZONE v_timezone)::DATE <= v_end_date
         AND NOT EXISTS (
           SELECT 1
           FROM jsonb_array_elements(v_occurrences) planned
@@ -666,12 +669,14 @@ AS $$
 DECLARE
   v_previous_schedule_apply TEXT := current_setting('app.class_schedule_apply', TRUE);
 BEGIN
-  IF OLD.subject_id IS DISTINCT FROM NEW.subject_id OR OLD.status IS DISTINCT FROM NEW.status THEN
+  IF OLD.status IS DISTINCT FROM NEW.status AND v_previous_schedule_apply IS DISTINCT FROM 'true' THEN
+    RAISE EXCEPTION 'Class status changes must use the timetable preview';
+  END IF;
+
+  IF OLD.subject_id IS DISTINCT FROM NEW.subject_id AND v_previous_schedule_apply IS DISTINCT FROM 'true' THEN
     PERFORM set_config('app.class_schedule_apply', 'true', TRUE);
     UPDATE public.sessions s
-    SET
-      subject_id = NEW.subject_id,
-      status = CASE WHEN NEW.status = 'INACTIVE' THEN 'INACTIVE' ELSE 'ACTIVE' END
+    SET subject_id = NEW.subject_id
     WHERE s.class_id = NEW.id
       AND s.type = 'CLASS'
       AND s.start_at >= NOW();

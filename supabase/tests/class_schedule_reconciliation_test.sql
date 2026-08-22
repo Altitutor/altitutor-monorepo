@@ -1,6 +1,6 @@
 BEGIN;
 
-SELECT plan(4);
+SELECT plan(7);
 
 CREATE TEMP TABLE initial_schedule AS
 SELECT jsonb_build_object(
@@ -50,6 +50,26 @@ SELECT
 FROM public.sessions s
 WHERE s.class_id = '90000000-0000-0000-0000-000000000002'
   AND (s.start_at AT TIME ZONE 'Australia/Adelaide')::DATE = DATE '2026-09-16';
+
+SELECT is(
+  (
+    SELECT (public.preview_class_schedule(proposal || jsonb_build_object(
+      'end_date', '2026-09-15',
+      'effective_from', '2026-09-08'
+    ))->'counts'->>'cancel')::INTEGER
+    FROM initial_schedule
+  ),
+  2,
+  'shortening a Class previews pristine removals after the new end date'
+);
+
+SELECT throws_ok(
+  $$ UPDATE public.classes
+     SET status = 'INACTIVE'
+     WHERE id = '90000000-0000-0000-0000-000000000002' $$,
+  'P0001', 'Class status changes must use the timetable preview',
+  'direct Class status changes cannot bypass schedule reconciliation'
+);
 
 CREATE TEMP TABLE changed_schedule AS
 SELECT jsonb_build_object(
@@ -108,6 +128,27 @@ SELECT results_eq(
   $$,
   $$ VALUES (7, 1) $$,
   'apply preserves history and protected Sessions while tombstoning only the pristine removal'
+);
+
+UPDATE public.classes
+SET subject_id = (
+  SELECT id FROM public.subjects
+  WHERE id IS DISTINCT FROM public.classes.subject_id
+  ORDER BY id
+  LIMIT 1
+)
+WHERE id = '90000000-0000-0000-0000-000000000002';
+
+SELECT is(
+  (
+    SELECT COUNT(*)::INTEGER
+    FROM public.sessions
+    WHERE class_id = '90000000-0000-0000-0000-000000000002'
+      AND status = 'INACTIVE'
+      AND calendar_tombstone_until IS NOT NULL
+  ),
+  1,
+  'a Class subject edit does not reactivate a cancellation tombstone'
 );
 
 SELECT * FROM finish();

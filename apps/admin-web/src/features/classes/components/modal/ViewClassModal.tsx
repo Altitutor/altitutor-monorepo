@@ -21,7 +21,7 @@ import { ActionsMenu } from '@/shared/components/ActionsMenu';
 import { useClassActions } from '../../hooks/useClassActions';
 import { useQueryClient } from '@tanstack/react-query';
 import { classesApi } from "../../api";
-import { useClassDetails, useDeleteClass } from '../../hooks/useClassesQuery';
+import { useClassDeleteImpact, useClassDetails, useDeleteClass } from '../../hooks/useClassesQuery';
 import { useSubjects } from '@/features/subjects';
 import { useStudents } from '@/features/students/hooks/useStudentsQuery';
 import { useStaff } from '@/features/staff/hooks/useStaffQuery';
@@ -71,6 +71,10 @@ export function ViewClassModal({
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [deleteConfirmText, setDeleteConfirmText] = useState('');
   const [isScheduleDialogOpen, setIsScheduleDialogOpen] = useState(false);
+  const { data: deleteImpact, isLoading: isDeleteImpactLoading } = useClassDeleteImpact(
+    classData?.id,
+    isDeleteDialogOpen
+  );
   
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -108,7 +112,6 @@ export function ViewClassModal({
         day_of_week: data.dayOfWeek,
         start_time: data.startTime,
         end_time: data.endTime,
-        status: data.status,
         subject_id: data.subjectId || null,
         room: data.room || null,
         session_start_date: data.sessionStartDate || classData.session_start_date,
@@ -407,8 +410,11 @@ export function ViewClassModal({
         <AlertDialogHeader>
           <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
           <AlertDialogDescription>
-            This action cannot be undone. This will permanently delete the class
-            {classData?.level ? ` "${classData.level}"` : ''} and all associated data from the database.
+            This permanently deletes the Class
+            {classData?.level ? ` "${classData.level}"` : ''} and {deleteImpact?.futureSessionCount ?? 0} future Sessions.
+            {(deleteImpact?.historicalSessionCount ?? 0) > 0
+              ? ` It has ${deleteImpact?.historicalSessionCount} historical Sessions, so it cannot be deleted; make it inactive through Edit timetable instead.`
+              : ' Historical Sessions are never deleted.'}
           </AlertDialogDescription>
         </AlertDialogHeader>
         <div className="py-4">
@@ -437,7 +443,12 @@ export function ViewClassModal({
               setIsDeleteDialogOpen(false);
               setDeleteConfirmText('');
             }}
-            disabled={isDeleting || (classData?.level ? deleteConfirmText !== classData.level : deleteConfirmText !== 'DELETE')}
+            disabled={
+              isDeleting
+              || isDeleteImpactLoading
+              || (deleteImpact?.historicalSessionCount ?? 0) > 0
+              || (classData?.level ? deleteConfirmText !== classData.level : deleteConfirmText !== 'DELETE')
+            }
             className="bg-destructive text-destructive-foreground hover:bg-destructive/90 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {isDeleting ? (

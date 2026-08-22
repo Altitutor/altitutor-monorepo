@@ -251,7 +251,7 @@ export function ClassInfoTab({
                           getItemLabel={(o) => o.label}
                           getItemId={(o) => o.value}
                           placeholder="Select status"
-                          disabled={isLoading}
+                          disabled
                         />
                       );
                     }}
@@ -259,6 +259,9 @@ export function ClassInfoTab({
                   {form.formState.errors.status && (
                     <p className="text-sm text-red-500">{form.formState.errors.status.message}</p>
                   )}
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Use Edit timetable to preview a status change.
+                  </p>
                 </div>
               </div>
               

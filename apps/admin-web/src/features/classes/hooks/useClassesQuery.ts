@@ -13,6 +13,7 @@ export const classesKeys = {
   detail: (id: string) => [...classesKeys.details(), id] as const,
   detailFull: (id: string) => [...classesKeys.detail(id), 'details'] as const,
   schedule: (id: string) => [...classesKeys.detail(id), 'schedule'] as const,
+  deleteImpact: (id: string) => [...classesKeys.detail(id), 'delete-impact'] as const,
   withDetails: () => [...classesKeys.all, 'withDetails'] as const,
   withStudents: () => [...classesKeys.all, 'withStudents'] as const,
   forStaffWithDetails: (staffId: string) => [...classesKeys.all, 'forStaffWithDetails', staffId] as const,
@@ -22,6 +23,14 @@ export function useClassSchedule(classId: string, enabled = true) {
   return useQuery({
     queryKey: classesKeys.schedule(classId),
     queryFn: () => classesApi.getLatestSchedule(classId),
+    enabled: enabled && !!classId,
+  });
+}
+
+export function useClassDeleteImpact(classId: string | undefined, enabled = true) {
+  return useQuery({
+    queryKey: classesKeys.deleteImpact(classId ?? ''),
+    queryFn: () => classesApi.getDeleteImpact(classId!),
     enabled: enabled && !!classId,
   });
 }

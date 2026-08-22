@@ -15,6 +15,11 @@ export type MinimalClass = Pick<
   staff?: Tables<'staff'>[];
 };
 
+export interface ClassDeleteImpact {
+  futureSessionCount: number;
+  historicalSessionCount: number;
+}
+
 /**
  * Classes API client for working with class data
  */
@@ -665,6 +670,21 @@ export const classesApi = {
     const supabase = (getSupabaseClient() as SupabaseClient<Database>);
     const { error } = await supabase.from('classes').delete().eq('id', id);
     if (error) throw error;
+  },
+
+  getDeleteImpact: async (id: string): Promise<ClassDeleteImpact> => {
+    const supabase = getSupabaseClient() as SupabaseClient<Database>;
+    const now = new Date().toISOString();
+    const [futureResult, historicalResult] = await Promise.all([
+      supabase.from('sessions').select('id', { count: 'exact', head: true }).eq('class_id', id).gte('start_at', now),
+      supabase.from('sessions').select('id', { count: 'exact', head: true }).eq('class_id', id).lt('start_at', now),
+    ]);
+    if (futureResult.error) throw futureResult.error;
+    if (historicalResult.error) throw historicalResult.error;
+    return {
+      futureSessionCount: futureResult.count ?? 0,
+      historicalSessionCount: historicalResult.count ?? 0,
+    };
   },
   
   /**

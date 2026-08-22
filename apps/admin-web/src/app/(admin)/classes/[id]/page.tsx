@@ -75,7 +75,6 @@ export default function ClassDetailPage({ params }: { params: { id: string } }) 
         day_of_week: data.dayOfWeek,
         start_time: data.startTime,
         end_time: data.endTime,
-        status: data.status,
         subject_id: data.subjectId || null,
         room: data.room || null,
         session_start_date: data.sessionStartDate || classData.session_start_date,

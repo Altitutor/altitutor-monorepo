@@ -33,6 +33,10 @@ const FREQUENCIES = [
   { label: 'Every week', value: 1 as const },
   { label: 'Every fortnight', value: 2 as const },
 ];
+const STATUSES = [
+  { label: 'Active', value: 'ACTIVE' as const },
+  { label: 'Inactive', value: 'INACTIVE' as const },
+];
 
 interface EditClassScheduleDialogProps {
   classData: Tables<'classes'>;
@@ -61,6 +65,7 @@ export function EditClassScheduleDialog({
   const applyMutation = useApplyClassSchedule();
   const [rows, setRows] = useState<ClassScheduleRow[]>([]);
   const [frequencyWeeks, setFrequencyWeeks] = useState<1 | 2>(1);
+  const [classStatus, setClassStatus] = useState<'ACTIVE' | 'INACTIVE'>('ACTIVE');
   const [effectiveFrom, setEffectiveFrom] = useState(todayInAdelaide());
   const [endDate, setEndDate] = useState(classData.session_end_date);
   const [proposal, setProposal] = useState<ClassScheduleProposal | null>(null);
@@ -76,6 +81,7 @@ export function EditClassScheduleDialog({
       room: classData.room,
     }, () => crypto.randomUUID()));
     setFrequencyWeeks(storedSchedule?.frequencyWeeks ?? 1);
+    setClassStatus(classData.status === 'INACTIVE' ? 'INACTIVE' : 'ACTIVE');
     setEffectiveFrom(todayInAdelaide() < classData.session_start_date ? classData.session_start_date : todayInAdelaide());
     setEndDate(classData.session_end_date);
     setProposal(null);
@@ -88,6 +94,7 @@ export function EditClassScheduleDialog({
     classData.session_end_date,
     classData.session_start_date,
     classData.start_time,
+    classData.status,
     open,
     storedSchedule,
   ]);
@@ -116,7 +123,7 @@ export function EditClassScheduleDialog({
       anchorDate: storedSchedule?.anchorDate ?? classData.session_start_date,
       frequencyWeeks,
       rows,
-      status: classData.status === 'INACTIVE' ? 'INACTIVE' : 'ACTIVE',
+      status: classStatus,
     });
     setError(null);
     try {
@@ -157,7 +164,7 @@ export function EditClassScheduleDialog({
           <div className="flex justify-center p-10"><Loader2 className="h-5 w-5 animate-spin" /></div>
         ) : !plan ? (
           <div className="max-h-[62vh] space-y-5 overflow-y-auto">
-            <div className="grid gap-4 sm:grid-cols-3">
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
               <div className="space-y-2">
                 <Label>Effective from</Label>
                 <SmartDatePickerField
@@ -186,6 +193,20 @@ export function EditClassScheduleDialog({
                   getItemId={(item) => String(item.value)}
                   getItemLabel={(item) => item.label}
                 />
+              </div>
+              <div className="space-y-2">
+                <Label>Status</Label>
+                <SearchableSelect<(typeof STATUSES)[number]>
+                  items={STATUSES}
+                  value={STATUSES.find((item) => item.value === classStatus) ?? null}
+                  onValueChange={(item) => {
+                    setClassStatus(item?.value ?? 'ACTIVE');
+                    setPlan(null);
+                  }}
+                  getItemId={(item) => item.value}
+                  getItemLabel={(item) => item.label}
+                />
+                <p className="text-xs text-muted-foreground">Status changes use the same Session preview.</p>
               </div>
             </div>
             <div className="space-y-3">

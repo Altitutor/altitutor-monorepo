@@ -1,6 +1,6 @@
 BEGIN;
 
-SELECT plan(9);
+SELECT plan(10);
 
 SELECT is(
   (public.preview_class_schedule(jsonb_build_object(
@@ -81,12 +81,27 @@ SELECT throws_ok(
 
 SELECT throws_ok(
   $$ SELECT public.preview_class_schedule(jsonb_build_object(
-    'schedule_type', 'RECURRING', 'start_date', '2026-01-01', 'end_date', '2046-12-31',
-    'frequency_weeks', 1, 'anchor_date', '2026-01-01',
+    'schedule_type', 'RECURRING', 'start_date', '2026-09-01', 'end_date', '2046-12-31',
+    'frequency_weeks', 1, 'anchor_date', '2026-09-01',
     'recurring_rows', jsonb_build_array(jsonb_build_object('day_of_week', 4, 'start_time', '13:00', 'end_time', '14:00'))
   )) $$,
   'P0001', 'A Class timetable cannot contain more than 1000 Sessions',
   'bounded plans still enforce the 1000-Session safety cap'
+);
+
+SELECT throws_ok(
+  $$ SELECT public.preview_class_schedule(jsonb_build_object(
+    'schedule_type', 'RECURRING',
+    'start_date', ((NOW() AT TIME ZONE 'Australia/Adelaide')::DATE - 7)::TEXT,
+    'end_date', ((NOW() AT TIME ZONE 'Australia/Adelaide')::DATE + 7)::TEXT,
+    'effective_from', ((NOW() AT TIME ZONE 'Australia/Adelaide')::DATE - 1)::TEXT,
+    'timezone', 'Australia/Adelaide',
+    'frequency_weeks', 1,
+    'anchor_date', ((NOW() AT TIME ZONE 'Australia/Adelaide')::DATE - 7)::TEXT,
+    'recurring_rows', jsonb_build_array(jsonb_build_object('day_of_week', 4, 'start_time', '13:00', 'end_time', '14:00'))
+  )) $$,
+  'P0001', 'The schedule effective date must be today or later',
+  'the server rejects historical schedule reconciliation'
 );
 
 SELECT throws_ok(

@@ -181,7 +181,7 @@ export function AddClassModal({ isOpen, onClose, onClassAdded }: AddClassModalPr
         router,
         entityType: 'class',
         entityId: result.class_id ?? classId,
-        message: 'Class and repeating sessions created successfully.',
+        message: 'Class and scheduled Sessions created successfully.',
       });
       onClassAdded();
       onClose();

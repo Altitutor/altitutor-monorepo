@@ -29,7 +29,7 @@ import {
   SearchableSelectInline,
 } from "@altitutor/ui";
 import { Loader2 } from 'lucide-react';
-import { useClassesMinimalPaginated, useDeleteClass } from '../hooks/useClassesQuery';
+import { useClassDeleteImpact, useClassesMinimalPaginated, useDeleteClass } from '../hooks/useClassesQuery';
 import { useSubjectsSearchForFilter } from '../hooks/useSubjectsSearchForFilter';
 import { useStudentSearchForFilter } from '@/features/sessions/hooks/useStudentSearchForFilter';
 import { useStaffSearchForFilter } from '@/features/sessions/hooks/useStaffSearchForFilter';
@@ -319,6 +319,10 @@ export function ClassesTable({ addModalState }: ClassesTableProps) {
   const [isClassDeleteDialogOpen, setIsClassDeleteDialogOpen] = useState(false);
   const [deleteConfirmText, setDeleteConfirmText] = useState('');
   const deleteClassMutation = useDeleteClass();
+  const { data: deleteImpact, isLoading: isDeleteImpactLoading } = useClassDeleteImpact(
+    classToDelete?.id,
+    isClassDeleteDialogOpen
+  );
   const { toast } = useToast();
 
   // Ensure hooks are declared before any early returns
@@ -657,8 +661,11 @@ export function ClassesTable({ addModalState }: ClassesTableProps) {
           <AlertDialogHeader>
             <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
             <AlertDialogDescription>
-              This action cannot be undone. This will permanently delete the class
-              {classToDelete?.level ? ` "${classToDelete.level}"` : ''} and all associated data from the database.
+              This permanently deletes the Class
+              {classToDelete?.level ? ` "${classToDelete.level}"` : ''} and {deleteImpact?.futureSessionCount ?? 0} future Sessions.
+              {(deleteImpact?.historicalSessionCount ?? 0) > 0
+                ? ` It has ${deleteImpact?.historicalSessionCount} historical Sessions, so it cannot be deleted; make it inactive through Edit timetable instead.`
+                : ' Historical Sessions are never deleted.'}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <div className="py-4">
@@ -702,7 +709,12 @@ export function ClassesTable({ addModalState }: ClassesTableProps) {
                   });
                 }
               }}
-              disabled={deleteClassMutation.isPending || (classToDelete?.level ? deleteConfirmText !== classToDelete.level : deleteConfirmText !== 'DELETE')}
+              disabled={
+                deleteClassMutation.isPending
+                || isDeleteImpactLoading
+                || (deleteImpact?.historicalSessionCount ?? 0) > 0
+                || (classToDelete?.level ? deleteConfirmText !== classToDelete.level : deleteConfirmText !== 'DELETE')
+              }
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {deleteClassMutation.isPending ? (
