@@ -12,6 +12,12 @@ import {
 } from 'recharts';
 import type { ReportDataPoint } from '../types';
 import { ReportsEntitiesTable, type ReportsEntitiesTableVariant } from './ReportsEntitiesTable';
+import { ReportSummaryCard } from './ReportSummaryCard';
+import {
+  buildReportSummary,
+  type ReportStaffMetaKey,
+  type ReportTotalMode,
+} from '../utils/reportSummaries';
 
 type ReportEntity = ReportDataPoint['entities'][number];
 
@@ -37,6 +43,10 @@ interface IssuesReportChartProps {
    * Called when an entity is clicked. Entity is clickable when this is provided and entity has a link.
    */
   onEntityClick?: (entity: ReportEntity) => void;
+  totalMode?: ReportTotalMode;
+  staffMetaKeys?: ReportStaffMetaKey[];
+  summaryEntries?: Array<{ label: string; value: number | string }>;
+  summaryEntriesLabel?: string;
 }
 
 const CHART_PRIMARY = 'hsl(var(--primary))';
@@ -86,17 +96,23 @@ export function IssuesReportChart({
   barColor = CHART_PRIMARY,
   entityLabelSingular = 'issue',
   onEntityClick,
+  totalMode = 'sum',
+  staffMetaKeys = [],
+  summaryEntries,
+  summaryEntriesLabel,
   tableVariant,
 }: IssuesReportChartProps & { tableVariant: ReportsEntitiesTableVariant }) {
   const todayStr = new Date().toISOString().slice(0, 10);
   const highlightColor = CHART_PRIMARY;
 
   const deduplicatedEntities = getDeduplicatedEntities(data);
+  const summary = buildReportSummary(data, totalMode, staffMetaKeys);
 
   return (
     <div className="space-y-4">
-      <div className="h-[280px]">
-        <ResponsiveContainer width="100%" height="100%">
+      <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_16rem]">
+        <div className="h-[280px] min-w-0">
+          <ResponsiveContainer width="100%" height="100%">
           <BarChart data={data} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
             <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
             <XAxis
@@ -123,7 +139,13 @@ export function IssuesReportChart({
               })}
             </Bar>
           </BarChart>
-        </ResponsiveContainer>
+          </ResponsiveContainer>
+        </div>
+        <ReportSummaryCard
+          total={summary.total}
+          entries={summaryEntries ?? summary.byStaff}
+          entriesLabel={summaryEntriesLabel}
+        />
       </div>
       <ReportsEntitiesTable
         entities={deduplicatedEntities}

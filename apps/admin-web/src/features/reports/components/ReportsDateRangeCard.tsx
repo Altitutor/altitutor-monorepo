@@ -1,4 +1,11 @@
-import { subDays } from 'date-fns';
+import {
+  startOfMonth,
+  startOfQuarter,
+  startOfWeek,
+  startOfYear,
+  subDays,
+} from 'date-fns';
+import type { SmartDatePickerPreset } from '@altitutor/ui';
 
 export interface ReportsDateRange {
   start: Date;
@@ -9,6 +16,7 @@ export const REPORTS_SECTION_KEYS = [
   'operations',
   'scheduling',
   'financial',
+  'hr',
 ] as const;
 
 export type ReportsSectionKey = (typeof REPORTS_SECTION_KEYS)[number];
@@ -17,6 +25,7 @@ export const REPORTS_SECTION_LABELS: Record<ReportsSectionKey, string> = {
   operations: 'Operations',
   scheduling: 'Scheduling',
   financial: 'Financial',
+  hr: 'HR',
 };
 
 export const REPORTS_CHART_CONFIG = {
@@ -60,6 +69,12 @@ export const REPORTS_CHART_CONFIG = {
     subsidiesEnrolled: 'Subsidies (enrolled in class)',
     subsidiesCreated: 'Subsidies',
   },
+  hr: {
+    staffCheckIns: 'Staff check-ins',
+    studentCheckIns: 'Student check-ins',
+    parentCheckIns: 'Parent check-ins',
+    formCompletions: 'Form completions',
+  },
 } as const;
 
 export type OperationsSubsection = keyof (typeof REPORTS_CHART_CONFIG)['operations'];
@@ -93,6 +108,12 @@ export type ReportsVisibleCharts = {
     subsidiesEnrolled: boolean;
     subsidiesCreated: boolean;
   };
+  hr: {
+    staffCheckIns: boolean;
+    studentCheckIns: boolean;
+    parentCheckIns: boolean;
+    formCompletions: boolean;
+  };
 };
 
 function buildDefaultVisibleCharts(): ReportsVisibleCharts {
@@ -124,6 +145,12 @@ function buildDefaultVisibleCharts(): ReportsVisibleCharts {
       subsidiesEnrolled: false,
       subsidiesCreated: true,
     },
+    hr: {
+      staffCheckIns: true,
+      studentCheckIns: true,
+      parentCheckIns: true,
+      formCompletions: true,
+    },
   };
 }
 
@@ -133,4 +160,18 @@ export function getDefaultReportsDateRange(): ReportsDateRange {
   const end = new Date();
   const start = subDays(end, 6);
   return { start, end };
+}
+
+export function getReportsDatePresets(referenceDate = new Date()): SmartDatePickerPreset[] {
+  return [
+    { label: 'Today', value: referenceDate },
+    { label: 'Yesterday', value: subDays(referenceDate, 1) },
+    {
+      label: 'Last week',
+      value: startOfWeek(subDays(referenceDate, 7), { weekStartsOn: 1 }),
+    },
+    { label: 'Start of this month', value: startOfMonth(referenceDate) },
+    { label: 'Start of this quarter', value: startOfQuarter(referenceDate) },
+    { label: 'Start of this year', value: startOfYear(referenceDate) },
+  ];
 }

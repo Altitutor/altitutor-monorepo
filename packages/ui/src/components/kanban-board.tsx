@@ -3,8 +3,10 @@
 import * as React from 'react';
 import {
   DndContext,
+  DragCancelEvent,
   DragEndEvent,
   DragOverlay,
+  DragOverEvent,
   DragStartEvent,
   PointerSensor,
   useSensor,
@@ -193,6 +195,11 @@ export function KanbanBoard<TItem>(props: KanbanBoardProps<TItem>) {
     rightPills.filter((p) => p.visibleByDefault !== false).map((p) => p.key)
   );
   const [activeDragItem, setActiveDragItem] = React.useState<TItem | null>(null);
+  const [dragPreview, setDragPreview] = React.useState<{
+    itemId: string;
+    columnValue: unknown;
+    index: number;
+  } | null>(null);
   const [columnSelectOpen, setColumnSelectOpen] = React.useState(false);
   const [sortOpen, setSortOpen] = React.useState(false);
   const filterPersistenceKey = `kanban-board:filters:${typeof window === 'undefined' ? '' : window.location.pathname}`;
@@ -328,34 +335,98 @@ export function KanbanBoard<TItem>(props: KanbanBoardProps<TItem>) {
   }, [filteredItems, sortBy, sortDirection, rightPills, statusColumn, columnDefs]);
 
   const handleDragStart = (event: DragStartEvent) => {
+    setDragPreview(null);
     const item = items.find((t) => getItemId(t) === event.active.id);
     if (item) {
       setActiveDragItem(item);
     }
   };
 
+  const getColumnValueForOverId = (overId: string): unknown => {
+    if (overId.startsWith('column-')) {
+      const valueStr = overId.replace('column-', '');
+      return activeColumnDef.options.find((option) => String(option.value) === valueStr)?.value;
+    }
+
+    const targetItem = items.find((item) => getItemId(item) === overId);
+    return targetItem ? activeColumnDef.getValue(targetItem) : undefined;
+  };
+
+  const handleDragOver = (event: DragOverEvent) => {
+    const { active, over } = event;
+    if (!over) {
+      setDragPreview(null);
+      return;
+    }
+
+    const itemId = String(active.id);
+    const item = items.find((candidate) => getItemId(candidate) === itemId);
+    if (!item) return;
+
+    const overId = String(over.id);
+    if (overId === itemId && dragPreview?.itemId === itemId) return;
+
+    const sourceColumnValue = activeColumnDef.getValue(item);
+    const targetColumnValue = getColumnValueForOverId(overId);
+
+    if (
+      targetColumnValue === undefined ||
+      String(sourceColumnValue) === String(targetColumnValue)
+    ) {
+      setDragPreview(null);
+      return;
+    }
+
+    const targetItems = sortedItems.filter(
+      (candidate) =>
+        getItemId(candidate) !== itemId &&
+        String(activeColumnDef.getValue(candidate)) === String(targetColumnValue)
+    );
+    let index = targetItems.length;
+
+    if (!overId.startsWith('column-') && overId !== itemId) {
+      const overIndex = targetItems.findIndex((candidate) => getItemId(candidate) === overId);
+      if (overIndex !== -1) {
+        const activatorEvent = event.activatorEvent;
+        const pointerY =
+          'clientY' in activatorEvent && typeof activatorEvent.clientY === 'number'
+            ? activatorEvent.clientY + event.delta.y
+            : null;
+        const translatedRect = active.rect.current.translated;
+        const isBelowOverItem =
+          pointerY !== null
+            ? pointerY > over.rect.top + over.rect.height / 2
+            : translatedRect !== null &&
+              translatedRect.top > over.rect.top + over.rect.height / 2;
+        index = overIndex + (isBelowOverItem ? 1 : 0);
+      }
+    }
+
+    setDragPreview((current) => {
+      if (
+        current?.itemId === itemId &&
+        String(current.columnValue) === String(targetColumnValue) &&
+        current.index === index
+      ) {
+        return current;
+      }
+      return { itemId, columnValue: targetColumnValue, index };
+    });
+  };
+
   const handleDragEnd = (event: DragEndEvent) => {
     setActiveDragItem(null);
+    const preview = dragPreview;
+    setDragPreview(null);
     const { active, over } = event;
     if (!over) return;
 
     const itemId = active.id as string;
-    let newColumnValue: unknown;
-
-    // Check if over a column or over another card
     const overId = String(over.id);
-    if (overId.startsWith('column-')) {
-      const valueStr = overId.replace('column-', '');
-      // Find the option with this value
-      const option = activeColumnDef.options.find(opt => String(opt.value) === valueStr);
-      if (option) newColumnValue = option.value;
-    } else {
-      // Over another card, find that card's column value
-      const targetItem = items.find(t => getItemId(t) === overId);
-      if (targetItem) {
-        newColumnValue = activeColumnDef.getValue(targetItem);
-      }
-    }
+    const newColumnValue =
+      overId === itemId && preview
+        ? preview.columnValue
+        : getColumnValueForOverId(overId);
 
     if (newColumnValue === undefined) return;
 
@@ -363,6 +434,11 @@ export function KanbanBoard<TItem>(props: KanbanBoardProps<TItem>) {
     if (!item || activeColumnDef.getValue(item) === newColumnValue) return;
 
     activeColumnDef.onValueChange(item, newColumnValue);
+  };
+
+  const handleDragCancel = (_event: DragCancelEvent) => {
+    setActiveDragItem(null);
+    setDragPreview(null);
   };
 
   return (
@@ -893,16 +969,37 @@ export function KanbanBoard<TItem>(props: KanbanBoardProps<TItem>) {
           sensors={sensors}
           collisionDetection={closestCorners}
           onDragStart={handleDragStart}
+          onDragOver={handleDragOver}
           onDragEnd={handleDragEnd}
+          onDragCancel={handleDragCancel}
         >
           <div className="h-full w-full overflow-x-auto overflow-y-hidden">
             <div className="flex h-full px-6 pb-0 pt-2 gap-4 min-w-max">
               {activeColumnDef.options.map((option: { value: unknown; label: string }) => {
-                const columnItems = sortedItems.filter(
+                const persistedColumnItems = sortedItems.filter(
                   (item) => String(activeColumnDef.getValue(item)) === String(option.value)
                 );
+                let columnItems = persistedColumnItems;
+
+                if (dragPreview && activeDragItem) {
+                  const isSourceColumn =
+                    String(activeColumnDef.getValue(activeDragItem)) === String(option.value);
+                  const isTargetColumn =
+                    String(dragPreview.columnValue) === String(option.value);
+
+                  if (isSourceColumn) {
+                    columnItems = columnItems.filter(
+                      (item) => getItemId(item) !== dragPreview.itemId
+                    );
+                  } else if (isTargetColumn) {
+                    columnItems = columnItems.filter(
+                      (item) => getItemId(item) !== dragPreview.itemId
+                    );
+                    columnItems.splice(dragPreview.index, 0, activeDragItem);
+                  }
+                }
                 
-                if (hideEmptyColumns && columnItems.length === 0) return null;
+                if (hideEmptyColumns && persistedColumnItems.length === 0) return null;
 
                 return (
                   <KanbanColumn
@@ -927,7 +1024,7 @@ export function KanbanBoard<TItem>(props: KanbanBoardProps<TItem>) {
             </div>
           </div>
 
-          <DragOverlay>
+          <DragOverlay dropAnimation={null}>
             {activeDragItem ? (
               <div className="opacity-50 rotate-3 scale-105 pointer-events-none">
                 {renderCard(activeDragItem, cardVisiblePillKeys)}

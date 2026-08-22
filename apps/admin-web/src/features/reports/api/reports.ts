@@ -62,6 +62,7 @@ type StudentRow = {
   status: string;
   active_at: string | null;
   registered_at: string | null;
+  created_by_staff: { first_name: string | null; last_name: string | null } | null;
 };
 
 type DiscontinuedStudentRow = {
@@ -74,6 +75,7 @@ type DiscontinuedStudentRow = {
 
 type ClassRow = Tables<'classes'> & {
   subject?: Tables<'subjects'> | null;
+  created_by_staff?: { first_name: string | null; last_name: string | null } | null;
 };
 
 type ClassEnrollmentRow = {
@@ -114,6 +116,9 @@ type TrialSessionRow = {
     student_id: string;
     student: { first_name: string | null; last_name: string | null } | null;
   }>;
+  sessions_staff: Array<{
+    staff: { first_name: string | null; last_name: string | null } | null;
+  }>;
 };
 
 type InvoiceRow = {
@@ -141,6 +146,7 @@ type CreditNoteRow = {
   refund_amount_cents?: number | null;
   credit_amount_cents?: number | null;
   out_of_band_amount_cents?: number | null;
+  created_by_staff_name?: string | null;
 };
 
 type CreditBalanceTransactionRow = {
@@ -770,7 +776,9 @@ async function fetchStudentsForReport(): Promise<StudentRow[]> {
   const supabase = getSupabaseClient() as SupabaseClient<Database>;
   const { data, error } = await supabase
     .from('students')
-    .select('id, first_name, last_name, status, active_at, registered_at');
+    .select(
+      'id, first_name, last_name, status, active_at, registered_at, created_by_staff:staff!students_created_by_fkey(first_name, last_name)'
+    );
 
   if (error) throw error;
   return (data ?? []) as StudentRow[];
@@ -783,7 +791,8 @@ async function fetchClassesForReport(): Promise<ClassRow[]> {
     .select(
       `
       *,
-      subject:subjects(*)
+      subject:subjects(*),
+      created_by_staff:staff!classes_created_by_fkey(first_name, last_name)
     `
     );
 
@@ -1002,7 +1011,8 @@ async function fetchTrialSessionsForReport(
         id,
         student_id,
         student:students(first_name, last_name)
-      )
+      ),
+      sessions_staff(staff:staff!sessions_staff_staff_id_fkey(first_name, last_name))
     `
     )
     .gte('start_at', startIso)
@@ -1057,6 +1067,11 @@ export async function fetchStudentStatsReportData(
           kind: 'student' as ReportEntityLink['kind'],
           studentId: s.id,
         },
+        meta: {
+          createdBy: s.created_by_staff
+            ? staffName(s.created_by_staff.first_name, s.created_by_staff.last_name, '')
+            : undefined,
+        },
       })),
     };
   });
@@ -1095,6 +1110,14 @@ export async function fetchStudentStatsReportData(
         link: {
           kind: 'class' as ReportEntityLink['kind'],
           classId: cls.id,
+        },
+        meta: {
+          createdBy: (() => {
+            const createdBy = classes.find((candidate) => candidate.id === cls.id)?.created_by_staff;
+            return createdBy
+              ? staffName(createdBy.first_name, createdBy.last_name, '')
+              : undefined;
+          })(),
         },
       })),
     };
@@ -1137,6 +1160,12 @@ export async function fetchStudentStatsReportData(
           meta: {
             student: studentName,
             sessionDate: formatMetaDate(session.start_at),
+            staff: (() => {
+              const assignedStaff = session.sessions_staff[0]?.staff;
+              return assignedStaff
+                ? staffName(assignedStaff.first_name, assignedStaff.last_name, '')
+                : undefined;
+            })(),
           },
         },
       ];
@@ -1318,7 +1347,9 @@ export async function fetchMarketingStatsReportData(
   const [registrationsResult, discontinuationsResult] = await Promise.all([
     supabase
       .from('students')
-      .select('id, first_name, last_name, registered_at')
+      .select(
+        'id, first_name, last_name, registered_at, created_by_staff:staff!students_created_by_fkey(first_name, last_name)'
+      )
       .gte('registered_at', startIso)
       .lte('registered_at', endIso),
     supabase
@@ -1338,6 +1369,7 @@ export async function fetchMarketingStatsReportData(
     first_name: string;
     last_name: string;
     registered_at: string | null;
+    created_by_staff: { first_name: string | null; last_name: string | null } | null;
   }>;
 
   const discontinuedStudents = (discontinuationsResult.data ?? []) as DiscontinuedStudentRow[];
@@ -1371,6 +1403,13 @@ export async function fetchMarketingStatsReportData(
         meta: {
           student: `${student.first_name} ${student.last_name}`,
           registeredAt: formatMetaDate(student.registered_at),
+          createdBy: student.created_by_staff
+            ? staffName(
+                student.created_by_staff.first_name,
+                student.created_by_staff.last_name,
+                ''
+              )
+            : undefined,
         },
       },
     ];
@@ -1562,6 +1601,7 @@ type SubsidyRow = {
   student_last_name: string | null;
   subject_short_name: string | null;
   subject_long_name: string | null;
+  created_by_staff: { first_name: string | null; last_name: string | null } | null;
 };
 
 type EnrollmentWithSubjectRow = {
@@ -1648,6 +1688,7 @@ async function fetchSubsidiesForReport(): Promise<SubsidyRow[]> {
       created_at,
       effective_from,
       effective_until,
+      created_by_staff:staff!student_subsidies_created_by_fkey(first_name, last_name),
       student:students(first_name, last_name),
       subject:subjects(short_name, long_name)
     `
@@ -1666,6 +1707,7 @@ async function fetchSubsidiesForReport(): Promise<SubsidyRow[]> {
     effective_until: string | null;
     student: { first_name: string | null; last_name: string | null } | null;
     subject: { short_name: string | null; long_name: string | null } | null;
+    created_by_staff: { first_name: string | null; last_name: string | null } | null;
   };
 
   const rows = (data ?? []) as RawSubsidyRow[];
@@ -1683,6 +1725,7 @@ async function fetchSubsidiesForReport(): Promise<SubsidyRow[]> {
     student_last_name: row.student?.last_name ?? null,
     subject_short_name: row.subject?.short_name ?? null,
     subject_long_name: row.subject?.long_name ?? null,
+    created_by_staff: row.created_by_staff,
   }));
 }
 
@@ -1706,6 +1749,7 @@ async function fetchCreditNotesForReport(
       refund_amount_cents,
       credit_amount_cents,
       out_of_band_amount_cents,
+      metadata,
       invoice:invoices(
         student_id,
         student:students(first_name, last_name)
@@ -1725,6 +1769,7 @@ async function fetchCreditNotesForReport(
     refund_amount_cents?: number | null;
     credit_amount_cents?: number | null;
     out_of_band_amount_cents?: number | null;
+    metadata: unknown;
     invoice: {
       student_id: string | null;
       student: { first_name: string | null; last_name: string | null } | null;
@@ -1744,6 +1789,11 @@ async function fetchCreditNotesForReport(
     refund_amount_cents: row.refund_amount_cents,
     credit_amount_cents: row.credit_amount_cents,
     out_of_band_amount_cents: row.out_of_band_amount_cents,
+    created_by_staff_name:
+      row.metadata && typeof row.metadata === 'object' && !Array.isArray(row.metadata)
+        ? ((row.metadata as Record<string, unknown>).created_by_staff_name as string | undefined) ??
+          null
+        : null,
   }));
 }
 
@@ -2042,6 +2092,7 @@ export async function fetchBillingStatsReportData(
               type: 'refund',
               invoice: `Invoice ${invoiceShortId}`,
               amount: `$${(refundAmountCents / 100).toFixed(2)}`,
+              createdBy: note.created_by_staff_name ?? undefined,
             },
           },
         ];
@@ -2068,6 +2119,7 @@ export async function fetchBillingStatsReportData(
             type: 'credit',
             invoice: `Invoice ${invoiceShortId}`,
             amount: `$${(creditAmountCents / 100).toFixed(2)}`,
+            createdBy: note.created_by_staff_name ?? undefined,
           },
         },
       ];
@@ -2091,6 +2143,7 @@ export async function fetchBillingStatsReportData(
             type: 'other',
             invoice: `Invoice ${invoiceShortId}`,
             amount: `$${(outOfBandAmountCents / 100).toFixed(2)}`,
+            createdBy: note.created_by_staff_name ?? undefined,
           },
         },
       ];
@@ -2216,6 +2269,9 @@ export async function fetchBillingStatsReportData(
               student: studentName,
               class: enr.class_short_name ?? '—',
               price: `$${(sub.price_cents / 100).toFixed(2)}`,
+              createdBy: sub.created_by_staff
+                ? staffName(sub.created_by_staff.first_name, sub.created_by_staff.last_name, '')
+                : undefined,
             },
           },
         ];
@@ -2256,6 +2312,13 @@ export async function fetchBillingStatsReportData(
           subject: subjectName,
           price: `$${(subsidy.price_cents / 100).toFixed(2)}`,
           createdAt: formatMetaDateTime(subsidy.created_at),
+          createdBy: subsidy.created_by_staff
+            ? staffName(
+                subsidy.created_by_staff.first_name,
+                subsidy.created_by_staff.last_name,
+                ''
+              )
+            : undefined,
         },
       },
     ];

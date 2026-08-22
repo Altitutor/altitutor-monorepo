@@ -87,6 +87,8 @@ export function SchedulingStatsSection({ dateRange, visibleCharts }: SchedulingS
                         title="Active students"
                         entityLabelSingular="student"
                         tableVariant="activeStudents"
+                        totalMode="latest"
+                        staffMetaKeys={['createdBy']}
                         onEntityClick={handleEntityClick}
                       />
                     )}
@@ -110,6 +112,7 @@ export function SchedulingStatsSection({ dateRange, visibleCharts }: SchedulingS
                         title="Student registrations"
                         entityLabelSingular="registration"
                         tableVariant="studentRegistrations"
+                        staffMetaKeys={['createdBy']}
                         onEntityClick={handleEntityClick}
                       />
                     )}
@@ -133,6 +136,7 @@ export function SchedulingStatsSection({ dateRange, visibleCharts }: SchedulingS
                         title="Student discontinuations"
                         entityLabelSingular="discontinuation"
                         tableVariant="discontinuations"
+                        staffMetaKeys={['discontinuedBy']}
                         onEntityClick={handleEntityClick}
                       />
                     )}
@@ -156,6 +160,7 @@ export function SchedulingStatsSection({ dateRange, visibleCharts }: SchedulingS
                         title="Student absences"
                         entityLabelSingular="absence"
                         tableVariant="studentAbsences"
+                        staffMetaKeys={['loggedBy']}
                         onEntityClick={handleEntityClick}
                       />
                     )}
@@ -184,6 +189,7 @@ export function SchedulingStatsSection({ dateRange, visibleCharts }: SchedulingS
                     title="Trial sessions"
                     entityLabelSingular="trial session"
                     tableVariant="trialSessions"
+                    staffMetaKeys={['staff']}
                     onEntityClick={handleEntityClick}
                   />
                 )}
@@ -211,6 +217,7 @@ export function SchedulingStatsSection({ dateRange, visibleCharts }: SchedulingS
                     title="Staff absences"
                     entityLabelSingular="absence"
                     tableVariant="staffAbsences"
+                    staffMetaKeys={['staff']}
                     onEntityClick={handleEntityClick}
                   />
                 )}
@@ -242,6 +249,8 @@ export function SchedulingStatsSection({ dateRange, visibleCharts }: SchedulingS
                         title="Active classes"
                         entityLabelSingular="class"
                         tableVariant="activeClasses"
+                        totalMode="latest"
+                        staffMetaKeys={['createdBy']}
                         onEntityClick={handleEntityClick}
                       />
                     )}
@@ -264,6 +273,7 @@ export function SchedulingStatsSection({ dateRange, visibleCharts }: SchedulingS
                         title="Class enrolments"
                         entityLabelSingular="enrolment"
                         tableVariant="classEnrolments"
+                        staffMetaKeys={['enrolledBy']}
                         onEntityClick={handleEntityClick}
                       />
                     )}
@@ -286,6 +296,7 @@ export function SchedulingStatsSection({ dateRange, visibleCharts }: SchedulingS
                         title="Class unenrolments"
                         entityLabelSingular="unenrolment"
                         tableVariant="classUnenrolments"
+                        staffMetaKeys={['unenrolledBy']}
                         onEntityClick={handleEntityClick}
                       />
                     )}

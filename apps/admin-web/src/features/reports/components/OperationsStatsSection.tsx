@@ -85,6 +85,8 @@ export function OperationsStatsSection({ dateRange, visibleCharts }: OperationsS
                       title="Open tasks"
                       entityLabelSingular="task"
                       tableVariant="openTasks"
+                      totalMode="latest"
+                      staffMetaKeys={['assignee']}
                       onEntityClick={handleEntityClick}
                     />
                   )}
@@ -106,6 +108,7 @@ export function OperationsStatsSection({ dateRange, visibleCharts }: OperationsS
                       title="Completed tasks"
                       entityLabelSingular="task"
                       tableVariant="completedTasks"
+                      staffMetaKeys={['completedBy']}
                       onEntityClick={handleEntityClick}
                     />
                   )}
@@ -136,6 +139,8 @@ export function OperationsStatsSection({ dateRange, visibleCharts }: OperationsS
                       title="Open issues"
                       entityLabelSingular="issue"
                       tableVariant="openIssues"
+                      totalMode="latest"
+                      staffMetaKeys={['createdBy']}
                       onEntityClick={handleEntityClick}
                     />
                   )}
@@ -157,6 +162,7 @@ export function OperationsStatsSection({ dateRange, visibleCharts }: OperationsS
                       title="Resolved issues"
                       entityLabelSingular="issue"
                       tableVariant="resolvedIssues"
+                      staffMetaKeys={['resolvedBy']}
                       onEntityClick={handleEntityClick}
                     />
                   )}
@@ -187,6 +193,8 @@ export function OperationsStatsSection({ dateRange, visibleCharts }: OperationsS
                       title="Open projects"
                       entityLabelSingular="project"
                       tableVariant="openProjects"
+                      totalMode="latest"
+                      staffMetaKeys={['projectLead']}
                       onEntityClick={handleEntityClick}
                     />
                   )}
@@ -208,6 +216,7 @@ export function OperationsStatsSection({ dateRange, visibleCharts }: OperationsS
                       title="Finished projects"
                       entityLabelSingular="project"
                       tableVariant="finishedProjects"
+                      staffMetaKeys={['projectLead']}
                       onEntityClick={handleEntityClick}
                     />
                   )}

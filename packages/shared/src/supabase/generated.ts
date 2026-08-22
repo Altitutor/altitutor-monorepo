@@ -37517,6 +37517,10 @@ export type Database = {
         }
         Returns: string[]
       }
+      tutor_ucat_set_audit_target_status: {
+        Args: { p_status: string; p_target_id: string }
+        Returns: Json
+      }
       tutor_ucat_set_content_access: {
         Args: {
           p_access_scope: Database["public"]["Enums"]["ucat_access_scope"]

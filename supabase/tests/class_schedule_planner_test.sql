@@ -1,6 +1,6 @@
 BEGIN;
 
-SELECT plan(4);
+SELECT plan(5);
 
 SELECT has_table(
   'public',
@@ -35,6 +35,13 @@ SELECT is(
   )::INTEGER,
   4,
   'a weekly multi-row schedule previews every concrete Class session'
+);
+
+SELECT has_function(
+  'public',
+  'apply_class_schedule',
+  ARRAY['jsonb', 'text'],
+  'ADMINSTAFF applies the exact previewed Class schedule transactionally'
 );
 
 SELECT has_table(

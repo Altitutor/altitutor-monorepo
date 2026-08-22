@@ -43,7 +43,11 @@ export type ReportsEntitiesTableVariant =
   | 'actualRevenue'
   | 'billingErrors'
   | 'subsidies'
-  | 'subsidiesCreated';
+  | 'subsidiesCreated'
+  | 'staffCheckIns'
+  | 'studentCheckIns'
+  | 'parentCheckIns'
+  | 'formCompletions';
 
 interface ColumnConfig {
   key: string;
@@ -150,6 +154,27 @@ const TABLE_CONFIG: Record<ReportsEntitiesTableVariant, ColumnConfig[]> = {
     { key: 'price', header: 'Price' },
     { key: 'createdAt', header: 'Created at' },
   ],
+  staffCheckIns: [
+    { key: 'staff', header: 'Staff member' },
+    { key: 'sessionDate', header: 'Check-in date' },
+    { key: 'loggedBy', header: 'Recorded by' },
+  ],
+  studentCheckIns: [
+    { key: 'student', header: 'Student' },
+    { key: 'sessionDate', header: 'Check-in date' },
+    { key: 'loggedBy', header: 'Recorded by' },
+  ],
+  parentCheckIns: [
+    { key: 'parent', header: 'Parent' },
+    { key: 'sessionDate', header: 'Check-in date' },
+    { key: 'loggedBy', header: 'Recorded by' },
+  ],
+  formCompletions: [
+    { key: 'form', header: 'Form' },
+    { key: 'purpose', header: 'Type' },
+    { key: 'submittedAt', header: 'Submitted at' },
+    { key: 'loggedBy', header: 'Recorded by' },
+  ],
 };
 
 interface ReportsEntitiesTableProps {
@@ -178,7 +203,14 @@ function getPrimaryLabelKey(variant: ReportsEntitiesTableVariant): string {
     case 'classUnenrolments':
       return 'student';
     case 'staffAbsences':
+    case 'staffCheckIns':
       return 'staff';
+    case 'studentCheckIns':
+      return 'student';
+    case 'parentCheckIns':
+      return 'parent';
+    case 'formCompletions':
+      return 'form';
     case 'activeClasses':
       return 'class';
     case 'predictedRevenue':

@@ -37,6 +37,10 @@ export interface ReportEntityMeta {
   price?: string;
   subject?: string;
   createdAt?: string;
+  parent?: string;
+  form?: string;
+  purpose?: string;
+  submittedAt?: string;
 }
 
 export interface IssueReportEntity {
@@ -59,7 +63,9 @@ export type ReportEntityKind =
   | 'staff'
   | 'task'
   | 'project'
-  | 'session';
+  | 'session'
+  | 'parent'
+  | 'form';
 
 export interface ReportEntityLink {
   kind: ReportEntityKind;
@@ -70,6 +76,8 @@ export interface ReportEntityLink {
   invoiceId?: string | null;
   taskId?: string | null;
   projectId?: string | null;
+  parentId?: string | null;
+  formId?: string | null;
 }
 
 export interface ReportDataPoint {
@@ -186,4 +194,15 @@ export interface BillingStatsReportData {
    * Number of student subsidies created each day in the selected period.
    */
   subsidiesCreatedByDay: ReportDataPoint[];
+}
+
+export interface HrStatsReportData {
+  staffCheckInsByDay: ReportDataPoint[];
+  studentCheckInsByDay: ReportDataPoint[];
+  parentCheckInsByDay: ReportDataPoint[];
+  formCompletionsByType: Array<{
+    type: string;
+    label: string;
+    data: ReportDataPoint[];
+  }>;
 }

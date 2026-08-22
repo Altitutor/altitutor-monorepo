@@ -17,6 +17,11 @@ import { Popover, PopoverContent, PopoverTrigger } from './popover';
 
 export type SmartDatePickerValueFormat = 'date' | 'iso';
 
+export interface SmartDatePickerPreset {
+  label: string;
+  value: Date;
+}
+
 export interface SmartDatePickerPopoverProps {
   children: React.ReactElement;
   value: string | null;
@@ -30,6 +35,8 @@ export interface SmartDatePickerPopoverProps {
   maxDate?: string | null;
   /** When false, hides Today / Tomorrow / This weekend / Next week presets. Default true. */
   showPresets?: boolean;
+  /** Replaces the default future-oriented presets when provided. */
+  presets?: ReadonlyArray<SmartDatePickerPreset>;
   /** Force typed month/day into this calendar year. */
   anchorYear?: number;
   disabled?: boolean;
@@ -66,6 +73,8 @@ export interface SmartDatePickerFieldProps {
   maxDate?: string | null;
   /** When false, hides Today / Tomorrow / This weekend / Next week presets. Default true. */
   showPresets?: boolean;
+  /** Replaces the default future-oriented presets when provided. */
+  presets?: ReadonlyArray<SmartDatePickerPreset>;
   /** Force typed month/day into this calendar year. */
   anchorYear?: number;
   disabled?: boolean;
@@ -131,6 +140,7 @@ export function SmartDatePickerPopover({
   minDate,
   maxDate,
   showPresets = true,
+  presets: presetOptions,
   anchorYear,
   disabled = false,
   inputPlaceholder = 'Type a date...',
@@ -140,15 +150,16 @@ export function SmartDatePickerPopover({
   const inputValue = toDateInputValue(value);
   const today = React.useMemo(() => startOfDay(new Date()), [open]);
 
-  const presets = React.useMemo(() => {
+  const presets = React.useMemo<ReadonlyArray<SmartDatePickerPreset>>(() => {
     if (!showPresets) return [];
+    if (presetOptions) return presetOptions;
     return [
       { label: 'Today', value: today },
       { label: 'Tomorrow', value: addDays(today, 1) },
       { label: 'This weekend', value: getThisWeekend(today) },
       { label: 'Next week', value: nextWeekday(today, 1) },
     ];
-  }, [showPresets, today]);
+  }, [presetOptions, showPresets, today]);
 
   const parsedQueryDate = React.useMemo(() => {
     const trimmed = query.trim();
@@ -341,6 +352,7 @@ export function SmartDatePickerField({
   minDate,
   maxDate,
   showPresets = true,
+  presets,
   anchorYear,
   disabled = false,
   inputPlaceholder,
@@ -367,6 +379,7 @@ export function SmartDatePickerField({
       minDate={minDate}
       maxDate={maxDate}
       showPresets={showPresets}
+      presets={presets}
       anchorYear={anchorYear}
       disabled={disabled}
       inputPlaceholder={inputPlaceholder}
