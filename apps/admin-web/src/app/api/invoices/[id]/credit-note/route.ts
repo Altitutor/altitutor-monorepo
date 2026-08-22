@@ -176,7 +176,6 @@ export async function POST(
       const effectiveAt = (creditNote as { effective_at?: number; created?: number }).effective_at
         ?? (creditNote as { created?: number }).created
         ?? Math.floor(Date.now() / 1000);
-      // @ts-expect-error - credit_balance_transactions Insert type may not yet reflect nullable stripe_credit_grant_id
       const { error: cbtErr } = await supabase.from('credit_balance_transactions').upsert(
         {
           stripe_credit_balance_transaction_id: cbtxnId,
@@ -196,8 +195,14 @@ export async function POST(
             amount: creditNote.amount,
             currency: creditNote.currency,
             customer_balance_transaction: cbtxnId,
-            invoice: creditNote.invoice,
-            customer: (creditNote as { customer?: string }).customer,
+            invoice:
+              typeof creditNote.invoice === 'string'
+                ? creditNote.invoice
+                : creditNote.invoice?.id ?? null,
+            customer:
+              typeof creditNote.customer === 'string'
+                ? creditNote.customer
+                : creditNote.customer?.id ?? null,
             created: (creditNote as { created?: number }).created,
             effective_at: effectiveAt,
           },

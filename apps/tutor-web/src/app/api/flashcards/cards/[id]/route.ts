@@ -2,7 +2,7 @@ import { captureApiError, captureApiErrorResponse } from '@/lib/sentry/capture-a
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/shared/lib/supabase/server-ssr';
 import { getServiceRoleClient } from '@/shared/lib/supabase/service-role';
-import { validateFlashcardContent } from '@altitutor/shared';
+import { validateFlashcardContent, type TablesUpdate } from '@altitutor/shared';
 import {
   assertTutorTopicAccess,
   getAccessibleFlashcard,
@@ -33,7 +33,7 @@ export async function PATCH(request: NextRequest, { params }: { params: { id: st
 
   const userClient = createClient();
   const { data: staffId } = await userClient.rpc('current_tutor_id');
-  const updates: Record<string, unknown> = {
+  const updates: TablesUpdate<'flashcards'> = {
     updated_at: new Date().toISOString(),
     updated_by: staffId ?? null,
   };

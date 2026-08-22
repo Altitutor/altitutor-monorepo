@@ -81,6 +81,11 @@ function unavailableResponse(cookies: CookieToSet[]) {
 
 export async function middleware(req: NextRequest) {
   const { pathname, search, origin } = new URL(req.url);
+
+  if (req.method === "OPTIONS") {
+    return NextResponse.next({ request: req });
+  }
+
   const isPublicPath =
     pathname.startsWith("/login") ||
     pathname.startsWith("/forgot-password") ||

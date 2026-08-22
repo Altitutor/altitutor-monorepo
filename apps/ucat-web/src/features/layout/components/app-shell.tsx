@@ -12,7 +12,7 @@ import { motion, useReducedMotion } from "motion/react";
 import { usePathname, useRouter } from "next/navigation";
 import { useTheme } from "next-themes";
 import { useAuth } from "@/features/auth";
-import { AuthSessionRecovery } from "@/features/auth/components/auth-session-recovery";
+import { useAuthSessionRecovery } from "@altitutor/shared/hooks";
 import { AppSidebar } from "@/features/layout/components/app-sidebar";
 import { ComingSoonProvider } from "@/features/layout/context/coming-soon-context";
 import { FloatingAppActions } from "@/features/layout/components/floating-app-actions";
@@ -130,6 +130,7 @@ function AppShellInner({ children }: AppShellProps) {
   const router = useRouter();
   const pathname = usePathname();
   const { user, isLoading } = useAuth();
+  useAuthSessionRecovery({ isLoading, hasSession: Boolean(user) });
   const isMobile = useMediaQuery("(max-width: 767px)");
   const reduceMotion = useReducedMotion();
   const { setTheme } = useTheme();
@@ -242,7 +243,6 @@ function AppShellInner({ children }: AppShellProps) {
   if (isLoading || !user) {
     return (
       <>
-        <AuthSessionRecovery isLoading={isLoading} hasUser={Boolean(user)} />
         <main className="mx-auto w-full max-w-[1400px] p-6 pt-28">
           <AppPageSkeleton />
         </main>

@@ -2,6 +2,7 @@ import { captureApiError, captureApiErrorResponse } from '@/lib/sentry/capture-a
 import { NextRequest, NextResponse } from 'next/server';
 import { fetchStaffTierProgress } from '@/features/pay-tiers/server/payTierService';
 import { requireAdminStaff } from '@/features/pay-tiers/server/requireAdminStaff';
+import type { TablesUpdate } from '@altitutor/shared';
 
 export async function GET(
   _request: NextRequest,
@@ -33,7 +34,7 @@ export async function PATCH(
     metric_overrides?: Record<string, number>;
     current_tier_number?: number;
   };
-  const updates: Record<string, unknown> = {};
+  const updates: TablesUpdate<'staff'> = {};
   if (body.employment_started_at !== undefined) {
     updates.employment_started_at = body.employment_started_at;
   }

@@ -90,6 +90,10 @@ function unavailableResponse(cookies: CookieToSet[]) {
 export async function middleware(req: NextRequest) {
   const { pathname, search, origin } = new URL(req.url);
 
+  if (req.method === "OPTIONS") {
+    return NextResponse.next({ request: req });
+  }
+
   if (pathname.startsWith("/auth/callback&")) {
     const redirectUrl = new URL(req.url);
     redirectUrl.pathname = "/auth/callback";

@@ -174,7 +174,7 @@ async function main() {
     .select('id,stem_text')
     .eq('section_id', sectionId)
     .eq('question_stem_category_id', categoryId)
-    .eq('approval_status', 'approved')
+    .eq('status', 'published')
     .is('deleted_at', null)
     .limit(12)
   if (sourceError) throw sourceError

@@ -2,7 +2,11 @@ import { captureApiError, captureApiErrorResponse } from '@/lib/sentry/capture-a
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/shared/lib/supabase/server-ssr';
 import { supabaseAdmin } from '@/shared/lib/supabase/server/admin';
-import { validateFlashcardContent, type Flashcard } from '@altitutor/shared';
+import {
+  validateFlashcardContent,
+  type Flashcard,
+  type TablesUpdate,
+} from '@altitutor/shared';
 import { clampIndex, insertIdAtIndex, persistTopicFlashcardOrder } from '../../_lib';
 
 async function assertCardAccess(cardId: string) {
@@ -58,7 +62,7 @@ export async function PATCH(request: NextRequest, { params }: { params: { id: st
     return NextResponse.json({ error: 'Topic not accessible' }, { status: 403 });
   }
 
-  const updates: Record<string, unknown> = { updated_at: new Date().toISOString() };
+  const updates: TablesUpdate<'flashcards'> = { updated_at: new Date().toISOString() };
   if (body.card_type !== undefined) updates.card_type = cardType;
   if (body.cloze_text !== undefined || body.card_type !== undefined) updates.cloze_text = cardType === 'text_cloze' ? body.cloze_text ?? existingCard.cloze_text : null;
   if (body.extra !== undefined) updates.extra = body.extra || null;

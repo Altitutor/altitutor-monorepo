@@ -2,6 +2,7 @@
 
 import { useEffect } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
+import { useAuthSessionRecovery } from '@altitutor/shared/hooks';
 import { useAuthStore } from '@/shared/lib/supabase/auth';
 
 const PUBLIC_PATHS = ['/login', '/forgot-password', '/reset-password', '/sentry-example-page'];
@@ -15,23 +16,24 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
   const { user, loading } = useAuthStore();
+  const publicPath = isPublicPath(pathname);
+
+  useAuthSessionRecovery({
+    enabled: !publicPath,
+    isLoading: loading,
+    hasSession: Boolean(user),
+  });
 
   useEffect(() => {
     // Skip auth check for public paths
-    if (isPublicPath(pathname)) {
+    if (publicPath) {
       // If user is authenticated and trying to access login page, redirect immediately
       if (user && pathname === '/login') {
         // Redirect directly to dashboard for faster navigation
         router.replace('/dashboard');
       }
-      return;
     }
-
-    // For protected routes
-    if (!user && !loading) {
-      router.replace('/login');
-    }
-  }, [user, loading, pathname, router]);
+  }, [user, loading, pathname, publicPath, router]);
 
   // Show nothing while checking auth
   if (loading) {
@@ -39,7 +41,7 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
   }
 
   // For public routes, always render
-  if (isPublicPath(pathname)) {
+  if (publicPath) {
     return <>{children}</>;
   }
 
