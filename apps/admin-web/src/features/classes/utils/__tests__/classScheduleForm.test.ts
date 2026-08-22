@@ -1,5 +1,6 @@
 import {
   buildClassScheduleProposal,
+  resolveClassScheduleRows,
   validateClassScheduleRows,
 } from '../classScheduleForm';
 
@@ -43,5 +44,22 @@ describe('Class schedule form', () => {
         { day_of_week: 3, position: 1 },
       ],
     });
+  });
+
+  it('falls back to the legacy Class schedule when no revision exists', () => {
+    expect(
+      resolveClassScheduleRows(null, {
+        dayOfWeek: 1,
+        startTime: '16:00:00',
+        endTime: '17:30:00',
+        room: null,
+      }, () => 'legacy-row')
+    ).toEqual([{
+      id: 'legacy-row',
+      dayOfWeek: 1,
+      startTime: '16:00:00',
+      endTime: '17:30:00',
+      room: '',
+    }]);
   });
 });

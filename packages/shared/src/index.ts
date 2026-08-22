@@ -2,6 +2,11 @@ export * from "./placeholder";
 export * from "./theme/marketing-tokens";
 export * as Supabase from "./supabase/generated";
 export type { Database, Tables, TablesInsert, TablesUpdate, Enums, Json } from "./supabase/generated";
+export {
+  expandProjectedClassScheduleRows,
+  getProjectedClassScheduleRows,
+} from './classes/scheduleRows';
+export type { ProjectedClassScheduleRow } from './classes/scheduleRows';
 export * from "./types/helpers";
 export * from "./types/quick-filters";
 export * from "./types/data-table";

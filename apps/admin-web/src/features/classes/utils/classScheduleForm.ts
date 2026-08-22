@@ -4,6 +4,31 @@ import type {
   ClassScheduleRow,
 } from '../types/schedule';
 
+interface LegacyClassSchedule {
+  dayOfWeek: number;
+  startTime: string;
+  endTime: string;
+  room: string | null;
+}
+
+export function resolveClassScheduleRows(
+  storedRows: ClassScheduleRow[] | null | undefined,
+  legacySchedule: LegacyClassSchedule,
+  createId: () => string
+): ClassScheduleRow[] {
+  if (storedRows?.length) {
+    return storedRows.map((row) => ({ ...row, id: createId() }));
+  }
+
+  return [{
+    id: createId(),
+    dayOfWeek: legacySchedule.dayOfWeek,
+    startTime: legacySchedule.startTime,
+    endTime: legacySchedule.endTime,
+    room: legacySchedule.room ?? '',
+  }];
+}
+
 export function validateClassScheduleRows(rows: ClassScheduleRow[]): string | null {
   if (rows.length === 0) return 'Add at least one schedule row.';
 

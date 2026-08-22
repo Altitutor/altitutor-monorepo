@@ -15,7 +15,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@altitutor/ui";
-import { Loader2, X } from "lucide-react";
+import { CalendarClock, Loader2, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { ActionsMenu } from '@/shared/components/ActionsMenu';
 import { useClassActions } from '../../hooks/useClassActions';
@@ -33,6 +33,7 @@ import { ClassStaffTab } from './tabs/ClassStaffTab';
 import { ClassSessionsTab } from './tabs/ClassSessionsTab';
 import { ClassActivityTab } from '@/features/activity/components/tabs/ClassActivityTab';
 import { IssuePill } from '@/features/issues';
+import { EditClassScheduleDialog } from '../EditClassScheduleDialog';
 import {
   invalidateClassDetail,
   invalidateClassSurfaces,
@@ -69,6 +70,7 @@ export function ViewClassModal({
   const [isDeleting, setIsDeleting] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [deleteConfirmText, setDeleteConfirmText] = useState('');
+  const [isScheduleDialogOpen, setIsScheduleDialogOpen] = useState(false);
   
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -102,6 +104,7 @@ export function ViewClassModal({
     try {
       const updateData: TablesUpdate<'classes'> = {
         level: data.level || null,
+        cohort_label: data.level || null,
         day_of_week: data.dayOfWeek,
         start_time: data.startTime,
         end_time: data.endTime,
@@ -255,12 +258,18 @@ export function ViewClassModal({
                   </div>
                 </div>
                 {classId && (
-                  <ActionsMenu
-                    type="class"
-                    entityId={classId}
-                    copyTagDisplayText={classData.short_name?.trim() ?? ''}
-                    {...classActions}
-                  />
+                  <div className="flex items-center gap-2">
+                    <Button variant="outline" onClick={() => setIsScheduleDialogOpen(true)}>
+                      <CalendarClock className="mr-2 h-4 w-4" />
+                      Edit timetable
+                    </Button>
+                    <ActionsMenu
+                      type="class"
+                      entityId={classId}
+                      copyTagDisplayText={classData.short_name?.trim() ?? ''}
+                      {...classActions}
+                    />
+                  </div>
                 )}
               </div>
             </SheetHeader>
@@ -372,6 +381,20 @@ export function ViewClassModal({
         )}
       </SheetContent>
     </Sheet>
+
+    <EditClassScheduleDialog
+      classData={classData}
+      open={isScheduleDialogOpen}
+      onOpenChange={setIsScheduleDialogOpen}
+      onSaved={() => {
+        void invalidateClassSurfaces(queryClient, classData.id);
+        onClassUpdated();
+        toast({
+          title: 'Timetable updated',
+          description: 'Future Class Sessions were reconciled.',
+        });
+      }}
+    />
 
     {/* Delete confirmation dialog */}
     <AlertDialog open={isDeleteDialogOpen} onOpenChange={(open) => {

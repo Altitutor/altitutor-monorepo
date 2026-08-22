@@ -55,10 +55,7 @@ export function ChangeClassStep2SelectDate({
 
     const today = getMidnightAdelaide(new Date());
     const firstSession = calculateFirstSessionDate(
-      {
-        day_of_week: selectedNewClass.day_of_week,
-        start_time: selectedNewClass.start_time || '09:00',
-      },
+      { ...selectedNewClass, start_time: selectedNewClass.start_time || '09:00' },
       today
     );
 
@@ -182,4 +179,3 @@ export function ChangeClassStep2SelectDate({
     </div>
   );
 }
-

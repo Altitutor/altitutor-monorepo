@@ -2,7 +2,8 @@
 
 import { useState, useMemo } from 'react';
 import { Card, Button, Input, Switch, Label } from '@altitutor/ui';
-import type { Tables } from '@altitutor/shared';
+import { expandProjectedClassScheduleRows } from '@altitutor/shared';
+import type { ProjectedClassScheduleRow, Tables } from '@altitutor/shared';
 import { ClassCard } from '@/shared/components/ClassCard';
 import { AdminShiftCard } from '@/shared/components/AdminShiftCard';
 import { Search, X } from 'lucide-react';
@@ -30,7 +31,7 @@ interface TimeSlot {
 }
 
 interface ClassPosition {
-  class: Tables<'classes'>;
+  class: TimetableClass;
   top: number;
   height: number;
   left: number;
@@ -38,6 +39,8 @@ interface ClassPosition {
   overlapIndex: number;
   totalOverlaps: number;
 }
+
+type TimetableClass = Tables<'classes'> & ProjectedClassScheduleRow;
 
 interface AdminShiftPosition {
   adminShift: Tables<'admin_shifts'>;
@@ -126,11 +129,19 @@ export function CalendarView({
     
     // Apply day filter (multi-select)
     if (dayFilter.length > 0) {
-      result = result.filter(cls => dayFilter.includes(cls.day_of_week));
+      result = result.filter(cls =>
+        (cls.schedule_weekdays.length > 0 ? cls.schedule_weekdays : [cls.day_of_week])
+          .some((day) => dayFilter.includes(day))
+      );
     }
     
     return result;
   }, [classes, searchTerm, dayFilter, classSubjects, classStudents, classStaff]);
+
+  const timetableClasses = useMemo(
+    () => expandProjectedClassScheduleRows(filteredClasses),
+    [filteredClasses]
+  );
 
   // Filter admin shifts if showing admin shifts
   const filteredAdminShifts = useMemo(() => {
@@ -148,7 +159,7 @@ export function CalendarView({
 
   // Filter days that have classes or admin shifts (from filtered data)
   const activeDays = days.filter(day => 
-    filteredClasses.some(cls => cls.day_of_week === day.value) ||
+    timetableClasses.some(cls => cls.day_of_week === day.value) ||
     (showAdminShifts && filteredAdminShifts.some(shift => shift.day_of_week === day.value))
   );
 
@@ -176,7 +187,7 @@ export function CalendarView({
 
   // Calculate dynamic time range based on filtered classes and admin shifts
   const calculateTimeRange = (): { startHour: number; endHour: number } => {
-    const allItems = [...filteredClasses, ...filteredAdminShifts];
+    const allItems = [...timetableClasses, ...filteredAdminShifts];
     
     if (allItems.length === 0) {
       // Default to 9am-8pm if no items
@@ -225,8 +236,8 @@ export function CalendarView({
 
   // Calculate position of a class block relative to the calendar grid
   const calculateClassPosition = (
-    cls: Tables<'classes'>, 
-    overlappingClasses: Tables<'classes'>[]
+    cls: TimetableClass,
+    overlappingClasses: TimetableClass[]
   ): ClassPosition => {
     const startMinutes = timeToMinutes(cls.start_time);
     const endMinutes = timeToMinutes(cls.end_time);
@@ -242,7 +253,9 @@ export function CalendarView({
     const height = Math.max((duration / 60) * slotHeight, 30); // Minimum 30px height
     
     // Calculate overlapping positions
-    const overlapIndex = overlappingClasses.findIndex(c => c.id === cls.id);
+    const overlapIndex = overlappingClasses.findIndex(
+      (candidate) => candidate.schedule_row_id === cls.schedule_row_id
+    );
     const totalOverlaps = overlappingClasses.length;
     const columnWidth = totalOverlaps > 1 ? 95 / totalOverlaps : 95; // Leave some margin
     const left = (overlapIndex * columnWidth) + 2.5; // Add small left margin
@@ -259,21 +272,21 @@ export function CalendarView({
   };
 
   // Find overlapping classes for a specific day and time range
-  const findOverlappingClasses = (dayClasses: Tables<'classes'>[]): Tables<'classes'>[][] => {
-    const groups: Tables<'classes'>[][] = [];
+  const findOverlappingClasses = (dayClasses: TimetableClass[]): TimetableClass[][] => {
+    const groups: TimetableClass[][] = [];
     const processed = new Set<string>();
     
     dayClasses.forEach(cls => {
-      if (processed.has(cls.id)) return;
+      if (processed.has(cls.schedule_row_id)) return;
       
       const group = [cls];
-      processed.add(cls.id);
+      processed.add(cls.schedule_row_id);
       
       const clsStart = timeToMinutes(cls.start_time);
       const clsEnd = timeToMinutes(cls.end_time);
       
       dayClasses.forEach(otherCls => {
-        if (processed.has(otherCls.id)) return;
+        if (processed.has(otherCls.schedule_row_id)) return;
         
         const otherStart = timeToMinutes(otherCls.start_time);
         const otherEnd = timeToMinutes(otherCls.end_time);
@@ -281,7 +294,7 @@ export function CalendarView({
         // Check if classes overlap
         if (clsStart < otherEnd && clsEnd > otherStart) {
           group.push(otherCls);
-          processed.add(otherCls.id);
+          processed.add(otherCls.schedule_row_id);
         }
       });
       
@@ -361,7 +374,7 @@ export function CalendarView({
 
   // Get classes for each visible day
   const getClassesForDay = (dayValue: number): ClassPosition[] => {
-    const dayClasses = filteredClasses
+    const dayClasses = timetableClasses
       .filter(cls => cls.day_of_week === dayValue)
       .sort((a, b) => timeToMinutes(a.start_time) - timeToMinutes(b.start_time));
     
@@ -556,7 +569,7 @@ export function CalendarView({
                         
                         return (
                           <div
-                            key={position.class.id}
+                            key={`${position.class.id}-${position.class.schedule_row_id}`}
                             className="absolute"
                             style={{
                               top: `${position.top}px`,
@@ -593,4 +606,3 @@ export function CalendarView({
     </div>
   );
 }
-

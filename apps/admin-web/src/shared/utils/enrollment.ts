@@ -1,4 +1,5 @@
-import type { Tables, Database } from '@altitutor/shared';
+import { getProjectedClassScheduleRows } from '@altitutor/shared';
+import type { Tables, Database, Json } from '@altitutor/shared';
 import { getSupabaseClient } from '@/shared/lib/supabase/client';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
@@ -7,28 +8,35 @@ import type { SupabaseClient } from '@supabase/supabase-js';
  * Note: 09:00 end / 09:00 start is NOT considered overlapping
  */
 export function checkTimeOverlap(
-  class1: Pick<Tables<'classes'>, 'day_of_week' | 'start_time' | 'end_time'>,
-  class2: Pick<Tables<'classes'>, 'day_of_week' | 'start_time' | 'end_time'>
-): boolean {
-  // Must be on the same day
-  if (class1.day_of_week !== class2.day_of_week) {
-    return false;
+  class1: Pick<Tables<'classes'>, 'day_of_week' | 'start_time' | 'end_time'> & {
+    schedule_rows?: Json | null;
+  },
+  class2: Pick<Tables<'classes'>, 'day_of_week' | 'start_time' | 'end_time'> & {
+    schedule_rows?: Json | null;
   }
-  
+): boolean {
   // Parse times to comparable format (minutes from midnight)
   const parseTime = (time: string): number => {
     const [hours, minutes] = time.split(':').map(Number);
     return hours * 60 + minutes;
   };
   
-  const start1 = parseTime(class1.start_time);
-  const end1 = parseTime(class1.end_time);
-  const start2 = parseTime(class2.start_time);
-  const end2 = parseTime(class2.end_time);
-  
-  // Check for overlap: start1 < end2 AND start2 < end1
-  // This correctly handles the case where end of one = start of another (no overlap)
-  return start1 < end2 && start2 < end1;
+  const rowsFor = (
+    classItem: Pick<Tables<'classes'>, 'day_of_week' | 'start_time' | 'end_time'> & {
+      schedule_rows?: Json | null;
+    }
+  ) => {
+    const projectedRows = getProjectedClassScheduleRows(classItem.schedule_rows);
+    return projectedRows.length > 0 ? projectedRows : [classItem];
+  };
+
+  return rowsFor(class1).some((first) =>
+    rowsFor(class2).some((second) =>
+      first.day_of_week === second.day_of_week &&
+      parseTime(first.start_time) < parseTime(second.end_time) &&
+      parseTime(second.start_time) < parseTime(first.end_time)
+    )
+  );
 }
 
 /**
@@ -135,4 +143,3 @@ export function getMidnightAdelaide(date: Date): Date {
   const midnight = new Date(year, month, day, 0, 0, 0, 0);
   return midnight;
 }
-

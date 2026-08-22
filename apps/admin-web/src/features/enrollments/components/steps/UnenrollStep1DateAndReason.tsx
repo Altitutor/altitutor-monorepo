@@ -49,10 +49,7 @@ export function UnenrollStep1DateAndReason({
 
     const today = getMidnightAdelaide(new Date());
     const mostRecentPastSession = calculateLastSessionDate(
-      {
-        day_of_week: classData.day_of_week,
-        start_time: classData.start_time || '09:00',
-      },
+      { ...classData, start_time: classData.start_time || '09:00' },
       today
     );
 
@@ -182,4 +179,3 @@ export function UnenrollStep1DateAndReason({
     </div>
   );
 }
-

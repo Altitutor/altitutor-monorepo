@@ -1337,6 +1337,7 @@ export type Database = {
           frequency_weeks: number | null
           id: string
           schedule_type: string
+          superseded_at: string | null
         }
         Insert: {
           anchor_date?: string | null
@@ -1348,6 +1349,7 @@ export type Database = {
           frequency_weeks?: number | null
           id?: string
           schedule_type: string
+          superseded_at?: string | null
         }
         Update: {
           anchor_date?: string | null
@@ -1359,6 +1361,7 @@ export type Database = {
           frequency_weeks?: number | null
           id?: string
           schedule_type?: string
+          superseded_at?: string | null
         }
         Relationships: [
           {
@@ -1479,6 +1482,9 @@ export type Database = {
           long_name: string | null
           next_session_start_at: string | null
           room: string | null
+          schedule_anchor_date: string | null
+          schedule_frequency_weeks: number | null
+          schedule_rows: Json
           schedule_summary_long: string | null
           schedule_summary_short: string | null
           schedule_timezone: string
@@ -1502,6 +1508,9 @@ export type Database = {
           long_name?: string | null
           next_session_start_at?: string | null
           room?: string | null
+          schedule_anchor_date?: string | null
+          schedule_frequency_weeks?: number | null
+          schedule_rows?: Json
           schedule_summary_long?: string | null
           schedule_summary_short?: string | null
           schedule_timezone?: string
@@ -1525,6 +1534,9 @@ export type Database = {
           long_name?: string | null
           next_session_start_at?: string | null
           room?: string | null
+          schedule_anchor_date?: string | null
+          schedule_frequency_weeks?: number | null
+          schedule_rows?: Json
           schedule_summary_long?: string | null
           schedule_summary_short?: string | null
           schedule_timezone?: string
@@ -21905,9 +21917,22 @@ export type Database = {
           class_id: string | null
           class_level: string | null
           class_status: string | null
+          cohort_label: string | null
           day_of_week: number | null
           end_time: string | null
+          long_name: string | null
+          next_session_start_at: string | null
           room: string | null
+          schedule_anchor_date: string | null
+          schedule_frequency_weeks: number | null
+          schedule_rows: Json | null
+          schedule_summary_long: string | null
+          schedule_summary_short: string | null
+          schedule_timezone: string | null
+          schedule_weekdays: number[] | null
+          session_end_date: string | null
+          session_start_date: string | null
+          short_name: string | null
           staff: Json | null
           start_time: string | null
           students: Json | null
@@ -21972,6 +21997,7 @@ export type Database = {
           class_id: string | null
           class_level: string | null
           class_status: string | null
+          cohort_label: string | null
           day_of_week: number | null
           end_time: string | null
           enrolled_at: string | null
@@ -21980,7 +22006,19 @@ export type Database = {
           enrollment_id: string | null
           enrollment_status: string | null
           enrollment_updated_at: string | null
+          long_name: string | null
+          next_session_start_at: string | null
           room: string | null
+          schedule_anchor_date: string | null
+          schedule_frequency_weeks: number | null
+          schedule_rows: Json | null
+          schedule_summary_long: string | null
+          schedule_summary_short: string | null
+          schedule_timezone: string | null
+          schedule_weekdays: number[] | null
+          session_end_date: string | null
+          session_start_date: string | null
+          short_name: string | null
           start_time: string | null
           student_id: string | null
           subject_color: string | null
@@ -28188,11 +28226,22 @@ export type Database = {
           class_id: string | null
           class_level: string | null
           class_status: string | null
+          cohort_label: string | null
           created_at: string | null
           day_of_week: number | null
           end_time: string | null
           long_name: string | null
+          next_session_start_at: string | null
           room: string | null
+          schedule_anchor_date: string | null
+          schedule_frequency_weeks: number | null
+          schedule_rows: Json | null
+          schedule_summary_long: string | null
+          schedule_summary_short: string | null
+          schedule_timezone: string | null
+          schedule_weekdays: number[] | null
+          session_end_date: string | null
+          session_start_date: string | null
           short_name: string | null
           staff: Json | null
           start_time: string | null
@@ -28257,13 +28306,24 @@ export type Database = {
       }
       vtutor_classes: {
         Row: {
+          cohort_label: string | null
           created_at: string | null
           day_of_week: number | null
           end_time: string | null
           id: string | null
           level: string | null
           long_name: string | null
+          next_session_start_at: string | null
           room: string | null
+          schedule_anchor_date: string | null
+          schedule_frequency_weeks: number | null
+          schedule_rows: Json | null
+          schedule_summary_long: string | null
+          schedule_summary_short: string | null
+          schedule_timezone: string | null
+          schedule_weekdays: number[] | null
+          session_end_date: string | null
+          session_start_date: string | null
           short_name: string | null
           start_time: string | null
           status: string | null
@@ -36700,6 +36760,7 @@ export type Database = {
         Returns: number
       }
       preview_class_schedule: { Args: { p_proposal: Json }; Returns: Json }
+      purge_expired_class_session_tombstones: { Args: never; Returns: number }
       qualify_ucat_paid_referral: {
         Args: {
           p_checkout_session_id: string

@@ -1,6 +1,6 @@
 BEGIN;
 
-SELECT plan(11);
+SELECT plan(16);
 
 CREATE TEMP TABLE schedule_test_proposal AS
 SELECT jsonb_build_object(
@@ -120,6 +120,51 @@ SELECT is(
   ),
   4,
   'apply materializes exactly four active generated Sessions'
+);
+
+SELECT is(
+  (SELECT schedule_summary_short FROM public.classes WHERE id = '90000000-0000-0000-0000-000000000001'),
+  'Tue 1:00, Wed 2:00',
+  'the canonical short schedule lists every start time without end times'
+);
+
+SELECT is(
+  (SELECT schedule_summary_long FROM public.classes WHERE id = '90000000-0000-0000-0000-000000000001'),
+  'Tuesday 1:00 pm–2:00 pm, Wednesday 2:00 pm–3:00 pm',
+  'the canonical long schedule lists comma-separated time ranges'
+);
+
+SELECT is(
+  (
+    SELECT COUNT(*)::INTEGER
+    FROM public.sessions
+    WHERE class_id = '90000000-0000-0000-0000-000000000001'
+      AND schedule_slot_id IS NOT NULL
+  ),
+  4,
+  'every recurring Session records its exact schedule-row provenance'
+);
+
+SELECT lives_ok(
+  $$
+    SELECT public.apply_class_schedule(
+      proposal,
+      public.preview_class_schedule(proposal)->>'proposal_hash'
+    )
+    FROM schedule_test_proposal
+  $$,
+  'a Class timetable can be corrected again from the same effective date'
+);
+
+SELECT is(
+  (
+    SELECT COUNT(*)::INTEGER
+    FROM public.class_schedule_revisions
+    WHERE class_id = '90000000-0000-0000-0000-000000000001'
+      AND superseded_at IS NULL
+  ),
+  1,
+  'only the latest same-date schedule revision remains authoritative'
 );
 
 SELECT * FROM finish();

@@ -112,6 +112,40 @@ describe('calculateFirstSessionDate', () => {
     expect(result.getHours()).toBe(15);
     expect(result.getMinutes()).toBe(45);
   });
+
+  it('returns the earliest upcoming occurrence across every timetable row', () => {
+    const result = calculateFirstSessionDate(
+      {
+        day_of_week: 2,
+        start_time: '13:00',
+        schedule_rows: [
+          { id: 'tue', day_of_week: 2, start_time: '13:00', end_time: '14:00', room: null, position: 0 },
+          { id: 'wed', day_of_week: 3, start_time: '09:00', end_time: '10:00', room: null, position: 1 },
+        ],
+      },
+      new Date('2024-01-17T00:00:00')
+    );
+
+    expect(result.getDay()).toBe(3);
+    expect(result.getDate()).toBe(17);
+    expect(result.getHours()).toBe(9);
+  });
+
+  it('respects a fortnightly anchor when finding the first occurrence', () => {
+    const result = calculateFirstSessionDate(
+      {
+        day_of_week: 2,
+        start_time: '13:00',
+        schedule_frequency_weeks: 2,
+        schedule_anchor_date: '2024-01-02',
+      },
+      new Date('2024-01-08T00:00:00')
+    );
+
+    expect(result.getFullYear()).toBe(2024);
+    expect(result.getMonth()).toBe(0);
+    expect(result.getDate()).toBe(16);
+  });
 });
 
 describe('calculateLastSessionDate', () => {
@@ -231,6 +265,24 @@ describe('calculateLastSessionDate', () => {
     // Jan 8 10:00 < Jan 15 09:00, so should return Jan 8
     
     expect(result).not.toBeNull();
+  });
+
+  it('returns the latest prior occurrence across every timetable row', () => {
+    const result = calculateLastSessionDate(
+      {
+        day_of_week: 2,
+        start_time: '13:00',
+        schedule_rows: [
+          { id: 'tue', day_of_week: 2, start_time: '13:00', end_time: '14:00', room: null, position: 0 },
+          { id: 'wed', day_of_week: 3, start_time: '09:00', end_time: '10:00', room: null, position: 1 },
+        ],
+      },
+      new Date('2024-01-18T00:00:00')
+    );
+
+    expect(result?.getDay()).toBe(3);
+    expect(result?.getDate()).toBe(17);
+    expect(result?.getHours()).toBe(9);
   });
 });
 

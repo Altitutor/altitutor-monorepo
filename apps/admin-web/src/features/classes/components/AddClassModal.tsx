@@ -124,6 +124,7 @@ export function AddClassModal({ isOpen, onClose, onClassAdded }: AddClassModalPr
   };
 
   const validateDetails = () => {
+    if (!selectedSubject) return 'A subject is required.';
     if (!startDate || !endDate) return 'Class start and end dates are required.';
     if (endDate < startDate) return 'Class end date must be on or after its start date.';
     return null;
@@ -228,7 +229,7 @@ export function AddClassModal({ isOpen, onClose, onClassAdded }: AddClassModalPr
             <div className="space-y-5">
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="space-y-2">
-                  <Label>Subject</Label>
+                  <Label>Subject *</Label>
                   <SubjectSelectPopover
                     selectedSubject={selectedSubject}
                     onSelectSubject={setSelectedSubject}

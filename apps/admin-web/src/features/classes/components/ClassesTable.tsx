@@ -37,7 +37,6 @@ import type { MinimalClass } from '../api/classes';
 import type { Tables, DataTableFilterDefinition, DataTableSortOption, DataTableColumnDefinition } from '@altitutor/shared';
 import { cn, getSubjectColorStyle } from '@/shared/utils/index';
 import { AddClassModal } from './AddClassModal';
-import { EditClassModal } from './EditClassModal';
 import { ViewClassModal } from './modal';
 import { ViewStaffModal } from '@/features/staff';
 import { ViewStudentModal } from '@/features/students';
@@ -302,7 +301,6 @@ export function ClassesTable({ addModalState }: ClassesTableProps) {
   
   // Modal states - manage internally and use external state only when provided
   const [internalAddModalOpen, setInternalAddModalOpen] = useState(false);
-  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
   const [selectedClass, setSelectedClass] = useState<MinimalClass | null>(null);
 
@@ -495,11 +493,11 @@ export function ClassesTable({ addModalState }: ClassesTableProps) {
                       onClick={() => handleClassClick(cls)}
                     >
                       {state.visibleColumns.includes('day') && (
-                        <TableCell>{getDayOfWeek(cls.day_of_week)}</TableCell>
+                        <TableCell>{cls.schedule_weekdays.map(getDayOfWeek).join(', ')}</TableCell>
                       )}
                       {state.visibleColumns.includes('time') && (
                         <TableCell>
-                          {formatTime(cls.start_time)} - {formatTime(cls.end_time)}
+                          {cls.schedule_summary_short || `${formatTime(cls.start_time)} - ${formatTime(cls.end_time)}`}
                         </TableCell>
                       )}
                       {state.visibleColumns.includes('subject') && (
@@ -606,16 +604,6 @@ export function ClassesTable({ addModalState }: ClassesTableProps) {
           refetch();
         }}
       />
-
-      {/* Edit Class Modal */}
-      {selectedClass && (
-        <EditClassModal
-          isOpen={isEditModalOpen}
-          onClose={() => setIsEditModalOpen(false)}
-          onClassUpdated={handleClassUpdated}
-          classData={selectedClass}
-        />
-      )}
 
       {/* Class Detail Modal */}
       {selectedClass && (

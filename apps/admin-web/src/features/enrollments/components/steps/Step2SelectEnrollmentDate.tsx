@@ -55,10 +55,7 @@ export function Step2SelectEnrollmentDate({
 
     const today = getMidnightAdelaide(new Date());
     const firstSession = calculateFirstSessionDate(
-      {
-        day_of_week: classForValidation.day_of_week,
-        start_time: classForValidation.start_time || '09:00',
-      },
+      { ...classForValidation, start_time: classForValidation.start_time || '09:00' },
       today
     );
 
@@ -174,4 +171,3 @@ export function Step2SelectEnrollmentDate({
     </div>
   );
 }
-

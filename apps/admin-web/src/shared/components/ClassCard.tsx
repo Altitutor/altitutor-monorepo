@@ -98,8 +98,7 @@ export function ClassCard({
     : subject 
       ? (subject?.long_name ?? '') 
       : '-';
-  const day = getDayOfWeek(classData.day_of_week);
-  const timeRange = `${formatTime(classData.start_time)} - ${formatTime(classData.end_time)}`;
+  const schedule = classData.schedule_summary_short || `${getDayOfWeek(classData.day_of_week)} ${formatTime(classData.start_time)} - ${formatTime(classData.end_time)}`;
   const isFutureEnrollment = enrollment?.enrolled_at && new Date(enrollment.enrolled_at) > new Date();
   const hasMenuActions = !hideActions && (onChangeClass || onUnenroll || onSendUnenrollmentLink);
   
@@ -187,7 +186,7 @@ export function ClassCard({
                   classData.room ? `Room: ${classData.room}` : ''
                 ) : (
                   <>
-                    {day} {timeRange}
+                    {schedule}
                     {classData.room && ` • Room: ${classData.room}`}
                   </>
                 )}

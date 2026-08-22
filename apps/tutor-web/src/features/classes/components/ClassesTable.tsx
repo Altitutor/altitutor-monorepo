@@ -66,7 +66,9 @@ export function ClassesTable({ addModalState: _addModalState }: ClassesTableProp
       cls.day_of_week !== null &&
       cls.start_time !== null &&
       cls.end_time !== null &&
-      cls.status !== null
+      cls.status !== null &&
+      cls.session_start_date !== null &&
+      cls.session_end_date !== null
     )
     .map((cls) => ({
       id: cls.id!,
@@ -80,10 +82,19 @@ export function ClassesTable({ addModalState: _addModalState }: ClassesTableProp
       created_at: cls.created_at,
       updated_at: cls.updated_at,
       created_by: null, // Not available in vtutor_classes view
-      session_start_date: null, // Not available in vtutor_classes view
-      session_end_date: null, // Not available in vtutor_classes view
+      session_start_date: cls.session_start_date!,
+      session_end_date: cls.session_end_date!,
       short_name: (cls as { short_name?: string | null }).short_name ?? null,
       long_name: (cls as { long_name?: string | null }).long_name ?? null,
+      cohort_label: cls.cohort_label,
+      next_session_start_at: cls.next_session_start_at,
+      schedule_rows: cls.schedule_rows ?? [],
+      schedule_frequency_weeks: cls.schedule_frequency_weeks,
+      schedule_anchor_date: cls.schedule_anchor_date,
+      schedule_summary_long: cls.schedule_summary_long,
+      schedule_summary_short: cls.schedule_summary_short,
+      schedule_timezone: cls.schedule_timezone ?? 'Australia/Adelaide',
+      schedule_weekdays: cls.schedule_weekdays ?? [],
     }));
   
   // Build subject objects from flattened fields for compatibility
@@ -170,8 +181,6 @@ export function ClassesTable({ addModalState: _addModalState }: ClassesTableProp
         return 'bg-green-100 text-green-800';
       case 'INACTIVE':
         return 'bg-gray-100 text-gray-800';
-      case 'FULL':
-        return 'bg-orange-100 text-orange-800';
       default:
         return 'bg-gray-100 text-gray-800';
     }
@@ -416,9 +425,16 @@ export function ClassesTable({ addModalState: _addModalState }: ClassesTableProp
                       className="cursor-pointer hover:bg-muted/50"
                       onClick={() => handleClassClick(cls)}
                     >
-                      <TableCell>{cls.day_of_week !== null ? getDayOfWeek(cls.day_of_week) : '-'}</TableCell>
                       <TableCell>
-                        {formatTime(cls.start_time)} - {formatTime(cls.end_time)}
+                        {cls.schedule_weekdays.length > 0
+                          ? cls.schedule_weekdays.map(getDayOfWeek).join(', ')
+                          : cls.day_of_week !== null
+                            ? getDayOfWeek(cls.day_of_week)
+                            : '-'}
+                      </TableCell>
+                      <TableCell>
+                        {cls.schedule_summary_short ||
+                          `${formatTime(cls.start_time)} - ${formatTime(cls.end_time)}`}
                       </TableCell>
                       <TableCell className="font-medium">
                         <Badge 
@@ -512,4 +528,4 @@ export function ClassesTable({ addModalState: _addModalState }: ClassesTableProp
       /> */}
     </div>
   );
-} 
+}

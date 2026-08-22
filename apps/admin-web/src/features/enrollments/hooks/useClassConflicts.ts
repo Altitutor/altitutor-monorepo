@@ -71,6 +71,7 @@ export function useClassConflicts({
               day_of_week,
               start_time,
               end_time,
+              schedule_rows,
               subject:subjects(*)
             )
           `)
@@ -134,4 +135,3 @@ export function useClassConflicts({
 
   return conflicts;
 }
-

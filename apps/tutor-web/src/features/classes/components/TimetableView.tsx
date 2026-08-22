@@ -1,7 +1,8 @@
 'use client';
 
 import { Card } from '@altitutor/ui';
-import type { Tables } from '@altitutor/shared';
+import { expandProjectedClassScheduleRows } from '@altitutor/shared';
+import type { ProjectedClassScheduleRow, Tables } from '@altitutor/shared';
 import { cn, formatSubjectDisplay, formatSubjectShortName } from '@/shared/utils/index';
 import { formatTime } from '@/shared/utils/datetime';
 import { getSubjectColorHex, getSubjectColorStyle } from '@/shared/utils';
@@ -22,7 +23,7 @@ interface TimeSlot {
 }
 
 interface ClassPosition {
-  class: Tables<'classes'>;
+  class: TimetableClass;
   top: number;
   height: number;
   left: number;
@@ -31,6 +32,8 @@ interface ClassPosition {
   totalOverlaps: number;
 }
 
+type TimetableClass = Tables<'classes'> & ProjectedClassScheduleRow;
+
 export function TimetableView({ 
   classes, 
   classSubjects, 
@@ -38,6 +41,7 @@ export function TimetableView({
   classStaff: _classStaff, 
   onClassClick 
 }: TimetableViewProps) {
+  const timetableClasses = expandProjectedClassScheduleRows(classes);
   const days = [
     { name: 'Monday', value: 1, short: 'Mon' },
     { name: 'Tuesday', value: 2, short: 'Tue' },
@@ -50,7 +54,7 @@ export function TimetableView({
 
   // Filter days that have classes
   const activeDays = days.filter(day => 
-    classes.some(cls => cls.day_of_week === day.value)
+    timetableClasses.some(cls => cls.day_of_week === day.value)
   );
 
   // Generate time slots from 9am to 8pm
@@ -78,8 +82,8 @@ export function TimetableView({
 
   // Calculate position of a class block relative to the timetable grid
   const calculateClassPosition = (
-    cls: Tables<'classes'>, 
-    overlappingClasses: Tables<'classes'>[]
+    cls: TimetableClass,
+    overlappingClasses: TimetableClass[]
   ): ClassPosition => {
     const startMinutes = timeToMinutes(cls.start_time);
     const endMinutes = timeToMinutes(cls.end_time);
@@ -95,7 +99,7 @@ export function TimetableView({
     const height = Math.max((duration / 60) * slotHeight, 30); // Minimum 30px height
     
     // Calculate overlapping positions
-    const overlapIndex = overlappingClasses.findIndex(c => c.id === cls.id);
+    const overlapIndex = overlappingClasses.findIndex(c => c.schedule_row_id === cls.schedule_row_id);
     const totalOverlaps = overlappingClasses.length;
     const columnWidth = totalOverlaps > 1 ? 95 / totalOverlaps : 95; // Leave some margin
     const left = (overlapIndex * columnWidth) + 2.5; // Add small left margin
@@ -112,21 +116,21 @@ export function TimetableView({
   };
 
   // Find overlapping classes for a specific day and time range
-  const findOverlappingClasses = (dayClasses: Tables<'classes'>[]): Tables<'classes'>[][] => {
-    const groups: Tables<'classes'>[][] = [];
+  const findOverlappingClasses = (dayClasses: TimetableClass[]): TimetableClass[][] => {
+    const groups: TimetableClass[][] = [];
     const processed = new Set<string>();
     
     dayClasses.forEach(cls => {
-      if (processed.has(cls.id)) return;
+      if (processed.has(cls.schedule_row_id)) return;
       
       const group = [cls];
-      processed.add(cls.id);
+      processed.add(cls.schedule_row_id);
       
       const clsStart = timeToMinutes(cls.start_time);
       const clsEnd = timeToMinutes(cls.end_time);
       
       dayClasses.forEach(otherCls => {
-        if (processed.has(otherCls.id)) return;
+        if (processed.has(otherCls.schedule_row_id)) return;
         
         const otherStart = timeToMinutes(otherCls.start_time);
         const otherEnd = timeToMinutes(otherCls.end_time);
@@ -134,7 +138,7 @@ export function TimetableView({
         // Check if classes overlap
         if (clsStart < otherEnd && clsEnd > otherStart) {
           group.push(otherCls);
-          processed.add(otherCls.id);
+          processed.add(otherCls.schedule_row_id);
         }
       });
       
@@ -146,7 +150,7 @@ export function TimetableView({
 
   // Get classes for each visible day
   const getClassesForDay = (dayValue: number): ClassPosition[] => {
-    const dayClasses = classes
+    const dayClasses = timetableClasses
       .filter(cls => cls.day_of_week === dayValue)
       .sort((a, b) => timeToMinutes(a.start_time) - timeToMinutes(b.start_time));
     
@@ -263,7 +267,7 @@ export function TimetableView({
                     <div className="absolute inset-0" style={{ height: `${timeSlots.length * 60}px` }}>
                       {getClassesForDay(day.value).map((position) => (
                         <div
-                          key={position.class.id}
+                          key={`${position.class.id}-${position.class.schedule_row_id}`}
                           className={cn(
                             'absolute cursor-pointer transition-all hover:shadow-lg hover:scale-[1.02] rounded p-2 border-2 text-xs font-medium overflow-hidden',
                             getClassColor(position.class)
@@ -316,4 +320,4 @@ export function TimetableView({
       </div>
     </div>
   );
-} 
+}

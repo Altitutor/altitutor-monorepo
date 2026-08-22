@@ -21,7 +21,11 @@ import {
   usePreviewClassSchedule,
 } from '../hooks/useClassesQuery';
 import type { ClassSchedulePlan, ClassScheduleProposal, ClassScheduleRow } from '../types/schedule';
-import { buildClassScheduleProposal, validateClassScheduleRows } from '../utils/classScheduleForm';
+import {
+  buildClassScheduleProposal,
+  resolveClassScheduleRows,
+  validateClassScheduleRows,
+} from '../utils/classScheduleForm';
 
 const DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
   .map((label, value) => ({ label, value }));
@@ -58,19 +62,35 @@ export function EditClassScheduleDialog({
   const [rows, setRows] = useState<ClassScheduleRow[]>([]);
   const [frequencyWeeks, setFrequencyWeeks] = useState<1 | 2>(1);
   const [effectiveFrom, setEffectiveFrom] = useState(todayInAdelaide());
+  const [endDate, setEndDate] = useState(classData.session_end_date);
   const [proposal, setProposal] = useState<ClassScheduleProposal | null>(null);
   const [plan, setPlan] = useState<ClassSchedulePlan | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!open || !storedSchedule) return;
-    setRows(storedSchedule.rows.map((row) => ({ ...row, id: crypto.randomUUID() })));
-    setFrequencyWeeks(storedSchedule.frequencyWeeks ?? 1);
+    if (!open || storedSchedule === undefined) return;
+    setRows(resolveClassScheduleRows(storedSchedule?.rows, {
+      dayOfWeek: classData.day_of_week,
+      startTime: classData.start_time,
+      endTime: classData.end_time,
+      room: classData.room,
+    }, () => crypto.randomUUID()));
+    setFrequencyWeeks(storedSchedule?.frequencyWeeks ?? 1);
     setEffectiveFrom(todayInAdelaide() < classData.session_start_date ? classData.session_start_date : todayInAdelaide());
+    setEndDate(classData.session_end_date);
     setProposal(null);
     setPlan(null);
     setError(null);
-  }, [classData.session_start_date, open, storedSchedule]);
+  }, [
+    classData.day_of_week,
+    classData.end_time,
+    classData.room,
+    classData.session_end_date,
+    classData.session_start_date,
+    classData.start_time,
+    open,
+    storedSchedule,
+  ]);
 
   const updateRow = (id: string, patch: Partial<ClassScheduleRow>) => {
     setRows((current) => current.map((row) => row.id === id ? { ...row, ...patch } : row));
@@ -80,7 +100,10 @@ export function EditClassScheduleDialog({
   const preview = async () => {
     const validationError = validateClassScheduleRows(rows);
     if (validationError) return setError(validationError);
-    if (effectiveFrom < todayInAdelaide() || effectiveFrom > classData.session_end_date) {
+    if (!endDate || endDate < classData.session_start_date) {
+      return setError('The Class end date must be on or after its start date.');
+    }
+    if (effectiveFrom < todayInAdelaide() || effectiveFrom > endDate) {
       return setError('The effective date must be today or later and inside the Class dates.');
     }
     const nextProposal = buildClassScheduleProposal({
@@ -88,7 +111,7 @@ export function EditClassScheduleDialog({
       subjectId: classData.subject_id,
       cohortLabel: classData.cohort_label ?? classData.level ?? '',
       startDate: classData.session_start_date,
-      endDate: classData.session_end_date,
+      endDate,
       effectiveFrom,
       anchorDate: storedSchedule?.anchorDate ?? classData.session_start_date,
       frequencyWeeks,
@@ -134,13 +157,24 @@ export function EditClassScheduleDialog({
           <div className="flex justify-center p-10"><Loader2 className="h-5 w-5 animate-spin" /></div>
         ) : !plan ? (
           <div className="max-h-[62vh] space-y-5 overflow-y-auto">
-            <div className="grid gap-4 sm:grid-cols-2">
+            <div className="grid gap-4 sm:grid-cols-3">
               <div className="space-y-2">
                 <Label>Effective from</Label>
                 <SmartDatePickerField
                   value={effectiveFrom}
                   minDate={todayInAdelaide()}
                   onChange={(value) => setEffectiveFrom(value ?? '')}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Class end date</Label>
+                <SmartDatePickerField
+                  value={endDate}
+                  minDate={effectiveFrom || classData.session_start_date}
+                  onChange={(value) => {
+                    setEndDate(value ?? '');
+                    setPlan(null);
+                  }}
                 />
               </div>
               <div className="space-y-2">
@@ -186,6 +220,14 @@ export function EditClassScheduleDialog({
               <div className="rounded-md border p-3"><strong className="block text-2xl">{plan.counts.protected}</strong><span className="text-sm text-muted-foreground">protected</span></div>
             </div>
             {plan.counts.protected > 0 && <div className="flex gap-2 rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-950"><AlertTriangle className="h-4 w-4" />These exceptional or enriched Sessions will remain unchanged.</div>}
+            {plan.conflicts.length > 0 && (
+              <div className="rounded-md border border-amber-300 p-3 text-sm">
+                <div className="font-medium">Warnings</div>
+                {plan.conflicts.map((conflict) => (
+                  <p key={conflict.message}>{conflict.message}</p>
+                ))}
+              </div>
+            )}
             <div className="max-h-64 divide-y overflow-y-auto rounded-md border">
               {plan.removals.map((removal) => <div key={removal.session_id} className="flex justify-between p-3 text-sm"><span>{new Date(removal.start_at).toLocaleString('en-AU', { timeZone: 'Australia/Adelaide' })}</span><span>{removal.action.toLowerCase()}</span></div>)}
             </div>
