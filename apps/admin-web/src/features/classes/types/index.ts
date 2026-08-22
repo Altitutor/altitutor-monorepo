@@ -6,4 +6,5 @@ export type {
   ClassSchedulePlanRemoval,
   ClassScheduleProposal,
   ClassScheduleRow,
+  StoredClassSchedule,
 } from './schedule';

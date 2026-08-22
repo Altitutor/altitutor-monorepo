@@ -1472,8 +1472,8 @@ export type Database = {
           cohort_label: string | null
           created_at: string | null
           created_by: string | null
-          day_of_week: number | null
-          end_time: string | null
+          day_of_week: number
+          end_time: string
           id: string
           level: string | null
           long_name: string | null
@@ -1486,7 +1486,7 @@ export type Database = {
           session_end_date: string
           session_start_date: string
           short_name: string | null
-          start_time: string | null
+          start_time: string
           status: string
           subject_id: string | null
           updated_at: string | null
@@ -1495,8 +1495,8 @@ export type Database = {
           cohort_label?: string | null
           created_at?: string | null
           created_by?: string | null
-          day_of_week?: number | null
-          end_time?: string | null
+          day_of_week: number
+          end_time: string
           id: string
           level?: string | null
           long_name?: string | null
@@ -1509,7 +1509,7 @@ export type Database = {
           session_end_date: string
           session_start_date: string
           short_name?: string | null
-          start_time?: string | null
+          start_time: string
           status: string
           subject_id?: string | null
           updated_at?: string | null
@@ -1518,8 +1518,8 @@ export type Database = {
           cohort_label?: string | null
           created_at?: string | null
           created_by?: string | null
-          day_of_week?: number | null
-          end_time?: string | null
+          day_of_week?: number
+          end_time?: string
           id?: string
           level?: string | null
           long_name?: string | null
@@ -1532,7 +1532,7 @@ export type Database = {
           session_end_date?: string
           session_start_date?: string
           short_name?: string | null
-          start_time?: string | null
+          start_time?: string
           status?: string
           subject_id?: string | null
           updated_at?: string | null

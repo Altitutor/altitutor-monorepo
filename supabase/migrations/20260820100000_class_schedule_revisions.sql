@@ -299,9 +299,6 @@ SET
 ALTER TABLE public.classes
   ALTER COLUMN session_start_date SET NOT NULL,
   ALTER COLUMN session_end_date SET NOT NULL,
-  ALTER COLUMN day_of_week DROP NOT NULL,
-  ALTER COLUMN start_time DROP NOT NULL,
-  ALTER COLUMN end_time DROP NOT NULL,
   DROP CONSTRAINT classes_status_check,
   ADD CONSTRAINT classes_status_check CHECK (status IN ('ACTIVE', 'INACTIVE')),
   ADD CONSTRAINT classes_schedule_bounds_check CHECK (session_start_date <= session_end_date);
@@ -626,6 +623,11 @@ DECLARE
   v_slot_id UUID;
   v_created_by UUID := (SELECT public.current_staff_id());
   v_previous_assignment_source TEXT := current_setting('app.sessions_staff_assignment_source', TRUE);
+  v_primary_day SMALLINT;
+  v_primary_start TIME;
+  v_primary_end TIME;
+  v_primary_room TEXT;
+  v_class_status TEXT := COALESCE(NULLIF(p_proposal->>'status', ''), 'ACTIVE');
 BEGIN
   IF v_class_id IS NULL THEN
     RAISE EXCEPTION 'A client-generated Class id is required';
@@ -638,20 +640,42 @@ BEGIN
 
   PERFORM pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtextextended(v_class_id::TEXT, 0));
 
+  IF v_schedule_type = 'RECURRING' THEN
+    SELECT
+      (row_value->>'day_of_week')::SMALLINT,
+      (row_value->>'start_time')::TIME,
+      (row_value->>'end_time')::TIME,
+      NULLIF(row_value->>'room', '')
+    INTO v_primary_day, v_primary_start, v_primary_end, v_primary_room
+    FROM jsonb_array_elements(p_proposal->'recurring_rows') WITH ORDINALITY rows(row_value, row_position)
+    ORDER BY COALESCE((row_value->>'position')::INTEGER, row_position::INTEGER), row_position
+    LIMIT 1;
+  ELSE
+    SELECT
+      EXTRACT(DOW FROM (row_value->>'date')::DATE)::SMALLINT,
+      (row_value->>'start_time')::TIME,
+      (row_value->>'end_time')::TIME,
+      NULLIF(row_value->>'room', '')
+    INTO v_primary_day, v_primary_start, v_primary_end, v_primary_room
+    FROM jsonb_array_elements(p_proposal->'custom_sessions') WITH ORDINALITY rows(row_value, row_position)
+    ORDER BY (row_value->>'date')::DATE, (row_value->>'start_time')::TIME, row_position
+    LIMIT 1;
+  END IF;
+
   IF EXISTS (SELECT 1 FROM public.classes WHERE id = v_class_id) THEN
     UPDATE public.classes
     SET
       subject_id = v_subject_id,
       cohort_label = NULLIF(BTRIM(p_proposal->>'cohort_label'), ''),
       level = NULLIF(BTRIM(p_proposal->>'cohort_label'), ''),
-      status = COALESCE(NULLIF(p_proposal->>'status', ''), 'ACTIVE'),
+      status = v_class_status,
       session_start_date = v_start_date,
       session_end_date = v_end_date,
       schedule_timezone = v_timezone,
-      day_of_week = NULL,
-      start_time = NULL,
-      end_time = NULL,
-      room = NULL
+      day_of_week = v_primary_day,
+      start_time = v_primary_start,
+      end_time = v_primary_end,
+      room = v_primary_room
     WHERE id = v_class_id;
 
     UPDATE public.class_schedule_revisions
@@ -679,14 +703,14 @@ BEGIN
       v_subject_id,
       NULLIF(BTRIM(p_proposal->>'cohort_label'), ''),
       NULLIF(BTRIM(p_proposal->>'cohort_label'), ''),
-      COALESCE(NULLIF(p_proposal->>'status', ''), 'ACTIVE'),
+      v_class_status,
       v_start_date,
       v_end_date,
       v_timezone,
-      NULL,
-      NULL,
-      NULL,
-      NULL,
+      v_primary_day,
+      v_primary_start,
+      v_primary_end,
+      v_primary_room,
       v_created_by
     );
   END IF;
@@ -724,7 +748,7 @@ BEGIN
         room,
         position
       ) VALUES (
-        COALESCE(NULLIF(v_row->>'id', '')::UUID, gen_random_uuid()),
+        gen_random_uuid(),
         v_revision_id,
         (v_row->>'day_of_week')::SMALLINT,
         (v_row->>'start_time')::TIME,
@@ -804,7 +828,7 @@ BEGIN
         v_subject_id,
         (v_occurrence->>'start_at')::TIMESTAMPTZ,
         (v_occurrence->>'end_at')::TIMESTAMPTZ,
-        'ACTIVE',
+        v_class_status,
         v_revision_id,
         v_slot_id,
         CASE WHEN v_schedule_type = 'RECURRING' THEN 'GENERATED' ELSE 'CUSTOM' END,
@@ -816,7 +840,7 @@ BEGIN
     ELSE
       UPDATE public.sessions
       SET
-        status = 'ACTIVE',
+        status = v_class_status,
         subject_id = v_subject_id,
         schedule_revision_id = v_revision_id,
         schedule_slot_id = v_slot_id,

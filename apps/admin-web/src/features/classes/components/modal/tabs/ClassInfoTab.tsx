@@ -25,7 +25,7 @@ const classInfoSchema = z.object({
   dayOfWeek: z.number().min(0).max(6),
   startTime: z.string().min(1, 'Start time is required'),
   endTime: z.string().min(1, 'End time is required'),
-  status: z.enum(['ACTIVE','INACTIVE','FULL']),
+  status: z.enum(['ACTIVE','INACTIVE']),
   subjectId: z.string().optional(),
   room: z.string().optional(),
   sessionStartDate: z.string().optional().nullable(),
@@ -55,7 +55,6 @@ type FormData = z.infer<typeof classInfoSchema>;
 const STATUS_OPTIONS = [
   { value: 'ACTIVE' as const, label: 'Active' },
   { value: 'INACTIVE' as const, label: 'Inactive' },
-  { value: 'FULL' as const, label: 'Full' },
 ] as const;
 
 const DAY_OPTIONS = [
@@ -129,13 +128,13 @@ export function ClassInfoTab({
     if (isEditing && !hasResetRef.current && classData) {
       const dayValue = classData.day_of_week != null ? classData.day_of_week : 1;
       // Map ARCHIVED status to INACTIVE for form (form schema doesn't support ARCHIVED)
-      const formStatus = classData.status === 'ARCHIVED' ? 'INACTIVE' : (classData.status === 'ACTIVE' || classData.status === 'INACTIVE' || classData.status === 'FULL' ? classData.status : 'ACTIVE');
+      const formStatus = classData.status === 'INACTIVE' ? 'INACTIVE' : 'ACTIVE';
       form.reset({
         level: classData.level || null,
         dayOfWeek: dayValue,
         startTime: classData.start_time || '',
         endTime: classData.end_time || '',
-        status: formStatus as 'ACTIVE' | 'INACTIVE' | 'FULL',
+        status: formStatus,
         subjectId: classData.subject_id ?? undefined,
         room: classData.room || '',
         sessionStartDate: classData.session_start_date || null,

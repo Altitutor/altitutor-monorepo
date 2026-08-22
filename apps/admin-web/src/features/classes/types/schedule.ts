@@ -12,6 +12,9 @@ export interface ClassScheduleFormValues {
   cohortLabel: string;
   startDate: string;
   endDate: string;
+  effectiveFrom?: string;
+  anchorDate?: string;
+  status?: 'ACTIVE' | 'INACTIVE';
   frequencyWeeks: 1 | 2;
   rows: ClassScheduleRow[];
 }
@@ -68,4 +71,13 @@ export interface ClassSchedulePlan {
   conflicts: Array<{ message: string }>;
   class_id?: string;
   schedule_revision_id?: string;
+}
+
+export interface StoredClassSchedule {
+  id: string;
+  scheduleType: 'RECURRING' | 'CUSTOM';
+  frequencyWeeks: 1 | 2 | null;
+  anchorDate: string | null;
+  effectiveFrom: string;
+  rows: ClassScheduleRow[];
 }

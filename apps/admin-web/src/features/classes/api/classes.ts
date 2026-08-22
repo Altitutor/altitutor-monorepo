@@ -1,8 +1,9 @@
-import type { Tables, TablesInsert, TablesUpdate, Database, ClassWithExpandedSubject } from '@altitutor/shared';
+import type { Tables, TablesInsert, TablesUpdate, Database, ClassWithExpandedSubject, Json } from '@altitutor/shared';
 import type { JSONContent } from '@tiptap/core';
 import { getSupabaseClient } from '@/shared/lib/supabase/client';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { isTiptapContentEmpty } from '@/shared/utils/plainTextToTiptapJson';
+import type { ClassSchedulePlan, ClassScheduleProposal, StoredClassSchedule } from '../types/schedule';
 
 export type MinimalClass = Pick<
   Tables<'classes'>,
@@ -18,6 +19,58 @@ export type MinimalClass = Pick<
  * Classes API client for working with class data
  */
 export const classesApi = {
+  getLatestSchedule: async (classId: string): Promise<StoredClassSchedule | null> => {
+    const supabase = getSupabaseClient() as SupabaseClient<Database>;
+    const { data, error } = await supabase
+      .from('class_schedule_revisions')
+      .select('id, schedule_type, frequency_weeks, anchor_date, effective_from, class_schedule_slots(id, day_of_week, start_time, end_time, room, position)')
+      .eq('class_id', classId)
+      .order('effective_from', { ascending: false })
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (error) throw error;
+    if (!data) return null;
+    return {
+      id: data.id,
+      scheduleType: data.schedule_type as 'RECURRING' | 'CUSTOM',
+      frequencyWeeks: data.frequency_weeks as 1 | 2 | null,
+      anchorDate: data.anchor_date,
+      effectiveFrom: data.effective_from,
+      rows: [...data.class_schedule_slots]
+        .sort((left, right) => left.position - right.position)
+        .map((row) => ({
+          id: row.id,
+          dayOfWeek: row.day_of_week,
+          startTime: row.start_time,
+          endTime: row.end_time,
+          room: row.room ?? '',
+        })),
+    };
+  },
+
+  previewSchedule: async (proposal: ClassScheduleProposal): Promise<ClassSchedulePlan> => {
+    const supabase = getSupabaseClient() as SupabaseClient<Database>;
+    const { data, error } = await supabase.rpc('preview_class_schedule', {
+      p_proposal: proposal as unknown as Json,
+    });
+    if (error) throw error;
+    return data as unknown as ClassSchedulePlan;
+  },
+
+  applySchedule: async (
+    proposal: ClassScheduleProposal,
+    expectedProposalHash: string
+  ): Promise<ClassSchedulePlan> => {
+    const supabase = getSupabaseClient() as SupabaseClient<Database>;
+    const { data, error } = await supabase.rpc('apply_class_schedule', {
+      p_proposal: proposal as unknown as Json,
+      p_expected_proposal_hash: expectedProposalHash,
+    });
+    if (error) throw error;
+    return data as unknown as ClassSchedulePlan;
+  },
+
   /**
    * Get all classes
    */
@@ -1155,8 +1208,8 @@ export const classesApi = {
       created_at: null,
       updated_at: null,
       created_by: null,
-      session_start_date: null,
-      session_end_date: null,
+      session_start_date: '2026-01-01',
+      session_end_date: '2026-12-31',
       subject: rpcData.classSubjects?.[c.id] as ClassWithExpandedSubject['subject'] | undefined,
       staff: (rpcData.classStaff?.[c.id] || []).map((s) => ({
         id: s.id,
