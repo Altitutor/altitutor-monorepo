@@ -60,7 +60,7 @@ function ReportsFilters() {
     handleOperationsChartToggle,
     handleSchedulingChartToggle,
     handleFinancialChartToggle,
-    handleHrChartToggle,
+    handleCommunicationsChartToggle,
   } = useReportsContext();
 
   const OPERATIONS_SUBSECTION_LABELS: Record<OperationsSubsection, string> = {
@@ -80,8 +80,8 @@ function ReportsFilters() {
     ? 'scheduling'
     : pathname?.includes('/financial')
       ? 'financial'
-      : pathname?.includes('/hr')
-        ? 'hr'
+      : pathname?.includes('/communications')
+        ? 'communications'
         : 'operations';
 
   return (
@@ -207,22 +207,24 @@ function ReportsFilters() {
               ))}
             </>
           )}
-          {section === 'hr' && (
+          {section === 'communications' && (
             <>
               <DropdownMenuLabel className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                {REPORTS_SECTION_LABELS.hr}
+                {REPORTS_SECTION_LABELS.communications}
               </DropdownMenuLabel>
               {(
-                Object.keys(REPORTS_CHART_CONFIG.hr) as Array<
-                  keyof typeof REPORTS_CHART_CONFIG.hr
+                Object.keys(REPORTS_CHART_CONFIG.communications) as Array<
+                  keyof typeof REPORTS_CHART_CONFIG.communications
                 >
               ).map((chartKey) => (
                 <DropdownMenuCheckboxItem
                   key={chartKey}
-                  checked={visibleCharts.hr[chartKey]}
-                  onCheckedChange={(checked) => handleHrChartToggle(chartKey, checked === true)}
+                  checked={visibleCharts.communications[chartKey]}
+                  onCheckedChange={(checked) =>
+                    handleCommunicationsChartToggle(chartKey, checked === true)
+                  }
                 >
-                  {REPORTS_CHART_CONFIG.hr[chartKey]}
+                  {REPORTS_CHART_CONFIG.communications[chartKey]}
                 </DropdownMenuCheckboxItem>
               ))}
             </>

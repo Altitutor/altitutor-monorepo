@@ -2,7 +2,11 @@ import type { Database } from '@altitutor/shared';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { eachDayOfInterval, endOfDay, format, startOfDay } from 'date-fns';
 import { getSupabaseClient } from '@/shared/lib/supabase/client';
-import type { HrStatsReportData, ReportDataPoint, ReportEntityLink } from '../types';
+import type {
+  CommunicationsStatsReportData,
+  ReportDataPoint,
+  ReportEntityPerson,
+} from '../types';
 
 type Person = {
   id: string;
@@ -13,7 +17,6 @@ type Person = {
 type CheckInRow = {
   id: string;
   session: { id: string; start_at: string | null; long_name: string | null } | null;
-  creator: Person | null;
   staffAttendance: Array<{ id: string; attended: boolean; type: string; staff: Person | null }>;
   studentAttendance: Array<{ id: string; attended: boolean; student: Person | null }>;
   parentAttendance: Array<{ id: string; attended: boolean; parent: Person | null }>;
@@ -36,6 +39,22 @@ function personName(person: Person | null, fallback: string): string {
   return [person.first_name, person.last_name].filter(Boolean).join(' ').trim() || fallback;
 }
 
+function people(
+  attendances: Array<{ attended: boolean; person: Person | null }>,
+  kind: ReportEntityPerson['kind'],
+  fallback: string
+): ReportEntityPerson[] {
+  const seen = new Set<string>();
+  return attendances.flatMap(({ attended, person }) => {
+    if (!attended) return [];
+    const name = personName(person, fallback);
+    const key = person?.id ?? name;
+    if (seen.has(key)) return [];
+    seen.add(key);
+    return [{ id: person?.id, name, kind }];
+  });
+}
+
 function emptySeries(days: Date[]): ReportDataPoint[] {
   return days.map((day) => ({ date: dateKey(day), count: 0, entities: [] }));
 }
@@ -48,10 +67,10 @@ function formatTypeLabel(value: string): string {
     .join(' ');
 }
 
-export async function fetchHrStatsReportData(
+export async function fetchCommunicationsStatsReportData(
   periodStart: Date,
   periodEnd: Date
-): Promise<HrStatsReportData> {
+): Promise<CommunicationsStatsReportData> {
   const supabase = getSupabaseClient() as SupabaseClient<Database>;
   const start = startOfDay(periodStart);
   const end = endOfDay(periodEnd);
@@ -63,7 +82,6 @@ export async function fetchHrStatsReportData(
       .select(`
         id,
         session:sessions!inner(id, start_at, long_name),
-        creator:staff!tutor_logs_created_by_fkey(id, first_name, last_name),
         staffAttendance:tutor_logs_staff_attendance(id, attended, type, staff:staff!tutor_logs_staff_attendance_staff_id_fkey(id, first_name, last_name)),
         studentAttendance:tutor_logs_student_attendance(id, attended, student:students!tutor_logs_student_attendance_student_id_fkey(id, first_name, last_name)),
         parentAttendance:tutor_logs_parent_attendance(id, attended, parent:parents!tutor_logs_parent_attendance_parent_id_fkey(id, first_name, last_name))
@@ -98,59 +116,82 @@ export async function fetchHrStatsReportData(
     if (occurredAt < start || occurredAt > end) continue;
     const index = indexByDate.get(dateKey(occurredAt));
     if (index === undefined) continue;
-    const recordedBy = personName(checkIn.creator, 'Unknown staff');
     const sessionDate = format(occurredAt, 'd MMM yyyy, h:mm a');
 
-    for (const attendance of checkIn.staffAttendance ?? []) {
-      if (!attendance.attended || !['CHECK_IN_RECEIVER', 'MAIN_TUTOR'].includes(attendance.type)) {
-        continue;
-      }
-      const staff = personName(attendance.staff, 'Unknown staff');
+    const attendedStaff = checkIn.staffAttendance?.filter((attendance) => attendance.attended) ?? [];
+    const receivingStaff = people(
+      attendedStaff
+        .filter((attendance) => ['CHECK_IN_RECEIVER', 'MAIN_TUTOR'].includes(attendance.type))
+        .map((attendance) => ({ attended: true, person: attendance.staff })),
+      'staff',
+      'Unknown staff'
+    );
+    const conductingStaff = people(
+      attendedStaff
+        .filter((attendance) =>
+          ['CHECK_IN_HOST', 'SECONDARY_TUTOR', 'TRIAL_TUTOR'].includes(attendance.type)
+        )
+        .map((attendance) => ({ attended: true, person: attendance.staff })),
+      'staff',
+      'Unknown staff'
+    );
+    const allStaff = people(
+      attendedStaff.map((attendance) => ({ attended: true, person: attendance.staff })),
+      'staff',
+      'Unknown staff'
+    );
+    const students = people(
+      (checkIn.studentAttendance ?? []).map((attendance) => ({
+        attended: attendance.attended,
+        person: attendance.student,
+      })),
+      'student',
+      'Unknown student'
+    );
+    const parents = people(
+      (checkIn.parentAttendance ?? []).map((attendance) => ({
+        attended: attendance.attended,
+        person: attendance.parent,
+      })),
+      'parent',
+      'Unknown parent'
+    );
+    const sessionLink = { kind: 'session' as const, sessionId: checkIn.session.id };
+    const sessionName = checkIn.session.long_name ?? 'Check-in session';
+
+    if (receivingStaff.length > 0) {
       const point = staffCheckInsByDay[index];
       point.count += 1;
       point.entities.push({
-        id: attendance.id,
-        name: staff,
-        link: {
-          kind: 'staff' as ReportEntityLink['kind'],
-          staffId: attendance.staff?.id,
-          sessionId: checkIn.session.id,
-        },
-        meta: { staff, sessionDate, loggedBy: recordedBy },
+        id: checkIn.id,
+        name: sessionName,
+        link: sessionLink,
+        people: { staff: receivingStaff, conductingStaff },
+        meta: { sessionDate, staffNames: receivingStaff.map((person) => person.name) },
       });
     }
 
-    for (const attendance of checkIn.studentAttendance ?? []) {
-      if (!attendance.attended) continue;
-      const student = personName(attendance.student, 'Unknown student');
+    if (students.length > 0) {
       const point = studentCheckInsByDay[index];
       point.count += 1;
       point.entities.push({
-        id: attendance.id,
-        name: student,
-        link: {
-          kind: 'student' as ReportEntityLink['kind'],
-          studentId: attendance.student?.id,
-          sessionId: checkIn.session.id,
-        },
-        meta: { student, sessionDate, loggedBy: recordedBy },
+        id: checkIn.id,
+        name: sessionName,
+        link: sessionLink,
+        people: { student: students, staff: allStaff },
+        meta: { sessionDate, staffNames: allStaff.map((person) => person.name) },
       });
     }
 
-    for (const attendance of checkIn.parentAttendance ?? []) {
-      if (!attendance.attended) continue;
-      const parent = personName(attendance.parent, 'Unknown parent');
+    if (parents.length > 0) {
       const point = parentCheckInsByDay[index];
       point.count += 1;
       point.entities.push({
-        id: attendance.id,
-        name: parent,
-        link: {
-          kind: 'parent' as ReportEntityLink['kind'],
-          parentId: attendance.parent?.id,
-          sessionId: checkIn.session.id,
-        },
-        meta: { parent, sessionDate, loggedBy: recordedBy },
+        id: checkIn.id,
+        name: sessionName,
+        link: sessionLink,
+        people: { parent: parents, staff: allStaff },
+        meta: { sessionDate, staffNames: allStaff.map((person) => person.name) },
       });
     }
   }
@@ -190,4 +231,3 @@ export async function fetchHrStatsReportData(
       .sort((a, b) => a.label.localeCompare(b.label)),
   };
 }
-

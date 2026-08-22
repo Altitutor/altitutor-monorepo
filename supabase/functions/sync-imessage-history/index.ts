@@ -1,7 +1,8 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
+import { serveWithSentry } from "../_shared/sentry.ts";
 import { authenticateBearer } from "../_shared/imessage.ts";
 
-Deno.serve((req: Request) => {
+serveWithSentry("sync-imessage-history", (req: Request) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", {
       headers: {

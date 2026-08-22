@@ -1,4 +1,5 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
+import { serveWithSentry } from "../_shared/sentry.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
 import {
   renderTransactionalEmail,
@@ -27,7 +28,7 @@ function nextAttemptAt(attemptCount: number): string {
   return new Date(Date.now() + seconds * 1000).toISOString();
 }
 
-Deno.serve(async (request) => {
+serveWithSentry("ucat-transactional-email-dispatch", async (request, sentry) => {
   if (request.method !== "POST") {
     return json({ error: "Method not allowed" }, 405);
   }
@@ -62,6 +63,7 @@ Deno.serve(async (request) => {
     { p_limit: limit },
   );
   if (error) {
+    sentry.captureException(error);
     return json(
       { error: "Could not claim email jobs", detail: error.message },
       500,
@@ -138,6 +140,7 @@ Deno.serve(async (request) => {
       });
     } catch (error) {
       const exhausted = row.attempt_count >= MAX_ATTEMPTS;
+      if (exhausted) sentry.captureException(error);
       await supabase
         .from("ucat_transactional_email_outbox")
         .update({

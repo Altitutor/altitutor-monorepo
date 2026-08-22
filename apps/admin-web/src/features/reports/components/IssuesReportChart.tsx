@@ -10,7 +10,7 @@ import {
   ResponsiveContainer,
   Cell,
 } from 'recharts';
-import type { ReportDataPoint } from '../types';
+import type { ReportDataPoint, ReportEntityPerson } from '../types';
 import { ReportsEntitiesTable, type ReportsEntitiesTableVariant } from './ReportsEntitiesTable';
 import { ReportSummaryCard } from './ReportSummaryCard';
 import {
@@ -43,6 +43,7 @@ interface IssuesReportChartProps {
    * Called when an entity is clicked. Entity is clickable when this is provided and entity has a link.
    */
   onEntityClick?: (entity: ReportEntity) => void;
+  onPersonClick?: (person: ReportEntityPerson) => void;
   totalMode?: ReportTotalMode;
   staffMetaKeys?: ReportStaffMetaKey[];
   summaryEntries?: Array<{ label: string; value: number | string }>;
@@ -96,6 +97,7 @@ export function IssuesReportChart({
   barColor = CHART_PRIMARY,
   entityLabelSingular = 'issue',
   onEntityClick,
+  onPersonClick,
   totalMode = 'sum',
   staffMetaKeys = [],
   summaryEntries,
@@ -151,6 +153,7 @@ export function IssuesReportChart({
         entities={deduplicatedEntities}
         variant={tableVariant}
         onEntityClick={onEntityClick}
+        onPersonClick={onPersonClick}
       />
     </div>
   );

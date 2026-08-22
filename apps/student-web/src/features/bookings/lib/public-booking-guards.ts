@@ -1,4 +1,5 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
+import { instrumentSupabaseClient } from '@/lib/sentry/instrument-supabase-client';
 import type { Database } from '@altitutor/shared';
 
 export { getAdelaideDateString, isWithinMinAdvanceThreshold } from './public-booking-threshold';
@@ -39,9 +40,9 @@ export function createServiceRoleClient(): SupabaseClient<Database> {
   if (!url || !key) {
     throw new Error('Server configuration error');
   }
-  return createClient<Database>(url, key, {
+  return instrumentSupabaseClient(createClient<Database>(url, key, {
     auth: { autoRefreshToken: false, persistSession: false },
-  });
+  }));
 }
 
 export async function getMinAdvanceBookingDays(

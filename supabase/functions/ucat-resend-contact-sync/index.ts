@@ -1,4 +1,5 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
+import { serveWithSentry } from "../_shared/sentry.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
 import { Resend } from "npm:resend@6.9.1";
 
@@ -22,7 +23,7 @@ function response(value: unknown, status = 200) {
   });
 }
 
-Deno.serve(async (request) => {
+serveWithSentry("ucat-resend-contact-sync", async (request, sentry) => {
   if (request.method !== "POST") {
     return response({ error: "Method not allowed" }, 405);
   }
@@ -70,6 +71,7 @@ Deno.serve(async (request) => {
     .order("updated_at", { ascending: true })
     .limit(100);
   if (subscriberError) {
+    sentry.captureException(subscriberError);
     return response({ error: subscriberError.message }, 500);
   }
 
@@ -84,7 +86,10 @@ Deno.serve(async (request) => {
         "student_id,weekly_progress_and_guidance,lessons_and_tips,product_news,offers_and_referrals",
       )
       .in("student_id", studentIds);
-    if (error) return response({ error: error.message }, 500);
+    if (error) {
+      sentry.captureException(error);
+      return response({ error: error.message }, 500);
+    }
     for (const preference of preferences ?? []) {
       preferenceMap.set(
         preference.student_id,
@@ -146,6 +151,7 @@ Deno.serve(async (request) => {
       if (error) throw new Error(error.message);
       synced += 1;
     } catch (error) {
+      if (failures.length === 0) sentry.captureException(error);
       failures.push({
         subscriberId: subscriber.id,
         message: (error instanceof Error ? error.message : String(error)).slice(

@@ -16,7 +16,7 @@ export const REPORTS_SECTION_KEYS = [
   'operations',
   'scheduling',
   'financial',
-  'hr',
+  'communications',
 ] as const;
 
 export type ReportsSectionKey = (typeof REPORTS_SECTION_KEYS)[number];
@@ -25,7 +25,7 @@ export const REPORTS_SECTION_LABELS: Record<ReportsSectionKey, string> = {
   operations: 'Operations',
   scheduling: 'Scheduling',
   financial: 'Financial',
-  hr: 'HR',
+  communications: 'Communications',
 };
 
 export const REPORTS_CHART_CONFIG = {
@@ -69,7 +69,7 @@ export const REPORTS_CHART_CONFIG = {
     subsidiesEnrolled: 'Subsidies (enrolled in class)',
     subsidiesCreated: 'Subsidies',
   },
-  hr: {
+  communications: {
     staffCheckIns: 'Staff check-ins',
     studentCheckIns: 'Student check-ins',
     parentCheckIns: 'Parent check-ins',
@@ -108,7 +108,7 @@ export type ReportsVisibleCharts = {
     subsidiesEnrolled: boolean;
     subsidiesCreated: boolean;
   };
-  hr: {
+  communications: {
     staffCheckIns: boolean;
     studentCheckIns: boolean;
     parentCheckIns: boolean;
@@ -145,7 +145,7 @@ function buildDefaultVisibleCharts(): ReportsVisibleCharts {
       subsidiesEnrolled: false,
       subsidiesCreated: true,
     },
-    hr: {
+    communications: {
       staffCheckIns: true,
       studentCheckIns: true,
       parentCheckIns: true,

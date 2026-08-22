@@ -1,30 +1,45 @@
 'use client';
 
 import { useEntityModals } from '@/shared/contexts/EntityModalContext';
-import type { ReportEntityLink } from '../types';
-import { useHrStatsReport } from '../hooks/useHrReports';
+import type { ReportEntityLink, ReportEntityPerson } from '../types';
+import { useCommunicationsStatsReport } from '../hooks/useHrReports';
 import { IssuesReportChart } from './IssuesReportChart';
 import type { ReportsDateRange, ReportsVisibleCharts } from './ReportsDateRangeCard';
 
-interface HrStatsSectionProps {
+interface CommunicationsStatsSectionProps {
   dateRange: ReportsDateRange;
-  visibleCharts: ReportsVisibleCharts['hr'];
+  visibleCharts: ReportsVisibleCharts['communications'];
 }
 
-export function HrStatsSection({ dateRange, visibleCharts }: HrStatsSectionProps) {
+export function CommunicationsStatsSection({
+  dateRange,
+  visibleCharts,
+}: CommunicationsStatsSectionProps) {
   const entityModals = useEntityModals();
-  const { data, isLoading, error } = useHrStatsReport(dateRange.start, dateRange.end);
+  const { data, isLoading, error } = useCommunicationsStatsReport(
+    dateRange.start,
+    dateRange.end
+  );
 
   const handleEntityClick = (entity: { link?: ReportEntityLink }) => {
     const link = entity.link;
     if (!link) return;
-    if (link.staffId) entityModals.openStaff(link.staffId);
-    else if (link.studentId) entityModals.openStudent(link.studentId);
-    else if (link.sessionId) entityModals.openSession(link.sessionId);
+    if (link.sessionId) entityModals.openSession(link.sessionId);
+  };
+
+  const handlePersonClick = (person: ReportEntityPerson) => {
+    if (!person.id) return;
+    if (person.kind === 'staff') entityModals.openStaff(person.id);
+    else if (person.kind === 'student') entityModals.openStudent(person.id);
+    else entityModals.openParent(person.id);
   };
 
   if (error) {
-    return <p className="text-sm text-destructive">Failed to load HR reports. Please try again.</p>;
+    return (
+      <p className="text-sm text-destructive">
+        Failed to load communications reports. Please try again.
+      </p>
+    );
   }
 
   if (isLoading) {
@@ -48,8 +63,9 @@ export function HrStatsSection({ dateRange, visibleCharts }: HrStatsSectionProps
             title="Staff check-ins"
             entityLabelSingular="check-in"
             tableVariant="staffCheckIns"
-            staffMetaKeys={['staff']}
+            staffMetaKeys={['staffNames']}
             onEntityClick={handleEntityClick}
+            onPersonClick={handlePersonClick}
           />
         </section>
       )}
@@ -65,8 +81,9 @@ export function HrStatsSection({ dateRange, visibleCharts }: HrStatsSectionProps
             title="Student check-ins"
             entityLabelSingular="check-in"
             tableVariant="studentCheckIns"
-            staffMetaKeys={['loggedBy']}
+            staffMetaKeys={['staffNames']}
             onEntityClick={handleEntityClick}
+            onPersonClick={handlePersonClick}
           />
         </section>
       )}
@@ -82,8 +99,9 @@ export function HrStatsSection({ dateRange, visibleCharts }: HrStatsSectionProps
             title="Parent check-ins"
             entityLabelSingular="check-in"
             tableVariant="parentCheckIns"
-            staffMetaKeys={['loggedBy']}
+            staffMetaKeys={['staffNames']}
             onEntityClick={handleEntityClick}
+            onPersonClick={handlePersonClick}
           />
         </section>
       )}
@@ -117,4 +135,3 @@ export function HrStatsSection({ dateRange, visibleCharts }: HrStatsSectionProps
     </div>
   );
 }
-

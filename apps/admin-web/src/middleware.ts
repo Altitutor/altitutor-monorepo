@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
 import type { Database } from '@altitutor/shared';
+import { instrumentSupabaseClient } from '@/lib/sentry/instrument-supabase-client';
 
 const MIDDLEWARE_DEADLINE_MS = 10_000;
 const RETRY_AFTER_SECONDS = 5;
@@ -123,7 +124,7 @@ export async function middleware(req: NextRequest) {
   const cookiesToSet: CookieToSet[] = [];
   const deadline = createInvocationDeadline();
 
-  const supabase = createServerClient<Database>(
+  const supabase = instrumentSupabaseClient(createServerClient<Database>(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
@@ -160,7 +161,7 @@ export async function middleware(req: NextRequest) {
         fetch: deadline.fetch,
       },
     }
-  );
+  ));
 
   // Determine tutor app URL based on environment
   const tutorAppUrl = process.env.NODE_ENV === 'production' 

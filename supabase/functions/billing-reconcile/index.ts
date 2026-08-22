@@ -1,6 +1,7 @@
 // @ts-nocheck
 // deno-lint-ignore-file no-explicit-any
 import 'jsr:@supabase/functions-js/edge-runtime.d.ts';
+import { serveWithSentry } from '../_shared/sentry.ts';
 import { createClient } from 'jsr:@supabase/supabase-js@2';
 import Stripe from 'npm:stripe@16.6.0';
 import type { ReconciliationRequest, ReconciliationResponse, ReconciliationMode, StrategyResult } from './shared/types.ts';
@@ -22,7 +23,7 @@ import { reconcileChargeIdBackfill } from './strategies/charge-id-backfill.ts';
  * - Validate status transitions (paid is terminal but can be changed back to open)
  * - Use webhooks as primary sync, reconciliation as backup
  */
-Deno.serve(async (req: Request) => {
+serveWithSentry('billing-reconcile', async (req: Request, sentry) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { 
       headers: {
@@ -200,6 +201,7 @@ Deno.serve(async (req: Request) => {
     
     return json(response);
   } catch (e: unknown) {
+    sentry.captureException(e);
     console.error('[reconcile] Top-level error:', e);
     const errorMessage = e instanceof Error ? e.message : (typeof e === 'string' ? e : String(e) || 'Unknown error');
     return json({ 

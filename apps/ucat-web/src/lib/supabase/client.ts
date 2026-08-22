@@ -1,6 +1,7 @@
 import { createBrowserClient } from "@supabase/ssr";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@altitutor/shared";
+import { instrumentSupabaseClient } from "@/lib/sentry/instrument-supabase-client";
 
 let browserClient: SupabaseClient<Database> | null = null;
 
@@ -18,7 +19,7 @@ export function getSupabaseBrowserClient(): SupabaseClient<Database> {
     typeof window === "undefined" &&
     process.env.NEXT_PHASE === "phase-production-build"
   ) {
-    browserClient = createBrowserClient<Database>(
+    browserClient = instrumentSupabaseClient(createBrowserClient<Database>(
       supabaseUrl || "https://placeholder.supabase.co",
       supabaseAnonKey || "placeholder-key",
       {
@@ -27,7 +28,7 @@ export function getSupabaseBrowserClient(): SupabaseClient<Database> {
         },
         isSingleton: true,
       },
-    ) as unknown as SupabaseClient<Database>;
+    ) as unknown as SupabaseClient<Database>);
     return browserClient;
   }
 
@@ -37,12 +38,12 @@ export function getSupabaseBrowserClient(): SupabaseClient<Database> {
     );
   }
 
-  browserClient = createBrowserClient<Database>(supabaseUrl, supabaseAnonKey, {
+  browserClient = instrumentSupabaseClient(createBrowserClient<Database>(supabaseUrl, supabaseAnonKey, {
     cookieOptions: {
       name: "student-auth",
     },
     isSingleton: true,
-  }) as unknown as SupabaseClient<Database>;
+  }) as unknown as SupabaseClient<Database>);
 
   return browserClient;
 }

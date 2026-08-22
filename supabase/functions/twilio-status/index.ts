@@ -1,6 +1,7 @@
 // @ts-nocheck
 // deno-lint-ignore-file no-explicit-any
 import 'jsr:@supabase/functions-js/edge-runtime.d.ts';
+import { serveWithSentry } from '../_shared/sentry.ts';
 import { createClient } from 'jsr:@supabase/supabase-js@2';
 
 function parseFormEncoded(body: string): Record<string, string> {
@@ -92,7 +93,7 @@ async function updateStatus(messageSid: string, status: string, errorCode?: stri
     .eq('message_sid', messageSid);
 }
 
-Deno.serve(async (req: Request) => {
+serveWithSentry('twilio-status', async (req: Request, sentry) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: { 'Access-Control-Allow-Origin': '*' } });
   }
@@ -120,8 +121,7 @@ Deno.serve(async (req: Request) => {
     console.log('[twilio-status] updated', { messageSid, to: messageStatus });
     return new Response(JSON.stringify({ ok: true }), { status: 200, headers: { 'Content-Type': 'application/json' } });
   } catch (e: unknown) {
+    sentry.captureException(e);
     return new Response(JSON.stringify({ error: e?.message || 'unknown error' }), { status: 500, headers: { 'Content-Type': 'application/json' } });
   }
 });
-
-

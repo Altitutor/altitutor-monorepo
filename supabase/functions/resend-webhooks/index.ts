@@ -1,4 +1,5 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
+import { serveWithSentry } from "../_shared/sentry.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
 import { parseTrackedResendEvent } from "./logic.ts";
 import { capturePosthogEmailEvent } from "./posthog.ts";
@@ -13,7 +14,7 @@ function json(value: unknown, status = 200) {
   });
 }
 
-Deno.serve(async (request) => {
+serveWithSentry("resend-webhooks", async (request, sentry) => {
   if (request.method !== "POST") {
     return json({ error: "Method not allowed" }, 405);
   }
@@ -87,6 +88,7 @@ Deno.serve(async (request) => {
     },
   );
   if (error) {
+    sentry.captureException(error);
     console.error("[resend-webhooks] Could not store event", error.message);
     return json({ error: "Could not store webhook event" }, 500);
   }

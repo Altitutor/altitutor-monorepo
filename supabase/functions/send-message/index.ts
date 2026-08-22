@@ -1,4 +1,5 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
+import { serveWithSentry } from "../_shared/sentry.ts";
 import { createSupabaseClient } from "../_shared/supabase.ts";
 import {
   loadMessageSendData,
@@ -178,7 +179,7 @@ async function handleIMessage(
 // MAIN HANDLER
 // ========================
 
-Deno.serve(async (req: Request) => {
+serveWithSentry("send-message", async (req: Request, sentry) => {
   if (req.method === "OPTIONS") {
     const acrh = req.headers.get("access-control-request-headers") || "";
     const requestHeaders = (
@@ -267,6 +268,7 @@ Deno.serve(async (req: Request) => {
       },
     });
   } catch (e: unknown) {
+    sentry.captureException(e);
     const msg = e instanceof Error ? e.message : String(e);
     console.error("[send-message] Error", msg);
 

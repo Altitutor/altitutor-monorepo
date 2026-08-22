@@ -41,14 +41,30 @@ export interface ReportEntityMeta {
   form?: string;
   purpose?: string;
   submittedAt?: string;
+  /** Staff names used when one report row is attributed to multiple staff members. */
+  staffNames?: string[];
   /** Stable identity used when a report has multiple drill-down rows per counted item. */
   summaryKey?: string;
+}
+
+export interface ReportEntityPerson {
+  id?: string | null;
+  name: string;
+  kind: 'staff' | 'student' | 'parent';
+}
+
+export interface ReportEntityPeople {
+  staff?: ReportEntityPerson[];
+  student?: ReportEntityPerson[];
+  parent?: ReportEntityPerson[];
+  conductingStaff?: ReportEntityPerson[];
 }
 
 export interface IssueReportEntity {
   id: string;
   name: string;
   meta?: ReportEntityMeta;
+  people?: ReportEntityPeople;
 }
 
 export type ReportEntityKind =
@@ -198,7 +214,7 @@ export interface BillingStatsReportData {
   subsidiesCreatedByDay: ReportDataPoint[];
 }
 
-export interface HrStatsReportData {
+export interface CommunicationsStatsReportData {
   staffCheckInsByDay: ReportDataPoint[];
   studentCheckInsByDay: ReportDataPoint[];
   parentCheckInsByDay: ReportDataPoint[];

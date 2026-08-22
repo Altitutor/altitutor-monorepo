@@ -2,6 +2,7 @@ import { cookies } from "next/headers";
 import { createServerClient } from "@supabase/ssr";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@altitutor/shared";
+import { instrumentSupabaseClient } from "@/lib/sentry/instrument-supabase-client";
 
 export async function getSupabaseServerClient(): Promise<
   SupabaseClient<Database>
@@ -11,7 +12,7 @@ export async function getSupabaseServerClient(): Promise<
 
   // Skip validation during Next.js production build (CI) so prerender can complete
   if (process.env.NEXT_PHASE === "phase-production-build") {
-    return createServerClient<Database>(
+    return instrumentSupabaseClient(createServerClient<Database>(
       supabaseUrl || "https://placeholder.supabase.co",
       supabaseAnonKey || "placeholder-key",
       {
@@ -23,7 +24,7 @@ export async function getSupabaseServerClient(): Promise<
           name: "student-auth",
         },
       },
-    ) as unknown as SupabaseClient<Database>;
+    ) as unknown as SupabaseClient<Database>);
   }
 
   if (!supabaseUrl || !supabaseAnonKey) {
@@ -34,7 +35,7 @@ export async function getSupabaseServerClient(): Promise<
 
   const cookieStore = await cookies();
 
-  return createServerClient<Database>(supabaseUrl, supabaseAnonKey, {
+  return instrumentSupabaseClient(createServerClient<Database>(supabaseUrl, supabaseAnonKey, {
     cookies: {
       getAll() {
         return cookieStore.getAll();
@@ -55,5 +56,5 @@ export async function getSupabaseServerClient(): Promise<
     cookieOptions: {
       name: "student-auth",
     },
-  }) as unknown as SupabaseClient<Database>;
+  }) as unknown as SupabaseClient<Database>);
 }

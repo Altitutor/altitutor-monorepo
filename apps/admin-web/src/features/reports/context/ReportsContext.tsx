@@ -48,8 +48,8 @@ interface ReportsContextValue {
     chart: keyof ReportsVisibleCharts['financial'],
     checked: boolean
   ) => void;
-  handleHrChartToggle: (
-    chart: keyof ReportsVisibleCharts['hr'],
+  handleCommunicationsChartToggle: (
+    chart: keyof ReportsVisibleCharts['communications'],
     checked: boolean
   ) => void;
 }
@@ -194,11 +194,11 @@ export function ReportsProvider({ children }: ReportsProviderProps) {
     []
   );
 
-  const handleHrChartToggle = useCallback(
-    (chart: keyof ReportsVisibleCharts['hr'], checked: boolean) => {
+  const handleCommunicationsChartToggle = useCallback(
+    (chart: keyof ReportsVisibleCharts['communications'], checked: boolean) => {
       setVisibleCharts((prev) => ({
         ...prev,
-        hr: { ...prev.hr, [chart]: checked },
+        communications: { ...prev.communications, [chart]: checked },
       }));
     },
     []
@@ -216,7 +216,7 @@ export function ReportsProvider({ children }: ReportsProviderProps) {
       handleOperationsChartToggle,
       handleSchedulingChartToggle,
       handleFinancialChartToggle,
-      handleHrChartToggle,
+      handleCommunicationsChartToggle,
     }),
     [
       startDate,
@@ -228,7 +228,7 @@ export function ReportsProvider({ children }: ReportsProviderProps) {
       handleOperationsChartToggle,
       handleSchedulingChartToggle,
       handleFinancialChartToggle,
-      handleHrChartToggle,
+      handleCommunicationsChartToggle,
     ]
   );
 

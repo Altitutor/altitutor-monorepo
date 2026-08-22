@@ -55,4 +55,25 @@ describe('buildReportSummary', () => {
       { label: 'Alex', value: 1 },
     ]);
   });
+
+  it('attributes one session to every staff member present without double-counting names', () => {
+    const sessions: ReportDataPoint[] = [
+      {
+        date: '2026-08-22',
+        count: 2,
+        entities: [
+          { id: 'session-a', name: 'A', meta: { staffNames: ['Alex', 'Blair', 'Alex'] } },
+          { id: 'session-b', name: 'B', meta: { staffNames: ['Blair'] } },
+        ],
+      },
+    ];
+
+    expect(buildReportSummary(sessions, 'sum', ['staffNames'])).toEqual({
+      total: 2,
+      byStaff: [
+        { label: 'Blair', value: 2 },
+        { label: 'Alex', value: 1 },
+      ],
+    });
+  });
 });

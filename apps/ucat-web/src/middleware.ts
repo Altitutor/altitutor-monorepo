@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@altitutor/shared";
+import { instrumentSupabaseClient } from "@/lib/sentry/instrument-supabase-client";
 import { isAllowedBeforeSignupComplete } from "@/features/signup-onboarding/lib/signup-complete-paths";
 import { resolvePostAuthDestination } from "@/features/auth/lib/social-auth";
 import {
@@ -164,7 +165,7 @@ export async function middleware(request: NextRequest) {
 
   const deadline = createInvocationDeadline();
 
-  const supabase = createServerClient<Database>(supabaseUrl, supabaseAnonKey, {
+  const supabase = instrumentSupabaseClient(createServerClient<Database>(supabaseUrl, supabaseAnonKey, {
     cookies: {
       getAll() {
         return request.cookies.getAll();
@@ -195,7 +196,7 @@ export async function middleware(request: NextRequest) {
     global: {
       fetch: deadline.fetch,
     },
-  }) as unknown as SupabaseClient<Database>;
+  }) as unknown as SupabaseClient<Database>);
 
   try {
     let claimsResult: Awaited<ReturnType<typeof supabase.auth.getClaims>>;

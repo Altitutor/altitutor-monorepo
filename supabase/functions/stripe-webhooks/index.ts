@@ -1,4 +1,5 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
+import { serveWithSentry } from "../_shared/sentry.ts";
 import { createClient, type SupabaseClient } from "jsr:@supabase/supabase-js@2";
 import Stripe from "npm:stripe@16.6.0";
 import {
@@ -249,7 +250,7 @@ async function resolveUcatPlanFields(
   return { plan_tier: null, billing_interval: null };
 }
 
-Deno.serve(async (req: Request) => {
+serveWithSentry("stripe-webhooks", async (req: Request, sentry) => {
   // Health check endpoint
   if (
     req.method === "GET" ||
@@ -2277,6 +2278,7 @@ Deno.serve(async (req: Request) => {
         return json({ received: true });
     }
   } catch (e: unknown) {
+    sentry.captureException(e);
     const msg = e instanceof Error ? e.message : String(e);
     console.error("[webhook] handler error", msg);
 

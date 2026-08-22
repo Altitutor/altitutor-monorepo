@@ -1,4 +1,5 @@
 import 'jsr:@supabase/functions-js/edge-runtime.d.ts';
+import { serveWithSentry } from '../_shared/sentry.ts';
 import { createClient, type SupabaseClient } from 'jsr:@supabase/supabase-js@2';
 import Stripe from 'npm:stripe@16.6.0';
 
@@ -85,7 +86,7 @@ async function releaseBillingRunnerLock(
   }
 }
 
-Deno.serve(async (req: Request) => {
+serveWithSentry('billing-runner', async (req: Request, sentry) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders });
@@ -441,6 +442,7 @@ Deno.serve(async (req: Request) => {
       message: `Created ${invoicesCreated.length} invoices${failedSessionsStudentsIds.length > 0 ? `, ${failedSessionsStudentsIds.length} failed` : ''}${isStripeTestKey ? ' (using Stripe test keys)' : isStripeLiveKey ? ' (using Stripe live keys)' : ''}`,
     });
   } catch (e: unknown) {
+    sentry.captureException(e);
     const err = e instanceof Error ? e : new Error(String(e));
     console.error('[billing-runner] Unexpected error:', err.message);
     if (err.stack) {

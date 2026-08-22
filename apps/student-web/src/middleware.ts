@@ -3,6 +3,7 @@ import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
 import { MARKETING_LANDING_URL } from "@/shared/lib/marketing-home-url";
+import { instrumentSupabaseClient } from "@/lib/sentry/instrument-supabase-client";
 
 const MIDDLEWARE_DEADLINE_MS = 10_000;
 const RETRY_AFTER_SECONDS = 5;
@@ -129,7 +130,7 @@ export async function middleware(req: NextRequest) {
   }
 
   const deadline = createInvocationDeadline();
-  const supabase = createServerClient<Database>(supabaseUrl, supabaseAnonKey, {
+  const supabase = instrumentSupabaseClient(createServerClient<Database>(supabaseUrl, supabaseAnonKey, {
     cookies: {
       getAll() {
         return req.cookies.getAll();
@@ -151,7 +152,7 @@ export async function middleware(req: NextRequest) {
     },
     cookieOptions: { name: "student-auth" },
     global: { fetch: deadline.fetch },
-  });
+  }));
 
   try {
     let claimsResult: Awaited<ReturnType<typeof supabase.auth.getClaims>>;

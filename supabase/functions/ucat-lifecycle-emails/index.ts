@@ -1,4 +1,5 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
+import { serveWithSentry } from "../_shared/sentry.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
 import { buildLifecycleEmail, buildLifecyclePreview } from "./email.ts";
 import { deliverEdgeEmail } from "../_shared/email.generated.ts";
@@ -99,7 +100,7 @@ async function syncPosthogCohorts(
     );
 }
 
-Deno.serve(async (request) => {
+serveWithSentry("ucat-lifecycle-emails", async (request, sentry) => {
   if (request.method !== "POST")
     return json({ error: "Method not allowed" }, 405);
 
@@ -377,6 +378,7 @@ Deno.serve(async (request) => {
       sent += 1;
       byCampaign[campaign.key].sent += 1;
     } catch (error) {
+      sentry.captureException(error);
       const message = error instanceof Error ? error.message : String(error);
       await supabase
         .from("ucat_email_delivery_ledger")

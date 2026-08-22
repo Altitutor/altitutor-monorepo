@@ -1,4 +1,5 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
+import { serveWithSentry } from "../_shared/sentry.ts";
 import { createSupabaseClient } from "../_shared/supabase.ts";
 import {
   authenticateBearer,
@@ -32,7 +33,7 @@ function connectorAction(value: unknown): ConnectorAction {
   );
 }
 
-Deno.serve(async (request: Request) => {
+serveWithSentry("imessage-connector", async (request: Request, sentry) => {
   if (request.method !== "POST") {
     return json({ error: "method not allowed" }, 405);
   }
@@ -154,6 +155,7 @@ Deno.serve(async (request: Request) => {
       }
     }
   } catch (error: unknown) {
+    sentry.captureException(error);
     console.error("[imessage-connector] request failed", error);
     return json({
       error: error instanceof Error ? error.message : "internal error",

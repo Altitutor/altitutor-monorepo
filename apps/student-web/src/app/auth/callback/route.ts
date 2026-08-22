@@ -2,6 +2,7 @@ import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
 import { NextRequest, NextResponse } from 'next/server'
 import type { Database } from '@altitutor/shared'
+import { instrumentSupabaseClient } from '@/lib/sentry/instrument-supabase-client'
 
 export async function GET(request: NextRequest) {
   const requestUrl = new URL(request.url)
@@ -12,7 +13,7 @@ export async function GET(request: NextRequest) {
 
   if (code || tokenHash) {
     const cookieStore = await cookies()
-    const supabase = createServerClient<Database>(
+    const supabase = instrumentSupabaseClient(createServerClient<Database>(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
       {
@@ -34,7 +35,7 @@ export async function GET(request: NextRequest) {
           name: 'student-auth',
         },
       }
-    )
+    ))
     
     try {
       const { data, error } = tokenHash

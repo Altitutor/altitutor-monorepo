@@ -1,6 +1,7 @@
 import { createBrowserClient } from '@supabase/ssr';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Database } from '@altitutor/shared';
+import { instrumentSupabaseClient } from '@/lib/sentry/instrument-supabase-client';
 
 // Environment variable validation - only check at runtime, not during build
 function validateEnvVars() {
@@ -33,7 +34,7 @@ function getBrowserClient() {
   // Skip validation during build phase
   if (process.env.NEXT_PHASE === 'phase-production-build') {
     // Return a dummy client during build
-    browserClientInstance = createBrowserClient<Database>(
+    browserClientInstance = instrumentSupabaseClient(createBrowserClient<Database>(
       process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co',
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'placeholder-key',
       {
@@ -42,7 +43,7 @@ function getBrowserClient() {
         },
         isSingleton: true,
       }
-    );
+    ));
     return browserClientInstance;
   }
   
@@ -50,7 +51,7 @@ function getBrowserClient() {
   
   // Use isSingleton: true to ensure only one instance per URL+key combination
   // This is the recommended approach for Next.js App Router
-  browserClientInstance = createBrowserClient<Database>(
+  browserClientInstance = instrumentSupabaseClient(createBrowserClient<Database>(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
@@ -59,7 +60,7 @@ function getBrowserClient() {
       },
       isSingleton: true,
     }
-  );
+  ));
   return browserClientInstance;
 }
 

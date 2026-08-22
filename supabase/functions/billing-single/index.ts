@@ -1,4 +1,5 @@
 import 'jsr:@supabase/functions-js/edge-runtime.d.ts';
+import { serveWithSentry } from '../_shared/sentry.ts';
 import { createClient } from 'jsr:@supabase/supabase-js@2';
 import Stripe from 'npm:stripe@16.6.0';
 
@@ -32,7 +33,7 @@ function json(resp: unknown, status = 200) {
   });
 }
 
-Deno.serve(async (req: Request) => {
+serveWithSentry('billing-single', async (req: Request, sentry) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders });
@@ -344,6 +345,7 @@ Deno.serve(async (req: Request) => {
       message: 'Session invoiced successfully',
     });
   } catch (e: unknown) {
+    sentry.captureException(e);
     const err = e instanceof Error ? e : new Error(String(e));
     console.error('[billing-single] Unexpected error:', err.message);
     if (err.stack) {

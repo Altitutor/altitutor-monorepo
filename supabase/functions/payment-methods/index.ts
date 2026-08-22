@@ -1,4 +1,5 @@
 import 'jsr:@supabase/functions-js/edge-runtime.d.ts';
+import { serveWithSentry } from '../_shared/sentry.ts';
 import { createClient } from 'jsr:@supabase/supabase-js@2';
 import Stripe from 'npm:stripe@16.6.0';
 
@@ -17,7 +18,7 @@ function json(resp: unknown, status = 200) {
   });
 }
 
-Deno.serve(async (req: Request) => {
+serveWithSentry('payment-methods', async (req: Request, sentry) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders });
@@ -391,6 +392,7 @@ Deno.serve(async (req: Request) => {
     }
 
   } catch (e: unknown) {
+    sentry.captureException(e);
     const msg = e instanceof Error ? e.message : String(e);
     console.error('[payment-methods] error', msg);
     return json({ 

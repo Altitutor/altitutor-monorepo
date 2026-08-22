@@ -1,6 +1,7 @@
 // @ts-nocheck
 // deno-lint-ignore-file no-explicit-any
 import 'jsr:@supabase/functions-js/edge-runtime.d.ts';
+import { serveWithSentry } from '../_shared/sentry.ts';
 import { createClient } from 'jsr:@supabase/supabase-js@2';
 import {
   parseFormEncoded,
@@ -264,7 +265,7 @@ async function determineCallRouting(
   };
 }
 
-Deno.serve(async (req: Request) => {
+serveWithSentry('twilio-voice-inbound', async (req: Request, sentry) => {
   // Handle CORS preflight
   if (req.method === 'OPTIONS') {
     const acrh = req.headers.get('access-control-request-headers') || '';
@@ -353,6 +354,7 @@ Deno.serve(async (req: Request) => {
       },
     });
   } catch (e: unknown) {
+    sentry.captureException(e);
     const msg = e instanceof Error ? e.message : String(e);
     console.error('[twilio-voice-inbound] Error', e);
     return new Response(

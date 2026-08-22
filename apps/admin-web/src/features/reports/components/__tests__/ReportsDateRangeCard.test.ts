@@ -1,7 +1,11 @@
 import { format } from 'date-fns';
-import { getReportsDatePresets } from '../ReportsDateRangeCard';
+import { getReportsDatePresets, REPORTS_SECTION_LABELS } from '../ReportsDateRangeCard';
 
 describe('getReportsDatePresets', () => {
+  it('names the people-facing reporting section Communications', () => {
+    expect(REPORTS_SECTION_LABELS.communications).toBe('Communications');
+  });
+
   it('builds the reporting shortcuts from a fixed reference date', () => {
     const presets = getReportsDatePresets(new Date(2026, 7, 22, 12));
 
@@ -15,4 +19,3 @@ describe('getReportsDatePresets', () => {
     ]);
   });
 });
-
