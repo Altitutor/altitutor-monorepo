@@ -36502,6 +36502,10 @@ export type Database = {
         Args: { p_student_id: string }
         Returns: string
       }
+      get_student_ucat_preparation_evidence_watermark: {
+        Args: never
+        Returns: string
+      }
       get_student_ucat_question_engine_payload: {
         Args: { p_source_id: string; p_source_type: string }
         Returns: Json
