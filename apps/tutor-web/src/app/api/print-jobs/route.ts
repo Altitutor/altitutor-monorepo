@@ -45,6 +45,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       const status =
         message.includes('offline') ||
         message.includes('admin shift') ||
+        message.includes('turned off') ||
         message.includes('in progress') ||
         message.includes('Only PDF') ||
         message.includes('not available')

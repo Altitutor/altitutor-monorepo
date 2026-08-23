@@ -236,8 +236,11 @@
 - **Print bridge** — The always-on Mac Mini service that pulls print jobs from Supabase and submits them to the local CUPS queue for FUJ.
   _Avoid_: Print server, CUPS share, imessage-bridge
 
-- **Office print window** — The time range during which tutors are allowed to create print jobs: any ACTIVE `ADMIN_SHIFT` session overlapping now. Admins are not limited by this window; closing the window does not cancel in-flight jobs.
+- **Office print window** — The time range of any ACTIVE `ADMIN_SHIFT` session overlapping now. Used when tutor office print access is office hours only. Admins are not limited by this window; closing the window does not cancel in-flight jobs.
   _Avoid_: Opening hours, centre open flag, AltiTutor open (unless explicitly equated in a decision)
+
+- **Tutor office print access** — The organisation setting that controls when tutors may create office print jobs: off, office hours only, or unrestricted. Admins are not subject to this setting; changing it does not cancel in-flight jobs.
+  _Avoid_: Printer permission, tutor print mode, print enable flag
 
 ## Subject resources
 

@@ -38,6 +38,7 @@ import {
   Zap,
   File,
   FolderKanban,
+  Printer,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { QUICK_ACTIONS } from '@/shared/constants/quickActions';
@@ -155,6 +156,13 @@ export const additionalPages: CommandPalettePage[] = [
     href: '/settings/stripe-sync',
     icon: Link2,
     keywords: ['stripe', 'sync', 'payment'],
+  },
+  {
+    id: 'settings-office-print',
+    title: 'Office print',
+    href: '/settings/office-print',
+    icon: Printer,
+    keywords: ['print', 'printer', 'office', 'tutor', 'shift', 'fuj'],
   },
   {
     id: 'settings-ucat-billing',

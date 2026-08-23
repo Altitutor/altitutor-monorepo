@@ -94,7 +94,8 @@ export async function middleware(req: NextRequest) {
     pathname.startsWith("/invite") ||
     pathname.startsWith("/auth") ||
     pathname.startsWith("/form/") ||
-    pathname.startsWith("/sentry-example-page");
+    pathname.startsWith("/sentry-example-page") ||
+    pathname.startsWith("/pdfjs/");
 
   if (pathname.startsWith("/api") || isPublicPath) {
     return NextResponse.next({ request: req });
@@ -206,6 +207,6 @@ export async function middleware(req: NextRequest) {
 
 export const config = {
   matcher: [
-    "/((?!_next/static|_next/image|favicon.ico|robots.txt|sitemap.xml|\\.well-known/|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico|css|js|map|txt|xml|json|woff|woff2)$).*)",
+    "/((?!_next/static|_next/image|favicon.ico|robots.txt|sitemap.xml|\\.well-known/|pdfjs/|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico|css|js|mjs|map|txt|xml|json|woff|woff2|wasm|bcmap|pfb|ttf)$).*)",
   ],
 };

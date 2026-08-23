@@ -29,7 +29,7 @@ import { cn, navActiveStyles, navLinkActiveStyles, navLinkInactiveStyles } from 
 import { ScrollArea } from '@altitutor/ui';
 import { useMobileMenu } from '@/shared/contexts/MobileMenuContext';
 import { useUcatAccess } from '@/features/ucat/shared/hooks/useUcatAccess';
-import { useResourceSubjectNavItems } from '@/features/resources';
+import { useResourceSubjectNavItems } from '@/features/resources/hooks/useResources';
 import {
   getResourceSubjectNavLabel,
   isResourceSubjectNavActive,

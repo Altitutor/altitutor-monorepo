@@ -15,6 +15,8 @@ import {
 import { cn } from '@/shared/utils';
 import { getSignedUrl } from '@/shared/lib/supabase/storage';
 import { OfficePrintConfirmDialog } from '@/features/office-print/components/OfficePrintConfirmDialog';
+import { useTutorOfficePrintAccess } from '@/features/office-print/hooks/useTutorOfficePrintAccess';
+import { isTutorOfficePrintVisible } from '@/features/office-print/lib/tutorOfficePrintAccess';
 import type { Enums } from '@altitutor/shared';
 import { parseExternalVideoEmbed } from '@altitutor/shared';
 
@@ -50,6 +52,8 @@ export function FileCard({
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
   const [expanded, setExpanded] = useState(false);
   const [officePrintOpen, setOfficePrintOpen] = useState(false);
+  const { access } = useTutorOfficePrintAccess();
+  const officePrintEnabled = isTutorOfficePrintVisible(access);
   useEffect(() => {
     if (!isPreviewOpen) {
       setExpanded(false);
@@ -280,7 +284,7 @@ export function FileCard({
                 Print
               </Button>
             )}
-            {isPdf && previewUrl && fileId && !externalUrl?.trim() && (
+            {isPdf && previewUrl && fileId && !externalUrl?.trim() && officePrintEnabled && (
               <Button
                 variant="outline"
                 onClick={() => setOfficePrintOpen(true)}

@@ -130,7 +130,7 @@ describe("tutor routing middleware", () => {
     expect(response.headers.get("cache-control")).toBe("private, no-store");
   });
 
-  it.each(["/login", "/api/calendar"])(
+  it.each(["/login", "/api/calendar", "/pdfjs/pdf.min.mjs"])(
     "does not contact Supabase for public path %s",
     async (pathname) => {
       expect((await middleware(request(pathname))).status).toBe(200);

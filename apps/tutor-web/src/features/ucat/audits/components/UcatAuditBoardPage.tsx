@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useMemo, useState } from 'react'
+import React, { useCallback, useMemo, useState } from 'react'
 import {
   Badge,
   KanbanBoard,
@@ -29,10 +29,17 @@ import { clickableCardInteractiveCn } from '@altitutor/ui'
 import {
   AUDIT_TARGET_STATUSES,
   type AuditContentType,
+  type AuditRunStatus,
   type AuditTarget,
   type AuditTargetStatus,
 } from '../api/audits'
-import { useAudit, useSetAuditTargetStatus } from '../hooks/useAudits'
+import { useAudit, useSetAuditRunStatus, useSetAuditTargetStatus } from '../hooks/useAudits'
+import { AUDIT_RUN_STATUS_LABELS } from '../lib/audit-run-status'
+import { UcatRowActions } from '@/features/ucat/shared/row-actions'
+import {
+  auditRunChangeStatusAction,
+  UcatAuditRunStatusConfirmDialog,
+} from './UcatAuditRunStatusConfirmDialog'
 
 const STATUS_META: Record<AuditTargetStatus, {
   label: string
@@ -64,7 +71,9 @@ function AuditTargetCard({ target, onOpenStem }: {
   const isStem = target.contentType === 'stem'
   const outcomeSummary = target.outcome && typeof target.outcome.summary === 'string'
     ? target.outcome.summary
-    : null
+    : target.outcome && typeof target.outcome.why === 'string'
+      ? target.outcome.why
+      : null
 
   return (
     <div
@@ -93,14 +102,18 @@ function AuditTargetCard({ target, onOpenStem }: {
   )
 }
 
+const MemoAuditTargetCard = React.memo(AuditTargetCard)
+
 export function UcatAuditBoardPage({ auditId }: { auditId: string }) {
   const access = useUcatAccess()
   const audit = useAudit(auditId)
   const updateTarget = useSetAuditTargetStatus(auditId)
+  const setRunStatus = useSetAuditRunStatus()
   const { toast } = useToast()
   const [search, setSearch] = useState('')
   const [filters, setFilters] = useState<Record<string, unknown[]>>({})
   const [editingStemId, setEditingStemId] = useState<string | null>(null)
+  const [pendingRunStatus, setPendingRunStatus] = useState<AuditRunStatus | null>(null)
 
   const sections = useUcatSections()
   const categories = useUcatCategories()
@@ -165,10 +178,24 @@ export function UcatAuditBoardPage({ auditId }: { auditId: string }) {
     const normalizedSearch = search.trim().toLowerCase()
     return (audit.data?.targets ?? []).filter((target) => {
       if (!normalizedSearch) return true
-      return [target.contentId, CONTENT_LABELS[target.contentType], target.result, target.errorMessage]
-        .some((value) => value?.toLowerCase().includes(normalizedSearch))
+      const why = typeof target.outcome?.why === 'string' ? target.outcome.why : null
+      const summary = typeof target.outcome?.summary === 'string' ? target.outcome.summary : null
+      return [
+        target.label,
+        target.contentId,
+        CONTENT_LABELS[target.contentType],
+        target.result,
+        target.errorMessage,
+        why,
+        summary,
+      ].some((value) => value?.toLowerCase().includes(normalizedSearch))
     })
   }, [audit.data?.targets, search])
+
+  const renderCard = useCallback(
+    (target: AuditTarget) => <MemoAuditTargetCard target={target} onOpenStem={setEditingStemId} />,
+    [],
+  )
 
   const handleStemUpdate = useCallback(async (values: UcatQuestionStemFormValues) => {
     if (!editingStemId) return
@@ -200,10 +227,14 @@ export function UcatAuditBoardPage({ auditId }: { auditId: string }) {
         ]}
         actions={(
           <div className="flex items-center gap-2">
-            <Badge variant={run.status === 'active' ? 'default' : 'secondary'} className="capitalize">
-              {run.status}
+            <Badge variant={run.status === 'active' ? 'default' : 'secondary'}>
+              {AUDIT_RUN_STATUS_LABELS[run.status]}
             </Badge>
             <span className="text-sm text-muted-foreground">Created {formatDateTime(run.createdAt)}</span>
+            <UcatRowActions
+              label="Actions"
+              actions={[auditRunChangeStatusAction(setPendingRunStatus)]}
+            />
           </div>
         )}
       />
@@ -220,7 +251,7 @@ export function UcatAuditBoardPage({ auditId }: { auditId: string }) {
           getItemId={(target) => target.id}
           columnDefs={columnDefs}
           activeColumnKey="status"
-          renderCard={(target) => <AuditTargetCard target={target} onOpenStem={setEditingStemId} />}
+          renderCard={renderCard}
           statusColumn={statusColumn}
           rightPills={rightPills}
           filters={filters}
@@ -251,6 +282,32 @@ export function UcatAuditBoardPage({ auditId }: { auditId: string }) {
         tags={mapTagsToOptions(tags.data ?? []) as TagOption[]}
         initial={stemDetail.data}
         loading={updateStem.isPending || stemDetail.isLoading}
+      />
+
+      <UcatAuditRunStatusConfirmDialog
+        currentStatus={run.status}
+        nextStatus={pendingRunStatus}
+        pending={setRunStatus.isPending}
+        onOpenChange={(open) => {
+          if (!open && !setRunStatus.isPending) setPendingRunStatus(null)
+        }}
+        onConfirm={() => {
+          if (!pendingRunStatus) return
+          setRunStatus.mutate(
+            { auditId: run.id, status: pendingRunStatus },
+            {
+              onSuccess: () => {
+                setPendingRunStatus(null)
+                toast({ title: `Audit is now ${AUDIT_RUN_STATUS_LABELS[pendingRunStatus].toLowerCase()}` })
+              },
+              onError: (error) => toast({
+                title: 'Could not change audit status',
+                description: error instanceof Error ? error.message : 'Please try again.',
+                variant: 'destructive',
+              }),
+            },
+          )
+        }}
       />
     </div>
   )

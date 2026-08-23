@@ -12,8 +12,8 @@ import {
   DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from '@altitutor/ui'
-import { MoreHorizontal } from 'lucide-react'
-import { tutorBtnIconOutline } from '@/shared/lib/tutor-visual'
+import { ChevronDown, MoreHorizontal } from 'lucide-react'
+import { tutorBtnIconOutline, tutorBtnOutline } from '@/shared/lib/tutor-visual'
 
 export type UcatRowSubAction = {
   label: string
@@ -112,13 +112,26 @@ function renderAction(action: UcatRowAction, index: number) {
   )
 }
 
-export function UcatRowActions({ actions }: { actions: UcatRowAction[] }) {
+export function UcatRowActions({
+  actions,
+  label,
+}: {
+  actions: UcatRowAction[]
+  label?: string
+}) {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="outline" size="icon" className={tutorBtnIconOutline}>
-          <MoreHorizontal className="h-4 w-4" />
-        </Button>
+        {label ? (
+          <Button variant="outline" size="sm" className={tutorBtnOutline}>
+            {label}
+            <ChevronDown className="ml-1 h-4 w-4" />
+          </Button>
+        ) : (
+          <Button variant="outline" size="icon" className={tutorBtnIconOutline}>
+            <MoreHorizontal className="h-4 w-4" />
+          </Button>
+        )}
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
         {actions.map((action, index) => renderAction(action, index))}

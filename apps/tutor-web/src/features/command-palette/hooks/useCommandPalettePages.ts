@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import { useUcatAccess } from '@/features/ucat/shared/hooks/useUcatAccess';
-import { useResourceSubjectNavItems } from '@/features/resources';
+import { useResourceSubjectNavItems } from '@/features/resources/hooks/useResources';
 import {
   buildSubjectPages,
   staticPages,

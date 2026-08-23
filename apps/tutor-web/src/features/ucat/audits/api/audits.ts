@@ -200,13 +200,59 @@ export async function getAudit(id: string): Promise<AuditDetail> {
   }
 
   if (!run) throw new Error('Audit not found')
-  const labels = await loadTargetLabels(targets)
+  return { run, targets }
+}
+
+export function applyAuditTargetStatus(
+  detail: AuditDetail,
+  targetId: string,
+  status: AuditTargetStatus,
+): AuditDetail {
+  const current = detail.targets.find((target) => target.id === targetId)
+  if (!current || current.status === status) return detail
   return {
-    run,
-    targets: targets.map((target) => ({
+    ...detail,
+    run: {
+      ...detail.run,
+      targetCounts: {
+        ...detail.run.targetCounts,
+        [current.status]: Math.max(0, (detail.run.targetCounts[current.status] ?? 0) - 1),
+        [status]: (detail.run.targetCounts[status] ?? 0) + 1,
+      },
+    },
+    targets: detail.targets.map((target) =>
+      target.id === targetId ? { ...target, status } : target,
+    ),
+  }
+}
+
+export function applyAuditTargetLabels(
+  detail: AuditDetail,
+  labels: Map<string, string>,
+): AuditDetail {
+  if (labels.size === 0) return detail
+  return {
+    ...detail,
+    targets: detail.targets.map((target) => ({
       ...target,
-      label: labels.get(`${target.contentType}:${target.contentId}`) ?? null,
+      label: labels.get(`${target.contentType}:${target.contentId}`) ?? target.label,
     })),
+  }
+}
+
+export async function loadAuditTargetLabels(targets: AuditTarget[]): Promise<Map<string, string>> {
+  return loadTargetLabels(targets)
+}
+
+export function applyAuditRunStatus(run: AuditRun, status: AuditRunStatus): AuditRun {
+  if (run.status === status) return run
+  const now = new Date().toISOString()
+  return {
+    ...run,
+    status,
+    startedAt: status === 'active' ? (run.startedAt ?? now) : run.startedAt,
+    completedAt: status === 'completed' ? now : null,
+    cancelledAt: status === 'cancelled' ? now : null,
   }
 }
 
@@ -220,4 +266,22 @@ export async function setAuditTargetStatus(
     p_status: status,
   })
   if (result.error) throw result.error
+}
+
+export async function setAuditRunStatus(
+  auditId: string,
+  status: AuditRunStatus,
+): Promise<void> {
+  const supabase = getSupabaseClient()
+  const result = await supabase.rpc('tutor_ucat_set_audit_run_status', {
+    p_run_id: auditId,
+    p_status: status,
+  })
+  if (result.error) {
+    const message = result.error.message ?? ''
+    if (message.includes('audit_run_has_unfinished_targets')) {
+      throw new Error('Every target must be finished before this audit can be completed.')
+    }
+    throw result.error
+  }
 }

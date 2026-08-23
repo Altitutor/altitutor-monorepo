@@ -16,6 +16,7 @@ import {
   TrendingUp,
   ClipboardList,
   MessageSquare,
+  Printer,
 } from "lucide-react";
 import { AdminSettingsCard } from "@/shared/components";
 
@@ -186,6 +187,12 @@ export default function SettingsPage() {
           description: "Create forms and publish respondent links",
           href: "/settings/forms",
           icon: ClipboardList,
+          },
+          {
+          title: "Office print",
+          description: "Control when tutors can send files to the office printer",
+          href: "/settings/office-print",
+          icon: Printer,
           },
         ],
       },
