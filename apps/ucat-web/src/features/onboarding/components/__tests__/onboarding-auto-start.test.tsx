@@ -77,6 +77,7 @@ describe("OnboardingAutoStart", () => {
       progress: {},
       isLoading: false,
       isFetching: false,
+      isError: false,
       isCompleted: () => false,
       refetch: jest.fn(),
     });
@@ -100,7 +101,24 @@ describe("OnboardingAutoStart", () => {
       progress: {},
       isLoading: false,
       isFetching: false,
+      isError: false,
       isCompleted: () => true,
+      refetch: jest.fn(),
+    });
+
+    render(<OnboardingAutoStart />);
+    act(() => jest.advanceTimersByTime(1_000));
+
+    expect(startNextStep).not.toHaveBeenCalled();
+  });
+
+  it("does not replay a tutorial when progress is unavailable", () => {
+    mockedUseOnboardingProgress.mockReturnValue({
+      progress: {},
+      isLoading: false,
+      isFetching: false,
+      isError: true,
+      isCompleted: () => false,
       refetch: jest.fn(),
     });
 

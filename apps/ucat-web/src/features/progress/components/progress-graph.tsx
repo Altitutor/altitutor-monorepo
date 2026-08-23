@@ -11,6 +11,7 @@ import {
   ReferenceLine,
   ResponsiveContainer,
   Tooltip,
+  type TooltipContentProps,
   XAxis,
   YAxis,
 } from "recharts";
@@ -283,8 +284,8 @@ export function ProgressGraph({
     projectionPessimistic?: number;
     projectionRealistic?: number;
     projectionOptimistic?: number;
-    /** Fill-only copy of optimistic; keeps Area out of the line tooltip. */
-    projectionBandHigh?: number;
+    /** Fill-only range tuple; keeps Area out of the line tooltip. */
+    projectionBand?: [number, number];
   };
 
   const trailingSpacerCount =
@@ -367,7 +368,10 @@ export function ProgressGraph({
             value: null,
           };
           current.projectionOptimistic = point.value;
-          current.projectionBandHigh = point.value;
+          current.projectionBand = [
+            current.projectionPessimistic ?? point.value,
+            point.value,
+          ];
           byDate.set(point.date, current);
         }
         return [...byDate.values()].sort((a, b) =>
@@ -375,14 +379,6 @@ export function ProgressGraph({
         );
       })()
     : data.map((point) => ({ ...point }));
-
-  const projectionBaseLine =
-    showProjection && mergedLineData.length > 0
-      ? mergedLineData.map((point, index) => ({
-          x: index,
-          y: point.projectionPessimistic ?? point.projectionOptimistic ?? 0,
-        }))
-      : undefined;
 
   const formatTooltipValue = (value: number | null | undefined): string => {
     if (value == null) return "—";
@@ -432,32 +428,24 @@ export function ProgressGraph({
     active,
     label: rawLabel,
     payload,
-  }: {
-    active?: boolean;
-    label?: string | number;
-    payload?: ReadonlyArray<{
-      dataKey?: string | number;
-      name?: string;
-      value?: number | string | null;
-      color?: string;
-      payload?: {
-        date: string;
-        label?: string;
-        tooltipLabel?: string;
-        value?: number | null;
-        isSpacer?: boolean;
-      };
-    }>;
-  }) => {
+  }: TooltipContentProps) => {
     if (!active || payload == null || payload.length === 0) return null;
 
-    const point = payload[0]?.payload;
+    const point = payload[0]?.payload as
+      | {
+          date: string;
+          label?: string;
+          tooltipLabel?: string;
+          value?: number | null;
+          isSpacer?: boolean;
+        }
+      | undefined;
     if (point?.isSpacer) return null;
     const hasEstimate = point?.value != null;
     const seenKeys = new Set<string>();
     const rows = payload.filter((entry) => {
       const key = String(entry.dataKey ?? entry.name ?? "");
-      if (key === "projectionBandHigh") return false;
+      if (key === "projectionBand") return false;
       if (
         hasEstimate &&
         (key === "projectionRealistic" ||
@@ -567,8 +555,7 @@ export function ProgressGraph({
           <>
             <Area
               type="monotone"
-              dataKey="projectionBandHigh"
-              baseLine={projectionBaseLine}
+              dataKey="projectionBand"
               stroke="none"
               fill="hsl(var(--accent))"
               fillOpacity={0.12}

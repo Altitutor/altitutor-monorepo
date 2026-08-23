@@ -14,8 +14,11 @@ const mockSelect = jest.fn(() => ({ maybeSingle: mockMaybeSingle }));
 const mockFrom = jest.fn(() => ({ select: mockSelect }));
 let consoleError: jest.SpyInstance;
 
-function request(pathname: string) {
-  return new NextRequest(`https://tutor.altitutor.test${pathname}`);
+function request(
+  pathname: string,
+  init?: ConstructorParameters<typeof NextRequest>[1],
+) {
+  return new NextRequest(`https://tutor.altitutor.test${pathname}`, init);
 }
 
 describe("tutor routing middleware", () => {
@@ -121,15 +124,26 @@ describe("tutor routing middleware", () => {
     },
   );
 
+  it("does not authenticate CORS preflight requests", async () => {
+    const response = await middleware(request("/", { method: "OPTIONS" }));
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get("x-middleware-next")).toBe("1");
+    expect(mockCreateServerClient).not.toHaveBeenCalled();
+  });
+
   it("preserves refreshed cookies on redirects", async () => {
     mockGetClaims.mockImplementation(async () => {
-      mockCreateServerClient.mock.calls[0]?.[2]?.cookies?.setAll?.([
-        {
-          name: "tutor-auth",
-          value: "rotated",
-          options: { path: "/", httpOnly: true, maxAge: 3_600 },
-        },
-      ]);
+      mockCreateServerClient.mock.calls[0]?.[2]?.cookies?.setAll?.(
+        [
+          {
+            name: "tutor-auth",
+            value: "rotated",
+            options: { path: "/", httpOnly: true, maxAge: 3_600 },
+          },
+        ],
+        {},
+      );
       return { data: { claims: { sub: "tutor-1" } }, error: null };
     });
     const response = await middleware(request("/"));

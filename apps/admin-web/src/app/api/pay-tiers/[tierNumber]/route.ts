@@ -1,6 +1,7 @@
 import { captureApiError, captureApiErrorResponse } from '@/lib/sentry/capture-api-error';
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAdminStaff } from '@/features/pay-tiers/server/requireAdminStaff';
+import type { TablesUpdate } from '@altitutor/shared';
 
 export async function PATCH(
   request: NextRequest,
@@ -18,7 +19,7 @@ export async function PATCH(
       base_pay_rate_cents?: number;
       currency?: string;
     };
-    const updates: Record<string, unknown> = {};
+    const updates: TablesUpdate<'staff_pay_tiers'> = {};
     if (body.name !== undefined) updates.name = body.name;
     if (body.base_pay_rate_cents !== undefined) updates.base_pay_rate_cents = body.base_pay_rate_cents;
     if (body.currency !== undefined) updates.currency = body.currency;

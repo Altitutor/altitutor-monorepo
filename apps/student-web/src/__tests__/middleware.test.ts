@@ -22,8 +22,11 @@ const mockFrom = jest.fn((relation: string) => {
 });
 let consoleError: jest.SpyInstance;
 
-function request(pathname: string) {
-  return new NextRequest(`https://student.altitutor.test${pathname}`);
+function request(
+  pathname: string,
+  init?: ConstructorParameters<typeof NextRequest>[1],
+) {
+  return new NextRequest(`https://student.altitutor.test${pathname}`, init);
 }
 
 describe("student routing middleware", () => {
@@ -127,6 +130,14 @@ describe("student routing middleware", () => {
     },
   );
 
+  it("does not authenticate CORS preflight requests", async () => {
+    const response = await middleware(request("/", { method: "OPTIONS" }));
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get("x-middleware-next")).toBe("1");
+    expect(mockCreateServerClient).not.toHaveBeenCalled();
+  });
+
   it("redirects an active admin to admin-web", async () => {
     mockStaffMaybeSingle.mockResolvedValue({
       data: { role: "ADMINSTAFF", status: "ACTIVE" },
@@ -194,13 +205,16 @@ describe("student routing middleware", () => {
 
   it("preserves refreshed cookie options on redirects", async () => {
     mockGetClaims.mockImplementation(async () => {
-      mockCreateServerClient.mock.calls[0]?.[2]?.cookies?.setAll?.([
-        {
-          name: "student-auth",
-          value: "rotated-session",
-          options: { path: "/", httpOnly: true, maxAge: 3_600 },
-        },
-      ]);
+      mockCreateServerClient.mock.calls[0]?.[2]?.cookies?.setAll?.(
+        [
+          {
+            name: "student-auth",
+            value: "rotated-session",
+            options: { path: "/", httpOnly: true, maxAge: 3_600 },
+          },
+        ],
+        {},
+      );
       return { data: { claims: { sub: "student-1" } }, error: null };
     });
 

@@ -10,6 +10,7 @@ import {
   ReferenceLine,
   ResponsiveContainer,
   Tooltip as RechartsTooltip,
+  type TooltipContentProps,
   XAxis,
   YAxis,
 } from "recharts";
@@ -258,17 +259,10 @@ export function DashboardTrajectoryChart({
   const tooltipContent = ({
     active,
     payload,
-  }: {
-    active?: boolean;
-    payload?: ReadonlyArray<{
-      dataKey?: string | number;
-      value?: number | string | [number, number] | null;
-      color?: string;
-      payload?: { day?: number };
-    }>;
-  }) => {
+  }: TooltipContentProps) => {
     if (!active || !payload?.length) return null;
-    const day = Number(payload[0]?.payload?.day);
+    const point = payload[0]?.payload as { day?: number } | undefined;
+    const day = Number(point?.day);
     if (!Number.isFinite(day)) return null;
     const dateKey = addDays(today, day);
     const rows = payload.filter(

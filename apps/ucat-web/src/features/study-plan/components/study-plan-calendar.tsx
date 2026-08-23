@@ -259,7 +259,6 @@ export function StudyPlanCalendar({
 
       <section
         data-tour-study-plan-selected-day
-        key={selectedDate}
         aria-live="polite"
         className="scroll-mt-24 space-y-4"
       >

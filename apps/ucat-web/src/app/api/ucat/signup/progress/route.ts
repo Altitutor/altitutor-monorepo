@@ -2,6 +2,7 @@ import { captureApiError } from "@/lib/sentry/capture-api-error";
 import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 import { supabaseAdmin } from "@/lib/supabase/admin";
+import type { Database } from "@altitutor/shared";
 import {
   isSignupOnboardingStep,
   SIGNUP_STEP,
@@ -116,7 +117,7 @@ export async function PATCH(request: NextRequest) {
     );
   }
 
-  const updates: Record<string, string | number | null> = {
+  const updates: Database["public"]["Tables"]["students"]["Update"] = {
     updated_at: new Date().toISOString(),
   };
 

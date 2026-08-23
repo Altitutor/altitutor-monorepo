@@ -99,13 +99,17 @@ export function QuestionEngineTutorialPage({
 }) {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { isLoading, isCompleted } = useOnboardingProgress();
+  const { isLoading, isError, isCompleted } = useOnboardingProgress();
   const returnTo = safeReturnPath(searchParams.get("returnTo"));
   const isReplay = searchParams.get("replay") === "1";
   const sawIncompleteReplayRef = useRef(false);
 
   useEffect(() => {
     if (isLoading) return;
+    if (isError) {
+      router.replace(returnTo);
+      return;
+    }
     const completed = isCompleted(tourId);
     if (!completed) {
       sawIncompleteReplayRef.current = true;
@@ -114,7 +118,7 @@ export function QuestionEngineTutorialPage({
     if (!isReplay || sawIncompleteReplayRef.current) {
       router.replace(returnTo);
     }
-  }, [isReplay, isLoading, isCompleted, router, returnTo, tourId]);
+  }, [isError, isReplay, isLoading, isCompleted, router, returnTo, tourId]);
 
   return (
     <>

@@ -23,13 +23,16 @@ export function useQuestionEngineTutorialGate() {
     profile.data?.ucatInitialFamiliarity,
   );
   const isLoading = progress.isLoading || profile.isLoading;
+  const isUnavailable = progress.isError || profile.isError;
   const isBlocked =
     !isLoading &&
+    !isUnavailable &&
     !isQuestionEngineTutorialSatisfied(tutorialKind, progress.isCompleted);
 
   return {
     isLoading,
     isBlocked,
+    isUnavailable,
     tutorialKind,
     /** True once we know the user may enter a real engine route. */
     isReady: !isLoading && !isBlocked,

@@ -89,6 +89,7 @@ export function useOnboardingProgress() {
     progress: query.data ?? {},
     isLoading: !enabled || query.isLoading,
     isFetching: query.isFetching,
+    isError: query.isError,
     isCompleted,
     refetch: query.refetch,
   };

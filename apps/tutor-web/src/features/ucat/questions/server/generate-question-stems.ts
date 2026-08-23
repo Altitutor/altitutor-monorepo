@@ -3,6 +3,7 @@ import {
   ucatQuestionDifficultyForTarget,
   type Database,
   type Json,
+  type TablesUpdate,
 } from '@altitutor/shared'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import {
@@ -933,12 +934,15 @@ export async function updateGenerationRun(params: {
 }) {
   if (!params.runId) return
   const staffId = await currentTutorId(params.client)
-  const payload: Record<string, unknown> = {
+  const payload: TablesUpdate<'ucat_ai_generation_runs'> = {
     status: params.status,
     accepted_stem_count: params.acceptedStemCount ?? 0,
     discarded_stem_count: params.discardedStemCount ?? 0,
     error_message: params.errorMessage ?? null,
-    debug_payload: params.debug ?? null,
+    debug_payload:
+      params.debug == null
+        ? null
+        : (JSON.parse(JSON.stringify(params.debug)) as Json),
   }
   if (staffId) payload.updated_by = staffId
 

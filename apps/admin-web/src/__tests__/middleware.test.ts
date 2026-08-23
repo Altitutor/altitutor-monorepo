@@ -31,8 +31,11 @@ const mockFrom = jest.fn(() => ({ select: mockTutorSelect }));
 const mockRpc = jest.fn();
 let consoleError: jest.SpyInstance;
 
-function request(pathname: string) {
-  return new NextRequest(`https://admin.altitutor.test${pathname}`);
+function request(
+  pathname: string,
+  init?: ConstructorParameters<typeof NextRequest>[1],
+) {
+  return new NextRequest(`https://admin.altitutor.test${pathname}`, init);
 }
 
 function authenticatedClaims(): ClaimsResult {
@@ -71,6 +74,14 @@ describe('admin middleware', () => {
       expect(mockCreateServerClient).not.toHaveBeenCalled();
     }
   );
+
+  it('does not authenticate CORS preflight requests', async () => {
+    const response = await middleware(request('/', { method: 'OPTIONS' }));
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get('x-middleware-next')).toBe('1');
+    expect(mockCreateServerClient).not.toHaveBeenCalled();
+  });
 
   it('redirects an anonymous protected request to login', async () => {
     mockGetClaims.mockResolvedValue({
@@ -167,13 +178,16 @@ describe('admin middleware', () => {
   it('preserves cookies rotated during authentication on redirects', async () => {
     mockGetClaims.mockImplementation(async () => {
       const options = mockCreateServerClient.mock.calls[0]?.[2];
-      options?.cookies?.setAll?.([
-        {
-          name: 'admin-auth',
-          value: 'rotated-session',
-          options: { path: '/', httpOnly: true, maxAge: 3_600 },
-        },
-      ]);
+      options?.cookies?.setAll?.(
+        [
+          {
+            name: 'admin-auth',
+            value: 'rotated-session',
+            options: { path: '/', httpOnly: true, maxAge: 3_600 },
+          },
+        ],
+        {},
+      );
       return authenticatedClaims();
     });
 

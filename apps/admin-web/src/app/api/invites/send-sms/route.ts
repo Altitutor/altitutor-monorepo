@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/shared/lib/supabase/server-ssr';
 import { supabaseAdmin } from '@/shared/lib/supabase/server/admin';
 import { getStudentInviteMessage } from '@/features/messages/api/systemTemplates';
+import type { TablesInsert } from '@altitutor/shared';
 
 export async function POST(request: NextRequest) {
   try {
@@ -108,9 +109,11 @@ export async function POST(request: NextRequest) {
 
     // If no contact exists, create one
     if (!contactId) {
-      const contactData = type === 'staff' 
-        ? { phone_e164: phoneNumber, contact_type: 'STAFF' as const, staff_id: id }
-        : { phone_e164: phoneNumber, contact_type: 'STAFF' as const, student_id: id };
+      const contactData: TablesInsert<'contacts'> = {
+        phone_e164: phoneNumber,
+        contact_type: type === 'staff' ? 'STAFF' : 'STUDENT',
+        ...(type === 'staff' ? { staff_id: id } : { student_id: id }),
+      };
       
       const { data: newContact, error: createContactError } = await supabaseAdmin
         .from('contacts')
@@ -319,4 +322,3 @@ export async function POST(request: NextRequest) {
     );
   }
 }
-
