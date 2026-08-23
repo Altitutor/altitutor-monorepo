@@ -1,6 +1,6 @@
 BEGIN;
 
-SELECT plan(7);
+SELECT plan(9);
 
 SELECT has_table(
   'public',
@@ -31,6 +31,14 @@ SELECT ok(
     'SELECT'
   ),
   'Students can read the Preparation snapshot facade'
+);
+SELECT ok(
+  has_function_privilege(
+    'authenticated',
+    'public.get_student_ucat_preparation_evidence_watermark()',
+    'EXECUTE'
+  ),
+  'Students can read their Preparation freshness watermark'
 );
 
 CREATE TEMP TABLE preparation_snapshot_fixture AS
@@ -90,6 +98,46 @@ SELECT is(
   ),
   (SELECT student_id::TEXT FROM preparation_snapshot_fixture OFFSET 1 LIMIT 1),
   'the visible snapshot belongs to the authenticated Student'
+);
+
+RESET ROLE;
+
+CREATE TEMP TABLE preparation_watermark_fixture AS
+SELECT profile.student_id, student.user_id
+FROM public.ucat_student_study_plan_profiles profile
+JOIN public.students student ON student.id = profile.student_id
+WHERE student.user_id IS NOT NULL
+ORDER BY profile.id
+LIMIT 1;
+
+UPDATE public.ucat_student_study_plan_profiles profile
+SET target_score = profile.target_score
+FROM preparation_watermark_fixture fixture
+WHERE profile.student_id = fixture.student_id;
+
+CREATE TEMP TABLE preparation_watermark_expected AS
+SELECT profile.updated_at
+FROM public.ucat_student_study_plan_profiles profile
+JOIN preparation_watermark_fixture fixture
+  ON fixture.student_id = profile.student_id;
+
+GRANT SELECT ON preparation_watermark_fixture TO authenticated;
+GRANT SELECT ON preparation_watermark_expected TO authenticated;
+
+SET LOCAL ROLE authenticated;
+SELECT set_config(
+  'request.jwt.claims',
+  jsonb_build_object(
+    'sub', (SELECT user_id FROM preparation_watermark_fixture),
+    'role', 'authenticated'
+  )::TEXT,
+  true
+);
+
+SELECT ok(
+  public.get_student_ucat_preparation_evidence_watermark() >=
+    (SELECT updated_at FROM preparation_watermark_expected),
+  'profile changes invalidate an older Preparation snapshot'
 );
 
 RESET ROLE;

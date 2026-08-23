@@ -1,5 +1,5 @@
 BEGIN;
-SELECT plan(10);
+SELECT plan(12);
 
 INSERT INTO public.staff_subjects (staff_id, subject_id)
 SELECT staff.id, subject.id
@@ -100,6 +100,33 @@ SELECT is(
   ),
   '["73000000-0000-4000-8000-000000000001"]'::jsonb,
   'catalog can filter stems failed in a named audit run'
+);
+
+SELECT ok(
+  public.ucat_is_valid_audit_catalog_filter('73100000-0000-0000-0000-000000000001'),
+  'a bare audit-run id is a valid catalog filter'
+);
+
+SELECT is(
+  (
+    SELECT jsonb_agg(item->>'id' ORDER BY item->>'id')
+    FROM jsonb_array_elements(
+      public.tutor_ucat_list_question_catalog(
+        'draft', FALSE, NULL, ARRAY['stem_text']::TEXT[],
+        NULL, NULL, FALSE, NULL, NULL, NULL, FALSE, NULL, NULL, NULL, NULL,
+        NULL, 'desc', 1, 20, TRUE, NULL, NULL, NULL, NULL,
+        ARRAY[
+          '73000000-0000-4000-8000-000000000001',
+          '73000000-0000-4000-8000-000000000002',
+          '73000000-0000-4000-8000-000000000003',
+          '73000000-0000-4000-8000-000000000004'
+        ]::UUID[],
+        ARRAY['73100000-0000-0000-0000-000000000001']::TEXT[]
+      )->'items'
+    ) item
+  ),
+  '["73000000-0000-4000-8000-000000000001", "73000000-0000-4000-8000-000000000003"]'::jsonb,
+  'catalog can filter every stem in a named audit run'
 );
 
 SELECT is(
