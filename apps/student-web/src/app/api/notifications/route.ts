@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import type { Database } from '@altitutor/shared';
 import { createClient as createServerClient } from '@/shared/lib/supabase/server-ssr';
+import { instrumentSupabaseClient } from '@/lib/sentry/instrument-supabase-client';
 
 const MAX_NOTIFICATIONS = 50;
 
@@ -24,12 +25,12 @@ function createServiceClient() {
     throw new Error('Missing Supabase service role configuration');
   }
 
-  return createClient<Database>(supabaseUrl, supabaseServiceKey, {
+  return instrumentSupabaseClient(createClient<Database>(supabaseUrl, supabaseServiceKey, {
     auth: {
       autoRefreshToken: false,
       persistSession: false,
     },
-  });
+  }));
 }
 
 async function resolveStudentContext() {

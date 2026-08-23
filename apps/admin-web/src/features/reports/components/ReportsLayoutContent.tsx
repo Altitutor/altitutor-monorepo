@@ -17,10 +17,13 @@ import {
   REPORTS_SECTION_KEYS,
   REPORTS_SECTION_LABELS,
   REPORTS_CHART_CONFIG,
+  getReportsDatePresets,
 } from './ReportsDateRangeCard';
 import type { OperationsSubsection, SchedulingSubsection } from './ReportsDateRangeCard';
 
 const TODAY = new Date().toISOString().slice(0, 10);
+const CURRENT_YEAR = new Date().getFullYear();
+const REPORT_DATE_PRESETS = getReportsDatePresets();
 
 function ReportsTabs() {
   const pathname = usePathname();
@@ -57,6 +60,7 @@ function ReportsFilters() {
     handleOperationsChartToggle,
     handleSchedulingChartToggle,
     handleFinancialChartToggle,
+    handleCommunicationsChartToggle,
   } = useReportsContext();
 
   const OPERATIONS_SUBSECTION_LABELS: Record<OperationsSubsection, string> = {
@@ -76,7 +80,9 @@ function ReportsFilters() {
     ? 'scheduling'
     : pathname?.includes('/financial')
       ? 'financial'
-      : 'operations';
+      : pathname?.includes('/communications')
+        ? 'communications'
+        : 'operations';
 
   return (
     <div className="flex flex-wrap items-center gap-2">
@@ -85,6 +91,8 @@ function ReportsFilters() {
           value={startDate}
           onChange={(value) => setStartDate(value ?? '')}
           maxDate={TODAY}
+          anchorYear={CURRENT_YEAR}
+          presets={REPORT_DATE_PRESETS}
           className="h-9 w-[140px]"
         />
         <span className="text-muted-foreground text-sm">to</span>
@@ -92,6 +100,8 @@ function ReportsFilters() {
           value={endDate}
           onChange={(value) => setEndDate(value ?? '')}
           maxDate={TODAY}
+          anchorYear={CURRENT_YEAR}
+          presets={REPORT_DATE_PRESETS}
           className="h-9 w-[140px]"
         />
       </div>
@@ -193,6 +203,28 @@ function ReportsFilters() {
                   }
                 >
                   {REPORTS_CHART_CONFIG.financial[chartKey]}
+                </DropdownMenuCheckboxItem>
+              ))}
+            </>
+          )}
+          {section === 'communications' && (
+            <>
+              <DropdownMenuLabel className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                {REPORTS_SECTION_LABELS.communications}
+              </DropdownMenuLabel>
+              {(
+                Object.keys(REPORTS_CHART_CONFIG.communications) as Array<
+                  keyof typeof REPORTS_CHART_CONFIG.communications
+                >
+              ).map((chartKey) => (
+                <DropdownMenuCheckboxItem
+                  key={chartKey}
+                  checked={visibleCharts.communications[chartKey]}
+                  onCheckedChange={(checked) =>
+                    handleCommunicationsChartToggle(chartKey, checked === true)
+                  }
+                >
+                  {REPORTS_CHART_CONFIG.communications[chartKey]}
                 </DropdownMenuCheckboxItem>
               ))}
             </>

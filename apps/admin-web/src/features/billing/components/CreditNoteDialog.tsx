@@ -2,12 +2,6 @@
 
 import { useState, useMemo, useCallback, useEffect } from 'react';
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
   Button,
   Label,
   Checkbox,
@@ -23,17 +17,12 @@ import {
   SearchableSelect,
   SmartDatePickerField,
 } from '@altitutor/ui';
-import { Loader2, X } from 'lucide-react';
+import { Loader2 } from 'lucide-react';
 import { getInvoiceStatusBadge, formatInvoiceAmount, toInvoiceStatusPayload } from '../utils/invoiceFormatters';
 import type { InvoiceItemRow } from '../types';
 import type { CreateCreditNoteRequest } from '../types';
 import { getErrorMessage } from '@/shared/utils';
-import {
-  ExpandButton,
-  EXPANDABLE_DIALOG_TRANSITION,
-  EXPANDED_DIALOG_CONTENT_CLASS,
-} from '@/shared/components/expandable-dialog';
-import { cn } from '@/shared/utils';
+import { AdminDialogShell } from '@/shared/components';
 
 const CREDIT_NOTE_REASONS: { id: string; label: string }[] = [
   { id: 'duplicate', label: 'Duplicate charge' },
@@ -85,11 +74,6 @@ export function CreditNoteDialog({
   const [destination, setDestination] = useState<'refund' | 'credit_balance' | 'out_of_band'>('credit_balance');
   const [lineState, setLineState] = useState<Record<string, LineState>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [expanded, setExpanded] = useState(false);
-
-  useEffect(() => {
-    if (!isOpen) setExpanded(false);
-  }, [isOpen]);
 
   const itemsWithStripeId = useMemo(
     () => invoiceItems.filter((item) => item.stripe_invoice_item_id),
@@ -197,42 +181,32 @@ export function CreditNoteDialog({
   const isPaidInvoice = invoice.status === 'paid';
 
   return (
-    <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent
-        className={cn(
-          'w-full md:max-w-4xl h-[90vh] flex flex-col p-0 [&>button]:hidden',
-          EXPANDABLE_DIALOG_TRANSITION,
-          expanded && EXPANDED_DIALOG_CONTENT_CLASS
-        )}
-      >
-        {/* Header */}
-        <div className="flex-shrink-0 border-b bg-background">
-          <DialogHeader className="px-6 pt-6 pb-4">
-            <div className="flex items-start justify-between gap-4">
-              <div className="flex items-center gap-3 flex-1">
-                <Button
-                  variant="outline"
-                  size="icon"
-                  onClick={onClose}
-                  className="shrink-0"
-                >
-                  <X className="h-4 w-4" />
-                </Button>
-                <div className="flex-1 min-w-0">
-                  <DialogTitle>Issue a credit note</DialogTitle>
-                  <DialogDescription asChild>
-                    <span>
-                      Adjust or refund finalised invoices with credit notes.
-                    </span>
-                  </DialogDescription>
-                </div>
-                <ExpandButton expanded={expanded} onToggle={() => setExpanded((e) => !e)} />
-              </div>
-            </div>
-          </DialogHeader>
-        </div>
-
-        {/* Content */}
+    <AdminDialogShell
+      fillHeight
+      open={isOpen}
+      onClose={onClose}
+      title="Issue a credit note"
+      subtitle="Adjust or refund finalised invoices with credit notes."
+      contentClassName="md:max-w-4xl"
+      bodyClassName="!p-0 flex min-h-0 flex-1 flex-col overflow-hidden"
+      footer={
+        <>
+          <Button variant="outline" onClick={onClose} disabled={isSubmitting}>
+            Cancel
+          </Button>
+          <Button onClick={handleSubmit} disabled={isSubmitting || missingStripeIds || amountToCreditCents <= 0}>
+            {isSubmitting ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Issuing…
+              </>
+            ) : (
+              'Issue credit note'
+            )}
+          </Button>
+        </>
+      }
+    >
         <div className="flex-1 overflow-hidden min-h-0">
           <div className="h-full overflow-y-auto">
             <div className="p-6 space-y-6">
@@ -409,24 +383,6 @@ export function CreditNoteDialog({
           </div>
         </div>
         </div>
-
-        {/* Footer */}
-        <DialogFooter className="flex-shrink-0 flex justify-between sm:justify-between px-6 py-4 border-t">
-          <Button variant="outline" onClick={onClose} disabled={isSubmitting}>
-            Cancel
-          </Button>
-          <Button onClick={handleSubmit} disabled={isSubmitting || missingStripeIds || amountToCreditCents <= 0}>
-            {isSubmitting ? (
-              <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Issuing…
-              </>
-            ) : (
-              'Issue credit note'
-            )}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+    </AdminDialogShell>
   );
 }

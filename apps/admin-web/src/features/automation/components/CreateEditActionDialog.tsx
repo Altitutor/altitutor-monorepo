@@ -1,17 +1,9 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-  DialogFooter,
-} from '@altitutor/ui';
 import { Button } from '@altitutor/ui';
 import {
   Form,
@@ -33,11 +25,7 @@ import type { Tables } from '@altitutor/shared';
 import type { AutomationAction, ActionType, ActivityEntityType } from '../types';
 import { TemplateVariablesPicker } from './TemplateVariablesPicker';
 import { MessageTemplatesPicker } from '@/features/messages/components/MessageTemplatesPicker';
-import {
-  ExpandButton,
-  EXPANDABLE_DIALOG_TRANSITION,
-  EXPANDED_DIALOG_CONTENT_CLASS,
-} from '@/shared/components/expandable-dialog';
+import { AdminDialogShell } from '@/shared/components';
 import { cn } from '@/shared/utils';
 
 // Entity types that have class_id available in activity events
@@ -171,11 +159,6 @@ export function CreateEditActionDialog({
   staffList,
 }: CreateEditActionDialogProps) {
   const isEditing = !!action;
-  const [expanded, setExpanded] = useState(false);
-
-  useEffect(() => {
-    if (!isOpen) setExpanded(false);
-  }, [isOpen]);
 
   const createMutation = useCreateAutomationAction();
   const updateMutation = useUpdateAutomationAction();
@@ -462,35 +445,27 @@ export function CreateEditActionDialog({
 
   const isLoading = createMutation.isPending || updateMutation.isPending;
 
-  const handleOpenChange = (open: boolean) => {
-    if (!open) {
-      onClose();
-    }
-  };
-
   return (
-    <Dialog open={isOpen} onOpenChange={handleOpenChange}>
-      <DialogContent
-        className={cn(
-          'w-full md:max-w-2xl max-h-[90vh] overflow-y-auto',
-          EXPANDABLE_DIALOG_TRANSITION,
-          expanded && EXPANDED_DIALOG_CONTENT_CLASS
-        )}
-      >
-        <DialogHeader>
-          <div className="flex items-start justify-between gap-4">
-            <div className="flex-1 min-w-0">
-              <DialogTitle>{isEditing ? 'Edit Action' : 'Create Action'}</DialogTitle>
-              <DialogDescription>
-                Configure an action to execute when the rule matches an activity event
-              </DialogDescription>
-            </div>
-            <ExpandButton expanded={expanded} onToggle={() => setExpanded((e) => !e)} />
-          </div>
-        </DialogHeader>
-
-        <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+    <AdminDialogShell
+      fillHeight
+      open={isOpen}
+      onClose={onClose}
+      title={isEditing ? 'Edit Action' : 'Create Action'}
+      subtitle="Configure an action to execute when the rule matches an activity event"
+      footer={
+        <>
+          <Button variant="outline" onClick={onClose} disabled={isLoading}>
+            Cancel
+          </Button>
+          <Button type="submit" form="create-edit-action-form" disabled={isLoading}>
+            {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            {isEditing ? 'Update Action' : 'Create Action'}
+          </Button>
+        </>
+      }
+    >
+      <Form {...form}>
+        <form id="create-edit-action-form" onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
             <FormField
               control={form.control}
               name="action_type"
@@ -1198,18 +1173,8 @@ export function CreateEditActionDialog({
               </>
             )}
 
-            <DialogFooter>
-              <Button variant="outline" onClick={onClose} disabled={isLoading}>
-                Cancel
-              </Button>
-              <Button type="submit" disabled={isLoading}>
-                {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                {isEditing ? 'Update Action' : 'Create Action'}
-              </Button>
-            </DialogFooter>
           </form>
         </Form>
-      </DialogContent>
-    </Dialog>
+    </AdminDialogShell>
   );
 }

@@ -1,11 +1,11 @@
 'use client';
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import { CheckCircle2, ChevronLeft, ChevronRight, X } from 'lucide-react';
-import { Button, Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@altitutor/ui';
-import { useToast } from '@altitutor/ui';
+import { CheckCircle2, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Button, useToast } from '@altitutor/ui';
 import type { Tables } from '@altitutor/shared';
 import { getErrorMessage } from '@/shared/utils';
+import { AdminDialogShell } from '@/shared/components';
 import { StudentSelector } from '../bulk/StudentSelector';
 import { MessageComposer } from '../bulk/MessageComposer';
 import { MessagePreview } from '../bulk/MessagePreview';
@@ -139,62 +139,85 @@ export function AnnouncementsModal({ isOpen, onClose }: AnnouncementsModalProps)
   });
 
   return (
-    <Dialog open={isOpen} onOpenChange={handleClose}>
-      <DialogContent className="w-full md:max-w-4xl flex flex-col overflow-hidden p-0 sm:!h-[90vh] sm:!max-h-[90vh] [&>button]:hidden">
-        {/* Header */}
-        <div className="flex-shrink-0 border-b bg-card">
-          <DialogHeader className="px-6 pt-6 pb-4">
-            <div className="flex items-start justify-between gap-4">
-              <div className="flex items-center gap-3 flex-1">
-                <Button
-                  variant="outline"
-                  size="icon"
-                  onClick={handleClose}
-                  className="shrink-0"
-                >
-                  <X className="h-4 w-4" />
-                </Button>
-                <div className="flex-1">
-                  <DialogTitle>Send announcement</DialogTitle>
-                  {step !== 'success' && (
-                    <DialogDescription>
-                      Step {getStepNumber()} of {TOTAL_STEPS}: {getStepTitle()}
-                    </DialogDescription>
-                  )}
-                </div>
-              </div>
+    <AdminDialogShell
+      fillHeight
+      open={isOpen}
+      onClose={handleClose}
+      title="Send announcement"
+      subtitle={step !== 'success' ? `Step ${getStepNumber()} of ${TOTAL_STEPS}: ${getStepTitle()}` : undefined}
+      contentClassName="md:max-w-4xl"
+      bodyClassName="min-h-0 flex-1 overflow-hidden flex flex-col p-0"
+      headerExtra={
+        step !== 'success' ? (
+          <div className="px-6 pb-4">
+            <div className="flex items-center gap-2">
+              {Array.from({ length: TOTAL_STEPS }).map((_, index) => {
+                const stepIndex = step === 'select' ? 0 : step === 'compose' ? 1 : step === 'preview' ? 2 : 0;
+                return (
+                  <div
+                    key={index}
+                    className={`flex-1 h-2 rounded-full transition-colors ${
+                      index < stepIndex
+                        ? 'bg-primary'
+                        : index === stepIndex
+                        ? 'bg-primary/50'
+                        : 'bg-muted'
+                    }`}
+                  />
+                );
+              })}
             </div>
-          </DialogHeader>
+          </div>
+        ) : undefined
+      }
+      footer={
+        step === 'success' ? undefined : (
+          <div className="flex w-full justify-between sm:justify-between">
+            <Button
+              variant="outline"
+              onClick={() => {
+                if (step === 'compose') setStep('select');
+                else if (step === 'preview') setStep('compose');
+              }}
+              disabled={step === 'select'}
+            >
+              <ChevronLeft className="h-4 w-4 mr-2" />
+              Previous
+            </Button>
 
-          {/* Progress Indicator */}
-          {step !== 'success' && (
-            <div className="px-6 pb-4">
-              <div className="flex items-center gap-2">
-                {Array.from({ length: TOTAL_STEPS }).map((_, index) => {
-                  const stepIndex = step === 'select' ? 0 : step === 'compose' ? 1 : step === 'preview' ? 2 : 0;
-                  return (
-                    <div
-                      key={index}
-                      className={`flex-1 h-2 rounded-full transition-colors ${
-                        index < stepIndex
-                          ? 'bg-primary'
-                          : index === stepIndex
-                          ? 'bg-primary/50'
-                          : 'bg-muted'
-                      }`}
-                    />
-                  );
-                })}
-              </div>
-            </div>
-          )}
-        </div>
-
-        {/* Content */}
-        <div className="flex-1 overflow-hidden min-h-0">
-          <div className="h-full overflow-y-auto">
-            <div className="p-6">
-            {step === 'select' && (
+            {step === 'preview' ? (
+              <Button
+                onClick={handleSend}
+                disabled={isSending}
+              >
+                {isSending ? 'Sending...' : 'Send Announcements'}
+              </Button>
+            ) : step === 'select' ? (
+              <Button
+                onClick={() => setStep('compose')}
+                disabled={selectedStudents.length === 0}
+              >
+                Next
+                <ChevronRight className="h-4 w-4 ml-2" />
+              </Button>
+            ) : step === 'compose' ? (
+              <Button
+                onClick={() => setStep('preview')}
+                disabled={!message.trim()}
+              >
+                Next
+                <ChevronRight className="h-4 w-4 ml-2" />
+              </Button>
+            ) : (
+              <div />
+            )}
+          </div>
+        )
+      }
+    >
+      <div className="h-full overflow-y-auto">
+        <div className="p-6">
+          {step === 'select' && (
             <StudentSelector
               selectedStudents={selectedStudents}
               onStudentsChange={setSelectedStudents}
@@ -274,53 +297,8 @@ export function AnnouncementsModal({ isOpen, onClose }: AnnouncementsModalProps)
               </div>
             </div>
           )}
-            </div>
-          </div>
         </div>
-
-        {step !== 'success' && (
-          <div className="flex justify-between px-6 py-4 border-t bg-background">
-            <Button
-              variant="outline"
-              onClick={() => {
-                if (step === 'compose') setStep('select');
-                else if (step === 'preview') setStep('compose');
-              }}
-              disabled={step === 'select'}
-            >
-              <ChevronLeft className="h-4 w-4 mr-2" />
-              Previous
-            </Button>
-
-            {step === 'preview' ? (
-              <Button
-                onClick={handleSend}
-                disabled={isSending}
-              >
-                {isSending ? 'Sending...' : 'Send Announcements'}
-              </Button>
-            ) : step === 'select' ? (
-              <Button
-                onClick={() => setStep('compose')}
-                disabled={selectedStudents.length === 0}
-              >
-                Next
-                <ChevronRight className="h-4 w-4 ml-2" />
-              </Button>
-            ) : step === 'compose' ? (
-              <Button
-                onClick={() => setStep('preview')}
-                disabled={!message.trim()}
-              >
-                Next
-                <ChevronRight className="h-4 w-4 ml-2" />
-              </Button>
-            ) : (
-              <div></div>
-            )}
-          </div>
-        )}
-      </DialogContent>
-    </Dialog>
+      </div>
+    </AdminDialogShell>
   );
 }

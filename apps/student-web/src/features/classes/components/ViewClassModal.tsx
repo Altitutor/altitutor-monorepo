@@ -89,16 +89,17 @@ export function ViewClassModal({ classId, onClose }: ViewClassModalProps) {
                     <div className="flex items-center gap-2 text-sm">
                       <Calendar className="h-4 w-4 text-muted-foreground" />
                       <span className="font-medium">
-                        {classDetails.day_of_week !== null ? getDayShortName(classDetails.day_of_week) : '-'}
+                        {classDetails.schedule_weekdays?.length
+                          ? classDetails.schedule_weekdays.map(getDayShortName).join(', ')
+                          : classDetails.day_of_week !== null ? getDayShortName(classDetails.day_of_week) : '-'}
                       </span>
                     </div>
                     <div className="flex items-center gap-2 text-sm">
                       <Clock className="h-4 w-4 text-muted-foreground" />
                       <span>
-                        {classDetails.start_time && classDetails.end_time
+                        {classDetails.schedule_summary_long || (classDetails.start_time && classDetails.end_time
                           ? `${formatTime(classDetails.start_time)} - ${formatTime(classDetails.end_time)}`
-                          : '-'
-                        }
+                          : '-')}
                       </span>
                     </div>
                     {classDetails.room && (
@@ -248,4 +249,3 @@ export function ViewClassModal({ classId, onClose }: ViewClassModalProps) {
     </Sheet>
   );
 }
-

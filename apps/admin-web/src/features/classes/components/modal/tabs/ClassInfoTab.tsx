@@ -25,7 +25,7 @@ const classInfoSchema = z.object({
   dayOfWeek: z.number().min(0).max(6),
   startTime: z.string().min(1, 'Start time is required'),
   endTime: z.string().min(1, 'End time is required'),
-  status: z.enum(['ACTIVE','INACTIVE','FULL']),
+  status: z.enum(['ACTIVE','INACTIVE']),
   subjectId: z.string().optional(),
   room: z.string().optional(),
   sessionStartDate: z.string().optional().nullable(),
@@ -55,7 +55,6 @@ type FormData = z.infer<typeof classInfoSchema>;
 const STATUS_OPTIONS = [
   { value: 'ACTIVE' as const, label: 'Active' },
   { value: 'INACTIVE' as const, label: 'Inactive' },
-  { value: 'FULL' as const, label: 'Full' },
 ] as const;
 
 const DAY_OPTIONS = [
@@ -129,13 +128,13 @@ export function ClassInfoTab({
     if (isEditing && !hasResetRef.current && classData) {
       const dayValue = classData.day_of_week != null ? classData.day_of_week : 1;
       // Map ARCHIVED status to INACTIVE for form (form schema doesn't support ARCHIVED)
-      const formStatus = classData.status === 'ARCHIVED' ? 'INACTIVE' : (classData.status === 'ACTIVE' || classData.status === 'INACTIVE' || classData.status === 'FULL' ? classData.status : 'ACTIVE');
+      const formStatus = classData.status === 'INACTIVE' ? 'INACTIVE' : 'ACTIVE';
       form.reset({
         level: classData.level || null,
         dayOfWeek: dayValue,
         startTime: classData.start_time || '',
         endTime: classData.end_time || '',
-        status: formStatus as 'ACTIVE' | 'INACTIVE' | 'FULL',
+        status: formStatus,
         subjectId: classData.subject_id ?? undefined,
         room: classData.room || '',
         sessionStartDate: classData.session_start_date || null,
@@ -252,7 +251,7 @@ export function ClassInfoTab({
                           getItemLabel={(o) => o.label}
                           getItemId={(o) => o.value}
                           placeholder="Select status"
-                          disabled={isLoading}
+                          disabled
                         />
                       );
                     }}
@@ -260,6 +259,9 @@ export function ClassInfoTab({
                   {form.formState.errors.status && (
                     <p className="text-sm text-red-500">{form.formState.errors.status.message}</p>
                   )}
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Use Edit timetable to preview a status change.
+                  </p>
                 </div>
               </div>
               
@@ -281,7 +283,7 @@ export function ClassInfoTab({
                           getItemLabel={(o) => o.label}
                           getItemId={(o) => String(o.value)}
                           placeholder="Select day"
-                          disabled={isLoading}
+                          disabled
                         />
                       );
                     }}
@@ -300,7 +302,7 @@ export function ClassInfoTab({
                       <Input 
                         id="room" 
                         {...field}
-                        disabled={isLoading} 
+                        disabled
                         placeholder="Room number/name"
                       />
                     )}
@@ -322,7 +324,7 @@ export function ClassInfoTab({
                         id="startTime" 
                         type="time"
                         {...field}
-                        disabled={isLoading} 
+                        disabled
                       />
                     )}
                   />
@@ -341,7 +343,7 @@ export function ClassInfoTab({
                         id="endTime" 
                         type="time"
                         {...field}
-                        disabled={isLoading} 
+                        disabled
                       />
                     )}
                   />
@@ -388,7 +390,7 @@ export function ClassInfoTab({
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <Label htmlFor="sessionStartDate">Session Start Date (Optional)</Label>
+                  <Label htmlFor="sessionStartDate">Session Start Date</Label>
                   <Controller
                     control={form.control}
                     name="sessionStartDate"
@@ -396,12 +398,12 @@ export function ClassInfoTab({
                       <SmartDatePickerField
                         value={field.value || ''}
                         onChange={(value) => field.onChange(value)}
-                        className={isLoading ? 'pointer-events-none opacity-50' : undefined}
+                        className="pointer-events-none opacity-50"
                       />
                     )}
                   />
                   <p className="text-xs text-muted-foreground mt-1">
-                    Leave empty to create sessions from today
+                    Use Edit timetable to change schedule dates.
                   </p>
                   {form.formState.errors.sessionStartDate && (
                     <p className="text-sm text-red-500">{form.formState.errors.sessionStartDate.message}</p>
@@ -409,7 +411,7 @@ export function ClassInfoTab({
                 </div>
                 
                 <div>
-                  <Label htmlFor="sessionEndDate">Session End Date (Optional)</Label>
+                  <Label htmlFor="sessionEndDate">Session End Date</Label>
                   <Controller
                     control={form.control}
                     name="sessionEndDate"
@@ -418,12 +420,12 @@ export function ClassInfoTab({
                         value={field.value || ''}
                         onChange={(value) => field.onChange(value)}
                         minDate={form.watch('sessionStartDate') || undefined}
-                        className={isLoading ? 'pointer-events-none opacity-50' : undefined}
+                        className="pointer-events-none opacity-50"
                       />
                     )}
                   />
                   <p className="text-xs text-muted-foreground mt-1">
-                    Leave empty to create sessions until end of year
+                    Use Edit timetable to change schedule dates.
                   </p>
                   {form.formState.errors.sessionEndDate && (
                     <p className="text-sm text-red-500">{form.formState.errors.sessionEndDate.message}</p>
@@ -498,17 +500,12 @@ export function ClassInfoTab({
         <div className="text-sm font-medium">Level:</div>
         <div>{classData.level || '-'}</div>
         
-        <div className="text-sm font-medium">Day:</div>
-        <div>{getDayOfWeek(classData.day_of_week)}</div>
-        
-        <div className="text-sm font-medium">Time:</div>
-        <div>
-          {formatTime(classData.start_time)} - {formatTime(classData.end_time)}
-        </div>
+        <div className="text-sm font-medium">Schedule:</div>
+        <div>{classData.schedule_summary_long || `${getDayOfWeek(classData.day_of_week)} ${formatTime(classData.start_time)} - ${formatTime(classData.end_time)}`}</div>
         
         <div className="text-sm font-medium">Status:</div>
         <div>
-          <ClassStatusBadge value={classData.status === 'ARCHIVED' ? 'INACTIVE' : (classData.status === 'ACTIVE' || classData.status === 'INACTIVE' || classData.status === 'FULL' ? classData.status : null)} />
+          <ClassStatusBadge value={classData.status === 'ACTIVE' || classData.status === 'INACTIVE' ? classData.status : null} />
         </div>
         
         <div className="text-sm font-medium">Subject:</div>
@@ -528,9 +525,6 @@ export function ClassInfoTab({
             '-'
           )}
         </div>
-        
-        <div className="text-sm font-medium">Room:</div>
-        <div>{classData.room || '-'}</div>
         
         <div className="text-sm font-medium">Session Start Date:</div>
         <div>

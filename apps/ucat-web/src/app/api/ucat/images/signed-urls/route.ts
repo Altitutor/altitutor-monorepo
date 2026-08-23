@@ -102,32 +102,30 @@ export async function POST(request: NextRequest) {
     }
   }
 
-  const signedUrls: string[] = [];
-  for (const path of paths) {
-    const { data, error } = await supabaseAdmin.storage
-      .from("ucat-images")
-      .createSignedUrl(path, REFRESHED_URL_EXPIRY_SECONDS);
-
-    if (error) {
-      captureApiError(error, "/api/ucat/images/signed-urls", {
-        storageBucket: "ucat-images",
-        storagePath: path,
-      });
-      return NextResponse.json(
-        { error: error.message, path },
-        { status: error.message === "Object not found" ? 404 : 500 },
-      );
-    }
-
-    if (!data?.signedUrl) {
-      return NextResponse.json(
-        { error: "No signed URL returned", path },
-        { status: 500 },
-      );
-    }
-
-    signedUrls.push(data.signedUrl);
+  const { data: signedData, error: signedError } = await supabaseAdmin.storage
+    .from("ucat-images")
+    .createSignedUrls(paths, REFRESHED_URL_EXPIRY_SECONDS);
+  if (signedError) {
+    captureApiError(signedError, "/api/ucat/images/signed-urls", {
+      storageBucket: "ucat-images",
+      referenceCount: paths.length,
+    });
+    return NextResponse.json(
+      { error: signedError.message },
+      { status: signedError.message === "Object not found" ? 404 : 500 },
+    );
   }
+  const failed = signedData.find((item) => item.error || !item.signedUrl);
+  if (failed) {
+    return NextResponse.json(
+      {
+        error: failed.error ?? "No signed URL returned",
+        path: failed.path,
+      },
+      { status: failed.error === "Object not found" ? 404 : 500 },
+    );
+  }
+  const signedUrls = signedData.map((item) => item.signedUrl);
 
   return NextResponse.json({ signedUrls });
 }

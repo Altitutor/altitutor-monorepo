@@ -201,6 +201,7 @@ export function CreateEditTemplateDialog({
 
   return (
     <AdminDialogShell
+        fillHeight
       open={isOpen}
       onClose={onClose}
       title={template ? 'Edit Template' : 'Create Template'}

@@ -29,7 +29,7 @@ import {
   SearchableSelectInline,
 } from "@altitutor/ui";
 import { Loader2 } from 'lucide-react';
-import { useClassesMinimalPaginated, useDeleteClass } from '../hooks/useClassesQuery';
+import { useClassDeleteImpact, useClassesMinimalPaginated, useDeleteClass } from '../hooks/useClassesQuery';
 import { useSubjectsSearchForFilter } from '../hooks/useSubjectsSearchForFilter';
 import { useStudentSearchForFilter } from '@/features/sessions/hooks/useStudentSearchForFilter';
 import { useStaffSearchForFilter } from '@/features/sessions/hooks/useStaffSearchForFilter';
@@ -37,7 +37,6 @@ import type { MinimalClass } from '../api/classes';
 import type { Tables, DataTableFilterDefinition, DataTableSortOption, DataTableColumnDefinition } from '@altitutor/shared';
 import { cn, getSubjectColorStyle } from '@/shared/utils/index';
 import { AddClassModal } from './AddClassModal';
-import { EditClassModal } from './EditClassModal';
 import { ViewClassModal } from './modal';
 import { ViewStaffModal } from '@/features/staff';
 import { ViewStudentModal } from '@/features/students';
@@ -302,7 +301,6 @@ export function ClassesTable({ addModalState }: ClassesTableProps) {
   
   // Modal states - manage internally and use external state only when provided
   const [internalAddModalOpen, setInternalAddModalOpen] = useState(false);
-  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
   const [selectedClass, setSelectedClass] = useState<MinimalClass | null>(null);
 
@@ -321,6 +319,10 @@ export function ClassesTable({ addModalState }: ClassesTableProps) {
   const [isClassDeleteDialogOpen, setIsClassDeleteDialogOpen] = useState(false);
   const [deleteConfirmText, setDeleteConfirmText] = useState('');
   const deleteClassMutation = useDeleteClass();
+  const { data: deleteImpact, isLoading: isDeleteImpactLoading } = useClassDeleteImpact(
+    classToDelete?.id,
+    isClassDeleteDialogOpen
+  );
   const { toast } = useToast();
 
   // Ensure hooks are declared before any early returns
@@ -495,11 +497,11 @@ export function ClassesTable({ addModalState }: ClassesTableProps) {
                       onClick={() => handleClassClick(cls)}
                     >
                       {state.visibleColumns.includes('day') && (
-                        <TableCell>{getDayOfWeek(cls.day_of_week)}</TableCell>
+                        <TableCell>{cls.schedule_weekdays.map(getDayOfWeek).join(', ')}</TableCell>
                       )}
                       {state.visibleColumns.includes('time') && (
                         <TableCell>
-                          {formatTime(cls.start_time)} - {formatTime(cls.end_time)}
+                          {cls.schedule_summary_short || `${formatTime(cls.start_time)} - ${formatTime(cls.end_time)}`}
                         </TableCell>
                       )}
                       {state.visibleColumns.includes('subject') && (
@@ -607,16 +609,6 @@ export function ClassesTable({ addModalState }: ClassesTableProps) {
         }}
       />
 
-      {/* Edit Class Modal */}
-      {selectedClass && (
-        <EditClassModal
-          isOpen={isEditModalOpen}
-          onClose={() => setIsEditModalOpen(false)}
-          onClassUpdated={handleClassUpdated}
-          classData={selectedClass}
-        />
-      )}
-
       {/* Class Detail Modal */}
       {selectedClass && (
         <ViewClassModal 
@@ -669,8 +661,12 @@ export function ClassesTable({ addModalState }: ClassesTableProps) {
           <AlertDialogHeader>
             <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
             <AlertDialogDescription>
-              This action cannot be undone. This will permanently delete the class
-              {classToDelete?.level ? ` "${classToDelete.level}"` : ''} and all associated data from the database.
+              This permanently deletes the Class
+              {classToDelete?.level ? ` "${classToDelete.level}"` : ''} and {deleteImpact?.futureSessionCount ?? 0} pristine future Sessions.
+              {' '}Historical Sessions are never deleted.
+              {deleteImpact && !deleteImpact.canDelete
+                ? ` This Class also has ${deleteImpact.historicalSessionCount} historical and ${deleteImpact.protectedFutureSessionCount} protected future Sessions, so it cannot be deleted; make it inactive through Edit timetable instead.`
+                : ''}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <div className="py-4">
@@ -714,7 +710,12 @@ export function ClassesTable({ addModalState }: ClassesTableProps) {
                   });
                 }
               }}
-              disabled={deleteClassMutation.isPending || (classToDelete?.level ? deleteConfirmText !== classToDelete.level : deleteConfirmText !== 'DELETE')}
+              disabled={
+                deleteClassMutation.isPending
+                || isDeleteImpactLoading
+                || !deleteImpact?.canDelete
+                || (classToDelete?.level ? deleteConfirmText !== classToDelete.level : deleteConfirmText !== 'DELETE')
+              }
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {deleteClassMutation.isPending ? (

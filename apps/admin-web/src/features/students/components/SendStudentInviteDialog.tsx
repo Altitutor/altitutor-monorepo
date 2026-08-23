@@ -2,11 +2,6 @@
 
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
@@ -32,12 +27,7 @@ import { templateContainsLinkVariables } from '@/features/messages/utils/generat
 import { generateLinkTokensForStudent } from '@/features/messages/utils/generateLinkTokens';
 import { useResponsiveButtons } from '@/features/messages/hooks/useResponsiveButtons';
 import { useStudentInviteData, studentInviteDataKeys } from '../hooks/useStudentInviteData';
-import {
-  ExpandButton,
-  EXPANDABLE_DIALOG_TRANSITION,
-  EXPANDED_DIALOG_CONTENT_CLASS,
-} from '@/shared/components/expandable-dialog';
-import { cn } from '@/shared/utils';
+import { AdminDialogShell } from '@/shared/components';
 import { useStudentClassesForTemplate } from '@/features/messages/hooks/useTemplatePreviewData';
 import { useContactIdForRelated } from '@/features/messages/hooks/useContactIdForRelated';
 import type { Tables } from '@altitutor/shared';
@@ -69,12 +59,7 @@ export function SendStudentInviteDialog({
   const [emailAttachments, setEmailAttachments] = useState<File[]>([]);
   const [isGeneratingTokens, setIsGeneratingTokens] = useState(false);
   const [composerDraft, setComposerDraft] = useState<string>('');
-  const [expanded, setExpanded] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
-
-  useEffect(() => {
-    if (!isOpen) setExpanded(false);
-  }, [isOpen]);
   const emailComposerRef = useRef<HTMLDivElement>(null);
   const buttonRowRef = useRef<HTMLDivElement>(null);
 
@@ -575,37 +560,16 @@ export function SendStudentInviteDialog({
     : `Send a registration link to ${student.first_name} ${student.last_name} to complete registration`;
 
   return (
-    <Dialog open={isOpen} onOpenChange={handleClose}>
-      <DialogContent
-        className={cn(
-          'flex flex-col gap-0 overflow-hidden p-0 md:max-w-4xl [&>button]:hidden',
-          EXPANDABLE_DIALOG_TRANSITION,
-          expanded && EXPANDED_DIALOG_CONTENT_CLASS
-        )}
-      >
-        <DialogHeader className="shrink-0 border-b px-6 py-4">
-          <div className="flex items-start justify-between gap-4">
-            <div className="flex items-center gap-3 flex-1">
-              <Button
-                variant="outline"
-                size="icon"
-                onClick={handleClose}
-                className="shrink-0"
-              >
-                <X className="h-4 w-4" />
-              </Button>
-              <div className="flex-1">
-                <DialogTitle>{dialogTitle}</DialogTitle>
-                <DialogDescription>
-                  {dialogDescription}
-                </DialogDescription>
-              </div>
-            </div>
-            <ExpandButton expanded={expanded} onToggle={() => setExpanded((e) => !e)} />
-          </div>
-        </DialogHeader>
-
-        <div className="flex flex-col flex-1 min-h-0 overflow-hidden px-6 py-4">
+    <AdminDialogShell
+      fillHeight
+      open={isOpen}
+      onClose={handleClose}
+      title={dialogTitle}
+      subtitle={dialogDescription}
+      contentClassName="md:max-w-4xl"
+      bodyClassName="flex min-h-0 flex-1 flex-col overflow-hidden"
+    >
+        <div className="flex flex-col flex-1 min-h-0 overflow-hidden">
           {/* Loading State */}
           {isGenerating ? (
             <div className="flex flex-col gap-4 px-4">
@@ -903,7 +867,6 @@ export function SendStudentInviteDialog({
             </>
           )}
         </div>
-      </DialogContent>
-    </Dialog>
+    </AdminDialogShell>
   );
 }

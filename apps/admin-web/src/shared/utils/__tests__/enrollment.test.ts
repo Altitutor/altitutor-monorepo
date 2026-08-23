@@ -115,6 +115,26 @@ describe('checkTimeOverlap', () => {
     
     expect(checkTimeOverlap(class1, class2)).toBe(true);
   });
+
+  it('checks every projected timetable row instead of only the legacy primary row', () => {
+    const multiRowClass = {
+      day_of_week: 2,
+      start_time: '13:00',
+      end_time: '14:00',
+      schedule_rows: [
+        { id: 'tue', day_of_week: 2, start_time: '13:00', end_time: '14:00', room: null, position: 0 },
+        { id: 'wed', day_of_week: 3, start_time: '14:00', end_time: '15:00', room: null, position: 1 },
+      ],
+    };
+    const wednesdayClass = {
+      day_of_week: 3,
+      start_time: '14:30',
+      end_time: '15:30',
+      schedule_rows: [],
+    };
+
+    expect(checkTimeOverlap(multiRowClass, wednesdayClass)).toBe(true);
+  });
 });
 
 describe('isDateTodayOrFuture', () => {

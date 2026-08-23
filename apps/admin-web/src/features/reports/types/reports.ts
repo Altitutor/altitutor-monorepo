@@ -37,12 +37,34 @@ export interface ReportEntityMeta {
   price?: string;
   subject?: string;
   createdAt?: string;
+  parent?: string;
+  form?: string;
+  purpose?: string;
+  submittedAt?: string;
+  /** Staff names used when one report row is attributed to multiple staff members. */
+  staffNames?: string[];
+  /** Stable identity used when a report has multiple drill-down rows per counted item. */
+  summaryKey?: string;
+}
+
+export interface ReportEntityPerson {
+  id?: string | null;
+  name: string;
+  kind: 'staff' | 'student' | 'parent';
+}
+
+export interface ReportEntityPeople {
+  staff?: ReportEntityPerson[];
+  student?: ReportEntityPerson[];
+  parent?: ReportEntityPerson[];
+  conductingStaff?: ReportEntityPerson[];
 }
 
 export interface IssueReportEntity {
   id: string;
   name: string;
   meta?: ReportEntityMeta;
+  people?: ReportEntityPeople;
 }
 
 export type ReportEntityKind =
@@ -59,7 +81,9 @@ export type ReportEntityKind =
   | 'staff'
   | 'task'
   | 'project'
-  | 'session';
+  | 'session'
+  | 'parent'
+  | 'form';
 
 export interface ReportEntityLink {
   kind: ReportEntityKind;
@@ -70,6 +94,8 @@ export interface ReportEntityLink {
   invoiceId?: string | null;
   taskId?: string | null;
   projectId?: string | null;
+  parentId?: string | null;
+  formId?: string | null;
 }
 
 export interface ReportDataPoint {
@@ -186,4 +212,16 @@ export interface BillingStatsReportData {
    * Number of student subsidies created each day in the selected period.
    */
   subsidiesCreatedByDay: ReportDataPoint[];
+}
+
+export interface CommunicationsStatsReportData {
+  staffCheckInsByDay: ReportDataPoint[];
+  studentCheckInsByDay: ReportDataPoint[];
+  parentCheckInsByDay: ReportDataPoint[];
+  formCompletionsByDay: ReportDataPoint[];
+  formCompletionTotalsByType: Array<{
+    type: string;
+    label: string;
+    count: number;
+  }>;
 }

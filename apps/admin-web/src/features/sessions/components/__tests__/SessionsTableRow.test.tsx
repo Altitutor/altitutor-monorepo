@@ -30,6 +30,14 @@ function createBaseSession(): Tables<'sessions'> {
     updated_at: new Date().toISOString(),
     short_name: null,
     long_name: null,
+    calendar_tombstone_until: null,
+    is_schedule_exception: false,
+    original_end_at: null,
+    original_start_at: null,
+    room: null,
+    schedule_origin: 'LEGACY',
+    schedule_revision_id: null,
+    schedule_slot_id: null,
   };
 }
 

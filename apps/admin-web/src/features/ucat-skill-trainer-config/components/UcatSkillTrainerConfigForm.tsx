@@ -186,6 +186,7 @@ export function UcatSkillTrainerEditDialog({
 
   return (
     <AdminDialogShell
+        fillHeight
       open={open}
       onClose={onClose}
       title={trainer?.name ?? 'Edit skill trainer config'}

@@ -163,6 +163,7 @@ export function FillFormDialog({
 
   return (
     <AdminDialogShell
+        fillHeight
       open={open}
       onClose={onClose}
       title={sessionId ? 'Add form to session' : 'Fill form'}

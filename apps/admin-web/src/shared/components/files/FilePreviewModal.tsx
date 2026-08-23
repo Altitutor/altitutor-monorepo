@@ -4,24 +4,14 @@ import { useEffect, useState, useCallback, useRef } from 'react';
 import Image from 'next/image';
 import {
   Button,
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@altitutor/ui';
-import { Download, Loader2, MoreVertical, Printer, Building2, X } from 'lucide-react';
+import { Download, Loader2, MoreVertical, Printer, Building2 } from 'lucide-react';
 import { getFileTypeIcon } from '@/shared/utils/file-type-icons';
-import {
-  ExpandButton,
-  EXPANDABLE_DIALOG_TRANSITION,
-  EXPANDED_DIALOG_CONTENT_CLASS,
-} from '@/shared/components/expandable-dialog';
-import { cn } from '@/shared/utils';
+import { AdminDialogShell } from '@/shared/components';
 import { useFilePreview } from '@/shared/hooks/useFilePreview';
 import { isPdfFile, isImageFile, downloadFile, printPdf, setupPrintKeyboardHandler } from '@/shared/utils/fileOperations';
 import { OfficePrintConfirmDialog } from '@/features/office-print';
@@ -74,13 +64,8 @@ export function FilePreviewModal({
   getMetadataFn,
 }: FilePreviewModalProps) {
   const [downloadingFile, setDownloadingFile] = useState(false);
-  const [expanded, setExpanded] = useState(false);
   const [officePrintOpen, setOfficePrintOpen] = useState(false);
   const iframeRef = useRef<HTMLIFrameElement>(null);
-
-  useEffect(() => {
-    if (!isOpen) setExpanded(false);
-  }, [isOpen]);
 
   // Use junctionTableId if provided, otherwise fall back to topicFileId for backward compatibility
   const effectiveJunctionTableId = junctionTableId || topicFileId;
@@ -151,74 +136,52 @@ export function FilePreviewModal({
   const downloadLabel = file?.external_url?.trim() ? 'Open link' : 'Download';
 
   return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent
-        className={cn(
-          'w-full md:max-w-4xl h-[90vh] flex flex-col gap-0 p-0 overflow-hidden [&>button]:hidden',
-          EXPANDABLE_DIALOG_TRANSITION,
-          expanded && EXPANDED_DIALOG_CONTENT_CLASS
-        )}
-      >
-        <DialogHeader className="flex-shrink-0 space-y-0 px-6 py-4 border-b">
-          <div className="flex items-center justify-between gap-4 w-full">
-            <div className="flex items-center gap-3 flex-1 min-w-0">
-              <Button
-                variant="outline"
-                size="icon"
-                onClick={onClose}
-                className="shrink-0"
-              >
-                <X className="h-4 w-4" />
+    <>
+      <AdminDialogShell
+        fillHeight
+        open={isOpen}
+        onClose={onClose}
+        title={fileCode && topicName ? `${fileCode} ${topicName}` : (displayTitle || 'File Preview')}
+        subtitle={<span className="truncate" title={filename}>{filename}</span>}
+        contentClassName="md:max-w-4xl"
+        bodyClassName="p-0 min-h-0 flex-1 overflow-hidden flex flex-col"
+        headerActions={
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" size="icon" className="shrink-0">
+                <MoreVertical className="h-4 w-4" />
+                <span className="sr-only">Actions</span>
               </Button>
-              <div className="flex-1 min-w-0">
-                <DialogTitle>
-                  {fileCode && topicName ? `${fileCode} ${topicName}` : (displayTitle || 'File Preview')}
-                </DialogTitle>
-                <DialogDescription className="truncate" title={filename}>
-                  {filename}
-                </DialogDescription>
-              </div>
-            </div>
-            <div className="flex items-center gap-2 shrink-0">
-              <ExpandButton expanded={expanded} onToggle={() => setExpanded((e) => !e)} />
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="outline" size="icon" className="shrink-0">
-                    <MoreVertical className="h-4 w-4" />
-                    <span className="sr-only">Actions</span>
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                  {isPdf && previewUrl && (
-                    <DropdownMenuItem onClick={handlePrint}>
-                      <Printer className="h-4 w-4 mr-2" />
-                      Print
-                    </DropdownMenuItem>
-                  )}
-                  {isPdf && previewUrl && file?.id && !file.external_url?.trim() && (
-                    <DropdownMenuItem onClick={() => setOfficePrintOpen(true)}>
-                      <Building2 className="h-4 w-4 mr-2" />
-                      Print to office
-                    </DropdownMenuItem>
-                  )}
-                  <DropdownMenuItem
-                    onClick={handleDownload}
-                    disabled={downloadingFile || !file}
-                  >
-                    {downloadingFile ? (
-                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                    ) : (
-                      <Download className="h-4 w-4 mr-2" />
-                    )}
-                    {downloadLabel}
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            </div>
-          </div>
-        </DialogHeader>
-
-        <div className="flex-1 min-h-0 overflow-hidden flex flex-col">
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              {isPdf && previewUrl && (
+                <DropdownMenuItem onClick={handlePrint}>
+                  <Printer className="h-4 w-4 mr-2" />
+                  Print
+                </DropdownMenuItem>
+              )}
+              {isPdf && previewUrl && file?.id && !file.external_url?.trim() && (
+                <DropdownMenuItem onClick={() => setOfficePrintOpen(true)}>
+                  <Building2 className="h-4 w-4 mr-2" />
+                  Print to office
+                </DropdownMenuItem>
+              )}
+              <DropdownMenuItem
+                onClick={handleDownload}
+                disabled={downloadingFile || !file}
+              >
+                {downloadingFile ? (
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                ) : (
+                  <Download className="h-4 w-4 mr-2" />
+                )}
+                {downloadLabel}
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        }
+      >
+        <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
           {isLoading || isLoadingPreview ? (
             <div className="flex flex-1 items-center justify-center">
               <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
@@ -290,13 +253,13 @@ export function FilePreviewModal({
             </div>
           )}
         </div>
-      </DialogContent>
+      </AdminDialogShell>
       <OfficePrintConfirmDialog
         open={officePrintOpen}
         onOpenChange={setOfficePrintOpen}
         fileId={file?.id ?? null}
         filename={filename || 'document.pdf'}
       />
-    </Dialog>
+    </>
   );
 }

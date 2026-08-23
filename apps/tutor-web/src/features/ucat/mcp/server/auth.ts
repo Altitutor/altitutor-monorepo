@@ -1,6 +1,7 @@
 import type { AuthInfo } from '@modelcontextprotocol/sdk/server/auth/types.js'
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 import type { Database } from '@altitutor/shared'
+import { instrumentSupabaseClient } from '@/lib/sentry/instrument-supabase-client'
 
 type OAuthClaims = {
   aud?: string | string[]
@@ -45,7 +46,7 @@ function hasAuthenticatedAudience(audience: OAuthClaims['aud']): boolean {
 }
 
 export function createUcatMcpSupabaseClient(token: string): SupabaseClient<Database> {
-  return createClient<Database>(supabaseUrl(), supabaseAnonKey(), {
+  return instrumentSupabaseClient(createClient<Database>(supabaseUrl(), supabaseAnonKey(), {
     global: {
       headers: {
         Authorization: `Bearer ${token}`,
@@ -56,7 +57,7 @@ export function createUcatMcpSupabaseClient(token: string): SupabaseClient<Datab
       detectSessionInUrl: false,
       persistSession: false,
     },
-  })
+  }))
 }
 
 export async function verifyUcatMcpToken(
@@ -100,4 +101,3 @@ export async function verifyUcatMcpToken(
     },
   }
 }
-

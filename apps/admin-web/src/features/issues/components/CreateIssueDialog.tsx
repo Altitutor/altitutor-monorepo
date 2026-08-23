@@ -5,11 +5,6 @@ import { useForm, type Resolver } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
   Button,
   DropdownMenu,
   DropdownMenuContent,
@@ -18,15 +13,10 @@ import {
   type RichTextEditorRef,
 } from '@altitutor/ui';
 import { Form } from '@altitutor/ui';
-import { X, MoreVertical } from 'lucide-react';
+import { MoreVertical } from 'lucide-react';
 import { RichTextTemplateMenuItems } from '@/features/rich-text-templates/components/RichTextTemplateMenuItems';
 import { SaveAsTemplateDialog } from '@/features/rich-text-templates/components/SaveAsTemplateDialog';
-import {
-  ExpandButton,
-  EXPANDABLE_DIALOG_TRANSITION,
-  EXPANDED_DIALOG_CONTENT_CLASS,
-} from '@/shared/components/expandable-dialog';
-import { cn } from '@/shared/utils';
+import { AdminDialogShell } from '@/shared/components';
 import { useCreateIssue } from '../api/mutations';
 import { useCurrentStaff } from '@/shared/hooks';
 import type { IssueFormData, IssueStatus, IssueTagInsert } from '../types';
@@ -97,15 +87,10 @@ export function CreateIssueDialog({
   initialDueDate = null,
   initialTags 
 }: CreateIssueDialogProps) {
-  const [expanded, setExpanded] = useState(true);
   const [isSaveDialogOpen, setIsSaveDialogOpen] = useState(false);
   const descriptionRef = useRef<RichTextEditorRef>(null);
   const createIssue = useCreateIssue();
   const { data: currentStaff } = useCurrentStaff();
-
-  useEffect(() => {
-    if (!isOpen) setExpanded(true);
-  }, [isOpen]);
 
   const form = useForm<IssueFormData, unknown, IssueFormData>({
     resolver: zodResolver(formSchema) as Resolver<IssueFormData>,
@@ -175,96 +160,80 @@ export function CreateIssueDialog({
   });
 
   return (
-    <Dialog open={isOpen} onOpenChange={handleClose}>
-      <DialogContent
-        className={cn(
-          'w-full md:max-w-4xl h-[90vh] flex flex-col p-0 gap-0 [&>button]:hidden',
-          EXPANDABLE_DIALOG_TRANSITION,
-          expanded && EXPANDED_DIALOG_CONTENT_CLASS
-        )}
+    <>
+      <AdminDialogShell
+        fillHeight
+        defaultExpanded
+        open={isOpen}
+        onClose={handleClose}
+        title="Create Issue"
+        contentClassName="md:max-w-4xl"
+        bodyClassName="min-h-0 flex-1 overflow-hidden p-0"
+        headerActions={
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" size="icon">
+                <MoreVertical className="h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <RichTextTemplateMenuItems
+                getEditor={() => descriptionRef.current?.getEditor() ?? null}
+                getCurrentContent={() => form.getValues('description') ?? null}
+                onSaveAsTemplateClick={() => setIsSaveDialogOpen(true)}
+              />
+            </DropdownMenuContent>
+          </DropdownMenu>
+        }
+        footer={
+          <>
+            <Button type="button" variant="outline" onClick={handleClose}>
+              Cancel
+            </Button>
+            <Button
+              type="submit"
+              form="create-issue-form"
+              disabled={createIssue.isPending}
+            >
+              {createIssue.isPending ? 'Creating...' : 'Create Issue'}
+            </Button>
+          </>
+        }
       >
         <Form {...form}>
-          <DialogHeader className="flex-shrink-0 border-b bg-card px-6 py-4">
-            <div className="flex items-center justify-between gap-4 w-full">
-              <div className="flex items-center gap-3 flex-1">
-                <Button
-                  variant="outline"
-                  size="icon"
-                  onClick={handleClose}
-                  className="shrink-0"
-                >
-                  <X className="h-4 w-4" />
-                </Button>
-                <div className="flex-1">
-                  <DialogTitle>Create Issue</DialogTitle>
-                </div>
-              </div>
-              <ExpandButton expanded={expanded} onToggle={() => setExpanded((e) => !e)} />
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="outline" size="icon">
-                    <MoreVertical className="h-4 w-4" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                  <RichTextTemplateMenuItems
-                    getEditor={() => descriptionRef.current?.getEditor() ?? null}
-                    getCurrentContent={() => form.getValues('description') ?? null}
-                    onSaveAsTemplateClick={() => setIsSaveDialogOpen(true)}
-                  />
-                </DropdownMenuContent>
-              </DropdownMenu>
-            </div>
-          </DialogHeader>
-
-          <div className="flex-1 overflow-hidden min-h-0">
-            <div className="h-full flex">
-              <form onSubmit={form.handleSubmit(onSubmit as SubmitHandler<IssueFormData>)} className="flex-1 flex min-h-0">
-                <EntityResizablePanels
-                  id="create-issue-panels"
-                  main={(
-                    <IssuePropertiesPanel
-                      form={form}
-                      notes={[]}
-                      isOpen={isOpen}
-                      onClose={handleClose}
-                      descriptionRef={descriptionRef}
-                    />
-                  )}
-                  sidebar={(
-                    <IssueContentPanel
-                      isOpen={isOpen}
-                      form={form}
-                      tags={liveTags}
-                    />
-                  )}
+          <form
+            id="create-issue-form"
+            onSubmit={form.handleSubmit(onSubmit as SubmitHandler<IssueFormData>)}
+            className="flex h-full min-h-0 flex-1"
+          >
+            <EntityResizablePanels
+              id="create-issue-panels"
+              main={(
+                <IssuePropertiesPanel
+                  form={form}
+                  notes={[]}
+                  isOpen={isOpen}
+                  onClose={handleClose}
+                  descriptionRef={descriptionRef}
                 />
-              </form>
-            </div>
-          </div>
-
-          <DialogFooter className="flex-shrink-0 px-6 py-4 border-t">
-            <div className="flex items-center gap-2 w-full justify-end">
-              <Button type="button" variant="outline" onClick={handleClose}>
-                Cancel
-              </Button>
-              <Button
-                type="submit"
-                onClick={form.handleSubmit(onSubmit as SubmitHandler<IssueFormData>)}
-                disabled={createIssue.isPending}
-              >
-                {createIssue.isPending ? 'Creating...' : 'Create Issue'}
-              </Button>
-            </div>
-          </DialogFooter>
+              )}
+              sidebar={(
+                <IssueContentPanel
+                  isOpen={isOpen}
+                  form={form}
+                  tags={liveTags}
+                />
+              )}
+            />
+          </form>
         </Form>
-      </DialogContent>
+      </AdminDialogShell>
       <SaveAsTemplateDialog
         isOpen={isSaveDialogOpen}
         onClose={() => setIsSaveDialogOpen(false)}
         initialContent={form.getValues('description') ?? null}
         onSuccess={() => setIsSaveDialogOpen(false)}
       />
-    </Dialog>
+    </>
   );
 }

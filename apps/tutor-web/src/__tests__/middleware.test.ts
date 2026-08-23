@@ -72,6 +72,20 @@ describe("tutor routing middleware", () => {
     expect(location.searchParams.get("next")).toBe("/classes?week=next");
   });
 
+  it("redirects an anonymous root request to login", async () => {
+    mockGetClaims.mockResolvedValue({
+      data: null,
+      error: { name: "AuthSessionMissingError", message: "missing" },
+    });
+
+    const response = await middleware(request("/"));
+
+    expect(response.status).toBe(307);
+    expect(response.headers.get("location")).toBe(
+      "https://tutor.altitutor.test/login?next=%2F",
+    );
+  });
+
   it("denies an inactive or missing staff profile", async () => {
     mockMaybeSingle.mockResolvedValue({
       data: { role: "TUTOR", status: "INACTIVE" },

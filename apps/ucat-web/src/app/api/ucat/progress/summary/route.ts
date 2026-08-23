@@ -2,6 +2,9 @@ import { NextResponse } from "next/server";
 import type { SectionProgress } from "@altitutor/shared";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 import type { ProgressSummaryResponse } from "@/features/progress/types/progress-summary";
+import { captureApiError } from "@/lib/sentry/capture-api-error";
+import { ServerTiming } from "@/lib/performance/server-timing";
+import { isTransientSupabaseError } from "@/lib/supabase/transient-error";
 
 type PublicCountRow = {
   section_id: string;
@@ -15,14 +18,36 @@ type QuestionProgressRow = {
 };
 
 export async function GET() {
+  const timing = new ServerTiming();
   const supabase = await getSupabaseServerClient();
+  const failure = (error: unknown, stage: string) => {
+    timing.mark(stage);
+    captureApiError(error, "/api/ucat/progress/summary", {
+      stage,
+      ...timing.snapshot(),
+    });
+    const transient = isTransientSupabaseError(error);
+    return timing.apply(
+      NextResponse.json(
+        {
+          error:
+            error instanceof Error ? error.message : "Failed to load progress",
+        },
+        {
+          status: transient ? 503 : 500,
+          headers: transient ? { "Retry-After": "5" } : undefined,
+        },
+      ),
+    );
+  };
   const {
     data: { user },
     error: authError,
   } = await supabase.auth.getUser();
+  timing.mark("auth");
 
   if (authError) {
-    return NextResponse.json({ error: "Failed to get user" }, { status: 500 });
+    return failure(authError, "auth_error");
   }
   if (!user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -60,30 +85,19 @@ export async function GET() {
         .select("section_id, total_questions"),
     ],
   );
+  timing.mark("queries");
 
   if (questionProgressRes.error) {
-    return NextResponse.json(
-      { error: questionProgressRes.error.message },
-      { status: 500 },
-    );
+    return failure(questionProgressRes.error, "question_progress_query_error");
   }
   if (sectionsRes.error) {
-    return NextResponse.json(
-      { error: sectionsRes.error.message },
-      { status: 500 },
-    );
+    return failure(sectionsRes.error, "sections_query_error");
   }
   if (publicCountsRes.error) {
-    return NextResponse.json(
-      { error: publicCountsRes.error.message },
-      { status: 500 },
-    );
+    return failure(publicCountsRes.error, "public_counts_query_error");
   }
 
-  const sectionTotals = new Map<
-    string,
-    { correct: number; max: number }
-  >();
+  const sectionTotals = new Map<string, { correct: number; max: number }>();
   for (const row of questionProgressRes.data ?? []) {
     const totals = sectionTotals.get(row.section_id) ?? {
       correct: 0,
@@ -122,7 +136,9 @@ export async function GET() {
       };
     });
 
-  return NextResponse.json({
-    sectionProgress,
-  } satisfies ProgressSummaryResponse);
+  return timing.apply(
+    NextResponse.json({
+      sectionProgress,
+    } satisfies ProgressSummaryResponse),
+  );
 }

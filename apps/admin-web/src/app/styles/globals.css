@@ -96,12 +96,12 @@
     @apply backdrop-blur-xl;
   }
 
-  [data-slot='dialog-content'] {
+  [data-slot='dialog-content'][data-admin-dialog-fill-height='true'] {
     --admin-dialog-desktop-height: min(90vh, calc(100dvh - 2rem));
   }
 
   @media (min-width: 640px) {
-    [data-slot='dialog-content'] {
+    [data-slot='dialog-content'][data-admin-dialog-fill-height='true'] {
       height: var(--admin-dialog-desktop-height) !important;
       max-height: var(--admin-dialog-desktop-height) !important;
     }

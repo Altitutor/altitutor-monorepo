@@ -1,18 +1,11 @@
 'use client';
 
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo } from 'react';
 import { Button } from '@altitutor/ui';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useToast } from '@altitutor/ui';
 import { getErrorMessage } from '@/shared/utils';
 import { Loader2, RefreshCw, ChevronDown, ChevronUp, X } from 'lucide-react';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from '@altitutor/ui';
 import { Input } from '@altitutor/ui';
 import { Label } from '@altitutor/ui';
 import { SearchableSelect } from '@altitutor/ui';
@@ -24,12 +17,7 @@ import { calculateSessionPrice } from '@/shared/utils/pricing';
 import { fetchStudentSubsidies } from '../api/subsidies';
 import { pricingApi } from '@/features/billing/api/pricing';
 import { subjectPricingOverridesApi } from '@/features/billing/api/subject-pricing-overrides';
-import {
-  ExpandButton,
-  EXPANDABLE_DIALOG_TRANSITION,
-  EXPANDED_DIALOG_CONTENT_CLASS,
-} from '@/shared/components/expandable-dialog';
-import { cn } from '@/shared/utils';
+import { AdminDialogShell } from '@/shared/components';
 
 interface CustomerBalanceData {
   balance_cents: number;
@@ -103,12 +91,7 @@ export function CustomerBalanceSection({ studentId, studentName: _studentName }:
   const [showHistory, setShowHistory] = useState(false);
   const [nextSessionId, setNextSessionId] = useState(1);
   const [sessionSelectValue, setSessionSelectValue] = useState('');
-  const [expanded, setExpanded] = useState(false);
   const { toast } = useToast();
-
-  useEffect(() => {
-    if (!isAdjustModalOpen) setExpanded(false);
-  }, [isAdjustModalOpen]);
   const queryClient = useQueryClient();
   const { data: currentStaff } = useCurrentStaff();
 
@@ -422,13 +405,7 @@ export function CustomerBalanceSection({ studentId, studentName: _studentName }:
         description: `Balance ${isCredit ? 'credited' : 'debited'} successfully`,
       });
 
-      setIsAdjustModalOpen(false);
-      setAdjustmentAmount('');
-      setAdjustmentDescription('');
-      setSelectedSessions([]);
-      setAdjustmentType('credit'); // Reset to credit
-      setNextSessionId(1);
-      setSessionSelectValue('');
+      resetAdjustModal();
       await refetch();
       await refetchHistory();
       queryClient.invalidateQueries({ queryKey: ['customer-balance', studentId] });
@@ -451,6 +428,16 @@ export function CustomerBalanceSection({ studentId, studentName: _studentName }:
       title: 'Refreshed',
       description: 'Customer balance updated',
     });
+  };
+
+  const resetAdjustModal = () => {
+    setIsAdjustModalOpen(false);
+    setAdjustmentAmount('');
+    setAdjustmentDescription('');
+    setSelectedSessions([]);
+    setAdjustmentType('credit');
+    setNextSessionId(1);
+    setSessionSelectValue('');
   };
 
   return (
@@ -629,64 +616,36 @@ export function CustomerBalanceSection({ studentId, studentName: _studentName }:
         )}
       </div>
 
-      <Dialog open={isAdjustModalOpen} onOpenChange={(open) => {
-        if (!open) {
-          setIsAdjustModalOpen(false);
-          setAdjustmentAmount('');
-          setAdjustmentDescription('');
-          setSelectedSessions([]);
-          setAdjustmentType('credit');
-          setNextSessionId(1);
-          setSessionSelectValue('');
-        } else {
-          setIsAdjustModalOpen(true);
-        }
-      }}>
-        <DialogContent
-          className={cn(
-            'w-full md:max-w-4xl h-[90vh] flex flex-col p-0 [&>button]:hidden',
-            EXPANDABLE_DIALOG_TRANSITION,
-            expanded && EXPANDED_DIALOG_CONTENT_CLASS
-          )}
-        >
-          {/* Header */}
-          <div className="flex-shrink-0 border-b bg-background">
-            <DialogHeader className="px-6 pt-6 pb-4">
-              <div className="flex items-start justify-between gap-4">
-                <div className="flex items-center gap-3 flex-1">
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    onClick={() => {
-                      setIsAdjustModalOpen(false);
-                      setAdjustmentAmount('');
-                      setAdjustmentDescription('');
-                      setSelectedSessions([]);
-                      setAdjustmentType('credit');
-                      setNextSessionId(1);
-                      setSessionSelectValue('');
-                    }}
-                    className="shrink-0"
-                  >
-                    <X className="h-4 w-4" />
-                  </Button>
-                  <div className="flex-1">
-                    <DialogTitle>Adjust Customer Balance</DialogTitle>
-                    <DialogDescription>
-                      Credits will be automatically applied to future invoices.
-                    </DialogDescription>
-                  </div>
-                  <ExpandButton expanded={expanded} onToggle={() => setExpanded((e) => !e)} />
-                </div>
-              </div>
-            </DialogHeader>
+      <AdminDialogShell
+        fillHeight
+        open={isAdjustModalOpen}
+        onClose={resetAdjustModal}
+        title="Adjust Customer Balance"
+        subtitle="Credits will be automatically applied to future invoices."
+        contentClassName="md:max-w-4xl"
+        bodyClassName="min-h-0 flex-1 overflow-hidden flex flex-col p-0"
+        footer={
+          <div className="flex w-full justify-between">
+            <Button
+              variant="outline"
+              onClick={resetAdjustModal}
+              disabled={isAdjusting}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="default"
+              onClick={handleAdjustBalance}
+              disabled={isAdjusting || (!adjustmentAmount && selectedSessions.length === 0) || !adjustmentDescription.trim()}
+            >
+              Apply
+            </Button>
           </div>
-
-          {/* Content */}
-          <div className="flex-1 overflow-hidden min-h-0">
-            <div className="h-full overflow-y-auto">
-              <div className="p-6">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        }
+      >
+        <div className="h-full overflow-y-auto">
+          <div className="p-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   {/* Left Column: Options */}
                   <div className="space-y-4">
                     <div className="space-y-2">
@@ -863,38 +822,10 @@ export function CustomerBalanceSection({ studentId, studentName: _studentName }:
                       </div>
                     </div>
                   </div>
-                </div>
-              </div>
             </div>
           </div>
-
-          {/* Footer */}
-          <div className="flex justify-between px-6 py-4 border-t bg-background">
-            <Button
-              variant="outline"
-              onClick={() => {
-                setIsAdjustModalOpen(false);
-                setAdjustmentAmount('');
-                setAdjustmentDescription('');
-                setSelectedSessions([]);
-                setAdjustmentType('credit');
-                setNextSessionId(1);
-                setSessionSelectValue('');
-              }}
-              disabled={isAdjusting}
-            >
-              Cancel
-            </Button>
-            <Button
-              variant="default"
-              onClick={handleAdjustBalance}
-              disabled={isAdjusting || (!adjustmentAmount && selectedSessions.length === 0) || !adjustmentDescription.trim()}
-            >
-              Apply
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
+        </div>
+      </AdminDialogShell>
     </div>
   );
 }

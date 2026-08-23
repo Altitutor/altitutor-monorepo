@@ -51,9 +51,15 @@ export async function POST(
 
     const { data: staffData, error: staffError } = await supabase
       .from('staff')
-      .select('role, status')
+      .select('id, role, status, first_name, last_name')
       .eq('user_id', session.user.id)
-      .single<{ role: string; status: string }>();
+      .single<{
+        id: string;
+        role: string;
+        status: string;
+        first_name: string | null;
+        last_name: string | null;
+      }>();
 
     if (staffError || !staffData || staffData.role !== 'ADMINSTAFF' || staffData.status !== 'ACTIVE') {
       return NextResponse.json({ error: 'Forbidden: Admin access required' }, { status: 403 });
@@ -161,7 +167,13 @@ export async function POST(
       ...(credit_amount_cents !== undefined && credit_amount_cents > 0 && { credit_amount: credit_amount_cents }),
       ...(out_of_band_amount_cents !== undefined && out_of_band_amount_cents > 0 && { out_of_band_amount: out_of_band_amount_cents }),
       ...(email_type && { email_type }),
-      ...(internal_note && { metadata: { internal_note } }),
+      metadata: {
+        ...(internal_note ? { internal_note } : {}),
+        created_by_staff_id: staffData.id,
+        created_by_staff_name:
+          [staffData.first_name, staffData.last_name].filter(Boolean).join(' ').trim() ||
+          staffData.id,
+      },
     };
 
     const creditNote = await stripe.creditNotes.create(createParams, { idempotencyKey });

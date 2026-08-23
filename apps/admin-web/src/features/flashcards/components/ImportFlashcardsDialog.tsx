@@ -1,16 +1,9 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@altitutor/ui';
 import { Button } from '@altitutor/ui';
-import { Check, Loader2, Upload, X } from 'lucide-react';
+import { Check, Loader2, Upload } from 'lucide-react';
+import { AdminDialogShell } from '@/shared/components';
 
 export function ImportFlashcardsDialog({
   open,
@@ -43,29 +36,15 @@ export function ImportFlashcardsDialog({
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="w-full md:max-w-3xl p-0 gap-0 [&>button]:hidden">
-        <DialogHeader className="border-b px-6 py-4">
-          <div className="flex items-center gap-3">
-            <Button variant="outline" size="icon" onClick={() => onOpenChange(false)}>
-              <X className="h-4 w-4" />
-            </Button>
-            <div>
-              <DialogTitle>Import Flashcards</DialogTitle>
-              <DialogDescription>Paste text-cloze CSV/TSV rows, including Anki text-cloze exports. Image occlusion is authored manually.</DialogDescription>
-            </div>
-          </div>
-        </DialogHeader>
-        <div className="space-y-3 px-6 py-5">
-          <textarea
-            value={csv}
-            onChange={(event) => setCsv(event.target.value)}
-            placeholder={'#separator:tab\n#html:true\n"{{c1::DNA}} stores genetic information"\t"Extra notes"\n\nOr paste CSV with headers:\ntext,order,extra'}
-            className="min-h-[320px] w-full rounded-md border bg-background px-3 py-2 font-mono text-sm leading-6 shadow-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
-          />
-          {message ? <p className="text-sm text-muted-foreground">{message}</p> : null}
-        </div>
-        <DialogFooter className="border-t px-6 py-4">
+    <AdminDialogShell
+      fillHeight
+      open={open}
+      onClose={() => onOpenChange(false)}
+      title="Import Flashcards"
+      subtitle="Paste text-cloze CSV/TSV rows, including Anki text-cloze exports. Image occlusion is authored manually."
+      contentClassName="md:max-w-3xl"
+      footer={
+        <>
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={isImporting}>
             Close
           </Button>
@@ -79,8 +58,18 @@ export function ImportFlashcardsDialog({
               Done
             </Button>
           ) : null}
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+        </>
+      }
+    >
+      <div className="space-y-3">
+        <textarea
+          value={csv}
+          onChange={(event) => setCsv(event.target.value)}
+          placeholder={'#separator:tab\n#html:true\n"{{c1::DNA}} stores genetic information"\t"Extra notes"\n\nOr paste CSV with headers:\ntext,order,extra'}
+          className="min-h-[320px] w-full rounded-md border bg-background px-3 py-2 font-mono text-sm leading-6 shadow-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        />
+        {message ? <p className="text-sm text-muted-foreground">{message}</p> : null}
+      </div>
+    </AdminDialogShell>
   );
 }

@@ -1,16 +1,9 @@
 'use client';
 
 import { useState, useEffect, useMemo, useCallback } from 'react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@altitutor/ui';
 import { Button } from '@altitutor/ui';
-import { Loader2, ChevronLeft, ChevronRight, X } from 'lucide-react';
-import {
-  ExpandButton,
-  EXPANDABLE_DIALOG_TRANSITION,
-  EXPANDED_DIALOG_CONTENT_CLASS,
-  WIZARD_DIALOG_HEIGHT_CLASS,
-} from '@/shared/components/expandable-dialog';
-import { cn } from '@/shared/utils';
+import { Loader2, ChevronLeft, ChevronRight } from 'lucide-react';
+import { AdminDialogShell } from '@/shared/components/dialog-shell';
 import { useChangeClassData, useChangeClassFlow } from '../hooks';
 import { filterClassesForChange } from '../utils/changeClassFilters';
 import {
@@ -39,7 +32,6 @@ export function ChangeClassModal({
   const [searchQuery, setSearchQuery] = useState('');
   const [dayFilters, setDayFilters] = useState<number[]>([]);
   const [timeOverlapWarning, setTimeOverlapWarning] = useState<string | null>(null);
-  const [expanded, setExpanded] = useState(false);
 
   // Fetch data using RPC (no search query passed - we filter client-side)
   const { classes, isFetching } = useChangeClassData({
@@ -86,11 +78,6 @@ export function ChangeClassModal({
       setStep(4);
     }
   }, [changeSuccess, step]);
-
-  // Reset expanded when modal closes
-  useEffect(() => {
-    if (!isOpen) setExpanded(false);
-  }, [isOpen]);
 
   // Reset state when modal opens/closes
   useEffect(() => {
@@ -156,170 +143,135 @@ export function ChangeClassModal({
   };
 
   return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent
-        className={cn(
-          'w-full md:max-w-4xl flex flex-col p-0 [&>button]:hidden',
-          EXPANDABLE_DIALOG_TRANSITION,
-          expanded ? EXPANDED_DIALOG_CONTENT_CLASS : WIZARD_DIALOG_HEIGHT_CLASS
-        )}
-      >
-        {/* Header */}
-        <div className="flex-shrink-0 border-b bg-card">
-          <DialogHeader className="px-6 pt-6 pb-4">
-            <div className="flex items-start justify-between gap-4">
-              <div className="flex items-center gap-3 flex-1">
-                <Button
-                  variant="outline"
-                  size="icon"
-                  onClick={onClose}
-                  className="shrink-0"
-                >
-                  <X className="h-4 w-4" />
-                </Button>
-                <div className="flex-1 min-w-0">
-                  <DialogTitle>Change Class</DialogTitle>
-                  <DialogDescription>
-                    Step {step} of 4: {getStepTitle(step)}
-                  </DialogDescription>
-                </div>
-              </div>
-              <ExpandButton expanded={expanded} onToggle={() => setExpanded((e) => !e)} />
-            </div>
-          </DialogHeader>
-
-          {/* Progress Indicator */}
-          <div className="px-6 pb-4">
-            <div className="flex items-center gap-2">
-              {Array.from({ length: 4 }).map((_, index) => (
-                <div
-                  key={index}
-                  className={`flex-1 h-2 rounded-full transition-colors ${
-                    index < step - 1
-                      ? 'bg-primary'
-                      : index === step - 1
+    <AdminDialogShell
+      open={isOpen}
+      onClose={onClose}
+      fillHeight
+      title="Change Class"
+      subtitle={`Step ${step} of 4: ${getStepTitle(step)}`}
+      contentClassName="md:max-w-4xl"
+      bodyClassName="min-h-0 flex-1 overflow-hidden flex flex-col p-0"
+      headerExtra={
+        <div className="px-6 pb-4">
+          <div className="flex items-center gap-2">
+            {Array.from({ length: 4 }).map((_, index) => (
+              <div
+                key={index}
+                className={`flex-1 h-2 rounded-full transition-colors ${
+                  index < step - 1
+                    ? 'bg-primary'
+                    : index === step - 1
                       ? 'bg-primary/50'
                       : 'bg-muted'
-                  }`}
-                />
-              ))}
-            </div>
+                }`}
+              />
+            ))}
           </div>
         </div>
-
-        {/* Content */}
-        <div className="flex-1 overflow-hidden min-h-0 flex flex-col">
-          {step === 4 ? (
-            <ChangeClassStep4MessageScreen
-              student={student}
-              oldClass={oldClass}
-              oldClassSubject={oldClassSubject}
-              selectedNewClass={selectedNewClass}
-              changeoverDate={changeoverDate}
-            />
-          ) : (
-            <div className="h-full overflow-y-auto">
-              <div className="p-6">
-                {/* Step 1: Select New Class */}
-                {step === 1 && (
-                  <ChangeClassStep1SelectClass
-                    student={student}
-                    oldClass={oldClass}
-                    oldClassSubject={oldClassSubject}
-                    selectedNewClass={selectedNewClass}
-                    isFetching={isFetching}
-                    filteredClasses={filteredClasses}
-                    selectedNewClassId={selectedNewClassId}
-                    searchQuery={searchQuery}
-                    dayFilters={dayFilters}
-                    availableDays={availableDays}
-                    onSearchChange={setSearchQuery}
-                    onToggleDay={toggleDay}
-                    onClearFilters={clearFilters}
-                    onSelectClass={setSelectedNewClassId}
-                  />
-                )}
-
-                {/* Step 2: Select Changeover Date */}
-                {step === 2 && (
-                  <ChangeClassStep2SelectDate
-                    changeoverDate={changeoverDate}
-                    onDateChange={setChangeoverDate}
-                    studentId={student.id}
-                    selectedStudent={student}
-                    selectedNewClass={selectedNewClass}
-                    oldClass={oldClass}
-                    oldClassSubject={oldClassSubject}
-                    oldClassStaff={oldClassStaff}
-                  />
-                )}
-
-                {/* Step 3: Summary & Confirm */}
-                {step === 3 && (
-                  <ChangeClassStep3Summary
-                    studentId={student.id}
-                    student={student}
-                    oldClass={oldClass}
-                    oldClassSubject={oldClassSubject}
-                    oldClassStaff={oldClassStaff}
-                    selectedNewClass={selectedNewClass}
-                    changeoverDate={changeoverDate}
-                    timeOverlapWarning={timeOverlapWarning}
-                  />
-                )}
-              </div>
+      }
+      footer={
+        step === 4 ? (
+          <div className="flex w-full justify-end">
+            <Button onClick={onClose}>Done</Button>
+          </div>
+        ) : (
+          <div className="flex w-full justify-between sm:justify-between">
+            <div className="flex gap-2">
+              {step > 1 && (
+                <Button variant="outline" onClick={handleBack} disabled={isChanging}>
+                  <ChevronLeft className="h-4 w-4 mr-2" />
+                  Back
+                </Button>
+              )}
             </div>
-          )}
+
+            <div className="flex gap-2">
+              {step < 3 ? (
+                <Button
+                  onClick={handleNext}
+                  disabled={
+                    (step === 1 && !selectedNewClassId) ||
+                    (step === 2 && (!changeoverDate || changeoverDate.trim() === ''))
+                  }
+                >
+                  Next
+                  <ChevronRight className="h-4 w-4 ml-2" />
+                </Button>
+              ) : (
+                <Button onClick={handleConfirm} disabled={isChanging}>
+                  {isChanging ? (
+                    <>
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      Changing...
+                    </>
+                  ) : (
+                    'Confirm Change'
+                  )}
+                </Button>
+              )}
+            </div>
+          </div>
+        )
+      }
+    >
+      {step === 4 ? (
+        <ChangeClassStep4MessageScreen
+          student={student}
+          oldClass={oldClass}
+          oldClassSubject={oldClassSubject}
+          selectedNewClass={selectedNewClass}
+          changeoverDate={changeoverDate}
+        />
+      ) : (
+        <div className="h-full overflow-y-auto">
+          <div className="p-6">
+            {step === 1 && (
+              <ChangeClassStep1SelectClass
+                student={student}
+                oldClass={oldClass}
+                oldClassSubject={oldClassSubject}
+                selectedNewClass={selectedNewClass}
+                isFetching={isFetching}
+                filteredClasses={filteredClasses}
+                selectedNewClassId={selectedNewClassId}
+                searchQuery={searchQuery}
+                dayFilters={dayFilters}
+                availableDays={availableDays}
+                onSearchChange={setSearchQuery}
+                onToggleDay={toggleDay}
+                onClearFilters={clearFilters}
+                onSelectClass={setSelectedNewClassId}
+              />
+            )}
+
+            {step === 2 && (
+              <ChangeClassStep2SelectDate
+                changeoverDate={changeoverDate}
+                onDateChange={setChangeoverDate}
+                studentId={student.id}
+                selectedStudent={student}
+                selectedNewClass={selectedNewClass}
+                oldClass={oldClass}
+                oldClassSubject={oldClassSubject}
+                oldClassStaff={oldClassStaff}
+              />
+            )}
+
+            {step === 3 && (
+              <ChangeClassStep3Summary
+                studentId={student.id}
+                student={student}
+                oldClass={oldClass}
+                oldClassSubject={oldClassSubject}
+                oldClassStaff={oldClassStaff}
+                selectedNewClass={selectedNewClass}
+                changeoverDate={changeoverDate}
+                timeOverlapWarning={timeOverlapWarning}
+              />
+            )}
+          </div>
         </div>
-
-        {/* Footer */}
-        <DialogFooter className="flex-shrink-0 flex justify-between sm:justify-between px-6 py-4 border-t">
-          {step === 4 ? (
-            <div className="flex gap-2 ml-auto">
-              <Button onClick={onClose}>
-                Done
-              </Button>
-            </div>
-          ) : (
-            <>
-              <div className="flex gap-2">
-                {step > 1 && (
-                  <Button variant="outline" onClick={handleBack} disabled={isChanging}>
-                    <ChevronLeft className="h-4 w-4 mr-2" />
-                    Back
-                  </Button>
-                )}
-              </div>
-              
-              <div className="flex gap-2">
-                {step < 3 ? (
-                  <Button 
-                    onClick={handleNext}
-                    disabled={
-                      (step === 1 && !selectedNewClassId) ||
-                      (step === 2 && (!changeoverDate || changeoverDate.trim() === ''))
-                    }
-                  >
-                    Next
-                    <ChevronRight className="h-4 w-4 ml-2" />
-                  </Button>
-                ) : (
-                  <Button onClick={handleConfirm} disabled={isChanging}>
-                    {isChanging ? (
-                      <>
-                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                        Changing...
-                      </>
-                    ) : (
-                      'Confirm Change'
-                    )}
-                  </Button>
-                )}
-              </div>
-            </>
-          )}
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+      )}
+    </AdminDialogShell>
   );
 }

@@ -4,6 +4,8 @@ import { Card } from '@altitutor/ui';
 import { cn } from '@/shared/utils/index';
 import { formatTime } from '@/shared/utils/datetime';
 import { getSubjectCurriculumColor, type SubjectCurriculum } from '@/shared/utils';
+import { expandProjectedClassScheduleRows } from '@altitutor/shared';
+import type { Json, ProjectedClassScheduleRow } from '@altitutor/shared';
 
 interface Class {
   class_id: string;
@@ -14,7 +16,10 @@ interface Class {
   subject_name: string;
   subject_curriculum: SubjectCurriculum | string | null;
   enrollment_status: string;
+  schedule_rows: Json | null;
 }
+
+type TimetableClass = Class & ProjectedClassScheduleRow;
 
 interface TimetableViewProps {
   classes: Class[];
@@ -29,7 +34,7 @@ interface TimeSlot {
 }
 
 interface ClassPosition {
-  class: Class;
+  class: TimetableClass;
   top: number;
   height: number;
   left: number;
@@ -37,6 +42,7 @@ interface ClassPosition {
 }
 
 export function TimetableView({ classes, onClassClick }: TimetableViewProps) {
+  const timetableClasses = expandProjectedClassScheduleRows(classes);
   const days = [
     { name: 'Monday', value: 1, short: 'Mon' },
     { name: 'Tuesday', value: 2, short: 'Tue' },
@@ -49,7 +55,7 @@ export function TimetableView({ classes, onClassClick }: TimetableViewProps) {
 
   // Filter days that have classes
   const activeDays = days.filter(day => 
-    classes.some(cls => cls.day_of_week === day.value)
+    timetableClasses.some(cls => cls.day_of_week === day.value)
   );
 
   // Generate time slots from 9am to 8pm
@@ -76,7 +82,7 @@ export function TimetableView({ classes, onClassClick }: TimetableViewProps) {
   };
 
   // Calculate position of a class block relative to the timetable grid
-  const calculateClassPosition = (cls: Class): ClassPosition => {
+  const calculateClassPosition = (cls: TimetableClass): ClassPosition => {
     const startMinutes = timeToMinutes(cls.start_time);
     const endMinutes = timeToMinutes(cls.end_time);
     const duration = endMinutes - startMinutes;
@@ -101,7 +107,7 @@ export function TimetableView({ classes, onClassClick }: TimetableViewProps) {
 
   // Get classes for each visible day
   const getClassesForDay = (dayValue: number): ClassPosition[] => {
-    const dayClasses = classes
+    const dayClasses = timetableClasses
       .filter(cls => cls.day_of_week === dayValue)
       .sort((a, b) => timeToMinutes(a.start_time) - timeToMinutes(b.start_time));
     
@@ -170,7 +176,7 @@ export function TimetableView({ classes, onClassClick }: TimetableViewProps) {
                     <div className="absolute inset-0" style={{ height: `${timeSlots.length * 60}px` }}>
                       {getClassesForDay(day.value).map((position) => (
                         <div
-                          key={position.class.class_id}
+                          key={`${position.class.class_id}-${position.class.schedule_row_id}`}
                           className={cn(
                             'absolute cursor-pointer transition-all hover:shadow-lg hover:scale-[1.02] rounded p-2 border-2 text-xs font-medium overflow-hidden',
                             getClassColor(position.class)
@@ -215,4 +221,3 @@ export function TimetableView({ classes, onClassClick }: TimetableViewProps) {
     </div>
   );
 }
-

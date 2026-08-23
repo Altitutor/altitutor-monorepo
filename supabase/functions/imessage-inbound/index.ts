@@ -1,4 +1,5 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
+import { serveWithSentry } from "../_shared/sentry.ts";
 import type { SupabaseClient } from "jsr:@supabase/supabase-js@2";
 import { createSupabaseClient } from "../_shared/supabase.ts";
 import {
@@ -589,7 +590,7 @@ async function saveInbox(
   return { id: String(existing.id), processed: Boolean(existing.processed_at) };
 }
 
-Deno.serve(async (request: Request) => {
+serveWithSentry("imessage-inbound", async (request: Request, sentry) => {
   if (request.method !== "POST") {
     return json({ error: "method not allowed" }, 405);
   }
@@ -623,6 +624,7 @@ Deno.serve(async (request: Request) => {
     if (error) throw error;
     return json({ ok: true, eventId: inbox.id });
   } catch (error: unknown) {
+    sentry.captureException(error);
     const message = error instanceof Error ? error.message : "unknown error";
     console.error("[imessage-inbound] processing failed", { inboxId, message });
     if (inboxId) {

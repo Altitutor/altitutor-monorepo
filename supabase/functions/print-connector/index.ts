@@ -1,4 +1,5 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
+import { serveWithSentry } from "../_shared/sentry.ts";
 import { createSupabaseClient } from "../_shared/supabase.ts";
 import {
   authenticateBearer,
@@ -55,7 +56,7 @@ function normalizePrintResult(value: unknown): Record<string, unknown> {
   };
 }
 
-Deno.serve(async (request: Request) => {
+serveWithSentry("print-connector", async (request: Request, sentry) => {
   if (request.method !== "POST") {
     return json({ error: "method not allowed" }, 405);
   }
@@ -150,6 +151,7 @@ Deno.serve(async (request: Request) => {
       }
     }
   } catch (error: unknown) {
+    sentry.captureException(error);
     console.error("[print-connector] request failed", error);
     return json({
       error: error instanceof Error ? error.message : "internal error",

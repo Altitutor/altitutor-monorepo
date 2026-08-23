@@ -1,12 +1,13 @@
-import type { Tables, TablesInsert, TablesUpdate, Database, ClassWithExpandedSubject } from '@altitutor/shared';
+import type { Tables, TablesInsert, TablesUpdate, Database, ClassWithExpandedSubject, Json } from '@altitutor/shared';
 import type { JSONContent } from '@tiptap/core';
 import { getSupabaseClient } from '@/shared/lib/supabase/client';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { isTiptapContentEmpty } from '@/shared/utils/plainTextToTiptapJson';
+import type { ClassSchedulePlan, ClassScheduleProposal, StoredClassSchedule } from '../types/schedule';
 
 export type MinimalClass = Pick<
   Tables<'classes'>,
-  'id' | 'day_of_week' | 'start_time' | 'end_time' | 'status' | 'room' | 'subject_id' | 'level' | 'short_name' | 'long_name'
+  'id' | 'day_of_week' | 'start_time' | 'end_time' | 'status' | 'room' | 'subject_id' | 'level' | 'short_name' | 'long_name' | 'schedule_summary_short' | 'schedule_summary_long' | 'schedule_weekdays' | 'schedule_rows' | 'schedule_frequency_weeks' | 'schedule_anchor_date' | 'next_session_start_at'
 > & {
   subject?: Tables<'subjects'> | null;
   studentCount?: number;
@@ -14,10 +15,70 @@ export type MinimalClass = Pick<
   staff?: Tables<'staff'>[];
 };
 
+export interface ClassDeleteImpact {
+  futureSessionCount: number;
+  historicalSessionCount: number;
+  protectedFutureSessionCount: number;
+  canDelete: boolean;
+}
+
 /**
  * Classes API client for working with class data
  */
 export const classesApi = {
+  getLatestSchedule: async (classId: string): Promise<StoredClassSchedule | null> => {
+    const supabase = getSupabaseClient() as SupabaseClient<Database>;
+    const { data, error } = await supabase
+      .from('class_schedule_revisions')
+      .select('id, schedule_type, frequency_weeks, anchor_date, effective_from, class_schedule_slots(id, day_of_week, start_time, end_time, room, position)')
+      .eq('class_id', classId)
+      .is('superseded_at', null)
+      .order('effective_from', { ascending: false })
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (error) throw error;
+    if (!data) return null;
+    return {
+      id: data.id,
+      scheduleType: data.schedule_type as 'RECURRING' | 'CUSTOM',
+      frequencyWeeks: data.frequency_weeks as 1 | 2 | null,
+      anchorDate: data.anchor_date,
+      effectiveFrom: data.effective_from,
+      rows: [...data.class_schedule_slots]
+        .sort((left, right) => left.position - right.position)
+        .map((row) => ({
+          id: row.id,
+          dayOfWeek: row.day_of_week,
+          startTime: row.start_time,
+          endTime: row.end_time,
+          room: row.room ?? '',
+        })),
+    };
+  },
+
+  previewSchedule: async (proposal: ClassScheduleProposal): Promise<ClassSchedulePlan> => {
+    const supabase = getSupabaseClient() as SupabaseClient<Database>;
+    const { data, error } = await supabase.rpc('preview_class_schedule', {
+      p_proposal: proposal as unknown as Json,
+    });
+    if (error) throw error;
+    return data as unknown as ClassSchedulePlan;
+  },
+
+  applySchedule: async (
+    proposal: ClassScheduleProposal,
+    expectedProposalHash: string
+  ): Promise<ClassSchedulePlan> => {
+    const supabase = getSupabaseClient() as SupabaseClient<Database>;
+    const { data, error } = await supabase.rpc('apply_class_schedule', {
+      p_proposal: proposal as unknown as Json,
+      p_expected_proposal_hash: expectedProposalHash,
+    });
+    if (error) throw error;
+    return data as unknown as ClassSchedulePlan;
+  },
+
   /**
    * Get all classes
    */
@@ -108,6 +169,13 @@ export const classesApi = {
       level?: string | null;
       short_name?: string | null;
       long_name?: string | null;
+      schedule_summary_short?: string | null;
+      schedule_summary_long?: string | null;
+      schedule_weekdays?: number[];
+      schedule_rows?: Json;
+      schedule_frequency_weeks?: number | null;
+      schedule_anchor_date?: string | null;
+      next_session_start_at?: string | null;
     }
     const rpcData = rpcResult as unknown as {
       classes: RpcClassRow[];
@@ -120,7 +188,10 @@ export const classesApi = {
 
     // Apply day filter that RPC doesn't support
     if (dayFilters.length > 0) {
-      classes = classes.filter((c) => c.day_of_week !== undefined && dayFilters.includes(c.day_of_week));
+      classes = classes.filter((c) =>
+        (c.schedule_weekdays ?? (c.day_of_week === undefined ? [] : [c.day_of_week]))
+          .some((day) => dayFilters.includes(day))
+      );
     }
 
     // Transform RPC response to match expected format
@@ -140,6 +211,13 @@ export const classesApi = {
         level: cls.level,
         short_name: cls.short_name ?? null,
         long_name: cls.long_name ?? null,
+        schedule_summary_short: cls.schedule_summary_short ?? null,
+        schedule_summary_long: cls.schedule_summary_long ?? null,
+        schedule_weekdays: cls.schedule_weekdays ?? (cls.day_of_week === undefined ? [] : [cls.day_of_week]),
+        schedule_rows: cls.schedule_rows ?? [],
+        schedule_frequency_weeks: cls.schedule_frequency_weeks ?? null,
+        schedule_anchor_date: cls.schedule_anchor_date ?? null,
+        next_session_start_at: cls.next_session_start_at ?? null,
         subject,
         studentCount: students.length,
         students,
@@ -594,6 +672,24 @@ export const classesApi = {
     const supabase = (getSupabaseClient() as SupabaseClient<Database>);
     const { error } = await supabase.from('classes').delete().eq('id', id);
     if (error) throw error;
+  },
+
+  getDeleteImpact: async (id: string): Promise<ClassDeleteImpact> => {
+    const supabase = getSupabaseClient() as SupabaseClient<Database>;
+    const { data, error } = await supabase.rpc('preview_class_deletion', { p_class_id: id });
+    if (error) throw error;
+    const impact = data as {
+      future_session_count: number;
+      historical_session_count: number;
+      protected_future_session_count: number;
+      can_delete: boolean;
+    };
+    return {
+      futureSessionCount: impact.future_session_count,
+      historicalSessionCount: impact.historical_session_count,
+      protectedFutureSessionCount: impact.protected_future_session_count,
+      canDelete: impact.can_delete,
+    };
   },
   
   /**
@@ -1063,7 +1159,7 @@ export const classesApi = {
       .from('classes_students')
       .select('id, classes!inner(id)', { count: 'exact', head: true })
       .or(`unenrolled_at.is.null,unenrolled_at.gt.${nowIso}`)
-      .in('classes.status', ['ACTIVE', 'FULL'])
+      .eq('classes.status', 'ACTIVE')
       .or(`session_end_date.is.null,session_end_date.gte.${today}`, {
         foreignTable: 'classes',
       });
@@ -1106,6 +1202,15 @@ export const classesApi = {
       level: string | null;
       short_name: string | null;
       long_name: string | null;
+      cohort_label: string | null;
+      session_start_date: string;
+      session_end_date: string;
+      schedule_timezone: string;
+      schedule_summary_short: string | null;
+      schedule_summary_long: string | null;
+      schedule_weekdays: number[];
+      schedule_rows: Json;
+      next_session_start_at: string | null;
     }
     
     interface RPCSubject {
@@ -1155,8 +1260,15 @@ export const classesApi = {
       created_at: null,
       updated_at: null,
       created_by: null,
-      session_start_date: null,
-      session_end_date: null,
+      cohort_label: c.cohort_label,
+      session_start_date: c.session_start_date,
+      session_end_date: c.session_end_date,
+      schedule_timezone: c.schedule_timezone,
+      schedule_summary_short: c.schedule_summary_short,
+      schedule_summary_long: c.schedule_summary_long,
+      schedule_weekdays: c.schedule_weekdays,
+      schedule_rows: c.schedule_rows,
+      next_session_start_at: c.next_session_start_at,
       subject: rpcData.classSubjects?.[c.id] as ClassWithExpandedSubject['subject'] | undefined,
       staff: (rpcData.classStaff?.[c.id] || []).map((s) => ({
         id: s.id,

@@ -1,4 +1,5 @@
 import { createClient } from "@supabase/supabase-js";
+import { instrumentSupabaseClient } from "@/lib/sentry/instrument-supabase-client";
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdminStaff } from "@/features/pay-tiers/server/requireAdminStaff";
 
@@ -7,9 +8,9 @@ function operationalClient() {
   const key =
     process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SECRET_KEY;
   return url && key
-    ? createClient(url, key, {
+    ? instrumentSupabaseClient(createClient(url, key, {
         auth: { persistSession: false, autoRefreshToken: false },
-      })
+      }))
     : null;
 }
 

@@ -68,6 +68,32 @@ function formatTimeRange(startTime: string | null, endTime: string | null): stri
   return `${formatTime(startTime)} - ${formatTime(endTime)}`;
 }
 
+function formatClassForMessage(
+  cls: Tables<'classes'>,
+  subject: Tables<'subjects'> | null
+): string {
+  if (cls.schedule_summary_long && cls.long_name?.trim()) {
+    return cls.long_name.trim();
+  }
+
+  const subjectName =
+    subject?.long_name ??
+    subject?.short_name ??
+    subject?.name ??
+    cls.long_name?.trim() ??
+    '';
+  const schedule =
+    cls.schedule_summary_long?.trim() ||
+    [
+      formatDayOfWeek(cls.day_of_week ?? null),
+      formatTimeRange(cls.start_time ?? null, cls.end_time ?? null),
+    ]
+      .filter(Boolean)
+      .join(' ');
+
+  return [subjectName, schedule].filter(Boolean).join(' ').trim();
+}
+
 /**
  * Student data with classes for variable replacement
  */
@@ -158,20 +184,7 @@ function replaceStudentVariable(
 
       const classesText = classes
         .map(({ class: cls, subject }) => {
-          const subjectName =
-            subject?.long_name ??
-            subject?.short_name ??
-            subject?.name ??
-            cls.long_name?.trim() ??
-            '';
-          const day = formatDayOfWeek(cls.day_of_week ?? null);
-          const timeRange = formatTimeRange(cls.start_time ?? null, cls.end_time ?? null);
-
-          const scheduleParts = [day, timeRange].filter(Boolean).join(' ');
-
-          return scheduleParts
-            ? `- ${subjectName} ${scheduleParts}`.trim()
-            : `- ${subjectName}`.trim();
+          return `- ${formatClassForMessage(cls, subject)}`.trim();
         })
         .join('\n');
 
@@ -182,19 +195,7 @@ function replaceStudentVariable(
       if (classesWithStartDates && classesWithStartDates.length > 0) {
         const classesWithDatesText = classesWithStartDates
           .map(({ class: cls, subject, startDate }) => {
-            const subjectName =
-              subject?.long_name ??
-              subject?.short_name ??
-              subject?.name ??
-              cls.long_name?.trim() ??
-              '';
-            const day = formatDayOfWeek(cls.day_of_week ?? null);
-            const timeRange = formatTimeRange(cls.start_time ?? null, cls.end_time ?? null);
-            const scheduleParts = [day, timeRange].filter(Boolean).join(' ');
-
-            const baseText = scheduleParts
-              ? `- ${subjectName} ${scheduleParts}`.trim()
-              : `- ${subjectName}`.trim();
+            const baseText = `- ${formatClassForMessage(cls, subject)}`.trim();
 
             if (startDate) {
               const formattedDate = formatDateWithOrdinal(startDate);
@@ -213,21 +214,7 @@ function replaceStudentVariable(
 
         const classesText = classes
           .map(({ class: cls, subject }) => {
-            const subjectName =
-              subject?.long_name ??
-              subject?.short_name ??
-              subject?.name ??
-              cls.long_name?.trim() ??
-              '';
-            const day = formatDayOfWeek(cls.day_of_week ?? null);
-            const timeRange = formatTimeRange(cls.start_time ?? null, cls.end_time ?? null);
-            const scheduleParts = [day, timeRange].filter(Boolean).join(' ');
-
-            const baseText = scheduleParts
-              ? `- ${subjectName} ${scheduleParts}`.trim()
-              : `- ${subjectName}`.trim();
-
-            return baseText;
+            return `- ${formatClassForMessage(cls, subject)}`.trim();
           })
           .join('\n');
 

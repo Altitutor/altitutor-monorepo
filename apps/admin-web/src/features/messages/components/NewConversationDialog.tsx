@@ -1,19 +1,14 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
-import {
-  ExpandButton,
-  EXPANDABLE_DIALOG_TRANSITION,
-  EXPANDED_DIALOG_CONTENT_CLASS,
-} from '@/shared/components/expandable-dialog';
 import { cn } from '@/shared/utils';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, navHoverStyles, navItemTransitionStyles } from '@altitutor/ui';
+import { AdminDialogShell } from '@/shared/components';
 import { Input } from '@altitutor/ui';
 import { Button } from '@altitutor/ui';
 import { ScrollArea } from '@altitutor/ui';
 import { Alert, AlertDescription, AlertTitle } from '@altitutor/ui';
 import { Badge } from '@altitutor/ui';
-import { Loader2, AlertCircle, X, Search, Phone } from 'lucide-react';
+import { Loader2, AlertCircle, Search, Phone } from 'lucide-react';
 import { PhoneInput, standardizeAUPhone, validateAUPhone } from '@/shared/components/PhoneInput';
 import { useQuery } from '@tanstack/react-query';
 import { getSupabaseClient } from '@/shared/lib/supabase/client';
@@ -23,6 +18,7 @@ import { staffApi, type StaffListItem } from '@/features/staff/api/staff';
 import type { Database, Tables } from '@altitutor/shared';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { ViewStudentModal } from '@/features/students/components';
+import { navHoverStyles, navItemTransitionStyles } from '@altitutor/ui';
 
 interface NewConversationDialogProps {
   isOpen: boolean;
@@ -52,11 +48,6 @@ export function NewConversationDialog({
   const [error, setError] = useState<string | null>(null);
   const [showNoPhoneWarning, setShowNoPhoneWarning] = useState(false);
   const [studentModalOpen, setStudentModalOpen] = useState(false);
-  const [expanded, setExpanded] = useState(false);
-
-  useEffect(() => {
-    if (!isOpen) setExpanded(false);
-  }, [isOpen]);
 
   const trimmed = searchQuery.trim();
   const hasSearch = trimmed.length > 0;
@@ -408,191 +399,169 @@ export function NewConversationDialog({
 
   return (
     <>
-      <Dialog open={isOpen} onOpenChange={onClose}>
-        <DialogContent
-          className={cn(
-            'max-w-md [&>button]:hidden',
-            EXPANDABLE_DIALOG_TRANSITION,
-            expanded && EXPANDED_DIALOG_CONTENT_CLASS
-          )}
-        >
-          <DialogHeader>
-            <div className="flex items-start justify-between gap-4">
-              <div className="flex items-center gap-3 flex-1">
-                <Button
-                  variant="outline"
-                  size="icon"
-                  onClick={onClose}
-                  className="shrink-0"
-                >
-                  <X className="h-4 w-4" />
-                </Button>
-                <div className="flex-1">
-                  <DialogTitle>New Conversation</DialogTitle>
-                </div>
-              </div>
-              <ExpandButton expanded={expanded} onToggle={() => setExpanded((e) => !e)} />
-            </div>
-          </DialogHeader>
+      <AdminDialogShell
+        open={isOpen}
+        onClose={onClose}
+        title="New Conversation"
+        contentClassName="max-w-md"
+      >
+        {/* Mode Toggle */}
+        <div className="flex gap-2 border-b -mt-2 mb-4">
+          <Button
+            variant={mode === 'search' ? 'default' : 'ghost'}
+            onClick={() => setMode('search')}
+            className="flex-1"
+            size="sm"
+          >
+            <Search className="h-4 w-4 mr-2" />
+            Search Contacts
+          </Button>
+          <Button
+            variant={mode === 'phone' ? 'default' : 'ghost'}
+            onClick={() => setMode('phone')}
+            className="flex-1"
+            size="sm"
+          >
+            <Phone className="h-4 w-4 mr-2" />
+            New Number
+          </Button>
+        </div>
 
-          {/* Mode Toggle */}
-          <div className="flex gap-2 border-b">
-            <Button
-              variant={mode === 'search' ? 'default' : 'ghost'}
-              onClick={() => setMode('search')}
-              className="flex-1"
-              size="sm"
-            >
-              <Search className="h-4 w-4 mr-2" />
-              Search Contacts
-            </Button>
-            <Button
-              variant={mode === 'phone' ? 'default' : 'ghost'}
-              onClick={() => setMode('phone')}
-              className="flex-1"
-              size="sm"
-            >
-              <Phone className="h-4 w-4 mr-2" />
-              New Number
-            </Button>
-          </div>
+        {mode === 'phone' ? (
+          <div className="space-y-4">
+            <PhoneInput
+              value={phoneNumber}
+              onChange={setPhoneNumber}
+              placeholder="0478 778 288"
+            />
 
-          {mode === 'phone' ? (
-            <div className="space-y-4">
-              <PhoneInput
-                value={phoneNumber}
-                onChange={setPhoneNumber}
-                placeholder="0478 778 288"
-              />
-
-              {error && (
-                <Alert variant="destructive">
-                  <AlertCircle className="h-4 w-4" />
-                  <AlertTitle>Error</AlertTitle>
-                  <AlertDescription>{error}</AlertDescription>
-                </Alert>
-              )}
-
-              <div className="flex justify-end gap-2">
-                <Button variant="outline" onClick={onClose} disabled={isProcessing}>
-                  Cancel
-                </Button>
-                <Button 
-                  onClick={handlePhoneNumberSubmit} 
-                  disabled={isProcessing || !phoneNumber.trim()}
-                >
-                  {isProcessing ? (
-                    <>
-                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                      Creating...
-                    </>
-                  ) : (
-                    'Start Conversation'
-                  )}
-                </Button>
-              </div>
-            </div>
-          ) : showNoPhoneWarning && selectedItem ? (
-            <div className="space-y-4">
+            {error && (
               <Alert variant="destructive">
                 <AlertCircle className="h-4 w-4" />
-                <AlertTitle>No Phone Number</AlertTitle>
-                <AlertDescription>
-                  This {selectedItem.type} doesn't have a phone number. Please add one to start a conversation.
-                  {selectedItem.type === 'student' && ' You can update it in the student details.'}
-                </AlertDescription>
+                <AlertTitle>Error</AlertTitle>
+                <AlertDescription>{error}</AlertDescription>
               </Alert>
-              <div className="flex justify-end gap-2">
-                <Button variant="outline" onClick={() => setShowNoPhoneWarning(false)}>
-                  Cancel
-                </Button>
-                {selectedItem.type === 'student' && (
-                  <Button onClick={handleOpenStudentModal}>
-                    Open Student Details
-                  </Button>
-                )}
-              </div>
-            </div>
-          ) : (
-            <div className="space-y-4">
-              <div className="relative">
-                <Input
-                  placeholder="Search students, staff, or parents..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full"
-                  autoFocus
-                />
-              </div>
+            )}
 
-              {error && (
-                <Alert variant="destructive">
-                  <AlertCircle className="h-4 w-4" />
-                  <AlertTitle>Error</AlertTitle>
-                  <AlertDescription>{error}</AlertDescription>
-                </Alert>
-              )}
-
-              <ScrollArea className="h-[400px]">
-                {isSearching ? (
-                  <div className="flex items-center justify-center p-8">
-                    <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-                  </div>
-                ) : searchResults.length === 0 ? (
-                  <div className="p-8 text-center text-sm text-muted-foreground">
-                    {trimmed.length > 0 ? 'No results found' : 'Start typing to search...'}
-                  </div>
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={onClose} disabled={isProcessing}>
+                Cancel
+              </Button>
+              <Button 
+                onClick={handlePhoneNumberSubmit} 
+                disabled={isProcessing || !phoneNumber.trim()}
+              >
+                {isProcessing ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    Creating...
+                  </>
                 ) : (
-                  <div className="space-y-1 pr-4">
-                    {searchResults.map((item) => {
-                      const name = getItemDisplayName(item);
-                      const contactInfo = getItemContactInfo(item);
-                      const hasPhone = !!contactInfo.phone;
-                      const hasEmail = !!contactInfo.email;
-
-                      return (
-                        <button
-                          key={`${item.type}-${item.data.id}`}
-                          type="button"
-                          onClick={() => handleItemSelect(item)}
-                          disabled={isProcessing}
-                          className={cn(
-                            'w-full text-left p-3 rounded-md disabled:opacity-50 disabled:cursor-not-allowed',
-                            navItemTransitionStyles,
-                            navHoverStyles
-                          )}
-                        >
-                          <div className="flex items-center justify-between gap-2">
-                            <div className="font-medium flex-1">{name}</div>
-                            <Badge variant={getTypeBadgeVariant(item.type)} className="text-xs">
-                              {item.type === 'student' ? 'Student' : item.type === 'staff' ? 'Staff' : 'Parent'}
-                            </Badge>
-                          </div>
-                          <div className="text-sm text-muted-foreground mt-1">
-                            {hasPhone && <span>Phone: {contactInfo.phone}</span>}
-                            {hasPhone && hasEmail && <span> • </span>}
-                            {hasEmail && <span>Email: {contactInfo.email}</span>}
-                            {!hasPhone && !hasEmail && (
-                              <span className="text-destructive">No phone number</span>
-                            )}
-                          </div>
-                        </button>
-                      );
-                    })}
-                  </div>
+                  'Start Conversation'
                 )}
-              </ScrollArea>
+              </Button>
+            </div>
+          </div>
+        ) : showNoPhoneWarning && selectedItem ? (
+          <div className="space-y-4">
+            <Alert variant="destructive">
+              <AlertCircle className="h-4 w-4" />
+              <AlertTitle>No Phone Number</AlertTitle>
+              <AlertDescription>
+                This {selectedItem.type} doesn't have a phone number. Please add one to start a conversation.
+                {selectedItem.type === 'student' && ' You can update it in the student details.'}
+              </AlertDescription>
+            </Alert>
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setShowNoPhoneWarning(false)}>
+                Cancel
+              </Button>
+              {selectedItem.type === 'student' && (
+                <Button onClick={handleOpenStudentModal}>
+                  Open Student Details
+                </Button>
+              )}
+            </div>
+          </div>
+        ) : (
+          <div className="space-y-4">
+            <div className="relative">
+              <Input
+                placeholder="Search students, staff, or parents..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full"
+                autoFocus
+              />
+            </div>
 
-              {isProcessing && (
-                <div className="flex items-center justify-center p-4">
-                  <Loader2 className="h-5 w-5 animate-spin text-muted-foreground mr-2" />
-                  <span className="text-sm text-muted-foreground">Processing...</span>
+            {error && (
+              <Alert variant="destructive">
+                <AlertCircle className="h-4 w-4" />
+                <AlertTitle>Error</AlertTitle>
+                <AlertDescription>{error}</AlertDescription>
+              </Alert>
+            )}
+
+            <ScrollArea className="h-[400px]">
+              {isSearching ? (
+                <div className="flex items-center justify-center p-8">
+                  <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                </div>
+              ) : searchResults.length === 0 ? (
+                <div className="p-8 text-center text-sm text-muted-foreground">
+                  {trimmed.length > 0 ? 'No results found' : 'Start typing to search...'}
+                </div>
+              ) : (
+                <div className="space-y-1 pr-4">
+                  {searchResults.map((item) => {
+                    const name = getItemDisplayName(item);
+                    const contactInfo = getItemContactInfo(item);
+                    const hasPhone = !!contactInfo.phone;
+                    const hasEmail = !!contactInfo.email;
+
+                    return (
+                      <button
+                        key={`${item.type}-${item.data.id}`}
+                        type="button"
+                        onClick={() => handleItemSelect(item)}
+                        disabled={isProcessing}
+                        className={cn(
+                          'w-full text-left p-3 rounded-md disabled:opacity-50 disabled:cursor-not-allowed',
+                          navItemTransitionStyles,
+                          navHoverStyles
+                        )}
+                      >
+                        <div className="flex items-center justify-between gap-2">
+                          <div className="font-medium flex-1">{name}</div>
+                          <Badge variant={getTypeBadgeVariant(item.type)} className="text-xs">
+                            {item.type === 'student' ? 'Student' : item.type === 'staff' ? 'Staff' : 'Parent'}
+                          </Badge>
+                        </div>
+                        <div className="text-sm text-muted-foreground mt-1">
+                          {hasPhone && <span>Phone: {contactInfo.phone}</span>}
+                          {hasPhone && hasEmail && <span> • </span>}
+                          {hasEmail && <span>Email: {contactInfo.email}</span>}
+                          {!hasPhone && !hasEmail && (
+                            <span className="text-destructive">No phone number</span>
+                          )}
+                        </div>
+                      </button>
+                    );
+                  })}
                 </div>
               )}
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
+            </ScrollArea>
+
+            {isProcessing && (
+              <div className="flex items-center justify-center p-4">
+                <Loader2 className="h-5 w-5 animate-spin text-muted-foreground mr-2" />
+                <span className="text-sm text-muted-foreground">Processing...</span>
+              </div>
+            )}
+          </div>
+        )}
+      </AdminDialogShell>
 
       {selectedItem && selectedItem.type === 'student' && (
         <ViewStudentModal

@@ -1,15 +1,7 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-} from '@altitutor/ui';
 import { Button } from '@altitutor/ui';
-import { ChevronLeft, ChevronRight, X } from 'lucide-react';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { useLogSessionFlow } from '../hooks/useLogSessionFlow';
 import {
   getLogSessionStepTitle,
@@ -17,12 +9,7 @@ import {
   type LogSessionWizardFlow,
 } from '../utils/logSessionHelpers';
 import { getShortSessionName } from '@/features/sessions/utils/session-helpers';
-import {
-  ExpandButton,
-  EXPANDABLE_DIALOG_TRANSITION,
-  EXPANDED_DIALOG_CONTENT_CLASS,
-  WIZARD_DIALOG_HEIGHT_CLASS,
-} from '@/shared/components/expandable-dialog';
+import { AdminDialogShell } from '@/shared/components';
 import { cn } from '@/shared/utils';
 
 import { Step1SessionPicker } from './steps/Step1SessionPicker';
@@ -90,13 +77,15 @@ export function LogSessionModal({
     initialSessionKind,
   });
 
-  const [expanded, setExpanded] = useState(false);
-
-  useEffect(() => {
-    if (!isOpen) setExpanded(false);
-  }, [isOpen]);
-
   const getStepTitle = () => getLogSessionStepTitle(currentStep, !!adminMode, wizardFlow);
+
+  const handleDialogClose = () => {
+    if (submissionState === 'success') {
+      handleClose();
+    } else {
+      onClose();
+    }
+  };
 
   const staffSummaryName = selectedStaff
     ? `${selectedStaff.first_name ?? ''} ${selectedStaff.last_name ?? ''}`.trim() || 'Staff'
@@ -434,107 +423,73 @@ export function LogSessionModal({
   };
 
   return (
-    <Dialog
+    <AdminDialogShell
+      fillHeight
       open={isOpen}
-      onOpenChange={(open) => !open && (submissionState === 'success' ? handleClose() : onClose())}
-    >
-      <DialogContent
-        className={cn(
-          'w-full md:max-w-4xl flex flex-col p-0 [&>button]:hidden',
-          EXPANDABLE_DIALOG_TRANSITION,
-          expanded ? EXPANDED_DIALOG_CONTENT_CLASS : WIZARD_DIALOG_HEIGHT_CLASS
-        )}
-      >
-        <div className="flex-shrink-0 border-b bg-card">
-          <DialogHeader className="px-6 pt-6 pb-4">
-            <div className="flex items-start justify-between gap-4">
-              <div className="flex items-center gap-3 flex-1 min-w-0">
-                <Button
-                  variant="outline"
-                  size="icon"
-                  onClick={submissionState === 'success' ? handleClose : onClose}
-                  className="shrink-0"
-                >
-                  <X className="h-4 w-4" />
-                </Button>
-                <div className="flex-1 min-w-0">
-                  <DialogTitle>Log session</DialogTitle>
-                  <DialogDescription>
-                    Step {currentStep + 1} of {totalSteps}: {getStepTitle()}
-                  </DialogDescription>
-                </div>
-                <ExpandButton expanded={expanded} onToggle={() => setExpanded((e) => !e)} />
-              </div>
-            </div>
-          </DialogHeader>
-
-          {submissionState !== 'success' && submissionState !== 'error' && (
-            <div className="px-6 pb-4">
-              <div className="flex items-center gap-2">
-                {Array.from({ length: totalSteps }).map((_, index) => (
-                  <div
-                    key={index}
-                    className={cn(
-                      'flex-1 h-2 rounded-full transition-colors',
-                      index < currentStep
-                        ? 'bg-primary'
-                        : index === currentStep
-                          ? 'bg-primary/50'
-                          : 'bg-muted'
-                    )}
-                  />
-                ))}
-              </div>
-            </div>
-          )}
-        </div>
-
-        <div className="flex-1 overflow-hidden min-h-0">
-          <div className="h-full overflow-y-auto">
-            <div className="p-6">
-              {submissionState !== 'success' && submissionState !== 'error' && renderSummary()}
-              {renderStep()}
+      onClose={handleDialogClose}
+      title="Log session"
+      subtitle={`Step ${currentStep + 1} of ${totalSteps}: ${getStepTitle()}`}
+      contentClassName="md:max-w-4xl"
+      bodyClassName="min-h-0"
+      headerExtra={
+        submissionState !== 'success' && submissionState !== 'error' ? (
+          <div className="px-6 pb-4">
+            <div className="flex items-center gap-2">
+              {Array.from({ length: totalSteps }).map((_, index) => (
+                <div
+                  key={index}
+                  className={cn(
+                    'flex-1 h-2 rounded-full transition-colors',
+                    index < currentStep
+                      ? 'bg-primary'
+                      : index === currentStep
+                        ? 'bg-primary/50'
+                        : 'bg-muted'
+                  )}
+                />
+              ))}
             </div>
           </div>
-        </div>
+        ) : undefined
+      }
+      footer={
+        submissionState === 'success' ? (
+          <div className="flex w-full justify-end">
+            <Button onClick={handleClose}>Close</Button>
+          </div>
+        ) : submissionState === 'error' ? (
+          <div className="flex w-full justify-between">
+            <Button variant="outline" onClick={handleTryAgain}>
+              Try Again
+            </Button>
+            <Button onClick={onClose}>Close</Button>
+          </div>
+        ) : (
+          <div className="flex w-full justify-between">
+            <Button variant="outline" onClick={handlePrevious} disabled={currentStep === 0}>
+              <ChevronLeft className="h-4 w-4 mr-2" />
+              Previous
+            </Button>
 
-        <div className="flex-shrink-0 flex justify-between px-6 py-4 border-t bg-background">
-          {submissionState === 'success' ? (
-            <>
-              <div />
-              <Button onClick={handleClose}>Close</Button>
-            </>
-          ) : submissionState === 'error' ? (
-            <>
-              <Button variant="outline" onClick={handleTryAgain}>
-                Try Again
+            {currentStep < totalSteps - 1 ? (
+              <Button onClick={handleNext} disabled={!canGoNext}>
+                Next
+                <ChevronRight className="h-4 w-4 ml-2" />
               </Button>
-              <Button onClick={onClose}>Close</Button>
-            </>
-          ) : (
-            <>
-              <Button variant="outline" onClick={handlePrevious} disabled={currentStep === 0}>
-                <ChevronLeft className="h-4 w-4 mr-2" />
-                Previous
+            ) : (
+              <Button
+                onClick={handleSubmit}
+                disabled={submissionState === 'submitting' || !canGoNext}
+              >
+                {submissionState === 'submitting' ? 'Submitting...' : 'Submit log'}
               </Button>
-
-              {currentStep < totalSteps - 1 ? (
-                <Button onClick={handleNext} disabled={!canGoNext}>
-                  Next
-                  <ChevronRight className="h-4 w-4 ml-2" />
-                </Button>
-              ) : (
-                <Button
-                  onClick={handleSubmit}
-                  disabled={submissionState === 'submitting' || !canGoNext}
-                >
-                  {submissionState === 'submitting' ? 'Submitting...' : 'Submit log'}
-                </Button>
-              )}
-            </>
-          )}
-        </div>
-      </DialogContent>
-    </Dialog>
+            )}
+          </div>
+        )
+      }
+    >
+      {submissionState !== 'success' && submissionState !== 'error' && renderSummary()}
+      {renderStep()}
+    </AdminDialogShell>
   );
 }

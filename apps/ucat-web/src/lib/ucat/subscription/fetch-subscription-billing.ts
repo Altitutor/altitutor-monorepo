@@ -9,8 +9,11 @@ import type {
   UcatSubscriptionInvoiceItem,
 } from "@/features/subscription/types/ucat-subscription-billing";
 import { isManageableUcatSubscriptionStatus } from "@/lib/ucat/subscription-status";
+import { collectPages } from "@/lib/supabase/collect-pages";
 
 type InvoiceRow = Database["public"]["Views"]["vstudent_invoices"]["Row"];
+type InvoiceItemRow =
+  Database["public"]["Views"]["vstudent_invoice_items"]["Row"];
 type SubscriptionRow =
   Database["public"]["Views"]["vstudent_subscriptions"]["Row"];
 type SelectedSubscriptionRow = Pick<
@@ -175,23 +178,35 @@ export function pickCurrentSubscription(
   return manageable[0] ?? null;
 }
 
-async function fetchInvoiceItems(
+async function fetchInvoiceItemsByInvoiceId(
   supabase: SupabaseClient<Database>,
-  invoiceId: string,
-): Promise<UcatSubscriptionInvoiceItem[]> {
-  const { data, error } = await supabase
-    .from("vstudent_invoice_items")
-    .select("description, subject_name, amount_cents")
-    .eq("invoice_id", invoiceId)
-    .order("created_at", { ascending: false });
-
-  if (error) throw error;
-
-  return (data ?? []).map((item) => ({
-    description: item.description,
-    subject_name: item.subject_name,
-    amount_cents: item.amount_cents,
-  }));
+  invoiceIds: string[],
+): Promise<Map<string, UcatSubscriptionInvoiceItem[]>> {
+  const items = await collectPages<
+    Pick<
+      InvoiceItemRow,
+      "invoice_id" | "description" | "subject_name" | "amount_cents"
+    >
+  >((from, to) =>
+    supabase
+      .from("vstudent_invoice_items")
+      .select("invoice_id, description, subject_name, amount_cents")
+      .in("invoice_id", invoiceIds)
+      .order("created_at", { ascending: false })
+      .range(from, to),
+  );
+  const byInvoiceId = new Map<string, UcatSubscriptionInvoiceItem[]>();
+  for (const item of items) {
+    if (!item.invoice_id) continue;
+    const invoiceItems = byInvoiceId.get(item.invoice_id) ?? [];
+    invoiceItems.push({
+      description: item.description,
+      subject_name: item.subject_name,
+      amount_cents: item.amount_cents,
+    });
+    byInvoiceId.set(item.invoice_id, invoiceItems);
+  }
+  return byInvoiceId;
 }
 
 function toSubscriptionInvoice(
@@ -214,7 +229,7 @@ function toSubscriptionInvoice(
   };
 }
 
-async function fetchUcatSubscriptionInvoices(
+export async function fetchUcatSubscriptionInvoices(
   supabase: SupabaseClient<Database>,
   subscriptionIds: string[],
 ): Promise<UcatSubscriptionInvoice[]> {
@@ -233,12 +248,14 @@ async function fetchUcatSubscriptionInvoices(
   const rows = (invoices ?? []).filter(
     (invoice): invoice is InvoiceRow & { id: string } => Boolean(invoice.id),
   );
+  if (rows.length === 0) return [];
 
-  const withItems = await Promise.all(
-    rows.map(async (invoice) => {
-      const items = await fetchInvoiceItems(supabase, invoice.id);
-      return toSubscriptionInvoice(invoice, items);
-    }),
+  const itemsByInvoiceId = await fetchInvoiceItemsByInvoiceId(
+    supabase,
+    rows.map((invoice) => invoice.id),
+  );
+  const withItems = rows.map((invoice) =>
+    toSubscriptionInvoice(invoice, itemsByInvoiceId.get(invoice.id) ?? []),
   );
 
   return withItems.filter(

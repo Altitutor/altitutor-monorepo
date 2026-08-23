@@ -61,10 +61,7 @@ export function AssignStaffStep2SelectDate({
 
     const today = getMidnightAdelaide(new Date());
     const firstSession = calculateFirstSessionDate(
-      {
-        day_of_week: classForDates.day_of_week,
-        start_time: classForDates.start_time || '09:00',
-      },
+      { ...classForDates, start_time: classForDates.start_time || '09:00' },
       today
     );
 

@@ -163,6 +163,25 @@ describe("UCAT routing middleware", () => {
     expect(mockRpc).not.toHaveBeenCalled();
   });
 
+  it("redirects an anonymous root request to login", async () => {
+    mockGetClaims.mockResolvedValue({
+      data: null,
+      error: {
+        name: "AuthSessionMissingError",
+        message: "Auth session missing!",
+      },
+    });
+
+    const response = await middleware(request("/"));
+
+    expect(response.status).toBe(307);
+    const location = new URL(response.headers.get("location")!);
+    expect(location.pathname).toBe("/login");
+    expect(location.searchParams.get("redirect")).toBe("/");
+    expect(mockFrom).not.toHaveBeenCalled();
+    expect(mockRpc).not.toHaveBeenCalled();
+  });
+
   it("redirects an incomplete student to signup completion with return intent", async () => {
     mockAccessMaybeSingle.mockResolvedValue({
       data: { ucat_signup_completed_at: null },

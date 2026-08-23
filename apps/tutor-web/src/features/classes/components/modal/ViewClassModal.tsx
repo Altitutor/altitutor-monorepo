@@ -108,8 +108,8 @@ export function ViewClassModal({
             <div>
               <h3 className="mb-4 text-lg font-semibold">Class Information</h3>
               <SessionInfoGrid
-                day={getDayOfWeek(classData.day_of_week)}
-                time={`${formatTime(classData.start_time)} - ${formatTime(classData.end_time)}`}
+                day={classData.schedule_weekdays.length > 0 ? classData.schedule_weekdays.map(getDayOfWeek).join(', ') : getDayOfWeek(classData.day_of_week)}
+                time={classData.schedule_summary_long || `${formatTime(classData.start_time)} - ${formatTime(classData.end_time)}`}
                 subjectNode={
                   subject
                     ? (() => {
@@ -131,7 +131,7 @@ export function ViewClassModal({
                 <div className="text-sm font-medium text-muted-foreground">Status:</div>
                 <div className="text-sm">
                   <ClassStatusBadge
-                    value={classData.status as 'ACTIVE' | 'INACTIVE' | 'FULL' | null}
+                    value={classData.status === 'ACTIVE' || classData.status === 'INACTIVE' ? classData.status : null}
                   />
                 </div>
                 <div className="text-sm font-medium text-muted-foreground">Room:</div>

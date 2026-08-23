@@ -2,16 +2,9 @@
 
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import type { JSONContent } from '@tiptap/core';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@altitutor/ui';
 import { Button } from '@altitutor/ui';
-import { Loader2, ChevronLeft, ChevronRight, X } from 'lucide-react';
-import {
-  ExpandButton,
-  EXPANDABLE_DIALOG_TRANSITION,
-  EXPANDED_DIALOG_CONTENT_CLASS,
-  WIZARD_DIALOG_HEIGHT_CLASS,
-} from '@/shared/components/expandable-dialog';
-import { cn } from '@/shared/utils';
+import { Loader2, ChevronLeft, ChevronRight } from 'lucide-react';
+import { AdminDialogShell } from '@/shared/components/dialog-shell';
 import { useUnenrollFlow } from '../hooks';
 import {
   UnenrollStep1DateAndReason,
@@ -36,11 +29,6 @@ export function UnenrollStudentModal({
   const [step, setStep] = useState<1 | 2 | 3>(1);
   const [unenrollmentDate, setUnenrollmentDate] = useState<string>('');
   const [reason, setReason] = useState<JSONContent | undefined>(undefined);
-  const [expanded, setExpanded] = useState(false);
-
-  useEffect(() => {
-    if (!isOpen) setExpanded(false);
-  }, [isOpen]);
 
   // Flow management
   const { isUnenrolling, handleConfirm, unenrollmentSuccess } = useUnenrollFlow({
@@ -107,151 +95,117 @@ export function UnenrollStudentModal({
   });
 
   return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent
-        className={cn(
-          'w-full md:max-w-4xl flex flex-col p-0 [&>button]:hidden',
-          EXPANDABLE_DIALOG_TRANSITION,
-          expanded ? EXPANDED_DIALOG_CONTENT_CLASS : WIZARD_DIALOG_HEIGHT_CLASS
-        )}
-      >
-        {/* Header */}
-        <div className="flex-shrink-0 border-b bg-card">
-          <DialogHeader className="px-6 pt-6 pb-4">
-            <div className="flex items-start justify-between gap-4">
-              <div className="flex items-center gap-3 flex-1">
-                <Button
-                  variant="outline"
-                  size="icon"
-                  onClick={onClose}
-                  className="shrink-0"
-                >
-                  <X className="h-4 w-4" />
-                </Button>
-                <div className="flex-1 min-w-0">
-                  <DialogTitle>Unenroll Student from Class</DialogTitle>
-                  <DialogDescription>
-                    Step {step} of 3: {getStepTitle(step)}
-                  </DialogDescription>
-                </div>
-              </div>
-              <ExpandButton expanded={expanded} onToggle={() => setExpanded((e) => !e)} />
-            </div>
-          </DialogHeader>
-
-          {/* Progress Indicator */}
-          <div className="px-6 pb-4">
-            <div className="flex items-center gap-2">
-              {Array.from({ length: 3 }).map((_, index) => (
-                <div
-                  key={index}
-                  className={`flex-1 h-2 rounded-full transition-colors ${
-                    index < step - 1
-                      ? 'bg-primary'
-                      : index === step - 1
+    <AdminDialogShell
+      open={isOpen}
+      onClose={onClose}
+      fillHeight
+      title="Unenroll Student from Class"
+      subtitle={`Step ${step} of 3: ${getStepTitle(step)}`}
+      contentClassName="md:max-w-4xl"
+      bodyClassName="min-h-0 flex-1 overflow-hidden flex flex-col p-0"
+      headerExtra={
+        <div className="px-6 pb-4">
+          <div className="flex items-center gap-2">
+            {Array.from({ length: 3 }).map((_, index) => (
+              <div
+                key={index}
+                className={`flex-1 h-2 rounded-full transition-colors ${
+                  index < step - 1
+                    ? 'bg-primary'
+                    : index === step - 1
                       ? 'bg-primary/50'
                       : 'bg-muted'
-                  }`}
-                />
-              ))}
-            </div>
+                }`}
+              />
+            ))}
           </div>
         </div>
-
-        {/* Content */}
-        <div className="flex-1 overflow-hidden min-h-0 flex flex-col">
-          {step === 3 ? (
-            <UnenrollStep3MessageScreen
-              student={student}
-              classData={classData}
-              classSubject={classSubject}
-              unenrollmentDate={unenrollmentDate}
-            />
-          ) : (
-            <div className="h-full overflow-y-auto">
-              <div className="p-6">
-                {/* Step 1: Select Unenrollment Date & Reason */}
-                {step === 1 && (
-                  <UnenrollStep1DateAndReason
-                    student={student}
-                    studentSubjects={studentSubjects}
-                    classData={classData}
-                    classSubject={classSubject}
-                    classStaff={classStaff}
-                    unenrollmentDate={unenrollmentDate}
-                    reason={reason}
-                    onDateChange={setUnenrollmentDate}
-                    onReasonChange={setReason}
-                  />
-                )}
-
-                {/* Step 2: Summary & Confirm */}
-                {step === 2 && (
-                  <UnenrollStep2Summary
-                    student={student}
-                    studentSubjects={studentSubjects}
-                    classData={classData}
-                    classSubject={classSubject}
-                    classStaff={classStaff}
-                    unenrollmentDate={unenrollmentDate}
-                    reason={reason ?? { type: 'doc', content: [{ type: 'paragraph', content: [] }] }}
-                    onReasonChange={setReason}
-                  />
-                )}
-              </div>
+      }
+      footer={
+        step === 3 ? (
+          <div className="flex w-full justify-end">
+            <Button onClick={onClose}>Done</Button>
+          </div>
+        ) : (
+          <div className="flex w-full justify-between sm:justify-between">
+            <div className="flex gap-2">
+              {step > 1 && (
+                <Button variant="outline" onClick={handleBack} disabled={isUnenrolling}>
+                  <ChevronLeft className="h-4 w-4 mr-2" />
+                  Back
+                </Button>
+              )}
             </div>
-          )}
+
+            <div className="flex gap-2">
+              {step < 2 ? (
+                <Button
+                  onClick={handleNext}
+                  disabled={!unenrollmentDate || unenrollmentDate.trim() === ''}
+                >
+                  Next
+                  <ChevronRight className="h-4 w-4 ml-2" />
+                </Button>
+              ) : (
+                <Button
+                  onClick={handleConfirm}
+                  disabled={isUnenrolling || isTiptapContentEmpty(reason)}
+                  variant="destructive"
+                >
+                  {isUnenrolling ? (
+                    <>
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      Unenrolling...
+                    </>
+                  ) : (
+                    'Confirm Unenrollment'
+                  )}
+                </Button>
+              )}
+            </div>
+          </div>
+        )
+      }
+    >
+      {step === 3 ? (
+        <UnenrollStep3MessageScreen
+          student={student}
+          classData={classData}
+          classSubject={classSubject}
+          unenrollmentDate={unenrollmentDate}
+        />
+      ) : (
+        <div className="h-full overflow-y-auto">
+          <div className="p-6">
+            {step === 1 && (
+              <UnenrollStep1DateAndReason
+                student={student}
+                studentSubjects={studentSubjects}
+                classData={classData}
+                classSubject={classSubject}
+                classStaff={classStaff}
+                unenrollmentDate={unenrollmentDate}
+                reason={reason}
+                onDateChange={setUnenrollmentDate}
+                onReasonChange={setReason}
+              />
+            )}
+
+            {step === 2 && (
+              <UnenrollStep2Summary
+                student={student}
+                studentSubjects={studentSubjects}
+                classData={classData}
+                classSubject={classSubject}
+                classStaff={classStaff}
+                unenrollmentDate={unenrollmentDate}
+                reason={reason ?? { type: 'doc', content: [{ type: 'paragraph', content: [] }] }}
+                onReasonChange={setReason}
+              />
+            )}
+          </div>
         </div>
-
-        {/* Footer */}
-        <DialogFooter className="flex-shrink-0 flex justify-between sm:justify-between px-6 py-4 border-t">
-          {step === 3 ? (
-            <div className="flex gap-2 ml-auto">
-              <Button onClick={onClose}>
-                Done
-              </Button>
-            </div>
-          ) : (
-            <>
-              <div className="flex gap-2">
-                {step > 1 && (
-                  <Button variant="outline" onClick={handleBack} disabled={isUnenrolling}>
-                    <ChevronLeft className="h-4 w-4 mr-2" />
-                    Back
-                  </Button>
-                )}
-              </div>
-              
-              <div className="flex gap-2">
-                {step < 2 ? (
-                  <Button 
-                    onClick={handleNext}
-                    disabled={!unenrollmentDate || unenrollmentDate.trim() === ''}
-                  >
-                    Next
-                    <ChevronRight className="h-4 w-4 ml-2" />
-                  </Button>
-                ) : (
-                  <Button 
-                    onClick={handleConfirm} 
-                    disabled={isUnenrolling || isTiptapContentEmpty(reason)} 
-                    variant="destructive"
-                  >
-                    {isUnenrolling ? (
-                      <>
-                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                        Unenrolling...
-                      </>
-                    ) : (
-                      'Confirm Unenrollment'
-                    )}
-                  </Button>
-                )}
-              </div>
-            </>
-          )}
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+      )}
+    </AdminDialogShell>
   );
 }

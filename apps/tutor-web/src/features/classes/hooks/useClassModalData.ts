@@ -44,10 +44,19 @@ function buildClassFromClassDetail(detail: VtutorClassDetailRow): Tables<'classe
     created_at: detail.created_at,
     updated_at: detail.updated_at,
     created_by: null,
-    session_start_date: null,
-    session_end_date: null,
+    session_start_date: detail.session_start_date ?? '',
+    session_end_date: detail.session_end_date ?? '',
     short_name: detail.short_name,
     long_name: detail.long_name,
+    cohort_label: detail.cohort_label,
+    next_session_start_at: detail.next_session_start_at,
+    schedule_rows: detail.schedule_rows ?? [],
+    schedule_frequency_weeks: detail.schedule_frequency_weeks,
+    schedule_anchor_date: detail.schedule_anchor_date,
+    schedule_summary_long: detail.schedule_summary_long,
+    schedule_summary_short: detail.schedule_summary_short,
+    schedule_timezone: detail.schedule_timezone ?? 'Australia/Adelaide',
+    schedule_weekdays: detail.schedule_weekdays ?? [],
   };
 }
 

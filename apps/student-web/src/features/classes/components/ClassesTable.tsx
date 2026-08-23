@@ -55,6 +55,9 @@ export function ClassesTable() {
     return (
       c.subject_name?.toLowerCase().includes(searchLower) ||
       c.room?.toLowerCase().includes(searchLower) ||
+      c.short_name?.toLowerCase().includes(searchLower) ||
+      c.long_name?.toLowerCase().includes(searchLower) ||
+      c.schedule_summary_long?.toLowerCase().includes(searchLower) ||
       (c.day_of_week !== null && DAYS[c.day_of_week - 1]?.toLowerCase().includes(searchLower))
     );
   });
@@ -95,13 +98,14 @@ export function ClassesTable() {
                 className={studentTableBodyRow}
               >
                 <TableCell className="font-medium">
-                  {classItem.day_of_week !== null ? getDayShortName(classItem.day_of_week) : '-'}
+                  {classItem.schedule_weekdays?.length
+                    ? classItem.schedule_weekdays.map(getDayShortName).join(', ')
+                    : classItem.day_of_week !== null ? getDayShortName(classItem.day_of_week) : '-'}
                 </TableCell>
                 <TableCell>
-                  {classItem.start_time && classItem.end_time 
+                  {classItem.schedule_summary_short || (classItem.start_time && classItem.end_time
                     ? `${formatTime(classItem.start_time)} - ${formatTime(classItem.end_time)}`
-                    : '-'
-                  }
+                    : '-')}
                 </TableCell>
                 <TableCell>
                   {(() => {

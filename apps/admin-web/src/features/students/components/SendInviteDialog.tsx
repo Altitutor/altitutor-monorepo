@@ -1,28 +1,16 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from "@altitutor/ui";
 import { Button } from "@altitutor/ui";
 import { useToast } from "@altitutor/ui";
-import { Loader2, Mail, MessageSquare, CheckCircle2, Copy, Check, X } from 'lucide-react';
+import { Loader2, Mail, MessageSquare, CheckCircle2, Copy, Check } from 'lucide-react';
 import { invitesApi } from '@/features/auth/api/invites';
 import { getSupabaseClient } from '@/shared/lib/supabase/client';
 import { getInviteUrlForStudent } from '@/shared/utils/invites';
 import type { Database } from '@altitutor/shared';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Tables } from '@altitutor/shared';
-import {
-  ExpandButton,
-  EXPANDABLE_DIALOG_TRANSITION,
-  EXPANDED_DIALOG_CONTENT_CLASS,
-} from '@/shared/components/expandable-dialog';
-import { cn } from '@/shared/utils';
+import { AdminDialogShell } from '@/shared/components';
 
 interface SendInviteDialogProps {
   isOpen: boolean;
@@ -44,11 +32,6 @@ export function SendInviteDialog({
   const [emailSent, setEmailSent] = useState(false);
   const [smsSent, setSmsSent] = useState(false);
   const [copied, setCopied] = useState(false);
-  const [expanded, setExpanded] = useState(false);
-
-  useEffect(() => {
-    if (!isOpen) setExpanded(false);
-  }, [isOpen]);
 
   const hasEmail = !!student.email;
   const hasPhone = !!student.phone;
@@ -193,37 +176,19 @@ export function SendInviteDialog({
   };
 
   return (
-    <Dialog open={isOpen} onOpenChange={(open) => !open && handleClose()}>
-      <DialogContent
-        className={cn(
-          'flex flex-col gap-0 overflow-hidden p-0 sm:max-w-[600px] [&>button]:hidden',
-          EXPANDABLE_DIALOG_TRANSITION,
-          expanded && EXPANDED_DIALOG_CONTENT_CLASS
-        )}
-      >
-        <DialogHeader className="shrink-0 border-b px-6 py-4">
-          <div className="flex items-start justify-between gap-4">
-            <div className="flex items-center gap-3 flex-1">
-              <Button
-                variant="outline"
-                size="icon"
-                onClick={handleClose}
-                className="shrink-0"
-              >
-                <X className="h-4 w-4" />
-              </Button>
-              <div className="flex-1">
-                <DialogTitle>Send Invite</DialogTitle>
-                <DialogDescription>
-                  Send an account creation invite to {student.first_name} {student.last_name}
-                </DialogDescription>
-              </div>
-              <ExpandButton expanded={expanded} onToggle={() => setExpanded((e) => !e)} />
-            </div>
-          </div>
-        </DialogHeader>
-
-        <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-6 py-4">
+    <AdminDialogShell
+      open={isOpen}
+      onClose={handleClose}
+      title="Send Invite"
+      subtitle={`Send an account creation invite to ${student.first_name} ${student.last_name}`}
+      contentClassName="sm:max-w-[600px]"
+      footer={
+        <Button variant="outline" onClick={handleClose}>
+          Close
+        </Button>
+      }
+    >
+        <div className="space-y-4">
           {/* Invite URL Display */}
           {isGenerating ? (
             <div className="flex items-center justify-center py-4">
@@ -358,13 +323,6 @@ export function SendInviteDialog({
             </>
           )}
         </div>
-
-        <div className="flex justify-end gap-2">
-          <Button variant="outline" onClick={handleClose}>
-            Close
-          </Button>
-        </div>
-      </DialogContent>
-    </Dialog>
+    </AdminDialogShell>
   );
 }

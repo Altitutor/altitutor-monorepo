@@ -2,12 +2,6 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
@@ -23,16 +17,11 @@ import {
 } from '@altitutor/ui';
 import { Input } from '@altitutor/ui';
 import { Button } from '@altitutor/ui';
-import { Check, ExternalLink, Eye, EyeOff, Loader2, MoreVertical, Plus, Trash2, X } from 'lucide-react';
+import { Check, ExternalLink, Eye, EyeOff, Loader2, MoreVertical, Plus, Trash2 } from 'lucide-react';
 import type { Flashcard, FlashcardType, ImageOcclusionData } from '@altitutor/shared';
 import type { Tables } from '@altitutor/shared';
 import { getClozeIndexes, getImageOcclusionGroupDescription, getImageOcclusionIndexes, parseClozeParts, validateImageOcclusionData } from '@altitutor/shared';
-import {
-  ExpandButton,
-  EXPANDABLE_DIALOG_TRANSITION,
-  EXPANDED_DIALOG_CONTENT_CLASS,
-} from '@/shared/components/expandable-dialog';
-import { cn } from '@/shared/utils';
+import { AdminDialogShell } from '@/shared/components';
 import { useFlashcardImageUpload } from '../hooks/useFlashcardImageUpload';
 import { flashcardsApi, type FlashcardMutationInput } from '../api/flashcards';
 
@@ -181,7 +170,6 @@ export function EditFlashcardDialog({
   onOpenPage?: (card: Flashcard) => void;
   topics: Tables<'topics'>[];
 }) {
-  const [expanded, setExpanded] = useState(false);
   const [mode, setMode] = useState<'edit' | 'preview'>('edit');
   const [form, setForm] = useState<FormState>({ cardType: 'text_cloze', clozeText: '', extra: '', topicId, index: 1, imageFileId: null, imageAltText: '', imageUrl: null, imageFile: null, occlusionData: null });
   const [lastClozeIndex, setLastClozeIndex] = useState(1);
@@ -196,7 +184,6 @@ export function EditFlashcardDialog({
 
   useEffect(() => {
     if (!open) {
-      setExpanded(false);
       setMode('edit');
       return;
     }
@@ -321,69 +308,68 @@ export function EditFlashcardDialog({
   };
 
   return (
-    <Dialog open={open} onOpenChange={requestOpenChange}>
-      <DialogContent
-        className={cn(
-          'w-full md:max-w-4xl h-[90vh] flex flex-col gap-0 p-0 overflow-hidden [&>button]:hidden',
-          EXPANDABLE_DIALOG_TRANSITION,
-          expanded && EXPANDED_DIALOG_CONTENT_CLASS,
-        )}
-      >
-        <DialogHeader className="flex-shrink-0 space-y-0 border-b px-6 py-4">
-          <div className="flex w-full items-center justify-between gap-4">
-            <div className="flex min-w-0 flex-1 items-center gap-3">
-              <Button variant="outline" size="icon" onClick={() => requestOpenChange(false)} className="shrink-0">
-                <X className="h-4 w-4" />
-              </Button>
-              <div className="min-w-0 flex-1">
-                <DialogTitle>{flashcard ? 'Edit Flashcard' : 'Add Flashcard'}</DialogTitle>
-                <DialogDescription className="sr-only">Create or edit a cloze flashcard.</DialogDescription>
-              </div>
-            </div>
-            <div className="flex shrink-0 items-center gap-2">
-              <SegmentedControl
-                value={mode}
-                onValueChange={(value) => {
-                  if (value === 'preview') syncEditorHtml();
-                  setMode(value);
-                }}
-                options={[
-                  { value: 'edit', label: 'Edit' },
-                  { value: 'preview', label: 'Preview' },
-                ]}
-                size="sm"
-                aria-label="Flashcard mode"
-              />
-              <ExpandButton expanded={expanded} onToggle={() => setExpanded((value) => !value)} />
-              {flashcard && (onOpenPage || onDelete) ? (
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button type="button" variant="outline" size="icon" aria-label="Flashcard actions">
-                      <MoreVertical className="h-4 w-4" />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end">
-                    {onOpenPage ? (
-                      <DropdownMenuItem className="gap-2" onSelect={() => onOpenPage(flashcard)}>
-                        <ExternalLink className="h-4 w-4" />
-                        Open in page
-                      </DropdownMenuItem>
-                    ) : null}
-                    {onOpenPage && onDelete ? <DropdownMenuSeparator /> : null}
-                    {onDelete ? (
-                      <DropdownMenuItem className="gap-2 text-destructive" onSelect={() => onDelete(flashcard)}>
-                        <Trash2 className="h-4 w-4" />
-                        Delete flashcard
-                      </DropdownMenuItem>
-                    ) : null}
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              ) : null}
-            </div>
-          </div>
-        </DialogHeader>
-
-        <div className="min-h-0 flex-1 overflow-hidden">
+    <AdminDialogShell
+      fillHeight
+      open={open}
+      onClose={() => requestOpenChange(false)}
+      title={flashcard ? 'Edit Flashcard' : 'Add Flashcard'}
+      subtitle="Create or edit a cloze flashcard."
+      contentClassName="md:max-w-4xl"
+      bodyClassName="min-h-0 flex-1 overflow-hidden p-0"
+      headerActions={
+        <>
+          <SegmentedControl
+            value={mode}
+            onValueChange={(value) => {
+              if (value === 'preview') syncEditorHtml();
+              setMode(value);
+            }}
+            options={[
+              { value: 'edit', label: 'Edit' },
+              { value: 'preview', label: 'Preview' },
+            ]}
+            size="sm"
+            aria-label="Flashcard mode"
+          />
+          {flashcard && (onOpenPage || onDelete) ? (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button type="button" variant="outline" size="icon" aria-label="Flashcard actions">
+                  <MoreVertical className="h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                {onOpenPage ? (
+                  <DropdownMenuItem className="gap-2" onSelect={() => onOpenPage(flashcard)}>
+                    <ExternalLink className="h-4 w-4" />
+                    Open in page
+                  </DropdownMenuItem>
+                ) : null}
+                {onOpenPage && onDelete ? <DropdownMenuSeparator /> : null}
+                {onDelete ? (
+                  <DropdownMenuItem className="gap-2 text-destructive" onSelect={() => onDelete(flashcard)}>
+                    <Trash2 className="h-4 w-4" />
+                    Delete flashcard
+                  </DropdownMenuItem>
+                ) : null}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          ) : null}
+        </>
+      }
+      footer={
+        <>
+          <Button variant="outline" onClick={() => requestOpenChange(false)} disabled={isSaving}>
+            Cancel
+          </Button>
+          <Button onClick={handleSave} disabled={isSaving || !canSave} className="gap-1.5">
+            {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
+            Save
+          </Button>
+        </>
+      }
+    >
+      <div className="min-h-0 flex-1 overflow-hidden">
           {mode === 'preview' ? (
             <div className="h-full overflow-y-auto px-6 py-5">
               <Preview form={form} />
@@ -516,17 +502,6 @@ export function EditFlashcardDialog({
             </div>
           )}
         </div>
-
-        <DialogFooter className="flex-shrink-0 border-t bg-background px-6 py-4">
-          <Button variant="outline" onClick={() => requestOpenChange(false)} disabled={isSaving}>
-            Cancel
-          </Button>
-          <Button onClick={handleSave} disabled={isSaving || !canSave} className="gap-1.5">
-            {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
-            Save
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+    </AdminDialogShell>
   );
 }

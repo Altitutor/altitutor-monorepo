@@ -48,6 +48,10 @@ interface ReportsContextValue {
     chart: keyof ReportsVisibleCharts['financial'],
     checked: boolean
   ) => void;
+  handleCommunicationsChartToggle: (
+    chart: keyof ReportsVisibleCharts['communications'],
+    checked: boolean
+  ) => void;
 }
 
 const ReportsContext = createContext<ReportsContextValue | null>(null);
@@ -190,6 +194,16 @@ export function ReportsProvider({ children }: ReportsProviderProps) {
     []
   );
 
+  const handleCommunicationsChartToggle = useCallback(
+    (chart: keyof ReportsVisibleCharts['communications'], checked: boolean) => {
+      setVisibleCharts((prev) => ({
+        ...prev,
+        communications: { ...prev.communications, [chart]: checked },
+      }));
+    },
+    []
+  );
+
   const value = useMemo<ReportsContextValue>(
     () => ({
       startDate,
@@ -202,6 +216,7 @@ export function ReportsProvider({ children }: ReportsProviderProps) {
       handleOperationsChartToggle,
       handleSchedulingChartToggle,
       handleFinancialChartToggle,
+      handleCommunicationsChartToggle,
     }),
     [
       startDate,
@@ -213,6 +228,7 @@ export function ReportsProvider({ children }: ReportsProviderProps) {
       handleOperationsChartToggle,
       handleSchedulingChartToggle,
       handleFinancialChartToggle,
+      handleCommunicationsChartToggle,
     ]
   );
 

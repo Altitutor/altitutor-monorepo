@@ -1,4 +1,5 @@
 import 'jsr:@supabase/functions-js/edge-runtime.d.ts';
+import { serveWithSentry } from '../_shared/sentry.ts';
 import { createClient, type SupabaseClient } from 'jsr:@supabase/supabase-js@2';
 import { json, corsHeaders, evaluateConditions } from './utils.ts';
 import { executeSendMessage } from './actions/send-message.ts';
@@ -220,7 +221,7 @@ async function enqueueActivityExecutions(
   return executionIds;
 }
 
-Deno.serve(async (req: Request) => {
+serveWithSentry('activity-processor', async (req: Request, sentry) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders });
   }
@@ -247,6 +248,7 @@ Deno.serve(async (req: Request) => {
 
     return json({ processed: true, executions: results });
   } catch (error: unknown) {
+    sentry.captureException(error);
     const message = error instanceof Error ? error.message : 'Unknown error';
     console.error('[activity-processor] Error', message);
     return json({ error: message }, 500);

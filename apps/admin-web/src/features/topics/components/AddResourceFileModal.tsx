@@ -1,14 +1,6 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@altitutor/ui';
 import { Button } from '@altitutor/ui';
 import { Label } from '@altitutor/ui';
 import { Input } from '@altitutor/ui';
@@ -34,12 +26,7 @@ import { filesApi } from '../api';
 import { useFileItems, useFileUploadFlow, useFileDragAndDrop, useCreateTopicFile } from '../hooks';
 import { validateFileSizes } from '../utils/fileItemHelpers';
 import { FileDropzone } from './AddResourceFileModal/FileDropzone';
-import {
-  ExpandButton,
-  EXPANDABLE_DIALOG_TRANSITION,
-  EXPANDED_DIALOG_CONTENT_CLASS,
-} from '@/shared/components/expandable-dialog';
-import { cn } from '@/shared/utils';
+import { AdminDialogShell } from '@/shared/components';
 import { DroppableColumn } from './AddResourceFileModal/DroppableColumn';
 import { DroppableSolutionSlot } from './AddResourceFileModal/DroppableSolutionSlot';
 import { ResourceFileMetadata } from './AddResourceFileModal/ResourceFileMetadata';
@@ -70,17 +57,12 @@ export function AddResourceFileModal({
   const [selectedType, setSelectedType] = useState<Enums<'resource_type'> | null>(null);
   const [isSolutions, setIsSolutions] = useState(false);
   const [selectedSolutionOfId, setSelectedSolutionOfId] = useState<string | null>(null);
-  const [expanded, setExpanded] = useState(false);
   const [videoUseExternalLink, setVideoUseExternalLink] = useState(false);
   const [externalVideoTitle, setExternalVideoTitle] = useState('');
   const [externalVideoUrl, setExternalVideoUrl] = useState('');
   const [linkSubmitting, setLinkSubmitting] = useState(false);
   const { toast } = useToast();
   const createTopicFileMutation = useCreateTopicFile();
-
-  useEffect(() => {
-    if (!isOpen) setExpanded(false);
-  }, [isOpen]);
 
   useEffect(() => {
     if (selectedType !== 'VIDEO') {
@@ -222,26 +204,26 @@ export function AddResourceFileModal({
   const hasMultipleFiles = fileItems.length > 1;
 
   return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent
-        className={cn(
-          'w-full md:max-w-4xl h-[90vh] flex flex-col p-0',
-          EXPANDABLE_DIALOG_TRANSITION,
-          expanded && EXPANDED_DIALOG_CONTENT_CLASS
-        )}
-      >
-        <DialogHeader className="flex-shrink-0 px-6 py-4 border-b">
-          <div className="flex items-start justify-between gap-4">
-            <div className="flex-1 min-w-0">
-              <DialogTitle>Add Resource File</DialogTitle>
-              <DialogDescription>
-                Upload a file and link it to a topic. Maximum file size: 10MB.
-              </DialogDescription>
-            </div>
-            <ExpandButton expanded={expanded} onToggle={() => setExpanded((e) => !e)} />
-          </div>
-        </DialogHeader>
-
+    <AdminDialogShell
+      fillHeight
+      open={isOpen}
+      onClose={onClose}
+      title="Add Resource File"
+      subtitle="Upload a file and link it to a topic. Maximum file size: 10MB."
+      contentClassName="md:max-w-4xl"
+      bodyClassName="!p-0 flex min-h-0 flex-1 flex-col overflow-hidden"
+      footer={
+        <>
+          <Button type="button" variant="outline" onClick={onClose} disabled={isUploading || linkSubmitting}>
+            Cancel
+          </Button>
+          <Button onClick={handleSubmit} disabled={!canSubmit || isUploading || linkSubmitting}>
+            {(isUploading || linkSubmitting) && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            Add Resource
+          </Button>
+        </>
+      }
+    >
         <div className="flex-1 overflow-hidden min-h-0">
           <div className="h-full flex">
             {/* Left Column - Metadata */}
@@ -425,17 +407,6 @@ export function AddResourceFileModal({
             </div>
           </div>
         </div>
-
-        <DialogFooter className="flex-shrink-0 px-6 py-4 border-t">
-          <Button type="button" variant="outline" onClick={onClose} disabled={isUploading || linkSubmitting}>
-            Cancel
-          </Button>
-          <Button onClick={handleSubmit} disabled={!canSubmit || isUploading || linkSubmitting}>
-            {(isUploading || linkSubmitting) && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            Add Resource
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+    </AdminDialogShell>
   );
 }

@@ -3,11 +3,6 @@
 import { useState } from 'react';
 import {
   Button,
-  Dialog,
-  DialogContent,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
@@ -15,6 +10,7 @@ import {
   Input,
   Label,
 } from '@altitutor/ui';
+import { AdminDialogShell } from '@/shared/components';
 import { Users } from 'lucide-react';
 import { useImessageControl } from './hooks';
 import { ImessageCommandDialog } from './ImessageCommandDialog';
@@ -109,19 +105,22 @@ export function GroupConversationActions({
         </DropdownMenuContent>
       </DropdownMenu>
 
-      <Dialog open={editableAction !== null} onOpenChange={(open) => !open && setEditableAction(null)}>
-        <DialogContent>
-          <DialogHeader><DialogTitle>{editableLabel(editableAction)}</DialogTitle></DialogHeader>
-          <div className="space-y-2">
-            <Label htmlFor="group-action-value">{editableLabel(editableAction)}</Label>
-            <Input id="group-action-value" value={value} onChange={(event) => setValue(event.target.value)} />
-          </div>
-          <DialogFooter>
+      <AdminDialogShell
+        open={editableAction !== null}
+        onClose={() => setEditableAction(null)}
+        title={editableLabel(editableAction)}
+        footer={
+          <>
             <Button variant="outline" onClick={() => setEditableAction(null)}>Cancel</Button>
             <Button disabled={!value.trim() || control.isPending} onClick={runEditable}>Queue change</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+          </>
+        }
+      >
+        <div className="space-y-2">
+          <Label htmlFor="group-action-value">{editableLabel(editableAction)}</Label>
+          <Input id="group-action-value" value={value} onChange={(event) => setValue(event.target.value)} />
+        </div>
+      </AdminDialogShell>
 
       <ImessageCommandDialog
         open={destructiveCommand !== null}

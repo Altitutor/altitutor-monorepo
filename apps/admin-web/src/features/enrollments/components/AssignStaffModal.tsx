@@ -1,9 +1,8 @@
 'use client';
 
 import { useState, useEffect, useMemo, useCallback } from 'react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@altitutor/ui';
 import { Button } from '@altitutor/ui';
-import { Loader2, ChevronLeft, ChevronRight, X } from 'lucide-react';
+import { Loader2, ChevronLeft, ChevronRight } from 'lucide-react';
 import {
   useAssignStaffData,
   useAssignStaffConflicts,
@@ -15,13 +14,7 @@ import {
   AssignStaffStep3Summary,
 } from './steps';
 import type { AssignStaffModalProps } from '../types/enrollment';
-import {
-  ExpandButton,
-  EXPANDABLE_DIALOG_TRANSITION,
-  EXPANDED_DIALOG_CONTENT_CLASS,
-  WIZARD_DIALOG_HEIGHT_CLASS,
-} from '@/shared/components/expandable-dialog';
-import { cn } from '@/shared/utils';
+import { AdminDialogShell } from '@/shared/components/dialog-shell';
 
 export function AssignStaffModal({
   isOpen,
@@ -46,11 +39,6 @@ export function AssignStaffModal({
   const [searchQuery, setSearchQuery] = useState('');
   const [dayFilters, setDayFilters] = useState<number[]>([]);
   const [subjectFilters, setSubjectFilters] = useState<string[]>([]);
-  const [expanded, setExpanded] = useState(false);
-
-  useEffect(() => {
-    if (!isOpen) setExpanded(false);
-  }, [isOpen]);
 
   // Fetch data using hooks
   const { classes, staff: staffList, isFetching } = useAssignStaffData({
@@ -198,65 +186,77 @@ export function AssignStaffModal({
         ? !!assignmentDate && assignmentDate.trim() !== ''
         : true;
 
-  return (
-    <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent
-        className={cn(
-          'w-full md:max-w-4xl flex flex-col p-0 [&>button]:hidden',
-          EXPANDABLE_DIALOG_TRANSITION,
-          expanded ? EXPANDED_DIALOG_CONTENT_CLASS : WIZARD_DIALOG_HEIGHT_CLASS
-        )}
-      >
-        {/* Header */}
-        <div className="flex-shrink-0 border-b bg-card">
-          <DialogHeader className="px-6 pt-6 pb-4">
-            <div className="flex items-start justify-between gap-4">
-              <div className="flex items-center gap-3 flex-1">
-                <Button
-                  variant="outline"
-                  size="icon"
-                  onClick={onClose}
-                  className="shrink-0"
-                >
-                  <X className="h-4 w-4" />
-                </Button>
-                <div className="flex-1 min-w-0">
-                  <DialogTitle>Assign Staff</DialogTitle>
-                  <DialogDescription>
-                    Step {step} of 3: {step === 1 ? 'Choose Class or Staff' : step === 2 ? 'Choose Date' : 'Summary & Confirm'}
-                  </DialogDescription>
-                </div>
-                <ExpandButton expanded={expanded} onToggle={() => setExpanded((e) => !e)} />
-              </div>
-            </div>
-          </DialogHeader>
+  const stepDescription =
+    step === 1 ? 'Choose Class or Staff' : step === 2 ? 'Choose Date' : 'Summary & Confirm';
 
-          {/* Progress Indicator */}
-          <div className="px-6 pb-4">
-            <div className="flex items-center gap-2">
-              {Array.from({ length: 3 }).map((_, index) => (
-                <div
-                  key={index}
-                  className={`flex-1 h-2 rounded-full transition-colors ${
-                    index < step - 1
-                      ? 'bg-primary'
-                      : index === step - 1
+  return (
+    <AdminDialogShell
+      open={isOpen}
+      onClose={onClose}
+      fillHeight
+      title="Assign Staff"
+      subtitle={`Step ${step} of 3: ${stepDescription}`}
+      contentClassName="md:max-w-4xl"
+      bodyClassName="min-h-0 flex-1 overflow-hidden flex flex-col p-0"
+      headerExtra={
+        <div className="px-6 pb-4">
+          <div className="flex items-center gap-2">
+            {Array.from({ length: 3 }).map((_, index) => (
+              <div
+                key={index}
+                className={`flex-1 h-2 rounded-full transition-colors ${
+                  index < step - 1
+                    ? 'bg-primary'
+                    : index === step - 1
                       ? 'bg-primary/50'
                       : 'bg-muted'
-                  }`}
-                />
-              ))}
-            </div>
+                }`}
+              />
+            ))}
           </div>
         </div>
+      }
+      footer={
+        <div className="flex w-full justify-between sm:justify-between">
+          <div className="flex gap-2">
+            {step > 1 && (
+              <Button variant="outline" onClick={handleBack} disabled={isAssigning}>
+                <ChevronLeft className="h-4 w-4 mr-2" />
+                Back
+              </Button>
+            )}
+          </div>
 
-        {/* Content */}
-        <div className="flex-1 overflow-hidden min-h-0">
-          <div className="h-full overflow-y-auto">
-            <div className="p-6">
-            {/* Step 1: Select Classes or Staff */}
-            {step === 1 && (
-              <AssignStaffStep1SelectClassOrStaff
+          <div className="flex gap-2">
+            <Button variant="outline" onClick={onClose} disabled={isAssigning}>
+              Cancel
+            </Button>
+
+            {step < 3 ? (
+              <Button onClick={handleNext} disabled={!canProceed}>
+                Next
+                <ChevronRight className="h-4 w-4 ml-2" />
+              </Button>
+            ) : (
+              <Button onClick={handleConfirm} disabled={isAssigning}>
+                {isAssigning ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    Assigning...
+                  </>
+                ) : (
+                  'Confirm Assignment'
+                )}
+              </Button>
+            )}
+          </div>
+        </div>
+      }
+    >
+      <div className="h-full overflow-y-auto">
+        <div className="p-6">
+          {step === 1 && (
+            <AssignStaffStep1SelectClassOrStaff
               context={context}
               isFetching={isFetching}
               classData={classData}
@@ -283,25 +283,23 @@ export function AssignStaffModal({
               staffUnavailability={staffUnavailability}
               classUnavailability={classUnavailability}
             />
-            )}
+          )}
 
-            {/* Step 2: Select Assignment Date */}
-            {step === 2 && (
-              <AssignStaffStep2SelectDate
-                context={context}
-                assignmentDate={assignmentDate}
-                onDateChange={setAssignmentDate}
-                classData={classData}
-                classSubject={classSubject}
-                classStaff={classStaff}
-                selectedStaff={selectedStaff}
-                staff={staff}
-                staffSubjects={staffSubjects}
-                selectedClasses={selectedClasses}
-              />
-            )}
+          {step === 2 && (
+            <AssignStaffStep2SelectDate
+              context={context}
+              assignmentDate={assignmentDate}
+              onDateChange={setAssignmentDate}
+              classData={classData}
+              classSubject={classSubject}
+              classStaff={classStaff}
+              selectedStaff={selectedStaff}
+              staff={staff}
+              staffSubjects={staffSubjects}
+              selectedClasses={selectedClasses}
+            />
+          )}
 
-            {/* Step 3: Summary & Confirm */}
           {step === 3 && (
             <AssignStaffStep3Summary
               context={context}
@@ -319,48 +317,8 @@ export function AssignStaffModal({
               classUnavailability={classUnavailability}
             />
           )}
-            </div>
-          </div>
         </div>
-
-        <DialogFooter className="flex-shrink-0 flex justify-between sm:justify-between px-6 py-4 border-t">
-          <div className="flex gap-2">
-            {step > 1 && (
-              <Button variant="outline" onClick={handleBack} disabled={isAssigning}>
-                <ChevronLeft className="h-4 w-4 mr-2" />
-                Back
-              </Button>
-            )}
-          </div>
-          
-          <div className="flex gap-2">
-            <Button variant="outline" onClick={onClose} disabled={isAssigning}>
-              Cancel
-            </Button>
-            
-            {step < 3 ? (
-              <Button 
-                onClick={handleNext}
-                disabled={!canProceed}
-              >
-                Next
-                <ChevronRight className="h-4 w-4 ml-2" />
-              </Button>
-            ) : (
-              <Button onClick={handleConfirm} disabled={isAssigning}>
-                {isAssigning ? (
-                  <>
-                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                    Assigning...
-                  </>
-                ) : (
-                  'Confirm Assignment'
-                )}
-              </Button>
-            )}
-          </div>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+      </div>
+    </AdminDialogShell>
   );
 }

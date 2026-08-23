@@ -321,6 +321,7 @@ export function ScoreProjectionSettingsDialog({
 
   return (
     <AdminDialogShell
+        fillHeight
       open={open}
       onClose={onClose}
       title={initial?.sectionName ?? "Edit score projection settings"}

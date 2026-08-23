@@ -46,7 +46,7 @@ export function ChangeClassStep3Summary({
   
   const firstSessionNewClass = selectedNewClass && changeoverDate && selectedNewClass.day_of_week !== undefined && selectedNewClass.start_time
     ? calculateFirstSessionDate(
-        { day_of_week: selectedNewClass.day_of_week, start_time: selectedNewClass.start_time },
+        selectedNewClass,
         getMidnightAdelaide(new Date(changeoverDate))
       )
     : null;
@@ -341,4 +341,3 @@ export function ChangeClassStep3Summary({
     </div>
   );
 }
-

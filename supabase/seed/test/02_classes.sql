@@ -35,13 +35,23 @@ BEGIN
   -- Insert classes
   -- Note: max_capacity column was removed in migration 20250427000000_schema_updates.sql
   -- Note: notes column was removed in migration 20251021000013_remove_audit_tables_and_notes.sql
-  INSERT INTO public.classes (id, subject_id, day_of_week, start_time, end_time, status, level)
+  INSERT INTO public.classes (
+    id,
+    subject_id,
+    day_of_week,
+    start_time,
+    end_time,
+    status,
+    level,
+    session_start_date,
+    session_end_date
+  )
   VALUES
-    (math_class_id, math_subject_id, 1, '16:00', '17:30', 'ACTIVE', NULL),
-    (bio_class_id, bio_subject_id, 2, '17:00', '18:30', 'ACTIVE', NULL),
-    (chem_class_id, chem_subject_id, 3, '16:30', '18:00', 'ACTIVE', NULL),
-    (eng_class_id, eng_subject_id, 4, '17:30', '19:00', 'ACTIVE', NULL),
-    (physics_class_id, physics_subject_id, 5, '16:00', '17:30', 'INACTIVE', NULL)
+    (math_class_id, math_subject_id, 1, '16:00', '17:30', 'ACTIVE', NULL, '2026-01-01', '2026-12-31'),
+    (bio_class_id, bio_subject_id, 2, '17:00', '18:30', 'ACTIVE', NULL, '2026-01-01', '2026-12-31'),
+    (chem_class_id, chem_subject_id, 3, '16:30', '18:00', 'ACTIVE', NULL, '2026-01-01', '2026-12-31'),
+    (eng_class_id, eng_subject_id, 4, '17:30', '19:00', 'ACTIVE', NULL, '2026-01-01', '2026-12-31'),
+    (physics_class_id, physics_subject_id, 5, '16:00', '17:30', 'INACTIVE', NULL, '2026-01-01', '2026-12-31')
   ON CONFLICT (id) DO NOTHING;
 
   -- ========================
@@ -87,5 +97,4 @@ BEGIN
   -- Re-enable trigger
   ALTER TABLE public.classes_staff ENABLE TRIGGER trigger_sync_staff_on_assignment;
 END $$;
-
 

@@ -17,6 +17,7 @@ import type {
   RevenueReportDataPoint,
   ReportEntityLink,
   ReportEntityMeta,
+  ReportEntityPerson,
 } from '../types';
 
 type BaseEntity =
@@ -43,7 +44,11 @@ export type ReportsEntitiesTableVariant =
   | 'actualRevenue'
   | 'billingErrors'
   | 'subsidies'
-  | 'subsidiesCreated';
+  | 'subsidiesCreated'
+  | 'staffCheckIns'
+  | 'studentCheckIns'
+  | 'parentCheckIns'
+  | 'formCompletions';
 
 interface ColumnConfig {
   key: string;
@@ -150,12 +155,34 @@ const TABLE_CONFIG: Record<ReportsEntitiesTableVariant, ColumnConfig[]> = {
     { key: 'price', header: 'Price' },
     { key: 'createdAt', header: 'Created at' },
   ],
+  staffCheckIns: [
+    { key: 'staff', header: 'Staff member' },
+    { key: 'sessionDate', header: 'Check-in date' },
+    { key: 'conductingStaff', header: 'Conducting staff' },
+  ],
+  studentCheckIns: [
+    { key: 'student', header: 'Student' },
+    { key: 'sessionDate', header: 'Check-in date' },
+    { key: 'staff', header: 'Staff members' },
+  ],
+  parentCheckIns: [
+    { key: 'parent', header: 'Parent' },
+    { key: 'sessionDate', header: 'Check-in date' },
+    { key: 'staff', header: 'Staff members' },
+  ],
+  formCompletions: [
+    { key: 'form', header: 'Form' },
+    { key: 'purpose', header: 'Type' },
+    { key: 'submittedAt', header: 'Submitted at' },
+    { key: 'loggedBy', header: 'Recorded by' },
+  ],
 };
 
 interface ReportsEntitiesTableProps {
   entities: BaseEntity[];
   variant: ReportsEntitiesTableVariant;
   onEntityClick?: (entity: BaseEntity) => void;
+  onPersonClick?: (person: ReportEntityPerson) => void;
 }
 
 function getPrimaryLabelKey(variant: ReportsEntitiesTableVariant): string {
@@ -178,7 +205,14 @@ function getPrimaryLabelKey(variant: ReportsEntitiesTableVariant): string {
     case 'classUnenrolments':
       return 'student';
     case 'staffAbsences':
+    case 'staffCheckIns':
       return 'staff';
+    case 'studentCheckIns':
+      return 'student';
+    case 'parentCheckIns':
+      return 'parent';
+    case 'formCompletions':
+      return 'form';
     case 'activeClasses':
       return 'class';
     case 'predictedRevenue':
@@ -220,7 +254,12 @@ function getCellValue(entity: BaseEntity, variant: ReportsEntitiesTableVariant, 
 
 const DEFAULT_PAGE_SIZE = 10;
 
-export function ReportsEntitiesTable({ entities, variant, onEntityClick }: ReportsEntitiesTableProps) {
+export function ReportsEntitiesTable({
+  entities,
+  variant,
+  onEntityClick,
+  onPersonClick,
+}: ReportsEntitiesTableProps) {
   const columns = TABLE_CONFIG[variant];
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
@@ -260,11 +299,43 @@ export function ReportsEntitiesTable({ entities, variant, onEntityClick }: Repor
                 !!onEntityClick && (!!(entity as BaseEntity & { link?: ReportEntityLink }).link || entity.id);
               return (
                 <TableRow key={entity.id}>
-                  {columns.map((column) => (
-                    <TableCell key={column.key} className="max-w-xs truncate">
-                      {getCellValue(entity, variant, column.key)}
-                    </TableCell>
-                  ))}
+                  {columns.map((column) => {
+                    const linkedPeople = entity.people?.[
+                      column.key as keyof NonNullable<BaseEntity['people']>
+                    ];
+                    return (
+                      <TableCell key={column.key} className="max-w-xs">
+                        {linkedPeople ? (
+                          linkedPeople.length > 0 ? (
+                            <div className="flex flex-col items-start gap-1">
+                              {linkedPeople.map((person) =>
+                                person.id && onPersonClick ? (
+                                  <button
+                                    key={`${person.kind}-${person.id}`}
+                                    type="button"
+                                    className="text-left font-medium text-primary underline-offset-4 hover:underline"
+                                    onClick={() => onPersonClick(person)}
+                                  >
+                                    {person.name}
+                                  </button>
+                                ) : (
+                                  <span key={`${person.kind}-${person.id ?? person.name}`}>
+                                    {person.name}
+                                  </span>
+                                )
+                              )}
+                            </div>
+                          ) : (
+                            '—'
+                          )
+                        ) : (
+                          <span className="block truncate">
+                            {getCellValue(entity, variant, column.key)}
+                          </span>
+                        )}
+                      </TableCell>
+                    );
+                  })}
                   <TableCell>
                     {isClickable ? (
                       <Button
