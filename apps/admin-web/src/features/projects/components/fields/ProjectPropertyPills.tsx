@@ -15,6 +15,8 @@ import { DatePickerPill } from '@/shared/components/DatePickerPill';
 import { useStaffSearch } from '@/features/tasks/hooks/useStaffSearch';
 import type { Tables } from '@altitutor/shared';
 import type { ProjectFormData, ProjectPriority, ProjectStatus } from '../../types';
+import { adjustMembersForLeadChange, type ProjectStaffRef } from '../../utils/projectMembers';
+import { ProjectMembersField } from './ProjectMembersField';
 import {
   getProjectStatusIcon,
   getProjectStatusIconColor,
@@ -26,7 +28,15 @@ import {
   PRIORITY_OPTIONS,
 } from '../../utils/projectUtils';
 
-export function ProjectPropertyPills({ form, enabled = true }: { form: UseFormReturn<ProjectFormData>; enabled?: boolean }) {
+export function ProjectPropertyPills({
+  form,
+  enabled = true,
+  knownMembers = [],
+}: {
+  form: UseFormReturn<ProjectFormData>;
+  enabled?: boolean;
+  knownMembers?: ProjectStaffRef[];
+}) {
   const [leadOpen, setLeadOpen] = useState(false);
   const [leadSearchQuery, setLeadSearchQuery] = useState('');
   const { staff: staffList, isLoading: isLeadLoading } = useStaffSearch(
@@ -111,7 +121,16 @@ export function ProjectPropertyPills({ form, enabled = true }: { form: UseFormRe
               <SearchableSelect<Tables<'staff'>>
                 items={staffList}
                 value={selectedLead}
-                onValueChange={(staff) => field.onChange(staff?.id ?? null)}
+                onValueChange={(staff) => {
+                  const previousLeadId = field.value;
+                  const nextLeadId = staff?.id ?? null;
+                  field.onChange(nextLeadId);
+                  form.setValue(
+                    'memberIds',
+                    adjustMembersForLeadChange(previousLeadId, nextLeadId, form.getValues('memberIds') ?? []),
+                    { shouldDirty: true, shouldTouch: true }
+                  );
+                }}
                 getItemId={(s) => s.id}
                 getItemLabel={(s) => `${s.first_name || ''} ${s.last_name || ''}`.trim() || 'Unnamed staff'}
                 getItemValue={(s) => `${s.first_name || ''} ${s.last_name || ''}`.trim()}
@@ -138,6 +157,13 @@ export function ProjectPropertyPills({ form, enabled = true }: { form: UseFormRe
             </FormControl>
           </FormItem>
         )}
+      />
+
+      <ProjectMembersField
+        form={form}
+        enabled={enabled}
+        knownMembers={knownMembers}
+        variant="pills"
       />
 
       <FormField

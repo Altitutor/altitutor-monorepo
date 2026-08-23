@@ -334,7 +334,7 @@ export default function DashboardDatePage({ params }: { params: { date: string }
   const dashboardProjectFilters = useMemo(
     () => ({
       status: ['backlog', 'planned', 'in_progress'],
-      ...(currentStaff?.id ? { project_lead_id: [currentStaff.id] } : {}),
+      ...(currentStaff?.id ? { member: [currentStaff.id] } : {}),
     }),
     [currentStaff?.id]
   );

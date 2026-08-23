@@ -1,7 +1,7 @@
 import { useMutation, useQueryClient, type QueryKey } from '@tanstack/react-query';
 import { projectsApi } from './projects';
 import { useToast } from '@altitutor/ui';
-import type { Project, ProjectInsert, ProjectUpdate, ProjectWithLead } from '../types';
+import type { Project, ProjectCreateInput, ProjectUpdateInput, ProjectWithLead } from '../types';
 import { showWorkItemCreatedToast } from '@/shared/utils';
 import {
   invalidateProjectDetailSurfaces,
@@ -10,18 +10,34 @@ import {
 } from '@/shared/lib/query-invalidation';
 import { projectKeys } from './queryKeys';
 
-type ProjectUpdateVariables = { id: string; updates: ProjectUpdate };
+type ProjectUpdateVariables = { id: string; updates: ProjectUpdateInput };
 
 type ProjectUpdateSnapshot = {
   previousLists: Array<[QueryKey, ProjectWithLead[] | undefined]>;
   previousDetail: ProjectWithLead | undefined;
 };
 
-function applyProjectOptimisticUpdate(project: ProjectWithLead, updates: ProjectUpdate): ProjectWithLead {
-  const next: ProjectWithLead = { ...project, ...updates };
+function applyProjectOptimisticUpdate(
+  project: ProjectWithLead,
+  updates: ProjectUpdateInput
+): ProjectWithLead {
+  const { member_ids, ...row } = updates;
+  const next: ProjectWithLead = { ...project, ...row, members: [...(project.members ?? [])] };
 
-  if ('project_lead_id' in updates && updates.project_lead_id !== project.project_lead?.id) {
+  if ('project_lead_id' in row && row.project_lead_id !== project.project_lead?.id) {
     next.project_lead = null;
+    const nextLeadId = row.project_lead_id ?? null;
+    if (nextLeadId && !next.members.some((member) => member.id === nextLeadId)) {
+      next.members = [...next.members, { id: nextLeadId, first_name: null, last_name: null }];
+    }
+  }
+
+  if (member_ids !== undefined) {
+    const leadId = next.project_lead_id ?? null;
+    const byId = new Map(next.members.map((member) => [member.id, member]));
+    next.members = [...new Set(leadId ? [...member_ids, leadId] : member_ids)].map(
+      (id) => byId.get(id) ?? { id, first_name: null, last_name: null }
+    );
   }
 
   return next;
@@ -32,7 +48,8 @@ export function useCreateProject() {
   const { toast } = useToast();
 
   return useMutation({
-    mutationFn: (project: ProjectInsert) => projectsApi.create(project),
+    mutationFn: ({ memberIds, ...project }: ProjectCreateInput) =>
+      projectsApi.create(project, memberIds),
     onSuccess: (createdProject) => {
       void invalidateProjectListSurfaces(queryClient);
       if (createdProject?.id) {

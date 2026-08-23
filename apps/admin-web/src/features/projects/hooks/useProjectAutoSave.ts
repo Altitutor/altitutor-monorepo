@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react';
 import { UseFormReturn } from 'react-hook-form';
 import { useDebounce } from '@/shared/hooks';
 import type { ProjectFormData, ProjectPriority, ProjectStatus } from '../types';
+import { memberIdsEqual } from '../utils/projectMembers';
 
 const VALID_PROJECT_STATUSES: ProjectStatus[] = ['backlog', 'planned', 'in_progress', 'completed'];
 
@@ -32,6 +33,7 @@ export function useProjectAutoSave({
     status?: ProjectStatus;
     priority?: ProjectPriority;
     projectLeadId?: string | null;
+    memberIds?: string[];
     startDate?: string | null;
     targetDate?: string | null;
   }>({});
@@ -42,6 +44,7 @@ export function useProjectAutoSave({
   const status = form.watch('status');
   const priority = form.watch('priority');
   const projectLeadId = form.watch('projectLeadId');
+  const memberIds = form.watch('memberIds');
   const startDate = form.watch('startDate');
   const targetDate = form.watch('targetDate');
 
@@ -61,6 +64,7 @@ export function useProjectAutoSave({
         status: values.status,
         priority: values.priority,
         projectLeadId: values.projectLeadId,
+        memberIds: values.memberIds ?? [],
         startDate: values.startDate,
         targetDate: values.targetDate,
       };
@@ -114,6 +118,14 @@ export function useProjectAutoSave({
       onSave({ projectLeadId });
     }
   }, [projectLeadId, project, isInitialized, isUpdatingFromServer, onSave]);
+
+  useEffect(() => {
+    if (!isInitialized || isUpdatingFromServer || !baselineSyncedRef.current) return;
+    if (project && !memberIdsEqual(memberIds, lastSavedValuesRef.current.memberIds)) {
+      lastSavedValuesRef.current.memberIds = [...(memberIds ?? [])];
+      onSave({ memberIds: memberIds ?? [] });
+    }
+  }, [memberIds, project, isInitialized, isUpdatingFromServer, onSave]);
 
   useEffect(() => {
     if (!isInitialized || isUpdatingFromServer || !baselineSyncedRef.current) return;

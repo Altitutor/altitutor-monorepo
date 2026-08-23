@@ -791,6 +791,17 @@
 
 - **Employment started at** — The date used for tenure requirements; defaults to staff `created_at` and may be edited by admin for migration.
 
+## Projects
+
+- **Project** — A unit of internal Altitutor staff work.
+  _Avoid_: Task, Issue
+
+- **Project member** — A staff person involved in a Project. Membership is what makes the Project appear on that person's dashboard and in involvement filters.
+  _Avoid_: Assignee, collaborator, contributor, participant
+
+- **Project lead** — The at most one Project member designated as accountable for a Project. Designating a lead always makes them a Project member; clearing or replacing the lead does not remove their membership.
+  _Avoid_: Project owner, assignee
+
 ## UCAT online access
 
 - **UCAT Free** — The default online entitlement for a signed-up UCAT student. Grants access to online product areas within configurable, independent usage quotas per area. Does not require a Stripe subscription. A quota of zero for an area means UCAT Free students cannot start that activity.
