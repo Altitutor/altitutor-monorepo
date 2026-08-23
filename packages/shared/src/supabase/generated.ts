@@ -5136,6 +5136,27 @@ export type Database = {
           },
         ]
       }
+      office_print_settings: {
+        Row: {
+          created_at: string
+          singleton: boolean
+          tutor_access: Database["public"]["Enums"]["tutor_office_print_access"]
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          singleton?: boolean
+          tutor_access?: Database["public"]["Enums"]["tutor_office_print_access"]
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          singleton?: boolean
+          tutor_access?: Database["public"]["Enums"]["tutor_office_print_access"]
+          updated_at?: string
+        }
+        Relationships: []
+      }
       on_call_schedules: {
         Row: {
           created_at: string | null
@@ -28804,6 +28825,24 @@ export type Database = {
           },
         ]
       }
+      vtutor_office_print_settings: {
+        Row: {
+          tutor_access:
+            | Database["public"]["Enums"]["tutor_office_print_access"]
+            | null
+        }
+        Insert: {
+          tutor_access?:
+            | Database["public"]["Enums"]["tutor_office_print_access"]
+            | null
+        }
+        Update: {
+          tutor_access?:
+            | Database["public"]["Enums"]["tutor_office_print_access"]
+            | null
+        }
+        Relationships: []
+      }
       vtutor_pay_tier_profile: {
         Row: {
           current_tier_number: number | null
@@ -37201,6 +37240,7 @@ export type Database = {
           run_id: string
         }[]
       }
+      tutor_may_office_print: { Args: never; Returns: boolean }
       tutor_reorder_topic_flashcards: {
         Args: { p_ordered_ids: string[]; p_topic_id: string }
         Returns: undefined
@@ -37651,6 +37691,10 @@ export type Database = {
         }
         Returns: string[]
       }
+      tutor_ucat_set_audit_run_status: {
+        Args: { p_run_id: string; p_status: string }
+        Returns: Json
+      }
       tutor_ucat_set_audit_target_status: {
         Args: { p_status: string; p_target_id: string }
         Returns: Json
@@ -38060,6 +38104,7 @@ export type Database = {
         | "ART"
         | "LANGUAGE"
         | "MEDICINE"
+      tutor_office_print_access: "off" | "office_hours" | "unrestricted"
       ucat_access_scope: "public" | "private"
       ucat_answer_key_value: "correct" | "yes" | "no" | "most" | "least"
       ucat_answer_scheme:
@@ -38268,6 +38313,7 @@ export const Constants = {
         "LANGUAGE",
         "MEDICINE",
       ],
+      tutor_office_print_access: ["off", "office_hours", "unrestricted"],
       ucat_access_scope: ["public", "private"],
       ucat_answer_key_value: ["correct", "yes", "no", "most", "least"],
       ucat_answer_scheme: [
