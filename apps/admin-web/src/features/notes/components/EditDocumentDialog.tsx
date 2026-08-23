@@ -6,10 +6,6 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { useRouter } from 'next/navigation';
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
   AlertDialog,
   AlertDialogAction,
   AlertDialogCancel,
@@ -33,7 +29,7 @@ import {
   type JSONContent,
   type MentionClickDetail,
 } from '@altitutor/ui';
-import { MoreVertical, ExternalLink, Trash2, X, Loader2, Check, CloudOff } from 'lucide-react';
+import { MoreVertical, ExternalLink, Trash2, Loader2, Check, CloudOff } from 'lucide-react';
 import { RichTextTemplateMenuItems } from '@/features/rich-text-templates/components/RichTextTemplateMenuItems';
 import { SaveAsTemplateDialog } from '@/features/rich-text-templates/components/SaveAsTemplateDialog';
 import type { Editor } from '@tiptap/react';
@@ -52,11 +48,7 @@ import { NoteDocumentSidebarPanel } from './NoteDocumentSidebarPanel';
 import { NotePropertyPills } from './NotePropertyPills';
 import type { NoteFormData, NoteUpdate } from '../types';
 import type { Resolver } from 'react-hook-form';
-import {
-  ExpandButton,
-  EXPANDABLE_DIALOG_TRANSITION,
-  EXPANDED_DIALOG_CONTENT_CLASS,
-} from '@/shared/components/expandable-dialog';
+import { AdminDialogShell } from '@/shared/components';
 import { cn } from '@/shared/utils';
 import { DOCUMENT_TITLE_FIELD_CLASS } from '../constants/documentTitle';
 import { useFitDocumentTitle } from '../hooks/useFitDocumentTitle';
@@ -104,7 +96,6 @@ export function EditDocumentDialog({
   const [editorInstance, setEditorInstance] = useState<Editor | null>(null);
   const [acceptedServerVersion, setAcceptedServerVersion] = useState<string>('');
   const [mode, setMode] = useState<DocumentMode>('view');
-  const [expanded, setExpanded] = useState(false);
   const [isSaveDialogOpen, setIsSaveDialogOpen] = useState(false);
   const [isTakeoverDialogOpen, setIsTakeoverDialogOpen] = useState(false);
   const [linkedDocumentId, setLinkedDocumentId] = useState<string | null>(null);
@@ -112,7 +103,6 @@ export function EditDocumentDialog({
 
   useEffect(() => {
     if (!isOpen) {
-      setExpanded(false);
       setLinkedDocumentId(null);
       didAutoEnterEditRef.current = null;
       editModePromptClicksRef.current = 0;
@@ -382,24 +372,16 @@ export function EditDocumentDialog({
 
   return (
     <>
-      <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent
-        className={cn(
-          'w-full md:max-w-4xl h-[90vh] flex flex-col p-0 gap-0 [&>button]:hidden',
-          EXPANDABLE_DIALOG_TRANSITION,
-          expanded && EXPANDED_DIALOG_CONTENT_CLASS
-        )}
-      >
-        <DialogHeader className="flex-shrink-0 px-6 py-4 border-b">
-          <div className="flex items-center justify-between gap-4 w-full">
-            <div className="flex items-center gap-3 flex-1">
-              <Button variant="outline" size="icon" onClick={onClose} className="shrink-0">
-                <X className="h-4 w-4" />
-              </Button>
-              <DialogTitle>{!editorReady ? 'Loading...' : 'Edit Document'}</DialogTitle>
-            </div>
-
-            <div className="flex items-center gap-2">
+      <AdminDialogShell
+        fillHeight
+        open={isOpen}
+        onClose={onClose}
+        title={!editorReady ? 'Loading...' : 'Edit Document'}
+        contentClassName="md:max-w-4xl"
+        bodyClassName="p-0 min-h-0 flex-1 overflow-hidden flex flex-col"
+        headerActions={
+          editorReady ? (
+            <>
               <div className="flex items-center gap-2 text-xs text-muted-foreground font-medium pr-2 mr-2">
                 {isEditing && updateNote.isPending ? (
                   <>
@@ -428,7 +410,6 @@ export function EditDocumentDialog({
                   { value: 'edit', label: 'Edit' },
                 ]}
               />
-              <ExpandButton expanded={expanded} onToggle={() => setExpanded((e) => !e)} />
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button variant="outline" size="icon">
@@ -452,10 +433,10 @@ export function EditDocumentDialog({
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
-            </div>
-          </div>
-        </DialogHeader>
-
+            </>
+          ) : undefined
+        }
+      >
         {!editorReady ? (
           <div className="p-6">Loading document...</div>
         ) : (
@@ -472,16 +453,7 @@ export function EditDocumentDialog({
                 />
 
                 <div className="flex min-h-0 min-w-0 flex-1 flex-col border-r">
-                  {/*
-                    Native vertical scroll instead of ScrollArea: Radix ScrollArea uses
-                    overflow-x: hidden on the viewport, which clips the heading fold gutter
-                    (negative margin on .tiptap-heading-block).
-                  */}
                   <div className="max-h-full min-h-0 min-w-0 flex-1 overflow-y-auto">
-                    {/*
-                      Left padding ≥ gutter outdent (2.75rem) so the fold control stays inside
-                      the scroll paint bounds even when overflow-x computes to auto.
-                    */}
                     <div
                       className="mx-auto max-w-3xl space-y-4 pb-6 pl-[2.75rem] pr-6 pt-6"
                       onPointerDownCapture={() => {
@@ -564,14 +536,13 @@ export function EditDocumentDialog({
             </Form>
           </div>
         )}
-      </DialogContent>
+      </AdminDialogShell>
       <SaveAsTemplateDialog
         isOpen={isSaveDialogOpen}
         onClose={() => setIsSaveDialogOpen(false)}
         initialContent={form.getValues('content') ?? null}
         onSuccess={() => setIsSaveDialogOpen(false)}
       />
-    </Dialog>
 
       {linkedDocumentId ? (
         <EditDocumentDialog

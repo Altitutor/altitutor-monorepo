@@ -5,11 +5,6 @@ import { useRouter } from 'next/navigation';
 import { AlertTriangle, Loader2, Plus, Trash2 } from 'lucide-react';
 import {
   Button,
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
   Input,
   Label,
   SearchableSelect,
@@ -18,11 +13,7 @@ import {
 } from '@altitutor/ui';
 import type { Tables } from '@altitutor/shared';
 import { SubjectSelectPopover } from '@/features/subjects/components/SubjectSelectPopover';
-import {
-  EXPANDABLE_DIALOG_TRANSITION,
-  EXPANDED_DIALOG_CONTENT_CLASS,
-  ExpandButton,
-} from '@/shared/components/expandable-dialog';
+import { AdminDialogShell } from '@/shared/components';
 import { cn, showEntityCreatedToast } from '@/shared/utils';
 import { useApplyClassSchedule, usePreviewClassSchedule } from '../hooks/useClassesQuery';
 import type {
@@ -81,7 +72,6 @@ export function AddClassModal({ isOpen, onClose, onClassAdded }: AddClassModalPr
   const previewMutation = usePreviewClassSchedule();
   const applyMutation = useApplyClassSchedule();
   const defaultEndDate = useMemo(() => `${new Date().getFullYear()}-12-31`, []);
-  const [expanded, setExpanded] = useState(false);
   const [step, setStep] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [classId, setClassId] = useState('');
@@ -111,8 +101,6 @@ export function AddClassModal({ isOpen, onClose, onClassAdded }: AddClassModalPr
   useEffect(() => {
     if (isOpen) {
       reset();
-    } else {
-      setExpanded(false);
     }
     // Reset is intentionally scoped to dialog openings.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -193,38 +181,54 @@ export function AddClassModal({ isOpen, onClose, onClassAdded }: AddClassModalPr
   const isBusy = previewMutation.isPending || applyMutation.isPending;
 
   return (
-    <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent
-        className={cn(
-          'sm:max-w-[760px]',
-          EXPANDABLE_DIALOG_TRANSITION,
-          expanded && EXPANDED_DIALOG_CONTENT_CLASS
-        )}
-      >
-        <DialogHeader>
-          <div className="flex items-start justify-between gap-4">
-            <div className="min-w-0 flex-1">
-              <DialogTitle>Add New Class</DialogTitle>
-              <DialogDescription>
-                Step {step + 1} of 3: {STEP_TITLES[step]}
-              </DialogDescription>
-            </div>
-            <ExpandButton expanded={expanded} onToggle={() => setExpanded((value) => !value)} />
+    <AdminDialogShell
+      fillHeight
+      open={isOpen}
+      onClose={onClose}
+      title="Add New Class"
+      subtitle={`Step ${step + 1} of 3: ${STEP_TITLES[step]}`}
+      contentClassName="md:max-w-[760px]"
+      headerExtra={
+        <div className="px-6 pb-4">
+          <div className="flex gap-2" aria-label="Class creation progress">
+            {STEP_TITLES.map((title, index) => (
+              <div
+                key={title}
+                className={cn('h-1 flex-1 rounded-full', index <= step ? 'bg-primary' : 'bg-muted')}
+              />
+            ))}
           </div>
-        </DialogHeader>
-
-        <div className="flex gap-2" aria-label="Class creation progress">
-          {STEP_TITLES.map((title, index) => (
-            <div
-              key={title}
-              className={cn('h-1 flex-1 rounded-full', index <= step ? 'bg-primary' : 'bg-muted')}
-            />
-          ))}
         </div>
+      }
+      footer={
+        <div className="flex w-full items-center justify-between gap-2">
+          <div>
+            {step > 0 && (
+              <Button type="button" variant="outline" disabled={isBusy} onClick={() => setStep((current) => current - 1)}>
+                Back
+              </Button>
+            )}
+          </div>
+          <div className="flex gap-2">
+            <Button type="button" variant="outline" onClick={onClose} disabled={isBusy}>Cancel</Button>
+            {step < 2 ? (
+              <Button type="button" onClick={handleNext} disabled={isBusy}>
+                {previewMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                {step === 1 ? 'Preview sessions' : 'Next'}
+              </Button>
+            ) : (
+              <Button type="button" onClick={handleConfirm} disabled={isBusy || !plan}>
+                {applyMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                Create Class
+              </Button>
+            )}
+          </div>
+        </div>
+      }
+    >
+      {error && <div className="mb-4 rounded-md bg-destructive/10 p-3 text-sm text-destructive">{error}</div>}
 
-        {error && <div className="rounded-md bg-destructive/10 p-3 text-sm text-destructive">{error}</div>}
-
-        <div className="max-h-[62vh] space-y-5 overflow-y-auto pr-1">
+      <div className="space-y-5">
           {step === 0 && (
             <div className="space-y-5">
               <div className="grid gap-4 sm:grid-cols-2">
@@ -387,32 +391,7 @@ export function AddClassModal({ isOpen, onClose, onClassAdded }: AddClassModalPr
               </div>
             </div>
           )}
-        </div>
-
-        <div className="flex justify-between gap-2 border-t pt-4">
-          <div>
-            {step > 0 && (
-              <Button type="button" variant="outline" disabled={isBusy} onClick={() => setStep((current) => current - 1)}>
-                Back
-              </Button>
-            )}
-          </div>
-          <div className="flex gap-2">
-            <Button type="button" variant="outline" onClick={onClose} disabled={isBusy}>Cancel</Button>
-            {step < 2 ? (
-              <Button type="button" onClick={handleNext} disabled={isBusy}>
-                {previewMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                {step === 1 ? 'Preview sessions' : 'Next'}
-              </Button>
-            ) : (
-              <Button type="button" onClick={handleConfirm} disabled={isBusy || !plan}>
-                {applyMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                Create Class
-              </Button>
-            )}
-          </div>
-        </div>
-      </DialogContent>
-    </Dialog>
+      </div>
+    </AdminDialogShell>
   );
 }

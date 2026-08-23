@@ -97,11 +97,12 @@ export function StudentExitRequestDialog({
 
   return (
     <AdminDialogShell
+        fillHeight
       open={open}
       onClose={() => onOpenChange(false)}
       title={isDiscontinuation ? `Discontinue ${studentName}` : `Send ${studentName} an unenrolment link`}
       subtitle={saving ? 'Creating link…' : error ? 'The link could not be created' : 'Send Message'}
-      contentClassName="h-[min(760px,90dvh)] md:max-w-4xl"
+      contentClassName="md:max-w-4xl"
       footer={<Button onClick={() => onOpenChange(false)}>Done</Button>}
     >
       {saving ? (

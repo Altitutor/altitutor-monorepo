@@ -56,7 +56,7 @@ export function CommunicationsStatsSection({
         <section>
           <h3 className="mb-2 text-sm font-medium">Staff check-ins</h3>
           <p className="mb-3 text-xs text-muted-foreground">
-            Completed check-ins for staff members receiving a check-in.
+            Completed staff-only check-ins with no students or parents attached.
           </p>
           <IssuesReportChart
             data={data?.staffCheckInsByDay ?? []}
@@ -107,29 +107,22 @@ export function CommunicationsStatsSection({
       )}
 
       {visibleCharts.formCompletions && (
-        <section className="space-y-6">
-          <div>
-            <h3 className="mb-2 text-sm font-medium">Form completions</h3>
-            <p className="text-xs text-muted-foreground">
-              Submitted form responses, broken down by form type.
-            </p>
-          </div>
-          {(data?.formCompletionsByType ?? []).length === 0 ? (
-            <p className="text-sm text-muted-foreground">No form completions in this period.</p>
-          ) : (
-            data?.formCompletionsByType.map((completionType) => (
-              <div key={completionType.type}>
-                <h4 className="mb-3 text-sm font-medium">{completionType.label}</h4>
-                <IssuesReportChart
-                  data={completionType.data}
-                  title={`${completionType.label} form completions`}
-                  entityLabelSingular="completion"
-                  tableVariant="formCompletions"
-                  staffMetaKeys={['loggedBy']}
-                />
-              </div>
-            ))
-          )}
+        <section>
+          <h3 className="mb-2 text-sm font-medium">Form completions</h3>
+          <p className="mb-3 text-xs text-muted-foreground">
+            Submitted form responses, with totals broken down by form type.
+          </p>
+          <IssuesReportChart
+            data={data?.formCompletionsByDay ?? []}
+            title="Form completions"
+            entityLabelSingular="completion"
+            tableVariant="formCompletions"
+            summaryEntries={(data?.formCompletionTotalsByType ?? []).map((type) => ({
+              label: type.label,
+              value: type.count,
+            }))}
+            summaryEntriesLabel="By form type"
+          />
         </section>
       )}
     </div>

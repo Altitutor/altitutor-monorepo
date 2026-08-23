@@ -49,17 +49,6 @@ jobs:
       - name: Link project
         run: supabase link --project-ref $SUPABASE_PROJECT_ID
 
-      - name: Configure Edge Function observability
-        run: |
-          test -n "$SUPABASE_SENTRY_DSN"
-          supabase secrets set \
-            SENTRY_DSN="$SUPABASE_SENTRY_DSN" \
-            SENTRY_ENVIRONMENT="$SUPABASE_EDGE_ENVIRONMENT" \
-            --project-ref "$SUPABASE_PROJECT_ID"
-        env:
-          SUPABASE_SENTRY_DSN: ${{ secrets.SUPABASE_SENTRY_DSN }}
-          SUPABASE_EDGE_ENVIRONMENT: ${{ github.ref_name == 'main' && 'production' || 'development' }}
-
       - name: Push migrations
         # --include-all applies local migrations inserted before the remote's
         # latest version (e.g. 20260609110927 after prod already ran 2026060913*).

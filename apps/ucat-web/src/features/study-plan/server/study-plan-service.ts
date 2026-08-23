@@ -4,6 +4,8 @@ import { randomUUID } from "node:crypto";
 import type { Database, Json } from "@altitutor/shared";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { supabaseAdmin } from "@/lib/supabase/admin";
+import { collectPagedResult } from "@/lib/supabase/collect-pages";
+import { runWithConcurrency } from "@/lib/async/run-with-concurrency";
 import {
   CURRENT_PREPARATION_VERSIONS,
   parseRepresentativeScoreEvidence,
@@ -244,7 +246,7 @@ async function loadGenerationInputs(
   practiceSelectionData: NonNullable<PickStemsOptions["preloaded"]>;
 }> {
   const admin = requireAdmin();
-  const scoreEvidenceQuery =
+  const scoreEvidenceQuery = () =>
     options.includeScoreEvidence === false
       ? Promise.resolve({ data: [], error: null })
       : supabase
@@ -276,110 +278,145 @@ async function loadGenerationInputs(
     practiceInventoryRes,
     lastLearningTasksRes,
     practiceAttemptsRes,
-  ] = await Promise.all([
-    admin
-      .from("ucat_sections")
-      .select(
-        "id, name, section_number, number_of_questions, time_per_question",
-      )
-      .order("section_number"),
-    scoreEvidenceQuery,
-    supabase
-      .from("vstudent_ucat_section_set_progress")
-      .select("section_id, total_completed"),
-    admin
-      .from("ucat_student_study_plan_tasks")
-      .select("section_id")
-      .eq("student_id", studentId)
-      .eq("task_type", "section_benchmark")
-      .eq("status", "completed"),
-    admin.from("question_stem_categories").select("id, name, ucat_section_id"),
-    supabase
-      .from("vstudent_ucat_my_question_progress")
-      .select("category_id, correct_score, max_score"),
-    supabase
-      .from("vstudent_ucat_study_plan_readiness_evidence")
-      .select(
-        "section_id, category_id, readiness_scope, attempted_question_count, completed_practice_sessions, qualifying_practice_sessions, largest_practice_session_question_count, recent_accuracy, observed_pace",
-      ),
-    supabase
-      .from("vstudent_ucat_learning_modules")
-      .select(
-        "id, title, kind, ucat_section_id, study_plan_priority, estimated_minutes, completion_percent, parent_ucat_learning_module_id, index",
-      )
-      .neq("study_plan_priority", "excluded"),
-    admin
-      .from("ucat_learning_module_question_stem_categories")
-      .select("learning_module_id, question_stem_category_id"),
-    admin
-      .from("ucat_learning_module_question_tags")
-      .select("learning_module_id, question_tag_id"),
-    admin.from("question_tags").select("id, parent_question_tag_id"),
-    admin
-      .from("ucat_skill_trainers")
-      .select("id, key, name, ucat_section_id")
-      .eq("is_enabled", true),
-    admin
-      .from("ucat_skill_trainer_question_stem_categories")
-      .select("skill_trainer_id, question_stem_category_id"),
-    admin
-      .from("ucat_skill_trainer_items")
-      .select("skill_trainer_id")
-      .eq("is_active", true)
-      .eq("approval_status", "approved")
-      .is("deleted_at", null),
-    admin
-      .from("ucat_skill_trainer_config")
-      .select("skill_trainer_id, time_limit_seconds"),
-    admin
-      .from("student_ucat_mock_attempts")
-      .select("id", { count: "exact", head: true })
-      .eq("student_id", studentId)
-      .not("completed_at", "is", null),
-    supabase
-      .from("vstudent_ucat_preparation_section_states")
-      .select(
-        "section_id, learning_graduated_at, learning_graduation_route, policy_version, prescribed_pace, prescribed_pace_set_at, pace_policy_version",
-      )
-      .eq("test_year", testYear),
-    supabase
-      .from("vstudent_ucat_preparation_timing_evidence")
-      .select(
-        "evidence_session_id, source, section_id, completed_at, prescribed_pace, observed_pace, accuracy, section_equivalents, category_ids, breadth",
-      ),
-    supabase
-      .from("vstudent_ucat_question_sets")
-      .select(
-        "id, name, sections, speed, time_limit_at_exam_speed_seconds, is_available_in_sets_library",
-      )
-      .eq("is_available_in_sets_library", true),
-    supabase
-      .from("vstudent_ucat_my_set_attempts")
-      .select("question_set_id, completed_at, student_ucat_mock_attempt_id")
-      .not("completed_at", "is", null),
-    supabase.from("vstudent_ucat_mocks").select("id, name"),
-    supabase
-      .from("vstudent_ucat_my_mock_attempts")
-      .select("ucat_mock_id, completed_at")
-      .not("completed_at", "is", null),
-    supabase
-      .from("vstudent_ucat_practice_stem_index")
-      .select(
-        "id, section_id, question_stem_category_id, question_ids, question_tag_ids",
-      ),
-    admin
-      .from("ucat_student_study_plan_tasks")
-      .select("section_id, scheduled_date, started_at, completed_at")
-      .eq("student_id", studentId)
-      .eq("task_type", "learn")
-      .in("status", ["in_progress", "completed"])
-      .not("section_id", "is", null),
-    supabase
-      .from("vstudent_ucat_my_question_attempts")
-      .select(
-        "id, question_id, score, is_submitted, student_practice_session_id, student_question_set_attempt_id",
-      ),
-  ]);
+  ] = await runWithConcurrency(
+    [
+      () =>
+        admin
+          .from("ucat_sections")
+          .select(
+            "id, name, section_number, number_of_questions, time_per_question",
+          )
+          .order("section_number"),
+      scoreEvidenceQuery,
+      () =>
+        supabase
+          .from("vstudent_ucat_section_set_progress")
+          .select("section_id, total_completed"),
+      () =>
+        admin
+          .from("ucat_student_study_plan_tasks")
+          .select("section_id")
+          .eq("student_id", studentId)
+          .eq("task_type", "section_benchmark")
+          .eq("status", "completed"),
+      () =>
+        admin
+          .from("question_stem_categories")
+          .select("id, name, ucat_section_id"),
+      () =>
+        supabase
+          .from("vstudent_ucat_my_question_progress")
+          .select("category_id, correct_score, max_score"),
+      () =>
+        supabase
+          .from("vstudent_ucat_study_plan_readiness_evidence")
+          .select(
+            "section_id, category_id, readiness_scope, attempted_question_count, completed_practice_sessions, qualifying_practice_sessions, largest_practice_session_question_count, recent_accuracy, observed_pace",
+          ),
+      () =>
+        supabase
+          .from("vstudent_ucat_learning_modules")
+          .select(
+            "id, title, kind, ucat_section_id, study_plan_priority, estimated_minutes, completion_percent, parent_ucat_learning_module_id, index",
+          )
+          .neq("study_plan_priority", "excluded"),
+      () =>
+        admin
+          .from("ucat_learning_module_question_stem_categories")
+          .select("learning_module_id, question_stem_category_id"),
+      () =>
+        admin
+          .from("ucat_learning_module_question_tags")
+          .select("learning_module_id, question_tag_id"),
+      () => admin.from("question_tags").select("id, parent_question_tag_id"),
+      () =>
+        admin
+          .from("ucat_skill_trainers")
+          .select("id, key, name, ucat_section_id")
+          .eq("is_enabled", true),
+      () =>
+        admin
+          .from("ucat_skill_trainer_question_stem_categories")
+          .select("skill_trainer_id, question_stem_category_id"),
+      () =>
+        admin
+          .from("ucat_skill_trainer_items")
+          .select("skill_trainer_id")
+          .eq("is_active", true)
+          .eq("approval_status", "approved")
+          .is("deleted_at", null),
+      () =>
+        admin
+          .from("ucat_skill_trainer_config")
+          .select("skill_trainer_id, time_limit_seconds"),
+      () =>
+        admin
+          .from("student_ucat_mock_attempts")
+          .select("id", { count: "exact", head: true })
+          .eq("student_id", studentId)
+          .not("completed_at", "is", null),
+      () =>
+        supabase
+          .from("vstudent_ucat_preparation_section_states")
+          .select(
+            "section_id, learning_graduated_at, learning_graduation_route, policy_version, prescribed_pace, prescribed_pace_set_at, pace_policy_version",
+          )
+          .eq("test_year", testYear),
+      () =>
+        supabase
+          .from("vstudent_ucat_preparation_timing_evidence")
+          .select(
+            "evidence_session_id, source, section_id, completed_at, prescribed_pace, observed_pace, accuracy, section_equivalents, category_ids, breadth",
+          ),
+      () =>
+        supabase
+          .from("vstudent_ucat_question_sets")
+          .select(
+            "id, name, sections, speed, time_limit_at_exam_speed_seconds, is_available_in_sets_library",
+          )
+          .eq("is_available_in_sets_library", true),
+      () =>
+        supabase
+          .from("vstudent_ucat_my_set_attempts")
+          .select("question_set_id, completed_at, student_ucat_mock_attempt_id")
+          .not("completed_at", "is", null),
+      () => supabase.from("vstudent_ucat_mocks").select("id, name"),
+      () =>
+        supabase
+          .from("vstudent_ucat_my_mock_attempts")
+          .select("ucat_mock_id, completed_at")
+          .not("completed_at", "is", null),
+      () =>
+        collectPagedResult((from, to) =>
+          supabase
+            .from("vstudent_ucat_practice_stem_index")
+            .select(
+              "id, section_id, question_stem_category_id, question_ids, question_tag_ids",
+            )
+            .order("id")
+            .range(from, to),
+        ),
+      () =>
+        admin
+          .from("ucat_student_study_plan_tasks")
+          .select("section_id, scheduled_date, started_at, completed_at")
+          .eq("student_id", studentId)
+          .eq("task_type", "learn")
+          .in("status", ["in_progress", "completed"])
+          .not("section_id", "is", null),
+      () =>
+        collectPagedResult((from, to) =>
+          supabase
+            .from("vstudent_ucat_my_question_attempts")
+            .select(
+              "id, question_id, score, is_submitted, student_practice_session_id, student_question_set_attempt_id",
+            )
+            .order("id")
+            .range(from, to),
+        ),
+    ],
+    6,
+  );
   for (const [source, result] of [
     ["sections", sectionsRes],
     ["score evidence", evidenceRes],
@@ -1252,9 +1289,7 @@ async function loadForecastEvidence(
       .from("ucat_student_study_plan_generations")
       .select("id, generated_at, superseded_at, projection_snapshot")
       .eq("student_id", studentId)
-      .or(
-        `generated_at.gte.${generationHistoryStart},superseded_at.is.null`,
-      )
+      .or(`generated_at.gte.${generationHistoryStart},superseded_at.is.null`)
       .order("generated_at", { ascending: false }),
     loadPreparationSnapshotHistory(supabase),
   ]);

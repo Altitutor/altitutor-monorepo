@@ -93,6 +93,7 @@ export function StudentStripeSyncModal({
 
   return (
     <AdminDialogShell
+        fillHeight
       open={isOpen}
       onClose={() => onClose(false)}
       title={student ? `Sync Stripe Customer: ${student.name}` : 'Sync Stripe Customer'}

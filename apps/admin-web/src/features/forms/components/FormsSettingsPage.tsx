@@ -530,6 +530,7 @@ export function FormsSettingsPage() {
       />
 
       <AdminDialogShell
+        fillHeight
         open={!!editingId}
         onClose={closeDialog}
         title={isCreating ? 'New form' : (selected?.name ?? 'Edit form')}

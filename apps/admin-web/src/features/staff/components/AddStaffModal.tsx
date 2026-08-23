@@ -3,22 +3,16 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
+  Button,
+  Input,
+  Label,
+  SearchableSelect,
+  Checkbox,
+  PhoneInput,
+  useToast,
+  Badge,
 } from '@altitutor/ui';
-import { Button } from '@altitutor/ui';
-import { Input } from '@altitutor/ui';
-import { Label } from '@altitutor/ui';
-import { SearchableSelect } from '@altitutor/ui';
-import { Checkbox } from '@altitutor/ui';
-import { PhoneInput } from '@altitutor/ui';
-import { useToast } from '@altitutor/ui';
 import { SubjectSearchPopover } from '@/features/subjects/components/SubjectSearchPopover';
-import { Badge } from '@altitutor/ui';
 import { useCreateStaff } from '../hooks/useStaffQuery';
 import { useAssignSubjectToStaff } from '../hooks/useStaffQuery';
 // Use string literals for role/status
@@ -26,12 +20,7 @@ import { useForm, Controller, SubmitHandler, type FieldValues, type Resolver } f
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { Loader2, AlertTriangle, Plus, X } from 'lucide-react';
-import {
-  ExpandButton,
-  EXPANDABLE_DIALOG_TRANSITION,
-  EXPANDED_DIALOG_CONTENT_CLASS,
-} from '@/shared/components/expandable-dialog';
-import { cn } from '@/shared/utils';
+import { AdminDialogShell } from '@/shared/components/dialog-shell';
 import type { Tables, TablesInsert } from '@altitutor/shared';
 import { showEntityCreatedToast } from '@/shared/utils';
 
@@ -100,13 +89,8 @@ export function AddStaffModal({ isOpen, onClose, onStaffAdded, initialPhone }: A
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [selectedSubjects, setSelectedSubjects] = useState<Tables<'subjects'>[]>([]);
-  const [expanded, setExpanded] = useState(false);
 
-  useEffect(() => {
-    if (!isOpen) setExpanded(false);
-  }, [isOpen]);
-
-  const { 
+  const {
     control, 
     register, 
     handleSubmit, 
@@ -266,26 +250,39 @@ export function AddStaffModal({ isOpen, onClose, onStaffAdded, initialPhone }: A
   }, [initialPhone, isOpen, setValue]);
 
   return (
-    <Dialog open={isOpen} onOpenChange={handleCloseModal}>
-      <DialogContent
-        className={cn(
-          'w-full md:max-w-2xl max-h-[90vh] overflow-y-auto',
-          EXPANDABLE_DIALOG_TRANSITION,
-          expanded && EXPANDED_DIALOG_CONTENT_CLASS
-        )}
-      >
-        <DialogHeader>
-          <div className="flex items-start justify-between gap-4">
-            <div className="flex-1 min-w-0">
-              <DialogTitle>Add New Staff Member</DialogTitle>
-              <DialogDescription>
-                Enter the staff member's information below to add them to the system.
-              </DialogDescription>
-            </div>
-            <ExpandButton expanded={expanded} onToggle={() => setExpanded((e) => !e)} />
-          </div>
-        </DialogHeader>
-        
+    <AdminDialogShell
+      fillHeight
+      open={isOpen}
+      onClose={handleCloseModal}
+      title="Add New Staff Member"
+      subtitle="Enter the staff member's information below to add them to the system."
+      footer={
+        <>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={handleCloseModal}
+            disabled={isSubmitting}
+          >
+            Cancel
+          </Button>
+          <Button
+            type="submit"
+            form="add-staff-form"
+            disabled={isSubmitting}
+          >
+            {isSubmitting ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Adding...
+              </>
+            ) : (
+              'Add Staff Member'
+            )}
+          </Button>
+        </>
+      }
+    >
         {errorMessage && (
           <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-md flex items-start gap-2">
             <AlertTriangle className="h-5 w-5 text-red-500 mt-0.5" />
@@ -293,7 +290,7 @@ export function AddStaffModal({ isOpen, onClose, onStaffAdded, initialPhone }: A
           </div>
         )}
         
-        <form onSubmit={handleSubmit(onSubmit as SubmitHandler<FieldValues>)} className="space-y-4">
+        <form id="add-staff-form" onSubmit={handleSubmit(onSubmit as SubmitHandler<FieldValues>)} className="space-y-4">
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="firstName">First Name</Label>
@@ -726,32 +723,7 @@ export function AddStaffModal({ isOpen, onClose, onStaffAdded, initialPhone }: A
               </div>
             </div>
           </div>
-          
-          <DialogFooter>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={handleCloseModal}
-              disabled={isSubmitting}
-            >
-              Cancel
-            </Button>
-            <Button 
-              type="submit" 
-              disabled={isSubmitting}
-            >
-              {isSubmitting ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Adding...
-                </>
-              ) : (
-                'Add Staff Member'
-              )}
-            </Button>
-          </DialogFooter>
         </form>
-      </DialogContent>
-    </Dialog>
+    </AdminDialogShell>
   );
-} 
+}

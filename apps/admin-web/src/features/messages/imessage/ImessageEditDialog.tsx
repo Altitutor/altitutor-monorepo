@@ -121,6 +121,7 @@ export function ImessageEditDialog({
 
   return (
     <AdminDialogShell
+        fillHeight
       open={open}
       onClose={onClose}
       title="Edit iMessage"

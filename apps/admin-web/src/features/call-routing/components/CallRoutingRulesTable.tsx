@@ -289,6 +289,7 @@ export function CallRoutingRulesTable({ rules, ownedNumbers, onUpdate }: CallRou
       />
 
       <AdminDialogShell
+        fillHeight
         open={!!editingRule}
         onClose={() => setEditingRule(null)}
         title="Edit Call Routing Rule"
@@ -428,6 +429,7 @@ export function CallRoutingRulesTable({ rules, ownedNumbers, onUpdate }: CallRou
       </AdminDialogShell>
 
       <AdminDialogShell
+        fillHeight
         open={isAddDialogOpen}
         onClose={() => setIsAddDialogOpen(false)}
         title="Add Call Routing Rule"

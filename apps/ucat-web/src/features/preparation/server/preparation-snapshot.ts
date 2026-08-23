@@ -6,6 +6,11 @@ import { supabaseAdmin } from "@/lib/supabase/admin";
 import type { PreparationForecastHistorySnapshot } from "@/features/preparation/lib/forecast-evidence";
 import type { PreparationEngineResult } from "@/features/preparation/model/types";
 
+export type PreparationProjectionSnapshot = Pick<
+  PreparationEngineResult,
+  "generatedAt" | "versions" | "currentScore" | "trajectory"
+>;
+
 function requireAdmin() {
   if (!supabaseAdmin) throw new Error("Supabase admin client is unavailable.");
   return supabaseAdmin;
@@ -53,10 +58,10 @@ export async function loadPreparationSnapshotHistory(
 export async function loadLatestPreparationSnapshot(
   supabase: SupabaseClient<Database>,
   versions: PreparationEngineResult["versions"],
-): Promise<unknown | null> {
+): Promise<PreparationProjectionSnapshot | null> {
   const { data, error } = await supabase
     .from("vstudent_ucat_preparation_snapshots")
-    .select("snapshot")
+    .select("generated_at, snapshot")
     .eq("engine_version", versions.engine)
     .eq("policy_version", versions.policy)
     .eq("score_model_version", versions.scoreModel)
@@ -65,7 +70,22 @@ export async function loadLatestPreparationSnapshot(
     .limit(1)
     .maybeSingle();
   if (error) throw error;
-  return data?.snapshot ?? null;
+  if (!data?.generated_at || !data.snapshot) return null;
+  const snapshot = data.snapshot as unknown as Omit<
+    PreparationProjectionSnapshot,
+    "generatedAt"
+  >;
+  return { ...snapshot, generatedAt: data.generated_at };
+}
+
+export async function loadPreparationEvidenceWatermark(
+  supabase: SupabaseClient<Database>,
+): Promise<string | null> {
+  const { data, error } = await supabase.rpc(
+    "get_student_ucat_preparation_evidence_watermark",
+  );
+  if (error) throw error;
+  return data;
 }
 
 export async function persistPreparationSnapshot(

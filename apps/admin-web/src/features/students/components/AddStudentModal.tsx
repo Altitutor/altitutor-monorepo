@@ -302,6 +302,7 @@ export function AddStudentModal({ isOpen, onClose, onStudentAdded, initialPhone 
 
   return (
     <AdminDialogShell
+        fillHeight
       open={isOpen}
       onClose={handleCloseModal}
       title="Add New Student"

@@ -1,7 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@altitutor/ui';
+import { useState } from 'react';
 import { Button } from '@altitutor/ui';
 import { Input } from '@altitutor/ui';
 import { Label } from '@altitutor/ui';
@@ -9,12 +8,7 @@ import { SearchableSelect } from '@altitutor/ui';
 import { SmartDatePickerField } from '@altitutor/ui';
 import { useCreateAdminShift } from '../hooks/useAdminShiftsQuery';
 import { useCurrentStaff } from '@/shared/hooks';
-import {
-  ExpandButton,
-  EXPANDABLE_DIALOG_TRANSITION,
-  EXPANDED_DIALOG_CONTENT_CLASS,
-} from '@/shared/components/expandable-dialog';
-import { cn } from '@/shared/utils';
+import { AdminDialogShell } from '@/shared/components';
 import type { TablesInsert } from '@altitutor/shared';
 
 const DAY_OPTIONS = [
@@ -38,11 +32,6 @@ export function AddAdminShiftModal({ isOpen, onClose, onAdminShiftAdded }: AddAd
   const { data: currentStaff } = useCurrentStaff();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [expanded, setExpanded] = useState(false);
-
-  useEffect(() => {
-    if (!isOpen) setExpanded(false);
-  }, [isOpen]);
 
   // Form state
   const [dayOfWeek, setDayOfWeek] = useState<string>('');
@@ -142,27 +131,24 @@ export function AddAdminShiftModal({ isOpen, onClose, onAdminShiftAdded }: AddAd
   };
   
   return (
-    <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent
-        className={cn(
-          'sm:max-w-[550px]',
-          EXPANDABLE_DIALOG_TRANSITION,
-          expanded && EXPANDED_DIALOG_CONTENT_CLASS
-        )}
-      >
-        <DialogHeader>
-          <div className="flex items-start justify-between gap-4">
-            <div className="flex-1 min-w-0">
-              <DialogTitle>Add New Admin Shift</DialogTitle>
-              <DialogDescription>
-                Create a new recurring admin staff shift. Sessions will be automatically created for this shift.
-              </DialogDescription>
-            </div>
-            <ExpandButton expanded={expanded} onToggle={() => setExpanded((e) => !e)} />
-          </div>
-        </DialogHeader>
-        
-        <form onSubmit={handleSubmit} className="space-y-4 mt-4">
+    <AdminDialogShell
+      open={isOpen}
+      onClose={onClose}
+      title="Add New Admin Shift"
+      subtitle="Create a new recurring admin staff shift. Sessions will be automatically created for this shift."
+      contentClassName="sm:max-w-[550px]"
+      footer={
+        <>
+          <Button type="button" variant="outline" onClick={onClose} disabled={loading}>
+            Cancel
+          </Button>
+          <Button type="submit" form="add-admin-shift-form" disabled={loading}>
+            {loading ? 'Creating...' : 'Create Admin Shift'}
+          </Button>
+        </>
+      }
+    >
+        <form id="add-admin-shift-form" onSubmit={handleSubmit} className="space-y-4">
           {error && (
             <div className="p-3 rounded-md bg-red-50 text-red-800 text-sm">
               {error}
@@ -234,17 +220,7 @@ export function AddAdminShiftModal({ isOpen, onClose, onAdminShiftAdded }: AddAd
               </p>
             </div>
           </div>
-          
-          <div className="flex justify-end space-x-2 pt-4">
-            <Button type="button" variant="outline" onClick={onClose} disabled={loading}>
-              Cancel
-            </Button>
-            <Button type="submit" disabled={loading}>
-              {loading ? 'Creating...' : 'Create Admin Shift'}
-            </Button>
-          </div>
         </form>
-      </DialogContent>
-    </Dialog>
+    </AdminDialogShell>
   );
 }

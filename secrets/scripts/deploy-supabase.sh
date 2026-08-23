@@ -44,18 +44,18 @@ deploy_supabase_secret() {
     
     # Set secret using Supabase CLI
     # Create a temporary file to avoid issues with special characters in pipes
-    local temp_file=$(mktemp)
+    local temp_file
+    temp_file=$(mktemp)
     echo "$secret_name=$secret_value" > "$temp_file"
     
     # Change to project root directory (where supabase config might be)
     # Get the monorepo root (go up from secrets/scripts to project root)
-    local project_root="$(dirname "$(dirname "$SECRETS_DIR")")"
+    local project_root
+    project_root=$(dirname "$SECRETS_DIR")
     
     # Capture error output for debugging
-    local error_output=$(cd "$project_root" && supabase secrets set --project-ref "$project_ref" --env-file "$temp_file" 2>&1)
-    local exit_code=$?
-    
-    if [ $exit_code -eq 0 ]; then
+    local error_output
+    if error_output=$(cd "$project_root" && supabase secrets set --project-ref "$project_ref" --env-file "$temp_file" 2>&1); then
         echo -e "${GREEN}  ✓ Supabase Edge Functions ($environment): $secret_name${NC}"
         SUCCESS_COUNT=$((SUCCESS_COUNT + 1))
     else
@@ -68,6 +68,24 @@ deploy_supabase_secret() {
     fi
     
     rm -f "$temp_file"
+}
+
+# Deploy an environment-file entry when it is consumed by an Edge Function.
+# Local source names may differ from the runtime name to keep destinations clear.
+deploy_edge_function_env_entry() {
+    local key=$1
+    local value=$2
+    local project_ref=$3
+    local environment=$4
+
+    case "$key" in
+        SUPABASE_SENTRY_DSN)
+            deploy_supabase_secret "SENTRY_DSN" "$value" "$project_ref" "$environment"
+            ;;
+        TWILIO_*|IMESSAGE_*|CONNECTOR_SECRET|PRINT_CONNECTOR_SECRET|STRIPE_SECRET_KEY|STRIPE_WEBHOOK_SECRET|RESEND_API_KEY)
+            deploy_supabase_secret "$key" "$value" "$project_ref" "$environment"
+            ;;
+    esac
 }
 
 # ============================================================
@@ -104,15 +122,11 @@ else
     secret_count=0
     while IFS='=' read -r key value || [ -n "$key" ]; do
         secret_count=$((secret_count + 1))
-        # Only deploy secrets actually used by edge functions
-        # Used: TWILIO_*, IMESSAGE_*, CONNECTOR_SECRET, PRINT_CONNECTOR_SECRET,
-        # STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET, RESEND_API_KEY
-        # Auto-provided by Supabase: SUPABASE_URL, SUPABASE_ANON_KEY, SUPABASE_SERVICE_ROLE_KEY
-        # Skip: NEXT_PUBLIC_*, SUPABASE_PROJECT_ID, SUPABASE_DB_PASSWORD, SUPABASE_ACCESS_TOKEN
-        if [[ "$key" =~ ^TWILIO_ ]] || [[ "$key" =~ ^IMESSAGE_ ]] || [[ "$key" == "CONNECTOR_SECRET" ]] || [[ "$key" == "PRINT_CONNECTOR_SECRET" ]] || [[ "$key" == "STRIPE_SECRET_KEY" ]] || [[ "$key" == "STRIPE_WEBHOOK_SECRET" ]] || [[ "$key" == "RESEND_API_KEY" ]]; then
-            deploy_supabase_secret "$key" "$value" "$DEV_PROJECT_REF" "development"
-        fi
+        deploy_edge_function_env_entry "$key" "$value" "$DEV_PROJECT_REF" "development"
     done < "$temp_input"
+
+    # Environment is configuration derived from the target, not a stored secret.
+    deploy_supabase_secret "SENTRY_ENVIRONMENT" "development" "$DEV_PROJECT_REF" "development"
     
     rm -f "$temp_input"
     # Debug: show how many secrets were processed
@@ -152,15 +166,11 @@ else
     
     # Read from temp file to avoid subshell issues
     while IFS='=' read -r key value; do
-        # Only deploy secrets actually used by edge functions
-        # Used: TWILIO_*, IMESSAGE_*, CONNECTOR_SECRET, PRINT_CONNECTOR_SECRET,
-        # STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET, RESEND_API_KEY
-        # Auto-provided by Supabase: SUPABASE_URL, SUPABASE_ANON_KEY, SUPABASE_SERVICE_ROLE_KEY
-        # Skip: NEXT_PUBLIC_*, SUPABASE_PROJECT_ID, SUPABASE_DB_PASSWORD, SUPABASE_ACCESS_TOKEN
-        if [[ "$key" =~ ^TWILIO_ ]] || [[ "$key" =~ ^IMESSAGE_ ]] || [[ "$key" == "CONNECTOR_SECRET" ]] || [[ "$key" == "PRINT_CONNECTOR_SECRET" ]] || [[ "$key" == "STRIPE_SECRET_KEY" ]] || [[ "$key" == "STRIPE_WEBHOOK_SECRET" ]] || [[ "$key" == "RESEND_API_KEY" ]]; then
-            deploy_supabase_secret "$key" "$value" "$PROD_PROJECT_REF" "production"
-        fi
+        deploy_edge_function_env_entry "$key" "$value" "$PROD_PROJECT_REF" "production"
     done < "$temp_input"
+
+    # Environment is configuration derived from the target, not a stored secret.
+    deploy_supabase_secret "SENTRY_ENVIRONMENT" "production" "$PROD_PROJECT_REF" "production"
     
     rm -f "$temp_input"
 fi
@@ -171,8 +181,6 @@ echo ""
 print_summary
 
 exit $?
-
-
 
 
 

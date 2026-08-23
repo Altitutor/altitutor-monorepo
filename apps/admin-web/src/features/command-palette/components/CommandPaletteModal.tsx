@@ -1,8 +1,9 @@
 'use client';
 
 import { useEffect, useRef, useState, type TouchEvent } from 'react';
-import { Dialog, DialogContent, DialogPortal, DialogTitle, useMediaQuery } from '@altitutor/ui';
+import { useMediaQuery } from '@altitutor/ui';
 import { cn } from '@/shared/utils';
+import { AdminDialogShell } from '@/shared/components';
 import { CommandPalette } from './CommandPalette';
 import { useEntityModals } from '@/shared/contexts/EntityModalContext';
 
@@ -99,21 +100,21 @@ export function CommandPaletteModal({ isOpen, onClose }: CommandPaletteModalProp
       </div>
 
       {isDesktop ? (
-        <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-          <DialogPortal>
-            <DialogContent
-              className={cn(
-                'z-[101] flex w-full max-w-[calc(100vw-2rem)] flex-col gap-0 overflow-hidden border rounded-lg bg-popover p-0 shadow-xl md:max-w-4xl md:h-[min(800px,calc(100dvh-2rem))] md:min-h-[min(800px,calc(100dvh-2rem))] md:max-h-[min(800px,calc(100dvh-2rem))] [&>button]:hidden',
-              )}
-              onOpenAutoFocus={(event) => event.preventDefault()}
-            >
-              <DialogTitle className="sr-only">Command palette</DialogTitle>
-              <CommandPalette isOpen={isOpen} onClose={onClose} onEntitySelected={handleEntitySelected} />
-            </DialogContent>
-          </DialogPortal>
-        </Dialog>
+        <AdminDialogShell
+          open={isOpen}
+          onClose={onClose}
+          title="Command palette"
+          fillHeight
+          hideHeader
+          contentClassName="z-[101] border bg-popover shadow-xl md:max-w-4xl"
+          bodyClassName="min-h-0 flex-1 overflow-hidden p-0"
+          dialogContentProps={{
+            onOpenAutoFocus: (event) => event.preventDefault(),
+          }}
+        >
+          <CommandPalette isOpen={isOpen} onClose={onClose} onEntitySelected={handleEntitySelected} />
+        </AdminDialogShell>
       ) : null}
-
     </>
   );
 }

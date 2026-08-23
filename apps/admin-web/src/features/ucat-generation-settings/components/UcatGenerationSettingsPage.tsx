@@ -240,6 +240,7 @@ function GeneralSettingsDialog({
 
   return (
     <AdminDialogShell
+        fillHeight
       open={open}
       onClose={() => onOpenChange(false)}
       title="Budgets and run limits"
@@ -504,6 +505,7 @@ function ProviderDialog({
 
   return (
     <AdminDialogShell
+        fillHeight
       open={!!provider}
       onClose={() => onOpenChange(false)}
       title={provider?.name ?? 'Edit provider'}
@@ -606,6 +608,7 @@ function CreateProviderDialog({
 
   return (
     <AdminDialogShell
+        fillHeight
       open={open}
       onClose={() => onOpenChange(false)}
       title="Add chat completions provider"
@@ -729,6 +732,7 @@ function CodexOAuthProviderDialog({
 
   return (
     <AdminDialogShell
+        fillHeight
       open={open}
       onClose={() => onOpenChange(false)}
       title="Log in to ChatGPT"
@@ -946,6 +950,7 @@ function ModelProfileDialog({
 
   return (
     <AdminDialogShell
+        fillHeight
       open={open}
       onClose={() => onOpenChange(false)}
       title={profile ? `Edit ${profile.name}` : 'Add model profile'}
@@ -1289,6 +1294,7 @@ function SystemPromptDialog({
 
   return (
     <AdminDialogShell
+        fillHeight
       open={!!row}
       onClose={() => onOpenChange(false)}
       title={row?.label ?? 'Edit system prompt'}
@@ -1568,6 +1574,7 @@ function PromptLayerDialog({
 
   return (
     <AdminDialogShell
+        fillHeight
       open={open}
       onClose={() => onOpenChange(false)}
       title={layer ? 'Edit prompt layer' : 'Add prompt layer'}

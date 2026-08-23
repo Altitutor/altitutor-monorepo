@@ -4,17 +4,13 @@ import { useEffect, useState } from 'react';
 import { AlertTriangle, Loader2, Plus, Trash2 } from 'lucide-react';
 import {
   Button,
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
   Input,
   Label,
   SearchableSelect,
   SmartDatePickerField,
 } from '@altitutor/ui';
 import type { Tables } from '@altitutor/shared';
+import { AdminDialogShell } from '@/shared/components';
 import {
   useApplyClassSchedule,
   useClassSchedule,
@@ -149,21 +145,37 @@ export function EditClassScheduleDialog({
   const busy = previewMutation.isPending || applyMutation.isPending;
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[820px]">
-        <DialogHeader>
-          <DialogTitle>Edit repeating timetable</DialogTitle>
-          <DialogDescription>
-            Changes apply from the chosen date. Historical and protected Sessions stay unchanged.
-          </DialogDescription>
-        </DialogHeader>
+    <AdminDialogShell
+      fillHeight
+      open={open}
+      onClose={() => onOpenChange(false)}
+      title="Edit repeating timetable"
+      subtitle="Changes apply from the chosen date. Historical and protected Sessions stay unchanged."
+      contentClassName="md:max-w-[820px]"
+      footer={
+        <div className="flex w-full justify-end gap-2">
+          {plan && <Button type="button" variant="outline" disabled={busy} onClick={() => setPlan(null)}>Back</Button>}
+          <Button type="button" variant="outline" disabled={busy} onClick={() => onOpenChange(false)}>Cancel</Button>
+          {plan ? (
+            <Button type="button" disabled={busy} onClick={apply}>
+              {applyMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Apply timetable
+            </Button>
+          ) : (
+            <Button type="button" disabled={busy || rows.length === 0} onClick={preview}>
+              {previewMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Preview changes
+            </Button>
+          )}
+        </div>
+      }
+    >
+      {error && <div className="mb-4 rounded-md bg-destructive/10 p-3 text-sm text-destructive">{error}</div>}
 
-        {error && <div className="rounded-md bg-destructive/10 p-3 text-sm text-destructive">{error}</div>}
-
-        {isLoading ? (
-          <div className="flex justify-center p-10"><Loader2 className="h-5 w-5 animate-spin" /></div>
-        ) : !plan ? (
-          <div className="max-h-[62vh] space-y-5 overflow-y-auto">
+      {isLoading ? (
+        <div className="flex justify-center p-10"><Loader2 className="h-5 w-5 animate-spin" /></div>
+      ) : !plan ? (
+        <div className="space-y-5">
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
               <div className="space-y-2">
                 <Label>Effective from</Label>
@@ -254,13 +266,6 @@ export function EditClassScheduleDialog({
             </div>
           </div>
         )}
-
-        <div className="flex justify-end gap-2 border-t pt-4">
-          {plan && <Button type="button" variant="outline" disabled={busy} onClick={() => setPlan(null)}>Back</Button>}
-          <Button type="button" variant="outline" disabled={busy} onClick={() => onOpenChange(false)}>Cancel</Button>
-          {plan ? <Button type="button" disabled={busy} onClick={apply}>{applyMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}Apply timetable</Button> : <Button type="button" disabled={busy || rows.length === 0} onClick={preview}>{previewMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}Preview changes</Button>}
-        </div>
-      </DialogContent>
-    </Dialog>
+    </AdminDialogShell>
   );
 }

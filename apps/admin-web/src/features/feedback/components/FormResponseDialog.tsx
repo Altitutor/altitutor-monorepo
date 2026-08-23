@@ -129,6 +129,7 @@ export function FormResponseDialog({
   return (
     <>
       <AdminDialogShell
+        fillHeight
         open={!!response}
         onClose={onClose}
         title={response?.forms?.name ?? 'Form response'}

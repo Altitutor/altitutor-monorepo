@@ -187,13 +187,10 @@ export async function middleware(req: NextRequest) {
 
     const userId = claimsData?.claims?.sub;
 
-    const isProtected = pathname !== '/';
-    if (!userId && isProtected) {
+    if (!userId) {
       const redirectResponse = NextResponse.redirect(new URL('/login', origin));
       return applyResponseMetadata(redirectResponse, cookiesToSet);
     }
-
-    if (!userId) return applyResponseMetadata(supabaseResponse, cookiesToSet);
 
     let adminResult: Awaited<ReturnType<typeof supabase.rpc<'is_adminstaff_active'>>>;
     try {

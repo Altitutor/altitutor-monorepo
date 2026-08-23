@@ -133,7 +133,7 @@ should_deploy_github_environment_secret() {
     local key=$1
 
     # Vercel runtime-only secrets do not need to live in GitHub Actions.
-    if [[ "$key" == "OPENROUTER_API_KEY" ]]; then
+    if [[ "$key" == "OPENROUTER_API_KEY" ]] || [[ "$key" == "SUPABASE_SENTRY_DSN" ]]; then
         return 1
     fi
 
@@ -250,4 +250,3 @@ fi
 print_summary
 
 exit $?
-

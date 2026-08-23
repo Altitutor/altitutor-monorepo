@@ -1,18 +1,8 @@
 'use client';
 
 import { useCallback, useEffect, useState, type JSX } from 'react';
-import {
-  Button,
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  Input,
-  Label,
-  useToast,
-} from '@altitutor/ui';
+import { Button, Input, Label, useToast } from '@altitutor/ui';
+import { AdminDialogShell } from '@/shared/components';
 import {
   enqueuePrintJob,
   isPrintConnectorOnline,
@@ -102,50 +92,53 @@ export function OfficePrintConfirmDialog({
   }, [copies, fileId, filename, onOpenChange, online, submitting, toast]);
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
-        <DialogHeader>
-          <DialogTitle>Print to office</DialogTitle>
-          <DialogDescription>
-            Sends <span className="font-medium text-foreground">{filename}</span> to
-            the FUJ office printer.
-          </DialogDescription>
-        </DialogHeader>
-        <div className="space-y-4 py-2">
-          <div className="space-y-2">
-            <Label htmlFor="office-print-copies">Copies</Label>
-            <Input
-              id="office-print-copies"
-              type="number"
-              min={1}
-              max={20}
-              value={copies}
-              onChange={(event) => {
-                const next = Number(event.target.value);
-                if (!Number.isFinite(next)) return;
-                setCopies(Math.min(20, Math.max(1, Math.trunc(next))));
-              }}
-            />
-          </div>
-          <p className="text-sm text-muted-foreground">
-            Fixed finishing: black &amp; white, A4, double-sided (long edge), one
-            staple top-left.
-          </p>
-          {online === false ? (
-            <p className="text-sm text-destructive">
-              Office printer offline — printing isn’t available right now.
-            </p>
-          ) : null}
-        </div>
-        <DialogFooter>
+    <AdminDialogShell
+      open={open}
+      onClose={() => onOpenChange(false)}
+      title="Print to office"
+      subtitle={
+        <>
+          Sends <span className="font-medium text-foreground">{filename}</span> to the FUJ office
+          printer.
+        </>
+      }
+      contentClassName="md:max-w-md"
+      footer={
+        <>
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={submitting}>
             Cancel
           </Button>
           <Button onClick={() => void handleConfirm()} disabled={submitting || online === false || !fileId}>
             {submitting ? 'Sending…' : 'Print to office'}
           </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+        </>
+      }
+    >
+      <div className="space-y-4">
+        <div className="space-y-2">
+          <Label htmlFor="office-print-copies">Copies</Label>
+          <Input
+            id="office-print-copies"
+            type="number"
+            min={1}
+            max={20}
+            value={copies}
+            onChange={(event) => {
+              const next = Number(event.target.value);
+              if (!Number.isFinite(next)) return;
+              setCopies(Math.min(20, Math.max(1, Math.trunc(next))));
+            }}
+          />
+        </div>
+        <p className="text-sm text-muted-foreground">
+          Fixed finishing: black &amp; white, A4, double-sided (long edge), one staple top-left.
+        </p>
+        {online === false ? (
+          <p className="text-sm text-destructive">
+            Office printer offline — printing isn’t available right now.
+          </p>
+        ) : null}
+      </div>
+    </AdminDialogShell>
   );
 }

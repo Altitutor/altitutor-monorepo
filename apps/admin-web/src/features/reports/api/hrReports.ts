@@ -159,7 +159,11 @@ export async function fetchCommunicationsStatsReportData(
     const sessionLink = { kind: 'session' as const, sessionId: checkIn.session.id };
     const sessionName = checkIn.session.long_name ?? 'Check-in session';
 
-    if (receivingStaff.length > 0) {
+    const hasStudentOrParentParticipants =
+      (checkIn.studentAttendance ?? []).length > 0 ||
+      (checkIn.parentAttendance ?? []).length > 0;
+
+    if (receivingStaff.length > 0 && !hasStudentOrParentParticipants) {
       const point = staffCheckInsByDay[index];
       point.count += 1;
       point.entities.push({
@@ -197,15 +201,15 @@ export async function fetchCommunicationsStatsReportData(
   }
 
   const completions = (formsResult.data ?? []) as unknown as FormCompletionRow[];
-  const completionTypes = new Map<string, ReportDataPoint[]>();
+  const formCompletionsByDay = emptySeries(days);
+  const completionTypeCounts = new Map<string, number>();
   for (const completion of completions) {
     const type = completion.form?.purpose || 'other';
-    const series = completionTypes.get(type) ?? emptySeries(days);
-    completionTypes.set(type, series);
     const index = indexByDate.get(dateKey(completion.submitted_at));
     if (index === undefined) continue;
+    completionTypeCounts.set(type, (completionTypeCounts.get(type) ?? 0) + 1);
     const formName = completion.form?.name ?? 'Unknown form';
-    const point = series[index];
+    const point = formCompletionsByDay[index];
     point.count += 1;
     point.entities.push({
       id: completion.id,
@@ -226,8 +230,9 @@ export async function fetchCommunicationsStatsReportData(
     staffCheckInsByDay,
     studentCheckInsByDay,
     parentCheckInsByDay,
-    formCompletionsByType: [...completionTypes.entries()]
-      .map(([type, data]) => ({ type, label: formatTypeLabel(type), data }))
+    formCompletionsByDay,
+    formCompletionTotalsByType: [...completionTypeCounts.entries()]
+      .map(([type, count]) => ({ type, label: formatTypeLabel(type), count }))
       .sort((a, b) => a.label.localeCompare(b.label)),
   };
 }

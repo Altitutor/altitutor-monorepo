@@ -218,9 +218,10 @@ export interface CommunicationsStatsReportData {
   staffCheckInsByDay: ReportDataPoint[];
   studentCheckInsByDay: ReportDataPoint[];
   parentCheckInsByDay: ReportDataPoint[];
-  formCompletionsByType: Array<{
+  formCompletionsByDay: ReportDataPoint[];
+  formCompletionTotalsByType: Array<{
     type: string;
     label: string;
-    data: ReportDataPoint[];
+    count: number;
   }>;
 }

@@ -117,6 +117,8 @@ Environment-specific values such as:
 - `SENTRY_ORG` and `SENTRY_AUTH_TOKEN` (shared Sentry build credentials)
 - `{APP}_SENTRY_DSN` and `{APP}_SENTRY_PROJECT` for each independently
   deployed web app, such as `UCAT_WEB_SENTRY_DSN`
+- `SUPABASE_SENTRY_DSN` for the dedicated Deno project used by Supabase Edge
+  Functions (the same project DSN can be used in both environment files)
 - UCAT social provider credentials (`SUPABASE_AUTH_EXTERNAL_GOOGLE_*` and
   `SUPABASE_AUTH_EXTERNAL_APPLE_*`) plus `AUTH_GOOGLE_ENABLED` and
   `AUTH_APPLE_ENABLED`
@@ -189,6 +191,8 @@ From `.env.shared` plus the matching environment file. Deployed keys include:
 - `STRIPE_SECRET_KEY`
 - `STRIPE_WEBHOOK_SECRET`
 - `RESEND_API_KEY`
+- `SUPABASE_SENTRY_DSN` → `SENTRY_DSN`
+- `SENTRY_ENVIRONMENT`, derived automatically as `development` or `production`
 
 Supabase already provides `SUPABASE_URL`, `SUPABASE_ANON_KEY`, and `SUPABASE_SERVICE_ROLE_KEY` to edge functions. Do not set `SUPABASE_DB_URL` for edge functions.
 

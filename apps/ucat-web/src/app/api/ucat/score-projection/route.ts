@@ -1,6 +1,15 @@
 import { NextResponse } from "next/server";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 import { getCurrentPreparation } from "@/features/study-plan/server/study-plan-service";
+import {
+  loadLatestPreparationSnapshot,
+  loadPreparationEvidenceWatermark,
+  type PreparationProjectionSnapshot,
+} from "@/features/preparation/server/preparation-snapshot";
+import { CURRENT_PREPARATION_VERSIONS } from "@/features/preparation/lib/policy";
+import { captureApiError } from "@/lib/sentry/capture-api-error";
+import { ServerTiming } from "@/lib/performance/server-timing";
+import { isTransientSupabaseError } from "@/lib/supabase/transient-error";
 import type {
   HistoricalProjectionPoint,
   ProjectionPoint,
@@ -11,6 +20,12 @@ import type {
 const HORIZONS = [30, 60, 90, 120] as const;
 const SECTION_SCORE_MIN = 300;
 const SECTION_SCORE_MAX = 900;
+const SECTION_NAMES: Record<number, string> = {
+  1: "Verbal Reasoning",
+  2: "Decision Making",
+  3: "Quantitative Reasoning",
+  4: "Situational Judgement",
+};
 
 function allocateTotalAcrossSections(
   total: number,
@@ -61,20 +76,45 @@ function allocateTotalAcrossSections(
 }
 
 export async function GET() {
+  const timing = new ServerTiming();
   const supabase = await getSupabaseServerClient();
   const {
     data: { user },
     error: authError,
   } = await supabase.auth.getUser();
+  timing.mark("auth");
   if (authError) {
-    return NextResponse.json({ error: "Failed to get user" }, { status: 500 });
+    captureApiError(authError, "/api/ucat/score-projection", {
+      stage: "auth",
+      ...timing.snapshot(),
+    });
+    return timing.apply(
+      NextResponse.json(
+        { error: "Account service is temporarily unavailable" },
+        { status: 503, headers: { "Retry-After": "5" } },
+      ),
+    );
   }
   if (!user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return timing.apply(
+      NextResponse.json({ error: "Unauthorized" }, { status: 401 }),
+    );
   }
 
   try {
-    const preparation = await getCurrentPreparation(supabase, user.id);
+    const [snapshot, evidenceWatermark] = await Promise.all([
+      loadLatestPreparationSnapshot(supabase, CURRENT_PREPARATION_VERSIONS),
+      loadPreparationEvidenceWatermark(supabase),
+    ]);
+    timing.mark("snapshot");
+    const snapshotIsFresh =
+      snapshot != null &&
+      (evidenceWatermark == null || snapshot.generatedAt >= evidenceWatermark);
+    const preparation: PreparationProjectionSnapshot =
+      snapshotIsFresh && snapshot
+        ? snapshot
+        : await getCurrentPreparation(supabase, user.id);
+    if (!snapshotIsFresh) timing.mark("recompute");
     const cognitiveSections = preparation.currentScore.sections;
     const responseSections = [
       ...cognitiveSections,
@@ -191,9 +231,7 @@ export async function GET() {
         return {
           sectionId: section.sectionId,
           sectionName:
-            preparation.assessment.sections
-              .find((candidate) => candidate.sectionId === section.sectionId)
-              ?.sectionKey.replaceAll("_", " ") ??
+            SECTION_NAMES[section.sectionNumber] ??
             `Section ${section.sectionNumber}`,
           sectionNumber: section.sectionNumber,
           currentEstimate: section.currentEstimate,
@@ -232,10 +270,21 @@ export async function GET() {
         };
       }),
     };
-    return NextResponse.json(payload);
+    timing.mark("response");
+    return timing.apply(NextResponse.json(payload));
   } catch (error) {
+    captureApiError(error, "/api/ucat/score-projection", timing.snapshot());
     const message =
       error instanceof Error ? error.message : "Failed to load Preparation.";
-    return NextResponse.json({ error: message }, { status: 500 });
+    const transient = isTransientSupabaseError(error);
+    return timing.apply(
+      NextResponse.json(
+        { error: message },
+        {
+          status: transient ? 503 : 500,
+          headers: transient ? { "Retry-After": "5" } : undefined,
+        },
+      ),
+    );
   }
 }

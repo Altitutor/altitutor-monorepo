@@ -1,14 +1,7 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-  Button,
-} from '@altitutor/ui';
+import { Button } from '@altitutor/ui';
 import { useStudentFutureSessions, useLogAbsences } from '../../hooks';
 import {
   useMissingStudentSession,
@@ -25,14 +18,8 @@ import type {
   RescheduleSession,
   StudentSession,
 } from '../../types/absence';
-import { Search, ChevronLeft, ChevronRight, X } from 'lucide-react';
-import {
-  ExpandButton,
-  EXPANDABLE_DIALOG_TRANSITION,
-  EXPANDED_DIALOG_CONTENT_CLASS,
-  WIZARD_DIALOG_HEIGHT_CLASS,
-} from '@/shared/components/expandable-dialog';
-import { cn } from '@/shared/utils';
+import { Search, ChevronLeft, ChevronRight } from 'lucide-react';
+import { AdminDialogShell } from '@/shared/components';
 import { Input } from '@altitutor/ui';
 import { useStudentsSearchForAbsence } from '@/features/students/hooks';
 import type { Tables } from '@altitutor/shared';
@@ -61,11 +48,6 @@ export function LogAbsenceDialog({ isOpen, onClose, staffId, initialStudentId, i
   const [processedSessionsForMessage, setProcessedSessionsForMessage] = useState<StudentSession[]>([]);
   const [errorMessage, setErrorMessage] = useState<string>('');
   const [hasInitialized, setHasInitialized] = useState(false);
-  const [expanded, setExpanded] = useState(false);
-
-  useEffect(() => {
-    if (!isOpen) setExpanded(false);
-  }, [isOpen]);
 
   // Student search and pagination
   const [searchQuery, setSearchQuery] = useState('');
@@ -497,8 +479,8 @@ export function LogAbsenceDialog({ isOpen, onClose, staffId, initialStudentId, i
     switch (step) {
       case 'select-student':
         return (
-          <div className="flex justify-between px-4 py-3 border-t bg-background">
-            <div></div>
+          <div className="flex w-full justify-between">
+            <div />
             <Button
               onClick={() => {
                 if (selectedStudent) {
@@ -514,7 +496,7 @@ export function LogAbsenceDialog({ isOpen, onClose, staffId, initialStudentId, i
         );
       case 'select-sessions':
         return (
-          <div className="flex justify-between px-4 py-3 border-t bg-background">
+          <div className="flex w-full justify-between">
             <Button
               variant="outline"
               onClick={() => {
@@ -538,7 +520,7 @@ export function LogAbsenceDialog({ isOpen, onClose, staffId, initialStudentId, i
         );
       case 'process-sessions':
         return (
-          <div className="flex justify-between px-4 py-3 border-t bg-background">
+          <div className="flex w-full justify-between">
             <Button
               variant="outline"
               onClick={() => {
@@ -565,23 +547,18 @@ export function LogAbsenceDialog({ isOpen, onClose, staffId, initialStudentId, i
         );
       case 'message':
         return (
-          <div className="flex justify-between px-4 py-3 border-t bg-background">
-            <div></div>
-            <Button onClick={onClose}>
-              Done
-            </Button>
+          <div className="flex w-full justify-end">
+            <Button onClick={onClose}>Done</Button>
           </div>
         );
       case 'error':
         return (
-          <div className="flex justify-between px-4 py-3 border-t bg-background">
+          <div className="flex w-full justify-between">
             <Button variant="outline" onClick={() => setStep('process-sessions')}>
               <ChevronLeft className="h-4 w-4 mr-2" />
               Go Back
             </Button>
-            <Button onClick={onClose}>
-              Close
-            </Button>
+            <Button onClick={onClose}>Close</Button>
           </div>
         );
       default:
@@ -590,38 +567,17 @@ export function LogAbsenceDialog({ isOpen, onClose, staffId, initialStudentId, i
   };
 
   return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent
-        className={cn(
-          'w-full md:max-w-4xl flex flex-col p-0 [&>button]:hidden',
-          EXPANDABLE_DIALOG_TRANSITION,
-          expanded ? EXPANDED_DIALOG_CONTENT_CLASS : WIZARD_DIALOG_HEIGHT_CLASS
-        )}
-      >
-        <DialogHeader className="flex-shrink-0 px-6 py-4 border-b">
-          <div className="flex items-start justify-between gap-4">
-            <div className="flex items-center gap-3 flex-1">
-              <Button
-                variant="outline"
-                size="icon"
-                onClick={onClose}
-                className="shrink-0"
-              >
-                <X className="h-4 w-4" />
-              </Button>
-              <div className="flex-1">
-                <DialogTitle>{getStepTitle()}</DialogTitle>
-                <DialogDescription>{getStepDescription()}</DialogDescription>
-              </div>
-            </div>
-            <ExpandButton expanded={expanded} onToggle={() => setExpanded((e) => !e)} />
-          </div>
-        </DialogHeader>
-
-        <div className="flex-1 overflow-hidden min-h-0 px-6 py-4">{renderStepContent()}</div>
-        
-        {renderFooter()}
-      </DialogContent>
-    </Dialog>
+    <AdminDialogShell
+      fillHeight
+      open={isOpen}
+      onClose={onClose}
+      title={getStepTitle()}
+      subtitle={getStepDescription()}
+      contentClassName="md:max-w-4xl"
+      bodyClassName="min-h-0"
+      footer={renderFooter()}
+    >
+      {renderStepContent()}
+    </AdminDialogShell>
   );
 }

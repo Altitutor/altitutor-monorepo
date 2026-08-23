@@ -153,7 +153,7 @@ export async function middleware(req: NextRequest) {
     }
     const userId = claimsData?.claims?.sub;
 
-    if (!userId && pathname !== "/") {
+    if (!userId) {
       const loginUrl = new URL("/login", origin);
       loginUrl.searchParams.set("next", `${pathname}${search}`);
       return applyResponseMetadata(
@@ -161,7 +161,6 @@ export async function middleware(req: NextRequest) {
         cookiesToSet,
       );
     }
-    if (!userId) return applyResponseMetadata(response, cookiesToSet);
 
     let profileResult: {
       data: { role: "ADMINSTAFF" | "TUTOR"; status: string | null } | null;

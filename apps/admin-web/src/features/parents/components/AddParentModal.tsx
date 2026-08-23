@@ -1,14 +1,6 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@altitutor/ui";
 import { Button } from "@altitutor/ui";
 import { Input } from "@altitutor/ui";
 import { Label } from "@altitutor/ui";
@@ -26,12 +18,7 @@ import { getErrorMessage } from '@/shared/utils';
 import { StudentSearchPopover } from '@/features/students/components/StudentSearchPopover';
 import { studentsApi } from '@/features/students/api/students';
 import { useQueryClient } from '@tanstack/react-query';
-import {
-  ExpandButton,
-  EXPANDABLE_DIALOG_TRANSITION,
-  EXPANDED_DIALOG_CONTENT_CLASS,
-} from '@/shared/components/expandable-dialog';
-import { cn } from '@/shared/utils';
+import { AdminDialogShell } from '@/shared/components';
 
 interface AddParentModalProps {
   isOpen: boolean;
@@ -65,11 +52,6 @@ export function AddParentModal({ isOpen, onClose, onParentAdded, initialPhone }:
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [selectedStudents, setSelectedStudents] = useState<Tables<'students'>[]>([]);
-  const [expanded, setExpanded] = useState(false);
-
-  useEffect(() => {
-    if (!isOpen) setExpanded(false);
-  }, [isOpen]);
 
   // Get all students for the search popover
   const { data: allStudents = [] } = useStudents();
@@ -161,26 +143,29 @@ export function AddParentModal({ isOpen, onClose, onParentAdded, initialPhone }:
   }, [initialPhone, isOpen, setValue]);
 
   return (
-    <Dialog open={isOpen} onOpenChange={(open) => !open && handleCloseModal()}>
-      <DialogContent
-        className={cn(
-          'w-full md:max-w-2xl max-h-[90vh] overflow-y-auto',
-          EXPANDABLE_DIALOG_TRANSITION,
-          expanded && EXPANDED_DIALOG_CONTENT_CLASS
-        )}
-      >
-        <DialogHeader>
-          <div className="flex items-start justify-between gap-4">
-            <div className="flex-1 min-w-0">
-              <DialogTitle>Add New Parent</DialogTitle>
-              <DialogDescription>
-                Enter the parent's information below to add them to the system.
-              </DialogDescription>
-            </div>
-            <ExpandButton expanded={expanded} onToggle={() => setExpanded((e) => !e)} />
-          </div>
-        </DialogHeader>
-        
+    <AdminDialogShell
+      open={isOpen}
+      onClose={handleCloseModal}
+      title="Add New Parent"
+      subtitle="Enter the parent's information below to add them to the system."
+      contentClassName="md:max-w-2xl"
+      footer={
+        <>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={handleCloseModal}
+            disabled={isSubmitting}
+          >
+            Cancel
+          </Button>
+          <Button type="submit" form="add-parent-form" disabled={isSubmitting}>
+            {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            Add Parent
+          </Button>
+        </>
+      }
+    >
         {errorMessage && (
           <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-md flex items-start gap-2">
             <AlertTriangle className="h-5 w-5 text-red-500 mt-0.5" />
@@ -188,7 +173,7 @@ export function AddParentModal({ isOpen, onClose, onParentAdded, initialPhone }:
           </div>
         )}
         
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+        <form id="add-parent-form" onSubmit={handleSubmit(onSubmit)} className="space-y-4">
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="firstName">First Name</Label>
@@ -284,24 +269,8 @@ export function AddParentModal({ isOpen, onClose, onParentAdded, initialPhone }:
               </div>
             )}
           </div>
-
-          <DialogFooter>
-            <Button 
-              type="button" 
-              variant="outline" 
-              onClick={handleCloseModal}
-              disabled={isSubmitting}
-            >
-              Cancel
-            </Button>
-            <Button type="submit" disabled={isSubmitting}>
-              {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              Add Parent
-            </Button>
-          </DialogFooter>
         </form>
-      </DialogContent>
-    </Dialog>
+    </AdminDialogShell>
   );
 }
 

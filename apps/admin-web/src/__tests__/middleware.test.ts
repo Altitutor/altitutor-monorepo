@@ -96,6 +96,19 @@ describe('admin middleware', () => {
     expect(mockFrom).not.toHaveBeenCalled();
   });
 
+  it('redirects an anonymous root request to login', async () => {
+    mockGetClaims.mockResolvedValue({
+      data: null,
+      error: { name: 'AuthSessionMissingError', message: 'Auth session missing!' },
+    });
+
+    const response = await middleware(request('/'));
+
+    expect(response.status).toBe(307);
+    expect(response.headers.get('location')).toBe('https://admin.altitutor.test/login');
+    expect(mockFrom).not.toHaveBeenCalled();
+  });
+
   it('allows an active admin through', async () => {
     const response = await middleware(request('/dashboard'));
 

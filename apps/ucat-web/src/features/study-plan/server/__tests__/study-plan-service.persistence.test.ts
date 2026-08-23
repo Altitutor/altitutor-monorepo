@@ -64,6 +64,7 @@ type QueryChain = {
   not: jest.Mock<QueryChain, []>;
   neq: jest.Mock<QueryChain, []>;
   order: jest.Mock<QueryChain, []>;
+  range: jest.Mock<QueryChain, [number, number]>;
   limit: jest.Mock<QueryChain, []>;
   maybeSingle: jest.Mock<Promise<QueryResult>, []>;
   single: jest.Mock<Promise<QueryResult>, []>;
@@ -308,6 +309,7 @@ function createDatabaseHarness(
       not: jest.fn(() => chain),
       neq: jest.fn(() => chain),
       order: jest.fn(() => chain),
+      range: jest.fn((_from: number, _to: number) => chain),
       limit: jest.fn(() => chain),
       maybeSingle: jest.fn(async () => resultFor(table, filters, true)),
       single: jest.fn(async () => resultFor(table, filters, true)),
@@ -445,10 +447,7 @@ describe("Study plan persistence orchestration", () => {
   it("builds the development catalog preview without loading unused score evidence", async () => {
     const { studentClient } = createDatabaseHarness({ currentPolicy: true });
 
-    await loadDevelopmentCatalogSandboxCase(
-      studentClient,
-      "user-1",
-    );
+    await loadDevelopmentCatalogSandboxCase(studentClient, "user-1");
 
     expect(studentClient.from).not.toHaveBeenCalledWith(
       "vstudent_ucat_score_projection_evidence",
@@ -458,12 +457,7 @@ describe("Study plan persistence orchestration", () => {
   it("regenerates future work through the replacement RPC after today's task is skipped", async () => {
     const { admin, studentClient, updates } = createDatabaseHarness();
 
-    await updateStudyPlanTask(
-      studentClient,
-      "user-1",
-      "task-today",
-      "skip",
-    );
+    await updateStudyPlanTask(studentClient, "user-1", "task-today", "skip");
 
     expect(updates).toEqual(
       expect.arrayContaining([
@@ -511,8 +505,7 @@ describe("Study plan persistence orchestration", () => {
       jest
         .mocked(admin.from)
         .mock.calls.some(
-          ([table]) =>
-            (table as string) === "ucat_student_study_plan_profiles",
+          ([table]) => (table as string) === "ucat_student_study_plan_profiles",
         ),
     ).toBe(false);
   });
@@ -681,9 +674,7 @@ describe("Study plan persistence orchestration", () => {
       }),
     );
     expect(
-      upserts.some(
-        (upsert) => upsert.table === "ucat_preparation_snapshots",
-      ),
+      upserts.some((upsert) => upsert.table === "ucat_preparation_snapshots"),
     ).toBe(true);
     expect(admin.rpc).not.toHaveBeenCalled();
   });
@@ -714,8 +705,8 @@ describe("Study plan persistence orchestration", () => {
       { excludedKeys: [], currentTaskTypes: [] },
     );
 
-    const candidates = jest.mocked(prepareStudent).mock.results.at(-1)?.value
-      .activityCandidates;
+    const candidates = jest.mocked(prepareStudent).mock.results.at(-1)
+      ?.value.activityCandidates;
     expect(buildAlternativeNextStep).toHaveBeenCalledWith(
       expect.objectContaining({
         activityCandidates: candidates,
@@ -760,8 +751,8 @@ describe("Study plan persistence orchestration", () => {
       sectionKey: null,
     });
 
-    const candidates = jest.mocked(prepareStudent).mock.results.at(-1)?.value
-      .activityCandidates;
+    const candidates = jest.mocked(prepareStudent).mock.results.at(-1)
+      ?.value.activityCandidates;
     expect(generateExtraStudyTasks).toHaveBeenCalledWith(
       expect.objectContaining({
         activityCandidates: candidates,

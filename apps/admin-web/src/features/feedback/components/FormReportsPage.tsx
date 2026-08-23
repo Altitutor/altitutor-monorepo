@@ -422,6 +422,7 @@ function QuestionAnswersDialog({
 }) {
   return (
     <AdminDialogShell
+        fillHeight
       open={!!group}
       onClose={onClose}
       title={group?.label ?? 'Question answers'}

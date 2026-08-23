@@ -6,18 +6,27 @@ scope because Supabase can reuse Deno isolates between requests.
 
 ## Deployment setup
 
-Create the GitHub Environment secret `SUPABASE_SENTRY_DSN` in both the
-`development` and `production` environments. Use the DSN/client key intended
-for that environment's dedicated Supabase Sentry destination.
+Create a dedicated Sentry project using the **Deno** platform. Put its DSN in
+`SUPABASE_SENTRY_DSN` in both `secrets/.env.development` and
+`secrets/.env.production`. The same project DSN can be used for both; Sentry
+separates their events using the environment tag.
 
-The Supabase deployment workflow copies that value into the linked Supabase
-project as `SENTRY_DSN` and sets `SENTRY_ENVIRONMENT` from the branch:
+Deploy through the repository's secrets system:
 
-- `develop` → `development`
-- `main` → `production`
+```bash
+./secrets/scripts/deploy-supabase.sh
+```
 
-The deployment intentionally fails when the GitHub Environment secret is
-missing so a function release cannot silently lose error reporting.
+The script maps `SUPABASE_SENTRY_DSN` to `SENTRY_DSN` in each Supabase project
+and derives `SENTRY_ENVIRONMENT` from the deployment target:
+
+- `.env.development` project → `development`
+- `.env.production` project → `production`
+
+An empty local DSN is skipped without affecting the other Edge Function
+secrets. It does not remove a DSN that was deployed previously; use
+`supabase secrets unset SENTRY_DSN --project-ref <project-ref>` when the
+integration must be disabled remotely.
 
 ## Data handling
 

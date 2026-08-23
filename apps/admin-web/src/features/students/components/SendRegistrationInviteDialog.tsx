@@ -1,28 +1,16 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from "@altitutor/ui";
 import { Button } from "@altitutor/ui";
 import { useToast } from "@altitutor/ui";
-import { Loader2, Mail, MessageSquare, CheckCircle2, Copy, Check, X } from 'lucide-react';
+import { Loader2, Mail, MessageSquare, CheckCircle2, Copy, Check } from 'lucide-react';
 import { getInviteUrlForStudent } from '@/shared/utils/invites';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   useRegistrationInviteData,
   registrationInviteDataKeys,
 } from '../hooks/useRegistrationInviteData';
-import {
-  ExpandButton,
-  EXPANDABLE_DIALOG_TRANSITION,
-  EXPANDED_DIALOG_CONTENT_CLASS,
-} from '@/shared/components/expandable-dialog';
-import { cn } from '@/shared/utils';
+import { AdminDialogShell } from '@/shared/components';
 
 interface SendRegistrationInviteDialogProps {
   isOpen: boolean;
@@ -42,11 +30,6 @@ export function SendRegistrationInviteDialog({
   const [emailSent, setEmailSent] = useState(false);
   const [smsSent, setSmsSent] = useState(false);
   const [copied, setCopied] = useState(false);
-  const [expanded, setExpanded] = useState(false);
-
-  useEffect(() => {
-    if (!isOpen) setExpanded(false);
-  }, [isOpen]);
 
   const { data, isLoading, isError } = useRegistrationInviteData(
     studentId,
@@ -261,37 +244,19 @@ export function SendRegistrationInviteDialog({
   const hasRecipients = recipients.length > 0 || (student && (student.email || student.phone));
 
   return (
-    <Dialog open={isOpen} onOpenChange={(open) => !open && handleClose()}>
-      <DialogContent
-        className={cn(
-          'flex flex-col gap-0 overflow-hidden p-0 sm:max-w-[600px] [&>button]:hidden',
-          EXPANDABLE_DIALOG_TRANSITION,
-          expanded && EXPANDED_DIALOG_CONTENT_CLASS
-        )}
-      >
-        <DialogHeader className="shrink-0 border-b px-6 py-4">
-          <div className="flex items-start justify-between gap-4">
-            <div className="flex items-center gap-3 flex-1">
-              <Button
-                variant="outline"
-                size="icon"
-                onClick={handleClose}
-                className="shrink-0"
-              >
-                <X className="h-4 w-4" />
-              </Button>
-              <div className="flex-1">
-                <DialogTitle>Send Registration Link</DialogTitle>
-                <DialogDescription>
-                  Send a registration link to {student?.first_name} {student?.last_name}'s parent(s) to complete account setup
-                </DialogDescription>
-              </div>
-              <ExpandButton expanded={expanded} onToggle={() => setExpanded((e) => !e)} />
-            </div>
-          </div>
-        </DialogHeader>
-
-        <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-6 py-4">
+    <AdminDialogShell
+      open={isOpen}
+      onClose={handleClose}
+      title="Send Registration Link"
+      subtitle={`Send a registration link to ${student?.first_name} ${student?.last_name}'s parent(s) to complete account setup`}
+      contentClassName="sm:max-w-[600px]"
+      footer={
+        <Button variant="outline" onClick={handleClose}>
+          Close
+        </Button>
+      }
+    >
+        <div className="space-y-4">
           {/* Invite URL Display */}
           {isGenerating ? (
             <div className="flex items-center justify-center py-4">
@@ -501,13 +466,6 @@ export function SendRegistrationInviteDialog({
             </>
           )}
         </div>
-
-        <div className="flex justify-end gap-2">
-          <Button variant="outline" onClick={handleClose}>
-            Close
-          </Button>
-        </div>
-      </DialogContent>
-    </Dialog>
+    </AdminDialogShell>
   );
 }

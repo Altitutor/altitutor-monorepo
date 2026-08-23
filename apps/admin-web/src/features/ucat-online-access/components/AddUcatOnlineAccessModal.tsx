@@ -2,12 +2,6 @@
 
 import { useEffect, useState } from 'react';
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
   Button,
   Input,
   Label,
@@ -15,6 +9,7 @@ import {
 } from '@altitutor/ui';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Loader2 } from 'lucide-react';
+import { AdminDialogShell } from '@/shared/components';
 import { useDebounce } from '@/shared/hooks/useDebounce';
 import { studentsApi } from '@/features/students/api/students';
 import { manualOnlineAccessApi } from '@/features/ucat-online-access/api/ucat-online-access';
@@ -105,25 +100,43 @@ export function AddUcatOnlineAccessModal({
   });
 
   return (
-    <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="sm:max-w-lg">
-        <DialogHeader>
-          <DialogTitle>Grant manual online access</DialogTitle>
-          <DialogDescription>
-            Choose a student and subject. This grants manual online product access for that subject (in addition to
-            class or subscription access when applicable).
-          </DialogDescription>
-        </DialogHeader>
-
-        <div className="space-y-4 py-2">
-          {initialStudent ? (
-            <div className="space-y-2">
-              <Label>Student</Label>
-              <div className="rounded-md border bg-muted/40 px-3 py-2 text-sm font-medium">
-                {initialStudent.first_name} {initialStudent.last_name}
-              </div>
+    <AdminDialogShell
+      open={isOpen}
+      onClose={onClose}
+      title="Grant manual online access"
+      subtitle="Choose a student and subject. This grants manual online product access for that subject (in addition to class or subscription access when applicable)."
+      contentClassName="md:max-w-lg"
+      footer={
+        <>
+          <Button type="button" variant="outline" onClick={onClose}>
+            Cancel
+          </Button>
+          <Button
+            type="button"
+            disabled={!selectedStudent || !subjectId || grantMutation.isPending}
+            onClick={() => grantMutation.mutate()}
+          >
+            {grantMutation.isPending ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Saving…
+              </>
+            ) : (
+              'Grant access'
+            )}
+          </Button>
+        </>
+      }
+    >
+      <div className="space-y-4">
+        {initialStudent ? (
+          <div className="space-y-2">
+            <Label>Student</Label>
+            <div className="rounded-md border bg-muted/40 px-3 py-2 text-sm font-medium">
+              {initialStudent.first_name} {initialStudent.last_name}
             </div>
-          ) : (
+          </div>
+        ) : (
           <div className="space-y-2">
             <Label htmlFor="manual-access-student-search">Student</Label>
             <Input
@@ -176,57 +189,36 @@ export function AddUcatOnlineAccessModal({
               <p className="text-xs text-muted-foreground">Enter a name to search.</p>
             )}
           </div>
-          )}
+        )}
 
-          <div className="space-y-2">
-            <Label htmlFor="manual-access-subject">Subject</Label>
-            <select
-              id="manual-access-subject"
-              className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-              value={subjectId}
-              onChange={(e) => setSubjectId(e.target.value)}
-            >
-              <option value="">Select a subject…</option>
-              {sortedSubjects.map((sub) => (
-                <option key={sub.id} value={sub.id}>
-                  {sub.name}
-                  {sub.short_name ? ` (${sub.short_name})` : ''}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="manual-access-notes">Notes (optional)</Label>
-            <Input
-              id="manual-access-notes"
-              placeholder="Internal note"
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-            />
-          </div>
+        <div className="space-y-2">
+          <Label htmlFor="manual-access-subject">Subject</Label>
+          <select
+            id="manual-access-subject"
+            className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            value={subjectId}
+            onChange={(e) => setSubjectId(e.target.value)}
+          >
+            <option value="">Select a subject…</option>
+            {sortedSubjects.map((sub) => (
+              <option key={sub.id} value={sub.id}>
+                {sub.name}
+                {sub.short_name ? ` (${sub.short_name})` : ''}
+              </option>
+            ))}
+          </select>
         </div>
 
-        <DialogFooter>
-          <Button type="button" variant="outline" onClick={onClose}>
-            Cancel
-          </Button>
-          <Button
-            type="button"
-            disabled={!selectedStudent || !subjectId || grantMutation.isPending}
-            onClick={() => grantMutation.mutate()}
-          >
-            {grantMutation.isPending ? (
-              <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Saving…
-              </>
-            ) : (
-              'Grant access'
-            )}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+        <div className="space-y-2">
+          <Label htmlFor="manual-access-notes">Notes (optional)</Label>
+          <Input
+            id="manual-access-notes"
+            placeholder="Internal note"
+            value={notes}
+            onChange={(e) => setNotes(e.target.value)}
+          />
+        </div>
+      </div>
+    </AdminDialogShell>
   );
 }

@@ -108,6 +108,21 @@ describe("student routing middleware", () => {
     expect(mockFrom).not.toHaveBeenCalled();
   });
 
+  it("redirects an anonymous root request to the marketing site", async () => {
+    mockGetClaims.mockResolvedValue({
+      data: null,
+      error: { name: "AuthSessionMissingError", message: "missing" },
+    });
+
+    const response = await middleware(request("/"));
+
+    expect(response.status).toBe(307);
+    expect(response.headers.get("location")).toBe(
+      "https://altitutor.com/online-learning/",
+    );
+    expect(mockFrom).not.toHaveBeenCalled();
+  });
+
   it("treats an invalid JWT as unauthenticated instead of an outage", async () => {
     mockGetClaims.mockResolvedValue({
       data: null,

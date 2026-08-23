@@ -4,11 +4,6 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import {
   Button,
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
   Input,
   Label,
   SearchableSelect,
@@ -35,16 +30,11 @@ import {
   formatCheckInHostLabel,
   formatCheckInReceiverLabel,
 } from '@altitutor/shared/pay-tiers';
-import { Loader2, MoreVertical, Trash2, X } from 'lucide-react';
+import { Loader2, MoreVertical, Trash2 } from 'lucide-react';
 import type { Tables } from '@altitutor/shared';
 import { getTodayAdelaideDate, adelaideWallDateTimePlusMinutesUtcIso } from '@/features/bookings/utils/dateTimeHelpers';
-import {
-  ExpandButton,
-  EXPANDABLE_DIALOG_TRANSITION,
-  EXPANDED_DIALOG_CONTENT_CLASS,
-} from '@/shared/components/expandable-dialog';
+import { AdminDialogShell } from '@/shared/components';
 import { staffApi } from '@/features/staff/api/staff';
-import { cn } from '@/shared/utils';
 import type { CheckInModalPrefill, CheckInSessionType } from '@/shared/contexts/QuickActionsContext';
 import { MeetingEntitySearchAdd } from './MeetingEntitySearchAdd';
 import { AttendanceCell } from './AttendanceCell';
@@ -115,7 +105,6 @@ export function CheckInBookSessionModal({
   initialPrefill = null,
 }: CheckInBookSessionModalProps) {
   const { toast } = useToast();
-  const [expanded, setExpanded] = useState(false);
   const [date, setDate] = useState('');
   const [time, setTime] = useState('09:00');
   const [durationMinutes, setDurationMinutes] = useState<number>(60);
@@ -133,7 +122,6 @@ export function CheckInBookSessionModal({
     if (!isOpen) {
       wasOpenRef.current = false;
       appliedDefaultAdminStaffRef.current = false;
-      setExpanded(false);
       return;
     }
     if (!wasOpenRef.current) {
@@ -271,40 +259,31 @@ export function CheckInBookSessionModal({
   };
 
   return (
-    <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent
-        className={cn(
-          'w-full md:max-w-4xl h-[90vh] flex flex-col p-0 [&>button]:hidden',
-          EXPANDABLE_DIALOG_TRANSITION,
-          expanded && EXPANDED_DIALOG_CONTENT_CLASS
-        )}
-      >
-        <div className="flex-shrink-0 border-b bg-background">
-          <DialogHeader className="px-6 pt-6 pb-4">
-            <div className="flex items-start justify-between gap-4">
-              <div className="flex items-center gap-3 flex-1 min-w-0">
-                <Button variant="outline" size="icon" onClick={onClose} className="shrink-0" type="button">
-                  <X className="h-4 w-4" />
-                </Button>
-                <div className="flex-1 min-w-0">
-                  <DialogTitle>
-                    {sessionType === 'ADMIN_MEETING' ? 'Schedule admin meeting' : 'Schedule check in'}
-                  </DialogTitle>
-                  <DialogDescription>
-                    {sessionType === 'ADMIN_MEETING'
-                      ? 'Schedule an admin meeting with staff.'
-                      : 'Schedule a check in with a staff member, student or parent.'}
-                  </DialogDescription>
-                </div>
-              </div>
-              <ExpandButton expanded={expanded} onToggle={() => setExpanded((e) => !e)} />
-            </div>
-          </DialogHeader>
-        </div>
-
-        <div className="flex-1 overflow-hidden min-h-0">
-          <div className="h-full overflow-y-auto">
-            <div className="p-6 space-y-6">
+    <AdminDialogShell
+      fillHeight
+      open={isOpen}
+      onClose={onClose}
+      title={sessionType === 'ADMIN_MEETING' ? 'Schedule admin meeting' : 'Schedule check in'}
+      subtitle={
+        sessionType === 'ADMIN_MEETING'
+          ? 'Schedule an admin meeting with staff.'
+          : 'Schedule a check in with a staff member, student or parent.'
+      }
+      contentClassName="md:max-w-4xl"
+      bodyClassName="min-h-0 flex-1 overflow-y-auto p-0"
+      footer={
+        <>
+          <Button type="button" variant="outline" onClick={onClose} disabled={submitting}>
+            Cancel
+          </Button>
+          <Button type="button" onClick={handleSubmit} disabled={submitting}>
+            {submitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            {sessionType === 'ADMIN_MEETING' ? 'Create admin meeting' : 'Create check in'}
+          </Button>
+        </>
+      }
+    >
+      <div className="space-y-6 p-6">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 min-w-0">
                 <div className="min-w-0 space-y-2">
                   <Label htmlFor="checkin-date">Date</Label>
@@ -574,20 +553,7 @@ export function CheckInBookSessionModal({
                   </div>
                 </>
               )}
-            </div>
-          </div>
-        </div>
-
-        <div className="flex-shrink-0 flex justify-end gap-2 px-6 py-4 border-t bg-background">
-          <Button type="button" variant="outline" onClick={onClose} disabled={submitting}>
-            Cancel
-          </Button>
-          <Button type="button" onClick={handleSubmit} disabled={submitting}>
-            {submitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            {sessionType === 'ADMIN_MEETING' ? 'Create admin meeting' : 'Create check in'}
-          </Button>
-        </div>
-      </DialogContent>
-    </Dialog>
+      </div>
+    </AdminDialogShell>
   );
 }

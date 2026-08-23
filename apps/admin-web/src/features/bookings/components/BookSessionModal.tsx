@@ -1,12 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
   Button,
   AlertDialog,
   AlertDialogAction,
@@ -17,14 +11,8 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@altitutor/ui';
-import { Loader2, ChevronLeft, ChevronRight, X } from 'lucide-react';
-import {
-  ExpandButton,
-  EXPANDABLE_DIALOG_TRANSITION,
-  EXPANDED_DIALOG_CONTENT_CLASS,
-  WIZARD_DIALOG_HEIGHT_CLASS,
-} from '@/shared/components/expandable-dialog';
-import { cn } from '@/shared/utils';
+import { Loader2, ChevronLeft, ChevronRight } from 'lucide-react';
+import { AdminDialogShell } from '@/shared/components/dialog-shell';
 import { TimeSlotPicker } from './TimeSlotPicker';
 import { StaffSelector } from './StaffSelector';
 import { useBookSessionFlow } from '../hooks/useBookSessionFlow';
@@ -57,12 +45,7 @@ export function BookSessionModal({
   originalSessionId = null,
   originalSubjectId = null,
 }: BookSessionModalProps) {
-  const [expanded, setExpanded] = useState(false);
   const { data: durationMinutes = 60 } = useSessionDurationMinutes(sessionType);
-
-  useEffect(() => {
-    if (!isOpen) setExpanded(false);
-  }, [isOpen]);
 
   const {
     // State
@@ -246,86 +229,47 @@ export function BookSessionModal({
     }
   };
 
+  const dialogTitle = originalSessionId
+    ? `Reschedule ${getSessionTypeLabel(sessionType)}`
+    : `Book ${getSessionTypeLabel(sessionType)}`;
+
+  const dialogSubtitle = createdSessionId
+    ? 'Notify the student/parent or staff about the booking'
+    : `Step ${currentStep + 1} of ${steps.length}: ${currentStepData?.title}`;
+
   return (
     <>
-      <Dialog open={isOpen} onOpenChange={(open) => !open && handleClose()}>
-        <DialogContent
-          className={cn(
-            'w-full md:max-w-4xl flex flex-col p-0 [&>button]:hidden',
-            EXPANDABLE_DIALOG_TRANSITION,
-            expanded ? EXPANDED_DIALOG_CONTENT_CLASS : WIZARD_DIALOG_HEIGHT_CLASS
-          )}
-        >
-          {/* Header */}
-          <div className="flex-shrink-0 border-b bg-card">
-            <DialogHeader className="px-6 pt-6 pb-4">
-              <div className="flex items-start justify-between gap-4">
-                <div className="flex items-center gap-3 flex-1">
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    onClick={handleClose}
-                    className="shrink-0"
-                  >
-                    <X className="h-4 w-4" />
-                  </Button>
-                  <div className="flex-1">
-                    <DialogTitle>
-                      {originalSessionId 
-                        ? `Reschedule ${getSessionTypeLabel(sessionType)}` 
-                        : `Book ${getSessionTypeLabel(sessionType)}`}
-                    </DialogTitle>
-                    <DialogDescription>
-                      {createdSessionId
-                        ? 'Notify the student/parent or staff about the booking'
-                        : `Step ${currentStep + 1} of ${steps.length}: ${currentStepData?.title}`}
-                    </DialogDescription>
-                  </div>
-                </div>
-                <ExpandButton expanded={expanded} onToggle={() => setExpanded((e) => !e)} />
-              </div>
-            </DialogHeader>
-
-            {/* Progress Indicator */}
+      <AdminDialogShell
+        open={isOpen}
+        onClose={handleClose}
+        fillHeight
+        title={dialogTitle}
+        subtitle={dialogSubtitle}
+        contentClassName="md:max-w-4xl"
+        bodyClassName="min-h-0 flex-1 overflow-hidden flex flex-col p-0"
+        headerExtra={
+          createdSessionId ? null : (
             <div className="px-6 pb-4">
               <div className="flex items-center gap-2">
-                {createdSessionId
-                  ? null
-                  : Array.from({ length: steps.length }).map((_, index) => (
-                      <div
-                        key={index}
-                        className={`flex-1 h-2 rounded-full transition-colors ${
-                          index < currentStep
-                            ? 'bg-primary'
-                            : index === currentStep
-                              ? 'bg-primary/50'
-                              : 'bg-muted'
-                        }`}
-                      />
-                    ))}
+                {Array.from({ length: steps.length }).map((_, index) => (
+                  <div
+                    key={index}
+                    className={`flex-1 h-2 rounded-full transition-colors ${
+                      index < currentStep
+                        ? 'bg-primary'
+                        : index === currentStep
+                          ? 'bg-primary/50'
+                          : 'bg-muted'
+                    }`}
+                  />
+                ))}
               </div>
             </div>
-          </div>
-
-          {/* Current Step Content */}
-          <div className="flex-1 overflow-hidden min-h-0 flex flex-col">
-            {isNotifyStep ? (
-              <div className="flex-1 min-h-0 flex flex-col p-6">
-                {renderStepContent()}
-              </div>
-            ) : (
-              <div className="h-full overflow-y-auto">
-                <div className="p-6">
-                  {renderStepContent()}
-                </div>
-              </div>
-            )}
-          </div>
-
-          {/* Footer with Back/Next buttons */}
-          <div className="flex justify-between px-6 py-4 border-t bg-background">
+          )
+        }
+        footer={
+          <div className="flex w-full justify-between sm:justify-between">
             <div className="flex gap-2">
-              {/* Disable back button when rescheduling - user should not go back to earlier steps */}
               {!createdSessionId && currentStep > 0 && !originalSessionId && (
                 <Button
                   variant="outline"
@@ -337,7 +281,7 @@ export function BookSessionModal({
                 </Button>
               )}
             </div>
-            
+
             <div className="flex gap-2">
               {createdSessionId ? (
                 <Button onClick={() => handleDoneNotifyStep(createdSessionId)}>
@@ -362,8 +306,20 @@ export function BookSessionModal({
               )}
             </div>
           </div>
-        </DialogContent>
-      </Dialog>
+        }
+      >
+        {isNotifyStep ? (
+          <div className="flex-1 min-h-0 flex flex-col p-6">
+            {renderStepContent()}
+          </div>
+        ) : (
+          <div className="h-full overflow-y-auto">
+            <div className="p-6">
+              {renderStepContent()}
+            </div>
+          </div>
+        )}
+      </AdminDialogShell>
 
       {/* Past Date Warning Dialog */}
       <AlertDialog 
