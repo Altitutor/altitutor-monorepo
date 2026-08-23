@@ -88,6 +88,9 @@ export {
 } from './lib/native-datetime-input';
 export * from './hooks/use-media-query';
 export * from './hooks/use-dialog-primary-action-shortcut';
+export * from './hooks/use-visual-viewport-rect';
+export { lockOverlayPageScroll, overlayPinStyle } from './lib/visual-viewport-pin';
+export type { VisualViewportRect } from './lib/visual-viewport-pin';
 export {
   DIALOG_CANCEL_ATTR,
   DIALOG_PRIMARY_ACTION_ATTR,

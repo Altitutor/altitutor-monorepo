@@ -1,7 +1,15 @@
 'use client';
 
 import { useEffect, useRef, useState, type TouchEvent } from 'react';
-import { Dialog, DialogContent, DialogPortal, useMediaQuery } from '@altitutor/ui';
+import {
+  Dialog,
+  DialogContent,
+  DialogPortal,
+  lockOverlayPageScroll,
+  overlayPinStyle,
+  useMediaQuery,
+  useVisualViewportRect,
+} from '@altitutor/ui';
 import { ViewClassModal } from '@/features/classes';
 import { cn } from '@/shared/utils';
 import { tutorDialogContentClass } from '@/shared/lib/tutor-visual';
@@ -19,20 +27,25 @@ export function CommandPaletteModal({ isOpen, onClose }: CommandPaletteModalProp
   const [dragOffset, setDragOffset] = useState(0);
   const [selectedClassId, setSelectedClassId] = useState<string | null>(null);
   const [isClassModalOpen, setIsClassModalOpen] = useState(false);
+  const viewportRect = useVisualViewportRect(isOpen && !isDesktop);
 
   useEffect(() => {
-    if (isOpen) {
-      document.body.style.overflow = 'hidden';
-    } else {
-      document.body.style.overflow = '';
+    if (!isOpen) {
       dragStartYRef.current = null;
       dragOffsetRef.current = 0;
       setDragOffset(0);
+      return;
     }
-    return () => {
-      document.body.style.overflow = '';
-    };
-  }, [isOpen]);
+
+    if (isDesktop) {
+      document.body.style.overflow = 'hidden';
+      return () => {
+        document.body.style.overflow = '';
+      };
+    }
+
+    return lockOverlayPageScroll();
+  }, [isOpen, isDesktop]);
 
   const handleTouchStart = (event: TouchEvent<HTMLDivElement>) => {
     const touch = event.touches[0];
@@ -84,12 +97,18 @@ export function CommandPaletteModal({ isOpen, onClose }: CommandPaletteModalProp
       ) : null}
 
       <div
+        role="dialog"
+        aria-modal="true"
+        aria-label="Command palette"
         className={cn(
-          'fixed inset-x-0 bottom-0 z-[101] flex h-[88dvh] flex-col overflow-hidden rounded-t-3xl border-0 bg-card shadow-2xl ring-1 ring-black/10 transition-transform duration-300 ease-out dark:bg-brand-dark-card dark:ring-white/10 md:hidden',
+          'fixed inset-0 z-[101] flex flex-col overflow-hidden border-0 bg-card pt-[env(safe-area-inset-top)] shadow-2xl ring-1 ring-black/10 transition-transform duration-300 ease-out overscroll-none dark:bg-brand-dark-card dark:ring-white/10 md:hidden',
           dragStartYRef.current != null && 'transition-none',
-          isOpen ? 'translate-y-0' : 'translate-y-full',
+          isOpen ? 'translate-y-0' : 'pointer-events-none translate-y-full',
         )}
-        style={isOpen && dragOffset > 0 ? { transform: `translateY(${dragOffset}px)` } : undefined}
+        style={overlayPinStyle({
+          viewport: isOpen ? viewportRect : null,
+          dragOffset: isOpen ? dragOffset : 0,
+        })}
         onTouchStart={handleTouchStart}
         onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}
