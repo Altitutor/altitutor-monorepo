@@ -1,19 +1,22 @@
 'use client';
 
 import { useCallback, useEffect, useState, type JSX } from 'react';
-import {
-  Button,
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  Input,
-  Label,
-  useToast,
-} from '@altitutor/ui';
+import { Button, Input, Label, useToast } from '@altitutor/ui';
 import { getSupabaseClient } from '@/shared/lib/supabase/client';
+import { TutorDialogShell } from '@/shared/components/tutor-dialog-shell';
+import { tutorBtnOutline, tutorBtnPrimary } from '@/shared/lib/tutor-visual';
+import {
+  isTutorOfficePrintAllowed,
+  type TutorOfficePrintAccess,
+} from '../lib/tutorOfficePrintAccess';
+
+const ACCESS_VALUES = new Set<TutorOfficePrintAccess>(['off', 'office_hours', 'unrestricted']);
+
+function parseAccess(value: unknown): TutorOfficePrintAccess {
+  return typeof value === 'string' && ACCESS_VALUES.has(value as TutorOfficePrintAccess)
+    ? (value as TutorOfficePrintAccess)
+    : 'office_hours';
+}
 
 export interface OfficePrintConfirmDialogProps {
   open: boolean;
@@ -101,6 +104,7 @@ export function OfficePrintConfirmDialog({
   const [submitting, setSubmitting] = useState(false);
   const [online, setOnline] = useState<boolean | null>(null);
   const [windowOpen, setWindowOpen] = useState<boolean | null>(null);
+  const [access, setAccess] = useState<TutorOfficePrintAccess | null>(null);
 
   useEffect(() => {
     if (!open) return;
@@ -109,17 +113,20 @@ export function OfficePrintConfirmDialog({
     void (async () => {
       const supabase = getSupabaseClient();
       try {
-        const [onlineRes, windowRes] = await Promise.all([
+        const [onlineRes, windowRes, accessRes] = await Promise.all([
           supabase.rpc('is_print_connector_online'),
           supabase.rpc('is_office_print_window_open'),
+          supabase.from('vtutor_office_print_settings').select('tutor_access').maybeSingle(),
         ]);
         if (cancelled) return;
         setOnline(onlineRes.data === true);
         setWindowOpen(windowRes.data === true);
+        setAccess(parseAccess(accessRes.data?.tutor_access));
       } catch {
         if (!cancelled) {
           setOnline(false);
           setWindowOpen(false);
+          setAccess('office_hours');
         }
       }
     })();
@@ -140,7 +147,15 @@ export function OfficePrintConfirmDialog({
         });
         return;
       }
-      if (windowOpen === false) {
+      if (access === 'off') {
+        toast({
+          title: 'Office print is turned off',
+          description: 'Tutors cannot send files to the office printer right now.',
+          variant: 'destructive',
+        });
+        return;
+      }
+      if (access !== 'unrestricted' && windowOpen === false) {
         toast({
           title: 'Outside admin shift',
           description: 'Office print is only available while an admin shift is on.',
@@ -207,61 +222,74 @@ export function OfficePrintConfirmDialog({
     } finally {
       setSubmitting(false);
     }
-  }, [copies, fileId, filename, onOpenChange, online, submitting, toast, windowOpen]);
+  }, [access, copies, fileId, filename, onOpenChange, online, submitting, toast, windowOpen]);
 
-  const blocked = online === false || windowOpen === false;
+  const blocked =
+    online === false ||
+    (access !== null && windowOpen !== null && !isTutorOfficePrintAllowed(access, windowOpen));
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
-        <DialogHeader>
-          <DialogTitle>Print to office</DialogTitle>
-          <DialogDescription>
-            Sends <span className="font-medium text-foreground">{filename}</span> to
-            the FUJ office printer.
-          </DialogDescription>
-        </DialogHeader>
-        <div className="space-y-4 py-2">
-          <div className="space-y-2">
-            <Label htmlFor="tutor-office-print-copies">Copies</Label>
-            <Input
-              id="tutor-office-print-copies"
-              type="number"
-              min={1}
-              max={20}
-              value={copies}
-              onChange={(event) => {
-                const next = Number(event.target.value);
-                if (!Number.isFinite(next)) return;
-                setCopies(Math.min(20, Math.max(1, Math.trunc(next))));
-              }}
-            />
-          </div>
-          <p className="text-sm text-muted-foreground">
-            Fixed finishing: black &amp; white, A4, double-sided (long edge), one
-            staple top-left.
-          </p>
-          {online === false ? (
-            <p className="text-sm text-destructive">Office printer offline.</p>
-          ) : null}
-          {windowOpen === false ? (
-            <p className="text-sm text-destructive">
-              Available only during an admin shift.
-            </p>
-          ) : null}
-        </div>
-        <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={submitting}>
+    <TutorDialogShell
+      open={open}
+      onOpenChange={onOpenChange}
+      size="compact"
+      title="Print to office"
+      description={
+        <>
+          Sends <span className="font-medium text-foreground">{filename}</span> to the FUJ office
+          printer.
+        </>
+      }
+      footer={
+        <>
+          <Button
+            variant="outline"
+            className={tutorBtnOutline}
+            onClick={() => onOpenChange(false)}
+            disabled={submitting}
+          >
             Cancel
           </Button>
           <Button
+            className={tutorBtnPrimary}
             onClick={() => void handleConfirm()}
             disabled={submitting || blocked || !fileId}
+            data-dialog-primary-action=""
           >
             {submitting ? 'Sending…' : 'Print to office'}
           </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+        </>
+      }
+    >
+      <div className="space-y-4">
+        <div className="space-y-2">
+          <Label htmlFor="tutor-office-print-copies">Copies</Label>
+          <Input
+            id="tutor-office-print-copies"
+            type="number"
+            min={1}
+            max={20}
+            value={copies}
+            onChange={(event) => {
+              const next = Number(event.target.value);
+              if (!Number.isFinite(next)) return;
+              setCopies(Math.min(20, Math.max(1, Math.trunc(next))));
+            }}
+          />
+        </div>
+        <p className="text-sm text-muted-foreground">
+          Fixed finishing: black &amp; white, A4, double-sided (long edge), one staple top-left.
+        </p>
+        {online === false ? (
+          <p className="text-sm text-destructive">Office printer offline.</p>
+        ) : null}
+        {access === 'off' ? (
+          <p className="text-sm text-destructive">Office print is turned off for tutors.</p>
+        ) : null}
+        {access !== 'off' && access !== 'unrestricted' && windowOpen === false ? (
+          <p className="text-sm text-destructive">Available only during an admin shift.</p>
+        ) : null}
+      </div>
+    </TutorDialogShell>
   );
 }

@@ -77,3 +77,6 @@ ref/
 
 # Local wayfinder / planning scratch (not for commit)
 .scratch/
+
+# Copied at Next start from pdfjs-dist (webpack cannot bundle its ESM)
+apps/tutor-web/public/pdfjs/

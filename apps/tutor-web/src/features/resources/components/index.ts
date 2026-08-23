@@ -6,3 +6,5 @@ export * from './resources-sidebar';
 export * from './resources-nav';
 export * from './topic-files-list';
 export * from './resource-file-viewer';
+export * from './resource-file-actions-menu';
+export * from './resource-file-preview-dialog';

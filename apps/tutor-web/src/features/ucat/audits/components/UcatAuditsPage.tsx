@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import type { DataTableColumnDefinition, DataTableFilterDefinition, DataTableSortOption } from '@altitutor/shared'
 import {
   Badge,
@@ -12,6 +12,7 @@ import {
   TableHeader,
   TablePagination,
   TableRow,
+  useToast,
 } from '@altitutor/ui'
 import { Eye } from 'lucide-react'
 import { UcatAccessDenied, UcatPageHeader, UcatPageSkeleton } from '@/features/ucat/shared/components'
@@ -26,14 +27,12 @@ import {
   tutorToolbarProps,
 } from '@/shared/lib/tutor-visual'
 import { AUDIT_RUN_STATUSES, type AuditRun, type AuditRunStatus } from '../api/audits'
-import { useAudits } from '../hooks/useAudits'
-
-const STATUS_LABELS: Record<AuditRunStatus, string> = {
-  selecting: 'Selecting',
-  active: 'Active',
-  completed: 'Completed',
-  cancelled: 'Cancelled',
-}
+import { useAudits, useSetAuditRunStatus } from '../hooks/useAudits'
+import { AUDIT_RUN_STATUS_LABELS } from '../lib/audit-run-status'
+import {
+  auditRunChangeStatusAction,
+  UcatAuditRunStatusConfirmDialog,
+} from './UcatAuditRunStatusConfirmDialog'
 
 const COLUMNS = [
   { key: 'title', label: 'Audit', visibleByDefault: true },
@@ -50,7 +49,7 @@ const FILTERS: DataTableFilterDefinition[] = [
   {
     key: 'status',
     label: 'Status',
-    options: AUDIT_RUN_STATUSES.map((status) => ({ value: status, label: STATUS_LABELS[status] })),
+    options: AUDIT_RUN_STATUSES.map((status) => ({ value: status, label: AUDIT_RUN_STATUS_LABELS[status] })),
   },
 ]
 
@@ -73,6 +72,13 @@ function finishedTotal(audit: AuditRun): number {
 export function UcatAuditsPage() {
   const access = useUcatAccess()
   const audits = useAudits()
+  const setRunStatus = useSetAuditRunStatus()
+  const { toast } = useToast()
+  const [pendingChange, setPendingChange] = useState<{
+    auditId: string
+    from: AuditRunStatus
+    to: AuditRunStatus
+  } | null>(null)
   const tableState = useUcatTableUrlState(DEFAULT_COLUMNS, {
     availableColumns: COLUMNS.map((column) => column.key),
   })
@@ -158,7 +164,7 @@ export function UcatAuditsPage() {
                   {show('status') && (
                     <TableCell>
                       <Badge variant={audit.status === 'active' ? 'default' : 'secondary'}>
-                        {STATUS_LABELS[audit.status]}
+                        {AUDIT_RUN_STATUS_LABELS[audit.status]}
                       </Badge>
                     </TableCell>
                   )}
@@ -167,11 +173,18 @@ export function UcatAuditsPage() {
                   {show('created_at') && <TableCell>{formatDateTime(audit.createdAt)}</TableCell>}
                   {show('actions') && (
                     <TableCell>
-                      <UcatRowActions actions={[{
-                        label: 'View',
-                        href: `/ucat/audits/${audit.id}`,
-                        icon: <Eye className="h-4 w-4" />,
-                      }]} />
+                      <UcatRowActions actions={[
+                        {
+                          label: 'View',
+                          href: `/ucat/audits/${audit.id}`,
+                          icon: <Eye className="h-4 w-4" />,
+                        },
+                        auditRunChangeStatusAction((status) => setPendingChange({
+                          auditId: audit.id,
+                          from: audit.status,
+                          to: status,
+                        })),
+                      ]} />
                     </TableCell>
                   )}
                 </TableRow>
@@ -195,6 +208,32 @@ export function UcatAuditsPage() {
         onPageChange={tableState.actions.onPageChange}
         onPageSizeChange={tableState.actions.onPageSizeChange}
         pageSizeOptions={[10, 20, 50, 100]}
+      />
+
+      <UcatAuditRunStatusConfirmDialog
+        currentStatus={pendingChange?.from ?? null}
+        nextStatus={pendingChange?.to ?? null}
+        pending={setRunStatus.isPending}
+        onOpenChange={(open) => {
+          if (!open && !setRunStatus.isPending) setPendingChange(null)
+        }}
+        onConfirm={() => {
+          if (!pendingChange) return
+          setRunStatus.mutate(
+            { auditId: pendingChange.auditId, status: pendingChange.to },
+            {
+              onSuccess: () => {
+                setPendingChange(null)
+                toast({ title: `Audit is now ${AUDIT_RUN_STATUS_LABELS[pendingChange.to].toLowerCase()}` })
+              },
+              onError: (error) => toast({
+                title: 'Could not change audit status',
+                description: error instanceof Error ? error.message : 'Please try again.',
+                variant: 'destructive',
+              }),
+            },
+          )
+        }}
       />
     </div>
   )

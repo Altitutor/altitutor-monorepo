@@ -21,6 +21,7 @@ import {
   useSortable,
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
+import { useVirtualizer } from '@tanstack/react-virtual';
 import { Button } from './button';
 import { Input } from './input';
 import {
@@ -152,6 +153,9 @@ function getPropValue<TItem>(
 type FilterOption = { value: unknown; label: string };
 
 const animateSettlingLayoutChanges: AnimateLayoutChanges = () => true;
+
+/** Columns larger than this mount only the visible slice plus overscan. */
+export const KANBAN_COLUMN_VIRTUALIZE_AFTER = 32;
 
 // ---------------------------------------------------------------------------
 // Main Component
@@ -1160,6 +1164,18 @@ function KanbanColumn<TItem>({
   animateLayoutChanges,
 }: KanbanColumnProps<TItem>) {
   const { setNodeRef, isOver } = useDroppable({ id });
+  const viewportRef = React.useRef<HTMLDivElement | null>(null);
+  const [viewportHeight, setViewportHeight] = React.useState(0);
+
+  React.useLayoutEffect(() => {
+    const element = viewportRef.current;
+    if (!element || typeof ResizeObserver === 'undefined') return undefined;
+    const update = () => setViewportHeight(element.clientHeight);
+    update();
+    const observer = new ResizeObserver(update);
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, []);
 
   const grouped = React.useMemo(() => {
     if (!groupBy) {
@@ -1179,6 +1195,42 @@ function KanbanColumn<TItem>({
       items: groupItems,
     }));
   }, [items, groupBy, rightPills, statusColumn, columnDefs, getGroupLabel]);
+
+  const ungroupedItems = grouped.length === 1 && grouped[0].key === null ? grouped[0].items : null;
+  const virtualize =
+    ungroupedItems != null
+    && viewportHeight > 0
+    && ungroupedItems.length > KANBAN_COLUMN_VIRTUALIZE_AFTER;
+  const windowedItems =
+    ungroupedItems != null
+    && viewportHeight === 0
+    && ungroupedItems.length > KANBAN_COLUMN_VIRTUALIZE_AFTER
+      ? ungroupedItems.slice(0, KANBAN_COLUMN_VIRTUALIZE_AFTER)
+      : ungroupedItems;
+
+  const virtualizer = useVirtualizer({
+    count: virtualize && ungroupedItems ? ungroupedItems.length : 0,
+    getScrollElement: () => viewportRef.current,
+    estimateSize: () => 108,
+    overscan: 8,
+    getItemKey: (index) => (ungroupedItems ? getItemId(ungroupedItems[index]) : index),
+  });
+
+  const renderedUngroupedItems = virtualize && ungroupedItems
+    ? virtualizer.getVirtualItems().map((row) => ({
+        item: ungroupedItems[row.index],
+        start: row.start,
+        key: row.key,
+        measureRef: virtualizer.measureElement,
+        index: row.index,
+      }))
+    : (windowedItems ?? []).map((item, index) => ({
+        item,
+        start: null as number | null,
+        key: getItemId(item),
+        measureRef: undefined as ((node: Element | null) => void) | undefined,
+        index,
+      }));
 
   return (
     <div
@@ -1202,37 +1254,73 @@ function KanbanColumn<TItem>({
         )}
       </div>
 
-      <ScrollArea className="flex-1">
-        <div className="p-2 pt-0 space-y-4">
-          {grouped.map((group: { key: string | null; label: string | null; items: TItem[] }) => (
-            <div key={group.key ?? 'all'} className="space-y-2">
-              {group.label && (
-                <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider px-1">
-                  {group.label}
+      <ScrollArea className="flex-1" viewportRef={viewportRef}>
+        {ungroupedItems ? (
+          <SortableContext items={ungroupedItems.map(getItemId)} strategy={verticalListSortingStrategy}>
+            <div
+              className="p-2 pt-0"
+              style={virtualize ? { height: virtualizer.getTotalSize(), position: 'relative' } : undefined}
+            >
+              {renderedUngroupedItems.map((row) => (
+                <div
+                  key={String(row.key)}
+                  data-index={row.index}
+                  ref={row.measureRef}
+                  className={virtualize ? 'absolute left-0 right-0 px-0 pb-2' : 'pb-2'}
+                  style={
+                    virtualize && row.start != null
+                      ? { transform: `translateY(${row.start}px)` }
+                      : undefined
+                  }
+                >
+                  <SortableCard
+                    item={row.item}
+                    getItemId={getItemId}
+                    renderCard={renderCard}
+                    visiblePillKeys={visiblePillKeys}
+                    animateLayoutChanges={animateLayoutChanges}
+                  />
+                </div>
+              ))}
+              {items.length === 0 && (
+                <div className="py-8 text-center text-xs text-muted-foreground">
+                  {emptyMessage}
                 </div>
               )}
-              <SortableContext items={group.items.map(getItemId)} strategy={verticalListSortingStrategy}>
-                <div className="space-y-2">
-                  {group.items.map((item: TItem) => (
-                    <SortableCard
-                      key={getItemId(item)}
-                      item={item}
-                      getItemId={getItemId}
-                      renderCard={renderCard}
-                      visiblePillKeys={visiblePillKeys}
-                      animateLayoutChanges={animateLayoutChanges}
-                    />
-                  ))}
-                </div>
-              </SortableContext>
             </div>
-          ))}
-          {items.length === 0 && (
-            <div className="py-8 text-center text-xs text-muted-foreground">
-              {emptyMessage}
-            </div>
-          )}
-        </div>
+          </SortableContext>
+        ) : (
+          <div className="p-2 pt-0 space-y-4">
+            {grouped.map((group: { key: string | null; label: string | null; items: TItem[] }) => (
+              <div key={group.key ?? 'all'} className="space-y-2">
+                {group.label && (
+                  <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider px-1">
+                    {group.label}
+                  </div>
+                )}
+                <SortableContext items={group.items.map(getItemId)} strategy={verticalListSortingStrategy}>
+                  <div className="space-y-2">
+                    {group.items.map((item: TItem) => (
+                      <SortableCard
+                        key={getItemId(item)}
+                        item={item}
+                        getItemId={getItemId}
+                        renderCard={renderCard}
+                        visiblePillKeys={visiblePillKeys}
+                        animateLayoutChanges={animateLayoutChanges}
+                      />
+                    ))}
+                  </div>
+                </SortableContext>
+              </div>
+            ))}
+            {items.length === 0 && (
+              <div className="py-8 text-center text-xs text-muted-foreground">
+                {emptyMessage}
+              </div>
+            )}
+          </div>
+        )}
       </ScrollArea>
     </div>
   );

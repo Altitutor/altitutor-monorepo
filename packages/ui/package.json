@@ -75,6 +75,7 @@
     "@radix-ui/react-tabs": "^1.1.13",
     "@radix-ui/react-tooltip": "^1.2.8",
     "@tanstack/react-table": "^8.21.3",
+    "@tanstack/react-virtual": "^3.13.12",
     "@tiptap/core": "3.22.5",
     "@tiptap/extension-details": "3.22.5",
     "@tiptap/extension-heading": "3.22.5",
