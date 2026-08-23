@@ -2,7 +2,7 @@ import { render, screen } from '@testing-library/react';
 import { CommunicationsStatsSection } from '../HrStatsSection';
 
 const mockIssuesReportChart = jest.fn((_props: unknown) => <div>Form completions chart</div>);
-const mockUseCommunicationsStatsReport = jest.fn((_start: unknown, _end: unknown): unknown => null);
+const mockUseCommunicationsStatsReport = jest.fn((..._args: unknown[]): unknown => null);
 
 jest.mock('@/shared/contexts/EntityModalContext', () => ({
   useEntityModals: () => ({
