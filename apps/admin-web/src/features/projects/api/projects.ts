@@ -3,6 +3,10 @@ import { getSupabaseClient } from '@/shared/lib/supabase/client';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Project, ProjectFilters, ProjectInsert, ProjectUpdate, ProjectWithLead } from '../types';
 
+export function getProjectFilterColumn(key: string): string {
+  return key === 'project_lead' ? 'project_lead_id' : key;
+}
+
 export const projectsApi = {
   search: async (
     search: string,
@@ -69,6 +73,8 @@ export const projectsApi = {
     for (const [key, value] of Object.entries(otherFilters)) {
       if (!Array.isArray(value) || value.length === 0) continue;
 
+      const column = getProjectFilterColumn(key);
+
       const dateRanges = value.filter(
         (v) => typeof v === 'object' && v !== null && (v as { type?: string }).type === 'date_range'
       );
@@ -77,21 +83,21 @@ export const projectsApi = {
       );
 
       if (otherValues.length > 0) {
-        query = query.in(key, otherValues);
+        query = query.in(column, otherValues);
       }
 
       if (dateRanges.length > 0) {
         const dr = dateRanges[0] as { operator?: 'gte' | 'lte'; start?: string; end?: string };
         if (dr.operator === 'gte' && dr.start) {
-          query = query.gte(key, dr.start);
+          query = query.gte(column, dr.start);
         } else if (dr.operator === 'lte' && dr.end) {
-          query = query.lte(key, dr.end);
+          query = query.lte(column, dr.end);
         } else if (dr.start && dr.end) {
-          query = query.gte(key, dr.start).lte(key, dr.end);
+          query = query.gte(column, dr.start).lte(column, dr.end);
         } else if (dr.start) {
-          query = query.gte(key, dr.start);
+          query = query.gte(column, dr.start);
         } else if (dr.end) {
-          query = query.lte(key, dr.end);
+          query = query.lte(column, dr.end);
         }
       }
     }
