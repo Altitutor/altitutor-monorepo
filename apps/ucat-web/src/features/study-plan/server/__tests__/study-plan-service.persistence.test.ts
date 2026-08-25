@@ -598,7 +598,7 @@ describe("Study plan persistence orchestration", () => {
     );
     expect(
       upserts.some((upsert) => upsert.table === "ucat_preparation_snapshots"),
-    ).toBe(true);
+    ).toBe(false);
   });
 
   it("regenerates future work when an active generation contains missed work", async () => {
@@ -653,19 +653,9 @@ describe("Study plan persistence orchestration", () => {
         }),
       ]),
     );
-    expect(upserts).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({
-          table: "ucat_preparation_snapshots",
-          payload: expect.objectContaining({
-            student_id: "student-1",
-            snapshot_date: "2026-08-11",
-            trajectory_model_version:
-              CURRENT_PREPARATION_VERSIONS.trajectoryModel,
-          }),
-        }),
-      ]),
-    );
+    expect(
+      upserts.some((upsert) => upsert.table === "ucat_preparation_snapshots"),
+    ).toBe(false);
     expect(admin.rpc).not.toHaveBeenCalledWith(
       "replace_ucat_study_plan_generation",
       expect.objectContaining({
@@ -705,7 +695,7 @@ describe("Study plan persistence orchestration", () => {
     );
     expect(
       upserts.some((upsert) => upsert.table === "ucat_preparation_snapshots"),
-    ).toBe(true);
+    ).toBe(false);
     expect(admin.rpc).not.toHaveBeenCalledWith(
       "replace_ucat_study_plan_generation",
       expect.anything(),

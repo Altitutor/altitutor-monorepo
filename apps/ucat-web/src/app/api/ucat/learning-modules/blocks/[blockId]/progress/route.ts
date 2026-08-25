@@ -7,6 +7,8 @@ import {
   upsertBlockProgress,
 } from "@/lib/ucat/learning/progress-service";
 import { captureUcatLearningActivityCompletedInBackground } from "@/lib/analytics/posthog-server";
+import { waitUntil } from "@vercel/functions";
+import { processPendingPreparationRefreshes } from "@/features/preparation/server/preparation-refresh-worker";
 
 type RouteContext = { params: Promise<{ blockId: string }> };
 
@@ -53,6 +55,12 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
         activityId: block.learning_module_id,
         properties: { completion_source: "lesson_block_progress" },
       });
+      waitUntil(
+        processPendingPreparationRefreshes({
+          studentId: auth.studentId,
+          limit: 1,
+        }),
+      );
     }
     return NextResponse.json({ ok: true });
   } catch (error) {

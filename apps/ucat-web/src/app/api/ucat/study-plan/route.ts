@@ -1,7 +1,10 @@
 import { captureApiError } from "@/lib/sentry/capture-api-error";
 import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
-import { getStudyPlan, saveStudyPlanProfile } from "@/features/study-plan/server/study-plan-service";
+import {
+  getStudyPlan,
+  saveStudyPlanProfile,
+} from "@/features/study-plan/server/study-plan-service";
 import { parseStudyPlanProfileInput } from "@/features/study-plan/lib/validation";
 
 function errorMessage(error: unknown, fallback: string) {
@@ -15,25 +18,25 @@ function errorMessage(error: unknown, fallback: string) {
 
 async function authenticatedClient() {
   const supabase = await getSupabaseServerClient();
-  const { data: { user }, error } = await supabase.auth.getUser();
+  const {
+    data: { user },
+    error,
+  } = await supabase.auth.getUser();
   if (error) throw new Error("Failed to get user.");
   return { supabase, user };
 }
 
-export async function GET(request: NextRequest) {
+export async function GET(_request: NextRequest) {
   try {
     const { supabase, user } = await authenticatedClient();
-    if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    const dashboardView =
-      request.nextUrl.searchParams.get("view") === "dashboard";
+    if (!user)
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     return NextResponse.json(
-      await getStudyPlan(
-        supabase,
-        user.id,
-        dashboardView
-          ? { allowAutomaticReplan: false, reconcileTasks: false }
-          : undefined,
-      ),
+      await getStudyPlan(supabase, user.id, {
+        allowAutomaticReplan: false,
+        reconcileTasks: false,
+        refreshGuidance: false,
+      }),
     );
   } catch (error) {
     const message = errorMessage(error, "Failed to load Study plan.");
@@ -50,14 +53,22 @@ export async function GET(request: NextRequest) {
 export async function PUT(request: NextRequest) {
   try {
     const { supabase, user } = await authenticatedClient();
-    if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    if (!user)
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     const input = parseStudyPlanProfileInput(await request.json());
-    return NextResponse.json(await saveStudyPlanProfile(supabase, user.id, input));
+    return NextResponse.json(
+      await saveStudyPlanProfile(supabase, user.id, input),
+    );
   } catch (error) {
     captureApiError(error, "/api/ucat/study-plan");
     console.error("[study-plan] PUT failed", error);
     const message = errorMessage(error, "Failed to save Study plan.");
-    const isValidation = !message.toLowerCase().includes("failed") && !message.toLowerCase().includes("configured");
-    return NextResponse.json({ error: message }, { status: isValidation ? 400 : 500 });
+    const isValidation =
+      !message.toLowerCase().includes("failed") &&
+      !message.toLowerCase().includes("configured");
+    return NextResponse.json(
+      { error: message },
+      { status: isValidation ? 400 : 500 },
+    );
   }
 }

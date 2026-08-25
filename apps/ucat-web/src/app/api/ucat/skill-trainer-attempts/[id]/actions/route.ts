@@ -5,6 +5,8 @@ import {
   type SubmitActionPayload,
 } from "@/lib/ucat/skill-trainer/attempt-service";
 import { ServerTiming } from "@/lib/performance/server-timing";
+import { waitUntil } from "@vercel/functions";
+import { processPendingPreparationRefreshes } from "@/features/preparation/server/preparation-refresh-worker";
 
 export async function POST(
   request: NextRequest,
@@ -43,6 +45,14 @@ export async function POST(
       body.expectedVersion as number,
       actionReceivedAt,
     );
+    if (state.isCompleted) {
+      waitUntil(
+        processPendingPreparationRefreshes({
+          studentId: auth.studentId,
+          limit: 1,
+        }),
+      );
+    }
     timing.mark("action");
     return timing.apply(NextResponse.json({ attempt: state }));
   } catch (error) {

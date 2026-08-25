@@ -249,7 +249,7 @@ describe("prepareStudent", () => {
     });
   });
 
-  it("blends sustained behavior with probable additional plan uptake", () => {
+  it("projects only from sustained behavior, independent of plan and goal overlays", () => {
     const fixture = input();
     addRepresentativeScoreEvidence(fixture);
     fixture.evidence.forecast = {
@@ -259,7 +259,6 @@ describe("prepareStudent", () => {
         dm: 0.75,
         qr: 0.75,
       },
-      expectedPlanUptake: 0.5,
       learningResponse: 1,
       learningResponseUncertainty: 0.2,
       history: [
@@ -279,18 +278,16 @@ describe("prepareStudent", () => {
     const trajectory = prepareStudent(fixture).trajectory;
     expect(trajectory).toMatchObject({
       status: "available",
-      doseSource: "recent_behavior_with_plan_uplift",
+      doseSource: "recent_behavior",
       recentCoreSectionEquivalentsPerWeek: 2,
-      expectedPlanUptake: 0.5,
+      plannedCoreSectionEquivalentsPerWeek: 0,
+      expectedPlanUptake: 0,
       percentiles: { lower: 20, middle: 50, upper: 80 },
       history: [{ date: "2025-12-01", currentEstimate: 1700 }],
     });
     if (trajectory.status !== "available")
       throw new Error("Expected trajectory");
-    expect(trajectory.coreSectionEquivalentsPerWeek).toBeGreaterThanOrEqual(2);
-    expect(trajectory.coreSectionEquivalentsPerWeek).toBeLessThanOrEqual(
-      Math.max(2, trajectory.plannedCoreSectionEquivalentsPerWeek),
-    );
+    expect(trajectory.coreSectionEquivalentsPerWeek).toBe(2);
     expect(trajectory.points.length).toBeGreaterThan(2);
     for (const point of trajectory.points) {
       expect(point.lower).toBeLessThanOrEqual(point.middle);
@@ -323,6 +320,15 @@ describe("prepareStudent", () => {
     const lateGain =
       trajectory.points.at(-1)!.middle - trajectory.points.at(-2)!.middle;
     expect(lateGain).toBeLessThanOrEqual(earlyGain);
+
+    const withoutPlan = JSON.parse(
+      JSON.stringify(fixture),
+    ) as PreparationEngineInput;
+    withoutPlan.goal.profile.studyPlanEnabled = false;
+    withoutPlan.goal.profile.targetScore = 2700;
+    withoutPlan.goal.profile.testDate = null;
+    withoutPlan.goal.planningDate = "2027-07-15";
+    expect(prepareStudent(withoutPlan).trajectory).toEqual(trajectory);
   });
 
   it("uses sustained recent workload without a plan and never invents a future dose", () => {
@@ -345,7 +351,7 @@ describe("prepareStudent", () => {
     });
   });
 
-  it("never lets a smaller plan reduce the likely trajectory below recent behavior", () => {
+  it("ignores plan uptake when projecting from recent behavior", () => {
     const fixture = input();
     addRepresentativeScoreEvidence(fixture);
     fixture.evidence.forecast = {
@@ -387,39 +393,6 @@ describe("prepareStudent", () => {
     expect(excessiveFinal).toBeGreaterThanOrEqual(highFinal);
     expect(excessiveFinal - highFinal).toBeLessThan(highFinal - lowFinal);
     expect(excessiveFinal).toBeLessThan(2700);
-  });
-
-  it("propagates plan-uptake uncertainty without changing the current estimate", () => {
-    const uncertainUptake = input();
-    addRepresentativeScoreEvidence(uncertainUptake);
-    uncertainUptake.evidence.forecast = {
-      expectedPlanUptake: 0.6,
-      planUptakeUncertainty: 0.5,
-      learningResponseUncertainty: 0.05,
-    };
-    const certainUptake = input();
-    addRepresentativeScoreEvidence(certainUptake);
-    certainUptake.evidence.forecast = {
-      expectedPlanUptake: 0.6,
-      planUptakeUncertainty: 0.02,
-      learningResponseUncertainty: 0.05,
-    };
-
-    const uncertain = prepareStudent(uncertainUptake).trajectory;
-    const certain = prepareStudent(certainUptake).trajectory;
-    if (uncertain.status !== "available" || certain.status !== "available") {
-      throw new Error("Expected trajectories");
-    }
-    expect(uncertain.points[0]).toEqual(certain.points[0]);
-    // Plan uptake uncertainty should materially change the future interval,
-    // even when saturation means its width is not monotonic at every date.
-    expect(
-      uncertain.points.some(
-        (point, index) =>
-          point.lower !== certain.points[index]!.lower ||
-          point.upper !== certain.points[index]!.upper,
-      ),
-    ).toBe(true);
   });
 
   it("prioritises an accurate-slow section even when its visible estimate is lower", () => {

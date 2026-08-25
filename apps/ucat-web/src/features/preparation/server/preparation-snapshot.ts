@@ -94,6 +94,19 @@ export async function persistPreparationSnapshot(
   snapshotDate: string,
   preparation: PreparationEngineResult,
 ): Promise<void> {
+  await persistPreparationProjectionSnapshot(studentId, snapshotDate, {
+    generatedAt: preparation.generatedAt,
+    versions: preparation.versions,
+    currentScore: preparation.currentScore,
+    trajectory: preparation.trajectory,
+  });
+}
+
+export async function persistPreparationProjectionSnapshot(
+  studentId: string,
+  snapshotDate: string,
+  preparation: PreparationProjectionSnapshot,
+): Promise<void> {
   const { error } = await requireAdmin()
     .from("ucat_preparation_snapshots")
     .upsert(

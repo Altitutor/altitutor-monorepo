@@ -1,4 +1,7 @@
-export { prepareStudent } from "@/features/preparation/lib/engine";
+export {
+  estimatePreparationCurrentScore,
+  prepareStudent,
+} from "@/features/preparation/lib/engine";
 export {
   rankActivityCandidates,
   selectActivityCandidates,

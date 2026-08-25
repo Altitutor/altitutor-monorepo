@@ -1,14 +1,11 @@
 import { GET } from "@/app/api/ucat/score-projection/route";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
-import { getCurrentPreparation } from "@/features/study-plan/server/study-plan-service";
-import {
-  loadLatestPreparationSnapshot,
-  loadPreparationEvidenceWatermark,
-} from "@/features/preparation/server/preparation-snapshot";
+import { loadLatestPreparationSnapshot } from "@/features/preparation/server/preparation-snapshot";
 import {
   PREPARATION_SANDBOX_PERSONAS,
   runPreparationSandboxCase,
 } from "@/features/preparation/testing/sandbox";
+import { buildPreparationTrajectory } from "@/features/preparation/lib/trajectory";
 
 jest.mock("@/lib/supabase/server", () => ({
   getSupabaseServerClient: jest.fn(),
@@ -22,34 +19,57 @@ jest.mock("next/server", () => ({
     }),
   },
 }));
-jest.mock("@/features/study-plan/server/study-plan-service", () => ({
-  getCurrentPreparation: jest.fn(),
-}));
 jest.mock("@/features/preparation/server/preparation-snapshot", () => ({
   loadLatestPreparationSnapshot: jest.fn(),
-  loadPreparationEvidenceWatermark: jest.fn(),
 }));
 
 const mockGetSupabaseServerClient = jest.mocked(getSupabaseServerClient);
-const mockGetCurrentPreparation = jest.mocked(getCurrentPreparation);
 const mockLoadLatestPreparationSnapshot = jest.mocked(
   loadLatestPreparationSnapshot,
-);
-const mockLoadPreparationEvidenceWatermark = jest.mocked(
-  loadPreparationEvidenceWatermark,
 );
 
 describe("GET /api/ucat/score-projection", () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockLoadLatestPreparationSnapshot.mockResolvedValue(null);
-    mockLoadPreparationEvidenceWatermark.mockResolvedValue(null);
   });
 
-  it("presents the canonical current estimate and trajectory without a second model", async () => {
+  it("does not run the Preparation engine during a read when no snapshot exists", async () => {
+    mockGetSupabaseServerClient.mockResolvedValue({
+      auth: {
+        getUser: jest.fn().mockResolvedValue({
+          data: { user: { id: "user-1" } },
+          error: null,
+        }),
+      },
+    } as never);
+
+    const response = await GET();
+
+    expect(response.status).toBe(404);
+    expect(await response.json()).toEqual({
+      error: "Score projection is not available yet",
+    });
+  });
+
+  it("presents the persisted canonical current estimate and trajectory without a second model", async () => {
     const preparation = runPreparationSandboxCase(
       PREPARATION_SANDBOX_PERSONAS["experienced-high-performing"],
     ).result;
+    preparation.trajectory = buildPreparationTrajectory({
+      today: preparation.generatedAt.slice(0, 10),
+      modelVersion: preparation.versions.trajectoryModel,
+      currentScore: preparation.currentScore,
+      forecast: {
+        recentCoreSectionEquivalentsPerWeek: 3,
+        recentCoreSectionEquivalentsPerWeekBySection: Object.fromEntries(
+          preparation.currentScore.sections.map((section) => [
+            section.sectionId,
+            1,
+          ]),
+        ),
+      },
+    });
     expect(preparation.trajectory.status).toBe("available");
     if (preparation.trajectory.status !== "available") return;
     preparation.trajectory.recentCoreSectionEquivalentsPerWeek = 1;
@@ -94,7 +114,12 @@ describe("GET /api/ucat/score-projection", () => {
         }),
       },
     } as never);
-    mockGetCurrentPreparation.mockResolvedValue(preparation);
+    mockLoadLatestPreparationSnapshot.mockResolvedValue({
+      generatedAt: preparation.generatedAt,
+      versions: preparation.versions,
+      currentScore: preparation.currentScore,
+      trajectory: preparation.trajectory,
+    });
 
     const response = await GET();
     const payload = await response.json();
@@ -110,10 +135,6 @@ describe("GET /api/ucat/score-projection", () => {
     expect(response.status).toBe(200);
     expect(sectionTotal).toBe(preparation.currentScore.currentEstimate);
     expect(payload.modelVersion).toBe(preparation.versions.trajectoryModel);
-    expect(mockGetCurrentPreparation).toHaveBeenCalledWith(
-      expect.anything(),
-      "user-1",
-    );
     expect(payload.snapshots[0]).toMatchObject({
       date: "2026-01-04",
       confidence: "medium",
@@ -198,10 +219,9 @@ describe("GET /api/ucat/score-projection", () => {
       expect.anything(),
       preparation.versions,
     );
-    expect(mockGetCurrentPreparation).not.toHaveBeenCalled();
   });
 
-  it("recomputes when score evidence is newer than the stored snapshot", async () => {
+  it("serves a persisted snapshot without running freshness fan-out on GET", async () => {
     const preparation = runPreparationSandboxCase(
       PREPARATION_SANDBOX_PERSONAS["experienced-high-performing"],
     ).result;
@@ -219,16 +239,9 @@ describe("GET /api/ucat/score-projection", () => {
       currentScore: preparation.currentScore,
       trajectory: preparation.trajectory,
     });
-    mockLoadPreparationEvidenceWatermark.mockResolvedValue(
-      "2026-08-21T00:00:00.000Z",
-    );
-    mockGetCurrentPreparation.mockResolvedValue(preparation);
+    const response = await GET();
 
-    await GET();
-
-    expect(mockGetCurrentPreparation).toHaveBeenCalledWith(
-      expect.anything(),
-      "user-1",
-    );
+    expect(response.status).toBe(200);
+    expect(mockLoadLatestPreparationSnapshot).toHaveBeenCalledTimes(1);
   });
 });

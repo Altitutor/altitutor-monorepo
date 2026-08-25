@@ -1,9 +1,7 @@
 import { NextResponse } from "next/server";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
-import { getCurrentPreparation } from "@/features/study-plan/server/study-plan-service";
 import {
   loadLatestPreparationSnapshot,
-  loadPreparationEvidenceWatermark,
   type PreparationProjectionSnapshot,
 } from "@/features/preparation/server/preparation-snapshot";
 import { CURRENT_PREPARATION_VERSIONS } from "@/features/preparation/lib/policy";
@@ -102,19 +100,20 @@ export async function GET() {
   }
 
   try {
-    const [snapshot, evidenceWatermark] = await Promise.all([
-      loadLatestPreparationSnapshot(supabase, CURRENT_PREPARATION_VERSIONS),
-      loadPreparationEvidenceWatermark(supabase),
-    ]);
+    const snapshot = await loadLatestPreparationSnapshot(
+      supabase,
+      CURRENT_PREPARATION_VERSIONS,
+    );
     timing.mark("snapshot");
-    const snapshotIsFresh =
-      snapshot != null &&
-      (evidenceWatermark == null || snapshot.generatedAt >= evidenceWatermark);
-    const preparation: PreparationProjectionSnapshot =
-      snapshotIsFresh && snapshot
-        ? snapshot
-        : await getCurrentPreparation(supabase, user.id);
-    if (!snapshotIsFresh) timing.mark("recompute");
+    if (!snapshot) {
+      return timing.apply(
+        NextResponse.json(
+          { error: "Score projection is not available yet" },
+          { status: 404 },
+        ),
+      );
+    }
+    const preparation: PreparationProjectionSnapshot = snapshot;
     const cognitiveSections = preparation.currentScore.sections;
     const responseSections = [
       ...cognitiveSections,
