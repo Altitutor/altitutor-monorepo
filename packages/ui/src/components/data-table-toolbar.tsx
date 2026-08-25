@@ -946,7 +946,10 @@ export function DataTableToolbar({
                     const customContent = customFilterContent[def.key];
                     if (customContent != null) {
                       return (
-                        <DropdownMenuSub key={def.key}>
+                        <DropdownMenuSub
+                          key={def.key}
+                          persistOpenOnRemountKey={`${filterPersistenceKey}:filter:${def.key}`}
+                        >
                           <DropdownMenuSubTrigger>{def.label}</DropdownMenuSubTrigger>
                           <DropdownMenuSubContent className="w-[280px] p-0">
                             {customContent}

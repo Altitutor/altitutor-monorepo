@@ -15,6 +15,7 @@ type DragCallbacks = {
     over: { id: string; rect: { top: number; height: number } };
   }) => void;
   onDragEnd?: (event: { active: { id: string }; over: { id: string } | null }) => void;
+  collisionDetection?: (args: Record<string, unknown>) => Array<{ id: string }>;
 };
 
 let dragCallbacks: DragCallbacks = {};
@@ -24,10 +25,18 @@ let sortableOptionsById = new Map<
   string,
   { animateLayoutChanges?: (args: Record<string, unknown>) => boolean }
 >();
+let mockClosestCornersResult: Array<{ id: string }> = [];
+let mockPointerWithinResult: Array<{ id: string }> = [];
 
 jest.mock('@dnd-kit/core', () => ({
-  DndContext: ({ children, onDragStart, onDragOver, onDragEnd }: React.PropsWithChildren<DragCallbacks>) => {
-    dragCallbacks = { onDragStart, onDragOver, onDragEnd };
+  DndContext: ({
+    children,
+    onDragStart,
+    onDragOver,
+    onDragEnd,
+    collisionDetection,
+  }: React.PropsWithChildren<DragCallbacks>) => {
+    dragCallbacks = { onDragStart, onDragOver, onDragEnd, collisionDetection };
 
     React.useLayoutEffect(() => {
       if (!simulateMeasurementFeedback) return;
@@ -61,7 +70,8 @@ jest.mock('@dnd-kit/core', () => ({
     return <>{children}</>;
   },
   PointerSensor: function PointerSensor() {},
-  closestCorners: jest.fn(),
+  closestCorners: jest.fn(() => mockClosestCornersResult),
+  pointerWithin: jest.fn(() => mockPointerWithinResult),
   useDroppable: () => ({ setNodeRef: jest.fn(), isOver: false }),
   useSensor: jest.fn(),
   useSensors: jest.fn(() => []),
@@ -144,6 +154,8 @@ describe('KanbanBoard cross-column drag preview', () => {
     simulateMeasurementFeedback = false;
     dragOverlayDropAnimation = 'not-rendered';
     sortableOptionsById = new Map();
+    mockClosestCornersResult = [];
+    mockPointerWithinResult = [];
     container = document.createElement('div');
     document.body.appendChild(container);
     root = createRoot(container);
@@ -306,5 +318,46 @@ describe('KanbanBoard cross-column drag preview', () => {
         previousItems: ['c', 'b', 'd'],
       }),
     ).toBe(true);
+  });
+
+  it('selects an empty column under the pointer even when corner proximity prefers a source card', () => {
+    const itemsWithEmptyDoneColumn = items.filter((item) => item.status === 'todo');
+
+    act(() => {
+      root.render(
+        <KanbanBoard<Item>
+          items={itemsWithEmptyDoneColumn}
+          getItemId={(item) => item.id}
+          columnDefs={columns}
+          activeColumnKey="status"
+          renderCard={(item) => <div data-card-id={item.id}>{item.id}</div>}
+          rightPills={[]}
+        />,
+      );
+    });
+
+    mockPointerWithinResult = [{ id: 'column-done' }];
+    mockClosestCornersResult = [{ id: 'a' }];
+
+    const collisions = dragCallbacks.collisionDetection?.({});
+
+    expect(collisions?.[0]?.id).toBe('column-done');
+
+    act(() => {
+      dragCallbacks.onDragStart?.({ active: { id: 'b' } });
+      dragCallbacks.onDragOver?.({
+        active: { id: 'b', rect: { current: { translated: null } } },
+        activatorEvent: { clientY: 220 },
+        delta: { y: 0 },
+        over: { id: collisions?.[0]?.id ?? '', rect: { top: 100, height: 400 } },
+      });
+    });
+
+    const doneHeading = Array.from(container.querySelectorAll('h3')).find(
+      (heading) => heading.textContent === 'Done',
+    );
+    const doneColumn = doneHeading?.parentElement?.parentElement?.parentElement;
+
+    expect(doneColumn?.querySelector('[data-card-id="b"]')).not.toBeNull();
   });
 });

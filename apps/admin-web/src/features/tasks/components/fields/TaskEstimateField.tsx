@@ -50,7 +50,7 @@ export function TaskEstimateField({ form }: TaskEstimateFieldProps) {
                 fullWidth
                 placeholder="Set estimate"
                 trigger={
-                  <Button variant="outline" className="w-full justify-start font-normal">
+                  <Button variant="field" className="w-full justify-start font-normal">
                     <Gauge className="h-4 w-4 text-muted-foreground" />
                     <span className={cn(!estimateValue && 'text-muted-foreground')}>
                       {displayValue || 'Set estimate'}

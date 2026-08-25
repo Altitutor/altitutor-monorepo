@@ -12,6 +12,8 @@ import {
   PRACTICE_SESSION_ENDED_MESSAGE,
   PracticeSessionEndedError,
 } from "@/lib/ucat/practice-sessions/practice-session-ended";
+import { parseQuotaExceededMessage } from "@/lib/ucat/quota/parse-quota-error";
+import { quotaExceededResponse } from "@/lib/ucat/quota/quota-service";
 
 export async function PATCH(request: NextRequest) {
   const supabase = await getSupabaseServerClient();
@@ -83,11 +85,11 @@ export async function PATCH(request: NextRequest) {
         { status: 410 },
       );
     }
+    const message = error instanceof Error ? error.message : "Failed to sync";
+    const quota = parseQuotaExceededMessage(message);
+    if (quota) return quotaExceededResponse(quota);
     captureApiError(error, "/api/ucat/exam-attempts/sync");
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Failed to sync" },
-      { status: 500 },
-    );
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 
   return NextResponse.json({ success: true, ...result });

@@ -1,6 +1,6 @@
 'use client';
 
-import { ActivityFeed } from '@/features/activity/components/ActivityFeed';
+import { ActivityTabLayout } from '@/features/activity/components/ActivityTabLayout';
 import { useIssueActivity } from '@/features/activity/hooks';
 
 interface IssueActivityTabProps {
@@ -13,14 +13,14 @@ interface IssueActivityTabProps {
   isOpen?: boolean;
 }
 
-export function IssueActivityTab({ 
-  issueId, 
-  studentIds, 
-  staffIds, 
-  classIds, 
-  sessionIds, 
-  invoiceIds, 
-  isOpen = true 
+export function IssueActivityTab({
+  issueId,
+  studentIds,
+  staffIds,
+  classIds,
+  sessionIds,
+  invoiceIds,
+  isOpen = true,
 }: IssueActivityTabProps) {
   const { data, isLoading, error, hasNextPage, isFetchingNextPage, fetchNextPage } = useIssueActivity({
     issueId,
@@ -29,19 +29,17 @@ export function IssueActivityTab({
     classIds,
     sessionIds,
     invoiceIds,
-    enabled: isOpen
+    enabled: isOpen,
   });
 
   return (
-    <div className="h-full">
-      <ActivityFeed
-        data={data}
-        isLoading={isLoading}
-        error={error}
-        hasNextPage={hasNextPage}
-        isFetchingNextPage={isFetchingNextPage}
-        onLoadMore={fetchNextPage}
-      />
-    </div>
+    <ActivityTabLayout
+      data={data}
+      isLoading={isLoading}
+      error={error}
+      hasNextPage={hasNextPage}
+      isFetchingNextPage={isFetchingNextPage}
+      onLoadMore={fetchNextPage}
+    />
   );
 }

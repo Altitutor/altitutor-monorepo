@@ -259,6 +259,7 @@ export function SessionModal({ isOpen, sessionId, onClose }: SessionModalProps) 
   const { session, sessionsStudents, sessionsStaff, tutorLog, sessionsParents = [] } = sessionData.data;
   const meetingMode = session.type !== 'CLASS';
   const adminMeetingMode = session.type === 'ADMIN_MEETING';
+  const allowAddParticipants = !helpers.hasTutorLog;
   const allowAbsenceLogging = Boolean(session.class_id || session.admin_shift_id);
   const parentsData = (sessionsParents as Array<{ id: string; parent: Tables<'parents'> | null }>)
     .filter((row): row is { id: string; parent: Tables<'parents'> } => row.parent != null)
@@ -428,18 +429,18 @@ export function SessionModal({ isOpen, sessionId, onClose }: SessionModalProps) 
                     }
                         : undefined
                     }
-                    onAddStudentToSession={meetingMode ? undefined : modals.openAddStudentToSessionModal}
-                    onAddStaffToSession={meetingMode ? undefined : modals.openAddStaffToSessionModal}
+                    onAddStudentToSession={!meetingMode && allowAddParticipants ? modals.openAddStudentToSessionModal : undefined}
+                    onAddStaffToSession={!meetingMode && allowAddParticipants ? modals.openAddStaffToSessionModal : undefined}
                     meetingMode={meetingMode}
                     adminMeetingMode={adminMeetingMode}
                     parentsData={parentsData}
-                    onMeetingAddStudent={adminMeetingMode ? undefined : async (student) => {
+                    onMeetingAddStudent={adminMeetingMode || !allowAddParticipants ? undefined : async (student) => {
                       if (!sessionId) return;
                       await addStudentMutation.mutateAsync({ sessionId, studentId: student.id });
                       await sessionData.refresh();
                       toast({ title: 'Student added', description: `${student.first_name ?? ''} ${student.last_name ?? ''}`.trim() });
                     }}
-                    onMeetingAddStaff={async (staffMember) => {
+                    onMeetingAddStaff={!allowAddParticipants ? undefined : async (staffMember) => {
                       if (!sessionId) return;
                       const staffType =
                         session.type === 'CHECK_IN' ? 'CHECK_IN_RECEIVER' : 'MAIN_TUTOR';

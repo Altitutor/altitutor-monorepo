@@ -90,6 +90,7 @@ import {
 import { formatSecondsToDuration } from '@/features/ucat/shared/lib/time-utils'
 import type { UcatQuestionStemFormValues } from '@/features/ucat/questions/types/schema'
 import { formValuesToStemBundlePayload } from '@/features/ucat/questions/lib/stem-editor-form'
+import { AuditCatalogFilterMenu } from '@/features/ucat/questions/components/AuditCatalogFilterMenu'
 import {
   auditMembershipChipClassName,
   auditMembershipChipLabel,
@@ -478,8 +479,6 @@ export function UcatQuestionsPage() {
       key: 'audit',
       label: 'Audit',
       options: buildAuditCatalogFilterOptions(catalogAuditRuns.data ?? []),
-      searchable: true,
-      searchPlaceholder: 'Search audits...',
     }),
     [catalogAuditRuns.data],
   )
@@ -1149,6 +1148,18 @@ export function UcatQuestionsPage() {
           if (filterKey === 'question_set_id') setSetFilterSearch(value)
         }}
         customFilterContent={{
+          audit: (
+            <AuditCatalogFilterMenu
+              runs={catalogAuditRuns.data ?? []}
+              selectedValues={(tableState.state.filters.audit ?? []).map(String)}
+              onSelectedValuesChange={(values) => {
+                const filters = { ...tableState.state.filters }
+                if (values.length > 0) filters.audit = values
+                else delete filters.audit
+                tableState.actions.onFiltersChange(filters)
+              }}
+            />
+          ),
           id: (
             <QuestionStemIdFilter
               ids={(tableState.state.filters.id ?? []).map(String)}

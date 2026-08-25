@@ -40,13 +40,15 @@ export type StemAuditMembership = {
   why: string | null
 }
 
-const TARGET_STATUS_LABEL: Record<AuditTargetStatus, string> = {
+export const AUDIT_TARGET_STATUS_LABELS: Record<AuditTargetStatus, string> = {
   pending: 'Pending',
   in_progress: 'In progress',
   completed: 'Completed',
   failed: 'Failed',
   skipped: 'Skipped',
 }
+
+const TARGET_STATUS_LABEL = AUDIT_TARGET_STATUS_LABELS
 
 const TARGET_RESULT_LABEL: Record<AuditTargetResult, string> = {
   updated: 'Updated',
@@ -78,6 +80,9 @@ const RESULT_FOR_STATUS: Record<AuditTargetStatus, readonly AuditTargetResult[]>
   skipped: ['suggest_delete', 'suggest_split'],
 }
 
+const UUID_PATTERN =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/iu
+
 const UUID_STATUS_PATTERN =
   /^([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}):(pending|in_progress|completed|failed|skipped)(?::(updated|unchanged|suggest_delete|suggest_split))?$/iu
 
@@ -91,6 +96,7 @@ export function isAuditTargetResult(value: string): value is AuditTargetResult {
 
 export function isValidAuditCatalogFilter(value: string): boolean {
   if (value === AUDIT_CATALOG_NOT_AUDITED) return true
+  if (UUID_PATTERN.test(value)) return true
   const match = UUID_STATUS_PATTERN.exec(value)
   if (!match) return false
   const status = match[2]
@@ -98,6 +104,60 @@ export function isValidAuditCatalogFilter(value: string): boolean {
   if (!isAuditTargetStatus(status)) return false
   if (!result) return true
   return (RESULT_FOR_STATUS[status] as readonly string[]).includes(result)
+}
+
+export function catalogAuditRunsForFilter(runs: CatalogAuditRun[]): CatalogAuditRun[] {
+  return runs.filter((run) =>
+    (AUDIT_RUN_CATALOG_STATUSES as readonly string[]).includes(run.status),
+  )
+}
+
+function tokenBelongsToAuditRun(token: string, runId: string): boolean {
+  return token === runId || token.startsWith(`${runId}:`)
+}
+
+export function selectedStatusesForAuditRun(
+  filters: readonly string[],
+  runId: string,
+): AuditTargetStatus[] {
+  if (filters.includes(runId)) return [...AUDIT_TARGET_STATUSES]
+  const selected = new Set<AuditTargetStatus>()
+  for (const token of filters) {
+    if (!token.startsWith(`${runId}:`)) continue
+    const status = token.slice(runId.length + 1).split(':')[0]
+    if (isAuditTargetStatus(status)) selected.add(status)
+  }
+  return AUDIT_TARGET_STATUSES.filter((status) => selected.has(status))
+}
+
+export function isAuditRunFullySelected(filters: readonly string[], runId: string): boolean {
+  return selectedStatusesForAuditRun(filters, runId).length === AUDIT_TARGET_STATUSES.length
+}
+
+function withoutAuditRunTokens(filters: readonly string[], runId: string): string[] {
+  return filters.filter((token) => !tokenBelongsToAuditRun(token, runId))
+}
+
+export function toggleAuditRunFilter(filters: readonly string[], runId: string): string[] {
+  if (isAuditRunFullySelected(filters, runId)) return withoutAuditRunTokens(filters, runId)
+  return [...withoutAuditRunTokens(filters, runId), runId]
+}
+
+export function toggleAuditRunStatusFilter(
+  filters: readonly string[],
+  runId: string,
+  status: AuditTargetStatus,
+): string[] {
+  const remaining = withoutAuditRunTokens(filters, runId)
+  const selected = new Set(selectedStatusesForAuditRun(filters, runId))
+  if (selected.has(status)) selected.delete(status)
+  else selected.add(status)
+  if (selected.size === 0) return remaining
+  if (selected.size === AUDIT_TARGET_STATUSES.length) return [...remaining, runId]
+  return [
+    ...remaining,
+    ...AUDIT_TARGET_STATUSES.filter((item) => selected.has(item)).map((item) => `${runId}:${item}`),
+  ]
 }
 
 export function auditRunOptionPrefix(run: CatalogAuditRun, runs: CatalogAuditRun[]): string {
@@ -109,14 +169,13 @@ export function auditRunOptionPrefix(run: CatalogAuditRun, runs: CatalogAuditRun
 export function buildAuditCatalogFilterOptions(
   runs: CatalogAuditRun[],
 ): Array<{ label: string; value: string }> {
-  const visibleRuns = runs.filter((run) =>
-    (AUDIT_RUN_CATALOG_STATUSES as readonly string[]).includes(run.status),
-  )
+  const visibleRuns = catalogAuditRunsForFilter(runs)
   const options: Array<{ label: string; value: string }> = [
     { label: 'Not audited', value: AUDIT_CATALOG_NOT_AUDITED },
   ]
   for (const run of visibleRuns) {
     const prefix = auditRunOptionPrefix(run, visibleRuns)
+    options.push({ label: prefix, value: run.id })
     for (const status of AUDIT_TARGET_STATUSES) {
       options.push({
         label: `${prefix} · ${TARGET_STATUS_LABEL[status]}`,

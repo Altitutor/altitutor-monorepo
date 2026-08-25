@@ -52,7 +52,7 @@ export function TaskPriorityField({ form }: TaskPriorityFieldProps) {
                 searchPlaceholder="Search priority..."
                 emptyMessage="No options found"
                 trigger={
-                  <Button variant="outline" className="w-full justify-start font-normal">
+                  <Button variant="field" className="w-full justify-start font-normal">
                     <div className="flex items-center gap-2 flex-1">
                       <PriorityIcon className={cn('h-4 w-4', iconColor)} />
                       <span className={cn(priorityValue === 0 && 'text-muted-foreground')}>

@@ -5,6 +5,7 @@ import {
   scheduleNativeDateTimePickerCooldown,
   shouldPreventDialogDismissOnInteractOutside,
 } from './native-datetime-input';
+import { isPanelResizeActive } from './panel-resize-guard';
 
 const PORTALED_OVERLAY_SELECTOR = [
   '[data-radix-popper-content-wrapper]',
@@ -21,7 +22,7 @@ const TOAST_SELECTOR = [
   '[data-sonner-toast]',
 ].join(', ');
 
-const RESIZE_SEPARATOR_SELECTOR = '[data-separator]';
+const RESIZE_SEPARATOR_SELECTOR = '[data-separator], [data-resize-handle-active]';
 
 /** Returns true when `element` sits inside a modal dialog or sheet. */
 export function isInsideModal(element: HTMLElement | null | undefined): boolean {
@@ -95,7 +96,10 @@ export function handleModalInteractOutside(
   // react-resizable-panels prevents the native pointerdown while it captures
   // the drag. Radix can consequently report that same gesture as an outside
   // interaction even though it began on a separator inside the modal.
-  if (eventOrOriginalEventIncludesSelector(event, RESIZE_SEPARATOR_SELECTOR)) {
+  if (
+    eventOrOriginalEventIncludesSelector(event, RESIZE_SEPARATOR_SELECTOR) ||
+    isPanelResizeActive()
+  ) {
     event.preventDefault();
     return;
   }

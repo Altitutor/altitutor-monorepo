@@ -8,6 +8,7 @@ import {
   isToastInteraction,
   isToastTarget,
 } from '../modal-interact-outside';
+import { clearPanelResizeActive, markPanelResizeActive } from '../panel-resize-guard';
 
 describe('isInsideModal', () => {
   it('returns true when inside a dialog', () => {
@@ -158,5 +159,52 @@ describe('handleModalInteractOutside', () => {
     expect(preventDefault).toHaveBeenCalled();
 
     document.body.removeChild(separator);
+  });
+
+  it('prevents dismiss while a resize handle drag is active', () => {
+    const handle = document.createElement('div');
+    handle.setAttribute('data-resize-handle-active', 'true');
+    document.body.appendChild(handle);
+
+    const event = new CustomEvent('pointerdownoutside', {
+      cancelable: true,
+    });
+    const preventDefault = jest.spyOn(event, 'preventDefault');
+
+    handleModalInteractOutside(event);
+
+    expect(preventDefault).toHaveBeenCalled();
+
+    document.body.removeChild(handle);
+  });
+
+  it('prevents dismiss while body panel resize flag is active', () => {
+    document.body.setAttribute('data-panel-resize-active', 'true');
+
+    const event = new CustomEvent('pointerdownoutside', {
+      cancelable: true,
+    });
+    const preventDefault = jest.spyOn(event, 'preventDefault');
+
+    handleModalInteractOutside(event);
+
+    expect(preventDefault).toHaveBeenCalled();
+
+    document.body.removeAttribute('data-panel-resize-active');
+  });
+
+  it('prevents dismiss shortly after a resize drag ends', () => {
+    const handle = document.createElement('div');
+    markPanelResizeActive(handle);
+    clearPanelResizeActive(handle);
+
+    const event = new CustomEvent('pointerdownoutside', {
+      cancelable: true,
+    });
+    const preventDefault = jest.spyOn(event, 'preventDefault');
+
+    handleModalInteractOutside(event);
+
+    expect(preventDefault).toHaveBeenCalled();
   });
 });

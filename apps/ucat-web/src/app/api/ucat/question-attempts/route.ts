@@ -10,6 +10,8 @@ import {
   PRACTICE_SESSION_ENDED_CODE,
   PRACTICE_SESSION_ENDED_MESSAGE,
 } from "@/lib/ucat/practice-sessions/practice-session-ended";
+import { parseQuotaExceededMessage } from "@/lib/ucat/quota/parse-quota-error";
+import { quotaExceededResponse } from "@/lib/ucat/quota/quota-service";
 
 export async function POST(request: NextRequest) {
   const supabase = await getSupabaseServerClient();
@@ -283,6 +285,8 @@ export async function POST(request: NextRequest) {
     .maybeSingle();
 
   if (insertError || !inserted) {
+    const quota = parseQuotaExceededMessage(insertError?.message ?? "");
+    if (quota) return quotaExceededResponse(quota);
     captureApiError(insertError, "/api/ucat/question-attempts");
     return NextResponse.json(
       { error: insertError?.message ?? "Failed to insert question attempt" },
@@ -291,8 +295,7 @@ export async function POST(request: NextRequest) {
   }
 
   const hasAnswer =
-    body.submittedByStem === true ||
-    body.answerSnapshot != null;
+    body.submittedByStem === true || body.answerSnapshot != null;
   if (isLearnAttempt && hasAnswer) {
     try {
       const progress = await maybeAutoCompleteQuestionBlock(

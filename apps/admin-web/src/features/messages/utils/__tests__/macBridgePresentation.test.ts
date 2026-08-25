@@ -12,7 +12,7 @@ const GREEN = 'bg-[#30D158] dark:bg-[#1E8E3E] text-white';
 const MUTED = 'bg-muted';
 
 describe('messageBubbleClassName', () => {
-  it('paints Mac-line SMS green and iMessage or unknown blue', () => {
+  it('paints inbound muted and outbound Mac-line SMS green or iMessage blue', () => {
     expect(
       messageBubbleClassName({
         direction: 'INBOUND',
@@ -20,7 +20,7 @@ describe('messageBubbleClassName', () => {
         appleService: 'SMS',
         isGroup: false,
       }),
-    ).toBe(GREEN);
+    ).toBe(MUTED);
     expect(
       messageBubbleClassName({
         direction: 'INBOUND',
@@ -28,7 +28,7 @@ describe('messageBubbleClassName', () => {
         appleService: 'iMessage',
         isGroup: false,
       }),
-    ).toBe(BLUE);
+    ).toBe(MUTED);
     expect(
       messageBubbleClassName({
         direction: 'INBOUND',
@@ -36,7 +36,15 @@ describe('messageBubbleClassName', () => {
         appleService: null,
         isGroup: false,
       }),
-    ).toBe(BLUE);
+    ).toBe(MUTED);
+    expect(
+      messageBubbleClassName({
+        direction: 'OUTBOUND',
+        provider: 'IMESSAGE',
+        appleService: 'SMS',
+        isGroup: false,
+      }),
+    ).toBe(GREEN);
     expect(
       messageBubbleClassName({
         direction: 'OUTBOUND',

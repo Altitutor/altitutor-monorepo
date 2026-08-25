@@ -339,12 +339,7 @@ async function loadGenerationInputs(
           .from("ucat_skill_trainer_question_stem_categories")
           .select("skill_trainer_id, question_stem_category_id"),
       () =>
-        admin
-          .from("ucat_skill_trainer_items")
-          .select("skill_trainer_id")
-          .eq("is_active", true)
-          .eq("approval_status", "approved")
-          .is("deleted_at", null),
+        admin.rpc("get_ucat_skill_trainers_with_items"),
       () =>
         admin
           .from("ucat_skill_trainer_config")
@@ -1466,6 +1461,7 @@ async function generateForProfile(
     inputs.completedMockCount,
     inputs.signals,
   );
+  await persistPreparationSnapshot(studentId, today, preparation);
 }
 
 export async function getCurrentPreparation(
@@ -1522,7 +1518,11 @@ export async function getCurrentPreparation(
   return preparation;
 }
 
-async function linkCompanionReview(
+type StudyPlanTaskUpdate =
+  Database["public"]["Tables"]["ucat_student_study_plan_tasks"]["Update"];
+type StudyPlanTaskPatch = StudyPlanTaskUpdate & { id: string };
+
+function companionReviewPatch(
   tasks: TaskRow[],
   sourceTask: TaskRow,
   activity: {
@@ -1530,12 +1530,12 @@ async function linkCompanionReview(
     type: "practice_session" | "set_attempt" | "mock_attempt";
     questionCount: number | null;
   },
-): Promise<void> {
+): StudyPlanTaskPatch | null {
   const review = tasks.find(
     (task) =>
       task.task_type === "review" && task.source_task_id === sourceTask.id,
   );
-  if (!review) return;
+  if (!review) return null;
   const currentConfig =
     review.launch_config &&
     typeof review.launch_config === "object" &&
@@ -1554,23 +1554,20 @@ async function linkCompanionReview(
     review.launch_path === launchPath &&
     currentConfig.awaitingAttempt === false
   ) {
-    return;
+    return null;
   }
-  const { error } = await requireAdmin()
-    .from("ucat_student_study_plan_tasks")
-    .update({
-      matched_activity_type: activity.type,
-      matched_activity_id: activity.id,
-      launch_path: launchPath,
-      launch_config: {
-        ...currentConfig,
-        awaitingAttempt: false,
-        sourceActivityType: activity.type,
-        sourceActivityId: activity.id,
-      },
-    })
-    .eq("id", review.id);
-  if (error) throw error;
+  return {
+    id: review.id,
+    matched_activity_type: activity.type,
+    matched_activity_id: activity.id,
+    launch_path: launchPath,
+    launch_config: {
+      ...currentConfig,
+      awaitingAttempt: false,
+      sourceActivityType: activity.type,
+      sourceActivityId: activity.id,
+    },
+  };
 }
 
 async function reconcileTasks(
@@ -1590,6 +1587,31 @@ async function reconcileTasks(
       today,
     ),
   );
+  const patches = new Map<string, StudyPlanTaskPatch>();
+  const addPatch = (patch: StudyPlanTaskPatch | null) => {
+    if (!patch) return;
+    patches.set(patch.id, { ...patches.get(patch.id), ...patch });
+  };
+  const persistPatches = async () => {
+    if (patches.size === 0) return;
+    const rpcClient = admin as unknown as {
+      rpc: (
+        name: "batch_update_ucat_study_plan_tasks",
+        params: Record<string, unknown>,
+      ) => Promise<{ data: unknown; error: { message: string } | null }>;
+    };
+    const { data, error } = await rpcClient.rpc(
+      "batch_update_ucat_study_plan_tasks",
+      {
+        p_student_id: studentId,
+        p_updates: Array.from(patches.values()),
+      },
+    );
+    if (error) throw new Error(error.message);
+    if (data !== patches.size) {
+      throw new Error("Study plan reconciliation did not update every task");
+    }
+  };
   for (const sourceTask of tasks) {
     if (
       sourceTask.matched_activity_id &&
@@ -1597,17 +1619,22 @@ async function reconcileTasks(
         sourceTask.matched_activity_type === "set_attempt" ||
         sourceTask.matched_activity_type === "mock_attempt")
     ) {
-      await linkCompanionReview(tasks, sourceTask, {
-        id: sourceTask.matched_activity_id,
-        type: sourceTask.matched_activity_type,
-        questionCount:
-          sourceTask.matched_activity_type !== "mock_attempt"
-            ? sourceTask.completed_units
-            : null,
-      });
+      addPatch(
+        companionReviewPatch(tasks, sourceTask, {
+          id: sourceTask.matched_activity_id,
+          type: sourceTask.matched_activity_type,
+          questionCount:
+            sourceTask.matched_activity_type !== "mock_attempt"
+              ? sourceTask.completed_units
+              : null,
+        }),
+      );
     }
   }
-  if (!actionable.length) return;
+  if (!actionable.length) {
+    await persistPatches();
+    return;
+  }
   const evidenceSince = actionable.reduce(
     (earliest, task) =>
       task.started_at && task.started_at < earliest
@@ -1805,15 +1832,13 @@ async function reconcileTasks(
       }
     }
     if (update) {
-      const { error } = await admin
-        .from("ucat_student_study_plan_tasks")
-        .update(update)
-        .eq("id", task.id);
-      if (error) throw error;
-      if (reviewActivity)
-        await linkCompanionReview(tasks, task, reviewActivity);
+      addPatch({ id: task.id, ...update });
+      if (reviewActivity) {
+        addPatch(companionReviewPatch(tasks, task, reviewActivity));
+      }
     }
   }
+  await persistPatches();
 }
 
 function mapTask(row: TaskRow): StudyPlanTask {

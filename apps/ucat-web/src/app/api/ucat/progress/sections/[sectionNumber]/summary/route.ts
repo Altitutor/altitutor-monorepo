@@ -37,7 +37,11 @@ export async function GET(
     supabase.from("vstudent_ucat_public_question_counts").select("question_stem_category_id, total_questions").eq("section_id", sectionId),
     supabase.from("vstudent_ucat_question_stem_categories").select("id, name").eq("ucat_section_id", sectionId),
     supabase.from("vstudent_ucat_section_set_progress").select("total_completed, untimed_completed, timed_completed").eq("section_id", sectionId).maybeSingle(),
-    supabase.from("vstudent_ucat_question_sets").select("sections, time_limit_seconds"),
+    supabase
+      .from("vstudent_ucat_question_sets")
+      .select("time_limit_seconds")
+      .eq("section_number", sectionNumber)
+      .eq("is_available_in_sets_library", true),
   ]);
   const error = progressRes.error ?? countsRes.error ?? categoriesRes.error ?? setProgressRes.error ?? publicSetsRes.error;
   if (error) return captureApiErrorResponse(error, "/api/ucat/progress/sections/[sectionNumber]/summary", NextResponse.json({ error: error.message }, { status: 500 }));
@@ -85,8 +89,6 @@ export async function GET(
   let totalPublicSets = 0;
   let totalPublicTimedSets = 0;
   for (const set of publicSetsRes.data ?? []) {
-    const sections = set.sections as Array<{ section_number?: number }> | null;
-    if (sections?.[0]?.section_number !== sectionNumber) continue;
     totalPublicSets += 1;
     if ((set.time_limit_seconds ?? 0) > 0) totalPublicTimedSets += 1;
   }

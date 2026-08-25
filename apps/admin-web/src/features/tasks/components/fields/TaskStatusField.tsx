@@ -52,7 +52,7 @@ export function TaskStatusField({ form, taskStatus }: TaskStatusFieldProps) {
                 getItemId={(opt) => opt.value}
                 fullWidth
                 trigger={
-                  <Button variant="outline" className="w-full justify-start font-normal">
+                  <Button variant="field" className="w-full justify-start font-normal">
                     <StatusIcon className={cn('h-4 w-4', iconColor)} />
                     <span className={cn(!field.value && 'text-muted-foreground')}>
                       {displayValue}

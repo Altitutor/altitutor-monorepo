@@ -15,7 +15,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@altitutor/ui";
-import { CalendarClock, Loader2, X } from "lucide-react";
+import { Loader2, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { ActionsMenu } from '@/shared/components/ActionsMenu';
 import { useClassActions } from '../../hooks/useClassActions';
@@ -25,19 +25,13 @@ import { useClassDeleteImpact, useClassDetails, useDeleteClass } from '../../hoo
 import { useSubjects } from '@/features/subjects';
 import { useStudents } from '@/features/students/hooks/useStudentsQuery';
 import { useStaff } from '@/features/staff/hooks/useStaffQuery';
-import { useUpdateClass } from '../../hooks/useClassesQuery';
-import type { TablesUpdate } from '@altitutor/shared';
-import { ClassInfoTab, ClassInfoFormData } from './tabs/ClassInfoTab';
+import { ClassInfoTab } from './tabs/ClassInfoTab';
 import { ClassStudentsTab } from './tabs/ClassStudentsTab';
 import { ClassStaffTab } from './tabs/ClassStaffTab';
 import { ClassSessionsTab } from './tabs/ClassSessionsTab';
 import { ClassActivityTab } from '@/features/activity/components/tabs/ClassActivityTab';
 import { IssuePill } from '@/features/issues';
-import { EditClassScheduleDialog } from '../EditClassScheduleDialog';
-import {
-  invalidateClassDetail,
-  invalidateClassSurfaces,
-} from '@/shared/lib/query-invalidation';
+import { invalidateClassSurfaces } from '@/shared/lib/query-invalidation';
 
 interface ViewClassModalProps {
   isOpen: boolean;
@@ -58,7 +52,6 @@ export function ViewClassModal({
   const { data: allSubjects = [] } = useSubjects();
   const { data: allStudentsData = [] } = useStudents();
   const { data: allStaffData = [] } = useStaff();
-  const updateClassMutation = useUpdateClass();
   
   // Extract data from classDetails
   const classData = classDetails?.class || null;
@@ -70,7 +63,6 @@ export function ViewClassModal({
   const [isDeleting, setIsDeleting] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [deleteConfirmText, setDeleteConfirmText] = useState('');
-  const [isScheduleDialogOpen, setIsScheduleDialogOpen] = useState(false);
   const { data: deleteImpact, isLoading: isDeleteImpactLoading } = useClassDeleteImpact(
     classData?.id,
     isDeleteDialogOpen
@@ -100,46 +92,6 @@ export function ViewClassModal({
       setActiveTab('details');
     }
   }, [isOpen]);
-
-  // Update class handler
-  const handleClassUpdate = async (data: ClassInfoFormData) => {
-    if (!classData) return;
-    
-    try {
-      const updateData: TablesUpdate<'classes'> = {
-        level: data.level || null,
-        cohort_label: data.level || null,
-        day_of_week: data.dayOfWeek,
-        start_time: data.startTime,
-        end_time: data.endTime,
-        subject_id: data.subjectId || null,
-        room: data.room || null,
-        session_start_date: data.sessionStartDate || classData.session_start_date,
-        session_end_date: data.sessionEndDate || classData.session_end_date,
-      };
-      await updateClassMutation.mutateAsync({ id: classData.id, data: updateData });
-      
-      await invalidateClassDetail(queryClient, classData.id);
-      
-      // Reset edit mode
-      setIsEditing(false);
-      
-      // Notify parent of update
-      onClassUpdated();
-      
-      toast({
-        title: 'Class updated',
-        description: 'Class has been updated successfully.',
-      });
-    } catch (err) {
-      console.error('Failed to update class:', err);
-      toast({
-        title: 'Update failed',
-        description: 'There was an error updating the class. Please try again.',
-        variant: 'destructive',
-      });
-    }
-  };
 
   // Handle staff assignment
   const handleAssignStaff = async (staffId: string) => {
@@ -262,10 +214,6 @@ export function ViewClassModal({
                 </div>
                 {classId && (
                   <div className="flex items-center gap-2">
-                    <Button variant="outline" onClick={() => setIsScheduleDialogOpen(true)}>
-                      <CalendarClock className="mr-2 h-4 w-4" />
-                      Edit timetable
-                    </Button>
                     <ActionsMenu
                       type="class"
                       entityId={classId}
@@ -304,7 +252,12 @@ export function ViewClassModal({
                   isLoading={isLoading}
                   onEdit={() => setIsEditing(true)}
                   onCancelEdit={() => setIsEditing(false)}
-                  onSubmit={handleClassUpdate}
+                  onSaved={() => {
+                    setIsEditing(false);
+                    void invalidateClassSurfaces(queryClient, classData.id);
+                    onClassUpdated();
+                    toast({ title: 'Class updated', description: 'Class details and future Sessions were updated.' });
+                  }}
                 />
               </div>
             </SegmentedTabPanelContent>
@@ -357,47 +310,8 @@ export function ViewClassModal({
           </div>
         </div>
         
-        {/* Sticky Footer with Buttons */}
-        {classData && isEditing && activeTab === 'details' && (
-          <div className="sticky bottom-0 left-0 right-0 p-6 border-t bg-background mt-auto shrink-0">
-            <div className="flex w-full justify-end">
-              <div className="flex space-x-2">
-                <Button variant="outline" type="button" onClick={() => setIsEditing(false)} disabled={isLoading}>
-                  Cancel
-                </Button>
-                <Button 
-                  type="button"
-                  disabled={isLoading}
-                  onClick={() => {
-                    const form = document.getElementById('class-edit-form') as HTMLFormElement;
-                    if (form) {
-                      form.requestSubmit();
-                    }
-                  }}
-                >
-                  {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                  Save Changes
-                </Button>
-              </div>
-            </div>
-          </div>
-        )}
       </SheetContent>
     </Sheet>
-
-    <EditClassScheduleDialog
-      classData={classData}
-      open={isScheduleDialogOpen}
-      onOpenChange={setIsScheduleDialogOpen}
-      onSaved={() => {
-        void invalidateClassSurfaces(queryClient, classData.id);
-        onClassUpdated();
-        toast({
-          title: 'Timetable updated',
-          description: 'Future Class Sessions were reconciled.',
-        });
-      }}
-    />
 
     {/* Delete confirmation dialog */}
     <AlertDialog open={isDeleteDialogOpen} onOpenChange={(open) => {
@@ -414,7 +328,7 @@ export function ViewClassModal({
             {classData?.level ? ` "${classData.level}"` : ''} and {deleteImpact?.futureSessionCount ?? 0} pristine future Sessions.
             {' '}Historical Sessions are never deleted.
             {deleteImpact && !deleteImpact.canDelete
-              ? ` This Class also has ${deleteImpact.historicalSessionCount} historical and ${deleteImpact.protectedFutureSessionCount} protected future Sessions, so it cannot be deleted; make it inactive through Edit timetable instead.`
+              ? ` This Class also has ${deleteImpact.historicalSessionCount} historical and ${deleteImpact.protectedFutureSessionCount} protected future Sessions, so it cannot be deleted; make it inactive through Edit Class instead.`
               : ''}
           </AlertDialogDescription>
         </AlertDialogHeader>

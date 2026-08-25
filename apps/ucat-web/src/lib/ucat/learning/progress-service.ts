@@ -95,26 +95,27 @@ export async function ensureLessonStarted(
   studentId: string,
   lessonId: string,
 ): Promise<{ created: boolean }> {
-  const { data: existing, error: existingError } = await supabase
-    .from("ucat_student_learning_module_progress")
-    .select("id")
-    .eq("student_id", studentId)
-    .eq("learning_module_id", lessonId)
-    .maybeSingle();
-
-  if (existingError) throw new Error(existingError.message);
-  if (existing) return { created: false };
-
-  const { error } = await supabase
-    .from("ucat_student_learning_module_progress")
-    .insert({
-      student_id: studentId,
-      learning_module_id: lessonId,
-      completion_percent: 0,
-    });
-
+  const rpcClient = supabase as unknown as {
+    rpc: (
+      name: "start_ucat_learning_module",
+      params: Record<string, unknown>,
+    ) => Promise<{ data: unknown; error: { message: string } | null }>;
+  };
+  const { data, error } = await rpcClient.rpc("start_ucat_learning_module", {
+    p_student_id: studentId,
+    p_learning_module_id: lessonId,
+  });
   if (error) throw new Error(error.message);
-  return { created: true };
+  const result = data as
+    | { status: "started"; created: boolean }
+    | { status: "quota_exceeded"; quota: Record<string, unknown> }
+    | { status: "not_found" }
+    | null;
+  if (result?.status === "quota_exceeded") {
+    throw new Error(`QUOTA_EXCEEDED:${JSON.stringify(result.quota)}`);
+  }
+  if (result?.status !== "started") throw new Error("Lesson not found");
+  return { created: result.created };
 }
 
 export async function upsertBlockProgress(
@@ -329,9 +330,7 @@ async function getRequiredQuestionIdsForBlock(
   return [];
 }
 
-function attemptHasAnswer(row: {
-  answer_snapshot: Json | null;
-}): boolean {
+function attemptHasAnswer(row: { answer_snapshot: Json | null }): boolean {
   return row.answer_snapshot != null;
 }
 

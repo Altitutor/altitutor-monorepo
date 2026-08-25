@@ -28,13 +28,13 @@ export function messageBubbleClassName(input: {
   appleService: AppleService | null;
   isGroup: boolean;
 }): string {
-  if (input.direction === 'INBOUND' && input.provider !== 'IMESSAGE') {
+  if (input.direction === 'INBOUND') {
     return INBOUND_MUTED;
   }
   if (input.isGroup) {
-    return input.direction === 'OUTBOUND' ? IMESSAGE_BLUE : INBOUND_MUTED;
+    return IMESSAGE_BLUE;
   }
-  if (input.provider === 'TWILIO' && input.direction === 'OUTBOUND') {
+  if (input.provider === 'TWILIO') {
     return SMS_GREEN;
   }
   if (input.provider === 'IMESSAGE' && input.appleService === 'SMS') {
@@ -43,7 +43,7 @@ export function messageBubbleClassName(input: {
   if (input.provider === 'IMESSAGE') {
     return IMESSAGE_BLUE;
   }
-  return input.direction === 'OUTBOUND' ? IMESSAGE_BLUE : INBOUND_MUTED;
+  return IMESSAGE_BLUE;
 }
 
 export function outboundStatusClassName(status: string, isMacBridge = false): string {

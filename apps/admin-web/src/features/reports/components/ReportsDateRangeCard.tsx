@@ -162,16 +162,28 @@ export function getDefaultReportsDateRange(): ReportsDateRange {
   return { start, end };
 }
 
-export function getReportsDatePresets(referenceDate = new Date()): SmartDatePickerPreset[] {
-  return [
+export function getReportsDatePresets(
+  referenceDate = new Date(),
+  lastAdminMeetingDate?: Date | null
+): SmartDatePickerPreset[] {
+  const presets: SmartDatePickerPreset[] = [
     { label: 'Today', value: referenceDate },
     { label: 'Yesterday', value: subDays(referenceDate, 1) },
+  ];
+
+  if (lastAdminMeetingDate) {
+    presets.push({ label: 'Last admin meeting', value: lastAdminMeetingDate });
+  }
+
+  presets.push(
     {
       label: 'Last week',
       value: startOfWeek(subDays(referenceDate, 7), { weekStartsOn: 1 }),
     },
     { label: 'Start of this month', value: startOfMonth(referenceDate) },
     { label: 'Start of this quarter', value: startOfQuarter(referenceDate) },
-    { label: 'Start of this year', value: startOfYear(referenceDate) },
-  ];
+    { label: 'Start of this year', value: startOfYear(referenceDate) }
+  );
+
+  return presets;
 }

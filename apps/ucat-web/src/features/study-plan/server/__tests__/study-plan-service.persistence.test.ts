@@ -338,7 +338,14 @@ function createDatabaseHarness(
   const rpc = admin.rpc as unknown as jest.MockedFunction<
     (name: string, args: unknown) => Promise<QueryResult>
   >;
-  rpc.mockImplementation(async () => {
+  rpc.mockImplementation(async (name, args) => {
+    if (name === "get_ucat_skill_trainers_with_items") {
+      return { data: [], error: null };
+    }
+    if (name === "batch_update_ucat_study_plan_tasks") {
+      const updates = (args as { p_updates?: unknown[] })?.p_updates ?? [];
+      return { data: updates.length, error: null };
+    }
     replacementPersisted = true;
     return { data: "generation-new", error: null };
   });
@@ -533,7 +540,10 @@ describe("Study plan persistence orchestration", () => {
         }),
       ]),
     );
-    expect(admin.rpc).not.toHaveBeenCalled();
+    expect(admin.rpc).not.toHaveBeenCalledWith(
+      "replace_ucat_study_plan_generation",
+      expect.anything(),
+    );
   });
 
   it("replaces future work after a newly completed mock", async () => {
@@ -556,7 +566,7 @@ describe("Study plan persistence orchestration", () => {
   });
 
   it("replaces an active generation when its preparation policy version is stale", async () => {
-    const { admin, studentClient } = createDatabaseHarness();
+    const { admin, studentClient, upserts } = createDatabaseHarness();
 
     await getStudyPlan(studentClient, "user-1", { reconcileTasks: false });
 
@@ -569,6 +579,9 @@ describe("Study plan persistence orchestration", () => {
         }),
       }),
     );
+    expect(
+      upserts.some((upsert) => upsert.table === "ucat_preparation_snapshots"),
+    ).toBe(true);
   });
 
   it("regenerates future work when an active generation contains missed work", async () => {
@@ -676,7 +689,10 @@ describe("Study plan persistence orchestration", () => {
     expect(
       upserts.some((upsert) => upsert.table === "ucat_preparation_snapshots"),
     ).toBe(true);
-    expect(admin.rpc).not.toHaveBeenCalled();
+    expect(admin.rpc).not.toHaveBeenCalledWith(
+      "replace_ucat_study_plan_generation",
+      expect.anything(),
+    );
   });
 
   it("wires canonical Preparation candidates into alternative guidance", async () => {

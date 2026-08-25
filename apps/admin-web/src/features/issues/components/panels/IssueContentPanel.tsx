@@ -1,7 +1,7 @@
 'use client';
 
-import { useMemo, memo, useState } from 'react';
-import { ScrollArea, ScrollBar, Tabs, TabsList, TabsTrigger, TabsContent, Skeleton, SegmentedControl, SegmentedTabPanelContent } from '@altitutor/ui';
+import { useMemo, memo, useState, useEffect } from 'react';
+import { Skeleton, SegmentedControl } from '@altitutor/ui';
 import { MessageThread } from '@/features/messages/components/MessageThread';
 import { Composer } from '@/features/messages/components/Composer';
 import { useQuery } from '@tanstack/react-query';
@@ -11,6 +11,7 @@ import { MessageCircle } from 'lucide-react';
 import { UseFormReturn } from 'react-hook-form';
 import { IssueStatusField } from '../fields/IssueStatusField';
 import { IssueDueDateField } from '../fields/IssueDueDateField';
+import { EntitySidebarCard, EntitySidebarCards } from '@/shared/components/EntitySidebarCard';
 
 function PropertyRow({ label, children }: { label: string; children: React.ReactNode }) {
   return (
@@ -28,8 +29,8 @@ interface IssueContentPanelProps {
 }
 
 export const IssueContentPanel = memo(function IssueContentPanel({ tags: propTags, isOpen, form }: IssueContentPanelProps) {
-  const [activeTab, setActiveTab] = useState<'properties' | 'chat'>('properties');
   const activeTags = useMemo(() => propTags || [], [propTags]);
+  const [activeContactId, setActiveContactId] = useState<string | null>(null);
   
   // Get all unique entity IDs from tags
   const studentIds = useMemo(() => Array.from(new Set(activeTags.filter(t => t.student_id).map(t => t.student_id!))), [activeTags]);
@@ -98,86 +99,74 @@ export const IssueContentPanel = memo(function IssueContentPanel({ tags: propTag
     enabled: isOpen && (studentIds.length > 0 || staffIds.length > 0 || parentIds.length > 0)
   });
 
+  useEffect(() => {
+    if (!contacts?.length) {
+      setActiveContactId(null);
+      return;
+    }
+
+    setActiveContactId((current) => (
+      current && contacts.some((contact) => contact.id === current)
+        ? current
+        : contacts[0].id
+    ));
+  }, [contacts]);
+
   return (
     <div className="hidden h-full min-h-0 w-full flex-col overflow-hidden min-w-0 md:flex">
-      <div className="h-full flex-1 flex flex-col min-h-0">
-        <div className="flex-shrink-0 border-b bg-background sticky top-0 z-10 px-6 pb-4 pt-4">
-          <SegmentedControl
-            fullWidth
-            value={activeTab}
-            onValueChange={(v) => setActiveTab(v as 'properties' | 'chat')}
-            options={[
-              { value: 'properties', label: 'Properties' },
-              { value: 'chat', label: 'Chat' },
-            ]}
-          />
-        </div>
+      <EntitySidebarCards defaultOpen={['properties', 'chat']}>
+        <EntitySidebarCard value="properties" title="Properties">
+          <div className="space-y-4">
+            <PropertyRow label="Status">
+              <IssueStatusField form={form} />
+            </PropertyRow>
+            <PropertyRow label="Due date">
+              <IssueDueDateField form={form} />
+            </PropertyRow>
+          </div>
+        </EntitySidebarCard>
 
-        <div className="flex-1 min-h-0 overflow-hidden">
-          <SegmentedTabPanelContent when="properties" activeTab={activeTab} className="h-full overflow-hidden">
-            <ScrollArea className="h-full">
-              <div className="p-6 space-y-4">
-                <PropertyRow label="Status">
-                  <IssueStatusField form={form} />
-                </PropertyRow>
-                <PropertyRow label="Due date">
-                  <IssueDueDateField form={form} />
-                </PropertyRow>
-              </div>
-            </ScrollArea>
-          </SegmentedTabPanelContent>
-
-          <SegmentedTabPanelContent when="chat" activeTab={activeTab} className="h-full min-h-0 flex flex-col overflow-hidden">
-            {isLoadingContacts ? (
-              <div className="p-4 space-y-4">
-                <Skeleton className="h-8 w-full" />
-                <Skeleton className="h-[400px] w-full" />
-              </div>
-            ) : contacts && contacts.length > 0 ? (
-              <Tabs defaultValue={contacts[0].id} className="flex-1 flex flex-col min-h-0 overflow-hidden">
-                <div className="flex-shrink-0 border-b bg-muted/30">
-                  <ScrollArea className="w-full">
-                    <TabsList className="h-9 w-max justify-start bg-transparent p-0 rounded-none border-b-0">
-                      {contacts.map((contact) => (
-                        <TabsTrigger
-                          key={contact.id}
-                          value={contact.id}
-                          className="px-4 py-2 rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent transition-none"
-                        >
-                          <span className="text-xs font-medium whitespace-nowrap">
-                            {contact.name}
-                          </span>
-                        </TabsTrigger>
-                      ))}
-                    </TabsList>
-                    <ScrollBar orientation="horizontal" />
-                  </ScrollArea>
+        <EntitySidebarCard value="chat" title="Chat" flush>
+          {isLoadingContacts ? (
+            <div className="space-y-4 p-3">
+              <Skeleton className="h-8 w-full" />
+              <Skeleton className="h-[280px] w-full" />
+            </div>
+          ) : contacts && contacts.length > 0 && activeContactId ? (
+            <div className="flex h-[22rem] flex-col overflow-hidden">
+              {contacts.length > 1 ? (
+                <div className="flex-shrink-0 border-b p-2">
+                  <SegmentedControl
+                    fullWidth
+                    size="sm"
+                    value={activeContactId}
+                    onValueChange={setActiveContactId}
+                    aria-label="Chat contact"
+                    options={contacts.map((contact) => ({
+                      value: contact.id,
+                      label: contact.name,
+                    }))}
+                  />
                 </div>
+              ) : null}
 
-                {contacts.map((contact) => (
-                  <TabsContent
-                    key={contact.id}
-                    value={contact.id}
-                    className="flex-1 min-h-0 m-0 data-[state=active]:flex flex-col overflow-hidden"
-                  >
-                    <div className="flex-1 min-h-0 overflow-hidden flex flex-col">
-                      <MessageThread contactId={contact.id} hideAddIssueHover />
-                    </div>
-                    <div className="flex-shrink-0 border-t">
-                      <Composer contactId={contact.id} />
-                    </div>
-                  </TabsContent>
-                ))}
-              </Tabs>
-            ) : (
-              <div className="h-full flex flex-col items-center justify-center text-muted-foreground p-8 text-center gap-3">
-                <MessageCircle className="h-12 w-12 text-muted/50" />
-                <p className="text-sm">Mention a student, staff member, or parent to show their chat here.</p>
+              <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+                <div className="min-h-0 flex-1 overflow-hidden">
+                  <MessageThread contactId={activeContactId} hideAddIssueHover />
+                </div>
+                <div className="flex-shrink-0 border-t bg-background">
+                  <Composer contactId={activeContactId} />
+                </div>
               </div>
-            )}
-          </SegmentedTabPanelContent>
-        </div>
-      </div>
+            </div>
+          ) : (
+            <div className="flex h-[12rem] flex-col items-center justify-center gap-3 p-6 text-center text-muted-foreground">
+              <MessageCircle className="h-12 w-12 text-muted/50" />
+              <p className="text-sm">Mention a student, staff member, or parent to show their chat here.</p>
+            </div>
+          )}
+        </EntitySidebarCard>
+      </EntitySidebarCards>
     </div>
   );
 });

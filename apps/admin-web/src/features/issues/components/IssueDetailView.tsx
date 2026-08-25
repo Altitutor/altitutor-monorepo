@@ -291,7 +291,7 @@ export function IssueDetailView({
               <div className="p-6">Issue not found</div>
             ) : (
               <div className="h-full min-h-0 flex min-w-0 overflow-hidden">
-                <form className="h-full flex-1 flex min-h-0 min-w-0 overflow-hidden">
+                <form className="h-full flex-1 flex min-h-0 min-w-0 overflow-hidden" onSubmit={(e) => e.preventDefault()}>
                   <AutoSaveManager
                     form={form}
                     issueId={issueId}

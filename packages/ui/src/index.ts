@@ -23,6 +23,8 @@ export * from './components/image-occlusion';
 export * from './components/list-toolbar';
 export * from './components/label';
 export * from './components/phone-input';
+export * from './lib/panel-resize-guard';
+export * from './lib/field-trigger';
 export * from './lib/phone';
 export * from './components/popover';
 export * from './components/radio-group';

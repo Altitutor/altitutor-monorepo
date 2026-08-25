@@ -43,10 +43,14 @@ export async function POST(_request: NextRequest, context: RouteContext) {
     const result = await ensureLessonStarted(auth.admin, auth.studentId, id);
     return NextResponse.json(result);
   } catch (error) {
+    const message =
+      error instanceof Error ? error.message : "Failed to start lesson";
+    if (message.startsWith("QUOTA_EXCEEDED:")) {
+      return quotaExceededResponse(
+        JSON.parse(message.slice("QUOTA_EXCEEDED:".length)),
+      );
+    }
     captureApiError(error, "/api/ucat/learning-modules/[id]/start");
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Failed to start lesson" },
-      { status: 500 },
-    );
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }

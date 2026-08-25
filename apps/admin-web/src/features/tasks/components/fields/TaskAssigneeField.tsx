@@ -7,6 +7,7 @@ import {
   FormItem,
   FormMessage,
   SearchableSelect,
+  fieldTriggerClassName,
 } from '@altitutor/ui';
 import { Check, User } from 'lucide-react';
 import { UseFormReturn } from 'react-hook-form';
@@ -53,7 +54,7 @@ export function TaskAssigneeField({
     <FormControl>
       <button
         type="button"
-        className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border hover:bg-muted h-10 px-4 py-2 w-full justify-start"
+        className={fieldTriggerClassName}
         disabled={!enabled}
       >
         <div className="flex items-center gap-2 flex-1">

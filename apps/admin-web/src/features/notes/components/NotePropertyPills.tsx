@@ -10,13 +10,30 @@ interface NotePropertyPillsProps {
   form: UseFormReturn<NoteFormData>;
   folders?: Folder[];
   editable?: boolean;
+  onDisabledInteract?: () => void;
 }
 
-export function NotePropertyPills({ form, folders, editable = true }: NotePropertyPillsProps) {
+export function NotePropertyPills({
+  form,
+  folders,
+  editable = true,
+  onDisabledInteract,
+}: NotePropertyPillsProps) {
   return (
     <div className="flex flex-wrap gap-2 pb-2">
-      <FolderSearchSelect form={form} folders={folders} variant="pill" editable={editable} />
-      <ProjectSearchSelect form={form} variant="pill" editable={editable} />
+      <FolderSearchSelect
+        form={form}
+        folders={folders}
+        variant="pill"
+        editable={editable}
+        onDisabledInteract={onDisabledInteract}
+      />
+      <ProjectSearchSelect
+        form={form}
+        variant="pill"
+        editable={editable}
+        onDisabledInteract={onDisabledInteract}
+      />
     </div>
   );
 }

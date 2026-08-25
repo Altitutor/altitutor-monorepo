@@ -3,8 +3,12 @@ import {
   auditMembershipChipLabel,
   auditRunOptionPrefix,
   buildAuditCatalogFilterOptions,
+  isAuditRunFullySelected,
   isValidAuditCatalogFilter,
   parseStemAuditMemberships,
+  selectedStatusesForAuditRun,
+  toggleAuditRunFilter,
+  toggleAuditRunStatusFilter,
 } from '@/features/ucat/questions/lib/audit-catalog'
 
 const RUN_A = {
@@ -28,6 +32,7 @@ describe('audit catalog filters', () => {
     expect(isValidAuditCatalogFilter(`${RUN_A.id}:completed:updated`)).toBe(true)
     expect(isValidAuditCatalogFilter(`${RUN_A.id}:skipped:suggest_delete`)).toBe(true)
     expect(isValidAuditCatalogFilter(`${RUN_A.id}:completed:suggest_delete`)).toBe(false)
+    expect(isValidAuditCatalogFilter(RUN_A.id)).toBe(true)
     expect(isValidAuditCatalogFilter('not-a-filter')).toBe(false)
   })
 
@@ -35,6 +40,7 @@ describe('audit catalog filters', () => {
     const options = buildAuditCatalogFilterOptions([RUN_A])
     expect(options[0]).toEqual({ label: 'Not audited', value: AUDIT_CATALOG_NOT_AUDITED })
     expect(options).toEqual(expect.arrayContaining([
+      { label: 'All draft stems', value: RUN_A.id },
       { label: 'All draft stems · Completed', value: `${RUN_A.id}:completed` },
       { label: 'All draft stems · Completed · Updated', value: `${RUN_A.id}:completed:updated` },
       { label: 'All draft stems · Completed · Unchanged', value: `${RUN_A.id}:completed:unchanged` },
@@ -90,5 +96,36 @@ describe('audit catalog filters', () => {
         why: 'revision conflict',
       },
     ])
+  })
+
+  it('treats a bare run id as every stem in that audit', () => {
+    expect(toggleAuditRunFilter([], RUN_A.id)).toEqual([RUN_A.id])
+    expect(isAuditRunFullySelected([RUN_A.id], RUN_A.id)).toBe(true)
+    expect(selectedStatusesForAuditRun([RUN_A.id], RUN_A.id)).toEqual([
+      'pending',
+      'in_progress',
+      'completed',
+      'failed',
+      'skipped',
+    ])
+  })
+
+  it('narrows a whole-run selection to the remaining statuses', () => {
+    expect(toggleAuditRunStatusFilter([RUN_A.id], RUN_A.id, 'pending')).toEqual([
+      `${RUN_A.id}:in_progress`,
+      `${RUN_A.id}:completed`,
+      `${RUN_A.id}:failed`,
+      `${RUN_A.id}:skipped`,
+    ])
+  })
+
+  it('collapses every status for a run back into the whole-run token', () => {
+    expect(
+      toggleAuditRunStatusFilter(
+        [`${RUN_A.id}:pending`, `${RUN_A.id}:in_progress`, `${RUN_A.id}:completed`, `${RUN_A.id}:failed`],
+        RUN_A.id,
+        'skipped',
+      ),
+    ).toEqual([RUN_A.id])
   })
 })

@@ -1,71 +1,19 @@
-import { useState, useEffect, useRef, useMemo } from 'react';
-import type { Tables } from '@altitutor/shared';
-import { Button } from "@altitutor/ui";
-import { Input } from "@altitutor/ui";
-import { Label } from "@altitutor/ui";
-import { Badge } from "@altitutor/ui";
-import { SearchableSelect } from "@altitutor/ui";
-import { SmartDatePickerField } from "@altitutor/ui";
-import { Alert, AlertDescription, AlertTitle } from "@altitutor/ui";
-import { Pencil, AlertTriangle } from "lucide-react";
-import { Controller, useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import * as z from "zod";
-import { getSubjectColorStyle } from "@/shared/utils";
-import { ClassStatusBadge } from "@altitutor/ui";
-import { formatTime, getDayOfWeek } from '@/shared/utils/datetime';
-import { calculateSessionChanges } from '../../../utils/calculateSessionChanges';
-import { sessionsApi } from '@/features/sessions/api/sessions';
-import { useQuery } from '@tanstack/react-query';
+'use client';
+
+import { useEffect, useState } from 'react';
 import { format } from 'date-fns';
+import { AlertTriangle, Loader2, Pencil, Plus, Trash2 } from 'lucide-react';
+import type { Tables } from '@altitutor/shared';
+import { Badge, Button, ClassStatusBadge, Input, Label, SearchableSelect, SmartDatePickerField } from '@altitutor/ui';
+import { getSubjectColorStyle } from '@/shared/utils';
+import { formatTime, getDayOfWeek } from '@/shared/utils/datetime';
+import { useApplyClassSchedule, useClassSchedule, usePreviewClassSchedule } from '../../../hooks/useClassesQuery';
+import type { ClassSchedulePlan, ClassScheduleProposal, ClassScheduleRow } from '../../../types/schedule';
+import { buildClassScheduleProposal, resolveClassScheduleRows, validateClassScheduleRows } from '../../../utils/classScheduleForm';
 
-// Form schema for class details
-const classInfoSchema = z.object({
-  level: z.string().optional().nullable(),
-  dayOfWeek: z.number().min(0).max(6),
-  startTime: z.string().min(1, 'Start time is required'),
-  endTime: z.string().min(1, 'End time is required'),
-  status: z.enum(['ACTIVE','INACTIVE']),
-  subjectId: z.string().optional(),
-  room: z.string().optional(),
-  sessionStartDate: z.string().optional().nullable(),
-  sessionEndDate: z.string().optional().nullable(),
-}).refine((data) => {
-  // Validate that end date is after start date if both are provided
-  if (data.sessionStartDate && data.sessionEndDate) {
-    return new Date(data.sessionStartDate) <= new Date(data.sessionEndDate);
-  }
-  return true;
-}, {
-  message: 'Session end date must be after or equal to start date',
-  path: ['sessionEndDate'],
-}).refine((data) => {
-  // Validate that end time is after start time
-  if (data.startTime && data.endTime) {
-    return data.endTime > data.startTime;
-  }
-  return true;
-}, {
-  message: 'End time must be after start time',
-  path: ['endTime'],
-});
-
-type FormData = z.infer<typeof classInfoSchema>;
-
-const STATUS_OPTIONS = [
-  { value: 'ACTIVE' as const, label: 'Active' },
-  { value: 'INACTIVE' as const, label: 'Inactive' },
-] as const;
-
-const DAY_OPTIONS = [
-  { value: 0, label: 'Sunday' },
-  { value: 1, label: 'Monday' },
-  { value: 2, label: 'Tuesday' },
-  { value: 3, label: 'Wednesday' },
-  { value: 4, label: 'Thursday' },
-  { value: 5, label: 'Friday' },
-  { value: 6, label: 'Saturday' },
-] as const;
+const DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'].map((label, value) => ({ label, value }));
+const FREQUENCIES = [{ label: 'Every week', value: 1 as const }, { label: 'Every fortnight', value: 2 as const }];
+const STATUSES = [{ label: 'Active', value: 'ACTIVE' as const }, { label: 'Inactive', value: 'INACTIVE' as const }];
 
 interface ClassInfoTabProps {
   classData: Tables<'classes'>;
@@ -75,480 +23,143 @@ interface ClassInfoTabProps {
   isLoading: boolean;
   onEdit: () => void;
   onCancelEdit: () => void;
-  onSubmit: (data: FormData) => Promise<void>;
+  onSaved: () => void;
 }
 
-export function ClassInfoTab({
-  classData,
-  subject,
-  subjects,
-  isEditing,
-  isLoading,
-  onEdit,
-  onCancelEdit: _onCancelEdit,
-  onSubmit,
-}: ClassInfoTabProps) {
-  const form = useForm<FormData>({
-    resolver: zodResolver(classInfoSchema),
-    defaultValues: {
-      level: null,
-      dayOfWeek: 1,
-      startTime: '',
-      endTime: '',
-      status: 'ACTIVE' as const,
-      subjectId: '',
-      room: '',
-      sessionStartDate: null,
-      sessionEndDate: null,
-    },
-  });
+function todayInAdelaide(): string {
+  return new Intl.DateTimeFormat('en-CA', { timeZone: 'Australia/Adelaide', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
+}
 
-  const hasResetRef = useRef(false);
-  const [editKey, setEditKey] = useState(0);
+export function ClassInfoTab({ classData, subject, subjects, isEditing, isLoading, onEdit, onCancelEdit, onSaved }: ClassInfoTabProps) {
+  const { data: storedSchedule, isLoading: isScheduleLoading } = useClassSchedule(classData.id, isEditing);
+  const previewMutation = usePreviewClassSchedule();
+  const applyMutation = useApplyClassSchedule();
+  const [level, setLevel] = useState('');
+  const [subjectId, setSubjectId] = useState<string | null>(null);
+  const [rows, setRows] = useState<ClassScheduleRow[]>([]);
+  const [frequencyWeeks, setFrequencyWeeks] = useState<1 | 2>(1);
+  const [classStatus, setClassStatus] = useState<'ACTIVE' | 'INACTIVE'>('ACTIVE');
+  const [effectiveFrom, setEffectiveFrom] = useState(todayInAdelaide());
+  const [endDate, setEndDate] = useState(classData.session_end_date);
+  const [proposal, setProposal] = useState<ClassScheduleProposal | null>(null);
+  const [plan, setPlan] = useState<ClassSchedulePlan | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
-  // Fetch future sessions for this class when editing
-  const { data: futureSessionsData } = useQuery({
-    queryKey: ['classFutureSessions', classData.id, isEditing],
-    queryFn: async () => {
-      const now = new Date();
-      const endOfYear = new Date(now.getFullYear(), 11, 31);
-      const result = await sessionsApi.getAllSessionsWithDetails({
-        classId: classData.id,
-        rangeStart: now.toISOString().split('T')[0],
-        rangeEnd: endOfYear.toISOString().split('T')[0],
-      });
-      return result.sessions;
-    },
-    enabled: isEditing && !!classData.id,
-    staleTime: 1000 * 60 * 2,
-  });
-
-  // Reset form values when entering edit mode - only once per edit session
   useEffect(() => {
-    if (isEditing && !hasResetRef.current && classData) {
-      const dayValue = classData.day_of_week != null ? classData.day_of_week : 1;
-      // Map ARCHIVED status to INACTIVE for form (form schema doesn't support ARCHIVED)
-      const formStatus = classData.status === 'INACTIVE' ? 'INACTIVE' : 'ACTIVE';
-      form.reset({
-        level: classData.level || null,
-        dayOfWeek: dayValue,
-        startTime: classData.start_time || '',
-        endTime: classData.end_time || '',
-        status: formStatus,
-        subjectId: classData.subject_id ?? undefined,
-        room: classData.room || '',
-        sessionStartDate: classData.session_start_date || null,
-        sessionEndDate: classData.session_end_date || null,
-      }, {
-        keepDefaultValues: false
-      });
-      // Explicitly set dayOfWeek to ensure it's set correctly
-      form.setValue('dayOfWeek', dayValue, { shouldValidate: false });
-      hasResetRef.current = true;
-      setEditKey(prev => prev + 1); // Force re-render of Select
-    } else if (!isEditing) {
-      // Reset the flag when exiting edit mode
-      hasResetRef.current = false;
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isEditing, classData?.id]); // form is stable, don't include it
+    if (!isEditing || storedSchedule === undefined) return;
+    setLevel(classData.cohort_label ?? classData.level ?? '');
+    setSubjectId(classData.subject_id);
+    setRows(resolveClassScheduleRows(storedSchedule?.rows, {
+      dayOfWeek: classData.day_of_week, startTime: classData.start_time, endTime: classData.end_time, room: classData.room,
+    }, () => crypto.randomUUID()));
+    setFrequencyWeeks(storedSchedule?.frequencyWeeks ?? 1);
+    setClassStatus(classData.status === 'INACTIVE' ? 'INACTIVE' : 'ACTIVE');
+    setEffectiveFrom(todayInAdelaide() < classData.session_start_date ? classData.session_start_date : todayInAdelaide());
+    setEndDate(classData.session_end_date);
+    setProposal(null); setPlan(null); setError(null);
+  }, [classData, isEditing, storedSchedule]);
 
-  // Watch form values for session changes calculation
-  const sessionStartDate = form.watch('sessionStartDate');
-  const sessionEndDate = form.watch('sessionEndDate');
-  const dayOfWeek = form.watch('dayOfWeek');
-  const startTime = form.watch('startTime');
-  const endTime = form.watch('endTime');
+  const markChanged = () => { setProposal(null); setPlan(null); setError(null); };
+  const updateRow = (id: string, patch: Partial<ClassScheduleRow>) => {
+    setRows((current) => current.map((row) => row.id === id ? { ...row, ...patch } : row));
+    markChanged();
+  };
 
-  // Calculate session changes based on form values
-  const sessionChanges = useMemo(() => {
-    if (!isEditing || !classData) {
-      return null;
-    }
-
-    const newStartDate = sessionStartDate || null;
-    const newEndDate = sessionEndDate || null;
-    const newDayOfWeek = dayOfWeek;
-    const newStartTime = startTime;
-    const newEndTime = endTime;
-
-    // Check if dates/times actually changed
-    const datesChanged = 
-      classData.session_start_date !== newStartDate ||
-      classData.session_end_date !== newEndDate ||
-      classData.day_of_week !== newDayOfWeek ||
-      classData.start_time !== newStartTime ||
-      classData.end_time !== newEndTime;
-
-    if (!datesChanged) {
-      return null;
-    }
-
-    return calculateSessionChanges({
-      newStartDate,
-      newEndDate,
-      newDayOfWeek,
-      newStartTime,
-      newEndTime,
-      existingFutureSessions: futureSessionsData || [],
+  const preview = async () => {
+    const validationError = validateClassScheduleRows(rows);
+    if (validationError) return setError(validationError);
+    if (!endDate || endDate < classData.session_start_date) return setError('The Class end date must be on or after its start date.');
+    if (effectiveFrom < todayInAdelaide() || effectiveFrom > endDate) return setError('The effective date must be today or later and inside the Class dates.');
+    const nextProposal = buildClassScheduleProposal({
+      classId: classData.id, subjectId, cohortLabel: level, startDate: classData.session_start_date, endDate,
+      effectiveFrom, anchorDate: storedSchedule?.anchorDate ?? classData.session_start_date, frequencyWeeks, rows, status: classStatus,
     });
-    // form is stable from react-hook-form, watched values are already in deps
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [
-    isEditing,
-    classData,
-    sessionStartDate,
-    futureSessionsData,
-    sessionEndDate,
-    dayOfWeek,
-    startTime,
-    endTime,
-    futureSessionsData,
-  ]);
+    setError(null);
+    try {
+      setPlan(await previewMutation.mutateAsync(nextProposal));
+      setProposal(nextProposal);
+    } catch (previewError) {
+      setError(previewError instanceof Error ? previewError.message : 'Unable to preview these changes.');
+    }
+  };
 
-  return isEditing ? (
-    <div className="flex flex-col h-full min-h-0">
-      <div className="flex-1 overflow-y-auto">
-        <form 
-          id="class-edit-form" 
-          onSubmit={form.handleSubmit(onSubmit)} 
-          className="space-y-6"
-        >
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label htmlFor="level">Level</Label>
-                  <Controller
-                    control={form.control}
-                    name="level"
-                    render={({ field }) => (
-                      <Input 
-                        id="level" 
-                        {...field}
-                        value={field.value || ''}
-                        onChange={(e) => field.onChange(e.target.value || null)}
-                        disabled={isLoading} 
-                        placeholder="e.g., A/B/C/D"
-                      />
-                    )}
-                  />
-                  {form.formState.errors.level && (
-                    <p className="text-sm text-red-500">{form.formState.errors.level.message}</p>
-                  )}
-                </div>
-                
-                <div>
-                  <Label htmlFor="status">Status</Label>
-                  <Controller
-                    control={form.control}
-                    name="status"
-                    render={({ field }) => {
-                      const selected = STATUS_OPTIONS.find((o) => o.value === field.value) ?? null;
-                      return (
-                        <SearchableSelect<typeof STATUS_OPTIONS[number]>
-                          items={[...STATUS_OPTIONS]}
-                          value={selected}
-                          onValueChange={(item) => field.onChange(item?.value)}
-                          getItemLabel={(o) => o.label}
-                          getItemId={(o) => o.value}
-                          placeholder="Select status"
-                          disabled
-                        />
-                      );
-                    }}
-                  />
-                  {form.formState.errors.status && (
-                    <p className="text-sm text-red-500">{form.formState.errors.status.message}</p>
-                  )}
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Use Edit timetable to preview a status change.
-                  </p>
-                </div>
-              </div>
-              
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label htmlFor="dayOfWeek">Day of Week</Label>
-                  <Controller
-                    key={`dayOfWeek-${editKey}`}
-                    control={form.control}
-                    name="dayOfWeek"
-                    render={({ field }) => {
-                      const fieldValue = field.value != null ? field.value : (classData?.day_of_week != null ? classData.day_of_week : 1);
-                      const selected = DAY_OPTIONS.find((o) => o.value === fieldValue) ?? DAY_OPTIONS[1];
-                      return (
-                        <SearchableSelect<typeof DAY_OPTIONS[number]>
-                          items={[...DAY_OPTIONS]}
-                          value={selected}
-                          onValueChange={(item) => field.onChange(item?.value ?? 1)}
-                          getItemLabel={(o) => o.label}
-                          getItemId={(o) => String(o.value)}
-                          placeholder="Select day"
-                          disabled
-                        />
-                      );
-                    }}
-                  />
-                  {form.formState.errors.dayOfWeek && (
-                    <p className="text-sm text-red-500">{form.formState.errors.dayOfWeek.message}</p>
-                  )}
-                </div>
-                
-                <div>
-                  <Label htmlFor="room">Room</Label>
-                  <Controller
-                    control={form.control}
-                    name="room"
-                    render={({ field }) => (
-                      <Input 
-                        id="room" 
-                        {...field}
-                        disabled
-                        placeholder="Room number/name"
-                      />
-                    )}
-                  />
-                  {form.formState.errors.room && (
-                    <p className="text-sm text-red-500">{form.formState.errors.room.message}</p>
-                  )}
-                </div>
-              </div>
+  const apply = async () => {
+    if (!proposal || !plan) return;
+    try {
+      await applyMutation.mutateAsync({ proposal, expectedProposalHash: plan.proposal_hash });
+      onSaved();
+    } catch (applyError) {
+      setError(applyError instanceof Error ? applyError.message : 'Unable to update this Class.');
+    }
+  };
+  const busy = isLoading || isScheduleLoading || previewMutation.isPending || applyMutation.isPending;
 
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label htmlFor="startTime">Start Time</Label>
-                  <Controller
-                    control={form.control}
-                    name="startTime"
-                    render={({ field }) => (
-                      <Input 
-                        id="startTime" 
-                        type="time"
-                        {...field}
-                        disabled
-                      />
-                    )}
-                  />
-                  {form.formState.errors.startTime && (
-                    <p className="text-sm text-red-500">{form.formState.errors.startTime.message}</p>
-                  )}
-                </div>
-                
-                <div>
-                  <Label htmlFor="endTime">End Time</Label>
-                  <Controller
-                    control={form.control}
-                    name="endTime"
-                    render={({ field }) => (
-                      <Input 
-                        id="endTime" 
-                        type="time"
-                        {...field}
-                        disabled
-                      />
-                    )}
-                  />
-                  {form.formState.errors.endTime && (
-                    <p className="text-sm text-red-500">{form.formState.errors.endTime.message}</p>
-                  )}
-                </div>
-              </div>
+  if (isEditing) {
+    return (
+      <form id="class-edit-form" className="space-y-6" onSubmit={(event) => { event.preventDefault(); void (plan ? apply() : preview()); }}>
+        {error && <div className="rounded-md bg-destructive/10 p-3 text-sm text-destructive">{error}</div>}
+        {busy && rows.length === 0 ? <div className="flex justify-center p-10"><Loader2 className="h-5 w-5 animate-spin" /></div> : !plan ? <>
+          <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,2fr)] items-center gap-x-4 gap-y-3">
+            <Label htmlFor="level">Level:</Label>
+            <Input id="level" value={level} onChange={(event) => { setLevel(event.target.value); markChanged(); }} disabled={busy} placeholder="e.g., A/B/C/D" />
 
-              <div>
-                <Label htmlFor="subjectId">Subject</Label>
-                <Controller
-                  key={`subjectId-${editKey}`}
-                  control={form.control}
-                  name="subjectId"
-                  render={({ field }) => {
-                    const subjectItems = [
-                      { id: 'none', long_name: 'None' },
-                      ...(subjects ?? []),
-                    ];
-                    const selected =
-                      field.value && field.value !== 'none'
-                        ? subjects?.find((s) => s.id === field.value) ?? null
-                        : subjectItems[0];
-                    return (
-                      <SearchableSelect<{ id: string; long_name?: string | null }>
-                        items={subjectItems}
-                        value={selected}
-                        onValueChange={(item) =>
-                          field.onChange(item?.id === 'none' ? null : item?.id ?? null)
-                        }
-                        getItemLabel={(s) => s?.long_name ?? 'None'}
-                        getItemId={(s) => s.id}
-                        placeholder="Select subject"
-                        disabled={isLoading}
-                      />
-                    );
-                  }}
-                />
-                {form.formState.errors.subjectId && (
-                  <p className="text-sm text-red-500">{form.formState.errors.subjectId.message}</p>
-                )}
-              </div>
+            <Label>Subject:</Label>
+            <SearchableSelect<Tables<'subjects'>> items={subjects} value={subjects.find((item) => item.id === subjectId) ?? null} onValueChange={(item) => { setSubjectId(item?.id ?? null); markChanged(); }} getItemLabel={(item) => item.long_name ?? ''} getItemId={(item) => item.id} placeholder="Select subject" disabled={busy} />
 
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label htmlFor="sessionStartDate">Session Start Date</Label>
-                  <Controller
-                    control={form.control}
-                    name="sessionStartDate"
-                    render={({ field }) => (
-                      <SmartDatePickerField
-                        value={field.value || ''}
-                        onChange={(value) => field.onChange(value)}
-                        className="pointer-events-none opacity-50"
-                      />
-                    )}
-                  />
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Use Edit timetable to change schedule dates.
-                  </p>
-                  {form.formState.errors.sessionStartDate && (
-                    <p className="text-sm text-red-500">{form.formState.errors.sessionStartDate.message}</p>
-                  )}
-                </div>
-                
-                <div>
-                  <Label htmlFor="sessionEndDate">Session End Date</Label>
-                  <Controller
-                    control={form.control}
-                    name="sessionEndDate"
-                    render={({ field }) => (
-                      <SmartDatePickerField
-                        value={field.value || ''}
-                        onChange={(value) => field.onChange(value)}
-                        minDate={form.watch('sessionStartDate') || undefined}
-                        className="pointer-events-none opacity-50"
-                      />
-                    )}
-                  />
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Use Edit timetable to change schedule dates.
-                  </p>
-                  {form.formState.errors.sessionEndDate && (
-                    <p className="text-sm text-red-500">{form.formState.errors.sessionEndDate.message}</p>
-                  )}
-                </div>
-              </div>
+            <Label>Status:</Label>
+            <SearchableSelect<(typeof STATUSES)[number]> items={STATUSES} value={STATUSES.find((item) => item.value === classStatus) ?? null} onValueChange={(item) => { setClassStatus(item?.value ?? 'ACTIVE'); markChanged(); }} getItemId={(item) => item.value} getItemLabel={(item) => item.label} disabled={busy} />
 
-              {/* Warning preview for session changes */}
-              {sessionChanges && (sessionChanges.sessionsToDelete.length > 0 || sessionChanges.sessionsToCreate.length > 0) && (
-                <Alert>
-                  <AlertTriangle className="h-4 w-4" />
-                  <AlertTitle>Session Changes Preview</AlertTitle>
-                  <AlertDescription className="space-y-2">
-                    {sessionChanges.sessionsToDelete.length > 0 && (
-                      <div>
-                        <p className="font-medium text-destructive">
-                          {sessionChanges.sessionsToDelete.length} future session(s) will be deleted:
-                        </p>
-                        <ul className="list-disc list-inside text-sm mt-1 space-y-1">
-                          {sessionChanges.sessionsToDelete.slice(0, 5).map((session) => {
-                            const date = session.start_at ? format(new Date(session.start_at), 'MMM d, yyyy') : 'Unknown';
-                            return (
-                              <li key={session.id}>{date}</li>
-                            );
-                          })}
-                          {sessionChanges.sessionsToDelete.length > 5 && (
-                            <li className="text-muted-foreground">
-                              ...and {sessionChanges.sessionsToDelete.length - 5} more
-                            </li>
-                          )}
-                        </ul>
-                      </div>
-                    )}
-                    {sessionChanges.sessionsToCreate.length > 0 && (
-                      <div>
-                        <p className="font-medium text-green-600 dark:text-green-400">
-                          {sessionChanges.sessionsToCreate.length} new session(s) will be created:
-                        </p>
-                        <ul className="list-disc list-inside text-sm mt-1 space-y-1">
-                          {sessionChanges.sessionsToCreate.slice(0, 5).map((session, idx) => (
-                            <li key={idx}>{format(new Date(session.date), 'MMM d, yyyy')}</li>
-                          ))}
-                          {sessionChanges.sessionsToCreate.length > 5 && (
-                            <li className="text-muted-foreground">
-                              ...and {sessionChanges.sessionsToCreate.length - 5} more
-                            </li>
-                          )}
-                        </ul>
-                      </div>
-                    )}
-                    <p className="text-xs text-muted-foreground mt-2">
-                      Note: Only future sessions are affected. Past sessions are never modified.
-                    </p>
-                  </AlertDescription>
-                </Alert>
-              )}
-            </form>
+            <Label>Session start date:</Label>
+            <div className="text-sm">{format(new Date(classData.session_start_date), 'MMM d, yyyy')}</div>
+
+            <Label>Session end date:</Label>
+            <SmartDatePickerField value={endDate} minDate={effectiveFrom || classData.session_start_date} onChange={(value) => { setEndDate(value ?? ''); markChanged(); }} />
+
+            <Label>Changes effective from:</Label>
+            <SmartDatePickerField value={effectiveFrom} minDate={todayInAdelaide()} onChange={(value) => { setEffectiveFrom(value ?? ''); markChanged(); }} />
+
+            <Label>Repeat:</Label>
+            <SearchableSelect<(typeof FREQUENCIES)[number]> items={FREQUENCIES} value={FREQUENCIES.find((item) => item.value === frequencyWeeks) ?? null} onValueChange={(item) => { setFrequencyWeeks(item?.value ?? 1); markChanged(); }} getItemId={(item) => String(item.value)} getItemLabel={(item) => item.label} disabled={busy} />
           </div>
-    </div>
-  ) : (
-    // View mode
-    <div className="space-y-6 pb-6 flex-1 overflow-y-auto px-1 pt-4">
-      <div className="flex items-center justify-between">
-        <h3 className="text-lg font-semibold">Class Information</h3>
-        <Button variant="outline" size="sm" onClick={onEdit}>
-          <Pencil className="h-4 w-4 mr-2" />
-          Edit
-        </Button>
-      </div>
+          <div className="space-y-3 border-t pt-6">
+            <div><h3 className="font-medium">Repeating timetable</h3><p className="text-sm text-muted-foreground">Add every day and time this Class runs. Changes only reconcile future Sessions.</p></div>
+            {rows.map((row, index) => <div key={row.id} className="grid gap-3 rounded-md border p-3 md:grid-cols-[1.2fr_1fr_1fr_1.2fr_auto]">
+              <div className="space-y-2"><Label>Day {index + 1}</Label><SearchableSelect<(typeof DAYS)[number]> items={DAYS} value={DAYS.find((day) => day.value === row.dayOfWeek) ?? null} onValueChange={(day) => updateRow(row.id, { dayOfWeek: day?.value ?? 1 })} getItemId={(day) => String(day.value)} getItemLabel={(day) => day.label} disabled={busy} /></div>
+              <div className="space-y-2"><Label>Start</Label><Input type="time" value={row.startTime} disabled={busy} onChange={(event) => updateRow(row.id, { startTime: event.target.value })} /></div>
+              <div className="space-y-2"><Label>End</Label><Input type="time" value={row.endTime} disabled={busy} onChange={(event) => updateRow(row.id, { endTime: event.target.value })} /></div>
+              <div className="space-y-2"><Label>Room</Label><Input value={row.room} disabled={busy} onChange={(event) => updateRow(row.id, { room: event.target.value })} /></div>
+              <div className="flex items-end"><Button type="button" size="icon" variant="ghost" aria-label={`Remove schedule row ${index + 1}`} disabled={busy || rows.length === 1} onClick={() => { setRows((current) => current.filter((item) => item.id !== row.id)); markChanged(); }}><Trash2 className="h-4 w-4" /></Button></div>
+            </div>)}
+            <Button type="button" variant="outline" disabled={busy} onClick={() => { setRows((current) => [...current, { id: crypto.randomUUID(), dayOfWeek: 1, startTime: '16:00', endTime: '17:30', room: '' }]); markChanged(); }}><Plus className="mr-2 h-4 w-4" />Add day / time</Button>
+          </div>
+        </> : <div className="space-y-4">
+          <div><h3 className="font-medium">Review Class changes</h3><p className="text-sm text-muted-foreground">Confirm the future Session changes before they are applied.</p></div>
+          <div className="grid grid-cols-3 gap-3"><div className="rounded-md border p-3"><strong className="block text-2xl">{plan.counts.create}</strong><span className="text-sm text-muted-foreground">create</span></div><div className="rounded-md border p-3"><strong className="block text-2xl">{plan.counts.cancel}</strong><span className="text-sm text-muted-foreground">remove</span></div><div className="rounded-md border p-3"><strong className="block text-2xl">{plan.counts.protected}</strong><span className="text-sm text-muted-foreground">protected</span></div></div>
+          {plan.counts.protected > 0 && <div className="flex gap-2 rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-950"><AlertTriangle className="h-4 w-4 shrink-0" />Exceptional or enriched Sessions will remain unchanged.</div>}
+          {plan.conflicts.length > 0 && <div className="rounded-md border border-amber-300 p-3 text-sm"><div className="font-medium">Warnings</div>{plan.conflicts.map((conflict) => <p key={conflict.message}>{conflict.message}</p>)}</div>}
+          {plan.removals.length > 0 && <div className="max-h-64 divide-y overflow-y-auto rounded-md border">{plan.removals.map((removal) => <div key={removal.session_id} className="flex justify-between p-3 text-sm"><span>{new Date(removal.start_at).toLocaleString('en-AU', { timeZone: 'Australia/Adelaide' })}</span><span>{removal.action.toLowerCase()}</span></div>)}</div>}
+          <Button type="button" variant="outline" disabled={busy} onClick={() => { setPlan(null); setProposal(null); }}>Back to editing</Button>
+        </div>}
+        <div className="flex justify-end gap-2 border-t pt-4">
+          <Button type="button" variant="outline" disabled={busy} onClick={onCancelEdit}>Cancel</Button>
+          <Button type="submit" disabled={busy || rows.length === 0}>
+            {(previewMutation.isPending || applyMutation.isPending) && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            {plan ? 'Apply Class changes' : 'Review changes'}
+          </Button>
+        </div>
+      </form>
+    );
+  }
 
-      <div className="grid grid-cols-2 gap-x-4 gap-y-3">
-        <div className="text-sm font-medium">Level:</div>
-        <div>{classData.level || '-'}</div>
-        
-        <div className="text-sm font-medium">Schedule:</div>
-        <div>{classData.schedule_summary_long || `${getDayOfWeek(classData.day_of_week)} ${formatTime(classData.start_time)} - ${formatTime(classData.end_time)}`}</div>
-        
-        <div className="text-sm font-medium">Status:</div>
-        <div>
-          <ClassStatusBadge value={classData.status === 'ACTIVE' || classData.status === 'INACTIVE' ? classData.status : null} />
-        </div>
-        
-        <div className="text-sm font-medium">Subject:</div>
-        <div>
-          {subject ? (() => {
-            const { style, textColorClass } = getSubjectColorStyle(subject);
-            const defaultClass = !subject.color ? 'bg-gray-100 text-gray-800' : '';
-            return (
-              <Badge 
-                className={defaultClass || textColorClass}
-                style={style.backgroundColor ? style : undefined}
-              >
-                {subject?.long_name ?? ''}
-              </Badge>
-            );
-          })() : (
-            '-'
-          )}
-        </div>
-        
-        <div className="text-sm font-medium">Session Start Date:</div>
-        <div>
-          {classData.session_start_date 
-            ? format(new Date(classData.session_start_date), 'MMM d, yyyy')
-            : classData.created_at 
-              ? format(new Date(classData.created_at), 'MMM d, yyyy')
-              : 'Not set'
-          }
-        </div>
-        
-        <div className="text-sm font-medium">Session End Date:</div>
-        <div>
-          {classData.session_end_date 
-            ? format(new Date(classData.session_end_date), 'MMM d, yyyy')
-            : classData.created_at
-              ? `Dec 31, ${new Date(classData.created_at).getFullYear()}`
-              : 'Not set'
-          }
-        </div>
-      </div>
+  return <div className="space-y-6 pb-6 flex-1 overflow-y-auto px-1 pt-4">
+    <div className="flex items-center justify-between"><h3 className="text-lg font-semibold">Class Information</h3><Button variant="outline" size="sm" onClick={onEdit}><Pencil className="h-4 w-4 mr-2" />Edit</Button></div>
+    <div className="grid grid-cols-2 gap-x-4 gap-y-3">
+      <div className="text-sm font-medium">Level:</div><div>{classData.level || '-'}</div>
+      <div className="text-sm font-medium">Schedule:</div><div>{classData.schedule_summary_long || `${getDayOfWeek(classData.day_of_week)} ${formatTime(classData.start_time)} - ${formatTime(classData.end_time)}`}</div>
+      <div className="text-sm font-medium">Status:</div><div><ClassStatusBadge value={classData.status === 'ACTIVE' || classData.status === 'INACTIVE' ? classData.status : null} /></div>
+      <div className="text-sm font-medium">Subject:</div><div>{subject ? (() => { const { style, textColorClass } = getSubjectColorStyle(subject); return <Badge className={!subject.color ? 'bg-gray-100 text-gray-800' : textColorClass} style={style.backgroundColor ? style : undefined}>{subject.long_name ?? ''}</Badge>; })() : '-'}</div>
+      <div className="text-sm font-medium">Session Start Date:</div><div>{classData.session_start_date ? format(new Date(classData.session_start_date), 'MMM d, yyyy') : 'Not set'}</div>
+      <div className="text-sm font-medium">Session End Date:</div><div>{classData.session_end_date ? format(new Date(classData.session_end_date), 'MMM d, yyyy') : 'Not set'}</div>
     </div>
-  );
+  </div>;
 }
-
-export { classInfoSchema };
-export type { FormData as ClassInfoFormData };

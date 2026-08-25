@@ -17,7 +17,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@altitutor/ui";
-import { Loader2, ArrowLeft, CalendarClock } from "lucide-react";
+import { Loader2, ArrowLeft } from "lucide-react";
 import { useQueryClient } from '@tanstack/react-query';
 import { ActionsMenu } from '@/shared/components/ActionsMenu';
 import { useClassActions } from '@/features/classes/hooks/useClassActions';
@@ -26,10 +26,7 @@ import { useClassDetails, useDeleteClass } from '@/features/classes/hooks/useCla
 import { useSubjects } from '@/features/subjects';
 import { useStudents } from '@/features/students/hooks/useStudentsQuery';
 import { useStaff } from '@/features/staff/hooks/useStaffQuery';
-import { useUpdateClass } from '@/features/classes/hooks/useClassesQuery';
-import type { TablesUpdate } from '@altitutor/shared';
-import { ClassInfoTab, ClassInfoFormData } from '@/features/classes/components/modal/tabs/ClassInfoTab';
-import { EditClassScheduleDialog } from '@/features/classes/components/EditClassScheduleDialog';
+import { ClassInfoTab } from '@/features/classes/components/modal/tabs/ClassInfoTab';
 import { ClassStudentsTab } from '@/features/classes/components/modal/tabs/ClassStudentsTab';
 import { ClassStaffTab } from '@/features/classes/components/modal/tabs/ClassStaffTab';
 import { ClassSessionsTab } from '@/features/classes/components/modal/tabs/ClassSessionsTab';
@@ -50,7 +47,6 @@ export default function ClassDetailPage({ params }: { params: { id: string } }) 
   const { data: allSubjects = [] } = useSubjects();
   const { data: allStudentsData = [] } = useStudents();
   const { data: allStaffData = [] } = useStaff();
-  const updateClassMutation = useUpdateClass();
   const deleteClassMutation = useDeleteClass();
   
   const classData = classDetails?.class || null;
@@ -63,42 +59,6 @@ export default function ClassDetailPage({ params }: { params: { id: string } }) 
   const [isDeleting, setIsDeleting] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [deleteConfirmText, setDeleteConfirmText] = useState('');
-  const [isScheduleDialogOpen, setIsScheduleDialogOpen] = useState(false);
-
-  const handleClassUpdate = async (data: ClassInfoFormData) => {
-    if (!classData) return;
-    
-    try {
-      const updateData: TablesUpdate<'classes'> = {
-        level: data.level,
-        cohort_label: data.level,
-        day_of_week: data.dayOfWeek,
-        start_time: data.startTime,
-        end_time: data.endTime,
-        subject_id: data.subjectId || null,
-        room: data.room || null,
-        session_start_date: data.sessionStartDate || classData.session_start_date,
-        session_end_date: data.sessionEndDate || classData.session_end_date,
-      };
-      await updateClassMutation.mutateAsync({ id: classData.id, data: updateData });
-      
-      await invalidateClassDetail(queryClient, classData.id);
-      
-      setIsEditing(false);
-      
-      toast({
-        title: 'Class updated',
-        description: 'Class has been updated successfully.',
-      });
-    } catch (err) {
-      console.error('Failed to update class:', err);
-      toast({
-        title: 'Update failed',
-        description: 'There was an error updating the class. Please try again.',
-        variant: 'destructive',
-      });
-    }
-  };
 
   const handleAssignStaff = async (staffId: string) => {
     if (!classData) return;
@@ -222,10 +182,6 @@ export default function ClassDetailPage({ params }: { params: { id: string } }) 
           copyTagDisplayText={classData.short_name?.trim() ?? ''}
           {...classActions}
         />
-        <Button variant="outline" onClick={() => setIsScheduleDialogOpen(true)}>
-          <CalendarClock className="mr-2 h-4 w-4" />
-          Edit timetable
-        </Button>
       </div>
 
       {/* Sections */}
@@ -250,27 +206,12 @@ export default function ClassDetailPage({ params }: { params: { id: string } }) 
             isLoading={isLoading}
             onEdit={() => setIsEditing(true)}
             onCancelEdit={() => setIsEditing(false)}
-            onSubmit={handleClassUpdate}
+            onSaved={() => {
+              setIsEditing(false);
+              void invalidateClassSurfaces(queryClient, classData.id);
+              toast({ title: 'Class updated', description: 'Class details and future Sessions were updated.' });
+            }}
           />
-          {isEditing && (
-            <div className="flex justify-end gap-2 pt-4 border-t">
-              <Button variant="outline" onClick={() => setIsEditing(false)} disabled={isLoading}>
-                Cancel
-              </Button>
-              <Button 
-                disabled={isLoading}
-                onClick={() => {
-                  const form = document.getElementById('class-edit-form') as HTMLFormElement;
-                  if (form) {
-                    form.requestSubmit();
-                  }
-                }}
-              >
-                {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                Save Changes
-              </Button>
-            </div>
-          )}
         </SegmentedTabPanelContent>
 
         <SegmentedTabPanelContent when="students" activeTab={activeTab} className="space-y-6">
@@ -311,16 +252,6 @@ export default function ClassDetailPage({ params }: { params: { id: string } }) 
           <ClassActivityTab classId={id} isOpen={true} />
         </SegmentedTabPanelContent>
       </SegmentedTabPanel>
-
-      <EditClassScheduleDialog
-        classData={classData}
-        open={isScheduleDialogOpen}
-        onOpenChange={setIsScheduleDialogOpen}
-        onSaved={() => {
-          void invalidateClassSurfaces(queryClient, classData.id);
-          toast({ title: 'Timetable updated', description: 'Future Class Sessions were reconciled.' });
-        }}
-      />
 
       {/* Delete confirmation dialog */}
       <AlertDialog open={isDeleteDialogOpen} onOpenChange={(open) => {
