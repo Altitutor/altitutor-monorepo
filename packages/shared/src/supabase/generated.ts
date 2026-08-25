@@ -14961,184 +14961,195 @@ export type Database = {
           },
         ]
       }
-      ucat_duplicate_pair_dismissals: {
+      ucat_duplicate_stem_pairs: {
         Row: {
-          dismissed_at: string
-          dismissed_by: string
-          reason: string
-          stem_hash_high: string
-          stem_hash_low: string
+          latest_at: string
+          refreshed_at: string
+          section_id: string
+          similarity: number
           stem_id_high: string
           stem_id_low: string
         }
         Insert: {
-          dismissed_at?: string
-          dismissed_by: string
-          reason?: string
-          stem_hash_high: string
-          stem_hash_low: string
+          latest_at: string
+          refreshed_at?: string
+          section_id: string
+          similarity: number
           stem_id_high: string
           stem_id_low: string
         }
         Update: {
-          dismissed_at?: string
-          dismissed_by?: string
-          reason?: string
-          stem_hash_high?: string
-          stem_hash_low?: string
+          latest_at?: string
+          refreshed_at?: string
+          section_id?: string
+          similarity?: number
           stem_id_high?: string
           stem_id_low?: string
         }
         Relationships: [
           {
-            foreignKeyName: "ucat_duplicate_pair_dismissals_dismissed_by_fkey"
-            columns: ["dismissed_by"]
+            foreignKeyName: "ucat_duplicate_stem_pairs_section_id_fkey"
+            columns: ["section_id"]
             isOneToOne: false
-            referencedRelation: "staff"
+            referencedRelation: "ucat_sections"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "ucat_duplicate_pair_dismissals_dismissed_by_fkey"
-            columns: ["dismissed_by"]
+            foreignKeyName: "ucat_duplicate_stem_pairs_section_id_fkey"
+            columns: ["section_id"]
             isOneToOne: false
-            referencedRelation: "vmarketing_staff_profiles"
-            referencedColumns: ["staff_id"]
+            referencedRelation: "vstudent_ucat_mock_section_progress"
+            referencedColumns: ["section_id"]
           },
           {
-            foreignKeyName: "ucat_duplicate_pair_dismissals_dismissed_by_fkey"
-            columns: ["dismissed_by"]
+            foreignKeyName: "ucat_duplicate_stem_pairs_section_id_fkey"
+            columns: ["section_id"]
             isOneToOne: false
-            referencedRelation: "vtutor_pay_tier_profile"
-            referencedColumns: ["staff_id"]
+            referencedRelation: "vstudent_ucat_section_set_progress"
+            referencedColumns: ["section_id"]
           },
           {
-            foreignKeyName: "ucat_duplicate_pair_dismissals_dismissed_by_fkey"
-            columns: ["dismissed_by"]
+            foreignKeyName: "ucat_duplicate_stem_pairs_section_id_fkey"
+            columns: ["section_id"]
             isOneToOne: false
-            referencedRelation: "vtutor_profile"
+            referencedRelation: "vstudent_ucat_sections"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "ucat_duplicate_pair_dismissals_stem_id_high_fkey"
+            foreignKeyName: "ucat_duplicate_stem_pairs_section_id_fkey"
+            columns: ["section_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_ucat_sections"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ucat_duplicate_stem_pairs_section_id_fkey"
+            columns: ["section_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_ucat_student_question_attempts_for_progress"
+            referencedColumns: ["ucat_section_id"]
+          },
+          {
+            foreignKeyName: "ucat_duplicate_stem_pairs_stem_id_high_fkey"
             columns: ["stem_id_high"]
             isOneToOne: false
             referencedRelation: "question_stems"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "ucat_duplicate_pair_dismissals_stem_id_high_fkey"
+            foreignKeyName: "ucat_duplicate_stem_pairs_stem_id_high_fkey"
             columns: ["stem_id_high"]
             isOneToOne: false
             referencedRelation: "vstudent_ucat_accessible_question_stems"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "ucat_duplicate_pair_dismissals_stem_id_high_fkey"
+            foreignKeyName: "ucat_duplicate_stem_pairs_stem_id_high_fkey"
             columns: ["stem_id_high"]
             isOneToOne: false
             referencedRelation: "vstudent_ucat_practice_stem_index"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "ucat_duplicate_pair_dismissals_stem_id_high_fkey"
+            foreignKeyName: "ucat_duplicate_stem_pairs_stem_id_high_fkey"
             columns: ["stem_id_high"]
             isOneToOne: false
             referencedRelation: "vstudent_ucat_question_stem_delivery"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "ucat_duplicate_pair_dismissals_stem_id_high_fkey"
+            foreignKeyName: "ucat_duplicate_stem_pairs_stem_id_high_fkey"
             columns: ["stem_id_high"]
             isOneToOne: false
             referencedRelation: "vstudent_ucat_question_stem_detail"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "ucat_duplicate_pair_dismissals_stem_id_high_fkey"
+            foreignKeyName: "ucat_duplicate_stem_pairs_stem_id_high_fkey"
             columns: ["stem_id_high"]
             isOneToOne: false
             referencedRelation: "vstudent_ucat_question_stems"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "ucat_duplicate_pair_dismissals_stem_id_high_fkey"
+            foreignKeyName: "ucat_duplicate_stem_pairs_stem_id_high_fkey"
             columns: ["stem_id_high"]
             isOneToOne: false
             referencedRelation: "vtutor_ucat_question_catalog"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "ucat_duplicate_pair_dismissals_stem_id_high_fkey"
+            foreignKeyName: "ucat_duplicate_stem_pairs_stem_id_high_fkey"
             columns: ["stem_id_high"]
             isOneToOne: false
             referencedRelation: "vtutor_ucat_question_stem_detail"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "ucat_duplicate_pair_dismissals_stem_id_high_fkey"
+            foreignKeyName: "ucat_duplicate_stem_pairs_stem_id_high_fkey"
             columns: ["stem_id_high"]
             isOneToOne: false
             referencedRelation: "vtutor_ucat_question_stems"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "ucat_duplicate_pair_dismissals_stem_id_low_fkey"
+            foreignKeyName: "ucat_duplicate_stem_pairs_stem_id_low_fkey"
             columns: ["stem_id_low"]
             isOneToOne: false
             referencedRelation: "question_stems"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "ucat_duplicate_pair_dismissals_stem_id_low_fkey"
+            foreignKeyName: "ucat_duplicate_stem_pairs_stem_id_low_fkey"
             columns: ["stem_id_low"]
             isOneToOne: false
             referencedRelation: "vstudent_ucat_accessible_question_stems"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "ucat_duplicate_pair_dismissals_stem_id_low_fkey"
+            foreignKeyName: "ucat_duplicate_stem_pairs_stem_id_low_fkey"
             columns: ["stem_id_low"]
             isOneToOne: false
             referencedRelation: "vstudent_ucat_practice_stem_index"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "ucat_duplicate_pair_dismissals_stem_id_low_fkey"
+            foreignKeyName: "ucat_duplicate_stem_pairs_stem_id_low_fkey"
             columns: ["stem_id_low"]
             isOneToOne: false
             referencedRelation: "vstudent_ucat_question_stem_delivery"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "ucat_duplicate_pair_dismissals_stem_id_low_fkey"
+            foreignKeyName: "ucat_duplicate_stem_pairs_stem_id_low_fkey"
             columns: ["stem_id_low"]
             isOneToOne: false
             referencedRelation: "vstudent_ucat_question_stem_detail"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "ucat_duplicate_pair_dismissals_stem_id_low_fkey"
+            foreignKeyName: "ucat_duplicate_stem_pairs_stem_id_low_fkey"
             columns: ["stem_id_low"]
             isOneToOne: false
             referencedRelation: "vstudent_ucat_question_stems"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "ucat_duplicate_pair_dismissals_stem_id_low_fkey"
+            foreignKeyName: "ucat_duplicate_stem_pairs_stem_id_low_fkey"
             columns: ["stem_id_low"]
             isOneToOne: false
             referencedRelation: "vtutor_ucat_question_catalog"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "ucat_duplicate_pair_dismissals_stem_id_low_fkey"
+            foreignKeyName: "ucat_duplicate_stem_pairs_stem_id_low_fkey"
             columns: ["stem_id_low"]
             isOneToOne: false
             referencedRelation: "vtutor_ucat_question_stem_detail"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "ucat_duplicate_pair_dismissals_stem_id_low_fkey"
+            foreignKeyName: "ucat_duplicate_stem_pairs_stem_id_low_fkey"
             columns: ["stem_id_low"]
             isOneToOne: false
             referencedRelation: "vtutor_ucat_question_stems"
@@ -36612,6 +36623,12 @@ export type Database = {
           isSetofReturn: true
         }
       }
+      get_student_ucat_completed_benchmark_sections: {
+        Args: { p_student_id: string }
+        Returns: {
+          section_id: string
+        }[]
+      }
       get_student_ucat_online_tier: {
         Args: { p_student_id: string }
         Returns: string
@@ -36639,6 +36656,32 @@ export type Database = {
       }
       get_student_ucat_question_set_engine_payload: {
         Args: { p_set_id: string }
+        Returns: Json
+      }
+      get_student_ucat_score_projection_evidence: {
+        Args: { p_student_id: string }
+        Returns: {
+          breadth: string
+          category_ids: string[]
+          completed_at: string
+          evidence_session_id: string
+          feedback_withheld: boolean
+          is_student_generated: boolean
+          observed_pace: number
+          prescribed_pace: number
+          question_count: number
+          score_points: number
+          section_category_count: number
+          section_id: string
+          section_number: number
+          section_question_count: number
+          source: string
+          total_points: number
+          was_timed: boolean
+        }[]
+      }
+      get_student_ucat_section_progress_summary: {
+        Args: { p_section_number: number }
         Returns: Json
       }
       get_subjects_for_student: {
@@ -37440,16 +37483,13 @@ export type Database = {
         Args: { p_stem_id: string }
         Returns: undefined
       }
-      tutor_ucat_dismiss_exact_duplicate_pair: {
-        Args: { p_reason?: string; p_stem_id_a: string; p_stem_id_b: string }
-        Returns: undefined
-      }
-      tutor_ucat_list_exact_duplicate_stems: {
+      tutor_ucat_list_duplicate_stem_pairs: {
         Args: {
           p_page?: number
           p_page_size?: number
           p_search?: string
           p_section_ids?: string[]
+          p_similarity_threshold?: number
         }
         Returns: Json
       }
@@ -37647,6 +37687,20 @@ export type Database = {
         Args: { p_change_id: string; p_reason: string }
         Returns: Json
       }
+      tutor_ucat_mcp_search_question_stems: {
+        Args: {
+          p_ids_only?: boolean
+          p_page?: number
+          p_page_size?: number
+          p_payload?: Json
+          p_search?: string
+          p_search_scopes?: string[]
+          p_show_deleted?: boolean
+          p_sort_by?: string
+          p_sort_direction?: string
+        }
+        Returns: Json
+      }
       tutor_ucat_mcp_set_deleted: {
         Args: {
           p_content_id: string
@@ -37731,8 +37785,12 @@ export type Database = {
         }
         Returns: Json
       }
-      tutor_ucat_merge_exact_duplicate_stems: {
-        Args: { p_source_stem_id: string; p_target_stem_id: string }
+      tutor_ucat_merge_duplicate_stem_pair: {
+        Args: {
+          p_minimum_similarity?: number
+          p_source_stem_id: string
+          p_target_stem_id: string
+        }
         Returns: undefined
       }
       tutor_ucat_merge_question_stems: {
@@ -38093,6 +38151,60 @@ export type Database = {
         Args: { p_mock_id: string }
         Returns: Json
       }
+      ucat_question_catalog_compose_filter: {
+        Args: { p_payload: Json }
+        Returns: Json
+      }
+      ucat_question_catalog_filtered_stem_ids:
+        | {
+            Args: {
+              p_payload?: Json
+              p_search?: string
+              p_search_scopes?: string[]
+              p_show_deleted?: boolean
+            }
+            Returns: string[]
+          }
+        | {
+            Args: {
+              p_access_scopes?: string[]
+              p_ai_review_statuses?: string[]
+              p_audit_filters?: string[]
+              p_category_ids?: string[]
+              p_created_by?: string[]
+              p_created_from?: string
+              p_created_to?: string
+              p_include_no_category?: boolean
+              p_include_without_set?: boolean
+              p_practice_pool?: boolean
+              p_question_count_max?: number
+              p_question_count_min?: number
+              p_search?: string
+              p_search_scopes?: string[]
+              p_section_ids?: string[]
+              p_set_ids?: string[]
+              p_show_deleted?: boolean
+              p_source_channels?: string[]
+              p_status?: string
+              p_stem_ids?: string[]
+              p_tag_ids?: string[]
+            }
+            Returns: string[]
+          }
+      ucat_question_catalog_matches_filter_clause: {
+        Args: {
+          p_catalog: Database["public"]["Views"]["vtutor_ucat_question_catalog"]["Row"]
+          p_clause: Json
+        }
+        Returns: boolean
+      }
+      ucat_question_catalog_matches_filter_expr: {
+        Args: {
+          p_catalog: Database["public"]["Views"]["vtutor_ucat_question_catalog"]["Row"]
+          p_expr: Json
+        }
+        Returns: boolean
+      }
       ucat_question_content_snapshot: {
         Args: { p_question_id: string }
         Returns: Json
@@ -38134,6 +38246,16 @@ export type Database = {
       undo_student_absences: {
         Args: { logged_by_staff_id: string; operations: Json }
         Returns: Json
+      }
+      upsert_ucat_learning_module_block_progress: {
+        Args: {
+          p_completed?: boolean
+          p_interaction_state?: Json
+          p_learning_module_block_id: string
+          p_manually_completed?: boolean
+          p_student_id: string
+        }
+        Returns: undefined
       }
       upsert_ucat_question_attempt_batch: {
         Args: {
