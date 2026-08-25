@@ -1,6 +1,16 @@
 BEGIN;
 
-SELECT plan(12);
+SELECT plan(14);
+
+SELECT ok(
+  has_column_privilege('service_role', 'public.ucat_question_catalog_projection', 'stem_id', 'SELECT')
+    AND has_column_privilege('service_role', 'public.ucat_question_catalog_projection', 'ai_review_status', 'SELECT'),
+  'service_role can read the UCAT question catalog AI review status'
+);
+SELECT ok(
+  has_column_privilege('service_role', 'public.ucat_question_catalog_projection', 'ai_review_status', 'UPDATE'),
+  'service_role can persist UCAT question catalog AI review status'
+);
 
 SELECT has_index(
   'public',

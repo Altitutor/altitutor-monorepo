@@ -2,11 +2,15 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { normalizeSlug } from '@altitutor/shared';
 import { resourcesApi } from '../api/resources';
 import type { ResourceSubject, ResourceSubjectNavItem } from '../lib/types';
+import { useAuthStore } from '@/shared/lib/supabase/auth';
 
 export function useResourceSubjectNavItems() {
+  const { user, loading } = useAuthStore();
+
   return useQuery({
     queryKey: ['tutor-resources', 'subject-nav'],
     queryFn: resourcesApi.getMySubjectNavItems,
+    enabled: !loading && Boolean(user),
   });
 }
 
