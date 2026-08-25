@@ -1,6 +1,6 @@
 import { useMemo } from 'react'
 import {
-  useExactDuplicateStemsQueue,
+  usePotentialDuplicateStemsQueue,
   usePrivateStemsNotInSetQueue,
   useReconciliationData,
 } from '@/features/ucat/reconciliation/hooks/useReconciliation'
@@ -12,7 +12,7 @@ const QUEUE_TOTAL_QUERY = { page: 1, pageSize: 1 } as const
 export function useQuestionIssueCounts(): Partial<Record<QuestionIssueSlug, number>> {
   const reconciliationQuery = useReconciliationData()
   const privateQueueQuery = usePrivateStemsNotInSetQueue(QUEUE_TOTAL_QUERY)
-  const duplicatesQuery = useExactDuplicateStemsQueue(QUEUE_TOTAL_QUERY)
+  const duplicatesQuery = usePotentialDuplicateStemsQueue(QUEUE_TOTAL_QUERY)
 
   return useMemo(() => {
     const data = reconciliationQuery.data

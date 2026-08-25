@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { ucatKeys } from '@/features/ucat/shared/lib/query-keys'
 import {
-  fetchExactDuplicateStems,
+  fetchPotentialDuplicateStems,
   fetchPrivateStemsNotInSet,
   fetchReconciliationData,
   type ReconciliationQueueQuery,
@@ -23,10 +23,10 @@ export function usePrivateStemsNotInSetQueue(query: ReconciliationQueueQuery) {
   })
 }
 
-export function useExactDuplicateStemsQueue(query: ReconciliationQueueQuery) {
+export function usePotentialDuplicateStemsQueue(query: ReconciliationQueueQuery) {
   return useQuery({
-    queryKey: ucatKeys.reconciliationQueue('exact-duplicates', query),
-    queryFn: () => fetchExactDuplicateStems(query),
+    queryKey: ucatKeys.reconciliationQueue('potential-duplicates', query),
+    queryFn: () => fetchPotentialDuplicateStems(query),
     placeholderData: (previous) => previous,
   })
 }

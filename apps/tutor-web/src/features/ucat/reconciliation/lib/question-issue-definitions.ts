@@ -53,7 +53,7 @@ export const QUESTION_RECONCILIATION_ISSUES = [
     tabLabel: 'Duplicates',
     title: 'Duplicate stems',
     description:
-      'Exact normalized stem matches and high-confidence near copies (same question fingerprint, stem similarity ≥ 0.95). Merge is available for exact matches only; near copies can be deleted or kept. Dismissed “keep both” pairs are excluded.',
+      'Stem-only similarity pairs at the selected threshold. Compare each pair, then merge either direction or delete one stem.',
   },
 ] as const
 

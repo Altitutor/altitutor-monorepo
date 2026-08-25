@@ -273,7 +273,7 @@ export function PotentialDuplicatesReconciliationDialog({
     advanceAfterResolve(stem.id);
     void deleteMutation.mutateAsync(stem.id).then(() => {
       void queryClient.invalidateQueries({
-        queryKey: ucatKeys.reconciliationQueue("exact-duplicates"),
+        queryKey: ucatKeys.reconciliationQueue("potential-duplicates"),
       });
       toast({
         title: "Question stem deleted",
@@ -282,7 +282,7 @@ export function PotentialDuplicatesReconciliationDialog({
       });
     }).catch((err: unknown) => {
       void queryClient.invalidateQueries({
-        queryKey: ucatKeys.reconciliationQueue("exact-duplicates"),
+        queryKey: ucatKeys.reconciliationQueue("potential-duplicates"),
       });
       toast(lifecycleErrorToast(err, "Cannot delete", router.push, (entityType, entityId) => {
         if (entityType === "stem") {
@@ -317,7 +317,7 @@ export function PotentialDuplicatesReconciliationDialog({
     advanceAfterResolve(source.id);
     void mergePotentialDuplicateStems(target.id, source.id, similarityThreshold).then(() => {
       void queryClient.invalidateQueries({
-        queryKey: ucatKeys.reconciliationQueue("exact-duplicates"),
+        queryKey: ucatKeys.reconciliationQueue("potential-duplicates"),
       });
       void queryClient.invalidateQueries({ queryKey: ucatKeys.questions("all") });
       toast({
@@ -326,7 +326,7 @@ export function PotentialDuplicatesReconciliationDialog({
       });
     }).catch((err: unknown) => {
       void queryClient.invalidateQueries({
-        queryKey: ucatKeys.reconciliationQueue("exact-duplicates"),
+        queryKey: ucatKeys.reconciliationQueue("potential-duplicates"),
       });
       toast({
         title: "Cannot merge",

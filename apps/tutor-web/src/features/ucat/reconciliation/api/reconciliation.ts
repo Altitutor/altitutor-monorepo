@@ -186,10 +186,10 @@ export function fetchPrivateStemsNotInSet(
   return fetchQueue("/api/ucat/reconciliation/private-stems-not-in-set", query);
 }
 
-export function fetchExactDuplicateStems(
+export function fetchPotentialDuplicateStems(
   query: ReconciliationQueueQuery,
 ): Promise<ReconciliationPage<PotentialDuplicatePair>> {
-  return fetchQueue("/api/ucat/reconciliation/exact-duplicates", query);
+  return fetchQueue("/api/ucat/reconciliation/potential-duplicates", query);
 }
 
 export type ReconciliationData = {

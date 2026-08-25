@@ -4,9 +4,9 @@ import {
   getGeneratedVisualSpecIssue,
 } from '@/features/ucat/questions/lib/ai-generation/content-blocks'
 import {
-  compareStemSimilarityText,
-  normalizeSimilarityText,
-} from '@/features/ucat/questions/lib/stem-similarity'
+  compareGenerationSourceSimilarity,
+  normalizeGenerationSimilarityText,
+} from '@/features/ucat/questions/lib/generation-source-similarity'
 
 export type GenerationGateSeverity = 'blocking' | 'warning'
 
@@ -41,7 +41,7 @@ const DM_CATEGORIES = new Set([
 ])
 
 function norm(value: string | null | undefined): string {
-  return normalizeSimilarityText(value)
+  return normalizeGenerationSimilarityText(value)
 }
 
 function optionNorm(value: string): string {
@@ -918,7 +918,7 @@ function validateSimilarity(
   issues: GenerationGateIssue[]
 ) {
   if (sourceComparisonSources.length === 0) return
-  const candidate = normalizeSimilarityText(
+  const candidate = normalizeGenerationSimilarityText(
     [
       stemText(stem),
       ...stem.questions.flatMap((question) => [
@@ -929,7 +929,7 @@ function validateSimilarity(
   )
 
   for (const source of sourceComparisonSources) {
-    const result = compareStemSimilarityText(candidate, source.text)
+    const result = compareGenerationSourceSimilarity(candidate, source.text)
     if (!result.isNearCopy) continue
     issues.push({
       severity: 'blocking',

@@ -6,6 +6,7 @@ import {
 } from '@/features/ucat/shared/server/guard'
 import { parseDuplicateStemSets } from '@/features/ucat/reconciliation/lib/parse-duplicate-stem-sets'
 
+const ROUTE_PATH = '/api/ucat/reconciliation/potential-duplicates'
 const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/iu
 
@@ -32,7 +33,7 @@ type RawDuplicatePair = {
   [key: string]: unknown
 }
 
-type ExactDuplicatesPayload = {
+type PotentialDuplicatesPayload = {
   items?: RawDuplicatePair[]
   total?: number
   page?: number
@@ -68,12 +69,12 @@ export async function GET(request: NextRequest) {
   if (error) {
     return captureApiErrorResponse(
       error,
-      '/api/ucat/reconciliation/exact-duplicates',
+      ROUTE_PATH,
       NextResponse.json({ error: error.message }, { status: 500 }),
     )
   }
 
-  const payload = (data ?? {}) as ExactDuplicatesPayload
+  const payload = (data ?? {}) as PotentialDuplicatesPayload
   const items = Array.isArray(payload.items) ? payload.items : []
   const stemIds = [
     ...new Set(
@@ -93,7 +94,7 @@ export async function GET(request: NextRequest) {
     if (catalogError) {
       return captureApiErrorResponse(
         catalogError,
-        '/api/ucat/reconciliation/exact-duplicates',
+        ROUTE_PATH,
         NextResponse.json({ error: catalogError.message }, { status: 500 }),
       )
     }
@@ -104,19 +105,15 @@ export async function GET(request: NextRequest) {
     }
   }
 
-  const normalizedItems = items.map((pair) => ({
-    ...pair,
-    stemA: normalizeStemSide(pair.stemA, setIdsByStemId),
-    stemB: normalizeStemSide(pair.stemB, setIdsByStemId),
-  }))
-
   return NextResponse.json(
     {
       ...payload,
-      items: normalizedItems,
+      items: items.map((pair) => ({
+        ...pair,
+        stemA: normalizeStemSide(pair.stemA, setIdsByStemId),
+        stemB: normalizeStemSide(pair.stemB, setIdsByStemId),
+      })),
     },
-    {
-      headers: { 'Cache-Control': 'private, no-store' },
-    },
+    { headers: { 'Cache-Control': 'private, no-store' } },
   )
 }

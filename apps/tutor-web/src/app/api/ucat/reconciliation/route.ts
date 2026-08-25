@@ -390,10 +390,8 @@ export async function GET() {
     }))
     .sort((left, right) => right.sets.length - left.sets.length);
 
-  // Exact + high-confidence near-copy duplicates have their own indexed,
-  // paginated queue. Keeping the former fuzzy scan out of this legacy report
-  // prevents unrelated issue pages, sets, and mocks from paying its O(n²)
-  // request-time cost.
+  // Potential duplicate stems have their own maintained, paginated queue so
+  // unrelated reconciliation issue pages do not pay the matching cost.
   const potentialDuplicatePairs: never[] = [];
 
   const sections: UcatSectionForStatus[] = (sectionsResult.data ?? []).map(

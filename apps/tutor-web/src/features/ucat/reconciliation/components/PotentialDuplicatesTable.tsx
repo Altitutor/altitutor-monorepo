@@ -21,7 +21,7 @@ import { ReconciliationTable } from "./ReconciliationTable";
 import { getQuestionIssueDefinition } from "../lib/question-issue-definitions";
 import { PotentialDuplicatesReconciliationDialog } from "./PotentialDuplicatesReconciliationDialog";
 import type { PotentialDuplicatePair } from "../api/reconciliation";
-import { useExactDuplicateStemsQueue } from "../hooks/useReconciliation";
+import { usePotentialDuplicateStemsQueue } from "../hooks/useReconciliation";
 import { useUcatSections } from "@/features/ucat/questions/hooks/useUcatQuestions";
 import { proseMirrorToPlainText } from "@/features/ucat/shared/lib/rich-text";
 import { useUcatTableUrlState } from "@/features/ucat/shared/hooks/useUcatTableUrlState";
@@ -75,7 +75,7 @@ export function PotentialDuplicatesTable({
   const sectionIds = (tableState.state.filters.section_id ?? [])
     .map(String)
     .filter((value) => value && value !== "all");
-  const { data, isLoading } = useExactDuplicateStemsQueue({
+  const { data, isLoading } = usePotentialDuplicateStemsQueue({
     search: tableState.state.search,
     sectionIds,
     page: tableState.state.page,
