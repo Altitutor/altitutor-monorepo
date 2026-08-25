@@ -79,6 +79,13 @@ Or individually:
 ./deploy-supabase.sh
 ```
 
+For a narrowly scoped UCAT cron-secret deployment, without touching any other
+Vercel variables:
+
+```bash
+./deploy-vercel.sh --only CRON_SECRET
+```
+
 ### Print bridge (Mac Mini)
 
 Office print uses the same pull-connector pattern as iMessage. Generate/sync the Mac `.env` from this folder:
@@ -153,6 +160,8 @@ Vercel-only runtime secrets such as `OPENROUTER_API_KEY` are skipped here.
 - `AUTH_GOOGLE_ENABLED` and `AUTH_APPLE_ENABLED` are sent only to
   `altitutor-ucat-web`; provider credentials stay in GitHub Actions and are
   applied to hosted Supabase Auth by CI
+- `CRON_SECRET` is generated once when missing and sent only to
+  `altitutor-ucat-web` for authenticated Preview and Production cron routes
 
 Projects currently deployed by the script:
 

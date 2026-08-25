@@ -14,6 +14,18 @@ SECRETS_DIR="$(dirname "$SCRIPT_DIR")"
 # Source common utilities
 source "$SCRIPT_DIR/common.sh"
 
+ONLY_SECRET=""
+if [ "${1:-}" = "--only" ]; then
+    ONLY_SECRET="${2:-}"
+    if [ "$ONLY_SECRET" != "CRON_SECRET" ]; then
+        echo "Only --only CRON_SECRET is supported for targeted deployment." >&2
+        exit 1
+    fi
+elif [ "$#" -gt 0 ]; then
+    echo "Usage: $0 [--only CRON_SECRET]" >&2
+    exit 1
+fi
+
 # Load VERCEL_TOKEN from .env.shared if it exists
 if [ -f "$SECRETS_DIR/.env.shared" ]; then
     # Extract VERCEL_TOKEN from .env.shared and export it
@@ -53,6 +65,8 @@ check_command "vercel" "Install with: npm install -g vercel" || exit 1
 check_command "jq" "Install with: brew install jq" || exit 1
 check_env_file "$SECRETS_DIR/.env.development" || exit 1
 check_env_file "$SECRETS_DIR/.env.production" || exit 1
+ensure_env_secret "$SECRETS_DIR/.env.development" "CRON_SECRET" || exit 1
+ensure_env_secret "$SECRETS_DIR/.env.production" "CRON_SECRET" || exit 1
 
 # Verify Vercel token is loaded
 if [ -n "$VERCEL_TOKEN" ]; then
@@ -250,14 +264,19 @@ deploy_public_analytics_secret() {
 echo -e "${BLUE}1. Deploying Development Secrets (Preview)${NC}"
 echo -e "${YELLOW}Vercel Preview Environment:${NC}"
 
-deploy_sentry_project "$SECRETS_DIR/.env.development" "ADMIN_WEB" "$VERCEL_ADMIN_PROJECT" "preview"
-deploy_sentry_project "$SECRETS_DIR/.env.development" "MARKETING_WEB" "$VERCEL_MARKETING_PROJECT" "preview"
-deploy_sentry_project "$SECRETS_DIR/.env.development" "STUDENT_WEB" "$VERCEL_STUDENT_PROJECT" "preview"
-deploy_sentry_project "$SECRETS_DIR/.env.development" "TUTOR_WEB" "$VERCEL_TUTOR_PROJECT" "preview"
-deploy_sentry_project "$SECRETS_DIR/.env.development" "UCAT_WEB" "$VERCEL_UCAT_PROJECT" "preview"
+if [ -z "$ONLY_SECRET" ]; then
+    deploy_sentry_project "$SECRETS_DIR/.env.development" "ADMIN_WEB" "$VERCEL_ADMIN_PROJECT" "preview"
+    deploy_sentry_project "$SECRETS_DIR/.env.development" "MARKETING_WEB" "$VERCEL_MARKETING_PROJECT" "preview"
+    deploy_sentry_project "$SECRETS_DIR/.env.development" "STUDENT_WEB" "$VERCEL_STUDENT_PROJECT" "preview"
+    deploy_sentry_project "$SECRETS_DIR/.env.development" "TUTOR_WEB" "$VERCEL_TUTOR_PROJECT" "preview"
+    deploy_sentry_project "$SECRETS_DIR/.env.development" "UCAT_WEB" "$VERCEL_UCAT_PROJECT" "preview"
+fi
 
 # Combine base env vars with derived vars
 while IFS='=' read -r key value; do
+    if [ -n "$ONLY_SECRET" ] && [ "$key" != "$ONLY_SECRET" ]; then
+        continue
+    fi
     # Deploy NEXT_PUBLIC_* variables (including derived ones)
     if [[ "$key" =~ ^NEXT_PUBLIC_POSTHOG_ ]]; then
         deploy_public_analytics_secret "$key" "$value" "preview"
@@ -268,6 +287,9 @@ while IFS='=' read -r key value; do
         deploy_vercel_secret "$key" "$value" "$VERCEL_UCAT_PROJECT" "preview"
     # Deploy UCAT server-rendered social sign-in feature flags.
     elif [[ "$key" =~ ^AUTH_(GOOGLE|APPLE)_ENABLED$ ]]; then
+        deploy_ucat_web_server_config "$key" "$value" "preview"
+    # Vercel Cron authenticates only to the UCAT maintenance route.
+    elif [[ "$key" == "CRON_SECRET" ]]; then
         deploy_ucat_web_server_config "$key" "$value" "preview"
     # Deploy server-side secrets needed for API routes
     elif [[ "$key" == "SUPABASE_SERVICE_ROLE_KEY" ]] || [[ "$key" == "SUPABASE_SECRET_KEY" ]]; then
@@ -300,14 +322,19 @@ echo ""
 echo -e "${BLUE}2. Deploying Production Secrets${NC}"
 echo -e "${YELLOW}Vercel Production Environment:${NC}"
 
-deploy_sentry_project "$SECRETS_DIR/.env.production" "ADMIN_WEB" "$VERCEL_ADMIN_PROJECT" "production"
-deploy_sentry_project "$SECRETS_DIR/.env.production" "MARKETING_WEB" "$VERCEL_MARKETING_PROJECT" "production"
-deploy_sentry_project "$SECRETS_DIR/.env.production" "STUDENT_WEB" "$VERCEL_STUDENT_PROJECT" "production"
-deploy_sentry_project "$SECRETS_DIR/.env.production" "TUTOR_WEB" "$VERCEL_TUTOR_PROJECT" "production"
-deploy_sentry_project "$SECRETS_DIR/.env.production" "UCAT_WEB" "$VERCEL_UCAT_PROJECT" "production"
+if [ -z "$ONLY_SECRET" ]; then
+    deploy_sentry_project "$SECRETS_DIR/.env.production" "ADMIN_WEB" "$VERCEL_ADMIN_PROJECT" "production"
+    deploy_sentry_project "$SECRETS_DIR/.env.production" "MARKETING_WEB" "$VERCEL_MARKETING_PROJECT" "production"
+    deploy_sentry_project "$SECRETS_DIR/.env.production" "STUDENT_WEB" "$VERCEL_STUDENT_PROJECT" "production"
+    deploy_sentry_project "$SECRETS_DIR/.env.production" "TUTOR_WEB" "$VERCEL_TUTOR_PROJECT" "production"
+    deploy_sentry_project "$SECRETS_DIR/.env.production" "UCAT_WEB" "$VERCEL_UCAT_PROJECT" "production"
+fi
 
 # Combine base env vars with derived vars
 while IFS='=' read -r key value; do
+    if [ -n "$ONLY_SECRET" ] && [ "$key" != "$ONLY_SECRET" ]; then
+        continue
+    fi
     # Deploy NEXT_PUBLIC_* variables (including derived ones)
     if [[ "$key" =~ ^NEXT_PUBLIC_POSTHOG_ ]]; then
         deploy_public_analytics_secret "$key" "$value" "production"
@@ -318,6 +345,9 @@ while IFS='=' read -r key value; do
         deploy_vercel_secret "$key" "$value" "$VERCEL_UCAT_PROJECT" "production"
     # Deploy UCAT server-rendered social sign-in feature flags.
     elif [[ "$key" =~ ^AUTH_(GOOGLE|APPLE)_ENABLED$ ]]; then
+        deploy_ucat_web_server_config "$key" "$value" "production"
+    # Vercel Cron authenticates only to the UCAT maintenance route.
+    elif [[ "$key" == "CRON_SECRET" ]]; then
         deploy_ucat_web_server_config "$key" "$value" "production"
     # Deploy server-side secrets needed for API routes
     elif [[ "$key" == "SUPABASE_SERVICE_ROLE_KEY" ]] || [[ "$key" == "SUPABASE_SECRET_KEY" ]]; then
