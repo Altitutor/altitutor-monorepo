@@ -37114,6 +37114,10 @@ export type Database = {
         }
         Returns: Json
       }
+      service_is_public_link_revoked: {
+        Args: { p_purpose: string; p_token: string }
+        Returns: boolean
+      }
       service_ucat_apply_verified_assessment_repair: {
         Args: {
           p_base_snapshot: Json
@@ -38353,4 +38357,3 @@ export const Constants = {
     },
   },
 } as const
-

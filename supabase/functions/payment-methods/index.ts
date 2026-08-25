@@ -93,14 +93,18 @@ serveWithSentry('payment-methods', async (req: Request, sentry) => {
       return json({ error: 'Registration token required' }, 400);
     }
 
-    const { data: revocation } = await supabaseService
-      .from('public_link_revocations')
-      .select('token')
-      .eq('purpose', 'REGISTRATION')
-      .eq('token', registrationToken)
-      .maybeSingle();
+    const { data: isRevoked, error: revocationError } = await supabaseService
+      .rpc('service_is_public_link_revoked', {
+        p_purpose: 'REGISTRATION',
+        p_token: registrationToken,
+      });
 
-    if (revocation) {
+    if (revocationError) {
+      sentry.captureException(revocationError);
+      return json({ error: 'Registration link validation unavailable' }, 503);
+    }
+
+    if (isRevoked === true) {
       return json({ error: 'Registration link was revoked' }, 404);
     }
 
