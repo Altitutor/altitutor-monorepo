@@ -544,6 +544,7 @@ BEGIN
                   AND run.status IN ('selecting', 'active', 'completed')
               ), '[]'::JSONB)
             )
+        END
         ORDER BY page_rows.result_ordinal
       ),
       '[]'::JSONB

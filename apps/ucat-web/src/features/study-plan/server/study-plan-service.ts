@@ -10,7 +10,6 @@ import {
   CURRENT_PREPARATION_VERSIONS,
   parseRepresentativeScoreEvidence,
   prepareStudent,
-  REPRESENTATIVE_SCORE_EVIDENCE_SELECT,
   STANDARD_PREPARATION_TIMING_PROFILE,
   type PreparationEngineResult,
   type PreparationEngineInput,
@@ -246,12 +245,30 @@ async function loadGenerationInputs(
   practiceSelectionData: NonNullable<PickStemsOptions["preloaded"]>;
 }> {
   const admin = requireAdmin();
+  const aggregateClient = admin as unknown as {
+    rpc: (
+      name: "get_student_ucat_score_projection_evidence",
+      params: { p_student_id: string },
+    ) => Promise<{
+      data: Parameters<typeof parseRepresentativeScoreEvidence>[0][] | null;
+      error: { message: string } | null;
+    }>;
+  };
+  const completedBenchmarkClient = admin as unknown as {
+    rpc: (
+      name: "get_student_ucat_completed_benchmark_sections",
+      params: { p_student_id: string },
+    ) => Promise<{
+      data: { section_id: string }[] | null;
+      error: { message: string } | null;
+    }>;
+  };
   const scoreEvidenceQuery = () =>
     options.includeScoreEvidence === false
       ? Promise.resolve({ data: [], error: null })
-      : supabase
-          .from("vstudent_ucat_score_projection_evidence")
-          .select(REPRESENTATIVE_SCORE_EVIDENCE_SELECT);
+      : aggregateClient.rpc("get_student_ucat_score_projection_evidence", {
+          p_student_id: studentId,
+        });
   const [
     sectionsRes,
     evidenceRes,
@@ -293,12 +310,10 @@ async function loadGenerationInputs(
           .from("vstudent_ucat_section_set_progress")
           .select("section_id, total_completed"),
       () =>
-        admin
-          .from("ucat_student_study_plan_tasks")
-          .select("section_id")
-          .eq("student_id", studentId)
-          .eq("task_type", "section_benchmark")
-          .eq("status", "completed"),
+        completedBenchmarkClient.rpc(
+          "get_student_ucat_completed_benchmark_sections",
+          { p_student_id: studentId },
+        ),
       () =>
         admin
           .from("question_stem_categories")

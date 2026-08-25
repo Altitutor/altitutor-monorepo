@@ -342,6 +342,12 @@ function createDatabaseHarness(
     if (name === "get_ucat_skill_trainers_with_items") {
       return { data: [], error: null };
     }
+    if (name === "get_student_ucat_score_projection_evidence") {
+      return { data: [], error: null };
+    }
+    if (name === "get_student_ucat_completed_benchmark_sections") {
+      return { data: [], error: null };
+    }
     if (name === "batch_update_ucat_study_plan_tasks") {
       const updates = (args as { p_updates?: unknown[] })?.p_updates ?? [];
       return { data: updates.length, error: null };
@@ -570,6 +576,17 @@ describe("Study plan persistence orchestration", () => {
 
     await getStudyPlan(studentClient, "user-1", { reconcileTasks: false });
 
+    expect(admin.rpc).toHaveBeenCalledWith(
+      "get_student_ucat_score_projection_evidence",
+      { p_student_id: "student-1" },
+    );
+    expect(admin.rpc).toHaveBeenCalledWith(
+      "get_student_ucat_completed_benchmark_sections",
+      { p_student_id: "student-1" },
+    );
+    expect(studentClient.from).not.toHaveBeenCalledWith(
+      "vstudent_ucat_score_projection_evidence",
+    );
     expect(admin.rpc).toHaveBeenCalledWith(
       "replace_ucat_study_plan_generation",
       expect.objectContaining({
