@@ -14,6 +14,11 @@ function positiveInteger(value: string | null, fallback: number, maximum: number
   return Number.isInteger(parsed) && parsed > 0 ? Math.min(parsed, maximum) : fallback
 }
 
+function similarityThreshold(value: string | null): number {
+  const parsed = Number(value)
+  return Number.isFinite(parsed) ? Math.min(Math.max(parsed, 0.8), 1) : 0.95
+}
+
 type RawDuplicateStemSide = {
   id: string
   setNames?: unknown
@@ -32,6 +37,7 @@ type ExactDuplicatesPayload = {
   total?: number
   page?: number
   pageSize?: number
+  similarityThreshold?: number
 }
 
 function normalizeStemSide(
@@ -51,9 +57,10 @@ export async function GET(request: NextRequest) {
 
   const params = request.nextUrl.searchParams
   const rpcClient = access.userClient as unknown as UcatTutorSupabaseClient
-  const { data, error } = await rpcClient.rpc('tutor_ucat_list_exact_duplicate_stems', {
+  const { data, error } = await rpcClient.rpc('tutor_ucat_list_duplicate_stem_pairs', {
     p_search: params.get('search')?.trim().slice(0, 500) || null,
     p_section_ids: params.getAll('section').filter((id) => UUID_PATTERN.test(id)),
+    p_similarity_threshold: similarityThreshold(params.get('similarityThreshold')),
     p_page: positiveInteger(params.get('page'), 1, 100_000),
     p_page_size: positiveInteger(params.get('pageSize'), 20, 100),
   })
@@ -112,41 +119,4 @@ export async function GET(request: NextRequest) {
       headers: { 'Cache-Control': 'private, no-store' },
     },
   )
-}
-
-export async function POST(request: NextRequest) {
-  const access = await requireUcatTutor()
-  if (!access.ok) return access.response
-
-  const body = (await request.json().catch(() => null)) as {
-    stemIdA?: unknown
-    stemIdB?: unknown
-    reason?: unknown
-  } | null
-  if (
-    typeof body?.stemIdA !== 'string'
-    || typeof body.stemIdB !== 'string'
-    || body.stemIdA === body.stemIdB
-    || !UUID_PATTERN.test(body.stemIdA)
-    || !UUID_PATTERN.test(body.stemIdB)
-  ) {
-    return NextResponse.json({ error: 'Two different question stem IDs are required.' }, { status: 400 })
-  }
-
-  const client = access.userClient as unknown as UcatTutorSupabaseClient
-  const { error } = await client.rpc('tutor_ucat_dismiss_exact_duplicate_pair', {
-    p_stem_id_a: body.stemIdA,
-    p_stem_id_b: body.stemIdB,
-    p_reason: typeof body.reason === 'string' ? body.reason.slice(0, 100) : 'keep_both',
-  })
-
-  if (error) {
-    return captureApiErrorResponse(
-      error,
-      '/api/ucat/reconciliation/exact-duplicates',
-      NextResponse.json({ error: error.message }, { status: 400 }),
-    )
-  }
-
-  return NextResponse.json({ ok: true })
 }

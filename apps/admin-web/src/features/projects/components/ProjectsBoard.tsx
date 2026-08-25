@@ -28,6 +28,8 @@ import {
 import { getUserInitials } from '@/shared/utils';
 import { useStaffSearch } from '@/features/tasks/hooks/useStaffSearch';
 import { useEntityListTableState } from '@/shared/hooks/useEntityListTableState';
+import { useCurrentStaff } from '@/shared/hooks';
+import { useQuickFilters } from '@/features/quick-filters/hooks/useQuickFilters';
 import { ProjectPriorityEntityPill } from './fields/ProjectPriorityEntityPill';
 import { ProjectDueDateEntityPill } from './fields/ProjectDueDateEntityPill';
 
@@ -44,6 +46,7 @@ export function ProjectsBoard() {
     sortBy,
     sortDirection,
     handleSortChange,
+    applyQuickFilter,
   } = useEntityListTableState({
     defaultSort: { field: 'name', direction: 'asc' },
     defaultGroupBy: 'status',
@@ -57,6 +60,9 @@ export function ProjectsBoard() {
   const [createDefaultPriority, setCreateDefaultPriority] =
     useState<ProjectPriority | null>(null);
   const [createDefaultLeadId, setCreateDefaultLeadId] = useState<string | null>(null);
+
+  const { data: currentStaff } = useCurrentStaff();
+  const { data: quickFilters = [] } = useQuickFilters('projects');
 
   const { data: projects = [], isLoading } = useProjects({ ...filters, search } as import('../types').ProjectFilters);
   const updateProject = useUpdateProject();
@@ -471,6 +477,8 @@ export function ProjectsBoard() {
         searchValue={search}
         onSearchChange={setSearch}
         searchPlaceholder="Search projects..."
+        quickFilters={quickFilters}
+        onApplyQuickFilter={(qf) => applyQuickFilter(qf, currentStaff?.id)}
       />
 
       {selectedProjectId && (

@@ -19,7 +19,7 @@ import { useProjects } from '@/features/projects/api/queries';
 import { resolveQuickFilterPlaceholders, type QuickFilter } from '@altitutor/shared';
 import { useEntityListTableState } from '@/shared/hooks/useEntityListTableState';
 
-const TASK_FILTER_KEYS = ['status', 'assignee', 'priority', 'estimate', 'due_date', 'issue_id', 'project_id'] as const;
+const TASK_FILTER_KEYS = ['status', 'assignee', 'priority', 'estimate', 'due_date', 'issue_id', 'project_id', 'unlinked'] as const;
 import { TaskCard } from './TaskCard';
 import { EditTaskDialog } from './EditTaskDialog';
 import { CreateTaskDialog } from './CreateTaskDialog';
@@ -37,6 +37,7 @@ import {
   TaskAssigneeEntityPill,
   TaskPriorityEntityPill,
   TaskEstimateEntityPill,
+  TaskLinkEntityPill,
   TaskIssueEntityPill,
   TaskProjectEntityPill,
 } from './fields/TaskEntityPills';
@@ -53,9 +54,10 @@ interface TasksBoardProps {
   projectId?: string;
   issueId?: string;
   onCreateTask?: (status: TaskStatus) => void;
+  showLinkPill?: boolean;
 }
 
-export function TasksBoard({ filters: initialFilters, projectId, issueId }: TasksBoardProps) {
+export function TasksBoard({ filters: initialFilters, projectId, issueId, showLinkPill = true }: TasksBoardProps) {
   const {
     filters,
     setFilters,
@@ -258,6 +260,23 @@ export function TasksBoard({ filters: initialFilters, projectId, issueId }: Task
         />
       ),
     },
+    ...(showLinkPill ? [{
+      key: 'link_entity',
+      label: 'Link',
+      visibleByDefault: true,
+      getValue: (t: TaskWithAssignee) => t.issue_id ?? t.project_id ?? null,
+      defaultValue: null,
+      groupable: false,
+      sortable: false,
+      filterable: false,
+      renderPill: (item: TaskWithAssignee, _onChange: (value: unknown) => void, collapsed?: boolean) => (
+        <TaskLinkEntityPill
+          issue={item.issue ?? null}
+          project={item.project ?? null}
+          collapsed={collapsed}
+        />
+      ),
+    } as EntityListPillColumn<TaskWithAssignee, unknown>] : []),
     {
       key: 'estimate',
       label: 'Estimate',
@@ -356,7 +375,20 @@ export function TasksBoard({ filters: initialFilters, projectId, issueId }: Task
         />
       ),
     },
-  ], [staffList, assigneeFilterOptions, issueFilterOptions, projectFilterOptions, issues, projects, handleUpdate]);
+    {
+      key: 'unlinked',
+      label: 'Link',
+      visibleByDefault: false,
+      filterOnly: true,
+      getValue: (t: TaskWithAssignee) => (t.issue_id || t.project_id ? 'linked' : 'none'),
+      defaultValue: null,
+      filterOptions: [{ value: 'none' as unknown, label: 'Not linked to an issue or project' }],
+      groupable: false,
+      sortable: false,
+      filterable: true,
+      renderPill: () => null,
+    },
+  ], [staffList, assigneeFilterOptions, issueFilterOptions, projectFilterOptions, issues, projects, handleUpdate, showLinkPill]);
 
   const columnDefs: KanbanColumnDef<TaskWithAssignee, unknown>[] = useMemo(() => [
     {

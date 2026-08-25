@@ -11,6 +11,7 @@ export async function POST(request: NextRequest) {
   const body = (await request.json().catch(() => null)) as {
     targetStemId?: unknown;
     sourceStemId?: unknown;
+    similarityThreshold?: unknown;
   } | null;
   if (
     typeof body?.targetStemId !== "string" ||
@@ -24,9 +25,14 @@ export async function POST(request: NextRequest) {
   }
 
   const client = access.userClient as unknown as UcatTutorSupabaseClient;
-  const { error } = await client.rpc("tutor_ucat_merge_exact_duplicate_stems", {
+  const parsedThreshold = Number(body.similarityThreshold);
+  const minimumSimilarity = Number.isFinite(parsedThreshold)
+    ? Math.min(Math.max(parsedThreshold, 0.8), 1)
+    : 0.95;
+  const { error } = await client.rpc("tutor_ucat_merge_duplicate_stem_pair", {
     p_target_stem_id: body.targetStemId,
     p_source_stem_id: body.sourceStemId,
+    p_minimum_similarity: minimumSimilarity,
   });
   if (error)
     return NextResponse.json({ error: error.message }, { status: 400 });

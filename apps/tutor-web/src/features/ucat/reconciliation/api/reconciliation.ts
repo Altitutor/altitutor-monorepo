@@ -1,5 +1,3 @@
-import type { DuplicateComparisonKind } from "../lib/duplicate-queue-match";
-
 export type StemWithNoCategory = {
   id: string;
   sectionId: string;
@@ -136,9 +134,7 @@ export type PotentialDuplicatePair = {
   sectionName: string;
   stemA: PotentialDuplicateStemSide;
   stemB: PotentialDuplicateStemSide;
-  comparisonKind: DuplicateComparisonKind;
-  recommendation: "merge" | "delete";
-  suggestedMergeDirection: "A-into-B" | "B-into-A" | null;
+  similarity: number;
 };
 
 export type ReconciliationPage<T> = {
@@ -146,6 +142,7 @@ export type ReconciliationPage<T> = {
   total: number;
   page: number;
   pageSize: number;
+  similarityThreshold?: number;
 };
 
 export type ReconciliationQueueQuery = {
@@ -153,6 +150,7 @@ export type ReconciliationQueueQuery = {
   sectionIds?: string[];
   page: number;
   pageSize: number;
+  similarityThreshold?: number;
 };
 
 function queueSearchParams(query: ReconciliationQueueQuery): URLSearchParams {
@@ -161,6 +159,9 @@ function queueSearchParams(query: ReconciliationQueueQuery): URLSearchParams {
     pageSize: String(query.pageSize),
   });
   if (query.search?.trim()) params.set("search", query.search.trim());
+  if (query.similarityThreshold != null) {
+    params.set("similarityThreshold", String(query.similarityThreshold));
+  }
   for (const sectionId of query.sectionIds ?? []) {
     params.append("section", sectionId);
   }
@@ -189,21 +190,6 @@ export function fetchExactDuplicateStems(
   query: ReconciliationQueueQuery,
 ): Promise<ReconciliationPage<PotentialDuplicatePair>> {
   return fetchQueue("/api/ucat/reconciliation/exact-duplicates", query);
-}
-
-export async function dismissExactDuplicatePair(
-  stemIdA: string,
-  stemIdB: string,
-): Promise<void> {
-  const res = await fetch("/api/ucat/reconciliation/exact-duplicates", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ stemIdA, stemIdB, reason: "keep_both" }),
-  });
-  if (!res.ok) {
-    const body = await res.json().catch(() => ({}));
-    throw new Error((body.error as string) ?? "Failed to dismiss duplicate pair");
-  }
 }
 
 export type ReconciliationData = {
@@ -235,11 +221,12 @@ export async function fetchReconciliationData(): Promise<ReconciliationData> {
 export async function mergePotentialDuplicateStems(
   targetStemId: string,
   sourceStemId: string,
+  similarityThreshold: number,
 ) {
   const res = await fetch("/api/ucat/reconciliation/merge-duplicates", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ targetStemId, sourceStemId }),
+    body: JSON.stringify({ targetStemId, sourceStemId, similarityThreshold }),
   });
   if (!res.ok) {
     const body = await res.json().catch(() => ({}));

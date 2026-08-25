@@ -24,15 +24,10 @@ import {
 import type { Json } from "@altitutor/shared";
 import { Loader2, Merge, Pencil, X } from "lucide-react";
 import {
-  dismissExactDuplicatePair,
   mergePotentialDuplicateStems,
   type PotentialDuplicatePair,
   type PotentialDuplicateStemSide,
 } from "../api/reconciliation";
-import {
-  canMergeDuplicatePair,
-  duplicateComparisonBadgeLabel,
-} from "../lib/duplicate-queue-match";
 import { UcatRichContentBlock } from "@/features/ucat/question-engine-preview/UcatRichContentBlock";
 import { UcatDeleteConfirmDialog } from "@/features/ucat/shared/delete-confirm-dialog";
 import { lifecycleErrorToast } from "@/features/ucat/shared/lifecycle-errors";
@@ -54,6 +49,7 @@ import {
 type PotentialDuplicatesReconciliationDialogProps = {
   open: boolean;
   pairs: PotentialDuplicatePair[];
+  similarityThreshold: number;
   initialPairId?: string | null;
   onOpenChange: (open: boolean) => void;
 };
@@ -215,6 +211,7 @@ function StemComparePanel({
 export function PotentialDuplicatesReconciliationDialog({
   open,
   pairs,
+  similarityThreshold,
   initialPairId = null,
   onOpenChange,
 }: PotentialDuplicatesReconciliationDialogProps) {
@@ -249,8 +246,6 @@ export function PotentialDuplicatesReconciliationDialog({
 
   const current = queue[index] ?? null;
   const remaining = queue.length;
-
-  const suggestedMergeDirection = current?.suggestedMergeDirection ?? null;
 
   function advanceAfterResolve(deletedStemId?: string) {
     const nextQueue = deletedStemId
@@ -312,16 +307,6 @@ export function PotentialDuplicatesReconciliationDialog({
 
   function confirmMerge() {
     if (!current || !pendingMergeDirection) return;
-    if (!canMergeDuplicatePair(current.comparisonKind)) {
-      setPendingMergeDirection(null);
-      toast({
-        title: "Cannot merge",
-        description:
-          "Near-copy pairs cannot be merged automatically. Delete one stem or keep both.",
-        variant: "destructive",
-      });
-      return;
-    }
     const direction = pendingMergeDirection;
     const target =
       direction === "B-into-A" ? current.stemA : current.stemB;
@@ -330,7 +315,7 @@ export function PotentialDuplicatesReconciliationDialog({
     setMergePending(true);
     setPendingMergeDirection(null);
     advanceAfterResolve(source.id);
-    void mergePotentialDuplicateStems(target.id, source.id).then(() => {
+    void mergePotentialDuplicateStems(target.id, source.id, similarityThreshold).then(() => {
       void queryClient.invalidateQueries({
         queryKey: ucatKeys.reconciliationQueue("exact-duplicates"),
       });
@@ -353,29 +338,6 @@ export function PotentialDuplicatesReconciliationDialog({
       });
     }).finally(() => {
       setMergePending(false);
-    });
-  }
-
-  function keepBoth() {
-    if (!current) return;
-    const pair = current;
-    advanceAfterResolve();
-    void dismissExactDuplicatePair(pair.stemA.id, pair.stemB.id).then(() => {
-      void queryClient.invalidateQueries({
-        queryKey: ucatKeys.reconciliationQueue("exact-duplicates"),
-      });
-    }).catch((err: unknown) => {
-      void queryClient.invalidateQueries({
-        queryKey: ucatKeys.reconciliationQueue("exact-duplicates"),
-      });
-      toast({
-        title: "Could not keep both",
-        description:
-          err instanceof Error
-            ? `${err.message} The pair may appear again after refresh.`
-            : "The pair may appear again after refresh.",
-        variant: "destructive",
-      });
     });
   }
 
@@ -415,22 +377,7 @@ export function PotentialDuplicatesReconciliationDialog({
               {current ? (
                 <div className="flex flex-wrap items-center gap-2">
                   <Badge variant="outline">
-                    {duplicateComparisonBadgeLabel(current.comparisonKind)}
-                  </Badge>
-                  <Badge
-                    variant={
-                      current.recommendation === "merge" &&
-                      canMergeDuplicatePair(current.comparisonKind)
-                        ? "default"
-                        : "secondary"
-                    }
-                  >
-                    {current.recommendation === "merge" &&
-                    canMergeDuplicatePair(current.comparisonKind)
-                      ? `Suggested: merge ${current.suggestedMergeDirection === "A-into-B" ? "A into B" : "B into A"}`
-                      : current.comparisonKind === "high_confidence_near_copy"
-                        ? "Near copy — delete or keep both"
-                        : "Exact duplicate"}
+                    {Math.round(current.similarity * 100)}% stem similarity
                   </Badge>
                 </div>
               ) : null}
@@ -466,66 +413,29 @@ export function PotentialDuplicatesReconciliationDialog({
               tutorDialogFooterStrip,
             )}
           >
-            <Button
-              type="button"
-              variant="outline"
-              className={tutorBtnOutline}
-              onClick={keepBoth}
-              disabled={!current || deleteMutation.isPending}
-            >
-              Keep both
-            </Button>
+            <div />
             <div className="flex flex-wrap items-center gap-2">
-              {current?.recommendation === "merge" &&
-              canMergeDuplicatePair(current.comparisonKind) ? (
+              {current ? (
                 <>
                   <Button
                     type="button"
-                    variant={
-                      suggestedMergeDirection === "B-into-A"
-                        ? "default"
-                        : "outline"
-                    }
-                    className={
-                      suggestedMergeDirection === "B-into-A"
-                        ? tutorBtnPrimary
-                        : tutorBtnOutline
-                    }
+                    variant="outline"
+                    className={tutorBtnOutline}
                     onClick={() => setPendingMergeDirection("B-into-A")}
                     disabled={mergePending}
-                    {...(suggestedMergeDirection === "B-into-A"
-                      ? { "data-dialog-primary-action": "" }
-                      : {})}
                   >
                     <Merge className="mr-2 h-4 w-4" />
                     Merge B into A
-                    {suggestedMergeDirection === "B-into-A"
-                      ? " (Recommended)"
-                      : ""}
                   </Button>
                   <Button
                     type="button"
-                    variant={
-                      suggestedMergeDirection === "A-into-B"
-                        ? "default"
-                        : "outline"
-                    }
-                    className={
-                      suggestedMergeDirection === "A-into-B"
-                        ? tutorBtnPrimary
-                        : tutorBtnOutline
-                    }
+                    variant="outline"
+                    className={tutorBtnOutline}
                     onClick={() => setPendingMergeDirection("A-into-B")}
                     disabled={mergePending}
-                    {...(suggestedMergeDirection === "A-into-B"
-                      ? { "data-dialog-primary-action": "" }
-                      : {})}
                   >
                     <Merge className="mr-2 h-4 w-4" />
                     Merge A into B
-                    {suggestedMergeDirection === "A-into-B"
-                      ? " (Recommended)"
-                      : ""}
                   </Button>
                   <Button
                     type="button"
@@ -550,41 +460,13 @@ export function PotentialDuplicatesReconciliationDialog({
                     Delete stem B
                   </Button>
                 </>
-              ) : (
-                <>
-                  <Button
-                    type="button"
-                    variant="destructive"
-                    onClick={() => setPendingDeleteSide("A")}
-                    disabled={!current || deleteMutation.isPending}
-                  >
-                    {deleteMutation.isPending && pendingDeleteSide === "A" ? (
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    ) : null}
-                    Delete stem A
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="destructive"
-                    onClick={() => setPendingDeleteSide("B")}
-                    disabled={!current || deleteMutation.isPending}
-                  >
-                    {deleteMutation.isPending && pendingDeleteSide === "B" ? (
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    ) : null}
-                    Delete stem B
-                  </Button>
-                </>
-              )}
+              ) : null}
               <Button
                 type="button"
                 className={tutorBtnPrimary}
                 onClick={() => onOpenChange(false)}
                 disabled={deleteMutation.isPending}
-                {...(current?.recommendation === "merge" &&
-                canMergeDuplicatePair(current.comparisonKind)
-                  ? {}
-                  : { "data-dialog-primary-action": "" })}
+                data-dialog-primary-action=""
               >
                 Done
               </Button>

@@ -61,6 +61,7 @@ const SECTION_PROMPTS: Record<AiGenerationSectionKey, string> = {
 - How Important options exactly: Very important; Important; Of minor importance; Not important at all.
 - How Appropriate options exactly: A very appropriate thing to do; Appropriate, but not ideal; Inappropriate, but not awful; A very inappropriate thing to do.
 - Most/Least Appropriate stems generate exactly 1 drag-and-drop question with three actions. Mark one action most and one action least.
+- For Most/Least Appropriate, vary the on-screen order of the three actions across stems. Do not default to most-keyed first, unkeyed second, and least-keyed third.
 - Include exactly one best answer per rating question.
 - Scenario context should be brief and concrete: medical student, junior doctor, patient, colleague, tutor, supervisor, ward, clinic, placement, confidentiality, consent, safety, honesty, respect, teamwork, or escalation.
 - Each question should evaluate one consideration or action, not a bundle of several actions.
@@ -387,6 +388,12 @@ export function buildWriterPrompt(input: AiGenerationBrief & { plan: unknown }):
               'Construct exactly four arguments with only one unambiguously strongest option. The strongest must directly answer the policy question, cite relevant evidence or a testable fact, and explain a decisive mechanism.',
               'Give each distractor exactly one clear weakness: emotive assertion, tangential concern, unsupported prediction, anecdote, or scope too narrow to answer the policy question. Do not include a second evidence-based argument that directly answers the question from the opposite side.',
               'In the explanation, name the strength criteria first, apply them consistently to all four options, and do not dismiss a directly relevant argument merely because it supports the opposite conclusion.',
+            ]
+          : []),
+        ...(input.categoryName === 'Most/Least Appropriate'
+          ? [
+              'Present the three Most/Least actions in varied order across stems. Do not list them most-keyed first, unkeyed second, and least-keyed third every time.',
+              'Keep each answerKeyValue attached to the correct action text regardless of display order.',
             ]
           : []),
         'In questionText, wrap decisive logical qualifiers such as MUST, CANNOT, COULD, EXCEPT, NOT, ALWAYS, LEAST, MOST, TRUE, and FALSE in **bold markers** and capitalize them. Do not bold ordinary words.',

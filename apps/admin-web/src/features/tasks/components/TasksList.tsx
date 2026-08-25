@@ -45,7 +45,7 @@ import { useQuickFilters } from '@/features/quick-filters/hooks/useQuickFilters'
 import { resolveQuickFilterPlaceholders, type QuickFilter } from '@altitutor/shared';
 import { useEntityListTableState } from '@/shared/hooks/useEntityListTableState';
 
-const TASK_FILTER_KEYS = ['status', 'assignee', 'priority', 'estimate', 'due_date', 'issue_id', 'project_id'] as const;
+const TASK_FILTER_KEYS = ['status', 'assignee', 'priority', 'estimate', 'due_date', 'issue_id', 'project_id', 'unlinked'] as const;
 
 const STATUS_OPTIONS: { value: TaskStatus; label: string }[] = [
   { value: 'backlog', label: 'Backlog' },
@@ -446,22 +446,6 @@ export function TasksList({
     updateTask.mutate({ id: task.id, updates: { project_id: nextProjectId, issue_id: nextProjectId ? null : task.issue_id } });
   }, [updateTask]);
 
-  const handleLinkChange = useCallback((
-    task: TaskWithAssignee,
-    link: { type: 'issue' | 'project'; id: string; name: string | null } | null
-  ) => {
-    if (!link) {
-      updateTask.mutate({ id: task.id, updates: { issue_id: null, project_id: null } });
-      return;
-    }
-
-    if (link.type === 'issue') {
-      updateTask.mutate({ id: task.id, updates: { issue_id: link.id, project_id: null } });
-    } else {
-      updateTask.mutate({ id: task.id, updates: { project_id: link.id, issue_id: null } });
-    }
-  }, [updateTask]);
-
   const handleLinkTaskFromSearch = useCallback(
     (taskId: string) => {
       if (issueId) {
@@ -587,20 +571,27 @@ export function TasksList({
       groupable: false,
       sortable: false,
       filterable: false,
-      renderPill: (item: TaskWithAssignee, onChange: (value: unknown) => void, collapsed?: boolean) => (
+      renderPill: (item: TaskWithAssignee, _onChange: (value: unknown) => void, collapsed?: boolean) => (
         <TaskLinkEntityPill
           issue={item.issue ?? null}
           project={item.project ?? null}
-          issues={issues.map((i) => ({ id: i.id, name: i.name }))}
-          projects={projects.map((p) => ({ id: p.id, name: p.name }))}
           collapsed={collapsed}
-          onChange={(link) => {
-            if (isExistingTask(item)) handleLinkChange(item, link);
-            onChange(link ? link.id : null);
-          }}
         />
       ),
     } as EntityListPillColumn<TaskWithAssignee, unknown>] : []),
+    {
+      key: 'unlinked',
+      label: 'Link',
+      visibleByDefault: false,
+      filterOnly: true,
+      getValue: (t: TaskWithAssignee) => (t.issue_id || t.project_id ? 'linked' : 'none'),
+      defaultValue: null,
+      filterOptions: [{ value: 'none' as unknown, label: 'Not linked to an issue or project' }],
+      groupable: false,
+      sortable: false,
+      filterable: true,
+      renderPill: () => null,
+    } as EntityListPillColumn<TaskWithAssignee, unknown>,
     ...(showIssuePill ? [{
       key: 'issue_id',
       label: 'Issue',
@@ -740,7 +731,6 @@ export function TasksList({
     showProjectPill,
     showLinkPill,
     handleAssigneeChange,
-    handleLinkChange,
     handleIssueChange,
     handleProjectChange,
     handleDueDateChange,

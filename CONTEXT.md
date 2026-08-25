@@ -627,11 +627,8 @@
 - **Reconciliation issue queue** — The tutor worklist for one kind of reconciliation issue, preserving that issue type's search, filters, ordering, and progress independently from other issue types. The reconciliation overview summarises issue counts and links to queues; it is not itself a combined queue.
   _Avoid_: Reconciliation table, reconciliation tab, combined issue list
 
-- **Potential duplicate candidate** — A pair of question stems in the same UCAT section surfaced for tutor review because their stem text is equal after conservative normalization. The recommendation is derived by progressively comparing their normalized question, answer-option, correctness, and explanation content; it remains a tutor-reviewed reconciliation issue rather than an automatic merge or deletion.
-  _Avoid_: Confirmed duplicate, duplicate question, merge instruction
-
-- **Potential duplicate dismissal** — A tutor's decision that one potential duplicate candidate does not require merging or deletion for the exact normalized stem and question-bundle content reviewed. It removes the pair from the active reconciliation issue queue, remains auditable and reversible, and becomes stale when that compared content on either stem changes.
-  _Avoid_: Permanent duplicate exclusion, candidate deletion, merge rejection
+- **Potential duplicate candidate** — A pair of question stems in the same UCAT section surfaced for tutor review because their normalized stem text meets the tutor-selected similarity threshold. Questions, answers, and explanations are shown to inform the tutor's choice but do not determine candidacy or produce a suggested action. The tutor may merge either stem into the other or delete either stem; leaving the pair unchanged leaves it in the queue.
+  _Avoid_: Confirmed duplicate, duplicate question, merge recommendation
 
 - **AI-generated question stem** — A UCAT question stem produced by an AI generation workflow. It is expected to be close to publishable and enters the in-review lifecycle stage automatically, but remains unavailable to students until published by a tutor.
   _Avoid_: Auto-published question, synthetic question

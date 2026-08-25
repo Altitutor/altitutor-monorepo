@@ -216,3 +216,26 @@ describe('DM Venn writer prompts', () => {
     expect(prompt).not.toContain('exactly one answer-option diagram question')
   })
 })
+
+describe('SJ Most/Least writer prompts', () => {
+  it('asks the writer to vary action order and keep keys attached', () => {
+    const sectionPrompt = getAiGenerationSectionPrompt('situational_judgement')
+    expect(sectionPrompt).toContain('vary the on-screen order of the three actions')
+    expect(sectionPrompt).toContain('Do not default to most-keyed first, unkeyed second, and least-keyed third')
+
+    const prompt = buildWriterPrompt({
+      ...brief,
+      sectionName: 'Situational Judgement',
+      categoryName: 'Most/Least Appropriate',
+      plan: { plans: [{ stemIndex: 0, categoryName: 'Most/Least Appropriate' }] },
+    })
+    const payload = JSON.parse(prompt) as { requirements: string[] }
+
+    expect(payload.requirements).toContainEqual(
+      expect.stringContaining('varied order across stems'),
+    )
+    expect(payload.requirements).toContainEqual(
+      expect.stringContaining('attached to the correct action text'),
+    )
+  })
+})

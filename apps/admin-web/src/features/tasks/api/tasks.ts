@@ -64,6 +64,7 @@ export const tasksApi = {
       assignee,
       assigned_to, // Support all variants
       unassignedOnly,
+      unlinked,
       priority,
       search,
       ...otherFilters
@@ -87,6 +88,11 @@ export const tasksApi = {
     // Unassigned filter (tasks with no assignee)
     if (unassignedOnly) {
       query = query.is('assigned_to', null);
+    }
+
+    const unlinkedValues = Array.isArray(unlinked) ? unlinked : unlinked != null ? [unlinked] : [];
+    if (unlinkedValues.some((value) => value === 'none')) {
+      query = query.is('issue_id', null).is('project_id', null);
     }
 
     // Assigned to filter (support both single and array, and all key names)

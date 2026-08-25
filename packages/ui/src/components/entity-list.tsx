@@ -1052,23 +1052,28 @@ export function EntityListAddRow<TItem>(props: EntityListAddRowRenderProps<TItem
         />
 
         <div className="flex items-center gap-2 flex-shrink-0 overflow-x-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
-          {rightPills.filter(p => visiblePillKeys.includes(p.key)).map((pill, index) => (
-            <div key={pill.key} className={cn("flex-shrink-0", index > 0 && "hidden sm:flex")}>
-              {compact ? (
-                pill.renderPill(addValues as TItem, (val) => setAddValues(prev => ({ ...prev, [pill.key]: val })), true)
-              ) : (
-                <>
-                  {/* Responsive: show full pill on larger screens, icon on smaller */}
-                  <div className="hidden lg:block">
-                    {pill.renderPill(addValues as TItem, (val) => setAddValues(prev => ({ ...prev, [pill.key]: val })), false)}
-                  </div>
-                  <div className="lg:hidden">
-                    {pill.renderPill(addValues as TItem, (val) => setAddValues(prev => ({ ...prev, [pill.key]: val })), true)}
-                  </div>
-                </>
-              )}
-            </div>
-          ))}
+          {rightPills.filter(p => visiblePillKeys.includes(p.key)).map((pill, index) => {
+            const onChange = (val: unknown) => setAddValues(prev => ({ ...prev, [pill.key]: val }));
+            const collapsedNode = pill.renderPill(addValues as TItem, onChange, true);
+            const expandedNode = compact ? collapsedNode : pill.renderPill(addValues as TItem, onChange, false);
+            if (collapsedNode == null && expandedNode == null) return null;
+
+            return (
+              <div key={pill.key} className={cn("flex-shrink-0", index > 0 && "hidden sm:flex")}>
+                {compact ? collapsedNode : (
+                  <>
+                    {/* Responsive: show full pill on larger screens, icon on smaller */}
+                    <div className="hidden lg:block">
+                      {expandedNode}
+                    </div>
+                    <div className="lg:hidden">
+                      {collapsedNode}
+                    </div>
+                  </>
+                )}
+              </div>
+            );
+          })}
         </div>
 
         <Button
@@ -1176,22 +1181,24 @@ function EntityListRow<TItem>({
       {/* Right: pills */}
       <div className="flex items-center gap-2 flex-shrink-0 overflow-x-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
         {rightPills.map((pill, index) => {
+          const collapsedNode = pill.renderPill(item, () => {}, true);
+          const expandedNode = compact ? collapsedNode : pill.renderPill(item, () => {}, false);
+          if (collapsedNode == null && expandedNode == null) return null;
+
           return (
             <div
               key={pill.key}
               onClick={(e) => e.stopPropagation()}
               className={cn("transition-opacity flex-shrink-0", index > 0 && "hidden sm:flex")}
             >
-              {compact ? (
-                pill.renderPill(item, () => {}, true)
-              ) : (
+              {compact ? collapsedNode : (
                 <>
                   {/* Responsive: show full pill on larger screens, icon on smaller */}
                   <div className="hidden lg:block">
-                    {pill.renderPill(item, () => {}, false)}
+                    {expandedNode}
                   </div>
                   <div className="lg:hidden">
-                    {pill.renderPill(item, () => {}, true)}
+                    {collapsedNode}
                   </div>
                 </>
               )}

@@ -27,6 +27,7 @@ import {
   PROJECT_STATUS_OPTIONS,
 } from '../utils/projectUtils';
 import { useEntityListTableState } from '@/shared/hooks/useEntityListTableState';
+import { useQuickFilters } from '@/features/quick-filters/hooks/useQuickFilters';
 
 const PROJECT_FILTER_KEYS = ['status', 'priority', 'start_date', 'target_date', 'member'] as const;
 
@@ -62,6 +63,7 @@ export function ProjectsList({
     sortBy,
     sortDirection,
     handleSortChange,
+    applyQuickFilter,
   } = useEntityListTableState({
     defaultFilters: defaultFilters ?? {},
     defaultSort: embedLocked
@@ -115,6 +117,7 @@ export function ProjectsList({
   const updateProject = useUpdateProject();
   const createProject = useCreateProject();
   const { data: currentStaff } = useCurrentStaff();
+  const { data: quickFilters = [] } = useQuickFilters('projects');
   const { staff: staffList } = useStaffSearch('', true);
 
   const memberFilterOptions = useMemo(
@@ -370,6 +373,8 @@ export function ProjectsList({
         searchValue={search}
         onSearchChange={hideToolbar ? undefined : setSearch}
         searchPlaceholder="Search projects..."
+        quickFilters={hideToolbar ? [] : quickFilters}
+        onApplyQuickFilter={hideToolbar ? undefined : (qf) => applyQuickFilter(qf, currentStaff?.id)}
         descriptionConfig={
           hideToolbar
             ? undefined
