@@ -20,6 +20,8 @@ export const ucatKeys = {
   questionCatalog: () => [...ucatKeys.questions('all'), 'question-catalog'] as const,
   questionCatalogPage: (query: object) =>
     [...ucatKeys.questions('all'), 'catalog-page', query] as const,
+  questionCatalogByStemIds: (stemIds: string[]) =>
+    [...ucatKeys.questions('all'), 'catalog-by-stem-ids', stemIds] as const,
   questionCatalogCreators: () =>
     [...ucatKeys.questions('all'), 'catalog-creators'] as const,
   questionCatalogAuditRuns: () =>

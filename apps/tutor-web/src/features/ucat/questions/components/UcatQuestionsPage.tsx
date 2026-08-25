@@ -4,7 +4,6 @@ import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { useQueryClient, useQueries } from '@tanstack/react-query'
 import type {
-  DataTableColumnDefinition,
   DataTableFilterDefinition,
   DataTableSortOption,
   Json,
@@ -167,6 +166,12 @@ import {
 import { FindSimilarQuestionStemsSubmenu } from '@/features/ucat/questions/components/FindSimilarQuestionStemsSubmenu'
 import { CreatedAtDateTimeRangeFilter } from '@/features/ucat/questions/components/CreatedAtDateTimeRangeFilter'
 import { QuestionStemIdFilter } from '@/features/ucat/questions/components/QuestionStemIdFilter'
+import {
+  defaultVisibleColumnKeys,
+  QUESTION_STEM_NESTED_ANSWER_COLUMNS,
+  QUESTION_STEM_NESTED_QUESTION_COLUMNS,
+  QUESTION_STEM_TABLE_COLUMNS,
+} from '@/features/ucat/questions/lib/question-stems-table-columns'
 import { UcatVisibilityBadge } from '@/features/ucat/shared/components/UcatVisibilityBadge'
 import { UcatVisibilityTableHeaderLabel } from '@/features/ucat/shared/components/UcatVisibilityInfoTooltip'
 import { getUcatContentStatusTransitionOptions, type UcatContentStatus } from '@/features/ucat/shared/types'
@@ -193,28 +198,10 @@ const defaultQuestionSearchScopes: QuestionSearchScope[] = [
   'tutor_source_note',
 ]
 
-const questionColumnDefinitions: DataTableColumnDefinition[] = [
-  { key: 'index', label: 'Index', visibleByDefault: false },
-  { key: 'question_text', label: 'Question text', visibleByDefault: true },
-  { key: 'explanation', label: 'Explanation', visibleByDefault: true },
-  { key: 'difficulty', label: 'Difficulty', visibleByDefault: true },
-  { key: 'time_burden', label: 'Expected time to correct', visibleByDefault: true },
-]
-
-const answerOptionColumnDefinitions: DataTableColumnDefinition[] = [
-  { key: 'index', label: 'Index', visibleByDefault: false },
-  { key: 'answer_text', label: 'Answer text', visibleByDefault: true },
-  { key: 'answer_explanation', label: 'Answer explanation', visibleByDefault: true },
-  { key: 'answer_key_value', label: 'Answer key', visibleByDefault: true },
-]
-
-const defaultVisibleQuestionColumns = questionColumnDefinitions
-  .filter((c) => c.visibleByDefault)
-  .map((c) => c.key)
-
-const defaultVisibleAnswerOptionColumns = answerOptionColumnDefinitions
-  .filter((c) => c.visibleByDefault)
-  .map((c) => c.key)
+const questionColumnDefinitions = QUESTION_STEM_NESTED_QUESTION_COLUMNS
+const answerOptionColumnDefinitions = QUESTION_STEM_NESTED_ANSWER_COLUMNS
+const defaultVisibleQuestionColumns = defaultVisibleColumnKeys(questionColumnDefinitions)
+const defaultVisibleAnswerOptionColumns = defaultVisibleColumnKeys(answerOptionColumnDefinitions)
 
 function parseQuestionsTab(value: string | null): QuestionsTab {
   return value === 'in_review' || value === 'published' ? value : 'draft'
@@ -275,19 +262,7 @@ const aiReviewFilterDefinition: DataTableFilterDefinition = {
   })),
 }
 
-const columnDefinitions: DataTableColumnDefinition[] = [
-  { key: 'section_category', label: 'Section', visibleByDefault: true },
-  { key: 'stem_text', label: 'Stem text', visibleByDefault: true },
-  { key: 'question_count', label: 'Questions', visibleByDefault: false },
-  { key: 'sets', label: 'Sets', visibleByDefault: true },
-  { key: 'visibility', label: 'Visibility', visibleByDefault: false },
-  { key: 'source', label: 'Source', visibleByDefault: true },
-  { key: 'created_at', label: 'Date created', visibleByDefault: false },
-  { key: 'status', label: 'Status', visibleByDefault: false },
-  { key: 'review', label: 'Review', visibleByDefault: true },
-  { key: 'type_summary', label: 'Type', visibleByDefault: false },
-  { key: 'actions', label: 'Actions', visibleByDefault: true },
-]
+const columnDefinitions = QUESTION_STEM_TABLE_COLUMNS
 
 const sortOptions: DataTableSortOption[] = [
   { key: 'section_name', label: 'Section' },

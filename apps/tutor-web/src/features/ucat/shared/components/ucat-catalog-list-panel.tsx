@@ -5,7 +5,7 @@ import type {
   DataTableFilterDefinition,
   DataTableSortOption,
 } from '@altitutor/shared'
-import { ListToolbar, Skeleton, TablePagination, type DataTableSearchFromOption } from '@altitutor/ui'
+import { ListToolbar, Skeleton, TablePagination, type DataTableColumnViewGroup, type DataTableSearchFromOption } from '@altitutor/ui'
 import {
   ucatCatalogToolbarClassName,
   ucatCatalogToolbarControlClassName,
@@ -35,6 +35,8 @@ type UcatCatalogListPanelProps = {
   columnDefinitions?: DataTableColumnDefinition[]
   visibleColumns?: string[]
   onVisibleColumnsChange?: (columns: string[]) => void
+  columnViewGroups?: DataTableColumnViewGroup[]
+  defaultVisibleColumns?: string[]
   page?: number
   pageSize?: number
   total?: number
@@ -70,6 +72,8 @@ export function UcatCatalogListPanel({
   columnDefinitions = [],
   visibleColumns = [],
   onVisibleColumnsChange,
+  columnViewGroups,
+  defaultVisibleColumns,
   page = 1,
   pageSize = 10,
   total = 0,
@@ -109,6 +113,8 @@ export function UcatCatalogListPanel({
           columnDefinitions={columnDefinitions}
           visibleColumns={visibleColumns}
           onVisibleColumnsChange={onVisibleColumnsChange}
+          columnViewGroups={columnViewGroups}
+          defaultVisibleColumns={defaultVisibleColumns}
           filterSearchValues={filterSearchValues}
           onFilterSearchChange={onFilterSearchChange}
           className={ucatCatalogToolbarClassName}

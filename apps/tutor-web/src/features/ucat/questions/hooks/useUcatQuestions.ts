@@ -41,6 +41,16 @@ export function useUcatQuestionCatalogPage(query: QuestionCatalogQuery) {
   })
 }
 
+export function useUcatQuestionCatalogByStemIds(stemIds: string[], enabled = true) {
+  const uniqueStemIds = [...new Set(stemIds.filter(Boolean))].sort()
+  return useQuery({
+    queryKey: ucatKeys.questionCatalogByStemIds(uniqueStemIds),
+    queryFn: () => ucatQuestionsApi.listCatalogByStemIds(uniqueStemIds),
+    enabled: enabled && uniqueStemIds.length > 0,
+    placeholderData: (previous) => previous,
+  })
+}
+
 export function useUcatQuestionCatalogCreators() {
   return useQuery({
     queryKey: ucatKeys.questionCatalogCreators(),

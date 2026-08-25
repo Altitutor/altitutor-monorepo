@@ -9,6 +9,7 @@ import {
   AccordionTrigger,
   Button,
   Input,
+  ResponsiveResizablePanels,
   SearchableSelect,
   Slider,
   Tabs,
@@ -21,12 +22,15 @@ import {
 import type { DataTableFilterDefinition } from '@altitutor/shared'
 import { Info } from 'lucide-react'
 import type { UcatStemCatalogItem } from '@/features/ucat/questions/hooks/useUcatQuestions'
+import { useUcatQuestionCatalogByStemIds } from '@/features/ucat/questions/hooks/useUcatQuestions'
 import {
   UcatStemCatalogListPanel,
   UcatStemMembershipListPanel,
 } from '@/features/ucat/shared/components/ucat-stem-catalog-panel'
 import { UcatVisibilityFieldLabel } from '@/features/ucat/shared/components/UcatVisibilityInfoTooltip'
-import { formatSecondsToDuration, minutesSecondsToTotal } from '@/features/ucat/shared/lib/time-utils'
+import { SetStatusSpan } from '@/features/ucat/shared/components/SetStatusSpan'
+import { formatSecondsToDuration, formatSetTimeLimit, minutesSecondsToTotal } from '@/features/ucat/shared/lib/time-utils'
+import { getSetSectionStatus } from '@/features/ucat/shared/lib/set-section-status'
 import { UcatRichTextEditor } from '@/features/ucat/shared/UcatRichTextEditor'
 import { bindRichTextToolbarFocus } from '@/features/ucat/shared/lib/rich-text-toolbar-focus'
 import type { RichTextJson } from '@/features/ucat/shared/types'
@@ -35,14 +39,17 @@ import {
   UcatAuthoringWorkspaceTabs,
   type UcatAuthoringWorkspaceTab,
 } from '@/features/ucat/shared/components/UcatAuthoringWorkspaceTabs'
-import { cn } from '@/shared/utils'
 import { tutorCardCn } from '@/shared/lib/tutor-visual'
 import type { LinkedMockBlueprintCompliance } from '@/features/ucat/mocks/lib/blueprint-compliance'
 import { UcatSetMockMembershipCard } from '@/features/ucat/sets/components/UcatSetMockMembershipCard'
+import { UcatSetDistributionList } from '@/features/ucat/sets/components/UcatSetDistributionCard'
+import { useUcatSetQuestionDistributions } from '@/features/ucat/sets/hooks/useUcatSetQuestionDistributions'
+import type { SetDetailMembershipStem } from '@/features/ucat/sets/lib/set-membership-rows'
 
 export type UcatSectionForTimeLimit = {
   id: string
   name: string | null
+  section_number?: number | null
   time_limit_seconds: number | null
   time_per_question?: number | null
   number_of_questions?: number | null
@@ -92,6 +99,7 @@ type UcatSetEditorContentProps = {
   draftStemIds: string[]
   setDraftStemIds: (ids: string[]) => void
   stemCatalog: UcatStemCatalogItem[]
+  setDetailStems?: SetDetailMembershipStem[]
   search: string
   setSearch: (value: string) => void
   filters: Record<string, unknown[]>
@@ -132,6 +140,7 @@ export function UcatSetEditorContent({
   draftStemIds,
   setDraftStemIds,
   stemCatalog,
+  setDetailStems = [],
   search,
   setSearch,
   filters,
@@ -171,13 +180,24 @@ export function UcatSetEditorContent({
   )
 
   const authoredSection = sections.find((section) => section.id === draftSectionId) ?? null
-  const memberQuestionCount = useMemo(
-    () =>
-      draftStemIds.reduce((sum, stemId) => {
-        const stem = stemCatalog.find((item) => item.id === stemId)
-        return sum + (stem?.questionsCount ?? 0)
-      }, 0),
-    [draftStemIds, stemCatalog],
+  const membershipCatalogQuery = useUcatQuestionCatalogByStemIds(draftStemIds, draftStemIds.length > 0)
+  const memberQuestionCount = useMemo(() => {
+    const catalogById = new Map(
+      (membershipCatalogQuery.data ?? []).map((row) => [row.id ?? '', row.question_count ?? 0]),
+    )
+    const fallbackById = new Map(
+      setDetailStems.map((stem) => [stem.stem_id, Array.isArray(stem.questions_meta) ? stem.questions_meta.length : 0]),
+    )
+    return draftStemIds.reduce((sum, stemId) => {
+      const catalogCount = catalogById.get(stemId)
+      if (catalogCount != null) return sum + catalogCount
+      const stem = stemCatalog.find((item) => item.id === stemId)
+      return sum + (stem?.questionsCount ?? fallbackById.get(stemId) ?? 0)
+    }, 0)
+  }, [draftStemIds, membershipCatalogQuery.data, setDetailStems, stemCatalog])
+  const { isLoading: distributionLoading, distributions } = useUcatSetQuestionDistributions(
+    draftStemIds,
+    draftStemIds.length > 0,
   )
   const setSectionCount = authoredSection ? 1 : 0
   const firstSetSection = authoredSection
@@ -227,6 +247,26 @@ export function UcatSetEditorContent({
     sectionAutoTimeSeconds,
   ])
 
+  const setExamStatus = useMemo(
+    () =>
+      getSetSectionStatus(
+        {
+          sectionCount: authoredSection ? 1 : 0,
+          firstSectionNumber: authoredSection?.section_number ?? null,
+          question_count: memberQuestionCount,
+          time_limit_seconds: effectiveTimeSeconds,
+        },
+        sections.map((section) => ({
+          id: section.id,
+          section_number: section.section_number ?? null,
+          name: section.name,
+          number_of_questions: section.number_of_questions ?? null,
+          time_limit_seconds: section.time_limit_seconds,
+        })),
+      ),
+    [authoredSection, effectiveTimeSeconds, memberQuestionCount, sections],
+  )
+
   const timeLimitTooltips: Record<string, string> = {
     untimed: 'No time limit for this set.',
     section_full:
@@ -274,31 +314,38 @@ export function UcatSetEditorContent({
         aiLabel="Add stems"
         className="shrink-0 border-b bg-background p-2 lg:hidden"
       />
-      <div className="flex min-h-0 flex-1 overflow-hidden">
-        <section className={cn(
-          'flex min-h-0 min-w-0 flex-1 flex-col p-3 sm:p-4 lg:flex lg:border-r lg:p-6',
-          activeWorkspace !== 'editor' && 'hidden',
-        )}>
+      <div className="min-h-0 flex-1 overflow-hidden">
+        <ResponsiveResizablePanels
+          id="ucat-set-editor-panels"
+          breakpoint="lg"
+          primaryDefaultSize="70%"
+          primaryMinSize={480}
+          secondaryDefaultSize={320}
+          secondaryMinSize={280}
+          secondaryMaxSize={520}
+          handleLabel="Resize set properties sidebar"
+          mobilePanel={activeWorkspace === 'editor' ? 'primary' : 'secondary'}
+          primary={(
+        <section className="flex h-full min-h-0 min-w-0 flex-col p-3 sm:p-4 lg:p-6">
           <h2 className="mb-3 shrink-0 font-semibold">Stems in set</h2>
           <UcatStemMembershipListPanel
             stemIds={draftStemIds}
             onStemIdsChange={setDraftStemIds}
             stems={stemCatalog}
+            setDetailStems={setDetailStems}
             filterDefinitions={filterDefinitions}
             filterSearchValues={filterSearchValues}
             onFilterSearchChange={onFilterSearchChange}
             publishedSetIds={publishedSetIds}
             currentSetId={currentSetId}
+            categoryPathLookup={categoryPathLookup}
             onEditStem={onEditStem}
             className="min-h-0 flex-1"
           />
         </section>
-
-      <aside className={cn(
-        'h-full min-h-0 w-full shrink-0 flex-col overflow-hidden bg-background p-3 sm:p-4 lg:flex lg:w-80 lg:border-l',
-        activeWorkspace === 'editor' && 'hidden',
-        activeWorkspace !== 'editor' && 'flex',
-      )}>
+          )}
+          secondary={(
+      <aside className="flex h-full min-h-0 w-full min-w-0 flex-col overflow-hidden bg-background p-3 sm:p-4">
         <Tabs
           value={sideTab}
           onValueChange={(value) => setSideTab(value as 'properties' | 'add-stems')}
@@ -316,7 +363,36 @@ export function UcatSetEditorContent({
             />
           </div>
           <TabsContent value="properties" className="m-0 mt-3 min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain pt-1">
-            <Accordion type="multiple" defaultValue={['set', 'mocks']} className="space-y-4">
+            <Accordion type="multiple" defaultValue={['validation', 'category-distribution', 'set', 'mocks']} className="space-y-4">
+              <PropertiesCard value="validation" title="Set validation">
+                <SetPropertyRow label="Questions">
+                  <SetStatusSpan status={setExamStatus.questionCountStatus} tooltip={setExamStatus.questionCountTooltip}>
+                    {String(memberQuestionCount)}
+                  </SetStatusSpan>
+                </SetPropertyRow>
+                <SetPropertyRow label="Time limit">
+                  <SetStatusSpan status={setExamStatus.timeLimitStatus} tooltip={setExamStatus.timeLimitTooltip}>
+                    {formatSetTimeLimit(effectiveTimeSeconds)}
+                  </SetStatusSpan>
+                </SetPropertyRow>
+              </PropertiesCard>
+
+              <PropertiesCard value="category-distribution" title="Category distribution">
+                {distributionLoading ? (
+                  <div className="h-24 animate-pulse rounded-xl bg-muted" aria-label="Loading category distribution" />
+                ) : (
+                  <UcatSetDistributionList rows={distributions.categories} />
+                )}
+              </PropertiesCard>
+
+              <PropertiesCard value="tag-distribution" title="Tag distribution">
+                {distributionLoading ? (
+                  <div className="h-24 animate-pulse rounded-xl bg-muted" aria-label="Loading tag distribution" />
+                ) : (
+                  <UcatSetDistributionList rows={distributions.tags} />
+                )}
+              </PropertiesCard>
+
               <PropertiesCard value="set" title="Set properties">
                 <SetPropertyRow label="Name">
                   <Input value={draftName} onChange={(e) => onChangeName(e.target.value)} placeholder="Set name" />
@@ -512,6 +588,8 @@ export function UcatSetEditorContent({
           </TabsContent>
         </Tabs>
       </aside>
+          )}
+        />
       </div>
     </div>
   )
