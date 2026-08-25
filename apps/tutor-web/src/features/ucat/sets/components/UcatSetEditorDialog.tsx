@@ -10,7 +10,7 @@ import {
   proseMirrorToPlainText,
 } from '@/features/ucat/shared/lib/rich-text'
 import { isSnapshotDirty, snapshotSetDetail } from '@/features/ucat/shared/lib/dirty-state'
-import { minutesSecondsToTotal } from '@/features/ucat/shared/lib/time-utils'
+import { resolveSetTimeLimitSeconds, type SetTimeLimitSource } from '@/features/ucat/sets/lib/set-time-limit'
 import { UcatDialogShell } from '@/features/ucat/shared/dialog-shell'
 import {
   useUcatCategories,
@@ -82,10 +82,9 @@ export function UcatSetEditorDialog({
   const [setFilterSearch, setSetFilterSearch] = useState('')
   const [draftName, setDraftName] = useState('')
   const [draftDescription, setDraftDescription] = useState<RichTextJson | null>(null)
-  const [draftIsTimed, setDraftIsTimed] = useState(true)
   const [draftTimeLimitMinutes, setDraftTimeLimitMinutes] = useState('')
   const [draftTimeLimitSeconds, setDraftTimeLimitSeconds] = useState('')
-  const [draftTimeLimitSource, setDraftTimeLimitSource] = useState<'untimed' | 'section_full' | 'section_auto' | 'custom'>('custom')
+  const [draftTimeLimitSource, setDraftTimeLimitSource] = useState<SetTimeLimitSource>('custom')
   const [draftTimeLimitSpeed, setDraftTimeLimitSpeed] = useState(1)
   const [draftPrivate, setDraftPrivate] = useState(false)
   const [draftSectionId, setDraftSectionId] = useState('')
@@ -110,7 +109,6 @@ export function UcatSetEditorDialog({
     setDraftName(proseMirrorToPlainText(current.name ?? null))
     setDraftDescription((current.description ?? null) as RichTextJson | null)
     const sec = current.time_limit_seconds ?? 0
-    setDraftIsTimed(sec > 0)
     setDraftTimeLimitMinutes(String(Math.floor(sec / 60)))
     setDraftTimeLimitSeconds(String(Math.floor(sec % 60)))
     setDraftTimeLimitSource(sec > 0 ? 'custom' : 'untimed')
@@ -161,27 +159,16 @@ export function UcatSetEditorDialog({
       }, 0),
     [draftStemIds, stemCatalog],
   )
-  const setSectionCount = authoredSection ? 1 : 0
   const firstUcatSection = authoredSection
 
-  const sectionFullTimeSeconds = firstUcatSection?.time_limit_seconds ?? null
-  const sectionAutoTimeSeconds = useMemo(() => {
-    const tpq = firstUcatSection?.time_per_question
-    if (tpq == null || tpq <= 0 || memberQuestionCount <= 0) return null
-    return memberQuestionCount * tpq
-  }, [firstUcatSection, memberQuestionCount])
-
-  const timeLimitSeconds = (() => {
-    if (draftTimeLimitSource === 'untimed' || !draftIsTimed) return null
-    if (draftTimeLimitSource === 'section_full' && setSectionCount === 1 && sectionFullTimeSeconds != null && sectionFullTimeSeconds > 0) {
-      return sectionFullTimeSeconds
-    }
-    if (draftTimeLimitSource === 'section_auto' && setSectionCount === 1 && sectionAutoTimeSeconds != null) {
-      const speed = Math.max(0.1, Math.min(2, draftTimeLimitSpeed))
-      return Math.round(sectionAutoTimeSeconds / speed)
-    }
-    return minutesSecondsToTotal(draftTimeLimitMinutes, draftTimeLimitSeconds)
-  })()
+  const timeLimitSeconds = resolveSetTimeLimitSeconds({
+    source: draftTimeLimitSource,
+    timePerQuestion: firstUcatSection?.time_per_question,
+    questionCount: memberQuestionCount,
+    speed: draftTimeLimitSpeed,
+    customMinutes: draftTimeLimitMinutes,
+    customSeconds: draftTimeLimitSeconds,
+  })
 
   const linkedBlueprintReports = useMemo(() => recalculateLinkedMockBlueprintCompliance({
     linkedReports: storedLinkedBlueprintReports,
@@ -218,10 +205,9 @@ export function UcatSetEditorDialog({
   ])
 
   const isTimeLimitValid =
-    !draftIsTimed ||
-    (timeLimitSeconds != null &&
-      timeLimitSeconds > 0 &&
-      !(draftTimeLimitSource === 'section_auto' && setSectionCount > 1))
+    draftTimeLimitSource === 'untimed' ||
+    draftTimeLimitSource === 'paced' ||
+    (timeLimitSeconds != null && timeLimitSeconds > 0)
   const isDirty = useMemo(() => {
     const snapshot = snapshotSetDetail({
       name: draftName,
@@ -393,7 +379,6 @@ export function UcatSetEditorDialog({
             <UcatSetEditorContent
               draftName={draftName}
               draftDescription={draftDescription}
-              draftIsTimed={draftIsTimed}
               draftTimeLimitMinutes={draftTimeLimitMinutes}
               draftTimeLimitSeconds={draftTimeLimitSeconds}
               draftTimeLimitSource={draftTimeLimitSource}
@@ -421,14 +406,6 @@ export function UcatSetEditorDialog({
               onEditStem={(id) => setEditingStemId(id)}
               onChangeName={setDraftName}
               onChangeDescription={setDraftDescription}
-              onChangeIsTimed={(v) => {
-                setDraftIsTimed(v)
-                if (!v) {
-                  setDraftTimeLimitMinutes('')
-                  setDraftTimeLimitSeconds('')
-                  setDraftTimeLimitSource('untimed')
-                }
-              }}
               onChangeTimeLimitMinutes={setDraftTimeLimitMinutes}
               onChangeTimeLimitSeconds={setDraftTimeLimitSeconds}
               onChangeTimeLimitSource={setDraftTimeLimitSource}
