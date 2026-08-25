@@ -1,5 +1,5 @@
 BEGIN;
-SELECT plan(11);
+SELECT plan(12);
 
 INSERT INTO public.staff_subjects (staff_id, subject_id)
 SELECT '00000000-0000-0000-0000-000000000010', subject.id
@@ -97,6 +97,19 @@ SELECT ok(
       AND similarity = 1
   ),
   'the set-wise rebuild restores an identical stem pair'
+);
+
+SELECT ok(
+  NOT EXISTS (
+    SELECT 1
+    FROM pg_catalog.pg_rewrite rewrite
+    JOIN pg_catalog.pg_class relation ON relation.oid = rewrite.ev_class
+    JOIN pg_catalog.pg_namespace namespace ON namespace.oid = relation.relnamespace
+    WHERE namespace.nspname = 'public'
+      AND relation.relname = 'ucat_duplicate_stem_pairs'
+      AND rewrite.rulename = 'defer_ucat_duplicate_pair_population'
+  ),
+  'the deployment-only pair suppression rule is removed'
 );
 
 SELECT is(
