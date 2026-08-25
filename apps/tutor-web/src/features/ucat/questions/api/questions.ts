@@ -31,6 +31,12 @@ import {
   serializeQuestionCatalogQuery,
   type QuestionCatalogQuery,
 } from "@/features/ucat/questions/lib/question-catalog-query";
+import {
+  chunkStemIds,
+  mergeCatalogRowsByStemIds,
+  questionCatalogQueryForStemIds,
+  QUESTION_CATALOG_STATUSES,
+} from "@/features/ucat/questions/lib/question-catalog-by-stem-ids";
 import type { UcatAiReviewStatus } from "@/features/ucat/questions/lib/ai-assessment/review-status";
 import {
   AUDIT_RUN_CATALOG_STATUSES,
@@ -303,6 +309,19 @@ export const ucatQuestionsApi = {
       throw new Error(body.error ?? "Failed to load question catalog");
     }
     return response.json() as Promise<UcatQuestionCatalogPage>;
+  },
+
+  async listCatalogByStemIds(stemIds: string[]): Promise<UcatQuestionCatalogRow[]> {
+    const chunks = chunkStemIds(stemIds);
+    if (chunks.length === 0) return [];
+    const pages = await Promise.all(
+      chunks.flatMap((chunk) =>
+        QUESTION_CATALOG_STATUSES.map((status) =>
+          this.listCatalog(questionCatalogQueryForStemIds(chunk, status)),
+        ),
+      ),
+    );
+    return mergeCatalogRowsByStemIds(pages, stemIds);
   },
 
   async listCatalogIds(query: QuestionCatalogQuery): Promise<string[]> {

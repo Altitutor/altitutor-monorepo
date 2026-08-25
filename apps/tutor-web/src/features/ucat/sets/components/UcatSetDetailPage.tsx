@@ -327,6 +327,7 @@ export function UcatSetDetailPage({ setId }: UcatSetDetailPageProps) {
           draftStemIds={draftStemIds}
           setDraftStemIds={setDraftStemIds}
           stemCatalog={stemCatalog as unknown as UcatStemCatalogItem[]}
+          setDetailStems={(detail.data?.stems as SetDetailStem[] | null) ?? []}
           search={search}
           setSearch={setSearch}
           filters={filters}
@@ -362,6 +363,7 @@ export function UcatSetDetailPage({ setId }: UcatSetDetailPageProps) {
           sections={(sectionsQuery.data ?? []).map((s) => ({
             id: s.id ?? '',
             name: s.name ?? null,
+            section_number: s.section_number ?? null,
             time_limit_seconds: s.time_limit_seconds ?? null,
             time_per_question: s.time_per_question ?? null,
             number_of_questions: s.number_of_questions ?? null,

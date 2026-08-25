@@ -1,7 +1,6 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
-import { useQueries } from '@tanstack/react-query'
 import { Button } from '@altitutor/ui'
 import { ChevronRight } from 'lucide-react'
 import type { UcatStemCatalogItem } from '@/features/ucat/questions/hooks/useUcatQuestions'
@@ -17,8 +16,8 @@ import { UcatStemEditorLoadingSkeleton } from '@/features/ucat/questions/compone
 import { cn } from '@/shared/utils'
 import { tutorCardCn } from '@/shared/lib/tutor-visual'
 import { SegmentedControl } from '@/shared/components/segmented-control'
-import { ucatQuestionsApi, type StemDetailRow } from '@/features/ucat/questions/api/questions'
-import { ucatKeys } from '@/features/ucat/shared/lib/query-keys'
+import { UcatSetDistributionCard } from '@/features/ucat/sets/components/UcatSetDistributionCard'
+import { useUcatSetQuestionDistributions } from '@/features/ucat/sets/hooks/useUcatSetQuestionDistributions'
 
 type PreviewPosition = {
   stemId: string
@@ -30,15 +29,6 @@ export type UcatPreviewNavigatorGroup = {
   id: string
   label: string
   stemIds: string[]
-}
-
-type DistributionRow = {
-  label: string
-  count: number
-}
-
-function sortDistribution(rows: DistributionRow[]): DistributionRow[] {
-  return rows.sort((left, right) => right.count - left.count || left.label.localeCompare(right.label))
 }
 
 export function UcatSetPreviewContent({
@@ -75,15 +65,10 @@ export function UcatSetPreviewContent({
   const safePositionIndex = positions.length > 0 ? Math.min(positionIndex, positions.length - 1) : 0
   const position = positions[safePositionIndex] ?? null
   const detailQuery = useUcatQuestionDetail(position?.stemId ?? null)
-  const distributionQueries = useQueries({
-    queries: showDistribution
-      ? stemIds.map((stemId) => ({
-          queryKey: ucatKeys.question(stemId),
-          queryFn: () => ucatQuestionsApi.getDetail(stemId),
-        }))
-      : [],
-  })
-  const distributionLoading = distributionQueries.some((query) => query.isLoading)
+  const { isLoading: distributionLoading, distributions } = useUcatSetQuestionDistributions(
+    stemIds,
+    showDistribution,
+  )
   const activeNavigatorGroup = navigatorGroups?.find((group) =>
     position ? group.stemIds.includes(position.stemId) : false,
   ) ?? navigatorGroups?.[0]
@@ -107,32 +92,6 @@ export function UcatSetPreviewContent({
     const displayColumns = resolveSectionDisplayColumns(detail.display_columns, detail)
     return stemFormValuesToEnginePreviewQuestion(values, position.questionIndex, displayColumns)
   }, [detailQuery.data, position])
-  const distributions = useMemo(() => {
-    const categoryCounts = new Map<string, number>()
-    const tagCounts = new Map<string, number>()
-
-    for (const query of distributionQueries) {
-      const detail = query.data as StemDetailRow | undefined
-      if (!detail) continue
-      const categoryLabel = detail.category_name?.trim() || 'Uncategorised'
-      categoryCounts.set(categoryLabel, (categoryCounts.get(categoryLabel) ?? 0) + detail.questions.length)
-      for (const question of detail.questions) {
-        if (!question.tags || question.tags.length === 0) {
-          tagCounts.set('Untagged', (tagCounts.get('Untagged') ?? 0) + 1)
-          continue
-        }
-        for (const tag of question.tags) {
-          const tagLabel = tag.name.trim() || 'Unnamed tag'
-          tagCounts.set(tagLabel, (tagCounts.get(tagLabel) ?? 0) + 1)
-        }
-      }
-    }
-
-    return {
-      categories: sortDistribution(Array.from(categoryCounts, ([label, count]) => ({ label, count }))),
-      tags: sortDistribution(Array.from(tagCounts, ([label, count]) => ({ label, count }))),
-    }
-  }, [distributionQueries])
 
   if (isLoading) return <UcatStemEditorLoadingSkeleton />
 
@@ -256,8 +215,8 @@ export function UcatSetPreviewContent({
               </div>
             ) : (
               <>
-                <DistributionCard title="Category distribution" rows={distributions.categories} />
-                <DistributionCard title="Tag distribution" rows={distributions.tags} />
+                <UcatSetDistributionCard title="Category distribution" rows={distributions.categories} />
+                <UcatSetDistributionCard title="Tag distribution" rows={distributions.tags} />
               </>
             )}
           </div>
@@ -265,27 +224,5 @@ export function UcatSetPreviewContent({
       </aside>
       </div>
     </div>
-  )
-}
-
-function DistributionCard({ title, rows }: { title: string; rows: DistributionRow[] }) {
-  return (
-    <section className={tutorCardCn('overflow-hidden p-0')}>
-      <h3 className="border-b px-3 py-2 text-sm font-semibold">{title}</h3>
-      {rows.length > 0 ? (
-        <ul className="divide-y">
-          {rows.map((row) => (
-            <li key={row.label} className="flex items-center justify-between gap-3 px-3 py-2 text-sm">
-              <span className="min-w-0 truncate" title={row.label}>{row.label}</span>
-              <span className="shrink-0 rounded-full bg-muted px-2 py-0.5 text-xs font-medium tabular-nums">
-                {row.count}
-              </span>
-            </li>
-          ))}
-        </ul>
-      ) : (
-        <p className="px-3 py-4 text-sm text-muted-foreground">No data available.</p>
-      )}
-    </section>
   )
 }

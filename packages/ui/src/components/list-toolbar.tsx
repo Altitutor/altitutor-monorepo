@@ -8,7 +8,7 @@ import type {
   DataTableColumnDefinition,
   DataTableState,
 } from '@altitutor/shared';
-import { DataTableToolbar, type DataTableSearchFromOption } from './data-table-toolbar';
+import { DataTableToolbar, type DataTableColumnViewGroup, type DataTableSearchFromOption } from './data-table-toolbar';
 
 export interface ListToolbarProps {
   /** Controlled search value */
@@ -32,6 +32,7 @@ export interface ListToolbarProps {
   columnDefinitions?: DataTableColumnDefinition[];
   visibleColumns?: string[];
   onVisibleColumnsChange?: (columns: string[]) => void;
+  columnViewGroups?: DataTableColumnViewGroup[];
   /** Default visible columns for the View reset pill */
   defaultVisibleColumns?: string[];
   filterSearchValues?: Record<string, string>;
@@ -82,6 +83,7 @@ export function ListToolbar({
   columnDefinitions = [],
   visibleColumns = [],
   onVisibleColumnsChange,
+  columnViewGroups = [],
   defaultVisibleColumns,
   filterSearchValues,
   onFilterSearchChange,
@@ -152,6 +154,7 @@ export function ListToolbar({
       sortOptions={sortOptions}
       columnDefinitions={columnDefinitions}
       defaultVisibleColumns={defaultVisibleColumns}
+      columnViewGroups={columnViewGroups}
       groupByOptions={groupByOptions}
       searchPlaceholder={searchPlaceholder}
       searchFromOptions={searchFromOptions}
