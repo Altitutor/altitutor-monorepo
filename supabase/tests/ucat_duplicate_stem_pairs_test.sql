@@ -1,5 +1,5 @@
 BEGIN;
-SELECT plan(9);
+SELECT plan(11);
 
 INSERT INTO public.staff_subjects (staff_id, subject_id)
 SELECT '00000000-0000-0000-0000-000000000010', subject.id
@@ -67,6 +67,36 @@ SELECT ok(
 SELECT ok(
   (SELECT payload->'items' @> '[{"id":"d0900000-0000-4000-8000-000000000001:d0900000-0000-4000-8000-000000000003"}]'::JSONB FROM broad_result),
   'lowering the threshold returns a stem-only near match'
+);
+
+DELETE FROM public.ucat_duplicate_stem_pairs
+WHERE stem_id_low IN (
+  'd0900000-0000-4000-8000-000000000001',
+  'd0900000-0000-4000-8000-000000000002',
+  'd0900000-0000-4000-8000-000000000003',
+  'd0900000-0000-4000-8000-000000000004'
+)
+OR stem_id_high IN (
+  'd0900000-0000-4000-8000-000000000001',
+  'd0900000-0000-4000-8000-000000000002',
+  'd0900000-0000-4000-8000-000000000003',
+  'd0900000-0000-4000-8000-000000000004'
+);
+
+SELECT lives_ok(
+  $$ SELECT public.rebuild_ucat_duplicate_stem_pairs() $$,
+  'duplicate pairs can be rebuilt set-wise from scratch'
+);
+
+SELECT ok(
+  EXISTS (
+    SELECT 1
+    FROM public.ucat_duplicate_stem_pairs
+    WHERE stem_id_low = 'd0900000-0000-4000-8000-000000000001'
+      AND stem_id_high = 'd0900000-0000-4000-8000-000000000002'
+      AND similarity = 1
+  ),
+  'the set-wise rebuild restores an identical stem pair'
 );
 
 SELECT is(
