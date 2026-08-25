@@ -37533,6 +37533,10 @@ export type Database = {
         }
         Returns: Json
       }
+      tutor_ucat_match_import_stems: {
+        Args: { p_drafts: Json; p_similarity_threshold?: number }
+        Returns: Json
+      }
       tutor_ucat_mcp_add_audit_targets: {
         Args: { p_run_id: string; p_targets: Json }
         Returns: Json

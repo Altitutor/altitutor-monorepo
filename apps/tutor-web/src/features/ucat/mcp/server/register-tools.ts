@@ -5,6 +5,7 @@ import type {
 } from '@modelcontextprotocol/sdk/types.js'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Database } from '@altitutor/shared'
+import { z } from 'zod'
 import { UCAT_DURABLE_AI_REVIEW_STATUSES } from '@/features/ucat/questions/lib/ai-assessment/review-status'
 import { createUcatMcpSupabaseClient } from '@/features/ucat/mcp/server/auth'
 import {

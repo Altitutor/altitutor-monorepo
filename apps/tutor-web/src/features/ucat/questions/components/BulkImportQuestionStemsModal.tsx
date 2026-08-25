@@ -1063,6 +1063,8 @@ export function BulkImportQuestionStemsModal({
           duplicateFindings={duplicateAnalysis.findings}
           duplicateStatus={duplicateAnalysis.status}
           duplicateError={duplicateAnalysis.error}
+          duplicateSimilarityThreshold={duplicateAnalysis.similarityThreshold}
+          onDuplicateSimilarityThresholdChange={duplicateAnalysis.setSimilarityThreshold}
           onRetryDuplicateAnalysis={() => void duplicateAnalysis.run()}
         />
       )

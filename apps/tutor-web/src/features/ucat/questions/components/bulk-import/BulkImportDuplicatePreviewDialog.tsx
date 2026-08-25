@@ -92,12 +92,6 @@ function SidePanel({ label, side }: { label: string; side: BulkImportDuplicateFi
   )
 }
 
-function duplicateLabel(kind: BulkImportDuplicateFinding['kind']): string {
-  if (kind === 'exact_duplicate') return 'Exact duplicate'
-  if (kind === 'shared_stem') return 'Same stem with different question content'
-  return 'Possible near-copy'
-}
-
 export function BulkImportDuplicatePreviewDialog({
   finding,
   onOpenChange,
@@ -112,10 +106,8 @@ export function BulkImportDuplicatePreviewDialog({
           <DialogTitle>Compare duplicate candidate</DialogTitle>
           {finding ? (
             <div className="flex items-center gap-2 pt-1 text-sm text-muted-foreground">
-              <Badge variant="secondary">{duplicateLabel(finding.kind)}</Badge>
-              {finding.similarity ? (
-                <span>{Math.round(Math.max(finding.similarity.tokenRatio, finding.similarity.trigramRatio) * 100)}% similar</span>
-              ) : null}
+              <Badge variant="secondary">Stem match</Badge>
+              <span>{Math.round(finding.similarity * 100)}% similar</span>
             </div>
           ) : null}
         </DialogHeader>

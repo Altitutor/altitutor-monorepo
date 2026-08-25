@@ -95,7 +95,6 @@ export type BulkImportReviewController = {
   hasDuplicateAnalysisRun: boolean
   duplicateError: string | null
   duplicateFindings: BulkImportDuplicateFinding[]
-  duplicateDismissals: Array<{ stemIdA: string; stemIdB: string }>
   runDuplicateAnalysis: () => Promise<void>
   cancelDuplicateAnalysis: () => void
   keepDuplicateFinding: (findingId: string) => void
@@ -940,15 +939,6 @@ export function useBulkImportReviewController({
       return finding.match.source !== 'draft' || includedIds.has(finding.match.stemId)
     })
   }, [duplicateFindings, includedStems, keptDuplicateFindingIds])
-  const duplicateDismissals = useMemo(
-    () => duplicateFindings.flatMap((finding) =>
-      keptDuplicateFindingIds.has(finding.id) && finding.kind === 'exact_duplicate'
-        ? [{ stemIdA: finding.draft.stemId, stemIdB: finding.match.stemId }]
-        : []
-    ),
-    [duplicateFindings, keptDuplicateFindingIds],
-  )
-
   const changesWithUndo = useMemo(() => automaticChanges.map((change) => {
     const current = stems.find((stem) => stem.id === change.stemId)?.values
     return { ...change, canUndo: Boolean(current && sameValues(current, change.after)) }
@@ -1044,8 +1034,6 @@ export function useBulkImportReviewController({
     duplicateError,
     duplicateFindings:
       duplicateAnalyzedSignature === includedStemsSignature ? visibleDuplicateFindings : [],
-    duplicateDismissals:
-      duplicateAnalyzedSignature === includedStemsSignature ? duplicateDismissals : [],
     runDuplicateAnalysis,
     cancelDuplicateAnalysis,
     keepDuplicateFinding,

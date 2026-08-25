@@ -4,17 +4,21 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { BulkImportStemDraft } from '@/features/ucat/questions/hooks/useBulkImportWizard'
 import type { BulkImportDuplicateFinding } from '@/features/ucat/questions/server/bulk-import-duplicate-analysis'
 
-function signature(stems: BulkImportStemDraft[]): string {
-  return JSON.stringify(stems.map((stem) => ({
-    id: stem.id,
-    sectionId: stem.values.sectionId,
-    stemText: stem.values.stemText,
-    questions: stem.values.questions,
-  })))
+function signature(stems: BulkImportStemDraft[], similarityThreshold: number): string {
+  return JSON.stringify({
+    similarityThreshold,
+    stems: stems.map((stem) => ({
+      id: stem.id,
+      sectionId: stem.values.sectionId,
+      stemText: stem.values.stemText,
+      questions: stem.values.questions,
+    })),
+  })
 }
 
 async function requestDuplicateAnalysis(
   stems: BulkImportStemDraft[],
+  similarityThreshold: number,
   signal: AbortSignal,
 ): Promise<BulkImportDuplicateFinding[]> {
   if (stems.length === 0) return []
@@ -23,6 +27,7 @@ async function requestDuplicateAnalysis(
     signal,
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
+      similarityThreshold,
       drafts: stems.map((stem) => ({
         id: stem.id,
         sectionId: stem.values.sectionId,
@@ -42,12 +47,16 @@ async function requestDuplicateAnalysis(
 }
 
 export function useBulkImportDuplicateAnalysis(stems: BulkImportStemDraft[], enabled: boolean) {
+  const [similarityThreshold, setSimilarityThreshold] = useState(0.95)
   const [status, setStatus] = useState<'idle' | 'running'>('idle')
   const [analyzedSignature, setAnalyzedSignature] = useState<string | null>(null)
   const [findings, setFindings] = useState<BulkImportDuplicateFinding[]>([])
   const [error, setError] = useState<string | null>(null)
   const abortRef = useRef<AbortController | null>(null)
-  const currentSignature = useMemo(() => signature(stems), [stems])
+  const currentSignature = useMemo(
+    () => signature(stems, similarityThreshold),
+    [similarityThreshold, stems],
+  )
 
   const run = useCallback(async () => {
     abortRef.current?.abort()
@@ -56,9 +65,13 @@ export function useBulkImportDuplicateAnalysis(stems: BulkImportStemDraft[], ena
     setStatus('running')
     setError(null)
     try {
-      const nextFindings = await requestDuplicateAnalysis(stems, abortController.signal)
+      const nextFindings = await requestDuplicateAnalysis(
+        stems,
+        similarityThreshold,
+        abortController.signal,
+      )
       setFindings(nextFindings)
-      setAnalyzedSignature(signature(stems))
+      setAnalyzedSignature(signature(stems, similarityThreshold))
     } catch (caught) {
       if (!abortController.signal.aborted) {
         setError(caught instanceof Error ? caught.message : 'Duplicate analysis failed.')
@@ -69,7 +82,7 @@ export function useBulkImportDuplicateAnalysis(stems: BulkImportStemDraft[], ena
         setStatus('idle')
       }
     }
-  }, [stems])
+  }, [similarityThreshold, stems])
 
   useEffect(() => {
     if (!enabled || stems.length === 0 || analyzedSignature === currentSignature || status === 'running') {
@@ -102,6 +115,8 @@ export function useBulkImportDuplicateAnalysis(stems: BulkImportStemDraft[], ena
   return {
     status,
     error,
+    similarityThreshold,
+    setSimilarityThreshold,
     findings: visibleFindings,
     duplicateStemIds,
     hasRun: analyzedSignature === currentSignature,

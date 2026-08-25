@@ -37,6 +37,8 @@ export function BulkImportReadinessReview({
   duplicateFindings,
   duplicateStatus,
   duplicateError,
+  duplicateSimilarityThreshold,
+  onDuplicateSimilarityThresholdChange,
   onRetryDuplicateAnalysis,
   onUpdateStem,
   onNewImageFileIds,
@@ -53,6 +55,8 @@ export function BulkImportReadinessReview({
   duplicateFindings: BulkImportDuplicateFinding[]
   duplicateStatus: 'idle' | 'running'
   duplicateError: string | null
+  duplicateSimilarityThreshold: number
+  onDuplicateSimilarityThresholdChange: (threshold: number) => void
   onRetryDuplicateAnalysis: () => void
   onUpdateStem: (stemId: string, values: UcatQuestionStemFormValues) => void
   onNewImageFileIds?: (fileIds: string[]) => void
@@ -93,7 +97,21 @@ export function BulkImportReadinessReview({
             Eligible stems default to In review. Incomplete stems default to Draft; duplicate candidates default to Don&apos;t import but can be overridden.
           </p>
         </div>
-        <div className="flex flex-wrap gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <label className="flex items-center gap-2 text-xs text-muted-foreground">
+            Duplicate threshold
+            <select
+              aria-label="Duplicate similarity threshold"
+              className="h-9 rounded-md border bg-background px-2 text-xs text-foreground"
+              value={duplicateSimilarityThreshold}
+              onChange={(event) => onDuplicateSimilarityThresholdChange(Number(event.target.value))}
+            >
+              <option value={1}>100%</option>
+              <option value={0.95}>95%</option>
+              <option value={0.9}>90%</option>
+              <option value={0.85}>85%</option>
+            </select>
+          </label>
           <Button type="button" size="sm" variant="outline" onClick={() => onSetAll('in_review')}>Eligible to In review</Button>
           <Button type="button" size="sm" variant="outline" onClick={() => onSetAll('draft')}>All to Draft</Button>
           <Button type="button" size="sm" variant="ghost" onClick={() => onSetAll('exclude')}>Don&apos;t import any</Button>
@@ -172,11 +190,7 @@ export function BulkImportReadinessReview({
                                 setPreviewFinding(finding)
                               }}
                             >
-                              {finding.kind === 'exact_duplicate'
-                                ? 'Exact duplicate — compare'
-                                : finding.kind === 'shared_stem'
-                                  ? 'Same stem — compare'
-                                  : 'Possible near-copy — compare'}
+                              {Math.round(finding.similarity * 100)}% stem match — compare
                             </button>
                           ))}
                         </div>

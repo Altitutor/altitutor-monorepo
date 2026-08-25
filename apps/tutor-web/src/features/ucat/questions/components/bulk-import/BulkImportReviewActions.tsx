@@ -29,12 +29,6 @@ type BulkImportQuestionIssuesProps = {
   controller: BulkImportReviewController
 }
 
-function duplicateLabel(kind: 'exact_duplicate' | 'shared_stem' | 'possible_near_copy') {
-  if (kind === 'exact_duplicate') return 'Exact duplicate'
-  if (kind === 'shared_stem') return 'Shared stem'
-  return 'Possible near-copy'
-}
-
 export function BulkImportReviewActions({
   controller,
 }: BulkImportReviewActionsProps) {
@@ -293,7 +287,7 @@ export function BulkImportQuestionIssues({
         <div key={finding.id} className="space-y-1">
           <p className="flex items-center gap-1 font-medium">
             <Copy className="h-3.5 w-3.5" />
-            {duplicateLabel(finding.kind)}
+            {Math.round(finding.similarity * 100)}% stem match
             <Badge variant="outline">Advisory</Badge>
           </p>
           <p className="text-[11px] text-muted-foreground">
@@ -301,17 +295,15 @@ export function BulkImportQuestionIssues({
               ? `${finding.match.status?.replace('_', ' ')} catalogue content`
               : 'another stem in this import'}.
           </p>
-          {finding.kind === 'exact_duplicate' ? (
-            <Button
-              type="button"
-              size="sm"
-              variant="ghost"
-              className="h-6 px-2 text-[11px]"
-              onClick={() => controller.keepDuplicateFinding(finding.id)}
-            >
-              Keep both
-            </Button>
-          ) : null}
+          <Button
+            type="button"
+            size="sm"
+            variant="ghost"
+            className="h-6 px-2 text-[11px]"
+            onClick={() => controller.keepDuplicateFinding(finding.id)}
+          >
+            Keep both
+          </Button>
         </div>
       ))}
       {error ? (

@@ -14,6 +14,7 @@ function mostLeastStem(options: GeneratedStem['questions'][number]['options']): 
       responseType: 'drag_and_drop',
       answerScheme: 'situational_judgement_most_least',
       answerExplanation: 'Most is best; least is worst.',
+      tagIds: [],
       options,
     }],
   }
@@ -78,6 +79,7 @@ describe('shuffleGeneratedStemMostLeastOptions', () => {
         responseType: 'multiple_choice',
         answerScheme: 'situational_judgement_rating',
         answerExplanation: 'Because...',
+        tagIds: [],
         options: [
           { answerText: 'A very appropriate thing to do', answerKeyValue: 'correct', answerExplanation: null },
           { answerText: 'Appropriate, but not ideal', answerKeyValue: null, answerExplanation: null },
