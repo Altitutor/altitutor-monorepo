@@ -5,8 +5,14 @@ import type {
 } from '@modelcontextprotocol/sdk/types.js'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Database } from '@altitutor/shared'
-import { z } from 'zod'
+import { UCAT_DURABLE_AI_REVIEW_STATUSES } from '@/features/ucat/questions/lib/ai-assessment/review-status'
 import { createUcatMcpSupabaseClient } from '@/features/ucat/mcp/server/auth'
+import {
+  AuditCatalogFiltersSchema,
+  CatalogFilterExpressionSchema,
+  QuestionCatalogSearchScopesSchema,
+  QuestionCatalogSortBySchema,
+} from '@/features/ucat/mcp/server/catalog-filters'
 import {
   AuditSelectorSchema,
   AuditTargetSchema,
@@ -267,16 +273,47 @@ export function registerUcatMcpTools(
     {
       title: 'Search UCAT authoring content',
       description:
-        'Search tutor-authoring learning modules (folders and lessons), question stems, sets, or mocks. Deleted results are read-only. Published results are read-only on the safe-authoring profile and mutable only through the production-maintenance profile.',
+        'Search tutor-authoring learning modules (folders and lessons), question stems, sets, or mocks. Deleted results are read-only. Published results are read-only on the safe-authoring profile and mutable only through the production-maintenance profile. Stem search supports optional multi-status filters and composable filter trees via filter (all/any/clause). Omit status and statuses to include every lifecycle.',
       inputSchema: {
         contentType: AggregateTypeSchema,
         query: z.string().trim().max(500).optional(),
-        status: UcatStatusSchema.optional(),
+        status: UcatStatusSchema.optional().describe(
+          'Single-status alias. Prefer statuses when matching multiple lifecycles.',
+        ),
+        statuses: z.array(UcatStatusSchema).max(3).optional().describe(
+          'Optional lifecycle filter. Omit status and statuses to include draft, in_review, and published stems.',
+        ),
         accessScope: UcatAccessScopeSchema.optional(),
         sectionId: z.string().uuid().optional(),
+        categoryId: z.string().uuid().optional().describe(
+          'Stem-only single-category alias. Prefer categoryIds when filtering multiple categories.',
+        ),
         includeDeleted: z.boolean().default(false),
         offset: z.number().int().min(0).default(0),
         limit: z.number().int().min(1).max(100).default(25),
+        filter: CatalogFilterExpressionSchema.optional().describe(
+          'Stem-only composable predicate tree. Use all for AND, any for OR, and clause for atomic field predicates. Flat fields are AND-ed with filter when both are supplied.',
+        ),
+        auditFilters: AuditCatalogFiltersSchema,
+        stemIds: z.array(z.string().uuid()).max(200).optional(),
+        sectionIds: z.array(z.string().uuid()).max(200).optional(),
+        categoryIds: z.array(z.string().uuid()).max(200).optional(),
+        includeNoCategory: z.boolean().optional(),
+        tagIds: z.array(z.string().uuid()).max(200).optional(),
+        accessScopes: z.array(UcatAccessScopeSchema).max(2).optional(),
+        practicePool: z.boolean().optional(),
+        setIds: z.array(z.string().uuid()).max(200).optional(),
+        includeWithoutSet: z.boolean().optional(),
+        sourceChannels: z.array(z.enum(['individual', 'bulk_import', 'ai_generation'])).max(3).optional(),
+        aiReviewStatuses: z.array(z.enum(UCAT_DURABLE_AI_REVIEW_STATUSES)).max(20).optional(),
+        createdBy: z.array(z.string().uuid()).max(200).optional(),
+        createdFrom: z.string().datetime({ offset: true }).optional(),
+        createdTo: z.string().datetime({ offset: true }).optional(),
+        questionCountMin: z.number().int().min(0).optional(),
+        questionCountMax: z.number().int().min(0).optional(),
+        searchScopes: QuestionCatalogSearchScopesSchema,
+        sortBy: QuestionCatalogSortBySchema,
+        sortDirection: z.enum(['asc', 'desc']).optional(),
       },
       outputSchema: StructuredObjectOutputSchema,
       annotations: readOnlyAnnotations,

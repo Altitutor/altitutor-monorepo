@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { StemCatalogFilterSelectorSchema } from '@/features/ucat/mcp/server/catalog-filters'
 
 export const UcatContentTypeSchema = z.enum(['lesson', 'stem', 'set', 'mock'])
 export const UcatStatusSchema = z.enum(['draft', 'in_review', 'published'])
@@ -329,25 +330,25 @@ export const AuditTargetSchema = z.object({
   id: z.string().uuid(),
 })
 
-const AuditFilterSelectorSchema = z.object({
+const NonStemAuditFilterSelectorSchema = z.object({
   kind: z.literal('filter'),
-  contentType: UcatMcpAggregateTypeSchema,
+  contentType: z.enum(['learning_module', 'set', 'mock']),
   status: UcatStatusSchema.optional(),
   accessScope: UcatAccessScopeSchema.optional(),
   sectionId: z.string().uuid().optional(),
-  categoryId: z.string().uuid().optional(),
   folderId: z.string().uuid().optional(),
 }).describe(
-  'Server-side target selection. categoryId applies to stems; folderId applies to a learning-module subtree.',
+  'Server-side target selection for learning modules, sets, or mocks. folderId applies to a learning-module subtree.',
 )
 
-export const AuditSelectorSchema = z.discriminatedUnion('kind', [
+export const AuditSelectorSchema = z.union([
   z.object({ kind: z.literal('manual') }),
   z.object({
     kind: z.literal('explicit'),
     targets: z.array(AuditTargetSchema).min(1).max(200),
   }),
-  AuditFilterSelectorSchema,
+  StemCatalogFilterSelectorSchema,
+  NonStemAuditFilterSelectorSchema,
 ])
 
 export const AssessmentFindingRefSchema = z.object({

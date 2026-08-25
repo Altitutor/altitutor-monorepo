@@ -40,6 +40,10 @@ import {
   decodeAuthoringRevision,
   encodeAuthoringRevision,
 } from '@/features/ucat/mcp/server/revision'
+import {
+  buildMcpStemSearchRpcArgs,
+  type QuestionCatalogFilterFields,
+} from '@/features/ucat/mcp/server/catalog-filters'
 import { enqueueUcatQuestionAssessmentPreparation } from '@/features/ucat/questions/server/ai-assessment/dispatcher'
 
 export type UcatMcpAggregateType = 'learning_module' | 'stem' | 'set' | 'mock'
@@ -61,12 +65,14 @@ type MutationResult = {
   revision: string
 }
 
-type SearchInput = {
+type SearchInput = QuestionCatalogFilterFields & {
   contentType: UcatMcpAggregateType
   query?: string
   status?: UcatMcpStatus
+  statuses?: UcatMcpStatus[]
   accessScope?: UcatMcpAccessScope
   sectionId?: string
+  categoryId?: string
   includeDeleted?: boolean
   offset?: number
   limit?: number
@@ -375,12 +381,65 @@ function searchSummary(
   }
 }
 
+function stemCatalogSearchSummary(row: Record<string, unknown>): Record<string, unknown> {
+  const id = typeof row.id === 'string' ? row.id : ''
+  const updatedAt = updatedAtOf(row)
+  return {
+    contentType: 'stem',
+    id,
+    title: richTextSearchValue(row.stem_text).slice(0, 240),
+    status: row.status,
+    accessScope: row.access_scope,
+    sectionId: row.section_id ?? null,
+    sectionName: row.section_name ?? null,
+    categoryId: row.question_stem_category_id ?? null,
+    categoryName: row.category_name ?? null,
+    deletedAt: row.deleted_at ?? null,
+    updatedAt,
+    revision: encodeAuthoringRevision(id, updatedAt),
+    auditMemberships: row.audit_memberships ?? [],
+  }
+}
+
+async function searchUcatMcpQuestionStemsViaCatalog(
+  client: SupabaseClient<Database>,
+  input: SearchInput,
+): Promise<Record<string, unknown>> {
+  const limit = Math.min(input.limit ?? 25, 100)
+  const offset = input.offset ?? 0
+  const page = Math.floor(offset / limit) + 1
+  const rpcArgs = buildMcpStemSearchRpcArgs(input, { page, pageSize: limit })
+  const { data, error } = await rpcClient(client).rpc(
+    'tutor_ucat_mcp_search_question_stems',
+    rpcArgs as Record<string, unknown>,
+  )
+  if (error) throw new Error(error.message)
+
+  const payload = isRecord(data) ? data : { items: [], total: 0 }
+  const items = Array.isArray(payload.items) ? payload.items : []
+  const total = typeof payload.total === 'number' ? payload.total : items.length
+  const nextOffset = offset + items.length < total ? offset + items.length : null
+
+  return {
+    items: items
+      .filter((item): item is Record<string, unknown> => isRecord(item))
+      .map((item) => stemCatalogSearchSummary(item)),
+    nextOffset,
+    matchedCount: total,
+    truncatedSource: false,
+  }
+}
+
 export async function searchUcatMcpContent(
   client: SupabaseClient<Database>,
   input: SearchInput,
 ): Promise<Record<string, unknown>> {
   const fetchLimit = 500
   let rows: Record<string, unknown>[] = []
+
+  if (input.contentType === 'stem') {
+    return searchUcatMcpQuestionStemsViaCatalog(client, input)
+  }
 
   if (input.contentType === 'learning_module') {
     let query = client
@@ -391,19 +450,6 @@ export async function searchUcatMcpContent(
     if (input.status) query = query.eq('status', input.status)
     if (input.accessScope) query = query.eq('access_scope', input.accessScope)
     if (input.sectionId) query = query.eq('ucat_section_id', input.sectionId)
-    if (!input.includeDeleted) query = query.is('deleted_at', null)
-    const result = await query
-    if (result.error) throw new Error(result.error.message)
-    rows = (result.data ?? []) as unknown as Record<string, unknown>[]
-  } else if (input.contentType === 'stem') {
-    let query = client
-      .from('vtutor_ucat_question_stems')
-      .select('*')
-      .order('updated_at', { ascending: false })
-      .limit(fetchLimit)
-    if (input.status) query = query.eq('status', input.status)
-    if (input.accessScope) query = query.eq('access_scope', input.accessScope)
-    if (input.sectionId) query = query.eq('section_id', input.sectionId)
     if (!input.includeDeleted) query = query.is('deleted_at', null)
     const result = await query
     if (result.error) throw new Error(result.error.message)

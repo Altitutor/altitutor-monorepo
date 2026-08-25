@@ -1,5 +1,5 @@
 BEGIN;
-SELECT plan(12);
+SELECT plan(14);
 
 INSERT INTO public.staff_subjects (staff_id, subject_id)
 SELECT staff.id, subject.id
@@ -216,6 +216,82 @@ SELECT ok(
 SELECT ok(
   NOT public.ucat_is_valid_audit_catalog_filter('73100000-0000-0000-0000-000000000001:failed:updated'),
   'failed has no result fan-out'
+);
+
+SET LOCAL ROLE authenticated;
+SELECT set_config(
+  'request.jwt.claims',
+  '{"sub":"00000000-0000-0000-0000-000000000011","role":"authenticated"}',
+  true
+);
+
+SELECT is(
+  (
+    WITH created AS (
+      SELECT public.tutor_ucat_mcp_create_audit_run(
+        'audit-catalog-not-audited-run',
+        'Never audited draft stems',
+        NULL,
+        'proposal_only',
+        jsonb_build_object(
+          'kind', 'filter',
+          'contentType', 'stem',
+          'status', 'draft',
+          'auditFilters', jsonb_build_array('not_audited')
+        ),
+        'audit-ucat-questions',
+        '1'
+      ) AS payload
+    )
+    SELECT jsonb_agg(target->>'content_id' ORDER BY target->>'content_id')
+    FROM created,
+      jsonb_array_elements(
+        public.tutor_ucat_mcp_get_audit_run(
+          (created.payload->'run'->>'id')::uuid,
+          0,
+          10
+        )->'targets'
+      ) target
+  ),
+  '["73000000-0000-4000-8000-000000000002", "73000000-0000-4000-8000-000000000004"]'::jsonb,
+  'audit-run filter selector can materialise never-audited stems'
+);
+
+SELECT is(
+  (
+    SELECT COUNT(*)::INTEGER
+    FROM public.ucat_question_catalog_filtered_stem_ids(
+      jsonb_build_object('auditFilters', jsonb_build_array('not_audited'))
+    ) stem_id
+  ),
+  2,
+  'never-audited filter works without a lifecycle constraint'
+);
+
+SELECT is(
+  (
+    SELECT jsonb_agg(item->>'id' ORDER BY item->>'id')
+    FROM jsonb_array_elements(
+      public.tutor_ucat_mcp_search_question_stems(
+        jsonb_build_object('statuses', jsonb_build_array('draft', 'published')),
+        FALSE,
+        NULL,
+        ARRAY['stem_text']::TEXT[],
+        NULL,
+        'desc',
+        1,
+        20,
+        TRUE
+      )->'items'
+    ) item
+  ),
+  jsonb_build_array(
+    '73000000-0000-4000-8000-000000000001',
+    '73000000-0000-4000-8000-000000000002',
+    '73000000-0000-4000-8000-000000000003',
+    '73000000-0000-4000-8000-000000000004'
+  ),
+  'mcp stem search accepts multiple lifecycle statuses'
 );
 
 RESET ROLE;

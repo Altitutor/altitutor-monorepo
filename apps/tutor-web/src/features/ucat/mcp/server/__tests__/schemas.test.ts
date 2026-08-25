@@ -69,6 +69,22 @@ describe('UCAT MCP authoring schemas', () => {
     expect(AuditSelectorSchema.safeParse({
       kind: 'filter',
       contentType: 'stem',
+      statuses: ['published', 'in_review'],
+      auditFilters: ['not_audited'],
+    }).success).toBe(true)
+    expect(AuditSelectorSchema.safeParse({
+      kind: 'filter',
+      contentType: 'stem',
+      filter: {
+        any: [
+          { clause: { auditFilters: ['not_audited'] } },
+          { clause: { auditFilters: ['73100000-0000-0000-0000-000000000001:failed'] } },
+        ],
+      },
+    }).success).toBe(true)
+    expect(AuditSelectorSchema.safeParse({
+      kind: 'filter',
+      contentType: 'set',
       status: 'published',
       accessScope: 'public',
     }).success).toBe(true)
