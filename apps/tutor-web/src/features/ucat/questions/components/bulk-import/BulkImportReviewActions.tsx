@@ -9,7 +9,6 @@ import {
   Bot,
   CheckCircle2,
   Clock3,
-  Copy,
   AlertTriangle,
   Loader2,
   RotateCcw,
@@ -27,12 +26,6 @@ type BulkImportQuestionIssuesProps = {
   questionId: string | null
   questionIndex: number
   controller: BulkImportReviewController
-}
-
-function duplicateLabel(kind: 'exact_duplicate' | 'shared_stem' | 'possible_near_copy') {
-  if (kind === 'exact_duplicate') return 'Exact duplicate'
-  if (kind === 'shared_stem') return 'Shared stem'
-  return 'Possible near-copy'
 }
 
 export function BulkImportReviewActions({
@@ -103,21 +96,6 @@ export function BulkImportReviewActions({
             Reviewing in the background
           </span>
         ) : null}
-        {controller.duplicateError ? (
-          <>
-            <span className="text-xs text-amber-700 dark:text-amber-300">
-              Duplicate check failed.
-            </span>
-            <Button
-              type="button"
-              size="sm"
-              variant="ghost"
-              onClick={() => void controller.runDuplicateAnalysis()}
-            >
-              Retry duplicate check
-            </Button>
-          </>
-        ) : null}
       </div>
     </div>
   )
@@ -149,9 +127,6 @@ export function BulkImportQuestionIssues({
     )
   const approvalFindings = controller.approvalRequiredFindings.filter(appliesToQuestion)
   const manualFindings = controller.manualReviewFindings.filter(appliesToQuestion)
-  const duplicates = questionIndex === 0
-    ? controller.duplicateFindings.filter((finding) => finding.draft.stemId === stemId)
-    : []
   const aiPhase = controller.aiPhaseByStemId[stemId] ?? 'idle'
   const error = questionIndex === 0 && aiPhase === 'failed'
     ? controller.aiErrorsByStemId[stemId]
@@ -168,7 +143,6 @@ export function BulkImportQuestionIssues({
     deterministicIssues.length
     + approvalFindings.length
     + manualFindings.length
-    + duplicates.length
     + (error ? 1 : 0)
     + (isStale ? 1 : 0)
     + (aiPhase !== 'idle' ? 1 : 0)
@@ -287,31 +261,6 @@ export function BulkImportQuestionIssues({
               Keep as-is
             </Button>
           </div>
-        </div>
-      ))}
-      {duplicates.map((finding) => (
-        <div key={finding.id} className="space-y-1">
-          <p className="flex items-center gap-1 font-medium">
-            <Copy className="h-3.5 w-3.5" />
-            {duplicateLabel(finding.kind)}
-            <Badge variant="outline">Advisory</Badge>
-          </p>
-          <p className="text-[11px] text-muted-foreground">
-            Matches {finding.match.source === 'catalog'
-              ? `${finding.match.status?.replace('_', ' ')} catalogue content`
-              : 'another stem in this import'}.
-          </p>
-          {finding.kind === 'exact_duplicate' ? (
-            <Button
-              type="button"
-              size="sm"
-              variant="ghost"
-              className="h-6 px-2 text-[11px]"
-              onClick={() => controller.keepDuplicateFinding(finding.id)}
-            >
-              Keep both
-            </Button>
-          ) : null}
         </div>
       ))}
       {error ? (

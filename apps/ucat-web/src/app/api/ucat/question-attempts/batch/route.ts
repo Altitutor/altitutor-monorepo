@@ -13,6 +13,8 @@ import {
   PRACTICE_SESSION_ENDED_CODE,
   PRACTICE_SESSION_ENDED_MESSAGE,
 } from "@/lib/ucat/practice-sessions/practice-session-ended";
+import { parseQuotaExceededMessage } from "@/lib/ucat/quota/parse-quota-error";
+import { quotaExceededResponse } from "@/lib/ucat/quota/quota-service";
 
 type BatchRequest = {
   studentQuestionSetAttemptId: string | null;
@@ -155,8 +157,7 @@ export async function POST(request: NextRequest) {
       learningModuleBlockId &&
       attempts.some(
         (attempt) =>
-          attempt.submittedByStem === true ||
-          attempt.answerSnapshot != null,
+          attempt.submittedByStem === true || attempt.answerSnapshot != null,
       )
     ) {
       try {
@@ -180,13 +181,16 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ success: true, count: attempts.length });
   } catch (error) {
+    const message =
+      error instanceof Error
+        ? error.message
+        : "Failed to persist question attempts";
+    const quota = parseQuotaExceededMessage(message);
+    if (quota) return quotaExceededResponse(quota);
     captureApiError(error, "/api/ucat/question-attempts/batch");
     return NextResponse.json(
       {
-        error:
-          error instanceof Error
-            ? error.message
-            : "Failed to persist question attempts",
+        error: message,
       },
       { status: 500 },
     );

@@ -1,5 +1,6 @@
 'use client';
 
+import { useMemo } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import {
   Button,
@@ -13,6 +14,7 @@ import {
 } from '@altitutor/ui';
 import { Calendar, ChevronDown } from 'lucide-react';
 import { useReportsContext } from '../context/ReportsContext';
+import { useLastAdminMeetingDate } from '../hooks/useLastAdminMeetingDate';
 import {
   REPORTS_SECTION_KEYS,
   REPORTS_SECTION_LABELS,
@@ -23,7 +25,6 @@ import type { OperationsSubsection, SchedulingSubsection } from './ReportsDateRa
 
 const TODAY = new Date().toISOString().slice(0, 10);
 const CURRENT_YEAR = new Date().getFullYear();
-const REPORT_DATE_PRESETS = getReportsDatePresets();
 
 function ReportsTabs() {
   const pathname = usePathname();
@@ -51,6 +52,11 @@ function ReportsTabs() {
 
 function ReportsFilters() {
   const pathname = usePathname();
+  const { data: lastAdminMeetingDate } = useLastAdminMeetingDate();
+  const reportDatePresets = useMemo(
+    () => getReportsDatePresets(new Date(), lastAdminMeetingDate),
+    [lastAdminMeetingDate]
+  );
   const {
     startDate,
     endDate,
@@ -92,7 +98,7 @@ function ReportsFilters() {
           onChange={(value) => setStartDate(value ?? '')}
           maxDate={TODAY}
           anchorYear={CURRENT_YEAR}
-          presets={REPORT_DATE_PRESETS}
+          presets={reportDatePresets}
           className="h-9 w-[140px]"
         />
         <span className="text-muted-foreground text-sm">to</span>
@@ -101,7 +107,7 @@ function ReportsFilters() {
           onChange={(value) => setEndDate(value ?? '')}
           maxDate={TODAY}
           anchorYear={CURRENT_YEAR}
-          presets={REPORT_DATE_PRESETS}
+          presets={reportDatePresets}
           className="h-9 w-[140px]"
         />
       </div>

@@ -22,6 +22,18 @@ export type PracticeQuestionAttemptIndexRow = {
   is_submitted: boolean;
 };
 
+type PracticeCandidateRpcRow = PracticeStemIndexRow & {
+  question_count: number;
+  matching_question_count: number;
+  fallback_tier: number;
+  matched_tag_ids: string[] | null;
+};
+
+type PracticeCandidateRpcResult = {
+  total_matching_questions: number;
+  candidates: PracticeCandidateRpcRow[];
+};
+
 const SECTION_KEY_TO_NUMBER: Record<string, number> = {
   verbal_reasoning: 1,
   decision_making: 2,
@@ -182,6 +194,17 @@ export async function pickStems(
   const sectionRows = sectionQuery.data as PracticeSectionIndexRow[];
   const sectionIds = sectionRows.map((row) => row.id);
 
+  type StemAggregate = {
+    stem: PracticeStemIndexRow;
+    allQuestionsCount: number;
+    matchingQuestionsCount: number;
+    tier: number;
+    matchedTagIds: string[];
+  };
+
+  let databaseAggregates: Map<string, StemAggregate> | null = null;
+  let databaseTotalMatchingQuestions: number | null = null;
+
   let stems: PracticeStemIndexRow[] | null;
   let stemsError: { message: string } | null;
   if (options?.preloaded) {
@@ -194,19 +217,43 @@ export async function pickStems(
     );
     stemsError = null;
   } else {
-    let stemsQuery = supabase
-      .from("vstudent_ucat_practice_stem_index")
-      .select(
-        "id,section_id,question_stem_category_id,question_ids,question_tag_ids",
-      )
-      .in("section_id", sectionIds);
-
-    if (input.categoryIds && input.categoryIds.length > 0) {
-      stemsQuery = stemsQuery.in("question_stem_category_id", input.categoryIds);
-    }
-    const result = await stemsQuery;
-    stems = result.data as PracticeStemIndexRow[] | null;
+    const rpcClient = supabase as unknown as {
+      rpc: (
+        name: "get_student_ucat_practice_candidates",
+        params: Record<string, unknown>,
+      ) => Promise<{ data: unknown; error: { message: string } | null }>;
+    };
+    const result = await rpcClient.rpc("get_student_ucat_practice_candidates", {
+      p_section_id: sectionIds[0],
+      p_category_ids: input.categoryIds?.length ? input.categoryIds : null,
+      p_question_tag_ids: input.questionTagIds?.length
+        ? input.questionTagIds
+        : null,
+      p_unanswered_only: input.unansweredOnly,
+      p_incorrect_only: input.incorrectOnly,
+      p_exclude_stem_ids: options?.excludeStemIds?.length
+        ? options.excludeStemIds
+        : null,
+      p_deterministic: options?.deterministic ?? false,
+      p_candidates_per_tier: 256,
+    });
+    const payload = result.data as PracticeCandidateRpcResult | null;
+    const candidateRows = payload?.candidates ?? [];
+    stems = candidateRows;
     stemsError = result.error;
+    databaseTotalMatchingQuestions = payload?.total_matching_questions ?? 0;
+    databaseAggregates = new Map(
+      candidateRows.map((row) => [
+        row.id,
+        {
+          stem: row,
+          allQuestionsCount: row.question_count,
+          matchingQuestionsCount: row.matching_question_count,
+          tier: row.fallback_tier,
+          matchedTagIds: row.matched_tag_ids ?? [],
+        },
+      ]),
+    );
   }
 
   if (stemsError || !stems?.length) {
@@ -246,9 +293,10 @@ export async function pickStems(
   >();
 
   if (
-    input.unansweredOnly ||
-    input.incorrectOnly ||
-    (input.questionTagIds?.length ?? 0) > 0
+    !databaseAggregates &&
+    (input.unansweredOnly ||
+      input.incorrectOnly ||
+      (input.questionTagIds?.length ?? 0) > 0)
   ) {
     const questionIds = Array.from(
       new Set(allQuestions.map((q) => q.questionId)),
@@ -278,17 +326,10 @@ export async function pickStems(
     }
   }
 
-  type StemAggregate = {
-    stem: PracticeStemIndexRow;
-    allQuestionsCount: number;
-    matchingQuestionsCount: number;
-    tier: number;
-    matchedTagIds: string[];
-  };
+  const aggregatesByStemId =
+    databaseAggregates ?? new Map<string, StemAggregate>();
 
-  const aggregatesByStemId = new Map<string, StemAggregate>();
-
-  for (const stem of stemDetailRows) {
+  for (const stem of databaseAggregates ? [] : stemDetailRows) {
     const questionIds = stem.question_ids ?? [];
     let allCount = 0;
     let matchingCount = 0;
@@ -313,7 +354,9 @@ export async function pickStems(
       }
 
       if (!input.unansweredOnly && !input.incorrectOnly) {
-        const status = computeQuestionStatus(attemptsByQuestionId.get(questionId));
+        const status = computeQuestionStatus(
+          attemptsByQuestionId.get(questionId),
+        );
         allUnanswered &&= status === "unanswered";
         anyIncorrect ||= status === "incorrect";
       }
@@ -368,10 +411,9 @@ export async function pickStems(
     };
   }
 
-  const totalMatchingQuestions = candidateStems.reduce(
-    (sum, agg) => sum + agg.matchingQuestionsCount,
-    0,
-  );
+  const totalMatchingQuestions =
+    databaseTotalMatchingQuestions ??
+    candidateStems.reduce((sum, agg) => sum + agg.matchingQuestionsCount, 0);
   const availableQuestions = candidateStems.reduce(
     (sum, agg) => sum + agg.allQuestionsCount,
     0,
@@ -417,31 +459,27 @@ export async function pickStems(
     if (limitStems != null && chosenStems.length >= limitStems) break;
     const fitting = remaining
       .map((aggregate, index) => ({ aggregate, index }))
-      .filter(
-        ({ aggregate, index }) => {
-          if (limitStems != null) return true;
-          const activeTier = [...remainingDoseByTier]
-            .filter(([, dose]) => dose > 0)
-            .sort(([left], [right]) => left - right)[0]?.[0];
-          if (aggregate.tier !== activeTier) return false;
-          const tierTarget = remainingDoseByTier.get(aggregate.tier) ?? 0;
-          const remainingTarget =
-            tierTarget - aggregate.allQuestionsCount;
-          if (remainingTarget < 0) return false;
-          return (
-            maximumWholeStemDose(
-              remaining
-                .filter(
-                  (candidate, candidateIndex) =>
-                    candidateIndex !== index &&
-                    candidate.tier === aggregate.tier,
-                )
-                .map((candidate) => candidate.allQuestionsCount),
-              remainingTarget,
-            ) === remainingTarget
-          );
-        },
-      )
+      .filter(({ aggregate, index }) => {
+        if (limitStems != null) return true;
+        const activeTier = [...remainingDoseByTier]
+          .filter(([, dose]) => dose > 0)
+          .sort(([left], [right]) => left - right)[0]?.[0];
+        if (aggregate.tier !== activeTier) return false;
+        const tierTarget = remainingDoseByTier.get(aggregate.tier) ?? 0;
+        const remainingTarget = tierTarget - aggregate.allQuestionsCount;
+        if (remainingTarget < 0) return false;
+        return (
+          maximumWholeStemDose(
+            remaining
+              .filter(
+                (candidate, candidateIndex) =>
+                  candidateIndex !== index && candidate.tier === aggregate.tier,
+              )
+              .map((candidate) => candidate.allQuestionsCount),
+            remainingTarget,
+          ) === remainingTarget
+        );
+      })
       .sort((left, right) => {
         const leftTagUse = left.aggregate.matchedTagIds.length
           ? Math.min(
@@ -454,10 +492,12 @@ export async function pickStems(
             )
           : 0;
         const leftCategoryUse = left.aggregate.stem.question_stem_category_id
-          ? (categoryUse.get(left.aggregate.stem.question_stem_category_id) ?? 0)
+          ? (categoryUse.get(left.aggregate.stem.question_stem_category_id) ??
+            0)
           : 0;
         const rightCategoryUse = right.aggregate.stem.question_stem_category_id
-          ? (categoryUse.get(right.aggregate.stem.question_stem_category_id) ?? 0)
+          ? (categoryUse.get(right.aggregate.stem.question_stem_category_id) ??
+            0)
           : 0;
         return (
           left.aggregate.tier - right.aggregate.tier ||

@@ -20,10 +20,7 @@ import {
   Button,
   Card,
   CardContent,
-  ScrollArea,
   Separator,
-  SegmentedControl,
-  SegmentedTabPanelContent,
   Input,
   type RichTextEditorRef,
   type JSONContent,
@@ -35,6 +32,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useProject } from '../api/queries';
 import { useUpdateProject, useDeleteProject } from '../api/mutations';
 import type { ProjectFormData, ProjectStatus } from '../types';
+import { memberIdsFromProject } from '../utils/projectMembers';
 import { ProjectTitleField } from './fields/ProjectTitleField';
 import { ProjectDescriptionField } from './fields/ProjectDescriptionField';
 import { ProjectPropertiesFields } from './fields/ProjectPropertiesFields';
@@ -53,6 +51,7 @@ import { ProjectPropertyPills } from './fields/ProjectPropertyPills';
 import { ActionsMenu } from '@/shared/components/ActionsMenu';
 import { SaveAsTemplateDialog } from '@/features/rich-text-templates/components/SaveAsTemplateDialog';
 import { EntityResizablePanels } from '@/shared/components/EntityResizablePanels';
+import { EntitySidebarCard, EntitySidebarCards } from '@/shared/components/EntitySidebarCard';
 
 const VALID_PROJECT_STATUSES: ProjectStatus[] = ['backlog', 'planned', 'in_progress', 'completed'];
 
@@ -69,6 +68,7 @@ const formSchema = z.object({
   status: z.enum(['backlog', 'planned', 'in_progress', 'completed']),
   priority: z.number().min(0).max(4),
   projectLeadId: z.union([z.string().uuid(), z.null()]).default(null),
+  memberIds: z.array(z.string().uuid()).default([]),
   startDate: z.union([z.string(), z.null()]).default(null),
   targetDate: z.union([z.string(), z.null()]).default(null),
 });
@@ -125,7 +125,6 @@ export function ProjectDetailView({
   const [isInitialized, setIsInitialized] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [isSaveDialogOpen, setIsSaveDialogOpen] = useState(false);
-  const [sidebarTab, setSidebarTab] = useState<'properties' | 'documents'>('properties');
   const [selectedDocumentId, setSelectedDocumentId] = useState<string | null>(null);
   const [isDocumentDialogOpen, setIsDocumentDialogOpen] = useState(false);
   const [documentInitialMode, setDocumentInitialMode] = useState<'view' | 'edit'>('view');
@@ -153,6 +152,7 @@ export function ProjectDetailView({
       status: 'backlog',
       priority: 0,
       projectLeadId: null,
+      memberIds: [],
       startDate: null,
       targetDate: null,
     },
@@ -166,6 +166,7 @@ export function ProjectDetailView({
         status: normalizeProjectStatus(project.status),
         priority: (project.priority ?? 0) as ProjectFormData['priority'],
         projectLeadId: project.project_lead_id || null,
+        memberIds: memberIdsFromProject(project.members, project.project_lead_id),
         startDate: project.start_date ? new Date(project.start_date).toISOString().split('T')[0] : null,
         targetDate: project.target_date ? new Date(project.target_date).toISOString().split('T')[0] : null,
       });
@@ -197,6 +198,9 @@ export function ProjectDetailView({
       if (updates.projectLeadId !== undefined) {
         formattedUpdates.project_lead_id = updates.projectLeadId;
       }
+      if (updates.memberIds !== undefined) {
+        formattedUpdates.member_ids = updates.memberIds;
+      }
       if (updates.startDate !== undefined) {
         formattedUpdates.start_date = updates.startDate ? new Date(updates.startDate).toISOString() : null;
       }
@@ -211,7 +215,7 @@ export function ProjectDetailView({
 
       await updateProject.mutateAsync({
         id: projectId,
-        updates: formattedUpdates as import('../types').ProjectUpdate,
+        updates: formattedUpdates as import('../types').ProjectUpdateInput,
       });
     } catch (error) {
       console.error('Failed to auto-save project:', error);
@@ -371,7 +375,7 @@ export function ProjectDetailView({
             <div className="p-6">Project not found</div>
           ) : (
             <Form {...form}>
-              <form className="h-full min-h-0 flex min-w-0 overflow-hidden">
+              <form className="h-full min-h-0 flex min-w-0 overflow-hidden" onSubmit={(e) => e.preventDefault()}>
                 <AutoSaveManager
                   form={form}
                   projectId={projectId}
@@ -389,7 +393,7 @@ export function ProjectDetailView({
                       data-rich-text-toolbar-container
                     >
                   <div className="p-6 space-y-6">
-                    <ProjectPropertyPills form={form} enabled={enabled} />
+                    <ProjectPropertyPills form={form} enabled={enabled} knownMembers={project.members} />
 
                     <ProjectTitleField
                       form={form}
@@ -440,36 +444,14 @@ export function ProjectDetailView({
 
                   sidebar={(
                     <div className="hidden h-full min-h-0 w-full flex-col overflow-hidden md:flex">
-                      <div className="flex-1 flex flex-col min-h-0">
-                    <div className="flex-shrink-0 border-b bg-background px-6 pb-4 pt-4">
-                      <SegmentedControl
-                        fullWidth
-                        value={sidebarTab}
-                        onValueChange={(v) => setSidebarTab(v as 'properties' | 'documents')}
-                        options={[
-                          { value: 'properties', label: 'Properties' },
-                          { value: 'documents', label: 'Documents' },
-                        ]}
-                      />
-                    </div>
-
-                    <div className="flex-1 min-h-0 overflow-hidden">
-                      <SegmentedTabPanelContent when="properties" activeTab={sidebarTab} className="h-full min-h-0 flex flex-col overflow-hidden">
-                        <ScrollArea className="h-full min-h-0 flex-1">
-                          <div className="p-6">
-                            <ProjectPropertiesFields form={form} />
-                          </div>
-                        </ScrollArea>
-                      </SegmentedTabPanelContent>
-                      <SegmentedTabPanelContent when="documents" activeTab={sidebarTab} className="h-full overflow-hidden flex flex-col">
-                        <ScrollArea className="h-full min-h-0 flex-1">
-                          <div className="p-2">
-                            {documentsList}
-                          </div>
-                        </ScrollArea>
-                      </SegmentedTabPanelContent>
-                    </div>
-                      </div>
+                      <EntitySidebarCards defaultOpen={['properties', 'documents']}>
+                        <EntitySidebarCard value="properties" title="Properties">
+                          <ProjectPropertiesFields form={form} knownMembers={project.members} />
+                        </EntitySidebarCard>
+                        <EntitySidebarCard value="documents" title="Documents">
+                          {documentsList}
+                        </EntitySidebarCard>
+                      </EntitySidebarCards>
                     </div>
                   )}
                 />

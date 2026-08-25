@@ -118,7 +118,7 @@ export function TaskLinkField({
               searchPlaceholder="Search issues and projects..."
               emptyMessage="No results found"
               trigger={
-                <Button variant="outline" className="w-full justify-start">
+                <Button variant="field" className="w-full justify-start">
                   <div className="flex items-center gap-2 flex-1 min-w-0">
                     {activeLink?.type === 'project' ? (
                       <FolderKanban className="h-4 w-4 text-muted-foreground flex-shrink-0" />

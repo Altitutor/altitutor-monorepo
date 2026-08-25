@@ -6,6 +6,8 @@ import {
   resetLessonProgress,
 } from "@/lib/ucat/learning/progress-service";
 import { captureUcatLearningActivityCompletedInBackground } from "@/lib/analytics/posthog-server";
+import { waitUntil } from "@vercel/functions";
+import { processPendingPreparationRefreshes } from "@/features/preparation/server/preparation-refresh-worker";
 
 type RouteContext = { params: Promise<{ id: string }> };
 
@@ -27,6 +29,12 @@ export async function POST(_request: NextRequest, context: RouteContext) {
         activityId: id,
         properties: { completion_source: "lesson_manual" },
       });
+      waitUntil(
+        processPendingPreparationRefreshes({
+          studentId: auth.studentId,
+          limit: 1,
+        }),
+      );
     }
     return NextResponse.json({ ok: true });
   } catch (error) {

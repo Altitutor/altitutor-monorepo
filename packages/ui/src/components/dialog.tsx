@@ -9,6 +9,7 @@ import {
   handleModalInteractOutside,
   useModalNativeDateTimeFocusGuards,
 } from "../lib/modal-interact-outside"
+import { ensurePanelResizeGuardInstalled } from "../lib/panel-resize-guard"
 import { useDialogPrimaryActionShortcut } from "../hooks/use-dialog-primary-action-shortcut"
 import "../styles/dialog-bottom-sheet.css"
 
@@ -56,6 +57,9 @@ const DialogContent = React.forwardRef<
   const setDateTimeFocusRef = useModalNativeDateTimeFocusGuards<HTMLDivElement>();
   const contentRef = React.useRef<HTMLDivElement | null>(null);
   useDialogPrimaryActionShortcut(contentRef, primaryShortcut);
+  React.useEffect(() => {
+    ensurePanelResizeGuardInstalled();
+  }, []);
   const handleInteractOutside = React.useCallback((e: Event) => {
     handleModalInteractOutside(e);
   }, []);
@@ -103,6 +107,7 @@ const DialogContent = React.forwardRef<
         )}
         onInteractOutside={handleInteractOutside}
         onPointerDownOutside={handleInteractOutside}
+        onFocusOutside={handleInteractOutside}
         {...props}
       >
         {children}

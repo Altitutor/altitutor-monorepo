@@ -1,19 +1,11 @@
 'use client';
 
 import { UseFormReturn } from 'react-hook-form';
-import {
-  Form,
-  FormControl,
-  FormDescription,
-  FormField,
-  FormItem,
-  FormLabel,
-  Switch,
-} from '@altitutor/ui';
 
 import type { Folder, NoteFormData } from '../types';
 import { FolderSearchSelect } from './FolderSearchSelect';
 import { ProjectSearchSelect } from './ProjectSearchSelect';
+import { TutorDocumentationSelect } from './TutorDocumentationSelect';
 
 interface NotePropertiesPanelProps {
   form: UseFormReturn<NoteFormData>;
@@ -21,6 +13,7 @@ interface NotePropertiesPanelProps {
   editable?: boolean;
   /** When true, omit the section heading (parent card supplies the title). */
   embedded?: boolean;
+  onViewModeInteract?: () => void;
 }
 
 export function NotePropertiesPanel({
@@ -28,41 +21,33 @@ export function NotePropertiesPanel({
   folders,
   editable = true,
   embedded = false,
+  onViewModeInteract,
 }: NotePropertiesPanelProps) {
   return (
     <div className={embedded ? undefined : 'space-y-6'}>
       {!embedded ? (
         <h3 className="text-sm font-semibold text-foreground">Properties</h3>
       ) : null}
-      <Form {...form}>
-        <div className="space-y-4">
-          <FolderSearchSelect form={form} folders={folders} editable={editable} />
-          <ProjectSearchSelect form={form} editable={editable} />
-          <FormField
-            control={form.control}
-            name="is_tutor_documentation"
-            render={({ field }) => (
-              <FormItem className="rounded-lg bg-muted/35 p-3">
-                <div className="flex items-center justify-between gap-3">
-                  <div className="space-y-0.5">
-                    <FormLabel className="text-sm">Tutor documentation</FormLabel>
-                    <FormDescription>
-                      Show this document read-only in tutor-web.
-                    </FormDescription>
-                  </div>
-                  <FormControl>
-                    <Switch
-                      checked={Boolean(field.value)}
-                      onCheckedChange={field.onChange}
-                      disabled={!editable}
-                    />
-                  </FormControl>
-                </div>
-              </FormItem>
-            )}
-          />
-        </div>
-      </Form>
+      <div className="space-y-4">
+        <FolderSearchSelect
+          form={form}
+          folders={folders}
+          variant="properties"
+          editable={editable}
+          onDisabledInteract={onViewModeInteract}
+        />
+        <ProjectSearchSelect
+          form={form}
+          variant="properties"
+          editable={editable}
+          onDisabledInteract={onViewModeInteract}
+        />
+        <TutorDocumentationSelect
+          form={form}
+          editable={editable}
+          onDisabledInteract={onViewModeInteract}
+        />
+      </div>
     </div>
   );
 }

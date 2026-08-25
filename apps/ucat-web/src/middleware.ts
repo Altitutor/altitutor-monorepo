@@ -142,6 +142,7 @@ export async function middleware(request: NextRequest) {
     pathname === "/reset-password" ||
     pathname.startsWith("/marketing-preview/") ||
     pathname === "/api/ucat/public-interest" ||
+    pathname === "/api/cron/ucat-preparation-refreshes" ||
     pathname.startsWith("/api/auth") ||
     pathname.startsWith("/auth/") ||
     pathname === "/api/ucat/subscription-config";

@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState, type ComponentPropsWithoutRef, type ReactNode } from 'react';
-import { Button, Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@altitutor/ui';
+import { Button, Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, isPanelResizeActive } from '@altitutor/ui';
 import { X } from 'lucide-react';
 import {
   ExpandButton,
@@ -58,8 +58,19 @@ export function AdminDialogShell({
     }
   }, [open, defaultExpanded]);
 
+  const requestClose = () => {
+    if (isPanelResizeActive()) return;
+    onClose();
+  };
+
   return (
-    <Dialog open={open} onOpenChange={(next) => (!next ? onClose() : undefined)}>
+    <Dialog
+      open={open}
+      onOpenChange={(next) => {
+        if (!next && isPanelResizeActive()) return;
+        if (!next) requestClose();
+      }}
+    >
       <DialogContent
         data-admin-dialog-fill-height={fillHeight ? 'true' : undefined}
         className={cn(
@@ -76,7 +87,7 @@ export function AdminDialogShell({
             <div className="px-6 py-4">
               <div className="flex items-start justify-between gap-4">
                 <div className="flex min-w-0 flex-1 items-start gap-3">
-                  <Button type="button" variant="outline" size="icon" onClick={onClose} className="shrink-0">
+                  <Button type="button" variant="outline" size="icon" onClick={requestClose} className="shrink-0">
                     <X className="h-4 w-4" />
                     <span className="sr-only">Close</span>
                   </Button>

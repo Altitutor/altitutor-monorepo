@@ -122,14 +122,13 @@ export async function isPublicBookingIdentifierRevoked(
   supabase: SupabaseClient<Database>,
   publicIdentifier: string
 ): Promise<boolean> {
-  const { data } = await supabase
-    .from('public_link_revocations')
-    .select('token')
-    .eq('purpose', 'BOOKING')
-    .eq('token', publicIdentifier)
-    .maybeSingle();
+  const { data, error } = await supabase.rpc('service_is_public_link_revoked', {
+    p_purpose: 'BOOKING',
+    p_token: publicIdentifier,
+  });
 
-  return Boolean(data);
+  if (error) throw error;
+  return data === true;
 }
 
 export function getBookingConfirmationUrl(publicToken: string): string {

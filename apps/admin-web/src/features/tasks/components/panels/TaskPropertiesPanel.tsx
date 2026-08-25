@@ -11,6 +11,7 @@ import {
 } from '../fields';
 import type { TaskFormData, TaskStatus } from '../../types';
 import type { Tables } from '@altitutor/shared';
+import { EntitySidebarCard, EntitySidebarCards } from '@/shared/components/EntitySidebarCard';
 
 function PropertyRow({ label, children }: { label: string; children: React.ReactNode }) {
   return (
@@ -47,37 +48,43 @@ export function TaskPropertiesPanel({
   enabled = true,
 }: TaskPropertiesPanelProps) {
   return (
-    <div className="hidden h-full min-h-0 w-full overflow-y-auto overscroll-contain p-6 space-y-4 md:block">
-      <PropertyRow label="Status">
-        <TaskStatusField form={form} taskStatus={taskStatus} />
-      </PropertyRow>
-      <PropertyRow label="Priority">
-        <TaskPriorityField form={form} />
-      </PropertyRow>
-      <PropertyRow label="Assignee">
-        <TaskAssigneeField
-          form={form}
-          selectedAssignee={selectedAssignee}
-          onAssigneeChange={onAssigneeChange}
-          enabled={enabled}
-        />
-      </PropertyRow>
-      <PropertyRow label="Link">
-        <TaskLinkField
-          form={form}
-          selectedIssue={selectedIssue}
-          selectedProject={selectedProject}
-          onLinkChange={onLinkChange}
-          onOpenIssue={onOpenIssue}
-          onOpenProject={onOpenProject}
-        />
-      </PropertyRow>
-      <PropertyRow label="Estimate">
-        <TaskEstimateField form={form} />
-      </PropertyRow>
-      <PropertyRow label="Due date">
-        <TaskDueDateField form={form} />
-      </PropertyRow>
+    <div className="hidden h-full min-h-0 w-full flex-col overflow-hidden md:flex">
+      <EntitySidebarCards defaultOpen={['properties']}>
+        <EntitySidebarCard value="properties" title="Properties">
+          <div className="space-y-4">
+            <PropertyRow label="Status">
+              <TaskStatusField form={form} taskStatus={taskStatus} />
+            </PropertyRow>
+            <PropertyRow label="Priority">
+              <TaskPriorityField form={form} />
+            </PropertyRow>
+            <PropertyRow label="Assignee">
+              <TaskAssigneeField
+                form={form}
+                selectedAssignee={selectedAssignee}
+                onAssigneeChange={onAssigneeChange}
+                enabled={enabled}
+              />
+            </PropertyRow>
+            <PropertyRow label="Link">
+              <TaskLinkField
+                form={form}
+                selectedIssue={selectedIssue}
+                selectedProject={selectedProject}
+                onLinkChange={onLinkChange}
+                onOpenIssue={onOpenIssue}
+                onOpenProject={onOpenProject}
+              />
+            </PropertyRow>
+            <PropertyRow label="Estimate">
+              <TaskEstimateField form={form} />
+            </PropertyRow>
+            <PropertyRow label="Due date">
+              <TaskDueDateField form={form} />
+            </PropertyRow>
+          </div>
+        </EntitySidebarCard>
+      </EntitySidebarCards>
     </div>
   );
 }

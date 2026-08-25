@@ -2,128 +2,144 @@
 
 import { useState } from 'react';
 import type { ActivityEventDisplay } from '../types';
-import { ActivityIcon } from './ActivityIcon';
+import { ActivityTimelineMarker } from './ActivityTimelineMarker';
+import { ActivityPerformerAvatar } from './ActivityPerformerAvatar';
 import { FormattedActivityMessage } from './FormattedActivityMessage';
 import { cn } from '@/shared/utils';
-import { Card, CardContent, Button } from '@altitutor/ui';
-import { ChevronLeft, ChevronDown } from 'lucide-react';
+import { Button } from '@altitutor/ui';
+import { ChevronDown, ChevronRight } from 'lucide-react';
 import { NoteContentDisplay } from '@/shared/components/NoteContentDisplay';
 
 interface ActivityItemProps {
   activity: ActivityEventDisplay;
-  showConnector?: boolean;
   className?: string;
-  isNested?: boolean; // For nested events when expanded
+  isNested?: boolean;
   onOpenFormResponse?: (responseId: string) => void;
 }
 
-export function ActivityItem({ activity, showConnector = true, className, isNested: _isNested, onOpenFormResponse }: ActivityItemProps) {
+export function ActivityItem({
+  activity,
+  className,
+  isNested = false,
+  onOpenFormResponse,
+}: ActivityItemProps) {
   const [isExpanded, setIsExpanded] = useState(false);
-  
-  // Check if this event can be expanded (has originalEvents)
-  const canExpand = (activity.isGrouped || activity.isCoalesced) && 
-                    activity.originalEvents && 
-                    activity.originalEvents.length > 0;
-  
-  // Check if this is a note event with content
+
+  const canExpand =
+    (activity.isGrouped || activity.isCoalesced) &&
+    activity.originalEvents &&
+    activity.originalEvents.length > 0;
+
   const isNoteEvent = activity.icon === 'note' && activity.noteContent;
-  
-  return (
-    <>
-      <div className={cn('flex gap-3 relative', className)}>
-        {/* Icon with connector line */}
-        <div className="flex flex-col items-center">
-          <ActivityIcon icon={activity.icon} color={activity.iconColor} />
-          {showConnector && (
-            <div className="w-0.5 h-full bg-border mt-2 min-h-[24px]" />
-          )}
+
+  if (isNoteEvent) {
+    return (
+      <>
+        <div className={cn('pb-4', className)}>
+          <div className="rounded-lg border bg-muted/20">
+            <div className="flex items-center gap-2 px-3 py-2">
+              <ActivityPerformerAvatar name={activity.performedBy.name} />
+              <span className="truncate text-sm font-medium">{activity.performedBy.name}</span>
+              <span className="ml-auto shrink-0 text-xs text-muted-foreground">
+                {activity.timestamp}
+              </span>
+            </div>
+            <div className="px-3 pb-3">
+              <NoteContentDisplay
+                content={activity.noteContent}
+                className="text-sm text-foreground"
+              />
+            </div>
+          </div>
         </div>
 
-        {/* Content */}
-        <div className="flex-1 pb-6">
-          <div className="flex items-start gap-2">
-            <div className="flex-1">
-              {isNoteEvent ? (
-                // Special rendering for notes (TipTap JSON or plain text)
-                <div className="text-sm text-foreground">
-                  <span className="font-medium">{activity.performedBy.name}</span>
-                  {' '}
-                  <span className="text-muted-foreground">added a note:</span>
-                  <Card className="mt-2">
-                    <CardContent className="p-4">
-                      <NoteContentDisplay
-                        content={activity.noteContent}
-                        className="text-muted-foreground"
-                      />
-                    </CardContent>
-                  </Card>
-                </div>
+        {isExpanded && canExpand && activity.originalEvents ? (
+          <div className="space-y-0">
+            {activity.originalEvents.map((originalEvent) => (
+              <ActivityItem
+                key={originalEvent.id}
+                activity={originalEvent}
+                isNested
+                onOpenFormResponse={onOpenFormResponse}
+              />
+            ))}
+          </div>
+        ) : null}
+      </>
+    );
+  }
+
+  return (
+    <>
+      <div className={cn('relative flex gap-3', isNested ? 'pl-0' : '', className)}>
+        <div className="relative flex w-5 shrink-0 flex-col items-center">
+          <div className="relative z-[1] bg-background py-1">
+            <ActivityTimelineMarker activity={activity} />
+          </div>
+        </div>
+
+        <div className="min-w-0 flex-1 pb-4 pt-0.5">
+          <div className="flex items-start gap-1.5">
+            <div className="min-w-0 flex-1 text-sm leading-6 text-foreground">
+              {activity.isGrouped || activity.isCoalesced ? (
+                <>
+                  <FormattedActivityMessage activity={activity} />
+                  <span className="text-muted-foreground"> • {activity.timestamp}</span>
+                </>
               ) : (
-                // Standard rendering for other events
-                <div className="text-sm text-foreground">
-                  {activity.isGrouped || activity.isCoalesced ? (
-                    // Grouped/coalesced messages already include the performer name
-                    <FormattedActivityMessage activity={activity} />
-                  ) : (
-                    // For regular activities, show performer name separately
-                    <>
-                      <span className="font-medium">{activity.performedBy.name}</span>
-                      {' '}
-                      <FormattedActivityMessage activity={activity} />
-                    </>
-                  )}
-                </div>
+                <>
+                  <span className="font-medium">{activity.performedBy.name}</span>{' '}
+                  <FormattedActivityMessage activity={activity} />
+                  <span className="text-muted-foreground"> • {activity.timestamp}</span>
+                </>
               )}
-              <div className="text-xs text-muted-foreground mt-1">
-                {activity.timestamp}
-              </div>
+
               {activity.entityType === 'form_responses' && onOpenFormResponse ? (
-                <Button
-                  type="button"
-                  variant="link"
-                  size="sm"
-                  className="mt-1 h-auto px-0"
-                  onClick={() => onOpenFormResponse(activity.entityId ?? '')}
-                >
-                  Open / edit response
-                </Button>
+                <div>
+                  <Button
+                    type="button"
+                    variant="link"
+                    size="sm"
+                    className="h-auto px-0"
+                    onClick={() => onOpenFormResponse(activity.entityId ?? '')}
+                  >
+                    Open / edit response
+                  </Button>
+                </div>
               ) : null}
             </div>
-            
-            {/* Expand/Collapse button */}
-            {canExpand && (
+
+            {canExpand ? (
               <Button
                 variant="ghost"
                 size="icon"
-                className="h-6 w-6 mt-0.5"
+                className="mt-0.5 h-6 w-6 shrink-0"
                 onClick={() => setIsExpanded(!isExpanded)}
                 aria-label={isExpanded ? 'Collapse' : 'Expand'}
               >
                 {isExpanded ? (
                   <ChevronDown className="h-4 w-4" />
                 ) : (
-                  <ChevronLeft className="h-4 w-4" />
+                  <ChevronRight className="h-4 w-4" />
                 )}
               </Button>
-            )}
+            ) : null}
           </div>
         </div>
       </div>
-      
-      {/* Expanded original events */}
-      {isExpanded && canExpand && activity.originalEvents && (
-        <div className="ml-[15px] border-l-2 border-border pl-4 mt-2 space-y-0">
-          {activity.originalEvents.map((originalEvent, index) => (
+
+      {isExpanded && canExpand && activity.originalEvents ? (
+        <div className="space-y-0">
+          {activity.originalEvents.map((originalEvent) => (
             <ActivityItem
               key={originalEvent.id}
               activity={originalEvent}
-              showConnector={index < activity.originalEvents!.length - 1}
-              isNested={true}
+              isNested
               onOpenFormResponse={onOpenFormResponse}
             />
           ))}
         </div>
-      )}
+      ) : null}
     </>
   );
 }

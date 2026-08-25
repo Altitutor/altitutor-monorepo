@@ -32,9 +32,9 @@ Tool input shapes live on the tools. Cache these gotchas:
 
 ## 2. Resolve the selector
 
-Turn the user’s criteria into stem IDs. Typical criteria: one stem id, a question-set name or id, a lifecycle (`draft` / `in_review` / `published`), a section (VR / DM / QR / SJ). They may say anything else — interpret it.
+Turn the user’s criteria into stem IDs. Typical criteria: one stem id, a question-set name or id, a lifecycle (`draft` / `in_review` / `published`), a section (VR / DM / QR / SJ), audit history (`not_audited`, a prior run, or run/status/result tokens). They may say anything else — interpret it.
 
-Use `search_ucat_content` and `get_ucat_content`. For a set, read the set and take its stem membership. For a section filter, resolve `sectionId` from `get_ucat_reference_data`. Paginate search until the match is complete or you hit the pause below.
+Use `search_ucat_content` and `get_ucat_content`. Catalog filters on stems match tutor-web UCAT questions, including `auditFilters`. For a set, read the set and take its stem membership. For a section filter, resolve `sectionId` from `get_ucat_reference_data`. Paginate search until the match is complete or you hit the pause below.
 
 - One clear match → continue.
 - Several plausible matches (two sets named similarly, an id that hits more than one type) → list them and ask.
@@ -57,7 +57,7 @@ Default is inline.
 
 Always create a run, including draft-only work. A mixed selector is still two runs (authoring vs production writes) and one report.
 
-1. `create_ucat_audit_run` with `publishedWriteMode: "apply_valid_changes"`, `workflowId: "audit-ucat-questions"`, `workflowVersion: "1"`, selector `explicit` targets `{ contentType: "stem", id }` (batches of ≤200 via `add_ucat_audit_run_targets` if needed). `idempotencyKey` stable for this run.
+1. `create_ucat_audit_run` with `publishedWriteMode: "apply_valid_changes"`, `workflowId: "audit-ucat-questions"`, `workflowVersion: "1"`, selector `explicit` targets `{ contentType: "stem", id }` or a stem `filter` selector. `status` / `statuses` are optional; omit both to include every lifecycle. Use `filter` with `all` / `any` / `clause` for explicit AND/OR trees (for example never-audited published stems: flat `{ statuses: ["published"], auditFilters: ["not_audited"] }`, or failed-or-never-audited via `filter.any`). Use `add_ucat_audit_run_targets` only when you need to append explicit leftovers. `idempotencyKey` stable for this run.
 2. `start_ucat_audit_run` (freezes the manifest).
 3. Each worker `claim_ucat_audit_run_targets` with `limit: 1`, `includeContent: true`, then audits, then `finish_ucat_audit_run_target`. Put the outcome object in `outcome`. Set `result` to that same `outcome` value for `updated`/`unchanged`/`suggest_delete`/`suggest_split`; `failed` has no result. Target status: `completed` for `updated`/`unchanged`, `skipped` for `suggest_delete`/`suggest_split`, `failed` for `failed`.
 4. After every target is terminal, `complete_ucat_audit_run`.

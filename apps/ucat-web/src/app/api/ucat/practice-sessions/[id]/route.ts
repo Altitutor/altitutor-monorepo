@@ -7,6 +7,8 @@ import type { FinalQuestionAttemptInput } from "@/lib/ucat/set-attempts/complete
 import { completeStudentPracticeSession } from "@/lib/ucat/practice-sessions/complete-student-practice-session";
 import { captureUcatLearningActivityCompletedInBackground } from "@/lib/analytics/posthog-server";
 import { ServerTiming } from "@/lib/performance/server-timing";
+import { waitUntil } from "@vercel/functions";
+import { processPendingPreparationRefreshes } from "@/features/preparation/server/preparation-refresh-worker";
 
 export async function GET(
   _request: NextRequest,
@@ -183,6 +185,12 @@ export async function PATCH(
     const discount = await maybeGrantPracticeDayDiscount(
       supabaseAdmin,
       student.id,
+    );
+    waitUntil(
+      processPendingPreparationRefreshes({
+        studentId: student.id,
+        limit: 1,
+      }),
     );
     timing.mark("discount");
     return timing.apply(

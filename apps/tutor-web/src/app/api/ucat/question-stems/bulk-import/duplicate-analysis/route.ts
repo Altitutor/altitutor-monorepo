@@ -33,6 +33,7 @@ const DraftSchema = z.object({
 
 const BodySchema = z.object({
   drafts: z.array(DraftSchema).min(1).max(200),
+  similarityThreshold: z.number().min(0.8).max(1).default(0.95),
 })
 
 export async function POST(request: NextRequest) {
@@ -52,6 +53,7 @@ export async function POST(request: NextRequest) {
     const findings = await analyzeBulkImportDuplicatesFromCatalog(
       client,
       body.data.drafts as BulkImportDuplicateDraft[],
+      body.data.similarityThreshold,
     )
     return NextResponse.json(
       { findings },

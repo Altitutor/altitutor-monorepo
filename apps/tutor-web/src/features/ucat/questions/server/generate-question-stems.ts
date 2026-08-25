@@ -26,6 +26,9 @@ import {
   buildLocalPlan,
 } from '@/features/ucat/questions/lib/ai-generation/local-plan'
 import {
+  shuffleGeneratedStemMostLeastOptions,
+} from '@/features/ucat/questions/lib/ai-generation/shuffle-most-least-options'
+import {
   DifficultyTargetSchema,
   GeneratedCandidateResponseSchema,
   TimeBurdenTargetSchema,
@@ -1650,7 +1653,13 @@ export async function executeGeneration(
             totalStems: body.stemCount,
             runId,
           })
-          return { stem: candidate, issues }
+          return {
+            stem: shuffleGeneratedStemMostLeastOptions(
+              candidate,
+              `${runId ?? 'generation'}:stem:${stemIndex}`,
+            ),
+            issues,
+          }
         }
 
         completedStemSlots += 1

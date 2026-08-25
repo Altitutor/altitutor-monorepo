@@ -59,6 +59,8 @@ export interface EntityListPillColumn<TItem, TValue = unknown> {
   key: string;
   label: string;
   visibleByDefault?: boolean;
+  /** Filterable in the toolbar, but omitted from card/row pills and the view menu. */
+  filterOnly?: boolean;
   getValue: (item: TItem) => TValue;
   renderPill: (item: TItem, onChange: (value: TValue) => void, collapsed?: boolean) => React.ReactNode;
   filterOptions?: { value: TValue; label: string }[];
@@ -70,6 +72,32 @@ export interface EntityListPillColumn<TItem, TValue = unknown> {
   filterable?: boolean;
   compare?: (a: TValue, b: TValue) => number;
   defaultValue?: TValue;
+}
+
+export function selectedFilterMatchesValue(selected: unknown[], value: unknown): boolean {
+  return selected.some((v) => {
+    if (v === value) return true;
+    if (Array.isArray(value) && value.includes(v)) return true;
+
+    if (typeof v === 'object' && v !== null && 'type' in v && (v as { type?: string }).type === 'date_range') {
+      const dr = v as { start?: string; end?: string; operator?: 'gte' | 'lte' };
+      const itemDateStr = typeof value === 'string' ? value : null;
+      if (!itemDateStr) return false;
+      const itemTime = new Date(itemDateStr).getTime();
+      if (isNaN(itemTime)) return false;
+
+      if (dr.operator === 'gte' && dr.start) return itemTime >= new Date(dr.start).getTime();
+      if (dr.operator === 'lte' && dr.end) return itemTime <= new Date(dr.end).getTime();
+      if (dr.start && dr.end) {
+        return itemTime >= new Date(dr.start).getTime() && itemTime <= new Date(dr.end).getTime();
+      }
+      if (dr.start) return itemTime >= new Date(dr.start).getTime();
+      if (dr.end) return itemTime <= new Date(dr.end).getTime();
+      return false;
+    }
+
+    return typeof v === 'object' && typeof value === 'object' && JSON.stringify(v) === JSON.stringify(value);
+  });
 }
 
 type FilterOption = { value: unknown; label: string };
@@ -240,7 +268,7 @@ export function EntityList<TItem>(props: EntityListProps<TItem>) {
   } = props;
 
   const [internalVisiblePills, setInternalVisiblePills] = React.useState<string[]>(() =>
-    rightPills.filter((p) => p.visibleByDefault !== false).map((p) => p.key)
+    rightPills.filter((p) => p.filterOnly !== true && p.visibleByDefault !== false).map((p) => p.key)
   );
   const [internalGroupBy, setInternalGroupBy] = React.useState<string | null>(null);
   const [internalSortBy, setInternalSortBy] = React.useState<string>('name');
@@ -368,29 +396,7 @@ export function EntityList<TItem>(props: EntityListProps<TItem>) {
         const value = pill ? pill.getValue(item) : statusVal;
         const hasColumn = pill !== undefined || statusColumn?.key === columnKey;
         if (!hasColumn) continue;
-        const match = selected.some((v) => {
-          if (v === value) return true;
-          
-          // Handle date range objects from quick filters
-          if (typeof v === 'object' && v !== null && 'type' in v && (v as { type?: string }).type === 'date_range') {
-            const dr = v as { start?: string; end?: string; operator?: 'gte' | 'lte' };
-            const itemDateStr = typeof value === 'string' ? value : null;
-            if (!itemDateStr) return false;
-            const itemTime = new Date(itemDateStr).getTime();
-            if (isNaN(itemTime)) return false;
-            
-            if (dr.operator === 'gte' && dr.start) return itemTime >= new Date(dr.start).getTime();
-            if (dr.operator === 'lte' && dr.end) return itemTime <= new Date(dr.end).getTime();
-            if (dr.start && dr.end) {
-              return itemTime >= new Date(dr.start).getTime() && itemTime <= new Date(dr.end).getTime();
-            }
-            if (dr.start) return itemTime >= new Date(dr.start).getTime();
-            if (dr.end) return itemTime <= new Date(dr.end).getTime();
-            return false;
-          }
-
-          return typeof v === 'object' && typeof value === 'object' && JSON.stringify(v) === JSON.stringify(value);
-        });
+        const match = selectedFilterMatchesValue(selected, value);
         if (!match) return false;
       }
       return true;
@@ -484,8 +490,8 @@ export function EntityList<TItem>(props: EntityListProps<TItem>) {
                 <DropdownMenuLabel className="px-2 py-1.5">Show pills</DropdownMenuLabel>
                 <DropdownMenuSeparator />
                 <SearchableSelectInline<EntityListPillColumn<TItem, unknown>>
-                  items={rightPills}
-                  value={rightPills.filter((p) => visiblePillKeys.includes(p.key))}
+                  items={rightPills.filter((p) => p.filterOnly !== true)}
+                  value={rightPills.filter((p) => p.filterOnly !== true && visiblePillKeys.includes(p.key))}
                   onValueChange={(cols) => setVisiblePillKeys(cols.map((c) => c.key))}
                   getItemId={(p) => p.key}
                   getItemLabel={(p) => p.label}
@@ -1046,23 +1052,28 @@ export function EntityListAddRow<TItem>(props: EntityListAddRowRenderProps<TItem
         />
 
         <div className="flex items-center gap-2 flex-shrink-0 overflow-x-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
-          {rightPills.filter(p => visiblePillKeys.includes(p.key)).map((pill, index) => (
-            <div key={pill.key} className={cn("flex-shrink-0", index > 0 && "hidden sm:flex")}>
-              {compact ? (
-                pill.renderPill(addValues as TItem, (val) => setAddValues(prev => ({ ...prev, [pill.key]: val })), true)
-              ) : (
-                <>
-                  {/* Responsive: show full pill on larger screens, icon on smaller */}
-                  <div className="hidden lg:block">
-                    {pill.renderPill(addValues as TItem, (val) => setAddValues(prev => ({ ...prev, [pill.key]: val })), false)}
-                  </div>
-                  <div className="lg:hidden">
-                    {pill.renderPill(addValues as TItem, (val) => setAddValues(prev => ({ ...prev, [pill.key]: val })), true)}
-                  </div>
-                </>
-              )}
-            </div>
-          ))}
+          {rightPills.filter(p => visiblePillKeys.includes(p.key)).map((pill, index) => {
+            const onChange = (val: unknown) => setAddValues(prev => ({ ...prev, [pill.key]: val }));
+            const collapsedNode = pill.renderPill(addValues as TItem, onChange, true);
+            const expandedNode = compact ? collapsedNode : pill.renderPill(addValues as TItem, onChange, false);
+            if (collapsedNode == null && expandedNode == null) return null;
+
+            return (
+              <div key={pill.key} className={cn("flex-shrink-0", index > 0 && "hidden sm:flex")}>
+                {compact ? collapsedNode : (
+                  <>
+                    {/* Responsive: show full pill on larger screens, icon on smaller */}
+                    <div className="hidden lg:block">
+                      {expandedNode}
+                    </div>
+                    <div className="lg:hidden">
+                      {collapsedNode}
+                    </div>
+                  </>
+                )}
+              </div>
+            );
+          })}
         </div>
 
         <Button
@@ -1170,22 +1181,24 @@ function EntityListRow<TItem>({
       {/* Right: pills */}
       <div className="flex items-center gap-2 flex-shrink-0 overflow-x-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
         {rightPills.map((pill, index) => {
+          const collapsedNode = pill.renderPill(item, () => {}, true);
+          const expandedNode = compact ? collapsedNode : pill.renderPill(item, () => {}, false);
+          if (collapsedNode == null && expandedNode == null) return null;
+
           return (
             <div
               key={pill.key}
               onClick={(e) => e.stopPropagation()}
               className={cn("transition-opacity flex-shrink-0", index > 0 && "hidden sm:flex")}
             >
-              {compact ? (
-                pill.renderPill(item, () => {}, true)
-              ) : (
+              {compact ? collapsedNode : (
                 <>
                   {/* Responsive: show full pill on larger screens, icon on smaller */}
                   <div className="hidden lg:block">
-                    {pill.renderPill(item, () => {}, false)}
+                    {expandedNode}
                   </div>
                   <div className="lg:hidden">
-                    {pill.renderPill(item, () => {}, true)}
+                    {collapsedNode}
                   </div>
                 </>
               )}

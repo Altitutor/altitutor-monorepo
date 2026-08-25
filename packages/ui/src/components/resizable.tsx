@@ -1,6 +1,6 @@
 "use client"
 
-import * as React from "react"
+import * as React from 'react'
 import {
   Group,
   Panel,
@@ -11,8 +11,17 @@ import {
 } from "react-resizable-panels"
 
 import { cn } from "../lib/cn"
+import {
+  bindPanelResizeRelease,
+  ensurePanelResizeGuardInstalled,
+  markPanelResizeActive,
+} from "../lib/panel-resize-guard"
 
 function ResizablePanelGroup({ className, ...props }: GroupProps) {
+  React.useEffect(() => {
+    ensurePanelResizeGuardInstalled()
+  }, [])
+
   return <Group className={cn("flex h-full w-full", className)} {...props} />
 }
 
@@ -20,18 +29,33 @@ function ResizablePanel(props: PanelProps) {
   return <Panel {...props} />
 }
 
-function ResizableHandle({ className, ...props }: SeparatorProps) {
+function ResizableHandle({
+  className,
+  onPointerDownCapture,
+  ...props
+}: SeparatorProps) {
+  const handlePointerDownCapture = React.useCallback(
+    (event: React.PointerEvent<HTMLDivElement>) => {
+      const handle = event.currentTarget;
+      markPanelResizeActive(handle);
+      bindPanelResizeRelease(handle);
+      onPointerDownCapture?.(event);
+    },
+    [onPointerDownCapture]
+  );
+
   return (
     <Separator
+      onPointerDownCapture={handlePointerDownCapture}
       className={cn(
-        "group relative flex w-px shrink-0 items-center justify-center bg-border",
+        "group relative flex w-px shrink-0 items-center justify-center bg-transparent",
         "after:absolute after:inset-y-0 after:left-1/2 after:w-3 after:-translate-x-1/2",
         "hover:bg-primary/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1",
         className
       )}
       {...props}
     >
-      <span className="z-10 h-8 w-1 rounded-full bg-border transition-colors group-hover:bg-primary/50" />
+      <span className="z-10 h-8 w-1 rounded-full bg-transparent transition-colors group-hover:bg-primary/50" />
     </Separator>
   )
 }
@@ -115,3 +139,7 @@ function ResponsiveResizablePanels({
 }
 
 export { ResponsiveResizablePanels, ResizableHandle, ResizablePanel, ResizablePanelGroup }
+
+if (typeof window !== 'undefined') {
+  ensurePanelResizeGuardInstalled()
+}

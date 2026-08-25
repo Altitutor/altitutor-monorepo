@@ -41,22 +41,36 @@ export async function GET(request: Request) {
   const url = new URL(request.url);
   const source = url.searchParams.get("source") as ProgressSeriesSource | null;
   const sectionNumberValue = url.searchParams.get("sectionNumber");
-  const sectionNumber = sectionNumberValue == null ? null : Number(sectionNumberValue);
+  const sectionNumber =
+    sectionNumberValue == null ? null : Number(sectionNumberValue);
 
   if (!source || !SOURCES.includes(source)) {
-    return NextResponse.json({ error: "Invalid progress series source" }, { status: 400 });
+    return NextResponse.json(
+      { error: "Invalid progress series source" },
+      { status: 400 },
+    );
   }
   if (
     sectionNumberValue != null &&
-    (!Number.isInteger(sectionNumber) || sectionNumber! < 1 || sectionNumber! > 4)
+    (!Number.isInteger(sectionNumber) ||
+      sectionNumber! < 1 ||
+      sectionNumber! > 4)
   ) {
-    return NextResponse.json({ error: "Invalid section number" }, { status: 400 });
+    return NextResponse.json(
+      { error: "Invalid section number" },
+      { status: 400 },
+    );
   }
 
   const supabase = await getSupabaseServerClient();
-  const { data: { user }, error: authError } = await supabase.auth.getUser();
-  if (authError) return NextResponse.json({ error: "Failed to get user" }, { status: 500 });
-  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const {
+    data: { user },
+    error: authError,
+  } = await supabase.auth.getUser();
+  if (authError)
+    return NextResponse.json({ error: "Failed to get user" }, { status: 500 });
+  if (!user)
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   let sectionId: string | null = null;
   if (sectionNumber != null) {
@@ -66,7 +80,10 @@ export async function GET(request: Request) {
       .eq("section_number", sectionNumber)
       .maybeSingle();
     if (sectionRes.error) {
-      return NextResponse.json({ error: sectionRes.error.message }, { status: 500 });
+      return NextResponse.json(
+        { error: sectionRes.error.message },
+        { status: 500 },
+      );
     }
     sectionId = sectionRes.data?.id ?? null;
   }
@@ -74,25 +91,54 @@ export async function GET(request: Request) {
   const client = supabase as unknown as {
     from: (relation: string) => {
       select: (columns: string) => {
-        eq: (column: string, value: string) => {
-          eq: (column: string, value: string) => {
-            order: (column: string) => Promise<{ data: SeriesRow[] | null; error: Error | null }>;
+        eq: (
+          column: string,
+          value: string,
+        ) => {
+          eq: (
+            column: string,
+            value: string,
+          ) => {
+            order: (
+              column: string,
+              options: { ascending: boolean },
+            ) => {
+              limit: (count: number) => Promise<{
+                data: SeriesRow[] | null;
+                error: Error | null;
+              }>;
+            };
           };
-          order: (column: string) => Promise<{ data: SeriesRow[] | null; error: Error | null }>;
+          order: (
+            column: string,
+            options: { ascending: boolean },
+          ) => {
+            limit: (count: number) => Promise<{
+              data: SeriesRow[] | null;
+              error: Error | null;
+            }>;
+          };
         };
       };
     };
   };
-  const columns = "activity_date, attempt_count, scaled_score_sum, scaled_score_count, score_points_sum, total_points_sum, time_taken_seconds_sum, time_taken_count, time_limit_seconds_sum, exam_speed_percent_sum, exam_speed_count";
+  const columns =
+    "activity_date, attempt_count, scaled_score_sum, scaled_score_count, score_points_sum, total_points_sum, time_taken_seconds_sum, time_taken_count, time_limit_seconds_sum, exam_speed_percent_sum, exam_speed_count";
   const sourceQuery = client
     .from("vstudent_ucat_progress_series_daily")
     .select(columns)
     .eq("source", source);
-  const result = sectionNumber != null
-    ? sectionId == null
-      ? { data: [] as SeriesRow[], error: null }
-      : await sourceQuery.eq("section_id", sectionId).order("activity_date")
-    : await sourceQuery.order("activity_date");
+  const result =
+    sectionNumber != null
+      ? sectionId == null
+        ? { data: [] as SeriesRow[], error: null }
+        : await sourceQuery
+            .eq("section_id", sectionId)
+            .order("activity_date", { ascending: false })
+            .limit(1000)
+      : await sourceQuery
+          .order("activity_date", { ascending: false })
+          .limit(1000);
 
   if (result.error) {
     return NextResponse.json({ error: result.error.message }, { status: 500 });
@@ -100,7 +146,7 @@ export async function GET(request: Request) {
 
   return NextResponse.json({
     granularity: "day",
-    points: (result.data ?? []).map((row) => ({
+    points: [...(result.data ?? [])].reverse().map((row) => ({
       date: row.activity_date,
       attemptCount: row.attempt_count,
       scaledScoreSum: Number(row.scaled_score_sum),

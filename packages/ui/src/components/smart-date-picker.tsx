@@ -3,7 +3,8 @@
 import * as React from 'react';
 import { Calendar } from 'lucide-react';
 import { addDays, format, startOfDay } from 'date-fns';
-import { cn } from '../lib/cn';
+import { cn } from '../lib/cn'
+import { fieldTriggerClassName } from '../lib/field-trigger';
 import { parseNaturalDate } from '../lib/smart-date-parser';
 import {
   Command,
@@ -388,7 +389,8 @@ export function SmartDatePickerField({
         type="button"
         disabled={disabled}
         className={cn(
-          'flex h-10 w-full items-center justify-between gap-2 rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background transition-colors hover:bg-brand-lightBlue/10 dark:hover:bg-brand-dark-card/70 dark:hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 group',
+          fieldTriggerClassName,
+          'group justify-between',
           !formattedDate && 'text-muted-foreground',
           className
         )}

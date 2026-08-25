@@ -2,6 +2,7 @@
 
 import * as React from 'react';
 import {
+  type CollisionDetection,
   DndContext,
   DragCancelEvent,
   DragEndEvent,
@@ -12,6 +13,7 @@ import {
   useSensor,
   useSensors,
   closestCorners,
+  pointerWithin,
   useDroppable,
 } from '@dnd-kit/core';
 import {
@@ -52,7 +54,7 @@ import {
   Layers,
   Search,
 } from 'lucide-react';
-import { EntityListPillColumn, EntityListStatusColumn, QuickFilter } from './entity-list';
+import { EntityListPillColumn, EntityListStatusColumn, QuickFilter, selectedFilterMatchesValue } from './entity-list';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -64,6 +66,7 @@ export interface KanbanColumnDef<TItem, TValue = unknown> {
   getValue: (item: TItem) => TValue;
   options: { value: TValue; label: string; icon?: React.ComponentType<{ className?: string }> }[];
   onValueChange: (item: TItem, value: TValue) => void;
+  filterable?: boolean;
 }
 
 export interface KanbanBoardProps<TItem> {
@@ -154,6 +157,18 @@ type FilterOption = { value: unknown; label: string };
 
 const animateSettlingLayoutChanges: AnimateLayoutChanges = () => true;
 
+const kanbanCollisionDetection: CollisionDetection = (args) => {
+  const pointerCollisions = pointerWithin(args);
+  if (pointerCollisions.length > 0) {
+    const cardCollisions = pointerCollisions.filter(
+      (collision) => !String(collision.id).startsWith('column-')
+    );
+    return cardCollisions.length > 0 ? cardCollisions : pointerCollisions;
+  }
+
+  return closestCorners(args);
+};
+
 /** Columns larger than this mount only the visible slice plus overscan. */
 export const KANBAN_COLUMN_VIRTUALIZE_AFTER = 32;
 
@@ -199,7 +214,7 @@ export function KanbanBoard<TItem>(props: KanbanBoardProps<TItem>) {
   const [internalFilters, setInternalFilters] = React.useState<Record<string, unknown[]>>({});
   const [internalHideEmptyColumns] = React.useState(false);
   const [internalVisiblePills, setInternalVisiblePills] = React.useState<string[]>(() =>
-    rightPills.filter((p) => p.visibleByDefault !== false).map((p) => p.key)
+    rightPills.filter((p) => p.filterOnly !== true && p.visibleByDefault !== false).map((p) => p.key)
   );
   const [activeDragItem, setActiveDragItem] = React.useState<TItem | null>(null);
   const [dragPreview, setDragPreview] = React.useState<{
@@ -291,29 +306,7 @@ export function KanbanBoard<TItem>(props: KanbanBoardProps<TItem>) {
           if (!selected?.length) continue;
           
           const value = getPropValue(item, columnKey, rightPills, statusColumn, columnDefs);
-          const match = selected.some((v) => {
-            if (v === value) return true;
-
-            // Handle date range objects from quick filters
-            if (typeof v === 'object' && v !== null && 'type' in v && (v as { type?: string }).type === 'date_range') {
-              const dr = v as { start?: string; end?: string; operator?: 'gte' | 'lte' };
-              const itemDateStr = typeof value === 'string' ? value : null;
-              if (!itemDateStr) return false;
-              const itemTime = new Date(itemDateStr).getTime();
-              if (isNaN(itemTime)) return false;
-              
-              if (dr.operator === 'gte' && dr.start) return itemTime >= new Date(dr.start).getTime();
-              if (dr.operator === 'lte' && dr.end) return itemTime <= new Date(dr.end).getTime();
-              if (dr.start && dr.end) {
-                return itemTime >= new Date(dr.start).getTime() && itemTime <= new Date(dr.end).getTime();
-              }
-              if (dr.start) return itemTime >= new Date(dr.start).getTime();
-              if (dr.end) return itemTime <= new Date(dr.end).getTime();
-              return false;
-            }
-
-            return typeof v === 'object' && typeof value === 'object' && JSON.stringify(v) === JSON.stringify(value);
-          });
+          const match = selectedFilterMatchesValue(selected, value);
           if (!match) return false;
         }
         return true;
@@ -560,8 +553,8 @@ export function KanbanBoard<TItem>(props: KanbanBoardProps<TItem>) {
               <DropdownMenuLabel className="px-2 py-1.5">Show pills</DropdownMenuLabel>
               <DropdownMenuSeparator />
               <SearchableSelectInline<EntityListPillColumn<TItem, unknown>>
-                items={rightPills}
-                value={rightPills.filter((p) => visiblePillKeys.includes(p.key))}
+                items={rightPills.filter((p) => p.filterOnly !== true)}
+                value={rightPills.filter((p) => p.filterOnly !== true && visiblePillKeys.includes(p.key))}
                 onValueChange={(cols) => setVisiblePillKeys(cols.map((c) => c.key))}
                 getItemId={(p) => p.key}
                 getItemLabel={(p) => p.label}
@@ -855,6 +848,7 @@ export function KanbanBoard<TItem>(props: KanbanBoardProps<TItem>) {
                     }
 
                     columnDefs.forEach((col: KanbanColumnDef<TItem>) => {
+                      if (col.filterable === false) return;
                       if (renderedKeys.has(col.key)) return;
                       renderedKeys.add(col.key);
                       const options: FilterOption[] = col.options.map((o) => ({
@@ -1046,7 +1040,7 @@ export function KanbanBoard<TItem>(props: KanbanBoardProps<TItem>) {
         
         <DndContext
           sensors={sensors}
-          collisionDetection={closestCorners}
+          collisionDetection={kanbanCollisionDetection}
           onDragStart={handleDragStart}
           onDragOver={handleDragOver}
           onDragEnd={handleDragEnd}
@@ -1248,7 +1242,7 @@ function KanbanColumn<TItem>({
           </span>
         </div>
         {onAdd && (
-          <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={onAdd} title={addButtonLabel}>
+          <Button type="button" variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={onAdd} title={addButtonLabel}>
             <Plus className="h-4 w-4" />
           </Button>
         )}

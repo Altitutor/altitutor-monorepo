@@ -12,6 +12,7 @@ module.exports = {
     '^@altitutor/shared/(.*)$': '<rootDir>/../shared/src/$1',
     '^@altitutor/ucat-response-contract$': '<rootDir>/../ucat-response-contract/src/index.ts',
     '^@altitutor/ucat-response-contract/(.*)$': '<rootDir>/../ucat-response-contract/src/$1',
+    '\\.(css|less|scss|sass)$': '<rootDir>/src/__mocks__/styleMock.js',
   },
   passWithNoTests: true,
 };

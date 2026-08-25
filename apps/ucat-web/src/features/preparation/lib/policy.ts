@@ -7,7 +7,7 @@ export const CURRENT_PREPARATION_VERSIONS: PreparationVersions = Object.freeze({
   engine: "preparation-engine-v1",
   policy: "evidence-driven-preparation-policy-v7",
   scoreModel: "pooled-representative-evidence-score-v2",
-  trajectoryModel: "conditional-preparation-trajectory-v1",
+  trajectoryModel: "observed-behavior-trajectory-v2",
 });
 
 /**

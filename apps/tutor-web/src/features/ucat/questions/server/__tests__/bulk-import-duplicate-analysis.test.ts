@@ -1,7 +1,5 @@
 import {
-  analyzeBulkImportDuplicates,
-  canonicalDraftRichText,
-  findCatalogDuplicateCandidateIds,
+  buildBulkImportDuplicateFindings,
   type BulkImportDuplicateCatalogStem,
   type BulkImportDuplicateDraft,
 } from '@/features/ucat/questions/server/bulk-import-duplicate-analysis'
@@ -11,164 +9,101 @@ const richText = (text: string) => ({
   content: [{ type: 'paragraph', content: [{ type: 'text', text }] }],
 })
 
-function draft(
-  id: string,
-  stemText: string,
-  questionText = 'Which answer is correct?',
-): BulkImportDuplicateDraft {
+function draft(id: string, stemText: string): BulkImportDuplicateDraft {
   return {
     id,
     sectionId: '11111111-1111-4111-8111-111111111111',
     stemText: richText(stemText),
-    questions: [
-      {
-        id: `${id}-question`,
-        questionText: richText(questionText),
-        responseType: 'multiple_choice', answerScheme: 'single_choice',
-        answerExplanation: richText('Explanation'),
-        options: [
-          {
-            id: `${id}-option-a`,
-            answerText: richText('Answer A'),
-            answerExplanation: richText('Correct'),
-            answerKeyValue: 'correct',
-          },
-          {
-            id: `${id}-option-b`,
-            answerText: richText('Answer B'),
-            answerExplanation: richText('Incorrect'),
-            answerKeyValue: null,
-          },
-        ],
-      },
-    ],
+    questions: [{
+      id: `${id}-question`,
+      questionText: richText('Which answer is correct?'),
+      responseType: 'multiple_choice',
+      answerScheme: 'single_choice',
+      answerExplanation: richText('Explanation'),
+      options: [{
+        id: `${id}-option`,
+        answerText: richText('Answer A'),
+        answerExplanation: richText('Correct'),
+        answerKeyValue: 'correct',
+      }],
+    }],
   }
 }
 
-function catalog(
-  id: string,
-  stemText: string,
-  questionText = 'Which answer is correct?',
-): BulkImportDuplicateCatalogStem {
-  const source = draft('source', stemText, questionText)
+function catalog(id: string, stemText: string): BulkImportDuplicateCatalogStem {
   return {
     id,
-    sectionId: source.sectionId,
+    sectionId: '11111111-1111-4111-8111-111111111111',
     status: 'published',
-    stemText: source.stemText,
-    stemComparisonText: canonicalDraftRichText(source.stemText),
-    questionSearchText: canonicalDraftRichText(source.questions[0].questionText),
-    answerOptionSearchText: source.questions[0].options
-      .map((option) => canonicalDraftRichText(option.answerText))
-      .join(' '),
-    questions: [
-      {
-        id: 'persisted-question',
-        index: 0,
-        question_text: source.questions[0].questionText,
-        response_type: 'multiple_choice',
-        answer_scheme: 'single_choice',
-        answer_explanation: source.questions[0].answerExplanation,
-        answer_options: source.questions[0].options.map((option, index) => ({
-          id: `persisted-option-${index}`,
-          index,
-          answer_text: option.answerText,
-          answer_explanation: option.answerExplanation,
-          answer_key_value: option.answerKeyValue,
-        })),
-      },
-    ],
+    stemText: richText(stemText),
+    questions: [{
+      id: `${id}-question`,
+      index: 0,
+      question_text: richText('A different saved question'),
+      response_type: 'multiple_choice',
+      answer_scheme: 'single_choice',
+      answer_options: [],
+    }],
   }
 }
 
-describe('bulk import duplicate analysis', () => {
-  it('distinguishes a complete duplicate from a shared-stem match', () => {
-    const stemText = 'A clinic audited patient waiting times across four departments.'
-    const exact = analyzeBulkImportDuplicates(
-      [draft('draft-exact', stemText)],
-      [catalog('catalog-exact', stemText)],
-    )
-    const shared = analyzeBulkImportDuplicates(
-      [draft('draft-shared', stemText, 'What was the median waiting time?')],
-      [catalog('catalog-shared', stemText)],
+describe('bulk import duplicate finding hydration', () => {
+  it('hydrates a database stem-similarity match without classifying question content', () => {
+    const imported = draft('draft-a', 'The imported stem')
+    const saved = catalog('catalog-a', 'The saved stem')
+
+    const findings = buildBulkImportDuplicateFindings(
+      [imported],
+      [saved],
+      [{
+        draftId: imported.id,
+        matchSource: 'catalog',
+        matchStemId: saved.id,
+        similarity: 0.9632,
+      }],
     )
 
-    expect(exact).toHaveLength(1)
-    expect(exact[0].kind).toBe('exact_duplicate')
-    expect(exact[0].match.source).toBe('catalog')
-    expect(exact[0].draft.questions).toEqual([
-      expect.objectContaining({ id: 'draft-exact-question', questionIndex: 0 }),
-    ])
-    expect(exact[0].draft.questions[0].options).toHaveLength(2)
-    expect(shared).toHaveLength(1)
-    expect(shared[0].kind).toBe('shared_stem')
+    expect(findings).toEqual([expect.objectContaining({
+      id: 'draft-a:catalog:catalog-a',
+      similarity: 0.9632,
+      draft: expect.objectContaining({ source: 'draft', stemId: 'draft-a' }),
+      match: expect.objectContaining({ source: 'catalog', stemId: 'catalog-a' }),
+    })])
   })
 
-  it('finds strict possible near-copies without overstating them as exact', () => {
-    const original =
-      'A community shuttle charges a booking fee of $42 plus $0.68 per kilometre travelled. A journey costs $178 in total, and the booking fee is waived on Sundays.'
-    const changed =
-      'A community shuttle charges a booking fee of $42 plus $0.68 per kilometre travelled. A journey costs $180 in total, and the booking fee is waived on Sundays.'
-    const findings = analyzeBulkImportDuplicates(
-      [draft('draft-near', changed, 'What is the charge for a 200 kilometre journey on Sunday?')],
-      [catalog('catalog-near', original, 'What is the charge for a 200 kilometre journey on Sunday?')],
-    )
+  it('hydrates one within-import pair in the order returned by the matcher', () => {
+    const left = draft('draft-left', 'The same stem')
+    const right = draft('draft-right', 'The same stem')
 
-    expect(findings).toHaveLength(1)
-    expect(findings[0].kind).toBe('possible_near_copy')
-    expect(findings[0].similarity?.isNearCopy).toBe(true)
-    expect(
-      Math.max(
-        findings[0].similarity?.tokenRatio ?? 0,
-        findings[0].similarity?.trigramRatio ?? 0,
-      ),
-    ).toBeGreaterThanOrEqual(0.9)
-  })
-
-  it('detects duplicate pairs inside the current import batch only once', () => {
-    const stemText = 'The passage describes a long-running study of coastal erosion.'
-    const findings = analyzeBulkImportDuplicates(
-      [
-        draft('draft-a', stemText),
-        draft('draft-b', stemText),
-        { ...draft('other-section', stemText), sectionId: '22222222-2222-4222-8222-222222222222' },
-      ],
+    const findings = buildBulkImportDuplicateFindings(
+      [left, right],
       [],
+      [{
+        draftId: left.id,
+        matchSource: 'draft',
+        matchStemId: right.id,
+        similarity: 1,
+      }],
     )
 
-    expect(findings).toHaveLength(1)
-    expect(findings[0]).toMatchObject({
-      kind: 'exact_duplicate',
-      draft: { stemId: 'draft-a' },
-      match: { source: 'draft', stemId: 'draft-b' },
-    })
+    expect(findings).toEqual([expect.objectContaining({
+      id: 'draft-left:draft:draft-right',
+      similarity: 1,
+      draft: expect.objectContaining({ stemId: 'draft-left' }),
+      match: expect.objectContaining({ source: 'draft', stemId: 'draft-right' }),
+    })])
   })
 
-  it('retains media identity when canonicalising image-only stems', () => {
-    const imageStem = (fileId: string) => ({
-      type: 'doc',
-      content: [{ type: 'image', attrs: { fileId } }],
-    })
-
-    expect(canonicalDraftRichText(imageStem('file-a'))).toBe('|media:file-a')
-    expect(canonicalDraftRichText(imageStem('file-a'))).not.toBe(
-      canonicalDraftRichText(imageStem('file-b')),
-    )
-  })
-
-  it('hydrates only exact or strict near-copy catalog candidates', () => {
-    const source = draft(
-      'draft-candidate',
-      'A ferry office sells day passes for $29 and charges $0.45 per kilometre after the first 12 kilometres. A passenger travels 80 kilometres and pays $59.60 in total.',
-    )
-    const exact = catalog('exact', canonicalDraftRichText(source.stemText))
-    exact.stemText = source.stemText
-    exact.stemComparisonText = canonicalDraftRichText(source.stemText)
-    const unrelated = catalog(
-      'unrelated',
-      'A short passage considers whether a museum should extend its opening hours.',
-    )
-
-    expect(findCatalogDuplicateCandidateIds([source], [exact, unrelated])).toEqual(['exact'])
+  it('drops matches whose detail can no longer be hydrated', () => {
+    expect(buildBulkImportDuplicateFindings(
+      [draft('draft-a', 'An imported stem')],
+      [],
+      [{
+        draftId: 'draft-a',
+        matchSource: 'catalog',
+        matchStemId: 'deleted-catalog-stem',
+        similarity: 1,
+      }],
+    )).toEqual([])
   })
 })

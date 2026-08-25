@@ -2,11 +2,15 @@
 
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { Loader2 } from 'lucide-react';
-import { Input, SearchFromDropdown } from '@altitutor/ui';
+import { Loader2, X } from 'lucide-react';
+import { Button, Input, SearchFromDropdown } from '@altitutor/ui';
 import { focusCommandPaletteInput } from '@altitutor/shared';
 import { cn } from '@/shared/utils';
-import { tutorToolbarSearchContainerClassName, tutorToolbarSearchInputClassName } from '@/shared/lib/tutor-visual';
+import {
+  tutorBtnIconOutline,
+  tutorToolbarSearchContainerClassName,
+  tutorToolbarSearchInputClassName,
+} from '@/shared/lib/tutor-visual';
 import { entityTypes } from '../config/commandPalette.config';
 import { getEffectiveEntityFilters } from '../utils/entitySearchTypes';
 import { useCommandPaletteSearch } from '../hooks/useCommandPaletteSearch';
@@ -87,7 +91,13 @@ export function CommandPalette({ isOpen, onClose, onEntitySelected }: CommandPal
     setSearchQuery('');
     setSelectedIndex(0);
     setSelectedFilters(ALL_COMMAND_PALETTE_FILTER_TYPES);
-    focusCommandPaletteInput(inputRef.current);
+    const isMobileSheet = window.matchMedia('(max-width: 767px)').matches;
+    // Wait for the mobile slide-up so iOS does not treat the input as
+    // keyboard-obscured and pan the page off-screen.
+    focusCommandPaletteInput(
+      inputRef.current,
+      isMobileSheet ? { delaysMs: [350] } : undefined,
+    );
   }, [isOpen]);
 
   const handleSelectItem = useCallback(
@@ -161,39 +171,50 @@ export function CommandPalette({ isOpen, onClose, onEntitySelected }: CommandPal
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      <div className={cn('mx-3 mt-3 flex shrink-0 items-center', tutorToolbarSearchContainerClassName)}>
-        <SearchFromDropdown
-          options={COMMAND_PALETTE_FILTER_OPTIONS.map((filter) => ({
-            label: filter.label,
-            value: filter.type,
-          }))}
-          value={selectedFilters}
-          onValueChange={(values) => setSelectedFilters(values as FilterType[])}
-          menuLabel="Search in"
-          allSelectedLabel="All types"
-          partialSelectedSuffix="types"
-          menuContentClassName="z-[110]"
-          modal={false}
-        />
-        <Input
-          ref={inputRef}
-          type="search"
-          inputMode="search"
-          enterKeyHint="search"
-          autoFocus
-          autoComplete="off"
-          autoCorrect="off"
-          spellCheck={false}
-          placeholder="Search or try 12CHEM 2.2 for a topic/file..."
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          onKeyDown={handleKeyDown}
-          className={cn(
-            'h-full min-w-0 flex-1 border-0 bg-transparent px-2 text-base shadow-none focus-visible:ring-0 focus-visible:ring-offset-0 md:text-sm',
-            tutorToolbarSearchInputClassName,
-          )}
-        />
-        {isSearching ? <Loader2 className="mr-2 h-4 w-4 shrink-0 animate-spin opacity-50" /> : null}
+      <div className="mx-3 mt-3 flex shrink-0 items-center gap-2">
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon"
+          onClick={onClose}
+          className={cn('md:hidden', tutorBtnIconOutline)}
+          aria-label="Close"
+        >
+          <X className="h-4 w-4" />
+        </Button>
+        <div className={cn('flex min-w-0 flex-1 items-center', tutorToolbarSearchContainerClassName)}>
+          <SearchFromDropdown
+            options={COMMAND_PALETTE_FILTER_OPTIONS.map((filter) => ({
+              label: filter.label,
+              value: filter.type,
+            }))}
+            value={selectedFilters}
+            onValueChange={(values) => setSelectedFilters(values as FilterType[])}
+            menuLabel="Search in"
+            allSelectedLabel="All types"
+            partialSelectedSuffix="types"
+            menuContentClassName="z-[110]"
+            modal={false}
+          />
+          <Input
+            ref={inputRef}
+            type="search"
+            inputMode="search"
+            enterKeyHint="search"
+            autoComplete="off"
+            autoCorrect="off"
+            spellCheck={false}
+            placeholder="Search or try 12CHEM 2.2 for a topic/file..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            onKeyDown={handleKeyDown}
+            className={cn(
+              'h-full min-w-0 flex-1 border-0 bg-transparent px-2 text-base shadow-none focus-visible:ring-0 focus-visible:ring-offset-0 md:text-sm',
+              tutorToolbarSearchInputClassName,
+            )}
+          />
+          {isSearching ? <Loader2 className="mr-2 h-4 w-4 shrink-0 animate-spin opacity-50" /> : null}
+        </div>
       </div>
 
       <div ref={resultsRef} className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-1 py-2">
@@ -220,7 +241,7 @@ export function CommandPalette({ isOpen, onClose, onEntitySelected }: CommandPal
         ))}
       </div>
 
-      <div className="flex shrink-0 items-center justify-between border-t border-black/[0.06] px-4 py-2 text-xs text-muted-foreground dark:border-white/10">
+      <div className="hidden shrink-0 items-center justify-between border-t border-black/[0.06] px-4 py-2 text-xs text-muted-foreground dark:border-white/10 md:flex">
         <span>Navigate with ↑↓ or Tab, select with Enter</span>
         <span>Press Esc to close</span>
       </div>

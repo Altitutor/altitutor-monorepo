@@ -1,9 +1,10 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState } from 'react';
 import { Button, SearchableSelect } from '@altitutor/ui';
 import { User, Gauge, Link2, FolderKanban } from 'lucide-react';
 import { cn } from '@/shared/utils';
+import { useEntityModals } from '@/shared/contexts/EntityModalContext';
 import {
   getPriorityIcon,
   getPriorityLabel,
@@ -15,31 +16,9 @@ import {
 } from '../../utils/taskUtils';
 import type { TaskWithAssignee, TaskPriority } from '../../types';
 
-type LinkSelection =
-  | { type: 'issue'; id: string; name: string | null }
-  | { type: 'project'; id: string; name: string | null }
-  | null;
-
-type LinkItem = Exclude<LinkSelection, null>;
-
 const pillTriggerClass =
   'inline-flex h-8 items-center gap-1.5 rounded-full border bg-background group transition-colors hover:bg-brand-lightBlue/10 dark:hover:bg-brand-dark-card/70 dark:hover:text-white';
 const emptyPillContentClass = 'text-muted-foreground opacity-40 group-hover:opacity-100';
-
-function getMatchScore(name: string | null, rawQuery: string): number {
-  const query = rawQuery.trim().toLowerCase();
-  const text = (name || '').toLowerCase();
-
-  if (!query) return 0;
-  if (!text) return -1;
-
-  if (text === query) return 300;
-  if (text.startsWith(query)) return 200 - Math.max(0, text.length - query.length);
-
-  const index = text.indexOf(query);
-  if (index === -1) return -1;
-  return 100 - index;
-}
 
 type AssigneeLike = { id: string; first_name: string | null; last_name: string | null };
 
@@ -338,109 +317,50 @@ export function TaskProjectEntityPill({
 export function TaskLinkEntityPill({
   issue,
   project,
-  issues,
-  projects,
-  onChange,
   collapsed,
 }: {
   issue?: { id: string; name: string | null } | null;
   project?: { id: string; name: string | null } | null;
-  issues: { id: string; name: string | null }[];
-  projects: { id: string; name: string | null }[];
-  onChange: (link: LinkSelection) => void;
   collapsed?: boolean;
 }) {
-  const [open, setOpen] = useState(false);
-  const [search, setSearch] = useState('');
+  const { openIssue, openProject } = useEntityModals();
 
-  const activeLink: LinkSelection = project
-    ? { type: 'project', id: project.id, name: project.name }
+  const activeLink = project
+    ? { type: 'project' as const, id: project.id, name: project.name }
     : issue
-      ? { type: 'issue', id: issue.id, name: issue.name }
+      ? { type: 'issue' as const, id: issue.id, name: issue.name }
       : null;
 
-  const issueMatches = useMemo(() => {
-    const scored = issues
-      .map((item) => ({ item, score: getMatchScore(item.name, search) }))
-      .filter(({ score }) => score >= 0)
-      .sort((a, b) => b.score - a.score);
-    return scored.map(({ item }) => ({ type: 'issue' as const, id: item.id, name: item.name }));
-  }, [issues, search]);
+  if (!activeLink) return null;
 
-  const projectMatches = useMemo(() => {
-    const scored = projects
-      .map((item) => ({ item, score: getMatchScore(item.name, search) }))
-      .filter(({ score }) => score >= 0)
-      .sort((a, b) => b.score - a.score);
-    return scored.map(({ item }) => ({ type: 'project' as const, id: item.id, name: item.name }));
-  }, [projects, search]);
-
-  const issueTopScore = issueMatches.length > 0 ? getMatchScore(issueMatches[0].name, search) : -1;
-  const projectTopScore = projectMatches.length > 0 ? getMatchScore(projectMatches[0].name, search) : -1;
-  const showProjectsFirst = projectTopScore > issueTopScore;
-
-  const groups = useMemo(() => {
-    const ordered = showProjectsFirst
-      ? [
-          { type: 'project' as const, label: 'Projects', items: projectMatches },
-          { type: 'issue' as const, label: 'Issues', items: issueMatches },
-        ]
-      : [
-          { type: 'issue' as const, label: 'Issues', items: issueMatches },
-          { type: 'project' as const, label: 'Projects', items: projectMatches },
-        ];
-    return ordered.filter((g) => g.items.length > 0).map((g) => ({ label: g.label, items: g.items }));
-  }, [issueMatches, projectMatches, showProjectsFirst]);
+  const label = activeLink.name || `Untitled ${activeLink.type}`;
 
   return (
-    <SearchableSelect<LinkItem>
-      items={[]}
-      groups={groups}
-      value={activeLink}
-      onValueChange={onChange}
-      getItemId={(item) => `${item.type}-${item.id}`}
-      getItemLabel={(item) => item.name || `Untitled ${item.type}`}
-      placeholder="Link"
-      searchPlaceholder="Search issues and projects..."
-      emptyMessage="No results found"
-      trigger={
-        <button
-          type="button"
-          className={cn(
-            pillTriggerClass,
-            collapsed ? 'px-2 w-auto' : 'px-3 text-xs'
-          )}
-          onClick={(e) => e.stopPropagation()}
-        >
-          {activeLink?.type === 'project' ? (
-            <FolderKanban className="h-3 w-3 text-foreground flex-shrink-0" />
-          ) : (
-            <Link2 className={cn('h-3 w-3 flex-shrink-0', activeLink ? 'text-foreground' : emptyPillContentClass)} />
-          )}
-          {!collapsed && (
-            <span className={cn('truncate max-w-[150px]', !activeLink && emptyPillContentClass)}>
-              {activeLink?.name || 'Link'}
-            </span>
-          )}
-        </button>
-      }
-      allowClear
-      clearLabel="No link"
-      contentWidth="360px"
-      align="start"
-      onSearchChange={setSearch}
-      open={open}
-      onOpenChange={setOpen}
-      renderItem={(item) => (
-        <>
-          {item.type === 'issue' ? (
-            <Link2 className="h-3 w-3 text-muted-foreground flex-shrink-0" />
-          ) : (
-            <FolderKanban className="h-3 w-3 text-muted-foreground flex-shrink-0" />
-          )}
-          <span className="truncate">{item.name || `Untitled ${item.type}`}</span>
-        </>
+    <button
+      type="button"
+      className={cn(
+        pillTriggerClass,
+        collapsed ? 'px-2 w-auto' : 'px-3 text-xs'
       )}
-    />
+      title={label}
+      aria-label={label}
+      onClick={(e) => {
+        e.stopPropagation();
+        if (activeLink.type === 'project') {
+          openProject(activeLink.id);
+        } else {
+          openIssue(activeLink.id);
+        }
+      }}
+    >
+      {activeLink.type === 'project' ? (
+        <FolderKanban className="h-3 w-3 text-foreground flex-shrink-0" />
+      ) : (
+        <Link2 className="h-3 w-3 text-foreground flex-shrink-0" />
+      )}
+      {!collapsed && (
+        <span className="truncate max-w-[150px]">{label}</span>
+      )}
+    </button>
   );
 }

@@ -10,7 +10,6 @@ import {
   CURRENT_PREPARATION_VERSIONS,
   parseRepresentativeScoreEvidence,
   prepareStudent,
-  REPRESENTATIVE_SCORE_EVIDENCE_SELECT,
   STANDARD_PREPARATION_TIMING_PROFILE,
   type PreparationEngineResult,
   type PreparationEngineInput,
@@ -23,9 +22,7 @@ import {
 } from "@/features/preparation/lib/forecast-evidence";
 import { learningLoopTargetQuestionCount } from "@/features/preparation/lib/policy";
 import {
-  hasPreparationSnapshot,
   loadPreparationSnapshotHistory,
-  persistPreparationSnapshot,
 } from "@/features/preparation/server/preparation-snapshot";
 import { normalizeSjtPreference } from "@/features/preparation/lib/sjt-allocation-policy";
 import type {
@@ -225,6 +222,217 @@ async function planningDateFor(profile: ProfileRow): Promise<{
   return { planningDate: `${profile.test_year}-07-15`, provisional: true };
 }
 
+type PreloadedRow = Record<string, unknown>;
+type PreloadedResult = { data: PreloadedRow[]; error: null };
+type PreloadedQuery = {
+  select: (...args: unknown[]) => PreloadedQuery;
+  eq: (column: string, value: unknown) => PreloadedQuery;
+  neq: (column: string, value: unknown) => PreloadedQuery;
+  not: (column: string, operator: string, value: unknown) => PreloadedQuery;
+  order: (
+    column: string,
+    options?: { ascending?: boolean },
+  ) => PreloadedQuery;
+  range: (from: number, to: number) => PreloadedQuery;
+  limit: (limit: number) => PreloadedQuery;
+  maybeSingle: () => Promise<{ data: PreloadedRow | null; error: null }>;
+  then: (
+    resolve: (value: PreloadedResult) => unknown,
+    reject?: (reason: unknown) => unknown,
+  ) => Promise<unknown>;
+};
+
+export function createPreloadedStudentClient(
+  bundle: Record<string, PreloadedRow[]>,
+): SupabaseClient<Database> {
+  return {
+    from(table: string) {
+      let rows = [...(bundle[table] ?? [])];
+      const query: PreloadedQuery = {
+        select: () => query,
+        eq: (column, value) => {
+          rows = rows.filter((row) => row[column] === value);
+          return query;
+        },
+        neq: (column, value) => {
+          rows = rows.filter((row) => row[column] !== value);
+          return query;
+        },
+        not: (column, operator, value) => {
+          if (operator === "is" && value === null) {
+            rows = rows.filter((row) => row[column] != null);
+          }
+          return query;
+        },
+        order: (column, options) => {
+          const direction = options?.ascending === false ? -1 : 1;
+          rows.sort((left, right) =>
+            String(left[column] ?? "").localeCompare(
+              String(right[column] ?? ""),
+            ) * direction,
+          );
+          return query;
+        },
+        range: (from, to) => {
+          rows = rows.slice(from, to + 1);
+          return query;
+        },
+        limit: (limit) => {
+          rows = rows.slice(0, limit);
+          return query;
+        },
+        maybeSingle: async () => ({ data: rows[0] ?? null, error: null }),
+        then: (resolve, reject) =>
+          Promise.resolve({ data: rows, error: null } as PreloadedResult).then(
+            resolve,
+            reject,
+          ),
+      };
+      return query;
+    },
+  } as unknown as SupabaseClient<Database>;
+}
+
+async function loadScheduledStudentClient(
+  studentId: string,
+): Promise<SupabaseClient<Database>> {
+  const admin = requireAdmin() as unknown as {
+    rpc: (
+      name: "get_student_ucat_study_plan_generation_bundle",
+      params: { p_student_id: string },
+    ) => Promise<{ data: Json | null; error: { message: string } | null }>;
+  };
+  const result = await admin.rpc(
+    "get_student_ucat_study_plan_generation_bundle",
+    { p_student_id: studentId },
+  );
+  if (result.error) throw new Error(result.error.message);
+  if (!result.data || typeof result.data !== "object" || Array.isArray(result.data)) {
+    throw new Error("Scheduled Study plan bundle is unavailable");
+  }
+  const bundle: Record<string, PreloadedRow[]> = {};
+  for (const [table, value] of Object.entries(result.data)) {
+    if (!Array.isArray(value)) continue;
+    const rows: PreloadedRow[] = [];
+    for (const row of value) {
+      if (row != null && typeof row === "object" && !Array.isArray(row)) {
+        rows.push(row as Record<string, Json>);
+      }
+    }
+    bundle[table] = rows;
+  }
+  return createPreloadedStudentClient(bundle);
+}
+
+async function fetchSharedPlanningCatalogue() {
+  const admin = requireAdmin();
+  const [
+    sections,
+    categories,
+    moduleCategories,
+    moduleTags,
+    tagTaxonomy,
+    trainers,
+    trainerCategories,
+    trainerItems,
+    trainerConfigs,
+  ] = await runWithConcurrency(
+    [
+      () =>
+        admin
+          .from("ucat_sections")
+          .select(
+            "id, name, section_number, number_of_questions, time_per_question",
+          )
+          .order("section_number"),
+      () =>
+        admin
+          .from("question_stem_categories")
+          .select("id, name, ucat_section_id"),
+      () =>
+        admin
+          .from("ucat_learning_module_question_stem_categories")
+          .select("learning_module_id, question_stem_category_id"),
+      () =>
+        admin
+          .from("ucat_learning_module_question_tags")
+          .select("learning_module_id, question_tag_id"),
+      () => admin.from("question_tags").select("id, parent_question_tag_id"),
+      () =>
+        admin
+          .from("ucat_skill_trainers")
+          .select("id, key, name, ucat_section_id")
+          .eq("is_enabled", true),
+      () =>
+        admin
+          .from("ucat_skill_trainer_question_stem_categories")
+          .select("skill_trainer_id, question_stem_category_id"),
+      () => admin.rpc("get_ucat_skill_trainers_with_items"),
+      () =>
+        admin
+          .from("ucat_skill_trainer_config")
+          .select("skill_trainer_id, time_limit_seconds"),
+    ],
+    6,
+  );
+  for (const [source, result] of [
+    ["sections", sections],
+    ["categories", categories],
+    ["learning module categories", moduleCategories],
+    ["learning module tags", moduleTags],
+    ["question tag taxonomy", tagTaxonomy],
+    ["skill trainers", trainers],
+    ["skill trainer categories", trainerCategories],
+    ["skill trainer items", trainerItems],
+    ["skill trainer configuration", trainerConfigs],
+  ] as const) {
+    if (result.error) {
+      throw new Error(
+        `Failed to load shared Study plan ${source}: ${result.error.message}`,
+      );
+    }
+  }
+  return {
+    sections: sections.data ?? [],
+    categories: categories.data ?? [],
+    moduleCategories: moduleCategories.data ?? [],
+    moduleTags: moduleTags.data ?? [],
+    tagTaxonomy: tagTaxonomy.data ?? [],
+    trainers: trainers.data ?? [],
+    trainerCategories: trainerCategories.data ?? [],
+    trainerItems: trainerItems.data ?? [],
+    trainerConfigs: trainerConfigs.data ?? [],
+  };
+}
+
+type SharedPlanningCatalogue = Awaited<
+  ReturnType<typeof fetchSharedPlanningCatalogue>
+>;
+let sharedPlanningCatalogueCache:
+  | {
+      expiresAt: number;
+      value: Promise<SharedPlanningCatalogue>;
+    }
+  | undefined;
+
+function loadSharedPlanningCatalogue(): Promise<SharedPlanningCatalogue> {
+  if (process.env.NODE_ENV === "test") return fetchSharedPlanningCatalogue();
+  const now = Date.now();
+  if (
+    !sharedPlanningCatalogueCache ||
+    sharedPlanningCatalogueCache.expiresAt <= now
+  ) {
+    const value = fetchSharedPlanningCatalogue();
+    sharedPlanningCatalogueCache = { expiresAt: now + 60_000, value };
+    void value.catch(() => {
+      if (sharedPlanningCatalogueCache?.value === value) {
+        sharedPlanningCatalogueCache = undefined;
+      }
+    });
+  }
+  return sharedPlanningCatalogueCache.value;
+}
+
 async function loadGenerationInputs(
   supabase: SupabaseClient<Database>,
   studentId: string,
@@ -246,28 +454,53 @@ async function loadGenerationInputs(
   practiceSelectionData: NonNullable<PickStemsOptions["preloaded"]>;
 }> {
   const admin = requireAdmin();
+  const aggregateClient = admin as unknown as {
+    rpc: (
+      name: "get_student_ucat_score_projection_evidence",
+      params: { p_student_id: string },
+    ) => Promise<{
+      data: Parameters<typeof parseRepresentativeScoreEvidence>[0][] | null;
+      error: { message: string } | null;
+    }>;
+  };
+  const completedBenchmarkClient = admin as unknown as {
+    rpc: (
+      name: "get_student_ucat_completed_benchmark_sections",
+      params: { p_student_id: string },
+    ) => Promise<{
+      data: { section_id: string }[] | null;
+      error: { message: string } | null;
+    }>;
+  };
   const scoreEvidenceQuery = () =>
     options.includeScoreEvidence === false
       ? Promise.resolve({ data: [], error: null })
-      : supabase
-          .from("vstudent_ucat_score_projection_evidence")
-          .select(REPRESENTATIVE_SCORE_EVIDENCE_SELECT);
+      : aggregateClient.rpc("get_student_ucat_score_projection_evidence", {
+          p_student_id: studentId,
+        });
+  const catalogue = await loadSharedPlanningCatalogue();
+  const sectionsRes = { data: catalogue.sections, error: null };
+  const categoriesRes = { data: catalogue.categories, error: null };
+  const moduleCategoriesRes = {
+    data: catalogue.moduleCategories,
+    error: null,
+  };
+  const moduleTagsRes = { data: catalogue.moduleTags, error: null };
+  const tagTaxonomyRes = { data: catalogue.tagTaxonomy, error: null };
+  const trainersRes = { data: catalogue.trainers, error: null };
+  const trainerCategoriesRes = {
+    data: catalogue.trainerCategories,
+    error: null,
+  };
+  const trainerItemsRes = { data: catalogue.trainerItems, error: null };
+  const trainerConfigsRes = { data: catalogue.trainerConfigs, error: null };
   const [
-    sectionsRes,
     evidenceRes,
     fullSetRes,
     completedBenchmarksRes,
-    categoriesRes,
     categoryProgressRes,
     readinessEvidenceRes,
     modulesRes,
-    moduleCategoriesRes,
-    moduleTagsRes,
-    tagTaxonomyRes,
-    trainersRes,
-    trainerCategoriesRes,
-    trainerItemsRes,
-    trainerConfigsRes,
     mockRes,
     graduationStatesRes,
     timingEvidenceRes,
@@ -280,29 +513,16 @@ async function loadGenerationInputs(
     practiceAttemptsRes,
   ] = await runWithConcurrency(
     [
-      () =>
-        admin
-          .from("ucat_sections")
-          .select(
-            "id, name, section_number, number_of_questions, time_per_question",
-          )
-          .order("section_number"),
       scoreEvidenceQuery,
       () =>
         supabase
           .from("vstudent_ucat_section_set_progress")
           .select("section_id, total_completed"),
       () =>
-        admin
-          .from("ucat_student_study_plan_tasks")
-          .select("section_id")
-          .eq("student_id", studentId)
-          .eq("task_type", "section_benchmark")
-          .eq("status", "completed"),
-      () =>
-        admin
-          .from("question_stem_categories")
-          .select("id, name, ucat_section_id"),
+        completedBenchmarkClient.rpc(
+          "get_student_ucat_completed_benchmark_sections",
+          { p_student_id: studentId },
+        ),
       () =>
         supabase
           .from("vstudent_ucat_my_question_progress")
@@ -320,35 +540,6 @@ async function loadGenerationInputs(
             "id, title, kind, ucat_section_id, study_plan_priority, estimated_minutes, completion_percent, parent_ucat_learning_module_id, index",
           )
           .neq("study_plan_priority", "excluded"),
-      () =>
-        admin
-          .from("ucat_learning_module_question_stem_categories")
-          .select("learning_module_id, question_stem_category_id"),
-      () =>
-        admin
-          .from("ucat_learning_module_question_tags")
-          .select("learning_module_id, question_tag_id"),
-      () => admin.from("question_tags").select("id, parent_question_tag_id"),
-      () =>
-        admin
-          .from("ucat_skill_trainers")
-          .select("id, key, name, ucat_section_id")
-          .eq("is_enabled", true),
-      () =>
-        admin
-          .from("ucat_skill_trainer_question_stem_categories")
-          .select("skill_trainer_id, question_stem_category_id"),
-      () =>
-        admin
-          .from("ucat_skill_trainer_items")
-          .select("skill_trainer_id")
-          .eq("is_active", true)
-          .eq("approval_status", "approved")
-          .is("deleted_at", null),
-      () =>
-        admin
-          .from("ucat_skill_trainer_config")
-          .select("skill_trainer_id, time_limit_seconds"),
       () =>
         admin
           .from("student_ucat_mock_attempts")
@@ -377,15 +568,17 @@ async function loadGenerationInputs(
           .eq("is_available_in_sets_library", true),
       () =>
         supabase
-          .from("vstudent_ucat_my_set_attempts")
+          .from("vstudent_ucat_completed_set_assets")
           .select("question_set_id, completed_at, student_ucat_mock_attempt_id")
-          .not("completed_at", "is", null),
+          .order("completed_at", { ascending: false })
+          .limit(512),
       () => supabase.from("vstudent_ucat_mocks").select("id, name"),
       () =>
         supabase
-          .from("vstudent_ucat_my_mock_attempts")
+          .from("vstudent_ucat_completed_mock_assets")
           .select("ucat_mock_id, completed_at")
-          .not("completed_at", "is", null),
+          .order("completed_at", { ascending: false })
+          .limit(512),
       () =>
         collectPagedResult((from, to) =>
           supabase
@@ -1518,11 +1711,14 @@ export async function getCurrentPreparation(
     profile.test_year,
     preparation,
   );
-  await persistPreparationSnapshot(profile.student_id, today, preparation);
   return preparation;
 }
 
-async function linkCompanionReview(
+type StudyPlanTaskUpdate =
+  Database["public"]["Tables"]["ucat_student_study_plan_tasks"]["Update"];
+type StudyPlanTaskPatch = StudyPlanTaskUpdate & { id: string };
+
+function companionReviewPatch(
   tasks: TaskRow[],
   sourceTask: TaskRow,
   activity: {
@@ -1530,12 +1726,12 @@ async function linkCompanionReview(
     type: "practice_session" | "set_attempt" | "mock_attempt";
     questionCount: number | null;
   },
-): Promise<void> {
+): StudyPlanTaskPatch | null {
   const review = tasks.find(
     (task) =>
       task.task_type === "review" && task.source_task_id === sourceTask.id,
   );
-  if (!review) return;
+  if (!review) return null;
   const currentConfig =
     review.launch_config &&
     typeof review.launch_config === "object" &&
@@ -1554,23 +1750,20 @@ async function linkCompanionReview(
     review.launch_path === launchPath &&
     currentConfig.awaitingAttempt === false
   ) {
-    return;
+    return null;
   }
-  const { error } = await requireAdmin()
-    .from("ucat_student_study_plan_tasks")
-    .update({
-      matched_activity_type: activity.type,
-      matched_activity_id: activity.id,
-      launch_path: launchPath,
-      launch_config: {
-        ...currentConfig,
-        awaitingAttempt: false,
-        sourceActivityType: activity.type,
-        sourceActivityId: activity.id,
-      },
-    })
-    .eq("id", review.id);
-  if (error) throw error;
+  return {
+    id: review.id,
+    matched_activity_type: activity.type,
+    matched_activity_id: activity.id,
+    launch_path: launchPath,
+    launch_config: {
+      ...currentConfig,
+      awaitingAttempt: false,
+      sourceActivityType: activity.type,
+      sourceActivityId: activity.id,
+    },
+  };
 }
 
 async function reconcileTasks(
@@ -1590,6 +1783,31 @@ async function reconcileTasks(
       today,
     ),
   );
+  const patches = new Map<string, StudyPlanTaskPatch>();
+  const addPatch = (patch: StudyPlanTaskPatch | null) => {
+    if (!patch) return;
+    patches.set(patch.id, { ...patches.get(patch.id), ...patch });
+  };
+  const persistPatches = async () => {
+    if (patches.size === 0) return;
+    const rpcClient = admin as unknown as {
+      rpc: (
+        name: "batch_update_ucat_study_plan_tasks",
+        params: Record<string, unknown>,
+      ) => Promise<{ data: unknown; error: { message: string } | null }>;
+    };
+    const { data, error } = await rpcClient.rpc(
+      "batch_update_ucat_study_plan_tasks",
+      {
+        p_student_id: studentId,
+        p_updates: Array.from(patches.values()),
+      },
+    );
+    if (error) throw new Error(error.message);
+    if (data !== patches.size) {
+      throw new Error("Study plan reconciliation did not update every task");
+    }
+  };
   for (const sourceTask of tasks) {
     if (
       sourceTask.matched_activity_id &&
@@ -1597,17 +1815,22 @@ async function reconcileTasks(
         sourceTask.matched_activity_type === "set_attempt" ||
         sourceTask.matched_activity_type === "mock_attempt")
     ) {
-      await linkCompanionReview(tasks, sourceTask, {
-        id: sourceTask.matched_activity_id,
-        type: sourceTask.matched_activity_type,
-        questionCount:
-          sourceTask.matched_activity_type !== "mock_attempt"
-            ? sourceTask.completed_units
-            : null,
-      });
+      addPatch(
+        companionReviewPatch(tasks, sourceTask, {
+          id: sourceTask.matched_activity_id,
+          type: sourceTask.matched_activity_type,
+          questionCount:
+            sourceTask.matched_activity_type !== "mock_attempt"
+              ? sourceTask.completed_units
+              : null,
+        }),
+      );
     }
   }
-  if (!actionable.length) return;
+  if (!actionable.length) {
+    await persistPatches();
+    return;
+  }
   const evidenceSince = actionable.reduce(
     (earliest, task) =>
       task.started_at && task.started_at < earliest
@@ -1805,15 +2028,57 @@ async function reconcileTasks(
       }
     }
     if (update) {
-      const { error } = await admin
-        .from("ucat_student_study_plan_tasks")
-        .update(update)
-        .eq("id", task.id);
-      if (error) throw error;
-      if (reviewActivity)
-        await linkCompanionReview(tasks, task, reviewActivity);
+      addPatch({ id: task.id, ...update });
+      if (reviewActivity) {
+        addPatch(companionReviewPatch(tasks, task, reviewActivity));
+      }
     }
   }
+  await persistPatches();
+}
+
+export async function reconcileStudyPlanAfterActivity(
+  studentId: string,
+): Promise<void> {
+  const admin = requireAdmin();
+  const { data: generation, error: generationError } = await admin
+    .from("ucat_student_study_plan_generations")
+    .select("*")
+    .eq("student_id", studentId)
+    .is("superseded_at", null)
+    .maybeSingle();
+  if (generationError) throw generationError;
+  if (!generation) return;
+
+  const { data: tasks, error: tasksError } = await admin
+    .from("ucat_student_study_plan_tasks")
+    .select("*")
+    .eq("generation_id", generation.id)
+    .order("scheduled_date")
+    .order("sort_order");
+  if (tasksError) throw tasksError;
+  await reconcileTasks(studentId, generation, tasks ?? []);
+}
+
+/**
+ * Runs the same canonical planner as explicit profile changes, but with a
+ * service-only Student bundle. This is deliberately a scheduled command:
+ * opening Study plan never refreshes evidence or changes calendar work.
+ */
+export async function regenerateStudyPlanDuringScheduledMaintenance(
+  studentId: string,
+): Promise<void> {
+  const admin = requireAdmin();
+  const profileResult = await admin
+    .from("ucat_student_study_plan_profiles")
+    .select("*")
+    .eq("student_id", studentId)
+    .maybeSingle();
+  if (profileResult.error) throw profileResult.error;
+  const profile = profileResult.data;
+  if (!profile?.study_plan_enabled) return;
+  const studentClient = await loadScheduledStudentClient(studentId);
+  await generateForProfile(studentClient, studentId, profile, "weekly");
 }
 
 function mapTask(row: TaskRow): StudyPlanTask {
@@ -2222,16 +2487,7 @@ async function getOrRefreshNextSteps(
     currentGeneratedOn: current[0]?.generated_on ?? null,
     latestActivity,
   });
-  const currentSnapshotExists = await hasPreparationSnapshot(
-    supabase,
-    today,
-    CURRENT_PREPARATION_VERSIONS,
-  );
-  if (
-    current.length >= 2 &&
-    triggerKey === currentTrigger &&
-    currentSnapshotExists
-  ) {
+  if (current.length >= 2 && triggerKey === currentTrigger) {
     return current.map(mapNextStep);
   }
 
@@ -2297,7 +2553,6 @@ async function getOrRefreshNextSteps(
     profile.test_year,
     preparation,
   );
-  await persistPreparationSnapshot(studentId, today, preparation);
   const drafts = preparation.immediateGuidance;
   const { data, error } = await admin
     .from("ucat_student_next_steps")
@@ -2326,6 +2581,18 @@ async function getOrRefreshNextSteps(
       { onConflict: "student_id,position" },
     )
     .select("*")
+    .order("position");
+  if (error) throw error;
+  return (data ?? []).map(mapNextStep);
+}
+
+async function loadPersistedNextSteps(
+  studentId: string,
+): Promise<StudyGuidanceItem[]> {
+  const { data, error } = await requireAdmin()
+    .from("ucat_student_next_steps")
+    .select("*")
+    .eq("student_id", studentId)
     .order("position");
   if (error) throw error;
   return (data ?? []).map(mapNextStep);
@@ -2472,7 +2739,10 @@ export async function saveStudyPlanProfile(
       .is("superseded_at", null);
     if (retirePlanError) throw retirePlanError;
   }
-  return getStudyPlan(supabase, userId, { allowAutomaticReplan: false });
+  return getStudyPlan(supabase, userId, {
+    allowAutomaticReplan: false,
+    refreshGuidance: !input.studyPlanEnabled,
+  });
 }
 
 export async function createExtraStudyTask(
@@ -2633,6 +2903,7 @@ export async function getStudyPlan(
   options: {
     allowAutomaticReplan?: boolean;
     reconcileTasks?: boolean;
+    refreshGuidance?: boolean;
   } = {},
 ): Promise<StudyPlanResponse> {
   const admin = requireAdmin();
@@ -2802,12 +3073,14 @@ export async function getStudyPlan(
   const tasks = taskRows.map(mapTask);
   const nextSteps = profile.study_plan_enabled
     ? []
-    : await getOrRefreshNextSteps(
-        supabase,
-        studentId,
-        student.timezone,
-        profile,
-      );
+    : options.refreshGuidance === true
+      ? await getOrRefreshNextSteps(
+          supabase,
+          studentId,
+          student.timezone,
+          profile,
+        )
+      : await loadPersistedNextSteps(studentId);
   const scheduledThroughToday = tasks.filter(
     (task) => task.scheduledDate <= today && task.status !== "skipped",
   ).length;

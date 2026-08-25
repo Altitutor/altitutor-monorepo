@@ -48,7 +48,7 @@ export function IssueStatusField({ form }: IssueStatusFieldProps) {
                 getItemId={(option) => option.value}
                 fullWidth
                 trigger={
-                  <Button type="button" variant="outline" className="w-full justify-start font-normal">
+                  <Button type="button" variant="field" className="w-full justify-start font-normal">
                     <StatusIcon className={cn('h-4 w-4', iconColor)} />
                     <span>{label}</span>
                   </Button>

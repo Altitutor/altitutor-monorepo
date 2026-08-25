@@ -18,7 +18,6 @@ import {
   type BulkImportAutomaticFix,
   type BulkImportGateIssue,
 } from '@/features/ucat/questions/components/bulk-import/bulkImportDeterministicReview'
-import type { BulkImportDuplicateFinding } from '@/features/ucat/questions/server/bulk-import-duplicate-analysis'
 import type { BulkImportStemDraft } from '@/features/ucat/questions/hooks/useBulkImportWizard'
 import type { UcatQuestionStemFormValues } from '@/features/ucat/questions/types/schema'
 import { proseMirrorToPlainText } from '@/features/ucat/shared/lib/rich-text'
@@ -58,8 +57,6 @@ export type BulkImportAiStemPhase =
   | 'ready'
   | 'manual_review'
   | 'failed'
-export type BulkImportDuplicateAnalysisStatus = 'idle' | 'running'
-
 export type UseBulkImportReviewControllerArgs = {
   stems: BulkImportStemDraft[]
   sections?: NamedTaxonomyItem[]
@@ -90,15 +87,6 @@ export type BulkImportReviewController = {
   cancelAiReview: () => void
   approveFinding: (stemId: string, findingKey: string) => Promise<void>
   keepFinding: (stemId: string, findingKey: string) => void
-
-  duplicateStatus: BulkImportDuplicateAnalysisStatus
-  hasDuplicateAnalysisRun: boolean
-  duplicateError: string | null
-  duplicateFindings: BulkImportDuplicateFinding[]
-  duplicateDismissals: Array<{ stemIdA: string; stemIdB: string }>
-  runDuplicateAnalysis: () => Promise<void>
-  cancelDuplicateAnalysis: () => void
-  keepDuplicateFinding: (findingId: string) => void
 
   excludedStemIds: Set<string>
   excludedQuestionIds: Set<string>
@@ -330,34 +318,6 @@ function cacheFromResult(result: BulkImportAiReviewResult | undefined): BulkImpo
   }
 }
 
-async function requestDuplicateAnalysis(
-  stems: BulkImportStemDraft[],
-  signal: AbortSignal,
-): Promise<BulkImportDuplicateFinding[]> {
-  if (stems.length === 0) return []
-  const response = await fetch('/api/ucat/question-stems/bulk-import/duplicate-analysis', {
-    method: 'POST',
-    signal,
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      drafts: stems.map((stem) => ({
-        id: stem.id,
-        sectionId: stem.values.sectionId,
-        stemText: stem.values.stemText,
-        questions: stem.values.questions,
-      })),
-    }),
-  })
-  const body = await response.json().catch(() => ({})) as {
-    findings?: BulkImportDuplicateFinding[]
-    error?: string
-  }
-  if (!response.ok || !Array.isArray(body.findings)) {
-    throw new Error(body.error ?? 'Duplicate analysis failed.')
-  }
-  return body.findings
-}
-
 function changeId(): string {
   if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) return crypto.randomUUID()
   return `${Date.now()}-${Math.random().toString(16).slice(2)}`
@@ -382,13 +342,6 @@ export function useBulkImportReviewController({
   const [keptFindingKeysByStemId, setKeptFindingKeysByStemId] = useState<Record<string, string[]>>({})
   const [forcedApprovalFindingKeysByStemId, setForcedApprovalFindingKeysByStemId] =
     useState<Record<string, string[]>>({})
-  const [duplicateStatus, setDuplicateStatus] = useState<BulkImportDuplicateAnalysisStatus>('idle')
-  const [duplicateAnalyzedSignature, setDuplicateAnalyzedSignature] = useState<string | null>(null)
-  const [duplicateError, setDuplicateError] = useState<string | null>(null)
-  const [duplicateFindings, setDuplicateFindings] = useState<BulkImportDuplicateFinding[]>([])
-  const [keptDuplicateFindingIds, setKeptDuplicateFindingIds] = useState<Set<string>>(
-    () => new Set()
-  )
   const [excludedStemIds, setExcludedStemIds] = useState<Set<string>>(() => new Set())
   const [excludedQuestionIds, setExcludedQuestionIds] = useState<Set<string>>(() => new Set())
   const [automaticChanges, setAutomaticChanges] = useState<BulkImportReviewChange[]>([])
@@ -398,7 +351,6 @@ export function useBulkImportReviewController({
   const automaticChangesRef = useRef(automaticChanges)
   const skippedDeterministicSignaturesRef = useRef(new Set<string>())
   const aiAbortByStemIdRef = useRef(new Map<string, AbortController>())
-  const duplicateAbortRef = useRef<AbortController | null>(null)
 
   useEffect(() => {
     stemsRef.current = stems
@@ -520,7 +472,6 @@ export function useBulkImportReviewController({
     () => deriveIncludedBulkImportStems({ stems, excludedStemIds, excludedQuestionIds }),
     [excludedQuestionIds, excludedStemIds, stems],
   )
-  const includedStemsSignature = useMemo(() => signature(includedStems), [includedStems])
 
   const runAiForStemIds = useCallback(async (stemIds: string[]) => {
     const pendingStemIds = [...new Set(stemIds)].filter(
@@ -813,35 +764,6 @@ export function useBulkImportReviewController({
     }))
   }, [])
 
-  const cancelDuplicateAnalysis = useCallback(() => {
-    duplicateAbortRef.current?.abort()
-  }, [])
-  const keepDuplicateFinding = useCallback((findingId: string) => {
-    setKeptDuplicateFindingIds((current) => new Set(current).add(findingId))
-  }, [])
-
-  const runDuplicateAnalysis = useCallback(async () => {
-    if (duplicateStatus === 'running') return
-    const abortController = new AbortController()
-    duplicateAbortRef.current = abortController
-    setDuplicateStatus('running')
-    setDuplicateError(null)
-    try {
-      const findings = await requestDuplicateAnalysis(includedStems, abortController.signal)
-      setDuplicateFindings(findings)
-      setDuplicateAnalyzedSignature(signature(includedStems))
-    } catch (error) {
-      if (!abortController.signal.aborted) {
-        setDuplicateError(error instanceof Error ? error.message : 'Duplicate analysis failed.')
-      }
-    } finally {
-      if (duplicateAbortRef.current === abortController) {
-        duplicateAbortRef.current = null
-        setDuplicateStatus('idle')
-      }
-    }
-  }, [duplicateStatus, includedStems])
-
   const excludeStem = useCallback((stemId: string) => {
     aiAbortByStemIdRef.current.get(stemId)?.abort()
     setExcludedStemIds((current) => new Set(current).add(stemId))
@@ -932,23 +854,6 @@ export function useBulkImportReviewController({
     return { approvalRequired, manualReview }
   }, [forcedApprovalFindingKeysByStemId, freshFindings])
 
-  const visibleDuplicateFindings = useMemo(() => {
-    const includedIds = new Set(includedStems.map((stem) => stem.id))
-    return duplicateFindings.filter((finding) => {
-      if (keptDuplicateFindingIds.has(finding.id)) return false
-      if (!includedIds.has(finding.draft.stemId)) return false
-      return finding.match.source !== 'draft' || includedIds.has(finding.match.stemId)
-    })
-  }, [duplicateFindings, includedStems, keptDuplicateFindingIds])
-  const duplicateDismissals = useMemo(
-    () => duplicateFindings.flatMap((finding) =>
-      keptDuplicateFindingIds.has(finding.id) && finding.kind === 'exact_duplicate'
-        ? [{ stemIdA: finding.draft.stemId, stemIdB: finding.match.stemId }]
-        : []
-    ),
-    [duplicateFindings, keptDuplicateFindingIds],
-  )
-
   const changesWithUndo = useMemo(() => automaticChanges.map((change) => {
     const current = stems.find((stem) => stem.id === change.stemId)?.values
     return { ...change, canUndo: Boolean(current && sameValues(current, change.after)) }
@@ -991,7 +896,6 @@ export function useBulkImportReviewController({
   const resetReview = useCallback(() => {
     for (const controller of aiAbortByStemIdRef.current.values()) controller.abort()
     aiAbortByStemIdRef.current.clear()
-    duplicateAbortRef.current?.abort()
     setActiveAiStemIds(new Set())
     setAiPhaseByStemId({})
     setAiResultsByStemId({})
@@ -1001,11 +905,6 @@ export function useBulkImportReviewController({
     setFindingContinuitySignatures({})
     setKeptFindingKeysByStemId({})
     setForcedApprovalFindingKeysByStemId({})
-    setDuplicateStatus('idle')
-    setDuplicateAnalyzedSignature(null)
-    setDuplicateError(null)
-    setDuplicateFindings([])
-    setKeptDuplicateFindingIds(new Set())
     setExcludedStemIds(new Set())
     setExcludedQuestionIds(new Set())
     setAutomaticChanges([])
@@ -1015,7 +914,6 @@ export function useBulkImportReviewController({
 
   useEffect(() => () => {
     for (const controller of aiAbortByStemIdRef.current.values()) controller.abort()
-    duplicateAbortRef.current?.abort()
   }, [])
 
   return {
@@ -1039,16 +937,6 @@ export function useBulkImportReviewController({
     cancelAiReview,
     approveFinding,
     keepFinding,
-    duplicateStatus,
-    hasDuplicateAnalysisRun: duplicateAnalyzedSignature === includedStemsSignature,
-    duplicateError,
-    duplicateFindings:
-      duplicateAnalyzedSignature === includedStemsSignature ? visibleDuplicateFindings : [],
-    duplicateDismissals:
-      duplicateAnalyzedSignature === includedStemsSignature ? duplicateDismissals : [],
-    runDuplicateAnalysis,
-    cancelDuplicateAnalysis,
-    keepDuplicateFinding,
     excludedStemIds,
     excludedQuestionIds,
     excludeStem,

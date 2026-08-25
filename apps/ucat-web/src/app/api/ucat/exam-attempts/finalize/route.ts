@@ -8,6 +8,8 @@ import type { FinalExamQuestionAttemptInput } from "@/lib/ucat/exam-attempt/fina
 import { captureUcatLearningActivityCompletedInBackground } from "@/lib/analytics/posthog-server";
 import { maybeGrantPracticeDayDiscount } from "@/lib/ucat/practice-day-discount";
 import { ServerTiming } from "@/lib/performance/server-timing";
+import { waitUntil } from "@vercel/functions";
+import { processPendingPreparationRefreshes } from "@/features/preparation/server/preparation-refresh-worker";
 
 export async function POST(request: NextRequest) {
   const timing = new ServerTiming();
@@ -91,6 +93,12 @@ export async function POST(request: NextRequest) {
         properties: { completion_source: "question_engine" },
       });
       discount = await maybeGrantPracticeDayDiscount(supabaseAdmin, student.id);
+      waitUntil(
+        processPendingPreparationRefreshes({
+          studentId: student.id,
+          limit: 1,
+        }),
+      );
     }
     timing.mark("discount");
     return timing.apply(NextResponse.json({ ...result, ...discount }));

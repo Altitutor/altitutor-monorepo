@@ -40,7 +40,8 @@ export async function loadPreparationSnapshotHistory(
   const { data, error } = await supabase
     .from("vstudent_ucat_preparation_snapshots")
     .select("generated_at, snapshot_date, snapshot")
-    .order("generated_at", { ascending: false });
+    .order("generated_at", { ascending: false })
+    .limit(1000);
   if (error) throw error;
   return (data ?? []).flatMap((row) =>
     row.generated_at
@@ -93,6 +94,19 @@ export async function persistPreparationSnapshot(
   snapshotDate: string,
   preparation: PreparationEngineResult,
 ): Promise<void> {
+  await persistPreparationProjectionSnapshot(studentId, snapshotDate, {
+    generatedAt: preparation.generatedAt,
+    versions: preparation.versions,
+    currentScore: preparation.currentScore,
+    trajectory: preparation.trajectory,
+  });
+}
+
+export async function persistPreparationProjectionSnapshot(
+  studentId: string,
+  snapshotDate: string,
+  preparation: PreparationProjectionSnapshot,
+): Promise<void> {
   const { error } = await requireAdmin()
     .from("ucat_preparation_snapshots")
     .upsert(
@@ -108,7 +122,11 @@ export async function persistPreparationSnapshot(
           currentScore: preparation.currentScore,
           trajectory: preparation.trajectory,
         } as unknown as Json,
-        generated_at: preparation.generatedAt,
+        // This timestamp is the freshness boundary for every input consumed by
+        // Preparation. Record when persistence finishes rather than when the
+        // calculation started so profile/plan writes completed during the run
+        // cannot make the new snapshot look immediately stale.
+        generated_at: new Date().toISOString(),
       },
       {
         onConflict:

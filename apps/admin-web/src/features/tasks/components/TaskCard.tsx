@@ -18,7 +18,10 @@ export const TaskCard = memo(function TaskCard({
   visiblePillKeys = [],
   rightPills = [],
 }: TaskCardProps) {
-  const visiblePills = rightPills.filter((pill) => visiblePillKeys.includes(pill.key));
+  const renderedPills = rightPills
+    .filter((pill) => visiblePillKeys.includes(pill.key))
+    .map((pill) => ({ key: pill.key, content: pill.renderPill(task, () => {}, false) }))
+    .filter((pill) => pill.content != null);
 
   return (
     <div
@@ -34,16 +37,16 @@ export const TaskCard = memo(function TaskCard({
         {task.title ?? ''}
       </div>
 
-      {visiblePills.length > 0 && (
+      {renderedPills.length > 0 && (
         <div className="flex items-center gap-2 flex-wrap">
-          {visiblePills.map((pill) => (
+          {renderedPills.map((pill) => (
             <div
               key={pill.key}
               className="max-w-full"
               onClick={(event) => event.stopPropagation()}
               onPointerDown={(event) => event.stopPropagation()}
             >
-              {pill.renderPill(task, () => {}, false)}
+              {pill.content}
             </div>
           ))}
         </div>

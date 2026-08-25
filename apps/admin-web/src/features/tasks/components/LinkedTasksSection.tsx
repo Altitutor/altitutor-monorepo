@@ -44,7 +44,7 @@ export function LinkedTasksSection({ issueId, projectId }: LinkedTasksSectionPro
         </div>
       ) : (
         <div className="h-[32rem] min-h-0 overflow-hidden rounded-md border bg-background">
-          <TasksBoard issueId={issueId} projectId={projectId} />
+          <TasksBoard issueId={issueId} projectId={projectId} showLinkPill={false} />
         </div>
       )}
     </div>

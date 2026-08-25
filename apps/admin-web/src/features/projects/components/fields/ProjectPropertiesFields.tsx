@@ -17,6 +17,8 @@ import { User } from 'lucide-react';
 import { useStaffSearch } from '@/features/tasks/hooks/useStaffSearch';
 import type { Tables } from '@altitutor/shared';
 import type { ProjectFormData, ProjectPriority, ProjectStatus } from '../../types';
+import { adjustMembersForLeadChange, type ProjectStaffRef } from '../../utils/projectMembers';
+import { ProjectMembersField } from './ProjectMembersField';
 import {
   getProjectStatusIcon,
   getProjectStatusIconColor,
@@ -28,7 +30,15 @@ import {
   PRIORITY_OPTIONS,
 } from '../../utils/projectUtils';
 
-export function ProjectPropertiesFields({ form, enabled = true }: { form: UseFormReturn<ProjectFormData>; enabled?: boolean }) {
+export function ProjectPropertiesFields({
+  form,
+  enabled = true,
+  knownMembers = [],
+}: {
+  form: UseFormReturn<ProjectFormData>;
+  enabled?: boolean;
+  knownMembers?: ProjectStaffRef[];
+}) {
   const [leadOpen, setLeadOpen] = useState(false);
   const [leadSearchQuery, setLeadSearchQuery] = useState('');
   const { staff: staffList, isLoading: isLeadLoading } = useStaffSearch(
@@ -65,7 +75,7 @@ export function ProjectPropertiesFields({ form, enabled = true }: { form: UseFor
                   getItemId={(o) => o.value}
                   fullWidth
                   trigger={
-                    <Button variant="outline" className="w-full justify-start">
+                    <Button variant="field" className="w-full justify-start">
                       <div className="flex items-center gap-2 w-full min-w-0">
                         <StatusIcon className={cn('h-4 w-4', statusIconColor)} />
                         <span className="truncate">{getProjectStatusLabel(field.value)}</span>
@@ -100,7 +110,7 @@ export function ProjectPropertiesFields({ form, enabled = true }: { form: UseFor
                   getItemId={(o) => String(o.value)}
                   fullWidth
                   trigger={
-                    <Button variant="outline" className="w-full justify-start">
+                    <Button variant="field" className="w-full justify-start">
                       <div className="flex items-center gap-2 w-full min-w-0">
                         <PriorityIcon className={cn('h-4 w-4', priorityIconColor)} />
                         <span className="truncate">{getProjectPriorityLabel(p)}</span>
@@ -125,7 +135,16 @@ export function ProjectPropertiesFields({ form, enabled = true }: { form: UseFor
               <SearchableSelect<Tables<'staff'>>
                 items={staffList}
                 value={selectedLead}
-                onValueChange={(staff) => field.onChange(staff?.id ?? null)}
+                onValueChange={(staff) => {
+                  const previousLeadId = field.value;
+                  const nextLeadId = staff?.id ?? null;
+                  field.onChange(nextLeadId);
+                  form.setValue(
+                    'memberIds',
+                    adjustMembersForLeadChange(previousLeadId, nextLeadId, form.getValues('memberIds') ?? []),
+                    { shouldDirty: true, shouldTouch: true }
+                  );
+                }}
                 getItemId={(s) => s.id}
                 getItemLabel={(s) => `${s.first_name || ''} ${s.last_name || ''}`.trim() || 'Unnamed staff'}
                 getItemValue={(s) => `${s.first_name || ''} ${s.last_name || ''}`.trim()}
@@ -134,7 +153,7 @@ export function ProjectPropertiesFields({ form, enabled = true }: { form: UseFor
                 searchPlaceholder="Search staff..."
                 emptyMessage={leadSearchQuery ? 'No staff match your search' : 'No staff found'}
                 trigger={
-                  <Button variant="outline" className="w-full justify-start">
+                  <Button variant="field" className="w-full justify-start">
                     <div className="flex items-center gap-2 flex-1 min-w-0">
                       <User className="h-4 w-4 text-muted-foreground flex-shrink-0" />
                       <span className="truncate text-left">
@@ -157,6 +176,8 @@ export function ProjectPropertiesFields({ form, enabled = true }: { form: UseFor
           </FormItem>
         )}
       />
+
+      <ProjectMembersField form={form} enabled={enabled} knownMembers={knownMembers} />
 
       <FormField
         control={form.control}

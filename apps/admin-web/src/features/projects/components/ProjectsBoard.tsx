@@ -28,10 +28,12 @@ import {
 import { getUserInitials } from '@/shared/utils';
 import { useStaffSearch } from '@/features/tasks/hooks/useStaffSearch';
 import { useEntityListTableState } from '@/shared/hooks/useEntityListTableState';
+import { useCurrentStaff } from '@/shared/hooks';
+import { useQuickFilters } from '@/features/quick-filters/hooks/useQuickFilters';
 import { ProjectPriorityEntityPill } from './fields/ProjectPriorityEntityPill';
 import { ProjectDueDateEntityPill } from './fields/ProjectDueDateEntityPill';
 
-const PROJECT_FILTER_KEYS = ['status', 'priority', 'start_date', 'target_date'] as const;
+const PROJECT_FILTER_KEYS = ['status', 'priority', 'start_date', 'target_date', 'member'] as const;
 
 export function ProjectsBoard() {
   const {
@@ -44,6 +46,7 @@ export function ProjectsBoard() {
     sortBy,
     sortDirection,
     handleSortChange,
+    applyQuickFilter,
   } = useEntityListTableState({
     defaultSort: { field: 'name', direction: 'asc' },
     defaultGroupBy: 'status',
@@ -57,6 +60,9 @@ export function ProjectsBoard() {
   const [createDefaultPriority, setCreateDefaultPriority] =
     useState<ProjectPriority | null>(null);
   const [createDefaultLeadId, setCreateDefaultLeadId] = useState<string | null>(null);
+
+  const { data: currentStaff } = useCurrentStaff();
+  const { data: quickFilters = [] } = useQuickFilters('projects');
 
   const { data: projects = [], isLoading } = useProjects({ ...filters, search } as import('../types').ProjectFilters);
   const updateProject = useUpdateProject();
@@ -102,19 +108,20 @@ export function ProjectsBoard() {
       options: PRIORITY_OPTIONS,
       onValueChange: (p, v) => handleUpdate(p, { priority: v as number }),
     },
-    {
-      key: 'project_lead',
-      label: 'Project lead',
-      getValue: (p) => p.project_lead_id ?? '__null__',
-      options: [
-        { value: '__null__', label: 'No lead' },
-        ...staffList.map((s) => ({
-          value: s.id,
-          label: `${s.first_name || ''} ${s.last_name || ''}`.trim() || 'Unnamed',
-        })),
-      ],
-      onValueChange: (p, v) => handleUpdate(p, { project_lead_id: v === '__null__' ? null : (v as string) }),
-    },
+      {
+        key: 'project_lead',
+        label: 'Project lead',
+        getValue: (p) => p.project_lead_id ?? '__null__',
+        options: [
+          { value: '__null__', label: 'No lead' },
+          ...staffList.map((s) => ({
+            value: s.id,
+            label: `${s.first_name || ''} ${s.last_name || ''}`.trim() || 'Unnamed',
+          })),
+        ],
+        onValueChange: (p, v) => handleUpdate(p, { project_lead_id: v === '__null__' ? null : (v as string) }),
+        filterable: false,
+      },
   ], [handleUpdate, staffList]);
   const assigneeFilterOptions = useMemo(
     () => staffList.map((s) => ({ value: s.id as unknown, label: `${s.first_name || ''} ${s.last_name || ''}`.trim() || 'Unnamed' })),
@@ -283,7 +290,7 @@ export function ProjectsBoard() {
         filterOptions: assigneeFilterOptions,
         groupable: true,
         sortable: false,
-        filterable: true,
+        filterable: false,
         filterSearchable: true,
         renderPill: (item, onChange, collapsed) => {
           const lead = item.project_lead;
@@ -332,6 +339,20 @@ export function ProjectsBoard() {
             />
           );
         },
+      },
+      {
+        key: 'member',
+        label: 'Member',
+        visibleByDefault: false,
+        filterOnly: true,
+        getValue: (p) => (p.members ?? []).map((member) => member.id),
+        defaultValue: [],
+        filterOptions: assigneeFilterOptions,
+        groupable: false,
+        sortable: false,
+        filterable: true,
+        filterSearchable: true,
+        renderPill: () => null,
       },
     ],
     [assigneeFilterOptions, handleUpdate, staffList]
@@ -456,6 +477,8 @@ export function ProjectsBoard() {
         searchValue={search}
         onSearchChange={setSearch}
         searchPlaceholder="Search projects..."
+        quickFilters={quickFilters}
+        onApplyQuickFilter={(qf) => applyQuickFilter(qf, currentStaff?.id)}
       />
 
       {selectedProjectId && (

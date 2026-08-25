@@ -1,6 +1,7 @@
 import { render, screen } from '@testing-library/react';
 import type { ComponentProps } from 'react';
 import { ReportsLayoutContent } from '../ReportsLayoutContent';
+import { useLastAdminMeetingDate } from '../../hooks/useLastAdminMeetingDate';
 
 const smartDatePickerProps: Array<
   ComponentProps<'button'> & {
@@ -31,6 +32,10 @@ jest.mock('@altitutor/ui', () => {
     },
   };
 });
+
+jest.mock('../../hooks/useLastAdminMeetingDate', () => ({
+  useLastAdminMeetingDate: jest.fn(() => ({ data: undefined })),
+}));
 
 jest.mock('../../context/ReportsContext', () => ({
   useReportsContext: () => ({
@@ -63,9 +68,16 @@ jest.mock('../../context/ReportsContext', () => ({
   }),
 }));
 
+const mockUseLastAdminMeetingDate = useLastAdminMeetingDate as jest.MockedFunction<
+  typeof useLastAdminMeetingDate
+>;
+
 describe('ReportsLayoutContent', () => {
   beforeEach(() => {
     smartDatePickerProps.length = 0;
+    mockUseLastAdminMeetingDate.mockReturnValue({ data: undefined } as ReturnType<
+      typeof useLastAdminMeetingDate
+    >);
   });
 
   it('anchors partial dates to the current year so past report dates remain selectable', () => {
@@ -93,5 +105,20 @@ describe('ReportsLayoutContent', () => {
     expect(smartDatePickerProps.every((props) =>
       props.presets?.map((preset) => preset.label).join('|') === expectedLabels.join('|')
     )).toBe(true);
+  });
+
+  it('includes last admin meeting in both date fields when a meeting date is known', () => {
+    mockUseLastAdminMeetingDate.mockReturnValue({
+      data: new Date(2026, 7, 18),
+    } as ReturnType<typeof useLastAdminMeetingDate>);
+
+    render(<ReportsLayoutContent>Report</ReportsLayoutContent>);
+
+    expect(smartDatePickerProps).toHaveLength(2);
+    expect(
+      smartDatePickerProps.every(
+        (props) => props.presets?.map((preset) => preset.label)[2] === 'Last admin meeting'
+      )
+    ).toBe(true);
   });
 });

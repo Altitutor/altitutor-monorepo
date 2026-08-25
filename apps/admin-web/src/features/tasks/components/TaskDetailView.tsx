@@ -331,7 +331,7 @@ export function TaskDetailView({
           ) : (
             <div className="h-full min-h-0 flex overflow-hidden">
               <Form {...form}>
-                <form className="h-full flex-1 flex min-h-0 overflow-hidden">
+                <form className="h-full flex-1 flex min-h-0 overflow-hidden" onSubmit={(e) => e.preventDefault()}>
                   <AutoSaveManager
                     form={form}
                     taskId={taskId}

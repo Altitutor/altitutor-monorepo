@@ -63,7 +63,7 @@ describe("pickStems", () => {
     expect(from).not.toHaveBeenCalled();
   });
 
-  it("selects from the lightweight practice index without loading rich stem details", async () => {
+  it("selects from one bounded database candidate response", async () => {
     const from = jest.fn((relation: string) => {
       if (relation === "vstudent_ucat_sections") {
         return {
@@ -83,49 +83,47 @@ describe("pickStems", () => {
         };
       }
 
-      if (relation === "vstudent_ucat_practice_stem_index") {
-        return {
-          select: jest.fn(() => ({
-            in: jest.fn(async () => ({
-              data: [
-                {
-                  id: "stem-1",
-                  section_id: "section-1",
-                  question_stem_category_id: "category-1",
-                  question_ids: ["question-1", "question-2"],
-                },
-              ],
-              error: null,
-            })),
-          })),
-        };
-      }
-
       throw new Error(`Unexpected relation: ${relation}`);
     });
-
-    const result = await pickStems(
-      { from } as unknown as SupabaseClient,
-      {
-        section: "verbal_reasoning",
-        questionCount: 2,
-        categoryIds: [],
-        unansweredOnly: false,
-        incorrectOnly: false,
-        timeMode: "off",
-        timeSpeedMultiplier: 1,
-        customTimeMinutes: null,
-        timePerQuestionSeconds: null,
+    const rpc = jest.fn(async () => ({
+      data: {
+        total_matching_questions: 2,
+        candidates: [
+          {
+            id: "stem-1",
+            section_id: "section-1",
+            question_stem_category_id: "category-1",
+            question_ids: ["question-1", "question-2"],
+            question_tag_ids: [],
+            question_count: 2,
+            matching_question_count: 2,
+            fallback_tier: 1,
+            matched_tag_ids: [],
+          },
+        ],
       },
-    );
+      error: null,
+    }));
+
+    const result = await pickStems({ from, rpc } as unknown as SupabaseClient, {
+      section: "verbal_reasoning",
+      questionCount: 2,
+      categoryIds: [],
+      unansweredOnly: false,
+      incorrectOnly: false,
+      timeMode: "off",
+      timeSpeedMultiplier: 1,
+      customTimeMinutes: null,
+      timePerQuestionSeconds: null,
+    });
 
     expect(result.chosenStemIds).toEqual(["stem-1"]);
     expect(result.questionCount).toBe(2);
     expect(result.totalMatchingQuestions).toBe(2);
     expect(from.mock.calls.map(([relation]) => relation)).toEqual([
       "vstudent_ucat_sections",
-      "vstudent_ucat_practice_stem_index",
     ]);
+    expect(rpc).toHaveBeenCalledTimes(1);
   });
 
   it("exhausts diverse unattempted tag matches before category-valid fallbacks", async () => {
@@ -181,45 +179,43 @@ describe("pickStems", () => {
         question_tag_ids: ["tag-b"],
       },
     ];
-    const categoryFilter = jest.fn(async () => ({
-      data: stems.filter((stem) =>
-        ["category-a", "category-b"].includes(stem.question_stem_category_id),
-      ),
-      error: null,
-    }));
-    const stemQuery = {
-      select: jest.fn(() => ({
-        in: jest.fn(() => ({ in: categoryFilter })),
-      })),
-    };
-    const attemptsQuery = {
-      select: jest.fn(() => ({
-        in: jest.fn(async () => ({ data: [], error: null })),
-      })),
-    };
     const from = jest.fn((relation: string) => {
       if (relation === "vstudent_ucat_sections") return sectionQuery;
-      if (relation === "vstudent_ucat_practice_stem_index") return stemQuery;
-      if (relation === "vstudent_ucat_my_question_attempts") return attemptsQuery;
       throw new Error(`Unexpected relation: ${relation}`);
     });
+    const rpc = jest.fn(async () => ({
+      data: {
+        total_matching_questions: 4,
+        candidates: stems
+          .filter((stem) =>
+            ["category-a", "category-b"].includes(
+              stem.question_stem_category_id,
+            ),
+          )
+          .map((stem) => ({
+            ...stem,
+            question_count: 1,
+            matching_question_count: 1,
+            fallback_tier: stem.question_tag_ids.length ? 0 : 1,
+            matched_tag_ids: stem.question_tag_ids,
+          })),
+      },
+      error: null,
+    }));
     jest.spyOn(Math, "random").mockReturnValue(0.5);
 
-    const result = await pickStems(
-      { from } as unknown as SupabaseClient,
-      {
-        section: "verbal_reasoning",
-        questionCount: 3,
-        categoryIds: ["category-a", "category-b"],
-        questionTagIds: ["tag-a", "tag-b"],
-        unansweredOnly: false,
-        incorrectOnly: false,
-        timeMode: "off",
-        timeSpeedMultiplier: 1,
-        customTimeMinutes: null,
-        timePerQuestionSeconds: null,
-      },
-    );
+    const result = await pickStems({ from, rpc } as unknown as SupabaseClient, {
+      section: "verbal_reasoning",
+      questionCount: 3,
+      categoryIds: ["category-a", "category-b"],
+      questionTagIds: ["tag-a", "tag-b"],
+      unansweredOnly: false,
+      incorrectOnly: false,
+      timeMode: "off",
+      timeSpeedMultiplier: 1,
+      customTimeMinutes: null,
+      timePerQuestionSeconds: null,
+    });
 
     expect(result.chosenStemIds).toHaveLength(3);
     expect(result.chosenStemIds).toEqual(
@@ -227,9 +223,11 @@ describe("pickStems", () => {
     );
     expect(result.chosenStemIds).not.toContain("outside-category");
     expect(result.chosenStemIds.at(-1)).not.toBe("untagged");
-    expect(categoryFilter).toHaveBeenCalledWith(
-      "question_stem_category_id",
-      ["category-a", "category-b"],
+    expect(rpc).toHaveBeenCalledWith(
+      "get_student_ucat_practice_candidates",
+      expect.objectContaining({
+        p_category_ids: ["category-a", "category-b"],
+      }),
     );
   });
 });

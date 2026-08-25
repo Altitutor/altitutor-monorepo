@@ -31,6 +31,7 @@ const formSchema = z.object({
   status: z.enum(['backlog', 'planned', 'in_progress', 'completed']),
   priority: z.number().min(0).max(4),
   projectLeadId: z.union([z.string().uuid(), z.null()]).default(null),
+  memberIds: z.array(z.string().uuid()).default([]),
   startDate: z.union([z.string(), z.null()]).default(null),
   targetDate: z.union([z.string(), z.null()]).default(null),
 });
@@ -66,6 +67,7 @@ export function CreateProjectDialog({
       status: initialStatus,
       priority: (initialPriority ?? 0) as ProjectPriority,
       projectLeadId: initialProjectLeadId ?? null,
+      memberIds: [],
       startDate: null,
       targetDate: null,
     },
@@ -79,6 +81,7 @@ export function CreateProjectDialog({
       status: initialStatus,
       priority: (initialPriority ?? 0) as ProjectPriority,
       projectLeadId: initialProjectLeadId ?? null,
+      memberIds: [],
       startDate: null,
       targetDate: null,
     });
@@ -97,6 +100,7 @@ export function CreateProjectDialog({
         status: data.status,
         priority: data.priority,
         project_lead_id: data.projectLeadId || null,
+        memberIds: data.memberIds ?? [],
         start_date: data.startDate ? new Date(data.startDate).toISOString() : null,
         target_date: data.targetDate ? new Date(data.targetDate).toISOString() : null,
         created_by: currentStaff?.id ?? null,

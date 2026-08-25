@@ -50,8 +50,11 @@ function validateInput(input: PreparationEngineInput): void {
   }
 }
 
-function currentScoreFromRepresentativeEvidence(
-  input: PreparationEngineInput,
+export function estimatePreparationCurrentScore(
+  input: Pick<
+    PreparationEngineInput,
+    "clock" | "versions" | "content" | "evidence"
+  >,
 ): PreparationCurrentScoreEstimate {
   const estimate = estimateRepresentativeScore({
     now: input.clock.now,
@@ -186,7 +189,7 @@ export function prepareStudent(
   input: PreparationEngineInput,
 ): PreparationEngineResult {
   validateInput(input);
-  const currentScore = currentScoreFromRepresentativeEvidence(input);
+  const currentScore = estimatePreparationCurrentScore(input);
   const currentScoreBySection = new Map(
     currentScore.sections.map((section) => [section.sectionId, section]),
   );
@@ -398,12 +401,10 @@ export function prepareStudent(
     ];
   });
   const trajectory = buildPreparationTrajectory({
-    preparation: input,
+    today: input.clock.today,
+    modelVersion: input.versions.trajectoryModel,
     currentScore,
-    scheduledCoreSectionEquivalentsPerWeek: plan.coreSectionEquivalentsPerWeek,
-    scheduledCoreSectionEquivalentsPerWeekBySection:
-      plan.coreSectionEquivalentsPerWeekBySection,
-    readiness: plan.readiness,
+    forecast: input.evidence.forecast,
   });
   return {
     generatedAt: input.clock.now,

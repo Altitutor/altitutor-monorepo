@@ -95,26 +95,27 @@ export async function ensureLessonStarted(
   studentId: string,
   lessonId: string,
 ): Promise<{ created: boolean }> {
-  const { data: existing, error: existingError } = await supabase
-    .from("ucat_student_learning_module_progress")
-    .select("id")
-    .eq("student_id", studentId)
-    .eq("learning_module_id", lessonId)
-    .maybeSingle();
-
-  if (existingError) throw new Error(existingError.message);
-  if (existing) return { created: false };
-
-  const { error } = await supabase
-    .from("ucat_student_learning_module_progress")
-    .insert({
-      student_id: studentId,
-      learning_module_id: lessonId,
-      completion_percent: 0,
-    });
-
+  const rpcClient = supabase as unknown as {
+    rpc: (
+      name: "start_ucat_learning_module",
+      params: Record<string, unknown>,
+    ) => Promise<{ data: unknown; error: { message: string } | null }>;
+  };
+  const { data, error } = await rpcClient.rpc("start_ucat_learning_module", {
+    p_student_id: studentId,
+    p_learning_module_id: lessonId,
+  });
   if (error) throw new Error(error.message);
-  return { created: true };
+  const result = data as
+    | { status: "started"; created: boolean }
+    | { status: "quota_exceeded"; quota: Record<string, unknown> }
+    | { status: "not_found" }
+    | null;
+  if (result?.status === "quota_exceeded") {
+    throw new Error(`QUOTA_EXCEEDED:${JSON.stringify(result.quota)}`);
+  }
+  if (result?.status !== "started") throw new Error("Lesson not found");
+  return { created: result.created };
 }
 
 export async function upsertBlockProgress(
@@ -123,49 +124,22 @@ export async function upsertBlockProgress(
   blockId: string,
   update: BlockProgressUpdate,
 ): Promise<void> {
-  const { data: existing, error: existingError } = await supabase
-    .from("ucat_student_learning_module_block_progress")
-    .select("id, interaction_state, manually_completed")
-    .eq("student_id", studentId)
-    .eq("learning_module_block_id", blockId)
-    .maybeSingle();
-
-  if (existingError) throw new Error(existingError.message);
-
-  const interactionState =
-    update.interactionState ??
-    (existing?.interaction_state as Json | undefined) ??
-    {};
-  const manuallyCompleted =
-    update.manuallyCompleted ?? existing?.manually_completed ?? false;
-  const completedAt =
-    update.completed || update.manuallyCompleted
-      ? new Date().toISOString()
-      : null;
-
-  if (existing) {
-    const { error } = await supabase
-      .from("ucat_student_learning_module_block_progress")
-      .update({
-        interaction_state: interactionState,
-        manually_completed: manuallyCompleted,
-        completed_at: completedAt ?? undefined,
-      })
-      .eq("id", existing.id);
-
-    if (error) throw new Error(error.message);
-    return;
-  }
-
-  const { error } = await supabase
-    .from("ucat_student_learning_module_block_progress")
-    .insert({
-      student_id: studentId,
-      learning_module_block_id: blockId,
-      interaction_state: interactionState,
-      manually_completed: manuallyCompleted,
-      completed_at: completedAt,
-    });
+  const rpcClient = supabase as unknown as {
+    rpc: (
+      name: "upsert_ucat_learning_module_block_progress",
+      params: Record<string, unknown>,
+    ) => Promise<{ data: unknown; error: { message: string } | null }>;
+  };
+  const { error } = await rpcClient.rpc(
+    "upsert_ucat_learning_module_block_progress",
+    {
+      p_student_id: studentId,
+      p_learning_module_block_id: blockId,
+      p_interaction_state: update.interactionState ?? null,
+      p_completed: update.completed ?? false,
+      p_manually_completed: update.manuallyCompleted ?? null,
+    },
+  );
 
   if (error) throw new Error(error.message);
 }
@@ -329,9 +303,7 @@ async function getRequiredQuestionIdsForBlock(
   return [];
 }
 
-function attemptHasAnswer(row: {
-  answer_snapshot: Json | null;
-}): boolean {
+function attemptHasAnswer(row: { answer_snapshot: Json | null }): boolean {
   return row.answer_snapshot != null;
 }
 

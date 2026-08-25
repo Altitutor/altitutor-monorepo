@@ -146,12 +146,13 @@ export function SearchableSelect<T>({
 
   const setOpen = React.useCallback(
     (next: boolean) => {
+      if (disabled && next) return;
       if (controlledOpen === undefined) {
         setInternalOpen(next);
       }
       onOpenChange?.(next);
     },
-    [onOpenChange, controlledOpen]
+    [disabled, onOpenChange, controlledOpen]
   );
 
   const isServerSideSearch = Boolean(onSearchChange);

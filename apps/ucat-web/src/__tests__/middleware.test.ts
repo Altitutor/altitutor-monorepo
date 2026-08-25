@@ -218,7 +218,11 @@ describe("UCAT routing middleware", () => {
     expect(mockRpc).not.toHaveBeenCalled();
   });
 
-  it.each(["/auth/callback?code=pkce", "/api/auth/session"])(
+  it.each([
+    "/auth/callback?code=pkce",
+    "/api/auth/session",
+    "/api/cron/ucat-preparation-refreshes",
+  ])(
     "does not contact Supabase for no-auth path %s",
     async (pathname) => {
       const response = await middleware(request(pathname));

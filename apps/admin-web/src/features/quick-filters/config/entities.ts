@@ -62,6 +62,49 @@ export const SUPPORTED_ENTITIES: EntityConfig[] = [
           { value: 8, label: '8 (XL)' },
         ],
       },
+      {
+        key: 'unlinked',
+        label: 'Link',
+        type: 'select',
+        options: [
+          { value: 'none', label: 'Not linked to an issue or project' },
+        ],
+      },
+    ],
+  },
+  {
+    id: 'projects',
+    label: 'Projects',
+    fields: [
+      {
+        key: 'status',
+        label: 'Status',
+        type: 'select',
+        options: [
+          { value: 'backlog', label: 'Backlog' },
+          { value: 'planned', label: 'Planned' },
+          { value: 'in_progress', label: 'In Progress' },
+          { value: 'completed', label: 'Completed' },
+        ],
+      },
+      {
+        key: 'priority',
+        label: 'Priority',
+        type: 'select',
+        options: [
+          { value: 0, label: 'No priority' },
+          { value: 1, label: 'Urgent' },
+          { value: 2, label: 'High' },
+          { value: 3, label: 'Medium' },
+          { value: 4, label: 'Low' },
+        ],
+      },
+      {
+        key: 'member',
+        label: 'Member',
+        type: 'select',
+        supportPlaceholders: true,
+      },
     ],
   },
   {

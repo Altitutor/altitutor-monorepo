@@ -10,6 +10,8 @@ JOIN public.question_stems stem
   ON stem.id = question.question_stem_id
 WHERE question.deleted_at IS NULL
   AND stem.deleted_at IS NULL
+  AND stem.status = 'published'
+  AND stem.access_scope = 'public'
   AND question.answer_scheme <> 'decision_making_binary_placement'
 ORDER BY question.id
 LIMIT 3;
@@ -25,15 +27,15 @@ INSERT INTO public.student_question_set_attempts (
 VALUES
   (
     'fa000000-0000-4000-8000-000000000001',
-    '10000000-0000-0000-0000-000000000010',
+    '10000000-0000-0000-0000-000000000006',
     'f3000000-0000-4000-8000-000000000001',
     now() - interval '3 minutes',
-    now() - interval '2 minutes',
+    null,
     null
   ),
   (
     'fa000000-0000-4000-8000-000000000002',
-    '10000000-0000-0000-0000-000000000010',
+    '10000000-0000-0000-0000-000000000006',
     'f3000000-0000-4000-8000-000000000001',
     now() - interval '2 minutes',
     null,
@@ -50,7 +52,7 @@ INSERT INTO public.student_practice_sessions (
 )
 SELECT
   'fa000000-0000-4000-8000-000000000003',
-  '10000000-0000-0000-0000-000000000010',
+  '10000000-0000-0000-0000-000000000006',
   stem.section_id,
   'discarded-progress-test',
   now() - interval '2 minutes',
@@ -76,7 +78,7 @@ SELECT
     WHEN 2 THEN 'fb000000-0000-4000-8000-000000000002'::uuid
     ELSE 'fb000000-0000-4000-8000-000000000003'::uuid
   END,
-  '10000000-0000-0000-0000-000000000010',
+  '10000000-0000-0000-0000-000000000006',
   CASE selected.test_index
     WHEN 1 THEN 'fa000000-0000-4000-8000-000000000001'::uuid
     WHEN 2 THEN 'fa000000-0000-4000-8000-000000000002'::uuid
@@ -92,10 +94,14 @@ SELECT
   now() - interval '1 minute'
 FROM test_progress_questions selected;
 
+UPDATE public.student_question_set_attempts
+SET completed_at = now() - interval '30 seconds'
+WHERE id = 'fa000000-0000-4000-8000-000000000001';
+
 SET LOCAL ROLE authenticated;
 SELECT set_config(
   'request.jwt.claims',
-  '{"sub":"10000000-0000-0000-0000-000000000010","role":"authenticated"}',
+  '{"sub":"10000000-0000-0000-0000-000000000006","role":"authenticated"}',
   true
 );
 

@@ -1,7 +1,17 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Button, DataTableToolbar, TableCell, TableRow } from "@altitutor/ui";
+import {
+  Button,
+  DataTableToolbar,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+  TableCell,
+  TableRow,
+} from "@altitutor/ui";
 import type {
   DataTableColumnDefinition,
   DataTableFilterDefinition,
@@ -9,13 +19,9 @@ import type {
 import type { Json } from "@altitutor/shared";
 import { ReconciliationTable } from "./ReconciliationTable";
 import { getQuestionIssueDefinition } from "../lib/question-issue-definitions";
-import {
-  duplicateComparisonMatchLabel,
-  duplicateRecommendationLabel,
-} from "../lib/duplicate-queue-match";
 import { PotentialDuplicatesReconciliationDialog } from "./PotentialDuplicatesReconciliationDialog";
 import type { PotentialDuplicatePair } from "../api/reconciliation";
-import { useExactDuplicateStemsQueue } from "../hooks/useReconciliation";
+import { usePotentialDuplicateStemsQueue } from "../hooks/useReconciliation";
 import { useUcatSections } from "@/features/ucat/questions/hooks/useUcatQuestions";
 import { proseMirrorToPlainText } from "@/features/ucat/shared/lib/rich-text";
 import { useUcatTableUrlState } from "@/features/ucat/shared/hooks/useUcatTableUrlState";
@@ -48,17 +54,13 @@ export function PotentialDuplicatesTable({
   const sectionsQuery = useUcatSections();
   const [queueOpen, setQueueOpen] = useState(false);
   const [initialPairId, setInitialPairId] = useState<string | null>(null);
+  const [similarityThreshold, setSimilarityThreshold] = useState(0.95);
 
   const columnDefinitions: DataTableColumnDefinition[] = [
     { key: "section", label: "Section", visibleByDefault: true },
     { key: "stem_a", label: "Stem A", visibleByDefault: true },
     { key: "stem_b", label: "Stem B", visibleByDefault: true },
-    { key: "match", label: "Match", visibleByDefault: true },
-    {
-      key: "recommendation",
-      label: "Suggested action",
-      visibleByDefault: true,
-    },
+    { key: "similarity", label: "Stem similarity", visibleByDefault: true },
   ];
 
   const tableState = useUcatTableUrlState(
@@ -73,11 +75,12 @@ export function PotentialDuplicatesTable({
   const sectionIds = (tableState.state.filters.section_id ?? [])
     .map(String)
     .filter((value) => value && value !== "all");
-  const { data, isLoading } = useExactDuplicateStemsQueue({
+  const { data, isLoading } = usePotentialDuplicateStemsQueue({
     search: tableState.state.search,
     sectionIds,
     page: tableState.state.page,
     pageSize: tableState.state.pageSize,
+    similarityThreshold,
   });
 
   const sectionFilterDef: DataTableFilterDefinition = useMemo(
@@ -133,14 +136,30 @@ export function PotentialDuplicatesTable({
           />
         }
         headerActions={
-          <Button
-            size="sm"
-            className={tutorBtnPrimary}
-            onClick={() => openQueue()}
-            disabled={filteredPairs.length === 0}
-          >
-            Begin reconciling
-          </Button>
+          <div className="flex items-center gap-2">
+            <Select
+              value={String(similarityThreshold)}
+              onValueChange={(value) => setSimilarityThreshold(Number(value))}
+            >
+              <SelectTrigger className="w-[170px]" aria-label="Stem similarity threshold">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="1">100% similarity</SelectItem>
+                <SelectItem value="0.95">95% similarity</SelectItem>
+                <SelectItem value="0.9">90% similarity</SelectItem>
+                <SelectItem value="0.85">85% similarity</SelectItem>
+              </SelectContent>
+            </Select>
+            <Button
+              size="sm"
+              className={tutorBtnPrimary}
+              onClick={() => openQueue()}
+              disabled={filteredPairs.length === 0}
+            >
+              Begin reconciling
+            </Button>
+          </div>
         }
         renderRow={(item, _index, visibleColumnKeys) => (
           <PotentialDuplicateRow
@@ -154,6 +173,7 @@ export function PotentialDuplicatesTable({
       <PotentialDuplicatesReconciliationDialog
         open={queueOpen}
         pairs={filteredPairs}
+        similarityThreshold={data?.similarityThreshold ?? similarityThreshold}
         initialPairId={initialPairId}
         onOpenChange={(nextOpen) => {
           setQueueOpen(nextOpen);
@@ -191,17 +211,9 @@ function PotentialDuplicateRow({
         {stemB || "-"}
       </TableCell>
     ),
-    match: (
+    similarity: (
       <TableCell className="whitespace-nowrap">
-        {duplicateComparisonMatchLabel(item.comparisonKind)}
-      </TableCell>
-    ),
-    recommendation: (
-      <TableCell className="whitespace-nowrap">
-        {duplicateRecommendationLabel(
-          item.recommendation,
-          item.suggestedMergeDirection,
-        )}
+        {Math.round(item.similarity * 100)}%
       </TableCell>
     ),
   };

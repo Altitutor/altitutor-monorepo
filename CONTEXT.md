@@ -627,11 +627,8 @@
 - **Reconciliation issue queue** — The tutor worklist for one kind of reconciliation issue, preserving that issue type's search, filters, ordering, and progress independently from other issue types. The reconciliation overview summarises issue counts and links to queues; it is not itself a combined queue.
   _Avoid_: Reconciliation table, reconciliation tab, combined issue list
 
-- **Potential duplicate candidate** — A pair of question stems in the same UCAT section surfaced for tutor review because their stem text is equal after conservative normalization. The recommendation is derived by progressively comparing their normalized question, answer-option, correctness, and explanation content; it remains a tutor-reviewed reconciliation issue rather than an automatic merge or deletion.
-  _Avoid_: Confirmed duplicate, duplicate question, merge instruction
-
-- **Potential duplicate dismissal** — A tutor's decision that one potential duplicate candidate does not require merging or deletion for the exact normalized stem and question-bundle content reviewed. It removes the pair from the active reconciliation issue queue, remains auditable and reversible, and becomes stale when that compared content on either stem changes.
-  _Avoid_: Permanent duplicate exclusion, candidate deletion, merge rejection
+- **Potential duplicate candidate** — A pair of question stems in the same UCAT section surfaced for tutor review because their normalized stem text meets the tutor-selected similarity threshold. Questions, answers, and explanations are shown to inform the tutor's choice but do not determine candidacy or produce a suggested action. The tutor may merge either stem into the other or delete either stem; leaving the pair unchanged leaves it in the queue.
+  _Avoid_: Confirmed duplicate, duplicate question, merge recommendation
 
 - **AI-generated question stem** — A UCAT question stem produced by an AI generation workflow. It is expected to be close to publishable and enters the in-review lifecycle stage automatically, but remains unavailable to students until published by a tutor.
   _Avoid_: Auto-published question, synthetic question
@@ -791,6 +788,17 @@
 
 - **Employment started at** — The date used for tenure requirements; defaults to staff `created_at` and may be edited by admin for migration.
 
+## Projects
+
+- **Project** — A unit of internal Altitutor staff work.
+  _Avoid_: Task, Issue
+
+- **Project member** — A staff person involved in a Project. Membership is what makes the Project appear on that person's dashboard and in involvement filters.
+  _Avoid_: Assignee, collaborator, contributor, participant
+
+- **Project lead** — The at most one Project member designated as accountable for a Project. Designating a lead always makes them a Project member; clearing or replacing the lead does not remove their membership.
+  _Avoid_: Project owner, assignee
+
 ## UCAT online access
 
 - **UCAT Free** — The default online entitlement for a signed-up UCAT student. Grants access to online product areas within configurable, independent usage quotas per area. Does not require a Stripe subscription. A quota of zero for an area means UCAT Free students cannot start that activity.
@@ -843,7 +851,7 @@
 - **Score projection** — The UCAT feature that shows current section score estimates and fixed-horizon score trajectories from attempt evidence. It does not create a study plan, depend on target scores, or depend on a test date.
   _Avoid_: Study planner, goal tracker, target prediction
 
-- **Score projection snapshot** — The trusted total score estimate actually shown to a student on a calendar day, stored at most once per day in the student's timezone. Snapshot history must not be reconstructed later using a newer model.
+- **Score projection snapshot** — The trusted total score estimate actually shown to a student on a calendar day, stored at most once per day in the student's timezone. Completed Attempt evidence requests a coalesced snapshot refresh; displaying Progress or the dashboard only reads the latest compatible snapshot and never runs the projection model. Snapshot history must not be reconstructed later using a newer model.
   _Avoid_: Recomputed historical prediction, attempt average
 
 - **Dashboard trajectory** — The dashboard presentation that overlays a UCAT preparation goal, Study-plan mocks when applicable, and an exact test date on the independent Score projection. The dashboard canvas shows at most 60 days of trusted snapshot history and the next 120 days of bounded projection so `Today` stays in a consistent position. It may describe exam-day progress only when the date is known, the projection has sufficient evidence, and the date falls inside the configured forecast horizon; otherwise it shows baseline progress or a bounded outlook without an on-track judgement. Its `Why` insight may report stored improvement or a section-to-section-target gap, but must not claim that a section caused a precise total-score deficit.
@@ -883,7 +891,7 @@
 - **Study plan Situational Judgement goal** — The automatically managed standard used to prescribe Situational Judgement learning and practice without adding another onboarding input. It uses Situational Judgement performance evidence and a system-configured readiness standard, but neither contributes to nor competes with the Study plan target.
   _Avoid_: Overall-score contribution, student-entered SJ target, ignored section
 
-- **Study plan rebalancing** — The automatic adjustment made after planned work is missed. Missed tasks remain visible in history but do not accumulate as extra study debt or overload a later available study day. High-value work may be rescheduled; lower-priority work may be replaced or dropped. Near-term tasks may be reconciled when the student next opens the plan, while the full future calendar follows the normal weekly or event-driven recalculation schedule.
+- **Study plan rebalancing** — The automatic adjustment made after planned work is missed. Missed tasks remain visible in history but do not accumulate as extra study debt or overload a later available study day. High-value work may be rescheduled; lower-priority work may be replaced or dropped. Equivalent completed activity is reconciled after activity completion, while missed-work rebalancing and the full future calendar follow scheduled or event-driven recalculation. Opening the Study plan is read-only and never performs either mutation.
   _Avoid_: Backlog rollover, catch-up workload, plan failure
 
 - **Equivalent study activity** — In-app study completed outside a Study plan action that sufficiently matches a planned task's activity type, section or skill focus, timing mode, and required volume. It may automatically satisfy that task so the student is not asked to repeat substantially the same work. Non-equivalent extra activity still contributes to progress evidence and later plan recalculation but does not complete an unrelated task.

@@ -19,6 +19,8 @@ import {
   FormField,
   FormItem,
   Button,
+  DialogTitle,
+  DialogDescription,
   SegmentedControl,
   DropdownMenu,
   DropdownMenuContent,
@@ -28,8 +30,9 @@ import {
   useToast,
   type JSONContent,
   type MentionClickDetail,
+  isPanelResizeActive,
 } from '@altitutor/ui';
-import { MoreVertical, ExternalLink, Trash2, Loader2, Check, CloudOff } from 'lucide-react';
+import { MoreVertical, ExternalLink, Trash2, Loader2, Check, CloudOff, X } from 'lucide-react';
 import { RichTextTemplateMenuItems } from '@/features/rich-text-templates/components/RichTextTemplateMenuItems';
 import { SaveAsTemplateDialog } from '@/features/rich-text-templates/components/SaveAsTemplateDialog';
 import type { Editor } from '@tiptap/react';
@@ -49,6 +52,7 @@ import { NotePropertyPills } from './NotePropertyPills';
 import type { NoteFormData, NoteUpdate } from '../types';
 import type { Resolver } from 'react-hook-form';
 import { AdminDialogShell } from '@/shared/components';
+import { EntityResizablePanels } from '@/shared/components/EntityResizablePanels';
 import { cn } from '@/shared/utils';
 import { DOCUMENT_TITLE_FIELD_CLASS } from '../constants/documentTitle';
 import { useFitDocumentTitle } from '../hooks/useFitDocumentTitle';
@@ -288,6 +292,11 @@ export function EditDocumentDialog({
     onClose();
   }, [noteId, deleteNote, onClose]);
 
+  const handleRequestClose = useCallback(() => {
+    if (isPanelResizeActive()) return;
+    onClose();
+  }, [onClose]);
+
   const enterEditMode = useCallback(async () => {
     await editLock.acquire();
     setMode('edit');
@@ -373,169 +382,205 @@ export function EditDocumentDialog({
   return (
     <>
       <AdminDialogShell
+        hideHeader
         fillHeight
+        defaultExpanded
         open={isOpen}
-        onClose={onClose}
+        onClose={handleRequestClose}
         title={!editorReady ? 'Loading...' : 'Edit Document'}
         contentClassName="md:max-w-4xl"
-        bodyClassName="p-0 min-h-0 flex-1 overflow-hidden flex flex-col"
-        headerActions={
-          editorReady ? (
-            <>
-              <div className="flex items-center gap-2 text-xs text-muted-foreground font-medium pr-2 mr-2">
-                {isEditing && updateNote.isPending ? (
-                  <>
-                    <Loader2 className="h-3 w-3 animate-spin" />
-                    <span>Saving...</span>
-                  </>
-                ) : updateNote.isError ? (
-                  <>
-                    <CloudOff className="h-3 w-3 text-destructive" />
-                    <span className="text-destructive">Changes not saved</span>
-                  </>
-                ) : (
-                  <>
-                    <Check className="h-3 w-3 text-emerald-500" />
-                    <span>Saved</span>
-                  </>
-                )}
-              </div>
-              <SegmentedControl<DocumentMode>
-                value={mode}
-                onValueChange={(value) => void handleModeChange(value)}
-                size="sm"
-                aria-label="Document mode"
-                options={[
-                  { value: 'view', label: 'View' },
-                  { value: 'edit', label: 'Edit' },
-                ]}
-              />
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="outline" size="icon">
-                    <MoreVertical className="h-4 w-4" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                  <DropdownMenuItem onClick={() => router.push(`/documents/${noteId}`)}>
-                    <ExternalLink className="h-4 w-4 mr-2" />
-                    Open in page
-                  </DropdownMenuItem>
-                  <RichTextTemplateMenuItems
-                    getEditor={() => noteEditorRef.current?.getEditor() ?? null}
-                    getCurrentContent={() => form.getValues('content') ?? null}
-                    onSaveAsTemplateClick={() => setIsSaveDialogOpen(true)}
-                  />
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={handleDelete} className="!text-destructive focus:!text-destructive">
-                    <Trash2 className="h-4 w-4 mr-2" />
-                    Delete
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            </>
-          ) : undefined
-        }
+        bodyClassName="flex min-h-0 flex-1 flex-col p-0 overflow-hidden"
       >
-        {!editorReady ? (
-          <div className="p-6">Loading document...</div>
-        ) : (
-          <div className="flex min-h-0 flex-1 flex-col">
-            <Form {...form}>
-              <form className="flex h-full min-w-0">
-                <NoteAutoSaveBridge
-                  form={form}
-                  noteId={noteId}
-                  note={note ?? undefined}
-                  isInitialized={isInitialized && isEditing}
-                  isUpdatingFromServer={() => isUpdatingFromServerRef.current}
-                  onSave={handleAutoSave}
-                />
+        <div className="h-full min-h-0 flex flex-col overflow-hidden">
+          <div className="shrink-0 border-b bg-card px-6 py-4">
+            <div className="flex items-center justify-between gap-4">
+              <div className="flex min-w-0 flex-1 items-center gap-3">
+                <Button type="button" variant="outline" size="icon" onClick={handleRequestClose} className="shrink-0">
+                  <X className="h-4 w-4" />
+                  <span className="sr-only">Close</span>
+                </Button>
+                <div className="min-w-0 flex-1">
+                  <DialogTitle>{!editorReady ? 'Loading...' : 'Edit Document'}</DialogTitle>
+                  <DialogDescription className="sr-only">View or edit document content and properties.</DialogDescription>
+                </div>
+              </div>
+              {editorReady ? (
+                <div className="flex shrink-0 items-center gap-2">
+                  <div className="mr-2 flex items-center gap-2 pr-2 text-xs font-medium text-muted-foreground">
+                    {isEditing && updateNote.isPending ? (
+                      <>
+                        <Loader2 className="h-3 w-3 animate-spin" />
+                        <span>Saving...</span>
+                      </>
+                    ) : updateNote.isError ? (
+                      <>
+                        <CloudOff className="h-3 w-3 text-destructive" />
+                        <span className="text-destructive">Changes not saved</span>
+                      </>
+                    ) : (
+                      <>
+                        <Check className="h-3 w-3 text-emerald-500" />
+                        <span>Saved</span>
+                      </>
+                    )}
+                  </div>
+                  <SegmentedControl<DocumentMode>
+                    value={mode}
+                    onValueChange={(value) => void handleModeChange(value)}
+                    size="sm"
+                    aria-label="Document mode"
+                    options={[
+                      { value: 'view', label: 'View' },
+                      { value: 'edit', label: 'Edit' },
+                    ]}
+                  />
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="outline" size="icon">
+                        <MoreVertical className="h-4 w-4" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem onClick={() => router.push(`/documents/${noteId}`)}>
+                        <ExternalLink className="h-4 w-4 mr-2" />
+                        Open in page
+                      </DropdownMenuItem>
+                      <RichTextTemplateMenuItems
+                        getEditor={() => noteEditorRef.current?.getEditor() ?? null}
+                        getCurrentContent={() => form.getValues('content') ?? null}
+                        onSaveAsTemplateClick={() => setIsSaveDialogOpen(true)}
+                      />
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem onClick={handleDelete} className="!text-destructive focus:!text-destructive">
+                        <Trash2 className="h-4 w-4 mr-2" />
+                        Delete
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </div>
+              ) : null}
+            </div>
+          </div>
 
-                <div className="flex min-h-0 min-w-0 flex-1 flex-col border-r">
-                  <div className="max-h-full min-h-0 min-w-0 flex-1 overflow-y-auto">
-                    <div
-                      className="mx-auto max-w-3xl space-y-4 pb-6 pl-[2.75rem] pr-6 pt-6"
-                      onPointerDownCapture={() => {
-                        if (!isEditing) showEditModeToast();
-                      }}
-                    >
-                      <div className="md:hidden">
-                        <NotePropertyPills form={form} folders={folders || []} editable={isEditing} />
-                      </div>
+          <div className="min-h-0 flex-1 overflow-hidden">
+            {!editorReady ? (
+              <div className="p-6">Loading document...</div>
+            ) : (
+              <div className="h-full min-h-0 flex overflow-hidden">
+                <Form {...form}>
+                  <form
+                    className="flex h-full min-h-0 min-w-0 flex-1 overflow-hidden"
+                    onSubmit={(e) => e.preventDefault()}
+                  >
+                  <NoteAutoSaveBridge
+                    form={form}
+                    noteId={noteId}
+                    note={note ?? undefined}
+                    isInitialized={isInitialized && isEditing}
+                    isUpdatingFromServer={() => isUpdatingFromServerRef.current}
+                    onSave={handleAutoSave}
+                  />
 
-                      <FormField
-                        control={form.control}
-                        name="title"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormControl>
-                              <input
-                                ref={titleInputRef}
-                                value={field.value || ''}
-                                onChange={field.onChange}
-                                readOnly={!isEditing}
-                                onFocus={() => {
+                  <EntityResizablePanels
+                    id={`document-${noteId}-panels`}
+                    main={(
+                      <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
+                        <div className="max-h-full min-h-0 min-w-0 flex-1 overflow-y-auto">
+                          <div className="mx-auto max-w-3xl space-y-4 pb-6 pl-[2.75rem] pr-6 pt-6">
+                            <div className="md:hidden">
+                              <NotePropertyPills
+                                form={form}
+                                folders={folders || []}
+                                editable={isEditing}
+                                onDisabledInteract={() => {
                                   if (!isEditing) showEditModeToast();
                                 }}
-                                placeholder="Untitled"
-                                className={cn(
-                                  'w-full bg-transparent outline-none border-none',
-                                  DOCUMENT_TITLE_FIELD_CLASS,
-                                )}
                               />
-                            </FormControl>
-                          </FormItem>
-                        )}
-                      />
+                            </div>
 
-                      <FormField
-                        control={form.control}
-                        name="content"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormControl>
-                              <NoteEditor
-                                key={`${noteId}-${acceptedServerVersion}`}
-                                ref={noteEditorRef}
-                                content={field.value}
-                                onChange={handleContentChange(field.onChange)}
-                                editable={isEditing}
-                                placeholder="Start writing..."
-                                enableCollapsibleHeadings
-                                onEditorReady={handleEditorReady}
-                                mentionSuggestions={mentionSuggestions}
-                                onMentionClick={handleDocumentMentionClick}
-                              />
-                            </FormControl>
-                          </FormItem>
-                        )}
-                      />
-                    </div>
-                  </div>
+                            <FormField
+                              control={form.control}
+                              name="title"
+                              render={({ field }) => (
+                                <FormItem>
+                                  <FormControl>
+                                    <input
+                                      ref={titleInputRef}
+                                      value={field.value || ''}
+                                      onChange={field.onChange}
+                                      readOnly={!isEditing}
+                                      onFocus={() => {
+                                        if (!isEditing) showEditModeToast();
+                                      }}
+                                      placeholder="Untitled"
+                                      className={cn(
+                                        'w-full bg-transparent outline-none border-none',
+                                        DOCUMENT_TITLE_FIELD_CLASS,
+                                      )}
+                                    />
+                                  </FormControl>
+                                </FormItem>
+                              )}
+                            />
 
-                  {isEditing ? (
-                    <div className="flex-shrink-0 px-4 pb-4 pt-2">
-                      <NoteEditorBottomToolbar editor={editorInstance} />
-                    </div>
-                  ) : null}
-                </div>
+                            <FormField
+                              control={form.control}
+                              name="content"
+                              render={({ field }) => (
+                                <FormItem>
+                                  <FormControl>
+                                    <div
+                                      onPointerDown={() => {
+                                        if (!isEditing) showEditModeToast();
+                                      }}
+                                    >
+                                      <NoteEditor
+                                        key={`${noteId}-${acceptedServerVersion}`}
+                                        ref={noteEditorRef}
+                                        content={field.value}
+                                        onChange={handleContentChange(field.onChange)}
+                                        editable={isEditing}
+                                        placeholder="Start writing..."
+                                        enableCollapsibleHeadings
+                                        onEditorReady={handleEditorReady}
+                                        mentionSuggestions={mentionSuggestions}
+                                        onMentionClick={handleDocumentMentionClick}
+                                      />
+                                    </div>
+                                  </FormControl>
+                                </FormItem>
+                              )}
+                            />
+                          </div>
+                        </div>
 
-                <div className="hidden md:flex w-80 min-w-[320px] flex-col overflow-hidden border-l">
-                  <NoteDocumentSidebarPanel
-                    form={form}
-                    folders={folders || []}
-                    editable={isEditing}
-                    editor={editorInstance}
-                    onViewModeInteract={() => {
-                      if (!isEditing) showEditModeToast();
-                    }}
+                        {isEditing ? (
+                          <div className="flex-shrink-0 px-4 pb-4 pt-2">
+                            <NoteEditorBottomToolbar editor={editorInstance} />
+                          </div>
+                        ) : null}
+                      </div>
+                    )}
+                    sidebar={(
+                      <div className="hidden h-full min-h-0 w-full flex-col overflow-hidden md:flex">
+                        <NoteDocumentSidebarPanel
+                          form={form}
+                          folders={folders || []}
+                          editable={isEditing}
+                          editor={editorInstance}
+                          onViewModeInteract={() => {
+                            if (!isEditing) showEditModeToast();
+                          }}
+                        />
+                      </div>
+                    )}
                   />
-                </div>
-              </form>
-            </Form>
+                  </form>
+                </Form>
+              </div>
+            )}
           </div>
-        )}
+        </div>
       </AdminDialogShell>
       <SaveAsTemplateDialog
         isOpen={isSaveDialogOpen}

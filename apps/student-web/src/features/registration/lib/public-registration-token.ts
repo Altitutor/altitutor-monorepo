@@ -24,12 +24,11 @@ export async function isRegistrationTokenRevoked(
   supabase: SupabaseClient<Database>,
   token: string
 ): Promise<boolean> {
-  const { data } = await supabase
-    .from('public_link_revocations')
-    .select('token')
-    .eq('purpose', 'REGISTRATION')
-    .eq('token', token)
-    .maybeSingle();
+  const { data, error } = await supabase.rpc('service_is_public_link_revoked', {
+    p_purpose: 'REGISTRATION',
+    p_token: token,
+  });
 
-  return Boolean(data);
+  if (error) throw error;
+  return data === true;
 }
