@@ -499,6 +499,13 @@ function UcatQuestionStemApprovalQueue({
     void invalidateQueueData(currentEntry.stemId)
   }
 
+  async function handleSavePublished() {
+    if (!currentEntry) return
+    const saved = await saveCurrent()
+    if (!saved) return
+    void invalidateQueueData(currentEntry.stemId)
+  }
+
   function requestNavigate(direction: NavigateDirection) {
     if (direction === 'prev' && !canGoPreviousStem) return
     if (direction === 'next' && !canGoNextStem) return
@@ -558,7 +565,14 @@ function UcatQuestionStemApprovalQueue({
       }
       if (event.target instanceof HTMLTextAreaElement) return
       if (isMutating || queueComplete || !currentEntry) return
-      if (isPublishedWorkflow) return
+
+      if (isPublishedWorkflow) {
+        if (!hasUnsavedChanges) return
+        event.preventDefault()
+        event.stopPropagation()
+        void handleSavePublished()
+        return
+      }
 
       event.preventDefault()
       event.stopPropagation()
@@ -715,7 +729,17 @@ function UcatQuestionStemApprovalQueue({
             </div>
           ) : (
             <div className="flex shrink-0 items-center gap-2">
-              {isPublishedWorkflow ? null : isAiMode ? (
+              {isPublishedWorkflow ? (
+                <Button
+                  type="button"
+                  className={tutorBtnPrimary}
+                  onClick={() => void handleSavePublished()}
+                  disabled={isMutating || !hasUnsavedChanges}
+                  data-dialog-primary-action=""
+                >
+                  {updateMutation.isPending ? 'Saving…' : 'Save changes'}
+                </Button>
+              ) : isAiMode ? (
                 <>
                   {hasPreviousAiQuestion ? (
                     <Button
