@@ -38,6 +38,9 @@ jobs:
       - name: Confirm Supabase CLI version
         run: supabase --version
 
+      - name: Test migration connection settings
+        run: node --test supabase/scripts/migration-database-url.test.mjs
+
       - name: Render email templates
         run: bash supabase/scripts/render-email-templates.sh
 
@@ -50,11 +53,16 @@ jobs:
         run: supabase link --project-ref $SUPABASE_PROJECT_ID
 
       - name: Push migrations
+        timeout-minutes: 35
         # --include-all applies local migrations inserted before the remote's
         # latest version (e.g. 20260609110927 after prod already ran 2026060913*).
         run: |
           bash supabase/scripts/render-email-templates.sh
-          supabase db push --include-all
+          # Hosted projects cap the default statement timeout at two minutes.
+          # Use the linked session-pooler URL so large, bounded migrations can
+          # override that default without changing database-wide settings.
+          migration_db_url="$(node supabase/scripts/migration-database-url.mjs supabase/.temp/pooler-url)"
+          PGPASSWORD="$SUPABASE_DB_PASSWORD" supabase db push --db-url "$migration_db_url" --include-all
 
       - name: Lint remote schema (post-push)
         run: supabase db lint --linked --level error --fail-on error
