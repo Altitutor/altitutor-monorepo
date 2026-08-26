@@ -5,6 +5,8 @@ import { createClient } from '@/shared/lib/supabase/server-ssr';
 import type { Database } from '@altitutor/shared';
 import { syncStudentToStripeCustomer } from '@/shared/lib/stripe/sync-customer';
 
+export const dynamic = 'force-dynamic';
+
 type VStudentProfile = Database['public']['Views']['vstudent_profile']['Row'];
 
 // Whitelist of fields that students are allowed to update
@@ -261,4 +263,3 @@ export async function GET(_request: NextRequest) {
     );
   }
 }
-

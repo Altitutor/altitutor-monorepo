@@ -5,6 +5,8 @@ import { createClient as createServerClient } from '@/shared/lib/supabase/server
 import { getServerSupabaseAdmin } from '@/shared/lib/supabase/server';
 import { formatTime } from '@/shared/utils/datetime';
 
+export const dynamic = 'force-dynamic';
+
 type InPersonStudySubject = Database['public']['Views']['vstudent_in_person_subjects']['Row'];
 
 type HomeworkHelpClassRow = {

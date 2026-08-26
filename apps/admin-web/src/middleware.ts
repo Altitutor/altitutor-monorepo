@@ -1,5 +1,8 @@
 import * as Sentry from "@sentry/nextjs";
-import type { Database } from "@altitutor/shared";
+import {
+  headersWithVerifiedUser,
+  type Database,
+} from "@altitutor/shared";
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 import { instrumentSupabaseClient } from "@/lib/sentry/instrument-supabase-client";
@@ -12,6 +15,12 @@ type CookieToSet = {
   value: string;
   options?: Parameters<NextResponse["cookies"]["set"]>[2];
 };
+
+function forwardRequest(request: NextRequest, userId: string | null) {
+  return NextResponse.next({
+    request: { headers: headersWithVerifiedUser(request.headers, userId) },
+  });
+}
 
 function createDeadline() {
   const controller = new AbortController();
@@ -92,7 +101,7 @@ function unavailable(
 export async function handleAuthRequest(request: NextRequest) {
   const startedAt = Date.now();
   const { pathname, origin } = request.nextUrl;
-  if (request.method === "OPTIONS") return NextResponse.next({ request });
+  if (request.method === "OPTIONS") return forwardRequest(request, null);
 
   if (pathname.startsWith("/auth/callback&")) {
     const redirectUrl = new URL(request.url);
@@ -108,7 +117,8 @@ export async function handleAuthRequest(request: NextRequest) {
     pathname.startsWith("/invite") ||
     pathname.startsWith("/auth") ||
     pathname.startsWith("/sentry-example-page");
-  if (pathname.startsWith("/api") || isPublic) return NextResponse.next({ request });
+  if (pathname.startsWith("/api") || isPublic)
+    return forwardRequest(request, null);
 
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
@@ -118,7 +128,6 @@ export async function handleAuthRequest(request: NextRequest) {
     return unavailable(request, startedAt, { code: "missing_environment" }, cookies, responseHeaders);
   }
 
-  let response = NextResponse.next({ request });
   const deadline = createDeadline();
   const supabase = instrumentSupabaseClient(
     createServerClient<Database>(supabaseUrl, supabaseAnonKey, {
@@ -132,7 +141,6 @@ export async function handleAuthRequest(request: NextRequest) {
             else cookies.push(cookie);
           });
           Object.assign(responseHeaders, updatedHeaders);
-          response = applyMetadata(NextResponse.next({ request }), cookies, responseHeaders);
         },
       },
       cookieOptions: {
@@ -156,13 +164,18 @@ export async function handleAuthRequest(request: NextRequest) {
       return applyMetadata(NextResponse.redirect(new URL("/login", origin)), cookies, responseHeaders);
     }
     if (claims.error) return unavailable(request, startedAt, claims.error, cookies, responseHeaders);
-    if (!claims.data?.claims?.sub) {
+    const userId = claims.data?.claims?.sub;
+    if (!userId) {
       return applyMetadata(NextResponse.redirect(new URL("/login", origin)), cookies, responseHeaders);
     }
     if (pathname === "/") {
       return applyMetadata(NextResponse.redirect(new URL("/dashboard", origin)), cookies, responseHeaders);
     }
-    return applyMetadata(response, cookies, responseHeaders);
+    return applyMetadata(
+      forwardRequest(request, userId),
+      cookies,
+      responseHeaders,
+    );
   } finally {
     deadline.dispose();
   }

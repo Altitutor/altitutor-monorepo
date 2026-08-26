@@ -44,6 +44,11 @@ describe("admin session middleware", () => {
   it("verifies only the session for protected routes", async () => {
     const response = await middleware(request("/dashboard"));
     expect(response.status).toBe(200);
+    expect(
+      response.headers.get(
+        "x-middleware-request-x-altitutor-verified-user-id",
+      ),
+    ).toBe("admin-1");
     expect(mockGetClaims).toHaveBeenCalledTimes(1);
     expect(mockFrom).not.toHaveBeenCalled();
     expect(mockRpc).not.toHaveBeenCalled();

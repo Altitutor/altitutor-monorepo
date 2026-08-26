@@ -107,7 +107,8 @@ async function queryWithClockSkewRetry<T>(
 }
 
 export const loadTutorPortalAccess = cache(
-  async (): Promise<TutorPortalAccess> => {
+  async (verifiedUserId: string | null): Promise<TutorPortalAccess> => {
+    if (!verifiedUserId) return { status: "unauthenticated" };
     const startedAt = Date.now();
     const deadline = createDeadline();
     try {
@@ -115,24 +116,10 @@ export const loadTutorPortalAccess = cache(
       try {
         supabase = await createServerComponentClient(deadline.fetch);
       } catch (error) {
-        captureUnavailable("authentication", startedAt, error);
+        captureUnavailable("portal_access", startedAt, error);
         return { status: "unavailable" };
       }
-      let claims: Awaited<ReturnType<typeof supabase.auth.getClaims>>;
-      try {
-        claims = await deadline.race(supabase.auth.getClaims());
-      } catch (error) {
-        captureUnavailable("authentication", startedAt, error);
-        return { status: "unavailable" };
-      }
-      if (claims.error?.name === "AuthSessionMissingError")
-        return { status: "unauthenticated" };
-      if (claims.error) {
-        captureUnavailable("authentication", startedAt, claims.error);
-        return { status: "unavailable" };
-      }
-      const userId = claims.data?.claims?.sub;
-      if (!userId) return { status: "unauthenticated" };
+      const userId = verifiedUserId;
 
       let profile: QueryResult<Profile>;
       try {

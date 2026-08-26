@@ -114,36 +114,20 @@ async function queryWithClockSkewRetry<T>(
 }
 
 export const loadAdminPortalAccess = cache(
-  async (): Promise<AdminPortalAccess> => {
-  const startedAt = Date.now();
-  const deadline = createDeadline();
-  try {
-    let supabase: Awaited<ReturnType<typeof createServerComponentClient>>;
+  async (verifiedUserId: string | null): Promise<AdminPortalAccess> => {
+    if (!verifiedUserId) return { status: "unauthenticated" };
+    const startedAt = Date.now();
+    const deadline = createDeadline();
     try {
-      supabase = await createServerComponentClient(deadline.fetch);
-    } catch (error) {
-      captureUnavailable("authentication", startedAt, error);
-      return { status: "unavailable" };
-    }
-
-      let claimsResult: Awaited<ReturnType<typeof supabase.auth.getClaims>>;
+      let supabase: Awaited<ReturnType<typeof createServerComponentClient>>;
       try {
-        claimsResult = await deadline.race(supabase.auth.getClaims());
+        supabase = await createServerComponentClient(deadline.fetch);
       } catch (error) {
-        captureUnavailable("authentication", startedAt, error);
+        captureUnavailable("portal_access", startedAt, error);
         return { status: "unavailable" };
       }
 
-      if (claimsResult.error?.name === "AuthSessionMissingError") {
-        return { status: "unauthenticated" };
-      }
-      if (claimsResult.error) {
-        captureUnavailable("authentication", startedAt, claimsResult.error);
-        return { status: "unavailable" };
-      }
-
-      const userId = claimsResult.data?.claims?.sub;
-      if (!userId) return { status: "unauthenticated" };
+      const userId = verifiedUserId;
 
       let profileResult: QueryResult<Profile>;
       try {

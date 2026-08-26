@@ -1,7 +1,11 @@
 import type React from "react";
+import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { HydrationBoundary, QueryClient, dehydrate } from "@tanstack/react-query";
-import { isUcatOnlineTier } from "@altitutor/shared";
+import {
+  isUcatOnlineTier,
+  VERIFIED_USER_ID_HEADER,
+} from "@altitutor/shared";
 import { AppShell } from "@/features/layout";
 import { UcatAccessShell } from "@/features/ucat-access/components/ucat-access-shell";
 import { PortalAccessUnavailable } from "@/features/auth/components/portal-access-unavailable";
@@ -14,7 +18,8 @@ type AuthenticatedLayoutProps = {
 export default async function AuthenticatedLayout({
   children,
 }: AuthenticatedLayoutProps) {
-  const result = await loadUcatPortalAccess();
+  const verifiedUserId = (await headers()).get(VERIFIED_USER_ID_HEADER);
+  const result = await loadUcatPortalAccess(verifiedUserId);
   if (result.status === "unauthenticated") redirect("/login");
   if (result.status === "unavailable") return <PortalAccessUnavailable />;
 

@@ -4,6 +4,8 @@ import { getServiceRoleClient } from '@/shared/lib/supabase/service-role';
 import { createClient } from '@/shared/lib/supabase/server-ssr';
 import type { Tables } from '@altitutor/shared';
 
+export const dynamic = 'force-dynamic';
+
 /**
  * GET /api/staff/search
  * Search for staff members (for adding to sessions)

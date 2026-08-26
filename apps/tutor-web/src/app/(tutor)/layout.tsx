@@ -1,11 +1,18 @@
+import { headers } from "next/headers";
 import { redirect } from "next/navigation";
+import { VERIFIED_USER_ID_HEADER } from "@altitutor/shared";
 import { HydrationBoundary, QueryClient, dehydrate } from "@tanstack/react-query";
 import { PortalAccessUnavailable } from "@/features/auth/components/PortalAccessUnavailable";
 import { loadTutorPortalAccess } from "@/features/auth/server/portal-access";
 import TutorClientLayout from "./client-layout";
 
-export default async function TutorLayout({ children }: { children: React.ReactNode }) {
-  const access = await loadTutorPortalAccess();
+export default async function TutorLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
+  const verifiedUserId = (await headers()).get(VERIFIED_USER_ID_HEADER);
+  const access = await loadTutorPortalAccess(verifiedUserId);
 
   if (access.status === "unauthenticated") redirect("/login");
   if (access.status === "denied") redirect("/login?error=access_denied");
