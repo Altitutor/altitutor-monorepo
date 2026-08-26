@@ -39,3 +39,10 @@ export function resolveSetTimeLimitSeconds({
   if (source === 'paced') return pacedTimeLimitSeconds(timePerQuestion, questionCount, speed)
   return minutesSecondsToTotal(customMinutes, customSeconds)
 }
+
+export function isSetTimeLimitValid(
+  source: SetTimeLimitSource,
+  resolvedSeconds: number | null,
+): boolean {
+  return source === 'untimed' || (resolvedSeconds != null && resolvedSeconds > 0)
+}

@@ -97,6 +97,7 @@ async function queryWithClockSkewRetry<T>(
       tags: {
         app: "tutor-web",
         dependency_stage: "portal_access",
+        supabase_error_code: first.error?.code ?? "PGRST303",
         retry_outcome: "recovered",
       },
       extra: { elapsed_ms: Math.max(0, Date.now() - startedAt) },
@@ -107,16 +108,16 @@ async function queryWithClockSkewRetry<T>(
 
 export const loadTutorPortalAccess = cache(
   async (): Promise<TutorPortalAccess> => {
-  const startedAt = Date.now();
-  const deadline = createDeadline();
-  try {
-    let supabase: Awaited<ReturnType<typeof createServerComponentClient>>;
+    const startedAt = Date.now();
+    const deadline = createDeadline();
     try {
-      supabase = await createServerComponentClient(deadline.fetch);
-    } catch (error) {
-      captureUnavailable("authentication", startedAt, error);
-      return { status: "unavailable" };
-    }
+      let supabase: Awaited<ReturnType<typeof createServerComponentClient>>;
+      try {
+        supabase = await createServerComponentClient(deadline.fetch);
+      } catch (error) {
+        captureUnavailable("authentication", startedAt, error);
+        return { status: "unavailable" };
+      }
       let claims: Awaited<ReturnType<typeof supabase.auth.getClaims>>;
       try {
         claims = await deadline.race(supabase.auth.getClaims());

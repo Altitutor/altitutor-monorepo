@@ -33,6 +33,7 @@ import {
 import { nextAutoSetName } from '@/features/ucat/sets/lib/next-auto-set-name'
 import {
   PACED_SPEED_DEFAULT,
+  isSetTimeLimitValid,
   resolveSetTimeLimitSeconds,
   type SetTimeLimitSource,
 } from '@/features/ucat/sets/lib/set-time-limit'
@@ -372,8 +373,7 @@ export function UcatCreateSetDialog({
     customMinutes: timeLimitMinutes,
     customSeconds: timeLimitSeconds,
   })
-  const customTimeInvalid =
-    timeLimitSource === 'custom' && (resolvedTimeLimitSeconds == null || resolvedTimeLimitSeconds <= 0)
+  const timeLimitInvalid = !isSetTimeLimitValid(timeLimitSource, resolvedTimeLimitSeconds)
 
   function handleClose() {
     onClose()
@@ -412,7 +412,7 @@ export function UcatCreateSetDialog({
         createSet.isPending ||
         !autoSectionId ||
         autoCreateDisabled ||
-        customTimeInvalid
+        timeLimitInvalid
       }
       isSaving={createSet.isPending}
     >

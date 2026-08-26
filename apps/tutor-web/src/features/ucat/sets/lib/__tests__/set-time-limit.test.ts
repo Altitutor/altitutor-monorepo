@@ -1,4 +1,8 @@
-import { pacedTimeLimitSeconds, resolveSetTimeLimitSeconds } from '../set-time-limit'
+import {
+  isSetTimeLimitValid,
+  pacedTimeLimitSeconds,
+  resolveSetTimeLimitSeconds,
+} from '../set-time-limit'
 
 describe('pacedTimeLimitSeconds', () => {
   it('uses exam pace at 1.0×', () => {
@@ -57,4 +61,19 @@ describe('resolveSetTimeLimitSeconds', () => {
       }),
     ).toBe(260)
   })
+})
+
+describe('isSetTimeLimitValid', () => {
+  it('allows an explicit untimed set', () => {
+    expect(isSetTimeLimitValid('untimed', null)).toBe(true)
+  })
+
+  it.each(['paced', 'custom'] as const)(
+    'requires a positive resolved duration for %s timing',
+    (source) => {
+      expect(isSetTimeLimitValid(source, null)).toBe(false)
+      expect(isSetTimeLimitValid(source, 0)).toBe(false)
+      expect(isSetTimeLimitValid(source, 300)).toBe(true)
+    },
+  )
 })

@@ -10,7 +10,7 @@ import {
   proseMirrorToPlainText,
 } from '@/features/ucat/shared/lib/rich-text'
 import { isSnapshotDirty, snapshotSetDetail } from '@/features/ucat/shared/lib/dirty-state'
-import { resolveSetTimeLimitSeconds, type SetTimeLimitSource } from '@/features/ucat/sets/lib/set-time-limit'
+import { isSetTimeLimitValid, resolveSetTimeLimitSeconds, type SetTimeLimitSource } from '@/features/ucat/sets/lib/set-time-limit'
 import {
   useUcatCategories,
   useUcatQuestionDetail,
@@ -172,10 +172,7 @@ export function UcatSetDetailPage({ setId }: UcatSetDetailPageProps) {
     timeLimitSeconds,
   ])
 
-  const isTimeLimitValid =
-    draftTimeLimitSource === 'untimed' ||
-    draftTimeLimitSource === 'paced' ||
-    (timeLimitSeconds != null && timeLimitSeconds > 0)
+  const isTimeLimitValid = isSetTimeLimitValid(draftTimeLimitSource, timeLimitSeconds)
   const isDirty = useMemo(() => {
     const snapshot = snapshotSetDetail({
       name: draftName,

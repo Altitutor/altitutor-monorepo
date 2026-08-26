@@ -1,55 +1,37 @@
 /** @jest-environment node */
 
 import type { NextRequest } from "next/server";
+import { resolveUcatPortalAccess } from "@/features/auth/server/portal-access";
 import { GET } from "../route";
-import { getSupabaseServerClient } from "@/lib/supabase/server";
-import { supabaseAdmin } from "@/lib/supabase/admin";
 
-jest.mock("@/lib/supabase/server", () => ({
-  getSupabaseServerClient: jest.fn(),
+jest.mock("server-only", () => ({}));
+jest.mock("react", () => ({
+  ...jest.requireActual<typeof import("react")>("react"),
+  cache: <T extends (...args: never[]) => unknown>(fn: T) => fn,
+}));
+jest.mock("@/features/auth/server/portal-access", () => ({
+  resolveUcatPortalAccess: jest.fn(),
 }));
 
-jest.mock("@/lib/supabase/admin", () => ({
-  supabaseAdmin: { from: jest.fn() },
-}));
-
-const mockedServerClient = jest.mocked(getSupabaseServerClient);
-const mockedAdminFrom = jest.mocked(supabaseAdmin!.from);
+const mockResolveUcatPortalAccess = jest.mocked(resolveUcatPortalAccess);
+const request = (query = "intent=login&next=%2Fdashboard") =>
+  ({
+    url: `https://ucat.altitutor.com/auth/continue?${query}`,
+  }) as NextRequest;
 
 describe("GET /auth/continue", () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    mockedServerClient.mockResolvedValue({
-      auth: {
-        getUser: jest.fn(async () => ({
-          data: { user: { id: "staff-user", user_metadata: {} } },
-        })),
-      },
-    } as never);
   });
 
   it("diverts authenticated active staff before Student onboarding", async () => {
-    mockedAdminFrom.mockImplementation((relation: string) => {
-      if (relation === "staff") {
-        return {
-          select: jest.fn(() => ({
-            eq: jest.fn(() => ({
-              in: jest.fn(() => ({
-                maybeSingle: jest.fn(async () => ({
-                  data: { role: "TUTOR" },
-                  error: null,
-                })),
-              })),
-            })),
-          })),
-        } as never;
-      }
-      throw new Error(`Unexpected relation: ${relation}`);
-    });
+    mockResolveUcatPortalAccess.mockResolvedValue({
+      status: "allowed",
+      userId: "staff-user",
+      access: { activeStaffRole: "TUTOR", signupCompleted: null },
+    } as never);
 
-    const response = await GET({
-      url: "https://ucat.altitutor.com/auth/continue?intent=login&next=%2Fdashboard",
-    } as NextRequest);
+    const response = await GET(request());
 
     expect(response.status).toBe(307);
     expect(response.headers.get("location")).toBe(
@@ -57,29 +39,40 @@ describe("GET /auth/continue", () => {
     );
   });
 
-  it("fails closed when staff eligibility cannot be checked", async () => {
-    mockedAdminFrom.mockImplementation((relation: string) => {
-      if (relation === "staff") {
-        return {
-          select: jest.fn(() => ({
-            eq: jest.fn(() => ({
-              in: jest.fn(() => ({
-                maybeSingle: jest.fn(async () => ({
-                  data: null,
-                  error: { message: "database unavailable" },
-                })),
-              })),
-            })),
-          })),
-        } as never;
-      }
-      throw new Error(`Unexpected relation: ${relation}`);
+  it("returns a retryable unavailable response when access cannot be checked", async () => {
+    mockResolveUcatPortalAccess.mockResolvedValue({ status: "unavailable" });
+
+    const response = await GET(request());
+
+    expect(response.status).toBe(503);
+    expect(response.headers.get("retry-after")).toBe("5");
+  });
+
+  it("continues incomplete Student signup using the caller-scoped result", async () => {
+    mockResolveUcatPortalAccess.mockResolvedValue({
+      status: "allowed",
+      userId: "student-user",
+      access: { activeStaffRole: null, signupCompleted: false },
+    } as never);
+
+    const response = await GET(request("intent=signup&next=%2Fstudy-plan"));
+
+    expect(response.status).toBe(307);
+    expect(response.headers.get("location")).toBe(
+      "https://ucat.altitutor.com/signup/complete?redirect=%2Fstudy-plan",
+    );
+  });
+
+  it("redirects a missing session to login with return intent", async () => {
+    mockResolveUcatPortalAccess.mockResolvedValue({
+      status: "unauthenticated",
     });
 
-    await expect(
-      GET({
-        url: "https://ucat.altitutor.com/auth/continue?intent=login&next=%2Fdashboard",
-      } as NextRequest),
-    ).rejects.toThrow("Staff eligibility lookup failed");
+    const response = await GET(request());
+
+    expect(response.status).toBe(307);
+    expect(response.headers.get("location")).toBe(
+      "https://ucat.altitutor.com/login?redirect=%2Fdashboard",
+    );
   });
 });

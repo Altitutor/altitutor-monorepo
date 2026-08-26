@@ -41,6 +41,9 @@ test("every main push runs the migration gate before Vercel production deploys",
     "path filtering could let an application-only release bypass the migration gate",
   );
   assert.match(workflow, /^  deploy-web:/mu);
+  assert.match(workflow, /^  verify:/mu);
+  assert.match(workflow, /^    uses: \.\/\.github\/workflows\/ci\.yml$/mu);
+  assert.match(workflow, /^  deploy:\n    needs: verify$/mu);
   assert.match(workflow, /^    needs: deploy$/mu);
   assert.match(workflow, /^    environment: production$/mu);
   assert.match(workflow, /github\.ref == 'refs\/heads\/main'/u);

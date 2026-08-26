@@ -1,17 +1,13 @@
 import { redirect } from "next/navigation";
+import { PortalAccessUnavailable } from "@/features/auth/components/portal-access-unavailable";
 import { StaffAccountNotice } from "@/features/auth/components/staff-account-notice";
-import { loadActiveStaffRole } from "@/features/auth/server/active-staff";
-import { getSupabaseServerClient } from "@/lib/supabase/server";
+import { loadUcatPortalAccess } from "@/features/auth/server/portal-access";
 
 export default async function StaffAccountPage() {
-  const supabase = await getSupabaseServerClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) redirect("/login");
-
-  const role = await loadActiveStaffRole(user.id);
+  const result = await loadUcatPortalAccess();
+  if (result.status === "unauthenticated") redirect("/login");
+  if (result.status === "unavailable") return <PortalAccessUnavailable />;
+  const role = result.access.activeStaffRole;
   if (!role) redirect("/dashboard");
 
   return <StaffAccountNotice role={role} />;

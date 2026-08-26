@@ -104,7 +104,7 @@ export function UcatSetTimeLimitFields({
             </p>
           ) : questionCount <= 0 ? (
             <p className="text-xs text-muted-foreground">
-              Time will be set from the number of questions in the set.
+              Add questions before saving a paced time limit.
             </p>
           ) : null}
         </div>
