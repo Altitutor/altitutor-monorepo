@@ -3,9 +3,6 @@
   "buildCommand": "cd ../.. && pnpm turbo run build --filter=marketing-web",
   "devCommand": "cd ../.. && pnpm turbo run dev --filter=marketing-web",
   "git": {
-    "deploymentEnabled": {
-      "*": false,
-      "main": true
-    }
+    "deploymentEnabled": false
   }
 }

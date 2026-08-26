@@ -3,12 +3,6 @@ name: Supabase Deploy
 on:
   push:
     branches: [develop, main]
-    paths:
-      - 'supabase/migrations/**'
-      - 'supabase/functions/**'
-      - 'supabase/config.toml'
-      - 'supabase/scripts/**'
-      - 'supabase/templates/**'
   workflow_dispatch:
 
 permissions:
@@ -19,7 +13,12 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  verify:
+    name: Verify release commit
+    uses: ./.github/workflows/ci.yml
+
   deploy:
+    needs: verify
     runs-on: ubuntu-latest
     environment: ${{ github.ref_name == 'main' && 'production' || 'development' }}
     env:
@@ -100,3 +99,49 @@ jobs:
           cd supabase
           chmod +x ./scripts/deploy-email-templates.sh
           ./scripts/deploy-email-templates.sh $SUPABASE_PROJECT_ID
+
+  deploy-web:
+    name: Deploy ${{ matrix.app }} to Vercel production
+    needs: deploy
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    environment: production
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - app: admin-web
+            project_id: prj_1MrhFCZC9LsYMqN3hTrjtPaOSf0e
+          - app: marketing-web
+            project_id: prj_Qf1yqSGW3ttj2lZvNzuxIABiLkfT
+          - app: student-web
+            project_id: prj_i1beD28400IZOFp0WRtzmFldEifZ
+          - app: tutor-web
+            project_id: prj_vGAe2xH6lLRm05mxZkFbFTXfDthi
+          - app: ucat-web
+            project_id: prj_xkqIaXkZGO2EvA3cIoXyl9vLeGJX
+    env:
+      VERCEL_ORG_ID: team_1E1lzurM2oIC9oDKmQDdk7Bz
+      VERCEL_PROJECT_ID: ${{ matrix.project_id }}
+      VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: 'pnpm'
+
+      - name: Deploy the gated commit
+        shell: bash
+        run: |
+          set -euo pipefail
+          deployment_url="$(pnpm dlx vercel@48.9.0 deploy \
+            --prod \
+            --yes \
+            --archive=tgz \
+            --token="$VERCEL_TOKEN")"
+          echo "Deployed ${{ matrix.app }}: $deployment_url" >> "$GITHUB_STEP_SUMMARY"

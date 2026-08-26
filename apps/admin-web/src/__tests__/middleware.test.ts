@@ -1,228 +1,111 @@
 /** @jest-environment node */
 
-import { NextRequest } from 'next/server';
-import { createServerClient } from '@supabase/ssr';
+import * as Sentry from "@sentry/nextjs";
+import { createServerClient } from "@supabase/ssr";
+import { NextRequest } from "next/server";
+import { middleware } from "../middleware";
 
-import { middleware } from '../middleware';
-
-jest.mock('@supabase/ssr', () => ({
-  createServerClient: jest.fn(),
+jest.mock("@supabase/ssr", () => ({ createServerClient: jest.fn() }));
+jest.mock("@sentry/nextjs", () => ({
+  captureMessage: jest.fn(),
+  instrumentSupabaseClient: jest.fn(),
 }));
 
-type ClaimsResult = {
-  data: { claims: { sub?: string } | null } | null;
-  error: { name: string; message: string } | null;
-};
-
-type StaffResult = {
-  data: {
-    id: string;
-    role: 'ADMINSTAFF' | 'TUTOR';
-    status: 'ACTIVE' | 'INACTIVE';
-  } | null;
-  error: { message: string } | null;
-};
-
 const mockCreateServerClient = jest.mocked(createServerClient);
-const mockGetClaims = jest.fn<Promise<ClaimsResult>, []>();
-const mockTutorMaybeSingle = jest.fn<Promise<StaffResult>, []>();
-const mockTutorSelect = jest.fn(() => ({ maybeSingle: mockTutorMaybeSingle }));
-const mockFrom = jest.fn(() => ({ select: mockTutorSelect }));
+const mockCaptureMessage = jest.mocked(Sentry.captureMessage);
+const mockGetClaims = jest.fn();
+const mockFrom = jest.fn();
 const mockRpc = jest.fn();
-let consoleError: jest.SpyInstance;
 
-function request(
-  pathname: string,
-  init?: ConstructorParameters<typeof NextRequest>[1],
-) {
-  return new NextRequest(`https://admin.altitutor.test${pathname}`, init);
-}
+const request = (path: string, init?: ConstructorParameters<typeof NextRequest>[1]) =>
+  new NextRequest(`https://admin.altitutor.test${path}`, init);
 
-function authenticatedClaims(): ClaimsResult {
-  return {
-    data: { claims: { sub: 'user-1' } },
-    error: null,
-  };
-}
-
-describe('admin middleware', () => {
+describe("admin session middleware", () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    process.env.NEXT_PUBLIC_SUPABASE_URL = 'https://supabase.altitutor.test';
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY = 'anon-key';
-    mockGetClaims.mockResolvedValue(authenticatedClaims());
-    mockRpc.mockResolvedValue({ data: true, error: null });
-    mockTutorMaybeSingle.mockResolvedValue({ data: null, error: null });
+    process.env.NEXT_PUBLIC_SUPABASE_URL = "https://supabase.altitutor.test";
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY = "anon-key";
+    mockGetClaims.mockResolvedValue({ data: { claims: { sub: "admin-1" } }, error: null });
     mockCreateServerClient.mockReturnValue({
       auth: { getClaims: mockGetClaims },
       from: mockFrom,
       rpc: mockRpc,
     } as never);
-    consoleError = jest.spyOn(console, 'error').mockImplementation(() => undefined);
   });
 
-  afterEach(() => {
-    consoleError.mockRestore();
-  });
-
-  it.each(['/login', '/forgot-password', '/api/staff']) (
-    'does not contact Supabase for public path %s',
-    async (pathname) => {
-      const response = await middleware(request(pathname));
-
-      expect(response.status).toBe(200);
+  it.each(["/login", "/forgot-password", "/api/staff"])(
+    "does not contact Supabase for public path %s",
+    async (path) => {
+      expect((await middleware(request(path))).status).toBe(200);
       expect(mockCreateServerClient).not.toHaveBeenCalled();
-    }
+    },
   );
 
-  it('does not authenticate CORS preflight requests', async () => {
-    const response = await middleware(request('/', { method: 'OPTIONS' }));
-
+  it("verifies only the session for protected routes", async () => {
+    const response = await middleware(request("/dashboard"));
     expect(response.status).toBe(200);
-    expect(response.headers.get('x-middleware-next')).toBe('1');
-    expect(mockCreateServerClient).not.toHaveBeenCalled();
+    expect(mockGetClaims).toHaveBeenCalledTimes(1);
+    expect(mockFrom).not.toHaveBeenCalled();
+    expect(mockRpc).not.toHaveBeenCalled();
   });
 
-  it('redirects an anonymous protected request to login', async () => {
+  it("redirects the authenticated root without a database lookup", async () => {
+    const response = await middleware(request("/"));
+    expect(response.headers.get("location")).toBe("https://admin.altitutor.test/dashboard");
+    expect(mockFrom).not.toHaveBeenCalled();
+  });
+
+  it("redirects a missing session to login", async () => {
     mockGetClaims.mockResolvedValue({
       data: null,
-      error: { name: 'AuthSessionMissingError', message: 'Auth session missing!' },
+      error: { name: "AuthSessionMissingError", message: "missing" },
     });
-
-    const response = await middleware(request('/dashboard'));
-
-    expect(response.status).toBe(307);
-    expect(response.headers.get('location')).toBe('https://admin.altitutor.test/login');
-    expect(mockFrom).not.toHaveBeenCalled();
-  });
-
-  it('redirects an anonymous root request to login', async () => {
-    mockGetClaims.mockResolvedValue({
-      data: null,
-      error: { name: 'AuthSessionMissingError', message: 'Auth session missing!' },
-    });
-
-    const response = await middleware(request('/'));
-
-    expect(response.status).toBe(307);
-    expect(response.headers.get('location')).toBe('https://admin.altitutor.test/login');
-    expect(mockFrom).not.toHaveBeenCalled();
-  });
-
-  it('allows an active admin through', async () => {
-    const response = await middleware(request('/dashboard'));
-
-    expect(response.status).toBe(200);
-    expect(response.headers.get('x-middleware-next')).toBe('1');
-    expect(mockRpc).toHaveBeenCalledWith('is_adminstaff_active');
-    expect(mockFrom).not.toHaveBeenCalled();
-  });
-
-  it('redirects an active tutor to tutor-web', async () => {
-    mockRpc.mockResolvedValue({ data: false, error: null });
-    mockTutorMaybeSingle.mockResolvedValue({
-      data: { id: 'staff-1', role: 'TUTOR', status: 'ACTIVE' },
-      error: null,
-    });
-
-    const response = await middleware(request('/dashboard'));
-
-    expect(response.status).toBe(307);
-    expect(response.headers.get('location')).toBe('http://localhost:3002/');
-    expect(mockFrom).toHaveBeenCalledTimes(1);
-    expect(mockFrom).toHaveBeenCalledWith('vtutor_profile');
-  });
-
-  it.each([
-    null,
-    { id: 'staff-1', role: 'ADMINSTAFF' as const, status: 'INACTIVE' as const },
-  ])('denies a missing or inactive staff record', async (staff) => {
-    mockRpc.mockResolvedValue({ data: false, error: null });
-    mockTutorMaybeSingle.mockResolvedValue({ data: staff, error: null });
-
-    const response = await middleware(request('/dashboard'));
-
-    expect(response.status).toBe(307);
-    expect(response.headers.get('location')).toBe(
-      'https://admin.altitutor.test/login?error=access_denied'
+    expect((await middleware(request("/dashboard"))).headers.get("location")).toBe(
+      "https://admin.altitutor.test/login",
     );
   });
 
-  it('returns a retryable 503 when auth is unavailable', async () => {
+  it("returns an instrumented 503 for any other claims failure", async () => {
     mockGetClaims.mockResolvedValue({
       data: null,
-      error: { name: 'AuthUnknownError', message: 'upstream returned HTML' },
+      error: { name: "AuthInvalidJwtError", code: "bad_jwt", message: "invalid" },
     });
-
-    const response = await middleware(request('/dashboard'));
-
+    const response = await middleware(request("/dashboard"));
     expect(response.status).toBe(503);
-    expect(response.headers.get('retry-after')).toBe('5');
-    expect(response.headers.get('cache-control')).toBe('private, no-store');
-    expect(mockFrom).not.toHaveBeenCalled();
-    expect(consoleError).toHaveBeenCalled();
+    expect(response.headers.get("retry-after")).toBe("5");
+    expect(mockCaptureMessage).toHaveBeenCalledWith(
+      "Middleware dependency unavailable",
+      expect.objectContaining({
+        tags: expect.objectContaining({
+          app: "admin-web",
+          dependency_stage: "authentication",
+          supabase_error_code: "bad_jwt",
+        }),
+      }),
+    );
   });
 
-  it('returns a retryable 503 when the admin-role lookup is unavailable', async () => {
-    mockRpc.mockResolvedValue({
-      data: false,
-      error: { message: 'upstream timed out' },
-    });
-
-    const response = await middleware(request('/dashboard'));
-
-    expect(response.status).toBe(503);
-    expect(response.headers.get('retry-after')).toBe('5');
-  });
-
-  it('returns a retryable 503 when the tutor profile lookup is unavailable', async () => {
-    mockRpc.mockResolvedValue({ data: false, error: null });
-    mockTutorMaybeSingle.mockResolvedValue({
-      data: null,
-      error: { message: 'upstream timed out' },
-    });
-
-    const response = await middleware(request('/dashboard'));
-
-    expect(response.status).toBe(503);
-    expect(response.headers.get('retry-after')).toBe('5');
-  });
-
-  it('preserves cookies rotated during authentication on redirects', async () => {
+  it("preserves refreshed cookies and Supabase response headers", async () => {
     mockGetClaims.mockImplementation(async () => {
-      const options = mockCreateServerClient.mock.calls[0]?.[2];
-      options?.cookies?.setAll?.(
-        [
-          {
-            name: 'admin-auth',
-            value: 'rotated-session',
-            options: { path: '/', httpOnly: true, maxAge: 3_600 },
-          },
-        ],
-        {},
+      mockCreateServerClient.mock.calls[0]?.[2]?.cookies?.setAll?.(
+        [{ name: "admin-auth", value: "rotated", options: { path: "/", maxAge: 3600 } }],
+        { Pragma: "no-cache" },
       );
-      return authenticatedClaims();
+      return { data: { claims: { sub: "admin-1" } }, error: null };
     });
-
-    const response = await middleware(request('/'));
-
-    expect(response.status).toBe(307);
-    expect(response.headers.get('location')).toBe('https://admin.altitutor.test/dashboard');
-    expect(response.headers.get('set-cookie')).toContain('admin-auth=rotated-session');
-    expect(response.headers.get('set-cookie')).toContain('Max-Age=3600');
+    const response = await middleware(request("/"));
+    expect(response.headers.get("set-cookie")).toContain("admin-auth=rotated");
+    expect(response.headers.get("pragma")).toBe("no-cache");
+    expect(response.headers.get("cache-control")).toBe("private, no-store");
   });
 
-  it('bounds the entire middleware invocation to ten seconds', async () => {
+  it("bounds the session dependency to ten seconds", async () => {
     jest.useFakeTimers();
     mockGetClaims.mockReturnValue(new Promise(() => undefined));
-
     try {
-      const responsePromise = middleware(request('/dashboard'));
+      const pending = middleware(request("/dashboard"));
       jest.advanceTimersByTime(10_000);
-
-      const response = await responsePromise;
-      expect(response.status).toBe(503);
-      expect(response.headers.get('retry-after')).toBe('5');
+      expect((await pending).status).toBe(503);
     } finally {
       jest.useRealTimers();
     }

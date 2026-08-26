@@ -11,16 +11,10 @@ import {
   Input,
   ResponsiveResizablePanels,
   SearchableSelect,
-  Slider,
   Tabs,
   TabsContent,
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
 } from '@altitutor/ui'
 import type { DataTableFilterDefinition } from '@altitutor/shared'
-import { Info } from 'lucide-react'
 import type { UcatStemCatalogItem } from '@/features/ucat/questions/hooks/useUcatQuestions'
 import { useUcatQuestionCatalogByStemIds } from '@/features/ucat/questions/hooks/useUcatQuestions'
 import {
@@ -29,7 +23,10 @@ import {
 } from '@/features/ucat/shared/components/ucat-stem-catalog-panel'
 import { UcatVisibilityFieldLabel } from '@/features/ucat/shared/components/UcatVisibilityInfoTooltip'
 import { SetStatusSpan } from '@/features/ucat/shared/components/SetStatusSpan'
-import { formatSecondsToDuration, formatSetTimeLimit, minutesSecondsToTotal } from '@/features/ucat/shared/lib/time-utils'
+import { formatSetTimeLimit } from '@/features/ucat/shared/lib/time-utils'
+import { resolveSetTimeLimitSeconds, type SetTimeLimitSource } from '@/features/ucat/sets/lib/set-time-limit'
+import { UcatSetPropertyRow } from '@/features/ucat/sets/components/UcatSetPropertyRow'
+import { UcatSetTimeLimitFields } from '@/features/ucat/sets/components/UcatSetTimeLimitFields'
 import { getSetSectionStatus } from '@/features/ucat/shared/lib/set-section-status'
 import { UcatRichTextEditor } from '@/features/ucat/shared/UcatRichTextEditor'
 import { bindRichTextToolbarFocus } from '@/features/ucat/shared/lib/rich-text-toolbar-focus'
@@ -53,15 +50,6 @@ export type UcatSectionForTimeLimit = {
   time_limit_seconds: number | null
   time_per_question?: number | null
   number_of_questions?: number | null
-}
-
-function SetPropertyRow({ label, children }: { label: ReactNode; children: ReactNode }) {
-  return (
-    <div className="flex items-start justify-between gap-3 py-1.5">
-      <span className="w-[34%] shrink-0 pt-2 text-sm text-muted-foreground">{label}</span>
-      <div className="min-w-0 flex-1">{children}</div>
-    </div>
-  )
 }
 
 function PropertiesCard({
@@ -90,10 +78,9 @@ function PropertiesCard({
 type UcatSetEditorContentProps = {
   draftName: string
   draftDescription: RichTextJson | null
-  draftIsTimed: boolean
   draftTimeLimitMinutes: string
   draftTimeLimitSeconds: string
-  draftTimeLimitSource: 'untimed' | 'section_full' | 'section_auto' | 'custom'
+  draftTimeLimitSource: SetTimeLimitSource
   draftTimeLimitSpeed: number
   draftPrivate: boolean
   draftStemIds: string[]
@@ -116,10 +103,9 @@ type UcatSetEditorContentProps = {
   onEditStem: (id: string) => void
   onChangeName: (value: string) => void
   onChangeDescription: (value: RichTextJson | null) => void
-  onChangeIsTimed: (value: boolean) => void
   onChangeTimeLimitMinutes: (value: string) => void
   onChangeTimeLimitSeconds: (value: string) => void
-  onChangeTimeLimitSource: (value: 'untimed' | 'section_full' | 'section_auto' | 'custom') => void
+  onChangeTimeLimitSource: (value: SetTimeLimitSource) => void
   onChangeTimeLimitSpeed: (value: number) => void
   onChangePrivate: (value: boolean) => void
   sections?: UcatSectionForTimeLimit[]
@@ -131,7 +117,6 @@ type UcatSetEditorContentProps = {
 export function UcatSetEditorContent({
   draftName,
   draftDescription,
-  draftIsTimed,
   draftTimeLimitMinutes,
   draftTimeLimitSeconds,
   draftTimeLimitSource,
@@ -157,7 +142,6 @@ export function UcatSetEditorContent({
   onEditStem,
   onChangeName,
   onChangeDescription,
-  onChangeIsTimed,
   onChangeTimeLimitMinutes,
   onChangeTimeLimitSeconds,
   onChangeTimeLimitSource,
@@ -199,53 +183,26 @@ export function UcatSetEditorContent({
     draftStemIds,
     draftStemIds.length > 0,
   )
-  const setSectionCount = authoredSection ? 1 : 0
-  const firstSetSection = authoredSection
-    ? { sectionId: authoredSection.id, questionCount: memberQuestionCount }
-    : null
-  const firstUcatSection = authoredSection
 
-  const sectionFullTimeSeconds = firstUcatSection?.time_limit_seconds ?? null
-  const sectionAutoTimeSeconds = useMemo(() => {
-    const tpq = authoredSection?.time_per_question
-    if (tpq == null || tpq <= 0 || memberQuestionCount <= 0) return null
-    return memberQuestionCount * tpq
-  }, [authoredSection, memberQuestionCount])
-
-  const sectionFullTimeFormatted =
-    sectionFullTimeSeconds != null && sectionFullTimeSeconds > 0
-      ? formatSecondsToDuration(sectionFullTimeSeconds)
-      : null
-  const sectionAutoTimeFormatted =
-    sectionAutoTimeSeconds != null && sectionAutoTimeSeconds > 0
-      ? formatSecondsToDuration(sectionAutoTimeSeconds)
-      : null
-
-  const effectiveTimeSeconds = useMemo(() => {
-    if (draftTimeLimitSource === 'untimed' || !draftIsTimed) return null
-    if (
-      draftTimeLimitSource === 'section_full' &&
-      setSectionCount === 1 &&
-      sectionFullTimeSeconds != null &&
-      sectionFullTimeSeconds > 0
-    ) {
-      return sectionFullTimeSeconds
-    }
-    if (draftTimeLimitSource === 'section_auto' && setSectionCount === 1 && sectionAutoTimeSeconds != null) {
-      const speed = Math.max(0.1, Math.min(2, draftTimeLimitSpeed))
-      return Math.round(sectionAutoTimeSeconds / speed)
-    }
-    return minutesSecondsToTotal(draftTimeLimitMinutes, draftTimeLimitSeconds)
-  }, [
-    draftIsTimed,
-    draftTimeLimitSource,
-    draftTimeLimitSpeed,
-    draftTimeLimitMinutes,
-    draftTimeLimitSeconds,
-    setSectionCount,
-    sectionFullTimeSeconds,
-    sectionAutoTimeSeconds,
-  ])
+  const effectiveTimeSeconds = useMemo(
+    () =>
+      resolveSetTimeLimitSeconds({
+        source: draftTimeLimitSource,
+        timePerQuestion: authoredSection?.time_per_question,
+        questionCount: memberQuestionCount,
+        speed: draftTimeLimitSpeed,
+        customMinutes: draftTimeLimitMinutes,
+        customSeconds: draftTimeLimitSeconds,
+      }),
+    [
+      authoredSection?.time_per_question,
+      draftTimeLimitMinutes,
+      draftTimeLimitSeconds,
+      draftTimeLimitSource,
+      draftTimeLimitSpeed,
+      memberQuestionCount,
+    ],
+  )
 
   const setExamStatus = useMemo(
     () =>
@@ -265,38 +222,6 @@ export function UcatSetEditorContent({
         })),
       ),
     [authoredSection, effectiveTimeSeconds, memberQuestionCount, sections],
-  )
-
-  const timeLimitTooltips: Record<string, string> = {
-    untimed: 'No time limit for this set.',
-    section_full:
-      "Uses the set's UCAT section full exam time limit.",
-    section_auto:
-      "Uses the set's section time-per-question × number of questions. Speed: 1× = exam pace, higher = less time (faster), lower = more time (slower).",
-    custom: 'Set a custom time limit in minutes and seconds.',
-  }
-
-  const timeLimitOptions = useMemo(
-    () =>
-      [
-        { value: 'untimed' as const, label: 'Untimed', disabled: false },
-        {
-          value: 'section_full' as const,
-          label: sectionFullTimeFormatted
-            ? `Section full exam time (${sectionFullTimeFormatted})`
-            : 'Section full exam time',
-          disabled: setSectionCount !== 1,
-        },
-        {
-          value: 'section_auto' as const,
-          label: sectionAutoTimeFormatted
-            ? `Section exam auto timing (${sectionAutoTimeFormatted})`
-            : 'Section exam auto timing',
-          disabled: setSectionCount !== 1,
-        },
-        { value: 'custom' as const, label: 'Custom', disabled: false },
-      ],
-    [sectionFullTimeFormatted, sectionAutoTimeFormatted, setSectionCount],
   )
 
   function handleWorkspaceChange(value: UcatAuthoringWorkspaceTab) {
@@ -365,16 +290,16 @@ export function UcatSetEditorContent({
           <TabsContent value="properties" className="m-0 mt-3 min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain pt-1">
             <Accordion type="multiple" defaultValue={['validation', 'category-distribution', 'set', 'mocks']} className="space-y-4">
               <PropertiesCard value="validation" title="Set validation">
-                <SetPropertyRow label="Questions">
+                <UcatSetPropertyRow label="Questions">
                   <SetStatusSpan status={setExamStatus.questionCountStatus} tooltip={setExamStatus.questionCountTooltip}>
                     {String(memberQuestionCount)}
                   </SetStatusSpan>
-                </SetPropertyRow>
-                <SetPropertyRow label="Time limit">
+                </UcatSetPropertyRow>
+                <UcatSetPropertyRow label="Time limit">
                   <SetStatusSpan status={setExamStatus.timeLimitStatus} tooltip={setExamStatus.timeLimitTooltip}>
                     {formatSetTimeLimit(effectiveTimeSeconds)}
                   </SetStatusSpan>
-                </SetPropertyRow>
+                </UcatSetPropertyRow>
               </PropertiesCard>
 
               <PropertiesCard value="category-distribution" title="Category distribution">
@@ -394,10 +319,10 @@ export function UcatSetEditorContent({
               </PropertiesCard>
 
               <PropertiesCard value="set" title="Set properties">
-                <SetPropertyRow label="Name">
+                <UcatSetPropertyRow label="Name">
                   <Input value={draftName} onChange={(e) => onChangeName(e.target.value)} placeholder="Set name" />
-                </SetPropertyRow>
-                <SetPropertyRow label="Section">
+                </UcatSetPropertyRow>
+                <UcatSetPropertyRow label="Section">
                   <div className="space-y-1">
                     <SearchableSelect<(typeof sections)[number]>
                       items={sections}
@@ -416,8 +341,8 @@ export function UcatSetEditorContent({
                       </p>
                     ) : null}
                   </div>
-                </SetPropertyRow>
-                <SetPropertyRow label="Description">
+                </UcatSetPropertyRow>
+                <UcatSetPropertyRow label="Description">
                   <div className="overflow-hidden rounded-md border border-input bg-background px-2 ring-offset-background focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-2">
                     <UcatRichTextEditor
                       value={draftDescription}
@@ -427,15 +352,13 @@ export function UcatSetEditorContent({
                       onEditorReady={(editor) => bindRichTextToolbarFocus(editor, handleTextEditorActive)}
                     />
                   </div>
-                </SetPropertyRow>
-                <SetPropertyRow label="Time limit">
+                </UcatSetPropertyRow>
+                <UcatSetPropertyRow label="Time limit">
                   <div className="text-sm">
                   {!isEditingTimeLimit ? (
                     <div className="flex items-center gap-2">
                       <span className="text-muted-foreground">
-                        {effectiveTimeSeconds != null && effectiveTimeSeconds > 0
-                          ? formatSecondsToDuration(effectiveTimeSeconds)
-                          : 'Untimed'}
+                        {formatSetTimeLimit(effectiveTimeSeconds)}
                       </span>
                       <Button type="button" variant="outline" size="sm" onClick={() => setIsEditingTimeLimit(true)}>
                         Edit
@@ -443,100 +366,26 @@ export function UcatSetEditorContent({
                     </div>
                   ) : (
                     <div className="space-y-3">
-                      <div className="flex items-center gap-2">
-                        <SearchableSelect<(typeof timeLimitOptions)[number]>
-                          items={timeLimitOptions}
-                          value={timeLimitOptions.find((i) => i.value === draftTimeLimitSource) ?? null}
-                          onValueChange={(item) => {
-                            if (!item) return
-                            onChangeTimeLimitSource(item.value)
-                            onChangeIsTimed(item.value !== 'untimed')
-                          }}
-                          getItemLabel={(i) => i.label}
-                          getItemId={(i) => i.value}
-                          getItemDisabled={(i) => i.disabled}
-                          triggerClassName="flex-1"
-                        />
-                        <TooltipProvider delayDuration={200}>
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <Info className="h-4 w-4 shrink-0 cursor-help text-muted-foreground" />
-                            </TooltipTrigger>
-                            <TooltipContent side="left" className="max-w-xs">
-                              {timeLimitTooltips[draftTimeLimitSource]}
-                            </TooltipContent>
-                          </Tooltip>
-                        </TooltipProvider>
-                      </div>
-                      {setSectionCount > 1 && draftTimeLimitSource === 'section_auto' ? (
-                        <p className="text-xs text-destructive">
-                          Auto timing is not available for sets with multiple sections.
-                        </p>
-                      ) : null}
-                      {draftTimeLimitSource === 'section_full' &&
-                      firstUcatSection != null &&
-                      firstSetSection != null &&
-                      firstUcatSection.number_of_questions != null &&
-                      firstSetSection.questionCount !== firstUcatSection.number_of_questions ? (
-                        <p className="text-xs text-amber-600 dark:text-amber-500">
-                          Warning: Section has {firstUcatSection.number_of_questions} questions; this set has{' '}
-                          {firstSetSection.questionCount}.
-                        </p>
-                      ) : null}
-                      {draftTimeLimitSource === 'section_auto' && setSectionCount === 1 ? (
-                        <div className="space-y-2">
-                          <div className="flex items-center justify-between text-xs">
-                            <span>Speed</span>
-                            <span className="text-muted-foreground">
-                              {draftTimeLimitSpeed === 1 ? '1× exam pace' : `${draftTimeLimitSpeed.toFixed(1)}×`}
-                            </span>
-                          </div>
-                          <Slider
-                            min={0.1}
-                            max={2}
-                            step={0.1}
-                            value={[Math.max(0.1, Math.min(2, draftTimeLimitSpeed))]}
-                            onValueChange={([v]) => onChangeTimeLimitSpeed(v)}
-                          />
-                        </div>
-                      ) : null}
-                      {draftTimeLimitSource === 'custom' ? (
-                        <div className="flex flex-wrap items-center gap-2">
-                          <Input
-                            type="number"
-                            min={0}
-                            placeholder="0"
-                            className="w-20"
-                            value={draftTimeLimitMinutes}
-                            onChange={(e) => onChangeTimeLimitMinutes(e.target.value)}
-                          />
-                          <span className="font-medium text-muted-foreground">:</span>
-                          <Input
-                            type="number"
-                            min={0}
-                            max={59}
-                            placeholder="0"
-                            className="w-20"
-                            value={draftTimeLimitSeconds}
-                            onChange={(e) => onChangeTimeLimitSeconds(e.target.value)}
-                          />
-                          <span className="text-xs text-muted-foreground">min : sec</span>
-                        </div>
-                      ) : null}
-                      <p className="text-xs text-muted-foreground">
-                        Time limit:{' '}
-                        {effectiveTimeSeconds != null && effectiveTimeSeconds > 0
-                          ? formatSecondsToDuration(effectiveTimeSeconds)
-                          : 'Untimed'}
-                      </p>
+                      <UcatSetTimeLimitFields
+                        source={draftTimeLimitSource}
+                        speed={draftTimeLimitSpeed}
+                        minutes={draftTimeLimitMinutes}
+                        seconds={draftTimeLimitSeconds}
+                        questionCount={memberQuestionCount}
+                        timePerQuestion={authoredSection?.time_per_question}
+                        onChangeSource={onChangeTimeLimitSource}
+                        onChangeSpeed={onChangeTimeLimitSpeed}
+                        onChangeMinutes={onChangeTimeLimitMinutes}
+                        onChangeSeconds={onChangeTimeLimitSeconds}
+                      />
                       <Button type="button" size="sm" onClick={() => setIsEditingTimeLimit(false)}>
                         Done
                       </Button>
                     </div>
                   )}
                   </div>
-                </SetPropertyRow>
-                <SetPropertyRow label={<UcatVisibilityFieldLabel />}>
+                </UcatSetPropertyRow>
+                <UcatSetPropertyRow label={<UcatVisibilityFieldLabel />}>
                   <SearchableSelect<{ value: string; label: string }>
                     items={[
                       { value: 'public', label: 'Public' },
@@ -551,7 +400,7 @@ export function UcatSetEditorContent({
                     getItemLabel={(i) => i.label}
                     getItemId={(i) => i.value}
                   />
-                </SetPropertyRow>
+                </UcatSetPropertyRow>
               </PropertiesCard>
 
               <PropertiesCard value="mocks" title="Mock membership">

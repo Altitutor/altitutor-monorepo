@@ -1,11 +1,11 @@
+import * as Sentry from "@sentry/nextjs";
 import type { Database } from "@altitutor/shared";
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
-
-import { MARKETING_LANDING_URL } from "@/shared/lib/marketing-home-url";
 import { instrumentSupabaseClient } from "@/lib/sentry/instrument-supabase-client";
+import { MARKETING_LANDING_URL } from "@/shared/lib/marketing-home-url";
 
-const MIDDLEWARE_DEADLINE_MS = 10_000;
+const SESSION_DEADLINE_MS = 10_000;
 const RETRY_AFTER_SECONDS = 5;
 
 type CookieToSet = {
@@ -14,95 +14,85 @@ type CookieToSet = {
   options?: Parameters<NextResponse["cookies"]["set"]>[2];
 };
 
-type AccessResult<Row> = {
-  data: Row | null;
-  error: { message: string } | null;
-};
-
-class MiddlewareDeadlineError extends Error {
-  constructor() {
-    super("Student middleware dependency deadline exceeded");
-    this.name = "MiddlewareDeadlineError";
-  }
-}
-
-function createInvocationDeadline() {
+function createDeadline() {
   const controller = new AbortController();
   let timeout: ReturnType<typeof setTimeout>;
   const expiration = new Promise<never>((_resolve, reject) => {
     timeout = setTimeout(() => {
       controller.abort();
-      reject(new MiddlewareDeadlineError());
-    }, MIDDLEWARE_DEADLINE_MS);
+      reject(new Error("Student session dependency deadline exceeded"));
+    }, SESSION_DEADLINE_MS);
   });
-
   return {
-    async fetch(input: RequestInfo | URL, init: RequestInit = {}) {
-      const requestController = new AbortController();
-      const abortRequest = () => requestController.abort();
-      const signals = [controller.signal, init.signal].filter(
-        (signal): signal is AbortSignal => Boolean(signal),
-      );
-      signals.forEach((signal) => {
-        if (signal.aborted) abortRequest();
-        else signal.addEventListener("abort", abortRequest, { once: true });
-      });
-      try {
-        return await fetch(input, {
-          ...init,
-          signal: requestController.signal,
-        });
-      } finally {
-        signals.forEach((signal) =>
-          signal.removeEventListener("abort", abortRequest),
-        );
-      }
-    },
+    fetch: (input: RequestInfo | URL, init: RequestInit = {}) =>
+      fetch(input, { ...init, signal: controller.signal }),
     race<T>(operation: PromiseLike<T>) {
       return Promise.race([Promise.resolve(operation), expiration]);
     },
-    dispose() {
-      clearTimeout(timeout);
-    },
+    dispose: () => clearTimeout(timeout),
   };
 }
 
-function applyResponseMetadata(response: NextResponse, cookies: CookieToSet[]) {
-  cookies.forEach(({ name, value, options }) =>
-    response.cookies.set(name, value, options),
-  );
+function field(error: unknown, key: string) {
+  if (typeof error !== "object" || error === null) return null;
+  const value = (error as Record<string, unknown>)[key];
+  return typeof value === "string" || typeof value === "number" ? String(value) : null;
+}
+
+function applyMetadata(response: NextResponse, cookies: CookieToSet[], headers: Record<string, string>) {
+  cookies.forEach(({ name, value, options }) => response.cookies.set(name, value, options));
+  Object.entries(headers).forEach(([name, value]) => response.headers.set(name, value));
   response.headers.set("Cache-Control", "private, no-store");
   return response;
 }
 
-function unavailableResponse(cookies: CookieToSet[]) {
-  return applyResponseMetadata(
-    new NextResponse(
-      "Student portal services are temporarily unavailable. Please retry.",
-      {
-        status: 503,
-        headers: { "Retry-After": String(RETRY_AFTER_SECONDS) },
-      },
-    ),
+function unavailable(
+  request: NextRequest,
+  startedAt: number,
+  error: unknown,
+  cookies: CookieToSet[],
+  headers: Record<string, string>,
+) {
+  Sentry.captureMessage("Middleware dependency unavailable", {
+    level: "error",
+    fingerprint: ["middleware-dependency-unavailable", "student-web", "authentication"],
+    tags: {
+      app: "student-web",
+      dependency_stage: "authentication",
+      http_status: "503",
+      supabase_error_code: field(error, "code") ?? field(error, "name") ?? "unknown",
+    },
+    extra: {
+      elapsed_ms: Math.max(0, Date.now() - startedAt),
+      error_message: field(error, "message"),
+      request_method: request.method,
+      request_path: request.nextUrl.pathname,
+    },
+  });
+  return applyMetadata(
+    new NextResponse("Student portal services are temporarily unavailable. Please retry.", {
+      status: 503,
+      headers: { "Retry-After": String(RETRY_AFTER_SECONDS) },
+    }),
     cookies,
+    headers,
   );
 }
 
-export async function middleware(req: NextRequest) {
-  const { pathname, search, origin } = new URL(req.url);
-
-  if (req.method === "OPTIONS") {
-    return NextResponse.next({ request: req });
-  }
+/** Version-neutral auth core. Next 16 only needs this exported as `proxy`. */
+export async function handleAuthRequest(request: NextRequest) {
+  const startedAt = Date.now();
+  const { pathname, search, origin } = request.nextUrl;
+  if (request.method === "OPTIONS") return NextResponse.next({ request });
 
   if (pathname.startsWith("/auth/callback&")) {
-    const redirectUrl = new URL(req.url);
+    const redirectUrl = new URL(request.url);
     redirectUrl.pathname = "/auth/callback";
     redirectUrl.search = pathname.slice("/auth/callback&".length);
     return NextResponse.redirect(redirectUrl);
   }
 
-  const isPublicPath =
+  const isPublic =
     pathname.startsWith("/login") ||
     pathname.startsWith("/forgot-password") ||
     pathname.startsWith("/reset-password") ||
@@ -115,147 +105,67 @@ export async function middleware(req: NextRequest) {
     pathname.startsWith("/booking/trial-session") ||
     pathname.startsWith("/booking-success") ||
     pathname.startsWith("/sentry-example-page");
+  if (pathname.startsWith("/api") || isPublic) return NextResponse.next({ request });
 
-  if (pathname.startsWith("/api") || isPublicPath) {
-    return NextResponse.next({ request: req });
-  }
-
-  const cookiesToSet: CookieToSet[] = [];
-  let response = NextResponse.next({ request: req });
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  const cookies: CookieToSet[] = [];
+  const responseHeaders: Record<string, string> = {};
   if (!supabaseUrl || !supabaseAnonKey) {
-    console.error("Student middleware Supabase environment is unavailable");
-    return unavailableResponse(cookiesToSet);
+    return unavailable(request, startedAt, { code: "missing_environment" }, cookies, responseHeaders);
   }
 
-  const deadline = createInvocationDeadline();
-  const supabase = instrumentSupabaseClient(createServerClient<Database>(supabaseUrl, supabaseAnonKey, {
-    cookies: {
-      getAll() {
-        return req.cookies.getAll();
+  let response = NextResponse.next({ request });
+  const deadline = createDeadline();
+  const supabase = instrumentSupabaseClient(
+    createServerClient<Database>(supabaseUrl, supabaseAnonKey, {
+      cookies: {
+        getAll: () => request.cookies.getAll(),
+        setAll(updatedCookies, updatedHeaders) {
+          updatedCookies.forEach(({ name, value }) => request.cookies.set(name, value));
+          updatedCookies.forEach((cookie) => {
+            const index = cookies.findIndex((current) => current.name === cookie.name);
+            if (index >= 0) cookies[index] = cookie;
+            else cookies.push(cookie);
+          });
+          Object.assign(responseHeaders, updatedHeaders);
+          response = applyMetadata(NextResponse.next({ request }), cookies, responseHeaders);
+        },
       },
-      setAll(updatedCookies) {
-        updatedCookies.forEach(({ name, value }) =>
-          req.cookies.set(name, value),
-        );
-        updatedCookies.forEach((cookie) => {
-          const existingIndex = cookiesToSet.findIndex(
-            (existing) => existing.name === cookie.name,
-          );
-          if (existingIndex >= 0) cookiesToSet[existingIndex] = cookie;
-          else cookiesToSet.push(cookie);
-        });
-        response = NextResponse.next({ request: req });
-        applyResponseMetadata(response, cookiesToSet);
-      },
-    },
-    cookieOptions: { name: "student-auth" },
-    global: { fetch: deadline.fetch },
-  }));
+      cookieOptions: { name: "student-auth" },
+      global: { fetch: deadline.fetch },
+    }),
+  );
 
   try {
-    let claimsResult: Awaited<ReturnType<typeof supabase.auth.getClaims>>;
+    let claims: Awaited<ReturnType<typeof supabase.auth.getClaims>>;
     try {
-      claimsResult = await deadline.race(supabase.auth.getClaims());
+      claims = await deadline.race(supabase.auth.getClaims());
     } catch (error) {
-      console.error(
-        "Student middleware authentication dependency failed",
-        error,
-      );
-      return unavailableResponse(cookiesToSet);
+      return unavailable(request, startedAt, error, cookies, responseHeaders);
     }
-
-    const { data: claimsData, error: claimsError } = claimsResult;
-    const isUnauthenticatedError =
-      claimsError?.name === "AuthSessionMissingError" ||
-      claimsError?.name === "AuthInvalidJwtError";
-    if (claimsError && !isUnauthenticatedError) {
-      console.error(
-        "Student middleware authentication dependency failed",
-        claimsError,
-      );
-      return unavailableResponse(cookiesToSet);
+    const missingSession = claims.error?.name === "AuthSessionMissingError";
+    if (claims.error && !missingSession) {
+      return unavailable(request, startedAt, claims.error, cookies, responseHeaders);
     }
-    const userId = claimsData?.claims?.sub;
-
-    if (!userId) {
+    if (missingSession || !claims.data?.claims?.sub) {
       if (pathname === "/") {
-        return applyResponseMetadata(
-          NextResponse.redirect(MARKETING_LANDING_URL),
-          cookiesToSet,
-        );
+        return applyMetadata(NextResponse.redirect(MARKETING_LANDING_URL), cookies, responseHeaders);
       }
       const loginUrl = new URL("/login", origin);
       loginUrl.searchParams.set("next", `${pathname}${search}`);
-      return applyResponseMetadata(
-        NextResponse.redirect(loginUrl),
-        cookiesToSet,
-      );
+      return applyMetadata(NextResponse.redirect(loginUrl), cookies, responseHeaders);
     }
-
-    let accessResults: [
-      AccessResult<{ id: string | null }>,
-      AccessResult<{ role: string | null; status: string | null }>,
-    ];
-    try {
-      accessResults = (await deadline.race(
-        Promise.all([
-          supabase.from("vstudent_profile").select("id").maybeSingle(),
-          supabase.from("vtutor_profile").select("role, status").maybeSingle(),
-        ]),
-      )) as typeof accessResults;
-    } catch (error) {
-      console.error("Student middleware access dependency failed", error);
-      return unavailableResponse(cookiesToSet);
-    }
-
-    const [studentResult, staffResult] = accessResults;
-    if (studentResult.error || staffResult.error) {
-      console.error("Student middleware access dependency failed", {
-        student: studentResult.error,
-        staff: staffResult.error,
-      });
-      return unavailableResponse(cookiesToSet);
-    }
-
-    const staff = staffResult.data;
-    if (staff?.status === "ACTIVE" && staff.role === "ADMINSTAFF") {
-      const adminPortalUrl =
-        process.env.NEXT_PUBLIC_ADMIN_PORTAL_URL || "http://localhost:3000";
-      return applyResponseMetadata(
-        NextResponse.redirect(new URL("/admin/dashboard", adminPortalUrl)),
-        cookiesToSet,
-      );
-    }
-    if (staff?.status === "ACTIVE" && staff.role === "TUTOR") {
-      const tutorPortalUrl =
-        process.env.NEXT_PUBLIC_TUTOR_PORTAL_URL || "http://localhost:3002";
-      return applyResponseMetadata(
-        NextResponse.redirect(new URL("/dashboard", tutorPortalUrl)),
-        cookiesToSet,
-      );
-    }
-
-    if (!studentResult.data) {
-      return applyResponseMetadata(
-        NextResponse.redirect(new URL("/login?error=access_denied", origin)),
-        cookiesToSet,
-      );
-    }
-
     if (pathname === "/") {
-      return applyResponseMetadata(
-        NextResponse.redirect(new URL("/dashboard", origin)),
-        cookiesToSet,
-      );
+      return applyMetadata(NextResponse.redirect(new URL("/dashboard", origin)), cookies, responseHeaders);
     }
-
-    return applyResponseMetadata(response, cookiesToSet);
+    return applyMetadata(response, cookies, responseHeaders);
   } finally {
     deadline.dispose();
   }
 }
+
+export const middleware = handleAuthRequest;
 
 export const config = {
   matcher: [

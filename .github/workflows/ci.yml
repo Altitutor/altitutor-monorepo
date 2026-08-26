@@ -1,8 +1,9 @@
 # Monorepo CI for all workspace apps (admin-web, tutor-web, student-web, marketing-web, ucat-web, student-app, packages).
-# PRs: Turborepo runs only affected packages vs the base branch. Push to main/develop: full run.
+# PRs run affected packages. Main/develop releases call this workflow and run the full monorepo.
 name: CI
 
 on:
+  workflow_call:
   pull_request:
     paths:
       - 'apps/**'
@@ -11,20 +12,7 @@ on:
       - 'supabase/migrations/**'
       - 'supabase/scripts/**'
       - 'supabase/templates/**'
-      - 'turbo.json'
-      - 'package.json'
-      - 'pnpm-lock.yaml'
-      - 'pnpm-workspace.yaml'
-      - '.github/workflows/**'
-  push:
-    branches: [main, develop]
-    paths:
-      - 'apps/**'
-      - 'packages/**'
-      - 'supabase/functions/**'
-      - 'supabase/migrations/**'
-      - 'supabase/scripts/**'
-      - 'supabase/templates/**'
+      - 'scripts/**'
       - 'turbo.json'
       - 'package.json'
       - 'pnpm-lock.yaml'
@@ -59,6 +47,9 @@ jobs:
         with:
           node-version: 24
           cache: 'pnpm'
+
+      - name: Check production release gate
+        run: node --test scripts/production-release-gate.test.mjs
 
       - uses: actions/cache@v4
         with:

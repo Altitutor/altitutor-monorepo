@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getSupabaseServerClient } from "@/lib/supabase/server";
 import { safeNextPath } from "@/app/auth/callback/auth-callback-utils";
 import { safePostAuthReturnPath } from "@/features/auth/lib/return-intent";
 import {
@@ -7,8 +6,7 @@ import {
   parseSocialAuthIntent,
   resolvePostAuthDestination,
 } from "@/features/auth/lib/social-auth";
-import { resolveSignupStateForUser } from "@/features/signup-onboarding/lib/resolve-signup-state";
-import { loadActiveStaffRole } from "@/features/auth/server/active-staff";
+import { resolveUcatPortalAccess } from "@/features/auth/server/portal-access";
 
 export async function GET(request: NextRequest) {
   const url = new URL(request.url);
@@ -18,28 +16,30 @@ export async function GET(request: NextRequest) {
   const next = safePostAuthReturnPath(
     safeNextPath(url.searchParams.get("next")),
   );
-  const supabase = await getSupabaseServerClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const result = await resolveUcatPortalAccess();
 
-  if (!user) {
+  if (result.status === "unauthenticated") {
     const loginUrl = new URL("/login", url.origin);
     loginUrl.searchParams.set("redirect", next);
     return NextResponse.redirect(loginUrl);
   }
+  if (result.status === "unavailable") {
+    return new NextResponse(
+      "UCAT account services are temporarily unavailable. Please try again.",
+      { status: 503, headers: { "Retry-After": "5" } },
+    );
+  }
 
-  if (await loadActiveStaffRole(user.id)) {
+  if (result.access.activeStaffRole) {
     return NextResponse.redirect(new URL("/auth/staff-account", url.origin));
   }
 
-  const signupState =
-    intent === "link" ? null : await resolveSignupStateForUser(user);
   const destination = resolvePostAuthDestination({
     intent,
     provider,
     next,
-    signupCompleted: signupState?.signupCompleted ?? true,
+    signupCompleted:
+      intent === "link" ? true : result.access.signupCompleted === true,
   });
 
   return NextResponse.redirect(new URL(destination, url.origin));

@@ -36868,7 +36868,9 @@ export type Database = {
       }
       current_staff_id: { Args: never; Returns: string }
       current_student_id: { Args: never; Returns: string }
+      current_student_portal_access: { Args: never; Returns: Json }
       current_tutor_id: { Args: never; Returns: string }
+      current_ucat_portal_access: { Args: never; Returns: Json }
       current_ucat_signup_staff_role: { Args: never; Returns: string }
       discard_ucat_exam_attempt: {
         Args: {
@@ -37552,6 +37554,7 @@ export type Database = {
         Returns: string
       }
       re_enroll_student: { Args: { p_student_id: string }; Returns: Json }
+      rebuild_ucat_duplicate_stem_pairs: { Args: never; Returns: number }
       recalculate_topic_code_and_descendants: {
         Args: { p_topic_id: string }
         Returns: undefined
